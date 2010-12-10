@@ -1,52 +1,40 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH] iproute2: initialize the ll_map only once
-Date: Fri, 10 Dec 2010 16:59:50 +0200
-Message-ID: <1291993190-8838-1-git-send-email-opurdila@ixiacom.com>
-Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>,
-	Octavian Purdila <opurdila@ixiacom.com>
+From: Martin Lucina <mato@kotelna.sk>
+Subject: Workqueues vs. kernel threads for processing asynchronous socket
+	events
+Date: Fri, 10 Dec 2010 16:27:54 +0100
+Message-ID: <20101210152754.GC28580@dezo.moloch.sk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Martin Sustrik <sustrik@250bpm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:2409 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754899Ab0LJPAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 10:00:03 -0500
+Received: from chrocht.moloch.sk ([62.176.169.44]:47782 "EHLO mail.moloch.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750725Ab0LJP16 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Dec 2010 10:27:58 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid initializing the LL map (which involves a costly RTNL dump)
-multiple times. This can happen when running in batch mode.
+Hi,
 
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
----
- lib/ll_map.c |    8 ++++++++
- 1 files changed, 8 insertions(+), 0 deletions(-)
+I'm trying to find the best mechanism to process events from kernel space
+sockets in an asynchronous manner. The work in progress code I have at the
+moment tries to at least call kernel_accept() on a bound TCP socket when it
+gets called by the underlying sk->sk_data_ready callback.
 
-diff --git a/lib/ll_map.c b/lib/ll_map.c
-index 9831322..9c6144a 100644
---- a/lib/ll_map.c
-+++ b/lib/ll_map.c
-@@ -266,6 +266,11 @@ unsigned ll_name_to_index(const char *name)
- 
- int ll_init_map(struct rtnl_handle *rth)
- {
-+	static int initialized;
-+
-+	if (initialized)
-+		return 0;
-+
- 	if (rtnl_wilddump_request(rth, AF_UNSPEC, RTM_GETLINK) < 0) {
- 		perror("Cannot send dump request");
- 		exit(1);
-@@ -275,5 +280,8 @@ int ll_init_map(struct rtnl_handle *rth)
- 		fprintf(stderr, "Dump terminated\n");
- 		exit(1);
- 	}
-+
-+	initialized = 1;
-+
- 	return 0;
- }
--- 
-1.7.1
+The current approach I have is to use a workqueue and try to schedule work
+inside the callback, but this has the kernel complaining about "scheduling
+while atomic", so it doesn't look like it's the right approach? Am I
+allowed to call schedule_work() from the context of a sk->sk_data_ready
+callback or not?
 
+Sunrpc/knfsd appears to use a different approach where
+svc_tcp_listen_data_ready() sets the appropriate state and then calls
+wake_up_interruptible_all(sk_sleep(sk)) -- it's not clear who this is
+waking up, the nfsd kernel thread or someone else?
+
+Any advice on what is the best future-proof approach to use for this kind
+of thing in a new project?
+
+-mato
