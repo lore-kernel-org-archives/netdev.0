@@ -1,46 +1,44 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] iproute2: ip: add wilcard support for device matching
-Date: Fri, 10 Dec 2010 20:06:03 +0200
-Message-ID: <201012102006.03401.opurdila@ixiacom.com>
-References: <1291993092-8675-1-git-send-email-opurdila@ixiacom.com> <201012101932.59352.opurdila@ixiacom.com> <1292002959.3580.321.camel@edumazet-laptop>
+From: Pkun <serj.kalichev@gmail.com>
+Subject: Re: [PATCH] Fix build system and configure script to use for cross
+ build. Optional IPv6.
+Date: Fri, 10 Dec 2010 21:13:28 +0300
+Message-ID: <AANLkTikFHoMWybK8LWoSKzPhWjVEk1TUSypVsNxEq7nd@mail.gmail.com>
+References: <1291995271-9912-1-git-send-email-serj.kalichev@gmail.com>
+	<20101210081452.360e2689@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:26439 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756779Ab0LJSGF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:06:05 -0500
-In-Reply-To: <1292002959.3580.321.camel@edumazet-laptop>
+Received: from mail-px0-f179.google.com ([209.85.212.179]:35702 "EHLO
+	mail-px0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756849Ab0LJSN3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:13:29 -0500
+Received: by pxi20 with SMTP id 20so1089737pxi.10
+        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 10:13:29 -0800 (PST)
+In-Reply-To: <20101210081452.360e2689@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Friday 10 December 2010, 19:42:39
+2010/12/10 Stephen Hemminger <shemminger@linux-foundation.org>:
+> On Fri, 10 Dec 2010 18:34:31 +0300
+> Serj Kalichev <serj.kalichev@gmail.com> wrote:
+>
+>> The Makefiles and configure script understand the external variables like
+>> CC, CFLAGS, LDFLAGS etc. So it can be used for cross build easily. The
+>> configure script use CC instead hardcoded gcc and search for the xtables
+>> within specified SYSROOT but not on the host. Two checks were added. The
+>> check for the IPv6 support and check for the Berkeley DB availability.
+>> The iproute2 can be build without IPv6 now.
+>>
+>> Signed-off-by: Serj Kalichev <serj.kalichev@gmail.com>
+>
+> IPv6 support should not be optional.
+>
+>
+> --
+>
 
-> Le vendredi 10 d=E9cembre 2010 =E0 19:32 +0200, Octavian Purdila a =E9=
-crit :
-> > Would allowing escaping it fix the issue? Like:
-> >=20
-> > ip link add link bond0 "vlan\*" txqueuelen 100 type vlan id 999
->=20
-> Well, same compat problem ;)
->=20
-> $ ip link add link bond0 "vlan\*199" type vlan id 199
-> $ ifconfig "vlan\*199"
+Why? I don't need an IPv6. Who need it - will switch it on. No problem
 
-:) Then use a special dev keyword like dev* ?
-
-$ ip link set dev* dummy set
-
-Or use a new flag to allow expansion?
-
-$ ip -e link set dev dummy* set
-
-
-Thanks,
-tavi
+Sorry for duplication. I have subscribed to netdev list.
