@@ -1,42 +1,36 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Please promote b1d670f10e80 to 2.6.37/stable to fix gcc mainline build
-Date: Fri, 10 Dec 2010 22:18:53 +0100
-Message-ID: <87aakdwcle.fsf@basil.nowhere.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: unable to handle kernel NULL pointer dereference in skb_dequeue
+Date: Fri, 10 Dec 2010 22:30:25 +0100
+Message-ID: <4D029BF1.6020709@gmail.com>
+References: <aa43945b38cee751a8231084866b074d@192.168.253.23>	<1291387595.2897.350.camel@edumazet-laptop>	<201012102151.04983.nuclearcat@nuclearcat.com> <20101210.121845.70177370.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: nuclearcat@nuclearcat.com, eric.dumazet@gmail.com, andrej@ota.si,
+	linux-kernel@vger.kernel.org, gvs@zemos.net, ramirose@gmail.com,
 	netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from one.firstfloor.org ([213.235.205.2]:43427 "EHLO
-	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755549Ab0LJVS5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 16:18:57 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101210.121845.70177370.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+David Miller wrote:
+> From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+> Date: Fri, 10 Dec 2010 21:51:04 +0200
+...
+>> Is there any plans to queue any patch to stable?
+>> pppoe is almost dead in 2.6.36.*
+> 
+> I'll deal with it for -stable once I evaluate this patch for upstream,
+> which I haven't even gotten to yet.
 
-Without this patch a gcc mainline kernel build fails. This is currently only
-fixed in net-next. Could the patch please be promoted to 2.6.37 and
-ideally for stable too?
+This patch is here:
+http://patchwork.ozlabs.org/patch/75095/
 
-Thanks,
+But IMHO it's buggy for the reason I mentioned. Since Andrej
+didn't respond yet I'd suggest reverting of the offending
+commit 55c95e738da85. If you agree with that but e.g. too busy,
+let me know.
 
--Andi
-
-commit b1d670f10e8078485884f0cf7e384d890909aeaa
-Author: Greg Rose <gregory.v.rose@intel.com>
-Date:   Tue Nov 16 19:41:36 2010 -0800
-
-    Remove extra struct page member from the buffer info structure
-    
-    declaration.
-    
-    Reported-by: Andi Kleen <andi@firstfloor.org>
-    Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
-    Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-
-
--- 
-ak@linux.intel.com -- Speaking for myself only.
+Jarek P.
