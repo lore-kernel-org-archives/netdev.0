@@ -1,39 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix nl group when advertising a new link
-Date: Fri, 10 Dec 2010 12:49:52 -0800 (PST)
-Message-ID: <20101210.124952.200360340.davem@davemloft.net>
-References: <4CFF5217.6010601@6wind.com>
-	<20101208100454.GA7638@canuck.infradead.org>
+Subject: Re: pull request: wireless-2.6 2010-12-10
+Date: Fri, 10 Dec 2010 12:52:52 -0800 (PST)
+Message-ID: <20101210.125252.212677124.davem@davemloft.net>
+References: <20101210202902.GG4296@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, netdev@vger.kernel.org
-To: tgraf@infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52310
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756851Ab0LJUtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 15:49:24 -0500
-In-Reply-To: <20101208100454.GA7638@canuck.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101210202902.GG4296@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Graf <tgraf@infradead.org>
-Date: Wed, 8 Dec 2010 05:04:54 -0500
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Fri, 10 Dec 2010 15:29:03 -0500
 
-> On Wed, Dec 08, 2010 at 10:38:31AM +0100, Nicolas Dichtel wrote:
->> >From d2ed52e7fcb639470c89045f7b0ce31eb681896a Mon Sep 17 00:00:00 2001
->> From: Wang Xuefu <xuefu.wang@6wind.com>
->> Date: Wed, 8 Dec 2010 10:24:48 +0100
->> Subject: [PATCH] ipv6: fix nl group when advertising a new link
->> 
->> New idev are advertised with NL group RTNLGRP_IPV6_IFADDR, but
->> should use RTNLGRP_IPV6_IFINFO.
->> Bug was introduced by commit 8d7a76c9.
->> 
->> Signed-off-by: Wang Xuefu <xuefu.wang@6wind.com>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Here is the latest round of wireless bits intended for 2.6.37...
 > 
-> Acked-by: Thomas Graf <tgraf@infradead.org>
+> Included are some orinoco fixes, one to avoid the crash in bug 23932 and
+> two others that render TKIP countermeasures ineffective (i.e. decreased
+> security).  Helmut has provided us a fix to avoid a BUG when using
+> shared skbs.  The ath9k team gives us a fix for failed resumes on
+> ath9k_htc, a fix for detecting broadcast frames with a MIC failure, a
+> fix for a null pointer access when generating beacons, and a DMA issue
+> that can lead to memory corruption.  Matteo Croce pitches-in with a fix
+> to prevent transmitting with too much power.  Finally,  Javier Cardona
+> provides a trio of ath5k fixes that restore mesh function on those
+> devices.
+> 
+> Please let me know if there are problems!
 
-Applied to net-2.6, thanks.
+Pulled, thanks John.
