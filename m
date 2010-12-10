@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] enic: Bug Fix: Pass napi reference to the isr
- that services receive queue
-Date: Fri, 10 Dec 2010 15:01:24 -0800 (PST)
-Message-ID: <20101210.150124.91342713.davem@davemloft.net>
-References: <20101208230545.24082.48614.stgit@savbu-pc100.cisco.com>
+Subject: Re: [PATCH] SCTP: Fix SCTP_SET_PEER_PRIMARY_ADDR to accpet
+ v4mapped address
+Date: Fri, 10 Dec 2010 15:01:51 -0800 (PST)
+Message-ID: <20101210.150151.45910848.davem@davemloft.net>
+References: <4CFEF74D.7020704@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roprabhu@cisco.com, dwang2@cisco.com
-To: vkolluri@cisco.com
+Cc: vladislav.yasevich@hp.com, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: yjwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45079
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45084
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752067Ab0LJXA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 18:00:56 -0500
-In-Reply-To: <20101208230545.24082.48614.stgit@savbu-pc100.cisco.com>
+	by vger.kernel.org with ESMTP id S1753541Ab0LJXBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 18:01:23 -0500
+In-Reply-To: <4CFEF74D.7020704@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Date: Wed, 08 Dec 2010 15:05:45 -0800
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Date: Wed, 08 Dec 2010 11:11:09 +0800
 
-> From: Vasanthy Kolluri <vkolluri@cisco.com>
+> SCTP_SET_PEER_PRIMARY_ADDR does not accpet v4mapped address, using
+> v4mapped address in SCTP_SET_PEER_PRIMARY_ADDR socket option will
+> get -EADDRNOTAVAIL error if v4map is enabled. This patch try to
+> fix it by mapping v4mapped address to v4 address if allowed.
 > 
-> Pass reference to napi instead of enic device to the isr that services receive queue.
-> 
-> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-> Signed-off-by: David Wang <dwang2@cisco.com>
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
 
-Applied, thank you.
+Vlad and other SCTP folks, please review this patch.
