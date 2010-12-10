@@ -1,80 +1,88 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] [Bug 24472] Kernel panic - not syncing: Fatal Exception
-Date: Fri, 10 Dec 2010 16:55:10 +0100
-Message-ID: <20101210155510.GA1856@del.dom.local>
-References: <20101210091505.GA7868@ff.dom.local>
- <4D023DE4.8000400@ota.si>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: Adding Support for SG,GSO,GRO
+Date: Fri, 10 Dec 2010 17:01:33 +0100
+Message-ID: <AANLkTi=cVufUAHn6LRs_vG-cW2cY87SdP9MOE7i5Ru09@mail.gmail.com>
+References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
+	<1291906948.19763.16.camel@localhost>
+	<AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
+	<20101209.113806.71114756.davem@davemloft.net>
+	<AANLkTi=7NLkHW6c88gUcyW8i0Wwmf2Cw4NdmRiGci4kE@mail.gmail.com>
+	<20101210143140.GD3536057@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: =?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Andrej Ota <andrej@ota.si>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
+	srk@ti.com, netdev@vger.kernel.org, Jens Axboe <axboe@kernel.dk>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:39762 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756061Ab0LJPzR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 10:55:17 -0500
-Received: by wwa36 with SMTP id 36so3858412wwa.1
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 07:55:16 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4D023DE4.8000400@ota.si>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:58161 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756105Ab0LJQBe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 11:01:34 -0500
+Received: by qwa26 with SMTP id 26so4007720qwa.19
+        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 08:01:33 -0800 (PST)
+In-Reply-To: <20101210143140.GD3536057@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 10, 2010 at 03:49:08PM +0100, Andrej Ota wrote:
-> Move kfree_skb which was causing memory corruption to new location, while still keeping appropriate return value for function __pppoe_xmit. Prevents memory corruption and consequent kernel panic when PPPoE peer terminates the link.
+W dniu 10 grudnia 2010 15:31 u=BFytkownik David Lamparter
+<equinox@diac24.net> napisa=B3:
+> On Fri, Dec 10, 2010 at 03:18:11PM +0100, Micha=B3 Miros=B3aw wrote:
+>> I'm trying to understand the dependency because it looks artificial =
+for me.
+>
+> You have the data you want to send in the RAM, somewhere, possibly
+> scattered. The application calls sendfile(). The kernel puts the
+> transmission in the network card's queue, which might already have lo=
+ts
+> of entries.
+>
+> A millisecond later - an eternity for the CPU - the card decides to d=
+o
+> the transmission.
+>
+> However, the data might have changed in the meantime.
+>
+> sendfile() is defined so that it works asynchronously, that means if =
+you
+> change the data while it is in the queue, you get unpredictable resul=
+ts.
+>
+> But, what you should NOT get is packets with an invalid checksum.
+> Whatever data you are sending, it needs to have a correct checksum.
+>
+> Now, if the card does the checksum itself, everything is fine. But wh=
+at
+> are you supposed to do if the card can't checksum? Call back the kern=
+el
+> at the point where the card does the TX? That's pointless (and racy).
+> Pre-calculate the Checksum at submission time? Doesn't work, you woul=
+d
+> have to make a copy of the data, so it doesn't change anymore, so the
+> checksum stays correct. But not copying the data is the whole point o=
+f
+> sendfile().
 
-Andrej, a slight misunderstanding - probably I should be more explicit.
-I sent this link, which explains why return shouldn't be zero:
-http://git.kernel.org/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=db7bf6d97c6956b7eb0f22131cb5c37bd41f33c0
-So the simplest fix is to revert this one change only.
-If you disagree with this let me know.
+The question is do we really want good checksum for bogus data? I
+think that what matters is that good data (it had not changed between
+queuing and sending, and so the checksum does not depend on whether
+hardware or software calculated it) need to be accompanied by good
+checksum. For broken data it would be even better to not send
+anything, but that's not always possible. Bad checksum in this case is
+actually a good thing as it clearly shows that something is broken in
+the sender and avoids accepting the data as valid at the receiving
+end.
 
-You should also fix the subject to something more meaningful, e.g.:
-[PATCH] pppoe: Fix kernel panic caused by __pppoe_xmit
+sendfile() is supposed to replace read()/write() loops to avoid
+copying data buffers. Whatever the optimizations, it has no additional
+cavat that it might corrupt the transfer. Fixing the checksum in case
+data gets corrupted is not the right thing, I think.
 
-Please, break lines in the changelog around 70 lines and add it
-fixes commit 55c95e738da85373965cb03b4f975d0fd559865b.
+The change of file data might happen if sendfile() submits page from
+pagecache when something writes to the file, or when an application
+modifies vmsplice()-submitted memory. In current kernel sendfile() is
+a wrapper around splice(), and so has a kernel pipe buffer between
+file and the socket. Can this hide the possible data changes?
 
-Thanks,
-Jarek P.
-
-> 
-> Signed-off-by: Andrej Ota [andrej@ota.si]
-> Reported-by: Pawel Staszewski [pstaszewski@artcom.pl]
-> ---
->  drivers/net/pppoe.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-> index d72fb05..1a21dce 100644
-> --- a/drivers/net/pppoe.c
-> +++ b/drivers/net/pppoe.c
-> @@ -924,8 +924,10 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
->  	/* Copy the data if there is no space for the header or if it's
->  	 * read-only.
->  	 */
-> -	if (skb_cow_head(skb, sizeof(*ph) + dev->hard_header_len))
-> +	if (skb_cow_head(skb, sizeof(*ph) + dev->hard_header_len)) {
-> +		kfree_skb(skb);
->  		goto abort;
-> +	}
-> 
->  	__skb_push(skb, sizeof(*ph));
->  	skb_reset_network_header(skb);
-> @@ -947,7 +949,6 @@ static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
->  	return 1;
-> 
->  abort:
-> -	kfree_skb(skb);
->  	return 0;
->  }
-> 
-> ---
-> 
-> Andrej Ota.
+Best Regards,
+Micha=B3 Miros=B3aw
