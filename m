@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/3 v2] ifb: use the lockless variants of skb_queue
-Date: Fri, 10 Dec 2010 14:35:27 -0800 (PST)
-Message-ID: <20101210.143527.241438724.davem@davemloft.net>
-References: <1291510912-6979-1-git-send-email-xiaosuo@gmail.com>
-	<1291559180.2159.683.camel@mojatatu>
+Subject: Re: [PATCH 0/3] xfrm: ESP Traffic Flow Confidentiality padding (v3)
+Date: Fri, 10 Dec 2010 14:44:22 -0800 (PST)
+Message-ID: <20101210.144422.52203130.davem@davemloft.net>
+References: <1291819071-17538-1-git-send-email-martin@strongswan.org>
+	<20101209124732.GA28931@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org, jarkao2@gmail.com
-To: hadi@cyberus.ca
+Cc: martin@strongswan.org, linux-crypto@vger.kernel.org,
+	netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34891
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58114
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752057Ab0LJWe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 17:34:59 -0500
-In-Reply-To: <1291559180.2159.683.camel@mojatatu>
+	by vger.kernel.org with ESMTP id S1751559Ab0LJWny (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 17:43:54 -0500
+In-Reply-To: <20101209124732.GA28931@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: jamal <hadi@cyberus.ca>
-Date: Sun, 05 Dec 2010 09:26:20 -0500
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Thu, 9 Dec 2010 20:47:32 +0800
 
-> On Sun, 2010-12-05 at 09:01 +0800, Changli Gao wrote:
->> rq and tq are both protected by tx queue lock, so we can simply use
->> the lockless variants of skb_queue.
+> On Wed, Dec 08, 2010 at 03:37:48PM +0100, Martin Willi wrote:
+>> The following patchset adds Traffic Flow Confidentiality padding. The
+>> first patch introduces a new Netlink XFRM attribute to configure TFC via
+>> userspace. Patch two and three implement the padding logic in IPv4 and
+>> IPv6 ESP. Padding is always done using the RFC4303 format an is clamped
+>> to the PMTU.
 >> 
->> skb_queue_splice_tail_init() is used instead of the open coded and slow
->> one.
->> 
->> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>> Changes from v2:
+>>   - Remove unused flag field in attribute, use a plain u32 as attribute payload
+>>   - Reject installation of TFC padding on non-tunnel SAs
 > 
-> Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+> Looks good to me.  Thanks for the hard work Martin!
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I've applied the most up to date versions of all 3 of
-Changli's IFB patches, thanks!
+All applied, thanks everyone!
