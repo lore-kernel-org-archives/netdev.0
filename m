@@ -1,58 +1,39 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2 3/4] kthread: NUMA aware kthread_create_on_cpu()
-Date: Thu, 9 Dec 2010 23:09:37 -0800
-Message-ID: <20101209230937.073fab54.akpm@linux-foundation.org>
-References: <1290972833.29196.90.camel@edumazet-laptop>
-	<20101128224024.GA12300@basil.fritz.box>
-	<1290984712.29196.100.camel@edumazet-laptop>
-	<20101128230146.GB12300@basil.fritz.box>
-	<1290987424.29196.128.camel@edumazet-laptop>
-	<20101129090510.GA15763@basil.fritz.box>
-	<1291023532.3435.29.camel@edumazet-laptop>
-	<1291043695.3435.980.camel@edumazet-laptop>
-	<20101209164438.fae1ba4c.akpm@linux-foundation.org>
-	<1291960798.2803.18.camel@edumazet-laptop>
-	<20101209223210.acd540de.akpm@linux-foundation.org>
-	<1291964561.2803.25.camel@edumazet-laptop>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: [PATCH] fix hostap registration order
+Date: Fri, 10 Dec 2010 09:19:51 +0200 (EET)
+Message-ID: <alpine.SOC.1.00.1012100918300.15996@math.ut.ee>
+References: <alpine.SOC.1.00.1012100020110.26229@math.ut.ee> <20101209.195315.193716225.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <andi@firstfloor.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	Tony Luck <tony.luck@intel.com>,
-	Fenghua Yu <fenghua.yu@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1291964561.2803.25.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: j@w1.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp2.it.da.ut.ee ([193.40.5.67]:43705 "EHLO smtp2.it.da.ut.ee"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751325Ab0LJHTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Dec 2010 02:19:53 -0500
+In-Reply-To: <20101209.195315.193716225.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 10 Dec 2010 08:02:41 +0100 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> Le jeudi 09 d__cembre 2010 __ 22:32 -0800, Andrew Morton a __crit :
+> > In 2.6.37-rc4, hostap_pci init gives a WARNING with backtrace telling 
+> > that netif_stop_queue is called before register_netdev. Fix it by moving 
+> > this call after register_netdev. Removes the warning and seems to work, 
+> > but why is the call to netif_stop_queue needed at all after 
+> > register_netdev?
 > 
-> > but but but.  The name "kthread_create_on_cpu" sucks.  It's plain wrong.
+> It should simply not touch the queue state at all at this point.
 > 
-> Okay you are right Andrew ;) I dont have better idea for the moment.
+> Your change would add a race.  At the moment the device is registered
+> it can be brought up, and then your code will eroneously modify
+> the queue state.
 
-Dunno.  kthread_create_with_memory_on_node() :)
+OK, I can make a simpler patch for that but I would like to understand 
+the original reasons for having netif_stop_queue there. Just a relict or 
+still somehow important?
 
-How's about kthread_create_for_node()?  That's sufficiently vague to
-not mislead readers into thinking that it schedules the thread on that
-CPU and leaves room in the namespace for a real kthread_create_on_cpu()
-(which we could well end up creating).
+Jouni?
 
-kthread_create_node_mem()?
-
-> Note that all callers I converted really create one kthread per cpu, not
-> per node. They didnt care of node affinity, only me :)
-> 
-> kthread_create_on_node() seems misleading to me (some cpus run on
-> memoryless nodes)
-
-True, but what we're doing here is specifying on which node the
-kthread's memory resources should reside - we need to do that even for
-CPUs which live on memoryless nodes.
+-- 
+Meelis Roos (mroos@linux.ee)
