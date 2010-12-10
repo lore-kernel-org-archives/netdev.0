@@ -1,45 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH net-next-2.6] ipv6: Fix 'release_it' logic in
- tcp_v6_get_peer()
-Date: Fri, 10 Dec 2010 13:17:16 -0800 (PST)
-Message-ID: <20101210.131716.02263228.davem@davemloft.net>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Please promote b1d670f10e80 to 2.6.37/stable to fix gcc mainline build
+Date: Fri, 10 Dec 2010 22:18:53 +0100
+Message-ID: <87aakdwcle.fsf@basil.nowhere.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: gregory.v.rose@intel.com, jeffrey.t.kirsher@intel.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46752
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752796Ab0LJVQs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 16:16:48 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id CF71824C08A
-	for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 13:17:16 -0800 (PST)
+Received: from one.firstfloor.org ([213.235.205.2]:43427 "EHLO
+	one.firstfloor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755549Ab0LJVS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 16:18:57 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-We accidently set it to "true" for the case where we
-are using a route bound peer.
+Without this patch a gcc mainline kernel build fails. This is currently only
+fixed in net-next. Could the patch please be promoted to 2.6.37 and
+ideally for stable too?
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv6/tcp_ipv6.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Thanks,
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3194585..fee0768 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1877,7 +1877,7 @@ static struct inet_peer *tcp_v6_get_peer(struct sock *sk, bool *release_it)
- 		if (!rt->rt6i_peer)
- 			rt6_bind_peer(rt, 1);
- 		peer = rt->rt6i_peer;
--		*release_it = true;
-+		*release_it = false;
- 	}
- 
- 	return peer;
+-Andi
+
+commit b1d670f10e8078485884f0cf7e384d890909aeaa
+Author: Greg Rose <gregory.v.rose@intel.com>
+Date:   Tue Nov 16 19:41:36 2010 -0800
+
+    Remove extra struct page member from the buffer info structure
+    
+    declaration.
+    
+    Reported-by: Andi Kleen <andi@firstfloor.org>
+    Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+    Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+    Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+
+
 -- 
-1.7.3.2
-
+ak@linux.intel.com -- Speaking for myself only.
