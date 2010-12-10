@@ -1,43 +1,36 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: [PATCH] iproute2: add dynamic index and name hashes
-Date: Fri, 10 Dec 2010 18:09:25 +0200
-Message-ID: <AANLkTinzMnPiPv7Gv9tC6Tp8c4-dtq9unbpGPcfqE9-=@mail.gmail.com>
-References: <1291993164-8793-1-git-send-email-opurdila@ixiacom.com>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] Fix build system and configure script to use for cross
+ build. Optional IPv6.
+Date: Fri, 10 Dec 2010 08:14:52 -0800
+Message-ID: <20101210081452.360e2689@nehalam>
+References: <1291995271-9912-1-git-send-email-serj.kalichev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Serj Kalichev <serj.kalichev@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:62605 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756170Ab0LJQJZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 11:09:25 -0500
-Received: by pzk6 with SMTP id 6so138086pzk.19
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 08:09:25 -0800 (PST)
-In-Reply-To: <1291993164-8793-1-git-send-email-opurdila@ixiacom.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:49218 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755950Ab0LJQO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 11:14:58 -0500
+In-Reply-To: <1291995271-9912-1-git-send-email-serj.kalichev@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> + =A0 =A0 =A0 if (!idx_hash) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 idx_hash =3D malloc((1<<hbits) * sizeof=
-(struct idxmap_head));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!idx_hash)
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
-> + =A0 =A0 =A0 }
-> +
-> + =A0 =A0 =A0 if (!name_hash) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 name_hash =3D malloc((1<<hbits) * sizeo=
-f(struct idxmap_head));
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!name_hash)
+On Fri, 10 Dec 2010 18:34:31 +0300
+Serj Kalichev <serj.kalichev@gmail.com> wrote:
 
-Can you reach this point with idx_hash non-null? Well, then avoid
-memory leaks by freeing it.
+> The Makefiles and configure script understand the external variables like
+> CC, CFLAGS, LDFLAGS etc. So it can be used for cross build easily. The
+> configure script use CC instead hardcoded gcc and search for the xtables
+> within specified SYSROOT but not on the host. Two checks were added. The
+> check for the IPv6 support and check for the Berkeley DB availability.
+> The iproute2 can be build without IPv6 now.
+> 
+> Signed-off-by: Serj Kalichev <serj.kalichev@gmail.com>
 
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -1;
-> + =A0 =A0 =A0 }
+IPv6 support should not be optional.
 
-thanks,
-Daniel.
+
+-- 
