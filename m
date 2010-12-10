@@ -1,40 +1,42 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [net-next-2.6 25/27] e1000e: static analysis tools complain of
- a possible null ptr p dereference
-Date: Fri, 10 Dec 2010 04:44:50 -0800
-Message-ID: <1291985090.24978.17.camel@Joe-Laptop>
-References: <1291975585-30576-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1291975585-30576-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] isdn: return -EFAULT if copy_from_user() fails
+Date: Fri, 10 Dec 2010 15:40:09 +0300
+Message-ID: <20101210124009.GC10623@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, davem@davemleft.org,
-	Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2495 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755735Ab0LJMow (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Dec 2010 07:44:52 -0500
-In-Reply-To: <1291975585-30576-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44314 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755762Ab0LJMrW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 07:47:22 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-12-10 at 02:06 -0800, Jeff Kirsher wrote:
-> diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-[]
-> +		default:
-> +			data[i] = 0;
-> +			continue;
-> +			break;
+We should be returning -EFAULT here.
 
-Using
+Mostly this patch is to silence a smatch warning.  The upper levels
+of this driver turn all non-zero return values from isar_load_firmware()
+into 1.
 
-	continue;
-	break;
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-is odd and unhelpful.
-Just continue; is sufficient and clear.
-
-
+diff --git a/drivers/isdn/hisax/isar.c b/drivers/isdn/hisax/isar.c
+index 2e72227..9cd4829 100644
+--- a/drivers/isdn/hisax/isar.c
++++ b/drivers/isdn/hisax/isar.c
+@@ -212,9 +212,9 @@ isar_load_firmware(struct IsdnCardState *cs, u_char __user *buf)
+ 	cs->debug &= ~(L1_DEB_HSCX | L1_DEB_HSCX_FIFO);
+ #endif
+ 	
+-	if ((ret = copy_from_user(&size, p, sizeof(int)))) {
++	if (copy_from_user(&size, p, sizeof(int))) {
+ 		printk(KERN_ERR"isar_load_firmware copy_from_user ret %d\n", ret);
+-		return ret;
++		return -EFAULT;
+ 	}
+ 	p += sizeof(int);
+ 	printk(KERN_DEBUG"isar_load_firmware size: %d\n", size);
