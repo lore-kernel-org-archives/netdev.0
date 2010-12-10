@@ -1,56 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 17/27] e1000e: 82574/82583 performance improvement
-Date: Fri, 10 Dec 2010 02:03:24 -0800
-Message-ID: <1291975414-30487-6-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Martin Lucina <mato@kotelna.sk>
+Subject: [PATCH] Document the kernel_recvmsg() function
+Date: Fri, 10 Dec 2010 11:04:05 +0100
+Message-ID: <20101210100404.GA28580@dezo.moloch.sk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Martin Sustrik <sustrik@250bpm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:44199 "EHLO
-	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751983Ab0LJKEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:04:04 -0500
-To: davem@davemloft.net
-In-Reply-To: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
-To: davem@davemleft.org
+Received: from chrocht.moloch.sk ([62.176.169.44]:48621 "EHLO mail.moloch.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753516Ab0LJKEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Dec 2010 05:04:08 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+[Updated and sent to the netdev mailing list, Eric thx for the pointer]
 
-Increasing the transmit fifo by 4K (by decreasing the receive fifo size
-specified in .pba by the same amount) increases Tx performance.
+Hi,
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+so, today we spent all day figuring out how the kernel_sendmsg() function
+*actually* works. This patch adds some documentation to help the next poor
+sod.
+
+-mato
+
+>From 1a977fc0b9544c53761ba3c4c26ca1aac2018663 Mon Sep 17 00:00:00 2001
+From: Martin Lucina <mato@kotelna.sk>
+Date: Thu, 9 Dec 2010 17:11:18 +0100
+Subject: [PATCH] Document the kernel_recvmsg() function
+
+Signed-off-by: Martin Lucina <mato@kotelna.sk>
 ---
- drivers/net/e1000e/82571.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ net/socket.c |   15 +++++++++++++++
+ 1 files changed, 15 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 6942e2f..280d41f 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -2005,7 +2005,7 @@ struct e1000_info e1000_82574_info = {
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
- 	.flags2			  = FLAG2_CHECK_PHY_HANG,
--	.pba			= 36,
-+	.pba			= 32,
- 	.max_hw_frame_size	= DEFAULT_JUMBO,
- 	.get_variants		= e1000_get_variants_82571,
- 	.mac_ops		= &e82571_mac_ops,
-@@ -2022,7 +2022,7 @@ struct e1000_info e1000_82583_info = {
- 				  | FLAG_HAS_SMART_POWER_DOWN
- 				  | FLAG_HAS_AMT
- 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
--	.pba			= 36,
-+	.pba			= 32,
- 	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
- 	.get_variants		= e1000_get_variants_82571,
- 	.mac_ops		= &e82571_mac_ops,
+diff --git a/net/socket.c b/net/socket.c
+index 3ca2fd9..088fb3f 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -732,6 +732,21 @@ static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
+ 	return ret;
+ }
+ 
++/**
++ * kernel_recvmsg - Receive a message from a socket (kernel space)
++ * @sock:       The socket to receive the message from
++ * @msg:        Received message
++ * @vec:        Input s/g array for message data
++ * @num:        Size of input s/g array
++ * @size:       Number of bytes to read
++ * @flags:      Message flags (MSG_DONTWAIT, etc...)
++ *
++ * On return the msg structure contains the scatter/gather array passed in the
++ * vec argument. The array is modified so that it consists of the unfilled
++ * portion of the original array.
++ *
++ * The returned value is the total number of bytes received, or an error.
++ */
+ int kernel_recvmsg(struct socket *sock, struct msghdr *msg,
+ 		   struct kvec *vec, size_t num, size_t size, int flags)
+ {
 -- 
-1.7.3.2
+1.7.1
 
