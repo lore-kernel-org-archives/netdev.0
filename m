@@ -1,48 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] iproute2: ip: add wilcard support for device matching
-Date: Fri, 10 Dec 2010 18:42:39 +0100
-Message-ID: <1292002959.3580.321.camel@edumazet-laptop>
-References: <1291993092-8675-1-git-send-email-opurdila@ixiacom.com>
-	 <20101210081846.58b67f09@nehalam>
-	 <1291998740.3580.162.camel@edumazet-laptop>
-	 <201012101932.59352.opurdila@ixiacom.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] fix hostap registration order
+Date: Fri, 10 Dec 2010 09:47:47 -0800 (PST)
+Message-ID: <20101210.094747.193727608.davem@davemloft.net>
+References: <alpine.SOC.1.00.1012100020110.26229@math.ut.ee>
+	<20101209.195315.193716225.davem@davemloft.net>
+	<alpine.SOC.1.00.1012100918300.15996@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Octavian Purdila <opurdila@ixiacom.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: j@w1.fi, netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: mroos@linux.ee
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:51369 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753991Ab0LJRmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 12:42:50 -0500
-Received: by wwa36 with SMTP id 36so3971403wwa.1
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 09:42:49 -0800 (PST)
-In-Reply-To: <201012101932.59352.opurdila@ixiacom.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36881
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754150Ab0LJRrU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 12:47:20 -0500
+In-Reply-To: <alpine.SOC.1.00.1012100918300.15996@math.ut.ee>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 10 d=C3=A9cembre 2010 =C3=A0 19:32 +0200, Octavian Purdila =
-a =C3=A9crit :
+From: Meelis Roos <mroos@linux.ee>
+Date: Fri, 10 Dec 2010 09:19:51 +0200 (EET)
 
-> Would allowing escaping it fix the issue? Like:
->=20
-> ip link add link bond0 "vlan\*" txqueuelen 100 type vlan id 999
->=20
+>> > In 2.6.37-rc4, hostap_pci init gives a WARNING with backtrace telling 
+>> > that netif_stop_queue is called before register_netdev. Fix it by moving 
+>> > this call after register_netdev. Removes the warning and seems to work, 
+>> > but why is the call to netif_stop_queue needed at all after 
+>> > register_netdev?
+>> 
+>> It should simply not touch the queue state at all at this point.
+>> 
+>> Your change would add a race.  At the moment the device is registered
+>> it can be brought up, and then your code will eroneously modify
+>> the queue state.
+> 
+> OK, I can make a simpler patch for that but I would like to understand 
+> the original reasons for having netif_stop_queue there. Just a relict or 
+> still somehow important?
 
-Well, same compat problem ;)
+I think it was neither.
 
-$ ip link add link bond0 "vlan\*199" type vlan id 199
-$ ifconfig "vlan\*199"
-vlan\199  Link encap:Ethernet  HWaddr 00:1E:0B:EC:D3:D2 =20
-          BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0=20
-          RX bytes:0 (0.0 b)  TX bytes:0 (0.0 b)
-
-
-
-
+The queue state is "don't care" at this point, and always has been,
+and a lot of drivers had this unnecessary netif_stop_queue() call
+there.
