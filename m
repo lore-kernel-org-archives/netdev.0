@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 20/27] e1000e: 82577/8/9 mis-configured OEM bits during S0->Sx
-Date: Fri, 10 Dec 2010 02:03:27 -0800
-Message-ID: <1291975414-30487-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 21/27] e1000e: 82579 PHY incorrectly identified during init
+Date: Fri, 10 Dec 2010 02:03:28 -0800
+Message-ID: <1291975414-30487-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:44991 "EHLO
-	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753561Ab0LJKEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:04:16 -0500
+Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:44216 "EHLO
+	qmta06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753596Ab0LJKEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:04:20 -0500
 To: davem@davemloft.net
 In-Reply-To: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemleft.org
@@ -19,29 +19,90 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-The LPLU (Low Power Link Up) and Gigabit Disable bits (a.k.a. OEM bits)
-were being configured incorrectly when device goes to D3 state.
+During init, reading the 2 PHY ID registers back-to-back in the default
+fast mode could return invalid data (all F's) and in slow mode could
+return data to the second read the data from the first read.  To resolve
+the issue in fast mode, set to slow mode before any PHY accesses; to
+resolve the issue in slow mode, put in a delay for every 82579 PHY access.
+Since this PHY is currently only paired with the pch2lan MAC and the PHY
+type is not known before the first PHY access which can fail this way,
+check for this based on MAC-type.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/ich8lan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   16 +++++++++++-----
+ drivers/net/e1000e/phy.c     |   14 ++++++++++++++
+ 2 files changed, 25 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index e3374d9..d7fc930 100644
+index d7fc930..5080372 100644
 --- a/drivers/net/e1000e/ich8lan.c
 +++ b/drivers/net/e1000e/ich8lan.c
-@@ -3591,7 +3591,7 @@ void e1000e_disable_gig_wol_ich8lan(struct e1000_hw *hw)
- 	ew32(PHY_CTRL, phy_ctrl);
+@@ -338,12 +338,17 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 	}
  
- 	if (hw->mac.type >= e1000_pchlan) {
--		e1000_oem_bits_config_ich8lan(hw, true);
-+		e1000_oem_bits_config_ich8lan(hw, false);
- 		ret_val = hw->phy.ops.acquire(hw);
+ 	phy->id = e1000_phy_unknown;
+-	ret_val = e1000e_get_phy_id(hw);
+-	if (ret_val)
+-		goto out;
+-	if ((phy->id == 0) || (phy->id == PHY_REVISION_MASK)) {
++	switch (hw->mac.type) {
++	default:
++		ret_val = e1000e_get_phy_id(hw);
++		if (ret_val)
++			goto out;
++		if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
++			break;
++		/* fall-through */
++	case e1000_pch2lan:
+ 		/*
+-		 * In case the PHY needs to be in mdio slow mode (eg. 82577),
++		 * In case the PHY needs to be in mdio slow mode,
+ 		 * set slow mode and try to get the PHY id again.
+ 		 */
+ 		ret_val = e1000_set_mdio_slow_mode_hv(hw);
+@@ -352,6 +357,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 		ret_val = e1000e_get_phy_id(hw);
  		if (ret_val)
- 			return;
+ 			goto out;
++		break;
+ 	}
+ 	phy->type = e1000e_get_phy_type_from_id(phy->id);
+ 
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 6ad90cc..95da386 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -226,6 +226,13 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	}
+ 	*data = (u16) mdic;
+ 
++	/*
++	 * Allow some time after each MDIC transaction to avoid
++	 * reading duplicate data in the next MDIC transaction.
++	 */
++	if (hw->mac.type == e1000_pch2lan)
++		udelay(100);
++
+ 	return 0;
+ }
+ 
+@@ -279,6 +286,13 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 		return -E1000_ERR_PHY;
+ 	}
+ 
++	/*
++	 * Allow some time after each MDIC transaction to avoid
++	 * reading duplicate data in the next MDIC transaction.
++	 */
++	if (hw->mac.type == e1000_pch2lan)
++		udelay(100);
++
+ 	return 0;
+ }
+ 
 -- 
 1.7.3.2
 
