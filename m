@@ -1,41 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bridge: Fix return values of
- br_multicast_add_group/br_multicast_new_group
-Date: Fri, 10 Dec 2010 13:01:25 -0800 (PST)
-Message-ID: <20101210.130125.233714141.davem@davemloft.net>
-References: <20101209082924.6d797871@nehalam>
-	<1291903356-30618-1-git-send-email-tklauser@distanz.ch>
-	<1291987084-27302-1-git-send-email-tklauser@distanz.ch>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: PCI: make pci_restore_state return void
+Date: Fri, 10 Dec 2010 13:07:30 -0800
+Message-ID: <20101210130730.29d07c2d@jbarnes-desktop>
+References: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39800
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753468Ab0LJVA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 16:00:57 -0500
-In-Reply-To: <1291987084-27302-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-pci@vger.kernel.org, Jonathan Corbet <corbet@lwn.net>,
+	linux-media@vger.kernel.org, Andrew Gallatin <gallatin@myri.com>,
+	Brice Goglin <brice@myri.com>, netdev@vger.kernel.org,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Steve Hodgson <shodgson@solarflare.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	linux-wireless@vger.kernel.org, Brian King <brking@us.ibm.com>,
+	Anil Ravindranath <anil_ravindranath@pmc-sierra.com>,
+	linux-scsi@vger.kernel.org, Jaya Kumar <jayakumar.alsa@gmail.com>,
+	boyod.yang@siliconmotion.com.cn
+To: Jon Mason <jon.mason@exar.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1291160606-31494-1-git-send-email-jon.mason@exar.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Fri, 10 Dec 2010 14:18:04 +0100
+On Tue, 30 Nov 2010 17:43:26 -0600
+Jon Mason <jon.mason@exar.com> wrote:
 
-> If br_multicast_new_group returns NULL, we would return 0 (no error) to
-> the caller of br_multicast_add_group, which is not what we want. Instead
-> br_multicast_new_group should return ERR_PTR(-ENOMEM) in this case.
-> Also propagate the error number returned by br_mdb_rehash properly.
+> pci_restore_state only ever returns 0, thus there is no benefit in
+> having it return any value.  Also, a large majority of the callers do
+> not check the return code of pci_restore_state.  Make the
+> pci_restore_state a void return and avoid the overhead.
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Signed-off-by: Jon Mason <jon.mason@exar.com>
+> ---
 
-Looks good, applied to net-next-2.6
+Applied to linux-next, thanks.
 
-Please in the future make is clear, in your subject line, which
-tree this patch is meant for.
-
-I had to figure it out by trial and error, because this patch
-does not apply properly to net-2.6
-
+-- 
+Jesse Barnes, Intel Open Source Technology Center
