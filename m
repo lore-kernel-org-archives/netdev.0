@@ -1,100 +1,70 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: Adding Support for SG,GSO,GRO
-Date: Fri, 10 Dec 2010 09:27:49 +0100
-Message-ID: <AANLkTi=vB-9bo09AhE7GTEJ1iPQd+nE=tfcFY+GmKUt-@mail.gmail.com>
-References: <FCCFB4CDC6E5564B9182F639FC356087035F21D9F9@dbde02.ent.ti.com>
-	<1291906948.19763.16.camel@localhost>
-	<AANLkTi=8zWMYWG0DU147B08nN7xcvwaB9Bpq9fE8_fBe@mail.gmail.com>
-	<1291921115.2647.28.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Govindarajan, Sriramakrishnan" <srk@ti.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 01/27] Documentation/networking/e1000.txt: Update documentation
+Date: Fri, 10 Dec 2010 01:50:41 -0800
+Message-ID: <1291974667-30254-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1291974667-30254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:55117 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754765Ab0LJI1u convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 03:27:50 -0500
-Received: by qwa26 with SMTP id 26so3581667qwa.19
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 00:27:49 -0800 (PST)
-In-Reply-To: <1291921115.2647.28.camel@bwh-desktop>
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:55566
+	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750747Ab0LJJvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 04:51:19 -0500
+To: davem@davemloft.net
+In-Reply-To: <1291974667-30254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+To: davem@davemleft.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 9 grudnia 2010 19:58 u=BFytkownik Ben Hutchings
-<bhutchings@solarflare.com> napisa=B3:
-> On Thu, 2010-12-09 at 19:47 +0100, Micha=B3 Miros=B3aw wrote:
->> 2010/12/9 Ben Hutchings <bhutchings@solarflare.com>:
->> > On Thu, 2010-12-09 at 16:03 +0530, Govindarajan, Sriramakrishnan w=
-rote:
->> >> Hi
->> >> We have a NAPI compliant driver(net/drivers/davinci_emac.c), that=
- does
->> >> well at 10/100Mbps loads. Now the same controller/driver is used =
-for
->> >> 1000Mbps
->> >> mode as well, where the CPU gets saturated easily
->> >>
->> >> Internally the module supports scatter gather DMA(which is curren=
-tly not
->> >> exercised) but there is no HW checksum support.
->> >>
->> >> To specifically implement GRO, GSO support would it be sufficient=
- to add
->> >> SG support to the driver? Are there other means of increasing the=
- throughput
->> >> and decreasing the CPU loading?
->> [...]
->> > On the TX side, NETIF_F_SG means that the stack may include data i=
-n the
->> > skb by reference to arbitrary pages *even if their contents are st=
-ill
->> > being changed* (think sendfile()), which means it depends on hardw=
-are
->> > checksum generation.
->>
->> Isn't that condition too broad? If the data could change after packe=
-t
->> is submitted to the driver then results would be unpredictable and
->> allow sending wrong data with correct (because hw-calculated)
->> checksum.
-> This is not done for a regular send(), only for functions such as
-> sendfile() which are specified to read the data asynchronously.
->
->> Right now NETIF_F_SG is removed from dev->features by
->> netdev_fix_features() if no checksum offloads are enabled.
->>
->> Just an idea: would driver with NETIF_F_SG|NETIF_F_HW_CSUM using
->> skb_checksum_help() in xmit path work? This would allow to use DMA
->> scatter-gather without hardware checksumming (and avoid copying the
->> packet's data before sending).
-> No, you cannot calculate a checksum for the fragments without also
-> copying them to ensure the data doesn't change afterward and invalida=
-te
-> the checksum. =A0You could in theory make a copy into multiple fragme=
-nts,
-> but there's no point in doing that unless the frame size is larger th=
-an
-> a page.
+Update Intel Wired LAN e1000 documentation.
 
-Then at least couple of drivers are broken in this way (ibmveth,
-chelsio for UDP, there are other hits on skb_checksum_help).
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ Documentation/networking/e1000.txt |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-I'm not familiar with splice/sendfile code, but I would expect, that
-pages transferred with it have to be submitted after "data ready"
-notification and pinned in memory by DMA mapping (with hardware
-checksumming, CPU does not need to see the data, but still it has to
-be there already) until the frame is transferred to the network
-device. So, even if the contents of the page changes (because further
-data is transferred), the part that is submitted to be sent should
-not.
+diff --git a/Documentation/networking/e1000.txt b/Documentation/networking/e1000.txt
+index d9271e7..6cb13e9 100644
+--- a/Documentation/networking/e1000.txt
++++ b/Documentation/networking/e1000.txt
+@@ -79,7 +79,7 @@ InterruptThrottleRate
+ ---------------------
+ (not supported on Intel(R) 82542, 82543 or 82544-based adapters)
+ Valid Range:   0,1,3,4,100-100000 (0=off, 1=dynamic, 3=dynamic conservative,
+-                                   4=simplified balancing)
++                                 4=simplified balancing)
+ Default Value: 3
+ 
+ The driver can limit the amount of interrupts per second that the adapter
+@@ -124,8 +124,8 @@ InterruptThrottleRate is set to mode 1. In this mode, which operates
+ the same as mode 3, the InterruptThrottleRate will be increased stepwise to
+ 70000 for traffic in class "Lowest latency".
+ 
+-In simplified mode the interrupt rate is based on the ratio of Tx and
+-Rx traffic.  If the bytes per second rate is approximately equal, the
++In simplified mode the interrupt rate is based on the ratio of TX and
++RX traffic.  If the bytes per second rate is approximately equal, the
+ interrupt rate will drop as low as 2000 interrupts per second.  If the
+ traffic is mostly transmit or mostly receive, the interrupt rate could
+ be as high as 8000.
+@@ -245,7 +245,7 @@ NOTE:  Depending on the available system resources, the request for a
+ TxDescriptorStep
+ ----------------
+ Valid Range:    1 (use every Tx Descriptor)
+-		4 (use every 4th Tx Descriptor)
++                4 (use every 4th Tx Descriptor)
+ 
+ Default Value:  1 (use every Tx Descriptor)
+ 
+@@ -312,7 +312,7 @@ Valid Range:   0-xxxxxxx (0=off)
+ Default Value: 256
+ Usage: insmod e1000.ko copybreak=128
+ 
+-Driver copies all packets below or equaling this size to a fresh Rx
++Driver copies all packets below or equaling this size to a fresh RX
+ buffer before handing it up the stack.
+ 
+ This parameter is different than other parameters, in that it is a
+-- 
+1.7.3.2
 
-If that's really not the case, then splice/sendfile to network is
-useless as it means random data corruption. Googling around shows
-reports about sendfile() correllated corruption - could this the
-cause?
-
-Best Regards,
-Micha=B3 Miros=B3aw
