@@ -1,95 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 14/27] ixgbe: cleanup string function calls to use bound checking versions.
-Date: Fri, 10 Dec 2010 02:03:21 -0800
-Message-ID: <1291975414-30487-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 15/27] e1000e: fix double initialization in blink path
+Date: Fri, 10 Dec 2010 02:03:22 -0800
+Message-ID: <1291975414-30487-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
+Cc: Holger Eitzenberger <holger@eitzenberger.org>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta07.emeryville.ca.mail.comcast.net ([76.96.30.64]:35151 "EHLO
-	qmta07.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751983Ab0LJKDw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:03:52 -0500
+Received: from qmta08.emeryville.ca.mail.comcast.net ([76.96.30.80]:44991 "EHLO
+	qmta08.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751983Ab0LJKD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:03:57 -0500
 To: davem@davemloft.net
 In-Reply-To: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemleft.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Holger Eitzenberger <holger@eitzenberger.org>
 
-Some minor cleanup to use string calls that use bound checks just to
-be extra safe.
+The kernel goes BUG() at the time 'ethtool -p eth0 3' comes
+back, which is due to adapter->led_blink_task initialized
+several times.  At the time it is still running this results
+in a corrupted task_list of the associated workqueue.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+The fix is to move the workqueue initialization to the
+probe function instead.
+
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+Reviewed-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |    5 +++--
- drivers/net/ixgbe/ixgbe_main.c    |   16 ++++++++--------
- 2 files changed, 11 insertions(+), 10 deletions(-)
+ drivers/net/e1000e/e1000.h   |    1 +
+ drivers/net/e1000e/ethtool.c |    3 +--
+ drivers/net/e1000e/netdev.c  |    1 +
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index f2245ac..23ff23e 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -839,9 +839,10 @@ static void ixgbe_get_drvinfo(struct net_device *netdev,
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	char firmware_version[32];
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index fdc67fe..3d9366f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -482,6 +482,7 @@ extern const char e1000e_driver_version[];
  
--	strncpy(drvinfo->driver, ixgbe_driver_name, sizeof(drvinfo->driver));
-+	strncpy(drvinfo->driver, ixgbe_driver_name,
-+	        sizeof(drvinfo->driver) - 1);
- 	strncpy(drvinfo->version, ixgbe_driver_version,
--	        sizeof(drvinfo->version));
-+	        sizeof(drvinfo->version) - 1);
+ extern void e1000e_check_options(struct e1000_adapter *adapter);
+ extern void e1000e_set_ethtool_ops(struct net_device *netdev);
++extern void e1000e_led_blink_task(struct work_struct *work);
  
- 	snprintf(firmware_version, sizeof(firmware_version), "%d.%d-%d",
- 	         (adapter->eeprom_version & 0xF000) >> 12,
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index f2694f2..8af0fc0 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2338,14 +2338,14 @@ static int ixgbe_request_msix_irqs(struct ixgbe_adapter *adapter)
- 		handler = SET_HANDLER(q_vector);
+ extern int e1000e_up(struct e1000_adapter *adapter);
+ extern void e1000e_down(struct e1000_adapter *adapter);
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 8984d16..26d4f3b 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1860,7 +1860,7 @@ static int e1000_set_wol(struct net_device *netdev,
+ /* bit defines for adapter->led_status */
+ #define E1000_LED_ON		0
  
- 		if (handler == &ixgbe_msix_clean_rx) {
--			sprintf(q_vector->name, "%s-%s-%d",
--				netdev->name, "rx", ri++);
-+			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-+			         "%s-%s-%d", netdev->name, "rx", ri++);
- 		} else if (handler == &ixgbe_msix_clean_tx) {
--			sprintf(q_vector->name, "%s-%s-%d",
--				netdev->name, "tx", ti++);
-+			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-+			         "%s-%s-%d", netdev->name, "tx", ti++);
- 		} else if (handler == &ixgbe_msix_clean_many) {
--			sprintf(q_vector->name, "%s-%s-%d",
--				netdev->name, "TxRx", ri++);
-+			snprintf(q_vector->name, sizeof(q_vector->name) - 1,
-+			         "%s-%s-%d", netdev->name, "TxRx", ri++);
- 			ti++;
- 		} else {
- 			/* skip this unused q_vector */
-@@ -7047,7 +7047,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 	netdev->netdev_ops = &ixgbe_netdev_ops;
- 	ixgbe_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
--	strcpy(netdev->name, pci_name(pdev));
-+	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+-static void e1000e_led_blink_task(struct work_struct *work)
++void e1000e_led_blink_task(struct work_struct *work)
+ {
+ 	struct e1000_adapter *adapter = container_of(work,
+ 	                                struct e1000_adapter, led_blink_task);
+@@ -1892,7 +1892,6 @@ static int e1000_phys_id(struct net_device *netdev, u32 data)
+ 	    (hw->mac.type == e1000_pch2lan) ||
+ 	    (hw->mac.type == e1000_82583) ||
+ 	    (hw->mac.type == e1000_82574)) {
+-		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+ 		if (!adapter->blink_timer.function) {
+ 			init_timer(&adapter->blink_timer);
+ 			adapter->blink_timer.function =
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 0adcb79..f8efbbb 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5903,6 +5903,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
+ 	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
+ 	INIT_WORK(&adapter->print_hang_task, e1000_print_hw_hang);
++	INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
  
- 	adapter->bd_number = cards_found;
- 
-@@ -7269,7 +7269,7 @@ static int __devinit ixgbe_probe(struct pci_dev *pdev,
- 
- 	err = ixgbe_read_pba_string_generic(hw, part_str, IXGBE_PBANUM_LENGTH);
- 	if (err)
--		strcpy(part_str, "Unknown");
-+		strncpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
- 	if (ixgbe_is_sfp(hw) && hw->phy.sfp_type != ixgbe_sfp_type_not_present)
- 		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, PBA No: %s\n",
- 			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
+ 	/* Initialize link parameters. User can change them with ethtool */
+ 	adapter->hw.mac.autoneg = 1;
 -- 
 1.7.3.2
 
