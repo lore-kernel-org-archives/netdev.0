@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 16/27] e1000e: 82571-based mezzanine card can fail ethtool link test
-Date: Fri, 10 Dec 2010 02:03:23 -0800
-Message-ID: <1291975414-30487-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 17/27] e1000e: 82574/82583 performance improvement
+Date: Fri, 10 Dec 2010 02:03:24 -0800
+Message-ID: <1291975414-30487-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta06.emeryville.ca.mail.comcast.net ([76.96.30.56]:44216 "EHLO
-	qmta06.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753052Ab0LJKEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:04:00 -0500
+Received: from qmta10.emeryville.ca.mail.comcast.net ([76.96.30.17]:44199 "EHLO
+	qmta10.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751983Ab0LJKEE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:04:04 -0500
 To: davem@davemloft.net
 In-Reply-To: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemleft.org
@@ -19,49 +19,38 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-On certain 82571-based mezzanine NICs in some blade servers, the ethtool
-link test can fail due to the serdes_has_link flag not set correctly.
+Increasing the transmit fifo by 4K (by decreasing the receive fifo size
+specified in .pba by the same amount) increases Tx performance.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
 Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/82571.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+ drivers/net/e1000e/82571.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 9333921..6942e2f 100644
+index 6942e2f..280d41f 100644
 --- a/drivers/net/e1000e/82571.c
 +++ b/drivers/net/e1000e/82571.c
-@@ -1523,8 +1523,10 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 				    e1000_serdes_link_autoneg_progress;
- 				mac->serdes_has_link = false;
- 				e_dbg("AN_UP     -> AN_PROG\n");
-+			} else {
-+				mac->serdes_has_link = true;
- 			}
--		break;
-+			break;
- 
- 		case e1000_serdes_link_forced_up:
- 			/*
-@@ -1543,6 +1545,8 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 				    e1000_serdes_link_autoneg_progress;
- 				mac->serdes_has_link = false;
- 				e_dbg("FORCED_UP -> AN_PROG\n");
-+			} else {
-+				mac->serdes_has_link = true;
- 			}
- 			break;
- 
-@@ -1598,6 +1602,7 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			ew32(CTRL, (ctrl & ~E1000_CTRL_SLU));
- 			mac->serdes_link_state =
- 			    e1000_serdes_link_autoneg_progress;
-+			mac->serdes_has_link = false;
- 			e_dbg("DOWN      -> AN_PROG\n");
- 			break;
- 		}
+@@ -2005,7 +2005,7 @@ struct e1000_info e1000_82574_info = {
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+ 	.flags2			  = FLAG2_CHECK_PHY_HANG,
+-	.pba			= 36,
++	.pba			= 32,
+ 	.max_hw_frame_size	= DEFAULT_JUMBO,
+ 	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
+@@ -2022,7 +2022,7 @@ struct e1000_info e1000_82583_info = {
+ 				  | FLAG_HAS_SMART_POWER_DOWN
+ 				  | FLAG_HAS_AMT
+ 				  | FLAG_HAS_CTRLEXT_ON_LOAD,
+-	.pba			= 36,
++	.pba			= 32,
+ 	.max_hw_frame_size	= ETH_FRAME_LEN + ETH_FCS_LEN,
+ 	.get_variants		= e1000_get_variants_82571,
+ 	.mac_ops		= &e82571_mac_ops,
 -- 
 1.7.3.2
 
