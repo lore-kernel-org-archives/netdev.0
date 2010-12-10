@@ -1,67 +1,61 @@
-From: Martin Lucina <mato@kotelna.sk>
-Subject: [PATCH] Document the kernel_recvmsg() function
-Date: Fri, 10 Dec 2010 11:04:05 +0100
-Message-ID: <20101210100404.GA28580@dezo.moloch.sk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Martin Sustrik <sustrik@250bpm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 18/27] e1000e: 82577/8 must acquire h/w semaphore before workaround
+Date: Fri, 10 Dec 2010 02:03:25 -0800
+Message-ID: <1291975414-30487-7-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chrocht.moloch.sk ([62.176.169.44]:48621 "EHLO mail.moloch.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753516Ab0LJKEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Dec 2010 05:04:08 -0500
-Content-Disposition: inline
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:38073
+	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753507Ab0LJKEI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 05:04:08 -0500
+To: davem@davemloft.net
+In-Reply-To: <1291975414-30487-1-git-send-email-jeffrey.t.kirsher@intel.com>
+To: davem@davemleft.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[Updated and sent to the netdev mailing list, Eric thx for the pointer]
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-Hi,
+The workaround function e1000_configure_k1_pchlan() assumes the h/w
+semaphore is already acquired.  This was originally missed when setting up
+the part for the ethtool loopback test.
 
-so, today we spent all day figuring out how the kernel_sendmsg() function
-*actually* works. This patch adds some documentation to help the next poor
-sod.
-
--mato
-
->From 1a977fc0b9544c53761ba3c4c26ca1aac2018663 Mon Sep 17 00:00:00 2001
-From: Martin Lucina <mato@kotelna.sk>
-Date: Thu, 9 Dec 2010 17:11:18 +0100
-Subject: [PATCH] Document the kernel_recvmsg() function
-
-Signed-off-by: Martin Lucina <mato@kotelna.sk>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- net/socket.c |   15 +++++++++++++++
- 1 files changed, 15 insertions(+), 0 deletions(-)
+ drivers/net/e1000e/ethtool.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/net/socket.c b/net/socket.c
-index 3ca2fd9..088fb3f 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -732,6 +732,21 @@ static int sock_recvmsg_nosec(struct socket *sock, struct msghdr *msg,
- 	return ret;
- }
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 26d4f3b..29b09113 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1263,6 +1263,7 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+ 	u32 ctrl_reg = 0;
+ 	u32 stat_reg = 0;
+ 	u16 phy_reg = 0;
++	s32 ret_val = 0;
  
-+/**
-+ * kernel_recvmsg - Receive a message from a socket (kernel space)
-+ * @sock:       The socket to receive the message from
-+ * @msg:        Received message
-+ * @vec:        Input s/g array for message data
-+ * @num:        Size of input s/g array
-+ * @size:       Number of bytes to read
-+ * @flags:      Message flags (MSG_DONTWAIT, etc...)
-+ *
-+ * On return the msg structure contains the scatter/gather array passed in the
-+ * vec argument. The array is modified so that it consists of the unfilled
-+ * portion of the original array.
-+ *
-+ * The returned value is the total number of bytes received, or an error.
-+ */
- int kernel_recvmsg(struct socket *sock, struct msghdr *msg,
- 		   struct kvec *vec, size_t num, size_t size, int flags)
- {
+ 	hw->mac.autoneg = 0;
+ 
+@@ -1322,7 +1323,13 @@ static int e1000_integrated_phy_loopback(struct e1000_adapter *adapter)
+ 	case e1000_phy_82577:
+ 	case e1000_phy_82578:
+ 		/* Workaround: K1 must be disabled for stable 1Gbps operation */
++		ret_val = hw->phy.ops.acquire(hw);
++		if (ret_val) {
++			e_err("Cannot setup 1Gbps loopback.\n");
++			return ret_val;
++		}
+ 		e1000_configure_k1_ich8lan(hw, false);
++		hw->phy.ops.release(hw);
+ 		break;
+ 	case e1000_phy_82579:
+ 		/* Disable PHY energy detect power down */
 -- 
-1.7.1
+1.7.3.2
 
