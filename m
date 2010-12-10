@@ -1,52 +1,32 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: pull request: wireless-next-2.6 2010-12-08
-Date: Fri, 10 Dec 2010 13:20:46 -0500
-Message-ID: <20101210182045.GD4296@tuxdriver.com>
-References: <20101208210432.GH2423@tuxdriver.com>
- <20101210.100141.183065894.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: sfc-next-2.6 2010-12-10
+Date: Fri, 10 Dec 2010 10:47:11 -0800 (PST)
+Message-ID: <20101210.104711.48491635.davem@davemloft.net>
+References: <1292002527.11673.14.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:54168 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365Ab0LJSaG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:30:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20101210.100141.183065894.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35916
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755882Ab0LJSqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 13:46:43 -0500
+In-Reply-To: <1292002527.11673.14.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 10, 2010 at 10:01:41AM -0800, David Miller wrote:
-> From: "John W. Linville" <linville@tuxdriver.com>
-> Date: Wed, 8 Dec 2010 16:04:32 -0500
-> 
-> > Here is the latest batch of updates intended for 2.6.38.  It also
-> > includes my last wireless-2.6 pull request that you just added
-> > to net-2.6.
-> > 
-> > This includes the usual batch of drivers updates, with ath9k and
-> > iwlwifi as the usual standouts.  This also includes some mac80211
-> > documentation updates from Johannes, and a flurry of ath5k updates
-> > from Nick.  This also includes a collection of bluetooth updates by
-> > way of Gustavo, a couple of libertas updates, some more work on b43
-> > N-phy support, and a variety of other patches.
-> 
-> So I pulled this in.
-> 
-> Since I did the net-2.6 --> net-next-2.6 merge first, I ended up having
-> to deal with the ar9003_eeprom.c conflicts in the ath9k driver even
-> though you took care of that as well in this tree of your's.
-> 
-> But it was a good gut check since we both resolved the conflict pretty
-> much the same way, so I have confidence in the merge resolution :-)
-> 
-> Anyways, please take a look at net-next-2.6 and double-check what I
-> did.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Fri, 10 Dec 2010 17:35:27 +0000
 
-Looks good to me...thanks!
+> The following changes since commit defb3519a64141608725e2dac5a5aa9a3c644bae:
+> 
+>   net: Abstract away all dst_entry metrics accesses. (2010-12-09 10:46:36 -0800)
+> 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Pulled, thanks Ben.
+
+Indeed TX push looks intersting.
