@@ -1,68 +1,74 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 08/27] e1000: fix return value not set on error
-Date: Fri, 10 Dec 2010 22:17:02 -0800
-Message-ID: <1292048241-22026-9-git-send-email-jeffrey.t.kirsher__8002.68086973137$1292050332$gmane$org@intel.com>
-References: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] rfc: ethtool: early-orphan control
+Date: Sat, 11 Dec 2010 09:03:38 +0100
+Message-ID: <1292054618.2746.48.camel@edumazet-laptop>
+References: <1292040815-10439-1-git-send-email-horms@verge.net.au>
+	 <20101211042434.GB32453@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dean Nelson <dnelson@redhat.com>,
-        bphilips@novell.com, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>, gospo@redhat.com,
-        stable@kernel.org
-Return-path: <stable-bounces@linux.kernel.org>
-To: davem@davemloft.net
-In-Reply-To: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55939 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750885Ab0LKIDo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 03:03:44 -0500
+Received: by wyb28 with SMTP id 28so4230548wyb.19
+        for <netdev@vger.kernel.org>; Sat, 11 Dec 2010 00:03:42 -0800 (PST)
+In-Reply-To: <20101211042434.GB32453@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dean Nelson <dnelson@redhat.com>
+Le samedi 11 d=C3=A9cembre 2010 =C3=A0 13:24 +0900, Simon Horman a =C3=A9=
+crit :
+> On Sat, Dec 11, 2010 at 01:13:35PM +0900, Simon Horman wrote:
+> > Early orphaning is an optimisation which avoids unnecessary cache m=
+isses by
+> > orphaning an skb just before it is handed to a device for transmit =
+thus
+> > avoiding the case where the orphaning occurs on a different CPU.
+> >=20
+> > In the case of bonded devices this has the unfortunate side-effect =
+of
+> > breaking down flow control allowing a socket to send UDP packets as=
+ fast as
+> > the CPU will allow. This is particularly undesirable in virtualised
+> > network environments.
+> >=20
+> > This patch introduces ethtool control of early orphaning.
+> > It remains on by default by it now may be disabled on a per-interfa=
+ce basis.
+> >=20
+> > I have implemented this as a generic flag.
+> > As it seems to be the first generic flag that requires
+> > no driver awareness I also supplied a default flag handler.
+> > I am unsure if any aspect of this approach is acceptable.
+> >=20
+> > I believe Eric has it in mind that some of the calls
+> > to skb_orphan() in drivers can be removed with the addition
+> > of this feature. I need to discuss that with him further.
+> >=20
+> > A patch for the ethtool user-space utility accompanies this patch.
+>=20
+> The following results were measured using kvm using virto without vho=
+st net.
+> The virtio device is bridged to a bond device which has one gigabit s=
+lave.
+>=20
 
-Dean noticed that 'err' wasn't being set when the "goto err_dma"
-statement is executed in the following hunk from the commit. It's value
-will be zero as a result of a successful call to e1000_init_hw_struct().
+As you know, vhost net does the orphaning, as well as some NIC drivers,
+so one UDP flood would have same problem.
 
-This patch changes the error condition to be correctly propagated.
+I wonder if this problem could not be solved in other ways.
 
-CC: stable@kernel.org
-Signed-off-by:  Dean Nelson <dnelson@redhat.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/e1000/e1000_main.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 06c7d1c..491bf2a 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -971,11 +971,13 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
- 		 */
- 		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
- 		pci_using_dac = 1;
--	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
--		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
- 	} else {
--		pr_err("No usable DMA config, aborting\n");
--		goto err_dma;
-+		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
-+		if (err) {
-+			pr_err("No usable DMA config, aborting\n");
-+			goto err_dma;
-+		}
-+		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
- 	}
- 
- 	netdev->netdev_ops = &e1000_netdev_ops;
--- 
-1.7.3.2
+We might do early orphaning only for sockets with SOCK_USE_WRITE_QUEUE
+flag asserted. (tcp sets it)
+
+Then, we could also say : Why tcp use sock_wfree() at all...
+
+
+Hmm...
+
+
