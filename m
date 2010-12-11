@@ -1,129 +1,76 @@
 From: Jon Mason <jon.mason@exar.com>
-Subject: [PATCH 1/4] s2io: rx_ring_sz bounds checking
-Date: Fri, 10 Dec 2010 19:40:01 -0600
-Message-ID: <1292031604-16628-1-git-send-email-jon.mason@exar.com>
+Subject: [PATCH 2/4] s2io: make strings at tables const
+Date: Fri, 10 Dec 2010 19:40:02 -0600
+Message-ID: <1292031604-16628-2-git-send-email-jon.mason@exar.com>
+References: <1292031604-16628-1-git-send-email-jon.mason@exar.com>
 Cc: netdev@vger.kernel.org,
 	Sivakumar Subramani <sivakumar.subramani@exar.com>,
 	Sreenivasa Honnur <sreenivasa.honnur@exar.com>,
-	Ram Vepa <ram.vepa@exar.com>
+	Ram Vepa <ram.vepa@exar.com>,
+	Stephen Hemminger <shemminger@vyatta.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:61969 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753200Ab0LKBkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 20:40:11 -0500
-Received: by yxt3 with SMTP id 3so2420114yxt.19
-        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 17:40:10 -0800 (PST)
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:51829 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753200Ab0LKBkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 20:40:17 -0500
+Received: by gyb11 with SMTP id 11so2143889gyb.19
+        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 17:40:16 -0800 (PST)
+In-Reply-To: <1292031604-16628-1-git-send-email-jon.mason@exar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-modparm rx_ring_sz can be set to be greater than the maximum allowable
-number of blocks.  This results in an array overrun when probing the
-driver, and causes memory corruption.
+Put immutable data in read/only section.
 
-Also, the MAX_RX_DESC_1 multiply the max number of rings by max number
-of blocker per ring by 127, but the driver does the same calculation
-with 127+1.  This results in the possibility of the value being set
-being larger than the maximum allowable value.
-
-Finally, clean-up the s2io_ethtool_gringparam code to be more
-intuitive.
-
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 Signed-off-by: Jon Mason <jon.mason@exar.com>
 ---
- drivers/net/s2io.c |   40 ++++++++++++++++++++++++----------------
- drivers/net/s2io.h |    5 ++---
- 2 files changed, 26 insertions(+), 19 deletions(-)
+ drivers/net/s2io.c |    8 ++++----
+ drivers/net/s2io.h |    4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 0f4219c..a6d3eaf 100644
+index a6d3eaf..6a87b8c 100644
 --- a/drivers/net/s2io.c
 +++ b/drivers/net/s2io.c
-@@ -5568,30 +5568,27 @@ static void s2io_ethtool_gringparam(struct net_device *dev,
- 	struct s2io_nic *sp = netdev_priv(dev);
- 	int i, tx_desc_count = 0, rx_desc_count = 0;
+@@ -91,11 +91,11 @@
+ #define DRV_VERSION "2.0.26.27"
  
--	if (sp->rxd_mode == RXD_MODE_1)
-+	if (sp->rxd_mode == RXD_MODE_1) {
- 		ering->rx_max_pending = MAX_RX_DESC_1;
--	else if (sp->rxd_mode == RXD_MODE_3B)
-+		ering->rx_jumbo_max_pending = MAX_RX_DESC_1;
-+	} else {
- 		ering->rx_max_pending = MAX_RX_DESC_2;
-+		ering->rx_jumbo_max_pending = MAX_RX_DESC_2;
-+	}
+ /* S2io Driver name & version. */
+-static char s2io_driver_name[] = "Neterion";
+-static char s2io_driver_version[] = DRV_VERSION;
++static const char s2io_driver_name[] = "Neterion";
++static const char s2io_driver_version[] = DRV_VERSION;
  
-+	ering->rx_mini_max_pending = 0;
- 	ering->tx_max_pending = MAX_TX_DESC;
--	for (i = 0 ; i < sp->config.tx_fifo_num ; i++)
--		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
+-static int rxd_size[2] = {32, 48};
+-static int rxd_count[2] = {127, 85};
++static const int rxd_size[2] = {32, 48};
++static const int rxd_count[2] = {127, 85};
  
--	DBG_PRINT(INFO_DBG, "max txds: %d\n", sp->config.max_txds);
--	ering->tx_pending = tx_desc_count;
--	rx_desc_count = 0;
--	for (i = 0 ; i < sp->config.rx_ring_num ; i++)
-+	for (i = 0; i < sp->config.rx_ring_num; i++)
- 		rx_desc_count += sp->config.rx_cfg[i].num_rxd;
--
- 	ering->rx_pending = rx_desc_count;
--
--	ering->rx_mini_max_pending = 0;
--	ering->rx_mini_pending = 0;
--	if (sp->rxd_mode == RXD_MODE_1)
--		ering->rx_jumbo_max_pending = MAX_RX_DESC_1;
--	else if (sp->rxd_mode == RXD_MODE_3B)
--		ering->rx_jumbo_max_pending = MAX_RX_DESC_2;
- 	ering->rx_jumbo_pending = rx_desc_count;
-+	ering->rx_mini_pending = 0;
-+
-+	for (i = 0; i < sp->config.tx_fifo_num; i++)
-+		tx_desc_count += sp->config.tx_cfg[i].fifo_len;
-+	ering->tx_pending = tx_desc_count;
-+	DBG_PRINT(INFO_DBG, "max txds: %d\n", sp->config.max_txds);
- }
- 
- /**
-@@ -7692,6 +7689,8 @@ static void s2io_init_pci(struct s2io_nic *sp)
- static int s2io_verify_parm(struct pci_dev *pdev, u8 *dev_intr_type,
- 			    u8 *dev_multiq)
+ static inline int RXD_IS_UP2DT(struct RxD_t *rxdp)
  {
-+	int i;
-+
- 	if ((tx_fifo_num > MAX_TX_FIFOS) || (tx_fifo_num < 1)) {
- 		DBG_PRINT(ERR_DBG, "Requested number of tx fifos "
- 			  "(%d) not supported\n", tx_fifo_num);
-@@ -7750,6 +7749,15 @@ static int s2io_verify_parm(struct pci_dev *pdev, u8 *dev_intr_type,
- 		DBG_PRINT(ERR_DBG, "Defaulting to 1-buffer mode\n");
- 		rx_ring_mode = 1;
- 	}
-+
-+	for (i = 0; i < MAX_RX_RINGS; i++)
-+		if (rx_ring_sz[i] > MAX_RX_BLOCKS_PER_RING) {
-+			DBG_PRINT(ERR_DBG, "Requested rx ring size not "
-+				  "supported\nDefaulting to %d\n",
-+				  MAX_RX_BLOCKS_PER_RING);
-+			rx_ring_sz[i] = MAX_RX_BLOCKS_PER_RING;
-+		}
-+
- 	return SUCCESS;
- }
- 
 diff --git a/drivers/net/s2io.h b/drivers/net/s2io.h
-index 00b8614..1671443 100644
+index 1671443..7d16030 100644
 --- a/drivers/net/s2io.h
 +++ b/drivers/net/s2io.h
-@@ -355,9 +355,8 @@ struct stat_block {
- #define FIFO_OTHER_MAX_NUM			1
- 
- 
--#define MAX_RX_DESC_1  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 127 )
--#define MAX_RX_DESC_2  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 85 )
--#define MAX_RX_DESC_3  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 85 )
-+#define MAX_RX_DESC_1  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 128)
-+#define MAX_RX_DESC_2  (MAX_RX_RINGS * MAX_RX_BLOCKS_PER_RING * 86)
+@@ -360,7 +360,7 @@ struct stat_block {
  #define MAX_TX_DESC    (MAX_AVAILABLE_TXDS)
  
  /* FIFO mappings for all possible number of fifos configured */
+-static int fifo_map[][MAX_TX_FIFOS] = {
++static const int fifo_map[][MAX_TX_FIFOS] = {
+ 	{0, 0, 0, 0, 0, 0, 0, 0},
+ 	{0, 0, 0, 0, 1, 1, 1, 1},
+ 	{0, 0, 0, 1, 1, 1, 2, 2},
+@@ -371,7 +371,7 @@ static int fifo_map[][MAX_TX_FIFOS] = {
+ 	{0, 1, 2, 3, 4, 5, 6, 7},
+ };
+ 
+-static u16 fifo_selector[MAX_TX_FIFOS] = {0, 1, 3, 3, 7, 7, 7, 7};
++static const u16 fifo_selector[MAX_TX_FIFOS] = {0, 1, 3, 3, 7, 7, 7, 7};
+ 
+ /* Maintains Per FIFO related information. */
+ struct tx_fifo_config {
 -- 
 1.7.0.4
 
