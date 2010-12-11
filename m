@@ -1,132 +1,116 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: [net-2.6 PATCH 1/1] qlge: Fix deadlock when cancelling worker.
-Date: Sat, 11 Dec 2010 13:06:50 -0800
-Message-ID: <1292101610-30661-1-git-send-email-ron.mercer@qlogic.com>
-References: <4CF95995.1070506@gmail.com>
-Cc: netdev@vger.kernel.org, ron.mercer@qlogic.com, jarkao2@gmail.com,
-	mingo@elte.hu, Linux-Driver@qlogic.com
-To: davem@davemloft.net
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] rfc: ethtool: early-orphan control
+Date: Sun, 12 Dec 2010 07:40:20 +0900
+Message-ID: <20101211224018.GA2547@verge.net.au>
+References: <1292040815-10439-1-git-send-email-horms@verge.net.au>
+ <20101211042434.GB32453@verge.net.au>
+ <1292054618.2746.48.camel@edumazet-laptop>
+ <1292087480.2746.54.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cain.qlogic.com ([198.70.193.223]:41230 "EHLO cain.qlc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751597Ab0LKVTj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Dec 2010 16:19:39 -0500
-In-Reply-To: <4CF95995.1070506@gmail.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43473 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751675Ab0LKWk0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 17:40:26 -0500
+Content-Disposition: inline
+In-Reply-To: <1292087480.2746.54.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removing usage of rtnl_lock() to protect firmware interface registers.
-These registers are accessed in some worker threads and can create a
-deadlock if rtnl_lock is taken by upper layers while the worker is still
-pending.
-We remove rtnl_lock and use a driver mutex just while mailboxes are
-accessed.
+On Sat, Dec 11, 2010 at 06:11:20PM +0100, Eric Dumazet wrote:
+> Le samedi 11 d=C3=A9cembre 2010 =C3=A0 09:03 +0100, Eric Dumazet a =C3=
+=A9crit :
+> > Le samedi 11 d=C3=A9cembre 2010 =C3=A0 13:24 +0900, Simon Horman a =
+=C3=A9crit :
+> > > On Sat, Dec 11, 2010 at 01:13:35PM +0900, Simon Horman wrote:
+> > > > Early orphaning is an optimisation which avoids unnecessary cac=
+he misses by
+> > > > orphaning an skb just before it is handed to a device for trans=
+mit thus
+> > > > avoiding the case where the orphaning occurs on a different CPU=
+=2E
+> > > >=20
+> > > > In the case of bonded devices this has the unfortunate side-eff=
+ect of
+> > > > breaking down flow control allowing a socket to send UDP packet=
+s as fast as
+> > > > the CPU will allow. This is particularly undesirable in virtual=
+ised
+> > > > network environments.
+> > > >=20
+> > > > This patch introduces ethtool control of early orphaning.
+> > > > It remains on by default by it now may be disabled on a per-int=
+erface basis.
+> > > >=20
+> > > > I have implemented this as a generic flag.
+> > > > As it seems to be the first generic flag that requires
+> > > > no driver awareness I also supplied a default flag handler.
+> > > > I am unsure if any aspect of this approach is acceptable.
+> > > >=20
+> > > > I believe Eric has it in mind that some of the calls
+> > > > to skb_orphan() in drivers can be removed with the addition
+> > > > of this feature. I need to discuss that with him further.
+> > > >=20
+> > > > A patch for the ethtool user-space utility accompanies this pat=
+ch.
+> > >=20
+> > > The following results were measured using kvm using virto without=
+ vhost net.
+> > > The virtio device is bridged to a bond device which has one gigab=
+it slave.
+> > >=20
+> >=20
+> > As you know, vhost net does the orphaning, as well as some NIC driv=
+ers,
+> > so one UDP flood would have same problem.
+> >=20
+> > I wonder if this problem could not be solved in other ways.
+> >=20
+> >=20
+> > We might do early orphaning only for sockets with SOCK_USE_WRITE_QU=
+EUE
+> > flag asserted. (tcp sets it)
+> >=20
+> > Then, we could also say : Why tcp use sock_wfree() at all...
+> >=20
+>=20
+> I removed skb_orphan_try() and did a quick test, with bonding or not,
+> same results on a Gigabit interface.
+>=20
+> $ netperf -C -c -4 -t UDP_STREAM -H 55.225.18.57 -- -m 1000
+> UDP UNIDIRECTIONAL SEND TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to=
+ 55.225.18.57 (55.225.18.57) port 0 AF_INET
+> Socket  Message  Elapsed      Messages                   CPU      Ser=
+vice
+> Size    Size     Time         Okay Errors   Throughput   Util     Dem=
+and
+> bytes   bytes    secs            #      #   10^6bits/sec % SS     us/=
+KB
+>=20
+> 10000000    1000   10.00     6611385      0     5289.0     13.18    9=
+=2E278=20
+> 1000000           10.00     1163454             930.7     4.58     6.=
+456=20
+>=20
+>=20
+> As soon as 'socket size' is big enough, UDP flow control is ineffecti=
+ve,
+> and no error is reported to user. sendto() says all frames were prope=
+rly sent.
+>=20
 
-Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
----
- drivers/net/qlge/qlge.h      |    1 +
- drivers/net/qlge/qlge_main.c |    1 +
- drivers/net/qlge/qlge_mpi.c  |   12 ++++--------
- 3 files changed, 6 insertions(+), 8 deletions(-)
+Yes, I've done that test too (as you suggested previously). But my thou=
+ght
+was that in a virtualised environment the administrator of the host can=
+ set
+the socket size to be small enough and the guest can't change it.
 
-diff --git a/drivers/net/qlge/qlge.h b/drivers/net/qlge/qlge.h
-index 2282139..9787dff 100644
---- a/drivers/net/qlge/qlge.h
-+++ b/drivers/net/qlge/qlge.h
-@@ -2083,6 +2083,7 @@ struct ql_adapter {
- 	u32 mailbox_in;
- 	u32 mailbox_out;
- 	struct mbox_params idc_mbc;
-+	struct mutex	mpi_mutex;
- 
- 	int tx_ring_size;
- 	int rx_ring_size;
-diff --git a/drivers/net/qlge/qlge_main.c b/drivers/net/qlge/qlge_main.c
-index 528eaef..2555b1d 100644
---- a/drivers/net/qlge/qlge_main.c
-+++ b/drivers/net/qlge/qlge_main.c
-@@ -4629,6 +4629,7 @@ static int __devinit ql_init_device(struct pci_dev *pdev,
- 	INIT_DELAYED_WORK(&qdev->mpi_idc_work, ql_mpi_idc_work);
- 	INIT_DELAYED_WORK(&qdev->mpi_core_to_log, ql_mpi_core_to_log);
- 	init_completion(&qdev->ide_completion);
-+	mutex_init(&qdev->mpi_mutex);
- 
- 	if (!cards_found) {
- 		dev_info(&pdev->dev, "%s\n", DRV_STRING);
-diff --git a/drivers/net/qlge/qlge_mpi.c b/drivers/net/qlge/qlge_mpi.c
-index 0e7c7c7..a2e919b 100644
---- a/drivers/net/qlge/qlge_mpi.c
-+++ b/drivers/net/qlge/qlge_mpi.c
-@@ -534,6 +534,7 @@ static int ql_mailbox_command(struct ql_adapter *qdev, struct mbox_params *mbcp)
- 	int status;
- 	unsigned long count;
- 
-+	mutex_lock(&qdev->mpi_mutex);
- 
- 	/* Begin polled mode for MPI */
- 	ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16));
-@@ -603,6 +604,7 @@ done:
- end:
- 	/* End polled mode for MPI */
- 	ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16) | INTR_MASK_PI);
-+	mutex_unlock(&qdev->mpi_mutex);
- 	return status;
- }
- 
-@@ -1099,9 +1101,7 @@ int ql_wait_fifo_empty(struct ql_adapter *qdev)
- static int ql_set_port_cfg(struct ql_adapter *qdev)
- {
- 	int status;
--	rtnl_lock();
- 	status = ql_mb_set_port_cfg(qdev);
--	rtnl_unlock();
- 	if (status)
- 		return status;
- 	status = ql_idc_wait(qdev);
-@@ -1122,9 +1122,7 @@ void ql_mpi_port_cfg_work(struct work_struct *work)
- 	    container_of(work, struct ql_adapter, mpi_port_cfg_work.work);
- 	int status;
- 
--	rtnl_lock();
- 	status = ql_mb_get_port_cfg(qdev);
--	rtnl_unlock();
- 	if (status) {
- 		netif_err(qdev, drv, qdev->ndev,
- 			  "Bug: Failed to get port config data.\n");
-@@ -1167,7 +1165,6 @@ void ql_mpi_idc_work(struct work_struct *work)
- 	u32 aen;
- 	int timeout;
- 
--	rtnl_lock();
- 	aen = mbcp->mbox_out[1] >> 16;
- 	timeout = (mbcp->mbox_out[1] >> 8) & 0xf;
- 
-@@ -1231,7 +1228,6 @@ void ql_mpi_idc_work(struct work_struct *work)
- 		}
- 		break;
- 	}
--	rtnl_unlock();
- }
- 
- void ql_mpi_work(struct work_struct *work)
-@@ -1242,7 +1238,7 @@ void ql_mpi_work(struct work_struct *work)
- 	struct mbox_params *mbcp = &mbc;
- 	int err = 0;
- 
--	rtnl_lock();
-+	mutex_lock(&qdev->mpi_mutex);
- 	/* Begin polled mode for MPI */
- 	ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16));
- 
-@@ -1259,7 +1255,7 @@ void ql_mpi_work(struct work_struct *work)
- 
- 	/* End polled mode for MPI */
- 	ql_write32(qdev, INTR_MASK, (INTR_MASK_PI << 16) | INTR_MASK_PI);
--	rtnl_unlock();
-+	mutex_unlock(&qdev->mpi_mutex);
- 	ql_enable_completion_interrupt(qdev, 0);
- }
- 
--- 
-1.6.0.2
+However, I now realise that the same effect can be produced
+in the guest's network stack by increasing wmem_default there.
+So I'm not sure that this change is useful after all. And I've
+got a worse flow control problem than I previously realised.
 
