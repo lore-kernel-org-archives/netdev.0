@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 19/27] e1000e: 82571 Serdes can fail to get link
-Date: Fri, 10 Dec 2010 22:19:06 -0800
-Message-ID: <1292048354-22076-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [PATCH 21/27] e1000e: 82579 PHY incorrectly identified during init
+Date: Fri, 10 Dec 2010 22:19:08 -0800
+Message-ID: <1292048354-22076-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1292048354-22076-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta09.emeryville.ca.mail.comcast.net ([76.96.30.96]:49658 "EHLO
-	qmta09.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751913Ab0LKGTj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 01:19:39 -0500
+Received: from qmta01.emeryville.ca.mail.comcast.net ([76.96.30.16]:59403 "EHLO
+	qmta01.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751914Ab0LKGTl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 01:19:41 -0500
 To: davem@davemloft.net
 In-Reply-To: <1292048354-22076-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
@@ -19,80 +19,90 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-When link partner is sending continuous Config symbols, the 82571 Serdes
-FIFO can overflow resulting in Invalid bit getting set.  To resolve this,
-if Sync and Config bits are both 1 ignore the Invalid bit and restart
-auto-negotiation.
+During init, reading the 2 PHY ID registers back-to-back in the default
+fast mode could return invalid data (all F's) and in slow mode could
+return data to the second read the data from the first read.  To resolve
+the issue in fast mode, set to slow mode before any PHY accesses; to
+resolve the issue in slow mode, put in a delay for every 82579 PHY access.
+Since this PHY is currently only paired with the pch2lan MAC and the PHY
+type is not known before the first PHY access which can fail this way,
+check for this based on MAC-type.
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/82571.c |   35 +++++++++++++++++++++++++++--------
- 1 files changed, 27 insertions(+), 8 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   16 +++++++++++-----
+ drivers/net/e1000e/phy.c     |   14 ++++++++++++++
+ 2 files changed, 25 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 280d41f..e57e409 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -52,6 +52,7 @@
- 			      (ID_LED_DEF1_DEF2))
- 
- #define E1000_GCR_L1_ACT_WITHOUT_L0S_RX 0x08000000
-+#define AN_RETRY_COUNT          5 /* Autoneg Retry Count value */
- #define E1000_BASE1000T_STATUS          10
- #define E1000_IDLE_ERROR_COUNT_MASK     0xFF
- #define E1000_RECEIVE_ERROR_COUNTER     21
-@@ -1503,6 +1504,8 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 	u32 rxcw;
- 	u32 ctrl;
- 	u32 status;
-+	u32 txcw;
-+	u32 i;
- 	s32 ret_val = 0;
- 
- 	ctrl = er32(CTRL);
-@@ -1613,16 +1616,32 @@ static s32 e1000_check_for_serdes_link_82571(struct e1000_hw *hw)
- 			e_dbg("ANYSTATE  -> DOWN\n");
- 		} else {
- 			/*
--			 * We have sync, and can tolerate one invalid (IV)
--			 * codeword before declaring link down, so reread
--			 * to look again.
-+			 * Check several times, if Sync and Config
-+			 * both are consistently 1 then simply ignore
-+			 * the Invalid bit and restart Autoneg
- 			 */
--			udelay(10);
--			rxcw = er32(RXCW);
--			if (rxcw & E1000_RXCW_IV) {
--				mac->serdes_link_state = e1000_serdes_link_down;
-+			for (i = 0; i < AN_RETRY_COUNT; i++) {
-+				udelay(10);
-+				rxcw = er32(RXCW);
-+				if ((rxcw & E1000_RXCW_IV) &&
-+				    !((rxcw & E1000_RXCW_SYNCH) &&
-+				      (rxcw & E1000_RXCW_C))) {
-+					mac->serdes_has_link = false;
-+					mac->serdes_link_state =
-+					    e1000_serdes_link_down;
-+					e_dbg("ANYSTATE  -> DOWN\n");
-+					break;
-+				}
-+			}
-+
-+			if (i == AN_RETRY_COUNT) {
-+				txcw = er32(TXCW);
-+				txcw |= E1000_TXCW_ANE;
-+				ew32(TXCW, txcw);
-+				mac->serdes_link_state =
-+				    e1000_serdes_link_autoneg_progress;
- 				mac->serdes_has_link = false;
--				e_dbg("ANYSTATE  -> DOWN\n");
-+				e_dbg("ANYSTATE  -> AN_PROG\n");
- 			}
- 		}
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index d7fc930..5080372 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -338,12 +338,17 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
  	}
+ 
+ 	phy->id = e1000_phy_unknown;
+-	ret_val = e1000e_get_phy_id(hw);
+-	if (ret_val)
+-		goto out;
+-	if ((phy->id == 0) || (phy->id == PHY_REVISION_MASK)) {
++	switch (hw->mac.type) {
++	default:
++		ret_val = e1000e_get_phy_id(hw);
++		if (ret_val)
++			goto out;
++		if ((phy->id != 0) && (phy->id != PHY_REVISION_MASK))
++			break;
++		/* fall-through */
++	case e1000_pch2lan:
+ 		/*
+-		 * In case the PHY needs to be in mdio slow mode (eg. 82577),
++		 * In case the PHY needs to be in mdio slow mode,
+ 		 * set slow mode and try to get the PHY id again.
+ 		 */
+ 		ret_val = e1000_set_mdio_slow_mode_hv(hw);
+@@ -352,6 +357,7 @@ static s32 e1000_init_phy_params_pchlan(struct e1000_hw *hw)
+ 		ret_val = e1000e_get_phy_id(hw);
+ 		if (ret_val)
+ 			goto out;
++		break;
+ 	}
+ 	phy->type = e1000e_get_phy_type_from_id(phy->id);
+ 
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 6ad90cc..95da386 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -226,6 +226,13 @@ s32 e1000e_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data)
+ 	}
+ 	*data = (u16) mdic;
+ 
++	/*
++	 * Allow some time after each MDIC transaction to avoid
++	 * reading duplicate data in the next MDIC transaction.
++	 */
++	if (hw->mac.type == e1000_pch2lan)
++		udelay(100);
++
+ 	return 0;
+ }
+ 
+@@ -279,6 +286,13 @@ s32 e1000e_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data)
+ 		return -E1000_ERR_PHY;
+ 	}
+ 
++	/*
++	 * Allow some time after each MDIC transaction to avoid
++	 * reading duplicate data in the next MDIC transaction.
++	 */
++	if (hw->mac.type == e1000_pch2lan)
++		udelay(100);
++
+ 	return 0;
+ }
+ 
 -- 
 1.7.3.2
 
