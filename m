@@ -1,116 +1,119 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] rfc: ethtool: early-orphan control (user-space)
-Date: Sat, 11 Dec 2010 14:10:48 +0900
-Message-ID: <20101211051048.GD32453@verge.net.au>
-References: <1292040838-10579-1-git-send-email-horms@verge.net.au>
- <1292042650.3136.20.camel@localhost>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next-2.6 03/27] Documentation/networking/igb.txt: update documentation
+Date: Fri, 10 Dec 2010 21:25:59 -0800
+Message-ID: <AANLkTimAZNyowHaZ_qUWEiTfr1qDDoZtb69JbxyBsUX_@mail.gmail.com>
+References: <1291974667-30254-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1291974667-30254-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1291996224.11673.2.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, davem@davemleft.org, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:47771 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777Ab0LKFKw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 00:10:52 -0500
-Content-Disposition: inline
-In-Reply-To: <1292042650.3136.20.camel@localhost>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:38557 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795Ab0LKF0A convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 00:26:00 -0500
+Received: by iwn9 with SMTP id 9so6638717iwn.5
+        for <netdev@vger.kernel.org>; Fri, 10 Dec 2010 21:25:59 -0800 (PST)
+In-Reply-To: <1291996224.11673.2.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 11, 2010 at 04:44:10AM +0000, Ben Hutchings wrote:
-> On Sat, 2010-12-11 at 13:13 +0900, Simon Horman wrote:
-> [...]
-> > diff --git a/ethtool.c b/ethtool.c
-> > index 239912b..579b4e4 100644
-> > --- a/ethtool.c
-> > +++ b/ethtool.c
-> > @@ -163,7 +163,8 @@ static struct option {
-> >  		"		[ xcvr internal|external ]\n"
-> >  		"		[ wol p|u|m|b|a|g|s|d... ]\n"
-> >  		"		[ sopass %x:%x:%x:%x:%x:%x ]\n"
-> > -		"		[ msglvl %d | msglvl type on|off ... ]\n" },
-> > +		"		[ msglvl %d | msglvl type on|off ... ]\n"
-> > +		"		[ early-orphan on|off ]\n" },
-> >      { "-a", "--show-pause", MODE_GPAUSE, "Show pause options" },
-> >      { "-A", "--pause", MODE_SPAUSE, "Set pause options",
-> >        "		[ autoneg on|off ]\n"
-> > @@ -411,6 +412,10 @@ static int msglvl_changed;
-> >  static u32 msglvl_wanted = 0;
-> >  static u32 msglvl_mask = 0;
-> >  
-> > +static u32 generic_flags_changed;
-> > +static u32 generic_flags_wanted = 0;
-> > +static u32 generic_flags_mask = 0;
-> > +
-> >  static enum {
-> >  	ONLINE=0,
-> >  	OFFLINE,
-> > @@ -608,6 +613,11 @@ static struct cmdline_info cmdline_msglvl[] = {
-> >  	  NETIF_MSG_WOL, &msglvl_mask },
-> >  };
-> >  
-> > +static struct cmdline_info cmdline_generic_flags[] = {
-> > +	{ "early-orphan", CMDL_FLAG, &generic_flags_wanted, NULL,
-> > +	  ETH_FLAG_EARLY_ORPHAN, &generic_flags_mask },
-> > +};
-> > +
-> >  static long long
-> >  get_int_range(char *str, int base, long long min, long long max)
-> >  {
-> > @@ -1125,7 +1135,13 @@ static void parse_cmdline(int argc, char **argp)
-> >  				}
-> >  				break;
-> >  			}
-> > -			show_usage(1);
-> > +			parse_generic_cmdline(
-> > +					argc, argp, i,
-> > +					&generic_flags_changed,
-> > +					cmdline_generic_flags,
-> > +					ARRAY_SIZE(cmdline_generic_flags));
-> > +			i = argc;
-> > +			break;
-> 
-> This seems to introduce an order-dependency which doesn't exist with any
-> of the other keyword arguments after -s.
+On Fri, Dec 10, 2010 at 07:50, Ben Hutchings <bhutchings@solarflare.com=
+> wrote:
+> On Fri, 2010-12-10 at 01:50 -0800, Jeff Kirsher wrote:
+>> Update Intel Wired LAN igb documentation.
+>>
+>> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> ---
+>> =C2=A0Documentation/networking/igb.txt | =C2=A0 22 +++++++++++++++++=
+++---
+>> =C2=A01 files changed, 19 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/Documentation/networking/igb.txt b/Documentation/networ=
+king/igb.txt
+>> index ab2d718..393bdb7 100644
+>> --- a/Documentation/networking/igb.txt
+>> +++ b/Documentation/networking/igb.txt
+>> @@ -36,6 +36,7 @@ Default Value: 0
+>> =C2=A0This parameter adds support for SR-IOV. =C2=A0It causes the dr=
+iver to spawn up to
+>> =C2=A0max_vfs worth of virtual function.
+>>
+>> +
+>> =C2=A0Additional Configurations
+>> =C2=A0=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D
+>>
+>> @@ -60,7 +61,8 @@ Additional Configurations
+>> =C2=A0 =C2=A0Ethtool
+>> =C2=A0 =C2=A0-------
+>> =C2=A0 =C2=A0The driver utilizes the ethtool interface for driver co=
+nfiguration and
+>> - =C2=A0diagnostics, as well as displaying statistical information.
+>> + =C2=A0diagnostics, as well as displaying statistical information. =
+The latest
+>> + =C2=A0version of Ethtool can be found at:
+>>
+>> =C2=A0 =C2=A0http://sourceforge.net/projects/gkernel.
+>
+> Please update this to:
+> http://ftp.kernel.org/pub/software/network/ethtool/
+>
+>> @@ -103,8 +105,8 @@ Additional Configurations
+>>
+>> =C2=A0 =C2=A0NOTE: You need to have inet_lro enabled via either the =
+CONFIG_INET_LRO or
+>> =C2=A0 =C2=A0CONFIG_INET_LRO_MODULE kernel config option. Additional=
+ly, if
+>> - =C2=A0CONFIG_INET_LRO_MODULE is used, the inet_lro module needs to=
+ be loaded
+>> - =C2=A0before the igb driver.
+>> + =C2=A0CONFIG_INET_LRO_MODULE is used, the inet_lro module needs to=
+ be loaded before
+>> + =C2=A0the igb driver.
+>
+> This should be removed as you don't use inet_lro any more.
+>
+>> =C2=A0 =C2=A0You can verify that the driver is using LRO by looking =
+at these counters in
+>> =C2=A0 =C2=A0Ethtool:
+>> @@ -116,6 +118,20 @@ Additional Configurations
+>>
+>> =C2=A0 =C2=A0NOTE: IPv6 and UDP are not supported by LRO.
+>>
+>> + =C2=A0MAC and VLAN anti-spoofing feature
+>> + =C2=A0----------------------------------
+>> + =C2=A0When a malicious driver attempts to send a spoofed packet, i=
+t is dropped by
+>> + =C2=A0the hardware and not transmitted. =C2=A0An interrupt is sent=
+ to the PF driver
+>> + =C2=A0notifying it of the spoof attempt.
+>> +
+>> + =C2=A0When a spoofed packet is detected the PF driver will send th=
+e following
+>> + =C2=A0message to the system log (displayed by =C2=A0the "dmesg" co=
+mmand):
+>> +
+>> + =C2=A0Spoof event(s) detected on VF(n)
+>> +
+>> + =C2=A0Where n=3Dthe VF that attempted to do the spoofing.
+>
+> I can't see that message in the PF driver code; does this actually ap=
+ply
+> to the in-tree driver? =C2=A0Also I hope this is rate-limited.
+>
+> Ben.
+>
 
-Perhaps it would be better to just open-code the parsing
-as per the rest of parse_generic_cmdline()?
+=46or once the documentation was ahead of the code... :) I will update
+the patch, and I have updated the anti-spoofing patch we have in
+testing to also update the documentation at the same time the code is
+updated.
 
-> [...]
-> > +       if (generic_flags_changed) {
-> > +               printf("generic flags changed\n");
-> > +               struct ethtool_value edata;
-> > +
-> > +               edata.cmd = ETHTOOL_GFLAGS;
-> > +               edata.data = 0;
-> > +               ifr->ifr_data = (caddr_t)&edata;
-> > +               err = ioctl(fd, SIOCETHTOOL, ifr);
-> > +               if (err) {
-> > +                       perror("Cannot get device flag settings");
-> > +                       return 91;
-> > +               }
-> > +
-> > +               edata.cmd = ETHTOOL_SFLAGS;
-> > +               edata.data = ((edata.data & ~generic_flags_mask) |
-> > +                             generic_flags_wanted);
-> > +
-> > +               err = ioctl(fd, SIOCETHTOOL, ifr);
-> > +               if (err)
-> > +                       perror("Cannot set device flag settings");
-> > +       }
-> >         return 0;
-> >  }
-> [...]
-> 
-> This has a silent failure case (silent to any script checking the exit
-> code, anyway).
-
-Oops, sorry about that. I think that it should be:
-
-                err = ioctl(fd, SIOCETHTOOL, ifr);
-                if (err) {
-                        perror("Cannot set device flag settings");
-                        return 92;
-                }
-
+--=20
+Cheers,
+Jeff
