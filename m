@@ -1,65 +1,113 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] rfc: ethtool: early-orphan control
-Date: Sat, 11 Dec 2010 05:46:20 +0000
-Message-ID: <1292046380.3136.24.camel@localhost>
-References: <1292040815-10439-1-git-send-email-horms@verge.net.au>
-	 <1292042278.3136.14.camel@localhost> <20101211050447.GC32453@verge.net.au>
-	 <20101211053945.GA2101@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Simon Horman <horms@verge.net.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/27][pull-request] Intel Wired LAN Driver Updates
+Date: Fri, 10 Dec 2010 22:16:54 -0800
+Message-ID: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:22878 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943Ab0LKFqY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 00:46:24 -0500
-In-Reply-To: <20101211053945.GA2101@verge.net.au>
+Received: from qmta13.emeryville.ca.mail.comcast.net ([76.96.27.243]:50050
+	"EHLO qmta13.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750736Ab0LKGR2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 01:17:28 -0500
+To: davem@davemloft.net
+To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-12-11 at 14:39 +0900, Simon Horman wrote:
-> On Sat, Dec 11, 2010 at 02:04:47PM +0900, Simon Horman wrote:
-> > On Sat, Dec 11, 2010 at 04:37:58AM +0000, Ben Hutchings wrote:
-> > > On Sat, 2010-12-11 at 13:13 +0900, Simon Horman wrote:
-> > > > Early orphaning is an optimisation which avoids unnecessary cache misses by
-> > > > orphaning an skb just before it is handed to a device for transmit thus
-> > > > avoiding the case where the orphaning occurs on a different CPU.
-> > > > 
-> > > > In the case of bonded devices this has the unfortunate side-effect of
-> > > > breaking down flow control allowing a socket to send UDP packets as fast as
-> > > > the CPU will allow. This is particularly undesirable in virtualised
-> > > > network environments.
-> > > > 
-> > > > This patch introduces ethtool control of early orphaning.
-> > > > It remains on by default by it now may be disabled on a per-interface basis.
-> > > > 
-> > > > I have implemented this as a generic flag.
-> > > > As it seems to be the first generic flag that requires
-> > > > no driver awareness I also supplied a default flag handler.
-> > > > I am unsure if any aspect of this approach is acceptable.
-> > > 
-> > > I'm not convinced that this belongs in the ethtool API.  It doesn't seem
-> > > to have anything to do with hardware or driver behaviour.  The flag
-> > > belongs in priv_flags, not features.
-> > 
-> > Ok, I have no objection to it going in priv_flags so long
-> > as it can be exposed to user-space in some sensible fashion.
-> > Do you have any thoughts on how best to achieve that?
-> 
-> Sorry, I realise that was a pretty silly question
-> as I now see ETHTOOL_GPFLAGS and ETHTOOL_SPFLAGS.
+Here are a batch of fixes and cleanups intended for 2.6.38.
 
-Not a silly question.  The ETHTOOL_{G,S}PFLAGS commands are for
-driver-specific flags while net_device::priv_flags is used by the
-networking core and some special drivers (IFF_802_1Q_VLAN etc. in
-<linux/if.h>).
+v2- updated igb.txt and e1000e (patch 27) based on feedback from
+    Ben Hutchings and Joe Perches.
 
-Ben.
+The following changes since commit:
+
+commit a5d62a149bb8f5359aff7ed7dce339752fbabfd9
+Author: David S. Miller <davem@davemloft.net>
+Date:   Fri Dec 10 16:49:24 2010 -0800
+  isdn: Fix printed out copy_from_user() return value after previous change
+
+are available in the git repository at:
+
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git master
+
+
+Bruce Allan (11):
+  e1000e: 82571-based mezzanine card can fail ethtool link test
+  e1000e: 82574/82583 performance improvement
+  e1000e: 82577/8 must acquire h/w semaphore before workaround
+  e1000e: 82571 Serdes can fail to get link
+  e1000e: 82577/8/9 mis-configured OEM bits during S0->Sx
+  e1000e: 82579 PHY incorrectly identified during init
+  e1000e: support new PBA format from EEPROM
+  e1000e: prevent null ptr dereference in e1000_tx_queue()
+  e1000e: minor error message corrections
+  e1000e: static analysis tools complain of a possible null ptr p
+    dereference
+  e1000e: increment the driver version
+
+Carolyn Wyborny (1):
+  igb: Add new function to read part number from EEPROM in string
+    format
+
+Dean Nelson (1):
+  e1000: fix return value not set on error
+
+Don Skidmore (3):
+  ixgbe: fix X540 phy id to correct value
+  ixgbe: fix X540 to use it's own info struct
+  ixgbe: cleanup string function calls to use bound checking versions.
+
+Emil Tantilov (2):
+  ixgb: Don't check for vlan group on transmit
+  ixgbe: fix ntuple support
+
+Holger Eitzenberger (1):
+  e1000e: fix double initialization in blink path
+
+Jeff Kirsher (8):
+  Documentation/networking/e1000.txt: Update documentation
+  Documentation/networking/e1000e.txt: Update documentation
+  Documentation/networking/igb.txt: update documentation
+  Documentation/networking/igbvf.txt: Update documentation
+  Documentation/networking/ixgbe.txt: Update ixgbe documentation
+  Documentation/networking/ixgbevf.txt: Update documentation
+  MAINTAINERS: Update Intel Wired LAN info
+  Intel Wired LAN drivers: Use static const
+
+ Documentation/networking/e1000.txt   |   10 +-
+ Documentation/networking/e1000e.txt  |   40 ++++---
+ Documentation/networking/igb.txt     |   31 +-----
+ Documentation/networking/igbvf.txt   |    4 +-
+ Documentation/networking/ixgbe.txt   |  211 ++++++++++++++++++++++------------
+ Documentation/networking/ixgbevf.txt |    4 -
+ MAINTAINERS                          |    2 +
+ drivers/net/e1000/e1000_hw.c         |   20 ++--
+ drivers/net/e1000/e1000_main.c       |   10 +-
+ drivers/net/e1000/e1000_param.c      |   13 +-
+ drivers/net/e1000e/82571.c           |   46 ++++++--
+ drivers/net/e1000e/defines.h         |    8 +-
+ drivers/net/e1000e/e1000.h           |    4 +-
+ drivers/net/e1000e/ethtool.c         |   13 ++-
+ drivers/net/e1000e/ich8lan.c         |   18 ++-
+ drivers/net/e1000e/lib.c             |  135 ++++++++++++++++++----
+ drivers/net/e1000e/netdev.c          |   21 ++--
+ drivers/net/e1000e/param.c           |    2 +-
+ drivers/net/e1000e/phy.c             |   25 +++-
+ drivers/net/igb/e1000_defines.h      |    7 +
+ drivers/net/igb/e1000_nvm.c          |   93 ++++++++++++++-
+ drivers/net/igb/e1000_nvm.h          |    2 +
+ drivers/net/igb/e1000_phy.c          |   11 +-
+ drivers/net/igb/igb_main.c           |   11 +-
+ drivers/net/ixgb/ixgb_main.c         |   51 +++++----
+ drivers/net/ixgb/ixgb_param.c        |   21 ++--
+ drivers/net/ixgbe/ixgbe_ethtool.c    |   31 +++--
+ drivers/net/ixgbe/ixgbe_main.c       |   32 +++---
+ drivers/net/ixgbe/ixgbe_phy.c        |    2 +-
+ drivers/net/ixgbe/ixgbe_type.h       |    2 +-
+ drivers/net/ixgbe/ixgbe_x540.c       |    4 +-
+ drivers/net/ixgbevf/ethtool.c        |   18 ++-
+ 32 files changed, 608 insertions(+), 294 deletions(-)
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.3.2
 
