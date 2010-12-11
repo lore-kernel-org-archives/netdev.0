@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/27][pull-request] Intel Wired LAN Driver Updates
-Date: Sat, 11 Dec 2010 11:44:27 -0800 (PST)
-Message-ID: <20101211.114427.226779220.davem@davemloft.net>
-References: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH 04/27] Documentation/networking/igbvf.txt: Update
+ documentation
+Date: Sat, 11 Dec 2010 11:44:54 -0800 (PST)
+Message-ID: <20101211.114454.71118588.davem@davemloft.net>
+References: <1292048241-22026-5-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1292049249.3136.28.camel@localhost>
+	<AANLkTikUqZsaSg-q+GJvRrUb4C8rFZSbBta0tyeh==Ay@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47896
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47903
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751354Ab0LKTn7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 14:43:59 -0500
-In-Reply-To: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	by vger.kernel.org with ESMTP id S1751363Ab0LKTo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 14:44:26 -0500
+In-Reply-To: <AANLkTikUqZsaSg-q+GJvRrUb4C8rFZSbBta0tyeh==Ay@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 10 Dec 2010 22:16:54 -0800
+Date: Sat, 11 Dec 2010 02:45:55 -0800
 
-> Here are a batch of fixes and cleanups intended for 2.6.38.
-> 
-> v2- updated igb.txt and e1000e (patch 27) based on feedback from
->     Ben Hutchings and Joe Perches.
-> 
-> The following changes since commit:
-> 
-> commit a5d62a149bb8f5359aff7ed7dce339752fbabfd9
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Fri Dec 10 16:49:24 2010 -0800
->   isdn: Fix printed out copy_from_user() return value after previous change
-> 
-> are available in the git repository at:
-> 
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git master
+> I have additional changes for all the docs which I planned on
+> submitting next week.  I will update all the URL as well in that
+> update.
 
-Pulled, thanks Jeff.
+This makes sense to me, thanks Jeff.
+
