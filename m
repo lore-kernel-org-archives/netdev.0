@@ -1,35 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4] Using static const generally increases object text
- and decreases data size. It also generally decreases overall object size.
-Date: Sat, 11 Dec 2010 11:48:04 -0800 (PST)
-Message-ID: <20101211.114804.183050577.davem@davemloft.net>
-References: <1292031604-16628-1-git-send-email-jon.mason@exar.com>
-	<1292031604-16628-4-git-send-email-jon.mason@exar.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sivakumar.subramani@exar.com,
-	sreenivasa.honnur@exar.com, ram.vepa@exar.com, joe@perches.com
-To: jon.mason@exar.com
+From: Manuel Lauss <manuel.lauss@googlemail.com>
+Subject: [PATCH] net: au1000_eth: remove unused global variable.
+Date: Sat, 11 Dec 2010 20:53:42 +0100
+Message-ID: <1292097222-11319-1-git-send-email-manuel.lauss@googlemail.com>
+Cc: Florian Fainelli <florian@openwrt.org>,
+	Manuel Lauss <manuel.lauss@googlemail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59238
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751725Ab0LKTrg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 14:47:36 -0500
-In-Reply-To: <1292031604-16628-4-git-send-email-jon.mason@exar.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56451 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345Ab0LKTxr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 14:53:47 -0500
+Received: by wyb28 with SMTP id 28so4607210wyb.19
+        for <netdev@vger.kernel.org>; Sat, 11 Dec 2010 11:53:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jon.mason@exar.com>
-Date: Fri, 10 Dec 2010 19:40:04 -0600
+The driver global au_macs[] is unused in the entire kernel tree,
+so remove it.
 
->    text	   data	    bss	    dec	    hex	filename
->  109387	    389	  24432	 134208	  20c40	drivers/net/s2io.o.old
->  109358	    389	  24432	 134179	  20c23	drivers/net/s2io.o.new
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Acked-by: Jon Mason <jon.mason@exar.com>
+Signed-off-by: Manuel Lauss <manuel.lauss@googlemail.com>
+---
+ drivers/net/au1000_eth.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-Applied, but I had to add an "s2io: " prefix to the subject line.
+diff --git a/drivers/net/au1000_eth.c b/drivers/net/au1000_eth.c
+index 53eff9b..b9debcf 100644
+--- a/drivers/net/au1000_eth.c
++++ b/drivers/net/au1000_eth.c
+@@ -106,8 +106,6 @@ MODULE_VERSION(DRV_VERSION);
+  * complete immediately.
+  */
+ 
+-struct au1000_private *au_macs[NUM_ETH_INTERFACES];
+-
+ /*
+  * board-specific configurations
+  *
+-- 
+1.7.3.3
 
-Thanks.
