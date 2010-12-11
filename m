@@ -1,140 +1,87 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH 10/27] ixgb: Don't check for vlan group on transmit
-Date: Fri, 10 Dec 2010 22:17:04 -0800
-Message-ID: <1292048241-22026-11-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
-	Jesse Gross <jesse@nicira.com>,
+Subject: [PATCH 15/27] e1000e: fix double initialization in blink path
+Date: Fri, 10 Dec 2010 22:19:02 -0800
+Message-ID: <1292048354-22076-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1292048354-22076-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Holger Eitzenberger <holger@eitzenberger.org>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from qmta03.emeryville.ca.mail.comcast.net ([76.96.30.32]:34093 "EHLO
-	qmta03.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751426Ab0LKGSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 01:18:09 -0500
+Received: from qmta14.emeryville.ca.mail.comcast.net ([76.96.27.212]:57063
+	"EHLO qmta14.emeryville.ca.mail.comcast.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751665Ab0LKGT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Dec 2010 01:19:26 -0500
 To: davem@davemloft.net
-In-Reply-To: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
+In-Reply-To: <1292048354-22076-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+From: Holger Eitzenberger <holger@eitzenberger.org>
 
-Based on a patch from Jesse Gross.
+The kernel goes BUG() at the time 'ethtool -p eth0 3' comes
+back, which is due to adapter->led_blink_task initialized
+several times.  At the time it is still running this results
+in a corrupted task_list of the associated workqueue.
 
-Enable vlan tag insertion even when vlan group is not configured.
+The fix is to move the workqueue initialization to the
+probe function instead.
 
-For ixgb HW both CTRL0.VME and VLE bit in the Tx descriptor need to be set
-in order to enable HW acceleration.
-
-Introduced separate functions for enabling/disabling of vlan tag stripping
-similar to ixgbe.
-
-CC: Jesse Gross <jesse@nicira.com>
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
+Reviewed-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgb/ixgb_main.c |   51 ++++++++++++++++++++++++-----------------
- 1 files changed, 30 insertions(+), 21 deletions(-)
+ drivers/net/e1000e/e1000.h   |    1 +
+ drivers/net/e1000e/ethtool.c |    3 +--
+ drivers/net/e1000e/netdev.c  |    1 +
+ 3 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
-index 211a169..2e98506 100644
---- a/drivers/net/ixgb/ixgb_main.c
-+++ b/drivers/net/ixgb/ixgb_main.c
-@@ -98,6 +98,8 @@ static void ixgb_alloc_rx_buffers(struct ixgb_adapter *, int);
- static void ixgb_tx_timeout(struct net_device *dev);
- static void ixgb_tx_timeout_task(struct work_struct *work);
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index fdc67fe..3d9366f 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -482,6 +482,7 @@ extern const char e1000e_driver_version[];
  
-+static void ixgb_vlan_strip_enable(struct ixgb_adapter *adapter);
-+static void ixgb_vlan_strip_disable(struct ixgb_adapter *adapter);
- static void ixgb_vlan_rx_register(struct net_device *netdev,
-                                   struct vlan_group *grp);
- static void ixgb_vlan_rx_add_vid(struct net_device *netdev, u16 vid);
-@@ -1076,6 +1078,8 @@ ixgb_set_multi(struct net_device *netdev)
+ extern void e1000e_check_options(struct e1000_adapter *adapter);
+ extern void e1000e_set_ethtool_ops(struct net_device *netdev);
++extern void e1000e_led_blink_task(struct work_struct *work);
  
- 	if (netdev->flags & IFF_PROMISC) {
- 		rctl |= (IXGB_RCTL_UPE | IXGB_RCTL_MPE);
-+		/* disable VLAN filtering */
-+		rctl &= ~IXGB_RCTL_CFIEN;
- 		rctl &= ~IXGB_RCTL_VFE;
- 	} else {
- 		if (netdev->flags & IFF_ALLMULTI) {
-@@ -1084,7 +1088,9 @@ ixgb_set_multi(struct net_device *netdev)
- 		} else {
- 			rctl &= ~(IXGB_RCTL_UPE | IXGB_RCTL_MPE);
- 		}
-+		/* enable VLAN filtering */
- 		rctl |= IXGB_RCTL_VFE;
-+		rctl &= ~IXGB_RCTL_CFIEN;
- 	}
+ extern int e1000e_up(struct e1000_adapter *adapter);
+ extern void e1000e_down(struct e1000_adapter *adapter);
+diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+index 8984d16..26d4f3b 100644
+--- a/drivers/net/e1000e/ethtool.c
++++ b/drivers/net/e1000e/ethtool.c
+@@ -1860,7 +1860,7 @@ static int e1000_set_wol(struct net_device *netdev,
+ /* bit defines for adapter->led_status */
+ #define E1000_LED_ON		0
  
- 	if (netdev_mc_count(netdev) > IXGB_MAX_NUM_MULTICAST_ADDRESSES) {
-@@ -1103,6 +1109,12 @@ ixgb_set_multi(struct net_device *netdev)
- 
- 		ixgb_mc_addr_list_update(hw, mta, netdev_mc_count(netdev), 0);
- 	}
-+
-+	if (netdev->features & NETIF_F_HW_VLAN_RX)
-+		ixgb_vlan_strip_enable(adapter);
-+	else
-+		ixgb_vlan_strip_disable(adapter);
-+
- }
- 
- /**
-@@ -2150,33 +2162,30 @@ static void
- ixgb_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+-static void e1000e_led_blink_task(struct work_struct *work)
++void e1000e_led_blink_task(struct work_struct *work)
  {
- 	struct ixgb_adapter *adapter = netdev_priv(netdev);
--	u32 ctrl, rctl;
+ 	struct e1000_adapter *adapter = container_of(work,
+ 	                                struct e1000_adapter, led_blink_task);
+@@ -1892,7 +1892,6 @@ static int e1000_phys_id(struct net_device *netdev, u32 data)
+ 	    (hw->mac.type == e1000_pch2lan) ||
+ 	    (hw->mac.type == e1000_82583) ||
+ 	    (hw->mac.type == e1000_82574)) {
+-		INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
+ 		if (!adapter->blink_timer.function) {
+ 			init_timer(&adapter->blink_timer);
+ 			adapter->blink_timer.function =
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 0adcb79..f8efbbb 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5903,6 +5903,7 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 	INIT_WORK(&adapter->downshift_task, e1000e_downshift_workaround);
+ 	INIT_WORK(&adapter->update_phy_task, e1000e_update_phy_task);
+ 	INIT_WORK(&adapter->print_hang_task, e1000_print_hw_hang);
++	INIT_WORK(&adapter->led_blink_task, e1000e_led_blink_task);
  
--	ixgb_irq_disable(adapter);
- 	adapter->vlgrp = grp;
-+}
- 
--	if (grp) {
--		/* enable VLAN tag insert/strip */
--		ctrl = IXGB_READ_REG(&adapter->hw, CTRL0);
--		ctrl |= IXGB_CTRL0_VME;
--		IXGB_WRITE_REG(&adapter->hw, CTRL0, ctrl);
--
--		/* enable VLAN receive filtering */
-+static void
-+ixgb_vlan_strip_enable(struct ixgb_adapter *adapter)
-+{
-+	u32 ctrl;
- 
--		rctl = IXGB_READ_REG(&adapter->hw, RCTL);
--		rctl &= ~IXGB_RCTL_CFIEN;
--		IXGB_WRITE_REG(&adapter->hw, RCTL, rctl);
--	} else {
--		/* disable VLAN tag insert/strip */
-+	/* enable VLAN tag insert/strip */
-+	ctrl = IXGB_READ_REG(&adapter->hw, CTRL0);
-+	ctrl |= IXGB_CTRL0_VME;
-+	IXGB_WRITE_REG(&adapter->hw, CTRL0, ctrl);
-+}
- 
--		ctrl = IXGB_READ_REG(&adapter->hw, CTRL0);
--		ctrl &= ~IXGB_CTRL0_VME;
--		IXGB_WRITE_REG(&adapter->hw, CTRL0, ctrl);
--	}
-+static void
-+ixgb_vlan_strip_disable(struct ixgb_adapter *adapter)
-+{
-+	u32 ctrl;
- 
--	/* don't enable interrupts unless we are UP */
--	if (adapter->netdev->flags & IFF_UP)
--		ixgb_irq_enable(adapter);
-+	/* disable VLAN tag insert/strip */
-+	ctrl = IXGB_READ_REG(&adapter->hw, CTRL0);
-+	ctrl &= ~IXGB_CTRL0_VME;
-+	IXGB_WRITE_REG(&adapter->hw, CTRL0, ctrl);
- }
- 
- static void
+ 	/* Initialize link parameters. User can change them with ethtool */
+ 	adapter->hw.mac.autoneg = 1;
 -- 
 1.7.3.2
 
