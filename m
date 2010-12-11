@@ -1,110 +1,37 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] rfc: ethtool: early-orphan control (user-space)
-Date: Sat, 11 Dec 2010 04:44:10 +0000
-Message-ID: <1292042650.3136.20.camel@localhost>
-References: <1292040838-10579-1-git-send-email-horms@verge.net.au>
+From: Hillf Danton <dhillf@gmail.com>
+Subject: [PATCH] fix bug in Ethernet Channel Bonding Driver
+Date: Sat, 11 Dec 2010 12:54:11 +0800
+Message-ID: <AANLkTiksuf0ZDWyjH6ec9rSRoG+5ZdakA-Tha9MXLvy+@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:21102 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738Ab0LKEoO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 23:44:14 -0500
-In-Reply-To: <1292040838-10579-1-git-send-email-horms@verge.net.au>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:44732 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738Ab0LKEyM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Dec 2010 23:54:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-12-11 at 13:13 +0900, Simon Horman wrote:
-[...]
-> diff --git a/ethtool.c b/ethtool.c
-> index 239912b..579b4e4 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -163,7 +163,8 @@ static struct option {
->  		"		[ xcvr internal|external ]\n"
->  		"		[ wol p|u|m|b|a|g|s|d... ]\n"
->  		"		[ sopass %x:%x:%x:%x:%x:%x ]\n"
-> -		"		[ msglvl %d | msglvl type on|off ... ]\n" },
-> +		"		[ msglvl %d | msglvl type on|off ... ]\n"
-> +		"		[ early-orphan on|off ]\n" },
->      { "-a", "--show-pause", MODE_GPAUSE, "Show pause options" },
->      { "-A", "--pause", MODE_SPAUSE, "Set pause options",
->        "		[ autoneg on|off ]\n"
-> @@ -411,6 +412,10 @@ static int msglvl_changed;
->  static u32 msglvl_wanted = 0;
->  static u32 msglvl_mask = 0;
->  
-> +static u32 generic_flags_changed;
-> +static u32 generic_flags_wanted = 0;
-> +static u32 generic_flags_mask = 0;
-> +
->  static enum {
->  	ONLINE=0,
->  	OFFLINE,
-> @@ -608,6 +613,11 @@ static struct cmdline_info cmdline_msglvl[] = {
->  	  NETIF_MSG_WOL, &msglvl_mask },
->  };
->  
-> +static struct cmdline_info cmdline_generic_flags[] = {
-> +	{ "early-orphan", CMDL_FLAG, &generic_flags_wanted, NULL,
-> +	  ETH_FLAG_EARLY_ORPHAN, &generic_flags_mask },
-> +};
-> +
->  static long long
->  get_int_range(char *str, int base, long long min, long long max)
->  {
-> @@ -1125,7 +1135,13 @@ static void parse_cmdline(int argc, char **argp)
->  				}
->  				break;
->  			}
-> -			show_usage(1);
-> +			parse_generic_cmdline(
-> +					argc, argp, i,
-> +					&generic_flags_changed,
-> +					cmdline_generic_flags,
-> +					ARRAY_SIZE(cmdline_generic_flags));
-> +			i = argc;
-> +			break;
+The returned slave is incorrect, if the net device under check is not
+charged yet by the master.
 
-This seems to introduce an order-dependency which doesn't exist with any
-of the other keyword arguments after -s.
+Signed-off-by: Hillf Danton <dhillf@gmail.com>
+---
 
-[...]
-> +       if (generic_flags_changed) {
-> +               printf("generic flags changed\n");
-> +               struct ethtool_value edata;
-> +
-> +               edata.cmd = ETHTOOL_GFLAGS;
-> +               edata.data = 0;
-> +               ifr->ifr_data = (caddr_t)&edata;
-> +               err = ioctl(fd, SIOCETHTOOL, ifr);
-> +               if (err) {
-> +                       perror("Cannot get device flag settings");
-> +                       return 91;
-> +               }
-> +
-> +               edata.cmd = ETHTOOL_SFLAGS;
-> +               edata.data = ((edata.data & ~generic_flags_mask) |
-> +                             generic_flags_wanted);
-> +
-> +               err = ioctl(fd, SIOCETHTOOL, ifr);
-> +               if (err)
-> +                       perror("Cannot set device flag settings");
-> +       }
->         return 0;
->  }
-[...]
+--- a/drivers/net/bonding/bonding.h	2010-11-01 19:54:12.000000000 +0800
++++ b/drivers/net/bonding/bonding.h	2010-12-11 12:48:00.000000000 +0800
+@@ -273,11 +273,11 @@ static inline struct slave *bond_get_sla
 
-This has a silent failure case (silent to any script checking the exit
-code, anyway).
+ 	bond_for_each_slave(bond, slave, i) {
+ 		if (slave->dev == slave_dev) {
+-			break;
++			return slave;
+ 		}
+ 	}
 
-Ben.
+-	return slave;
++	return 0;
+ }
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+ static inline struct bonding *bond_get_bond_by_slave(struct slave *slave)
