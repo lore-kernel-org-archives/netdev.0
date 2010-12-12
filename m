@@ -1,92 +1,147 @@
-From: Stefan Richter <stefanr@s5r6.in-berlin.de>
-Subject: [PATCH update] firewire: net: add carrier detection
-Date: Sun, 12 Dec 2010 18:09:16 +0100
-Message-ID: <20101212180916.71a57a71@stein>
-References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
-	<1291779177.32420.8.camel@maxim-laptop>
-	<20101208040559.20639.qmail@stuge.se>
-	<1291809485.5421.0.camel@maxim-laptop>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v8 18/20] CAN : Optimize "if" condition in
+	rx/tx	processing
+Date: Sun, 12 Dec 2010 16:16:45 +0100
+Message-ID: <4D04E75D.10704@pengutronix.de>
+References: <4CFE166D.8040805@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/mixed; boundary="===============2851142339885380686=="
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4CFE166D.8040805-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============2851142339885380686==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig0B4D4768880F210FDDDD36B2"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig0B4D4768880F210FDDDD36B2
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 12/07/2010 12:11 PM, Tomoya MORINAGA wrote:
+> For reduce "if" condition, easy to read/understand the code,
+> optimize "if" condition in rx/tx processing.
+>=20
+> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> ---
+>  drivers/net/can/pch_can.c |   26 ++++++++++----------------
+>  1 files changed, 10 insertions(+), 16 deletions(-)
+>=20
+> diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+> index 8efbe35..dcd8f00 100644
+> --- a/drivers/net/can/pch_can.c
+> +++ b/drivers/net/can/pch_can.c
+> @@ -746,19 +746,16 @@ static int pch_can_poll(struct napi_struct *napi,=
+ int quota)
+> =20
+>  	if (int_stat =3D=3D PCH_STATUS_INT) {
+>  		reg_stat =3D ioread32(&priv->regs->stat);
+> -		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
+> -			if (reg_stat & PCH_BUS_OFF ||
+> -			   (reg_stat & PCH_LEC_ALL) !=3D PCH_LEC_ALL) {
+> -				pch_can_error(ndev, reg_stat);
+> -				quota--;
+> -			}
+> -		}
+> =20
+> -		if (reg_stat & PCH_TX_OK)
+> -			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
+> +		if ((reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) &&
+> +		   ((reg_stat & PCH_LEC_ALL) !=3D PCH_LEC_ALL)) {
+> +			pch_can_error(ndev, reg_stat);
+> +			quota--;
+> +		}
+> =20
+> -		if (reg_stat & PCH_RX_OK)
+> -			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
+> +		if (reg_stat & (PCH_TX_OK | PCH_RX_OK))
+> +			pch_can_bit_clear(&priv->regs->stat,
+> +					  reg_stat & (PCH_TX_OK | PCH_RX_OK));
+> =20
+>  		int_stat =3D pch_can_int_pending(priv);
+>  	}
+> @@ -900,14 +897,13 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, =
+struct net_device *ndev)
+>  	if (can_dropped_invalid_skb(ndev, skb))
+>  		return NETDEV_TX_OK;
+> =20
+> +	tx_obj_no =3D priv->tx_obj;
+>  	if (priv->tx_obj =3D=3D PCH_TX_OBJ_END) {
+>  		if (ioread32(&priv->regs->treq2) & PCH_TREQ2_TX_MASK)
+>  			netif_stop_queue(ndev);
+> =20
+> -		tx_obj_no =3D priv->tx_obj;
+>  		priv->tx_obj =3D PCH_TX_OBJ_START;
+>  	} else {
+> -		tx_obj_no =3D priv->tx_obj;
+>  		priv->tx_obj++;
+>  	}
+> =20
+> @@ -926,9 +922,7 @@ static netdev_tx_t pch_xmit(struct sk_buff *skb, st=
+ruct net_device *ndev)
+>  	id2 |=3D PCH_ID_MSGVAL;
+> =20
+>  	/* If remote frame has to be transmitted.. */
+> -	if (cf->can_id & CAN_RTR_FLAG)
+> -		id2 &=3D ~PCH_ID2_DIR;
+> -	else
+> +	if (!(cf->can_id & CAN_RTR_FLAG))
+>  		id2 |=3D PCH_ID2_DIR;
+> =20
+>  	iowrite32(id2, &priv->regs->ifregs[1].id2);
+
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig0B4D4768880F210FDDDD36B2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk0E510ACgkQjTAFq1RaXHO/sgCgj2dWDPB8BiY2qtu4i+jWOdYg
+GUgAoJgdMuYmkTeQm/D9AoTJr87xm8hj
+=z6zT
+-----END PGP SIGNATURE-----
+
+--------------enig0B4D4768880F210FDDDD36B2--
+
+--===============2851142339885380686==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: Peter Stuge <peter@stuge.se>,
-	<linux1394-devel@lists.sourceforge.net>, netdev@vger.kernel.org
-To: Maxim Levitsky <maximlevitsky@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from einhorn.in-berlin.de ([192.109.42.8]:56860 "EHLO
-	einhorn.in-berlin.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753924Ab0LLRJg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 12:09:36 -0500
-In-Reply-To: <1291809485.5421.0.camel@maxim-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-From: Maxim Levitsky <maximlevitsky@gmail.com>
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
-To make userland, e.g. NetworkManager work with firewire, we need to
-detect whether cable is plugged or not.  Simple and correct way of doing
-that is just counting number of peers.  No peers - no link and vice
-versa.
-
-Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
----
-Update:  Moved netif_carrier_on/off calls into lock-protected sections.
-
- drivers/firewire/net.c |   10 ++++++++++
- 1 file changed, 10 insertions(+)
-
-Index: b/drivers/firewire/net.c
-===================================================================
---- a/drivers/firewire/net.c
-+++ b/drivers/firewire/net.c
-@@ -179,6 +179,7 @@ struct fwnet_device {
- 	/* Number of tx datagrams that have been queued but not yet acked */
- 	int queued_datagrams;
- 
-+	int peer_count;
- 	struct list_head peer_list;
- 	struct fw_card *card;
- 	struct net_device *netdev;
-@@ -1405,6 +1406,10 @@ static int fwnet_change_mtu(struct net_d
- 	return 0;
- }
- 
-+static const struct ethtool_ops fwnet_ethtool_ops = {
-+	.get_link	= ethtool_op_get_link,
-+};
-+
- static const struct net_device_ops fwnet_netdev_ops = {
- 	.ndo_open       = fwnet_open,
- 	.ndo_stop	= fwnet_stop,
-@@ -1423,6 +1428,7 @@ static void fwnet_init_dev(struct net_de
- 	net->hard_header_len	= FWNET_HLEN;
- 	net->type		= ARPHRD_IEEE1394;
- 	net->tx_queue_len	= FWNET_TX_QUEUE_LEN;
-+	net->ethtool_ops	= &fwnet_ethtool_ops;
- }
- 
- /* caller must hold fwnet_device_mutex */
-@@ -1463,6 +1469,8 @@ static int fwnet_add_peer(struct fwnet_d
- 
- 	spin_lock_irq(&dev->lock);
- 	list_add_tail(&peer->peer_link, &dev->peer_list);
-+	if (++dev->peer_count > 1)
-+		netif_carrier_on(dev->netdev);
- 	spin_unlock_irq(&dev->lock);
- 
- 	return 0;
-@@ -1549,6 +1557,8 @@ static void fwnet_remove_peer(struct fwn
- 
- 	spin_lock_irq(&peer->dev->lock);
- 	list_del(&peer->peer_link);
-+	if (--peer->dev->peer_count == 1)
-+		netif_carrier_off(peer->dev->netdev);
- 	spin_unlock_irq(&peer->dev->lock);
- 
- 	list_for_each_entry_safe(pd, pd_next, &peer->pd_list, pd_link)
-
-
--- 
-Stefan Richter
--=====-==-=- ==-- -==--
-http://arcgraph.de/sr/
+--===============2851142339885380686==--
