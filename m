@@ -1,49 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHSET] net-dev: don't use flush_scheduled_work()
-Date: Sun, 12 Dec 2010 14:38:25 -0800 (PST)
-Message-ID: <20101212.143825.48496658.davem@davemloft.net>
-References: <1292169185-10579-1-git-send-email-tj@kernel.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: System blocks (hangs) on ifconfig up
+Date: Sun, 12 Dec 2010 23:03:03 +0000
+Message-ID: <1292194983.3136.294.camel@localhost>
+References: <4D04E38A.1040605@trego.co.il>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: tj@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292169185-10579-1-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Shmulik Hen <shmulik.hen@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:37917 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751351Ab0LLXDH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 18:03:07 -0500
+In-Reply-To: <4D04E38A.1040605@trego.co.il>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj@kernel.org>
-Date: Sun, 12 Dec 2010 16:52:56 +0100
+On Sun, 2010-12-12 at 17:00 +0200, Shmulik Hen wrote:
+> Hello,
+> 
+> My system is Ubuntu 10.04, running kernel 2.6.32-26-generic.
+> 
+> Whenever I try to bring up a specific ethernet interface for the second 
+> time, my
+> system becomes unresponsive for 60 seconds - i.e. no mouse, no keyboard, no
+> screen refresh. etc.
+> 
+> Looking at the driver's code, I could see that it's dev->open() method calls
+> wait_event_interruptible_timeout() with a timeout of 60 seconds - exactly
+> the delay I'm seeing.
 
-> This patchset removes the use of flush_scheduled_work(), which is
-> being deprecated, from various network drivers.  It contains the
-> following nine patches.
-> 
->  0001-drivers-net-remove-unnecessary-flush_scheduled_work-.patch
->  0002-drivers-net-don-t-use-flush_scheduled_work.patch
->  0003-ehea-kill-unused-ehea_rereg_mr_task.patch
->  0004-ehea-don-t-use-flush_scheduled_work.patch
->  0005-iseries_veth-don-t-use-flush_scheduled_work.patch
->  0006-igb-v-ixgbe-don-t-use-flush_scheduled_work.patch
->  0007-sungem-update-gp-reset_task-flushing.patch
->  0008-i2400m-drop-i2400m_schedule_work.patch
->  0009-hostap-don-t-use-flush_scheduled_work.patch
-> 
-> 0001 and 0002 are straight forward conversions across multiple network
-> drivers.  The rest are a bit more involved per-driver or driver family
-> conversions.
-> 
-> This patchset is on top of the current net-next-2.6.git#master
-> (ad1184c6cf067a13e8cb2a4e7ccc407f947027d0) and available in the
-> following git branch.
-> 
->  git://git.kernel.org/pub/scm/linux/kernel/git/tj/wq.git net-dev-kill-flush_scheduled_work
-> 
-> diffstat follows.  Thanks.
+That seems like a stupid thing for it to do.
 
-I spent the afternoon going over these and they look good to me.
-Pulled, thanks a lot.
+> I have narrowed the code to a bare minimum (see below - loosely based on
+> dummy.c), which only calls mdelay(10000) in it's dev->open() method, and
+> still, my system blocks for exactly 10 seconds when I run the following
+> sequence:
+> 
+>  > sudo ifconfig shmulik0 up
+>  > sudo ifconfig shmulik0 down
+>  > sudo ifconfig shmulik0 up
+> 
+> At this point - the system is stuck for 10 seconds.
 
-If any follow-up bug fixes show up just send me relative patches,
-thanks again!
+Bringing an interface up or down is a synchronous operation and is
+serialised with most other network configuration operations.  So this is
+the expected behaviour.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
