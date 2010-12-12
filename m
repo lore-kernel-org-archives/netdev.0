@@ -1,34 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH 1/1] qlge: Fix deadlock when cancelling worker.
-Date: Sun, 12 Dec 2010 15:04:15 -0800 (PST)
-Message-ID: <20101212.150415.116377489.davem@davemloft.net>
-References: <4CF95995.1070506@gmail.com>
-	<1292101610-30661-1-git-send-email-ron.mercer@qlogic.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH update] firewire: net: add carrier detection
+Date: Sun, 12 Dec 2010 23:05:34 +0000
+Message-ID: <1292195134.3136.296.camel@localhost>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	 <1291779177.32420.8.camel@maxim-laptop>
+	 <20101208040559.20639.qmail@stuge.se>
+	 <1291809485.5421.0.camel@maxim-laptop>  <20101212180916.71a57a71@stein>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jarkao2@gmail.com, mingo@elte.hu,
-	Linux-Driver@qlogic.com
-To: ron.mercer@qlogic.com
+Cc: Maxim Levitsky <maximlevitsky@gmail.com>,
+	Peter Stuge <peter@stuge.se>,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41900
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752060Ab0LLXDr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 18:03:47 -0500
-In-Reply-To: <1292101610-30661-1-git-send-email-ron.mercer@qlogic.com>
+Received: from mail.solarflare.com ([216.237.3.220]:38037 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752558Ab0LLXFh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 18:05:37 -0500
+In-Reply-To: <20101212180916.71a57a71@stein>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ron Mercer <ron.mercer@qlogic.com>
-Date: Sat, 11 Dec 2010 13:06:50 -0800
-
-> Removing usage of rtnl_lock() to protect firmware interface registers.
-> These registers are accessed in some worker threads and can create a
-> deadlock if rtnl_lock is taken by upper layers while the worker is still
-> pending.
-> We remove rtnl_lock and use a driver mutex just while mailboxes are
-> accessed.
+On Sun, 2010-12-12 at 18:09 +0100, Stefan Richter wrote:
+> From: Maxim Levitsky <maximlevitsky@gmail.com>
 > 
-> Signed-off-by: Ron Mercer <ron.mercer@qlogic.com>
+> To make userland, e.g. NetworkManager work with firewire, we need to
+> detect whether cable is plugged or not.  Simple and correct way of doing
+> that is just counting number of peers.  No peers - no link and vice
+> versa.
+[...]
 
-Applied.
+NM doesn't use ETHTOOL_GLINK so you don't need to implement
+ethtool_ops::get_link.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
