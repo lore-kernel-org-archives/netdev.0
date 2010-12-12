@@ -1,57 +1,80 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH 4/9] ehea: don't use flush_scheduled_work()
-Date: Sun, 12 Dec 2010 16:53:00 +0100
-Message-ID: <1292169185-10579-5-git-send-email-tj@kernel.org>
+Subject: [PATCH 5/9] iseries_veth: don't use flush_scheduled_work()
+Date: Sun, 12 Dec 2010 16:53:01 +0100
+Message-ID: <1292169185-10579-6-git-send-email-tj@kernel.org>
 References: <1292169185-10579-1-git-send-email-tj@kernel.org>
-Cc: Tejun Heo <tj@kernel.org>, Breno Leitao <leitao@linux.vnet.ibm.com>
+Cc: Tejun Heo <tj@kernel.org>,
+	Santiago Leon <santil@linux.vnet.ibm.com>
 To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hera.kernel.org ([140.211.167.34]:56565 "EHLO hera.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753346Ab0LLPx2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Dec 2010 10:53:28 -0500
 In-Reply-To: <1292169185-10579-1-git-send-email-tj@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Directly cancel port->reset_task from ehea_shutdown_single_port()
-instead.  As this cancels the work for each port on driver detach,
-flushing system_wq from ehea_remove() or ehea_module_exit() is no
-longer necessary.
+flush_scheduled_work() is on its way out.  Remove its usage from
+iseries_veth.
+
+* Cancelling a delayed work, queueing it for immediate execution if
+  cancelled and then waiting for completion can be done by simply
+  calling flush_delayed_work_sync().
+
+* Explicitly cancel cnx->statemachine_wq on module unload.
 
 Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Breno Leitao <leitao@linux.vnet.ibm.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Santiago Leon <santil@linux.vnet.ibm.com>
 Cc: netdev@vger.kernel.org
 ---
- drivers/net/ehea/ehea_main.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/iseries_veth.c |   18 ++++--------------
+ 1 files changed, 4 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index d51def1..81e5b7b 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -3318,6 +3318,8 @@ out_err:
- static void ehea_shutdown_single_port(struct ehea_port *port)
- {
- 	struct ehea_adapter *adapter = port->adapter;
-+
-+	cancel_work_sync(&port->reset_task);
- 	unregister_netdev(port->netdev);
- 	ehea_unregister_port(port);
- 	kfree(port->mc_list);
-@@ -3607,8 +3609,6 @@ static int __devexit ehea_remove(struct platform_device *dev)
+diff --git a/drivers/net/iseries_veth.c b/drivers/net/iseries_veth.c
+index 63ac531..9ece1fd 100644
+--- a/drivers/net/iseries_veth.c
++++ b/drivers/net/iseries_veth.c
+@@ -885,17 +885,8 @@ static void veth_stop_connection(struct veth_lpar_connection *cnx)
+ 	veth_kick_statemachine(cnx);
+ 	spin_unlock_irq(&cnx->lock);
  
- 	ehea_remove_device_sysfs(dev);
+-	/* There's a slim chance the reset code has just queued the
+-	 * statemachine to run in five seconds. If so we need to cancel
+-	 * that and requeue the work to run now. */
+-	if (cancel_delayed_work(&cnx->statemachine_wq)) {
+-		spin_lock_irq(&cnx->lock);
+-		veth_kick_statemachine(cnx);
+-		spin_unlock_irq(&cnx->lock);
+-	}
+-
+-	/* Wait for the state machine to run. */
+-	flush_scheduled_work();
++	/* ensure the statemachine runs now and waits for its completion */
++	flush_delayed_work_sync(&cnx->statemachine_wq);
+ }
  
+ static void veth_destroy_connection(struct veth_lpar_connection *cnx)
+@@ -1653,15 +1644,14 @@ static void __exit veth_module_cleanup(void)
+ 	/* Disconnect our "irq" to stop events coming from the Hypervisor. */
+ 	HvLpEvent_unregisterHandler(HvLpEvent_Type_VirtualLan);
+ 
+-	/* Make sure any work queued from Hypervisor callbacks is finished. */
 -	flush_scheduled_work();
 -
- 	ibmebus_free_irq(adapter->neq->attr.ist1, adapter);
- 	tasklet_kill(&adapter->neq_tasklet);
+ 	for (i = 0; i < HVMAXARCHITECTEDLPS; ++i) {
+ 		cnx = veth_cnx[i];
  
-@@ -3797,7 +3797,6 @@ static void __exit ehea_module_exit(void)
- {
- 	int ret;
+ 		if (!cnx)
+ 			continue;
  
--	flush_scheduled_work();
- 	driver_remove_file(&ehea_driver.driver, &driver_attr_capabilities);
- 	ibmebus_unregister_driver(&ehea_driver);
- 	unregister_reboot_notifier(&ehea_reboot_nb);
++		/* Cancel work queued from Hypervisor callbacks */
++		cancel_delayed_work_sync(&cnx->statemachine_wq);
+ 		/* Remove the connection from sysfs */
+ 		kobject_del(&cnx->kobject);
+ 		/* Drop the driver's reference to the connection */
 -- 
 1.7.1
+
