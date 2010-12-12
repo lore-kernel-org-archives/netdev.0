@@ -1,109 +1,102 @@
 From: Joe Perches <joe@perches.com>
-Subject: [RFC PATCH net-next 4/6] ethernet: Move Sun Happymeal sunhme.[ch]
-Date: Sun, 12 Dec 2010 04:03:25 -0800
-Message-ID: <d95e2675d60e5df1052911deec264cb56824767a.1292154142.git.joe@perches.com>
+Subject: [RFC PATCH net-next 2/6] ethernet: Move ethoc.c
+Date: Sun, 12 Dec 2010 04:03:23 -0800
+Message-ID: <34c8ff604d6239d62c01e00b3732b9aeab3f2593.1292154142.git.joe@perches.com>
 References: <cover.1292154142.git.joe@perches.com>
 Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2519 "EHLO mail.perches.com"
+Received: from mail.perches.com ([173.55.12.10]:2511 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752825Ab0LLMDl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Dec 2010 07:03:41 -0500
+	id S1752747Ab0LLMDh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 Dec 2010 07:03:37 -0500
 In-Reply-To: <cover.1292154142.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move Sun Happymeal files to ethernet directory.
+Move ethernet Open Core file to ethernet directory.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/Kconfig                 |   13 -------------
+ drivers/net/Kconfig                 |   10 ----------
  drivers/net/Makefile                |    1 -
- drivers/net/ethernet/Kconfig.10-100 |   13 +++++++++++++
- drivers/net/ethernet/Makefile       |    1 +
- drivers/net/{ => ethernet}/sunhme.c |    0
- drivers/net/{ => ethernet}/sunhme.h |    0
- 6 files changed, 14 insertions(+), 14 deletions(-)
- rename drivers/net/{ => ethernet}/sunhme.c (100%)
- rename drivers/net/{ => ethernet}/sunhme.h (100%)
+ drivers/net/ethernet/Kconfig.10-100 |   10 ++++++++++
+ drivers/net/ethernet/Makefile       |    6 +-----
+ drivers/net/{ => ethernet}/ethoc.c  |    0
+ 5 files changed, 11 insertions(+), 16 deletions(-)
+ rename drivers/net/{ => ethernet}/ethoc.c (100%)
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index c0716d9..926f090 100644
+index c1d1be8..ea9dbaf 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -558,19 +558,6 @@ config SUNLANCE
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called sunlance.
+@@ -1021,16 +1021,6 @@ config ENC28J60_WRITEVERIFY
+ 	  Enable the verify after the buffer write useful for debugging purpose.
+ 	  If unsure, say N.
  
--config HAPPYMEAL
--	tristate "Sun Happy Meal 10/100baseT support"
--	depends on SBUS || PCI
+-config ETHOC
+-	tristate "OpenCores 10/100 Mbps Ethernet MAC support"
+-	depends on NET_ETHERNET && HAS_IOMEM && HAS_DMA
+-	select MII
+-	select PHYLIB
 -	select CRC32
+-	select BITREVERSE
 -	help
--	  This driver supports the "hme" interface present on most Ultra
--	  systems and as an option on older Sbus systems. This driver supports
--	  both PCI and Sbus devices. This driver also supports the "qfe" quad
--	  100baseT device available in both PCI and Sbus configurations.
+-	  Say Y here if you want to use the OpenCores 10/100 Mbps Ethernet MAC.
 -
--	  To compile this driver as a module, choose M here: the module
--	  will be called sunhme.
--
- config SUNBMAC
- 	tristate "Sun BigMAC 10/100baseT support (EXPERIMENTAL)"
- 	depends on SBUS && EXPERIMENTAL
+ config GRETH
+ 	tristate "Aeroflex Gaisler GRETH Ethernet MAC support"
+ 	depends on SPARC
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 0379639..8f2c0ee 100644
+index bfb5ade..1265d0e 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -56,7 +56,6 @@ obj-$(CONFIG_PLIP) += plip.o
+@@ -257,7 +257,6 @@ obj-$(CONFIG_PASEMI_MAC) += pasemi_mac_driver.o
+ pasemi_mac_driver-objs := pasemi_mac.o pasemi_mac_ethtool.o
+ obj-$(CONFIG_MLX4_CORE) += mlx4/
+ obj-$(CONFIG_ENC28J60) += enc28j60.o
+-obj-$(CONFIG_ETHOC) += ethoc.o
+ obj-$(CONFIG_GRETH) += greth.o
  
- obj-$(CONFIG_ROADRUNNER) += rrunner.o
- 
--obj-$(CONFIG_HAPPYMEAL) += sunhme.o
- obj-$(CONFIG_SUNLANCE) += sunlance.o
- obj-$(CONFIG_SUNQE) += sunqe.o
- obj-$(CONFIG_SUNBMAC) += sunbmac.o
+ obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
 diff --git a/drivers/net/ethernet/Kconfig.10-100 b/drivers/net/ethernet/Kconfig.10-100
-index e4fa897..dbb95d3 100644
+index 8b1ee80..a5c62bc 100644
 --- a/drivers/net/ethernet/Kconfig.10-100
 +++ b/drivers/net/ethernet/Kconfig.10-100
-@@ -22,3 +22,16 @@ config ETHOC
- 	select BITREVERSE
- 	help
- 	  Say Y here if you want to use the OpenCores 10/100 Mbps Ethernet MAC.
+@@ -1,3 +1,13 @@
+ #
+ # 10 Mb and 100Mb ethernet device configuration
+ #
 +
-+config HAPPYMEAL
-+	tristate "Sun Happy Meal 10/100baseT support"
-+	depends on SBUS || PCI
++config ETHOC
++	tristate "OpenCores 10/100 Mbps Ethernet MAC support"
++	depends on NET_ETHERNET && HAS_IOMEM && HAS_DMA
++	select MII
++	select PHYLIB
 +	select CRC32
++	select BITREVERSE
 +	help
-+	  This driver supports the "hme" interface present on most Ultra
-+	  systems and as an option on older Sbus systems. This driver supports
-+	  both PCI and Sbus devices. This driver also supports the "qfe" quad
-+	  100baseT device available in both PCI and Sbus configurations.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called sunhme.
++	  Say Y here if you want to use the OpenCores 10/100 Mbps Ethernet MAC.
 diff --git a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
-index 6e419ed..0daa85c 100644
+index f2aebec..ad2afc1 100644
 --- a/drivers/net/ethernet/Makefile
 +++ b/drivers/net/ethernet/Makefile
-@@ -4,3 +4,4 @@
+@@ -2,8 +2,4 @@
+ # Makefile for ethernet device drivers
+ #
  
- obj-$(CONFIG_DNET)		+= dnet.o
- obj-$(CONFIG_ETHOC)		+= ethoc.o
-+obj-$(CONFIG_HAPPYMEAL)		+= sunhme.o
-diff --git a/drivers/net/sunhme.c b/drivers/net/ethernet/sunhme.c
+-# Dummy object just to avoid breaking build
+-# These comments and the line below will be deleted on the
+-# first addition to this file
+-
+-obj-$(CONFIG_ETHERNET_DUMMY_DRIVER) += /dev/null/dummy.o
++obj-$(CONFIG_ETHOC)		+= ethoc.o
+diff --git a/drivers/net/ethoc.c b/drivers/net/ethernet/ethoc.c
 similarity index 100%
-rename from drivers/net/sunhme.c
-rename to drivers/net/ethernet/sunhme.c
-diff --git a/drivers/net/sunhme.h b/drivers/net/ethernet/sunhme.h
-similarity index 100%
-rename from drivers/net/sunhme.h
-rename to drivers/net/ethernet/sunhme.h
+rename from drivers/net/ethoc.c
+rename to drivers/net/ethernet/ethoc.c
 -- 
 1.7.3.3.398.g0b0cd.dirty
 
