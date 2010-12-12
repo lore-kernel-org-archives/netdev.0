@@ -1,18 +1,18 @@
-From: Shmulik Hen <shmulik.hen@gmail.com>
+From: Shmulik Hen <shmulik@trego.co.il>
 Subject: System blocks (hangs) on ifconfig up
-Date: Sun, 12 Dec 2010 17:00:26 +0200
-Message-ID: <4D04E38A.1040605@trego.co.il>
+Date: Sun, 12 Dec 2010 17:08:44 +0200
+Message-ID: <4D04E57C.7020509@trego.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f45.google.com ([209.85.214.45]:39602 "EHLO
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:53563 "EHLO
 	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751322Ab0LLPAd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 10:00:33 -0500
-Received: by bwz16 with SMTP id 16so5764706bwz.4
-        for <netdev@vger.kernel.org>; Sun, 12 Dec 2010 07:00:28 -0800 (PST)
+	with ESMTP id S1751614Ab0LLPIr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 10:08:47 -0500
+Received: by bwz16 with SMTP id 16so5769080bwz.4
+        for <netdev@vger.kernel.org>; Sun, 12 Dec 2010 07:08:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -25,7 +25,8 @@ time, my
 system becomes unresponsive for 60 seconds - i.e. no mouse, no keyboard, no
 screen refresh. etc.
 
-Looking at the driver's code, I could see that it's dev->open() method calls
+Looking at the driver's code, I could see that it's dev->open() method 
+calls
 wait_event_interruptible_timeout() with a timeout of 60 seconds - exactly
 the delay I'm seeing.
 
@@ -44,7 +45,8 @@ At this point - the system is stuck for 10 seconds.
 Thanks,
 Shmulik.
 
-------------------------------------------------------------------------------
+------------------------------------------------------------------------------ 
+
 
 shmulik.c:
 
