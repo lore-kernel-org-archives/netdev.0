@@ -1,56 +1,48 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: [PATCH] pppoe.c: Fix kernel panic caused by __pppoe_xmit
-Date: Sun, 12 Dec 2010 23:02:09 +0200
-Message-ID: <201012122302.10330.nuclearcat@nuclearcat.com>
-References: <20101210091505.GA7868@ff.dom.local> <4D037236.4080903@ota.si> <20101211200823.GA1917@del.dom.local>
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: [PATCH] WAN: Fix a TX IRQ causing BUG() in PC300 and PCI200SYN drivers.
+Date: Sun, 12 Dec 2010 23:06:47 +0100
+Message-ID: <m37hfe7iiw.fsf@intrepid.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andrej Ota <andrej@ota.si>,
-	=?utf-8?q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Gorik Van Steenberge <gvs@zemos.net>,
-	Daniel Kenzelmann <kernel.bugzilla@kenzelmann.dyndns.info>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:41879 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754019Ab0LLVB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 16:01:26 -0500
-In-Reply-To: <20101211200823.GA1917@del.dom.local>
+Received: from inx.pm.waw.pl ([195.116.170.130]:44025 "EHLO inx.pm.waw.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751351Ab0LLWPQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 17:15:16 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 11 December 2010 22:08:23 Jarek Poplawski wrote:
-> On Sat, Dec 11, 2010 at 01:44:38PM +0100, Andrej Ota wrote:
-> > __pppoe_xmit function return value was invalid resulting in
-> > additional call to kfree_skb on already freed skb. This resulted in
-> > memory corruption and consequent kernel panic after PPPoE peer
-> > terminated the link.
-> > 
-> > This fixes commit 55c95e738da85373965cb03b4f975d0fd559865b.
-> > 
-> > Signed-off-by: Jarek Poplawski [jarkao2@gmail.com]
-> > Signed-off-by: Andrej Ota [andrej@ota.si]
-> > Reported-by: Pawel Staszewski [pstaszewski@artcom.pl]
-> 
-> Thanks Andrej! I've only updated emails a bit.
-> Jarek P.
-> 
-> Reported-by: Gorik Van Steenberge <gvs@zemos.net>
-> Reported-by: Daniel Kenzelmann <kernel.bugzilla@kenzelmann.dyndns.info>
-> Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-> Reported-by: Pawel Staszewski <pstaszewski@artcom.pl>
-> Diagnosed-by: Andrej Ota <andrej@ota.si>
-> Diagnosed-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Tested-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-> Tested-by: Pawel Staszewski <pstaszewski@artcom.pl>
-> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> Signed-off-by: Andrej Ota <andrej@ota.si>
-Thanks a lot!
+We must not wake the TX queue without free TX descriptors.
+sca_xmit() expects at least one free descriptor and BUGs otherwise.
+
+Problem reported and fix tested by Bernie Innocenti and Ward Vandewege.
+
+Signed-off-by: Krzysztof Ha=C5=82asa <khc@pm.waw.pl>
+
+--- a/drivers/net/wan/hd64572.c
++++ b/drivers/net/wan/hd64572.c
+@@ -293,6 +293,7 @@ static inline void sca_tx_done(port_t *port)
+ 	struct net_device *dev =3D port->netdev;
+ 	card_t* card =3D port->card;
+ 	u8 stat;
++	unsigned count =3D 0;
+=20
+ 	spin_lock(&port->lock);
+=20
+@@ -316,10 +317,12 @@ static inline void sca_tx_done(port_t *port)
+ 			dev->stats.tx_bytes +=3D readw(&desc->len);
+ 		}
+ 		writeb(0, &desc->stat);	/* Free descriptor */
++		count++;
+ 		port->txlast =3D (port->txlast + 1) % card->tx_ring_buffers;
+ 	}
+=20
+-	netif_wake_queue(dev);
++	if (count)
++		netif_wake_queue(dev);
+ 	spin_unlock(&port->lock);
+ }
+=20
