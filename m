@@ -1,154 +1,39 @@
-From: Shmulik Hen <shmulik@trego.co.il>
-Subject: System blocks (hangs) on ifconfig up
-Date: Sun, 12 Dec 2010 17:08:44 +0200
-Message-ID: <4D04E57C.7020509@trego.co.il>
+From: Arnaldo Carvalho de Melo <acme@infradead.org>
+Subject: Re: Loopback performance from kernel 2.6.12 to 2.6.37
+Date: Sun, 12 Dec 2010 13:48:33 -0200
+Message-ID: <20101212154833.GB20240@ghostprotocols.net>
+References: <1288954189.28003.178.camel@firesoul.comx.local> <1288988955.2665.297.camel@edumazet-laptop> <1289213926.15004.19.camel@firesoul.comx.local> <1289214289.2820.188.camel@edumazet-laptop> <1289228785.2820.203.camel@edumazet-laptop> <1289311159.17448.9.camel@traveldev.cxnet.dk> <1289312178.17448.20.camel@traveldev.cxnet.dk> <1289313516.17448.28.camel@traveldev.cxnet.dk> <1289388256.15004.66.camel@firesoul.comx.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <jdb@comx.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f45.google.com ([209.85.214.45]:53563 "EHLO
-	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614Ab0LLPIr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 10:08:47 -0500
-Received: by bwz16 with SMTP id 16so5769080bwz.4
-        for <netdev@vger.kernel.org>; Sun, 12 Dec 2010 07:08:46 -0800 (PST)
+Received: from canuck.infradead.org ([134.117.69.58]:39888 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752367Ab0LLPsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 10:48:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1289388256.15004.66.camel@firesoul.comx.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Em Wed, Nov 10, 2010 at 12:24:16PM +0100, Jesper Dangaard Brouer escreveu:
+> > BUT perf top reveals that its probably related to the function
+> > 'find_busiest_group' ... any kernel config hints how I get rid of that?
+> 
+> The 'find_busiest_group' seems to be an artifact of "perf top", if I use
+> "perf record" then the 'find_busiest_group' function disappears.  Which
+> is kind of strange, as 'find_busiest_group' seem the be related to
+> sched_fair.c.
+> 
+> perf --version
+> perf version 2.6.35.7.1.g60d9c
 
-My system is Ubuntu 10.04, running kernel 2.6.32-26-generic.
+perf top does sytemwide sampling, while when you use 'perf record
+./workload' its not systemwide.
 
-Whenever I try to bring up a specific ethernet interface for the second 
-time, my
-system becomes unresponsive for 60 seconds - i.e. no mouse, no keyboard, no
-screen refresh. etc.
+Take a look at 'perf top --help' to see how to limit this to an existing
+pid, tid, cpu list, etc.
 
-Looking at the driver's code, I could see that it's dev->open() method 
-calls
-wait_event_interruptible_timeout() with a timeout of 60 seconds - exactly
-the delay I'm seeing.
-
-I have narrowed the code to a bare minimum (see below - loosely based on
-dummy.c), which only calls mdelay(10000) in it's dev->open() method, and
-still, my system blocks for exactly 10 seconds when I run the following
-sequence:
-
- > sudo ifconfig shmulik0 up
- > sudo ifconfig shmulik0 down
- > sudo ifconfig shmulik0 up
-
-At this point - the system is stuck for 10 seconds.
-
-
-Thanks,
-Shmulik.
-
------------------------------------------------------------------------------- 
-
-
-shmulik.c:
-
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/init.h>
-#include <linux/delay.h>
-#include <linux/skbuff.h>
-
-MODULE_AUTHOR("Shmulik Hen");
-MODULE_DESCRIPTION("Shmulik's sample network driver");
-MODULE_LICENSE("GPL");
-
-static struct net_device *g_dev = NULL;
-
-static int shmulik_set_mac_address(struct net_device *dev, void *p)
-{
-     struct sockaddr *sa = p;
-
-     if (!is_valid_ether_addr(sa->sa_data))
-         return -EADDRNOTAVAIL;
-
-     memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
-     return 0;
-}
-
-static netdev_tx_t shmulik_start_xmit(struct sk_buff *skb, struct 
-net_device *dev)
-{
-     dev_kfree_skb(skb);
-     return NETDEV_TX_OK;
-}
-
-static int shmulik_open(struct net_device *dev)
-{
-     mdelay(10000);
-     netif_carrier_on(dev);
-     netif_start_queue(dev);
-
-     return 0;
-}
-
-static int shmulik_close(struct net_device *dev)
-{
-     netif_stop_queue(dev);
-     netif_carrier_off(dev);
-
-     return 0;
-}
-
-static const struct net_device_ops shmulik_drv_ops =
-{
-     .ndo_open            = shmulik_open,
-     .ndo_stop            = shmulik_close,
-     .ndo_start_xmit      = shmulik_start_xmit,
-     .ndo_set_mac_address = shmulik_set_mac_address,
-};
-
-static int __init shmulik_drv_init(void)
-{
-     int rc;
-     struct net_device *dev;
-
-     if (g_dev)
-         return -EEXIST;
-
-     dev = alloc_etherdev(0);
-     if (!dev)
-         return -ENOMEM;
-
-     sprintf(dev->name, "%s%d" , "shmulik", 0);
-     dev->tx_queue_len = 0;
-     dev->flags |= IFF_NOARP;
-     dev->flags &= ~IFF_MULTICAST;
-     random_ether_addr(dev->dev_addr);
-
-     dev->netdev_ops = &shmulik_drv_ops;
-
-     rc = register_netdev(dev);
-     if (rc)
-         goto err_exit;
-
-     g_dev = dev;
-     return 0;
-
-err_exit:
-     free_netdev(dev);
-     return rc;
-}
-
-static void __exit shmulik_drv_exit(void)
-{
-     if (g_dev)
-     {
-         unregister_netdev(g_dev);
-         free_netdev(g_dev);
-         g_dev = NULL;
-     }
-}
-
-module_init(shmulik_drv_init);
-module_exit(shmulik_drv_exit);
-
+- Arnaldo
