@@ -1,80 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: System blocks (hangs) on ifconfig up
-Date: Sun, 12 Dec 2010 21:53:54 +0100
-Message-ID: <1292187234.18698.7.camel@edumazet-laptop>
-References: <4D04E57C.7020509@trego.co.il>
-	 <1292185786.18698.5.camel@edumazet-laptop>
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: [PATCH] pppoe.c: Fix kernel panic caused by __pppoe_xmit
+Date: Sun, 12 Dec 2010 23:02:09 +0200
+Message-ID: <201012122302.10330.nuclearcat@nuclearcat.com>
+References: <20101210091505.GA7868@ff.dom.local> <4D037236.4080903@ota.si> <20101211200823.GA1917@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Shmulik Hen <shmulik@trego.co.il>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andrej Ota <andrej@ota.si>,
+	=?utf-8?q?Pawe=C5=82_Staszewski?= <pstaszewski@itcare.pl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, pstaszewski@artcom.pl,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Gorik Van Steenberge <gvs@zemos.net>,
+	Daniel Kenzelmann <kernel.bugzilla@kenzelmann.dyndns.info>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54145 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754019Ab0LLUx7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 15:53:59 -0500
-Received: by wwa36 with SMTP id 36so5661638wwa.1
-        for <netdev@vger.kernel.org>; Sun, 12 Dec 2010 12:53:58 -0800 (PST)
-In-Reply-To: <1292185786.18698.5.camel@edumazet-laptop>
+Received: from hosting.visp.net.lb ([194.146.153.11]:41879 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754019Ab0LLVB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 16:01:26 -0500
+In-Reply-To: <20101211200823.GA1917@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 12 d=C3=A9cembre 2010 =C3=A0 21:29 +0100, Eric Dumazet a =C3=
-=A9crit :
-> Le dimanche 12 d=C3=A9cembre 2010 =C3=A0 17:08 +0200, Shmulik Hen a =C3=
-=A9crit :
-> > Hello,
-> >=20
-> > My system is Ubuntu 10.04, running kernel 2.6.32-26-generic.
-> >=20
-> > Whenever I try to bring up a specific ethernet interface for the se=
-cond=20
-> > time, my
-> > system becomes unresponsive for 60 seconds - i.e. no mouse, no keyb=
-oard, no
-> > screen refresh. etc.
-> >=20
-> > Looking at the driver's code, I could see that it's dev->open() met=
-hod=20
-> > calls
-> > wait_event_interruptible_timeout() with a timeout of 60 seconds - e=
-xactly
-> > the delay I'm seeing.
-> >=20
->=20
-> What is this driver ?
->=20
-> > I have narrowed the code to a bare minimum (see below - loosely bas=
-ed on
-> > dummy.c), which only calls mdelay(10000) in it's dev->open() method=
-, and
-> > still, my system blocks for exactly 10 seconds when I run the follo=
-wing
-> > sequence:
-> >=20
-> >  > sudo ifconfig shmulik0 up
-> >  > sudo ifconfig shmulik0 down
-> >  > sudo ifconfig shmulik0 up
-> >=20
-> > At this point - the system is stuck for 10 seconds.
-> >=20
->=20
-> Certainly not "stuck for 10 seconds"
->=20
-> mdelay(10000) suspends this task for 10 seconds, but other tasks can
-> certainly run.
->=20
-> However, your shell waits that "ifconfig ... up" finishes.
->=20
->=20
-
-Oops, I forgot mdelay() was a spin primitive, but was misleading by you=
-r
-wait_event_interruptible_timeout() previous reference.
-
-Doing mdelay(10000) is certainly very lazy, I hope no driver does
-that ...
-
-
-
+On Saturday 11 December 2010 22:08:23 Jarek Poplawski wrote:
+> On Sat, Dec 11, 2010 at 01:44:38PM +0100, Andrej Ota wrote:
+> > __pppoe_xmit function return value was invalid resulting in
+> > additional call to kfree_skb on already freed skb. This resulted in
+> > memory corruption and consequent kernel panic after PPPoE peer
+> > terminated the link.
+> > 
+> > This fixes commit 55c95e738da85373965cb03b4f975d0fd559865b.
+> > 
+> > Signed-off-by: Jarek Poplawski [jarkao2@gmail.com]
+> > Signed-off-by: Andrej Ota [andrej@ota.si]
+> > Reported-by: Pawel Staszewski [pstaszewski@artcom.pl]
+> 
+> Thanks Andrej! I've only updated emails a bit.
+> Jarek P.
+> 
+> Reported-by: Gorik Van Steenberge <gvs@zemos.net>
+> Reported-by: Daniel Kenzelmann <kernel.bugzilla@kenzelmann.dyndns.info>
+> Reported-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+> Reported-by: Pawel Staszewski <pstaszewski@artcom.pl>
+> Diagnosed-by: Andrej Ota <andrej@ota.si>
+> Diagnosed-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Tested-by: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+> Tested-by: Pawel Staszewski <pstaszewski@artcom.pl>
+> Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+> Signed-off-by: Andrej Ota <andrej@ota.si>
+Thanks a lot!
