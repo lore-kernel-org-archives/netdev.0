@@ -1,49 +1,75 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH net-next-2.6] net: add dev_close_many
-Date: Mon, 13 Dec 2010 19:23:26 +0200
-Message-ID: <201012131923.27337.opurdila@ixiacom.com>
-References: <1292249903-3865-1-git-send-email-opurdila@ixiacom.com> <1292259145.2759.55.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [GIT PULL net-next-2.6] vhost-net: tools, cleanups, optimizations
+Date: Mon, 13 Dec 2010 19:24:47 +0200
+Message-ID: <20101213172447.GA8560@redhat.com>
+References: <20101213104413.GA678@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:27613 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752298Ab0LMRXa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 12:23:30 -0500
-In-Reply-To: <1292259145.2759.55.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101213104413.GA678@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Monday 13 December 2010, 18:52:25
+On Mon, Dec 13, 2010 at 12:44:13PM +0200, Michael S. Tsirkin wrote:
+> Please merge the following tree for 2.6.38.
+> Thanks!
 
-> Hmm, I think this solves the "rmmod dummy" case, but not the "dismantle
-> devices one by one", which is the general one (on heavy duty tunnels/ppp
-> servers)
+Um, I sent this out before I noticed the mail from Rusty
+with some questions on the test code. I missed that and
+assumed no comments -> no issues, perhaps wrongly.
+
+Rusty - I tried answering the questions there - any issues
+with merging this? It's just a test so won't be hard to remove
+later if it's not helpful ...
+
+> The following changes since commit ad1184c6cf067a13e8cb2a4e7ccc407f947027d0:
 > 
-> I think we could use a kernel thread (a workqueue presumably), handling
-> 3 lists of devices to be dismantled, respecting one rcu grace period (or
-> rcu_barrier()) before transfert of one item from one list to following
-> one.
+>   net: au1000_eth: remove unused global variable. (2010-12-11 12:01:48 -0800)
 > 
-> This way, each device removal could post a device to this kernel thread
-> and return to user immediately. Time of RTNL hold would be reduced
-> (calls to synchronize_rcu() would be done with RTNL not held)
-
-We also run into the case where we have to dismantle the interfaces one by one 
-but we fix it by gathering the requests in userspace and then doing a 
-unregister_netdevice_many operation.
-
-I like the kernel thread / workqueue idea. But we would still need 
-netdevice_unregister_many and dev_close_many right? - we put the device in the 
-unregister list in unregister_netdevice and call unregister_netdevice_many in 
-the kernel thread.
-
-
- 
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+> 
+> Jason Wang (1):
+>       vhost: fix typos in comment
+> 
+> Julia Lawall (1):
+>       drivers/vhost/vhost.c: delete double assignment
+> 
+> Michael S. Tsirkin (9):
+>       vhost: put mm after thread stop
+>       vhost-net: batch use/unuse mm
+>       vhost: copy_to_user -> __copy_to_user
+>       vhost: get/put_user -> __get/__put_user
+>       vhost: remove unused include
+>       vhost: correctly set bits of dirty pages
+>       vhost: better variable name in logging
+>       vhost test module
+>       tools/virtio: virtio_test tool
+> 
+>  drivers/vhost/net.c                  |    9 +-
+>  drivers/vhost/test.c                 |  320 ++++++++++++++++++++++++++++++++++
+>  drivers/vhost/test.h                 |    7 +
+>  drivers/vhost/vhost.c                |   44 +++---
+>  drivers/vhost/vhost.h                |    2 +-
+>  tools/virtio/Makefile                |   12 ++
+>  tools/virtio/linux/device.h          |    2 +
+>  tools/virtio/linux/slab.h            |    2 +
+>  tools/virtio/linux/virtio.h          |  223 +++++++++++++++++++++++
+>  tools/virtio/vhost_test/Makefile     |    2 +
+>  tools/virtio/vhost_test/vhost_test.c |    1 +
+>  tools/virtio/virtio_test.c           |  248 ++++++++++++++++++++++++++
+>  12 files changed, 842 insertions(+), 30 deletions(-)
+>  create mode 100644 drivers/vhost/test.c
+>  create mode 100644 drivers/vhost/test.h
+>  create mode 100644 tools/virtio/Makefile
+>  create mode 100644 tools/virtio/linux/device.h
+>  create mode 100644 tools/virtio/linux/slab.h
+>  create mode 100644 tools/virtio/linux/virtio.h
+>  create mode 100644 tools/virtio/vhost_test/Makefile
+>  create mode 100644 tools/virtio/vhost_test/vhost_test.c
+>  create mode 100644 tools/virtio/virtio_test.c
