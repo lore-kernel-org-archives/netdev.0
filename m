@@ -1,92 +1,62 @@
-From: Shmulik Hen <shmulik@trego.co.il>
-Subject: Re: System blocks (hangs) on ifconfig up
-Date: Mon, 13 Dec 2010 11:14:40 +0200
-Message-ID: <4D05E400.7080409@trego.co.il>
-References: <4D04E38A.1040605@trego.co.il> <1292194983.3136.294.camel@localhost>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: set vlan CFI and TPID
+Date: Mon, 13 Dec 2010 01:16:37 -0800
+Message-ID: <AANLkTinxwdSvN5kcaj81SFGHKfQeRH9CE3aUzK+eZtWg@mail.gmail.com>
+References: <AANLkTimW35xF4dcr_UO6XX1tBb3VBcp2PWPq8SkMk60=@mail.gmail.com>
+	<AANLkTim3Rm91O2n6dCqTJYja8fy_sb0dKthCA1rf=FPV@mail.gmail.com>
+	<AANLkTimRZezo4WYZiXfsra83AojMubrZap1d1r5KUst1@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Shmulik Hen <shmulik.hen@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	eric.dumazet@gmail.com, shemminger@vyatta.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: hong zhiyi <zhiyi.hong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f45.google.com ([209.85.214.45]:64682 "EHLO
-	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753227Ab0LMJOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 04:14:46 -0500
-Received: by bwz16 with SMTP id 16so6362403bwz.4
-        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 01:14:45 -0800 (PST)
-In-Reply-To: <1292194983.3136.294.camel@localhost>
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:34170 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756133Ab0LMJQj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 04:16:39 -0500
+Received: by fxm18 with SMTP id 18so6000223fxm.2
+        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 01:16:38 -0800 (PST)
+In-Reply-To: <AANLkTimRZezo4WYZiXfsra83AojMubrZap1d1r5KUst1@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/13/2010 01:03 AM, Ben Hutchings wrote:
-> On Sun, 2010-12-12 at 17:00 +0200, Shmulik Hen wrote:
->> Hello,
+On Sun, Dec 12, 2010 at 6:20 PM, hong zhiyi <zhiyi.hong@gmail.com> wrot=
+e:
+> On Mon, Dec 13, 2010 at 8:20 AM, Jesse Gross <jesse@nicira.com> wrote=
+:
+>> On Tue, Dec 7, 2010 at 8:04 PM, hong zhiyi <zhiyi.hong@gmail.com> wr=
+ote:
+>>> Hi All,
+>>>
+>>> May I ask how to set the 1 bit CFI and 2 bytesTPID in the VLAN head=
+er
+>>> by vconfig?
 >>
->> My system is Ubuntu 10.04, running kernel 2.6.32-26-generic.
+>> You can't change them using vconfig. =A0For 802.1q/Ethernet, the TPI=
+D is
+>> 0x8100 and the CFI is 0.
 >>
->> Whenever I try to bring up a specific ethernet interface for the second
->> time, my
->> system becomes unresponsive for 60 seconds - i.e. no mouse, no keyboard, no
->> screen refresh. etc.
+>>> and what is the meaning of the egress map and ingress map?
 >>
->> Looking at the driver's code, I could see that it's dev->open() method calls
->> wait_event_interruptible_timeout() with a timeout of 60 seconds - exactly
->> the delay I'm seeing.
-> That seems like a stupid thing for it to do.
-I agree...
->> I have narrowed the code to a bare minimum (see below - loosely based on
->> dummy.c), which only calls mdelay(10000) in it's dev->open() method, and
->> still, my system blocks for exactly 10 seconds when I run the following
->> sequence:
+>> These convert between the PCP bits found in the vlan header and the
+>> priority field that is used internally for QoS, which you access
+>> through tc.
 >>
->>   >  sudo ifconfig shmulik0 up
->>   >  sudo ifconfig shmulik0 down
->>   >  sudo ifconfig shmulik0 up
->>
->> At this point - the system is stuck for 10 seconds.
-> Bringing an interface up or down is a synchronous operation and is
-> serialised with most other network configuration operations.  So this is
-> the expected behaviour.
 >
-> Ben.
-But why does this happen only the second time I run ifconfig up?
-How come the entire system is totally frozen?
-I can't even switch to other applications running. If I run 'top' in another
-console, it stops refreshing for the entire period.
+> Hi Jesse,
+>
+> Thank you for your reply.
+>
+> Then how can it set the value of the TPID and the CFI? Also, I do not
+> understand you mentioned the *tc* means, what is the tc?
 
-I'll try to explain better;
-The driver I'm referring to is part of an embedded system development kit.
-It runs on the controlling side, which may be a PC or some Linux embedded
-system. It exposes a virtual interface that allows to communicate via
-ethernet connection to a remote board, and performs the firmware download
-to that board.
-Unfortunately, the firmware download stage is  done during dev->open() of
-this virtual interface. The call to wait_event_interruptible_timeout()
-is there to make sure the boot process of the remote board is complete via a
-message. If all goes well the first time, there is no delay, but if the 
-operation
-fails for any reason the first time, and a second attempt is made (another
-ifconfig up), we see the freezing.
+You can't really.  Like I said, the values are fixed by the standard
+for basic 802.1q, which is what Linux implements.  You could, of
+course, directly send/receive packets through a raw socket with
+whatever values you like.  However, other components of the kernel
+that deal with vlans won't recognize them.
 
-Since this driver is (mostly) closed source, I had to try and reproduce 
-the situation
-in an all open-source driver - this is the sample code I attached to my 
-original
-message. The call to mdelay() there is meant to simulate the delay of 
-the original
-driver - it schedules.
-
-Obviously, the correct way to fix this is to separate the firmware 
-download part
-from the dev->open() method, but this is not as simple as it may sound - I'm
-currently working on this. In the mean time I'm looking for a simpler 
-solution
-(or answer) to our problem.
-
-I'll appreciate any insight on this matter.
-
-     Thanks in advance,
-     Shmulik Hen.
+tc is a userspace program that (among other things) handles QoS
+settings.  Google should be able to turn up information on how to use
+it.
