@@ -1,44 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/9] bnx2x: FCoE support
-Date: Mon, 13 Dec 2010 09:49:07 -0800 (PST)
-Message-ID: <20101213.094907.226756740.davem@davemloft.net>
-References: <1292255013.631.48.camel@lb-tlvb-vladz>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH net-next-2.6] net: add dev_close_many
+Date: Mon, 13 Dec 2010 19:52:39 +0200
+Message-ID: <201012131952.39648.opurdila@ixiacom.com>
+References: <1292249903-3865-1-git-send-email-opurdila@ixiacom.com> <201012131923.27337.opurdila@ixiacom.com> <20101213093221.5d941493@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com, dmitry@broadcom.com,
-	shmulikr@broadcom.com
-To: vladz@broadcom.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	"Lucian Adrian Grijincu" <lucian.grijincu@gmail.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58988
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757626Ab0LMRsj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 12:48:39 -0500
-In-Reply-To: <1292255013.631.48.camel@lb-tlvb-vladz>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:2820 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1756613Ab0LMRwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 12:52:41 -0500
+In-Reply-To: <20101213093221.5d941493@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Date: Mon, 13 Dec 2010 17:43:33 +0200
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Monday 13 December 2010, 19:32:21
 
-> Hello Dave,
-> 
-> This patch-series adds FCoE support to 57712 HW. It provides
-> required intefaces for upper-level driver (CNIC) and handles
-> FCoE related HW/FW initialization and flows.
-> 
-> Since the FW files are too big (patches 6 and 8) and will not 
-> pass the mailing list, it is also located at:
-> http://linux.broadcom.com/eilong/1.62.00-2
-> 
-> It's a second attempt to submit this patch series after fixing
-> a Tx hash distribution fairness.
+> With a message based interface, there shouldn't be a need for this.
+> Just have one thread sending requests in user space, and one receiving
+> the ACK's.
 
-Don't do this with the firmware files, at least email me a copy
-so I don't have to go to a special web sit to get the patch.
-
-You've never done it this special way before, you've always at
-least email'd me a copy.  That was the right thing to do, what
-in the world made you do things differently this time? :-/
-
-Ugh...
+Sorry, you lost me here :) There is no need for the kernel thread / workqueue 
+or not even for dev_close_many?
