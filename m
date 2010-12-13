@@ -1,28 +1,63 @@
-From: Or Gerlitz <ogerlitz@voltaire.com>
-Subject: correct include file  for restart_syscall
-Date: Mon, 13 Dec 2010 12:17:16 +0200
-Message-ID: <Pine.LNX.4.64.1012131211001.17382@zuben.voltaire.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [GIT PULL net-next-2.6] vhost-net: tools, cleanups, optimizations
+Date: Mon, 13 Dec 2010 12:44:13 +0200
+Message-ID: <20101213104413.GA678@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Roland Dreier <rdreier@cisco.com>, <netdev@vger.kernel.org>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fwil.voltaire.com ([193.47.165.2]:44652 "EHLO
-	Exil2010.voltaire.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752324Ab0LMKRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 05:17:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Please merge the following tree for 2.6.38.
+Thanks!
 
-commit 26574401fef6766f6c3ca25b5c13febe662d2a32 "net: Fix ipoib rtnl_lock
-sysfs deadlock" modified some flows doing rtnl_lock calls to use rtnl_trylock
-/ restart_syscall, etc. It turned out that restart_syscall was included in
-ipoib through linux/inet_lro.h which is an include I'd like to remove...
-Is including linux/sched.h being the right thing to do? I wasn't sure as
-this call is very rare, in network drivers its called only by ipoib and
-bonding and it looks like bonding includes it indirectly.
+The following changes since commit ad1184c6cf067a13e8cb2a4e7ccc407f947027d0:
 
-Or.
+  net: au1000_eth: remove unused global variable. (2010-12-11 12:01:48 -0800)
 
+are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+
+Jason Wang (1):
+      vhost: fix typos in comment
+
+Julia Lawall (1):
+      drivers/vhost/vhost.c: delete double assignment
+
+Michael S. Tsirkin (9):
+      vhost: put mm after thread stop
+      vhost-net: batch use/unuse mm
+      vhost: copy_to_user -> __copy_to_user
+      vhost: get/put_user -> __get/__put_user
+      vhost: remove unused include
+      vhost: correctly set bits of dirty pages
+      vhost: better variable name in logging
+      vhost test module
+      tools/virtio: virtio_test tool
+
+ drivers/vhost/net.c                  |    9 +-
+ drivers/vhost/test.c                 |  320 ++++++++++++++++++++++++++++++++++
+ drivers/vhost/test.h                 |    7 +
+ drivers/vhost/vhost.c                |   44 +++---
+ drivers/vhost/vhost.h                |    2 +-
+ tools/virtio/Makefile                |   12 ++
+ tools/virtio/linux/device.h          |    2 +
+ tools/virtio/linux/slab.h            |    2 +
+ tools/virtio/linux/virtio.h          |  223 +++++++++++++++++++++++
+ tools/virtio/vhost_test/Makefile     |    2 +
+ tools/virtio/vhost_test/vhost_test.c |    1 +
+ tools/virtio/virtio_test.c           |  248 ++++++++++++++++++++++++++
+ 12 files changed, 842 insertions(+), 30 deletions(-)
+ create mode 100644 drivers/vhost/test.c
+ create mode 100644 drivers/vhost/test.h
+ create mode 100644 tools/virtio/Makefile
+ create mode 100644 tools/virtio/linux/device.h
+ create mode 100644 tools/virtio/linux/slab.h
+ create mode 100644 tools/virtio/linux/virtio.h
+ create mode 100644 tools/virtio/vhost_test/Makefile
+ create mode 100644 tools/virtio/vhost_test/vhost_test.c
+ create mode 100644 tools/virtio/virtio_test.c
