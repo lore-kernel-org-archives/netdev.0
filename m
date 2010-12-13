@@ -1,63 +1,39 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [*v2 PATCH 01/22] IPVS: netns, add basic init per netns.
-Date: Mon, 13 Dec 2010 16:12:08 +0100
-Message-ID: <1292253128.4983.53.camel@seasc0214>
-References: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
-	 <1292247510-753-2-git-send-email-hans.schillstrom@ericsson.com>
-	 <alpine.LNX.2.01.1012131503190.18216@obet.zrqbmnf.qr>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: [PATCH net-next 0/9] bnx2x: FCoE support
+Date: Mon, 13 Dec 2010 17:43:33 +0200
+Message-ID: <1292255013.631.48.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Jan Engelhardt <jengelh@medozas.de>
+Cc: "netdev list" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Shmulik Ravid-Rabinovitz" <shmulikr@broadcom.com>
+To: "Dave Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailgw9.se.ericsson.net ([193.180.251.57]:56908 "EHLO
-	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754708Ab0LMPML (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 10:12:11 -0500
-In-Reply-To: <alpine.LNX.2.01.1012131503190.18216@obet.zrqbmnf.qr>
+Received: from mms3.broadcom.com ([216.31.210.19]:1152 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754480Ab0LMPnu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Dec 2010 10:43:50 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-13 at 15:08 +0100, Jan Engelhardt wrote:
-> On Monday 2010-12-13 14:38, Hans Schillstrom wrote:
-> >@@ -28,6 +28,18 @@
-> > #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
-> > #include <net/netfilter/nf_conntrack.h>
-> > #endif
-> >+#include <net/net_namespace.h>		/* Netw namespace */
-> >+
-> >+/*
-> >+ * Generic access of ipvs struct
-> >+ */
-> >+static inline struct netns_ipvs * net_ipvs(struct net* net) {
-> >+#ifdef CONFIG_NET_NS
-> >+	return net->ipvs;
-> >+#else
-> >+	return init_net.ipvs;
-> >+#endif
-> >+}
-> 
-> This looks redundant, because even in the !CONFIG_NET_NS case,
-> 'net' is valid and already points to &init_net.
+Hello Dave,
 
-Yes, that's right I'll remove it.
+This patch-series adds FCoE support to 57712 HW. It provides
+required intefaces for upper-level driver (CNIC) and handles
+FCoE related HW/FW initialization and flows.
 
-Thanks
-Hans
-> 
-> >+static void __net_exit __ip_vs_cleanup(struct net *net)
-> >+{
-> >+	struct netns_ipvs *ipvs = net_ipvs(net);
-> >+
-> >+	IP_VS_DBG(10, "ipvs netns %d released\n", ipvs->inc);
-> >+}
-> >+
+Since the FW files are too big (patches 6 and 8) and will not 
+pass the mailing list, it is also located at:
+http://linux.broadcom.com/eilong/1.62.00-2
+
+It's a second attempt to submit this patch series after fixing
+a Tx hash distribution fairness.
+
+Thanks,
+Vlad
+
 
 
