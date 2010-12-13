@@ -1,8 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH net-next-2.6 v9 13/20] pch_can: Fix bit timing calculation
-	issue
-Date: Mon, 13 Dec 2010 15:24:19 +0900
-Message-ID: <1292221467-8039-13-git-send-email-tomoya-linux@dsn.okisemi.com>
+Subject: [PATCH net-next-2.6 v9 17/20] pch_can: Fix incorrect return processing
+Date: Mon, 13 Dec 2010 15:24:23 +0900
+Message-ID: <1292221467-8039-17-git-send-email-tomoya-linux@dsn.okisemi.com>
 References: <1292221467-8039-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-2-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-3-git-send-email-tomoya-linux@dsn.okisemi.com>
@@ -15,6 +14,10 @@ References: <1292221467-8039-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-10-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-11-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-12-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-13-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-14-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-15-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-16-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -24,7 +27,7 @@ To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@pu
 	21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TZUIDd8j+nm9g@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1292221467-8039-12-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+In-Reply-To: <1292221467-8039-16-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -36,37 +39,73 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Modify like use calculated value directly passed by CAN core module.
+Fix incorrect return processing.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |    6 ++----
- 1 files changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/can/pch_can.c |   19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 3540978..5a6a0df 100644
+index ace1fe7..8efbe35 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -786,17 +786,15 @@ static int pch_set_bittiming(struct net_device *ndev)
- 	const struct can_bittiming *bt = &priv->can.bittiming;
- 	u32 canbit;
- 	u32 bepe;
--	u32 brp;
+@@ -580,9 +580,11 @@ static irqreturn_t pch_can_interrupt(int irq, void *dev_id)
+ 	struct net_device *ndev = (struct net_device *)dev_id;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
  
- 	/* Setting the CCE bit for accessing the Can Timing register. */
- 	pch_can_bit_set(&priv->regs->cont, PCH_CTRL_CCE);
++	if (!pch_can_int_pending(priv))
++		return IRQ_NONE;
++
+ 	pch_can_set_int_enables(priv, PCH_CAN_NONE);
+ 	napi_schedule(&priv->napi);
+-
+ 	return IRQ_HANDLED;
+ }
  
--	brp = (bt->tq) / (1000000000/PCH_CAN_CLK) - 1;
--	canbit = brp & PCH_MSK_BITT_BRP;
-+	canbit = (bt->brp - 1) & PCH_MSK_BITT_BRP;
- 	canbit |= (bt->sjw - 1) << PCH_BIT_SJW_SHIFT;
- 	canbit |= (bt->phase_seg1 + bt->prop_seg - 1) << PCH_BIT_TSEG1_SHIFT;
- 	canbit |= (bt->phase_seg2 - 1) << PCH_BIT_TSEG2_SHIFT;
--	bepe = (brp & PCH_MSK_BRPE_BRPE) >> PCH_BIT_BRPE_BRPE_SHIFT;
-+	bepe = ((bt->brp - 1) & PCH_MSK_BRPE_BRPE) >> PCH_BIT_BRPE_BRPE_SHIFT;
- 	iowrite32(canbit, &priv->regs->bitt);
- 	iowrite32(bepe, &priv->regs->brpe);
- 	pch_can_bit_clear(&priv->regs->cont, PCH_CTRL_CCE);
+@@ -671,8 +673,10 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 obj_num, int quota)
+ 		}
+ 
+ 		skb = alloc_can_skb(priv->ndev, &cf);
+-		if (!skb)
+-			return -ENOMEM;
++		if (!skb) {
++			netdev_err(ndev, "alloc_can_skb Failed\n");
++			return rcv_pkts;
++		}
+ 
+ 		/* Get Received data */
+ 		id2 = ioread32(&priv->regs->ifregs[0].id2);
+@@ -733,8 +737,8 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
+ 	struct net_device *ndev = napi->dev;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	u32 int_stat;
+-	int rcv_pkts = 0;
+ 	u32 reg_stat;
++	int quota_save = quota;
+ 
+ 	int_stat = pch_can_int_pending(priv);
+ 	if (!int_stat)
+@@ -763,10 +767,7 @@ static int pch_can_poll(struct napi_struct *napi, int quota)
+ 		goto end;
+ 
+ 	if ((int_stat >= PCH_RX_OBJ_START) && (int_stat <= PCH_RX_OBJ_END)) {
+-		rcv_pkts += pch_can_rx_normal(ndev, int_stat, quota);
+-		quota -= rcv_pkts;
+-		if (quota < 0)
+-			goto end;
++		quota -= pch_can_rx_normal(ndev, int_stat, quota);
+ 	} else if ((int_stat >= PCH_TX_OBJ_START) &&
+ 		   (int_stat <= PCH_TX_OBJ_END)) {
+ 		/* Handle transmission interrupt */
+@@ -777,7 +778,7 @@ end:
+ 	napi_complete(napi);
+ 	pch_can_set_int_enables(priv, PCH_CAN_ALL);
+ 
+-	return rcv_pkts;
++	return quota_save - quota;
+ }
+ 
+ static int pch_set_bittiming(struct net_device *ndev)
 -- 
 1.6.0.6
