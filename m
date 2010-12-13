@@ -1,262 +1,98 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH net-next-2.6 v2] net: factorize sync-rcu call in unregister_netdevice_many
-Date: Mon, 13 Dec 2010 23:54:53 +0200
-Message-ID: <1292277293-6565-1-git-send-email-opurdila@ixiacom.com>
-Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>,
-	Octavian Purdila <opurdila@ixiacom.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [RFC PATCH 0/2] bonding: generic netlink, multi-link mode
+Date: Mon, 13 Dec 2010 14:07:33 -0800
+Message-ID: <1292278055-2842-1-git-send-email-fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:3910 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752190Ab0LMVzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 16:55:19 -0500
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:38637 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757850Ab0LMWHn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Dec 2010 17:07:43 -0500
+Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
+	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBDLxQ2D025448
+	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 16:59:28 -0500
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 3DF6B728047
+	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 17:07:42 -0500 (EST)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBDM7f7F356082
+	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 17:07:42 -0500
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBDM7fcd022508
+	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 15:07:41 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add dev_close_many and dev_deactivate_many to factorize another
-sync-rcu operation on the netdevice unregister path.
 
-$ modprobe dummy numdummies=10000
-$ ip link set dev dummy* up
-$ time rmmod dummy
+	These patches add support to bonding for generic netlink and a new
+multi-link mode.  At the moment, I'm looking primarily for discussion
+about the generic netlink and implementation of multi-link.
 
-Without the patch           With the patch
+	First, in patch 1, is a generic netlink infrastructure for
+bonding.  This patch provides a "get mode" command and a "slave link state
+change" asychnronous notification via a netlink multicast group.  One long
+term goal is to have bonding be controlled via netlink, both for
+administrative purposes (add / remove slaves, etc) and policy (slave A is
+better than slave B).  I'd appreciate feedback from netlink savvy folks as
+to whether this is the appropriate starting point.
 
-real    0m 24.63s           real    0m 5.15s
-user    0m 0.00s            user    0m 0.00s
-sys     0m 6.05s            sys     0m 5.14s
+	Second, in patch 2, is the multi-link kernel code itself, which is
+at present a work in progress.  Here, I'm primarily looking for comments
+regarding the control interface for this mode.
 
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+	As implemented, this is a new mode to bonding, controlled via
+generic netlink commands from a user space daemon.  Slave assignment for
+outgoing traffic is handled directly by bonding (the mapping table used by
+multi-link is within bonding itself, and the usual transmit hash policy is
+applied to the set of slaves allowable for a given destination).
+
+	In some private discussion with Andy, he suggested that this would
+be better if it utilized the recently added queue mapping facility within
+bonding, and then having the queue (and thus slave) assignments performed
+at the qdisc level (via a tc filter) instead of within bonding itself.
+This, I believe, would require a new tc filter that implements the ability
+to set a skb queue_mapping in a hash (of protocol data in the packet) or
+round robin fashion.  In this case, the tc filter would also incorporate
+all of the netlink functionality for communicating with the user space
+daemon (to permit the mappings to be updated).
+
+	Thoughts?
+
+	Lastly, a description of the multi-link system itself.  This is a
+reimplementation of a load balancing scheme that has been available on AIX
+for some time.  It operates essentially as a load balancer by subnet, with
+a UDP-based protocol to exchange multi-link topology information between
+participating systems.  Hosts participating in multi-link have IP
+addresses in a separate subnet.  Interfaces enslaved to multi-link do not
+lose their assigned IP address information, and may also operate
+separately from multi-link.
+
+	One notable feature is that multi-link provides load balancing
+facilities for network devices that cannot change their MAC address, such
+as Infiniband.
+
+	For example, given two systems as follows:
+
+host A:
+bond0		10.88.0.1/16
+slave eth0	10.0.0.1/16
+slave eth1	10.1.0.1/16
+slave eth2	10.2.0.1/16
+
+host B:
+bond0		10.88.0.2/16
+slave eth0	10.0.0.2/16
+slave eth1	10.1.0.2/16
+slave eth2	10.2.0.2/16
+
+	in this case, host A's bond0 running multi-link would load balance
+traffic from 10.88.0.1 to 10.88.0.2 across eth0, eth1 and eth2.  The user
+space daemon negotiates the link set to use with other participating
+hosts, and communicates that to the multi-link implementation.
+
+	-J
+
 ---
-
-Changes since v1:
-
-* move ASSERT_RTNL() and might_sleep() out of the loop
-
- include/net/sch_generic.h |    1 +
- net/core/dev.c            |  117 +++++++++++++++++++++++++++++----------------
- net/sched/sch_generic.c   |   29 ++++++++---
- 3 files changed, 98 insertions(+), 49 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index ea1f8a8..786cc39 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -321,6 +321,7 @@ extern void dev_init_scheduler(struct net_device *dev);
- extern void dev_shutdown(struct net_device *dev);
- extern void dev_activate(struct net_device *dev);
- extern void dev_deactivate(struct net_device *dev);
-+extern void dev_deactivate_many(struct list_head *head);
- extern struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
- 				     struct Qdisc *qdisc);
- extern void qdisc_reset(struct Qdisc *qdisc);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..063feee 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1222,51 +1222,88 @@ int dev_open(struct net_device *dev)
- }
- EXPORT_SYMBOL(dev_open);
- 
--static int __dev_close(struct net_device *dev)
-+static int __dev_close_many(struct list_head *head)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct net_device *dev;
- 
- 	ASSERT_RTNL();
- 	might_sleep();
- 
--	/*
--	 *	Tell people we are going down, so that they can
--	 *	prepare to death, when device is still operating.
--	 */
--	call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
-+	list_for_each_entry(dev, head, unreg_list) {
-+		/*
-+		 *	Tell people we are going down, so that they can
-+		 *	prepare to death, when device is still operating.
-+		 */
-+		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
- 
--	clear_bit(__LINK_STATE_START, &dev->state);
-+		clear_bit(__LINK_STATE_START, &dev->state);
- 
--	/* Synchronize to scheduled poll. We cannot touch poll list,
--	 * it can be even on different cpu. So just clear netif_running().
--	 *
--	 * dev->stop() will invoke napi_disable() on all of it's
--	 * napi_struct instances on this device.
--	 */
--	smp_mb__after_clear_bit(); /* Commit netif_running(). */
-+		/* Synchronize to scheduled poll. We cannot touch poll list, it
-+		 * can be even on different cpu. So just clear netif_running().
-+		 *
-+		 * dev->stop() will invoke napi_disable() on all of it's
-+		 * napi_struct instances on this device.
-+		 */
-+		smp_mb__after_clear_bit(); /* Commit netif_running(). */
-+	}
- 
--	dev_deactivate(dev);
-+	dev_deactivate_many(head);
- 
--	/*
--	 *	Call the device specific close. This cannot fail.
--	 *	Only if device is UP
--	 *
--	 *	We allow it to be called even after a DETACH hot-plug
--	 *	event.
--	 */
--	if (ops->ndo_stop)
--		ops->ndo_stop(dev);
-+	list_for_each_entry(dev, head, unreg_list) {
-+		const struct net_device_ops *ops = dev->netdev_ops;
- 
--	/*
--	 *	Device is now down.
--	 */
-+		/*
-+		 *	Call the device specific close. This cannot fail.
-+		 *	Only if device is UP
-+		 *
-+		 *	We allow it to be called even after a DETACH hot-plug
-+		 *	event.
-+		 */
-+		if (ops->ndo_stop)
-+			ops->ndo_stop(dev);
-+
-+		/*
-+		 *	Device is now down.
-+		 */
- 
--	dev->flags &= ~IFF_UP;
-+		dev->flags &= ~IFF_UP;
-+
-+		/*
-+		 *	Shutdown NET_DMA
-+		 */
-+		net_dmaengine_put();
-+	}
-+
-+	return 0;
-+}
-+
-+static int __dev_close(struct net_device *dev)
-+{
-+	LIST_HEAD(single);
-+
-+	list_add(&dev->unreg_list, &single);
-+	return __dev_close_many(&single);
-+}
-+
-+int dev_close_many(struct list_head *head)
-+{
-+	struct net_device *dev, *tmp;
-+
-+	list_for_each_entry_safe(dev, tmp, head, unreg_list)
-+		if (!(dev->flags & IFF_UP)) {
-+			list_del(&dev->unreg_list);
-+			continue;
-+		}
-+
-+	__dev_close_many(head);
- 
- 	/*
--	 *	Shutdown NET_DMA
-+	 * Tell people we are down
- 	 */
--	net_dmaengine_put();
-+	list_for_each_entry(dev, head, unreg_list) {
-+		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
-+		call_netdevice_notifiers(NETDEV_DOWN, dev);
-+	}
- 
- 	return 0;
- }
-@@ -1282,16 +1319,10 @@ static int __dev_close(struct net_device *dev)
-  */
- int dev_close(struct net_device *dev)
- {
--	if (!(dev->flags & IFF_UP))
--		return 0;
--
--	__dev_close(dev);
-+	LIST_HEAD(single);
- 
--	/*
--	 * Tell people we are down
--	 */
--	rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
--	call_netdevice_notifiers(NETDEV_DOWN, dev);
-+	list_add(&dev->unreg_list, &single);
-+	dev_close_many(&single);
- 
- 	return 0;
- }
-@@ -4958,10 +4989,12 @@ static void rollback_registered_many(struct list_head *head)
- 		}
- 
- 		BUG_ON(dev->reg_state != NETREG_REGISTERED);
-+	}
- 
--		/* If device is running, close it first. */
--		dev_close(dev);
-+	/* If device is running, close it first. */
-+	dev_close_many(head);
- 
-+	list_for_each_entry(dev, head, unreg_list) {
- 		/* And unlink it from device chain. */
- 		unlist_netdevice(dev);
- 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 0918834..34dc598 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -810,20 +810,35 @@ static bool some_qdisc_is_busy(struct net_device *dev)
- 	return false;
- }
- 
--void dev_deactivate(struct net_device *dev)
-+void dev_deactivate_many(struct list_head *head)
- {
--	netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
--	if (dev_ingress_queue(dev))
--		dev_deactivate_queue(dev, dev_ingress_queue(dev), &noop_qdisc);
-+	struct net_device *dev;
- 
--	dev_watchdog_down(dev);
-+	list_for_each_entry(dev, head, unreg_list) {
-+		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
-+					 &noop_qdisc);
-+		if (dev_ingress_queue(dev))
-+			dev_deactivate_queue(dev, dev_ingress_queue(dev),
-+					     &noop_qdisc);
-+
-+		dev_watchdog_down(dev);
-+	}
- 
- 	/* Wait for outstanding qdisc-less dev_queue_xmit calls. */
- 	synchronize_rcu();
- 
- 	/* Wait for outstanding qdisc_run calls. */
--	while (some_qdisc_is_busy(dev))
--		yield();
-+	list_for_each_entry(dev, head, unreg_list)
-+		while (some_qdisc_is_busy(dev))
-+			yield();
-+}
-+
-+void dev_deactivate(struct net_device *dev)
-+{
-+	LIST_HEAD(single);
-+
-+	list_add(&dev->unreg_list, &single);
-+	dev_deactivate_many(&single);
- }
- 
- static void dev_init_scheduler_queue(struct net_device *dev,
--- 
-1.7.1
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
