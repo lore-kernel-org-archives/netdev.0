@@ -1,121 +1,58 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: Re: [PATCH net-next 1/9] Take the distribution range definition
- out of skb_tx_hash()
-Date: Mon, 13 Dec 2010 18:27:10 +0200
-Message-ID: <1292257630.17903.4.camel@lb-tlvb-vladz>
-References: <1292255031.631.49.camel@lb-tlvb-vladz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: add dev_close_many
+Date: Mon, 13 Dec 2010 17:52:25 +0100
+Message-ID: <1292259145.2759.55.camel@edumazet-laptop>
+References: <1292249903-3865-1-git-send-email-opurdila@ixiacom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "netdev list" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Dave Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>
+To: Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1470 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757996Ab0LMQ1Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Dec 2010 11:27:24 -0500
-In-Reply-To: <1292255031.631.49.camel@lb-tlvb-vladz>
+Received: from mail-ew0-f45.google.com ([209.85.215.45]:61288 "EHLO
+	mail-ew0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754018Ab0LMQwb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 11:52:31 -0500
+Received: by ewy10 with SMTP id 10so4055264ewy.4
+        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 08:52:30 -0800 (PST)
+In-Reply-To: <1292249903-3865-1-git-send-email-opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Subject: [PATCH net-next 1/9] bnx2x: Take the distribution range definition out of skb_tx_hash()
+Le lundi 13 d=C3=A9cembre 2010 =C3=A0 16:18 +0200, Octavian Purdila a =C3=
+=A9crit :
+> Add dev_close_many and dev_deactivate_many to factorize another
+> expensive sync-rcu operation in the netdevice unregister path.
+>=20
+> $ modprobe dummy numdummies=3D10000
+> $ ip link set dev dummy* up
+> $ time rmmod dummy
+>=20
+> Without the patch           With the patch
+>=20
+> real    0m 24.63s           real    0m 5.15s
+> user    0m 0.00s            user    0m 0.00s
+> sys     0m 6.05s            sys     0m 5.14s
+>=20
+> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> ---
 
-Move the calcualation of the Tx hash for a given hash range into a separate
-function and define the skb_tx_hash(), which calculates a Tx hash for a
-[0; dev->real_num_tx_queues - 1] hash values range, using this
-function (__skb_tx_hash()).
+Hmm, I think this solves the "rmmod dummy" case, but not the "dismantle
+devices one by one", which is the general one (on heavy duty tunnels/pp=
+p
+servers)
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Updating a subject: there was a missing "bnx2x" word.
+I think we could use a kernel thread (a workqueue presumably), handling
+3 lists of devices to be dismantled, respecting one rcu grace period (o=
+r
+rcu_barrier()) before transfert of one item from one list to following
+one.
 
- include/linux/netdevice.h |   10 ++++++++++
- include/linux/skbuff.h    |    5 +++--
- net/core/dev.c            |   15 ++++++++++-----
- 3 files changed, 23 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d31bc3c..445e682 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1747,6 +1747,16 @@ static inline void netif_wake_subqueue(struct net_device *dev, u16 queue_index)
- 		__netif_schedule(txq->qdisc);
- }
-
-+/*
-+ * Returns a Tx hash for the given packet when dev->real_num_tx_queues is used
-+ * as a distribution range limit for the returned value.
-+ */
-+static inline u16 skb_tx_hash(const struct net_device *dev,
-+			      const struct sk_buff *skb)
-+{
-+	return __skb_tx_hash(dev, skb, dev->real_num_tx_queues);
-+}
-+
- /**
-  *	netif_is_multiqueue - test if device has multiple transmit queues
-  *	@dev: network device
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 19f37a6..4c4bec6 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2165,8 +2165,9 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
- 	return skb->queue_mapping != 0;
- }
-
--extern u16 skb_tx_hash(const struct net_device *dev,
--		       const struct sk_buff *skb);
-+extern u16 __skb_tx_hash(const struct net_device *dev,
-+			 const struct sk_buff *skb,
-+			 unsigned int num_tx_queues);
-
- #ifdef CONFIG_XFRM
- static inline struct sec_path *skb_sec_path(struct sk_buff *skb)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..b25dd08 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2112,14 +2112,19 @@ out:
-
- static u32 hashrnd __read_mostly;
-
--u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
-+/*
-+ * Returns a Tx hash based on the given packet descriptor a Tx queues' number
-+ * to be used as a distribution range.
-+ */
-+u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
-+		  unsigned int num_tx_queues)
- {
- 	u32 hash;
-
- 	if (skb_rx_queue_recorded(skb)) {
- 		hash = skb_get_rx_queue(skb);
--		while (unlikely(hash >= dev->real_num_tx_queues))
--			hash -= dev->real_num_tx_queues;
-+		while (unlikely(hash >= num_tx_queues))
-+			hash -= num_tx_queues;
- 		return hash;
- 	}
-
-@@ -2129,9 +2134,9 @@ u16 skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb)
- 		hash = (__force u16) skb->protocol ^ skb->rxhash;
- 	hash = jhash_1word(hash, hashrnd);
-
--	return (u16) (((u64) hash * dev->real_num_tx_queues) >> 32);
-+	return (u16) (((u64) hash * num_tx_queues) >> 32);
- }
--EXPORT_SYMBOL(skb_tx_hash);
-+EXPORT_SYMBOL(__skb_tx_hash);
-
- static inline u16 dev_cap_txqueue(struct net_device *dev, u16 queue_index)
- {
---
-1.7.0.4
-
+This way, each device removal could post a device to this kernel thread
+and return to user immediately. Time of RTNL hold would be reduced
+(calls to synchronize_rcu() would be done with RTNL not held)
 
 
 
