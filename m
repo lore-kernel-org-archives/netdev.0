@@ -1,89 +1,64 @@
-From: Zimny Lech <napohybelskurwysynom2010@gmail.com>
-Subject: Re: linux-next: Tree for December 10
-Date: Mon, 13 Dec 2010 20:04:26 +0100
-Message-ID: <AANLkTikSjXT6xxKyamvE8YEygfpakdDMFt2F1rnkytfN@mail.gmail.com>
-References: <20101210135746.0cf6cbcd.sfr@canb.auug.org.au>
-	<AANLkTinXT6jyr9C=LJA9Y_5v3sWN1fDHF9NRsTLHVXuF@mail.gmail.com>
+From: "Henry Ptasinski" <henryp@broadcom.com>
+Subject: Re: brcm80211 hangs when disabling wireless
+Date: Mon, 13 Dec 2010 11:31:11 -0800
+Message-ID: <20101213193111.GK2576@broadcom.com>
+References: <1291930010.7960.30.camel@nimitz>
+ <20101209214347.GA15172@suse.de> <1291931678.7960.32.camel@nimitz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Wolfgang Grandegger <wg@grandegger.com>, netdev@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Greg KH" <gregkh@suse.de>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"Brett Rudley" <brudley@broadcom.com>,
+	"Jason Cooper" <jason@lakedaemon.net>,
+	"Mike Rapoport" <mike.rapoport@gmail.com>,
+	"Andy Shevchenko" <andy.shevchenko@gmail.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Henry Ptasinski" <henryp@broadcom.com>, arend@broadcom.com,
+	rvossen@broadcom.com
+To: "Dave Hansen" <dave@sr71.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinXT6jyr9C=LJA9Y_5v3sWN1fDHF9NRsTLHVXuF@mail.gmail.com>
+In-Reply-To: <1291931678.7960.32.camel@nimitz>
+Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sorry, this should be reported for next-20101213
+On Thu, Dec 09, 2010 at 01:54:38PM -0800, Dave Hansen wrote:
+> On Thu, 2010-12-09 at 13:43 -0800, Greg KH wrote:
+> > On Thu, Dec 09, 2010 at 01:26:50PM -0800, Dave Hansen wrote:
+> > > I've been getting hard hangs when I toggle the wireless on a Lenovo
+> > > S10-3.  It happens both with the physical switch and the Fn-F5 key
+> > > combo.  It's quite repeatable.  The system is quite stable when I'm not
+> > > trying to disable the wireless, though.
+> > 
+> > What kernel version is this?
+> > 
+> > Linus's latest tree has a known bug when the wireless is suspended and
+> > then resumed.  Broadcom is working on it but no patch is forthcoming
+> > yet.  Perhaps this is the same issue.
+> 
+> Yeah, it's 2.6.37-rc5 plus a pull from:
+> 
+> 	http://kernel.ubuntu.com/git?p=ikepanhc/ideapad-laptop.git;a=summary
+> 
+> That could easily be it.  Thanks, Greg.
 
-W dniu 13 grudnia 2010 20:02 u=BFytkownik Zimny Lech
-<napohybelskurwysynom2010@gmail.com> napisa=B3:
-> Ave,
->
-> 2010/12/10 Stephen Rothwell <sfr@canb.auug.org.au>:
->> Hi all,
->>
->> Changes since 20101209:
->>
->
-> WARNING: modpost: Found 14 section mismatch(es).
-> To see full details build your kernel with:
-> 'make CONFIG_DEBUG_SECTION_MISMATCH=3Dy'
-> =A0GEN =A0 =A0 .version
-> =A0CHK =A0 =A0 include/generated/compile.h
-> =A0UPD =A0 =A0 include/generated/compile.h
-> =A0CC =A0 =A0 =A0init/version.o
-> =A0LD =A0 =A0 =A0init/built-in.o
-> =A0LD =A0 =A0 =A0.tmp_vmlinux1
-> arch/x86/built-in.o: In function `kvm_smp_prepare_boot_cpu':
-> kvm.c:(.init.text+0xf446): undefined reference to `kvm_register_clock=
-'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x1087ee): undefined reference to `__alloc_skb'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x108897): undefined reference to `skb_put'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x108930): undefined reference to `kfree_skb'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x108947): undefined reference to `nla_reserve'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x108990): undefined reference to `kfree_skb'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x1089e9): undefined reference to `kfree_skb'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x1089f8): undefined reference to `init_net'
-> drivers/built-in.o: In function `generate_netlink_event':
-> (.text+0x108a0b): undefined reference to `netlink_broadcast'
-> drivers/built-in.o: In function `thermal_init':
-> thermal_sys.c:(.init.text+0xbd00): undefined reference to `genl_regis=
-ter_family'
-> thermal_sys.c:(.init.text+0xbd2f): undefined reference to
-> `genl_register_mc_group'
-> thermal_sys.c:(.init.text+0xbd57): undefined reference to
-> `genl_unregister_family'
-> drivers/built-in.o: In function `thermal_exit':
-> thermal_sys.c:(.exit.text+0x154c): undefined reference to
-> `genl_unregister_family'
-> make[1]: *** [.tmp_vmlinux1] Error 1
-> make: *** [sub-make] Error 2
->
->
-> --
-> Slawa!
-> Zimny "Spie dziadu!" Lech z Wawelu
->
-> Hej, tam!
-> Wydar=B3em klejnot szans
-> http://www.youtube.com/watch?v=3DVXWTlYzVFUA
->
+Actually, I think it's the rfkill support (or lack thereof) that's causing you
+trouble.  But we're looking at that as well.
 
+The outstanding reported issues that I'm aware of are:
+	- 43224 crashes
+	- missing rfkill support
+	- suspend/resume problems
+	- 4313 infinite loop in some cases
 
+In terms of process, should these all get filed in bugzilla.kernel.org (or
+somewhere else), or just track them via email and our TODO list?
 
---=20
-Slawa!
-Zimny "Spie dziadu!" Lech z Wawelu
-
-Hej, tam!
-Wydar=B3em klejnot szans
-http://www.youtube.com/watch?v=3DVXWTlYzVFUA
+Thanks,
+- Henry
