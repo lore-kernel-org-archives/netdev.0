@@ -1,63 +1,64 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: Using net_devices with ATM/DSL
-Date: Mon, 13 Dec 2010 13:50:09 +0100
-Message-ID: <201012131350.10206.florian@openwrt.org>
-References: <4D05C2D3.7010306@redfish-solutions.com>
+From: Shmulik Hen <shmulik@trego.co.il>
+Subject: Re: System blocks (hangs) on ifconfig up
+Date: Mon, 13 Dec 2010 15:11:25 +0200
+Message-ID: <4D061B7D.9050805@trego.co.il>
+References: <4D04E38A.1040605@trego.co.il>	 <1292194983.3136.294.camel@localhost>  <4D05E400.7080409@trego.co.il> <1292243832.2759.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Cc: netdev@vger.kernel.org, Shmulik Hen <shmulik.hen@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	shemminger@vyatta.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57261 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757042Ab0LMMu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 07:50:28 -0500
-Received: by wyb28 with SMTP id 28so5852570wyb.19
-        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 04:50:27 -0800 (PST)
-In-Reply-To: <4D05C2D3.7010306@redfish-solutions.com>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:51860 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757574Ab0LMNLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 08:11:31 -0500
+Received: by bwz16 with SMTP id 16so6565405bwz.4
+        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 05:11:30 -0800 (PST)
+In-Reply-To: <1292243832.2759.1.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On 12/13/2010 02:37 PM, Eric Dumazet wrote:
+>>
+>> But why does this happen only the second time I run ifconfig up?
+>> How come the entire system is totally frozen?
+>> I can't even switch to other applications running. If I run 'top' in another
+>> console, it stops refreshing for the entire period.
+>>
+>> I'll try to explain better;
+>> The driver I'm referring to is part of an embedded system development kit.
+>> It runs on the controlling side, which may be a PC or some Linux embedded
+>> system. It exposes a virtual interface that allows to communicate via
+>> ethernet connection to a remote board, and performs the firmware download
+>> to that board.
+>> Unfortunately, the firmware download stage is  done during dev->open() of
+>> this virtual interface. The call to wait_event_interruptible_timeout()
+>> is there to make sure the boot process of the remote board is complete via a
+>> message. If all goes well the first time, there is no delay, but if the
+>> operation
+>> fails for any reason the first time, and a second attempt is made (another
+>> ifconfig up), we see the freezing.
+>>
+>> Since this driver is (mostly) closed source, I had to try and reproduce
+>> the situation
+>> in an all open-source driver - this is the sample code I attached to my
+>> original
+>> message. The call to mdelay() there is meant to simulate the delay of
+>> the original
+>> driver - it schedules.
+>>
+> mdelay() does a busy wait. If you are not SMP, this means a 'freeze'
+>
+> If you want to schedule, you should use msleep()
 
-On Monday 13 December 2010 07:53:07 Philip Prindeville wrote:
-> I was trying to get this discussion rolling on linux-atm-general but didn't
-> have much luck.
-> 
-> I was wondering what the downside to having ATM/DSL interfaces use
-> net_devices would be?
+Correct - my bad. When I use msleep() in the sample code there is no freeze.
 
-I think you would have to add ATM/DSL-specific extensions (ala wext) just to 
-extend it, specializing an atm_dev would make more sense to me.
+But I still don't get it - when using mdelay(), why does the system 
+freeze only
+the second time but not in the first time?
+And what about wait_event_interruptible_timeout()? surely it doesn't
+do a busy loop - I can see  the source calling schedule().
 
-> 
-> Part of the reason for wanting to do this is to have an end-point to
-> send/receive netlink messages to, so that the interface can report carrier
-> state transitions, bit rates, bit-error rates, SNR, attenuation,
-> constellations, transmitter gain, etc.
-> 
-> Seems simple enough.
-
-If you want to be able to report informations from the DSL PHY, I would rather 
-specialize an interface called, say dsl_phy which has a list of operations for 
-setting/getting the DSL PHY state, low-level counters ... 
-
-The atm stack more or less already supports an ATM PHY with 
-atmphy_ops, but is in my opinion too limited to query chip-speficic infos.
-
-Once that interface is well defined, adding netlink support to it should be 
-rather straight forward.
-
-> 
-> Why not do this?
-> 
-> Thanks,
-> 
-> -Philip
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
