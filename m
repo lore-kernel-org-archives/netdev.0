@@ -1,11 +1,11 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v9 13/20] pch_can: Fix bit timing
-	calculation issue
-Date: Mon, 13 Dec 2010 12:27:37 -0800 (PST)
-Message-ID: <20101213.122737.116384416.davem@davemloft.net>
-References: <1292221467-8039-11-git-send-email-tomoya-linux@dsn.okisemi.com>
-	<1292221467-8039-12-git-send-email-tomoya-linux@dsn.okisemi.com>
+Subject: Re: [PATCH net-next-2.6 v9 14/20] pch_can: Fix miss-setting status
+	issue
+Date: Mon, 13 Dec 2010 12:27:45 -0800 (PST)
+Message-ID: <20101213.122745.200364119.davem@davemloft.net>
+References: <1292221467-8039-12-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-13-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-14-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,7 +16,7 @@ Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv
 	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1292221467-8039-13-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+In-Reply-To: <1292221467-8039-14-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -29,11 +29,10 @@ Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Mon, 13 Dec 2010 15:24:19 +0900
+Date: Mon, 13 Dec 2010 15:24:20 +0900
 
-> Modify like use calculated value directly passed by CAN core module.
+> Modify miss-setting status issue at suspend.
 > 
 > Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
 Applied.
