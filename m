@@ -1,38 +1,66 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: correct include file  for restart_syscall
-Date: Mon, 13 Dec 2010 02:51:26 -0800
-Message-ID: <m14oaivtch.fsf@fess.ebiederm.org>
-References: <Pine.LNX.4.64.1012131211001.17382@zuben.voltaire.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH 2/9] drivers/net: don't use flush_scheduled_work()
+Date: Mon, 13 Dec 2010 12:22:47 +0100
+Message-ID: <20101213112247.GW15575@mail.wantstofly.org>
+References: <1292169185-10579-1-git-send-email-tj@kernel.org> <1292169185-10579-3-git-send-email-tj@kernel.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Roland Dreier <rdreier@cisco.com>, <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@voltaire.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:59064 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514Ab0LMKve (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 05:51:34 -0500
-In-Reply-To: <Pine.LNX.4.64.1012131211001.17382@zuben.voltaire.com> (Or
-	Gerlitz's message of "Mon, 13 Dec 2010 12:17:16 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	davem@davemloft.net, Jay Cliburn <jcliburn@gmail.com>,
+	Michael Chan <mchan@broadcom.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	e1000-devel@lists.sourceforge.net,
+	Vasanthy Kolluri <vkolluri@cisco.com>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Ramkrishna Vepa <ramkrishna.vepa@exar.com>,
+	Matt Carlson <mcarlson@broadcom.com>,
+	David Brownell <dbrownell@users.sourceforge.net>,
+	Shreyas Bhatewara <sbhatewara@vmware.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1292169185-10579-3-git-send-email-tj@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Or Gerlitz <ogerlitz@voltaire.com> writes:
+On Sun, Dec 12, 2010 at 04:52:58PM +0100, Tejun Heo wrote:
 
-> Hi,
->
-> commit 26574401fef6766f6c3ca25b5c13febe662d2a32 "net: Fix ipoib rtnl_lock
-> sysfs deadlock" modified some flows doing rtnl_lock calls to use rtnl_trylock
-> / restart_syscall, etc. It turned out that restart_syscall was included in
-> ipoib through linux/inet_lro.h which is an include I'd like to remove...
-> Is including linux/sched.h being the right thing to do? I wasn't sure as
-> this call is very rare, in network drivers its called only by ipoib and
-> bonding and it looks like bonding includes it indirectly.
+> flush_scheduled_work() is on its way out.  This patch contains simple
+> conversions to replace flush_scheduled_work() usage with direct
+> cancels and flushes.
+> 
+> Directly cancel the used works on driver detach and flush them in
+> other cases.
+> 
+> The conversions are mostly straight forward and the only dangers are,
+> 
+> * Forgetting to cancel/flush one or more used works.
+> 
+> * Cancelling when a work should be flushed (ie. the work must be
+>   executed once scheduled whether the driver is detaching or not).
+> 
+> I've gone over the changes multiple times but it would be much
+> appreciated if you can review with the above points in mind.
+> 
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Jay Cliburn <jcliburn@gmail.com>
+> Cc: Michael Chan <mchan@broadcom.com>
+> Cc: Divy Le Ray <divy@chelsio.com>
+> Cc: e1000-devel@lists.sourceforge.net
+> Cc: Vasanthy Kolluri <vkolluri@cisco.com>
+> Cc: Samuel Ortiz <samuel@sortiz.org>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Andrew Gallatin <gallatin@myri.com>
+> Cc: Francois Romieu <romieu@fr.zoreil.com>
+> Cc: Ramkrishna Vepa <ramkrishna.vepa@exar.com>
+> Cc: Matt Carlson <mcarlson@broadcom.com>
+> Cc: David Brownell <dbrownell@users.sourceforge.net>
+> Cc: Shreyas Bhatewara <sbhatewara@vmware.com>
+> Cc: netdev@vger.kernel.org
 
-For the definition of restart_syscall yes.
+For the mv643xx_eth part:
 
-I wish I was clever enough to find a way not to need rtnl_trylock
-restart_syscall but unfortunately I don't :(
-
-Eric
-
+Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
