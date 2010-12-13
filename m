@@ -1,10 +1,10 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v9 07/20] pch_can: Change functions type
-Date: Mon, 13 Dec 2010 12:26:59 -0800 (PST)
-Message-ID: <20101213.122659.70189139.davem@davemloft.net>
-References: <1292221467-8039-5-git-send-email-tomoya-linux@dsn.okisemi.com>
-	<1292221467-8039-6-git-send-email-tomoya-linux@dsn.okisemi.com>
+Subject: Re: [PATCH net-next-2.6 v9 08/20] pch_can: Reduce register access
+Date: Mon, 13 Dec 2010 12:27:06 -0800 (PST)
+Message-ID: <20101213.122706.232741022.davem@davemloft.net>
+References: <1292221467-8039-6-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-7-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-8-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,7 +15,7 @@ Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv
 	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1292221467-8039-7-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+In-Reply-To: <1292221467-8039-8-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -28,10 +28,9 @@ Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Mon, 13 Dec 2010 15:24:13 +0900
+Date: Mon, 13 Dec 2010 15:24:14 +0900
 
-> Currently, these two functions spec(returned value) is unnatural.
-> Thus, change the return value's spec
+> For improve tx/rx speed, reduce register access.
 > 
 > Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 
