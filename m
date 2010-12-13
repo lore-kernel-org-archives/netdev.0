@@ -1,124 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: System blocks (hangs) on ifconfig up
-Date: Mon, 13 Dec 2010 13:37:12 +0100
-Message-ID: <1292243832.2759.1.camel@edumazet-laptop>
-References: <4D04E38A.1040605@trego.co.il>
-	 <1292194983.3136.294.camel@localhost>  <4D05E400.7080409@trego.co.il>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: Using net_devices with ATM/DSL
+Date: Mon, 13 Dec 2010 13:50:09 +0100
+Message-ID: <201012131350.10206.florian@openwrt.org>
+References: <4D05C2D3.7010306@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Shmulik Hen <shmulik.hen@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	shemminger@vyatta.com
-To: Shmulik Hen <shmulik@trego.co.il>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Philip Prindeville <philipp_subx@redfish-solutions.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64993 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:57261 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449Ab0LMMhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 07:37:18 -0500
-Received: by wyb28 with SMTP id 28so5839057wyb.19
-        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 04:37:17 -0800 (PST)
-In-Reply-To: <4D05E400.7080409@trego.co.il>
+	with ESMTP id S1757042Ab0LMMu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 07:50:28 -0500
+Received: by wyb28 with SMTP id 28so5852570wyb.19
+        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 04:50:27 -0800 (PST)
+In-Reply-To: <4D05C2D3.7010306@redfish-solutions.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 13 d=C3=A9cembre 2010 =C3=A0 11:14 +0200, Shmulik Hen a =C3=A9=
-crit :
-> On 12/13/2010 01:03 AM, Ben Hutchings wrote:
-> > On Sun, 2010-12-12 at 17:00 +0200, Shmulik Hen wrote:
-> >> Hello,
-> >>
-> >> My system is Ubuntu 10.04, running kernel 2.6.32-26-generic.
-> >>
-> >> Whenever I try to bring up a specific ethernet interface for the s=
-econd
-> >> time, my
-> >> system becomes unresponsive for 60 seconds - i.e. no mouse, no key=
-board, no
-> >> screen refresh. etc.
-> >>
-> >> Looking at the driver's code, I could see that it's dev->open() me=
-thod calls
-> >> wait_event_interruptible_timeout() with a timeout of 60 seconds - =
-exactly
-> >> the delay I'm seeing.
-> > That seems like a stupid thing for it to do.
-> I agree...
-> >> I have narrowed the code to a bare minimum (see below - loosely ba=
-sed on
-> >> dummy.c), which only calls mdelay(10000) in it's dev->open() metho=
-d, and
-> >> still, my system blocks for exactly 10 seconds when I run the foll=
-owing
-> >> sequence:
-> >>
-> >>   >  sudo ifconfig shmulik0 up
-> >>   >  sudo ifconfig shmulik0 down
-> >>   >  sudo ifconfig shmulik0 up
-> >>
-> >> At this point - the system is stuck for 10 seconds.
-> > Bringing an interface up or down is a synchronous operation and is
-> > serialised with most other network configuration operations.  So th=
-is is
-> > the expected behaviour.
-> >
-> > Ben.
-> But why does this happen only the second time I run ifconfig up?
-> How come the entire system is totally frozen?
-> I can't even switch to other applications running. If I run 'top' in =
-another
-> console, it stops refreshing for the entire period.
->=20
-> I'll try to explain better;
-> The driver I'm referring to is part of an embedded system development=
- kit.
-> It runs on the controlling side, which may be a PC or some Linux embe=
-dded
-> system. It exposes a virtual interface that allows to communicate via
-> ethernet connection to a remote board, and performs the firmware down=
-load
-> to that board.
-> Unfortunately, the firmware download stage is  done during dev->open(=
-) of
-> this virtual interface. The call to wait_event_interruptible_timeout(=
-)
-> is there to make sure the boot process of the remote board is complet=
-e via a
-> message. If all goes well the first time, there is no delay, but if t=
-he=20
-> operation
-> fails for any reason the first time, and a second attempt is made (an=
-other
-> ifconfig up), we see the freezing.
->=20
-> Since this driver is (mostly) closed source, I had to try and reprodu=
-ce=20
-> the situation
-> in an all open-source driver - this is the sample code I attached to =
-my=20
-> original
-> message. The call to mdelay() there is meant to simulate the delay of=
-=20
-> the original
-> driver - it schedules.
->=20
+Hello,
 
-mdelay() does a busy wait. If you are not SMP, this means a 'freeze'
+On Monday 13 December 2010 07:53:07 Philip Prindeville wrote:
+> I was trying to get this discussion rolling on linux-atm-general but didn't
+> have much luck.
+> 
+> I was wondering what the downside to having ATM/DSL interfaces use
+> net_devices would be?
 
-If you want to schedule, you should use msleep()
+I think you would have to add ATM/DSL-specific extensions (ala wext) just to 
+extend it, specializing an atm_dev would make more sense to me.
 
-> Obviously, the correct way to fix this is to separate the firmware=20
-> download part
-> from the dev->open() method, but this is not as simple as it may soun=
-d - I'm
-> currently working on this. In the mean time I'm looking for a simpler=
-=20
-> solution
-> (or answer) to our problem.
->=20
-> I'll appreciate any insight on this matter.
->=20
->      Thanks in advance,
->      Shmulik Hen.
+> 
+> Part of the reason for wanting to do this is to have an end-point to
+> send/receive netlink messages to, so that the interface can report carrier
+> state transitions, bit rates, bit-error rates, SNR, attenuation,
+> constellations, transmitter gain, etc.
+> 
+> Seems simple enough.
 
+If you want to be able to report informations from the DSL PHY, I would rather 
+specialize an interface called, say dsl_phy which has a list of operations for 
+setting/getting the DSL PHY state, low-level counters ... 
 
+The atm stack more or less already supports an ATM PHY with 
+atmphy_ops, but is in my opinion too limited to query chip-speficic infos.
+
+Once that interface is well defined, adding netlink support to it should be 
+rather straight forward.
+
+> 
+> Why not do this?
+> 
+> Thanks,
+> 
+> -Philip
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
