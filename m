@@ -1,91 +1,63 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 5/5] net: add skb.old_queue_mapping
-Date: Mon, 13 Dec 2010 22:43:34 +0800
-Message-ID: <1292251414-5154-5-git-send-email-xiaosuo@gmail.com>
-References: <1292251414-5154-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <hadi@cyberus.ca>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [*v2 PATCH 01/22] IPVS: netns, add basic init per netns.
+Date: Mon, 13 Dec 2010 16:12:08 +0100
+Message-ID: <1292253128.4983.53.camel@seasc0214>
+References: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
+	 <1292247510-753-2-git-send-email-hans.schillstrom@ericsson.com>
+	 <alpine.LNX.2.01.1012131503190.18216@obet.zrqbmnf.qr>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:38554 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754034Ab0LMOon (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 09:44:43 -0500
-Received: by ywl5 with SMTP id 5so3286033ywl.19
-        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 06:44:42 -0800 (PST)
-In-Reply-To: <1292251414-5154-1-git-send-email-xiaosuo@gmail.com>
+Received: from mailgw9.se.ericsson.net ([193.180.251.57]:56908 "EHLO
+	mailgw9.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754708Ab0LMPML (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 10:12:11 -0500
+In-Reply-To: <alpine.LNX.2.01.1012131503190.18216@obet.zrqbmnf.qr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the skbs returned from ifb, we should use the queue_mapping
-saved before ifb.
+On Mon, 2010-12-13 at 15:08 +0100, Jan Engelhardt wrote:
+> On Monday 2010-12-13 14:38, Hans Schillstrom wrote:
+> >@@ -28,6 +28,18 @@
+> > #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> > #include <net/netfilter/nf_conntrack.h>
+> > #endif
+> >+#include <net/net_namespace.h>		/* Netw namespace */
+> >+
+> >+/*
+> >+ * Generic access of ipvs struct
+> >+ */
+> >+static inline struct netns_ipvs * net_ipvs(struct net* net) {
+> >+#ifdef CONFIG_NET_NS
+> >+	return net->ipvs;
+> >+#else
+> >+	return init_net.ipvs;
+> >+#endif
+> >+}
+> 
+> This looks redundant, because even in the !CONFIG_NET_NS case,
+> 'net' is valid and already points to &init_net.
 
-We save old queue_mapping in old_queue_mapping just before calling 
-dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
-just before reinjecting the skb.
+Yes, that's right I'll remove it.
 
-dev_pick_tx() use the current queue_mapping for the skbs reinjected
-by ifb.
+Thanks
+Hans
+> 
+> >+static void __net_exit __ip_vs_cleanup(struct net *net)
+> >+{
+> >+	struct netns_ipvs *ipvs = net_ipvs(net);
+> >+
+> >+	IP_VS_DBG(10, "ipvs netns %d released\n", ipvs->inc);
+> >+}
+> >+
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- drivers/net/ifb.c      |    1 +
- include/linux/skbuff.h |    3 +++
- net/core/dev.c         |    5 +++++
- net/sched/act_mirred.c |    1 +
- 4 files changed, 10 insertions(+)
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 16c767b..481e4b1 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -95,6 +95,7 @@ static void ri_tasklet(unsigned long _dev)
- 		u64_stats_update_end(&qp->syncp);
- 		skb->skb_iif = dev->ifindex;
- 
-+		skb->queue_mapping = skb->old_queue_mapping;
- 		if (from & AT_EGRESS) {
- 			dev_queue_xmit(skb);
- 		} else if (from & AT_INGRESS) {
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 19f37a6..2ce2a96 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -403,6 +403,9 @@ struct sk_buff {
- 	};
- 
- 	__u16			vlan_tci;
-+#ifdef CONFIG_NET_CLS_ACT
-+	__u16			old_queue_mapping;
-+#endif
- 
- 	sk_buff_data_t		transport_header;
- 	sk_buff_data_t		network_header;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..8e97cfd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2190,6 +2190,11 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 	int queue_index;
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 
-+#ifdef CONFIG_NET_CLS_ACT
-+	if (skb->tc_verd & TC_NCLS)
-+		queue_index = skb_get_queue_mapping(skb);
-+	else
-+#endif
- 	if (dev->real_num_tx_queues == 1)
- 		queue_index = 0;
- 	else if (ops->ndo_select_queue) {
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 0c311be..853eb30 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -197,6 +197,7 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 
- 	skb2->skb_iif = skb->dev->ifindex;
- 	skb2->dev = dev;
-+	skb2->old_queue_mapping = skb->queue_mapping;
- 	dev_queue_xmit(skb2);
- 	err = 0;
- 
+
