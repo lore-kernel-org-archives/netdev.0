@@ -1,61 +1,42 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] netlink: fix gcc -Wconversion compilation warning
-Date: Mon, 13 Dec 2010 13:35:25 -0800
-Message-ID: <m1sjy1uzj6.fsf@fess.ebiederm.org>
-References: <1292259913-9911-1-git-send-email-kirill@shutemov.name>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH net-next-2.6 v9 20/20] pch_can: Replace netif_rx to	netif_receive_skb
+Date: Mon, 13 Dec 2010 22:51:32 +0100
+Message-ID: <4D069564.8070204@hartkopp.net>
+References: <1292221467-8039-18-git-send-email-tomoya-linux@dsn.okisemi.com>	<1292221467-8039-19-git-send-email-tomoya-linux@dsn.okisemi.com>	<1292221467-8039-20-git-send-email-tomoya-linux@dsn.okisemi.com> <20101213.122826.27813399.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Dmitry V. Levin" <ldv@altlinux.org>, linux-kernel@vger.kernel.org
-To: "Kirill A. Shutsemov" <kirill@shutemov.name>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292259913-9911-1-git-send-email-kirill@shutemov.name> (Kirill
-	A. Shutsemov's message of "Mon, 13 Dec 2010 19:05:13 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: tomoya-linux@dsn.okisemi.com, netdev@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Wolfgang Grandegger <wg@grandegger.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:37239 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755246Ab0LMVvk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 16:51:40 -0500
+In-Reply-To: <20101213.122826.27813399.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Kirill A. Shutsemov" <kirill@shutemov.name> writes:
+On 13.12.2010 21:28, David Miller wrote:
+> From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+> Date: Mon, 13 Dec 2010 15:24:26 +0900
+> 
+>> Since this driver is implemented as NAPI,
+>> netif_receive_skb must be used not netif_rx.
+>>
+>> Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+>> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> 
+> Applied.
 
-> From: Dmitry V. Levin <ldv@altlinux.org>
->
-> $ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
-> unsigned f(void) {return NLMSG_HDRLEN;}
-> EOF
-> <stdin>: In function 'f':
-> <stdin>:3:26: warning: negative integer implicitly converted to unsigned type
->
-This doesn't look like a bad fix, but I believe things will fail if
-we give NLMSG_ALIGN an unsigned long like size_t.  Say like sizeof.
+Do you plan to push this huge patchset to Linus' 2.6.37-rc5 tree?
 
-Admittedly it has to be a huge size but still if we are going
-to go fixing things...
+I wonder if the pch_can driver in linux-2.6 tree is already usable without
+these latest patches that have been applied only to net-next-2.6.
 
-And then there is the silliness that NLMSG_HDRLEN forces itself
-to be an int, when it start out as a size_t.
-
-So I think NLMSG_ALIGN either needs to operation exclusively
-on unsigned longs aka size_t, or it needs to be type preserving.
-
-Do you have time to look at this a bit more?
+Regards,
+Oliver
 
 
-> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-> Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
-> ---
->  include/linux/netlink.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-> index 1235669..e2b9e63 100644
-> --- a/include/linux/netlink.h
-> +++ b/include/linux/netlink.h
-> @@ -70,7 +70,7 @@ struct nlmsghdr {
->     Check		NLM_F_EXCL
->   */
->  
-> -#define NLMSG_ALIGNTO	4
-> +#define NLMSG_ALIGNTO	4U
->  #define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
->  #define NLMSG_HDRLEN	 ((int) NLMSG_ALIGN(sizeof(struct nlmsghdr)))
->  #define NLMSG_LENGTH(len) ((len)+NLMSG_ALIGN(NLMSG_HDRLEN))
