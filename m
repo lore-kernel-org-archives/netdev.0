@@ -1,49 +1,430 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-2.6 2/3] bonding: Change active slave quietly when
- bond is down
-Date: Mon, 13 Dec 2010 21:06:15 +0000
-Message-ID: <1292274375.9860.19.camel@bwh-desktop>
-References: <1292264216.9860.11.camel@bwh-desktop>
-	 <1292264396.9860.14.camel@bwh-desktop>  <32030.1292272904@death>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] net: Abstract default ADVMSS behind an accessor.
+Date: Mon, 13 Dec 2010 13:14:05 -0800 (PST)
+Message-ID: <20101213.131405.241942290.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:50064 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751678Ab0LMVGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 16:06:18 -0500
-In-Reply-To: <32030.1292272904@death>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59590
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754676Ab0LMVNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 16:13:37 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 932AA24C088
+	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 13:14:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-13 at 12:41 -0800, Jay Vosburgh wrote:
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
-> 
-> >bond_change_active_slave() may be called when a slave is added, even
-> >if the bond has not been brought up yet.  It may then attempt to send
-> >packets, and further it may use mcast_work which is uninitialised
-> >before the bond is brought up.  Add the necessary checks for
-> >netif_running(bond->dev).
-> 
-> 	I wondered if it would be better to instead arrange for
-> bond_change_active_slave (and bond_select_active_slave, which calls it)
-> to not be called when the bond is down, but that would require quite a
-> bit of change to bond_enslave and bond_open.
-[...]
 
-Yes, it did seem to me that it would be better to defer all these
-actions until bond_open, but I thought that would be too risky at this
-stage in the release cycle.  Please do clean this up further in
-net-next-2.6.
+Make all RTAX_ADVMSS metric accesses go through a new helper function,
+dst_metric_advmss().
 
-Ben.
+Leave the actual default metric as "zero" in the real metric slot,
+and compute the actual default value dynamically via a new dst_ops
+AF specific callback.
 
+For stacked IPSEC routes, we use the advmss of the path which
+preserves existing behavior.
+
+Unlike ipv4/ipv6, DecNET ties the advmss to the mtu and thus updates
+advmss on pmtu updates.  This inconsistency in advmss handling
+results in more raw metric accesses than I wish we ended up with.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/scsi/cxgbi/libcxgbi.c |    2 +-
+ include/net/dst.h             |   14 +++++++++++++-
+ include/net/dst_ops.h         |    1 +
+ net/decnet/af_decnet.c        |    4 ++--
+ net/decnet/dn_route.c         |   22 ++++++++++++++++------
+ net/ipv4/route.c              |   24 +++++++++++++++++-------
+ net/ipv4/tcp_ipv4.c           |    2 +-
+ net/ipv4/tcp_output.c         |   14 +++++++++-----
+ net/ipv6/route.c              |   16 +++++++---------
+ net/ipv6/tcp_ipv6.c           |    2 +-
+ net/xfrm/xfrm_policy.c        |    7 +++++++
+ 11 files changed, 75 insertions(+), 33 deletions(-)
+
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index be56617..d2ad3d6 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -825,7 +825,7 @@ unsigned int cxgbi_sock_select_mss(struct cxgbi_sock *csk, unsigned int pmtu)
+ 	unsigned int idx;
+ 	struct dst_entry *dst = csk->dst;
+ 
+-	csk->advmss = dst_metric(dst, RTAX_ADVMSS);
++	csk->advmss = dst_metric_advmss(dst);
+ 
+ 	if (csk->advmss > pmtu - 40)
+ 		csk->advmss = pmtu - 40;
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 755ac6c..03a1c3d 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -112,10 +112,22 @@ dst_metric_raw(const struct dst_entry *dst, const int metric)
+ static inline u32
+ dst_metric(const struct dst_entry *dst, const int metric)
+ {
+-	WARN_ON_ONCE(metric == RTAX_HOPLIMIT);
++	WARN_ON_ONCE(metric == RTAX_HOPLIMIT ||
++		     metric == RTAX_ADVMSS);
+ 	return dst_metric_raw(dst, metric);
+ }
+ 
++static inline u32
++dst_metric_advmss(const struct dst_entry *dst)
++{
++	u32 advmss = dst_metric_raw(dst, RTAX_ADVMSS);
++
++	if (!advmss)
++		advmss = dst->ops->default_advmss(dst);
++
++	return advmss;
++}
++
+ static inline void dst_metric_set(struct dst_entry *dst, int metric, u32 val)
+ {
+ 	dst->_metrics[metric-1] = val;
+diff --git a/include/net/dst_ops.h b/include/net/dst_ops.h
+index 51665b3..15fb7af 100644
+--- a/include/net/dst_ops.h
++++ b/include/net/dst_ops.h
+@@ -16,6 +16,7 @@ struct dst_ops {
+ 
+ 	int			(*gc)(struct dst_ops *ops);
+ 	struct dst_entry *	(*check)(struct dst_entry *, __u32 cookie);
++	unsigned int		(*default_advmss)(const struct dst_entry *);
+ 	void			(*destroy)(struct dst_entry *);
+ 	void			(*ifdown)(struct dst_entry *,
+ 					  struct net_device *dev, int how);
+diff --git a/net/decnet/af_decnet.c b/net/decnet/af_decnet.c
+index 0065e7e..2af15b1 100644
+--- a/net/decnet/af_decnet.c
++++ b/net/decnet/af_decnet.c
+@@ -829,7 +829,7 @@ static int dn_confirm_accept(struct sock *sk, long *timeo, gfp_t allocation)
+ 		return -EINVAL;
+ 
+ 	scp->state = DN_CC;
+-	scp->segsize_loc = dst_metric(__sk_dst_get(sk), RTAX_ADVMSS);
++	scp->segsize_loc = dst_metric_advmss(__sk_dst_get(sk));
+ 	dn_send_conn_conf(sk, allocation);
+ 
+ 	prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
+@@ -958,7 +958,7 @@ static int __dn_connect(struct sock *sk, struct sockaddr_dn *addr, int addrlen,
+ 	sk->sk_route_caps = sk->sk_dst_cache->dev->features;
+ 	sock->state = SS_CONNECTING;
+ 	scp->state = DN_CI;
+-	scp->segsize_loc = dst_metric(sk->sk_dst_cache, RTAX_ADVMSS);
++	scp->segsize_loc = dst_metric_advmss(sk->sk_dst_cache);
+ 
+ 	dn_nsp_send_conninit(sk, NSP_CI);
+ 	err = -EINPROGRESS;
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index e2e9268..b8a5c05 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -110,6 +110,7 @@ static unsigned long dn_rt_deadline;
+ 
+ static int dn_dst_gc(struct dst_ops *ops);
+ static struct dst_entry *dn_dst_check(struct dst_entry *, __u32);
++static unsigned int dn_dst_default_advmss(const struct dst_entry *dst);
+ static struct dst_entry *dn_dst_negative_advice(struct dst_entry *);
+ static void dn_dst_link_failure(struct sk_buff *);
+ static void dn_dst_update_pmtu(struct dst_entry *dst, u32 mtu);
+@@ -129,6 +130,7 @@ static struct dst_ops dn_dst_ops = {
+ 	.gc_thresh =		128,
+ 	.gc =			dn_dst_gc,
+ 	.check =		dn_dst_check,
++	.default_advmss =	dn_dst_default_advmss,
+ 	.negative_advice =	dn_dst_negative_advice,
+ 	.link_failure =		dn_dst_link_failure,
+ 	.update_pmtu =		dn_dst_update_pmtu,
+@@ -245,7 +247,8 @@ static void dn_dst_update_pmtu(struct dst_entry *dst, u32 mtu)
+ 		}
+ 		if (!(dst_metric_locked(dst, RTAX_ADVMSS))) {
+ 			u32 mss = mtu - DN_MAX_NSP_DATA_HEADER;
+-			if (dst_metric(dst, RTAX_ADVMSS) > mss)
++			u32 existing_mss = dst_metric_raw(dst, RTAX_ADVMSS);
++			if (!existing_mss || existing_mss > mss)
+ 				dst_metric_set(dst, RTAX_ADVMSS, mss);
+ 		}
+ 	}
+@@ -795,12 +798,17 @@ static int dn_rt_bug(struct sk_buff *skb)
+ 	return NET_RX_DROP;
+ }
+ 
++static unsigned int dn_dst_default_advmss(const struct dst_entry *dst)
++{
++	return dn_mss_from_pmtu(dst->dev, dst_mtu(dst));
++}
++
+ static int dn_rt_set_next_hop(struct dn_route *rt, struct dn_fib_res *res)
+ {
+ 	struct dn_fib_info *fi = res->fi;
+ 	struct net_device *dev = rt->dst.dev;
+ 	struct neighbour *n;
+-	unsigned mss;
++	unsigned int metric;
+ 
+ 	if (fi) {
+ 		if (DN_FIB_RES_GW(*res) &&
+@@ -820,10 +828,12 @@ static int dn_rt_set_next_hop(struct dn_route *rt, struct dn_fib_res *res)
+ 	if (dst_metric(&rt->dst, RTAX_MTU) == 0 ||
+ 	    dst_metric(&rt->dst, RTAX_MTU) > rt->dst.dev->mtu)
+ 		dst_metric_set(&rt->dst, RTAX_MTU, rt->dst.dev->mtu);
+-	mss = dn_mss_from_pmtu(dev, dst_mtu(&rt->dst));
+-	if (dst_metric(&rt->dst, RTAX_ADVMSS) == 0 ||
+-	    dst_metric(&rt->dst, RTAX_ADVMSS) > mss)
+-		dst_metric_set(&rt->dst, RTAX_ADVMSS, mss);
++	metric = dst_metric_raw(&rt->dst, RTAX_ADVMSS);
++	if (metric) {
++		unsigned int mss = dn_mss_from_pmtu(dev, dst_mtu(&rt->dst));
++		if (metric > mss)
++			dst_metric_set(&rt->dst, RTAX_ADVMSS, mss);
++	}
+ 	return 0;
+ }
+ 
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 770f704..8099733 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -139,6 +139,7 @@ static unsigned long expires_ljiffies;
+  */
+ 
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie);
++static unsigned int	 ipv4_default_advmss(const struct dst_entry *dst);
+ static void		 ipv4_dst_destroy(struct dst_entry *dst);
+ static struct dst_entry *ipv4_negative_advice(struct dst_entry *dst);
+ static void		 ipv4_link_failure(struct sk_buff *skb);
+@@ -155,6 +156,7 @@ static struct dst_ops ipv4_dst_ops = {
+ 	.protocol =		cpu_to_be16(ETH_P_IP),
+ 	.gc =			rt_garbage_collect,
+ 	.check =		ipv4_dst_check,
++	.default_advmss =	ipv4_default_advmss,
+ 	.destroy =		ipv4_dst_destroy,
+ 	.ifdown =		ipv4_dst_ifdown,
+ 	.negative_advice =	ipv4_negative_advice,
+@@ -383,8 +385,7 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
+ 			(__force u32)r->rt_gateway,
+ 			r->rt_flags, atomic_read(&r->dst.__refcnt),
+ 			r->dst.__use, 0, (__force u32)r->rt_src,
+-			(dst_metric(&r->dst, RTAX_ADVMSS) ?
+-			     (int)dst_metric(&r->dst, RTAX_ADVMSS) + 40 : 0),
++			dst_metric_advmss(&r->dst) + 40,
+ 			dst_metric(&r->dst, RTAX_WINDOW),
+ 			(int)((dst_metric(&r->dst, RTAX_RTT) >> 3) +
+ 			      dst_metric(&r->dst, RTAX_RTTVAR)),
+@@ -1798,6 +1799,19 @@ static void set_class_tag(struct rtable *rt, u32 tag)
+ }
+ #endif
+ 
++static unsigned int ipv4_default_advmss(const struct dst_entry *dst)
++{
++	unsigned int advmss = dst_metric_raw(dst, RTAX_ADVMSS);
++
++	if (advmss == 0) {
++		advmss = max_t(unsigned int, dst->dev->mtu - 40,
++			       ip_rt_min_advmss);
++		if (advmss > 65535 - 40)
++			advmss = 65535 - 40;
++	}
++	return advmss;
++}
++
+ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
+ {
+ 	struct dst_entry *dst = &rt->dst;
+@@ -1823,11 +1837,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
+ 
+ 	if (dst_mtu(dst) > IP_MAX_MTU)
+ 		dst_metric_set(dst, RTAX_MTU, IP_MAX_MTU);
+-	if (dst_metric(dst, RTAX_ADVMSS) == 0)
+-		dst_metric_set(dst, RTAX_ADVMSS,
+-			       max_t(unsigned int, dst->dev->mtu - 40,
+-				     ip_rt_min_advmss));
+-	if (dst_metric(dst, RTAX_ADVMSS) > 65535 - 40)
++	if (dst_metric_raw(dst, RTAX_ADVMSS) > 65535 - 40)
+ 		dst_metric_set(dst, RTAX_ADVMSS, 65535 - 40);
+ 
+ #ifdef CONFIG_NET_CLS_ROUTE
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 4fc3387..f401102 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1436,7 +1436,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 
+ 	tcp_mtup_init(newsk);
+ 	tcp_sync_mss(newsk, dst_mtu(dst));
+-	newtp->advmss = dst_metric(dst, RTAX_ADVMSS);
++	newtp->advmss = dst_metric_advmss(dst);
+ 	if (tcp_sk(sk)->rx_opt.user_mss &&
+ 	    tcp_sk(sk)->rx_opt.user_mss < newtp->advmss)
+ 		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 97041f2..2d39066 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -119,9 +119,13 @@ static __u16 tcp_advertise_mss(struct sock *sk)
+ 	struct dst_entry *dst = __sk_dst_get(sk);
+ 	int mss = tp->advmss;
+ 
+-	if (dst && dst_metric(dst, RTAX_ADVMSS) < mss) {
+-		mss = dst_metric(dst, RTAX_ADVMSS);
+-		tp->advmss = mss;
++	if (dst) {
++		unsigned int metric = dst_metric_advmss(dst);
++
++		if (metric < mss) {
++			mss = metric;
++			tp->advmss = mss;
++		}
+ 	}
+ 
+ 	return (__u16)mss;
+@@ -2422,7 +2426,7 @@ struct sk_buff *tcp_make_synack(struct sock *sk, struct dst_entry *dst,
+ 
+ 	skb_dst_set(skb, dst_clone(dst));
+ 
+-	mss = dst_metric(dst, RTAX_ADVMSS);
++	mss = dst_metric_advmss(dst);
+ 	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < mss)
+ 		mss = tp->rx_opt.user_mss;
+ 
+@@ -2556,7 +2560,7 @@ static void tcp_connect_init(struct sock *sk)
+ 
+ 	if (!tp->window_clamp)
+ 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
+-	tp->advmss = dst_metric(dst, RTAX_ADVMSS);
++	tp->advmss = dst_metric_advmss(dst);
+ 	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < tp->advmss)
+ 		tp->advmss = tp->rx_opt.user_mss;
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 98796b0..d9cb832 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -76,6 +76,7 @@
+ 
+ static struct rt6_info * ip6_rt_copy(struct rt6_info *ort);
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
++static unsigned int	 ip6_default_advmss(const struct dst_entry *dst);
+ static struct dst_entry *ip6_negative_advice(struct dst_entry *);
+ static void		ip6_dst_destroy(struct dst_entry *);
+ static void		ip6_dst_ifdown(struct dst_entry *,
+@@ -103,6 +104,7 @@ static struct dst_ops ip6_dst_ops_template = {
+ 	.gc			=	ip6_dst_gc,
+ 	.gc_thresh		=	1024,
+ 	.check			=	ip6_dst_check,
++	.default_advmss		=	ip6_default_advmss,
+ 	.destroy		=	ip6_dst_destroy,
+ 	.ifdown			=	ip6_dst_ifdown,
+ 	.negative_advice	=	ip6_negative_advice,
+@@ -937,8 +939,12 @@ static void ip6_rt_update_pmtu(struct dst_entry *dst, u32 mtu)
+ 
+ static int ipv6_get_mtu(struct net_device *dev);
+ 
+-static inline unsigned int ipv6_advmss(struct net *net, unsigned int mtu)
++static unsigned int ip6_default_advmss(const struct dst_entry *dst)
+ {
++	struct net_device *dev = dst->dev;
++	unsigned int mtu = dst_mtu(dst);
++	struct net *net = dev_net(dev);
++
+ 	mtu -= sizeof(struct ipv6hdr) + sizeof(struct tcphdr);
+ 
+ 	if (mtu < net->ipv6.sysctl.ip6_rt_min_advmss)
+@@ -990,7 +996,6 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	atomic_set(&rt->dst.__refcnt, 1);
+ 	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, 255);
+ 	dst_metric_set(&rt->dst, RTAX_MTU, ipv6_get_mtu(rt->rt6i_dev));
+-	dst_metric_set(&rt->dst, RTAX_ADVMSS, ipv6_advmss(net, dst_mtu(&rt->dst)));
+ 	rt->dst.output  = ip6_output;
+ 
+ #if 0	/* there's no chance to use these for ndisc */
+@@ -1312,8 +1317,6 @@ install_route:
+ 
+ 	if (!dst_mtu(&rt->dst))
+ 		dst_metric_set(&rt->dst, RTAX_MTU, ipv6_get_mtu(dev));
+-	if (!dst_metric(&rt->dst, RTAX_ADVMSS))
+-		dst_metric_set(&rt->dst, RTAX_ADVMSS, ipv6_advmss(net, dst_mtu(&rt->dst)));
+ 	rt->dst.dev = dev;
+ 	rt->rt6i_idev = idev;
+ 	rt->rt6i_table = table;
+@@ -1540,8 +1543,6 @@ void rt6_redirect(struct in6_addr *dest, struct in6_addr *src,
+ 	nrt->rt6i_nexthop = neigh_clone(neigh);
+ 	/* Reset pmtu, it may be better */
+ 	dst_metric_set(&nrt->dst, RTAX_MTU, ipv6_get_mtu(neigh->dev));
+-	dst_metric_set(&nrt->dst, RTAX_ADVMSS, ipv6_advmss(dev_net(neigh->dev),
+-							   dst_mtu(&nrt->dst)));
+ 
+ 	if (ip6_ins_rt(nrt))
+ 		goto out;
+@@ -1971,7 +1972,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	rt->rt6i_dev = net->loopback_dev;
+ 	rt->rt6i_idev = idev;
+ 	dst_metric_set(&rt->dst, RTAX_MTU, ipv6_get_mtu(rt->rt6i_dev));
+-	dst_metric_set(&rt->dst, RTAX_ADVMSS, ipv6_advmss(net, dst_mtu(&rt->dst)));
+ 	dst_metric_set(&rt->dst, RTAX_HOPLIMIT, -1);
+ 	rt->dst.obsolete = -1;
+ 
+@@ -2041,7 +2041,6 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
+ {
+ 	struct rt6_mtu_change_arg *arg = (struct rt6_mtu_change_arg *) p_arg;
+ 	struct inet6_dev *idev;
+-	struct net *net = dev_net(arg->dev);
+ 
+ 	/* In IPv6 pmtu discovery is not optional,
+ 	   so that RTAX_MTU lock cannot disable it.
+@@ -2073,7 +2072,6 @@ static int rt6_mtu_change_route(struct rt6_info *rt, void *p_arg)
+ 	     (dst_mtu(&rt->dst) < arg->mtu &&
+ 	      dst_mtu(&rt->dst) == idev->cnf.mtu6))) {
+ 		dst_metric_set(&rt->dst, RTAX_MTU, arg->mtu);
+-		dst_metric_set(&rt->dst, RTAX_ADVMSS, ipv6_advmss(net, arg->mtu));
+ 	}
+ 	return 0;
+ }
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index fee0768..20aa95e 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1521,7 +1521,7 @@ static struct sock * tcp_v6_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 
+ 	tcp_mtup_init(newsk);
+ 	tcp_sync_mss(newsk, dst_mtu(dst));
+-	newtp->advmss = dst_metric(dst, RTAX_ADVMSS);
++	newtp->advmss = dst_metric_advmss(dst);
+ 	tcp_initialize_rcv_mss(newsk);
+ 
+ 	newinet->inet_daddr = newinet->inet_saddr = LOOPBACK4_IPV6;
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 6e50ccd..36936c8 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2361,6 +2361,11 @@ static int xfrm_bundle_ok(struct xfrm_policy *pol, struct xfrm_dst *first,
+ 	return 1;
+ }
+ 
++static unsigned int xfrm_default_advmss(const struct dst_entry *dst)
++{
++	return dst_metric_advmss(dst->path);
++}
++
+ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ {
+ 	struct net *net;
+@@ -2378,6 +2383,8 @@ int xfrm_policy_register_afinfo(struct xfrm_policy_afinfo *afinfo)
+ 			dst_ops->kmem_cachep = xfrm_dst_cache;
+ 		if (likely(dst_ops->check == NULL))
+ 			dst_ops->check = xfrm_dst_check;
++		if (likely(dst_ops->default_advmss == NULL))
++			dst_ops->default_advmss = xfrm_default_advmss;
+ 		if (likely(dst_ops->negative_advice == NULL))
+ 			dst_ops->negative_advice = xfrm_negative_advice;
+ 		if (likely(dst_ops->link_failure == NULL))
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.3.2
 
