@@ -1,234 +1,270 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Fw: [Bug 24842] New: Compatibility issue with uggly Windows
- RFC1323 implementation.
-Date: Mon, 13 Dec 2010 23:31:02 +0100
-Message-ID: <1292279462.2679.146.camel@edumazet-laptop>
-References: <20101213085913.374c1072@nehalam>
-	 <1292260479.2759.69.camel@edumazet-laptop>
-	 <AANLkTikTgbKSNYHthic8P3bi9+ewN8fEBknnSK=tdTgU@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: =?UTF-8?Q?=D0=94=D0=BC=D0=B8=D1=82=D1=80=D0=B8=D0=B9_?=
-	 =?UTF-8?Q?=D0=91=D0=B0=D0=BB=D0=B0=D0=BA=D0=B8=D0=BD?=
-	<dmitriy.balakin@nicneiron.ru>, David Miller <davem@davemloft.net>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH net-next-2.6 v3] net: factorize sync-rcu call in unregister_netdevice_many
+Date: Tue, 14 Dec 2010 00:44:07 +0200
+Message-ID: <1292280247-9889-1-git-send-email-opurdila@ixiacom.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46283 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766Ab0LMWbI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 17:31:08 -0500
-Received: by wwa36 with SMTP id 36so6850932wwa.1
-        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 14:31:07 -0800 (PST)
-In-Reply-To: <AANLkTikTgbKSNYHthic8P3bi9+ewN8fEBknnSK=tdTgU@mail.gmail.com>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:26045 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753551Ab0LMWoW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 17:44:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 13 d=C3=A9cembre 2010 =C3=A0 23:44 +0300, =D0=94=D0=BC=D0=B8=D1=
-=82=D1=80=D0=B8=D0=B9 =D0=91=D0=B0=D0=BB=D0=B0=D0=BA=D0=B8=D0=BD a =C3=A9=
-crit :
-> 2010/12/13 Eric Dumazet <eric.dumazet@gmail.com>:
-> > Le lundi 13 d=C3=A9cembre 2010 =C3=A0 08:59 -0800, Stephen Hemminge=
-r a =C3=A9crit :
-> >>
-> >> Begin forwarded message:
-> >>
-> >> Date: Mon, 13 Dec 2010 14:29:58 GMT
-> >> From: bugzilla-daemon@bugzilla.kernel.org
-> >> To: shemminger@linux-foundation.org
-> >> Subject: [Bug 24842] New: Compatibility issue with uggly Windows R=
-=46C1323 implementation.
-> >>
-> >>
-> >> https://bugzilla.kernel.org/show_bug.cgi?id=3D24842
-> >>
-> >>            Summary: Compatibility issue with uggly Windows RFC1323
-> >>                     implementation.
-> >>            Product: Networking
-> >>            Version: 2.5
-> >>     Kernel Version: All
-> >>           Platform: All
-> >>         OS/Version: Linux
-> >>               Tree: Mainline
-> >>             Status: NEW
-> >>           Severity: normal
-> >>           Priority: P1
-> >>          Component: IPV4
-> >>         AssignedTo: shemminger@linux-foundation.org
-> >>         ReportedBy: dmitriy.balakin@nicneiron.ru
-> >>         Regression: No
-> >>
-> >>
-> >> Created an attachment (id=3D40012)
-> >>  --> (https://bugzilla.kernel.org/attachment.cgi?id=3D40012)
-> >> Patch
-> >>
-> >> First, sorry for my bad english.
-> >>
-> >> The issue is that Linux-based OS sometimes can't make an tcp conne=
-ction to some
-> >> Windows servers with switched on buggy implementation of rfc1323, =
-that
-> >> described on this forum:
-> >> http://www.network-builders.com/windows-tcp-timestamp-not-complian=
-t-rfc-1323-a-t80898.html.
-> >>
-> >> Because some Windows hosts implementation of rfc1323 bases on rand=
-omly
-> >> generated TSval and sent first value of TSval as 0, the difference=
- of recent
-> >> and new TSval sometimes has been affected by a sign magic issue an=
-d the PAWS
-> >> mechanism has been triggered. Anyway, the rfc1323 has discribes th=
-e condition
-> >> of PAWS as "0 < (t - s) < 2**31", that has been right implementati=
-on in current
-> >> linux kernel, but incompatible with Windows bug.
-> >>
-> >> For example, the one of affected to this issue Windows host is beh=
-ind
-> >> relay.n-l-e.ru:80
-> >>
-> >> I think that my small patch makes the kernel more compatible with =
-this windows
-> >> bug.
-> >>
-> >> -
-> >
-> > I have no problem connecting my linux client to relay.n-l-e.ru:80
-> >
-> > Could you elaborate please ?
-> >
-> > 18:13:12.444250 IP 10.150.51.215.51781 > 212.176.201.162.80: Flags =
-[S],
-> > seq 665972386, win 5840, options [mss 1460,sackOK,TS val 1746885 ec=
-r
-> > 0,nop,wscale 7], length 0
-> > 18:13:12.473912 IP 212.176.201.162.80 > 10.150.51.215.51781: Flags =
-[S.],
-> > seq 190215045, ack 665972387, win 5792, options [mss 1460,sackOK,TS=
- val
-> > 730697107 ecr 1746885,nop,wscale 0], length 0
-> > 18:13:12.473976 IP 10.150.51.215.51781 > 212.176.201.162.80: Flags =
-[.],
-> > ack 1, win 46, options [nop,nop,TS val 1746888 ecr 730697107], leng=
-th 0
-> > 18:13:14.984153 IP 10.150.51.215.51781 > 212.176.201.162.80: Flags =
-[P.],
-> > seq 1:8, ack 1, win 46, options [nop,nop,TS val 1747139 ecr 7306971=
-07],
-> > length 7
-> > 18:13:15.013901 IP 212.176.201.162.80 > 10.150.51.215.51781: Flags =
-[.],
-> > ack 8, win 5792, options [nop,nop,TS val 730697360 ecr 1747139], le=
-ngth
-> > 0
-> > 18:13:15.377879 IP 10.150.51.215.51781 > 212.176.201.162.80: Flags =
-[P.],
-> > seq 8:10, ack 1, win 46, options [nop,nop,TS val 1747178 ecr 730697=
-360],
-> > length 2
-> > 18:13:15.403900 IP 212.176.201.162.80 > 10.150.51.215.51781: Flags =
-[.],
-> > ack 10, win 5792, options [nop,nop,TS val 730697399 ecr 1747178], l=
-ength
-> > 0
-> > 18:13:15.461384 IP 212.176.201.162.80 > 10.150.51.215.51781: Flags =
-[P.],
-> > seq 1:159, ack 10, win 5792, options [nop,nop,TS val 730697405 ecr
-> > 1747178], length 158
-> > 18:13:15.461429 IP 10.150.51.215.51781 > 212.176.201.162.80: Flags =
-[.],
-> > ack 159, win 54, options [nop,nop,TS val 1747186 ecr 730697405], le=
-ngth
-> > 0
-> > 18:13:15.461448 IP 212.176.201.162.80 > 10.150.51.215.51781: Flags =
-[F.],
-> > seq 159, ack 10, win 5792, options [nop,nop,TS val 730697405 ecr
-> > 1747178], length 0
-> > 18:13:15.461607 IP 10.150.51.215.51781 > 212.176.201.162.80: Flags =
-[F.],
-> > seq 10, ack 160, win 54, options [nop,nop,TS val 1747186 ecr 730697=
-405],
-> > length 0
-> > 18:13:15.533846 IP 212.176.201.162.80 > 10.150.51.215.51781: Flags =
-[.],
-> > ack 11, win 5792, options [nop,nop,TS val 730697412 ecr 1747186], l=
-ength
-> > 0
-> >
-> >
-> >
->=20
-> Problems occur only when the remote side sets the TC val > 2147483647=
-,
-> ie when there is a sign:
->=20
+Add dev_close_many and dev_deactivate_many to factorize another
+sync-rcu operation on the netdevice unregister path.
 
-You mean a windows machine with a big uptime ?
-That must be quite rare indeed ;)
+$ modprobe dummy numdummies=10000
+$ ip link set dev dummy* up
+$ time rmmod dummy
 
-Anyway, we can not test values like suggested patch, or risk a problem
-when wrap around occurs...
+Without the patch           With the patch
 
-However, testing the special ts_recent=3D0 case would be possible (we
-already did a change to accept a windows initiated connect to a linux
-server and still activate tcp timestamps)
+real    0m 24.63s           real    0m 5.15s
+user    0m 0.00s            user    0m 0.00s
+sys     0m 6.05s            sys     0m 5.14s
 
-(commit fc1ad92dfc4e363a055 tcp: allow timestamps even if SYN packet ha=
-s
-tsval=3D0)
-
-Something like following patch ?
-
-Thanks
-
-
-[PATCH net-next-2.6] tcp: relax tcp_paws_check()
-
-Some windows versions have wrong RFC1323 implementations, with SYN and
-SYNACKS messages containing zero tcp timestamps.
-
-We relaxed in commit fc1ad92dfc4e363 the passive connection case
-(Windows connects to a linux machine), but the reverse case (linux
-connects to a Windows machine) has an analogue problem when tsvals from
-windows machine are 'negative' (high order bit set) : PAWS triggers and
-we drops incoming messages.
-
-=46ix this by making zero ts_recent value special, allowing frame to be
-processed.
-
-Based on a report and initial patch from Dmitiy Balakin
-
-Bugzilla reference : https://bugzilla.kernel.org/show_bug.cgi?id=3D2484=
-2
-
-Reported-by: dmitriy.balakin@nicneiron.ru
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- include/net/tcp.h |    8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 3f227ba..2ab6c9c 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1038,7 +1038,13 @@ static inline int tcp_paws_check(const struct tc=
-p_options_received *rx_opt,
- 		return 1;
- 	if (unlikely(get_seconds() >=3D rx_opt->ts_recent_stamp + TCP_PAWS_24=
-DAYS))
- 		return 1;
--
-+	/*
-+	 * Some OSes send SYN and SYNACK messages with tsval=3D0 tsecr=3D0,
-+	 * then following tcp messages have valid values. Ignore 0 value,
-+	 * or else 'negative' tsval might forbid us to accept their packets.
-+	 */
-+	if (!rx_opt->ts_recent)
-+		return 1;
+Changes from v2:
+
+* don't delete entries from dev_close_many otherwise rollback_registered_many
+will not complete the cleanup for the deleted entries
+
+Changes from v1:
+
+* move ASSERT_RTNL() and might_sleep() out of the loop
+
+
+ include/net/sch_generic.h |    1 +
+ net/core/dev.c            |  118 +++++++++++++++++++++++++++++----------------
+ net/sched/sch_generic.c   |   29 ++++++++---
+ 3 files changed, 99 insertions(+), 49 deletions(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index ea1f8a8..786cc39 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -321,6 +321,7 @@ extern void dev_init_scheduler(struct net_device *dev);
+ extern void dev_shutdown(struct net_device *dev);
+ extern void dev_activate(struct net_device *dev);
+ extern void dev_deactivate(struct net_device *dev);
++extern void dev_deactivate_many(struct list_head *head);
+ extern struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
+ 				     struct Qdisc *qdisc);
+ extern void qdisc_reset(struct Qdisc *qdisc);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d28b3a0..33296ef 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1222,52 +1222,90 @@ int dev_open(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(dev_open);
+ 
+-static int __dev_close(struct net_device *dev)
++static int __dev_close_many(struct list_head *head)
+ {
+-	const struct net_device_ops *ops = dev->netdev_ops;
++	struct net_device *dev;
+ 
+ 	ASSERT_RTNL();
+ 	might_sleep();
+ 
+-	/*
+-	 *	Tell people we are going down, so that they can
+-	 *	prepare to death, when device is still operating.
+-	 */
+-	call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
++	list_for_each_entry(dev, head, unreg_list) {
++		/*
++		 *	Tell people we are going down, so that they can
++		 *	prepare to death, when device is still operating.
++		 */
++		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
+ 
+-	clear_bit(__LINK_STATE_START, &dev->state);
++		clear_bit(__LINK_STATE_START, &dev->state);
+ 
+-	/* Synchronize to scheduled poll. We cannot touch poll list,
+-	 * it can be even on different cpu. So just clear netif_running().
+-	 *
+-	 * dev->stop() will invoke napi_disable() on all of it's
+-	 * napi_struct instances on this device.
+-	 */
+-	smp_mb__after_clear_bit(); /* Commit netif_running(). */
++		/* Synchronize to scheduled poll. We cannot touch poll list, it
++		 * can be even on different cpu. So just clear netif_running().
++		 *
++		 * dev->stop() will invoke napi_disable() on all of it's
++		 * napi_struct instances on this device.
++		 */
++		smp_mb__after_clear_bit(); /* Commit netif_running(). */
++	}
+ 
+-	dev_deactivate(dev);
++	dev_deactivate_many(head);
+ 
+-	/*
+-	 *	Call the device specific close. This cannot fail.
+-	 *	Only if device is UP
+-	 *
+-	 *	We allow it to be called even after a DETACH hot-plug
+-	 *	event.
+-	 */
+-	if (ops->ndo_stop)
+-		ops->ndo_stop(dev);
++	list_for_each_entry(dev, head, unreg_list) {
++		const struct net_device_ops *ops = dev->netdev_ops;
+ 
+-	/*
+-	 *	Device is now down.
+-	 */
++		/*
++		 *	Call the device specific close. This cannot fail.
++		 *	Only if device is UP
++		 *
++		 *	We allow it to be called even after a DETACH hot-plug
++		 *	event.
++		 */
++		if (ops->ndo_stop)
++			ops->ndo_stop(dev);
++
++		/*
++		 *	Device is now down.
++		 */
++
++		dev->flags &= ~IFF_UP;
++
++		/*
++		 *	Shutdown NET_DMA
++		 */
++		net_dmaengine_put();
++	}
+ 
+-	dev->flags &= ~IFF_UP;
++	return 0;
++}
++
++static int __dev_close(struct net_device *dev)
++{
++	LIST_HEAD(single);
++
++	list_add(&dev->unreg_list, &single);
++	return __dev_close_many(&single);
++}
++
++int dev_close_many(struct list_head *head)
++{
++	struct net_device *dev, *tmp;
++	LIST_HEAD(tmp_list);
++
++	list_for_each_entry_safe(dev, tmp, head, unreg_list)
++		if (!(dev->flags & IFF_UP))
++			list_move(&dev->unreg_list, &tmp_list);
++
++	__dev_close_many(head);
+ 
+ 	/*
+-	 *	Shutdown NET_DMA
++	 * Tell people we are down
+ 	 */
+-	net_dmaengine_put();
++	list_for_each_entry(dev, head, unreg_list) {
++		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
++		call_netdevice_notifiers(NETDEV_DOWN, dev);
++	}
+ 
++	/* rollback_registered_many needs the complete original list */
++	list_splice(&tmp_list, head);
  	return 0;
  }
-=20
-
+ 
+@@ -1282,16 +1320,10 @@ static int __dev_close(struct net_device *dev)
+  */
+ int dev_close(struct net_device *dev)
+ {
+-	if (!(dev->flags & IFF_UP))
+-		return 0;
+-
+-	__dev_close(dev);
++	LIST_HEAD(single);
+ 
+-	/*
+-	 * Tell people we are down
+-	 */
+-	rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
+-	call_netdevice_notifiers(NETDEV_DOWN, dev);
++	list_add(&dev->unreg_list, &single);
++	dev_close_many(&single);
+ 
+ 	return 0;
+ }
+@@ -4958,10 +4990,12 @@ static void rollback_registered_many(struct list_head *head)
+ 		}
+ 
+ 		BUG_ON(dev->reg_state != NETREG_REGISTERED);
++	}
+ 
+-		/* If device is running, close it first. */
+-		dev_close(dev);
++	/* If device is running, close it first. */
++	dev_close_many(head);
+ 
++	list_for_each_entry(dev, head, unreg_list) {
+ 		/* And unlink it from device chain. */
+ 		unlist_netdevice(dev);
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 0918834..34dc598 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -810,20 +810,35 @@ static bool some_qdisc_is_busy(struct net_device *dev)
+ 	return false;
+ }
+ 
+-void dev_deactivate(struct net_device *dev)
++void dev_deactivate_many(struct list_head *head)
+ {
+-	netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
+-	if (dev_ingress_queue(dev))
+-		dev_deactivate_queue(dev, dev_ingress_queue(dev), &noop_qdisc);
++	struct net_device *dev;
+ 
+-	dev_watchdog_down(dev);
++	list_for_each_entry(dev, head, unreg_list) {
++		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
++					 &noop_qdisc);
++		if (dev_ingress_queue(dev))
++			dev_deactivate_queue(dev, dev_ingress_queue(dev),
++					     &noop_qdisc);
++
++		dev_watchdog_down(dev);
++	}
+ 
+ 	/* Wait for outstanding qdisc-less dev_queue_xmit calls. */
+ 	synchronize_rcu();
+ 
+ 	/* Wait for outstanding qdisc_run calls. */
+-	while (some_qdisc_is_busy(dev))
+-		yield();
++	list_for_each_entry(dev, head, unreg_list)
++		while (some_qdisc_is_busy(dev))
++			yield();
++}
++
++void dev_deactivate(struct net_device *dev)
++{
++	LIST_HEAD(single);
++
++	list_add(&dev->unreg_list, &single);
++	dev_deactivate_many(&single);
+ }
+ 
+ static void dev_init_scheduler_queue(struct net_device *dev,
+-- 
+1.7.1
 
