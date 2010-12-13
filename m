@@ -1,99 +1,82 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Fw: [Bug 24842] New: Compatibility issue with uggly Windows RFC1323
- implementation.
-Date: Mon, 13 Dec 2010 08:59:13 -0800
-Message-ID: <20101213085913.374c1072@nehalam>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Unbalanced enable for IRQ => phy_change
+Date: Mon, 13 Dec 2010 18:03:09 +0100
+Message-ID: <AANLkTi=vd4J8DfnLgPROrNC2Q-jxSCsrv=nv371Rhq5i@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:33392 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758311Ab0LMQ7R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Dec 2010 11:59:17 -0500
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.vyatta.com (Postfix) with ESMTP id BCE5518288EA
-	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 08:59:16 -0800 (PST)
-Received: from mail.vyatta.com ([127.0.0.1])
-	by localhost (mail.vyatta.com [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id wcDSSAGW7+Kw for <netdev@vger.kernel.org>;
-	Mon, 13 Dec 2010 08:59:15 -0800 (PST)
-Received: from nehalam (pool-74-107-135-205.ptldor.fios.verizon.net [74.107.135.205])
-	by mail.vyatta.com (Postfix) with ESMTPSA id 3B65918288C3
-	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 08:59:15 -0800 (PST)
+Received: from mail-gx0-f180.google.com ([209.85.161.180]:52607 "EHLO
+	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758264Ab0LMRDJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 12:03:09 -0500
+Received: by gxk19 with SMTP id 19so4068819gxk.11
+        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 09:03:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi list !
+
+I am currently using a MPC8548 PowerPC board, and I have encountered
+the following problem :
+[   19.867849] Unbalanced enable for IRQ 48
+[   19.867855] ------------[ cut here ]------------
+[   19.873819] Badness at /.../kernel/irq/manage.c:174
+[   19.873823] NIP: c0044acc LR: c0044acc CTR: c0018480
+[   19.873828] REGS: dfc2be60 TRAP: 0700   Tainted: P
+(2.6.24.7_www.men.de_1.1)
+[   19.873831] MSR: 00021000 <ME>  CR: 24000022  XER: 00000000
+[   19.873839] TASK = dfc204e0[5] 'events/0' THREAD: dfc2a000
+[   19.873842] GPR00: c0044acc dfc2bf10 dfc204e0 0000002f 00021000
+00000000 00000000 00000000
+[   19.873854] GPR08: 00000034 ffffffff 0000574e de821b20 24000024
+100607bc 00008000 00001020
+[   19.873865] GPR16: c0447b44 c0447b2c 00fff018 033327d2 00000008
+c044b2c8 c048d1a8 c044b300
+[   19.873877] GPR24: dfc206a0 dfc204e0 dfc01f30 dfc2a000 00029000
+c04cb714 00000030 c04cb6e4
+[   19.873890] NIP [c0044acc] enable_irq+0x6c/0xdc
+[   19.873903] LR [c0044acc] enable_irq+0x6c/0xdc
+[   19.873908] Call Trace:
+[   19.873911] [dfc2bf10] [c0044acc] enable_irq+0x6c/0xdc (unreliable)
+[   19.873919] [dfc2bf30] [c0217868] phy_change+0x74/0xe4
+[   19.873926] [dfc2bf50] [c002fb2c] run_workqueue+0xc4/0x15c
+[   19.873933] [dfc2bf90] [c002ffb0] worker_thread+0x74/0xd4
+[   19.873940] [dfc2bfd0] [c0034360] kthread+0x48/0x84
+[   19.873946] [dfc2bff0] [c00047bc] kernel_thread+0x44/0x60
+[   19.873953] Instruction dump:
+[   19.873957] 7fe04a14 3bbf0030 7fa3eb78 483a9461 813f001c 7c7c1b78
+2f890000 409e0038
+[   19.873968] 3c60c045 7fc4f378 3863f1d4 4bfd9129 <0fe00000> 7fa3eb78
+7f84e378 483a91a5
 
 
-Begin forwarded message:
+When looking at the phy_change function in drivers/net/phy/phy.c I
+have noticed something quite strange :
+We are calling phy_disable_interrupts() and after some operations, enable_irq().
+The first thing I thought about is why aren't we calling
+disable_irq/enable/irq or phy_disable_interrupts/phy_enable_interrupts
+but a mix ?
 
-Date: Mon, 13 Dec 2010 14:29:58 GMT
-From: bugzilla-daemon@bugzilla.kernel.org
-To: shemminger@linux-foundation.org
-Subject: [Bug 24842] New: Compatibility issue with uggly Windows RFC1323 implementation.
+Next, I took a more deep look at phy_disable_interrupts() and
+sepcifically at the phy_config_interrupt() function :
 
+	int err = 0;
 
-https://bugzilla.kernel.org/show_bug.cgi?id=24842
+	phydev->interrupts = interrupts;
+	if (phydev->drv->config_intr)
+		err = phydev->drv->config_intr(phydev);
 
-           Summary: Compatibility issue with uggly Windows RFC1323
-                    implementation.
-           Product: Networking
-           Version: 2.5
-    Kernel Version: All
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: IPV4
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: dmitriy.balakin@nicneiron.ru
-        Regression: No
+	return err;
 
+If phydev->drv->config_intr is not implemented (this is my use case :
+I am using the drivers/net/gianfar.c driver), then, nothing will be
+done, and there is no disable_irq() call.
 
-Created an attachment (id=40012)
- --> (https://bugzilla.kernel.org/attachment.cgi?id=40012)
-Patch
+I don't know what is better : using disable_irq/enable_irq or the phy
+specific functions, but I think that we should avoid using a mix...
+A I wrong ?
 
-First, sorry for my bad english. 
-
-The issue is that Linux-based OS sometimes can't make an tcp connection to some
-Windows servers with switched on buggy implementation of rfc1323, that
-described on this forum:
-http://www.network-builders.com/windows-tcp-timestamp-not-compliant-rfc-1323-a-t80898.html.
-
-Because some Windows hosts implementation of rfc1323 bases on randomly
-generated TSval and sent first value of TSval as 0, the difference of recent
-and new TSval sometimes has been affected by a sign magic issue and the PAWS
-mechanism has been triggered. Anyway, the rfc1323 has discribes the condition
-of PAWS as "0 < (t - s) < 2**31", that has been right implementation in current
-linux kernel, but incompatible with Windows bug.
-
-For example, the one of affected to this issue Windows host is behind
-relay.n-l-e.ru:80
-
-I think that my small patch makes the kernel more compatible with this windows
-bug.
-
--- 
---- include/net/tcp.h.orig	2010-12-02 04:41:22.000000000 +0300
-+++ include/net/tcp.h	2010-12-13 13:58:05.000000000 +0300
-@@ -1077,9 +1077,10 @@
- }
- 
- static inline int tcp_paws_check(const struct tcp_options_received *rx_opt,
--				 int paws_win)
-+				unsigned int paws_win)
- {
--	if ((s32)(rx_opt->ts_recent - rx_opt->rcv_tsval) <= paws_win)
-+	if (rx_opt->ts_recent < rx_opt->rcv_tsval ||
-+			rx_opt->ts_recent - rx_opt->rcv_tsval <= paws_win)
- 		return 1;
- 	if (unlikely(get_seconds() >= rx_opt->ts_recent_stamp + TCP_PAWS_24DAYS))
- 		return 1;
-
-
--- 
+Thanks in advance,
+Regards,
+JM
