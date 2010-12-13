@@ -1,58 +1,115 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH] ehea: Fixing LRO configuration
-Date: Sun, 12 Dec 2010 16:39:08 -0800
-Message-ID: <AANLkTimvL2TdD9eYQMLZW65ESKbame818ObzjPYoBhPL@mail.gmail.com>
-References: <1291833062-27446-1-git-send-email-leitao@linux.vnet.ibm.com>
+From: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Subject: [PATCH update 2] firewire: net: add carrier detection
+Date: Mon, 13 Dec 2010 01:46:02 +0100
+Message-ID: <20101213014602.6bc2727b@stein>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	<1291779177.32420.8.camel@maxim-laptop>
+	<20101208040559.20639.qmail@stuge.se>
+	<1291809485.5421.0.camel@maxim-laptop>
+	<20101212180916.71a57a71@stein>
+	<1292195134.3136.296.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, davem@davemloft.net, netdev@vger.kernel.org
-To: leitao@linux.vnet.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:57400 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753329Ab0LMAjK convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Dec 2010 19:39:10 -0500
-Received: by fxm18 with SMTP id 18so5717218fxm.2
-        for <netdev@vger.kernel.org>; Sun, 12 Dec 2010 16:39:08 -0800 (PST)
-In-Reply-To: <1291833062-27446-1-git-send-email-leitao@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux1394-devel@lists.sourceforge.net,
+	Peter Stuge <peter@stuge.se>
+To: Ben Hutchings <bhutchings@solarflare.com>, Maxim Levitsky
+	<maximlevitsky@gmail.com>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1292195134.3136.296.camel@localhost>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 8, 2010 at 10:31 AM,  <leitao@linux.vnet.ibm.com> wrote:
-> In order to set LRO on ehea, the user must set a module parameter, wh=
-ich
-> is not the standard way to do so. This patch adds a way to set LRO us=
-ing
-> the ethtool tool.
->
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
->
-> diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_=
-ethtool.c
-> index 75b099c..1f37ee6 100644
-> --- a/drivers/net/ehea/ehea_ethtool.c
-> +++ b/drivers/net/ehea/ehea_ethtool.c
-> @@ -261,6 +261,13 @@ static void ehea_get_ethtool_stats(struct net_de=
-vice *dev,
->
-> =A0}
->
-> +static int ehea_set_flags(struct net_device *dev, u32 data)
-> +{
-> + =A0 =A0 =A0 return ethtool_op_set_flags(dev, data, ETH_FLAG_LRO
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 | ETH_FLAG_TXVLAN
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 | ETH_FLAG_RXVLAN);
+From: Maxim Levitsky <maximlevitsky@gmail.com>
 
-I don't think that this should enable those vlan offloading flags.  I
-don't see any logic to actually disable vlan stripping on receive if
-that flag is toggled.  Transmit might be OK, since it will cause the
-networking core to insert the tag in software if offloading is
-disabled.  However, I see some places where skb->protocol is accessed
-to determine the protocol of the packet being transmitted.  In most
-drivers this causes a problem when transmit vlan offloading is
-disabled because the packet type becomes ETH_P_8021Q, instead of the
-expected protocol.  On the other hand, it appears that there aren't
-any offloads in vlan_features, so maybe it doesn't matter.
+To make userland, e.g. NetworkManager work with firewire, we need to
+detect whether cable is plugged or not.  Simple and correct way of doing
+that is just counting number of peers.  No peers - no link and vice
+versa.
+
+(Stefan R.:  Drop ethtool_ops.get_link)
+
+Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
+---
+Update 2:  Removed ethtool related hunks; dev->peer_count does not need
+to be accessed within the spinlock as I first thought; reduced pointer
+reference depth in fwnet_remove_peer.
+
+Maxim, do you observe a remaining need for a get_link implementation?
+I can't tell, I use rather minimal userland that doesn't care for link
+status.
+
+ drivers/firewire/net.c |   16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+Index: b/drivers/firewire/net.c
+===================================================================
+--- a/drivers/firewire/net.c
++++ b/drivers/firewire/net.c
+@@ -179,6 +179,7 @@ struct fwnet_device {
+ 	/* Number of tx datagrams that have been queued but not yet acked */
+ 	int queued_datagrams;
+ 
++	int peer_count;
+ 	struct list_head peer_list;
+ 	struct fw_card *card;
+ 	struct net_device *netdev;
+@@ -1465,6 +1466,10 @@ static int fwnet_add_peer(struct fwnet_d
+ 	list_add_tail(&peer->peer_link, &dev->peer_list);
+ 	spin_unlock_irq(&dev->lock);
+ 
++	/* dev->peer_count acess is serialized by fwnet_device_mutex. */
++	if (++dev->peer_count > 1)
++		netif_carrier_on(dev->netdev);
++
+ 	return 0;
+ }
+ 
+@@ -1543,13 +1548,16 @@ static int fwnet_probe(struct device *_d
+ 	return ret;
+ }
+ 
+-static void fwnet_remove_peer(struct fwnet_peer *peer)
++static void fwnet_remove_peer(struct fwnet_peer *peer, struct fwnet_device *dev)
+ {
+ 	struct fwnet_partial_datagram *pd, *pd_next;
+ 
+-	spin_lock_irq(&peer->dev->lock);
++	if (--dev->peer_count == 1)
++		netif_carrier_off(dev->netdev);
++
++	spin_lock_irq(&dev->lock);
+ 	list_del(&peer->peer_link);
+-	spin_unlock_irq(&peer->dev->lock);
++	spin_unlock_irq(&dev->lock);
+ 
+ 	list_for_each_entry_safe(pd, pd_next, &peer->pd_list, pd_link)
+ 		fwnet_pd_delete(pd);
+@@ -1566,7 +1574,7 @@ static int fwnet_remove(struct device *_
+ 
+ 	mutex_lock(&fwnet_device_mutex);
+ 
+-	fwnet_remove_peer(peer);
++	fwnet_remove_peer(peer, dev);
+ 
+ 	if (list_empty(&dev->peer_list)) {
+ 		net = dev->netdev;
+
+
+-- 
+Stefan Richter
+-=====-==-=- ==-- -==-=
+http://arcgraph.de/sr/
+
+------------------------------------------------------------------------------
+Oracle to DB2 Conversion Guide: Learn learn about native support for PL/SQL,
+new data types, scalar functions, improved concurrency, built-in packages, 
+OCI, SQL*Plus, data movement tools, best practices and more.
+http://p.sf.net/sfu/oracle-sfdev2dev 
