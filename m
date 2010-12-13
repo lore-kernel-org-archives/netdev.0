@@ -1,41 +1,49 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH net-next-2.6] net: add dev_close_many
-Date: Mon, 13 Dec 2010 22:54:24 +0200
-Message-ID: <201012132254.24267.opurdila@ixiacom.com>
-References: <1292249903-3865-1-git-send-email-opurdila@ixiacom.com> <201012131952.39648.opurdila@ixiacom.com> <20101213100447.50f77f3b@nehalam>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-2.6 2/3] bonding: Change active slave quietly when
+ bond is down
+Date: Mon, 13 Dec 2010 21:06:15 +0000
+Message-ID: <1292274375.9860.19.camel@bwh-desktop>
+References: <1292264216.9860.11.camel@bwh-desktop>
+	 <1292264396.9860.14.camel@bwh-desktop>  <32030.1292272904@death>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	"Lucian Adrian Grijincu" <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:7478 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755941Ab0LMUy0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 15:54:26 -0500
-In-Reply-To: <20101213100447.50f77f3b@nehalam>
+Received: from exchange.solarflare.com ([216.237.3.220]:50064 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab0LMVGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 16:06:18 -0500
+In-Reply-To: <32030.1292272904@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Monday 13 December 2010, 20:04:47
-
-> I assume the need for dev_close_many is coming from a user space
-> application?
+On Mon, 2010-12-13 at 12:41 -0800, Jay Vosburgh wrote:
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
 > 
-> I expect that for this kind of special need,  you would be better off not
-> using the normal iproute utilities and instead have a custom device manager
-> that is doing netlink directly.
+> >bond_change_active_slave() may be called when a slave is added, even
+> >if the bond has not been brought up yet.  It may then attempt to send
+> >packets, and further it may use mcast_work which is uninitialised
+> >before the bond is brought up.  Add the necessary checks for
+> >netif_running(bond->dev).
 > 
-> Rather than doing synchronous send request and wait for ack. The utility
-> could use a sender and collector thread.
+> 	I wondered if it would be better to instead arrange for
+> bond_change_active_slave (and bond_select_active_slave, which calls it)
+> to not be called when the bond is down, but that would require quite a
+> bit of change to bond_enslave and bond_open.
+[...]
 
-Actually we need dev_close_many in order to speed up netdev_unregister_many 
-since in the netdev_unregister_many path there is still one more sync-rcu 
-operation which is not factorized.
+Yes, it did seem to me that it would be better to defer all these
+actions until bond_open, but I thought that would be too risky at this
+stage in the release cycle.  Please do clean this up further in
+net-next-2.6.
 
-I will prepare v2 to address David's comment and I will also be more explicit 
-in the commit message.
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
