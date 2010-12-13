@@ -1,270 +1,257 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH net-next-2.6 v3] net: factorize sync-rcu call in unregister_netdevice_many
-Date: Tue, 14 Dec 2010 00:44:07 +0200
-Message-ID: <1292280247-9889-1-git-send-email-opurdila@ixiacom.com>
-Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:26045 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753551Ab0LMWoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 17:44:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid
+ not used
+Date: Mon, 13 Dec 2010 14:45:10 -0800
+Message-ID: <20101213224510.GB17400@mcarlson.broadcom.com>
+References: <1291200914.2856.546.camel@edumazet-laptop>
+ <20101205030712.36149bc2@xenia.leun.net>
+ <1291536233.2806.102.camel@edumazet-laptop>
+ <20101205105528.49fa9a9f@xenia.leun.net>
+ <20101205114404.7c0cddc2@xenia.leun.net>
+ <AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
+ <20101206203437.54b550e0@xenia.leun.net>
+ <AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
+ <20101206222703.32fbe852@xenia.leun.net>
+ <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Michael Leun" <lkml20101129@newton.leun.net>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Ben Greear" <greearb@candelatech.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jesse Gross" <jesse@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add dev_close_many and dev_deactivate_many to factorize another
-sync-rcu operation on the netdevice unregister path.
+On Sun, Dec 12, 2010 at 04:11:13PM -0800, Jesse Gross wrote:
+> On Mon, Dec 6, 2010 at 1:27 PM, Michael Leun
+> <lkml20101129@newton.leun.net> wrote:
+> > On Mon, 6 Dec 2010 12:04:48 -0800
+> > Jesse Gross <jesse@nicira.com> wrote:
+> >
+> >> On Mon, Dec 6, 2010 at 11:34 AM, Michael Leun
+> >> <lkml20101129@newton.leun.net> wrote:
+> >> > On Mon, 6 Dec 2010 10:14:55 -0800
+> >> > Jesse Gross <jesse@nicira.com> wrote:
+> >> >
+> >> >> On Sun, Dec 5, 2010 at 2:44 AM, Michael Leun
+> >> >> <lkml20101129@newton.leun.net> wrote:
+> >> >> > Hi Jesse,
+> >> >> >
+> >> >> > On Sun, 5 Dec 2010 10:55:28 +0100
+> >> >> > Michael Leun <lkml20101129@newton.leun.net> wrote:
+> >> >> >
+> >> >> >> On Sun, 05 Dec 2010 09:03:53 +0100
+> >> >> >> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >> >> >>
+> >> >> >> > > But on
+> >> >> >> > >
+> >> >> >> > > hpdl320g5:/home/ml # lspci | grep Eth
+> >> >> >> > > 03:04.0 Ethernet controller: Broadcom Corporation NetXtreme
+> >> >> >> > > BCM5714 Gigabit Ethernet (rev a3) 03:04.1 Ethernet
+> >> >> >> > > controller: Broadcom Corporation NetXtreme BCM5714 Gigabit
+> >> >> >> > > Ethernet (rev a3)
+> >> >> >> > >
+> >> >> >> > > the good message is that it also does not crash, but with
+> >> >> >> > > tcpdump I see vlan tags when no vlan devices configured on
+> >> >> >> > > the respective eth, if so I do not see tags anymore vlan
+> >> >> >> > > tags on the trunk interface.
+> >> >> >> > >
+> >> >> >> >
+> >> >> >> > For all these very specific needs, you'll have to try 2.6.37
+> >> >> >> > I am afraid. Jesse did huge changes to exactly make this
+> >> >> >> > working, we wont backport this to 2.6.36, but only avoid
+> >> >> >> > crashes.
+> >> >> >>
+> >> >> >> OK, I'm perfectly fine with that, of course, actually nice to
+> >> >> >> hear that the issue already is addressed.
+> >> >> >>
+> >> >> >> Likely I'll give some rc an shot on this machine (maybe over
+> >> >> >> christmas), but it is an production machine (acutally testing
+> >> >> >> other devices is the "product" produced on this machine), so
+> >> >> >> unfortunately I'm not that free in when and what I can do (but
+> >> >> >> the possibility to, for example, bridge the trunk interface
+> >> >> >> would make testing easier, that justifies something...).
+> >> >> >>
+> >> >> >> Thank you all very much for your work.
+> >> >> >
+> >> >> > Are these changes already in 2.6.37-rc4? Or, if not are they
+> >> >> > somewhere publically available already?
+> >> >> >
+> >> >> > I looked into various changelogs but have some difficulties to
+> >> >> > identify them...
+> >> >> >
+> >> >> > Maybe I have some time next days to give them an try...
+> >> >>
+> >> >> Yes, all of the existing vlan changes are in 2.6.37-rc4. ?There
+> >> >> were a number of patches but the main one was
+> >> >> 3701e51382a026cba10c60b03efabe534fba4ca4
+> >> >
+> >> > Then, I'm afraid, this (seeing vlan tags even if vlan interfaces are
+> >> > configured) does not work on HP DL320G5 (for exact description and
+> >> > examples please see my mail a few days ago).
+> >>
+> >> What driver are you using? ?Is it tg3?
+> >>
+> >> The vlan changes that I made unfortunately require updating drivers to
+> >> get the full benefit. ?I've been busy lately so tg3 hasn't yet been
+> >> updated.
+> >>
+> >> I know that tg3 does some things differently depending on whether a
+> >> vlan group is configured, so that would likely be the cause of what
+> >> you are seeing. ?I'd have to look at it in more detail to be sure
+> >> though.
+> >>
+> >> You said that everything works on the other Broadcom NIC that you
+> >> tested? ?Maybe it uses bnx2 instead?
+> >>
+> >
+> > Both machines use tg3 / 2.6.36.1 - one is opensuse, one ubuntu (but
+> > this should not matter, I think).
+> >
+> > If I can do anything to support your investigations / work (most
+> > likely testing / providing information) please let me know.
+> 
+> Unfortunately, I probably won't have time to look at this in the near
+> future.  Given that the test works on one NIC but not another that
+> strongly suggests that it is a driver problem, even if both NICs use
+> the same driver.  I see tg3 can do different things with vlans
+> depending on the model and what features are enabled.  I also ran a
+> quick test on some of my machines and I didn't experience this issue.
+> They are running net-next with ixgbe.
+> 
+> One of the main goals of my general vlan changes was to remove as much
+> logic as possible from the drivers and put it in the networking core,
+> so we should in theory see consistent behavior.  However, in 2.6.36
+> and earlier, each driver knows about what vlan devices are configured
+> and does different things with that information.
+> 
+> Given all of that, the most logical step to me is simply to convert
+> tg3 to use the new vlan infrastructure.  It should be done regardless
+> and it will probably solve this problem.  Maybe you can convince the
+> Broadcom guys to do that?  It would be a lot faster for them to do it
+> than me.
 
-$ modprobe dummy numdummies=10000
-$ ip link set dev dummy* up
-$ time rmmod dummy
+Below is the patch that converts the tg3 driver over to the new API.  I
+don't see how it could fix the problem though.  Maybe the presence of
+NETIF_F_HW_VLAN_TX changes things.
 
-Without the patch           With the patch
+Compile tested only.
 
-real    0m 24.63s           real    0m 5.15s
-user    0m 0.00s            user    0m 0.00s
-sys     0m 6.05s            sys     0m 5.14s
+----
+Subject: [PATCH] tg3: Use new VLAN code
 
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+This patch pivots the tg3 driver to the new VLAN infrastructure.
+
 ---
+ drivers/net/tg3.c |   42 ++++++++----------------------------------
+ 1 files changed, 8 insertions(+), 34 deletions(-)
 
-Changes from v2:
-
-* don't delete entries from dev_close_many otherwise rollback_registered_many
-will not complete the cleanup for the deleted entries
-
-Changes from v1:
-
-* move ASSERT_RTNL() and might_sleep() out of the loop
-
-
- include/net/sch_generic.h |    1 +
- net/core/dev.c            |  118 +++++++++++++++++++++++++++++----------------
- net/sched/sch_generic.c   |   29 ++++++++---
- 3 files changed, 99 insertions(+), 49 deletions(-)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index ea1f8a8..786cc39 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -321,6 +321,7 @@ extern void dev_init_scheduler(struct net_device *dev);
- extern void dev_shutdown(struct net_device *dev);
- extern void dev_activate(struct net_device *dev);
- extern void dev_deactivate(struct net_device *dev);
-+extern void dev_deactivate_many(struct list_head *head);
- extern struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
- 				     struct Qdisc *qdisc);
- extern void qdisc_reset(struct Qdisc *qdisc);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..33296ef 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1222,52 +1222,90 @@ int dev_open(struct net_device *dev)
- }
- EXPORT_SYMBOL(dev_open);
+diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
+index 5faa87d..2a3f83d 100644
+--- a/drivers/net/tg3.c
++++ b/drivers/net/tg3.c
+@@ -134,9 +134,6 @@
+ 				 TG3_TX_RING_SIZE)
+ #define NEXT_TX(N)		(((N) + 1) & (TG3_TX_RING_SIZE - 1))
  
--static int __dev_close(struct net_device *dev)
-+static int __dev_close_many(struct list_head *head)
- {
--	const struct net_device_ops *ops = dev->netdev_ops;
-+	struct net_device *dev;
- 
- 	ASSERT_RTNL();
- 	might_sleep();
- 
--	/*
--	 *	Tell people we are going down, so that they can
--	 *	prepare to death, when device is still operating.
--	 */
--	call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
-+	list_for_each_entry(dev, head, unreg_list) {
-+		/*
-+		 *	Tell people we are going down, so that they can
-+		 *	prepare to death, when device is still operating.
-+		 */
-+		call_netdevice_notifiers(NETDEV_GOING_DOWN, dev);
- 
--	clear_bit(__LINK_STATE_START, &dev->state);
-+		clear_bit(__LINK_STATE_START, &dev->state);
- 
--	/* Synchronize to scheduled poll. We cannot touch poll list,
--	 * it can be even on different cpu. So just clear netif_running().
--	 *
--	 * dev->stop() will invoke napi_disable() on all of it's
--	 * napi_struct instances on this device.
--	 */
--	smp_mb__after_clear_bit(); /* Commit netif_running(). */
-+		/* Synchronize to scheduled poll. We cannot touch poll list, it
-+		 * can be even on different cpu. So just clear netif_running().
-+		 *
-+		 * dev->stop() will invoke napi_disable() on all of it's
-+		 * napi_struct instances on this device.
-+		 */
-+		smp_mb__after_clear_bit(); /* Commit netif_running(). */
-+	}
- 
--	dev_deactivate(dev);
-+	dev_deactivate_many(head);
- 
--	/*
--	 *	Call the device specific close. This cannot fail.
--	 *	Only if device is UP
--	 *
--	 *	We allow it to be called even after a DETACH hot-plug
--	 *	event.
--	 */
--	if (ops->ndo_stop)
--		ops->ndo_stop(dev);
-+	list_for_each_entry(dev, head, unreg_list) {
-+		const struct net_device_ops *ops = dev->netdev_ops;
- 
--	/*
--	 *	Device is now down.
--	 */
-+		/*
-+		 *	Call the device specific close. This cannot fail.
-+		 *	Only if device is UP
-+		 *
-+		 *	We allow it to be called even after a DETACH hot-plug
-+		 *	event.
-+		 */
-+		if (ops->ndo_stop)
-+			ops->ndo_stop(dev);
-+
-+		/*
-+		 *	Device is now down.
-+		 */
-+
-+		dev->flags &= ~IFF_UP;
-+
-+		/*
-+		 *	Shutdown NET_DMA
-+		 */
-+		net_dmaengine_put();
-+	}
- 
--	dev->flags &= ~IFF_UP;
-+	return 0;
-+}
-+
-+static int __dev_close(struct net_device *dev)
-+{
-+	LIST_HEAD(single);
-+
-+	list_add(&dev->unreg_list, &single);
-+	return __dev_close_many(&single);
-+}
-+
-+int dev_close_many(struct list_head *head)
-+{
-+	struct net_device *dev, *tmp;
-+	LIST_HEAD(tmp_list);
-+
-+	list_for_each_entry_safe(dev, tmp, head, unreg_list)
-+		if (!(dev->flags & IFF_UP))
-+			list_move(&dev->unreg_list, &tmp_list);
-+
-+	__dev_close_many(head);
- 
- 	/*
--	 *	Shutdown NET_DMA
-+	 * Tell people we are down
- 	 */
--	net_dmaengine_put();
-+	list_for_each_entry(dev, head, unreg_list) {
-+		rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
-+		call_netdevice_notifiers(NETDEV_DOWN, dev);
-+	}
- 
-+	/* rollback_registered_many needs the complete original list */
-+	list_splice(&tmp_list, head);
- 	return 0;
- }
- 
-@@ -1282,16 +1320,10 @@ static int __dev_close(struct net_device *dev)
-  */
- int dev_close(struct net_device *dev)
- {
--	if (!(dev->flags & IFF_UP))
--		return 0;
+-#define TG3_RX_DMA_ALIGN		16
+-#define TG3_RX_HEADROOM			ALIGN(VLAN_HLEN, TG3_RX_DMA_ALIGN)
 -
--	__dev_close(dev);
-+	LIST_HEAD(single);
+ #define TG3_DMA_BYTE_ENAB		64
  
--	/*
--	 * Tell people we are down
--	 */
--	rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING);
--	call_netdevice_notifiers(NETDEV_DOWN, dev);
-+	list_add(&dev->unreg_list, &single);
-+	dev_close_many(&single);
+ #define TG3_RX_STD_DMA_SZ		1536
+@@ -4725,8 +4722,6 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 		struct sk_buff *skb;
+ 		dma_addr_t dma_addr;
+ 		u32 opaque_key, desc_idx, *post_ptr;
+-		bool hw_vlan __maybe_unused = false;
+-		u16 vtag __maybe_unused = 0;
  
- 	return 0;
- }
-@@ -4958,10 +4990,12 @@ static void rollback_registered_many(struct list_head *head)
+ 		desc_idx = desc->opaque & RXD_OPAQUE_INDEX_MASK;
+ 		opaque_key = desc->opaque & RXD_OPAQUE_RING_MASK;
+@@ -4785,12 +4780,12 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
+ 			tg3_recycle_rx(tnapi, tpr, opaque_key,
+ 				       desc_idx, *post_ptr);
+ 
+-			copy_skb = netdev_alloc_skb(tp->dev, len + VLAN_HLEN +
++			copy_skb = netdev_alloc_skb(tp->dev, len +
+ 						    TG3_RAW_IP_ALIGN);
+ 			if (copy_skb == NULL)
+ 				goto drop_it_no_recycle;
+ 
+-			skb_reserve(copy_skb, TG3_RAW_IP_ALIGN + VLAN_HLEN);
++			skb_reserve(copy_skb, TG3_RAW_IP_ALIGN);
+ 			skb_put(copy_skb, len);
+ 			pci_dma_sync_single_for_cpu(tp->pdev, dma_addr, len, PCI_DMA_FROMDEVICE);
+ 			skb_copy_from_linear_data(skb, copy_skb->data, len);
+@@ -4817,30 +4812,11 @@ static int tg3_rx(struct tg3_napi *tnapi, int budget)
  		}
  
- 		BUG_ON(dev->reg_state != NETREG_REGISTERED);
-+	}
+ 		if (desc->type_flags & RXD_FLAG_VLAN &&
+-		    !(tp->rx_mode & RX_MODE_KEEP_VLAN_TAG)) {
+-			vtag = desc->err_vlan & RXD_VLAN_MASK;
+-#if TG3_VLAN_TAG_USED
+-			if (tp->vlgrp)
+-				hw_vlan = true;
+-			else
+-#endif
+-			{
+-				struct vlan_ethhdr *ve = (struct vlan_ethhdr *)
+-						    __skb_push(skb, VLAN_HLEN);
+-
+-				memmove(ve, skb->data + VLAN_HLEN,
+-					ETH_ALEN * 2);
+-				ve->h_vlan_proto = htons(ETH_P_8021Q);
+-				ve->h_vlan_TCI = htons(vtag);
+-			}
+-		}
++		    !(tp->rx_mode & RX_MODE_KEEP_VLAN_TAG))
++			__vlan_hwaccel_put_tag(skb,
++					       desc->err_vlan & RXD_VLAN_MASK);
  
--		/* If device is running, close it first. */
--		dev_close(dev);
-+	/* If device is running, close it first. */
-+	dev_close_many(head);
+-#if TG3_VLAN_TAG_USED
+-		if (hw_vlan)
+-			vlan_gro_receive(&tnapi->napi, tp->vlgrp, vtag, skb);
+-		else
+-#endif
+-			napi_gro_receive(&tnapi->napi, skb);
++		napi_gro_receive(&tnapi->napi, skb);
  
-+	list_for_each_entry(dev, head, unreg_list) {
- 		/* And unlink it from device chain. */
- 		unlist_netdevice(dev);
+ 		received++;
+ 		budget--;
+@@ -13866,11 +13842,11 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	else
+ 		tp->tg3_flags &= ~TG3_FLAG_POLL_SERDES;
  
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index 0918834..34dc598 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -810,20 +810,35 @@ static bool some_qdisc_is_busy(struct net_device *dev)
- 	return false;
- }
+-	tp->rx_offset = NET_IP_ALIGN + TG3_RX_HEADROOM;
++	tp->rx_offset = NET_IP_ALIGN;
+ 	tp->rx_copy_thresh = TG3_RX_COPY_THRESHOLD;
+ 	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5701 &&
+ 	    (tp->tg3_flags & TG3_FLAG_PCIX_MODE) != 0) {
+-		tp->rx_offset -= NET_IP_ALIGN;
++		tp->rx_offset = 0;
+ #ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+ 		tp->rx_copy_thresh = ~(u16)0;
+ #endif
+@@ -14705,9 +14681,7 @@ static int __devinit tg3_init_one(struct pci_dev *pdev,
  
--void dev_deactivate(struct net_device *dev)
-+void dev_deactivate_many(struct list_head *head)
- {
--	netdev_for_each_tx_queue(dev, dev_deactivate_queue, &noop_qdisc);
--	if (dev_ingress_queue(dev))
--		dev_deactivate_queue(dev, dev_ingress_queue(dev), &noop_qdisc);
-+	struct net_device *dev;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
  
--	dev_watchdog_down(dev);
-+	list_for_each_entry(dev, head, unreg_list) {
-+		netdev_for_each_tx_queue(dev, dev_deactivate_queue,
-+					 &noop_qdisc);
-+		if (dev_ingress_queue(dev))
-+			dev_deactivate_queue(dev, dev_ingress_queue(dev),
-+					     &noop_qdisc);
-+
-+		dev_watchdog_down(dev);
-+	}
+-#if TG3_VLAN_TAG_USED
+ 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-#endif
  
- 	/* Wait for outstanding qdisc-less dev_queue_xmit calls. */
- 	synchronize_rcu();
- 
- 	/* Wait for outstanding qdisc_run calls. */
--	while (some_qdisc_is_busy(dev))
--		yield();
-+	list_for_each_entry(dev, head, unreg_list)
-+		while (some_qdisc_is_busy(dev))
-+			yield();
-+}
-+
-+void dev_deactivate(struct net_device *dev)
-+{
-+	LIST_HEAD(single);
-+
-+	list_add(&dev->unreg_list, &single);
-+	dev_deactivate_many(&single);
- }
- 
- static void dev_init_scheduler_queue(struct net_device *dev,
+ 	tp = netdev_priv(dev);
+ 	tp->pdev = pdev;
 -- 
-1.7.1
-
+1.7.2.2
