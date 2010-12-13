@@ -1,64 +1,113 @@
-From: Shmulik Hen <shmulik@trego.co.il>
-Subject: Re: System blocks (hangs) on ifconfig up
-Date: Mon, 13 Dec 2010 15:11:25 +0200
-Message-ID: <4D061B7D.9050805@trego.co.il>
-References: <4D04E38A.1040605@trego.co.il>	 <1292194983.3136.294.camel@localhost>  <4D05E400.7080409@trego.co.il> <1292243832.2759.1.camel@edumazet-laptop>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: [*v2 PATCH 00/22] IPVS, Network Name Space aware
+Date: Mon, 13 Dec 2010 14:38:08 +0100
+Message-ID: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Shmulik Hen <shmulik.hen@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	shemminger@vyatta.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f45.google.com ([209.85.214.45]:51860 "EHLO
-	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757574Ab0LMNLb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 08:11:31 -0500
-Received: by bwz16 with SMTP id 16so6565405bwz.4
-        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 05:11:30 -0800 (PST)
-In-Reply-To: <1292243832.2759.1.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <hans@schillstrom.com>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: <horms@verge.net.au>, <ja@ssi.bg>, <daniel.lezcano@free.fr>,
+	<wensong@linux-vs.org>, <lvs-devel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <netfilter-devel@vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/13/2010 02:37 PM, Eric Dumazet wrote:
->>
->> But why does this happen only the second time I run ifconfig up?
->> How come the entire system is totally frozen?
->> I can't even switch to other applications running. If I run 'top' in another
->> console, it stops refreshing for the entire period.
->>
->> I'll try to explain better;
->> The driver I'm referring to is part of an embedded system development kit.
->> It runs on the controlling side, which may be a PC or some Linux embedded
->> system. It exposes a virtual interface that allows to communicate via
->> ethernet connection to a remote board, and performs the firmware download
->> to that board.
->> Unfortunately, the firmware download stage is  done during dev->open() of
->> this virtual interface. The call to wait_event_interruptible_timeout()
->> is there to make sure the boot process of the remote board is complete via a
->> message. If all goes well the first time, there is no delay, but if the
->> operation
->> fails for any reason the first time, and a second attempt is made (another
->> ifconfig up), we see the freezing.
->>
->> Since this driver is (mostly) closed source, I had to try and reproduce
->> the situation
->> in an all open-source driver - this is the sample code I attached to my
->> original
->> message. The call to mdelay() there is meant to simulate the delay of
->> the original
->> driver - it schedules.
->>
-> mdelay() does a busy wait. If you are not SMP, this means a 'freeze'
->
-> If you want to schedule, you should use msleep()
+This patch series adds network name space support to the LVS.
 
-Correct - my bad. When I use msleep() in the sample code there is no freeze.
+REVISION
 
-But I still don't get it - when using mdelay(), why does the system 
-freeze only
-the second time but not in the first time?
-And what about wait_event_interruptible_timeout()? surely it doesn't
-do a busy loop - I can see  the source calling schedule().
+This is version 2
 
+OVERVIEW
+
+The patch doesn't remove or add any functionality except for netns.
+For users that don't use network name space (netns) this patch is
+completely transparent.
+
+Now it's possible to run LVS in a Linux container (see lxc-tools)
+i.e.  a light weight visualization. For example it's possible to run
+one or several lvs on a real server in their own network name spaces.
+>From the LVS point of view it looks like it runs on it's own machine.
+
+IMPLEMENTATION
+Basic requirements for netns awareness
+ - Global variables has to be moved to dyn. allocated memory.
+ - No or very little performance loss
+
+Large hash tables connection hash and service hashes still resides in
+global memory with net ptr added in hash key.
+Most global variables now resides in a struct ipvs { } in netns/ip_vs.h.
+The size of per name space is 2004 bytes (for x86_64) and a little bit less
+for 32 bit archs.
+
+Statistics counters is now lock-free i.e. incremented per CPU,
+The estimator does a sum when using it.
+
+Procfs ip_vs_stats is also changed to reflect the "per cpu"
+ex.
+# cat /proc/net/ip_vs_stats
+       Total Incoming Outgoing         Incoming         Outgoing
+CPU    Conns  Packets  Packets            Bytes            Bytes
+  0        0        3        1               9D               34
+  1        0        1        2               49               70
+  2        0        1        2               34               76
+  3        1        2        2               70               74
+  ~        1        7        7              18A              18E
+
+     Conns/s   Pkts/s   Pkts/s          Bytes/s          Bytes/s
+           0        0        0                0                0
+
+Algorithm files are untouched except for lblc and lblcr.
+
+STEP BY STEP
+First patch creates network name space init for all files that need it.
+How ever if a new name space is created an error is returned.
+This will be removed in the last patch.
+
+When net ptr ain't available init_net will be used temporarily.
+
+CHANGES
+
+*v2
+The patches is totally reworked so each patch compile ...
+Depends on the IPv6 and Persistence Backup patch.
+Common hash-table per name-space for connections and services
+Stats per CPU
+smaller changes in lblc and lblcr
+Triggered by Julians comment:
+"tcp_timeout_change should work with the new struct ip_vs_proto_data
+        so that tcp_state_table will go to pd->state_table
+        and set_tcp_state will get pd instead of pp"
+
+
+PATCH SET
+This patch set is based upon lvs-test-2.6 / v2.6.37-rc1 
+and depends upon IPVS sync patches
+
+STATUS 
+untested protos
+ - sctp
+ - esp_ah
+and SIP for IPv6
+
+SUMMARY
+ include/net/ip_vs.h                     |  236 +++++++---
+ include/net/net_namespace.h             |    2 +
+ include/net/netns/ip_vs.h               |  144 ++++++
+ net/netfilter/ipvs/ip_vs_app.c          |  101 +++--
+ net/netfilter/ipvs/ip_vs_conn.c         |  156 ++++---
+ net/netfilter/ipvs/ip_vs_core.c         |  163 +++++--
+ net/netfilter/ipvs/ip_vs_ctl.c          |  823 +++++++++++++++++--------------
+ net/netfilter/ipvs/ip_vs_est.c          |  157 ++++--
+ net/netfilter/ipvs/ip_vs_ftp.c          |   57 ++-
+ net/netfilter/ipvs/ip_vs_lblc.c         |   66 +++-
+ net/netfilter/ipvs/ip_vs_lblcr.c        |   70 +++-
+ net/netfilter/ipvs/ip_vs_nfct.c         |    6 +-
+ net/netfilter/ipvs/ip_vs_proto.c        |  121 +++++-
+ net/netfilter/ipvs/ip_vs_proto_ah_esp.c |   35 +-
+ net/netfilter/ipvs/ip_vs_proto_sctp.c   |  134 +++---
+ net/netfilter/ipvs/ip_vs_proto_tcp.c    |  125 +++---
+ net/netfilter/ipvs/ip_vs_proto_udp.c    |  102 +++--
+ net/netfilter/ipvs/ip_vs_sync.c         |  422 +++++++++-------
+ 18 files changed, 1900 insertions(+), 1020 deletions(-)
