@@ -1,105 +1,147 @@
-From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-Subject: [PATCH net-next-2.6 v9 10/20] pch_can: Replace netdev_dbg instead of dev_dbg partly
-Date: Mon, 13 Dec 2010 15:24:16 +0900
-Message-ID: <1292221467-8039-10-git-send-email-tomoya-linux@dsn.okisemi.com>
+From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: [PATCH net-next-2.6 v9 02/20] pch_can: Divide poll function
+Date: Mon, 13 Dec 2010 15:24:08 +0900
+Message-ID: <1292221467-8039-2-git-send-email-tomoya-linux@dsn.okisemi.com>
 References: <1292221467-8039-1-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-2-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-3-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-4-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-5-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-6-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-7-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-8-git-send-email-tomoya-linux@dsn.okisemi.com>
- <1292221467-8039-9-git-send-email-tomoya-linux@dsn.okisemi.com>
-Cc: qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, margie.foster@intel.com,
-	Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
-To: wg@grandegger.com, w.sang@pengutronix.de, chripell@fsfe.org,
-	21cnbao@gmail.com, sameo@linux.intel.com,
-	socketcan-core@lists.berlios.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kerne
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292221467-8039-9-git-send-email-tomoya-linux@dsn.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org,
+	21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TZUIDd8j+nm9g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1292221467-8039-1-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-For easy to readable, use netdev_dbg instead of dev_dbg partly
+To easy to read/understand, divide poll function into two sub-functions.
 
-Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
+Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/can/pch_can.c |   71 ++++++++++++++++++++++-----------------------
+ 1 files changed, 35 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 293be51..0093a01 100644
+index f0f1404..0b6d4f4 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -222,7 +222,7 @@ static void pch_can_set_run_mode(struct pch_can_priv *priv,
- 		break;
+@@ -819,72 +819,71 @@ RX_NEXT:
  
- 	default:
--		dev_err(&priv->ndev->dev, "%s -> Invalid Mode.\n", __func__);
-+		netdev_err(priv->ndev, "%s -> Invalid Mode.\n", __func__);
- 		break;
- 	}
+ 	return rcv_pkts;
  }
-@@ -275,7 +275,7 @@ static void pch_can_set_int_enables(struct pch_can_priv *priv,
- 		break;
+-static int pch_can_rx_poll(struct napi_struct *napi, int quota)
++
++static void pch_can_tx_complete(struct net_device *ndev, u32 int_stat)
+ {
+-	struct net_device *ndev = napi->dev;
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	struct net_device_stats *stats = &(priv->ndev->stats);
+ 	u32 dlc;
++
++	can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
++	iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
++		  &priv->regs->ifregs[1].cmask);
++	pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
++	dlc = get_can_dlc(ioread32(&priv->regs->ifregs[1].mcont) &
++			  PCH_IF_MCONT_DLC);
++	stats->tx_bytes += dlc;
++	stats->tx_packets++;
++	if (int_stat == PCH_TX_OBJ_END)
++		netif_wake_queue(ndev);
++}
++
++static int pch_can_rx_poll(struct napi_struct *napi, int quota)
++{
++	struct net_device *ndev = napi->dev;
++	struct pch_can_priv *priv = netdev_priv(ndev);
+ 	u32 int_stat;
+ 	int rcv_pkts = 0;
+ 	u32 reg_stat;
  
- 	default:
--		dev_err(&priv->ndev->dev, "Invalid interrupt number.\n");
-+		netdev_err(priv->ndev, "Invalid interrupt number.\n");
- 		break;
- 	}
- }
-@@ -528,7 +528,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_WARNING;
- 		if ((errc & PCH_TEC) > 96)
- 			cf->data[1] |= CAN_ERR_CRTL_TX_WARNING;
--		dev_warn(&ndev->dev,
-+		netdev_dbg(ndev,
- 			"%s -> Error Counter is more than 96.\n", __func__);
- 	}
- 	/* Error passive interrupt. */
-@@ -540,7 +540,7 @@ static void pch_can_error(struct net_device *ndev, u32 status)
- 			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
- 		if ((errc & PCH_TEC) > 127)
- 			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
--		dev_err(&ndev->dev,
-+		netdev_dbg(ndev,
- 			"%s -> CAN controller is ERROR PASSIVE .\n", __func__);
+ 	int_stat = pch_can_int_pending(priv);
+ 	if (!int_stat)
+-		return 0;
++		goto end;
+ 
+-INT_STAT:
+-	if (int_stat == PCH_STATUS_INT) {
++	if ((int_stat == PCH_STATUS_INT) && (quota > 0)) {
+ 		reg_stat = ioread32(&priv->regs->stat);
+ 		if (reg_stat & (PCH_BUS_OFF | PCH_LEC_ALL)) {
+-			if ((reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL)
++			if (reg_stat & PCH_BUS_OFF ||
++			   (reg_stat & PCH_LEC_ALL) != PCH_LEC_ALL) {
+ 				pch_can_error(ndev, reg_stat);
++				quota--;
++			}
+ 		}
+ 
+-		if (reg_stat & PCH_TX_OK) {
+-			iowrite32(PCH_CMASK_RX_TX_GET,
+-				  &priv->regs->ifregs[1].cmask);
+-			pch_can_check_if_busy(&priv->regs->ifregs[1].creq,
+-					       ioread32(&priv->regs->intr));
++		if (reg_stat & PCH_TX_OK)
+ 			pch_can_bit_clear(&priv->regs->stat, PCH_TX_OK);
+-		}
+ 
+ 		if (reg_stat & PCH_RX_OK)
+ 			pch_can_bit_clear(&priv->regs->stat, PCH_RX_OK);
+ 
+ 		int_stat = pch_can_int_pending(priv);
+-		if (int_stat == PCH_STATUS_INT)
+-			goto INT_STAT;
  	}
  
-@@ -859,10 +859,10 @@ static int pch_can_open(struct net_device *ndev)
- 
- 	retval = pci_enable_msi(priv->dev);
- 	if (retval) {
--		dev_info(&ndev->dev, "PCH CAN opened without MSI\n");
-+		netdev_err(ndev, "PCH CAN opened without MSI\n");
- 		priv->use_msi = 0;
- 	} else {
--		dev_info(&ndev->dev, "PCH CAN opened with MSI\n");
-+		netdev_err(ndev, "PCH CAN opened with MSI\n");
- 		priv->use_msi = 1;
+-MSG_OBJ:
++	if (quota == 0)
++		goto end;
++
+ 	if ((int_stat >= PCH_RX_OBJ_START) && (int_stat <= PCH_RX_OBJ_END)) {
+-		rcv_pkts = pch_can_rx_normal(ndev, int_stat);
+-		if (rcv_pkts < 0)
+-			return 0;
++		rcv_pkts += pch_can_rx_normal(ndev, int_stat);
++		quota -= rcv_pkts;
++		if (quota < 0)
++			goto end;
+ 	} else if ((int_stat >= PCH_TX_OBJ_START) &&
+ 		   (int_stat <= PCH_TX_OBJ_END)) {
+ 		/* Handle transmission interrupt */
+-		can_get_echo_skb(ndev, int_stat - PCH_RX_OBJ_END - 1);
+-		iowrite32(PCH_CMASK_RX_TX_GET | PCH_CMASK_CLRINTPND,
+-			  &priv->regs->ifregs[1].cmask);
+-		dlc = ioread32(&priv->regs->ifregs[1].mcont) &
+-			       PCH_IF_MCONT_DLC;
+-		pch_can_check_if_busy(&priv->regs->ifregs[1].creq, int_stat);
+-		if (dlc > 8)
+-			dlc = 8;
+-		stats->tx_bytes += dlc;
+-		stats->tx_packets++;
+-		if (int_stat == PCH_TX_OBJ_END)
+-			netif_wake_queue(ndev);
++		pch_can_tx_complete(ndev, int_stat);
  	}
  
-@@ -870,14 +870,14 @@ static int pch_can_open(struct net_device *ndev)
- 	retval = request_irq(priv->dev->irq, pch_can_interrupt, IRQF_SHARED,
- 			     ndev->name, ndev);
- 	if (retval) {
--		dev_err(&ndev->dev, "request_irq failed.\n");
-+		netdev_err(ndev, "request_irq failed.\n");
- 		goto req_irq_err;
- 	}
- 
- 	/* Open common can device */
- 	retval = open_candev(ndev);
- 	if (retval) {
--		dev_err(ndev->dev.parent, "open_candev() failed %d\n", retval);
-+		netdev_err(ndev, "open_candev() failed %d\n", retval);
- 		goto err_open_candev;
- 	}
+-	int_stat = pch_can_int_pending(priv);
+-	if (int_stat == PCH_STATUS_INT)
+-		goto INT_STAT;
+-	else if (int_stat >= 1 && int_stat <= 32)
+-		goto MSG_OBJ;
+-
++end:
+ 	napi_complete(napi);
+ 	pch_can_set_int_enables(priv, PCH_CAN_ALL);
  
 -- 
 1.6.0.6
