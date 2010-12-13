@@ -1,10 +1,11 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v9 11/20] pch_can: Fix coding rule violation
-Date: Mon, 13 Dec 2010 12:27:25 -0800 (PST)
-Message-ID: <20101213.122725.15234821.davem@davemloft.net>
-References: <1292221467-8039-9-git-send-email-tomoya-linux@dsn.okisemi.com>
-	<1292221467-8039-10-git-send-email-tomoya-linux@dsn.okisemi.com>
+Subject: Re: [PATCH net-next-2.6 v9 12/20] pch_can: Delete
+	unnecessary/redundant code
+Date: Mon, 13 Dec 2010 12:27:31 -0800 (PST)
+Message-ID: <20101213.122731.242127622.davem@davemloft.net>
+References: <1292221467-8039-10-git-send-email-tomoya-linux@dsn.okisemi.com>
 	<1292221467-8039-11-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<1292221467-8039-12-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -15,7 +16,7 @@ Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv
 	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1292221467-8039-11-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+In-Reply-To: <1292221467-8039-12-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -28,11 +29,10 @@ Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Mon, 13 Dec 2010 15:24:17 +0900
+Date: Mon, 13 Dec 2010 15:24:18 +0900
 
-> Fix coding rule violation.
+> Delete unnecessary/redundant code
 > 
 > Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
 Applied.
