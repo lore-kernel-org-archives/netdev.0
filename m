@@ -1,40 +1,44 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v9 20/20] pch_can: Replace netif_rx to
-	netif_receive_skb
-Date: Mon, 13 Dec 2010 12:28:26 -0800 (PST)
-Message-ID: <20101213.122826.27813399.davem@davemloft.net>
-References: <1292221467-8039-18-git-send-email-tomoya-linux@dsn.okisemi.com>
-	<1292221467-8039-19-git-send-email-tomoya-linux@dsn.okisemi.com>
-	<1292221467-8039-20-git-send-email-tomoya-linux@dsn.okisemi.com>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: Re: [PATCH net-next 0/9] bnx2x: FCoE support
+Date: Mon, 13 Dec 2010 22:36:27 +0200
+Message-ID: <1292272587.567.5.camel@lb-tlvb-vladz>
+References: <1292255013.631.48.camel@lb-tlvb-vladz>
+ <20101213.094907.226756740.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
-	margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, chripell-VaTbYqLCNhc@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1292221467-8039-20-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Shmulik Ravid - Rabinovitz" <shmulikr@broadcom.com>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4896 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754676Ab0LMUgi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Dec 2010 15:36:38 -0500
+In-Reply-To: <20101213.094907.226756740.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Date: Mon, 13 Dec 2010 15:24:26 +0900
 
-> Since this driver is implemented as NAPI,
-> netif_receive_skb must be used not netif_rx.
 > 
-> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Don't do this with the firmware files, at least email me a copy
+> so I don't have to go to a special web sit to get the patch.
+> 
+> You've never done it this special way before, you've always at
+> least email'd me a copy.  That was the right thing to do, what
+> in the world made you do things differently this time? :-/
+> 
+> Ugh...
+> 
 
-Applied.
+Sorry, Dave - haven't done it for too long time... ;)
+I've pushed the missing patches towards your mailbox already.
+
+Thanks,
+vlad
+
+
+
