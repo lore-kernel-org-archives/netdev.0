@@ -1,67 +1,61 @@
-From: Andrew Gallatin <gallatin@myri.com>
-Subject: Re: [PATCH 2/9] drivers/net: don't use flush_scheduled_work()
-Date: Mon, 13 Dec 2010 16:27:45 -0500
-Message-ID: <4D068FD1.8080304@myri.com>
-References: <1292169185-10579-1-git-send-email-tj@kernel.org> <1292169185-10579-3-git-send-email-tj@kernel.org>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] netlink: fix gcc -Wconversion compilation warning
+Date: Mon, 13 Dec 2010 13:35:25 -0800
+Message-ID: <m1sjy1uzj6.fsf@fess.ebiederm.org>
+References: <1292259913-9911-1-git-send-email-kirill@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	davem@davemloft.net, Jay Cliburn <jcliburn@gmail.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	e1000-devel@lists.sourceforge.net,
-	Vasanthy Kolluri <vkolluri@cisco.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Ramkrishna Vepa <ramkrishna.vepa@exar.com>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
-To: Tejun Heo <tj@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	"Dmitry V. Levin" <ldv@altlinux.org>, linux-kernel@vger.kernel.org
+To: "Kirill A. Shutsemov" <kirill@shutemov.name>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292169185-10579-3-git-send-email-tj@kernel.org>
+In-Reply-To: <1292259913-9911-1-git-send-email-kirill@shutemov.name> (Kirill
+	A. Shutsemov's message of "Mon, 13 Dec 2010 19:05:13 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/12/10 10:52, Tejun Heo wrote:
-> flush_scheduled_work() is on its way out.  This patch contains simple
-> conversions to replace flush_scheduled_work() usage with direct
-> cancels and flushes.
+"Kirill A. Shutsemov" <kirill@shutemov.name> writes:
+
+> From: Dmitry V. Levin <ldv@altlinux.org>
 >
-> Directly cancel the used works on driver detach and flush them in
-> other cases.
+> $ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
+> unsigned f(void) {return NLMSG_HDRLEN;}
+> EOF
+> <stdin>: In function 'f':
+> <stdin>:3:26: warning: negative integer implicitly converted to unsigned type
 >
-> The conversions are mostly straight forward and the only dangers are,
->
-> * Forgetting to cancel/flush one or more used works.
->
-> * Cancelling when a work should be flushed (ie. the work must be
->    executed once scheduled whether the driver is detaching or not).
->
-> I've gone over the changes multiple times but it would be much
-> appreciated if you can review with the above points in mind.
->
-> Signed-off-by: Tejun Heo<tj@kernel.org>
-> Cc: "David S. Miller"<davem@davemloft.net>
-> Cc: Jay Cliburn<jcliburn@gmail.com>
-> Cc: Michael Chan<mchan@broadcom.com>
-> Cc: Divy Le Ray<divy@chelsio.com>
-> Cc: e1000-devel@lists.sourceforge.net
-> Cc: Vasanthy Kolluri<vkolluri@cisco.com>
-> Cc: Samuel Ortiz<samuel@sortiz.org>
-> Cc: Lennert Buytenhek<buytenh@wantstofly.org>
-> Cc: Andrew Gallatin<gallatin@myri.com>
-> Cc: Francois Romieu<romieu@fr.zoreil.com>
-> Cc: Ramkrishna Vepa<ramkrishna.vepa@exar.com>
-> Cc: Matt Carlson<mcarlson@broadcom.com>
-> Cc: David Brownell<dbrownell@users.sourceforge.net>
-> Cc: Shreyas Bhatewara<sbhatewara@vmware.com>
-> Cc: netdev@vger.kernel.org
+This doesn't look like a bad fix, but I believe things will fail if
+we give NLMSG_ALIGN an unsigned long like size_t.  Say like sizeof.
+
+Admittedly it has to be a huge size but still if we are going
+to go fixing things...
+
+And then there is the silliness that NLMSG_HDRLEN forces itself
+to be an int, when it start out as a size_t.
+
+So I think NLMSG_ALIGN either needs to operation exclusively
+on unsigned longs aka size_t, or it needs to be type preserving.
+
+Do you have time to look at this a bit more?
+
+
+> Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
+> Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
 > ---
-
-
-For the myri10ge part:
-
-Acked-by: Andrew Gallatin <gallatin@myri.com>
+>  include/linux/netlink.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+> index 1235669..e2b9e63 100644
+> --- a/include/linux/netlink.h
+> +++ b/include/linux/netlink.h
+> @@ -70,7 +70,7 @@ struct nlmsghdr {
+>     Check		NLM_F_EXCL
+>   */
+>  
+> -#define NLMSG_ALIGNTO	4
+> +#define NLMSG_ALIGNTO	4U
+>  #define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
+>  #define NLMSG_HDRLEN	 ((int) NLMSG_ALIGN(sizeof(struct nlmsghdr)))
+>  #define NLMSG_LENGTH(len) ((len)+NLMSG_ALIGN(NLMSG_HDRLEN))
