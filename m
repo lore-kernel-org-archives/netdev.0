@@ -1,83 +1,68 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 1/3] bonding/vlan: Remove redundant VLAN tag
- insertion logic
-Date: Mon, 13 Dec 2010 18:19:28 +0000
-Message-ID: <1292264368.9860.13.camel@bwh-desktop>
+Subject: [PATCH net-2.6 2/3] bonding: Change active slave quietly when bond
+ is down
+Date: Mon, 13 Dec 2010 18:19:56 +0000
+Message-ID: <1292264396.9860.14.camel@bwh-desktop>
 References: <1292264216.9860.11.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Jesse Gross <jesse@nicira.com>
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>, Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:35320 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:35402 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754145Ab0LMSTb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 13:19:31 -0500
+	with ESMTP id S1757470Ab0LMST7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 13:19:59 -0500
 In-Reply-To: <1292264216.9860.11.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A bond may have a mixture of slave devices with and without hardware
-VLAN tag insertion capability.  Therefore it always claims this
-capability and performs software VLAN tag insertion if the slave does
-not.
-
-Since commit 7b9c60903714bf0a19d746b228864bad3497284e, this has
-also been done by dev_hard_start_xmit().  The result is that VLAN-
-tagged skbs are now double-tagged when transmitted through slave
-devices without hardware VLAN tag insertion!
-
-Remove the now-redundant logic from bond_dev_queue_xmit().
+bond_change_active_slave() may be called when a slave is added, even
+if the bond has not been brought up yet.  It may then attempt to send
+packets, and further it may use mcast_work which is uninitialised
+before the bond is brought up.  Add the necessary checks for
+netif_running(bond->dev).
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/bonding/bond_main.c |   27 +--------------------------
- 1 files changed, 1 insertions(+), 26 deletions(-)
+ drivers/net/bonding/bond_main.c |   15 +++++++++------
+ 1 files changed, 9 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d0ea760..ef370c9 100644
+index ef370c9..3b16c34 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -418,36 +418,11 @@ struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
-  * @bond: bond device that got this skb for tx.
-  * @skb: hw accel VLAN tagged skb to transmit
-  * @slave_dev: slave that is supposed to xmit this skbuff
-- *
-- * When the bond gets an skb to transmit that is
-- * already hardware accelerated VLAN tagged, and it
-- * needs to relay this skb to a slave that is not
-- * hw accel capable, the skb needs to be "unaccelerated",
-- * i.e. strip the hwaccel tag and re-insert it as part
-- * of the payload.
-  */
- int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
- 			struct net_device *slave_dev)
- {
--	unsigned short uninitialized_var(vlan_id);
--
--	/* Test vlan_list not vlgrp to catch and handle 802.1p tags */
--	if (!list_empty(&bond->vlan_list) &&
--	    !(slave_dev->features & NETIF_F_HW_VLAN_TX) &&
--	    vlan_get_tag(skb, &vlan_id) == 0) {
--		skb->dev = slave_dev;
--		skb = vlan_put_tag(skb, vlan_id);
--		if (!skb) {
--			/* vlan_put_tag() frees the skb in case of error,
--			 * so return success here so the calling functions
--			 * won't attempt to free is again.
--			 */
--			return 0;
--		}
--	} else {
--		skb->dev = slave_dev;
--	}
--
-+	skb->dev = slave_dev;
- 	skb->priority = 1;
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
+@@ -1178,11 +1178,13 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 				bond_do_fail_over_mac(bond, new_active,
+ 						      old_active);
+ 
+-			bond->send_grat_arp = bond->params.num_grat_arp;
+-			bond_send_gratuitous_arp(bond);
++			if (netif_running(bond->dev)) {
++				bond->send_grat_arp = bond->params.num_grat_arp;
++				bond_send_gratuitous_arp(bond);
+ 
+-			bond->send_unsol_na = bond->params.num_unsol_na;
+-			bond_send_unsolicited_na(bond);
++				bond->send_unsol_na = bond->params.num_unsol_na;
++				bond_send_unsolicited_na(bond);
++			}
+ 
+ 			write_unlock_bh(&bond->curr_slave_lock);
+ 			read_unlock(&bond->lock);
+@@ -1196,8 +1198,9 @@ void bond_change_active_slave(struct bonding *bond, struct slave *new_active)
+ 
+ 	/* resend IGMP joins since active slave has changed or
+ 	 * all were sent on curr_active_slave */
+-	if ((USES_PRIMARY(bond->params.mode) && new_active) ||
+-	    bond->params.mode == BOND_MODE_ROUNDROBIN) {
++	if (((USES_PRIMARY(bond->params.mode) && new_active) ||
++	     bond->params.mode == BOND_MODE_ROUNDROBIN) &&
++	    netif_running(bond->dev)) {
+ 		bond->igmp_retrans = bond->params.resend_igmp;
+ 		queue_delayed_work(bond->wq, &bond->mcast_work, 0);
+ 	}
 -- 
 1.7.3.2
 
