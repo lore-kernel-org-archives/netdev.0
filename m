@@ -1,62 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 3/3] bonding/vlan: Fix mangled NAs on slaves
- without VLAN tag insertion
-Date: Mon, 13 Dec 2010 18:20:24 +0000
-Message-ID: <1292264424.9860.15.camel@bwh-desktop>
-References: <1292264216.9860.11.camel@bwh-desktop>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH 10/27] ixgb: Don't check for vlan group on transmit
+Date: Mon, 13 Dec 2010 11:43:01 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A136602D607104@rrsmsx501.amr.corp.intel.com>
+References: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1292048241-22026-11-git-send-email-jeffrey.t.kirsher@intel.com>
+ <AANLkTi=mi7pSRXrOyiFx75Feuo29tpw9bJbvHf0BrC_s@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>, Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>
+To: Jesse Gross <jesse@nicira.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:35459 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757641Ab0LMSU1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 13:20:27 -0500
-In-Reply-To: <1292264216.9860.11.camel@bwh-desktop>
+Received: from mga09.intel.com ([134.134.136.24]:14591 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758013Ab0LMSnM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 13:43:12 -0500
+In-Reply-To: <AANLkTi=mi7pSRXrOyiFx75Feuo29tpw9bJbvHf0BrC_s@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bond_na_send() attempts to insert a VLAN tag in between building and
-sending packets of the respective formats.  If the slave does not
-implement hardware VLAN tag insertion then vlan_put_tag() will mangle
-the network-layer header because the Ethernet header is not present at
-this point (unlike in bond_arp_send()).
+>-----Original Message-----
+>From: Jesse Gross [mailto:jesse@nicira.com]
+>Sent: Sunday, December 12, 2010 5:01 PM
+>To: Kirsher, Jeffrey T
+>Cc: davem@davemloft.net; Tantilov, Emil S; netdev@vger.kernel.org;
+>gospo@redhat.com; bphilips@novell.com
+>Subject: Re: [PATCH 10/27] ixgb: Don't check for vlan group on transmit
+>
+>On Fri, Dec 10, 2010 at 10:17 PM, Jeff Kirsher
+><jeffrey.t.kirsher@intel.com> wrote:
+>> From: Emil Tantilov <emil.s.tantilov@intel.com>
+>>
+>> Based on a patch from Jesse Gross.
+>>
+>> Enable vlan tag insertion even when vlan group is not configured.
+>>
+>> For ixgb HW both CTRL0.VME and VLE bit in the Tx descriptor need to be
+>set
+>> in order to enable HW acceleration.
+>>
+>> Introduced separate functions for enabling/disabling of vlan tag
+>stripping
+>> similar to ixgbe.
+>
+>Thanks for working on this.  However, I don't think that this patch
+>actually does what it says.
+>
+>In ixgb_xmit_frame() it's still checking whether adapter->vlgrp is
+>non-null before inserting a tag, so it will drop tags unless a vlan
+>group is configured.  Also, since it's not currently possible to
+>toggle NETIF_F_HW_VLAN_RX, vlan stripping will never get disabled.
+>This is actually a regression since before vlan stripping would get
+>disabled if no vlan group was configured.  Now, vlan headers will get
+>silently dropped if there is no vlan group.
+I'm sorry. This patch was supposed to include your original patch that 
+removed the vlgrp check on Tx. Somehow that didn't make it (I may have generated the patch from the wrong branch).
 
-Fix this by adding the tag out-of-line and relying on
-dev_hard_start_xmit() to insert it inline if necessary.
+>Regardless of that, I still think this is a useful change on the road
+>towards adopting the new vlan interfaces, the problem is just that
+>currently it's halfway in between the old and the new.  Given that, it
+>would obviously be much better to move all the way over the new when
+>addressing this.
+Since this patch is already applied can you submit your change again?
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/bonding/bond_ipv6.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+>Out of curiosity, is the implication of this that vlan insertion on
+>transmit and stripping on receive are always configured together?  I
+>don't have hardware supported by this driver but when I worked on
+>ixgbe (which is at least superficially similar in this area) I didn't
+>have any problems configuring them independently.
 
-diff --git a/drivers/net/bonding/bond_ipv6.c b/drivers/net/bonding/bond_ipv6.c
-index 121b073..84fbd4e 100644
---- a/drivers/net/bonding/bond_ipv6.c
-+++ b/drivers/net/bonding/bond_ipv6.c
-@@ -88,7 +88,12 @@ static void bond_na_send(struct net_device *slave_dev,
- 	}
- 
- 	if (vlan_id) {
--		skb = vlan_put_tag(skb, vlan_id);
-+		/* The Ethernet header is not present yet, so it is
-+		 * too early to insert a VLAN tag.  Force use of an
-+		 * out-of-line tag here and let dev_hard_start_xmit()
-+		 * insert it if the slave hardware can't.
-+		 */
-+		skb = __vlan_hwaccel_put_tag(skb, vlan_id);
- 		if (!skb) {
- 			pr_err("failed to insert VLAN tag\n");
- 			return;
--- 
-1.7.3.2
+Yes - the design of the original 10GB HW supported in ixgb does not allow 
+setting Tx and Rx independently. As you mentioned ixgbe does not have 
+this problem.
 
+>
+>Thanks.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Emil
 
