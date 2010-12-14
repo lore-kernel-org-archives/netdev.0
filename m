@@ -1,45 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v9 20/20] pch_can: Replace netif_rx to
- netif_receive_skb
-Date: Mon, 13 Dec 2010 19:45:42 -0800 (PST)
-Message-ID: <20101213.194542.193715300.davem@davemloft.net>
-References: <1292221467-8039-20-git-send-email-tomoya-linux@dsn.okisemi.com>
-	<20101213.122826.27813399.davem@davemloft.net>
-	<4D069564.8070204@hartkopp.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [RFC PATCH net-next] if_ether.h: Add #define ETH_P_LARQ for
+ HPNA/LARQ
+Date: Mon, 13 Dec 2010 19:53:51 -0800
+Message-ID: <1292298831.26970.263.camel@Joe-Laptop>
+References: <1292287667.26970.114.camel@Joe-Laptop>
+	 <20101214014920.GA2453@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: tomoya-linux@dsn.okisemi.com, netdev@vger.kernel.org,
-	mkl@pengutronix.de, wg@grandegger.com
-To: socketcan@hartkopp.net
+Cc: netdev <netdev@vger.kernel.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	Dowan Kim <dowan@broadcom.com>, arend@broadcom.com,
+	rvossen@broadcom.com
+To: Henry Ptasinski <henryp@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59828
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752927Ab0LNDpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Dec 2010 22:45:14 -0500
-In-Reply-To: <4D069564.8070204@hartkopp.net>
+Received: from mail.perches.com ([173.55.12.10]:2638 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757161Ab0LNDxx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Dec 2010 22:53:53 -0500
+In-Reply-To: <20101214014920.GA2453@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Date: Mon, 13 Dec 2010 22:51:32 +0100
+On Mon, 2010-12-13 at 17:49 -0800, Henry Ptasinski wrote:
+> On Mon, Dec 13, 2010 at 04:47:47PM -0800, Joe Perches wrote:
+> > LARQ seems to be used by Broadcom's staging driver.
+> > Might as well add a #define for it to the normal location.
+> > diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+[]
+> > +#define ETH_P_LARQ	0x886c		/* HPNA / Broadcom
+> That should be ETH_P_BRCM (or ETH_P_EPIGRAM).  HPNA/ILCP used a range of
+> subtypes for LARQ and other HPNA protocols.  The brcmfmac driver uses a
+> different subypte for encapsulating some event signals between the device and
+> the host, but doesn't implement any of the HPNA protocols.
 
-> On 13.12.2010 21:28, David Miller wrote:
->> From: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
->> Date: Mon, 13 Dec 2010 15:24:26 +0900
->> 
->>> Since this driver is implemented as NAPI,
->>> netif_receive_skb must be used not netif_rx.
->>>
->>> Signed-off-by: Tomoya MORINAGA <tomoya-linux@dsn.okisemi.com>
->>> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
->> 
->> Applied.
-> 
-> Do you plan to push this huge patchset to Linus' 2.6.37-rc5 tree?
-> 
-> I wonder if the pch_can driver in linux-2.6 tree is already usable without
-> these latest patches that have been applied only to net-next-2.6.
+Another choice might be ETH_P_LINK_CTL
 
-I'm happy to take the changes for a backport once all of this settles
-down which I don't believe it has yet.
+
