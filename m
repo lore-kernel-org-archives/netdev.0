@@ -1,37 +1,82 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH 1/2] workqueue: convert
- cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()
-Date: Wed, 15 Dec 2010 00:24:35 +0300
-Message-ID: <20101214212435.GA10097@ioremap.net>
-References: <4D078B6D.5060202@kernel.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] Fix ip routing rules (partially revert b6c69d4b)
+Date: Tue, 14 Dec 2010 13:28:47 -0800
+Message-ID: <4D07E18F.30703@candelatech.com>
+References: <1292025842-14959-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-	benh@kernel.crashing.org, mchehab@infradead.org,
-	davem@davemloft.net, netdev@vger.kernel.org, cbou@mail.ru,
-	dwmw2@infradead.org, gregkh@suse.de, bfields@fieldses.org,
-	neilb@suse.de, aelder@sgi.com, xfs-masters@oss.sgi.com,
-	cl@linux-foundation.org, penberg@cs.helsinki.fi,
-	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
-	Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org
-To: Tejun Heo <tj@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D078B6D.5060202@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:54760 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760160Ab0LNV2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 16:28:48 -0500
+Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oBELSlrv020712
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 13:28:47 -0800
+In-Reply-To: <1292025842-14959-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi.
+On 12/10/2010 04:04 PM, greearb@candelatech.com wrote:
+> From: Ben Greear<greearb@candelatech.com>
+>
+> Change 4465b469008bc03b98a1b8df4e9ae501b6c69d4b caused rules
+> to stop matching the input device properly because the
+> FLOWI_FLAG_MATCH_ANY_IIF is always defined in ip_dev_find().
 
-On Tue, Dec 14, 2010 at 04:21:17PM +0100, Tejun Heo (tj@kernel.org) wrote:
-> cancel_rearming_delayed_work[queue]() has been superceded by
-> cancel_delayed_work_sync() quite some time ago.  Convert all the
-> in-kernel users.  The conversions are completely equivalent and
-> trivial.
-> 
-> Signed-off-by: Tejun Heo <tj@kernel.org>
+Any comments on this?  I think we should resolve this before .37, since
+it appears to be a regression bug...
 
-Acked-by: Evgeniy Polyakov <zbr@ioremap.net>
+
+>
+> This breaks rules such as:
+>
+> ip rule add pref 512 lookup local
+> ip rule del pref 0 lookup local
+> ip link set eth2 up
+> ip -4 addr add 172.16.0.102/24 broadcast 172.16.0.255 dev eth2
+> ip rule add to 172.16.0.102 iif eth2 lookup local pref 10
+> ip rule add iif eth2 lookup 10001 pref 20
+> ip route add 172.16.0.0/24 dev eth2 table 10001
+> ip route add unreachable 0/0 table 10001
+>
+> If you had a second interface 'eth0' that was on a different
+> subnet, pinging a system on that interface would fail:
+>
+>   [root@ct503-60 ~]# ping 192.168.100.1
+>   connect: Invalid argument
+>
+> This patch partially reverts the problematic patch by
+> NOT defining FLOWI_FLAG_MATCH_ANY_IIF.  This probably breaks
+> the feature that the original author intended to add, and
+> it could easily be that the entire patch should be reverted,
+> so this needs review before applying.
+>
+> Signed-off-by: Ben Greear<greearb@candelatech.com>
+> ---
+> :100644 100644 eb6f69a... 5f73819... M	net/ipv4/fib_frontend.c
+>   net/ipv4/fib_frontend.c |    1 -
+>   1 files changed, 0 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+> index eb6f69a..5f73819 100644
+> --- a/net/ipv4/fib_frontend.c
+> +++ b/net/ipv4/fib_frontend.c
+> @@ -163,7 +163,6 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+>   				.daddr = addr
+>   			}
+>   		},
+> -		.flags = FLOWI_FLAG_MATCH_ANY_IIF
+>   	};
+>   	struct fib_result res = { 0 };
+>   	struct net_device *dev = NULL;
+
 
 -- 
-	Evgeniy Polyakov
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
+
