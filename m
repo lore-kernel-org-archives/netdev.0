@@ -1,76 +1,119 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [PATCH] ixgb: Convert to new vlan model.
-Date: Tue, 14 Dec 2010 18:12:39 +0000
-Message-ID: <1292350359.20458.8.camel@bwh-desktop>
-References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
-	 <1292344315.20458.6.camel@bwh-desktop>
-	 <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCHv2] fragment locally-generated IPsec6 packets that need it
+Date: Tue, 14 Dec 2010 10:32:34 -0800
+Message-ID: <1292351554.4720.7.camel@IBM-1B506CFC885>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="cp1252"
 Content-Transfer-Encoding: 7bit
-Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:10548 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242Ab0LNSMm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 13:12:42 -0500
-In-Reply-To: <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
+Received: from e31.co.us.ibm.com ([32.97.110.149]:41046 "EHLO
+	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756304Ab0LNSco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 13:32:44 -0500
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e31.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBEIJ129001812
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:19:01 -0700
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBEIWdTn157336
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:32:39 -0700
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBEIWcHm032057
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:32:39 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-12-14 at 11:09 -0700, Tantilov, Emil S wrote:
-> Ben Hutchings wrote:
-> > On Mon, 2010-12-13 at 19:42 -0800, Jesse Gross wrote:
-> >> This switches the ixgb driver to use the new vlan interfaces.
-> >> In doing this, it completes the work begun in
-> >> ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
-> >> hardware vlan insertion without having a vlan group configured. [...]
-> >> diff --git a/drivers/net/ixgb/ixgb_ethtool.c
-> >> b/drivers/net/ixgb/ixgb_ethtool.c 
-> >> index 43994c1..0e4c527 100644
-> >> --- a/drivers/net/ixgb/ixgb_ethtool.c
-> >> +++ b/drivers/net/ixgb/ixgb_ethtool.c
-> >> @@ -706,6 +706,45 @@ ixgb_get_strings(struct net_device *netdev, u32
-> >>  stringset, u8 *data)  	} }
-> >> 
-> >> +static int ixgb_set_flags(struct net_device *netdev, u32 data) +{
-> >> +	struct ixgb_adapter *adapter = netdev_priv(netdev); +	bool
-> >> need_reset; +	int rc;
-> >> +
-> >> +	/* The hardware requires that RX vlan stripping and TX vlan
-> >> insertion +	 * be configured together.  Therefore, if one setting
-> >> changes adjust the +	 * other one to match. +	 */
-> >> +	if (!!(data & ETH_FLAG_RXVLAN) != !!(data & ETH_FLAG_TXVLAN)) {
-> >> +		if ((data & ETH_FLAG_RXVLAN) !=
-> >> +		    (netdev->features & NETIF_F_HW_VLAN_RX))
-> >> +			data ^= ETH_FLAG_TXVLAN;
-> >> +		else if ((data & ETH_FLAG_TXVLAN) !=
-> >> +		    (netdev->features & NETIF_F_HW_VLAN_TX))
-> >> +			data ^= ETH_FLAG_RXVLAN;
-> >> +	}
-> > [...]
-> > 
-> > I think this should reject attempts to change just one flag with
-> > -EINVAL, rather than quietly 'fixing' the setting.
-> > 
-> > Ben.
-> 
-> I'm not sure this is a good idea. At least not without some sort of 
-> explanation. Since there is no way for the user to know that he needs
-> to disable both.
+This patch modifies IPsec6 to fragment IPv6 packets that are
+locally generated as needed.
 
-Document the limitation in Documentation/networking/ixgb.txt.  You could
-also send a patch for the ethtool manual page stating that this
-restriction might exist.
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Ben.
+diff -ruNp linux-2.6.36-rc8/include/net/ip6_route.h linux-2.6.36-rc8DLS/include/net/ip6_route.h
+--- linux-2.6.36-rc8/include/net/ip6_route.h	2010-10-14 16:26:43.000000000 -0700
++++ linux-2.6.36-rc8DLS/include/net/ip6_route.h	2010-12-12 09:22:48.582141401 -0800
+@@ -164,5 +164,15 @@ static inline int ipv6_unicast_destinati
+ 	return rt->rt6i_flags & RTF_LOCAL;
+ }
+ 
++int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
++
++static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
++{
++	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
++
++	return (np && np->pmtudisc == IPV6_PMTUDISC_PROBE) ?
++	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
++}
++
+ #endif
+ #endif
+diff -ruNp linux-2.6.36-rc8/net/ipv6/ip6_output.c linux-2.6.36-rc8DLS/net/ipv6/ip6_output.c
+--- linux-2.6.36-rc8/net/ipv6/ip6_output.c	2010-10-14 16:26:43.000000000 -0700
++++ linux-2.6.36-rc8DLS/net/ipv6/ip6_output.c	2010-12-14 09:51:45.260779308 -0800
+@@ -56,7 +56,7 @@
+ #include <net/checksum.h>
+ #include <linux/mroute6.h>
+ 
+-static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
++int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
+ 
+ int __ip6_local_out(struct sk_buff *skb)
+ {
+@@ -145,14 +145,6 @@ static int ip6_finish_output2(struct sk_
+ 	return -EINVAL;
+ }
+ 
+-static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+-{
+-	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
+-
+-	return (np && np->pmtudisc == IPV6_PMTUDISC_PROBE) ?
+-	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+-}
+-
+ static int ip6_finish_output(struct sk_buff *skb)
+ {
+ 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
+@@ -601,7 +593,7 @@ int ip6_find_1stfragopt(struct sk_buff *
+ 	return offset;
+ }
+ 
+-static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
++int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ {
+ 	struct sk_buff *frag;
+ 	struct rt6_info *rt = (struct rt6_info*)skb_dst(skb);
+diff -ruNp linux-2.6.36-rc8/net/ipv6/xfrm6_output.c linux-2.6.36-rc8DLS/net/ipv6/xfrm6_output.c
+--- linux-2.6.36-rc8/net/ipv6/xfrm6_output.c	2010-10-14 16:26:43.000000000 -0700
++++ linux-2.6.36-rc8DLS/net/ipv6/xfrm6_output.c	2010-12-12 09:30:21.019560623 -0800
+@@ -17,6 +17,7 @@
+ #include <linux/netfilter_ipv6.h>
+ #include <net/dst.h>
+ #include <net/ipv6.h>
++#include <net/ip6_route.h>
+ #include <net/xfrm.h>
+ 
+ int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
+@@ -88,8 +89,17 @@ static int xfrm6_output_finish(struct sk
+ 	return xfrm_output(skb);
+ }
+ 
+-int xfrm6_output(struct sk_buff *skb)
++static int __xfrm6_output(struct sk_buff *skb)
+ {
+ 	return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL,
+ 		       skb_dst(skb)->dev, xfrm6_output_finish);
+ }
++
++int xfrm6_output(struct sk_buff *skb)
++{
++	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
++		dst_allfrag(skb_dst(skb))) {
++			return ip6_fragment(skb, __xfrm6_output);
++	}
++	return __xfrm6_output(skb);
++}
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
 
