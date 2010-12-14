@@ -1,55 +1,61 @@
-From: "Henry Ptasinski" <henryp@broadcom.com>
-Subject: Re: [RFC PATCH net-next] if_ether.h: Add #define ETH_P_LARQ for
- HPNA/LARQ
-Date: Mon, 13 Dec 2010 17:49:20 -0800
-Message-ID: <20101214014920.GA2453@broadcom.com>
-References: <1292287667.26970.114.camel@Joe-Laptop>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v9 20/20] pch_can: Replace netif_rx to
+	netif_receive_skb
+Date: Tue, 14 Dec 2010 11:16:04 +0900
+Message-ID: <98ED21118B7A4639B9AB0B8FFE323179@hacdom.okisemi.com>
+References: <1292221467-8039-18-git-send-email-tomoya-linux@dsn.okisemi.com><1292221467-8039-19-git-send-email-tomoya-linux@dsn.okisemi.com><1292221467-8039-20-git-send-email-tomoya-linux@dsn.okisemi.com>
+	<20101213.122826.27813399.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"Brett Rudley" <brudley@broadcom.com>,
-	"Dowan Kim" <dowan@broadcom.com>,
-	"Henry Ptasinski" <henryp@broadcom.com>, arend@broadcom.com,
-	rvossen@broadcom.com
-To: "Joe Perches" <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2651 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758939Ab0LNBti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 Dec 2010 20:49:38 -0500
-In-Reply-To: <1292287667.26970.114.camel@Joe-Laptop>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 13, 2010 at 04:47:47PM -0800, Joe Perches wrote:
-> LARQ seems to be used by Broadcom's staging driver.
-> Might as well add a #define for it to the normal location.
+Hi David,
+
+Thank you for your acceptance.
+
+> Hi Marc and Wolfgang
+Until now, thank you for your much help!
+
+---
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
+
+----- Original Message ----- 
+From: "David Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Cc: <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; <w.sang-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>; <chripell-VaTbYqLCNhc@public.gmane.org>; 
+<21cnbao-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>; <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>; 
+<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; 
+<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; <qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; 
+<yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; 
+<joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>; <margie.foster-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Sent: Tuesday, December 14, 2010 5:28 AM
+Subject: Re: [PATCH net-next-2.6 v9 20/20] pch_can: Replace netif_rx to 
+netif_receive_skb
+
+
+> From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+> Date: Mon, 13 Dec 2010 15:24:26 +0900
+>
+>> Since this driver is implemented as NAPI,
+>> netif_receive_skb must be used not netif_rx.
+>>
+>> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+>> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>
+> Applied.
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
->  include/linux/if_ether.h |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-> index f9c3df0..b257e99 100644
-> --- a/include/linux/if_ether.h
-> +++ b/include/linux/if_ether.h
-> @@ -71,6 +71,8 @@
->  #define ETH_P_PPP_SES	0x8864		/* PPPoE session messages	*/
->  #define ETH_P_MPLS_UC	0x8847		/* MPLS Unicast traffic		*/
->  #define ETH_P_MPLS_MC	0x8848		/* MPLS Multicast traffic	*/
-> +#define ETH_P_LARQ	0x886c		/* HPNA / Broadcom
-> +					 * Limited Automatic Repeat reQuest */
-
-
-That should be ETH_P_BRCM (or ETH_P_EPIGRAM).  HPNA/ILCP used a range of
-subtypes for LARQ and other HPNA protocols.  The brcmfmac driver uses a
-different subypte for encapsulating some event signals between the device and
-the host, but doesn't implement any of the HPNA protocols.
-
-- Henry
-
-
