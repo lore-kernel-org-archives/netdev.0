@@ -1,82 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC] Fix ip routing rules (partially revert b6c69d4b)
-Date: Tue, 14 Dec 2010 13:28:47 -0800
-Message-ID: <4D07E18F.30703@candelatech.com>
-References: <1292025842-14959-1-git-send-email-greearb@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] e1000e: convert to stats64
+Date: Tue, 14 Dec 2010 22:29:33 +0100
+Message-ID: <1292362173.2478.6.camel@edumazet-laptop>
+References: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net
+To: Flavio Leitner <fleitner@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:54760 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760160Ab0LNV2s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 16:28:48 -0500
-Received: from [192.168.100.195] (firewall.candelatech.com [70.89.124.249])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oBELSlrv020712
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 13:28:47 -0800
-In-Reply-To: <1292025842-14959-1-git-send-email-greearb@candelatech.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:59079 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760158Ab0LNV3h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 16:29:37 -0500
+Received: by wwa36 with SMTP id 36so950316wwa.1
+        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 13:29:36 -0800 (PST)
+In-Reply-To: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/10/2010 04:04 PM, greearb@candelatech.com wrote:
-> From: Ben Greear<greearb@candelatech.com>
->
-> Change 4465b469008bc03b98a1b8df4e9ae501b6c69d4b caused rules
-> to stop matching the input device properly because the
-> FLOWI_FLAG_MATCH_ANY_IIF is always defined in ip_dev_find().
-
-Any comments on this?  I think we should resolve this before .37, since
-it appears to be a regression bug...
-
-
->
-> This breaks rules such as:
->
-> ip rule add pref 512 lookup local
-> ip rule del pref 0 lookup local
-> ip link set eth2 up
-> ip -4 addr add 172.16.0.102/24 broadcast 172.16.0.255 dev eth2
-> ip rule add to 172.16.0.102 iif eth2 lookup local pref 10
-> ip rule add iif eth2 lookup 10001 pref 20
-> ip route add 172.16.0.0/24 dev eth2 table 10001
-> ip route add unreachable 0/0 table 10001
->
-> If you had a second interface 'eth0' that was on a different
-> subnet, pinging a system on that interface would fail:
->
->   [root@ct503-60 ~]# ping 192.168.100.1
->   connect: Invalid argument
->
-> This patch partially reverts the problematic patch by
-> NOT defining FLOWI_FLAG_MATCH_ANY_IIF.  This probably breaks
-> the feature that the original author intended to add, and
-> it could easily be that the entire patch should be reverted,
-> so this needs review before applying.
->
-> Signed-off-by: Ben Greear<greearb@candelatech.com>
+Le mardi 14 d=C3=A9cembre 2010 =C3=A0 18:32 -0200, Flavio Leitner a =C3=
+=A9crit :
+> Provides accurate stats at the time user reads them.
+>=20
+> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
 > ---
-> :100644 100644 eb6f69a... 5f73819... M	net/ipv4/fib_frontend.c
->   net/ipv4/fib_frontend.c |    1 -
->   1 files changed, 0 insertions(+), 1 deletions(-)
->
-> diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-> index eb6f69a..5f73819 100644
-> --- a/net/ipv4/fib_frontend.c
-> +++ b/net/ipv4/fib_frontend.c
-> @@ -163,7 +163,6 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
->   				.daddr = addr
->   			}
->   		},
-> -		.flags = FLOWI_FLAG_MATCH_ANY_IIF
->   	};
->   	struct fib_result res = { 0 };
->   	struct net_device *dev = NULL;
+>  drivers/net/e1000e/e1000.h   |    5 ++-
+>  drivers/net/e1000e/ethtool.c |   27 +++++++++-------
+>  drivers/net/e1000e/netdev.c  |   68 ++++++++++++++++++++++++--------=
+---------
+>  3 files changed, 59 insertions(+), 41 deletions(-)
+>=20
+> diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+> index fdc67fe..5a5e944 100644
+> --- a/drivers/net/e1000e/e1000.h
+> +++ b/drivers/net/e1000e/e1000.h
+> @@ -363,6 +363,8 @@ struct e1000_adapter {
+>  	/* structs defined in e1000_hw.h */
+>  	struct e1000_hw hw;
+> =20
+> +	spinlock_t stats64_lock;
+> +	struct rtnl_link_stats64 stats64;
 
+I am not sure why you add this stats64 in e1000_adapter ?
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Why isnt it provided by callers (automatic variable, or provided to
+ndo_get_stats64()). I dont see accumulators, only a full rewrite of thi=
+s
+structure in e1000e_update_stats() ?
+
 
