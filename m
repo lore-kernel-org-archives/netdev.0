@@ -1,66 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ixgb: Convert to new vlan model.
-Date: Tue, 14 Dec 2010 16:31:55 +0000
-Message-ID: <1292344315.20458.6.camel@bwh-desktop>
-References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
+From: Dan Smith <danms@us.ibm.com>
+Subject: Re: [PATCH 05/19] c/r: documentation
+Date: Tue, 14 Dec 2010 08:46:39 -0800
+Message-ID: <87r5dks3o0.fsf@localhost6.localdomain6>
+References: <1292343307-7870-1-git-send-email-danms@us.ibm.com>
+	<1292343307-7870-5-git-send-email-danms@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:57375 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757308Ab0LNQb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 11:31:59 -0500
-In-Reply-To: <1292298163-30343-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mm@kvack.org,
+	  netdev@vger.kernel.org,
+	  Dave Hansen <dave@linux.vnet.ibm.com>
+To: linux-api@vger.kernel.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1292343307-7870-5-git-send-email-danms@us.ibm.com> (Dan Smith's message of "Tue\, 14 Dec 2010 08\:14\:53 -0800")
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2010-12-13 at 19:42 -0800, Jesse Gross wrote:
-> This switches the ixgb driver to use the new vlan interfaces.
-> In doing this, it completes the work begun in
-> ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
-> hardware vlan insertion without having a vlan group configured.
-[...]
-> diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
-> index 43994c1..0e4c527 100644
-> --- a/drivers/net/ixgb/ixgb_ethtool.c
-> +++ b/drivers/net/ixgb/ixgb_ethtool.c
-> @@ -706,6 +706,45 @@ ixgb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
->  	}
->  }
->  
-> +static int ixgb_set_flags(struct net_device *netdev, u32 data)
-> +{
-> +	struct ixgb_adapter *adapter = netdev_priv(netdev);
-> +	bool need_reset;
-> +	int rc;
-> +
-> +	/* The hardware requires that RX vlan stripping and TX vlan insertion
-> +	 * be configured together.  Therefore, if one setting changes adjust the
-> +	 * other one to match.
-> +	 */
-> +	if (!!(data & ETH_FLAG_RXVLAN) != !!(data & ETH_FLAG_TXVLAN)) {
-> +		if ((data & ETH_FLAG_RXVLAN) !=
-> +		    (netdev->features & NETIF_F_HW_VLAN_RX))
-> +			data ^= ETH_FLAG_TXVLAN;
-> +		else if ((data & ETH_FLAG_TXVLAN) !=
-> +		    (netdev->features & NETIF_F_HW_VLAN_TX))
-> +			data ^= ETH_FLAG_RXVLAN;
-> +	}
-[...]
+DS> Cc: linux-api@vger.kernel.org
+DS> Cc: linux-mm@kvack.org
+DS> Cc: netdev@vger.kernel.org
+DS> Signed-off-by: Dave Hansen <dave@linux.vnet.ibm.com>
 
-I think this should reject attempts to change just one flag with
--EINVAL, rather than quietly 'fixing' the setting.
-
-Ben.
+My apologies to the above mentioned.  I didn't mean to git-send-email
+this set.  Please ignore.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Dan Smith
+IBM Linux Technology Center
+email: danms@us.ibm.com
 
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom policy in Canada: sign http://dissolvethecrtc.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
