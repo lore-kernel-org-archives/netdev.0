@@ -1,157 +1,157 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [*v2 PATCH 00/22] IPVS, Network Name Space aware
-Date: Wed, 15 Dec 2010 01:43:13 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1012150136410.2010@ja.ssi.bg>
-References: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH update 3] firewire: net: add carrier detection
+Date: Wed, 15 Dec 2010 01:46:14 +0200
+Message-ID: <1292370374.28932.9.camel@maxim-laptop>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	 <1291779177.32420.8.camel@maxim-laptop>
+	 <20101208040559.20639.qmail@stuge.se>
+	 <1291809485.5421.0.camel@maxim-laptop> <20101212180916.71a57a71@stein>
+	 <1292195134.3136.296.camel@localhost> <20101213014602.6bc2727b@stein>
+	 <20101214000154.06ec5153@stein>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: horms@verge.net.au, daniel.lezcano@free.fr, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Peter Stuge <peter@stuge.se>,
+	linux1394-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:64172 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757472Ab0LNXqV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 18:46:21 -0500
+Received: by bwz16 with SMTP id 16so1509034bwz.4
+        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 15:46:20 -0800 (PST)
+In-Reply-To: <20101214000154.06ec5153@stein>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Tue, 2010-12-14 at 00:01 +0100, Stefan Richter wrote:
+> From: Maxim Levitsky <maximlevitsky@gmail.com>
+> 
+> To make userland, e.g. NetworkManager work with firewire, we need to
+> detect whether cable is plugged or not.  Simple and correct way of doing
+> that is just counting number of peers.  No peers - no link and vice
+> versa.
+> 
+> (Stefan R.:  Combined peer_count inc/dec with tests, added link-down
+> recognition in fwnet_open, added include.)
+> 
+> Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
+> ---
+> Update 3: added fwnet_open (ifup) hunk
+
+Thank you very much.
+I tested this just in case, and it works just fine.
+Especially thanks for the missing carrier state initialization,
+Just one note, since you pretty much rewrite that little patch, it would
+be correct to attribute you as an author of it.
+I was recently (and still am) busy with my DVB card, so I didn't test my
+original patch enough.
+
+Beyond this patch, firewire networking is pretty much complete.
+
+The only missing parts are IPV6 and multicast, and the latter works by
+using broadcast which for all means is enough.
+
+> 
+>  drivers/firewire/net.c |   29 +++++++++++++++++++++++++----
+>  1 file changed, 25 insertions(+), 4 deletions(-)
+> 
+> Index: b/drivers/firewire/net.c
+> ===================================================================
+> --- a/drivers/firewire/net.c
+> +++ b/drivers/firewire/net.c
+> @@ -9,6 +9,7 @@
+>  #include <linux/bug.h>
+>  #include <linux/delay.h>
+>  #include <linux/device.h>
+> +#include <linux/ethtool.h>
+>  #include <linux/firewire.h>
+>  #include <linux/firewire-constants.h>
+>  #include <linux/highmem.h>
+> @@ -179,6 +180,7 @@ struct fwnet_device {
+>  	/* Number of tx datagrams that have been queued but not yet acked */
+>  	int queued_datagrams;
+>  
+> +	int peer_count;
+>  	struct list_head peer_list;
+>  	struct fw_card *card;
+>  	struct net_device *netdev;
+> @@ -1234,6 +1236,13 @@ static int fwnet_open(struct net_device 
+>  	}
+>  	netif_start_queue(net);
+>  
+> +	mutex_lock(&fwnet_device_mutex);
+> +	if (dev->peer_count > 1)
+> +		netif_carrier_on(net);
+> +	else
+> +		netif_carrier_off(net);
+> +	mutex_unlock(&fwnet_device_mutex);
+> +
+>  	return 0;
+>  }
+>  
+> @@ -1412,6 +1421,10 @@ static const struct net_device_ops fwnet
+>  	.ndo_change_mtu = fwnet_change_mtu,
+>  };
+>  
+> +static const struct ethtool_ops fwnet_ethtool_ops = {
+> +	.get_link	= ethtool_op_get_link,
+> +};
+> +
+>  static void fwnet_init_dev(struct net_device *net)
+>  {
+>  	net->header_ops		= &fwnet_header_ops;
+> @@ -1423,6 +1436,7 @@ static void fwnet_init_dev(struct net_de
+>  	net->hard_header_len	= FWNET_HLEN;
+>  	net->type		= ARPHRD_IEEE1394;
+>  	net->tx_queue_len	= FWNET_TX_QUEUE_LEN;
+> +	net->ethtool_ops	= &fwnet_ethtool_ops;
+>  }
+>  
+>  /* caller must hold fwnet_device_mutex */
+> @@ -1465,6 +1479,10 @@ static int fwnet_add_peer(struct fwnet_d
+>  	list_add_tail(&peer->peer_link, &dev->peer_list);
+>  	spin_unlock_irq(&dev->lock);
+>  
+> +	/* serialized by fwnet_device_mutex */
+> +	if (++dev->peer_count > 1)
+> +		netif_carrier_on(dev->netdev);
+> +
+>  	return 0;
+>  }
+>  
+> @@ -1543,13 +1561,16 @@ static int fwnet_probe(struct device *_d
+>  	return ret;
+>  }
+>  
+> -static void fwnet_remove_peer(struct fwnet_peer *peer)
+> +static void fwnet_remove_peer(struct fwnet_peer *peer, struct fwnet_device *dev)
+>  {
+>  	struct fwnet_partial_datagram *pd, *pd_next;
+>  
+> -	spin_lock_irq(&peer->dev->lock);
+> +	if (--dev->peer_count == 1)
+> +		netif_carrier_off(dev->netdev);
+> +
+> +	spin_lock_irq(&dev->lock);
+>  	list_del(&peer->peer_link);
+> -	spin_unlock_irq(&peer->dev->lock);
+> +	spin_unlock_irq(&dev->lock);
+>  
+>  	list_for_each_entry_safe(pd, pd_next, &peer->pd_list, pd_link)
+>  		fwnet_pd_delete(pd);
+> @@ -1566,7 +1587,7 @@ static int fwnet_remove(struct device *_
+>  
+>  	mutex_lock(&fwnet_device_mutex);
+>  
+> -	fwnet_remove_peer(peer);
+> +	fwnet_remove_peer(peer, dev);
+>  
+>  	if (list_empty(&dev->peer_list)) {
+>  		net = dev->netdev;
+> 
+> 
 
 
- 	Hello,
-
-On Mon, 13 Dec 2010, Hans Schillstrom wrote:
-
-> This patch series adds network name space support to the LVS.
->
-> REVISION
->
-> This is version 2
->
-> OVERVIEW
->
-> The patch doesn't remove or add any functionality except for netns.
-> For users that don't use network name space (netns) this patch is
-> completely transparent.
->
-> Now it's possible to run LVS in a Linux container (see lxc-tools)
-> i.e.  a light weight visualization. For example it's possible to run
-> one or several lvs on a real server in their own network name spaces.
->> From the LVS point of view it looks like it runs on it's own machine.
->
-> IMPLEMENTATION
-> Basic requirements for netns awareness
-> - Global variables has to be moved to dyn. allocated memory.
-> - No or very little performance loss
->
-> Large hash tables connection hash and service hashes still resides in
-> global memory with net ptr added in hash key.
-> Most global variables now resides in a struct ipvs { } in netns/ip_vs.h.
-> The size of per name space is 2004 bytes (for x86_64) and a little bit less
-> for 32 bit archs.
->
-> Statistics counters is now lock-free i.e. incremented per CPU,
-> The estimator does a sum when using it.
->
-> Procfs ip_vs_stats is also changed to reflect the "per cpu"
-> ex.
-> # cat /proc/net/ip_vs_stats
->       Total Incoming Outgoing         Incoming         Outgoing
-> CPU    Conns  Packets  Packets            Bytes            Bytes
->  0        0        3        1               9D               34
->  1        0        1        2               49               70
->  2        0        1        2               34               76
->  3        1        2        2               70               74
->  ~        1        7        7              18A              18E
->
->     Conns/s   Pkts/s   Pkts/s          Bytes/s          Bytes/s
->           0        0        0                0                0
->
-> Algorithm files are untouched except for lblc and lblcr.
-
- 	Great! I have some small comments after first look:
-
-v2 PATCH 01/22 - basic init
- 	- first change in ip_vs_conn.c adds existing code:
- 	/* Compute size and mask */
-
-v2 PATCH 02/22 - services part 1
- 	- net = skb_net(skb) in ip_vs_out must be after
- 	check for skb_dst. The skb_dst checks are in ip_vs_in and
- 	ip_vs_out, so skb_net() can be used only after these checks.
-
- 	- __ip_vs_service_find and __ip_vs_svc_fwm_find are fast path,
- 	may be net_eq(svc->net, net) check can be last, I assume
- 	the different netns will use different VIPs and VPORTs?
-
- 	- ip_vs_svc_table and ip_vs_svc_fwm_table are not per-ns,
- 	so we can not use per-ns mutex in patch 17
-
-v2 PATCH 03/22 - lblcr
-
-v2 PATCH 04/22 - lblc
-
-v2 PATCH 05/22 - prepare protocol
-
-v2 PATCH 06/22 - tcp
-
-v2 PATCH 07/22 - udp
-
-v2 PATCH 08/22 - sctp
-
-v2 PATCH 09/22 - AH, ESP
-
-v2 PATCH 10/22 - use ip_vs_proto_data as param
- 	- update_defense_level: are per-ns memory stats/limits possible?
-
- 	- The pp -> pd conversion should start from functions like
- 	ip_vs_out() that use pp = ip_vs_proto_get(iph.protocol),
- 	now they should use
- 	ip_vs_proto_data_get(net, iph.protocol). If
- 	pp is needed, it is available from pd->pp. Many functions
- 	that provide pp as argument should now provide pd.
- 	Then 2nd lookups for proto like in ip_vs_set_state should
- 	disappear.
-
- 	- copy-and-paste bug in ip_vs_ctl.c:ip_vs_set_timeout():
- 		pd = ip_vs_proto_data_get(net, IPPROTO_TCP)
- 		should be IPPROTO_UDP
-
- 	- may be ip_vs_protocol_timeout_change should propagate
- 	event to all pd, not all pp?
-
-v2 PATCH 11/22 - appcnt
-
-v2 PATCH 12/22 - apps
-
-v2 PATCH 13/22 - ip_vs_est
- 	- estimation_timer: what protection is needed for for_each_net?
- 	It is rtnl for user context and RCU for softirq?
- 	May be est_timer must be per NS? Now may be rcu_read_lock is
- 	needed before for_each_net_rcu ? for_each_net can be called
- 	only under rtnl_lock?
-
-v2 PATCH 14/22 - ip_vs_sync
-
-v2 PATCH 15/22 - ip_vs_stats
- 	- This was one of the hurdles for IPVS RCU conversion, the others
- 	being dest->svc->stats and scheduler state. But can this
- 	change break some scripts that parse /proc/net/ip_vs_stats ?
-
-v2 PATCH 16/22 - connection hash
-
-v2 PATCH 17/22 - ip_vs_ctl local vars
- 	- I hope it is not fatal if __ip_vs_mutex remains global
- 	because svc lists are global in patch 2
-
-v2 PATCH 18/22 - defense work
-
-v2 PATCH 19/22 - trash
-
-v2 PATCH 20/22 - global svc counters
-
-v2 PATCH 21/22 - init_net removal
-
-v2 PATCH 22/22 - enable netns
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
