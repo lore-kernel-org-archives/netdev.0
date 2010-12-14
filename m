@@ -1,70 +1,92 @@
-From: Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH v3 21/22] netoops: Add user-programmable boot_id
-Date: Tue, 14 Dec 2010 16:47:44 -0600
-Message-ID: <1292366864.3446.875.camel@calx>
-References: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
-	 <20101214213048.17022.58746.stgit@mike.mtv.corp.google.com>
-	 <1292362957.3446.851.camel@calx>
-	 <AANLkTi=Q+LaS7yaU_4ThkhMUM-q8S3JTuwMWqAikQPgH@mail.gmail.com>
-	 <1292364378.3446.854.camel@calx>
-	 <AANLkTineeFcSNx09P=2SZGcBHeq5p_LQ54nU=uGVv_Ck@mail.gmail.com>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH 12/12] cxgb4: NUMA-aware Tx queue allocations
+Date: Tue, 14 Dec 2010 14:51:00 -0800
+Message-ID: <4D07F4D4.5060809@chelsio.com>
+References: <1292357896-14339-1-git-send-email-dm@chelsio.com>	 <1292357896-14339-2-git-send-email-dm@chelsio.com>	 <1292357896-14339-3-git-send-email-dm@chelsio.com>	 <1292357896-14339-4-git-send-email-dm@chelsio.com>	 <1292357896-14339-5-git-send-email-dm@chelsio.com>	 <1292357896-14339-6-git-send-email-dm@chelsio.com>	 <1292357896-14339-7-git-send-email-dm@chelsio.com>	 <1292357896-14339-8-git-send-email-dm@chelsio.com>	 <1292357896-14339-9-git-send-email-dm@chelsio.com>	 <1292357896-14339-10-git-send-email-dm@chelsio.com>	 <1292357896-14339-11-git-send-email-dm@chelsio.com>	 <1292357896-14339-12-git-send-email-dm@chelsio.com>	 <1292357896-14339-13-git-send-email-dm@chelsio.com> <1292361479.2478.2.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: simon.kagstrom-vI6UBbBVNY+JA8cjQkG2/g@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, adurbin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, chavey-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org,
-	Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?ISO-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mike Waychison <mikew-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTineeFcSNx09P=2SZGcBHeq5p_LQ54nU=uGVv_Ck-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:24074 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758935Ab0LNWvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 17:51:06 -0500
+In-Reply-To: <1292361479.2478.2.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-12-14 at 14:33 -0800, Mike Waychison wrote:
-> On Tue, Dec 14, 2010 at 2:06 PM, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org> wrote:
-> > On Tue, 2010-12-14 at 13:59 -0800, Mike Waychison wrote:
-> >> On Tue, Dec 14, 2010 at 1:42 PM, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org> wrote:
-> >> > On Tue, 2010-12-14 at 13:30 -0800, Mike Waychison wrote:
-> >> >> Add support for letting userland define a 32bit boot id.  This is useful
-> >> >> for users to be able to correlate netoops reports to specific boot
-> >> >> instances offline.
-> >> >
-> >> > This sounds a lot like the pre-existing /proc/sys/kernel/random/boot_id
-> >> > that's used by kerneloops.org.
-> >>
-> >> Could be.  I'm looking at it now... There is no documentation for this
-> >> boot_id field?
-> >
-> > Probably not. It's just a random number generated at boot.
-> >
-> >> Reusing this guy would work, except that it doesn't appear to allow
-> >> arbitrary values to be set.  We need to inject our boot sequence
-> >> number (which is figured out in userland) in the packet somehow as we
-> >> need to correlate it to our other monitoring systems.
-> >
-> > What happens if you oops before userspace is available?
-> >
-> 
-> Either one of two general cases:
->   - The crash is a one-off and the machine comes back.  The boot
-> number sequence will see a hole in it, which is a clue that something
-> bad happened.
->   - The machine is in a crash loop.  This has the same failure mode
-> for us as if the machine never made it onto the network due to
-> whatever reason: bad cables, bad firmware, bad ram, ...
-> 
-> In both cases, we can detect that something is wrong and handle it.
-> Note that our firmware is responsible for incrementing the boot
-> sequence at bootup, which is why the above works.   In general though,
-> our machines do make it up to userland -- staying alive once booted is
-> the hard part ;)
+Eric Dumazet wrote:
+> Le mardi 14 d=C3=A9cembre 2010 =C3=A0 12:18 -0800, Dimitris Michailid=
+is a =C3=A9crit :
+>> Allocate Tx queue memory on the node indicated by the new
+>> netdev_queue_numa_node_read.  If that fails we allocate on any node.
+>>
+>> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+>> ---
+>>  drivers/net/cxgb4/sge.c |   20 +++++++++++++-------
+>>  1 files changed, 13 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+>> index cc0b997..ed98b8a 100644
+>> --- a/drivers/net/cxgb4/sge.c
+>> +++ b/drivers/net/cxgb4/sge.c
+>> @@ -579,6 +579,7 @@ static inline void __refill_fl(struct adapter *a=
+dap, struct sge_fl *fl)
+>>   *	@phys: the physical address of the allocated ring
+>>   *	@metadata: address of the array holding the SW state for the rin=
+g
+>>   *	@stat_size: extra space in HW ring for status information
+>> + *	@node: preferred node for memory allocations
+>>   *
+>>   *	Allocates resources for an SGE descriptor ring, such as Tx queue=
+s,
+>>   *	free buffer lists, or response queues.  Each SGE ring requires
+>> @@ -590,7 +591,7 @@ static inline void __refill_fl(struct adapter *a=
+dap, struct sge_fl *fl)
+>>   */
+>>  static void *alloc_ring(struct device *dev, size_t nelem, size_t el=
+em_size,
+>>  			size_t sw_size, dma_addr_t *phys, void *metadata,
+>> -			size_t stat_size)
+>> +			size_t stat_size, int node)
+>>  {
+>>  	size_t len =3D nelem * elem_size + stat_size;
+>>  	void *s =3D NULL;
+>> @@ -599,7 +600,10 @@ static void *alloc_ring(struct device *dev, siz=
+e_t nelem, size_t elem_size,
+>>  	if (!p)
+>>  		return NULL;
+>>  	if (sw_size) {
+>> -		s =3D kcalloc(nelem, sw_size, GFP_KERNEL);
+>> +		if (node >=3D 0)
+>> +			s =3D kzalloc_node(nelem * sw_size, GFP_KERNEL, node);
+>=20
+> kzalloc_node() has a fallback, you dont need to retry with kcalloc()
 
-Interesting. Is this Google-specific firmware magic? I'd probably accept
-a hook in random.c to fold a number into the UUID, which would unify
-things. 
+I took this retry part from ixgbe but I can remove it if it's not neede=
+d.=20
+Luckily it's the last patch in the series.
 
--- 
-Mathematics is the supreme nostalgia of our time.
+>=20
+>> +		if (!s)
+>> +			s =3D kcalloc(nelem, sw_size, GFP_KERNEL);
+>> =20
+>>  		if (!s) {
+>>  			dma_free_coherent(dev, len, p, *phys);
+>=20
+> Also, I am not sure it is going to work, since we can setup XPS only
+> after device being setup ?
+>=20
+> By the time your driver allocates rings, we probably read
+> -1/NUMA_NO_NODE
+
+XPS is available after registration.  The queues are allocated at open =
+time,=20
+if one configures XPS prior to that the allocations happen on the right=
+=20
+nodes.  I've tried this and this is the behavior I see.  It is true tha=
+t=20
+setting XPS after open doesn't affect the queue allocations.
