@@ -1,7 +1,7 @@
 From: Mike Waychison <mikew@google.com>
-Subject: [PATCH v3 16/22] kmsg_dumper: Pass pt_regs along to dumpers.
-Date: Tue, 14 Dec 2010 13:30:21 -0800
-Message-ID: <20101214213021.17022.14128.stgit@mike.mtv.corp.google.com>
+Subject: [PATCH v3 20/22] netoops: Add x86 specific bits to packet headers
+Date: Tue, 14 Dec 2010 13:30:43 -0800
+Message-ID: <20101214213043.17022.66195.stgit@mike.mtv.corp.google.com>
 References: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,147 +18,84 @@ In-Reply-To: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A subsequent commit adding netoops functionality would like access to the
-pt_regs to have them recorded in the dump.  Pass the register values along if
-available.
+We need to be able to gather information about the CPUs that caused the
+crash.  Rather than hope that the data is available in the dmesg
+recieved, and is still parsable, send a binary representation in each
+packet.  This allows us to quickly identify crashes even in cases where
+we crash and burn as part of the netoops process (or if we timeout
+asynchronously on a hardware watchdog).
+
+This commit only handles x86, but it should be easy to add any
+per-architecture specific information going forward in a compatible way.
 
 Signed-off-by: Mike Waychison <mikew@google.com>
 ---
- drivers/char/ramoops.c    |    4 +++-
- drivers/mtd/mtdoops.c     |    4 +++-
- include/linux/kmsg_dump.h |    8 ++++++--
- kernel/kexec.c            |    5 +++--
- kernel/panic.c            |    4 ++--
- kernel/printk.c           |    4 ++--
- 6 files changed, 19 insertions(+), 10 deletions(-)
+Changelog:
+- v3
+  - Added x86 vendor to the packet header.
+  - Split out the arch specific data into its own data structure.  Only
+    x86 is available at the moment.  This data will want to transition
+    into per-arch code at some point.
+---
+ drivers/net/netoops.c |   26 +++++++++++++++++++++++---
+ 1 files changed, 23 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/char/ramoops.c b/drivers/char/ramoops.c
-index 73dcb0e..9d79492 100644
---- a/drivers/char/ramoops.c
-+++ b/drivers/char/ramoops.c
-@@ -58,7 +58,9 @@ static struct ramoops_context {
- } oops_cxt;
- 
- static void ramoops_do_dump(struct kmsg_dumper *dumper,
--		enum kmsg_dump_reason reason, const char *s1, unsigned long l1,
-+		enum kmsg_dump_reason reason,
-+		struct pt_regs *pt_regs,
-+		const char *s1, unsigned long l1,
- 		const char *s2, unsigned long l2)
- {
- 	struct ramoops_context *cxt = container_of(dumper,
-diff --git a/drivers/mtd/mtdoops.c b/drivers/mtd/mtdoops.c
-index 1ee72f3..cf07cf5 100644
---- a/drivers/mtd/mtdoops.c
-+++ b/drivers/mtd/mtdoops.c
-@@ -298,7 +298,9 @@ static void find_next_position(struct mtdoops_context *cxt)
- }
- 
- static void mtdoops_do_dump(struct kmsg_dumper *dumper,
--		enum kmsg_dump_reason reason, const char *s1, unsigned long l1,
-+		enum kmsg_dump_reason reason,
-+		struct pt_regs *pt_regs,
-+		const char *s1, unsigned long l1,
- 		const char *s2, unsigned long l2)
- {
- 	struct mtdoops_context *cxt = container_of(dumper,
-diff --git a/include/linux/kmsg_dump.h b/include/linux/kmsg_dump.h
-index 24b4414..a229acc 100644
---- a/include/linux/kmsg_dump.h
-+++ b/include/linux/kmsg_dump.h
-@@ -14,6 +14,8 @@
- 
- #include <linux/list.h>
- 
-+struct pt_regs;
-+
- enum kmsg_dump_reason {
- 	KMSG_DUMP_OOPS,
- 	KMSG_DUMP_PANIC,
-@@ -30,6 +32,7 @@ enum kmsg_dump_reason {
-  */
- struct kmsg_dumper {
- 	void (*dump)(struct kmsg_dumper *dumper, enum kmsg_dump_reason reason,
-+			struct pt_regs *pt_regs,
- 			const char *s1, unsigned long l1,
- 			const char *s2, unsigned long l2);
- 	struct list_head list;
-@@ -37,13 +40,14 @@ struct kmsg_dumper {
- };
- 
- #ifdef CONFIG_PRINTK
--void kmsg_dump(enum kmsg_dump_reason reason);
-+void kmsg_dump(enum kmsg_dump_reason reason, struct pt_regs *pt_regs);
- 
- int kmsg_dump_register(struct kmsg_dumper *dumper);
- 
- int kmsg_dump_unregister(struct kmsg_dumper *dumper);
- #else
--static inline void kmsg_dump(enum kmsg_dump_reason reason)
-+static inline void kmsg_dump(enum kmsg_dump_reason reason,
-+			     struct pt_regs *pt_regs)
- {
- }
- 
-diff --git a/kernel/kexec.c b/kernel/kexec.c
-index b55045b..840af0c 100644
---- a/kernel/kexec.c
-+++ b/kernel/kexec.c
-@@ -1078,10 +1078,11 @@ void crash_kexec(struct pt_regs *regs)
- 		if (kexec_crash_image) {
- 			struct pt_regs fixed_regs;
- 
--			kmsg_dump(KMSG_DUMP_KEXEC);
+diff --git a/drivers/net/netoops.c b/drivers/net/netoops.c
+index 1940ea5..f7665ad 100644
+--- a/drivers/net/netoops.c
++++ b/drivers/net/netoops.c
+@@ -52,8 +52,25 @@ __setup("netoops=", option_setup);
+ #if defined(__i386__) || defined(__x86_64__)
+ #define NETOOPS_ARCH 2
+ struct netoops_arch_data {
 -
- 			crash_setup_regs(&fixed_regs, regs);
- 			crash_save_vmcoreinfo();
++	u8 x86_vendor;
++	u8 x86_family;
++	u8 x86_model;
++	u8 x86_stepping;
++	/* NOTE: regs is 60 or 168 bytes */
++	struct pt_regs regs;
+ } __attribute__((packed));
 +
-+			kmsg_dump(KMSG_DUMP_KEXEC, &fixed_regs);
-+
- 			machine_crash_shutdown(&fixed_regs);
- 			machine_kexec(kexec_crash_image);
- 		}
-diff --git a/kernel/panic.c b/kernel/panic.c
-index c3f39cd..b3a4440 100644
---- a/kernel/panic.c
-+++ b/kernel/panic.c
-@@ -87,7 +87,7 @@ NORET_TYPE void panic(const char * fmt, ...)
- 	 */
- 	crash_kexec(NULL);
- 
--	kmsg_dump(KMSG_DUMP_PANIC);
-+	kmsg_dump(KMSG_DUMP_PANIC, NULL);
- 
- 	/*
- 	 * Note smp_send_stop is the usual smp shutdown function, which
-@@ -353,7 +353,7 @@ void oops_exit(struct pt_regs *regs)
- {
- 	do_oops_enter_exit();
- 	print_oops_end_marker();
--	kmsg_dump(KMSG_DUMP_OOPS);
-+	kmsg_dump(KMSG_DUMP_OOPS, regs);
- }
- 
- #ifdef WANT_WARN_ON_SLOWPATH
-diff --git a/kernel/printk.c b/kernel/printk.c
-index 9a2264f..6d4d8c5 100644
---- a/kernel/printk.c
-+++ b/kernel/printk.c
-@@ -1552,7 +1552,7 @@ static const char *kmsg_to_str(enum kmsg_dump_reason reason)
-  * Iterate through each of the dump devices and call the oops/panic
-  * callbacks with the log buffer.
-  */
--void kmsg_dump(enum kmsg_dump_reason reason)
-+void kmsg_dump(enum kmsg_dump_reason reason, struct pt_regs *pt_regs)
- {
- 	unsigned long end;
- 	unsigned chars;
-@@ -1589,7 +1589,7 @@ void kmsg_dump(enum kmsg_dump_reason reason)
- 		return;
- 	}
- 	list_for_each_entry(dumper, &dump_list, list)
--		dumper->dump(dumper, reason, s1, l1, s2, l2);
-+		dumper->dump(dumper, reason, pt_regs, s1, l1, s2, l2);
- 	spin_unlock_irqrestore(&dump_list_lock, flags);
- }
++static void setup_packet_arch_data(struct netoops_arch_data *arch_data,
++				   struct pt_regs *regs) {
++	arch_data->x86_vendor   = current_cpu_data.x86_vendor;
++	arch_data->x86_family   = current_cpu_data.x86;
++	arch_data->x86_model    = current_cpu_data.x86_model;
++	arch_data->x86_stepping = current_cpu_data.x86_mask;
++	if (regs != NULL)
++		memcpy(&arch_data->regs, regs, sizeof(arch_data->regs));
++	else
++		memset(&arch_data->regs, 0, sizeof(arch_data->regs));
++}
+ #else
+ #error "unsupported architecture"
  #endif
+@@ -86,7 +103,8 @@ struct netoops_msg {
+ 
+ static struct netoops_msg msg;
+ 
+-static void setup_packet_header(int packet_count, int soft_dump)
++static void setup_packet_header(int packet_count, struct pt_regs *regs,
++				int soft_dump)
+ {
+ 	typeof(msg.header) *h = &msg.header;
+ 
+@@ -101,6 +119,8 @@ static void setup_packet_header(int packet_count, int soft_dump)
+ 	strncpy(h->kernel_version, utsname()->release,
+ 		min(sizeof(msg.header.kernel_version),
+ 		    sizeof(utsname()->release)));
++
++	setup_packet_arch_data(&msg.arch_data, regs);
+ }
+ 
+ static int packet_count_from_length(unsigned long l)
+@@ -185,7 +205,7 @@ static void netoops(struct kmsg_dumper *dumper, enum kmsg_dump_reason reason,
+ 
+ 	/* setup the non varying parts of the message */
+ 	memset(&msg, 0, sizeof(msg));
+-	setup_packet_header(packet_count_1 + packet_count_2, soft_dump);
++	setup_packet_header(packet_count_1 + packet_count_2, regs, soft_dump);
+ 
+ 	/* Transmission loop */
+ 	for (i = 0; i < NETOOPS_RETRANSMIT_COUNT; i++) {
