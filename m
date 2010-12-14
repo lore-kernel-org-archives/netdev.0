@@ -1,72 +1,126 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH 03/12] cxgb4: set the number of queues before device registration
-Date: Tue, 14 Dec 2010 12:18:07 -0800
-Message-ID: <1292357896-14339-4-git-send-email-dm@chelsio.com>
+Subject: [PATCH 12/12] cxgb4: NUMA-aware Tx queue allocations
+Date: Tue, 14 Dec 2010 12:18:16 -0800
+Message-ID: <1292357896-14339-13-git-send-email-dm@chelsio.com>
 References: <1292357896-14339-1-git-send-email-dm@chelsio.com>
  <1292357896-14339-2-git-send-email-dm@chelsio.com>
  <1292357896-14339-3-git-send-email-dm@chelsio.com>
+ <1292357896-14339-4-git-send-email-dm@chelsio.com>
+ <1292357896-14339-5-git-send-email-dm@chelsio.com>
+ <1292357896-14339-6-git-send-email-dm@chelsio.com>
+ <1292357896-14339-7-git-send-email-dm@chelsio.com>
+ <1292357896-14339-8-git-send-email-dm@chelsio.com>
+ <1292357896-14339-9-git-send-email-dm@chelsio.com>
+ <1292357896-14339-10-git-send-email-dm@chelsio.com>
+ <1292357896-14339-11-git-send-email-dm@chelsio.com>
+ <1292357896-14339-12-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:11508 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:21505 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759737Ab0LNU0j (ORCPT
+	with ESMTP id S1759914Ab0LNU0j (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 15:26:39 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBEKQcRA031245
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBEKQcRQ031245
 	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:26:38 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBEKIGOk014443
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:18:16 -0800
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBEKIIsj014481
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:18:18 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBEKIGZ5014442
-	for netdev@vger.kernel.org; Tue, 14 Dec 2010 12:18:16 -0800
-In-Reply-To: <1292357896-14339-3-git-send-email-dm@chelsio.com>
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBEKIIpC014480
+	for netdev@vger.kernel.org; Tue, 14 Dec 2010 12:18:18 -0800
+In-Reply-To: <1292357896-14339-12-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The number of queues is known early, move the calls to
-netif_set_real_num_[rt]x_queues before register_netdev.
+Allocate Tx queue memory on the node indicated by the new
+netdev_queue_numa_node_read.  If that fails we allocate on any node.
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/cxgb4_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/cxgb4/sge.c |   20 +++++++++++++-------
+ 1 files changed, 13 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-index 953d62a..3012a8a 100644
---- a/drivers/net/cxgb4/cxgb4_main.c
-+++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -2717,10 +2717,6 @@ static int cxgb_open(struct net_device *dev)
- 			return err;
- 	}
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+index cc0b997..ed98b8a 100644
+--- a/drivers/net/cxgb4/sge.c
++++ b/drivers/net/cxgb4/sge.c
+@@ -579,6 +579,7 @@ static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
+  *	@phys: the physical address of the allocated ring
+  *	@metadata: address of the array holding the SW state for the ring
+  *	@stat_size: extra space in HW ring for status information
++ *	@node: preferred node for memory allocations
+  *
+  *	Allocates resources for an SGE descriptor ring, such as Tx queues,
+  *	free buffer lists, or response queues.  Each SGE ring requires
+@@ -590,7 +591,7 @@ static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
+  */
+ static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
+ 			size_t sw_size, dma_addr_t *phys, void *metadata,
+-			size_t stat_size)
++			size_t stat_size, int node)
+ {
+ 	size_t len = nelem * elem_size + stat_size;
+ 	void *s = NULL;
+@@ -599,7 +600,10 @@ static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
+ 	if (!p)
+ 		return NULL;
+ 	if (sw_size) {
+-		s = kcalloc(nelem, sw_size, GFP_KERNEL);
++		if (node >= 0)
++			s = kzalloc_node(nelem * sw_size, GFP_KERNEL, node);
++		if (!s)
++			s = kcalloc(nelem, sw_size, GFP_KERNEL);
  
--	netif_set_real_num_tx_queues(dev, pi->nqsets);
--	err = netif_set_real_num_rx_queues(dev, pi->nqsets);
--	if (err)
--		return err;
- 	err = link_start(dev);
- 	if (!err)
- 		netif_tx_start_all_queues(dev);
-@@ -3733,6 +3729,10 @@ static int __devinit init_one(struct pci_dev *pdev,
- 	 * register at least one net device.
- 	 */
- 	for_each_port(adapter, i) {
-+		pi = adap2pinfo(adapter, i);
-+		netif_set_real_num_tx_queues(adapter->port[i], pi->nqsets);
-+		netif_set_real_num_rx_queues(adapter->port[i], pi->nqsets);
-+
- 		err = register_netdev(adapter->port[i]);
- 		if (err)
- 			dev_warn(&pdev->dev,
-@@ -3747,7 +3747,7 @@ static int __devinit init_one(struct pci_dev *pdev,
- 				adapter->name = adapter->port[i]->name;
+ 		if (!s) {
+ 			dma_free_coherent(dev, len, p, *phys);
+@@ -1982,7 +1986,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 	iq->size = roundup(iq->size, 16);
  
- 			__set_bit(i, &adapter->registered_device_map);
--			adapter->chan_map[adap2pinfo(adapter, i)->tx_chan] = i;
-+			adapter->chan_map[pi->tx_chan] = i;
- 		}
- 	}
- 	if (!adapter->registered_device_map) {
+ 	iq->desc = alloc_ring(adap->pdev_dev, iq->size, iq->iqe_len, 0,
+-			      &iq->phys_addr, NULL, 0);
++			      &iq->phys_addr, NULL, 0, NUMA_NO_NODE);
+ 	if (!iq->desc)
+ 		return -ENOMEM;
+ 
+@@ -2008,7 +2012,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 		fl->size = roundup(fl->size, 8);
+ 		fl->desc = alloc_ring(adap->pdev_dev, fl->size, sizeof(__be64),
+ 				      sizeof(struct rx_sw_desc), &fl->addr,
+-				      &fl->sdesc, STAT_LEN);
++				      &fl->sdesc, STAT_LEN, NUMA_NO_NODE);
+ 		if (!fl->desc)
+ 			goto fl_nomem;
+ 
+@@ -2095,7 +2099,8 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 
+ 	txq->q.desc = alloc_ring(adap->pdev_dev, txq->q.size,
+ 			sizeof(struct tx_desc), sizeof(struct tx_sw_desc),
+-			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
++			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN,
++			netdev_queue_numa_node_read(netdevq));
+ 	if (!txq->q.desc)
+ 		return -ENOMEM;
+ 
+@@ -2147,7 +2152,7 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
+ 
+ 	txq->q.desc = alloc_ring(adap->pdev_dev, nentries,
+ 				 sizeof(struct tx_desc), 0, &txq->q.phys_addr,
+-				 NULL, 0);
++				 NULL, 0, NUMA_NO_NODE);
+ 	if (!txq->q.desc)
+ 		return -ENOMEM;
+ 
+@@ -2198,7 +2203,8 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 
+ 	txq->q.desc = alloc_ring(adap->pdev_dev, txq->q.size,
+ 			sizeof(struct tx_desc), sizeof(struct tx_sw_desc),
+-			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
++			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN,
++			NUMA_NO_NODE);
+ 	if (!txq->q.desc)
+ 		return -ENOMEM;
+ 
 -- 
 1.5.4
 
