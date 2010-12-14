@@ -1,207 +1,139 @@
-From: Mike Waychison <mikew@google.com>
-Subject: [PATCH v3 11/22] netconsole: Abstract away the subsystem name
-Date: Tue, 14 Dec 2010 13:29:54 -0800
-Message-ID: <20101214212953.17022.62869.stgit@mike.mtv.corp.google.com>
+From: Mike Waychison <mikew-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v3 15/22] Oops: Pass regs to oops_exit()
+Date: Tue, 14 Dec 2010 13:30:16 -0800
+Message-ID: <20101214213015.17022.317.stgit@mike.mtv.corp.google.com>
 References: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: adurbin@google.com, linux-kernel@vger.kernel.org,
-	chavey@google.com, Greg KH <greg@kroah.com>,
-	netdev@vger.kernel.org,
-	=?utf-8?q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>,
-	akpm@linux-foundation.org, linux-api@vger.kernel.org
-To: simon.kagstrom@netinsight.net, davem@davemloft.net,
-	nhorman@tuxdriver.com, Matt Mackall <mpm@selenic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: adurbin-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	chavey-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?utf-8?q?Am=C3=A9rico?= Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: simon.kagstrom-vI6UBbBVNY+JA8cjQkG2/g@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, Matt Mackall <mpm-VDJrAJ4Gl5ZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101214212846.17022.64836.stgit-tzAwxxnF6Tt6FDdRrpk8kO4/NqBCd+6Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Remove any hardcoded instances of "netconsole" and keep a new copy in
-netpoll_targets.  We could perhaps use the copy that is stored in the
-configfs group's name, but that isn't always available depending on
-build config options,and maintaining the extra string is just easier.
+Later commits in this series will want to see pt_regs if available when a
+machine oopses.  Pass regs if available on to oops_exit().
 
-Signed-off-by: Mike Waychison <mikew@google.com>
-Acked-by: Matt Mackall <mpm@selenic.com>
+Signed-off-by: Mike Waychison <mikew-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 ---
- drivers/net/netconsole.c |   50 +++++++++++++++++++++++++++++-----------------
- 1 files changed, 32 insertions(+), 18 deletions(-)
+ arch/arm/kernel/traps.c     |    2 +-
+ arch/parisc/kernel/traps.c  |    2 +-
+ arch/powerpc/kernel/traps.c |    2 +-
+ arch/s390/kernel/traps.c    |    2 +-
+ arch/sh/kernel/traps_32.c   |    2 +-
+ arch/x86/kernel/dumpstack.c |    2 +-
+ include/linux/kernel.h      |    2 +-
+ kernel/panic.c              |    2 +-
+ 8 files changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 2f6282d..5c8701f 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -72,6 +72,7 @@ struct netpoll_targets {
- 	struct configfs_subsystem configfs_subsys;
- #endif
- 	struct notifier_block netdev_notifier;
-+	char *subsys_name;
- };
- #define DEFINE_NETPOLL_TARGETS(x) struct netpoll_targets x = \
- 	{ .list = LIST_HEAD_INIT(x.list), \
-@@ -152,12 +153,13 @@ static struct netpoll_target *alloc_param_target(struct netpoll_targets *nts,
- 	 */
- 	nt = kzalloc(sizeof(*nt), GFP_KERNEL);
- 	if (!nt) {
--		printk(KERN_ERR "netconsole: failed to allocate memory\n");
-+		printk(KERN_ERR "%s: failed to allocate memory\n",
-+		       nts->subsys_name);
- 		goto fail;
+diff --git a/arch/arm/kernel/traps.c b/arch/arm/kernel/traps.c
+index 446aee9..0de185c 100644
+--- a/arch/arm/kernel/traps.c
++++ b/arch/arm/kernel/traps.c
+@@ -277,7 +277,7 @@ void die(const char *str, struct pt_regs *regs, int err)
+ 	bust_spinlocks(0);
+ 	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+-	oops_exit();
++	oops_exit(regs);
+ 
+ 	if (in_interrupt())
+ 		panic("Fatal exception in interrupt");
+diff --git a/arch/parisc/kernel/traps.c b/arch/parisc/kernel/traps.c
+index 8b58bf0..4aa5514 100644
+--- a/arch/parisc/kernel/traps.c
++++ b/arch/parisc/kernel/traps.c
+@@ -294,7 +294,7 @@ void die_if_kernel(char *str, struct pt_regs *regs, long err)
+ 		panic("Fatal exception");
  	}
  
- 	nt->nts = nts;
--	nt->np.name = "netconsole";
-+	nt->np.name = nts->subsys_name;
- 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
- 	nt->np.local_port = 6665;
- 	nt->np.remote_port = 6666;
-@@ -196,7 +198,7 @@ static void free_param_target(struct netpoll_target *nt)
- /*
-  * Our subsystem hierarchy is:
-  *
-- * /sys/kernel/config/netconsole/
-+ * /sys/kernel/config/<subsys_name>/
-  *				|
-  *				<target>/
-  *				|	enabled
-@@ -232,7 +234,8 @@ static struct netpoll_target *to_target(struct config_item *item)
-  * We return (signed) long only because we may want to return errors.
-  * Do not use this to convert numbers that are allowed to be negative.
-  */
--static long strtol10_check_range(const char *cp, long min, long max)
-+static long strtol10_check_range(struct netpoll_targets *nts,
-+				 const char *cp, long min, long max)
- {
- 	long ret;
- 	char *p = (char *) cp;
-@@ -243,12 +246,12 @@ static long strtol10_check_range(const char *cp, long min, long max)
- 	ret = simple_strtol(p, &p, 10);
- 
- 	if (*p && (*p != '\n')) {
--		printk(KERN_ERR "netconsole: invalid input\n");
-+		printk(KERN_ERR "%s: invalid input\n", nts->subsys_name);
- 		return -EINVAL;
- 	}
- 	if ((ret < min) || (ret > max)) {
--		printk(KERN_ERR "netconsole: input %ld must be between "
--				"%ld and %ld\n", ret, min, max);
-+		printk(KERN_ERR "%s: input %ld must be between %ld and %ld\n",
-+		       nts->subsys_name, ret, min, max);
- 		return -EINVAL;
- 	}
- 
-@@ -319,7 +322,7 @@ static ssize_t store_enabled(struct netpoll_target *nt,
- 	int err;
- 	long enabled;
- 
--	enabled = strtol10_check_range(buf, 0, 1);
-+	enabled = strtol10_check_range(nts, buf, 0, 1);
- 	if (enabled < 0)
- 		return enabled;
- 
-@@ -355,7 +358,8 @@ static ssize_t store_enabled(struct netpoll_target *nt,
- 		if (err)
- 			return err;
- 
--		printk(KERN_INFO "netconsole: network logging started\n");
-+		printk(KERN_INFO "%s: network logging started\n",
-+		       nts->subsys_name);
- 	} else {	/* 0 */
- 		spin_lock_irqsave(&nts->lock, flags);
- 		if (nt->np_state == NETPOLL_ENABLED)
-@@ -400,7 +404,7 @@ static ssize_t store_local_port(struct netpoll_target *nt,
- 	long local_port;
- #define __U16_MAX	((__u16) ~0U)
- 
--	local_port = strtol10_check_range(buf, 0, __U16_MAX);
-+	local_port = strtol10_check_range(nt->nts, buf, 0, __U16_MAX);
- 	if (local_port < 0)
- 		return local_port;
- 
-@@ -416,7 +420,7 @@ static ssize_t store_remote_port(struct netpoll_target *nt,
- 	long remote_port;
- #define __U16_MAX	((__u16) ~0U)
- 
--	remote_port = strtol10_check_range(buf, 0, __U16_MAX);
-+	remote_port = strtol10_check_range(nt->nts, buf, 0, __U16_MAX);
- 	if (remote_port < 0)
- 		return remote_port;
- 
-@@ -466,7 +470,7 @@ static ssize_t store_remote_mac(struct netpoll_target *nt,
- 	return strnlen(buf, count);
- 
- invalid:
--	printk(KERN_ERR "netconsole: invalid input\n");
-+	printk(KERN_ERR "%s: invalid input\n", nt->nts->subsys_name);
- 	return -EINVAL;
+-	oops_exit();
++	oops_exit(regs);
+ 	do_exit(SIGSEGV);
  }
  
-@@ -493,8 +497,9 @@ static ssize_t store_locked_##_name(struct netpoll_target *nt,		\
- 	ssize_t ret;							\
- 	spin_lock_irqsave(&nts->lock, flags);				\
- 	if (nt->np_state != NETPOLL_DISABLED) {				\
--		printk(KERN_ERR "netconsole: target (%s) is enabled, "	\
-+		printk(KERN_ERR "%s: target (%s) is enabled, "		\
- 				"disable to update parameters\n",	\
-+				nts->subsys_name,			\
- 				config_item_name(&nt->item));		\
- 		spin_unlock_irqrestore(&nts->lock, flags);		\
- 		return -EBUSY;						\
-@@ -622,12 +627,13 @@ static struct config_item *make_netpoll_target(struct config_group *group,
- 	 */
- 	nt = kzalloc(sizeof(*nt), GFP_KERNEL);
- 	if (!nt) {
--		printk(KERN_ERR "netconsole: failed to allocate memory\n");
-+		printk(KERN_ERR "%s: failed to allocate memory\n",
-+		       nts->subsys_name);
- 		return ERR_PTR(-ENOMEM);
- 	}
+diff --git a/arch/powerpc/kernel/traps.c b/arch/powerpc/kernel/traps.c
+index 1b2cdc8..76b950e 100644
+--- a/arch/powerpc/kernel/traps.c
++++ b/arch/powerpc/kernel/traps.c
+@@ -170,7 +170,7 @@ int die(const char *str, struct pt_regs *regs, long err)
+ 	if (panic_on_oops)
+ 		panic("Fatal exception");
  
- 	nt->nts = nts;
--	nt->np.name = "netconsole";
-+	nt->np.name = nts->subsys_name;
- 	strlcpy(nt->np.dev_name, "eth0", IFNAMSIZ);
- 	nt->np.local_port = 6665;
- 	nt->np.remote_port = 6666;
-@@ -790,8 +796,8 @@ static int netpoll_targets_netdev_event(struct notifier_block *this,
- 	}
- 	spin_unlock_irqrestore(&nts->lock, flags);
- 	if (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE)
--		printk(KERN_INFO "netconsole: network logging stopped, "
--			"interface %s %s\n",  dev->name,
-+		printk(KERN_INFO "%s: network logging stopped, "
-+			"interface %s %s\n", nts->subsys_name, dev->name,
- 			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
- 
- done:
-@@ -866,12 +872,19 @@ static int __init register_netpoll_targets(const char *subsys_name,
- 	if (err)
- 		goto fail;
- 
-+	nts->subsys_name = kstrdup(subsys_name, GFP_KERNEL);
-+	err = -ENOMEM;
-+	if (!nts->subsys_name)
-+		goto undonotifier;
-+
- 	err = dynamic_netpoll_targets_init(subsys_name, nts);
- 	if (err)
--		goto undonotifier;
-+		goto free_subsys_name;
+-	oops_exit();
++	oops_exit(regs);
+ 	do_exit(err);
  
  	return 0;
- 
-+free_subsys_name:
-+	kfree(nts->subsys_name);
- undonotifier:
- 	unregister_netdevice_notifier(&nts->netdev_notifier);
- fail:
-@@ -907,6 +920,7 @@ static void __exit unregister_netpoll_targets(struct netpoll_targets *nts)
- 		list_del(&nt->list);
- 		free_param_target(nt);
- 	}
-+	kfree(nts->subsys_name);
+diff --git a/arch/s390/kernel/traps.c b/arch/s390/kernel/traps.c
+index 7064082..73f3f2f 100644
+--- a/arch/s390/kernel/traps.c
++++ b/arch/s390/kernel/traps.c
+@@ -305,7 +305,7 @@ void die(const char * str, struct pt_regs * regs, long err)
+ 		panic("Fatal exception in interrupt");
+ 	if (panic_on_oops)
+ 		panic("Fatal exception: panic_on_oops");
+-	oops_exit();
++	oops_exit(regs);
+ 	do_exit(SIGSEGV);
  }
  
- static int __init init_netconsole(void)
+diff --git a/arch/sh/kernel/traps_32.c b/arch/sh/kernel/traps_32.c
+index 3484c2f..425bd8f 100644
+--- a/arch/sh/kernel/traps_32.c
++++ b/arch/sh/kernel/traps_32.c
+@@ -103,7 +103,7 @@ void die(const char * str, struct pt_regs * regs, long err)
+ 	bust_spinlocks(0);
+ 	add_taint(TAINT_DIE);
+ 	spin_unlock_irq(&die_lock);
+-	oops_exit();
++	oops_exit(regs);
+ 
+ 	if (kexec_should_crash(current))
+ 		crash_kexec(regs);
+diff --git a/arch/x86/kernel/dumpstack.c b/arch/x86/kernel/dumpstack.c
+index 6e8752c..89c720c 100644
+--- a/arch/x86/kernel/dumpstack.c
++++ b/arch/x86/kernel/dumpstack.c
+@@ -254,7 +254,7 @@ void __kprobes oops_end(unsigned long flags, struct pt_regs *regs, int signr)
+ 		/* Nest count reaches zero, release the lock. */
+ 		arch_spin_unlock(&die_lock);
+ 	raw_local_irq_restore(flags);
+-	oops_exit();
++	oops_exit(regs);
+ 
+ 	if (!signr)
+ 		return;
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index b6de9a6..c59c44e 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -165,7 +165,7 @@ extern long (*panic_blink)(int state);
+ NORET_TYPE void panic(const char * fmt, ...)
+ 	__attribute__ ((NORET_AND format (printf, 1, 2))) __cold;
+ extern void oops_enter(void);
+-extern void oops_exit(void);
++extern void oops_exit(struct pt_regs *);
+ void print_oops_end_marker(void);
+ extern int oops_may_print(void);
+ NORET_TYPE void do_exit(long error_code)
+diff --git a/kernel/panic.c b/kernel/panic.c
+index 4c13b1a8..c3f39cd 100644
+--- a/kernel/panic.c
++++ b/kernel/panic.c
+@@ -349,7 +349,7 @@ void print_oops_end_marker(void)
+  * Called when the architecture exits its oops handler, after printing
+  * everything.
+  */
+-void oops_exit(void)
++void oops_exit(struct pt_regs *regs)
+ {
+ 	do_oops_enter_exit();
+ 	print_oops_end_marker();
