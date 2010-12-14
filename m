@@ -1,7 +1,8 @@
 From: Mike Waychison <mikew@google.com>
-Subject: [PATCH v3 13/22] netpoll: Introduce netpoll_target configs
-Date: Tue, 14 Dec 2010 13:30:05 -0800
-Message-ID: <20101214213004.17022.50295.stgit@mike.mtv.corp.google.com>
+Subject: [PATCH v3 22/22] netoops: Add a user programmable blob to the netoops
+	packet.
+Date: Tue, 14 Dec 2010 13:30:55 -0800
+Message-ID: <20101214213054.17022.64736.stgit@mike.mtv.corp.google.com>
 References: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -18,123 +19,109 @@ In-Reply-To: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-As preparation for moving netpoll_targets out of netconsole and making
-them available to other clients, introduce new Kconfig options.
+In our environment, it is important for us to capture motherboard name
+and firmware version for consideration when analyzing netoops dumps.
 
-CONFIG_NETPOLL_TARGETS
+We would like to collect this information in userland at system startup
+(in platform specific ways) and plug this information into the netoops
+driver via /sys/kernel/netoops/netoops_user_blob.
 
-Access to targets APIs.  Only supports parameter based parsing of
-targets (via the kernel command line or module paramters).
-
-CONFIG_NETPOLL_TARGETS_DYNAMIC
-
-Extends the support that netpoll_targets provides by allowing for the
-dynamic creation of targets in configfs on a per client basis.  This is
-boolean flag used to enable dynamic support.  Specifying it without
-also selecting NETPOLL_TARGETS is meaningless.
+Files introduced:
+  /sys/kernel/netoops/netoops_user_blob
 
 Signed-off-by: Mike Waychison <mikew@google.com>
-Acked-by: Matt Mackall <mpm@selenic.com>
-
 ---
 Changelog:
 - v3
-  - Fixed to support building netpoll_targets as a module.  It depends
-    on netpoll, but netpoll itself doesn't depend on it.
-    netpoll_targets will be built as a module if it is needed by either
-    NETCONSOLE or NETOOPS are enabled as modules (and neither are built
-    in).  CONFIGFS_FS is also only selected to be a module if that is
-    possible.
+  - Rewritten to support an opaque user blob, rather than fw_version and
+    board_name specifically.
 ---
- drivers/net/Kconfig      |   15 ++++++++++++---
- drivers/net/netconsole.c |   10 +++++-----
- 2 files changed, 17 insertions(+), 8 deletions(-)
+ drivers/net/netoops.c |   28 ++++++++++++++++++++++++----
+ 1 files changed, 24 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 4f1755b..2ae9818 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -3379,14 +3379,15 @@ config NET_FC
+diff --git a/drivers/net/netoops.c b/drivers/net/netoops.c
+index 6c4c0f2..036e4d8 100644
+--- a/drivers/net/netoops.c
++++ b/drivers/net/netoops.c
+@@ -29,6 +29,7 @@
+ #define NETOOPS_VERSION 0x0003
+ #define NETOOPS_PORT 2004
+ #define NETOOPS_RETRANSMIT_COUNT 3
++#define NETOOPS_BLOB_BYTES (size_t)128
  
- config NETCONSOLE
- 	tristate "Network console logging support"
-+	select NETPOLL_TARGETS
- 	---help---
- 	If you want to log kernel messages over the network, enable this.
- 	See <file:Documentation/networking/netconsole.txt> for details.
+ static DEFINE_NETPOLL_TARGETS(targets);
  
- config NETCONSOLE_DYNAMIC
- 	bool "Dynamic reconfiguration of logging targets"
--	depends on NETCONSOLE && SYSFS
--	select CONFIGFS_FS
-+	depends on NETCONSOLE
-+	select NETPOLL_TARGETS_DYNAMIC
- 	help
- 	  This option enables the ability to dynamically reconfigure target
- 	  parameters (interface, IP addresses, port numbers, MAC addresses)
-@@ -3394,7 +3395,15 @@ config NETCONSOLE_DYNAMIC
- 	  See <file:Documentation/networking/netconsole.txt> for details.
+@@ -97,6 +98,11 @@ struct netoops_msg {
+ 		 * termination not required.
+ 		 */
+ 		char kernel_version[64];
++		/*
++		 * Data that comes from userland.  Can be anything, but
++		 * is currently capped at NETOOPS_BLOB_BYTES.
++		 */
++		char user_blob[NETOOPS_BLOB_BYTES];
+ 	} __attribute__ ((packed)) header;
+ 	struct netoops_arch_data arch_data;
+ 	char data[NETOOPS_DATA_BYTES];
+@@ -104,6 +110,8 @@ struct netoops_msg {
  
- config NETPOLL
--	def_bool NETCONSOLE
-+	def_bool false
-+
-+config NETPOLL_TARGETS
-+	tristate
-+	select NETPOLL
-+	select CONFIGFS_FS if NETPOLL_TARGETS_DYNAMIC
-+
-+config NETPOLL_TARGETS_DYNAMIC
-+	bool
+ static struct netoops_msg msg;
  
- config NETPOLL_TRAP
- 	bool "Netpoll traffic trapping"
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index fbef723..1970be3 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -69,7 +69,7 @@ struct netpoll_targets {
- 	struct list_head list;
- 	spinlock_t lock;
- 	u16 default_local_port, default_remote_port;
--#ifdef	CONFIG_NETCONSOLE_DYNAMIC
-+#ifdef	CONFIG_NETPOLL_TARGETS_DYNAMIC
- 	struct configfs_subsystem configfs_subsys;
- #endif
- 	struct notifier_block netdev_notifier;
-@@ -111,7 +111,7 @@ static DEFINE_NETPOLL_TARGETS(targets);
- struct netpoll_target {
- 	struct netpoll_targets *nts;
- 	struct list_head	list;
--#ifdef	CONFIG_NETCONSOLE_DYNAMIC
-+#ifdef	CONFIG_NETPOLL_TARGETS_DYNAMIC
- 	struct config_item	item;
- #endif
- 	int			np_state;
-@@ -194,7 +194,7 @@ static void free_param_target(struct netpoll_target *nt)
- 	kfree(nt);
++static size_t netoops_user_blob_length;
++static char netoops_user_blob[NETOOPS_BLOB_BYTES];
+ static u32 netoops_boot_id;
+ 
+ static void setup_packet_header(int packet_count, struct pt_regs *regs,
+@@ -120,6 +128,7 @@ static void setup_packet_header(int packet_count, struct pt_regs *regs,
+ 					  NETOOPS_TYPE_PRINTK_BUFFER);
+ 	h->packet_count = cpu_to_le32(packet_count);
+ 	h->boot_id = cpu_to_le32(netoops_boot_id);
++	memcpy(h->user_blob, netoops_user_blob, netoops_user_blob_length);
+ 	strncpy(h->kernel_version, utsname()->release,
+ 		min(sizeof(msg.header.kernel_version),
+ 		    sizeof(utsname()->release)));
+@@ -224,10 +233,15 @@ static void netoops(struct kmsg_dumper *dumper, enum kmsg_dump_reason reason,
+ static ssize_t netoops_show(struct kobject *kobj,
+ 			    struct kobj_attribute *attr,
+ 			    char *buf) {
+-	if (!strcmp(attr->attr.name, "netoops_boot_id"))
++	if (!strcmp(attr->attr.name, "netoops_user_blob")) {
++		memcpy(buf, netoops_user_blob, netoops_user_blob_length);
++		return netoops_user_blob_length;
++	}
++	if (!strcmp(attr->attr.name, "netoops_boot_id")) {
+ 		snprintf(buf, PAGE_SIZE, "%d\n", netoops_boot_id);
+-	buf[PAGE_SIZE - 1] = '\0';
+-	return strnlen(buf, PAGE_SIZE);
++		return strnlen(buf, PAGE_SIZE);
++	}
++	return -EINVAL;
  }
  
--#ifdef	CONFIG_NETCONSOLE_DYNAMIC
-+#ifdef	CONFIG_NETPOLL_TARGETS_DYNAMIC
+ static ssize_t netoops_store(struct kobject *kobj,
+@@ -237,7 +251,10 @@ static ssize_t netoops_store(struct kobject *kobj,
+ 	if (!count)
+ 		return count;
  
- /*
-  * Our subsystem hierarchy is:
-@@ -724,7 +724,7 @@ static void netpoll_target_put(struct netpoll_target *nt)
- 		config_item_put(&nt->item);
+-	if (!strcmp(attr->attr.name, "netoops_boot_id")) {
++	if (!strcmp(attr->attr.name, "netoops_user_blob")) {
++		count = min(count, NETOOPS_BLOB_BYTES);
++		memcpy(netoops_user_blob, buf, count);
++	} else if (!strcmp(attr->attr.name, "netoops_boot_id")) {
+ 		unsigned long tmp;
+ 		if (strict_strtoul(buf, 0, &tmp))
+ 			return -EINVAL;
+@@ -250,10 +267,13 @@ static ssize_t netoops_store(struct kobject *kobj,
+ 	return count;
  }
  
--#else	/* !CONFIG_NETCONSOLE_DYNAMIC */
-+#else	/* !CONFIG_NETPOLL_TARGETS_DYNAMIC */
++static struct kobj_attribute netoops_user_blob_attribute =
++	__ATTR(netoops_user_blob, 0644, netoops_show, netoops_store);
+ static struct kobj_attribute netoops_boot_number_attribute =
+ 	__ATTR(netoops_boot_id, 0666, netoops_show, netoops_store);
  
- static int __init dynamic_netpoll_targets_init(const char *subsys_name,
- 					       struct netpoll_targets *nts)
-@@ -748,7 +748,7 @@ static void netpoll_target_put(struct netpoll_target *nt)
- {
- }
- 
--#endif	/* CONFIG_NETCONSOLE_DYNAMIC */
-+#endif	/* CONFIG_NETPOLL_TARGETS_DYNAMIC */
- 
- /*
-  * Call netpoll_cleanup on this target asynchronously.
+ static struct attribute *attrs[] = {
++	&netoops_user_blob_attribute.attr,
+ 	&netoops_boot_number_attribute.attr,
+ 	NULL,
+ };
