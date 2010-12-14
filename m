@@ -1,7 +1,8 @@
 From: Mike Waychison <mikew@google.com>
-Subject: [PATCH v3 00/22] netoops support
-Date: Tue, 14 Dec 2010 13:28:53 -0800
-Message-ID: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
+Subject: [PATCH v3 02/22] netconsole: Introduce locking over the netpoll fields
+Date: Tue, 14 Dec 2010 13:29:04 -0800
+Message-ID: <20101214212904.17022.16604.stgit@mike.mtv.corp.google.com>
+References: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -13,173 +14,223 @@ Cc: adurbin@google.com, linux-kernel@vger.kernel.org,
 To: simon.kagstrom@netinsight.net, davem@davemloft.net,
 	nhorman@tuxdriver.com, Matt Mackall <mpm@selenic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patchset applies to v2.6.37-rc5.  It also applies cleanly to net-next as
-of this morning.
+The netconsole driver currently doesn't do any locking over its
+configuration fields.  This can cause problems if we were to ever have
+concurrent writing to fields while somebody is enabling the service.
 
-The following series implements support for 'netoops', a simple driver that
-will deliver kmsg logs together with machine specifics over the network.
+For simplicity, this patch extends targets_list_lock to cover all
+configuration fields within the targets.  Macros are also added here to
+wrap accessors so that we check whether the target has been enabled with
+locking handled.
 
-This driver is based on code used in Google's production server environment.
-We internally call the driver 'netdump', but are planning on changing the name
-to 'netoops' to follow the convention set by both the mtdoops and ramoops
-drivers.  We use these facilities to gather crash data from our entire fleet of
-machines in a light-weight manner.  We do things this way because it
-simply isn't feasible to gather full crash data off of every machine in
-the wild when they decide it is time to die.
+Signed-off-by: Mike Waychison <mikew@google.com>
+Acked-by: Matt Mackall <mpm@selenic.com>
+---
+ drivers/net/netconsole.c |  114 ++++++++++++++++++++++++++--------------------
+ 1 files changed, 64 insertions(+), 50 deletions(-)
 
-Currently, this driver only supports UDP over ipv4.
-
-In order to handle configuration, the target support in netconsole is
-fixed, seperated out, and re-used by netoops.
-
-I'm posting these patches in an effort to eventually get this sort of
-functionality mainlined.  Issues that I had personal concerns about have
-been addressed, as well have several from others.  These changes are
-documented below.
-
-There is some contention as to whether or not the transmission of
-structured data is useful in a crash situation.  I have documented why
-we prefer to have structured date below in the comparison to netconsole.
-
-
-Patchset summary
-================
-
-Patches 1 through 4 inclusive are fixes to the existing netconsole code,
-adding locking consistency, fixing races and deadlocks.  These are probably
-ready to be merged as they fix real problems with the netconsole driver.
-
-Patches 5 through 14 inclusive splits the target configuration portion
-of netconsole out into a new component in net/core/netpoll_targets.c.  These
-are ready to merge as a cleanup series.
-
-Patches 15 through 18 inclusive are core changes to support functionality in
-the netoops driver.  These are required for the netoops driver itself, but are
-independent of all prior patches.
-
-Patches 19 through 22 represent the netoops driver itself, with different
-functional aspects broken out.
-
- 1 - netconsole: Remove unneeded reference counting
- 2 - netconsole: Introduce locking over the netpoll fields
- 3 - netconsole: Introduce 'enabled' state-machine
- 4 - netconsole: Call netpoll_cleanup() in process context
-
- 5 - netconsole: Wrap the list and locking in a structure
- 6 - netconsole: Push configfs_subsystem into netpoll_targets
- 7 - netconsole: Move netdev_notifier into netpoll_targets
- 8 - netconsole: Split out netpoll_targets init/exit
- 9 - netconsole: Add pointer to netpoll_targets
-10 - netconsole: Rename netconsole_target -> netpoll_target
-11 - netconsole: Abstract away the subsystem name
-12 - netconsole: Move setting of default ports.
-13 - netpoll: Introduce netpoll_target configs
-14 - netpoll: Move target code into netpoll_targets.c
-
-15 - Oops: Pass regs to oops_exit()
-16 - kmsg_dumper: Pass pt_regs along to dumpers.
-17 - kmsg_dumper: Introduce a new 'SOFT' dump reason
-18 - sys-rq: Add option to soft dump
-
-19 - netoops: add core functionality
-20 - netoops: Add x86 specific bits to packet headers
-21 - netoops: Add user-programmable boot_id
-22 - netoops: Add a user programmable blob to the netoops packet.
-
-Diffstat
-========
- Documentation/sysrq.txt         |    4 
- arch/arm/kernel/traps.c         |    2 
- arch/parisc/kernel/traps.c      |    2 
- arch/powerpc/kernel/traps.c     |    2 
- arch/s390/kernel/traps.c        |    2 
- arch/sh/kernel/traps_32.c       |    2 
- arch/x86/kernel/dumpstack.c     |    2 
- drivers/char/ramoops.c          |    4 
- drivers/mtd/mtdoops.c           |    4 
- drivers/net/Kconfig             |   26 +
- drivers/net/Makefile            |    1 
- drivers/net/netconsole.c        |  735 +--------------------------------------
- drivers/net/netoops.c           |  346 ++++++++++++++++++
- drivers/tty/sysrq.c             |   14 
- include/linux/kernel.h          |    2 
- include/linux/kmsg_dump.h       |    9 
- include/linux/netpoll_targets.h |   76 ++++
- kernel/kexec.c                  |    5 
- kernel/panic.c                  |    6 
- kernel/printk.c                 |    4 
- net/core/Makefile               |    1 
- net/core/netpoll_targets.c      |  749 ++++++++++++++++++++++++++++++++++++++++
- 22 files changed, 1260 insertions(+), 738 deletions(-)
-
-Comparison to netconsole
-========================
-
-This driver differs from netconsole in a couple different ways.
-
-* Network overheads:
-     With the number of machines we have, streaming large amounts of consoles
-     within the data center can really add up.  This gets worse when you take
-     into account how reliant we are on kernel logging like OOM conditions
-     (which are very regular and very verbose).  Events in the data center
-     (such as application growth) tend to be temporally correlated, which
-     causes large bursts of logging when we are OOM.  We aren't so interested
-     in this kernel verbosity from a global collection standpoint though, and
-     haven't been keen on the amount of extra un-regulated UDP traffic it would
-     generate.  We are however interested in kernel oopses which occur far less
-     often.
-
-* Structured data:
-     In terms of the data received, we've really benefited by having structured
-     data in the payload.  We've been collecting kernel oopses since sometime
-     in 2006 and have a _vast_ collection of crashes that we have indexed by
-     just about anything you could ever want (registers, full dmesg text,
-     backtraces, motherboards, CPU types, kernel versions, bios versions, etc).
-     This has allowed us to quickly find 'big bugs' vs 'rare bugs' (similar to
-     kerneloops.org) in a data center environment.
-
-     This structured data also allows for automated labeling of oopses/panics
-     using a variety of criteria.  Netconsole only provides unstructured
-     streaming data, and the bits that we care about are either not present in
-     the dmesg logs or they are, but is extremely difficult to parse them out
-     (especially across kernel versions).  Other bits of information, like
-     firmware version, are also difficult to associate with crashes with
-     post-processing due to gaps in global sampling and the churn that occurs
-     in the lab where versions can change quickly.
-
-* Network reliability:
-     Another area where the two approaches have differed has been in handling
-     of network reliability.  Historically (though less and less now), we found
-     that we had to transmit data several times.  We also used to explicitly
-     space out packets with delays to handle switch chip buffer overruns.  Both
-     of these functions I presume could be added to netconsole without too much
-     of a problem.
-
-ChangeLog:
-==========
-- v3
-   - Dropped 'net_dump_now' interface as we already have CONFIG_LKDTM to
-     trigger crashes.
-   - Updated to also cancel any pending workers and clean the target up
-     if needed when removing being dropped from configfs.  Issue
-     identified by Neil Horman.
-   - The user-programmable boot_id was been split out into its own patch.
-   - Other userland programmable entries have been removed and replaced
-     by a 'netoops_user_blob' field that is programmable to anything
-     less than or equal to 128 bytes in length.
-   - Support for 'one-shot' has been removed completely.
-   - Now that one-shot support and net_dump_now support are removed from
-     the patchset, we no longer have any interfaces in procfs.
-   - x86 vendor is now specified in the packet headers.
-   - 'netpoll_targets' can now be compiled as a module if neither
-     netconsole nor netoops require it to be built in. This property
-     also extends to CONFIGFS_FS.
-   - All fields for packets are now encoded in little-endian.
-
-- v2
-   - Now uses the same mechanism that netconsole uses for configuring
-     targets, which is also now abstracted out to
-     net/core/netpoll_targets.c.
+diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
+index c87a49e..6e16888 100644
+--- a/drivers/net/netconsole.c
++++ b/drivers/net/netconsole.c
+@@ -327,6 +327,7 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 			     const char *buf,
+ 			     size_t count)
+ {
++	unsigned long flags;
+ 	int err;
+ 	long enabled;
+ 
+@@ -335,6 +336,10 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 		return enabled;
+ 
+ 	if (enabled) {	/* 1 */
++		spin_lock_irqsave(&target_list_lock, flags);
++		if (nt->enabled)
++			goto busy;
++		spin_unlock_irqrestore(&target_list_lock, flags);
+ 
+ 		/*
+ 		 * Skip netpoll_parse_options() -- all the attributes are
+@@ -343,18 +348,28 @@ static ssize_t store_enabled(struct netconsole_target *nt,
+ 		netpoll_print_options(&nt->np);
+ 
+ 		err = netpoll_setup(&nt->np);
++		spin_lock_irqsave(&target_list_lock, flags);
++		if (err)
++			nt->enabled = 0;
++		else
++			nt->enabled = 1;
++		spin_unlock_irqrestore(&target_list_lock, flags);
+ 		if (err)
+ 			return err;
+ 
+ 		printk(KERN_INFO "netconsole: network logging started\n");
+-
+ 	} else {	/* 0 */
++		spin_lock_irqsave(&target_list_lock, flags);
++		nt->enabled = 0;
++		spin_unlock_irqrestore(&target_list_lock, flags);
++
+ 		netpoll_cleanup(&nt->np);
+ 	}
+ 
+-	nt->enabled = enabled;
+-
+ 	return strnlen(buf, count);
++busy:
++	spin_unlock_irqrestore(&target_list_lock, flags);
++	return -EBUSY;
+ }
+ 
+ static ssize_t store_dev_name(struct netconsole_target *nt,
+@@ -363,13 +378,6 @@ static ssize_t store_dev_name(struct netconsole_target *nt,
+ {
+ 	size_t len;
+ 
+-	if (nt->enabled) {
+-		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+-				"disable to update parameters\n",
+-				config_item_name(&nt->item));
+-		return -EINVAL;
+-	}
+-
+ 	strlcpy(nt->np.dev_name, buf, IFNAMSIZ);
+ 
+ 	/* Get rid of possible trailing newline from echo(1) */
+@@ -387,13 +395,6 @@ static ssize_t store_local_port(struct netconsole_target *nt,
+ 	long local_port;
+ #define __U16_MAX	((__u16) ~0U)
+ 
+-	if (nt->enabled) {
+-		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+-				"disable to update parameters\n",
+-				config_item_name(&nt->item));
+-		return -EINVAL;
+-	}
+-
+ 	local_port = strtol10_check_range(buf, 0, __U16_MAX);
+ 	if (local_port < 0)
+ 		return local_port;
+@@ -410,13 +411,6 @@ static ssize_t store_remote_port(struct netconsole_target *nt,
+ 	long remote_port;
+ #define __U16_MAX	((__u16) ~0U)
+ 
+-	if (nt->enabled) {
+-		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+-				"disable to update parameters\n",
+-				config_item_name(&nt->item));
+-		return -EINVAL;
+-	}
+-
+ 	remote_port = strtol10_check_range(buf, 0, __U16_MAX);
+ 	if (remote_port < 0)
+ 		return remote_port;
+@@ -430,13 +424,6 @@ static ssize_t store_local_ip(struct netconsole_target *nt,
+ 			      const char *buf,
+ 			      size_t count)
+ {
+-	if (nt->enabled) {
+-		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+-				"disable to update parameters\n",
+-				config_item_name(&nt->item));
+-		return -EINVAL;
+-	}
+-
+ 	nt->np.local_ip = in_aton(buf);
+ 
+ 	return strnlen(buf, count);
+@@ -446,13 +433,6 @@ static ssize_t store_remote_ip(struct netconsole_target *nt,
+ 			       const char *buf,
+ 			       size_t count)
+ {
+-	if (nt->enabled) {
+-		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+-				"disable to update parameters\n",
+-				config_item_name(&nt->item));
+-		return -EINVAL;
+-	}
+-
+ 	nt->np.remote_ip = in_aton(buf);
+ 
+ 	return strnlen(buf, count);
+@@ -466,13 +446,6 @@ static ssize_t store_remote_mac(struct netconsole_target *nt,
+ 	char *p = (char *) buf;
+ 	int i;
+ 
+-	if (nt->enabled) {
+-		printk(KERN_ERR "netconsole: target (%s) is enabled, "
+-				"disable to update parameters\n",
+-				config_item_name(&nt->item));
+-		return -EINVAL;
+-	}
+-
+ 	for (i = 0; i < ETH_ALEN - 1; i++) {
+ 		remote_mac[i] = simple_strtoul(p, &p, 16);
+ 		if (*p != ':')
+@@ -496,15 +469,56 @@ invalid:
+  * Attribute definitions for netconsole_target.
+  */
+ 
+-#define NETCONSOLE_TARGET_ATTR_RO(_name)				\
++#define __NETCONSOLE_TARGET_ATTR_RO(_name, _prefix_...)			\
+ static struct netconsole_target_attr netconsole_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IRUGO, show_##_name, NULL)
++	__CONFIGFS_ATTR(_name, S_IRUGO, show_##_prefix_##_name, NULL)
+ 
+-#define NETCONSOLE_TARGET_ATTR_RW(_name)				\
++#define __NETCONSOLE_TARGET_ATTR_RW(_name, _prefix_...)			\
+ static struct netconsole_target_attr netconsole_target_##_name =	\
+-	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR, show_##_name, store_##_name)
++	__CONFIGFS_ATTR(_name, S_IRUGO | S_IWUSR,			\
++			show_##_prefix_##_name, store_##_prefix_##_name)
++
++#define NETCONSOLE_WRAP_ATTR_STORE(_name)				\
++static ssize_t store_locked_##_name(struct netconsole_target *nt,	\
++				    const char *buf,			\
++				    size_t count)			\
++{									\
++	unsigned long flags;						\
++	ssize_t ret;							\
++	spin_lock_irqsave(&target_list_lock, flags);			\
++	if (nt->enabled) {						\
++		printk(KERN_ERR "netconsole: target (%s) is enabled, "	\
++				"disable to update parameters\n",	\
++				config_item_name(&nt->item));		\
++		spin_unlock_irqrestore(&target_list_lock, flags);	\
++		return -EBUSY;						\
++	}								\
++	ret = store_##_name(nt, buf, count);				\
++	spin_unlock_irqrestore(&target_list_lock, flags);		\
++	return ret;							\
++}
++
++#define NETCONSOLE_WRAP_ATTR_SHOW(_name)				\
++static ssize_t show_locked_##_name(struct netconsole_target *nt, char *buf) \
++{									\
++	unsigned long flags;						\
++	ssize_t ret;							\
++	spin_lock_irqsave(&target_list_lock, flags);			\
++	ret = show_##_name(nt, buf);					\
++	spin_unlock_irqrestore(&target_list_lock, flags);		\
++	return ret;							\
++}
++
++#define NETCONSOLE_TARGET_ATTR_RW(_name)				\
++		NETCONSOLE_WRAP_ATTR_STORE(_name)			\
++		NETCONSOLE_WRAP_ATTR_SHOW(_name)			\
++		__NETCONSOLE_TARGET_ATTR_RW(_name, locked_)
++
++#define NETCONSOLE_TARGET_ATTR_RO(_name)				\
++		NETCONSOLE_WRAP_ATTR_SHOW(_name)			\
++		__NETCONSOLE_TARGET_ATTR_RO(_name, locked_)
+ 
+-NETCONSOLE_TARGET_ATTR_RW(enabled);
++__NETCONSOLE_TARGET_ATTR_RW(enabled);
+ NETCONSOLE_TARGET_ATTR_RW(dev_name);
+ NETCONSOLE_TARGET_ATTR_RW(local_port);
+ NETCONSOLE_TARGET_ATTR_RW(remote_port);
