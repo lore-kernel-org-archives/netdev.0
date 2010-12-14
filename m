@@ -1,55 +1,76 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
 Subject: RE: [PATCH] ixgb: Convert to new vlan model.
-Date: Tue, 14 Dec 2010 11:09:12 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
+Date: Tue, 14 Dec 2010 18:12:39 +0000
+Message-ID: <1292350359.20458.8.camel@bwh-desktop>
 References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
- <1292344315.20458.6.camel@bwh-desktop>
+	 <1292344315.20458.6.camel@bwh-desktop>
+	 <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Jesse Gross <jesse@nicira.com>
+To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62265 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757842Ab0LNSJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Dec 2010 13:09:27 -0500
-In-Reply-To: <1292344315.20458.6.camel@bwh-desktop>
-Content-Language: en-US
+Received: from mail.solarflare.com ([216.237.3.220]:10548 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751242Ab0LNSMm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 13:12:42 -0500
+In-Reply-To: <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-QmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gT24gTW9uLCAyMDEwLTEyLTEzIGF0IDE5OjQyIC0wODAw
-LCBKZXNzZSBHcm9zcyB3cm90ZToNCj4+IFRoaXMgc3dpdGNoZXMgdGhlIGl4Z2IgZHJpdmVyIHRv
-IHVzZSB0aGUgbmV3IHZsYW4gaW50ZXJmYWNlcy4NCj4+IEluIGRvaW5nIHRoaXMsIGl0IGNvbXBs
-ZXRlcyB0aGUgd29yayBiZWd1biBpbg0KPj4gYWU1NDQ5NmY5ZThkNDBjODllNTY2ODIwNWMxODFk
-Y2NmYTllY2RhMSBhbGxvd2luZyB0aGUgdXNlIG9mDQo+PiBoYXJkd2FyZSB2bGFuIGluc2VydGlv
-biB3aXRob3V0IGhhdmluZyBhIHZsYW4gZ3JvdXAgY29uZmlndXJlZC4gWy4uLl0NCj4+IGRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC9peGdiL2l4Z2JfZXRodG9vbC5jDQo+PiBiL2RyaXZlcnMvbmV0
-L2l4Z2IvaXhnYl9ldGh0b29sLmMgDQo+PiBpbmRleCA0Mzk5NGMxLi4wZTRjNTI3IDEwMDY0NA0K
-Pj4gLS0tIGEvZHJpdmVycy9uZXQvaXhnYi9peGdiX2V0aHRvb2wuYw0KPj4gKysrIGIvZHJpdmVy
-cy9uZXQvaXhnYi9peGdiX2V0aHRvb2wuYw0KPj4gQEAgLTcwNiw2ICs3MDYsNDUgQEAgaXhnYl9n
-ZXRfc3RyaW5ncyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCB1MzINCj4+ICBzdHJpbmdzZXQs
-IHU4ICpkYXRhKSAgCX0gfQ0KPj4gDQo+PiArc3RhdGljIGludCBpeGdiX3NldF9mbGFncyhzdHJ1
-Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCB1MzIgZGF0YSkgK3sNCj4+ICsJc3RydWN0IGl4Z2JfYWRh
-cHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7ICsJYm9vbA0KPj4gbmVlZF9yZXNl
-dDsgKwlpbnQgcmM7DQo+PiArDQo+PiArCS8qIFRoZSBoYXJkd2FyZSByZXF1aXJlcyB0aGF0IFJY
-IHZsYW4gc3RyaXBwaW5nIGFuZCBUWCB2bGFuDQo+PiBpbnNlcnRpb24gKwkgKiBiZSBjb25maWd1
-cmVkIHRvZ2V0aGVyLiAgVGhlcmVmb3JlLCBpZiBvbmUgc2V0dGluZw0KPj4gY2hhbmdlcyBhZGp1
-c3QgdGhlICsJICogb3RoZXIgb25lIHRvIG1hdGNoLiArCSAqLw0KPj4gKwlpZiAoISEoZGF0YSAm
-IEVUSF9GTEFHX1JYVkxBTikgIT0gISEoZGF0YSAmIEVUSF9GTEFHX1RYVkxBTikpIHsNCj4+ICsJ
-CWlmICgoZGF0YSAmIEVUSF9GTEFHX1JYVkxBTikgIT0NCj4+ICsJCSAgICAobmV0ZGV2LT5mZWF0
-dXJlcyAmIE5FVElGX0ZfSFdfVkxBTl9SWCkpDQo+PiArCQkJZGF0YSBePSBFVEhfRkxBR19UWFZM
-QU47DQo+PiArCQllbHNlIGlmICgoZGF0YSAmIEVUSF9GTEFHX1RYVkxBTikgIT0NCj4+ICsJCSAg
-ICAobmV0ZGV2LT5mZWF0dXJlcyAmIE5FVElGX0ZfSFdfVkxBTl9UWCkpDQo+PiArCQkJZGF0YSBe
-PSBFVEhfRkxBR19SWFZMQU47DQo+PiArCX0NCj4gWy4uLl0NCj4gDQo+IEkgdGhpbmsgdGhpcyBz
-aG91bGQgcmVqZWN0IGF0dGVtcHRzIHRvIGNoYW5nZSBqdXN0IG9uZSBmbGFnIHdpdGgNCj4gLUVJ
-TlZBTCwgcmF0aGVyIHRoYW4gcXVpZXRseSAnZml4aW5nJyB0aGUgc2V0dGluZy4NCj4gDQo+IEJl
-bi4NCg0KSSdtIG5vdCBzdXJlIHRoaXMgaXMgYSBnb29kIGlkZWEuIEF0IGxlYXN0IG5vdCB3aXRo
-b3V0IHNvbWUgc29ydCBvZiANCmV4cGxhbmF0aW9uLiBTaW5jZSB0aGVyZSBpcyBubyB3YXkgZm9y
-IHRoZSB1c2VyIHRvIGtub3cgdGhhdCBoZSBuZWVkcw0KdG8gZGlzYWJsZSBib3RoLg0KDQpUaGFu
-a3MsDQpFbWlsDQo=
+On Tue, 2010-12-14 at 11:09 -0700, Tantilov, Emil S wrote:
+> Ben Hutchings wrote:
+> > On Mon, 2010-12-13 at 19:42 -0800, Jesse Gross wrote:
+> >> This switches the ixgb driver to use the new vlan interfaces.
+> >> In doing this, it completes the work begun in
+> >> ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
+> >> hardware vlan insertion without having a vlan group configured. [...]
+> >> diff --git a/drivers/net/ixgb/ixgb_ethtool.c
+> >> b/drivers/net/ixgb/ixgb_ethtool.c 
+> >> index 43994c1..0e4c527 100644
+> >> --- a/drivers/net/ixgb/ixgb_ethtool.c
+> >> +++ b/drivers/net/ixgb/ixgb_ethtool.c
+> >> @@ -706,6 +706,45 @@ ixgb_get_strings(struct net_device *netdev, u32
+> >>  stringset, u8 *data)  	} }
+> >> 
+> >> +static int ixgb_set_flags(struct net_device *netdev, u32 data) +{
+> >> +	struct ixgb_adapter *adapter = netdev_priv(netdev); +	bool
+> >> need_reset; +	int rc;
+> >> +
+> >> +	/* The hardware requires that RX vlan stripping and TX vlan
+> >> insertion +	 * be configured together.  Therefore, if one setting
+> >> changes adjust the +	 * other one to match. +	 */
+> >> +	if (!!(data & ETH_FLAG_RXVLAN) != !!(data & ETH_FLAG_TXVLAN)) {
+> >> +		if ((data & ETH_FLAG_RXVLAN) !=
+> >> +		    (netdev->features & NETIF_F_HW_VLAN_RX))
+> >> +			data ^= ETH_FLAG_TXVLAN;
+> >> +		else if ((data & ETH_FLAG_TXVLAN) !=
+> >> +		    (netdev->features & NETIF_F_HW_VLAN_TX))
+> >> +			data ^= ETH_FLAG_RXVLAN;
+> >> +	}
+> > [...]
+> > 
+> > I think this should reject attempts to change just one flag with
+> > -EINVAL, rather than quietly 'fixing' the setting.
+> > 
+> > Ben.
+> 
+> I'm not sure this is a good idea. At least not without some sort of 
+> explanation. Since there is no way for the user to know that he needs
+> to disable both.
+
+Document the limitation in Documentation/networking/ixgb.txt.  You could
+also send a patch for the ethtool manual page stating that this
+restriction might exist.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
