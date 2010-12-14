@@ -1,338 +1,397 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 4/5 v2] ifb: add multiqueue support
-Date: Tue, 14 Dec 2010 23:21:38 +0800
-Message-ID: <1292340098-25537-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f180.google.com ([209.85.161.180]:35639 "EHLO
-	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758232Ab0LNPV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 10:21:56 -0500
-Received: by gxk19 with SMTP id 19so497563gxk.11
-        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 07:21:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/2] workqueue: convert cancel_rearming_delayed_work[queue]()
+ users to cancel_delayed_work_sync()
+Date: Tue, 14 Dec 2010 16:21:17 +0100
+Message-ID: <4D078B6D.5060202@kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org, benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org, mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cbou-JGs/UdohzUI@public.gmane.org,
+	dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org, zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, aelder-sJ/iWh9BUns@public.gmane.org,
+	xfs-masters-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org, cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Each ifb NIC has nr_cpu_ids rx queues and nr_cpu_ids queues. Packets
-transmitted to ifb are enqueued to the corresponding per cpu tx queues,
-and processed in the corresponding per cpu tasklet latter.
+cancel_rearming_delayed_work[queue]() has been superceded by
+cancel_delayed_work_sync() quite some time ago.  Convert all the
+in-kernel users.  The conversions are completely equivalent and
+trivial.
 
-The stats are converted to the u64 ones.
-
-tq is a stack variable now. It makes ifb_q_private smaller and tx queue
-locked only once in ri_tasklet.
-
-The tx_queue_len is multiplied by the number of online CPUs.
-
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+Cc: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Cc: Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Anton Vorontsov <cbou-JGs/UdohzUI@public.gmane.org>
+Cc: David Woodhouse <dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Cc: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+Cc: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
+Cc: Alex Elder <aelder-sJ/iWh9BUns@public.gmane.org>
+Cc: xfs-masters-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org
+Cc: Christoph Lameter <cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Cc: Pekka Enberg <penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org>
+Cc: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Cc: netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
-v2: addressed the comments from Eirc. Thank him.
- drivers/net/ifb.c |  211 +++++++++++++++++++++++++++++++++++-------------------
- 1 file changed, 138 insertions(+), 73 deletions(-)
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 57c5cfb..918a38e 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -37,56 +37,60 @@
- #include <net/net_namespace.h>
- 
- #define TX_Q_LIMIT    32
--struct ifb_private {
--	struct tasklet_struct   ifb_tasklet;
--	int     tasklet_pending;
--	struct sk_buff_head     rq;
--	struct sk_buff_head     tq;
-+struct ifb_q_private {
-+	struct net_device	*dev;
-+	struct netdev_queue	*txq;
-+	struct tasklet_struct	ifb_tasklet;
-+	struct sk_buff_head	rq;
-+	struct u64_stats_sync	syncp;
-+	u64			rx_packets;
-+	u64			rx_bytes;
-+	u64			rx_dropped;
- };
- 
-+#define ifb_priv(dev) ((struct ifb_q_private __percpu *)(dev)->ml_priv)
-+
- static int numifbs = 2;
- 
--static void ri_tasklet(unsigned long dev)
-+static void ri_tasklet(unsigned long arg)
+These two patches convert all cancel_rearming users and deprecate the
+two long obsolete functions.  Unless someone objects, I'll push these
+two through the workqueue tree in the next merge window.  The next
+patch will mark the two functions __deprecated and schedule for
+removal during 2.6.39 cycle.
+
+Thank you.
+
+ drivers/ata/libata-core.c                  |    2 +-
+ drivers/ata/libata-sff.c                   |    2 +-
+ drivers/macintosh/rack-meter.c             |    4 ++--
+ drivers/media/dvb/dvb-usb/dvb-usb-remote.c |    2 +-
+ drivers/media/video/em28xx/em28xx-input.c  |    2 +-
+ drivers/net/chelsio/my3126.c               |    2 +-
+ drivers/net/ibm_newemac/core.c             |    4 ++--
+ drivers/net/wireless/zd1211rw/zd_mac.c     |    3 +--
+ drivers/power/ds2760_battery.c             |    6 ++----
+ drivers/power/intel_mid_battery.c          |    6 ++----
+ drivers/staging/pohmelfs/inode.c           |    4 ++--
+ drivers/usb/atm/cxacru.c                   |    2 +-
+ drivers/video/fb_defio.c                   |    2 +-
+ drivers/video/omap/lcd_mipid.c             |    2 +-
+ fs/nfsd/nfs4state.c                        |    2 +-
+ fs/xfs/xfs_mru_cache.c                     |    2 +-
+ mm/slab.c                                  |    2 +-
+ mm/vmstat.c                                |    2 +-
+ net/atm/lec.c                              |    2 +-
+ net/core/netpoll.c                         |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c             |    2 +-
+ net/sunrpc/xprtsock.c                      |    2 +-
+ 22 files changed, 27 insertions(+), 32 deletions(-)
+
+diff --git a/drivers/ata/libata-core.c b/drivers/ata/libata-core.c
+index 7f77c67..6669b44 100644
+--- a/drivers/ata/libata-core.c
++++ b/drivers/ata/libata-core.c
+@@ -6122,7 +6122,7 @@ static void ata_port_detach(struct ata_port *ap)
+ 	/* it better be dead now */
+ 	WARN_ON(!(ap->pflags & ATA_PFLAG_UNLOADED));
+
+-	cancel_rearming_delayed_work(&ap->hotplug_task);
++	cancel_delayed_work_sync(&ap->hotplug_task);
+
+  skip_eh:
+ 	if (ap->pmp_link) {
+diff --git a/drivers/ata/libata-sff.c b/drivers/ata/libata-sff.c
+index d05387d..8660a70 100644
+--- a/drivers/ata/libata-sff.c
++++ b/drivers/ata/libata-sff.c
+@@ -1320,7 +1320,7 @@ void ata_sff_flush_pio_task(struct ata_port *ap)
  {
--
--	struct net_device *_dev = (struct net_device *)dev;
--	struct ifb_private *dp = netdev_priv(_dev);
--	struct net_device_stats *stats = &_dev->stats;
--	struct netdev_queue *txq;
-+	struct ifb_q_private *qp = (struct ifb_q_private *)arg;
-+	struct net_device *dev = qp->dev;
-+	struct netdev_queue *txq = qp->txq;
- 	struct sk_buff *skb;
-+	struct sk_buff_head tq;
- 
--	txq = netdev_get_tx_queue(_dev, 0);
--	skb = skb_peek(&dp->tq);
--	if (skb == NULL) {
--		if (__netif_tx_trylock(txq)) {
--			skb_queue_splice_tail_init(&dp->rq, &dp->tq);
--			__netif_tx_unlock(txq);
--		} else {
--			/* reschedule */
--			goto resched;
--		}
-+	__skb_queue_head_init(&tq);
-+	if (!__netif_tx_trylock(txq)) {
-+		tasklet_schedule(&qp->ifb_tasklet);
-+		return;
- 	}
-+	skb_queue_splice_tail_init(&qp->rq, &tq);
-+	if (netif_tx_queue_stopped(txq))
-+		netif_tx_wake_queue(txq);
-+	__netif_tx_unlock(txq);
- 
--	while ((skb = skb_dequeue(&dp->tq)) != NULL) {
-+	while ((skb = __skb_dequeue(&tq)) != NULL) {
- 		u32 from = G_TC_FROM(skb->tc_verd);
- 
- 		skb->tc_verd = 0;
- 		skb->tc_verd = SET_TC_NCLS(skb->tc_verd);
--		stats->tx_packets++;
--		stats->tx_bytes += skb->len;
-+		u64_stats_update_begin(&qp->syncp);
-+		txq->tx_packets++;
-+		txq->tx_bytes += skb->len;
- 
- 		rcu_read_lock();
- 		skb->dev = dev_get_by_index_rcu(&init_net, skb->skb_iif);
- 		if (!skb->dev) {
- 			rcu_read_unlock();
-+			txq->tx_dropped++;
-+			u64_stats_update_end(&qp->syncp);
- 			dev_kfree_skb(skb);
--			stats->tx_dropped++;
--			if (skb_queue_len(&dp->tq) != 0)
--				goto resched;
--			break;
-+			continue;
- 		}
- 		rcu_read_unlock();
--		skb->skb_iif = _dev->ifindex;
-+		u64_stats_update_end(&qp->syncp);
-+		skb->skb_iif = dev->ifindex;
- 
- 		if (from & AT_EGRESS) {
- 			dev_queue_xmit(skb);
-@@ -96,82 +100,135 @@ static void ri_tasklet(unsigned long dev)
- 		} else
- 			BUG();
- 	}
--
--	if (__netif_tx_trylock(txq)) {
--		skb = skb_peek(&dp->rq);
--		if (skb == NULL) {
--			dp->tasklet_pending = 0;
--			if (netif_queue_stopped(_dev))
--				netif_wake_queue(_dev);
--		} else {
--			__netif_tx_unlock(txq);
--			goto resched;
--		}
--		__netif_tx_unlock(txq);
--	} else {
--resched:
--		dp->tasklet_pending = 1;
--		tasklet_schedule(&dp->ifb_tasklet);
--	}
--
+ 	DPRINTK("ENTER\n");
+
+-	cancel_rearming_delayed_work(&ap->sff_pio_task);
++	cancel_delayed_work_sync(&ap->sff_pio_task);
+ 	ap->hsm_task_state = HSM_ST_IDLE;
+
+ 	if (ata_msg_ctl(ap))
+diff --git a/drivers/macintosh/rack-meter.c b/drivers/macintosh/rack-meter.c
+index 53cce3a..39f660b 100644
+--- a/drivers/macintosh/rack-meter.c
++++ b/drivers/macintosh/rack-meter.c
+@@ -285,8 +285,8 @@ static void __devinit rackmeter_init_cpu_sniffer(struct rackmeter *rm)
+
+ static void __devexit rackmeter_stop_cpu_sniffer(struct rackmeter *rm)
+ {
+-	cancel_rearming_delayed_work(&rm->cpu[0].sniffer);
+-	cancel_rearming_delayed_work(&rm->cpu[1].sniffer);
++	cancel_delayed_work_sync(&rm->cpu[0].sniffer);
++	cancel_delayed_work_sync(&rm->cpu[1].sniffer);
  }
- 
- static netdev_tx_t ifb_xmit(struct sk_buff *skb, struct net_device *dev)
+
+ static int __devinit rackmeter_setup(struct rackmeter *rm)
+diff --git a/drivers/media/dvb/dvb-usb/dvb-usb-remote.c b/drivers/media/dvb/dvb-usb/dvb-usb-remote.c
+index b579fed..0831469 100644
+--- a/drivers/media/dvb/dvb-usb/dvb-usb-remote.c
++++ b/drivers/media/dvb/dvb-usb/dvb-usb-remote.c
+@@ -298,7 +298,7 @@ int dvb_usb_remote_init(struct dvb_usb_device *d)
+ int dvb_usb_remote_exit(struct dvb_usb_device *d)
  {
--	struct ifb_private *dp = netdev_priv(dev);
--	struct net_device_stats *stats = &dev->stats;
-+	int qid = skb_get_queue_mapping(skb);
-+	struct ifb_q_private *qp = per_cpu_ptr(ifb_priv(dev), qid);
- 	u32 from = G_TC_FROM(skb->tc_verd);
- 
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
-+	WARN_ON(qid != smp_processor_id());
-+
-+	u64_stats_update_begin(&qp->syncp);
-+	qp->rx_packets++;
-+	qp->rx_bytes += skb->len;
- 
- 	if (!(from & (AT_INGRESS|AT_EGRESS)) || !skb->skb_iif) {
-+		qp->rx_dropped++;
-+		u64_stats_update_end(&qp->syncp);
- 		dev_kfree_skb(skb);
--		stats->rx_dropped++;
- 		return NETDEV_TX_OK;
+ 	if (d->state & DVB_USB_STATE_REMOTE) {
+-		cancel_rearming_delayed_work(&d->rc_query_work);
++		cancel_delayed_work_sync(&d->rc_query_work);
+ 		flush_scheduled_work();
+ 		if (d->props.rc.mode == DVB_RC_LEGACY)
+ 			input_unregister_device(d->rc_input_dev);
+diff --git a/drivers/media/video/em28xx/em28xx-input.c b/drivers/media/video/em28xx/em28xx-input.c
+index 6759cd5..99403c7 100644
+--- a/drivers/media/video/em28xx/em28xx-input.c
++++ b/drivers/media/video/em28xx/em28xx-input.c
+@@ -557,7 +557,7 @@ void em28xx_deregister_snapshot_button(struct em28xx *dev)
+ {
+ 	if (dev->sbutton_input_dev != NULL) {
+ 		em28xx_info("Deregistering snapshot button\n");
+-		cancel_rearming_delayed_work(&dev->sbutton_query_work);
++		cancel_delayed_work_sync(&dev->sbutton_query_work);
+ 		input_unregister_device(dev->sbutton_input_dev);
+ 		dev->sbutton_input_dev = NULL;
  	}
-+	u64_stats_update_end(&qp->syncp);
- 
--	__skb_queue_tail(&dp->rq, skb);
--	if (!dp->tasklet_pending) {
--		dp->tasklet_pending = 1;
--		tasklet_schedule(&dp->ifb_tasklet);
--	}
-+	__skb_queue_tail(&qp->rq, skb);
-+	if (skb_queue_len(&qp->rq) == 1)
-+		tasklet_schedule(&qp->ifb_tasklet);
- 
--	if (skb_queue_len(&dp->rq) >= dev->tx_queue_len)
--		netif_stop_queue(dev);
-+	if (skb_queue_len(&qp->rq) >= dev->tx_queue_len)
-+		netif_tx_stop_queue(qp->txq);
- 
- 	return NETDEV_TX_OK;
- }
- 
- static int ifb_close(struct net_device *dev)
+diff --git a/drivers/net/chelsio/my3126.c b/drivers/net/chelsio/my3126.c
+index 4c60285..a683fd3 100644
+--- a/drivers/net/chelsio/my3126.c
++++ b/drivers/net/chelsio/my3126.c
+@@ -22,7 +22,7 @@ static int my3126_interrupt_enable(struct cphy *cphy)
+
+ static int my3126_interrupt_disable(struct cphy *cphy)
  {
--	struct ifb_private *dp = netdev_priv(dev);
--
--	tasklet_kill(&dp->ifb_tasklet);
--	netif_stop_queue(dev);
--	__skb_queue_purge(&dp->rq);
--	__skb_queue_purge(&dp->tq);
-+	struct ifb_q_private *qp;
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu) {
-+		qp = per_cpu_ptr(ifb_priv(dev), cpu);
-+		tasklet_kill(&qp->ifb_tasklet);
-+		netif_tx_stop_queue(qp->txq);
-+		__skb_queue_purge(&qp->rq);
-+	}
- 
+-	cancel_rearming_delayed_work(&cphy->phy_update);
++	cancel_delayed_work_sync(&cphy->phy_update);
  	return 0;
  }
- 
- static int ifb_open(struct net_device *dev)
+
+diff --git a/drivers/net/ibm_newemac/core.c b/drivers/net/ibm_newemac/core.c
+index 06bb9b7..e209efa 100644
+--- a/drivers/net/ibm_newemac/core.c
++++ b/drivers/net/ibm_newemac/core.c
+@@ -1279,7 +1279,7 @@ static void emac_force_link_update(struct emac_instance *dev)
+ 	netif_carrier_off(dev->ndev);
+ 	smp_rmb();
+ 	if (dev->link_polling) {
+-		cancel_rearming_delayed_work(&dev->link_work);
++		cancel_delayed_work_sync(&dev->link_work);
+ 		if (dev->link_polling)
+ 			schedule_delayed_work(&dev->link_work,  PHY_POLL_LINK_OFF);
+ 	}
+@@ -1294,7 +1294,7 @@ static int emac_close(struct net_device *ndev)
+
+ 	if (dev->phy.address >= 0) {
+ 		dev->link_polling = 0;
+-		cancel_rearming_delayed_work(&dev->link_work);
++		cancel_delayed_work_sync(&dev->link_work);
+ 	}
+ 	mutex_lock(&dev->link_lock);
+ 	emac_netif_stop(dev);
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index 43307bd..6107304 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -1207,7 +1207,6 @@ static void housekeeping_enable(struct zd_mac *mac)
+ static void housekeeping_disable(struct zd_mac *mac)
  {
--	struct ifb_private *dp = netdev_priv(dev);
-+	int cpu;
-+
-+	for_each_possible_cpu(cpu)
-+		netif_tx_start_queue(netdev_get_tx_queue(dev, cpu));
- 
--	tasklet_init(&dp->ifb_tasklet, ri_tasklet, (unsigned long)dev);
--	__skb_queue_head_init(&dp->rq);
--	__skb_queue_head_init(&dp->tq);
--	netif_start_queue(dev);
-+	return 0;
-+}
-+
-+static int ifb_init(struct net_device *dev)
-+{
-+	struct ifb_q_private *q;
-+	int cpu;
-+
-+	dev->ml_priv = alloc_percpu(struct ifb_q_private);
-+	if (!ifb_priv(dev))
-+		return -ENOMEM;
-+	for_each_possible_cpu(cpu) {
-+		q = per_cpu_ptr(ifb_priv(dev), cpu);
-+		__skb_queue_head_init(&q->rq);
-+		q->txq = netdev_get_tx_queue(dev, cpu);
-+		q->dev = dev;
-+		tasklet_init(&q->ifb_tasklet, ri_tasklet, (unsigned long)q);
-+		netdev_queue_numa_node_write(q->txq, cpu_to_node(cpu));
-+	}
- 
- 	return 0;
+ 	dev_dbg_f(zd_mac_dev(mac), "\n");
+-	cancel_rearming_delayed_workqueue(zd_workqueue,
+-		&mac->housekeeping.link_led_work);
++	cancel_delayed_work_sync(&mac->housekeeping.link_led_work);
+ 	zd_chip_control_leds(&mac->chip, ZD_LED_OFF);
  }
- 
-+static void ifb_uninit(struct net_device *dev)
-+{
-+	free_percpu(ifb_priv(dev));
-+}
-+
-+static u16 ifb_select_queue(struct net_device *dev, struct sk_buff *skb)
-+{
-+	return smp_processor_id();
-+}
-+
-+static struct rtnl_link_stats64 *ifb_get_stats64(struct net_device *dev,
-+		struct rtnl_link_stats64 *stats)
-+{
-+	struct ifb_q_private *q;
-+	struct netdev_queue *txq;
-+	int cpu;
-+	u64 rx_packets, rx_bytes, rx_dropped;
-+	u64 tx_packets, tx_bytes, tx_dropped;
-+	unsigned int start;
-+
-+	for_each_possible_cpu(cpu) {
-+		q = per_cpu_ptr(ifb_priv(dev), cpu);
-+		txq = q->txq;
-+		do {
-+			start = u64_stats_fetch_begin_bh(&q->syncp);
-+			rx_packets = q->rx_packets;
-+			rx_bytes = q->rx_bytes;
-+			rx_dropped = q->rx_dropped;
-+			tx_packets = txq->tx_packets;
-+			tx_bytes = txq->tx_bytes;
-+			tx_dropped = txq->tx_dropped;
-+		} while (u64_stats_fetch_retry_bh(&q->syncp, start));
-+		stats->rx_packets += rx_packets;
-+		stats->rx_bytes += rx_bytes;
-+		stats->rx_dropped += rx_dropped;
-+		stats->tx_packets += tx_packets;
-+		stats->tx_bytes += tx_bytes;
-+		stats->tx_dropped += tx_dropped;
-+	}
-+
-+	return stats;
-+}
-+
- static const struct net_device_ops ifb_netdev_ops = {
-+	.ndo_init		= ifb_init,
-+	.ndo_uninit		= ifb_uninit,
- 	.ndo_open		= ifb_open,
- 	.ndo_stop		= ifb_close,
- 	.ndo_start_xmit		= ifb_xmit,
- 	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_select_queue	= ifb_select_queue,
-+	.ndo_get_stats64	= ifb_get_stats64,
- };
- 
- static void ifb_setup(struct net_device *dev)
-@@ -202,11 +259,20 @@ static int ifb_validate(struct nlattr *tb[], struct nlattr *data[])
- 	return 0;
+diff --git a/drivers/power/ds2760_battery.c b/drivers/power/ds2760_battery.c
+index b3c01c1..e7f8978 100644
+--- a/drivers/power/ds2760_battery.c
++++ b/drivers/power/ds2760_battery.c
+@@ -580,10 +580,8 @@ static int ds2760_battery_remove(struct platform_device *pdev)
+ {
+ 	struct ds2760_device_info *di = platform_get_drvdata(pdev);
+
+-	cancel_rearming_delayed_workqueue(di->monitor_wqueue,
+-					  &di->monitor_work);
+-	cancel_rearming_delayed_workqueue(di->monitor_wqueue,
+-					  &di->set_charged_work);
++	cancel_delayed_work_sync(&di->monitor_work);
++	cancel_delayed_work_sync(&di->set_charged_work);
+ 	destroy_workqueue(di->monitor_wqueue);
+ 	power_supply_unregister(&di->bat);
+ 	kfree(di);
+diff --git a/drivers/power/intel_mid_battery.c b/drivers/power/intel_mid_battery.c
+index 2a10cd3..36cf402 100644
+--- a/drivers/power/intel_mid_battery.c
++++ b/drivers/power/intel_mid_battery.c
+@@ -730,8 +730,7 @@ static __devinit int probe(int irq, struct device *dev)
+ power_reg_failed_1:
+ 	power_supply_unregister(&pbi->batt);
+ power_reg_failed:
+-	cancel_rearming_delayed_workqueue(pbi->monitor_wqueue,
+-						&pbi->monitor_battery);
++	cancel_delayed_work_sync(&pbi->monitor_battery);
+ requestirq_failed:
+ 	destroy_workqueue(pbi->monitor_wqueue);
+ wqueue_failed:
+@@ -760,8 +759,7 @@ static int __devexit platform_pmic_battery_remove(struct platform_device *pdev)
+ 	struct pmic_power_module_info *pbi = dev_get_drvdata(&pdev->dev);
+
+ 	free_irq(pbi->irq, pbi);
+-	cancel_rearming_delayed_workqueue(pbi->monitor_wqueue,
+-					&pbi->monitor_battery);
++	cancel_delayed_work_sync(&pbi->monitor_battery);
+ 	destroy_workqueue(pbi->monitor_wqueue);
+
+ 	power_supply_unregister(&pbi->usb);
+diff --git a/drivers/staging/pohmelfs/inode.c b/drivers/staging/pohmelfs/inode.c
+index 61685cc..d4a1f20 100644
+--- a/drivers/staging/pohmelfs/inode.c
++++ b/drivers/staging/pohmelfs/inode.c
+@@ -1318,8 +1318,8 @@ static void pohmelfs_put_super(struct super_block *sb)
+ 	}
+
+ 	psb->trans_scan_timeout = psb->drop_scan_timeout = 0;
+-	cancel_rearming_delayed_work(&psb->dwork);
+-	cancel_rearming_delayed_work(&psb->drop_dwork);
++	cancel_delayed_work_sync(&psb->dwork);
++	cancel_delayed_work_sync(&psb->drop_dwork);
+ 	flush_scheduled_work();
+
+ 	dprintk("%s: stopped workqueues.\n", __func__);
+diff --git a/drivers/usb/atm/cxacru.c b/drivers/usb/atm/cxacru.c
+index f383cb4..a845f8b 100644
+--- a/drivers/usb/atm/cxacru.c
++++ b/drivers/usb/atm/cxacru.c
+@@ -1247,7 +1247,7 @@ static void cxacru_unbind(struct usbatm_data *usbatm_instance,
+ 	mutex_unlock(&instance->poll_state_serialize);
+
+ 	if (is_polling)
+-		cancel_rearming_delayed_work(&instance->poll_work);
++		cancel_delayed_work_sync(&instance->poll_work);
+
+ 	usb_kill_urb(instance->snd_urb);
+ 	usb_kill_urb(instance->rcv_urb);
+diff --git a/drivers/video/fb_defio.c b/drivers/video/fb_defio.c
+index 6b93ef9..8040001 100644
+--- a/drivers/video/fb_defio.c
++++ b/drivers/video/fb_defio.c
+@@ -75,7 +75,7 @@ int fb_deferred_io_fsync(struct file *file, int datasync)
+ 		return 0;
+
+ 	/* Kill off the delayed work */
+-	cancel_rearming_delayed_work(&info->deferred_work);
++	cancel_delayed_work_sync(&info->deferred_work);
+
+ 	/* Run it immediately */
+ 	return schedule_delayed_work(&info->deferred_work, 0);
+diff --git a/drivers/video/omap/lcd_mipid.c b/drivers/video/omap/lcd_mipid.c
+index 64dcc74..90e3bdd 100644
+--- a/drivers/video/omap/lcd_mipid.c
++++ b/drivers/video/omap/lcd_mipid.c
+@@ -396,7 +396,7 @@ static void mipid_esd_start_check(struct mipid_device *md)
+ static void mipid_esd_stop_check(struct mipid_device *md)
+ {
+ 	if (md->esd_check != NULL)
+-		cancel_rearming_delayed_workqueue(md->esd_wq, &md->esd_work);
++		cancel_delayed_work_sync(&md->esd_work);
  }
- 
-+static int ifb_get_tx_queues(struct net *net, struct nlattr *tb[],
-+			     unsigned int *tx_queues,
-+			     unsigned int *real_tx_queues)
-+{
-+	*real_tx_queues = *tx_queues = nr_cpu_ids;
-+
-+	return 0;
-+}
-+
- static struct rtnl_link_ops ifb_link_ops __read_mostly = {
- 	.kind		= "ifb",
--	.priv_size	= sizeof(struct ifb_private),
- 	.setup		= ifb_setup,
- 	.validate	= ifb_validate,
-+	.get_tx_queues	= ifb_get_tx_queues,
- };
- 
- /* Number of ifb devices to be set up by this module. */
-@@ -218,8 +284,7 @@ static int __init ifb_init_one(int index)
- 	struct net_device *dev_ifb;
- 	int err;
- 
--	dev_ifb = alloc_netdev(sizeof(struct ifb_private), "ifb%d", ifb_setup);
--
-+	dev_ifb = alloc_netdev_mq(0, "ifb%d", ifb_setup, nr_cpu_ids);
- 	if (!dev_ifb)
- 		return -ENOMEM;
- 
+
+ static void mipid_esd_work(struct work_struct *work)
+diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
+index 116cab9..fbd18c3 100644
+--- a/fs/nfsd/nfs4state.c
++++ b/fs/nfsd/nfs4state.c
+@@ -4336,7 +4336,7 @@ __nfs4_state_shutdown(void)
+ void
+ nfs4_state_shutdown(void)
+ {
+-	cancel_rearming_delayed_workqueue(laundry_wq, &laundromat_work);
++	cancel_delayed_work_sync(&laundromat_work);
+ 	destroy_workqueue(laundry_wq);
+ 	locks_end_grace(&nfsd4_manager);
+ 	nfs4_lock_state();
+diff --git a/fs/xfs/xfs_mru_cache.c b/fs/xfs/xfs_mru_cache.c
+index 45ce15d..edfa178 100644
+--- a/fs/xfs/xfs_mru_cache.c
++++ b/fs/xfs/xfs_mru_cache.c
+@@ -408,7 +408,7 @@ xfs_mru_cache_flush(
+ 	spin_lock(&mru->lock);
+ 	if (mru->queued) {
+ 		spin_unlock(&mru->lock);
+-		cancel_rearming_delayed_workqueue(xfs_mru_reap_wq, &mru->work);
++		cancel_delayed_work_sync(&mru->work);
+ 		spin_lock(&mru->lock);
+ 	}
+
+diff --git a/mm/slab.c b/mm/slab.c
+index b1e40da..dc98386 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -1293,7 +1293,7 @@ static int __cpuinit cpuup_callback(struct notifier_block *nfb,
+ 		 * anything expensive but will only modify reap_work
+ 		 * and reschedule the timer.
+ 		*/
+-		cancel_rearming_delayed_work(&per_cpu(slab_reap_work, cpu));
++		cancel_delayed_work_sync(&per_cpu(slab_reap_work, cpu));
+ 		/* Now the cache_reaper is guaranteed to be not running. */
+ 		per_cpu(slab_reap_work, cpu).work.func = NULL;
+   		break;
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+index 8f62f17..33c33e7 100644
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -1033,7 +1033,7 @@ static int __cpuinit vmstat_cpuup_callback(struct notifier_block *nfb,
+ 		break;
+ 	case CPU_DOWN_PREPARE:
+ 	case CPU_DOWN_PREPARE_FROZEN:
+-		cancel_rearming_delayed_work(&per_cpu(vmstat_work, cpu));
++		cancel_delayed_work_sync(&per_cpu(vmstat_work, cpu));
+ 		per_cpu(vmstat_work, cpu).work.func = NULL;
+ 		break;
+ 	case CPU_DOWN_FAILED:
+diff --git a/net/atm/lec.c b/net/atm/lec.c
+index 181d70c..96a4a4b 100644
+--- a/net/atm/lec.c
++++ b/net/atm/lec.c
+@@ -1608,7 +1608,7 @@ static void lec_arp_destroy(struct lec_priv *priv)
+ 	struct lec_arp_table *entry;
+ 	int i;
+
+-	cancel_rearming_delayed_work(&priv->lec_arp_work);
++	cancel_delayed_work_sync(&priv->lec_arp_work);
+
+ 	/*
+ 	 * Remove all entries
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 4e98ffa..d291094 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -925,7 +925,7 @@ void __netpoll_cleanup(struct netpoll *np)
+
+ 		skb_queue_purge(&npinfo->arp_tx);
+ 		skb_queue_purge(&npinfo->txq);
+-		cancel_rearming_delayed_work(&npinfo->tx_work);
++		cancel_delayed_work_sync(&npinfo->tx_work);
+
+ 		/* clean after last, unfinished work */
+ 		__skb_queue_purge(&npinfo->txq);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 5f5daa3..96334e0 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3432,7 +3432,7 @@ void ip_vs_control_cleanup(void)
+ {
+ 	EnterFunction(2);
+ 	ip_vs_trash_cleanup();
+-	cancel_rearming_delayed_work(&defense_work);
++	cancel_delayed_work_sync(&defense_work);
+ 	cancel_work_sync(&defense_work.work);
+ 	ip_vs_kill_estimator(&ip_vs_stats);
+ 	unregister_sysctl_table(sysctl_header);
+diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
+index dfcab5a..96549df 100644
+--- a/net/sunrpc/xprtsock.c
++++ b/net/sunrpc/xprtsock.c
+@@ -770,7 +770,7 @@ static void xs_destroy(struct rpc_xprt *xprt)
+
+ 	dprintk("RPC:       xs_destroy xprt %p\n", xprt);
+
+-	cancel_rearming_delayed_work(&transport->connect_worker);
++	cancel_delayed_work_sync(&transport->connect_worker);
+
+ 	xs_close(xprt);
+ 	xs_free_peer_addresses(xprt);
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
