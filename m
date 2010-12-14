@@ -1,7 +1,7 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH 12/12] cxgb4: NUMA-aware Tx queue allocations
-Date: Tue, 14 Dec 2010 12:18:16 -0800
-Message-ID: <1292357896-14339-13-git-send-email-dm@chelsio.com>
+Subject: [PATCH 11/12] cxgb4: extend VPD parsing
+Date: Tue, 14 Dec 2010 12:18:15 -0800
+Message-ID: <1292357896-14339-12-git-send-email-dm@chelsio.com>
 References: <1292357896-14339-1-git-send-email-dm@chelsio.com>
  <1292357896-14339-2-git-send-email-dm@chelsio.com>
  <1292357896-14339-3-git-send-email-dm@chelsio.com>
@@ -13,114 +13,110 @@ References: <1292357896-14339-1-git-send-email-dm@chelsio.com>
  <1292357896-14339-9-git-send-email-dm@chelsio.com>
  <1292357896-14339-10-git-send-email-dm@chelsio.com>
  <1292357896-14339-11-git-send-email-dm@chelsio.com>
- <1292357896-14339-12-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:21505 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:26107 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759914Ab0LNU0j (ORCPT
+	with ESMTP id S1759927Ab0LNU0j (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 15:26:39 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBEKQcRQ031245
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBEKQcRO031245
 	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:26:38 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBEKIIsj014481
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBEKIIPC014477
 	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:18:18 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBEKIIpC014480
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBEKIINu014476
 	for netdev@vger.kernel.org; Tue, 14 Dec 2010 12:18:18 -0800
-In-Reply-To: <1292357896-14339-12-git-send-email-dm@chelsio.com>
+In-Reply-To: <1292357896-14339-11-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate Tx queue memory on the node indicated by the new
-netdev_queue_numa_node_read.  If that fails we allocate on any node.
+Current code parses the VPD RO section for keywords but makes static
+assumptions about the location of the section.  Remove them and parse
+the VPD to find it.
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/sge.c |   20 +++++++++++++-------
- 1 files changed, 13 insertions(+), 7 deletions(-)
+ drivers/net/cxgb4/t4_hw.c |   41 +++++++++++++++++++++--------------------
+ 1 files changed, 21 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
-index cc0b997..ed98b8a 100644
---- a/drivers/net/cxgb4/sge.c
-+++ b/drivers/net/cxgb4/sge.c
-@@ -579,6 +579,7 @@ static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
-  *	@phys: the physical address of the allocated ring
-  *	@metadata: address of the array holding the SW state for the ring
-  *	@stat_size: extra space in HW ring for status information
-+ *	@node: preferred node for memory allocations
-  *
-  *	Allocates resources for an SGE descriptor ring, such as Tx queues,
-  *	free buffer lists, or response queues.  Each SGE ring requires
-@@ -590,7 +591,7 @@ static inline void __refill_fl(struct adapter *adap, struct sge_fl *fl)
-  */
- static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
- 			size_t sw_size, dma_addr_t *phys, void *metadata,
--			size_t stat_size)
-+			size_t stat_size, int node)
- {
- 	size_t len = nelem * elem_size + stat_size;
- 	void *s = NULL;
-@@ -599,7 +600,10 @@ static void *alloc_ring(struct device *dev, size_t nelem, size_t elem_size,
- 	if (!p)
- 		return NULL;
- 	if (sw_size) {
--		s = kcalloc(nelem, sw_size, GFP_KERNEL);
-+		if (node >= 0)
-+			s = kzalloc_node(nelem * sw_size, GFP_KERNEL, node);
-+		if (!s)
-+			s = kcalloc(nelem, sw_size, GFP_KERNEL);
+diff --git a/drivers/net/cxgb4/t4_hw.c b/drivers/net/cxgb4/t4_hw.c
+index c7fb549..b9fd8a6 100644
+--- a/drivers/net/cxgb4/t4_hw.c
++++ b/drivers/net/cxgb4/t4_hw.c
+@@ -330,18 +330,6 @@ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+ 	return 0;
+ }
  
- 		if (!s) {
- 			dma_free_coherent(dev, len, p, *phys);
-@@ -1982,7 +1986,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 	iq->size = roundup(iq->size, 16);
+-/*
+- * Partial EEPROM Vital Product Data structure.  Includes only the ID and
+- * VPD-R header.
+- */
+-struct t4_vpd_hdr {
+-	u8  id_tag;
+-	u8  id_len[2];
+-	u8  id_data[ID_LEN];
+-	u8  vpdr_tag;
+-	u8  vpdr_len[2];
+-};
+-
+ #define EEPROM_STAT_ADDR   0x7bfc
+ #define VPD_BASE           0
+ #define VPD_LEN            512
+@@ -372,23 +360,36 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	int i, ret;
+ 	int ec, sn;
+ 	u8 vpd[VPD_LEN], csum;
+-	unsigned int vpdr_len;
+-	const struct t4_vpd_hdr *v;
++	unsigned int vpdr_len, kw_offset, id_len;
  
- 	iq->desc = alloc_ring(adap->pdev_dev, iq->size, iq->iqe_len, 0,
--			      &iq->phys_addr, NULL, 0);
-+			      &iq->phys_addr, NULL, 0, NUMA_NO_NODE);
- 	if (!iq->desc)
- 		return -ENOMEM;
+ 	ret = pci_read_vpd(adapter->pdev, VPD_BASE, sizeof(vpd), vpd);
+ 	if (ret < 0)
+ 		return ret;
  
-@@ -2008,7 +2012,7 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
- 		fl->size = roundup(fl->size, 8);
- 		fl->desc = alloc_ring(adap->pdev_dev, fl->size, sizeof(__be64),
- 				      sizeof(struct rx_sw_desc), &fl->addr,
--				      &fl->sdesc, STAT_LEN);
-+				      &fl->sdesc, STAT_LEN, NUMA_NO_NODE);
- 		if (!fl->desc)
- 			goto fl_nomem;
+-	v = (const struct t4_vpd_hdr *)vpd;
+-	vpdr_len = pci_vpd_lrdt_size(&v->vpdr_tag);
+-	if (vpdr_len + sizeof(struct t4_vpd_hdr) > VPD_LEN) {
++	if (vpd[0] != PCI_VPD_LRDT_ID_STRING) {
++		dev_err(adapter->pdev_dev, "missing VPD ID string\n");
++		return -EINVAL;
++	}
++
++	id_len = pci_vpd_lrdt_size(vpd);
++	if (id_len > ID_LEN)
++		id_len = ID_LEN;
++
++	i = pci_vpd_find_tag(vpd, 0, VPD_LEN, PCI_VPD_LRDT_RO_DATA);
++	if (i < 0) {
++		dev_err(adapter->pdev_dev, "missing VPD-R section\n");
++		return -EINVAL;
++	}
++
++	vpdr_len = pci_vpd_lrdt_size(&vpd[i]);
++	kw_offset = i + PCI_VPD_LRDT_TAG_SIZE;
++	if (vpdr_len + kw_offset > VPD_LEN) {
+ 		dev_err(adapter->pdev_dev, "bad VPD-R length %u\n", vpdr_len);
+ 		return -EINVAL;
+ 	}
  
-@@ -2095,7 +2099,8 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ #define FIND_VPD_KW(var, name) do { \
+-	var = pci_vpd_find_info_keyword(&v->id_tag, sizeof(struct t4_vpd_hdr), \
+-					vpdr_len, name); \
++	var = pci_vpd_find_info_keyword(vpd, kw_offset, vpdr_len, name); \
+ 	if (var < 0) { \
+ 		dev_err(adapter->pdev_dev, "missing VPD keyword " name "\n"); \
+ 		return -EINVAL; \
+@@ -410,7 +411,7 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+ 	FIND_VPD_KW(sn, "SN");
+ #undef FIND_VPD_KW
  
- 	txq->q.desc = alloc_ring(adap->pdev_dev, txq->q.size,
- 			sizeof(struct tx_desc), sizeof(struct tx_sw_desc),
--			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
-+			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN,
-+			netdev_queue_numa_node_read(netdevq));
- 	if (!txq->q.desc)
- 		return -ENOMEM;
- 
-@@ -2147,7 +2152,7 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
- 
- 	txq->q.desc = alloc_ring(adap->pdev_dev, nentries,
- 				 sizeof(struct tx_desc), 0, &txq->q.phys_addr,
--				 NULL, 0);
-+				 NULL, 0, NUMA_NO_NODE);
- 	if (!txq->q.desc)
- 		return -ENOMEM;
- 
-@@ -2198,7 +2203,8 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
- 
- 	txq->q.desc = alloc_ring(adap->pdev_dev, txq->q.size,
- 			sizeof(struct tx_desc), sizeof(struct tx_sw_desc),
--			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN);
-+			&txq->q.phys_addr, &txq->q.sdesc, STAT_LEN,
-+			NUMA_NO_NODE);
- 	if (!txq->q.desc)
- 		return -ENOMEM;
- 
+-	memcpy(p->id, v->id_data, ID_LEN);
++	memcpy(p->id, vpd + PCI_VPD_LRDT_TAG_SIZE, id_len);
+ 	strim(p->id);
+ 	memcpy(p->ec, vpd + ec, EC_LEN);
+ 	strim(p->ec);
 -- 
 1.5.4
 
