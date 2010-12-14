@@ -1,65 +1,67 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
-Date: Tue, 14 Dec 2010 13:46:39 -0800
-Message-ID: <AANLkTiktJXEyofbaoOvSJEtqk5bL5VbzP7fbbFHZkru+@mail.gmail.com>
-References: <1291536233.2806.102.camel@edumazet-laptop>
-	<20101205105528.49fa9a9f@xenia.leun.net>
-	<20101205114404.7c0cddc2@xenia.leun.net>
-	<AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
-	<20101206203437.54b550e0@xenia.leun.net>
-	<AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
-	<20101206222703.32fbe852@xenia.leun.net>
-	<AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
-	<20101213224510.GB17400@mcarlson.broadcom.com>
-	<AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	<20101214191500.GD19951@mcarlson.broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ixgb: Convert to new vlan model.
+Date: Tue, 14 Dec 2010 21:47:11 +0000
+Message-ID: <1292363231.20458.25.camel@bwh-desktop>
+References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
+	 <1292344315.20458.6.camel@bwh-desktop>
+	 <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
+	 <1292350359.20458.8.camel@bwh-desktop>
+	 <EA929A9653AAE14F841771FB1DE5A136602D6751C1@rrsmsx501.amr.corp.intel.com>
+	 <1292354121.20458.11.camel@bwh-desktop>
+	 <AANLkTimnSedKQhhL8xXQVKnEm3FpbfRQ_Nd9hPmGbHLJ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Tantilov, Emil S" <emil.s.tantilov@intel.com>,
 	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101214191500.GD19951@mcarlson.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:29547 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757556Ab0LNVrP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 16:47:15 -0500
+In-Reply-To: <AANLkTimnSedKQhhL8xXQVKnEm3FpbfRQ_Nd9hPmGbHLJ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 14, 2010 at 11:15 AM, Matt Carlson <mcarlson@broadcom.com> =
-wrote:
-> @@ -9538,17 +9505,8 @@ static void __tg3_set_rx_mode(struct net_devic=
-e *dev)
-> =A0 =A0 =A0 =A0/* When ASF is in use, we always keep the RX_MODE_KEEP=
-_VLAN_TAG
-> =A0 =A0 =A0 =A0 * flag clear.
-> =A0 =A0 =A0 =A0 */
-> -#if TG3_VLAN_TAG_USED
-> - =A0 =A0 =A0 if (!tp->vlgrp &&
-> - =A0 =A0 =A0 =A0 =A0 !(tp->tg3_flags & TG3_FLAG_ENABLE_ASF))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 rx_mode |=3D RX_MODE_KEEP_VLAN_TAG;
-> -#else
-> - =A0 =A0 =A0 /* By definition, VLAN is disabled always in this
-> - =A0 =A0 =A0 =A0* case.
-> - =A0 =A0 =A0 =A0*/
-> =A0 =A0 =A0 =A0if (!(tp->tg3_flags & TG3_FLAG_ENABLE_ASF))
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0rx_mode |=3D RX_MODE_KEEP_VLAN_TAG;
-> -#endif
+On Tue, 2010-12-14 at 13:29 -0800, Jesse Gross wrote:
+> On Tue, Dec 14, 2010 at 11:15 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > On Tue, 2010-12-14 at 12:08 -0700, Tantilov, Emil S wrote:
+> >> Ben Hutchings wrote:
+> >> > On Tue, 2010-12-14 at 11:09 -0700, Tantilov, Emil S wrote:
+> >> >> Ben Hutchings wrote:
+> >> >>> On Mon, 2010-12-13 at 19:42 -0800, Jesse Gross wrote:
+[...]
+> >> >>> I think this should reject attempts to change just one flag with
+> >> >>> -EINVAL, rather than quietly 'fixing' the setting.
+[...]
+> Ben, I agree that limiting the settings to what is actually supported
+> is conceptually cleaner but in practice it's not very intuitive.  If
+> you try to turn something off and the response is that it's invalid,
+> most people are going to assume that you just can't do it.  This is
+> especially true since you actually can't turn these settings off in
+> most drivers.
+> 
+> There's a precedent for this type of thing: turn off TX checksum
+> offloading and watch scatter/gather and TSO be automatically disabled
+> as well.  It makes sense - the user requested a change, we do what is
+> necessary to make that happen without requiring them to understand why
+> these features are interrelated.
 
-Just one comment:
+That reflects a general dependency and not a driver- or hardware-
+specific restriction.  But I see your point.
 
-I don't think this does quite the right thing: it will always disable
-vlan stripping unless ASF is in use.  However, it's now OK to always
-use vlan stripping, so we might as well take advantage of it.  Since
-without the set_flags Ethtool op there is no way to change this
-setting, we should be able to just drop this code block completely
-(and the check for  RX_MODE_KEEP_VLAN_TAG on receive).
+Perhaps the ethtool utility should check the result after applying
+offload changes and report any additional automatic changes.
 
-In addition, this should also remove any differences between ASF
-enabled/disabled firmware (at least with respect to vlans) since it
-will no longer be a factor.
+Ben.
 
-Thanks.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
