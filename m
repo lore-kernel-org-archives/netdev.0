@@ -1,84 +1,73 @@
-From: "Kirill A. Shutemov" <kirill@shutemov.name>
-Subject: Re: [PATCH] netlink: fix gcc -Wconversion compilation warning
-Date: Tue, 14 Dec 2010 13:27:59 +0200
-Message-ID: <20101214112759.GA13807@shutemov.name>
-References: <1292259913-9911-1-git-send-email-kirill@shutemov.name>
- <m1sjy1uzj6.fsf@fess.ebiederm.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [GIT PULL net-next-2.6] vhost-net: tools, cleanups, optimizations
+Date: Tue, 14 Dec 2010 14:23:26 +0200
+Message-ID: <20101214122326.GA19950@redhat.com>
+References: <20101213104413.GA678@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	"Dmitry V. Levin" <ldv@altlinux.org>, linux-kernel@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36963 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757136Ab0LNMXw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Dec 2010 07:23:52 -0500
 Content-Disposition: inline
-In-Reply-To: <m1sjy1uzj6.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20101213104413.GA678@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 13, 2010 at 01:35:25PM -0800, Eric W. Biederman wrote:
-> "Kirill A. Shutsemov" <kirill@shutemov.name> writes:
+On Mon, Dec 13, 2010 at 12:44:13PM +0200, Michael S. Tsirkin wrote:
+> Please merge the following tree for 2.6.38.
+> Thanks!
+
+Rusty Acked it as is, so please pull the below.
+Thanks very much!
+
+> The following changes since commit ad1184c6cf067a13e8cb2a4e7ccc407f947027d0:
 > 
-> > From: Dmitry V. Levin <ldv@altlinux.org>
-> >
-> > $ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
-> > unsigned f(void) {return NLMSG_HDRLEN;}
-> > EOF
-> > <stdin>: In function 'f':
-> > <stdin>:3:26: warning: negative integer implicitly converted to unsigned type
-> >
-> This doesn't look like a bad fix, but I believe things will fail if
-> we give NLMSG_ALIGN an unsigned long like size_t.  Say like sizeof.
+>   net: au1000_eth: remove unused global variable. (2010-12-11 12:01:48 -0800)
 > 
-> Admittedly it has to be a huge size but still if we are going
-> to go fixing things...
+> are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
 > 
-> And then there is the silliness that NLMSG_HDRLEN forces itself
-> to be an int, when it start out as a size_t.
+> Jason Wang (1):
+>       vhost: fix typos in comment
 > 
-> So I think NLMSG_ALIGN either needs to operation exclusively
-> on unsigned longs aka size_t, or it needs to be type preserving.
+> Julia Lawall (1):
+>       drivers/vhost/vhost.c: delete double assignment
 > 
-> Do you have time to look at this a bit more?
-
-Something like this? Untested.
----
->From 8b86073dc9697c0eff93c003d6331c1e4aeda60e Mon Sep 17 00:00:00 2001
-From: Kirill A. Shutemov <kirill@shutemov.name>
-Date: Tue, 14 Dec 2010 12:50:39 +0200
-Subject: [PATCH] netlink: fix gcc -Wconversion compilation warning
-
-$ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
-unsigned f(void) {return NLMSG_HDRLEN;}
-EOF
-<stdin>: In function 'f':
-<stdin>:3:26: warning: negative integer implicitly converted to unsigned type
-
-Define NLMSG_ALIGNTO as size_t, NLMSG_ALIGN always returns size_t and
-drop non-sense casting in NLMSG_HDRLEN. Now NLMSG_HDRLEN returns size_t.
-
-Signed-off-by: Dmitry V. Levin <ldv@altlinux.org>
-Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
----
- include/linux/netlink.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index 1235669..db7d373 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -70,9 +70,9 @@ struct nlmsghdr {
-    Check		NLM_F_EXCL
-  */
- 
--#define NLMSG_ALIGNTO	4
--#define NLMSG_ALIGN(len) ( ((len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
--#define NLMSG_HDRLEN	 ((int) NLMSG_ALIGN(sizeof(struct nlmsghdr)))
-+#define NLMSG_ALIGNTO	((size_t) 4)
-+#define NLMSG_ALIGN(len) ( ((size_t)(len)+NLMSG_ALIGNTO-1) & ~(NLMSG_ALIGNTO-1) )
-+#define NLMSG_HDRLEN	 NLMSG_ALIGN(sizeof(struct nlmsghdr))
- #define NLMSG_LENGTH(len) ((len)+NLMSG_ALIGN(NLMSG_HDRLEN))
- #define NLMSG_SPACE(len) NLMSG_ALIGN(NLMSG_LENGTH(len))
- #define NLMSG_DATA(nlh)  ((void*)(((char*)nlh) + NLMSG_LENGTH(0)))
--- 
- Kirill A. Shutemov
+> Michael S. Tsirkin (9):
+>       vhost: put mm after thread stop
+>       vhost-net: batch use/unuse mm
+>       vhost: copy_to_user -> __copy_to_user
+>       vhost: get/put_user -> __get/__put_user
+>       vhost: remove unused include
+>       vhost: correctly set bits of dirty pages
+>       vhost: better variable name in logging
+>       vhost test module
+>       tools/virtio: virtio_test tool
+> 
+>  drivers/vhost/net.c                  |    9 +-
+>  drivers/vhost/test.c                 |  320 ++++++++++++++++++++++++++++++++++
+>  drivers/vhost/test.h                 |    7 +
+>  drivers/vhost/vhost.c                |   44 +++---
+>  drivers/vhost/vhost.h                |    2 +-
+>  tools/virtio/Makefile                |   12 ++
+>  tools/virtio/linux/device.h          |    2 +
+>  tools/virtio/linux/slab.h            |    2 +
+>  tools/virtio/linux/virtio.h          |  223 +++++++++++++++++++++++
+>  tools/virtio/vhost_test/Makefile     |    2 +
+>  tools/virtio/vhost_test/vhost_test.c |    1 +
+>  tools/virtio/virtio_test.c           |  248 ++++++++++++++++++++++++++
+>  12 files changed, 842 insertions(+), 30 deletions(-)
+>  create mode 100644 drivers/vhost/test.c
+>  create mode 100644 drivers/vhost/test.h
+>  create mode 100644 tools/virtio/Makefile
+>  create mode 100644 tools/virtio/linux/device.h
+>  create mode 100644 tools/virtio/linux/slab.h
+>  create mode 100644 tools/virtio/linux/virtio.h
+>  create mode 100644 tools/virtio/vhost_test/Makefile
+>  create mode 100644 tools/virtio/vhost_test/vhost_test.c
+>  create mode 100644 tools/virtio/virtio_test.c
