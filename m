@@ -1,45 +1,64 @@
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ehea: Fixing LRO configuration
-Date: Tue, 14 Dec 2010 11:01:35 -0200
-Message-ID: <4D076AAF.5040505@linux.vnet.ibm.com>
-References: <1291833062-27446-1-git-send-email-leitao@linux.vnet.ibm.com> <AANLkTimvL2TdD9eYQMLZW65ESKbame818ObzjPYoBhPL@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, davem@davemloft.net, netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH] net: use NUMA_NO_NODE instead of the magic number -1
+Date: Tue, 14 Dec 2010 21:09:15 +0800
+Message-ID: <1292332155-25151-1-git-send-email-xiaosuo@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:40651 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759168Ab0LNNBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 08:01:43 -0500
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp02.br.ibm.com (8.14.4/8.13.1) with ESMTP id oBEDIsQU026812
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:18:54 -0200
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBED8mDv651398
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:08:51 -0200
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBED1NTR005586
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:01:24 -0200
-In-Reply-To: <AANLkTimvL2TdD9eYQMLZW65ESKbame818ObzjPYoBhPL@mail.gmail.com>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:57761 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755305Ab0LNNJl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 08:09:41 -0500
+Received: by pva4 with SMTP id 4so94359pva.19
+        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 05:09:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jesse,
-
-On 12/12/2010 10:39 PM, Jesse Gross wrote:
-> I don't think that this should enable those vlan offloading flags.
-I just inserted ETH_FLAG_TXVLAN and ETH_FLAG_RXVLAN there because when I 
-call ethtool -K ethX lro on/off, it sends the ETH_FLAG_LRO plus the vlan 
-flags if they are enabled (and they are by default).
-
-So, if it doesn't make sense to be toggled, I can mask these flags at 
-ehea_set_flags(). so that it doesn't arrive at ethtool_op_set_flags().
-
-Does it sound better to you ?
-
-Thanks
-Breno
-
-
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+ include/linux/netdevice.h |    2 +-
+ net/core/dev.c            |    2 +-
+ net/core/net-sysfs.c      |    3 ++-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d31bc3c..56c38bb 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -530,7 +530,7 @@ static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
+ #if defined(CONFIG_XPS) && defined(CONFIG_NUMA)
+ 	return q->numa_node;
+ #else
+-	return -1;
++	return NUMA_NO_NODE;
+ #endif
+ }
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d28b3a0..004024c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5116,7 +5116,7 @@ static void netdev_init_one_queue(struct net_device *dev,
+ 	spin_lock_init(&queue->_xmit_lock);
+ 	netdev_set_xmit_lockdep_class(&queue->_xmit_lock, dev->type);
+ 	queue->xmit_lock_owner = -1;
+-	netdev_queue_numa_node_write(queue, -1);
++	netdev_queue_numa_node_write(queue, NUMA_NO_NODE);
+ 	queue->dev = dev;
+ }
+ 
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 85e8b53..e23c01b 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -1009,7 +1009,8 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
+ 	if (dev_maps)
+ 		call_rcu(&dev_maps->rcu, xps_dev_maps_release);
+ 
+-	netdev_queue_numa_node_write(queue, (numa_node >= 0) ? numa_node : -1);
++	netdev_queue_numa_node_write(queue, (numa_node >= 0) ? numa_node :
++					    NUMA_NO_NODE);
+ 
+ 	mutex_unlock(&xps_map_mutex);
+ 
