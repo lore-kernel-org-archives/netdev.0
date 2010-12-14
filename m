@@ -1,90 +1,55 @@
 From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH 10/27] ixgb: Don't check for vlan group on transmit
-Date: Tue, 14 Dec 2010 11:00:42 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136602D675011@rrsmsx501.amr.corp.intel.com>
-References: <1292048241-22026-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1292048241-22026-11-git-send-email-jeffrey.t.kirsher@intel.com>
-	<AANLkTi=mi7pSRXrOyiFx75Feuo29tpw9bJbvHf0BrC_s@mail.gmail.com>
-	<EA929A9653AAE14F841771FB1DE5A136602D607104@rrsmsx501.amr.corp.intel.com>
- <AANLkTi=9+F-dxeZrvnTUXHjFniQdtxzHyCcdvMpn-ygf@mail.gmail.com>
+Subject: RE: [PATCH] ixgb: Convert to new vlan model.
+Date: Tue, 14 Dec 2010 11:09:12 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
+References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
+ <1292344315.20458.6.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"bphilips@novell.com" <bphilips@novell.com>
-To: Jesse Gross <jesse@nicira.com>
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:45777 "EHLO mga14.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62265 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754953Ab0LNSAn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 13:00:43 -0500
-In-Reply-To: <AANLkTi=9+F-dxeZrvnTUXHjFniQdtxzHyCcdvMpn-ygf@mail.gmail.com>
+	id S1757842Ab0LNSJ1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Dec 2010 13:09:27 -0500
+In-Reply-To: <1292344315.20458.6.camel@bwh-desktop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesse Gross wrote:
-> On Mon, Dec 13, 2010 at 10:43 AM, Tantilov, Emil S
-> <emil.s.tantilov@intel.com> wrote:
->>> -----Original Message-----
->>> From: Jesse Gross [mailto:jesse@nicira.com]
->>> Sent: Sunday, December 12, 2010 5:01 PM
->>> To: Kirsher, Jeffrey T
->>> Cc: davem@davemloft.net; Tantilov, Emil S; netdev@vger.kernel.org;
->>> gospo@redhat.com; bphilips@novell.com
->>> Subject: Re: [PATCH 10/27] ixgb: Don't check for vlan group on
->>> transmit=20
->>>=20
->>> On Fri, Dec 10, 2010 at 10:17 PM, Jeff Kirsher
->>> <jeffrey.t.kirsher@intel.com> wrote:
->>>> From: Emil Tantilov <emil.s.tantilov@intel.com>
->>>>=20
->>>> Based on a patch from Jesse Gross.
->>>>=20
->>>> Enable vlan tag insertion even when vlan group is not configured.
->>>>=20
->>>> For ixgb HW both CTRL0.VME and VLE bit in the Tx descriptor need
->>>> to be set in order to enable HW acceleration.
->>>>=20
->>>> Introduced separate functions for enabling/disabling of vlan tag
->>>> stripping similar to ixgbe.
->>>=20
->>> Thanks for working on this. =A0However, I don't think that this pat=
-ch
->>> actually does what it says.=20
->>>=20
->>> In ixgb_xmit_frame() it's still checking whether adapter->vlgrp is
->>> non-null before inserting a tag, so it will drop tags unless a vlan
->>> group is configured. =A0Also, since it's not currently possible to
->>> toggle NETIF_F_HW_VLAN_RX, vlan stripping will never get disabled.
->>> This is actually a regression since before vlan stripping would get
->>> disabled if no vlan group was configured. =A0Now, vlan headers will
->>> get silently dropped if there is no vlan group.
->> I'm sorry. This patch was supposed to include your original patch
->> that=20
->> removed the vlgrp check on Tx. Somehow that didn't make it (I may
->> have generated the patch from the wrong branch).=20
->>=20
->>> Regardless of that, I still think this is a useful change on the
->>> road towards adopting the new vlan interfaces, the problem is just
->>> that currently it's halfway in between the old and the new. =A0Give=
-n
->>> that, it would obviously be much better to move all the way over
->>> the new when addressing this.
->> Since this patch is already applied can you submit your change again=
-?
->=20
-> Sure.  I think it's probably best to just complete the conversion to
-> the new vlan interfaces, so I went ahead and did that.  It's much
-> easier now that you've pulled the hardware specific bits out for
-> enabling/disabling vlan offloading.  I'll send out that patch shortly
-> - please take a look since I don't have the hardware to test it.
-
-Thanks Jesse!
-
-I'll ask Jeff to pick the patch in his tree and we'll run some tests.
-
-Emil
+QmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gT24gTW9uLCAyMDEwLTEyLTEzIGF0IDE5OjQyIC0wODAw
+LCBKZXNzZSBHcm9zcyB3cm90ZToNCj4+IFRoaXMgc3dpdGNoZXMgdGhlIGl4Z2IgZHJpdmVyIHRv
+IHVzZSB0aGUgbmV3IHZsYW4gaW50ZXJmYWNlcy4NCj4+IEluIGRvaW5nIHRoaXMsIGl0IGNvbXBs
+ZXRlcyB0aGUgd29yayBiZWd1biBpbg0KPj4gYWU1NDQ5NmY5ZThkNDBjODllNTY2ODIwNWMxODFk
+Y2NmYTllY2RhMSBhbGxvd2luZyB0aGUgdXNlIG9mDQo+PiBoYXJkd2FyZSB2bGFuIGluc2VydGlv
+biB3aXRob3V0IGhhdmluZyBhIHZsYW4gZ3JvdXAgY29uZmlndXJlZC4gWy4uLl0NCj4+IGRpZmYg
+LS1naXQgYS9kcml2ZXJzL25ldC9peGdiL2l4Z2JfZXRodG9vbC5jDQo+PiBiL2RyaXZlcnMvbmV0
+L2l4Z2IvaXhnYl9ldGh0b29sLmMgDQo+PiBpbmRleCA0Mzk5NGMxLi4wZTRjNTI3IDEwMDY0NA0K
+Pj4gLS0tIGEvZHJpdmVycy9uZXQvaXhnYi9peGdiX2V0aHRvb2wuYw0KPj4gKysrIGIvZHJpdmVy
+cy9uZXQvaXhnYi9peGdiX2V0aHRvb2wuYw0KPj4gQEAgLTcwNiw2ICs3MDYsNDUgQEAgaXhnYl9n
+ZXRfc3RyaW5ncyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCB1MzINCj4+ICBzdHJpbmdzZXQs
+IHU4ICpkYXRhKSAgCX0gfQ0KPj4gDQo+PiArc3RhdGljIGludCBpeGdiX3NldF9mbGFncyhzdHJ1
+Y3QgbmV0X2RldmljZSAqbmV0ZGV2LCB1MzIgZGF0YSkgK3sNCj4+ICsJc3RydWN0IGl4Z2JfYWRh
+cHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7ICsJYm9vbA0KPj4gbmVlZF9yZXNl
+dDsgKwlpbnQgcmM7DQo+PiArDQo+PiArCS8qIFRoZSBoYXJkd2FyZSByZXF1aXJlcyB0aGF0IFJY
+IHZsYW4gc3RyaXBwaW5nIGFuZCBUWCB2bGFuDQo+PiBpbnNlcnRpb24gKwkgKiBiZSBjb25maWd1
+cmVkIHRvZ2V0aGVyLiAgVGhlcmVmb3JlLCBpZiBvbmUgc2V0dGluZw0KPj4gY2hhbmdlcyBhZGp1
+c3QgdGhlICsJICogb3RoZXIgb25lIHRvIG1hdGNoLiArCSAqLw0KPj4gKwlpZiAoISEoZGF0YSAm
+IEVUSF9GTEFHX1JYVkxBTikgIT0gISEoZGF0YSAmIEVUSF9GTEFHX1RYVkxBTikpIHsNCj4+ICsJ
+CWlmICgoZGF0YSAmIEVUSF9GTEFHX1JYVkxBTikgIT0NCj4+ICsJCSAgICAobmV0ZGV2LT5mZWF0
+dXJlcyAmIE5FVElGX0ZfSFdfVkxBTl9SWCkpDQo+PiArCQkJZGF0YSBePSBFVEhfRkxBR19UWFZM
+QU47DQo+PiArCQllbHNlIGlmICgoZGF0YSAmIEVUSF9GTEFHX1RYVkxBTikgIT0NCj4+ICsJCSAg
+ICAobmV0ZGV2LT5mZWF0dXJlcyAmIE5FVElGX0ZfSFdfVkxBTl9UWCkpDQo+PiArCQkJZGF0YSBe
+PSBFVEhfRkxBR19SWFZMQU47DQo+PiArCX0NCj4gWy4uLl0NCj4gDQo+IEkgdGhpbmsgdGhpcyBz
+aG91bGQgcmVqZWN0IGF0dGVtcHRzIHRvIGNoYW5nZSBqdXN0IG9uZSBmbGFnIHdpdGgNCj4gLUVJ
+TlZBTCwgcmF0aGVyIHRoYW4gcXVpZXRseSAnZml4aW5nJyB0aGUgc2V0dGluZy4NCj4gDQo+IEJl
+bi4NCg0KSSdtIG5vdCBzdXJlIHRoaXMgaXMgYSBnb29kIGlkZWEuIEF0IGxlYXN0IG5vdCB3aXRo
+b3V0IHNvbWUgc29ydCBvZiANCmV4cGxhbmF0aW9uLiBTaW5jZSB0aGVyZSBpcyBubyB3YXkgZm9y
+IHRoZSB1c2VyIHRvIGtub3cgdGhhdCBoZSBuZWVkcw0KdG8gZGlzYWJsZSBib3RoLg0KDQpUaGFu
+a3MsDQpFbWlsDQo=
