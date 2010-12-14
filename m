@@ -1,60 +1,104 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH 02/12] cxgb4: do not read the clock frequency from VPD
-Date: Tue, 14 Dec 2010 12:18:06 -0800
-Message-ID: <1292357896-14339-3-git-send-email-dm@chelsio.com>
+Subject: [PATCH 01/12] cxgb4: enable PCIe relaxed ordering
+Date: Tue, 14 Dec 2010 12:18:05 -0800
+Message-ID: <1292357896-14339-2-git-send-email-dm@chelsio.com>
 References: <1292357896-14339-1-git-send-email-dm@chelsio.com>
- <1292357896-14339-2-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:13625 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:5655 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759920Ab0LNU0j (ORCPT
+	with ESMTP id S1759913Ab0LNU0j (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 15:26:39 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBEKQcR8031245
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBEKQcR4031245
 	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:26:38 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBEKIGvW014439
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBEKIG7v014435
 	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 12:18:16 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBEKIGQL014438
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBEKIGkM014434
 	for netdev@vger.kernel.org; Tue, 14 Dec 2010 12:18:16 -0800
-In-Reply-To: <1292357896-14339-2-git-send-email-dm@chelsio.com>
+In-Reply-To: <1292357896-14339-1-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to read the clock frequency from VPD, we already get it a bit
-later from FW, after any potential adjustments.
+Enable relaxed ordering for descriptor reads and packet I/O.
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/t4_hw.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/net/cxgb4/cxgb4_main.c |   14 ++++++++++++++
+ drivers/net/cxgb4/sge.c        |    5 +++++
+ 2 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/cxgb4/t4_hw.c b/drivers/net/cxgb4/t4_hw.c
-index bb813d9..539c49a 100644
---- a/drivers/net/cxgb4/t4_hw.c
-+++ b/drivers/net/cxgb4/t4_hw.c
-@@ -370,7 +370,7 @@ int t4_seeprom_wp(struct adapter *adapter, bool enable)
- static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
- {
- 	int i, ret;
--	int ec, sn, v2;
-+	int ec, sn;
- 	u8 vpd[VPD_LEN], csum;
- 	unsigned int vpdr_len;
- 	const struct t4_vpd_hdr *v;
-@@ -408,10 +408,8 @@ static int get_vpd_params(struct adapter *adapter, struct vpd_params *p)
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 848f89d..953d62a 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -3535,6 +3535,19 @@ static void __devinit print_port_info(struct adapter *adap)
+ 	}
+ }
  
- 	FIND_VPD_KW(ec, "EC");
- 	FIND_VPD_KW(sn, "SN");
--	FIND_VPD_KW(v2, "V2");
- #undef FIND_VPD_KW
++static void __devinit enable_pcie_relaxed_ordering(struct pci_dev *dev)
++{
++	u16 v;
++	int pos;
++
++	pos = pci_pcie_cap(dev);
++	if (pos > 0) {
++		pci_read_config_word(dev, pos + PCI_EXP_DEVCTL, &v);
++		v |= PCI_EXP_DEVCTL_RELAX_EN;
++		pci_write_config_word(dev, pos + PCI_EXP_DEVCTL, v);
++	}
++}
++
+ /*
+  * Free the following resources:
+  * - memory used for tables
+@@ -3609,6 +3622,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 	}
  
--	p->cclk = simple_strtoul(vpd + v2, NULL, 10);
- 	memcpy(p->id, v->id_data, ID_LEN);
- 	strim(p->id);
- 	memcpy(p->ec, vpd + ec, EC_LEN);
+ 	pci_enable_pcie_error_reporting(pdev);
++	enable_pcie_relaxed_ordering(pdev);
+ 	pci_set_master(pdev);
+ 	pci_save_state(pdev);
+ 
+diff --git a/drivers/net/cxgb4/sge.c b/drivers/net/cxgb4/sge.c
+index 1702225..cc0b997 100644
+--- a/drivers/net/cxgb4/sge.c
++++ b/drivers/net/cxgb4/sge.c
+@@ -2014,6 +2014,8 @@ int t4_sge_alloc_rxq(struct adapter *adap, struct sge_rspq *iq, bool fwevtq,
+ 
+ 		flsz = fl->size / 8 + STAT_LEN / sizeof(struct tx_desc);
+ 		c.iqns_to_fl0congen = htonl(FW_IQ_CMD_FL0PACKEN |
++					    FW_IQ_CMD_FL0FETCHRO(1) |
++					    FW_IQ_CMD_FL0DATARO(1) |
+ 					    FW_IQ_CMD_FL0PADEN);
+ 		c.fl0dcaen_to_fl0cidxfthresh = htons(FW_IQ_CMD_FL0FBMIN(2) |
+ 				FW_IQ_CMD_FL0FBMAX(3));
+@@ -2106,6 +2108,7 @@ int t4_sge_alloc_eth_txq(struct adapter *adap, struct sge_eth_txq *txq,
+ 	c.viid_pkd = htonl(FW_EQ_ETH_CMD_VIID(pi->viid));
+ 	c.fetchszm_to_iqid = htonl(FW_EQ_ETH_CMD_HOSTFCMODE(2) |
+ 				   FW_EQ_ETH_CMD_PCIECHN(pi->tx_chan) |
++				   FW_EQ_ETH_CMD_FETCHRO(1) |
+ 				   FW_EQ_ETH_CMD_IQID(iqid));
+ 	c.dcaen_to_eqsize = htonl(FW_EQ_ETH_CMD_FBMIN(2) |
+ 				  FW_EQ_ETH_CMD_FBMAX(3) |
+@@ -2158,6 +2161,7 @@ int t4_sge_alloc_ctrl_txq(struct adapter *adap, struct sge_ctrl_txq *txq,
+ 	c.physeqid_pkd = htonl(0);
+ 	c.fetchszm_to_iqid = htonl(FW_EQ_CTRL_CMD_HOSTFCMODE(2) |
+ 				   FW_EQ_CTRL_CMD_PCIECHN(pi->tx_chan) |
++				   FW_EQ_CTRL_CMD_FETCHRO |
+ 				   FW_EQ_CTRL_CMD_IQID(iqid));
+ 	c.dcaen_to_eqsize = htonl(FW_EQ_CTRL_CMD_FBMIN(2) |
+ 				  FW_EQ_CTRL_CMD_FBMAX(3) |
+@@ -2207,6 +2211,7 @@ int t4_sge_alloc_ofld_txq(struct adapter *adap, struct sge_ofld_txq *txq,
+ 				 FW_EQ_OFLD_CMD_EQSTART | FW_LEN16(c));
+ 	c.fetchszm_to_iqid = htonl(FW_EQ_OFLD_CMD_HOSTFCMODE(2) |
+ 				   FW_EQ_OFLD_CMD_PCIECHN(pi->tx_chan) |
++				   FW_EQ_OFLD_CMD_FETCHRO(1) |
+ 				   FW_EQ_OFLD_CMD_IQID(iqid));
+ 	c.dcaen_to_eqsize = htonl(FW_EQ_OFLD_CMD_FBMIN(2) |
+ 				  FW_EQ_OFLD_CMD_FBMAX(3) |
 -- 
 1.5.4
 
