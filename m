@@ -1,44 +1,74 @@
-From: David L Stevens <dlstevens@us.ibm.com>
-Subject: [PATCH] fix IPv6 queries for bridge multicast snooping
-Date: Tue, 14 Dec 2010 10:42:16 -0800
-Message-ID: <1292352136.4720.11.camel@IBM-1B506CFC885>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [PATCH] ixgb: Convert to new vlan model.
+Date: Tue, 14 Dec 2010 12:08:03 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A136602D6751C1@rrsmsx501.amr.corp.intel.com>
+References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
+	 <1292344315.20458.6.camel@bwh-desktop>
+	 <EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
+ <1292350359.20458.8.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="cp1252"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:43405 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113Ab0LNSmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 13:42:25 -0500
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by e37.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBEIe14e013304
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:40:01 -0700
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBEIgL6v132764
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:42:21 -0700
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBEIgK37020808
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 11:42:21 -0700
+Received: from mga02.intel.com ([134.134.136.20]:21942 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751370Ab0LNTIE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Dec 2010 14:08:04 -0500
+In-Reply-To: <1292350359.20458.8.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes a missing ntohs() for bridge IPv6 multicast snooping.
-
-Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-
---- linux-2.6.37-rc5/net/bridge/br_multicast.c	2010-12-06 20:09:04.000000000 -0800
-+++ linux-2.6.37-rc5DLS/net/bridge/br_multicast.c	2010-12-13 14:55:34.228196279 -0800
-@@ -437,7 +437,7 @@ static struct sk_buff *br_ip6_multicast_
- 	ip6h = ipv6_hdr(skb);
- 
- 	*(__force __be32 *)ip6h = htonl(0x60000000);
--	ip6h->payload_len = 8 + sizeof(*mldq);
-+	ip6h->payload_len = htons(8 + sizeof(*mldq));
- 	ip6h->nexthdr = IPPROTO_HOPOPTS;
- 	ip6h->hop_limit = 1;
- 	ipv6_addr_set(&ip6h->saddr, 0, 0, 0, 0);
-
-
-
+QmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gT24gVHVlLCAyMDEwLTEyLTE0IGF0IDExOjA5IC0wNzAw
+LCBUYW50aWxvdiwgRW1pbCBTIHdyb3RlOg0KPj4gQmVuIEh1dGNoaW5ncyB3cm90ZToNCj4+PiBP
+biBNb24sIDIwMTAtMTItMTMgYXQgMTk6NDIgLTA4MDAsIEplc3NlIEdyb3NzIHdyb3RlOg0KPj4+
+PiBUaGlzIHN3aXRjaGVzIHRoZSBpeGdiIGRyaXZlciB0byB1c2UgdGhlIG5ldyB2bGFuIGludGVy
+ZmFjZXMuDQo+Pj4+IEluIGRvaW5nIHRoaXMsIGl0IGNvbXBsZXRlcyB0aGUgd29yayBiZWd1biBp
+bg0KPj4+PiBhZTU0NDk2ZjllOGQ0MGM4OWU1NjY4MjA1YzE4MWRjY2ZhOWVjZGExIGFsbG93aW5n
+IHRoZSB1c2Ugb2YNCj4+Pj4gaGFyZHdhcmUgdmxhbiBpbnNlcnRpb24gd2l0aG91dCBoYXZpbmcg
+YSB2bGFuIGdyb3VwIGNvbmZpZ3VyZWQuDQo+Pj4+IFsuLi5dIGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9peGdiL2l4Z2JfZXRodG9vbC5jDQo+Pj4+IGIvZHJpdmVycy9uZXQvaXhnYi9peGdiX2V0
+aHRvb2wuYw0KPj4+PiBpbmRleCA0Mzk5NGMxLi4wZTRjNTI3IDEwMDY0NA0KPj4+PiAtLS0gYS9k
+cml2ZXJzL25ldC9peGdiL2l4Z2JfZXRodG9vbC5jDQo+Pj4+ICsrKyBiL2RyaXZlcnMvbmV0L2l4
+Z2IvaXhnYl9ldGh0b29sLmMNCj4+Pj4gQEAgLTcwNiw2ICs3MDYsNDUgQEAgaXhnYl9nZXRfc3Ry
+aW5ncyhzdHJ1Y3QgbmV0X2RldmljZSAqbmV0ZGV2LA0KPj4+PiB1MzIgIHN0cmluZ3NldCwgdTgg
+KmRhdGEpICAJfSB9IA0KPj4+PiANCj4+Pj4gK3N0YXRpYyBpbnQgaXhnYl9zZXRfZmxhZ3Moc3Ry
+dWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgdTMyIGRhdGEpICt7DQo+Pj4+ICsJc3RydWN0IGl4Z2Jf
+YWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KG5ldGRldik7ICsJYm9vbA0KPj4+PiBuZWVk
+X3Jlc2V0OyArCWludCByYzsgKw0KPj4+PiArCS8qIFRoZSBoYXJkd2FyZSByZXF1aXJlcyB0aGF0
+IFJYIHZsYW4gc3RyaXBwaW5nIGFuZCBUWCB2bGFuDQo+Pj4+IGluc2VydGlvbiArCSAqIGJlIGNv
+bmZpZ3VyZWQgdG9nZXRoZXIuICBUaGVyZWZvcmUsIGlmIG9uZSBzZXR0aW5nDQo+Pj4+IGNoYW5n
+ZXMgYWRqdXN0IHRoZSArCSAqIG90aGVyIG9uZSB0byBtYXRjaC4gKwkgKi8NCj4+Pj4gKwlpZiAo
+ISEoZGF0YSAmIEVUSF9GTEFHX1JYVkxBTikgIT0gISEoZGF0YSAmIEVUSF9GTEFHX1RYVkxBTikp
+IHsNCj4+Pj4gKwkJaWYgKChkYXRhICYgRVRIX0ZMQUdfUlhWTEFOKSAhPQ0KPj4+PiArCQkgICAg
+KG5ldGRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX0hXX1ZMQU5fUlgpKQ0KPj4+PiArCQkJZGF0YSBe
+PSBFVEhfRkxBR19UWFZMQU47DQo+Pj4+ICsJCWVsc2UgaWYgKChkYXRhICYgRVRIX0ZMQUdfVFhW
+TEFOKSAhPQ0KPj4+PiArCQkgICAgKG5ldGRldi0+ZmVhdHVyZXMgJiBORVRJRl9GX0hXX1ZMQU5f
+VFgpKQ0KPj4+PiArCQkJZGF0YSBePSBFVEhfRkxBR19SWFZMQU47DQo+Pj4+ICsJfQ0KPj4+IFsu
+Li5dDQo+Pj4gDQo+Pj4gSSB0aGluayB0aGlzIHNob3VsZCByZWplY3QgYXR0ZW1wdHMgdG8gY2hh
+bmdlIGp1c3Qgb25lIGZsYWcgd2l0aA0KPj4+IC1FSU5WQUwsIHJhdGhlciB0aGFuIHF1aWV0bHkg
+J2ZpeGluZycgdGhlIHNldHRpbmcuDQo+Pj4gDQo+Pj4gQmVuLg0KPj4gDQo+PiBJJ20gbm90IHN1
+cmUgdGhpcyBpcyBhIGdvb2QgaWRlYS4gQXQgbGVhc3Qgbm90IHdpdGhvdXQgc29tZSBzb3J0IG9m
+DQo+PiBleHBsYW5hdGlvbi4gU2luY2UgdGhlcmUgaXMgbm8gd2F5IGZvciB0aGUgdXNlciB0byBr
+bm93IHRoYXQgaGUgbmVlZHMNCj4+IHRvIGRpc2FibGUgYm90aC4NCj4gDQo+IERvY3VtZW50IHRo
+ZSBsaW1pdGF0aW9uIGluIERvY3VtZW50YXRpb24vbmV0d29ya2luZy9peGdiLnR4dC4gIFlvdQ0K
+PiBjb3VsZCBhbHNvIHNlbmQgYSBwYXRjaCBmb3IgdGhlIGV0aHRvb2wgbWFudWFsIHBhZ2Ugc3Rh
+dGluZyB0aGF0IHRoaXMNCj4gcmVzdHJpY3Rpb24gbWlnaHQgZXhpc3QuDQo+IA0KPiBCZW4uDQoN
+Ckp1c3QgdG8gbWFrZSBzdXJlIGl0J3MgY2xlYXIgLSB0aGVyZSBpcyBubyBoYXJkIHJlcXVpcmVt
+ZW50IGZvciBib3RoIA0Kc2V0dGluZ3MgdG8gYmUgc2V0IGF0IHRoZSBzYW1lIHRpbWUuIFNvIHNl
+dHRpbmc6DQpldGh0b29sIC1LIGV0aDAgcnh2bGFuIG9mZg0KDQpJcyBhIHZhbGlkIHNldHRpbmcg
+YW5kIHdpbGwgZGlzYWJsZSBzdHJpcHBpbmcgb24gUngsIGJ1dCBiZWNhdXNlIG9mIA0KdGhlIGRl
+c2lnbiwgc3RyaXBwaW5nIG9uIFR4IHdpbGwgYWxzbyBiZSBkaXNhYmxlZC4NCg0KSW4gb3JkZXIg
+Zm9yIFR4IHRhZyBpbnNlcnRpb24gdG8gd29yazoNCkNUUkwwLlZNRSA9IDEgYW5kIFZMRSBpbiBU
+WCBkZXNjID0gMQ0KDQpJbiBvcmRlciBmb3IgUnggdGFnIHN0cmlwcGluZyB0byB3b3JrOg0KQ1RS
+TDAuVk1FID0gMQ0KDQpCYXNlZCBvbiB0aGlzIEkgdGhpbmsgaXQncyBqdXN0aWZpZWQgdG8gYWRq
+dXN0IFR4IHdoZW4gUnggaXMgZGlzYWJsZWQgYXMNCml0IGJhc2ljYWxseSByZWZsZWN0cyB0aGUg
+YWN0dWFsIHN0YXRlIG9mIGFmZmFpcnMuDQoNCkJ1dCB3ZSBzaG91bGQgYWxsb3cgVHggdG8gYmUg
+ZGlzYWJsZWQgc2VwYXJhdGVseSBvZiBSeCAoQ1RSTDAuVk1FPTEsIFZMRT0wLzEpLg0KDQpFaXRo
+ZXIgd2F5IHdlIHNob3VsZCB1cGRhdGUgdGhlIGRvY3MgYXMgaXQgaXMgbm90IGludHVpdGl2ZS4N
+Cg0KVGhhbmtzLA0KRW1pbA0K
