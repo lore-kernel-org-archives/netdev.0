@@ -1,37 +1,66 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH net-2.6] net: fix nulls list corruptions in sk_prot_alloc
-Date: Tue, 14 Dec 2010 18:30:47 +0200
-Message-ID: <201012141830.47958.opurdila@ixiacom.com>
-References: <1292341443-18360-1-git-send-email-opurdila@ixiacom.com> <1292343557.5934.22.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ixgb: Convert to new vlan model.
+Date: Tue, 14 Dec 2010 16:31:55 +0000
+Message-ID: <1292344315.20458.6.camel@bwh-desktop>
+References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Leonard Crestez <lcrestez@ixiacom.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Emil Tantilov <emil.s.tantilov@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:8709 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757107Ab0LNQat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 11:30:49 -0500
-In-Reply-To: <1292343557.5934.22.camel@edumazet-laptop>
+Received: from mail.solarflare.com ([216.237.3.220]:57375 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757308Ab0LNQb7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 11:31:59 -0500
+In-Reply-To: <1292298163-30343-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tuesday 14 December 2010, 18:19:17
+On Mon, 2010-12-13 at 19:42 -0800, Jesse Gross wrote:
+> This switches the ixgb driver to use the new vlan interfaces.
+> In doing this, it completes the work begun in
+> ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
+> hardware vlan insertion without having a vlan group configured.
+[...]
+> diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+> index 43994c1..0e4c527 100644
+> --- a/drivers/net/ixgb/ixgb_ethtool.c
+> +++ b/drivers/net/ixgb/ixgb_ethtool.c
+> @@ -706,6 +706,45 @@ ixgb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+>  	}
+>  }
+>  
+> +static int ixgb_set_flags(struct net_device *netdev, u32 data)
+> +{
+> +	struct ixgb_adapter *adapter = netdev_priv(netdev);
+> +	bool need_reset;
+> +	int rc;
+> +
+> +	/* The hardware requires that RX vlan stripping and TX vlan insertion
+> +	 * be configured together.  Therefore, if one setting changes adjust the
+> +	 * other one to match.
+> +	 */
+> +	if (!!(data & ETH_FLAG_RXVLAN) != !!(data & ETH_FLAG_TXVLAN)) {
+> +		if ((data & ETH_FLAG_RXVLAN) !=
+> +		    (netdev->features & NETIF_F_HW_VLAN_RX))
+> +			data ^= ETH_FLAG_TXVLAN;
+> +		else if ((data & ETH_FLAG_TXVLAN) !=
+> +		    (netdev->features & NETIF_F_HW_VLAN_TX))
+> +			data ^= ETH_FLAG_RXVLAN;
+> +	}
+[...]
 
-> Hmm very good catch, but why a so invasive patch ?
-> 
-> Only udp needs a special care.
-> 
-> Other protocols could use the default 'cleaner', you dont need to force
-> them to use the default ;)
-> 
+I think this should reject attempts to change just one flag with
+-EINVAL, rather than quietly 'fixing' the setting.
 
-Ah, OK now I get it. I thought that for protocols using non nulls lists we 
-must clear .next but I now see that we can skip that.
+Ben.
 
-So default cleaner can be the nulls cleaner and portaddr cleaner will be used 
-for UDP and UDP lite. I'll rework the patch and post a new version.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
