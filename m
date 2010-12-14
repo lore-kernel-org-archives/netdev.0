@@ -1,71 +1,92 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: question on ebtables and iptables, relating to conntrack-zones
-Date: Mon, 13 Dec 2010 23:01:15 -0800
-Message-ID: <4D07163B.5010301@candelatech.com>
+From: David Lv <davidlv.linux@gmail.com>
+Subject: [PATCH] via-velocity: fix the WOL bug on 1000M full duplex forced mode
+Date: Tue, 14 Dec 2010 15:36:47 +0800
+Message-ID: <AANLkTin-43cHgB=oVxYw4QjuyQdqFsw=o1bEQYnvuSzx@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: NetDev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	DavidLv@viatech.com.cn, ShirleyHu@viatech.com.cn,
+	AndersMa@viatech.com.cn
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53678 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754719Ab0LNHBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 02:01:16 -0500
-Received: from [71.117.12.23] (pool-71-117-12-23.sttlwa.dsl-w.verizon.net [71.117.12.23])
-	(authenticated bits=0)
-	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id oBE71Fb1008766
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 23:01:15 -0800
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:56503 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755670Ab0LNHgt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 02:36:49 -0500
+Received: by fxm18 with SMTP id 18so371818fxm.2
+        for <netdev@vger.kernel.org>; Mon, 13 Dec 2010 23:36:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm trying to do something a bit weird with two bridges and a transparent
-squid proxy.
+This patch isn't based on the first patch of the sleep speed 10M.
+The VIA velocity card can't be waken up by WOL tool on 1000M full
+duplex forced mode.
+This patch fixes the bug.
+Thanks!
 
-I think I want the network diagram to look a bit like:
+Signed-off-by: David Lv <DavidLv@viatech.com.cn>
+Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/via-velocity.c |   37 +++++++++++++++++++++++--------------
+ 1 files changed, 23 insertions(+), 14 deletions(-)
 
-{ internet } -- eth0 - br0 - veth2 - veth1 - br1 - eth1 -- { client-side network }
+diff --git a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+index cab96ad..947af49 100755
+--- a/drivers/net/via-velocity.c
++++ b/drivers/net/via-velocity.c
+@@ -2925,6 +2925,7 @@ static int velocity_set_wol(struct velocity_info *vptr)
+ 	struct mac_regs __iomem *regs = vptr->mac_regs;
+ 	static u8 buf[256];
+ 	int i;
++	u8 GCR;
 
-The idea is to have br1 act just as a bridge, but have br0 have an IP and
-do the squid re-direct logic.  This is because I need to see packets from clients
-to squid on the two br1 ports, as if squid were somewhere in the {internet}.
+ 	static u32 mask_pattern[2][4] = {
+ 		{0x00203000, 0x000003C0, 0x00000000, 0x0000000}, /* ARP */
+@@ -2968,23 +2969,31 @@ static int velocity_set_wol(struct velocity_info *vptr)
 
-I was thinking that setting br1 and it's ports to one conntrack zone
-and br0 and it's ports to another would do the trick, but when I do
-add those, the squid redirect nat seems to break.  I am thinking now
-that maybe I'd need to implement conntrack zones for ebtables BROUTING, perhaps?
+ 	writew(0x0FFF, &regs->WOLSRClr);
 
-My current attempted setup file looks like:
+-	if (vptr->mii_status & VELOCITY_AUTONEG_ENABLE) {
+-		if (PHYID_GET_PHY_ID(vptr->phy_id) == PHYID_CICADA_CS8201)
+-			MII_REG_BITS_ON(AUXCR_MDPPS, MII_NCONFIG, vptr->mac_regs);
+-
+-		MII_REG_BITS_OFF(ADVERTISE_1000FULL | ADVERTISE_1000HALF,
+MII_CTRL1000, vptr->mac_regs);
+-	}
++	if (SPD_DPX_1000_FULL != pInfo->hw.sOpts.spd_dpx) {
++		if (SPD_DPX_AUTO == pInfo->hw.sOpts.spd_dpx) {
++			if (vptr->mii_status & VELOCITY_AUTONEG_ENABLE) {
++				if (PHYID_GET_PHY_ID(vptr->phy_id) ==
++						PHYID_CICADA_CS8201)
++					MII_REG_BITS_ON(AUXCR_MDPPS,
++					MII_NCONFIG, vptr->mac_regs);
++
++				MII_REG_BITS_OFF(ADVERTISE_1000FULL |
++					ADVERTISE_1000HALF, MII_CTRL1000,
++					vptr->mac_regs);
++			}
 
-#!/bin/bash
+-	if (vptr->mii_status & VELOCITY_SPEED_1000)
+-		MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR, vptr->mac_regs);
++			if (vptr->mii_status & VELOCITY_SPEED_1000)
++				MII_REG_BITS_ON(BMCR_ANRESTART, MII_BMCR,
++					vptr->mac_regs);
++		}
 
-# Clean up any old rules.
-/etc/init.d/stopbrouting
+-	BYTE_REG_BITS_ON(CHIPGCR_FCMODE, &regs->CHIPGCR);
++		BYTE_REG_BITS_ON(CHIPGCR_FCMODE, &regs->CHIPGCR);
 
-/sbin/ebtables -t broute -A BROUTING -i br0 -p IPv4 --ip-protocol 6 --ip-destination-port 80 -j redirect --redirect-target ACCEPT
-/sbin/iptables -t nat -A PREROUTING -i br0 -p tcp --dport 80 -j REDIRECT --to-port 3128
+-	{
+-		u8 GCR;
+-		GCR = readb(&regs->CHIPGCR);
+-		GCR = (GCR & ~CHIPGCR_FCGMII) | CHIPGCR_FCFDX;
+-		writeb(GCR, &regs->CHIPGCR);
++		{
++			GCR = readb(&regs->CHIPGCR);
++			GCR = (GCR & ~CHIPGCR_FCGMII) | CHIPGCR_FCFDX;
++			writeb(GCR, &regs->CHIPGCR);
++		}
+ 	}
 
-echo 0 > /proc/sys/net/bridge/bridge-nf-call-arptables
-echo 0 > /proc/sys/net/bridge/bridge-nf-call-ip6tables
-
-echo 1 > /sys/class/net/br0/bridge/nf_call_ip6tables
-echo 1 > /sys/class/net/br0/bridge/nf_call_iptables
-
-/usr/local/sbin/iptables -t raw -A PREROUTING -i eth1 -j CT --zone 2
-/usr/local/sbin/iptables -t raw -A PREROUTING -i veth1 -j CT --zone 2
-/usr/local/sbin/iptables -t raw -A PREROUTING -i br1 -j CT --zone 2
-
-/usr/local/sbin/iptables -t raw -A PREROUTING -i eth0 -j CT --zone 3
-/usr/local/sbin/iptables -t raw -A PREROUTING -i veth2 -j CT --zone 3
-/usr/local/sbin/iptables -t raw -A PREROUTING -i br0 -j CT --zone 3
-
-
-
-Any ideas are welcome.
-
-Thanks,
-Ben
-
+ 	BYTE_REG_BITS_OFF(ISR_PWEI, &regs->ISR);
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.0.4
