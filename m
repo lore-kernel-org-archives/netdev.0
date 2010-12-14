@@ -1,36 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-next-2.6] vhost-net: tools, cleanups,
- optimizations
-Date: Tue, 14 Dec 2010 11:34:06 -0800 (PST)
-Message-ID: <20101214.113406.226770648.davem@davemloft.net>
-References: <20101213104413.GA678@redhat.com>
-	<20101214122326.GA19950@redhat.com>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 1/2] workqueue: convert
+ cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()
+Date: Tue, 14 Dec 2010 11:52:13 -0800
+Message-ID: <20101214195213.GA9965@suse.de>
+References: <4D078B6D.5060202@kernel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101214122326.GA19950@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	benh@kernel.crashing.org, mchehab@infradead.org,
+	davem@davemloft.net, netdev@vger.kernel.org, cbou@mail.ru,
+	dwmw2@infradead.org, zbr@ioremap.net, bfields@fieldses.org,
+	neilb@suse.de, aelder@sgi.com, xfs-masters@oss.sgi.com,
+	cl@linux-foundation.org, penberg@cs.helsinki.fi,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org
+To: Tejun Heo <tj@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor.suse.de ([195.135.220.2]:39649 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759747Ab0LNTw2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Dec 2010 14:52:28 -0500
+Content-Disposition: inline
+In-Reply-To: <4D078B6D.5060202@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 14 Dec 2010 14:23:26 +0200
-
-> On Mon, Dec 13, 2010 at 12:44:13PM +0200, Michael S. Tsirkin wrote:
->> Please merge the following tree for 2.6.38.
->> Thanks!
+On Tue, Dec 14, 2010 at 04:21:17PM +0100, Tejun Heo wrote:
+> cancel_rearming_delayed_work[queue]() has been superceded by
+> cancel_delayed_work_sync() quite some time ago.  Convert all the
+> in-kernel users.  The conversions are completely equivalent and
+> trivial.
 > 
-> Rusty Acked it as is, so please pull the below.
-> Thanks very much!
-> 
->> The following changes since commit ad1184c6cf067a13e8cb2a4e7ccc407f947027d0:
->> 
->>   net: au1000_eth: remove unused global variable. (2010-12-11 12:01:48 -0800)
->> 
->> are available in the git repository at:
->>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+> Signed-off-by: Tejun Heo <tj@kernel.org>
+> Cc: Jeff Garzik <jgarzik@pobox.com>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: Mauro Carvalho Chehab <mchehab@infradead.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: Anton Vorontsov <cbou@mail.ru>
+> Cc: David Woodhouse <dwmw2@infradead.org>
+> Cc: Evgeniy Polyakov <zbr@ioremap.net>
+> Cc: Greg Kroah-Hartman <gregkh@suse.de>
 
-Pulled, thanks a lot.
+Acked-by: Greg Kroah-Hartman <gregkh@suse.de>
+
