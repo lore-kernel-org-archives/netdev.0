@@ -1,259 +1,159 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: [PATCH net-2.6] net: fix nulls list corruptions in sk_prot_alloc
-Date: Tue, 14 Dec 2010 17:44:03 +0200
-Message-ID: <1292341443-18360-1-git-send-email-opurdila@ixiacom.com>
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	Leonard Crestez <lcrestez@ixiacom.com>
-To: netdev@vger.kernel.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC][net-next-2.6 PATCH 0/2] rtnetlink: New IFLA_PORT_PROTO_* attr
+Date: Tue, 14 Dec 2010 16:47:38 +0100
+Message-ID: <201012141647.38303.arnd@arndb.de>
+References: <20101208042925.16856.89232.stgit@savbu-pc100.cisco.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Christian Benvenuti <benve@cisco.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:7683 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757241Ab0LNPot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 10:44:49 -0500
+Received: from moutng.kundenserver.de ([212.227.17.10]:62995 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757271Ab0LNPrm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 10:47:42 -0500
+In-Reply-To: <20101208042925.16856.89232.stgit@savbu-pc100.cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Special care is taken inside sk_port_alloc to avoid overwriting
-skc_node/skc_nulls_node. We should also avoid overwriting
-skc_bind_node/skc_portaddr_node.
+On Wednesday 08 December 2010, Christian Benvenuti wrote:
+> 
+> In order to be able to scope a port profile, as part of the 802.1Qbh
+> implementation we would like to add a new attribute: IFLA_PORT_CLUSTER_UUID.
+> This parameter (perhaps known under a different name) is already in use
+> (or going to be added) by most Virtual Machine Managers to define migration
+> domains. In the case of 802.1Qbh a port profile would most likely be scoped
+> using the same ID used by VM manager to represent the migration domain.
+> 
+> Adding another attribute (IFLA_PORT_CLUSTER_UUID in this case) to the list of
+> IFLA_PORT_* attributes is an option.
 
-The patch fixes the following crash:
+Sounds reasonable.
 
- BUG: unable to handle kernel paging request at fffffffffffffff0
- IP: [<ffffffff812ec6dd>] udp4_lib_lookup2+0xad/0x370
- [<ffffffff812ecc22>] __udp4_lib_lookup+0x282/0x360
- [<ffffffff812ed63e>] __udp4_lib_rcv+0x31e/0x700
- [<ffffffff812bba45>] ? ip_local_deliver_finish+0x65/0x190
- [<ffffffff812bbbf8>] ? ip_local_deliver+0x88/0xa0
- [<ffffffff812eda35>] udp_rcv+0x15/0x20
- [<ffffffff812bba45>] ip_local_deliver_finish+0x65/0x190
- [<ffffffff812bbbf8>] ip_local_deliver+0x88/0xa0
- [<ffffffff812bb2cd>] ip_rcv_finish+0x32d/0x6f0
- [<ffffffff8128c14c>] ? netif_receive_skb+0x99c/0x11c0
- [<ffffffff812bb94b>] ip_rcv+0x2bb/0x350
- [<ffffffff8128c14c>] netif_receive_skb+0x99c/0x11c0
+> However, we thought that it would be better to 1st re-arrange the current
+> Netlink attribute scheme in order to better group the IFLA_PORT_* attributes
+> (for example by protocol).
 
-Signed-off-by: Leonard Crestez <lcrestez@ixiacom.com>
-Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
----
- include/net/sock.h  |    4 ++++
- net/core/sock.c     |   49 +++++++++++++++++++++++++++++++++++++------------
- net/dccp/ipv4.c     |    1 +
- net/dccp/ipv6.c     |    1 +
- net/ipv4/tcp_ipv4.c |    1 +
- net/ipv4/udp.c      |    1 +
- net/ipv4/udplite.c  |    1 +
- net/ipv6/tcp_ipv6.c |    1 +
- net/ipv6/udp.c      |    1 +
- net/ipv6/udplite.c  |    1 +
- net/llc/af_llc.c    |    1 +
- 11 files changed, 50 insertions(+), 12 deletions(-)
+We don't normally rearrange protocols once they are in an upstream
+release. Having to maintain compatibility to two different versions
+of the API is a huge burden for maintainance, so IMHO the only
+reason why we should deprecate the current API and introduce
+a new one is if it is absolutely impossible to implement necessary
+features without breaking compatibility. Your explanations are
+very detailed and well explained, but I have not found anything
+in there that describes why it cannot be done without changing the
+existing interface.
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 659d968..23747a8 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -754,6 +754,7 @@ struct proto {
- 	void			(*unhash)(struct sock *sk);
- 	void			(*rehash)(struct sock *sk);
- 	int			(*get_port)(struct sock *sk, unsigned short snum);
-+	void			(*clear_sk)(struct sock *sk, int size);
- 
- 	/* Keeping track of sockets in use */
- #ifdef CONFIG_PROC_FS
-@@ -852,6 +853,9 @@ static inline void __sk_prot_rehash(struct sock *sk)
- 	sk->sk_prot->hash(sk);
- }
- 
-+void sk_prot_clear_nulls(struct sock *sk, int size);
-+void sk_prot_clear_portaddr_nulls(struct sock *sk, int size);
-+
- /* About 10 seconds */
- #define SOCK_DESTROY_TIME (10*HZ)
- 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index fb60801..35e40e0 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1009,6 +1009,36 @@ static void sock_copy(struct sock *nsk, const struct sock *osk)
- #endif
- }
- 
-+/*
-+ * caches using SLAB_DESTROY_BY_RCU should let .next pointer from nulls nodes
-+ * un-modified. Special care is taken when initializing object to zero.
-+ */
-+void sk_prot_clear_nulls(struct sock *sk, int size)
-+{
-+	if (offsetof(struct sock, sk_node.next) != 0)
-+		memset(sk, 0, offsetof(struct sock, sk_node.next));
-+	memset(&sk->sk_node.pprev, 0,
-+	       size - offsetof(struct sock, sk_node.pprev));
-+}
-+
-+void sk_prot_clear_portaddr_nulls(struct sock *sk, int size)
-+{
-+	unsigned long nulls1, nulls2;
-+
-+	nulls1 = offsetof(struct sock, __sk_common.skc_node.next);
-+	nulls2 = offsetof(struct sock, __sk_common.skc_portaddr_node.next);
-+	if (nulls1 > nulls2)
-+		swap(nulls1, nulls2);
-+
-+	if (nulls1 != 0)
-+		memset((char *)sk, 0, nulls1);
-+	memset((char *)sk + nulls1 + sizeof(void *), 0,
-+	       nulls2 - nulls1 - sizeof(void *));
-+	memset((char *)sk + nulls2 + sizeof(void *), 0,
-+	       size - nulls2 - sizeof(void *));
-+}
-+
-+
- static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
- 		int family)
- {
-@@ -1021,19 +1051,12 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
- 		if (!sk)
- 			return sk;
- 		if (priority & __GFP_ZERO) {
--			/*
--			 * caches using SLAB_DESTROY_BY_RCU should let
--			 * sk_node.next un-modified. Special care is taken
--			 * when initializing object to zero.
--			 */
--			if (offsetof(struct sock, sk_node.next) != 0)
--				memset(sk, 0, offsetof(struct sock, sk_node.next));
--			memset(&sk->sk_node.pprev, 0,
--			       prot->obj_size - offsetof(struct sock,
--							 sk_node.pprev));
-+			if (prot->clear_sk)
-+				prot->clear_sk(sk, prot->obj_size);
-+			else
-+				memset(sk, 0, prot->obj_size);
- 		}
--	}
--	else
-+	} else
- 		sk = kmalloc(prot->obj_size, priority);
- 
- 	if (sk != NULL) {
-@@ -2331,6 +2354,8 @@ static inline void release_proto_idx(struct proto *prot)
- 
- int proto_register(struct proto *prot, int alloc_slab)
- {
-+	BUG_ON((prot->slab_flags & SLAB_DESTROY_BY_RCU) && !prot->clear_sk);
-+
- 	if (alloc_slab) {
- 		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
- 					SLAB_HWCACHE_ALIGN | prot->slab_flags,
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 3f69ea1..6ad0efb 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -956,6 +956,7 @@ static struct proto dccp_v4_prot = {
- 	.compat_setsockopt	= compat_dccp_setsockopt,
- 	.compat_getsockopt	= compat_dccp_getsockopt,
- #endif
-+	.clear_sk		= sk_prot_clear_nulls,
- };
- 
- static const struct net_protocol dccp_v4_protocol = {
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index dca711d..738b893 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -1134,6 +1134,7 @@ static struct proto dccp_v6_prot = {
- 	.compat_setsockopt = compat_dccp_setsockopt,
- 	.compat_getsockopt = compat_dccp_getsockopt,
- #endif
-+	.clear_sk		= sk_prot_clear_nulls,
- };
- 
- static const struct inet6_protocol dccp_v6_protocol = {
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index e13da6d..69964c5 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2627,6 +2627,7 @@ struct proto tcp_prot = {
- 	.compat_setsockopt	= compat_tcp_setsockopt,
- 	.compat_getsockopt	= compat_tcp_getsockopt,
- #endif
-+	.clear_sk		= sk_prot_clear_nulls,
- };
- EXPORT_SYMBOL(tcp_prot);
- 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 5e0a3a5..2d3ded4 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1899,6 +1899,7 @@ struct proto udp_prot = {
- 	.compat_setsockopt = compat_udp_setsockopt,
- 	.compat_getsockopt = compat_udp_getsockopt,
- #endif
-+	.clear_sk	   = sk_prot_clear_portaddr_nulls,
- };
- EXPORT_SYMBOL(udp_prot);
- 
-diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
-index ab76aa9..aee9963 100644
---- a/net/ipv4/udplite.c
-+++ b/net/ipv4/udplite.c
-@@ -57,6 +57,7 @@ struct proto 	udplite_prot = {
- 	.compat_setsockopt = compat_udp_setsockopt,
- 	.compat_getsockopt = compat_udp_getsockopt,
- #endif
-+	.clear_sk	   = sk_prot_clear_portaddr_nulls,
- };
- EXPORT_SYMBOL(udplite_prot);
- 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 7e41e2c..ea42a2d 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -2171,6 +2171,7 @@ struct proto tcpv6_prot = {
- 	.compat_setsockopt	= compat_tcp_setsockopt,
- 	.compat_getsockopt	= compat_tcp_getsockopt,
- #endif
-+	.clear_sk		= sk_prot_clear_nulls,
- };
- 
- static const struct inet6_protocol tcpv6_protocol = {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 91def93..cd6cb7c 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1477,6 +1477,7 @@ struct proto udpv6_prot = {
- 	.compat_setsockopt = compat_udpv6_setsockopt,
- 	.compat_getsockopt = compat_udpv6_getsockopt,
- #endif
-+	.clear_sk	   = sk_prot_clear_portaddr_nulls,
- };
- 
- static struct inet_protosw udpv6_protosw = {
-diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
-index 5f48fad..986c4de 100644
---- a/net/ipv6/udplite.c
-+++ b/net/ipv6/udplite.c
-@@ -55,6 +55,7 @@ struct proto udplitev6_prot = {
- 	.compat_setsockopt = compat_udpv6_setsockopt,
- 	.compat_getsockopt = compat_udpv6_getsockopt,
- #endif
-+	.clear_sk	   = sk_prot_clear_portaddr_nulls,
- };
- 
- static struct inet_protosw udplite6_protosw = {
-diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
-index e35dbe5..1d54c6a 100644
---- a/net/llc/af_llc.c
-+++ b/net/llc/af_llc.c
-@@ -142,6 +142,7 @@ static struct proto llc_proto = {
- 	.owner	  = THIS_MODULE,
- 	.obj_size = sizeof(struct llc_sock),
- 	.slab_flags = SLAB_DESTROY_BY_RCU,
-+	.clear_sk = sk_prot_clear_nulls,
- };
- 
- /**
--- 
-1.7.1
+> --------------------------------------------------
+> 2) REASON FOR THIS CHANGE
+> --------------------------------------------------
+> We would like to add one more attribute (IFLA_PORT_CLUSTER_UUID), and the list 
+> of IFLA_PORT_* attributes may need to grow again due to the changes that may
+> be required by the two still evolving standard protocols 802.1Qbh/802.1Qbg.
+> Because of that, if you see a value in the re-organization of the
+> IFLA_PORT_* attributes that we are proposing, it would be better to address
+> such changes sooner than later, in order to reduce the impact of backward
+> compatibility issues later.
 
+The changes you propose now seem reasonable and we could probably have
+done it that way initially, but as far as I'm concerned they are too late.
+The burden imposed by the change is larger than the risk of breaking
+backwards compatibility later by not fixing it now, as far as I'm concerned.
+
+To give another example, the split between IFLA_VFINFO_LIST and
+IFLA_VF_PORTS is totally arbitrary, we should have merged them at the
+time, but because of timing concerns of the two going in during the
+merge window, we are stuck with two separate lists of VFs now, and
+I don't think we should change them any more.
+
+> --------------------------------------------------
+> 4) IFLA_* versus IFLA_PORT_*
+> --------------------------------------------------
+> 
+> Here is an alternative way to introduce the new Netlink attribute scheme.
+> We personally like better the previous scheme, but I'll include this one too
+> should someone find it interesting.
+
+The impact of doing this would be even bigger.
+ 
+> OPTION_3: According to the new Netlink attribute scheme that we are
+>           proposing, each protocol has its own set of attributes and
+>           therefore it would not be considered superfluous to have the
+>           same (or a similar) attribute defined for both protocols.
+>           (in this case it would be manager_ID for 802.1qbg and
+>           cluster_uuid for 802.1qbh).
+> 
+> To us OPTION_3 looks like the option that offers most flexibility.
+
+I don't see this depending on the change to split attributes per
+protocol. Just introducing a new IFLA_PORT_CLUSTER_UUID should be
+all you need. Since a cluster UUID is not exactly the same concept
+as a vsi manager id, there is no need to share the same netlink
+attribute.
+
+> --------------------------------------------------
+> 8) OPT1: MORE CONFIGURATION FLEXIBILITY
+> --------------------------------------------------
+> The change described in this section is orthogonal to the ones Discussed above.
+> We believe it would add value to the new scheme.
+> We would like to include it as part of the new Netlink scheme (but the current
+> patch does not include it).
+> 
+> In order to allow device drivers (or a generic consumer of the Netlink messages)
+> to provide extra features or simple optimizations I would suggest the
+> introduction of a new nested attribute that I will call IFLA_PORT_DATA for now.
+> 
+> This attribute would allow the use of extra attributes that are not part of
+> the official protocol specs (802.1Qbg/bh for now) or simply allow device
+> drivers to start supporting pre-standard parameters that would not be included
+> in the Netlink scheme before they reach some stability.
+
+I really don't think that you should add per-driver attributes. If we
+believe that we need an extension for a specific feature in the netlink
+interface, it should be defined in a way that is generic enough to work
+for other hardware implementing the same feature.
+
+> Here are a couple of examples of use.
+> Let's suppose that driver ABC needed to receive a couple of parameters
+> more (that are not part of the official 802.1Qbh/bg protocols).
+> In this case driver ABC can use the new attribute IFLA_PORT_DATA to
+> receive its two additional parameters without any need to touch/modify
+> the IFLA_PORT_* list of attributes.
+
+We can in theory add features that are not part of the official
+standard. IMHO it is more important that the features are of
+general interest and are being actively used. They should of
+course not conflict with other features or the standard.
+
+> If in the future driver ABC needed to change any of its private
+> parameters (those it receives through the IFLA_PORT_DATA attribute), it
+> can do it by updating its parsing routine (of course it would need
+> to implement a basic versioning scheme for its private attributes), but
+> no change would be required in the core Netlink code.
+
+A data structure being private to a driver would not save you from
+maintaining backwards compatibility, you still cannot just go and
+change it as you like.
+
+> If we do not want to add IFLA_PORT_DATA, an alternative solution would
+> be that of using a separate control channel to provide that extra
+> info, for example based on something like the NETLINK_GENERIC Netlink
+> protocol.
+> This alternative approach would offer the same flexibility, but I
+> can see One drawback: this solution would require some extra code
+> to synchronize the two control channels
+> (generic NETLINK_ROUTE/IFLA_PORT_XXX and NETLINK_GENERIC/Driver).
+
+Right, using generic netlink for this does not help, it has all the
+problems of your IFLA_PORT_DATA suggestions and is more complex.
+
+Just don't add driver-private interfaces, make them official!
+
+If we give driver writers a way to add their own interfaces, there
+is a very realistic risk of these interface being defined in a
+broken way, with people relying on them before the code gets
+submitted for mainline inclusion.
+
+	Arnd
