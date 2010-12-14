@@ -1,9 +1,9 @@
 From: Mike Waychison <mikew@google.com>
-Subject: Re: [PATCH v3 02/22] netconsole: Introduce locking over the netpoll fields
-Date: Tue, 14 Dec 2010 15:30:24 -0800
-Message-ID: <AANLkTinVHrkLOMBkH3cauQndL03C_mnAJDJNYHa14ysZ@mail.gmail.com>
+Subject: Re: [PATCH v3 03/22] netconsole: Introduce 'enabled' state-machine
+Date: Tue, 14 Dec 2010 15:33:03 -0800
+Message-ID: <AANLkTin3JoNQ4_A3eXBAW148kEqWSxr06rY5h8yH+BGb@mail.gmail.com>
 References: <20101214212846.17022.64836.stgit@mike.mtv.corp.google.com>
- <20101214212904.17022.16604.stgit@mike.mtv.corp.google.com> <AANLkTi=reqRMrv4k5EZKdj7pmsomApw9=Kwh9nxfKCuJ@mail.gmail.com>
+ <20101214212909.17022.96801.stgit@mike.mtv.corp.google.com> <AANLkTik8wzDPPtMM+YPoOSojiW_Nev-KDkAg8dtDV=g1@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -16,70 +16,54 @@ Cc: simon.kagstrom@netinsight.net, davem@davemloft.net,
 	akpm@linux-foundation.org, linux-api@vger.kernel.org
 To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=reqRMrv4k5EZKdj7pmsomApw9=Kwh9nxfKCuJ@mail.gmail.com>
+In-Reply-To: <AANLkTik8wzDPPtMM+YPoOSojiW_Nev-KDkAg8dtDV=g1@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 2010/12/14 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
 > 2010/12/14 Mike Waychison <mikew@google.com>:
->> The netconsole driver currently doesn't do any locking over its
->> configuration fields. =C2=A0This can cause problems if we were to ev=
-er have
->> concurrent writing to fields while somebody is enabling the service.
->>
->> For simplicity, this patch extends targets_list_lock to cover all
->> configuration fields within the targets. =C2=A0Macros are also added=
- here to
->> wrap accessors so that we check whether the target has been enabled =
-with
->> locking handled.
->>
->> Signed-off-by: Mike Waychison <mikew@google.com>
->> Acked-by: Matt Mackall <mpm@selenic.com>
->> ---
->> =C2=A0drivers/net/netconsole.c | =C2=A0114 +++++++++++++++++++++++++=
-+--------------------
->> =C2=A01 files changed, 64 insertions(+), 50 deletions(-)
->>
+>> Representing the internal state within netconsole isn't really a boo=
+lean
+>> value, but rather a state machine with transitions.
+> [...]
 >> diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
->> index c87a49e..6e16888 100644
+>> index 6e16888..288a025 100644
 >> --- a/drivers/net/netconsole.c
 >> +++ b/drivers/net/netconsole.c
->> @@ -327,6 +327,7 @@ static ssize_t store_enabled(struct netconsole_t=
+> [...]
+>> @@ -350,9 +362,9 @@ static ssize_t store_enabled(struct netconsole_t=
 arget *nt,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 const char *buf,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 size_t count)
->> =C2=A0{
->> + =C2=A0 =C2=A0 =C2=A0 unsigned long flags;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0long enabled;
->>
->> @@ -335,6 +336,10 @@ static ssize_t store_enabled(struct netconsole_=
-target *nt,
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0return enable=
-d;
->>
->> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (enabled) { =C2=A0/* 1 */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_lock_irqsave=
-(&target_list_lock, flags);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (nt->enabled)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0err =3D netpo=
+ll_setup(&nt->np);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_lock_irq=
+save(&target_list_lock, flags);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 nt->enabled =3D 0;
 >> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 goto busy;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_unlock_irqre=
-store(&target_list_lock, flags);
->>
+=A0 =C2=A0 nt->np_state =3D NETPOLL_DISABLED;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0else
+>> - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 nt->enabled =3D 1;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 nt->np_state =3D NETPOLL_ENABLED;
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0spin_unlock_i=
+rqrestore(&target_list_lock, flags);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0if (err)
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0return err;
+> [...]
 >
-> This looks wrong. Unless there is another lock or mutex covering this
-> function, at this point (after spin_unlock_irqrestore()) another
-> thread might set nt->enabled =3D 1.
+> Since the spinlock protects only nt->np_state setting, you might be
+> able to remove it altogether and use cmpxchg() where nt->np_state
+> transitions from enabled or disabled state.
 >
+> Maybe the locking scheme just needs more thought altogether?
 
-Agreed that this looks wrong :)
-
-It is fixed in the next patch where a state machine is introduced to
-replace the binary flag nt->enabled.  The code before this patch had
-the a very similar problem in that a target could be enabled twice.
-store_enabled() would call netpoll_setup() the second time without
-checking to see if it was already enabled.
+The target_list_lock protects the list, as well as the state
+transitions.  This makes iterating through the list and getting a
+consistent view of the targets a lot easier when it comes time to
+transmitting packets we are guaranteed that nobody is changing the
+target state underneath us if nt->np_state =3D=3D NETPOLL_ENABLED while=
+ we
+hold the lock.
