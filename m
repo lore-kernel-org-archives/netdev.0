@@ -1,64 +1,44 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: use NUMA_NO_NODE instead of the magic number -1
-Date: Tue, 14 Dec 2010 21:09:15 +0800
-Message-ID: <1292332155-25151-1-git-send-email-xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [RFC][PATCH] Export DNSSL RA option to userspace
+Date: Tue, 14 Dec 2010 13:10:15 +0000
+Message-ID: <1292332218.15586.49.camel@i7.infradead.org>
+References: <20101212144300.68e0fb16@mjolnir.ossman.eu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Pierre Ossman <pierre-list@ossman.eu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:57761 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755305Ab0LNNJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 08:09:41 -0500
-Received: by pva4 with SMTP id 4so94359pva.19
-        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 05:09:40 -0800 (PST)
+Received: from canuck.infradead.org ([134.117.69.58]:36107 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755981Ab0LNNKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 08:10:25 -0500
+In-Reply-To: <20101212144300.68e0fb16@mjolnir.ossman.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- include/linux/netdevice.h |    2 +-
- net/core/dev.c            |    2 +-
- net/core/net-sysfs.c      |    3 ++-
- 3 files changed, 4 insertions(+), 3 deletions(-)
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d31bc3c..56c38bb 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -530,7 +530,7 @@ static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
- #if defined(CONFIG_XPS) && defined(CONFIG_NUMA)
- 	return q->numa_node;
- #else
--	return -1;
-+	return NUMA_NO_NODE;
- #endif
- }
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..004024c 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5116,7 +5116,7 @@ static void netdev_init_one_queue(struct net_device *dev,
- 	spin_lock_init(&queue->_xmit_lock);
- 	netdev_set_xmit_lockdep_class(&queue->_xmit_lock, dev->type);
- 	queue->xmit_lock_owner = -1;
--	netdev_queue_numa_node_write(queue, -1);
-+	netdev_queue_numa_node_write(queue, NUMA_NO_NODE);
- 	queue->dev = dev;
- }
- 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 85e8b53..e23c01b 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -1009,7 +1009,8 @@ static ssize_t store_xps_map(struct netdev_queue *queue,
- 	if (dev_maps)
- 		call_rcu(&dev_maps->rcu, xps_dev_maps_release);
- 
--	netdev_queue_numa_node_write(queue, (numa_node >= 0) ? numa_node : -1);
-+	netdev_queue_numa_node_write(queue, (numa_node >= 0) ? numa_node :
-+					    NUMA_NO_NODE);
- 
- 	mutex_unlock(&xps_map_mutex);
- 
+On Sun, 2010-12-12 at 14:43 +0100, Pierre Ossman wrote:
+> RFC 6106 specifies a new RA option for DNS resolver configuration that
+> therefore needs to end up in userspace.
+> 
+> This first patch just exports the new option, but I started thinking
+> that this seems overly complex that the kernel needs to be updated
+> every time there is something new of interest to userspace in the RA.
+> So I also have a second patch that exports everything that the kernel
+> doesn't want.
+> 
+> Patches only compile tested so far as I'm still hacking away at
+> userspace. Comments very much welcome though.
+
+Totally untested userspace support:
+http://git.infradead.org/users/dwmw2/connman.git
+
+-- 
+David Woodhouse                            Open Source Technology Centre
+David.Woodhouse@intel.com                              Intel Corporation
+
