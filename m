@@ -1,361 +1,259 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH net-2.6] be2net: use mutex instead of spin lock for mbox_lock
-Date: Tue, 14 Dec 2010 16:43:19 +0100
-Message-ID: <1292341399-14353-1-git-send-email-ivecera@redhat.com>
-References: <1292336483.20458.1.camel@bwh-desktop>
-Cc: sathyap@serverengines.com, subbus@serverengines.com,
-	sarveshwarb@serverengines.com, ajitk@serverengines.com,
-	davem@davemloft.net, bhutchings@solarflare.com
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: [PATCH net-2.6] net: fix nulls list corruptions in sk_prot_alloc
+Date: Tue, 14 Dec 2010 17:44:03 +0200
+Message-ID: <1292341443-18360-1-git-send-email-opurdila@ixiacom.com>
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Leonard Crestez <lcrestez@ixiacom.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33090 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753708Ab0LNPn1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Dec 2010 10:43:27 -0500
-In-Reply-To: <1292336483.20458.1.camel@bwh-desktop>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:7683 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1757241Ab0LNPot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 10:44:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-12-14 at 14:21 +0000, Ben Hutchings wrote:
-> On Tue, 2010-12-14 at 14:46 +0100, Ivan Vecera wrote:
-> > Since the mbox polling uses the schedule_timeout, the mbox_lock should be
-> > a semaphore and not a spin lock.
-> > The commit f25b03a replaced udelay() with schedule_timeout() but didn't
-> > change the mbox_lock to a semaphore or a mutex.
-> [...]
-> 
-> I see no reason for this to be a semaphore; use a mutex instead.
-> 
-> Ben
-Ok, Ben... the new version
+Special care is taken inside sk_port_alloc to avoid overwriting
+skc_node/skc_nulls_node. We should also avoid overwriting
+skc_bind_node/skc_portaddr_node.
 
-Since the mbox polling uses the schedule_timeout, the mbox_lock should be
-a mutex and not a spin lock.
-The commit f25b03a replaced udelay() with schedule_timeout() but didn't
-change mbox_lock to semaphore or mutex.
+The patch fixes the following crash:
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+ BUG: unable to handle kernel paging request at fffffffffffffff0
+ IP: [<ffffffff812ec6dd>] udp4_lib_lookup2+0xad/0x370
+ [<ffffffff812ecc22>] __udp4_lib_lookup+0x282/0x360
+ [<ffffffff812ed63e>] __udp4_lib_rcv+0x31e/0x700
+ [<ffffffff812bba45>] ? ip_local_deliver_finish+0x65/0x190
+ [<ffffffff812bbbf8>] ? ip_local_deliver+0x88/0xa0
+ [<ffffffff812eda35>] udp_rcv+0x15/0x20
+ [<ffffffff812bba45>] ip_local_deliver_finish+0x65/0x190
+ [<ffffffff812bbbf8>] ip_local_deliver+0x88/0xa0
+ [<ffffffff812bb2cd>] ip_rcv_finish+0x32d/0x6f0
+ [<ffffffff8128c14c>] ? netif_receive_skb+0x99c/0x11c0
+ [<ffffffff812bb94b>] ip_rcv+0x2bb/0x350
+ [<ffffffff8128c14c>] netif_receive_skb+0x99c/0x11c0
+
+Signed-off-by: Leonard Crestez <lcrestez@ixiacom.com>
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
 ---
- drivers/net/benet/be.h      |    2 +-
- drivers/net/benet/be_cmds.c |   75 +++++++++++++++++++++++++-----------------
- drivers/net/benet/be_main.c |    2 +-
- 3 files changed, 47 insertions(+), 32 deletions(-)
+ include/net/sock.h  |    4 ++++
+ net/core/sock.c     |   49 +++++++++++++++++++++++++++++++++++++------------
+ net/dccp/ipv4.c     |    1 +
+ net/dccp/ipv6.c     |    1 +
+ net/ipv4/tcp_ipv4.c |    1 +
+ net/ipv4/udp.c      |    1 +
+ net/ipv4/udplite.c  |    1 +
+ net/ipv6/tcp_ipv6.c |    1 +
+ net/ipv6/udp.c      |    1 +
+ net/ipv6/udplite.c  |    1 +
+ net/llc/af_llc.c    |    1 +
+ 11 files changed, 50 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index 4594a28..d64313b 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -234,7 +234,7 @@ struct be_adapter {
- 	u8 __iomem *db;		/* Door Bell */
- 	u8 __iomem *pcicfg;	/* PCI config space */
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 659d968..23747a8 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -754,6 +754,7 @@ struct proto {
+ 	void			(*unhash)(struct sock *sk);
+ 	void			(*rehash)(struct sock *sk);
+ 	int			(*get_port)(struct sock *sk, unsigned short snum);
++	void			(*clear_sk)(struct sock *sk, int size);
  
--	spinlock_t mbox_lock;	/* For serializing mbox cmds to BE card */
-+	struct mutex mbox_lock; /* For serializing mbox cmds to BE card */
- 	struct be_dma_mem mbox_mem;
- 	/* Mbox mem is adjusted to align to 16 bytes. The allocated addr
- 	 * is stored for freeing purpose */
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index e4465d2..1c8c79c 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -462,7 +462,8 @@ int be_cmd_fw_init(struct be_adapter *adapter)
- 	u8 *wrb;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = (u8 *)wrb_from_mbox(adapter);
- 	*wrb++ = 0xFF;
-@@ -476,7 +477,7 @@ int be_cmd_fw_init(struct be_adapter *adapter)
- 
- 	status = be_mbox_notify_wait(adapter);
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
+ 	/* Keeping track of sockets in use */
+ #ifdef CONFIG_PROC_FS
+@@ -852,6 +853,9 @@ static inline void __sk_prot_rehash(struct sock *sk)
+ 	sk->sk_prot->hash(sk);
  }
  
-@@ -491,7 +492,8 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
- 	if (adapter->eeh_err)
- 		return -EIO;
++void sk_prot_clear_nulls(struct sock *sk, int size);
++void sk_prot_clear_portaddr_nulls(struct sock *sk, int size);
++
+ /* About 10 seconds */
+ #define SOCK_DESTROY_TIME (10*HZ)
  
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = (u8 *)wrb_from_mbox(adapter);
- 	*wrb++ = 0xFF;
-@@ -505,7 +507,7 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
- 
- 	status = be_mbox_notify_wait(adapter);
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
- int be_cmd_eq_create(struct be_adapter *adapter,
-@@ -516,7 +518,8 @@ int be_cmd_eq_create(struct be_adapter *adapter,
- 	struct be_dma_mem *q_mem = &eq->dma_mem;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -546,7 +549,7 @@ int be_cmd_eq_create(struct be_adapter *adapter,
- 		eq->created = true;
- 	}
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index fb60801..35e40e0 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1009,6 +1009,36 @@ static void sock_copy(struct sock *nsk, const struct sock *osk)
+ #endif
  }
  
-@@ -558,7 +561,8 @@ int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
- 	struct be_cmd_req_mac_query *req;
- 	int status;
++/*
++ * caches using SLAB_DESTROY_BY_RCU should let .next pointer from nulls nodes
++ * un-modified. Special care is taken when initializing object to zero.
++ */
++void sk_prot_clear_nulls(struct sock *sk, int size)
++{
++	if (offsetof(struct sock, sk_node.next) != 0)
++		memset(sk, 0, offsetof(struct sock, sk_node.next));
++	memset(&sk->sk_node.pprev, 0,
++	       size - offsetof(struct sock, sk_node.pprev));
++}
++
++void sk_prot_clear_portaddr_nulls(struct sock *sk, int size)
++{
++	unsigned long nulls1, nulls2;
++
++	nulls1 = offsetof(struct sock, __sk_common.skc_node.next);
++	nulls2 = offsetof(struct sock, __sk_common.skc_portaddr_node.next);
++	if (nulls1 > nulls2)
++		swap(nulls1, nulls2);
++
++	if (nulls1 != 0)
++		memset((char *)sk, 0, nulls1);
++	memset((char *)sk + nulls1 + sizeof(void *), 0,
++	       nulls2 - nulls1 - sizeof(void *));
++	memset((char *)sk + nulls2 + sizeof(void *), 0,
++	       size - nulls2 - sizeof(void *));
++}
++
++
+ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
+ 		int family)
+ {
+@@ -1021,19 +1051,12 @@ static struct sock *sk_prot_alloc(struct proto *prot, gfp_t priority,
+ 		if (!sk)
+ 			return sk;
+ 		if (priority & __GFP_ZERO) {
+-			/*
+-			 * caches using SLAB_DESTROY_BY_RCU should let
+-			 * sk_node.next un-modified. Special care is taken
+-			 * when initializing object to zero.
+-			 */
+-			if (offsetof(struct sock, sk_node.next) != 0)
+-				memset(sk, 0, offsetof(struct sock, sk_node.next));
+-			memset(&sk->sk_node.pprev, 0,
+-			       prot->obj_size - offsetof(struct sock,
+-							 sk_node.pprev));
++			if (prot->clear_sk)
++				prot->clear_sk(sk, prot->obj_size);
++			else
++				memset(sk, 0, prot->obj_size);
+ 		}
+-	}
+-	else
++	} else
+ 		sk = kmalloc(prot->obj_size, priority);
  
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
+ 	if (sk != NULL) {
+@@ -2331,6 +2354,8 @@ static inline void release_proto_idx(struct proto *prot)
  
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -583,7 +587,7 @@ int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
- 		memcpy(mac_addr, resp->mac.addr, ETH_ALEN);
- 	}
+ int proto_register(struct proto *prot, int alloc_slab)
+ {
++	BUG_ON((prot->slab_flags & SLAB_DESTROY_BY_RCU) && !prot->clear_sk);
++
+ 	if (alloc_slab) {
+ 		prot->slab = kmem_cache_create(prot->name, prot->obj_size, 0,
+ 					SLAB_HWCACHE_ALIGN | prot->slab_flags,
+diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+index 3f69ea1..6ad0efb 100644
+--- a/net/dccp/ipv4.c
++++ b/net/dccp/ipv4.c
+@@ -956,6 +956,7 @@ static struct proto dccp_v4_prot = {
+ 	.compat_setsockopt	= compat_dccp_setsockopt,
+ 	.compat_getsockopt	= compat_dccp_getsockopt,
+ #endif
++	.clear_sk		= sk_prot_clear_nulls,
+ };
  
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
+ static const struct net_protocol dccp_v4_protocol = {
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index dca711d..738b893 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -1134,6 +1134,7 @@ static struct proto dccp_v6_prot = {
+ 	.compat_setsockopt = compat_dccp_setsockopt,
+ 	.compat_getsockopt = compat_dccp_getsockopt,
+ #endif
++	.clear_sk		= sk_prot_clear_nulls,
+ };
  
-@@ -667,7 +671,8 @@ int be_cmd_cq_create(struct be_adapter *adapter,
- 	void *ctxt;
- 	int status;
+ static const struct inet6_protocol dccp_v6_protocol = {
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index e13da6d..69964c5 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -2627,6 +2627,7 @@ struct proto tcp_prot = {
+ 	.compat_setsockopt	= compat_tcp_setsockopt,
+ 	.compat_getsockopt	= compat_tcp_getsockopt,
+ #endif
++	.clear_sk		= sk_prot_clear_nulls,
+ };
+ EXPORT_SYMBOL(tcp_prot);
  
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 5e0a3a5..2d3ded4 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1899,6 +1899,7 @@ struct proto udp_prot = {
+ 	.compat_setsockopt = compat_udp_setsockopt,
+ 	.compat_getsockopt = compat_udp_getsockopt,
+ #endif
++	.clear_sk	   = sk_prot_clear_portaddr_nulls,
+ };
+ EXPORT_SYMBOL(udp_prot);
  
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -701,7 +706,7 @@ int be_cmd_cq_create(struct be_adapter *adapter,
- 		cq->created = true;
- 	}
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+index ab76aa9..aee9963 100644
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -57,6 +57,7 @@ struct proto 	udplite_prot = {
+ 	.compat_setsockopt = compat_udp_setsockopt,
+ 	.compat_getsockopt = compat_udp_getsockopt,
+ #endif
++	.clear_sk	   = sk_prot_clear_portaddr_nulls,
+ };
+ EXPORT_SYMBOL(udplite_prot);
  
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 7e41e2c..ea42a2d 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -2171,6 +2171,7 @@ struct proto tcpv6_prot = {
+ 	.compat_setsockopt	= compat_tcp_setsockopt,
+ 	.compat_getsockopt	= compat_tcp_getsockopt,
+ #endif
++	.clear_sk		= sk_prot_clear_nulls,
+ };
  
- 	return status;
- }
-@@ -724,7 +729,8 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
- 	void *ctxt;
- 	int status;
+ static const struct inet6_protocol tcpv6_protocol = {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 91def93..cd6cb7c 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -1477,6 +1477,7 @@ struct proto udpv6_prot = {
+ 	.compat_setsockopt = compat_udpv6_setsockopt,
+ 	.compat_getsockopt = compat_udpv6_getsockopt,
+ #endif
++	.clear_sk	   = sk_prot_clear_portaddr_nulls,
+ };
  
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
+ static struct inet_protosw udpv6_protosw = {
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+index 5f48fad..986c4de 100644
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -55,6 +55,7 @@ struct proto udplitev6_prot = {
+ 	.compat_setsockopt = compat_udpv6_setsockopt,
+ 	.compat_getsockopt = compat_udpv6_getsockopt,
+ #endif
++	.clear_sk	   = sk_prot_clear_portaddr_nulls,
+ };
  
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -754,7 +760,7 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
- 		mccq->id = le16_to_cpu(resp->id);
- 		mccq->created = true;
- 	}
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
+ static struct inet_protosw udplite6_protosw = {
+diff --git a/net/llc/af_llc.c b/net/llc/af_llc.c
+index e35dbe5..1d54c6a 100644
+--- a/net/llc/af_llc.c
++++ b/net/llc/af_llc.c
+@@ -142,6 +142,7 @@ static struct proto llc_proto = {
+ 	.owner	  = THIS_MODULE,
+ 	.obj_size = sizeof(struct llc_sock),
+ 	.slab_flags = SLAB_DESTROY_BY_RCU,
++	.clear_sk = sk_prot_clear_nulls,
+ };
  
- 	return status;
- }
-@@ -769,7 +775,8 @@ int be_cmd_txq_create(struct be_adapter *adapter,
- 	void *ctxt;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -801,7 +808,7 @@ int be_cmd_txq_create(struct be_adapter *adapter,
- 		txq->created = true;
- 	}
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 
- 	return status;
- }
-@@ -816,7 +823,8 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
- 	struct be_dma_mem *q_mem = &rxq->dma_mem;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -843,7 +851,7 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
- 		*rss_id = resp->rss_id;
- 	}
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 
- 	return status;
- }
-@@ -862,7 +870,8 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 	if (adapter->eeh_err)
- 		return -EIO;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -899,7 +908,7 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
- 
- 	status = be_mbox_notify_wait(adapter);
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 
- 	return status;
- }
-@@ -915,7 +924,8 @@ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
- 	struct be_cmd_req_if_create *req;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -941,7 +951,7 @@ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
- 			*pmac_id = le32_to_cpu(resp->pmac_id);
- 	}
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
- 
-@@ -955,7 +965,8 @@ int be_cmd_if_destroy(struct be_adapter *adapter, u32 interface_id)
- 	if (adapter->eeh_err)
- 		return -EIO;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -970,7 +981,7 @@ int be_cmd_if_destroy(struct be_adapter *adapter, u32 interface_id)
- 
- 	status = be_mbox_notify_wait(adapter);
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 
- 	return status;
- }
-@@ -1060,7 +1071,8 @@ int be_cmd_get_fw_ver(struct be_adapter *adapter, char *fw_ver)
- 	struct be_cmd_req_get_fw_version *req;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -1077,7 +1089,7 @@ int be_cmd_get_fw_ver(struct be_adapter *adapter, char *fw_ver)
- 		strncpy(fw_ver, resp->firmware_version_string, FW_VER_LEN);
- 	}
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
- 
-@@ -1322,7 +1334,8 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
- 	struct be_cmd_req_query_fw_cfg *req;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -1341,7 +1354,7 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
- 		*caps = le32_to_cpu(resp->function_caps);
- 	}
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
- 
-@@ -1352,7 +1365,8 @@ int be_cmd_reset_function(struct be_adapter *adapter)
- 	struct be_cmd_req_hdr *req;
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -1365,7 +1379,7 @@ int be_cmd_reset_function(struct be_adapter *adapter)
- 
- 	status = be_mbox_notify_wait(adapter);
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
- 
-@@ -1376,7 +1390,8 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
- 	u32 myhash[10];
- 	int status;
- 
--	spin_lock(&adapter->mbox_lock);
-+	if (mutex_lock_interruptible(&adapter->mbox_lock))
-+		return -1;
- 
- 	wrb = wrb_from_mbox(adapter);
- 	req = embedded_payload(wrb);
-@@ -1396,7 +1411,7 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
- 
- 	status = be_mbox_notify_wait(adapter);
- 
--	spin_unlock(&adapter->mbox_lock);
-+	mutex_unlock(&adapter->mbox_lock);
- 	return status;
- }
- 
-diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 93354ee..fd251b5 100644
---- a/drivers/net/benet/be_main.c
-+++ b/drivers/net/benet/be_main.c
-@@ -2677,7 +2677,7 @@ static int be_ctrl_init(struct be_adapter *adapter)
- 	}
- 	memset(mc_cmd_mem->va, 0, mc_cmd_mem->size);
- 
--	spin_lock_init(&adapter->mbox_lock);
-+	mutex_init(&adapter->mbox_lock);
- 	spin_lock_init(&adapter->mcc_lock);
- 	spin_lock_init(&adapter->mcc_cq_lock);
- 
+ /**
 -- 
-1.7.2.2
+1.7.1
 
