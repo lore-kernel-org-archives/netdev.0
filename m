@@ -1,83 +1,346 @@
-From: Pierre Ossman <pierre-list@ossman.eu>
-Subject: Re: [RFC][PATCH] Export DNSSL RA option to userspace
-Date: Tue, 14 Dec 2010 14:43:19 +0100
-Message-ID: <20101214144319.02eced29@mjolnir.ossman.eu>
-References: <20101212144300.68e0fb16@mjolnir.ossman.eu>
-	<1292332218.15586.49.camel@i7.infradead.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA256; protocol="application/pgp-signature"; boundary="=_freyr.ossman.eu-18053-1292334206-0001-2"
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH net-2.6] be2net: use semaphore instead of spin lock for mbox_lock
+Date: Tue, 14 Dec 2010 14:46:07 +0100
+Message-ID: <1292334367-11148-1-git-send-email-ivecera@redhat.com>
+Cc: sathyap@serverengines.com, subbus@serverengines.com,
+	sarveshwarb@serverengines.com, ajitk@serverengines.com,
+	davem@davemloft.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-117-125-11.tcdsl.calypso.net ([82.117.125.11]:48301 "EHLO
-	smtp.ossman.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751014Ab0LNNna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Dec 2010 08:43:30 -0500
-In-Reply-To: <1292332218.15586.49.camel@i7.infradead.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9357 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755337Ab0LNNqN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Dec 2010 08:46:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
+Since the mbox polling uses the schedule_timeout, the mbox_lock should be
+a semaphore and not a spin lock.
+The commit f25b03a replaced udelay() with schedule_timeout() but didn't
+change the mbox_lock to a semaphore or a mutex.
 
---=_freyr.ossman.eu-18053-1292334206-0001-2
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/benet/be.h      |    2 +-
+ drivers/net/benet/be_cmds.c |   75 +++++++++++++++++++++++++-----------------
+ drivers/net/benet/be_main.c |    2 +-
+ 3 files changed, 47 insertions(+), 32 deletions(-)
 
-On Tue, 14 Dec 2010 13:10:15 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
+index 4594a28..45d67cb 100644
+--- a/drivers/net/benet/be.h
++++ b/drivers/net/benet/be.h
+@@ -234,7 +234,7 @@ struct be_adapter {
+ 	u8 __iomem *db;		/* Door Bell */
+ 	u8 __iomem *pcicfg;	/* PCI config space */
+ 
+-	spinlock_t mbox_lock;	/* For serializing mbox cmds to BE card */
++	struct semaphore mbox_lock; /* For serializing mbox cmds to BE card */
+ 	struct be_dma_mem mbox_mem;
+ 	/* Mbox mem is adjusted to align to 16 bytes. The allocated addr
+ 	 * is stored for freeing purpose */
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index e4465d2..c98cf69 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -462,7 +462,8 @@ int be_cmd_fw_init(struct be_adapter *adapter)
+ 	u8 *wrb;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = (u8 *)wrb_from_mbox(adapter);
+ 	*wrb++ = 0xFF;
+@@ -476,7 +477,7 @@ int be_cmd_fw_init(struct be_adapter *adapter)
+ 
+ 	status = be_mbox_notify_wait(adapter);
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -491,7 +492,8 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
+ 	if (adapter->eeh_err)
+ 		return -EIO;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = (u8 *)wrb_from_mbox(adapter);
+ 	*wrb++ = 0xFF;
+@@ -505,7 +507,7 @@ int be_cmd_fw_clean(struct be_adapter *adapter)
+ 
+ 	status = be_mbox_notify_wait(adapter);
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ int be_cmd_eq_create(struct be_adapter *adapter,
+@@ -516,7 +518,8 @@ int be_cmd_eq_create(struct be_adapter *adapter,
+ 	struct be_dma_mem *q_mem = &eq->dma_mem;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -546,7 +549,7 @@ int be_cmd_eq_create(struct be_adapter *adapter,
+ 		eq->created = true;
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -558,7 +561,8 @@ int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
+ 	struct be_cmd_req_mac_query *req;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -583,7 +587,7 @@ int be_cmd_mac_addr_query(struct be_adapter *adapter, u8 *mac_addr,
+ 		memcpy(mac_addr, resp->mac.addr, ETH_ALEN);
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -667,7 +671,8 @@ int be_cmd_cq_create(struct be_adapter *adapter,
+ 	void *ctxt;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -701,7 +706,7 @@ int be_cmd_cq_create(struct be_adapter *adapter,
+ 		cq->created = true;
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 
+ 	return status;
+ }
+@@ -724,7 +729,8 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
+ 	void *ctxt;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -754,7 +760,7 @@ int be_cmd_mccq_create(struct be_adapter *adapter,
+ 		mccq->id = le16_to_cpu(resp->id);
+ 		mccq->created = true;
+ 	}
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 
+ 	return status;
+ }
+@@ -769,7 +775,8 @@ int be_cmd_txq_create(struct be_adapter *adapter,
+ 	void *ctxt;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -801,7 +808,7 @@ int be_cmd_txq_create(struct be_adapter *adapter,
+ 		txq->created = true;
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 
+ 	return status;
+ }
+@@ -816,7 +823,8 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
+ 	struct be_dma_mem *q_mem = &rxq->dma_mem;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -843,7 +851,7 @@ int be_cmd_rxq_create(struct be_adapter *adapter,
+ 		*rss_id = resp->rss_id;
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 
+ 	return status;
+ }
+@@ -862,7 +870,8 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
+ 	if (adapter->eeh_err)
+ 		return -EIO;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -899,7 +908,7 @@ int be_cmd_q_destroy(struct be_adapter *adapter, struct be_queue_info *q,
+ 
+ 	status = be_mbox_notify_wait(adapter);
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 
+ 	return status;
+ }
+@@ -915,7 +924,8 @@ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
+ 	struct be_cmd_req_if_create *req;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -941,7 +951,7 @@ int be_cmd_if_create(struct be_adapter *adapter, u32 cap_flags, u32 en_flags,
+ 			*pmac_id = le32_to_cpu(resp->pmac_id);
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -955,7 +965,8 @@ int be_cmd_if_destroy(struct be_adapter *adapter, u32 interface_id)
+ 	if (adapter->eeh_err)
+ 		return -EIO;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -970,7 +981,7 @@ int be_cmd_if_destroy(struct be_adapter *adapter, u32 interface_id)
+ 
+ 	status = be_mbox_notify_wait(adapter);
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 
+ 	return status;
+ }
+@@ -1060,7 +1071,8 @@ int be_cmd_get_fw_ver(struct be_adapter *adapter, char *fw_ver)
+ 	struct be_cmd_req_get_fw_version *req;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -1077,7 +1089,7 @@ int be_cmd_get_fw_ver(struct be_adapter *adapter, char *fw_ver)
+ 		strncpy(fw_ver, resp->firmware_version_string, FW_VER_LEN);
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -1322,7 +1334,8 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
+ 	struct be_cmd_req_query_fw_cfg *req;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -1341,7 +1354,7 @@ int be_cmd_query_fw_cfg(struct be_adapter *adapter, u32 *port_num,
+ 		*caps = le32_to_cpu(resp->function_caps);
+ 	}
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -1352,7 +1365,8 @@ int be_cmd_reset_function(struct be_adapter *adapter)
+ 	struct be_cmd_req_hdr *req;
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -1365,7 +1379,7 @@ int be_cmd_reset_function(struct be_adapter *adapter)
+ 
+ 	status = be_mbox_notify_wait(adapter);
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+@@ -1376,7 +1390,8 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
+ 	u32 myhash[10];
+ 	int status;
+ 
+-	spin_lock(&adapter->mbox_lock);
++	if (down_interruptible(&adapter->mbox_lock))
++		return -1;
+ 
+ 	wrb = wrb_from_mbox(adapter);
+ 	req = embedded_payload(wrb);
+@@ -1396,7 +1411,7 @@ int be_cmd_rss_config(struct be_adapter *adapter, u8 *rsstable, u16 table_size)
+ 
+ 	status = be_mbox_notify_wait(adapter);
+ 
+-	spin_unlock(&adapter->mbox_lock);
++	up(&adapter->mbox_lock);
+ 	return status;
+ }
+ 
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 93354ee..974e806 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -2677,7 +2677,7 @@ static int be_ctrl_init(struct be_adapter *adapter)
+ 	}
+ 	memset(mc_cmd_mem->va, 0, mc_cmd_mem->size);
+ 
+-	spin_lock_init(&adapter->mbox_lock);
++	sema_init(&adapter->mbox_lock, 1);
+ 	spin_lock_init(&adapter->mcc_lock);
+ 	spin_lock_init(&adapter->mcc_cq_lock);
+ 
+-- 
+1.7.2.2
 
-> On Sun, 2010-12-12 at 14:43 +0100, Pierre Ossman wrote:
-> > RFC 6106 specifies a new RA option for DNS resolver configuration that
-> > therefore needs to end up in userspace.
-> >=20
-> > This first patch just exports the new option, but I started thinking
-> > that this seems overly complex that the kernel needs to be updated
-> > every time there is something new of interest to userspace in the RA.
-> > So I also have a second patch that exports everything that the kernel
-> > doesn't want.
-> >=20
-> > Patches only compile tested so far as I'm still hacking away at
-> > userspace. Comments very much welcome though.
->=20
-> Totally untested userspace support:
-> http://git.infradead.org/users/dwmw2/connman.git
->=20
-
-Tested userspace support in the form of NetworkManager: ;)
-
-https://bugzilla.gnome.org/show_bug.cgi?id=3D637077
-
-And a radvd to send things out:
-
-http://lists.litech.org/pipermail/radvd-devel-l/2010-December/000507.html
-
-Rgds
---=20
-     -- Pierre Ossman
-
-  WARNING: This correspondence is being monitored by FRA, a
-  Swedish intelligence agency. Make sure your server uses
-  encryption for SMTP traffic and consider using PGP for
-  end-to-end encryption.
-
---=_freyr.ossman.eu-18053-1292334206-0001-2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.16 (GNU/Linux)
-
-iF4EAREIAAYFAk0HdHsACgkQopDLsoqlmELQYgEAqgFLfcwePHlS0YZetNrPRZPq
-TwPsP/n4rzVLWyNRQcQA/jxmdjK12QoVEP8qoqULwQkWx0NVsBIwUwnW+utRxt9G
-=n6GG
------END PGP SIGNATURE-----
-
---=_freyr.ossman.eu-18053-1292334206-0001-2--
