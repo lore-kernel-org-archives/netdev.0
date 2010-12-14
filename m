@@ -1,38 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2] workqueue: convert
- cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()
-Date: Tue, 14 Dec 2010 11:53:41 -0800 (PST)
-Message-ID: <20101214.115341.71112815.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] workqueue: deprecate
+ cancel_rearming_delayed_work[queue]()
+Date: Tue, 14 Dec 2010 11:53:54 -0800 (PST)
+Message-ID: <20101214.115354.104055630.davem@davemloft.net>
 References: <4D078B6D.5060202@kernel.org>
+	<4D078BDE.8060102@kernel.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org,
-	benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org, mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, cbou-JGs/UdohzUI@public.gmane.org, dwmw2-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
-	zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	neilb-l3A5Bk7waGM@public.gmane.org, aelder-sJ/iWh9BUns@public.gmane.org, xfs-masters-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
-	cl-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, penberg-bbCR+/B0CizivPeTLB3BmA@public.gmane.org,
-	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4D078B6D.5060202-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+	benh@kernel.crashing.org, mchehab@infradead.org,
+	netdev@vger.kernel.org, cbou@mail.ru, dwmw2@infradead.org,
+	zbr@ioremap.net, gregkh@suse.de, bfields@fieldses.org,
+	neilb@suse.de, aelder@sgi.com, xfs-masters@oss.sgi.com,
+	cl@linux-foundation.org, penberg@cs.helsinki.fi,
+	akpm@linux-foundation.org, netfilter-devel@vger.kernel.org,
+	Trond.Myklebust@netapp.com, linux-nfs@vger.kernel.org
+To: tj@kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50676
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759844Ab0LNTx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 14:53:26 -0500
+In-Reply-To: <4D078BDE.8060102@kernel.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date: Tue, 14 Dec 2010 16:21:17 +0100
+From: Tejun Heo <tj@kernel.org>
+Date: Tue, 14 Dec 2010 16:23:10 +0100
 
-> cancel_rearming_delayed_work[queue]() has been superceded by
-> cancel_delayed_work_sync() quite some time ago.  Convert all the
-> in-kernel users.  The conversions are completely equivalent and
-> trivial.
+> There's no in-kernel user left for these two obsolete functions.  Mark
+> them deprecated and schedule for removal during 2.6.39 cycle.
 > 
-> Signed-off-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Signed-off-by: Tejun Heo <tj@kernel.org>
 
-Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: David S. Miller <davem@davemloft.net>
