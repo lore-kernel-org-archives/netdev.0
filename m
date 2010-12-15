@@ -1,33 +1,83 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv3] fragment locally-generated IPsec6 packets that need
-	it
-Date: Wed, 15 Dec 2010 14:39:10 +0800
-Message-ID: <20101215063910.GA22666@gondor.apana.org.au>
-References: <1292393929.5112.2.camel@IBM-1B506CFC885>
+From: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: [PATCH 2/3] net: sunrpc: kill unused macros
+Date: Wed, 15 Dec 2010 14:47:20 +0800
+Message-ID: <4D086478.7090106@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:41890 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752061Ab0LOGjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 01:39:16 -0500
-Content-Disposition: inline
-In-Reply-To: <1292393929.5112.2.camel@IBM-1B506CFC885>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network-Maillist <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
+	steved-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 14, 2010 at 10:18:49PM -0800, David L Stevens wrote:
-> This patch modifies IPsec6 to fragment IPv6 packets that are
-> locally generated as needed.
-> 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+These macros never be used for several years.
 
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks David!
+Signed-off-by: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+---
+ net/sunrpc/auth_gss/svcauth_gss.c |    2 --
+ net/sunrpc/svcauth.c              |    1 -
+ net/sunrpc/svcauth_unix.c         |    2 --
+ 3 files changed, 0 insertions(+), 5 deletions(-)
+
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index dec2a6f..bcdae78 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -67,7 +67,6 @@ static int netobj_equal(struct xdr_netobj *a, struct xdr_netobj *b)
+ 
+ #define	RSI_HASHBITS	6
+ #define	RSI_HASHMAX	(1<<RSI_HASHBITS)
+-#define	RSI_HASHMASK	(RSI_HASHMAX-1)
+ 
+ struct rsi {
+ 	struct cache_head	h;
+@@ -319,7 +318,6 @@ static struct rsi *rsi_update(struct rsi *new, struct rsi *old)
+ 
+ #define	RSC_HASHBITS	10
+ #define	RSC_HASHMAX	(1<<RSC_HASHBITS)
+-#define	RSC_HASHMASK	(RSC_HASHMAX-1)
+ 
+ #define GSS_SEQ_WIN	128
+ 
+diff --git a/net/sunrpc/svcauth.c b/net/sunrpc/svcauth.c
+index 4e9393c..7963569 100644
+--- a/net/sunrpc/svcauth.c
++++ b/net/sunrpc/svcauth.c
+@@ -118,7 +118,6 @@ EXPORT_SYMBOL_GPL(svc_auth_unregister);
+ 
+ #define	DN_HASHBITS	6
+ #define	DN_HASHMAX	(1<<DN_HASHBITS)
+-#define	DN_HASHMASK	(DN_HASHMAX-1)
+ 
+ static struct hlist_head	auth_domain_table[DN_HASHMAX];
+ static spinlock_t	auth_domain_lock =
+diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+index 560677d..a04ac91 100644
+--- a/net/sunrpc/svcauth_unix.c
++++ b/net/sunrpc/svcauth_unix.c
+@@ -85,7 +85,6 @@ static void svcauth_unix_domain_release(struct auth_domain *dom)
+  */
+ #define	IP_HASHBITS	8
+ #define	IP_HASHMAX	(1<<IP_HASHBITS)
+-#define	IP_HASHMASK	(IP_HASHMAX-1)
+ 
+ struct ip_map {
+ 	struct cache_head	h;
+@@ -497,7 +496,6 @@ svcauth_unix_info_release(struct svc_xprt *xpt)
+  */
+ #define	GID_HASHBITS	8
+ #define	GID_HASHMAX	(1<<GID_HASHBITS)
+-#define	GID_HASHMASK	(GID_HASHMAX - 1)
+ 
+ struct unix_gid {
+ 	struct cache_head	h;
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+1.6.3.3
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
