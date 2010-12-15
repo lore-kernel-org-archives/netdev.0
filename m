@@ -1,49 +1,33 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/5 v2] ifb: add multiqueue support
-Date: Wed, 15 Dec 2010 07:37:44 +0100
-Message-ID: <1292395064.2377.1.camel@edumazet-laptop>
-References: <1292340098-25537-1-git-send-email-xiaosuo@gmail.com>
-	 <1292342358.5934.10.camel@edumazet-laptop>
-	 <AANLkTikucnTO_+g2Fa=ZoMFQYbeiQSvqkJURF254So6d@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCHv3] fragment locally-generated IPsec6 packets that need
+	it
+Date: Wed, 15 Dec 2010 14:39:10 +0800
+Message-ID: <20101215063910.GA22666@gondor.apana.org.au>
+References: <1292393929.5112.2.camel@IBM-1B506CFC885>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46568 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751234Ab0LOGhz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 01:37:55 -0500
-Received: by wyb28 with SMTP id 28so1171039wyb.19
-        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 22:37:54 -0800 (PST)
-In-Reply-To: <AANLkTikucnTO_+g2Fa=ZoMFQYbeiQSvqkJURF254So6d@mail.gmail.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:41890 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061Ab0LOGjQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 01:39:16 -0500
+Content-Disposition: inline
+In-Reply-To: <1292393929.5112.2.camel@IBM-1B506CFC885>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 08:20 +0800, Changli Gao a =C3=
-=A9crit :
-> On Tue, Dec 14, 2010 at 11:59 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
-> >
-> >
-> > There is a problem here.
-> >
-> > You should sum in the loop rx_counters only, (the counters syncp
-> > protected), and use dev_txq_stats_fold() to get the tx_counters fro=
-m
-> > core network.
->=20
-> Hmm, in ifb, txq->tx_counters aren't used in ifb_xmit() but
-> ri_tasklet(). IOW, rx and tx are reversed. Here I use txq->tx_counter=
-s
-> to reduce duplicate counters in ifb_q_private. Unless these variables
-> might be accessed outside of ifb, I can use them freely? Thanks.
->=20
+On Tue, Dec 14, 2010 at 10:18:49PM -0800, David L Stevens wrote:
+> This patch modifies IPsec6 to fragment IPv6 packets that are
+> locally generated as needed.
+> 
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Yes, you are right, and the txq lock is not necessary to read their
-values as well (I thought it was hold at write time)
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-
-
+Thanks David!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
