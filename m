@@ -1,46 +1,41 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: linux-next: Tree for November 18 (netfilter)
-Date: Wed, 15 Dec 2010 23:55:10 +0100
-Message-ID: <4D09474E.1070100@trash.net>
-References: <20101118134256.fe132215.sfr@canb.auug.org.au>	 <20101118092520.6ad964c7.randy.dunlap@oracle.com>	 <4CE5712B.2080909@trash.net>  <1290428077.725556.3.camel@nienna.balabit> <1290428929.726241.1.camel@nienna.balabit> <4CEA97FE.4080006@oracle.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000e: convert to stats64
+Date: Wed, 15 Dec 2010 15:59:18 -0800
+Message-ID: <AANLkTi=J0iPVmqakd-Z8Fog_yw-UFia77z-yc3ziNib0@mail.gmail.com>
+References: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@balabit.hu>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Balazs Scheidler <bazsi@balabit.hu>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <4CEA97FE.4080006@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Flavio Leitner <fleitner@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Am 22.11.2010 17:19, schrieb Randy Dunlap:
-> On 11/22/10 04:28, KOVACS Krisztian wrote:
->> commit ec0ac6f3e7749e25f481c1e0f75766974820fe84
->> Author: KOVACS Krisztian <hidden@balabit.hu>
->> Date:   Mon Nov 22 13:07:15 2010 +0100
->>
->>     netfilter: fix compilation when conntrack is disabled but tproxy is enabled
->>     
->>     The IPv6 tproxy patches split IPv6 defragmentation off of conntrack, but
->>     failed to update the #ifdef stanzas guarding the defragmentation related
->>     fields and code in skbuff and conntrack related code in nf_defrag_ipv6.c.
->>     
->>     This patch adds the required #ifdefs so that IPv6 tproxy can truly be used
->>     without connection tracking.
->>     
->>     Original report:
->>     http://marc.info/?l=linux-netdev&m=129010118516341&w=2
->>     
->>     Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
->>     Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
-> 
-> That builds.  Thanks.
-> 
-> Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
-
-Applied, thanks everyone.
+T24gVHVlLCBEZWMgMTQsIDIwMTAgYXQgMTI6MzIsIEZsYXZpbyBMZWl0bmVyIDxmbGVpdG5lckBy
+ZWRoYXQuY29tPiB3cm90ZToKPiBQcm92aWRlcyBhY2N1cmF0ZSBzdGF0cyBhdCB0aGUgdGltZSB1
+c2VyIHJlYWRzIHRoZW0uCj4KPiBTaWduZWQtb2ZmLWJ5OiBGbGF2aW8gTGVpdG5lciA8ZmxlaXRu
+ZXJAcmVkaGF0LmNvbT4KPiAtLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAwZS9lMTAwMC5oIMKgIHwg
+wqAgwqA1ICsrLQo+IMKgZHJpdmVycy9uZXQvZTEwMDBlL2V0aHRvb2wuYyB8IMKgIDI3ICsrKysr
+KysrKy0tLS0tLS0KPiDCoGRyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYyDCoHwgwqAgNjggKysr
+KysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0KPiDCoDMgZmlsZXMgY2hhbmdl
+ZCwgNTkgaW5zZXJ0aW9ucygrKSwgNDEgZGVsZXRpb25zKC0pCj4KCkkgaGF2ZSBhZGRlZCB0aGlz
+IHBhdGNoIHRvIG15IHRyZWUgZm9yIHJldmlldyBhbmQgdGVzdGluZy4gIFRoYW5rcyBGbGF2aW8u
+CgotLSAKQ2hlZXJzLApKZWZmCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KTG90dXNwaGVyZSAyMDEx
+ClJlZ2lzdGVyIG5vdyBmb3IgTG90dXNwaGVyZSAyMDExIGFuZCBsZWFybiBob3cKdG8gY29ubmVj
+dCB0aGUgZG90cywgdGFrZSB5b3VyIGNvbGxhYm9yYXRpdmUgZW52aXJvbm1lbnQKdG8gdGhlIG5l
+eHQgbGV2ZWwsIGFuZCBlbnRlciB0aGUgZXJhIG9mIFNvY2lhbCBCdXNpbmVzcy4KaHR0cDovL3Au
+c2YubmV0L3NmdS9sb3R1c3BoZXJlLWQyZApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlz
+dHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xp
+c3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJu
+ZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
