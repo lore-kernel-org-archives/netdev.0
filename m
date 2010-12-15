@@ -1,53 +1,63 @@
-From: Eugene Teo <eugeneteo@kernel.org>
-Subject: Re: [PATCH v2] kptr_restrict for hiding kernel pointers from unprivileged
- users
-Date: Wed, 15 Dec 2010 12:18:12 +0800
-Message-ID: <4D084184.7090808@kernel.org>
-References: <1292385983.9764.5.camel@Dan>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: Using net_devices with ATM/DSL
+Date: Tue, 14 Dec 2010 20:36:07 -0800
+Message-ID: <4D0845B7.9050003@redfish-solutions.com>
+References: <4D05C2D3.7010306@redfish-solutions.com> <201012131350.10206.florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@elte.hu>,
-	Kees Cook <kees.cook@canonical.com>,
-	Eugene Teo <eugeneteo@kernel.org>,
-	James Morris <jmorris@namei.org>
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1292385983.9764.5.camel@Dan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:51308 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760489Ab0LOEgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Dec 2010 23:36:19 -0500
+In-Reply-To: <201012131350.10206.florian@openwrt.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/15/2010 12:06 PM, Dan Rosenberg wrote:
-> The below patch adds the %pK format specifier, the
-> CONFIG_SECURITY_KPTR_RESTRICT configuration option, and the
-> kptr_restrict sysctl.
+On 12/13/10 4:50 AM, Florian Fainelli wrote:
+> Hello,
 >
-> The %pK format specifier is designed to hide exposed kernel pointers
-> from unprivileged users, specifically via /proc interfaces.  Its
-> behavior depends on the kptr_restrict sysctl, whose default value
-> depends on CONFIG_SECURITY_KPTR_RESTRICT.  If kptr_restrict is set to 0,
-> no deviation from the standard %p behavior occurs.  If kptr_restrict is
-> set to 1, if the current user (intended to be a reader via seq_printf(),
-> etc.) does not have CAP_SYSLOG (which is currently in the LSM tree),
-> kernel pointers using %pK are printed as 0's.  This was chosen over the
-> default "(null)", which cannot be parsed by userland %p, which expects
-> "(nil)".
->
-> v2 improves checking for inappropriate context, on suggestion by Peter
-> Zijlstra.  Thanks to Thomas Graf for suggesting use of a centralized
-> format specifier.
->
-> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-> CC: James Morris <jmorris@namei.org>
-> CC: Eugene Teo <eugeneteo@kernel.org>
-> CC: Kees Cook <kees.cook@canonical.com>
-> CC: Ingo Molnar <mingo@elte.hu>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: linux-security-module@vger.kernel.org
-> CC: netdev@vger.kernel.org
+> On Monday 13 December 2010 07:53:07 Philip Prindeville wrote:
+>> I was trying to get this discussion rolling on linux-atm-general but didn't
+>> have much luck.
+>>
+>> I was wondering what the downside to having ATM/DSL interfaces use
+>> net_devices would be?
+> I think you would have to add ATM/DSL-specific extensions (ala wext) just to
+> extend it, specializing an atm_dev would make more sense to me.
 
-Acked-by: Eugene Teo <eugeneteo@kernel.org>
+As long as it's symmetrical/consistent for br2684, PPPoE, and PPPoA, that would be good.
 
-Eugene
+>> Part of the reason for wanting to do this is to have an end-point to
+>> send/receive netlink messages to, so that the interface can report carrier
+>> state transitions, bit rates, bit-error rates, SNR, attenuation,
+>> constellations, transmitter gain, etc.
+>>
+>> Seems simple enough.
+> If you want to be able to report informations from the DSL PHY, I would rather
+> specialize an interface called, say dsl_phy which has a list of operations for
+> setting/getting the DSL PHY state, low-level counters ...
+
+Yes and no.  Carrier, bit rates, bit-error rates, are generic to ATM (because I might have an OC3c or OC12).
+
+SNR, attenuation, constellations, transmitter gain, etc. are specific to DSL.
+
+
+> The atm stack more or less already supports an ATM PHY with
+> atmphy_ops, but is in my opinion too limited to query chip-speficic infos.
+
+And I think it's only visible when you use br2684, right?  I also don't understand why the PPPoE code doesn't leverage br2684 more...
+
+
+> Once that interface is well defined, adding netlink support to it should be
+> rather straight forward.
+>
+>> Why not do this?
+>>
+>> Thanks,
+>>
+>> -Philip
+
