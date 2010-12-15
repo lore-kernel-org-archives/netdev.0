@@ -1,36 +1,37 @@
-From: Graeme Fowler <graeme@graemef.net>
-Subject: Re: [*v2 PATCH 00/22] IPVS, Network Name Space aware
-Date: Wed, 15 Dec 2010 12:15:26 +0000
-Message-ID: <1292415326.7459.8.camel@localhost>
-References: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
-	 <alpine.LFD.2.00.1012150136410.2010@ja.ssi.bg>
-	 <1292410332.4983.321.camel@seasc0214>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 1/5] ifb: remove function declarations
+Date: Wed, 15 Dec 2010 07:31:47 -0500
+Message-ID: <1292416307.2067.3.camel@mojatatu>
+References: <1292251414-5154-1-git-send-email-xiaosuo@gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>,
-	"horms@verge.net.au" <horms@verge.net.au>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1292410332.4983.321.camel@seasc0214>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:43226 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656Ab0LOMbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 07:31:51 -0500
+Received: by gyb11 with SMTP id 11so970201gyb.19
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 04:31:51 -0800 (PST)
+In-Reply-To: <1292251414-5154-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-15 at 11:52 +0100, Hans Schillstrom wrote:
-> Should I keep /proc/net/ip_vs_stats as it was before and add a new entry
-> like /proc/net/ip_vs_stats_percpu ?
-> (or maybe just skip the per cpu info ?)
 
-In my opinion you should keep the existing /proc/net/ip_vs_stats as it
-is or you may find that you inadvertently break 3rd party code which
-parses it.
+Sorry - I am very distracted with work but will get back to you
+on these patches. If i can respond to from a quick glance such
+as this one, I will do now.
 
-Graeme
+On Mon, 2010-12-13 at 22:43 +0800, Changli Gao wrote:
+> Restructure to remove function declarations.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
+Signed-off-by: Jamal Hadi Salim <hadi@cyberus.ca>
+
+cheers,
+jamal
 
