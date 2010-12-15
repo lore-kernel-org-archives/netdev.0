@@ -1,230 +1,430 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [RFC PATCH 06/12] bridge: convert br_features_recompute() to ndo_fix_features
+Subject: [RFC PATCH 03/12] net: ethtool: use ndo_fix_features for offload setting
 Date: Wed, 15 Dec 2010 23:24:29 +0100 (CET)
-Message-ID: <46bf0e846a6335285063dc9c4213e3cdc4e133c8.1292451560.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <b4f8764846cebb2ebaad8c5c3fb86457e11cc8a4.1292451559.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:53553 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:53550 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751834Ab0LOWYb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Dec 2010 17:24:31 -0500
+	id S1751995Ab0LOWYa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Dec 2010 17:24:30 -0500
 In-Reply-To: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- net/bridge/br_device.c  |   57 +++++----------------------------------=
+ include/linux/netdevice.h |    2 +
+ net/core/dev.c            |    8 ++
+ net/core/ethtool.c        |  252 +++++++++++++++++++------------------=
 -------
- net/bridge/br_if.c      |   17 ++++++-------
- net/bridge/br_notify.c  |    2 +-
- net/bridge/br_private.h |    4 +-
- 4 files changed, 18 insertions(+), 62 deletions(-)
+ 3 files changed, 119 insertions(+), 143 deletions(-)
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 5564435..78193ad 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -78,7 +78,7 @@ static int br_dev_open(struct net_device *dev)
- {
- 	struct net_bridge *br =3D netdev_priv(dev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 4b20944..7634cab 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -941,6 +941,8 @@ struct net_device {
+ #define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+ #define NETIF_F_ALL_CSUM	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
 =20
--	br_features_recompute(br);
-+	netdev_update_features(dev);
- 	netif_start_queue(dev);
- 	br_stp_enable_bridge(br);
- 	br_multicast_open(br);
-@@ -173,48 +173,12 @@ static void br_getinfo(struct net_device *dev, st=
-ruct ethtool_drvinfo *info)
- 	strcpy(info->bus_info, "N/A");
- }
-=20
--static int br_set_sg(struct net_device *dev, u32 data)
-+static unsigned long br_fix_features(struct net_device *dev,
-+	unsigned long features)
- {
- 	struct net_bridge *br =3D netdev_priv(dev);
-=20
--	if (data)
--		br->feature_mask |=3D NETIF_F_SG;
--	else
--		br->feature_mask &=3D ~NETIF_F_SG;
--
--	br_features_recompute(br);
--	return 0;
--}
--
--static int br_set_tso(struct net_device *dev, u32 data)
--{
--	struct net_bridge *br =3D netdev_priv(dev);
--
--	if (data)
--		br->feature_mask |=3D NETIF_F_TSO;
--	else
--		br->feature_mask &=3D ~NETIF_F_TSO;
--
--	br_features_recompute(br);
--	return 0;
--}
--
--static int br_set_tx_csum(struct net_device *dev, u32 data)
--{
--	struct net_bridge *br =3D netdev_priv(dev);
--
--	if (data)
--		br->feature_mask |=3D NETIF_F_NO_CSUM;
--	else
--		br->feature_mask &=3D ~NETIF_F_ALL_CSUM;
--
--	br_features_recompute(br);
--	return 0;
--}
--
--static int br_set_flags(struct net_device *netdev, u32 data)
--{
--	return ethtool_op_set_flags(netdev, data, ETH_FLAG_TXVLAN);
-+	return br_features_recompute(br, features);
- }
-=20
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -300,16 +264,6 @@ void br_netpoll_disable(struct net_bridge_port *p)
- static const struct ethtool_ops br_ethtool_ops =3D {
- 	.get_drvinfo    =3D br_getinfo,
- 	.get_link	=3D ethtool_op_get_link,
--	.get_tx_csum	=3D ethtool_op_get_tx_csum,
--	.set_tx_csum 	=3D br_set_tx_csum,
--	.get_sg		=3D ethtool_op_get_sg,
--	.set_sg		=3D br_set_sg,
--	.get_tso	=3D ethtool_op_get_tso,
--	.set_tso	=3D br_set_tso,
--	.get_ufo	=3D ethtool_op_get_ufo,
--	.set_ufo	=3D ethtool_op_set_ufo,
--	.get_flags	=3D ethtool_op_get_flags,
--	.set_flags	=3D br_set_flags,
- };
-=20
- static const struct net_device_ops br_netdev_ops =3D {
-@@ -326,6 +280,7 @@ static const struct net_device_ops br_netdev_ops =3D=
- {
- 	.ndo_netpoll_cleanup	 =3D br_netpoll_cleanup,
- 	.ndo_poll_controller	 =3D br_poll_controller,
- #endif
-+	.ndo_fix_features        =3D br_fix_features,
- };
-=20
- static void br_dev_free(struct net_device *dev)
-@@ -350,4 +305,6 @@ void br_dev_setup(struct net_device *dev)
- 	dev->features =3D NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
- 			NETIF_F_GSO_MASK | NETIF_F_NO_CSUM | NETIF_F_LLTX |
- 			NETIF_F_NETNS_LOCAL | NETIF_F_GSO | NETIF_F_HW_VLAN_TX;
-+	dev->hw_features =3D NETIF_F_NO_CSUM | NETIF_F_SG | NETIF_F_GSO_MASK =
-|
-+			   NETIF_F_HW_VLAN_TX;
- }
-diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index d9d1e2b..94dc9ca 100644
---- a/net/bridge/br_if.c
-+++ b/net/bridge/br_if.c
-@@ -203,7 +203,6 @@ static struct net_device *new_bridge_dev(struct net=
- *net, const char *name)
-=20
- 	memcpy(br->group_addr, br_group_address, ETH_ALEN);
-=20
--	br->feature_mask =3D dev->features;
- 	br->stp_enabled =3D BR_NO_STP;
- 	br->designated_root =3D br->bridge_id;
- 	br->root_path_cost =3D 0;
-@@ -362,15 +361,16 @@ int br_min_mtu(const struct net_bridge *br)
- /*
-  * Recomputes features using slave's features
-  */
--void br_features_recompute(struct net_bridge *br)
-+unsigned long br_features_recompute(struct net_bridge *br,
-+	unsigned long features)
- {
- 	struct net_bridge_port *p;
--	unsigned long features, mask;
-+	unsigned long mask;
-=20
--	features =3D mask =3D br->feature_mask;
- 	if (list_empty(&br->port_list))
--		goto done;
-+		return features;
-=20
-+	mask =3D features;
- 	features &=3D ~NETIF_F_ONE_FOR_ALL;
-=20
- 	list_for_each_entry(p, &br->port_list, list) {
-@@ -378,8 +378,7 @@ void br_features_recompute(struct net_bridge *br)
- 						     p->dev->features, mask);
++#define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN=
+)
++
+ 	/*
+ 	 * If one device supports one of these features, then enable them
+ 	 * for all in netdev_increment_features.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 1e616bb..95d0a49 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5054,6 +5054,14 @@ unsigned long netdev_fix_features(unsigned long =
+features, const char *name)
+ 		features &=3D ~NETIF_F_TSO;
  	}
 =20
--done:
--	br->dev->features =3D netdev_fix_features(features, NULL);
-+	return features;
- }
-=20
- /* called with RTNL */
-@@ -441,7 +440,7 @@ int br_add_if(struct net_bridge *br, struct net_dev=
-ice *dev)
-=20
- 	spin_lock_bh(&br->lock);
- 	br_stp_recalculate_bridge_id(br);
--	br_features_recompute(br);
-+	netdev_update_features(br->dev);
-=20
- 	if ((dev->flags & IFF_UP) && netif_carrier_ok(dev) &&
- 	    (br->dev->flags & IFF_UP))
-@@ -483,7 +482,7 @@ int br_del_if(struct net_bridge *br, struct net_dev=
-ice *dev)
-=20
- 	spin_lock_bh(&br->lock);
- 	br_stp_recalculate_bridge_id(br);
--	br_features_recompute(br);
-+	netdev_update_features(br->dev);
- 	spin_unlock_bh(&br->lock);
++	/* Software GSO depends on SG. */
++	if ((features & NETIF_F_GSO) && !(features & NETIF_F_SG)) {
++		if (name)
++			printk(KERN_NOTICE "%s: Dropping NETIF_F_GSO since no "
++			       "SG feature.\n", name);
++		features &=3D ~NETIF_F_GSO;
++	}
++
+ 	if (features & NETIF_F_UFO) {
+ 		/* maybe split UFO into V4 and V6? */
+ 		if (!((features & NETIF_F_GEN_CSUM) ||
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f08e7f1..b068738 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -55,6 +55,7 @@ int ethtool_op_set_tx_csum(struct net_device *dev, u3=
+2 data)
 =20
  	return 0;
-diff --git a/net/bridge/br_notify.c b/net/bridge/br_notify.c
-index 7d337c9..274ef4a 100644
---- a/net/bridge/br_notify.c
-+++ b/net/bridge/br_notify.c
-@@ -62,7 +62,7 @@ static int br_device_event(struct notifier_block *unu=
-sed, unsigned long event, v
- 	case NETDEV_FEAT_CHANGE:
- 		spin_lock_bh(&br->lock);
- 		if (netif_running(br->dev))
--			br_features_recompute(br);
-+			netdev_update_features(br->dev);
- 		spin_unlock_bh(&br->lock);
+ }
++EXPORT_SYMBOL(ethtool_op_set_tx_csum);
+=20
+ int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data)
+ {
+@@ -220,6 +221,85 @@ static int ethtool_set_features(struct net_device =
+*dev, void __user *useraddr)
+ 	return 0;
+ }
+=20
++static unsigned long ethtool_get_feature_mask(u32 eth_cmd)
++{
++	switch (eth_cmd) {
++	case ETHTOOL_GTXCSUM:
++	case ETHTOOL_STXCSUM:
++		return NETIF_F_ALL_CSUM|NETIF_F_SCTP_CSUM;
++	case ETHTOOL_GSG:
++	case ETHTOOL_SSG:
++		return NETIF_F_SG;
++	case ETHTOOL_GTSO:
++	case ETHTOOL_STSO:
++		return NETIF_F_ALL_TSO;
++	case ETHTOOL_GUFO:
++	case ETHTOOL_SUFO:
++		return NETIF_F_UFO;
++	case ETHTOOL_GGSO:
++	case ETHTOOL_SGSO:
++		return NETIF_F_GSO;
++	case ETHTOOL_GGRO:
++	case ETHTOOL_SGRO:
++		return NETIF_F_GRO;
++	default:
++		BUG();
++	}
++}
++
++static int ethtool_get_one_feature(struct net_device *dev, char __user=
+ *useraddr,
++	u32 ethcmd)
++{
++	struct ethtool_value edata =3D {
++		.cmd =3D ethcmd,
++		.data =3D !!(dev->features & ethtool_get_feature_mask(ethcmd)),
++	};
++
++	if (copy_to_user(useraddr, &edata, sizeof(edata)))
++		return -EFAULT;
++	return 0;
++}
++
++static int __ethtool_set_tx_csum(struct net_device *dev, u32 data);
++static int __ethtool_set_sg(struct net_device *dev, u32 data);
++static int __ethtool_set_tso(struct net_device *dev, u32 data);
++static int __ethtool_set_ufo(struct net_device *dev, u32 data);
++
++static int ethtool_set_one_feature(struct net_device *dev,
++	void __user *useraddr, u32 ethcmd)
++{
++	struct ethtool_value edata;
++	unsigned long mask;
++
++	if (copy_from_user(&edata, useraddr, sizeof(edata)))
++		return -EFAULT;
++
++	mask =3D ethtool_get_feature_mask(ethcmd);
++	mask &=3D dev->hw_features | NETIF_F_SOFT_FEATURES;
++	if (mask) {
++		if (edata.data)
++			dev->wanted_features |=3D mask;
++		else
++			dev->wanted_features &=3D ~mask;
++
++		netdev_update_features(dev);
++		return 0;
++	}
++
++	switch (ethcmd) {
++	case ETHTOOL_STXCSUM:
++		return __ethtool_set_tx_csum(dev, edata.data);
++	case ETHTOOL_SSG:
++		return __ethtool_set_sg(dev, edata.data);
++	case ETHTOOL_STSO:
++		return __ethtool_set_tso(dev, edata.data);
++	case ETHTOOL_SUFO:
++		return __ethtool_set_ufo(dev, edata.data);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
++
+ static int ethtool_get_settings(struct net_device *dev, void __user *u=
+seraddr)
+ {
+ 	struct ethtool_cmd cmd =3D { .cmd =3D ETHTOOL_GSET };
+@@ -1140,6 +1220,9 @@ static int __ethtool_set_sg(struct net_device *de=
+v, u32 data)
+ {
+ 	int err;
+=20
++	if (data && !(dev->features & NETIF_F_ALL_CSUM))
++		return -EINVAL;
++
+ 	if (!data && dev->ethtool_ops->set_tso) {
+ 		err =3D dev->ethtool_ops->set_tso(dev, 0);
+ 		if (err)
+@@ -1154,26 +1237,21 @@ static int __ethtool_set_sg(struct net_device *=
+dev, u32 data)
+ 	return dev->ethtool_ops->set_sg(dev, data);
+ }
+=20
+-static int ethtool_set_tx_csum(struct net_device *dev, char __user *us=
+eraddr)
++static int __ethtool_set_tx_csum(struct net_device *dev, u32 data)
+ {
+-	struct ethtool_value edata;
+ 	int err;
+=20
+ 	if (!dev->ethtool_ops->set_tx_csum)
+ 		return -EOPNOTSUPP;
+=20
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-
+-	if (!edata.data && dev->ethtool_ops->set_sg) {
++	if (!data && dev->ethtool_ops->set_sg) {
+ 		err =3D __ethtool_set_sg(dev, 0);
+ 		if (err)
+ 			return err;
+ 	}
+=20
+-	return dev->ethtool_ops->set_tx_csum(dev, edata.data);
++	return dev->ethtool_ops->set_tx_csum(dev, data);
+ }
+-EXPORT_SYMBOL(ethtool_op_set_tx_csum);
+=20
+ static int ethtool_set_rx_csum(struct net_device *dev, char __user *us=
+eraddr)
+ {
+@@ -1191,108 +1269,28 @@ static int ethtool_set_rx_csum(struct net_devi=
+ce *dev, char __user *useraddr)
+ 	return dev->ethtool_ops->set_rx_csum(dev, edata.data);
+ }
+=20
+-static int ethtool_set_sg(struct net_device *dev, char __user *useradd=
+r)
+-{
+-	struct ethtool_value edata;
+-
+-	if (!dev->ethtool_ops->set_sg)
+-		return -EOPNOTSUPP;
+-
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-
+-	if (edata.data &&
+-	    !(dev->features & NETIF_F_ALL_CSUM))
+-		return -EINVAL;
+-
+-	return __ethtool_set_sg(dev, edata.data);
+-}
+-
+-static int ethtool_set_tso(struct net_device *dev, char __user *userad=
+dr)
++static int __ethtool_set_tso(struct net_device *dev, u32 data)
+ {
+-	struct ethtool_value edata;
+-
+ 	if (!dev->ethtool_ops->set_tso)
+ 		return -EOPNOTSUPP;
+=20
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-
+-	if (edata.data && !(dev->features & NETIF_F_SG))
++	if (data && !(dev->features & NETIF_F_SG))
+ 		return -EINVAL;
+=20
+-	return dev->ethtool_ops->set_tso(dev, edata.data);
++	return dev->ethtool_ops->set_tso(dev, data);
+ }
+=20
+-static int ethtool_set_ufo(struct net_device *dev, char __user *userad=
+dr)
++static int __ethtool_set_ufo(struct net_device *dev, u32 data)
+ {
+-	struct ethtool_value edata;
+-
+ 	if (!dev->ethtool_ops->set_ufo)
+ 		return -EOPNOTSUPP;
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-	if (edata.data && !(dev->features & NETIF_F_SG))
++	if (data && !(dev->features & NETIF_F_SG))
+ 		return -EINVAL;
+-	if (edata.data && !((dev->features & NETIF_F_GEN_CSUM) ||
++	if (data && !((dev->features & NETIF_F_GEN_CSUM) ||
+ 		(dev->features & (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM))
+ 			=3D=3D (NETIF_F_IP_CSUM|NETIF_F_IPV6_CSUM)))
+ 		return -EINVAL;
+-	return dev->ethtool_ops->set_ufo(dev, edata.data);
+-}
+-
+-static int ethtool_get_gso(struct net_device *dev, char __user *userad=
+dr)
+-{
+-	struct ethtool_value edata =3D { ETHTOOL_GGSO };
+-
+-	edata.data =3D dev->features & NETIF_F_GSO;
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+-static int ethtool_set_gso(struct net_device *dev, char __user *userad=
+dr)
+-{
+-	struct ethtool_value edata;
+-
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-	if (edata.data)
+-		dev->features |=3D NETIF_F_GSO;
+-	else
+-		dev->features &=3D ~NETIF_F_GSO;
+-	return 0;
+-}
+-
+-static int ethtool_get_gro(struct net_device *dev, char __user *userad=
+dr)
+-{
+-	struct ethtool_value edata =3D { ETHTOOL_GGRO };
+-
+-	edata.data =3D dev->features & NETIF_F_GRO;
+-	if (copy_to_user(useraddr, &edata, sizeof(edata)))
+-		return -EFAULT;
+-	return 0;
+-}
+-
+-static int ethtool_set_gro(struct net_device *dev, char __user *userad=
+dr)
+-{
+-	struct ethtool_value edata;
+-
+-	if (copy_from_user(&edata, useraddr, sizeof(edata)))
+-		return -EFAULT;
+-
+-	if (edata.data) {
+-		u32 rxcsum =3D dev->ethtool_ops->get_rx_csum ?
+-				dev->ethtool_ops->get_rx_csum(dev) :
+-				ethtool_op_get_rx_csum(dev);
+-
+-		if (!rxcsum)
+-			return -EINVAL;
+-		dev->features |=3D NETIF_F_GRO;
+-	} else
+-		dev->features &=3D ~NETIF_F_GRO;
+-
+-	return 0;
++	return dev->ethtool_ops->set_ufo(dev, data);
+ }
+=20
+ static int ethtool_self_test(struct net_device *dev, char __user *user=
+addr)
+@@ -1629,33 +1627,6 @@ int dev_ethtool(struct net *net, struct ifreq *i=
+fr)
+ 	case ETHTOOL_SRXCSUM:
+ 		rc =3D ethtool_set_rx_csum(dev, useraddr);
  		break;
-=20
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 84aac77..d4a8b4b 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -182,7 +182,6 @@ struct net_bridge
- 	struct br_cpu_netstats __percpu *stats;
- 	spinlock_t			hash_lock;
- 	struct hlist_head		hash[BR_HASH_SIZE];
--	unsigned long			feature_mask;
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	struct rtable 			fake_rtable;
- 	bool				nf_call_iptables;
-@@ -376,7 +375,8 @@ extern int br_add_if(struct net_bridge *br,
- extern int br_del_if(struct net_bridge *br,
- 	      struct net_device *dev);
- extern int br_min_mtu(const struct net_bridge *br);
--extern void br_features_recompute(struct net_bridge *br);
-+extern unsigned long br_features_recompute(struct net_bridge *br,
-+	unsigned long new_features);
-=20
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
+-	case ETHTOOL_GTXCSUM:
+-		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
+-				       (dev->ethtool_ops->get_tx_csum ?
+-					dev->ethtool_ops->get_tx_csum :
+-					ethtool_op_get_tx_csum));
+-		break;
+-	case ETHTOOL_STXCSUM:
+-		rc =3D ethtool_set_tx_csum(dev, useraddr);
+-		break;
+-	case ETHTOOL_GSG:
+-		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
+-				       (dev->ethtool_ops->get_sg ?
+-					dev->ethtool_ops->get_sg :
+-					ethtool_op_get_sg));
+-		break;
+-	case ETHTOOL_SSG:
+-		rc =3D ethtool_set_sg(dev, useraddr);
+-		break;
+-	case ETHTOOL_GTSO:
+-		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
+-				       (dev->ethtool_ops->get_tso ?
+-					dev->ethtool_ops->get_tso :
+-					ethtool_op_get_tso));
+-		break;
+-	case ETHTOOL_STSO:
+-		rc =3D ethtool_set_tso(dev, useraddr);
+-		break;
+ 	case ETHTOOL_TEST:
+ 		rc =3D ethtool_self_test(dev, useraddr);
+ 		break;
+@@ -1671,21 +1642,6 @@ int dev_ethtool(struct net *net, struct ifreq *i=
+fr)
+ 	case ETHTOOL_GPERMADDR:
+ 		rc =3D ethtool_get_perm_addr(dev, useraddr);
+ 		break;
+-	case ETHTOOL_GUFO:
+-		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
+-				       (dev->ethtool_ops->get_ufo ?
+-					dev->ethtool_ops->get_ufo :
+-					ethtool_op_get_ufo));
+-		break;
+-	case ETHTOOL_SUFO:
+-		rc =3D ethtool_set_ufo(dev, useraddr);
+-		break;
+-	case ETHTOOL_GGSO:
+-		rc =3D ethtool_get_gso(dev, useraddr);
+-		break;
+-	case ETHTOOL_SGSO:
+-		rc =3D ethtool_set_gso(dev, useraddr);
+-		break;
+ 	case ETHTOOL_GFLAGS:
+ 		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
+ 				       (dev->ethtool_ops->get_flags ?
+@@ -1716,12 +1672,6 @@ int dev_ethtool(struct net *net, struct ifreq *i=
+fr)
+ 	case ETHTOOL_SRXCLSRLINS:
+ 		rc =3D ethtool_set_rxnfc(dev, ethcmd, useraddr);
+ 		break;
+-	case ETHTOOL_GGRO:
+-		rc =3D ethtool_get_gro(dev, useraddr);
+-		break;
+-	case ETHTOOL_SGRO:
+-		rc =3D ethtool_set_gro(dev, useraddr);
+-		break;
+ 	case ETHTOOL_FLASHDEV:
+ 		rc =3D ethtool_flash_device(dev, useraddr);
+ 		break;
+@@ -1749,6 +1699,22 @@ int dev_ethtool(struct net *net, struct ifreq *i=
+fr)
+ 	case ETHTOOL_SFEATURES:
+ 		rc =3D ethtool_set_features(dev, useraddr);
+ 		break;
++	case ETHTOOL_GTXCSUM:
++	case ETHTOOL_GSG:
++	case ETHTOOL_GTSO:
++	case ETHTOOL_GUFO:
++	case ETHTOOL_GGSO:
++	case ETHTOOL_GGRO:
++		rc =3D ethtool_get_one_feature(dev, useraddr, ethcmd);
++		break;
++	case ETHTOOL_STXCSUM:
++	case ETHTOOL_SSG:
++	case ETHTOOL_STSO:
++	case ETHTOOL_SUFO:
++	case ETHTOOL_SGSO:
++	case ETHTOOL_SGRO:
++		rc =3D ethtool_set_one_feature(dev, useraddr, ethcmd);
++		break;
+ 	default:
+ 		rc =3D -EOPNOTSUPP;
+ 	}
 --=20
 1.7.2.3
 
