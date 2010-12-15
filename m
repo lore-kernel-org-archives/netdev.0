@@ -1,142 +1,133 @@
 From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH 08/12] cxgb4: remove the name field from the adapter structure
-Date: Tue, 14 Dec 2010 23:36:51 -0800
-Message-ID: <1292398615-26527-9-git-send-email-dm@chelsio.com>
+Subject: [PATCH 05/12] cxgb4: print port information after registering each netdev
+Date: Tue, 14 Dec 2010 23:36:48 -0800
+Message-ID: <1292398615-26527-6-git-send-email-dm@chelsio.com>
 References: <1292398615-26527-1-git-send-email-dm@chelsio.com>
  <1292398615-26527-2-git-send-email-dm@chelsio.com>
  <1292398615-26527-3-git-send-email-dm@chelsio.com>
  <1292398615-26527-4-git-send-email-dm@chelsio.com>
  <1292398615-26527-5-git-send-email-dm@chelsio.com>
- <1292398615-26527-6-git-send-email-dm@chelsio.com>
- <1292398615-26527-7-git-send-email-dm@chelsio.com>
- <1292398615-26527-8-git-send-email-dm@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12710 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:4472 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754227Ab0LOHpT (ORCPT
+	with ESMTP id S1754160Ab0LOHpT (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 02:45:19 -0500
 Received: from maui.asicdesigners.com (maui.asicdesigners.com [10.192.180.15])
-	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBF7jICU004129
+	by stargate.chelsio.com (8.13.1/8.13.1) with SMTP id oBF7jICO004129
 	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 23:45:19 -0800
 Received: from darkside.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBF7avUx026605
-	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 23:36:57 -0800
+	by darkside.asicdesigners.com (8.13.4/8.13.4) with ESMTP id oBF7aujW026593
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 23:36:56 -0800
 Received: (from dm@localhost)
-	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBF7avPE026604
-	for netdev@vger.kernel.org; Tue, 14 Dec 2010 23:36:57 -0800
-In-Reply-To: <1292398615-26527-8-git-send-email-dm@chelsio.com>
+	by darkside.asicdesigners.com (8.13.4/8.13.4/Submit) id oBF7auIX026592
+	for netdev@vger.kernel.org; Tue, 14 Dec 2010 23:36:56 -0800
+In-Reply-To: <1292398615-26527-5-git-send-email-dm@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove a field the driver uses to keep track of the name of the first
-netdev it manages to register.  Do this by changing the registration
-loop to stop the first time it fails so the first registered device is
-trivial to tell.
+Print information about each port when its netdev is registered instead
+of looping separately over the ports at the end.  The bulk of this patch
+is due to indentation change.
 
 Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
 ---
- drivers/net/cxgb4/cxgb4.h      |    1 -
- drivers/net/cxgb4/cxgb4_main.c |   37 +++++++++++++++----------------------
- 2 files changed, 15 insertions(+), 23 deletions(-)
+ drivers/net/cxgb4/cxgb4_main.c |   54 ++++++++++++++++-----------------------
+ 1 files changed, 22 insertions(+), 32 deletions(-)
 
-diff --git a/drivers/net/cxgb4/cxgb4.h b/drivers/net/cxgb4/cxgb4.h
-index f3d9f64..9caf95f 100644
---- a/drivers/net/cxgb4/cxgb4.h
-+++ b/drivers/net/cxgb4/cxgb4.h
-@@ -486,7 +486,6 @@ struct adapter {
- 	unsigned int fn;
- 	unsigned int flags;
- 
--	const char *name;
- 	int msg_enable;
- 
- 	struct adapter_params params;
 diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-index 7e26fe5..4d7565c 100644
+index 3f33d51..089b753 100644
 --- a/drivers/net/cxgb4/cxgb4_main.c
 +++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -525,10 +525,11 @@ static void name_msix_vecs(struct adapter *adap)
- 	int i, j, msi_idx = 2, n = sizeof(adap->msix_info[0].desc);
- 
- 	/* non-data interrupts */
--	snprintf(adap->msix_info[0].desc, n, "%s", adap->name);
-+	snprintf(adap->msix_info[0].desc, n, "%s", adap->port[0]->name);
- 
- 	/* FW events */
--	snprintf(adap->msix_info[1].desc, n, "%s-FWeventq", adap->name);
-+	snprintf(adap->msix_info[1].desc, n, "%s-FWeventq",
-+		 adap->port[0]->name);
- 
- 	/* Ethernet queues */
- 	for_each_port(adap, j) {
-@@ -543,11 +544,11 @@ static void name_msix_vecs(struct adapter *adap)
- 	/* offload queues */
- 	for_each_ofldrxq(&adap->sge, i)
- 		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-ofld%d",
--			 adap->name, i);
-+			 adap->port[0]->name, i);
- 
- 	for_each_rdmarxq(&adap->sge, i)
- 		snprintf(adap->msix_info[msi_idx++].desc, n, "%s-rdma%d",
--			 adap->name, i);
-+			 adap->port[0]->name, i);
+@@ -3490,50 +3490,41 @@ static int __devinit init_rss(struct adapter *adap)
+ 	return 0;
  }
  
- static int request_msix_queue_irqs(struct adapter *adap)
-@@ -2664,7 +2665,7 @@ static int cxgb_up(struct adapter *adap)
- 	} else {
- 		err = request_irq(adap->pdev->irq, t4_intr_handler(adap),
- 				  (adap->flags & USING_MSI) ? 0 : IRQF_SHARED,
--				  adap->name, adap);
-+				  adap->port[0]->name, adap);
- 		if (err)
- 			goto irq_err;
- 	}
-@@ -3627,7 +3628,6 @@ static int __devinit init_one(struct pci_dev *pdev,
- 	adapter->pdev = pdev;
- 	adapter->pdev_dev = &pdev->dev;
- 	adapter->fn = func;
--	adapter->name = pci_name(pdev);
- 	adapter->msg_enable = dflt_msg_enable;
- 	memset(adapter->chan_map, 0xff, sizeof(adapter->chan_map));
+-static void __devinit print_port_info(struct adapter *adap)
++static void __devinit print_port_info(const struct net_device *dev)
+ {
+ 	static const char *base[] = {
+ 		"R XFI", "R XAUI", "T SGMII", "T XFI", "T XAUI", "KX4", "CX4",
+ 		"KX", "KR", "R SFP+", "KR/KX", "KR/KX/KX4"
+ 	};
  
-@@ -3724,26 +3724,19 @@ static int __devinit init_one(struct pci_dev *pdev,
+-	int i;
+ 	char buf[80];
++	char *bufp = buf;
+ 	const char *spd = "";
++	const struct port_info *pi = netdev_priv(dev);
++	const struct adapter *adap = pi->adapter;
  
- 		err = register_netdev(adapter->port[i]);
- 		if (err)
--			dev_warn(&pdev->dev,
--				 "cannot register net device %s, skipping\n",
--				 adapter->port[i]->name);
--		else {
--			/*
--			 * Change the name we use for messages to the name of
--			 * the first successfully registered interface.
--			 */
--			if (!adapter->registered_device_map)
--				adapter->name = adapter->port[i]->name;
+ 	if (adap->params.pci.speed == PCI_EXP_LNKSTA_CLS_2_5GB)
+ 		spd = " 2.5 GT/s";
+ 	else if (adap->params.pci.speed == PCI_EXP_LNKSTA_CLS_5_0GB)
+ 		spd = " 5 GT/s";
+ 
+-	for_each_port(adap, i) {
+-		struct net_device *dev = adap->port[i];
+-		const struct port_info *pi = netdev_priv(dev);
+-		char *bufp = buf;
 -
--			__set_bit(i, &adapter->registered_device_map);
--			adapter->chan_map[pi->tx_chan] = i;
--			print_port_info(adapter->port[i]);
--		}
-+			break;
-+		__set_bit(i, &adapter->registered_device_map);
-+		adapter->chan_map[pi->tx_chan] = i;
-+		print_port_info(adapter->port[i]);
- 	}
--	if (!adapter->registered_device_map) {
-+	if (i == 0) {
- 		dev_err(&pdev->dev, "could not register any net devices\n");
- 		goto out_free_dev;
- 	}
-+	if (err) {
-+		dev_warn(&pdev->dev, "only %d net devices registered\n", i);
-+		err = 0;
-+	};
+-		if (!test_bit(i, &adap->registered_device_map))
+-			continue;
+-
+-		if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_100M)
+-			bufp += sprintf(bufp, "100/");
+-		if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_1G)
+-			bufp += sprintf(bufp, "1000/");
+-		if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
+-			bufp += sprintf(bufp, "10G/");
+-		if (bufp != buf)
+-			--bufp;
+-		sprintf(bufp, "BASE-%s", base[pi->port_type]);
+-
+-		netdev_info(dev, "Chelsio %s rev %d %s %sNIC PCIe x%d%s%s\n",
+-			    adap->params.vpd.id, adap->params.rev,
+-			    buf, is_offload(adap) ? "R" : "",
+-			    adap->params.pci.width, spd,
+-			    (adap->flags & USING_MSIX) ? " MSI-X" :
+-			    (adap->flags & USING_MSI) ? " MSI" : "");
+-		if (adap->name == dev->name)
+-			netdev_info(dev, "S/N: %s, E/C: %s\n",
+-				    adap->params.vpd.sn, adap->params.vpd.ec);
+-	}
++	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_100M)
++		bufp += sprintf(bufp, "100/");
++	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_1G)
++		bufp += sprintf(bufp, "1000/");
++	if (pi->link_cfg.supported & FW_PORT_CAP_SPEED_10G)
++		bufp += sprintf(bufp, "10G/");
++	if (bufp != buf)
++		--bufp;
++	sprintf(bufp, "BASE-%s", base[pi->port_type]);
++
++	netdev_info(dev, "Chelsio %s rev %d %s %sNIC PCIe x%d%s%s\n",
++		    adap->params.vpd.id, adap->params.rev, buf,
++		    is_offload(adap) ? "R" : "", adap->params.pci.width, spd,
++		    (adap->flags & USING_MSIX) ? " MSI-X" :
++		    (adap->flags & USING_MSI) ? " MSI" : "");
++	netdev_info(dev, "S/N: %s, E/C: %s\n",
++		    adap->params.vpd.sn, adap->params.vpd.ec);
+ }
  
- 	if (cxgb4_debugfs_root) {
- 		adapter->debugfs_root = debugfs_create_dir(pci_name(pdev),
+ static void __devinit enable_pcie_relaxed_ordering(struct pci_dev *dev)
+@@ -3753,6 +3744,7 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 
+ 			__set_bit(i, &adapter->registered_device_map);
+ 			adapter->chan_map[pi->tx_chan] = i;
++			print_port_info(adapter->port[i]);
+ 		}
+ 	}
+ 	if (!adapter->registered_device_map) {
+@@ -3769,8 +3761,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 	if (is_offload(adapter))
+ 		attach_ulds(adapter);
+ 
+-	print_port_info(adapter);
+-
+ sriov:
+ #ifdef CONFIG_PCI_IOV
+ 	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
 -- 
 1.5.4
 
