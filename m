@@ -1,133 +1,150 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [RFC PATCH 12/12] skge: convert to hw_features
-Date: Wed, 15 Dec 2010 23:24:30 +0100 (CET)
-Message-ID: <e637d799425195dec656efeb0f4cfbaf9c8b82eb.1292451560.git.mirq-linux@rere.qmqm.pl>
+Subject: [RFC PATCH 07/12] vlan: convert VLAN devices to use ndo_fix_features()
+Date: Wed, 15 Dec 2010 23:24:29 +0100 (CET)
+Message-ID: <34dbc2d3d83d82f506f0f073dbf00444885e4f81.1292451560.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:53559 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:53554 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752467Ab0LOWYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752205Ab0LOWYc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 15 Dec 2010 17:24:32 -0500
 In-Reply-To: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The hardware might do full HW_CSUM, not just IP_CSUM, but it's not test=
-ed
-and so not changed here.
+Note: get_flags was actually broken, because it should return the
+flags capped with vlan_features. This is now done implicitly by
+limiting netdev->hw_features.
+
+RX checksumming offload control is (and was) broken, as there was no wa=
+y
+before to say whether it's done for tagged packets.
 
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/skge.c |   53 ++++----------------------------------------=
+ net/8021q/vlan.c     |    3 +-
+ net/8021q/vlan_dev.c |   51 ++++++++++++++----------------------------=
 -------
- drivers/net/skge.h |    1 -
- 2 files changed, 5 insertions(+), 49 deletions(-)
+ 2 files changed, 16 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/skge.c b/drivers/net/skge.c
-index 50815fb..41e02e9 100644
---- a/drivers/net/skge.c
-+++ b/drivers/net/skge.c
-@@ -537,46 +537,6 @@ static int skge_nway_reset(struct net_device *dev)
- 	return 0;
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index 6e64f7c..583d47b 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -329,8 +329,7 @@ static void vlan_transfer_features(struct net_devic=
+e *dev,
+ {
+ 	unsigned long old_features =3D vlandev->features;
+=20
+-	vlandev->features &=3D ~dev->vlan_features;
+-	vlandev->features |=3D dev->features & dev->vlan_features;
++	netdev_update_features(vlandev);
+ 	vlandev->gso_max_size =3D dev->gso_max_size;
+=20
+ 	if (dev->features & NETIF_F_HW_VLAN_TX)
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index be73753..468c899 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -691,8 +691,8 @@ static int vlan_dev_init(struct net_device *dev)
+ 					  (1<<__LINK_STATE_DORMANT))) |
+ 		      (1<<__LINK_STATE_PRESENT);
+=20
+-	dev->features |=3D real_dev->features & real_dev->vlan_features;
+-	dev->features |=3D NETIF_F_LLTX;
++	dev->hw_features =3D real_dev->vlan_features;
++	dev->features |=3D real_dev->vlan_features | NETIF_F_LLTX;
+ 	dev->gso_max_size =3D real_dev->gso_max_size;
+=20
+ 	/* ipv6 shared card related stuff */
+@@ -745,6 +745,18 @@ static void vlan_dev_uninit(struct net_device *dev=
+)
+ 	}
  }
 =20
--static int skge_set_sg(struct net_device *dev, u32 data)
++static unsigned long vlan_dev_fix_features(struct net_device *dev,
++	unsigned long features)
++{
++	struct net_device *real_dev =3D vlan_dev_info(dev)->real_dev;
++
++	features &=3D (real_dev->features | NETIF_F_LLTX);
++	if (dev_ethtool_get_rx_csum(real_dev))
++		features |=3D NETIF_F_RXCSUM;
++
++	return features;
++}
++
+ static int vlan_ethtool_get_settings(struct net_device *dev,
+ 				     struct ethtool_cmd *cmd)
+ {
+@@ -760,18 +772,6 @@ static void vlan_ethtool_get_drvinfo(struct net_de=
+vice *dev,
+ 	strcpy(info->fw_version, "N/A");
+ }
+=20
+-static u32 vlan_ethtool_get_rx_csum(struct net_device *dev)
 -{
--	struct skge_port *skge =3D netdev_priv(dev);
--	struct skge_hw *hw =3D skge->hw;
--
--	if (hw->chip_id =3D=3D CHIP_ID_GENESIS && data)
--		return -EOPNOTSUPP;
--	return ethtool_op_set_sg(dev, data);
+-	const struct vlan_dev_info *vlan =3D vlan_dev_info(dev);
+-	return dev_ethtool_get_rx_csum(vlan->real_dev);
 -}
 -
--static int skge_set_tx_csum(struct net_device *dev, u32 data)
+-static u32 vlan_ethtool_get_flags(struct net_device *dev)
 -{
--	struct skge_port *skge =3D netdev_priv(dev);
--	struct skge_hw *hw =3D skge->hw;
--
--	if (hw->chip_id =3D=3D CHIP_ID_GENESIS && data)
--		return -EOPNOTSUPP;
--
--	return ethtool_op_set_tx_csum(dev, data);
+-	const struct vlan_dev_info *vlan =3D vlan_dev_info(dev);
+-	return dev_ethtool_get_flags(vlan->real_dev);
 -}
 -
--static u32 skge_get_rx_csum(struct net_device *dev)
+ static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_devic=
+e *dev, struct rtnl_link_stats64 *stats)
+ {
+=20
+@@ -809,32 +809,10 @@ static struct rtnl_link_stats64 *vlan_dev_get_sta=
+ts64(struct net_device *dev, st
+ 	return stats;
+ }
+=20
+-static int vlan_ethtool_set_tso(struct net_device *dev, u32 data)
 -{
--	struct skge_port *skge =3D netdev_priv(dev);
+-       if (data) {
+-		struct net_device *real_dev =3D vlan_dev_info(dev)->real_dev;
 -
--	return skge->rx_csum;
--}
--
--/* Only Yukon supports checksum offload. */
--static int skge_set_rx_csum(struct net_device *dev, u32 data)
--{
--	struct skge_port *skge =3D netdev_priv(dev);
--
--	if (skge->hw->chip_id =3D=3D CHIP_ID_GENESIS && data)
--		return -EOPNOTSUPP;
--
--	skge->rx_csum =3D data;
+-		/* Underlying device must support TSO for VLAN-tagged packets
+-		 * and must have TSO enabled now.
+-		 */
+-		if (!(real_dev->vlan_features & NETIF_F_TSO))
+-			return -EOPNOTSUPP;
+-		if (!(real_dev->features & NETIF_F_TSO))
+-			return -EINVAL;
+-		dev->features |=3D NETIF_F_TSO;
+-	} else {
+-		dev->features &=3D ~NETIF_F_TSO;
+-	}
 -	return 0;
 -}
 -
- static void skge_get_pauseparam(struct net_device *dev,
- 				struct ethtool_pauseparam *ecmd)
- {
-@@ -925,10 +885,6 @@ static const struct ethtool_ops skge_ethtool_ops =3D=
- {
- 	.set_pauseparam =3D skge_set_pauseparam,
- 	.get_coalesce	=3D skge_get_coalesce,
- 	.set_coalesce	=3D skge_set_coalesce,
--	.set_sg		=3D skge_set_sg,
--	.set_tx_csum	=3D skge_set_tx_csum,
--	.get_rx_csum	=3D skge_get_rx_csum,
--	.set_rx_csum	=3D skge_set_rx_csum,
- 	.get_strings	=3D skge_get_strings,
- 	.phys_id	=3D skge_phys_id,
- 	.get_sset_count =3D skge_get_sset_count,
-@@ -3085,7 +3041,8 @@ static struct sk_buff *skge_rx_get(struct net_dev=
-ice *dev,
- 	}
+ static const struct ethtool_ops vlan_ethtool_ops =3D {
+ 	.get_settings	        =3D vlan_ethtool_get_settings,
+ 	.get_drvinfo	        =3D vlan_ethtool_get_drvinfo,
+ 	.get_link		=3D ethtool_op_get_link,
+-	.get_rx_csum		=3D vlan_ethtool_get_rx_csum,
+-	.get_flags		=3D vlan_ethtool_get_flags,
+-	.set_tso                =3D vlan_ethtool_set_tso,
+ };
 =20
- 	skb_put(skb, len);
--	if (skge->rx_csum) {
-+
-+	if (dev->features & NETIF_F_RXCSUM) {
- 		skb->csum =3D csum;
- 		skb->ip_summed =3D CHECKSUM_COMPLETE;
- 	}
-@@ -3847,10 +3804,10 @@ static struct net_device *skge_devinit(struct s=
-kge_hw *hw, int port,
- 	setup_timer(&skge->link_timer, xm_link_timer, (unsigned long) skge);
+ static const struct net_device_ops vlan_netdev_ops =3D {
+@@ -859,6 +837,7 @@ static const struct net_device_ops vlan_netdev_ops =
+=3D {
+ 	.ndo_fcoe_disable	=3D vlan_dev_fcoe_disable,
+ 	.ndo_fcoe_get_wwn	=3D vlan_dev_fcoe_get_wwn,
+ #endif
++	.ndo_fix_features	=3D vlan_dev_fix_features,
+ };
 =20
- 	if (hw->chip_id !=3D CHIP_ID_GENESIS) {
--		dev->features |=3D NETIF_F_IP_CSUM | NETIF_F_SG;
--		skge->rx_csum =3D 1;
-+		dev->hw_features =3D NETIF_F_IP_CSUM | NETIF_F_SG |
-+		                   NETIF_F_RXCSUM;
-+		dev->features |=3D dev->hw_features;
- 	}
--	dev->features |=3D NETIF_F_GRO;
-=20
- 	/* read the mac address */
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
-diff --git a/drivers/net/skge.h b/drivers/net/skge.h
-index 507addc..f055c47 100644
---- a/drivers/net/skge.h
-+++ b/drivers/net/skge.h
-@@ -2460,7 +2460,6 @@ struct skge_port {
- 	struct timer_list    link_timer;
- 	enum pause_control   flow_control;
- 	enum pause_status    flow_status;
--	u8		     rx_csum;
- 	u8		     blink_on;
- 	u8		     wol;
- 	u8		     autoneg;	/* AUTONEG_ENABLE, AUTONEG_DISABLE */
+ void vlan_setup(struct net_device *dev)
 --=20
 1.7.2.3
 
