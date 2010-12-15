@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH] msm: rmnet: msm rmnet smd virtual ethernet driver
-Date: Wed, 15 Dec 2010 13:41:07 -0800
-Message-ID: <20101215134107.0354c0c3@nehalam>
+Date: Wed, 15 Dec 2010 13:41:35 -0800
+Message-ID: <20101215134135.51df5a7f@nehalam>
 References: <1292437866-11652-1-git-send-email-nvishwan@codeaurora.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -19,13 +19,13 @@ List-Id: netdev.vger.kernel.org
 On Wed, 15 Dec 2010 10:31:06 -0800
 Niranjana Vishwanathapura <nvishwan@codeaurora.org> wrote:
 
-> +static struct net_device_stats *rmnet_get_stats(struct net_device *dev)
-> +{
-> +	struct rmnet_private *p = netdev_priv(dev);
-> +	return &p->stats;
-> +}
 > +
+> +static void rmnet_tx_timeout(struct net_device *dev)
+> +{
+> +	pr_info("rmnet_tx_timeout()\n");
+> +}
 
-Just use dev->stats and this function would no longer be needed.
+The purpose of having a tx_timeout is to clear the pending
+request.
 
 -- 
