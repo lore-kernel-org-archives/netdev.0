@@ -1,75 +1,54 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] msm: rmnet: msm rmnet smd virtual ethernet driver
-Date: Wed, 15 Dec 2010 22:04:41 +0100
-Message-ID: <201012152204.42002.arnd@arndb.de>
-References: <1292437866-11652-1-git-send-email-nvishwan@codeaurora.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [*v2 PATCH 00/22] IPVS, Network Name Space aware
+Date: Wed, 15 Dec 2010 23:11:19 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1012152305360.1827@ja.ssi.bg>
+References: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>  <alpine.LFD.2.00.1012150136410.2010@ja.ssi.bg> <1292409147.4983.298.camel@seasc0214>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	Brian Swetland <swetland@google.com>
-To: Niranjana Vishwanathapura <nvishwan@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292437866-11652-1-git-send-email-nvishwan@codeaurora.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "horms@verge.net.au" <horms@verge.net.au>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1292409147.4983.298.camel@seasc0214>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 15 December 2010 19:31:06 Niranjana Vishwanathapura wrote:
-> +struct rmnet_private {
-> +       smd_channel_t *ch;
-> +       struct net_device_stats stats;
-> +       const char *chname;
-> +#ifdef CONFIG_MSM_RMNET_DEBUG
-> +       ktime_t last_packet;
-> +       short active_countdown; /* Number of times left to check */
-> +       short restart_count; /* Number of polls seems so far */
-> +       unsigned long wakeups_xmit;
-> +       unsigned long wakeups_rcv;
-> +       unsigned long timeout_us;
-> +       unsigned long awake_time_ms;
-> +       struct delayed_work work;
-> +#endif
-> +};
 
-It feels like a significant portion of the code and the complexity
-(of which there fortunately is very little otherwise) is in the
-debugging code. How important is that debugging code still?
+ 	Hello,
 
-In my experience, once a driver gets stable enough for inclusion,
-most of the debugging code that you have put in there to write
-the driver becomes obsolete, because the next bug is not going
-to be found with it anyway.
+On Wed, 15 Dec 2010, Hans Schillstrom wrote:
 
-How about deleting the debug code now? You still have the code and
-if something goes wrong, you can always put it back to analyse
-the problem.
+>> v2 PATCH 13/22 - ip_vs_est
+>>  	- estimation_timer: what protection is needed for for_each_net?
+>>  	It is rtnl for user context and RCU for softirq?
+>>  	May be est_timer must be per NS? Now may be rcu_read_lock is
+>>  	needed before for_each_net_rcu ? for_each_net can be called
+>>  	only under rtnl_lock?
+>>
+> [snip]
+>
+> In case of a common timer for all ns:
+>
+> 	rcu_read_lock();
+> 	for_each_net_rcu(net) {
+> 		...
+>
+> 	}
+> 	rcu_read_unlock();
+>
+> I guess it's better with a timer per netns ?
 
-> +/* Called in soft-irq context */
-> +static void smd_net_data_handler(unsigned long arg)
-> +{
-> ...
-> +}
-> +
-> +static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
-> +
-> +static void smd_net_notify(void *_dev, unsigned event)
-> +{
-> +       if (event != SMD_EVENT_DATA)
-> +               return;
-> +
-> +       smd_net_data_tasklet.data = (unsigned long) _dev;
-> +
-> +       tasklet_schedule(&smd_net_data_tasklet);
-> +}
+ 	Yes, I too have little preference for the per-ns timer.
 
-It appears strange to do all the receive work in a tasklet. The
-common networking code already has infrastructure for deferring
-the rx to softirq time, and using the NAPI poll() logic likely gives
-you better performance as well.
+> (then for_each_net() is not needed, and the locking can remain the same
+> as before the netns change.)
 
-Aside from these, the driver looks very nice and clean to me.
+Regards
 
-	Arnd
+--
+Julian Anastasov <ja@ssi.bg>
