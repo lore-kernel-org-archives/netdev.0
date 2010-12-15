@@ -1,128 +1,103 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [PATCH] ixgb: Convert to new vlan model.
-Date: Wed, 15 Dec 2010 11:09:37 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136602D675D4E@rrsmsx501.amr.corp.intel.com>
-References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
-	<1292344315.20458.6.camel@bwh-desktop>
-	<EA929A9653AAE14F841771FB1DE5A136602D675056@rrsmsx501.amr.corp.intel.com>
-	<1292350359.20458.8.camel@bwh-desktop>
-	<EA929A9653AAE14F841771FB1DE5A136602D6751C1@rrsmsx501.amr.corp.intel.com>
-	<1292354121.20458.11.camel@bwh-desktop>
- <AANLkTimnSedKQhhL8xXQVKnEm3FpbfRQ_Nd9hPmGbHLJ@mail.gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH 3/3] net: Fix drivers advertising HW_CSUM
+	feature to	use csum_start
+Date: Wed, 15 Dec 2010 19:16:55 +0100
+Message-ID: <20101215181655.GA29962@rere.qmqm.pl>
+References: <cover.1292372504.git.mirq-linux@rere.qmqm.pl>
+	<aa9d85fa4961e87c38aec922913cbc95465fc082.1292372504.git.mirq-linux@rere.qmqm.pl>
+	<20101214190727.0ed1a925@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:6751 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753008Ab0LOSJj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 13:09:39 -0500
-In-Reply-To: <AANLkTimnSedKQhhL8xXQVKnEm3FpbfRQ_Nd9hPmGbHLJ@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: Roopa Prabhu <roprabhu@cisco.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Shreyas Bhatewara <sbhatewara@vmware.com>, Jie Yang <Jie.Yang@atheros.com>,
+	Vasanthy Kolluri <vkolluri@cisco.com>, "VMware,
+	Inc." <pv-drivers@vmware.com>, Brice Goglin <brice@myri.com>,
+	Andrew Gallatin <gallatin@myri.com>,
+	Joe Perches <joe@perches.com>, David Wang <dwang2@cisco.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	H Hartley Sweeten <hsweeten@visionengravers.com>
+To: Stephen Hemminger <shemminger@linux-foundation.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20101214190727.0ed1a925@nehalam>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Jesse Gross wrote:
-> On Tue, Dec 14, 2010 at 11:15 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
->> On Tue, 2010-12-14 at 12:08 -0700, Tantilov, Emil S wrote:
->>> Ben Hutchings wrote:
->>>> On Tue, 2010-12-14 at 11:09 -0700, Tantilov, Emil S wrote:
->>>>> Ben Hutchings wrote:
->>>>>> On Mon, 2010-12-13 at 19:42 -0800, Jesse Gross wrote:
->>>>>>> This switches the ixgb driver to use the new vlan interfaces.
->>>>>>> In doing this, it completes the work begun in
->>>>>>> ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
->>>>>>> hardware vlan insertion without having a vlan group configured.
->>>>>>> [...] diff --git a/drivers/net/ixgb/ixgb_ethtool.c
->>>>>>> b/drivers/net/ixgb/ixgb_ethtool.c
->>>>>>> index 43994c1..0e4c527 100644
->>>>>>> --- a/drivers/net/ixgb/ixgb_ethtool.c
->>>>>>> +++ b/drivers/net/ixgb/ixgb_ethtool.c
->>>>>>> @@ -706,6 +706,45 @@ ixgb_get_strings(struct net_device *netdev=
-,
->>>>>>> u32 =A0stringset, u8 *data) =A0 =A0 =A0 =A0} }
->>>>>>>=20
->>>>>>> +static int ixgb_set_flags(struct net_device *netdev, u32 data)
->>>>>>> +{ + =A0 =A0 =A0 =A0struct ixgb_adapter *adapter =3D netdev_pri=
-v(netdev);
->>>>>>> + =A0 bool need_reset; + =A0 =A0int rc; + + =A0 =A0 =A0 =A0/* T=
-he hardware
->>>>>>> requires that RX vlan stripping and TX vlan insertion + =A0 =A0=
- =A0 *
->>>>>>> be configured together. =A0Therefore, if one setting changes
->>>>>>> adjust the + =A0 =A0 =A0* other one to match. + =A0 =A0 =A0 =A0=
- */ + =A0 =A0 =A0
->>>>>>> if (!!(data & ETH_FLAG_RXVLAN) !=3D !!(data & ETH_FLAG_TXVLAN))=
- {
->>>>>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((data & ETH_FLAG_RXVLAN) !=
-=3D + =A0 =A0 =A0 =A0 =A0 =A0
->>>>>>> (netdev->features & NETIF_F_HW_VLAN_RX)) + =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0 =A0 =A0 =A0
->>>>>>> data ^=3D ETH_FLAG_TXVLAN; + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0els=
-e if ((data &
->>>>>>> ETH_FLAG_TXVLAN) !=3D + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
-(netdev->features &
->>>>>>> NETIF_F_HW_VLAN_TX)) + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
-=A0 =A0data ^=3D
->>>>>>> ETH_FLAG_RXVLAN; + =A0 =A0 =A0 =A0}
->>>>>> [...]
->>>>>>=20
->>>>>> I think this should reject attempts to change just one flag with
->>>>>> -EINVAL, rather than quietly 'fixing' the setting.
->>>>>>=20
->>>>>> Ben.
->>>>>=20
->>>>> I'm not sure this is a good idea. At least not without some sort
->>>>> of explanation. Since there is no way for the user to know that
->>>>> he needs to disable both.
->>>>=20
->>>> Document the limitation in Documentation/networking/ixgb.txt. =A0Y=
-ou
->>>> could also send a patch for the ethtool manual page stating that
->>>> this restriction might exist.=20
->>>>=20
->>>> Ben.
->>>=20
->>> Just to make sure it's clear - there is no hard requirement for bot=
-h
->>> settings to be set at the same time. So setting:
->>> ethtool -K eth0 rxvlan off
->>>=20
->>> Is a valid setting and will disable stripping on Rx, but because of
->>> the design, stripping on Tx will also be disabled.
->>=20
->> Then it's *not* a valid setting for your hardware/driver.
->=20
-> Ben, I agree that limiting the settings to what is actually supported
-> is conceptually cleaner but in practice it's not very intuitive.  If
-> you try to turn something off and the response is that it's invalid,
-> most people are going to assume that you just can't do it.  This is
-> especially true since you actually can't turn these settings off in
-> most drivers.
->=20
-> There's a precedent for this type of thing: turn off TX checksum
-> offloading and watch scatter/gather and TSO be automatically disabled
-> as well.  It makes sense - the user requested a change, we do what is
-> necessary to make that happen without requiring them to understand wh=
-y
-> these features are interrelated.
->=20
-> Emil, I realized afterwards that, as you pointed out, TX vlan
-> offloading can be disabled without requiring RX offloading to be
-> disabled.  Feel free to make the modification yourself or I can
-> resubmit, whichever is easier.
+On Tue, Dec 14, 2010 at 07:07:27PM -0800, Stephen Hemminger wrote:
+> On Wed, 15 Dec 2010 02:24:08 +0100 (CET)
+> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
+> > Some drivers are using skb_transport_offset(skb) instead of skb->csum_s=
+tart
+> > for NETIF_F_HW_CSUM offload.  This does not matter now, but if someone
+> > implements checksumming of encapsulated packets then this will break si=
+lently.
+> > =
 
-If it's OK with you I can make whatever changes are needed since I need
-to test this first, so I don't want to go back and forth in case we fin=
-d
-other issues in testing.
+> > TSO output paths are left as they are, since they are for IP+TCP only
+> > (might be worth converting though).
+> > =
 
-Thanks,
-Emil
+> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Which if any of these drivers did you test on real hardware?
+
+I'm running it on skge, with additional patch that changes it to use
+NETIF_F_HW_CSUM instead of NETIF_F_IP_CSUM. BTW, why it is not advertising
+full HW checksum in vanilla kernel? Are there any known hardware bugs in th=
+ere?
+
+Best Regards,
+Micha=B3 Miros=B3aw
+
+---
+lspci:
+
+02:05.0 Ethernet controller: 3Com Corporation 3c940 10/100/1000Base-T [Marv=
+ell] (rev 12)
+        Subsystem: ASUSTeK Computer Inc. A7V600/P4P800/K8V motherboard
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-=
+ Stepping- SERR+ FastB2B- DisINTx-
+        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=3Dmedium >TAbort- =
+<TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 64 (5750ns min, 7750ns max), Cache Line Size: 16 bytes
+        Interrupt: pin A routed to IRQ 22
+        Region 0: Memory at feafc000 (32-bit, non-prefetchable) [size=3D16K]
+        Region 1: I/O ports at d800 [size=3D256]
+        Capabilities: <access denied>
+        Kernel driver in use: skge
+        Kernel modules: skge
+
+ethtool -k:
+
+Offload parameters for eth3:
+rx-checksumming: on
+tx-checksumming: on
+scatter-gather: on
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: on
+large receive offload: off
+
+
+---------------------------------------------------------------------------=
+---
+Lotusphere 2011
+Register now for Lotusphere 2011 and learn how
+to connect the dots, take your collaborative environment
+to the next level, and enter the era of Social Business.
+http://p.sf.net/sfu/lotusphere-d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
+m/community/wired
