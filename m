@@ -1,49 +1,46 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgb: Convert to new vlan model.
-Date: Wed, 15 Dec 2010 14:49:42 -0800
-Message-ID: <AANLkTikyWHzqU_iLYSfoYCS+oUV2eSzSCTrKzU6S0ehf@mail.gmail.com>
-References: <1292298163-30343-1-git-send-email-jesse@nicira.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: linux-next: Tree for November 18 (netfilter)
+Date: Wed, 15 Dec 2010 23:55:10 +0100
+Message-ID: <4D09474E.1070100@trash.net>
+References: <20101118134256.fe132215.sfr@canb.auug.org.au>	 <20101118092520.6ad964c7.randy.dunlap@oracle.com>	 <4CE5712B.2080909@trash.net>  <1290428077.725556.3.camel@nienna.balabit> <1290428929.726241.1.camel@nienna.balabit> <4CEA97FE.4080006@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Emil Tantilov <emil.s.tantilov@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f180.google.com ([209.85.214.180]:42989 "EHLO
-	mail-iw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460Ab0LOWtm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 17:49:42 -0500
-Received: by iwn37 with SMTP id 37so2848824iwn.11
-        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 14:49:42 -0800 (PST)
-In-Reply-To: <1292298163-30343-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: KOVACS Krisztian <hidden@balabit.hu>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Balazs Scheidler <bazsi@balabit.hu>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <4CEA97FE.4080006@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 13, 2010 at 19:42, Jesse Gross <jesse@nicira.com> wrote:
-> This switches the ixgb driver to use the new vlan interfaces.
-> In doing this, it completes the work begun in
-> ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
-> hardware vlan insertion without having a vlan group configured.
->
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> CC: Emil Tantilov <emil.s.tantilov@intel.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> CC: Alex Duyck <alexander.h.duyck@intel.com>
-> ---
-> =C2=A0drivers/net/ixgb/ixgb.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=
-=A02 +-
-> =C2=A0drivers/net/ixgb/ixgb_ethtool.c | =C2=A0 41 +++++++++++++++++++=
-++++++++++
-> =C2=A0drivers/net/ixgb/ixgb_main.c =C2=A0 =C2=A0| =C2=A0 54 ++++++++-=
------------------------------
-> =C2=A03 files changed, 54 insertions(+), 43 deletions(-)
->
+Am 22.11.2010 17:19, schrieb Randy Dunlap:
+> On 11/22/10 04:28, KOVACS Krisztian wrote:
+>> commit ec0ac6f3e7749e25f481c1e0f75766974820fe84
+>> Author: KOVACS Krisztian <hidden@balabit.hu>
+>> Date:   Mon Nov 22 13:07:15 2010 +0100
+>>
+>>     netfilter: fix compilation when conntrack is disabled but tproxy is enabled
+>>     
+>>     The IPv6 tproxy patches split IPv6 defragmentation off of conntrack, but
+>>     failed to update the #ifdef stanzas guarding the defragmentation related
+>>     fields and code in skbuff and conntrack related code in nf_defrag_ipv6.c.
+>>     
+>>     This patch adds the required #ifdefs so that IPv6 tproxy can truly be used
+>>     without connection tracking.
+>>     
+>>     Original report:
+>>     http://marc.info/?l=linux-netdev&m=129010118516341&w=2
+>>     
+>>     Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+>>     Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+> 
+> That builds.  Thanks.
+> 
+> Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-I have added this patch to my tree for testing and review.  Thanks Jess=
-e.
-
---=20
-Cheers,
-Jeff
+Applied, thanks everyone.
