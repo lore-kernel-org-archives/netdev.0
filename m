@@ -1,84 +1,53 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: [2.6.37-rc5] Build error on parisc.
-Date: Wed, 15 Dec 2010 17:01:14 +0900
-Message-ID: <201012150801.oBF81EVm047830@www262.sakura.ne.jp>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: |PATCH net-next-2.6] ifb: use netif_receive_skb() instead of
+ netif_rx()
+Date: Wed, 15 Dec 2010 09:39:58 +0100
+Message-ID: <1292402398.3427.6.camel@edumazet-laptop>
+References: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
+	 <1292397202.2377.13.camel@edumazet-laptop>
+	 <AANLkTi=TuZNTXTBxmLqu0yyF=f0xM3CQyr_stRHerv6r@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	netem@lists.linux-foundation.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www262.sakura.ne.jp ([202.181.97.72]:58432 "EHLO
-	www262.sakura.ne.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724Ab0LOIBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 03:01:18 -0500
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:52949 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750963Ab0LOIkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 03:40:03 -0500
+Received: by fxm18 with SMTP id 18so1742231fxm.2
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 00:40:02 -0800 (PST)
+In-Reply-To: <AANLkTi=TuZNTXTBxmLqu0yyF=f0xM3CQyr_stRHerv6r@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[2.6.37-rc5] Build error on parisc.
+In ri_tasklet(), we run from softirq, so can directly handle packet
+through netif_receive_skb() instead of netif_rx().
+There is no risk of recursion.
 
-Commit 5635c10d "net: make sure struct dst_entry refcount is aligned on 64 bytes"
-uses manual padding. I triggered BUILD_BUG_ON() when using
-http://kernel.org/pub/tools/crosstool/files/bin/i686/4.5.1/i686-gcc-4.5.1-nolibc_hppa64-linux.tar.bz2 .
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/ifb.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-  make -s CROSS_COMPILE=hppa64-linux- ARCH=parisc
+diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+index bfa03db..a44901b 100644
+--- a/drivers/net/ifb.c
++++ b/drivers/net/ifb.c
+@@ -96,7 +96,7 @@ static void ri_tasklet(unsigned long dev)
+ 			dev_queue_xmit(skb);
+ 		} else if (from & AT_INGRESS) {
+ 			skb_pull(skb, skb->dev->hard_header_len);
+-			netif_rx(skb);
++			netif_receive_skb(skb);
+ 		} else
+ 			BUG();
+ 	}
 
-  include/net/dst.h: In function 'dst_hold':
-  include/net/dst.h:161:2: error: negative width in bit-field '<anonymous>'
 
-I think below patch can fix the error but that commit says that we cannot use
-__atribute((aligned)). Why?
-
-diff --git a/include/net/dst.h b/include/net/dst.h
-index ffe9cb7..02df303 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -62,8 +62,6 @@ struct dst_entry {
- 	struct hh_cache		*hh;
- #ifdef CONFIG_XFRM
- 	struct xfrm_state	*xfrm;
--#else
--	void			*__pad1;
- #endif
- 	int			(*input)(struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
-@@ -74,23 +72,15 @@ struct dst_entry {
- 
- #ifdef CONFIG_NET_CLS_ROUTE
- 	__u32			tclassid;
--#else
--	__u32			__pad2;
--#endif
--
--
--	/*
--	 * Align __refcnt to a 64 bytes alignment
--	 * (L1_CACHE_SIZE would be too much)
--	 */
--#ifdef CONFIG_64BIT
--	long			__pad_to_align_refcnt[1];
- #endif
- 	/*
- 	 * __refcnt wants to be on a different cache line from
- 	 * input/output/ops or performance tanks badly
-+	 *
-+	 * Align __refcnt to a 64 bytes alignment
-+	 * (L1_CACHE_SIZE would be too much)
- 	 */
--	atomic_t		__refcnt;	/* client references	*/
-+	atomic_t		__refcnt __aligned(64);	/* client references */
- 	int			__use;
- 	unsigned long		lastuse;
- 	union {
-@@ -154,11 +144,6 @@ dst_metric_locked(struct dst_entry *dst, int metric)
- 
- static inline void dst_hold(struct dst_entry * dst)
- {
--	/*
--	 * If your kernel compilation stops here, please check
--	 * __pad_to_align_refcnt declaration in struct dst_entry
--	 */
--	BUILD_BUG_ON(offsetof(struct dst_entry, __refcnt) & 63);
- 	atomic_inc(&dst->__refcnt);
- }
- 
