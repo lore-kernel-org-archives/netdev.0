@@ -1,92 +1,36 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [v3 PATCH 1/2] bonding: sync netpoll code with bridge
-Date: Wed, 15 Dec 2010 06:59:55 -0500
-Message-ID: <20101215115955.GA12559@hmsreliant.think-freely.org>
-References: <20101208075208.5792.45247.sendpatchset@localhost.localdomain>
- <20101208135746.GD11454@hmsreliant.think-freely.org>
- <4D008643.5040500@redhat.com>
- <4D089DEA.2060803@redhat.com>
+From: Graeme Fowler <graeme@graemef.net>
+Subject: Re: [*v2 PATCH 00/22] IPVS, Network Name Space aware
+Date: Wed, 15 Dec 2010 12:15:26 +0000
+Message-ID: <1292415326.7459.8.camel@localhost>
+References: <1292247510-753-1-git-send-email-hans.schillstrom@ericsson.com>
+	 <alpine.LFD.2.00.1012150136410.2010@ja.ssi.bg>
+	 <1292410332.4983.321.camel@seasc0214>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Neil Horman <nhorman@redhat.com>, linux-kernel@vger.kernel.org,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	bonding-devel@lists.sourceforge.net,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D089DEA.2060803@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Julian Anastasov <ja@ssi.bg>,
+	"horms@verge.net.au" <horms@verge.net.au>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1292410332.4983.321.camel@seasc0214>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 15, 2010 at 06:52:26PM +0800, Cong Wang wrote:
-> =E4=BA=8E 2010=E5=B9=B412=E6=9C=8809=E6=97=A5 15:33, Cong Wang =E5=86=
-=99=E9=81=93:
-> >On 12/08/10 21:57, Neil Horman wrote:
-> >>On Wed, Dec 08, 2010 at 02:52:08AM -0500, Amerigo Wang wrote:
-> >>>-    bond_for_each_slave(bond, slave, i) {
-> >>>-        if ((slave->dev->priv_flags&  IFF_DISABLE_NETPOLL) ||
-> >>>-            !slave->dev->netdev_ops->ndo_poll_controller)
-> >>>-            ret =3D false;
-> >>>+    np =3D kmalloc(sizeof(*np), GFP_KERNEL);
-> >>>+    err =3D -ENOMEM;
-> >>>+    if (!np)
-> >>>+        goto out;
-> >>>+
-> >>>+    np->dev =3D slave->dev;
-> >>>+    err =3D __netpoll_setup(np);
-> >>Setting up our own netpoll instance on each slave worries me a bit.=
-  The
-> >>implication here is that, by doing so, some frames will get entirel=
-y processed
-> >>by the slave.  Most notably arp frames.  That means anything that g=
-ets queued up
-> >>to the arp_tx queue in __netpoll_rx will get processed during that =
-poll event,
-> >>and responded to with the mac of the slave device, rather than with=
- the mac of
-> >>the bond device, which isn't always what you want.  I think if you =
-go with this
-> >>route, you'll need to add code to netpoll_poll_dev, right before th=
-e call to
-> >>service_arp_queue, to check if IFF_SLAVE is set in priv_flags, and =
-move the list
-> >>to the master device, or some such.
-> >
-> >
-> >Good point! Will fix i
->=20
-> Hi, Neil,
->=20
-> I think we should do that in bond_poll_controller() rather than netpo=
-ll_poll_dev(),
-> right? Since this is bond-specific. Does moving all arp_tx of slaves =
-to their bond
-> address your concern?
->=20
-Don't think that will work, because, since your using multiple netpoll =
-instances
-here, the slaves arp_tx queue will get serviced on the return from the =
-slaves
-netpoll_poll_dev call, prior to returning to the bond_poll_controller c=
-all.  In
-other words, bond_poll_controller won't ever see any frames on the slav=
-es arp_tx
-queue to migrate, since they will have already been responded to by the=
- slave
-directly.
-Neil
+On Wed, 2010-12-15 at 11:52 +0100, Hans Schillstrom wrote:
+> Should I keep /proc/net/ip_vs_stats as it was before and add a new entry
+> like /proc/net/ip_vs_stats_percpu ?
+> (or maybe just skip the per cpu info ?)
 
-> Thanks!
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->=20
+In my opinion you should keep the existing /proc/net/ip_vs_stats as it
+is or you may find that you inadvertently break 3rd party code which
+parses it.
+
+Graeme
+
+
