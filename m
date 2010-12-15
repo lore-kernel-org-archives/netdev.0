@@ -1,42 +1,52 @@
 From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: |PATCH net-next-2.6] ifb: use netif_receive_skb() instead of
- netif_rx()
-Date: Wed, 15 Dec 2010 08:14:47 -0800
-Message-ID: <20101215081447.64081885@nehalam>
+Subject: Re: [PATCH 5/5 v2] net: add old_queue_mapping into skb->cb
+Date: Wed, 15 Dec 2010 08:19:23 -0800
+Message-ID: <20101215081923.46fac651@nehalam>
 References: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
-	<1292397202.2377.13.camel@edumazet-laptop>
-	<AANLkTi=TuZNTXTBxmLqu0yyF=f0xM3CQyr_stRHerv6r@mail.gmail.com>
-	<1292402398.3427.6.camel@edumazet-laptop>
-	<1292417363.2067.17.camel@mojatatu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Changli Gao <xiaosuo@gmail.com>,
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
 	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
 	Tom Herbert <therbert@google.com>,
 	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
 	netem@lists.linux-foundation.org
-To: hadi@cyberus.ca
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:37541 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:38823 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752490Ab0LOQPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 11:15:15 -0500
-In-Reply-To: <1292417363.2067.17.camel@mojatatu>
+	by vger.kernel.org with ESMTP id S1751053Ab0LOQTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 11:19:46 -0500
+In-Reply-To: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Dec 2010 07:49:23 -0500
-jamal <hadi@cyberus.ca> wrote:
+On Wed, 15 Dec 2010 13:23:56 +0800
+Changli Gao <xiaosuo@gmail.com> wrote:
 
-> On Wed, 2010-12-15 at 09:39 +0100, Eric Dumazet wrote:
-> > In ri_tasklet(), we run from softirq, so can directly handle packet
-> > through netif_receive_skb() instead of netif_rx().
-> > There is no risk of recursion.
+> For the skbs returned from ifb, we should use the queue_mapping
+> saved before ifb.
 > 
-> Eric, did you do at least a simple test on this one? 
-> It used to be problematic (I cant remember why or
-> what use case was problematic).
+> We save old queue_mapping in old_queue_mapping just before calling 
+> dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
+> just before reinjecting the skb.
+> 
+> dev_pick_tx() use the current queue_mapping for the skbs reinjected
+> by ifb.
+> 
+> A new struct dev_skb_cb is added, and valid in qdisc and gso layer.
+> The original qdisc_skb_cb and DEV_GSO_CB are placed after dev_skb_cb.
+> 
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Only risk is stack overflow.
+What about a more general mechanism that lets a layer push
+some amount of data onto the skb and then pop it off.
+Kind of link notes to self, maybe even encode them as netlink
+(except netlink messages have excess padding).
+
+This would allow nesting, and avoid cb[] clobbering.
+The existing usage of cb[] is only because there wasn't a better
+solution.
+
+-- 
