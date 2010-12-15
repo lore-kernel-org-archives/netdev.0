@@ -1,75 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
- packets
-Date: Wed, 15 Dec 2010 16:50:52 +0100
-Message-ID: <1292428252.3427.342.camel@edumazet-laptop>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH 2/3] net: sunrpc: kill unused macros
+Date: Wed, 15 Dec 2010 10:52:07 -0500
+Message-ID: <20101215155206.GC32559@fieldses.org>
+References: <4D086478.7090106@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57135 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754450Ab0LOPu5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 10:50:57 -0500
-Received: by wyb28 with SMTP id 28so1594867wyb.19
-        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 07:50:55 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: neilb-l3A5Bk7waGM@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org, steved-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Network-Maillist <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D086478.7090106-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-In commit 8caf153974f2 (net: sch_netem: Fix an inconsistency in ingress
-netem timestamps.), Jarek added a logic to refresh timestamps of
-ingressed packets going through netem.
+On Wed, Dec 15, 2010 at 02:47:20PM +0800, Shan Wei wrote:
+> These macros never be used for several years.
 
-I believe we should generalize this, forcing a refresh of timestamps in
-dev_queue_xmit_nit() for all ingress packets, whatever qdisc/class they
-used before being delivered.
+Applying for 2.6.38.--b.
 
-This way, we can have a good idea when packets are delivered to our
-stack (tcpdump -i ifb0), while a tcpdump on original device gives
-timestamps right before ingressing.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/core/dev.c        |    2 +-
- net/sched/sch_netem.c |    8 --------
- 2 files changed, 1 insertion(+), 9 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..a2846f8 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1506,7 +1506,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 	struct packet_type *ptype;
- 
- #ifdef CONFIG_NET_CLS_ACT
--	if (!(skb->tstamp.tv64 && (G_TC_FROM(skb->tc_verd) & AT_INGRESS)))
-+	if (!skb->tstamp.tv64 || (G_TC_FROM(skb->tc_verd) & AT_INGRESS))
- 		net_timestamp_set(skb);
- #else
- 	net_timestamp_set(skb);
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index e5593c0..1c29cc0 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -281,14 +281,6 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
- 			if (unlikely(!skb))
- 				return NULL;
- 
--#ifdef CONFIG_NET_CLS_ACT
--			/*
--			 * If it's at ingress let's pretend the delay is
--			 * from the network (tstamp will be updated).
--			 */
--			if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
--				skb->tstamp.tv64 = 0;
--#endif
- 			pr_debug("netem_dequeue: return skb=%p\n", skb);
- 			sch->q.qlen--;
- 			return skb;
-
-
+> 
+> 
+> Signed-off-by: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+> ---
+>  net/sunrpc/auth_gss/svcauth_gss.c |    2 --
+>  net/sunrpc/svcauth.c              |    1 -
+>  net/sunrpc/svcauth_unix.c         |    2 --
+>  3 files changed, 0 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+> index dec2a6f..bcdae78 100644
+> --- a/net/sunrpc/auth_gss/svcauth_gss.c
+> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
+> @@ -67,7 +67,6 @@ static int netobj_equal(struct xdr_netobj *a, struct xdr_netobj *b)
+>  
+>  #define	RSI_HASHBITS	6
+>  #define	RSI_HASHMAX	(1<<RSI_HASHBITS)
+> -#define	RSI_HASHMASK	(RSI_HASHMAX-1)
+>  
+>  struct rsi {
+>  	struct cache_head	h;
+> @@ -319,7 +318,6 @@ static struct rsi *rsi_update(struct rsi *new, struct rsi *old)
+>  
+>  #define	RSC_HASHBITS	10
+>  #define	RSC_HASHMAX	(1<<RSC_HASHBITS)
+> -#define	RSC_HASHMASK	(RSC_HASHMAX-1)
+>  
+>  #define GSS_SEQ_WIN	128
+>  
+> diff --git a/net/sunrpc/svcauth.c b/net/sunrpc/svcauth.c
+> index 4e9393c..7963569 100644
+> --- a/net/sunrpc/svcauth.c
+> +++ b/net/sunrpc/svcauth.c
+> @@ -118,7 +118,6 @@ EXPORT_SYMBOL_GPL(svc_auth_unregister);
+>  
+>  #define	DN_HASHBITS	6
+>  #define	DN_HASHMAX	(1<<DN_HASHBITS)
+> -#define	DN_HASHMASK	(DN_HASHMAX-1)
+>  
+>  static struct hlist_head	auth_domain_table[DN_HASHMAX];
+>  static spinlock_t	auth_domain_lock =
+> diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
+> index 560677d..a04ac91 100644
+> --- a/net/sunrpc/svcauth_unix.c
+> +++ b/net/sunrpc/svcauth_unix.c
+> @@ -85,7 +85,6 @@ static void svcauth_unix_domain_release(struct auth_domain *dom)
+>   */
+>  #define	IP_HASHBITS	8
+>  #define	IP_HASHMAX	(1<<IP_HASHBITS)
+> -#define	IP_HASHMASK	(IP_HASHMAX-1)
+>  
+>  struct ip_map {
+>  	struct cache_head	h;
+> @@ -497,7 +496,6 @@ svcauth_unix_info_release(struct svc_xprt *xpt)
+>   */
+>  #define	GID_HASHBITS	8
+>  #define	GID_HASHMAX	(1<<GID_HASHBITS)
+> -#define	GID_HASHMASK	(GID_HASHMAX - 1)
+>  
+>  struct unix_gid {
+>  	struct cache_head	h;
+> -- 
+> 1.6.3.3
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
