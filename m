@@ -1,191 +1,202 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH 3/3] net: Fix drivers advertising HW_CSUM
-	feature to use csum_start
+Subject: [PATCH 2/3] net: Use skb_checksum_start_offset()
 Date: Wed, 15 Dec 2010 02:24:08 +0100 (CET)
-Message-ID: <aa9d85fa4961e87c38aec922913cbc95465fc082.1292372504.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <86812f8565215eef6faef96b647bcef0b3b01758.1292372504.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1292372504.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Roopa Prabhu <roprabhu@cisco.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>, e1000-devel@lists.sourceforge.net,
-	Shreyas Bhatewara <sbhatewara@vmware.com>, Jie Yang <Jie.Yang@atheros.com>,
-	Vasanthy Kolluri <vkolluri@cisco.com>, "VMware,
-	Inc." <pv-drivers@vmware.com>, Brice Goglin <brice@myri.com>,
-	Andrew Gallatin <gallatin@myri.com>,
-	Joe Perches <joe@perches.com>, David Wang <dwang2@cisco.com>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <jie.yang@atheros.com>,
+	Steve Glendinning <steve.glendinning@smsc.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Patrick McHardy <kaber@trash.net>,
 	"David S. Miller" <davem@davemloft.net>,
-	H Hartley Sweeten <hsweeten@visionengravers.com>
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>
 To: netdev@vger.kernel.org
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:59363 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756583Ab0LOBYL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Dec 2010 20:24:11 -0500
 In-Reply-To: <cover.1292372504.git.mirq-linux@rere.qmqm.pl>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U29tZSBkcml2ZXJzIGFyZSB1c2luZyBza2JfdHJhbnNwb3J0X29mZnNldChza2IpIGluc3RlYWQg
-b2Ygc2tiLT5jc3VtX3N0YXJ0CmZvciBORVRJRl9GX0hXX0NTVU0gb2ZmbG9hZC4gIFRoaXMgZG9l
-cyBub3QgbWF0dGVyIG5vdywgYnV0IGlmIHNvbWVvbmUKaW1wbGVtZW50cyBjaGVja3N1bW1pbmcg
-b2YgZW5jYXBzdWxhdGVkIHBhY2tldHMgdGhlbiB0aGlzIHdpbGwgYnJlYWsgc2lsZW50bHkuCgpU
-U08gb3V0cHV0IHBhdGhzIGFyZSBsZWZ0IGFzIHRoZXkgYXJlLCBzaW5jZSB0aGV5IGFyZSBmb3Ig
-SVArVENQIG9ubHkKKG1pZ2h0IGJlIHdvcnRoIGNvbnZlcnRpbmcgdGhvdWdoKS4KClNpZ25lZC1v
-ZmYtYnk6IE1pY2hhxYIgTWlyb3PFgmF3IDxtaXJxLWxpbnV4QHJlcmUucW1xbS5wbD4KLS0tCiBk
-cml2ZXJzL25ldC9hdGwxYy9hdGwxY19tYWluLmMgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9h
-dGwxZS9hdGwxZV9tYWluLmMgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9jYXNzaW5pLmMgICAg
-ICAgICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmMgICAgfCAg
-ICAyICstCiBkcml2ZXJzL25ldC9lMTAwMGUvbmV0ZGV2LmMgICAgICAgfCAgICAyICstCiBkcml2
-ZXJzL25ldC9lbmljL2VuaWNfbWFpbi5jICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9peGdi
-L2l4Z2JfbWFpbi5jICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9sbF90ZW1hY19tYWluLmMg
-ICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9teXJpMTBnZS9teXJpMTBnZS5jICAgfCAgICAy
-ICstCiBkcml2ZXJzL25ldC9uaXUuYyAgICAgICAgICAgICAgICAgfCAgICAyICstCiBkcml2ZXJz
-L25ldC9za2dlLmMgICAgICAgICAgICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9zdW5nZW0u
-YyAgICAgICAgICAgICAgfCAgICAyICstCiBkcml2ZXJzL25ldC9zdW5obWUuYyAgICAgICAgICAg
-ICAgfCAgICAyICstCiBkcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMgfCAgICA0ICsr
-LS0KIDE0IGZpbGVzIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDE1IGRlbGV0aW9ucygtKQoK
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2F0bDFjL2F0bDFjX21haW4uYyBiL2RyaXZlcnMvbmV0
-L2F0bDFjL2F0bDFjX21haW4uYwppbmRleCAwOWIwOTliLi5lNDhlYTk1IDEwMDY0NAotLS0gYS9k
-cml2ZXJzL25ldC9hdGwxYy9hdGwxY19tYWluLmMKKysrIGIvZHJpdmVycy9uZXQvYXRsMWMvYXRs
-MWNfbWFpbi5jCkBAIC0yMDc4LDcgKzIwNzgsNyBAQCBzdGF0aWMgaW50IGF0bDFjX3Rzb19jc3Vt
-KHN0cnVjdCBhdGwxY19hZGFwdGVyICphZGFwdGVyLAogY2hlY2tfc3VtOgogCWlmIChsaWtlbHko
-c2tiLT5pcF9zdW1tZWQgPT0gQ0hFQ0tTVU1fUEFSVElBTCkpIHsKIAkJdTggY3NzLCBjc287Ci0J
-CWNzbyA9IHNrYl90cmFuc3BvcnRfb2Zmc2V0KHNrYik7CisJCWNzbyA9IHNrYl9jaGVja3N1bV9z
-dGFydF9vZmZzZXQoc2tiKTsKIAogCQlpZiAodW5saWtlbHkoY3NvICYgMHgxKSkgewogCQkJaWYg
-KG5ldGlmX21zZ190eF9lcnIoYWRhcHRlcikpCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9hdGwx
-ZS9hdGwxZV9tYWluLmMgYi9kcml2ZXJzL25ldC9hdGwxZS9hdGwxZV9tYWluLmMKaW5kZXggZWY2
-MzQ5Yi4uZTI4ZjhiYSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvYXRsMWUvYXRsMWVfbWFpbi5j
-CisrKyBiL2RyaXZlcnMvbmV0L2F0bDFlL2F0bDFlX21haW4uYwpAQCAtMTY0OSw3ICsxNjQ5LDcg
-QEAgY2hlY2tfc3VtOgogCWlmIChsaWtlbHkoc2tiLT5pcF9zdW1tZWQgPT0gQ0hFQ0tTVU1fUEFS
-VElBTCkpIHsKIAkJdTggY3NzLCBjc287CiAKLQkJY3NvID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQo
-c2tiKTsKKwkJY3NvID0gc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldChza2IpOwogCQlpZiAodW5s
-aWtlbHkoY3NvICYgMHgxKSkgewogCQkJbmV0ZGV2X2VycihhZGFwdGVyLT5uZXRkZXYsCiAJCQkJ
-ICAgInBheWxvYWQgb2Zmc2V0IHNob3VsZCBub3QgYW50IGV2ZW50IG51bWJlclxuIik7CmRpZmYg
-LS1naXQgYS9kcml2ZXJzL25ldC9jYXNzaW5pLmMgYi9kcml2ZXJzL25ldC9jYXNzaW5pLmMKaW5k
-ZXggYThhMzJiYy4uNzM1MDJmZSAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvY2Fzc2luaS5jCisr
-KyBiL2RyaXZlcnMvbmV0L2Nhc3NpbmkuYwpAQCAtMjc4OCw3ICsyNzg4LDcgQEAgc3RhdGljIGlu
-bGluZSBpbnQgY2FzX3htaXRfdHhfcmluZ04oc3RydWN0IGNhcyAqY3AsIGludCByaW5nLAogCiAJ
-Y3RybCA9IDA7CiAJaWYgKHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX1BBUlRJQUwpIHsKLQkJ
-Y29uc3QgdTY0IGNzdW1fc3RhcnRfb2ZmID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsKKwkJ
-Y29uc3QgdTY0IGNzdW1fc3RhcnRfb2ZmID0gc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldChza2Ip
-OwogCQljb25zdCB1NjQgY3N1bV9zdHVmZl9vZmYgPSBjc3VtX3N0YXJ0X29mZiArIHNrYi0+Y3N1
-bV9vZmZzZXQ7CiAKIAkJY3RybCA9ICBUWF9ERVNDX0NTVU1fRU4gfApkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZTEwMDAvZTEwMDBfbWFpbi5jIGIvZHJpdmVycy9uZXQvZTEwMDAvZTEwMDBfbWFp
-bi5jCmluZGV4IDQ5MWJmMmEuLjM0MGUxMmQgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2UxMDAw
-L2UxMDAwX21haW4uYworKysgYi9kcml2ZXJzL25ldC9lMTAwMC9lMTAwMF9tYWluLmMKQEAgLTI3
-MjYsNyArMjcyNiw3IEBAIHN0YXRpYyBib29sIGUxMDAwX3R4X2NzdW0oc3RydWN0IGUxMDAwX2Fk
-YXB0ZXIgKmFkYXB0ZXIsCiAJCWJyZWFrOwogCX0KIAotCWNzcyA9IHNrYl90cmFuc3BvcnRfb2Zm
-c2V0KHNrYik7CisJY3NzID0gc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldChza2IpOwogCiAJaSA9
-IHR4X3JpbmctPm5leHRfdG9fdXNlOwogCWJ1ZmZlcl9pbmZvID0gJnR4X3JpbmctPmJ1ZmZlcl9p
-bmZvW2ldOwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZTEwMDBlL25ldGRldi5jIGIvZHJpdmVy
-cy9uZXQvZTEwMDBlL25ldGRldi5jCmluZGV4IDAyZDA5M2QuLmE0NWRhZmQgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2UxMDAwZS9uZXRkZXYuYworKysgYi9kcml2ZXJzL25ldC9lMTAwMGUvbmV0
-ZGV2LmMKQEAgLTQ0NzMsNyArNDQ3Myw3IEBAIHN0YXRpYyBib29sIGUxMDAwX3R4X2NzdW0oc3Ry
-dWN0IGUxMDAwX2FkYXB0ZXIgKmFkYXB0ZXIsIHN0cnVjdCBza19idWZmICpza2IpCiAJCWJyZWFr
-OwogCX0KIAotCWNzcyA9IHNrYl90cmFuc3BvcnRfb2Zmc2V0KHNrYik7CisJY3NzID0gc2tiX2No
-ZWNrc3VtX3N0YXJ0X29mZnNldChza2IpOwogCiAJaSA9IHR4X3JpbmctPm5leHRfdG9fdXNlOwog
-CWJ1ZmZlcl9pbmZvID0gJnR4X3JpbmctPmJ1ZmZlcl9pbmZvW2ldOwpkaWZmIC0tZ2l0IGEvZHJp
-dmVycy9uZXQvZW5pYy9lbmljX21haW4uYyBiL2RyaXZlcnMvbmV0L2VuaWMvZW5pY19tYWluLmMK
-aW5kZXggNzdkOTEzOC4uOTcxMDA0NyAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvZW5pYy9lbmlj
-X21haW4uYworKysgYi9kcml2ZXJzL25ldC9lbmljL2VuaWNfbWFpbi5jCkBAIC03MDIsNyArNzAy
-LDcgQEAgc3RhdGljIGlubGluZSB2b2lkIGVuaWNfcXVldWVfd3Ffc2tiX2NzdW1fbDQoc3RydWN0
-IGVuaWMgKmVuaWMsCiB7CiAJdW5zaWduZWQgaW50IGhlYWRfbGVuID0gc2tiX2hlYWRsZW4oc2ti
-KTsKIAl1bnNpZ25lZCBpbnQgbGVuX2xlZnQgPSBza2ItPmxlbiAtIGhlYWRfbGVuOwotCXVuc2ln
-bmVkIGludCBoZHJfbGVuID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsKKwl1bnNpZ25lZCBp
-bnQgaGRyX2xlbiA9IHNrYl9jaGVja3N1bV9zdGFydF9vZmZzZXQoc2tiKTsKIAl1bnNpZ25lZCBp
-bnQgY3N1bV9vZmZzZXQgPSBoZHJfbGVuICsgc2tiLT5jc3VtX29mZnNldDsKIAlpbnQgZW9wID0g
-KGxlbl9sZWZ0ID09IDApOwogCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9peGdiL2l4Z2JfbWFp
-bi5jIGIvZHJpdmVycy9uZXQvaXhnYi9peGdiX21haW4uYwppbmRleCBiMDIxNzk4Li41NjM5Y2Nj
-IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9peGdiL2l4Z2JfbWFpbi5jCisrKyBiL2RyaXZlcnMv
-bmV0L2l4Z2IvaXhnYl9tYWluLmMKQEAgLTEyNjIsNyArMTI2Miw3IEBAIGl4Z2JfdHhfY3N1bShz
-dHJ1Y3QgaXhnYl9hZGFwdGVyICphZGFwdGVyLCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCiAJaWYg
-KGxpa2VseShza2ItPmlwX3N1bW1lZCA9PSBDSEVDS1NVTV9QQVJUSUFMKSkgewogCQlzdHJ1Y3Qg
-aXhnYl9idWZmZXIgKmJ1ZmZlcl9pbmZvOwotCQljc3MgPSBza2JfdHJhbnNwb3J0X29mZnNldChz
-a2IpOworCQljc3MgPSBza2JfY2hlY2tzdW1fc3RhcnRfb2Zmc2V0KHNrYik7CiAJCWNzbyA9IGNz
-cyArIHNrYi0+Y3N1bV9vZmZzZXQ7CiAKIAkJaSA9IGFkYXB0ZXItPnR4X3JpbmcubmV4dF90b191
-c2U7CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9sbF90ZW1hY19tYWluLmMgYi9kcml2ZXJzL25l
-dC9sbF90ZW1hY19tYWluLmMKaW5kZXggOWY4ZTcwMi4uZTJjMmE3MiAxMDA2NDQKLS0tIGEvZHJp
-dmVycy9uZXQvbGxfdGVtYWNfbWFpbi5jCisrKyBiL2RyaXZlcnMvbmV0L2xsX3RlbWFjX21haW4u
-YwpAQCAtNjkyLDcgKzY5Miw3IEBAIHN0YXRpYyBpbnQgdGVtYWNfc3RhcnRfeG1pdChzdHJ1Y3Qg
-c2tfYnVmZiAqc2tiLCBzdHJ1Y3QgbmV0X2RldmljZSAqbmRldikKIAogCWN1cl9wLT5hcHAwID0g
-MDsKIAlpZiAoc2tiLT5pcF9zdW1tZWQgPT0gQ0hFQ0tTVU1fUEFSVElBTCkgewotCQl1bnNpZ25l
-ZCBpbnQgY3N1bV9zdGFydF9vZmYgPSBza2JfdHJhbnNwb3J0X29mZnNldChza2IpOworCQl1bnNp
-Z25lZCBpbnQgY3N1bV9zdGFydF9vZmYgPSBza2JfY2hlY2tzdW1fc3RhcnRfb2Zmc2V0KHNrYik7
-CiAJCXVuc2lnbmVkIGludCBjc3VtX2luZGV4X29mZiA9IGNzdW1fc3RhcnRfb2ZmICsgc2tiLT5j
-c3VtX29mZnNldDsKIAogCQljdXJfcC0+YXBwMCB8PSAxOyAvKiBUWCBDaGVja3N1bSBFbmFibGVk
-ICovCmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9teXJpMTBnZS9teXJpMTBnZS5jIGIvZHJpdmVy
-cy9uZXQvbXlyaTEwZ2UvbXlyaTEwZ2UuYwppbmRleCAxY2UwMjA3Li5hMzdmY2YxIDEwMDY0NAot
-LS0gYS9kcml2ZXJzL25ldC9teXJpMTBnZS9teXJpMTBnZS5jCisrKyBiL2RyaXZlcnMvbmV0L215
-cmkxMGdlL215cmkxMGdlLmMKQEAgLTI3MzYsNyArMjczNiw3IEBAIGFnYWluOgogCW9kZF9mbGFn
-ID0gMDsKIAlmbGFncyA9IChNWEdFRldfRkxBR1NfTk9fVFNPIHwgTVhHRUZXX0ZMQUdTX0ZJUlNU
-KTsKIAlpZiAobGlrZWx5KHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX1BBUlRJQUwpKSB7Ci0J
-CWNrc3VtX29mZnNldCA9IHNrYl90cmFuc3BvcnRfb2Zmc2V0KHNrYik7CisJCWNrc3VtX29mZnNl
-dCA9IHNrYl9jaGVja3N1bV9zdGFydF9vZmZzZXQoc2tiKTsKIAkJcHNldWRvX2hkcl9vZmZzZXQg
-PSBja3N1bV9vZmZzZXQgKyBza2ItPmNzdW1fb2Zmc2V0OwogCQkvKiBJZiB0aGUgaGVhZGVycyBh
-cmUgZXhjZXNzaXZlbHkgbGFyZ2UsIHRoZW4gd2UgbXVzdAogCQkgKiBmYWxsIGJhY2sgdG8gYSBz
-b2Z0d2FyZSBjaGVja3N1bSAqLwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvbml1LmMgYi9kcml2
-ZXJzL25ldC9uaXUuYwppbmRleCBmNjRjNDI0Li4yNTQxMzIxIDEwMDY0NAotLS0gYS9kcml2ZXJz
-L25ldC9uaXUuYworKysgYi9kcml2ZXJzL25ldC9uaXUuYwpAQCAtNjU4OSw3ICs2NTg5LDcgQEAg
-c3RhdGljIHU2NCBuaXVfY29tcHV0ZV90eF9mbGFncyhzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1
-Y3QgZXRoaGRyICplaGRyLAogCQkJICAgICAoaXBfcHJvdG8gPT0gSVBQUk9UT19VRFAgPwogCQkJ
-ICAgICAgVFhIRFJfQ1NVTV9VRFAgOiBUWEhEUl9DU1VNX1NDVFApKTsKIAotCQlzdGFydCA9IHNr
-Yl90cmFuc3BvcnRfb2Zmc2V0KHNrYikgLQorCQlzdGFydCA9IHNrYl9jaGVja3N1bV9zdGFydF9v
-ZmZzZXQoc2tiKSAtCiAJCQkocGFkX2J5dGVzICsgc2l6ZW9mKHN0cnVjdCB0eF9wa3RfaGRyKSk7
-CiAJCXN0dWZmID0gc3RhcnQgKyBza2ItPmNzdW1fb2Zmc2V0OwogCmRpZmYgLS1naXQgYS9kcml2
-ZXJzL25ldC9za2dlLmMgYi9kcml2ZXJzL25ldC9za2dlLmMKaW5kZXggOGMxNDA0Yi4uNTA4MTVm
-YiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvc2tnZS5jCisrKyBiL2RyaXZlcnMvbmV0L3NrZ2Uu
-YwpAQCAtMjc2NCw3ICsyNzY0LDcgQEAgc3RhdGljIG5ldGRldl90eF90IHNrZ2VfeG1pdF9mcmFt
-ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCXRkLT5kbWFfaGkgPSBtYXAgPj4gMzI7CiAKIAlpZiAo
-c2tiLT5pcF9zdW1tZWQgPT0gQ0hFQ0tTVU1fUEFSVElBTCkgewotCQljb25zdCBpbnQgb2Zmc2V0
-ID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsKKwkJY29uc3QgaW50IG9mZnNldCA9IHNrYl9j
-aGVja3N1bV9zdGFydF9vZmZzZXQoc2tiKTsKIAogCQkvKiBUaGlzIHNlZW1zIGJhY2t3YXJkcywg
-YnV0IGl0IGlzIHdoYXQgdGhlIHNrOThsaW4KIAkJICogZG9lcy4gIExvb2tzIGxpa2UgaGFyZHdh
-cmUgaXMgd3Jvbmc/CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC9zdW5nZW0uYyBiL2RyaXZlcnMv
-bmV0L3N1bmdlbS5jCmluZGV4IDllOTkyY2EuLjFjNTQwOGYgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMv
-bmV0L3N1bmdlbS5jCisrKyBiL2RyaXZlcnMvbmV0L3N1bmdlbS5jCkBAIC0xMDA0LDcgKzEwMDQs
-NyBAQCBzdGF0aWMgbmV0ZGV2X3R4X3QgZ2VtX3N0YXJ0X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNr
-YiwKIAogCWN0cmwgPSAwOwogCWlmIChza2ItPmlwX3N1bW1lZCA9PSBDSEVDS1NVTV9QQVJUSUFM
-KSB7Ci0JCWNvbnN0IHU2NCBjc3VtX3N0YXJ0X29mZiA9IHNrYl90cmFuc3BvcnRfb2Zmc2V0KHNr
-Yik7CisJCWNvbnN0IHU2NCBjc3VtX3N0YXJ0X29mZiA9IHNrYl9jaGVja3N1bV9zdGFydF9vZmZz
-ZXQoc2tiKTsKIAkJY29uc3QgdTY0IGNzdW1fc3R1ZmZfb2ZmID0gY3N1bV9zdGFydF9vZmYgKyBz
-a2ItPmNzdW1fb2Zmc2V0OwogCiAJCWN0cmwgPSAoVFhEQ1RSTF9DRU5BQiB8CmRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC9zdW5obWUuYyBiL2RyaXZlcnMvbmV0L3N1bmhtZS5jCmluZGV4IDVlMjhj
-NDEuLjU1YmJiOWMgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L3N1bmhtZS5jCisrKyBiL2RyaXZl
-cnMvbmV0L3N1bmhtZS5jCkBAIC0yMjY2LDcgKzIyNjYsNyBAQCBzdGF0aWMgbmV0ZGV2X3R4X3Qg
-aGFwcHlfbWVhbF9zdGFydF94bWl0KHN0cnVjdCBza19idWZmICpza2IsCiAKIAl0eF9mbGFncyA9
-IFRYRkxBR19PV047CiAJaWYgKHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX1BBUlRJQUwpIHsK
-LQkJY29uc3QgdTMyIGNzdW1fc3RhcnRfb2ZmID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsK
-KwkJY29uc3QgdTMyIGNzdW1fc3RhcnRfb2ZmID0gc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldChz
-a2IpOwogCQljb25zdCB1MzIgY3N1bV9zdHVmZl9vZmYgPSBjc3VtX3N0YXJ0X29mZiArIHNrYi0+
-Y3N1bV9vZmZzZXQ7CiAKIAkJdHhfZmxhZ3MgPSAoVFhGTEFHX09XTiB8IFRYRkxBR19DU0VOQUJM
-RSB8CmRpZmYgLS1naXQgYS9kcml2ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMgYi9kcml2
-ZXJzL25ldC92bXhuZXQzL3ZteG5ldDNfZHJ2LmMKaW5kZXggMDE2OWJlNy4uZDg3YTIzMCAxMDA2
-NDQKLS0tIGEvZHJpdmVycy9uZXQvdm14bmV0My92bXhuZXQzX2Rydi5jCisrKyBiL2RyaXZlcnMv
-bmV0L3ZteG5ldDMvdm14bmV0M19kcnYuYwpAQCAtNzk4LDcgKzc5OCw3IEBAIHZteG5ldDNfcGFy
-c2VfYW5kX2NvcHlfaGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCB2bXhuZXQzX3R4X3F1
-ZXVlICp0cSwKIHsKIAlzdHJ1Y3QgVm14bmV0M19UeERhdGFEZXNjICp0ZGQ7CiAKLQlpZiAoY3R4
-LT5tc3MpIHsKKwlpZiAoY3R4LT5tc3MpIHsJLyogVFNPICovCiAJCWN0eC0+ZXRoX2lwX2hkcl9z
-aXplID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2tiKTsKIAkJY3R4LT5sNF9oZHJfc2l6ZSA9ICgo
-c3RydWN0IHRjcGhkciAqKQogCQkJCSAgIHNrYl90cmFuc3BvcnRfaGVhZGVyKHNrYikpLT5kb2Zm
-ICogNDsKQEAgLTgwNyw3ICs4MDcsNyBAQCB2bXhuZXQzX3BhcnNlX2FuZF9jb3B5X2hkcihzdHJ1
-Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qgdm14bmV0M190eF9xdWV1ZSAqdHEsCiAJCXVuc2lnbmVk
-IGludCBwdWxsX3NpemU7CiAKIAkJaWYgKHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX1BBUlRJ
-QUwpIHsKLQkJCWN0eC0+ZXRoX2lwX2hkcl9zaXplID0gc2tiX3RyYW5zcG9ydF9vZmZzZXQoc2ti
-KTsKKwkJCWN0eC0+ZXRoX2lwX2hkcl9zaXplID0gc2tiX2NoZWNrc3VtX3N0YXJ0X29mZnNldChz
-a2IpOwogCiAJCQlpZiAoY3R4LT5pcHY0KSB7CiAJCQkJc3RydWN0IGlwaGRyICppcGggPSAoc3Ry
-dWN0IGlwaGRyICopCi0tIAoxLjcuMi4zCgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkxvdHVzcGhl
-cmUgMjAxMQpSZWdpc3RlciBub3cgZm9yIExvdHVzcGhlcmUgMjAxMSBhbmQgbGVhcm4gaG93CnRv
-IGNvbm5lY3QgdGhlIGRvdHMsIHRha2UgeW91ciBjb2xsYWJvcmF0aXZlIGVudmlyb25tZW50CnRv
-IHRoZSBuZXh0IGxldmVsLCBhbmQgZW50ZXIgdGhlIGVyYSBvZiBTb2NpYWwgQnVzaW5lc3MuCmh0
-dHA6Ly9wLnNmLm5ldC9zZnUvbG90dXNwaGVyZS1kMmQKX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRl
-dmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9s
-aXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7
-IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93
-aXJlZAo=
+Replace skb->csum_start - skb_headroom(skb) with skb_checksum_start_off=
+set().
+
+Note for usb/smsc95xx: skb->data - skb->head =3D=3D skb_headroom(skb).
+
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+
+---
+ drivers/net/atlx/atl1.c    |    2 +-
+ drivers/net/macvtap.c      |    3 +--
+ drivers/net/tun.c          |    2 +-
+ drivers/net/usb/smsc95xx.c |    7 +++----
+ drivers/net/virtio_net.c   |    2 +-
+ net/core/dev.c             |    6 +++---
+ net/core/skbuff.c          |    2 +-
+ net/ipv4/udp.c             |    2 +-
+ net/packet/af_packet.c     |    3 +--
+ 9 files changed, 13 insertions(+), 16 deletions(-)
+
+diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+index 5336310..def8df8 100644
+--- a/drivers/net/atlx/atl1.c
++++ b/drivers/net/atlx/atl1.c
+@@ -2174,7 +2174,7 @@ static int atl1_tx_csum(struct atl1_adapter *adap=
+ter, struct sk_buff *skb,
+ 	u8 css, cso;
+=20
+ 	if (likely(skb->ip_summed =3D=3D CHECKSUM_PARTIAL)) {
+-		css =3D (u8) (skb->csum_start - skb_headroom(skb));
++		css =3D skb_checksum_start_offset(skb);
+ 		cso =3D css + (u8) skb->csum_offset;
+ 		if (unlikely(css & 0x1)) {
+ 			/* L1 hardware requires an even number here */
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 4256727..21845af 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -504,8 +504,7 @@ static int macvtap_skb_to_vnet_hdr(const struct sk_=
+buff *skb,
+=20
+ 	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+ 		vnet_hdr->flags =3D VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		vnet_hdr->csum_start =3D skb->csum_start -
+-					skb_headroom(skb);
++		vnet_hdr->csum_start =3D skb_checksum_start_offset(skb);
+ 		vnet_hdr->csum_offset =3D skb->csum_offset;
+ 	} /* else everything is zero */
+=20
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 55f3a3e..7599c45 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -757,7 +757,7 @@ static __inline__ ssize_t tun_put_user(struct tun_s=
+truct *tun,
+=20
+ 		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+ 			gso.flags =3D VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			gso.csum_start =3D skb->csum_start - skb_headroom(skb);
++			gso.csum_start =3D skb_checksum_start_offset(skb);
+ 			gso.csum_offset =3D skb->csum_offset;
+ 		} /* else everything is zero */
+=20
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 65cb1ab..bc86f4b 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -1163,9 +1163,8 @@ static int smsc95xx_rx_fixup(struct usbnet *dev, =
+struct sk_buff *skb)
+=20
+ static u32 smsc95xx_calc_csum_preamble(struct sk_buff *skb)
+ {
+-	int len =3D skb->data - skb->head;
+-	u16 high_16 =3D (u16)(skb->csum_offset + skb->csum_start - len);
+-	u16 low_16 =3D (u16)(skb->csum_start - len);
++	u16 low_16 =3D (u16)skb_checksum_start_offset(skb);
++	u16 high_16 =3D low_16 + skb->csum_offset;
+ 	return (high_16 << 16) | low_16;
+ }
+=20
+@@ -1193,7 +1192,7 @@ static struct sk_buff *smsc95xx_tx_fixup(struct u=
+sbnet *dev,
+ 		if (skb->len <=3D 45) {
+ 			/* workaround - hardware tx checksum does not work
+ 			 * properly with extremely small packets */
+-			long csstart =3D skb->csum_start - skb_headroom(skb);
++			long csstart =3D skb_checksum_start_offset(skb);
+ 			__wsum calc =3D csum_partial(skb->data + csstart,
+ 				skb->len - csstart, 0);
+ 			*((__sum16 *)(skb->data + csstart
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index b6d4028..90a23e4 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -519,7 +519,7 @@ static int xmit_skb(struct virtnet_info *vi, struct=
+ sk_buff *skb)
+=20
+ 	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+ 		hdr->hdr.flags =3D VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		hdr->hdr.csum_start =3D skb->csum_start - skb_headroom(skb);
++		hdr->hdr.csum_start =3D skb_checksum_start_offset(skb);
+ 		hdr->hdr.csum_offset =3D skb->csum_offset;
+ 	} else {
+ 		hdr->hdr.flags =3D 0;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d28b3a0..f937726 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1761,7 +1761,7 @@ int skb_checksum_help(struct sk_buff *skb)
+ 		goto out_set_summed;
+ 	}
+=20
+-	offset =3D skb->csum_start - skb_headroom(skb);
++	offset =3D skb_checksum_start_offset(skb);
+ 	BUG_ON(offset >=3D skb_headlen(skb));
+ 	csum =3D skb_checksum(skb, offset, skb->len - offset, 0);
+=20
+@@ -2058,8 +2058,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, stru=
+ct net_device *dev,
+ 			 * checksumming here.
+ 			 */
+ 			if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+-				skb_set_transport_header(skb, skb->csum_start -
+-					      skb_headroom(skb));
++				skb_set_transport_header(skb,
++					skb_checksum_start_offset(skb));
+ 				if (!dev_can_checksum(dev, skb) &&
+ 				     skb_checksum_help(skb))
+ 					goto out_kfree_skb;
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8814a9a..19d6c21 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1824,7 +1824,7 @@ void skb_copy_and_csum_dev(const struct sk_buff *=
+skb, u8 *to)
+ 	long csstart;
+=20
+ 	if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL)
+-		csstart =3D skb->csum_start - skb_headroom(skb);
++		csstart =3D skb_checksum_start_offset(skb);
+ 	else
+ 		csstart =3D skb_headlen(skb);
+=20
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index b37181d..1198adf 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2226,7 +2226,7 @@ struct sk_buff *udp4_ufo_fragment(struct sk_buff =
+*skb, int features)
+ 	/* Do software UFO. Complete and fill in the UDP checksum as HW canno=
+t
+ 	 * do checksum of UDP packets sent as multiple IP fragments.
+ 	 */
+-	offset =3D skb->csum_start - skb_headroom(skb);
++	offset =3D skb_checksum_start_offset(skb);
+ 	csum =3D skb_checksum(skb, offset, skb->len - offset, 0);
+ 	offset +=3D skb->csum_offset;
+ 	*(__sum16 *)(skb->data + offset) =3D csum_fold(csum);
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index e79efaf..91cb1d7 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1650,8 +1650,7 @@ static int packet_recvmsg(struct kiocb *iocb, str=
+uct socket *sock,
+=20
+ 		if (skb->ip_summed =3D=3D CHECKSUM_PARTIAL) {
+ 			vnet_hdr.flags =3D VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-			vnet_hdr.csum_start =3D skb->csum_start -
+-							skb_headroom(skb);
++			vnet_hdr.csum_start =3D skb_checksum_start_offset(skb);
+ 			vnet_hdr.csum_offset =3D skb->csum_offset;
+ 		} /* else everything is zero */
+=20
+--=20
+1.7.2.3
+
