@@ -1,39 +1,47 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: [PATCH net-next-2.6] vxge: add missing flush of reset_task
-Date: Wed, 15 Dec 2010 15:03:29 +0100
-Message-ID: <4D08CAB1.6040402@kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: |PATCH net-next-2.6] ifb: use netif_receive_skb() instead of
+ netif_rx()
+Date: Wed, 15 Dec 2010 15:21:36 +0100
+Message-ID: <1292422896.3427.251.camel@edumazet-laptop>
+References: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
+	 <1292397202.2377.13.camel@edumazet-laptop>
+	 <AANLkTi=TuZNTXTBxmLqu0yyF=f0xM3CQyr_stRHerv6r@mail.gmail.com>
+	 <1292402398.3427.6.camel@edumazet-laptop>
+	 <1292417363.2067.17.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>, jon.mason@exar.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	netem@lists.linux-foundation.org
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:34268 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752650Ab0LOOVm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 09:21:42 -0500
+Received: by fxm18 with SMTP id 18so2083230fxm.2
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 06:21:41 -0800 (PST)
+In-Reply-To: <1292417363.2067.17.camel@mojatatu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 6e07ebd84 (drivers/net: remove unnecessary
-flush_scheduled_work() calls) incorrectly removed the flush call
-without replacing it with the appropriate work specific operation.
-Fix it by flushing vdev->reset_task explicitly.
+Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 07:49 -0500, jamal a =C3=A9cri=
+t :
+> On Wed, 2010-12-15 at 09:39 +0100, Eric Dumazet wrote:
+> > In ri_tasklet(), we run from softirq, so can directly handle packet
+> > through netif_receive_skb() instead of netif_rx().
+> > There is no risk of recursion.
+>=20
+> Eric, did you do at least a simple test on this one?=20
+> It used to be problematic (I cant remember why or
+> what use case was problematic).
 
-Pointed out by Jon Mason.
+Yes, I run SFQ / IFB right now on my dev machine, and found SFQ bugs by
+the way ;)
 
-Signed-off-by: Tejun Heo <tj@kernel.org>
-Cc: Jon Mason <jon.mason@exar.com>
----
- drivers/net/vxge/vxge-main.c |    2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-index 537ad87..1ac9b56 100644
---- a/drivers/net/vxge/vxge-main.c
-+++ b/drivers/net/vxge/vxge-main.c
-@@ -3439,6 +3439,8 @@ static void vxge_device_unregister(struct __vxge_hw_device *hldev)
 
- 	strncpy(buf, dev->name, IFNAMSIZ);
-
-+	flush_work_sync(&vdev->reset_task);
-+
- 	/* in 2.6 will call stop() if device is up */
- 	unregister_netdev(dev);
