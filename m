@@ -1,52 +1,140 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: [PATCH 5/5 v2] net: add old_queue_mapping into skb->cb
-Date: Wed, 15 Dec 2010 08:19:23 -0800
-Message-ID: <20101215081923.46fac651@nehalam>
-References: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net_sched: sch_sfq: fix allot handling
+Date: Wed, 15 Dec 2010 17:27:04 +0100
+Message-ID: <1292430424.3427.350.camel@edumazet-laptop>
+References: <1292421783.3427.232.camel@edumazet-laptop>
+	 <4D08E6C2.804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:38823 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751053Ab0LOQTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 11:19:46 -0500
-In-Reply-To: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:35094 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008Ab0LOQ1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 11:27:10 -0500
+Received: by wwi17 with SMTP id 17so5532189wwi.1
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 08:27:08 -0800 (PST)
+In-Reply-To: <4D08E6C2.804@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Dec 2010 13:23:56 +0800
-Changli Gao <xiaosuo@gmail.com> wrote:
+Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 17:03 +0100, Patrick McHardy a=
+ =C3=A9crit :
+> On 15.12.2010 15:03, Eric Dumazet wrote:
+> > When deploying SFQ/IFB here at work, I found the allot management w=
+as
+> > pretty wrong in sfq, even changing allot from short to int...
+> >=20
+> > We should init allot for each new flow turn, not using a previous v=
+alue,
+> > or else small packets can easily make allot overflow.
+> >=20
+> > Before patch, I saw burst of several packets per flow, apparently
+> > denying the "allot 1514" limit I had on my SFQ class.
+> >=20
+> > class sfq 11:1 parent 11:=20
+> >  (dropped 0, overlimits 0 requeues 0)=20
+> >  backlog 0b 7p requeues 0=20
+> >  allot 11546=20
+> >=20
+> > class sfq 11:46 parent 11:=20
+> >  (dropped 0, overlimits 0 requeues 0)=20
+> >  backlog 0b 1p requeues 0=20
+> >  allot -23873=20
+> >=20
+> > class sfq 11:78 parent 11:=20
+> >  (dropped 0, overlimits 0 requeues 0)=20
+> >  backlog 0b 5p requeues 0=20
+> >  allot 11393=20
+>=20
+> These values definitely look wrong.
+>=20
+> > diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> > index 3cf478d..8c8a190 100644
+> > --- a/net/sched/sch_sfq.c
+> > +++ b/net/sched/sch_sfq.c
+> > @@ -270,7 +270,7 @@ static unsigned int sfq_drop(struct Qdisc *sch)
+> >  		/* It is difficult to believe, but ALL THE SLOTS HAVE LENGTH 1. =
+*/
+> >  		d =3D q->next[q->tail];
+> >  		q->next[q->tail] =3D q->next[d];
+> > -		q->allot[q->next[d]] +=3D q->quantum;
+> > +		q->allot[q->next[d]] =3D q->quantum;
+> >  		skb =3D q->qs[d].prev;
+> >  		len =3D qdisc_pkt_len(skb);
+> >  		__skb_unlink(skb, &q->qs[d]);
+>=20
+> I'm not sure about this part, but lets ignore that for now since it
+> shouldn't affect your testcase unless you're using CBQ.
+>=20
 
-> For the skbs returned from ifb, we should use the queue_mapping
-> saved before ifb.
-> 
-> We save old queue_mapping in old_queue_mapping just before calling 
-> dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
-> just before reinjecting the skb.
-> 
-> dev_pick_tx() use the current queue_mapping for the skbs reinjected
-> by ifb.
-> 
-> A new struct dev_skb_cb is added, and valid in qdisc and gso layer.
-> The original qdisc_skb_cb and DEV_GSO_CB are placed after dev_skb_cb.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-What about a more general mechanism that lets a layer push
-some amount of data onto the skb and then pop it off.
-Kind of link notes to self, maybe even encode them as netlink
-(except netlink messages have excess padding).
 
-This would allow nesting, and avoid cb[] clobbering.
-The existing usage of cb[] is only because there wasn't a better
-solution.
 
--- 
+> > @@ -321,14 +321,13 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc=
+ *sch)
+> >  	sfq_inc(q, x);
+> >  	if (q->qs[x].qlen =3D=3D 1) {		/* The flow is new */
+> >  		if (q->tail =3D=3D SFQ_DEPTH) {	/* It is the first flow */
+> > -			q->tail =3D x;
+> >  			q->next[x] =3D x;
+> > -			q->allot[x] =3D q->quantum;
+> >  		} else {
+> >  			q->next[x] =3D q->next[q->tail];
+> >  			q->next[q->tail] =3D x;
+> > -			q->tail =3D x;
+> >  		}
+> > +		q->tail =3D x;
+> > +		q->allot[x] =3D q->quantum;
+> >  	}
+>=20
+> This looks correct, for new flows allot should be initialized from
+> scratch.
+>=20
+> >  	if (++sch->q.qlen <=3D q->limit) {
+> >  		sch->bstats.bytes +=3D qdisc_pkt_len(skb);
+> > @@ -382,11 +381,11 @@ sfq_dequeue(struct Qdisc *sch)
+> >  			return skb;
+> >  		}
+> >  		q->next[q->tail] =3D a;
+> > -		q->allot[a] +=3D q->quantum;
+> > +		q->allot[a] =3D q->quantum;
+>=20
+> The allot initialization doesn't seem necessary anymore at all
+> now that you're reinitalizing allot for flows that became active
+> unconditionally in sfq_enqueue().
+>=20
+
+
+
+> >  	} else if ((q->allot[a] -=3D qdisc_pkt_len(skb)) <=3D 0) {
+> >  		q->tail =3D a;
+> >  		a =3D q->next[a];
+> > -		q->allot[a] +=3D q->quantum;
+> > +		q->allot[a] =3D q->quantum;
+>=20
+> This seems to break long-term fairness for active flows by not
+> accounting for overshooting the allotment in the next round
+> anymore.
+>=20
+> I think either the change in sfq_enqueue() or the first change
+> in sfq_dequeue() should be enough to fix the problem you're seeing.
+> Basically what needs to be done is initialize allot once from
+> scratch when the flow becomes active, then add one quantum per
+> round while it stays active.
+
+Hmm, you may be right, thanks a lot for reviewing !
+
+I noticed that with normal quantum (1514), my SFQ setup was sending two
+full frames per flow after my patch, so was about to prepare a new
+version ;)
+
+I'll post a v2 shortly.
+
+Thanks
+
+
