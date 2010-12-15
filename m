@@ -1,187 +1,122 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 5/5 v2] net: add old_queue_mapping into skb->cb
-Date: Wed, 15 Dec 2010 13:23:56 +0800
-Message-ID: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org, Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCHv3] fragment locally-generated IPsec6 packets that need it
+Date: Tue, 14 Dec 2010 22:18:49 -0800
+Message-ID: <1292393929.5112.2.camel@IBM-1B506CFC885>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="cp1252"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gx0-f180.google.com ([209.85.161.180]:50092 "EHLO
-	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab0LOFYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 00:24:49 -0500
-Received: by gxk19 with SMTP id 19so1018342gxk.11
-        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 21:24:48 -0800 (PST)
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:55964 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751037Ab0LOGS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Dec 2010 01:18:59 -0500
+Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
+	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBF63wZe030371
+	for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 01:03:58 -0500
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 90F484DE8040
+	for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 01:16:51 -0500 (EST)
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBF6Iv9J172250
+	for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 01:18:57 -0500
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBF6Iu8p002568
+	for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 23:18:56 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the skbs returned from ifb, we should use the queue_mapping
-saved before ifb.
+This patch modifies IPsec6 to fragment IPv6 packets that are
+locally generated as needed.
 
-We save old queue_mapping in old_queue_mapping just before calling 
-dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
-just before reinjecting the skb.
+Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-dev_pick_tx() use the current queue_mapping for the skbs reinjected
-by ifb.
-
-A new struct dev_skb_cb is added, and valid in qdisc and gso layer.
-The original qdisc_skb_cb and DEV_GSO_CB are placed after dev_skb_cb.
-
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
-v2: save old_queue_mapping in skb->cb
- drivers/net/ifb.c         |    1 +
- include/linux/netdevice.h |   11 +++++++++++
- include/net/sch_generic.h |    6 ++++--
- net/core/dev.c            |   18 ++++++++++++++----
- net/sched/act_mirred.c    |    1 +
- net/sched/sch_netem.c     |    5 +++--
- 6 files changed, 34 insertions(+), 8 deletions(-)
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 918a38e..ff01795 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -92,6 +92,7 @@ static void ri_tasklet(unsigned long arg)
- 		u64_stats_update_end(&qp->syncp);
- 		skb->skb_iif = dev->ifindex;
+diff -ruNp linux-2.6.36-rc8/include/net/ip6_route.h linux-2.6.36-rc8DLS/include/net/ip6_route.h
+--- linux-2.6.36-rc8/include/net/ip6_route.h	2010-10-14 16:26:43.000000000 -0700
++++ linux-2.6.36-rc8DLS/include/net/ip6_route.h	2010-12-12 09:22:48.582141401 -0800
+@@ -164,5 +164,15 @@ static inline int ipv6_unicast_destinati
+ 	return rt->rt6i_flags & RTF_LOCAL;
+ }
  
-+		skb->queue_mapping = dev_skb_cb(skb)->old_queue_mapping;
- 		if (from & AT_EGRESS) {
- 			dev_queue_xmit(skb);
- 		} else if (from & AT_INGRESS) {
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d31bc3c..9820a48 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1295,6 +1295,17 @@ struct napi_gro_cb {
- 
- #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
- 
-+struct dev_skb_cb {
-+	u16		old_queue_mapping;
-+	unsigned long	data[];
-+};
++int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
 +
-+static inline struct dev_skb_cb *dev_skb_cb(struct sk_buff *skb)
++static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
 +{
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct dev_skb_cb));
-+	return (struct dev_skb_cb *)skb->cb;
++	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
++
++	return (np && np->pmtudisc == IPV6_PMTUDISC_PROBE) ?
++	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
 +}
 +
- struct packet_type {
- 	__be16			type;	/* This is really htons(ether_type). */
- 	struct net_device	*dev;	/* NULL is wildcarded here	     */
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index ea1f8a8..1089938 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -199,7 +199,7 @@ struct tcf_proto {
+ #endif
+ #endif
+diff -ruNp linux-2.6.36-rc8/net/ipv6/ip6_output.c linux-2.6.36-rc8DLS/net/ipv6/ip6_output.c
+--- linux-2.6.36-rc8/net/ipv6/ip6_output.c	2010-10-14 16:26:43.000000000 -0700
++++ linux-2.6.36-rc8DLS/net/ipv6/ip6_output.c	2010-12-14 09:51:45.260779308 -0800
+@@ -56,7 +56,7 @@
+ #include <net/checksum.h>
+ #include <linux/mroute6.h>
  
- struct qdisc_skb_cb {
- 	unsigned int		pkt_len;
--	char			data[];
-+	unsigned long		data[];
- };
+-static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
++int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *));
  
- static inline int qdisc_qlen(struct Qdisc *q)
-@@ -209,7 +209,9 @@ static inline int qdisc_qlen(struct Qdisc *q)
- 
- static inline struct qdisc_skb_cb *qdisc_skb_cb(struct sk_buff *skb)
+ int __ip6_local_out(struct sk_buff *skb)
  {
--	return (struct qdisc_skb_cb *)skb->cb;
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct dev_skb_cb) +
-+				       sizeof(struct qdisc_skb_cb));
-+	return (struct qdisc_skb_cb *)dev_skb_cb(skb)->data;
+@@ -145,14 +145,6 @@ static int ip6_finish_output2(struct sk_
+ 	return -EINVAL;
  }
  
- static inline spinlock_t *qdisc_lock(struct Qdisc *qdisc)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..11a5a13 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1904,7 +1904,12 @@ struct dev_gso_cb {
- 	void (*destructor)(struct sk_buff *skb);
- };
+-static inline int ip6_skb_dst_mtu(struct sk_buff *skb)
+-{
+-	struct ipv6_pinfo *np = skb->sk ? inet6_sk(skb->sk) : NULL;
+-
+-	return (np && np->pmtudisc == IPV6_PMTUDISC_PROBE) ?
+-	       skb_dst(skb)->dev->mtu : dst_mtu(skb_dst(skb));
+-}
+-
+ static int ip6_finish_output(struct sk_buff *skb)
+ {
+ 	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
+@@ -601,7 +593,7 @@ int ip6_find_1stfragopt(struct sk_buff *
+ 	return offset;
+ }
  
--#define DEV_GSO_CB(skb) ((struct dev_gso_cb *)(skb)->cb)
-+static inline struct dev_gso_cb *dev_gso_cb(struct sk_buff *skb)
+-static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
++int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ {
+ 	struct sk_buff *frag;
+ 	struct rt6_info *rt = (struct rt6_info*)skb_dst(skb);
+diff -ruNp linux-2.6.36-rc8/net/ipv6/xfrm6_output.c linux-2.6.36-rc8DLS/net/ipv6/xfrm6_output.c
+--- linux-2.6.36-rc8/net/ipv6/xfrm6_output.c	2010-10-14 16:26:43.000000000 -0700
++++ linux-2.6.36-rc8DLS/net/ipv6/xfrm6_output.c	2010-12-14 18:26:37.466079877 -0800
+@@ -17,6 +17,7 @@
+ #include <linux/netfilter_ipv6.h>
+ #include <net/dst.h>
+ #include <net/ipv6.h>
++#include <net/ip6_route.h>
+ #include <net/xfrm.h>
+ 
+ int xfrm6_find_1stfragopt(struct xfrm_state *x, struct sk_buff *skb,
+@@ -88,8 +89,17 @@ static int xfrm6_output_finish(struct sk
+ 	return xfrm_output(skb);
+ }
+ 
++static int __xfrm6_output(struct sk_buff *skb)
 +{
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct dev_skb_cb) +
-+				       sizeof(struct dev_gso_cb));
-+	return (struct dev_gso_cb *)dev_skb_cb(skb)->data;
++	if ((skb->len > ip6_skb_dst_mtu(skb) && !skb_is_gso(skb)) ||
++		dst_allfrag(skb_dst(skb))) {
++			return ip6_fragment(skb, xfrm6_output_finish);
++	}
++	return xfrm6_output_finish(skb);
 +}
- 
- static void dev_gso_skb_destructor(struct sk_buff *skb)
++
+ int xfrm6_output(struct sk_buff *skb)
  {
-@@ -1918,7 +1923,7 @@ static void dev_gso_skb_destructor(struct sk_buff *skb)
- 		kfree_skb(nskb);
- 	} while (skb->next);
- 
--	cb = DEV_GSO_CB(skb);
-+	cb = dev_gso_cb(skb);
- 	if (cb->destructor)
- 		cb->destructor(skb);
+ 	return NF_HOOK(NFPROTO_IPV6, NF_INET_POST_ROUTING, skb, NULL,
+-		       skb_dst(skb)->dev, xfrm6_output_finish);
++		       skb_dst(skb)->dev, __xfrm6_output);
  }
-@@ -1947,7 +1952,7 @@ static int dev_gso_segment(struct sk_buff *skb)
- 		return PTR_ERR(segs);
- 
- 	skb->next = segs;
--	DEV_GSO_CB(skb)->destructor = skb->destructor;
-+	dev_gso_cb(skb)->destructor = skb->destructor;
- 	skb->destructor = dev_gso_skb_destructor;
- 
- 	return 0;
-@@ -2103,7 +2108,7 @@ gso:
- 
- out_kfree_gso_skb:
- 	if (likely(skb->next == NULL))
--		skb->destructor = DEV_GSO_CB(skb)->destructor;
-+		skb->destructor = dev_gso_cb(skb)->destructor;
- out_kfree_skb:
- 	kfree_skb(skb);
- out:
-@@ -2190,6 +2195,11 @@ static struct netdev_queue *dev_pick_tx(struct net_device *dev,
- 	int queue_index;
- 	const struct net_device_ops *ops = dev->netdev_ops;
- 
-+#ifdef CONFIG_NET_CLS_ACT
-+	if (skb->tc_verd & TC_NCLS)
-+		queue_index = skb_get_queue_mapping(skb);
-+	else
-+#endif
- 	if (dev->real_num_tx_queues == 1)
- 		queue_index = 0;
- 	else if (ops->ndo_select_queue) {
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 0c311be..419e82f 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -197,6 +197,7 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 
- 	skb2->skb_iif = skb->dev->ifindex;
- 	skb2->dev = dev;
-+	dev_skb_cb(skb2)->old_queue_mapping = skb->queue_mapping;
- 	dev_queue_xmit(skb2);
- 	err = 0;
- 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index e5593c0..df4ff89 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -82,8 +82,9 @@ struct netem_skb_cb {
- 
- static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
- {
--	BUILD_BUG_ON(sizeof(skb->cb) <
--		sizeof(struct qdisc_skb_cb) + sizeof(struct netem_skb_cb));
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct dev_skb_cb) +
-+				       sizeof(struct qdisc_skb_cb) +
-+				       sizeof(struct netem_skb_cb));
- 	return (struct netem_skb_cb *)qdisc_skb_cb(skb)->data;
- }
- 
+
+
+
