@@ -1,63 +1,50 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH 3/3] drivers/net/ixgbe/ixgbe_main.c: get tx queue mapping
- specified in socket
-Date: Wed, 15 Dec 2010 12:54:17 -0800
-Message-ID: <4D092AF9.9050802@intel.com>
-References: <cover.1292405004.git.fenghua.yu@intel.com> <e37daf1b95d0e61008c69298db5520d6b97acdba.1292405004.git.fenghua.yu@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] Kernel interfaces for multiqueue aware socket
+Date: Wed, 15 Dec 2010 21:56:07 +0100
+Message-ID: <1292446567.2603.15.camel@edumazet-laptop>
+References: <cover.1292405004.git.fenghua.yu@intel.com>
+	 <46a08278c2ba21737528eb4b77391a7e8bc88000.1292405004.git.fenghua.yu@intel.com>
+	 <1292446118.2603.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Tang, Xinan" <xinan.tang@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Xinan Tang <xinan.tang@intel.com>,
 	Junchang Wang <junchangwang@gmail.com>,
 	netdev <netdev@vger.kernel.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>
-To: "Yu, Fenghua" <fenghua.yu@intel.com>
+To: Fenghua Yu <fenghua.yu@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <e37daf1b95d0e61008c69298db5520d6b97acdba.1292405004.git.fenghua.yu@intel.com>
+In-Reply-To: <1292446118.2603.11.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/15/2010 12:02 PM, Yu, Fenghua wrote:
-> From: Fenghua Yu <fenghua.yu@intel.com>
-> 
-> Instead of using calculated tx queue mapping, this patch selects tx queue mapping
-> which is specified in socket.
-> 
-> By doing this, tx queue mapping can be bigger than the number of cores and
-> stressfully use multiqueue TSS. Or application can specify some of cores/queues
-> to send packets and implement flexible load balance policies.
-> 
-> Signed-off-by: Fenghua Yu <fenghua.yu@intel.com>
-> Signed-off-by: Junchang Wang <junchangwang@gmail.com>
-> Signed-off-by: Xinan Tang <xinan.tang@intel.com>
-> ---
->  drivers/net/ixgbe/ixgbe_main.c |    9 ++++++++-
->  1 files changed, 8 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-> index eee0b29..4d98928 100644
-> --- a/drivers/net/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ixgbe/ixgbe_main.c
-> @@ -6255,7 +6255,14 @@ static int ixgbe_maybe_stop_tx(struct net_device *netdev,
->  static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
->  {
->  	struct ixgbe_adapter *adapter = netdev_priv(dev);
-> -	int txq = smp_processor_id();
-> +	int txq;
-> +
-> +	txq = sk_tx_queue_get(skb->sk);
-> +
-> +	if (txq >= 0 && txq < dev->real_num_tx_queues)
-> +		return txq;
-> +
-> +	txq = smp_processor_id();
->  #ifdef IXGBE_FCOE
->  	__be16 protocol;
->  
+Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 21:48 +0100, Eric Dumazet a =C3=
+=A9crit :
+> Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 12:02 -0800, Fenghua Yu a =C3=
+=A9crit :
+> > From: Fenghua Yu <fenghua.yu@intel.com>
+> >=20
+> > Multiqueue and multicore provide packet parallel processing methodo=
+logy.
+> > Current kernel and network drivers place one queue on one core. But=
+ the higher
+> > level socket doesn't know multiqueue. Current socket only can recei=
+ve or send
+> > packets through one network interfaces. In some cases e.g. multi bp=
+f filter
+> > tcpdump and snort, a lot of contentions come from socket operations=
+ like ring
+> > buffer. Even if the application itself has been fully parallelized =
+and run on
+> > multi-core systems and NIC handlex tx/rx in multiqueue in parallel,=
+ network layer
+> > and NIC device driver assemble packets to a single, serialized queu=
+e. Thus the
+> > application cannot actually run in parallel in high speed.
 
-We are trying to remove stuff from select_queue not add it. I believe however you solve this problem should be generic and not specific to ixgbe.
+I forgot to say that your patches are not against net-next-2.6, and not
+apply anyway.
 
-Thanks,
-John.
+Always use David trees for networking patches...
