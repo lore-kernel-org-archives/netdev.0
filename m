@@ -1,64 +1,49 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH 3/3] wireless:mac80211: kill unuse macro MESH_CFG_CMP_LEN
- in mesh.h
-Date: Wed, 15 Dec 2010 14:27:28 +0800
-Message-ID: <4D085FD0.4020804@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 4/5 v2] ifb: add multiqueue support
+Date: Wed, 15 Dec 2010 07:37:44 +0100
+Message-ID: <1292395064.2377.1.camel@edumazet-laptop>
+References: <1292340098-25537-1-git-send-email-xiaosuo@gmail.com>
+	 <1292342358.5934.10.camel@edumazet-laptop>
+	 <AANLkTikucnTO_+g2Fa=ZoMFQYbeiQSvqkJURF254So6d@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	Network-Maillist <netdev@vger.kernel.org>
-To: johannes@sipsolutions.net, linville@tuxdriver.com,
-	David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:60155 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752886Ab0LOG3S (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Dec 2010 01:29:18 -0500
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46568 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751234Ab0LOGhz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 01:37:55 -0500
+Received: by wyb28 with SMTP id 28so1171039wyb.19
+        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 22:37:54 -0800 (PST)
+In-Reply-To: <AANLkTikucnTO_+g2Fa=ZoMFQYbeiQSvqkJURF254So6d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 00d3f14c has removed the references of this macro,
-but left it only. So remove this definition.
+Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 08:20 +0800, Changli Gao a =C3=
+=A9crit :
+> On Tue, Dec 14, 2010 at 11:59 PM, Eric Dumazet <eric.dumazet@gmail.co=
+m> wrote:
+> >
+> >
+> > There is a problem here.
+> >
+> > You should sum in the loop rx_counters only, (the counters syncp
+> > protected), and use dev_txq_stats_fold() to get the tx_counters fro=
+m
+> > core network.
+>=20
+> Hmm, in ifb, txq->tx_counters aren't used in ifb_xmit() but
+> ri_tasklet(). IOW, rx and tx are reversed. Here I use txq->tx_counter=
+s
+> to reduce duplicate counters in ifb_q_private. Unless these variables
+> might be accessed outside of ifb, I can use them freely? Thanks.
+>=20
+
+Yes, you are right, and the txq lock is not necessary to read their
+values as well (I thought it was hold at write time)
 
 
-commit 00d3f14cf9f12c21428121026a5e1d5f65926447
-Author: Johannes Berg <johannes@sipsolutions.net>
-Date:   Tue Feb 10 21:26:00 2009 +0100
 
-    mac80211: use cfg80211s BSS infrastructure
-    
-    Remove all the code from mac80211 to keep track of BSSes
-    and use the cfg80211-provided code completely.
-
-
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- net/mac80211/mesh.h |   12 ------------
- 1 files changed, 0 insertions(+), 12 deletions(-)
-
-diff --git a/net/mac80211/mesh.h b/net/mac80211/mesh.h
-index 58e7411..8111c64 100644
---- a/net/mac80211/mesh.h
-+++ b/net/mac80211/mesh.h
-@@ -163,18 +163,6 @@ struct mesh_rmc {
- 	u32 idx_mask;
- };
- 
--
--/*
-- * MESH_CFG_COMP_LEN Includes:
-- * 	- Active path selection protocol ID.
-- * 	- Active path selection metric ID.
-- * 	- Congestion control mode identifier.
-- * 	- Channel precedence.
-- * Does not include mesh capabilities, which may vary across nodes in the same
-- * mesh
-- */
--#define MESH_CFG_CMP_LEN 	(IEEE80211_MESH_CONFIG_LEN - 2)
--
- /* Default values, timeouts in ms */
- #define MESH_TTL 		31
- #define MESH_MAX_RETR	 	3
--- 
-1.6.3.3
