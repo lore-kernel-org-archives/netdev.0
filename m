@@ -1,83 +1,65 @@
-From: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH 2/3] net: sunrpc: kill unused macros
-Date: Wed, 15 Dec 2010 14:47:20 +0800
-Message-ID: <4D086478.7090106@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 5/5 v2] net: add old_queue_mapping into skb->cb
+Date: Wed, 15 Dec 2010 08:13:22 +0100
+Message-ID: <1292397202.2377.13.camel@edumazet-laptop>
+References: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Network-Maillist <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org, neilb-l3A5Bk7waGM@public.gmane.org, Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org,
-	steved-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	netem@lists.linux-foundation.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41484 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752057Ab0LOHN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 02:13:26 -0500
+Received: by wyb28 with SMTP id 28so1187385wyb.19
+        for <netdev@vger.kernel.org>; Tue, 14 Dec 2010 23:13:25 -0800 (PST)
+In-Reply-To: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-These macros never be used for several years.
+Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 13:23 +0800, Changli Gao a =C3=
+=A9crit :
+> For the skbs returned from ifb, we should use the queue_mapping
+> saved before ifb.
+>=20
+> We save old queue_mapping in old_queue_mapping just before calling=20
+> dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
+> just before reinjecting the skb.
+>=20
+> dev_pick_tx() use the current queue_mapping for the skbs reinjected
+> by ifb.
+>=20
+> A new struct dev_skb_cb is added, and valid in qdisc and gso layer.
+> The original qdisc_skb_cb and DEV_GSO_CB are placed after dev_skb_cb.
+>=20
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+
+This is really ugly and error prone.
+
+Could you just use a more normal way to express this ?
 
 
-Signed-off-by: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
----
- net/sunrpc/auth_gss/svcauth_gss.c |    2 --
- net/sunrpc/svcauth.c              |    1 -
- net/sunrpc/svcauth_unix.c         |    2 --
- 3 files changed, 0 insertions(+), 5 deletions(-)
+struct ifb_save_fields_cb {
+	u16 queue_mapping;
+};
 
-diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-index dec2a6f..bcdae78 100644
---- a/net/sunrpc/auth_gss/svcauth_gss.c
-+++ b/net/sunrpc/auth_gss/svcauth_gss.c
-@@ -67,7 +67,6 @@ static int netobj_equal(struct xdr_netobj *a, struct xdr_netobj *b)
- 
- #define	RSI_HASHBITS	6
- #define	RSI_HASHMAX	(1<<RSI_HASHBITS)
--#define	RSI_HASHMASK	(RSI_HASHMAX-1)
- 
- struct rsi {
- 	struct cache_head	h;
-@@ -319,7 +318,6 @@ static struct rsi *rsi_update(struct rsi *new, struct rsi *old)
- 
- #define	RSC_HASHBITS	10
- #define	RSC_HASHMAX	(1<<RSC_HASHBITS)
--#define	RSC_HASHMASK	(RSC_HASHMAX-1)
- 
- #define GSS_SEQ_WIN	128
- 
-diff --git a/net/sunrpc/svcauth.c b/net/sunrpc/svcauth.c
-index 4e9393c..7963569 100644
---- a/net/sunrpc/svcauth.c
-+++ b/net/sunrpc/svcauth.c
-@@ -118,7 +118,6 @@ EXPORT_SYMBOL_GPL(svc_auth_unregister);
- 
- #define	DN_HASHBITS	6
- #define	DN_HASHMAX	(1<<DN_HASHBITS)
--#define	DN_HASHMASK	(DN_HASHMAX-1)
- 
- static struct hlist_head	auth_domain_table[DN_HASHMAX];
- static spinlock_t	auth_domain_lock =
-diff --git a/net/sunrpc/svcauth_unix.c b/net/sunrpc/svcauth_unix.c
-index 560677d..a04ac91 100644
---- a/net/sunrpc/svcauth_unix.c
-+++ b/net/sunrpc/svcauth_unix.c
-@@ -85,7 +85,6 @@ static void svcauth_unix_domain_release(struct auth_domain *dom)
-  */
- #define	IP_HASHBITS	8
- #define	IP_HASHMAX	(1<<IP_HASHBITS)
--#define	IP_HASHMASK	(IP_HASHMAX-1)
- 
- struct ip_map {
- 	struct cache_head	h;
-@@ -497,7 +496,6 @@ svcauth_unix_info_release(struct svc_xprt *xpt)
-  */
- #define	GID_HASHBITS	8
- #define	GID_HASHMAX	(1<<GID_HASHBITS)
--#define	GID_HASHMASK	(GID_HASHMAX - 1)
- 
- struct unix_gid {
- 	struct cache_head	h;
--- 
-1.6.3.3
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+struct napi_gro_cb {
+	struct ifb_save_fields_cb ifb_cb; /* needed by ifb, must be first */
+	...
+}
+
+
+struct qdisc_skb_cb {
+	struct ifb_save_fields_cb ifb_cb; /* needed by ifb, must be first */
+	unsigned int	pkt_len;
+};
+
+
+
