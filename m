@@ -1,187 +1,112 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [RFC PATCH 08/12] jme: convert offload constraints to ndo_fix_features
+Subject: [RFC PATCH 11/12] veth: convert to hw_features
 Date: Wed, 15 Dec 2010 23:24:30 +0100 (CET)
-Message-ID: <9e24e2d831c9aba26a8d6b826d9a28e72f7e255f.1292451560.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <804076774f3e4ec1d57b63e2703fa4584a840f1c.1292451560.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:53555 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:53558 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752261Ab0LOWYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752434Ab0LOWYc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 15 Dec 2010 17:24:32 -0500
 In-Reply-To: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This depends on 'net/veth: Fix packet checksumming' patch.
+
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/jme.c |   79 +++++++++++++--------------------------------=
--------
- drivers/net/jme.h |    2 -
- 2 files changed, 20 insertions(+), 61 deletions(-)
+ drivers/net/veth.c |   45 +++++---------------------------------------=
+-
+ 1 files changed, 5 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-index 2411e72..1271109 100644
---- a/drivers/net/jme.c
-+++ b/drivers/net/jme.c
-@@ -2075,17 +2075,9 @@ jme_change_mtu(struct net_device *netdev, int ne=
-w_mtu)
- 		jme_restart_rx_engine(jme);
- 	}
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index cca6a71..6e9f23c 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -36,7 +36,6 @@ struct veth_net_stats {
+ struct veth_priv {
+ 	struct net_device *peer;
+ 	struct veth_net_stats __percpu *stats;
+-	unsigned ip_summed;
+ };
 =20
--	if (new_mtu > 1900) {
--		netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
--				NETIF_F_TSO | NETIF_F_TSO6);
--	} else {
--		if (test_bit(JME_FLAG_TXCSUM, &jme->flags))
--			netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
--		if (test_bit(JME_FLAG_TSO, &jme->flags))
--			netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO6;
--	}
--
- 	netdev->mtu =3D new_mtu;
-+	netdev_update_features(netdev);
-+
- 	jme_reset_link(jme);
-=20
- 	return 0;
-@@ -2482,20 +2474,21 @@ jme_set_msglevel(struct net_device *netdev, u32=
- value)
- 	jme->msg_enable =3D value;
+ /*
+@@ -99,47 +98,10 @@ static void veth_get_ethtool_stats(struct net_devic=
+e *dev,
+ 	data[0] =3D priv->peer->ifindex;
  }
 =20
--static u32
--jme_get_rx_csum(struct net_device *netdev)
-+static unsigned long
-+jme_fix_features(struct net_device *netdev, unsigned long features)
- {
--	struct jme_adapter *jme =3D netdev_priv(netdev);
--	return jme->reg_rxmcs & RXMCS_CHECKSUM;
-+	if (netdev->mtu > 1900)
-+		features &=3D ~(NETIF_F_ALL_TSO | NETIF_F_ALL_CSUM);
-+	return features;
- }
-=20
- static int
--jme_set_rx_csum(struct net_device *netdev, u32 on)
-+jme_set_features(struct net_device *netdev, unsigned long features)
- {
- 	struct jme_adapter *jme =3D netdev_priv(netdev);
-=20
- 	spin_lock_bh(&jme->rxmcs_lock);
--	if (on)
-+	if (features & NETIF_F_RXCSUM)
- 		jme->reg_rxmcs |=3D RXMCS_CHECKSUM;
- 	else
- 		jme->reg_rxmcs &=3D ~RXMCS_CHECKSUM;
-@@ -2506,42 +2499,6 @@ jme_set_rx_csum(struct net_device *netdev, u32 o=
-n)
- }
-=20
- static int
--jme_set_tx_csum(struct net_device *netdev, u32 on)
+-static u32 veth_get_rx_csum(struct net_device *dev)
 -{
--	struct jme_adapter *jme =3D netdev_priv(netdev);
+-	struct veth_priv *priv;
 -
--	if (on) {
--		set_bit(JME_FLAG_TXCSUM, &jme->flags);
--		if (netdev->mtu <=3D 1900)
--			netdev->features |=3D
--				NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
--	} else {
--		clear_bit(JME_FLAG_TXCSUM, &jme->flags);
--		netdev->features &=3D
--				~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
--	}
+-	priv =3D netdev_priv(dev);
+-	return priv->ip_summed =3D=3D CHECKSUM_UNNECESSARY;
+-}
 -
+-static int veth_set_rx_csum(struct net_device *dev, u32 data)
+-{
+-	struct veth_priv *priv;
+-
+-	priv =3D netdev_priv(dev);
+-	priv->ip_summed =3D data ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
 -	return 0;
 -}
 -
--static int
--jme_set_tso(struct net_device *netdev, u32 on)
+-static u32 veth_get_tx_csum(struct net_device *dev)
 -{
--	struct jme_adapter *jme =3D netdev_priv(netdev);
+-	return (dev->features & NETIF_F_NO_CSUM) !=3D 0;
+-}
 -
--	if (on) {
--		set_bit(JME_FLAG_TSO, &jme->flags);
--		if (netdev->mtu <=3D 1900)
--			netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO6;
--	} else {
--		clear_bit(JME_FLAG_TSO, &jme->flags);
--		netdev->features &=3D ~(NETIF_F_TSO | NETIF_F_TSO6);
--	}
--
+-static int veth_set_tx_csum(struct net_device *dev, u32 data)
+-{
+-	if (data)
+-		dev->features |=3D NETIF_F_NO_CSUM;
+-	else
+-		dev->features &=3D ~NETIF_F_NO_CSUM;
 -	return 0;
 -}
 -
--static int
- jme_nway_reset(struct net_device *netdev)
- {
- 	struct jme_adapter *jme =3D netdev_priv(netdev);
-@@ -2682,11 +2639,6 @@ static const struct ethtool_ops jme_ethtool_ops =
-=3D {
- 	.get_link		=3D jme_get_link,
- 	.get_msglevel           =3D jme_get_msglevel,
- 	.set_msglevel           =3D jme_set_msglevel,
--	.get_rx_csum		=3D jme_get_rx_csum,
--	.set_rx_csum		=3D jme_set_rx_csum,
--	.set_tx_csum		=3D jme_set_tx_csum,
--	.set_tso		=3D jme_set_tso,
+ static const struct ethtool_ops veth_ethtool_ops =3D {
+ 	.get_settings		=3D veth_get_settings,
+ 	.get_drvinfo		=3D veth_get_drvinfo,
+ 	.get_link		=3D ethtool_op_get_link,
+-	.get_rx_csum		=3D veth_get_rx_csum,
+-	.set_rx_csum		=3D veth_set_rx_csum,
+-	.get_tx_csum		=3D veth_get_tx_csum,
+-	.set_tx_csum		=3D veth_set_tx_csum,
+-	.get_sg			=3D ethtool_op_get_sg,
 -	.set_sg			=3D ethtool_op_set_sg,
- 	.nway_reset             =3D jme_nway_reset,
- 	.get_eeprom_len		=3D jme_get_eeprom_len,
- 	.get_eeprom		=3D jme_get_eeprom,
-@@ -2744,6 +2696,8 @@ static const struct net_device_ops jme_netdev_ops=
- =3D {
- 	.ndo_change_mtu		=3D jme_change_mtu,
- 	.ndo_tx_timeout		=3D jme_tx_timeout,
- 	.ndo_vlan_rx_register	=3D jme_vlan_rx_register,
-+	.ndo_fix_features       =3D jme_fix_features,
-+	.ndo_set_features       =3D jme_set_features,
- };
+ 	.get_strings		=3D veth_get_strings,
+ 	.get_sset_count		=3D veth_get_sset_count,
+ 	.get_ethtool_stats	=3D veth_get_ethtool_stats,
+@@ -168,8 +130,9 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, s=
+truct net_device *dev)
 =20
- static int __devinit
-@@ -2798,6 +2752,12 @@ jme_init_one(struct pci_dev *pdev,
- 	netdev->netdev_ops =3D &jme_netdev_ops;
- 	netdev->ethtool_ops		=3D &jme_ethtool_ops;
- 	netdev->watchdog_timeo		=3D TX_TIMEOUT;
-+	netdev->hw_features		=3D	NETIF_F_IP_CSUM |
-+						NETIF_F_IPV6_CSUM |
-+						NETIF_F_SG |
-+						NETIF_F_TSO |
-+						NETIF_F_TSO6 |
-+						NETIF_F_RXCSUM;
- 	netdev->features		=3D	NETIF_F_IP_CSUM |
- 						NETIF_F_IPV6_CSUM |
- 						NETIF_F_SG |
-@@ -2880,8 +2840,9 @@ jme_init_one(struct pci_dev *pdev,
- 	jme->reg_rxmcs =3D RXMCS_DEFAULT;
- 	jme->reg_txpfc =3D 0;
- 	jme->reg_pmcs =3D PMCS_MFEN;
--	set_bit(JME_FLAG_TXCSUM, &jme->flags);
--	set_bit(JME_FLAG_TSO, &jme->flags);
+ 	/* we can't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
+ 	   will cause bad checksum on forwarded packets */
+-	if (skb->ip_summed =3D=3D CHECKSUM_NONE)
+-		skb->ip_summed =3D rcv_priv->ip_summed;
++	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
++	    rcv->features & NETIF_F_RXCSUM)
++		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+=20
+ 	length =3D skb->len + ETH_HLEN;
+ 	if (dev_forward_skb(rcv, skb) !=3D NET_RX_SUCCESS)
+@@ -304,6 +267,8 @@ static void veth_setup(struct net_device *dev)
+ 	dev->ethtool_ops =3D &veth_ethtool_ops;
+ 	dev->features |=3D NETIF_F_LLTX;
+ 	dev->destructor =3D veth_dev_free;
 +
-+	if (jme->reg_rxmcs & RXMCS_CHECKSUM)
-+		netdev->features |=3D NETIF_F_RXCSUM;
++	dev->hw_features =3D NETIF_F_NO_CSUM | NETIF_F_SG | NETIF_F_RXCSUM;
+ }
 =20
- 	/*
- 	 * Get Max Read Req Size from PCI Config Space
-diff --git a/drivers/net/jme.h b/drivers/net/jme.h
-index eac0926..4923376 100644
---- a/drivers/net/jme.h
-+++ b/drivers/net/jme.h
-@@ -434,8 +434,6 @@ struct jme_adapter {
- enum jme_flags_bits {
- 	JME_FLAG_MSI		=3D 1,
- 	JME_FLAG_SSET		=3D 2,
--	JME_FLAG_TXCSUM		=3D 3,
--	JME_FLAG_TSO		=3D 4,
- 	JME_FLAG_POLL		=3D 5,
- 	JME_FLAG_SHUTDOWN	=3D 6,
- };
+ /*
 --=20
 1.7.2.3
 
