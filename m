@@ -1,103 +1,75 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH 3/3] net: Fix drivers advertising HW_CSUM
-	feature to	use csum_start
-Date: Wed, 15 Dec 2010 19:16:55 +0100
-Message-ID: <20101215181655.GA29962@rere.qmqm.pl>
-References: <cover.1292372504.git.mirq-linux@rere.qmqm.pl>
-	<aa9d85fa4961e87c38aec922913cbc95465fc082.1292372504.git.mirq-linux@rere.qmqm.pl>
-	<20101214190727.0ed1a925@nehalam>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net_sched: sch_sfq: add backlog info in
+ sfq_dump_class_stats()
+Date: Wed, 15 Dec 2010 19:18:36 +0100
+Message-ID: <1292437116.3427.386.camel@edumazet-laptop>
+References: <1292421783.3427.232.camel@edumazet-laptop>
+	 <4D08E6C2.804@trash.net>  <1292430424.3427.350.camel@edumazet-laptop>
+	 <1292431256.3427.358.camel@edumazet-laptop>  <4D08F025.5030603@trash.net>
+	 <1292432120.3427.366.camel@edumazet-laptop>  <4D08F4F4.3050501@trash.net>
+	 <1292432980.3427.369.camel@edumazet-laptop>  <4D08F91C.4070000@trash.net>
+	 <1292434227.3427.377.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
-Cc: Roopa Prabhu <roprabhu@cisco.com>, Eric Dumazet <eric.dumazet@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Shreyas Bhatewara <sbhatewara@vmware.com>, Jie Yang <Jie.Yang@atheros.com>,
-	Vasanthy Kolluri <vkolluri@cisco.com>, "VMware,
-	Inc." <pv-drivers@vmware.com>, Brice Goglin <brice@myri.com>,
-	Andrew Gallatin <gallatin@myri.com>,
-	Joe Perches <joe@perches.com>, David Wang <dwang2@cisco.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	H Hartley Sweeten <hsweeten@visionengravers.com>
-To: Stephen Hemminger <shemminger@linux-foundation.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20101214190727.0ed1a925@nehalam>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:54798 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753326Ab0LOSSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Dec 2010 13:18:41 -0500
+Received: by wwi17 with SMTP id 17so5644910wwi.1
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 10:18:40 -0800 (PST)
+In-Reply-To: <1292434227.3427.377.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 14, 2010 at 07:07:27PM -0800, Stephen Hemminger wrote:
-> On Wed, 15 Dec 2010 02:24:08 +0100 (CET)
-> Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
-> > Some drivers are using skb_transport_offset(skb) instead of skb->csum_s=
-tart
-> > for NETIF_F_HW_CSUM offload.  This does not matter now, but if someone
-> > implements checksumming of encapsulated packets then this will break si=
-lently.
-> > =
+We currently return for each active SFQ slot the number of packets in
+queue. We can also give number of bytes accounted for these packets.
 
-> > TSO output paths are left as they are, since they are for IP+TCP only
-> > (might be worth converting though).
-> > =
+tc -s class show dev ifb0
 
-> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
-> Which if any of these drivers did you test on real hardware?
+Before patch :
 
-I'm running it on skge, with additional patch that changes it to use
-NETIF_F_HW_CSUM instead of NETIF_F_IP_CSUM. BTW, why it is not advertising
-full HW checksum in vanilla kernel? Are there any known hardware bugs in th=
-ere?
+class sfq 11:3d9 parent 11: 
+ (dropped 0, overlimits 0 requeues 0) 
+ backlog 0b 3p requeues 0 
+ allot 1266 
 
-Best Regards,
-Micha=B3 Miros=B3aw
+After patch :
 
+class sfq 11:3e4 parent 11: 
+ (dropped 0, overlimits 0 requeues 0) 
+ backlog 4380b 3p requeues 0 
+ allot 1212 
+
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-lspci:
+ net/sched/sch_sfq.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-02:05.0 Ethernet controller: 3Com Corporation 3c940 10/100/1000Base-T [Marv=
-ell] (rev 12)
-        Subsystem: ASUSTeK Computer Inc. A7V600/P4P800/K8V motherboard
-        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr-=
- Stepping- SERR+ FastB2B- DisINTx-
-        Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=3Dmedium >TAbort- =
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-        Latency: 64 (5750ns min, 7750ns max), Cache Line Size: 16 bytes
-        Interrupt: pin A routed to IRQ 22
-        Region 0: Memory at feafc000 (32-bit, non-prefetchable) [size=3D16K]
-        Region 1: I/O ports at d800 [size=3D256]
-        Capabilities: <access denied>
-        Kernel driver in use: skge
-        Kernel modules: skge
-
-ethtool -k:
-
-Offload parameters for eth3:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: on
-large receive offload: off
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 3cf478d..cb331de 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -548,8 +548,13 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ {
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	sfq_index idx = q->ht[cl-1];
+-	struct gnet_stats_queue qs = { .qlen = q->qs[idx].qlen };
++	struct sk_buff_head *list = &q->qs[idx];
++	struct gnet_stats_queue qs = { .qlen = list->qlen };
+ 	struct tc_sfq_xstats xstats = { .allot = q->allot[idx] };
++	struct sk_buff *skb;
++
++	skb_queue_walk(list, skb)
++		qs.backlog += qdisc_pkt_len(skb);
+ 
+ 	if (gnet_stats_copy_queue(d, &qs) < 0)
+ 		return -1;
 
 
----------------------------------------------------------------------------=
----
-Lotusphere 2011
-Register now for Lotusphere 2011 and learn how
-to connect the dots, take your collaborative environment
-to the next level, and enter the era of Social Business.
-http://p.sf.net/sfu/lotusphere-d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
-m/community/wired
