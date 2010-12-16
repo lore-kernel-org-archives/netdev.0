@@ -1,55 +1,61 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible regression: Packet drops during iptables calls
-Date: Thu, 16 Dec 2010 15:29:35 +0100
-Message-ID: <1292509775.2883.187.camel@edumazet-laptop>
-References: <1292337974.9155.68.camel@firesoul.comx.local>
-	 <1292340702.5934.5.camel@edumazet-laptop>
-	 <1292342958.9155.91.camel@firesoul.comx.local>
-	 <1292343855.5934.27.camel@edumazet-laptop>
-	 <1292508266.31289.12.camel@firesoul.comx.local>
-	 <1292508733.2883.152.camel@edumazet-laptop>
-	 <1292509489.31289.20.camel@firesoul.comx.local>
+Subject: Re: [PATCH] net: increase skb->users instead of skb_clone()
+Date: Thu, 16 Dec 2010 15:30:57 +0100
+Message-ID: <1292509857.2883.190.camel@edumazet-laptop>
+References: <1292479045-3136-1-git-send-email-xiaosuo@gmail.com>
+	 <1292483902.2603.62.camel@edumazet-laptop>
+	 <AANLkTi=BX8AMaiwV3aDAVqRA=br00eRo-42vPNwZfwS6@mail.gmail.com>
+	 <AANLkTim--M0TvW9oUi0UO6Ej_8aLezneQsdRx7X0CXDt@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Steven Rostedt <srostedt@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Jesper Dangaard Brouer <hawk@comx.dk>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1292509489.31289.20.camel@firesoul.comx.local>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Fenghua Yu <fenghua.yu@intel.com>,
+	Xinan Tang <xinan.tang@intel.com>, netdev@vger.kernel.org
+To: Junchang Wang <junchangwang@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64687 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756088Ab0LPObD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 09:31:03 -0500
+Received: by wyb28 with SMTP id 28so2557004wyb.19
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 06:31:02 -0800 (PST)
+In-Reply-To: <AANLkTim--M0TvW9oUi0UO6Ej_8aLezneQsdRx7X0CXDt@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 15:24 +0100, Jesper Dangaard Brou=
-er a
-=C3=A9crit :
-
-> In my case I think this will not help. I'll kill the cache anyways, a=
-s
-> the ruleset is 19MB and my CPU cache is 8MB.
+Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 22:20 +0800, Junchang Wang a =C3=A9=
+crit :
+> On Thu, Dec 16, 2010 at 3:23 PM, Changli Gao <xiaosuo@gmail.com> wrot=
+e:
 >=20
->=20
+> >> You beat me, but I was thinking of a different way, adding a new
+> >> pt_prev->xmit_func(), handling all the details (no need for atomic=
+ ops
+> >> on skb users if packet is not delivered at all).
+> >>
+> >> By the way, your patch is not 100% safe/OK, because af_packet rcv(=
+)
+> >> handler writes on skb (skb_pull() and all)
+> >>
+> >
+> > But af_packet_rcv() restores skbs at last.
+> >
+> >        if (skb_head !=3D skb->data && skb_shared(skb)) {
+> >                skb->data =3D skb_head;
+> >                skb->len =3D skb_len;
+> >        }
+> >
+> If af packet_rcv invokes skb_clone, this skb is differ from the origi=
+nal one.
+> Eric's warning is right.
 
-Yep ;)
+It was a false alarm.
 
-By the way, you speak of a 'possible regression', but we always masked
-BH while doing get_counters().
-
-Only very recent kernels are masking them for each unit (cpu) of work.
-
-There was attempt to use a lockless read for each counter (using a
-seqlock), but it was not completed. I guess we could do something to
-ressurect this idea.
+If packet_rcv() invokes skb_clone(), skb still points to original skb.
+No worry.
 
 
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
