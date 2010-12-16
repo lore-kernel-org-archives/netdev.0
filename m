@@ -1,65 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net_sched: sch_sfq: fix allot handling
-Date: Thu, 16 Dec 2010 14:08:52 +0100
-Message-ID: <1292504932.2883.110.camel@edumazet-laptop>
-References: <1292421783.3427.232.camel@edumazet-laptop>
-	 <4D08E6C2.804@trash.net>  <1292430424.3427.350.camel@edumazet-laptop>
-	 <1292431256.3427.358.camel@edumazet-laptop>  <4D08F025.5030603@trash.net>
-	 <1292432120.3427.366.camel@edumazet-laptop>  <4D08F4F4.3050501@trash.net>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net_sched: sch_sfq: add backlog info in
+	sfq_dump_class_stats()
+Date: Thu, 16 Dec 2010 13:09:34 +0000
+Message-ID: <20101216130934.GA7766@ff.dom.local>
+References: <20101216081621.GA7338@ff.dom.local> <1292497384.2883.89.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64903 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753320Ab0LPNI5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 08:08:57 -0500
-Received: by wyb28 with SMTP id 28so2473128wyb.19
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 05:08:56 -0800 (PST)
-In-Reply-To: <4D08F4F4.3050501@trash.net>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:45572 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753606Ab0LPNJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 08:09:38 -0500
+Received: by bwz16 with SMTP id 16so3535328bwz.4
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 05:09:36 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292497384.2883.89.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 18:03 +0100, Patrick McHardy a=
- =C3=A9crit :
-> On 15.12.2010 17:55, Eric Dumazet wrote:
-
-> > I was thinking in allowing more packets per SFQ (but keep the 126 a=
-ctive
-> > flows limit), what do you think ?
+On Thu, Dec 16, 2010 at 12:03:04PM +0100, Eric Dumazet wrote:
+> Le jeudi 16 d=E9cembre 2010 ?? 08:16 +0000, Jarek Poplawski a =E9crit=
+ :
+> > On 2010-12-15 19:18, Eric Dumazet wrote:
+> > > We currently return for each active SFQ slot the number of packet=
+s in
+> > > queue. We can also give number of bytes accounted for these packe=
+ts.
+=2E..
+> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> > > ---
+> > >  net/sched/sch_sfq.c |    7 ++++++-
+> > >  1 file changed, 6 insertions(+), 1 deletion(-)
+> > >=20
+> > > diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> > > index 3cf478d..cb331de 100644
+> > > --- a/net/sched/sch_sfq.c
+> > > +++ b/net/sched/sch_sfq.c
+> > > @@ -548,8 +548,13 @@ static int sfq_dump_class_stats(struct Qdisc=
+ *sch, unsigned long cl,
+> > >  {
+> > >  	struct sfq_sched_data *q =3D qdisc_priv(sch);
+> > >  	sfq_index idx =3D q->ht[cl-1];
+> > > -	struct gnet_stats_queue qs =3D { .qlen =3D q->qs[idx].qlen };
+> > > +	struct sk_buff_head *list =3D &q->qs[idx];
+> > > +	struct gnet_stats_queue qs =3D { .qlen =3D list->qlen };
+> > >  	struct tc_sfq_xstats xstats =3D { .allot =3D q->allot[idx] };
+> > > +	struct sk_buff *skb;
+> > > +
+> > > +	skb_queue_walk(list, skb)
+> > > +		qs.backlog +=3D qdisc_pkt_len(skb);
+> >=20
+> > I don't think you can walk this list without the qdisc lock.
 >=20
-> I keep forgetting why this limit exists, let me try to figure
-> it out once more :)
+> So after checks, I confirm qdisc lock is held at this point, patch is
+> valid.
+>=20
+> tc_fill_tclass() calls gnet_stats_start_copy_compat() (and locks
+> qdisc_root_sleeping_lock()), before calling=20
+>  cl_ops->dump_stats(q, cl, &d)
+>=20
+> Thanks !
 
-I took a look, and found we already are at max, unless we change
-sfq_index type (from u8 to u16)
+You are right. Sorry for misleading.
 
-SFQ_SLOTS is 128  (not really exist, but this is the number of slots)
-SFQ_DEPTH is 128 (max depth for one slot)
-Constraints are :
- SFQ_SLOTS < 256
- SFQ_DEPTH < 256
- SFQ_SLOTS + SFQ_DEPTH < 256, because of the dep[] array.
-
-We could avoid the "struct sk_buff_head" structure with its un-needed
-spinlock, and eventually group data for a given slot in a structure to
-reduce number of cache lines we touch...
-
-struct sfq_slot {
-	struct sk_buff *first;
-	struct sk_buff *last;
-	u8 qlen;
-	sfq_index next; /* dequeue chain */
-	u16 hash;
-	short allot;
-	/* 16bit hole */
-};
-
-This would save 768 bytes on x86_64 (and much more if LOCKDEP is used)
-
-
-
+Jarek P.
