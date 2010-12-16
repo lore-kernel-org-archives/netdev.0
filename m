@@ -1,51 +1,40 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: increase skb->users instead of skb_clone()
-Date: Thu, 16 Dec 2010 22:43:47 +0800
-Message-ID: <AANLkTinxyKpzXS4k63n64S9Fa+4uNUo6-UMdt8OqQs37@mail.gmail.com>
-References: <1292479045-3136-1-git-send-email-xiaosuo@gmail.com>
- <AANLkTikdYi-Cs=4UtjJx-X4bW+LSKTQBTcSv23NS2S+S@mail.gmail.com>
- <1292509118.2883.167.camel@edumazet-laptop> <AANLkTimd96KoT1-KqeiF7i10pH3pfML=rsUho=cCancU@mail.gmail.com>
- <1292510518.2883.207.camel@edumazet-laptop>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: iwl rfkill suddenly dropped to hard block
+Date: Thu, 16 Dec 2010 09:42:35 -0500
+Message-ID: <20101216144235.GA2413@tuxdriver.com>
+References: <20101215195651.GA18545@ioremap.net>
+ <20101215201126.GG2377@tuxdriver.com>
+ <20101216144000.GA16183@ioremap.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Junchang Wang <junchangwang@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Fenghua Yu <fenghua.yu@intel.com>,
-	Xinan Tang <xinan.tang@intel.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:50388 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755869Ab0LPOoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 09:44:09 -0500
-Received: by fxm18 with SMTP id 18so3335999fxm.2
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 06:44:08 -0800 (PST)
-In-Reply-To: <1292510518.2883.207.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20101216144000.GA16183-i6C2adt8DTjR7s880joybQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 16, 2010 at 10:41 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Yes, but you want to, because each receiver has to make a private copy
-> of the skb.
->
-> The big win is that if packet if filtered out (not accepted by the
-> socket filter), you end with no extra skb_clone() at all.
->
-> Say you have 8 receivers, with a filter matching some hash/cpu, and only
-> one af_packet socket will take the message.
->
-> Before patch : 8 skb_clones()
->
-> After patch : one skb_clone()
->
-> If I undertood patch intent ;)
->
+On Thu, Dec 16, 2010 at 05:40:00PM +0300, Evgeniy Polyakov wrote:
+> On Wed, Dec 15, 2010 at 03:11:27PM -0500, John W. Linville (linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org) wrote:
+> > To be honest, nearly every report of "suddenly my rfkill is stuck
+> > on" is because the laptop has multiple rfkill keys, usually with
+> > one of them a slider along the edge of the case.  In particular,
+> > Thinkpads have such switches.  The slider gets accidently engaged
+> > (possibly while the laptop is being transported or somesuch) and
+> > suddenly wireless stops working.
+> 
+> I feel incredibly stupid, but...
+> I found the key :)
 
-Yes, you got it. :)
+Nice to start the day with a laugh! ;-)
 
+John
 -- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
