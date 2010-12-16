@@ -1,43 +1,50 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: pktgen IP address stepping
-Date: Thu, 16 Dec 2010 13:22:59 -0800
-Message-ID: <1292534579.29894.77.camel@Joe-Laptop>
-References: <20101216172800.GA8404@spritelink.se>
-	 <1292522532.29894.33.camel@Joe-Laptop>
-	 <20101216211153.GA8658@spritelink.se>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] ipv6: don't flush routes when setting loopback down
+Date: Thu, 16 Dec 2010 13:28:12 -0800
+Message-ID: <20101216132812.2d7fd885@nehalam>
+References: <4D00F58A.2050307@hp.com>
+	<m139q6ahld.fsf@fess.ebiederm.org>
+	<20101209111611.1d2e6e2b@nehalam>
+	<20101209.122033.183046393.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Kristian Larsson <kristian@spritelink.net>
+Cc: ebiederm@xmission.com, brian.haley@hp.com, netdev@vger.kernel.org,
+	maheshkelkar@gmail.com, lorenzo@google.com,
+	yoshfuji@linux-ipv6.org, stable@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2729 "EHLO mail.perches.com"
+Received: from mail.vyatta.com ([76.74.103.46]:45922 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753305Ab0LPVXB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Dec 2010 16:23:01 -0500
-In-Reply-To: <20101216211153.GA8658@spritelink.se>
+	id S1752078Ab0LPV2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 16:28:15 -0500
+In-Reply-To: <20101209.122033.183046393.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-12-16 at 22:11 +0100, Kristian Larsson wrote:
-> On Thu, Dec 16, 2010 at 10:02:12AM -0800, Joe Perches wrote:
-> > pr_<foo> calls are already prefixed with pktgen via pr_fmt,
-> > you don't need to add it to the format string.
-> I can see at least two different cases of debug statements;
->     if (debug)
->         pr_info("Delay set at: %llu ns\n", pkt_dev->delay);
->     if (debug)
->         printk(KERN_DEBUG "pktgen: dst_min set to: %s\n",
->                pkt_dev->dst_min);
-> what's the reasoning behind using one or the other?
+When loopback device is being brought down, then keep the route table
+entries because they are special. The entries in the local table for
+linklocal routes and ::1 address should not be purged.
 
-pr_info(fmt, ...)	emits at KERN_INFO level and uses pr_fmt(fmt)
-printk(KERN_DEBUG	emits at KERN_DEBUG level and doesn't use pr_fmt
-pr_debug(fmt, ...)	does use pr_fmt and is optionally compiled.
+This is a sub optimal solution to the problem and should be replaced
+by a better fix in future.
 
-I can't say why the author decided to use a info level output
-for the delay set message.  Maybe that person doesn't like to see
-KERN_DEBUG messages.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-cheers, Joe
+---
+patch versus current net-next tree, but if this acceptable
+it should be applied to net-2.6 as well.
 
+--- a/net/ipv6/addrconf.c	2010-12-16 10:29:34.035408392 -0800
++++ b/net/ipv6/addrconf.c	2010-12-16 10:30:37.366834482 -0800
+@@ -2669,7 +2669,9 @@ static int addrconf_ifdown(struct net_de
+ 
+ 	ASSERT_RTNL();
+ 
+-	rt6_ifdown(net, dev);
++	/* Flush routes if device is being removed or it is not loopback */
++	if (how || !(dev->flags & IFF_LOOPBACK))
++		rt6_ifdown(net, dev);
+ 	neigh_ifdown(&nd_tbl, dev);
+ 
+ 	idev = __in6_dev_get(dev);
