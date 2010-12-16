@@ -1,50 +1,58 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] ipv6: don't flush routes when setting loopback down
-Date: Thu, 16 Dec 2010 13:28:12 -0800
-Message-ID: <20101216132812.2d7fd885@nehalam>
-References: <4D00F58A.2050307@hp.com>
-	<m139q6ahld.fsf@fess.ebiederm.org>
-	<20101209111611.1d2e6e2b@nehalam>
-	<20101209.122033.183046393.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
+ packets
+Date: Thu, 16 Dec 2010 22:30:39 +0100
+Message-ID: <1292535039.2655.13.camel@edumazet-laptop>
+References: <1292428252.3427.342.camel@edumazet-laptop>
+	 <20101216211744.GA2191@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, brian.haley@hp.com, netdev@vger.kernel.org,
-	maheshkelkar@gmail.com, lorenzo@google.com,
-	yoshfuji@linux-ipv6.org, stable@kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Changli Gao <xiaosuo@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45922 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752078Ab0LPV2P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Dec 2010 16:28:15 -0500
-In-Reply-To: <20101209.122033.183046393.davem@davemloft.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56980 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757019Ab0LPVao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 16:30:44 -0500
+Received: by wwa36 with SMTP id 36so3613wwa.1
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 13:30:43 -0800 (PST)
+In-Reply-To: <20101216211744.GA2191@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When loopback device is being brought down, then keep the route table
-entries because they are special. The entries in the local table for
-linklocal routes and ::1 address should not be purged.
+Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 22:17 +0100, Jarek Poplawski a =C3=
+=A9crit :
+> On Wed, Dec 15, 2010 at 04:50:52PM +0100, Eric Dumazet wrote:
+> > In commit 8caf153974f2 (net: sch_netem: Fix an inconsistency in ing=
+ress
+> > netem timestamps.), Jarek added a logic to refresh timestamps of
+> > ingressed packets going through netem.
+> >=20
+> > I believe we should generalize this, forcing a refresh of timestamp=
+s in
+> > dev_queue_xmit_nit() for all ingress packets, whatever qdisc/class =
+they
+> > used before being delivered.
+> >=20
+> > This way, we can have a good idea when packets are delivered to our
+> > stack (tcpdump -i ifb0), while a tcpdump on original device gives
+> > timestamps right before ingressing.
+>=20
+> I don't think we should do it. IMHO netem on ingress is a special cas=
+e,
+> obviously for testing, and otherwise the real (first) timestamp might
+> be valuable for some users.
 
-This is a sub optimal solution to the problem and should be replaced
-by a better fix in future.
+Well, I find difficult to check sfq is actually correctly working
+because timestamps are mixed.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+After this patch, I found the SFQ allot error for example.
 
----
-patch versus current net-next tree, but if this acceptable
-it should be applied to net-2.6 as well.
+I dont know, I feel adding a sysctl like netdev_tstamp_prequeue is not
+worth it...
 
---- a/net/ipv6/addrconf.c	2010-12-16 10:29:34.035408392 -0800
-+++ b/net/ipv6/addrconf.c	2010-12-16 10:30:37.366834482 -0800
-@@ -2669,7 +2669,9 @@ static int addrconf_ifdown(struct net_de
- 
- 	ASSERT_RTNL();
- 
--	rt6_ifdown(net, dev);
-+	/* Flush routes if device is being removed or it is not loopback */
-+	if (how || !(dev->flags & IFF_LOOPBACK))
-+		rt6_ifdown(net, dev);
- 	neigh_ifdown(&nd_tbl, dev);
- 
- 	idev = __in6_dev_get(dev);
+
