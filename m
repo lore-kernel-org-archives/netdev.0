@@ -1,185 +1,201 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH 5/5 v4] net: add old_queue_mapping into skb->cb
-Date: Thu, 16 Dec 2010 12:56:50 +0800
-Message-ID: <1292475410-24665-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org, Changli Gao <xiaosuo@gmail.com>
-To: Jamal Hadi Salim <hadi@cyberus.ca>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] filter: optimize accesses to ancillary data
+Date: Thu, 16 Dec 2010 06:45:28 +0100
+Message-ID: <1292478328.2603.56.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:65057 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911Ab0LPFEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 00:04:51 -0500
-Received: by pva4 with SMTP id 4so438256pva.19
-        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 21:04:51 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63657 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751215Ab0LPFpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 00:45:34 -0500
+Received: by wwa36 with SMTP id 36so2065884wwa.1
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 21:45:32 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For the skbs returned from ifb, we should use the queue_mapping
-saved before ifb.
+We can translate pseudo load instructions at filter check time to
+dedicated instructions to speed up filtering and avoid one switch().
+libpcap currently uses SKF_AD_PROTOCOL, but custom filters probably use
+other ancillary accesses.
 
-We save old queue_mapping in old_queue_mapping just before calling 
-dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
-just before reinjecting the ingress packets.
+Note : I made the assertion that ancillary data was always accessed with
+BPF_LD|BPF_?|BPF_ABS instructions, not with BPF_LD|BPF_?|BPF_IND ones
+(offset given by K constant, not by K + X register)
 
-A new struct dev_skb_cb is added, and valid in qdisc and gso layer.
-The original qdisc_skb_cb and DEV_GSO_CB use dev_skb_cb as the first
-member.
+On x86_64, this saves a few bytes of text :
 
-netem_skb_cb is changed to contain qdisc_skb_cb.
+# size net/core/filter.o.*
+   text	   data	    bss	    dec	    hex	filename
+   4864	      0	      0	   4864	   1300	net/core/filter.o.new
+   4944	      0	      0	   4944	   1350	net/core/filter.o.old
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
-v4: don't restore the old_queue_mapping for egress packets.
-v3: use the method from Eric to allocate memory from skb->cb. Thank him.
-v2: save old_queue_mapping in skb->cb
- drivers/net/ifb.c         |    1 +
- include/linux/netdevice.h |   10 ++++++++++
- include/net/sch_generic.h |    3 ++-
- net/core/dev.c            |   15 ++++++++++-----
- net/sched/act_mirred.c    |    1 +
- net/sched/sch_netem.c     |    8 ++++----
- 6 files changed, 28 insertions(+), 10 deletions(-)
-diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
-index 918a38e..1632345 100644
---- a/drivers/net/ifb.c
-+++ b/drivers/net/ifb.c
-@@ -96,6 +96,7 @@ static void ri_tasklet(unsigned long arg)
- 			dev_queue_xmit(skb);
- 		} else if (from & AT_INGRESS) {
- 			skb_pull(skb, skb->dev->hard_header_len);
-+			skb->queue_mapping = dev_skb_cb(skb)->old_queue_mapping;
- 			netif_rx(skb);
- 		} else
- 			BUG();
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d31bc3c..6f128e3 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1295,6 +1295,16 @@ struct napi_gro_cb {
- 
- #define NAPI_GRO_CB(skb) ((struct napi_gro_cb *)(skb)->cb)
- 
-+struct dev_skb_cb {
-+	u16		old_queue_mapping;
-+};
-+
-+static inline struct dev_skb_cb *dev_skb_cb(struct sk_buff *skb)
-+{
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct dev_skb_cb));
-+	return (struct dev_skb_cb *)skb->cb;
-+}
-+
- struct packet_type {
- 	__be16			type;	/* This is really htons(ether_type). */
- 	struct net_device	*dev;	/* NULL is wildcarded here	     */
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index ea1f8a8..52c32e3 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -198,8 +198,8 @@ struct tcf_proto {
+ net/core/filter.c |   72 ++++++++++++++++++++++++++------------------
+ 1 file changed, 44 insertions(+), 28 deletions(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index e8a6ac4..2b27d4e 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -85,6 +85,17 @@ enum {
+ 	BPF_S_JMP_JGT_X,
+ 	BPF_S_JMP_JSET_K,
+ 	BPF_S_JMP_JSET_X,
++	/* Ancillary data */
++	BPF_S_ANC_PROTOCOL,
++	BPF_S_ANC_PKTTYPE,
++	BPF_S_ANC_IFINDEX,
++	BPF_S_ANC_NLATTR,
++	BPF_S_ANC_NLATTR_NEST,
++	BPF_S_ANC_MARK,
++	BPF_S_ANC_QUEUE,
++	BPF_S_ANC_HATYPE,
++	BPF_S_ANC_RXHASH,
++	BPF_S_ANC_CPU,
  };
  
- struct qdisc_skb_cb {
-+	struct dev_skb_cb	dev_cb; /* must be the first */
- 	unsigned int		pkt_len;
--	char			data[];
- };
- 
- static inline int qdisc_qlen(struct Qdisc *q)
-@@ -209,6 +209,7 @@ static inline int qdisc_qlen(struct Qdisc *q)
- 
- static inline struct qdisc_skb_cb *qdisc_skb_cb(struct sk_buff *skb)
+ /* No hurry in this branch */
+@@ -107,11 +118,7 @@ static inline void *load_pointer(const struct sk_buff *skb, int k,
  {
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct qdisc_skb_cb));
- 	return (struct qdisc_skb_cb *)skb->cb;
+ 	if (k >= 0)
+ 		return skb_header_pointer(skb, k, size, buffer);
+-	else {
+-		if (k >= SKF_AD_OFF)
+-			return NULL;
+-		return __load_pointer(skb, k, size);
+-	}
++	return __load_pointer(skb, k, size);
  }
  
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d28b3a0..bf5ced5 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1901,10 +1901,15 @@ static int illegal_highdma(struct net_device *dev, struct sk_buff *skb)
- }
+ /**
+@@ -269,7 +276,7 @@ load_w:
+ 				A = get_unaligned_be32(ptr);
+ 				continue;
+ 			}
+-			break;
++			return 0;
+ 		case BPF_S_LD_H_ABS:
+ 			k = K;
+ load_h:
+@@ -278,7 +285,7 @@ load_h:
+ 				A = get_unaligned_be16(ptr);
+ 				continue;
+ 			}
+-			break;
++			return 0;
+ 		case BPF_S_LD_B_ABS:
+ 			k = K;
+ load_b:
+@@ -287,7 +294,7 @@ load_b:
+ 				A = *(u8 *)ptr;
+ 				continue;
+ 			}
+-			break;
++			return 0;
+ 		case BPF_S_LD_W_LEN:
+ 			A = skb->len;
+ 			continue;
+@@ -338,45 +345,35 @@ load_b:
+ 		case BPF_S_STX:
+ 			mem[K] = X;
+ 			continue;
+-		default:
+-			WARN_ON(1);
+-			return 0;
+-		}
+-
+-		/*
+-		 * Handle ancillary data, which are impossible
+-		 * (or very difficult) to get parsing packet contents.
+-		 */
+-		switch (k-SKF_AD_OFF) {
+-		case SKF_AD_PROTOCOL:
++		case BPF_S_ANC_PROTOCOL:
+ 			A = ntohs(skb->protocol);
+ 			continue;
+-		case SKF_AD_PKTTYPE:
++		case BPF_S_ANC_PKTTYPE:
+ 			A = skb->pkt_type;
+ 			continue;
+-		case SKF_AD_IFINDEX:
++		case BPF_S_ANC_IFINDEX:
+ 			if (!skb->dev)
+ 				return 0;
+ 			A = skb->dev->ifindex;
+ 			continue;
+-		case SKF_AD_MARK:
++		case BPF_S_ANC_MARK:
+ 			A = skb->mark;
+ 			continue;
+-		case SKF_AD_QUEUE:
++		case BPF_S_ANC_QUEUE:
+ 			A = skb->queue_mapping;
+ 			continue;
+-		case SKF_AD_HATYPE:
++		case BPF_S_ANC_HATYPE:
+ 			if (!skb->dev)
+ 				return 0;
+ 			A = skb->dev->type;
+ 			continue;
+-		case SKF_AD_RXHASH:
++		case BPF_S_ANC_RXHASH:
+ 			A = skb->rxhash;
+ 			continue;
+-		case SKF_AD_CPU:
++		case BPF_S_ANC_CPU:
+ 			A = raw_smp_processor_id();
+ 			continue;
+-		case SKF_AD_NLATTR: {
++		case BPF_S_ANC_NLATTR: {
+ 			struct nlattr *nla;
  
- struct dev_gso_cb {
--	void (*destructor)(struct sk_buff *skb);
-+	struct dev_skb_cb	dev_cb; /* must be the first */
-+	void			(*destructor)(struct sk_buff *skb);
- };
+ 			if (skb_is_nonlinear(skb))
+@@ -392,7 +389,7 @@ load_b:
+ 				A = 0;
+ 			continue;
+ 		}
+-		case SKF_AD_NLATTR_NEST: {
++		case BPF_S_ANC_NLATTR_NEST: {
+ 			struct nlattr *nla;
  
--#define DEV_GSO_CB(skb) ((struct dev_gso_cb *)(skb)->cb)
-+static inline struct dev_gso_cb *dev_gso_cb(struct sk_buff *skb)
-+{
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct dev_gso_cb));
-+	return (struct dev_gso_cb *)skb->cb;
-+}
- 
- static void dev_gso_skb_destructor(struct sk_buff *skb)
- {
-@@ -1918,7 +1923,7 @@ static void dev_gso_skb_destructor(struct sk_buff *skb)
- 		kfree_skb(nskb);
- 	} while (skb->next);
- 
--	cb = DEV_GSO_CB(skb);
-+	cb = dev_gso_cb(skb);
- 	if (cb->destructor)
- 		cb->destructor(skb);
- }
-@@ -1947,7 +1952,7 @@ static int dev_gso_segment(struct sk_buff *skb)
- 		return PTR_ERR(segs);
- 
- 	skb->next = segs;
--	DEV_GSO_CB(skb)->destructor = skb->destructor;
-+	dev_gso_cb(skb)->destructor = skb->destructor;
- 	skb->destructor = dev_gso_skb_destructor;
- 
- 	return 0;
-@@ -2103,7 +2108,7 @@ gso:
- 
- out_kfree_gso_skb:
- 	if (likely(skb->next == NULL))
--		skb->destructor = DEV_GSO_CB(skb)->destructor;
-+		skb->destructor = dev_gso_cb(skb)->destructor;
- out_kfree_skb:
- 	kfree_skb(skb);
- out:
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 0c311be..419e82f 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -197,6 +197,7 @@ static int tcf_mirred(struct sk_buff *skb, struct tc_action *a,
- 
- 	skb2->skb_iif = skb->dev->ifindex;
- 	skb2->dev = dev;
-+	dev_skb_cb(skb2)->old_queue_mapping = skb->queue_mapping;
- 	dev_queue_xmit(skb2);
- 	err = 0;
- 
-diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
-index e5593c0..c2cf72f 100644
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@ -77,14 +77,14 @@ struct netem_sched_data {
- 
- /* Time stamp put into socket buffer control block */
- struct netem_skb_cb {
--	psched_time_t	time_to_send;
-+	struct qdisc_skb_cb	qdisc_cb; /* must be the first */
-+	psched_time_t		time_to_send;
- };
- 
- static inline struct netem_skb_cb *netem_skb_cb(struct sk_buff *skb)
- {
--	BUILD_BUG_ON(sizeof(skb->cb) <
--		sizeof(struct qdisc_skb_cb) + sizeof(struct netem_skb_cb));
--	return (struct netem_skb_cb *)qdisc_skb_cb(skb)->data;
-+	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct netem_skb_cb));
-+	return (struct netem_skb_cb *)skb->cb;
- }
- 
- /* init_crandom - initialize correlated random number generator
+ 			if (skb_is_nonlinear(skb))
+@@ -412,6 +409,7 @@ load_b:
+ 			continue;
+ 		}
+ 		default:
++			WARN_ON(1);
+ 			return 0;
+ 		}
+ 	}
+@@ -600,6 +598,24 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
+ 			    pc + ftest->jf + 1 >= flen)
+ 				return -EINVAL;
+ 			break;
++		case BPF_S_LD_W_ABS:
++		case BPF_S_LD_H_ABS:
++		case BPF_S_LD_B_ABS:
++#define ANCILLARY(CODE) case SKF_AD_OFF + SKF_AD_##CODE:	\
++				code = BPF_S_ANC_##CODE;	\
++				break
++			switch (ftest->k) {
++			ANCILLARY(PROTOCOL);
++			ANCILLARY(PKTTYPE);
++			ANCILLARY(IFINDEX);
++			ANCILLARY(NLATTR);
++			ANCILLARY(NLATTR_NEST);
++			ANCILLARY(MARK);
++			ANCILLARY(QUEUE);
++			ANCILLARY(HATYPE);
++			ANCILLARY(RXHASH);
++			ANCILLARY(CPU);
++			}
+ 		}
+ 		ftest->code = code;
+ 	}
+
+
