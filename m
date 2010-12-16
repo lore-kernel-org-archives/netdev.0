@@ -1,47 +1,54 @@
-From: David Shwatrz <dshwatrz@gmail.com>
-Subject: Re: [PATCH net-next-2.6] Documentation/networking/l2tp.txt: update documentation.
-Date: Thu, 16 Dec 2010 20:22:44 +0200
-Message-ID: <AANLkTi=W2ZbdRnH=TnwW2qOW+s31izUN=VE9GGf+oVO9@mail.gmail.com>
-References: <AANLkTimhKtb+p6-4bG7QXBmUZ5YX=m5u1ZkxEb94e1K1@mail.gmail.com>
-	<20101215105207.29b1a837@nehalam>
-	<20101215.111448.104060252.davem@davemloft.net>
+From: Kristian Larsson <kristian@spritelink.net>
+Subject: Re: pktgen IP address stepping
+Date: Thu, 16 Dec 2010 19:27:24 +0100
+Message-ID: <20101216182724.GB8404@spritelink.se>
+References: <20101216172800.GA8404@spritelink.se>
+ <20101216.094426.193723178.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, jchapman@katalix.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f171.google.com ([209.85.215.171]:49895 "EHLO
-	mail-ey0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756184Ab0LPSWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 13:22:46 -0500
-Received: by eyg5 with SMTP id 5so2140262eyg.2
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 10:22:45 -0800 (PST)
-In-Reply-To: <20101215.111448.104060252.davem@davemloft.net>
+Received: from Mail2.SpriteLink.NET ([195.182.5.83]:52841 "EHLO
+	Mail2.SpriteLink.NET" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab0LPS3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 13:29:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20101216.094426.193723178.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-My intention was just to fix the documentation so it will reflect
-the current situation, where you cannot use "ip l2tp", but there
-is an alternative (though temporary probably). It could take
-time till this will be available in iproute2. That's all.
+On Thu, Dec 16, 2010 at 09:44:26AM -0800, David Miller wrote:
+> From: Kristian Larsson <kristian@spritelink.net>
+> Date: Thu, 16 Dec 2010 18:28:00 +0100
+> 
+> > Looking forward to any feedback and / or suggestions.
+> 
+> If you need a huge type for the step values in order to handle ipv6
+> addresses or similar, used a fixed sized type such as "u64" instead of
+> "unsigned long long".
 
-DS
+It is not developed with IPv6 in mind, it actually doesn't touch
+those parts of the code at all. Stepping through the IPv6 space
+and incrementing by what would equal one /64 at a time is a
+painfully slow process. We'd need all 128 bits there to make it
+useful - an alternative would be to set the step length by prefix
+mask instead, ie src6_step 16 would step through by increasing
+one /16 at a time.
 
+For IPv4 we could settle for less, something like 32 bits!? ;)
 
+And given your comment I suppose u32 is a better choice than
+"unsigned long", right? 
 
-On Wed, Dec 15, 2010 at 9:14 PM, David Miller <davem@davemloft.net> wrote:
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Wed, 15 Dec 2010 10:52:07 -0800
->
->> I wish you would stop whining about it and just reimplement
->> without using libnl as requested.
->
-> Seriously.
->
-> David, I'm not applying a patch where you complain about
-> a problem which you have self-inflicted upon yourself.
->
-> Stephen's request was beyond reasonable, and you're just
-> being unnecessarily difficult.
->
+I was actually looking at the IPv6 part and noticed how it
+appears to lack the option to set a min and max address, only
+random addresses. My intention was to write a patch for that too,
+though later on and if I'm able :)
+
+Kind regards,
+   Kristian.
+
+-- 
+Kristian Larsson                                        KLL-RIPE
++46 704 264511			              kll@spritelink.net
