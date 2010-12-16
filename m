@@ -1,54 +1,49 @@
-From: Kristian Larsson <kristian@spritelink.net>
-Subject: Re: pktgen IP address stepping
-Date: Thu, 16 Dec 2010 19:27:24 +0100
-Message-ID: <20101216182724.GB8404@spritelink.se>
-References: <20101216172800.GA8404@spritelink.se>
- <20101216.094426.193723178.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for
+	Bosch C_CAN controller
+Date: Thu, 16 Dec 2010 10:31:56 -0800 (PST)
+Message-ID: <20101216.103156.104072504.davem@davemloft.net>
+References: <4D09D7B1.9080906@grandegger.com>
+	<070E08D3134344CBB04FC2F201E778B7@hacdom.okisemi.com>
+	<4D0A5236.5070900@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Mail2.SpriteLink.NET ([195.182.5.83]:52841 "EHLO
-	Mail2.SpriteLink.NET" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751795Ab0LPS3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 13:29:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20101216.094426.193723178.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D0A5236.5070900-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 16, 2010 at 09:44:26AM -0800, David Miller wrote:
-> From: Kristian Larsson <kristian@spritelink.net>
-> Date: Thu, 16 Dec 2010 18:28:00 +0100
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Date: Thu, 16 Dec 2010 18:53:58 +0100
+
+> On 12/16/2010 01:09 PM, Tomoya MORINAGA wrote:
+>> On Thursday, December 16, 2010 6:11 PM, Wolfgang Grandegger wrote:
+>> 
+>>> Ah, oh, I just realized that the register layout is almost identical to
+>>> the recently accepted *pch_can* driver. Tomoya, does pch_can use a c_can
+>>> core? Well, then it makes really sense to have a generic c_can driver
+>>> for the SPEAR, PCH, etc. Board specific details are handled via platform
+>>> definition. This driver already provides that functionality, IFAICS.
+>> 
+>> Hi Wolfgang,
+>> 
+>> It seems pch_can similar to c_can.
+>> However, sorry, I don't know if pch_can core is the same as c_can since
+>> LSI is provided by Intel.
+>> If necessary, please contact to Intel.
 > 
-> > Looking forward to any feedback and / or suggestions.
-> 
-> If you need a huge type for the step values in order to handle ipv6
-> addresses or similar, used a fixed sized type such as "u64" instead of
-> "unsigned long long".
+> You could also try to use that driver. I'm rather sure that it does work
+> on your hardware as well.
 
-It is not developed with IPv6 in mind, it actually doesn't touch
-those parts of the code at all. Stepping through the IPv6 space
-and incrementing by what would equal one /64 at a time is a
-painfully slow process. We'd need all 128 bits there to make it
-useful - an alternative would be to set the step length by prefix
-mask instead, ie src6_step 16 would step through by increasing
-one /16 at a time.
-
-For IPv4 we could settle for less, something like 32 bits!? ;)
-
-And given your comment I suppose u32 is a better choice than
-"unsigned long", right? 
-
-I was actually looking at the IPv6 part and noticed how it
-appears to lack the option to set a min and max address, only
-random addresses. My intention was to write a patch for that too,
-though later on and if I'm able :)
-
-Kind regards,
-   Kristian.
-
--- 
-Kristian Larsson                                        KLL-RIPE
-+46 704 264511			              kll@spritelink.net
+Indeed.
