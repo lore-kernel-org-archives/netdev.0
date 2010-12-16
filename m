@@ -1,33 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH kernel 2.6.37-rc5] axnet_cs: move id (0x1bf, 0x2328) to
- axnet_cs
-Date: Thu, 16 Dec 2010 12:39:22 -0800 (PST)
-Message-ID: <20101216.123922.179927984.davem@davemloft.net>
-References: <20101107001124.7d8ef6c4.ken_kawasaki@spring.nifty.jp>
-	<20101114084208.b3ee991d.ken_kawasaki@spring.nifty.jp>
-	<20101213212724.353e84f1.ken_kawasaki@spring.nifty.jp>
+Subject: Re: [PATCH net-next-2.6 0/3] bonding fixes
+Date: Thu, 16 Dec 2010 12:42:11 -0800 (PST)
+Message-ID: <20101216.124211.245386802.davem@davemloft.net>
+References: <1292264216.9860.11.camel@bwh-desktop>
+	<1292264283.9860.12.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ken_kawasaki@spring.nifty.jp
+Cc: fubar@us.ibm.com, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: bhutchings@solarflare.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55935
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50182
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752284Ab0LPUix (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:38:53 -0500
-In-Reply-To: <20101213212724.353e84f1.ken_kawasaki@spring.nifty.jp>
+	by vger.kernel.org with ESMTP id S1756637Ab0LPUlm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:41:42 -0500
+In-Reply-To: <1292264283.9860.12.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
-Date: Mon, 13 Dec 2010 21:27:24 +0900
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 13 Dec 2010 18:18:03 +0000
 
-> 
-> axnet_cs:
->     Accton EN2328 or compatible (id: 0x01bf, 0x2328) uses Asix chip.
->     So it works better with axnet_cs instead of pcnet_cs.
-> 
-> Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+> These should of course go to net-2.6, not net-next-2.6.
 
-Applied, thank you.
+I'll apply these, thanks a lot Ben.
