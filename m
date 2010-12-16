@@ -1,54 +1,40 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] ehea: Fixing some message level
-Date: Thu, 16 Dec 2010 17:13:12 -0200
-Message-ID: <1292526792-28901-1-git-send-email-leitao@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Joe Perches <joe@perches.com>
+Subject: Re: pktgen IP address stepping
+Date: Thu, 16 Dec 2010 11:18:52 -0800
+Message-ID: <1292527132.29894.52.camel@Joe-Laptop>
+References: <20101216172800.GA8404@spritelink.se>
+	 <1292522532.29894.33.camel@Joe-Laptop>
+	 <20101216183004.GC8404@spritelink.se>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Kristian Larsson <kristian@spritelink.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp03.br.ibm.com ([32.104.18.24]:46768 "EHLO
-	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753574Ab0LPTNT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 14:13:19 -0500
-Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
-	by e24smtp03.br.ibm.com (8.14.4/8.13.1) with ESMTP id oBGJUR0o028275
-	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 17:30:27 -0200
-Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
-	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBGJKTvl1257592
-	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 17:20:29 -0200
-Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
-	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBGJCx6Y027853
-	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 17:12:59 -0200
+Received: from mail.perches.com ([173.55.12.10]:2719 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754184Ab0LPTSy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 14:18:54 -0500
+In-Reply-To: <20101216183004.GC8404@spritelink.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently there are some info message that is set as error, and an error
-message that is set as debug. This patch just fixes it.
+On Thu, 2010-12-16 at 19:30 +0100, Kristian Larsson wrote:
+> > I suggest using actual ipv4 addresses (and ipv6 if you ever
+> > need it) as increment/mask.
+> Not sure I follow you, should the stepping be specified as
+> 0.0.0.213 if I would like to increase with 213 or 0.0.255.255 if
+> I want to increase by a /16 at a time?
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/ehea/ehea_main.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+More like:
 
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 0dfef6d..1032b5b 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -740,13 +740,13 @@ static int ehea_proc_rwqes(struct net_device *dev,
- 							  skb_arr_rq1_len,
- 							  wqe_index);
- 				if (unlikely(!skb)) {
--					netif_err(port, rx_err, dev,
-+					netif_info(port, rx_err, dev,
- 						  "LL rq1: skb=NULL\n");
- 
- 					skb = netdev_alloc_skb(dev,
- 							       EHEA_L_PKT_SIZE);
- 					if (!skb) {
--						netdev_info(dev, "Not enough memory to allocate skb\n");
-+						netdev_err(dev, "Not enough memory to allocate skb\n");
- 						break;
- 					}
- 				}
--- 
-1.7.1
+Initial IPv4 address:	0.0.0.1
+Step:			0.1.0.0
+Mask:			127.0.0.1
+
+addr = (addr + step) & mask;
+
+Cycles through all /16's below 128
+
+
 
