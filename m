@@ -1,44 +1,44 @@
-From: Evgeniy Polyakov <zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org>
-Subject: Re: iwl rfkill suddenly dropped to hard block
-Date: Thu, 16 Dec 2010 14:57:18 +0300
-Message-ID: <20101216115717.GA15075@ioremap.net>
-References: <20101215195651.GA18545@ioremap.net>
- <20101215201126.GG2377@tuxdriver.com>
- <20101216032247.GA7345@ioremap.net>
- <4D099444.5040703@lwfinger.net>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
+	C_CAN	controller
+Date: Thu, 16 Dec 2010 21:09:52 +0900
+Message-ID: <070E08D3134344CBB04FC2F201E778B7@hacdom.okisemi.com>
+References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>
+	<4D09D7B1.9080906@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4D099444.5040703-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Bhupesh Sharma" <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>,
+	"Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 15, 2010 at 10:23:32PM -0600, Larry Finger (Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org) wrote:
-> >I would imagine this is just related to some dellish crap, but I saw a
-> >number of exactly the same cases in the web including linux-kernel mail
-> >lists in the past and also without 'slider on the back' case.
-> 
-> I doubt that it is Dell related, if that is what "dellish" means.
-> 
-> I have had some success in clearing this problem by unloading and
-> reloading the wireless driver. I had the problem on one box that has
-> no rfkill switch and an 802.11b card that uses b43legacy.
+On Thursday, December 16, 2010 6:11 PM, Wolfgang Grandegger wrote:
 
-I tried that as well as disabling and enabling wifi in bios (or is it
-newr loader), but without success. I called this 'dellish' crap
-because of the hell list of problems I had with this laptop and i915
-video chipset in it. Apparently brother model e4200 does not have them
-at all.
+> Ah, oh, I just realized that the register layout is almost identical to
+> the recently accepted *pch_can* driver. Tomoya, does pch_can use a c_can
+> core? Well, then it makes really sense to have a generic c_can driver
+> for the SPEAR, PCH, etc. Board specific details are handled via platform
+> definition. This driver already provides that functionality, IFAICS.
 
--- 
-	Evgeniy Polyakov
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Wolfgang,
+
+It seems pch_can similar to c_can.
+However, sorry, I don't know if pch_can core is the same as c_can since LSI 
+is provided by Intel.
+If necessary, please contact to Intel.
+
+Thanks,
+---
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
