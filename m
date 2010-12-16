@@ -1,56 +1,41 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH
- while reading counters
-Date: Thu, 16 Dec 2010 09:57:40 -0800
-Message-ID: <20101216095740.301b6acc@nehalam>
-References: <1292337974.9155.68.camel@firesoul.comx.local>
-	<1292340702.5934.5.camel@edumazet-laptop>
-	<1292342958.9155.91.camel@firesoul.comx.local>
-	<1292343855.5934.27.camel@edumazet-laptop>
-	<1292508266.31289.12.camel@firesoul.comx.local>
-	<1292508733.2883.152.camel@edumazet-laptop>
-	<1292509489.31289.20.camel@firesoul.comx.local>
-	<1292509775.2883.187.camel@edumazet-laptop>
-	<1292511761.2883.236.camel@edumazet-laptop>
-	<1292515625.2883.336.camel@edumazet-laptop>
-	<1292518436.2883.393.camel@edumazet-laptop>
-	<20101216093149.71f082c7@nehalam>
-	<1292521986.2883.472.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: pktgen IP address stepping
+Date: Thu, 16 Dec 2010 10:02:12 -0800
+Message-ID: <1292522532.29894.33.camel@Joe-Laptop>
+References: <20101216172800.GA8404@spritelink.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	Patrick McHardy <kaber@trash.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Steven Rostedt <srostedt@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Kristian Larsson <kristian@spritelink.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:34047 "EHLO mail.vyatta.com"
+Received: from mail.perches.com ([173.55.12.10]:2713 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755684Ab0LPR5n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Dec 2010 12:57:43 -0500
-In-Reply-To: <1292521986.2883.472.camel@edumazet-laptop>
+	id S1752620Ab0LPSCQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 13:02:16 -0500
+In-Reply-To: <20101216172800.GA8404@spritelink.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Dec 2010 18:53:06 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, 2010-12-16 at 18:28 +0100, Kristian Larsson wrote:
+> This patch adds the ability to set the step rate at which the source
+> or destination IP address is increased when src_min / src_max or
+> dst_min / dst_max is used with pktgen.
+> Usage is simple, two new parameters:
+>   src_step X
+>   dst_step X
+> where X is a positive integer (or actually an unsigned long long).
+[]
+> Looking forward to any feedback and / or suggestions.
 
-> [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH while reading counters
-> 
-> Using "iptables -L" with a lot of rules might have a too big BH latency.
-> Jesper mentioned ~6 ms and worried of frame drops.
-> 
-> Switch to a per_cpu seqcount scheme, so that taking a snapshot of
-> counters doesnt need to block BH (for this cpu, but also other cpus).
-> 
-> Reported-by: Jesper Dangaard Brouer <hawk@comx.dk>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+I suggest using actual ipv4 addresses (and ipv6 if you ever
+need it) as increment/mask.
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+For your current use, __u32 would work fine.
 
--- 
+trivia:
+
+pr_<foo> calls are already prefixed with pktgen via pr_fmt,
+you don't need to add it to the format string.
+
+
