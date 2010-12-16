@@ -1,40 +1,91 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/12 net-next] cxgb4 update v2
-Date: Thu, 16 Dec 2010 12:10:11 -0800 (PST)
-Message-ID: <20101216.121011.39196012.davem@davemloft.net>
-References: <1292398615-26527-1-git-send-email-dm@chelsio.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH
+ while reading counters
+Date: Thu, 16 Dec 2010 12:12:38 -0800
+Message-ID: <20101216121238.53deb370@nehalam>
+References: <1292337974.9155.68.camel@firesoul.comx.local>
+	<1292340702.5934.5.camel@edumazet-laptop>
+	<1292342958.9155.91.camel@firesoul.comx.local>
+	<1292343855.5934.27.camel@edumazet-laptop>
+	<1292508266.31289.12.camel@firesoul.comx.local>
+	<1292508733.2883.152.camel@edumazet-laptop>
+	<1292509489.31289.20.camel@firesoul.comx.local>
+	<1292509775.2883.187.camel@edumazet-laptop>
+	<1292511761.2883.236.camel@edumazet-laptop>
+	<1292515625.2883.336.camel@edumazet-laptop>
+	<1292518436.2883.393.camel@edumazet-laptop>
+	<20101216093149.71f082c7@nehalam>
+	<1292521986.2883.472.camel@edumazet-laptop>
+	<20101216095709.18f16c53@nehalam>
+	<1292529519.2655.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	Patrick McHardy <kaber@trash.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Steven Rostedt <srostedt@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58072
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751066Ab0LPUJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:09:43 -0500
-In-Reply-To: <1292398615-26527-1-git-send-email-dm@chelsio.com>
+Received: from mail.vyatta.com ([76.74.103.46]:54207 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753103Ab0LPUMl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:12:41 -0500
+In-Reply-To: <1292529519.2655.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Tue, 14 Dec 2010 23:36:43 -0800
+On Thu, 16 Dec 2010 20:58:39 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> 
-> This is v2 of the cxgb4 series.  I've removed the fallback call to kcalloc in
-> patch 12 per Eric's comment and restored an accidentally removed increment in
-> patch 7.
+> Le jeudi 16 d=E9cembre 2010 =E0 09:57 -0800, Stephen Hemminger a =E9c=
+rit :
+> > On Thu, 16 Dec 2010 18:53:06 +0100
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >=20
+> > > @@ -759,7 +742,7 @@ static struct xt_counters *alloc_counters(con=
+st struct xt_table *table)
+> > >  	 * about).
+> > >  	 */
+> > >  	countersize =3D sizeof(struct xt_counters) * private->number;
+> > > -	counters =3D vmalloc(countersize);
+> > > +	counters =3D vzalloc(countersize);
+> > > =20
+> > >  	if (counters =3D=3D NULL)
+> > >  		return ERR_PTR(-ENOMEM);
+> > > @@ -1007,7 +990,7 @@ static int __do_replace(struct net *net, con=
+st char *name,
+> > >  	struct arpt_entry *iter;
+> > > =20
+> > >  	ret =3D 0;
+> > > -	counters =3D vmalloc(num_counters * sizeof(struct xt_counters))=
+;
+> > > +	counters =3D vzalloc(num_counters * sizeof(struct xt_counters))=
+;
+> > >  	if (!counters) {
+> > >  		ret =3D -ENOMEM;
+> > >  		goto out;
+> >=20
+> > This seems like a different and unrelated change.
+> >=20
+>=20
+> Since you later Acked the patch, you probably know that we now provid=
+e
+> to get_counters() a zeroed area, since we do a sum for each possible
+> cpu, I am answering anyway for other readers ;)
+>=20
+> Thanks for reviewing !
 
-All applied.
+You changed from:
+  get local cpu counters
+  then sum other cpus
+to:
+  sum all cpu's.
 
-I made one change, I made sure that for Joe Perches's patch he will be
-set as the author in the tree.
+This is fine, and will give the same answer.=20
 
-Next time you have a patch written by someone else, start the commit
-message with:
-
-From: NAME <EMAIL>
-
-and GIT will take care of the rest.
-
-Thanks.
+--=20
