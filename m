@@ -1,65 +1,45 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
-Date: Thu, 16 Dec 2010 18:48:12 +0100 (CET)
-Message-ID: <alpine.LFD.2.00.1012161844140.12146@localhost6.localdomain6>
-References: <cover.1292512461.git.richard.cochran@omicron.at> <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
+	C_CAN	controller
+Date: Thu, 16 Dec 2010 18:53:58 +0100
+Message-ID: <4D0A5236.5070900@grandegger.com>
+References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>	<4D09D7B1.9080906@grandegger.com>
+	<070E08D3134344CBB04FC2F201E778B7@hacdom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <070E08D3134344CBB04FC2F201E778B7-c0cKtqp5df7I9507bXv2FdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 16 Dec 2010, Richard Cochran wrote:
-> +	if (txc->modes & ADJ_SETOFFSET) {
-> +		/* Validate the delta value. */
-> +		if (txc->time.tv_sec && txc->time.tv_usec < 0)
-> +			return -EINVAL;
-> +
-> +		if (txc->modes & ADJ_NANO) {
-> +			struct timespec tmp;
-> +			tmp.tv_sec  = txc->time.tv_sec;
-> +			tmp.tv_nsec = txc->time.tv_usec;
-> +			delta = timespec_to_ktime(tmp);
-> +		} else
-> +			delta = timeval_to_ktime(txc->time);
-> +
-> +		/* Adding the delta should be an "atomic" operation. */
-> +		local_irq_disable();
-
-I really do not like that conditional irq_disable(), especially as we
-disable them further down again and we only safe the getnstimeofday()
-call in the non ADJSETOFFSET code path.
-
-So we really better do that unconditionally before getnstimeofday()
-with an appropriate comment and change the write_seqlock_irq() to
-write_seqlock().
-
-> +	}
-> +
->  	getnstimeofday(&ts);
->  
-> +	if (txc->modes & ADJ_SETOFFSET) {
-> +		kt = timespec_to_ktime(ts);
-> +		kt = ktime_add(kt, delta);
-> +		ts = ktime_to_timespec(kt);
-> +		do_settimeofday(&ts);
-> +		local_irq_enable();
-> +	}
-> +
->  	write_seqlock_irq(&xtime_lock);
-
-Thanks,
-
-	tglx
+On 12/16/2010 01:09 PM, Tomoya MORINAGA wrote:
+> On Thursday, December 16, 2010 6:11 PM, Wolfgang Grandegger wrote:
 > 
+>> Ah, oh, I just realized that the register layout is almost identical to
+>> the recently accepted *pch_can* driver. Tomoya, does pch_can use a c_can
+>> core? Well, then it makes really sense to have a generic c_can driver
+>> for the SPEAR, PCH, etc. Board specific details are handled via platform
+>> definition. This driver already provides that functionality, IFAICS.
+> 
+> Hi Wolfgang,
+> 
+> It seems pch_can similar to c_can.
+> However, sorry, I don't know if pch_can core is the same as c_can since
+> LSI is provided by Intel.
+> If necessary, please contact to Intel.
+
+You could also try to use that driver. I'm rather sure that it does work
+on your hardware as well.
+
+Wolfgang.
