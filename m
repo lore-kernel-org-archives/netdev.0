@@ -1,53 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next] pktgen: Remove unnecessary prefix from pr_<level>
-Date: Thu, 16 Dec 2010 11:02:33 -0800
-Message-ID: <1292526153.29894.37.camel@Joe-Laptop>
-References: <20101216172800.GA8404@spritelink.se>
-	 <1292522532.29894.33.camel@Joe-Laptop>
-	 <20101216183004.GC8404@spritelink.se>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] e1000e: workaround missing power down mii control bit
+ on 82571
+Date: Thu, 16 Dec 2010 11:04:15 -0800
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A9001773F7655@orsmsx509.amr.corp.intel.com>
+References: <20101216182847.GA14985@ajones-laptop.nbttech.com>
+ <1292525797.3253.8.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Kristian Larsson <kristian@spritelink.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	Arthur Jones <ajones@riverbed.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2716 "EHLO mail.perches.com"
+Received: from mga03.intel.com ([143.182.124.21]:17212 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754873Ab0LPTCf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Dec 2010 14:02:35 -0500
-In-Reply-To: <20101216183004.GC8404@spritelink.se>
+	id S1753574Ab0LPTEU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 14:04:20 -0500
+In-Reply-To: <1292525797.3253.8.camel@bwh-desktop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove "pktgen: " prefix string from one pr_info.
-pr_fmt adds it, so this is a duplicate.
-
-Signed-off-by: Joe Perches <joe@perches.com>
-
----
-
-> > trivia:
-> > pr_<foo> calls are already prefixed with pktgen via pr_fmt,
-> > you don't need to add it to the format string.
-> Same thing here, will look over it. I think I copied most of this
-> from some other part of pktgen.c :)
-
- net/core/pktgen.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 18fe20d..a9e7fc4 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3553,8 +3553,7 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- 		break;
- 	default: /* Drivers are not supposed to return other values! */
- 		if (net_ratelimit())
--			pr_info("pktgen: %s xmit error: %d\n",
--				pkt_dev->odevname, ret);
-+			pr_info("%s xmit error: %d\n", pkt_dev->odevname, ret);
- 		pkt_dev->errors++;
- 		/* fallthru */
- 	case NETDEV_TX_LOCKED:
-
-
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
+bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+QmVoYWxm
+IE9mIEJlbiBIdXRjaGluZ3MNCj5TZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMTYsIDIwMTAgMTA6
+NTcgQU0NCj5UbzogQXJ0aHVyIEpvbmVzDQo+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZw0KPlN1YmplY3Q6IFJlOiBbUEFUQ0hdIGUxMDAwZTogd29ya2Fyb3Vu
+ZCBtaXNzaW5nIHBvd2VyIGRvd24gbWlpIGNvbnRyb2wgYml0IG9uDQo+ODI1NzENCj4NCj5PbiBU
+aHUsIDIwMTAtMTItMTYgYXQgMTA6MjggLTA4MDAsIEFydGh1ciBKb25lcyB3cm90ZToNCj4+IEhp
+IEplZmYsICBSZS1zZW5kaW5nIHcvIHByb3BlciBuZXRkZXYgZW1haWwNCj4+IGFkZHJlc3MuICBT
+b3JyeSBhYm91dCB0aGF0Li4uDQo+Pg0KPj4gQXJ0aHVyDQo+Pg0KPj4gLS0tDQo+Pg0KPj4gT24g
+ODI1NzEgb25seSwgQUZBSUNULCB0aGUgUEhZIGRvZXMgbm90IHNlZW0gdG8NCj4+IHN0b3JlIHRo
+ZSBNSUkgY29udHJvbCByZWdpc3RlciAwIGJpdCAxMSAocG93ZXINCj4+IGRvd24gUEhZKS4gU28g
+dGhhdCB3aGVuIHdlIHBvd2VyIGRvd24gdGhlIFBIWQ0KPj4gb24gZGV2X2Nsb3NlKCkgYW5kIHRo
+ZW4gcnVuIGV0aHRvb2wgb24gdGhlIGNsb3NlZA0KPj4gZGV2LCB3ZSBlbmQgdXAgdHVybmluZyB0
+aGUgUEhZIGJhY2sgb24gZXZlbiB0aG91Z2gNCj4+IHRoZSBpbnRlcmZhY2UgaXMgZG93bi4gIFRo
+aXMgcHJldHR5IGVhc3kgdG8gcmVwcm86DQo+Pg0KPj4gJCBldGh0b29sIC1zIGV0aDAgd29sIGQN
+Cj4+ICQgaWZjb25maWcgZXRoMCB1cA0KPj4gJCBtaWktdG9vbCBldGgwDQo+PiBldGgwOiBuZWdv
+dGlhdGVkIDEwMGJhc2VUeC1GRCwgbGluayBvaw0KPj4gJCBpZmNvbmZpZyBldGgwIGRvd24NCj4+
+ICQgbWlpLXRvb2wgZXRoMA0KPj4gZXRoMDogbm8gbGluaw0KPj4gJCBldGh0b29sIC1zIGV0aDAg
+YXV0b25lZyBvbiAgKGRvZXNuJ3QgcmVhbGx5IG1hdHRlciB3aGF0IHdlIGRvIGhlcmUpDQo+PiAk
+IG1paS10b29sIGV0aDANCj4+IGV0aDA6IG5lZ290aWF0ZWQgMTAwYmFzZVR4LUZELCBsaW5rIG9r
+ICh0aGlzIHNob3VsZCBiZTogZXRoMDogbm8gbGluaykNCj4+DQo+PiBXZSBmaXggdGhpcyBieSB0
+cmFja2luZyB0aGUgcG93ZXIgZG93biBiaXQgdGhhdCB3ZQ0KPj4gd3JpdGUgdG8gdGhlIFBIWSBj
+b250cm9sIHJlZ2lzdGVyIGFuZCByZS1pbnNlcnRpbmcNCj4+IGl0IHdoZW4gd2UgcmVhZCBpdC4N
+Cj5bLi4uXQ0KPg0KPkFkZGluZyB0aGlzIHNwZWNpYWwgY2FzZSBpbnRvIE1ESU8gYWNjZXNzIHNl
+ZW1zIGxpa2UgYSByZWFsbHkgbmFzdHkNCj5oYWNrLiAgU3VyZWx5IHRoZSBjYWxsZXJzIHRoYXQg
+c2V0IHRoZSBjb250cm9sIHJlZ2lzdGVyIHNob3VsZCB0YWtlIGNhcmUNCj5vZiB0aGlzLg0KPg0K
+PkJlbi4NCg0KQWdyZWVkLiAgSSBhbSBzZXR0aW5nIHVwIHRvIHJlcHJvIG5vdyB0byBzZWUgaWYg
+aXQgaXMgYW4gYWN0dWFsIGhhcmR3YXJlDQppc3N1ZSBvciBqdXN0IGEgc29mdHdhcmUgYnVnOyBl
+aXRoZXIgd2F5LCB0aGlzIHBhdGNoIGlzIG5vdCB0aGUgY29ycmVjdA0KYXBwcm9hY2ggYW5kIEkn
+bGwgZm9sbG93IHVwIHNob3J0bHkuDQoNCkJydWNlLg0K
