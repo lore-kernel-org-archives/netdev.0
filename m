@@ -1,67 +1,47 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
- packets
-Date: Thu, 16 Dec 2010 23:08:38 +0100
-Message-ID: <20101216220838.GB2191@del.dom.local>
-References: <1292428252.3427.342.camel@edumazet-laptop>
- <20101216211744.GA2191@del.dom.local>
- <1292535039.2655.13.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] be2net: use mutex instead of spin lock for
+ mbox_lock
+Date: Thu, 16 Dec 2010 14:12:00 -0800 (PST)
+Message-ID: <20101216.141200.242127421.davem@davemloft.net>
+References: <1292336483.20458.1.camel@bwh-desktop>
+	<1292341399-14353-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Changli Gao <xiaosuo@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sathyap@serverengines.com,
+	subbus@serverengines.com, sarveshwarb@serverengines.com,
+	ajitk@serverengines.com, bhutchings@solarflare.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43654 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754040Ab0LPWIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:08:44 -0500
-Received: by wwa36 with SMTP id 36so37581wwa.1
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 14:08:43 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1292535039.2655.13.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53034
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754040Ab0LPWLb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:11:31 -0500
+In-Reply-To: <1292341399-14353-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 16, 2010 at 10:30:39PM +0100, Eric Dumazet wrote:
-> Le jeudi 16 d=E9cembre 2010 ?? 22:17 +0100, Jarek Poplawski a =E9crit=
- :
-> > On Wed, Dec 15, 2010 at 04:50:52PM +0100, Eric Dumazet wrote:
-> > > In commit 8caf153974f2 (net: sch_netem: Fix an inconsistency in i=
-ngress
-> > > netem timestamps.), Jarek added a logic to refresh timestamps of
-> > > ingressed packets going through netem.
-> > >=20
-> > > I believe we should generalize this, forcing a refresh of timesta=
-mps in
-> > > dev_queue_xmit_nit() for all ingress packets, whatever qdisc/clas=
-s they
-> > > used before being delivered.
-> > >=20
-> > > This way, we can have a good idea when packets are delivered to o=
-ur
-> > > stack (tcpdump -i ifb0), while a tcpdump on original device gives
-> > > timestamps right before ingressing.
-> >=20
-> > I don't think we should do it. IMHO netem on ingress is a special c=
-ase,
-> > obviously for testing, and otherwise the real (first) timestamp mig=
-ht
-> > be valuable for some users.
->=20
-> Well, I find difficult to check sfq is actually correctly working
-> because timestamps are mixed.
->=20
-> After this patch, I found the SFQ allot error for example.
->=20
-> I dont know, I feel adding a sysctl like netdev_tstamp_prequeue is no=
-t
-> worth it...
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Tue, 14 Dec 2010 16:43:19 +0100
 
-Hmm... Do you expect more people start debugging SFQ or I missed your
-point? ;-) Maybe such a change would be reasonable on a cloned skb?
+> On Tue, 2010-12-14 at 14:21 +0000, Ben Hutchings wrote:
+>> On Tue, 2010-12-14 at 14:46 +0100, Ivan Vecera wrote:
+>> > Since the mbox polling uses the schedule_timeout, the mbox_lock should be
+>> > a semaphore and not a spin lock.
+>> > The commit f25b03a replaced udelay() with schedule_timeout() but didn't
+>> > change the mbox_lock to a semaphore or a mutex.
+>> [...]
+>> 
+>> I see no reason for this to be a semaphore; use a mutex instead.
+>> 
+>> Ben
+> Ok, Ben... the new version
+> 
+> Since the mbox polling uses the schedule_timeout, the mbox_lock should be
+> a mutex and not a spin lock.
+> The commit f25b03a replaced udelay() with schedule_timeout() but didn't
+> change mbox_lock to semaphore or mutex.
+> 
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Jarek P.=20
+Applied, thanks.
