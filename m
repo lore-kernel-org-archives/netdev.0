@@ -1,56 +1,86 @@
-From: Junchang Wang <junchangwang@gmail.com>
-Subject: Re: [PATCH] net: increase skb->users instead of skb_clone()
-Date: Thu, 16 Dec 2010 22:20:59 +0800
-Message-ID: <AANLkTim--M0TvW9oUi0UO6Ej_8aLezneQsdRx7X0CXDt@mail.gmail.com>
-References: <1292479045-3136-1-git-send-email-xiaosuo@gmail.com>
-	<1292483902.2603.62.camel@edumazet-laptop>
-	<AANLkTi=BX8AMaiwV3aDAVqRA=br00eRo-42vPNwZfwS6@mail.gmail.com>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: Possible regression: Packet drops during iptables calls
+Date: Thu, 16 Dec 2010 15:24:49 +0100
+Message-ID: <1292509489.31289.20.camel@firesoul.comx.local>
+References: <1292337974.9155.68.camel@firesoul.comx.local>
+	 <1292340702.5934.5.camel@edumazet-laptop>
+	 <1292342958.9155.91.camel@firesoul.comx.local>
+	 <1292343855.5934.27.camel@edumazet-laptop>
+	 <1292508266.31289.12.camel@firesoul.comx.local>
+	 <1292508733.2883.152.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Fenghua Yu <fenghua.yu@intel.com>,
-	Xinan Tang <xinan.tang@intel.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:37010 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756093Ab0LPOVA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 09:21:00 -0500
-Received: by fxm18 with SMTP id 18so3306916fxm.2
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 06:20:59 -0800 (PST)
-In-Reply-To: <AANLkTi=BX8AMaiwV3aDAVqRA=br00eRo-42vPNwZfwS6@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Steven Rostedt <srostedt@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1292508733.2883.152.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 16, 2010 at 3:23 PM, Changli Gao <xiaosuo@gmail.com> wrote:
+On Thu, 2010-12-16 at 15:12 +0100, Eric Dumazet wrote:
+> Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 15:04 +0100, Jesper Dangaard Br=
+ouer a
 
->> You beat me, but I was thinking of a different way, adding a new
->> pt_prev->xmit_func(), handling all the details (no need for atomic o=
-ps
->> on skb users if packet is not delivered at all).
->>
->> By the way, your patch is not 100% safe/OK, because af_packet rcv()
->> handler writes on skb (skb_pull() and all)
->>
->
-> But af_packet_rcv() restores skbs at last.
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if (skb_head !=3D skb->data && skb_shared(=
-skb)) {
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb->data =3D =
-skb_head;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0skb->len =3D s=
-kb_len;
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
->
-If af packet_rcv invokes skb_clone, this skb is differ from the origina=
-l one.
-Eric's warning is right.
+> > The vmalloc size is approx 19 MB (19.820.544 bytes) (see
+> > /proc/vmallocinfo).  Looking through vmallocinfo I realized that
+> > even-though I only have 16 CPUs, there is 32 allocated rulesets
+> > "xt_alloc_table_info" (for the filter table). Thus, I have approx
+> > 634MB iptables filter rules in the kernel, half of which is totally
+> > unused.
+>=20
+> Boot your machine with : "maxcpus=3D16 possible_cpus=3D16", it will b=
+e much
+> better ;)
+
+Good, trick.  I'll use that.
+
+> > Guess this is because we use: "for_each_possible_cpu" instead of
+> > "for_each_online_cpu". (Feel free to fix this, or point me to some
+> > documentation of this CPU hotplug stuff... I see we are missing
+> > get_cpu() and put_cpu() a lot of places).
+>=20
+> Are you really using cpu hotplug ? If not, the "maxcpus=3D16
+> possible_cpus=3D16" trick should be enough for you.
+
+No, not using hotplug CPUs.  Its just a pitty that we waste kernel
+memory on this, for every one which does not know the "maxcpus=3D16
+possible_cpus=3D16" trick...
+
+But as I don't have a hotplug CPU system, I have no chance of testing a=
+n
+eventual code fix/patch.
+
+
+> >=20
+>=20
+> In order to accelerate, you could eventually pre-fill cpu cache befor=
+e
+> the local_bh_disable() (just reading the table). So that critical
+> section is short, because mostly in your cpu cache.
+
+In my case I think this will not help. I'll kill the cache anyways, as
+the ruleset is 19MB and my CPU cache is 8MB.
 
 
 --=20
---Junchang
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
