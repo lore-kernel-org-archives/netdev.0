@@ -1,48 +1,67 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug 24842] New: Compatibility issue with uggly Windows
- RFC1323 implementation.
-Date: Thu, 16 Dec 2010 14:08:51 -0800 (PST)
-Message-ID: <20101216.140851.15238748.davem@davemloft.net>
-References: <1292260479.2759.69.camel@edumazet-laptop>
-	<AANLkTikTgbKSNYHthic8P3bi9+ewN8fEBknnSK=tdTgU@mail.gmail.com>
-	<1292279462.2679.146.camel@edumazet-laptop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
+ packets
+Date: Thu, 16 Dec 2010 23:08:38 +0100
+Message-ID: <20101216220838.GB2191@del.dom.local>
+References: <1292428252.3427.342.camel@edumazet-laptop>
+ <20101216211744.GA2191@del.dom.local>
+ <1292535039.2655.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dmitriy.balakin@nicneiron.ru, shemminger@vyatta.com,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Changli Gao <xiaosuo@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45308
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757361Ab0LPWIX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:08:23 -0500
-In-Reply-To: <1292279462.2679.146.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:43654 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754040Ab0LPWIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:08:44 -0500
+Received: by wwa36 with SMTP id 36so37581wwa.1
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 14:08:43 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292535039.2655.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 13 Dec 2010 23:31:02 +0100
+On Thu, Dec 16, 2010 at 10:30:39PM +0100, Eric Dumazet wrote:
+> Le jeudi 16 d=E9cembre 2010 ?? 22:17 +0100, Jarek Poplawski a =E9crit=
+ :
+> > On Wed, Dec 15, 2010 at 04:50:52PM +0100, Eric Dumazet wrote:
+> > > In commit 8caf153974f2 (net: sch_netem: Fix an inconsistency in i=
+ngress
+> > > netem timestamps.), Jarek added a logic to refresh timestamps of
+> > > ingressed packets going through netem.
+> > >=20
+> > > I believe we should generalize this, forcing a refresh of timesta=
+mps in
+> > > dev_queue_xmit_nit() for all ingress packets, whatever qdisc/clas=
+s they
+> > > used before being delivered.
+> > >=20
+> > > This way, we can have a good idea when packets are delivered to o=
+ur
+> > > stack (tcpdump -i ifb0), while a tcpdump on original device gives
+> > > timestamps right before ingressing.
+> >=20
+> > I don't think we should do it. IMHO netem on ingress is a special c=
+ase,
+> > obviously for testing, and otherwise the real (first) timestamp mig=
+ht
+> > be valuable for some users.
+>=20
+> Well, I find difficult to check sfq is actually correctly working
+> because timestamps are mixed.
+>=20
+> After this patch, I found the SFQ allot error for example.
+>=20
+> I dont know, I feel adding a sysctl like netdev_tstamp_prequeue is no=
+t
+> worth it...
 
-> [PATCH net-next-2.6] tcp: relax tcp_paws_check()
-> 
-> Some windows versions have wrong RFC1323 implementations, with SYN and
-> SYNACKS messages containing zero tcp timestamps.
-> 
-> We relaxed in commit fc1ad92dfc4e363 the passive connection case
-> (Windows connects to a linux machine), but the reverse case (linux
-> connects to a Windows machine) has an analogue problem when tsvals from
-> windows machine are 'negative' (high order bit set) : PAWS triggers and
-> we drops incoming messages.
-> 
-> Fix this by making zero ts_recent value special, allowing frame to be
-> processed.
-> 
-> Based on a report and initial patch from Dmitiy Balakin
-> 
-> Bugzilla reference : https://bugzilla.kernel.org/show_bug.cgi?id=24842
-> 
-> Reported-by: dmitriy.balakin@nicneiron.ru
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Hmm... Do you expect more people start debugging SFQ or I missed your
+point? ;-) Maybe such a change would be reasonable on a cloned skb?
 
-Applied to net-next-2.6, thanks!
+Jarek P.=20
