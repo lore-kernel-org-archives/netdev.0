@@ -1,49 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip: Few typo and grammar errors fixes for ip(8) manpage
-Date: Thu, 16 Dec 2010 17:58:25 +0100
-Message-ID: <1292518705.2883.400.camel@edumazet-laptop>
-References: <1292516694-9156-1-git-send-email-psabata@redhat.com>
-	 <1292517178.2883.364.camel@edumazet-laptop>
-	 <1292518217.3253.3.camel@bwh-desktop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH v2 net-next-2.6] netfilter: ip_tables: dont block BH
+ while reading counters
+Date: Thu, 16 Dec 2010 09:31:49 -0800
+Message-ID: <20101216093149.71f082c7@nehalam>
+References: <1292337974.9155.68.camel@firesoul.comx.local>
+	<1292340702.5934.5.camel@edumazet-laptop>
+	<1292342958.9155.91.camel@firesoul.comx.local>
+	<1292343855.5934.27.camel@edumazet-laptop>
+	<1292508266.31289.12.camel@firesoul.comx.local>
+	<1292508733.2883.152.camel@edumazet-laptop>
+	<1292509489.31289.20.camel@firesoul.comx.local>
+	<1292509775.2883.187.camel@edumazet-laptop>
+	<1292511761.2883.236.camel@edumazet-laptop>
+	<1292515625.2883.336.camel@edumazet-laptop>
+	<1292518436.2883.393.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Petr Sabata <psabata@redhat.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:39433 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753075Ab0LPQ6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 11:58:31 -0500
-Received: by fxm18 with SMTP id 18so3487696fxm.2
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 08:58:30 -0800 (PST)
-In-Reply-To: <1292518217.3253.3.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	Patrick McHardy <kaber@trash.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Steven Rostedt <srostedt@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1292518436.2883.393.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 16:50 +0000, Ben Hutchings a =C3=A9=
-crit :
-> On Thu, 2010-12-16 at 17:32 +0100, Eric Dumazet wrote:
-> > Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 17:24 +0100, Petr Sabata a =C3=
-=A9crit :
-> > > ---
-> > >  man/man8/ip.8 |    6 +++---
-> > >  1 files changed, 3 insertions(+), 3 deletions(-)
-> > >=20
-> >=20
-> > MAN-PAGES: MANUAL PAGES FOR LINUX -- Sections 2, 3, 4, 5, and 7
-> > M:      Michael Kerrisk <mtk.manpages@gmail.com>
-> > W:      http://www.kernel.org/doc/man-pages
-> > L:      linux-man@vger.kernel.org
-> > S:      Maintained
->=20
-> What is your point?  This is a patch for iproute2, so it should go to
-> Stephen Hemminger.
+On Thu, 16 Dec 2010 17:53:56 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Hmm, thats right, I misread patch, sorry.
+>  	spinlock_t lock;
+> +	seqcount_t seq;
 
-Patches for iproute2 should be labeled as such, and sent to maintainer,
-to avoid confusion.
+Since lock and seqcount_t are associated together, why isn't this a seqlock instead?
 
-
-
+-- 
