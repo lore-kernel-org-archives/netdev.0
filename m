@@ -1,60 +1,40 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [PATCH net-2.6] llc: fix a device refcount imbalance
-Date: Thu, 16 Dec 2010 23:49:11 +0200
-Message-ID: <1292536151.19587.6.camel@maxim-laptop>
-References: <1291537161.2806.109.camel@edumazet-laptop>
-	 <1291548233.2806.212.camel@edumazet-laptop>
-	 <1291550606.2806.237.camel@edumazet-laptop>
-	 <20101208.095920.229730656.davem@davemloft.net>
-	 <1291866395.7792.31.camel@maxim-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv8] net: Add batman-adv meshing protocol
+Date: Thu, 16 Dec 2010 14:01:53 -0800 (PST)
+Message-ID: <20101216.140153.232733922.davem@davemloft.net>
+References: <1292275168-19882-1-git-send-email-sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, linux1394-devel@lists.sourceforge.net,
-	stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net,
-	opurdila@ixiacom.com, stable@kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	greg@kroah.com
+To: sven@narfation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f42.google.com ([209.85.214.42]:46702 "EHLO
-	mail-bw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754045Ab0LPVtR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 16:49:17 -0500
-Received: by bwz13 with SMTP id 13so184099bwz.1
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 13:49:15 -0800 (PST)
-In-Reply-To: <1291866395.7792.31.camel@maxim-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48190
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753883Ab0LPWBZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:01:25 -0500
+In-Reply-To: <1292275168-19882-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-12-09 at 05:46 +0200, Maxim Levitsky wrote:
-> On Wed, 2010-12-08 at 09:59 -0800, David Miller wrote:
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Sun, 05 Dec 2010 13:03:26 +0100
-> > 
-> > > [PATCH net-2.6] llc: fix a device refcount imbalance
-> > > 
-> > > commit abf9d537fea225 (llc: add support for SO_BINDTODEVICE) added one
-> > > refcount imbalance in llc_ui_bind(), because dev_getbyhwaddr() doesnt
-> > > take a reference on device, while dev_get_by_index() does.
-> > > 
-> > > Fix this using RCU locking. And since an RCU conversion will be done for
-> > > 2.6.38 for dev_getbyhwaddr(), put the rcu_read_lock/unlock exactly at
-> > > their final place.
-> > > 
-> > > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> > 
-> > Applied and queued up for -stable.
-> 
-> Hi,
-> 
-> Could I kindly ask if my patch is accepted?
-> 
-> Best regards,
-> 	Maxim Levitsky
-> 
+From: Sven Eckelmann <sven@narfation.org>
+Date: Mon, 13 Dec 2010 22:19:28 +0100
 
-Anybody?
+> B.A.T.M.A.N. (better approach to mobile ad-hoc networking) is a routing
+> protocol for multi-hop ad-hoc mesh networks. The networks may be wired or
+> wireless. See http://www.open-mesh.org/ for more information and user space
+> tools.
+> 
+> Signed-off-by: Sven Eckelmann <sven@narfation.org>
 
-Best regards,
-	Maxim Levitsky
+Applied, thanks Sven.
+
+How do you want to take care of the copy that still lives under
+staging?
+
+Greg, any preferences on your end?
+
+I'm more than happy to do the removal from my net-next-2.6 tree
+since the bonafide copy of net/batman-adv is now there.
 
