@@ -1,25 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: use NUMA_NO_NODE instead of the magic number -1
-Date: Thu, 16 Dec 2010 12:36:21 -0800 (PST)
-Message-ID: <20101216.123621.102548832.davem@davemloft.net>
-References: <1292332155-25151-1-git-send-email-xiaosuo@gmail.com>
+From: Kristian Larsson <kristian@spritelink.net>
+Subject: Re: pktgen IP address stepping
+Date: Thu, 16 Dec 2010 21:34:30 +0100
+Message-ID: <20101216203430.GE8404@spritelink.se>
+References: <20101216172800.GA8404@spritelink.se>
+ <1292522532.29894.33.camel@Joe-Laptop>
+ <20101216183004.GC8404@spritelink.se>
+ <1292527132.29894.52.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55930
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756411Ab0LPUfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:35:53 -0500
-In-Reply-To: <1292332155-25151-1-git-send-email-xiaosuo@gmail.com>
+Received: from Mail2.SpriteLink.NET ([195.182.5.83]:49630 "EHLO
+	Mail2.SpriteLink.NET" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756511Ab0LPUgJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:36:09 -0500
+Content-Disposition: inline
+In-Reply-To: <1292527132.29894.52.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Tue, 14 Dec 2010 21:09:15 +0800
+On Thu, Dec 16, 2010 at 11:18:52AM -0800, Joe Perches wrote:
+> On Thu, 2010-12-16 at 19:30 +0100, Kristian Larsson wrote:
+> > > I suggest using actual ipv4 addresses (and ipv6 if you ever
+> > > need it) as increment/mask.
+> > Not sure I follow you, should the stepping be specified as
+> > 0.0.0.213 if I would like to increase with 213 or 0.0.255.255 if
+> > I want to increase by a /16 at a time?
+> 
+> More like:
+> 
+> Initial IPv4 address:	0.0.0.1
+> Step:			0.1.0.0
+> Mask:			127.0.0.1
+> 
+> addr = (addr + step) & mask;
+> 
+> Cycles through all /16's below 128
 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Which I guess is doable with the patch using these options;
+(dst|src)_min 0.0.0.1
+(dst|src)_max 128.0.0.0
+(dst|src)_step 65535
 
-Applied.
+but you want (dst|src)_step to be specified using dot-quad
+instead of an integer?
+
+   Kristian.
+
+-- 
+Kristian Larsson                                        KLL-RIPE
++46 704 264511			              kll@spritelink.net
