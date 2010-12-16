@@ -1,27 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 0/3] bonding fixes
-Date: Thu, 16 Dec 2010 12:42:11 -0800 (PST)
-Message-ID: <20101216.124211.245386802.davem@davemloft.net>
-References: <1292264216.9860.11.camel@bwh-desktop>
-	<1292264283.9860.12.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH
+ while reading counters
+Date: Thu, 16 Dec 2010 21:40:08 +0100
+Message-ID: <1292532008.2655.8.camel@edumazet-laptop>
+References: <1292337974.9155.68.camel@firesoul.comx.local>
+	 <1292340702.5934.5.camel@edumazet-laptop>
+	 <1292342958.9155.91.camel@firesoul.comx.local>
+	 <1292343855.5934.27.camel@edumazet-laptop>
+	 <1292508266.31289.12.camel@firesoul.comx.local>
+	 <1292508733.2883.152.camel@edumazet-laptop>
+	 <1292509489.31289.20.camel@firesoul.comx.local>
+	 <1292509775.2883.187.camel@edumazet-laptop>
+	 <1292511761.2883.236.camel@edumazet-laptop>
+	 <1292515625.2883.336.camel@edumazet-laptop>
+	 <1292518436.2883.393.camel@edumazet-laptop>
+	 <20101216093149.71f082c7@nehalam>
+	 <1292521986.2883.472.camel@edumazet-laptop>
+	 <20101216095709.18f16c53@nehalam> <1292529519.2655.4.camel@edumazet-laptop>
+	 <20101216121238.53deb370@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50182
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756637Ab0LPUlm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:41:42 -0500
-In-Reply-To: <1292264283.9860.12.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
+	Patrick McHardy <kaber@trash.net>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Steven Rostedt <srostedt@redhat.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20101216121238.53deb370@nehalam>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 13 Dec 2010 18:18:03 +0000
+Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 12:12 -0800, Stephen Hemminger a =
+=C3=A9crit :
+> You changed from:
+>   get local cpu counters
+>   then sum other cpus
+> to:
+>   sum all cpu's.
+>=20
+> This is fine, and will give the same answer.=20
+>=20
 
-> These should of course go to net-2.6, not net-next-2.6.
+Yes, I did that because the fetch of individual counters is now more
+complex.
 
-I'll apply these, thanks a lot Ben.
+I tried to make code smaller and less complex. Eventually we are now
+allowed to be preempted and even migrated to another cpu during the
+process.
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
