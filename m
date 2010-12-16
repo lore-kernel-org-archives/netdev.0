@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH
  while reading counters
-Date: Thu, 16 Dec 2010 09:57:09 -0800
-Message-ID: <20101216095709.18f16c53@nehalam>
+Date: Thu, 16 Dec 2010 09:57:40 -0800
+Message-ID: <20101216095740.301b6acc@nehalam>
 References: <1292337974.9155.68.camel@firesoul.comx.local>
 	<1292340702.5934.5.camel@edumazet-laptop>
 	<1292342958.9155.91.camel@firesoul.comx.local>
@@ -28,33 +28,29 @@ Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
 	netdev <netdev@vger.kernel.org>,
 	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:34047 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755684Ab0LPR5n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 12:57:43 -0500
 In-Reply-To: <1292521986.2883.472.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Thu, 16 Dec 2010 18:53:06 +0100
 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> @@ -759,7 +742,7 @@ static struct xt_counters *alloc_counters(const struct xt_table *table)
->  	 * about).
->  	 */
->  	countersize = sizeof(struct xt_counters) * private->number;
-> -	counters = vmalloc(countersize);
-> +	counters = vzalloc(countersize);
->  
->  	if (counters == NULL)
->  		return ERR_PTR(-ENOMEM);
-> @@ -1007,7 +990,7 @@ static int __do_replace(struct net *net, const char *name,
->  	struct arpt_entry *iter;
->  
->  	ret = 0;
-> -	counters = vmalloc(num_counters * sizeof(struct xt_counters));
-> +	counters = vzalloc(num_counters * sizeof(struct xt_counters));
->  	if (!counters) {
->  		ret = -ENOMEM;
->  		goto out;
+> [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH while reading counters
+> 
+> Using "iptables -L" with a lot of rules might have a too big BH latency.
+> Jesper mentioned ~6 ms and worried of frame drops.
+> 
+> Switch to a per_cpu seqcount scheme, so that taking a snapshot of
+> counters doesnt need to block BH (for this cpu, but also other cpus).
+> 
+> Reported-by: Jesper Dangaard Brouer <hawk@comx.dk>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-This seems like a different and unrelated change.
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
 -- 
