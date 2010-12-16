@@ -1,91 +1,50 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v3 net-next-2.6] netfilter: x_tables: dont block BH
- while reading counters
-Date: Thu, 16 Dec 2010 12:12:38 -0800
-Message-ID: <20101216121238.53deb370@nehalam>
-References: <1292337974.9155.68.camel@firesoul.comx.local>
-	<1292340702.5934.5.camel@edumazet-laptop>
-	<1292342958.9155.91.camel@firesoul.comx.local>
-	<1292343855.5934.27.camel@edumazet-laptop>
-	<1292508266.31289.12.camel@firesoul.comx.local>
-	<1292508733.2883.152.camel@edumazet-laptop>
-	<1292509489.31289.20.camel@firesoul.comx.local>
-	<1292509775.2883.187.camel@edumazet-laptop>
-	<1292511761.2883.236.camel@edumazet-laptop>
-	<1292515625.2883.336.camel@edumazet-laptop>
-	<1292518436.2883.393.camel@edumazet-laptop>
-	<20101216093149.71f082c7@nehalam>
-	<1292521986.2883.472.camel@edumazet-laptop>
-	<20101216095709.18f16c53@nehalam>
-	<1292529519.2655.4.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPV6 loopback bound socket succeeds connecting to remote host
+Date: Thu, 16 Dec 2010 12:18:05 -0800 (PST)
+Message-ID: <20101216.121805.59690737.davem@davemloft.net>
+References: <616589.97517.qm@web29017.mail.ird.yahoo.com>
+	<4CF75BC3.1020606@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	Patrick McHardy <kaber@trash.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Steven Rostedt <srostedt@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: albertpretorius@yahoo.co.uk, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, pekkas@netcore.fi, jmorris@namei.org
+To: shanwei@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54207 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753103Ab0LPUMl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:12:41 -0500
-In-Reply-To: <1292529519.2655.4.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34488
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753103Ab0LPURh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 15:17:37 -0500
+In-Reply-To: <4CF75BC3.1020606@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Dec 2010 20:58:39 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Thu, 02 Dec 2010 16:41:39 +0800
 
-> Le jeudi 16 d=E9cembre 2010 =E0 09:57 -0800, Stephen Hemminger a =E9c=
-rit :
-> > On Thu, 16 Dec 2010 18:53:06 +0100
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >=20
-> > > @@ -759,7 +742,7 @@ static struct xt_counters *alloc_counters(con=
-st struct xt_table *table)
-> > >  	 * about).
-> > >  	 */
-> > >  	countersize =3D sizeof(struct xt_counters) * private->number;
-> > > -	counters =3D vmalloc(countersize);
-> > > +	counters =3D vzalloc(countersize);
-> > > =20
-> > >  	if (counters =3D=3D NULL)
-> > >  		return ERR_PTR(-ENOMEM);
-> > > @@ -1007,7 +990,7 @@ static int __do_replace(struct net *net, con=
-st char *name,
-> > >  	struct arpt_entry *iter;
-> > > =20
-> > >  	ret =3D 0;
-> > > -	counters =3D vmalloc(num_counters * sizeof(struct xt_counters))=
-;
-> > > +	counters =3D vzalloc(num_counters * sizeof(struct xt_counters))=
-;
-> > >  	if (!counters) {
-> > >  		ret =3D -ENOMEM;
-> > >  		goto out;
-> >=20
-> > This seems like a different and unrelated change.
-> >=20
->=20
-> Since you later Acked the patch, you probably know that we now provid=
-e
-> to get_counters() a zeroed area, since we do a sum for each possible
-> cpu, I am answering anyway for other readers ;)
->=20
-> Thanks for reviewing !
+> Albert Pretorius wrote, at 12/02/2010 03:45 PM:
+>> Hi
+>> 
+>> --- On Wed, 1/12/10, Shan Wei <shanwei@cn.fujitsu.com> wrote:
+>>> I think it make nonsense to translate data between loopback
+>>> device and other e.g. eth0 device in same machine.
+>> 
+>> I agree, RFC4291 makes it clear for IPV6 that no interface should accept traffic from loopback, I should not have tried to make it behave like IPV4.
+>> I can not find an equivalent statement for IPV4 though, all I could find is this from RFC3330:
+>> 
+>>    127.0.0.0/8 - This block is assigned for use as the Internet host
+>>    loopback address.  A datagram sent by a higher level protocol to an
+>>    address anywhere within this block should loop back inside the host.
+>>    This is ordinarily implemented using only 127.0.0.1/32 for loopback,
+>>    but no addresses within this block should ever appear on any network
+>>    anywhere [RFC1700, page 5].
+>> 
+>> Do you perhaps know?
+> 
+> There are no same statement for IPv4 loopback address. I have checked RFC1122, RFC1700 and RFC5753 .		
 
-You changed from:
-  get local cpu counters
-  then sum other cpus
-to:
-  sum all cpu's.
+Shan, you really need to handle this in the ipv6 routing code.
 
-This is fine, and will give the same answer.=20
-
---=20
+Your approach will only modify socket based route handling, it will
+not handle the ipv6 forwarding case which as per the quoted RFC
+sections must be handled too.
