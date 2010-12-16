@@ -1,103 +1,141 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] net: increase skb->users instead of skb_clone()
-Date: Thu, 16 Dec 2010 13:57:25 +0800
-Message-ID: <1292479045-3136-1-git-send-email-xiaosuo@gmail.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Fenghua Yu <fenghua.yu@intel.com>,
-	Junchang Wang <junchangwang@gmail.com>,
-	Xinan Tang <xinan.tang@intel.com>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] filter: optimize accesses to ancillary data
+Date: Thu, 16 Dec 2010 14:34:06 +0800
+Message-ID: <AANLkTikFqwsze0xZ6+aAhzpJJzng6pWHueimpSkWQNeg@mail.gmail.com>
+References: <1292478328.2603.56.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:60489 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751886Ab0LPF5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 00:57:50 -0500
-Received: by pwj3 with SMTP id 3so370708pwj.19
-        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 21:57:50 -0800 (PST)
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:53713 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751091Ab0LPGe1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 01:34:27 -0500
+Received: by fxm18 with SMTP id 18so2938964fxm.2
+        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 22:34:26 -0800 (PST)
+In-Reply-To: <1292478328.2603.56.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In dev_queue_xmit_nit(), we have to clone skbs as we need to mangle skbs,
-however, we don't need to clone skbs for all the packet_types.
-
-Except for the first packet_type, we increase skb->users instead of
-skb_clone().
-
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/core/dev.c |   30 ++++++++++++++++++++----------
- 1 file changed, 20 insertions(+), 10 deletions(-)
-diff --git a/net/core/dev.c b/net/core/dev.c
-index bf5ced5..888cb74 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1496,6 +1496,14 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
- }
- EXPORT_SYMBOL_GPL(dev_forward_skb);
- 
-+static inline int deliver_skb(struct sk_buff *skb,
-+			      struct packet_type *pt_prev,
-+			      struct net_device *orig_dev)
-+{
-+	atomic_inc(&skb->users);
-+	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
-+}
-+
- /*
-  *	Support routine. Sends outgoing frames to any network
-  *	taps currently in use.
-@@ -1504,6 +1512,8 @@ EXPORT_SYMBOL_GPL(dev_forward_skb);
- static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct packet_type *ptype;
-+	struct sk_buff *skb2 = NULL;
-+	struct packet_type *pt_prev = NULL;
- 
- #ifdef CONFIG_NET_CLS_ACT
- 	if (!(skb->tstamp.tv64 && (G_TC_FROM(skb->tc_verd) & AT_INGRESS)))
-@@ -1520,7 +1530,13 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 		if ((ptype->dev == dev || !ptype->dev) &&
- 		    (ptype->af_packet_priv == NULL ||
- 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
--			struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
-+			if (pt_prev) {
-+				deliver_skb(skb2, pt_prev, skb->dev);
-+				pt_prev = ptype;
-+				continue;
-+			}
-+
-+			skb2 = skb_clone(skb, GFP_ATOMIC);
- 			if (!skb2)
- 				break;
- 
-@@ -1542,9 +1558,11 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 
- 			skb2->transport_header = skb2->network_header;
- 			skb2->pkt_type = PACKET_OUTGOING;
--			ptype->func(skb2, skb->dev, ptype, skb->dev);
-+			pt_prev = ptype;
- 		}
- 	}
-+	if (pt_prev)
-+		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
- 	rcu_read_unlock();
- }
- 
-@@ -2788,14 +2806,6 @@ static void net_tx_action(struct softirq_action *h)
- 	}
- }
- 
--static inline int deliver_skb(struct sk_buff *skb,
--			      struct packet_type *pt_prev,
--			      struct net_device *orig_dev)
--{
--	atomic_inc(&skb->users);
--	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
--}
--
- #if (defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)) && \
-     (defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE))
- /* This hook is defined here for ATM LANE */
+T24gVGh1LCBEZWMgMTYsIDIwMTAgYXQgMTo0NSBQTSwgRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6
+ZXRAZ21haWwuY29tPiB3cm90ZToKPiBXZSBjYW4gdHJhbnNsYXRlIHBzZXVkbyBsb2FkIGluc3Ry
+dWN0aW9ucyBhdCBmaWx0ZXIgY2hlY2sgdGltZSB0bwo+IGRlZGljYXRlZCBpbnN0cnVjdGlvbnMg
+dG8gc3BlZWQgdXAgZmlsdGVyaW5nIGFuZCBhdm9pZCBvbmUgc3dpdGNoKCkuCj4gbGlicGNhcCBj
+dXJyZW50bHkgdXNlcyBTS0ZfQURfUFJPVE9DT0wsIGJ1dCBjdXN0b20gZmlsdGVycyBwcm9iYWJs
+eSB1c2UKPiBvdGhlciBhbmNpbGxhcnkgYWNjZXNzZXMuCj4KPiBOb3RlIDogSSBtYWRlIHRoZSBh
+c3NlcnRpb24gdGhhdCBhbmNpbGxhcnkgZGF0YSB3YXMgYWx3YXlzIGFjY2Vzc2VkIHdpdGgKPiBC
+UEZfTER8QlBGXz98QlBGX0FCUyBpbnN0cnVjdGlvbnMsIG5vdCB3aXRoIEJQRl9MRHxCUEZfP3xC
+UEZfSU5EIG9uZXMKPiAob2Zmc2V0IGdpdmVuIGJ5IEsgY29uc3RhbnQsIG5vdCBieSBLICsgWCBy
+ZWdpc3RlcikKPgo+IE9uIHg4Nl82NCwgdGhpcyBzYXZlcyBhIGZldyBieXRlcyBvZiB0ZXh0IDoK
+Pgo+ICMgc2l6ZSBuZXQvY29yZS9maWx0ZXIuby4qCj4goCB0ZXh0IKAgoGRhdGEgoCCgIGJzcyCg
+IKAgZGVjIKAgoCBoZXggZmlsZW5hbWUKPiCgIDQ4NjQgoCCgIKAgMCCgIKAgoCAwIKAgoDQ4NjQg
+oCCgMTMwMCBuZXQvY29yZS9maWx0ZXIuby5uZXcKPiCgIDQ5NDQgoCCgIKAgMCCgIKAgoCAwIKAg
+oDQ5NDQgoCCgMTM1MCBuZXQvY29yZS9maWx0ZXIuby5vbGQKPgo+IFNpZ25lZC1vZmYtYnk6IEVy
+aWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4KPiAtLS0KPiCgbmV0L2NvcmUvZmls
+dGVyLmMgfCCgIDcyICsrKysrKysrKysrKysrKysrKysrKysrKysrLS0tLS0tLS0tLS0tLS0tLS0t
+Cj4goDEgZmlsZSBjaGFuZ2VkLCA0NCBpbnNlcnRpb25zKCspLCAyOCBkZWxldGlvbnMoLSkKPgo+
+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9maWx0ZXIuYyBiL25ldC9jb3JlL2ZpbHRlci5jCj4gaW5k
+ZXggZThhNmFjNC4uMmIyN2Q0ZSAxMDA2NDQKPiAtLS0gYS9uZXQvY29yZS9maWx0ZXIuYwo+ICsr
+KyBiL25ldC9jb3JlL2ZpbHRlci5jCj4gQEAgLTg1LDYgKzg1LDE3IEBAIGVudW0gewo+IKAgoCCg
+IKBCUEZfU19KTVBfSkdUX1gsCj4goCCgIKAgoEJQRl9TX0pNUF9KU0VUX0ssCj4goCCgIKAgoEJQ
+Rl9TX0pNUF9KU0VUX1gsCj4gKyCgIKAgoCAvKiBBbmNpbGxhcnkgZGF0YSAqLwo+ICsgoCCgIKAg
+QlBGX1NfQU5DX1BST1RPQ09MLAo+ICsgoCCgIKAgQlBGX1NfQU5DX1BLVFRZUEUsCj4gKyCgIKAg
+oCBCUEZfU19BTkNfSUZJTkRFWCwKPiArIKAgoCCgIEJQRl9TX0FOQ19OTEFUVFIsCj4gKyCgIKAg
+oCBCUEZfU19BTkNfTkxBVFRSX05FU1QsCj4gKyCgIKAgoCBCUEZfU19BTkNfTUFSSywKPiArIKAg
+oCCgIEJQRl9TX0FOQ19RVUVVRSwKPiArIKAgoCCgIEJQRl9TX0FOQ19IQVRZUEUsCj4gKyCgIKAg
+oCBCUEZfU19BTkNfUlhIQVNILAo+ICsgoCCgIKAgQlBGX1NfQU5DX0NQVSwKPiCgfTsKPgo+IKAv
+KiBObyBodXJyeSBpbiB0aGlzIGJyYW5jaCAqLwo+IEBAIC0xMDcsMTEgKzExOCw3IEBAIHN0YXRp
+YyBpbmxpbmUgdm9pZCAqbG9hZF9wb2ludGVyKGNvbnN0IHN0cnVjdCBza19idWZmICpza2IsIGlu
+dCBrLAo+IKB7Cj4goCCgIKAgoGlmIChrID49IDApCj4goCCgIKAgoCCgIKAgoCCgcmV0dXJuIHNr
+Yl9oZWFkZXJfcG9pbnRlcihza2IsIGssIHNpemUsIGJ1ZmZlcik7Cj4gLSCgIKAgoCBlbHNlIHsK
+PiAtIKAgoCCgIKAgoCCgIKAgaWYgKGsgPj0gU0tGX0FEX09GRikKPiAtIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCByZXR1cm4gTlVMTDsKPiAtIKAgoCCgIKAgoCCgIKAgcmV0dXJuIF9fbG9hZF9wb2lu
+dGVyKHNrYiwgaywgc2l6ZSk7Cj4gLSCgIKAgoCB9Cj4gKyCgIKAgoCByZXR1cm4gX19sb2FkX3Bv
+aW50ZXIoc2tiLCBrLCBzaXplKTsKPiCgfQo+Cj4goC8qKgo+IEBAIC0yNjksNyArMjc2LDcgQEAg
+bG9hZF93Ogo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBBID0gZ2V0X3VuYWxpZ25l
+ZF9iZTMyKHB0cik7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGNvbnRpbnVlOwo+
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfQo+IC0goCCgIKAgoCCgIKAgoCCgIKAgoCCgIGJyZWFr
+Owo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIHJldHVybiAwOwo+IKAgoCCgIKAgoCCgIKAgoGNh
+c2UgQlBGX1NfTERfSF9BQlM6Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBrID0gSzsKPiCgbG9h
+ZF9oOgo+IEBAIC0yNzgsNyArMjg1LDcgQEAgbG9hZF9oOgo+IKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKBBID0gZ2V0X3VuYWxpZ25lZF9iZTE2KHB0cik7Cj4goCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKAgoGNvbnRpbnVlOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgfQo+IC0g
+oCCgIKAgoCCgIKAgoCCgIKAgoCCgIGJyZWFrOwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIHJl
+dHVybiAwOwo+IKAgoCCgIKAgoCCgIKAgoGNhc2UgQlBGX1NfTERfQl9BQlM6Cj4goCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKBrID0gSzsKPiCgbG9hZF9iOgo+IEBAIC0yODcsNyArMjk0LDcgQEAgbG9h
+ZF9iOgo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBBID0gKih1OCAqKXB0cjsKPiCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgY29udGludWU7Cj4goCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKB9Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgYnJlYWs7Cj4gKyCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgcmV0dXJuIDA7Cj4goCCgIKAgoCCgIKAgoCCgY2FzZSBCUEZfU19MRF9XX0xF
+TjoKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoEEgPSBza2ItPmxlbjsKPiCgIKAgoCCgIKAgoCCg
+IKAgoCCgIKAgoGNvbnRpbnVlOwo+IEBAIC0zMzgsNDUgKzM0NSwzNSBAQCBsb2FkX2I6Cj4goCCg
+IKAgoCCgIKAgoCCgY2FzZSBCUEZfU19TVFg6Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBtZW1b
+S10gPSBYOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgY29udGludWU7Cj4gLSCgIKAgoCCgIKAg
+oCCgIGRlZmF1bHQ6Cj4gLSCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgV0FSTl9PTigxKTsKPiAtIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCByZXR1cm4gMDsKPiAtIKAgoCCgIKAgoCCgIKAgfQo+IC0KPiAt
+IKAgoCCgIKAgoCCgIKAgLyoKPiAtIKAgoCCgIKAgoCCgIKAgoCogSGFuZGxlIGFuY2lsbGFyeSBk
+YXRhLCB3aGljaCBhcmUgaW1wb3NzaWJsZQo+IC0goCCgIKAgoCCgIKAgoCCgKiAob3IgdmVyeSBk
+aWZmaWN1bHQpIHRvIGdldCBwYXJzaW5nIHBhY2tldCBjb250ZW50cy4KPiAtIKAgoCCgIKAgoCCg
+IKAgoCovCj4gLSCgIKAgoCCgIKAgoCCgIHN3aXRjaCAoay1TS0ZfQURfT0ZGKSB7Cj4gLSCgIKAg
+oCCgIKAgoCCgIGNhc2UgU0tGX0FEX1BST1RPQ09MOgo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIEJQ
+Rl9TX0FOQ19QUk9UT0NPTDoKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoEEgPSBudG9ocyhza2It
+PnByb3RvY29sKTsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGNvbnRpbnVlOwo+IC0goCCgIKAg
+oCCgIKAgoCBjYXNlIFNLRl9BRF9QS1RUWVBFOgo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIEJQRl9T
+X0FOQ19QS1RUWVBFOgo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgQSA9IHNrYi0+cGt0X3R5cGU7
+Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBjb250aW51ZTsKPiAtIKAgoCCgIKAgoCCgIKAgY2Fz
+ZSBTS0ZfQURfSUZJTkRFWDoKPiArIKAgoCCgIKAgoCCgIKAgY2FzZSBCUEZfU19BTkNfSUZJTkRF
+WDoKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGlmICghc2tiLT5kZXYpCj4goCCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoHJldHVybiAwOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgQSA9
+IHNrYi0+ZGV2LT5pZmluZGV4Owo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgY29udGludWU7Cj4g
+LSCgIKAgoCCgIKAgoCCgIGNhc2UgU0tGX0FEX01BUks6Cj4gKyCgIKAgoCCgIKAgoCCgIGNhc2Ug
+QlBGX1NfQU5DX01BUks6Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBBID0gc2tiLT5tYXJrOwo+
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgY29udGludWU7Cj4gLSCgIKAgoCCgIKAgoCCgIGNhc2Ug
+U0tGX0FEX1FVRVVFOgo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIEJQRl9TX0FOQ19RVUVVRToKPiCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoEEgPSBza2ItPnF1ZXVlX21hcHBpbmc7Cj4goCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKBjb250aW51ZTsKPiAtIKAgoCCgIKAgoCCgIKAgY2FzZSBTS0ZfQURfSEFU
+WVBFOgo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIEJQRl9TX0FOQ19IQVRZUEU6Cj4goCCgIKAgoCCg
+IKAgoCCgIKAgoCCgIKBpZiAoIXNrYi0+ZGV2KQo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKByZXR1cm4gMDsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoEEgPSBza2ItPmRldi0+dHlw
+ZTsKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGNvbnRpbnVlOwo+IC0goCCgIKAgoCCgIKAgoCBj
+YXNlIFNLRl9BRF9SWEhBU0g6Cj4gKyCgIKAgoCCgIKAgoCCgIGNhc2UgQlBGX1NfQU5DX1JYSEFT
+SDoKPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoEEgPSBza2ItPnJ4aGFzaDsKPiCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoGNvbnRpbnVlOwo+IC0goCCgIKAgoCCgIKAgoCBjYXNlIFNLRl9BRF9DUFU6
+Cj4gKyCgIKAgoCCgIKAgoCCgIGNhc2UgQlBGX1NfQU5DX0NQVToKPiCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoEEgPSByYXdfc21wX3Byb2Nlc3Nvcl9pZCgpOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAg
+oCCgY29udGludWU7Cj4gLSCgIKAgoCCgIKAgoCCgIGNhc2UgU0tGX0FEX05MQVRUUjogewo+ICsg
+oCCgIKAgoCCgIKAgoCBjYXNlIEJQRl9TX0FOQ19OTEFUVFI6IHsKPiCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoHN0cnVjdCBubGF0dHIgKm5sYTsKPgo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgaWYg
+KHNrYl9pc19ub25saW5lYXIoc2tiKSkKPiBAQCAtMzkyLDcgKzM4OSw3IEBAIGxvYWRfYjoKPiCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgQSA9IDA7Cj4goCCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKBjb250aW51ZTsKPiCgIKAgoCCgIKAgoCCgIKB9Cj4gLSCgIKAgoCCgIKAgoCCgIGNhc2Ug
+U0tGX0FEX05MQVRUUl9ORVNUOiB7Cj4gKyCgIKAgoCCgIKAgoCCgIGNhc2UgQlBGX1NfQU5DX05M
+QVRUUl9ORVNUOiB7Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBzdHJ1Y3QgbmxhdHRyICpubGE7
+Cj4KPiCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoGlmIChza2JfaXNfbm9ubGluZWFyKHNrYikpCj4g
+QEAgLTQxMiw2ICs0MDksNyBAQCBsb2FkX2I6Cj4goCCgIKAgoCCgIKAgoCCgIKAgoCCgIKBjb250
+aW51ZTsKPiCgIKAgoCCgIKAgoCCgIKB9Cj4goCCgIKAgoCCgIKAgoCCgZGVmYXVsdDoKPiArIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCBXQVJOX09OKDEpOwo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+cmV0dXJuIDA7Cj4goCCgIKAgoCCgIKAgoCCgfQo+IKAgoCCgIKB9Cj4gQEAgLTYwMCw2ICs1OTgs
+MjQgQEAgaW50IHNrX2Noa19maWx0ZXIoc3RydWN0IHNvY2tfZmlsdGVyICpmaWx0ZXIsIGludCBm
+bGVuKQo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoHBjICsgZnRlc3QtPmpmICsgMSA+PSBm
+bGVuKQo+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKByZXR1cm4gLUVJTlZBTDsKPiCg
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoGJyZWFrOwo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIEJQRl9T
+X0xEX1dfQUJTOgo+ICsgoCCgIKAgoCCgIKAgoCBjYXNlIEJQRl9TX0xEX0hfQUJTOgo+ICsgoCCg
+IKAgoCCgIKAgoCBjYXNlIEJQRl9TX0xEX0JfQUJTOgo+ICsjZGVmaW5lIEFOQ0lMTEFSWShDT0RF
+KSBjYXNlIFNLRl9BRF9PRkYgKyBTS0ZfQURfIyNDT0RFOiCgIKAgoCBcCj4gKyCgIKAgoCCgIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCBjb2RlID0gQlBGX1NfQU5DXyMjQ09ERTsgoCCgIKAgoFwKPiAr
+IKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIGJyZWFrCj4gKyCgIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgc3dpdGNoIChmdGVzdC0+aykgewo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIEFOQ0lM
+TEFSWShQUk9UT0NPTCk7Cj4gKyCgIKAgoCCgIKAgoCCgIKAgoCCgIKAgQU5DSUxMQVJZKFBLVFRZ
+UEUpOwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIEFOQ0lMTEFSWShJRklOREVYKTsKPiArIKAg
+oCCgIKAgoCCgIKAgoCCgIKAgoCBBTkNJTExBUlkoTkxBVFRSKTsKPiArIKAgoCCgIKAgoCCgIKAg
+oCCgIKAgoCBBTkNJTExBUlkoTkxBVFRSX05FU1QpOwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCg
+IEFOQ0lMTEFSWShNQVJLKTsKPiArIKAgoCCgIKAgoCCgIKAgoCCgIKAgoCBBTkNJTExBUlkoUVVF
+VUUpOwo+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIEFOQ0lMTEFSWShIQVRZUEUpOwo+ICsgoCCg
+IKAgoCCgIKAgoCCgIKAgoCCgIEFOQ0lMTEFSWShSWEhBU0gpOwo+ICsgoCCgIKAgoCCgIKAgoCCg
+IKAgoCCgIEFOQ0lMTEFSWShDUFUpOwoKQSBkZWZhdWx0IGNhc2Ugc2hvdWxkIGJlIGhhbmRsZWQg
+YXMgeW91IHJlbW92ZSB0aGUgayA+IFNLRl9BRF9PRkYgZnJvbQpsb2FkX3BvaW50ZXIoKS4KCgo+
+ICsgoCCgIKAgoCCgIKAgoCCgIKAgoCCgIH0KPiCgIKAgoCCgIKAgoCCgIKB9Cj4goCCgIKAgoCCg
+IKAgoCCgZnRlc3QtPmNvZGUgPSBjb2RlOwo+IKAgoCCgIKB9Cj4KCgoKLS0gClJlZ2FyZHMsCkNo
+YW5nbGkgR2FvKHhpYW9zdW9AZ21haWwuY29tKQo=
