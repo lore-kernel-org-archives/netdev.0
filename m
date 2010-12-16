@@ -1,86 +1,39 @@
-From: Flavio Leitner <fleitner@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v2] e1000e: convert to stats64
-Date: Thu, 16 Dec 2010 11:10:21 -0200
-Message-ID: <20101216131021.GA20139@redhat.com>
+Date: Thu, 16 Dec 2010 14:18:57 +0100
+Message-ID: <1292505537.2883.111.camel@edumazet-laptop>
 References: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
-	<1292362173.2478.6.camel@edumazet-laptop>
-	<20101216123131.GA3070@redhat.com>
-	<1292503830.2883.92.camel@edumazet-laptop>
+	 <1292362173.2478.6.camel@edumazet-laptop>
+	 <20101216123131.GA3070@redhat.com>
+	 <1292503830.2883.92.camel@edumazet-laptop>
+	 <20101216131021.GA20139@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <1292503830.2883.92.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+To: Flavio Leitner <fleitner@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55740 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751449Ab0LPNTD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 08:19:03 -0500
+Received: by wwa36 with SMTP id 36so2415934wwa.1
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 05:19:02 -0800 (PST)
+In-Reply-To: <20101216131021.GA20139@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 16, 2010 at 01:50:30PM +0100, Eric Dumazet wrote:
-> Le jeudi 16 d=E9cembre 2010 =E0 10:31 -0200, Flavio Leitner a =E9crit :
-> =
+Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 11:10 -0200, Flavio Leitner a =C3=
+=A9crit :
 
-> > -static struct net_device_stats *e1000_get_stats(struct net_device *net=
-dev)
-> > +struct rtnl_link_stats64 *e1000e_get_stats64(struct net_device *netdev,
-> > +						   struct rtnl_link_stats64 *stats)
-> >  {
-> > -	/* only return the current stats */
-> > -	return &netdev->stats;
-> > +	struct e1000_adapter *adapter =3D netdev_priv(netdev);
-> > +
-> > +	memset(stats, 0, sizeof(struct rtnl_link_stats64));
-> =
+> Yes, but e1000_get_ethtool_stats() also calls it and doesn't do that.
+> I could move the memset to the caller, but I thought it would be clea=
+ner
+> to leave where it is now.
 
-> You dont need this memset(), stats is cleared by caller (dev_get_stats()
-> in net/core/dev.c), as this was always done ;)
+Yes, no problem !
 
-Yes, but e1000_get_ethtool_stats() also calls it and doesn't do that.
-I could move the memset to the caller, but I thought it would be cleaner
-to leave where it is now.
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
- =
 
-> > +	spin_lock(&adapter->stats64_lock);
-> > +	e1000e_update_stats(adapter);
-> > +	/* Fill out the OS statistics structure */
-> > +	stats->rx_bytes =3D adapter->stats.gorc;
-> > +	stats->rx_packets =3D adapter->stats.gprc;
-> > +	stats->tx_bytes =3D adapter->stats.gotc;
-> > +	stats->tx_packets =3D adapter->stats.gptc;
-> > +	stats->multicast =3D adapter->stats.mprc;
-> > +	stats->collisions =3D adapter->stats.colc;
-> > +
-> =
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- =
-
-Flavio
-
----------------------------------------------------------------------------=
----
-Lotusphere 2011
-Register now for Lotusphere 2011 and learn how
-to connect the dots, take your collaborative environment
-to the next level, and enter the era of Social Business.
-http://p.sf.net/sfu/lotusphere-d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
-m/community/wired
