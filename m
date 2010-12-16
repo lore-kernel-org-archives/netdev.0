@@ -1,117 +1,154 @@
-From: Fenghua Yu <fenghua.yu@intel.com>
-Subject: Re: [PATCH 1/3] Kernel interfaces for multiqueue aware socket
-Date: Wed, 15 Dec 2010 17:14:25 -0800
-Message-ID: <20101216011425.GA17446@linux-os.sc.intel.com>
-References: <cover.1292405004.git.fenghua.yu@intel.com> <46a08278c2ba21737528eb4b77391a7e8bc88000.1292405004.git.fenghua.yu@intel.com> <1292446118.2603.11.camel@edumazet-laptop>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH update 3] firewire: net: add carrier detection
+Date: Wed, 15 Dec 2010 19:17:35 -0600
+Message-ID: <1292462257.31873.29.camel@dcbw.foobar.com>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	<1291779177.32420.8.camel@maxim-laptop>
+	<20101208040559.20639.qmail@stuge.se>
+	<1291809485.5421.0.camel@maxim-laptop> <20101212180916.71a57a71@stein>
+	<1292195134.3136.296.camel@localhost> <20101213014602.6bc2727b@stein>
+	<20101214000154.06ec5153@stein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Yu, Fenghua" <fenghua.yu@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"Tang, Xinan" <xinan.tang@intel.com>,
-	Junchang Wang <junchangwang@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:36708 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752641Ab0LPBO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Dec 2010 20:14:26 -0500
-Content-Disposition: inline
-In-Reply-To: <1292446118.2603.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org,
+	linux1394-devel@lists.sourceforge.net, Peter Stuge <peter@stuge.se>
+To: Stefan Richter <stefanr@s5r6.in-berlin.de>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20101214000154.06ec5153@stein>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 15, 2010 at 12:48:38PM -0800, Eric Dumazet wrote:
-> Le mercredi 15 d=E9cembre 2010 =E0 12:02 -0800, Fenghua Yu a =E9crit =
-:
-> > From: Fenghua Yu <fenghua.yu@intel.com>
-> >=20
-> > Multiqueue and multicore provide packet parallel processing methodo=
-logy.
-> > Current kernel and network drivers place one queue on one core. But=
- the higher
-> > level socket doesn't know multiqueue. Current socket only can recei=
-ve or send
-> > packets through one network interfaces. In some cases e.g. multi bp=
-f filter
-> > tcpdump and snort, a lot of contentions come from socket operations=
- like ring
-> > buffer. Even if the application itself has been fully parallelized =
-and run on
-> > multi-core systems and NIC handlex tx/rx in multiqueue in parallel,=
- network layer
-> > and NIC device driver assemble packets to a single, serialized queu=
-e. Thus the
-> > application cannot actually run in parallel in high speed.
-> >=20
-> > To break the serialized packets assembling bottleneck in kernel, on=
-e way is to
-> > allow socket to know multiqueue associated with a NIC interface. So=
- each socket
-> > can handle tx/rx in one queue in parallel.
-> >=20
-> > Kernel provides several interfaces by which sockets can be bound to=
- rx/tx queues.
-> > User applications can configure socket by providing several sockets=
- that each
-> > bound to a single queue, applications can get data from kernel in p=
-arallel. After
-> > that, competitions mentioned above can be removed.
-> >=20
-> > With this patch, the user-space receiving speed on a Intel SR1690 s=
-erver with
-> > a single L5640 6-core processor and a single ixgbe-based NIC goes f=
-rom 0.73Mpps
-> > to 4.20Mpps, nearly a linear speedup. A Intel SR1625 server two E55=
-30 4-core
-> > processors and a single ixgbe-based NIC goes from 0.80Mpps to 4.6Mp=
-ps. We noticed
-> > the performance penalty comes from NUMA memory allocation.
-> >=20
->=20
-> ??? please elaborate on these NUMA memory allocations. This should be=
- OK
-> after commit 564824b0c52c34692d (net: allocate skbs on local node)
->=20
-> > This patch set provides kernel ioctl interfaces for user space. Use=
-r space can
-> > either directly call the interfaces or libpcap interfaces can be fu=
-rther provided
-> > on the top of the kernel ioctl interfaces.
->=20
-> So, say we have 8 queues, you want libpcap opens 8 sockets, and bind
-> them to each queue. Add a bpf filter to each one of them. This seems =
-not
-> generic way, because it wont work for an UDP socket for example.
+On Tue, 2010-12-14 at 00:01 +0100, Stefan Richter wrote:
+> From: Maxim Levitsky <maximlevitsky@gmail.com>
+> 
+> To make userland, e.g. NetworkManager work with firewire, we need to
+> detect whether cable is plugged or not.  Simple and correct way of doing
+> that is just counting number of peers.  No peers - no link and vice
+> versa.
 
-This only works for AF_PACKET like this patch set shows.
+Oh you rock.  Good stuff.
 
-> And you already can do this using SKF_AD_QUEUE (added in commit
-> d19742fb)
+Dan
 
-SKF_AD_QUEUE doesn't know number of rx queues. Thus user application ca=
-n't
-specify right SKF_AD_QUEUE.
+> (Stefan R.:  Combined peer_count inc/dec with tests, added link-down
+> recognition in fwnet_open, added include.)
+> 
+> Signed-off-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
+> ---
+> Update 3: added fwnet_open (ifup) hunk
+> 
+>  drivers/firewire/net.c |   29 +++++++++++++++++++++++++----
+>  1 file changed, 25 insertions(+), 4 deletions(-)
+> 
+> Index: b/drivers/firewire/net.c
+> ===================================================================
+> --- a/drivers/firewire/net.c
+> +++ b/drivers/firewire/net.c
+> @@ -9,6 +9,7 @@
+>  #include <linux/bug.h>
+>  #include <linux/delay.h>
+>  #include <linux/device.h>
+> +#include <linux/ethtool.h>
+>  #include <linux/firewire.h>
+>  #include <linux/firewire-constants.h>
+>  #include <linux/highmem.h>
+> @@ -179,6 +180,7 @@ struct fwnet_device {
+>  	/* Number of tx datagrams that have been queued but not yet acked */
+>  	int queued_datagrams;
+>  
+> +	int peer_count;
+>  	struct list_head peer_list;
+>  	struct fw_card *card;
+>  	struct net_device *netdev;
+> @@ -1234,6 +1236,13 @@ static int fwnet_open(struct net_device 
+>  	}
+>  	netif_start_queue(net);
+>  
+> +	mutex_lock(&fwnet_device_mutex);
+> +	if (dev->peer_count > 1)
+> +		netif_carrier_on(net);
+> +	else
+> +		netif_carrier_off(net);
+> +	mutex_unlock(&fwnet_device_mutex);
+> +
+>  	return 0;
+>  }
+>  
+> @@ -1412,6 +1421,10 @@ static const struct net_device_ops fwnet
+>  	.ndo_change_mtu = fwnet_change_mtu,
+>  };
+>  
+> +static const struct ethtool_ops fwnet_ethtool_ops = {
+> +	.get_link	= ethtool_op_get_link,
+> +};
+> +
+>  static void fwnet_init_dev(struct net_device *net)
+>  {
+>  	net->header_ops		= &fwnet_header_ops;
+> @@ -1423,6 +1436,7 @@ static void fwnet_init_dev(struct net_de
+>  	net->hard_header_len	= FWNET_HLEN;
+>  	net->type		= ARPHRD_IEEE1394;
+>  	net->tx_queue_len	= FWNET_TX_QUEUE_LEN;
+> +	net->ethtool_ops	= &fwnet_ethtool_ops;
+>  }
+>  
+>  /* caller must hold fwnet_device_mutex */
+> @@ -1465,6 +1479,10 @@ static int fwnet_add_peer(struct fwnet_d
+>  	list_add_tail(&peer->peer_link, &dev->peer_list);
+>  	spin_unlock_irq(&dev->lock);
+>  
+> +	/* serialized by fwnet_device_mutex */
+> +	if (++dev->peer_count > 1)
+> +		netif_carrier_on(dev->netdev);
+> +
+>  	return 0;
+>  }
+>  
+> @@ -1543,13 +1561,16 @@ static int fwnet_probe(struct device *_d
+>  	return ret;
+>  }
+>  
+> -static void fwnet_remove_peer(struct fwnet_peer *peer)
+> +static void fwnet_remove_peer(struct fwnet_peer *peer, struct fwnet_device *dev)
+>  {
+>  	struct fwnet_partial_datagram *pd, *pd_next;
+>  
+> -	spin_lock_irq(&peer->dev->lock);
+> +	if (--dev->peer_count == 1)
+> +		netif_carrier_off(dev->netdev);
+> +
+> +	spin_lock_irq(&dev->lock);
+>  	list_del(&peer->peer_link);
+> -	spin_unlock_irq(&peer->dev->lock);
+> +	spin_unlock_irq(&dev->lock);
+>  
+>  	list_for_each_entry_safe(pd, pd_next, &peer->pd_list, pd_link)
+>  		fwnet_pd_delete(pd);
+> @@ -1566,7 +1587,7 @@ static int fwnet_remove(struct device *_
+>  
+>  	mutex_lock(&fwnet_device_mutex);
+>  
+> -	fwnet_remove_peer(peer);
+> +	fwnet_remove_peer(peer, dev);
+>  
+>  	if (list_empty(&dev->peer_list)) {
+>  		net = dev->netdev;
+> 
+> 
 
-SKF_AD_QUEUE only works for rx. There is no queue bound interfaces for =
-tx.
 
-I can change the patch set to use SKF_AD_QUEUE by removing the set rx q=
-ueue
-interface and still keep interfaces of
-#define SIOGNUMRXQUEUE 0x8939  /* Get number of rx queues. */
-#define SIOGNUMTXQUEUE 0x893A  /* Get number of tx queues. */
-#define SIOSTXQUEUEMAPPING     0x893C  /* Set tx queue mapping. */
-#define SIOGRXQUEUEMAPPING     0x893D  /* Get rx queue mapping. */
-#define SIOGTXQUEUEMAPPING     0x893E  /* Get tx queue mapping. */
 
->=20
-> Also your AF_PACKET patch only address mmaped sockets.
->=20
-The new patch set will use SKF_AD_QUEUE for rx. So it won't be limited =
-to mmaped
-sockets.
-
+------------------------------------------------------------------------------
+Lotusphere 2011
+Register now for Lotusphere 2011 and learn how
+to connect the dots, take your collaborative environment
+to the next level, and enter the era of Social Business.
+http://p.sf.net/sfu/lotusphere-d2d
