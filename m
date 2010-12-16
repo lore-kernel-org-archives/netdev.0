@@ -1,56 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: increase skb->users instead of skb_clone()
-Date: Thu, 16 Dec 2010 08:50:08 +0100
-Message-ID: <1292485808.2603.78.camel@edumazet-laptop>
-References: <1292479045-3136-1-git-send-email-xiaosuo@gmail.com>
-	 <1292483902.2603.62.camel@edumazet-laptop>
-	 <AANLkTi=BX8AMaiwV3aDAVqRA=br00eRo-42vPNwZfwS6@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net_sched: sch_sfq: add backlog info in
+	sfq_dump_class_stats()
+Date: Thu, 16 Dec 2010 08:16:21 +0000
+Message-ID: <20101216081621.GA7338@ff.dom.local>
+References: <1292437116.3427.386.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Fenghua Yu <fenghua.yu@intel.com>,
-	Junchang Wang <junchangwang@gmail.com>,
-	Xinan Tang <xinan.tang@intel.com>, netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46556 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972Ab0LPHuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 02:50:14 -0500
-Received: by wwa36 with SMTP id 36so2135715wwa.1
-        for <netdev@vger.kernel.org>; Wed, 15 Dec 2010 23:50:13 -0800 (PST)
-In-Reply-To: <AANLkTi=BX8AMaiwV3aDAVqRA=br00eRo-42vPNwZfwS6@mail.gmail.com>
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:36760 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751355Ab0LPIQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 03:16:27 -0500
+Received: by fxm18 with SMTP id 18so2993902fxm.2
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 00:16:26 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292437116.3427.386.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 15:23 +0800, Changli Gao a =C3=A9=
-crit :
-> On Thu, Dec 16, 2010 at 3:18 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> >
-> > You beat me, but I was thinking of a different way, adding a new
-> > pt_prev->xmit_func(), handling all the details (no need for atomic =
-ops
-> > on skb users if packet is not delivered at all).
-> >
-> > By the way, your patch is not 100% safe/OK, because af_packet rcv()
-> > handler writes on skb (skb_pull() and all)
-> >
->=20
-> But af_packet_rcv() restores skbs at last.
->=20
->         if (skb_head !=3D skb->data && skb_shared(skb)) {
->                 skb->data =3D skb_head;
->                 skb->len =3D skb_len;
->         }
->=20
+On 2010-12-15 19:18, Eric Dumazet wrote:
+> We currently return for each active SFQ slot the number of packets in
+> queue. We can also give number of bytes accounted for these packets.
+> 
+> tc -s class show dev ifb0
+> 
+> Before patch :
+> 
+> class sfq 11:3d9 parent 11: 
+>  (dropped 0, overlimits 0 requeues 0) 
+>  backlog 0b 3p requeues 0 
+>  allot 1266 
+> 
+> After patch :
+> 
+> class sfq 11:3e4 parent 11: 
+>  (dropped 0, overlimits 0 requeues 0) 
+>  backlog 4380b 3p requeues 0 
+>  allot 1212 
+> 
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/sched/sch_sfq.c |    7 ++++++-
+>  1 file changed, 6 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index 3cf478d..cb331de 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> @@ -548,8 +548,13 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+>  {
+>  	struct sfq_sched_data *q = qdisc_priv(sch);
+>  	sfq_index idx = q->ht[cl-1];
+> -	struct gnet_stats_queue qs = { .qlen = q->qs[idx].qlen };
+> +	struct sk_buff_head *list = &q->qs[idx];
+> +	struct gnet_stats_queue qs = { .qlen = list->qlen };
+>  	struct tc_sfq_xstats xstats = { .allot = q->allot[idx] };
+> +	struct sk_buff *skb;
+> +
+> +	skb_queue_walk(list, skb)
+> +		qs.backlog += qdisc_pkt_len(skb);
 
-Thats right, your patch seems fine, thanks !
+I don't think you can walk this list without the qdisc lock.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-
-
+Jarek P.
