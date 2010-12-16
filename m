@@ -1,54 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH] net: Implement read-only protection and COW'ing of
- metrics.
-Date: Thu, 16 Dec 2010 13:21:22 -0800 (PST)
-Message-ID: <20101216.132122.70179958.davem@davemloft.net>
-References: <20101215.132113.189700977.davem@davemloft.net>
-	<1292529359.2655.2.camel@edumazet-laptop>
-	<20101216.115900.183061857.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: pktgen IP address stepping
+Date: Thu, 16 Dec 2010 13:22:59 -0800
+Message-ID: <1292534579.29894.77.camel@Joe-Laptop>
+References: <20101216172800.GA8404@spritelink.se>
+	 <1292522532.29894.33.camel@Joe-Laptop>
+	 <20101216211153.GA8658@spritelink.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Kristian Larsson <kristian@spritelink.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36024
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756903Ab0LPVUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 16:20:53 -0500
-In-Reply-To: <20101216.115900.183061857.davem@davemloft.net>
+Received: from mail.perches.com ([173.55.12.10]:2729 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753305Ab0LPVXB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 16:23:01 -0500
+In-Reply-To: <20101216211153.GA8658@spritelink.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Thu, 16 Dec 2010 11:59:00 -0800 (PST)
+On Thu, 2010-12-16 at 22:11 +0100, Kristian Larsson wrote:
+> On Thu, Dec 16, 2010 at 10:02:12AM -0800, Joe Perches wrote:
+> > pr_<foo> calls are already prefixed with pktgen via pr_fmt,
+> > you don't need to add it to the format string.
+> I can see at least two different cases of debug statements;
+>     if (debug)
+>         pr_info("Delay set at: %llu ns\n", pkt_dev->delay);
+>     if (debug)
+>         printk(KERN_DEBUG "pktgen: dst_min set to: %s\n",
+>                pkt_dev->dst_min);
+> what's the reasoning behind using one or the other?
 
-> Hmm... perhaps we need to force-COW or revert to the default zero
-> metrics for any routing cache entries with reference counts?
-> 
-> Or maybe that's not even needed.
-> 
-> Because nobody should try to touch metrics without first doing a
-> dst->check(), especially after the RCU grace period, so it should be
-> OK no?
+pr_info(fmt, ...)	emits at KERN_INFO level and uses pr_fmt(fmt)
+printk(KERN_DEBUG	emits at KERN_DEBUG level and doesn't use pr_fmt
+pr_debug(fmt, ...)	does use pr_fmt and is optionally compiled.
 
-Ok I did some audits and there are some problems in this area.
+I can't say why the author decided to use a info level output
+for the delay set message.  Maybe that person doesn't like to see
+KERN_DEBUG messages.
 
-First of all I have to at least defer the kmalloc()'d metrics free
-until the RCU callback.
-
-Second of all things like tcp_update_metrics() use __sk_dst_get()
-instead of __sk_dst_check().
-
-I have an idea to use another pointer state bit to indicate that the
-metrics are "dead".  This would block all COW operations and writes.
-Metric reads for obsolete dst's would be redirected to the read-only
-all-zeros default array.
-
-In this way we won't need to do anything different in places like
-tcp_update_metrics().
-
-I'll post a new patch once I sort all of this out.
-
-Thanks for catching this!
+cheers, Joe
 
