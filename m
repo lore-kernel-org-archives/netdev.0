@@ -1,54 +1,54 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: [PATCH] e1000e: workaround missing power down mii control bit
- on 82571
-Date: Thu, 16 Dec 2010 11:04:15 -0800
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A9001773F7655@orsmsx509.amr.corp.intel.com>
-References: <20101216182847.GA14985@ajones-laptop.nbttech.com>
- <1292525797.3253.8.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Arthur Jones <ajones@riverbed.com>
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH] ehea: Fixing some message level
+Date: Thu, 16 Dec 2010 17:13:12 -0200
+Message-ID: <1292526792-28901-1-git-send-email-leitao@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, Breno Leitao <leitao@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:17212 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753574Ab0LPTEU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Dec 2010 14:04:20 -0500
-In-Reply-To: <1292525797.3253.8.camel@bwh-desktop>
-Content-Language: en-US
+Received: from e24smtp03.br.ibm.com ([32.104.18.24]:46768 "EHLO
+	e24smtp03.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753574Ab0LPTNT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 14:13:19 -0500
+Received: from mailhub1.br.ibm.com (mailhub1.br.ibm.com [9.18.232.109])
+	by e24smtp03.br.ibm.com (8.14.4/8.13.1) with ESMTP id oBGJUR0o028275
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 17:30:27 -0200
+Received: from d24av02.br.ibm.com (d24av02.br.ibm.com [9.8.31.93])
+	by mailhub1.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBGJKTvl1257592
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 17:20:29 -0200
+Received: from d24av02.br.ibm.com (loopback [127.0.0.1])
+	by d24av02.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBGJCx6Y027853
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 17:12:59 -0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
-bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddIE9uDQo+QmVoYWxm
-IE9mIEJlbiBIdXRjaGluZ3MNCj5TZW50OiBUaHVyc2RheSwgRGVjZW1iZXIgMTYsIDIwMTAgMTA6
-NTcgQU0NCj5UbzogQXJ0aHVyIEpvbmVzDQo+Q2M6IEtpcnNoZXIsIEplZmZyZXkgVDsgbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZw0KPlN1YmplY3Q6IFJlOiBbUEFUQ0hdIGUxMDAwZTogd29ya2Fyb3Vu
-ZCBtaXNzaW5nIHBvd2VyIGRvd24gbWlpIGNvbnRyb2wgYml0IG9uDQo+ODI1NzENCj4NCj5PbiBU
-aHUsIDIwMTAtMTItMTYgYXQgMTA6MjggLTA4MDAsIEFydGh1ciBKb25lcyB3cm90ZToNCj4+IEhp
-IEplZmYsICBSZS1zZW5kaW5nIHcvIHByb3BlciBuZXRkZXYgZW1haWwNCj4+IGFkZHJlc3MuICBT
-b3JyeSBhYm91dCB0aGF0Li4uDQo+Pg0KPj4gQXJ0aHVyDQo+Pg0KPj4gLS0tDQo+Pg0KPj4gT24g
-ODI1NzEgb25seSwgQUZBSUNULCB0aGUgUEhZIGRvZXMgbm90IHNlZW0gdG8NCj4+IHN0b3JlIHRo
-ZSBNSUkgY29udHJvbCByZWdpc3RlciAwIGJpdCAxMSAocG93ZXINCj4+IGRvd24gUEhZKS4gU28g
-dGhhdCB3aGVuIHdlIHBvd2VyIGRvd24gdGhlIFBIWQ0KPj4gb24gZGV2X2Nsb3NlKCkgYW5kIHRo
-ZW4gcnVuIGV0aHRvb2wgb24gdGhlIGNsb3NlZA0KPj4gZGV2LCB3ZSBlbmQgdXAgdHVybmluZyB0
-aGUgUEhZIGJhY2sgb24gZXZlbiB0aG91Z2gNCj4+IHRoZSBpbnRlcmZhY2UgaXMgZG93bi4gIFRo
-aXMgcHJldHR5IGVhc3kgdG8gcmVwcm86DQo+Pg0KPj4gJCBldGh0b29sIC1zIGV0aDAgd29sIGQN
-Cj4+ICQgaWZjb25maWcgZXRoMCB1cA0KPj4gJCBtaWktdG9vbCBldGgwDQo+PiBldGgwOiBuZWdv
-dGlhdGVkIDEwMGJhc2VUeC1GRCwgbGluayBvaw0KPj4gJCBpZmNvbmZpZyBldGgwIGRvd24NCj4+
-ICQgbWlpLXRvb2wgZXRoMA0KPj4gZXRoMDogbm8gbGluaw0KPj4gJCBldGh0b29sIC1zIGV0aDAg
-YXV0b25lZyBvbiAgKGRvZXNuJ3QgcmVhbGx5IG1hdHRlciB3aGF0IHdlIGRvIGhlcmUpDQo+PiAk
-IG1paS10b29sIGV0aDANCj4+IGV0aDA6IG5lZ290aWF0ZWQgMTAwYmFzZVR4LUZELCBsaW5rIG9r
-ICh0aGlzIHNob3VsZCBiZTogZXRoMDogbm8gbGluaykNCj4+DQo+PiBXZSBmaXggdGhpcyBieSB0
-cmFja2luZyB0aGUgcG93ZXIgZG93biBiaXQgdGhhdCB3ZQ0KPj4gd3JpdGUgdG8gdGhlIFBIWSBj
-b250cm9sIHJlZ2lzdGVyIGFuZCByZS1pbnNlcnRpbmcNCj4+IGl0IHdoZW4gd2UgcmVhZCBpdC4N
-Cj5bLi4uXQ0KPg0KPkFkZGluZyB0aGlzIHNwZWNpYWwgY2FzZSBpbnRvIE1ESU8gYWNjZXNzIHNl
-ZW1zIGxpa2UgYSByZWFsbHkgbmFzdHkNCj5oYWNrLiAgU3VyZWx5IHRoZSBjYWxsZXJzIHRoYXQg
-c2V0IHRoZSBjb250cm9sIHJlZ2lzdGVyIHNob3VsZCB0YWtlIGNhcmUNCj5vZiB0aGlzLg0KPg0K
-PkJlbi4NCg0KQWdyZWVkLiAgSSBhbSBzZXR0aW5nIHVwIHRvIHJlcHJvIG5vdyB0byBzZWUgaWYg
-aXQgaXMgYW4gYWN0dWFsIGhhcmR3YXJlDQppc3N1ZSBvciBqdXN0IGEgc29mdHdhcmUgYnVnOyBl
-aXRoZXIgd2F5LCB0aGlzIHBhdGNoIGlzIG5vdCB0aGUgY29ycmVjdA0KYXBwcm9hY2ggYW5kIEkn
-bGwgZm9sbG93IHVwIHNob3J0bHkuDQoNCkJydWNlLg0K
+Currently there are some info message that is set as error, and an error
+message that is set as debug. This patch just fixes it.
+
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ drivers/net/ehea/ehea_main.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
+index 0dfef6d..1032b5b 100644
+--- a/drivers/net/ehea/ehea_main.c
++++ b/drivers/net/ehea/ehea_main.c
+@@ -740,13 +740,13 @@ static int ehea_proc_rwqes(struct net_device *dev,
+ 							  skb_arr_rq1_len,
+ 							  wqe_index);
+ 				if (unlikely(!skb)) {
+-					netif_err(port, rx_err, dev,
++					netif_info(port, rx_err, dev,
+ 						  "LL rq1: skb=NULL\n");
+ 
+ 					skb = netdev_alloc_skb(dev,
+ 							       EHEA_L_PKT_SIZE);
+ 					if (!skb) {
+-						netdev_info(dev, "Not enough memory to allocate skb\n");
++						netdev_err(dev, "Not enough memory to allocate skb\n");
+ 						break;
+ 					}
+ 				}
+-- 
+1.7.1
+
