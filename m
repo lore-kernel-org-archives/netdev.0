@@ -1,41 +1,96 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCHv8] net: Add batman-adv meshing protocol
-Date: Thu, 16 Dec 2010 14:52:28 -0800 (PST)
-Message-ID: <20101216.145228.27818669.davem@davemloft.net>
-References: <1292275168-19882-1-git-send-email-sven@narfation.org>
-	<20101216.140153.232733922.davem@davemloft.net>
-	<201012162321.11580.sven@narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <201012162321.11580.sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [RFC v2 PATCH 0/2] bonding: generic netlink, multi-link mode
+Date: Thu, 16 Dec 2010 14:53:21 -0800
+Message-ID: <1292540003-9465-1-git-send-email-fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:38525 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219Ab0LPWxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:53:33 -0500
+Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
+	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBGMhqx2012084
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 15:43:52 -0700
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBGMrSt2166082
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 15:53:28 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBGMrRO9000934
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 15:53:28 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Thu, 16 Dec 2010 23:21:09 +0100
+	[ New and Improved, includes all the files this time... -J ]
 
-> This brings me to another topic. How do you want to get patches for batman-
-> adv? Do you prefer to pull changes from a git tree or do you want do have them 
-> sent to netdev and you as real patches? Do you have special restrictions on 
-> the time were you want to except feature patches for the next kernel version 
-> (before Linus' merge window)?
+	These patches add support to bonding for generic netlink and a new
+multi-link mode.  At the moment, I'm looking primarily for discussion
+about the generic netlink and implementation of multi-link.
 
-Patches or GIT tree is fine.  Either way it should be based upon
-net-next-2.6
+	First, in patch 1, is a generic netlink infrastructure for
+bonding.  This patch provides a "get mode" command and a "slave link state
+change" asychnronous notification via a netlink multicast group.  One long
+term goal is to have bonding be controlled via netlink, both for
+administrative purposes (add / remove slaves, etc) and policy (slave A is
+better than slave B).  I'd appreciate feedback from netlink savvy folks as
+to whether this is the appropriate starting point.
 
-If you use a GIT tree, you should still post the individual patches
-for review on netdev.
+	Second, in patch 2, is the multi-link kernel code itself, which is
+at present a work in progress.  Here, I'm primarily looking for comments
+regarding the control interface for this mode.
+
+	As implemented, this is a new mode to bonding, controlled via
+generic netlink commands from a user space daemon.  Slave assignment for
+outgoing traffic is handled directly by bonding (the mapping table used by
+multi-link is within bonding itself, and the usual transmit hash policy is
+applied to the set of slaves allowable for a given destination).
+
+	In some private discussion with Andy, he suggested that this would
+be better if it utilized the recently added queue mapping facility within
+bonding, and then having the queue (and thus slave) assignments performed
+at the qdisc level (via a tc filter) instead of within bonding itself.
+This, I believe, would require a new tc filter that implements the ability
+to set a skb queue_mapping in a hash (of protocol data in the packet) or
+round robin fashion.  In this case, the tc filter would also incorporate
+all of the netlink functionality for communicating with the user space
+daemon (to permit the mappings to be updated).
+
+	Thoughts?
+
+	Lastly, a description of the multi-link system itself.  This is a
+reimplementation of a load balancing scheme that has been available on AIX
+for some time.  It operates essentially as a load balancer by subnet, with
+a UDP-based protocol to exchange multi-link topology information between
+participating systems.  Hosts participating in multi-link have IP
+addresses in a separate subnet.  Interfaces enslaved to multi-link do not
+lose their assigned IP address information, and may also operate
+separately from multi-link.
+
+	One notable feature is that multi-link provides load balancing
+facilities for network devices that cannot change their MAC address, such
+as Infiniband.
+
+	For example, given two systems as follows:
+
+host A:
+bond0		10.88.0.1/16
+slave eth0	10.0.0.1/16
+slave eth1	10.1.0.1/16
+slave eth2	10.2.0.1/16
+
+host B:
+bond0		10.88.0.2/16
+slave eth0	10.0.0.2/16
+slave eth1	10.1.0.2/16
+slave eth2	10.2.0.2/16
+
+	in this case, host A's bond0 running multi-link would load balance
+traffic from 10.88.0.1 to 10.88.0.2 across eth0, eth1 and eth2.  The user
+space daemon negotiates the link set to use with other participating
+hosts, and communicates that to the multi-link implementation.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
