@@ -1,36 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip: Few typo and grammar errors fixes for ip(8) manpage
-Date: Thu, 16 Dec 2010 17:32:58 +0100
-Message-ID: <1292517178.2883.364.camel@edumazet-laptop>
-References: <1292516694-9156-1-git-send-email-psabata@redhat.com>
+From: "Ronciak, John" <john.ronciak@intel.com>
+Subject: RE: e1000: more than two seconds to get the flag RUNNING
+Date: Thu, 16 Dec 2010 08:44:42 -0800
+Message-ID: <DDC57477F5D6F845A0DDCB99D3C4812D0D2E664702@orsmsx510.amr.corp.intel.com>
+References: <4D0A3B89.3010600@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Petr Sabata <psabata@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>
+To: "nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f171.google.com ([209.85.215.171]:47130 "EHLO
-	mail-ey0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963Ab0LPQdF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 11:33:05 -0500
-Received: by eyg5 with SMTP id 5so2023776eyg.2
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 08:33:03 -0800 (PST)
-In-Reply-To: <1292516694-9156-1-git-send-email-psabata@redhat.com>
+Received: from mga11.intel.com ([192.55.52.93]:41783 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752035Ab0LPQop (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 11:44:45 -0500
+In-Reply-To: <4D0A3B89.3010600@6wind.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 17:24 +0100, Petr Sabata a =C3=A9=
-crit :
-> ---
->  man/man8/ip.8 |    6 +++---
->  1 files changed, 3 insertions(+), 3 deletions(-)
->=20
-
-MAN-PAGES: MANUAL PAGES FOR LINUX -- Sections 2, 3, 4, 5, and 7
-M:      Michael Kerrisk <mtk.manpages@gmail.com>
-W:      http://www.kernel.org/doc/man-pages
-L:      linux-man@vger.kernel.org
-S:      Maintained
-
-
-
+SSdtIGFzc3VtaW5nIHdoZW4geW91IHNheSAiZ2V0IHRoZSBmbGFnIFJVTk5JTkciIHlvdSBtZWFu
+IHRvIGdldCBsaW5rLiAgSXMgdGhhdCByaWdodD8gIEFyZSB5b3UgY29ubmVjdGVkIHRvIGEgc3dp
+dGNoPyAgSXQgaXMgZW50aXJlbHkgcG9zc2libGUgdG8gd2FpdCAyIHNlY29uZHMgdG8gZ2V0IGxp
+bmsgb24gYSAxMDAwQmFzZS1UIChSSjQ1KSBsaW5rLiAgQnkgc3BlY2lmaWNhdGlvbiBsaW5rIGNh
+biB0YWtlIGFzIG11Y2ggYXMgNCBzZWNvbmRzLiAgRG8geW91IGhhdmUgc3Bhbm5pbmcgdHJlZSBl
+bmFibGVkIG9uIHRoZSBzd2l0Y2g/ICBUaGF0IGNvdWxkIGJlIGRlbGF5aW5nIGxpbmsgYXMgd2Vs
+bC4NCg0KVG8gY2hlY2sgdGhpcyBjb25uZWN0IGl0IGJhY2sgdG8gYmFjayB0byBhbm90aGVyIHN5
+c3RlbS4gIFdpdGggdGhpcyBvbGQgb2YgYW4gYWRhcHRlciB5b3UgbWF5IG5lZWQgdG8gY29ubmVj
+dCB0aGUgdHdvIHN5c3RlbXMgd2l0aCBhIGNyb3NzLW92ZXIgY2FibGUuDQoNCkNoZWVycywNCkpv
+aG4NCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IE5pY29sYXMgRGlj
+aHRlbCBbbWFpbHRvOm5pY29sYXMuZGljaHRlbEA2d2luZC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5
+LCBEZWNlbWJlciAxNiwgMjAxMCA4OjE3IEFNDQo+IFRvOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IEJy
+YW5kZWJ1cmcsIEplc3NlOyBBbGxhbiwgQnJ1Y2UgVzsgV3lib3JueSwNCj4gQ2Fyb2x5bjsgU2tp
+ZG1vcmUsIERvbmFsZCBDOyBSb3NlLCBHcmVnb3J5IFY7IFdhc2tpZXdpY3ogSnIsIFBldGVyIFA7
+DQo+IER1eWNrLCBBbGV4YW5kZXIgSDsgUm9uY2lhaywgSm9obg0KPiBDYzogbmV0ZGV2DQo+IFN1
+YmplY3Q6IGUxMDAwOiBtb3JlIHRoYW4gdHdvIHNlY29uZHMgdG8gZ2V0IHRoZSBmbGFnIFJVTk5J
+TkcNCj4gDQo+IEhpLA0KPiANCj4gbWF5YmUgdGhpcyBwcm9ibGVtIGhhcyBhbHJlYWR5IGJlZW4g
+ZGlzY3Vzc2VkLCBidXQgSSBkaWRuJ3QgZmluZCB0aGUNCj4gdGhyZWFkLg0KPiBXaGVuIEkgcHV0
+IGFuIGludGVyZmFjZSBtYW5hZ2VkIGJ5IHRoZSBlMTAwMCBkcml2ZXIgdXAsIGRvd24gYW5kIHVw
+DQo+IGFnYWluLCBJIG11c3Qgd2FpdCBtb3JlIHRoYW4gMiBzZWNvbmRzIHRvIGdldCB0aGUgZmxh
+ZyBydW5uaW5nIGFnYWluLg0KPiANCj4gSGVyZSBpcyB0aGUgc2VxdWVuY2U6DQo+IA0KPiBzaGVs
+Ynk6fiMgdW5hbWUgLWENCj4gTGludXggc2hlbGJ5IDIuNi4zNy1yYzUrICM5IFNNUCBXZWQgRGVj
+IDE1IDEzOjE2OjEwIEVTVCAyMDEwIGk2ODYNCj4gR05VL0xpbnV4IHNoZWxieTp+IyBsc21vZCB8
+IGdyZXAgZTEwMDANCj4gZTEwMDAgICAgICAgICAgICAgICAgICA3NjU0MyAgMA0KPiBzaGVsYnk6
+fiMgbHNwY2kgfCBncmVwIEdpZ2FiaXQNCj4gMDE6MDkuMCBFdGhlcm5ldCBjb250cm9sbGVyOiBJ
+bnRlbCBDb3Jwb3JhdGlvbiA4MjU0MEVNIEdpZ2FiaXQgRXRoZXJuZXQNCj4gQ29udHJvbGxlciAo
+cmV2IDAyKSBzaGVsYnk6fiMgY2F0IGNoZWNrX2xpbmtfc3RhdGUuc2ggIyEvYmluL2Jhc2gNCj4g
+DQo+IHNsZWVwX3RpbWU9JDENCj4gaXAgbGluayBzZXQgZXRoMCB1cA0KPiBpcCBsaW5rIHNldCBl
+dGgwIGRvd24NCj4gaXAgbGluayBzZXQgZXRoMCB1cA0KPiB3aGlsZSBbICRzbGVlcF90aW1lIC1n
+dCAwIF0gOyBkbw0KPiAgICAgIGRhdGUNCj4gICAgICAjaXAgbGluayBzaG93IGV0aDANCj4gICAg
+ICBpZmNvbmZpZyBldGgwIHwgZ3JlcCBNVUxUSUNBU1QNCj4gICAgICBzbGVlcCAxDQo+ICAgICAg
+ZWNobyAiIg0KPiAgICAgIHNsZWVwX3RpbWU9YGV4cHIgJHNsZWVwX3RpbWUgLSAxYA0KPiBkb25l
+DQo+IHNoZWxieTp+IyBpZmNvbmZpZyBldGgwDQo+IGV0aDAgICAgICBMaW5rIGVuY2FwOkV0aGVy
+bmV0ICBIV2FkZHIgMDA6MzA6MWI6YjQ6ZGM6ODgNCj4gICAgICAgICAgICBpbmV0IGFkZHI6MTAu
+MTYuMC43MiAgQmNhc3Q6MTAuMTYuMC4yNTUgIE1hc2s6MjU1LjI1NS4yNTUuMA0KPiAgICAgICAg
+ICAgIGluZXQ2IGFkZHI6IGZlODA6OjIzMDoxYmZmOmZlYjQ6ZGM4OC82NCBTY29wZTpMaW5rDQo+
+ICAgICAgICAgICAgVVAgQlJPQURDQVNUIFJVTk5JTkcgTVVMVElDQVNUICBNVFU6MTUwMCAgTWV0
+cmljOjENCj4gICAgICAgICAgICBSWCBwYWNrZXRzOjIyMDUxIGVycm9yczowIGRyb3BwZWQ6MCBv
+dmVycnVuczowIGZyYW1lOjANCj4gICAgICAgICAgICBUWCBwYWNrZXRzOjYzIGVycm9yczowIGRy
+b3BwZWQ6MCBvdmVycnVuczowIGNhcnJpZXI6MA0KPiAgICAgICAgICAgIGNvbGxpc2lvbnM6MCB0
+eHF1ZXVlbGVuOjEwMDANCj4gICAgICAgICAgICBSWCBieXRlczoyNDgwNjg1ICgyLjMgTWlCKSAg
+VFggYnl0ZXM6NTI0MiAoNS4xIEtpQikNCj4gDQo+IHNoZWxieTp+IyAuL2NoZWNrX2xpbmtfc3Rh
+dGUuc2ggMw0KPiBbODMyNzAuMDgwMTc1XSBBRERSQ09ORihORVRERVZfVVApOiBldGgwOiBsaW5r
+IGlzIG5vdCByZWFkeSBUaHUgRGVjIDE2DQo+IDEyOjQ1OjU2IEVTVCAyMDEwDQo+ICAgICAgICAg
+ICAgVVAgQlJPQURDQVNUIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxDQo+IA0KPiBUaHUg
+RGVjIDE2IDEyOjQ1OjU3IEVTVCAyMDEwDQo+ICAgICAgICAgICAgVVAgQlJPQURDQVNUIE1VTFRJ
+Q0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxIFs4MzI3MS44MjgzNzFdDQo+IGUxMDAwOiBldGgwIE5J
+QyBMaW5rIGlzIFVwIDEwMCBNYnBzIEhhbGYgRHVwbGV4LCBGbG93IENvbnRyb2w6IE5vbmUNCj4g
+WzgzMjcxLjgzNTg3OF0gQUREUkNPTkYoTkVUREVWX0NIQU5HRSk6IGV0aDA6IGxpbmsgYmVjb21l
+cyByZWFkeQ0KPiANCj4gVGh1IERlYyAxNiAxMjo0NTo1OCBFU1QgMjAxMA0KPiAgICAgICAgICAg
+IFVQIEJST0FEQ0FTVCBSVU5OSU5HIE1VTFRJQ0FTVCAgTVRVOjE1MDAgIE1ldHJpYzoxDQo+IA0K
+PiBzaGVsYnk6fiMNCj4gDQo+IEkgZ2V0IHRoZSBzYW1lIHJlc3VsdCB3aXRoIGEgMi42LjE1LCBz
+byBpdCBzZWVtcyB0aGF0IHRoZSBwcm9ibGVtIGlzDQo+IGhlcmUgc2luY2UgYSBsb25nIHRpbWUu
+DQo+IEhhcyBhbnlvbmUgYW4gaW5wdXQgZm9yIHRoaXMgcHJvYmxlbT8NCj4gDQo+IA0KPiBSZWdh
+cmRzLA0KPiBOaWNvbGFzDQo=
