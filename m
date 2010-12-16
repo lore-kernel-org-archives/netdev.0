@@ -1,42 +1,61 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2 net-next-2.6] netfilter: ip_tables: dont block BH
- while reading counters
-Date: Thu, 16 Dec 2010 09:31:49 -0800
-Message-ID: <20101216093149.71f082c7@nehalam>
-References: <1292337974.9155.68.camel@firesoul.comx.local>
-	<1292340702.5934.5.camel@edumazet-laptop>
-	<1292342958.9155.91.camel@firesoul.comx.local>
-	<1292343855.5934.27.camel@edumazet-laptop>
-	<1292508266.31289.12.camel@firesoul.comx.local>
-	<1292508733.2883.152.camel@edumazet-laptop>
-	<1292509489.31289.20.camel@firesoul.comx.local>
-	<1292509775.2883.187.camel@edumazet-laptop>
-	<1292511761.2883.236.camel@edumazet-laptop>
-	<1292515625.2883.336.camel@edumazet-laptop>
-	<1292518436.2883.393.camel@edumazet-laptop>
+Subject: Re: [PATCH] ip: Few typo and grammar errors fixes for ip(8) manpage
+Date: Thu, 16 Dec 2010 09:33:00 -0800
+Message-ID: <20101216093300.7d85bd77@nehalam>
+References: <1292516694-9156-1-git-send-email-psabata@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <hawk@comx.dk>,
-	Patrick McHardy <kaber@trash.net>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Steven Rostedt <srostedt@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1292518436.2883.393.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Petr Sabata <psabata@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:52578 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756767Ab0LPRdD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Dec 2010 12:33:03 -0500
+In-Reply-To: <1292516694-9156-1-git-send-email-psabata@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 16 Dec 2010 17:53:56 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, 16 Dec 2010 17:24:54 +0100
+Petr Sabata <psabata@redhat.com> wrote:
 
->  	spinlock_t lock;
-> +	seqcount_t seq;
+> ---
+>  man/man8/ip.8 |    6 +++---
+>  1 files changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/man/man8/ip.8 b/man/man8/ip.8
+> index 6c778d2..8d55fa9 100644
+> --- a/man/man8/ip.8
+> +++ b/man/man8/ip.8
+> @@ -1289,7 +1289,7 @@ can also be
+>  .BI nud " NUD_STATE"
+>  the state of the neighbour entry.
+>  .B nud
+> -is an abbreviation for 'Neigh bour Unreachability Detection'.
+> +is an abbreviation for 'Neighbour Unreachability Detection'.
+>  The state can take one of the following values:
+>  
+>  .in +8
+> @@ -1614,7 +1614,7 @@ peers are allowed to send to us.
+>  .BI rtt " TIME"
+>  the initial RTT ('Round Trip Time') estimate. If no suffix is
+>  specified the units are raw values passed directly to the
+> -routing code to maintain compatability with previous releases.
+> +routing code to maintain compatibility with previous releases.
+>  Otherwise if a suffix of s, sec or secs is used to specify
+>  seconds; ms, msec or msecs to specify milliseconds; us, usec
+>  or usecs to specify microseconds; ns, nsec or nsecs to specify
+> @@ -2484,7 +2484,7 @@ contains one or more algorithms
+>  .I ALGO
+>  which depend on the type of algorithm set by
+>  .IR ALGO_TYPE "."
+> -It can be used these algoritms
+> +Valid algorithms are:
+>  .BR enc ", " auth " or " comp "."
+>  
+>  .SS ip xfrm policy add - add a new policy
 
-Since lock and seqcount_t are associated together, why isn't this a seqlock instead?
+Applied.
 
 -- 
