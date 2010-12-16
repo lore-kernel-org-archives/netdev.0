@@ -1,28 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pktgen IP address stepping
-Date: Thu, 16 Dec 2010 10:34:33 -0800 (PST)
-Message-ID: <20101216.103433.189689586.davem@davemloft.net>
-References: <20101216172800.GA8404@spritelink.se>
-	<20101216.094426.193723178.davem@davemloft.net>
-	<20101216182724.GB8404@spritelink.se>
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Subject: Re: [PATCH] via-velocity: fix the WOL bug on 1000M full duplex forced
+ mode
+Date: Thu, 16 Dec 2010 19:34:39 +0100
+Message-ID: <4D0A5BBF.7000400@computer.org>
+References: <AANLkTi=-MRrH1nCcbzqUMoP1sd=7opNGAz7KwmdoMmjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kristian@spritelink.net
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com
+To: David Lv <davidlv.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41923
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756990Ab0LPSeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 13:34:04 -0500
-In-Reply-To: <20101216182724.GB8404@spritelink.se>
+Received: from mailrelay002.isp.belgacom.be ([195.238.6.175]:51421 "EHLO
+	mailrelay002.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757140Ab0LPSgS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 13:36:18 -0500
+In-Reply-To: <AANLkTi=-MRrH1nCcbzqUMoP1sd=7opNGAz7KwmdoMmjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kristian Larsson <kristian@spritelink.net>
-Date: Thu, 16 Dec 2010 19:27:24 +0100
+On 16/12/10 10:33, David Lv wrote:
+> This patch isn't based on the first patch of the sleep speed 10M.
+> The VIA velocity card can't be waken up by WOL tool on 1000M full
+> duplex forced mode.
+> This patch fixes the bug.
+> Thanks!
 
-> And given your comment I suppose u32 is a better choice than
-> "unsigned long", right? 
+This patch is whitespace-damaged. Your previous version (14 December) 
+wasn't. Why did you resend? Is there a difference?
 
-Yes.
+Thx, Jan
