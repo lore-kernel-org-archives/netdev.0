@@ -1,50 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
- packets
-Date: Thu, 16 Dec 2010 23:26:03 +0100
-Message-ID: <1292538363.2655.20.camel@edumazet-laptop>
-References: <1292428252.3427.342.camel@edumazet-laptop>
-	 <20101216211744.GA2191@del.dom.local>
-	 <1292535039.2655.13.camel@edumazet-laptop>
-	 <20101216220838.GB2191@del.dom.local>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv8] net: Add batman-adv meshing protocol
+Date: Thu, 16 Dec 2010 14:27:25 -0800 (PST)
+Message-ID: <20101216.142725.212679030.davem@davemloft.net>
+References: <1292275168-19882-1-git-send-email-sven@narfation.org>
+	<20101216.140153.232733922.davem@davemloft.net>
+	<20101216222111.GA13395@kroah.com>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Changli Gao <xiaosuo@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60470 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750855Ab0LPW0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:26:08 -0500
-Received: by wyb28 with SMTP id 28so45411wyb.19
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 14:26:06 -0800 (PST)
-In-Reply-To: <20101216220838.GB2191@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20101216222111.GA13395-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 16 d=C3=A9cembre 2010 =C3=A0 23:08 +0100, Jarek Poplawski a =C3=
-=A9crit :
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Date: Thu, 16 Dec 2010 14:21:11 -0800
 
-> Hmm... Do you expect more people start debugging SFQ or I missed your
-> point? ;-) Maybe such a change would be reasonable on a cloned skb?
+> On Thu, Dec 16, 2010 at 02:01:53PM -0800, David Miller wrote:
+>> From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+>> Date: Mon, 13 Dec 2010 22:19:28 +0100
+>> 
+>> > B.A.T.M.A.N. (better approach to mobile ad-hoc networking) is a routing
+>> > protocol for multi-hop ad-hoc mesh networks. The networks may be wired or
+>> > wireless. See http://www.open-mesh.org/ for more information and user space
+>> > tools.
+>> > 
+>> > Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+>> 
+>> Applied, thanks Sven.
+>> 
+>> How do you want to take care of the copy that still lives under
+>> staging?
+>> 
+>> Greg, any preferences on your end?
+>> 
+>> I'm more than happy to do the removal from my net-next-2.6 tree
+>> since the bonafide copy of net/batman-adv is now there.
+> 
+> That might conflict with the patches that I have added to my tree for
+> merging in the .38 timeframe for the batman code.  How about I just drop
+> the whole drivers/staging/batman/ directory in my tree and then we don't
+> have any merge issues?
 
-My point was to permit an admin to check his ingress shaping works or
-not. In this respect, netem was a specialization of a general problem.
-
-We had a prior discussion on timestamping skb in RX path, when RPS came
-in : Should we take timestamp before RPS or after. At that time we adde=
-d
-a sysctl. Not sure it was the right choice :-(
-
-I feel tcpdump (on TX side) should really display time of packet right
-before being given to device, but this is probably a matter of taste.
-
-Before commit 8caf153974f2 (net: sch_netem: Fix an inconsistency in
-ingress netem timestamps.), this is what was done.
-
-
-
+Perfect.
