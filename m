@@ -1,49 +1,58 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for
-	Bosch C_CAN controller
-Date: Thu, 16 Dec 2010 10:31:56 -0800 (PST)
-Message-ID: <20101216.103156.104072504.davem@davemloft.net>
-References: <4D09D7B1.9080906@grandegger.com>
-	<070E08D3134344CBB04FC2F201E778B7@hacdom.okisemi.com>
-	<4D0A5236.5070900@grandegger.com>
+From: Kristian Larsson <kristian@spritelink.net>
+Subject: Re: pktgen IP address stepping
+Date: Thu, 16 Dec 2010 19:30:04 +0100
+Message-ID: <20101216183004.GC8404@spritelink.se>
+References: <20101216172800.GA8404@spritelink.se>
+ <1292522532.29894.33.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D0A5236.5070900-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Mail2.SpriteLink.NET ([195.182.5.83]:59144 "EHLO
+	Mail2.SpriteLink.NET" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754115Ab0LPSbm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 13:31:42 -0500
+Content-Disposition: inline
+In-Reply-To: <1292522532.29894.33.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Date: Thu, 16 Dec 2010 18:53:58 +0100
-
-> On 12/16/2010 01:09 PM, Tomoya MORINAGA wrote:
->> On Thursday, December 16, 2010 6:11 PM, Wolfgang Grandegger wrote:
->> 
->>> Ah, oh, I just realized that the register layout is almost identical to
->>> the recently accepted *pch_can* driver. Tomoya, does pch_can use a c_can
->>> core? Well, then it makes really sense to have a generic c_can driver
->>> for the SPEAR, PCH, etc. Board specific details are handled via platform
->>> definition. This driver already provides that functionality, IFAICS.
->> 
->> Hi Wolfgang,
->> 
->> It seems pch_can similar to c_can.
->> However, sorry, I don't know if pch_can core is the same as c_can since
->> LSI is provided by Intel.
->> If necessary, please contact to Intel.
+On Thu, Dec 16, 2010 at 10:02:12AM -0800, Joe Perches wrote:
+> On Thu, 2010-12-16 at 18:28 +0100, Kristian Larsson wrote:
+> > This patch adds the ability to set the step rate at which the source
+> > or destination IP address is increased when src_min / src_max or
+> > dst_min / dst_max is used with pktgen.
+> > Usage is simple, two new parameters:
+> >   src_step X
+> >   dst_step X
+> > where X is a positive integer (or actually an unsigned long long).
+> []
+> > Looking forward to any feedback and / or suggestions.
 > 
-> You could also try to use that driver. I'm rather sure that it does work
-> on your hardware as well.
+> I suggest using actual ipv4 addresses (and ipv6 if you ever
+> need it) as increment/mask.
 
-Indeed.
+Not sure I follow you, should the stepping be specified as
+0.0.0.213 if I would like to increase with 213 or 0.0.255.255 if
+I want to increase by a /16 at a time?
+
+> For your current use, __u32 would work fine.
+
+Yepp, I'll have a look at that once I get home :)
+ 
+
+> trivia:
+> 
+> pr_<foo> calls are already prefixed with pktgen via pr_fmt,
+> you don't need to add it to the format string.
+
+Same thing here, will look over it. I think I copied most of this
+from some other part of pktgen.c :)
+
+Kind regards,
+    Kristian.
+
+-- 
+Kristian Larsson                                        KLL-RIPE
++46 704 264511			                      kll@spritelink.net
