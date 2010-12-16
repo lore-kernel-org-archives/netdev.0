@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v3] net: factorize sync-rcu call in
- unregister_netdevice_many
-Date: Thu, 16 Dec 2010 14:04:17 -0800 (PST)
-Message-ID: <20101216.140417.229760449.davem@davemloft.net>
-References: <1292280247-9889-1-git-send-email-opurdila@ixiacom.com>
+Subject: Re: [RFC PATCH 1/2] bonding: generic netlink infrastructure
+Date: Thu, 16 Dec 2010 14:06:55 -0800 (PST)
+Message-ID: <20101216.140655.35050321.davem@davemloft.net>
+References: <1292278055-2842-1-git-send-email-fubar@us.ibm.com>
+	<1292278055-2842-2-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lucian.grijincu@gmail.com,
-	ddvlad@rosedu.org
-To: opurdila@ixiacom.com
+Cc: netdev@vger.kernel.org, andy@greyhouse.net
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48197
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45302
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753883Ab0LPWDs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:03:48 -0500
-In-Reply-To: <1292280247-9889-1-git-send-email-opurdila@ixiacom.com>
+	by vger.kernel.org with ESMTP id S1753238Ab0LPWG0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 17:06:26 -0500
+In-Reply-To: <1292278055-2842-2-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Octavian Purdila <opurdila@ixiacom.com>
-Date: Tue, 14 Dec 2010 00:44:07 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Mon, 13 Dec 2010 14:07:34 -0800
 
-> Add dev_close_many and dev_deactivate_many to factorize another
-> sync-rcu operation on the netdevice unregister path.
-> 
-> $ modprobe dummy numdummies=10000
-> $ ip link set dev dummy* up
-> $ time rmmod dummy
-> 
-> Without the patch           With the patch
-> 
-> real    0m 24.63s           real    0m 5.15s
-> user    0m 0.00s            user    0m 0.00s
-> sys     0m 6.05s            sys     0m 5.14s
-> 
-> Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> -bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o
+> +bonding-objs := bond_main.o bond_3ad.o bond_alb.o bond_sysfs.o bond_netlink.o
 
-I'll apply this, thanks Octavian.
+The new bond_netlink.c file is missing from the patch.
+
+Forgotten "git add" most likely. :-)
+
