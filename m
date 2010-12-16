@@ -1,32 +1,55 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH 1/3] Kernel interfaces for multiqueue aware socket
-Date: Wed, 15 Dec 2010 18:43:36 -0800
-Message-ID: <4D097CD8.7080902@chelsio.com>
-References: <cover.1292405004.git.fenghua.yu@intel.com> <46a08278c2ba21737528eb4b77391a7e8bc88000.1292405004.git.fenghua.yu@intel.com> <1292446118.2603.11.camel@edumazet-laptop> <20101216011425.GA17446@linux-os.sc.intel.com> <AANLkTingt6SM+uasicwPSJRE5vYpvJ=GyFf3bbKhO72G@mail.gmail.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: iwl rfkill suddenly dropped to hard block
+Date: Thu, 16 Dec 2010 06:22:47 +0300
+Message-ID: <20101216032247.GA7345@ioremap.net>
+References: <20101215195651.GA18545@ioremap.net>
+ <20101215201126.GG2377@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Fenghua Yu <fenghua.yu@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"Tang, Xinan" <xinan.tang@intel.com>,
-	Junchang Wang <junchangwang@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTingt6SM+uasicwPSJRE5vYpvJ=GyFf3bbKhO72G@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Intel Linux Wireless <ilw@linux.intel.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, wey-yi.w.guy@intel.com
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from netgear.net.ru ([195.178.208.66]:35122 "EHLO tservice.net.ru"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751401Ab0LPDWu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Dec 2010 22:22:50 -0500
+Content-Disposition: inline
+In-Reply-To: <20101215201126.GG2377@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Changli Gao wrote:
-> On Thu, Dec 16, 2010 at 9:14 AM, Fenghua Yu <fenghua.yu@intel.com> wrote:
->> SKF_AD_QUEUE doesn't know number of rx queues. Thus user application can't
->> specify right SKF_AD_QUEUE.
+On Wed, Dec 15, 2010 at 03:11:27PM -0500, John W. Linville (linville@tuxdriver.com) wrote:
+> Cc'ing linux-wireless and Wey-Yi...
 > 
-> It is wrong. AFAIK, you can get the queue number through
-> /sys/class/net/eth*/queues/ or /proc/interrupts
+> To be honest, nearly every report of "suddenly my rfkill is stuck
+> on" is because the laptop has multiple rfkill keys, usually with
+> one of them a slider along the edge of the case.  In particular,
+> Thinkpads have such switches.  The slider gets accidently engaged
+> (possibly while the laptop is being transported or somesuch) and
+> suddenly wireless stops working.
+> 
+> Please check for the above.  If you are sure that isn't the case, then
+> please try to determine the last working kernel and do a bisection --
+> hopefully you don't have to go all the way back to 2.6.33!
 
-The number of Rx queues is also available through ETHTOOL_GRXRINGS though 
-few drivers support it currently.
+I'm pretty sure it would be that simple if there was such a slider.
+
+There is no way I can bisect this problem since, first, i915 does not
+work anywhere after 2.6.34 upto current git tree, and second, because
+wifi perfectly well worked two days ago with this kernel, and now there
+are no good and bad kernels, only bad ones.
+
+Turning on dell_wmi brings 2 more rfkill classes, which are both
+hard and soft blocked. Both can not be unblocked (even soft unblock),
+although reported case can be soft unblocked (hard block status
+obviously does not change). Actually by default it is soft unblocked,
+other two (another wifi switch and bluetooth) are both hard and soft
+blocked.
+
+I would imagine this is just related to some dellish crap, but I saw a
+number of exactly the same cases in the web including linux-kernel mail
+lists in the past and also without 'slider on the back' case.
+
+-- 
+	Evgeniy Polyakov
