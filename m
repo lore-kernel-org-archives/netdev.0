@@ -1,71 +1,73 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: biosdevname v0.3.4
-Date: Thu, 16 Dec 2010 23:06:25 -0600
-Message-ID: <20101217050625.GA32577@auslistsprd01.us.dell.com>
+From: Junchang Wang <junchangwang@gmail.com>
+Subject: Re: [PATCH 1/3] Kernel interfaces for multiqueue aware socket
+Date: Fri, 17 Dec 2010 14:12:56 +0800
+Message-ID: <AANLkTi=VAi5p85aR4U3zu4i0qB5=E=5x766MUaQS-cu7@mail.gmail.com>
+References: <cover.1292405004.git.fenghua.yu@intel.com>
+	<46a08278c2ba21737528eb4b77391a7e8bc88000.1292405004.git.fenghua.yu@intel.com>
+	<1292446118.2603.11.camel@edumazet-laptop>
+	<20101216011425.GA17446@linux-os.sc.intel.com>
+	<1292474660.2603.37.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	"K, Narendra" <Narendra_K@Dell.com>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>,
-	Co
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fenghua Yu <fenghua.yu@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"Tang, Xinan" <xinan.tang@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1292474660.2603.37.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-biosdevname, now version 0.3.4.
+On Thu, Dec 16, 2010 at 12:44 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+>
+> We really need to be smarter than that, not adding raw API.
+>
+> Tom Herbert added RPS, RFS, XPS, in a way applications dont have to u=
+se
+> special API, just run normal code.
+>
+> Please understand that using 8 AF_PACKET sockets bound to a given dev=
+ice
+> is a total waste, because the way we loop on ptype_all before enterin=
+g
+> AF_PACKET code, and in 12% of the cases deliver the packet into a que=
+ue,
+> and 77.5% of the case reject the packet.
+>
+> This is absolutely not scalable to say... 64 queues.
+>
+> I do believe we can handle that using one AF_PACKET socket for the RX
+> side, in order to not slow down the loop we have in
+> __netif_receive_skb()
+>
+> list_for_each_entry_rcu(ptype, &ptype_all, list) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0deliver_skb(skb, pt_prev, orig_dev);
+> }
+>
+> (Same problem with dev_queue_xmit_nit() by the way, even worse since =
+we
+> skb_clone() packet _before_ entering af_packet code)
+>
+> And we can change af_packet to split the load to N skb queues or N ri=
+ng
+> buffers, N not being necessarly number of NIC queues, but the number
+> needed to handle the expected load.
+>
+> There is nothing preventing us changing af_packet/udp/tcp_listener to
+> something more scalable in itself, using a set of receive queues, and
+> NUMA friendly data set. We did multiqueue for a net_device like this,
+> not adding N pseudo devices as we could have done.
+>
+Valuable comments. Thank you very much.
 
-The main visible change is that port indices now start at 1 rather
-than 0, when assigned by biosdevname (such as falling back to PIRQ)
-rather explicitly assigned by BIOS.  This is in keeping with how the
-indices are assigned by BIOS on Dell and HP servers.
+We'll cook a new version and resubmit it.
 
 
-em<port>         where port starts at 1
-pci<slot>#<port> where port starts at 1
-
-As a side effect, the first VMware Workstation guest NIC now appears as pci3#1
-because the virtual machine BIOS exposes the device as being in a PCI
-slot via PIRQ.
-
-
-This also drops an explicit dependency check on a particular udev
-version.  That version was supposed to properly handle parallel
-conflicting renames when swizzling within the ethX namespace, but as
-we've discovered, that doesn't always work.  The udev in RHEL5 is
-older than what we were specifying, but it works just fine, so no more
-check.
-
-Furthermore, if biosdevname somehow messes up (either through its own
-bug or because of a buggy BIOS), and would assign the same name to two
-different devices, it won't try to assign names to either (who knows
-which is correct?).  You can see the duplciates when running with the
--d debug option.
-
-
-Grab it here:
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.4.tar.gz
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.4.tar.gz.sign
-git://linux.dell.com/biosdevname.git
-
-I built this today for Fedora rawhide (will be 15), and I encourage
-other distributions to pick it up as well.
-
-shortlog:
-
-Matt Domsch (5):
-      require any udev
-      Return nothing if duplicate names would be assigned.
-      Don't assign names to unknown devices
-      only supress duplicates, not all names if any duplicates exist
-      start with port index 1, not index 0
-
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+--=20
+--Junchang
