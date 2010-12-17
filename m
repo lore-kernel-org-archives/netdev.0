@@ -1,51 +1,52 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: |PATCH net-next-2.6] ifb: use netif_receive_skb() instead of
- netif_rx()
-Date: Fri, 17 Dec 2010 07:55:37 -0500
-Message-ID: <1292590537.2668.7.camel@mojatatu>
-References: <1292390636-3156-1-git-send-email-xiaosuo@gmail.com>
-	 <1292397202.2377.13.camel@edumazet-laptop>
-	 <AANLkTi=TuZNTXTBxmLqu0yyF=f0xM3CQyr_stRHerv6r@mail.gmail.com>
-	 <1292402398.3427.6.camel@edumazet-laptop>
-	 <1292417363.2067.17.camel@mojatatu>
-	 <1292422896.3427.251.camel@edumazet-laptop>
-Reply-To: hadi@cyberus.ca
+From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Subject: Re: [PATCH] iproute2: initialize the ll_map only once
+Date: Fri, 17 Dec 2010 15:06:41 +0200
+Message-ID: <201012171506.41834.nuclearcat@nuclearcat.com>
+References: <1291993190-8838-1-git-send-email-opurdila@ixiacom.com> <20101210113809.56ea259e@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:61900 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab0LQMzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 07:55:38 -0500
-Received: by yxt3 with SMTP id 3so290522yxt.19
-        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 04:55:37 -0800 (PST)
-In-Reply-To: <1292422896.3427.251.camel@edumazet-laptop>
+Received: from hosting.visp.net.lb ([194.146.153.11]:33374 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753220Ab0LQNG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 08:06:28 -0500
+In-Reply-To: <20101210113809.56ea259e@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-15 at 15:21 +0100, Eric Dumazet wrote:
-> Le mercredi 15 d=C3=A9cembre 2010 =C3=A0 07:49 -0500, jamal a =C3=A9c=
-rit :
+On Friday 10 December 2010 21:38:09 Stephen Hemminger wrote:
+> On Fri, 10 Dec 2010 16:59:50 +0200
+> 
+> Octavian Purdila <opurdila@ixiacom.com> wrote:
+> > Avoid initializing the LL map (which involves a costly RTNL dump)
+> > multiple times. This can happen when running in batch mode.
+> > 
+> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> 
+> applied
+There is some longstanding bug related to current hashing system.
+To "workaround" it i did my own "flush" command, to flush hashes, but with 
+this patch it becomes more difficult to handle this situation.
+Here is how to reproduce it:
 
-> > Eric, did you do at least a simple test on this one?=20
-> > It used to be problematic (I cant remember why or
-> > what use case was problematic).
->=20
-> Yes, I run SFQ / IFB right now on my dev machine, and found SFQ bugs =
-by
-> the way ;)
+ip -force -batch -
+link add link eth0 name new0 type macvlan
+link show dev new0
+link delete dev new0 type macvlan
+link add link eth0 name new0 type macvlan
+link show dev new0
 
-Ok, thanks;->
+Last command will not show link, because index of old one is stored in hash.
 
-cheers,
-jamal
-
+I guess it is more bugreport for old problem, than problem with current patch.
+Sure it is possible to flush hash on del/add operations, but additionally 
+during batch run it is possible that interfaces can appear/disappear (NAS with 
+thousands of ppp interfaces). Maybe still as an idea i can do patch with flag 
+to dump rtnl before each command and additional "flush hash" command?
 
