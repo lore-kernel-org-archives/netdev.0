@@ -1,59 +1,97 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
-Date: Thu, 16 Dec 2010 17:18:13 -0800
-Message-ID: <m1mxo5tcx6.fsf@fess.ebiederm.org>
-References: <4D00F58A.2050307@hp.com> <m139q6ahld.fsf@fess.ebiederm.org>
-	<20101209111611.1d2e6e2b@nehalam>
-	<20101209.122033.183046393.davem@davemloft.net>
-	<20101216132812.2d7fd885@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, brian.haley@hp.com,
-	netdev@vger.kernel.org, maheshkelkar@gmail.com, lorenzo@google.com,
-	yoshfuji@linux-ipv6.org, stable@kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH RFC v3 0/2] bonding: generic netlink, multi-link mode
+Date: Thu, 16 Dec 2010 17:35:24 -0800
+Message-ID: <1292549726-15957-1-git-send-email-fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:32795 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab0LQBSU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 20:18:20 -0500
-In-Reply-To: <20101216132812.2d7fd885@nehalam> (Stephen Hemminger's message of
-	"Thu, 16 Dec 2010 13:28:12 -0800")
+Received: from e34.co.us.ibm.com ([32.97.110.152]:44658 "EHLO
+	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114Ab0LQBfi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Dec 2010 20:35:38 -0500
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by e34.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBH1OxSe019008
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 18:24:59 -0700
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBH1ZVDx146476
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 18:35:31 -0700
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBH1ZVD8028913
+	for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 18:35:31 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+	[ v3: moved up to today's net-next-2.6, cleaned up various cruft,
+	  checkpatch stuff ]
 
-> When loopback device is being brought down, then keep the route table
-> entries because they are special. The entries in the local table for
-> linklocal routes and ::1 address should not be purged.
->
-> This is a sub optimal solution to the problem and should be replaced
-> by a better fix in future.
->
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+	These patches add support to bonding for generic netlink and a new
+multi-link mode.  At the moment, I'm looking primarily for discussion
+about the generic netlink and implementation of multi-link.
 
-Stephen thanks for this.  This patch looks good to me.  I just tested
-this against 2.6.37-rc6 and my simple tests show it to be working
-without problems.
+	First, in patch 1, is a generic netlink infrastructure for
+bonding.  This patch provides a "get mode" command and a "slave link state
+change" asychnronous notification via a netlink multicast group.  One long
+term goal is to have bonding be controlled via netlink, both for
+administrative purposes (add / remove slaves, etc) and policy (slave A is
+better than slave B).  I'd appreciate feedback from netlink savvy folks as
+to whether this is the appropriate starting point.
 
-Acked-by: "Eric W. Biederman" <ebiederm@xmission.com>
+	Second, in patch 2, is the multi-link kernel code itself, which is
+at present a work in progress.  Here, I'm primarily looking for comments
+regarding the control interface for this mode.
 
+	As implemented, this is a new mode to bonding, controlled via
+generic netlink commands from a user space daemon.  Slave assignment for
+outgoing traffic is handled directly by bonding (the mapping table used by
+multi-link is within bonding itself, and the usual transmit hash policy is
+applied to the set of slaves allowable for a given destination).
 
-> ---
-> patch versus current net-next tree, but if this acceptable
-> it should be applied to net-2.6 as well.
->
-> --- a/net/ipv6/addrconf.c	2010-12-16 10:29:34.035408392 -0800
-> +++ b/net/ipv6/addrconf.c	2010-12-16 10:30:37.366834482 -0800
-> @@ -2669,7 +2669,9 @@ static int addrconf_ifdown(struct net_de
->  
->  	ASSERT_RTNL();
->  
-> -	rt6_ifdown(net, dev);
-> +	/* Flush routes if device is being removed or it is not loopback */
-> +	if (how || !(dev->flags & IFF_LOOPBACK))
-> +		rt6_ifdown(net, dev);
->  	neigh_ifdown(&nd_tbl, dev);
->  
->  	idev = __in6_dev_get(dev);
+	In some private discussion with Andy, he suggested that this would
+be better if it utilized the recently added queue mapping facility within
+bonding, and then having the queue (and thus slave) assignments performed
+at the qdisc level (via a tc filter) instead of within bonding itself.
+This, I believe, would require a new tc filter that implements the ability
+to set a skb queue_mapping in a hash (of protocol data in the packet) or
+round robin fashion.  In this case, the tc filter would also incorporate
+all of the netlink functionality for communicating with the user space
+daemon (to permit the mappings to be updated).
+
+	Thoughts?
+
+	Lastly, a description of the multi-link system itself.  This is a
+reimplementation of a load balancing scheme that has been available on AIX
+for some time.  It operates essentially as a load balancer by subnet, with
+a UDP-based protocol to exchange multi-link topology information between
+participating systems.  Hosts participating in multi-link have IP
+addresses in a separate subnet.  Interfaces enslaved to multi-link do not
+lose their assigned IP address information, and may also operate
+separately from multi-link.
+
+	One notable feature is that multi-link provides load balancing
+facilities for network devices that cannot change their MAC address, such
+as Infiniband.
+
+	For example, given two systems as follows:
+
+host A:
+bond0		10.88.0.1/16
+slave eth0	10.0.0.1/16
+slave eth1	10.1.0.1/16
+slave eth2	10.2.0.1/16
+
+host B:
+bond0		10.88.0.2/16
+slave eth0	10.0.0.2/16
+slave eth1	10.1.0.2/16
+slave eth2	10.2.0.2/16
+
+	in this case, host A's bond0 running multi-link would load balance
+traffic from 10.88.0.1 to 10.88.0.2 across eth0, eth1 and eth2.  The user
+space daemon negotiates the link set to use with other participating
+hosts, and communicates that to the multi-link implementation.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
