@@ -1,30 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ip: use checksum options of first fragment also for
- subsequent fragments
-Date: Fri, 17 Dec 2010 11:58:37 -0800 (PST)
-Message-ID: <20101217.115837.39184596.davem@davemloft.net>
-References: <1292313093-11973-1-git-send-email-timo.lindfors@iki.fi>
+Subject: Re: [PATCH] netlink: fix gcc -Wconversion compilation warning
+Date: Fri, 17 Dec 2010 12:02:34 -0800 (PST)
+Message-ID: <20101217.120234.59681524.davem@davemloft.net>
+References: <1292259913-9911-1-git-send-email-kirill@shutemov.name>
+	<m1sjy1uzj6.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: timo.lindfors@iki.fi
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53167
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755568Ab0LQT6I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 14:58:08 -0500
-In-Reply-To: <1292313093-11973-1-git-send-email-timo.lindfors@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kirill@shutemov.name, netdev@vger.kernel.org, pablo@netfilter.org,
+	ldv@altlinux.org, linux-kernel@vger.kernel.org
+To: ebiederm@xmission.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m1sjy1uzj6.fsf@fess.ebiederm.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Timo Juhani Lindfors <timo.lindfors@iki.fi>
-Date: Tue, 14 Dec 2010 09:51:33 +0200
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Mon, 13 Dec 2010 13:35:25 -0800
 
-> Reference: https://bugzilla.kernel.org/show_bug.cgi?id=24832
-> Signed-off-by: Timo Juhani Lindfors <timo.lindfors@iki.fi>
+> "Kirill A. Shutsemov" <kirill@shutemov.name> writes:
+> 
+>> From: Dmitry V. Levin <ldv@altlinux.org>
+>>
+>> $ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
+>> unsigned f(void) {return NLMSG_HDRLEN;}
+>> EOF
+>> <stdin>: In function 'f':
+>> <stdin>:3:26: warning: negative integer implicitly converted to unsigned type
+>>
+> This doesn't look like a bad fix, but I believe things will fail if
+> we give NLMSG_ALIGN an unsigned long like size_t.  Say like sizeof.
 
-You need to provide a commit log message that actually describes,
-in detail, why you are making this change and what the bug is.
+What are you talking about? That's exactly his test case,
+look at what NLMSG_HDRLEN is defined to, it's exactly the
+case you're worried "will fail", it passes sizeof() to
+NLMSG_ALIGN.
 
-Referencing a bugzilla entry is insufficient.
+I think I'll apply Kirill's original patch, it's good enough
+and simpler.
