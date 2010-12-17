@@ -1,120 +1,103 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH V7 4/8] posix clocks: hook dynamic clocks into system
- calls
-Date: Fri, 17 Dec 2010 11:03:46 +0100 (CET)
-Message-ID: <alpine.LFD.2.00.1012171010160.12146@localhost6.localdomain6>
-References: <cover.1292512461.git.richard.cochran@omicron.at> <6241238a1df55033e50b151ec9d35ba957e43d53.1292512461.git.richard.cochran@omicron.at> <alpine.LFD.2.00.1012162156580.12146@localhost6.localdomain6> <20101217070450.GB2982@riccoc20.at.omicron.at>
+From: =?iso-8859-15?Q?Lothar_Wa=DFmann?= <LW@KARO-electronics.de>
+Subject: [BUG] 2.6.37-rc5 Memory leak in net/ipv4/udp.c
+Date: Fri, 17 Dec 2010 11:18:05 +0100
+Message-ID: <19723.14557.349975.821418@ipc1.ka-ro>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20101217070450.GB2982-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.karo-electronics.de ([213.146.116.110]:43304 "EHLO
+	mail.karo-electronics.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753532Ab0LQKZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 05:25:45 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Dec 2010, Richard Cochran wrote:
-> On Fri, Dec 17, 2010 at 12:20:44AM +0100, Thomas Gleixner wrote:
-> > > +static inline bool clock_is_static(const clockid_t id)
-> > > +{
-> > > +	if (0 == (id & ~CLOCKFD_MASK))
-> > > +		return true;
-> > > +	if (CLOCKFD == (id & CLOCKFD_MASK))
-> > > +		return false;
-> > 
-> > Please use the usual kernel notation.
->
-> Sorry, what do you mean?
+Hi,
 
-  if (!id & ~CLOCKFD_MASK)
-  if ((id & CLOCKFD_MASK) == CLOCKFD)
+the kernel memory leak detector spews the message:
+|kmemleak: 2 new suspected memory leaks (see /sys/kernel/debug/kmemleak=
+)
+cat /sys/kernel/debug/kmemleak
+|unreferenced object 0xc7a1c000 (size 5120):
+|  comm "swapper", pid 1, jiffies 4294937513 (age 2320.120s)
+|  hex dump (first 32 bytes):
+|    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ................
+|    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ................
+|  backtrace:
+|    [<c00112b8>] alloc_large_system_hash+0x188/0x224
+|    [<c001be14>] udp_table_init+0x44/0x180
+|    [<c001bf64>] udp_init+0x14/0x78
+|    [<c001c620>] inet_init+0x138/0x240
+|    [<c0030368>] do_one_initcall+0x58/0x1a8
+|    [<c00083c8>] kernel_init+0x98/0x14c
+|    [<c0037714>] kernel_thread_exit+0x0/0x8
+|    [<ffffffff>] 0xffffffff
+|unreferenced object 0xc7a26000 (size 5120):
+|  comm "swapper", pid 1, jiffies 4294937513 (age 2320.130s)
+|  hex dump (first 32 bytes):
+|    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ................
+|    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ................
+|  backtrace:
+|    [<c00112b8>] alloc_large_system_hash+0x188/0x224
+|    [<c001be14>] udp_table_init+0x44/0x180
+|    [<c001bff0>] udplite4_register+0x10/0x94
+|    [<c001c624>] inet_init+0x13c/0x240
+|    [<c0030368>] do_one_initcall+0x58/0x1a8
+|    [<c00083c8>] kernel_init+0x98/0x14c
+|    [<c0037714>] kernel_thread_exit+0x0/0x8
+|    [<ffffffff>] 0xffffffff
 
-Not a real problem. I just always stumble over that coding style.
+The offending code in net/ipv4/udp.c is:
+|void __init udp_table_init(struct udp_table *table, const char *name)
+|{
+|	unsigned int i;
+|
+|	if (!CONFIG_BASE_SMALL)
+|		table->hash =3D alloc_large_system_hash(name,
+|			2 * sizeof(struct udp_hslot),
+|			uhash_entries,
+|			21, /* one slot per 2 MB */
+|			0,
+|			&table->log,
+|			&table->mask,
+|			64 * 1024);
+|	/*
+|	 * Make sure hash table has the minimum size
+|	 */
+|	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
+|		table->hash =3D kmalloc(UDP_HTABLE_SIZE_MIN *
+|				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
+In case of !CONFIG_BASE_SMALL and 'table->mask < UDP_HTABLE_SIZE_MIN - =
+1)'
+the memory allocated in the previous if clause becomes inacessible!
 
-> The code in the patch set is modeled after a USB driver, namely
-> drivers/usb/class/usbtmc.c. Alan Cox had brought up the example of a
-> PTP Hardware Clock appearing as a USB device. So the device might
-> suddenly disappear, and the zombie field is supposed to cover the case
-> where the hardware no longer exists, but the file pointer is still
-> valid.
+Shouldn't this be:
+|	if (!CONFIG_BASE_SMALL && table->mask >=3D UDP_HTABLE_SIZE_MIN - 1) {
+|		table->hash =3D alloc_large_system_hash(name,
+|			2 * sizeof(struct udp_hslot),
+|			uhash_entries,
+|			21, /* one slot per 2 MB */
+|			0,
+|			&table->log,
+|			&table->mask,
+|			64 * 1024);
+|	} else {
+|		table->hash =3D kmalloc(UDP_HTABLE_SIZE_MIN *
+|				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
+[...]
 
-Hmm ok, so you use clk->mutex to prevent the underlying device from
-going away while you call a function and clk->zombie indicates that
-it's gone and clk just kept around for an open file descriptor. Now it
-makes sense, but that wants a big fat comment in the code. :)
 
-Doesn't the same problem exist for the file operations of patch 3? I
-think you want the very same protection there unless you want to do
-the same magic in your USB driver as well.
 
-So you could do the following:
+Lothar Wa=DFmann
+--=20
+___________________________________________________________
 
-static int get_fd_clk(struct posix_clock_descr *cd, struct file *fp)
-{
-	cd->fp = fp;
-	cd->clk = fp->private_data;
-	mutex_lock(&cd->clk->mutex);
-	if (!cd->clk->zombie)
-		return 0;
-	mutex_unlock(&cd->clk->mutex);
-	return -ENODEV;
-}
+Ka-Ro electronics GmbH | Pascalstra=DFe 22 | D - 52076 Aachen
+Phone: +49 2408 1402-0 | Fax: +49 2408 1402-10
+Gesch=E4ftsf=FChrer: Matthias Kaussen
+Handelsregistereintrag: Amtsgericht Aachen, HRB 4996
 
-static void put_fd_clk(struct posix_clock_descr *cd)
-{
-	mutex_unlock(&cd->clk->mutex);
-}
-
-static int get_posix_clock(const clockid_t id, struct posix_clock_descr *cd)
-{
-	struct file *fp = fget(CLOCKID_TO_FD(id));
-	int ret;
-
-	if (!fp || fp->f_op->open != posix_clock_open || !fp->private_data)
-	   	return -ENODEV;
-	ret = get_fd_clk(cd, fp);
-	if (ret)
-		fput(fp);
-	return ret;
-}
-
-static void put_posix_clock(struct posix_clock_descr *cd)
-{
-	put_fd_clk(cd);
-	fput(cd->fp);
-}
-
-So your fops would call get_fd_clk() and put_fd_clk() and the pc_timer
-ones get_posix_clock() and put_posix_clock() or whatever sensible
-function names you come up with.
-
-Thoughts ?
-
-> I would summarize the discussion like this:
-> 
-> Alan Cox was strongly in favor of using a regular file descriptor as
-> the reference to the dynamic clock.
-> 
-> John Stultz thought it wouldn't be too bad to cycle though a number of
-> static ids, being careful not to every assign the same static id (in
-> series) to two different clocks.
-> 
-> I implemented Alan's idea, since it seemed like maintaining the
-> mapping between clocks and static ids would be extra work, but without
-> any real benefit.
-
-Yes, he's right. Was too tired to think about the clock ids assingment
-when devices are removed and plugged. The fd mapping makes that all go
-away.
-
-Thanks,
-
-	tglx
+www.karo-electronics.de | info@karo-electronics.de
+___________________________________________________________
