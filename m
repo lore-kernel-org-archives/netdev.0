@@ -1,43 +1,60 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V7 3/8] posix clocks: introduce dynamic clocks
-Date: Fri, 17 Dec 2010 07:29:33 +0100
-Message-ID: <20101217062933.GA2982@riccoc20.at.omicron.at>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
- <8debe4d48d9a6484b7fbd35d8888524155fed977.1292512461.git.richard.cochran@omicron.at>
- <alpine.LFD.2.00.1012161939340.12146@localhost6.localdomain6>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] Kernel interfaces for multiqueue aware socket
+Date: Fri, 17 Dec 2010 07:50:34 +0100
+Message-ID: <1292568634.2655.31.camel@edumazet-laptop>
+References: <cover.1292405004.git.fenghua.yu@intel.com>
+	 <46a08278c2ba21737528eb4b77391a7e8bc88000.1292405004.git.fenghua.yu@intel.com>
+	 <1292446118.2603.11.camel@edumazet-laptop>
+	 <20101216011425.GA17446@linux-os.sc.intel.com>
+	 <AANLkTingt6SM+uasicwPSJRE5vYpvJ=GyFf3bbKhO72G@mail.gmail.com>
+	 <AANLkTi=oXCqPHYs9reF9WL46Wxi_b8vL_NMSsAJJ34wD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Fastabend, John R" <john.r.fastabend@intel.com>,
+	"Tang, Xinan" <xinan.tang@intel.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Junchang Wang <junchangwang@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:52043 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203Ab0LQG3k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 01:29:40 -0500
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1012161939340.12146@localhost6.localdomain6>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:60391 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081Ab0LQGuk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 01:50:40 -0500
+In-Reply-To: <AANLkTi=oXCqPHYs9reF9WL46Wxi_b8vL_NMSsAJJ34wD@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 16, 2010 at 09:56:38PM +0100, Thomas Gleixner wrote:
-> > +void *posix_clock_private(struct file *fp);
-> 
-> Leftover ? There is neither a caller nor an implementation
+Le vendredi 17 d=C3=A9cembre 2010 =C3=A0 14:22 +0800, Junchang Wang a =C3=
+=A9crit :
+> On Thu, Dec 16, 2010 at 9:28 AM, Changli Gao <xiaosuo@gmail.com> wrot=
+e:
+> > On Thu, Dec 16, 2010 at 9:14 AM, Fenghua Yu <fenghua.yu@intel.com> =
+wrote:
+> >>
+> >> SKF_AD_QUEUE doesn't know number of rx queues. Thus user applicati=
+on can't
+> >> specify right SKF_AD_QUEUE.
+> >
+> > It is wrong. AFAIK, you can get the queue number through
+> > /sys/class/net/eth*/queues/ or /proc/interrupts
+> >
+>=20
+> Valuable comment. Thanks.
+>=20
+> >
+> > If you turn to SKF_AD_QUEUE, I think no patch for kernel is needed.
+> >
+> This patch set is about parallelization of socket interfaces to gain
+> performance boost (say, from 1Mpps to around 5Mpps), rather than
+> simply bounding socket to cpu/queue. Therefore, it does worth having.
+>=20
 
-Yes, you are right. Sorry.
+Definitely, but this needs to be designed so that it can be used by eve=
+n
+dumb applications :)
 
-This patch series has been through several contortions, and this
-current one won't be the last!
 
-As to the other comments, thanks for your careful review. I will adapt
-the patch set accordingly.
 
-Richard
