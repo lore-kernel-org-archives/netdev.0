@@ -1,57 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
-	packets
-Date: Fri, 17 Dec 2010 08:34:13 +0000
-Message-ID: <20101217083413.GB6907@ff.dom.local>
-References: <1292428252.3427.342.camel@edumazet-laptop> <20101216211744.GA2191@del.dom.local> <1292535039.2655.13.camel@edumazet-laptop> <20101216220838.GB2191@del.dom.local> <1292538363.2655.20.camel@edumazet-laptop> <20101216224237.GC2191@del.dom.local> <1292542305.2655.25.camel@edumazet-laptop> <20101217073015.GA6907@ff.dom.local> <1292573297.2655.42.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Changli Gao <xiaosuo@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH NEXT 3/3] qlcnic: reset pci function unconditionally during probe
+Date: Fri, 17 Dec 2010 00:59:02 -0800
+Message-ID: <1292576342-1359-4-git-send-email-amit.salecha@qlogic.com>
+References: <1292576342-1359-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com,
+	Rajesh Borundia <rajesh.borundia@qlogic.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:49801 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317Ab0LQIeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 03:34:20 -0500
-Received: by fxm18 with SMTP id 18so409519fxm.2
-        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 00:34:19 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1292573297.2655.42.camel@edumazet-laptop>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:23667 "EHLO unm84.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751842Ab0LQI72 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Dec 2010 03:59:28 -0500
+In-Reply-To: <1292576342-1359-1-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 17, 2010 at 09:08:17AM +0100, Eric Dumazet wrote:
-> Le vendredi 17 d=E9cembre 2010 ?? 07:30 +0000, Jarek Poplawski a =E9c=
-rit :
->=20
-> > It is wrong because it brings back the inconsistency with ping etc.
-> > described by Alex Sidorenko in the changelog of netem patch, but
-> > use normal (not netem) ingress scheduling (ping results shouldn't
-> > depend on sniffers).
->=20
-> Care to explain why only netem should take care of this delaying
-> problem ?
-> If a packet is delayed on other qdisc, dont we have the same problem =
-?
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-netem was treated as a special case just to pretend (lie) about the
-net outside (still not depending on sniffers), but it's hard to
-believe there are "normal" ping users after netem.
+Some boot code drivers dont have cleanup routine, so pci function
+remains in unknown state prior to driver load. So during driver load
+issue FLR unconditionally.
 
->=20
-> Right now, ping lies, giving different results if a sniffer is active=
- or
-> not.
->=20
-> Care to suggest an alternative patch, because I am lost at this point=
- ?
+Update driver version to 5.0.14.
 
-Just what I wrote earlier: consider one additional cloning in
-dev_queue_xmit_nit or maybe resetting the timestamp with act_skbedit?
+Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic.h      |    4 ++--
+ drivers/net/qlcnic/qlcnic_main.c |    5 +----
+ 2 files changed, 3 insertions(+), 6 deletions(-)
 
-Thanks,
-Jarek P.
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index 4028d0c..9c2a02d 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -34,8 +34,8 @@
+ 
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 0
+-#define _QLCNIC_LINUX_SUBVERSION 13
+-#define QLCNIC_LINUX_VERSIONID  "5.0.13"
++#define _QLCNIC_LINUX_SUBVERSION 14
++#define QLCNIC_LINUX_VERSIONID  "5.0.14"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 788850e..11e3a46 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -1468,7 +1468,6 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	uint8_t revision_id;
+ 	uint8_t pci_using_dac;
+ 	char brd_name[QLCNIC_MAX_BOARD_NAME_LEN];
+-	u32 val;
+ 
+ 	err = pci_enable_device(pdev);
+ 	if (err)
+@@ -1530,9 +1529,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_out_iounmap;
+ 
+-	val = QLCRD32(adapter, QLCNIC_CRB_DRV_ACTIVE);
+-	if (QLC_DEV_CHECK_ACTIVE(val, adapter->portnum))
+-		adapter->flags |= QLCNIC_NEED_FLR;
++	adapter->flags |= QLCNIC_NEED_FLR;
+ 
+ 	err = adapter->nic_ops->start_firmware(adapter);
+ 	if (err) {
+-- 
+1.7.3.2
+
