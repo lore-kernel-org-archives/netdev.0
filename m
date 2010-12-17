@@ -1,80 +1,72 @@
-From: Arthur Jones <arthur.jones@riverbed.com>
-Subject: Re: [PATCH] e1000e: workaround missing power down mii control bit
- on 82571
-Date: Fri, 17 Dec 2010 06:04:53 -0800
-Message-ID: <20101217140453.GS18990@ajones-laptop.nbttech.com>
-References: <20101216182847.GA14985@ajones-laptop.nbttech.com>
- <1292525797.3253.8.camel@bwh-desktop>
- <8DD2590731AB5D4C9DBF71A877482A9001773F7655@orsmsx509.amr.corp.intel.com>
- <8DD2590731AB5D4C9DBF71A877482A9001773F76C4@orsmsx509.amr.corp.intel.com>
- <20101216200425.GO18990@ajones-laptop.nbttech.com>
- <20101216221421.GR18990@ajones-laptop.nbttech.com>
- <8DD2590731AB5D4C9DBF71A877482A9001773F7AD6@orsmsx509.amr.corp.intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [NETWORK] Firmware file for tehuti
+Date: Fri, 17 Dec 2010 14:04:51 +0000
+Message-ID: <1292594691.3136.840.camel@localhost>
+References: <4D0B0B70.9050306@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from incomingmail.riverbed.com ([208.70.196.45]:4075 "EHLO
-	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754813Ab0LQOEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 09:04:55 -0500
-Content-Disposition: inline
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A9001773F7AD6@orsmsx509.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-94asVg22sjK3uZxD82im"
+Cc: Alexander Indenbaum <baum@tehutinetworks.net>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Guru Anbalagane <guru.anbalagane@oracle.com>,
+	"greg.marsden@oracle.com" <greg.marsden@oracle.com>,
+	DuanZhenzhong <zhenzhong.duan@oracle.com>,
+	Jaswinder Singh Rajput <jaswinder@infradead.org>
+To: Joe Jin <joe.jin@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D0B0B70.9050306@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Bruce, ...
 
-On Thu, Dec 16, 2010 at 05:46:02PM -0800, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From: Arthur Jones [mailto:arthur.jones@riverbed.com]
-> >Sent: Thursday, December 16, 2010 2:14 PM
-> >To: Allan, Bruce W
-> >Cc: Ben Hutchings; Kirsher, Jeffrey T; netdev@vger.kernel.org
-> >Subject: Re: [PATCH] e1000e: workaround missing power down mii control bit on
-> >82571
-> >
-> >> > It's the reset in e1000_set_settings() which ignores that we had previously
-> >> > powered off the Phy.  I'll go through the rest of the code and fix up this
-> >> > and any other occurrences of similar issues properly.
-> >>
-> >> Thanks for having a look!
-> >>
-> >> We do a read-modify-write there of
-> >> the PHY control register.  We take
-> >> the rest of the bits as being good,
-> >> but, for some reason we don't get the
-> >> power down bit (always reads back
-> >> zero).  Is this a known 82571 issue?
-> >> On 82574, e.g., we seem to get the
-> >> power down bit back when we read...
-> >
-> >BTW:  The 802.3 spec seems to indicate
-> >that this bit _should_ be readable even
-> >when the PHY is powered down (i.e.  this
-> >is a PHY bug)...
-> >
-> >Arthur
-> >
-> >>
-> >> Are you sure you want to spread that
-> >> 82571 specific logic all over the driver?
-> >>
-> >> Arthur
-> 
-> No, not a PHY bug.  One difference between 82571 and 82574 is during a
-> hardware reset (which is done by the ethtool command in your example
-> repro case), the reset on 82571 is a much more aggressive reset than on
-> 82574 which causes the bit to be cleared automatically.
+--=-94asVg22sjK3uZxD82im
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-That's not what I saw.  I saw the bit always
-read back zero, even right after I set it.
+On Fri, 2010-12-17 at 15:04 +0800, Joe Jin wrote:
+> Hi,
+>=20
+> Regarding firmware for driver tehuti, it request firmware name is
+> tehuti/firmware.bin,
+> but from kernel source found no such file but have tehuti/bdx.bin.ihex,
+> so the firmware
+> should be bdx.bin rather than firmware.bin?
 
-Have you tried writing the power down bit and
-reading it back?
+Yes it should.  I'm sorry for this mistake.
 
-Arthur
+My first version of the patch to use request_firmware() used
+"tehuti/firmware.bin".  I then found Jaswinder's patch at
+<http://git.infradead.org/users/jaswinder/firm-jsr-2.6.git?a=3Dcommitdiff;h=
+=3De41f3e5f8c5110871e376a2566b8eea2932b813b>,
+which used the name "tehuti/bdx.bin".  For some reason I changed the
+name of the firmware file in my patch to match that, but not the code.
 
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-94asVg22sjK3uZxD82im
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUATQtt/ee/yOyVhhEJAQKnLRAAhvuSCM5RQv9mIzQVgsJQ9LG70puJyXXd
+qmne/ZGCNwkFdLO8RU6//RjFWRTYLIDP4pjzhUflT6Y5HnD0HS561uWWwEPuqY2w
++hR3DbpvX+ck0qGs/Ye4+dZPkI0jEDDA5mpb7Mbsdsszd2/86b2fzbyT6mFHseQe
+RhjW+L4xYZ/a2UYZAcls7NpJMGysY2f7t+osR8oJyjiYf/croT9lSe69FFDFNdGK
+3moML8/sGkwW9fqMFX8JON4C93KVjposGxsEbMTIBOZzmtzV5cHdOKwAZEiQYdyi
+Qf4iHHqRWnxr4+H6dMpLmdV/Q7OUw+DIUVV9dfeMS6jt1Ux2sCs6Lx7vbr3Fsz8L
+QfshLAASFWZNE+mWiL8bTS6MQ5ReXAwXvCX+AtN03en71KZy7D3sWcH30Lv1jhP0
+fNMU6m/yxDfjgPqkTD4JqExwR1UsHOWjxLUHcfPvlWr+Yq4Q6vREGXeiarwPWL69
+bQAd3YP88AxGjHoZXVzergbb4Luyvb/0N02mlnG0OjUK217a8LB7M/EGEj94F8Ui
+Vri8B0vf5DtmbTDlnmEwJtXRoyofJw2gN9aHmFu8L10VIbM1Slj+zVosVdvUrKOd
+7ygZlmbvKC1YMclq0UxhaWrctfRdcmfNzjyUYlzV77RqNajzCTPE0wdP+H1v0/6a
+OLP0snWvQEs=
+=kLdW
+-----END PGP SIGNATURE-----
+
+--=-94asVg22sjK3uZxD82im--
