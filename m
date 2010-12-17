@@ -1,120 +1,164 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] 2.6.37-rc5 Memory leak in net/ipv4/udp.c
-Date: Fri, 17 Dec 2010 11:35:16 +0100
-Message-ID: <1292582116.2906.5.camel@edumazet-laptop>
-References: <19723.14557.349975.821418@ipc1.ka-ro>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: e1000: more than two seconds to get the flag RUNNING
+Date: Fri, 17 Dec 2010 11:43:37 +0100
+Message-ID: <4D0B3ED9.3010305@6wind.com>
+References: <4D0A3B89.3010600@6wind.com> <DDC57477F5D6F845A0DDCB99D3C4812D0D2E664702@orsmsx510.amr.corp.intel.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Lothar =?ISO-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Ronciak, John" <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:62993 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46495 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753402Ab0LQKfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 05:35:21 -0500
-Received: by wyb28 with SMTP id 28so468757wyb.19
-        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 02:35:19 -0800 (PST)
-In-Reply-To: <19723.14557.349975.821418@ipc1.ka-ro>
+	with ESMTP id S1750869Ab0LQKnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 05:43:43 -0500
+Received: by wyb28 with SMTP id 28so475140wyb.19
+        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 02:43:41 -0800 (PST)
+In-Reply-To: <DDC57477F5D6F845A0DDCB99D3C4812D0D2E664702@orsmsx510.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 17 d=C3=A9cembre 2010 =C3=A0 11:18 +0100, Lothar Wa=C3=9Fma=
-nn a =C3=A9crit :
-> Hi,
->=20
-> the kernel memory leak detector spews the message:
-> |kmemleak: 2 new suspected memory leaks (see /sys/kernel/debug/kmemle=
-ak)
-> cat /sys/kernel/debug/kmemleak
-> |unreferenced object 0xc7a1c000 (size 5120):
-> |  comm "swapper", pid 1, jiffies 4294937513 (age 2320.120s)
-> |  hex dump (first 32 bytes):
-> |    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ...............=
-=2E
-> |    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ...............=
-=2E
-> |  backtrace:
-> |    [<c00112b8>] alloc_large_system_hash+0x188/0x224
-> |    [<c001be14>] udp_table_init+0x44/0x180
-> |    [<c001bf64>] udp_init+0x14/0x78
-> |    [<c001c620>] inet_init+0x138/0x240
-> |    [<c0030368>] do_one_initcall+0x58/0x1a8
-> |    [<c00083c8>] kernel_init+0x98/0x14c
-> |    [<c0037714>] kernel_thread_exit+0x0/0x8
-> |    [<ffffffff>] 0xffffffff
-> |unreferenced object 0xc7a26000 (size 5120):
-> |  comm "swapper", pid 1, jiffies 4294937513 (age 2320.130s)
-> |  hex dump (first 32 bytes):
-> |    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ...............=
-=2E
-> |    aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa aa  ...............=
-=2E
-> |  backtrace:
-> |    [<c00112b8>] alloc_large_system_hash+0x188/0x224
-> |    [<c001be14>] udp_table_init+0x44/0x180
-> |    [<c001bff0>] udplite4_register+0x10/0x94
-> |    [<c001c624>] inet_init+0x13c/0x240
-> |    [<c0030368>] do_one_initcall+0x58/0x1a8
-> |    [<c00083c8>] kernel_init+0x98/0x14c
-> |    [<c0037714>] kernel_thread_exit+0x0/0x8
-> |    [<ffffffff>] 0xffffffff
->=20
-> The offending code in net/ipv4/udp.c is:
-> |void __init udp_table_init(struct udp_table *table, const char *name=
-)
-> |{
-> |	unsigned int i;
-> |
-> |	if (!CONFIG_BASE_SMALL)
-> |		table->hash =3D alloc_large_system_hash(name,
-> |			2 * sizeof(struct udp_hslot),
-> |			uhash_entries,
-> |			21, /* one slot per 2 MB */
-> |			0,
-> |			&table->log,
-> |			&table->mask,
-> |			64 * 1024);
-> |	/*
-> |	 * Make sure hash table has the minimum size
-> |	 */
-> |	if (CONFIG_BASE_SMALL || table->mask < UDP_HTABLE_SIZE_MIN - 1) {
-> |		table->hash =3D kmalloc(UDP_HTABLE_SIZE_MIN *
-> |				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
-> In case of !CONFIG_BASE_SMALL and 'table->mask < UDP_HTABLE_SIZE_MIN =
-- 1)'
-> the memory allocated in the previous if clause becomes inacessible!
->=20
-> Shouldn't this be:
-> |	if (!CONFIG_BASE_SMALL && table->mask >=3D UDP_HTABLE_SIZE_MIN - 1)=
- {
-> |		table->hash =3D alloc_large_system_hash(name,
-> |			2 * sizeof(struct udp_hslot),
-> |			uhash_entries,
-> |			21, /* one slot per 2 MB */
-> |			0,
-> |			&table->log,
-> |			&table->mask,
-> |			64 * 1024);
-> |	} else {
-> |		table->hash =3D kmalloc(UDP_HTABLE_SIZE_MIN *
-> |				      2 * sizeof(struct udp_hslot), GFP_KERNEL);
-> [...]
->=20
->=20
->=20
-> Lothar Wa=C3=9Fmann
+Le 16.12.2010 17:44, Ronciak, John a =C3=A9crit :
+> I'm assuming when you say "get the flag RUNNING" you mean to get link=
+=2E  Is that right?  Are you connected to a switch?  It is entirely pos=
+sible to wait 2 seconds to get link on a 1000Base-T (RJ45) link.  By sp=
+ecification link can take as much as 4 seconds.  Do you have spanning t=
+ree enabled on the switch?  That could be delaying link as well.
+Yes, I mean 'get the link'. I was connected to a switch, but no spannin=
+g tree.
 
-Nothing we can do about it, there is no API to reverse the
-alloc_large_system_hash() effect. We could call kmemleak api to at leas=
-t
-avoid this false alarm.
+>=20
+> To check this connect it back to back to another system.  With this o=
+ld of an adapter you may need to connect the two systems with a cross-o=
+ver cable.
+I get the same issue.
 
-We really want a minimum size for the UDP hash table, because our algos
-depend on this.
 
-Why on your config alloc_large_system_hash() is allocating 5120 bytes, =
-I
-dont know :(
+Regards,
+Nicolas
 
+>=20
+> Cheers,
+> John
+>=20
+>=20
+>> -----Original Message-----
+>> From: Nicolas Dichtel [mailto:nicolas.dichtel@6wind.com]
+>> Sent: Thursday, December 16, 2010 8:17 AM
+>> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Wyborny,
+>> Carolyn; Skidmore, Donald C; Rose, Gregory V; Waskiewicz Jr, Peter P=
+;
+>> Duyck, Alexander H; Ronciak, John
+>> Cc: netdev
+>> Subject: e1000: more than two seconds to get the flag RUNNING
+>>
+>> Hi,
+>>
+>> maybe this problem has already been discussed, but I didn't find the
+>> thread.
+>> When I put an interface managed by the e1000 driver up, down and up
+>> again, I must wait more than 2 seconds to get the flag running again=
+=2E
+>>
+>> Here is the sequence:
+>>
+>> shelby:~# uname -a
+>> Linux shelby 2.6.37-rc5+ #9 SMP Wed Dec 15 13:16:10 EST 2010 i686
+>> GNU/Linux shelby:~# lsmod | grep e1000
+>> e1000                  76543  0
+>> shelby:~# lspci | grep Gigabit
+>> 01:09.0 Ethernet controller: Intel Corporation 82540EM Gigabit Ether=
+net
+>> Controller (rev 02) shelby:~# cat check_link_state.sh #!/bin/bash
+>>
+>> sleep_time=3D$1
+>> ip link set eth0 up
+>> ip link set eth0 down
+>> ip link set eth0 up
+>> while [ $sleep_time -gt 0 ] ; do
+>>      date
+>>      #ip link show eth0
+>>      ifconfig eth0 | grep MULTICAST
+>>      sleep 1
+>>      echo ""
+>>      sleep_time=3D`expr $sleep_time - 1`
+>> done
+>> shelby:~# ifconfig eth0
+>> eth0      Link encap:Ethernet  HWaddr 00:30:1b:b4:dc:88
+>>            inet addr:10.16.0.72  Bcast:10.16.0.255  Mask:255.255.255=
+=2E0
+>>            inet6 addr: fe80::230:1bff:feb4:dc88/64 Scope:Link
+>>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>            RX packets:22051 errors:0 dropped:0 overruns:0 frame:0
+>>            TX packets:63 errors:0 dropped:0 overruns:0 carrier:0
+>>            collisions:0 txqueuelen:1000
+>>            RX bytes:2480685 (2.3 MiB)  TX bytes:5242 (5.1 KiB)
+>>
+>> shelby:~# ./check_link_state.sh 3
+>> [83270.080175] ADDRCONF(NETDEV_UP): eth0: link is not ready Thu Dec =
+16
+>> 12:45:56 EST 2010
+>>            UP BROADCAST MULTICAST  MTU:1500  Metric:1
+>>
+>> Thu Dec 16 12:45:57 EST 2010
+>>            UP BROADCAST MULTICAST  MTU:1500  Metric:1 [83271.828371]
+>> e1000: eth0 NIC Link is Up 100 Mbps Half Duplex, Flow Control: None
+>> [83271.835878] ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+>>
+>> Thu Dec 16 12:45:58 EST 2010
+>>            UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>>
+>> shelby:~#
+>>
+>> I get the same result with a 2.6.15, so it seems that the problem is
+>> here since a long time.
+>> Has anyone an input for this problem?
+>>
+>>
+>> Regards,
+>> Nicolas
+
+--=20
+Nicolas DICHTEL
+6WIND
+R&D Engineer
+
+Tel: +33 1 39 30 92 10
+=46ax: +33 1 39 30 92 11
+nicolas.dichtel@6wind.com
+www.6wind.com
+Join the Multicore Packet Processing Forum: www.multicorepacketprocessi=
+ng.com
+
+Ce courriel ainsi que toutes les pi=C3=A8ces jointes, est uniquement de=
+stin=C3=A9 =C3=A0 son ou
+ses destinataires. Il contient des informations confidentielles qui son=
+t la
+propri=C3=A9t=C3=A9 de 6WIND. Toute r=C3=A9v=C3=A9lation, distribution =
+ou copie des informations
+qu'il contient est strictement interdite. Si vous avez re=C3=A7u ce mes=
+sage par
+erreur, veuillez imm=C3=A9diatement le signaler =C3=A0 l'=C3=A9metteur =
+et d=C3=A9truire toutes les
+donn=C3=A9es re=C3=A7ues.
+
+This e-mail message, including any attachments, is for the sole use of =
+the
+intended recipient(s) and contains information that is confidential and
+proprietary to 6WIND. All unauthorized review, use, disclosure or distr=
+ibution
+is prohibited. If you are not the intended recipient, please contact th=
+e sender
+by reply e-mail and destroy all copies of the original message.
 
