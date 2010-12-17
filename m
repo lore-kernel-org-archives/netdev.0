@@ -1,60 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/3] Kernel interfaces for multiqueue aware socket
-Date: Fri, 17 Dec 2010 07:50:34 +0100
-Message-ID: <1292568634.2655.31.camel@edumazet-laptop>
-References: <cover.1292405004.git.fenghua.yu@intel.com>
-	 <46a08278c2ba21737528eb4b77391a7e8bc88000.1292405004.git.fenghua.yu@intel.com>
-	 <1292446118.2603.11.camel@edumazet-laptop>
-	 <20101216011425.GA17446@linux-os.sc.intel.com>
-	 <AANLkTingt6SM+uasicwPSJRE5vYpvJ=GyFf3bbKhO72G@mail.gmail.com>
-	 <AANLkTi=oXCqPHYs9reF9WL46Wxi_b8vL_NMSsAJJ34wD@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V7 4/8] posix clocks: hook dynamic clocks into system
+ calls
+Date: Fri, 17 Dec 2010 08:04:50 +0100
+Message-ID: <20101217070450.GB2982@riccoc20.at.omicron.at>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <6241238a1df55033e50b151ec9d35ba957e43d53.1292512461.git.richard.cochran@omicron.at>
+ <alpine.LFD.2.00.1012162156580.12146@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, Fenghua Yu <fenghua.yu@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Fastabend, John R" <john.r.fastabend@intel.com>,
-	"Tang, Xinan" <xinan.tang@intel.com>,
-	netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: Junchang Wang <junchangwang@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:60391 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081Ab0LQGuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 01:50:40 -0500
-In-Reply-To: <AANLkTi=oXCqPHYs9reF9WL46Wxi_b8vL_NMSsAJJ34wD@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1012162156580.12146@localhost6.localdomain6>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 17 d=C3=A9cembre 2010 =C3=A0 14:22 +0800, Junchang Wang a =C3=
-=A9crit :
-> On Thu, Dec 16, 2010 at 9:28 AM, Changli Gao <xiaosuo@gmail.com> wrot=
-e:
-> > On Thu, Dec 16, 2010 at 9:14 AM, Fenghua Yu <fenghua.yu@intel.com> =
-wrote:
-> >>
-> >> SKF_AD_QUEUE doesn't know number of rx queues. Thus user applicati=
-on can't
-> >> specify right SKF_AD_QUEUE.
-> >
-> > It is wrong. AFAIK, you can get the queue number through
-> > /sys/class/net/eth*/queues/ or /proc/interrupts
-> >
->=20
-> Valuable comment. Thanks.
->=20
-> >
-> > If you turn to SKF_AD_QUEUE, I think no patch for kernel is needed.
-> >
-> This patch set is about parallelization of socket interfaces to gain
-> performance boost (say, from 1Mpps to around 5Mpps), rather than
-> simply bounding socket to cpu/queue. Therefore, it does worth having.
->=20
+On Fri, Dec 17, 2010 at 12:20:44AM +0100, Thomas Gleixner wrote:
+> On Thu, 16 Dec 2010, Richard Cochran wrote:
+> > +
+> > +static inline bool clock_is_static(const clockid_t id)
+> > +{
+> > +	if (0 == (id & ~CLOCKFD_MASK))
+> > +		return true;
+> > +	if (CLOCKFD == (id & CLOCKFD_MASK))
+> > +		return false;
+> 
+> Please use the usual kernel notation.
 
-Definitely, but this needs to be designed so that it can be used by eve=
-n
-dumb applications :)
+Sorry, what do you mean?
 
+> >  	return CLOCK_DISPATCH(which_clock, clock_set, (which_clock, &new_tp));
+> 
+> I really start to wonder whether we should cleanup that whole
+> CLOCK_DISPATCH macro magic and provide real inline functions for
+> each of the clock functions instead.
 
+I'm glad you suggested that.
 
+IMHO, the CLOCK_DISPATCH thing is calling out to be eliminated, but I
+didn't dare to take that upon myself.
+
+> Please don't tell me now that we could even hack this into
+> CLOCK_DISPATCH. *shudder*
+
+;^)
+
+> > +int pc_clock_adjtime(struct posix_clock *clk, struct timex *tx)
+> > +{
+> > +	int err;
+> > +
+> > +	mutex_lock(&clk->mux);
+> > +
+> > +	if (clk->zombie)
+> 
+> Uuurgh. That explains the zombie thing. That's really horrible and we
+> can be more clever. When we leave the file lookup to the pc_timer_*
+> functions, then we can simply do:
+...
+> That get's rid of your life time problems, of clk->mutex, clock->zombie
+> and makes the code simpler and more robust. And it avoids the whole
+> mess in posix-timers.c as well.
+
+The code in the patch set is modeled after a USB driver, namely
+drivers/usb/class/usbtmc.c. Alan Cox had brought up the example of a
+PTP Hardware Clock appearing as a USB device. So the device might
+suddenly disappear, and the zombie field is supposed to cover the case
+where the hardware no longer exists, but the file pointer is still
+valid.
+
+I'll take a closer look at your suggestion...
+
+> The whole point of this exercise is to provide dynamic clock ids and
+> make them available via the standard posix timer interface and aside
+> of that have standard file operations for these clocks to provide
+> special purpose ioctls, mmap and whatever. And to make it a bit more
+> complex these must be removable modules.
+
+Yes, and hot pluggable, too.
+ 
+> I need to read back the previous discussions, but maybe someone can
+> fill me in why we can't make these dynamic things not just live in
+> posix_clocks[MAX_CLOCKS ... MAX_DYNAMIC_CLOCKS] (there is no
+> requirement to have an unlimited number of those) and just get a
+> mapping from the fd to the clock_id? That creates a different set of
+> life time problems, but no real horrible ones.
+
+I would summarize the discussion like this:
+
+Alan Cox was strongly in favor of using a regular file descriptor as
+the reference to the dynamic clock.
+
+John Stultz thought it wouldn't be too bad to cycle though a number of
+static ids, being careful not to every assign the same static id (in
+series) to two different clocks.
+
+I implemented Alan's idea, since it seemed like maintaining the
+mapping between clocks and static ids would be extra work, but without
+any real benefit.
+
+Thanks again for your review,
+Richard
