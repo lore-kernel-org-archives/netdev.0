@@ -1,37 +1,34 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Subject: Re: "x86: allocate space within a region top-down" causes bar0 access issue
-Date: Fri, 17 Dec 2010 13:16:12 -0700
-Message-ID: <201012171316.12761.bjorn.helgaas@hp.com>
-References: <20101217194457.GA4470@exar.com>
+From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
+Date: Sat, 18 Dec 2010 05:16:52 +0900
+Message-ID: <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+	<880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Ramkrishna Vepa <ramkrishna.vepa@exar.com>
-To: Jon Mason <jon.mason@exar.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101217194457.GA4470@exar.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, December 17, 2010 12:44:58 pm Jon Mason wrote:
-> The following patch is causing problem with the vxge driver/adapter on
-> HP x86-64 systems. Reads to bar0 to return 0xffffffffffffffff instead
-> of their intended value.  This prevents the vxge module from loading
-> by failing sanity checks in the driver for certain values in bar0.  We
-> are not seeing any issues with this patch on non-HP systems in our
-> lab.
-> 
-> Can this patch be removed from 2.6.37 until a better solution can be
-> found?
+On 12/17/10, Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> This patch adds a new mode bit into the timex structure. When set, the bit
+> instructs the kernel to add the given time value to the current time.
+>
 
-There were several issues related to that patch, and it's about to
-be reverted.  I am curious about the failure you're seeing, though,
-and I'd like to understand the cause and make sure it's one of the
-issues I've already investigated.
-
-Can you send me the complete dmesg log of a failing boot?
-
-Thanks,
-  Bjorn
+The proposed new control mode, ADJ_SETOFFSET, is logically the same as
+ADJ_OFFSET with timex.constant == -INFINITY.  So it is possible to do
+the same thing without risking forward compatibility.  (I mean by "risking
+forward compatibility" that the mode bit 0x0040 may be defined differently
+by the upstream maintainer anytime in the future.)
