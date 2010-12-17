@@ -1,37 +1,30 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: "x86: allocate space within a region top-down" causes bar0
- access issue
-Date: Fri, 17 Dec 2010 11:47:21 -0800
-Message-ID: <20101217114721.04eafeca@jbarnes-desktop>
-References: <20101217194457.GA4470@exar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] asix: add USB ID for Logitec LAN-GTJ U2A
+Date: Fri, 17 Dec 2010 11:51:20 -0800 (PST)
+Message-ID: <20101217.115120.112604157.davem@davemloft.net>
+References: <87sjxy4w3o.fsf@totally-fudged-out-message-id>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Ramkrishna Vepa <ramkrishna.vepa@exar.com>
-To: Jon Mason <jon.mason@exar.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101217194457.GA4470@exar.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dhollis@davehollis.com, netdev@vger.kernel.org, stable@kernel.org
+To: arno@natisbad.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56088
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752282Ab0LQTuv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 14:50:51 -0500
+In-Reply-To: <87sjxy4w3o.fsf@totally-fudged-out-message-id>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Dec 2010 13:44:58 -0600
-Jon Mason <jon.mason@exar.com> wrote:
+From: Arnaud Ebalard <arno@natisbad.org>
+Date: Wed, 15 Dec 2010 23:16:30 +0100
 
-> The following patch is causing problem with the vxge driver/adapter on
-> HP x86-64 systems. Reads to bar0 to return 0xffffffffffffffff instead
-> of their intended value.  This prevents the vxge module from loading
-> by failing sanity checks in the driver for certain values in bar0.  We
-> are not seeing any issues with this patch on non-HP systems in our
-> lab.
+> Logitec LAN-GTJ U2A (http://www.pro.logitec.co.jp/pro/g/gLAN-GTJU2A/)
+> USB 2.0 10/10/1000 Ethernet adapter is based on ASIX AX88178 chipset.
 > 
-> Can this patch be removed from 2.6.37 until a better solution can be
-> found?
+> This patch adds missing USB ID for the device.
+> 
+> Signed-off-by: Arnaud Ebalard <arno@natisbad.org>
 
-Can you try my for-linus branch and see if the problem still exists
-there?  It's at
-git://git.kernel.org/pub/scm/linux/kernel/git/jbarnes/pci-2.6.git.
-
-Thanks,
--- 
-Jesse Barnes, Intel Open Source Technology Center
+Applied and queued up for -stable, thanks.
