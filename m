@@ -1,52 +1,66 @@
-From: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
-Subject: Re: [PATCH] iproute2: initialize the ll_map only once
-Date: Fri, 17 Dec 2010 15:06:41 +0200
-Message-ID: <201012171506.41834.nuclearcat@nuclearcat.com>
-References: <1291993190-8838-1-git-send-email-opurdila@ixiacom.com> <20101210113809.56ea259e@nehalam>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 5/5 v4] net: add old_queue_mapping into skb->cb
+Date: Fri, 17 Dec 2010 08:09:23 -0500
+Message-ID: <1292591363.2668.19.camel@mojatatu>
+References: <1292475410-24665-1-git-send-email-xiaosuo@gmail.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Octavian Purdila <opurdila@ixiacom.com>, netdev@vger.kernel.org,
-	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	netem@lists.linux-foundation.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:33374 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220Ab0LQNG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 08:06:28 -0500
-In-Reply-To: <20101210113809.56ea259e@nehalam>
+Received: from mail-gw0-f42.google.com ([74.125.83.42]:42205 "EHLO
+	mail-gw0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754120Ab0LQNJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 08:09:20 -0500
+Received: by gwb20 with SMTP id 20so418704gwb.1
+        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 05:09:20 -0800 (PST)
+In-Reply-To: <1292475410-24665-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday 10 December 2010 21:38:09 Stephen Hemminger wrote:
-> On Fri, 10 Dec 2010 16:59:50 +0200
+On Thu, 2010-12-16 at 12:56 +0800, Changli Gao wrote:
+> For the skbs returned from ifb, we should use the queue_mapping
+> saved before ifb.
 > 
-> Octavian Purdila <opurdila@ixiacom.com> wrote:
-> > Avoid initializing the LL map (which involves a costly RTNL dump)
-> > multiple times. This can happen when running in batch mode.
-> > 
-> > Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+> We save old queue_mapping in old_queue_mapping just before calling 
+> dev_queue_xmit, and restore the old_queue_mapping to queue_mapping
+> just before reinjecting the ingress packets.
 > 
-> applied
-There is some longstanding bug related to current hashing system.
-To "workaround" it i did my own "flush" command, to flush hashes, but with 
-this patch it becomes more difficult to handle this situation.
-Here is how to reproduce it:
+> A new struct dev_skb_cb is added, and valid in qdisc and gso layer.
+> The original qdisc_skb_cb and DEV_GSO_CB use dev_skb_cb as the first
+> member.
+> 
+> netem_skb_cb is changed to contain qdisc_skb_cb.
 
-ip -force -batch -
-link add link eth0 name new0 type macvlan
-link show dev new0
-link delete dev new0 type macvlan
-link add link eth0 name new0 type macvlan
-link show dev new0
+I am sorry Changli - I think we are talking past each other. I
+a conflicted on the whole point of saving and restoring these
+devqueue mappings. I understand that for ifb, saving and restoring the
+original devs is fundamental for its operation- but i am not sure i see
+it for the queues. As an example:
 
-Last command will not show link, because index of old one is stored in hash.
+---
+# For all packets arriving on ifb0, change mapping to 3 and
+# redirect to to ifb1
 
-I guess it is more bugreport for old problem, than problem with current patch.
-Sure it is possible to flush hash on del/add operations, but additionally 
-during batch run it is possible that interfaces can appear/disappear (NAS with 
-thousands of ppp interfaces). Maybe still as an idea i can do patch with flag 
-to dump rtnl before each command and additional "flush hash" command?
+tc filter add dev ifb0 parent 1:0 protocol ip prio 10 u32 \
+match u32 0 0 flowid 1:2 \
+action skbedit queue_mapping 4 \
+action mirred egress redirect dev ifb1
+#
+# redirect all packets arriving in eth0 to ifb0
+$TC filter add eth0 parent 1:0 protocol ip prio 10 u32 \
+match u32 0 0 flowid 1:2 action mirred egress redirect dev ifb0
+----
+
+what is the expected behavior?
+
+cheers,
+jamal
 
