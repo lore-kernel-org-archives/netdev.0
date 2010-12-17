@@ -1,75 +1,114 @@
-From: "George B." <georgeb@gmail.com>
-Subject: Possible sequence number corruption? 2.6.32-24
-Date: Thu, 16 Dec 2010 23:20:43 -0800
-Message-ID: <AANLkTimxdEugiN9UM=9WdMJeL+1=2epruYOG9=6SjmO=@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net: force a fresh timestamp for ingress
+	packets
+Date: Fri, 17 Dec 2010 07:30:15 +0000
+Message-ID: <20101217073015.GA6907@ff.dom.local>
+References: <1292428252.3427.342.camel@edumazet-laptop> <20101216211744.GA2191@del.dom.local> <1292535039.2655.13.camel@edumazet-laptop> <20101216220838.GB2191@del.dom.local> <1292538363.2655.20.camel@edumazet-laptop> <20101216224237.GC2191@del.dom.local> <1292542305.2655.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Changli Gao <xiaosuo@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:55755 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226Ab0LQHUo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 02:20:44 -0500
-Received: by iwn9 with SMTP id 9so424478iwn.19
-        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 23:20:43 -0800 (PST)
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:44666 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751869Ab0LQHaW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 02:30:22 -0500
+Received: by fxm18 with SMTP id 18so374604fxm.2
+        for <netdev@vger.kernel.org>; Thu, 16 Dec 2010 23:30:21 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292542305.2655.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I have a box running an Ubuntu kernel (2.6.32-24-server #43-Ubuntu SMP)
+On Fri, Dec 17, 2010 at 12:31:45AM +0100, Eric Dumazet wrote:
+> Le jeudi 16 d=E9cembre 2010 ?? 23:42 +0100, Jarek Poplawski a =E9crit=
+ :
+> > On Thu, Dec 16, 2010 at 11:26:03PM +0100, Eric Dumazet wrote:
+> > > Le jeudi 16 d=E9cembre 2010 ?? 23:08 +0100, Jarek Poplawski a =E9=
+crit :
+> > >=20
+> > > > Hmm... Do you expect more people start debugging SFQ or I misse=
+d your
+> > > > point? ;-) Maybe such a change would be reasonable on a cloned =
+skb?
+> > >=20
+> > > My point was to permit an admin to check his ingress shaping work=
+s or
+> > > not. In this respect, netem was a specialization of a general pro=
+blem.
+> > >=20
+> > > We had a prior discussion on timestamping skb in RX path, when RP=
+S came
+> > > in : Should we take timestamp before RPS or after. At that time w=
+e added
+> > > a sysctl. Not sure it was the right choice :-(
+> > >=20
+> > > I feel tcpdump (on TX side) should really display time of packet =
+right
+> > > before being given to device, but this is probably a matter of ta=
+ste.
+> >=20
+> > It might be reasonable unless it changes data for later users. That=
+'s
+> > why I mentioned cloning.
+> >=20
+> > >=20
+> > > Before commit 8caf153974f2 (net: sch_netem: Fix an inconsistency =
+in
+> > > ingress netem timestamps.), this is what was done.
+> >=20
+> > Then why don't you try to let turn it off in netem, where it only
+> > matters?
 
-It has 4 IP addresses on a bond interface.=A0 We noticed today a strang=
-e
-problem with a load balancer attempting to connect to one of the
-addresses.=A0 We would see a syn from the balancer, the syn-ack goes
-back from the Linux box and then an immediate reset from the balancer
-(Citrix Netscaler running 8.1).
+=46orget this advice - I lost the point how you tested that.
 
-After taking a packet capture on both machines I see this:
+> Because, if you read again my patch, you'll see :
+>=20
+> #ifdef CONFIG_NET_CLS_ACT
+>        if (!skb->tstamp.tv64 || (G_TC_FROM(skb->tc_verd) & AT_INGRESS=
+))
+>                 net_timestamp_set(skb);
+> #else
+>=20
+> So :=20
+>=20
+> If we are handling an INGRESS packet, we force a timestamp renew.
 
-Netscaler sends (or thinks it sends)
+It is wrong because it brings back the inconsistency with ping etc.
+described by Alex Sidorenko in the changelog of netem patch, but
+use normal (not netem) ingress scheduling (ping results shouldn't
+depend on sniffers).
 
+>=20
+> Therefore :
+>=20
+> We dont need in netem_dequeue() to force :
+>=20
+> -#ifdef CONFIG_NET_CLS_ACT
+> -                       /*
+> -                        * If it's at ingress let's pretend the delay=
+ is
+> -                        * from the network (tstamp will be updated).
+> -                        */
+> -                       if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
+> -                               skb->tstamp.tv64 =3D 0;
+> -#endif
+>=20
+> Since :
+>=20
+> We are going to renew timestamp anyway.
+>=20
+> Conclusion :
+>=20
+> I am eliminating dead code.
+>=20
+> Is that OK ?
 
-Transmission Control Protocol, Src Port: 33860 (33860), Dst Port: 7080
-(7080), Seq: 4246152065, Len: 0
-
-Linux box sees this:
-
-Transmission Control Protocol, Src Port: 33860 (33860), Dst Port: 7080
-(7080), Seq: 1098970366, Len: 0
-
-Note the sequence number has changed.  This is a flat layer2 network
-between them.
-
-Linux replies with:
-
-Transmission Control Protocol, Src Port: 7080 (7080), Dst Port: 33860
-(33860), Seq: 1187929616, Ack: 1098970367, Len: 0
-
-And the Netscaler, seeing the out of whack sequence number sends a RST.
-
-Now if I connect to that same IP/Port from another Linux box, it works
-fine.  If I connect from the load balancer to a different IP on the
-same box it works fine.  If I connect from a different load balancer
-to the troublesome IP/port, I get the same result.  It seems unlikely
-that two different load balancers would be scrambled in exactly the
-same fashion and only to one IP on the box.  In fact, there are two
-different servers exhibiting the same problem when either of the load
-balancers attempts to connect and it works great to other IP addresses
-on those same two servers.  We have not experienced this problem with
-these load balancers or kernel version on Linux before but it could be
-some "magic" combination of numbers or something, I have seen stranger
-things.
-
-The linux interface is a bond interface in balance-xor mode with the
-default transmit hash..  The NICs are bnx2 driver v2.0.2
-
-I am not physically at the network so I can not mirror a port and see
-what exactly is on the wire but I have taken packet captures using
-tcpdump on the machines at both ends that I can provide if desired.
-Has anyone else seen or heard of any odd sequence number corruption in
-a similar configuration?
+Not to me.
 
 Thanks,
-
-George
+Jarek P.
