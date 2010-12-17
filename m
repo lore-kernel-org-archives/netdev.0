@@ -1,43 +1,39 @@
-From: <Colum.Flannigan@omegasrvshn.com>
-Subject: Driver issue on Linux 2.6.35-22-generic-pae #33-Ubuntu SMP
-Date: Fri, 17 Dec 2010 16:41:05 -0000
-Message-ID: <CB723940FBFB4D13BBE4C9AF2700F00A.MAI@omegasrvshn.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ipv6: remove duplicate neigh_ifdown
+Date: Fri, 17 Dec 2010 09:49:16 -0800 (PST)
+Message-ID: <20101217.094916.193712831.davem@davemloft.net>
+References: <20101216175152.6767d0a7@nehalam>
+	<20101216194254.0f7c7e7b@nehalam>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="--=_Part_5854AB618056416FB0A1C2076FE3B923"
-To: <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 089-101-165062.ntlworld.ie ([89.101.165.62]:5346 "EHLO
-	mail.omegasrvshn.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754055Ab0LQREM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 12:04:12 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36917
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754883Ab0LQRst (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 12:48:49 -0500
+In-Reply-To: <20101216194254.0f7c7e7b@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Thu, 16 Dec 2010 19:42:54 -0800
 
-----=_Part_5854AB618056416FB0A1C2076FE3B923
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+> When device is being set to down, neigh_ifdown was being called
+> twice. Once from addrconf notifier and once from ndisc notifier.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-Hi,
+I'll give you a cookie if you can show me how this patch applies to
+net-next-2.6 cleanly. :-)
 
-   I am writing to this address as it is the address listed in the mod info. I purchased 3 of your c=
-ards for my infrastucture and am haven an issue with my linux system i am testing this on. Current=
-ly i have 1 card installed on this system and it is working fine, however the gigabit card i got f=
-rom Netgear does not show in the system
+It only matches the code in net-2.6 which has changed non-trivially in
+net-next-2.6
 
-I have checked my dmesg's and have no errors relatting to this and the lsmod command does not show i=
-t in the list.. 
+If you worked against net-2.6 and thought "I can't think of anything
+that could have changed in net-next-2.6 in this area", that's not
+an appropriate way to operate and submit patches.
 
-I also tried to install the drive listed on the site, but that failed to work as i got errors when r=
-unning.. Errors were stating the MakeFile did not exist.
-
-Have you any ideas what this could be=3F=3F or steps to resolve=3F=3F
-
-Thanks
-Colum
-
-
-----=_Part_5854AB618056416FB0A1C2076FE3B923--
-
+Please don't be so careless, thanks.
