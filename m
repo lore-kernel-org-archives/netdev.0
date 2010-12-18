@@ -1,51 +1,29 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] netlink: fix gcc -Wconversion compilation warning
-Date: Fri, 17 Dec 2010 22:58:01 -0800
-Message-ID: <m1oc8jlg92.fsf@fess.ebiederm.org>
-References: <1292259913-9911-1-git-send-email-kirill@shutemov.name>
-	<m1sjy1uzj6.fsf@fess.ebiederm.org>
-	<20101217.120234.59681524.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH 3/3] igb: example of how to update igb to make use
+ of in-kernel Toeplitz hashing
+Date: Fri, 17 Dec 2010 22:59:03 -0800 (PST)
+Message-ID: <20101217.225903.104068606.davem@davemloft.net>
+References: <20101218010048.28602.49776.stgit@gitlad.jf.intel.com>
+	<20101217.210923.193721885.davem@davemloft.net>
+	<AANLkTimuXo+ZJKmz4U38mLd8x-KymJ0BQxTTjDT2bjgy@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kirill@shutemov.name, netdev@vger.kernel.org, pablo@netfilter.org,
-	ldv@altlinux.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101217.120234.59681524.davem@davemloft.net> (David Miller's
-	message of "Fri, 17 Dec 2010 12:02:34 -0800 (PST)")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: alexander.duyck@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48981
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752787Ab0LRG6f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 01:58:35 -0500
+In-Reply-To: <AANLkTimuXo+ZJKmz4U38mLd8x-KymJ0BQxTTjDT2bjgy@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Date: Fri, 17 Dec 2010 22:53:24 -0800
 
-> From: ebiederm@xmission.com (Eric W. Biederman)
-> Date: Mon, 13 Dec 2010 13:35:25 -0800
->
->> "Kirill A. Shutsemov" <kirill@shutemov.name> writes:
->> 
->>> From: Dmitry V. Levin <ldv@altlinux.org>
->>>
->>> $ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
->>> unsigned f(void) {return NLMSG_HDRLEN;}
->>> EOF
->>> <stdin>: In function 'f':
->>> <stdin>:3:26: warning: negative integer implicitly converted to unsigned type
->>>
->> This doesn't look like a bad fix, but I believe things will fail if
->> we give NLMSG_ALIGN an unsigned long like size_t.  Say like sizeof.
->
-> What are you talking about? That's exactly his test case,
-> look at what NLMSG_HDRLEN is defined to, it's exactly the
-> case you're worried "will fail", it passes sizeof() to
-> NLMSG_ALIGN.
->
-> I think I'll apply Kirill's original patch, it's good enough
-> and simpler.
+> Specifically would a 16 bit key/hash work for queue selection or
+> would there be cases where we need a 32 bit key/hash result?
 
-Probably.  The case I was worried about was masks that become
-0xffffffxx on 64bit instead of 0xffffffffffffxx.  Especially
-when mixing those with ints.
-
-It is possible to get some really weird things.
-
-Eric
+Currently for TX 16-bit ought to be enough.
