@@ -1,36 +1,44 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCHv4] fragment locally generated tunnel-mode IPSec6
-	packets as needed
-Date: Sat, 18 Dec 2010 10:16:06 +0800
-Message-ID: <20101218021606.GA26888@gondor.apana.org.au>
-References: <1292622162.1700.3.camel@IBM-1B506CFC885>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] net/e1000e : Fix to use
+ dev_kfree_skb_any() instead of dev_kfree_skb() in _jumbo_rx_irq
+Date: Fri, 17 Dec 2010 19:17:48 -0800
+Message-ID: <AANLkTi=xqvZPgsnVK18yNW0spme5Zsk0cpzAtVCKeF0+@mail.gmail.com>
+References: <4D0BE4BC.10004@riverbed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:33551 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756873Ab0LRCQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 21:16:15 -0500
-Content-Disposition: inline
-In-Reply-To: <1292622162.1700.3.camel@IBM-1B506CFC885>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: prasanna.panchamukhi@riverbed.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <4D0BE4BC.10004@riverbed.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 17, 2010 at 01:42:42PM -0800, David L Stevens wrote:
-> This patch modifies IPsec6 to fragment IPv6 packets that are
-> locally generated as needed.
-> 
-> This version of the patch only fragments in tunnel mode, so that fragment
-> headers will not be obscured by ESP in transport mode.
-> 
-> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
-
-Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+T24gRnJpLCBEZWMgMTcsIDIwMTAgYXQgMTQ6MzEsIFByYXNhbm5hIFBhbmNoYW11a2hpCjxwcGFu
+Y2hhbXVraGlAcml2ZXJiZWQuY29tPiB3cm90ZToKPgo+IFNldmVyYWwgIldhcm5pbmc6IGtmcmVl
+X3NrYiBvbiBoYXJkIElSUSIgbWVzc2FnZXMgaGF2ZSBiZWVuIG9ic2VydmVkIGZyb20KPiB0aGUg
+bmV0L2UxMDAwZSBkcml2ZXIsIGUxMDAwX2NsZWFuX2p1bWJvX3J4X2lycSgpIHJvdXRpbmUgY2Fs
+bGluZwo+IGRldl9rZnJlZV9za2IoKS4gVGhpcyBwYXRjaCBmaXhlcyB0aGUgYWJvdmUgd2Fybmlu
+ZyBtZXNzYWdlcyBieQo+IGNhbGxpbmcgZGV2X2tmcmVlX3NrYl9hbnkoKSBpbnN0ZWFkIG9mIGRl
+dl9rZnJlZV9za2IoKS4KPgo+IFNpZ25lZC1vZmYtYnk6IFByYXNhbm5hIFMuIFBhbmNoYW11a2hp
+PHByYXNhbm5hLnBhbmNoYW11a2hpQHJpdmVyYmVkLmNvbT4KPiAtLS0KPiDCoGRyaXZlcnMvbmV0
+L2UxMDAwZS9uZXRkZXYuYyB8IMKgIMKgNCArKy0tCj4gwqAxIGZpbGVzIGNoYW5nZWQsIDIgaW5z
+ZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKPgoKVGhhbmtzLCBJIGhhdmUgYWRkZWQgaXQgdG8g
+bXkgdHJlZSBmb3IgcmV2aWV3IGFuZCB0ZXN0aW5nLgoKLS0gCkNoZWVycywKSmVmZgoKLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tCkxvdHVzcGhlcmUgMjAxMQpSZWdpc3RlciBub3cgZm9yIExvdHVzcGhl
+cmUgMjAxMSBhbmQgbGVhcm4gaG93CnRvIGNvbm5lY3QgdGhlIGRvdHMsIHRha2UgeW91ciBjb2xs
+YWJvcmF0aXZlIGVudmlyb25tZW50CnRvIHRoZSBuZXh0IGxldmVsLCBhbmQgZW50ZXIgdGhlIGVy
+YSBvZiBTb2NpYWwgQnVzaW5lc3MuCmh0dHA6Ly9wLnNmLm5ldC9zZnUvbG90dXNwaGVyZS1kMmQK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2
+ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczov
+L2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFy
+biBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRp
+ZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
