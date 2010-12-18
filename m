@@ -1,64 +1,61 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH v2] kptr_restrict for hiding kernel pointers from
- unprivileged users
-Date: Sat, 18 Dec 2010 00:22:44 -0500
-Message-ID: <1292649765.10804.42.camel@dan>
-References: <1292025924.2965.20.camel@Dan>
-	 <20101217164431.08f3e730.akpm@linux-foundation.org>
-	 <1292634759.9764.26.camel@Dan>
-	 <20101217172231.8842f5cc.akpm@linux-foundation.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [RFC PATCH 3/3] igb: example of how to update igb to make use of
+ in-kernel Toeplitz hashing
+Date: Fri, 17 Dec 2010 22:53:24 -0800
+Message-ID: <AANLkTimuXo+ZJKmz4U38mLd8x-KymJ0BQxTTjDT2bjgy@mail.gmail.com>
+References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>
+	<20101218010048.28602.49776.stgit@gitlad.jf.intel.com>
+	<20101217.210923.193721885.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	jmorris@namei.org, eugeneteo@kernel.org, kees.cook@canonical.com,
-	mingo@elte.hu, davem@davemloft.net
-To: Andrew Morton <akpm@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:59186 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814Ab0LRFWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 00:22:48 -0500
-In-Reply-To: <20101217172231.8842f5cc.akpm@linux-foundation.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:60416 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751790Ab0LRGx0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 01:53:26 -0500
+Received: by wwa36 with SMTP id 36so1383476wwa.1
+        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 22:53:25 -0800 (PST)
+In-Reply-To: <20101217.210923.193721885.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-12-17 at 17:22 -0800, Andrew Morton wrote:
-> On Fri, 17 Dec 2010 20:12:39 -0500
-> Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-> 
-> > > 
-> > > So what's next?  We need to convert 1,000,000 %p callsites to use %pK? 
-> > > That'll be fun.  Please consider adding a new checkpatch rule which
-> > > detects %p and asks people whether they should have used %pK.
-> > 
-> > The goal of this format specifier is specifically for pointers that are
-> > exposed to unprivileged users.  I agree that hiding all kernel pointers
-> > would be nice, but I don't expect the angry masses to ever agree to
-> > that.  For now, I'll isolate specific cases, especially in /proc, that
-> > are clear risks in terms of information leakage.  I'll also be skipping
-> > over pointers written to the syslog, since I think hiding that
-> > information is dmesg_restrict's job.
-> 
-> Well...  some administrators may wish to hide the pointer values even
-> for privileged callers.  That's a pretty trivial add-on for the code
-> which you have, and means that those admins can also suppress the
-> pointers for IRQ-time callers.  More /proc knobs :)
-> 
+On Fri, Dec 17, 2010 at 9:09 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Fri, 17 Dec 2010 17:00:48 -0800
+>
+>> @@ -1691,6 +1692,7 @@ static const struct net_device_ops igb_netdev_=
+ops =3D {
+>> =A0 =A0 =A0 .ndo_open =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D igb_open,
+>> =A0 =A0 =A0 .ndo_stop =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D igb_close,
+>> =A0 =A0 =A0 .ndo_start_xmit =A0 =A0 =A0 =A0 =3D igb_xmit_frame_adv,
+>> + =A0 =A0 .ndo_select_queue =A0 =A0 =A0 =3D toeplitz_select_queue,
+>> =A0 =A0 =A0 .ndo_get_stats64 =A0 =A0 =A0 =A0=3D igb_get_stats64,
+>> =A0 =A0 =A0 .ndo_set_rx_mode =A0 =A0 =A0 =A0=3D igb_set_rx_mode,
+>> =A0 =A0 =A0 .ndo_set_multicast_list =3D igb_set_rx_mode,
+>
+> Adding a NETIF_F_TX_TOEPLITZ flag that skb_tx_hash() keys off of woul=
+d
+> be a lot simpler
 
-I can add a "2" setting that hides %pK pointers regardless of privilege
-level, which I agree is a useful option.  But because it would be built
-into the same format specifier, you still couldn't use %pK in interrupt
-context (in case the sysctl wasn't set to 2).
+Thats probably true.  I hadn't put much thought into it at the time.
 
-> Then again, perhaps those admins would be OK if we simply disabled
-> plain old %p everywhere.  In which case we're looking at a separate
-> patch, I suggest.  
+> We want less overriding of ->ndo_select_queue(), not more, and this c=
+ase
+> is definitely gratuitous.
 
-I would be happy to do this from a security perspective, but I'd imagine
-there's a pretty high risk of things breaking by doing such a sweeping
-change.
+I kind of figured that was the approach was flawed.  As I said in the
+cover page, this is a somewhat hastily thrown together set of patches
+to demonstrate a proof of concept.  To me this appeared to be the
+quickest way to come up with the means to alter the queue selection.
+The main piece I am interested in is any input on the first patch that
+added the Toeplitz hash functionality.  Specifically would a 16 bit
+key/hash work for queue selection or would there be cases where we
+need a 32 bit key/hash result?
 
--Dan
+Thanks,
 
+Alex
