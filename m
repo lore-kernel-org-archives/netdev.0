@@ -1,100 +1,60 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: [PATCH 1/1] TCP: increase default initial receive window.
-Date: Sat, 18 Dec 2010 01:08:33 -0800
-Message-ID: <AANLkTimSH_NfX2qno7sO3A4CHLsONmRUDHzWXY4reD28@mail.gmail.com>
-References: <1292642451-892-1-git-send-email-nanditad@google.com>
-	<20101217.211309.226761639.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com, chavey@google.com,
-	ycheng@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:24205 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753148Ab0LRJIf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 04:08:35 -0500
-Received: from wpaz9.hot.corp.google.com (wpaz9.hot.corp.google.com [172.24.198.73])
-	by smtp-out.google.com with ESMTP id oBI98YHa021033
-	for <netdev@vger.kernel.org>; Sat, 18 Dec 2010 01:08:34 -0800
-Received: from yxl31 (yxl31.prod.google.com [10.190.3.223])
-	by wpaz9.hot.corp.google.com with ESMTP id oBI98XEO008226
-	for <netdev@vger.kernel.org>; Sat, 18 Dec 2010 01:08:34 -0800
-Received: by yxl31 with SMTP id 31so772470yxl.0
-        for <netdev@vger.kernel.org>; Sat, 18 Dec 2010 01:08:33 -0800 (PST)
-In-Reply-To: <20101217.211309.226761639.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: [PATCH 1/2] net: phy: balance disable/enable irq on change
+Date: Sat, 18 Dec 2010 16:55:22 +0100
+Message-ID: <1292687723-31981-1-git-send-email-jhautbois@gmail.com>
+Cc: richard.cochran@omicron.at, shemminger@vyatta.com, tj@kernel.org,
+	randy.dunlap@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Jean-Michel Hautbois <jhautbois@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-resend in plain text.
+When phy interface changes its status, it calls phy_change() function.
+This function calls the interrupt disabling functions for the driver registered, but if this driver doesn't implement it, there is no IRQ disabling. After doing the work, we call enable_irq and not the respective driver function. This fixes it, as it could lead to an unbalanced IRQ.
 
-On Fri, Dec 17, 2010 at 9:13 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Nandita Dukkipati <nanditad@google.com>
-> Date: Fri, 17 Dec 2010 19:20:51 -0800
->
->> This patch changes the default initial receive window to 10 mss
->> (defined constant). The default window is limited to the maximum
->> of 10*1460 and 2*mss (when mss > 1460).
->>
->> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
->
-> That's an incredibly terse explanation for a very non-trivial
-> change with very non-trivial implications.
->
-> What analysis have you performed to lead you to decide that this
-> was a reasonable change to make? =A0Where can people see that
-> analysis and look over it to see if they agree with your
-> assesment of the data?
+Signed-off-by: Jean-Michel Hautbois <jhautbois@gmail.com>
+---
+ drivers/net/phy/phy.c |   12 ++++++++++--
+ 1 files changed, 10 insertions(+), 2 deletions(-)
 
-Apologies for the terse comment. Here's a longer explanation.
-
-Background:
-A recent proposal to the IETF [Ref: 5] recommends increasing TCP's
-initial congestion window to 10 mss or about 15KB. This proposal,
-backed with data from several large-scale live experiments as well as
-controlled testbed experiments, is under active discussion in the TCPM
-working group.
-
-Analysis performed:
-Leading up to this proposal were several large-scale Internet
-experiments [Ref: 2] with an initial congestion window of 10 mss
-(IW10), where we showed that the average latency of HTTP responses
-improved by approximately 10%. This was accompanied by a slight
-increase in retransmission rate (0.5%), most of which is coming from
-applications opening multiple simultaneous connections. To understand
-the extreme
-worst case scenarios, as well as fairness issues with IW10 versus IW3
-traffic, we further conducted controlled testbed experiments
-(end-hosts are all Linux based). We came away finding minimal negative
-impact even under low link bandwidths (dial-ups) and small buffers
-[Ref: 3]. These results are extremely encouraging to adopting IW10.
-
-But obviously, an initial congestion window of 10 mss is useless
-unless a TCP receiver advertises an initial receive window of at least
-10 mss. Fortunately, in the large-scale Internet experiments we found
-that most of the operating systems advertised a large enough initial
-receive window, allowing us to experiment with various values of
-initial congestion windows. Linux systems were among the few
-exceptions that advertised a small receive window. This patch intends
-to fix that.
-
-References:
-
-1. This site has a comprehensive list of all IW10 references to date.
-http://code.google.com/speed/protocols/tcpm-IW10.html
-
-2. Paper describing results from large-scale Internet experiments with =
-IW10.
-http://ccr.sigcomm.org/drupal/?q=3Dnode/621
-
-3. Controlled testbed experiments with IW10 under worst case scenarios
-http://www.ietf.org/proceedings/79/slides/tcpm-0.pdf
-
-4. Raw test data from testbed experiments (Linux senders/receivers)
-with initial congestion window and initial receive window of 10 mss.
-http://research.csc.ncsu.edu/netsrv/?q=3Dcontent/iw10
-
-5. Internet-Draft. Increasing TCP's Initial Window.
-https://datatracker.ietf.org/doc/draft-ietf-tcpm-initcwnd/
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index 7670aac..b28f2ac 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -89,7 +89,8 @@ static int phy_config_interrupt(struct phy_device *phydev, u32 interrupts)
+ 	phydev->interrupts = interrupts;
+ 	if (phydev->drv->config_intr)
+ 		err = phydev->drv->config_intr(phydev);
+-
++	else
++		err = -ENOSYS;
+ 	return err;
+ }
+ 
+@@ -541,6 +542,10 @@ static int phy_enable_interrupts(struct phy_device *phydev)
+ 		return err;
+ 
+ 	err = phy_config_interrupt(phydev, PHY_INTERRUPT_ENABLED);
++	if (err == -ENOSYS) {
++		err = 0;
++		enable_irq(phydev->irq);
++	}
+ 
+ 	return err;
+ }
+@@ -556,7 +561,10 @@ static int phy_disable_interrupts(struct phy_device *phydev)
+ 	/* Disable PHY interrupts */
+ 	err = phy_config_interrupt(phydev, PHY_INTERRUPT_DISABLED);
+ 
+-	if (err)
++	if (err == -ENOSYS) {
++		err = 0;
++		disable_irq(phydev->irq);
++	} else if (err != 0)
+ 		goto phy_err;
+ 
+ 	/* Clear the interrupt */
+-- 
+1.7.0.4
