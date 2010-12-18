@@ -1,108 +1,60 @@
-From: Jean-Michel Hautbois <jhautbois@gmail.com>
-Subject: [PATCH 2/2] net: phy: Fixed some checkpatch errors
-Date: Sat, 18 Dec 2010 19:41:44 +0100
-Message-ID: <1292697704-2886-2-git-send-email-jhautbois@gmail.com>
-References: <1292697704-2886-1-git-send-email-jhautbois@gmail.com>
-Cc: richard.cochran@omicron.at, shemminger@vyatta.com, tj@kernel.org,
-	randy.dunlap@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Jean-Michel Hautbois <jhautbois@gmail.com>
-To: davem@davemloft.net
+From: Eric Paris <eparis@parisplace.org>
+Subject: Re: [PATCH v3] kptr_restrict for hiding kernel pointers
+Date: Sat, 18 Dec 2010 16:07:59 -0500
+Message-ID: <AANLkTimqpKem=rcfk5gsk0bMdWk45EuEThe0wAYiogxc@mail.gmail.com>
+References: <1292692835.10804.67.camel@dan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, jmorris@namei.org,
+	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
+	kees.cook@canonical.com, mingo@elte.hu, davem@davemloft.net,
+	a.p.zijlstra@chello.nl, akpm@linux-foundation.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292697704-2886-1-git-send-email-jhautbois@gmail.com>
+In-Reply-To: <1292692835.10804.67.camel@dan>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes some coding style issues (errors and warnings).
+On Sat, Dec 18, 2010 at 12:20 PM, Dan Rosenberg
+<drosenberg@vsecurity.com> wrote:
 
-Signed-off-by: Jean-Michel Hautbois <jhautbois@gmail.com>
----
- drivers/net/phy/phy.c |   20 ++++++++++----------
- 1 files changed, 10 insertions(+), 10 deletions(-)
+> @@ -1035,6 +1038,26 @@ char *pointer(const char *fmt, char *buf, char=
+ *end, void *ptr,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return buf + vsnprintf(buf, end - buf,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 ((struct va_format *)ptr)->fmt,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 *(((struct va_format *)ptr)->va));
+> + =A0 =A0 =A0 case 'K':
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* %pK cannot be used in IRQ context =
+because it tests
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* CAP_SYSLOG.
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (in_irq() || in_serving_softirq() ||=
+ in_nmi())
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 WARN_ONCE(1, "%%pK used=
+ in interrupt context.\n");
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!kptr_restrict)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break; =A0 =A0 =A0 =A0 =
+=A0/* %pK does not obscure pointers */
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((kptr_restrict !=3D 2) && capable(C=
+AP_SYSLOG))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break; =A0 =A0 =A0 =A0 =
+=A0/* privileged apps expose pointers,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0unless kptr_restrict is 2 */
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 5f23e8e..d6a9b29 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -33,10 +33,10 @@
- #include <linux/timer.h>
- #include <linux/workqueue.h>
- 
--#include <asm/atomic.h>
--#include <asm/io.h>
-+#include <linux/atomic.h>
-+#include <linux/io.h>
- #include <asm/irq.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- 
- /**
-  * phy_print_status - Convenience function to print out the current phy status
-@@ -47,11 +47,11 @@ void phy_print_status(struct phy_device *phydev)
- 	pr_info("PHY: %s - Link is %s", dev_name(&phydev->dev),
- 			phydev->link ? "Up" : "Down");
- 	if (phydev->link)
--		printk(" - %d/%s", phydev->speed,
-+		pr_info(" - %d/%s", phydev->speed,
- 				DUPLEX_FULL == phydev->duplex ?
- 				"Full" : "Half");
- 
--	printk("\n");
-+	pr_info("\n");
- }
- EXPORT_SYMBOL(phy_print_status);
- 
-@@ -325,7 +325,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
- 
- 	case SIOCSMIIREG:
- 		if (mii_data->phy_id == phydev->addr) {
--			switch(mii_data->reg_num) {
-+			switch (mii_data->reg_num) {
- 			case MII_BMCR:
- 				if ((val & (BMCR_RESET|BMCR_ANENABLE)) == 0)
- 					phydev->autoneg = AUTONEG_DISABLE;
-@@ -352,7 +352,7 @@ int phy_mii_ioctl(struct phy_device *phydev,
- 		}
- 
- 		phy_write(phydev, mii_data->reg_num, val);
--		
-+
- 		if (mii_data->reg_num == MII_BMCR &&
- 		    val & BMCR_RESET &&
- 		    phydev->drv->config_init) {
-@@ -471,7 +471,7 @@ static void phy_force_reduction(struct phy_device *phydev)
- 	int idx;
- 
- 	idx = phy_find_setting(phydev->speed, phydev->duplex);
--	
-+
- 	idx++;
- 
- 	idx = phy_find_valid(idx, phydev->supported);
-@@ -732,6 +732,7 @@ out_unlock:
- 	 * will not reenable interrupts.
- 	 */
- }
-+EXPORT_SYMBOL(phy_stop);
- 
- 
- /**
-@@ -762,7 +763,6 @@ void phy_start(struct phy_device *phydev)
- 	}
- 	mutex_unlock(&phydev->lock);
- }
--EXPORT_SYMBOL(phy_stop);
- EXPORT_SYMBOL(phy_start);
- 
- /**
-@@ -782,7 +782,7 @@ void phy_state_machine(struct work_struct *work)
- 	if (phydev->adjust_state)
- 		phydev->adjust_state(phydev->attached_dev);
- 
--	switch(phydev->state) {
-+	switch (phydev->state) {
- 		case PHY_DOWN:
- 		case PHY_STARTING:
- 		case PHY_READY:
--- 
-1.7.0.4
+I would suggest has_capability_noaudit() since a failure here is not a
+security policy violation it is just a code path choice.
+
+I was confused also by the comment about CAP_SYSLOG and IRQ context.
+You can check CAP_SYSLOG in IRQ context, it's just that the result is
+not going to have any relation to the work being done.  This function
+in general doesn't make sense in that context and I don't think saying
+that has anything to do with CAP_SYSLOG makes that clear....  Unless
+I'm misunderstanding...
