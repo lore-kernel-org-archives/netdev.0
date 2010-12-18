@@ -1,181 +1,265 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH v3] kptr_restrict for hiding kernel pointers
-Date: Sat, 18 Dec 2010 12:20:34 -0500
-Message-ID: <1292692835.10804.67.camel@dan>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netfilter: x_table: speedup compat operations
+Date: Sat, 18 Dec 2010 18:35:15 +0100
+Message-ID: <1292693715.18869.148.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, eric.dumazet@gmail.com, tgraf@infradead.org,
-	eugeneteo@kernel.org, kees.cook@canonical.com, mingo@elte.hu,
-	davem@davemloft.net, a.p.zijlstra@chello.nl,
-	akpm@linux-foundation.org
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:62603 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756957Ab0LRRUk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 12:20:40 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add the %pK printk format specifier and
-the /proc/sys/kernel/kptr_restrict sysctl.
+One iptables invocation with 135000 rules takes 35 seconds of cpu time
+on a recent server, using a 32bit distro and a 64bit kernel.
 
-The %pK format specifier is designed to hide exposed kernel pointers,
-specifically via /proc interfaces.  Exposing these pointers provides an
-easy target for kernel write vulnerabilities, since they reveal the
-locations of writable structures containing easily triggerable function
-pointers.  The behavior of %pK depends on the kptr_restrict sysctl.
+We eventually trigger NMI/RCU watchdog.
 
-If kptr_restrict is set to 0, no deviation from the standard %p behavior
-occurs.  If kptr_restrict is set to 1, if the current user (intended to
-be a reader via seq_printf(), etc.) does not have CAP_SYSLOG (which is
-currently in the LSM tree), kernel pointers using %pK are printed as
-0's.  If kptr_restrict is set to 2, kernel pointers using %pK are
-printed as 0's regardless of privileges.  Replacing with 0's was chosen
-over the default "(null)", which cannot be parsed by userland %p, which
-expects "(nil)".
+INFO: rcu_sched_state detected stall on CPU 3 (t=6000 jiffies)
 
+COMPAT mode has quadratic behavior and consume 16 bytes of memory per
+rule.
 
-v3 adds the "2" setting, cleans up documentation, removes the CONFIG,
-and incorporates changes and suggestions from Andrew Morton.
+Switch the xt_compat algos to use an array instead of list, and use a
+binary search to locate an offset in the sorted array.
 
-v2 improves checking for inappropriate context, on suggestion by Peter
-Zijlstra.  Thanks to Thomas Graf for suggesting use of a centralized
-format specifier.
+This halves memory need (8 bytes per rule), and removes quadratic
+behavior [ O(N*N) -> O(N*log2(N)) ]
 
+Time of iptables goes from 35 s to 150 ms.
 
-Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-Cc: James Morris <jmorris@namei.org>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Thomas Graf <tgraf@infradead.org>
-Cc: Eugene Teo <eugeneteo@kernel.org>
-Cc: Kees Cook <kees.cook@canonical.com>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Cc: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+ include/linux/netfilter/x_tables.h |    3 
+ net/bridge/netfilter/ebtables.c    |    1 
+ net/ipv4/netfilter/arp_tables.c    |    2 
+ net/ipv4/netfilter/ip_tables.c     |    2 
+ net/ipv6/netfilter/ip6_tables.c    |    2 
+ net/netfilter/x_tables.c           |   82 +++++++++++++++------------
+ 6 files changed, 57 insertions(+), 35 deletions(-)
 
- Documentation/sysctl/kernel.txt |   14 ++++++++++++++
- include/linux/kernel.h          |    2 ++
- kernel/sysctl.c                 |    9 +++++++++
- lib/vsprintf.c                  |   23 +++++++++++++++++++++++
- 4 files changed, 48 insertions(+), 0 deletions(-)
-
-diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.txt
-index 209e158..3cff47e 100644
---- a/Documentation/sysctl/kernel.txt
-+++ b/Documentation/sysctl/kernel.txt
-@@ -34,6 +34,7 @@ show up in /proc/sys/kernel:
- - hotplug
- - java-appletviewer           [ binfmt_java, obsolete ]
- - java-interpreter            [ binfmt_java, obsolete ]
-+- kptr_restrict
- - kstack_depth_to_print       [ X86 only ]
- - l2cr                        [ PPC only ]
- - modprobe                    ==> Documentation/debugging-modules.txt
-@@ -261,6 +262,19 @@ This flag controls the L2 cache of G3 processor boards. If
+diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
+index 742bec0..0f04d98 100644
+--- a/include/linux/netfilter/x_tables.h
++++ b/include/linux/netfilter/x_tables.h
+@@ -611,8 +611,9 @@ struct _compat_xt_align {
+ extern void xt_compat_lock(u_int8_t af);
+ extern void xt_compat_unlock(u_int8_t af);
  
- ==============================================================
+-extern int xt_compat_add_offset(u_int8_t af, unsigned int offset, short delta);
++extern int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta);
+ extern void xt_compat_flush_offsets(u_int8_t af);
++extern void xt_compat_init_offsets(u_int8_t af, unsigned int number);
+ extern int xt_compat_calc_jump(u_int8_t af, unsigned int offset);
  
-+kptr_restrict:
-+
-+This toggle indicates whether restrictions are placed on
-+exposing kernel addresses via /proc and other interfaces.  When
-+kptr_restrict is set to (0), the default, there are no
-+restrictions.  When kptr_restrict is set to (1), kernel pointers
-+printed using the %pK format specifier will be replaced with 0's
-+unless the user has CAP_SYSLOG.  When kptr_restrict is set to
-+(2), kernel pointers printed using %pK will be replaced with 0's
-+regardless of privileges.
-+
-+==============================================================
-+
- kstack_depth_to_print: (X86 only)
+ extern int xt_compat_match_offset(const struct xt_match *match);
+diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+index cbc9f39..2bf2fb2 100644
+--- a/net/bridge/netfilter/ebtables.c
++++ b/net/bridge/netfilter/ebtables.c
+@@ -1764,6 +1764,7 @@ static int compat_table_info(const struct ebt_table_info *info,
  
- Controls the number of words to print when dumping the raw
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index b6de9a6..b4f4863 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -201,6 +201,8 @@ extern int sscanf(const char *, const char *, ...)
- extern int vsscanf(const char *, const char *, va_list)
- 	__attribute__ ((format (scanf, 2, 0)));
+ 	newinfo->entries_size = size;
  
-+extern int kptr_restrict;	/* for sysctl */
-+
- extern int get_option(char **str, int *pint);
- extern char *get_options(const char *str, int nints, int *ints);
- extern unsigned long long memparse(const char *ptr, char **retptr);
-diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-index 5abfa15..236fa91 100644
---- a/kernel/sysctl.c
-+++ b/kernel/sysctl.c
-@@ -713,6 +713,15 @@ static struct ctl_table kern_table[] = {
- 	},
- #endif
- 	{
-+		.procname	= "kptr_restrict",
-+		.data		= &kptr_restrict,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &two,
-+	},
-+	{
- 		.procname	= "ngroups_max",
- 		.data		= &ngroups_max,
- 		.maxlen		= sizeof (int),
-diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-index c150d3d..b116aeb 100644
---- a/lib/vsprintf.c
-+++ b/lib/vsprintf.c
-@@ -936,6 +936,8 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
- 	return string(buf, end, uuid, spec);
++	xt_compat_init_offsets(AF_INET, info->nentries);
+ 	return EBT_ENTRY_ITERATE(entries, size, compat_calc_entry, info,
+ 							entries, newinfo);
  }
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 3fac340..47e5178 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -883,6 +883,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ 	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+ 	newinfo->initial_entries = 0;
+ 	loc_cpu_entry = info->entries[raw_smp_processor_id()];
++	xt_compat_init_offsets(NFPROTO_ARP, info->number);
+ 	xt_entry_foreach(iter, loc_cpu_entry, info->size) {
+ 		ret = compat_calc_entry(iter, info, loc_cpu_entry, newinfo);
+ 		if (ret != 0)
+@@ -1350,6 +1351,7 @@ static int translate_compat_table(const char *name,
+ 	duprintf("translate_compat_table: size %u\n", info->size);
+ 	j = 0;
+ 	xt_compat_lock(NFPROTO_ARP);
++	xt_compat_init_offsets(NFPROTO_ARP, number);
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index a846d63..c5a75d7 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -1080,6 +1080,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ 	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+ 	newinfo->initial_entries = 0;
+ 	loc_cpu_entry = info->entries[raw_smp_processor_id()];
++	xt_compat_init_offsets(AF_INET, info->number);
+ 	xt_entry_foreach(iter, loc_cpu_entry, info->size) {
+ 		ret = compat_calc_entry(iter, info, loc_cpu_entry, newinfo);
+ 		if (ret != 0)
+@@ -1681,6 +1682,7 @@ translate_compat_table(struct net *net,
+ 	duprintf("translate_compat_table: size %u\n", info->size);
+ 	j = 0;
+ 	xt_compat_lock(AF_INET);
++	xt_compat_init_offsets(AF_INET, number);
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index 4555823..0c9973a 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -1093,6 +1093,7 @@ static int compat_table_info(const struct xt_table_info *info,
+ 	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+ 	newinfo->initial_entries = 0;
+ 	loc_cpu_entry = info->entries[raw_smp_processor_id()];
++	xt_compat_init_offsets(AF_INET6, info->number);
+ 	xt_entry_foreach(iter, loc_cpu_entry, info->size) {
+ 		ret = compat_calc_entry(iter, info, loc_cpu_entry, newinfo);
+ 		if (ret != 0)
+@@ -1696,6 +1697,7 @@ translate_compat_table(struct net *net,
+ 	duprintf("translate_compat_table: size %u\n", info->size);
+ 	j = 0;
+ 	xt_compat_lock(AF_INET6);
++	xt_compat_init_offsets(AF_INET6, number);
+ 	/* Walk through entries, checking offsets. */
+ 	xt_entry_foreach(iter0, entry0, total_size) {
+ 		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index 8046350..75182ed 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -38,9 +38,8 @@ MODULE_DESCRIPTION("{ip,ip6,arp,eb}_tables backend module");
+ #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
  
-+int kptr_restrict;
-+
- /*
-  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
-  * by an extra set of alphanumeric characters that are extended format
-@@ -979,6 +981,7 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
-  *       Implements a "recursive vsnprintf".
-  *       Do not use this feature without some mechanism to verify the
-  *       correctness of the format string and va_list arguments.
-+ * - 'K' For a kernel pointer that should be hidden from unprivileged users
-  *
-  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
-  * function pointers are really function descriptors, which contain a
-@@ -1035,6 +1038,26 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
- 		return buf + vsnprintf(buf, end - buf,
- 				       ((struct va_format *)ptr)->fmt,
- 				       *(((struct va_format *)ptr)->va));
-+	case 'K':
-+		/*
-+		 * %pK cannot be used in IRQ context because it tests
-+		 * CAP_SYSLOG.
-+		 */
-+		if (in_irq() || in_serving_softirq() || in_nmi())
-+			WARN_ONCE(1, "%%pK used in interrupt context.\n");
-+
-+		if (!kptr_restrict)
-+			break;		/* %pK does not obscure pointers */
-+
-+		if ((kptr_restrict != 2) && capable(CAP_SYSLOG))
-+			break;		/* privileged apps expose pointers,
-+					   unless kptr_restrict is 2 */
-+
-+		if (spec.field_width == -1) {
-+			spec.field_width = 2 * sizeof(void *);
-+			spec.flags |= ZEROPAD;
-+		}
-+		return number(buf, end, 0, spec);
+ struct compat_delta {
+-	struct compat_delta *next;
+-	unsigned int offset;
+-	int delta;
++	unsigned int offset; /* offset in kernel */
++	int delta; /* delta in 32bit user land */
+ };
+ 
+ struct xt_af {
+@@ -49,7 +48,9 @@ struct xt_af {
+ 	struct list_head target;
+ #ifdef CONFIG_COMPAT
+ 	struct mutex compat_mutex;
+-	struct compat_delta *compat_offsets;
++	struct compat_delta *compat_tab;
++	unsigned int number; /* number of slots in compat_tab[] */
++	unsigned int cur; /* number of used slots in compat_tab[] */
+ #endif
+ };
+ 
+@@ -414,54 +415,67 @@ int xt_check_match(struct xt_mtchk_param *par,
+ EXPORT_SYMBOL_GPL(xt_check_match);
+ 
+ #ifdef CONFIG_COMPAT
+-int xt_compat_add_offset(u_int8_t af, unsigned int offset, short delta)
++int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta)
+ {
+-	struct compat_delta *tmp;
++	struct xt_af *xp = &xt[af];
+ 
+-	tmp = kmalloc(sizeof(struct compat_delta), GFP_KERNEL);
+-	if (!tmp)
+-		return -ENOMEM;
++	if (!xp->compat_tab) {
++		if (!xp->number)
++			return -EINVAL;
++		xp->compat_tab = vmalloc(sizeof(struct compat_delta) * xp->number);
++		if (!xp->compat_tab)
++			return -ENOMEM;
++		xp->cur = 0;
++	}
+ 
+-	tmp->offset = offset;
+-	tmp->delta = delta;
++	if (xp->cur >= xp->number)
++		return -EINVAL;
+ 
+-	if (xt[af].compat_offsets) {
+-		tmp->next = xt[af].compat_offsets->next;
+-		xt[af].compat_offsets->next = tmp;
+-	} else {
+-		xt[af].compat_offsets = tmp;
+-		tmp->next = NULL;
+-	}
++	if (xp->cur)
++		delta += xp->compat_tab[xp->cur - 1].delta;
++	xp->compat_tab[xp->cur].offset = offset;
++	xp->compat_tab[xp->cur].delta = delta;
++	xp->cur++;
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(xt_compat_add_offset);
+ 
+ void xt_compat_flush_offsets(u_int8_t af)
+ {
+-	struct compat_delta *tmp, *next;
+-
+-	if (xt[af].compat_offsets) {
+-		for (tmp = xt[af].compat_offsets; tmp; tmp = next) {
+-			next = tmp->next;
+-			kfree(tmp);
+-		}
+-		xt[af].compat_offsets = NULL;
++	if (xt[af].compat_tab) {
++		vfree(xt[af].compat_tab);
++		xt[af].compat_tab = NULL;
++		xt[af].number = 0;
  	}
- 	spec.flags |= SMALL;
- 	if (spec.field_width == -1) {
+ }
+ EXPORT_SYMBOL_GPL(xt_compat_flush_offsets);
+ 
+ int xt_compat_calc_jump(u_int8_t af, unsigned int offset)
+ {
+-	struct compat_delta *tmp;
+-	int delta;
+-
+-	for (tmp = xt[af].compat_offsets, delta = 0; tmp; tmp = tmp->next)
+-		if (tmp->offset < offset)
+-			delta += tmp->delta;
+-	return delta;
++	struct compat_delta *tmp = xt[af].compat_tab;
++	int mid, left = 0, right = xt[af].cur - 1;
++
++	while (left <= right) {
++		mid = (left + right) >> 1;
++		if (offset > tmp[mid].offset)
++			left = mid + 1;
++		else if (offset < tmp[mid].offset)
++			right = mid - 1;
++		else
++			return mid ? tmp[mid - 1].delta : 0;
++	}
++	WARN_ON_ONCE(1);
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(xt_compat_calc_jump);
+ 
++void xt_compat_init_offsets(u_int8_t af, unsigned int number)
++{
++	xt[af].number = number;
++	xt[af].cur = 0;
++}
++EXPORT_SYMBOL(xt_compat_init_offsets);
++
+ int xt_compat_match_offset(const struct xt_match *match)
+ {
+ 	u_int16_t csize = match->compatsize ? : match->matchsize;
+@@ -1337,7 +1351,7 @@ static int __init xt_init(void)
+ 		mutex_init(&xt[i].mutex);
+ #ifdef CONFIG_COMPAT
+ 		mutex_init(&xt[i].compat_mutex);
+-		xt[i].compat_offsets = NULL;
++		xt[i].compat_tab = NULL;
+ #endif
+ 		INIT_LIST_HEAD(&xt[i].target);
+ 		INIT_LIST_HEAD(&xt[i].match);
 
 
