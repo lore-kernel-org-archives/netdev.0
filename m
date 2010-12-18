@@ -1,61 +1,51 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC PATCH 3/3] igb: example of how to update igb to make use of
- in-kernel Toeplitz hashing
-Date: Fri, 17 Dec 2010 22:53:24 -0800
-Message-ID: <AANLkTimuXo+ZJKmz4U38mLd8x-KymJ0BQxTTjDT2bjgy@mail.gmail.com>
-References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>
-	<20101218010048.28602.49776.stgit@gitlad.jf.intel.com>
-	<20101217.210923.193721885.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] netlink: fix gcc -Wconversion compilation warning
+Date: Fri, 17 Dec 2010 22:58:01 -0800
+Message-ID: <m1oc8jlg92.fsf@fess.ebiederm.org>
+References: <1292259913-9911-1-git-send-email-kirill@shutemov.name>
+	<m1sjy1uzj6.fsf@fess.ebiederm.org>
+	<20101217.120234.59681524.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: alexander.h.duyck@intel.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kirill@shutemov.name, netdev@vger.kernel.org, pablo@netfilter.org,
+	ldv@altlinux.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:60416 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751790Ab0LRGx0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 01:53:26 -0500
-Received: by wwa36 with SMTP id 36so1383476wwa.1
-        for <netdev@vger.kernel.org>; Fri, 17 Dec 2010 22:53:25 -0800 (PST)
-In-Reply-To: <20101217.210923.193721885.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101217.120234.59681524.davem@davemloft.net> (David Miller's
+	message of "Fri, 17 Dec 2010 12:02:34 -0800 (PST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 17, 2010 at 9:09 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Fri, 17 Dec 2010 17:00:48 -0800
+David Miller <davem@davemloft.net> writes:
+
+> From: ebiederm@xmission.com (Eric W. Biederman)
+> Date: Mon, 13 Dec 2010 13:35:25 -0800
 >
->> @@ -1691,6 +1692,7 @@ static const struct net_device_ops igb_netdev_=
-ops =3D {
->> =A0 =A0 =A0 .ndo_open =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D igb_open,
->> =A0 =A0 =A0 .ndo_stop =A0 =A0 =A0 =A0 =A0 =A0 =A0 =3D igb_close,
->> =A0 =A0 =A0 .ndo_start_xmit =A0 =A0 =A0 =A0 =3D igb_xmit_frame_adv,
->> + =A0 =A0 .ndo_select_queue =A0 =A0 =A0 =3D toeplitz_select_queue,
->> =A0 =A0 =A0 .ndo_get_stats64 =A0 =A0 =A0 =A0=3D igb_get_stats64,
->> =A0 =A0 =A0 .ndo_set_rx_mode =A0 =A0 =A0 =A0=3D igb_set_rx_mode,
->> =A0 =A0 =A0 .ndo_set_multicast_list =3D igb_set_rx_mode,
+>> "Kirill A. Shutsemov" <kirill@shutemov.name> writes:
+>> 
+>>> From: Dmitry V. Levin <ldv@altlinux.org>
+>>>
+>>> $ cat << EOF | gcc -Wconversion -xc -S -o/dev/null -
+>>> unsigned f(void) {return NLMSG_HDRLEN;}
+>>> EOF
+>>> <stdin>: In function 'f':
+>>> <stdin>:3:26: warning: negative integer implicitly converted to unsigned type
+>>>
+>> This doesn't look like a bad fix, but I believe things will fail if
+>> we give NLMSG_ALIGN an unsigned long like size_t.  Say like sizeof.
 >
-> Adding a NETIF_F_TX_TOEPLITZ flag that skb_tx_hash() keys off of woul=
-d
-> be a lot simpler
+> What are you talking about? That's exactly his test case,
+> look at what NLMSG_HDRLEN is defined to, it's exactly the
+> case you're worried "will fail", it passes sizeof() to
+> NLMSG_ALIGN.
+>
+> I think I'll apply Kirill's original patch, it's good enough
+> and simpler.
 
-Thats probably true.  I hadn't put much thought into it at the time.
+Probably.  The case I was worried about was masks that become
+0xffffffxx on 64bit instead of 0xffffffffffffxx.  Especially
+when mixing those with ints.
 
-> We want less overriding of ->ndo_select_queue(), not more, and this c=
-ase
-> is definitely gratuitous.
+It is possible to get some really weird things.
 
-I kind of figured that was the approach was flawed.  As I said in the
-cover page, this is a somewhat hastily thrown together set of patches
-to demonstrate a proof of concept.  To me this appeared to be the
-quickest way to come up with the means to alter the queue selection.
-The main piece I am interested in is any input on the first patch that
-added the Toeplitz hash functionality.  Specifically would a 16 bit
-key/hash work for queue selection or would there be cases where we
-need a 32 bit key/hash result?
-
-Thanks,
-
-Alex
+Eric
