@@ -1,113 +1,112 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Subject: Re: "x86: allocate space within a region top-down" causes bar0 access issue
-Date: Fri, 17 Dec 2010 17:17:54 -0700
-Message-ID: <201012171717.55300.bjorn.helgaas@hp.com>
-References: <20101217194457.GA4470@exar.com> <201012171316.12761.bjorn.helgaas@hp.com> <20101217231210.GH4622@exar.com>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [PATCH v2] kptr_restrict for hiding kernel pointers from
+ unprivileged users
+Date: Fri, 17 Dec 2010 16:44:31 -0800
+Message-ID: <20101217164431.08f3e730.akpm@linux-foundation.org>
+References: <1292025924.2965.20.camel@Dan>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-To: Jon Mason <jon.mason@exar.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0008.atlanta.hp.com ([15.192.0.45]:18738 "EHLO
-	g5t0008.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753645Ab0LRAXP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 19:23:15 -0500
-In-Reply-To: <20101217231210.GH4622@exar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
+	jmorris@namei.org, eugeneteo@kernel.org, kees.cook@canonical.com,
+	mingo@elte.hu, davem@davemloft.net
+To: Dan Rosenberg <drosenberg@vsecurity.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <1292025924.2965.20.camel@Dan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday, December 17, 2010 04:12:11 pm Jon Mason wrote:
-> On Fri, Dec 17, 2010 at 12:16:12PM -0800, Bjorn Helgaas wrote:
-> > On Friday, December 17, 2010 12:44:58 pm Jon Mason wrote:
-> > > The following patch is causing problem with the vxge driver/adapter on
-> > > HP x86-64 systems. Reads to bar0 to return 0xffffffffffffffff instead
-> > > of their intended value.  This prevents the vxge module from loading
-> > > by failing sanity checks in the driver for certain values in bar0.  We
-> > > are not seeing any issues with this patch on non-HP systems in our
-> > > lab.
-> > >
-> > > Can this patch be removed from 2.6.37 until a better solution can be
-> > > found?
-> >
-> > There were several issues related to that patch, and it's about to
-> > be reverted.  I am curious about the failure you're seeing, though,
-> > and I'd like to understand the cause and make sure it's one of the
-> > issues I've already investigated.
-> >
-> > Can you send me the complete dmesg log of a failing boot?
+On Fri, 10 Dec 2010 19:05:24 -0500
+Dan Rosenberg <drosenberg@vsecurity.com> wrote:
+
+> The below patch adds the %pK format specifier, the
+> CONFIG_SECURITY_KPTR_RESTRICT configuration option, and the
+> kptr_restrict sysctl.
 > 
-> Below is the dmesg of a failing system.
+> The %pK format specifier is designed to hide exposed kernel pointers
+> from unprivileged users, specifically via /proc interfaces.  Its
+> behavior depends on the kptr_restrict sysctl, whose default value
+> depends on CONFIG_SECURITY_KPTR_RESTRICT.  If kptr_restrict is set to 0,
+> no deviation from the standard %p behavior occurs.  If kptr_restrict is
+> set to 1, if the current user (intended to be a reader via seq_printf(),
+> etc.) does not have CAP_SYSLOG (which is currently in the LSM tree),
+> kernel pointers using %pK are printed as 0's.  This was chosen over the
+> default "(null)", which cannot be parsed by userland %p, which expects
+> "(nil)".
+> 
+> v2 improves checking for inappropriate context, on suggestion by Peter
+> Zijlstra.  Thanks to Thomas Graf for suggesting use of a centralized
+> format specifier.
 
-Thanks.  This is interesting.  All the reported PCI windows are below 4GB:
+The changelog doesn't describe why CONFIG_SECURITY_KPTR_RESTRICT
+exists, nor why the kptr_restrict sysctl exists.  I can kinda guess why
+this was done, but it would be much better if your reasoning was
+present here.
 
-> ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
-> pci_root PNP0A08:00: host bridge window [io  0x0000-0x0bff]
-> pci_root PNP0A08:00: host bridge window [io  0x0d00-0xffff]
-> pci_root PNP0A08:00: host bridge window [mem 0x000a0000-0x000bffff]
-> pci_root PNP0A08:00: host bridge window [mem 0x000d0000-0x000dffff]
-> pci_root PNP0A08:00: host bridge window [mem 0xf0000000-0xffffffff]
+And I'd question whether we need CONFIG_SECURITY_KPTR_RESTRICT at all. 
+Disabling it saves no memory.  Its presence just increases the level of
+incompatibility between different vendor's kernels and potentially
+doubles the number of kernels which distros must ship (which they of
+course won't do).  It might be better to add a kptr_restrict=1 kernel boot
+option (although people sometimes have problems with boot options in
+embedded environments).
 
-But the BIOS configured many devices *above* 4GB (and they probably
-work fine there), so we complain about them, zero out their resources,
-then think they conflict with some PNP devices (which they really
-don't):
+All that being said, distro initscripts can just set the sysctl to the
+desired value before any non-root process has even started, but this
+apparently is far too hard for them :(
 
-> pci 0000:00:1f.3: reg 10: [mem 0xffffffc00-0xffffffcff 64bit]
-> pci 0000:05:00.0: reg 10: [mem 0xfff000000-0xfff7fffff 64bit pref]
-> pci 0000:05:00.0: reg 18: [mem 0xfffcfe000-0xfffcfffff 64bit pref]
-> pci 0000:05:00.0: reg 20: [mem 0xfffcfc000-0xfffcfdfff 64bit pref]
-> pci 0000:00:06.0: PCI bridge to [bus 05-05]
-> pci 0000:00:06.0:   bridge window [mem 0xfff000000-0xfffcfffff 64bit pref]
-> pci 0000:00:1c.0: PCI bridge to [bus 09-0b]
-> pci 0000:00:1c.0:   bridge window [mem 0xfffd00000-0xfffefffff 64bit pref]
-> pci 0000:0b:04.0: reg 10: [mem 0xfffef8000-0xfffefffff 64bit pref]
-> pci 0000:0b:04.0: reg 18: [mem 0xfffd00000-0xfffdfffff 64bit pref]
-> pci 0000:0b:04.0: reg 20: [mem 0xfffef7800-0xfffef7fff 64bit pref]
-> pci 0000:09:00.0: PCI bridge to [bus 0b-0b]
-> pci 0000:09:00.0:   bridge window [mem 0xfffd00000-0xfffefffff 64bit pref]
-...
-> pci 0000:00:06.0: no compatible bridge window for [mem 0xfff000000-0xfffcfffff 64bit pref]
-> pci 0000:00:1c.0: no compatible bridge window for [mem 0xfffd00000-0xfffefffff 64bit pref]
-> pci 0000:09:00.0: no compatible bridge window for [mem 0xfffd00000-0xfffefffff 64bit pref]
-> pci 0000:00:1f.3: no compatible bridge window for [mem 0xffffffc00-0xffffffcff 64bit]
-> pci 0000:05:00.0: no compatible bridge window for [mem 0xfff000000-0xfff7fffff 64bit pref]
-> pci 0000:05:00.0: no compatible bridge window for [mem 0xfffcfe000-0xfffcfffff 64bit pref]
-> pci 0000:05:00.0: no compatible bridge window for [mem 0xfffcfc000-0xfffcfdfff 64bit pref]
-> pci 0000:0b:04.0: no compatible bridge window for [mem 0xfffef8000-0xfffefffff 64bit pref]
-> pci 0000:0b:04.0: no compatible bridge window for [mem 0xfffd00000-0xfffdfffff 64bit pref]
-> pci 0000:0b:04.0: no compatible bridge window for [mem 0xfffef7800-0xfffef7fff 64bit pref]
-...
-> pnp 00:0e: disabling [mem 0x00000000-0x0009ffff] because it overlaps 0000:05:00.0 BAR 0 [mem 0x00000000-0x007fffff 64bit pref]
-> pnp 00:0e: disabling [mem 0x000c0000-0x000cffff] because it overlaps 0000:05:00.0 BAR 0 [mem 0x00000000-0x007fffff 64bit pref]
+Finally, the changelog and the documentation changes don't tell us the
+full /proc path to the kptr_restrict pseudo-file.  That would be useful
+info.  Seems that it's /proc/sys/kernel/kptr_restrict?
 
-ACPI helpfully tells us that the high 6MB below 4GB is reserved, but
-we don't handle that correctly:
+>
+> ...
+>
+> --- a/lib/vsprintf.c
+> +++ b/lib/vsprintf.c
+> @@ -936,6 +936,8 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
+>  	return string(buf, end, uuid, spec);
+>  }
+>  
+> +int kptr_restrict = CONFIG_SECURITY_KPTR_RESTRICT;
+> +
+>  /*
+>   * Show a '%p' thing.  A kernel extension is that the '%p' is followed
+>   * by an extra set of alphanumeric characters that are extended format
+> @@ -979,6 +981,7 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
+>   *       Implements a "recursive vsnprintf".
+>   *       Do not use this feature without some mechanism to verify the
+>   *       correctness of the format string and va_list arguments.
+> + * - 'K' For a kernel pointer that should be hidden from unprivileged users
+>   *
+>   * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+>   * function pointers are really function descriptors, which contain a
+> @@ -1035,6 +1038,21 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+>  		return buf + vsnprintf(buf, end - buf,
+>  				       ((struct va_format *)ptr)->fmt,
+>  				       *(((struct va_format *)ptr)->va));
+> +	case 'K':
+> +		if (kptr_restrict) {
+> +			if (in_irq() || in_serving_softirq() || in_nmi())
+> +				WARN(1, "%%pK used in interrupt context.\n");
+> +
+> +			else if (capable(CAP_SYSLOG))
+> +				break;
 
-> pnp 00:08: [mem 0xffa00000-0xfffffffe]
-> system 00:08: [mem 0xffa00000-0xfffffffe] could not be reserved
+And the reason why it's unusable in interrupt context is that we can't
+meaningfully check CAP_SYSLOG from interrupt.
 
-And finally, we drop some of those PCI devices, including the vxge
-device on top of that ACPI PNP0C02 device, which of course doesn't
-work:
+Fair enough, but this does restrict %pK's usefulness.
 
-> pci 0000:00:06.0: BAR 9: assigned [mem 0xff000000-0xffbfffff 64bit pref]
-> pci 0000:05:00.0: BAR 0: assigned [mem 0xff000000-0xff7fffff 64bit pref]
-> vxge: Reading of hardware info failed.Please try upgrading the firmware.
-> vxge: probe of 0000:05:00.0 failed with error -22
+I think I'd be more comfortable with a WARN_ONCE here.  If someone
+screws up then we don't want to spew thousands of repeated warnings at
+our poor users - one will do.
 
-So there's probably a BIOS bug (not reporting the windows above 4GB),
-and definitely a Linux bus (allowing PCI to allocate things on top
-of ACPI devices).
 
-This is a known Linux issue, and the top-down allocation scheme made
-it much more likely that we'd run into problems like this.  Reverting
-to bottom-up allocation doesn't fix the problem, but makes it much less
-likely that we'll trip over it.
 
-Thanks a lot for reporting this and collecting the dmesg!
+So what's next?  We need to convert 1,000,000 %p callsites to use %pK? 
+That'll be fun.  Please consider adding a new checkpatch rule which
+detects %p and asks people whether they should have used %pK.
 
-Bjorn
+
