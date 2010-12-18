@@ -1,62 +1,36 @@
-From: Jon Mason <jon.mason@exar.com>
-Subject: Re: "x86: allocate space within a region top-down" causes bar0
- access issue
-Date: Sat, 18 Dec 2010 16:01:09 -0600
-Message-ID: <20101218220109.GE7676@exar.com>
-References: <20101217194457.GA4470@exar.com>
- <20101217114721.04eafeca@jbarnes-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv4] fragment locally generated tunnel-mode IPSec6
+ packets as needed
+Date: Sat, 18 Dec 2010 14:34:23 -0800 (PST)
+Message-ID: <20101218.143423.189688024.davem@davemloft.net>
+References: <1292622162.1700.3.camel@IBM-1B506CFC885>
+	<20101218021606.GA26888@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-To: Jesse Barnes <jbarnes@virtuousgeek.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dlstevens@us.ibm.com, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:1990 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932284Ab0LRWBM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 17:01:12 -0500
-Content-Disposition: inline
-In-Reply-To: <20101217114721.04eafeca@jbarnes-desktop>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59786
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751406Ab0LRWdy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Dec 2010 17:33:54 -0500
+In-Reply-To: <20101218021606.GA26888@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 17, 2010 at 11:47:21AM -0800, Jesse Barnes wrote:
-> On Fri, 17 Dec 2010 13:44:58 -0600
-> Jon Mason <jon.mason@exar.com> wrote:
->
-> > The following patch is causing problem with the vxge driver/adapter on
-> > HP x86-64 systems. Reads to bar0 to return 0xffffffffffffffff instead
-> > of their intended value.  This prevents the vxge module from loading
-> > by failing sanity checks in the driver for certain values in bar0.  We
-> > are not seeing any issues with this patch on non-HP systems in our
-> > lab.
-> >
-> > Can this patch be removed from 2.6.37 until a better solution can be
-> > found?
->
-> Can you try my for-linus branch and see if the problem still exists
-> there?  It's at
-> git://git.kernel.org/pub/scm/linux/kernel/git/jbarnes/pci-2.6.git.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Sat, 18 Dec 2010 10:16:06 +0800
 
-The for-linus branch does NOT have the issue
-The master branch does have the issue
+> On Fri, Dec 17, 2010 at 01:42:42PM -0800, David L Stevens wrote:
+>> This patch modifies IPsec6 to fragment IPv6 packets that are
+>> locally generated as needed.
+>> 
+>> This version of the patch only fragments in tunnel mode, so that fragment
+>> headers will not be obscured by ESP in transport mode.
+>> 
+>> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
+> 
+> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks,
-Jon
-
->
-> Thanks,
-> --
-> Jesse Barnes, Intel Open Source Technology Center
-
-The information and any attached documents contained in this message
-may be confidential and/or legally privileged.  The message is
-intended solely for the addressee(s).  If you are not the intended
-recipient, you are hereby notified that any use, dissemination, or
-reproduction is strictly prohibited and may be unlawful.  If you are
-not the intended recipient, please contact the sender immediately by
-return e-mail and destroy all copies of the original message.
+So is the TAHI test regression caused by v3 fixed here in v4?
