@@ -1,46 +1,36 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH v2] kptr_restrict for hiding kernel pointers from
- unprivileged users
-Date: Fri, 17 Dec 2010 17:22:31 -0800
-Message-ID: <20101217172231.8842f5cc.akpm@linux-foundation.org>
-References: <1292025924.2965.20.camel@Dan>
-	<20101217164431.08f3e730.akpm@linux-foundation.org>
-	<1292634759.9764.26.camel@Dan>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCHv4] fragment locally generated tunnel-mode IPSec6
+	packets as needed
+Date: Sat, 18 Dec 2010 10:16:06 +0800
+Message-ID: <20101218021606.GA26888@gondor.apana.org.au>
+References: <1292622162.1700.3.camel@IBM-1B506CFC885>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	linux-security-module@vger.kernel.org, netdev@vger.kernel.org,
-	jmorris@namei.org, eugeneteo@kernel.org, kees.cook@canonical.com,
-	mingo@elte.hu, davem@davemloft.net
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1292634759.9764.26.camel@Dan>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: David L Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:33551 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756873Ab0LRCQP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Dec 2010 21:16:15 -0500
+Content-Disposition: inline
+In-Reply-To: <1292622162.1700.3.camel@IBM-1B506CFC885>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Dec 2010 20:12:39 -0500
-Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-
-> > 
-> > So what's next?  We need to convert 1,000,000 %p callsites to use %pK? 
-> > That'll be fun.  Please consider adding a new checkpatch rule which
-> > detects %p and asks people whether they should have used %pK.
+On Fri, Dec 17, 2010 at 01:42:42PM -0800, David L Stevens wrote:
+> This patch modifies IPsec6 to fragment IPv6 packets that are
+> locally generated as needed.
 > 
-> The goal of this format specifier is specifically for pointers that are
-> exposed to unprivileged users.  I agree that hiding all kernel pointers
-> would be nice, but I don't expect the angry masses to ever agree to
-> that.  For now, I'll isolate specific cases, especially in /proc, that
-> are clear risks in terms of information leakage.  I'll also be skipping
-> over pointers written to the syslog, since I think hiding that
-> information is dmesg_restrict's job.
+> This version of the patch only fragments in tunnel mode, so that fragment
+> headers will not be obscured by ESP in transport mode.
+> 
+> Signed-off-by: David L Stevens <dlstevens@us.ibm.com>
 
-Well...  some administrators may wish to hide the pointer values even
-for privileged callers.  That's a pretty trivial add-on for the code
-which you have, and means that those admins can also suppress the
-pointers for IRQ-time callers.  More /proc knobs :)
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Then again, perhaps those admins would be OK if we simply disabled
-plain old %p everywhere.  In which case we're looking at a separate
-patch, I suggest.  
-
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
