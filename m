@@ -1,68 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/2] net: phy: Fixed some checkpatch errors
-Date: Sun, 19 Dec 2010 01:19:07 -0800
-Message-ID: <1292750347.22702.268.camel@Joe-Laptop>
-References: <1292697704-2886-1-git-send-email-jhautbois@gmail.com>
-	 <1292697704-2886-2-git-send-email-jhautbois@gmail.com>
+From: Vlad Dogaru <ddvlad@rosedu.org>
+Subject: Re: [PATCH] iproute2: ip: add wilcard support for device matching
+Date: Sun, 19 Dec 2010 09:32:17 +0000 (UTC)
+Message-ID: <4D0FAD26.8050908@rosedu.org>
+References: <1291993092-8675-1-git-send-email-opurdila@ixiacom.com>	 <201012101932.59352.opurdila@ixiacom.com>	 <1292002959.3580.321.camel@edumazet-laptop>	 <201012102006.03401.opurdila@ixiacom.com> <1292593088.2668.43.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, richard.cochran@omicron.at,
-	shemminger@vyatta.com, tj@kernel.org, randy.dunlap@oracle.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jean-Michel Hautbois <jhautbois@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1292697704-2886-2-git-send-email-jhautbois@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	netdev@vger.kernel.org,
+	Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: hadi@cyberus.ca
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [141.85.37.41] ([141.85.37.41]:35105 "EHLO swarm.cs.pub.ro"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753820Ab0LSJbu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Dec 2010 04:31:50 -0500
+Date: Mon, 20 Dec 2010 11:23:18 -0800
+In-Reply-To: <1292593088.2668.43.camel@mojatatu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2010-12-18 at 19:41 +0100, Jean-Michel Hautbois wrote:
-> Fixes some coding style issues (errors and warnings).
+On 12/17/2010 5:38 AM, jamal wrote:
+> On Fri, 2010-12-10 at 20:06 +0200, Octavian Purdila wrote:
+>
+>>> $ ip link add link bond0 "vlan\*199" type vlan id 199
+>>> $ ifconfig "vlan\*199"
+>>
+>> :) Then use a special dev keyword like dev* ?
+>>
+>> $ ip link set dev* dummy set
+>>
+>> Or use a new flag to allow expansion?
+>>
+>> $ ip -e link set dev dummy* set
+>
+> There was something ive always wanted to do but
+> havent had time. It will cut time in a big way the
+> user-kernel interaction in precisely your situation.
+>
+> Add a new general purpose netdev 32 bit tag. You can use this
+> feature to "group" netdevs. The group "all netdevs" is 0 - which
+> is the default.
+> I can group individual dummy interfaces into group 1.
+> ip link dev dummy0 set group 1
+> ..
+> ..
+> ip link dev dummy99 set group 1
+>
+> Then i can send a query to only ifup and ignore
+> the 1000 vlans that exist.
+>
+> ip link dev ls group 1
+>
+> or if i didnt list the group, then group 0 is assumed.
 
-Hi Jean-Michel.
+I'll try to implement this approach in the next few days.
 
-> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-[]
-> @@ -47,11 +47,11 @@ void phy_print_status(struct phy_device *phydev)
->  	pr_info("PHY: %s - Link is %s", dev_name(&phydev->dev),
->  			phydev->link ? "Up" : "Down");
->  	if (phydev->link)
-> -		printk(" - %d/%s", phydev->speed,
-> +		pr_info(" - %d/%s", phydev->speed,
->  				DUPLEX_FULL == phydev->duplex ?
->  				"Full" : "Half");
->  
-> -	printk("\n");
-> +	pr_info("\n");
-
-This isn't the right way to fix this actually.
-
-The first pr_info is not terminated with a newline,
-so the second printk should be printk(KERN_CONT or
-pr_cont instead.
-
-Ideally, you would make a different change.
-There should be just one printk/pr_info.
-Fewer messages, couldn't be interleaved with other
-simultaneous output, easier to grep, etc...
-
-I think something like this would be better:
-
- 	if (phydev->link)
-		pr_info("PHY: %s - Link is down\n", dev_name(&phydev->dev));
-	else
-		pr_info("PHY: %s - Link is up - %d/%s\n",
-			dev_name(&phydev->dev),
-			phydev->speed,
-			phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
-
-or maybe use dev_info like this:
-
- 	if (phydev->link)
-		dev_info(&phydev->dev, "PHY: Link is down\n");
-	else
-		dev_info(&phydev->dev, "PHY: Link is up - %d/%s\n",
-			 phydev->speed,
-			 phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
-
-cheers, Joe
+Vlad
