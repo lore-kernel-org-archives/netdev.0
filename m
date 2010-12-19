@@ -1,85 +1,113 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: [PATCH] net: Add USB PID for new MOSCHIP USB ethernet controller
- MCS7832 variant
-Date: Sun, 19 Dec 2010 16:42:57 +0100
-Message-ID: <20101219154257.GA29086@rhlx01.hs-esslingen.de>
-References: <20101130200737.GA5185@rhlx01.hs-esslingen.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Kernel panic eth2 mirred redirect to ifb0
+Date: Sun, 19 Dec 2010 16:43:53 +0100
+Message-ID: <1292773433.18869.153.camel@edumazet-laptop>
+References: <4D0DEDF9.7020102@itcare.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Arnd Bergmann <arnd@arndb.de>, dhollis@davehollis.com,
-	Phil Chang <pchang23@sbcglobal.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101130200737.GA5185@rhlx01.hs-esslingen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Network Development list <netdev@vger.kernel.org>
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45363 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932271Ab0LSPoB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Dec 2010 10:44:01 -0500
+Received: by wwa36 with SMTP id 36so2198138wwa.1
+        for <netdev@vger.kernel.org>; Sun, 19 Dec 2010 07:44:00 -0800 (PST)
+In-Reply-To: <4D0DEDF9.7020102@itcare.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Due to active notification of the new MCS7832 version by the manufacturer
-(Mr. Milton; thanks!) -- quote: "functionality same as MCS7830",
-I'm now submitting this patch (on -rc6), intended for networking.git and -stable.
+Le dimanche 19 d=C3=A9cembre 2010 =C3=A0 12:35 +0100, Pawe=C5=82 Stasze=
+wski a =C3=A9crit :
+> Hi all
+>=20
+> I have panic with kernel 2.6.37-rc6-git2 when use iproute2=20
+> mirred/redirect action
+>=20
+>=20
+> host1 (kernel 2.6.36.2)
+> netperf client -> eth3 (82598EB 10-Gigabit AT CX4) - directly connect=
+ed=20
+> to eth2 of host2
+> ethtool -k eth3
+> Offload parameters for eth3:
+> rx-checksumming: on
+> tx-checksumming: on
+> scatter-gather: on
+> tcp-segmentation-offload: on
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: on
+> generic-receive-offload: on
+> large-receive-offload: off
+> rx-vlan-offload: off
+> tx-vlan-offload: off
+> ntuple-filters: off
+> receive-hashing: off
+>=20
+> ethtool -i eth3
+> driver: ixgbe
+> version: 2.0.84-k2
+> firmware-version: 1.12-2
+> bus-info: 0000:03:00.1
+>=20
+>=20
+> host2 (kernel-2.6.37-rc6-git2)
+> netserver -> eth2 (82598EB 10-Gigabit AT CX4) - directly connected to=
+=20
+> eth3 of host1
+>=20
+> ethtool -k eth2
+> Offload parameters for eth2:
+> rx-checksumming: on
+> tx-checksumming: on
+> scatter-gather: on
+> tcp-segmentation-offload: on
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: on
+> generic-receive-offload: on
+> large-receive-offload: off
+> rx-vlan-offload: on
+> tx-vlan-offload: on
+> ntuple-filters: off
+> receive-hashing: off
+>=20
+> ethtool -i eth2
+> driver: ixgbe
+> version: 2.0.84-k2
+> firmware-version: 1.12-2
+> bus-info: 0000:03:00.0
+>=20
+>=20
+>=20
+> Normally without ifb and redirect netperf show:
+> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.0.2=20
+> (192.168.0.2) port 0 AF_INET
+> Recv   Send    Send
+> Socket Socket  Message  Elapsed
+> Size   Size    Size     Time     Throughput
+> bytes  bytes   bytes    secs.    10^6bits/sec
+>=20
+>   87380  16384  16384    10.00    9042.14
+>=20
+>=20
+> Steps to reproduce panic:
+> ip link set dev ifb0 up
+>=20
+> tc qdisc add dev eth2 ingress
+>=20
+> tc filter add dev eth2 parent ffff: protocol ip prio 10 u32 \
+> match ip src 0.0.0.0/0 flowid 1:1 \
+> action mirred egress redirect dev ifb0
+>=20
+>=20
+> After this when i start netperf on host1 I have panic (screenshot in=20
+> attached image).
 
-- add MCS7832 USB PID to be able to support this new device variant, too
-- add related descriptions
+Unfortunately, we miss the start of panic messages. Could you try to ge=
+t
+them ?
 
-Signed-off-by: Andreas Mohr <andi@lisas.de>
-Cc: stable@kernel.org
----
-Patch created, "semi"-tested (via my existing MCS7830 only),
-checkpatch.pl'd.
-GIT history seems clean, should thus apply easily.
 
-Took longer (it's that time of the year again).
 
-Thanks!
-
-diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
-index a6281e3..b701f59 100644
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -1,5 +1,5 @@
- /*
-- * MOSCHIP MCS7830 based USB 2.0 Ethernet Devices
-+ * MOSCHIP MCS7830 based (7730/7830/7832) USB 2.0 Ethernet Devices
-  *
-  * based on usbnet.c, asix.c and the vendor provided mcs7830 driver
-  *
-@@ -11,6 +11,9 @@
-  *
-  * Definitions gathered from MOSCHIP, Data Sheet_7830DA.pdf (thanks!).
-  *
-+ * 2010-12-19: add 7832 USB PID ("functionality same as MCS7830"),
-+ *             per active notification by manufacturer
-+ *
-  * TODO:
-  * - support HIF_REG_CONFIG_SLEEPMODE/HIF_REG_CONFIG_TXENABLE (via autopm?)
-  * - implement ethtool_ops get_pauseparam/set_pauseparam
-@@ -60,6 +63,7 @@
- #define MCS7830_MAX_MCAST	64
- 
- #define MCS7830_VENDOR_ID	0x9710
-+#define MCS7832_PRODUCT_ID	0x7832
- #define MCS7830_PRODUCT_ID	0x7830
- #define MCS7730_PRODUCT_ID	0x7730
- 
-@@ -626,7 +630,7 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- }
- 
- static const struct driver_info moschip_info = {
--	.description	= "MOSCHIP 7830/7730 usb-NET adapter",
-+	.description	= "MOSCHIP 7830/7832/7730 usb-NET adapter",
- 	.bind		= mcs7830_bind,
- 	.rx_fixup	= mcs7830_rx_fixup,
- 	.flags		= FLAG_ETHER,
-@@ -645,6 +649,10 @@ static const struct driver_info sitecom_info = {
- 
- static const struct usb_device_id products[] = {
- 	{
-+		USB_DEVICE(MCS7830_VENDOR_ID, MCS7832_PRODUCT_ID),
-+		.driver_info = (unsigned long) &moschip_info,
-+	},
-+	{
- 		USB_DEVICE(MCS7830_VENDOR_ID, MCS7830_PRODUCT_ID),
- 		.driver_info = (unsigned long) &moschip_info,
- 	},
