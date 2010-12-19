@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: remove duplicate neigh_ifdown
-Date: Sat, 18 Dec 2010 22:02:17 -0800 (PST)
-Message-ID: <20101218.220217.115939790.davem@davemloft.net>
-References: <20101216175152.6767d0a7@nehalam>
-	<20101216194254.0f7c7e7b@nehalam>
+From: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: BUG: while bridging Ethernet and wireless device:
+Date: Sun, 19 Dec 2010 11:07:29 +0200
+Message-ID: <AANLkTinb77yjqvX5WrN2hTCk=Oiqc5Bti=FWZ=RcBgPk@mail.gmail.com>
+References: <AANLkTikYvBspVmAZ0DCMXJ-3WxkotwX+n8NpTtM+97_i@mail.gmail.com>
+	<1292501797.3612.12.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34214
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751159Ab0LSGBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Dec 2010 01:01:48 -0500
-In-Reply-To: <20101216194254.0f7c7e7b@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1292501797.3612.12.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Thu, 16 Dec 2010 19:42:54 -0800
+On Thu, Dec 16, 2010 at 2:16 PM, Johannes Berg
+<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+> On Thu, 2010-12-16 at 14:11 +0200, Tomas Winkler wrote:
+>
+>> Dec 15 14:36:41 User-PC kernel: [175576.120452] kernel BUG at include/linux/skbuff.h:1178!
+>
+>> Dec 15 14:36:41 User-PC kernel: [175576.123193] EIP is at br_multicast_rcv+0xc95/0xe1c [bridge]
+>
+> So as I said to Tomas in private before -- it kinda looks like something
+> here is not handling paged SKBs correctly? But I would imaging that
+> causing more issues, unless there was a bug here that made bridging
+> require more data in the skb header than we put in there right now -- it
+> can end up being empty I believe.
+>
+> Thing is, I looked at the code and it seemed fine.
+>
+> johannes
+>
+opened bug https://bugzilla.kernel.org/show_bug.cgi?id=25202
 
-> When device is being set to down, neigh_ifdown was being called
-> twice. Once from addrconf notifier and once from ndisc notifier.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
-Applied.
+>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
