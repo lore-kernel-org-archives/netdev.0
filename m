@@ -1,51 +1,109 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Kernel panic eth2 mirred redirect to ifb0
-Date: Mon, 20 Dec 2010 00:22:39 +0800
-Message-ID: <AANLkTimMY3D_HssWb=Sw=b3tsxEKACk2QUzFzi-HaC-J@mail.gmail.com>
-References: <4D0DEDF9.7020102@itcare.pl> <1292773433.18869.153.camel@edumazet-laptop>
- <4D0E2E52.3090802@itcare.pl>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH] ueagle-atm: fix PHY signal initialization race
+Date: Sun, 19 Dec 2010 12:17:50 -0600
+Message-ID: <1292782671.5282.20.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Duncan Sands <duncan.sands@free.fr>, linux-usb@vger.kernel.org,
+	Hicham HAOUARI <hicham.haouari@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:48694 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752951Ab0LSQXC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Dec 2010 11:23:02 -0500
-Received: by fxm18 with SMTP id 18so2274789fxm.2
-        for <netdev@vger.kernel.org>; Sun, 19 Dec 2010 08:23:00 -0800 (PST)
-In-Reply-To: <4D0E2E52.3090802@itcare.pl>
+Received: from mx1.redhat.com ([209.132.183.28]:6090 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932328Ab0LSSR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Dec 2010 13:17:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2010/12/20 Pawe=C5=82 Staszewski <pstaszewski@itcare.pl>:
-> W dniu 2010-12-19 16:43, Eric Dumazet pisze:
->>
->> Unfortunately, we miss the start of panic messages. Could you try to=
- get
->> them ?
->>
-> In attached images
->
+A race exists when initializing ueagle-atm devices where the generic atm
+device may not yet be created before the driver attempts to initialize
+it's PHY signal state, which checks whether the atm device has been
+created or not.  This often causes the sysfs 'carrier' attribute to be
+'1' even though no signal has actually been found.
 
-It seems the kernel panic at:
+uea_probe
+   usbatm_usb_probe
+      driver->bind (uea_bind)
+         uea_boot
+            kthread_run(uea_kthread)     uea_kthread
+      usbatm_atm_init                       uea_start_reset
+         atm_dev_register                      UPDATE_ATM_SIGNAL
 
-        if (skb_shared(skb))
-                BUG();
+UPDATE_ATM_SIGNAL checks whether the ATM device has been created and if
+not, will not update the PHY signal state.  Because of the race that
+does not always happen in time, and the PHY signal state remains
+ATM_PHY_SIG_FOUND even though no signal exists.
 
-in pskb_expand_head().
+To fix the race, just create the kthread during initialization, and only
+after initialization is complete, start the thread that reboots the
+device and initializes PHY state.
 
-It maybe related to my patch:
-http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git;a=3D=
-commitdiff;h=3D210d6de78c5d7c785fc532556cea340e517955e1
+[ 3030.490931] uea_probe: calling usbatm_usb_probe
+[ 3030.490946] ueagle-atm 8-2:1.0: usbatm_usb_probe: trying driver ueagle-atm with vendor=1110, product=9031, ifnum  0
+[ 3030.493691] uea_bind: setting usbatm
+[ 3030.496932] usb 8-2: [ueagle-atm] using iso mode
+[ 3030.497283] ueagle-atm 8-2:1.0: usbatm_usb_probe: using 3021 byte buffer for rx channel 0xffff880125953508
+   <kthread already started before usbatm_usb_probe() has returned>
+[ 3030.497292] usb 8-2: [ueagle-atm] (re)booting started
+   <UPDATE_ATM_SIGNAL checks whether ATM device has been created yet before setting PHY state>
+[ 3030.497298] uea_start_reset: atm dev (null)
+   <and since it hasn't been created yet PHY state is not set>
+[ 3030.497306] ueagle-atm 8-2:1.0: usbatm_usb_probe: using 3392 byte buffer for tx channel 0xffff8801259535b8
+[ 3030.497374] usbatm_usb_probe: about to init
+[ 3030.497379] usbatm_usb_probe: calling usbatm_atm_init
+   <atm device finally gets created>
+[ 3030.497384] usbatm_atm_init: creating atm device!
 
-You can try to revert it and test again.
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+---
 
-However, the bug is a misuse of pskb_expand_head().
+diff --git a/drivers/usb/atm/ueagle-atm.c b/drivers/usb/atm/ueagle-atm.c
+index 44447f5..99ac70e 100644
+--- a/drivers/usb/atm/ueagle-atm.c
++++ b/drivers/usb/atm/ueagle-atm.c
+@@ -2206,8 +2206,11 @@ static int uea_boot(struct uea_softc *sc)
+ 		goto err1;
+ 	}
+ 
+-	sc->kthread = kthread_run(uea_kthread, sc, "ueagle-atm");
+-	if (sc->kthread == ERR_PTR(-ENOMEM)) {
++	/* Create worker thread, but don't start it here.  Start it after
++	 * all usbatm generic initialization is done.
++	 */
++	sc->kthread = kthread_create(uea_kthread, sc, "ueagle-atm");
++	if (IS_ERR(sc->kthread)) {
+ 		uea_err(INS_TO_USBDEV(sc), "failed to create thread\n");
+ 		goto err2;
+ 	}
+@@ -2624,6 +2627,7 @@ static struct usbatm_driver uea_usbatm_driver = {
+ static int uea_probe(struct usb_interface *intf, const struct usb_device_id *id)
+ {
+ 	struct usb_device *usb = interface_to_usbdev(intf);
++	int ret;
+ 
+ 	uea_enters(usb);
+ 	uea_info(usb, "ADSL device founded vid (%#X) pid (%#X) Rev (%#X): %s\n",
+@@ -2637,7 +2641,19 @@ static int uea_probe(struct usb_interface *intf, const struct usb_device_id *id)
+ 	if (UEA_IS_PREFIRM(id))
+ 		return uea_load_firmware(usb, UEA_CHIP_VERSION(id));
+ 
+-	return usbatm_usb_probe(intf, id, &uea_usbatm_driver);
++	ret = usbatm_usb_probe(intf, id, &uea_usbatm_driver);
++	if (ret == 0) {
++		struct usbatm_data *usbatm = usb_get_intfdata(intf);
++		struct uea_softc *sc = usbatm->driver_data;
++
++		/* Ensure carrier is initialized to off as early as possible */
++		UPDATE_ATM_SIGNAL(ATM_PHY_SIG_LOST);
++
++		/* Only start the worker thread when all init is done */
++		wake_up_process(sc->kthread);
++	}
++
++	return ret;
+ }
+ 
+ static void uea_disconnect(struct usb_interface *intf)
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+
