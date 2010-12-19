@@ -1,41 +1,68 @@
-From: Tomas Winkler <tomasw-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: BUG: while bridging Ethernet and wireless device:
-Date: Sun, 19 Dec 2010 11:07:29 +0200
-Message-ID: <AANLkTinb77yjqvX5WrN2hTCk=Oiqc5Bti=FWZ=RcBgPk@mail.gmail.com>
-References: <AANLkTikYvBspVmAZ0DCMXJ-3WxkotwX+n8NpTtM+97_i@mail.gmail.com>
-	<1292501797.3612.12.camel@jlt3.sipsolutions.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/2] net: phy: Fixed some checkpatch errors
+Date: Sun, 19 Dec 2010 01:19:07 -0800
+Message-ID: <1292750347.22702.268.camel@Joe-Laptop>
+References: <1292697704-2886-1-git-send-email-jhautbois@gmail.com>
+	 <1292697704-2886-2-git-send-email-jhautbois@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1292501797.3612.12.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, richard.cochran@omicron.at,
+	shemminger@vyatta.com, tj@kernel.org, randy.dunlap@oracle.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jean-Michel Hautbois <jhautbois@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1292697704-2886-2-git-send-email-jhautbois@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 16, 2010 at 2:16 PM, Johannes Berg
-<johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
-> On Thu, 2010-12-16 at 14:11 +0200, Tomas Winkler wrote:
->
->> Dec 15 14:36:41 User-PC kernel: [175576.120452] kernel BUG at include/linux/skbuff.h:1178!
->
->> Dec 15 14:36:41 User-PC kernel: [175576.123193] EIP is at br_multicast_rcv+0xc95/0xe1c [bridge]
->
-> So as I said to Tomas in private before -- it kinda looks like something
-> here is not handling paged SKBs correctly? But I would imaging that
-> causing more issues, unless there was a bug here that made bridging
-> require more data in the skb header than we put in there right now -- it
-> can end up being empty I believe.
->
-> Thing is, I looked at the code and it seemed fine.
->
-> johannes
->
-opened bug https://bugzilla.kernel.org/show_bug.cgi?id=25202
+On Sat, 2010-12-18 at 19:41 +0100, Jean-Michel Hautbois wrote:
+> Fixes some coding style issues (errors and warnings).
 
->
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Hi Jean-Michel.
+
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+[]
+> @@ -47,11 +47,11 @@ void phy_print_status(struct phy_device *phydev)
+>  	pr_info("PHY: %s - Link is %s", dev_name(&phydev->dev),
+>  			phydev->link ? "Up" : "Down");
+>  	if (phydev->link)
+> -		printk(" - %d/%s", phydev->speed,
+> +		pr_info(" - %d/%s", phydev->speed,
+>  				DUPLEX_FULL == phydev->duplex ?
+>  				"Full" : "Half");
+>  
+> -	printk("\n");
+> +	pr_info("\n");
+
+This isn't the right way to fix this actually.
+
+The first pr_info is not terminated with a newline,
+so the second printk should be printk(KERN_CONT or
+pr_cont instead.
+
+Ideally, you would make a different change.
+There should be just one printk/pr_info.
+Fewer messages, couldn't be interleaved with other
+simultaneous output, easier to grep, etc...
+
+I think something like this would be better:
+
+ 	if (phydev->link)
+		pr_info("PHY: %s - Link is down\n", dev_name(&phydev->dev));
+	else
+		pr_info("PHY: %s - Link is up - %d/%s\n",
+			dev_name(&phydev->dev),
+			phydev->speed,
+			phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
+
+or maybe use dev_info like this:
+
+ 	if (phydev->link)
+		dev_info(&phydev->dev, "PHY: Link is down\n");
+	else
+		dev_info(&phydev->dev, "PHY: Link is up - %d/%s\n",
+			 phydev->speed,
+			 phydev->duplex == DUPLEX_FULL ? "Full" : "Half");
+
+cheers, Joe
