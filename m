@@ -1,83 +1,66 @@
-From: =?UTF-8?B?UGF3ZcWCIFN0YXN6ZXdza2k=?= <pstaszewski@itcare.pl>
-Subject: Re: Kernel panic eth2 mirred redirect to ifb0
-Date: Sun, 19 Dec 2010 21:34:53 +0100
-Message-ID: <4D0E6C6D.10806@itcare.pl>
-References: <4D0DEDF9.7020102@itcare.pl> <1292773433.18869.153.camel@edumazet-laptop> <4D0E2E52.3090802@itcare.pl> <AANLkTimMY3D_HssWb=Sw=b3tsxEKACk2QUzFzi-HaC-J@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] bnx2x: Add Nic partitioning mode (57712
+ devices)
+Date: Sun, 19 Dec 2010 21:21:52 +0000
+Message-ID: <1292793712.2874.13.camel@localhost>
+References: <1290982177.6066.3.camel@lb-tlvb-dmitry>
+	 <20101129060114.GC29904@auslistsprd01.us.dell.com>
+	 <1291023192.9770.0.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <20101206173534.GC13628@auslistsprd01.us.dell.com>
+	 <4CFD29BE.2060201@chelsio.com>
+	 <1291906166.21210.10.camel@lb-tlvb-eilong.il.broadcom.com>
+	 <20101217024509.GA5854@auslistsprd01.us.dell.com>
+	 <1292592157.3136.819.camel@localhost>
+	 <20101219055731.GD5854@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	Dimitris Michailidis <dm@chelsio.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"narendra_k@dell.com" <narendra_k@dell.com>,
+	"jordan_hargrave@dell.com" <jordan_hargrave@dell.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.iq.pl ([86.111.241.19]:36600 "EHLO smtp.iq.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932451Ab0LSUe5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Dec 2010 15:34:57 -0500
-In-Reply-To: <AANLkTimMY3D_HssWb=Sw=b3tsxEKACk2QUzFzi-HaC-J@mail.gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:40354 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756728Ab0LSVV6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Dec 2010 16:21:58 -0500
+In-Reply-To: <20101219055731.GD5854@auslistsprd01.us.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 2010-12-19 17:22, Changli Gao pisze:
-> 2010/12/20 Pawe=C5=82 Staszewski<pstaszewski@itcare.pl>:
->> W dniu 2010-12-19 16:43, Eric Dumazet pisze:
->>> Unfortunately, we miss the start of panic messages. Could you try t=
-o get
->>> them ?
->>>
->> In attached images
->>
-> It seems the kernel panic at:
->
->          if (skb_shared(skb))
->                  BUG();
->
-> in pskb_expand_head().
->
-> It maybe related to my patch:
-> http://git.kernel.org/?p=3Dlinux/kernel/git/davem/net-next-2.6.git;a=3D=
-commitdiff;h=3D210d6de78c5d7c785fc532556cea340e517955e1
->
-> You can try to revert it and test again.
->
-> However, the bug is a misuse of pskb_expand_head().
->
-patching file net/sched/act_mirred.c
-Hunk #1 FAILED at 169.
-Hunk #2 succeeded at 195 (offset 10 lines).
-1 out of 2 hunks FAILED -- saving rejects to file net/sched/act_mirred.=
-c.rej
+On Sat, 2010-12-18 at 23:57 -0600, Matt Domsch wrote:
+> On Fri, Dec 17, 2010 at 01:22:37PM +0000, Ben Hutchings wrote:
+> > On Thu, 2010-12-16 at 20:45 -0600, Matt Domsch wrote:
+> > > On Thu, Dec 09, 2010 at 04:49:25PM +0200, Eilon Greenstein wrote:
+> > In the case of sfc, each port has a separate PCI function.  We read this
+> > register field to find out which port we're talking to, as
+> > virtualisation can alter the function number.  I don't know about the
+> > others.
+> 
+> For a single card then, this makes sense.
+> 
+> pci<slot>#<port>  where port = dev_id
+> 
+> If I have 2 such cards on a PCI extender though, I think this breaks.
+> Here, I'd see duplicate dev_id values, yes?
+> 
+> Do you label the ports on your cards in any fashion?  Do they have
+> labels like port 0, port 1, port 2, ... ?  Does it matter if we give
+> names starting at 0, or starting at 1?  latest biosdevname starts them
+> at 1, or uses whatever value BIOS actually provides, which on systems
+> I've tried, all start at 1.
+[...]
 
-***************
-*** 169,181 ****
-                 goto out;
-         }
+Currently they aren't labelled, so far as I can aware.
 
--       at =3D G_TC_AT(skb->tc_verd);
--       skb2 =3D skb_act_clone(skb, GFP_ATOMIC, m->tcf_action);
-         if (skb2 =3D=3D NULL)
-                 goto out;
+Ben.
 
-         m->tcf_bstats.bytes +=3D qdisc_pkt_len(skb2);
-         m->tcf_bstats.packets++;
-         if (!(at & AT_EGRESS)) {
-                 if (m->tcfm_ok_push)
-                         skb_push(skb2, skb2->dev->hard_header_len);
---- 169,181 ----
-                 goto out;
-         }
-
-+       skb2 =3D skb_act_clone(skb, GFP_ATOMIC);
-         if (skb2 =3D=3D NULL)
-                 goto out;
-
-         m->tcf_bstats.bytes +=3D qdisc_pkt_len(skb2);
-         m->tcf_bstats.packets++;
-+       at =3D G_TC_AT(skb->tc_verd);
-         if (!(at & AT_EGRESS)) {
-                 if (m->tcfm_ok_push)
-                         skb_push(skb2, skb2->dev->hard_header_len);
-
-for sch_generic.h was ok.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
