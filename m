@@ -1,113 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel panic eth2 mirred redirect to ifb0
-Date: Sun, 19 Dec 2010 16:43:53 +0100
-Message-ID: <1292773433.18869.153.camel@edumazet-laptop>
-References: <4D0DEDF9.7020102@itcare.pl>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCHv4] fragment locally generated tunnel-mode IPSec6 packets as
+ needed
+Date: Sun, 19 Dec 2010 08:07:06 -0800
+Message-ID: <OFB6CDFBC7.E3781712-ON882577FE.0058793D-882577FE.00588A13@us.ibm.com>
+References: <1292622162.1700.3.camel@IBM-1B506CFC885>	<20101218021606.GA26888@gondor.apana.org.au> <20101218.143423.189688024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Network Development list <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:45363 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932271Ab0LSPoB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Dec 2010 10:44:01 -0500
-Received: by wwa36 with SMTP id 36so2198138wwa.1
-        for <netdev@vger.kernel.org>; Sun, 19 Dec 2010 07:44:00 -0800 (PST)
-In-Reply-To: <4D0DEDF9.7020102@itcare.pl>
+Received: from e33.co.us.ibm.com ([32.97.110.151]:44753 "EHLO
+	e33.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab0LSQHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Dec 2010 11:07:15 -0500
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e33.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id oBJG1JWF010895
+	for <netdev@vger.kernel.org>; Sun, 19 Dec 2010 09:01:19 -0700
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBJG78Oc167236
+	for <netdev@vger.kernel.org>; Sun, 19 Dec 2010 09:07:08 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBJG77l1031933
+	for <netdev@vger.kernel.org>; Sun, 19 Dec 2010 09:07:08 -0700
+In-Reply-To: <20101218.143423.189688024.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le dimanche 19 d=C3=A9cembre 2010 =C3=A0 12:35 +0100, Pawe=C5=82 Stasze=
-wski a =C3=A9crit :
-> Hi all
->=20
-> I have panic with kernel 2.6.37-rc6-git2 when use iproute2=20
-> mirred/redirect action
->=20
->=20
-> host1 (kernel 2.6.36.2)
-> netperf client -> eth3 (82598EB 10-Gigabit AT CX4) - directly connect=
-ed=20
-> to eth2 of host2
-> ethtool -k eth3
-> Offload parameters for eth3:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp-segmentation-offload: on
-> udp-fragmentation-offload: off
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off
-> rx-vlan-offload: off
-> tx-vlan-offload: off
-> ntuple-filters: off
-> receive-hashing: off
->=20
-> ethtool -i eth3
-> driver: ixgbe
-> version: 2.0.84-k2
-> firmware-version: 1.12-2
-> bus-info: 0000:03:00.1
->=20
->=20
-> host2 (kernel-2.6.37-rc6-git2)
-> netserver -> eth2 (82598EB 10-Gigabit AT CX4) - directly connected to=
-=20
-> eth3 of host1
->=20
-> ethtool -k eth2
-> Offload parameters for eth2:
-> rx-checksumming: on
-> tx-checksumming: on
-> scatter-gather: on
-> tcp-segmentation-offload: on
-> udp-fragmentation-offload: off
-> generic-segmentation-offload: on
-> generic-receive-offload: on
-> large-receive-offload: off
-> rx-vlan-offload: on
-> tx-vlan-offload: on
-> ntuple-filters: off
-> receive-hashing: off
->=20
-> ethtool -i eth2
-> driver: ixgbe
-> version: 2.0.84-k2
-> firmware-version: 1.12-2
-> bus-info: 0000:03:00.0
->=20
->=20
->=20
-> Normally without ifb and redirect netperf show:
-> TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.0.2=20
-> (192.168.0.2) port 0 AF_INET
-> Recv   Send    Send
-> Socket Socket  Message  Elapsed
-> Size   Size    Size     Time     Throughput
-> bytes  bytes   bytes    secs.    10^6bits/sec
->=20
->   87380  16384  16384    10.00    9042.14
->=20
->=20
-> Steps to reproduce panic:
-> ip link set dev ifb0 up
->=20
-> tc qdisc add dev eth2 ingress
->=20
-> tc filter add dev eth2 parent ffff: protocol ip prio 10 u32 \
-> match ip src 0.0.0.0/0 flowid 1:1 \
-> action mirred egress redirect dev ifb0
->=20
->=20
-> After this when i start netperf on host1 I have panic (screenshot in=20
-> attached image).
+David Miller <davem@davemloft.net> wrote on 12/18/2010 02:34:23 PM:
 
-Unfortunately, we miss the start of panic messages. Could you try to ge=
-t
-them ?
+> So is the TAHI test regression caused by v3 fixed here in v4?
 
+Yes.
 
+                +-DLS
 
