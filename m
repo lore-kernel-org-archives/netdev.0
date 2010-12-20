@@ -1,7 +1,7 @@
 From: "Kirill A. Shutsemov" <kirill@shutemov.name>
-Subject: [PATCH 09/12] nfs: per-rpc_pipefs dns cache
-Date: Mon, 20 Dec 2010 13:54:35 +0200
-Message-ID: <1292846078-31793-10-git-send-email-kirill@shutemov.name>
+Subject: [PATCH 07/12] sunrpc: get rpc_pipefs mount point for rpcb_create_local from callers
+Date: Mon, 20 Dec 2010 13:54:33 +0200
+Message-ID: <1292846078-31793-8-git-send-email-kirill@shutemov.name>
 References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
 Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -10,342 +10,228 @@ Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 To: Trond Myklebust <Trond.Myklebust@netapp.com>,
 	"J. Bruce Fields" <bfields@fieldses.org>,
 	Neil Brown <neilb@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shutemov.name ([188.40.19.243]:38466 "EHLO shutemov.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757348Ab0LTLyn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Dec 2010 06:54:43 -0500
 In-Reply-To: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kirill A. Shutemov <kirill@shutemov.name>
 
-Lazy initialization of dns cache: on first call nfs_dns_resolve_name().
-Every rpc_pipefs has separate dns cache now.
-
 Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
 ---
- fs/nfs/cache_lib.c     |   17 ++-----
- fs/nfs/cache_lib.h     |    3 +-
- fs/nfs/dns_resolve.c   |  128 ++++++++++++++++++++++++++++++++++++++----------
- fs/nfs/dns_resolve.h   |    8 +---
- fs/nfs/inode.c         |    8 +---
- fs/nfs/nfs4namespace.c |    4 +-
- 6 files changed, 113 insertions(+), 55 deletions(-)
+ include/linux/sunrpc/clnt.h |    4 ++--
+ net/sunrpc/rpcb_clnt.c      |   15 ++++++++-------
+ net/sunrpc/svc.c            |   34 +++++++++++++++++++++-------------
+ 3 files changed, 31 insertions(+), 22 deletions(-)
 
-diff --git a/fs/nfs/cache_lib.c b/fs/nfs/cache_lib.c
-index 0944d4e..9b99d9e 100644
---- a/fs/nfs/cache_lib.c
-+++ b/fs/nfs/cache_lib.c
-@@ -12,7 +12,6 @@
- #include <linux/namei.h>
- #include <linux/slab.h>
- #include <linux/sunrpc/cache.h>
+diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
+index f052712..59eda38 100644
+--- a/include/linux/sunrpc/clnt.h
++++ b/include/linux/sunrpc/clnt.h
+@@ -135,10 +135,10 @@ void		rpc_shutdown_client(struct rpc_clnt *);
+ void		rpc_release_client(struct rpc_clnt *);
+ void		rpc_task_release_client(struct rpc_task *);
+ 
+-int		rpcb_register(u32, u32, int, unsigned short);
++int		rpcb_register(u32, u32, int, unsigned short, struct vfsmount *);
+ int		rpcb_v4_register(const u32 program, const u32 version,
+ 				 const struct sockaddr *address,
+-				 const char *netid);
++				 const char *netid, struct vfsmount *rpcmount);
+ void		rpcb_getport_async(struct rpc_task *);
+ 
+ void		rpc_call_start(struct rpc_task *);
+diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
+index 732adef..eb29dfa 100644
+--- a/net/sunrpc/rpcb_clnt.c
++++ b/net/sunrpc/rpcb_clnt.c
+@@ -27,7 +27,6 @@
+ #include <linux/sunrpc/clnt.h>
+ #include <linux/sunrpc/sched.h>
+ #include <linux/sunrpc/xprtsock.h>
 -#include <linux/sunrpc/rpc_pipe_fs.h>
  
- #include "cache_lib.h"
- 
-@@ -111,25 +110,17 @@ int nfs_cache_wait_for_upcall(struct nfs_cache_defer_req *dreq)
- 	return 0;
- }
- 
--int nfs_cache_register(struct cache_detail *cd)
-+int nfs_cache_register(struct cache_detail *cd, struct vfsmount *rpcmount)
+ #ifdef RPC_DEBUG
+ # define RPCDBG_FACILITY	RPCDBG_BIND
+@@ -175,7 +174,7 @@ static DEFINE_MUTEX(rpcb_create_local_mutex);
+  * Returns zero on success, otherwise a negative errno value
+  * is returned.
+  */
+-static int rpcb_create_local(void)
++static int rpcb_create_local(struct vfsmount *rpcmount)
  {
- 	struct nameidata nd;
--	struct vfsmount *mnt;
- 	int ret;
- 
--	mnt = mntget(init_rpc_pipefs);
--	if (IS_ERR(mnt))
--		return PTR_ERR(mnt);
--	ret = vfs_path_lookup(mnt->mnt_root, mnt, "/cache", 0, &nd);
-+	ret = vfs_path_lookup(rpcmount->mnt_root, rpcmount, "/cache", 0, &nd);
- 	if (ret)
--		goto err;
--	ret = sunrpc_cache_register_pipefs(mnt, nd.path.dentry,
-+		return ret;
-+	ret = sunrpc_cache_register_pipefs(rpcmount, nd.path.dentry,
- 			cd->name, 0600, cd);
- 	path_put(&nd.path);
--	if (!ret)
--		return ret;
--err:
--	mntput(mnt);
- 	return ret;
- }
- 
-diff --git a/fs/nfs/cache_lib.h b/fs/nfs/cache_lib.h
-index 76f856e..1d4a0a5 100644
---- a/fs/nfs/cache_lib.h
-+++ b/fs/nfs/cache_lib.h
-@@ -23,5 +23,6 @@ extern struct nfs_cache_defer_req *nfs_cache_defer_req_alloc(void);
- extern void nfs_cache_defer_req_put(struct nfs_cache_defer_req *dreq);
- extern int nfs_cache_wait_for_upcall(struct nfs_cache_defer_req *dreq);
- 
--extern int nfs_cache_register(struct cache_detail *cd);
-+extern int nfs_cache_register(struct cache_detail *cd,
-+		struct vfsmount *rpcmount);
- extern void nfs_cache_unregister(struct cache_detail *cd);
-diff --git a/fs/nfs/dns_resolve.c b/fs/nfs/dns_resolve.c
-index a6e711a..4b35323 100644
---- a/fs/nfs/dns_resolve.c
-+++ b/fs/nfs/dns_resolve.c
-@@ -12,7 +12,7 @@
- #include <linux/dns_resolver.h>
- 
- ssize_t nfs_dns_resolve_name(char *name, size_t namelen,
--		struct sockaddr *sa, size_t salen)
-+		struct sockaddr *sa, size_t salen, struct vfsmount *rpcmount)
- {
- 	ssize_t ret;
- 	char *ip_addr = NULL;
-@@ -37,6 +37,7 @@ ssize_t nfs_dns_resolve_name(char *name, size_t namelen,
- #include <linux/socket.h>
- #include <linux/seq_file.h>
- #include <linux/inet.h>
-+#include <linux/mount.h>
- #include <linux/sunrpc/clnt.h>
- #include <linux/sunrpc/cache.h>
- #include <linux/sunrpc/svcauth.h>
-@@ -47,7 +48,13 @@ ssize_t nfs_dns_resolve_name(char *name, size_t namelen,
- #define NFS_DNS_HASHBITS 4
- #define NFS_DNS_HASHTBL_SIZE (1 << NFS_DNS_HASHBITS)
- 
--static struct cache_head *nfs_dns_table[NFS_DNS_HASHTBL_SIZE];
-+static DEFINE_SPINLOCK(nfs_dns_resolve_lock);
-+static LIST_HEAD(nfs_dns_resolve_list);
-+
-+struct nfs_dns_resolve_list {
-+	struct list_head list;
-+	struct cache_detail *cd;
-+};
- 
- struct nfs_dns_ent {
- 	struct cache_head h;
-@@ -259,21 +266,6 @@ out:
- 	return ret;
- }
- 
--static struct cache_detail nfs_dns_resolve = {
--	.owner = THIS_MODULE,
--	.hash_size = NFS_DNS_HASHTBL_SIZE,
--	.hash_table = nfs_dns_table,
--	.name = "dns_resolve",
--	.cache_put = nfs_dns_ent_put,
--	.cache_upcall = nfs_dns_upcall,
--	.cache_parse = nfs_dns_parse,
--	.cache_show = nfs_dns_show,
--	.match = nfs_dns_match,
--	.init = nfs_dns_ent_init,
--	.update = nfs_dns_ent_update,
--	.alloc = nfs_dns_ent_alloc,
--};
--
- static int do_cache_lookup(struct cache_detail *cd,
- 		struct nfs_dns_ent *key,
- 		struct nfs_dns_ent **item,
-@@ -336,37 +328,121 @@ out:
- 	return ret;
- }
- 
-+static struct cache_detail *nfs_alloc_dns_resolve(void)
-+{
-+	struct cache_detail *dns_resolve;
-+	struct cache_head **hash_table;
-+
-+	dns_resolve = kmalloc(sizeof(*dns_resolve), GFP_KERNEL);
-+	if (!dns_resolve)
-+		return NULL;
-+
-+	hash_table = kmalloc(sizeof(*hash_table) * NFS_DNS_HASHTBL_SIZE,
-+			GFP_KERNEL);
-+	if (!hash_table) {
-+		kfree(dns_resolve);
-+		return NULL;
-+	}
-+
-+	dns_resolve->owner = THIS_MODULE;
-+	dns_resolve->hash_size = NFS_DNS_HASHTBL_SIZE;
-+	dns_resolve->hash_table = hash_table;
-+	dns_resolve->name = "dns_resolve";
-+	dns_resolve->cache_put = nfs_dns_ent_put;
-+	dns_resolve->cache_upcall = nfs_dns_upcall;
-+	dns_resolve->cache_parse = nfs_dns_parse;
-+	dns_resolve->cache_show = nfs_dns_show;
-+	dns_resolve->match = nfs_dns_match;
-+	dns_resolve->init = nfs_dns_ent_init;
-+	dns_resolve->update = nfs_dns_ent_update;
-+	dns_resolve->alloc = nfs_dns_ent_alloc;
-+
-+	return dns_resolve;
-+}
-+
-+static void nfs_free_dns_resolve(struct cache_detail *dns_resolve)
-+{
-+	kfree(dns_resolve->hash_table);
-+	kfree(dns_resolve);
-+}
-+
-+static struct cache_detail *nfs_get_dns_resolve(struct vfsmount *rpcmount)
-+{
-+	struct nfs_dns_resolve_list *dns_resolve;
-+	int error = 0;
-+
-+	spin_lock(&nfs_dns_resolve_lock);
-+	list_for_each_entry(dns_resolve, &nfs_dns_resolve_list, list) {
-+		if (dns_resolve->cd->u.pipefs.mnt->mnt_sb != rpcmount->mnt_sb)
-+			continue;
-+
-+		spin_unlock(&nfs_dns_resolve_lock);
-+		return dns_resolve->cd;
-+	}
-+
-+	dns_resolve = kmalloc(sizeof(*dns_resolve), GFP_KERNEL);
-+	if (dns_resolve)
-+		dns_resolve->cd = nfs_alloc_dns_resolve();
-+	if (!dns_resolve || !dns_resolve->cd) {
-+		error = -ENOMEM;
-+		goto err;
-+	}
-+
-+	error = nfs_cache_register(dns_resolve->cd, rpcmount);
-+	if (error)
-+		goto err;
-+
-+	INIT_LIST_HEAD(&dns_resolve->list);
-+	list_add(&dns_resolve->list, &nfs_dns_resolve_list);
-+	spin_unlock(&nfs_dns_resolve_lock);
-+
-+	return dns_resolve->cd;
-+err:
-+	spin_unlock(&nfs_dns_resolve_lock);
-+	if (dns_resolve)
-+		kfree(dns_resolve->cd);
-+	kfree(dns_resolve);
-+	return dns_resolve->cd;
-+}
-+
- ssize_t nfs_dns_resolve_name(char *name, size_t namelen,
--		struct sockaddr *sa, size_t salen)
-+		struct sockaddr *sa, size_t salen, struct vfsmount *rpcmount)
- {
- 	struct nfs_dns_ent key = {
- 		.hostname = name,
- 		.namelen = namelen,
+ 	struct rpc_create_args args = {
+ 		.net		= &init_net,
+@@ -187,7 +186,7 @@ static int rpcb_create_local(void)
+ 		.version	= RPCBVERS_2,
+ 		.authflavor	= RPC_AUTH_UNIX,
+ 		.flags		= RPC_CLNT_CREATE_NOPING,
+-		.rpcmount	= init_rpc_pipefs,
++		.rpcmount	= rpcmount,
  	};
-+	struct cache_detail *dns_resolve;
- 	struct nfs_dns_ent *item = NULL;
- 	ssize_t ret;
- 
--	ret = do_cache_lookup_wait(&nfs_dns_resolve, &key, &item);
-+	dns_resolve = nfs_get_dns_resolve(rpcmount);
-+	ret = do_cache_lookup_wait(dns_resolve, &key, &item);
- 	if (ret == 0) {
- 		if (salen >= item->addrlen) {
- 			memcpy(sa, &item->addr, item->addrlen);
- 			ret = item->addrlen;
- 		} else
- 			ret = -EOVERFLOW;
--		cache_put(&item->h, &nfs_dns_resolve);
-+		cache_put(&item->h, dns_resolve);
- 	} else if (ret == -ENOENT)
- 		ret = -ESRCH;
- 	return ret;
- }
- 
--int nfs_dns_resolver_init(void)
--{
--	return nfs_cache_register(&nfs_dns_resolve);
--}
--
- void nfs_dns_resolver_destroy(void)
+ 	struct rpc_clnt *clnt, *clnt4;
+ 	int result = 0;
+@@ -308,7 +307,8 @@ static int rpcb_register_call(struct rpc_clnt *clnt, struct rpc_message *msg)
+  * IN6ADDR_ANY (ie available for all AF_INET and AF_INET6
+  * addresses).
+  */
+-int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
++int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port,
++		struct vfsmount *rpcmount)
  {
--	nfs_cache_unregister(&nfs_dns_resolve);
-+	struct nfs_dns_resolve_list *dns_resolve, *tmp;
-+
-+	spin_lock(&nfs_dns_resolve_lock);
-+	list_for_each_entry_safe(dns_resolve, tmp, &nfs_dns_resolve_list,
-+			list) {
-+		nfs_cache_unregister(dns_resolve->cd);
-+		nfs_free_dns_resolve(dns_resolve->cd);
-+		list_del(&dns_resolve->list);
-+		kfree(dns_resolve);
-+	}
-+	spin_unlock(&nfs_dns_resolve_lock);
- }
+ 	struct rpcbind_args map = {
+ 		.r_prog		= prog,
+@@ -321,7 +321,7 @@ int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
+ 	};
+ 	int error;
  
- #endif
-diff --git a/fs/nfs/dns_resolve.h b/fs/nfs/dns_resolve.h
-index 199bb55..a9ae700 100644
---- a/fs/nfs/dns_resolve.h
-+++ b/fs/nfs/dns_resolve.h
-@@ -8,19 +8,13 @@
+-	error = rpcb_create_local();
++	error = rpcb_create_local(rpcmount);
+ 	if (error)
+ 		return error;
  
+@@ -448,7 +448,8 @@ static int rpcb_unregister_all_protofamilies(struct rpc_message *msg)
+  * advertises the service on all IPv4 and IPv6 addresses.
+  */
+ int rpcb_v4_register(const u32 program, const u32 version,
+-		     const struct sockaddr *address, const char *netid)
++		     const struct sockaddr *address, const char *netid,
++		     struct vfsmount *rpcmount)
+ {
+ 	struct rpcbind_args map = {
+ 		.r_prog		= program,
+@@ -461,7 +462,7 @@ int rpcb_v4_register(const u32 program, const u32 version,
+ 	};
+ 	int error;
  
- #ifdef CONFIG_NFS_USE_KERNEL_DNS
--static inline int nfs_dns_resolver_init(void)
--{
--	return 0;
--}
--
- static inline void nfs_dns_resolver_destroy(void)
- {}
- #else
--extern int nfs_dns_resolver_init(void);
- extern void nfs_dns_resolver_destroy(void);
- #endif
- 
- extern ssize_t nfs_dns_resolve_name(char *name, size_t namelen,
--		struct sockaddr *sa, size_t salen);
-+		struct sockaddr *sa, size_t salen, struct vfsmount *rpcmount);
- 
- #endif
-diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
-index e67e31c..9fed17c 100644
---- a/fs/nfs/inode.c
-+++ b/fs/nfs/inode.c
-@@ -1528,10 +1528,6 @@ static int __init init_nfs_fs(void)
- 
- 	err = nfs_idmap_init();
- 	if (err < 0)
--		goto out9;
--
--	err = nfs_dns_resolver_init();
--	if (err < 0)
- 		goto out8;
- 
- 	err = nfs_fscache_register();
-@@ -1592,10 +1588,8 @@ out5:
- out6:
- 	nfs_fscache_unregister();
- out7:
--	nfs_dns_resolver_destroy();
--out8:
- 	nfs_idmap_quit();
--out9:
-+out8:
- 	return err;
- }
- 
-diff --git a/fs/nfs/nfs4namespace.c b/fs/nfs/nfs4namespace.c
-index 3c2a172..7a61fdb 100644
---- a/fs/nfs/nfs4namespace.c
-+++ b/fs/nfs/nfs4namespace.c
-@@ -14,6 +14,7 @@
- #include <linux/slab.h>
- #include <linux/string.h>
- #include <linux/sunrpc/clnt.h>
-+#include <linux/sunrpc/rpc_pipe_fs.h>
- #include <linux/vfs.h>
- #include <linux/inet.h>
- #include "internal.h"
-@@ -104,7 +105,8 @@ static size_t nfs_parse_server_name(char *string, size_t len,
- 
- 	ret = rpc_pton(string, len, sa, salen);
- 	if (ret == 0) {
--		ret = nfs_dns_resolve_name(string, len, sa, salen);
-+		ret = nfs_dns_resolve_name(string, len, sa, salen,
-+				init_rpc_pipefs);
- 		if (ret < 0)
- 			ret = 0;
+-	error = rpcb_create_local();
++	error = rpcb_create_local(rpcmount);
+ 	if (error)
+ 		return error;
+ 	if (rpcb_local_clnt4 == NULL)
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 0bd6088..e0ae040 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -743,7 +743,8 @@ EXPORT_SYMBOL_GPL(svc_exit_thread);
+  */
+ static int __svc_rpcb_register4(const u32 program, const u32 version,
+ 				const unsigned short protocol,
+-				const unsigned short port)
++				const unsigned short port,
++				struct vfsmount *rpcmount)
+ {
+ 	const struct sockaddr_in sin = {
+ 		.sin_family		= AF_INET,
+@@ -765,14 +766,16 @@ static int __svc_rpcb_register4(const u32 program, const u32 version,
  	}
+ 
+ 	error = rpcb_v4_register(program, version,
+-					(const struct sockaddr *)&sin, netid);
++					(const struct sockaddr *)&sin, netid,
++					rpcmount);
+ 
+ 	/*
+ 	 * User space didn't support rpcbind v4, so retry this
+ 	 * registration request with the legacy rpcbind v2 protocol.
+ 	 */
+ 	if (error == -EPROTONOSUPPORT)
+-		error = rpcb_register(program, version, protocol, port);
++		error = rpcb_register(program, version, protocol, port,
++				rpcmount);
+ 
+ 	return error;
+ }
+@@ -790,7 +793,8 @@ static int __svc_rpcb_register4(const u32 program, const u32 version,
+  */
+ static int __svc_rpcb_register6(const u32 program, const u32 version,
+ 				const unsigned short protocol,
+-				const unsigned short port)
++				const unsigned short port,
++				struct vfsmount *rpcmount)
+ {
+ 	const struct sockaddr_in6 sin6 = {
+ 		.sin6_family		= AF_INET6,
+@@ -812,7 +816,8 @@ static int __svc_rpcb_register6(const u32 program, const u32 version,
+ 	}
+ 
+ 	error = rpcb_v4_register(program, version,
+-					(const struct sockaddr *)&sin6, netid);
++					(const struct sockaddr *)&sin6, netid,
++					rpcmount);
+ 
+ 	/*
+ 	 * User space didn't support rpcbind version 4, so we won't
+@@ -835,19 +840,20 @@ static int __svc_register(const char *progname,
+ 			  const u32 program, const u32 version,
+ 			  const int family,
+ 			  const unsigned short protocol,
+-			  const unsigned short port)
++			  const unsigned short port,
++			  struct vfsmount *rpcmount)
+ {
+ 	int error = -EAFNOSUPPORT;
+ 
+ 	switch (family) {
+ 	case PF_INET:
+ 		error = __svc_rpcb_register4(program, version,
+-						protocol, port);
++						protocol, port, rpcmount);
+ 		break;
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ 	case PF_INET6:
+ 		error = __svc_rpcb_register6(program, version,
+-						protocol, port);
++						protocol, port, rpcmount);
+ #endif	/* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
+ 	}
+ 
+@@ -893,7 +899,8 @@ int svc_register(const struct svc_serv *serv, const int family,
+ 				continue;
+ 
+ 			error = __svc_register(progp->pg_name, progp->pg_prog,
+-						i, family, proto, port);
++						i, family, proto, port,
++						serv->sv_rpcmount);
+ 			if (error < 0)
+ 				break;
+ 		}
+@@ -910,18 +917,18 @@ int svc_register(const struct svc_serv *serv, const int family,
+  * in this case to clear all existing entries for [program, version].
+  */
+ static void __svc_unregister(const u32 program, const u32 version,
+-			     const char *progname)
++			     const char *progname, struct vfsmount *rpcmount)
+ {
+ 	int error;
+ 
+-	error = rpcb_v4_register(program, version, NULL, "");
++	error = rpcb_v4_register(program, version, NULL, "", rpcmount);
+ 
+ 	/*
+ 	 * User space didn't support rpcbind v4, so retry this
+ 	 * request with the legacy rpcbind v2 protocol.
+ 	 */
+ 	if (error == -EPROTONOSUPPORT)
+-		error = rpcb_register(program, version, 0, 0);
++		error = rpcb_register(program, version, 0, 0, rpcmount);
+ 
+ 	dprintk("svc: %s(%sv%u), error %d\n",
+ 			__func__, progname, version, error);
+@@ -950,7 +957,8 @@ static void svc_unregister(const struct svc_serv *serv)
+ 			if (progp->pg_vers[i]->vs_hidden)
+ 				continue;
+ 
+-			__svc_unregister(progp->pg_prog, i, progp->pg_name);
++			__svc_unregister(progp->pg_prog, i, progp->pg_name,
++					serv->sv_rpcmount);
+ 		}
+ 	}
+ 
 -- 
 1.7.3.4
+
