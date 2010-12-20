@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add USB PID for new MOSCHIP USB ethernet
- controller MCS7832 variant
-Date: Mon, 20 Dec 2010 10:39:09 -0800 (PST)
-Message-ID: <20101220.103909.112598083.davem@davemloft.net>
-References: <20101130200737.GA5185@rhlx01.hs-esslingen.de>
-	<20101219154257.GA29086@rhlx01.hs-esslingen.de>
+Subject: Re: [patch -next] typhoon: memory corruption in
+ typhoon_get_drvinfo()
+Date: Mon, 20 Dec 2010 10:43:21 -0800 (PST)
+Message-ID: <20101220.104321.183048943.davem@davemloft.net>
+References: <20101220130018.GX1936@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, dhollis@davehollis.com, pchang23@sbcglobal.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: andi@lisas.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101219154257.GA29086@rhlx01.hs-esslingen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dave@thedillows.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: error27@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41447
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757391Ab0LTSmw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 13:42:52 -0500
+In-Reply-To: <20101220130018.GX1936@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andreas Mohr <andi@lisas.de>
-Date: Sun, 19 Dec 2010 16:42:57 +0100
+From: Dan Carpenter <error27@gmail.com>
+Date: Mon, 20 Dec 2010 16:00:18 +0300
 
-> Due to active notification of the new MCS7832 version by the manufacturer
-> (Mr. Milton; thanks!) -- quote: "functionality same as MCS7830",
-> I'm now submitting this patch (on -rc6), intended for networking.git and -stable.
+> info->version only has space for 32 characters but my UTS_RELEASE is
+> "2.6.37-rc6-next-20101217-05817-ge935fc8-dirty" so it doesn't fit.
+> This is supposed to be the version of the driver, not the kernel
+> version.  This driver doesn't have a version so lets just leave it
+> blank.
 > 
-> - add MCS7832 USB PID to be able to support this new device variant, too
-> - add related descriptions
-> 
-> Signed-off-by: Andreas Mohr <andi@lisas.de>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Applied.
+Applied, thanks.
