@@ -1,116 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] sch_sfq: allow big packets and be fair
-Date: Tue, 21 Dec 2010 00:16:16 +0100
-Message-ID: <1292886976.2627.146.camel@edumazet-laptop>
-References: <1292421783.3427.232.camel@edumazet-laptop>
-	 <4D08E6C2.804@trash.net> <1292430424.3427.350.camel@edumazet-laptop>
-	 <1292431256.3427.358.camel@edumazet-laptop> <4D08F025.5030603@trash.net>
-	 <1292432120.3427.366.camel@edumazet-laptop> <4D08F4F4.3050501@trash.net>
-	 <1292504932.2883.110.camel@edumazet-laptop>
-	 <1292604766.2906.51.camel@edumazet-laptop>
-	 <20101219212234.GA2323@del.dom.local>
-	 <1292864525.2800.189.camel@edumazet-laptop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
+Date: Tue, 21 Dec 2010 00:20:20 +0100
+Message-ID: <20101220232020.GB2052@del.dom.local>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Jamal Hadi Salim <hadi@cyberus.ca>,
+	Pawel Staszewski <pstaszewski@itcare.pl>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:47931 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933143Ab0LTXQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:16:20 -0500
-Received: by wwa36 with SMTP id 36so3551344wwa.1
-        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 15:16:19 -0800 (PST)
-In-Reply-To: <1292864525.2800.189.camel@edumazet-laptop>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:63831 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751535Ab0LTXU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:20:26 -0500
+Received: by bwz16 with SMTP id 16so3920936bwz.4
+        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 15:20:24 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SFQ is currently 'limited' to small packets, because it uses a 16bit
-allotment number per flow. Switch it to 18bit, and use appropriate
-handling to make sure this allotment is in [1 .. quantum] range before a
-new packet is dequeued, so that fairness is respected.
+On Mon, Dec 20, 2010 at 10:35:30PM +0800, Changli Gao wrote:
+> Pawel reported a panic related to handling shared skbs in ixgbe
+> incorrectly. So we need to revert my previous patch to work around
+> this bug. Instead of reverting the patch completely, I just revert
+> the essential lines, so we can add the previous optimization
+> back more easily in future.
+> 
+>     commit 3511c9132f8b1e1b5634e41a3331c44b0c13be70
+>     Author: Changli Gao <xiaosuo@gmail.com>
+>     Date:   Sat Oct 16 13:04:08 2010 +0000
+>     
+>         net_sched: remove the unused parameter of qdisc_create_dflt()
+> 
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Jarek Poplawski <jarkao2@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>
----
- net/sched/sch_sfq.c |   24 ++++++++++++++++--------
- 1 file changed, 16 insertions(+), 8 deletions(-)
+Isn't there some mistake in the commit number? IMHO this changelog is
+mostly wrong. The bug happens outside of ixgbe, probably in
+dev_hard_start_xmit() ->  __skb_linearize(), and even if not, it can,
+without any driver's fault. The only question is why it didn't triger
+with 2.6.36.
 
-diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-index c474b4b..878704a 100644
---- a/net/sched/sch_sfq.c
-+++ b/net/sched/sch_sfq.c
-@@ -67,7 +67,7 @@
- 
- 	IMPLEMENTATION:
- 	This implementation limits maximal queue length to 128;
--	maximal mtu to 2^15-1; max 128 flows, number of hash buckets to 1024.
-+	maximal mtu to 2^16-1; max 128 flows, number of hash buckets to 1024.
- 	The only goal of this restrictions was that all data
- 	fit into one 4K page on 32bit arches.
- 
-@@ -99,9 +99,10 @@ struct sfq_slot {
- 	sfq_index	qlen; /* number of skbs in skblist */
- 	sfq_index	next; /* next slot in sfq chain */
- 	struct sfq_head dep; /* anchor in dep[] chains */
--	unsigned short	hash; /* hash value (index in ht[]) */
--	short		allot; /* credit for this slot */
-+	unsigned int	hash:14; /* hash value (index in ht[]) */
-+	unsigned int	allot:18; /* credit for this slot */
- };
-+#define ALLOT_ZERO (1 << 16)
- 
- struct sfq_sched_data
- {
-@@ -394,7 +395,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 			q->tail->next = x;
- 		}
- 		q->tail = slot;
--		slot->allot = q->quantum;
-+		slot->allot = ALLOT_ZERO + q->quantum;
- 	}
- 	if (++sch->q.qlen <= q->limit) {
- 		sch->bstats.bytes += qdisc_pkt_len(skb);
-@@ -430,8 +431,14 @@ sfq_dequeue(struct Qdisc *sch)
- 	if (q->tail == NULL)
- 		return NULL;
- 
-+next:
- 	a = q->tail->next;
- 	slot = &q->slots[a];
-+	if (slot->allot <= ALLOT_ZERO) {
-+		q->tail = slot;
-+		slot->allot += q->quantum;
-+		goto next;
-+	}
- 	skb = slot_dequeue_head(slot);
- 	sfq_dec(q, a);
- 	sch->q.qlen--;
-@@ -446,9 +453,8 @@ sfq_dequeue(struct Qdisc *sch)
- 			return skb;
- 		}
- 		q->tail->next = next_a;
--	} else if ((slot->allot -= qdisc_pkt_len(skb)) <= 0) {
--		q->tail = slot;
--		slot->allot += q->quantum;
-+	} else {
-+		slot->allot -= qdisc_pkt_len(skb);
- 	}
- 	return skb;
- }
-@@ -610,7 +616,9 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 	struct sfq_sched_data *q = qdisc_priv(sch);
- 	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
- 	struct gnet_stats_queue qs = { .qlen = slot->qlen };
--	struct tc_sfq_xstats xstats = { .allot = slot->allot };
-+	struct tc_sfq_xstats xstats = {
-+		.allot = slot->allot - ALLOT_ZERO
-+	};
- 	struct sk_buff *skb;
- 
- 	slot_queue_walk(slot, skb)
-
-
+Jarek P.
