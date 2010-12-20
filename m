@@ -1,30 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: kill unused macros
-Date: Sun, 19 Dec 2010 21:59:53 -0800 (PST)
-Message-ID: <20101219.215953.48519922.davem@davemloft.net>
-References: <4D085FB2.5050502@cn.fujitsu.com>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: Re: IPV6 loopback bound socket succeeds connecting to remote host
+Date: Mon, 20 Dec 2010 14:31:28 +0800
+Message-ID: <4D0EF840.2020108@cn.fujitsu.com>
+References: <616589.97517.qm@web29017.mail.ird.yahoo.com>	<4CF75BC3.1020606@cn.fujitsu.com> <20101216.121805.59690737.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: paul.moore@hp.com, joe@perches.com, jslaby@suse.cz,
-	eric.dumazet@gmail.com, tj@kernel.org, ebiederm@xmission.com,
-	adobriyan@gmail.com, herbert@gondor.apana.org.au,
-	nhorman@tuxdriver.com, amwang@redhat.com, netdev@vger.kernel.org
-To: shanwei@cn.fujitsu.com
+Cc: albertpretorius@yahoo.co.uk, netdev@vger.kernel.org,
+	yoshfuji@linux-ipv6.org, pekkas@netcore.fi, jmorris@namei.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36527
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751062Ab0LTF7Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 00:59:24 -0500
-In-Reply-To: <4D085FB2.5050502@cn.fujitsu.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:54532 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753245Ab0LTGd2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Dec 2010 01:33:28 -0500
+In-Reply-To: <20101216.121805.59690737.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Date: Wed, 15 Dec 2010 14:26:58 +0800
+David Miller wrote, at 12/17/2010 04:18 AM:
+> Your approach will only modify socket based route handling, it will
+> not handle the ipv6 forwarding case which as per the quoted RFC
+> sections must be handled too.
 
-> These macros never be used, so remove them.
-> 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+For the ipv6 forwarding case, we have done the check in ip6_forward().
 
-Applied, thanks.
+ 493                 int addrtype = ipv6_addr_type(&hdr->saddr);
+ 494 
+ 495                 /* This check is security critical. */
+ 496                 if (addrtype == IPV6_ADDR_ANY ||
+ 497                     addrtype & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LOOPBACK))
+ 498                         goto error;
+
+
+-- 
+Best Regards
+-----
+Shan Wei
