@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] vxge: add missing flush of reset_task
-Date: Sun, 19 Dec 2010 21:54:23 -0800 (PST)
-Message-ID: <20101219.215423.115923060.davem@davemloft.net>
-References: <4D08CAB1.6040402@kernel.org>
-	<20101215142859.GA13516@exar.com>
+Subject: Re: [PATCH 1/3] net: kill unused macros
+Date: Sun, 19 Dec 2010 21:59:53 -0800 (PST)
+Message-ID: <20101219.215953.48519922.davem@davemloft.net>
+References: <4D085FB2.5050502@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tj@kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: jon.mason@exar.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101215142859.GA13516@exar.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: paul.moore@hp.com, joe@perches.com, jslaby@suse.cz,
+	eric.dumazet@gmail.com, tj@kernel.org, ebiederm@xmission.com,
+	adobriyan@gmail.com, herbert@gondor.apana.org.au,
+	nhorman@tuxdriver.com, amwang@redhat.com, netdev@vger.kernel.org
+To: shanwei@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36527
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751062Ab0LTF7Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 00:59:24 -0500
+In-Reply-To: <4D085FB2.5050502@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jon Mason <jon.mason@exar.com>
-Date: Wed, 15 Dec 2010 08:29:00 -0600
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Date: Wed, 15 Dec 2010 14:26:58 +0800
 
-> On Wed, Dec 15, 2010 at 06:03:29AM -0800, Tejun Heo wrote:
->> Commit 6e07ebd84 (drivers/net: remove unnecessary
->> flush_scheduled_work() calls) incorrectly removed the flush call
->> without replacing it with the appropriate work specific operation.
->> Fix it by flushing vdev->reset_task explicitly.
->> 
->> Pointed out by Jon Mason.
->> 
->> Signed-off-by: Tejun Heo <tj@kernel.org>
->> Cc: Jon Mason <jon.mason@exar.com>
-> Acked-by: Jon Mason <jon.mason@exar.com>
+> These macros never be used, so remove them.
+> 
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
-I'll apply this, thanks.
+Applied, thanks.
