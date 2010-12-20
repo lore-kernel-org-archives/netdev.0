@@ -1,63 +1,128 @@
-From: Arthur Jones <arthur.jones@riverbed.com>
-Subject: Re: [PATCH] e1000e: workaround missing power down mii control bit
- on 82571
-Date: Mon, 20 Dec 2010 07:33:01 -0800
-Message-ID: <20101220153301.GV18990@ajones-laptop.nbttech.com>
-References: <20101216182847.GA14985@ajones-laptop.nbttech.com>
- <1292525797.3253.8.camel@bwh-desktop>
- <8DD2590731AB5D4C9DBF71A877482A9001773F7655@orsmsx509.amr.corp.intel.com>
- <8DD2590731AB5D4C9DBF71A877482A9001773F76C4@orsmsx509.amr.corp.intel.com>
- <20101216200425.GO18990@ajones-laptop.nbttech.com>
- <20101216221421.GR18990@ajones-laptop.nbttech.com>
- <8DD2590731AB5D4C9DBF71A877482A9001773F7AD6@orsmsx509.amr.corp.intel.com>
- <20101217140453.GS18990@ajones-laptop.nbttech.com>
- <8DD2590731AB5D4C9DBF71A877482A9001773F7BFC@orsmsx509.amr.corp.intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH 02/12] net: Introduce new feature setting ops
+Date: Mon, 20 Dec 2010 16:41:04 +0000
+Message-ID: <1292863264.3055.15.camel@bwh-desktop>
+References: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
+	 <822f5776f99cab9889cd72d658d5fe50c56bb247.1292451559.git.mirq-linux@rere.qmqm.pl>
+	 <1292541186.18294.16.camel@bwh-desktop>
+	 <20101219004959.GA12005@rere.qmqm.pl> <1292793759.2874.14.camel@localhost>
+	 <20101219234343.GA15644@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.riverbed.com ([208.70.196.45]:24317 "EHLO
-	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754427Ab0LTPdD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 10:33:03 -0500
-Content-Disposition: inline
-In-Reply-To: <8DD2590731AB5D4C9DBF71A877482A9001773F7BFC@orsmsx509.amr.corp.intel.com>
+Received: from mail.solarflare.com ([216.237.3.220]:29879 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932292Ab0LTQlH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 11:41:07 -0500
+In-Reply-To: <20101219234343.GA15644@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Bruce, ...
+On Mon, 2010-12-20 at 00:43 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> On Sun, Dec 19, 2010 at 09:22:39PM +0000, Ben Hutchings wrote:
+> > On Sun, 2010-12-19 at 01:49 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> > > On Thu, Dec 16, 2010 at 11:13:06PM +0000, Ben Hutchings wrote:
+> > > > On Wed, 2010-12-15 at 23:24 +0100, Micha=C5=82 Miros=C5=82aw wr=
+ote:
+> > [...]
+> > > > > +static int ethtool_set_features(struct net_device *dev, void=
+ __user *useraddr)
+> > > > > +{
+> > > > > +	struct ethtool_features cmd;
+> > > > > +	struct ethtool_set_features_block features[ETHTOOL_DEV_FEAT=
+URE_WORDS];
+> > > > > +
+> > > > > +	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
+> > > > > +		return -EFAULT;
+> > > > > +	useraddr +=3D sizeof(cmd);
+> > > > > +
+> > > > > +	if (cmd.count > ETHTOOL_DEV_FEATURE_WORDS)
+> > > > > +		cmd.count =3D ETHTOOL_DEV_FEATURE_WORDS;
+> > > > So additional feature words will be silently ignored...
+> > > > > +	if (copy_from_user(features, useraddr, sizeof(*features) * =
+cmd.count))
+> > > > > +		return -EFAULT;
+> > > > > +	memset(features + cmd.count, 0,
+> > > > > +		sizeof(features) - sizeof(*features) * cmd.count);
+> > > > > +
+> > > > > +	features[0].valid &=3D dev->hw_features | NETIF_F_SOFT_FEAT=
+URES;
+> > > > [...]
+> > > >=20
+> > > > ...as will any other unsupported features.  This is not a good =
+idea.
+> > > > (However, remembering which features are wanted does seem like =
+a good
+> > > > idea.)
+> > >=20
+> > > That's intentional. Unsupported features can't be enabled anyway.
+> > > hw_features is supposed to contain all features that the device c=
+an support
+> > > and is able to enable/disable. This set should be constant and an=
+ything that
+> > > is in the wanted_features set but is not supported because of oth=
+er conditions
+> > > will be stripped by ndo_fix_features() call.
+> > >=20
+> > > Other way would be to return EINVAL when bits not changeable are =
+present in
+> > > the valid mask. I don't want to do that, since then your example =
+of changing
+> > > a feature without GFEATURES first will not work.
+> > That's right, it shouldn't work.
+>=20
+> A user says "enable any TSO available". This means ethtool could issu=
+e
+> a request with .valid =3D NETIF_F_ALL_TSO, .requested =3D NETIF_F_ALL=
+_TSO.
+> If the device supports only TSOv4 this should enable it and leave oth=
+ers
+> alone as whatever the user wants they can't be enabled.
 
-On Fri, Dec 17, 2010 at 07:53:08AM -0800, Allan, Bruce W wrote:
-> >-----Original Message-----
-> >From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> >Behalf Of Arthur Jones
-> >Sent: Friday, December 17, 2010 6:05 AM
-> >To: Allan, Bruce W
-> >Cc: Ben Hutchings; Kirsher, Jeffrey T; netdev@vger.kernel.org
-> >Subject: Re: [PATCH] e1000e: workaround missing power down mii control bit on
-> >82571
-> >
-> >That's not what I saw.  I saw the bit always
-> >read back zero, even right after I set it.
-> >
-> >Have you tried writing the power down bit and
-> >reading it back?
-> >
-> >Arthur
-> 
-> Yes, and it worked as expected.
+I see your point, but...
 
-Interesting!  So then you're not able to
-repro the issue that I describe in the
-patch then either?
+> This is 1-1 conversion of the semantics current ethtool ops have - se=
+t_tso
+> corresponds exactly to the request described above. This behaviour al=
+so
+> allows to execute a command like "enable as many as you can of ..." t=
+hat
+> is usual goal of user enabling hardware offloads - to get best possib=
+le
+> performance.
 
-This was an 82571?  Can you send along
-the firmware revision and the full lspci
-for the NIC where it works to read back
-the power down bit?  Very strange...
+The current behaviour is that if TSO is not supported at all then any
+attempt to control it fails with error EOPNOTSUPP.  Your proposed chang=
+e
+would make it return success.
 
-Arthur
+So I think we have to expect ethtool (or other userland tool) to query
+the supported feature flags if it is commanded to change some offload
+feature that is represented by multiple feature flags in
+net_device::features.  Alternately, we maintain a separate set of
+feature flags for ethtool that doesn't make these distinctions.  But I
+think it would be useful for ethtool to be able to query and report
+exactly what features the device supports.
+
+> Nevertheless, what problem is generated by ignoring unsupported bits =
+here?
+
+User confusion when an ethtool command 'succeeds' but has no effect.
+
+> I can see the point of returning -EINVAL on bits that are not defined=
+, though.
+> Is that a good direction?
+
+Any attempt to change undefined flags should definitely result in an
+error.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
