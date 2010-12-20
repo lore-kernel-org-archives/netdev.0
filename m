@@ -1,7 +1,7 @@
 From: "Kirill A. Shutsemov" <kirill@shutemov.name>
-Subject: [PATCH 01/12] sunrpc: mount rpc_pipefs on initialization
-Date: Mon, 20 Dec 2010 13:54:27 +0200
-Message-ID: <1292846078-31793-2-git-send-email-kirill@shutemov.name>
+Subject: [PATCH 04/12] sunrpc: tag svc_serv with rpc_pipefs mount point
+Date: Mon, 20 Dec 2010 13:54:30 +0200
+Message-ID: <1292846078-31793-5-git-send-email-kirill@shutemov.name>
 References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
 Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -17,77 +17,59 @@ List-Id: netdev.vger.kernel.org
 
 From: Kirill A. Shutemov <kirill@shutemov.name>
 
-Mount rpc_pipefs on register_rpc_pipefs() and replace
-rpc_get_mount()/rpc_put_mount() implementation with mntget()/mntput().
-
 Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
 ---
- net/sunrpc/rpc_pipe.c |   27 ++++++++++++++++-----------
- 1 files changed, 16 insertions(+), 11 deletions(-)
+ include/linux/sunrpc/svc.h |    1 +
+ net/sunrpc/svc.c           |    4 ++++
+ 2 files changed, 5 insertions(+), 0 deletions(-)
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 10a17a3..7f3fbdd 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -29,7 +29,6 @@
- #include <linux/sunrpc/cache.h>
+diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+index 5a3085b..3b6b26c 100644
+--- a/include/linux/sunrpc/svc.h
++++ b/include/linux/sunrpc/svc.h
+@@ -64,6 +64,7 @@ struct svc_pool {
+  */
+ struct svc_serv {
+ 	struct svc_program *	sv_program;	/* RPC program */
++	struct vfsmount *	sv_rpcmount;	/* rpc_pipefs mount point*/
+ 	struct svc_stat *	sv_stats;	/* RPC statistics */
+ 	spinlock_t		sv_lock;
+ 	unsigned int		sv_nrthreads;	/* # of server threads */
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 6359c42..d2f7c03 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -20,6 +20,7 @@
+ #include <linux/module.h>
+ #include <linux/kthread.h>
+ #include <linux/slab.h>
++#include <linux/mount.h>
  
- static struct vfsmount *rpc_mnt __read_mostly;
--static int rpc_mount_count;
+ #include <linux/sunrpc/types.h>
+ #include <linux/sunrpc/xdr.h>
+@@ -27,6 +28,7 @@
+ #include <linux/sunrpc/svcsock.h>
+ #include <linux/sunrpc/clnt.h>
+ #include <linux/sunrpc/bc_xprt.h>
++#include <linux/sunrpc/rpc_pipe_fs.h>
  
- static struct file_system_type rpc_pipe_fs_type;
+ #define RPCDBG_FACILITY	RPCDBG_SVCDSP
  
-@@ -415,18 +414,13 @@ struct rpc_filelist {
+@@ -371,6 +373,7 @@ __svc_create(struct svc_program *prog, unsigned int bufsize, int npools,
+ 		return NULL;
+ 	serv->sv_name      = prog->pg_name;
+ 	serv->sv_program   = prog;
++	serv->sv_rpcmount  = mntget(init_rpc_pipefs);
+ 	serv->sv_nrthreads = 1;
+ 	serv->sv_stats     = prog->pg_stats;
+ 	if (bufsize > RPCSVC_MAXPAYLOAD)
+@@ -492,6 +495,7 @@ svc_destroy(struct svc_serv *serv)
+ 	svc_sock_destroy(serv->bc_xprt);
+ #endif /* CONFIG_NFS_V4_1 */
  
- struct vfsmount *rpc_get_mount(void)
- {
--	int err;
--
--	err = simple_pin_fs(&rpc_pipe_fs_type, &rpc_mnt, &rpc_mount_count);
--	if (err != 0)
--		return ERR_PTR(err);
--	return rpc_mnt;
-+	return mntget(rpc_mnt);
- }
- EXPORT_SYMBOL_GPL(rpc_get_mount);
- 
- void rpc_put_mount(void)
- {
--	simple_release_fs(&rpc_mnt, &rpc_mount_count);
-+	mntput(rpc_mnt);
- }
- EXPORT_SYMBOL_GPL(rpc_put_mount);
- 
-@@ -1063,16 +1057,27 @@ int register_rpc_pipefs(void)
- 	if (!rpc_inode_cachep)
- 		return -ENOMEM;
- 	err = register_filesystem(&rpc_pipe_fs_type);
--	if (err) {
--		kmem_cache_destroy(rpc_inode_cachep);
--		return err;
-+	if (err)
-+		goto destroy_cache;
-+
-+	rpc_mnt = kern_mount(&rpc_pipe_fs_type);
-+	if (IS_ERR(rpc_mnt)) {
-+		err = PTR_ERR(rpc_mnt);
-+		goto unregister_fs;
- 	}
- 
- 	return 0;
-+
-+unregister_fs:
-+	unregister_filesystem(&rpc_pipe_fs_type);
-+destroy_cache:
-+	kmem_cache_destroy(rpc_inode_cachep);
-+	return err;
- }
- 
- void unregister_rpc_pipefs(void)
- {
-+	mntput(rpc_mnt);
- 	kmem_cache_destroy(rpc_inode_cachep);
- 	unregister_filesystem(&rpc_pipe_fs_type);
- }
++	mntput(serv->sv_rpcmount);
+ 	svc_unregister(serv);
+ 	kfree(serv->sv_pools);
+ 	kfree(serv);
 -- 
 1.7.3.4
