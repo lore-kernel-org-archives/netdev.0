@@ -1,128 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 02/12] net: Introduce new feature setting ops
-Date: Mon, 20 Dec 2010 16:41:04 +0000
-Message-ID: <1292863264.3055.15.camel@bwh-desktop>
-References: <cover.1292451559.git.mirq-linux@rere.qmqm.pl>
-	 <822f5776f99cab9889cd72d658d5fe50c56bb247.1292451559.git.mirq-linux@rere.qmqm.pl>
-	 <1292541186.18294.16.camel@bwh-desktop>
-	 <20101219004959.GA12005@rere.qmqm.pl> <1292793759.2874.14.camel@localhost>
-	 <20101219234343.GA15644@rere.qmqm.pl>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ifb: add performance flags to dev->features
+Date: Mon, 20 Dec 2010 22:43:46 +0800
+Message-ID: <AANLkTikNF8Fr-n7j8EcwAp8zfn0U6EqBjORjn-sEJps8@mail.gmail.com>
+References: <AANLkTi=R_ZsYgsYd7EkxHRFTKjtLyLQAOYay2nBV=0bK@mail.gmail.com>
+ <1292836885.2800.4.camel@edumazet-laptop> <20101220103226.GB7977@ff.dom.local>
+ <1292841671.2800.11.camel@edumazet-laptop> <20101220111141.GC7977@ff.dom.local>
+ <20101220115855.GD7977@ff.dom.local> <4D0F471D.8030607@itcare.pl>
+ <20101220122256.GA9325@ff.dom.local> <1292849150.2800.25.camel@edumazet-laptop>
+ <1292849687.2800.27.camel@edumazet-laptop> <20101220130247.GB9325@ff.dom.local>
+ <AANLkTi=eqCWpFpHQ86_yO544p5G6J6P2os7rCR9FBtUd@mail.gmail.com> <1292855120.2800.45.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Cc: David Miller <davem@davemloft.net>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	=?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>,
+	Linux Network Development list <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:29879 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932292Ab0LTQlH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 11:41:07 -0500
-In-Reply-To: <20101219234343.GA15644@rere.qmqm.pl>
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:65039 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932512Ab0LTQoY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 11:44:24 -0500
+Received: by fxm18 with SMTP id 18so3243834fxm.2
+        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 08:44:22 -0800 (PST)
+In-Reply-To: <1292855120.2800.45.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-20 at 00:43 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> On Sun, Dec 19, 2010 at 09:22:39PM +0000, Ben Hutchings wrote:
-> > On Sun, 2010-12-19 at 01:49 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> > > On Thu, Dec 16, 2010 at 11:13:06PM +0000, Ben Hutchings wrote:
-> > > > On Wed, 2010-12-15 at 23:24 +0100, Micha=C5=82 Miros=C5=82aw wr=
-ote:
-> > [...]
-> > > > > +static int ethtool_set_features(struct net_device *dev, void=
- __user *useraddr)
-> > > > > +{
-> > > > > +	struct ethtool_features cmd;
-> > > > > +	struct ethtool_set_features_block features[ETHTOOL_DEV_FEAT=
-URE_WORDS];
-> > > > > +
-> > > > > +	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
-> > > > > +		return -EFAULT;
-> > > > > +	useraddr +=3D sizeof(cmd);
-> > > > > +
-> > > > > +	if (cmd.count > ETHTOOL_DEV_FEATURE_WORDS)
-> > > > > +		cmd.count =3D ETHTOOL_DEV_FEATURE_WORDS;
-> > > > So additional feature words will be silently ignored...
-> > > > > +	if (copy_from_user(features, useraddr, sizeof(*features) * =
-cmd.count))
-> > > > > +		return -EFAULT;
-> > > > > +	memset(features + cmd.count, 0,
-> > > > > +		sizeof(features) - sizeof(*features) * cmd.count);
-> > > > > +
-> > > > > +	features[0].valid &=3D dev->hw_features | NETIF_F_SOFT_FEAT=
-URES;
-> > > > [...]
-> > > >=20
-> > > > ...as will any other unsupported features.  This is not a good =
-idea.
-> > > > (However, remembering which features are wanted does seem like =
-a good
-> > > > idea.)
-> > >=20
-> > > That's intentional. Unsupported features can't be enabled anyway.
-> > > hw_features is supposed to contain all features that the device c=
-an support
-> > > and is able to enable/disable. This set should be constant and an=
-ything that
-> > > is in the wanted_features set but is not supported because of oth=
-er conditions
-> > > will be stripped by ndo_fix_features() call.
-> > >=20
-> > > Other way would be to return EINVAL when bits not changeable are =
-present in
-> > > the valid mask. I don't want to do that, since then your example =
-of changing
-> > > a feature without GFEATURES first will not work.
-> > That's right, it shouldn't work.
->=20
-> A user says "enable any TSO available". This means ethtool could issu=
-e
-> a request with .valid =3D NETIF_F_ALL_TSO, .requested =3D NETIF_F_ALL=
-_TSO.
-> If the device supports only TSOv4 this should enable it and leave oth=
-ers
-> alone as whatever the user wants they can't be enabled.
+On Mon, Dec 20, 2010 at 10:25 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> =A0drivers/net/ifb.c | =A0 =A03 +++
+> =A01 file changed, 3 insertions(+)
+>
+> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+> index 124dac4..c761551 100644
+> --- a/drivers/net/ifb.c
+> +++ b/drivers/net/ifb.c
+> @@ -136,6 +136,9 @@ static void ifb_setup(struct net_device *dev)
+> =A0 =A0 =A0 =A0ether_setup(dev);
+> =A0 =A0 =A0 =A0dev->tx_queue_len =3D TX_Q_LIMIT;
+>
+> + =A0 =A0 =A0 dev->features |=3D NETIF_F_NO_CSUM | NETIF_F_SG |
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETIF_F_FRAGLIST | N=
+ETIF_F_HIGHDMA |
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0NETIF_F_TSO;
+> =A0 =A0 =A0 =A0dev->flags |=3D IFF_NOARP;
+> =A0 =A0 =A0 =A0dev->flags &=3D ~IFF_MULTICAST;
+> =A0 =A0 =A0 =A0dev->priv_flags &=3D ~IFF_XMIT_DST_RELEASE;
+>
+>
+>
 
-I see your point, but...
+I think we can assign these features to vlan_features.
 
-> This is 1-1 conversion of the semantics current ethtool ops have - se=
-t_tso
-> corresponds exactly to the request described above. This behaviour al=
-so
-> allows to execute a command like "enable as many as you can of ..." t=
-hat
-> is usual goal of user enabling hardware offloads - to get best possib=
-le
-> performance.
+dev->vlan_features |=3D dev->features.
 
-The current behaviour is that if TSO is not supported at all then any
-attempt to control it fails with error EOPNOTSUPP.  Your proposed chang=
-e
-would make it return success.
+Although I don't know all the features related to GSO,  I just added
+all of them. For pseudo NIC, I think it is safe to do so.
 
-So I think we have to expect ethtool (or other userland tool) to query
-the supported feature flags if it is commanded to change some offload
-feature that is represented by multiple feature flags in
-net_device::features.  Alternately, we maintain a separate set of
-feature flags for ethtool that doesn't make these distinctions.  But I
-think it would be useful for ethtool to be able to query and report
-exactly what features the device supports.
-
-> Nevertheless, what problem is generated by ignoring unsupported bits =
-here?
-
-User confusion when an ethtool command 'succeeds' but has no effect.
-
-> I can see the point of returning -EINVAL on bits that are not defined=
-, though.
-> Is that a good direction?
-
-Any attempt to change undefined flags should definitely result in an
-error.
-
-Ben.
++       dev->features |=3D NETIF_F_SG | NETIF_F_NO_CSUM | NETIF_F_TSO |
++                        NETIF_F_UFO | NETIF_F_GSO_ROBUST | NETIF_F_TSO=
+_ECN |
++                        NETIF_F_TSO6 | NETIF_F_FSO;
 
 --=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Regards,
+Changli Gao(xiaosuo@gmail.com)
