@@ -1,61 +1,93 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: Kernel panic eth2 mirred redirect to ifb0
-Date: Mon, 20 Dec 2010 11:11:41 +0000
-Message-ID: <20101220111141.GC7977@ff.dom.local>
-References: <4D0E8416.2030100@gmail.com> <4D0E857E.5060302@gmail.com> <4D0E868F.90005@gmail.com> <4D0F0D73.2080807@itcare.pl> <AANLkTim1YZd0FgunGKN_YPiLW+uExXajwingUkQeW=a=@mail.gmail.com> <1292836097.2800.3.camel@edumazet-laptop> <AANLkTi=R_ZsYgsYd7EkxHRFTKjtLyLQAOYay2nBV=0bK@mail.gmail.com> <1292836885.2800.4.camel@edumazet-laptop> <20101220103226.GB7977@ff.dom.local> <1292841671.2800.11.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	=?iso-8859-2?Q?Pawe=B3?= Staszewski <pstaszewski@itcare.pl>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Network Development list <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f45.google.com ([209.85.214.45]:36726 "EHLO
-	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754789Ab0LTLLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 06:11:45 -0500
-Received: by bwz16 with SMTP id 16so3147384bwz.4
-        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 03:11:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1292841671.2800.11.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Kirill A. Shutsemov" <kirill@shutemov.name>
+Subject: [PATCH 01/12] sunrpc: mount rpc_pipefs on initialization
+Date: Mon, 20 Dec 2010 13:54:27 +0200
+Message-ID: <1292846078-31793-2-git-send-email-kirill@shutemov.name>
+References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
+Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Kirill A. Shutemov" <kirill@shutemov.name>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 20, 2010 at 11:41:11AM +0100, Eric Dumazet wrote:
-> Le lundi 20 d=E9cembre 2010 ?? 10:32 +0000, Jarek Poplawski a =E9crit=
- :
-> > On Mon, Dec 20, 2010 at 10:21:25AM +0100, Eric Dumazet wrote:
-> > > Le lundi 20 d=E9cembre 2010 ?? 17:11 +0800, Changli Gao a =E9crit=
- :
-> > > > Yes, you are right. I just wonder where shared skbs are allowed=
-=2E Is
-> > > > there any rule?
-> > > >=20
-> > >=20
-> > > Shared skbs are allowed for sure (pktgen is a provider of such sk=
-bs).
-> >=20
-> > But pktgen doesn't use common dev_queue_xmit() path. It looks like
-> > some places checking segmentation call pskb_expand_head() assuming =
-skb
-> > isn't shared. Btw, it seems ifb should have GSO features similarly =
-to
-> > loopback. Anyway, until all this is verified, IMHO we should revert
-> > Changli's mirred patch in stable.
-> >=20
->=20
-> I thought Changli question was : is a skb given to a device
-> ndo_start_xmit() handler is allowed to be shared ;)
->=20
-> I believe Changli patch should be reverted, because not doing a
-> skb_clone() should be known by caller.
->=20
-> To avoid the skb_clone(), we must tell caller what we did, so that
-> caller dont even try to reuse skb (even freeing it)
+From: Kirill A. Shutemov <kirill@shutemov.name>
 
-To tell the truth, Changli could assume we don't need to tell anything,
-because this mirred skb is almost not shared (except the refcount ;-).
+Mount rpc_pipefs on register_rpc_pipefs() and replace
+rpc_get_mount()/rpc_put_mount() implementation with mntget()/mntput().
 
-Jarek P.
+Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
+---
+ net/sunrpc/rpc_pipe.c |   27 ++++++++++++++++-----------
+ 1 files changed, 16 insertions(+), 11 deletions(-)
+
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 10a17a3..7f3fbdd 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -29,7 +29,6 @@
+ #include <linux/sunrpc/cache.h>
+ 
+ static struct vfsmount *rpc_mnt __read_mostly;
+-static int rpc_mount_count;
+ 
+ static struct file_system_type rpc_pipe_fs_type;
+ 
+@@ -415,18 +414,13 @@ struct rpc_filelist {
+ 
+ struct vfsmount *rpc_get_mount(void)
+ {
+-	int err;
+-
+-	err = simple_pin_fs(&rpc_pipe_fs_type, &rpc_mnt, &rpc_mount_count);
+-	if (err != 0)
+-		return ERR_PTR(err);
+-	return rpc_mnt;
++	return mntget(rpc_mnt);
+ }
+ EXPORT_SYMBOL_GPL(rpc_get_mount);
+ 
+ void rpc_put_mount(void)
+ {
+-	simple_release_fs(&rpc_mnt, &rpc_mount_count);
++	mntput(rpc_mnt);
+ }
+ EXPORT_SYMBOL_GPL(rpc_put_mount);
+ 
+@@ -1063,16 +1057,27 @@ int register_rpc_pipefs(void)
+ 	if (!rpc_inode_cachep)
+ 		return -ENOMEM;
+ 	err = register_filesystem(&rpc_pipe_fs_type);
+-	if (err) {
+-		kmem_cache_destroy(rpc_inode_cachep);
+-		return err;
++	if (err)
++		goto destroy_cache;
++
++	rpc_mnt = kern_mount(&rpc_pipe_fs_type);
++	if (IS_ERR(rpc_mnt)) {
++		err = PTR_ERR(rpc_mnt);
++		goto unregister_fs;
+ 	}
+ 
+ 	return 0;
++
++unregister_fs:
++	unregister_filesystem(&rpc_pipe_fs_type);
++destroy_cache:
++	kmem_cache_destroy(rpc_inode_cachep);
++	return err;
+ }
+ 
+ void unregister_rpc_pipefs(void)
+ {
++	mntput(rpc_mnt);
+ 	kmem_cache_destroy(rpc_inode_cachep);
+ 	unregister_filesystem(&rpc_pipe_fs_type);
+ }
+-- 
+1.7.3.4
