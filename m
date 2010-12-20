@@ -1,63 +1,73 @@
-From: Bhavesh Davda <bhavesh@vmware.com>
-Subject: RE: [Pv-drivers] [patch -next] vmxnet3: locking problems in xmit
-Date: Mon, 20 Dec 2010 09:09:13 -0800
-Message-ID: <382C2929804A6B469FF4A4200E716F480431304B17CC@EXCH-MBX-1.vmware.com>
-References: <20101220130315.GY1936@bicker>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv4: Flush per-ns routing cache more sanely.
+Date: Mon, 20 Dec 2010 18:13:53 +0100
+Message-ID: <1292865233.2800.192.camel@edumazet-laptop>
+References: <m1sjzs3hbw.fsf@fess.ebiederm.org>
+	 <20101026.122022.241452738.davem@davemloft.net>
+	 <1288121422.2652.14.camel@edumazet-laptop>
+	 <20101219.211453.226783693.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "VMware, Inc." <pv-drivers@vmware.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <error27@gmail.com>,
-	Shreyas Bhatewara <sbhatewara@vmware.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+	daniel.lezcano@free.fr
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([65.115.85.69]:12475 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932875Ab0LTRJR convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Dec 2010 12:09:17 -0500
-In-Reply-To: <20101220130315.GY1936@bicker>
-Content-Language: en-US
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:56118 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753355Ab0LTRVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 12:21:37 -0500
+Received: by wwi17 with SMTP id 17so3049364wwi.1
+        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 09:21:35 -0800 (PST)
+In-Reply-To: <20101219.211453.226783693.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Indeed, indeed. Thanks for catching that and fixing it!
+Le dimanche 19 d=C3=A9cembre 2010 =C3=A0 21:14 -0800, David Miller a =C3=
+=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Tue, 26 Oct 2010 21:30:22 +0200
+>=20
+> > Le mardi 26 octobre 2010 =C3=A0 12:20 -0700, David Miller a =C3=A9c=
+rit :
+> >> From: ebiederm@xmission.com (Eric W. Biederman)
+> >> Date: Tue, 26 Oct 2010 12:05:39 -0700
+> >>=20
+> >> >> @@ -999,7 +999,7 @@ static int fib_netdev_event(struct notifier=
+_block *this, unsigned long event, vo
+> >> >>  		rt_cache_flush(dev_net(dev), 0);
+> >> >>  		break;
+> >> >>  	case NETDEV_UNREGISTER_BATCH:
+> >> >> -		rt_cache_flush_batch();
+> >> >> +		rt_cache_flush_batch(dev_net(dev));
+> >> >=20
+> >> > It still has this incorrect conversion in it.
+> >>=20
+> >> Sorry I missed that, what's the exact problem with it?
+> >=20
+> > Because the way _BATCH operation is performed, we call it once...
+> >=20
+> > rollback_registered_many() calls it for the first dev queued in the
+> > list.
+> >=20
+> > So it should be net independant.
+>=20
+> Thanks Eric.  I finally got back to fixing this issue and respinning
+> the patch.
+>=20
+> Please review, in particular how I handled the RCU bits.
+>=20
+> --------------------
+> ipv4: Flush per-ns routing cache more sanely.
+>=20
+> Flush the routing cache only of entries that match the
+> network namespace in which the purge event occurred.
+>=20
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> 
-> There were several paths that didn't release their locks.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Signed-off-by: Bhavesh Davda <bhavesh@vmware.com>
+Seems fine to me, thanks !
 
-> 
-> diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c
-> b/drivers/net/vmxnet3/vmxnet3_drv.c
-> index 23154cf..939e546 100644
-> --- a/drivers/net/vmxnet3/vmxnet3_drv.c
-> +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-> @@ -980,7 +980,7 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct
-> vmxnet3_tx_queue *tq,
->  		}
->  	} else {
->  		tq->stats.drop_hdr_inspect_err++;
-> -		goto drop_pkt;
-> +		goto unlock_drop_pkt;
->  	}
-> 
->  	/* fill tx descs related to addr & len */
-> @@ -1052,6 +1052,8 @@ vmxnet3_tq_xmit(struct sk_buff *skb, struct
-> vmxnet3_tx_queue *tq,
-> 
->  hdr_too_big:
->  	tq->stats.drop_oversized_hdr++;
-> +unlock_drop_pkt:
-> +	spin_unlock_irqrestore(&tq->tx_lock, flags);
->  drop_pkt:
->  	tq->stats.drop_total++;
->  	dev_kfree_skb(skb);
-> _______________________________________________
-> Pv-drivers mailing list
-> Pv-drivers@vmware.com
-> http://mailman2.vmware.com/mailman/listinfo/pv-drivers
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+
