@@ -1,45 +1,41 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
-Date: Tue, 21 Dec 2010 00:20:20 +0100
-Message-ID: <20101220232020.GB2052@del.dom.local>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 PATCH 4/4] net_sched: add MQSAFE flag to qdisc
+ to identify mq like qdiscs
+Date: Mon, 20 Dec 2010 23:22:01 +0000
+Message-ID: <1292887321.3055.43.camel@bwh-desktop>
+References: <20101217153439.12170.39538.stgit@jf-dev1-dcblab>
+	 <20101217153456.12170.17327.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	Jamal Hadi Salim <hadi@cyberus.ca>,
-	Pawel Staszewski <pstaszewski@itcare.pl>
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org, eric.dumazet@gmail.com,
+	nhorman@tuxdriver.com
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f45.google.com ([209.85.214.45]:63831 "EHLO
-	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751535Ab0LTXU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:20:26 -0500
-Received: by bwz16 with SMTP id 16so3920936bwz.4
-        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 15:20:24 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:10691 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758237Ab0LTXWF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:22:05 -0500
+In-Reply-To: <20101217153456.12170.17327.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Dec 20, 2010 at 10:35:30PM +0800, Changli Gao wrote:
-> Pawel reported a panic related to handling shared skbs in ixgbe
-> incorrectly. So we need to revert my previous patch to work around
-> this bug. Instead of reverting the patch completely, I just revert
-> the essential lines, so we can add the previous optimization
-> back more easily in future.
-> 
->     commit 3511c9132f8b1e1b5634e41a3331c44b0c13be70
->     Author: Changli Gao <xiaosuo@gmail.com>
->     Date:   Sat Oct 16 13:04:08 2010 +0000
->     
->         net_sched: remove the unused parameter of qdisc_create_dflt()
-> 
+On Fri, 2010-12-17 at 07:34 -0800, John Fastabend wrote:
+> Add a MQSAFE flag to the qdisc schedulers that can be safely
+> managed by sch_mclass. Without this flag schedulers that are
+> not aware of multiple tx queues can be grafted under the
+> mclass qdisc. Allowing incorrect qdiscs to be grafted causes
+> an invalid mapping from qdisc's to netdevice queues.
+[...]
 
-Isn't there some mistake in the commit number? IMHO this changelog is
-mostly wrong. The bug happens outside of ixgbe, probably in
-dev_hard_start_xmit() ->  __skb_linearize(), and even if not, it can,
-without any driver's fault. The only question is why it didn't triger
-with 2.6.36.
+This should be defined before adding sch_mclass, or at the same time,
+not after.
 
-Jarek P.
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
