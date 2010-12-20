@@ -1,38 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] TCP: increase default initial receive window.
-Date: Mon, 20 Dec 2010 10:48:14 -0800 (PST)
-Message-ID: <20101220.104814.59687502.davem@davemloft.net>
-References: <AANLkTimSH_NfX2qno7sO3A4CHLsONmRUDHzWXY4reD28@mail.gmail.com>
-	<20101220090352.3ea7ade2@nehalam>
-	<4D0F9FCC.7010108@hp.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, nanditad@google.com, netdev@vger.kernel.org,
-	therbert@google.com, chavey@google.com, ycheng@google.com
-To: rick.jones2@hp.com
+From: leitao@linux.vnet.ibm.com
+Subject: [PATCH] ehea: Avoid changing vlan flags
+Date: Mon, 20 Dec 2010 17:02:37 -0200
+Message-ID: <1292871757-24918-1-git-send-email-leitao@linux.vnet.ibm.com>
+References: <AANLkTimODzrAWS+05+FChtme_3um_9Ky7cwa3gWHFaXp@mail.gmail.com>
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org, jesse@nicira.com,
+	Breno Leitao <leitao@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49231
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932376Ab0LTSrp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 13:47:45 -0500
-In-Reply-To: <4D0F9FCC.7010108@hp.com>
+Received: from e24smtp01.br.ibm.com ([32.104.18.85]:38236 "EHLO
+	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932682Ab0LTTCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 14:02:44 -0500
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by e24smtp01.br.ibm.com (8.14.4/8.13.1) with ESMTP id oBKJPksZ005240
+	for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 17:25:46 -0200
+Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBKJ18RA1347776
+	for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 16:01:08 -0300
+Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
+	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBKJ2dem017094
+	for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 17:02:40 -0200
+In-Reply-To: <AANLkTimODzrAWS+05+FChtme_3um_9Ky7cwa3gWHFaXp@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hp.com>
-Date: Mon, 20 Dec 2010 10:26:20 -0800
+This patch avoids disabling the vlan flags using ethtool.
 
->> Agree this is a good idea, but some further notes:
->>   * The control of receive window is a local function not covered by
->>     RFC.
->>   * Linux manipulates receive window automatically, unlike some other
->>     implementations.
->> But any change to TCP risks breaking other broken implementations
->> and users need a good way to recover. 
-> 
-> Always good to be careful, but break in what way?  Many stacks have
-> been advertising an initial receive window of well above 10 segments
-> going back literally decades.
+Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+---
+ drivers/net/ehea/ehea_ethtool.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-Agreed.
+diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
+index afebf20..3e2e734 100644
+--- a/drivers/net/ehea/ehea_ethtool.c
++++ b/drivers/net/ehea/ehea_ethtool.c
+@@ -265,6 +265,13 @@ static void ehea_get_ethtool_stats(struct net_device *dev,
+ 
+ static int ehea_set_flags(struct net_device *dev, u32 data)
+ {
++	/* Avoid changing the VLAN flags */
++	if ((data & (ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN)) !=
++	    (ethtool_op_get_flags(dev) & (ETH_FLAG_RXVLAN |
++					  ETH_FLAG_TXVLAN))){
++		return -EINVAL;
++	}
++
+ 	return ethtool_op_set_flags(dev, data, ETH_FLAG_LRO
+ 					| ETH_FLAG_TXVLAN
+ 					| ETH_FLAG_RXVLAN);
+-- 
+1.7.3.3
+
