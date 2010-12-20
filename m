@@ -1,70 +1,116 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 2/4] net_sched: Allow multiple mq qdisc to
- be used as non-root
-Date: Mon, 20 Dec 2010 23:12:42 +0000
-Message-ID: <1292886762.3055.38.camel@bwh-desktop>
-References: <20101217153439.12170.39538.stgit@jf-dev1-dcblab>
-	 <20101217153445.12170.73420.stgit@jf-dev1-dcblab>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] sch_sfq: allow big packets and be fair
+Date: Tue, 21 Dec 2010 00:16:16 +0100
+Message-ID: <1292886976.2627.146.camel@edumazet-laptop>
+References: <1292421783.3427.232.camel@edumazet-laptop>
+	 <4D08E6C2.804@trash.net> <1292430424.3427.350.camel@edumazet-laptop>
+	 <1292431256.3427.358.camel@edumazet-laptop> <4D08F025.5030603@trash.net>
+	 <1292432120.3427.366.camel@edumazet-laptop> <4D08F4F4.3050501@trash.net>
+	 <1292504932.2883.110.camel@edumazet-laptop>
+	 <1292604766.2906.51.camel@edumazet-laptop>
+	 <20101219212234.GA2323@del.dom.local>
+	 <1292864525.2800.189.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
-	shemminger@vyatta.com, tgraf@infradead.org, eric.dumazet@gmail.com,
-	nhorman@tuxdriver.com
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: Patrick McHardy <kaber@trash.net>, netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:9655 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933135Ab0LTXMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:12:47 -0500
-In-Reply-To: <20101217153445.12170.73420.stgit@jf-dev1-dcblab>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:47931 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933143Ab0LTXQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:16:20 -0500
+Received: by wwa36 with SMTP id 36so3551344wwa.1
+        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 15:16:19 -0800 (PST)
+In-Reply-To: <1292864525.2800.189.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2010-12-17 at 07:34 -0800, John Fastabend wrote:
-[...]
-> diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
-> index ecc302f..35ed26d 100644
-> --- a/net/sched/sch_mq.c
-> +++ b/net/sched/sch_mq.c
-> @@ -19,17 +19,39 @@
->  
->  struct mq_sched {
->  	struct Qdisc		**qdiscs;
-> +	u8 num_tc;
->  };
->  
-> +static void mq_queues(struct net_device *dev, struct Qdisc *sch,
-> +		      unsigned int *count, unsigned int *offset)
-> +{
-> +	struct mq_sched *priv = qdisc_priv(sch);
-> +	if (priv->num_tc) {
-> +		int queue = TC_H_MIN(sch->parent) - 1;
-> +		if (count)
-> +			*count = dev->tc_to_txq[queue].count;
-> +		if (offset)
-> +			*offset = dev->tc_to_txq[queue].offset;
-> +	} else {
-> +		if (count)
-> +			*count = dev->num_tx_queues;
-> +		if (offset)
-> +			*offset = 0;
-> +	}
-> +}
-[...]
+SFQ is currently 'limited' to small packets, because it uses a 16bit
+allotment number per flow. Switch it to 18bit, and use appropriate
+handling to make sure this allotment is in [1 .. quantum] range before a
+new packet is dequeued, so that fairness is respected.
 
-It looks like num_tc will be set even for the root qdisc if the device
-is capable of QoS.  Would mq_queues() behave correctly then, i.e. is the
-queue range for priority 0 required to be [0, dev->num_tx_queues)?
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>
+---
+ net/sched/sch_sfq.c |   24 ++++++++++++++++--------
+ 1 file changed, 16 insertions(+), 8 deletions(-)
 
-Also it would be neater to return count and offset together as struct
-netdev_tc_txq, rather than through optional out-parameters.  Even better
-would be to cache these in struct mq_sched, if that's possible.
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index c474b4b..878704a 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -67,7 +67,7 @@
+ 
+ 	IMPLEMENTATION:
+ 	This implementation limits maximal queue length to 128;
+-	maximal mtu to 2^15-1; max 128 flows, number of hash buckets to 1024.
++	maximal mtu to 2^16-1; max 128 flows, number of hash buckets to 1024.
+ 	The only goal of this restrictions was that all data
+ 	fit into one 4K page on 32bit arches.
+ 
+@@ -99,9 +99,10 @@ struct sfq_slot {
+ 	sfq_index	qlen; /* number of skbs in skblist */
+ 	sfq_index	next; /* next slot in sfq chain */
+ 	struct sfq_head dep; /* anchor in dep[] chains */
+-	unsigned short	hash; /* hash value (index in ht[]) */
+-	short		allot; /* credit for this slot */
++	unsigned int	hash:14; /* hash value (index in ht[]) */
++	unsigned int	allot:18; /* credit for this slot */
+ };
++#define ALLOT_ZERO (1 << 16)
+ 
+ struct sfq_sched_data
+ {
+@@ -394,7 +395,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 			q->tail->next = x;
+ 		}
+ 		q->tail = slot;
+-		slot->allot = q->quantum;
++		slot->allot = ALLOT_ZERO + q->quantum;
+ 	}
+ 	if (++sch->q.qlen <= q->limit) {
+ 		sch->bstats.bytes += qdisc_pkt_len(skb);
+@@ -430,8 +431,14 @@ sfq_dequeue(struct Qdisc *sch)
+ 	if (q->tail == NULL)
+ 		return NULL;
+ 
++next:
+ 	a = q->tail->next;
+ 	slot = &q->slots[a];
++	if (slot->allot <= ALLOT_ZERO) {
++		q->tail = slot;
++		slot->allot += q->quantum;
++		goto next;
++	}
+ 	skb = slot_dequeue_head(slot);
+ 	sfq_dec(q, a);
+ 	sch->q.qlen--;
+@@ -446,9 +453,8 @@ sfq_dequeue(struct Qdisc *sch)
+ 			return skb;
+ 		}
+ 		q->tail->next = next_a;
+-	} else if ((slot->allot -= qdisc_pkt_len(skb)) <= 0) {
+-		q->tail = slot;
+-		slot->allot += q->quantum;
++	} else {
++		slot->allot -= qdisc_pkt_len(skb);
+ 	}
+ 	return skb;
+ }
+@@ -610,7 +616,9 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+ 	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
+ 	struct gnet_stats_queue qs = { .qlen = slot->qlen };
+-	struct tc_sfq_xstats xstats = { .allot = slot->allot };
++	struct tc_sfq_xstats xstats = {
++		.allot = slot->allot - ALLOT_ZERO
++	};
+ 	struct sk_buff *skb;
+ 
+ 	slot_queue_walk(slot, skb)
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
 
