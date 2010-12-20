@@ -1,44 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v2] net: implement mechanism for HW based
- QOS
-Date: Mon, 20 Dec 2010 23:58:51 +0100
-Message-ID: <1292885931.2627.128.camel@edumazet-laptop>
-References: <20101217165622.26608.24819.stgit@jf-dev1-dcblab>
-	 <1292885287.3055.22.camel@bwh-desktop>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [PATCH v3] kptr_restrict for hiding kernel pointers
+Date: Mon, 20 Dec 2010 18:01:28 -0500
+Message-ID: <1292886088.4061.3.camel@dan>
+References: <1292692835.10804.67.camel@dan>  <50259.1292883991@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: John Fastabend <john.r.fastabend@intel.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, hadi@cyberus.ca, shemminger@vyatta.com,
-	tgraf@infradead.org, nhorman@tuxdriver.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:55859 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757821Ab0LTW64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 17:58:56 -0500
-Received: by wyb28 with SMTP id 28so3385220wyb.19
-        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 14:58:55 -0800 (PST)
-In-Reply-To: <1292885287.3055.22.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, jmorris@namei.org,
+	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
+	kees.cook@canonical.com, mingo@elte.hu, davem@davemloft.net,
+	a.p.zijlstra@chello.nl, akpm@linux-foundation.org
+To: Valdis.Kletnieks@vt.edu
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <50259.1292883991@localhost>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 20 d=C3=A9cembre 2010 =C3=A0 22:48 +0000, Ben Hutchings a =C3=A9=
-crit :
+On Mon, 2010-12-20 at 17:26 -0500, Valdis.Kletnieks@vt.edu wrote:
+> On Sat, 18 Dec 2010 12:20:34 EST, Dan Rosenberg said:
+> 
+> > @@ -1035,6 +1038,26 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+> >  		return buf + vsnprintf(buf, end - buf,
+> >  				       ((struct va_format *)ptr)->fmt,
+> >  				       *(((struct va_format *)ptr)->va));
+> > +	case 'K':
+> > +		/*
+> > +		 * %pK cannot be used in IRQ context because it tests
+> > +		 * CAP_SYSLOG.
+> > +		 */
+> > +		if (in_irq() || in_serving_softirq() || in_nmi())
+> > +			WARN_ONCE(1, "%%pK used in interrupt context.\n");
+> 
+> Should this then continue on and test CAP_SYSLOG anyhow, or should it
+> return a "" or or "<invalid>" or something?
 
-> That seems like a fair amount of data to add to every net device,
-> considering that users may create e.g. a lot of VLAN devices and they
-> won't use this state at all.  Have you considered putting these in a
-> structure that is accessed indirectly?
+This is a valid point.  I'll resend a new version shortly that defaults
+to zeroing pointers if it's used incorrectly without relying on
+capability checks.
 
-Yes, this was like this in previous patch, but I asked John to put it i=
-n
-netdevice instead, in order to avoid a false sharing and this
-indirection.
-
-This adds 64 bytes on a netdevice. Most machines dont have more than 16
-netdevices, it seems a reasonable cost. (We removed the ingress bloat
-some time ago, so no significant increase anyway)
-
-
+Thanks,
+Dan
 
