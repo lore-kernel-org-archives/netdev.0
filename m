@@ -1,64 +1,53 @@
-From: Changli Gao <xiaosuo@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Kernel panic eth2 mirred redirect to ifb0
-Date: Mon, 20 Dec 2010 16:56:22 +0800
-Message-ID: <AANLkTim1YZd0FgunGKN_YPiLW+uExXajwingUkQeW=a=@mail.gmail.com>
-References: <4D0DEDF9.7020102@itcare.pl> <1292773433.18869.153.camel@edumazet-laptop>
- <4D0E2E52.3090802@itcare.pl> <AANLkTimMY3D_HssWb=Sw=b3tsxEKACk2QUzFzi-HaC-J@mail.gmail.com>
- <4D0E6C6D.10806@itcare.pl> <4D0E8416.2030100@gmail.com> <4D0E857E.5060302@gmail.com>
- <4D0E868F.90005@gmail.com> <4D0F0D73.2080807@itcare.pl>
+Date: Mon, 20 Dec 2010 09:06:05 +0100
+Message-ID: <1292832365.6543.0.camel@edumazet-laptop>
+References: <4D0DEDF9.7020102@itcare.pl>
+	 <1292773433.18869.153.camel@edumazet-laptop> <4D0E2E52.3090802@itcare.pl>
+	 <AANLkTimMY3D_HssWb=Sw=b3tsxEKACk2QUzFzi-HaC-J@mail.gmail.com>
+	 <4D0E6C6D.10806@itcare.pl> <4D0E8416.2030100@gmail.com>
+	 <4D0E857E.5060302@gmail.com> <4D0E868F.90005@gmail.com>
+	 <4D0F0D73.2080807@itcare.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=20cf30433fa0ed59a70497d3b2ef
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
 	Linux Network Development list <netdev@vger.kernel.org>
-To: =?ISO-8859-2?Q?Pawe=B3_Staszewski?= <pstaszewski@itcare.pl>,
-	"David S. Miller" <davem@davemloft.net>
+To: =?UTF-8?Q?Pawe=C5=82?= Staszewski <pstaszewski@itcare.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:37734 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754520Ab0LTI4n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 03:56:43 -0500
-Received: by fxm18 with SMTP id 18so2759039fxm.2
-        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 00:56:42 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:45984 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754427Ab0LTJIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 04:08:24 -0500
+Received: by wwa36 with SMTP id 36so2714250wwa.1
+        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 01:08:23 -0800 (PST)
 In-Reply-To: <4D0F0D73.2080807@itcare.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---20cf30433fa0ed59a70497d3b2ef
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-2010/12/20 Pawe=C5=82 Staszewski <pstaszewski@itcare.pl>:
->>
+Le lundi 20 d=C3=A9cembre 2010 =C3=A0 09:01 +0100, Pawe=C5=82 Staszewsk=
+i a =C3=A9crit :
+> W dniu 2010-12-19 23:26, Jarek Poplawski pisze:
+> > Jarek Poplawski wrote:
+> >> Jarek Poplawski wrote:
+> >>> Pawe=C5=82 Staszewski wrote:
+> >>>> for sch_generic.h was ok.
+> >>> Should be enough to try after reverting this sch_generic.h change=
+ only.
+> >> Hmm... Sorry, I meant the change inside skb_act_clone(). I'll send=
+ a patch.
+> > Here it is.
+> >
+> > Jarek P.
+> >
 > Yes reverting this patch solves the problem.
->
->
 
-I am not sure reverting is the right fix. Maybe you can try this patch
-attached instead.
+Thanks !
 
-BTW: there are some others NIC drivers and net_sched actions don't
-take care of shared skbs.
+I tried to reproduce the crash without success. Might be related to 10G=
+b
+speed. (I only have 1Gb here right now)
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
 
---20cf30433fa0ed59a70497d3b2ef
-Content-Type: text/plain; charset=US-ASCII; name="x.diff"
-Content-Disposition: attachment; filename="x.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ghx4nn840
 
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0
-L2l4Z2JlL2l4Z2JlX21haW4uYwppbmRleCBjYTkwMzZkLi42MDJjZDMyIDEwMDY0NAotLS0gYS9k
-cml2ZXJzL25ldC9peGdiZS9peGdiZV9tYWluLmMKKysrIGIvZHJpdmVycy9uZXQvaXhnYmUvaXhn
-YmVfbWFpbi5jCkBAIC02MDk2LDYgKzYwOTYsMTUgQEAgc3RhdGljIGludCBpeGdiZV90c28oc3Ry
-dWN0IGl4Z2JlX2FkYXB0ZXIgKmFkYXB0ZXIsCiAJdTMyIG1zc19sNGxlbl9pZHgsIGw0bGVuOwog
-CiAJaWYgKHNrYl9pc19nc28oc2tiKSkgeworCQlpZiAoc2tiX3NoYXJlZChza2IpKSB7CisJCQlz
-dHJ1Y3Qgc2tfYnVmZiAqbnNrYjsKKworCQkJbnNrYiA9IHNrYl9jbG9uZShza2IsIEdGUF9BVE9N
-SUMpOworCQkJaWYgKCFuc2tiKQorCQkJCXJldHVybiAtRU5PTUVNOworCQkJa2ZyZWVfc2tiKHNr
-Yik7CisJCQlza2IgPSBuc2tiOworCQl9CiAJCWlmIChza2JfaGVhZGVyX2Nsb25lZChza2IpKSB7
-CiAJCQllcnIgPSBwc2tiX2V4cGFuZF9oZWFkKHNrYiwgMCwgMCwgR0ZQX0FUT01JQyk7CiAJCQlp
-ZiAoZXJyKQo=
---20cf30433fa0ed59a70497d3b2ef--
