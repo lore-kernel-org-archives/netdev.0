@@ -1,51 +1,55 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: AW: [PATCH] ISDN cmx: Avoid potential NULL deref in
- dsp_cmx_send_member() and shrink code size.
-Date: Mon, 20 Dec 2010 23:10:34 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1012202307220.23785@swampdragon.chaosbits.net>
-References: <B16317F2B1592B4492FC414114171CE604B08AEA@FLBVEXCH01.versatel.local>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH v3] kptr_restrict for hiding kernel pointers
+Date: Mon, 20 Dec 2010 17:26:31 -0500
+Message-ID: <50259.1292883991@localhost>
+References: <1292692835.10804.67.camel@dan>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Julia Lawall <julia@diku.dk>, Tejun Heo <tj@kernel.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Andreas.Eversberg" <Andreas.Eversberg@versatel.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:15267 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758078Ab0LTWTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 17:19:20 -0500
-In-Reply-To: <B16317F2B1592B4492FC414114171CE604B08AEA@FLBVEXCH01.versatel.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="==_Exmh_1292883991_5161P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, jmorris@namei.org,
+	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
+	kees.cook@canonical.com, mingo@elte.hu, davem@davemloft.net,
+	a.p.zijlstra@chello.nl, akpm@linux-foundation.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: Your message of "Sat, 18 Dec 2010 12:20:34 EST."
+             <1292692835.10804.67.camel@dan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Dec 2010, Andreas.Eversberg wrote:
+--==_Exmh_1292883991_5161P
+Content-Type: text/plain; charset=us-ascii
 
-> hi jesper,
-> 
-> thanx for finding the bug. i think the right solution to solve the problem would be:
-> 
->                 if (dsp->conf && dsp->conf->software && dsp->conf->hardware)
->                         tx_data_only = 1;
-> ->              if (dsp->echo.software && dsp->echo.hardware)
->                         tx_data_only = 1;
-> 
-> this is how it looks in the 'socket' branch of mISDN git respository. it has been fixed already. but i cannot tell in which commit. my current head is this commit:
-> commit 45a51eed1c554a4891b48b88c270f4f95bd21df0
-> 
-I'm not familiar enough with the code to determine if my fix or the one 
-you propose is the right one. My fix is functionally equivalent to what 
-was there before (minus the NULL deref), yours is not. I'll let someone 
-more knowledgeable about the ISDN code determine what is the right fix.
+On Sat, 18 Dec 2010 12:20:34 EST, Dan Rosenberg said:
 
-> what branch do you use? 
-> 
-I'm working against Linus' kernel as of today.
+> @@ -1035,6 +1038,26 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+>  		return buf + vsnprintf(buf, end - buf,
+>  				       ((struct va_format *)ptr)->fmt,
+>  				       *(((struct va_format *)ptr)->va));
+> +	case 'K':
+> +		/*
+> +		 * %pK cannot be used in IRQ context because it tests
+> +		 * CAP_SYSLOG.
+> +		 */
+> +		if (in_irq() || in_serving_softirq() || in_nmi())
+> +			WARN_ONCE(1, "%%pK used in interrupt context.\n");
 
+Should this then continue on and test CAP_SYSLOG anyhow, or should it
+return a "" or or "<invalid>" or something?
 
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+--==_Exmh_1292883991_5161P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFND9gXcC3lWbTT17ARAlDxAKD02+4VO8q2qAP1QTVvM3JbWee6kgCg9JGO
+DwMSZSe+Bkbl/fGMZD4p1pM=
+=571E
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1292883991_5161P--
 
