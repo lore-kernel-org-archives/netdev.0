@@ -1,19 +1,19 @@
 From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
 Subject: RE: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
-	C_CAN	controller
-Date: Mon, 20 Dec 2010 12:29:53 +0800
-Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEAE47E1A@EAPEX1MAIL1.st.com>
+	C_CAN controller
+Date: Mon, 20 Dec 2010 12:37:03 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEAE47E2E@EAPEX1MAIL1.st.com>
 References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>
-	<4D0BD454.3060503@grandegger.com>
+	<4D0BD744.5030609@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
 	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D0BD454.3060503-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+In-Reply-To: <4D0BD744.5030609-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Content-Language: en-US
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
@@ -26,19 +26,16 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
+Hi Marc,
 
 Thanks for the review.
-Please see my replies in-line:
+Please see my comments in-line:
 
-> here comes my first quick preview.
-> On 12/15/2010 10:58 AM, Bhupesh Sharma wrote:
-> > Bosch C_CAN controller is a full-CAN implementation which is
-> compliant
-> > to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can
-> be
-> > obtained from:
-> > http://www.semiconductors.bosch.de/pdf/Users_Manual_C_CAN.pdf
+> No time to do a real review, some comments and lots of nitpicking
+> inline....
+>
+> regards, Marc
+>
 > >
 > > This patch adds the support for this controller.
 > > The following are the design choices made while writing the
@@ -70,12 +67,12 @@ Please see my replies in-line:
 > >  drivers/net/can/Kconfig  |    7 +
 > >  drivers/net/can/Makefile |    1 +
 > >  drivers/net/can/c_can.c  | 1217
-> ++++++++++++++++++++++++++++++++++++++++++++++
-> >  3 files changed, 1225 insertions(+), 0 deletions(-)
-> >  create mode 100644 drivers/net/can/c_can.c
+> > ++++++++++++++++++++++++++++++++++++++++++++++
+> >  3 files changed, 1225 insertions(+), 0 deletions(-)  create mode
+> > 100644 drivers/net/can/c_can.c
 > >
-> > diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-> > index 9d9e453..25d9d2e 100644
+> > diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig index
+> > 9d9e453..25d9d2e 100644
 > > --- a/drivers/net/can/Kconfig
 > > +++ b/drivers/net/can/Kconfig
 > > @@ -41,6 +41,13 @@ config CAN_AT91
@@ -94,7 +91,8 @@ Please see my replies in-line:
 > >     depends on CAN_DEV && ARCH_OMAP3
 > >     tristate "TI High End CAN Controller"
 > > diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-> > index 0057537..b6cbe74 100644
+> index
+> > 0057537..b6cbe74 100644
 > > --- a/drivers/net/can/Makefile
 > > +++ b/drivers/net/can/Makefile
 > > @@ -12,6 +12,7 @@ obj-y                             += usb/
@@ -105,9 +103,8 @@ Please see my replies in-line:
 > >  obj-$(CONFIG_CAN_TI_HECC)  += ti_hecc.o
 > >  obj-$(CONFIG_CAN_MCP251X)  += mcp251x.o
 > >  obj-$(CONFIG_CAN_BFIN)             += bfin_can.o
-> > diff --git a/drivers/net/can/c_can.c b/drivers/net/can/c_can.c
-> > new file mode 100644
-> > index 0000000..c281c17
+> > diff --git a/drivers/net/can/c_can.c b/drivers/net/can/c_can.c new
+> > file mode 100644 index 0000000..c281c17
 > > --- /dev/null
 > > +++ b/drivers/net/can/c_can.c
 > > @@ -0,0 +1,1217 @@
@@ -120,9 +117,16 @@ Please see my replies in-line:
 > > + * Borrowed heavily from the C_CAN driver originally written by:
 > > + * Copyright (C) 2007
 > > + * - Sascha Hauer, Marc Kleine-Budde, Pengutronix
-> <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> > +<s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 > > + * - Simon Kallweit, intefo AG <simon.kallweit-+G9qxTFKJT/tRgLqZ5aouw@public.gmane.org>
 > > + *
+>
+> I recognize some stuff from the at91_can driver, too :)
+
+Yes. And if you and Wolfgang agree to using the at91 approach
+for in-order rx object reception here, I will be compelled to
+add credits here :)
+
 > > + * Bosch C_CAN controller is compliant to CAN protocol version 2.0
 > part A and B.
 > > + * Bosch C_CAN user manual can be obtained from:
@@ -153,6 +157,11 @@ Please see my replies in-line:
 > > +#include <linux/can/error.h>
 > > +
 > > +#define DRV_NAME "c_can"
+>
+> You can use KBUILD_MODNAME, no need to define DRV_NAME.
+
+Ok.
+
 > > +
 > > +/* control register */
 > > +#define CONTROL_TEST               (1 << 7)
@@ -171,6 +180,11 @@ Please see my replies in-line:
 > > +#define TEST_LBACK         (1 << 4)
 > > +#define TEST_SILENT                (1 << 3)
 > > +#define TEST_BASIC         (1 << 2)
+>
+> You can use BIT(n) instead of (1 << n).
+
+Ok.
+
 > > +
 > > +/* status register */
 > > +#define STATUS_BOFF                (1 << 7)
@@ -185,15 +199,15 @@ Please see my replies in-line:
 > > +#define LEC_BIT1_ERROR             4
 > > +#define LEC_BIT0_ERROR             5
 > > +#define LEC_CRC_ERROR              6
->
-> Could be an enum!?
-
-Yes LEC error types can be defined as enum, but #define also
-seems fine.
-
+> > +
 > > +/* error counter register */
 > > +#define ERR_COUNTER_TEC_MASK       0xff
 > > +#define ERR_COUNTER_TEC_SHIFT      0x0
+>
+> nitpick, I'd just use a pure decimal 0 :)
+
+Hmm. Ok :)
+
 > > +#define ERR_COUNTER_REC_SHIFT      8
 > > +#define ERR_COUNTER_REC_MASK       (0x7f << ERR_COUNTER_REC_SHIFT)
 > > +#define ERR_COUNTER_RP_SHIFT       15
@@ -287,6 +301,10 @@ seems fine.
 > > +   u16 data_a2;
 > > +   u16 data_b1;
 > > +   u16 data_b2;
+>
+> The later code _mighy_ be easier to read if you define data as an array
+> of u16, but let's see...
+>
 > > +   u16 _reserved[13];
 > > +};
 > > +
@@ -319,19 +337,27 @@ seems fine.
 > > +/*
 > > + * c_can error types:
 > > + * Bus errors (BUS_OFF, ERROR_WARNING, ERROR_PASSIVE) are supported
-> > + */
-> > +enum c_can_bus_error_types {
+> > +*/ enum c_can_bus_error_types {
 > > +   C_CAN_NO_ERROR = 0,
 > > +   C_CAN_BUS_OFF,
 > > +   C_CAN_ERROR_WARNING,
 > > +   C_CAN_ERROR_PASSIVE
+>                            ^
+> please add a ","
+
+Oops. Will be done in V3.
+
 > > +};
->
+> > +
 > > +enum c_can_interrupt_mode {
 > > +   ENABLE_MODULE_INTERRUPT = 0,
 > > +   DISABLE_MODULE_INTERRUPT,
 > > +   ENABLE_ALL_INTERRUPTS,
 > > +   DISABLE_ALL_INTERRUPTS
+> same here
+
+Ditto.
+
 > > +};
 > > +
 > > +/* c_can private data structure */
@@ -353,6 +379,11 @@ seems fine.
 > > +
 > > +static struct can_bittiming_const c_can_bittiming_const = {
 > > +   .name = DRV_NAME,
+>
+> use KBUILD_MODNAME here
+
+OK, will be done in V3.
+
 > > +   .tseg1_min = 2,         /* Time segment 1 = prop_seg + phase_seg1
 > */
 > > +   .tseg1_max = 16,
@@ -383,50 +414,39 @@ seems fine.
 > > + * Handle the same by providing a common read/write interface.
 > > + */
 >
-> Nitpicking: please use here and in other places the recommended style
-> for multi-line comments:
->
 > /*
->  * Comment ...
+>  * this is the preferred multi-line comment style,
+>  * please adjust
 >  */
->
 
-Oops. Will be done in V3
+Ok.
 
-> > +static u16 c_can_read_reg_aligned_to_16bit(void *reg)
-> > +{
+> > +static u16 c_can_read_reg_aligned_to_16bit(void *reg) {
 > > +   return readw(reg);
 > > +}
 > > +
-> > +static void c_can_write_reg_aligned_to_16bit(void *reg, u16 val)
-> > +{
+> > +static void c_can_write_reg_aligned_to_16bit(void *reg, u16 val) {
 > > +   writew(val, reg);
 > > +}
->
-> To profit from type checking, you should use "u16 __iomem *reg" instead
-> of "void *reg". Also, I think iowrite16 is preferred nowadays.
->
+> > +
 > > +static u16 c_can_read_reg_aligned_to_32bit(struct c_can_priv *priv,
-> void *reg)
-> > +{
+> > +void *reg) {
 > > +   return readw(reg + (u32)reg - (u32)priv->reg_base);
+>
+> as Wolfgang said not 64 bit safe.....what about casting the reg_base to
+> void __iomem *?
+
+As Wolfgang mentioned do you agree to use long here?
+
 > > +}
 > > +
 > > +static void c_can_write_reg_aligned_to_32bit(struct c_can_priv
 > *priv,
 > > +                                   void *reg, u16 val)
 > > +{
-> > +   writew(val, reg + (u32)reg - (u32)priv->reg_base);
-> > +}
+> > +   writew(val, reg + (u32)reg - (u32)priv->reg_base); }
 > > +
->
-> This will not work properly on 64-bit systems. "(long)" should be used,
-> at least. Any better ideas?
-
-Hmm. I agree. Will incorporate this in V3.
-
-> > +static u32 c_can_read_reg32(struct c_can_priv *priv, void *reg)
-> > +{
+> > +static u32 c_can_read_reg32(struct c_can_priv *priv, void *reg) {
 > > +   u32 val = priv->read_reg(priv, reg);
 > > +   val |= ((u32) priv->read_reg(priv, reg + 2)) << 16;
 > > +   return val;
@@ -434,8 +454,7 @@ Hmm. I agree. Will incorporate this in V3.
 > > +
 > > +static inline int c_can_configure_interrupts(struct c_can_priv
 > *priv,
-> > +                                   enum c_can_interrupt_mode intr_mode)
-> > +{
+> > +                                   enum c_can_interrupt_mode intr_mode) {
 > > +   unsigned int cntrl_save = priv->read_reg(priv,
 > > +                                           &priv->reg_base->control);
 > > +
@@ -460,17 +479,7 @@ Hmm. I agree. Will incorporate this in V3.
 > > +
 > > +   return 0;
 > > +}
->
-> Do you really need this function using a switch case. The first two
-> cases are not used anywhere. I think
->
->   void c_can_enable_all_interrupts(struct c_can_priv *priv, int
-> enable);
->
-> would be fine.
-
-Right. V3 will reflect your suggestions.
-
+> > +
 > > +static inline int c_can_object_get(struct net_device *dev,
 > > +                                   int iface, int objno, int mask)
 > > +{
@@ -490,11 +499,6 @@ Right. V3 will reflect your suggestions.
 > > +   udelay(timeout);
 > > +   if ((priv->read_reg(priv, &priv->reg_base->ifreg[iface].com_reg))
 > &
->
-> I don't think you need the inner brackets.
-
-Ok.
-
 > > +                   IF_COMR_BUSY) {
 > > +           dev_info(dev->dev.parent, "timed out in object get\n");
 > > +           return -ETIMEDOUT;
@@ -508,22 +512,6 @@ Ok.
 > > +{
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +   int timeout = (6 / priv->can.clock.freq);
->
-> Hm, "timeout = 0" does not look resonable.
-
-Let me see if I get your point here.
-You mean use something like:
-
-        count = 6 /* non-zero count at start */
-        /* write message object no in IF COMM_REQ reg */
-        while (count) {
-                udelay(timeout);
-                count--;
-        }
-        /* read BUSY status from IF COM reg */
-        if (busy)
-                return -ETIMEDOUT;
-
 > > +
 > > +   priv->write_reg(priv, &priv->reg_base->ifreg[iface].com_mask,
 > > +                   (IF_COMM_WR | IFX_WRITE_LOW_16BIT(mask)));
@@ -540,27 +528,14 @@ You mean use something like:
 > &
 > > +                   IF_COMR_BUSY) {
 > > +           dev_info(dev->dev.parent, "timed out in object put\n");
->
-> dev_err() seems more appropriate.
-
-Ok.
-
 > > +           return -ETIMEDOUT;
 > > +   }
->
-> Is the timeout really needed? If yes, re-trying various times would
-> more
-> more safe.
-
-Yes timeout is needed as per specs. Please see the approach given above.
-If you agree the same can be added in V3.
-
+> > +
 > > +   return 0;
 > > +}
 > > +
 > > +int c_can_write_msg_object(struct net_device *dev,
-> > +                   int iface, struct can_frame *frame, int objno)
-> > +{
+> > +                   int iface, struct can_frame *frame, int objno) {
 > > +   u16 flags = 0;
 > > +   unsigned int id;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
@@ -596,18 +571,17 @@ If you agree the same can be added in V3.
 > > +   } else
 > > +           *(u32 *)(frame->data + 4) = 0;
 >
-> Is this code endianess safe?
+> look at the pch can driver, it uses an array for ifreg->data and is
+> endianess safe.
 
-Marc's suggestion to use data is an array (similar to
-pch driver) seems better. Do you agree to the same?
+I agree. Will use the same in V3.
 
 > > +
 > > +   return frame->can_dlc;
 > > +}
 > > +
 > > +static int c_can_read_msg_object(struct net_device *dev, int iface,
-> int objno)
-> > +{
+> > +int objno) {
 > > +   u16 flags;
 > > +   int ctrl;
 > > +   unsigned int val, data;
@@ -634,11 +608,7 @@ pch driver) seems better. Do you agree to the same?
 > > +           dev_info(dev->dev.parent, "msg lost in buffer %d\n",
 > objno);
 > > +   }
->
-> You should create an error message for that error as well.
-
-Ok.
-
+> > +
 > > +   frame->can_dlc = get_can_dlc(ctrl & 0x0F);
 > > +   data = priv->read_reg(priv, &priv->reg_base-
 > >ifreg[iface].data_a1) |
@@ -656,10 +626,11 @@ Ok.
 > > +   } else
 > > +           *(u32 *)(frame->data + 4) = 0;
 >
-> Ditto.
+> dito
 
-Please see approach mentioned above.
+Ditto.
 
+> > +
 > > +   flags = priv->read_reg(priv, &priv->reg_base-
 > >ifreg[iface].arb2);
 > > +   val = priv->read_reg(priv, &priv->reg_base->ifreg[iface].arb1) |
@@ -688,22 +659,12 @@ Please see approach mentioned above.
 > > +   stats->rx_bytes += frame->can_dlc;
 > > +
 > > +   return 0;
->
-> The return values are not handled anywhere!
-
-Hmm. This is the tricky part. To be honest, a
-lot of driver's don't handle all the return values.
-This function is called from an isr / poll-event.
-Do you think it's useful to handle the return values
-there?
-
 > > +}
 > > +
 > > +static int c_can_setup_receive_object(struct net_device *dev, int
 > iface,
 > > +                                   int objno, unsigned int mask,
-> > +                                   unsigned int id, unsigned int mcont)
-> > +{
+> > +                                   unsigned int id, unsigned int mcont) {
 > > +   int ret;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
@@ -723,11 +684,6 @@ there?
 > > +                                           ~IF_COMM_TXRQST);
 > > +   if (ret < 0)
 > > +           return ret;
->
-> Ditto.
-
-Please see comment above.
-
 > > +
 > > +   dev_dbg(dev->dev.parent, "obj no:%d, msgval:0x%08x\n", objno,
 > > +                   c_can_read_reg32(priv, &priv->reg_base->msgval1));
@@ -736,8 +692,7 @@ Please see comment above.
 > > +}
 > > +
 > > +static int c_can_inval_msg_object(struct net_device *dev, int iface,
-> int objno)
-> > +{
+> > +int objno) {
 > > +   int ret;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
@@ -755,11 +710,6 @@ Please see comment above.
 > > +                   c_can_read_reg32(priv, &priv->reg_base->msgval1));
 > > +
 > > +   return 0;
->
-> Ditto.
-
-Ditto.
-
 > > +}
 > > +
 > > +static netdev_tx_t c_can_start_xmit(struct sk_buff *skb,
@@ -795,8 +745,7 @@ Ditto.
 > > +   return NETDEV_TX_OK;
 > > +}
 > > +
-> > +static int c_can_set_bittiming(struct net_device *dev)
-> > +{
+> > +static int c_can_set_bittiming(struct net_device *dev) {
 > > +   unsigned int reg_btr, reg_brpe, ctrl_save;
 > > +   u8 brp, brpe, sjw, tseg1, tseg2;
 > > +   u32 ten_bit_brp;
@@ -824,13 +773,7 @@ Ditto.
 > > +                   brp, brpe, sjw, tseg1, tseg2);
 > > +   dev_dbg(dev->dev.parent, "setting BTR to %04x\n", reg_btr);
 > > +   dev_dbg(dev->dev.parent, "setting BRPE to %04x\n", reg_brpe);
->
-> Like for the other drivers, could you please use one dev_info() here:
->       dev_dbg(dev->dev.parent, "setting BTR=%04x BRPE=%04x\n", ...);
->
-
-Ok. Will be done in V3
-
+> > +
 > > +   ctrl_save = priv->read_reg(priv, &priv->reg_base->control);
 > > +   priv->write_reg(priv, &priv->reg_base->control,
 > > +                   ctrl_save | CONTROL_CCE | CONTROL_INIT);
@@ -844,29 +787,18 @@ Ok. Will be done in V3
 > > +/*
 > > + * Configure C_CAN message objects for Tx and Rx purposes:
 > > + * C_CAN provides a total of 32 message objects that can be
-> configured
+> > +configured
 > > + * either for Tx or Rx purposes. Here the first 16 message objects
-> are used as
+> > +are used as
 > > + * a reception FIFO. The end of reception FIFO is signified by the
-> EoB bit
+> > +EoB bit
 > > + * being SET. The remaining 16 message objects are kept aside for Tx
 > purposes.
 > > + * See user guide document for further details on configuring
 > message
 > > + * objects.
 > > + */
->
-> Did you verify *in-order* transmisson and reception? You could use the
-> canfdtest program from the can-utils.
-
-I will check V3 for the same.
-I also checked Marc's at91 driver and the
-approach implemented there for in-order rx
-object reception seems fine to me. If you and Marc agree I can
-use the same here. Also I need to add credits for the same :)
-
-> > +static int c_can_configure_msg_objects(struct net_device *dev)
-> > +{
+> > +static int c_can_configure_msg_objects(struct net_device *dev) {
 > > +   int i;
 > > +
 > > +   /* first invalidate all message objects */
@@ -890,8 +822,7 @@ use the same here. Also I need to add credits for the same :)
 > > + * - set operating mode
 > > + * - configure message objects
 > > + */
-> > +static int c_can_chip_config(struct net_device *dev)
-> > +{
+> > +static int c_can_chip_config(struct net_device *dev) {
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
 > > +   if (priv->can.ctrlmode & CAN_CTRLMODE_ONE_SHOT)
@@ -917,13 +848,6 @@ use the same here. Also I need to add credits for the same :)
 > > +           priv->write_reg(priv, &priv->reg_base->test, TEST_SILENT);
 > > +   } else if (priv->can.ctrlmode & (CAN_CTRLMODE_LISTENONLY &
 > > +                                   CAN_CTRLMODE_LOOPBACK)) {
->
-> As I see it, this case is never entered.
-
-You are right. But as we discussed during the review of V1,
-as the c_can core supports this mode (loopback + listen-only)
-we should support the same in the driver as well.
-
 > > +           /* loopback + silent mode : useful for hot self-test */
 > > +           priv->write_reg(priv, &priv->reg_base->control,
 > (CONTROL_EIE |
@@ -941,8 +865,7 @@ we should support the same in the driver as well.
 > > +   return 0;
 > > +}
 > > +
-> > +static int c_can_start(struct net_device *dev)
-> > +{
+> > +static int c_can_start(struct net_device *dev) {
 > > +   int err;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
@@ -962,8 +885,7 @@ we should support the same in the driver as well.
 > > +   return 0;
 > > +}
 > > +
-> > +static int c_can_stop(struct net_device *dev)
-> > +{
+> > +static int c_can_stop(struct net_device *dev) {
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
 > > +   /* disable all interrupts */
@@ -984,11 +906,6 @@ we should support the same in the driver as well.
 > > +           netif_wake_queue(dev);
 > > +           dev_info(dev->dev.parent,
 > > +                           "c_can CAN_MODE_START requested\n");
->
-> Please remove.
-
-Ok.
-
 > > +           break;
 > > +   default:
 > > +           return -EOPNOTSUPP;
@@ -1006,13 +923,7 @@ Ok.
 > > +
 > > +   return 0;
 > > +}
->
-> Please remove. This callback is only required if state changes cannot
-> be
-> mantained in the interrupt context.
-
-Ok, V3 will handle this.
-
+> > +
 > > +static int c_can_get_berr_counter(const struct net_device *dev,
 > > +                                   struct can_berr_counter *bec)
 > > +{
@@ -1040,8 +951,7 @@ Ok, V3 will handle this.
 > If
 > > + * we discover a not yet transmitted package, stop looking for more.
 > > + */
-> > +static void c_can_do_tx(struct net_device *dev)
-> > +{
+> > +static void c_can_do_tx(struct net_device *dev) {
 > > +   u32 val;
 > > +   u32 msg_obj_no;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
@@ -1058,11 +968,6 @@ Ok, V3 will handle this.
 > > +                   stats->tx_bytes += priv->read_reg(priv,
 > > +                                   &priv->reg_base->ifreg[0].msg_cntrl)
 > > +                                   & 0xF;
->
-> Please use a #define for 0xf.
-
-Ok.
-
 > > +                   stats->tx_packets++;
 > > +           }
 > > +   }
@@ -1076,9 +981,7 @@ Ok.
 > > +/*
 > > + * c_can_do_rx_poll - read multiple CAN messages from message
 > objects
-> > + */
-> > +static int c_can_do_rx_poll(struct net_device *dev, int quota)
-> > +{
+> > +*/ static int c_can_do_rx_poll(struct net_device *dev, int quota) {
 > > +   u32 num_rx_pkts = 0;
 > > +   unsigned int msg_obj;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
@@ -1091,14 +994,6 @@ Ok.
 > > +                           c_can_read_msg_object(dev, 0, msg_obj);
 > > +                           num_rx_pkts++;
 > > +                           quota--;
->
-> Where do you handle quota?
-
-Sorry but I didn't get your meaning here.
-Everytime the rx_poll function is called quota is
-decremented and num of rx packets received is incremented.
-Am I missing something here?
-
 > > +                   }
 > > +           }
 > > +
@@ -1195,23 +1090,11 @@ Am I missing something here?
 > > +           }
 > > +           if (lec_type & LEC_CRC_ERROR) {
 > > +                   dev_info(dev->dev.parent, "CRC error\n");
->
-> Please use dev_dbg() here and above
-
-Ok.
-
 > > +                   cf->data[2] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
 > > +                                   CAN_ERR_PROT_LOC_CRC_DEL);
 > > +           }
 > > +   }
->
-> The lec should be handled by a switch statement. Also, please use
-> dev_dbg in favor of dev_info.
-
-But as I have seen on the board, there can be multiple lec bits
-set at a time (e.g. shorting CAN TX and RX lines). In such cases the
-multiple-if structure handles the same. Do you agree?
-
+> > +
 > > +   netif_receive_skb(skb);
 > > +   stats->rx_packets++;
 > > +   stats->rx_bytes += cf->can_dlc;
@@ -1219,8 +1102,7 @@ multiple-if structure handles the same. Do you agree?
 > > +   return 1;
 > > +}
 > > +
-> > +static int c_can_poll(struct napi_struct *napi, int quota)
-> > +{
+> > +static int c_can_poll(struct napi_struct *napi, int quota) {
 > > +   u16 irqstatus;
 > > +   int lec_type = 0;
 > > +   int work_done = 0;
@@ -1276,11 +1158,6 @@ multiple-if structure handles the same. Do you agree?
 > > +                           (priv->last_status & STATUS_BOFF)) {
 > > +                   dev_info(dev->dev.parent,
 > > +                                   "left bus off state\n");
->
-> Please use dev_dbg here and above.
-
-Ok.
-
 > > +                   priv->can.state = CAN_STATE_ERROR_ACTIVE;
 > > +           }
 > > +
@@ -1295,11 +1172,6 @@ Ok.
 > */
 > > +           work_done += c_can_do_rx_poll(dev, (quota - work_done));
 > > +           quota--;
->
-> Why do you decrement quota here?
-
-Oops. Will be corrected in V3
-
 > > +   } else if ((irqstatus > C_CAN_MSG_OBJ_TX_FIRST) &&
 > > +                   (irqstatus <= C_CAN_MSG_OBJ_TX_LAST)) {
 > > +           /* handle events corresponding to transmit message objects
@@ -1316,8 +1188,7 @@ Oops. Will be corrected in V3
 > > +   return work_done;
 > > +}
 > > +
-> > +static irqreturn_t c_can_isr(int irq, void *dev_id)
-> > +{
+> > +static irqreturn_t c_can_isr(int irq, void *dev_id) {
 > > +   struct net_device *dev = (struct net_device *)dev_id;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
@@ -1328,8 +1199,7 @@ Oops. Will be corrected in V3
 > > +   return IRQ_HANDLED;
 > > +}
 > > +
-> > +static int c_can_open(struct net_device *dev)
-> > +{
+> > +static int c_can_open(struct net_device *dev) {
 > > +   int err;
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
@@ -1344,11 +1214,6 @@ Oops. Will be corrected in V3
 > > +   err = request_irq(dev->irq, &c_can_isr, priv->irq_flags, dev-
 > >name,
 > > +                           (void *)dev);
->
-> I don't think you need the (void *) cast.
-
-Ok.
-
 > > +   if (err < 0) {
 > > +           dev_err(dev->dev.parent, "failed to attach interrupt\n");
 > > +           goto exit_irq_fail;
@@ -1371,8 +1236,7 @@ Ok.
 > > +   return err;
 > > +}
 > > +
-> > +static int c_can_close(struct net_device *dev)
-> > +{
+> > +static int c_can_close(struct net_device *dev) {
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +
 > > +   netif_stop_queue(dev);
@@ -1390,13 +1254,7 @@ Ok.
 > > +   .ndo_start_xmit = c_can_start_xmit,
 > > +};
 > > +
-> > +static int c_can_probe(struct platform_device *pdev)
->
-> Please use __devinit ...
-
-Ok.
-
-> > +{
+> > +static int c_can_probe(struct platform_device *pdev) {
 > > +   int ret;
 > > +   void __iomem *addr;
 > > +   struct net_device *dev;
@@ -1471,37 +1329,7 @@ Ok.
 > > +                                   CAN_CTRLMODE_LOOPBACK |
 > > +                                   CAN_CTRLMODE_LISTENONLY |
 > > +                                   CAN_CTRLMODE_BERR_REPORTING;
->
-> Where is CAN_CTRLMODE_BERR_REPORTING implemented? Note that it has
-> nothing to do with do_get_berr_counter. Please check the SJA1000
-> driver:
->
-> http://lxr.linux.no/#linux+v2.6.36/drivers/net/can/sja1000/sja1000.c#L1
-> 46
->
-> Bus error handling can be requested by the user via netlink interface.
->
->  # ip link set canX type can ... berr-reporting on
->
-> The driver then usually enables the bus error interrupts. I just
-> realize
-> that Documentation/networking/can.txt is not up-to-date. I will provide
-> a patch a.s.a.p.
-
-Yes, I have seen the sja1000 implementation before preparing V2.
-But unfortunately the c_can core does not also only the bus-error-reporting
-to be masked/unmasked. There are three interrupt masks available in the
-Control register:
-
-a) Error Interrupt Enable
-If Enabled - A change in the bits BOff or EWarn in the Status Register will
-generate an interrupt.
-b) Status Change Interrupt Enable
-If Enabled - An interrupt will be generated when a message transfer is
-successfully completed or a CAN bus error is detected.
-c) Module Interrupt Enable
-If Enabled - Interrupts will set IRQ_B to LOW.
-
+> > +
 > > +   netif_napi_add(dev, &priv->napi, c_can_poll, C_CAN_NAPI_WEIGHT);
 > > +
 > > +   dev->irq = irq->start;
@@ -1537,13 +1365,7 @@ If Enabled - Interrupts will set IRQ_B to LOW.
 > > +   return ret;
 > > +}
 > > +
-> > +static int c_can_remove(struct platform_device *pdev)
->
-> ... and __devexit.
-
-Ok.
-
-> > +{
+> > +static int c_can_remove(struct platform_device *pdev) {
 > > +   struct net_device *dev = platform_get_drvdata(pdev);
 > > +   struct c_can_priv *priv = netdev_priv(dev);
 > > +   struct resource *mem;
@@ -1572,17 +1394,8 @@ Ok.
 > > +   },
 > > +   .probe          = c_can_probe,
 > > +   .remove         = c_can_remove,
->
-> Please use __devexit_p.
-
-Ok.
-
 > > +};
->
-> No "=" alignment please.
-
-Ok.
-
+> > +
 > > +static int __init c_can_init(void)
 > > +{
 > > +   return platform_driver_register(&c_can_driver);
@@ -1596,17 +1409,15 @@ Ok.
 > > +module_exit(c_can_exit);
 > > +
 > > +MODULE_AUTHOR("Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>");
-> > +MODULE_LICENSE("GPL v2");
-> > +MODULE_DESCRIPTION("CAN bus driver for Bosch C_CAN controller");
+> > +MODULE_LICENSE("GPL v2"); MODULE_DESCRIPTION("CAN bus driver for
+> > +Bosch C_CAN controller");
 >
-> You could also use the new netdev_dbg and friends instead of
-> dev_dbg(dev->dev.parent, ...).
-
-Ok.
-
-> Thanks for you contribution.
 >
-> Wolfgang.
+> --
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 Regards,
 Bhupesh
