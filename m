@@ -1,7 +1,8 @@
 From: "Kirill A. Shutsemov" <kirill@shutemov.name>
-Subject: [PATCH 00/12] make rpc_pipefs be mountable multiple times
-Date: Mon, 20 Dec 2010 13:54:26 +0200
-Message-ID: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
+Subject: [PATCH 12/12] sunrpc: make rpc_pipefs be mountable multiple times
+Date: Mon, 20 Dec 2010 13:54:38 +0200
+Message-ID: <1292846078-31793-13-git-send-email-kirill@shutemov.name>
+References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
 Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
@@ -10,63 +11,129 @@ To: Trond Myklebust <Trond.Myklebust@netapp.com>,
 	"J. Bruce Fields" <bfields@fieldses.org>,
 	Neil Brown <neilb@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Kirill A. Shutemov <kirill@shutemov.name>
 
-Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-Only for client for now.
+To support containers, allow multiple independent instances of
+rpc_pipefs. Use '-o newinstance' to create new of the filesystem.
+The same semantics as with devpts.
 
-Only quick sanity check was made. BTW, is there any check list for NFS
-contributors?
+Signed-off-by: Kirill A. Shutemov <kirill@shutemov.name>
+---
+ net/sunrpc/rpc_pipe.c |   80 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 79 insertions(+), 1 deletions(-)
 
-Kirill A. Shutemov (12):
-  sunrpc: mount rpc_pipefs on initialization
-  sunrpc: introduce init_rpc_pipefs
-  sunrpc: push init_rpc_pipefs up to rpc_create() callers
-  sunrpc: tag svc_serv with rpc_pipefs mount point
-  sunrpc: get rpc_pipefs mount point for svc_serv from callers
-  lockd: get rpc_pipefs mount point from callers
-  sunrpc: get rpc_pipefs mount point for rpcb_create_local from callers
-  sunrpc: tag pipefs field of cache_detail with rpc_pipefs mount point
-  nfs: per-rpc_pipefs dns cache
-  sunrpc: introduce get_rpc_pipefs()
-  nfs: introduce mount option 'rpcmount'
-  sunrpc: make rpc_pipefs be mountable multiple times
-
- fs/lockd/clntlock.c                |    8 +-
- fs/lockd/host.c                    |   12 +++-
- fs/lockd/mon.c                     |   13 ++-
- fs/lockd/svc.c                     |    4 +-
- fs/nfs/cache_lib.c                 |   18 +----
- fs/nfs/cache_lib.h                 |    3 +-
- fs/nfs/callback.c                  |    6 +-
- fs/nfs/callback.h                  |    3 +-
- fs/nfs/client.c                    |   45 ++++++++++--
- fs/nfs/dns_resolve.c               |  128 ++++++++++++++++++++++++++-------
- fs/nfs/dns_resolve.h               |    8 +--
- fs/nfs/inode.c                     |    8 +--
- fs/nfs/internal.h                  |   10 ++-
- fs/nfs/mount_clnt.c                |    1 +
- fs/nfs/namespace.c                 |    3 +-
- fs/nfs/nfs4namespace.c             |   20 +++--
- fs/nfs/super.c                     |   20 +++++
- fs/nfsd/nfs4callback.c             |    2 +
- fs/nfsd/nfssvc.c                   |    8 +-
- include/linux/lockd/bind.h         |    3 +-
- include/linux/lockd/lockd.h        |    4 +-
- include/linux/nfs_fs_sb.h          |    1 +
- include/linux/sunrpc/cache.h       |    9 +--
- include/linux/sunrpc/clnt.h        |    5 +-
- include/linux/sunrpc/rpc_pipe_fs.h |    6 +-
- include/linux/sunrpc/svc.h         |    9 +-
- net/sunrpc/cache.c                 |   16 +++--
- net/sunrpc/clnt.c                  |   19 +++--
- net/sunrpc/rpc_pipe.c              |  142 ++++++++++++++++++++++++++++++------
- net/sunrpc/rpcb_clnt.c             |   13 ++-
- net/sunrpc/svc.c                   |   52 ++++++++-----
- 31 files changed, 430 insertions(+), 169 deletions(-)
-
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index c48f7a5..836e725 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -16,6 +16,7 @@
+ #include <linux/namei.h>
+ #include <linux/fsnotify.h>
+ #include <linux/kernel.h>
++#include <linux/parser.h>
+ 
+ #include <asm/ioctls.h>
+ #include <linux/fs.h>
+@@ -38,6 +39,49 @@ static struct kmem_cache *rpc_inode_cachep __read_mostly;
+ 
+ #define RPC_UPCALL_TIMEOUT (30*HZ)
+ 
++struct rpc_mount_opts {
++	int newinstance;
++};
++
++enum {
++	Opt_newinstance,
++
++	Opt_err
++};
++
++static const match_table_t tokens = {
++	{Opt_newinstance, "newinstance"},
++
++	{Opt_err, NULL}
++};
++
++static int
++parse_mount_options(char *data, struct rpc_mount_opts *opts)
++{
++	char *p;
++
++	opts->newinstance = 0;
++
++	while ((p = strsep(&data, ",")) != NULL) {
++		substring_t args[MAX_OPT_ARGS];
++		int token;
++
++		if (!*p)
++			continue;
++
++		token = match_token(p, tokens, args);
++		switch (token) {
++		case Opt_newinstance:
++			opts->newinstance = 1;
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++}
++
+ static void rpc_purge_list(struct rpc_inode *rpci, struct list_head *head,
+ 		void (*destroy_msg)(struct rpc_pipe_msg *), int err)
+ {
+@@ -1025,11 +1069,45 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
+ 	return 0;
+ }
+ 
++static int
++compare_rpc_mnt_sb(struct super_block *s, void *p)
++{
++	if (init_rpc_pipefs)
++		return init_rpc_pipefs->mnt_sb == s;
++	return 0;
++}
++
+ static struct dentry *
+ rpc_mount(struct file_system_type *fs_type,
+ 		int flags, const char *dev_name, void *data)
+ {
+-	return mount_single(fs_type, flags, data, rpc_fill_super);
++	int error;
++	struct rpc_mount_opts opts;
++	struct super_block *s;
++
++	error = parse_mount_options(data, &opts);
++	if (error)
++		return ERR_PTR(error);
++
++	if (opts.newinstance)
++		s = sget(fs_type, NULL, set_anon_super, NULL);
++	else
++		s = sget(fs_type, compare_rpc_mnt_sb, set_anon_super, NULL);
++
++	if (IS_ERR(s))
++		return ERR_CAST(s);
++
++	if (!s->s_root) {
++		s->s_flags = flags;
++		error = rpc_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
++		if (error) {
++			deactivate_locked_super(s);
++			return ERR_PTR(error);
++		}
++		s->s_flags |= MS_ACTIVE;
++	}
++
++	return dget(s->s_root);
+ }
+ 
+ static struct file_system_type rpc_pipe_fs_type = {
 -- 
 1.7.3.4
