@@ -1,44 +1,70 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH v3] kptr_restrict for hiding kernel pointers
-Date: Mon, 20 Dec 2010 18:01:28 -0500
-Message-ID: <1292886088.4061.3.camel@dan>
-References: <1292692835.10804.67.camel@dan>  <50259.1292883991@localhost>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 PATCH 2/4] net_sched: Allow multiple mq qdisc to
+ be used as non-root
+Date: Mon, 20 Dec 2010 23:12:42 +0000
+Message-ID: <1292886762.3055.38.camel@bwh-desktop>
+References: <20101217153439.12170.39538.stgit@jf-dev1-dcblab>
+	 <20101217153445.12170.73420.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, jmorris@namei.org,
-	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
-	kees.cook@canonical.com, mingo@elte.hu, davem@davemloft.net,
-	a.p.zijlstra@chello.nl, akpm@linux-foundation.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <50259.1292883991@localhost>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org, eric.dumazet@gmail.com,
+	nhorman@tuxdriver.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:9655 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933135Ab0LTXMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 18:12:47 -0500
+In-Reply-To: <20101217153445.12170.73420.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-20 at 17:26 -0500, Valdis.Kletnieks@vt.edu wrote:
-> On Sat, 18 Dec 2010 12:20:34 EST, Dan Rosenberg said:
-> 
-> > @@ -1035,6 +1038,26 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
-> >  		return buf + vsnprintf(buf, end - buf,
-> >  				       ((struct va_format *)ptr)->fmt,
-> >  				       *(((struct va_format *)ptr)->va));
-> > +	case 'K':
-> > +		/*
-> > +		 * %pK cannot be used in IRQ context because it tests
-> > +		 * CAP_SYSLOG.
-> > +		 */
-> > +		if (in_irq() || in_serving_softirq() || in_nmi())
-> > +			WARN_ONCE(1, "%%pK used in interrupt context.\n");
-> 
-> Should this then continue on and test CAP_SYSLOG anyhow, or should it
-> return a "" or or "<invalid>" or something?
+On Fri, 2010-12-17 at 07:34 -0800, John Fastabend wrote:
+[...]
+> diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+> index ecc302f..35ed26d 100644
+> --- a/net/sched/sch_mq.c
+> +++ b/net/sched/sch_mq.c
+> @@ -19,17 +19,39 @@
+>  
+>  struct mq_sched {
+>  	struct Qdisc		**qdiscs;
+> +	u8 num_tc;
+>  };
+>  
+> +static void mq_queues(struct net_device *dev, struct Qdisc *sch,
+> +		      unsigned int *count, unsigned int *offset)
+> +{
+> +	struct mq_sched *priv = qdisc_priv(sch);
+> +	if (priv->num_tc) {
+> +		int queue = TC_H_MIN(sch->parent) - 1;
+> +		if (count)
+> +			*count = dev->tc_to_txq[queue].count;
+> +		if (offset)
+> +			*offset = dev->tc_to_txq[queue].offset;
+> +	} else {
+> +		if (count)
+> +			*count = dev->num_tx_queues;
+> +		if (offset)
+> +			*offset = 0;
+> +	}
+> +}
+[...]
 
-This is a valid point.  I'll resend a new version shortly that defaults
-to zeroing pointers if it's used incorrectly without relying on
-capability checks.
+It looks like num_tc will be set even for the root qdisc if the device
+is capable of QoS.  Would mq_queues() behave correctly then, i.e. is the
+queue range for priority 0 required to be [0, dev->num_tx_queues)?
 
-Thanks,
-Dan
+Also it would be neater to return count and offset together as struct
+netdev_tc_txq, rather than through optional out-parameters.  Even better
+would be to cache these in struct mq_sched, if that's possible.
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
