@@ -1,54 +1,73 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] ehea: Avoid changing vlan flags
-Date: Mon, 20 Dec 2010 17:02:37 -0200
-Message-ID: <1292871757-24918-1-git-send-email-leitao@linux.vnet.ibm.com>
-References: <AANLkTimODzrAWS+05+FChtme_3um_9Ky7cwa3gWHFaXp@mail.gmail.com>
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, jesse@nicira.com,
-	Breno Leitao <leitao@linux.vnet.ibm.com>
-To: davem@davemloft.net
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH net-next] bnx2x: Add Nic partitioning mode (57712 devices)
+Date: Mon, 20 Dec 2010 11:44:51 -0800
+Message-ID: <4D0FB233.9050501@chelsio.com>
+References: <1290982177.6066.3.camel@lb-tlvb-dmitry> <20101129060114.GC29904@auslistsprd01.us.dell.com> <1291023192.9770.0.camel@lb-tlvb-eilong.il.broadcom.com> <20101206173534.GC13628@auslistsprd01.us.dell.com> <4CFD29BE.2060201@chelsio.com> <1291906166.21210.10.camel@lb-tlvb-eilong.il.broadcom.com> <20101217024509.GA5854@auslistsprd01.us.dell.com> <4D0BEE9A.5070505@chelsio.com> <20101219054953.GC5854@auslistsprd01.us.dell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eilon Greenstein <eilong@broadcom.com>,
+	Dmitry Kravkov <dmitry@broadcom.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"narendra_k@dell.com" <narendra_k@dell.com>,
+	"jordan_hargrave@dell.com" <jordan_hargrave@dell.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp01.br.ibm.com ([32.104.18.85]:38236 "EHLO
-	e24smtp01.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932682Ab0LTTCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 14:02:44 -0500
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by e24smtp01.br.ibm.com (8.14.4/8.13.1) with ESMTP id oBKJPksZ005240
-	for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 17:25:46 -0200
-Received: from d24av03.br.ibm.com (d24av03.br.ibm.com [9.8.31.95])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id oBKJ18RA1347776
-	for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 16:01:08 -0300
-Received: from d24av03.br.ibm.com (loopback [127.0.0.1])
-	by d24av03.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id oBKJ2dem017094
-	for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 17:02:40 -0200
-In-Reply-To: <AANLkTimODzrAWS+05+FChtme_3um_9Ky7cwa3gWHFaXp@mail.gmail.com>
+Received: from stargate.chelsio.com ([67.207.112.58]:1529 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932915Ab0LTTpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Dec 2010 14:45:00 -0500
+In-Reply-To: <20101219054953.GC5854@auslistsprd01.us.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch avoids disabling the vlan flags using ethtool.
+Matt Domsch wrote:
+>> You can have several interfaces with same device link and different dev_id. 
+>>  While the current driver doesn't do it you could also have several 
+>> interfaces with different device links but same dev_id (NPAR situation, 
+>> notice again that dev_ids are not per PCI function), or interfaces with 
+>> different device and dev_id, or even interfaces with same device and dev_id.
+> 
+> What is the scope of dev_id then?  It's not per PCI device like I
+> thought.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
----
- drivers/net/ehea/ehea_ethtool.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
+I don't think it could be that way because for these cards you can't 
+statically tell which ports are controlled by a PCI function.  So knowing 
+that an interface is say port 0 of a function would help little.
 
-diff --git a/drivers/net/ehea/ehea_ethtool.c b/drivers/net/ehea/ehea_ethtool.c
-index afebf20..3e2e734 100644
---- a/drivers/net/ehea/ehea_ethtool.c
-+++ b/drivers/net/ehea/ehea_ethtool.c
-@@ -265,6 +265,13 @@ static void ehea_get_ethtool_stats(struct net_device *dev,
- 
- static int ehea_set_flags(struct net_device *dev, u32 data)
- {
-+	/* Avoid changing the VLAN flags */
-+	if ((data & (ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN)) !=
-+	    (ethtool_op_get_flags(dev) & (ETH_FLAG_RXVLAN |
-+					  ETH_FLAG_TXVLAN))){
-+		return -EINVAL;
-+	}
-+
- 	return ethtool_op_set_flags(dev, data, ETH_FLAG_LRO
- 					| ETH_FLAG_TXVLAN
- 					| ETH_FLAG_RXVLAN);
--- 
-1.7.3.3
+> It sounds like it's per card, but how can I know the card
+> boundary?
 
+Yes, it's per card and covers the PFs and VFs of the card.
+
+> If I have 2 cards driven by cxgb4 in the system, each with say 4
+> ports.  I could see a minimum of 8 PCI devices (fine), but the dev_id
+> values would be?  0,1,2,3; 0,1,2,3 ?
+
+Correct.
+
+> How can I tell that these are
+> two different cards, with two different sets of dev_id values, rather
+> than one card with 4 ports, 8 (NPAR or SR-IOV) interfaces, with each 2
+> interfaces mapping to the same port?
+
+Doesn't the information in /sys/devices distinguish them?  For example, 
+something like
+
+/sys/devices/pci0000:00/0000:00:07.0/0000:04:00.0/net/eth2/dev_id == 0
+/sys/devices/pci0000:00/0000:00:07.0/0000:04:00.1/net/eth3/dev_id == 0
+/sys/devices/pci0000:00/0000:00:07.0/0000:04:01.0/net/eth5/dev_id == 0
+/sys/devices/pci0000:00/0000:00:1c.0/0000:05:00.0/net/eth4/dev_id == 0
+
+tells me there are two cards, one has eth4 on port 0, the other has eth2, 
+eth3, and eth5 on its port 0 with eth5 being on a VF.
+
+> dev_id is not system-wide unique.  It's not even slot unique best as I
+> can tell.  If I had a PCI slot extender, with 2 PCI slots, and I put
+> two of the above cards in, I would see 0,1,2,3; 0,1,2,3.  To be fair,
+> my naming scheme doesn't really account for such an extender, though
+> currently it would go pci<slot>#<12345678>.
+
+Can you give an example of what /sys/devices looks like in the case you're 
+considering?
