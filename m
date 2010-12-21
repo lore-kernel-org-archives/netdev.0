@@ -1,89 +1,127 @@
-From: "juice" <juice@swagman.org>
-Subject: Using ethernet device as efficient small packet generator
-Date: Tue, 21 Dec 2010 11:56:42 +0200
-Message-ID: <3dbea0c095731ef843058388c29df8c1.squirrel@www.liukuma.net>
-Reply-To: juice@swagman.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sch_sfq: allow big packets and be fair
+Date: Tue, 21 Dec 2010 10:15:06 +0000
+Message-ID: <20101221101506.GA8149@ff.dom.local>
+References: <1292886976.2627.146.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:14310 "EHLO www.liukuma.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933556Ab0LUKFo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 05:05:44 -0500
-Received: from www.liukuma.net (localhost [127.0.0.1])
-	by www.liukuma.net (Postfix) with ESMTP id 012571CC67
-	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 11:56:51 +0200 (EET)
-Received: from www.liukuma.net ([127.0.0.1])
-	by www.liukuma.net (www.liukuma.net [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id dWYE35HjTeWf for <netdev@vger.kernel.org>;
-	Tue, 21 Dec 2010 11:56:42 +0200 (EET)
-Received: from www.liukuma.net (localhost [127.0.0.1])
-	by www.liukuma.net (Postfix) with ESMTP id A793F1CC60
-	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 11:56:42 +0200 (EET)
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:34716 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933556Ab0LUKPP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 05:15:15 -0500
+Received: by fxm18 with SMTP id 18so4106896fxm.2
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 02:15:14 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292886976.2627.146.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2010-12-21 00:16, Eric Dumazet wrote:
+> SFQ is currently 'limited' to small packets, because it uses a 16bit
+> allotment number per flow. Switch it to 18bit, and use appropriate
+> handling to make sure this allotment is in [1 .. quantum] range before a
+> new packet is dequeued, so that fairness is respected.
 
-Hi net-devvers.
+Well, such two important changes should be in separate patches.
 
-I am involved in telecom equipment R&D, and I need to do some network
-performance benchmarking. We need to generate streams of Ethernet/IP/UDP
-traffic that consists of different sized payloads ranging from smallest
-AMR payload to ethernet MTU.
+The change of allotment limit looks OK (but I would try scaling, e.g.
+in 16-byte chunks, btw).
 
-We have various tools including for example Spirent traffic generators
-as well as in-house made software generating 3GPP specified protocol
-streams. Now, the problem with the off-the-shelf generators is the
-inflexibility in our needs and the unavailability to R&D personnel to
-have the generator available at any given time.
+The change in fair treatment looks dubious. A flow which uses exactly
+it's quantum in one round will be skipped in the next round. A flow
+which uses a bit more than its quantum in one round, will be skipped
+too, while we should only give it less this time to keep the sum up to
+2 quantums. (The usual algorithm is to check if a flow has enough
+"tickets" for sending its next packet.)
 
-For larger packet sizes our linux-based generator is quite sufficent,
-as I can use it to fully saturate GE link with packet sizes around 1kB.
-However, as packet sizes get smalles ethernet performance suffers.
+Jarek P.
 
-I did some benchmarking using pktgen with 64B packets against AX4000 and
-confirmed that the maximun throughput is only around 25% of GE capacity.
-I managed to get to about same speeds using own custom module that writes
-skbuffs directly to kernel *xmit of the netdev.
-
-Now, it is evident that something is not optimized to the maximum here
-as PCI bus allows for way higher transfer speeds. If large packets can
-fully saturate the ethernet link same should apply for minimum sized
-packets too, unless there is some overhead I am unaware of.
-
-I have couple of questions here:
-
-1.) Is it possible to enhance the "normal" behaving network driver so
-    that the device would still work as an ethernet device (ethxx)?
-
-    Currently the test stream is generated in userland process that
-    writes to RAW_SOCK, but it is OK for me if I need to write the
-    packet generating part as a kernel module that is configured
-    from the userland part to send the prepared stream out.
-
-2.) If it is not possible to get the needed performance from normal
-    network architecture, is it possible to make a "generate only"
-    ethernet device that I can use to replace the network card driver?
-
-    For example, RX is not really needed at all by my application, so
-    just optimizing the driver to send out packets from memory as fast
-    as possible is enough.
-
-    Are there notable differences between ethernet chipsets/cards
-    regarding to the raw output speed they are capable?
-    I have benchmarked e1000, r8169 ang tg3 based cards and with all
-    of those I get about same throughput of 64byte ethernet frames.
-
-    For my purpose, it would be OK, for example, to remove the normal
-    r8169 driver and replace it with a custom TX-only driver, and use
-    some other normal driver tied to another card to access the box.
-
-I appreciate your comments and any pointers to existing projects that
-have similar implementation that I require.
-
-Yours, Jussi Ohenoja
-
-
-
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jarek Poplawski <jarkao2@gmail.com>
+> Cc: Patrick McHardy <kaber@trash.net>
+> ---
+>  net/sched/sch_sfq.c |   24 ++++++++++++++++--------
+>  1 file changed, 16 insertions(+), 8 deletions(-)
+> 
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index c474b4b..878704a 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> @@ -67,7 +67,7 @@
+>  
+>  	IMPLEMENTATION:
+>  	This implementation limits maximal queue length to 128;
+> -	maximal mtu to 2^15-1; max 128 flows, number of hash buckets to 1024.
+> +	maximal mtu to 2^16-1; max 128 flows, number of hash buckets to 1024.
+>  	The only goal of this restrictions was that all data
+>  	fit into one 4K page on 32bit arches.
+>  
+> @@ -99,9 +99,10 @@ struct sfq_slot {
+>  	sfq_index	qlen; /* number of skbs in skblist */
+>  	sfq_index	next; /* next slot in sfq chain */
+>  	struct sfq_head dep; /* anchor in dep[] chains */
+> -	unsigned short	hash; /* hash value (index in ht[]) */
+> -	short		allot; /* credit for this slot */
+> +	unsigned int	hash:14; /* hash value (index in ht[]) */
+> +	unsigned int	allot:18; /* credit for this slot */
+>  };
+> +#define ALLOT_ZERO (1 << 16)
+>  
+>  struct sfq_sched_data
+>  {
+> @@ -394,7 +395,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  			q->tail->next = x;
+>  		}
+>  		q->tail = slot;
+> -		slot->allot = q->quantum;
+> +		slot->allot = ALLOT_ZERO + q->quantum;
+>  	}
+>  	if (++sch->q.qlen <= q->limit) {
+>  		sch->bstats.bytes += qdisc_pkt_len(skb);
+> @@ -430,8 +431,14 @@ sfq_dequeue(struct Qdisc *sch)
+>  	if (q->tail == NULL)
+>  		return NULL;
+>  
+> +next:
+>  	a = q->tail->next;
+>  	slot = &q->slots[a];
+> +	if (slot->allot <= ALLOT_ZERO) {
+> +		q->tail = slot;
+> +		slot->allot += q->quantum;
+> +		goto next;
+> +	}
+>  	skb = slot_dequeue_head(slot);
+>  	sfq_dec(q, a);
+>  	sch->q.qlen--;
+> @@ -446,9 +453,8 @@ sfq_dequeue(struct Qdisc *sch)
+>  			return skb;
+>  		}
+>  		q->tail->next = next_a;
+> -	} else if ((slot->allot -= qdisc_pkt_len(skb)) <= 0) {
+> -		q->tail = slot;
+> -		slot->allot += q->quantum;
+> +	} else {
+> +		slot->allot -= qdisc_pkt_len(skb);
+>  	}
+>  	return skb;
+>  }
+> @@ -610,7 +616,9 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+>  	struct sfq_sched_data *q = qdisc_priv(sch);
+>  	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
+>  	struct gnet_stats_queue qs = { .qlen = slot->qlen };
+> -	struct tc_sfq_xstats xstats = { .allot = slot->allot };
+> +	struct tc_sfq_xstats xstats = {
+> +		.allot = slot->allot - ALLOT_ZERO
+> +	};
+>  	struct sk_buff *skb;
+>  
+>  	slot_queue_walk(slot, skb)
+> 
+> 
+> --
