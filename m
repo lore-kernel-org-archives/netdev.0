@@ -1,92 +1,79 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: IPTV buffering
-Date: Tue, 21 Dec 2010 17:24:23 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1012211634330.21593@ask.diku.dk>
-References: <20101216111843.88E16F0C32AB5@borg.medozas.de>
+From: Jesper Dangaard Brouer <hawk@comx.dk>
+Subject: Re: [PATCH v4 net-next-2.6] netfilter: x_tables: dont block BH
+ while reading counters
+Date: Tue, 21 Dec 2010 17:48:50 +0100
+Message-ID: <1292950130.31289.85.camel@firesoul.comx.local>
+References: <1292337974.9155.68.camel@firesoul.comx.local>
+	 <1292340702.5934.5.camel@edumazet-laptop>
+	 <1292342958.9155.91.camel@firesoul.comx.local>
+	 <1292343855.5934.27.camel@edumazet-laptop>
+	 <1292508266.31289.12.camel@firesoul.comx.local>
+	 <1292508733.2883.152.camel@edumazet-laptop>
+	 <1292509489.31289.20.camel@firesoul.comx.local>
+	 <1292509775.2883.187.camel@edumazet-laptop>
+	 <1292511761.2883.236.camel@edumazet-laptop>
+	 <1292515625.2883.336.camel@edumazet-laptop>
+	 <1292518436.2883.393.camel@edumazet-laptop>
+	 <20101216093149.71f082c7@nehalam>
+	 <1292521986.2883.472.camel@edumazet-laptop>
+	 <1292646579.7894.42.camel@edumazet-laptop>
+	 <1292852541.31289.75.camel@firesoul.comx.local>
+	 <1292856346.2800.54.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-511516320-104410420-1292948663=:21593"
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:54718 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751158Ab0LUQY3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 11:24:29 -0500
-In-Reply-To: <20101216111843.88E16F0C32AB5@borg.medozas.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1292856346.2800.54.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Mon, 2010-12-20 at 15:45 +0100, Eric Dumazet wrote:
+...
+> > There is no packet overruns/drops, iif I run "iptables -vnL >
+> > /dev/null" without tracing enabled and only 1Gbit/s pktgen at 512
+> > bytes packets.  If I enable tracing while calling iptables I see
+> > packet drops/overruns.  So I guess this is caused by the tracing
+> > overhead.
+> 
+> yes, probably :)
+> 
+> > 
+> > I'll try to rerun my test without all the lock debugging options
+> > enabled.
 
----511516320-104410420-1292948663=:21593
-Content-Type: TEXT/PLAIN; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: 8BIT
+Results are much better without the kernel debugging options enabled.
+I took the .config from production and enabled tracer "function_graph".
+And applied your patches (plus vzalloc) on top of 2.6.36-stable tree.
 
+I can now hit the system with a pktgen at 128 bytes, and see no
+drops/overruns while running iptables.  (This packet load at 128bytes
+is 822 kpps and 840Mbit/s) (iptables ruleset is the big chains: 20929
+rules: 81239).
 
-On Thu, 16 Dec 2010, Jan Engelhardt wrote:
-> On Thursday 2010-12-16 10:57, Jesper Dangaard Brouer wrote:
->
->> [...] NetConf 2010, see:
->>
->> http://vger.kernel.org/netconf2010.html
->
-> I just went over a few slide sets, and noticed Dave's Netfilter summary
-> about your IPTV talk, enlisting the point
->
-> * Ethernet switches buffer too small
->
-> ("too small".. "too few"?) Given the recent uproar about bufferbloat in
-> routing devices (see LWN coverage about Getty's articles), wanting
-> larger buffers seems to almost contradict what Getty would like.
+If I reduce the ftrace filter to only track get_counters, I can even
+run a trace without any drops.
 
-Always wanting small buffers doesn't make sense.  It seem that he is not 
-considering that network equipment can be used for other things than 
-TCP/IP.
+ echo get_counters >  /sys/kernel/debug/tracing/set_ftrace_filter
 
-What I want is a *smooth* IPTV multicast signal (which thus consumes 
-minimal buffer space), but because the streamers are bursting packets, I 
-want large enough buffers in the switch, to handle these bursts.
+Some trace funny stats on get_counters(), under the packet storm.
+When running iptables on a CPU not processing packets (via taskset),
+the execution time is increased to 124ms.  If I force iptables to run
+on a CPU processing packets, the execution time is increased to
+1308ms, which is large but the expected behavior.
 
-What I recommend (in the backbone) is to increase the buffer size in the 
-QoS queue, which is used for e.g. IPTV/multicast.  And have another queue 
-for the normal Internet traffic (because too large buffers can cause 
-issues).
+Acked-by: Jesper Dangaard Brouer <hawk@comx.dk>
 
+-- 
+Med venlig hilsen / Best regards
+  Jesper Brouer
+  ComX Networks A/S
+  Linux Network Kernel Developer
+  Cand. Scient Datalog / MSc.CS
+  Author of http://adsl-optimizer.dk
+  LinkedIn: http://www.linkedin.com/in/brouer
 
-> Though TV is usually delivered via UDP rather than TCP, some of the
-> protocols may too implement some sort of congestion recognition or
-> even avoidance technique ÿÿ IIRC realplayer had something that
-> adapted video quality based upon transfer rate.
-
-Our TV streamer send out a MULTICAST signal, thus there is NOT any
-congestion feedback...
-
-
-> Wanting more buffers vs. wanting less buffering seems to be quite
-> contradictory. Jesper, what is your take on this?
-
-Skimming through Getty's blog post, I think Getty has actually missed what 
-is happening.  He should read my masters thesis[1]... The real problem is 
-that TCP/IP is clocked by the ACK packets, and on asymetric links (like 
-ADSL and DOCSIS), the ACK packets are simply comming downstream too fast 
-on the larger downstream link, resulting in bursts and high-latency on the 
-upstream link.
-
-With the ADSL-optimizer I actually solved Gettys problem, but I guess the 
-real solution would be to implement a TCP algorithm which handels this 
-asymmtry, and e.g. isn't based on the ACK feedback...
-
-[1] http://www.adsl-optimizer.dk/thesis/
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
----511516320-104410420-1292948663=:21593--
