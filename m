@@ -1,64 +1,86 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [patch -next] pch_can: off by one bugs
-Date: Tue, 21 Dec 2010 21:41:52 +0100
-Message-ID: <4D111110.2030609@grandegger.com>
-References: <20101220092601.GS1936@bicker>
+From: Colin Walters <walters@verbum.org>
+Subject: Re: [RFC] ipv4: add ICMP socket kind
+Date: Tue, 21 Dec 2010 15:46:15 -0500
+Message-ID: <AANLkTin6_fck1SbCbX5tLvY8CPzJstqmpkJuVF-B6oC6@mail.gmail.com>
+References: <20101221181800.GA8166@albatros>
+	<AANLkTikS6rs-AFGmtTfuRdELJ5+y=o4g1i0Xk9KDFRiv@mail.gmail.com>
+	<20101221194606.GA25359@openwall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20101220092601.GS1936@bicker>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Vasiliy Kulikov <segooon@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>
+To: Solar Designer <solar@openwall.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101221194606.GA25359@openwall.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Tue, Dec 21, 2010 at 2:46 PM, Solar Designer <solar@openwall.com> wr=
+ote:
+> On Tue, Dec 21, 2010 at 01:46:41PM -0500, Colin Walters wrote:
+>> On Tue, Dec 21, 2010 at 1:18 PM, Vasiliy Kulikov <segooon@gmail.com>=
+ wrote:
+>> > A new ping socket is created with
+>> >
+>> > =C2=A0socket(PF_INET, SOCK_DGRAM, IPPROTO_ICMP)
+>>
+>> And the default is to allow any uid to do this (modulo LSM)?
+>
+> We intend to have this sysctl'able and to have it restricted to a gro=
+up
+> by default (the sysctl would set the GID) on our Linux distro,
+> Openwall GNU/*/Linux. =C2=A0However, we figured that it'd be tough fo=
+r us to
+> get this complication accepted into mainstream, so we opted to have t=
+he
+> patch posted for comment without it.
 
-On 12/20/2010 10:26 AM, Dan Carpenter wrote:
-> priv->tx_enable[] has PCH_TX_OBJ_END elements so this code is
-> reading and writing one past the end of the array.
-> 
-> Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> 
-> diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-> index 8d45fdd..b2c1292 100644
-> --- a/drivers/net/can/pch_can.c
-> +++ b/drivers/net/can/pch_can.c
-> @@ -1077,7 +1077,7 @@ static int pch_can_suspend(struct pci_dev *pdev, pm_message_t state)
->  	pch_can_set_int_enables(priv, PCH_CAN_DISABLE);
->  
->  	/* Save Tx buffer enable state */
-> -	for (i = PCH_TX_OBJ_START; i <= PCH_TX_OBJ_END; i++)
-> +	for (i = PCH_TX_OBJ_START; i < PCH_TX_OBJ_END; i++)
->  		priv->tx_enable[i] = pch_can_get_rxtx_ir(priv, i, PCH_TX_IFREG);
->  
->  	/* Disable all Transmit buffers */
-> @@ -1138,7 +1138,7 @@ static int pch_can_resume(struct pci_dev *pdev)
->  	pch_can_set_optmode(priv);
->  
->  	/* Enabling the transmit buffer. */
-> -	for (i = PCH_TX_OBJ_START; i <= PCH_TX_OBJ_END; i++)
-> +	for (i = PCH_TX_OBJ_START; i < PCH_TX_OBJ_END; i++)
->  		pch_can_set_rxtx(priv, i, priv->tx_enable[i], PCH_TX_IFREG);
->  
->  	/* Configuring the receive buffer and enabling them. */
-> 
+Right, a sysctl was the obvious thing to have.
 
-This fix does not look correct too me. There are much more loop using
-"i <= PCH_TX_OBJ_END" and the message numbering is from 1..32. Therefore
-using "priv->tx_enable[i - 1]" seems more appropriate to me. Tomaya,
-could you please check.
+>> If you really have a burning desire to get rid of setuid /bin/ping,
+>> why not just do it in userspace via message passing to/from a
+>> privileged process, and avoid a lot of code in the kernel?
+>
+> Yes, we thought of that, and we don't like this solution.
 
-Thanks,
+=2E..because?
 
-Wolfgang.
+>=C2=A0We similarly
+> (but for different reasons) don't like using fscaps to grant CAP_NET_=
+RAW
+> to ping.
+
+I am (learning now) about the fscaps drawbacks...
+
+> We share your concern about the size of net/ipv4/ping.c introduced by
+> this patch, yet this is our current proposal.
+
+To be clear I have no personal stake in the size of net/; my concern
+is more about the set of permissions granted by the default kernel
+configuration.  Both from an OS developer standpoint, and also just so
+I feel I can continue to explain to someone who's learning about Linux
+all the interactions between the uid/gid, capabilities, SELinux, etc.
+If the kernel starts adding extensions to things it historically
+didn't, that gets even more complicated.
+
+> We figured that there's little point behind such restrictions. =C2=A0=
+Just how
+> is an ICMP echo request any worse than a UDP packet of the same size?
+> Anyone can send the latter with current kernels.
+
+Clearly if we could go back in time and make some changes to the
+default Unix security model, one of those would probably be making
+allocating TCP/UDP sockets a privileged operation in some way.  But
+the ship has sailed there...
+
+> Yet, as I have mentioned, we're in fact going to restrict this to a
+> group by default and to have ping SGID - just not to expose the extra
+> kernel code for direct attack by a local user. =C2=A0That's in case t=
+here's a
+> vulnerability in the added code.
+
+So wait...this whole patch is to remove the setuid bit, but then
+you're going to go back and add setgid?  How is that really
+compellingly different and better?
