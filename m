@@ -1,67 +1,45 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 5/5 v4] net: add old_queue_mapping into skb->cb
-Date: Tue, 21 Dec 2010 22:03:40 +0800
-Message-ID: <AANLkTimqemuhxCKq-PJu+FD-MDgKaHnYKnP_2ch30wxE@mail.gmail.com>
-References: <1292475410-24665-1-git-send-email-xiaosuo@gmail.com>
- <1292591363.2668.19.camel@mojatatu> <AANLkTi=Eq1HuPwMMGQjk9x0QXp3_5djmAY6JeZyFkk0k@mail.gmail.com>
- <1292936837.6535.8.camel@mojatatu>
+Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
+Date: Tue, 21 Dec 2010 22:17:35 +0800
+Message-ID: <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+ <20101220232020.GB2052@del.dom.local> <1292887689.2627.150.camel@edumazet-laptop>
+ <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pawel Staszewski <pstaszewski@itcare.pl>
 To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:33197 "EHLO
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:59255 "EHLO
 	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167Ab0LUOEB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 09:04:01 -0500
-Received: by fxm18 with SMTP id 18so4341581fxm.2
-        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 06:04:00 -0800 (PST)
-In-Reply-To: <1292936837.6535.8.camel@mojatatu>
+	with ESMTP id S1751985Ab0LUOXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 09:23:03 -0500
+Received: by fxm18 with SMTP id 18so4363085fxm.2
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 06:23:02 -0800 (PST)
+In-Reply-To: <1292939574.6535.27.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 21, 2010 at 9:07 PM, jamal <hadi@cyberus.ca> wrote:
-> On Fri, 2010-12-17 at 21:41 +0800, Changli Gao wrote:
+On Tue, Dec 21, 2010 at 9:52 PM, jamal <hadi@cyberus.ca> wrote:
 >
-> Sorry for the latency - I am a little swamped.
+> Use to be we couldnt get the ifb+mirred combo to work
+> with TSO even without this change - i will have to dig old emails
+> to remember details. So we are making progress;-> I did write a set
+> of rules in: Documentation/networking/tc-actions-env-rules.txt
+> Changli optimized rule #1. When i looked at his patch it seems
+> to not harm that case. Sometimes dumb is a good principle ;->
 >
->> I doubt it can work.
->
-> It should work - this used to be part of my regression tests.
-> If it doesnt work something is broken.
 
-When I tested it, my OS got frozen.
+In order to make my trick work. We need to assure dev_queue_xmit() and
+dev_hard_start_xmit() accept shared skbs. As Eric pointed, pktgen also
+need dev->netdev_ops->ndo_start_xmit() accept shared skbs. We need to
+fix every ndo_start_xmit() one by one, then dev_hard_start_xmit(), and
+when dev_queue_xmit() is also fixed, my trick can be added back.
+:)
 
->
-> In any case, I shouldnt have used this example because
-> it distracted from the point i was trying to make:
-> You are restoring the old qmap when the point is we could change
-> it to a new one. A simpler example illustrating how
-> a qmap could be changed:
->
-> ----
-> tc filter add dev ifb0 parent 1:0 protocol ip prio 10 u32 \
-> =A0match u32 0 0 flowid 1:2 \
-> =A0action skbedit queue_mapping 4
-> ----
-
-Currently, you can only change the rx queue mapping, because for tx,
-dev_pick_tx() doesn't use skb->queue_mapping to choose tx queue.
-
-However, I don't think change the rx queue mapping is a good idea.
-When the skbs returned from ifb enter netif_receive_skb() again,
-get_rps_cpu() may warn about the wrong rx queue, and my this patch is
-used to solve this problem. Even though the rx queue is legal, a
-different rps_cpus settings will be used, and the skbs may be
-redirected to different CPUs. Is it expected?
-
-
---=20
+-- 
 Regards,
 Changli Gao(xiaosuo@gmail.com)
