@@ -1,68 +1,44 @@
-From: Denis Kirjanov <dkirjanov@kernel.org>
-Subject: [PATCH 2/2 -next] sundance: Program station address into HW
-Date: Tue, 21 Dec 2010 12:02:26 +0000
-Message-ID: <20101221120226.GA18412@hera.kernel.org>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sch_sfq: allow big packets and be fair
+Date: Tue, 21 Dec 2010 12:17:06 +0000
+Message-ID: <20101221121706.GC8813@ff.dom.local>
+References: <20101221101506.GA8149@ff.dom.local> <1292929037.2720.12.camel@edumazet-laptop> <20101221113920.GB8813@ff.dom.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hera.kernel.org ([140.211.167.34]:49222 "EHLO hera.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751045Ab0LUMC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 07:02:27 -0500
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:46431 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816Ab0LUMRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 07:17:14 -0500
+Received: by fxm18 with SMTP id 18so4225346fxm.2
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 04:17:12 -0800 (PST)
 Content-Disposition: inline
+In-Reply-To: <20101221113920.GB8813@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Program adapter's StationAddress register when changing device MAC address
+On Tue, Dec 21, 2010 at 11:39:20AM +0000, Jarek Poplawski wrote:
+> On Tue, Dec 21, 2010 at 11:57:17AM +0100, Eric Dumazet wrote:
+> > Now the check is performed at the beginning of sfq_dequeue(), to be able
+> > to charge a previously sent 'big packet' multiple times (faulty flow
+> > wont send a packet before passing xx rounds)
+> > 
+> > I believe I just did the right thing. The "allot" is incremented when
+> > current flow "pass its round to next slot", and decremented when a
+> > packet is dequeued from this slot. Before being allowed to dequeue a
+> > packet, "allot" must be 'positive'.
+> 
+> Simply try to check my examples before and after. There is no skipping
+> of a round now. It's a serious change. Somebody tried to avoid it at
+> all in the current implementation. You should also think about fairness
+> of normal (but different) size packets.
 
-Signed-off-by: Denis Kirjanov <dkirjanov@kernel.org>
----
- drivers/net/sundance.c |   16 +++++++++++++++-
- 1 files changed, 15 insertions(+), 1 deletions(-)
+Oops! You're right yet ;-) This skipping shouldn't happen with quantum
+bigger than max packet size, so this patch is OK.
 
-diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-index d82944c..826fe34 100644
---- a/drivers/net/sundance.c
-+++ b/drivers/net/sundance.c
-@@ -434,6 +434,7 @@ static void netdev_error(struct net_device *dev, int intr_status);
- static void netdev_error(struct net_device *dev, int intr_status);
- static void set_rx_mode(struct net_device *dev);
- static int __set_mac_addr(struct net_device *dev);
-+static int sundance_set_mac_addr(struct net_device *dev, void *data);
- static struct net_device_stats *get_stats(struct net_device *dev);
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static int  netdev_close(struct net_device *dev);
-@@ -467,7 +468,7 @@ static const struct net_device_ops netdev_ops = {
- 	.ndo_do_ioctl 		= netdev_ioctl,
- 	.ndo_tx_timeout		= tx_timeout,
- 	.ndo_change_mtu		= change_mtu,
--	.ndo_set_mac_address 	= eth_mac_addr,
-+	.ndo_set_mac_address 	= sundance_set_mac_addr,
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
-@@ -1595,6 +1596,19 @@ static int __set_mac_addr(struct net_device *dev)
- 	return 0;
- }
- 
-+/* Invoked with rtnl_lock held */
-+static int sundance_set_mac_addr(struct net_device *dev, void *data)
-+{
-+	const struct sockaddr *addr = data;
-+
-+	if (!is_valid_ether_addr(addr->sa_data))
-+		return -EINVAL;
-+	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
-+	__set_mac_addr(dev);
-+
-+	return 0;
-+}
-+
- static const struct {
- 	const char name[ETH_GSTRING_LEN];
- } sundance_stats[] = {
--- 
-1.7.2.2
-
+Sorry,
+Jarek P.
