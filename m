@@ -1,95 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Buglet in net/pkt_cls.h pointer handling.
-Date: Tue, 21 Dec 2010 12:57:43 -0800 (PST)
-Message-ID: <20101221.125743.115954170.davem@davemloft.net>
-References: <20101216215627.43f34977.suckfish@ihug.co.nz>
+From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
+Date: Wed, 22 Dec 2010 05:57:02 +0900
+Message-ID: <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h@mail.gmail.com>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
+ <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com> <20101221075612.GA13626@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: suckfish@ihug.co.nz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54293
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751280Ab0LUU5O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 15:57:14 -0500
-In-Reply-To: <20101216215627.43f34977.suckfish@ihug.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101221075612.GA13626-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ralph Loader <suckfish@ihug.co.nz>
-Date: Thu, 16 Dec 2010 21:56:27 +1300
+On Tue, Dec 21, 2010 at 4:56 PM, Richard Cochran
+<richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> Can you please elaborate?
 
-> tcf_valid_offset() in net/pkt_cls.h appears to have a couple of 
-> problems (obvious patch below):
-> 
-> (a) there is no check for overflow in the pointer arithmetic.
-> (b) the pointers are presumably likely to be normally valid, so the
->     hint should be 'likely()' not 'unlikely()'.
-> 
-> The offsets used to construct the arguments to that function, e.g., as
-> called in net/sched/em_u32.c, I think come from user-space & in theory
-> could be crafted to cause an invalid pointer deref if ptr+len overflows?
-> 
-> Possibly the '<' and '>' in that function should be '<=' and '>='
-> also.  I'm not familiar enough with the data-structures to be sure.
-> 
-> Also a question:  in em_u32.c em_u32_match(), and in cls_u32.c
-> u32_classify(), we dereference pointers that have had an offset
-> (originally from user space) added to them.  I can't see anything that
-> keeps those pointers aligned.  Is that a problem on architectures that
-> don't support unaligned pointers, or am I missing something?
+The timex.constant is defined as equal to the binary logarithm of the
+reciprocal of
+the natural frequency minus SHIFT_PLL.  In other words, the following
+equation holds:
 
-Your analysis is accurate, so I added the <= and >= test changes
-and applied the following to the tree.
+	log2(natural frequency) + time_constant + SHIFT_PLL = 0,
 
-Please read Documentation/SubmittingPatches and
-Documentation/email-clients.txt before submitting your
-own patches in the future.
+which means that decreasing time_constant increases natural frequency
+exponentially.
+And since a larger natural frequency gives a smaller settling time, a
+sufficiently
+large negative time_constant results in immediate time step, at least in theory.
 
-What you sent here was whitespace damaged by your email client
-and you didn't provide a proper "Signed-off-by: " tag in your
-commit message.
+> I don't see any way to use timex.constant with ADJ_OFFSET in order to
+> correct a time offset.
 
-Thanks.
+How about this?
 
---------------------
-net: Fix range checks in tcf_valid_offset().
+if (txc->modes & ADJ_OFFSET) {
+	if (txc->constant == INT32_MIN) {
+		/* step time */
+	} else {
+		/* slew time */
+	}
+}
 
-This function has three bugs:
+> The 'time_constant' in kernel/time/ntp.c is
+> restricted to the interval [0..MAXTC], and MAXTC is 10 in timex.h.
 
-1) The offset should be valid most of the time, this is just
-   a sanity check, therefore we should use "likely" not "unlikely"
+Then let's just ignore the restriction.  (It's possible by setting the
+timex.constant
+without setting the ADJ_TIMECONST flag.)
 
-2) This is the only place where we can check for arithmetic overflow
-   of the pointer plus the length.
-
-3) The existing range checks are off by one, the valid range is
-   skb->head to skb_tail_pointer(), inclusive.
-
-Based almost entirely upon a patch by Ralph Loader.
-
-Reported-by: Ralph Loader <suckfish@ihug.co.nz>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/pkt_cls.h |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
-index dd3031a..9fcc680 100644
---- a/include/net/pkt_cls.h
-+++ b/include/net/pkt_cls.h
-@@ -323,7 +323,9 @@ static inline unsigned char * tcf_get_base_ptr(struct sk_buff *skb, int layer)
- static inline int tcf_valid_offset(const struct sk_buff *skb,
- 				   const unsigned char *ptr, const int len)
- {
--	return unlikely((ptr + len) < skb_tail_pointer(skb) && ptr > skb->head);
-+	return likely((ptr + len) <= skb_tail_pointer(skb) &&
-+		      ptr >= skb->head &&
-+		      (ptr <= (ptr + len)));
- }
- 
- #ifdef CONFIG_NET_CLS_IND
--- 
-1.7.3.4
-
+That said, I'm somehow against the idea of using the adjtimex syscall
+for that purpose.
