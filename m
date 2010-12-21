@@ -1,51 +1,72 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
-Date: Tue, 21 Dec 2010 11:37:04 -0800
-Message-ID: <1292960224.2618.4.camel@work-vm>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
-	 <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
-	 <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
+From: Solar Designer <solar@openwall.com>
+Subject: Re: [RFC] ipv4: add ICMP socket kind
+Date: Tue, 21 Dec 2010 22:46:06 +0300
+Message-ID: <20101221194606.GA25359@openwall.com>
+References: <20101221181800.GA8166@albatros> <AANLkTikS6rs-AFGmtTfuRdELJ5+y=o4g1i0Xk9KDFRiv@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Vasiliy Kulikov <segooon@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>
+To: Colin Walters <walters@verbum.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
+Content-Disposition: inline
+In-Reply-To: <AANLkTikS6rs-AFGmtTfuRdELJ5+y=o4g1i0Xk9KDFRiv@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2010-12-18 at 05:16 +0900, Kuwahara,T. wrote:
-> On 12/17/10, Richard Cochran <richardcochran@gmail.com> wrote:
-> > This patch adds a new mode bit into the timex structure. When set, the bit
-> > instructs the kernel to add the given time value to the current time.
+On Tue, Dec 21, 2010 at 01:46:41PM -0500, Colin Walters wrote:
+> On Tue, Dec 21, 2010 at 1:18 PM, Vasiliy Kulikov <segooon@gmail.com> wrote:
+> > A new ping socket is created with
 > >
+> >  socket(PF_INET, SOCK_DGRAM, IPPROTO_ICMP)
 > 
-> The proposed new control mode, ADJ_SETOFFSET, is logically the same as
-> ADJ_OFFSET with timex.constant == -INFINITY. 
+> And the default is to allow any uid to do this (modulo LSM)?
 
-I'm not sure if this is correct. Its more like settimeofday, only giving
-a relative offset to jump the clock, rather then an absolute time. It
-does not slew the clock over time like ADJ_OFFSET does.
+We intend to have this sysctl'able and to have it restricted to a group
+by default (the sysctl would set the GID) on our Linux distro,
+Openwall GNU/*/Linux.  However, we figured that it'd be tough for us to
+get this complication accepted into mainstream, so we opted to have the
+patch posted for comment without it.
 
->  So it is possible to do
-> the same thing without risking forward compatibility.  (I mean by "risking
-> forward compatibility" that the mode bit 0x0040 may be defined differently
-> by the upstream maintainer anytime in the future.)
+> If you really have a burning desire to get rid of setuid /bin/ping,
+> why not just do it in userspace via message passing to/from a
+> privileged process, and avoid a lot of code in the kernel?
 
-adjtimex is a linux specific interface, which is compatible but not
-identical to the ntp specified interfaces. The ntp client code already
-has Linux specific modifications, so I don't think we have to worry
-about 0x40 specifically being reserved by the NTP client.
+Yes, we thought of that, and we don't like this solution.  We similarly
+(but for different reasons) don't like using fscaps to grant CAP_NET_RAW
+to ping.
 
-thanks
--john
+We share your concern about the size of net/ipv4/ping.c introduced by
+this patch, yet this is our current proposal.
+
+> It's much
+> more flexible.  You could, for example, limit it to once a second by
+> default, allow only one process doing this per uid, etc.
+
+We figured that there's little point behind such restrictions.  Just how
+is an ICMP echo request any worse than a UDP packet of the same size?
+Anyone can send the latter with current kernels.
+
+Additionally, Vasiliy found out that Mac OS X has a similar feature,
+implemented in a riskier way than what we propose (they do no filtering
+of incoming ICMP traffic):
+
+http://www.manpagez.com/man/4/icmp/
+
+So there's precedent, and our proposal is better.
+
+Yet, as I have mentioned, we're in fact going to restrict this to a
+group by default and to have ping SGID - just not to expose the extra
+kernel code for direct attack by a local user.  That's in case there's a
+vulnerability in the added code.
+
+If a sysctl like this is what others want to have as well, we'd be happy
+to provide a revision of the patch including that.  Then we won't have
+to maintain it as a custom patch.
+
+Thank you for your criticism.
+
+Alexander Peslyak <solar at openwall.com>
+GPG key ID: 5B341F15  fp: B3FB 63F4 D7A3 BCCC 6F6E  FC55 A2FC 027C 5B34 1F15
+http://www.openwall.com - bringing security into open computing environments
