@@ -1,72 +1,192 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Tue, 21 Dec 2010 20:27:19 +0100
-Message-ID: <4D10FF97.1070703@grandegger.com>
-References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>	<4D0BD454.3060503@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE47E1A@EAPEX1MAIL1.st.com>	<4D0FBEF6.8020207@grandegger.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEAE481B6@EAPEX1MAIL1.st.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next-2.6 PATCH v2 1/3] net: implement mechanism for HW based QOS
+Date: Tue, 21 Dec 2010 11:28:31 -0800
+Message-ID: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEAE481B6-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	hadi@cyberus.ca, shemminger@vyatta.com, tgraf@infradead.org,
+	eric.dumazet@gmail.com, bhutchings@solarflare.com,
+	nhorman@tuxdriver.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:14425 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751013Ab0LUTcc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Dec 2010 14:32:32 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Bhupesh,
+This patch provides a mechanism for lower layer devices to
+steer traffic using skb->priority to tx queues. This allows
+for hardware based QOS schemes to use the default qdisc without
+incurring the penalties related to global state and the qdisc
+lock. While reliably receiving skbs on the correct tx ring
+to avoid head of line blocking resulting from shuffling in
+the LLD. Finally, all the goodness from txq caching and xps/rps
+can still be leveraged.
 
-On 12/21/2010 05:48 AM, Bhupesh SHARMA wrote:
-> Hi Wolfgang,
-...
->> In the meantime I compared the CAN chapter of the PCH manual with the
->> C_CAN manual. The paragraphs I checked are *identical*. This makes
->> clear, that the "pch_can" is a clone of the  C_CAN CAN controller, with
->> a few extensions, though. Therefore it would make sense, to implement a
->> bus sensitive interface like for the SJA1000 allowing to handle both
->> CAN
->> controllers with one driver sooner than later. Therefore, could you
->> please implement:
->>
->>   drivers/net/can/c_can/c_can.c
->>                        /c_can_platform.c
->>
->> Then an interface to the PCI based PCH CAN controller could be added
->> easily, e.g. as "pch_pci.c". You already had something similar in your
->> RFC version of the patch, IIRC.
-> 
-> This was the approach I initially proposed in my RFC V1 patch :)
-> But unfortunately we could not agree to it.
+Many drivers and hardware exist with the ability to implement
+QOS schemes in the hardware but currently these drivers tend
+to rely on firmware to reroute specific traffic, a driver
+specific select_queue or the queue_mapping action in the
+qdisc.
 
-I know. But at that time I was not aware of any other bus used for the
-C_CAN controller.
+By using select_queue for this drivers need to be updated for
+each and every traffic type and we lose the goodness of much
+of the upstream work. Firmware solutions are inherently
+inflexible. And finally if admins are expected to build a
+qdisc and filter rules to steer traffic this requires knowledge
+of how the hardware is currently configured. The number of tx
+queues and the queue offsets may change depending on resources.
+Also this approach incurs all the overhead of a qdisc with filters.
 
-> So, please let me reiterate what I understood and what was present
-> in RFC version of the patch. Please add your comments/views:
-> 
->         - drivers/net/can/c_can/c_can.c (similar on lines of sja1000.c)
->         i.e. a)no *probe* / *remove* functions here,
->              b)register read/write implemented here.
-> 
->         - drivers/net/can/c_can/c_can_platform.c (similar on lines of sja1000_platform.c)
->         i.e. *probe* / *remove* implemented here,
+With the mechanism in this patch users can set skb priority using
+expected methods ie setsockopt() or the stack can set the priority
+directly. Then the skb will be steered to the correct tx queues
+aligned with hardware QOS traffic classes. In the normal case with
+a single traffic class and all queues in this class everything
+works as is until the LLD enables multiple tcs.
 
-Yes, that's what I'm thinking about.
+To steer the skb we mask out the lower 4 bits of the priority
+and allow the hardware to configure upto 15 distinct classes
+of traffic. This is expected to be sufficient for most applications
+at any rate it is more then the 8021Q spec designates and is
+equal to the number of prio bands currently implemented in
+the default qdisc.
 
-> Marc and Tomoya can also add their suggestions so that I can finalize V3 a.s.a.p.
+This in conjunction with a userspace application such as
+lldpad can be used to implement 8021Q transmission selection
+algorithms one of these algorithms being the extended transmission
+selection algorithm currently being used for DCB.
 
-That would be nice, indeed. Also have a look to Tomoya's PCH driver,
-which also looks very good in the meantime.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
-Wolfgang.
+ include/linux/netdevice.h |   62 +++++++++++++++++++++++++++++++++++++++++++++
+ net/core/dev.c            |   10 +++++++
+ 2 files changed, 71 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index cc916c5..453b2d7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -646,6 +646,14 @@ struct xps_dev_maps {
+     (nr_cpu_ids * sizeof(struct xps_map *)))
+ #endif /* CONFIG_XPS */
+ 
++#define TC_MAX_QUEUE	16
++#define TC_BITMASK	15
++/* HW offloaded queuing disciplines txq count and offset maps */
++struct netdev_tc_txq {
++	u16 count;
++	u16 offset;
++};
++
+ /*
+  * This structure defines the management hooks for network devices.
+  * The following hooks can be defined; unless noted otherwise, they are
+@@ -1146,6 +1154,9 @@ struct net_device {
+ 	/* Data Center Bridging netlink ops */
+ 	const struct dcbnl_rtnl_ops *dcbnl_ops;
+ #endif
++	u8 num_tc;
++	struct netdev_tc_txq tc_to_txq[TC_MAX_QUEUE];
++	u8 prio_tc_map[TC_MAX_QUEUE];
+ 
+ #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
+ 	/* max exchange id for FCoE LRO by ddp */
+@@ -1162,6 +1173,57 @@ struct net_device {
+ #define	NETDEV_ALIGN		32
+ 
+ static inline
++int netdev_get_prio_tc_map(const struct net_device *dev, u32 prio)
++{
++	return dev->prio_tc_map[prio & TC_BITMASK];
++}
++
++static inline
++int netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
++{
++	if (tc >= dev->num_tc)
++		return -EINVAL;
++
++	dev->prio_tc_map[prio & TC_BITMASK] = tc & TC_BITMASK;
++	return 0;
++}
++
++static inline
++void netdev_reset_tc(struct net_device *dev)
++{
++	dev->num_tc = 0;
++	memset(dev->tc_to_txq, 0, sizeof(dev->tc_to_txq));
++	memset(dev->prio_tc_map, 0, sizeof(dev->prio_tc_map));
++}
++
++static inline
++int netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u16 offset)
++{
++	if (tc >= dev->num_tc)
++		return -EINVAL;
++
++	dev->tc_to_txq[tc].count = count;
++	dev->tc_to_txq[tc].offset = offset;
++	return 0;
++}
++
++static inline
++int netdev_set_num_tc(struct net_device *dev, u8 num_tc)
++{
++	if (num_tc > TC_MAX_QUEUE)
++		return -EINVAL;
++
++	dev->num_tc = num_tc;
++	return 0;
++}
++
++static inline
++u8 netdev_get_num_tc(const struct net_device *dev)
++{
++	return dev->num_tc;
++}
++
++static inline
+ struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
+ 					 unsigned int index)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 5987729..5e7832e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2170,6 +2170,8 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
+ 		  unsigned int num_tx_queues)
+ {
+ 	u32 hash;
++	u16 qoffset = 0;
++	u16 qcount = num_tx_queues;
+ 
+ 	if (skb_rx_queue_recorded(skb)) {
+ 		hash = skb_get_rx_queue(skb);
+@@ -2178,13 +2180,19 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
+ 		return hash;
+ 	}
+ 
++	if (dev->num_tc) {
++		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
++		qoffset = dev->tc_to_txq[tc].offset;
++		qcount = dev->tc_to_txq[tc].count;
++	}
++
+ 	if (skb->sk && skb->sk->sk_hash)
+ 		hash = skb->sk->sk_hash;
+ 	else
+ 		hash = (__force u16) skb->protocol ^ skb->rxhash;
+ 	hash = jhash_1word(hash, hashrnd);
+ 
+-	return (u16) (((u64) hash * num_tx_queues) >> 32);
++	return (u16) (((u64) hash * qcount) >> 32) + qoffset;
+ }
+ EXPORT_SYMBOL(__skb_tx_hash);
+ 
+
