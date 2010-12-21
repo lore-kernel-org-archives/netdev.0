@@ -1,86 +1,95 @@
-From: Colin Walters <walters@verbum.org>
-Subject: Re: [RFC] ipv4: add ICMP socket kind
-Date: Tue, 21 Dec 2010 15:46:15 -0500
-Message-ID: <AANLkTin6_fck1SbCbX5tLvY8CPzJstqmpkJuVF-B6oC6@mail.gmail.com>
-References: <20101221181800.GA8166@albatros>
-	<AANLkTikS6rs-AFGmtTfuRdELJ5+y=o4g1i0Xk9KDFRiv@mail.gmail.com>
-	<20101221194606.GA25359@openwall.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Buglet in net/pkt_cls.h pointer handling.
+Date: Tue, 21 Dec 2010 12:57:43 -0800 (PST)
+Message-ID: <20101221.125743.115954170.davem@davemloft.net>
+References: <20101216215627.43f34977.suckfish@ihug.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vasiliy Kulikov <segooon@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pavel Kankovsky <peak@argo.troja.mff.cuni.cz>
-To: Solar Designer <solar@openwall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101221194606.GA25359@openwall.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: suckfish@ihug.co.nz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54293
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751280Ab0LUU5O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 15:57:14 -0500
+In-Reply-To: <20101216215627.43f34977.suckfish@ihug.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Dec 21, 2010 at 2:46 PM, Solar Designer <solar@openwall.com> wr=
-ote:
-> On Tue, Dec 21, 2010 at 01:46:41PM -0500, Colin Walters wrote:
->> On Tue, Dec 21, 2010 at 1:18 PM, Vasiliy Kulikov <segooon@gmail.com>=
- wrote:
->> > A new ping socket is created with
->> >
->> > =C2=A0socket(PF_INET, SOCK_DGRAM, IPPROTO_ICMP)
->>
->> And the default is to allow any uid to do this (modulo LSM)?
->
-> We intend to have this sysctl'able and to have it restricted to a gro=
-up
-> by default (the sysctl would set the GID) on our Linux distro,
-> Openwall GNU/*/Linux. =C2=A0However, we figured that it'd be tough fo=
-r us to
-> get this complication accepted into mainstream, so we opted to have t=
-he
-> patch posted for comment without it.
+From: Ralph Loader <suckfish@ihug.co.nz>
+Date: Thu, 16 Dec 2010 21:56:27 +1300
 
-Right, a sysctl was the obvious thing to have.
+> tcf_valid_offset() in net/pkt_cls.h appears to have a couple of 
+> problems (obvious patch below):
+> 
+> (a) there is no check for overflow in the pointer arithmetic.
+> (b) the pointers are presumably likely to be normally valid, so the
+>     hint should be 'likely()' not 'unlikely()'.
+> 
+> The offsets used to construct the arguments to that function, e.g., as
+> called in net/sched/em_u32.c, I think come from user-space & in theory
+> could be crafted to cause an invalid pointer deref if ptr+len overflows?
+> 
+> Possibly the '<' and '>' in that function should be '<=' and '>='
+> also.  I'm not familiar enough with the data-structures to be sure.
+> 
+> Also a question:  in em_u32.c em_u32_match(), and in cls_u32.c
+> u32_classify(), we dereference pointers that have had an offset
+> (originally from user space) added to them.  I can't see anything that
+> keeps those pointers aligned.  Is that a problem on architectures that
+> don't support unaligned pointers, or am I missing something?
 
->> If you really have a burning desire to get rid of setuid /bin/ping,
->> why not just do it in userspace via message passing to/from a
->> privileged process, and avoid a lot of code in the kernel?
->
-> Yes, we thought of that, and we don't like this solution.
+Your analysis is accurate, so I added the <= and >= test changes
+and applied the following to the tree.
 
-=2E..because?
+Please read Documentation/SubmittingPatches and
+Documentation/email-clients.txt before submitting your
+own patches in the future.
 
->=C2=A0We similarly
-> (but for different reasons) don't like using fscaps to grant CAP_NET_=
-RAW
-> to ping.
+What you sent here was whitespace damaged by your email client
+and you didn't provide a proper "Signed-off-by: " tag in your
+commit message.
 
-I am (learning now) about the fscaps drawbacks...
+Thanks.
 
-> We share your concern about the size of net/ipv4/ping.c introduced by
-> this patch, yet this is our current proposal.
+--------------------
+net: Fix range checks in tcf_valid_offset().
 
-To be clear I have no personal stake in the size of net/; my concern
-is more about the set of permissions granted by the default kernel
-configuration.  Both from an OS developer standpoint, and also just so
-I feel I can continue to explain to someone who's learning about Linux
-all the interactions between the uid/gid, capabilities, SELinux, etc.
-If the kernel starts adding extensions to things it historically
-didn't, that gets even more complicated.
+This function has three bugs:
 
-> We figured that there's little point behind such restrictions. =C2=A0=
-Just how
-> is an ICMP echo request any worse than a UDP packet of the same size?
-> Anyone can send the latter with current kernels.
+1) The offset should be valid most of the time, this is just
+   a sanity check, therefore we should use "likely" not "unlikely"
 
-Clearly if we could go back in time and make some changes to the
-default Unix security model, one of those would probably be making
-allocating TCP/UDP sockets a privileged operation in some way.  But
-the ship has sailed there...
+2) This is the only place where we can check for arithmetic overflow
+   of the pointer plus the length.
 
-> Yet, as I have mentioned, we're in fact going to restrict this to a
-> group by default and to have ping SGID - just not to expose the extra
-> kernel code for direct attack by a local user. =C2=A0That's in case t=
-here's a
-> vulnerability in the added code.
+3) The existing range checks are off by one, the valid range is
+   skb->head to skb_tail_pointer(), inclusive.
 
-So wait...this whole patch is to remove the setuid bit, but then
-you're going to go back and add setgid?  How is that really
-compellingly different and better?
+Based almost entirely upon a patch by Ralph Loader.
+
+Reported-by: Ralph Loader <suckfish@ihug.co.nz>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/pkt_cls.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index dd3031a..9fcc680 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -323,7 +323,9 @@ static inline unsigned char * tcf_get_base_ptr(struct sk_buff *skb, int layer)
+ static inline int tcf_valid_offset(const struct sk_buff *skb,
+ 				   const unsigned char *ptr, const int len)
+ {
+-	return unlikely((ptr + len) < skb_tail_pointer(skb) && ptr > skb->head);
++	return likely((ptr + len) <= skb_tail_pointer(skb) &&
++		      ptr >= skb->head &&
++		      (ptr <= (ptr + len)));
+ }
+ 
+ #ifdef CONFIG_NET_CLS_IND
+-- 
+1.7.3.4
+
