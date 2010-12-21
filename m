@@ -1,38 +1,34 @@
-From: "Richard Scheffenegger" <realarms@gmx.at>
-Subject: Linux SACK - lost retransmission detection
-Date: Tue, 21 Dec 2010 11:42:52 +0100
-Message-ID: <20101221104252.36840@gmx.net>
-References: <20101221103539.137960@gmx.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sch_sfq: allow big packets and be fair
+Date: Tue, 21 Dec 2010 11:44:29 +0100
+Message-ID: <1292928269.2720.0.camel@edumazet-laptop>
+References: <1292886976.2627.146.camel@edumazet-laptop>
+	 <20101221101506.GA8149@ff.dom.local>  <20101221103026.GA8622@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout-de.gmx.net ([213.165.64.23]:51145 "HELO mail.gmx.net"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751058Ab0LUKm5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 05:42:57 -0500
-In-Reply-To: <20101221103539.137960@gmx.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:56645 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751058Ab0LUKoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 05:44:34 -0500
+Received: by wwa36 with SMTP id 36so3981597wwa.1
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 02:44:33 -0800 (PST)
+In-Reply-To: <20101221103026.GA8622@ff.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le mardi 21 d=C3=A9cembre 2010 =C3=A0 10:30 +0000, Jarek Poplawski a =C3=
+=A9crit :
+> On Tue, Dec 21, 2010 at 10:15:06AM +0000, Jarek Poplawski wrote:
+> > The change of allotment limit looks OK [...]
+>=20
+> Hmm... but maybe s/ALLOT_ZERO/SFQ_ALLOT_ZERO/? ;-)
 
-One more, generic, question:
+Its a local symbol, its not like it being in an include file ;)
 
-I found that Linux added SACK with kernel version 2.1.91, but I wasn=E2=
-=80=99t able to track down when lost retransmission detection (LRD) was=
- added. The only research paper I found which appears to describe appro=
-ximately what linux does is from an Korean researcher, who claims to ha=
-ve not contributed any code to the linux kernel. Do you happen to have =
-more pointers?
 
-I=E2=80=99m currently looking into ways of how to make lost retransmiss=
-ions detection work also at end-of-stream (alleviating RTOs even with s=
-mall windows at least partially).
-
-Best regards,
-   Richard
---=20
-Neu: GMX De-Mail - Einfach wie E-Mail, sicher wie ein Brief! =20
-Jetzt De-Mail-Adresse reservieren: http://portal.gmx.net/de/go/demail
