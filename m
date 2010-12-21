@@ -1,51 +1,94 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: [PATCH] nfs: fix mispelling of idmap CONFIG symbol
-Date: Tue, 21 Dec 2010 18:49:34 -0500
-Message-ID: <20101221234934.GB30525@fieldses.org>
-References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
- <20101220144644.GC20643@fieldses.org>
- <20101221233215.GC7092@shutemov.name>
- <1292975008.16674.2.camel@heimdal.trondhjem.org>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: Re: [patch -next] pch_can: off by one bugs
+Date: Wed, 22 Dec 2010 08:58:51 +0900
+Message-ID: <B4EA6EF7414747D3B1331DC53D6C2E6A@hacdom.okisemi.com>
+References: <20101220092601.GS1936@bicker> <4D111110.2030609@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirill A. Shutemov" <kas@openvz.org>, Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-nfs@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Trond Myklebust <Trond.Myklebust@netapp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fieldses.org ([174.143.236.118]:50144 "EHLO fieldses.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752862Ab0LUXth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 18:49:37 -0500
-Content-Disposition: inline
-In-Reply-To: <1292975008.16674.2.camel@heimdal.trondhjem.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	"Dan Carpenter" <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: J. Bruce Fields <bfields@redhat.com>
+On Wednesday, December 22, 2010 5:41 AM, Wolfgang Grandegger wrote:
+> This fix does not look correct too me.
+I agree with Wolfgang's comments.
 
-Trivial, but confusing when you're trying to grep through this
-code....
+> Dan
+Thank you for your report.
+I will post the patch by this week.
 
-Signed-off-by: J. Bruce Fields <bfields@redhat.com>
+Thanks,
 ---
- fs/nfs/idmap.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
 
-diff --git a/fs/nfs/idmap.c b/fs/nfs/idmap.c
-index 4e2d9b6..1869688 100644
---- a/fs/nfs/idmap.c
-+++ b/fs/nfs/idmap.c
-@@ -238,7 +238,7 @@ int nfs_map_gid_to_group(struct nfs_client *clp, __u32 gid, char *buf, size_t bu
- 	return nfs_idmap_lookup_name(gid, "group", buf, buflen);
- }
- 
--#else  /* CONFIG_NFS_USE_IDMAPPER not defined */
-+#else  /* CONFIG_NFS_USE_NEW_IDMAPPER not defined */
- 
- #include <linux/module.h>
- #include <linux/mutex.h>
--- 
-1.7.1
+----- Original Message ----- 
+From: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: "Dan Carpenter" <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Cc: <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; 
+<kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "Tomoya MORINAGA" 
+<tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Sent: Wednesday, December 22, 2010 5:41 AM
+Subject: Re: [patch -next] pch_can: off by one bugs
 
+
+> Hello,
+>
+> On 12/20/2010 10:26 AM, Dan Carpenter wrote:
+>> priv->tx_enable[] has PCH_TX_OBJ_END elements so this code is
+>> reading and writing one past the end of the array.
+>>
+>> Signed-off-by: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>>
+>> diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+>> index 8d45fdd..b2c1292 100644
+>> --- a/drivers/net/can/pch_can.c
+>> +++ b/drivers/net/can/pch_can.c
+>> @@ -1077,7 +1077,7 @@ static int pch_can_suspend(struct pci_dev *pdev, 
+>> pm_message_t state)
+>>  pch_can_set_int_enables(priv, PCH_CAN_DISABLE);
+>>
+>>  /* Save Tx buffer enable state */
+>> - for (i = PCH_TX_OBJ_START; i <= PCH_TX_OBJ_END; i++)
+>> + for (i = PCH_TX_OBJ_START; i < PCH_TX_OBJ_END; i++)
+>>  priv->tx_enable[i] = pch_can_get_rxtx_ir(priv, i, PCH_TX_IFREG);
+>>
+>>  /* Disable all Transmit buffers */
+>> @@ -1138,7 +1138,7 @@ static int pch_can_resume(struct pci_dev *pdev)
+>>  pch_can_set_optmode(priv);
+>>
+>>  /* Enabling the transmit buffer. */
+>> - for (i = PCH_TX_OBJ_START; i <= PCH_TX_OBJ_END; i++)
+>> + for (i = PCH_TX_OBJ_START; i < PCH_TX_OBJ_END; i++)
+>>  pch_can_set_rxtx(priv, i, priv->tx_enable[i], PCH_TX_IFREG);
+>>
+>>  /* Configuring the receive buffer and enabling them. */
+>>
+>
+> This fix does not look correct too me. There are much more loop using
+> "i <= PCH_TX_OBJ_END" and the message numbering is from 1..32. Therefore
+> using "priv->tx_enable[i - 1]" seems more appropriate to me. Tomaya,
+> could you please check.
+>
+> Thanks,
+>
+> Wolfgang.
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
