@@ -1,52 +1,59 @@
-From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
-Date: Tue, 21 Dec 2010 14:25:55 -0800
-Message-ID: <1292970355.2618.76.camel@work-vm>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
-	 <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
-	 <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
-	 <20101221075612.GA13626@riccoc20.at.omicron.at>
-	 <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
+Date: Tue, 21 Dec 2010 23:37:05 +0100
+Message-ID: <20101221223704.GA1979@del.dom.local>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+ <20101220232020.GB2052@del.dom.local>
+ <1292887689.2627.150.camel@edumazet-laptop>
+ <20101220235209.GA1865@del.dom.local>
+ <1292939574.6535.27.camel@mojatatu>
+ <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pawel Staszewski <pstaszewski@itcare.pl>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:40030 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753677Ab0LUWhL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 17:37:11 -0500
+Received: by bwz16 with SMTP id 16so5143393bwz.4
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 14:37:10 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-22 at 05:57 +0900, Kuwahara,T. wrote:
+On Tue, Dec 21, 2010 at 10:17:35PM +0800, Changli Gao wrote:
+> On Tue, Dec 21, 2010 at 9:52 PM, jamal <hadi@cyberus.ca> wrote:
+> >
+> > Use to be we couldnt get the ifb+mirred combo to work
+> > with TSO even without this change - i will have to dig old emails
+> > to remember details. So we are making progress;-> I did write a set
+> > of rules in: Documentation/networking/tc-actions-env-rules.txt
+> > Changli optimized rule #1. When i looked at his patch it seems
+> > to not harm that case. Sometimes dumb is a good principle ;->
 
-> How about this?
-> 
-> if (txc->modes & ADJ_OFFSET) {
-> 	if (txc->constant == INT32_MIN) {
-> 		/* step time */
-> 	} else {
-> 		/* slew time */
-> 	}
-> }
+Actually, when dumb isn't a good principle? ;->
 
-This looks like magic behavior. Sort of a "knock twice and then say the
-password" interface. I don't see why that would be better then adding a
-clear new mode flag?
+Speaking about wrong things like optimizing this 1st commandment: it
+seems, if we're stealing not shared skb it's not unreasonable to tell
+others not to touch it anymore, and skip kfree_skb() in handle_ing(),
+unless I miss something?
 
 
-> That said, I'm somehow against the idea of using the adjtimex syscall
-> for that purpose.
+> In order to make my trick work. We need to assure dev_queue_xmit() and
+> dev_hard_start_xmit() accept shared skbs. As Eric pointed, pktgen also
+> need dev->netdev_ops->ndo_start_xmit() accept shared skbs. We need to
+> fix every ndo_start_xmit() one by one, then dev_hard_start_xmit(), and
+> when dev_queue_xmit() is also fixed, my trick can be added back.
+> :)
 
-Could you expand on why you don't like this?
+I'm not sure pktgen is right - even if it's safe in its case, it seems
+to break some older rules, and drivers should really own the things.
+So it needs reviewing first.
 
-thanks
--john
+Cheers,
+Jarek P.
