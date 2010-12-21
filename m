@@ -1,49 +1,57 @@
-From: "J. Bruce Fields" <bfields@fieldses.org>
-Subject: Re: [PATCH 00/12] make rpc_pipefs be mountable multiple times
-Date: Tue, 21 Dec 2010 18:45:21 -0500
-Message-ID: <20101221234520.GA30525@fieldses.org>
-References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
- <20101220144644.GC20643@fieldses.org>
- <20101221233215.GC7092@shutemov.name>
+From: nvishwan@codeaurora.org
+Subject: Re: [PATCH] msm: rmnet: msm rmnet smd virtual ethernet driver
+Date: Tue, 21 Dec 2010 15:45:45 -0800 (PST)
+Message-ID: <2c27ccc1dd4db9a31cd961f0ffaed886.squirrel@www.codeaurora.org>
+References: <1292437866-11652-1-git-send-email-nvishwan@codeaurora.org>
+    <20101215134406.3a634aa8@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-nfs@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Kirill A. Shutemov" <kas@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101221233215.GC7092@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Niranjana Vishwanathapura" <nvishwan@codeaurora.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	"Brian Swetland" <swetland@google.com>
+To: "Stephen Hemminger" <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:43502 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753905Ab0LUXqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 18:46:00 -0500
+In-Reply-To: <20101215134406.3a634aa8@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 22, 2010 at 01:32:15AM +0200, Kirill A. Shutemov wrote:
-> On Mon, Dec 20, 2010 at 09:46:44AM -0500, J. Bruce Fields wrote:
-> > By the way, was there ever a resolution to Trond's question?:
-> > 
-> > 	http://marc.info/?l=linux-nfs&m=128655758712817&w=2
-> > 
-> > 	"The keyring upcalls are currently initiated through the same
-> > 	mechanism as module_request and therefore get started with the
-> > 	init_nsproxy namespace. We'd really like them to run inside the
-> > 	same container as the process.  As part of the same problem,
-> > 	there is the issue of what to do with the dns resolver and
-> > 	Bryan's new keyring based idmapper code."
-> 
-> I'm not sure that I understand the problem correctly.
-> 
-> Currently, idmap uses dentry taken from client's cl_rpcclient->cl_path
-> (see nfs_idmap_new()). cl_rpcclient (and cl_path) is initialized with
-> rpcmount resolved against mount namespace of mount process (see
-> nfs_create_rpc_client()).
-> I assume it's correct.
+> On Wed, 15 Dec 2010 10:31:06 -0800
+> Niranjana Vishwanathapura <nvishwan@codeaurora.org> wrote:
+>
+>> +
+>> +static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
+>> +
+>> +static void smd_net_notify(void *_dev, unsigned event)
+>> +{
+>> +	if (event != SMD_EVENT_DATA)
+>> +		return;
+>> +
+>> +	smd_net_data_tasklet.data = (unsigned long) _dev;
+>> +
+>> +	tasklet_schedule(&smd_net_data_tasklet);
+>> +}
+>> +
+>
+> Rather than having private tasklet, maybe using NAPI
+> would be better?
+>
+> Also since you are already in tasklet, no need to call netif_rx()
+> when receiving packet; instead use netif_receive_skb directly.
+>
+> --
+>
 
-There's actually two separate sets of idmapper code; look at
-fs/nfs/idmapper.c, the first part of the file (between #ifdef
-CONFIG_NFS_USE_NEW_IDMAPPER and #else) is idmapping code that uses
-request_key().  The code you're looking at (including nfs_idmap_new())
-is later in the file, and deprecated.
+NAPI will not buy much as the SMD transport doesn't provide a machanism to
+stop interrupts.  I will consider using NAPI in the future (it requires
+performance testing on lot of different targets).
 
---b.
+However, I can replace netif_rx() by netif_receive_skb() and send out new
+patch
+
