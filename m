@@ -1,62 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] TCP: increase default initial receive window.
-Date: Tue, 21 Dec 2010 19:49:07 +0100
-Message-ID: <1292957347.2720.45.camel@edumazet-laptop>
-References: <1292642451-892-1-git-send-email-nanditad@google.com>
-	 <AANLkTikcS-U9yA05dTp_y4EciwtUsjSonjc+bkA=57=4@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net: timestamp cloned packet in
+ dev_queue_xmit_nit
+Date: Tue, 21 Dec 2010 10:50:43 -0800 (PST)
+Message-ID: <20101221.105043.226759798.davem@davemloft.net>
+References: <1292577988.2906.1.camel@edumazet-laptop>
+	<1292916171.2627.184.camel@edumazet-laptop>
+	<AANLkTin6pzkUAcmH12ywTsRAABEKch9=iHziZ0oURZYd@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Nandita Dukkipati <nanditad@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Tom Herbert <therbert@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: John Heffner <johnwheffner@gmail.com>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
+	jarkao2@gmail.com
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:49219 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752136Ab0LUStN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 13:49:13 -0500
-Received: by wwa36 with SMTP id 36so4458722wwa.1
-        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 10:49:12 -0800 (PST)
-In-Reply-To: <AANLkTikcS-U9yA05dTp_y4EciwtUsjSonjc+bkA=57=4@mail.gmail.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56334
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752709Ab0LUSuO convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Dec 2010 13:50:14 -0500
+In-Reply-To: <AANLkTin6pzkUAcmH12ywTsRAABEKch9=iHziZ0oURZYd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 21 d=C3=A9cembre 2010 =C3=A0 13:27 -0500, John Heffner a =C3=A9=
-crit :
-> I know this has already been applied, but one thing to think about:
-> Linux announces a small initial window to prevent overflowing the
-> receive buffer when receiving segments smaller than the link MTU.
+=46rom: Changli Gao <xiaosuo@gmail.com>
+Date: Tue, 21 Dec 2010 15:56:17 +0800
 
-Overflowing receive buffer ? Which one ? Do you mean NIC RX ring
-buffer ?
-
-> Increasing this even to 10 segments might have some negative
-> consequences.  I recall, for instance, some drivers when configured
-> with a 9000 byte MTU, have a single pool of receive buffers all 16k
-> (the next highest power of 2).  So each received segment will get 16k
-> of allocated memory accounted to it, even if the incoming segments ar=
-e
-> <=3D1460 bytes long.  The default initial rcvbuf of 87380 bytes is le=
-ss
-> than the 160k of memory that the initial window might consume, so
-> we're going to start hitting the very slow path of coalescing segment=
-s
-> to get back under memory bounds.
-
-Patch is not allowing 87380 bytes, but 10 segments, limited to 14600
-bytes. Its very conservative IMHO.
-
+> On Tue, Dec 21, 2010 at 3:22 PM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+>> Le vendredi 17 d=E9cembre 2010 =E0 10:26 +0100, Eric Dumazet a =E9cr=
+it :
+>> [PATCH net-next-2.6] net: timestamp cloned packet in dev_queue_xmit_=
+nit
+>>
+>> Now we do one clone of skb if at least one sniffer might take packet=
+,
+>> we also can do the skb timestamping on the clone and let original pa=
+cket
+>> unchanged.
+>>
+>> This is a generalization of commit 8caf153974f2 (net: sch_netem: Fix=
+ an
+>> inconsistency in ingress netem timestamps.)
+>>
+>> This way, we can have a good idea when packets are delivered to our
+>> stack (tcpdump -i ifb0), while a tcpdump on original device gives
+>> timestamps right before ingressing.
+>>
+>> This also speedup our stack, avoiding taking timestamps if not neede=
+d.
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Cc: Changli Gao <xiaosuo@gmail.com>
+>> Cc: Patrick McHardy <kaber@trash.net>
+>> Cc: Jarek Poplawski <jarkao2@gmail.com>
 >=20
-> Some drivers are smarter about having multiple pools of receive
-> buffers with different sizes, so it might not be so easy to hit this
-> condition.  I haven't looked at any of them for a while.  Is this
-> still a real concern?
+> Acked-by: Changli Gao <xiaosuo@gmail.com>
 
-I dont think so. You would have problem anyway, since the patch changes
-only _initial_ receive window. After some kbytes of data exchanged,
-window is probably larger.
-
-
+Applied, thanks.
