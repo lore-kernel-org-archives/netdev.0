@@ -1,96 +1,113 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Using ethernet device as efficient small packet generator
-Date: Tue, 21 Dec 2010 10:22:46 -0800
-Message-ID: <20101221102246.5ec107b9@nehalam>
-References: <3dbea0c095731ef843058388c29df8c1.squirrel@www.liukuma.net>
+From: John Heffner <johnwheffner@gmail.com>
+Subject: Re: [PATCH 1/1] TCP: increase default initial receive window.
+Date: Tue, 21 Dec 2010 13:27:00 -0500
+Message-ID: <AANLkTikcS-U9yA05dTp_y4EciwtUsjSonjc+bkA=57=4@mail.gmail.com>
+References: <1292642451-892-1-git-send-email-nanditad@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: juice@swagman.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Tom Herbert <therbert@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Nandita Dukkipati <nanditad@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51950 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751280Ab0LUSWy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 13:22:54 -0500
-In-Reply-To: <3dbea0c095731ef843058388c29df8c1.squirrel@www.liukuma.net>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:61556 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751042Ab0LUS1C convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 13:27:02 -0500
+Received: by bwz16 with SMTP id 16so4890810bwz.4
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 10:27:00 -0800 (PST)
+In-Reply-To: <1292642451-892-1-git-send-email-nanditad@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Dec 2010 11:56:42 +0200
-"juice" <juice@swagman.org> wrote:
+I know this has already been applied, but one thing to think about:
+Linux announces a small initial window to prevent overflowing the
+receive buffer when receiving segments smaller than the link MTU.
+Increasing this even to 10 segments might have some negative
+consequences.  I recall, for instance, some drivers when configured
+with a 9000 byte MTU, have a single pool of receive buffers all 16k
+(the next highest power of 2).  So each received segment will get 16k
+of allocated memory accounted to it, even if the incoming segments are
+<=3D1460 bytes long.  The default initial rcvbuf of 87380 bytes is less
+than the 160k of memory that the initial window might consume, so
+we're going to start hitting the very slow path of coalescing segments
+to get back under memory bounds.
 
-> 
-> Hi net-devvers.
-> 
-> I am involved in telecom equipment R&D, and I need to do some network
-> performance benchmarking. We need to generate streams of Ethernet/IP/UDP
-> traffic that consists of different sized payloads ranging from smallest
-> AMR payload to ethernet MTU.
-> 
-> We have various tools including for example Spirent traffic generators
-> as well as in-house made software generating 3GPP specified protocol
-> streams. Now, the problem with the off-the-shelf generators is the
-> inflexibility in our needs and the unavailability to R&D personnel to
-> have the generator available at any given time.
-> 
-> For larger packet sizes our linux-based generator is quite sufficent,
-> as I can use it to fully saturate GE link with packet sizes around 1kB.
-> However, as packet sizes get smalles ethernet performance suffers.
-> 
-> I did some benchmarking using pktgen with 64B packets against AX4000 and
-> confirmed that the maximun throughput is only around 25% of GE capacity.
-> I managed to get to about same speeds using own custom module that writes
-> skbuffs directly to kernel *xmit of the netdev.
-> 
-> Now, it is evident that something is not optimized to the maximum here
-> as PCI bus allows for way higher transfer speeds. If large packets can
-> fully saturate the ethernet link same should apply for minimum sized
-> packets too, unless there is some overhead I am unaware of.
-> 
-> I have couple of questions here:
-> 
-> 1.) Is it possible to enhance the "normal" behaving network driver so
->     that the device would still work as an ethernet device (ethxx)?
-> 
->     Currently the test stream is generated in userland process that
->     writes to RAW_SOCK, but it is OK for me if I need to write the
->     packet generating part as a kernel module that is configured
->     from the userland part to send the prepared stream out.
-> 
-> 2.) If it is not possible to get the needed performance from normal
->     network architecture, is it possible to make a "generate only"
->     ethernet device that I can use to replace the network card driver?
-> 
->     For example, RX is not really needed at all by my application, so
->     just optimizing the driver to send out packets from memory as fast
->     as possible is enough.
-> 
->     Are there notable differences between ethernet chipsets/cards
->     regarding to the raw output speed they are capable?
->     I have benchmarked e1000, r8169 ang tg3 based cards and with all
->     of those I get about same throughput of 64byte ethernet frames.
-> 
->     For my purpose, it would be OK, for example, to remove the normal
->     r8169 driver and replace it with a custom TX-only driver, and use
->     some other normal driver tied to another card to access the box.
-> 
-> I appreciate your comments and any pointers to existing projects that
-> have similar implementation that I require.
-> 
-> Yours, Jussi Ohenoja
+Some drivers are smarter about having multiple pools of receive
+buffers with different sizes, so it might not be so easy to hit this
+condition.  I haven't looked at any of them for a while.  Is this
+still a real concern?
 
-I regularly get full 1G line rate of 64 byte packets using old Opteron
-box and pktgen.  It does require some tuning of IRQ's and interrupt mitigation but
-no patches. Did you remember to do the basic stuff like setting IRQ affinity
-and not enabling debugging or tracing in the kernel? This is on sky2, but
-also using e1000 and tg3. Others have reported 7M packets per second over 10G cards.
-The r8169 hardware is low end consumer hardware and doesn't work as well.
-
-It is possible to get close to 1G line rate forwarding with a single core with current
-generation processors. Actual rate depends on hardware and configuration (size of route
-table, firewalling, etc).  Much better performance with multi-queue hardware to spread load
-over multiple cores.
+Thanks,
+  -John
 
 
--- 
+On Fri, Dec 17, 2010 at 10:20 PM, Nandita Dukkipati <nanditad@google.co=
+m> wrote:
+> This patch changes the default initial receive window to 10 mss
+> (defined constant). The default window is limited to the maximum
+> of 10*1460 and 2*mss (when mss > 1460).
+>
+> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+> ---
+> =A0include/net/tcp.h =A0 =A0 | =A0 =A03 +++
+> =A0net/ipv4/tcp_output.c | =A0 11 ++++++++---
+> =A02 files changed, 11 insertions(+), 3 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 2ab6c9c..6c25ba8 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -60,6 +60,9 @@ extern void tcp_time_wait(struct sock *sk, int stat=
+e, int timeo);
+> =A0*/
+> =A0#define MAX_TCP_WINDOW =A0 =A0 =A0 =A0 32767U
+>
+> +/* Offer an initial receive window of 10 mss. */
+> +#define TCP_DEFAULT_INIT_RCVWND =A0 =A0 =A0 =A010
+> +
+> =A0/* Minimal accepted MSS. It is (60+60+8) - (20+20). */
+> =A0#define TCP_MIN_MSS =A0 =A0 =A0 =A0 =A0 =A088U
+>
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index 2d39066..dc7c096 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -228,10 +228,15 @@ void tcp_select_initial_window(int __space, __u=
+32 mss,
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
+> =A0 =A0 =A0 =A0}
+>
+> - =A0 =A0 =A0 /* Set initial window to value enough for senders, foll=
+owing RFC5681. */
+> + =A0 =A0 =A0 /* Set initial window to a value enough for senders sta=
+rting with
+> + =A0 =A0 =A0 =A0* initial congestion window of TCP_DEFAULT_INIT_RCVW=
+ND. Place
+> + =A0 =A0 =A0 =A0* a limit on the initial window when mss is larger t=
+han 1460.
+> + =A0 =A0 =A0 =A0*/
+> =A0 =A0 =A0 =A0if (mss > (1 << *rcv_wscale)) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 int init_cwnd =3D rfc3390_bytes_to_pack=
+ets(mss);
+> -
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 int init_cwnd =3D TCP_DEFAULT_INIT_RCVW=
+ND;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (mss > 1460)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 init_cwnd =3D
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 max_t(u32, (1460 * TCP_=
+DEFAULT_INIT_RCVWND) / mss, 2);
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0/* when initializing use the value fro=
+m init_rcv_wnd
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 * rather than the default from above
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 */
+> --
+> 1.7.3.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+>
