@@ -1,43 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bnx2: remove cancel_work_sync() from
- remove_one
-Date: Tue, 21 Dec 2010 12:20:00 -0800 (PST)
-Message-ID: <20101221.122000.183069341.davem@davemloft.net>
-References: <4D08C81D.8020606@kernel.org>
-	<20101220.131146.115941299.davem@davemloft.net>
-	<20101221105103.GA32744@htj.dyndns.org>
+Subject: Re: [PATCH net-next-2.6] filter: optimize accesses to ancillary
+ data
+Date: Tue, 21 Dec 2010 12:30:25 -0800 (PST)
+Message-ID: <20101221.123025.59692663.davem@davemloft.net>
+References: <1292478328.2603.56.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tj@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101221105103.GA32744@htj.dyndns.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57471
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752971Ab0LUU34 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 15:29:56 -0500
+In-Reply-To: <1292478328.2603.56.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tejun Heo <tj@kernel.org>
-Date: Tue, 21 Dec 2010 11:51:04 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 16 Dec 2010 06:45:28 +0100
 
-> Yeah, I agree the synchronize_rcu() there would guarantee the actual
-> timer completion but as it currently stands it looks a bit too subtle.
-> Maybe it's a good idea to add a big fat comment explaining that the
-> the timer is guaranteed to stop after close() and how it's guaranteed
-> through synchronize_rcu() at the moment?  Also, it might be better to
-> use synchronize_sched() there as timer synchronization through
-> synchronize_rcu() is more of a happy accident.
+> We can translate pseudo load instructions at filter check time to
+> dedicated instructions to speed up filtering and avoid one switch().
+> libpcap currently uses SKF_AD_PROTOCOL, but custom filters probably use
+> other ancillary accesses.
+> 
+> Note : I made the assertion that ancillary data was always accessed with
+> BPF_LD|BPF_?|BPF_ABS instructions, not with BPF_LD|BPF_?|BPF_IND ones
+> (offset given by K constant, not by K + X register)
+> 
+> On x86_64, this saves a few bytes of text :
+> 
+> # size net/core/filter.o.*
+>    text	   data	    bss	    dec	    hex	filename
+>    4864	      0	      0	   4864	   1300	net/core/filter.o.new
+>    4944	      0	      0	   4944	   1350	net/core/filter.o.old
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-I'm not sure the synchronize_*() is even necessary to guarentee
-watchdog timer completion.
-
-Like I said, I think the netif_tx_lock() held around both the timer
-function itself, and the del_timer() call, are sufficient.
-
-So, this ensures that the watchdog timer either runs to completion or
-sees the no-op scheduler attached and returns immediately without
-rescheduling the timer.
-
-In any event, I'm going to apply your bnx2 patch to net-next-2.6
-
-Thanks.
+Applied, thanks Eric.
