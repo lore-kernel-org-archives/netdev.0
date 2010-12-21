@@ -1,7 +1,9 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next-2.6 PATCH v2 1/3] net: implement mechanism for HW based QOS
-Date: Tue, 21 Dec 2010 11:28:31 -0800
-Message-ID: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
+Subject: [net-next-2.6 PATCH v2 2/3] net_sched: Allow multiple mq qdisc to be
+	used as non-root
+Date: Tue, 21 Dec 2010 11:29:25 -0800
+Message-ID: <20101221192925.9703.68157.stgit@jf-dev1-dcblab>
+References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,182 +13,170 @@ Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
 	nhorman@tuxdriver.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:14425 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:7025 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751013Ab0LUTcc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 14:32:32 -0500
+	id S1751223Ab0LUTci (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Dec 2010 14:32:38 -0500
+In-Reply-To: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides a mechanism for lower layer devices to
-steer traffic using skb->priority to tx queues. This allows
-for hardware based QOS schemes to use the default qdisc without
-incurring the penalties related to global state and the qdisc
-lock. While reliably receiving skbs on the correct tx ring
-to avoid head of line blocking resulting from shuffling in
-the LLD. Finally, all the goodness from txq caching and xps/rps
-can still be leveraged.
+This patch modifies the mq qdisc to allow multiple mq qdiscs
+to be used. Allowing TX queues to be grouped for management.
 
-Many drivers and hardware exist with the ability to implement
-QOS schemes in the hardware but currently these drivers tend
-to rely on firmware to reroute specific traffic, a driver
-specific select_queue or the queue_mapping action in the
-qdisc.
-
-By using select_queue for this drivers need to be updated for
-each and every traffic type and we lose the goodness of much
-of the upstream work. Firmware solutions are inherently
-inflexible. And finally if admins are expected to build a
-qdisc and filter rules to steer traffic this requires knowledge
-of how the hardware is currently configured. The number of tx
-queues and the queue offsets may change depending on resources.
-Also this approach incurs all the overhead of a qdisc with filters.
-
-With the mechanism in this patch users can set skb priority using
-expected methods ie setsockopt() or the stack can set the priority
-directly. Then the skb will be steered to the correct tx queues
-aligned with hardware QOS traffic classes. In the normal case with
-a single traffic class and all queues in this class everything
-works as is until the LLD enables multiple tcs.
-
-To steer the skb we mask out the lower 4 bits of the priority
-and allow the hardware to configure upto 15 distinct classes
-of traffic. This is expected to be sufficient for most applications
-at any rate it is more then the 8021Q spec designates and is
-equal to the number of prio bands currently implemented in
-the default qdisc.
-
-This in conjunction with a userspace application such as
-lldpad can be used to implement 8021Q transmission selection
-algorithms one of these algorithms being the extended transmission
-selection algorithm currently being used for DCB.
+This allows a root container qdisc to create multiple traffic
+classes and use the mq qdisc as a default queueing discipline. It
+is expected other queueing disciplines can then be grafted to the
+container as needed.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 ---
 
- include/linux/netdevice.h |   62 +++++++++++++++++++++++++++++++++++++++++++++
- net/core/dev.c            |   10 +++++++
- 2 files changed, 71 insertions(+), 1 deletions(-)
+ net/sched/sch_mq.c |   52 +++++++++++++++++++++++++++++++++++++---------------
+ 1 files changed, 37 insertions(+), 15 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cc916c5..453b2d7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -646,6 +646,14 @@ struct xps_dev_maps {
-     (nr_cpu_ids * sizeof(struct xps_map *)))
- #endif /* CONFIG_XPS */
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index ecc302f..86da74c 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -19,17 +19,32 @@
  
-+#define TC_MAX_QUEUE	16
-+#define TC_BITMASK	15
-+/* HW offloaded queuing disciplines txq count and offset maps */
-+struct netdev_tc_txq {
-+	u16 count;
-+	u16 offset;
-+};
-+
- /*
-  * This structure defines the management hooks for network devices.
-  * The following hooks can be defined; unless noted otherwise, they are
-@@ -1146,6 +1154,9 @@ struct net_device {
- 	/* Data Center Bridging netlink ops */
- 	const struct dcbnl_rtnl_ops *dcbnl_ops;
- #endif
+ struct mq_sched {
+ 	struct Qdisc		**qdiscs;
++	struct netdev_tc_txq	tc_txq;
 +	u8 num_tc;
-+	struct netdev_tc_txq tc_to_txq[TC_MAX_QUEUE];
-+	u8 prio_tc_map[TC_MAX_QUEUE];
+ };
  
- #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
- 	/* max exchange id for FCoE LRO by ddp */
-@@ -1162,6 +1173,57 @@ struct net_device {
- #define	NETDEV_ALIGN		32
- 
- static inline
-+int netdev_get_prio_tc_map(const struct net_device *dev, u32 prio)
++static void mq_queues(struct net_device *dev, struct Qdisc *sch)
 +{
-+	return dev->prio_tc_map[prio & TC_BITMASK];
++	struct mq_sched *priv = qdisc_priv(sch);
++	if (priv->num_tc) {
++		int queue = TC_H_MIN(sch->parent) - 1;
++		priv->tc_txq.count = dev->tc_to_txq[queue].count;
++		priv->tc_txq.offset = dev->tc_to_txq[queue].offset;
++	} else {
++		priv->tc_txq.count = dev->num_tx_queues;
++		priv->tc_txq.offset = 0;
++	}
 +}
 +
-+static inline
-+int netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
-+{
-+	if (tc >= dev->num_tc)
-+		return -EINVAL;
-+
-+	dev->prio_tc_map[prio & TC_BITMASK] = tc & TC_BITMASK;
-+	return 0;
-+}
-+
-+static inline
-+void netdev_reset_tc(struct net_device *dev)
-+{
-+	dev->num_tc = 0;
-+	memset(dev->tc_to_txq, 0, sizeof(dev->tc_to_txq));
-+	memset(dev->prio_tc_map, 0, sizeof(dev->prio_tc_map));
-+}
-+
-+static inline
-+int netdev_set_tc_queue(struct net_device *dev, u8 tc, u16 count, u16 offset)
-+{
-+	if (tc >= dev->num_tc)
-+		return -EINVAL;
-+
-+	dev->tc_to_txq[tc].count = count;
-+	dev->tc_to_txq[tc].offset = offset;
-+	return 0;
-+}
-+
-+static inline
-+int netdev_set_num_tc(struct net_device *dev, u8 num_tc)
-+{
-+	if (num_tc > TC_MAX_QUEUE)
-+		return -EINVAL;
-+
-+	dev->num_tc = num_tc;
-+	return 0;
-+}
-+
-+static inline
-+u8 netdev_get_num_tc(const struct net_device *dev)
-+{
-+	return dev->num_tc;
-+}
-+
-+static inline
- struct netdev_queue *netdev_get_tx_queue(const struct net_device *dev,
- 					 unsigned int index)
+ static void mq_destroy(struct Qdisc *sch)
  {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5987729..5e7832e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2170,6 +2170,8 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
- 		  unsigned int num_tx_queues)
- {
- 	u32 hash;
-+	u16 qoffset = 0;
-+	u16 qcount = num_tx_queues;
+-	struct net_device *dev = qdisc_dev(sch);
+ 	struct mq_sched *priv = qdisc_priv(sch);
+ 	unsigned int ntx;
  
- 	if (skb_rx_queue_recorded(skb)) {
- 		hash = skb_get_rx_queue(skb);
-@@ -2178,13 +2180,19 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
- 		return hash;
+ 	if (!priv->qdiscs)
+ 		return;
+-	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
++
++	for (ntx = 0; ntx < priv->tc_txq.count && priv->qdiscs[ntx]; ntx++)
+ 		qdisc_destroy(priv->qdiscs[ntx]);
+ 	kfree(priv->qdiscs);
+ }
+@@ -42,20 +57,24 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
+ 	struct Qdisc *qdisc;
+ 	unsigned int ntx;
+ 
+-	if (sch->parent != TC_H_ROOT)
++	if (sch->parent != TC_H_ROOT && !dev->num_tc)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (!netif_is_multiqueue(dev))
+ 		return -EOPNOTSUPP;
+ 
++	/* Record num tc info in priv so we can tear down cleanly */
++	priv->num_tc = dev->num_tc;
++	mq_queues(dev, sch);
++
+ 	/* pre-allocate qdiscs, attachment can't fail */
+-	priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
++	priv->qdiscs = kcalloc(priv->tc_txq.count, sizeof(priv->qdiscs[0]),
+ 			       GFP_KERNEL);
+ 	if (priv->qdiscs == NULL)
+ 		return -ENOMEM;
+ 
+-	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
+-		dev_queue = netdev_get_tx_queue(dev, ntx);
++	for (ntx = 0; ntx < priv->tc_txq.count; ntx++) {
++		dev_queue = netdev_get_tx_queue(dev, ntx + priv->tc_txq.offset);
+ 		qdisc = qdisc_create_dflt(dev_queue, &pfifo_fast_ops,
+ 					  TC_H_MAKE(TC_H_MAJ(sch->handle),
+ 						    TC_H_MIN(ntx + 1)));
+@@ -65,7 +84,8 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
+ 		priv->qdiscs[ntx] = qdisc;
  	}
  
-+	if (dev->num_tc) {
-+		u8 tc = netdev_get_prio_tc_map(dev, skb->priority);
-+		qoffset = dev->tc_to_txq[tc].offset;
-+		qcount = dev->tc_to_txq[tc].count;
-+	}
-+
- 	if (skb->sk && skb->sk->sk_hash)
- 		hash = skb->sk->sk_hash;
- 	else
- 		hash = (__force u16) skb->protocol ^ skb->rxhash;
- 	hash = jhash_1word(hash, hashrnd);
+-	sch->flags |= TCQ_F_MQROOT;
++	if (!priv->num_tc)
++		sch->flags |= TCQ_F_MQROOT;
+ 	return 0;
  
--	return (u16) (((u64) hash * num_tx_queues) >> 32);
-+	return (u16) (((u64) hash * qcount) >> 32) + qoffset;
+ err:
+@@ -75,12 +95,11 @@ err:
+ 
+ static void mq_attach(struct Qdisc *sch)
+ {
+-	struct net_device *dev = qdisc_dev(sch);
+ 	struct mq_sched *priv = qdisc_priv(sch);
+ 	struct Qdisc *qdisc;
+ 	unsigned int ntx;
+ 
+-	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
++	for (ntx = 0; ntx < priv->tc_txq.count; ntx++) {
+ 		qdisc = priv->qdiscs[ntx];
+ 		qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
+ 		if (qdisc)
+@@ -93,6 +112,7 @@ static void mq_attach(struct Qdisc *sch)
+ static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = qdisc_dev(sch);
++	struct mq_sched *priv = qdisc_priv(sch);
+ 	struct Qdisc *qdisc;
+ 	unsigned int ntx;
+ 
+@@ -100,8 +120,9 @@ static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ 	memset(&sch->bstats, 0, sizeof(sch->bstats));
+ 	memset(&sch->qstats, 0, sizeof(sch->qstats));
+ 
+-	for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
+-		qdisc = netdev_get_tx_queue(dev, ntx)->qdisc_sleeping;
++	for (ntx = 0; ntx < priv->tc_txq.count; ntx++) {
++		int txq = ntx + priv->tc_txq.offset;
++		qdisc = netdev_get_tx_queue(dev, txq)->qdisc_sleeping;
+ 		spin_lock_bh(qdisc_lock(qdisc));
+ 		sch->q.qlen		+= qdisc->q.qlen;
+ 		sch->bstats.bytes	+= qdisc->bstats.bytes;
+@@ -119,11 +140,12 @@ static int mq_dump(struct Qdisc *sch, struct sk_buff *skb)
+ static struct netdev_queue *mq_queue_get(struct Qdisc *sch, unsigned long cl)
+ {
+ 	struct net_device *dev = qdisc_dev(sch);
++	struct mq_sched *priv = qdisc_priv(sch);
+ 	unsigned long ntx = cl - 1;
+ 
+-	if (ntx >= dev->num_tx_queues)
++	if (ntx >= priv->tc_txq.count)
+ 		return NULL;
+-	return netdev_get_tx_queue(dev, ntx);
++	return netdev_get_tx_queue(dev, priv->tc_txq.offset + ntx);
  }
- EXPORT_SYMBOL(__skb_tx_hash);
  
+ static struct netdev_queue *mq_select_queue(struct Qdisc *sch,
+@@ -202,14 +224,14 @@ static int mq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 
+ static void mq_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+ {
+-	struct net_device *dev = qdisc_dev(sch);
++	struct mq_sched *priv = qdisc_priv(sch);
+ 	unsigned int ntx;
+ 
+ 	if (arg->stop)
+ 		return;
+ 
+ 	arg->count = arg->skip;
+-	for (ntx = arg->skip; ntx < dev->num_tx_queues; ntx++) {
++	for (ntx = arg->skip; ntx < priv->tc_txq.count; ntx++) {
+ 		if (arg->fn(sch, ntx + 1, arg) < 0) {
+ 			arg->stop = 1;
+ 			break;
 
