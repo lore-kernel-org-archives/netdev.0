@@ -1,277 +1,184 @@
 From: "Shmulik Ravid" <shmulikr@broadcom.com>
-Subject: [PATCH net-next 2/3] dcbnl: adding DCBX feature flags get-set
-Date: Tue, 21 Dec 2010 21:32:53 +0200
-Message-ID: <1292959973.7142.131.camel@lb-tlvb-shmulik.il.broadcom.com>
+Subject: [PATCH net-next 1/3] dcbnl: adding DCBX engine capability
+Date: Tue, 21 Dec 2010 21:32:43 +0200
+Message-ID: <1292959963.7142.130.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, lucy.liu@intel.com, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1248 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4636 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752845Ab0LUTdF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 14:33:05 -0500
+	id S1751493Ab0LUTdJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Dec 2010 14:33:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adding a pair of set-get functions to dcbnl for setting the negotiation
-flags of the various DCB features. The user sets these flags (enable,
-advertise, willing) for each feature to be used by the device DCBX
-engine. The 'get' routine returns which of the features is enabled
-after the negotiation.
+Adding an optional DCBX capability and a pair for get-set routines for
+setting the device DCBX mode. The DCBX capability is a bit field of
+supported attributes. The user is expected to set the DCBX mode with a
+subset of the advertised attributes.
+
 
 Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
 ---
- include/linux/dcbnl.h |   33 ++++++++++++
- include/net/dcbnl.h   |    2 +
- net/dcb/dcbnl.c       |  133 +++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 168 insertions(+), 0 deletions(-)
+ include/linux/dcbnl.h |   17 +++++++++++++++++
+ include/net/dcbnl.h   |    2 ++
+ net/dcb/dcbnl.c       |   42 ++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 61 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-index 974fd1e..681c1f2 100644
+index 8723491..974fd1e 100644
 --- a/include/linux/dcbnl.h
 +++ b/include/linux/dcbnl.h
-@@ -52,6 +52,8 @@ struct dcbmsg {
+@@ -50,6 +50,8 @@ struct dcbmsg {
+  * @DCB_CMD_SBCN: get backward congestion notification configration.
+  * @DCB_CMD_GAPP: get application protocol configuration
   * @DCB_CMD_SAPP: set application protocol configuration
-  * @DCB_CMD_GDCBX: get DCBX engine configuration
-  * @DCB_CMD_SDCBX: set DCBX engine configuration
-+ * @DCB_CMD_GFEATCFG: get DCBX features flags
-+ * @DCB_CMD_SFEATCFG: set DCBX features negotiation flags
++ * @DCB_CMD_GDCBX: get DCBX engine configuration
++ * @DCB_CMD_SDCBX: set DCBX engine configuration
   */
  enum dcbnl_commands {
  	DCB_CMD_UNDEFINED,
-@@ -88,6 +90,9 @@ enum dcbnl_commands {
- 	DCB_CMD_GDCBX,
- 	DCB_CMD_SDCBX,
+@@ -83,6 +85,9 @@ enum dcbnl_commands {
+ 	DCB_CMD_GAPP,
+ 	DCB_CMD_SAPP,
  
-+	DCB_CMD_GFEATCFG,
-+	DCB_CMD_SFEATCFG,
++	DCB_CMD_GDCBX,
++	DCB_CMD_SDCBX,
 +
  	__DCB_CMD_ENUM_MAX,
  	DCB_CMD_MAX = __DCB_CMD_ENUM_MAX - 1,
  };
-@@ -108,6 +113,7 @@ enum dcbnl_commands {
+@@ -102,6 +107,7 @@ enum dcbnl_commands {
+  * @DCB_ATTR_CAP: DCB capabilities of the device (NLA_NESTED)
   * @DCB_ATTR_NUMTCS: number of traffic classes supported (NLA_NESTED)
   * @DCB_ATTR_BCN: backward congestion notification configuration (NLA_NESTED)
-  * @DCB_ATTR_DCBX: DCBX engine configuration in the device (NLA_U8)
-+ * @DCB_ATTR_FEATCFG: DCBX features flags (NLA_NESTED)
++ * @DCB_ATTR_DCBX: DCBX engine configuration in the device (NLA_U8)
   */
  enum dcbnl_attrs {
  	DCB_ATTR_UNDEFINED,
-@@ -125,6 +131,7 @@ enum dcbnl_attrs {
+@@ -118,6 +124,7 @@ enum dcbnl_attrs {
+ 	DCB_ATTR_NUMTCS,
  	DCB_ATTR_BCN,
  	DCB_ATTR_APP,
- 	DCB_ATTR_DCBX,
-+	DCB_ATTR_FEATCFG,
++	DCB_ATTR_DCBX,
  
  	__DCB_ATTR_ENUM_MAX,
  	DCB_ATTR_MAX = __DCB_ATTR_ENUM_MAX - 1,
-@@ -372,4 +379,30 @@ enum dcbnl_app_attrs {
- 	DCB_APP_ATTR_MAX = __DCB_APP_ATTR_ENUM_MAX - 1,
+@@ -262,6 +269,8 @@ enum dcbnl_tc_attrs {
+  * @DCB_CAP_ATTR_GSP: (NLA_U8) device supports group strict priority
+  * @DCB_CAP_ATTR_BCN: (NLA_U8) device supports Backwards Congestion
+  *                             Notification
++ * @DCB_CAP_ATTR_DCBX: (NLA_U8) device supports DCBX engine
++ *
+  */
+ enum dcbnl_cap_attrs {
+ 	DCB_CAP_ATTR_UNDEFINED,
+@@ -273,11 +282,19 @@ enum dcbnl_cap_attrs {
+ 	DCB_CAP_ATTR_PFC_TCS,
+ 	DCB_CAP_ATTR_GSP,
+ 	DCB_CAP_ATTR_BCN,
++	DCB_CAP_ATTR_DCBX,
+ 
+ 	__DCB_CAP_ATTR_ENUM_MAX,
+ 	DCB_CAP_ATTR_MAX = __DCB_CAP_ATTR_ENUM_MAX - 1,
  };
  
-+/**
-+ * enum dcbnl_featcfg_attrs - features conifiguration flags
-+ *
-+ * @DCB_FEATCFG_ATTR_UNDEFINED: unspecified attribute to catch errors
-+ * @DCB_FEATCFG_ATTR_ALL: (NLA_FLAG) all features configuration attributes
-+ * @DCB_FEATCFG_ATTR_PG: (NLA_U8) configuration flags for priority groups
-+ * @DCB_FEATCFG_ATTR_PFC: (NLA_U8) configuration flags for priority
-+ *                                 flow control
-+ * @DCB_FEATCFG_ATTR_APP: (NLA_U8) configuration flags for application TLV
-+ *
-+ */
-+#define DCB_FEATCFG_ENABLE	0x01	/* enable feature */
-+#define DCB_FEATCFG_ADVERTISE	0x02	/* advertise feature */
-+#define DCB_FEATCFG_WILLING	0x04	/* feature is willing */
-+#define DCB_FEATCFG_ERROR	0x08	/* error in feature resolution */
-+enum dcbnl_featcfg_attrs {
-+	DCB_FEATCFG_ATTR_UNDEFINED,
-+	DCB_FEATCFG_ATTR_ALL,
-+	DCB_FEATCFG_ATTR_PG,
-+	DCB_FEATCFG_ATTR_PFC,
-+	DCB_FEATCFG_ATTR_APP,
++/* DCBX capabilities */
++#define DCB_CAP_DCBX_HOST	0x01 /* host based DCBX engine support */
++#define DCB_CAP_DCBX_HW		0x02 /* HW DCBX engine support */
++#define DCB_CAP_DCBX_VER_CEE	0x04 /* HW DCBX supports CEE protocol */
++#define DCB_CAP_DCBX_VER_IEEE	0x08 /* HW DCBX supports IEEE protocol */
++#define DCB_CAP_DCBX_STATIC	0x10 /* HW DCBX supports static config */
 +
-+	__DCB_FEATCFG_ATTR_ENUM_MAX,
-+	DCB_FEATCFG_ATTR_MAX = __DCB_FEATCFG_ATTR_ENUM_MAX - 1,
-+};
-+
- #endif /* __LINUX_DCBNL_H__ */
+ /**
+  * enum dcbnl_numtcs_attrs - number of traffic classes
+  *
 diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index f03079f..92735af 100644
+index b36ac7e..f03079f 100644
 --- a/include/net/dcbnl.h
 +++ b/include/net/dcbnl.h
-@@ -52,6 +52,8 @@ struct dcbnl_rtnl_ops {
+@@ -50,6 +50,8 @@ struct dcbnl_rtnl_ops {
+ 	void (*setbcnrp)(struct net_device *, int, u8);
+ 	u8   (*setapp)(struct net_device *, u8, u16, u8);
  	u8   (*getapp)(struct net_device *, u8, u16);
- 	u8   (*getdcbx)(struct net_device *);
- 	u8   (*setdcbx)(struct net_device *, u8);
-+	u8   (*getfeatcfg)(struct net_device *, int, u8 *);
-+	u8   (*setfeatcfg)(struct net_device *, int, u8);
++	u8   (*getdcbx)(struct net_device *);
++	u8   (*setdcbx)(struct net_device *, u8);
  };
  
  #endif /* __NET_DCBNL_H__ */
 diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 44e4237..d066c62 100644
+index 19ac2b9..44e4237 100644
 --- a/net/dcb/dcbnl.c
 +++ b/net/dcb/dcbnl.c
-@@ -67,6 +67,7 @@ static const struct nla_policy dcbnl_rtnl_policy[DCB_ATTR_MAX + 1] = {
+@@ -66,6 +66,7 @@ static const struct nla_policy dcbnl_rtnl_policy[DCB_ATTR_MAX + 1] = {
+ 	[DCB_ATTR_PFC_STATE]   = {.type = NLA_U8},
  	[DCB_ATTR_BCN]         = {.type = NLA_NESTED},
  	[DCB_ATTR_APP]         = {.type = NLA_NESTED},
- 	[DCB_ATTR_DCBX]        = {.type = NLA_U8},
-+	[DCB_ATTR_FEATCFG]     = {.type = NLA_NESTED},
++	[DCB_ATTR_DCBX]        = {.type = NLA_U8},
  };
  
  /* DCB priority flow control to User Priority nested attributes */
-@@ -169,6 +170,14 @@ static const struct nla_policy dcbnl_app_nest[DCB_APP_ATTR_MAX + 1] = {
- 	[DCB_APP_ATTR_PRIORITY]     = {.type = NLA_U8},
+@@ -122,6 +123,7 @@ static const struct nla_policy dcbnl_cap_nest[DCB_CAP_ATTR_MAX + 1] = {
+ 	[DCB_CAP_ATTR_PFC_TCS] = {.type = NLA_U8},
+ 	[DCB_CAP_ATTR_GSP]     = {.type = NLA_U8},
+ 	[DCB_CAP_ATTR_BCN]     = {.type = NLA_U8},
++	[DCB_CAP_ATTR_DCBX]    = {.type = NLA_U8},
  };
  
-+/* DCB number of traffic classes nested attributes. */
-+static const struct nla_policy dcbnl_featcfg_nest[DCB_FEATCFG_ATTR_MAX + 1] = {
-+	[DCB_FEATCFG_ATTR_ALL]      = {.type = NLA_FLAG},
-+	[DCB_FEATCFG_ATTR_PG]       = {.type = NLA_U8},
-+	[DCB_FEATCFG_ATTR_PFC]      = {.type = NLA_U8},
-+	[DCB_FEATCFG_ATTR_APP]      = {.type = NLA_U8},
-+};
-+
- /* standard netlink reply call */
- static int dcbnl_reply(u8 value, u8 event, u8 cmd, u8 attr, u32 pid,
-                        u32 seq, u16 flags)
-@@ -1152,6 +1161,122 @@ static int dcbnl_setdcbx(struct net_device *netdev, struct nlattr **tb,
+ /* DCB capabilities nested attributes. */
+@@ -1118,6 +1120,38 @@ err:
  	return ret;
  }
  
-+static int dcbnl_getfeatcfg(struct net_device *netdev, struct nlattr **tb,
-+			    u32 pid, u32 seq, u16 flags)
++static int dcbnl_getdcbx(struct net_device *netdev, struct nlattr **tb,
++			 u32 pid, u32 seq, u16 flags)
 +{
-+	struct sk_buff *dcbnl_skb;
-+	struct nlmsghdr *nlh;
-+	struct dcbmsg *dcb;
-+	struct nlattr *data[DCB_FEATCFG_ATTR_MAX + 1], *nest;
-+	u8 value;
 +	int ret = -EINVAL;
-+	int i;
-+	int getall = 0;
 +
-+	if (!tb[DCB_ATTR_FEATCFG] || !netdev->dcbnl_ops->getfeatcfg)
++	if (!netdev->dcbnl_ops->getdcbx)
 +		return ret;
 +
-+	ret = nla_parse_nested(data, DCB_FEATCFG_ATTR_MAX, tb[DCB_ATTR_FEATCFG],
-+			       dcbnl_featcfg_nest);
-+	if (ret) {
-+		ret = -EINVAL;
-+		goto err_out;
-+	}
++	ret = dcbnl_reply(netdev->dcbnl_ops->getdcbx(netdev), RTM_GETDCB,
++			  DCB_CMD_GDCBX, DCB_ATTR_DCBX, pid, seq, flags);
 +
-+	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!dcbnl_skb) {
-+		ret = -EINVAL;
-+		goto err_out;
-+	}
-+
-+	nlh = NLMSG_NEW(dcbnl_skb, pid, seq, RTM_GETDCB, sizeof(*dcb), flags);
-+
-+	dcb = NLMSG_DATA(nlh);
-+	dcb->dcb_family = AF_UNSPEC;
-+	dcb->cmd = DCB_CMD_GFEATCFG;
-+
-+	nest = nla_nest_start(dcbnl_skb, DCB_ATTR_FEATCFG);
-+	if (!nest) {
-+		ret = -EINVAL;
-+		goto err;
-+	}
-+
-+	if (data[DCB_FEATCFG_ATTR_ALL])
-+		getall = 1;
-+
-+	for (i = DCB_FEATCFG_ATTR_ALL+1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
-+		if (!getall && !data[i])
-+			continue;
-+
-+		ret = netdev->dcbnl_ops->getfeatcfg(netdev, i, &value);
-+		if (!ret) {
-+			ret = nla_put_u8(dcbnl_skb, i, value);
-+
-+			if (ret) {
-+				nla_nest_cancel(dcbnl_skb, nest);
-+				ret = -EINVAL;
-+				goto err;
-+			}
-+		} else
-+			goto err;
-+	}
-+	nla_nest_end(dcbnl_skb, nest);
-+
-+	nlmsg_end(dcbnl_skb, nlh);
-+
-+	ret = rtnl_unicast(dcbnl_skb, &init_net, pid);
-+	if (ret) {
-+		ret = -EINVAL;
-+		goto err_out;
-+	}
-+
-+	return 0;
-+nlmsg_failure:
-+err:
-+	kfree_skb(dcbnl_skb);
-+err_out:
 +	return ret;
 +}
 +
-+static int dcbnl_setfeatcfg(struct net_device *netdev, struct nlattr **tb,
-+			    u32 pid, u32 seq, u16 flags)
++static int dcbnl_setdcbx(struct net_device *netdev, struct nlattr **tb,
++			 u32 pid, u32 seq, u16 flags)
 +{
-+	struct nlattr *data[DCB_FEATCFG_ATTR_MAX + 1];
 +	int ret = -EINVAL;
 +	u8 value;
-+	int i;
 +
-+	if (!tb[DCB_ATTR_FEATCFG] || !netdev->dcbnl_ops->setfeatcfg)
++	if (!tb[DCB_ATTR_DCBX] || !netdev->dcbnl_ops->setdcbx)
 +		return ret;
 +
-+	ret = nla_parse_nested(data, DCB_FEATCFG_ATTR_MAX, tb[DCB_ATTR_FEATCFG],
-+			       dcbnl_featcfg_nest);
++	value = nla_get_u8(tb[DCB_ATTR_DCBX]);
 +
-+	if (ret) {
-+		ret = -EINVAL;
-+		goto err;
-+	}
++	ret = dcbnl_reply(netdev->dcbnl_ops->setdcbx(netdev, value),
++			  RTM_SETDCB, DCB_CMD_SDCBX, DCB_ATTR_DCBX,
++			  pid, seq, flags);
 +
-+	for (i = DCB_FEATCFG_ATTR_ALL+1; i <= DCB_FEATCFG_ATTR_MAX; i++) {
-+		if (data[i] == NULL)
-+			continue;
-+
-+		value = nla_get_u8(data[i]);
-+
-+		ret = netdev->dcbnl_ops->setfeatcfg(netdev, i, value);
-+
-+		if (ret)
-+			goto operr;
-+	}
-+
-+operr:
-+	ret = dcbnl_reply(!!ret, RTM_SETDCB, DCB_CMD_SFEATCFG,
-+			  DCB_ATTR_FEATCFG, pid, seq, flags);
-+
-+err:
 +	return ret;
 +}
 +
  static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
  {
  	struct net *net = sock_net(skb->sk);
-@@ -1265,6 +1390,14 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		ret = dcbnl_setdcbx(netdev, tb, pid, nlh->nlmsg_seq,
- 				    nlh->nlmsg_flags);
+@@ -1223,6 +1257,14 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
+ 		ret = dcbnl_setapp(netdev, tb, pid, nlh->nlmsg_seq,
+ 		                   nlh->nlmsg_flags);
  		goto out;
-+	case DCB_CMD_GFEATCFG:
-+		ret = dcbnl_getfeatcfg(netdev, tb, pid, nlh->nlmsg_seq,
-+				       nlh->nlmsg_flags);
++	case DCB_CMD_GDCBX:
++		ret = dcbnl_getdcbx(netdev, tb, pid, nlh->nlmsg_seq,
++				    nlh->nlmsg_flags);
 +		goto out;
-+	case DCB_CMD_SFEATCFG:
-+		ret = dcbnl_setfeatcfg(netdev, tb, pid, nlh->nlmsg_seq,
-+				       nlh->nlmsg_flags);
++	case DCB_CMD_SDCBX:
++		ret = dcbnl_setdcbx(netdev, tb, pid, nlh->nlmsg_seq,
++				    nlh->nlmsg_flags);
 +		goto out;
  	default:
  		goto errout;
