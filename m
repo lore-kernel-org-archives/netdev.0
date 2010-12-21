@@ -1,127 +1,80 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] sch_sfq: allow big packets and be fair
-Date: Tue, 21 Dec 2010 10:15:06 +0000
-Message-ID: <20101221101506.GA8149@ff.dom.local>
-References: <1292886976.2627.146.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: request-pull: Use static const
+Date: Tue, 21 Dec 2010 02:26:13 -0800
+Message-ID: <1292927173.1779.27.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:34716 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933556Ab0LUKPP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 05:15:15 -0500
-Received: by fxm18 with SMTP id 18so4106896fxm.2
-        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 02:15:14 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1292886976.2627.146.camel@edumazet-laptop>
+Received: from mail.perches.com ([173.55.12.10]:2797 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933625Ab0LUK0P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Dec 2010 05:26:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2010-12-21 00:16, Eric Dumazet wrote:
-> SFQ is currently 'limited' to small packets, because it uses a 16bit
-> allotment number per flow. Switch it to 18bit, and use appropriate
-> handling to make sure this allotment is in [1 .. quantum] range before a
-> new packet is dequeued, so that fairness is respected.
+Resubmitting the remnants of an earlier discrete patchset.
+https://lkml.org/lkml/2010/11/20/209
+Consolidated into smaller patches.
 
-Well, such two important changes should be in separate patches.
+The following changes since commit d9993be65a77f500ae926176baa264816bfe3816:
 
-The change of allotment limit looks OK (but I would try scaling, e.g.
-in 16-byte chunks, btw).
+  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6 (2010-12-20 13:24:14 -0800)
 
-The change in fair treatment looks dubious. A flow which uses exactly
-it's quantum in one round will be skipped in the next round. A flow
-which uses a bit more than its quantum in one round, will be skipped
-too, while we should only give it less this time to keep the sum up to
-2 quantums. (The usual algorithm is to check if a flow has enough
-"tickets" for sending its next packet.)
+are available in the git repository at:
 
-Jarek P.
+  git://repo.or.cz/linux-2.6/trivial-mods.git 20101221_static_const
 
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jarek Poplawski <jarkao2@gmail.com>
-> Cc: Patrick McHardy <kaber@trash.net>
-> ---
->  net/sched/sch_sfq.c |   24 ++++++++++++++++--------
->  1 file changed, 16 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index c474b4b..878704a 100644
-> --- a/net/sched/sch_sfq.c
-> +++ b/net/sched/sch_sfq.c
-> @@ -67,7 +67,7 @@
->  
->  	IMPLEMENTATION:
->  	This implementation limits maximal queue length to 128;
-> -	maximal mtu to 2^15-1; max 128 flows, number of hash buckets to 1024.
-> +	maximal mtu to 2^16-1; max 128 flows, number of hash buckets to 1024.
->  	The only goal of this restrictions was that all data
->  	fit into one 4K page on 32bit arches.
->  
-> @@ -99,9 +99,10 @@ struct sfq_slot {
->  	sfq_index	qlen; /* number of skbs in skblist */
->  	sfq_index	next; /* next slot in sfq chain */
->  	struct sfq_head dep; /* anchor in dep[] chains */
-> -	unsigned short	hash; /* hash value (index in ht[]) */
-> -	short		allot; /* credit for this slot */
-> +	unsigned int	hash:14; /* hash value (index in ht[]) */
-> +	unsigned int	allot:18; /* credit for this slot */
->  };
-> +#define ALLOT_ZERO (1 << 16)
->  
->  struct sfq_sched_data
->  {
-> @@ -394,7 +395,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->  			q->tail->next = x;
->  		}
->  		q->tail = slot;
-> -		slot->allot = q->quantum;
-> +		slot->allot = ALLOT_ZERO + q->quantum;
->  	}
->  	if (++sch->q.qlen <= q->limit) {
->  		sch->bstats.bytes += qdisc_pkt_len(skb);
-> @@ -430,8 +431,14 @@ sfq_dequeue(struct Qdisc *sch)
->  	if (q->tail == NULL)
->  		return NULL;
->  
-> +next:
->  	a = q->tail->next;
->  	slot = &q->slots[a];
-> +	if (slot->allot <= ALLOT_ZERO) {
-> +		q->tail = slot;
-> +		slot->allot += q->quantum;
-> +		goto next;
-> +	}
->  	skb = slot_dequeue_head(slot);
->  	sfq_dec(q, a);
->  	sch->q.qlen--;
-> @@ -446,9 +453,8 @@ sfq_dequeue(struct Qdisc *sch)
->  			return skb;
->  		}
->  		q->tail->next = next_a;
-> -	} else if ((slot->allot -= qdisc_pkt_len(skb)) <= 0) {
-> -		q->tail = slot;
-> -		slot->allot += q->quantum;
-> +	} else {
-> +		slot->allot -= qdisc_pkt_len(skb);
->  	}
->  	return skb;
->  }
-> @@ -610,7 +616,9 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
->  	struct sfq_sched_data *q = qdisc_priv(sch);
->  	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
->  	struct gnet_stats_queue qs = { .qlen = slot->qlen };
-> -	struct tc_sfq_xstats xstats = { .allot = slot->allot };
-> +	struct tc_sfq_xstats xstats = {
-> +		.allot = slot->allot - ALLOT_ZERO
-> +	};
->  	struct sk_buff *skb;
->  
->  	slot_queue_walk(slot, skb)
-> 
-> 
-> --
+Joe Perches (5):
+      tg3: Use DEFINE_PCI_DEVICE_TABLE
+      drivers/net/*.c: Use static const
+      usb: Use static const, consolidate code
+      tulip: Use DEFINE_PCI_DEVICE_TABLE and static const
+      drivers/net/*/: Use static const
+
+ drivers/net/3c501.c                |    4 +-
+ drivers/net/3c503.c                |    4 +-
+ drivers/net/3c507.c                |    4 +-
+ drivers/net/3c527.c                |    6 ++--
+ drivers/net/at1700.c               |    6 ++--
+ drivers/net/benet/be_ethtool.c     |    4 ++-
+ drivers/net/benet/be_main.c        |   10 ++++----
+ drivers/net/bnx2.c                 |   46 ++++++++++++++++++-----------------
+ drivers/net/bnx2x/bnx2x_main.c     |    6 +++-
+ drivers/net/can/sja1000/plx_pci.c  |    2 +-
+ drivers/net/chelsio/sge.c          |   10 +++----
+ drivers/net/cxgb3/ael1002.c        |   24 +++++++++---------
+ drivers/net/cxgb3/t3_hw.c          |    2 +-
+ drivers/net/cxgb4vf/t4vf_hw.c      |    2 +-
+ drivers/net/e2100.c                |    2 +-
+ drivers/net/eepro.c                |    9 ++++---
+ drivers/net/eexpress.c             |    2 +-
+ drivers/net/gianfar.c              |   10 ++++---
+ drivers/net/hp.c                   |    6 ++--
+ drivers/net/irda/act200l-sir.c     |    2 +-
+ drivers/net/irda/donauboe.c        |    4 +-
+ drivers/net/jme.c                  |    4 +-
+ drivers/net/ksz884x.c              |   20 ++++++++--------
+ drivers/net/netxen/netxen_nic_hw.c |   16 ++++++++----
+ drivers/net/ni52.c                 |    4 +-
+ drivers/net/ni65.c                 |    4 +-
+ drivers/net/pcmcia/nmclan_cs.c     |    2 +-
+ drivers/net/qlcnic/qlcnic_hw.c     |   15 +++++++----
+ drivers/net/qlge/qlge_main.c       |   13 +++++----
+ drivers/net/r8169.c                |    2 +-
+ drivers/net/skfp/smt.c             |    4 +-
+ drivers/net/skge.c                 |    4 +-
+ drivers/net/smc-ultra.c            |    8 ++++-
+ drivers/net/tg3.c                  |   26 +++++++++-----------
+ drivers/net/tokenring/ibmtr.c      |    5 ++-
+ drivers/net/tulip/de2104x.c        |   18 +++++++++----
+ drivers/net/tulip/tulip_core.c     |   15 +++++++----
+ drivers/net/usb/hso.c              |   39 ++++++++++++------------------
+ drivers/net/vmxnet3/vmxnet3_drv.c  |    4 ++-
+ drivers/net/wan/dscc4.c            |    6 ++--
+ drivers/net/wd.c                   |    2 +-
+ 41 files changed, 199 insertions(+), 177 deletions(-)
+
+
