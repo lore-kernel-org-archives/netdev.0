@@ -1,43 +1,65 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [PATCH] ppp: allow disabling multilink protocol ID compression
-Date: Wed, 22 Dec 2010 09:44:00 +1100
-Message-ID: <20101221224400.GA17383@brick.ozlabs.ibm.com>
-References: <20101220195833.26786ec5@nehalam>
+From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 00/12] make rpc_pipefs be mountable multiple times
+Date: Wed, 22 Dec 2010 01:32:15 +0200
+Message-ID: <20101221233215.GC7092@shutemov.name>
+References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
+ <20101220144644.GC20643@fieldses.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:51432 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753522Ab0LUWoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 17:44:10 -0500
+Cc: Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>, Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20101220195833.26786ec5@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20101220144644.GC20643-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 20, 2010 at 07:58:33PM -0800, Stephen Hemminger wrote:
+On Mon, Dec 20, 2010 at 09:46:44AM -0500, J. Bruce Fields wrote:
+> On Mon, Dec 20, 2010 at 01:54:26PM +0200, Kirill A. Shutsemov wrote:
+> > From: Kirill A. Shutemov <kirill-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
+> > 
+> > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+> > Only for client for now.
+> > 
+> > Only quick sanity check was made. BTW, is there any check list for NFS
+> > contributors?
+> 
+> Nothing formal.
+> 
+> Chuck may have some nlm patches that conflict; I'm not sure what their
+> status is.
+> 
+> For testing rpc_pipefs, maybe a few mounts (simultaneous mounts might be
+> good), possibly over different security flavors, and with some of them
+> nfsv4, might be a good idea.
 
-> Linux would not connect to other router running old version Cisco IOS (12.0).
-> This is most likely a bug in that version of IOS, since it is fixed
-> in later versions. As a workaround this patch allows a module parameter
-> to be set to disable compressing the protocol ID.
-> 
-> See: https://bugzilla.vyatta.com/show_bug.cgi?id=3979
-> 
-> RFC 1990 allows an implementation to formulate MP fragments as if protocol
-> compression had been negotiated.  This allows us to always send compressed
-> protocol IDs.  But some implementations don't accept MP fragments with
-> compressed protocol IDs.  This parameter allows us to interoperate with
-> them.  The default value of the configurable parameter is the same as the
-> current behavior:  protocol compression is enabled.  If protocol compression
-> is disabled we will not send compressed protocol IDs.
-> 
-> This is based on an earlier patch by Bob Gilligan (using a sysctl).
-> Module parameter is writable to allow for enabling even if ppp
-> is already loaded for other uses.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Ok, I'll play with it.
 
-Acked-by: Paul Mackerras <paulus@samba.org>
+> By the way, was there ever a resolution to Trond's question?:
+> 
+> 	http://marc.info/?l=linux-nfs&m=128655758712817&w=2
+> 
+> 	"The keyring upcalls are currently initiated through the same
+> 	mechanism as module_request and therefore get started with the
+> 	init_nsproxy namespace. We'd really like them to run inside the
+> 	same container as the process.  As part of the same problem,
+> 	there is the issue of what to do with the dns resolver and
+> 	Bryan's new keyring based idmapper code."
+
+I'm not sure that I understand the problem correctly.
+
+Currently, idmap uses dentry taken from client's cl_rpcclient->cl_path
+(see nfs_idmap_new()). cl_rpcclient (and cl_path) is initialized with
+rpcmount resolved against mount namespace of mount process (see
+nfs_create_rpc_client()).
+I assume it's correct.
+
+-- 
+ Kirill A. Shutemov
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
