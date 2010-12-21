@@ -1,79 +1,109 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: Re: [PATCH v4 net-next-2.6] netfilter: x_tables: dont block BH
- while reading counters
-Date: Tue, 21 Dec 2010 17:48:50 +0100
-Message-ID: <1292950130.31289.85.camel@firesoul.comx.local>
-References: <1292337974.9155.68.camel@firesoul.comx.local>
-	 <1292340702.5934.5.camel@edumazet-laptop>
-	 <1292342958.9155.91.camel@firesoul.comx.local>
-	 <1292343855.5934.27.camel@edumazet-laptop>
-	 <1292508266.31289.12.camel@firesoul.comx.local>
-	 <1292508733.2883.152.camel@edumazet-laptop>
-	 <1292509489.31289.20.camel@firesoul.comx.local>
-	 <1292509775.2883.187.camel@edumazet-laptop>
-	 <1292511761.2883.236.camel@edumazet-laptop>
-	 <1292515625.2883.336.camel@edumazet-laptop>
-	 <1292518436.2883.393.camel@edumazet-laptop>
-	 <20101216093149.71f082c7@nehalam>
-	 <1292521986.2883.472.camel@edumazet-laptop>
-	 <1292646579.7894.42.camel@edumazet-laptop>
-	 <1292852541.31289.75.camel@firesoul.comx.local>
-	 <1292856346.2800.54.camel@edumazet-laptop>
+From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
+Subject: RE: e1000e crash with 82574L  2.6.37-0.rc5
+Date: Tue, 21 Dec 2010 10:13:47 -0800
+Message-ID: <EDC0E76513226749BFBC9C3FB031318F012396E558@orsmsx508.amr.corp.intel.com>
+References: <128120.41188.qm@web39307.mail.mud.yahoo.com>
+ <EDC0E76513226749BFBC9C3FB031318F01238645EB@orsmsx508.amr.corp.intel.com>
+ <912683.73513.qm@web39308.mail.mud.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1292856346.2800.54.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Brian Neu <proclivity76@yahoo.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:53421 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751045Ab0LUSOJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 13:14:09 -0500
+In-Reply-To: <912683.73513.qm@web39308.mail.mud.yahoo.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-20 at 15:45 +0100, Eric Dumazet wrote:
-...
-> > There is no packet overruns/drops, iif I run "iptables -vnL >
-> > /dev/null" without tracing enabled and only 1Gbit/s pktgen at 512
-> > bytes packets.  If I enable tracing while calling iptables I see
-> > packet drops/overruns.  So I guess this is caused by the tracing
-> > overhead.
-> 
-> yes, probably :)
-> 
-> > 
-> > I'll try to rerun my test without all the lock debugging options
-> > enabled.
 
-Results are much better without the kernel debugging options enabled.
-I took the .config from production and enabled tracer "function_graph".
-And applied your patches (plus vzalloc) on top of 2.6.36-stable tree.
 
-I can now hit the system with a pktgen at 128 bytes, and see no
-drops/overruns while running iptables.  (This packet load at 128bytes
-is 822 kpps and 840Mbit/s) (iptables ruleset is the big chains: 20929
-rules: 81239).
+>-----Original Message-----
+>From: Brian Neu [mailto:proclivity76@yahoo.com]
+>Sent: Monday, December 20, 2010 5:20 PM
+>To: Wyborny, Carolyn; netdev@vger.kernel.org
+>Cc: e1000-devel@lists.sourceforge.net
+>Subject: Re: e1000e crash with 82574L 2.6.37-0.rc5
+>
+>> Hello,
+>
+>
+>Thanks for responding.  I really wasn't sure where to report this.
+>
+>> We have some  known issues with 82574L but most have been resolved in
+>the
+>>latest versions, so  I'll need some more information.
+>>
+>> What version of e1000e are you using  exactly?  Are you able to
+>download and
+>>test the latest version of the  driver from SourceForge?
+>
+>
+>This is the fedora build of kernel 2.6.37.0.rc5 which I downloaded from
+>koji.fedoraproject.org.  I'm not sure which version of e1000e is
+>included, but
+>if I need to build a new module, just let me know.
+>
+>I had opened a bugzilla report with redhat which also has more
+>backtraces:
+> https://bugzilla.redhat.com/show_bug.cgi?id=625776
+>
+>> Please open an issue at SourceForge.net for easier  tracking of
+>debugging
+>>information.
+>>
+>> Please provide an output of lspci  -vvv.
+>
+>
+>Attached.
+>
+>> What hw platform is this happening on?
+>
+>It's a Supermicro MB for AMD Socket G34
+>
+>> How often does it  happen and how long does it take to happen after
+>reset or
+>>reboot?
+>
+>It usually doesn't happen unless the system has been running for hours
+>or days.
+>
+>>Is ASPM  enabled or disabled on your system.  Its possible to disable
+>this in
+>>the  BIOS, but not all BIOS provide the option.  If its enabled for
+>some reason,
+>>please disable it and try the driver  again.
+>
+>
+>I'm going to check on this very soon and reply to the e1000 list only.
 
-If I reduce the ftrace filter to only track get_counters, I can even
-run a trace without any drops.
+Hello Brian,
 
- echo get_counters >  /sys/kernel/debug/tracing/set_ftrace_filter
+With this being a variant of Fedora, filing a Bugzilla was the right thing to do.  I missed that in your first email.
 
-Some trace funny stats on get_counters(), under the packet storm.
-When running iptables on a CPU not processing packets (via taskset),
-the execution time is increased to 124ms.  If I force iptables to run
-on a CPU processing packets, the execution time is increased to
-1308ms, which is large but the expected behavior.
+I checked your lspci output and ASPM *is* disabled as it should be.
 
-Acked-by: Jesper Dangaard Brouer <hawk@comx.dk>
+When the adapter crashes/resets (per the log) does it come back up or stay down?
 
--- 
-Med venlig hilsen / Best regards
-  Jesper Brouer
-  ComX Networks A/S
-  Linux Network Kernel Developer
-  Cand. Scient Datalog / MSc.CS
-  Author of http://adsl-optimizer.dk
-  LinkedIn: http://www.linkedin.com/in/brouer
+Since you're downloading off the Fedora build site, you could be encountering any number of things as these are live untested builds at this point.
 
+Can you download a vanilla upstream build from kernel.org complete and see if the problem is happening there?  Or, you can download the latest released Fedora 14 from fedoraproject.org and see if the problem is happening with that build.  
+
+Let me know how it goes,
+
+Thanks,
+
+Carolyn
+
+Carolyn Wyborny
+Linux Development
+LAN Access Division
+Intel Corporation
+
+  
