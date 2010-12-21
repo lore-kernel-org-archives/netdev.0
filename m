@@ -1,53 +1,54 @@
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Subject: Re: [patch -next] bnx2x: remove bogus check
-Date: Tue, 21 Dec 2010 15:48:36 +0200
-Message-ID: <1292939316.21210.7084.camel@lb-tlvb-eilong.il.broadcom.com>
-References: <20101221070401.GF1936@bicker>
-Reply-To: eilong@broadcom.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
+Date: Tue, 21 Dec 2010 08:52:54 -0500
+Message-ID: <1292939574.6535.27.camel@mojatatu>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	 <20101220232020.GB2052@del.dom.local>
+	 <1292887689.2627.150.camel@edumazet-laptop>
+	 <20101220235209.GA1865@del.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: "Dan Carpenter" <error27@gmail.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pawel Staszewski <pstaszewski@itcare.pl>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3379 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751280Ab0LUNsx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Dec 2010 08:48:53 -0500
-In-Reply-To: <20101221070401.GF1936@bicker>
+Received: from mail-gx0-f180.google.com ([209.85.161.180]:52239 "EHLO
+	mail-gx0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140Ab0LUNxC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 08:53:02 -0500
+Received: by gxk19 with SMTP id 19so2233696gxk.11
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 05:53:01 -0800 (PST)
+In-Reply-To: <20101220235209.GA1865@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-12-20 at 23:04 -0800, Dan Carpenter wrote:
-> We dereferenced params on the line before so it's too late to check if
-> params is NULL.  In fact, params can never be NULL and strict_cos is
-> either 0 or 1 so that part of the check is bogus too.  Let's remove it.
-> 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+On Tue, 2010-12-21 at 00:52 +0100, Jarek Poplawski wrote:
 
-Thanks Dan!
-
-Acked-by: Eilon Greenstein <eilong@broadcom.com>
 
 > 
-> diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-> index 97cbee2..43b0de2 100644
-> --- a/drivers/net/bnx2x/bnx2x_link.c
-> +++ b/drivers/net/bnx2x/bnx2x_link.c
-> @@ -354,9 +354,6 @@ u8 bnx2x_ets_strict(const struct link_params *params, const u8 strict_cos)
->  	struct bnx2x *bp = params->bp;
->  	u32 val	= 0;
->  
-> -	if ((1 < strict_cos) && (NULL == params))
-> -		return -EINVAL;
-> -
->  	DP(NETIF_MSG_LINK, "ETS enabled strict configuration\n");
->  	/**
->  	 * Bitmap of 5bits length. Each bit specifies whether the entry behaves
-> 
+> host1 (kernel 2.6.36.2)
+> netperf client -> eth3 (82598EB 10-Gigabit AT CX4) - directly connected to eth2 of host2
+> ethtool -k eth3
+> Offload parameters for eth3:
+> rx-checksumming: on
+> tx-checksumming: on
+> scatter-gather: on
+> tcp-segmentation-offload: on
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: on
+> generic-receive-offload: on 
 
+Use to be we couldnt get the ifb+mirred combo to work
+with TSO even without this change - i will have to dig old emails
+to remember details. So we are making progress;-> I did write a set
+of rules in: Documentation/networking/tc-actions-env-rules.txt
+Changli optimized rule #1. When i looked at his patch it seems
+to not harm that case. Sometimes dumb is a good principle ;->
 
-
+cheers,
+jamal
 
