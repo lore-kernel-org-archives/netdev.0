@@ -1,61 +1,94 @@
-From: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 00/12] make rpc_pipefs be mountable multiple times
-Date: Tue, 21 Dec 2010 18:43:28 -0500
-Message-ID: <1292975008.16674.2.camel@heimdal.trondhjem.org>
-References: <1292846078-31793-1-git-send-email-kirill@shutemov.name>
-	 <20101220144644.GC20643@fieldses.org> <20101221233215.GC7092@shutemov.name>
+From: nvishwan@codeaurora.org
+Subject: Re: [PATCH] msm: rmnet: msm rmnet smd virtual ethernet driver
+Date: Tue, 21 Dec 2010 15:44:21 -0800 (PST)
+Message-ID: <c59887f4d87c07003902219b5615d184.squirrel@www.codeaurora.org>
+References: <1292437866-11652-1-git-send-email-nvishwan@codeaurora.org>
+    <201012152204.42002.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20101221233215.GC7092-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "Niranjana Vishwanathapura" <nvishwan@codeaurora.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	"Brian Swetland" <swetland@google.com>
+To: "Arnd Bergmann" <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from wolverine02.qualcomm.com ([199.106.114.251]:24872 "EHLO
+	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753905Ab0LUXof (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 18:44:35 -0500
+In-Reply-To: <201012152204.42002.arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-22 at 01:32 +0200, Kirill A. Shutemov wrote:
-> On Mon, Dec 20, 2010 at 09:46:44AM -0500, J. Bruce Fields wrote:
-> > By the way, was there ever a resolution to Trond's question?:
-> > 
-> > 	http://marc.info/?l=linux-nfs&m=128655758712817&w=2
-> > 
-> > 	"The keyring upcalls are currently initiated through the same
-> > 	mechanism as module_request and therefore get started with the
-> > 	init_nsproxy namespace. We'd really like them to run inside the
-> > 	same container as the process.  As part of the same problem,
-> > 	there is the issue of what to do with the dns resolver and
-> > 	Bryan's new keyring based idmapper code."
-> 
-> I'm not sure that I understand the problem correctly.
-> 
-> Currently, idmap uses dentry taken from client's cl_rpcclient->cl_path
-> (see nfs_idmap_new()). cl_rpcclient (and cl_path) is initialized with
-> rpcmount resolved against mount namespace of mount process (see
-> nfs_create_rpc_client()).
-> I assume it's correct.
+> On Wednesday 15 December 2010 19:31:06 Niranjana Vishwanathapura wrote:
+>> +struct rmnet_private {
+>> +       smd_channel_t *ch;
+>> +       struct net_device_stats stats;
+>> +       const char *chname;
+>> +#ifdef CONFIG_MSM_RMNET_DEBUG
+>> +       ktime_t last_packet;
+>> +       short active_countdown; /* Number of times left to check */
+>> +       short restart_count; /* Number of polls seems so far */
+>> +       unsigned long wakeups_xmit;
+>> +       unsigned long wakeups_rcv;
+>> +       unsigned long timeout_us;
+>> +       unsigned long awake_time_ms;
+>> +       struct delayed_work work;
+>> +#endif
+>> +};
+>
+> It feels like a significant portion of the code and the complexity
+> (of which there fortunately is very little otherwise) is in the
+> debugging code. How important is that debugging code still?
+>
+> In my experience, once a driver gets stable enough for inclusion,
+> most of the debugging code that you have put in there to write
+> the driver becomes obsolete, because the next bug is not going
+> to be found with it anyway.
+>
+> How about deleting the debug code now? You still have the code and
+> if something goes wrong, you can always put it back to analyse
+> the problem.
+>
 
-That would be the legacy idmapper mechanism.
+These debug code proved to be very helpful in debugging with different
+baseband images on different targets.  So, it would be very handy to keep it.
 
-Please see CONFIG_NFS_USE_NEW_IDMAPPER, which uses the keyring upcall
-mechanism for greater scalability.
+But, let me remove it for now, I can send another patch later for debug code.
+
+>> +/* Called in soft-irq context */
+>> +static void smd_net_data_handler(unsigned long arg)
+>> +{
+>> ...
+>> +}
+>> +
+>> +static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
+>> +
+>> +static void smd_net_notify(void *_dev, unsigned event)
+>> +{
+>> +       if (event != SMD_EVENT_DATA)
+>> +               return;
+>> +
+>> +       smd_net_data_tasklet.data = (unsigned long) _dev;
+>> +
+>> +       tasklet_schedule(&smd_net_data_tasklet);
+>> +}
+>
+> It appears strange to do all the receive work in a tasklet. The
+> common networking code already has infrastructure for deferring
+> the rx to softirq time, and using the NAPI poll() logic likely gives
+> you better performance as well.
+>
+
+NAPI will not buy much as the SMD transport doesn't provide a machanism to
+stop interrupts.  I will consider using NAPI in the future (it requires
+performance testing on lot of different targets).
+
+> Aside from these, the driver looks very nice and clean to me.
+>
+> 	Arnd
+>
 
 
-Cheers
-  Trond
--- 
-Trond Myklebust
-Linux NFS client maintainer
-
-NetApp
-Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
-www.netapp.com
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
