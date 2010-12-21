@@ -1,101 +1,144 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: timestamp cloned packet in
- dev_queue_xmit_nit
-Date: Tue, 21 Dec 2010 08:22:51 +0100
-Message-ID: <1292916171.2627.184.camel@edumazet-laptop>
-References: <1292428252.3427.342.camel@edumazet-laptop>
-	 <20101216211744.GA2191@del.dom.local>
-	 <1292535039.2655.13.camel@edumazet-laptop>
-	 <20101216220838.GB2191@del.dom.local>
-	 <1292538363.2655.20.camel@edumazet-laptop>
-	 <20101216224237.GC2191@del.dom.local>
-	 <1292542305.2655.25.camel@edumazet-laptop>
-	 <20101217073015.GA6907@ff.dom.local>
-	 <1292573297.2655.42.camel@edumazet-laptop>
-	 <20101217083413.GB6907@ff.dom.local>  <20101217085937.GC6907@ff.dom.local>
-	 <1292577988.2906.1.camel@edumazet-laptop>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch -next] stmmac: unwind properly in stmmac_dvr_probe()
+Date: Tue, 21 Dec 2010 10:34:56 +0300
+Message-ID: <20101221073456.GG1936@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40747 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752481Ab0LUHW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 02:22:56 -0500
-Received: by wwa36 with SMTP id 36so3834032wwa.1
-        for <netdev@vger.kernel.org>; Mon, 20 Dec 2010 23:22:55 -0800 (PST)
-In-Reply-To: <1292577988.2906.1.camel@edumazet-laptop>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:52879 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753163Ab0LUHfM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 02:35:12 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 17 d=C3=A9cembre 2010 =C3=A0 10:26 +0100, Eric Dumazet a =C3=
-=A9crit :
+The original code had a several problems:
+*) It had potential null dereferences of "priv" and "res".
+*) It released the memory region before it was aquired.
+*) It didn't free "ndev" after it was allocated.
+*) It didn't call unregister_netdev() after calling stmmac_probe().
 
->=20
-> I think we can add this after latest Changli patch :
->=20
-> He does one skb_clone() before calling the sniffers.
-> We could set timestamp on this clone, instead of original skb.
->=20
-> Problem solved.
->=20
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-[PATCH net-next-2.6] net: timestamp cloned packet in dev_queue_xmit_nit
-
-Now we do one clone of skb if at least one sniffer might take packet,
-we also can do the skb timestamping on the clone and let original packe=
-t
-unchanged.
-
-This is a generalization of commit 8caf153974f2 (net: sch_netem: Fix an
-inconsistency in ingress netem timestamps.)
-
-This way, we can have a good idea when packets are delivered to our
-stack (tcpdump -i ifb0), while a tcpdump on original device gives
-timestamps right before ingressing.
-
-This also speedup our stack, avoiding taking timestamps if not needed.
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Changli Gao <xiaosuo@gmail.com>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Jarek Poplawski <jarkao2@gmail.com>
----
- net/core/dev.c |    9 ++-------
- 1 files changed, 2 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 5987729..a215269 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1547,13 +1547,6 @@ static void dev_queue_xmit_nit(struct sk_buff *s=
-kb, struct net_device *dev)
- 	struct sk_buff *skb2 =3D NULL;
- 	struct packet_type *pt_prev =3D NULL;
-=20
--#ifdef CONFIG_NET_CLS_ACT
--	if (!(skb->tstamp.tv64 && (G_TC_FROM(skb->tc_verd) & AT_INGRESS)))
--		net_timestamp_set(skb);
--#else
--	net_timestamp_set(skb);
--#endif
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index 20f803d..34a0af3 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -1647,10 +1647,8 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 
+ 	pr_info("STMMAC driver:\n\tplatform registration... ");
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!res) {
+-		ret = -ENODEV;
+-		goto out;
+-	}
++	if (!res)
++		return -ENODEV;
+ 	pr_info("\tdone!\n");
+ 
+ 	if (!request_mem_region(res->start, resource_size(res),
+@@ -1658,22 +1656,21 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 		pr_err("%s: ERROR: memory allocation failed"
+ 		       "cannot get the I/O addr 0x%x\n",
+ 		       __func__, (unsigned int)res->start);
+-		ret = -EBUSY;
+-		goto out;
++		return -EBUSY;
+ 	}
+ 
+ 	addr = ioremap(res->start, resource_size(res));
+ 	if (!addr) {
+ 		pr_err("%s: ERROR: memory mapping failed\n", __func__);
+ 		ret = -ENOMEM;
+-		goto out;
++		goto out_release_region;
+ 	}
+ 
+ 	ndev = alloc_etherdev(sizeof(struct stmmac_priv));
+ 	if (!ndev) {
+ 		pr_err("%s: ERROR: allocating the device\n", __func__);
+ 		ret = -ENOMEM;
+-		goto out;
++		goto out_unmap;
+ 	}
+ 
+ 	SET_NETDEV_DEV(ndev, &pdev->dev);
+@@ -1683,8 +1680,8 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 	if (ndev->irq == -ENXIO) {
+ 		pr_err("%s: ERROR: MAC IRQ configuration "
+ 		       "information not found\n", __func__);
+-		ret = -ENODEV;
+-		goto out;
++		ret = -ENXIO;
++		goto out_free_ndev;
+ 	}
+ 
+ 	priv = netdev_priv(ndev);
+@@ -1711,18 +1708,18 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 	if (priv->plat->init) {
+ 		ret = priv->plat->init(pdev);
+ 		if (unlikely(ret))
+-			goto out;
++			goto out_free_ndev;
+ 	}
+ 
+ 	/* MAC HW revice detection */
+ 	ret = stmmac_mac_device_setup(ndev);
+ 	if (ret < 0)
+-		goto out;
++		goto out_plat_exit;
+ 
+ 	/* Network Device Registration */
+ 	ret = stmmac_probe(ndev);
+ 	if (ret < 0)
+-		goto out;
++		goto out_plat_exit;
+ 
+ 	/* associate a PHY - it is provided by another platform bus */
+ 	if (!driver_for_each_device
+@@ -1730,7 +1727,7 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 	     stmmac_associate_phy)) {
+ 		pr_err("No PHY device is associated with this MAC!\n");
+ 		ret = -ENODEV;
+-		goto out;
++		goto out_unregister;
+ 	}
+ 
+ 	pr_info("\t%s - (dev. name: %s - id: %d, IRQ #%d\n"
+@@ -1741,19 +1738,22 @@ static int stmmac_dvr_probe(struct platform_device *pdev)
+ 	pr_debug("\tMDIO bus (id: %d)...", priv->plat->bus_id);
+ 	ret = stmmac_mdio_register(ndev);
+ 	if (ret < 0)
+-		goto out;
++		goto out_unregister;
+ 	pr_debug("registered!\n");
++	return 0;
+ 
+-out:
+-	if (ret < 0) {
+-		if (priv->plat->exit)
+-			priv->plat->exit(pdev);
 -
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
- 		/* Never send packets back to the socket
-@@ -1572,6 +1565,8 @@ static void dev_queue_xmit_nit(struct sk_buff *sk=
-b, struct net_device *dev)
- 			if (!skb2)
- 				break;
-=20
-+			net_timestamp_set(skb2);
-+
- 			/* skb->nh should be correctly
- 			   set by sender, so that the second statement is
- 			   just protection against buggy protocols.
-
-
+-		platform_set_drvdata(pdev, NULL);
+-		release_mem_region(res->start, resource_size(res));
+-		if (addr != NULL)
+-			iounmap(addr);
+-	}
++out_unregister:
++	unregister_netdev(ndev);
++out_plat_exit:
++	if (priv->plat->exit)
++		priv->plat->exit(pdev);
++out_free_ndev:
++	free_netdev(ndev);
++	platform_set_drvdata(pdev, NULL);
++out_unmap:
++	iounmap(addr);
++out_release_region:
++	release_mem_region(res->start, resource_size(res));
+ 
+ 	return ret;
+ }
