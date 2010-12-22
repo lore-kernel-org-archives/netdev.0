@@ -1,63 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: tun packet accounting and guest to guest traffic
-Date: Wed, 22 Dec 2010 18:10:53 +0200
-Message-ID: <20101222161053.GB8019@redhat.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: [PATCH v4] kptr_restrict for hiding kernel pointers
+Date: Wed, 22 Dec 2010 17:20:25 +0100
+Message-ID: <20101222162025.GB20358@elte.hu>
+References: <1292708499.10804.89.camel@dan>
+ <20101222130349.GB13412@elte.hu>
+ <1293023589.9820.186.camel@dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61539 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753954Ab0LVQLU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Dec 2010 11:11:20 -0500
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, jmorris@namei.org,
+	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
+	kees.cook@canonical.com, davem@davemloft.net,
+	a.p.zijlstra@chello.nl, akpm@linux-foundation.org,
+	eparis@parisplace.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Dan Rosenberg <drosenberg@vsecurity.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi!
-
-If enough packets are forwarded from tun device A to tun devices B, C, D
-which don't consume any packets, A will get blocked and will be unable
-to communicate to any other device.
-
-This was supposed to get fixed in a comment for
-0110d6f22f392f976e84ab49da1b42f85b64a3c5, however I missed the fact that
-packets can get queued in qdisc when the queue is stopped: and with tun,
-it can stay stopped indefinitely.
-
-The amount of packets queued for each device is limited by tx queue
-length but however small we make it, with enough slow guests they will
-add up.
-
-Thoughts on how to fix this? Some ideas below:
+In-Reply-To: <1293023589.9820.186.camel@dan>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-----
+* Dan Rosenberg <drosenberg@vsecurity.com> wrote:
 
-I am not sure how to solve this properly, while still preserving the
-feature, introduced by 33dccbb050bbe35b88ca8cf1228dcf3e4d4b3554 that in
-a virt seeting with a guest using one tun device each, guest UDP packets
-destined to other guests on the same host are never dropped.
+> 
+> > Hm, why is it off by default? Is there some user-space regression that is caused 
+> > by this?
+> > 
+> > We really want good security measures to be active by default (and to work by 
+> > default) - they are not worth much if they are not.
+> 
+> I agree entirely, but I've received a lot of resistance to these types
+> of changes in net.  I'm afraid that if it's enabled by default, no one
+> will actually allow use of the %pK specifier where it should be used.
 
-Maybe we should just educate the users that they need to select one:
-reliable local UDP with well-behaved guests on the same host, or
-reliable networking with misbehaving guests on the same host?
+Some specific objections would be needed - which might arrive if the default is 
+changed to on.
 
+> As far as I know, there's no actual breakage of anything in userspace,
+> but there's a general "it might make it harder to debug things in
+> certain limited circumstances" sentiment among some.  I never understood
+> why it is necessary for unprivileged users to be able to debug the
+> kernel.
+> 
+> Does anyone else have thoughts on this?
 
-If we do, and if thus more people will start running with sndbuf set to
-INT_MAX, it might be a good idea to optimize that path a bit:
-sock_alloc_send_pskb does some atomics which we don't need if we are not
-interested in packet accounting, and forces similar atomic ops when skb
-is freed (potentially on another CPU and/or when that cache line is
-cold).
+Well, lets just enable it by default and let others argue for less security, hm?
 
-I also have this vague idea that maybe accounting only UDP skbs might be
-a useful option for some users.  This decision could be made in the
-guest with an 'accounting enabled' flag per packet, or in the host tun
-driver.
+Thanks,
 
-More thoughts?
-
--- 
-MST
+	Ingo
