@@ -1,139 +1,70 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Wed, 22 Dec 2010 09:10:39 +0100
-Message-ID: <4D11B27F.9030306@grandegger.com>
-References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>	<4D0BD454.3060503@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE47E1A@EAPEX1MAIL1.st.com>	<4D0FBEF6.8020207@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE481B6@EAPEX1MAIL1.st.com>	<4D10FF97.1070703@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE48416@EAPEX1MAIL1.st.com>
-	<4D11A039.5090006@pengutronix.de> <4D11ADD2.40506@grandegger.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEAE4855F@EAPEX1MAIL1.st.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V7 4/8] posix clocks: hook dynamic clocks into system
+ calls
+Date: Wed, 22 Dec 2010 09:21:28 +0100
+Message-ID: <20101222082128.GA22845@riccoc20.at.omicron.at>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <6241238a1df55033e50b151ec9d35ba957e43d53.1292512461.git.richard.cochran@omicron.at>
+ <alpine.LFD.2.00.1012162156580.12146@localhost6.localdomain6>
+ <20101217070450.GB2982@riccoc20.at.omicron.at>
+ <alpine.LFD.2.00.1012171010160.12146@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEAE4855F-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:55620 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868Ab0LVIVf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 03:21:35 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1012171010160.12146@localhost6.localdomain6>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/22/2010 09:03 AM, Bhupesh SHARMA wrote:
-> Hi Marc and Wolfgang,
+On Fri, Dec 17, 2010 at 11:03:46AM +0100, Thomas Gleixner wrote:
+> So you could do the following:
+...
+> static int get_posix_clock(const clockid_t id, struct posix_clock_descr *cd)
+> {
+> 	struct file *fp = fget(CLOCKID_TO_FD(id));
+> 	int ret;
 > 
->> -----Original Message-----
->> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
->> Sent: Wednesday, December 22, 2010 1:21 PM
->> To: Marc Kleine-Budde
->> Cc: Bhupesh SHARMA; Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org;
->> netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
->> Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for
->> Bosch C_CAN controller
->>
->> On 12/22/2010 07:52 AM, Marc Kleine-Budde wrote:
->>> On 12/22/2010 04:36 AM, Bhupesh SHARMA wrote:
->>>> Hi Wolfgang,
->>>>
->>>>> Hi Bhupesh,
->>>>>
->>>>> On 12/21/2010 05:48 AM, Bhupesh SHARMA wrote:
->>>>>> Hi Wolfgang,
->>>>> ...
->>>>>>> In the meantime I compared the CAN chapter of the PCH manual with
->>>>> the
->>>>>>> C_CAN manual. The paragraphs I checked are *identical*. This
->> makes
->>>>>>> clear, that the "pch_can" is a clone of the  C_CAN CAN
->> controller,
->>>>> with
->>>>>>> a few extensions, though. Therefore it would make sense, to
->>>>> implement a
->>>>>>> bus sensitive interface like for the SJA1000 allowing to handle
->> both
->>>>>>> CAN
->>>>>>> controllers with one driver sooner than later. Therefore, could
->> you
->>>>>>> please implement:
->>>>>>>
->>>>>>>   drivers/net/can/c_can/c_can.c
->>>>>>>                        /c_can_platform.c
->>>>>>>
->>>>>>> Then an interface to the PCI based PCH CAN controller could be
->> added
->>>>>>> easily, e.g. as "pch_pci.c". You already had something similar in
->>>>> your
->>>>>>> RFC version of the patch, IIRC.
->>>>>>
->>>>>> This was the approach I initially proposed in my RFC V1 patch :)
->>>>>> But unfortunately we could not agree to it.
->>>>>
->>>>> I know. But at that time I was not aware of any other bus used for
->> the
->>>>> C_CAN controller.
->>>>>
->>>>>> So, please let me reiterate what I understood and what was present
->>>>>> in RFC version of the patch. Please add your comments/views:
->>>>>>
->>>>>>         - drivers/net/can/c_can/c_can.c (similar on lines of
->>>>> sja1000.c)
->>>>>>         i.e. a)no *probe* / *remove* functions here,
->>>>>>              b)register read/write implemented here.
->>>>>>
->>>>>>         - drivers/net/can/c_can/c_can_platform.c (similar on lines
->> of
->>>>> sja1000_platform.c)
->>>>>>         i.e. *probe* / *remove* implemented here,
->>>>>
->>>>> Yes, that's what I'm thinking about.
->>>>>
->>>>>> Marc and Tomoya can also add their suggestions so that I can
->> finalize
->>>>> V3 a.s.a.p.
->>>>>
->>>>> That would be nice, indeed. Also have a look to Tomoya's PCH
->> driver,
->>>>> which also looks very good in the meantime.
->>>>
->>>> I am having a look at Tomoya's PCH driver, but as I mentioned in
->>>> RFC V1 patch, I would rather like to have a bus sensitive `c_can`
->> driver
->>>
->>> What do you mean by a "bus sensitive" driver?
->>
->> I was thinking about a "bus independent interface" like for the
->> SJA1000.
->> A bus sensitive driver would the be in c_can_platform.c.
->>
->>>> on top of which we can have the platform driver `c_can_platform`
->> which
->>>> essentially caters to the details of registers mapping/arch
->> differences.
->>>> Any other functionality like USB/PCI should be present in a separate
->> file
->>>> like `usb_c_can.c` or `pci_c_can.c`
->>>
->>> Sounds like the sja1000 approach, which is a good choice.
->>
->> I fully agree.
->>
->>>> If you agree I will try to circulate V3 a.s.ap.
->>>
->>> go ahead.
->>>
->>
->> Yes, please.
-> 
-> Ok, so I would try to circulate V3 by tomorrow with a sja1000 *like* approach that ensures 
-> in-order packet reception as well.
+> 	if (!fp || fp->f_op->open != posix_clock_open || !fp->private_data)
+> 	   	return -ENODEV;
+> 	ret = get_fd_clk(cd, fp);
+> 	if (ret)
+> 		fput(fp);
+> 	return ret;
+> }
 
-That would be nice. But well, no hurry. It's Xmas time :-),
+In order to avoid leaking a fp reference, shouldn't this go like:
 
-Wolfgang.
+static int get_posix_clock(const clockid_t id, struct posix_clock_desc *cd)
+{
+	struct file *fp = fget(CLOCKID_TO_FD(id));
+	int ret = -EINVAL;
+
+	if (!fp)
+		return ret;
+	if (fp->f_op->open != posix_clock_open || !fp->private_data)
+		goto out;
+	ret = get_fd_clk(cd, fp);
+out:
+	if (ret)
+		fput(fp);
+	return ret;
+}
+
+Thanks again for your help,
+Richard
+
+
