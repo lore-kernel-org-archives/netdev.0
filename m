@@ -1,54 +1,85 @@
-From: Rui <wirelesser@gmail.com>
-Subject: how to make sure that packet is inserted into PACKET_MMAP ring buffer
- strictly according to its timestamp order?
-Date: Wed, 22 Dec 2010 12:33:40 +0800
-Message-ID: <AANLkTinaMX-yaWRcEf56dPxPdJBJNRnGf3rXEKO-_y86@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] sfq: fix sfq stats handling
+Date: Wed, 22 Dec 2010 07:14:59 +0100
+Message-ID: <1292998499.4317.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pw0-f46.google.com ([209.85.160.46]:59174 "EHLO
-	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751835Ab0LVEdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 23:33:41 -0500
-Received: by pwj3 with SMTP id 3so240373pwj.19
-        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 20:33:41 -0800 (PST)
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55737 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751221Ab0LVGPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 01:15:05 -0500
+Received: by wyb28 with SMTP id 28so4699774wyb.19
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 22:15:03 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hi
+David, since this one fixes a bug, could you apply it before the pending
+SFQ patch (sch_sfq: allow big packets and be fair), I'll respin this one
+if necessary.
 
-how to make sure that packet is inserted into PACKET_MMAP ring buffer
-strictly according to its timestamp order?
+Thanks
 
-I am studying the code below
-as the function tpacket_rcv will be running in parallel in multi queue
-nic supportted kernel,
-is it possible that a later packet get the spinlock earlier,
-thus it is copied to the ring buffer prior to packet which timestamp is earlier?
+[PATCH net-next-2.6] sfq: fix sfq class stats handling
+
+sfq_walk() runs without qdisc lock. By the time it selects a non empty
+hash slot and sfq_dump_class_stats() is run (with lock held), slot might
+have been freed : We then access q->slots[SFQ_EMPTY_SLOT], out of
+bounds, and crash in slot_queue_walk()
+
+On previous kernels, bug is here but out of bounds qs[SFQ_DEPTH] and
+allot[SFQ_DEPTH] are located in struct sfq_sched_data, so no illegal
+memory access happens, only possibly wrong data reported to user.
+
+Also, slot_dequeue_tail() should make sure slot skb chain is correctly
+terminated, or sfq_dump_class_stats() can access freed skbs.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>
+---
+ net/sched/sch_sfq.c |   16 +++++++++++-----
+ 1 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 13322e8..6a2f88f 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -281,6 +281,7 @@ static inline struct sk_buff *slot_dequeue_tail(struct sfq_slot *slot)
+ 	struct sk_buff *skb = slot->skblist_prev;
+ 
+ 	slot->skblist_prev = skb->prev;
++	skb->prev->next = (struct sk_buff *)slot;
+ 	skb->next = skb->prev = NULL;
+ 	return skb;
+ }
+@@ -608,14 +609,19 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+ 				struct gnet_dump *d)
+ {
+ 	struct sfq_sched_data *q = qdisc_priv(sch);
+-	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
+-	struct gnet_stats_queue qs = { .qlen = slot->qlen };
+-	struct tc_sfq_xstats xstats = { .allot = slot->allot };
++	sfq_index idx = q->ht[cl - 1];
++	struct gnet_stats_queue qs = { 0 };
++	struct tc_sfq_xstats xstats = { 0 };
+ 	struct sk_buff *skb;
+ 
+-	slot_queue_walk(slot, skb)
+-		qs.backlog += qdisc_pkt_len(skb);
++	if (idx != SFQ_EMPTY_SLOT) {
++		const struct sfq_slot *slot = &q->slots[idx];
+ 
++		xstats.allot = slot->allot;
++		qs.qlen = slot->qlen;
++		slot_queue_walk(slot, skb)
++			qs.backlog += qdisc_pkt_len(skb);
++	}
+ 	if (gnet_stats_copy_queue(d, &qs) < 0)
+ 		return -1;
+ 	return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
 
 
-thanks
-rui
-
-af_packet.c
-static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
-		       struct packet_type *pt, struct net_device *orig_dev)
-{
-...
-spin_lock(&sk->sk_receive_queue.lock);
-	h.raw = packet_current_frame(po, &po->rx_ring, TP_STATUS_KERNEL);
-	if (!h.raw)
-		goto ring_is_full;
-	packet_increment_head(&po->rx_ring);
-	po->stats.tp_packets++;
-	if (copy_skb) {
-		status |= TP_STATUS_COPY;
-		__skb_queue_tail(&sk->sk_receive_queue, copy_skb);
-	}
-	if (!po->stats.tp_drops)
-		status &= ~TP_STATUS_LOSING;
-	spin_unlock(&sk->sk_receive_queue.lock);
-
-	skb_copy_bits(skb, 0, h.raw + macoff, snaplen);
-}
