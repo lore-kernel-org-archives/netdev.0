@@ -1,54 +1,95 @@
-From: "juice" <juice@swagman.org>
-Subject: Re: Using ethernet device as efficient small packet generator
-Date: Wed, 22 Dec 2010 09:30:39 +0200
-Message-ID: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
-Reply-To: juice@swagman.org
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sfq: fix sfq stats handling
+Date: Wed, 22 Dec 2010 07:32:11 +0000
+Message-ID: <20101222073211.GA7001@ff.dom.local>
+References: <1292998499.4317.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "Stephen Hemminger" <shemminger@vyatta.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:56585 "EHLO www.liukuma.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752401Ab0LVHaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Dec 2010 02:30:46 -0500
+Received: from mail-fx0-f43.google.com ([209.85.161.43]:53563 "EHLO
+	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752301Ab0LVHcS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 02:32:18 -0500
+Received: by fxm18 with SMTP id 18so5266653fxm.2
+        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:32:17 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1292998499.4317.13.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Tue, 21 Dec 2010 11:56:42 +0200 shemminger wrote:
-> I regularly get full 1G line rate of 64 byte packets using old Opteron
-box and pktgen.  It does require some tuning of IRQ's and interrupt
-mitigation but
-> no patches. Did you remember to do the basic stuff like setting IRQ
-affinity
-> and not enabling debugging or tracing in the kernel? This is on sky2,
-but
-> also using e1000 and tg3. Others have reported 7M packets per second
-over
-> 10G cards.
-> The r8169 hardware is low end consumer hardware and doesn't work as
-well.
-> It is possible to get close to 1G line rate forwarding with a single
-core
-> with current
-> generation processors. Actual rate depends on hardware and configuration
-(size of route
-> table, firewalling, etc).  Much better performance with multi-queue
-hardware to spread load
-> over multiple cores.
+On Wed, Dec 22, 2010 at 07:14:59AM +0100, Eric Dumazet wrote:
+> David, since this one fixes a bug, could you apply it before the pending
+> SFQ patch (sch_sfq: allow big packets and be fair), I'll respin this one
+> if necessary.
+> 
+> Thanks
+> 
+> [PATCH net-next-2.6] sfq: fix sfq class stats handling
+> 
+> sfq_walk() runs without qdisc lock. By the time it selects a non empty
+> hash slot and sfq_dump_class_stats() is run (with lock held), slot might
+> have been freed : We then access q->slots[SFQ_EMPTY_SLOT], out of
+> bounds, and crash in slot_queue_walk()
+> 
+> On previous kernels, bug is here but out of bounds qs[SFQ_DEPTH] and
+> allot[SFQ_DEPTH] are located in struct sfq_sched_data, so no illegal
+> memory access happens, only possibly wrong data reported to user.
 
-I did my testing on two kinds of boxes we use in our lab, an older Pomi
-Supermicro with e1000 and a newer Dell T3500 with tg3 and r8169.
-Both computers have dual-core 2.4G Xeon Cpus, but with somewhat different
-model and stepping.
-Both boxes are running the same OS, Ubuntu 2.6.32-26-generic #48.
+Yes, nice catch!
 
-Could you share some information on the required interrupt tuning? It
-would certainly be easiest if the full line rate can be achieved without
-any patching of drivers or hindering normal eth/ip interface operation.
+> Also, slot_dequeue_tail() should make sure slot skb chain is correctly
+> terminated, or sfq_dump_class_stats() can access freed skbs.
 
-Yours, Jussi Ohenoja
+...and a good hint for code reusing ;-)
 
+Thanks,
+Jarek P.
 
-
-
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jarek Poplawski <jarkao2@gmail.com>
+> ---
+>  net/sched/sch_sfq.c |   16 +++++++++++-----
+>  1 files changed, 11 insertions(+), 5 deletions(-)
+> 
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index 13322e8..6a2f88f 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> @@ -281,6 +281,7 @@ static inline struct sk_buff *slot_dequeue_tail(struct sfq_slot *slot)
+>  	struct sk_buff *skb = slot->skblist_prev;
+>  
+>  	slot->skblist_prev = skb->prev;
+> +	skb->prev->next = (struct sk_buff *)slot;
+>  	skb->next = skb->prev = NULL;
+>  	return skb;
+>  }
+> @@ -608,14 +609,19 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+>  				struct gnet_dump *d)
+>  {
+>  	struct sfq_sched_data *q = qdisc_priv(sch);
+> -	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
+> -	struct gnet_stats_queue qs = { .qlen = slot->qlen };
+> -	struct tc_sfq_xstats xstats = { .allot = slot->allot };
+> +	sfq_index idx = q->ht[cl - 1];
+> +	struct gnet_stats_queue qs = { 0 };
+> +	struct tc_sfq_xstats xstats = { 0 };
+>  	struct sk_buff *skb;
+>  
+> -	slot_queue_walk(slot, skb)
+> -		qs.backlog += qdisc_pkt_len(skb);
+> +	if (idx != SFQ_EMPTY_SLOT) {
+> +		const struct sfq_slot *slot = &q->slots[idx];
+>  
+> +		xstats.allot = slot->allot;
+> +		qs.qlen = slot->qlen;
+> +		slot_queue_walk(slot, skb)
+> +			qs.backlog += qdisc_pkt_len(skb);
+> +	}
+>  	if (gnet_stats_copy_queue(d, &qs) < 0)
+>  		return -1;
+>  	return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
+> 
+> 
