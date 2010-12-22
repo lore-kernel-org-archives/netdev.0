@@ -1,95 +1,87 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-next-2.6] sfq: fix sfq stats handling
-Date: Wed, 22 Dec 2010 07:32:11 +0000
-Message-ID: <20101222073211.GA7001@ff.dom.local>
-References: <1292998499.4317.13.camel@edumazet-laptop>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: [PATCH 04/10] bna: Enable pure priority tagged packet reception and rxf uninit cleanup fix
+Date: Tue, 21 Dec 2010 23:23:10 -0800
+Message-ID: <1293002596-3239-5-git-send-email-rmody@brocade.com>
+References: <1293002596-3239-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: Rasesh Mody <rmody@brocade.com>, Debashis Dutt <ddutt@brocade.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:53563 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752301Ab0LVHcS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 02:32:18 -0500
-Received: by fxm18 with SMTP id 18so5266653fxm.2
-        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:32:17 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1292998499.4317.13.camel@edumazet-laptop>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54071 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752230Ab0LVHl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 02:41:26 -0500
+Received: from pps.filterd (m0000700 [127.0.0.1])
+	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBM7MMDS021251
+	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:23 -0800
+Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
+	by mx0b-000f0801.pphosted.com with ESMTP id tb71ag48f-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:22 -0800
+In-Reply-To: <1293002596-3239-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 22, 2010 at 07:14:59AM +0100, Eric Dumazet wrote:
-> David, since this one fixes a bug, could you apply it before the pending
-> SFQ patch (sch_sfq: allow big packets and be fair), I'll respin this one
-> if necessary.
-> 
-> Thanks
-> 
-> [PATCH net-next-2.6] sfq: fix sfq class stats handling
-> 
-> sfq_walk() runs without qdisc lock. By the time it selects a non empty
-> hash slot and sfq_dump_class_stats() is run (with lock held), slot might
-> have been freed : We then access q->slots[SFQ_EMPTY_SLOT], out of
-> bounds, and crash in slot_queue_walk()
-> 
-> On previous kernels, bug is here but out of bounds qs[SFQ_DEPTH] and
-> allot[SFQ_DEPTH] are located in struct sfq_sched_data, so no illegal
-> memory access happens, only possibly wrong data reported to user.
+Change details:
+	- Enable reception of pure priority tagged packets by default by turning on VLAN Id = 0
+	- Clear the promiscuous mode, all multicast mode flags when bna_rxf_uninit is called
 
-Yes, nice catch!
+Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+Signed-off-by: Rasesh Mody <rmody@brocade.com>
+---
+ drivers/net/bna/bna_txrx.c |   25 +++++++++++++++++++++++++
+ 1 files changed, 25 insertions(+), 0 deletions(-)
 
-> Also, slot_dequeue_tail() should make sure slot skb chain is correctly
-> terminated, or sfq_dump_class_stats() can access freed skbs.
+diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/bna/bna_txrx.c
+index fb6cf1f..5076618 100644
+--- a/drivers/net/bna/bna_txrx.c
++++ b/drivers/net/bna/bna_txrx.c
+@@ -1441,12 +1441,16 @@ bna_rxf_init(struct bna_rxf *rxf,
+ 	memset(rxf->vlan_filter_table, 0,
+ 			(sizeof(u32) * ((BFI_MAX_VLAN + 1) / 32)));
+ 
++	/* Set up VLAN 0 for pure priority tagged packets */
++	rxf->vlan_filter_table[0] |= 1;
++
+ 	bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
+ }
+ 
+ static void
+ bna_rxf_uninit(struct bna_rxf *rxf)
+ {
++	struct bna *bna = rxf->rx->bna;
+ 	struct bna_mac *mac;
+ 
+ 	bna_rit_mod_seg_put(&rxf->rx->bna->rit_mod, rxf->rit_segment);
+@@ -1473,6 +1477,27 @@ bna_rxf_uninit(struct bna_rxf *rxf)
+ 		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
+ 	}
+ 
++	/* Turn off pending promisc mode */
++	if (is_promisc_enable(rxf->rxmode_pending,
++				rxf->rxmode_pending_bitmask)) {
++		/* system promisc state should be pending */
++		BUG_ON(!(bna->rxf_promisc_id == rxf->rxf_id));
++		promisc_inactive(rxf->rxmode_pending,
++				rxf->rxmode_pending_bitmask);
++		 bna->rxf_promisc_id = BFI_MAX_RXF;
++	}
++	/* Promisc mode should not be active */
++	BUG_ON(rxf->rxmode_active & BNA_RXMODE_PROMISC);
++
++	/* Turn off pending all-multi mode */
++	if (is_allmulti_enable(rxf->rxmode_pending,
++				rxf->rxmode_pending_bitmask)) {
++		allmulti_inactive(rxf->rxmode_pending,
++				rxf->rxmode_pending_bitmask);
++	}
++	/* Allmulti mode should not be active */
++	BUG_ON(rxf->rxmode_active & BNA_RXMODE_ALLMULTI);
++
+ 	rxf->rx = NULL;
+ }
+ 
+-- 
+1.7.1
 
-...and a good hint for code reusing ;-)
-
-Thanks,
-Jarek P.
-
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Jarek Poplawski <jarkao2@gmail.com>
-> ---
->  net/sched/sch_sfq.c |   16 +++++++++++-----
->  1 files changed, 11 insertions(+), 5 deletions(-)
-> 
-> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
-> index 13322e8..6a2f88f 100644
-> --- a/net/sched/sch_sfq.c
-> +++ b/net/sched/sch_sfq.c
-> @@ -281,6 +281,7 @@ static inline struct sk_buff *slot_dequeue_tail(struct sfq_slot *slot)
->  	struct sk_buff *skb = slot->skblist_prev;
->  
->  	slot->skblist_prev = skb->prev;
-> +	skb->prev->next = (struct sk_buff *)slot;
->  	skb->next = skb->prev = NULL;
->  	return skb;
->  }
-> @@ -608,14 +609,19 @@ static int sfq_dump_class_stats(struct Qdisc *sch, unsigned long cl,
->  				struct gnet_dump *d)
->  {
->  	struct sfq_sched_data *q = qdisc_priv(sch);
-> -	const struct sfq_slot *slot = &q->slots[q->ht[cl - 1]];
-> -	struct gnet_stats_queue qs = { .qlen = slot->qlen };
-> -	struct tc_sfq_xstats xstats = { .allot = slot->allot };
-> +	sfq_index idx = q->ht[cl - 1];
-> +	struct gnet_stats_queue qs = { 0 };
-> +	struct tc_sfq_xstats xstats = { 0 };
->  	struct sk_buff *skb;
->  
-> -	slot_queue_walk(slot, skb)
-> -		qs.backlog += qdisc_pkt_len(skb);
-> +	if (idx != SFQ_EMPTY_SLOT) {
-> +		const struct sfq_slot *slot = &q->slots[idx];
->  
-> +		xstats.allot = slot->allot;
-> +		qs.qlen = slot->qlen;
-> +		slot_queue_walk(slot, skb)
-> +			qs.backlog += qdisc_pkt_len(skb);
-> +	}
->  	if (gnet_stats_copy_queue(d, &qs) < 0)
->  		return -1;
->  	return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
-> 
-> 
