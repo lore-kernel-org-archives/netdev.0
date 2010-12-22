@@ -1,59 +1,46 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: [PATCH] tcp: cleanup of cwnd initialization in tcp_init_metrics()
-Date: Wed, 22 Dec 2010 19:39:55 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1012221938030.16569@pobox.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] sfq: fix sfq stats handling
+Date: Wed, 22 Dec 2010 11:39:35 -0800 (PST)
+Message-ID: <20101222.113935.104046640.davem@davemloft.net>
+References: <1292998499.4317.13.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vojtech Pavlik <vojtech@suse.cz>,
-	=?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jarkao2@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59473
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751081Ab0LVTjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 14:39:07 -0500
+In-Reply-To: <1292998499.4317.13.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 86bcebafc5e7f5 ("tcp: fix >2 iw selection") fixed a case when 
-congestion window initialization has been mistakenly omitted by 
-introducing cwnd label and putting backwards jump from the end of the 
-function.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 22 Dec 2010 07:14:59 +0100
 
-This makes the code unnecessarily tricky to read and understand on a first 
-sight.
+> David, since this one fixes a bug, could you apply it before the pending
+> SFQ patch (sch_sfq: allow big packets and be fair), I'll respin this one
+> if necessary.
+> 
+> Thanks
+> 
+> [PATCH net-next-2.6] sfq: fix sfq class stats handling
+> 
+> sfq_walk() runs without qdisc lock. By the time it selects a non empty
+> hash slot and sfq_dump_class_stats() is run (with lock held), slot might
+> have been freed : We then access q->slots[SFQ_EMPTY_SLOT], out of
+> bounds, and crash in slot_queue_walk()
+> 
+> On previous kernels, bug is here but out of bounds qs[SFQ_DEPTH] and
+> allot[SFQ_DEPTH] are located in struct sfq_sched_data, so no illegal
+> memory access happens, only possibly wrong data reported to user.
+> 
+> Also, slot_dequeue_tail() should make sure slot skb chain is correctly
+> terminated, or sfq_dump_class_stats() can access freed skbs.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jarek Poplawski <jarkao2@gmail.com>
 
-Shuffle the code around a little bit to make it more obvious.
-
-Signed-off-by: Jiri Kosina <jkosina@suse.cz>
----
- net/ipv4/tcp_input.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 6d8ab1c..dddff6d 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -915,11 +915,7 @@ static void tcp_init_metrics(struct sock *sk)
- 	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tstamp)
- 		goto reset;
- 
--cwnd:
--	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
--	tp->snd_cwnd_stamp = tcp_time_stamp;
--	return;
--
-+	goto out;
- reset:
- 	/* Play conservative. If timestamps are not
- 	 * supported, TCP will fail to recalculate correct
-@@ -930,7 +926,9 @@ reset:
- 		tp->mdev = tp->mdev_max = tp->rttvar = TCP_TIMEOUT_INIT;
- 		inet_csk(sk)->icsk_rto = TCP_TIMEOUT_INIT;
- 	}
--	goto cwnd;
-+out:
-+	tp->snd_cwnd = tcp_init_cwnd(tp, dst);
-+	tp->snd_cwnd_stamp = tcp_time_stamp;
- }
- 
- static void tcp_update_reordering(struct sock *sk, const int metric,
--- 
-1.7.3.1
+Applied, thanks.
