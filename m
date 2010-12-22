@@ -1,30 +1,36 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: [PATCH] tcp: use RTAX_CWND for outgoing connections properly
-Date: Thu, 23 Dec 2010 00:26:21 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1012230023490.16569@pobox.suse.cz>
-References: <alpine.LNX.2.00.1012172310400.16569@pobox.suse.cz> <alpine.LNX.2.00.1012221059340.16569@pobox.suse.cz> <20101222.115721.39176015.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] atl1c: Do not use legacy PCI power management
+Date: Wed, 22 Dec 2010 15:26:52 -0800 (PST)
+Message-ID: <20101222.152652.246521228.davem@davemloft.net>
+References: <201012221407.52615.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org, Vojtech Pavlik <vojtech@suse.cz>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
+	jie.yang@atheros.com
+To: rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:56817 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752697Ab0LVX0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Dec 2010 18:26:23 -0500
-In-Reply-To: <20101222.115721.39176015.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43932
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752367Ab0LVX0W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 18:26:22 -0500
+In-Reply-To: <201012221407.52615.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Dec 2010, David Miller wrote:
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Wed, 22 Dec 2010 14:07:52 +0100
 
-> > Besides that, any comments on this, please?
+> From: Rafael J. Wysocki <rjw@sisk.pl>
 > 
-> It's in my backlog, patience is a virtue.
+> The atl1c driver uses the legacy PCI power management, so it has to
+> do some PCI-specific things in its ->suspend() and ->resume()
+> callbacks and they are not done correctly.
+> 
+> Convert atl1c to the new PCI power management framework and make it
+> let the PCI subsystem handle all of the PCI-specific aspects of
+> device handling during system power transitions.
+> 
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-Please just disregard it, it's not needed with newer kernels. Thanks,
-
--- 
-Jiri Kosina
-SUSE Labs, Novell Inc.
+Applied to net-2.6, thank you.
