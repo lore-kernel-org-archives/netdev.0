@@ -1,55 +1,55 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH v5] kptr_restrict for hiding kernel pointers
-Date: Wed, 22 Dec 2010 12:35:32 -0500
-Message-ID: <1293039332.9820.262.camel@dan>
-References: <1293037246.9820.236.camel@dan> <20101222171307.GA25611@elte.hu>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Wed, 22 Dec 2010 09:40:19 -0800
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3457@MILEXCH2.ds.jdsu.net>
+References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
+	 <1293005302.4317.19.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
+	 <1293033558.3027.216.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F33D3@MILEXCH2.ds.jdsu.net>
+ <1293038302.3027.281.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, jmorris@namei.org,
-	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
-	kees.cook@canonical.com, davem@davemloft.net,
-	a.p.zijlstra@chello.nl, akpm@linux-foundation.org,
-	eparis@parisplace.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20101222171307.GA25611@elte.hu>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "juice@swagman.org" <juice@swagman.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og105.obsmtp.com ([64.18.2.163]:57562 "HELO
+	exprod7og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752312Ab0LVRmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 12:42:43 -0500
+In-Reply-To: <1293038302.3027.281.camel@edumazet-laptop>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-22 at 18:13 +0100, Ingo Molnar wrote:
-> * Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-> 
-> > +	case 'K':
-> > +		/*
-> > +		 * %pK cannot be used in IRQ context because its test
-> > +		 * for CAP_SYSLOG would be meaningless.
-> > +		 */
-> > +		if (in_irq() || in_serving_softirq() || in_nmi())
-> > +			WARN_ONCE(1, "%%pK used in interrupt context.\n");
-> 
-> Hm, that bit looks possibly broken - some useful warning in irq context could print 
-> a pointer into the syslog and this would generate a second warning? That probably 
-> would crash as it recurses back into the printk code?
-> 
-
-I don't see a reason to ever use %pK to print to the syslog, since
-reading it is now optionally protected with dmesg_restrict, and
-stripping pointers from the syslog will cripple any post-mortem
-debugging for everyone.  I understand the desire to prevent things from
-breaking even if it's used incorrectly, but I'm not really convinced
-that this would break anything even in this scenario.  The WARN_ONCE
-will prevent any unbounded recursion.  I'm just not clear on how this
-could cause a crash.
-
-> Instead a warning could be inserted into the generated output instead, for example 
-> 'pK-error' (carefully staying within pointer length limits).
-> 
-
-If it's used in IRQ context and its output needs to be read by a
-userspace utility using %p to parse, this will break it.
-
--Dan
-
-
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IFRodXJzZGF5LCBEZWNlbWJlciAyMywg
+MjAxMCAxOjE4IEFNDQpUbzogSm9uIFpob3UNCkNjOiBqdWljZUBzd2FnbWFuLm9yZzsgU3RlcGhl
+biBIZW1taW5nZXI7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNClN1YmplY3Q6IFJFOiBVc2luZyBl
+dGhlcm5ldCBkZXZpY2UgYXMgZWZmaWNpZW50IHNtYWxsIHBhY2tldCBnZW5lcmF0b3INCg0KDQo+
+IFBHREVWPS9wcm9jL25ldC9wa3RnZW4vZXRoNA0KDQpZb3UgbWVhbnQgOiAgUEdERVY9L3Byb2Mv
+bmV0L3BrdGdlbi9rcGt0Z2VuZF8wICAgPz8/DQoNCg0KV2l0aCAiUEdERVY9L3Byb2MvbmV0L3Br
+dGdlbi9rcGt0Z2VuZF8wIiwgSSBjYW4ndCBwZ3NldCAicXVldWVfbWFwX21pbiAwIg0KT25seSBh
+YmxlIHRvIHBnc2V0ICJxdWV1ZV9tYXBfbWluIDAiIHdpdGggIlBHREVWPS9wcm9jL25ldC9wa3Rn
+ZW4vZXRoNCINCg0KPiAgIGVjaG8gIkNvbmZpZ3VyaW5nICRQR0RFViINCj4gIHBnc2V0ICIkQ09V
+TlQiDQo+ICBwZ3NldCAiJENMT05FX1NLQiINCj4gIHBnc2V0ICIkUEtUX1NJWkUiDQo+ICBwZ3Nl
+dCAiJERFTEFZIg0KPiAgcGdzZXQgImRzdCAxMC4xMC4xMS4yIiANCj4gIHBnc2V0ICJxdWV1ZV9t
+YXBfbWluIDAiDQo+ICBwZ3NldCAicXVldWVfbWFwX21heCA3Ig0KPiAgcGdzZXQgImRzdF9tYWMg
+IDAwOjA0OjIzOjA4OjkxOmRjIg0KPiANCj4gLT5pdCBpcyBvaw0KPiANCj4gDQo+IEhlcmUgaXMg
+dGhlIHRvcCByZXN1bHQsIHdoeSBvbmx5IGtwa3RnZW5kXzAgaXMgcnVubmluZz8NCj4gRXJpYyxj
+YW4geW91IHNoYXJlIHRoZSBwa3RnZW4gc2NyaXB0PyBUaGFuayB5b3UNCg0KSWYgeW91IHdhbnQg
+dG8gY29udHJvbCBzZXZlcmFsIGtwa3RnZW5kIHlvdSBuZWVkIHRvIHNlbmQgZWFjaCBvbmUgb2YN
+CnRoZW0gYSBmdWxsIHBrdGdlbiBzY3JpcHQuDQoNClBHREVWPS9wcm9jL25ldC9wa3RnZW4va3Br
+dGdlbmRfMA0Kc2NyaXB0MA0KUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8xDQpzY3Jp
+cHQxDQpQR0RFVj0vcHJvYy9uZXQvcGt0Z2VuL2twa3RnZW5kXzINCnNjcmlwdDINClBHREVWPS9w
+cm9jL25ldC9wa3RnZW4va3BrdGdlbmRfMw0Kc2NyaXB0Mw0KDQpidXQgdGhlc2Uga3BrdGdlbmQg
+Y2FuIG5vdCBzaGFyZSB0aGUgc2FtZSBkZXZpY2U/DQppLmUuDQpJIGNhbid0IGFkZCB0aGUgZGV2
+aWNlIGFnYWluPw0KDQpQR0RFVj0vcHJvYy9uZXQvcGt0Z2VuL2twa3RnZW5kXzENCiAjZWNobyAi
+UmVtb3ZpbmcgYWxsIGRldmljZXMiDQogI3Bnc2V0ICJyZW1fZGV2aWNlX2FsbCIgDQogI2VjaG8g
+IkFkZGluZyBldGg0Ig0KIHBnc2V0ICJhZGRfZGV2aWNlIGV0aDQiICAgDQogcGdzZXQgInF1ZXVl
+X21hcF9taW4gMSINCiBwZ3NldCAicXVldWVfbWFwX21heCAxIg0KDQphcyBJIHNhdyB3aGVuIHBw
+cyByZWFjaCAxTSwgdGhyb3VnaHB1dCByZWFjaCA5MDBNYnBzLHRoZSBrcGt0Z2VuZF8wIGFsc28g
+cmVhY2ggMTAwJSBjcHUgKHdpdGggaW50ZWwgMTBHIFg1MjAgbmljLGl4Z2JlKQ0KDQoNCg==
