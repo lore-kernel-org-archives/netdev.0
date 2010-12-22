@@ -1,51 +1,62 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH v5] kptr_restrict for hiding kernel pointers
-Date: Wed, 22 Dec 2010 12:17:59 -0500
-Message-ID: <1293038279.9820.250.camel@dan>
-References: <1293037246.9820.236.camel@dan> <20101222171307.GA25611@elte.hu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Wed, 22 Dec 2010 18:18:22 +0100
+Message-ID: <1293038302.3027.281.camel@edumazet-laptop>
+References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
+	 <1293005302.4317.19.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
+	 <1293033558.3027.216.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F33D3@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, jmorris@namei.org,
-	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
-	kees.cook@canonical.com, davem@davemloft.net,
-	a.p.zijlstra@chello.nl, akpm@linux-foundation.org,
-	eparis@parisplace.org
-To: Ingo Molnar <mingo@elte.hu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101222171307.GA25611@elte.hu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "juice@swagman.org" <juice@swagman.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jon Zhou <Jon.Zhou@jdsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:37523 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752164Ab0LVRS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 12:18:26 -0500
+Received: by wyb28 with SMTP id 28so5253009wyb.19
+        for <netdev@vger.kernel.org>; Wed, 22 Dec 2010 09:18:25 -0800 (PST)
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F33D3@MILEXCH2.ds.jdsu.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-22 at 18:13 +0100, Ingo Molnar wrote:
-> * Dan Rosenberg <drosenberg@vsecurity.com> wrote:
-> 
-> > +	case 'K':
-> > +		/*
-> > +		 * %pK cannot be used in IRQ context because its test
-> > +		 * for CAP_SYSLOG would be meaningless.
-> > +		 */
-> > +		if (in_irq() || in_serving_softirq() || in_nmi())
-> > +			WARN_ONCE(1, "%%pK used in interrupt context.\n");
-> 
-> Hm, that bit looks possibly broken - some useful warning in irq context could print 
-> a pointer into the syslog and this would generate a second warning? That probably 
-> would crash as it recurses back into the printk code?
-> 
 
-The double "%%" acts as an escape and simply prints "%" rather than
-treating it as a format specifier.
+> PGDEV=/proc/net/pktgen/eth4
 
-> Instead a warning could be inserted into the generated output instead, for example 
-> 'pK-error' (carefully staying within pointer length limits).
+You meant :  PGDEV=/proc/net/pktgen/kpktgend_0   ???
+
+>   echo "Configuring $PGDEV"
+>  pgset "$COUNT"
+>  pgset "$CLONE_SKB"
+>  pgset "$PKT_SIZE"
+>  pgset "$DELAY"
+>  pgset "dst 10.10.11.2" 
+>  pgset "queue_map_min 0"
+>  pgset "queue_map_max 7"
+>  pgset "dst_mac  00:04:23:08:91:dc"
 > 
-> Also, it would be nice to see a couple of actual %pK usage sites submitted as well - 
-> instead of this pure infrastructure patch.
+> ->it is ok
 > 
+> 
+> Here is the top result, why only kpktgend_0 is running?
+> Eric,can you share the pktgen script? Thank you
 
-I did this separately so that any arguments about individual usage
-didn't sink the whole ship.  Don't worry, you'll get your usage sites
-very soon. :)
+If you want to control several kpktgend you need to send each one of
+them a full pktgen script.
 
--Dan
+PGDEV=/proc/net/pktgen/kpktgend_0
+script0
+PGDEV=/proc/net/pktgen/kpktgend_1
+script1
+PGDEV=/proc/net/pktgen/kpktgend_2
+script2
+PGDEV=/proc/net/pktgen/kpktgend_3
+script3
+
+
+
