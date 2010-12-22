@@ -1,104 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Wed, 22 Dec 2010 18:51:11 +0100
-Message-ID: <1293040271.3027.284.camel@edumazet-laptop>
-References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
-	 <1293005302.4317.19.camel@edumazet-laptop>
-	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
-	 <1293033558.3027.216.camel@edumazet-laptop>
-	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F33D3@MILEXCH2.ds.jdsu.net>
-	 <1293038302.3027.281.camel@edumazet-laptop>
-	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3457@MILEXCH2.ds.jdsu.net>
+From: Alkis Georgopoulos <alkisg@gmail.com>
+Subject: Bypass flow control problems
+Date: Wed, 22 Dec 2010 19:51:31 +0200
+Message-ID: <1293040291.1777.36.camel@alkis>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "juice@swagman.org" <juice@swagman.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jon Zhou <Jon.Zhou@jdsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52598 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751919Ab0LVRvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 12:51:15 -0500
-Received: by wwa36 with SMTP id 36so5541505wwa.1
-        for <netdev@vger.kernel.org>; Wed, 22 Dec 2010 09:51:14 -0800 (PST)
-In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3457@MILEXCH2.ds.jdsu.net>
+Received: from mail-bw0-f45.google.com ([209.85.214.45]:56603 "EHLO
+	mail-bw0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919Ab0LVRvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 12:51:35 -0500
+Received: by bwz16 with SMTP id 16so5985347bwz.4
+        for <netdev@vger.kernel.org>; Wed, 22 Dec 2010 09:51:34 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 09:40 -0800, Jon Zhou a =C3=A9=
-crit :
->=20
-> -----Original Message-----
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]=20
-> Sent: Thursday, December 23, 2010 1:18 AM
-> To: Jon Zhou
-> Cc: juice@swagman.org; Stephen Hemminger; netdev@vger.kernel.org
-> Subject: RE: Using ethernet device as efficient small packet generato=
-r
->=20
->=20
-> > PGDEV=3D/proc/net/pktgen/eth4
->=20
-> You meant :  PGDEV=3D/proc/net/pktgen/kpktgend_0   ???
->=20
->=20
-> With "PGDEV=3D/proc/net/pktgen/kpktgend_0", I can't pgset "queue_map_=
-min 0"
-> Only able to pgset "queue_map_min 0" with "PGDEV=3D/proc/net/pktgen/e=
-th4"
->=20
-> >   echo "Configuring $PGDEV"
-> >  pgset "$COUNT"
-> >  pgset "$CLONE_SKB"
-> >  pgset "$PKT_SIZE"
-> >  pgset "$DELAY"
-> >  pgset "dst 10.10.11.2"=20
-> >  pgset "queue_map_min 0"
-> >  pgset "queue_map_max 7"
-> >  pgset "dst_mac  00:04:23:08:91:dc"
-> >=20
-> > ->it is ok
-> >=20
-> >=20
-> > Here is the top result, why only kpktgend_0 is running?
-> > Eric,can you share the pktgen script? Thank you
->=20
-> If you want to control several kpktgend you need to send each one of
-> them a full pktgen script.
->=20
-> PGDEV=3D/proc/net/pktgen/kpktgend_0
-> script0
-> PGDEV=3D/proc/net/pktgen/kpktgend_1
-> script1
-> PGDEV=3D/proc/net/pktgen/kpktgend_2
-> script2
-> PGDEV=3D/proc/net/pktgen/kpktgend_3
-> script3
->=20
-> but these kpktgend can not share the same device?
-> i.e.
-> I can't add the device again?
->=20
-> PGDEV=3D/proc/net/pktgen/kpktgend_1
->  #echo "Removing all devices"
->  #pgset "rem_device_all"=20
->  #echo "Adding eth4"
->  pgset "add_device eth4"  =20
->  pgset "queue_map_min 1"
->  pgset "queue_map_max 1"
->=20
-> as I saw when pps reach 1M, throughput reach 900Mbps,the kpktgend_0 a=
-lso reach 100% cpu (with intel 10G X520 nic,ixgbe)
->=20
->=20
+Hi,
 
-Please quote messages normally
+I'm an IT teacher/LTSP developer. In LTSP, thin clients are netbooted
+from a server and receive a lot of X and remote disk traffic from it.
 
-You mix several things, please read :
+Many installations have a gigabit NIC on the server, an unmanaged
+gigabit switch, and 100 Mbps NICs on the clients.
 
-http://www.spinics.net/lists/netdev/msg71164.html
+With flow control on, the server is limited to sending 100 Mbps to all
+the clients. So with 10 thin clients the server can concurrently send
+only 10 Mbps to each one of them.
 
+On NICs that support it, we turn flow control off and the server can
+properly send 100 Mbps to each client, i.e. 1 Gbps to 10 clients.
 
+ * Is there any way to bypass that problem on NICs that do not support
+   turning off flow control, like e.g. realteks?
+   I.e. when a client sends a pause signal to the server, instead of the
+   server pausing, to continue sending data to another client?
+   Or even to limit the amound of data the server sends to each client,
+   so that the clients never have to send pause signals?
+
+ * I really don't understand why flow control is enabled by default on
+   NICs and switches. In which case does it help? As far as I
+   understand, all it does is ruin gigabit => 100 Mbps connections...
+
+ * As a side note, since rtl8169 is a very common chipset, is there a
+   way to disable flow control for that specific NIC?
+
+This problem affects thousands of LTSP installations, we'd much
+appreciate your knowledge and feedback on it.
+
+Thank you,
+Alkis Georgopoulos
 
