@@ -1,195 +1,99 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: pull request: wireless-2.6 2010-12-22
-Date: Wed, 22 Dec 2010 14:52:09 -0500
-Message-ID: <20101222195209.GD10046@tuxdriver.com>
+From: "Allan, Bruce W" <bruce.w.allan@intel.com>
+Subject: RE: [PATCH] e1000e: workaround missing power down mii control bit
+ on 82571
+Date: Wed, 22 Dec 2010 12:25:10 -0800
+Message-ID: <8DD2590731AB5D4C9DBF71A877482A9001775662DF@orsmsx509.amr.corp.intel.com>
+References: <20101216182847.GA14985@ajones-laptop.nbttech.com>
+ <1292525797.3253.8.camel@bwh-desktop>
+ <8DD2590731AB5D4C9DBF71A877482A9001773F7655@orsmsx509.amr.corp.intel.com>
+ <8DD2590731AB5D4C9DBF71A877482A9001773F76C4@orsmsx509.amr.corp.intel.com>
+ <20101216200425.GO18990@ajones-laptop.nbttech.com>
+ <20101216221421.GR18990@ajones-laptop.nbttech.com>
+ <8DD2590731AB5D4C9DBF71A877482A9001773F7AD6@orsmsx509.amr.corp.intel.com>
+ <20101217140453.GS18990@ajones-laptop.nbttech.com>
+ <8DD2590731AB5D4C9DBF71A877482A9001773F7BFC@orsmsx509.amr.corp.intel.com>
+ <20101220153301.GV18990@ajones-laptop.nbttech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Arthur Jones <arthur.jones@riverbed.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:31360 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751081Ab0LVUZa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 15:25:30 -0500
+In-Reply-To: <20101220153301.GV18990@ajones-laptop.nbttech.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dave,
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
+>Behalf Of Arthur Jones
+>Sent: Monday, December 20, 2010 7:33 AM
+>To: Allan, Bruce W
+>Cc: Ben Hutchings; Kirsher, Jeffrey T; netdev@vger.kernel.org
+>Subject: Re: [PATCH] e1000e: workaround missing power down mii control bit on
+>82571
+>
+>Interesting!  So then you're not able to
+>repro the issue that I describe in the
+>patch then either?
+>
+>This was an 82571?  Can you send along
+>the firmware revision and the full lspci
+>for the NIC where it works to read back
+>the power down bit?  Very strange...
 
-Three more fixes intended for 2.6.37...
+No, I _am_ able to reproduce the issue you reported (i.e. Phy powered on
+after changing settings via ethtool on a down interface) which as I said
+is caused by the deep reset.  However, I do not see any problem with
+writing the power down bit in the Phy control register.  I have a fix
+for this but want it tested on a number of adapters supported by the
+driver before sending it out.
 
-The one from Johannes Berg avoids a NULL pointer dereference in the mesh
-code.  The one from Johannes Stezenbach fixes bug 24892, which is a
-lock-up caused by rt2x00.  Finally, you probably recognize the one from
-Meelis Roos which removes some log spam coming from hostap.  These have
-all spent several days in linux-next without any adverse effects.
+The 82571 dual-port adapter I am using has firmware version 5.11-2 and its
+lspci output is:
 
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
----
-
-The following changes since commit 227fb925d3d3c5e565c1f1323a530564509195f2:
-
-  MAINTAINERS: email address change (2010-12-21 19:58:15 -0800)
-
-are available in the git repository at:
-  ssh://master.kernel.org/pub/scm/linux/kernel/git/linville/wireless-2.6.git master
-
-Johannes Berg (1):
-      mac80211: fix mesh forwarding
-
-Johannes Stezenbach (1):
-      mac80211/rt2x00: add ieee80211_tx_status_ni()
-
-Meelis Roos (1):
-      hostap: remove netif_stop_queue from init
-
- drivers/net/wireless/hostap/hostap_main.c |    1 -
- drivers/net/wireless/rt2x00/rt2800pci.c   |    1 +
- drivers/net/wireless/rt2x00/rt2x00.h      |    1 +
- drivers/net/wireless/rt2x00/rt2x00dev.c   |    9 ++++++---
- include/net/mac80211.h                    |   28 ++++++++++++++++++++++++----
- net/mac80211/rx.c                         |    5 ++++-
- 6 files changed, 36 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/wireless/hostap/hostap_main.c b/drivers/net/wireless/hostap/hostap_main.c
-index 25a2722..1d9aed6 100644
---- a/drivers/net/wireless/hostap/hostap_main.c
-+++ b/drivers/net/wireless/hostap/hostap_main.c
-@@ -891,7 +891,6 @@ void hostap_setup_dev(struct net_device *dev, local_info_t *local,
- 
- 	SET_ETHTOOL_OPS(dev, &prism2_ethtool_ops);
- 
--	netif_stop_queue(dev);
- }
- 
- static int hostap_enable_hostapd(local_info_t *local, int rtnl_locked)
-diff --git a/drivers/net/wireless/rt2x00/rt2800pci.c b/drivers/net/wireless/rt2x00/rt2800pci.c
-index b267395..09a6790 100644
---- a/drivers/net/wireless/rt2x00/rt2800pci.c
-+++ b/drivers/net/wireless/rt2x00/rt2800pci.c
-@@ -912,6 +912,7 @@ static int rt2800pci_probe_hw(struct rt2x00_dev *rt2x00dev)
- 	__set_bit(DRIVER_REQUIRE_DMA, &rt2x00dev->flags);
- 	__set_bit(DRIVER_REQUIRE_L2PAD, &rt2x00dev->flags);
- 	__set_bit(DRIVER_REQUIRE_TXSTATUS_FIFO, &rt2x00dev->flags);
-+	__set_bit(DRIVER_REQUIRE_TASKLET_CONTEXT, &rt2x00dev->flags);
- 	if (!modparam_nohwcrypt)
- 		__set_bit(CONFIG_SUPPORT_HW_CRYPTO, &rt2x00dev->flags);
- 	__set_bit(DRIVER_SUPPORT_LINK_TUNING, &rt2x00dev->flags);
-diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
-index 94fe589..ab43e7c 100644
---- a/drivers/net/wireless/rt2x00/rt2x00.h
-+++ b/drivers/net/wireless/rt2x00/rt2x00.h
-@@ -664,6 +664,7 @@ enum rt2x00_flags {
- 	DRIVER_REQUIRE_COPY_IV,
- 	DRIVER_REQUIRE_L2PAD,
- 	DRIVER_REQUIRE_TXSTATUS_FIFO,
-+	DRIVER_REQUIRE_TASKLET_CONTEXT,
- 
- 	/*
- 	 * Driver features
-diff --git a/drivers/net/wireless/rt2x00/rt2x00dev.c b/drivers/net/wireless/rt2x00/rt2x00dev.c
-index 5ba79b9..d019830 100644
---- a/drivers/net/wireless/rt2x00/rt2x00dev.c
-+++ b/drivers/net/wireless/rt2x00/rt2x00dev.c
-@@ -390,9 +390,12 @@ void rt2x00lib_txdone(struct queue_entry *entry,
- 	 * through a mac80211 library call (RTS/CTS) then we should not
- 	 * send the status report back.
- 	 */
--	if (!(skbdesc_flags & SKBDESC_NOT_MAC80211))
--		ieee80211_tx_status(rt2x00dev->hw, entry->skb);
--	else
-+	if (!(skbdesc_flags & SKBDESC_NOT_MAC80211)) {
-+		if (test_bit(DRIVER_REQUIRE_TASKLET_CONTEXT, &rt2x00dev->flags))
-+			ieee80211_tx_status(rt2x00dev->hw, entry->skb);
-+		else
-+			ieee80211_tx_status_ni(rt2x00dev->hw, entry->skb);
-+	} else
- 		dev_kfree_skb_any(entry->skb);
- 
- 	/*
-diff --git a/include/net/mac80211.h b/include/net/mac80211.h
-index 9fdf982..365359b 100644
---- a/include/net/mac80211.h
-+++ b/include/net/mac80211.h
-@@ -2024,8 +2024,8 @@ static inline void ieee80211_rx_ni(struct ieee80211_hw *hw,
-  *
-  * This function may not be called in IRQ context. Calls to this function
-  * for a single hardware must be synchronized against each other. Calls
-- * to this function and ieee80211_tx_status_irqsafe() may not be mixed
-- * for a single hardware.
-+ * to this function, ieee80211_tx_status_ni() and ieee80211_tx_status_irqsafe()
-+ * may not be mixed for a single hardware.
-  *
-  * @hw: the hardware the frame was transmitted by
-  * @skb: the frame that was transmitted, owned by mac80211 after this call
-@@ -2034,13 +2034,33 @@ void ieee80211_tx_status(struct ieee80211_hw *hw,
- 			 struct sk_buff *skb);
- 
- /**
-+ * ieee80211_tx_status_ni - transmit status callback (in process context)
-+ *
-+ * Like ieee80211_tx_status() but can be called in process context.
-+ *
-+ * Calls to this function, ieee80211_tx_status() and
-+ * ieee80211_tx_status_irqsafe() may not be mixed
-+ * for a single hardware.
-+ *
-+ * @hw: the hardware the frame was transmitted by
-+ * @skb: the frame that was transmitted, owned by mac80211 after this call
-+ */
-+static inline void ieee80211_tx_status_ni(struct ieee80211_hw *hw,
-+					  struct sk_buff *skb)
-+{
-+	local_bh_disable();
-+	ieee80211_tx_status(hw, skb);
-+	local_bh_enable();
-+}
-+
-+/**
-  * ieee80211_tx_status_irqsafe - IRQ-safe transmit status callback
-  *
-  * Like ieee80211_tx_status() but can be called in IRQ context
-  * (internally defers to a tasklet.)
-  *
-- * Calls to this function and ieee80211_tx_status() may not be mixed for a
-- * single hardware.
-+ * Calls to this function, ieee80211_tx_status() and
-+ * ieee80211_tx_status_ni() may not be mixed for a single hardware.
-  *
-  * @hw: the hardware the frame was transmitted by
-  * @skb: the frame that was transmitted, owned by mac80211 after this call
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 54fb4a0e..b01e467 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -1788,9 +1788,11 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 
- 			fwd_skb = skb_copy(skb, GFP_ATOMIC);
- 
--			if (!fwd_skb && net_ratelimit())
-+			if (!fwd_skb && net_ratelimit()) {
- 				printk(KERN_DEBUG "%s: failed to clone mesh frame\n",
- 						   sdata->name);
-+				goto out;
-+			}
- 
- 			fwd_hdr =  (struct ieee80211_hdr *) fwd_skb->data;
- 			memcpy(fwd_hdr->addr2, sdata->vif.addr, ETH_ALEN);
-@@ -1828,6 +1830,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 		}
- 	}
- 
-+ out:
- 	if (is_multicast_ether_addr(hdr->addr1) ||
- 	    sdata->dev->flags & IFF_PROMISC)
- 		return RX_CONTINUE;
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+06:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
+        Subsystem: Intel Corporation PRO/1000 PT Dual Port Server Adapter
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx-
+        Latency: 0, Cache Line Size: 64 bytes
+        Interrupt: pin B routed to IRQ 55
+        Region 0: Memory at 48f20000 (32-bit, non-prefetchable) [size=128K]
+        Region 1: Memory at 48f00000 (32-bit, non-prefetchable) [size=128K]
+        Region 2: I/O ports at 4000 [size=32]
+        Expansion ROM at 49a20000 [disabled] [size=128K]
+        Capabilities: [c8] Power Management version 2
+                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
+        Capabilities: [d0] MSI: Enable+ Count=1/1 Maskable- 64bit+
+                Address: 00000000fee0300c  Data: 41e1
+        Capabilities: [e0] Express (v1) Endpoint, MSI 00
+                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s <512ns, L1 <64us
+                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE- FLReset-
+                DevCtl: Report errors: Correctable+ Non-Fatal+ Fatal+ Unsupported+
+                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
+                        MaxPayload 128 bytes, MaxReadReq 512 bytes
+                DevSta: CorrErr- UncorrErr+ FatalErr- UnsuppReq+ AuxPwr+ TransPend-
+                LnkCap: Port #0, Speed 2.5GT/s, Width x4, ASPM L0s, Latency L0 <4us, L1 <64us
+                        ClockPM- Surprise- LLActRep- BwNot-
+                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
+                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+                LnkSta: Speed 2.5GT/s, Width x4, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
+        Capabilities: [100 v1] Advanced Error Reporting
+                UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
+                UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+                UESvrt: DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+                CESta:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+                CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+                AERCap: First Error Pointer: 14, GenCap- CGenEn- ChkCap- ChkEn-
+        Capabilities: [140 v1] Device Serial Number xx-xx-xx-xx-xx-xx-xx-xx
+        Kernel driver in use: e1000e
+        Kernel modules: e1000e
