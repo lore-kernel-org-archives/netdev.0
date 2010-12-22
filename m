@@ -1,87 +1,98 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 04/10] bna: Enable pure priority tagged packet reception and rxf uninit cleanup fix
-Date: Tue, 21 Dec 2010 23:23:10 -0800
-Message-ID: <1293002596-3239-5-git-send-email-rmody@brocade.com>
+Subject: [PATCH 08/10] bna: Restore VLAN filter table
+Date: Tue, 21 Dec 2010 23:23:14 -0800
+Message-ID: <1293002596-3239-9-git-send-email-rmody@brocade.com>
 References: <1293002596-3239-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Rasesh Mody <rmody@brocade.com>, Debashis Dutt <ddutt@brocade.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54071 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54072 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752230Ab0LVHl0 (ORCPT
+	by vger.kernel.org with ESMTP id S1752026Ab0LVHl0 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 02:41:26 -0500
 Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBM7MMDS021251
-	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:23 -0800
-Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
-	by mx0b-000f0801.pphosted.com with ESMTP id tb71ag48f-1
+	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBM7MKa4021231
+	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:27 -0800
+Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.140.11])
+	by mx0b-000f0801.pphosted.com with ESMTP id tb71ag48j-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:22 -0800
+	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:27 -0800
 In-Reply-To: <1293002596-3239-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change details:
-	- Enable reception of pure priority tagged packets by default by turning on VLAN Id = 0
-	- Clear the promiscuous mode, all multicast mode flags when bna_rxf_uninit is called
+	- Retrieve the VLAN configuration from the networking stack and apply it to the base interface during ifconfig up
 
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bna_txrx.c |   25 +++++++++++++++++++++++++
- 1 files changed, 25 insertions(+), 0 deletions(-)
+ drivers/net/bna/bnad.c |   29 +++++++++++++++++++++++++++--
+ 1 files changed, 27 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/bna/bna_txrx.c
-index fb6cf1f..5076618 100644
---- a/drivers/net/bna/bna_txrx.c
-+++ b/drivers/net/bna/bna_txrx.c
-@@ -1441,12 +1441,16 @@ bna_rxf_init(struct bna_rxf *rxf,
- 	memset(rxf->vlan_filter_table, 0,
- 			(sizeof(u32) * ((BFI_MAX_VLAN + 1) / 32)));
- 
-+	/* Set up VLAN 0 for pure priority tagged packets */
-+	rxf->vlan_filter_table[0] |= 1;
-+
- 	bfa_fsm_set_state(rxf, bna_rxf_sm_stopped);
- }
- 
- static void
- bna_rxf_uninit(struct bna_rxf *rxf)
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index 79d84f2..200df60 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -566,7 +566,8 @@ bnad_enable_rx_irq(struct bnad *bnad, struct bna_ccb *ccb)
  {
-+	struct bna *bna = rxf->rx->bna;
- 	struct bna_mac *mac;
+ 	unsigned long flags;
  
- 	bna_rit_mod_seg_put(&rxf->rx->bna->rit_mod, rxf->rit_segment);
-@@ -1473,6 +1477,27 @@ bna_rxf_uninit(struct bna_rxf *rxf)
- 		bna_mcam_mod_mac_put(&rxf->rx->bna->mcam_mod, mac);
- 	}
- 
-+	/* Turn off pending promisc mode */
-+	if (is_promisc_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		/* system promisc state should be pending */
-+		BUG_ON(!(bna->rxf_promisc_id == rxf->rxf_id));
-+		promisc_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+		 bna->rxf_promisc_id = BFI_MAX_RXF;
-+	}
-+	/* Promisc mode should not be active */
-+	BUG_ON(rxf->rxmode_active & BNA_RXMODE_PROMISC);
-+
-+	/* Turn off pending all-multi mode */
-+	if (is_allmulti_enable(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask)) {
-+		allmulti_inactive(rxf->rxmode_pending,
-+				rxf->rxmode_pending_bitmask);
-+	}
-+	/* Allmulti mode should not be active */
-+	BUG_ON(rxf->rxmode_active & BNA_RXMODE_ALLMULTI);
-+
- 	rxf->rx = NULL;
+-	spin_lock_irqsave(&bnad->bna_lock, flags); /* Because of polling context */
++	/* Because of polling context */
++	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bnad_enable_rx_irq_unsafe(ccb);
+ 	spin_unlock_irqrestore(&bnad->bna_lock, flags);
+ }
+@@ -1962,6 +1963,27 @@ bnad_enable_default_bcast(struct bnad *bnad)
+ 	return 0;
  }
  
++/* Called with bnad_conf_lock() held */
++static void
++bnad_restore_vlans(struct bnad *bnad, u32 rx_id)
++{
++	u16 vlan_id;
++	unsigned long flags;
++
++	if (!bnad->vlan_grp)
++		return;
++
++	BUG_ON(!(VLAN_N_VID == (BFI_MAX_VLAN + 1)));
++
++	for (vlan_id = 0; vlan_id < VLAN_N_VID; vlan_id++) {
++		if (!vlan_group_get_device(bnad->vlan_grp, vlan_id))
++			continue;
++		spin_lock_irqsave(&bnad->bna_lock, flags);
++		bna_rx_vlan_add(bnad->rx_info[rx_id].rx, vlan_id);
++		spin_unlock_irqrestore(&bnad->bna_lock, flags);
++	}
++}
++
+ /* Statistics utilities */
+ void
+ bnad_netdev_qstats_fill(struct bnad *bnad, struct rtnl_link_stats64 *stats)
+@@ -2337,6 +2359,9 @@ bnad_open(struct net_device *netdev)
+ 	/* Enable broadcast */
+ 	bnad_enable_default_bcast(bnad);
+ 
++	/* Restore VLANs, if any */
++	bnad_restore_vlans(bnad, 0);
++
+ 	/* Set the UCAST address */
+ 	spin_lock_irqsave(&bnad->bna_lock, flags);
+ 	bnad_mac_addr_set_locked(bnad, netdev->dev_addr);
+@@ -3021,7 +3046,7 @@ static int __devinit
+ bnad_pci_probe(struct pci_dev *pdev,
+ 		const struct pci_device_id *pcidev_id)
+ {
+-	bool 	using_dac;
++	bool 	using_dac = false;
+ 	int 	err;
+ 	struct bnad *bnad;
+ 	struct bna *bna;
 -- 
 1.7.1
 
