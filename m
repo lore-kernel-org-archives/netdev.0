@@ -1,99 +1,190 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Wed, 22 Dec 2010 08:52:55 -0800
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F33D3@MILEXCH2.ds.jdsu.net>
-References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
-	 <1293005302.4317.19.camel@edumazet-laptop>
-	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
- <1293033558.3027.216.camel@edumazet-laptop>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v5] kptr_restrict for hiding kernel pointers
+Date: Wed, 22 Dec 2010 12:00:46 -0500
+Message-ID: <1293037246.9820.236.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "juice@swagman.org" <juice@swagman.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og125.obsmtp.com ([64.18.2.28]:41639 "HELO
-	exprod7og125.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751943Ab0LVQzu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 11:55:50 -0500
-In-Reply-To: <1293033558.3027.216.camel@edumazet-laptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@namei.org, eric.dumazet@gmail.com, tgraf@infradead.org,
+	eugeneteo@kernel.org, kees.cook@canonical.com, mingo@elte.hu,
+	davem@davemloft.net, a.p.zijlstra@chello.nl,
+	akpm@linux-foundation.org, eparis@parisplace.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IFdlZG5lc2RheSwgRGVjZW1iZXIgMjIs
-IDIwMTAgMTE6NTkgUE0NClRvOiBKb24gWmhvdQ0KQ2M6IGp1aWNlQHN3YWdtYW4ub3JnOyBTdGVw
-aGVuIEhlbW1pbmdlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUkU6IFVzaW5n
-IGV0aGVybmV0IGRldmljZSBhcyBlZmZpY2llbnQgc21hbGwgcGFja2V0IGdlbmVyYXRvcg0KDQpM
-ZSBtZXJjcmVkaSAyMiBkw6ljZW1icmUgMjAxMCDDoCAwNzo0OCAtMDgwMCwgSm9uIFpob3UgYSDD
-qWNyaXQgOg0KPiANCg0KPiBIaSBlcmljLCBhbnkgc3BlY2lhbCBzZXR0aW5nIGluIHBrdGdlbi5j
-b25mPw0KPiANCj4gUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8wDQo+ICAgZWNobyAi
-UmVtb3ZpbmcgYWxsIGRldmljZXMiDQo+ICBwZ3NldCAicmVtX2RldmljZV9hbGwiDQo+ICAgZWNo
-byAiQWRkaW5nIGV0aDEtZnAtMCIgLy9vciBldGgxPw0KDQpldGgxDQoNCj4gIHBnc2V0ICJhZGRf
-ZGV2aWNlIGV0aDEiDQo+ICAgZWNobyAiU2V0dGluZyBtYXhfYmVmb3JlX3NvZnRpcnEgMTAwMDAi
-DQo+ICBwZ3NldCAibWF4X2JlZm9yZV9zb2Z0aXJxIDEwMDAwIg0KDQpOb3Qgc3VyZSB5b3UgbmVl
-ZCB0byB0d2VhayBtYXhfYmVmb3JlX3NvZnRpcnEgKEkgbmV2ZXIgZGlkKQ0KDQo+IA0KPiBBbGwg
-dGhpbmdzIEkgbmVlZCB0byBkbyBpcyBzZXQgY3B1IGFmZmluaXR5IGFuZCBzdGFydCA4IHBrdGdl
-biB0aHJlYWRzPyAoUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8wfjcgd2l0aCAiZXRo
-MSIpDQoNClllcywgYnV0IHlvdSBtdXN0IGFsc28gdXNlIHF1ZXVlX21hcF9taW4gYW5kIHF1ZXVl
-X21hcF9tYXggcGt0Z2VuDQpwYXJhbWV0ZXJzIHNvIHRoYXQgZWFjaCBjcHUgbWFuaXB1bGF0ZXMg
-aXRzIG93biAncXVldWUnDQoNCkNQVSAwIDogDQoNCiAgIHBnc2V0ICJxdWV1ZV9tYXBfbWluIDAi
-DQogICBwZ3NldCAicXVldWVfbWFwX21heCAwIg0KDQouLi4NCg0KQ1BVIDMgOiANCg0KICAgcGdz
-ZXQgInF1ZXVlX21hcF9taW4gMyINCiAgIHBnc2V0ICJxdWV1ZV9tYXBfbWF4IDMiDQoNCg0KUEdE
-RVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8wDQogIGVjaG8gIlJlbW92aW5nIGFsbCBkZXZp
-Y2VzIg0KIHBnc2V0ICJyZW1fZGV2aWNlX2FsbCIgDQogIGVjaG8gIkFkZGluZyBldGg0Ig0KIHBn
-c2V0ICJhZGRfZGV2aWNlIGV0aDQiIA0KICBlY2hvICJTZXR0aW5nIG1heF9iZWZvcmVfc29mdGly
-cSAxMDAwMCINCiBwZ3NldCAicXVldWVfbWFwX21pbiAwIg0KIHBnc2V0ICJxdWV1ZV9tYXBfbWF4
-IDAiDQoNCi0tPg0KSXQgc2FpZDogDQpxdWV1ZV9tYXBfbWluIDANCi4vcGt0Z2VuLmNvbmYtOC0x
-OiBsaW5lIDEwOiBlY2hvOiB3cml0ZSBlcnJvcjogSW52YWxpZCBhcmd1bWVudA0KcXVldWVfbWFw
-X21heCAwDQouL3BrdGdlbi5jb25mLTgtMTogbGluZSAxMDogZWNobzogd3JpdGUgZXJyb3I6IElu
-dmFsaWQgYXJndW1lbnQNCg0KDQpQR0RFVj0vcHJvYy9uZXQvcGt0Z2VuL2V0aDQNCiAgZWNobyAi
-Q29uZmlndXJpbmcgJFBHREVWIg0KIHBnc2V0ICIkQ09VTlQiDQogcGdzZXQgIiRDTE9ORV9TS0Ii
-DQogcGdzZXQgIiRQS1RfU0laRSINCiBwZ3NldCAiJERFTEFZIg0KIHBnc2V0ICJkc3QgMTAuMTAu
-MTEuMiIgDQogcGdzZXQgInF1ZXVlX21hcF9taW4gMCINCiBwZ3NldCAicXVldWVfbWFwX21heCA3
-Ig0KIHBnc2V0ICJkc3RfbWFjICAwMDowNDoyMzowODo5MTpkYyINCg0KLT5pdCBpcyBvaw0KDQoN
-CkhlcmUgaXMgdGhlIHRvcCByZXN1bHQsIHdoeSBvbmx5IGtwa3RnZW5kXzAgaXMgcnVubmluZz8N
-CkVyaWMsY2FuIHlvdSBzaGFyZSB0aGUgcGt0Z2VuIHNjcmlwdD8gVGhhbmsgeW91DQoNCnRvcCAt
-IDAwOjQzOjU5IHVwICA3OjAwLCAgNiB1c2VycywgIGxvYWQgYXZlcmFnZTogMC45NSwgMC42Niwg
-MC41MQ0KVGFza3M6ICAgOCB0b3RhbCwgICAxIHJ1bm5pbmcsICAgNyBzbGVlcGluZywgICAwIHN0
-b3BwZWQsICAgMCB6b21iaWUNCkNwdShzKTogIDAuMCV1cywgIDMuMiVzeSwgIDAuMCVuaSwgODYu
-MSVpZCwgIDAuMSV3YSwgIDAuMCVoaSwgMTAuNiVzaSwgIDAuMCVzdA0KTWVtOiAgICAgMzIyMjhN
-IHRvdGFsLCAgICAgIDkzM00gdXNlZCwgICAgMzEyOTVNIGZyZWUsICAgICAgIDk3TSBidWZmZXJz
-DQpTd2FwOiAgICAgMjA1NU0gdG90YWwsICAgICAgICAwTSB1c2VkLCAgICAgMjA1NU0gZnJlZSwg
-ICAgICAxMzhNIGNhY2hlZA0KDQogIFBJRCBVU0VSICAgICAgUFIgIE5JICBWSVJUICBSRVMgIFNI
-UiBTICVDUFUgJU1FTSAgICBUSU1FKyAgQ09NTUFORA0KIDg4MDYgcm9vdCAgICAgIDIwICAgMCAg
-ICAgMCAgICAwICAgIDAgUiAgMTAwICAwLjAgICA1OjI3LjEyIGtwa3RnZW5kXzANCiA4ODA3IHJv
-b3QgICAgICAyMCAgIDAgICAgIDAgICAgMCAgICAwIFMgICAgMCAgMC4wICAgMDowMC4wMCBrcGt0
-Z2VuZF8xDQogODgwOCByb290ICAgICAgMjAgICAwICAgICAwICAgIDAgICAgMCBTICAgIDAgIDAu
-MCAgIDA6MDAuMDAga3BrdGdlbmRfMg0KIDg4MTAgcm9vdCAgICAgIDIwICAgMCAgICAgMCAgICAw
-ICAgIDAgUyAgICAwICAwLjAgICAwOjAwLjAwIGtwa3RnZW5kXzMNCiA4ODExIHJvb3QgICAgICAy
-MCAgIDAgICAgIDAgICAgMCAgICAwIFMgICAgMCAgMC4wICAgMDowMC4wMCBrcGt0Z2VuZF80DQog
-ODgxMiByb290ICAgICAgMjAgICAwICAgICAwICAgIDAgICAgMCBTICAgIDAgIDAuMCAgIDA6MDAu
-MDAga3BrdGdlbmRfNQ0KIDg4MTMgcm9vdCAgICAgIDIwICAgMCAgICAgMCAgICAwICAgIDAgUyAg
-ICAwICAwLjAgICAwOjAwLjAwIGtwa3RnZW5kXzYNCiA4ODE0IHJvb3QgICAgICAyMCAgIDAgICAg
-IDAgICAgMCAgICAwIFMgICAgMCAgMC4wICAgMDowMC4wMCBrcGt0Z2VuZF83DQoNCkFscmVhZHkg
-c2V0IGFmZmluaXR5Og0KY2F0IC9wcm9jL2ludGVycnVwdHMgfGdyZXAgZXRoNA0KICA3ODogICAx
-MDYyNTI1NyAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4
-UngtMA0KICA3OTogICAgICAxMDQ1MSAgICAgNTgxMDA3ICAgICAgICAgIDAgICAgICAgICAgMCAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVk
-Z2UgICAgICBldGg0LVR4UngtMQ0KICA4MDogICAgICAxMDQ0NyAgICAgICAgICAwICAgICA1MzUx
-ODUgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAw
-ICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtMg0KICA4MTogICAgICAxMDQ0MSAgICAg
-ICAgICAwICAgICAgICAgIDAgICAgIDU3NTkxMSAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
-ICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtMw0KICA4Mjog
-ICAgICAxMDQ0NCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgNTIxMDY4ICAg
-ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0
-LVR4UngtNA0KICA4MzogICAgICAxMDQ0OCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAg
-MCAgICAgICAgICAwICAgICA1NjQ3MTAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJ
-LWVkZ2UgICAgICBldGg0LVR4UngtNQ0KICA4NDogICAgICAxMDQyOSAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgIDUxNjA4NyAgICAgICAg
-ICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtNg0KICA4NTogICAgICAxMDQ0NCAg
-ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAg
-ICAgICAgMCAgICAgNTU4NTMwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtNw0KICA4
-NjogICAgICAgICAgMiAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBl
-dGg0OmxzYw0KDQoNCg==
+Add the %pK printk format specifier and
+the /proc/sys/kernel/kptr_restrict sysctl.
+
+The %pK format specifier is designed to hide exposed kernel pointers,
+specifically via /proc interfaces. Exposing these pointers provides an
+easy target for kernel write vulnerabilities, since they reveal the
+locations of writable structures containing easily triggerable function
+pointers. The behavior of %pK depends on the kptr_restrict sysctl.
+
+If kptr_restrict is set to 0, no deviation from the standard %p behavior
+occurs.  If kptr_restrict is set to 1, the default, if the current user
+(intended to be a reader via seq_printf(), etc.) does not have
+CAP_SYSLOG (currently in the LSM tree), kernel pointers using %pK are
+printed as 0's.  If kptr_restrict is set to 2, kernel pointers using %pK
+are printed as 0's regardless of privileges.  Replacing with 0's was
+chosen over the default "(null)", which cannot be parsed by userland %p,
+which expects "(nil)".
+
+
+v5 sets kptr_restrict to a default value of 1, and properly handles the
+case where it's incorrectly used in IRQ context. 
+
+v4 incorporates Eric Paris' suggestion of using
+has_capability_noaudit(), since failing this capability check is not a
+policy violation but rather a code path choice and shouldn't generate
+potentially excessive log noise.  Adjusted IRQ comment for clarity.
+
+v3 adds the "2" setting, cleans up documentation, removes the CONFIG,
+and incorporates changes and suggestions from Andrew Morton.
+
+v2 improves checking for inappropriate context, on suggestion by Peter
+Zijlstra.  Thanks to Thomas Graf for suggesting use of a centralized
+format specifier.
+
+
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: James Morris <jmorris@namei.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Thomas Graf <tgraf@infradead.org>
+Cc: Eugene Teo <eugeneteo@kernel.org>
+Cc: Kees Cook <kees.cook@canonical.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Paris <eparis@parisplace.org>
+---
+ Documentation/sysctl/kernel.txt |   14 ++++++++++++++
+ include/linux/kernel.h          |    2 ++
+ kernel/sysctl.c                 |    9 +++++++++
+ lib/vsprintf.c                  |   24 ++++++++++++++++++++++++
+ 4 files changed, 49 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.txt
+index 209e158..8ace8c4 100644
+--- a/Documentation/sysctl/kernel.txt
++++ b/Documentation/sysctl/kernel.txt
+@@ -34,6 +34,7 @@ show up in /proc/sys/kernel:
+ - hotplug
+ - java-appletviewer           [ binfmt_java, obsolete ]
+ - java-interpreter            [ binfmt_java, obsolete ]
++- kptr_restrict
+ - kstack_depth_to_print       [ X86 only ]
+ - l2cr                        [ PPC only ]
+ - modprobe                    ==> Documentation/debugging-modules.txt
+@@ -261,6 +262,19 @@ This flag controls the L2 cache of G3 processor boards. If
+ 
+ ==============================================================
+ 
++kptr_restrict:
++
++This toggle indicates whether restrictions are placed on
++exposing kernel addresses via /proc and other interfaces.  When
++kptr_restrict is set to (0), there are no restrictions.  When
++kptr_restrict is set to (1), the default, kernel pointers
++printed using the %pK format specifier will be replaced with 0's
++unless the user has CAP_SYSLOG.  When kptr_restrict is set to
++(2), kernel pointers printed using %pK will be replaced with 0's
++regardless of privileges.
++
++==============================================================
++
+ kstack_depth_to_print: (X86 only)
+ 
+ Controls the number of words to print when dumping the raw
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+index b6de9a6..b4f4863 100644
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -201,6 +201,8 @@ extern int sscanf(const char *, const char *, ...)
+ extern int vsscanf(const char *, const char *, va_list)
+ 	__attribute__ ((format (scanf, 2, 0)));
+ 
++extern int kptr_restrict;	/* for sysctl */
++
+ extern int get_option(char **str, int *pint);
+ extern char *get_options(const char *str, int nints, int *ints);
+ extern unsigned long long memparse(const char *ptr, char **retptr);
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 5abfa15..236fa91 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -713,6 +713,15 @@ static struct ctl_table kern_table[] = {
+ 	},
+ #endif
+ 	{
++		.procname	= "kptr_restrict",
++		.data		= &kptr_restrict,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &two,
++	},
++	{
+ 		.procname	= "ngroups_max",
+ 		.data		= &ngroups_max,
+ 		.maxlen		= sizeof (int),
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index c150d3d..97543b8 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -936,6 +936,8 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
+ 	return string(buf, end, uuid, spec);
+ }
+ 
++int kptr_restrict = 1;
++
+ /*
+  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
+  * by an extra set of alphanumeric characters that are extended format
+@@ -979,6 +981,7 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
+  *       Implements a "recursive vsnprintf".
+  *       Do not use this feature without some mechanism to verify the
+  *       correctness of the format string and va_list arguments.
++ * - 'K' For a kernel pointer that should be hidden from unprivileged users
+  *
+  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+  * function pointers are really function descriptors, which contain a
+@@ -1035,6 +1038,27 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 		return buf + vsnprintf(buf, end - buf,
+ 				       ((struct va_format *)ptr)->fmt,
+ 				       *(((struct va_format *)ptr)->va));
++	case 'K':
++		/*
++		 * %pK cannot be used in IRQ context because its test
++		 * for CAP_SYSLOG would be meaningless.
++		 */
++		if (in_irq() || in_serving_softirq() || in_nmi())
++			WARN_ONCE(1, "%%pK used in interrupt context.\n");
++
++		else if (!kptr_restrict)
++			break;		/* %pK does not obscure pointers */
++
++		else if ((kptr_restrict != 2) &&
++		    has_capability_noaudit(current, CAP_SYSLOG))
++			break;		/* privileged apps expose pointers,
++					   unless kptr_restrict is 2 */
++
++		if (spec.field_width == -1) {
++			spec.field_width = 2 * sizeof(void *);
++			spec.flags |= ZEROPAD;
++		}
++		return number(buf, end, 0, spec);
+ 	}
+ 	spec.flags |= SMALL;
+ 	if (spec.field_width == -1) {
+
+
+
+
+
+
