@@ -1,411 +1,106 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 07/10] bna: Removed unused code
-Date: Tue, 21 Dec 2010 23:23:13 -0800
-Message-ID: <1293002596-3239-8-git-send-email-rmody@brocade.com>
-References: <1293002596-3239-1-git-send-email-rmody@brocade.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Wed, 22 Dec 2010 08:50:42 +0100
+Message-ID: <4D11ADD2.40506@grandegger.com>
+References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>	<4D0BD454.3060503@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE47E1A@EAPEX1MAIL1.st.com>	<4D0FBEF6.8020207@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE481B6@EAPEX1MAIL1.st.com>	<4D10FF97.1070703@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAE48416@EAPEX1MAIL1.st.com>
+	<4D11A039.5090006@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Rasesh Mody <rmody@brocade.com>, Debashis Dutt <ddutt@brocade.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:37281 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752128Ab0LVHtC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 02:49:02 -0500
-Received: from pps.filterd (m0000542 [127.0.0.1])
-	by mx0a-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBM7MV7p004157
-	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:26 -0800
-Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
-	by mx0a-000f0801.pphosted.com with ESMTP id tb34v085b-1
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 23:23:25 -0800
-In-Reply-To: <1293002596-3239-1-git-send-email-rmody@brocade.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D11A039.5090006-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Change details:
-	- Remove unused APIs and code cleanup
+On 12/22/2010 07:52 AM, Marc Kleine-Budde wrote:
+> On 12/22/2010 04:36 AM, Bhupesh SHARMA wrote:
+>> Hi Wolfgang,
+>>
+>>> Hi Bhupesh,
+>>>
+>>> On 12/21/2010 05:48 AM, Bhupesh SHARMA wrote:
+>>>> Hi Wolfgang,
+>>> ...
+>>>>> In the meantime I compared the CAN chapter of the PCH manual with
+>>> the
+>>>>> C_CAN manual. The paragraphs I checked are *identical*. This makes
+>>>>> clear, that the "pch_can" is a clone of the  C_CAN CAN controller,
+>>> with
+>>>>> a few extensions, though. Therefore it would make sense, to
+>>> implement a
+>>>>> bus sensitive interface like for the SJA1000 allowing to handle both
+>>>>> CAN
+>>>>> controllers with one driver sooner than later. Therefore, could you
+>>>>> please implement:
+>>>>>
+>>>>>   drivers/net/can/c_can/c_can.c
+>>>>>                        /c_can_platform.c
+>>>>>
+>>>>> Then an interface to the PCI based PCH CAN controller could be added
+>>>>> easily, e.g. as "pch_pci.c". You already had something similar in
+>>> your
+>>>>> RFC version of the patch, IIRC.
+>>>>
+>>>> This was the approach I initially proposed in my RFC V1 patch :)
+>>>> But unfortunately we could not agree to it.
+>>>
+>>> I know. But at that time I was not aware of any other bus used for the
+>>> C_CAN controller.
+>>>
+>>>> So, please let me reiterate what I understood and what was present
+>>>> in RFC version of the patch. Please add your comments/views:
+>>>>
+>>>>         - drivers/net/can/c_can/c_can.c (similar on lines of
+>>> sja1000.c)
+>>>>         i.e. a)no *probe* / *remove* functions here,
+>>>>              b)register read/write implemented here.
+>>>>
+>>>>         - drivers/net/can/c_can/c_can_platform.c (similar on lines of
+>>> sja1000_platform.c)
+>>>>         i.e. *probe* / *remove* implemented here,
+>>>
+>>> Yes, that's what I'm thinking about.
+>>>
+>>>> Marc and Tomoya can also add their suggestions so that I can finalize
+>>> V3 a.s.a.p.
+>>>
+>>> That would be nice, indeed. Also have a look to Tomoya's PCH driver,
+>>> which also looks very good in the meantime.
+>>
+>> I am having a look at Tomoya's PCH driver, but as I mentioned in 
+>> RFC V1 patch, I would rather like to have a bus sensitive `c_can` driver
+> 
+> What do you mean by a "bus sensitive" driver?
 
-Signed-off-by: Debashis Dutt <ddutt@brocade.com>
-Signed-off-by: Rasesh Mody <rmody@brocade.com>
----
- drivers/net/bna/bna_ctrl.c  |  241 +------------------------------------------
- drivers/net/bna/bna_txrx.c  |   11 +--
- drivers/net/bna/bna_types.h |    4 +-
- 3 files changed, 3 insertions(+), 253 deletions(-)
+I was thinking about a "bus independent interface" like for the SJA1000.
+A bus sensitive driver would the be in c_can_platform.c.
 
-diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
-index 68e4c5e..e152747 100644
---- a/drivers/net/bna/bna_ctrl.c
-+++ b/drivers/net/bna/bna_ctrl.c
-@@ -2132,37 +2132,6 @@ rxf_fltr_mbox_cmd(struct bna_rxf *rxf, u8 cmd, enum bna_status status)
- 	bna_mbox_send(rxf->rx->bna, &rxf->mbox_qe);
- }
- 
--static void
--__rxf_default_function_config(struct bna_rxf *rxf, enum bna_status status)
--{
--	struct bna_rx_fndb_ram *rx_fndb_ram;
--	u32 ctrl_flags;
--	int i;
--
--	rx_fndb_ram = (struct bna_rx_fndb_ram *)
--			BNA_GET_MEM_BASE_ADDR(rxf->rx->bna->pcidev.pci_bar_kva,
--			RX_FNDB_RAM_BASE_OFFSET);
--
--	for (i = 0; i < BFI_MAX_RXF; i++) {
--		if (status == BNA_STATUS_T_ENABLED) {
--			if (i == rxf->rxf_id)
--				continue;
--
--			ctrl_flags =
--				readl(&rx_fndb_ram[i].control_flags);
--			ctrl_flags |= BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
--			writel(ctrl_flags,
--						&rx_fndb_ram[i].control_flags);
--		} else {
--			ctrl_flags =
--				readl(&rx_fndb_ram[i].control_flags);
--			ctrl_flags &= ~BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
--			writel(ctrl_flags,
--						&rx_fndb_ram[i].control_flags);
--		}
--	}
--}
--
- int
- rxf_process_packet_filter_ucast(struct bna_rxf *rxf)
- {
-@@ -2229,46 +2198,6 @@ rxf_process_packet_filter_promisc(struct bna_rxf *rxf)
- }
- 
- int
--rxf_process_packet_filter_default(struct bna_rxf *rxf)
--{
--	struct bna *bna = rxf->rx->bna;
--
--	/* Enable/disable default mode */
--	if (is_default_enable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask)) {
--		/* move default configuration from pending -> active */
--		default_inactive(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		rxf->rxmode_active |= BNA_RXMODE_DEFAULT;
--
--		/* Disable VLAN filter to allow all VLANs */
--		__rxf_vlan_filter_set(rxf, BNA_STATUS_T_DISABLED);
--		/* Redirect all other RxF vlan filtering to this one */
--		__rxf_default_function_config(rxf, BNA_STATUS_T_ENABLED);
--		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
--				BNA_STATUS_T_ENABLED);
--		return 1;
--	} else if (is_default_disable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask)) {
--		/* move default configuration from pending -> active */
--		default_inactive(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
--		bna->rxf_default_id = BFI_MAX_RXF;
--
--		/* Revert VLAN filter */
--		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
--		/* Stop RxF vlan filter table redirection */
--		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
--		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
--				BNA_STATUS_T_DISABLED);
--		return 1;
--	}
--
--	return 0;
--}
--
--int
- rxf_process_packet_filter_allmulti(struct bna_rxf *rxf)
- {
- 	/* Enable/disable allmulti mode */
-@@ -2365,48 +2294,6 @@ rxf_clear_packet_filter_promisc(struct bna_rxf *rxf)
- }
- 
- int
--rxf_clear_packet_filter_default(struct bna_rxf *rxf)
--{
--	struct bna *bna = rxf->rx->bna;
--
--	/* 8. Execute pending default mode disable command */
--	if (is_default_disable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask)) {
--		/* move default configuration from pending -> active */
--		default_inactive(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
--		bna->rxf_default_id = BFI_MAX_RXF;
--
--		/* Revert VLAN filter */
--		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
--		/* Stop RxF vlan filter table redirection */
--		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
--		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
--				BNA_STATUS_T_DISABLED);
--		return 1;
--	}
--
--	/* 9. Clear active default mode; move it to pending enable */
--	if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
--		/* move default configuration from active -> pending */
--		default_enable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
--
--		/* Revert VLAN filter */
--		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
--		/* Stop RxF vlan filter table redirection */
--		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
--		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
--				BNA_STATUS_T_DISABLED);
--		return 1;
--	}
--
--	return 0;
--}
--
--int
- rxf_clear_packet_filter_allmulti(struct bna_rxf *rxf)
- {
- 	/* 10. Execute pending allmulti mode disable command */
-@@ -2481,28 +2368,6 @@ rxf_reset_packet_filter_promisc(struct bna_rxf *rxf)
- }
- 
- void
--rxf_reset_packet_filter_default(struct bna_rxf *rxf)
--{
--	struct bna *bna = rxf->rx->bna;
--
--	/* 8. Clear pending default mode disable */
--	if (is_default_disable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask)) {
--		default_inactive(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
--		bna->rxf_default_id = BFI_MAX_RXF;
--	}
--
--	/* 9. Move default mode config from active -> pending */
--	if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
--		default_enable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
--	}
--}
--
--void
- rxf_reset_packet_filter_allmulti(struct bna_rxf *rxf)
- {
- 	/* 10. Clear pending allmulti mode disable */
-@@ -2599,76 +2464,6 @@ rxf_promisc_disable(struct bna_rxf *rxf)
-  *	1 = need h/w change
-  */
- static int
--rxf_default_enable(struct bna_rxf *rxf)
--{
--	struct bna *bna = rxf->rx->bna;
--	int ret = 0;
--
--	/* There can not be any pending disable command */
--
--	/* Do nothing if pending enable or already enabled */
--	if (is_default_enable(rxf->rxmode_pending,
--		rxf->rxmode_pending_bitmask) ||
--		(rxf->rxmode_active & BNA_RXMODE_DEFAULT)) {
--		/* Schedule enable */
--	} else {
--		/* Default mode should not be active in the system */
--		default_enable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		bna->rxf_default_id = rxf->rxf_id;
--		ret = 1;
--	}
--
--	return ret;
--}
--
--/**
-- * Should only be called by bna_rxf_mode_set.
-- * Helps deciding if h/w configuration is needed or not.
-- *  Returns:
-- *	0 = no h/w change
-- *	1 = need h/w change
-- */
--static int
--rxf_default_disable(struct bna_rxf *rxf)
--{
--	struct bna *bna = rxf->rx->bna;
--	int ret = 0;
--
--	/* There can not be any pending disable */
--
--	/* Turn off pending enable command , if any */
--	if (is_default_enable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask)) {
--		/* Promisc mode should not be active */
--		/* system default state should be pending */
--		default_inactive(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		/* Remove the default state from the system */
--		bna->rxf_default_id = BFI_MAX_RXF;
--
--	/* Schedule disable */
--	} else if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
--		/* Default mode should be active in the system */
--		default_disable(rxf->rxmode_pending,
--				rxf->rxmode_pending_bitmask);
--		ret = 1;
--
--	/* Do nothing if already disabled */
--	} else {
--	}
--
--	return ret;
--}
--
--/**
-- * Should only be called by bna_rxf_mode_set.
-- * Helps deciding if h/w configuration is needed or not.
-- *  Returns:
-- *	0 = no h/w change
-- *	1 = need h/w change
-- */
--static int
- rxf_allmulti_enable(struct bna_rxf *rxf)
- {
- 	int ret = 0;
-@@ -2730,38 +2525,13 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
- 	struct bna_rxf *rxf = &rx->rxf;
- 	int need_hw_config = 0;
- 
--	/* Error checks */
-+	/* Process the commands */
- 
- 	if (is_promisc_enable(new_mode, bitmask)) {
- 		/* If promisc mode is already enabled elsewhere in the system */
- 		if ((rx->bna->rxf_promisc_id != BFI_MAX_RXF) &&
- 			(rx->bna->rxf_promisc_id != rxf->rxf_id))
- 			goto err_return;
--
--		/* If default mode is already enabled in the system */
--		if (rx->bna->rxf_default_id != BFI_MAX_RXF)
--			goto err_return;
--
--		/* Trying to enable promiscuous and default mode together */
--		if (is_default_enable(new_mode, bitmask))
--			goto err_return;
--	}
--
--	if (is_default_enable(new_mode, bitmask)) {
--		/* If default mode is already enabled elsewhere in the system */
--		if ((rx->bna->rxf_default_id != BFI_MAX_RXF) &&
--			(rx->bna->rxf_default_id != rxf->rxf_id)) {
--				goto err_return;
--		}
--
--		/* If promiscuous mode is already enabled in the system */
--		if (rx->bna->rxf_promisc_id != BFI_MAX_RXF)
--			goto err_return;
--	}
--
--	/* Process the commands */
--
--	if (is_promisc_enable(new_mode, bitmask)) {
- 		if (rxf_promisc_enable(rxf))
- 			need_hw_config = 1;
- 	} else if (is_promisc_disable(new_mode, bitmask)) {
-@@ -2769,14 +2539,6 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
- 			need_hw_config = 1;
- 	}
- 
--	if (is_default_enable(new_mode, bitmask)) {
--		if (rxf_default_enable(rxf))
--			need_hw_config = 1;
--	} else if (is_default_disable(new_mode, bitmask)) {
--		if (rxf_default_disable(rxf))
--			need_hw_config = 1;
--	}
--
- 	if (is_allmulti_enable(new_mode, bitmask)) {
- 		if (rxf_allmulti_enable(rxf))
- 			need_hw_config = 1;
-@@ -3202,7 +2964,6 @@ bna_init(struct bna *bna, struct bnad *bnad, struct bfa_pcidev *pcidev,
- 
- 	bna_mcam_mod_init(&bna->mcam_mod, bna, res_info);
- 
--	bna->rxf_default_id = BFI_MAX_RXF;
- 	bna->rxf_promisc_id = BFI_MAX_RXF;
- 
- 	/* Mbox q element for posting stat request to f/w */
-diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/bna/bna_txrx.c
-index 5076618..58c7664 100644
---- a/drivers/net/bna/bna_txrx.c
-+++ b/drivers/net/bna/bna_txrx.c
-@@ -1226,8 +1226,7 @@ rxf_process_packet_filter_vlan(struct bna_rxf *rxf)
- 	/* Apply the VLAN filter */
- 	if (rxf->rxf_flags & BNA_RXF_FL_VLAN_CONFIG_PENDING) {
- 		rxf->rxf_flags &= ~BNA_RXF_FL_VLAN_CONFIG_PENDING;
--		if (!(rxf->rxmode_active & BNA_RXMODE_PROMISC) &&
--			!(rxf->rxmode_active & BNA_RXMODE_DEFAULT))
-+		if (!(rxf->rxmode_active & BNA_RXMODE_PROMISC))
- 			__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
- 	}
- 
-@@ -1276,9 +1275,6 @@ rxf_process_packet_filter(struct bna_rxf *rxf)
- 	if (rxf_process_packet_filter_promisc(rxf))
- 		return 1;
- 
--	if (rxf_process_packet_filter_default(rxf))
--		return 1;
--
- 	if (rxf_process_packet_filter_allmulti(rxf))
- 		return 1;
- 
-@@ -1340,9 +1336,6 @@ rxf_clear_packet_filter(struct bna_rxf *rxf)
- 	if (rxf_clear_packet_filter_promisc(rxf))
- 		return 1;
- 
--	if (rxf_clear_packet_filter_default(rxf))
--		return 1;
--
- 	if (rxf_clear_packet_filter_allmulti(rxf))
- 		return 1;
- 
-@@ -1389,8 +1382,6 @@ rxf_reset_packet_filter(struct bna_rxf *rxf)
- 
- 	rxf_reset_packet_filter_promisc(rxf);
- 
--	rxf_reset_packet_filter_default(rxf);
--
- 	rxf_reset_packet_filter_allmulti(rxf);
- }
- 
-diff --git a/drivers/net/bna/bna_types.h b/drivers/net/bna/bna_types.h
-index d79fd98..b9c134f 100644
---- a/drivers/net/bna/bna_types.h
-+++ b/drivers/net/bna/bna_types.h
-@@ -165,8 +165,7 @@ enum bna_rxp_type {
- 
- enum bna_rxmode {
- 	BNA_RXMODE_PROMISC 	= 1,
--	BNA_RXMODE_DEFAULT 	= 2,
--	BNA_RXMODE_ALLMULTI 	= 4
-+	BNA_RXMODE_ALLMULTI 	= 2
- };
- 
- enum bna_rx_event {
-@@ -1118,7 +1117,6 @@ struct bna {
- 
- 	struct bna_rit_mod rit_mod;
- 
--	int			rxf_default_id;
- 	int			rxf_promisc_id;
- 
- 	struct bna_mbox_qe mbox_qe;
--- 
-1.7.1
+>> on top of which we can have the platform driver `c_can_platform` which
+>> essentially caters to the details of registers mapping/arch differences.
+>> Any other functionality like USB/PCI should be present in a separate file
+>> like `usb_c_can.c` or `pci_c_can.c` 
+> 
+> Sounds like the sja1000 approach, which is a good choice.
 
+I fully agree.
+
+>> If you agree I will try to circulate V3 a.s.ap.
+> 
+> go ahead.
+> 
+
+Yes, please.
+
+Wolfgang.
