@@ -1,55 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: remove all rt cache entries on UNREGISTER event
-Date: Wed, 22 Dec 2010 11:07:44 +0100
-Message-ID: <1293012464.3027.30.camel@edumazet-laptop>
-References: <4CA208C9.1020800@6wind.com>
-	 <1285691629.3154.80.camel@edumazet-laptop>  <4CA21BC6.5070300@6wind.com>
-	 <1285692969.3154.86.camel@edumazet-laptop>  <4CA2EF9C.9040909@6wind.com>
-	 <1285749349.2615.27.camel@edumazet-laptop>
-	 <1285751929.2615.30.camel@edumazet-laptop>  <4D11B7AC.8000205@6wind.com>
-	 <1293011708.3027.28.camel@edumazet-laptop>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Help: major pppoe regression since 2.6.35 (panic on first ppp
+	conection)?
+Date: Wed, 22 Dec 2010 11:00:21 +0000
+Message-ID: <20101222110021.GA8985@ff.dom.local>
+References: <20101222002215.fb0bfe95.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38235 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751868Ab0LVKHt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 05:07:49 -0500
-Received: by wyb28 with SMTP id 28so4852161wyb.19
-        for <netdev@vger.kernel.org>; Wed, 22 Dec 2010 02:07:48 -0800 (PST)
-In-Reply-To: <1293011708.3027.28.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joel Soete <soete.joel@scarlet.be>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101222002215.fb0bfe95.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 10:55 +0100, Eric Dumazet a =C3=
-=A9crit :
-> Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 09:32 +0100, Nicolas Dichtel=
- a =C3=A9crit :
-> > What is the status of this patch? The initial problem is still here=
- in 2.6.37-rc5+
-> >=20
->=20
-> I cannot reproduce the problem on net-next-2.6, are you sure we still
-> need a new patch ?
->=20
-> # ip tunnel add mode ipip remote 10.16.0.164 local 10.16.0.72 dev eth=
-0
-> # ip link show dev tunl1
-> 19: tunl1: <POINTOPOINT,NOARP> mtu 1480 qdisc noop state DOWN=20
->     link/ipip 10.16.0.72 peer 10.16.0.164
-> # /root/vrrp tunl1
-> # ip tunnel del tunl1
->=20
->=20
+On 2010-12-22 09:22, Andrew Morton wrote:
+> (cc netdev)
+> 
+> The bug is still present in 2.6.37-rc6.
+> 
+> On Sat, 18 Dec 2010 11:33:14 +0000 Joel Soete <soete.joel@scarlet.be> wrote:
+> 
+>> Hello all,
 
-(I thought commit 332dd96f7ac15e fixed the problem for you, as it did
-for me)
+Hi,
+Could you reproduce this bug with a vanilla kernel (without nvidia
+patch)? If so, please include dmesg and .config to the next report.
 
-net/dst: dst_dev_event() called after other notifiers
+Cheers,
+Jarek P.
 
-
-
+...
+>> Dec 17 17:28:12 sidh2 kernel: [  106.511762] BUG: unable to handle kernel NULL pointer dereference at (null)
+>> Dec 17 17:28:12 sidh2 kernel: [  106.511952] IP: [<ffffffff810e405b>] put_page+0x1b/0x180
+>> Dec 17 17:28:12 sidh2 kernel: [  106.512078] PGD 13c6f0067 PUD 134283067 PMD 0
+>> Dec 17 17:28:12 sidh2 kernel: [  106.512293] Oops: 0000 [#1] SMP
+>> Dec 17 17:28:12 sidh2 kernel: [  106.512456] last sysfs file: /sys/devices/virtual/sound/timer/uevent
+>> Dec 17 17:28:12 sidh2 kernel: [  106.512533] CPU 4
+>> Dec 17 17:28:12 sidh2 kernel: [  106.512584] Modules linked in: ppdev xt_TCPMSS xt_tcpmss xt_tcpudp iptable_mangle ip_tables 
+>> x_tables lp nvidia(P) parport_pc parport agpgart i7core_edac edac_core tpm_tis tpm tpm_bios [last unloaded: scsi_wait_scan]
+>> Dec 17 17:28:12 sidh2 kernel: [  106.513674]
+>> Dec 17 17:28:12 sidh2 kernel: [  106.513742] Pid: 1821, comm: pppd Tainted: P            2.6.35-amd64-t3 #5 EX58-UD3R/EX58-UD3R
+...
