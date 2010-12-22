@@ -1,48 +1,96 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 5/5 v4] net: add old_queue_mapping into skb->cb
-Date: Wed, 22 Dec 2010 08:08:10 +0800
-Message-ID: <AANLkTi=W6fL_W_UGUbM9aTEDO_ea46zEp9kg-tL=0rwr@mail.gmail.com>
-References: <1292475410-24665-1-git-send-email-xiaosuo@gmail.com>
- <1292591363.2668.19.camel@mojatatu> <AANLkTi=Eq1HuPwMMGQjk9x0QXp3_5djmAY6JeZyFkk0k@mail.gmail.com>
- <1292936837.6535.8.camel@mojatatu> <AANLkTimqemuhxCKq-PJu+FD-MDgKaHnYKnP_2ch30wxE@mail.gmail.com>
- <1292945075.2720.32.camel@edumazet-laptop>
+From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Subject: RE: [PATCH net-next-2.6 v2 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Wed, 22 Dec 2010 11:36:41 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEAE48416@EAPEX1MAIL1.st.com>
+References: <1292407130-19791-1-git-send-email-bhupesh.sharma@st.com>
+	<4D0BD454.3060503@grandegger.com>
+	<D5ECB3C7A6F99444980976A8C6D896384DEAE47E1A@EAPEX1MAIL1.st.com>
+	<4D0FBEF6.8020207@grandegger.com>
+	<D5ECB3C7A6F99444980976A8C6D896384DEAE481B6@EAPEX1MAIL1.st.com>
+	<4D10FF97.1070703@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f43.google.com ([209.85.161.43]:61519 "EHLO
-	mail-fx0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753262Ab0LVAIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Dec 2010 19:08:32 -0500
-Received: by fxm18 with SMTP id 18so5000446fxm.2
-        for <netdev@vger.kernel.org>; Tue, 21 Dec 2010 16:08:30 -0800 (PST)
-In-Reply-To: <1292945075.2720.32.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D10FF97.1070703-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 21, 2010 at 11:24 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Do we really want a multi queue ifb at all ?
->
-> Why not use percpu data and LLTX, like we did for other virtual devices
-> (loopback, tunnels, vlans, ...)
->
-> I guess most ifb uses need to finaly deliver packets in a monoqueue
-> anyway, optimizing ifb might raise lock contention on this resource.
->
+Hi Wolfgang,
 
-For ingress shaping, the later processing should be in parallel, so
-multiple ri_tasklets are needed.
+> Hi Bhupesh,
+> 
+> On 12/21/2010 05:48 AM, Bhupesh SHARMA wrote:
+> > Hi Wolfgang,
+> ...
+> >> In the meantime I compared the CAN chapter of the PCH manual with
+> the
+> >> C_CAN manual. The paragraphs I checked are *identical*. This makes
+> >> clear, that the "pch_can" is a clone of the  C_CAN CAN controller,
+> with
+> >> a few extensions, though. Therefore it would make sense, to
+> implement a
+> >> bus sensitive interface like for the SJA1000 allowing to handle both
+> >> CAN
+> >> controllers with one driver sooner than later. Therefore, could you
+> >> please implement:
+> >>
+> >>   drivers/net/can/c_can/c_can.c
+> >>                        /c_can_platform.c
+> >>
+> >> Then an interface to the PCI based PCH CAN controller could be added
+> >> easily, e.g. as "pch_pci.c". You already had something similar in
+> your
+> >> RFC version of the patch, IIRC.
+> >
+> > This was the approach I initially proposed in my RFC V1 patch :)
+> > But unfortunately we could not agree to it.
+> 
+> I know. But at that time I was not aware of any other bus used for the
+> C_CAN controller.
+> 
+> > So, please let me reiterate what I understood and what was present
+> > in RFC version of the patch. Please add your comments/views:
+> >
+> >         - drivers/net/can/c_can/c_can.c (similar on lines of
+> sja1000.c)
+> >         i.e. a)no *probe* / *remove* functions here,
+> >              b)register read/write implemented here.
+> >
+> >         - drivers/net/can/c_can/c_can_platform.c (similar on lines of
+> sja1000_platform.c)
+> >         i.e. *probe* / *remove* implemented here,
+> 
+> Yes, that's what I'm thinking about.
+> 
+> > Marc and Tomoya can also add their suggestions so that I can finalize
+> V3 a.s.a.p.
+> 
+> That would be nice, indeed. Also have a look to Tomoya's PCH driver,
+> which also looks very good in the meantime.
 
-For one queue ifb, the queue mapping should be saved and restored for
-ingress skbs, as it is reset to 0 in dev_pick_tx(ifb).
+I am having a look at Tomoya's PCH driver, but as I mentioned in 
+RFC V1 patch, I would rather like to have a bus sensitive `c_can` driver
+on top of which we can have the platform driver `c_can_platform` which
+essentially caters to the details of registers mapping/arch differences.
+Any other functionality like USB/PCI should be present in a separate file
+like `usb_c_can.c` or `pci_c_can.c` 
 
+If you agree I will try to circulate V3 a.s.ap.
 
--- 
 Regards,
-Changli Gao(xiaosuo@gmail.com)
+Bhupesh
