@@ -1,102 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: dont create routes on down devices
-Date: Wed, 22 Dec 2010 15:39:39 +0100
-Message-ID: <1293028779.3027.133.camel@edumazet-laptop>
-References: <4CA208C9.1020800@6wind.com>
-	 <1285691629.3154.80.camel@edumazet-laptop>  <4CA21BC6.5070300@6wind.com>
-	 <1285692969.3154.86.camel@edumazet-laptop>  <4CA2EF9C.9040909@6wind.com>
-	 <1285749349.2615.27.camel@edumazet-laptop>
-	 <1285751929.2615.30.camel@edumazet-laptop>  <4D11B7AC.8000205@6wind.com>
-	 <1293011708.3027.28.camel@edumazet-laptop>
-	 <1293012464.3027.30.camel@edumazet-laptop>  <4D120096.6080508@6wind.com>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Wed, 22 Dec 2010 07:48:59 -0800
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
+References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
+ <1293005302.4317.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Octavian Purdila <opurdila@ixiacom.com>,
-	netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	"juice@swagman.org" <juice@swagman.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:46613 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752437Ab0LVOjn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 09:39:43 -0500
-Received: by wwa36 with SMTP id 36so5346476wwa.1
-        for <netdev@vger.kernel.org>; Wed, 22 Dec 2010 06:39:41 -0800 (PST)
-In-Reply-To: <4D120096.6080508@6wind.com>
+Received: from exprod7og105.obsmtp.com ([64.18.2.163]:32775 "HELO
+	exprod7og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753378Ab0LVPuK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 10:50:10 -0500
+In-Reply-To: <1293005302.4317.19.camel@edumazet-laptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 14:43 +0100, Nicolas Dichtel a=
- =C3=A9crit :
-> Yes, I saw this commit, but I still got the problem:
->=20
-> shelby:/home/root/src# uname -a
-> Linux shelby 2.6.37-rc5+ #10 SMP Wed Dec 22 05:02:53 EST 2010 i686 GN=
-U/Linux
-> shelby:/home/root/src# ip tunnel add mode ipip remote 10.16.0.164 loc=
-al=20
-> 10.16.0.72 dev eth0
-> shelby:/home/root/src# ./a.out tunl1
-> shelby:/home/root/src# ip tunnel del tunl1
->=20
-> Message from syslogd@shelby at Dec 22 10:12:08 ...
->   kernel:[18459.828011] unregister_netdevice: waiting for tunl1 to be=
-come free.=20
-> Usage count =3D 3
->=20
-
-On another machine, and net-next-2.6, I reproduced the problem, so we
-need the patch after all, sorry for the delay.
-
-Thanks
-
-[PATCH] ipv4: dont create routes on down devices
-
-In ip_route_output_slow(), instead of allowing a route to be created on
-a not UPed device, report -ENETUNREACH immediately.
-
-# ip tunnel add mode ipip remote 10.16.0.164 local=20
-10.16.0.72 dev eth0
-# (Note : tunl1 is down)
-# ping -I tunl1 10.1.2.3
-PING 10.1.2.3 (10.1.2.3) from 192.168.18.5 tunl1: 56(84) bytes of data.
-(nothing)
-# ./a.out tunl1
-# ip tunnel del tunl1
-Message from syslogd@shelby at Dec 22 10:12:08 ...
-  kernel: unregister_netdevice: waiting for tunl1 to become free.=20
-Usage count =3D 3
-
-After patch:
-# ping -I tunl1 10.1.2.3
-connect: Network is unreachable
-
-
-Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Octavian Purdila <opurdila@ixiacom.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/route.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d8b4f4d..f1defb7 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2562,9 +2562,10 @@ static int ip_route_output_slow(struct net *net,=
- struct rtable **rp,
- 			goto out;
-=20
- 		/* RACE: Check return value of inet_select_addr instead. */
--		if (rcu_dereference(dev_out->ip_ptr) =3D=3D NULL)
--			goto out;	/* Wrong error code */
--
-+		if (!(dev_out->flags & IFF_UP) || !__in_dev_get_rcu(dev_out)) {
-+			err =3D -ENETUNREACH;
-+			goto out;
-+		}
- 		if (ipv4_is_local_multicast(oldflp->fl4_dst) ||
- 		    ipv4_is_lbcast(oldflp->fl4_dst)) {
- 			if (!fl.fl4_src)
-
-
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxm
+IE9mIEVyaWMgRHVtYXpldA0KU2VudDogV2VkbmVzZGF5LCBEZWNlbWJlciAyMiwgMjAxMCA0OjA4
+IFBNDQpUbzoganVpY2VAc3dhZ21hbi5vcmcNCkNjOiBTdGVwaGVuIEhlbW1pbmdlcjsgbmV0ZGV2
+QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFVzaW5nIGV0aGVybmV0IGRldmljZSBhcyBl
+ZmZpY2llbnQgc21hbGwgcGFja2V0IGdlbmVyYXRvcg0KDQpMZSBtZXJjcmVkaSAyMiBkw6ljZW1i
+cmUgMjAxMCDDoCAwOTozMCArMDIwMCwganVpY2UgYSDDqWNyaXQgOg0KPiA+IE9uIFR1ZSwgMjEg
+RGVjIDIwMTAgMTE6NTY6NDIgKzAyMDAgc2hlbW1pbmdlciB3cm90ZToNCj4gPiBJIHJlZ3VsYXJs
+eSBnZXQgZnVsbCAxRyBsaW5lIHJhdGUgb2YgNjQgYnl0ZSBwYWNrZXRzIHVzaW5nIG9sZCBPcHRl
+cm9uDQo+IGJveCBhbmQgcGt0Z2VuLiAgSXQgZG9lcyByZXF1aXJlIHNvbWUgdHVuaW5nIG9mIElS
+USdzIGFuZCBpbnRlcnJ1cHQNCj4gbWl0aWdhdGlvbiBidXQNCj4gPiBubyBwYXRjaGVzLiBEaWQg
+eW91IHJlbWVtYmVyIHRvIGRvIHRoZSBiYXNpYyBzdHVmZiBsaWtlIHNldHRpbmcgSVJRDQo+IGFm
+ZmluaXR5DQo+ID4gYW5kIG5vdCBlbmFibGluZyBkZWJ1Z2dpbmcgb3IgdHJhY2luZyBpbiB0aGUg
+a2VybmVsPyBUaGlzIGlzIG9uIHNreTIsDQo+IGJ1dA0KPiA+IGFsc28gdXNpbmcgZTEwMDAgYW5k
+IHRnMy4gT3RoZXJzIGhhdmUgcmVwb3J0ZWQgN00gcGFja2V0cyBwZXIgc2Vjb25kDQo+IG92ZXIN
+Cj4gPiAxMEcgY2FyZHMuDQo+ID4gVGhlIHI4MTY5IGhhcmR3YXJlIGlzIGxvdyBlbmQgY29uc3Vt
+ZXIgaGFyZHdhcmUgYW5kIGRvZXNuJ3Qgd29yayBhcw0KPiB3ZWxsLg0KPiA+IEl0IGlzIHBvc3Np
+YmxlIHRvIGdldCBjbG9zZSB0byAxRyBsaW5lIHJhdGUgZm9yd2FyZGluZyB3aXRoIGEgc2luZ2xl
+DQo+IGNvcmUNCj4gPiB3aXRoIGN1cnJlbnQNCj4gPiBnZW5lcmF0aW9uIHByb2Nlc3NvcnMuIEFj
+dHVhbCByYXRlIGRlcGVuZHMgb24gaGFyZHdhcmUgYW5kIGNvbmZpZ3VyYXRpb24NCj4gKHNpemUg
+b2Ygcm91dGUNCj4gPiB0YWJsZSwgZmlyZXdhbGxpbmcsIGV0YykuICBNdWNoIGJldHRlciBwZXJm
+b3JtYW5jZSB3aXRoIG11bHRpLXF1ZXVlDQo+IGhhcmR3YXJlIHRvIHNwcmVhZCBsb2FkDQo+ID4g
+b3ZlciBtdWx0aXBsZSBjb3Jlcy4NCj4gDQo+IEkgZGlkIG15IHRlc3Rpbmcgb24gdHdvIGtpbmRz
+IG9mIGJveGVzIHdlIHVzZSBpbiBvdXIgbGFiLCBhbiBvbGRlciBQb21pDQo+IFN1cGVybWljcm8g
+d2l0aCBlMTAwMCBhbmQgYSBuZXdlciBEZWxsIFQzNTAwIHdpdGggdGczIGFuZCByODE2OS4NCj4g
+Qm90aCBjb21wdXRlcnMgaGF2ZSBkdWFsLWNvcmUgMi40RyBYZW9uIENwdXMsIGJ1dCB3aXRoIHNv
+bWV3aGF0IGRpZmZlcmVudA0KPiBtb2RlbCBhbmQgc3RlcHBpbmcuDQo+IEJvdGggYm94ZXMgYXJl
+IHJ1bm5pbmcgdGhlIHNhbWUgT1MsIFVidW50dSAyLjYuMzItMjYtZ2VuZXJpYyAjNDguDQo+IA0K
+DQpIbW0sIG1pZ2h0IGJlIGJldHRlciB3aXRoIDEwLjEwIHVidW50dSwgd2l0aCAyLjYuMzUga2Vy
+bmVscw0KDQo+IENvdWxkIHlvdSBzaGFyZSBzb21lIGluZm9ybWF0aW9uIG9uIHRoZSByZXF1aXJl
+ZCBpbnRlcnJ1cHQgdHVuaW5nPyBJdA0KPiB3b3VsZCBjZXJ0YWlubHkgYmUgZWFzaWVzdCBpZiB0
+aGUgZnVsbCBsaW5lIHJhdGUgY2FuIGJlIGFjaGlldmVkIHdpdGhvdXQNCj4gYW55IHBhdGNoaW5n
+IG9mIGRyaXZlcnMgb3IgaGluZGVyaW5nIG5vcm1hbCBldGgvaXAgaW50ZXJmYWNlIG9wZXJhdGlv
+bi4NCj4gDQoNClRoYXRzIHByZXR0eSBlYXN5Lg0KDQpTYXkgeW91ciBjYXJkIGhhcyA4IHF1ZXVl
+cywgZG8gOg0KDQplY2hvIDAxID4vcHJvYy9pcnEvKi9ldGgxLWZwLTAvLi4vc21wX2FmZmluaXR5
+DQplY2hvIDAyID4vcHJvYy9pcnEvKi9ldGgxLWZwLTEvLi4vc21wX2FmZmluaXR5DQplY2hvIDA0
+ID4vcHJvYy9pcnEvKi9ldGgxLWZwLTIvLi4vc21wX2FmZmluaXR5DQplY2hvIDA4ID4vcHJvYy9p
+cnEvKi9ldGgxLWZwLTMvLi4vc21wX2FmZmluaXR5DQplY2hvIDEwID4vcHJvYy9pcnEvKi9ldGgx
+LWZwLTQvLi4vc21wX2FmZmluaXR5DQplY2hvIDIwID4vcHJvYy9pcnEvKi9ldGgxLWZwLTUvLi4v
+c21wX2FmZmluaXR5DQplY2hvIDQwID4vcHJvYy9pcnEvKi9ldGgxLWZwLTYvLi4vc21wX2FmZmlu
+aXR5DQplY2hvIDgwID4vcHJvYy9pcnEvKi9ldGgxLWZwLTcvLi4vc21wX2FmZmluaXR5DQoNClRo
+ZW4sIHN0YXJ0IHlvdXIgcGt0Z2VuIHRocmVhZHMgb24gZWFjaCBxdWV1ZSwgc28gdGhhdCBUWCBj
+b21wbGV0aW9uIElSUQ0KYXJlIHJ1biBvbiBzYW1lIENQVS4NCg0KSGkgZXJpYywgYW55IHNwZWNp
+YWwgc2V0dGluZyBpbiBwa3RnZW4uY29uZj8NCg0KUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0
+Z2VuZF8wDQogIGVjaG8gIlJlbW92aW5nIGFsbCBkZXZpY2VzIg0KIHBnc2V0ICJyZW1fZGV2aWNl
+X2FsbCINCiAgZWNobyAiQWRkaW5nIGV0aDEtZnAtMCIgLy9vciBldGgxPw0KIHBnc2V0ICJhZGRf
+ZGV2aWNlIGV0aDEiDQogIGVjaG8gIlNldHRpbmcgbWF4X2JlZm9yZV9zb2Z0aXJxIDEwMDAwIg0K
+IHBnc2V0ICJtYXhfYmVmb3JlX3NvZnRpcnEgMTAwMDAiDQoNCkFsbCB0aGluZ3MgSSBuZWVkIHRv
+IGRvIGlzIHNldCBjcHUgYWZmaW5pdHkgYW5kIHN0YXJ0IDggcGt0Z2VuIHRocmVhZHM/IChQR0RF
+Vj0vcHJvYy9uZXQvcGt0Z2VuL2twa3RnZW5kXzB+NyB3aXRoICJldGgxIikNCg0KDQpJIGNvbmZp
+cm0gZ2V0dGluZyA2TXBwcyAob3IgbW9yZSkgb3V0IG9mIHRoZSBib3ggaXMgT0suDQoNCkkgZGlk
+IGl0IG9uZSB5ZWFyIGFnbyBvbiBpeGdiZSwgbm8gcGF0Y2hlcyBuZWVkZWQuDQoNCldpdGggcmVj
+ZW50IGtlcm5lbHMsIGl0IHNob3VsZCBldmVuIGJlIGZhc3Rlci4NCg0KDQoNCi0tDQpUbyB1bnN1
+YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2
+IiBpbg0KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcN
+Ck1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
+LWluZm8uaHRtbA0K
