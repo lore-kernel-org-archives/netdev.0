@@ -1,80 +1,66 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: Using ethernet device as efficient small packet generator
-Date: Wed, 22 Dec 2010 07:48:59 -0800
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
+Date: Wed, 22 Dec 2010 16:59:18 +0100
+Message-ID: <1293033558.3027.216.camel@edumazet-laptop>
 References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
- <1293005302.4317.19.camel@edumazet-laptop>
+	 <1293005302.4317.19.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "juice@swagman.org" <juice@swagman.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"juice@swagman.org" <juice@swagman.org>
+To: Jon Zhou <Jon.Zhou@jdsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og105.obsmtp.com ([64.18.2.163]:32775 "HELO
-	exprod7og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1753378Ab0LVPuK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 10:50:10 -0500
-In-Reply-To: <1293005302.4317.19.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51443 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686Ab0LVP7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 10:59:22 -0500
+Received: by wwa36 with SMTP id 36so5427392wwa.1
+        for <netdev@vger.kernel.org>; Wed, 22 Dec 2010 07:59:21 -0800 (PST)
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxm
-IE9mIEVyaWMgRHVtYXpldA0KU2VudDogV2VkbmVzZGF5LCBEZWNlbWJlciAyMiwgMjAxMCA0OjA4
-IFBNDQpUbzoganVpY2VAc3dhZ21hbi5vcmcNCkNjOiBTdGVwaGVuIEhlbW1pbmdlcjsgbmV0ZGV2
-QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUmU6IFVzaW5nIGV0aGVybmV0IGRldmljZSBhcyBl
-ZmZpY2llbnQgc21hbGwgcGFja2V0IGdlbmVyYXRvcg0KDQpMZSBtZXJjcmVkaSAyMiBkw6ljZW1i
-cmUgMjAxMCDDoCAwOTozMCArMDIwMCwganVpY2UgYSDDqWNyaXQgOg0KPiA+IE9uIFR1ZSwgMjEg
-RGVjIDIwMTAgMTE6NTY6NDIgKzAyMDAgc2hlbW1pbmdlciB3cm90ZToNCj4gPiBJIHJlZ3VsYXJs
-eSBnZXQgZnVsbCAxRyBsaW5lIHJhdGUgb2YgNjQgYnl0ZSBwYWNrZXRzIHVzaW5nIG9sZCBPcHRl
-cm9uDQo+IGJveCBhbmQgcGt0Z2VuLiAgSXQgZG9lcyByZXF1aXJlIHNvbWUgdHVuaW5nIG9mIElS
-USdzIGFuZCBpbnRlcnJ1cHQNCj4gbWl0aWdhdGlvbiBidXQNCj4gPiBubyBwYXRjaGVzLiBEaWQg
-eW91IHJlbWVtYmVyIHRvIGRvIHRoZSBiYXNpYyBzdHVmZiBsaWtlIHNldHRpbmcgSVJRDQo+IGFm
-ZmluaXR5DQo+ID4gYW5kIG5vdCBlbmFibGluZyBkZWJ1Z2dpbmcgb3IgdHJhY2luZyBpbiB0aGUg
-a2VybmVsPyBUaGlzIGlzIG9uIHNreTIsDQo+IGJ1dA0KPiA+IGFsc28gdXNpbmcgZTEwMDAgYW5k
-IHRnMy4gT3RoZXJzIGhhdmUgcmVwb3J0ZWQgN00gcGFja2V0cyBwZXIgc2Vjb25kDQo+IG92ZXIN
-Cj4gPiAxMEcgY2FyZHMuDQo+ID4gVGhlIHI4MTY5IGhhcmR3YXJlIGlzIGxvdyBlbmQgY29uc3Vt
-ZXIgaGFyZHdhcmUgYW5kIGRvZXNuJ3Qgd29yayBhcw0KPiB3ZWxsLg0KPiA+IEl0IGlzIHBvc3Np
-YmxlIHRvIGdldCBjbG9zZSB0byAxRyBsaW5lIHJhdGUgZm9yd2FyZGluZyB3aXRoIGEgc2luZ2xl
-DQo+IGNvcmUNCj4gPiB3aXRoIGN1cnJlbnQNCj4gPiBnZW5lcmF0aW9uIHByb2Nlc3NvcnMuIEFj
-dHVhbCByYXRlIGRlcGVuZHMgb24gaGFyZHdhcmUgYW5kIGNvbmZpZ3VyYXRpb24NCj4gKHNpemUg
-b2Ygcm91dGUNCj4gPiB0YWJsZSwgZmlyZXdhbGxpbmcsIGV0YykuICBNdWNoIGJldHRlciBwZXJm
-b3JtYW5jZSB3aXRoIG11bHRpLXF1ZXVlDQo+IGhhcmR3YXJlIHRvIHNwcmVhZCBsb2FkDQo+ID4g
-b3ZlciBtdWx0aXBsZSBjb3Jlcy4NCj4gDQo+IEkgZGlkIG15IHRlc3Rpbmcgb24gdHdvIGtpbmRz
-IG9mIGJveGVzIHdlIHVzZSBpbiBvdXIgbGFiLCBhbiBvbGRlciBQb21pDQo+IFN1cGVybWljcm8g
-d2l0aCBlMTAwMCBhbmQgYSBuZXdlciBEZWxsIFQzNTAwIHdpdGggdGczIGFuZCByODE2OS4NCj4g
-Qm90aCBjb21wdXRlcnMgaGF2ZSBkdWFsLWNvcmUgMi40RyBYZW9uIENwdXMsIGJ1dCB3aXRoIHNv
-bWV3aGF0IGRpZmZlcmVudA0KPiBtb2RlbCBhbmQgc3RlcHBpbmcuDQo+IEJvdGggYm94ZXMgYXJl
-IHJ1bm5pbmcgdGhlIHNhbWUgT1MsIFVidW50dSAyLjYuMzItMjYtZ2VuZXJpYyAjNDguDQo+IA0K
-DQpIbW0sIG1pZ2h0IGJlIGJldHRlciB3aXRoIDEwLjEwIHVidW50dSwgd2l0aCAyLjYuMzUga2Vy
-bmVscw0KDQo+IENvdWxkIHlvdSBzaGFyZSBzb21lIGluZm9ybWF0aW9uIG9uIHRoZSByZXF1aXJl
-ZCBpbnRlcnJ1cHQgdHVuaW5nPyBJdA0KPiB3b3VsZCBjZXJ0YWlubHkgYmUgZWFzaWVzdCBpZiB0
-aGUgZnVsbCBsaW5lIHJhdGUgY2FuIGJlIGFjaGlldmVkIHdpdGhvdXQNCj4gYW55IHBhdGNoaW5n
-IG9mIGRyaXZlcnMgb3IgaGluZGVyaW5nIG5vcm1hbCBldGgvaXAgaW50ZXJmYWNlIG9wZXJhdGlv
-bi4NCj4gDQoNClRoYXRzIHByZXR0eSBlYXN5Lg0KDQpTYXkgeW91ciBjYXJkIGhhcyA4IHF1ZXVl
-cywgZG8gOg0KDQplY2hvIDAxID4vcHJvYy9pcnEvKi9ldGgxLWZwLTAvLi4vc21wX2FmZmluaXR5
-DQplY2hvIDAyID4vcHJvYy9pcnEvKi9ldGgxLWZwLTEvLi4vc21wX2FmZmluaXR5DQplY2hvIDA0
-ID4vcHJvYy9pcnEvKi9ldGgxLWZwLTIvLi4vc21wX2FmZmluaXR5DQplY2hvIDA4ID4vcHJvYy9p
-cnEvKi9ldGgxLWZwLTMvLi4vc21wX2FmZmluaXR5DQplY2hvIDEwID4vcHJvYy9pcnEvKi9ldGgx
-LWZwLTQvLi4vc21wX2FmZmluaXR5DQplY2hvIDIwID4vcHJvYy9pcnEvKi9ldGgxLWZwLTUvLi4v
-c21wX2FmZmluaXR5DQplY2hvIDQwID4vcHJvYy9pcnEvKi9ldGgxLWZwLTYvLi4vc21wX2FmZmlu
-aXR5DQplY2hvIDgwID4vcHJvYy9pcnEvKi9ldGgxLWZwLTcvLi4vc21wX2FmZmluaXR5DQoNClRo
-ZW4sIHN0YXJ0IHlvdXIgcGt0Z2VuIHRocmVhZHMgb24gZWFjaCBxdWV1ZSwgc28gdGhhdCBUWCBj
-b21wbGV0aW9uIElSUQ0KYXJlIHJ1biBvbiBzYW1lIENQVS4NCg0KSGkgZXJpYywgYW55IHNwZWNp
-YWwgc2V0dGluZyBpbiBwa3RnZW4uY29uZj8NCg0KUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0
-Z2VuZF8wDQogIGVjaG8gIlJlbW92aW5nIGFsbCBkZXZpY2VzIg0KIHBnc2V0ICJyZW1fZGV2aWNl
-X2FsbCINCiAgZWNobyAiQWRkaW5nIGV0aDEtZnAtMCIgLy9vciBldGgxPw0KIHBnc2V0ICJhZGRf
-ZGV2aWNlIGV0aDEiDQogIGVjaG8gIlNldHRpbmcgbWF4X2JlZm9yZV9zb2Z0aXJxIDEwMDAwIg0K
-IHBnc2V0ICJtYXhfYmVmb3JlX3NvZnRpcnEgMTAwMDAiDQoNCkFsbCB0aGluZ3MgSSBuZWVkIHRv
-IGRvIGlzIHNldCBjcHUgYWZmaW5pdHkgYW5kIHN0YXJ0IDggcGt0Z2VuIHRocmVhZHM/IChQR0RF
-Vj0vcHJvYy9uZXQvcGt0Z2VuL2twa3RnZW5kXzB+NyB3aXRoICJldGgxIikNCg0KDQpJIGNvbmZp
-cm0gZ2V0dGluZyA2TXBwcyAob3IgbW9yZSkgb3V0IG9mIHRoZSBib3ggaXMgT0suDQoNCkkgZGlk
-IGl0IG9uZSB5ZWFyIGFnbyBvbiBpeGdiZSwgbm8gcGF0Y2hlcyBuZWVkZWQuDQoNCldpdGggcmVj
-ZW50IGtlcm5lbHMsIGl0IHNob3VsZCBldmVuIGJlIGZhc3Rlci4NCg0KDQoNCi0tDQpUbyB1bnN1
-YnNjcmliZSBmcm9tIHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbmV0ZGV2
-IiBpbg0KdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcN
-Ck1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21v
-LWluZm8uaHRtbA0K
+Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 07:48 -0800, Jon Zhou a =C3=A9=
+crit :
+>=20
+
+> Hi eric, any special setting in pktgen.conf?
+>=20
+> PGDEV=3D/proc/net/pktgen/kpktgend_0
+>   echo "Removing all devices"
+>  pgset "rem_device_all"
+>   echo "Adding eth1-fp-0" //or eth1?
+
+eth1
+
+>  pgset "add_device eth1"
+>   echo "Setting max_before_softirq 10000"
+>  pgset "max_before_softirq 10000"
+
+Not sure you need to tweak max_before_softirq (I never did)
+
+>=20
+> All things I need to do is set cpu affinity and start 8 pktgen thread=
+s? (PGDEV=3D/proc/net/pktgen/kpktgend_0~7 with "eth1")
+
+Yes, but you must also use queue_map_min and queue_map_max pktgen
+parameters so that each cpu manipulates its own 'queue'
+
+CPU 0 :=20
+
+   pgset "queue_map_min 0"
+   pgset "queue_map_max 0"
+
+=2E..
+
+CPU 3 :=20
+
+   pgset "queue_map_min 3"
+   pgset "queue_map_max 3"
+
+
+
+
