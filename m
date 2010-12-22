@@ -1,389 +1,99 @@
-From: <Narendra_K@Dell.com>
-Subject: [PATCH] Export ACPI _DSM provided firmware instance number and
- string name to sysfs
-Date: Wed, 22 Dec 2010 08:42:39 -0800
-Message-ID: <20101222170737.GA2428@fedora14-r610.oslab.blr.amer.dell.com>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Wed, 22 Dec 2010 08:52:55 -0800
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F33D3@MILEXCH2.ds.jdsu.net>
+References: <e66c1ff20e095bcc3a9a678a9935dc7e.squirrel@www.liukuma.net>
+	 <1293005302.4317.19.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F249D5F3327@MILEXCH2.ds.jdsu.net>
+ <1293033558.3027.216.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <Matt_Domsch@Dell.com>,
-	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
-	<Vijay_Nijhawan@Dell.com>
-To: <linux-pci@vger.kernel.org>, <linux-hotplug@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "juice@swagman.org" <juice@swagman.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og125.obsmtp.com ([64.18.2.28]:41639 "HELO
+	exprod7og125.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751943Ab0LVQzu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 11:55:50 -0500
+In-Reply-To: <1293033558.3027.216.camel@edumazet-laptop>
 Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-This patch exports ACPI _DSM provided firmware instance number and
-string name to sysfs.
-
-Please review -
-
-From: Narendra K <narendra_k@dell.com>
-Subject: [PATCH] Export ACPI _DSM provided firmware instance number and string to sysfs
-
-This patch exports ACPI _DSM (Device Specific Method) provided firmware
-instance number and string name of PCI devices as defined by
-'PCI Firmware Specification Revision 3.1' section 4.6.7.( DSM for Naming
-a PCI or PCI Express Device Under Operating Systems) to sysfs.
-
-New files created are:
-  /sys/bus/pci/devices/.../label which contains the firmware name for
-the device in question, and
-  /sys/bus/pci/devices/.../index which contains the firmware device type
-instance for the given device.
-
-cat /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/index
-1
-cat /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.0/label
-Embedded Broadcom 5709C NIC 1
-
-cat /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.1/index
-2
-cat /sys/devices/pci0000:00/0000:00:01.0/0000:01:00.1/label
-Embedded Broadcom 5709C NIC 2
-
-Signed-off-by: Jordan Hargrave <jordan_hargrave@dell.com>
-Signed-off-by: Narendra K <narendra_k@dell.com>
----
- Documentation/ABI/testing/sysfs-bus-pci |   14 +-
- drivers/pci/Makefile                    |    3 +-
- drivers/pci/pci-label.c                 |  236 ++++++++++++++++++++++++++++++-
- drivers/pci/pci.h                       |    2 +-
- 4 files changed, 243 insertions(+), 12 deletions(-)
-
-diff --git a/Documentation/ABI/testing/sysfs-bus-pci b/Documentation/ABI/testing/sysfs-bus-pci
-index f979d82..7e90ef1 100644
---- a/Documentation/ABI/testing/sysfs-bus-pci
-+++ b/Documentation/ABI/testing/sysfs-bus-pci
-@@ -145,9 +145,9 @@ Date:		July 2010
- Contact:	Narendra K <narendra_k@dell.com>, linux-bugs@dell.com
- Description:
- 		Reading this attribute will provide the firmware
--		given name(SMBIOS type 41 string) of the PCI device.
--		The attribute will be created only if the firmware
--		has given a name to the PCI device.
-+		given name (SMBIOS type 41 string or ACPI _DSM string) of
-+		the PCI device.	The attribute will be created only
-+		if the firmware	has given a name to the PCI device.
- Users:
- 		Userspace applications interested in knowing the
- 		firmware assigned name of the PCI device.
-@@ -157,10 +157,10 @@ Date:		July 2010
- Contact:	Narendra K <narendra_k@dell.com>, linux-bugs@dell.com
- Description:
- 		Reading this attribute will provide the firmware
--		given instance(SMBIOS type 41 device type instance)
--		of the PCI device. The attribute will be created
--		only if the firmware has given a device type instance
--		to the PCI device.
-+		given instance (SMBIOS type 41 device type instance
-+		or ACPI _DSM instance number) of the PCI device. The attribute
-+		will be	created	only if the firmware has given an instance
-+		number to the PCI device.
- Users:
- 		Userspace applications interested in knowing the
- 		firmware assigned device type instance of the PCI
-diff --git a/drivers/pci/Makefile b/drivers/pci/Makefile
-index 98e6fdf..bb1d3b2 100644
---- a/drivers/pci/Makefile
-+++ b/drivers/pci/Makefile
-@@ -53,8 +53,9 @@ obj-$(CONFIG_TILE) += setup-bus.o setup-irq.o
- 
- #
- # ACPI Related PCI FW Functions
-+# ACPI _DSM provided firmware instance and string name
- #
--obj-$(CONFIG_ACPI)    += pci-acpi.o
-+obj-$(CONFIG_ACPI)    += pci-acpi.o pci-label.o
- 
- # SMBIOS provided firmware instance and labels
- obj-$(CONFIG_DMI)    += pci-label.o
-diff --git a/drivers/pci/pci-label.c b/drivers/pci/pci-label.c
-index 90c0a72..08b1ec5 100644
---- a/drivers/pci/pci-label.c
-+++ b/drivers/pci/pci-label.c
-@@ -5,6 +5,13 @@
-  * by Narendra K <Narendra_K@dell.com>,
-  * Jordan Hargrave <Jordan_Hargrave@dell.com>
-  *
-+ * PCI Firmware Specification Revision 3.1 section 4.6.7 (DSM for Naming a
-+ * PCI or PCI Express Device Under Operating Systems) defines an instance
-+ * number and string name. This code retrieves them and exports them to sysfs.
-+ * If the system firmware does not provide the ACPI _DSM (Device Specific
-+ * Method), then the SMBIOS type 41 instance number and string is exported to
-+ * sysfs.
-+ *
-  * SMBIOS defines type 41 for onboard pci devices. This code retrieves
-  * the instance number and string from the type 41 record and exports
-  * it to sysfs.
-@@ -19,8 +26,30 @@
- #include <linux/pci_ids.h>
- #include <linux/module.h>
- #include <linux/device.h>
-+#include <linux/nls.h>
-+#include <linux/acpi.h>
-+#include <linux/pci-acpi.h>
-+#include <acpi/acpi_drivers.h>
-+#include <acpi/acpi_bus.h>
- #include "pci.h"
- 
-+#define	DEVICE_LABEL_DSM	0x07
-+
-+#ifndef CONFIG_DMI
-+
-+static inline int
-+pci_create_smbiosname_file(struct pci_dev *pdev)
-+{
-+	return -1;
-+}
-+
-+static inline void
-+pci_remove_smbiosname_file(struct pci_dev *pdev)
-+{
-+}
-+
-+#else
-+
- enum smbios_attr_enum {
- 	SMBIOS_ATTR_NONE = 0,
- 	SMBIOS_ATTR_LABEL_SHOW,
-@@ -131,13 +160,214 @@ pci_remove_smbiosname_file(struct pci_dev *pdev)
- 	sysfs_remove_group(&pdev->dev.kobj, &smbios_attr_group);
- }
- 
-+#endif
-+
-+#ifndef CONFIG_ACPI
-+
-+static inline int
-+pci_create_acpi_index_label_files(struct pci_dev *pdev)
-+{
-+	return -1;
-+}
-+
-+static inline int
-+pci_remove_acpi_index_label_files(struct pci_dev *pdev)
-+{
-+	return -1;
-+}
-+
-+#else
-+
-+static const char device_label_dsm_uuid[] = {
-+	0xD0, 0x37, 0xC9, 0xE5, 0x53, 0x35, 0x7A, 0x4D,
-+	0x91, 0x17, 0xEA, 0x4D, 0x19, 0xC3, 0x43, 0x4D
-+};
-+
-+enum acpi_attr_enum {
-+	ACPI_ATTR_NONE = 0,
-+	ACPI_ATTR_LABEL_SHOW,
-+	ACPI_ATTR_INDEX_SHOW,
-+};
-+
-+static int dsm_label_utf16s_to_utf8s(union acpi_object *obj, char *buf)
-+{
-+	int err;
-+	err = utf16s_to_utf8s((const wchar_t *)obj->
-+			      package.elements[1].string.pointer,
-+			      obj->package.elements[1].string.length,
-+			      UTF16_LITTLE_ENDIAN,
-+			      buf, PAGE_SIZE);
-+	buf[err] = '\n';
-+	return err;
-+}
-+
-+static int
-+dsm_get_label(acpi_handle handle, int func,
-+	      struct acpi_buffer *output,
-+	      char *buf, enum acpi_attr_enum attribute)
-+{
-+	struct acpi_object_list input;
-+	union acpi_object params[4];
-+	union acpi_object *obj;
-+	int len = 0;
-+
-+	int err;
-+
-+	input.count = 4;
-+	input.pointer = params;
-+	params[0].type = ACPI_TYPE_BUFFER;
-+	params[0].buffer.length = sizeof(device_label_dsm_uuid);
-+	params[0].buffer.pointer = (char *)device_label_dsm_uuid;
-+	params[1].type = ACPI_TYPE_INTEGER;
-+	params[1].integer.value = 0x02;
-+	params[2].type = ACPI_TYPE_INTEGER;
-+	params[2].integer.value = func;
-+	params[3].type = ACPI_TYPE_PACKAGE;
-+	params[3].package.count = 0;
-+	params[3].package.elements = NULL;
-+
-+	err = acpi_evaluate_object(handle, "_DSM", &input, output);
-+	if (err)
-+		return -1;
-+
-+	obj = (union acpi_object *)output->pointer;
-+
-+	switch (obj->type) {
-+	case ACPI_TYPE_PACKAGE:
-+		if (obj->package.count != 2)
-+			break;
-+		len = obj->package.elements[0].integer.value;
-+		if (buf) {
-+			if (attribute == ACPI_ATTR_INDEX_SHOW)
-+				scnprintf(buf, PAGE_SIZE, "%llu\n",
-+				obj->package.elements[0].integer.value);
-+			else if (attribute == ACPI_ATTR_LABEL_SHOW) {
-+				if (dsm_label_utf16s_to_utf8s(obj, buf) < 0)
-+					return -1;
-+			}
-+			kfree(output->pointer);
-+			return strlen(buf);
-+		}
-+		kfree(output->pointer);
-+		return len;
-+	break;
-+	default:
-+		kfree(output->pointer);
-+	}
-+	return -1;
-+}
-+
-+static mode_t
-+acpi_index_string_exist(struct kobject *kobj, struct attribute *attr, int n)
-+{
-+	struct device *dev;
-+	struct acpi_buffer output = {ACPI_ALLOCATE_BUFFER, NULL};
-+	acpi_handle handle;
-+	int length;
-+
-+	dev = container_of(kobj, struct device, kobj);
-+	handle = DEVICE_ACPI_HANDLE(dev);
-+
-+	if (!handle)
-+		return 0;
-+
-+	length = dsm_get_label(handle, DEVICE_LABEL_DSM,
-+			       &output, NULL, ACPI_ATTR_NONE);
-+
-+	return (length > 0) ? S_IRUGO : 0;
-+}
-+
-+static ssize_t
-+acpilabel_show(struct device *dev, struct device_attribute *attr, char *buf)
-+{
-+	struct acpi_buffer output = {ACPI_ALLOCATE_BUFFER, NULL};
-+	acpi_handle handle;
-+	int length;
-+
-+	handle = DEVICE_ACPI_HANDLE(dev);
-+
-+	if (!handle)
-+		return -1;
-+
-+	length = dsm_get_label(handle, DEVICE_LABEL_DSM,
-+			       &output, buf, ACPI_ATTR_LABEL_SHOW);
-+
-+	if (length < 1)
-+		return -1;
-+
-+	return length;
-+}
-+
-+static ssize_t
-+acpiindex_show(struct device *dev, struct device_attribute *attr, char *buf)
-+{
-+	struct acpi_buffer output = {ACPI_ALLOCATE_BUFFER, NULL};
-+	acpi_handle handle;
-+	int length;
-+
-+	handle = DEVICE_ACPI_HANDLE(dev);
-+
-+	if (!handle)
-+		return -1;
-+
-+	length = dsm_get_label(handle, DEVICE_LABEL_DSM,
-+			       &output, buf, ACPI_ATTR_INDEX_SHOW);
-+
-+	if (length < 0)
-+		return -1;
-+
-+	return length;
-+
-+}
-+
-+static struct device_attribute acpi_attr_label = {
-+	.attr = {.name = "label", .mode = 0444},
-+	.show = acpilabel_show,
-+};
-+
-+static struct device_attribute acpi_attr_index = {
-+	.attr = {.name = "index", .mode = 0444},
-+	.show = acpiindex_show,
-+};
-+
-+static struct attribute *acpi_attributes[] = {
-+	&acpi_attr_label.attr,
-+	&acpi_attr_index.attr,
-+	NULL,
-+};
-+
-+static struct attribute_group acpi_attr_group = {
-+	.attrs = acpi_attributes,
-+	.is_visible = acpi_index_string_exist,
-+};
-+
-+static int
-+pci_create_acpi_index_label_files(struct pci_dev *pdev)
-+{
-+	if (!sysfs_create_group(&pdev->dev.kobj, &acpi_attr_group))
-+		return 0;
-+	return -ENODEV;
-+}
-+
-+static int
-+pci_remove_acpi_index_label_files(struct pci_dev *pdev)
-+{
-+	sysfs_remove_group(&pdev->dev.kobj, &acpi_attr_group);
-+	return 0;
-+}
-+#endif
-+
- void pci_create_firmware_label_files(struct pci_dev *pdev)
- {
--	if (!pci_create_smbiosname_file(pdev))
--		;
-+	if (!pci_create_acpi_index_label_files(pdev))
-+		return;
-+	pci_create_smbiosname_file(pdev);
- }
- 
- void pci_remove_firmware_label_files(struct pci_dev *pdev)
- {
--	pci_remove_smbiosname_file(pdev);
-+	if (!pci_remove_acpi_index_label_files(pdev))
-+		return;
-+	else
-+		pci_remove_smbiosname_file(pdev);
- }
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index 7d33f66..d0d0bd4 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -11,7 +11,7 @@
- extern int pci_uevent(struct device *dev, struct kobj_uevent_env *env);
- extern int pci_create_sysfs_dev_files(struct pci_dev *pdev);
- extern void pci_remove_sysfs_dev_files(struct pci_dev *pdev);
--#ifndef CONFIG_DMI
-+#if !defined(CONFIG_DMI) && !defined(CONFIG_ACPI)
- static inline void pci_create_firmware_label_files(struct pci_dev *pdev)
- { return; }
- static inline void pci_remove_firmware_label_files(struct pci_dev *pdev)
--- 
-1.7.3.1
-
-With regards,
-Narendra K
+DQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXSANClNlbnQ6IFdlZG5lc2RheSwgRGVjZW1iZXIgMjIs
+IDIwMTAgMTE6NTkgUE0NClRvOiBKb24gWmhvdQ0KQ2M6IGp1aWNlQHN3YWdtYW4ub3JnOyBTdGVw
+aGVuIEhlbW1pbmdlcjsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0KU3ViamVjdDogUkU6IFVzaW5n
+IGV0aGVybmV0IGRldmljZSBhcyBlZmZpY2llbnQgc21hbGwgcGFja2V0IGdlbmVyYXRvcg0KDQpM
+ZSBtZXJjcmVkaSAyMiBkw6ljZW1icmUgMjAxMCDDoCAwNzo0OCAtMDgwMCwgSm9uIFpob3UgYSDD
+qWNyaXQgOg0KPiANCg0KPiBIaSBlcmljLCBhbnkgc3BlY2lhbCBzZXR0aW5nIGluIHBrdGdlbi5j
+b25mPw0KPiANCj4gUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8wDQo+ICAgZWNobyAi
+UmVtb3ZpbmcgYWxsIGRldmljZXMiDQo+ICBwZ3NldCAicmVtX2RldmljZV9hbGwiDQo+ICAgZWNo
+byAiQWRkaW5nIGV0aDEtZnAtMCIgLy9vciBldGgxPw0KDQpldGgxDQoNCj4gIHBnc2V0ICJhZGRf
+ZGV2aWNlIGV0aDEiDQo+ICAgZWNobyAiU2V0dGluZyBtYXhfYmVmb3JlX3NvZnRpcnEgMTAwMDAi
+DQo+ICBwZ3NldCAibWF4X2JlZm9yZV9zb2Z0aXJxIDEwMDAwIg0KDQpOb3Qgc3VyZSB5b3UgbmVl
+ZCB0byB0d2VhayBtYXhfYmVmb3JlX3NvZnRpcnEgKEkgbmV2ZXIgZGlkKQ0KDQo+IA0KPiBBbGwg
+dGhpbmdzIEkgbmVlZCB0byBkbyBpcyBzZXQgY3B1IGFmZmluaXR5IGFuZCBzdGFydCA4IHBrdGdl
+biB0aHJlYWRzPyAoUEdERVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8wfjcgd2l0aCAiZXRo
+MSIpDQoNClllcywgYnV0IHlvdSBtdXN0IGFsc28gdXNlIHF1ZXVlX21hcF9taW4gYW5kIHF1ZXVl
+X21hcF9tYXggcGt0Z2VuDQpwYXJhbWV0ZXJzIHNvIHRoYXQgZWFjaCBjcHUgbWFuaXB1bGF0ZXMg
+aXRzIG93biAncXVldWUnDQoNCkNQVSAwIDogDQoNCiAgIHBnc2V0ICJxdWV1ZV9tYXBfbWluIDAi
+DQogICBwZ3NldCAicXVldWVfbWFwX21heCAwIg0KDQouLi4NCg0KQ1BVIDMgOiANCg0KICAgcGdz
+ZXQgInF1ZXVlX21hcF9taW4gMyINCiAgIHBnc2V0ICJxdWV1ZV9tYXBfbWF4IDMiDQoNCg0KUEdE
+RVY9L3Byb2MvbmV0L3BrdGdlbi9rcGt0Z2VuZF8wDQogIGVjaG8gIlJlbW92aW5nIGFsbCBkZXZp
+Y2VzIg0KIHBnc2V0ICJyZW1fZGV2aWNlX2FsbCIgDQogIGVjaG8gIkFkZGluZyBldGg0Ig0KIHBn
+c2V0ICJhZGRfZGV2aWNlIGV0aDQiIA0KICBlY2hvICJTZXR0aW5nIG1heF9iZWZvcmVfc29mdGly
+cSAxMDAwMCINCiBwZ3NldCAicXVldWVfbWFwX21pbiAwIg0KIHBnc2V0ICJxdWV1ZV9tYXBfbWF4
+IDAiDQoNCi0tPg0KSXQgc2FpZDogDQpxdWV1ZV9tYXBfbWluIDANCi4vcGt0Z2VuLmNvbmYtOC0x
+OiBsaW5lIDEwOiBlY2hvOiB3cml0ZSBlcnJvcjogSW52YWxpZCBhcmd1bWVudA0KcXVldWVfbWFw
+X21heCAwDQouL3BrdGdlbi5jb25mLTgtMTogbGluZSAxMDogZWNobzogd3JpdGUgZXJyb3I6IElu
+dmFsaWQgYXJndW1lbnQNCg0KDQpQR0RFVj0vcHJvYy9uZXQvcGt0Z2VuL2V0aDQNCiAgZWNobyAi
+Q29uZmlndXJpbmcgJFBHREVWIg0KIHBnc2V0ICIkQ09VTlQiDQogcGdzZXQgIiRDTE9ORV9TS0Ii
+DQogcGdzZXQgIiRQS1RfU0laRSINCiBwZ3NldCAiJERFTEFZIg0KIHBnc2V0ICJkc3QgMTAuMTAu
+MTEuMiIgDQogcGdzZXQgInF1ZXVlX21hcF9taW4gMCINCiBwZ3NldCAicXVldWVfbWFwX21heCA3
+Ig0KIHBnc2V0ICJkc3RfbWFjICAwMDowNDoyMzowODo5MTpkYyINCg0KLT5pdCBpcyBvaw0KDQoN
+CkhlcmUgaXMgdGhlIHRvcCByZXN1bHQsIHdoeSBvbmx5IGtwa3RnZW5kXzAgaXMgcnVubmluZz8N
+CkVyaWMsY2FuIHlvdSBzaGFyZSB0aGUgcGt0Z2VuIHNjcmlwdD8gVGhhbmsgeW91DQoNCnRvcCAt
+IDAwOjQzOjU5IHVwICA3OjAwLCAgNiB1c2VycywgIGxvYWQgYXZlcmFnZTogMC45NSwgMC42Niwg
+MC41MQ0KVGFza3M6ICAgOCB0b3RhbCwgICAxIHJ1bm5pbmcsICAgNyBzbGVlcGluZywgICAwIHN0
+b3BwZWQsICAgMCB6b21iaWUNCkNwdShzKTogIDAuMCV1cywgIDMuMiVzeSwgIDAuMCVuaSwgODYu
+MSVpZCwgIDAuMSV3YSwgIDAuMCVoaSwgMTAuNiVzaSwgIDAuMCVzdA0KTWVtOiAgICAgMzIyMjhN
+IHRvdGFsLCAgICAgIDkzM00gdXNlZCwgICAgMzEyOTVNIGZyZWUsICAgICAgIDk3TSBidWZmZXJz
+DQpTd2FwOiAgICAgMjA1NU0gdG90YWwsICAgICAgICAwTSB1c2VkLCAgICAgMjA1NU0gZnJlZSwg
+ICAgICAxMzhNIGNhY2hlZA0KDQogIFBJRCBVU0VSICAgICAgUFIgIE5JICBWSVJUICBSRVMgIFNI
+UiBTICVDUFUgJU1FTSAgICBUSU1FKyAgQ09NTUFORA0KIDg4MDYgcm9vdCAgICAgIDIwICAgMCAg
+ICAgMCAgICAwICAgIDAgUiAgMTAwICAwLjAgICA1OjI3LjEyIGtwa3RnZW5kXzANCiA4ODA3IHJv
+b3QgICAgICAyMCAgIDAgICAgIDAgICAgMCAgICAwIFMgICAgMCAgMC4wICAgMDowMC4wMCBrcGt0
+Z2VuZF8xDQogODgwOCByb290ICAgICAgMjAgICAwICAgICAwICAgIDAgICAgMCBTICAgIDAgIDAu
+MCAgIDA6MDAuMDAga3BrdGdlbmRfMg0KIDg4MTAgcm9vdCAgICAgIDIwICAgMCAgICAgMCAgICAw
+ICAgIDAgUyAgICAwICAwLjAgICAwOjAwLjAwIGtwa3RnZW5kXzMNCiA4ODExIHJvb3QgICAgICAy
+MCAgIDAgICAgIDAgICAgMCAgICAwIFMgICAgMCAgMC4wICAgMDowMC4wMCBrcGt0Z2VuZF80DQog
+ODgxMiByb290ICAgICAgMjAgICAwICAgICAwICAgIDAgICAgMCBTICAgIDAgIDAuMCAgIDA6MDAu
+MDAga3BrdGdlbmRfNQ0KIDg4MTMgcm9vdCAgICAgIDIwICAgMCAgICAgMCAgICAwICAgIDAgUyAg
+ICAwICAwLjAgICAwOjAwLjAwIGtwa3RnZW5kXzYNCiA4ODE0IHJvb3QgICAgICAyMCAgIDAgICAg
+IDAgICAgMCAgICAwIFMgICAgMCAgMC4wICAgMDowMC4wMCBrcGt0Z2VuZF83DQoNCkFscmVhZHkg
+c2V0IGFmZmluaXR5Og0KY2F0IC9wcm9jL2ludGVycnVwdHMgfGdyZXAgZXRoNA0KICA3ODogICAx
+MDYyNTI1NyAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
+ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4
+UngtMA0KICA3OTogICAgICAxMDQ1MSAgICAgNTgxMDA3ICAgICAgICAgIDAgICAgICAgICAgMCAg
+ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVk
+Z2UgICAgICBldGg0LVR4UngtMQ0KICA4MDogICAgICAxMDQ0NyAgICAgICAgICAwICAgICA1MzUx
+ODUgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAw
+ICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtMg0KICA4MTogICAgICAxMDQ0MSAgICAg
+ICAgICAwICAgICAgICAgIDAgICAgIDU3NTkxMSAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
+ICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtMw0KICA4Mjog
+ICAgICAxMDQ0NCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgNTIxMDY4ICAg
+ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0
+LVR4UngtNA0KICA4MzogICAgICAxMDQ0OCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAg
+MCAgICAgICAgICAwICAgICA1NjQ3MTAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJ
+LWVkZ2UgICAgICBldGg0LVR4UngtNQ0KICA4NDogICAgICAxMDQyOSAgICAgICAgICAwICAgICAg
+ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgIDUxNjA4NyAgICAgICAg
+ICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtNg0KICA4NTogICAgICAxMDQ0NCAg
+ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAg
+ICAgICAgMCAgICAgNTU4NTMwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBldGg0LVR4UngtNw0KICA4
+NjogICAgICAgICAgMiAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAw
+ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICBJUi1QQ0ktTVNJLWVkZ2UgICAgICBl
+dGg0OmxzYw0KDQoNCg==
