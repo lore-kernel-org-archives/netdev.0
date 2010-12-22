@@ -1,51 +1,69 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [PATCH 01/10] bna: TxRx and datapath fix
-Date: Wed, 22 Dec 2010 15:44:28 -0800
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A5CFD8353C@HQ1-EXCH01.corp.brocade.com>
-References: <1293002596-3239-1-git-send-email-rmody@brocade.com>
-	<1293002596-3239-2-git-send-email-rmody@brocade.com>
- <20101222.151213.115925760.davem@davemloft.net>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH] irda: prevent integer underflow in IRLMP_ENUMDEVICES
+Date: Wed, 22 Dec 2010 18:58:27 -0500
+Message-ID: <1293062307.9820.331.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Debashis Dutt <ddutt@Brocade.COM>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: samuel@sortiz.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38369 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752127Ab0LVXod convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Dec 2010 18:44:33 -0500
-In-Reply-To: <20101222.151213.115925760.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx1.vsecurity.com ([209.67.252.12]:51215 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752974Ab0LVX6b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 18:58:31 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David
+If the user-provided len is less than the expected offset, the
+IRLMP_ENUMDEVICES getsockopt will do a copy_to_user() with a very large
+size value.  While this isn't be a security issue on x86 because it will
+get caught by the access_ok() check, it may leak large amounts of kernel
+heap on other architectures.  In any event, this patch fixes it.
 
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Wednesday, December 22, 2010 3:12 PM
->
->From: Rasesh Mody <rmody@brocade.com>
->Date: Tue, 21 Dec 2010 23:23:07 -0800
->
->>  #define bnad_dim_timer_running(_bnad)				\
->>  	(((_bnad)->cfg_flags & BNAD_CF_DIM_ENABLED) && 		\
->>  	(test_bit(BNAD_RF_DIM_TIMER_RUNNING, &((_bnad)->run_flags))))
->>
->> +#if defined(__ia64__)
->> +#define bnad_udelay	udelay
->> +#else
->> +#define bnad_udelay	__udelay
->> +#endif
->> +
->
->What in the world is this?
->
->Something like this should absolutely, positively, never be necessary.
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: stable <stable@kernel.org>
+---
+ net/irda/af_irda.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
 
-We will send a corrective patch to fix this.
+diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
+index a6de305..241d7a0 100644
+--- a/net/irda/af_irda.c
++++ b/net/irda/af_irda.c
+@@ -2280,6 +2280,16 @@ static int irda_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 	switch (optname) {
+ 	case IRLMP_ENUMDEVICES:
++
++		/* Offset to first device entry */
++		offset = sizeof(struct irda_device_list) -
++			sizeof(struct irda_device_info);
++
++		if (len < offset) {
++			err = -EINVAL;
++			goto out;
++		}
++
+ 		/* Ask lmp for the current discovery log */
+ 		discoveries = irlmp_get_discoveries(&list.len, self->mask.word,
+ 						    self->nslots);
+@@ -2290,15 +2300,9 @@ static int irda_getsockopt(struct socket *sock, int level, int optname,
+ 		}
+ 
+ 		/* Write total list length back to client */
+-		if (copy_to_user(optval, &list,
+-				 sizeof(struct irda_device_list) -
+-				 sizeof(struct irda_device_info)))
++		if (copy_to_user(optval, &list, offset))
+ 			err = -EFAULT;
+ 
+-		/* Offset to first device entry */
+-		offset = sizeof(struct irda_device_list) -
+-			sizeof(struct irda_device_info);
+-
+ 		/* Copy the list itself - watch for overflow */
+ 		if (list.len > 2048) {
+ 			err = -EINVAL;
 
-Thanks,
-Rasesh Mody
+
