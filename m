@@ -1,51 +1,40 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH net-next-2.6] bnx2: remove cancel_work_sync() from
- remove_one
-Date: Wed, 22 Dec 2010 09:48:19 +0100
-Message-ID: <20101222084816.GA27861@htj.dyndns.org>
-References: <4D08C81D.8020606@kernel.org>
- <20101220.131146.115941299.davem@davemloft.net>
- <20101221105103.GA32744@htj.dyndns.org>
- <20101221.122000.183069341.davem@davemloft.net>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [net-next-2.6 PATCH v2 1/3] net: implement mechanism for HW
+ based QOS
+Date: Wed, 22 Dec 2010 10:12:29 +0100
+Message-ID: <1293009149.3531.12.camel@jlt3.sipsolutions.net>
+References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mchan@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20101221.122000.183069341.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, nhorman@tuxdriver.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:35641 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751290Ab0LVJMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Dec 2010 04:12:20 -0500
+In-Reply-To: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+On Tue, 2010-12-21 at 11:28 -0800, John Fastabend wrote:
+> This patch provides a mechanism for lower layer devices to
+> steer traffic using skb->priority to tx queues. This allows
+> for hardware based QOS schemes to use the default qdisc without
+> incurring the penalties related to global state and the qdisc
+> lock. While reliably receiving skbs on the correct tx ring
+> to avoid head of line blocking resulting from shuffling in
+> the LLD. Finally, all the goodness from txq caching and xps/rps
+> can still be leveraged.
 
-On Tue, Dec 21, 2010 at 12:20:00PM -0800, David Miller wrote:
-> From: Tejun Heo <tj@kernel.org>
-> Date: Tue, 21 Dec 2010 11:51:04 +0100
-> 
-> > Yeah, I agree the synchronize_rcu() there would guarantee the actual
-> > timer completion but as it currently stands it looks a bit too subtle.
-> > Maybe it's a good idea to add a big fat comment explaining that the
-> > the timer is guaranteed to stop after close() and how it's guaranteed
-> > through synchronize_rcu() at the moment?  Also, it might be better to
-> > use synchronize_sched() there as timer synchronization through
-> > synchronize_rcu() is more of a happy accident.
-> 
-> I'm not sure the synchronize_*() is even necessary to guarentee
-> watchdog timer completion.
-> 
-> Like I said, I think the netif_tx_lock() held around both the timer
-> function itself, and the del_timer() call, are sufficient.
-> 
-> So, this ensures that the watchdog timer either runs to completion or
-> sees the no-op scheduler attached and returns immediately without
-> rescheduling the timer.
-> 
-> In any event, I'm going to apply your bnx2 patch to net-next-2.6
+Is there any chance this might be applicable to the 802.11 layer as
+well? We will definitely still need an ndo_select_queue handler to reset
+in the case where the peer doesn't support QoS, but it seems the part
+that depends on the frame itself could be pushed out to the generic
+framework instead of having net/wireless/util.c:cfg80211_classify8021d?
 
-Oh, yeah, all is good if the timer is guaranteed to stop after close
-one way or the other.  Thanks and happy new year!
+johannes
 
--- 
-tejun
