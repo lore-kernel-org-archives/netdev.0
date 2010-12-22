@@ -1,61 +1,33 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v6] kptr_restrict for hiding kernel pointers
-Date: Wed, 22 Dec 2010 15:13:56 -0800
-Message-ID: <1293059636.26543.21.camel@Joe-Laptop>
-References: <1293058439.9820.317.camel@dan>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] pch_can: Fix array miss-pointing issue
+Date: Wed, 22 Dec 2010 15:26:38 -0800 (PST)
+Message-ID: <20101222.152638.260098283.davem@davemloft.net>
+References: <1293022839-3202-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, jmorris@namei.org,
-	eric.dumazet@gmail.com, tgraf@infradead.org, eugeneteo@kernel.org,
-	kees.cook@canonical.com, mingo@elte.hu, davem@davemloft.net,
-	a.p.zijlstra@chello.nl, akpm@linux-foundation.org,
-	eparis@parisplace.org
-To: Dan Rosenberg <drosenberg@vsecurity.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1293058439.9820.317.camel@dan>
-Sender: linux-security-module-owner@vger.kernel.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1293022839-3202-1-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2010-12-22 at 17:53 -0500, Dan Rosenberg wrote:
-> Add the %pK printk format specifier and
-> the /proc/sys/kernel/kptr_restrict sysctl.
+From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Date: Wed, 22 Dec 2010 22:00:39 +0900
 
-trivial comments.
+> 
+> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 
-> diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-[]
-> @@ -201,6 +201,8 @@ extern int sscanf(const char *, const char *, ...)
->  extern int vsscanf(const char *, const char *, va_list)
->  	__attribute__ ((format (scanf, 2, 0)));
->  
-> +extern int kptr_restrict;	/* for sysctl */
-
-I think this extern should go into printk.h
-
-> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-[]
-> @@ -1035,6 +1038,30 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
->  		return buf + vsnprintf(buf, end - buf,
->  				       ((struct va_format *)ptr)->fmt,
->  				       *(((struct va_format *)ptr)->va));
-> +	case 'K':
-[]
-> +		else if (!kptr_restrict)
-> +			break;		/* %pK does not obscure pointers */
-> +
-> +		else if ((kptr_restrict != 2) &&
-> +		    has_capability_noaudit(current, CAP_SYSLOG))
-> +			break;		/* privileged apps expose pointers,
-> +					   unless kptr_restrict is 2 */
-> +
-
-I think this more readable as:
-
-		else if ((kptr_restrict == 0)) ||
-			 (kptr_restrict == 1 &&
-			  has_capability_noaudit(current, CAP_SYSLOG)))
-			break;
-
-
+Applied.
