@@ -1,62 +1,66 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 5/5 v4] net: add old_queue_mapping into skb->cb
-Date: Thu, 23 Dec 2010 08:21:43 -0500
-Message-ID: <1293110503.11306.156.camel@mojatatu>
-References: <1292475410-24665-1-git-send-email-xiaosuo@gmail.com>
-	 <1292591363.2668.19.camel@mojatatu>
-	 <AANLkTi=Eq1HuPwMMGQjk9x0QXp3_5djmAY6JeZyFkk0k@mail.gmail.com>
-	 <1292936837.6535.8.camel@mojatatu>
-	 <AANLkTimqemuhxCKq-PJu+FD-MDgKaHnYKnP_2ch30wxE@mail.gmail.com>
-	 <1292945075.2720.32.camel@edumazet-laptop>
+Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
+Date: Thu, 23 Dec 2010 08:35:33 -0500
+Message-ID: <1293111333.11306.170.camel@mojatatu>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	 <20101220232020.GB2052@del.dom.local>
+	 <1292887689.2627.150.camel@edumazet-laptop>
+	 <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
+	 <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+	 <20101221223704.GA1979@del.dom.local>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: Changli Gao <xiaosuo@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	Tom Herbert <therbert@google.com>,
-	Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	netem@lists.linux-foundation.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Pawel Staszewski <pstaszewski@itcare.pl>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:61622 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752986Ab0LWNVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 08:21:46 -0500
-Received: by ywl5 with SMTP id 5so2617910ywl.19
-        for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 05:21:45 -0800 (PST)
-In-Reply-To: <1292945075.2720.32.camel@edumazet-laptop>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:36198 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751903Ab0LWNfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 08:35:37 -0500
+Received: by gwj20 with SMTP id 20so3537038gwj.19
+        for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 05:35:36 -0800 (PST)
+In-Reply-To: <20101221223704.GA1979@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2010-12-21 at 16:24 +0100, Eric Dumazet wrote:
+On Tue, 2010-12-21 at 23:37 +0100, Jarek Poplawski wrote:
 
+> Actually, when dumb isn't a good principle? ;->
 > 
-> Do we really want a multi queue ifb at all ?
+> Speaking about wrong things like optimizing this 1st commandment: it
+> seems, if we're stealing not shared skb it's not unreasonable to tell
+> others not to touch it anymore, and skip kfree_skb() in handle_ing(),
+> unless I miss something?
+
+I dont know how much cycles it will save you vs the code you add
+but it is not unreasonable. Of course it would mean we are moving
+beyond KISSes[1] now Jarek;->
+
+> > In order to make my trick work. We need to assure dev_queue_xmit() and
+> > dev_hard_start_xmit() accept shared skbs. As Eric pointed, pktgen also
+> > need dev->netdev_ops->ndo_start_xmit() accept shared skbs. We need to
+> > fix every ndo_start_xmit() one by one, then dev_hard_start_xmit(), and
+> > when dev_queue_xmit() is also fixed, my trick can be added back.
+> > :)
 > 
-> Why not use percpu data and LLTX, like we did for other virtual devices
-> (loopback, tunnels, vlans, ...)
-> 
-> I guess most ifb uses need to finaly deliver packets in a monoqueue
-> anyway, optimizing ifb might raise lock contention on this resource.
+> I'm not sure pktgen is right - even if it's safe in its case, it seems
+> to break some older rules, and drivers should really own the things.
+> So it needs reviewing first.
 
-I guess once you start having hardware that is multiqueue on the ingress
-side at least then something per cpu is needed on ifb. But i agree that
-the optimizations may end up harming the simplicity that ifb intended.
-It is already jumping a lot of hoops to work around things as is.
+The idea we always try to keep is that the caller is responsible for the
+fate of the skb it sent. The callee will do things like make a copy or
+clone if it needed to make changes or keep the skb. Same should be
+expected of a driver.
 
-> See what we did in commit 79640a4ca6955e3e (net: add additional lock to
-> qdisc to increase throughput) : Adding one spinlock actually helped a
-> lot ;)
-
-Yes, that was fascinating stuff;-> I am still scratching my head and
-continuing to itch on when i can get more time to look closely with some
-testing. But i dont see the connection with what Changli is attempting
-with multiq ifb - what do you have in mind.
 
 cheers,
 jamal
 
-
+[1] Jarek - so you dont misunderstand this as an overture - it means
+Keep It Simple Silly (or the principle of dumb we talked about) ;->
 
