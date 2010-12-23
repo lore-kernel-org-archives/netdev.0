@@ -1,61 +1,54 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next-2.6 PATCH v2 1/3] net: implement mechanism for HW based
- QOS
-Date: Wed, 22 Dec 2010 21:29:43 -0800
-Message-ID: <4D12DE47.50200@intel.com>
-References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab> <1293009149.3531.12.camel@jlt3.sipsolutions.net>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
+Date: Thu, 23 Dec 2010 07:13:59 +0100
+Message-ID: <20101223061359.GA7169@riccoc20.at.omicron.at>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
+ <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
+ <20101221075612.GA13626@riccoc20.at.omicron.at>
+ <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h@mail.gmail.com>
+ <1292970355.2618.76.camel@work-vm>
+ <AANLkTimmTzH8+fSYmbajqZ+hU5Ps-UZaTp_1TYzjHB6P@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hadi@cyberus.ca" <hadi@cyberus.ca>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:64826 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751098Ab0LWF3r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Dec 2010 00:29:47 -0500
-In-Reply-To: <1293009149.3531.12.camel@jlt3.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTimmTzH8+fSYmbajqZ+hU5Ps-UZaTp_1TYzjHB6P-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/22/2010 1:12 AM, Johannes Berg wrote:
-> On Tue, 2010-12-21 at 11:28 -0800, John Fastabend wrote:
->> This patch provides a mechanism for lower layer devices to
->> steer traffic using skb->priority to tx queues. This allows
->> for hardware based QOS schemes to use the default qdisc without
->> incurring the penalties related to global state and the qdisc
->> lock. While reliably receiving skbs on the correct tx ring
->> to avoid head of line blocking resulting from shuffling in
->> the LLD. Finally, all the goodness from txq caching and xps/rps
->> can still be leveraged.
+On Thu, Dec 23, 2010 at 05:27:58AM +0900, Kuwahara,T. wrote:
+> On Wed, Dec 22, 2010 at 7:25 AM, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org> wrote:
+> > I don't see why that would be better then adding a
+> > clear new mode flag?
 > 
-> Is there any chance this might be applicable to the 802.11 layer as
-> well? We will definitely still need an ndo_select_queue handler to reset
-> in the case where the peer doesn't support QoS, but it seems the part
-> that depends on the frame itself could be pushed out to the generic
-> framework instead of having net/wireless/util.c:cfg80211_classify8021d?
-> 
-> johannes
-> 
+> In short, time step is a special case of time slew.  Those are the same,
+> only different in one parameter, as is shown in my previous post.
+> That's why I said there's no need for adding a new mode.
 
-Johannes,
+Well, in addition to the objections raised by John, your suggested
+implementation is also shortsighted. The field timex.constant is
+copied into time_constant in some code paths. Obviously, this would be
+a bad thing when timex.constant==-huge.
 
-I took a quick look at this and I believe it should be doable. It would be nice to completely remove the ndo_select_queue if possible though.
+So, you need to clarify the interaction between ADJ_OFFSET,
+ADJ_TIMECONST, ADJ_TAI, timex.constant, time_constant, and MAXTC.
 
-I probably won't have a chance to look any further into this for at least a week maybe two. So I'll think about it a bit more later unless someone else gets there first.
+If you would fully implement your idea, I expect it would become
+obvious that it a bit of a hack, both in the kernel code and in the
+user space interface. But, if you disagree, please just post a patch
+with the complete implementation...
 
 Thanks,
-John.
-
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+Richard
