@@ -1,52 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc911x: add disable and re-enable Rx int to
- de-assert interrupt pin
-Date: Thu, 23 Dec 2010 09:59:17 -0800 (PST)
-Message-ID: <20101223.095917.59696176.davem@davemloft.net>
-References: <1293100993-3956-1-git-send-email-jason77.wang@gmail.com>
+From: Rasesh Mody <rmody@brocade.com>
+Subject: RE: [PATCH] bna: bnad_udelay macro cleanup
+Date: Thu, 23 Dec 2010 10:00:32 -0800
+Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A5CFD83694@HQ1-EXCH01.corp.brocade.com>
+References: <1293087949-17613-1-git-send-email-rmody@brocade.com>
+ <20101223.093819.104073648.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
-	linux-omap@vger.kernel.org
-To: jason77.wang@gmail.com
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <1293100993-3956-1-git-send-email-jason77.wang@gmail.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Debashis Dutt <ddutt@Brocade.COM>,
+	Jing Huang <huangj@Brocade.COM>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:58797 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752649Ab0LWSAx convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Dec 2010 13:00:53 -0500
+In-Reply-To: <20101223.093819.104073648.davem@davemloft.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jason77.wang@gmail.com>
-Date: Thu, 23 Dec 2010 18:43:13 +0800
+>From: David Miller [mailto:davem@davemloft.net]
+>Sent: Thursday, December 23, 2010 9:38 AM
+>
+>From: Rasesh Mody <rmody@brocade.com>
+>Date: Wed, 22 Dec 2010 23:05:49 -0800
+>
+>> Change details:
+>> 	- Removed unnecessary bnad_udelay macro for ia64
+>>
+>> Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+>> Signed-off-by: Rasesh Mody <rmody@brocade.com>
+>
+>Please don't do it this way.
+>
+>We don't add known crap, then add a patch to remove the crap.
+>
+>Respin your BNA patch series so that this IA64 stuff never shows
+>up in the first place.
+>
+>Thanks.
 
-> When kernel enters irqhanlder, it will check the Rx interrupt status
-> bit, if Rx status is set but can't call napi_schedule(), it will do
-> nothing and directly return form irqhandler. This situation is prone
-> to be produced when we repeatly call irqhandler through netpoll
-> interface(i.e kgdboe connecting).
-> 
-> This is a potential risk for those level triggered platforms(i.e
-> ti_omap3evm), because if we don't handle Rx int and just return from
-> irqhandler, the irq pin will be keeping asserted, the level triggered
-> platforms will have no chance to jump out from the Rx irq. The whole
-> system will hung into the irq subsystem.
-> 
-> To solve it, we add a disable/re-enable Rx int operation for this
-> situation, this operation can de-assert interrupt pin for this time
-> and will leave the received data and status in the FIFO for later
-> interrupts to handle.
-> 
-> Signed-off-by: Jason Wang <jason77.wang@gmail.com>
+We'll respin and resubmit the patches with ia64 macro removed as
+per your suggestion. In future we'll take care to avoid this.
 
-You absolutely cannot do this.
-
-You now can race with the NAPI completion code turning the RX
-interrupts back on, and you'll leave the chip with RX interrupts
-disabled.
-
-You must solve your level triggered interrupt some other way, every
-NAPI based device must manage the interrupt disabling carefully and
-only when the napi POLL is successfully scheduled in order to avoid
-races.
-
-And especially you must not make a crazy hack like this for obscure
-things like kgdboe.
+--Rasesh
