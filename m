@@ -1,97 +1,82 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/9] cnic: Fix iSCSI TCP port endian order.
-Date: Thu, 23 Dec 2010 09:42:56 -0800
-Message-ID: <1293126184-13097-2-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 7/9] cnic: Call cm_connect_complete()
+ immediately on error
+Date: Thu, 23 Dec 2010 09:43:02 -0800
+Message-ID: <1293126184-13097-8-git-send-email-mchan@broadcom.com>
 References: <1293126184-13097-1-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-2-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-3-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-4-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-5-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-6-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-7-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2734 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2731 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753649Ab0LWSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753428Ab0LWSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 23 Dec 2010 13:40:35 -0500
-In-Reply-To: <1293126184-13097-1-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1293126184-13097-7-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pass the TCP port parameter for iSCSI connections to the firmware in
-proper endian order.
+From: Eddie Wai <waie@broadcom.com>
 
+If we get a path_resp error from userspace, call cm_connect_complete()
+immediately with error so that bnx2i can react to the error faster.
+
+Signed-off-by: Eddie Wai <waie@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/cnic.c |   23 +++++++++++++----------
- drivers/net/cnic.h |    2 +-
- 2 files changed, 14 insertions(+), 11 deletions(-)
+ drivers/net/cnic.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 594ca9c..9c2e786 100644
+index 1240dea..36c1578 100644
 --- a/drivers/net/cnic.c
 +++ b/drivers/net/cnic.c
-@@ -2883,7 +2883,7 @@ static void cnic_cm_cleanup(struct cnic_sock *csk)
- 		struct cnic_dev *dev = csk->dev;
- 		struct cnic_local *cp = dev->cnic_priv;
- 
--		cnic_free_id(&cp->csk_port_tbl, csk->src_port);
-+		cnic_free_id(&cp->csk_port_tbl, be16_to_cpu(csk->src_port));
- 		csk->src_port = 0;
- 	}
+@@ -322,6 +322,8 @@ static int cnic_send_nlmsg(struct cnic_local *cp, u32 type,
+ 	return 0;
  }
-@@ -3014,7 +3014,8 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
- 	int is_v6, rc = 0;
- 	struct dst_entry *dst = NULL;
- 	struct net_device *realdev;
--	u32 local_port;
-+	__be16 local_port;
-+	u32 port_id;
  
- 	if (saddr->local.v6.sin6_family == AF_INET6 &&
- 	    saddr->remote.v6.sin6_family == AF_INET6)
-@@ -3054,19 +3055,21 @@ static int cnic_get_route(struct cnic_sock *csk, struct cnic_sockaddr *saddr)
++static void cnic_cm_upcall(struct cnic_local *, struct cnic_sock *, u8);
++
+ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+ 				  char *buf, u16 len)
+ {
+@@ -351,7 +353,9 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
  		}
- 	}
- 
--	if (local_port >= CNIC_LOCAL_PORT_MIN &&
--	    local_port < CNIC_LOCAL_PORT_MAX) {
--		if (cnic_alloc_id(&cp->csk_port_tbl, local_port))
--			local_port = 0;
-+	port_id = be16_to_cpu(local_port);
-+	if (port_id >= CNIC_LOCAL_PORT_MIN &&
-+	    port_id < CNIC_LOCAL_PORT_MAX) {
-+		if (cnic_alloc_id(&cp->csk_port_tbl, port_id))
-+			port_id = 0;
- 	} else
--		local_port = 0;
-+		port_id = 0;
- 
--	if (!local_port) {
--		local_port = cnic_alloc_new_id(&cp->csk_port_tbl);
--		if (local_port == -1) {
-+	if (!port_id) {
-+		port_id = cnic_alloc_new_id(&cp->csk_port_tbl);
-+		if (port_id == -1) {
- 			rc = -ENOMEM;
- 			goto err_out;
+ 		csk = &cp->csk_tbl[l5_cid];
+ 		csk_hold(csk);
+-		if (cnic_in_use(csk)) {
++		if (cnic_in_use(csk) &&
++		    test_bit(SK_F_CONNECT_START, &csk->flags)) {
++
+ 			memcpy(csk->ha, path_resp->mac_addr, 6);
+ 			if (test_bit(SK_F_IPV6, &csk->flags))
+ 				memcpy(&csk->src_ip[0], &path_resp->src.v6_addr,
+@@ -359,8 +363,16 @@ static int cnic_iscsi_nl_msg_recv(struct cnic_dev *dev, u32 msg_type,
+ 			else
+ 				memcpy(&csk->src_ip[0], &path_resp->src.v4_addr,
+ 				       sizeof(struct in_addr));
+-			if (is_valid_ether_addr(csk->ha))
++
++			if (is_valid_ether_addr(csk->ha)) {
+ 				cnic_cm_set_pg(csk);
++			} else if (!test_bit(SK_F_OFFLD_SCHED, &csk->flags) &&
++				!test_bit(SK_F_OFFLD_COMPLETE, &csk->flags)) {
++
++				cnic_cm_upcall(cp, csk,
++					L4_KCQE_OPCODE_VALUE_CONNECT_COMPLETE);
++				clear_bit(SK_F_CONNECT_START, &csk->flags);
++			}
  		}
-+		local_port = cpu_to_be16(port_id);
- 	}
- 	csk->src_port = local_port;
- 
-diff --git a/drivers/net/cnic.h b/drivers/net/cnic.h
-index 6a4a0ae..bf38e57 100644
---- a/drivers/net/cnic.h
-+++ b/drivers/net/cnic.h
-@@ -82,7 +82,7 @@ struct cnic_redirect_entry {
- #define MAX_ISCSI_TBL_SZ	256
- 
- #define CNIC_LOCAL_PORT_MIN	60000
--#define CNIC_LOCAL_PORT_MAX	61000
-+#define CNIC_LOCAL_PORT_MAX	61024
- #define CNIC_LOCAL_PORT_RANGE	(CNIC_LOCAL_PORT_MAX - CNIC_LOCAL_PORT_MIN)
- 
- #define KWQE_CNT (BCM_PAGE_SIZE / sizeof(struct kwqe))
+ 		csk_put(csk);
+ 		rcu_read_unlock();
 -- 
 1.6.4.GIT
 
