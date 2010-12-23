@@ -1,67 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: cleanup of cwnd initialization in
- tcp_init_metrics()
-Date: Thu, 23 Dec 2010 10:14:23 +0100
-Message-ID: <1293095663.7789.3.camel@edumazet-laptop>
-References: <alpine.LNX.2.00.1012221938030.16569@pobox.suse.cz>
-	 <1293092671.2679.44.camel@edumazet-laptop>
-	 <alpine.LNX.2.00.1012231002310.16569@pobox.suse.cz>
+From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
+Subject: Re: ip rule and/or route problem in 2.6.37-rc5+
+Date: Thu, 23 Dec 2010 10:22:23 +0100
+Message-ID: <AANLkTin0mNkfaDvs3ZrEhxY27kdmZLh8ikKNpc-MXC44@mail.gmail.com>
+References: <4D017D0D.50907@candelatech.com>
+	<4D01C65A.6090200@candelatech.com>
+	<4D07E18F.30703@candelatech.com>
+	<20101219.214230.39170893.davem@davemloft.net>
+	<AANLkTikNk8Ltei+jxpJuVqNxbhc-hhMpjc89YDvbirQK@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Vojtech Pavlik <vojtech@suse.cz>,
-	Ilpo =?ISO-8859-1?Q?J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1012231002310.16569@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>, greearb@candelatech.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:50344 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752471Ab0LWJWY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 04:22:24 -0500
+Received: by wyb28 with SMTP id 28so5867217wyb.19
+        for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 01:22:23 -0800 (PST)
+In-Reply-To: <AANLkTikNk8Ltei+jxpJuVqNxbhc-hhMpjc89YDvbirQK@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 23 d=C3=A9cembre 2010 =C3=A0 10:03 +0100, Jiri Kosina a =C3=A9=
-crit :
-> On Thu, 23 Dec 2010, Eric Dumazet wrote:
->=20
-> > Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 19:39 +0100, Jiri Kosina a=
- =C3=A9crit :
-> > > Commit 86bcebafc5e7f5 ("tcp: fix >2 iw selection") fixed a case w=
-hen=20
-> > > congestion window initialization has been mistakenly omitted by=20
-> > > introducing cwnd label and putting backwards jump from the end of=
- the=20
-> > > function.
-> > >=20
-> > > This makes the code unnecessarily tricky to read and understand o=
-n a first=20
-> > > sight.
-> > >=20
-> > > Shuffle the code around a little bit to make it more obvious.
-> >=20
-> > Well in fine you have
-> >=20
-> > 	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_t=
-stamp)
-> > 		goto reset;
-> > 	goto out;
-> > reset:
-> >=20
-> > Is that really more obvious ? ;)
->=20
-> To me it seems much more obvious than goto from the very end of the=20
-> function somewhere into the middle and returning from there, but=20
-> definitely a matter of personal taste.
->=20
+On Mon, Dec 20, 2010 at 18:22, Tom Herbert <therbert@google.com> wrote:
+>> Tom, please acknowledge this regression you've added to the tree.
+>
+> Acknowledged. =C2=A0Looking at it.
+>
+> Tom
 
-You dont understand what I said. Please read again.
+This is definitely a regression, and the fault is definitely with this =
+code.
 
-To me I prefer you _finish_ the cleanup so that we have :
+Indeed, the code is fundamentally flawed.  I've been trying to come up
+with a fix, but I'm beginning to think we're barking up the wrong tree
+here.
+Currently my preference is leaning towards using setsockopt(SOL_IP,
+IP_TRANSPARENT) [possibly with some sk->transparent tcp inheritence
+fixes] instead.
+I definitely want this functionality though, since it's wonderfully
+useful for testing (and for serving as well).
 
-	if (some condition) {
-reset:
-	}
+Could we please revert this ( 4465b469008bc03b98a1b8df4e9ae501b6c69d4b
+) and make sure the revert makes it into 2.6.37?  We definitely don't
+want to ship 2.6.37 with this patch in its current state.
 
-out:
-
-You remove two "goto" in the process.
-
-Is that clear now ?
+-- Maciej
