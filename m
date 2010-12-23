@@ -1,32 +1,191 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2010-12-22
-Date: Wed, 22 Dec 2010 17:35:13 -0800 (PST)
-Message-ID: <20101222.173513.102576612.davem@davemloft.net>
-References: <20101222195209.GD10046@tuxdriver.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH v7] kptr_restrict for hiding kernel pointers
+Date: Wed, 22 Dec 2010 21:03:12 -0500
+Message-ID: <1293069792.9820.342.camel@dan>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101222195209.GD10046@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jmorris@namei.org, eric.dumazet@gmail.com, tgraf@infradead.org,
+	eugeneteo@kernel.org, kees.cook@canonical.com, mingo@elte.hu,
+	davem@davemloft.net, a.p.zijlstra@chello.nl,
+	akpm@linux-foundation.org, eparis@parisplace.org
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 22 Dec 2010 14:52:09 -0500
+Add the %pK printk format specifier and
+the /proc/sys/kernel/kptr_restrict sysctl.
 
-> Dave,
-> 
-> Three more fixes intended for 2.6.37...
-> 
-> The one from Johannes Berg avoids a NULL pointer dereference in the mesh
-> code.  The one from Johannes Stezenbach fixes bug 24892, which is a
-> lock-up caused by rt2x00.  Finally, you probably recognize the one from
-> Meelis Roos which removes some log spam coming from hostap.  These have
-> all spent several days in linux-next without any adverse effects.
-> 
-> Please let me know if there are problems!
+The %pK format specifier is designed to hide exposed kernel pointers,
+specifically via /proc interfaces. Exposing these pointers provides an
+easy target for kernel write vulnerabilities, since they reveal the
+locations of writable structures containing easily triggerable function
+pointers. The behavior of %pK depends on the kptr_restrict sysctl.
 
-Pulled, thanks John.
+If kptr_restrict is set to 0, no deviation from the standard %p behavior
+occurs.  If kptr_restrict is set to 1, the default, if the current user
+(intended to be a reader via seq_printf(), etc.) does not have
+CAP_SYSLOG (currently in the LSM tree), kernel pointers using %pK are
+printed as 0's.  If kptr_restrict is set to 2, kernel pointers using %pK
+are printed as 0's regardless of privileges.  Replacing with 0's was
+chosen over the default "(null)", which cannot be parsed by userland %p,
+which expects "(nil)".
+
+
+v7 moves the extern to printk.h and cleans up the conditional statements
+based on the suggestions of Joe Perches.
+
+v6 removes the WARN_ONCE in favor of returning "pK-error" to avoid
+breaking in certain cases, thanks to Ingo Molnar.
+
+v5 sets kptr_restrict to a default value of 1, and properly handles the
+case where it's incorrectly used in IRQ context. 
+
+v4 incorporates Eric Paris' suggestion of using
+has_capability_noaudit(), since failing this capability check is not a
+policy violation but rather a code path choice and shouldn't generate
+potentially excessive log noise.  Adjusted IRQ comment for clarity.
+
+v3 adds the "2" setting, cleans up documentation, removes the CONFIG,
+and incorporates changes and suggestions from Andrew Morton.
+
+v2 improves checking for inappropriate context, on suggestion by Peter
+Zijlstra.  Thanks to Thomas Graf for suggesting use of a centralized
+format specifier.
+
+
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: James Morris <jmorris@namei.org>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Thomas Graf <tgraf@infradead.org>
+Cc: Eugene Teo <eugeneteo@kernel.org>
+Cc: Kees Cook <kees.cook@canonical.com>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Eric Paris <eparis@parisplace.org>
+---
+ Documentation/sysctl/kernel.txt |   14 ++++++++++++++
+ include/linux/printk.h          |    1 +
+ kernel/sysctl.c                 |    9 +++++++++
+ lib/vsprintf.c                  |   24 ++++++++++++++++++++++++
+ 4 files changed, 48 insertions(+), 0 deletions(-)
+
+diff --git a/Documentation/sysctl/kernel.txt b/Documentation/sysctl/kernel.txt
+index 209e158..8ace8c4 100644
+--- a/Documentation/sysctl/kernel.txt
++++ b/Documentation/sysctl/kernel.txt
+@@ -34,6 +34,7 @@ show up in /proc/sys/kernel:
+ - hotplug
+ - java-appletviewer           [ binfmt_java, obsolete ]
+ - java-interpreter            [ binfmt_java, obsolete ]
++- kptr_restrict
+ - kstack_depth_to_print       [ X86 only ]
+ - l2cr                        [ PPC only ]
+ - modprobe                    ==> Documentation/debugging-modules.txt
+@@ -261,6 +262,19 @@ This flag controls the L2 cache of G3 processor boards. If
+ 
+ ==============================================================
+ 
++kptr_restrict:
++
++This toggle indicates whether restrictions are placed on
++exposing kernel addresses via /proc and other interfaces.  When
++kptr_restrict is set to (0), there are no restrictions.  When
++kptr_restrict is set to (1), the default, kernel pointers
++printed using the %pK format specifier will be replaced with 0's
++unless the user has CAP_SYSLOG.  When kptr_restrict is set to
++(2), kernel pointers printed using %pK will be replaced with 0's
++regardless of privileges.
++
++==============================================================
++
+ kstack_depth_to_print: (X86 only)
+ 
+ Controls the number of words to print when dumping the raw
+diff --git a/include/linux/printk.h b/include/linux/printk.h
+index b772ca5..9adfba6 100644
+--- a/include/linux/printk.h
++++ b/include/linux/printk.h
+@@ -83,6 +83,7 @@ extern bool printk_timed_ratelimit(unsigned long *caller_jiffies,
+ 
+ extern int printk_delay_msec;
+ extern int dmesg_restrict;
++extern int kptr_restrict;
+ 
+ /*
+  * Print a one-time message (analogous to WARN_ONCE() et al):
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 5abfa15..236fa91 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -713,6 +713,15 @@ static struct ctl_table kern_table[] = {
+ 	},
+ #endif
+ 	{
++		.procname	= "kptr_restrict",
++		.data		= &kptr_restrict,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= &zero,
++		.extra2		= &two,
++	},
++	{
+ 		.procname	= "ngroups_max",
+ 		.data		= &ngroups_max,
+ 		.maxlen		= sizeof (int),
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index c150d3d..ea556da 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -936,6 +936,8 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
+ 	return string(buf, end, uuid, spec);
+ }
+ 
++int kptr_restrict = 1;
++
+ /*
+  * Show a '%p' thing.  A kernel extension is that the '%p' is followed
+  * by an extra set of alphanumeric characters that are extended format
+@@ -979,6 +981,7 @@ char *uuid_string(char *buf, char *end, const u8 *addr,
+  *       Implements a "recursive vsnprintf".
+  *       Do not use this feature without some mechanism to verify the
+  *       correctness of the format string and va_list arguments.
++ * - 'K' For a kernel pointer that should be hidden from unprivileged users
+  *
+  * Note: The difference between 'S' and 'F' is that on ia64 and ppc64
+  * function pointers are really function descriptors, which contain a
+@@ -1035,6 +1038,27 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+ 		return buf + vsnprintf(buf, end - buf,
+ 				       ((struct va_format *)ptr)->fmt,
+ 				       *(((struct va_format *)ptr)->va));
++	case 'K':
++		/*
++		 * %pK cannot be used in IRQ context because its test
++		 * for CAP_SYSLOG would be meaningless.
++		 */
++		if (in_irq() || in_serving_softirq() || in_nmi()) {
++			if (spec.field_width == -1)
++				spec.field_width = 2 * sizeof(void *);
++			return string(buf, end, "pK-error", spec);
++		}
++
++		else if ((kptr_restrict == 0) ||
++			 (kptr_restrict == 1 &&
++			  has_capability_noaudit(current, CAP_SYSLOG)))
++			break;
++
++		if (spec.field_width == -1) {
++			spec.field_width = 2 * sizeof(void *);
++			spec.flags |= ZEROPAD;
++		}
++		return number(buf, end, 0, spec);
+ 	}
+ 	spec.flags |= SMALL;
+ 	if (spec.field_width == -1) {
+
+
