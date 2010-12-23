@@ -1,160 +1,61 @@
-From: "juice" <juice@swagman.org>
-Subject: Re: Using ethernet device as efficient small packet generator
-Date: Thu, 23 Dec 2010 07:15:57 +0200
-Message-ID: <e1a7dc28b8b95e93d38edc418d59e89a.squirrel@www.liukuma.net>
-Reply-To: juice@swagman.org
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next-2.6 PATCH v2 1/3] net: implement mechanism for HW based
+ QOS
+Date: Wed, 22 Dec 2010 21:29:43 -0800
+Message-ID: <4D12DE47.50200@intel.com>
+References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab> <1293009149.3531.12.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Stephen Hemminger" <shemminger@vyatta.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:42553 "EHLO www.liukuma.net"
+Received: from mga02.intel.com ([134.134.136.20]:64826 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751009Ab0LWFQH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Dec 2010 00:16:07 -0500
+	id S1751098Ab0LWF3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Dec 2010 00:29:47 -0500
+In-Reply-To: <1293009149.3531.12.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Reaching 1Gbs should not be a problem (I was speaking about 10Gbps)
-> I reach link speed with my tg3 card and one single cpu :)
-> (Broadcom Corporation NetXtreme BCM5715S Gigabit Ethernet (rev a3))
->
-> Please provide : ethtool -S eth0
->
+On 12/22/2010 1:12 AM, Johannes Berg wrote:
+> On Tue, 2010-12-21 at 11:28 -0800, John Fastabend wrote:
+>> This patch provides a mechanism for lower layer devices to
+>> steer traffic using skb->priority to tx queues. This allows
+>> for hardware based QOS schemes to use the default qdisc without
+>> incurring the penalties related to global state and the qdisc
+>> lock. While reliably receiving skbs on the correct tx ring
+>> to avoid head of line blocking resulting from shuffling in
+>> the LLD. Finally, all the goodness from txq caching and xps/rps
+>> can still be leveraged.
+> 
+> Is there any chance this might be applicable to the 802.11 layer as
+> well? We will definitely still need an ndo_select_queue handler to reset
+> in the case where the peer doesn't support QoS, but it seems the part
+> that depends on the frame itself could be pushed out to the generic
+> framework instead of having net/wireless/util.c:cfg80211_classify8021d?
+> 
+> johannes
+> 
 
-This is from the e1000 interface:
-03:02.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet
-Controller (Copper) (rev 01)
+Johannes,
 
-root@a2labralinux:/home/juice# ethtool -S eth1
-NIC statistics:
-     rx_packets: 192069
-     tx_packets: 60000313
-     rx_bytes: 33850492
-     tx_bytes: 3840026215
-     rx_broadcast: 192069
-     tx_broadcast: 3
-     rx_multicast: 0
-     tx_multicast: 310
-     rx_errors: 0
-     tx_errors: 0
-     tx_dropped: 0
-     multicast: 0
-     collisions: 0
-     rx_length_errors: 0
-     rx_over_errors: 0
-     rx_crc_errors: 0
-     rx_frame_errors: 0
-     rx_no_buffer_count: 0
-     rx_missed_errors: 0
-     tx_aborted_errors: 0
-     tx_carrier_errors: 0
-     tx_fifo_errors: 0
-     tx_heartbeat_errors: 0
-     tx_window_errors: 0
-     tx_abort_late_coll: 0
-     tx_deferred_ok: 0
-     tx_single_coll_ok: 0
-     tx_multi_coll_ok: 0
-     tx_timeout_count: 0
-     tx_restart_queue: 1806437
-     rx_long_length_errors: 0
-     rx_short_length_errors: 0
-     rx_align_errors: 0
-     tx_tcp_seg_good: 0
-     tx_tcp_seg_failed: 0
-     rx_flow_control_xon: 0
-     rx_flow_control_xoff: 0
-     tx_flow_control_xon: 0
-     tx_flow_control_xoff: 0
-     rx_long_byte_count: 33850492
-     rx_csum_offload_good: 8978
-     rx_csum_offload_errors: 0
-     rx_header_split: 0
-     alloc_rx_buff_failed: 0
-     tx_smbus: 0
-     rx_smbus: 0
-     dropped_smbus: 0
+I took a quick look at this and I believe it should be doable. It would be nice to completely remove the ndo_select_queue if possible though.
 
+I probably won't have a chance to look any further into this for at least a week maybe two. So I'll think about it a bit more later unless someone else gets there first.
 
-This is from the tg3 interface:
-05:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5761
-Gigabit Ethernet PCIe (rev 10)
+Thanks,
+John.
 
-root@d8labralinux:/home/juice# ethtool -S eth2
-NIC statistics:
-     rx_octets: 10814
-     rx_fragments: 0
-     rx_ucast_packets: 20
-     rx_mcast_packets: 0
-     rx_bcast_packets: 26
-     rx_fcs_errors: 0
-     rx_align_errors: 0
-     rx_xon_pause_rcvd: 0
-     rx_xoff_pause_rcvd: 0
-     rx_mac_ctrl_rcvd: 0
-     rx_xoff_entered: 0
-     rx_frame_too_long_errors: 0
-     rx_jabbers: 0
-     rx_undersize_packets: 0
-     rx_in_length_errors: 0
-     rx_out_length_errors: 0
-     rx_64_or_less_octet_packets: 0
-     rx_65_to_127_octet_packets: 0
-     rx_128_to_255_octet_packets: 0
-     rx_256_to_511_octet_packets: 0
-     rx_512_to_1023_octet_packets: 0
-     rx_1024_to_1522_octet_packets: 0
-     rx_1523_to_2047_octet_packets: 0
-     rx_2048_to_4095_octet_packets: 0
-     rx_4096_to_8191_octet_packets: 0
-     rx_8192_to_9022_octet_packets: 0
-     tx_octets: 5120013863
-     tx_collisions: 0
-     tx_xon_sent: 0
-     tx_xoff_sent: 0
-     tx_flow_control: 0
-     tx_mac_errors: 0
-     tx_single_collisions: 0
-     tx_mult_collisions: 0
-     tx_deferred: 0
-     tx_excessive_collisions: 0
-     tx_late_collisions: 0
-     tx_collide_2times: 0
-     tx_collide_3times: 0
-     tx_collide_4times: 0
-     tx_collide_5times: 0
-     tx_collide_6times: 0
-     tx_collide_7times: 0
-     tx_collide_8times: 0
-     tx_collide_9times: 0
-     tx_collide_10times: 0
-     tx_collide_11times: 0
-     tx_collide_12times: 0
-     tx_collide_13times: 0
-     tx_collide_14times: 0
-     tx_collide_15times: 0
-     tx_ucast_packets: 80000034
-     tx_mcast_packets: 42
-     tx_bcast_packets: 40
-     tx_carrier_sense_errors: 0
-     tx_discards: 0
-     tx_errors: 0
-     dma_writeq_full: 0
-     dma_write_prioq_full: 0
-     rxbds_empty: 0
-     rx_discards: 0
-     rx_errors: 0
-     rx_threshold_hit: 0
-     dma_readq_full: 0
-     dma_read_prioq_full: 0
-     tx_comp_queue_full: 0
-     ring_set_send_prod_index: 0
-     ring_status_update: 0
-     nic_irqs: 0
-     nic_avoided_irqs: 0
-     nic_tx_threshold_hit: 0
-
-
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
