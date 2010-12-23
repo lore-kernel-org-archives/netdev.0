@@ -1,42 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: cleanup of cwnd initialization in
- tcp_init_metrics()
-Date: Thu, 23 Dec 2010 09:56:15 -0800 (PST)
-Message-ID: <20101223.095615.39194231.davem@davemloft.net>
-References: <alpine.LNX.2.00.1012231002310.16569@pobox.suse.cz>
-	<1293095663.7789.3.camel@edumazet-laptop>
-	<alpine.LNX.2.00.1012231022430.16569@pobox.suse.cz>
+Subject: Re: [PATCH] smsc911x: add disable and re-enable Rx int to
+ de-assert interrupt pin
+Date: Thu, 23 Dec 2010 09:59:17 -0800 (PST)
+Message-ID: <20101223.095917.59696176.davem@davemloft.net>
+References: <1293100993-3956-1-git-send-email-jason77.wang@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vojtech@suse.cz,
-	ilpo.jarvinen@helsinki.fi
-To: jkosina@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1012231022430.16569@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, steve.glendinning@smsc.com,
+	linux-omap@vger.kernel.org
+To: jason77.wang@gmail.com
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1293100993-3956-1-git-send-email-jason77.wang@gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Kosina <jkosina@suse.cz>
-Date: Thu, 23 Dec 2010 10:23:38 +0100 (CET)
+From: Jason Wang <jason77.wang@gmail.com>
+Date: Thu, 23 Dec 2010 18:43:13 +0800
 
-> Right, that's even better. Updated patch below.
+> When kernel enters irqhanlder, it will check the Rx interrupt status
+> bit, if Rx status is set but can't call napi_schedule(), it will do
+> nothing and directly return form irqhandler. This situation is prone
+> to be produced when we repeatly call irqhandler through netpoll
+> interface(i.e kgdboe connecting).
 > 
+> This is a potential risk for those level triggered platforms(i.e
+> ti_omap3evm), because if we don't handle Rx int and just return from
+> irqhandler, the irq pin will be keeping asserted, the level triggered
+> platforms will have no chance to jump out from the Rx irq. The whole
+> system will hung into the irq subsystem.
 > 
-> From: Jiri Kosina <jkosina@suse.cz>
-> Subject: [PATCH] tcp: cleanup of cwnd initialization in tcp_init_metrics()
+> To solve it, we add a disable/re-enable Rx int operation for this
+> situation, this operation can de-assert interrupt pin for this time
+> and will leave the received data and status in the FIFO for later
+> interrupts to handle.
 > 
-> Commit 86bcebafc5e7f5 ("tcp: fix >2 iw selection") fixed a case
-> when congestion window initialization has been mistakenly omitted
-> by introducing cwnd label and putting backwards goto from the
-> end of the function.
-> 
-> This makes the code unnecessarily tricky to read and understand
-> on a first sight.
-> 
-> Shuffle the code around a little bit to make it more obvious.
-> 
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+> Signed-off-by: Jason Wang <jason77.wang@gmail.com>
 
-Applied, thanks everyone.
+You absolutely cannot do this.
+
+You now can race with the NAPI completion code turning the RX
+interrupts back on, and you'll leave the chip with RX interrupts
+disabled.
+
+You must solve your level triggered interrupt some other way, every
+NAPI based device must manage the interrupt disabling carefully and
+only when the napi POLL is successfully scheduled in order to avoid
+races.
+
+And especially you must not make a crazy hack like this for obscure
+things like kgdboe.
