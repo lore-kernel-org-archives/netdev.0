@@ -1,33 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: ip rule and/or route problem in 2.6.37-rc5+
-Date: Thu, 23 Dec 2010 09:42:07 -0800 (PST)
-Message-ID: <20101223.094207.189682647.davem@davemloft.net>
-References: <20101219.214230.39170893.davem@davemloft.net>
-	<AANLkTikNk8Ltei+jxpJuVqNxbhc-hhMpjc89YDvbirQK@mail.gmail.com>
-	<AANLkTin0mNkfaDvs3ZrEhxY27kdmZLh8ikKNpc-MXC44@mail.gmail.com>
+From: Martin Sustrik <sustrik@250bpm.com>
+Subject: Re: Workqueues vs. kernel threads for processing asynchronous socket
+ events
+Date: Thu, 23 Dec 2010 18:54:36 +0100
+Message-ID: <4D138CDC.3000504@250bpm.com>
+References: <20101210152754.GC28580@dezo.moloch.sk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: therbert@google.com, greearb@candelatech.com,
-	netdev@vger.kernel.org
-To: zenczykowski@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Martin Lucina <mato@kotelna.sk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43428
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752780Ab0LWRlh convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Dec 2010 12:41:37 -0500
-In-Reply-To: <AANLkTin0mNkfaDvs3ZrEhxY27kdmZLh8ikKNpc-MXC44@mail.gmail.com>
+Received: from chrocht.moloch.sk ([62.176.169.44]:40435 "EHLO mail.moloch.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752286Ab0LWRyf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Dec 2010 12:54:35 -0500
+In-Reply-To: <20101210152754.GC28580@dezo.moloch.sk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Maciej =AFenczykowski <zenczykowski@gmail.com>
-Date: Thu, 23 Dec 2010 10:22:23 +0100
+On 12/10/2010 04:27 PM, Martin Lucina wrote:
 
-> Could we please revert this ( 4465b469008bc03b98a1b8df4e9ae501b6c69d4=
-b
-> ) and make sure the revert makes it into 2.6.37?  We definitely don't
-> want to ship 2.6.37 with this patch in its current state.
+> I'm trying to find the best mechanism to process events from kernel space
+> sockets in an asynchronous manner. The work in progress code I have at the
+> moment tries to at least call kernel_accept() on a bound TCP socket when it
+> gets called by the underlying sk->sk_data_ready callback.
+>
+> The current approach I have is to use a workqueue and try to schedule work
+> inside the callback, but this has the kernel complaining about "scheduling
+> while atomic", so it doesn't look like it's the right approach? Am I
+> allowed to call schedule_work() from the context of a sk->sk_data_ready
+> callback or not?
 
-I'm moving towards reverting this commit simply because Tom is taking
-way too long to fix this regression.
+It turns out that the issue was caused by kmalloc(GFP_KERNEL) in the 
+callback function, not the schedule_work() function. Using GFP_ATOMIC 
+instead solves the problem.
+
+Sorry for the annoyance.
+Martin
