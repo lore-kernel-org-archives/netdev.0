@@ -1,142 +1,176 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 4/9] cnic: Use proper client and connection IDs
- on iSCSI ring
-Date: Thu, 23 Dec 2010 09:42:59 -0800
-Message-ID: <1293126184-13097-5-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-next 5/9] cnic: Support NIC Partition mode
+Date: Thu, 23 Dec 2010 09:43:01 -0800
+Message-ID: <1293126184-13097-7-git-send-email-mchan@broadcom.com>
 References: <1293126184-13097-1-git-send-email-mchan@broadcom.com>
  <1293126184-13097-2-git-send-email-mchan@broadcom.com>
  <1293126184-13097-3-git-send-email-mchan@broadcom.com>
  <1293126184-13097-4-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-5-git-send-email-mchan@broadcom.com>
+ <1293126184-13097-6-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4838 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2730 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753605Ab0LWSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753640Ab0LWSkf (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 23 Dec 2010 13:40:35 -0500
-In-Reply-To: <1293126184-13097-4-git-send-email-mchan@broadcom.com>
+In-Reply-To: <1293126184-13097-6-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the IDs specified by the bnx2x driver when initializing the ring.
-We don't have to make code changes when these IDs change in the future.
+Add a common function cnic_read_bnx2x_iscsi_mac() to read the iSCSI
+MAC address at any specified shared memory location.  In NIC Partition
+mode, we need to get the MAC address from the MF_CFG area of shared
+memory.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/cnic.c |   21 ++++++++++++---------
- drivers/net/cnic.h |    5 -----
- 2 files changed, 12 insertions(+), 14 deletions(-)
+ drivers/net/cnic.c |   84 ++++++++++++++++++++++++++++++++++++++++-----------
+ drivers/net/cnic.h |    3 ++
+ 2 files changed, 69 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 9f80fb4..9bd133d 100644
+index 9bd133d..bf4a804 100644
 --- a/drivers/net/cnic.c
 +++ b/drivers/net/cnic.c
-@@ -4119,7 +4119,7 @@ static void cnic_init_bnx2x_tx_ring(struct cnic_dev *dev,
- 	struct host_sp_status_block *sb = cp->bnx2x_def_status_blk;
- 	int port = CNIC_PORT(cp);
- 	int i;
--	int cli = BNX2X_ISCSI_CL_ID(CNIC_E1HVN(cp));
-+	u32 cli = cp->ethdev->iscsi_l2_client_id;
- 	u32 val;
- 
- 	memset(txbd, 0, BCM_PAGE_SIZE);
-@@ -4180,7 +4180,7 @@ static void cnic_init_bnx2x_rx_ring(struct cnic_dev *dev,
- 	struct host_sp_status_block *sb = cp->bnx2x_def_status_blk;
- 	int i;
- 	int port = CNIC_PORT(cp);
--	int cli = BNX2X_ISCSI_CL_ID(CNIC_E1HVN(cp));
-+	u32 cli = cp->ethdev->iscsi_l2_client_id;
- 	int cl_qzone_id = BNX2X_CL_QZONE_ID(cp, cli);
- 	u32 val;
- 	dma_addr_t ring_map = udev->l2_ring_map;
-@@ -4244,6 +4244,7 @@ static void cnic_init_bnx2x_rx_ring(struct cnic_dev *dev,
- 
- 	cp->rx_cons_ptr =
- 		&sb->sp_sb.index_values[HC_SP_INDEX_ETH_ISCSI_RX_CQ_CONS];
-+	cp->rx_cons = *cp->rx_cons_ptr;
+@@ -4247,10 +4247,36 @@ static void cnic_init_bnx2x_rx_ring(struct cnic_dev *dev,
+ 	cp->rx_cons = *cp->rx_cons_ptr;
  }
  
++static int cnic_read_bnx2x_iscsi_mac(struct cnic_dev *dev, u32 upper_addr,
++				     u32 lower_addr)
++{
++	u32 val;
++	u8 mac[6];
++
++	val = CNIC_RD(dev, upper_addr);
++
++	mac[0] = (u8) (val >> 8);
++	mac[1] = (u8) val;
++
++	val = CNIC_RD(dev, lower_addr);
++
++	mac[2] = (u8) (val >> 24);
++	mac[3] = (u8) (val >> 16);
++	mac[4] = (u8) (val >> 8);
++	mac[5] = (u8) val;
++
++	if (is_valid_ether_addr(mac)) {
++		memcpy(dev->mac_addr, mac, 6);
++		return 0;
++	} else {
++		return -EINVAL;
++	}
++}
++
  static void cnic_get_bnx2x_iscsi_info(struct cnic_dev *dev)
-@@ -4437,7 +4438,8 @@ static void cnic_init_rings(struct cnic_dev *dev)
- 		cnic_init_bnx2_rx_ring(dev);
- 		set_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
- 	} else if (test_bit(CNIC_F_BNX2X_CLASS, &dev->flags)) {
--		u32 cli = BNX2X_ISCSI_CL_ID(CNIC_E1HVN(cp));
-+		u32 cli = cp->ethdev->iscsi_l2_client_id;
-+		u32 cid = cp->ethdev->iscsi_l2_cid;
- 		u32 cl_qzone_id, type;
- 		struct client_init_ramrod_data *data;
- 		union l5cm_specific_data l5_data;
-@@ -4478,7 +4480,7 @@ static void cnic_init_rings(struct cnic_dev *dev)
- 		set_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
+ {
+ 	struct cnic_local *cp = dev->cnic_priv;
+-	u32 base, base2, addr, val;
++	u32 base, base2, addr, addr1, val;
+ 	int port = CNIC_PORT(cp);
  
- 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_ETH_CLIENT_SETUP,
--			BNX2X_ISCSI_L2_CID, type, &l5_data);
-+			cid, type, &l5_data);
+ 	dev->max_iscsi_conn = 0;
+@@ -4263,20 +4289,10 @@ static void cnic_get_bnx2x_iscsi_info(struct cnic_dev *dev)
+ 	addr = BNX2X_SHMEM_ADDR(base,
+ 		dev_info.port_hw_config[port].iscsi_mac_upper);
  
- 		i = 0;
- 		while (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags) &&
-@@ -4489,7 +4491,7 @@ static void cnic_init_rings(struct cnic_dev *dev)
- 			netdev_err(dev->netdev,
- 				"iSCSI CLIENT_SETUP did not complete\n");
- 		cnic_spq_completion(dev, DRV_CTL_RET_L2_SPQ_CREDIT_CMD, 1);
--		cnic_ring_ctl(dev, BNX2X_ISCSI_L2_CID, cli, 1);
-+		cnic_ring_ctl(dev, cid, cli, 1);
+-	val = CNIC_RD(dev, addr);
+-
+-	dev->mac_addr[0] = (u8) (val >> 8);
+-	dev->mac_addr[1] = (u8) val;
+-
+-	addr = BNX2X_SHMEM_ADDR(base,
++	addr1 = BNX2X_SHMEM_ADDR(base,
+ 		dev_info.port_hw_config[port].iscsi_mac_lower);
+ 
+-	val = CNIC_RD(dev, addr);
+-
+-	dev->mac_addr[2] = (u8) (val >> 24);
+-	dev->mac_addr[3] = (u8) (val >> 16);
+-	dev->mac_addr[4] = (u8) (val >> 8);
+-	dev->mac_addr[5] = (u8) val;
++	cnic_read_bnx2x_iscsi_mac(dev, addr, addr1);
+ 
+ 	addr = BNX2X_SHMEM_ADDR(base, validity_map[port]);
+ 	val = CNIC_RD(dev, addr);
+@@ -4302,21 +4318,53 @@ static void cnic_get_bnx2x_iscsi_info(struct cnic_dev *dev)
+ 		else
+ 			mf_cfg_addr = base + BNX2X_SHMEM_MF_BLK_OFFSET;
+ 
+-		addr = mf_cfg_addr +
+-			offsetof(struct mf_cfg, func_mf_config[func].e1hov_tag);
++		if (BNX2X_CHIP_IS_E2(cp->chip_id)) {
++			/* Must determine if the MF is SD vs SI mode */
++			addr = BNX2X_SHMEM_ADDR(base,
++					dev_info.shared_feature_config.config);
++			val = CNIC_RD(dev, addr);
++			if ((val & SHARED_FEAT_CFG_FORCE_SF_MODE_MASK) ==
++			    SHARED_FEAT_CFG_FORCE_SF_MODE_SWITCH_INDEPT) {
++				int rc;
++
++				/* MULTI_FUNCTION_SI mode */
++				addr = BNX2X_MF_CFG_ADDR(mf_cfg_addr,
++					func_ext_config[func].func_cfg);
++				val = CNIC_RD(dev, addr);
++				if (!(val & MACP_FUNC_CFG_FLAGS_ISCSI_OFFLOAD))
++					dev->max_iscsi_conn = 0;
++
++				addr = BNX2X_MF_CFG_ADDR(mf_cfg_addr,
++					func_ext_config[func].
++					iscsi_mac_addr_upper);
++				addr1 = BNX2X_MF_CFG_ADDR(mf_cfg_addr,
++					func_ext_config[func].
++					iscsi_mac_addr_lower);
++				rc = cnic_read_bnx2x_iscsi_mac(dev, addr,
++								addr1);
++				if (rc && func > 1)
++					dev->max_iscsi_conn = 0;
++
++				return;
++			}
++		}
++
++		addr = BNX2X_MF_CFG_ADDR(mf_cfg_addr,
++			func_mf_config[func].e1hov_tag);
+ 
+ 		val = CNIC_RD(dev, addr);
+ 		val &= FUNC_MF_CFG_E1HOV_TAG_MASK;
+ 		if (val != FUNC_MF_CFG_E1HOV_TAG_DEFAULT) {
+-			addr = mf_cfg_addr +
+-				offsetof(struct mf_cfg,
+-					 func_mf_config[func].config);
++			addr = BNX2X_MF_CFG_ADDR(mf_cfg_addr,
++				func_mf_config[func].config);
+ 			val = CNIC_RD(dev, addr);
+ 			val &= FUNC_MF_CFG_PROTOCOL_MASK;
+ 			if (val != FUNC_MF_CFG_PROTOCOL_ISCSI)
+ 				dev->max_iscsi_conn = 0;
+ 		}
  	}
++	if (!is_valid_ether_addr(dev->mac_addr))
++		dev->max_iscsi_conn = 0;
  }
  
-@@ -4504,19 +4506,20 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
- 		cnic_shutdown_bnx2_rx_ring(dev);
- 	} else if (test_bit(CNIC_F_BNX2X_CLASS, &dev->flags)) {
- 		struct cnic_local *cp = dev->cnic_priv;
--		u32 cli = BNX2X_ISCSI_CL_ID(CNIC_E1HVN(cp));
-+		u32 cli = cp->ethdev->iscsi_l2_client_id;
-+		u32 cid = cp->ethdev->iscsi_l2_cid;
- 		union l5cm_specific_data l5_data;
- 		int i;
- 		u32 type;
- 
--		cnic_ring_ctl(dev, BNX2X_ISCSI_L2_CID, cli, 0);
-+		cnic_ring_ctl(dev, cid, cli, 0);
- 
- 		set_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags);
- 
- 		l5_data.phy_address.lo = cli;
- 		l5_data.phy_address.hi = 0;
- 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_ETH_HALT,
--			BNX2X_ISCSI_L2_CID, ETH_CONNECTION_TYPE, &l5_data);
-+			cid, ETH_CONNECTION_TYPE, &l5_data);
- 		i = 0;
- 		while (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags) &&
- 		       ++i < 10)
-@@ -4533,7 +4536,7 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
- 		type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
- 			 SPE_HDR_FUNCTION_ID);
- 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_COMMON_CFC_DEL,
--			BNX2X_ISCSI_L2_CID, type, &l5_data);
-+			cid, type, &l5_data);
- 		msleep(10);
- 	}
- 	clear_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
+ static int cnic_start_bnx2x_hw(struct cnic_dev *dev)
 diff --git a/drivers/net/cnic.h b/drivers/net/cnic.h
-index bf38e57..8e947b7 100644
+index 8e947b7..fb3b753 100644
 --- a/drivers/net/cnic.h
 +++ b/drivers/net/cnic.h
-@@ -356,11 +356,6 @@ struct bnx2x_bd_chain_next {
- #define BNX2X_CONTEXT_MEM_SIZE		1024
- #define BNX2X_FCOE_CID			16
+@@ -422,6 +422,9 @@ struct bnx2x_bd_chain_next {
+ 		 (CNIC_RD(dev, BNX2X_SHMEM2_ADDR(base, size)) >	\
+ 		  offsetof(struct shmem2_region, field)))
  
--/* iSCSI client IDs are 17, 19, 21, 23 */
--#define BNX2X_ISCSI_BASE_CL_ID		17
--#define BNX2X_ISCSI_CL_ID(vn)		(BNX2X_ISCSI_BASE_CL_ID + ((vn) << 1))
--
--#define BNX2X_ISCSI_L2_CID		17
- #define BNX2X_ISCSI_START_CID		18
- #define BNX2X_ISCSI_NUM_CONNECTIONS	128
- #define BNX2X_ISCSI_TASK_CONTEXT_SIZE	128
++#define BNX2X_MF_CFG_ADDR(base, field)				\
++			((base) + offsetof(struct mf_cfg, field))
++
+ #define CNIC_PORT(cp)			((cp)->pfid & 1)
+ #define CNIC_FUNC(cp)			((cp)->func)
+ #define CNIC_PATH(cp)			(!BNX2X_CHIP_IS_E2(cp->chip_id) ? 0 :\
 -- 
 1.6.4.GIT
 
