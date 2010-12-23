@@ -1,34 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 2.6.36.2 - loop on read /proc/net/tcp
-Date: Thu, 23 Dec 2010 09:33:11 -0800 (PST)
-Message-ID: <20101223.093311.226768777.davem@davemloft.net>
-References: <20101222134343.GC19998@beaver.vrungel.ru>
-	<1293080846.2679.41.camel@edumazet-laptop>
+Subject: Re: [PATCH] bna: bnad_udelay macro cleanup
+Date: Thu, 23 Dec 2010 09:38:19 -0800 (PST)
+Message-ID: <20101223.093819.104073648.davem@davemloft.net>
+References: <1293087949-17613-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: renton@renton.name, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293080846.2679.41.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ddutt@brocade.com
+To: rmody@brocade.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46581
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753420Ab0LWRhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 12:37:50 -0500
+In-Reply-To: <1293087949-17613-1-git-send-email-rmody@brocade.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 23 Dec 2010 06:07:26 +0100
+From: Rasesh Mody <rmody@brocade.com>
+Date: Wed, 22 Dec 2010 23:05:49 -0800
 
-> [PATCH] tcp: fix listening_get_next()
+> Change details:
+> 	- Removed unnecessary bnad_udelay macro for ia64
 > 
-> Alexey Vlasov found /proc/net/tcp could sometime loop and display
-> millions of sockets in LISTEN state.
-> 
-> In 2.6.29, when we converted TCP hash tables to RCU, we left two
-> sk_next() calls in listening_get_next().
-> 
-> We must instead use sk_nulls_next() to properly detect an end of chain.
-> 
-> Reported-by: Alexey Vlasov <renton@renton.name>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Debashis Dutt <ddutt@brocade.com>
+> Signed-off-by: Rasesh Mody <rmody@brocade.com>
 
-Applied, thanks everyone.
+Please don't do it this way.
+
+We don't add known crap, then add a patch to remove the crap.
+
+Respin your BNA patch series so that this IA64 stuff never shows
+up in the first place.
+
+Thanks.
