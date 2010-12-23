@@ -1,53 +1,52 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] ipv4: dont create routes on down devices
-Date: Thu, 23 Dec 2010 10:50:25 +0200
-Message-ID: <201012231050.25942.opurdila@ixiacom.com>
-References: <4CA208C9.1020800@6wind.com> <4D120096.6080508@6wind.com> <1293028779.3027.133.camel@edumazet-laptop>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH] tcp: cleanup of cwnd initialization in
+ tcp_init_metrics()
+Date: Thu, 23 Dec 2010 10:03:18 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1012231002310.16569@pobox.suse.cz>
+References: <alpine.LNX.2.00.1012221938030.16569@pobox.suse.cz> <1293092671.2679.44.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nicolas.dichtel@6wind.com, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Vojtech Pavlik <vojtech@suse.cz>,
+	=?ISO-8859-15?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:13685 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752027Ab0LWIu2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 03:50:28 -0500
-In-Reply-To: <1293028779.3027.133.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293092671.2679.44.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wednesday 22 December 2010, 16:39:39
+On Thu, 23 Dec 2010, Eric Dumazet wrote:
 
-> [PATCH] ipv4: dont create routes on down devices
-> 
-> In ip_route_output_slow(), instead of allowing a route to be created on
-> a not UPed device, report -ENETUNREACH immediately.
-> 
-> # ip tunnel add mode ipip remote 10.16.0.164 local
-> 10.16.0.72 dev eth0
-> # (Note : tunl1 is down)
-> # ping -I tunl1 10.1.2.3
-> PING 10.1.2.3 (10.1.2.3) from 192.168.18.5 tunl1: 56(84) bytes of data.
-> (nothing)
-> # ./a.out tunl1
-> # ip tunnel del tunl1
-> Message from syslogd@shelby at Dec 22 10:12:08 ...
->   kernel: unregister_netdevice: waiting for tunl1 to become free.
-> Usage count = 3
-> 
-> After patch:
-> # ping -I tunl1 10.1.2.3
-> connect: Network is unreachable
-> 
-> 
-> Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Cc: Octavian Purdila <opurdila@ixiacom.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 19:39 +0100, Jiri Kosina a =C3=
+=A9crit :
+> > Commit 86bcebafc5e7f5 ("tcp: fix >2 iw selection") fixed a case whe=
+n=20
+> > congestion window initialization has been mistakenly omitted by=20
+> > introducing cwnd label and putting backwards jump from the end of t=
+he=20
+> > function.
+> >=20
+> > This makes the code unnecessarily tricky to read and understand on =
+a first=20
+> > sight.
+> >=20
+> > Shuffle the code around a little bit to make it more obvious.
+>=20
+> Well in fine you have
+>=20
+> 	if (inet_csk(sk)->icsk_rto < TCP_TIMEOUT_INIT && !tp->rx_opt.saw_tst=
+amp)
+> 		goto reset;
+> 	goto out;
+> reset:
+>=20
+> Is that really more obvious ? ;)
 
-Thanks Eric !
+To me it seems much more obvious than goto from the very end of the=20
+function somewhere into the middle and returning from there, but=20
+definitely a matter of personal taste.
 
-Reviewed-by: Octavian Purdila <opurdila@ixiacom.com>
+--=20
+Jiri Kosina
+SUSE Labs, Novell Inc.
