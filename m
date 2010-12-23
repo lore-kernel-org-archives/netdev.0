@@ -1,227 +1,160 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.36.2 - loop on read /proc/net/tcp
-Date: Thu, 23 Dec 2010 06:07:26 +0100
-Message-ID: <1293080846.2679.41.camel@edumazet-laptop>
-References: <20101222134343.GC19998@beaver.vrungel.ru>
+From: "juice" <juice@swagman.org>
+Subject: Re: Using ethernet device as efficient small packet generator
+Date: Thu, 23 Dec 2010 07:15:57 +0200
+Message-ID: <e1a7dc28b8b95e93d38edc418d59e89a.squirrel@www.liukuma.net>
+Reply-To: juice@swagman.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Alexey Vlasov <renton@renton.name>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Stephen Hemminger" <shemminger@vyatta.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:36591 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750788Ab0LWFHc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 00:07:32 -0500
-In-Reply-To: <20101222134343.GC19998@beaver.vrungel.ru>
+Received: from www.liukuma.net ([62.220.235.15]:42553 "EHLO www.liukuma.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751009Ab0LWFQH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Dec 2010 00:16:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 16:43 +0300, Alexey Vlasov a =C3=
-=A9crit :
-> Hi.
->=20
-> Has anyone seen such a bug at 2.6.36.2?
-> # netstat -ntl
-> Active Internet connections (only servers)
-> Proto Recv-Q Send-Q Local Address           Foreign Address         S=
-tate
-> tcp        0      0 81.176.228.2:60608      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:8099       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:8099       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.7:8099       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:8100       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:8100       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:8101       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:8101       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:20037      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:8102       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:8102       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 127.0.0.1:3399          0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:20040      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:38985      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 0.0.0.0:873             0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:20041      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:20042      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:3306       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.3:3306       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.2:3306       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:9099       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:9099       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:20043      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 0.0.0.0:139             0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:9100       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:9100       0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:20044      0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.5:33549      0.0.0.0:*               L=
-ISTEN
-> ...
-> First 30 lines are ok
->=20
-> but then go lines repeating in "eternal" loop:
-> tcp        0      0 81.176.228.2:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.3:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.7:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.2:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.3:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.7:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.2:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.3:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.4:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.7:80         0.0.0.0:*               L=
-ISTEN
-> tcp        0      0 81.176.228.2:80         0.0.0.0:*               L=
-ISTEN
->=20
-> # cat /proc/net/tcp
-> ...
-> It can hang an hour or so. but not always actually.
->=20
-> # i=3D0; while [ "$i" -lt "10" ]; do time wc -l /proc/net/tcp; let "i=
- =3D $i + 1"; done
-> 614782727 /proc/net/tcp
->=20
-> real    18m42.066s
-> user    0m12.620s
-> sys     18m25.890s
-> 19443 /proc/net/tcp
->=20
-> real    0m0.040s
-> user    0m0.000s
-> sys     0m0.030s
-> 19503 /proc/net/tcp
->=20
-> real    0m0.040s
-> sys     0m0.030s
-> 19502 /proc/net/tcp
->=20
-> real    0m0.041s
-> user    0m0.000s
-> sys     0m0.040s
-> 28525 /proc/net/tcp
->=20
-> real    0m0.059s
-> user    0m0.000s
-> sys     0m0.050s
-> 19463 /proc/net/tcp
->=20
-> real    0m0.048s
-> user    0m0.000s
-> sys     0m0.040s
-> 19521 /proc/net/tcp
->=20
-> real    0m0.040s
-> user    0m0.000s
-> sys     0m0.030s
-> 54394 /proc/net/tcp
->=20
-> real    0m0.104s
-> user    0m0.000s
-> sys     0m0.100s
-> 19479 /proc/net/tcp
->=20
-> real    0m0.040s
-> user    0m0.000s
-> sys     0m0.030s
-> 19481 /proc/net/tcp
->=20
-> real    0m0.040s
-> user    0m0.000s
-> sys     0m0.030s
->=20
+> Reaching 1Gbs should not be a problem (I was speaking about 10Gbps)
+> I reach link speed with my tg3 card and one single cpu :)
+> (Broadcom Corporation NetXtreme BCM5715S Gigabit Ethernet (rev a3))
+>
+> Please provide : ethtool -S eth0
+>
 
-Hi Alexey
+This is from the e1000 interface:
+03:02.1 Ethernet controller: Intel Corporation 82546EB Gigabit Ethernet
+Controller (Copper) (rev 01)
 
-Thanks a lot for your report.
+root@a2labralinux:/home/juice# ethtool -S eth1
+NIC statistics:
+     rx_packets: 192069
+     tx_packets: 60000313
+     rx_bytes: 33850492
+     tx_bytes: 3840026215
+     rx_broadcast: 192069
+     tx_broadcast: 3
+     rx_multicast: 0
+     tx_multicast: 310
+     rx_errors: 0
+     tx_errors: 0
+     tx_dropped: 0
+     multicast: 0
+     collisions: 0
+     rx_length_errors: 0
+     rx_over_errors: 0
+     rx_crc_errors: 0
+     rx_frame_errors: 0
+     rx_no_buffer_count: 0
+     rx_missed_errors: 0
+     tx_aborted_errors: 0
+     tx_carrier_errors: 0
+     tx_fifo_errors: 0
+     tx_heartbeat_errors: 0
+     tx_window_errors: 0
+     tx_abort_late_coll: 0
+     tx_deferred_ok: 0
+     tx_single_coll_ok: 0
+     tx_multi_coll_ok: 0
+     tx_timeout_count: 0
+     tx_restart_queue: 1806437
+     rx_long_length_errors: 0
+     rx_short_length_errors: 0
+     rx_align_errors: 0
+     tx_tcp_seg_good: 0
+     tx_tcp_seg_failed: 0
+     rx_flow_control_xon: 0
+     rx_flow_control_xoff: 0
+     tx_flow_control_xon: 0
+     tx_flow_control_xoff: 0
+     rx_long_byte_count: 33850492
+     rx_csum_offload_good: 8978
+     rx_csum_offload_errors: 0
+     rx_header_split: 0
+     alloc_rx_buff_failed: 0
+     tx_smbus: 0
+     rx_smbus: 0
+     dropped_smbus: 0
 
-Here is a fix.
 
-(Incidentaly, this means accesses to 0x40000000 addresses dont trigger
-faults, since we never BUG() at this point)
+This is from the tg3 interface:
+05:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5761
+Gigabit Ethernet PCIe (rev 10)
 
-David, this is a stable candidate. (2.6.29 +)
+root@d8labralinux:/home/juice# ethtool -S eth2
+NIC statistics:
+     rx_octets: 10814
+     rx_fragments: 0
+     rx_ucast_packets: 20
+     rx_mcast_packets: 0
+     rx_bcast_packets: 26
+     rx_fcs_errors: 0
+     rx_align_errors: 0
+     rx_xon_pause_rcvd: 0
+     rx_xoff_pause_rcvd: 0
+     rx_mac_ctrl_rcvd: 0
+     rx_xoff_entered: 0
+     rx_frame_too_long_errors: 0
+     rx_jabbers: 0
+     rx_undersize_packets: 0
+     rx_in_length_errors: 0
+     rx_out_length_errors: 0
+     rx_64_or_less_octet_packets: 0
+     rx_65_to_127_octet_packets: 0
+     rx_128_to_255_octet_packets: 0
+     rx_256_to_511_octet_packets: 0
+     rx_512_to_1023_octet_packets: 0
+     rx_1024_to_1522_octet_packets: 0
+     rx_1523_to_2047_octet_packets: 0
+     rx_2048_to_4095_octet_packets: 0
+     rx_4096_to_8191_octet_packets: 0
+     rx_8192_to_9022_octet_packets: 0
+     tx_octets: 5120013863
+     tx_collisions: 0
+     tx_xon_sent: 0
+     tx_xoff_sent: 0
+     tx_flow_control: 0
+     tx_mac_errors: 0
+     tx_single_collisions: 0
+     tx_mult_collisions: 0
+     tx_deferred: 0
+     tx_excessive_collisions: 0
+     tx_late_collisions: 0
+     tx_collide_2times: 0
+     tx_collide_3times: 0
+     tx_collide_4times: 0
+     tx_collide_5times: 0
+     tx_collide_6times: 0
+     tx_collide_7times: 0
+     tx_collide_8times: 0
+     tx_collide_9times: 0
+     tx_collide_10times: 0
+     tx_collide_11times: 0
+     tx_collide_12times: 0
+     tx_collide_13times: 0
+     tx_collide_14times: 0
+     tx_collide_15times: 0
+     tx_ucast_packets: 80000034
+     tx_mcast_packets: 42
+     tx_bcast_packets: 40
+     tx_carrier_sense_errors: 0
+     tx_discards: 0
+     tx_errors: 0
+     dma_writeq_full: 0
+     dma_write_prioq_full: 0
+     rxbds_empty: 0
+     rx_discards: 0
+     rx_errors: 0
+     rx_threshold_hit: 0
+     dma_readq_full: 0
+     dma_read_prioq_full: 0
+     tx_comp_queue_full: 0
+     ring_set_send_prod_index: 0
+     ring_status_update: 0
+     nic_irqs: 0
+     nic_avoided_irqs: 0
+     nic_tx_threshold_hit: 0
 
-Thanks !
-
-[PATCH] tcp: fix listening_get_next()
-
-Alexey Vlasov found /proc/net/tcp could sometime loop and display
-millions of sockets in LISTEN state.
-
-In 2.6.29, when we converted TCP hash tables to RCU, we left two
-sk_next() calls in listening_get_next().
-
-We must instead use sk_nulls_next() to properly detect an end of chain.
-
-Reported-by: Alexey Vlasov <renton@renton.name>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/tcp_ipv4.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index e13da6d..d978bb2 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -2030,7 +2030,7 @@ static void *listening_get_next(struct seq_file *=
-seq, void *cur)
- get_req:
- 			req =3D icsk->icsk_accept_queue.listen_opt->syn_table[st->sbucket];
- 		}
--		sk	  =3D sk_next(st->syn_wait_sk);
-+		sk	  =3D sk_nulls_next(st->syn_wait_sk);
- 		st->state =3D TCP_SEQ_STATE_LISTENING;
- 		read_unlock_bh(&icsk->icsk_accept_queue.syn_wait_lock);
- 	} else {
-@@ -2039,7 +2039,7 @@ get_req:
- 		if (reqsk_queue_len(&icsk->icsk_accept_queue))
- 			goto start_req;
- 		read_unlock_bh(&icsk->icsk_accept_queue.syn_wait_lock);
--		sk =3D sk_next(sk);
-+		sk =3D sk_nulls_next(sk);
- 	}
- get_sk:
- 	sk_nulls_for_each_from(sk, node) {
 
 
