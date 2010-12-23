@@ -1,39 +1,42 @@
-From: Martin Sustrik <sustrik@250bpm.com>
-Subject: Re: Workqueues vs. kernel threads for processing asynchronous socket
- events
-Date: Thu, 23 Dec 2010 18:54:36 +0100
-Message-ID: <4D138CDC.3000504@250bpm.com>
-References: <20101210152754.GC28580@dezo.moloch.sk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: cleanup of cwnd initialization in
+ tcp_init_metrics()
+Date: Thu, 23 Dec 2010 09:56:15 -0800 (PST)
+Message-ID: <20101223.095615.39194231.davem@davemloft.net>
+References: <alpine.LNX.2.00.1012231002310.16569@pobox.suse.cz>
+	<1293095663.7789.3.camel@edumazet-laptop>
+	<alpine.LNX.2.00.1012231022430.16569@pobox.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Martin Lucina <mato@kotelna.sk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from chrocht.moloch.sk ([62.176.169.44]:40435 "EHLO mail.moloch.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752286Ab0LWRyf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Dec 2010 12:54:35 -0500
-In-Reply-To: <20101210152754.GC28580@dezo.moloch.sk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vojtech@suse.cz,
+	ilpo.jarvinen@helsinki.fi
+To: jkosina@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1012231022430.16569@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/10/2010 04:27 PM, Martin Lucina wrote:
+From: Jiri Kosina <jkosina@suse.cz>
+Date: Thu, 23 Dec 2010 10:23:38 +0100 (CET)
 
-> I'm trying to find the best mechanism to process events from kernel space
-> sockets in an asynchronous manner. The work in progress code I have at the
-> moment tries to at least call kernel_accept() on a bound TCP socket when it
-> gets called by the underlying sk->sk_data_ready callback.
->
-> The current approach I have is to use a workqueue and try to schedule work
-> inside the callback, but this has the kernel complaining about "scheduling
-> while atomic", so it doesn't look like it's the right approach? Am I
-> allowed to call schedule_work() from the context of a sk->sk_data_ready
-> callback or not?
+> Right, that's even better. Updated patch below.
+> 
+> 
+> From: Jiri Kosina <jkosina@suse.cz>
+> Subject: [PATCH] tcp: cleanup of cwnd initialization in tcp_init_metrics()
+> 
+> Commit 86bcebafc5e7f5 ("tcp: fix >2 iw selection") fixed a case
+> when congestion window initialization has been mistakenly omitted
+> by introducing cwnd label and putting backwards goto from the
+> end of the function.
+> 
+> This makes the code unnecessarily tricky to read and understand
+> on a first sight.
+> 
+> Shuffle the code around a little bit to make it more obvious.
+> 
+> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
 
-It turns out that the issue was caused by kmalloc(GFP_KERNEL) in the 
-callback function, not the schedule_work() function. Using GFP_ATOMIC 
-instead solves the problem.
-
-Sorry for the annoyance.
-Martin
+Applied, thanks everyone.
