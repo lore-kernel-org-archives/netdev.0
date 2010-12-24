@@ -1,80 +1,39 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 1/2] bnx2: Free IRQ before freeing status block
- memory
-Date: Thu, 23 Dec 2010 18:21:59 -0800
-Message-ID: <1293157320-13758-1-git-send-email-mchan@broadcom.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] skfp: testing the wrong variable in skfp_driver_init()
+Date: Fri, 24 Dec 2010 08:17:34 +0300
+Message-ID: <20101224051734.GO1936@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Pirko <jpirko@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	H Hartley Sweeten <hsweeten@visionengravers.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2462 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752601Ab0LXDRI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Dec 2010 22:17:08 -0500
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:44229 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032Ab0LXFRr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Dec 2010 00:17:47 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When changing ring size, we free all memory including status block
-memory.  If we're in INTA mode and sharing IRQ, the IRQ handler can
-be called and it will reference the NULL status block pointer.
+The intent here was to test if the allocation failed but we tested 
+"SharedMemSize" instead of "SharedMemAddr" by mistake.
 
-Because of the lockless design of the IRQ handler, there is no simple
-way to synchronize and prevent this.  So we avoid this problem by
-freeing the IRQ handler before freeing the status block memory.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/bnx2.c |   13 ++++++++++++-
- 1 files changed, 12 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
-index 6fa7984..44aed3b 100644
---- a/drivers/net/bnx2.c
-+++ b/drivers/net/bnx2.c
-@@ -6096,7 +6096,7 @@ bnx2_request_irq(struct bnx2 *bp)
- }
- 
- static void
--bnx2_free_irq(struct bnx2 *bp)
-+__bnx2_free_irq(struct bnx2 *bp)
- {
- 	struct bnx2_irq *irq;
- 	int i;
-@@ -6107,6 +6107,13 @@ bnx2_free_irq(struct bnx2 *bp)
- 			free_irq(irq->vector, &bp->bnx2_napi[i]);
- 		irq->requested = 0;
- 	}
-+}
-+
-+static void
-+bnx2_free_irq(struct bnx2 *bp)
-+{
-+
-+	__bnx2_free_irq(bp);
- 	if (bp->flags & BNX2_FLAG_USING_MSI)
- 		pci_disable_msi(bp->pdev);
- 	else if (bp->flags & BNX2_FLAG_USING_MSIX)
-@@ -7092,6 +7099,7 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
- 
- 		bnx2_netif_stop(bp, true);
- 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
-+		__bnx2_free_irq(bp);
- 		bnx2_free_skbs(bp);
- 		bnx2_free_mem(bp);
- 	}
-@@ -7104,6 +7112,9 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
- 
- 		rc = bnx2_alloc_mem(bp);
- 		if (!rc)
-+			rc = bnx2_request_irq(bp);
-+
-+		if (!rc)
- 			rc = bnx2_init_nic(bp, 0);
- 
- 		if (rc) {
--- 
-1.6.4.GIT
-
-
+diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
+index 0a66fed..16c6265 100644
+--- a/drivers/net/skfp/skfddi.c
++++ b/drivers/net/skfp/skfddi.c
+@@ -412,7 +412,7 @@ static  int skfp_driver_init(struct net_device *dev)
+ 		bp->SharedMemAddr = pci_alloc_consistent(&bp->pdev,
+ 							 bp->SharedMemSize,
+ 							 &bp->SharedMemDMA);
+-		if (!bp->SharedMemSize) {
++		if (!bp->SharedMemAddr) {
+ 			printk("could not allocate mem for ");
+ 			printk("hardware module: %ld byte\n",
+ 			       bp->SharedMemSize);
