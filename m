@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 06/10] bna: IOC uninit check and misc cleanup
-Date: Thu, 23 Dec 2010 23:45:06 -0800
-Message-ID: <1293176710-21335-7-git-send-email-rmody@brocade.com>
+Subject: [PATCH 07/10] bna: Removed unused code
+Date: Thu, 23 Dec 2010 23:45:07 -0800
+Message-ID: <1293176710-21335-8-git-send-email-rmody@brocade.com>
 References: <1293176710-21335-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,160 +9,404 @@ Cc: <huangj@brocade.com>, Rasesh Mody <rmody@brocade.com>,
 	Debashis Dutt <ddutt@brocade.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54211 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751655Ab0LXHqJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Dec 2010 02:46:09 -0500
-Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBO7k66C012809
-	for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 23:46:08 -0800
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:33850 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752173Ab0LXHqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Dec 2010 02:46:15 -0500
+Received: from pps.filterd (m0000542 [127.0.0.1])
+	by mx0a-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBO7jhMS012791
+	for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 23:46:15 -0800
 Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
-	by mx0b-000f0801.pphosted.com with ESMTP id tck2q82pu-1
+	by mx0a-000f0801.pphosted.com with ESMTP id tcax1099k-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 23:46:08 -0800
+	for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 23:46:14 -0800
 In-Reply-To: <1293176710-21335-1-git-send-email-rmody@brocade.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change Details:
-	- Added a check in ioc firmware lock function to see if IOC is
-	in BFI_IOC_UNINIT state or not. If it is not in UNINIT state
-	and the last IOC boot was not done by OS driver, force IOC state
-	to BFI_IOC_UNINIT
-	- Unused macro and API cleanup
+	- Remove unused APIs and code cleanup
 
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bfa_defs_mfg_comm.h |   22 -----------------
- drivers/net/bna/bfa_ioc.c           |   45 +---------------------------------
- 2 files changed, 2 insertions(+), 65 deletions(-)
+ drivers/net/bna/bna_ctrl.c  |  241 +------------------------------------------
+ drivers/net/bna/bna_txrx.c  |   11 +--
+ drivers/net/bna/bna_types.h |    4 +-
+ 3 files changed, 3 insertions(+), 253 deletions(-)
 
-diff --git a/drivers/net/bna/bfa_defs_mfg_comm.h b/drivers/net/bna/bfa_defs_mfg_comm.h
-index 987978f..fdd6776 100644
---- a/drivers/net/bna/bfa_defs_mfg_comm.h
-+++ b/drivers/net/bna/bfa_defs_mfg_comm.h
-@@ -95,28 +95,6 @@ enum {
- 	(type) == BFA_MFG_TYPE_CNA10P1 || \
- 	bfa_mfg_is_mezz(type)))
- 
--/**
-- * Check if the card having old wwn/mac handling
-- */
--#define bfa_mfg_is_old_wwn_mac_model(type) (( \
--	(type) == BFA_MFG_TYPE_FC8P2 || \
--	(type) == BFA_MFG_TYPE_FC8P1 || \
--	(type) == BFA_MFG_TYPE_FC4P2 || \
--	(type) == BFA_MFG_TYPE_FC4P1 || \
--	(type) == BFA_MFG_TYPE_CNA10P2 || \
--	(type) == BFA_MFG_TYPE_CNA10P1 || \
--	(type) == BFA_MFG_TYPE_JAYHAWK || \
--	(type) == BFA_MFG_TYPE_WANCHESE))
--
--#define bfa_mfg_increment_wwn_mac(m, i)				\
--do {								\
--	u32 t = ((m)[0] << 16) | ((m)[1] << 8) | (m)[2];	\
--	t += (i);						\
--	(m)[0] = (t >> 16) & 0xFF;				\
--	(m)[1] = (t >> 8) & 0xFF;				\
--	(m)[2] = t & 0xFF;					\
--} while (0)
--
- #define bfa_mfg_adapter_prop_init_flash(card_type, prop)	\
- do {								\
- 	switch ((card_type)) {					\
-diff --git a/drivers/net/bna/bfa_ioc.c b/drivers/net/bna/bfa_ioc.c
-index e94e5aa..8ed147e 100644
---- a/drivers/net/bna/bfa_ioc.c
-+++ b/drivers/net/bna/bfa_ioc.c
-@@ -58,9 +58,6 @@
- #define bfa_ioc_notify_hbfail(__ioc)			\
- 			((__ioc)->ioc_hwif->ioc_notify_hbfail(__ioc))
- 
--#define bfa_ioc_is_optrom(__ioc)	\
--	(bfa_cb_image_get_size(BFA_IOC_FWIMG_TYPE(__ioc)) < BFA_IOC_FWIMG_MINSZ)
--
- #define bfa_ioc_mbox_cmd_pending(__ioc)		\
- 			(!list_empty(&((__ioc)->mbox_mod.cmd_q)) || \
- 			readl((__ioc)->ioc_regs.hfn_mbox_cmd))
-@@ -101,7 +98,6 @@ static void bfa_ioc_get_adapter_manufacturer(struct bfa_ioc *ioc,
- 						char *manufacturer);
- static void bfa_ioc_get_adapter_model(struct bfa_ioc *ioc, char *model);
- static u64 bfa_ioc_get_pwwn(struct bfa_ioc *ioc);
--static mac_t bfa_ioc_get_mfg_mac(struct bfa_ioc *ioc);
- 
- /**
-  * IOC state machine events
-@@ -865,12 +861,6 @@ bfa_ioc_fwver_valid(struct bfa_ioc *ioc)
- {
- 	struct bfi_ioc_image_hdr fwhdr, *drv_fwhdr;
- 
--	/**
--	 * If bios/efi boot (flash based) -- return true
--	 */
--	if (bfa_ioc_is_optrom(ioc))
--		return true;
--
- 	bfa_nw_ioc_fwver_get(ioc, &fwhdr);
- 	drv_fwhdr = (struct bfi_ioc_image_hdr *)
- 		bfa_cb_image_get_chunk(BFA_IOC_FWIMG_TYPE(ioc), 0);
-@@ -934,13 +924,8 @@ bfa_ioc_hwinit(struct bfa_ioc *ioc, bool force)
- 	/**
- 	 * If IOC function is disabled and firmware version is same,
- 	 * just re-enable IOC.
--	 *
--	 * If option rom, IOC must not be in operational state. With
--	 * convergence, IOC will be in operational state when 2nd driver
--	 * is loaded.
- 	 */
--	if (ioc_fwstate == BFI_IOC_DISABLED ||
--	    (!bfa_ioc_is_optrom(ioc) && ioc_fwstate == BFI_IOC_OP)) {
-+	if (ioc_fwstate == BFI_IOC_DISABLED || ioc_fwstate == BFI_IOC_OP) {
- 		/**
- 		 * When using MSI-X any pending firmware ready event should
- 		 * be flushed. Otherwise MSI-X interrupts are not delivered.
-@@ -1078,11 +1063,6 @@ bfa_ioc_download_fw(struct bfa_ioc *ioc, u32 boot_type,
- 	 */
- 	bfa_ioc_lmem_init(ioc);
- 
--	/**
--	 * Flash based firmware boot
--	 */
--	if (bfa_ioc_is_optrom(ioc))
--		boot_type = BFI_BOOT_TYPE_FLASH;
- 	fwimg = bfa_cb_image_get_chunk(BFA_IOC_FWIMG_TYPE(ioc), chunkno);
- 
- 	pgnum = bfa_ioc_smem_pgnum(ioc, loff);
-@@ -1689,28 +1669,7 @@ bfa_ioc_get_pwwn(struct bfa_ioc *ioc)
- mac_t
- bfa_nw_ioc_get_mac(struct bfa_ioc *ioc)
- {
--	/*
--	 * Currently mfg mac is used as FCoE enode mac (not configured by PBC)
--	 */
--	if (bfa_ioc_get_type(ioc) == BFA_IOC_TYPE_FCoE)
--		return bfa_ioc_get_mfg_mac(ioc);
--	else
--		return ioc->attr->mac;
--}
--
--static mac_t
--bfa_ioc_get_mfg_mac(struct bfa_ioc *ioc)
--{
--	mac_t	m;
--
--	m = ioc->attr->mfg_mac;
--	if (bfa_mfg_is_old_wwn_mac_model(ioc->attr->card_type))
--		m.mac[MAC_ADDRLEN - 1] += bfa_ioc_pcifn(ioc);
--	else
--		bfa_mfg_increment_wwn_mac(&(m.mac[MAC_ADDRLEN-3]),
--			bfa_ioc_pcifn(ioc));
--
--	return m;
-+	return ioc->attr->mac;
+diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
+index 68e4c5e..e152747 100644
+--- a/drivers/net/bna/bna_ctrl.c
++++ b/drivers/net/bna/bna_ctrl.c
+@@ -2132,37 +2132,6 @@ rxf_fltr_mbox_cmd(struct bna_rxf *rxf, u8 cmd, enum bna_status status)
+ 	bna_mbox_send(rxf->rx->bna, &rxf->mbox_qe);
  }
  
- /**
+-static void
+-__rxf_default_function_config(struct bna_rxf *rxf, enum bna_status status)
+-{
+-	struct bna_rx_fndb_ram *rx_fndb_ram;
+-	u32 ctrl_flags;
+-	int i;
+-
+-	rx_fndb_ram = (struct bna_rx_fndb_ram *)
+-			BNA_GET_MEM_BASE_ADDR(rxf->rx->bna->pcidev.pci_bar_kva,
+-			RX_FNDB_RAM_BASE_OFFSET);
+-
+-	for (i = 0; i < BFI_MAX_RXF; i++) {
+-		if (status == BNA_STATUS_T_ENABLED) {
+-			if (i == rxf->rxf_id)
+-				continue;
+-
+-			ctrl_flags =
+-				readl(&rx_fndb_ram[i].control_flags);
+-			ctrl_flags |= BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
+-			writel(ctrl_flags,
+-						&rx_fndb_ram[i].control_flags);
+-		} else {
+-			ctrl_flags =
+-				readl(&rx_fndb_ram[i].control_flags);
+-			ctrl_flags &= ~BNA_RXF_CF_DEFAULT_FUNCTION_ENABLE;
+-			writel(ctrl_flags,
+-						&rx_fndb_ram[i].control_flags);
+-		}
+-	}
+-}
+-
+ int
+ rxf_process_packet_filter_ucast(struct bna_rxf *rxf)
+ {
+@@ -2229,46 +2198,6 @@ rxf_process_packet_filter_promisc(struct bna_rxf *rxf)
+ }
+ 
+ int
+-rxf_process_packet_filter_default(struct bna_rxf *rxf)
+-{
+-	struct bna *bna = rxf->rx->bna;
+-
+-	/* Enable/disable default mode */
+-	if (is_default_enable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask)) {
+-		/* move default configuration from pending -> active */
+-		default_inactive(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		rxf->rxmode_active |= BNA_RXMODE_DEFAULT;
+-
+-		/* Disable VLAN filter to allow all VLANs */
+-		__rxf_vlan_filter_set(rxf, BNA_STATUS_T_DISABLED);
+-		/* Redirect all other RxF vlan filtering to this one */
+-		__rxf_default_function_config(rxf, BNA_STATUS_T_ENABLED);
+-		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
+-				BNA_STATUS_T_ENABLED);
+-		return 1;
+-	} else if (is_default_disable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask)) {
+-		/* move default configuration from pending -> active */
+-		default_inactive(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
+-		bna->rxf_default_id = BFI_MAX_RXF;
+-
+-		/* Revert VLAN filter */
+-		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
+-		/* Stop RxF vlan filter table redirection */
+-		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
+-		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
+-				BNA_STATUS_T_DISABLED);
+-		return 1;
+-	}
+-
+-	return 0;
+-}
+-
+-int
+ rxf_process_packet_filter_allmulti(struct bna_rxf *rxf)
+ {
+ 	/* Enable/disable allmulti mode */
+@@ -2365,48 +2294,6 @@ rxf_clear_packet_filter_promisc(struct bna_rxf *rxf)
+ }
+ 
+ int
+-rxf_clear_packet_filter_default(struct bna_rxf *rxf)
+-{
+-	struct bna *bna = rxf->rx->bna;
+-
+-	/* 8. Execute pending default mode disable command */
+-	if (is_default_disable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask)) {
+-		/* move default configuration from pending -> active */
+-		default_inactive(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
+-		bna->rxf_default_id = BFI_MAX_RXF;
+-
+-		/* Revert VLAN filter */
+-		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
+-		/* Stop RxF vlan filter table redirection */
+-		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
+-		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
+-				BNA_STATUS_T_DISABLED);
+-		return 1;
+-	}
+-
+-	/* 9. Clear active default mode; move it to pending enable */
+-	if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
+-		/* move default configuration from active -> pending */
+-		default_enable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
+-
+-		/* Revert VLAN filter */
+-		__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
+-		/* Stop RxF vlan filter table redirection */
+-		__rxf_default_function_config(rxf, BNA_STATUS_T_DISABLED);
+-		rxf_fltr_mbox_cmd(rxf, BFI_LL_H2I_RXF_DEFAULT_SET_REQ,
+-				BNA_STATUS_T_DISABLED);
+-		return 1;
+-	}
+-
+-	return 0;
+-}
+-
+-int
+ rxf_clear_packet_filter_allmulti(struct bna_rxf *rxf)
+ {
+ 	/* 10. Execute pending allmulti mode disable command */
+@@ -2481,28 +2368,6 @@ rxf_reset_packet_filter_promisc(struct bna_rxf *rxf)
+ }
+ 
+ void
+-rxf_reset_packet_filter_default(struct bna_rxf *rxf)
+-{
+-	struct bna *bna = rxf->rx->bna;
+-
+-	/* 8. Clear pending default mode disable */
+-	if (is_default_disable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask)) {
+-		default_inactive(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
+-		bna->rxf_default_id = BFI_MAX_RXF;
+-	}
+-
+-	/* 9. Move default mode config from active -> pending */
+-	if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
+-		default_enable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		rxf->rxmode_active &= ~BNA_RXMODE_DEFAULT;
+-	}
+-}
+-
+-void
+ rxf_reset_packet_filter_allmulti(struct bna_rxf *rxf)
+ {
+ 	/* 10. Clear pending allmulti mode disable */
+@@ -2599,76 +2464,6 @@ rxf_promisc_disable(struct bna_rxf *rxf)
+  *	1 = need h/w change
+  */
+ static int
+-rxf_default_enable(struct bna_rxf *rxf)
+-{
+-	struct bna *bna = rxf->rx->bna;
+-	int ret = 0;
+-
+-	/* There can not be any pending disable command */
+-
+-	/* Do nothing if pending enable or already enabled */
+-	if (is_default_enable(rxf->rxmode_pending,
+-		rxf->rxmode_pending_bitmask) ||
+-		(rxf->rxmode_active & BNA_RXMODE_DEFAULT)) {
+-		/* Schedule enable */
+-	} else {
+-		/* Default mode should not be active in the system */
+-		default_enable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		bna->rxf_default_id = rxf->rxf_id;
+-		ret = 1;
+-	}
+-
+-	return ret;
+-}
+-
+-/**
+- * Should only be called by bna_rxf_mode_set.
+- * Helps deciding if h/w configuration is needed or not.
+- *  Returns:
+- *	0 = no h/w change
+- *	1 = need h/w change
+- */
+-static int
+-rxf_default_disable(struct bna_rxf *rxf)
+-{
+-	struct bna *bna = rxf->rx->bna;
+-	int ret = 0;
+-
+-	/* There can not be any pending disable */
+-
+-	/* Turn off pending enable command , if any */
+-	if (is_default_enable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask)) {
+-		/* Promisc mode should not be active */
+-		/* system default state should be pending */
+-		default_inactive(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		/* Remove the default state from the system */
+-		bna->rxf_default_id = BFI_MAX_RXF;
+-
+-	/* Schedule disable */
+-	} else if (rxf->rxmode_active & BNA_RXMODE_DEFAULT) {
+-		/* Default mode should be active in the system */
+-		default_disable(rxf->rxmode_pending,
+-				rxf->rxmode_pending_bitmask);
+-		ret = 1;
+-
+-	/* Do nothing if already disabled */
+-	} else {
+-	}
+-
+-	return ret;
+-}
+-
+-/**
+- * Should only be called by bna_rxf_mode_set.
+- * Helps deciding if h/w configuration is needed or not.
+- *  Returns:
+- *	0 = no h/w change
+- *	1 = need h/w change
+- */
+-static int
+ rxf_allmulti_enable(struct bna_rxf *rxf)
+ {
+ 	int ret = 0;
+@@ -2730,38 +2525,13 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
+ 	struct bna_rxf *rxf = &rx->rxf;
+ 	int need_hw_config = 0;
+ 
+-	/* Error checks */
++	/* Process the commands */
+ 
+ 	if (is_promisc_enable(new_mode, bitmask)) {
+ 		/* If promisc mode is already enabled elsewhere in the system */
+ 		if ((rx->bna->rxf_promisc_id != BFI_MAX_RXF) &&
+ 			(rx->bna->rxf_promisc_id != rxf->rxf_id))
+ 			goto err_return;
+-
+-		/* If default mode is already enabled in the system */
+-		if (rx->bna->rxf_default_id != BFI_MAX_RXF)
+-			goto err_return;
+-
+-		/* Trying to enable promiscuous and default mode together */
+-		if (is_default_enable(new_mode, bitmask))
+-			goto err_return;
+-	}
+-
+-	if (is_default_enable(new_mode, bitmask)) {
+-		/* If default mode is already enabled elsewhere in the system */
+-		if ((rx->bna->rxf_default_id != BFI_MAX_RXF) &&
+-			(rx->bna->rxf_default_id != rxf->rxf_id)) {
+-				goto err_return;
+-		}
+-
+-		/* If promiscuous mode is already enabled in the system */
+-		if (rx->bna->rxf_promisc_id != BFI_MAX_RXF)
+-			goto err_return;
+-	}
+-
+-	/* Process the commands */
+-
+-	if (is_promisc_enable(new_mode, bitmask)) {
+ 		if (rxf_promisc_enable(rxf))
+ 			need_hw_config = 1;
+ 	} else if (is_promisc_disable(new_mode, bitmask)) {
+@@ -2769,14 +2539,6 @@ bna_rx_mode_set(struct bna_rx *rx, enum bna_rxmode new_mode,
+ 			need_hw_config = 1;
+ 	}
+ 
+-	if (is_default_enable(new_mode, bitmask)) {
+-		if (rxf_default_enable(rxf))
+-			need_hw_config = 1;
+-	} else if (is_default_disable(new_mode, bitmask)) {
+-		if (rxf_default_disable(rxf))
+-			need_hw_config = 1;
+-	}
+-
+ 	if (is_allmulti_enable(new_mode, bitmask)) {
+ 		if (rxf_allmulti_enable(rxf))
+ 			need_hw_config = 1;
+@@ -3202,7 +2964,6 @@ bna_init(struct bna *bna, struct bnad *bnad, struct bfa_pcidev *pcidev,
+ 
+ 	bna_mcam_mod_init(&bna->mcam_mod, bna, res_info);
+ 
+-	bna->rxf_default_id = BFI_MAX_RXF;
+ 	bna->rxf_promisc_id = BFI_MAX_RXF;
+ 
+ 	/* Mbox q element for posting stat request to f/w */
+diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/bna/bna_txrx.c
+index 5076618..58c7664 100644
+--- a/drivers/net/bna/bna_txrx.c
++++ b/drivers/net/bna/bna_txrx.c
+@@ -1226,8 +1226,7 @@ rxf_process_packet_filter_vlan(struct bna_rxf *rxf)
+ 	/* Apply the VLAN filter */
+ 	if (rxf->rxf_flags & BNA_RXF_FL_VLAN_CONFIG_PENDING) {
+ 		rxf->rxf_flags &= ~BNA_RXF_FL_VLAN_CONFIG_PENDING;
+-		if (!(rxf->rxmode_active & BNA_RXMODE_PROMISC) &&
+-			!(rxf->rxmode_active & BNA_RXMODE_DEFAULT))
++		if (!(rxf->rxmode_active & BNA_RXMODE_PROMISC))
+ 			__rxf_vlan_filter_set(rxf, rxf->vlan_filter_status);
+ 	}
+ 
+@@ -1276,9 +1275,6 @@ rxf_process_packet_filter(struct bna_rxf *rxf)
+ 	if (rxf_process_packet_filter_promisc(rxf))
+ 		return 1;
+ 
+-	if (rxf_process_packet_filter_default(rxf))
+-		return 1;
+-
+ 	if (rxf_process_packet_filter_allmulti(rxf))
+ 		return 1;
+ 
+@@ -1340,9 +1336,6 @@ rxf_clear_packet_filter(struct bna_rxf *rxf)
+ 	if (rxf_clear_packet_filter_promisc(rxf))
+ 		return 1;
+ 
+-	if (rxf_clear_packet_filter_default(rxf))
+-		return 1;
+-
+ 	if (rxf_clear_packet_filter_allmulti(rxf))
+ 		return 1;
+ 
+@@ -1389,8 +1382,6 @@ rxf_reset_packet_filter(struct bna_rxf *rxf)
+ 
+ 	rxf_reset_packet_filter_promisc(rxf);
+ 
+-	rxf_reset_packet_filter_default(rxf);
+-
+ 	rxf_reset_packet_filter_allmulti(rxf);
+ }
+ 
+diff --git a/drivers/net/bna/bna_types.h b/drivers/net/bna/bna_types.h
+index d79fd98..b9c134f 100644
+--- a/drivers/net/bna/bna_types.h
++++ b/drivers/net/bna/bna_types.h
+@@ -165,8 +165,7 @@ enum bna_rxp_type {
+ 
+ enum bna_rxmode {
+ 	BNA_RXMODE_PROMISC 	= 1,
+-	BNA_RXMODE_DEFAULT 	= 2,
+-	BNA_RXMODE_ALLMULTI 	= 4
++	BNA_RXMODE_ALLMULTI 	= 2
+ };
+ 
+ enum bna_rx_event {
+@@ -1118,7 +1117,6 @@ struct bna {
+ 
+ 	struct bna_rit_mod rit_mod;
+ 
+-	int			rxf_default_id;
+ 	int			rxf_promisc_id;
+ 
+ 	struct bna_mbox_qe mbox_qe;
 -- 
 1.7.1
 
