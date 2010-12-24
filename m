@@ -1,7 +1,7 @@
 From: Rasesh Mody <rmody@brocade.com>
-Subject: [PATCH 02/10] bna: Port enable disable sync and txq priority fix
-Date: Thu, 23 Dec 2010 23:45:02 -0800
-Message-ID: <1293176710-21335-3-git-send-email-rmody@brocade.com>
+Subject: [PATCH 03/10] bna: Fix ethtool register dump and reordered an API
+Date: Thu, 23 Dec 2010 23:45:03 -0800
+Message-ID: <1293176710-21335-4-git-send-email-rmody@brocade.com>
 References: <1293176710-21335-1-git-send-email-rmody@brocade.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,15 +9,15 @@ Cc: <huangj@brocade.com>, Rasesh Mody <rmody@brocade.com>,
 	Debashis Dutt <ddutt@brocade.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54183 "EHLO
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:54182 "EHLO
 	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751262Ab0LXHpr (ORCPT
+	by vger.kernel.org with ESMTP id S1751135Ab0LXHpr (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 24 Dec 2010 02:45:47 -0500
 Received: from pps.filterd (m0000700 [127.0.0.1])
-	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBO7jjxC011963
+	by mx0b-000f0801.pphosted.com (8.14.4/8.14.4) with SMTP id oBO7jk7u011968
 	for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 23:45:46 -0800
-Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.141.11])
-	by mx0b-000f0801.pphosted.com with ESMTP id tck2q82pk-2
+Received: from hq1-exedge.brocade.com (hq1-exedge.brocade.com [144.49.140.11])
+	by mx0b-000f0801.pphosted.com with ESMTP id tck2q82pm-1
 	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=NOT)
 	for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 23:45:46 -0800
 In-Reply-To: <1293176710-21335-1-git-send-email-rmody@brocade.com>
@@ -25,359 +25,57 @@ Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Change Details:
-	- Fixed port enable/disable sync through a change in LL port state
-	machine
-	- Change txq->priority masking to 0x7 (3 bits) from 0x3 (2 bits)
+	- Removed semaphore register dump from ethtool
+	- Moved netif_carrier_off() call to before calling bna_init()
 
 Signed-off-by: Debashis Dutt <ddutt@brocade.com>
 Signed-off-by: Rasesh Mody <rmody@brocade.com>
 ---
- drivers/net/bna/bna.h       |    4 +-
- drivers/net/bna/bna_ctrl.c  |  136 +++++++++++++++++++++++++++++++++----------
- drivers/net/bna/bna_txrx.c  |    8 +-
- drivers/net/bna/bna_types.h |    7 +-
- 4 files changed, 116 insertions(+), 39 deletions(-)
+ drivers/net/bna/bnad.c         |    8 +++-----
+ drivers/net/bna/bnad_ethtool.c |    4 ----
+ 2 files changed, 3 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/bna/bna.h b/drivers/net/bna/bna.h
-index df6676b..fd93f76 100644
---- a/drivers/net/bna/bna.h
-+++ b/drivers/net/bna/bna.h
-@@ -390,8 +390,8 @@ void bna_mbox_send(struct bna *bna, struct bna_mbox_qe *mbox_qe);
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index 3c40502..5e7a030 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -3061,6 +3061,9 @@ bnad_pci_probe(struct pci_dev *pdev,
+ 	/* Initialize netdev structure, set up ethtool ops */
+ 	bnad_netdev_init(bnad, using_dac);
  
- /* API for RX */
- int bna_port_mtu_get(struct bna_port *port);
--void bna_llport_admin_up(struct bna_llport *llport);
--void bna_llport_admin_down(struct bna_llport *llport);
-+void bna_llport_rx_started(struct bna_llport *llport);
-+void bna_llport_rx_stopped(struct bna_llport *llport);
++	/* Set link to down state */
++	netif_carrier_off(netdev);
++
+ 	bnad_enable_msix(bnad);
  
- /* API for BNAD */
- void bna_port_enable(struct bna_port *port);
-diff --git a/drivers/net/bna/bna_ctrl.c b/drivers/net/bna/bna_ctrl.c
-index 07b2659..68e4c5e 100644
---- a/drivers/net/bna/bna_ctrl.c
-+++ b/drivers/net/bna/bna_ctrl.c
-@@ -59,14 +59,70 @@ bna_port_cb_link_down(struct bna_port *port, int status)
- 	port->link_cbfn(port->bna->bnad, BNA_LINK_DOWN);
- }
+ 	/* Get resource requirement form bna */
+@@ -3114,11 +3117,6 @@ bnad_pci_probe(struct pci_dev *pdev,
  
-+static inline int
-+llport_can_be_up(struct bna_llport *llport)
-+{
-+	int ready = 0;
-+	if (llport->type == BNA_PORT_T_REGULAR)
-+		ready = ((llport->flags & BNA_LLPORT_F_ADMIN_UP) &&
-+			 (llport->flags & BNA_LLPORT_F_RX_STARTED) &&
-+			 (llport->flags & BNA_LLPORT_F_PORT_ENABLED));
-+	else
-+		ready = ((llport->flags & BNA_LLPORT_F_ADMIN_UP) &&
-+			 (llport->flags & BNA_LLPORT_F_RX_STARTED) &&
-+			 !(llport->flags & BNA_LLPORT_F_PORT_ENABLED));
-+	return ready;
-+}
-+
-+#define llport_is_up llport_can_be_up
-+
-+enum bna_llport_event {
-+	LLPORT_E_START			= 1,
-+	LLPORT_E_STOP			= 2,
-+	LLPORT_E_FAIL			= 3,
-+	LLPORT_E_UP			= 4,
-+	LLPORT_E_DOWN			= 5,
-+	LLPORT_E_FWRESP_UP_OK		= 6,
-+	LLPORT_E_FWRESP_UP_FAIL		= 7,
-+	LLPORT_E_FWRESP_DOWN		= 8
-+};
-+
-+static void
-+bna_llport_cb_port_enabled(struct bna_llport *llport)
-+{
-+	llport->flags |= BNA_LLPORT_F_PORT_ENABLED;
-+
-+	if (llport_can_be_up(llport))
-+		bfa_fsm_send_event(llport, LLPORT_E_UP);
-+}
-+
-+static void
-+bna_llport_cb_port_disabled(struct bna_llport *llport)
-+{
-+	int llport_up = llport_is_up(llport);
-+
-+	llport->flags &= ~BNA_LLPORT_F_PORT_ENABLED;
-+
-+	if (llport_up)
-+		bfa_fsm_send_event(llport, LLPORT_E_DOWN);
-+}
-+
- /**
-  * MBOX
-  */
- static int
- bna_is_aen(u8 msg_id)
- {
--	return msg_id == BFI_LL_I2H_LINK_DOWN_AEN ||
--	       msg_id == BFI_LL_I2H_LINK_UP_AEN;
-+	switch (msg_id) {
-+	case BFI_LL_I2H_LINK_DOWN_AEN:
-+	case BFI_LL_I2H_LINK_UP_AEN:
-+	case BFI_LL_I2H_PORT_ENABLE_AEN:
-+	case BFI_LL_I2H_PORT_DISABLE_AEN:
-+		return 1;
-+
-+	default:
-+		return 0;
-+	}
- }
+ 	mutex_unlock(&bnad->conf_mutex);
  
- static void
-@@ -81,6 +137,12 @@ bna_mbox_aen_callback(struct bna *bna, struct bfi_mbmsg *msg)
- 	case BFI_LL_I2H_LINK_DOWN_AEN:
- 		bna_port_cb_link_down(&bna->port, aen->reason);
- 		break;
-+	case BFI_LL_I2H_PORT_ENABLE_AEN:
-+		bna_llport_cb_port_enabled(&bna->port.llport);
-+		break;
-+	case BFI_LL_I2H_PORT_DISABLE_AEN:
-+		bna_llport_cb_port_disabled(&bna->port.llport);
-+		break;
- 	default:
- 		break;
- 	}
-@@ -251,16 +313,6 @@ static void bna_llport_start(struct bna_llport *llport);
- static void bna_llport_stop(struct bna_llport *llport);
- static void bna_llport_fail(struct bna_llport *llport);
- 
--enum bna_llport_event {
--	LLPORT_E_START			= 1,
--	LLPORT_E_STOP			= 2,
--	LLPORT_E_FAIL			= 3,
--	LLPORT_E_UP			= 4,
--	LLPORT_E_DOWN			= 5,
--	LLPORT_E_FWRESP_UP		= 6,
--	LLPORT_E_FWRESP_DOWN		= 7
--};
+-	/*
+-	 * Make sure the link appears down to the stack
+-	 */
+-	netif_carrier_off(netdev);
 -
- enum bna_llport_state {
- 	BNA_LLPORT_STOPPED		= 1,
- 	BNA_LLPORT_DOWN			= 2,
-@@ -320,7 +372,7 @@ bna_llport_sm_stopped(struct bna_llport *llport,
- 		/* No-op */
- 		break;
+ 	/* Finally, reguister with net_device layer */
+ 	err = register_netdev(netdev);
+ 	if (err) {
+diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/bna/bnad_ethtool.c
+index 11fa2ea..3011110 100644
+--- a/drivers/net/bna/bnad_ethtool.c
++++ b/drivers/net/bna/bnad_ethtool.c
+@@ -330,10 +330,6 @@ do {								\
  
--	case LLPORT_E_FWRESP_UP:
-+	case LLPORT_E_FWRESP_UP_OK:
- 	case LLPORT_E_FWRESP_DOWN:
- 		/**
- 		 * These events are received due to flushing of mbox when
-@@ -366,6 +418,7 @@ bna_llport_sm_down(struct bna_llport *llport,
- static void
- bna_llport_sm_up_resp_wait_entry(struct bna_llport *llport)
- {
-+	BUG_ON(!llport_can_be_up(llport));
- 	/**
- 	 * NOTE: Do not call bna_fw_llport_up() here. That will over step
- 	 * mbox due to down_resp_wait -> up_resp_wait transition on event
-@@ -390,10 +443,14 @@ bna_llport_sm_up_resp_wait(struct bna_llport *llport,
- 		bfa_fsm_set_state(llport, bna_llport_sm_down_resp_wait);
- 		break;
+ 	BNAD_GET_REG(PCIE_MISC_REG);
  
--	case LLPORT_E_FWRESP_UP:
-+	case LLPORT_E_FWRESP_UP_OK:
- 		bfa_fsm_set_state(llport, bna_llport_sm_up);
- 		break;
- 
-+	case LLPORT_E_FWRESP_UP_FAIL:
-+		bfa_fsm_set_state(llport, bna_llport_sm_down);
-+		break;
-+
- 	case LLPORT_E_FWRESP_DOWN:
- 		/* down_resp_wait -> up_resp_wait transition on LLPORT_E_UP */
- 		bna_fw_llport_up(llport);
-@@ -431,11 +488,12 @@ bna_llport_sm_down_resp_wait(struct bna_llport *llport,
- 		bfa_fsm_set_state(llport, bna_llport_sm_up_resp_wait);
- 		break;
- 
--	case LLPORT_E_FWRESP_UP:
-+	case LLPORT_E_FWRESP_UP_OK:
- 		/* up_resp_wait->down_resp_wait transition on LLPORT_E_DOWN */
- 		bna_fw_llport_down(llport);
- 		break;
- 
-+	case LLPORT_E_FWRESP_UP_FAIL:
- 	case LLPORT_E_FWRESP_DOWN:
- 		bfa_fsm_set_state(llport, bna_llport_sm_down);
- 		break;
-@@ -496,11 +554,12 @@ bna_llport_sm_last_resp_wait(struct bna_llport *llport,
- 		/* No-op */
- 		break;
- 
--	case LLPORT_E_FWRESP_UP:
-+	case LLPORT_E_FWRESP_UP_OK:
- 		/* up_resp_wait->last_resp_wait transition on LLPORT_T_STOP */
- 		bna_fw_llport_down(llport);
- 		break;
- 
-+	case LLPORT_E_FWRESP_UP_FAIL:
- 	case LLPORT_E_FWRESP_DOWN:
- 		bfa_fsm_set_state(llport, bna_llport_sm_stopped);
- 		break;
-@@ -541,7 +600,14 @@ bna_fw_cb_llport_up(void *arg, int status)
- 	struct bna_llport *llport = (struct bna_llport *)arg;
- 
- 	bfa_q_qe_init(&llport->mbox_qe.qe);
--	bfa_fsm_send_event(llport, LLPORT_E_FWRESP_UP);
-+	if (status == BFI_LL_CMD_FAIL) {
-+		if (llport->type == BNA_PORT_T_REGULAR)
-+			llport->flags &= ~BNA_LLPORT_F_PORT_ENABLED;
-+		else
-+			llport->flags &= ~BNA_LLPORT_F_ADMIN_UP;
-+		bfa_fsm_send_event(llport, LLPORT_E_FWRESP_UP_FAIL);
-+	} else
-+		bfa_fsm_send_event(llport, LLPORT_E_FWRESP_UP_OK);
- }
- 
- static void
-@@ -588,13 +654,14 @@ bna_port_cb_llport_stopped(struct bna_port *port,
- static void
- bna_llport_init(struct bna_llport *llport, struct bna *bna)
- {
--	llport->flags |= BNA_LLPORT_F_ENABLED;
-+	llport->flags |= BNA_LLPORT_F_ADMIN_UP;
-+	llport->flags |= BNA_LLPORT_F_PORT_ENABLED;
- 	llport->type = BNA_PORT_T_REGULAR;
- 	llport->bna = bna;
- 
- 	llport->link_status = BNA_LINK_DOWN;
- 
--	llport->admin_up_count = 0;
-+	llport->rx_started_count = 0;
- 
- 	llport->stop_cbfn = NULL;
- 
-@@ -606,7 +673,8 @@ bna_llport_init(struct bna_llport *llport, struct bna *bna)
- static void
- bna_llport_uninit(struct bna_llport *llport)
- {
--	llport->flags &= ~BNA_LLPORT_F_ENABLED;
-+	llport->flags &= ~BNA_LLPORT_F_ADMIN_UP;
-+	llport->flags &= ~BNA_LLPORT_F_PORT_ENABLED;
- 
- 	llport->bna = NULL;
- }
-@@ -628,6 +696,8 @@ bna_llport_stop(struct bna_llport *llport)
- static void
- bna_llport_fail(struct bna_llport *llport)
- {
-+	/* Reset the physical port status to enabled */
-+	llport->flags |= BNA_LLPORT_F_PORT_ENABLED;
- 	bfa_fsm_send_event(llport, LLPORT_E_FAIL);
- }
- 
-@@ -638,25 +708,31 @@ bna_llport_state_get(struct bna_llport *llport)
- }
- 
- void
--bna_llport_admin_up(struct bna_llport *llport)
-+bna_llport_rx_started(struct bna_llport *llport)
- {
--	llport->admin_up_count++;
-+	llport->rx_started_count++;
-+
-+	if (llport->rx_started_count == 1) {
-+
-+		llport->flags |= BNA_LLPORT_F_RX_STARTED;
- 
--	if (llport->admin_up_count == 1) {
--		llport->flags |= BNA_LLPORT_F_RX_ENABLED;
--		if (llport->flags & BNA_LLPORT_F_ENABLED)
-+		if (llport_can_be_up(llport))
- 			bfa_fsm_send_event(llport, LLPORT_E_UP);
- 	}
- }
- 
- void
--bna_llport_admin_down(struct bna_llport *llport)
-+bna_llport_rx_stopped(struct bna_llport *llport)
- {
--	llport->admin_up_count--;
-+	int llport_up = llport_is_up(llport);
-+
-+	llport->rx_started_count--;
-+
-+	if (llport->rx_started_count == 0) {
-+
-+		llport->flags &= ~BNA_LLPORT_F_RX_STARTED;
- 
--	if (llport->admin_up_count == 0) {
--		llport->flags &= ~BNA_LLPORT_F_RX_ENABLED;
--		if (llport->flags & BNA_LLPORT_F_ENABLED)
-+		if (llport_up)
- 			bfa_fsm_send_event(llport, LLPORT_E_DOWN);
- 	}
- }
-diff --git a/drivers/net/bna/bna_txrx.c b/drivers/net/bna/bna_txrx.c
-index ad93fdb..fb6cf1f 100644
---- a/drivers/net/bna/bna_txrx.c
-+++ b/drivers/net/bna/bna_txrx.c
-@@ -1947,7 +1947,7 @@ bna_rx_sm_started_entry(struct bna_rx *rx)
- 		bna_ib_ack(&rxp->cq.ib->door_bell, 0);
- 	}
- 
--	bna_llport_admin_up(&rx->bna->port.llport);
-+	bna_llport_rx_started(&rx->bna->port.llport);
- }
- 
- void
-@@ -1955,13 +1955,13 @@ bna_rx_sm_started(struct bna_rx *rx, enum bna_rx_event event)
- {
- 	switch (event) {
- 	case RX_E_FAIL:
--		bna_llport_admin_down(&rx->bna->port.llport);
-+		bna_llport_rx_stopped(&rx->bna->port.llport);
- 		bfa_fsm_set_state(rx, bna_rx_sm_stopped);
- 		rx_ib_fail(rx);
- 		bna_rxf_fail(&rx->rxf);
- 		break;
- 	case RX_E_STOP:
--		bna_llport_admin_down(&rx->bna->port.llport);
-+		bna_llport_rx_stopped(&rx->bna->port.llport);
- 		bfa_fsm_set_state(rx, bna_rx_sm_rxf_stop_wait);
- 		break;
- 	default:
-@@ -3373,7 +3373,7 @@ __bna_txq_start(struct bna_tx *tx, struct bna_txq *txq)
- 
- 	txq_cfg.cns_ptr2_n_q_state = BNA_Q_IDLE_STATE;
- 	txq_cfg.nxt_qid_n_fid_n_pri = (((tx->txf.txf_id & 0x3f) << 3) |
--			(txq->priority & 0x3));
-+			(txq->priority & 0x7));
- 	txq_cfg.wvc_n_cquota_n_rquota =
- 			((((u32)BFI_TX_MAX_WRR_QUOTA & 0xfff) << 12) |
- 			(BFI_TX_MAX_WRR_QUOTA & 0xfff));
-diff --git a/drivers/net/bna/bna_types.h b/drivers/net/bna/bna_types.h
-index 6877310..d79fd98 100644
---- a/drivers/net/bna/bna_types.h
-+++ b/drivers/net/bna/bna_types.h
-@@ -249,8 +249,9 @@ enum bna_link_status {
- };
- 
- enum bna_llport_flags {
--	BNA_LLPORT_F_ENABLED 	= 1,
--	BNA_LLPORT_F_RX_ENABLED	= 2
-+	BNA_LLPORT_F_ADMIN_UP	 	= 1,
-+	BNA_LLPORT_F_PORT_ENABLED	= 2,
-+	BNA_LLPORT_F_RX_STARTED		= 4
- };
- 
- enum bna_port_flags {
-@@ -405,7 +406,7 @@ struct bna_llport {
- 
- 	enum bna_link_status link_status;
- 
--	int			admin_up_count;
-+	int			rx_started_count;
- 
- 	void (*stop_cbfn)(struct bna_port *, enum bna_cb_status);
- 
+-	BNAD_GET_REG(HOST_SEM0_REG);
+-	BNAD_GET_REG(HOST_SEM1_REG);
+-	BNAD_GET_REG(HOST_SEM2_REG);
+-	BNAD_GET_REG(HOST_SEM3_REG);
+ 	BNAD_GET_REG(HOST_SEM0_INFO_REG);
+ 	BNAD_GET_REG(HOST_SEM1_INFO_REG);
+ 	BNAD_GET_REG(HOST_SEM2_INFO_REG);
 -- 
 1.7.1
 
