@@ -1,99 +1,80 @@
-From: Jason Wang <jason77.wang@gmail.com>
-Subject: Re: [PATCH] smsc911x: add disable and re-enable Rx int to de-assert
- interrupt pin
-Date: Fri, 24 Dec 2010 10:18:00 +0800
-Message-ID: <4D1402D8.2040709@gmail.com>
-References: <1293100993-3956-1-git-send-email-jason77.wang@gmail.com> <20101223.095917.59696176.davem@davemloft.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next 1/2] bnx2: Free IRQ before freeing status block
+ memory
+Date: Thu, 23 Dec 2010 18:21:59 -0800
+Message-ID: <1293157320-13758-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jason77.wang@gmail.com, netdev@vger.kernel.org,
-	steve.glendinning@smsc.com, linux-omap@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <20101223.095917.59696176.davem@davemloft.net>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2462 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752601Ab0LXDRI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Dec 2010 22:17:08 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jason Wang <jason77.wang@gmail.com>
-> Date: Thu, 23 Dec 2010 18:43:13 +0800
->
->   
->> When kernel enters irqhanlder, it will check the Rx interrupt status
->> bit, if Rx status is set but can't call napi_schedule(), it will do
->> nothing and directly return form irqhandler. This situation is prone
->> to be produced when we repeatly call irqhandler through netpoll
->> interface(i.e kgdboe connecting).
->>
->> This is a potential risk for those level triggered platforms(i.e
->> ti_omap3evm), because if we don't handle Rx int and just return from
->> irqhandler, the irq pin will be keeping asserted, the level triggered
->> platforms will have no chance to jump out from the Rx irq. The whole
->> system will hung into the irq subsystem.
->>
->> To solve it, we add a disable/re-enable Rx int operation for this
->> situation, this operation can de-assert interrupt pin for this time
->> and will leave the received data and status in the FIFO for later
->> interrupts to handle.
->>
->> Signed-off-by: Jason Wang <jason77.wang@gmail.com>
->>     
->
->   
-Hi David,
+When changing ring size, we free all memory including status block
+memory.  If we're in INTA mode and sharing IRQ, the IRQ handler can
+be called and it will reference the NULL status block pointer.
 
-Thanks for your comments.
-> You absolutely cannot do this.
->
-> You now can race with the NAPI completion code turning the RX
-> interrupts back on, and you'll leave the chip with RX interrupts
-> disabled.
->   
-I think my modification almost have the same execution path as the 
-original design and don't produce the race condition with NAPI threads.
+Because of the lockless design of the IRQ handler, there is no simple
+way to synchronize and prevent this.  So we avoid this problem by
+freeing the IRQ handler before freeing the status block memory.
 
-The original design is:
-If (can call napi_schedule) {
-disable rx int;
-call napi_schedule()
-} else {
-keep rx int enabled;
-return;
-}
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |   13 ++++++++++++-
+ 1 files changed, 12 insertions(+), 1 deletions(-)
 
-my modification is:
-disable rx int;
-if (can call napi_schedule) {
-call napi_schedule();
-} else {
-re-enable rx int; // this will de-assert interrupt pin for this time
-return;
-}
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 6fa7984..44aed3b 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -6096,7 +6096,7 @@ bnx2_request_irq(struct bnx2 *bp)
+ }
+ 
+ static void
+-bnx2_free_irq(struct bnx2 *bp)
++__bnx2_free_irq(struct bnx2 *bp)
+ {
+ 	struct bnx2_irq *irq;
+ 	int i;
+@@ -6107,6 +6107,13 @@ bnx2_free_irq(struct bnx2 *bp)
+ 			free_irq(irq->vector, &bp->bnx2_napi[i]);
+ 		irq->requested = 0;
+ 	}
++}
++
++static void
++bnx2_free_irq(struct bnx2 *bp)
++{
++
++	__bnx2_free_irq(bp);
+ 	if (bp->flags & BNX2_FLAG_USING_MSI)
+ 		pci_disable_msi(bp->pdev);
+ 	else if (bp->flags & BNX2_FLAG_USING_MSIX)
+@@ -7092,6 +7099,7 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ 
+ 		bnx2_netif_stop(bp, true);
+ 		bnx2_reset_chip(bp, BNX2_DRV_MSG_CODE_RESET);
++		__bnx2_free_irq(bp);
+ 		bnx2_free_skbs(bp);
+ 		bnx2_free_mem(bp);
+ 	}
+@@ -7104,6 +7112,9 @@ bnx2_change_ring_size(struct bnx2 *bp, u32 rx, u32 tx)
+ 
+ 		rc = bnx2_alloc_mem(bp);
+ 		if (!rc)
++			rc = bnx2_request_irq(bp);
++
++		if (!rc)
+ 			rc = bnx2_init_nic(bp, 0);
+ 
+ 		if (rc) {
+-- 
+1.6.4.GIT
 
-So my modification is: if we can call napi_schedule(), we will disable 
-the rx int until the NAPI thread re-enable it. if we can't call 
-napi_schedule(), the rx int will keep enabled. This logic is almost same 
-as the original design. I can't figure out why original design is safe 
-while my modification is risky.
-
-
-Add more info:
-
-the Freescale imx31pdk, imx51pdk and ti_omap3evm boards all use this 
-driver, before apply this modification, their kgdboe connecting is not 
-stable. After applied this patch, their nfs root is as good as before 
-and their kgdboe connecting is stable.
-
-Thanks,
-Jason.
-> You must solve your level triggered interrupt some other way, every
-> NAPI based device must manage the interrupt disabling carefully and
-> only when the napi POLL is successfully scheduled in order to avoid
-> races.
->
-> And especially you must not make a crazy hack like this for obscure
-> things like kgdboe.
->
->   
 
