@@ -1,46 +1,57 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch] skfp: testing the wrong variable in skfp_driver_init()
-Date: Fri, 24 Dec 2010 09:45:39 +0100
-Message-ID: <20101224084538.GA2791@psychotron.redhat.com>
-References: <20101224051734.GO1936@bicker>
+From: Jean-Michel Hautbois <jhautbois@gmail.com>
+Subject: Re: [PATCH 1/4] net: phy: balance disable/enable irq on change
+Date: Fri, 24 Dec 2010 09:46:51 +0100
+Message-ID: <AANLkTinVEVcVCH01Hg4QXAV0V-J9UE+9guM1ttorQGLR@mail.gmail.com>
+References: <1292756331-3735-1-git-send-email-jhautbois@gmail.com>
+	<20101223.112450.246547841.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	H Hartley Sweeten <hsweeten@visionengravers.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62529 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751425Ab0LXIpo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Dec 2010 03:45:44 -0500
-Content-Disposition: inline
-In-Reply-To: <20101224051734.GO1936@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: richard.cochran@omicron.at, shemminger@vyatta.com, tj@kernel.org,
+	randy.dunlap@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101223.112450.246547841.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Dec 24, 2010 at 06:17:34AM CET, error27@gmail.com wrote:
->The intent here was to test if the allocation failed but we tested 
->"SharedMemSize" instead of "SharedMemAddr" by mistake.
+2010/12/23 David Miller <davem@davemloft.net>:
+> From: Jean-Michel Hautbois <jhautbois@gmail.com>
+> Date: Sun, 19 Dec 2010 11:58:48 +0100
 >
->Signed-off-by: Dan Carpenter <error27@gmail.com>
+>> When phy interface changes its status, it calls phy_change() functio=
+n.
+>> This function calls the interrupt disabling functions for the driver
+>> registered, but if this driver doesn't implement it, there is no IRQ
+>> disabling. After doing the work, we call enable_irq and not the
+>> respective driver function. This fixes it, as it could lead to an
+>> unbalanced IRQ. Error code changed to EOPNOTSUPP.
+>>
+>> Signed-off-by: Jean-Michel Hautbois <jhautbois@gmail.com>
 >
->diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
->index 0a66fed..16c6265 100644
->--- a/drivers/net/skfp/skfddi.c
->+++ b/drivers/net/skfp/skfddi.c
->@@ -412,7 +412,7 @@ static  int skfp_driver_init(struct net_device *dev)
-> 		bp->SharedMemAddr = pci_alloc_consistent(&bp->pdev,
-> 							 bp->SharedMemSize,
-> 							 &bp->SharedMemDMA);
->-		if (!bp->SharedMemSize) {
->+		if (!bp->SharedMemAddr) {
-> 			printk("could not allocate mem for ");
-> 			printk("hardware module: %ld byte\n",
-> 			       bp->SharedMemSize);
+> This is completely bogus.
+>
+> First of all, there are 5 call sites for phy_change_interrupt() but
+> you've only implemented the new semantics for two of those.
+>
+> Therefore, if we even wanted this, we should implement the behavior i=
+n
+> phy_change_interrupt() itself instead of duplicating the logic at
+> each and every call site.
+>
+> But we don't want this.
 
-Looks obvious.
+OK, I understand that point.
 
-Reviewed-by: Jiri Pirko <jpirko@redhat.com>
+> It's not appropriate at all. =C2=A0If a device lacks a way to turn
+> interrupt off and on, using disable_irq() and enable_irq() is not
+> necessarily correct.
+>
+> If the interrupt line is shared, for example, this will break
+> everything.
+>
 
+OK, well, maybe is there at least one thing we could do : in
+phy_change, instead of calling phy_disable_interrupts(), balanced by
+enable_irq, we probably should use phy_enable_interrupts().
