@@ -1,75 +1,69 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH net-2.6] net_sched: always clone skbs
-Date: Fri, 24 Dec 2010 00:04:39 +0100
-Message-ID: <20101223230439.GB1913@del.dom.local>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
- <20101220232020.GB2052@del.dom.local>
- <1292887689.2627.150.camel@edumazet-laptop>
- <20101220235209.GA1865@del.dom.local>
- <1292939574.6535.27.camel@mojatatu>
- <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
- <20101221223704.GA1979@del.dom.local>
- <1293111333.11306.170.camel@mojatatu>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pawel Staszewski <pstaszewski@itcare.pl>
-To: jamal <hadi@cyberus.ca>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH 1/1] netfilter: ebtables: make broute table work again
+Date: Fri, 24 Dec 2010 01:27:16 +0100
+Message-ID: <1293150436-12092-1-git-send-email-fw@strlen.de>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:54863 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751781Ab0LWXEq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 18:04:46 -0500
-Received: by bwz15 with SMTP id 15so7820738bwz.19
-        for <netdev@vger.kernel.org>; Thu, 23 Dec 2010 15:04:44 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1293111333.11306.170.camel@mojatatu>
+Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:46332 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752040Ab0LXAcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Dec 2010 19:32:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 23, 2010 at 08:35:33AM -0500, jamal wrote:
-> On Tue, 2010-12-21 at 23:37 +0100, Jarek Poplawski wrote:
-> 
-> > Actually, when dumb isn't a good principle? ;->
-> > 
-> > Speaking about wrong things like optimizing this 1st commandment: it
-> > seems, if we're stealing not shared skb it's not unreasonable to tell
-> > others not to touch it anymore, and skip kfree_skb() in handle_ing(),
-> > unless I miss something?
-> 
-> I dont know how much cycles it will save you vs the code you add
-> but it is not unreasonable. Of course it would mean we are moving
-> beyond KISSes[1] now Jarek;->
+broute table init hook sets up the "br_should_route_hook" pointer,
+which then gets called from br_input.
 
-Hmm... seeing all those multiqued multiques I thought everybody was
-beyond, but no problem, let's go back to KISSes[2] ;-)
+commit a386f99025f13b32502fe5dedf223c20d7283826
+(bridge: add proper RCU annotation to should_route_hook)
+introduced a typedef, and then changed this to:
 
-> > > In order to make my trick work. We need to assure dev_queue_xmit() and
-> > > dev_hard_start_xmit() accept shared skbs. As Eric pointed, pktgen also
-> > > need dev->netdev_ops->ndo_start_xmit() accept shared skbs. We need to
-> > > fix every ndo_start_xmit() one by one, then dev_hard_start_xmit(), and
-> > > when dev_queue_xmit() is also fixed, my trick can be added back.
-> > > :)
-> > 
-> > I'm not sure pktgen is right - even if it's safe in its case, it seems
-> > to break some older rules, and drivers should really own the things.
-> > So it needs reviewing first.
-> 
-> The idea we always try to keep is that the caller is responsible for the
-> fate of the skb it sent. The callee will do things like make a copy or
-> clone if it needed to make changes or keep the skb. Same should be
-> expected of a driver.
+br_should_route_hook_t *rhook;
+[..]
+rhook = rcu_dereference(br_should_route_hook);
+if (*rhook(skb))
 
-Well, I'm not sure we talk about the same thing. I mean e.g. the
-comment above dev_queue_xmit(); the caller passes all control to the
-callee here.
+problem is that "br_should_route_hook" contains the address of the function,
+so calling *rhook() results in kernel panic.
 
-Cheers,
-Jarek P.
+Can't simply use "if (rhook(skb)", because br_should_route_hook_t *rhook
+is not a function.
 
-> [1] Jarek - so you dont misunderstand this as an overture - it means
-> Keep It Simple Silly (or the principle of dumb we talked about) ;->
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
 
-OK, I can remember the seventies too ;-)
+ include/linux/if_bridge.h |    2 +-
+ net/bridge/br_input.c     |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index f7e73c3..dd3f201 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -103,7 +103,7 @@ struct __fdb_entry {
+ 
+ extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
+ 
+-typedef int (*br_should_route_hook_t)(struct sk_buff *skb);
++typedef int br_should_route_hook_t(struct sk_buff *skb);
+ extern br_should_route_hook_t __rcu *br_should_route_hook;
+ 
+ #endif
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 6f6d8e1..1d677bf 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -178,7 +178,7 @@ forward:
+ 	case BR_STATE_FORWARDING:
+ 		rhook = rcu_dereference(br_should_route_hook);
+ 		if (rhook) {
+-			if ((*rhook)(skb))
++			if (rhook(skb))
+ 				return skb;
+ 			dest = eth_hdr(skb)->h_dest;
+ 		}
+-- 
+1.7.2.2
+
