@@ -1,8 +1,8 @@
 From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: [PATCH net-2.6] epic100: hamachi: yellowfin: Fix skb allocation
+Subject: [PATCH net-2.6 v2] epic100: hamachi: yellowfin: Fix skb allocation
  size
-Date: Sat, 25 Dec 2010 18:31:51 +0100
-Message-ID: <20101225173151.GA2264@del.dom.local>
+Date: Sat, 25 Dec 2010 18:39:59 +0100
+Message-ID: <20101225173959.GB2264@del.dom.local>
 References: <4D122093.6060900@scarlet.be>
  <1293035100.3027.247.camel@edumazet-laptop>
  <4D132C5F.8090404@scarlet.be>
@@ -21,26 +21,23 @@ Cc: Joel Soete <soete.joel@scarlet.be>,
 	Linux Kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:59607 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750807Ab0LYRb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 12:31:58 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <20101225151217.GA1994@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Joel Soete reported oopses during pppoe over sundance NIC, caused by
 a bug in skb allocation and dma mapping code, where skb_reserve()
 bytes weren't taken into account. As a followup to the patch:
-"sundance: Fix oopses with corrupted" very similar code is fixed here
-for three other drivers.
+"sundance: Fix oopses with corrupted skb_shared_info" very similar
+code is fixed here for three other drivers.
 
 Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
 Cc: Joel Soete <soete.joel@scarlet.be>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
+v2: a tiny changelog fix only
 
  drivers/net/epic100.c   |    4 ++--
  drivers/net/hamachi.c   |    4 ++--
