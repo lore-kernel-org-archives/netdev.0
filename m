@@ -1,76 +1,61 @@
-From: Joel Soete <soete.joel@scarlet.be>
-Subject: Re: Help: major pppoe regression since 2.6.35 (panic on first ppp
- conection)?
-Date: Sat, 25 Dec 2010 13:51:05 +0000
-Message-ID: <4D15F6C9.50700@scarlet.be>
-References: <20101222110021.GA8985@ff.dom.local> <4D122093.6060900@scarlet.be> <1293035100.3027.247.camel@edumazet-laptop> <4D132C5F.8090404@scarlet.be> <1293106348.7789.5.camel@edumazet-laptop> <20101223202523.GA1913@del.dom.local> <4D148271.8030509@scarlet.be> <20101224151325.GA1895@del.dom.local> <20101225121044.GA1841@del.dom.local>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH 0/9] can: don't copy data to rx'ed RTR frames
+Date: Sat, 25 Dec 2010 15:40:25 +0100
+Message-ID: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from payne.is.scarlet.be ([193.74.71.226]:33983 "EHLO
-	payne.is.scarlet.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751171Ab0LYNvn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 08:51:43 -0500
-In-Reply-To: <20101225121044.GA1841@del.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello Jarek,
+Hello,
 
-On 12/25/2010 12:10 PM, Jarek Poplawski wrote:
-> On Fri, Dec 24, 2010 at 04:13:25PM +0100, Jarek Poplawski wrote:
->> On Fri, Dec 24, 2010 at 11:22:25AM +0000, Joel Soete wrote:
->>> Hello Jarek,
->> Hi Joel,
->>
-[snip]
->
-> Alas the list rejected your message (try to limit it to ~200kb next
-> time).
->
-Ah ok I will take care next ;<)
+this series of patches changes the can driver's RX path. If a RTR frame is
+received no data is copied.
 
-> Anyway, it looks like the sundance driver is the main guilty. The
-> patch below removes one obvious bug but there could be something more.
-> Please, apply this one and my previous debugging patch to the clean
-> 2.6.37-rc7. (If there're still warnings the first ~20kb should do.)
->
-> Thanks,
-> Jarek P.
-> ---
->
-> diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
-> index 3ed2a67..b409d7e 100644
-> --- a/drivers/net/sundance.c
-> +++ b/drivers/net/sundance.c
-> @@ -1016,7 +1016,7 @@ static void init_ring(struct net_device *dev)
->
->   	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
->   	for (i = 0; i<  RX_RING_SIZE; i++) {
-> -		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz);
-> +		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + 2);
->   		np->rx_skbuff[i] = skb;
->   		if (skb == NULL)
->   			break;
-> @@ -1407,7 +1407,7 @@ static void refill_rx (struct net_device *dev)
->   		struct sk_buff *skb;
->   		entry = np->dirty_rx % RX_RING_SIZE;
->   		if (np->rx_skbuff[entry] == NULL) {
-> -			skb = dev_alloc_skb(np->rx_buf_sz);
-> +			skb = dev_alloc_skb(np->rx_buf_sz + 2);
->   			np->rx_skbuff[entry] = skb;
->   			if (skb == NULL)
->   				break;		/* Better luck next round. */
->
-I don't have any more warnings :<)
+As discussed on socketcan-core:
+https://lists.berlios.de/pipermail/socketcan-core/2010-October/004836.html
 
-Awesome job.
+cheers,
+Marc
 
-Thanks a lot for help and I wish you a Happy new year,
-	J.
+---
+
+The following changes since commit e1928c86c4829703b800c81cc9edc939b5634e6f:
+
+  cnic: Add FCoE support on 57712 (2010-12-23 11:44:34 -0800)
+
+are available in the git repository at:
+  git://git.pengutronix.de/git/mkl/linux-2.6.git public/can/rtr-for-net-next
+
+Marc Kleine-Budde (9):
+      can: at91_can: don't copy data to rx'ed RTR frames
+      can: bfin_can: don't copy data to rx'ed RTR frames
+      can: flexcan: don't copy data to rx'ed RTR frames
+      can: sja1000: don't copy data to rx'ed RTR frames
+      can: mcp251x: don't copy data to rx'ed RTR frames
+      can: ti_hecc: don't copy data to rx'ed RTR frames
+      can: janz-ican3: cleanup of ican3_to_can_frame and can_frame_to_ican3
+      can: janz-ican3: don't copy data to rx'ed RTR frames
+      can: pch_can: don't copy data to rx'ed RTR frames
+
+ drivers/net/can/at91_can.c        |   10 ++++++----
+ drivers/net/can/bfin_can.c        |   17 +++++++++--------
+ drivers/net/can/flexcan.c         |   10 ++++++----
+ drivers/net/can/janz-ican3.c      |   26 +++++++++++++++-----------
+ drivers/net/can/mcp251x.c         |    3 ++-
+ drivers/net/can/pch_can.c         |   15 ++++++++-------
+ drivers/net/can/sja1000/sja1000.c |    7 +++----
+ drivers/net/can/ti_hecc.c         |   18 ++++++++++--------
+ 8 files changed, 59 insertions(+), 47 deletions(-)
