@@ -1,7 +1,7 @@
 From: jeffrey.t.kirsher@intel.com
-Subject: [net-next-2.6 06/15] igb: Fix overwrite of the VF's flags
-Date: Fri, 24 Dec 2010 22:06:05 -0800
-Message-ID: <1293257174-15498-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 09/15] igb: Add Anti-spoofing feature support
+Date: Fri, 24 Dec 2010 22:06:08 -0800
+Message-ID: <1293257174-15498-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
@@ -9,8 +9,8 @@ Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:28057 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751204Ab0LYGG7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Dec 2010 01:06:59 -0500
+	id S1750754Ab0LYGHF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Dec 2010 01:07:05 -0500
 To: davem@davemloft.net
 In-Reply-To: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
@@ -19,50 +19,192 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Greg Rose <gregory.v.rose@intel.com>
 
-The vf flags were being overwritten causing the flag that indicates
-that the PF has set the VF MAC address to get cleared.  This would
-allow the VF to override the MAC address assigned by the Host VMM
-using the ip link set command.
+Add support for the anti-spoofing feature in the HW.  Packets from
+VF devices with spoofed MAC addresses or VLAN tags will be blocked
+and an event generated.  When the watchdog task runs it will call a
+function to check if any spoof events occurred.  If an event was
+detected then a warning message is dumped to the system log.
 
 Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/igb/igb_main.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/igb/e1000_82575.c |   33 ++++++++++++++++++++++++++++
+ drivers/net/igb/e1000_82575.h |    5 ++++
+ drivers/net/igb/e1000_regs.h  |    1 +
+ drivers/net/igb/igb.h         |    1 +
+ drivers/net/igb/igb_main.c    |   47 +++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 87 insertions(+), 0 deletions(-)
 
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index 50f6e96..0a2368f 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -1480,6 +1480,39 @@ out:
+ }
+ 
+ /**
++ *  igb_vmdq_set_anti_spoofing_pf - enable or disable anti-spoofing
++ *  @hw: pointer to the hardware struct
++ *  @enable: state to enter, either enabled or disabled
++ *  @pf: Physical Function pool - do not set anti-spoofing for the PF
++ *
++ *  enables/disables L2 switch anti-spoofing functionality.
++ **/
++void igb_vmdq_set_anti_spoofing_pf(struct e1000_hw *hw, bool enable, int pf)
++{
++	u32 dtxswc;
++
++	switch (hw->mac.type) {
++	case e1000_82576:
++	case e1000_i350:
++		dtxswc = rd32(E1000_DTXSWC);
++		if (enable) {
++			dtxswc |= (E1000_DTXSWC_MAC_SPOOF_MASK |
++				   E1000_DTXSWC_VLAN_SPOOF_MASK);
++			/* The PF can spoof - it has to in order to
++			 * support emulation mode NICs */
++			dtxswc ^= (1 << pf | 1 << (pf + MAX_NUM_VFS));
++		} else {
++			dtxswc &= ~(E1000_DTXSWC_MAC_SPOOF_MASK |
++				    E1000_DTXSWC_VLAN_SPOOF_MASK);
++		}
++		wr32(E1000_DTXSWC, dtxswc);
++		break;
++	default:
++		break;
++	}
++}
++
++/**
+  *  igb_vmdq_set_loopback_pf - enable or disable vmdq loopback
+  *  @hw: pointer to the hardware struct
+  *  @enable: state to enter, either enabled or disabled
+diff --git a/drivers/net/igb/e1000_82575.h b/drivers/net/igb/e1000_82575.h
+index cbd1e12..1d01af2 100644
+--- a/drivers/net/igb/e1000_82575.h
++++ b/drivers/net/igb/e1000_82575.h
+@@ -194,6 +194,10 @@ struct e1000_adv_tx_context_desc {
+ #define E1000_NVM_APME_82575          0x0400
+ #define MAX_NUM_VFS                   8
+ 
++#define E1000_DTXSWC_MAC_SPOOF_MASK   0x000000FF /* Per VF MAC spoof control */
++#define E1000_DTXSWC_VLAN_SPOOF_MASK  0x0000FF00 /* Per VF VLAN spoof control */
++#define E1000_DTXSWC_LLE_MASK         0x00FF0000 /* Per VF Local LB enables */
++#define E1000_DTXSWC_VLAN_SPOOF_SHIFT 8
+ #define E1000_DTXSWC_VMDQ_LOOPBACK_EN (1 << 31)  /* global VF LB enable */
+ 
+ /* Easy defines for setting default pool, would normally be left a zero */
+@@ -243,6 +247,7 @@ struct e1000_adv_tx_context_desc {
+ 
+ /* RX packet buffer size defines */
+ #define E1000_RXPBS_SIZE_MASK_82576  0x0000007F
++void igb_vmdq_set_anti_spoofing_pf(struct e1000_hw *, bool, int);
+ void igb_vmdq_set_loopback_pf(struct e1000_hw *, bool);
+ void igb_vmdq_set_replication_pf(struct e1000_hw *, bool);
+ u16 igb_rxpbs_adjust_82580(u32 data);
+diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
+index abb7333..8ac83c5 100644
+--- a/drivers/net/igb/e1000_regs.h
++++ b/drivers/net/igb/e1000_regs.h
+@@ -301,6 +301,7 @@
+ #define E1000_VFTE      0x00C90 /* VF Transmit Enables */
+ #define E1000_QDE       0x02408 /* Queue Drop Enable - RW */
+ #define E1000_DTXSWC    0x03500 /* DMA Tx Switch Control - RW */
++#define E1000_WVBR      0x03554 /* VM Wrong Behavior - RWS */
+ #define E1000_RPLOLR    0x05AF0 /* Replication Offload - RW */
+ #define E1000_UTA       0x0A000 /* Unicast Table Array - RW */
+ #define E1000_IOVTCL    0x05BBC /* IOV Control Register */
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index edab9c4..92a4ef0 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -324,6 +324,7 @@ struct igb_adapter {
+ 	unsigned int vfs_allocated_count;
+ 	struct vf_data_storage *vf_data;
+ 	u32 rss_queues;
++	u32 wvbr;
+ };
+ 
+ #define IGB_FLAG_HAS_MSI           (1 << 0)
 diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 62348fc..be426a4 100644
+index a364ae6..58c665b 100644
 --- a/drivers/net/igb/igb_main.c
 +++ b/drivers/net/igb/igb_main.c
-@@ -1654,7 +1654,7 @@ void igb_reset(struct igb_adapter *adapter)
+@@ -3366,6 +3366,45 @@ static void igb_set_rx_mode(struct net_device *netdev)
+ 	igb_restore_vf_multicasts(adapter);
+ }
+ 
++static void igb_check_wvbr(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	u32 wvbr = 0;
++
++	switch (hw->mac.type) {
++	case e1000_82576:
++	case e1000_i350:
++		if (!(wvbr = rd32(E1000_WVBR)))
++			return;
++		break;
++	default:
++		break;
++	}
++
++	adapter->wvbr |= wvbr;
++}
++
++#define IGB_STAGGERED_QUEUE_OFFSET 8
++
++static void igb_spoof_check(struct igb_adapter *adapter)
++{
++	int j;
++
++	if (!adapter->wvbr)
++		return;
++
++	for(j = 0; j < adapter->vfs_allocated_count; j++) {
++		if (adapter->wvbr & (1 << j) ||
++		    adapter->wvbr & (1 << (j + IGB_STAGGERED_QUEUE_OFFSET))) {
++			dev_warn(&adapter->pdev->dev,
++				"Spoof event(s) detected on VF %d\n", j);
++			adapter->wvbr &=
++				~((1 << j) |
++				  (1 << (j + IGB_STAGGERED_QUEUE_OFFSET)));
++		}
++	}
++}
++
+ /* Need to wait a few seconds after link up to get diagnostic information from
+  * the phy */
+ static void igb_update_phy_info(unsigned long data)
+@@ -3525,6 +3564,8 @@ static void igb_watchdog_task(struct work_struct *work)
+ 		wr32(E1000_ICS, E1000_ICS_RXDMT0);
+ 	}
+ 
++	igb_spoof_check(adapter);
++
+ 	/* Reset the timer */
+ 	if (!test_bit(__IGB_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
+@@ -4521,6 +4562,10 @@ static irqreturn_t igb_msix_other(int irq, void *data)
+ 	if (icr & E1000_ICR_DOUTSYNC) {
+ 		/* HW is reporting DMA is out of sync */
+ 		adapter->stats.doosync++;
++		/* The DMA Out of Sync is also indication of a spoof event
++		 * in IOV mode. Check the Wrong VM Behavior register to
++		 * see if it is really a spoof event. */
++		igb_check_wvbr(adapter);
+ 	}
+ 
+ 	/* Check for a mailbox event */
+@@ -6595,6 +6640,8 @@ static void igb_vmm_control(struct igb_adapter *adapter)
  	if (adapter->vfs_allocated_count) {
- 		int i;
- 		for (i = 0 ; i < adapter->vfs_allocated_count; i++)
--			adapter->vf_data[i].flags = 0;
-+			adapter->vf_data[i].flags &= IGB_VF_FLAG_PF_SET_MAC;
- 
- 		/* ping all the active vfs to let them know we are going down */
- 		igb_ping_all_vfs(adapter);
-@@ -4971,8 +4971,8 @@ static int igb_set_vf_vlan(struct igb_adapter *adapter, u32 *msgbuf, u32 vf)
- 
- static inline void igb_vf_reset(struct igb_adapter *adapter, u32 vf)
- {
--	/* clear flags */
--	adapter->vf_data[vf].flags &= ~(IGB_VF_FLAG_PF_SET_MAC);
-+	/* clear flags - except flag that indicates PF has set the MAC */
-+	adapter->vf_data[vf].flags &= IGB_VF_FLAG_PF_SET_MAC;
- 	adapter->vf_data[vf].last_nack = jiffies;
- 
- 	/* reset offloads to defaults */
-@@ -5026,7 +5026,7 @@ static void igb_vf_reset_msg(struct igb_adapter *adapter, u32 vf)
- 	reg = rd32(E1000_VFRE);
- 	wr32(E1000_VFRE, reg | (1 << vf));
- 
--	adapter->vf_data[vf].flags = IGB_VF_FLAG_CTS;
-+	adapter->vf_data[vf].flags |= IGB_VF_FLAG_CTS;
- 
- 	/* reply to reset with ack and vf mac address */
- 	msgbuf[0] = E1000_VF_RESET | E1000_VT_MSGTYPE_ACK;
+ 		igb_vmdq_set_loopback_pf(hw, true);
+ 		igb_vmdq_set_replication_pf(hw, true);
++		igb_vmdq_set_anti_spoofing_pf(hw, true,
++						adapter->vfs_allocated_count);
+ 	} else {
+ 		igb_vmdq_set_loopback_pf(hw, false);
+ 		igb_vmdq_set_replication_pf(hw, false);
 -- 
 1.7.3.4
 
