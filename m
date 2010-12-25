@@ -1,54 +1,56 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH 3/9] can: flexcan: don't copy data to rx'ed RTR frames
-Date: Sat, 25 Dec 2010 15:40:28 +0100
-Message-ID: <1293288034-22428-4-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 9/9] can: pch_can: don't copy data to rx'ed RTR frames
+Date: Sat, 25 Dec 2010 15:40:34 +0100
+Message-ID: <1293288034-22428-10-git-send-email-mkl@pengutronix.de>
 References: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1293288034-22428-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: socketcan-core@lists.berlios.de,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Tomoya <tomoya-linux@dsn.okisemi.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57243 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751670Ab0LYOkv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 09:40:51 -0500
+In-Reply-To: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Cc: Tomoya <tomoya-linux@dsn.okisemi.com>
 ---
- drivers/net/can/flexcan.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
+ drivers/net/can/pch_can.c |   15 ++++++++-------
+ 1 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
-index d499056..b0e16f5 100644
---- a/drivers/net/can/flexcan.c
-+++ b/drivers/net/can/flexcan.c
-@@ -471,12 +471,14 @@ static void flexcan_read_fifo(const struct net_device *dev,
- 	else
- 		cf->can_id = (reg_id >> 18) & CAN_SFF_MASK;
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index c42e972..ee488ac 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -692,16 +692,17 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 obj_num, int quota)
+ 			cf->can_id = id;
+ 		}
  
--	if (reg_ctrl & FLEXCAN_MB_CNT_RTR)
--		cf->can_id |= CAN_RTR_FLAG;
- 	cf->can_dlc = get_can_dlc((reg_ctrl >> 16) & 0xf);
+-		if (id2 & PCH_ID2_DIR)
+-			cf->can_id |= CAN_RTR_FLAG;
+-
+ 		cf->can_dlc = get_can_dlc((ioread32(&priv->regs->
+ 						    ifregs[0].mcont)) & 0xF);
  
--	*(__be32 *)(cf->data + 0) = cpu_to_be32(readl(&mb->data[0]));
--	*(__be32 *)(cf->data + 4) = cpu_to_be32(readl(&mb->data[1]));
-+	if (reg_ctrl & FLEXCAN_MB_CNT_RTR)
-+		cf->can_id |= CAN_RTR_FLAG;
-+	else {
-+		*(__be32 *)(cf->data + 0) = cpu_to_be32(readl(&mb->data[0]));
-+		*(__be32 *)(cf->data + 4) = cpu_to_be32(readl(&mb->data[1]));
-+	}
+-		for (i = 0; i < cf->can_dlc; i += 2) {
+-			data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
+-			cf->data[i] = data_reg;
+-			cf->data[i + 1] = data_reg >> 8;
++		if (id2 & PCH_ID2_DIR) {
++			cf->can_id |= CAN_RTR_FLAG;
++
++			for (i = 0; i < cf->can_dlc; i += 2) {
++				data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
++				cf->data[i] = data_reg;
++				cf->data[i + 1] = data_reg >> 8;
++			}
+ 		}
  
- 	/* mark as read */
- 	writel(FLEXCAN_IFLAG_RX_FIFO_AVAILABLE, &regs->iflag1);
+ 		netif_receive_skb(skb);
 -- 
 1.7.2.3
+
