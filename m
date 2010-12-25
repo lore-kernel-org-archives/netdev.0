@@ -1,32 +1,65 @@
-From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
-Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
-Date: Sun, 26 Dec 2010 05:38:57 +0900
-Message-ID: <AANLkTind84BVd=2Z07Sz+JfpVRH7m8wdx37YhRcqkCZv@mail.gmail.com>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
- <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
- <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
- <20101221075612.GA13626@riccoc20.at.omicron.at> <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h@mail.gmail.com>
- <1292970355.2618.76.camel@work-vm> <AANLkTimmTzH8+fSYmbajqZ+hU5Ps-UZaTp_1TYzjHB6P@mail.gmail.com>
- <20101223061359.GA7169@riccoc20.at.omicron.at>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] 3c59x: Don't assign when a comparison is intended
+Date: Sat, 25 Dec 2010 21:30:08 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1012252125410.10759@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: john stultz <johnstul@us.ibm.com>, linux-kernel@vger.kernel.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101223061359.GA7169@riccoc20.at.omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: vortex@scyld.com, becker@scyld.com,
+	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:16177 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752521Ab0LYUjx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 15:39:53 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-After all, I'd prefer your earlier patchset.  Leaving aside the
-compatibility issue, there's no particular reason we have to re-use
-the struct timex, which requires otherwise unnecessary conditional
-branches as well as unit conversions.  Don't you agree?
+Hi,
+
+In drivers/net/3c59x.c::vortex_probe1() we have this code:
+
+        if (gendev) {
+                if ((pdev = DEVICE_PCI(gendev))) {
+                        print_name = pci_name(pdev);
+                }
+
+                if ((edev = DEVICE_EISA(gendev))) {
+                        print_name = dev_name(&edev->dev);
+                }
+        }
+
+I believe these assignments were intended to be comparisons.
+If I'm correct, then here's a patch to fix that up.
+
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ 3c59x.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+diff --git a/drivers/net/3c59x.c b/drivers/net/3c59x.c
+index 0a92436f..db8a80e 100644
+--- a/drivers/net/3c59x.c
++++ b/drivers/net/3c59x.c
+@@ -1110,11 +1110,11 @@ static int __devinit vortex_probe1(struct device *gendev,
+ 	}
+ 
+ 	if (gendev) {
+-		if ((pdev = DEVICE_PCI(gendev))) {
++		if ((pdev == DEVICE_PCI(gendev))) {
+ 			print_name = pci_name(pdev);
+ 		}
+ 
+-		if ((edev = DEVICE_EISA(gendev))) {
++		if ((edev == DEVICE_EISA(gendev))) {
+ 			print_name = dev_name(&edev->dev);
+ 		}
+ 	}
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
+
