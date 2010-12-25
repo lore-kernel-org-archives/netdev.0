@@ -1,50 +1,79 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 00/15][pull-request] Intel Wired LAN Driver Update
-Date: Fri, 24 Dec 2010 22:35:17 -0800
-Message-ID: <AANLkTikGX1CjheM9qgVy5c9y9MSTTcQCgz=3NjgM_Ds1@mail.gmail.com>
-References: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jeff Garzik <jeff@garzik.org>
+Subject: Re: [net-next-2.6 04/15] e1000e: checkpatch error - open braces
+Date: Sat, 25 Dec 2010 05:29:16 -0500
+Message-ID: <4D15C77C.9030306@garzik.org>
+References: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com> <1293257174-15498-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:38081 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770Ab0LYGfS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 01:35:18 -0500
-Received: by iyi12 with SMTP id 12so6228288iyi.19
-        for <netdev@vger.kernel.org>; Fri, 24 Dec 2010 22:35:17 -0800 (PST)
-In-Reply-To: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:38569 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708Ab0LYK3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 05:29:20 -0500
+Received: by qyk12 with SMTP id 12so8347403qyk.19
+        for <netdev@vger.kernel.org>; Sat, 25 Dec 2010 02:29:19 -0800 (PST)
+In-Reply-To: <1293257174-15498-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 24, 2010 at 22:05,  <jeffrey.t.kirsher@intel.com> wrote:
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+On 12/25/2010 01:06 AM, jeffrey.t.kirsher@intel.com wrote:
+> From: Bruce Allan<bruce.w.allan@intel.com>
 >
-> The following series addresses the more significant issues reported b=
-y
-> checkpatch when run against the e1000e driver files. =C2=A0The less s=
-erious
-> whitespace and lines over 80 characters issues are not addressed. =C2=
-=A0In
-> addition, added support for anti-spoofing and X540 SR-IOV.
+> ERROR: that open brace { should be on the previous line
 >
-> The remaining warnings for msleep < 20ms will be addressed in a follo=
-w-on
-> patch after a thorough investigation into the timings tolerated by th=
-e
-> hardware.
+> Signed-off-by: Bruce Allan<bruce.w.allan@intel.com>
+> Tested-by: Emil Tantilov<emil.s.tantilov@intel.com>
+> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+> ---
+>   drivers/net/e1000e/es2lan.c  |    4 ++--
+>   drivers/net/e1000e/ethtool.c |    4 ++--
+>   drivers/net/e1000e/phy.c     |   22 +++++++++++-----------
+>   3 files changed, 15 insertions(+), 15 deletions(-)
 >
-> The following changes since commit e1928c86c4829703b800c81cc9edc939b5=
-634e6f:
+> diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+> index 79da646..b18c644 100644
+> --- a/drivers/net/e1000e/es2lan.c
+> +++ b/drivers/net/e1000e/es2lan.c
+> @@ -100,8 +100,8 @@
+>    * with a lower bound at "index" and the upper bound at
+>    * "index + 5".
+>    */
+> -static const u16 e1000_gg82563_cable_length_table[] =
+> -	 { 0, 60, 115, 150, 150, 60, 115, 150, 180, 180, 0xFF };
+> +static const u16 e1000_gg82563_cable_length_table[] = {
+> +	 0, 60, 115, 150, 150, 60, 115, 150, 180, 180, 0xFF };
+>   #define GG82563_CABLE_LENGTH_TABLE_SIZE \
+>   		ARRAY_SIZE(e1000_gg82563_cable_length_table)
 >
-> =C2=A0cnic: Add FCoE support on 57712
->
-> are available in the git repository at:
->
-> =C2=A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2=
-=2E6.git master
+> diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
+> index 15c6330..affcacf 100644
+> --- a/drivers/net/e1000e/ethtool.c
+> +++ b/drivers/net/e1000e/ethtool.c
+> @@ -753,8 +753,8 @@ static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data,
+>   			     int reg, int offset, u32 mask, u32 write)
+>   {
+>   	u32 pat, val;
+> -	static const u32 test[] =
+> -		{0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
+> +	static const u32 test[] = {
+> +		0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
+>   	for (pat = 0; pat<  ARRAY_SIZE(test); pat++) {
+>   		E1000_WRITE_REG_ARRAY(&adapter->hw, reg, offset,
+>   				      (test[pat]&  write));
 
-=2E.. and happy holidays everyone!
+Gah, that looks worse than the unpatched code.
+
+I think this was an over-literal checkpatch interpretation.  If you look 
+at e.g. drivers/net/tg3.c, you see that longer tables have the trailing 
+braces on a separate line, where they should be.
+
+IMO, the single-line cases should just be left as they are now in the 
+source code.
+
+	Jeff
+
+
