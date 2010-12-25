@@ -1,47 +1,68 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH v2 5/9] can: mcp251x: don't copy data to rx'ed RTR frames
-Date: Sat, 25 Dec 2010 17:55:13 +0100
-Message-ID: <1293296117-27624-6-git-send-email-mkl@pengutronix.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH v2 8/9] can: janz-ican3: don't copy data to rx'ed RTR frames
+Date: Sat, 25 Dec 2010 17:55:16 +0100
+Message-ID: <1293296117-27624-9-git-send-email-mkl@pengutronix.de>
 References: <1293296117-27624-1-git-send-email-mkl@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1293296117-27624-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: socketcan-core@lists.berlios.de,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57445 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977Ab0LYQz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 11:55:27 -0500
+In-Reply-To: <1293296117-27624-1-git-send-email-mkl@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Cc: Christian Pellegrin <chripell-VaTbYqLCNhc@public.gmane.org>
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Acked-by: Ira W. Snyder <iws@ovro.caltech.edu>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
 ---
- drivers/net/can/mcp251x.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/can/janz-ican3.c |   19 ++++++++++---------
+ 1 files changed, 10 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/can/mcp251x.c b/drivers/net/can/mcp251x.c
-index 7ab534a..9e08acc 100644
---- a/drivers/net/can/mcp251x.c
-+++ b/drivers/net/can/mcp251x.c
-@@ -481,7 +481,8 @@ static void mcp251x_hw_rx(struct spi_device *spi, int buf_idx)
- 	}
- 	/* Data length */
- 	frame->can_dlc = get_can_dlc(buf[RXBDLC_OFF] & RXBDLC_LEN_MASK);
--	memcpy(frame->data, buf + RXBDAT_OFF, frame->can_dlc);
-+	if (!(frame->can_id & CAN_RTR_FLAG))
-+		memcpy(frame->data, buf + RXBDAT_OFF, frame->can_dlc);
+diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
+index 810345f..77c8413 100644
+--- a/drivers/net/can/janz-ican3.c
++++ b/drivers/net/can/janz-ican3.c
+@@ -807,18 +807,15 @@ static void ican3_to_can_frame(struct ican3_dev *mod,
+ 			       struct can_frame *cf)
+ {
+ 	if ((desc->command & ICAN3_CAN_TYPE_MASK) == ICAN3_CAN_TYPE_SFF) {
+-		if (desc->data[1] & ICAN3_SFF_RTR)
+-			cf->can_id |= CAN_RTR_FLAG;
+-
+ 		cf->can_id |= desc->data[0] << 3;
+ 		cf->can_id |= (desc->data[1] & 0xe0) >> 5;
++
+ 		cf->can_dlc = get_can_dlc(desc->data[1] & ICAN3_CAN_DLC_MASK);
+-		memcpy(cf->data, &desc->data[2], cf->can_dlc);
+-	} else {
+-		cf->can_dlc = get_can_dlc(desc->data[0] & ICAN3_CAN_DLC_MASK);
+-		if (desc->data[0] & ICAN3_EFF_RTR)
++		if (desc->data[1] & ICAN3_SFF_RTR)
+ 			cf->can_id |= CAN_RTR_FLAG;
+-
++		else
++			memcpy(cf->data, &desc->data[2], cf->can_dlc);
++	} else {
+ 		if (desc->data[0] & ICAN3_EFF) {
+ 			cf->can_id |= CAN_EFF_FLAG;
+ 			cf->can_id |= desc->data[2] << 21; /* 28-21 */
+@@ -830,7 +827,11 @@ static void ican3_to_can_frame(struct ican3_dev *mod,
+ 			cf->can_id |= desc->data[3] >> 5;  /* 2-0   */
+ 		}
  
- 	priv->net->stats.rx_packets++;
- 	priv->net->stats.rx_bytes += frame->can_dlc;
+-		memcpy(cf->data, &desc->data[6], cf->can_dlc);
++		cf->can_dlc = get_can_dlc(desc->data[0] & ICAN3_CAN_DLC_MASK);
++		if (desc->data[0] & ICAN3_EFF_RTR)
++			cf->can_id |= CAN_RTR_FLAG;
++		else
++			memcpy(cf->data, &desc->data[6], cf->can_dlc);
+ 	}
+ }
+ 
 -- 
 1.7.2.3
+
