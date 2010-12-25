@@ -1,79 +1,73 @@
-From: Jeff Garzik <jeff@garzik.org>
-Subject: Re: [net-next-2.6 04/15] e1000e: checkpatch error - open braces
-Date: Sat, 25 Dec 2010 05:29:16 -0500
-Message-ID: <4D15C77C.9030306@garzik.org>
-References: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com> <1293257174-15498-5-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: Help: major pppoe regression since 2.6.35 (panic on first ppp
+ conection)?
+Date: Sat, 25 Dec 2010 13:10:44 +0100
+Message-ID: <20101225121044.GA1841@del.dom.local>
+References: <20101222110021.GA8985@ff.dom.local>
+ <4D122093.6060900@scarlet.be>
+ <1293035100.3027.247.camel@edumazet-laptop>
+ <4D132C5F.8090404@scarlet.be>
+ <1293106348.7789.5.camel@edumazet-laptop>
+ <20101223202523.GA1913@del.dom.local>
+ <4D148271.8030509@scarlet.be>
+ <20101224151325.GA1895@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Bruce Allan <bruce.w.allan@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:38569 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750708Ab0LYK3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 05:29:20 -0500
-Received: by qyk12 with SMTP id 12so8347403qyk.19
-        for <netdev@vger.kernel.org>; Sat, 25 Dec 2010 02:29:19 -0800 (PST)
-In-Reply-To: <1293257174-15498-5-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Joel Soete <soete.joel@scarlet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20101224151325.GA1895@del.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/25/2010 01:06 AM, jeffrey.t.kirsher@intel.com wrote:
-> From: Bruce Allan<bruce.w.allan@intel.com>
->
-> ERROR: that open brace { should be on the previous line
->
-> Signed-off-by: Bruce Allan<bruce.w.allan@intel.com>
-> Tested-by: Emil Tantilov<emil.s.tantilov@intel.com>
-> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
-> ---
->   drivers/net/e1000e/es2lan.c  |    4 ++--
->   drivers/net/e1000e/ethtool.c |    4 ++--
->   drivers/net/e1000e/phy.c     |   22 +++++++++++-----------
->   3 files changed, 15 insertions(+), 15 deletions(-)
->
-> diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
-> index 79da646..b18c644 100644
-> --- a/drivers/net/e1000e/es2lan.c
-> +++ b/drivers/net/e1000e/es2lan.c
-> @@ -100,8 +100,8 @@
->    * with a lower bound at "index" and the upper bound at
->    * "index + 5".
->    */
-> -static const u16 e1000_gg82563_cable_length_table[] =
-> -	 { 0, 60, 115, 150, 150, 60, 115, 150, 180, 180, 0xFF };
-> +static const u16 e1000_gg82563_cable_length_table[] = {
-> +	 0, 60, 115, 150, 150, 60, 115, 150, 180, 180, 0xFF };
->   #define GG82563_CABLE_LENGTH_TABLE_SIZE \
->   		ARRAY_SIZE(e1000_gg82563_cable_length_table)
->
-> diff --git a/drivers/net/e1000e/ethtool.c b/drivers/net/e1000e/ethtool.c
-> index 15c6330..affcacf 100644
-> --- a/drivers/net/e1000e/ethtool.c
-> +++ b/drivers/net/e1000e/ethtool.c
-> @@ -753,8 +753,8 @@ static bool reg_pattern_test(struct e1000_adapter *adapter, u64 *data,
->   			     int reg, int offset, u32 mask, u32 write)
->   {
->   	u32 pat, val;
-> -	static const u32 test[] =
-> -		{0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
-> +	static const u32 test[] = {
-> +		0x5A5A5A5A, 0xA5A5A5A5, 0x00000000, 0xFFFFFFFF};
->   	for (pat = 0; pat<  ARRAY_SIZE(test); pat++) {
->   		E1000_WRITE_REG_ARRAY(&adapter->hw, reg, offset,
->   				      (test[pat]&  write));
+On Fri, Dec 24, 2010 at 04:13:25PM +0100, Jarek Poplawski wrote:
+> On Fri, Dec 24, 2010 at 11:22:25AM +0000, Joel Soete wrote:
+> > Hello Jarek,
+> Hi Joel,
+> 
+> > Ok I get a clean 2.6.37-rc7 vanilla src and apply your debugging
+> > patch and grab the attached syslog-2.6.37-rc7-t2.gz with obviously a
+> > lot of "warning" (but as well as with Eric's patch, kernel survived
+> > to a lynx connection to ftp.eu.kernel.org to download of a snapshot
+> > patch ;<) )
+> 
+> Yes, even more than I expected... I hope the list will forgive us ;-)
 
-Gah, that looks worse than the unpatched code.
+Alas the list rejected your message (try to limit it to ~200kb next
+time).
 
-I think this was an over-literal checkpatch interpretation.  If you look 
-at e.g. drivers/net/tg3.c, you see that longer tables have the trailing 
-braces on a separate line, where they should be.
+Anyway, it looks like the sundance driver is the main guilty. The
+patch below removes one obvious bug but there could be something more.
+Please, apply this one and my previous debugging patch to the clean
+2.6.37-rc7. (If there're still warnings the first ~20kb should do.)
 
-IMO, the single-line cases should just be left as they are now in the 
-source code.
+Thanks,
+Jarek P.
+---
 
-	Jeff
-
-
+diff --git a/drivers/net/sundance.c b/drivers/net/sundance.c
+index 3ed2a67..b409d7e 100644
+--- a/drivers/net/sundance.c
++++ b/drivers/net/sundance.c
+@@ -1016,7 +1016,7 @@ static void init_ring(struct net_device *dev)
+ 
+ 	/* Fill in the Rx buffers.  Handle allocation failure gracefully. */
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+-		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz);
++		struct sk_buff *skb = dev_alloc_skb(np->rx_buf_sz + 2);
+ 		np->rx_skbuff[i] = skb;
+ 		if (skb == NULL)
+ 			break;
+@@ -1407,7 +1407,7 @@ static void refill_rx (struct net_device *dev)
+ 		struct sk_buff *skb;
+ 		entry = np->dirty_rx % RX_RING_SIZE;
+ 		if (np->rx_skbuff[entry] == NULL) {
+-			skb = dev_alloc_skb(np->rx_buf_sz);
++			skb = dev_alloc_skb(np->rx_buf_sz + 2);
+ 			np->rx_skbuff[entry] = skb;
+ 			if (skb == NULL)
+ 				break;		/* Better luck next round. */
