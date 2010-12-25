@@ -1,44 +1,32 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] Ceph: Fix a use-after-free bug in ceph_destroy_client().
-Date: Sat, 25 Dec 2010 19:17:02 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1012251914370.10759@swampdragon.chaosbits.net>
+From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
+Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
+Date: Sun, 26 Dec 2010 05:38:57 +0900
+Message-ID: <AANLkTind84BVd=2Z07Sz+JfpVRH7m8wdx37YhRcqkCZv@mail.gmail.com>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
+ <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
+ <20101221075612.GA13626@riccoc20.at.omicron.at> <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h@mail.gmail.com>
+ <1292970355.2618.76.camel@work-vm> <AANLkTimmTzH8+fSYmbajqZ+hU5Ps-UZaTp_1TYzjHB6P@mail.gmail.com>
+ <20101223061359.GA7169@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Sage Weil <sage@newdream.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: ceph-devel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: john stultz <johnstul@us.ibm.com>, linux-kernel@vger.kernel.org,
+	linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101223061359.GA7169@riccoc20.at.omicron.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-In net/ceph/ceph_common.c::ceph_destroy_client() the pointer 'client' is 
-freed by kfree() and subsequently used in a call to dout() - use after 
-free bug.
-Easily fixed by simply moving the kfree() call after the dout() call.
-
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- ceph_common.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
-index f3e4a13..890bbbf 100644
---- a/net/ceph/ceph_common.c
-+++ b/net/ceph/ceph_common.c
-@@ -408,8 +408,8 @@ void ceph_destroy_client(struct ceph_client *client)
- 
- 	ceph_destroy_options(client->options);
- 
--	kfree(client);
- 	dout("destroy_client %p done\n", client);
-+	kfree(client);
- }
- EXPORT_SYMBOL(ceph_destroy_client);
- 
-
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+After all, I'd prefer your earlier patchset.  Leaving aside the
+compatibility issue, there's no particular reason we have to re-use
+the struct timex, which requires otherwise unnecessary conditional
+branches as well as unit conversions.  Don't you agree?
