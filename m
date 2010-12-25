@@ -1,67 +1,59 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 8/9] can: janz-ican3: don't copy data to rx'ed RTR frames
-Date: Sat, 25 Dec 2010 15:40:33 +0100
-Message-ID: <1293288034-22428-9-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/9] can: bfin_can: don't copy data to rx'ed RTR frames
+Date: Sat, 25 Dec 2010 15:40:27 +0100
+Message-ID: <1293288034-22428-3-git-send-email-mkl@pengutronix.de>
 References: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
 Cc: socketcan-core@lists.berlios.de,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Barry Song <21cnbao@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:57238 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57217 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752094Ab0LYOkt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 09:40:49 -0500
+	with ESMTP id S1751138Ab0LYOkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 09:40:45 -0500
 In-Reply-To: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Acked-by: Ira W. Snyder <iws@ovro.caltech.edu>
+Cc: Barry Song <21cnbao@gmail.com>
 Acked-by: Wolfgang Grandegger <wg@grandegger.com>
 ---
- drivers/net/can/janz-ican3.c |   19 ++++++++++---------
- 1 files changed, 10 insertions(+), 9 deletions(-)
+ drivers/net/can/bfin_can.c |   17 +++++++++--------
+ 1 files changed, 9 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-index 810345f..77c8413 100644
---- a/drivers/net/can/janz-ican3.c
-+++ b/drivers/net/can/janz-ican3.c
-@@ -807,18 +807,15 @@ static void ican3_to_can_frame(struct ican3_dev *mod,
- 			       struct can_frame *cf)
- {
- 	if ((desc->command & ICAN3_CAN_TYPE_MASK) == ICAN3_CAN_TYPE_SFF) {
--		if (desc->data[1] & ICAN3_SFF_RTR)
--			cf->can_id |= CAN_RTR_FLAG;
--
- 		cf->can_id |= desc->data[0] << 3;
- 		cf->can_id |= (desc->data[1] & 0xe0) >> 5;
-+
- 		cf->can_dlc = get_can_dlc(desc->data[1] & ICAN3_CAN_DLC_MASK);
--		memcpy(cf->data, &desc->data[2], cf->can_dlc);
--	} else {
--		cf->can_dlc = get_can_dlc(desc->data[0] & ICAN3_CAN_DLC_MASK);
--		if (desc->data[0] & ICAN3_EFF_RTR)
-+		if (desc->data[1] & ICAN3_SFF_RTR)
- 			cf->can_id |= CAN_RTR_FLAG;
--
-+		else
-+			memcpy(cf->data, &desc->data[2], cf->can_dlc);
-+	} else {
- 		if (desc->data[0] & ICAN3_EFF) {
- 			cf->can_id |= CAN_EFF_FLAG;
- 			cf->can_id |= desc->data[2] << 21; /* 28-21 */
-@@ -830,7 +827,11 @@ static void ican3_to_can_frame(struct ican3_dev *mod,
- 			cf->can_id |= desc->data[3] >> 5;  /* 2-0   */
- 		}
- 
--		memcpy(cf->data, &desc->data[6], cf->can_dlc);
-+		cf->can_dlc = get_can_dlc(desc->data[0] & ICAN3_CAN_DLC_MASK);
-+		if (desc->data[0] & ICAN3_EFF_RTR)
-+			cf->can_id |= CAN_RTR_FLAG;
-+		else
-+			memcpy(cf->data, &desc->data[6], cf->can_dlc);
+diff --git a/drivers/net/can/bfin_can.c b/drivers/net/can/bfin_can.c
+index b6e890d..07222ca 100644
+--- a/drivers/net/can/bfin_can.c
++++ b/drivers/net/can/bfin_can.c
+@@ -306,18 +306,19 @@ static void bfin_can_rx(struct net_device *dev, u16 isrc)
+ 			     & 0x1ffc) >> 2;
+ 		obj = RECEIVE_STD_CHL;
  	}
- }
+-	if (bfin_read16(&reg->chl[obj].id1) & RTR)
+-		cf->can_id |= CAN_RTR_FLAG;
+ 
+ 	/* get data length code */
+ 	cf->can_dlc = get_can_dlc(bfin_read16(&reg->chl[obj].dlc) & 0xF);
+ 
+-	/* get payload */
+-	for (i = 0; i < 8; i += 2) {
+-		val = bfin_read16(&reg->chl[obj].data[i]);
+-		cf->data[7 - i] = (7 - i) < cf->can_dlc ? val : 0;
+-		cf->data[6 - i] = (6 - i) < cf->can_dlc ? (val >> 8) : 0;
+-	}
++	if (bfin_read16(&reg->chl[obj].id1) & RTR)
++		cf->can_id |= CAN_RTR_FLAG;
++	else	/* get payload */
++		for (i = 0; i < 8; i += 2) {
++			val = bfin_read16(&reg->chl[obj].data[i]);
++			cf->data[7 - i] = (7 - i) < cf->can_dlc ? val : 0;
++			cf->data[6 - i] = (6 - i) < cf->can_dlc ?
++				(val >> 8) : 0;
++		}
+ 
+ 	netif_rx(skb);
  
 -- 
 1.7.2.3
