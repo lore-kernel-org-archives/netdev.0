@@ -1,74 +1,56 @@
-From: Wolfram Sang <w.sang@pengutronix.de>
-Subject: Re: [PATCH] 3c59x: Don't assign when a comparison is intended
-Date: Sat, 25 Dec 2010 23:17:00 +0100
-Message-ID: <20101225221700.GA8612@pengutronix.de>
-References: <alpine.LNX.2.00.1012252125410.10759@swampdragon.chaosbits.net> <AANLkTi=Y4wDG6+AY1=8NuFLGuCidgqaU1LginfB1YpZH@mail.gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] CAN: Use inode instead of kernel address for /proc file
+Date: Sat, 25 Dec 2010 23:22:21 +0100
+Message-ID: <4D166E9D.5080200@hartkopp.net>
+References: <1293315371.9764.44.camel@Dan>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="lrZ03NoBR/3+SXJZ"
-Cc: Jesper Juhl <jj@chaosbits.net>, netdev@vger.kernel.org,
-	vortex@scyld.com, becker@scyld.com,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	linux-kernel@vger.kernel.org
-To: richard -rw- weinberger <richard.weinberger@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=Y4wDG6+AY1=8NuFLGuCidgqaU1LginfB1YpZH@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	security@kernel.org
+To: Dan Rosenberg <drosenberg@vsecurity.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mo-p00-ob.rzone.de ([81.169.146.160]:64921 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103Ab0LYWWX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 17:22:23 -0500
+In-Reply-To: <1293315371.9764.44.camel@Dan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On 25.12.2010 23:16, Dan Rosenberg wrote:
+> Since the socket address is just being used as a unique identifier, its
+> inode number is an alternative that does not leak potentially sensitive
+> information.
+> 
+> CC-ing stable because MITRE has assigned CVE-2010-4565 to the issue.
+> 
+> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+> Cc: stable <stable@kernel.org>
 
---lrZ03NoBR/3+SXJZ
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
 
-On Sat, Dec 25, 2010 at 09:50:56PM +0100, richard -rw- weinberger wrote:
-> On Sat, Dec 25, 2010 at 9:30 PM, Jesper Juhl <jj@chaosbits.net> wrote:
-> > Hi,
-> >
-> > In drivers/net/3c59x.c::vortex_probe1() we have this code:
-> >
-> > =A0 =A0 =A0 =A0if (gendev) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((pdev =3D DEVICE_PCI(gendev))) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0print_name =3D pci_name(=
-pdev);
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> >
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((edev =3D DEVICE_EISA(gendev))) {
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0print_name =3D dev_name(=
-&edev->dev);
-> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
-> > =A0 =A0 =A0 =A0}
-> >
-> > I believe these assignments were intended to be comparisons.
-> > If I'm correct, then here's a patch to fix that up.
->=20
-> I don't think so. Look at the extra brackets.
->=20
-> The code can also written as:
->=20
-> pdev =3D DEVICE_PCI(gendev);
-> if(pdev)
->   print_name =3D pci_name(pdev);
+Thanks Dan.
 
-=2E.. which looks much better and could be worth a patch as well.
+> ---
+>  net/can/bcm.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/can/bcm.c b/net/can/bcm.c
+> index 6faa825..5748901 100644
+> --- a/net/can/bcm.c
+> +++ b/net/can/bcm.c
+> @@ -1520,8 +1520,8 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+>  	bo->bound = 1;
+>  
+>  	if (proc_dir) {
+> -		/* unique socket address as filename */
+> -		sprintf(bo->procname, "%p", sock);
+> +		/* socket inode as filename */
+> +		sprintf(bo->procname, "%lx", sock_i_ino(sk));
+>  		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
+>  						     proc_dir,
+>  						     &bcm_proc_fops, sk);
+> 
 
---=20
-Pengutronix e.K.                           | Wolfram Sang                |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-
---lrZ03NoBR/3+SXJZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.9 (GNU/Linux)
-
-iEYEARECAAYFAk0WbVwACgkQD27XaX1/VRuTRACfWd1/1j2rueStgVeJJxDVb3qT
-F1IAniAFUAlpz/PMfkvFRf1HUbWapqBc
-=mi1C
------END PGP SIGNATURE-----
-
---lrZ03NoBR/3+SXJZ--
