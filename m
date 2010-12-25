@@ -1,70 +1,57 @@
 From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Subject: Re: [PATCH] 3c59x: Don't assign when a comparison is intended
-Date: Sat, 25 Dec 2010 22:00:48 +0100
-Message-ID: <AANLkTi=yFm+kwXJbFrotTNmWky1J7O8=qVg7rhq=HxZG@mail.gmail.com>
-References: <alpine.LNX.2.00.1012252125410.10759@swampdragon.chaosbits.net>
-	<AANLkTi=Y4wDG6+AY1=8NuFLGuCidgqaU1LginfB1YpZH@mail.gmail.com>
-	<alpine.LNX.2.00.1012252144030.10759@swampdragon.chaosbits.net>
+Subject: Re: [PATCH] Ceph: Fix a use-after-free bug in ceph_destroy_client().
+Date: Sat, 25 Dec 2010 22:12:31 +0100
+Message-ID: <AANLkTik+yrpY8T69w_RQ84ZbRqwkjvFhvxHLBvU14N3f@mail.gmail.com>
+References: <alpine.LNX.2.00.1012251914370.10759@swampdragon.chaosbits.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	linux-kernel@vger.kernel.org
+Cc: ceph-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Sage Weil <sage@newdream.net>,
+	"David S. Miller" <davem@davemloft.net>
 To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1012252144030.10759@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:42939 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751334Ab0LYVMd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 16:12:33 -0500
+In-Reply-To: <alpine.LNX.2.00.1012251914370.10759@swampdragon.chaosbits.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 25, 2010 at 9:45 PM, Jesper Juhl <jj@chaosbits.net> wrote:
-> On Sat, 25 Dec 2010, richard -rw- weinberger wrote:
+On Sat, Dec 25, 2010 at 7:17 PM, Jesper Juhl <jj@chaosbits.net> wrote:
+> Hello,
 >
->> On Sat, Dec 25, 2010 at 9:30 PM, Jesper Juhl <jj@chaosbits.net> wrot=
-e:
->> > Hi,
->> >
->> > In drivers/net/3c59x.c::vortex_probe1() we have this code:
->> >
->> > =A0 =A0 =A0 =A0if (gendev) {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((pdev =3D DEVICE_PCI(gendev))) =
-{
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0print_name =3D pci_=
-name(pdev);
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->> >
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0if ((edev =3D DEVICE_EISA(gendev)))=
- {
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0print_name =3D dev_=
-name(&edev->dev);
->> > =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0}
->> > =A0 =A0 =A0 =A0}
->> >
->> > I believe these assignments were intended to be comparisons.
->> > If I'm correct, then here's a patch to fix that up.
->>
->> I don't think so. Look at the extra brackets.
->>
->> The code can also written as:
->>
->> pdev =3D DEVICE_PCI(gendev);
->> if(pdev)
->> =A0 print_name =3D pci_name(pdev);
->>
+> In net/ceph/ceph_common.c::ceph_destroy_client() the pointer 'client'=
+ is
+> freed by kfree() and subsequently used in a call to dout() - use afte=
+r
+> free bug.
+
+Not really. %p reads only the address of "client".
+kfree() does not alter this address.
+
+> Easily fixed by simply moving the kfree() call after the dout() call.
 >
-> Arrgh, I completely missed that - damn.
-> You are correct I think and my patch is wrong.
-> Thanks for taking a look.
-
-BTW: gcc is smart enough to catch such typos.
-
-if(x =3D 3){
- ...
-}
-
-=2E..would trigger a warning like this one:
-"warning: suggest parentheses around assignment used as truth value"
-
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> ---
+> =A0ceph_common.c | =A0 =A02 +-
+> =A01 file changed, 1 insertion(+), 1 deletion(-)
+> diff --git a/net/ceph/ceph_common.c b/net/ceph/ceph_common.c
+> index f3e4a13..890bbbf 100644
+> --- a/net/ceph/ceph_common.c
+> +++ b/net/ceph/ceph_common.c
+> @@ -408,8 +408,8 @@ void ceph_destroy_client(struct ceph_client *clie=
+nt)
+>
+> =A0 =A0 =A0 =A0ceph_destroy_options(client->options);
+>
+> - =A0 =A0 =A0 kfree(client);
+> =A0 =A0 =A0 =A0dout("destroy_client %p done\n", client);
+> + =A0 =A0 =A0 kfree(client);
+> =A0}
+> =A0EXPORT_SYMBOL(ceph_destroy_client);
+>
 >
 > --
 > Jesper Juhl <jj@chaosbits.net> =A0 =A0 =A0 =A0 =A0 =A0http://www.chao=
@@ -72,6 +59,14 @@ sbits.net/
 > Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
 > Plain text mails only, please.
 >
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
+l" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at =A0http://www.tux.org/lkml/
+>
+
 
 --=20
 Thanks,
