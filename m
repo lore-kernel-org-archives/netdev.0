@@ -1,56 +1,82 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 9/9] can: pch_can: don't copy data to rx'ed RTR frames
-Date: Sat, 25 Dec 2010 15:40:34 +0100
-Message-ID: <1293288034-22428-10-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 7/9] can: janz-ican3: cleanup of ican3_to_can_frame and can_frame_to_ican3
+Date: Sat, 25 Dec 2010 15:40:32 +0100
+Message-ID: <1293288034-22428-8-git-send-email-mkl@pengutronix.de>
 References: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
 Cc: socketcan-core@lists.berlios.de,
 	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Tomoya <tomoya-linux@dsn.okisemi.com>
+	"Ira W. Snyder" <iws@ovro.caltech.edu>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:57243 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:57235 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751670Ab0LYOkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 09:40:51 -0500
+	with ESMTP id S1751138Ab0LYOkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 09:40:49 -0500
 In-Reply-To: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Cc: Tomoya <tomoya-linux@dsn.okisemi.com>
----
- drivers/net/can/pch_can.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
+This patch cleans up the ICAN3 to Linux CAN frame and vice versa
+conversion functions:
 
-diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index c42e972..ee488ac 100644
---- a/drivers/net/can/pch_can.c
-+++ b/drivers/net/can/pch_can.c
-@@ -692,16 +692,17 @@ static int pch_can_rx_normal(struct net_device *ndev, u32 obj_num, int quota)
- 			cf->can_id = id;
+- RX: Use get_can_dlc() to limit the dlc value.
+- TX: Drop invalid skbs wiht can_dropped_invalid_skb
+- both: Don't copy the whole frame, only copy the amount of bytes specified
+  in cf->can_dlc.
+
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Ira W. Snyder <iws@ovro.caltech.edu>
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+---
+ drivers/net/can/janz-ican3.c |   13 ++++++++-----
+ 1 files changed, 8 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
+index b9a6d7a..810345f 100644
+--- a/drivers/net/can/janz-ican3.c
++++ b/drivers/net/can/janz-ican3.c
+@@ -812,10 +812,10 @@ static void ican3_to_can_frame(struct ican3_dev *mod,
+ 
+ 		cf->can_id |= desc->data[0] << 3;
+ 		cf->can_id |= (desc->data[1] & 0xe0) >> 5;
+-		cf->can_dlc = desc->data[1] & ICAN3_CAN_DLC_MASK;
+-		memcpy(cf->data, &desc->data[2], sizeof(cf->data));
++		cf->can_dlc = get_can_dlc(desc->data[1] & ICAN3_CAN_DLC_MASK);
++		memcpy(cf->data, &desc->data[2], cf->can_dlc);
+ 	} else {
+-		cf->can_dlc = desc->data[0] & ICAN3_CAN_DLC_MASK;
++		cf->can_dlc = get_can_dlc(desc->data[0] & ICAN3_CAN_DLC_MASK);
+ 		if (desc->data[0] & ICAN3_EFF_RTR)
+ 			cf->can_id |= CAN_RTR_FLAG;
+ 
+@@ -830,7 +830,7 @@ static void ican3_to_can_frame(struct ican3_dev *mod,
+ 			cf->can_id |= desc->data[3] >> 5;  /* 2-0   */
  		}
  
--		if (id2 & PCH_ID2_DIR)
--			cf->can_id |= CAN_RTR_FLAG;
--
- 		cf->can_dlc = get_can_dlc((ioread32(&priv->regs->
- 						    ifregs[0].mcont)) & 0xF);
+-		memcpy(cf->data, &desc->data[6], sizeof(cf->data));
++		memcpy(cf->data, &desc->data[6], cf->can_dlc);
+ 	}
+ }
  
--		for (i = 0; i < cf->can_dlc; i += 2) {
--			data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
--			cf->data[i] = data_reg;
--			cf->data[i + 1] = data_reg >> 8;
-+		if (id2 & PCH_ID2_DIR) {
-+			cf->can_id |= CAN_RTR_FLAG;
+@@ -862,7 +862,7 @@ static void can_frame_to_ican3(struct ican3_dev *mod,
+ 	}
+ 
+ 	/* copy the data bits into the descriptor */
+-	memcpy(&desc->data[6], cf->data, sizeof(cf->data));
++	memcpy(&desc->data[6], cf->data, cf->can_dlc);
+ }
+ 
+ /*
+@@ -1421,6 +1421,9 @@ static int ican3_xmit(struct sk_buff *skb, struct net_device *ndev)
+ 	void __iomem *desc_addr;
+ 	unsigned long flags;
+ 
++	if (can_dropped_invalid_skb(dev, skb))
++		return NETDEV_TX_OK;
 +
-+			for (i = 0; i < cf->can_dlc; i += 2) {
-+				data_reg = ioread16(&priv->regs->ifregs[0].data[i / 2]);
-+				cf->data[i] = data_reg;
-+				cf->data[i + 1] = data_reg >> 8;
-+			}
- 		}
+ 	spin_lock_irqsave(&mod->lock, flags);
  
- 		netif_receive_skb(skb);
+ 	/* check that we can actually transmit */
 -- 
 1.7.2.3
 
