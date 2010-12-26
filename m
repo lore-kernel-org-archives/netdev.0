@@ -1,57 +1,34 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V7 1/8] ntp: add ADJ_SETOFFSET mode bit
-Date: Sun, 26 Dec 2010 15:14:47 +0100
-Message-ID: <20101226141447.GA4830@riccoc20.at.omicron.at>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
- <880d82bb8120f73973db27e0c48e949014b1a106.1292512461.git.richard.cochran@omicron.at>
- <AANLkTi=yGoFwYt4p_LeHtAQyYgmURspO-p57UdL0sUEZ@mail.gmail.com>
- <20101221075612.GA13626@riccoc20.at.omicron.at>
- <AANLkTimJd5pScKTiDxuYd-h+NevYbCusyvUAqmUDXe8h@mail.gmail.com>
- <1292970355.2618.76.camel@work-vm>
- <AANLkTimmTzH8+fSYmbajqZ+hU5Ps-UZaTp_1TYzjHB6P@mail.gmail.com>
- <20101223061359.GA7169@riccoc20.at.omicron.at>
- <AANLkTind84BVd=2Z07Sz+JfpVRH7m8wdx37YhRcqkCZv@mail.gmail.com>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: Re: [PATCH] CAN: Use inode instead of kernel address for /proc file
+Date: Sun, 26 Dec 2010 11:38:43 -0500
+Message-ID: <1293381523.9764.52.camel@Dan>
+References: <1293315371.9764.44.camel@Dan> <4D166E9D.5080200@hartkopp.net>
+	 <4D1670CC.1000709@hartkopp.net> <1293316904.9764.48.camel@Dan>
+	 <4D17270B.5000204@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: john stultz <johnstul@us.ibm.com>, linux-kernel@vger.kernel.org,
-	linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTind84BVd=2Z07Sz+JfpVRH7m8wdx37YhRcqkCZv@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	security@kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.vsecurity.com ([209.67.252.12]:63580 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752262Ab0LZQjK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Dec 2010 11:39:10 -0500
+In-Reply-To: <4D17270B.5000204@hartkopp.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Dec 26, 2010 at 05:38:57AM +0900, Kuwahara,T. wrote:
-> After all, I'd prefer your earlier patchset.  Leaving aside the
-> compatibility issue, there's no particular reason we have to re-use
-> the struct timex, which requires otherwise unnecessary conditional
-> branches as well as unit conversions.  Don't you agree?
+On Sun, 2010-12-26 at 12:29 +0100, Oliver Hartkopp wrote:
 
-Well, from my point of view of wanting to allow a user space clock
-servo to be able to adjust a hardware clock, it would be sufficient to
-offer a way to jump the clock and to adjust the frequency via one or
-perhaps two new system calls.
+> Convinced? 8-)
+> 
 
-That is indeed what I first suggested, and I still think it would be a
-clean and simple interface. The NTP call is quite gross, since it
-multiplexes a whole bunch of different functions through the timex
-structure.
+Absolutely.  I didn't mean to come across as argumentative, I was just
+trying to anticipate potential objections.  I'll resend shortly.
 
-However, several reviewers on the lkml prefered to keep with the NTP
-interface. It offers the needed functionality and is already well
-established, despite its ugliness.
+Thanks,
+Dan
 
-To me, the proposed ADJ_SETOFFSET is a simple and logical extenstion
-of the NTP interface. Also, the implementation is straightforward. In
-contrast, using a special -INF value seems a bit obtuse to me.
-
-Richard
