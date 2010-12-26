@@ -1,43 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 00/15][pull-request] Intel Wired LAN Driver
- Update
-Date: Sat, 25 Dec 2010 19:26:26 -0800 (PST)
-Message-ID: <20101225.192626.226792756.davem@davemloft.net>
-References: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 7/9] can: janz-ican3: cleanup of ican3_to_can_frame and
+	can_frame_to_ican3
+Date: Sat, 25 Dec 2010 19:32:31 -0800 (PST)
+Message-ID: <20101225.193231.71107198.davem@davemloft.net>
+References: <1293288034-22428-1-git-send-email-mkl@pengutronix.de>
+	<1293288034-22428-8-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50422
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751484Ab0LZDZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 22:25:57 -0500
-In-Reply-To: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	iws-lulEs6mt1IksTUYHLfqkUA@public.gmane.org
+To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1293288034-22428-8-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: jeffrey.t.kirsher@intel.com
-Date: Fri, 24 Dec 2010 22:05:59 -0800
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Date: Sat, 25 Dec 2010 15:40:32 +0100
 
-> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> 
-> The following series addresses the more significant issues reported by
-> checkpatch when run against the e1000e driver files.  The less serious
-> whitespace and lines over 80 characters issues are not addressed.  In
-> addition, added support for anti-spoofing and X540 SR-IOV.
-> 
-> The remaining warnings for msleep < 20ms will be addressed in a follow-on
-> patch after a thorough investigation into the timings tolerated by the
-> hardware.
-> 
-> The following changes since commit e1928c86c4829703b800c81cc9edc939b5634e6f:
-> 
->  cnic: Add FCoE support on 57712
-> 
-> are available in the git repository at:
-> 
->  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git master
+> @@ -1421,6 +1421,9 @@ static int ican3_xmit(struct sk_buff *skb, struct net_device *ndev)
+>  	void __iomem *desc_addr;
+>  	unsigned long flags;
+>  
+> +	if (can_dropped_invalid_skb(dev, skb))
+> +		return NETDEV_TX_OK;
+> +
 
-Pulled, thanks Jeff.
+You never compile tested this.
+
+Merry Christmas.
