@@ -1,69 +1,46 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] ISDN, Gigaset: Fix memory leak in do_disconnect_req()
-Date: Sun, 26 Dec 2010 20:59:58 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1012262053130.20797@swampdragon.chaosbits.net>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: [PATCH 1/1] Use VPI.VCI notation consistently in solos-pci driver
+Date: Sun, 26 Dec 2010 12:13:33 -0800
+Message-ID: <4D17A1ED.4080601@redfish-solutions.com>
+References: <4D1792D1.4040803@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tilman Schmidt <tilman@imap.cc>, Hansjoerg Lipp <hjlipp@web.de>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: gigaset307x-common@lists.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-atm-general@lists.sourceforge.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:58667 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752621Ab0LZUNs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Dec 2010 15:13:48 -0500
+In-Reply-To: <4D1792D1.4040803@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Nix.
 
-In drivers/isdn/gigaset/capi.c::do_disconnect_req() we will leak the 
-memory allocated (with kmalloc) to 'b3cmsg' if the call to alloc_skb() 
-fails.
-
-...
-		b3cmsg = kmalloc(sizeof(*b3cmsg), GFP_KERNEL);
-	allocation here ------^
-		if (!b3cmsg) {
-			dev_err(cs->dev, "%s: out of memory\n", __func__);
-			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
-			return;
-		}
-		capi_cmsg_header(b3cmsg, ap->id, CAPI_DISCONNECT_B3, CAPI_IND,
-				 ap->nextMessageNumber++,
-				 cmsg->adr.adrPLCI | (1 << 16));
-		b3cmsg->Reason_B3 = CapiProtocolErrorLayer1;
-		b3skb = alloc_skb(CAPI_DISCONNECT_B3_IND_BASELEN, GFP_KERNEL);
-		if (b3skb == NULL) {
-			dev_err(cs->dev, "%s: out of memory\n", __func__);
-			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
-			return;
-	leak here ------^
-...
-
-This leak is easily fixed by just kfree()'ing the memory allocated to 
-'b3cmsg' right before we return. The following patch does that.
+My sed script mangled the paths, and after doing a quick check on git.kernel.org I see this one has already been applied... it just hasn't made it back downstream into the openadsl project on SourceForge.
 
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- capi.c |    1 +
- 1 file changed, 1 insertion(+)
+On 12/26/10 11:09 AM, Philip Prindeville wrote:
+> Use VPI.VCI notation consistently.
+>
+> Signed-of-by: Philip Prindeville<philipp@redfish-solutions.com>
+> ---
+>
+> --- a/drivers/atm/solos-pci-0.11/solos-pci.c    2010-12-24 01:07:09.000000000 -0700
+> +++ b/drivers/atm/solos-pci-0.11/solos-pci.c    2010-12-24 14:18:45.000000000 -0700
+> @@ -734,8 +734,8 @@ void solos_bh(unsigned long card_arg)
+>                             le16_to_cpu(header->vci));
+>                  if (!vcc) {
+>                      if (net_ratelimit())
+> -                        dev_warn(&card->dev->dev, "Received packet for unknown VCI.VPI %d.%d on port %d\n",
+> -                             le16_to_cpu(header->vci), le16_to_cpu(header->vpi),
+> +                        dev_warn(&card->dev->dev, "Received packet for unknown VPI.VCI %d.%d on port %d\n",
+> +                             le16_to_cpu(header->vpi), le16_to_cpu(header->vci),
+>                               port);
+>                      continue;
+>                  }
+>
+>
 
-  compile tested only since I have no way to actually test this.
-
-diff --git a/drivers/isdn/gigaset/capi.c b/drivers/isdn/gigaset/capi.c
-index bcc174e..658e75f 100644
---- a/drivers/isdn/gigaset/capi.c
-+++ b/drivers/isdn/gigaset/capi.c
-@@ -1900,6 +1900,7 @@ static void do_disconnect_req(struct gigaset_capi_ctr *iif,
- 		if (b3skb == NULL) {
- 			dev_err(cs->dev, "%s: out of memory\n", __func__);
- 			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
-+			kfree(b3cmsg);
- 			return;
- 		}
- 		capi_cmsg2message(b3cmsg,
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
