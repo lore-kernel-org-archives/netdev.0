@@ -1,79 +1,47 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] libmnl 1.0.1 release
-Date: Sun, 26 Dec 2010 22:20:10 +0100
-Message-ID: <4D17B18A.8020806@netfilter.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with Linus' tree
+Date: Mon, 27 Dec 2010 10:41:44 +1100
+Message-ID: <20101227104144.cedc2d63.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000403000406050301070907"
-Cc: netfilter@vger.kernel.org, netfilter-announce@lists.netfilter.org,
-	lwn@lwn.net, Linux Netdev List <netdev@vger.kernel.org>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:60897 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752703Ab0LZVUT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Dec 2010 16:20:19 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------000403000406050301070907
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi!
+Hi all,
 
-The Netfilter project presents libmnl-1.0.1
+Today's linux-next merge of the net tree got a conflict in
+net/ipv4/fib_frontend.c between commit
+e058464990c2ef1f3ecd6b83a154913c3c06f02a ("Revert "ipv4: Allow
+configuring subnets as local addresses"") from Linus' tree and commit
+5811662b15db018c740c57d037523683fd3e6123 ("net: use the macros defined
+for the members of flowi") from the net tree.
 
-libmnl is a minimalistic user-space library oriented to Netlink
-developers. There are a lot of common tasks in parsing, validating,
-constructing of both the Netlink header and TLVs that are repetitive and
-easy to get wrong. This library aims to provide simple helpers that
-allows you to re-use code and to avoid re-inventing the wheel.
+Just context changes (I think).  I fixed it up (see below) and can carry
+the fix as necessary.
+-- 
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-This library is released under LGPLv2.1+.
-
-Features:
-* Small: the shared library requires around 45KB for an x86-based computer.
-* Simple: this library avoids complexity and elaborated abstractions
-that tend to hide Netlink details.
-* Easy to use: the library simplifies the work for Netlink-wise
-developers. It provides functions to make socket handling, message
-building, validating, parsing and sequence tracking, easier.
-* Easy to re-use: you can use the library to build your own abstraction
-layer on top of this library.
-* Decoupling: the interdependency of the main bricks that compose the
-library is reduced, i.e. the library provides many helpers, but the
-programmer is not forced to use them.
-
-More info at:
-http://www.netfilter.org/projects/libmnl/
-
-Doxygen documentation at:
-http://www.netfilter.org/projects/libmnl/doxygen/
-
-You can download it via FTP at:
-ftp://ftp.netfilter.org/pub/libmnl
-
-Enjoy!
-
-
---------------000403000406050301070907
-Content-Type: text/plain;
- name="changes-libmnl-1.0.1.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="changes-libmnl-1.0.1.txt"
-
-Jan Engelhardt (1):
-      include: add missing unistd.h
-
-Pablo Neira Ayuso (5):
-      examples: fix wrong group mask number in nfct-event
-      doc: add new website at netfilter.org to doxygen
-      headers: add local copy of linux/netlink.h to libmnl
-      header: fix signess issues in MNL_SOCKET_BUFFER_SIZE
-      build: libmnl 1.0.1 release
-
-
---------------000403000406050301070907--
+diff --cc net/ipv4/fib_frontend.c
+index c19c1f7,9f8bb68..0000000
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@@ -158,11 -158,8 +158,7 @@@ static void fib_flush(struct net *net
+  struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+  {
+  	struct flowi fl = {
+- 		.nl_u = {
+- 			.ip4_u = {
+- 				.daddr = addr
+- 			}
+- 		},
++ 		.fl4_dst = addr,
+ -		.flags = FLOWI_FLAG_MATCH_ANY_IIF
+  	};
+  	struct fib_result res = { 0 };
+  	struct net_device *dev = NULL;
