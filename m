@@ -1,11 +1,11 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] sundance: Fix oopses with corrupted
- skb_shared_info
-Date: Sat, 25 Dec 2010 19:42:10 -0800 (PST)
-Message-ID: <20101225.194210.104056075.davem@davemloft.net>
-References: <20101225121044.GA1841@del.dom.local>
-	<4D15F6C9.50700@scarlet.be>
+Subject: Re: [PATCH net-2.6 v2] epic100: hamachi: yellowfin: Fix skb
+ allocation size
+Date: Sat, 25 Dec 2010 19:42:20 -0800 (PST)
+Message-ID: <20101225.194220.189701956.davem@davemloft.net>
+References: <4D15F6C9.50700@scarlet.be>
 	<20101225151217.GA1994@del.dom.local>
+	<20101225173959.GB2264@del.dom.local>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,28 +14,19 @@ Cc: soete.joel@scarlet.be, eric.dumazet@gmail.com,
 	netdev@vger.kernel.org
 To: jarkao2@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101225151217.GA1994@del.dom.local>
+In-Reply-To: <20101225173959.GB2264@del.dom.local>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Jarek Poplawski <jarkao2@gmail.com>
-Date: Sat, 25 Dec 2010 16:12:17 +0100
+Date: Sat, 25 Dec 2010 18:39:59 +0100
 
-> [PATCH net-2.6] sundance: Fix oopses with corrupted skb_shared_info
+> Joel Soete reported oopses during pppoe over sundance NIC, caused by
+> a bug in skb allocation and dma mapping code, where skb_reserve()
+> bytes weren't taken into account. As a followup to the patch:
+> "sundance: Fix oopses with corrupted skb_shared_info" very similar
+> code is fixed here for three other drivers.
 > 
-> Joel Soete reported oopses at the beginning of pppoe connections since
-> v2.6.35. After debugging the bug was found in sundance skb allocation
-> and dma mapping code, where skb_reserve() bytes aren't taken into
-> account. This is an old bug, only uncovered by some change in 2.6.35.
-> 
-> Initial debugging patch by: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> Reported-by: Joel Soete <soete.joel@scarlet.be>
-> Tested-by: Joel Soete <soete.joel@scarlet.be>
 > Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, great work Jarek.
-
-I was auditing ppp_generic.c hoping I'd find something, but
-if I had that backtrace I wouldn't have bothered :-)
+Also applied, thanks.
