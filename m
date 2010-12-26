@@ -1,55 +1,43 @@
-From: Rasesh Mody <rmody@brocade.com>
-Subject: RE: [PATCH 00/10] bna: Update Brocade BNA Ethernet driver to
- v2.3.2.3
-Date: Sat, 25 Dec 2010 19:24:09 -0800
-Message-ID: <E5313AF6F2BFD14293E5FD0F94750F86A5CFD83830@HQ1-EXCH01.corp.brocade.com>
-References: <1293002596-3239-1-git-send-email-rmody@brocade.com>
- <20101225.191813.193696521.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 00/15][pull-request] Intel Wired LAN Driver
+ Update
+Date: Sat, 25 Dec 2010 19:26:26 -0800 (PST)
+Message-ID: <20101225.192626.226792756.davem@davemloft.net>
+References: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38364 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751645Ab0LZDYS convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Dec 2010 22:24:18 -0500
-In-Reply-To: <20101225.191813.193696521.davem@davemloft.net>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50422
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751484Ab0LZDZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Dec 2010 22:25:57 -0500
+In-Reply-To: <1293257174-15498-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks David!
+From: jeffrey.t.kirsher@intel.com
+Date: Fri, 24 Dec 2010 22:05:59 -0800
 
->-----Original Message-----
->From: David Miller [mailto:davem@davemloft.net]
->Sent: Saturday, December 25, 2010 7:18 PM
->To: Rasesh Mody
->Cc: netdev@vger.kernel.org
->Subject: Re: [PATCH 00/10] bna: Update Brocade BNA Ethernet driver to
->v2.3.2.3
->
->From: Rasesh Mody <rmody@brocade.com>
->Date: Tue, 21 Dec 2010 23:23:06 -0800
->
->> The following patch set updates the Brocade BNA driver to v2.3.2.3.
->>
->> The patches are generated, compiled and tested against net-next-2.6
->(2.6.37-rc1).
->>
->> Rasesh Mody (10):
->>   bna: TxRx and datapath fix
->>   bna: Port enable disable sync and txq priority fix
->>   bna: Fix ethtool register dump and reordered an API
->>   bna: Enable pure priority tagged packet reception and rxf uninit
->>     cleanup fix
->>   bna: Fix for TX queue
->>   bna: IOC uninit check and misc cleanup
->>   bna: Removed unused code
->>   bna: Restore VLAN filter table
->>   bna: IOC failure auto recovery fix
->>   bna: Update the driver version to 2.3.2.3
->
->All applied, thanks.
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> 
+> The following series addresses the more significant issues reported by
+> checkpatch when run against the e1000e driver files.  The less serious
+> whitespace and lines over 80 characters issues are not addressed.  In
+> addition, added support for anti-spoofing and X540 SR-IOV.
+> 
+> The remaining warnings for msleep < 20ms will be addressed in a follow-on
+> patch after a thorough investigation into the timings tolerated by the
+> hardware.
+> 
+> The following changes since commit e1928c86c4829703b800c81cc9edc939b5634e6f:
+> 
+>  cnic: Add FCoE support on 57712
+> 
+> are available in the git repository at:
+> 
+>  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git master
+
+Pulled, thanks Jeff.
