@@ -1,64 +1,146 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [net-next-2.6 PATCH v2 1/3] net: implement mechanism for HW
- based QOS
-Date: Sun, 26 Dec 2010 15:47:09 -0800
-Message-ID: <20101226154709.5b24f976@nehalam>
-References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
-	<1293009149.3531.12.camel@jlt3.sipsolutions.net>
-	<4D12DE47.50200@intel.com>
+From: David Brownell <david-b-yBeKhBN/0LDR7s880joybQ@public.gmane.org>
+Subject: Re: rndis gadget: Inconsistent locking
+Date: Sun, 26 Dec 2010 15:49:01 -0800
+Message-ID: <1293407341.2255.1038.camel@helium>
+References: <AANLkTik=Uui7Xk9ZfFvQQKj94ZJUJ_n+bZbTQXbe+08i@mail.gmail.com>
+	 <AANLkTi==UqNNzokLcLWDpjM0cqM6aXjppsi4p6ogMAqX@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hadi@cyberus.ca" <hadi@cyberus.ca>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43976 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752668Ab0LZXrM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Dec 2010 18:47:12 -0500
-In-Reply-To: <4D12DE47.50200@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Neil Jones <neiljay-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTi==UqNNzokLcLWDpjM0cqM6aXjppsi4p6ogMAqX-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Dec 2010 21:29:43 -0800
-John Fastabend <john.r.fastabend@intel.com> wrote:
+On Wed, 2010-12-08 at 15:11 +0000, Neil Jones wrote:
+> 
+> Im getting another lockdep warning when using the RNDIS gadget:
 
-> On 12/22/2010 1:12 AM, Johannes Berg wrote:
-> > On Tue, 2010-12-21 at 11:28 -0800, John Fastabend wrote:
-> >> This patch provides a mechanism for lower layer devices to
-> >> steer traffic using skb->priority to tx queues. This allows
-> >> for hardware based QOS schemes to use the default qdisc without
-> >> incurring the penalties related to global state and the qdisc
-> >> lock. While reliably receiving skbs on the correct tx ring
-> >> to avoid head of line blocking resulting from shuffling in
-> >> the LLD. Finally, all the goodness from txq caching and xps/rps
-> >> can still be leveraged.
-> > 
-> > Is there any chance this might be applicable to the 802.11 layer as
-> > well? We will definitely still need an ndo_select_queue handler to reset
-> > in the case where the peer doesn't support QoS, but it seems the part
-> > that depends on the frame itself could be pushed out to the generic
-> > framework instead of having net/wireless/util.c:cfg80211_classify8021d?
-> > 
-> > johannes
-> > 
-> 
-> Johannes,
-> 
-> I took a quick look at this and I believe it should be doable. It would be nice to completely remove the ndo_select_queue if possible though.
-> 
-> I probably won't have a chance to look any further into this for at least a week maybe two. So I'll think about it a bit more later unless someone else gets there first.
-> 
-> Thanks,
-> John.
 
-The Beceem Wimax driver has same kind of select queue.
 
--- 
+Probably this is either
+
+
+ (a) a recent regression, maybe caused by a change ISTR in the network
+layer stats handling ... which broke another USB + NET driver in much
+the same way, wish I remembered details of which driver, the fix
+there was simple and maybe a good model for fixing this one.
+
+or (b)  ... maybe a
+DWC-specific USB device controller driver oddity.  (Seemed less likely
+to me when I glanced at the stackdumps below.
+
+Has this shown up with other USB device controller drivers, or just the
+DWC (DesignWare)? UDC driver?
+
+I'll say I'm not keen on adding a thread to the driver.  It's worked
+fine without one for many years, even running lockdep.  Whatever change
+(network stack or using DWC) caused the locking issue can be fixed
+without a new thread.
+
+- Dave
+
+
+
+The first thing I noticed was that very little of the dumped stack
+context was part of the RNDIS gadget ... often a sign that the issue
+is in the call down to the code dumping its stack (or its context).
+
+(Or if my recollection is right ... that there was an incompatible
+change in a network statistics call, and whoever changed that didn't
+update all affected callers.  (ergo breakage here and in another driver.
+> 
+>  WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
+>  Modules linked in: g_ether
+> 
+>  Call trace:
+>  [<40003bf8>] _show_stack+0x68/0x7c
+>  [<40003c20>] _dump_stack+0x14/0x28
+>  [<40013c3c>] _warn_slowpath_common+0x5c/0x7c
+>  [<40013c74>] _warn_slowpath_null+0x18/0x2c
+>  [<4001b17c>] ___local_bh_disable+0xc0/0xd0
+>  [<4001b1a0>] _local_bh_disable+0x14/0x28
+>  [<402e57f8>] __raw_spin_lock_bh+0x18/0x54
+>  [<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
+>  [<402580c4>] _dev_get_stats+0xb8/0xc0
+>  [<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
+>  [<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
+>  [<401d66fc>] _dwc_otg_request_done+0xd8/0x220
+>  [<401d928c>] _ep0_complete_request+0x3f4/0x578
+>  [<401d95bc>] _handle_ep0+0x1ac/0x146c
+>  [<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
+>  [<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
+>  [<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
+>  [<40054cf4>] _handle_IRQ_event+0x4c/0x184
+>  [<40057b4c>] _handle_level_irq+0xac/0x15c
+>  [<4000b204>] _metag_soc_irq_demux+0xac/0xb4
+>  [<40002dd4>] _do_IRQ+0x4c/0x78
+>  [<40004000>] _trigger_handler+0x38/0xac
+>  [<40000b18>] ___TBIBoingVec+0xc/0x10
+>  [<40003588>] _cpu_idle+0x54/0x78
+> 
+>  no locks held by swapper/0.
+>  ---[ end trace 77ac3cfee0ae5b25 ]---
+> 
+> It looks like we are calling spin_lock_bh in the completion function
+> which is running in hard_irq, I think the driver should defer handling
+> this msg (and maybe all requests) to a workqueue?
+> 
+> Cheers
+> 
+> Neil
+> 
+> 
+> 
+> On Wed, Dec 8, 2010 at 3:03 PM, Neil Jones <neiljay-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > Hi,
+> >
+> > Im getting another lockdep warning when using the RNDIS gadget:
+> >
+> >  WARNING: at kernel/softirq.c:98 ___local_bh_disable+0xc4/0xd0()
+> >  Modules linked in: g_ether
+> >
+> >  Call trace:
+> >  [<40003bf8>] _show_stack+0x68/0x7c
+> >  [<40003c20>] _dump_stack+0x14/0x28
+> >  [<40013c3c>] _warn_slowpath_common+0x5c/0x7c
+> >  [<40013c74>] _warn_slowpath_null+0x18/0x2c
+> >  [<4001b17c>] ___local_bh_disable+0xc0/0xd0
+> >  [<4001b1a0>] _local_bh_disable+0x14/0x28
+> >  [<402e57f8>] __raw_spin_lock_bh+0x18/0x54
+> >  [<40257f4c>] _dev_txq_stats_fold+0x7c/0x13c
+> >  [<402580c4>] _dev_get_stats+0xb8/0xc0
+> >  [<781d4e60>] _rndis_msg_parser+0x288/0xa04 [g_ether]
+> >  [<781d5600>] _rndis_command_complete+0x24/0x70 [g_ether]
+> >  [<401d66fc>] _dwc_otg_request_done+0xd8/0x220
+> >  [<401d928c>] _ep0_complete_request+0x3f4/0x578
+> >  [<401d95bc>] _handle_ep0+0x1ac/0x146c
+> >  [<401daf7c>] _dwc_otg_pcd_handle_in_ep_intr+0x1c0/0x8bc
+> >  [<401db8dc>] _dwc_otg_pcd_handle_intr+0x264/0x294
+> >  [<401d6288>] _dwc_otg_pcd_irq+0x10/0x30
+> >  [<40054cf4>] _handle_IRQ_event+0x4c/0x184
+> >  [<40057b4c>] _handle_level_irq+0xac/0x15c
+> >  [<4000b204>] _metag_soc_irq_demux+0xac/0xb4
+> >  [<40002dd4>] _do_IRQ+0x4c/0x78
+> >  [<40004000>] _trigger_handler+0x38/0xac
+> >  [<40000b18>] ___TBIBoingVec+0xc/0x10
+> >  [<40003588>] _cpu_idle+0x54/0x78
+> >
+> >  no locks held by swapper/0.
+> >  ---[ end trace 77ac3cfee0ae5b25 ]---
+> >
+> > It
+> >
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
