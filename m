@@ -1,34 +1,55 @@
 From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: Re: [PATCH] CAN: Use inode instead of kernel address for /proc file
-Date: Sun, 26 Dec 2010 11:38:43 -0500
-Message-ID: <1293381523.9764.52.camel@Dan>
-References: <1293315371.9764.44.camel@Dan> <4D166E9D.5080200@hartkopp.net>
-	 <4D1670CC.1000709@hartkopp.net> <1293316904.9764.48.camel@Dan>
-	 <4D17270B.5000204@hartkopp.net>
+Subject: [PATCH v2] CAN: Use inode instead of kernel address for /proc file
+Date: Sun, 26 Dec 2010 11:54:53 -0500
+Message-ID: <1293382493.9764.54.camel@Dan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	security@kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: netdev@vger.kernel.org, security@kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Urs Thuermann <urs.thuermann@volkswagen.de>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:63580 "EHLO
+Received: from mx1.vsecurity.com ([209.67.252.12]:51082 "EHLO
 	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752262Ab0LZQjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Dec 2010 11:39:10 -0500
-In-Reply-To: <4D17270B.5000204@hartkopp.net>
+	with ESMTP id S1752358Ab0LZQzS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Dec 2010 11:55:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2010-12-26 at 12:29 +0100, Oliver Hartkopp wrote:
+Since the socket address is just being used as a unique identifier, its
+inode number is an alternative that does not leak potentially sensitive
+information.
 
-> Convinced? 8-)
-> 
+CC-ing stable because MITRE has assigned CVE-2010-4565 to the issue.
 
-Absolutely.  I didn't mean to come across as argumentative, I was just
-trying to anticipate potential objections.  I'll resend shortly.
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
+Cc: stable <stable@kernel.org>
+---
+ net/can/bcm.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Thanks,
-Dan
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 6faa825..bc51b56 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -125,7 +125,7 @@ struct bcm_sock {
+ 	struct list_head tx_ops;
+ 	unsigned long dropped_usr_msgs;
+ 	struct proc_dir_entry *bcm_proc_read;
+-	char procname [20]; /* pointer printed in ASCII with \0 */
++	char procname [32]; /* inode number in decimal with \0 */
+ };
+ 
+ static inline struct bcm_sock *bcm_sk(const struct sock *sk)
+@@ -1521,7 +1521,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
+ 
+ 	if (proc_dir) {
+ 		/* unique socket address as filename */
+-		sprintf(bo->procname, "%p", sock);
++		sprintf(bo->procname, "%lu", sock_i_ino(sk));
+ 		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
+ 						     proc_dir,
+ 						     &bcm_proc_fops, sk);
+
 
