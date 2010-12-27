@@ -1,43 +1,78 @@
-From: David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>
-Subject: [PATCH] Bluetooth: l2cap: fix misuse of logical operation in place of bitop
-Date: Mon, 27 Dec 2010 19:00:10 +0100
-Message-ID: <1293472810-30233-1-git-send-email-dsterba@suse.cz>
+From: Hans Ulli Kroll <ulli.kroll@googlemail.com>
+Subject: Re: [RFC PATCH v2] Gemini: Gigabit ethernet driver
+Date: Mon, 27 Dec 2010 20:21:44 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1012271956260.8215@localhost>
+References: <20101227103247.8D2E813909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=
-	<jprvita-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-To: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1900419167-1293477711=:8215"
+Cc: Hans Ulli Kroll <ulli.kroll@googlemail.com>,
+	gemini-board-dev@lists.berlios.de, netdev@vger.kernel.org,
+	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:34389 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052Ab0L0TVy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Dec 2010 14:21:54 -0500
+Received: by eye27 with SMTP id 27so4005556eye.19
+        for <netdev@vger.kernel.org>; Mon, 27 Dec 2010 11:21:53 -0800 (PST)
+In-Reply-To: <20101227103247.8D2E813909@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CC: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-CC: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-CC: Jo=C3=A3o Paulo Rechi Vita <jprvita-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Signed-off-by: David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>
----
- net/bluetooth/l2cap.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
-index cd8f6ea..bdfdfdc 100644
---- a/net/bluetooth/l2cap.c
-+++ b/net/bluetooth/l2cap.c
-@@ -1893,8 +1893,8 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb,=
- struct socket *sock, struct ms
- 		if (pi->mode =3D=3D L2CAP_MODE_STREAMING) {
- 			l2cap_streaming_send(sk);
- 		} else {
--			if (pi->conn_state & L2CAP_CONN_REMOTE_BUSY &&
--					pi->conn_state && L2CAP_CONN_WAIT_F) {
-+			if ((pi->conn_state & L2CAP_CONN_REMOTE_BUSY) &&
-+					(pi->conn_state & L2CAP_CONN_WAIT_F)) {
- 				err =3D len;
- 				break;
- 			}
---=20
-1.7.3.4.626.g73e7b
+--8323328-1900419167-1293477711=:8215
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
+
+
+
+On Mon, 27 Dec 2010, Michał Mirosław wrote:
+
+> Driver for SL351x (Gemini) SoC ethernet peripheral. Based in part
+> on work by Paulius Zaleckas and GPLd code from Raidsonic and other
+> NAS vendors.
+> 
+> Tested on Raidsonic IcyBox 4220-B (dual SATA NAS).
+> 
+> Signed-off-by: Michał Mirosław <mirq-linux@rere.qmqm.pl>
+> 
+> ---
+> 
+> Hans, please drop previous mail from the gemini-board-dev queue -
+> it had broken headers.
+
+mail is already out.
+
+> +		.dis_tx = 1,
+> +		.dis_rx = 1,
+> +		.max_len = 2,	/* magic; 512 << max_len? */
+> +		.ipv4_rx_chksum = 1,
+> +		.ipv6_rx_chksum = 1,
+
+This is what I found in some netbsd code for maxlen
+
+#define	CONFIG0_MAXLEN_MASK			__BITS(8,10)
+#define	CONFIG0_MAXLEN_GET(x)			(((x) >> 8) & 
+CONFIG0_MAXLEN_MASK)
+#define	CONFIG0_MAXLEN(x)			(((x) & 
+CONFIG0_MAXLEN_MASK) << 8)
+#define	CONFIG0_MAXLEN_1536			0
+#define	CONFIG0_MAXLEN_1518			1
+#define	CONFIG0_MAXLEN_1522			2
+#define	CONFIG0_MAXLEN_1548			3
+#define	CONFIG0_MAXLEN_JUMBO			4
+
+spec. for the SL3616 says jumbo is 9k frames, but i didn't proved this.
+
+BTW:
+
+Why u64_stats ?
+I see only a few driver are using u64_stats.
+vlan, br_device and some intel driver 
+no gigabit driver for marvell devices uses u64_stats
+
+Ulli
+--8323328-1900419167-1293477711=:8215--
