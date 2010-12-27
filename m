@@ -1,64 +1,63 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH v2] CAN: Use inode instead of kernel address for /proc
- file
-Date: Mon, 27 Dec 2010 14:39:19 +0100
-Message-ID: <4D189707.5000708@hartkopp.net>
-References: <1293382493.9764.54.camel@Dan>
+From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Subject: Re: Bypass flow control problems
+Date: Mon, 27 Dec 2010 15:43:46 +0200
+Message-ID: <20101227134346.GD2754@reaktio.net>
+References: <1293040291.1777.36.camel@alkis>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Urs Thuermann <urs.thuermann@volkswagen.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	security@kernel.org
-To: Dan Rosenberg <drosenberg@vsecurity.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Alkis Georgopoulos <alkisg@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:23090 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753777Ab0L0NjV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Dec 2010 08:39:21 -0500
-In-Reply-To: <1293382493.9764.54.camel@Dan>
+Received: from smtp.tele.fi ([192.89.123.25]:47142 "EHLO
+	vulpes-int.media.sonera.net" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753880Ab0L0OTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Dec 2010 09:19:37 -0500
+Received: from smtp.tele.fi (smtp.tele.fi [192.89.123.25])
+	by vulpes-int.media.sonera.net (Postfix) with ESMTP id 04BB836BC
+	for <netdev@vger.kernel.org>; Mon, 27 Dec 2010 15:44:18 +0200 (EET)
+Content-Disposition: inline
+In-Reply-To: <1293040291.1777.36.camel@alkis>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26.12.2010 17:54, Dan Rosenberg wrote:
-> Since the socket address is just being used as a unique identifier, its
-> inode number is an alternative that does not leak potentially sensitive
-> information.
+On Wed, Dec 22, 2010 at 07:51:31PM +0200, Alkis Georgopoulos wrote:
+> Hi,
 > 
-> CC-ing stable because MITRE has assigned CVE-2010-4565 to the issue.
+> I'm an IT teacher/LTSP developer. In LTSP, thin clients are netbooted
+> from a server and receive a lot of X and remote disk traffic from it.
 > 
-> Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
-> Cc: stable <stable@kernel.org>
+> Many installations have a gigabit NIC on the server, an unmanaged
+> gigabit switch, and 100 Mbps NICs on the clients.
+> 
+> With flow control on, the server is limited to sending 100 Mbps to all
+> the clients. So with 10 thin clients the server can concurrently send
+> only 10 Mbps to each one of them.
+> 
+> On NICs that support it, we turn flow control off and the server can
+> properly send 100 Mbps to each client, i.e. 1 Gbps to 10 clients.
+> 
+>  * Is there any way to bypass that problem on NICs that do not support
+>    turning off flow control, like e.g. realteks?
+>    I.e. when a client sends a pause signal to the server, instead of the
+>    server pausing, to continue sending data to another client?
+>    Or even to limit the amound of data the server sends to each client,
+>    so that the clients never have to send pause signals?
+> 
 
-Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+You could set up QoS rules on the server to limit the network speed per client..
 
-Thanks Dan
+>  * I really don't understand why flow control is enabled by default on
+>    NICs and switches. In which case does it help? As far as I
+>    understand, all it does is ruin gigabit => 100 Mbps connections...
+> 
+>  * As a side note, since rtl8169 is a very common chipset, is there a
+>    way to disable flow control for that specific NIC?
+> 
+> This problem affects thousands of LTSP installations, we'd much
+> appreciate your knowledge and feedback on it.
+> 
 
-> ---
->  net/can/bcm.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/can/bcm.c b/net/can/bcm.c
-> index 6faa825..bc51b56 100644
-> --- a/net/can/bcm.c
-> +++ b/net/can/bcm.c
-> @@ -125,7 +125,7 @@ struct bcm_sock {
->  	struct list_head tx_ops;
->  	unsigned long dropped_usr_msgs;
->  	struct proc_dir_entry *bcm_proc_read;
-> -	char procname [20]; /* pointer printed in ASCII with \0 */
-> +	char procname [32]; /* inode number in decimal with \0 */
->  };
->  
->  static inline struct bcm_sock *bcm_sk(const struct sock *sk)
-> @@ -1521,7 +1521,7 @@ static int bcm_connect(struct socket *sock, struct sockaddr *uaddr, int len,
->  
->  	if (proc_dir) {
->  		/* unique socket address as filename */
-> -		sprintf(bo->procname, "%p", sock);
-> +		sprintf(bo->procname, "%lu", sock_i_ino(sk));
->  		bo->bcm_proc_read = proc_create_data(bo->procname, 0644,
->  						     proc_dir,
->  						     &bcm_proc_fops, sk);
-> 
-> 
+Did you try disabling flow control from the switch? 
+
+-- Pasi
+
