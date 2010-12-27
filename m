@@ -1,93 +1,40 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH v2] Broadcom CNIC core network driver: fix mem leak
- on allocation failures in cnic_alloc_uio_rings()
-Date: Sun, 26 Dec 2010 19:57:52 -0800
-Message-ID: <C27F8246C663564A84BB7AB34397724240CE6BCAD8@IRVEXCHCCR01.corp.ad.broadcom.com>
-References: <alpine.LNX.2.00.1012262124320.20797@swampdragon.chaosbits.net>
- <1293396850.7726.14.camel@Joe-Laptop>
- <alpine.LNX.2.00.1012262154420.20797@swampdragon.chaosbits.net>
+From: Phil Turmel <philip@turmel.org>
+Subject: Re: NetXen NX3031 failing test, reporting link down, not working
+Date: Sun, 26 Dec 2010 23:17:55 -0500
+Message-ID: <4D181373.3070107@turmel.org>
+References: <20101206171727.GA30695@torres.zugschlus.de> <20101225163632.GA27786@torres.zugschlus.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>,
-	"'John(Zongxi) Chen'" <zongxi@broadcom.com>
-To: "'Jesper Juhl'" <jj@chaosbits.net>,
-	"'Joe Perches'" <joe@perches.com>,
-	"'davem@davemloft.net'" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Marc Haber <mh+linux-kernel@zugschlus.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1012262154420.20797@swampdragon.chaosbits.net>
-Content-Language: en-US
+In-Reply-To: <20101225163632.GA27786@torres.zugschlus.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jesper Juhl wrote:
+Hi Marc,
 
+On 12/25/2010 11:36 AM, Marc Haber wrote:
+> On Mon, Dec 06, 2010 at 06:17:27PM +0100, Marc Haber wrote:
+>> I have HP DL 120 G6 with two Quad-GE Cards based on NetXen NX3031 (rev
+>> 42) [4040:0100]. The boxes are running with a grml daily image with
+>> kernel 2.6.36.1 for the time being, and the NetXens are giving me a
+>> hard time.
 > 
-> We are leaking memory in drivers/net/cnic.c::cnic_alloc_uio_rings() if
-> either of the calls to dma_alloc_coherent() fail. This patch fixes it
-> by
-> freeing both the memory allocated with kzalloc() and memory allocated
-> with
-> previous calls to dma_alloc_coherent() when there's a failure.
-> 
-> Thanks to  Joe Perches <joe@perches.com>  for suggesting a better
-> implementation than my initial version.
-> 
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> it's a pity that nobody cared to even point me into the right
+> direction. I am not aware of having done anything wrong.
 
-Thanks.
+Poor signal-to-noise ratio on lkml itself, so don't take it personally.  The net folk don't listen too closely, but akpm usually tosses these over the wall to 'em.  He seems to have missed this one, so I've added the most important CC.
 
-Acked-by: Michael Chan <mchan@broadcom.com>
+> Anyway, the issue could be solved by updating the on-card flashed
+> firmware from 4.0.530 to 4.0.539. With this firmware, everything seems
+> to be fine.
+> 
+> Maybe the Linux driver should be adapted to not fail silently if it
+> doesn't like the on-card firmware but instead log an error message so
+> that people know they need to update their firmware.
 
-> ---
->  cnic.c |   10 ++++++++--
->  1 file changed, 8 insertions(+), 2 deletions(-)
-> 
->   compile tested only since I don't have the hardware to do a proper
-> test.
-> 
-> diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-> index 92bac19..952afac 100644
-> --- a/drivers/net/cnic.c
-> +++ b/drivers/net/cnic.c
-> @@ -940,7 +940,7 @@ static int cnic_alloc_uio_rings(struct cnic_dev
-> *dev, int pages)
->  					   &udev->l2_ring_map,
->  					   GFP_KERNEL | __GFP_COMP);
->  	if (!udev->l2_ring)
-> -		return -ENOMEM;
-> +		goto err_udev;
-> 
->  	udev->l2_buf_size = (cp->l2_rx_ring_size + 1) * cp-
-> >l2_single_buf_size;
->  	udev->l2_buf_size = PAGE_ALIGN(udev->l2_buf_size);
-> @@ -948,7 +948,7 @@ static int cnic_alloc_uio_rings(struct cnic_dev
-> *dev, int pages)
->  					  &udev->l2_buf_map,
->  					  GFP_KERNEL | __GFP_COMP);
->  	if (!udev->l2_buf)
-> -		return -ENOMEM;
-> +		goto err_dma;
-> 
->  	write_lock(&cnic_dev_lock);
->  	list_add(&udev->list, &cnic_udev_list);
-> @@ -959,6 +959,12 @@ static int cnic_alloc_uio_rings(struct cnic_dev
-> *dev, int pages)
->  	cp->udev = udev;
-> 
->  	return 0;
-> + err_dma:
-> +	dma_free_coherent(&udev->pdev->dev, udev->l2_ring_size,
-> +       			  udev->l2_ring, udev->l2_ring_map);
-> + err_udev:
-> +	kfree(udev);
-> +	return -ENOMEM;
->  }
-> 
->  static int cnic_init_uio(struct cnic_dev *dev)
-> 
-> 
-> 
+I'm just a lurker, tester, and occasional bug reporter, so I can't speak to this.
+
+Phil
