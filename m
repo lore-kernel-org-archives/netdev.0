@@ -1,46 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ppp: allow disabling multilink protocol ID compression
-Date: Tue, 28 Dec 2010 13:53:55 -0800 (PST)
-Message-ID: <20101228.135355.115924746.davem@davemloft.net>
-References: <20101220195833.26786ec5@nehalam>
-	<20101221224400.GA17383@brick.ozlabs.ibm.com>
+Subject: Re: [patch] skfp: testing the wrong variable in skfp_driver_init()
+Date: Tue, 28 Dec 2010 13:55:15 -0800 (PST)
+Message-ID: <20101228.135515.48512926.davem@davemloft.net>
+References: <20101224051734.GO1936@bicker>
+	<20101224084538.GA2791@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: paulus@samba.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20101221224400.GA17383@brick.ozlabs.ibm.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: error27@gmail.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hsweeten@visionengravers.com, kernel-janitors@vger.kernel.org
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58486
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751642Ab0L1Vyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Dec 2010 16:54:45 -0500
+In-Reply-To: <20101224084538.GA2791@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Mackerras <paulus@samba.org>
-Date: Wed, 22 Dec 2010 09:44:00 +1100
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 24 Dec 2010 09:45:39 +0100
 
-> On Mon, Dec 20, 2010 at 07:58:33PM -0800, Stephen Hemminger wrote:
+> Fri, Dec 24, 2010 at 06:17:34AM CET, error27@gmail.com wrote:
+>>The intent here was to test if the allocation failed but we tested 
+>>"SharedMemSize" instead of "SharedMemAddr" by mistake.
+>>
+>>Signed-off-by: Dan Carpenter <error27@gmail.com>
+>>
+>>diff --git a/drivers/net/skfp/skfddi.c b/drivers/net/skfp/skfddi.c
+>>index 0a66fed..16c6265 100644
+>>--- a/drivers/net/skfp/skfddi.c
+>>+++ b/drivers/net/skfp/skfddi.c
+>>@@ -412,7 +412,7 @@ static  int skfp_driver_init(struct net_device *dev)
+>> 		bp->SharedMemAddr = pci_alloc_consistent(&bp->pdev,
+>> 							 bp->SharedMemSize,
+>> 							 &bp->SharedMemDMA);
+>>-		if (!bp->SharedMemSize) {
+>>+		if (!bp->SharedMemAddr) {
+>> 			printk("could not allocate mem for ");
+>> 			printk("hardware module: %ld byte\n",
+>> 			       bp->SharedMemSize);
 > 
->> Linux would not connect to other router running old version Cisco IOS (12.0).
->> This is most likely a bug in that version of IOS, since it is fixed
->> in later versions. As a workaround this patch allows a module parameter
->> to be set to disable compressing the protocol ID.
->> 
->> See: https://bugzilla.vyatta.com/show_bug.cgi?id=3979
->> 
->> RFC 1990 allows an implementation to formulate MP fragments as if protocol
->> compression had been negotiated.  This allows us to always send compressed
->> protocol IDs.  But some implementations don't accept MP fragments with
->> compressed protocol IDs.  This parameter allows us to interoperate with
->> them.  The default value of the configurable parameter is the same as the
->> current behavior:  protocol compression is enabled.  If protocol compression
->> is disabled we will not send compressed protocol IDs.
->> 
->> This is based on an earlier patch by Bob Gilligan (using a sysctl).
->> Module parameter is writable to allow for enabling even if ppp
->> is already loaded for other uses.
->> 
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Looks obvious.
 > 
-> Acked-by: Paul Mackerras <paulus@samba.org>
+> Reviewed-by: Jiri Pirko <jpirko@redhat.com>
 
 Applied, thanks.
