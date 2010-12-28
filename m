@@ -1,31 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ehea: Avoid changing vlan flags
-Date: Tue, 28 Dec 2010 13:51:53 -0800 (PST)
-Message-ID: <20101228.135153.59670582.davem@davemloft.net>
-References: <AANLkTimODzrAWS+05+FChtme_3um_9Ky7cwa3gWHFaXp@mail.gmail.com>
-	<1292871757-24918-1-git-send-email-leitao@linux.vnet.ibm.com>
+From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
+Subject: RE: [patch] vxge: remove duplicated part of check {nodisc}
+Date: Tue, 28 Dec 2010 13:51:27 -0800
+Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EF8E701E1@FRE1EXCH02.hq.exar.com>
+References: <20101224061539.GP1936@bicker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org, jesse@nicira.com
-To: leitao@linux.vnet.ibm.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>,
+	Jon Mason <Jon.Mason@exar.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58476
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751136Ab0L1VvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Dec 2010 16:51:22 -0500
-In-Reply-To: <1292871757-24918-1-git-send-email-leitao@linux.vnet.ibm.com>
+Received: from webmail.exar.com ([204.154.183.83]:28166 "EHLO smtp1.exar.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752261Ab0L1Vv3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Dec 2010 16:51:29 -0500
+In-Reply-To: <20101224061539.GP1936@bicker>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: leitao@linux.vnet.ibm.com
-Date: Mon, 20 Dec 2010 17:02:37 -0200
-
-> This patch avoids disabling the vlan flags using ethtool.
+> This is just a cleanup to make the static checkers happy.  We don't need
+> to check "own" twice.
 > 
-> Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> 
+> diff --git a/drivers/net/vxge/vxge-traffic.c b/drivers/net/vxge/vxge-
+> traffic.c
+> index 42cc298..4c10d6c 100644
+> --- a/drivers/net/vxge/vxge-traffic.c
+> +++ b/drivers/net/vxge/vxge-traffic.c
+> @@ -1240,7 +1240,7 @@ enum vxge_hw_status vxge_hw_ring_rxd_next_completed(
+>  	*t_code	= (u8)VXGE_HW_RING_RXD_T_CODE_GET(control_0);
+> 
+>  	/* check whether it is not the end */
+> -	if (!own || ((*t_code == VXGE_HW_RING_T_CODE_FRM_DROP) && own)) {
+> +	if (!own || *t_code == VXGE_HW_RING_T_CODE_FRM_DROP) {
+> 
+>  		vxge_assert(((struct vxge_hw_ring_rxd_1 *)rxdp)->host_control
+> !=
+>  				0);
+Looks good, thanks.
 
-Applied.
-
-Although in the long term, having each and every driver handle this
-seems rediculious.
+Acked-by: Ram Vepa <ram.vepa@exar.com>
