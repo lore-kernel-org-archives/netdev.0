@@ -1,50 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] net/unix: do not forget to autobind in standard case
-Date: Tue, 28 Dec 2010 13:58:05 -0800 (PST)
-Message-ID: <20101228.135805.260098055.davem@davemloft.net>
-References: <alpine.LNX.2.01.1012250107330.22521@obet.zrqbmnf.qr>
-	<1293554655.20573.5.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] ifb: add performance flags to
+ dev->features
+Date: Tue, 28 Dec 2010 23:36:21 +0100
+Message-ID: <1293575781.20573.391.camel@edumazet-laptop>
+References: <20101220130247.GB9325@ff.dom.local>
+	 <AANLkTi=eqCWpFpHQ86_yO544p5G6J6P2os7rCR9FBtUd@mail.gmail.com>
+	 <1292855120.2800.45.camel@edumazet-laptop>
+	 <20101228.135013.39173075.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jengelh@medozas.de, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: xiaosuo@gmail.com, jarkao2@gmail.com, pstaszewski@itcare.pl,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57714
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751642Ab0L1V5f convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Dec 2010 16:57:35 -0500
-In-Reply-To: <1293554655.20573.5.camel@edumazet-laptop>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:44448 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751788Ab0L1Wgc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Dec 2010 17:36:32 -0500
+Received: by wwa36 with SMTP id 36so10219070wwa.1
+        for <netdev@vger.kernel.org>; Tue, 28 Dec 2010 14:36:30 -0800 (PST)
+In-Reply-To: <20101228.135013.39173075.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 28 Dec 2010 17:44:15 +0100
+Le mardi 28 d=C3=A9cembre 2010 =C3=A0 13:50 -0800, David Miller a =C3=A9=
+crit :
 
-> Le samedi 25 d=E9cembre 2010 =E0 01:08 +0100, Jan Engelhardt a =E9cri=
-t :
->> parent 67514fc40bbec857018cbc689d440282b75551db (v2.6.37-rc1-229-g67=
-514fc)
->> commit 973bdc63c6aba703dd7b62a6ec7ae4bab7847731
->> Author: Jan Engelhardt <jengelh@medozas.de>
->> Date:   Sat Dec 25 00:50:59 2010 +0100
->>=20
->> net/unix: do not forget to autobind in standard case
->>=20
->> A program using recvmsg on an AF_LOCAL datagram socket does not
->> receive the peer's address when the remote has not issued a bind. Th=
-is
->> makes it impossible to send messages back. (But the same _does_ work
->> in IP.) The cause for this is because autobinding was only done when
->> credential passing was requested.
->>=20
->=20
-> It would be good you did some research and tell us why current code
-> tests SOCK_PASSCRED
->=20
-> There must be a reason this restrictive code is here, dont you think =
-?
+> Changli has suggested that these flags can also be set in
+> ->vlan_features, please address that if you expect me to
+> apply the change.
 
-I definitely think that test is intentional.  I'm not applying this
-without at least some basic research.
+Hmm, I am just scratching my head to actually setup vlans on top of ifb=
+,
+to test such a change ?
+
+
+
+
+
