@@ -1,52 +1,61 @@
-From: FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>
-Subject: Re: [PATCH net-2.6] starfire: Replace broken preprocessor test for
- dma_addr_t size
-Date: Tue, 28 Dec 2010 14:39:36 +0900
-Message-ID: <20101228143936X.fujita.tomonori@lab.ntt.co.jp>
-References: <1293509989.2928.99.camel@localhost>
-	<AANLkTinx-n045io5bPT-u_7T5cEiu6+74p30=94vkhPU@mail.gmail.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [RFC PATCH v2] Gemini: Gigabit ethernet driver
+Date: Tue, 28 Dec 2010 12:45:20 +0100
+Message-ID: <20101228114520.GA17774@rere.qmqm.pl>
+References: <20101227103247.8D2E813909@rere.qmqm.pl> <alpine.LNX.2.00.1012271956260.8215@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ben@decadent.org.uk, davem@davemloft.net, ionut@badula.org,
-	netdev@vger.kernel.org, fujita.tomonori@lab.ntt.co.jp,
-	akpm@linux-foundation.org, ralf@linux-mips.org
-To: akinobu.mita@gmail.com
+Cc: gemini-board-dev@lists.berlios.de, netdev@vger.kernel.org,
+	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+To: Hans Ulli Kroll <ulli.kroll@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tama500.ecl.ntt.co.jp ([129.60.39.148]:33925 "EHLO
-	tama500.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060Ab0L1GLH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Dec 2010 01:11:07 -0500
-In-Reply-To: <AANLkTinx-n045io5bPT-u_7T5cEiu6+74p30=94vkhPU@mail.gmail.com>
+Received: from rere.qmqm.pl ([89.167.52.164]:57245 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753093Ab0L1LpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Dec 2010 06:45:24 -0500
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1012271956260.8215@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 Dec 2010 14:27:44 +0900
-Akinobu Mita <akinobu.mita@gmail.com> wrote:
-
-> 2010/12/28 Ben Hutchings <ben@decadent.org.uk>:
-> > Commit 56543af "starfire: use BUILD_BUG_ON for netdrv_addr_t" revea=
-led
-> > that the preprocessor condition used to find the size of dma_addr_t
-> > yielded the wrong result for some architectures and configurations.
-> > This was kluged for 64-bit PowerPC in commit 3e502e6 by adding yet
-> > another case to the condition. =A0However, some MIPS configurations=
- are
-> > still handled incorrectly.
-> >
-> > Replace the preprocessor test with expressions using ?: or
-> > __builtin_choose_expr() as necessary.
+On Mon, Dec 27, 2010 at 08:21:44PM +0100, Hans Ulli Kroll wrote:
+> On Mon, 27 Dec 2010, Micha=B3 Miros=B3aw wrote:
+> > +		.dis_tx =3D 1,
+> > +		.dis_rx =3D 1,
+> > +		.max_len =3D 2,	/* magic; 512 << max_len? */
+> > +		.ipv4_rx_chksum =3D 1,
+> > +		.ipv6_rx_chksum =3D 1,
 >=20
-> I remember ARCH_DMA_ADDR_T_64BIT was introduced to handle this kind o=
-f
-> test easily.
+> This is what I found in some netbsd code for maxlen
 >=20
-> So please use CONFIG_ARCH_DMA_ADDR_T_64BIT for this test.
-> You may also need to set ARCH_DMA_ADDR_T_64BIT for the MIPS
-> architecture correctly.
+> #define	CONFIG0_MAXLEN_MASK			__BITS(8,10)
+> #define	CONFIG0_MAXLEN_GET(x)			(((x) >> 8) &=20
+> CONFIG0_MAXLEN_MASK)
+> #define	CONFIG0_MAXLEN(x)			(((x) &=20
+> CONFIG0_MAXLEN_MASK) << 8)
+> #define	CONFIG0_MAXLEN_1536			0
+> #define	CONFIG0_MAXLEN_1518			1
+> #define	CONFIG0_MAXLEN_1522			2
+> #define	CONFIG0_MAXLEN_1548			3
+> #define	CONFIG0_MAXLEN_JUMBO			4
+>=20
+> spec. for the SL3616 says jumbo is 9k frames, but i didn't proved thi=
+s.
 
-I already sent CONFIG_ARCH_DMA_ADDR_T_64BIT patch for MIPS. It has
-been in -mm:
+This is what I got after quick testing:
 
-http://userweb.kernel.org/~akpm/mmotm/broken-out/mips-enable-arch_dma_a=
-ddr_t_64bit-with-highmem-64bit_phys_addr-64bit.patch
+max_len rx_max
+0       1536
+1       1518
+2       1522
+3       1542
+4       9212
+5       10236
+6       1518
+7       1518
+
+rx_max is total packet's length (MAC header + (VLAN) + payload).
+=20
+Best Regards,
+Micha=B3 Miros=B3aw
