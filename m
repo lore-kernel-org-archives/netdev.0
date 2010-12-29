@@ -1,50 +1,65 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: dm9000 patch
-Date: Wed, 29 Dec 2010 13:16:32 -0800
-Message-ID: <1293657392.31071.15.camel@Joe-Laptop>
-References: <4D1A5C2A.5050606@gmail.com>
-	 <20101229060637.GA31010@jasper.tkos.co.il>	<4D1B33F2.5060600@gmail.com>
-	 <20101229180650.GE6067@tarshish>
-	 <AANLkTim0+GbddLdkPFoggeCKpU7on7mta0V2mZZLgviE@mail.gmail.com>
-	 <4D1BA0D0.1060407@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH v2] Gemini: Gigabit ethernet driver
+Date: Wed, 29 Dec 2010 21:42:37 +0000
+Message-ID: <1293658957.3028.14.camel@localhost>
+References: <1202721929.17594.1293513142947.JavaMail.root@tahiti.vyatta.com>
+	 <alpine.LNX.2.00.1012291750060.9177@localhost>
+	 <1293647441.2413.2.camel@edumazet-laptop> <20101229112827.203469c2@nehalam>
+	 <1293652346.7150.10.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org,
-	uClinux development list <uclinux-dev@uclinux.org>
-To: Angelo Dureghello <angelo70@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Hans Ulli Kroll <ulli.kroll@googlemail.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>,
+	gemini-board-dev@lists.berlios.de, netdev@vger.kernel.org,
+	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2871 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753412Ab0L2VQe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Dec 2010 16:16:34 -0500
-In-Reply-To: <4D1BA0D0.1060407@gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:1979 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753156Ab0L2Vmp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 16:42:45 -0500
+In-Reply-To: <1293652346.7150.10.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2010-12-29 at 21:57 +0100, Angelo Dureghello wrote:
-> the kernel is a main line kernel. Then yes, i am still using uclinux 
-> tree for libc/tools.
+On Wed, 2010-12-29 at 20:52 +0100, Eric Dumazet wrote:
+> Le mercredi 29 d=C3=A9cembre 2010 =C3=A0 11:28 -0800, Stephen Hemming=
+er a =C3=A9crit :
+>=20
+> > It looks like the comment/documentation in netdevice.h is incorrect=
+=2E
+> >=20
+> >  * struct net_device_stats* (*ndo_get_stats)(struct net_device *dev=
+);
+> >  *	Called when a user wants to get the network device usage
+> >  *	statistics. Drivers must do one of the following:
+> >  *	1. Define @ndo_get_stats64 to fill in a zero-initialised
+> >  *	   rtnl_link_stats64 structure passed by the caller.
+> >  *	2. Define @ndo_get_stats to update a net_device_stats structure
+> >  *	   (which should normally be dev->stats) and return a pointer to
+> >  *	   it. The structure may be changed asynchronously only if each
+> >  *	   field is written atomically.
+> >  *	3. Update dev->stats asynchronously and atomically, and define
+> >  *	   neither operation.
+> >=20
+>=20
+> You mean we should insert a new line ?
+> I believe this documentation is up to date.
+[...]
 
-Does it still occur if you remove the debug line below?
----
- drivers/net/dm9000.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+It would also be worth explicitly stating that there is no serialisatio=
+n
+of calls to these operations, so drivers may need to use a spinlock in
+their implementation.  I wrote this description under the mistaken
+belief that there was some serialisation, and point 2 reflects that.
 
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 2d4c4fc..c774430 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -1077,8 +1077,6 @@ static irqreturn_t dm9000_interrupt(int irq, void *dev_id)
- 	unsigned long flags;
- 	u8 reg_save;
- 
--	dm9000_dbg(db, 3, "entering %s\n", __func__);
--
- 	/* A real interrupt coming */
- 
- 	/* holders of db->lock must always block IRQs */
+Ben.
 
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
