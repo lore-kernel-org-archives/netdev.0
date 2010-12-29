@@ -1,88 +1,79 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
+From: Shawn Guo <shawn.guo@freescale.com>
 Subject: Re: [PATCH 03/10] net/fec: add mac field into platform data and
-	consolidate fec_get_mac
-Date: Wed, 29 Dec 2010 12:10:19 +0100
-Message-ID: <20101229111019.GA14221@pengutronix.de>
-References: <1293548155-16328-1-git-send-email-shawn.guo@freescale.com> <1293548155-16328-4-git-send-email-shawn.guo@freescale.com> <20101229065329.GB31010@jasper.tkos.co.il> <20101229103014.GD19347@freescale.com> <20101229103758.GU14221@pengutronix.de> <20101229110828.GE19347@freescale.com>
+ consolidate fec_get_mac
+Date: Wed, 29 Dec 2010 19:58:09 +0800
+Message-ID: <20101229115808.GF19347@freescale.com>
+References: <1293548155-16328-1-git-send-email-shawn.guo@freescale.com>
+ <1293548155-16328-4-git-send-email-shawn.guo@freescale.com>
+ <20101229065329.GB31010@jasper.tkos.co.il>
+ <20101229100520.GB19347@freescale.com>
+ <20101229103138.GT14221@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Baruch Siach <baruch@tkos.co.il>, davem@davemloft.net,
-	gerg@snapgear.com, eric@eukrea.com, bryan.wu@canonical.com,
-	r64343@freescale.com, B32542@freescale.com, lw@karo-electronics.de,
-	w.sang@pengutronix.de, s.hauer@pengutronix.de,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Shawn Guo <shawn.guo@freescale.com>
+Cc: Baruch Siach <baruch@tkos.co.il>, <davem@davemloft.net>,
+	<gerg@snapgear.com>, <eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<s.hauer@pengutronix.de>, <linux-arm-kernel@lists.infradead.org>,
+	<netdev@vger.kernel.org>
+To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50232 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751689Ab0L2LKn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 06:10:43 -0500
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:18253
+	"EHLO VA3EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751760Ab0L2L4T convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Dec 2010 06:56:19 -0500
+Received: from mail71-va3 (localhost.localdomain [127.0.0.1])	by
+ mail71-va3-R.bigfish.com (Postfix) with ESMTP id 5185B16F02C0	for
+ <netdev@vger.kernel.org>; Wed, 29 Dec 2010 11:56:16 +0000 (UTC)
+Received: from VA3EHSMHS007.bigfish.com (unknown [10.7.14.241])	by
+ mail71-va3.bigfish.com (Postfix) with ESMTP id 20FD4147804F	for
+ <netdev@vger.kernel.org>; Wed, 29 Dec 2010 11:56:16 +0000 (UTC)
+Received: from az33smr02.freescale.net (az33smr02.freescale.net
+ [10.64.34.200])	by az33egw01.freescale.net (8.14.3/8.14.3) with ESMTP id
+ oBTBu3nU027197	for <netdev@vger.kernel.org>; Wed, 29 Dec 2010 04:56:03 -0700
+ (MST)
+Received: from ubuntu.localdomain (ubuntu.ap.freescale.net [10.192.242.196])
+	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id oBTBu21C013986	for
+ <netdev@vger.kernel.org>; Wed, 29 Dec 2010 05:56:02 -0600 (CST)
 Content-Disposition: inline
-In-Reply-To: <20101229110828.GE19347@freescale.com>
+In-Reply-To: <20101229103138.GT14221@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Shawn,
+Hi Uwe,
 
-On Wed, Dec 29, 2010 at 07:08:29PM +0800, Shawn Guo wrote:
-> On Wed, Dec 29, 2010 at 11:37:58AM +0100, Uwe Kleine-K=F6nig wrote:
-> > On Wed, Dec 29, 2010 at 06:30:15PM +0800, Shawn Guo wrote:
-> > > > On Tue, Dec 28, 2010 at 10:55:48PM +0800, Shawn Guo wrote:
-> > > [...]
-> > > > > +	/*
-> > > > > +	 * try to get mac address in following order:
-> > > > > +	 *
-> > > > > +	 * 1) kernel command line fec_mac=3Dxx:xx:xx...
-> > > > > +	 */
-> > > > > +	iap =3D fec_mac_default;
-> > > > > +
-> > > > > +	/*
-> > > > > +	 * 2) from flash or fuse (via platform data)
-> > > > > +	 */
-> > > >=20
-> > > > Again, how do you handle the dual MAC case?
-> > > >=20
-> > > For the platform data case, the following patch reads both mac
-> > > addresses.
+On Wed, Dec 29, 2010 at 11:31:38AM +0100, Uwe Kleine-K=F6nig wrote:
+> Hello Shawn,
+>=20
+> On Wed, Dec 29, 2010 at 06:05:21PM +0800, Shawn Guo wrote:
+> > On Wed, Dec 29, 2010 at 08:53:30AM +0200, Baruch Siach wrote:
+> > > Hi Shawn,
+> > > In the case of dual MAC that you later add support for, the addre=
+ss which one=20
+> > > is being set? Is there a way to set both in kernel command line?
 > > >=20
-> > > [PATCH 09/10] ARM: mx28: read fec mac address from ocotp
-> > >=20
-> > > +static int __init mx28evk_fec_get_mac(void)
-> > > +{
-> > > +       int i, ret;
-> > > +       u32 val;
-> > > +
-> > > +       /*
-> > > +        * OCOTP only stores the last 4 octets for each mac addre=
-ss,
-> > > +        * so hard-coding the first two octets as Freescale OUI (=
-00:04:9f)
-> > > +        * is needed.
-> > > +        */
-> > > +       for (i =3D 0; i < 2; i++) {
-> > > +               ret =3D mxs_read_ocotp(0x20 + i * 0x10, 1, &val);
-> > > +               if (ret)
-> > > +                       goto error;
-> > > +
-> > > +               mx28_fec_pdata[i].mac[0] =3D 0x00;
-> > > +               mx28_fec_pdata[i].mac[1] =3D 0x04;
-> > > +               mx28_fec_pdata[i].mac[2] =3D (val >> 24) & 0xff;
-> > > +               mx28_fec_pdata[i].mac[3] =3D (val >> 16) & 0xff;
-> > > +               mx28_fec_pdata[i].mac[4] =3D (val >> 8) & 0xff;
-> > > +               mx28_fec_pdata[i].mac[5] =3D (val >> 0) & 0xff;
-> > uuh.  Is ((val >> 24) & 0xff) supposed to be 0x9f?  If not this mig=
-ht
-> > have unwanted effects (practical, don't know about legal ones).
-> Yes, it is 0x9f.
-Then maybe hardcode that, or at least warn if it's not?
+> > The fec0 gets fec_mac and fec1 gets fec_mac + 1. The following code
+> > in function fec_get_mac takes care of it.
+> >=20
+> > 	/* Adjust MAC if using default MAC address */
+> default MAC address means the address passed via cmdline?  Sounds
+> confusing to me.
+Will change the comment and fec_mac_default name to address
+the concern.
 
-Best regards
-Uwe
+>=20
+> > 	if (iap =3D=3D fec_mac_default)
+> > 		dev->dev_addr[ETH_ALEN-1] =3D fec_mac_default[ETH_ALEN-1] + fep->=
+pdev->id;
+> Can this overflow?  (I didn't check the code, so my concern might be
+> completely stupid here.)
+No. dev->dev_addr points to netdev_hw_addr->addr, which is a 32 bytes a=
+rray.
 
 --=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Regards,
+Shawn
+
