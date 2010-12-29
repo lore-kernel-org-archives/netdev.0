@@ -1,83 +1,119 @@
-From: Pasi =?iso-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
-Subject: Re: Bypass flow control problems
-Date: Wed, 29 Dec 2010 10:47:40 +0200
-Message-ID: <20101229084740.GR2754@reaktio.net>
-References: <1293040291.1777.36.camel@alkis> <20101227134346.GD2754@reaktio.net> <5BBF316A-A162-4683-B6CA-6662F221F500@intel.com>
+From: Angelo Dureghello <angelo70@gmail.com>
+Subject: Re: dm9000 patch
+Date: Wed, 29 Dec 2010 09:48:08 +0100
+Message-ID: <4D1AF5C8.5050809@gmail.com>
+References: <4D1A5C2A.5050606@gmail.com> <20101229060637.GA31010@jasper.tkos.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alkis Georgopoulos <alkisg@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.tele.fi ([192.89.123.25]:41062 "EHLO smtp.tele.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751057Ab0L2Irw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Dec 2010 03:47:52 -0500
-Content-Disposition: inline
-In-Reply-To: <5BBF316A-A162-4683-B6CA-6662F221F500@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Baruch Siach <baruch@tkos.co.il>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20101229060637.GA31010@jasper.tkos.co.il>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 28, 2010 at 09:05:42PM -0800, Kirsher, Jeffrey T wrote:
-> On Dec 27, 2010, at 8:43, Pasi K=E4rkk=E4inen <pasik@iki.fi> wrote:
->=20
-> > On Wed, Dec 22, 2010 at 07:51:31PM +0200, Alkis Georgopoulos wrote:
-> >> Hi,
-> >>=20
-> >> I'm an IT teacher/LTSP developer. In LTSP, thin clients are netboo=
-ted
-> >> from a server and receive a lot of X and remote disk traffic from =
-it.
-> >>=20
-> >> Many installations have a gigabit NIC on the server, an unmanaged
-> >> gigabit switch, and 100 Mbps NICs on the clients.
-> >>=20
-> >> With flow control on, the server is limited to sending 100 Mbps to=
- all
-> >> the clients. So with 10 thin clients the server can concurrently s=
-end
-> >> only 10 Mbps to each one of them.
-> >>=20
-> >> On NICs that support it, we turn flow control off and the server c=
-an
-> >> properly send 100 Mbps to each client, i.e. 1 Gbps to 10 clients.
-> >>=20
-> >> * Is there any way to bypass that problem on NICs that do not supp=
-ort
-> >>   turning off flow control, like e.g. realteks?
-> >>   I.e. when a client sends a pause signal to the server, instead o=
-f the
-> >>   server pausing, to continue sending data to another client?
-> >>   Or even to limit the amound of data the server sends to each cli=
-ent,
-> >>   so that the clients never have to send pause signals?
-> >>=20
-> >=20
-> > You could set up QoS rules on the server to limit the network speed=
- per client..
-> >=20
-> >> * I really don't understand why flow control is enabled by default=
- on
-> >>   NICs and switches. In which case does it help? As far as I
-> >>   understand, all it does is ruin gigabit =3D> 100 Mbps connection=
-s...
-> >>=20
-> >> * As a side note, since rtl8169 is a very common chipset, is there=
- a
-> >>   way to disable flow control for that specific NIC?
-> >>=20
-> >> This problem affects thousands of LTSP installations, we'd much
-> >> appreciate your knowledge and feedback on it.
-> >>=20
-> >=20
-> > Did you try disabling flow control from the switch?=20
->=20
-> He stated the switch was a un-managed switch, so he would be unable t=
-o disable flow control on the switch.
->=20
+On 29/12/2010 07:06, Baruch Siach wrote:
+> Hi Angelo,
+>
+> On Tue, Dec 28, 2010 at 10:52:42PM +0100, Angelo Dureghello wrote:
+>    
+>> sorry to contact you directly but i couldn't get any help from the
+>> kernel.org mailing list, since i am not a developer my mails are
+>> generally skipped.
+>>      
+> The best way to get the contact info for a piece of kernel code, is using the
+> get_maintainer.pl script. Running 'scripts/get_maintainer.pl -f
+> drivers/net/dm9000.c' gives the following output:
+>
+> netdev@vger.kernel.org
+> linux-kernel@vger.kernel.org
+>
+> I added both to Cc.
+>
+>    
+>> I am very near to have a custom board working with MCF5307 cpu and dm9000.
+>> I am using kernel 2.6.36-rc3 with your last patch about
+>> spinlock-recursion already included.
+>>      
+> You should try to update to the latest .36 kernel, which is currently
+> 2.6.36.2. The problem that you experience might be unrelated to the dm9000
+> driver (or to networking at all), so it might have been fixed in this version.
+>
+>    
+>> I have "ping" and "telnet" to the embedded board fully working.
+>> If i try to get a sample web page with some images from the board
+>> httpd with a browser, in 80% of cases i get a trap/oops:
+>>      
+> Try to enable KALLSYMS in your kernel .config to make your stack trace more
+> meaningful. This is under 'General setup ->  Configure standard kernel features
+> (for small systems) ->  Load all symbols for debugging/ksymoops'.
+>
+> I hope this helps.
+>
+> baruch
+>
+>    
+>> [    4.590000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+>> [   67.630000] BUG: spinlock recursion on CPU#0, httpd/29
+>> [   67.630000]  lock: 00c42c06, .magic: dead4ead, .owner: httpd/29,
+>> .owner_cpu: 0
+>> [   67.630000] Stack from 00d7b914:
+>> [   67.630000]         00d7b940 000a8cf0 0015f693 00c42c06 dead4ead
+>> 00dec1d4 0000001d 00000000
+>> [   67.630000]         00c42c06 00006188 00c42800 00d7b974 000a8ec2
+>> 00c42c06 0015f6f9 00002704
+>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
+>> 00006188 00c42800 0002b312
+>> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+>> 000df21c 00c42c06 00000000
+>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
+>> 00cfc640 00006188 000096e8
+>> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+>> 00029d3a 0000001f 00c42800
+>> [   67.630000] Call Trace:
+>> [   67.630000]  [000a8cf0]  [000a8ec2]  [0014701e]  [000df21c]  [00029d3a]
+>> [   67.630000]  [00029e84]  [00000bb6]  [0000336e]  [000df162]  [000effd6]
+>> [   67.630000]  [00100482]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]
+>> [   67.630000]  [0010dfb2]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]
+>> [   67.630000]  [0011ecc6]  [001249fe]  [000e4084]  [0011621c]  [00131a44]
+>> [   67.630000]  [000e11ee]  [00041944]  [00041a1c]  [00041e46]  [00003218]
+>> [   67.630000] BUG: spinlock lockup on CPU#0, httpd/29, 00c42c06
+>> [   67.630000] Stack from 00d7b934:
+>> [   67.630000]         00d7b974 000a8f66 0015f703 00000000 00dec1d4
+>> 0000001d 00c42c06 00002704
+>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
+>> 00006188 00c42800 0002b312
+>> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+>> 000df21c 00c42c06 00000000
+>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
+>> 00cfc640 00006188 000096e8
+>> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+>> 00029d3a 0000001f 00c42800
+>> [   67.630000]         0016c1b4 00cfc640 0000001f 0016c178 00029d10
+>> 00146fb8 00d7ba20 00029e84
+>> [   67.630000] Call Trace:
+>> [   67.630000]  [000a8f66]  [0014701e]  [000df21c]  [00029d3a]  [00029e84]
+>> [   67.630000]  [00000bb6]  [0000336e]  [000df162]  [000effd6]  [00100482]
+>> [   67.630000]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]  [0010dfb2]
+>> [   67.630000]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]  [0011ecc6]
+>> [   67.630000]  [001249fe]  [000e4084]  [0011621c]  [00131a44]  [000e11ee]
+>> [   67.630000]  [00041944]  [00041a1c]  [00041e46]  [00003218]
+>>
+>> As i said, i was hoping in your patch but i sadly discovered it is
+>> already included in this kernel version.
+>> Hope you can give me some help or can forward me to an appropriate
+>> mailing list.
+>>      
+>    
+Hi Baruch and all,
+many thanks for the help,
 
-Oh, I missed that :) Never mind then.
+i am going to try 2.6.36.2 and KALLSYMS.
+Anyway, my purpose now is to learn as much as possible the interrupt 
+handling and the spinlock part, and as much as possible about linux 
+drivers, since i am very interested to enter on this and be able to fix 
+issues and contribute.
 
--- Pasi
-
+regards,
+angelo
