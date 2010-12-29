@@ -1,358 +1,235 @@
-From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
-Subject: 2.6.37-rc8: Reported regressions from 2.6.36
-Date: Wed, 29 Dec 2010 23:59:38 +0100 (CET)
-Message-ID: <96DQe4a_2tH.A.cFB.l27GNB@chimera>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: 2.6.37-rc8: Reported regressions 2.6.35 -> 2.6.36
+Date: Thu, 30 Dec 2010 00:18:40 +0100 (CET)
+Message-ID: <odW4v9b6arG.A.2bH.uE8GNB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-To: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-acpi-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This message contains a list of some regressions from 2.6.36,
-for which there are no fixes in the mainline known to the tracking team=
-=2E
+[NOTE: This most likely is the last summary report of regressions introduced
+ between 2.6.35 and 2.6.36.]
+
+This message contains a list of some post-2.6.35 regressions introduced before
+2.6.36, for which there are no fixes in the mainline known to the tracking team.
 If any of them have been fixed already, please let us know.
 
-If you know of any other unresolved regressions from 2.6.36, please let=
- us
-know either and we'll add them to the list.  Also, please let us know
-if any of the entries below are invalid.
+If you know of any other unresolved post-2.6.35 regressions, please let us know
+either and we'll add them to the list.  Also, please let us know if any
+of the entries below are invalid.
 
-Each entry from the list will be sent additionally in an automatic repl=
-y
-to this message with CCs to the people involved in reporting and handli=
-ng
-the issue.
+Each entry from the list will be sent additionally in an automatic reply to
+this message with CCs to the people involved in reporting and handling the
+issue.
 
 
 Listed regressions statistics:
 
   Date          Total  Pending  Unresolved
   ----------------------------------------
-  2010-12-30       85       32          26
-  2010-12-19       73       28          24
-  2010-12-03       55       25          19
-  2010-11-19       39       29          25
+  2010-12-30       99       22          20
+  2010-12-19       98       28          23
+  2010-12-05       95       34          31
+  2010-11-19       92       38          34
+  2010-10-17       70       27          27
+  2010-10-10       56       16          15
+  2010-10-03       52       16          14
+  2010-09-26       46       15          13
+  2010-09-20       38       15          15
+  2010-09-12       28       14          13
+  2010-08-30       21       16          15
 
 
 Unresolved regressions
 ----------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25842
-Subject		: thinkpad T410s intel i915 regression
-Submitter	: Travis Hume <travis-02nwaM6XSaFQx4ORub6hmQ@public.gmane.org>
-Date		: 2010-12-29 18:21 (1 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24752
+Subject		: Random crashes easily reproducible with make -j5 - intel i915 - kernel 2.6.36 on intel/nvidia hybrid graphics machine
+Submitter	: Giacomo <delleceste@gmail.com>
+Date		: 2010-12-10 8:57 (20 days old)
+Message-ID	: <AANLkTimkQM94u9iz7FVVjehB0mwDwfkNwKhF2F2tYq-r@mail.gmail.com>
+References	: http://marc.info/?l=linux-kernel&m=129197146619176&w=2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25822
-Subject		: [BUG] kernel BUG at mm/truncate.c:479! on 2.6.37-rc8
-Submitter	: Gurudas Pai <gurudas.pai-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date		: 2010-12-29 6:58 (1 days old)
-Message-ID	: <4D1AD935.1020504-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129360511222037&w=3D=
-2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24722
+Subject		: Disconnecting my USB mouse hangs the machine and issues kernel warning
+Submitter	: Heinz Diehl <htd@fancy-poultry.org>
+Date		: 2010-12-12 12:42 (18 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25812
-Subject		: 2.6.37-rc7: Regression: b43: crashes in hwrng_register()
-Submitter	: Mario 'BitKoenig' Holbe <Mario.Holbe-hs6bpBdVsEZfm0AUMx9V0g@public.gmane.org>
-Date		: 2010-12-28 13:32 (2 days old)
-Message-ID	: <slrnihjpnh.7t4.Mario.Holbe-elxHLJlugahyoG5eyubGJTtNMCm3PftOHZ5vskTnxNA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129354319002301&w=3D=
-2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24392
+Subject		: AGP aperture disabled, worked in 2.6.35
+Submitter	: Stephen Kitt <steve@sk2.org>
+Date		: 2010-12-06 06:31 (24 days old)
+First-Bad-Commit: http://git.kernel.org/linus/http://git.kernel.org/linus/96576a9e1a0cdb8a43d3af5846be0948f52b4460
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25602
-Subject		: [regression] 2.6.37-rc5: scsi_eh_11 CPU loop
-Submitter	: Martin Steigerwald <Martin-3kZCPVa5dk2azgQtNeiOUg@public.gmane.org>
-Date		: 2010-12-20 10:05 (10 days old)
-Message-ID	: <201012201105.08993.Martin-3kZCPVa5dk2azgQtNeiOUg@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129283954108331&w=3D=
-2
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24202
+Subject		: [830] drm:intel_prepare_page_flip, *ERROR* Prepared flip multiple times
+Submitter	: mkkot <marcin2006@gmail.com>
+Date		: 2010-12-02 14:10 (28 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25432
-Subject		: Alpha fails to build with gcc 4.4
-Submitter	: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Date		: 2010-12-22 01:55 (8 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=23812
+Subject		: HAL does not provide battery information on RHEL5 and CentOS-5
+Submitter	: Dag Wieers <dag@wieers.com>
+Date		: 2010-11-26 18:08 (34 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25402
-Subject		: kernel (2.6.37-8-generic_amd64) panic on boot (with message =
-"map_single: bounce buffer is not DMA'ble) - possible regression !!!
-Submitter	: carlos <carlos.palma-sh/6fXdz2Rs@public.gmane.org>
-Date		: 2010-12-21 19:58 (9 days old)
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22842
+Subject		: iwl3945 suddenly stops working
+Submitter	: Felipe Contreras <felipe.contreras@gmail.com>
+Date		: 2010-11-14 11:14 (46 days old)
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25392
-Subject		: scsi_eh_11 CPU loop
-Submitter	: Zhang, Yanmin <yanmin_zhang-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22782
+Subject		: 2.6.36: general protection fault during lockfs lockspace removal
+Submitter	: nik@linuxbox.cz <nik@linuxbox.cz>
+Date		: 2010-11-12 12:05 (48 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22172
+Subject		: alsa-util.c: snd_pcm_avail_delay() returned strange values: delay 0 is less than avail 32
+Submitter	: Tobias <devnull@plzk.org>
+Date		: 2010-11-06 09:33 (54 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22092
+Subject		: Kernel v2.6.36 trouble on USB disconnect
+Submitter	: Ketil Froyn <ketil@froyn.name>
+Date		: 2010-10-29 8:05 (62 days old)
+Message-ID	: <<AANLkTik5qVxkEGVAA1PSOGk2KTW+ekHpSwttsQEWzWj+@mail.gmail.com>>
+References	: http://marc.info/?l=linux-kernel&m=128833956503607&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=21652
+Subject		: several problems with intel graphics since 2.6.36
+Submitter	: Norbert Preining <preining@logic.at>
+Date		: 2010-10-27 14:32 (64 days old)
+Message-ID	: <20101027143252.GA8676@gamma.logic.tuwien.ac.at>
+References	: http://marc.info/?l=linux-kernel&m=128818998630241&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=21402
+Subject		: [KVM] Noacpi Windows guest can not boot up on 32bit KVM host
+Submitter	: xudong <xudong.hao@intel.com>
+Date		: 2010-10-29 03:01 (62 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=20332
+Subject		: [LogFS] [2.6.36-rc7] Kernel BUG at lib/btree.c:465!
+Submitter	: Prasad Joshi <prasadjoshi124@gmail.com>
+Date		: 2010-10-12 18:56 (79 days old)
+Message-ID	: <AANLkTimAbCZNhLQ5nADUiAC+7JpAeJBEmjFwdxyZ-FxO@mail.gmail.com>
+References	: http://marc.info/?l=linux-kernel&m=128690910501830&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=20322
+Subject		: 2.6.36-rc7: inconsistent lock state: inconsistent {IN-RECLAIM_FS-R} -> {RECLAIM_FS-ON-W} usage.
+Submitter	: Dave Jones <davej@redhat.com>
+Date		: 2010-10-11 20:10 (80 days old)
+Message-ID	: <20101011201007.GA29707@redhat.com>
+References	: http://marc.info/?l=linux-kernel&m=128682782828453&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=20232
+Subject		: kworker consumes ~100% CPU on HP Elitebook 8540w running 2.6.36_rc6-git4
+Submitter	: Ozan Caglayan <ozan@pardus.org.tr>
+Date		: 2010-10-13 06:13 (78 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19392
+Subject		: WARNING: at drivers/net/wireless/ath/ath5k/base.c:3475 ath5k_bss_info_changed+0x44/0x168 [ath5k]()
+Submitter	: Justin Mattock <justinmattock@gmail.com>
+Date		: 2010-09-28 22:30 (93 days old)
+Message-ID	: <<AANLkTim5WCGKPvEkOkO_YnMF9pg8mvLfQoFBNUFpfa_k@mail.gmail.com>>
+References	: http://marc.info/?l=linux-kernel&m=128571307018635&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19372
+Subject		: 2.6.36-rc6: WARNING: at drivers/gpu/drm/radeon/radeon_fence.c:235 radeon_fence_wait+0x35a/0x3c0
+Submitter	: Alexey Dobriyan <adobriyan@gmail.com>
+Date		: 2010-09-29 21:29 (92 days old)
+Message-ID	: <20100929212923.GA5578@core2.telecom.by>
+References	: http://marc.info/?l=linux-kernel&m=128579579400315&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19052
+Subject		: 2.6.36-rc5-git1 -- [drm:i915_report_and_clear_eir] *ERROR* EIR stuck: 0x00000010, masking
+Submitter	: Miles Lane <miles.lane@gmail.com>
+Date		: 2010-09-22 23:47 (99 days old)
+Message-ID	: <AANLkTikWQjUQjFJU9MO1+XbSLAEE-GARz+S+Dz2Fgu4h@mail.gmail.com>
+References	: http://marc.info/?l=linux-kernel&m=128519926626322&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17121
+Subject		: Two blank rectangles more than 10 cm long when booting
+Submitter	: Eric Valette <eric.valette@free.fr>
+Date		: 2010-08-26 17:24 (126 days old)
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17061
+Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
+Submitter	: Pavel Machek <pavel@ucw.cz>
+Date		: 2010-08-21 15:24 (131 days old)
+Message-ID	: <20100821152445.GA1536@ucw.cz>
+References	: http://marc.info/?l=linux-kernel&m=128240433828087&w=2
+
+
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16951
+Subject		: hackbench regression with 2.6.36-rc1
+Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
 Date		: 2010-08-18 6:18 (134 days old)
-Message-ID	: <1282112318.21202.8.camel-sz7BYL/Y5Hu/P+R7jlPCFVaTQe2KTcn/@public.gmane.org>
-References	: http://marc.info/?t=3D129283967100004&r=3D1&w=3D2
-		  http://lkml.org/lkml/2010/12/20/52
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24882
-Subject		: PM/Hibernate: Memory corruption patch introduces regression =
-(2.6.36.2)
-Submitter	:  <akwatts-DaQTI0RpDDMAvxtiuMwx3w@public.gmane.org>
-Date		: 2010-12-14 04:00 (16 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24822
-Subject		: Embedded DisplayPort is detected wrongly on HP ProBook 5320m
-Submitter	: Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>
-Date		: 2010-12-13 11:09 (17 days old)
-Handled-By	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24772
-Subject		: Crash with btrfs rootfs on dm-crypt [ kernel BUG at fs/btrfs=
-/inode.c:806! ] on linux 2.6.37-rc5
-Submitter	: Fabio Comolli <fabio.comolli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-12-10 20:30 (20 days old)
-Message-ID	: <AANLkTi=3Dj9zsaYNcu=3DNgGV=3DHfE-3rNHzVswov8VrgwjQp@mail.=
-gmail.com>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129201308706568&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24762
-Subject		: BUG at perf_ctx_adjust_freq (kernel/perf_event.c:1582)
-Submitter	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
-Date		: 2010-12-10 12:00 (20 days old)
-Message-ID	: <c6d829$pqibha-vB7d4uKqMBxScZeZrdtW41DQ4js95KgL@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129198247531612&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24592
-Subject		: 2.6.37-rc5: NULL pointer oops in selinux_socket_unix_stream_=
-connect
-Submitter	: Jeremy Fitzhardinge <jeremy-TSDbQ3PG+2Y@public.gmane.org>
-Date		: 2010-12-08 21:09 (22 days old)
-Message-ID	: <4CFFF3F3.90100-TSDbQ3PG+2Y@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129184256629712&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24582
-Subject		: Kernel Oops at tty_buffer_request_room when using pppd progr=
-am (2.6.37-rc4)
-Submitter	: baoyb <baoyb-pUFDVul4/eDM1kAEIRd3EQ@public.gmane.org>
-Date		: 2010-12-08 13:55 (22 days old)
-Message-ID	: <EF6DDE218DB34702B1FA84D6CD7EA771@baoyb>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129181763525738&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24372
-Subject		: kdump broken on 2.6.37-rc4
-Submitter	: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date		: 2010-12-03 11:16 (27 days old)
-Message-ID	: <20101203111623.GA2741-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129137502323003&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24362
-Subject		: perf hw  in kexeced kernel broken in tip
-Submitter	: Yinghai Lu <yinghai-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Date		: 2010-12-01 8:00 (29 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/33c6d6a7ad0ffab9b1b15f8=
-e4107a2af072a05a0
-Message-ID	: <4CF60095.1020900-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129119055922065&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D24272
-Subject		: iotop reports insane per-process disk read/write statistics
-Submitter	: Brian Rogers <brian-+B9G8rMUbpQ@public.gmane.org>
-Date		: 2010-12-03 12:00 (27 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/85893120699f8bae8caa12a=
-8ee18ab5fceac978e
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D23902
-Subject		: [BUG] 2.6.37-rc3 massive interactivity regression on ARM
-Submitter	: Mikael Pettersson <mikpe-1zs4UD6AkMk@public.gmane.org>
-Date		: 2010-11-27 15:16 (33 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/305e6835e05513406fa1282=
-0e40e4a8ecb63743c
-Message-ID	: <<19697.8378.717761.236202-tgku4HJDRZih8lFjZTKsyTAV6s6igYVG@public.gmane.org>>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129087098911837&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D23472
-Subject		: 2.6.37-rc2 vs. 2.6.36 laptop backlight changes?
-Submitter	: Patrick Schaaf <netdev-g5tzxDtodVw@public.gmane.org>
-Date		: 2010-11-17 13:41 (43 days old)
-Message-ID	: <1290001262.5727.2.camel@lat1>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D129000127920912&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D23102
-Subject		: [bisected] i915 regression in post 2.6.36 kernels
-Submitter	: Johannes Hirte <johannes.hirte-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org>
-Date		: 2010-11-10 7:02 (50 days old)
-Message-ID	: <201011100802.20332.johannes.hirte-3kN+8DYepx7zMJDuovMtMLNAH6kLmebB@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D128937310017057&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22942
-Subject		: [2.6.37-rc1, OOM] virtblk: OOM in do_virtblk_request()
-Submitter	: Dave Chinner <david-FqsqvQoI3Ljby3iVrkZq2A@public.gmane.org>
-Date		: 2010-11-05 1:30 (55 days old)
-Message-ID	: <20101105013003.GE13830@dastard>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D128892062917641&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22912
-Subject		: spi_lm70llp module crash on unload (2.6.37-rc1)
-Submitter	: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date		: 2010-11-05 0:16 (55 days old)
-Message-ID	: <20101104171620.00d8c95d.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D128891627913647&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22882
-Subject		: (2.6.37-rc1) amd64-agp module crashed on second load
-Submitter	: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date		: 2010-11-05 0:13 (55 days old)
-Message-ID	: <20101104171333.fea1f498.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D128891605213447&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22642
-Subject		: 2.6.37-rc1: Disk takes 10 seconds to resume - MacBook2,1
-Submitter	: Tobias <devnull-fBT1nhYaLZ4@public.gmane.org>
-Date		: 2010-11-10 19:33 (50 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22562
-Subject		: Regression in 2.6.37-rc1 - logs spammed with "unable to enum=
-erate USB port" - bisected to commit 3df7169e
-Submitter	: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Date		: 2010-11-02 22:32 (58 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/3df7169e73fc1d71a39cffe=
-acc969f6840cdf52b
-Message-ID	: <4CD09166.4060202-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D128873713207906&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22542
-Subject		: [2.6.37-rc1] drm:i195 errors
-Submitter	: Paul Rolland <rol-fjEKYshTNZ1eoWH0uzbU5w@public.gmane.org>
-Date		: 2010-11-02 14:58 (58 days old)
-Message-ID	: <20101102155813.09cb2c6e-Hu5lHNoInTV+MQpiyFM1nV6hYfS7NtTn@public.gmane.org>
-References	: http://marc.info/?l=3Dlinux-kernel&m=3D128870991628970&w=3D=
-2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22472
-Subject		: vga_switcheroo fails to switch from intel to ati
-Submitter	: Radu Andries <admiral0-BoOA+NLF7L6xbKUeIHjxjQ@public.gmane.org>
-Date		: 2010-11-08 16:46 (52 days old)
+Message-ID	: <1282112318.21202.8.camel@ymzhang.sh.intel.com>
+References	: http://marc.info/?l=linux-kernel&m=128211235904910&w=2
 
 
 Regressions with patches
 ------------------------
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25442
-Subject		: ixp4xx defines FREQ macro; conflicts with gspca/ov519 driver
-Submitter	: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Date		: 2010-12-22 02:02 (8 days old)
-Handled-By	: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=3D41252
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=21092
+Subject		: Kernel 2.6.36 Bug during quotaon on reiserfs
+Submitter	:  <markus.gapp@gmx.net>
+Date		: 2010-10-24 16:57 (67 days old)
+Handled-By	: Jan Kara <jack@suse.cz>
+Patch		: https://bugzilla.kernel.org/attachment.cgi?id=35292
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25422
-Subject		: nouveau fails to build on ia64
-Submitter	: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Date		: 2010-12-22 01:49 (8 days old)
-Handled-By	: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=3D41242
+Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16971
+Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and writeq
+Submitter	: Meelis Roos <mroos@linux.ee>
+Date		: 2010-08-19 21:03 (133 days old)
+Message-ID	: <<<alpine.SOC.1.00.1008192359310.19654@math.ut.ee>>>
+References	: http://marc.info/?l=linux-kernel&m=128225184900892&w=2
+Patch		: http://marc.info/?l=linux-scsi&m=128590267608876&w=2
 
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D25012
-Subject		: BUG: i915 causes NULL pointer dereference in 2.6.37-rc5-git4
-Submitter	: T=C3=B5nu Raitviir <jussuf-Y27EyoLml9s@public.gmane.org>
-Date		: 2010-12-15 12:48 (15 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/da79de97d254145dcb7c08c=
-978b1093eac15ec9c
-Message-ID	: <alpine.DEB.2.00.1012151238570.4797-rbynxJDbKr47Jk59zykfHYGUQIXJGoOI@public.gmane.org>
-References	: http://www.spinics.net/lists/dri-devel/msg06282.html
-Handled-By	: Chris Wilson <chris-Y6uKTt2uX1cEflXRtASbqLVCufUGDwFn@public.gmane.org>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=3D41502
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22812
-Subject		: kernel oops on 2.6.37-rc1
-Submitter	: Andrew <atswartz-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date		: 2010-11-12 16:05 (48 days old)
-=46irst-Bad-Commit: http://git.kernel.org/linus/a68c439b1966c91f0ef474e=
-2bf275d6792312726
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=3D41192
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22672
-Subject		: Regression in 2.6.37-rc1 for Intel 945 Graphics Adapter - bi=
-sected to commit e9e331a
-Submitter	: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Date		: 2010-11-11 01:56 (49 days old)
-References	: https://bugs.freedesktop.org/show_bug.cgi?id=3D31803
-		  http://marc.info/?l=3Dlinux-kernel&m=3D128944001311444&w=3D2
-		  http://www.mail-archive.com/intel-gfx-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org/msg0223=
-5.html
-Patch		: https://patchwork.kernel.org/patch/359472/
-		  https://patchwork.kernel.org/patch/359502/
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=3D22662
-Subject		: divide error in select_task_rq_fair()
-Submitter	: Myron Stowe <myron.stowe-VXdhtT5mjnY@public.gmane.org>
-Date		: 2010-11-10 23:58 (50 days old)
-Patch		: http://lkml.org/lkml/2010/11/13/176
-		  http://lkml.org/lkml/2010/11/13/181
-
-
-=46or details, please visit the bug entries and follow the links given =
-in
+For details, please visit the bug entries and follow the links given in
 references.
 
-As you can see, there is a Bugzilla entry for each of the listed regres=
-sions.
-There also is a Bugzilla entry used for tracking the regressions from 2=
-=2E6.36,
-unresolved as well as resolved, at:
+As you can see, there is a Bugzilla entry for each of the listed regressions.
+There also is a Bugzilla entry used for tracking the regressions introduced
+between 2.6.35 and 2.6.36, unresolved as well as resolved, at:
 
-http://bugzilla.kernel.org/show_bug.cgi?id=3D21782
+http://bugzilla.kernel.org/show_bug.cgi?id=16444
 
-Please let the tracking team know if there are any Bugzilla entries tha=
-t
+Please let the tracking team know if there are any Bugzilla entries that
 should be added to the list in there.
 
 Thanks!
+
