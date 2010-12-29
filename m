@@ -1,57 +1,63 @@
-From: "Shmulik Ravid" <shmulikr@broadcom.com>
-Subject: Re: [PATCH net-next 2/3] dcbnl: adding DCBX feature flags
- get-set
-Date: Wed, 29 Dec 2010 16:05:53 +0200
-Message-ID: <1293631553.29378.30.camel@lb-tlvb-shmulik.il.broadcom.com>
-References: <1292959973.7142.131.camel@lb-tlvb-shmulik.il.broadcom.com>
- <4D1A7D85.2030709@intel.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-2.6] starfire: Fix dma_addr_t size test for MIPS
+Date: Wed, 29 Dec 2010 14:26:17 +0000
+Message-ID: <1293632777.2928.127.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"Liu, Lucy" <lucy.liu@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "John Fastabend" <john.r.fastabend@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: Akinobu Mita <akinobu.mita@gmail.com>,
+	FUJITA Tomonori <fujita.tomonori@lab.ntt.co.jp>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Ion Badulescu <ionut@badula.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4047 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752693Ab0L2OGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Dec 2010 09:06:11 -0500
-In-Reply-To: <4D1A7D85.2030709@intel.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:37094 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752925Ab0L2O0a convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Dec 2010 09:26:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Commit 56543af "starfire: use BUILD_BUG_ON for netdrv_addr_t" revealed
+that the preprocessor condition used to find the size of dma_addr_t
+yielded the wrong result for some architectures and configurations.
+This was kluged for 64-bit PowerPC in commit 3e502e6 by adding yet
+another case to the condition.  However, 64-bit MIPS configurations
+are not detected reliably either.
 
-On Tue, 2010-12-28 at 16:15 -0800, John Fastabend wrote:
-> On 12/21/2010 11:32 AM, Shmulik Ravid wrote:
-> > Adding a pair of set-get functions to dcbnl for setting the negotiation
-> > flags of the various DCB features. The user sets these flags (enable,
-> > advertise, willing) for each feature to be used by the device DCBX
-> > engine. The 'get' routine returns which of the features is enabled
-> > after the negotiation.
-> > 
-> > Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
-> 
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-> Dave, these are going to conflict with my patches
-> 
-> [net-next-2.6,1/3] dcbnl: add support for ieee8021Qaz attributes
-> [net-next-2.6,2/3] dcbnl: add appliction tlv handlers
-> 
-> If needed either Shmulik or myself can work out the conflicts if you want a single series that applies cleanly.
-> 
-> Thanks,
-> John.
+This should be fixed by using CONFIG_ARCH_DMA_ADDR_T_64BIT, but that
+isn't yet defined everywhere it should be.
 
-John, 
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+The MIPS conditions are changed to match those Tomonori specified for
+CONFIG_ARCH_DMA_ADDR_T_64BIT.
 
-Since I need to modify my patches I can resubmit them on top of your
-patches above so that they would need to be applied after yours are. Is
-this a good way to resolve the conflicts ?
+Please change the condition to defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) in
+net-next-2.6.  I leave it up to you to decide when to make that change.
+(Simply applying a patch to net-next-2.6 now will result in a later
+merge conflict and breakage for those two architectures.)
 
-Thanks,
-Shmulik  
+Ben.
+
+ drivers/net/starfire.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/starfire.c b/drivers/net/starfire.c
+index 4adf124..a4f2bd5 100644
+--- a/drivers/net/starfire.c
++++ b/drivers/net/starfire.c
+@@ -148,7 +148,7 @@ static int full_duplex[MAX_UNITS] = {0, };
+  * This SUCKS.
+  * We need a much better method to determine if dma_addr_t is 64-bit.
+  */
+-#if (defined(__i386__) && defined(CONFIG_HIGHMEM64G)) || defined(__x86_64__) || defined (__ia64__) || defined(__alpha__) || defined(__mips64__) || (defined(__mips__) && defined(CONFIG_HIGHMEM) && defined(CONFIG_64BIT_PHYS_ADDR)) || (defined(__powerpc64__) || defined(CONFIG_PHYS_64BIT))
++#if (defined(__i386__) && defined(CONFIG_HIGHMEM64G)) || defined(__x86_64__) || defined (__ia64__) || defined(__alpha__) || (defined(CONFIG_MIPS) && ((defined(CONFIG_HIGHMEM) && defined(CONFIG_64BIT_PHYS_ADDR)) || defined(CONFIG_64BIT))) || (defined(__powerpc64__) || defined(CONFIG_PHYS_64BIT))
+ /* 64-bit dma_addr_t */
+ #define ADDR_64BITS	/* This chip uses 64 bit addresses. */
+ #define netdrv_addr_t __le64
+-- 
+1.7.2.3
 
 
