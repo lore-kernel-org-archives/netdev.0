@@ -1,76 +1,287 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC PATCH v2] Gemini: Gigabit ethernet driver
-Date: Wed, 29 Dec 2010 11:57:16 -0800
-Message-ID: <20101229115716.1eecec27@nehalam>
-References: <1202721929.17594.1293513142947.JavaMail.root@tahiti.vyatta.com>
-	<alpine.LNX.2.00.1012291750060.9177@localhost>
-	<1293647441.2413.2.camel@edumazet-laptop>
-	<20101229112827.203469c2@nehalam>
-	<1293652346.7150.10.camel@edumazet-laptop>
+From: Angelo Dureghello <angelo70@gmail.com>
+Subject: Re: dm9000 patch
+Date: Wed, 29 Dec 2010 21:57:52 +0100
+Message-ID: <4D1BA0D0.1060407@gmail.com>
+References: <4D1A5C2A.5050606@gmail.com>	<20101229060637.GA31010@jasper.tkos.co.il>	<4D1B33F2.5060600@gmail.com>	<20101229180650.GE6067@tarshish> <AANLkTim0+GbddLdkPFoggeCKpU7on7mta0V2mZZLgviE@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hans Ulli Kroll <ulli.kroll@googlemail.com>,
-	Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	=?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>,
-	gemini-board-dev@lists.berlios.de, netdev@vger.kernel.org,
-	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45283 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752423Ab0L2T5T convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 14:57:19 -0500
-In-Reply-To: <1293652346.7150.10.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-m68k@vger.kernel.org,
+	uClinux development list <uclinux-dev@uclinux.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <AANLkTim0+GbddLdkPFoggeCKpU7on7mta0V2mZZLgviE@mail.gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Dec 2010 20:52:26 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi all,
+thanks for the help,
+the kernel is a main line kernel. Then yes, i am still using uclinux 
+tree for libc/tools.
 
-> Le mercredi 29 d=E9cembre 2010 =E0 11:28 -0800, Stephen Hemminger a =E9=
-crit :
->=20
-> > It looks like the comment/documentation in netdevice.h is incorrect=
-=2E
-> >=20
-> >  * struct net_device_stats* (*ndo_get_stats)(struct net_device *dev=
-);
-> >  *	Called when a user wants to get the network device usage
-> >  *	statistics. Drivers must do one of the following:
-> >  *	1. Define @ndo_get_stats64 to fill in a zero-initialised
-> >  *	   rtnl_link_stats64 structure passed by the caller.
-> >  *	2. Define @ndo_get_stats to update a net_device_stats structure
-> >  *	   (which should normally be dev->stats) and return a pointer to
-> >  *	   it. The structure may be changed asynchronously only if each
-> >  *	   field is written atomically.
-> >  *	3. Update dev->stats asynchronously and atomically, and define
-> >  *	   neither operation.
-> >=20
->=20
-> You mean we should insert a new line ?
-> I believe this documentation is up to date.
->=20
->=20
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index cc916c5..3add243 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -721,7 +721,9 @@ struct xps_dev_maps {
->   *                      struct rtnl_link_stats64 *storage);
->   * struct net_device_stats* (*ndo_get_stats)(struct net_device *dev)=
-;
->   *	Called when a user wants to get the network device usage
-> - *	statistics. Drivers must do one of the following:
-> + *	statistics.
-> + *
-> + * Drivers must do one of the following:
-                     ^
-                    only
+I collected another spinlock recursion with a slightly different call 
+stack trace, as always, the spinlock recursion issue happen on a high 
+tx/rx traffic of the dm9000e, in this case just asking an index.html 
+with some images and texts:
 
-Need to make it clear that get_stats is not needed if get_stats64 is de=
-fined.
-                     =20
+[ 1108.930000] BUG: spinlock recursion on CPU#0, httpd/29
+[ 1108.930000]  lock: 00c42c06, .magic: dead4ead, .owner: httpd/29, 
+.owner_cpu: 0
+[ 1108.930000] Stack from 00d7a688:
+[ 1108.930000]         00d7a6b4 000ad988 001840ca 00c42c06 dead4ead 
+00d641d4 0000001d 00000000
+[ 1108.930000]         00c42c06 000064f0 00c42800 00d7a6e8 000adb5a 
+00c42c06 00184130 00002704
+[ 1108.930000]         00000000 0000001f 0014d17e 00159912 00c42b60 
+000064f0 00c42800 0002cb16
+[ 1108.930000]         00d7a6f8 0014d24e 00c42c06 00000000 00d7a738 
+000e485c 00c42c06 00000000
+[ 1108.930000]         00000000 0000001f 0014d17e 00159912 0000004a 
+00cfc600 000064f0 00009a74
+[ 1108.930000]         0002cb16 00191204 00d7a760 0002b6f2 00d7a760 
+0002b514 0000001f 00c42800
+[ 1108.930000] Call Trace:
+[ 1108.930000]  [000ad988] spin_bug+0x86/0x11a
+[ 1108.930000]  [000adb5a] do_raw_spin_lock+0x58/0x120
+[ 1108.930000]  [0014d24e] _raw_spin_lock_irqsave+0x28/0x32
+[ 1108.930000]  [000e485c] dm9000_interrupt+0x1a/0x2e0
+[ 1108.930000]  [0002b514] handle_IRQ_event+0x2a/0xec
+[ 1108.930000]  [0002b680] __do_IRQ+0xaa/0x128
+[ 1108.930000]  [00000bb6] do_IRQ+0x48/0x62
+[ 1108.930000]  [000033c6] inthandler+0x6a/0x74
+[ 1108.930000]  [000fb626] dev_hard_start_xmit+0x170/0x4c4
+[ 1108.930000]  [0010b80e] sch_direct_xmit+0xc0/0x1bc
+[ 1108.930000]  [000fe9de] dev_queue_xmit+0x160/0x3e6
+[ 1108.930000]  [001195c4] ip_finish_output+0xec/0x320
+[ 1108.930000]  [0011a768] ip_output+0x9e/0xa8
+[ 1108.930000]  [00119856] ip_local_out+0x26/0x30
+[ 1108.930000]  [0011a56e] ip_build_and_send_pkt+0x16e/0x178
+[ 1108.930000]  [0012fc96] tcp_v4_send_synack+0x52/0x90
+[ 1108.930000]  [00130f86] tcp_v4_conn_request+0x3fa/0x57c
+[ 1108.930000]  [0012a1c6] tcp_rcv_state_process+0x25e/0xa66
+[ 1108.930000]  [001309a4] tcp_v4_do_rcv+0x7c/0x1c8
+[ 1108.930000]  [00132854] tcp_v4_rcv+0x546/0x6d2
+[ 1108.930000]  [001153a8] ip_local_deliver+0x9c/0x1b0
+[ 1108.930000]  [001158e8] ip_rcv+0x42c/0x5f0
+[ 1108.930000]  [000fa74e] __netif_receive_skb+0x196/0x2ec
+[ 1108.930000]  [000fe142] process_backlog+0x72/0x11e
+[ 1108.930000]  [000fe290] net_rx_action+0xa2/0x150
+[ 1108.930000]  [0000e13c] __do_softirq+0x74/0xe4
+[ 1108.930000]  [0000e1e2] do_softirq+0x36/0x40
+[ 1108.930000]  [0000e6c6] local_bh_enable+0x7a/0xa4
+[ 1108.930000]  [000fe972] dev_queue_xmit+0xf4/0x3e6
+[ 1108.930000]  [001195c4] ip_finish_output+0xec/0x320
+[ 1108.930000]  [0011a768] ip_output+0x9e/0xa8
+[ 1108.930000]  [00119856] ip_local_out+0x26/0x30
+[ 1108.930000]  [0011a90a] ip_queue_xmit+0x198/0x426
+[ 1108.930000]  [0012bcc8] tcp_transmit_skb+0x3f0/0x76c
+[ 1108.930000]  [0012cfda] tcp_write_xmit+0x178/0x868
+[ 1108.930000]  [0012d6f8] __tcp_push_pending_frames+0x2e/0x9a
+[ 1108.930000]  [001222be] tcp_sendmsg+0x82e/0x98c
+[ 1108.930000]  [0013d9c0] inet_sendmsg+0x32/0x54
+[ 1108.930000]  [000ec25e] sock_aio_write+0xc8/0x138
+[ 1108.930000]  [00043e7e] do_sync_write+0x9e/0xfe
+[ 1108.930000]  [00043f56] vfs_write+0x78/0x84
+[ 1108.930000]  [0004446c] sys_write+0x40/0x7a
+[ 1108.930000]  [00003244] system_call+0x84/0xc2
+[ 1108.930000]
 
---=20
+seems like while i transmit a packet, dm9000_interrupt try to acquire 
+the spinlock owned from the same task.
+
+Compiling the kernel i am getting:
+  CC      kernel/irq/handle.o
+kernel/irq/handle.c:432:3: warning: #warning __do_IRQ is deprecated. 
+Please convert to proper flow handlers
+
+Could the usage of __do_IRQ super-handler be a cause of the issue ?
+
+
+many thanks,
+angelo
+
+On 29/12/2010 19:45, Geert Uytterhoeven wrote:
+> On Wed, Dec 29, 2010 at 19:06, Baruch Siach<baruch@tkos.co.il>  wrote:
+>    
+>> Hi Angelo,
+>>
+>> On Wed, Dec 29, 2010 at 02:13:22PM +0100, Angelo Dureghello wrote:
+>>      
+>>> just FYI, i tested kernel 2.6.36.2, unfortunately the issue is still
+>>> there, below the call stack trace.
+>>>        
+>> Help from the m68k experts seems to be needed. Adding the relevant list to Cc.
+>>      
+> This is uClinux? Added Cc...
+>
+>    
+>>> [    4.620000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+>>> [   39.390000] BUG: spinlock recursion on CPU#0, httpd/29
+>>> [   39.390000]  lock: 00189c44, .magic: dead4ead, .owner: httpd/29,
+>>> .owner_cpu: 0
+>>> [   39.390000] Stack from 00d6a990:
+>>> [   39.390000]         00d6a9bc 000a9710 0017cac7 00189c44 dead4ead
+>>> 00de48f4 0000001d 00000000
+>>> [   39.390000]         00189c44 0002a646 00145f70 00d6a9f0 000a98e2
+>>> 00189c44 0017cb2d 00189c44
+>>> [   39.390000]         00d6aad8 0000001f 00145f5c 001523f6 00189c08
+>>> 0002a646 00145f70 0002bc52
+>>> [   39.390000]         00d6a9fc 00145f7e 00189c44 00d6aa28 0002a75e
+>>> 00189c44 0000001f 00d6aad8
+>>> [   39.390000]         0000001f 00145f5c 00189c08 0002a646 00145f70
+>>> 0002bc52 00d6aa3c 00000bb6
+>>> [   39.390000]         0000001f 00189c44 00cfc780 00d6aa84 0000337a
+>>> 0000001f 00d6aa4c 00000001
+>>> [   39.390000] Call Trace:
+>>> [   39.390000]  [000a9710] spin_bug+0x86/0x11a
+>>> [   39.390000]  [000a98e2] do_raw_spin_lock+0x58/0x120
+>>> [   39.390000]  [00145f7e] _raw_spin_lock+0xe/0x14
+>>> [   39.390000]  [0002a75e] __do_IRQ+0x2c/0x108
+>>> [   39.390000]  [00000bb6] do_IRQ+0x48/0x62
+>>> [   39.390000]  [0000337a] inthandler+0x6a/0x74
+>>> [   39.390000]  [0002a82e] __do_IRQ+0xfc/0x108
+>>> [   39.390000]  [00000bb6] do_IRQ+0x48/0x62
+>>> [   39.390000]  [0000337a] inthandler+0x6a/0x74
+>>> [   39.390000]  [000ef0ce] skb_release_all+0x10/0x20
+>>> [   39.390000]  [000ee6bc] __kfree_skb+0x10/0x92
+>>> [   39.390000]  [000ee75e] consume_skb+0x20/0x34
+>>> [   39.390000]  [000e004e] dm9000_start_xmit+0xdc/0xec
+>>> [   39.390000]  [000f67a2] dev_hard_start_xmit+0x146/0x472
+>>> [   39.390000]  [00106506] sch_direct_xmit+0xc0/0x1bc
+>>> [   39.390000]  [000f9914] dev_queue_xmit+0x160/0x3e4
+>>> [   39.390000]  [00113b3e] ip_finish_output+0xee/0x318
+>>> [   39.390000]  [001142b4] ip_output+0x7c/0x88
+>>> [   39.390000]  [00113dc6] ip_local_out+0x26/0x30
+>>> [   39.390000]  [00114d9a] ip_queue_xmit+0x152/0x374
+>>> [   39.390000]  [00125c8c] tcp_transmit_skb+0x3f0/0x732
+>>> [   39.390000]  [00126f26] tcp_write_xmit+0x178/0x868
+>>> [   39.390000]  [00127644] __tcp_push_pending_frames+0x2e/0x9a
+>>> [   39.390000]  [0011c3d6] tcp_sendmsg+0x82e/0x98c
+>>> [   39.390000]  [00137544] inet_sendmsg+0x32/0x54
+>>> [   39.390000]  [000e79a6] sock_aio_write+0xc8/0x138
+>>> [   39.390000]  [00042590] do_sync_write+0x9e/0xfe
+>>> [   39.390000]  [00042668] vfs_write+0x78/0x84
+>>> [   39.390000]  [00042a92] sys_write+0x40/0x7a
+>>> [   39.390000]  [00003224] system_call+0x84/0xc2
+>>> [   39.390000]
+>>>
+>>> dm9000e is as default not visible/selectable in menuconfig for
+>>> Coldfire architectures, so this probably cannot be considered as a
+>>> kernel bug.
+>>>
+>>> I going forward in investigations, every help is appreciated,
+>>>
+>>> regards,
+>>> angelo
+>>>
+>>>
+>>>
+>>> On 29/12/2010 07:06, Baruch Siach wrote:
+>>>        
+>>>> Hi Angelo,
+>>>>
+>>>> On Tue, Dec 28, 2010 at 10:52:42PM +0100, Angelo Dureghello wrote:
+>>>>          
+>>>>> sorry to contact you directly but i couldn't get any help from the
+>>>>> kernel.org mailing list, since i am not a developer my mails are
+>>>>> generally skipped.
+>>>>>            
+>>>> The best way to get the contact info for a piece of kernel code, is using the
+>>>> get_maintainer.pl script. Running 'scripts/get_maintainer.pl -f
+>>>> drivers/net/dm9000.c' gives the following output:
+>>>>
+>>>> netdev@vger.kernel.org
+>>>> linux-kernel@vger.kernel.org
+>>>>
+>>>> I added both to Cc.
+>>>>
+>>>>          
+>>>>> I am very near to have a custom board working with MCF5307 cpu and dm9000.
+>>>>> I am using kernel 2.6.36-rc3 with your last patch about
+>>>>> spinlock-recursion already included.
+>>>>>            
+>>>> You should try to update to the latest .36 kernel, which is currently
+>>>> 2.6.36.2. The problem that you experience might be unrelated to the dm9000
+>>>> driver (or to networking at all), so it might have been fixed in this version.
+>>>>
+>>>>          
+>>>>> I have "ping" and "telnet" to the embedded board fully working.
+>>>>> If i try to get a sample web page with some images from the board
+>>>>> httpd with a browser, in 80% of cases i get a trap/oops:
+>>>>>            
+>>>> Try to enable KALLSYMS in your kernel .config to make your stack trace more
+>>>> meaningful. This is under 'General setup ->    Configure standard kernel features
+>>>> (for small systems) ->    Load all symbols for debugging/ksymoops'.
+>>>>
+>>>> I hope this helps.
+>>>>
+>>>> baruch
+>>>>
+>>>>          
+>>>>> [    4.590000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+>>>>> [   67.630000] BUG: spinlock recursion on CPU#0, httpd/29
+>>>>> [   67.630000]  lock: 00c42c06, .magic: dead4ead, .owner: httpd/29,
+>>>>> .owner_cpu: 0
+>>>>> [   67.630000] Stack from 00d7b914:
+>>>>> [   67.630000]         00d7b940 000a8cf0 0015f693 00c42c06 dead4ead
+>>>>> 00dec1d4 0000001d 00000000
+>>>>> [   67.630000]         00c42c06 00006188 00c42800 00d7b974 000a8ec2
+>>>>> 00c42c06 0015f6f9 00002704
+>>>>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
+>>>>> 00006188 00c42800 0002b312
+>>>>> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+>>>>> 000df21c 00c42c06 00000000
+>>>>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
+>>>>> 00cfc640 00006188 000096e8
+>>>>> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+>>>>> 00029d3a 0000001f 00c42800
+>>>>> [   67.630000] Call Trace:
+>>>>> [   67.630000]  [000a8cf0]  [000a8ec2]  [0014701e]  [000df21c]  [00029d3a]
+>>>>> [   67.630000]  [00029e84]  [00000bb6]  [0000336e]  [000df162]  [000effd6]
+>>>>> [   67.630000]  [00100482]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]
+>>>>> [   67.630000]  [0010dfb2]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]
+>>>>> [   67.630000]  [0011ecc6]  [001249fe]  [000e4084]  [0011621c]  [00131a44]
+>>>>> [   67.630000]  [000e11ee]  [00041944]  [00041a1c]  [00041e46]  [00003218]
+>>>>> [   67.630000] BUG: spinlock lockup on CPU#0, httpd/29, 00c42c06
+>>>>> [   67.630000] Stack from 00d7b934:
+>>>>> [   67.630000]         00d7b974 000a8f66 0015f703 00000000 00dec1d4
+>>>>> 0000001d 00c42c06 00002704
+>>>>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
+>>>>> 00006188 00c42800 0002b312
+>>>>> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+>>>>> 000df21c 00c42c06 00000000
+>>>>> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
+>>>>> 00cfc640 00006188 000096e8
+>>>>> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+>>>>> 00029d3a 0000001f 00c42800
+>>>>> [   67.630000]         0016c1b4 00cfc640 0000001f 0016c178 00029d10
+>>>>> 00146fb8 00d7ba20 00029e84
+>>>>> [   67.630000] Call Trace:
+>>>>> [   67.630000]  [000a8f66]  [0014701e]  [000df21c]  [00029d3a]  [00029e84]
+>>>>> [   67.630000]  [00000bb6]  [0000336e]  [000df162]  [000effd6]  [00100482]
+>>>>> [   67.630000]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]  [0010dfb2]
+>>>>> [   67.630000]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]  [0011ecc6]
+>>>>> [   67.630000]  [001249fe]  [000e4084]  [0011621c]  [00131a44]  [000e11ee]
+>>>>> [   67.630000]  [00041944]  [00041a1c]  [00041e46]  [00003218]
+>>>>>
+>>>>> As i said, i was hoping in your patch but i sadly discovered it is
+>>>>> already included in this kernel version.
+>>>>> Hope you can give me some help or can forward me to an appropriate
+>>>>> mailing list.
+>>>>>            
+>>>        
+>> --
+>>                                                      ~. .~   Tk Open Systems
+>> =}------------------------------------------------ooO--U--Ooo------------{=
+>>    - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+>>
+>>      
+>
+>
+>    
