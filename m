@@ -1,47 +1,56 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next 2/3] dcbnl: adding DCBX feature flags get-set
-Date: Tue, 28 Dec 2010 16:15:01 -0800
-Message-ID: <4D1A7D85.2030709@intel.com>
-References: <1292959973.7142.131.camel@lb-tlvb-shmulik.il.broadcom.com>
+From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Subject: Re: Bypass flow control problems
+Date: Tue, 28 Dec 2010 21:05:42 -0800
+Message-ID: <5BBF316A-A162-4683-B6CA-6662F221F500@intel.com>
+References: <1293040291.1777.36.camel@alkis>
+ <20101227134346.GD2754@reaktio.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "eilong@broadcom.com" <eilong@broadcom.com>,
-	"Liu, Lucy" <lucy.liu@intel.com>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Alkis Georgopoulos <alkisg@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shmulik Ravid <shmulikr@broadcom.com>,
-	"davem@davemloft.net" <davem@davemloft.net>
+To: =?utf-8?B?UGFzaSBLw6Rya2vDpGluZW4=?= <pasik@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55529 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:37738 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752105Ab0L2APC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Dec 2010 19:15:02 -0500
-In-Reply-To: <1292959973.7142.131.camel@lb-tlvb-shmulik.il.broadcom.com>
+	id S1750706Ab0L2FDK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Dec 2010 00:03:10 -0500
+In-Reply-To: <20101227134346.GD2754@reaktio.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/21/2010 11:32 AM, Shmulik Ravid wrote:
-> Adding a pair of set-get functions to dcbnl for setting the negotiation
-> flags of the various DCB features. The user sets these flags (enable,
-> advertise, willing) for each feature to be used by the device DCBX
-> engine. The 'get' routine returns which of the features is enabled
-> after the negotiation.
-> 
-> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
-
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
-
-Dave, these are going to conflict with my patches
-
-[net-next-2.6,1/3] dcbnl: add support for ieee8021Qaz attributes
-[net-next-2.6,2/3] dcbnl: add appliction tlv handlers
-
-If needed either Shmulik or myself can work out the conflicts if you want a single series that applies cleanly.
-
-Thanks,
-John.
-
-
-
-
-
+T24gRGVjIDI3LCAyMDEwLCBhdCA4OjQzLCBQYXNpIEvDpHJra8OkaW5lbiA8cGFzaWtAaWtpLmZp
+PiB3cm90ZToNCg0KPiBPbiBXZWQsIERlYyAyMiwgMjAxMCBhdCAwNzo1MTozMVBNICswMjAwLCBB
+bGtpcyBHZW9yZ29wb3Vsb3Mgd3JvdGU6DQo+PiBIaSwNCj4+IA0KPj4gSSdtIGFuIElUIHRlYWNo
+ZXIvTFRTUCBkZXZlbG9wZXIuIEluIExUU1AsIHRoaW4gY2xpZW50cyBhcmUgbmV0Ym9vdGVkDQo+
+PiBmcm9tIGEgc2VydmVyIGFuZCByZWNlaXZlIGEgbG90IG9mIFggYW5kIHJlbW90ZSBkaXNrIHRy
+YWZmaWMgZnJvbSBpdC4NCj4+IA0KPj4gTWFueSBpbnN0YWxsYXRpb25zIGhhdmUgYSBnaWdhYml0
+IE5JQyBvbiB0aGUgc2VydmVyLCBhbiB1bm1hbmFnZWQNCj4+IGdpZ2FiaXQgc3dpdGNoLCBhbmQg
+MTAwIE1icHMgTklDcyBvbiB0aGUgY2xpZW50cy4NCj4+IA0KPj4gV2l0aCBmbG93IGNvbnRyb2wg
+b24sIHRoZSBzZXJ2ZXIgaXMgbGltaXRlZCB0byBzZW5kaW5nIDEwMCBNYnBzIHRvIGFsbA0KPj4g
+dGhlIGNsaWVudHMuIFNvIHdpdGggMTAgdGhpbiBjbGllbnRzIHRoZSBzZXJ2ZXIgY2FuIGNvbmN1
+cnJlbnRseSBzZW5kDQo+PiBvbmx5IDEwIE1icHMgdG8gZWFjaCBvbmUgb2YgdGhlbS4NCj4+IA0K
+Pj4gT24gTklDcyB0aGF0IHN1cHBvcnQgaXQsIHdlIHR1cm4gZmxvdyBjb250cm9sIG9mZiBhbmQg
+dGhlIHNlcnZlciBjYW4NCj4+IHByb3Blcmx5IHNlbmQgMTAwIE1icHMgdG8gZWFjaCBjbGllbnQs
+IGkuZS4gMSBHYnBzIHRvIDEwIGNsaWVudHMuDQo+PiANCj4+ICogSXMgdGhlcmUgYW55IHdheSB0
+byBieXBhc3MgdGhhdCBwcm9ibGVtIG9uIE5JQ3MgdGhhdCBkbyBub3Qgc3VwcG9ydA0KPj4gICB0
+dXJuaW5nIG9mZiBmbG93IGNvbnRyb2wsIGxpa2UgZS5nLiByZWFsdGVrcz8NCj4+ICAgSS5lLiB3
+aGVuIGEgY2xpZW50IHNlbmRzIGEgcGF1c2Ugc2lnbmFsIHRvIHRoZSBzZXJ2ZXIsIGluc3RlYWQg
+b2YgdGhlDQo+PiAgIHNlcnZlciBwYXVzaW5nLCB0byBjb250aW51ZSBzZW5kaW5nIGRhdGEgdG8g
+YW5vdGhlciBjbGllbnQ/DQo+PiAgIE9yIGV2ZW4gdG8gbGltaXQgdGhlIGFtb3VuZCBvZiBkYXRh
+IHRoZSBzZXJ2ZXIgc2VuZHMgdG8gZWFjaCBjbGllbnQsDQo+PiAgIHNvIHRoYXQgdGhlIGNsaWVu
+dHMgbmV2ZXIgaGF2ZSB0byBzZW5kIHBhdXNlIHNpZ25hbHM/DQo+PiANCj4gDQo+IFlvdSBjb3Vs
+ZCBzZXQgdXAgUW9TIHJ1bGVzIG9uIHRoZSBzZXJ2ZXIgdG8gbGltaXQgdGhlIG5ldHdvcmsgc3Bl
+ZWQgcGVyIGNsaWVudC4uDQo+IA0KPj4gKiBJIHJlYWxseSBkb24ndCB1bmRlcnN0YW5kIHdoeSBm
+bG93IGNvbnRyb2wgaXMgZW5hYmxlZCBieSBkZWZhdWx0IG9uDQo+PiAgIE5JQ3MgYW5kIHN3aXRj
+aGVzLiBJbiB3aGljaCBjYXNlIGRvZXMgaXQgaGVscD8gQXMgZmFyIGFzIEkNCj4+ICAgdW5kZXJz
+dGFuZCwgYWxsIGl0IGRvZXMgaXMgcnVpbiBnaWdhYml0ID0+IDEwMCBNYnBzIGNvbm5lY3Rpb25z
+Li4uDQo+PiANCj4+ICogQXMgYSBzaWRlIG5vdGUsIHNpbmNlIHJ0bDgxNjkgaXMgYSB2ZXJ5IGNv
+bW1vbiBjaGlwc2V0LCBpcyB0aGVyZSBhDQo+PiAgIHdheSB0byBkaXNhYmxlIGZsb3cgY29udHJv
+bCBmb3IgdGhhdCBzcGVjaWZpYyBOSUM/DQo+PiANCj4+IFRoaXMgcHJvYmxlbSBhZmZlY3RzIHRo
+b3VzYW5kcyBvZiBMVFNQIGluc3RhbGxhdGlvbnMsIHdlJ2QgbXVjaA0KPj4gYXBwcmVjaWF0ZSB5
+b3VyIGtub3dsZWRnZSBhbmQgZmVlZGJhY2sgb24gaXQuDQo+PiANCj4gDQo+IERpZCB5b3UgdHJ5
+IGRpc2FibGluZyBmbG93IGNvbnRyb2wgZnJvbSB0aGUgc3dpdGNoPyANCg0KSGUgc3RhdGVkIHRo
+ZSBzd2l0Y2ggd2FzIGEgdW4tbWFuYWdlZCBzd2l0Y2gsIHNvIGhlIHdvdWxkIGJlIHVuYWJsZSB0
+byBkaXNhYmxlIGZsb3cgY29udHJvbCBvbiB0aGUgc3dpdGNoLg0KDQo+IA0K
