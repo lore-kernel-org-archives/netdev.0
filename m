@@ -1,56 +1,106 @@
-From: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Subject: Re: Bypass flow control problems
-Date: Tue, 28 Dec 2010 21:05:42 -0800
-Message-ID: <5BBF316A-A162-4683-B6CA-6662F221F500@intel.com>
-References: <1293040291.1777.36.camel@alkis>
- <20101227134346.GD2754@reaktio.net>
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: Re: dm9000 patch
+Date: Wed, 29 Dec 2010 08:06:38 +0200
+Message-ID: <20101229060637.GA31010@jasper.tkos.co.il>
+References: <4D1A5C2A.5050606@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alkis Georgopoulos <alkisg@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?utf-8?B?UGFzaSBLw6Rya2vDpGluZW4=?= <pasik@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37738 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750706Ab0L2FDK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Dec 2010 00:03:10 -0500
-In-Reply-To: <20101227134346.GD2754@reaktio.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Angelo Dureghello <angelo70@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4D1A5C2A.5050606@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gRGVjIDI3LCAyMDEwLCBhdCA4OjQzLCBQYXNpIEvDpHJra8OkaW5lbiA8cGFzaWtAaWtpLmZp
-PiB3cm90ZToNCg0KPiBPbiBXZWQsIERlYyAyMiwgMjAxMCBhdCAwNzo1MTozMVBNICswMjAwLCBB
-bGtpcyBHZW9yZ29wb3Vsb3Mgd3JvdGU6DQo+PiBIaSwNCj4+IA0KPj4gSSdtIGFuIElUIHRlYWNo
-ZXIvTFRTUCBkZXZlbG9wZXIuIEluIExUU1AsIHRoaW4gY2xpZW50cyBhcmUgbmV0Ym9vdGVkDQo+
-PiBmcm9tIGEgc2VydmVyIGFuZCByZWNlaXZlIGEgbG90IG9mIFggYW5kIHJlbW90ZSBkaXNrIHRy
-YWZmaWMgZnJvbSBpdC4NCj4+IA0KPj4gTWFueSBpbnN0YWxsYXRpb25zIGhhdmUgYSBnaWdhYml0
-IE5JQyBvbiB0aGUgc2VydmVyLCBhbiB1bm1hbmFnZWQNCj4+IGdpZ2FiaXQgc3dpdGNoLCBhbmQg
-MTAwIE1icHMgTklDcyBvbiB0aGUgY2xpZW50cy4NCj4+IA0KPj4gV2l0aCBmbG93IGNvbnRyb2wg
-b24sIHRoZSBzZXJ2ZXIgaXMgbGltaXRlZCB0byBzZW5kaW5nIDEwMCBNYnBzIHRvIGFsbA0KPj4g
-dGhlIGNsaWVudHMuIFNvIHdpdGggMTAgdGhpbiBjbGllbnRzIHRoZSBzZXJ2ZXIgY2FuIGNvbmN1
-cnJlbnRseSBzZW5kDQo+PiBvbmx5IDEwIE1icHMgdG8gZWFjaCBvbmUgb2YgdGhlbS4NCj4+IA0K
-Pj4gT24gTklDcyB0aGF0IHN1cHBvcnQgaXQsIHdlIHR1cm4gZmxvdyBjb250cm9sIG9mZiBhbmQg
-dGhlIHNlcnZlciBjYW4NCj4+IHByb3Blcmx5IHNlbmQgMTAwIE1icHMgdG8gZWFjaCBjbGllbnQs
-IGkuZS4gMSBHYnBzIHRvIDEwIGNsaWVudHMuDQo+PiANCj4+ICogSXMgdGhlcmUgYW55IHdheSB0
-byBieXBhc3MgdGhhdCBwcm9ibGVtIG9uIE5JQ3MgdGhhdCBkbyBub3Qgc3VwcG9ydA0KPj4gICB0
-dXJuaW5nIG9mZiBmbG93IGNvbnRyb2wsIGxpa2UgZS5nLiByZWFsdGVrcz8NCj4+ICAgSS5lLiB3
-aGVuIGEgY2xpZW50IHNlbmRzIGEgcGF1c2Ugc2lnbmFsIHRvIHRoZSBzZXJ2ZXIsIGluc3RlYWQg
-b2YgdGhlDQo+PiAgIHNlcnZlciBwYXVzaW5nLCB0byBjb250aW51ZSBzZW5kaW5nIGRhdGEgdG8g
-YW5vdGhlciBjbGllbnQ/DQo+PiAgIE9yIGV2ZW4gdG8gbGltaXQgdGhlIGFtb3VuZCBvZiBkYXRh
-IHRoZSBzZXJ2ZXIgc2VuZHMgdG8gZWFjaCBjbGllbnQsDQo+PiAgIHNvIHRoYXQgdGhlIGNsaWVu
-dHMgbmV2ZXIgaGF2ZSB0byBzZW5kIHBhdXNlIHNpZ25hbHM/DQo+PiANCj4gDQo+IFlvdSBjb3Vs
-ZCBzZXQgdXAgUW9TIHJ1bGVzIG9uIHRoZSBzZXJ2ZXIgdG8gbGltaXQgdGhlIG5ldHdvcmsgc3Bl
-ZWQgcGVyIGNsaWVudC4uDQo+IA0KPj4gKiBJIHJlYWxseSBkb24ndCB1bmRlcnN0YW5kIHdoeSBm
-bG93IGNvbnRyb2wgaXMgZW5hYmxlZCBieSBkZWZhdWx0IG9uDQo+PiAgIE5JQ3MgYW5kIHN3aXRj
-aGVzLiBJbiB3aGljaCBjYXNlIGRvZXMgaXQgaGVscD8gQXMgZmFyIGFzIEkNCj4+ICAgdW5kZXJz
-dGFuZCwgYWxsIGl0IGRvZXMgaXMgcnVpbiBnaWdhYml0ID0+IDEwMCBNYnBzIGNvbm5lY3Rpb25z
-Li4uDQo+PiANCj4+ICogQXMgYSBzaWRlIG5vdGUsIHNpbmNlIHJ0bDgxNjkgaXMgYSB2ZXJ5IGNv
-bW1vbiBjaGlwc2V0LCBpcyB0aGVyZSBhDQo+PiAgIHdheSB0byBkaXNhYmxlIGZsb3cgY29udHJv
-bCBmb3IgdGhhdCBzcGVjaWZpYyBOSUM/DQo+PiANCj4+IFRoaXMgcHJvYmxlbSBhZmZlY3RzIHRo
-b3VzYW5kcyBvZiBMVFNQIGluc3RhbGxhdGlvbnMsIHdlJ2QgbXVjaA0KPj4gYXBwcmVjaWF0ZSB5
-b3VyIGtub3dsZWRnZSBhbmQgZmVlZGJhY2sgb24gaXQuDQo+PiANCj4gDQo+IERpZCB5b3UgdHJ5
-IGRpc2FibGluZyBmbG93IGNvbnRyb2wgZnJvbSB0aGUgc3dpdGNoPyANCg0KSGUgc3RhdGVkIHRo
-ZSBzd2l0Y2ggd2FzIGEgdW4tbWFuYWdlZCBzd2l0Y2gsIHNvIGhlIHdvdWxkIGJlIHVuYWJsZSB0
-byBkaXNhYmxlIGZsb3cgY29udHJvbCBvbiB0aGUgc3dpdGNoLg0KDQo+IA0K
+Hi Angelo,
+
+On Tue, Dec 28, 2010 at 10:52:42PM +0100, Angelo Dureghello wrote:
+> sorry to contact you directly but i couldn't get any help from the
+> kernel.org mailing list, since i am not a developer my mails are
+> generally skipped.
+
+The best way to get the contact info for a piece of kernel code, is using the 
+get_maintainer.pl script. Running 'scripts/get_maintainer.pl -f 
+drivers/net/dm9000.c' gives the following output:
+
+netdev@vger.kernel.org
+linux-kernel@vger.kernel.org
+
+I added both to Cc.
+
+> I am very near to have a custom board working with MCF5307 cpu and dm9000.
+> I am using kernel 2.6.36-rc3 with your last patch about
+> spinlock-recursion already included.
+
+You should try to update to the latest .36 kernel, which is currently 
+2.6.36.2. The problem that you experience might be unrelated to the dm9000 
+driver (or to networking at all), so it might have been fixed in this version.
+
+> I have "ping" and "telnet" to the embedded board fully working.
+> If i try to get a sample web page with some images from the board
+> httpd with a browser, in 80% of cases i get a trap/oops:
+
+Try to enable KALLSYMS in your kernel .config to make your stack trace more 
+meaningful. This is under 'General setup -> Configure standard kernel features 
+(for small systems) -> Load all symbols for debugging/ksymoops'.
+
+I hope this helps.
+
+baruch
+
+> [    4.590000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+> [   67.630000] BUG: spinlock recursion on CPU#0, httpd/29
+> [   67.630000]  lock: 00c42c06, .magic: dead4ead, .owner: httpd/29,
+> .owner_cpu: 0
+> [   67.630000] Stack from 00d7b914:
+> [   67.630000]         00d7b940 000a8cf0 0015f693 00c42c06 dead4ead
+> 00dec1d4 0000001d 00000000
+> [   67.630000]         00c42c06 00006188 00c42800 00d7b974 000a8ec2
+> 00c42c06 0015f6f9 00002704
+> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
+> 00006188 00c42800 0002b312
+> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+> 000df21c 00c42c06 00000000
+> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
+> 00cfc640 00006188 000096e8
+> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+> 00029d3a 0000001f 00c42800
+> [   67.630000] Call Trace:
+> [   67.630000]  [000a8cf0]  [000a8ec2]  [0014701e]  [000df21c]  [00029d3a]
+> [   67.630000]  [00029e84]  [00000bb6]  [0000336e]  [000df162]  [000effd6]
+> [   67.630000]  [00100482]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]
+> [   67.630000]  [0010dfb2]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]
+> [   67.630000]  [0011ecc6]  [001249fe]  [000e4084]  [0011621c]  [00131a44]
+> [   67.630000]  [000e11ee]  [00041944]  [00041a1c]  [00041e46]  [00003218]
+> [   67.630000] BUG: spinlock lockup on CPU#0, httpd/29, 00c42c06
+> [   67.630000] Stack from 00d7b934:
+> [   67.630000]         00d7b974 000a8f66 0015f703 00000000 00dec1d4
+> 0000001d 00c42c06 00002704
+> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
+> 00006188 00c42800 0002b312
+> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+> 000df21c 00c42c06 00000000
+> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
+> 00cfc640 00006188 000096e8
+> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+> 00029d3a 0000001f 00c42800
+> [   67.630000]         0016c1b4 00cfc640 0000001f 0016c178 00029d10
+> 00146fb8 00d7ba20 00029e84
+> [   67.630000] Call Trace:
+> [   67.630000]  [000a8f66]  [0014701e]  [000df21c]  [00029d3a]  [00029e84]
+> [   67.630000]  [00000bb6]  [0000336e]  [000df162]  [000effd6]  [00100482]
+> [   67.630000]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]  [0010dfb2]
+> [   67.630000]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]  [0011ecc6]
+> [   67.630000]  [001249fe]  [000e4084]  [0011621c]  [00131a44]  [000e11ee]
+> [   67.630000]  [00041944]  [00041a1c]  [00041e46]  [00003218]
+> 
+> As i said, i was hoping in your patch but i sadly discovered it is
+> already included in this kernel version.
+> Hope you can give me some help or can forward me to an appropriate
+> mailing list.
+
+-- 
+                                                     ~. .~   Tk Open Systems
+=}------------------------------------------------ooO--U--Ooo------------{=
+   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
