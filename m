@@ -1,107 +1,68 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: BUG: while bridging Ethernet and wireless device:
-Date: Wed, 29 Dec 2010 16:04:27 +0100
-Message-ID: <1293635067.3546.16.camel@jlt3.sipsolutions.net>
-References: <AANLkTikYvBspVmAZ0DCMXJ-3WxkotwX+n8NpTtM+97_i@mail.gmail.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: sysctls below net.ipv[46].conf.all not working as expected
+Date: Wed, 29 Dec 2010 17:06:07 +0100
+Message-ID: <20101229160607.GH14221@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	YOSHIFUJI Hideaki /
-	 =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<yoshfuji@linux-ipv6.org>
-To: Tomas Winkler <tomasw@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:55290 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753388Ab0L2PE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 10:04:29 -0500
-In-Reply-To: <AANLkTikYvBspVmAZ0DCMXJ-3WxkotwX+n8NpTtM+97_i@mail.gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58289 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753349Ab0L2QGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 11:06:09 -0500
+Received: from octopus.hi.pengutronix.de ([2001:6f8:1178:2:215:17ff:fe12:23b0])
+	by metis.ext.pengutronix.de with esmtp (Exim 4.71)
+	(envelope-from <ukl@pengutronix.de>)
+	id 1PXyXQ-0008LE-BM
+	for netdev@vger.kernel.org; Wed, 29 Dec 2010 17:06:08 +0100
+Received: from ukl by octopus.hi.pengutronix.de with local (Exim 4.69)
+	(envelope-from <ukl@pengutronix.de>)
+	id 1PXyXP-0004W1-TT
+	for netdev@vger.kernel.org; Wed, 29 Dec 2010 17:06:07 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-12-16 at 14:11 +0200, Tomas Winkler wrote:
-> Will be happy if someone can give me some more insight. (kernel 2.6.37-rc5)
+Hello,
 
-Tomas looked into it a bit more and told me that it happens on IPv6
-packets. To recap, he gets
+I did the following:
 
-kernel BUG at include/linux/skbuff.h:1178!
-with
-EIP: [<f83edd65>] br_multicast_rcv+0xc95/0xe1c [bridge]
+	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
+	net.ipv6.conf.all.use_tempaddr =3D 0
 
-Also remember that the packets are almost fully nonlinear, when they get
-here they likely have almost no data in the skb header.
+	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+	net.ipv6.conf.eth0.use_tempaddr =3D 0
 
-I then looked at br_multicast_ipv6_rcv(), and it looks fishy:
+	cassiopeia:~# sysctl -w net.ipv6.conf.all.use_tempaddr=3D1
+	net.ipv6.conf.all.use_tempaddr =3D 1
 
-Up to:
-	skb2 = skb_clone(skb, GFP_ATOMIC);
+	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
+	net.ipv6.conf.all.use_tempaddr =3D 1
 
-everything's fine, since ipv6_skip_exthdr() will use
-skb_header_pointer(). At this point, offset is the result of
-ipv6_skip_exthdr(). Remember that skb_clone() is not skb_copy().
+	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+	net.ipv6.conf.eth0.use_tempaddr =3D 0
 
-Then, however, we do
-	__skb_pull(skb2, offset);
+Here I would have expected that eth0's use_tempaddr is 1, too.  The
+problem is not that this entry isn't writeable:
 
-At this point, however, I don't see anything that guarantees that all
-"offset" bytes are part of the headroom -- and indeed I think this is
-where it crashes.
+	cassiopeia:~# sysctl -w net.ipv6.conf.eth0.use_tempaddr=3D1
+	net.ipv6.conf.eth0.use_tempaddr =3D 1
 
-If it didn't crash, because this many bytes were part of the header,
-continuing further into the function, however, we could still crash:
+	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+	net.ipv6.conf.eth0.use_tempaddr =3D 1
 
-        if (!pskb_may_pull(skb2, sizeof(*icmp6h)))
-                goto out;
+I got the same results when using net.ipv4.conf.all.rp_filter (and
+net.ipv4.conf.eth0.rp_filter resp.)
 
-now makes sure that we can read the ICMPv6 header. Later, however, we do
+Is this a bug or just my failure to see how conf/all works?
 
-        case ICMPV6_MGM_REPORT:
-            {
-                struct mld_msg *mld = (struct mld_msg *)icmp6h;
-                BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
-                err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
+Best regards
+Uwe
 
-which seems just as unsafe since "mld_mca" need not be part of the
-header of the SKB. Similarly in another branch of this.
-
-Additionally, I'm not convinced that there even is guaranteed to be
-enough space in the SKB at all for the entire "struct mld_msg".
-
-And finally, the error path in this function is confusing. Below patch
-should be fine since unlike IPv4 (where this was copied maybe?) this
-code unconditionally clones the SKB.
-
-johannes
-
----
- net/bridge/br_multicast.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
---- wireless-testing.orig/net/bridge/br_multicast.c	2010-12-29 15:45:03.000000000 +0100
-+++ wireless-testing/net/bridge/br_multicast.c	2010-12-29 16:03:03.000000000 +0100
-@@ -1430,7 +1430,7 @@ static int br_multicast_ipv6_rcv(struct
- 				 struct net_bridge_port *port,
- 				 struct sk_buff *skb)
- {
--	struct sk_buff *skb2 = skb;
-+	struct sk_buff *skb2;
- 	struct ipv6hdr *ip6h;
- 	struct icmp6hdr *icmp6h;
- 	u8 nexthdr;
-@@ -1535,9 +1535,7 @@ static int br_multicast_ipv6_rcv(struct
- 	}
- 
- out:
--	__skb_push(skb2, offset);
--	if (skb2 != skb)
--		kfree_skb(skb2);
-+	kfree_skb(skb2);
- 	return err;
- }
- #endif
-
-
-
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
