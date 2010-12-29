@@ -1,106 +1,156 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: dm9000 patch
-Date: Wed, 29 Dec 2010 08:06:38 +0200
-Message-ID: <20101229060637.GA31010@jasper.tkos.co.il>
-References: <4D1A5C2A.5050606@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v3 net-next-2.6] sch_sfq: allow big packets and be fair
+Date: Wed, 29 Dec 2010 08:53:33 +0100
+Message-ID: <1293609213.2691.3.camel@edumazet-laptop>
+References: <20101221113920.GB8813@ff.dom.local>
+	 <20101221121706.GC8813@ff.dom.local>
+	 <1292936699.2720.23.camel@edumazet-laptop>
+	 <20101228.134655.112609314.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Angelo Dureghello <angelo70@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D1A5C2A.5050606@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, kaber@trash.net, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:37034 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787Ab0L2Hxk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 02:53:40 -0500
+Received: by wwa36 with SMTP id 36so10467562wwa.1
+        for <netdev@vger.kernel.org>; Tue, 28 Dec 2010 23:53:38 -0800 (PST)
+In-Reply-To: <20101228.134655.112609314.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Angelo,
+Le mardi 28 d=C3=A9cembre 2010 =C3=A0 13:46 -0800, David Miller a =C3=A9=
+crit :
+> Eric this doesn't apply cleanly, since the code in sfq_dump_class_sta=
+ts()
+> is a bit different in net-next-2.6
+>=20
+> Please respin this and resubmit.
 
-On Tue, Dec 28, 2010 at 10:52:42PM +0100, Angelo Dureghello wrote:
-> sorry to contact you directly but i couldn't get any help from the
-> kernel.org mailing list, since i am not a developer my mails are
-> generally skipped.
+Sure, here is the version for latest net-next
 
-The best way to get the contact info for a piece of kernel code, is using the 
-get_maintainer.pl script. Running 'scripts/get_maintainer.pl -f 
-drivers/net/dm9000.c' gives the following output:
+Thanks
 
-netdev@vger.kernel.org
-linux-kernel@vger.kernel.org
+[PATCH v3 net-next-2.6] sch_sfq: allow big packets and be fair
 
-I added both to Cc.
+SFQ is currently 'limited' to small packets, because it uses a 15bit
+allotment number per flow. Introduce a scale by 8, so that we can handl=
+e
+full size TSO/GRO packets.
 
-> I am very near to have a custom board working with MCF5307 cpu and dm9000.
-> I am using kernel 2.6.36-rc3 with your last patch about
-> spinlock-recursion already included.
+Use appropriate handling to make sure allot is positive before a new
+packet is dequeued, so that fairness is respected.
 
-You should try to update to the latest .36 kernel, which is currently 
-2.6.36.2. The problem that you experience might be unrelated to the dm9000 
-driver (or to networking at all), so it might have been fixed in this version.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Jarek Poplawski <jarkao2@gmail.com>
+Cc: Patrick McHardy <kaber@trash.net>
+---
+v3: respin after commit ee09b3c1cf (fix sfq class stats handling)
+v2: Use a scale of 8 as Jarek suggested, instead of 18bit fields
 
-> I have "ping" and "telnet" to the embedded board fully working.
-> If i try to get a sample web page with some images from the board
-> httpd with a browser, in 80% of cases i get a trap/oops:
+ net/sched/sch_sfq.c |   26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
 
-Try to enable KALLSYMS in your kernel .config to make your stack trace more 
-meaningful. This is under 'General setup -> Configure standard kernel features 
-(for small systems) -> Load all symbols for debugging/ksymoops'.
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 0ce421d..79c8967 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -67,7 +67,7 @@
+=20
+ 	IMPLEMENTATION:
+ 	This implementation limits maximal queue length to 128;
+-	maximal mtu to 2^15-1; max 128 flows, number of hash buckets to 1024.
++	max mtu to 2^18-1; max 128 flows, number of hash buckets to 1024.
+ 	The only goal of this restrictions was that all data
+ 	fit into one 4K page on 32bit arches.
+=20
+@@ -77,6 +77,11 @@
+ #define SFQ_SLOTS		128 /* max number of flows */
+ #define SFQ_EMPTY_SLOT		255
+ #define SFQ_HASH_DIVISOR	1024
++/* We use 16 bits to store allot, and want to handle packets up to 64K
++ * Scale allot by 8 (1<<3) so that no overflow occurs.
++ */
++#define SFQ_ALLOT_SHIFT		3
++#define SFQ_ALLOT_SIZE(X)	DIV_ROUND_UP(X, 1 << SFQ_ALLOT_SHIFT)
+=20
+ /* This type should contain at least SFQ_DEPTH + SFQ_SLOTS values */
+ typedef unsigned char sfq_index;
+@@ -115,7 +120,7 @@ struct sfq_sched_data
+ 	struct timer_list perturb_timer;
+ 	u32		perturbation;
+ 	sfq_index	cur_depth;	/* depth of longest slot */
+-
++	unsigned short  scaled_quantum; /* SFQ_ALLOT_SIZE(quantum) */
+ 	struct sfq_slot *tail;		/* current slot in round */
+ 	sfq_index	ht[SFQ_HASH_DIVISOR];	/* Hash table */
+ 	struct sfq_slot	slots[SFQ_SLOTS];
+@@ -395,7 +400,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 			q->tail->next =3D x;
+ 		}
+ 		q->tail =3D slot;
+-		slot->allot =3D q->quantum;
++		slot->allot =3D q->scaled_quantum;
+ 	}
+ 	if (++sch->q.qlen <=3D q->limit) {
+ 		sch->bstats.bytes +=3D qdisc_pkt_len(skb);
+@@ -431,8 +436,14 @@ sfq_dequeue(struct Qdisc *sch)
+ 	if (q->tail =3D=3D NULL)
+ 		return NULL;
+=20
++next_slot:
+ 	a =3D q->tail->next;
+ 	slot =3D &q->slots[a];
++	if (slot->allot <=3D 0) {
++		q->tail =3D slot;
++		slot->allot +=3D q->scaled_quantum;
++		goto next_slot;
++	}
+ 	skb =3D slot_dequeue_head(slot);
+ 	sfq_dec(q, a);
+ 	sch->q.qlen--;
+@@ -447,9 +458,8 @@ sfq_dequeue(struct Qdisc *sch)
+ 			return skb;
+ 		}
+ 		q->tail->next =3D next_a;
+-	} else if ((slot->allot -=3D qdisc_pkt_len(skb)) <=3D 0) {
+-		q->tail =3D slot;
+-		slot->allot +=3D q->quantum;
++	} else {
++		slot->allot -=3D SFQ_ALLOT_SIZE(qdisc_pkt_len(skb));
+ 	}
+ 	return skb;
+ }
+@@ -485,6 +495,7 @@ static int sfq_change(struct Qdisc *sch, struct nla=
+ttr *opt)
+=20
+ 	sch_tree_lock(sch);
+ 	q->quantum =3D ctl->quantum ? : psched_mtu(qdisc_dev(sch));
++	q->scaled_quantum =3D SFQ_ALLOT_SIZE(q->quantum);
+ 	q->perturb_period =3D ctl->perturb_period * HZ;
+ 	if (ctl->limit)
+ 		q->limit =3D min_t(u32, ctl->limit, SFQ_DEPTH - 1);
+@@ -525,6 +536,7 @@ static int sfq_init(struct Qdisc *sch, struct nlatt=
+r *opt)
+ 	q->tail =3D NULL;
+ 	if (opt =3D=3D NULL) {
+ 		q->quantum =3D psched_mtu(qdisc_dev(sch));
++		q->scaled_quantum =3D SFQ_ALLOT_SIZE(q->quantum);
+ 		q->perturb_period =3D 0;
+ 		q->perturbation =3D net_random();
+ 	} else {
+@@ -617,7 +629,7 @@ static int sfq_dump_class_stats(struct Qdisc *sch, =
+unsigned long cl,
+ 	if (idx !=3D SFQ_EMPTY_SLOT) {
+ 		const struct sfq_slot *slot =3D &q->slots[idx];
+=20
+-		xstats.allot =3D slot->allot;
++		xstats.allot =3D slot->allot << SFQ_ALLOT_SHIFT;
+ 		qs.qlen =3D slot->qlen;
+ 		slot_queue_walk(slot, skb)
+ 			qs.backlog +=3D qdisc_pkt_len(skb);
 
-I hope this helps.
 
-baruch
-
-> [    4.590000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
-> [   67.630000] BUG: spinlock recursion on CPU#0, httpd/29
-> [   67.630000]  lock: 00c42c06, .magic: dead4ead, .owner: httpd/29,
-> .owner_cpu: 0
-> [   67.630000] Stack from 00d7b914:
-> [   67.630000]         00d7b940 000a8cf0 0015f693 00c42c06 dead4ead
-> 00dec1d4 0000001d 00000000
-> [   67.630000]         00c42c06 00006188 00c42800 00d7b974 000a8ec2
-> 00c42c06 0015f6f9 00002704
-> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
-> 00006188 00c42800 0002b312
-> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
-> 000df21c 00c42c06 00000000
-> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
-> 00cfc640 00006188 000096e8
-> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
-> 00029d3a 0000001f 00c42800
-> [   67.630000] Call Trace:
-> [   67.630000]  [000a8cf0]  [000a8ec2]  [0014701e]  [000df21c]  [00029d3a]
-> [   67.630000]  [00029e84]  [00000bb6]  [0000336e]  [000df162]  [000effd6]
-> [   67.630000]  [00100482]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]
-> [   67.630000]  [0010dfb2]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]
-> [   67.630000]  [0011ecc6]  [001249fe]  [000e4084]  [0011621c]  [00131a44]
-> [   67.630000]  [000e11ee]  [00041944]  [00041a1c]  [00041e46]  [00003218]
-> [   67.630000] BUG: spinlock lockup on CPU#0, httpd/29, 00c42c06
-> [   67.630000] Stack from 00d7b934:
-> [   67.630000]         00d7b974 000a8f66 0015f703 00000000 00dec1d4
-> 0000001d 00c42c06 00002704
-> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 00c42b60
-> 00006188 00c42800 0002b312
-> [   67.630000]         00d7b984 0014701e 00c42c06 00000000 00d7b9c4
-> 000df21c 00c42c06 00000000
-> [   67.630000]         00000000 0000001f 00146fa4 00152f0c 000005ea
-> 00cfc640 00006188 000096e8
-> [   67.630000]         0002b312 00146fa4 00c42b60 00002704 00d7b9ec
-> 00029d3a 0000001f 00c42800
-> [   67.630000]         0016c1b4 00cfc640 0000001f 0016c178 00029d10
-> 00146fb8 00d7ba20 00029e84
-> [   67.630000] Call Trace:
-> [   67.630000]  [000a8f66]  [0014701e]  [000df21c]  [00029d3a]  [00029e84]
-> [   67.630000]  [00000bb6]  [0000336e]  [000df162]  [000effd6]  [00100482]
-> [   67.630000]  [000f312e]  [000f9ebc]  [0010dd2a]  [0010e4a0]  [0010dfb2]
-> [   67.630000]  [0010ef80]  [0011fed6]  [00121170]  [0012188e]  [0011ecc6]
-> [   67.630000]  [001249fe]  [000e4084]  [0011621c]  [00131a44]  [000e11ee]
-> [   67.630000]  [00041944]  [00041a1c]  [00041e46]  [00003218]
-> 
-> As i said, i was hoping in your patch but i sadly discovered it is
-> already included in this kernel version.
-> Hope you can give me some help or can forward me to an appropriate
-> mailing list.
-
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
