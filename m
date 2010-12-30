@@ -1,77 +1,75 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next-2.6 PATCH v2 2/4] dcbnl: adding DCBX feature flags
- get-set
-Date: Thu, 30 Dec 2010 11:05:56 -0800
-Message-ID: <4D1CD814.2010903@intel.com>
-References: <1293726415.29378.93.camel@lb-tlvb-shmulik.il.broadcom.com>
+From: Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged
+ skbs
+Date: Thu, 30 Dec 2010 11:06:09 -0800
+Message-ID: <20101230110609.08b7ee38@nehalam>
+References: <AANLkTi=XQ2DE==ggJHfokUE1=opDVOFxQNeqwY1xZN_8@mail.gmail.com>
+	<1293708753-17728-1-git-send-email-tomas.winkler@intel.com>
+	<20101230104656.6c5a4b4e@nehalam>
+	<1293735134.21956.1.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	"Liu, Lucy" <lucy.liu@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shmulik Ravid <shmulikr@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22764 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754961Ab0L3TF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Dec 2010 14:05:58 -0500
-In-Reply-To: <1293726415.29378.93.camel@lb-tlvb-shmulik.il.broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tomas Winkler <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1293735134.21956.1.camel-8upI4CBIZJIJvtFkdXX2HixXY32XiHfO@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 12/30/2010 8:26 AM, Shmulik Ravid wrote:
-> Adding a pair of set-get routines to dcbnl for setting the negotiation
-> flags of the various DCB features. Conforms to the CEE flavor of DCBX
-> The user sets these flags (enable, advertise, willing) for each feature
-> to be used by the DCBX engine. The 'get' routine returns which of the
-> features is enabled after the negotiation.
+On Thu, 30 Dec 2010 19:52:14 +0100
+Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org> wrote:
+
+> On Thu, 2010-12-30 at 10:46 -0800, Stephen Hemminger wrote:
 > 
-> This patch is dependent on the following patches:
-> [net-next-2.6 PATCH 1/3] dcbnl: add support for ieee8021Qaz attributes
-> [net-next-2.6 PATCH 2/3] dcbnl: add appliction tlv handlers
-> [net-next-2.6 PATCH 3/3] net_dcb: add application notifiers
+> > This doesn't look correct. The calculation of the offset doesn't look correct.
+> > Just following the skb_clone(), the skb_pull value is "offset".
+> > Also, the other checks return -EINVAL for incorrectly formed packet.
+> > 
+> > --- a/net/bridge/br_multicast.c	2010-12-30 10:29:58.579510488 -0800
+> > +++ b/net/bridge/br_multicast.c	2010-12-30 10:43:27.273386691 -0800
+> > @@ -1464,6 +1464,9 @@ static int br_multicast_ipv6_rcv(struct
+> >  	if (offset < 0 || nexthdr != IPPROTO_ICMPV6)
+> >  		return 0;
+> >  
+> > +	if (!pskb_may_pull(skb, offset))
+> > +		return -EINVAL;
+> > +
+> >  	/* Okay, we found ICMPv6 header */
+> >  	skb2 = skb_clone(skb, GFP_ATOMIC);
+> >  	if (!skb2)
 > 
-> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
-> ---
+> Wouldn't that make more sense after the clone anyway? But if you look at
+> my email, you'll find that there's potentially, and conditionally, more
+> stuff that will be read from the skb's header, which hasn't necessarily
+> been pulled in, so I think this still won't fix all the issues.
+> 
+> Seeing how this only affects some ICMPv6 packets, maybe we should just
+> use skb_copy() instead?
 
-[...]
+It comes out cleaner, and the check can be simplified.
 
-One more nit ;)
-
-> +
-> +	ret = nla_parse_nested(data, DCB_FEATCFG_ATTR_MAX, tb[DCB_ATTR_FEATCFG],
-> +			       dcbnl_featcfg_nest);
-> +	if (ret) {
-> +		ret = -EINVAL;
-> +		goto err_out;
-> +	}
-
-Why do you set EINVAL here if you use the returned error code from nla_parse_nested you get a more descriptive error. See ./lib/nlattr.c:nla_parse()/validate_nla().
-
-[...]
-
-> +static int dcbnl_setfeatcfg(struct net_device *netdev, struct nlattr **tb,
-> +			    u32 pid, u32 seq, u16 flags)
-> +{
-> +	struct nlattr *data[DCB_FEATCFG_ATTR_MAX + 1];
-> +	int ret = -EINVAL;
-> +	u8 value;
-> +	int i;
-> +
-> +	if (!tb[DCB_ATTR_FEATCFG] || !netdev->dcbnl_ops->setfeatcfg)
-> +		return ret;
-> +
-> +	ret = nla_parse_nested(data, DCB_FEATCFG_ATTR_MAX, tb[DCB_ATTR_FEATCFG],
-> +			       dcbnl_featcfg_nest);
-> +
-> +	if (ret) {
-> +		ret = -EINVAL;
-> +		goto err;
-> +	}
-
-Same here.
-
-Thanks,
-John.
+--- a/net/bridge/br_multicast.c	2010-12-30 10:47:12.031733855 -0800
++++ b/net/bridge/br_multicast.c	2010-12-30 11:00:12.135801266 -0800
+@@ -1465,19 +1465,19 @@ static int br_multicast_ipv6_rcv(struct
+ 		return 0;
+ 
+ 	/* Okay, we found ICMPv6 header */
+-	skb2 = skb_clone(skb, GFP_ATOMIC);
++	skb2 = skb_copy(skb, GFP_ATOMIC);
+ 	if (!skb2)
+ 		return -ENOMEM;
+ 
++	err = -EINVAL;
++	if (skb2->len < offset + sizeof(*icmp6h))
++		goto out;
++
+ 	len -= offset - skb_network_offset(skb2);
+ 
+ 	__skb_pull(skb2, offset);
+ 	skb_reset_transport_header(skb2);
+ 
+-	err = -EINVAL;
+-	if (!pskb_may_pull(skb2, sizeof(*icmp6h)))
+-		goto out;
