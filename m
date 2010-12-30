@@ -1,57 +1,59 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v4] Gemini: Gigabit ethernet driver
-Date: Thu, 30 Dec 2010 01:19:57 -0800
-Message-ID: <1293700797.2400.13.camel@Joe-Laptop>
-References: <20101230083905.5A8EB13909@rere.qmqm.pl>
+From: Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
+Date: Thu, 30 Dec 2010 03:10:20 -0600
+Message-ID: <4D1C4C7C.6050606@parallels.com>
+References: <1293628470-28386-1-git-send-email-kas@openvz.org> <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com> <20101230085139.GA29697@shutemov.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hans Ulli Kroll <ulli.kroll@googlemail.com>,
-	gemini-board-dev@lists.berlios.de, netdev@vger.kernel.org,
-	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2876 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751291Ab0L3JT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Dec 2010 04:19:59 -0500
-In-Reply-To: <20101230083905.5A8EB13909@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20101230085139.GA29697-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2010-12-30 at 09:39 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> Driver for SL351x (Gemini) SoC ethernet peripheral. Based in part
-> on work by Paulius Zaleckas and GPLd code from Raidsonic and other
-> NAS vendors.
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> diff --git a/drivers/net/sl351x.c b/drivers/net/sl351x.c
+On 12/30/2010 02:51 AM, Kirill A. Shutemov wrote:
+> On Wed, Dec 29, 2010 at 08:13:50PM -0600, Rob Landley wrote:
+>> On Wed, Dec 29, 2010 at 7:14 AM, Kirill A. Shutemov<kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>  wrote:
+>>>
+>>> Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+>>> Only for client for now.
+>>
+>> What would a test case for this look like?  (Is there some way to tell
+>> an nfs mount to use a specific instance of rpc_pipefs or something?)
+>
+> You can create a new instance of rpc_pipefs using 'newinstance'
+> mountoption.
+>
+> Then you can specify which rpc_pipefs to use with 'rpcmount' mountoption
+> of nfs mount. If none specifed, '/var/lib/nfs/rpc_pipefs' uses by default.
 
-Output trivia:
+That path is as the process performing the mount sees it?
 
-> +static void gmac_tx_interrupt(struct net_device *dev, unsigned txq_n=
-um)
-[]
-> +	netif_info(gmac, tx_done, dev, "txirq%u: %u,%u,%u\n",
-> +		txq_num, txq->cptr, GET_RPTR(ptr_reg), GET_WPTR(ptr_reg));
+> If no rpcmount mountoption, no rpc_pipefs was found at
+> '/var/lib/nfs/rpc_pipefs' and we are in init's mount namespace, we use
+> init_rpc_pipefs.
 
-pointers as decimal?
-There seems to be a lot of output using %u where I expected %08x.
+It's the "we are in init's mount namespace" that I was wondering about.
 
-> +static int gmac_start_xmit(struct sk_buff *skb, struct net_device *d=
-ev)
-[]
-> +	netif_info(gmac, tx_queued, dev, "txq%u: %u,%u,%u ? %p (%u @ %p) /%=
-u\n",
-> +		txq_num, txq->cptr, GET_RPTR(ptr_reg), GET_WPTR(ptr_reg),
-> +		skb, skb->len, skb->data, skb_shinfo(skb)->gso_size);
-[]
-> +	netif_info(gmac, tx_queued, dev, "txq%u: %u,%u,%u + %p\n",
-> +		txq_num, txq->cptr, GET_RPTR(ptr_reg), w, skb);
-[]
-> +static unsigned gmac_rx(struct net_device *dev, unsigned budget)
-[]
-> +	netif_info(gmac, rx_status, dev, "rxq: %u,%u\n",
-> +		 GET_RPTR(ptr_reg), GET_WPTR(ptr_reg));
+So if I naievely chroot, nfs mount stops working the way it did before I 
+chrooted unless I do an extra setup step?
 
-etc...
+I'm actually poking at getting nfs mount working in LXC containers with 
+different network routing (mostly study so far, it took me a couple 
+weeks just to get lxc to work for me and now I'm trying to wrap my head 
+around Linux's NFS implementation), so I'm very interested in this...
 
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
