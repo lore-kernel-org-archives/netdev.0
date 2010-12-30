@@ -1,56 +1,61 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: [PATCH 11/15]drivers:media:video:cx18:cx23418.h Typo change diable to disable.
-Date: Thu, 30 Dec 2010 15:08:00 -0800
-Message-ID: <1293750484-1161-11-git-send-email-justinmattock@gmail.com>
+From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 03/15]drivers:staging:rtl8187se:r8180_hw.h Typo change diable
+	to disable.
+Date: Thu, 30 Dec 2010 15:07:52 -0800
+Message-ID: <1293750484-1161-3-git-send-email-justinmattock@gmail.com>
 References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-2-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-3-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-4-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-5-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-6-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-7-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-8-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-9-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-10-git-send-email-justinmattock@gmail.com>
-Cc: linux-m68k@lists.linux-m68k.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, ivtv-devel@ivtvdriver.org,
-	linux-media@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-scsi@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org,
-	"Justin P. Mattock" <justinmattock@gmail.com>
-To: trivial@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:58873 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753213Ab0L3XIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 18:08:43 -0500
-In-Reply-To: <1293750484-1161-10-git-send-email-justinmattock@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ivtv-devel-jGorlIydJmRM656bX5wj8A@public.gmane.org, linux-m68k-cunTk1MwBs8S/qaLPR03pWD2FQJk+8+b@public.gmane.org,
+	"Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1293750484-1161-2-git-send-email-justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
+	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
+List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
+	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 The below patch fixes a typo "diable" to "disable". Please let me know if this 
 is correct or not.
 
-Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+Signed-off-by: Justin P. Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
 ---
- drivers/media/video/cx18/cx23418.h |    2 +-
+ drivers/staging/rtl8187se/r8180_hw.h |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/media/video/cx18/cx23418.h b/drivers/media/video/cx18/cx23418.h
-index 2c00980..7e40035 100644
---- a/drivers/media/video/cx18/cx23418.h
-+++ b/drivers/media/video/cx18/cx23418.h
-@@ -177,7 +177,7 @@
-    IN[0] - Task handle.
-    IN[1] - luma type: 0 = disable, 1 = 1D horizontal only, 2 = 1D vertical only,
- 		      3 = 2D H/V separable, 4 = 2D symmetric non-separable
--   IN[2] - chroma type: 0 - diable, 1 = 1D horizontal
-+   IN[2] - chroma type: 0 - disable, 1 = 1D horizontal
-    ReturnCode - One of the ERR_CAPTURE_... */
- #define CX18_CPU_SET_SPATIAL_FILTER_TYPE     	(CPU_CMD_MASK_CAPTURE | 0x000C)
+diff --git a/drivers/staging/rtl8187se/r8180_hw.h b/drivers/staging/rtl8187se/r8180_hw.h
+index 3fca144..2911d40 100644
+--- a/drivers/staging/rtl8187se/r8180_hw.h
++++ b/drivers/staging/rtl8187se/r8180_hw.h
+@@ -554,7 +554,7 @@
+ /* by amy for power save		*/
+ /* by amy for antenna			*/
+ #define EEPROM_SW_REVD_OFFSET 0x3f
+-/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are diable.					*/
++/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are disabled.					*/
+ #define EEPROM_SW_AD_MASK			0x0300
+ #define EEPROM_SW_AD_ENABLE			0x0100
  
 -- 
 1.6.5.2.180.gc5b3e
 
+
+------------------------------------------------------------------------------
+Learn how Oracle Real Application Clusters (RAC) One Node allows customers
+to consolidate database storage, standardize their database environment, and, 
+should the need arise, upgrade to a full multi-node Oracle RAC database 
+without downtime or disruption
+http://p.sf.net/sfu/oracle-sfdevnl
