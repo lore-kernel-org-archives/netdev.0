@@ -1,73 +1,66 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Buffer-bloat (was Re: IPTV buffering)
-Date: Thu, 30 Dec 2010 15:53:09 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1012301541550.10669@ask.diku.dk>
-References: <20101216111843.88E16F0C32AB5@borg.medozas.de>
- <Pine.LNX.4.64.1012211634330.21593@ask.diku.dk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] sfq: fix slot_dequeue_head()
+Date: Thu, 30 Dec 2010 16:02:48 +0100
+Message-ID: <1293721368.7150.307.camel@edumazet-laptop>
+References: <1292998499.4317.13.camel@edumazet-laptop>
+	 <20101222073211.GA7001@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
-Cc: Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1012211634330.21593@ask.diku.dk>
-Content-ID: <Pine.LNX.4.64.1012301541552.10669@ask.diku.dk>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:53129 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753908Ab0L3PC6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 10:02:58 -0500
+Received: by wwi17 with SMTP id 17so11380982wwi.1
+        for <netdev@vger.kernel.org>; Thu, 30 Dec 2010 07:02:57 -0800 (PST)
+In-Reply-To: <20101222073211.GA7001@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Dec 2010, Jesper Dangaard Brouer wrote:
+Le mercredi 22 d=C3=A9cembre 2010 =C3=A0 07:32 +0000, Jarek Poplawski a=
+ =C3=A9crit :
+> > Also, slot_dequeue_tail() should make sure slot skb chain is correc=
+tly
+> > terminated, or sfq_dump_class_stats() can access freed skbs.
+>=20
+> ...and a good hint for code reusing ;-)
 
->
-> On Thu, 16 Dec 2010, Jan Engelhardt wrote:
->>  On Thursday 2010-12-16 10:57, Jesper Dangaard Brouer wrote:
->> 
->> >  [...] NetConf 2010, see:
->> > 
->> >  http://vger.kernel.org/netconf2010.html
->>
->>  I just went over a few slide sets, and noticed Dave's Netfilter summary
->>  about your IPTV talk, enlisting the point
->>
->>  * Ethernet switches buffer too small
->>
->>  ("too small".. "too few"?) Given the recent uproar about bufferbloat in
->>  routing devices (see LWN coverage about Getty's articles), wanting
->>  larger buffers seems to almost contradict what Getty would like.
->
-> Always wanting small buffers doesn't make sense.  It seem that he is not 
-> considering that network equipment can be used for other things than TCP/IP.
+Yes, and of course same fix is needed in slot_dequeue_head(), as furthe=
+r
+testing on my side made it pretty clear.
 
-I have created a blogpost:
-  http://netoptimizer.blogspot.com/2010/12/buffer-bloat-calculations.html
+I was adding possibility to have more packets queued in SFQ (more
+packets than max number of flows) and got unexpected crashes.
 
-Where I explain how it makes sense to have small buffers on links with a 
-small bandwidth.
+Reverting to net-next-2.6, I still got crashes. Oops.
 
-  - ISPs need to adjust the buffer size according to the bandwidth of the 
-link.
+[PATCH net-next-2.6] sfq: fix slot_dequeue_head()
+
+slot_dequeue_head() should make sure slot skb chain is correct in both
+ways, or we can crash if all possible flows are in use.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jarek Poplawski <jarkao2@gmail.com>
+---
+ net/sched/sch_sfq.c |    1 +
+ 1 files changed, 1 insertion(+)
+
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 6a2f88f..3977e56 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -292,6 +292,7 @@ static inline struct sk_buff *slot_dequeue_head(str=
+uct sfq_slot *slot)
+ 	struct sk_buff *skb =3D slot->skblist_next;
+=20
+ 	slot->skblist_next =3D skb->next;
++	skb->next->prev =3D (struct sk_buff *)slot;
+ 	skb->next =3D skb->prev =3D NULL;
+ 	return skb;
+ }
 
 
->>  Wanting more buffers vs. wanting less buffering seems to be quite
->>  contradictory. Jesper, what is your take on this?
->
-> Skimming through Getty's blog post, I think Getty has actually missed what is 
-> happening.  He should read my masters thesis[1]... The real problem is that 
-> TCP/IP is clocked by the ACK packets, and on asymetric links (like ADSL and 
-> DOCSIS), the ACK packets are simply comming downstream too fast on the larger 
-> downstream link, resulting in bursts and high-latency on the upstream link.
-
-Adjusting my statement; the asym ACK issue might be part the issue, 
-causing the packets to queue in the buffer.
-
-The buffer-bloat issue is very true and a real-life issue.  ISPs need to 
-adjust the buffers according to the bandwidth on the link!
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
