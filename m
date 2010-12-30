@@ -1,235 +1,330 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: 2.6.37-rc8: Reported regressions 2.6.35 -> 2.6.36
-Date: Thu, 30 Dec 2010 00:18:40 +0100 (CET)
-Message-ID: <odW4v9b6arG.A.2bH.uE8GNB@chimera>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: Re: dm9000 patch
+Date: Thu, 30 Dec 2010 10:37:53 +1000
+Message-ID: <4D1BD461.4070104@snapgear.com>
+References: <4D1A5C2A.5050606@gmail.com>	<20101229060637.GA31010@jasper.tkos.co.il>	<4D1B33F2.5060600@gmail.com>	<20101229180650.GE6067@tarshish>	<AANLkTim0+GbddLdkPFoggeCKpU7on7mta0V2mZZLgviE@mail.gmail.com>
+	<4D1BA0D0.1060407@gmail.com>
+Reply-To: uClinux development list <uclinux-dev@uclinux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: Maciej Rutecki <maciej.rutecki@gmail.com>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-acpi-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-acpi-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Baruch Siach <baruch@tkos.co.il>, netdev@vger.kernel.org,
+	Angelo Dureghello <angelo70@gmail.com>, linux-m68k@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: uClinux development list <uclinux-dev@uclinux.org>
+Return-path: <uclinux-dev-bounces@uclinux.org>
+In-Reply-To: <4D1BA0D0.1060407@gmail.com>
+List-Unsubscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+	<mailto:uclinux-dev-request@uclinux.org?subject=unsubscribe>
+List-Archive: <http://mailman.uclinux.org/pipermail/uclinux-dev>
+List-Post: <mailto:uclinux-dev@uclinux.org>
+List-Help: <mailto:uclinux-dev-request@uclinux.org?subject=help>
+List-Subscribe: <http://mailman.uclinux.org/mailman/listinfo/uclinux-dev>,
+	<mailto:uclinux-dev-request@uclinux.org?subject=subscribe>
+Sender: uclinux-dev-bounces@uclinux.org
+Errors-To: uclinux-dev-bounces@uclinux.org
 List-Id: netdev.vger.kernel.org
 
-[NOTE: This most likely is the last summary report of regressions introduced
- between 2.6.35 and 2.6.36.]
+Hi Angelo,
 
-This message contains a list of some post-2.6.35 regressions introduced before
-2.6.36, for which there are no fixes in the mainline known to the tracking team.
-If any of them have been fixed already, please let us know.
+On 30/12/10 06:57, Angelo Dureghello wrote:
+> Hi all,
+> thanks for the help,
+> the kernel is a main line kernel. Then yes, i am still using uclinux
+> tree for libc/tools.
 
-If you know of any other unresolved post-2.6.35 regressions, please let us know
-either and we'll add them to the list.  Also, please let us know if any
-of the entries below are invalid.
+How is the DM9000 hardware connected to the 5307?
+I am wondering how you connected the interrupt (and to
+which interrupt) and the addressing (direct of a chip select)?
 
-Each entry from the list will be sent additionally in an automatic reply to
-this message with CCs to the people involved in reporting and handling the
-issue.
+(For example NETtel based 5307 platform support of the SMC91x code is
+in mainline as arch/m68knommu/platform/5307/nettel.c). Can you show
+the code you used to setup your dm9000 hardware?
+(Specifically I guess I want to know if you use the "auto-vectored"
+interrupt mode?)
 
-
-Listed regressions statistics:
-
-  Date          Total  Pending  Unresolved
-  ----------------------------------------
-  2010-12-30       99       22          20
-  2010-12-19       98       28          23
-  2010-12-05       95       34          31
-  2010-11-19       92       38          34
-  2010-10-17       70       27          27
-  2010-10-10       56       16          15
-  2010-10-03       52       16          14
-  2010-09-26       46       15          13
-  2010-09-20       38       15          15
-  2010-09-12       28       14          13
-  2010-08-30       21       16          15
+Thanks
+Greg
 
 
-Unresolved regressions
-----------------------
+> I collected another spinlock recursion with a slightly different call
+> stack trace, as always, the spinlock recursion issue happen on a high
+> tx/rx traffic of the dm9000e, in this case just asking an index.html
+> with some images and texts:
+>
+> [ 1108.930000] BUG: spinlock recursion on CPU#0, httpd/29
+> [ 1108.930000] lock: 00c42c06, .magic: dead4ead, .owner: httpd/29,
+> .owner_cpu: 0
+> [ 1108.930000] Stack from 00d7a688:
+> [ 1108.930000] 00d7a6b4 000ad988 001840ca 00c42c06 dead4ead 00d641d4
+> 0000001d 00000000
+> [ 1108.930000] 00c42c06 000064f0 00c42800 00d7a6e8 000adb5a 00c42c06
+> 00184130 00002704
+> [ 1108.930000] 00000000 0000001f 0014d17e 00159912 00c42b60 000064f0
+> 00c42800 0002cb16
+> [ 1108.930000] 00d7a6f8 0014d24e 00c42c06 00000000 00d7a738 000e485c
+> 00c42c06 00000000
+> [ 1108.930000] 00000000 0000001f 0014d17e 00159912 0000004a 00cfc600
+> 000064f0 00009a74
+> [ 1108.930000] 0002cb16 00191204 00d7a760 0002b6f2 00d7a760 0002b514
+> 0000001f 00c42800
+> [ 1108.930000] Call Trace:
+> [ 1108.930000] [000ad988] spin_bug+0x86/0x11a
+> [ 1108.930000] [000adb5a] do_raw_spin_lock+0x58/0x120
+> [ 1108.930000] [0014d24e] _raw_spin_lock_irqsave+0x28/0x32
+> [ 1108.930000] [000e485c] dm9000_interrupt+0x1a/0x2e0
+> [ 1108.930000] [0002b514] handle_IRQ_event+0x2a/0xec
+> [ 1108.930000] [0002b680] __do_IRQ+0xaa/0x128
+> [ 1108.930000] [00000bb6] do_IRQ+0x48/0x62
+> [ 1108.930000] [000033c6] inthandler+0x6a/0x74
+> [ 1108.930000] [000fb626] dev_hard_start_xmit+0x170/0x4c4
+> [ 1108.930000] [0010b80e] sch_direct_xmit+0xc0/0x1bc
+> [ 1108.930000] [000fe9de] dev_queue_xmit+0x160/0x3e6
+> [ 1108.930000] [001195c4] ip_finish_output+0xec/0x320
+> [ 1108.930000] [0011a768] ip_output+0x9e/0xa8
+> [ 1108.930000] [00119856] ip_local_out+0x26/0x30
+> [ 1108.930000] [0011a56e] ip_build_and_send_pkt+0x16e/0x178
+> [ 1108.930000] [0012fc96] tcp_v4_send_synack+0x52/0x90
+> [ 1108.930000] [00130f86] tcp_v4_conn_request+0x3fa/0x57c
+> [ 1108.930000] [0012a1c6] tcp_rcv_state_process+0x25e/0xa66
+> [ 1108.930000] [001309a4] tcp_v4_do_rcv+0x7c/0x1c8
+> [ 1108.930000] [00132854] tcp_v4_rcv+0x546/0x6d2
+> [ 1108.930000] [001153a8] ip_local_deliver+0x9c/0x1b0
+> [ 1108.930000] [001158e8] ip_rcv+0x42c/0x5f0
+> [ 1108.930000] [000fa74e] __netif_receive_skb+0x196/0x2ec
+> [ 1108.930000] [000fe142] process_backlog+0x72/0x11e
+> [ 1108.930000] [000fe290] net_rx_action+0xa2/0x150
+> [ 1108.930000] [0000e13c] __do_softirq+0x74/0xe4
+> [ 1108.930000] [0000e1e2] do_softirq+0x36/0x40
+> [ 1108.930000] [0000e6c6] local_bh_enable+0x7a/0xa4
+> [ 1108.930000] [000fe972] dev_queue_xmit+0xf4/0x3e6
+> [ 1108.930000] [001195c4] ip_finish_output+0xec/0x320
+> [ 1108.930000] [0011a768] ip_output+0x9e/0xa8
+> [ 1108.930000] [00119856] ip_local_out+0x26/0x30
+> [ 1108.930000] [0011a90a] ip_queue_xmit+0x198/0x426
+> [ 1108.930000] [0012bcc8] tcp_transmit_skb+0x3f0/0x76c
+> [ 1108.930000] [0012cfda] tcp_write_xmit+0x178/0x868
+> [ 1108.930000] [0012d6f8] __tcp_push_pending_frames+0x2e/0x9a
+> [ 1108.930000] [001222be] tcp_sendmsg+0x82e/0x98c
+> [ 1108.930000] [0013d9c0] inet_sendmsg+0x32/0x54
+> [ 1108.930000] [000ec25e] sock_aio_write+0xc8/0x138
+> [ 1108.930000] [00043e7e] do_sync_write+0x9e/0xfe
+> [ 1108.930000] [00043f56] vfs_write+0x78/0x84
+> [ 1108.930000] [0004446c] sys_write+0x40/0x7a
+> [ 1108.930000] [00003244] system_call+0x84/0xc2
+> [ 1108.930000]
+>
+> seems like while i transmit a packet, dm9000_interrupt try to acquire
+> the spinlock owned from the same task.
+>
+> Compiling the kernel i am getting:
+> CC kernel/irq/handle.o
+> kernel/irq/handle.c:432:3: warning: #warning __do_IRQ is deprecated.
+> Please convert to proper flow handlers
+>
+> Could the usage of __do_IRQ super-handler be a cause of the issue ?
+>
+>
+> many thanks,
+> angelo
+>
+> On 29/12/2010 19:45, Geert Uytterhoeven wrote:
+>> On Wed, Dec 29, 2010 at 19:06, Baruch Siach<baruch@tkos.co.il> wrote:
+>>> Hi Angelo,
+>>>
+>>> On Wed, Dec 29, 2010 at 02:13:22PM +0100, Angelo Dureghello wrote:
+>>>> just FYI, i tested kernel 2.6.36.2, unfortunately the issue is still
+>>>> there, below the call stack trace.
+>>> Help from the m68k experts seems to be needed. Adding the relevant
+>>> list to Cc.
+>> This is uClinux? Added Cc...
+>>
+>>>> [ 4.620000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+>>>> [ 39.390000] BUG: spinlock recursion on CPU#0, httpd/29
+>>>> [ 39.390000] lock: 00189c44, .magic: dead4ead, .owner: httpd/29,
+>>>> .owner_cpu: 0
+>>>> [ 39.390000] Stack from 00d6a990:
+>>>> [ 39.390000] 00d6a9bc 000a9710 0017cac7 00189c44 dead4ead
+>>>> 00de48f4 0000001d 00000000
+>>>> [ 39.390000] 00189c44 0002a646 00145f70 00d6a9f0 000a98e2
+>>>> 00189c44 0017cb2d 00189c44
+>>>> [ 39.390000] 00d6aad8 0000001f 00145f5c 001523f6 00189c08
+>>>> 0002a646 00145f70 0002bc52
+>>>> [ 39.390000] 00d6a9fc 00145f7e 00189c44 00d6aa28 0002a75e
+>>>> 00189c44 0000001f 00d6aad8
+>>>> [ 39.390000] 0000001f 00145f5c 00189c08 0002a646 00145f70
+>>>> 0002bc52 00d6aa3c 00000bb6
+>>>> [ 39.390000] 0000001f 00189c44 00cfc780 00d6aa84 0000337a
+>>>> 0000001f 00d6aa4c 00000001
+>>>> [ 39.390000] Call Trace:
+>>>> [ 39.390000] [000a9710] spin_bug+0x86/0x11a
+>>>> [ 39.390000] [000a98e2] do_raw_spin_lock+0x58/0x120
+>>>> [ 39.390000] [00145f7e] _raw_spin_lock+0xe/0x14
+>>>> [ 39.390000] [0002a75e] __do_IRQ+0x2c/0x108
+>>>> [ 39.390000] [00000bb6] do_IRQ+0x48/0x62
+>>>> [ 39.390000] [0000337a] inthandler+0x6a/0x74
+>>>> [ 39.390000] [0002a82e] __do_IRQ+0xfc/0x108
+>>>> [ 39.390000] [00000bb6] do_IRQ+0x48/0x62
+>>>> [ 39.390000] [0000337a] inthandler+0x6a/0x74
+>>>> [ 39.390000] [000ef0ce] skb_release_all+0x10/0x20
+>>>> [ 39.390000] [000ee6bc] __kfree_skb+0x10/0x92
+>>>> [ 39.390000] [000ee75e] consume_skb+0x20/0x34
+>>>> [ 39.390000] [000e004e] dm9000_start_xmit+0xdc/0xec
+>>>> [ 39.390000] [000f67a2] dev_hard_start_xmit+0x146/0x472
+>>>> [ 39.390000] [00106506] sch_direct_xmit+0xc0/0x1bc
+>>>> [ 39.390000] [000f9914] dev_queue_xmit+0x160/0x3e4
+>>>> [ 39.390000] [00113b3e] ip_finish_output+0xee/0x318
+>>>> [ 39.390000] [001142b4] ip_output+0x7c/0x88
+>>>> [ 39.390000] [00113dc6] ip_local_out+0x26/0x30
+>>>> [ 39.390000] [00114d9a] ip_queue_xmit+0x152/0x374
+>>>> [ 39.390000] [00125c8c] tcp_transmit_skb+0x3f0/0x732
+>>>> [ 39.390000] [00126f26] tcp_write_xmit+0x178/0x868
+>>>> [ 39.390000] [00127644] __tcp_push_pending_frames+0x2e/0x9a
+>>>> [ 39.390000] [0011c3d6] tcp_sendmsg+0x82e/0x98c
+>>>> [ 39.390000] [00137544] inet_sendmsg+0x32/0x54
+>>>> [ 39.390000] [000e79a6] sock_aio_write+0xc8/0x138
+>>>> [ 39.390000] [00042590] do_sync_write+0x9e/0xfe
+>>>> [ 39.390000] [00042668] vfs_write+0x78/0x84
+>>>> [ 39.390000] [00042a92] sys_write+0x40/0x7a
+>>>> [ 39.390000] [00003224] system_call+0x84/0xc2
+>>>> [ 39.390000]
+>>>>
+>>>> dm9000e is as default not visible/selectable in menuconfig for
+>>>> Coldfire architectures, so this probably cannot be considered as a
+>>>> kernel bug.
+>>>>
+>>>> I going forward in investigations, every help is appreciated,
+>>>>
+>>>> regards,
+>>>> angelo
+>>>>
+>>>>
+>>>>
+>>>> On 29/12/2010 07:06, Baruch Siach wrote:
+>>>>> Hi Angelo,
+>>>>>
+>>>>> On Tue, Dec 28, 2010 at 10:52:42PM +0100, Angelo Dureghello wrote:
+>>>>>> sorry to contact you directly but i couldn't get any help from the
+>>>>>> kernel.org mailing list, since i am not a developer my mails are
+>>>>>> generally skipped.
+>>>>> The best way to get the contact info for a piece of kernel code, is
+>>>>> using the
+>>>>> get_maintainer.pl script. Running 'scripts/get_maintainer.pl -f
+>>>>> drivers/net/dm9000.c' gives the following output:
+>>>>>
+>>>>> netdev@vger.kernel.org
+>>>>> linux-kernel@vger.kernel.org
+>>>>>
+>>>>> I added both to Cc.
+>>>>>
+>>>>>> I am very near to have a custom board working with MCF5307 cpu and
+>>>>>> dm9000.
+>>>>>> I am using kernel 2.6.36-rc3 with your last patch about
+>>>>>> spinlock-recursion already included.
+>>>>> You should try to update to the latest .36 kernel, which is currently
+>>>>> 2.6.36.2. The problem that you experience might be unrelated to the
+>>>>> dm9000
+>>>>> driver (or to networking at all), so it might have been fixed in
+>>>>> this version.
+>>>>>
+>>>>>> I have "ping" and "telnet" to the embedded board fully working.
+>>>>>> If i try to get a sample web page with some images from the board
+>>>>>> httpd with a browser, in 80% of cases i get a trap/oops:
+>>>>> Try to enable KALLSYMS in your kernel .config to make your stack
+>>>>> trace more
+>>>>> meaningful. This is under 'General setup -> Configure standard
+>>>>> kernel features
+>>>>> (for small systems) -> Load all symbols for debugging/ksymoops'.
+>>>>>
+>>>>> I hope this helps.
+>>>>>
+>>>>> baruch
+>>>>>
+>>>>>> [ 4.590000] eth0: link up, 100Mbps, full-duplex, lpa 0x45E1
+>>>>>> [ 67.630000] BUG: spinlock recursion on CPU#0, httpd/29
+>>>>>> [ 67.630000] lock: 00c42c06, .magic: dead4ead, .owner: httpd/29,
+>>>>>> .owner_cpu: 0
+>>>>>> [ 67.630000] Stack from 00d7b914:
+>>>>>> [ 67.630000] 00d7b940 000a8cf0 0015f693 00c42c06 dead4ead
+>>>>>> 00dec1d4 0000001d 00000000
+>>>>>> [ 67.630000] 00c42c06 00006188 00c42800 00d7b974 000a8ec2
+>>>>>> 00c42c06 0015f6f9 00002704
+>>>>>> [ 67.630000] 00000000 0000001f 00146fa4 00152f0c 00c42b60
+>>>>>> 00006188 00c42800 0002b312
+>>>>>> [ 67.630000] 00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+>>>>>> 000df21c 00c42c06 00000000
+>>>>>> [ 67.630000] 00000000 0000001f 00146fa4 00152f0c 000005ea
+>>>>>> 00cfc640 00006188 000096e8
+>>>>>> [ 67.630000] 0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+>>>>>> 00029d3a 0000001f 00c42800
+>>>>>> [ 67.630000] Call Trace:
+>>>>>> [ 67.630000] [000a8cf0] [000a8ec2] [0014701e] [000df21c] [00029d3a]
+>>>>>> [ 67.630000] [00029e84] [00000bb6] [0000336e] [000df162] [000effd6]
+>>>>>> [ 67.630000] [00100482] [000f312e] [000f9ebc] [0010dd2a] [0010e4a0]
+>>>>>> [ 67.630000] [0010dfb2] [0010ef80] [0011fed6] [00121170] [0012188e]
+>>>>>> [ 67.630000] [0011ecc6] [001249fe] [000e4084] [0011621c] [00131a44]
+>>>>>> [ 67.630000] [000e11ee] [00041944] [00041a1c] [00041e46] [00003218]
+>>>>>> [ 67.630000] BUG: spinlock lockup on CPU#0, httpd/29, 00c42c06
+>>>>>> [ 67.630000] Stack from 00d7b934:
+>>>>>> [ 67.630000] 00d7b974 000a8f66 0015f703 00000000 00dec1d4
+>>>>>> 0000001d 00c42c06 00002704
+>>>>>> [ 67.630000] 00000000 0000001f 00146fa4 00152f0c 00c42b60
+>>>>>> 00006188 00c42800 0002b312
+>>>>>> [ 67.630000] 00d7b984 0014701e 00c42c06 00000000 00d7b9c4
+>>>>>> 000df21c 00c42c06 00000000
+>>>>>> [ 67.630000] 00000000 0000001f 00146fa4 00152f0c 000005ea
+>>>>>> 00cfc640 00006188 000096e8
+>>>>>> [ 67.630000] 0002b312 00146fa4 00c42b60 00002704 00d7b9ec
+>>>>>> 00029d3a 0000001f 00c42800
+>>>>>> [ 67.630000] 0016c1b4 00cfc640 0000001f 0016c178 00029d10
+>>>>>> 00146fb8 00d7ba20 00029e84
+>>>>>> [ 67.630000] Call Trace:
+>>>>>> [ 67.630000] [000a8f66] [0014701e] [000df21c] [00029d3a] [00029e84]
+>>>>>> [ 67.630000] [00000bb6] [0000336e] [000df162] [000effd6] [00100482]
+>>>>>> [ 67.630000] [000f312e] [000f9ebc] [0010dd2a] [0010e4a0] [0010dfb2]
+>>>>>> [ 67.630000] [0010ef80] [0011fed6] [00121170] [0012188e] [0011ecc6]
+>>>>>> [ 67.630000] [001249fe] [000e4084] [0011621c] [00131a44] [000e11ee]
+>>>>>> [ 67.630000] [00041944] [00041a1c] [00041e46] [00003218]
+>>>>>>
+>>>>>> As i said, i was hoping in your patch but i sadly discovered it is
+>>>>>> already included in this kernel version.
+>>>>>> Hope you can give me some help or can forward me to an appropriate
+>>>>>> mailing list.
+>>> --
+>>> ~. .~ Tk Open Systems
+>>> =}------------------------------------------------ooO--U--Ooo------------{=
+>>>
+>>> - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+>>> --
+>>> To unsubscribe from this list: send the line "unsubscribe
+>>> linux-kernel" in
+>>> the body of a message to majordomo@vger.kernel.org
+>>> More majordomo info at http://vger.kernel.org/majordomo-info.html
+>>> Please read the FAQ at http://www.tux.org/lkml/
+>>>
+>>
+>>
+>
+> _______________________________________________
+> uClinux-dev mailing list
+> uClinux-dev@uclinux.org
+> http://mailman.uclinux.org/mailman/listinfo/uclinux-dev
+> This message was resent by uclinux-dev@uclinux.org
+> To unsubscribe see:
+> http://mailman.uclinux.org/mailman/options/uclinux-dev
+>
 
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24752
-Subject		: Random crashes easily reproducible with make -j5 - intel i915 - kernel 2.6.36 on intel/nvidia hybrid graphics machine
-Submitter	: Giacomo <delleceste@gmail.com>
-Date		: 2010-12-10 8:57 (20 days old)
-Message-ID	: <AANLkTimkQM94u9iz7FVVjehB0mwDwfkNwKhF2F2tYq-r@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=129197146619176&w=2
 
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24722
-Subject		: Disconnecting my USB mouse hangs the machine and issues kernel warning
-Submitter	: Heinz Diehl <htd@fancy-poultry.org>
-Date		: 2010-12-12 12:42 (18 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24392
-Subject		: AGP aperture disabled, worked in 2.6.35
-Submitter	: Stephen Kitt <steve@sk2.org>
-Date		: 2010-12-06 06:31 (24 days old)
-First-Bad-Commit: http://git.kernel.org/linus/http://git.kernel.org/linus/96576a9e1a0cdb8a43d3af5846be0948f52b4460
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24202
-Subject		: [830] drm:intel_prepare_page_flip, *ERROR* Prepared flip multiple times
-Submitter	: mkkot <marcin2006@gmail.com>
-Date		: 2010-12-02 14:10 (28 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=23812
-Subject		: HAL does not provide battery information on RHEL5 and CentOS-5
-Submitter	: Dag Wieers <dag@wieers.com>
-Date		: 2010-11-26 18:08 (34 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22842
-Subject		: iwl3945 suddenly stops working
-Submitter	: Felipe Contreras <felipe.contreras@gmail.com>
-Date		: 2010-11-14 11:14 (46 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22782
-Subject		: 2.6.36: general protection fault during lockfs lockspace removal
-Submitter	: nik@linuxbox.cz <nik@linuxbox.cz>
-Date		: 2010-11-12 12:05 (48 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22172
-Subject		: alsa-util.c: snd_pcm_avail_delay() returned strange values: delay 0 is less than avail 32
-Submitter	: Tobias <devnull@plzk.org>
-Date		: 2010-11-06 09:33 (54 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=22092
-Subject		: Kernel v2.6.36 trouble on USB disconnect
-Submitter	: Ketil Froyn <ketil@froyn.name>
-Date		: 2010-10-29 8:05 (62 days old)
-Message-ID	: <<AANLkTik5qVxkEGVAA1PSOGk2KTW+ekHpSwttsQEWzWj+@mail.gmail.com>>
-References	: http://marc.info/?l=linux-kernel&m=128833956503607&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=21652
-Subject		: several problems with intel graphics since 2.6.36
-Submitter	: Norbert Preining <preining@logic.at>
-Date		: 2010-10-27 14:32 (64 days old)
-Message-ID	: <20101027143252.GA8676@gamma.logic.tuwien.ac.at>
-References	: http://marc.info/?l=linux-kernel&m=128818998630241&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=21402
-Subject		: [KVM] Noacpi Windows guest can not boot up on 32bit KVM host
-Submitter	: xudong <xudong.hao@intel.com>
-Date		: 2010-10-29 03:01 (62 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=20332
-Subject		: [LogFS] [2.6.36-rc7] Kernel BUG at lib/btree.c:465!
-Submitter	: Prasad Joshi <prasadjoshi124@gmail.com>
-Date		: 2010-10-12 18:56 (79 days old)
-Message-ID	: <AANLkTimAbCZNhLQ5nADUiAC+7JpAeJBEmjFwdxyZ-FxO@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=128690910501830&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=20322
-Subject		: 2.6.36-rc7: inconsistent lock state: inconsistent {IN-RECLAIM_FS-R} -> {RECLAIM_FS-ON-W} usage.
-Submitter	: Dave Jones <davej@redhat.com>
-Date		: 2010-10-11 20:10 (80 days old)
-Message-ID	: <20101011201007.GA29707@redhat.com>
-References	: http://marc.info/?l=linux-kernel&m=128682782828453&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=20232
-Subject		: kworker consumes ~100% CPU on HP Elitebook 8540w running 2.6.36_rc6-git4
-Submitter	: Ozan Caglayan <ozan@pardus.org.tr>
-Date		: 2010-10-13 06:13 (78 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19392
-Subject		: WARNING: at drivers/net/wireless/ath/ath5k/base.c:3475 ath5k_bss_info_changed+0x44/0x168 [ath5k]()
-Submitter	: Justin Mattock <justinmattock@gmail.com>
-Date		: 2010-09-28 22:30 (93 days old)
-Message-ID	: <<AANLkTim5WCGKPvEkOkO_YnMF9pg8mvLfQoFBNUFpfa_k@mail.gmail.com>>
-References	: http://marc.info/?l=linux-kernel&m=128571307018635&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19372
-Subject		: 2.6.36-rc6: WARNING: at drivers/gpu/drm/radeon/radeon_fence.c:235 radeon_fence_wait+0x35a/0x3c0
-Submitter	: Alexey Dobriyan <adobriyan@gmail.com>
-Date		: 2010-09-29 21:29 (92 days old)
-Message-ID	: <20100929212923.GA5578@core2.telecom.by>
-References	: http://marc.info/?l=linux-kernel&m=128579579400315&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=19052
-Subject		: 2.6.36-rc5-git1 -- [drm:i915_report_and_clear_eir] *ERROR* EIR stuck: 0x00000010, masking
-Submitter	: Miles Lane <miles.lane@gmail.com>
-Date		: 2010-09-22 23:47 (99 days old)
-Message-ID	: <AANLkTikWQjUQjFJU9MO1+XbSLAEE-GARz+S+Dz2Fgu4h@mail.gmail.com>
-References	: http://marc.info/?l=linux-kernel&m=128519926626322&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17121
-Subject		: Two blank rectangles more than 10 cm long when booting
-Submitter	: Eric Valette <eric.valette@free.fr>
-Date		: 2010-08-26 17:24 (126 days old)
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=17061
-Subject		: 2.6.36-rc1 on zaurus: bluetooth regression
-Submitter	: Pavel Machek <pavel@ucw.cz>
-Date		: 2010-08-21 15:24 (131 days old)
-Message-ID	: <20100821152445.GA1536@ucw.cz>
-References	: http://marc.info/?l=linux-kernel&m=128240433828087&w=2
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16951
-Subject		: hackbench regression with 2.6.36-rc1
-Submitter	: Zhang, Yanmin <yanmin_zhang@linux.intel.com>
-Date		: 2010-08-18 6:18 (134 days old)
-Message-ID	: <1282112318.21202.8.camel@ymzhang.sh.intel.com>
-References	: http://marc.info/?l=linux-kernel&m=128211235904910&w=2
-
-
-Regressions with patches
-------------------------
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=21092
-Subject		: Kernel 2.6.36 Bug during quotaon on reiserfs
-Submitter	:  <markus.gapp@gmx.net>
-Date		: 2010-10-24 16:57 (67 days old)
-Handled-By	: Jan Kara <jack@suse.cz>
-Patch		: https://bugzilla.kernel.org/attachment.cgi?id=35292
-
-
-Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=16971
-Subject		: qla4xxx compile failure on 32-bit PowerPC: missing readq and writeq
-Submitter	: Meelis Roos <mroos@linux.ee>
-Date		: 2010-08-19 21:03 (133 days old)
-Message-ID	: <<<alpine.SOC.1.00.1008192359310.19654@math.ut.ee>>>
-References	: http://marc.info/?l=linux-kernel&m=128225184900892&w=2
-Patch		: http://marc.info/?l=linux-scsi&m=128590267608876&w=2
-
-
-For details, please visit the bug entries and follow the links given in
-references.
-
-As you can see, there is a Bugzilla entry for each of the listed regressions.
-There also is a Bugzilla entry used for tracking the regressions introduced
-between 2.6.35 and 2.6.36, unresolved as well as resolved, at:
-
-http://bugzilla.kernel.org/show_bug.cgi?id=16444
-
-Please let the tracking team know if there are any Bugzilla entries that
-should be added to the list in there.
-
-Thanks!
-
+-- 
+------------------------------------------------------------------------
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.com
+SnapGear Group, McAfee                      PHONE:       +61 7 3435 2888
+8 Gardner Close                             FAX:         +61 7 3217 5323
+Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.com
+_______________________________________________
+uClinux-dev mailing list
+uClinux-dev@uclinux.org
+http://mailman.uclinux.org/mailman/listinfo/uclinux-dev
+This message was resent by uclinux-dev@uclinux.org
+To unsubscribe see:
+http://mailman.uclinux.org/mailman/options/uclinux-dev
