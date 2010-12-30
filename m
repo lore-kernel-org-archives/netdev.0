@@ -1,8 +1,8 @@
 From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 12/15]drivers:media:video:tvp7002.c Typo change diable to
+Subject: [PATCH 13/15]drivers:isdn:mISDN:dsp_cmx.c Typo change diable to
 	disable.
-Date: Thu, 30 Dec 2010 15:08:01 -0800
-Message-ID: <1293750484-1161-12-git-send-email-justinmattock@gmail.com>
+Date: Thu, 30 Dec 2010 15:08:02 -0800
+Message-ID: <1293750484-1161-13-git-send-email-justinmattock@gmail.com>
 References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
 	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
 	<1293750484-1161-3-git-send-email-justinmattock@gmail.com>
@@ -14,6 +14,7 @@ References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
 	<1293750484-1161-9-git-send-email-justinmattock@gmail.com>
 	<1293750484-1161-10-git-send-email-justinmattock@gmail.com>
 	<1293750484-1161-11-git-send-email-justinmattock@gmail.com>
+	<1293750484-1161-12-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,7 +26,7 @@ Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-scsi-u79uwXL2
 	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
 Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1293750484-1161-11-git-send-email-justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1293750484-1161-12-git-send-email-justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
 	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
@@ -42,22 +43,22 @@ is correct or not.
 Signed-off-by: Justin P. Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
 ---
- drivers/media/video/tvp7002.c |    2 +-
+ drivers/isdn/mISDN/dsp_cmx.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/media/video/tvp7002.c b/drivers/media/video/tvp7002.c
-index e63b40f..c799e4e 100644
---- a/drivers/media/video/tvp7002.c
-+++ b/drivers/media/video/tvp7002.c
-@@ -789,7 +789,7 @@ static int tvp7002_query_dv_preset(struct v4l2_subdev *sd,
-  * Get the value of a TVP7002 decoder device register.
-  * Returns zero when successful, -EINVAL if register read fails or
-  * access to I2C client fails, -EPERM if the call is not allowed
-- * by diabled CAP_SYS_ADMIN.
-+ * by disabled CAP_SYS_ADMIN.
-  */
- static int tvp7002_g_register(struct v4l2_subdev *sd,
- 						struct v4l2_dbg_register *reg)
+diff --git a/drivers/isdn/mISDN/dsp_cmx.c b/drivers/isdn/mISDN/dsp_cmx.c
+index 76d9e67..309bacf 100644
+--- a/drivers/isdn/mISDN/dsp_cmx.c
++++ b/drivers/isdn/mISDN/dsp_cmx.c
+@@ -112,7 +112,7 @@
+  * Disable rx-data:
+  * If cmx is realized in hardware, rx data will be disabled if requested by
+  * the upper layer. If dtmf decoding is done by software and enabled, rx data
+- * will not be diabled but blocked to the upper layer.
++ * will not be disabled but blocked to the upper layer.
+  *
+  * HFC conference engine:
+  * If it is possible to realize all features using hardware, hardware will be
 -- 
 1.6.5.2.180.gc5b3e
 
