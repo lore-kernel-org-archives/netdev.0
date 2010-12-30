@@ -1,150 +1,80 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-next-2.6 PATCH v2 3/3] net_dcb: add application notifiers
-Date: Thu, 30 Dec 2010 11:26:37 -0800
-Message-ID: <20101230192637.21487.90562.stgit@jf-dev1-dcblab>
-References: <20101230192449.21487.9764.stgit@jf-dev1-dcblab>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: sysctls below net.ipv[46].conf.all not working as expected
+Date: Thu, 30 Dec 2010 21:20:36 +0100
+Message-ID: <20101230202036.GD14221@pengutronix.de>
+References: <20101229160607.GH14221@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
-	lucy.liu@intel.com, shmulikr@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marco d'Itri <md@linux.it>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:4556 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755251Ab0L3TbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Dec 2010 14:31:09 -0500
-In-Reply-To: <20101230192449.21487.9764.stgit@jf-dev1-dcblab>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:58415 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755043Ab0L3UUj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 15:20:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20101229160607.GH14221@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DCBx applications priorities can be changed dynamically. If
-application stacks are expected to keep the skb priority
-consistent with the dcbx priority the stack will need to
-be notified when these changes occur.
+Hello again,
 
-This patch adds application notifiers for the stack to register
-with.
+On Wed, Dec 29, 2010 at 05:06:07PM +0100, Uwe Kleine-K=F6nig wrote:
+> I did the following:
+>=20
+> 	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
+> 	net.ipv6.conf.all.use_tempaddr =3D 0
+>=20
+> 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+> 	net.ipv6.conf.eth0.use_tempaddr =3D 0
+>=20
+> 	cassiopeia:~# sysctl -w net.ipv6.conf.all.use_tempaddr=3D1
+> 	net.ipv6.conf.all.use_tempaddr =3D 1
+>=20
+> 	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
+> 	net.ipv6.conf.all.use_tempaddr =3D 1
+>=20
+> 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+> 	net.ipv6.conf.eth0.use_tempaddr =3D 0
+>=20
+> Here I would have expected that eth0's use_tempaddr is 1, too.  The
+> problem is not that this entry isn't writeable:
+>=20
+> 	cassiopeia:~# sysctl -w net.ipv6.conf.eth0.use_tempaddr=3D1
+> 	net.ipv6.conf.eth0.use_tempaddr =3D 1
+>=20
+> 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+> 	net.ipv6.conf.eth0.use_tempaddr =3D 1
+>=20
+> I got the same results when using net.ipv4.conf.all.rp_filter (and
+> net.ipv4.conf.eth0.rp_filter resp.)
+>=20
+> Is this a bug or just my failure to see how conf/all works?
+I put the following in my /etc/sysctl.conf:
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
+	net.ipv6.conf.default.use_tempaddr =3D 1
+	net.ipv6.conf.all.use_tempaddr =3D 1
+	net.ipv6.conf.eth0.use_tempaddr =3D 1
 
- include/net/dcbevent.h |   31 +++++++++++++++++++++++++++++++
- net/dcb/Makefile       |    2 +-
- net/dcb/dcbevent.c     |   40 ++++++++++++++++++++++++++++++++++++++++
- net/dcb/dcbnl.c        |    2 ++
- 4 files changed, 74 insertions(+), 1 deletions(-)
- create mode 100644 include/net/dcbevent.h
- create mode 100644 net/dcb/dcbevent.c
+and after a reboot eth0 got a temporary dynamic address, eth1 did not.
+So it doesn't seem to be as guessed by someone on #debian-kernel that
+the setting works but isn't propagated back to the sysctl of the
+interface.
 
-diff --git a/include/net/dcbevent.h b/include/net/dcbevent.h
-new file mode 100644
-index 0000000..bc1e7ef
---- /dev/null
-+++ b/include/net/dcbevent.h
-@@ -0,0 +1,31 @@
-+/*
-+ * Copyright (c) 2010, Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-+ * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ *
-+ * Author: John Fastabend <john.r.fastabend@intel.com>
-+ */
-+
-+#ifndef _DCB_EVENT_H
-+#define _DCB_EVENT_H
-+
-+enum dcbevent_notif_type {
-+	DCB_APP_EVENT = 1,
-+};
-+
-+extern int register_dcbevent_notifier(struct notifier_block *nb);
-+extern int unregister_dcbevent_notifier(struct notifier_block *nb);
-+extern int call_dcbevent_notifiers(unsigned long val, void *v);
-+
-+#endif
-diff --git a/net/dcb/Makefile b/net/dcb/Makefile
-index 9930f4c..c1282c9 100644
---- a/net/dcb/Makefile
-+++ b/net/dcb/Makefile
-@@ -1 +1 @@
--obj-$(CONFIG_DCB) += dcbnl.o
-+obj-$(CONFIG_DCB) += dcbnl.o dcbevent.o
-diff --git a/net/dcb/dcbevent.c b/net/dcb/dcbevent.c
-new file mode 100644
-index 0000000..665a880
---- /dev/null
-+++ b/net/dcb/dcbevent.c
-@@ -0,0 +1,40 @@
-+/*
-+ * Copyright (c) 2010, Intel Corporation.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms and conditions of the GNU General Public License,
-+ * version 2, as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ * more details.
-+ *
-+ * You should have received a copy of the GNU General Public License along with
-+ * this program; if not, write to the Free Software Foundation, Inc., 59 Temple
-+ * Place - Suite 330, Boston, MA 02111-1307 USA.
-+ *
-+ * Author: John Fastabend <john.r.fastabend@intel.com>
-+ */
-+
-+#include <linux/rtnetlink.h>
-+#include <linux/notifier.h>
-+
-+static ATOMIC_NOTIFIER_HEAD(dcbevent_notif_chain);
-+
-+int register_dcbevent_notifier(struct notifier_block *nb)
-+{
-+	return atomic_notifier_chain_register(&dcbevent_notif_chain, nb);
-+}
-+EXPORT_SYMBOL(register_dcbevent_notifier);
-+
-+int unregister_dcbevent_notifier(struct notifier_block *nb)
-+{
-+	return atomic_notifier_chain_unregister(&dcbevent_notif_chain, nb);
-+}
-+EXPORT_SYMBOL(unregister_dcbevent_notifier);
-+
-+int call_dcbevent_notifiers(unsigned long val, void *v)
-+{
-+	return atomic_notifier_call_chain(&dcbevent_notif_chain, val, v);
-+}
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index cfd731f..6914412 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -23,6 +23,7 @@
- #include <net/netlink.h>
- #include <net/rtnetlink.h>
- #include <linux/dcbnl.h>
-+#include <net/dcbevent.h>
- #include <linux/rtnetlink.h>
- #include <net/sock.h>
- 
-@@ -1460,6 +1461,7 @@ u8 dcb_setapp(struct net_device *dev, struct dcb_app *new)
- 	}
- out:
- 	spin_unlock(&dcb_lock);
-+	call_dcbevent_notifiers(DCB_APP_EVENT, new);
- 	return 0;
- }
- EXPORT_SYMBOL(dcb_setapp);
+This makes me wonder how useful the lines
 
+	net.ipv4.conf.default.rp_filter =3D 1
+	net.ipv4.conf.all.rp_filter =3D 1
+
+(suggested by the Debian package netbase) are.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
