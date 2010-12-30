@@ -1,90 +1,112 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH 03/10] net/fec: add mac field into platform data and
- consolidate fec_get_mac
-Date: Thu, 30 Dec 2010 15:20:21 +0800
-Message-ID: <20101230072019.GA28246@freescale.com>
-References: <1293548155-16328-1-git-send-email-shawn.guo@freescale.com>
- <1293548155-16328-4-git-send-email-shawn.guo@freescale.com>
- <20101229065329.GB31010@jasper.tkos.co.il>
- <20101229100520.GB19347@freescale.com>
- <20101230042858.GA20651@freescale.com>
- <20101230052925.GA11160@jasper.tkos.co.il>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Why do programs freeze with big network transfers?
+Date: Thu, 30 Dec 2010 08:58:39 +0100
+Message-ID: <1293695919.7150.18.camel@edumazet-laptop>
+References: <ifhc54$efg$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <gerg@snapgear.com>, <eric@eukrea.com>,
-	<bryan.wu@canonical.com>, <r64343@freescale.com>,
-	<B32542@freescale.com>, <u.kleine-koenig@pengutronix.de>,
-	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
-	<s.hauer@pengutronix.de>, <linux-arm-kernel@lists.infradead.org>,
-	<netdev@vger.kernel.org>
-To: Baruch Siach <baruch@tkos.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:18014 "EHLO
-	TX2EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751453Ab0L3HSV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 02:18:21 -0500
-Received: from mail90-tx2 (localhost.localdomain [127.0.0.1])	by
- mail90-tx2-R.bigfish.com (Postfix) with ESMTP id 664668D8411	for
- <netdev@vger.kernel.org>; Thu, 30 Dec 2010 07:18:19 +0000 (UTC)
-Received: from TX2EHSMHS047.bigfish.com (unknown [10.9.14.244])	by
- mail90-tx2.bigfish.com (Postfix) with ESMTP id 1A678EB005B	for
- <netdev@vger.kernel.org>; Thu, 30 Dec 2010 07:18:19 +0000 (UTC)
-Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
-	by az33egw01.freescale.net (8.14.3/8.14.3) with ESMTP id oBU7IAY3020013	for
- <netdev@vger.kernel.org>; Thu, 30 Dec 2010 00:18:11 -0700 (MST)
-Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
- [10.192.242.196])	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id
- oBU7bBkf015706	for <netdev@vger.kernel.org>; Thu, 30 Dec 2010 01:37:12 -0600
- (CST)
-Content-Disposition: inline
-In-Reply-To: <20101230052925.GA11160@jasper.tkos.co.il>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Adam Nielsen <a.nielsen@shikadi.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ifhc54$efg$1@dough.gmane.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 30, 2010 at 07:29:25AM +0200, Baruch Siach wrote:
-> Hi Shawn,
-> 
-> On Thu, Dec 30, 2010 at 12:29:00PM +0800, Shawn Guo wrote:
-> > On Wed, Dec 29, 2010 at 06:05:20PM +0800, Shawn Guo wrote:
-> > > On Wed, Dec 29, 2010 at 08:53:30AM +0200, Baruch Siach wrote:
-> > > > Please add netdev@vger.kernel.org to the Cc of all your fec driver 
-> > > > patches.
-> > > > 
-> > > > On Tue, Dec 28, 2010 at 10:55:48PM +0800, Shawn Guo wrote:
-> > > > > Add mac field into fec_platform_data and consolidate function
-> > > > > fec_get_mac to get mac address in following order.
-> > > > > 
-> > > > >  1) kernel command line fec_mac=xx:xx:xx...
-> > > > 
-> > > > In the case of dual MAC that you later add support for, the address which one 
-> > > > is being set? Is there a way to set both in kernel command line?
-> > > > 
-> > > The fec0 gets fec_mac and fec1 gets fec_mac + 1. The following code
-> > > in function fec_get_mac takes care of it.
-> > > 
-> > > 	/* Adjust MAC if using default MAC address */
-> > > 	if (iap == fec_mac_default)
-> > > 		dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->pdev->id;
-> > > > Also, instead of inventing another kernel command line parameter, it is 
-> > > > better IMO to use the module parameters mechanism. The greth NIC driver 
-> > > > already uses this method for setting MAC address. Look for 'macaddr' in 
-> > > > drivers/net/greth.c, and the explanation at the beginning of 
-> > > > Documentation/kernel-parameters.txt.
-> > > > 
-> > > Sounds good. Thanks.
-> > > 
-> > I just thought this over again. Module parameter might not be
-> > the best here. fec is usually used to mount nfs during boot,
-> > which requires a built-in driver other than module.
-> 
-> See the explanation at the beginning of Documentation/kernel-parameters.txt.  
-> You can give module parameters at the kernel command line.
-> 
-Ah, my dumb.
+Le jeudi 30 d=C3=A9cembre 2010 =C3=A0 17:25 +1000, Adam Nielsen a =C3=A9=
+crit :
+> Hi all,
+>=20
+> I'm a bit stuck on this problem so I hope someone can help.  My deskt=
+op PC is=20
+> running kernel 2.6.33.1 and when I copy some largish files (2-3GB eac=
+h) onto=20
+> an NFS share my PC becomes unusable, pretty much locking up for 60 se=
+conds at=20
+> a time.
+>=20
+> Everything works fine for a little while once the copy has begun - th=
+e files=20
+> are read off the software-RAID-0 disks at about 200MB/sec, then after=
+ 10=20
+> seconds or so data starts going across the gigabit network at about 4=
+0MB/sec=20
+> (speed limited by the target system which pegs at 100% CPU due to lac=
+k of=20
+> jumbo packets.)
+>=20
+> After a few seconds of data going over the network, X-Windows freezes=
+=2E  No=20
+> screen updates, the mouse cursor won't move, for all intents and purp=
+oses the=20
+> system has frozen solid.  I'm playing music with XMMS2 and that keeps=
+ going,=20
+> but occasionally even that stops too.  After a minute (between 45 and=
+ 65=20
+> seconds) everything unfreezes and keeps going as per normal.  Less th=
+an 10=20
+> seconds later everything freezes again for another minute!  This keep=
+s going=20
+> until the file transfer has finished.
+>=20
+> When things unfreeze the disk is idle, and within 10 seconds the disk=
+ starts=20
+> up again and almost immediately the next minute-long freeze begins.  =
+While=20
+> things are frozen the network transfer continues, and bizarrely I can=
+ log in=20
+> to the machine over SSH where everything seems normal.  'top' reports=
+ most=20
+> processes are idle, and running a command line XMMS2 client happily r=
+eports=20
+> that the song I am listening to is stuck at exactly the same point un=
+til the=20
+> freeze is over, when the seconds start counting up again.
+>=20
+> The reason I am stuck is that nothing is appearing in dmesg, so it ap=
+pears the=20
+> kernel is unaware of the problem.  Has anyone seen anything like this=
+ before?=20
+>   I'm not sure what to do next.
+>=20
+> Disks are connected to an Intel ICH9 SATA controller in AHCI mode, LA=
+N is a=20
+> Realtek 8169, video card is nVidia GeForce 8600.  Perhaps some combin=
+ation of=20
+> this is to blame?
+>=20
+> I have tried using cat to read these files into /dev/null and the sys=
+tem will=20
+> happily read the files at full speed without freezing, and I have use=
+d ttcp's=20
+> speed test function to send data over the network at full speed, whic=
+h also=20
+> works without X11 freezing.  Doing this at the same time (reading fro=
+m the=20
+> disk and sending network traffic) also works fine without locking up,=
+ so it=20
+> seems the problems only arise when NFS gets involved.
+>=20
+> 'mount' reports the options on the NFS share as:
+>    rw,user=3Dadam,tcp,soft,intr,timeo=3D20,vers=3D3,addr=3D192.168.0.=
+6
+>=20
+> Any suggestions about what I can do next?
+>=20
+> Many thanks,
+> Adam.
 
-Just tested, and it works.  Thanks, Baruch.
+CC netdev
 
--- 
-Regards,
-Shawn
+This rings a bell here, could you try to apply commit=20
 
+482964e56e1320cb7952faa1932d8ecf59c4bf75
+(net: Fix the condition passed to sk_wait_event())
+
+This commit was included in 2.6.36, so you could also try 2.6.36.2
+kernel.
+
+http://git2.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
+commitdiff;h=3D482964e56e1320cb7952faa1932d8ecf59c4bf75
+
+Thanks
