@@ -1,35 +1,105 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v2 3/3] net_sched: implement a root container
- qdisc sch_mclass
-Date: Fri, 31 Dec 2010 00:56:14 +0100
-Message-ID: <4D1D1C1E.5040800@gmail.com>
-References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab> <20101221192930.9703.63791.stgit@jf-dev1-dcblab> <4D1D17C9.3040500@gmail.com>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [*v3 PATCH 01/22] IPVS: netns, add basic init per netns.
+Date: Fri, 31 Dec 2010 00:58:35 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1012310055050.15397@obet.zrqbmnf.qr>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com> <1293706266-27152-2-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
-	shemminger@vyatta.com, tgraf@infradead.org, eric.dumazet@gmail.com,
-	bhutchings@solarflare.com, nhorman@tuxdriver.com
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:34203 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751807Ab0L3X4V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 18:56:21 -0500
-Received: by bwz15 with SMTP id 15so12083492bwz.19
-        for <netdev@vger.kernel.org>; Thu, 30 Dec 2010 15:56:20 -0800 (PST)
-In-Reply-To: <4D1D17C9.3040500@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, ja@ssi.bg, daniel.lezcano@free.fr,
+	wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: hans@schillstrom.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1293706266-27152-2-git-send-email-hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Poplawski wrote:
-> John Fastabend wrote:
-...
->> +	for (i = 0; i < dev->num_tc; i++) {
->> +		dev_queue = netdev_get_tx_queue(dev, dev->tc_to_txq[i].offset);
-> 
-> Are these offsets etc. validated?
 
-They are... Forget this last question.
+On Thursday 2010-12-30 11:50, hans@schillstrom.com wrote:
+>+++ b/include/net/ip_vs.h
+>@@ -28,6 +28,15 @@
+> #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> #include <net/netfilter/nf_conntrack.h>
+> #endif
+>+#include <net/net_namespace.h>		/* Netw namespace */
+>+
+>+/*
+>+ * Generic access of ipvs struct
+>+ */
+>+static inline struct netns_ipvs * net_ipvs(struct net* net)
 
-Jarek P.
+Balancing the '*' between the ' ' would be nice... I know it's hard at this
+time of the year ;-)
+
+>diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
+>new file mode 100644
+>index 0000000..9068d95
+>--- /dev/null
+>+++ b/include/net/netns/ip_vs.h
+>@@ -0,0 +1,26 @@
+>+/*
+>+ * ip_vs.h
+>+ *
+>+ *  Created on: Nov 23, 2010
+>+ *  Author: hans
+>+ */
+
+Filenames, creation dates, author names (when they don't serve a copyright
+notice), CVS $Id$ tags, etc. don't belong into files. The git log exists for
+that very purpose.
+
+>+struct netns_ipvs {
+>+	int			inc;		/* Incarnation */
+>+};
+
+Just my thoughts: Incarnation - haven't heard that in a while. ("inc"
+is also used as an abbreviation for increment, so ~ ~). Other places
+use "generation" as a term (such as the VFS on inode generation). [I
+also get the feeling that (re)"incarnation" may require a death, so
+it is different from "generation" after all -]
+
+>+++ b/net/netfilter/ipvs/ip_vs_core.c
+>@@ -1813,6 +1820,44 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+> #endif
+> };
+>
+>+/*
+>+ *	Initialize IP Virtual Server netns mem.
+>+ */
+>+static int __net_init  __ip_vs_init(struct net *net)
+>+{
+>+	struct netns_ipvs *ipvs;
+>+
+>+	if (!net_eq(net, &init_net)) {
+>+		pr_err("The final patch for enabling netns is missing\n");
+>+		return -EPERM;
+>+	}
+>+	ipvs = (struct netns_ipvs *)net_generic(net, ip_vs_net_id);
+
+Pointless cast is pointless.
+
+>index c1c167a..ea390f8 100644
+>--- a/net/netfilter/ipvs/ip_vs_sync.c
+>+++ b/net/netfilter/ipvs/ip_vs_sync.c
+>@@ -1639,3 +1639,31 @@ int stop_sync_thread(int state)
+>
+> 	return 0;
+> }
+>+
+>+/*
+>+ * Initialize data struct for each netns
+>+ */
+>+static int __net_init __ip_vs_sync_init(struct net *net)
+>+{
+>+	return 0;
+>+}
+>+
+>+static void __ip_vs_sync_cleanup(struct net *net)
+>+{
+>+	return;
+>+}
+
+The trailing return; in functions returning nothing can be (and
+generally, is) omitted.
+
