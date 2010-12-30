@@ -1,57 +1,51 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [uClinux-dev] Re: dm9000 patch
-Date: Thu, 30 Dec 2010 17:12:33 +0200
-Message-ID: <20101230151233.GD11160@jasper.tkos.co.il>
-References: <4D1A5C2A.5050606@gmail.com>
- <20101229060637.GA31010@jasper.tkos.co.il>
- <4D1B33F2.5060600@gmail.com>
- <20101229180650.GE6067@tarshish>
- <AANLkTim0+GbddLdkPFoggeCKpU7on7mta0V2mZZLgviE@mail.gmail.com>
- <4D1BA0D0.1060407@gmail.com>
- <4D1BD461.4070104@snapgear.com>
- <4D1C5807.5050702@gmail.com>
- <4D1C6A30.6020706@snapgear.com>
- <4D1C9FA5.6040208@gmail.com>
+From: "Shmulik Ravid" <shmulikr@broadcom.com>
+Subject: [net-next-2.6 PATCH v2 0/4] dcbnl: Extending dcbnl to support
+ non-host DCBX
+Date: Thu, 30 Dec 2010 18:26:42 +0200
+Message-ID: <1293726402.29378.91.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Ungerer <gerg@snapgear.com>,
-	uClinux development list <uclinux-dev@uclinux.org>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-m68k@vger.kernel.org
-To: Angelo Dureghello <angelo70@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D1C9FA5.6040208@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"John Fastabend" <john.r.fastabend@intel.com>, lucy.liu@intel.com,
+	netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3122 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754668Ab0L3Q1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Dec 2010 11:27:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Angelo,
+DCBX is the exchange protocol for negotiating DCB parameters between a
+host and a switch. In some circumstances the DCBX negotiator can not
+reside in the host directly on top of the networking interface. For
+instance many converged network adapters support an embedded DCBX engine
+that performs the negotiation and configures the device with the
+negotiated parameters. Another example is virtual hosts and SRIOV
+virtual functions.
 
-On Thu, Dec 30, 2010 at 04:05:09PM +0100, Angelo Dureghello wrote:
-> Hi Greg and All,
-> infinite thanks, i solved finally my issue and the board is fully working.
-> 
-> I used IRQ7 line, casually, and unfortunately it was wrong.
-> IRQ7 is a special autovectored interrupt, in particular, it is an
-> EDGE interrupt, and not a LEVEL interrupt like IRQ1 to 6.
-> 
-> I used IRQ1 now, a normal level interrupt, and everything works perfect.
-> 
-> So i have dm9000 and MCF5307 (big-endian cpu) fully working with 32
-> bit bus straight wired D0:31 to the dm9000, and would like to share
-> my patch to dm9000.c, so maybe in next kernel versions dm9000 maybe
-> could be enabled as default. Let me know eventually the procedure
-> for this.
+The following patches extend the dcbnl netlink interface so in addition
+to its current semantics it offers a standard mechanism for managing
+such non-host DCBX engines. In this new mode 'set' operations are used
+to set the initial negotiation configuration and the 'get' operation are
+used to retrieve the negotiated results. 
 
-Just send the patch to the netdev mailing list. For additional instructions 
-see Documentation/SubmitChecklist and Documentation/SubmittingPatches. Once 
-you submitted you patch you can track the status of your patch at 
-http://patchwork.ozlabs.org/project/netdev/list/.
+The current definition of dcbnl assumes a host based stack is performing
+the negotiation. As DCBX is encapsulated by LLDP there can be only one
+DCBX negotiator per physical link. Thus the current scheme does not
+allow the coexistence of CNAs that have embedded DCBX engines and CNAs
+that do not, or even just retrieving DCB parameters by VF drivers.
 
-baruch
+The last patch adds an implementation of the dcbnl operations in their
+proposed new semantics to the bnx2x, allowing users to configure and
+manage the embedded DCBX engine.
 
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+The entire patch series is dependent on the following patches:
+[net-next-2.6 PATCH 1/3] dcbnl: add support for ieee8021Qaz attributes
+[net-next-2.6 PATCH 2/3] dcbnl: add appliction tlv handlers
+[net-next-2.6 PATCH 3/3] net_dcb: add application notifiers
+
+
+
