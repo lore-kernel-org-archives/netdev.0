@@ -1,149 +1,97 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH] skge: Do not use legacy PCI power management
-Date: Thu, 30 Dec 2010 23:50:01 +0100
-Message-ID: <201012302350.01205.rjw@sisk.pl>
-References: <201012261944.32517.rjw@sisk.pl> <20101230105229.189f3737@nehalam>
+From: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>
+Subject: RE: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged
+ skbs
+Date: Thu, 30 Dec 2010 15:06:16 -0800
+Message-ID: <9mk4bme8o97ir27xi8a9fbsd.1293750376929@email.android.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	"Linux-pm mailing list" <linux-pm@lists.linux-foundation.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:45386 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750847Ab0L3Wu0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Dec 2010 17:50:26 -0500
-In-Reply-To: <20101230105229.189f3737@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: "davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org " <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org " <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Winkler, Tomas" <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday, December 30, 2010, Stephen Hemminger wrote:
-> The skge driver used the legacy PCI power management, and did its
-> own PCI callbacks.  Use the same code model as Rafael's changes to
-> sky2. Let the PCI subsystem take care of all the PCI-specific aspects of
-> device handling during system power transitions.
-> 
-> Compile tested only (so far).
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+QWx0aG91Z2ggY29weSBpcyBzbG93ZXIgZm9yIGxhcmdlIHBhY2tldHMsIHRoaXMgaXMgYSBub24g
+cGVyZm9ybWFuY2UgcGF0aC4gVGhlIGNvZGUgaW4gcXVlc3Rpb24gaXMgZm9yIGJyaWRnZWQgbXVs
+dGljYXN0IElwdjYgSUNNUCBwYWNrZXRzLiBUaGlzIGNhc2UgaXMgc28gdW5jcml0aWNhbCBpdCBj
+b3VsZCBiZSBkb25lIGluIEJBU0lDIGFuZCBubyBvbmUgY291bGQgcG9zc2libHkgY2FyZSEKCiJX
+aW5rbGVyLCBUb21hcyIgPHRvbWFzLndpbmtsZXJAaW50ZWwuY29tPiB3cm90ZToKCj4KPgo+PiAt
+LS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQo+PiBGcm9tOiBTdGVwaGVuIEhlbW1pbmdlciBbbWFp
+bHRvOnNoZW1taW5nZXJAdnlhdHRhLmNvbV0KPj4gU2VudDogVGh1cnNkYXksIERlY2VtYmVyIDMw
+LCAyMDEwIDk6MDYgUE0KPj4gVG86IEpvaGFubmVzIEJlcmcKPj4gQ2M6IFdpbmtsZXIsIFRvbWFz
+OyBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRkZXZAdmdlci5rZXJuZWwub3JnOyBsaW51eC0KPj4g
+d2lyZWxlc3NAdmdlci5rZXJuZWwub3JnCj4+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LTIuNl0g
+YnJpZGdlOiBmaXggYnJfbXVsdGljYXN0X2lwdjZfcmN2IGZvciBwYWdlZAo+PiBza2JzCj4+IAo+
+PiBPbiBUaHUsIDMwIERlYyAyMDEwIDE5OjUyOjE0ICswMTAwCj4+IEpvaGFubmVzIEJlcmcgPGpv
+aGFubmVzQHNpcHNvbHV0aW9ucy5uZXQ+IHdyb3RlOgo+PiAKPj4gPiBPbiBUaHUsIDIwMTAtMTIt
+MzAgYXQgMTA6NDYgLTA4MDAsIFN0ZXBoZW4gSGVtbWluZ2VyIHdyb3RlOgo+PiA+Cj4+ID4gPiBU
+aGlzIGRvZXNuJ3QgbG9vayBjb3JyZWN0LiBUaGUgY2FsY3VsYXRpb24gb2YgdGhlIG9mZnNldCBk
+b2Vzbid0IGxvb2sKPj4gY29ycmVjdC4KPj4gPiA+IEp1c3QgZm9sbG93aW5nIHRoZSBza2JfY2xv
+bmUoKSwgdGhlIHNrYl9wdWxsIHZhbHVlIGlzICJvZmZzZXQiLgo+PiA+ID4gQWxzbywgdGhlIG90
+aGVyIGNoZWNrcyByZXR1cm4gLUVJTlZBTCBmb3IgaW5jb3JyZWN0bHkgZm9ybWVkIHBhY2tldC4K
+Pj4gPiA+Cj4+ID4gPiAtLS0gYS9uZXQvYnJpZGdlL2JyX211bHRpY2FzdC5jCTIwMTAtMTItMzAg
+MTA6Mjk6NTguNTc5NTEwNDg4IC0wODAwCj4+ID4gPiArKysgYi9uZXQvYnJpZGdlL2JyX211bHRp
+Y2FzdC5jCTIwMTAtMTItMzAgMTA6NDM6MjcuMjczMzg2NjkxIC0wODAwCj4+ID4gPiBAQCAtMTQ2
+NCw2ICsxNDY0LDkgQEAgc3RhdGljIGludCBicl9tdWx0aWNhc3RfaXB2Nl9yY3Yoc3RydWN0Cj4+
+ID4gPiAgCWlmIChvZmZzZXQgPCAwIHx8IG5leHRoZHIgIT0gSVBQUk9UT19JQ01QVjYpCj4+ID4g
+PiAgCQlyZXR1cm4gMDsKPj4gPiA+Cj4+ID4gPiArCWlmICghcHNrYl9tYXlfcHVsbChza2IsIG9m
+ZnNldCkpCj4+ID4gPiArCQlyZXR1cm4gLUVJTlZBTDsKPj4gPiA+ICsKPj4gPiA+ICAJLyogT2th
+eSwgd2UgZm91bmQgSUNNUHY2IGhlYWRlciAqLwo+PiA+ID4gIAlza2IyID0gc2tiX2Nsb25lKHNr
+YiwgR0ZQX0FUT01JQyk7Cj4+ID4gPiAgCWlmICghc2tiMikKPj4gPgo+PiA+IFdvdWxkbid0IHRo
+YXQgbWFrZSBtb3JlIHNlbnNlIGFmdGVyIHRoZSBjbG9uZSBhbnl3YXk/IEJ1dCBpZiB5b3UgbG9v
+ayBhdAo+PiA+IG15IGVtYWlsLCB5b3UnbGwgZmluZCB0aGF0IHRoZXJlJ3MgcG90ZW50aWFsbHks
+IGFuZCBjb25kaXRpb25hbGx5LCBtb3JlCj4+ID4gc3R1ZmYgdGhhdCB3aWxsIGJlIHJlYWQgZnJv
+bSB0aGUgc2tiJ3MgaGVhZGVyLCB3aGljaCBoYXNuJ3QgbmVjZXNzYXJpbHkKPj4gPiBiZWVuIHB1
+bGxlZCBpbiwgc28gSSB0aGluayB0aGlzIHN0aWxsIHdvbid0IGZpeCBhbGwgdGhlIGlzc3Vlcy4K
+Pj4gPgo+PiA+IFNlZWluZyBob3cgdGhpcyBvbmx5IGFmZmVjdHMgc29tZSBJQ01QdjYgcGFja2V0
+cywgbWF5YmUgd2Ugc2hvdWxkIGp1c3QKPj4gPiB1c2Ugc2tiX2NvcHkoKSBpbnN0ZWFkPwo+PiAK
+Pj4gSXQgY29tZXMgb3V0IGNsZWFuZXIsIGFuZCB0aGUgY2hlY2sgY2FuIGJlIHNpbXBsaWZpZWQu
+Cj4+IAo+PiAtLS0gYS9uZXQvYnJpZGdlL2JyX211bHRpY2FzdC5jCTIwMTAtMTItMzAgMTA6NDc6
+MTIuMDMxNzMzODU1IC0wODAwCj4+ICsrKyBiL25ldC9icmlkZ2UvYnJfbXVsdGljYXN0LmMJMjAx
+MC0xMi0zMCAxMTowMDoxMi4xMzU4MDEyNjYgLTA4MDAKPj4gQEAgLTE0NjUsMTkgKzE0NjUsMTkg
+QEAgc3RhdGljIGludCBicl9tdWx0aWNhc3RfaXB2Nl9yY3Yoc3RydWN0Cj4+ICAJCXJldHVybiAw
+Owo+PiAKPj4gIAkvKiBPa2F5LCB3ZSBmb3VuZCBJQ01QdjYgaGVhZGVyICovCj4+IC0Jc2tiMiA9
+IHNrYl9jbG9uZShza2IsIEdGUF9BVE9NSUMpOwo+PiArCXNrYjIgPSBza2JfY29weShza2IsIEdG
+UF9BVE9NSUMpOwo+PiAgCWlmICghc2tiMikKPj4gIAkJcmV0dXJuIC1FTk9NRU07Cj4+IAo+PiAr
+CWVyciA9IC1FSU5WQUw7Cj4+ICsJaWYgKHNrYjItPmxlbiA8IG9mZnNldCArIHNpemVvZigqaWNt
+cDZoKSkKPj4gKwkJZ290byBvdXQ7Cj4+ICsKPj4gIAlsZW4gLT0gb2Zmc2V0IC0gc2tiX25ldHdv
+cmtfb2Zmc2V0KHNrYjIpOwo+PiAKPj4gIAlfX3NrYl9wdWxsKHNrYjIsIG9mZnNldCk7Cj4+ICAJ
+c2tiX3Jlc2V0X3RyYW5zcG9ydF9oZWFkZXIoc2tiMik7Cj4+IAo+PiAtCWVyciA9IC1FSU5WQUw7
+Cj4+IC0JaWYgKCFwc2tiX21heV9wdWxsKHNrYjIsIHNpemVvZigqaWNtcDZoKSkpCj4+IC0JCWdv
+dG8gb3V0Owo+PiAtCj4+ICAJaWNtcDZoID0gaWNtcDZfaGRyKHNrYjIpOwo+PiAKPj4gIAlzd2l0
+Y2ggKGljbXA2aC0+aWNtcDZfdHlwZSkgewo+PiAKPj4KPlNvcnJ5IGZvciBkdW1wIHF1ZXN0aW9u
+IGJ1dCBpc24ndCB0aGVyZSBwZXJmb3JtYW5jZSBwZW5hbHR5IG9uIHVzaW5nIHNrYl9jb3B5IHZz
+LiBza2JfY2xvbmU/Cj4KPkFueWhvdyBCZWxvdyBpcyBhIGNvZGUgc25pcHBldCBmcm9tIGlwNl9p
+bnB1dC5jIHNvIHlvdSBwcm9iYWJseSB3b3VsZCB3YW50IHRvIGZpeCBpdCBhbGwgb3Zlci4gCj5C
+VFcgb2Zmc2V0IGFuZCB0aGUgcG9pbnRlciBhcml0aG1ldGljIHJlYWxseSBnaXZlcyB0aGUgc2Ft
+ZSBudW1iZXIgKzEsIEknbSBub3Qgc3VybHkgd2h5IHRoZSBvcmlnaW5hbCBhdXRob3Igd291bGQg
+dGhvdWdodCBpdCBiZSBzYWZlciB0aGFuIGp1c3QgdXNpbmcgb2Zmc2V0Lgo+Cj4JCQkJCW9mZnNl
+dCA9IGlwdjZfc2tpcF9leHRoZHIoc2tiLCBzaXplb2YoKmhkciksCj4gICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgJm5leHRoZHIpOwo+ICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBpZiAob2Zmc2V0IDwgMCkKPiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICBnb3RvIG91dDsKPiAKPiAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgaWYgKG5leHRoZHIgIT0gSVBQUk9UT19JQ01QVjYpCj4gICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgZ290byBvdXQ7Cj4gCj4gICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIGlmICghcHNrYl9tYXlfcHVsbChza2IsIChza2JfbmV0d29y
+a19oZWFkZXIoc2tiKSArCj4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICBvZmZzZXQgKyAxIC0gc2tiLT5kYXRhKSkpCj4gICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgZ290byBvdXQ7Cj4gCj4gICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIGljbXA2ID0gKHN0cnVjdCBpY21wNmhkciAqKShza2JfbmV0d29ya19oZWFkZXIo
+c2tiKSArIG9mZnNldCk7Cj4KPgo+Cj5UaGFua3MKPlRvbWFzCj4KPgo+LS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj5J
+bnRlbCBJc3JhZWwgKDc0KSBMaW1pdGVkCj4KPlRoaXMgZS1tYWlsIGFuZCBhbnkgYXR0YWNobWVu
+dHMgbWF5IGNvbnRhaW4gY29uZmlkZW50aWFsIG1hdGVyaWFsIGZvcgo+dGhlIHNvbGUgdXNlIG9m
+IHRoZSBpbnRlbmRlZCByZWNpcGllbnQocykuIEFueSByZXZpZXcgb3IgZGlzdHJpYnV0aW9uCj5i
+eSBvdGhlcnMgaXMgc3RyaWN0bHkgcHJvaGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVu
+ZGVkCj5yZWNpcGllbnQsIHBsZWFzZSBjb250YWN0IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBhbGwg
+Y29waWVzLgo+Cg==
 
-Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
-
-> --- a/drivers/net/skge.c	2010-12-30 10:19:01.191095951 -0800
-> +++ b/drivers/net/skge.c	2010-12-30 10:49:30.780295215 -0800
-> @@ -4044,53 +4044,40 @@ static void __devexit skge_remove(struct
->  }
->  
->  #ifdef CONFIG_PM
-> -static int skge_suspend(struct pci_dev *pdev, pm_message_t state)
-> +static int skge_suspend(struct device *dev)
->  {
-> +	struct pci_dev *pdev = to_pci_dev(dev);
->  	struct skge_hw *hw  = pci_get_drvdata(pdev);
-> -	int i, err, wol = 0;
-> +	int i;
->  
->  	if (!hw)
->  		return 0;
->  
-> -	err = pci_save_state(pdev);
-> -	if (err)
-> -		return err;
-> -
->  	for (i = 0; i < hw->ports; i++) {
->  		struct net_device *dev = hw->dev[i];
->  		struct skge_port *skge = netdev_priv(dev);
->  
->  		if (netif_running(dev))
->  			skge_down(dev);
-> +
->  		if (skge->wol)
->  			skge_wol_init(skge);
-> -
-> -		wol |= skge->wol;
->  	}
->  
->  	skge_write32(hw, B0_IMSK, 0);
->  
-> -	pci_prepare_to_sleep(pdev);
-> -
->  	return 0;
->  }
->  
-> -static int skge_resume(struct pci_dev *pdev)
-> +static int skge_resume(struct device *dev)
->  {
-> +	struct pci_dev *pdev = to_pci_dev(dev);
->  	struct skge_hw *hw  = pci_get_drvdata(pdev);
->  	int i, err;
->  
->  	if (!hw)
->  		return 0;
->  
-> -	err = pci_back_from_sleep(pdev);
-> -	if (err)
-> -		goto out;
-> -
-> -	err = pci_restore_state(pdev);
-> -	if (err)
-> -		goto out;
-> -
->  	err = skge_reset(hw);
->  	if (err)
->  		goto out;
-> @@ -4111,12 +4098,19 @@ static int skge_resume(struct pci_dev *p
->  out:
->  	return err;
->  }
-> +
-> +static SIMPLE_DEV_PM_OPS(skge_pm_ops, skge_suspend, skge_resume);
-> +#define SKGE_PM_OPS (&skge_pm_ops)
-> +
-> +#else
-> +
-> +#define SKGE_PM_OPS NULL
->  #endif
->  
->  static void skge_shutdown(struct pci_dev *pdev)
->  {
->  	struct skge_hw *hw  = pci_get_drvdata(pdev);
-> -	int i, wol = 0;
-> +	int i;
->  
->  	if (!hw)
->  		return;
-> @@ -4127,15 +4121,10 @@ static void skge_shutdown(struct pci_dev
->  
->  		if (skge->wol)
->  			skge_wol_init(skge);
-> -		wol |= skge->wol;
->  	}
->  
-> -	if (pci_enable_wake(pdev, PCI_D3cold, wol))
-> -		pci_enable_wake(pdev, PCI_D3hot, wol);
-> -
-> -	pci_disable_device(pdev);
-> +	pci_wake_from_d3(pdev, device_may_wakeup(&pdev->dev));
->  	pci_set_power_state(pdev, PCI_D3hot);
-> -
->  }
->  
->  static struct pci_driver skge_driver = {
-> @@ -4143,11 +4132,8 @@ static struct pci_driver skge_driver = {
->  	.id_table =     skge_id_table,
->  	.probe =        skge_probe,
->  	.remove =       __devexit_p(skge_remove),
-> -#ifdef CONFIG_PM
-> -	.suspend = 	skge_suspend,
-> -	.resume = 	skge_resume,
-> -#endif
->  	.shutdown =	skge_shutdown,
-> +	.driver.pm =	SKGE_PM_OPS,
->  };
->  
->  static struct dmi_system_id skge_32bit_dma_boards[] = {
-> 
-> 
-
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
