@@ -1,65 +1,44 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next-2.6 PATCH v2 4/4] dcbnl: cleanup
-Date: Thu, 30 Dec 2010 11:17:41 -0800
-Message-ID: <4D1CDAD5.4010602@intel.com>
-References: <1293726430.29378.95.camel@lb-tlvb-shmulik.il.broadcom.com>
+Subject: [net-next-2.6 PATCH v2 0/3] Series short description
+Date: Thu, 30 Dec 2010 11:25:40 -0800
+Message-ID: <20101230192449.21487.9764.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	"Liu, Lucy" <lucy.liu@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shmulik Ravid <shmulikr@broadcom.com>
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org,
+	lucy.liu@intel.com, shmulikr@broadcom.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:19930 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:4695 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754966Ab0L3TRm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Dec 2010 14:17:42 -0500
-In-Reply-To: <1293726430.29378.95.camel@lb-tlvb-shmulik.il.broadcom.com>
+	id S1755041Ab0L3TaM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Dec 2010 14:30:12 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/30/2010 8:27 AM, Shmulik Ravid wrote:
-> A couple of small cleanups for patches:
-> [net-next-2.6 PATCH 1/3] dcbnl: add support for ieee8021Qaz attributes
-> [net-next-2.6 PATCH 2/3] dcbnl: add appliction tlv handlers
-> [net-next-2.6 PATCH 3/3] net_dcb: add application notifiers
-> 
-> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
-> ---
+Version 2 adds the recommended tlv attributes to the ets struct this will
+be needed for offloaded LLDP engines. Host controlled LLDP agents will most
+likely not use these fields.
 
-Good catch, thanks a lot. I will roll this into my patch and push a v2 so that we don't introduce a known bug. Of course I'll give you credit.
+Also Shmulik Ravid caught an error with a spin_lock on kmalloc failure.
 
-Thanks,
-John.
+---
 
->  net/dcb/dcbnl.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-> index b387816..ff3c12d 100644
-> --- a/net/dcb/dcbnl.c
-> +++ b/net/dcb/dcbnl.c
-> @@ -1626,8 +1626,10 @@ u8 dcb_setapp(struct net_device *dev, struct dcb_app *new)
->  	if (new->priority) {
->  		struct dcb_app_type *entry;
->  		entry = kmalloc(sizeof(struct dcb_app_type), GFP_ATOMIC);
-> -		if (!entry)
-> +		if (!entry) {
-> +			spin_unlock(&dcb_lock);
->  			return -ENOMEM;
-> +		}
->  
->  		memcpy(&entry->app, new, sizeof(*new));
->  		strncpy(entry->name, dev->name, IFNAMSIZ);
-> @@ -1640,7 +1642,7 @@ out:
->  }
->  EXPORT_SYMBOL(dcb_setapp);
->  
-> -void dcb_flushapp(void)
-> +static void dcb_flushapp(void)
->  {
->  	struct dcb_app_type *app;
->  
+John Fastabend (3):
+      net_dcb: add application notifiers
+      dcbnl: add appliction tlv handlers
+      dcbnl: add support for ieee8021Qaz attributes
 
+
+ include/linux/dcbnl.h  |  108 ++++++++++++++++++++
+ include/net/dcbevent.h |   31 ++++++
+ include/net/dcbnl.h    |   20 ++++
+ net/dcb/Makefile       |    2 
+ net/dcb/dcbevent.c     |   40 +++++++
+ net/dcb/dcbnl.c        |  260 +++++++++++++++++++++++++++++++++++++++++++++++-
+ 6 files changed, 453 insertions(+), 8 deletions(-)
+ create mode 100644 include/net/dcbevent.h
+ create mode 100644 net/dcb/dcbevent.c
+
+-- 
+Signature
