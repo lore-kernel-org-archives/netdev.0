@@ -1,10 +1,13 @@
 From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 03/15]drivers:staging:rtl8187se:r8180_hw.h Typo change diable
-	to disable.
-Date: Thu, 30 Dec 2010 15:07:52 -0800
-Message-ID: <1293750484-1161-3-git-send-email-justinmattock@gmail.com>
+Subject: [PATCH 06/15]drivers:staging:xgifb:vb_setmode.c Typo change diable to
+	disable.
+Date: Thu, 30 Dec 2010 15:07:55 -0800
+Message-ID: <1293750484-1161-6-git-send-email-justinmattock@gmail.com>
 References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
 	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
+	<1293750484-1161-3-git-send-email-justinmattock@gmail.com>
+	<1293750484-1161-4-git-send-email-justinmattock@gmail.com>
+	<1293750484-1161-5-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,7 +19,7 @@ Cc: devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-scsi-u79uwXL2
 	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 To: trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
 Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1293750484-1161-2-git-send-email-justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+In-Reply-To: <1293750484-1161-5-git-send-email-justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
 	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
@@ -33,22 +36,22 @@ is correct or not.
 Signed-off-by: Justin P. Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
 ---
- drivers/staging/rtl8187se/r8180_hw.h |    2 +-
+ drivers/staging/xgifb/vb_setmode.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/staging/rtl8187se/r8180_hw.h b/drivers/staging/rtl8187se/r8180_hw.h
-index 3fca144..2911d40 100644
---- a/drivers/staging/rtl8187se/r8180_hw.h
-+++ b/drivers/staging/rtl8187se/r8180_hw.h
-@@ -554,7 +554,7 @@
- /* by amy for power save		*/
- /* by amy for antenna			*/
- #define EEPROM_SW_REVD_OFFSET 0x3f
--/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are diable.					*/
-+/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are disabled.					*/
- #define EEPROM_SW_AD_MASK			0x0300
- #define EEPROM_SW_AD_ENABLE			0x0100
+diff --git a/drivers/staging/xgifb/vb_setmode.c b/drivers/staging/xgifb/vb_setmode.c
+index 7016fdd..fb49641 100644
+--- a/drivers/staging/xgifb/vb_setmode.c
++++ b/drivers/staging/xgifb/vb_setmode.c
+@@ -1920,7 +1920,7 @@ void XGI_SetCRT1FIFO(unsigned short ModeNo,
  
+ 	data = XGINew_GetReg1(pVBInfo->P3c4, 0x3D);
+ 	data &= 0xfe;
+-	XGINew_SetReg1(pVBInfo->P3c4, 0x3D, data); /* diable auto-threshold */
++	XGINew_SetReg1(pVBInfo->P3c4, 0x3D, data); /* disable auto-threshold */
+ 
+ 	if (ModeNo > 0x13) {
+ 		XGINew_SetReg1(pVBInfo->P3c4, 0x08, 0x34);
 -- 
 1.6.5.2.180.gc5b3e
 
