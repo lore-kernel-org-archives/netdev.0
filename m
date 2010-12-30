@@ -1,42 +1,58 @@
-From: "Kirill A. Shutemov" <kas@openvz.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Thu, 30 Dec 2010 10:51:39 +0200
-Message-ID: <20101230085139.GA29697@shutemov.name>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org>
- <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211: fix mesh forwarding when ratelimited too
+Date: Thu, 30 Dec 2010 09:53:09 +0100
+Message-ID: <1293699189.4055.0.camel@jlt3.sipsolutions.net>
+References: <1293009307.3531.13.camel@jlt3.sipsolutions.net>
+	 <AANLkTik9PS-wKYg=XC0bUaZ=a99d-FdUmzZfvALVQ9Tv@mail.gmail.com>
+	 <201012262159.oBQLxOsw008865@hera.kernel.org>
+	 <mac80211-rx-ratelimit-goto@mdm.bga.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirill A. Shutemov" <kas@openvz.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-nfs@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rob Landley <rob@landley.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Javier Cardona <javier@cozybit.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Milton Miller <miltonm@bga.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com>
+In-Reply-To: <mac80211-rx-ratelimit-goto@mdm.bga.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Dec 29, 2010 at 08:13:50PM -0600, Rob Landley wrote:
-> On Wed, Dec 29, 2010 at 7:14 AM, Kirill A. Shutemov <kas@openvz.org> wrote:
-> >
-> > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-> > Only for client for now.
+On Thu, 2010-12-30 at 02:01 -0600, Milton Miller wrote:
+> Commit b51aff057c9d0ef6c529dc25fd9f775faf7b6c63 said:
 > 
-> What would a test case for this look like?  (Is there some way to tell
-> an nfs mount to use a specific instance of rpc_pipefs or something?)
+>     Under memory pressure, the mac80211 mesh code
+>     may helpfully print a message that it failed
+>     to clone a mesh frame and then will proceed
+>     to crash trying to use it anyway. Fix that.
+>     
+> Avoid the reference whenever the frame copy is unsuccessful
+> regardless of the debug message being suppressed or printed.
+> 
+> Cc: stable@kernel.org [2.6.27+] 
+> Signed-off-by: Milton Miller <miltonm@bga.com>
+> ---
+> I chose a seperate if vs nesting the ratelimit check to avoid shifting
+> the printk further to the right.
+> 
+> diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+> index b01e467..e98668f 100644
+> --- a/net/mac80211/rx.c
+> +++ b/net/mac80211/rx.c
+> @@ -1788,11 +1788,11 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
+>  
+>  			fwd_skb = skb_copy(skb, GFP_ATOMIC);
+>  
+> -			if (!fwd_skb && net_ratelimit()) {
+> +			if (!fwd_skb && net_ratelimit())
+>  				printk(KERN_DEBUG "%s: failed to clone mesh frame\n",
+>  						   sdata->name);
+> +			if (!fwd_skb)
+>  				goto out;
+> -			}
 
-You can create a new instance of rpc_pipefs using 'newinstance'
-mountoption.
+Oops, good catch! Thanks.
 
-Then you can specify which rpc_pipefs to use with 'rpcmount' mountoption
-of nfs mount. If none specifed, '/var/lib/nfs/rpc_pipefs' uses by default.
-If no rpcmount mountoption, no rpc_pipefs was found at
-'/var/lib/nfs/rpc_pipefs' and we are in init's mount namespace, we use
-init_rpc_pipefs.
-
--- 
- Kirill A. Shutemov
+johannes
