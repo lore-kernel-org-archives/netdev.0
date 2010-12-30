@@ -1,44 +1,41 @@
-From: Rob Landley <rlandley@parallels.com>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Thu, 30 Dec 2010 04:05:07 -0600
-Message-ID: <4D1C5953.6020200@parallels.com>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org> <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com> <20101230085139.GA29697@shutemov.name> <4D1C4C7C.6050606@parallels.com> <20101230094433.GB29697@shutemov.name>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Compilation of pktgen fails for ARCH=um
+Date: Thu, 30 Dec 2010 11:33:14 +0100
+Message-ID: <201012301133.14524.christoph.paasch@uclouvain.be>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Landley <rob@landley.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	<linux-nfs@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Kirill A. Shutemov" <kas@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101230094433.GB29697@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-arch@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-arch-owner@vger.kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/30/2010 03:44 AM, Kirill A. Shutemov wrote:
->>> If no rpcmount mountoption, no rpc_pipefs was found at
->>> '/var/lib/nfs/rpc_pipefs' and we are in init's mount namespace, we use
->>> init_rpc_pipefs.
->>
->> It's the "we are in init's mount namespace" that I was wondering about.
->>
->> So if I naievely chroot, nfs mount stops working the way it did before I
->> chrooted unless I do an extra setup step?
->
-> No. It will work as before since you are still in init's mount namespace.
-> Creating new mount namespace changes rules.
+Hi,
 
-Ah, CLONE_NEWNS and then you need /var/lib/nfs/rpc_pipefs.  Got it.
+compiling the packet generator (NET_PKTGEN) for ARCH=3Dum does not work=
+=2E
 
-I'm kind of surprised that the kernel cares about a specific path under 
-/var/lib.  (Seems like policy in the kernel somehow.)  Can't it just 
-check the current process's mount list to see if an instance of 
-rpc_pipefs is mounted in the current namespace the way lxc looks for 
-cgroups?  Or are there potential performance/scalability issues with that?
+Since commit 43d28b6515a6ea580a198df3e253e88236f08978 (pktgen: increasi=
+ng=20
+transmission granularity), function spin(...) uses ndelay(...), which i=
+s not=20
+implemented for uml.
 
-Rob
+Should pktgen be disabled for uml?
+Or should ndelay be an empty macro? (in arch/um/include/asm/delay.h)
+
+Regards,
+Christoph
+
+--
+Christoph Paasch
+
+Research Assistant
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
+Universit=E9 Catholique de Louvain
+
+www.rollerbulls.be
+--
