@@ -1,72 +1,91 @@
-From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Thu, 30 Dec 2010 12:44:16 +0200
-Message-ID: <20101230104416.GA31824@shutemov.name>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org>
- <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com>
- <20101230085139.GA29697@shutemov.name>
- <4D1C4C7C.6050606@parallels.com>
- <20101230094433.GB29697@shutemov.name>
- <4D1C5953.6020200@parallels.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4D1C5953.6020200-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: hans@schillstrom.com
+Subject: [*v3 PATCH 09/22] IPVS: netns preparation for proto_ah_esp
+Date: Thu, 30 Dec 2010 11:50:53 +0100
+Message-ID: <1293706266-27152-10-git-send-email-hans@schillstrom.com>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: horms@verge.net.au, ja@ssi.bg, daniel.lezcano@free.fr,
+	wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 30, 2010 at 04:05:07AM -0600, Rob Landley wrote:
-> On 12/30/2010 03:44 AM, Kirill A. Shutemov wrote:
-> >>> If no rpcmount mountoption, no rpc_pipefs was found at
-> >>> '/var/lib/nfs/rpc_pipefs' and we are in init's mount namespace, we use
-> >>> init_rpc_pipefs.
-> >>
-> >> It's the "we are in init's mount namespace" that I was wondering about.
-> >>
-> >> So if I naievely chroot, nfs mount stops working the way it did before I
-> >> chrooted unless I do an extra setup step?
-> >
-> > No. It will work as before since you are still in init's mount namespace.
-> > Creating new mount namespace changes rules.
-> 
-> Ah, CLONE_NEWNS and then you need /var/lib/nfs/rpc_pipefs.  Got it.
-> 
-> I'm kind of surprised that the kernel cares about a specific path under 
-> /var/lib.  (Seems like policy in the kernel somehow.)
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-Yep. It's bad, but there is way to overwrite the default.
+In this phase (one), all local vars will be moved to ipvs struct.
 
-Other way is to leave 'rpcmount' mountoption without default.
-get_rpc_pipefs(NULL) in init's mount namespace will always return
-init_rpc_pipefs, without filesystem lookup.
-get_rpc_pipefs(NULL) in non-init's mount namespace will always return
-error.
+Remaining work, add param struct net *net to a couple of
+functions that common for all protos.
 
-So you will have to specify 'rpcmount' mountoption for every nfs mount in
-container. Hmm, I guess, it may confuse user.
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+---
+ net/netfilter/ipvs/ip_vs_proto.c        |    6 ++++++
+ net/netfilter/ipvs/ip_vs_proto_ah_esp.c |   20 ++++----------------
+ 2 files changed, 10 insertions(+), 16 deletions(-)
 
-Or we can try to move the default to userspace. /sbin/mount.nfs?
-
-> Can't it just 
-> check the current process's mount list to see if an instance of 
-> rpc_pipefs is mounted in the current namespace the way lxc looks for 
-> cgroups?  Or are there potential performance/scalability issues with that?
-
-What should we do if we have several rpc_pipefs mounts in the namespace?
-
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index fd3a7a8..1089248 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -316,6 +316,12 @@ static int  __net_init  __ip_vs_protocol_init(struct net *net)
+ #ifdef CONFIG_IP_VS_PROTO_SCTP
+ 	register_ip_vs_proto_netns(net, &ip_vs_protocol_sctp);
+ #endif
++#ifdef CONFIG_IP_VS_PROTO_AH
++	register_ip_vs_proto_netns(net, &ip_vs_protocol_ah);
++#endif
++#ifdef CONFIG_IP_VS_PROTO_ESP
++	register_ip_vs_proto_netns(net, &ip_vs_protocol_esp);
++#endif
+ 	return 0;
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
+index 3a04611..b8b37fa 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_ah_esp.c
+@@ -117,26 +117,14 @@ ah_esp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 	return 0;
+ }
+ 
+-static void ah_esp_init(struct ip_vs_protocol *pp)
+-{
+-	/* nothing to do now */
+-}
+-
+-
+-static void ah_esp_exit(struct ip_vs_protocol *pp)
+-{
+-	/* nothing to do now */
+-}
+-
+-
+ #ifdef CONFIG_IP_VS_PROTO_AH
+ struct ip_vs_protocol ip_vs_protocol_ah = {
+ 	.name =			"AH",
+ 	.protocol =		IPPROTO_AH,
+ 	.num_states =		1,
+ 	.dont_defrag =		1,
+-	.init =			ah_esp_init,
+-	.exit =			ah_esp_exit,
++	.init =			NULL,
++	.exit =			NULL,
+ 	.conn_schedule =	ah_esp_conn_schedule,
+ 	.conn_in_get =		ah_esp_conn_in_get,
+ 	.conn_out_get =		ah_esp_conn_out_get,
+@@ -159,8 +147,8 @@ struct ip_vs_protocol ip_vs_protocol_esp = {
+ 	.protocol =		IPPROTO_ESP,
+ 	.num_states =		1,
+ 	.dont_defrag =		1,
+-	.init =			ah_esp_init,
+-	.exit =			ah_esp_exit,
++	.init =			NULL,
++	.exit =			NULL,
+ 	.conn_schedule =	ah_esp_conn_schedule,
+ 	.conn_in_get =		ah_esp_conn_in_get,
+ 	.conn_out_get =		ah_esp_conn_out_get,
 -- 
- Kirill A. Shutemov
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.2.3
+
