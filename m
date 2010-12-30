@@ -1,60 +1,32 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: linux-next: Tree for December 29 (netfilter build errors)
-Date: Thu, 30 Dec 2010 10:10:43 +0800
-Message-ID: <4D1BEA23.5060800@cn.fujitsu.com>
-References: <20101229130700.0ef93735.sfr@canb.auug.org.au> <20101229085300.1ceac200.randy.dunlap@oracle.com>
+From: Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
+Date: Wed, 29 Dec 2010 20:13:50 -0600
+Message-ID: <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com>
+References: <1293628470-28386-1-git-send-email-kas@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netfilter-devel@vger.kernel.org, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20101229085300.1ceac200.randy.dunlap@oracle.com>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1293628470-28386-1-git-send-email-kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Randy Dunlap wrote, at 12/30/2010 12:53 AM:
-> On Wed, 29 Dec 2010 13:07:00 +1100 Stephen Rothwell wrote:
-> 
->> Hi all,
->>
->> Changes since 20101228:
-> 
-> 
-> In file included from linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:22:
-> linux-next-20101229/include/net/netfilter/nf_conntrack.h:94: error: field 'ct_general' has incomplete type
-> linux-next-20101229/include/net/netfilter/nf_conntrack.h: In function 'nf_ct_get':
-> linux-next-20101229/include/net/netfilter/nf_conntrack.h:174: error: 'const struct sk_buff' has no member named 'nfct'
-> linux-next-20101229/include/net/netfilter/nf_conntrack.h: In function 'nf_ct_put':
-> linux-next-20101229/include/net/netfilter/nf_conntrack.h:181: error: implicit declaration of function 'nf_conntrack_put'
->   CC      net/ipv6/exthdrs_core.o
-> In file included from linux-next-20101229/include/net/netfilter/nf_conntrack_core.h:18,
->                  from linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:26:
-> linux-next-20101229/include/net/netfilter/nf_conntrack_ecache.h: In function 'nf_ct_ecache_ext_add':
-> linux-next-20101229/include/net/netfilter/nf_conntrack_ecache.h:35: error: 'struct net' has no member named 'ct'
-> In file included from linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:26:
-> linux-next-20101229/include/net/netfilter/nf_conntrack_core.h: In function 'nf_conntrack_confirm':
-> linux-next-20101229/include/net/netfilter/nf_conntrack_core.h:60: error: 'struct sk_buff' has no member named 'nfct'
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c: In function 'nf_ct6_defrag_user':
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:36: error: 'struct sk_buff' has no member named 'nfct'
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:37: error: implicit declaration of function 'nf_ct_zone'
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:37: error: 'struct sk_buff' has no member named 'nfct'
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c: In function 'ipv6_defrag':
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:60: error: 'struct sk_buff' has no member named 'nfct'
-> linux-next-20101229/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c:60: error: 'struct sk_buff' has no member named 'nfct'
-> make[4]: *** [net/ipv6/netfilter/nf_defrag_ipv6_hooks.o] Error 1
-> make[3]: *** [net/ipv6/netfilter] Error 2
+On Wed, Dec 29, 2010 at 7:14 AM, Kirill A. Shutemov <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org> wrote:
+>
+> Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+> Only for client for now.
 
-CONFIG_NF_DEFRAG_IPV6 depends on CONFIG_NF_CONNTRACK_IPV6 which depends on CONFIG_NF_CONNTRACK.
-In you config file, CONFIG_NF_CONNTRACK_IPV6 and CONFIG_NF_CONNTRACK are not set, 
-but CONFIG_NF_DEFRAG_IPV6 is set with 'y'. This is same with IPv4.
+What would a test case for this look like?  (Is there some way to tell
+an nfs mount to use a specific instance of rpc_pipefs or something?)
 
-Selecting CONFIG_NF_CONNTRACK and CONFIG_NF_CONNTRACK_IPV6 may help to you.
-
--- 
-Best Regards
------
-Shan Wei
+Rob
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
