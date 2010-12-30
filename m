@@ -1,67 +1,85 @@
-From: "Loke, Chetan" <Chetan.Loke@netscout.com>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Wed, 29 Dec 2010 20:11:48 -0500
-Message-ID: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH 03/10] net/fec: add mac field into platform data and
+ consolidate fec_get_mac
+Date: Thu, 30 Dec 2010 10:12:44 +0800
+Message-ID: <20101230021243.GA20155@freescale.com>
+References: <1293548155-16328-1-git-send-email-shawn.guo@freescale.com>
+ <1293548155-16328-4-git-send-email-shawn.guo@freescale.com>
+ <20101229065329.GB31010@jasper.tkos.co.il>
+ <20101229100520.GB19347@freescale.com>
+ <20101229103138.GT14221@pengutronix.de>
+ <20101229115808.GF19347@freescale.com>
+ <20101229124220.GD14221@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "Jon Zhou" <Jon.Zhou@jdsu.com>, <juice@swagman.org>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Stephen Hemminger" <shemminger@vyatta.com>,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Baruch Siach <baruch@tkos.co.il>, <davem@davemloft.net>,
+	<gerg@snapgear.com>, <eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<s.hauer@pengutronix.de>, <linux-arm-kernel@lists.infradead.org>,
 	<netdev@vger.kernel.org>
+To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod6og106.obsmtp.com ([64.18.1.191]:45714 "HELO
-	exprod6og106.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754218Ab0L3BLv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Dec 2010 20:11:51 -0500
-Content-class: urn:content-classes:message
+Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:36916
+	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754582Ab0L3CKn convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Dec 2010 21:10:43 -0500
+Received: from mail155-va3 (localhost.localdomain [127.0.0.1])	by
+ mail155-va3-R.bigfish.com (Postfix) with ESMTP id 215931903AB	for
+ <netdev@vger.kernel.org>; Thu, 30 Dec 2010 02:10:42 +0000 (UTC)
+Received: from VA3EHSMHS033.bigfish.com (unknown [10.7.14.247])	by
+ mail155-va3.bigfish.com (Postfix) with ESMTP id D8DEA1218052	for
+ <netdev@vger.kernel.org>; Thu, 30 Dec 2010 02:10:41 +0000 (UTC)
+Received: from az33smr01.freescale.net (az33smr01.freescale.net
+ [10.64.34.199])	by de01egw01.freescale.net (8.14.3/8.14.3) with ESMTP id
+ oBU2DUIT023202	for <netdev@vger.kernel.org>; Wed, 29 Dec 2010 19:13:30 -0700
+ (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
+ oBU2AYsJ014343	for <netdev@vger.kernel.org>; Wed, 29 Dec 2010 20:10:34 -0600
+ (CST)
+Content-Disposition: inline
+In-Reply-To: <20101229124220.GD14221@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Jon Zhou
-> Sent: December 23, 2010 3:58 AM
-> To: juice@swagman.org; Eric Dumazet; Stephen Hemminger;
-> netdev@vger.kernel.org
-> Subject: RE: Using ethernet device as efficient small packet generator
-> 
-> 
-> At another old kernel(2.6.16) with tg3 and bnx2 1G NIC,XEON E5450, I
-> only got 490K pps(it is about 300Mbps,30% GE), I think the reason is
-> multiqueue unsupported in this kernel.
-> 
-> I will do a test with 1Gb nic on the new kernel later.
-> 
+Hi Uwe,
 
+On Wed, Dec 29, 2010 at 01:42:21PM +0100, Uwe Kleine-K=F6nig wrote:
+> Hello Shawn,
+>=20
+> On Wed, Dec 29, 2010 at 07:58:09PM +0800, Shawn Guo wrote:
+> > On Wed, Dec 29, 2010 at 11:31:38AM +0100, Uwe Kleine-K=F6nig wrote:
+> > > On Wed, Dec 29, 2010 at 06:05:21PM +0800, Shawn Guo wrote:
+> > > > On Wed, Dec 29, 2010 at 08:53:30AM +0200, Baruch Siach wrote:
+> > > > 	if (iap =3D=3D fec_mac_default)
+> > > > 		dev->dev_addr[ETH_ALEN-1] =3D fec_mac_default[ETH_ALEN-1] + f=
+ep->pdev->id;
+> > > Can this overflow?  (I didn't check the code, so my concern might=
+ be
+> > > completely stupid here.)
+> > No. dev->dev_addr points to netdev_hw_addr->addr, which is a 32 byt=
+es array.
+> I didn't mean an out-of-bound access, but what is if
+> fec_mac_default[ETH_ALEN-1] is 0xff and you add 1?  Does that result =
+in
+> 0x100 or 0?  What if id is <0?  For big ids you might even handle a
+> carry to indixes <ETH_ALEN-2.
+>=20
+=46irst of all, all my patch did is changing fep->index to,
+fep->pdev->id, which should not bring any problem you are concerned.
 
-I can hit close to 1M pps(first time every time) w/ a 64-byte payload on
-my VirtualMachine(running 2.6.33) via vmxnet3 vNIC - 
+Secondly, I do not understand how the overflow on=20
+fec_mac_default[ETH_ALEN-1] can result in a carry on the next array
+element. Here is what I'm seeing with fec_mac=3D00:04:9f:01:30:ff.
 
+eth0      Link encap:Ethernet  HWaddr 00:04:9F:01:30:FF
+eth1      Link encap:Ethernet  HWaddr 00:04:9F:01:30:00
 
-[root@localhost ~]# cat /proc/net/pktgen/eth2
-Params: count 0  min_pkt_size: 60  max_pkt_size: 60
-     frags: 0  delay: 0  clone_skb: 0  ifname: eth2
-     flows: 0 flowlen: 0
-     queue_map_min: 0  queue_map_max: 0
-     dst_min: 192.168.222.2  dst_max:
-        src_min:   src_max:
-     src_mac: 00:50:56:b1:00:19 dst_mac: 00:50:56:c0:00:3e
-     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
-     src_mac_count: 0  dst_mac_count: 0
-     Flags:
-Current:
-     pkts-sofar: 59241012  errors: 0
-     started: 1898437021us  stopped: 1957709510us idle: 9168us
-     seq_num: 59241013  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-     cur_saddr: 0x0  cur_daddr: 0x2dea8c0
-     cur_udp_dst: 9  cur_udp_src: 9
-     cur_queue_map: 0
-     flows: 0
-Result: OK: 59272488(c59263320+d9168) nsec, 59241012 (60byte,0frags)
-  999468pps 479Mb/sec (479744640bps) errors: 0
+--=20
+Regards,
+Shawn
 
-
-
-Chetan
