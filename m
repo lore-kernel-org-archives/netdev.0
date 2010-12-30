@@ -1,58 +1,57 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: fix mesh forwarding when ratelimited too
-Date: Thu, 30 Dec 2010 09:53:09 +0100
-Message-ID: <1293699189.4055.0.camel@jlt3.sipsolutions.net>
-References: <1293009307.3531.13.camel@jlt3.sipsolutions.net>
-	 <AANLkTik9PS-wKYg=XC0bUaZ=a99d-FdUmzZfvALVQ9Tv@mail.gmail.com>
-	 <201012262159.oBQLxOsw008865@hera.kernel.org>
-	 <mac80211-rx-ratelimit-goto@mdm.bga.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v4] Gemini: Gigabit ethernet driver
+Date: Thu, 30 Dec 2010 01:19:57 -0800
+Message-ID: <1293700797.2400.13.camel@Joe-Laptop>
+References: <20101230083905.5A8EB13909@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Javier Cardona <javier@cozybit.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Milton Miller <miltonm@bga.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <mac80211-rx-ratelimit-goto@mdm.bga.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Hans Ulli Kroll <ulli.kroll@googlemail.com>,
+	gemini-board-dev@lists.berlios.de, netdev@vger.kernel.org,
+	Christoph Biedl <linux-kernel.bfrz@manchmal.in-ulm.de>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.perches.com ([173.55.12.10]:2876 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751291Ab0L3JT7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Dec 2010 04:19:59 -0500
+In-Reply-To: <20101230083905.5A8EB13909@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2010-12-30 at 02:01 -0600, Milton Miller wrote:
-> Commit b51aff057c9d0ef6c529dc25fd9f775faf7b6c63 said:
-> 
->     Under memory pressure, the mac80211 mesh code
->     may helpfully print a message that it failed
->     to clone a mesh frame and then will proceed
->     to crash trying to use it anyway. Fix that.
->     
-> Avoid the reference whenever the frame copy is unsuccessful
-> regardless of the debug message being suppressed or printed.
-> 
-> Cc: stable@kernel.org [2.6.27+] 
-> Signed-off-by: Milton Miller <miltonm@bga.com>
-> ---
-> I chose a seperate if vs nesting the ratelimit check to avoid shifting
-> the printk further to the right.
-> 
-> diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-> index b01e467..e98668f 100644
-> --- a/net/mac80211/rx.c
-> +++ b/net/mac80211/rx.c
-> @@ -1788,11 +1788,11 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
->  
->  			fwd_skb = skb_copy(skb, GFP_ATOMIC);
->  
-> -			if (!fwd_skb && net_ratelimit()) {
-> +			if (!fwd_skb && net_ratelimit())
->  				printk(KERN_DEBUG "%s: failed to clone mesh frame\n",
->  						   sdata->name);
-> +			if (!fwd_skb)
->  				goto out;
-> -			}
+On Thu, 2010-12-30 at 09:39 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> Driver for SL351x (Gemini) SoC ethernet peripheral. Based in part
+> on work by Paulius Zaleckas and GPLd code from Raidsonic and other
+> NAS vendors.
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> diff --git a/drivers/net/sl351x.c b/drivers/net/sl351x.c
 
-Oops, good catch! Thanks.
+Output trivia:
 
-johannes
+> +static void gmac_tx_interrupt(struct net_device *dev, unsigned txq_n=
+um)
+[]
+> +	netif_info(gmac, tx_done, dev, "txirq%u: %u,%u,%u\n",
+> +		txq_num, txq->cptr, GET_RPTR(ptr_reg), GET_WPTR(ptr_reg));
+
+pointers as decimal?
+There seems to be a lot of output using %u where I expected %08x.
+
+> +static int gmac_start_xmit(struct sk_buff *skb, struct net_device *d=
+ev)
+[]
+> +	netif_info(gmac, tx_queued, dev, "txq%u: %u,%u,%u ? %p (%u @ %p) /%=
+u\n",
+> +		txq_num, txq->cptr, GET_RPTR(ptr_reg), GET_WPTR(ptr_reg),
+> +		skb, skb->len, skb->data, skb_shinfo(skb)->gso_size);
+[]
+> +	netif_info(gmac, tx_queued, dev, "txq%u: %u,%u,%u + %p\n",
+> +		txq_num, txq->cptr, GET_RPTR(ptr_reg), w, skb);
+[]
+> +static unsigned gmac_rx(struct net_device *dev, unsigned budget)
+[]
+> +	netif_info(gmac, rx_status, dev, "rxq: %u,%u\n",
+> +		 GET_RPTR(ptr_reg), GET_WPTR(ptr_reg));
+
+etc...
+
