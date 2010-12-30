@@ -1,59 +1,76 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH/RFC] Re: Compilation of pktgen fails for ARCH=um
-Date: Thu, 30 Dec 2010 09:39:25 -0800
-Message-ID: <20101230093925.3d6b567e.randy.dunlap@oracle.com>
-References: <201012301133.14524.christoph.paasch@uclouvain.be>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH net-next-2.6] sfq: fix slot_dequeue_head()
+Date: Thu, 30 Dec 2010 18:49:18 +0100
+Message-ID: <20101230174918.GA2018@del.dom.local>
+References: <1292998499.4317.13.camel@edumazet-laptop>
+ <20101222073211.GA7001@ff.dom.local>
+ <1293721368.7150.307.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arch@vger.kernel.org
-To: christoph.paasch@uclouvain.be
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <201012301133.14524.christoph.paasch@uclouvain.be>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:45973 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754865Ab0L3RtZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 12:49:25 -0500
+Received: by bwz15 with SMTP id 15so11895435bwz.19
+        for <netdev@vger.kernel.org>; Thu, 30 Dec 2010 09:49:23 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1293721368.7150.307.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Dec 2010 11:33:14 +0100 Christoph Paasch wrote:
+On Thu, Dec 30, 2010 at 04:02:48PM +0100, Eric Dumazet wrote:
+> Le mercredi 22 d=E9cembre 2010 ?? 07:32 +0000, Jarek Poplawski a =E9c=
+rit :
+> > > Also, slot_dequeue_tail() should make sure slot skb chain is corr=
+ectly
+> > > terminated, or sfq_dump_class_stats() can access freed skbs.
+> >=20
+> > ...and a good hint for code reusing ;-)
+>=20
+> Yes, and of course same fix is needed in slot_dequeue_head(), as furt=
+her
+> testing on my side made it pretty clear.
+>=20
+> I was adding possibility to have more packets queued in SFQ (more
+> packets than max number of flows) and got unexpected crashes.
+>=20
+> Reverting to net-next-2.6, I still got crashes. Oops.
+>=20
+> [PATCH net-next-2.6] sfq: fix slot_dequeue_head()
+>=20
+> slot_dequeue_head() should make sure slot skb chain is correct in bot=
+h
+> ways, or we can crash if all possible flows are in use.
 
-> Hi,
-> 
-> compiling the packet generator (NET_PKTGEN) for ARCH=um does not work.
-> 
-> Since commit 43d28b6515a6ea580a198df3e253e88236f08978 (pktgen: increasing 
-> transmission granularity), function spin(...) uses ndelay(...), which is not 
-> implemented for uml.
-> 
-> Should pktgen be disabled for uml?
-> Or should ndelay be an empty macro? (in arch/um/include/asm/delay.h)
+Nice scenario ;-) Of course, it's easy to guess I looked for something
+like this after your previous fix and missed that :-| Btw, it looks
+like slot_queue_init() could go back to sfq_init() now.
 
-or ndelay() in arch/um/include/asm/delay.y can be removed completely
-and then the default implementation of ndelay() will be used from
-include/linux/delay.h.
-This builds cleanly, but I don't know how well it would work.
+Jarek P.
 
----
-From: Randy Dunlap <randy.dunlap@oracle.com>
-
-Allow uml to use the default implementation of ndelay() from
-<linux/delay.h>.  Fixes build error:
-
-net/built-in.o: In function `spin':
-pktgen.c:(.text+0x27391): undefined reference to `__unimplemented_ndelay'
-
-Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
----
- arch/um/include/asm/delay.h |    5 -----
- 1 file changed, 5 deletions(-)
-
---- linux-next-20101214.orig/arch/um/include/asm/delay.h
-+++ linux-next-20101214/arch/um/include/asm/delay.h
-@@ -12,9 +12,4 @@ extern void __delay(unsigned long loops)
- #define udelay(n) ((__builtin_constant_p(n) && (n) > 20000) ? \
- 	__bad_udelay() : __udelay(n))
- 
--/* It appears that ndelay is not used at all for UML, and has never been
-- * implemented. */
--extern void __unimplemented_ndelay(void);
--#define ndelay(n) __unimplemented_ndelay()
--
- #endif
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Jarek Poplawski <jarkao2@gmail.com>
+> ---
+>  net/sched/sch_sfq.c |    1 +
+>  1 files changed, 1 insertion(+)
+>=20
+> diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+> index 6a2f88f..3977e56 100644
+> --- a/net/sched/sch_sfq.c
+> +++ b/net/sched/sch_sfq.c
+> @@ -292,6 +292,7 @@ static inline struct sk_buff *slot_dequeue_head(s=
+truct sfq_slot *slot)
+>  	struct sk_buff *skb =3D slot->skblist_next;
+> =20
+>  	slot->skblist_next =3D skb->next;
+> +	skb->next->prev =3D (struct sk_buff *)slot;
+>  	skb->next =3D skb->prev =3D NULL;
+>  	return skb;
+>  }
+>=20
+>=20
