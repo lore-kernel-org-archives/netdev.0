@@ -1,7 +1,8 @@
 From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: [PATCH 01/15]arch:m68k:ifpsp060:src:fpsp.S Typo change diable to disable.
-Date: Thu, 30 Dec 2010 15:07:50 -0800
-Message-ID: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
+Subject: [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
+Date: Thu, 30 Dec 2010 15:07:51 -0800
+Message-ID: <1293750484-1161-2-git-send-email-justinmattock@gmail.com>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
 Cc: linux-m68k@lists.linux-m68k.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, ivtv-devel@ivtvdriver.org,
 	linux-media@vger.kernel.org, linux-wireless@vger.kernel.org,
@@ -11,10 +12,11 @@ Cc: linux-m68k@lists.linux-m68k.org, linux-kernel@vger.kernel.org,
 	"Justin P. Mattock" <justinmattock@gmail.com>
 To: trivial@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:64019 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750967Ab0L3XIF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 18:08:05 -0500
+Received: from mail-gx0-f174.google.com ([209.85.161.174]:59254 "EHLO
+	mail-gx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750967Ab0L3XIJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Dec 2010 18:08:09 -0500
+In-Reply-To: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -24,22 +26,22 @@ is correct or not.
 Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
 
 ---
- arch/m68k/ifpsp060/src/fpsp.S |    2 +-
+ drivers/spi/dw_spi.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/arch/m68k/ifpsp060/src/fpsp.S b/arch/m68k/ifpsp060/src/fpsp.S
-index 73613b5..26e85e2 100644
---- a/arch/m68k/ifpsp060/src/fpsp.S
-+++ b/arch/m68k/ifpsp060/src/fpsp.S
-@@ -3881,7 +3881,7 @@ _fpsp_fline:
- # FP Unimplemented Instruction stack frame and jump to that entry
- # point.
- #
--# but, if the FPU is disabled, then we need to jump to the FPU diabled
-+# but, if the FPU is disabled, then we need to jump to the FPU disabled
- # entry point.
- 	movc		%pcr,%d0
- 	btst		&0x1,%d0
+diff --git a/drivers/spi/dw_spi.c b/drivers/spi/dw_spi.c
+index 0838c79..7c3cf21 100644
+--- a/drivers/spi/dw_spi.c
++++ b/drivers/spi/dw_spi.c
+@@ -592,7 +592,7 @@ static void pump_transfers(unsigned long data)
+ 		spi_set_clk(dws, clk_div ? clk_div : chip->clk_div);
+ 		spi_chip_sel(dws, spi->chip_select);
+ 
+-		/* Set the interrupt mask, for poll mode just diable all int */
++		/* Set the interrupt mask, for poll mode just disable all int */
+ 		spi_mask_intr(dws, 0xff);
+ 		if (imask)
+ 			spi_umask_intr(dws, imask);
 -- 
 1.6.5.2.180.gc5b3e
 
