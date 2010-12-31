@@ -1,38 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bridge: check the length of skb after
- nf_bridge_maybe_copy_header()
-Date: Fri, 31 Dec 2010 11:10:03 -0800 (PST)
-Message-ID: <20101231.111003.48499853.davem@davemloft.net>
-References: <1293284490-17114-1-git-send-email-xiaosuo@gmail.com>
+Subject: Re: [patch] USB: cdc_ether: remove unneeded check
+Date: Fri, 31 Dec 2010 11:11:47 -0800 (PST)
+Message-ID: <20101231.111147.260086991.davem@davemloft.net>
+References: <20101225222341.GS1936@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Cc: oliver@neukum.name, gregkh@suse.de, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: error27@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60289
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41231
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751622Ab0LaTJd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:09:33 -0500
-In-Reply-To: <1293284490-17114-1-git-send-email-xiaosuo@gmail.com>
+	by vger.kernel.org with ESMTP id S1751622Ab0LaTLR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:11:17 -0500
+In-Reply-To: <20101225222341.GS1936@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Sat, 25 Dec 2010 21:41:30 +0800
+From: Dan Carpenter <error27@gmail.com>
+Date: Sun, 26 Dec 2010 01:23:42 +0300
 
-> Since nf_bridge_maybe_copy_header() may change the length of skb,
-> we should check the length of skb after it to handle the ppoe skbs.
+> We already verified that "dev->udev->actconfig->extralen" was non-zero
+> so "len" is non-zero here as well.
 > 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-This is really strange.
-
-packet_length() subtracts VLAN_HLEN from the value it returns, so the
-correct fix seems to be to make this function handle the PPPOE case
-too.
-
-Otherwise I suspect you have many other functions to fix as well.
-
-I'm not applying this patch.
+Applied, thanks.
