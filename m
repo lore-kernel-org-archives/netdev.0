@@ -1,38 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: Do not use legacy PCI power management
-Date: Fri, 31 Dec 2010 12:50:32 -0800 (PST)
-Message-ID: <20101231.125032.200373631.davem@davemloft.net>
-References: <201012261944.32517.rjw@sisk.pl>
-	<20101230105229.189f3737@nehalam>
-	<201012302350.01205.rjw@sisk.pl>
+Subject: Re: [PATCH] drivers/atm/atmtcp.c: add missing atm_dev_put
+Date: Fri, 31 Dec 2010 12:52:23 -0800 (PST)
+Message-ID: <20101231.125223.212690412.davem@davemloft.net>
+References: <Pine.LNX.4.64.1012291500310.8559@pc-004.diku.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org
-To: rjw@sisk.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44978
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753156Ab0LaUuB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 15:50:01 -0500
-In-Reply-To: <201012302350.01205.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: chas@cmf.nrl.navy.mil, linux-atm-general@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1012291500310.8559@pc-004.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Thu, 30 Dec 2010 23:50:01 +0100
+From: Julia Lawall <julia@diku.dk>
+Date: Wed, 29 Dec 2010 15:01:03 +0100 (CET)
 
-> On Thursday, December 30, 2010, Stephen Hemminger wrote:
->> The skge driver used the legacy PCI power management, and did its
->> own PCI callbacks.  Use the same code model as Rafael's changes to
->> sky2. Let the PCI subsystem take care of all the PCI-specific aspects of
->> device handling during system power transitions.
->> 
->> Compile tested only (so far).
->> 
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> From: Julia Lawall <julia@diku.dk>
 > 
-> Acked-by: Rafael J. Wysocki <rjw@sisk.pl>
+> The earlier call to atm_dev_lookup increases the reference count of dev,
+> so decrease it on the way out.
+> 
+> The semantic match that finds this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-Applied to net-next-2.6, thanks!
+Applied, thank you.
