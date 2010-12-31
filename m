@@ -1,74 +1,43 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 01/15]arch:m68k:ifpsp060:src:fpsp.S Typo change diable to disable.
-Date: Fri, 31 Dec 2010 11:33:49 +0100
-Message-ID: <AANLkTins7rj1o4rEcEFmVSA2=1yXZSfLdO000gqQP7cg@mail.gmail.com>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] UDPCP Communication Protocol
+Date: Fri, 31 Dec 2010 11:35:12 +0100
+Message-ID: <1293791712.2973.38.camel@edumazet-laptop>
+References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: trivial@kernel.org, linux-m68k@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: stefani@seibold.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293787785-3834-1-git-send-email-stefani@seibold.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 31, 2010 at 00:07, Justin P. Mattock
-<justinmattock@gmail.com> wrote:
-> The below patch fixes a typo "diable" to "disable". Please let me kno=
-w if this
-> is correct or not.
->
-> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+Le vendredi 31 d=C3=A9cembre 2010 =C3=A0 10:29 +0100, stefani@seibold.n=
+et a
+=C3=A9crit :
+> 		/*
+> +			 * set a flag for UDPCP message
+> +			 */
+> +			skb->cb[sizeof(struct udp_skb_cb)] =3D 1;
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-> ---
-> =C2=A0arch/m68k/ifpsp060/src/fpsp.S | =C2=A0 =C2=A02 +-
-> =C2=A01 files changed, 1 insertions(+), 1 deletions(-)
->
-> diff --git a/arch/m68k/ifpsp060/src/fpsp.S b/arch/m68k/ifpsp060/src/f=
-psp.S
-> index 73613b5..26e85e2 100644
-> --- a/arch/m68k/ifpsp060/src/fpsp.S
-> +++ b/arch/m68k/ifpsp060/src/fpsp.S
-> @@ -3881,7 +3881,7 @@ _fpsp_fline:
-> =C2=A0# FP Unimplemented Instruction stack frame and jump to that ent=
-ry
-> =C2=A0# point.
-> =C2=A0#
-> -# but, if the FPU is disabled, then we need to jump to the FPU diabl=
-ed
-> +# but, if the FPU is disabled, then we need to jump to the FPU disab=
-led
-> =C2=A0# entry point.
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0movc =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0%pcr,%d0
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0btst =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0&0x1,%d0
+Dont do that. This hides an important thing : you use one extra byte in
+skb->cb[] without being explicit.
 
-Gr{oetje,eeting}s,
+As we have one byte hole in struct udp_skb_cbn, you could use it
+instead.
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
-n
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/udp.h b/include/net/udp.h
+index bb967dd..ceafbbf 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -47,6 +47,7 @@ struct udp_skb_cb {
+ 	} header;
+ 	__u16		cscov;
+ 	__u8		partial_cov;
++	__u8		udpcp_flag;
+ };
+ #define UDP_SKB_CB(__skb)	((struct udp_skb_cb *)((__skb)->cb))
+=20
