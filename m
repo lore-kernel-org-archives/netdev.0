@@ -1,44 +1,74 @@
-From: Stefani Seibold <stefani@seibold.net>
-Subject: Re: [PATCH] UDPCP Communication Protocol
-Date: Fri, 31 Dec 2010 11:29:13 +0100
-Message-ID: <1293791353.5193.1.camel@wall-e>
-References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
-	 <1293790501.2973.33.camel@edumazet-laptop>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH 01/15]arch:m68k:ifpsp060:src:fpsp.S Typo change diable to disable.
+Date: Fri, 31 Dec 2010 11:33:49 +0100
+Message-ID: <AANLkTins7rj1o4rEcEFmVSA2=1yXZSfLdO000gqQP7cg@mail.gmail.com>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293790501.2973.33.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: trivial@kernel.org, linux-m68k@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
+	spi-devel-general@lists.sourceforge.net,
+	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, den 31.12.2010, 11:15 +0100 schrieb Eric Dumazet:
-> Le vendredi 31 d=E9cembre 2010 =E0 10:29 +0100, stefani@seibold.net a
-> =E9crit :
-> > +				spin_lock_irqsave(&spinlock, flags);
-> > +				udpcp_stat.txMsgs++;
-> > +				spin_unlock_irqrestore(&spinlock, flags);
->=20
-> This is really ugly for different reasons :
->=20
-> 1) Naming a lock, even static "spinlock" is ugly.
+On Fri, Dec 31, 2010 at 00:07, Justin P. Mattock
+<justinmattock@gmail.com> wrote:
+> The below patch fixes a typo "diable" to "disable". Please let me kno=
+w if this
+> is correct or not.
+>
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
 
-Agree...
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-> 2) Using a lock for stats is not necessary, and
->    disabling hard irqs is not necessary either (spinlock_bh() would b=
-e
-> more than enough)
->  =20
->    At a very minimum, you should use atomic_t so that no lock is need=
+> ---
+> =C2=A0arch/m68k/ifpsp060/src/fpsp.S | =C2=A0 =C2=A02 +-
+> =C2=A01 files changed, 1 insertions(+), 1 deletions(-)
+>
+> diff --git a/arch/m68k/ifpsp060/src/fpsp.S b/arch/m68k/ifpsp060/src/f=
+psp.S
+> index 73613b5..26e85e2 100644
+> --- a/arch/m68k/ifpsp060/src/fpsp.S
+> +++ b/arch/m68k/ifpsp060/src/fpsp.S
+> @@ -3881,7 +3881,7 @@ _fpsp_fline:
+> =C2=A0# FP Unimplemented Instruction stack frame and jump to that ent=
+ry
+> =C2=A0# point.
+> =C2=A0#
+> -# but, if the FPU is disabled, then we need to jump to the FPU diabl=
 ed
->=20
-> 3) Network stack widely use MIB per_cpu counters.
->  As you use UDP, you could take a look at UDP_INC_STATS_BH()/
-> UDP_INC_STATS_USER() implementation for an example.
->=20
+> +# but, if the FPU is disabled, then we need to jump to the FPU disab=
+led
+> =C2=A0# entry point.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0movc =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0%pcr,%d0
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0btst =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0&0x1,%d0
 
-I will have look at this and revamp it.
+Gr{oetje,eeting}s,
+
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
+
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe linux-scsi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
