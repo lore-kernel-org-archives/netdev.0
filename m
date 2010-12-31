@@ -1,46 +1,59 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] Broadcom CNIC core network driver: fix mem leak on
- allocation failures in cnic_alloc_uio_rings()
-Date: Fri, 31 Dec 2010 11:20:25 -0800 (PST)
-Message-ID: <20101231.112025.245393392.davem@davemloft.net>
-References: <alpine.LNX.2.00.1012262124320.20797@swampdragon.chaosbits.net>
-	<1293396850.7726.14.camel@Joe-Laptop>
-	<alpine.LNX.2.00.1012262154420.20797@swampdragon.chaosbits.net>
+Subject: Re: [PATCH] ISDN, Gigaset: Fix memory leak in do_disconnect_req()
+Date: Fri, 31 Dec 2010 11:21:01 -0800 (PST)
+Message-ID: <20101231.112101.70194518.davem@davemloft.net>
+References: <alpine.LNX.2.00.1012262053130.20797@swampdragon.chaosbits.net>
+	<4D1A2185.2010700@imap.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, zongxi@broadcom.com,
-	mchan@broadcom.com
-To: jj@chaosbits.net
+Cc: jj@chaosbits.net, gigaset307x-common@lists.sourceforge.net,
+	hjlipp@web.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tilman@imap.cc
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1012262154420.20797@swampdragon.chaosbits.net>
+In-Reply-To: <4D1A2185.2010700@imap.cc>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Sun, 26 Dec 2010 21:57:39 +0100 (CET)
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Tue, 28 Dec 2010 18:42:29 +0100
 
-> We are leaking memory in drivers/net/cnic.c::cnic_alloc_uio_rings() if 
-> either of the calls to dma_alloc_coherent() fail. This patch fixes it by 
-> freeing both the memory allocated with kzalloc() and memory allocated with 
-> previous calls to dma_alloc_coherent() when there's a failure.
+> Quite correct. Thanks for finding and fixing this.
 > 
-> Thanks to  Joe Perches <joe@perches.com>  for suggesting a better 
-> implementation than my initial version.
+> Am 26.12.2010 20:59 schrieb Jesper Juhl:
+>> Hi,
+>> 
+>> In drivers/isdn/gigaset/capi.c::do_disconnect_req() we will leak the 
+>> memory allocated (with kmalloc) to 'b3cmsg' if the call to alloc_skb() 
+>> fails.
+>> 
+>> ...
+>> 		b3cmsg = kmalloc(sizeof(*b3cmsg), GFP_KERNEL);
+>> 	allocation here ------^
+>> 		if (!b3cmsg) {
+>> 			dev_err(cs->dev, "%s: out of memory\n", __func__);
+>> 			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
+>> 			return;
+>> 		}
+>> 		capi_cmsg_header(b3cmsg, ap->id, CAPI_DISCONNECT_B3, CAPI_IND,
+>> 				 ap->nextMessageNumber++,
+>> 				 cmsg->adr.adrPLCI | (1 << 16));
+>> 		b3cmsg->Reason_B3 = CapiProtocolErrorLayer1;
+>> 		b3skb = alloc_skb(CAPI_DISCONNECT_B3_IND_BASELEN, GFP_KERNEL);
+>> 		if (b3skb == NULL) {
+>> 			dev_err(cs->dev, "%s: out of memory\n", __func__);
+>> 			send_conf(iif, ap, skb, CAPI_MSGOSRESOURCEERR);
+>> 			return;
+>> 	leak here ------^
+>> ...
+>> 
+>> This leak is easily fixed by just kfree()'ing the memory allocated to 
+>> 'b3cmsg' right before we return. The following patch does that.
+>> 
+>> 
+>> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 > 
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> Acked-by: Tilman Schmidt <tilman@imap.cc>
 
- ...
-> + err_dma:
-> +	dma_free_coherent(&udev->pdev->dev, udev->l2_ring_size,
-> +       			  udev->l2_ring, udev->l2_ring_map);
-
-Space before tab in indentation, improperly positioned third argument
-indentation.
-
-I fixed all of this up, but please do not skimp on making sure these
-details are taken care of when updating your patch in response to feedback.
-
-Thanks.
+Applied.
