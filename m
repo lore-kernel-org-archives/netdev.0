@@ -1,61 +1,54 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V8 05/13] posix_clocks: add clock_adjtime for blackfin
-Date: Fri, 31 Dec 2010 20:14:07 +0100
-Message-ID: <0a011917c6a869ca9dd22d56f95bc2c3aeb5621a.1293820862.git.richard.cochran@omicron.at>
-References: <cover.1293820862.git.richard.cochran@omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] sky2: Do not use legacy PCI power management
+Date: Fri, 31 Dec 2010 11:14:52 -0800 (PST)
+Message-ID: <20101231.111452.102554570.davem@davemloft.net>
+References: <201012261944.32517.rjw@sisk.pl>
+	<20101231101521.598d41c6@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
-	Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1293820862.git.richard.cochran@omicron.at>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
+        shemminger@linux-foundation.org
+To: shemminger@vyatta.com
+Return-path: <linux-pm-bounces@lists.linux-foundation.org>
+In-Reply-To: <20101231101521.598d41c6@s6510>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
+List-Post: <mailto:linux-pm@lists.linux-foundation.org>
+List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
+	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
+Sender: linux-pm-bounces@lists.linux-foundation.org
+Errors-To: linux-pm-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the clock_adjtime system call to the blackfin architecture.
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 31 Dec 2010 10:15:21 -0800
 
-Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
----
- arch/blackfin/include/asm/unistd.h |    3 ++-
- arch/blackfin/mach-common/entry.S  |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+> On Sun, 26 Dec 2010 19:44:32 +0100
+> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+> 
+>> From: Rafael J. Wysocki <rjw@sisk.pl>
+>> 
+>> The sky2 driver uses the legacy PCI power management, so it has to do
+>> some PCI-specific things in its ->suspend() and ->resume() callbacks,
+>> which isn't necessary and should better be done by the PCI
+>> sybsystem-level power management code.  Moreover, it uses
+>> device_set_wakeup_enable() incorrectly (that function should be
+>> used when the WoL setting is changed rather than during suspend).
+>> 
+>> Convert sky2 to the new PCI power management framework and make it
+>> let the PCI subsystem take care of all the PCI-specific aspects of
+>> device handling during system power transitions.
+>> 
+>> Tested on a desktop machine with a Marvell 88E8056 PCI-E adapter.
+>> 
+>> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> 
+> Tested on 88E8055 (laptop), my desktop machines have video issues and
+> won't suspend/resume.
+> 
+> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
 
-diff --git a/arch/blackfin/include/asm/unistd.h b/arch/blackfin/include/asm/unistd.h
-index 928ae97..e640c51 100644
---- a/arch/blackfin/include/asm/unistd.h
-+++ b/arch/blackfin/include/asm/unistd.h
-@@ -393,8 +393,9 @@
- #define __NR_fanotify_mark	372
- #define __NR_prlimit64		373
- #define __NR_cacheflush		374
-+#define __NR_clock_adjtime	375
- 
--#define __NR_syscall		375
-+#define __NR_syscall		376
- #define NR_syscalls		__NR_syscall
- 
- /* Old optional stuff no one actually uses */
-diff --git a/arch/blackfin/mach-common/entry.S b/arch/blackfin/mach-common/entry.S
-index 2ca915e..cb6cc1e 100644
---- a/arch/blackfin/mach-common/entry.S
-+++ b/arch/blackfin/mach-common/entry.S
-@@ -1738,6 +1738,7 @@ ENTRY(_sys_call_table)
- 	.long _sys_fanotify_mark
- 	.long _sys_prlimit64
- 	.long _sys_cacheflush
-+	.long _sys_clock_adjtime	/* 375 */
- 
- 	.rept NR_syscalls-(.-_sys_call_table)/4
- 	.long _sys_ni_syscall
--- 
-1.7.0.4
+Applied.
