@@ -1,52 +1,44 @@
-From: Mauro Carvalho Chehab <maurochehab@gmail.com>
-Subject: Re: [PATCH 14/15]include:media:davinci:vpss.h Typo change diable
- to disable.
-Date: Fri, 31 Dec 2010 08:27:01 -0200
-Message-ID: <4D1DAFF5.3090108@gmail.com>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com> <1293750484-1161-4-git-send-email-justinmattock@gmail.com> <1293750484-1161-5-git-send-email-justinmattock@gmail.com> <1293750484-1161-6-git-send-email-justinmattock@gmail.com> <1293750484-1161-7-git-send-email-justinmattock@gmail.com> <1293750484-1161-8-git-send-email-justinmattock@gmail.com> <1293750484-1161-9-git-send-email-justinmattock@gmail.com> <1293750484-1161-10-git-send-email-justinmattock@gmail.com> <1293750484-1161-11-git-send-email-justinmattock@gmail.com> <1293750484-1161-12-git-send-email-justinmattock@gmail.com> <1293750484-1161-13-git-send-email-justinmattock@gmail.com> <1293750484-1161-
- 14-git-send-email-justinmattock@gmail.com>
+From: Stefani Seibold <stefani@seibold.net>
+Subject: Re: [PATCH] UDPCP Communication Protocol
+Date: Fri, 31 Dec 2010 11:29:13 +0100
+Message-ID: <1293791353.5193.1.camel@wall-e>
+References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
+	 <1293790501.2973.33.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, linux-m68k@lists.linux-m68k.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293750484-1161-14-git-send-email-justinmattock@gmail.com>
+In-Reply-To: <1293790501.2973.33.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em 30-12-2010 21:08, Justin P. Mattock escreveu:
-> The below patch fixes a typo "diable" to "disable". Please let me know if this 
-> is correct or not.
-> 
-> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
-Acked-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Am Freitag, den 31.12.2010, 11:15 +0100 schrieb Eric Dumazet:
+> Le vendredi 31 d=E9cembre 2010 =E0 10:29 +0100, stefani@seibold.net a
+> =E9crit :
+> > +				spin_lock_irqsave(&spinlock, flags);
+> > +				udpcp_stat.txMsgs++;
+> > +				spin_unlock_irqrestore(&spinlock, flags);
+>=20
+> This is really ugly for different reasons :
+>=20
+> 1) Naming a lock, even static "spinlock" is ugly.
 
-PS.: Next time, please c/c linux-media ONLY on patches related to media
-drivers (/drivers/video and the corresponding include files). Having to
-dig into a series of 15 patches to just actually look on 3 patches 
-is not nice.
+Agree...
 
-> 
-> ---
->  include/media/davinci/vpss.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/media/davinci/vpss.h b/include/media/davinci/vpss.h
-> index c59cc02..b586495 100644
-> --- a/include/media/davinci/vpss.h
-> +++ b/include/media/davinci/vpss.h
-> @@ -44,7 +44,7 @@ struct vpss_pg_frame_size {
->  	short pplen;
->  };
->  
-> -/* Used for enable/diable VPSS Clock */
-> +/* Used for enable/disable VPSS Clock */
->  enum vpss_clock_sel {
->  	/* DM355/DM365 */
->  	VPSS_CCDC_CLOCK,
+> 2) Using a lock for stats is not necessary, and
+>    disabling hard irqs is not necessary either (spinlock_bh() would b=
+e
+> more than enough)
+>  =20
+>    At a very minimum, you should use atomic_t so that no lock is need=
+ed
+>=20
+> 3) Network stack widely use MIB per_cpu counters.
+>  As you use UDP, you could take a look at UDP_INC_STATS_BH()/
+> UDP_INC_STATS_USER() implementation for an example.
+>=20
+
+I will have look at this and revamp it.
