@@ -1,77 +1,73 @@
-From: "Winkler, Tomas" <tomas.winkler@intel.com>
-Subject: RE: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged skbs
-Date: Fri, 31 Dec 2010 23:16:29 +0200
-Message-ID: <6F5C1D715B2DA5498A628E6B9C124F04019BF36BBF@hasmsx504.ger.corp.intel.com>
-References: <9mk4bme8o97ir27xi8a9fbsd.1293750376929@email.android.com>
- <20101231.124533.15243601.davem@davemloft.net>
+From: David <david@unsolicited.net>
+Subject: Re: Sky2 - problems with VLANs - kernel 2.6.36
+Date: Fri, 31 Dec 2010 21:42:52 +0000
+Message-ID: <4D1E4E5C.7030409@unsolicited.net>
+References: <4CD48DE6.7060906@unsolicited.net> <20101231101303.6caed8ab@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"johannes@sipsolutions.net" <johannes@sipsolutions.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	"stephen.hemminger@vyatta.com" <stephen.hemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:7606 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752108Ab0LaVQz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 16:16:55 -0500
-In-Reply-To: <20101231.124533.15243601.davem@davemloft.net>
-Content-Language: en-US
+Received: from mx1.unsolicited.net ([173.255.193.191]:50789 "EHLO
+	mx1.unsolicited.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753902Ab0LaWEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 17:04:13 -0500
+In-Reply-To: <20101231101303.6caed8ab@s6510>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 31/12/10 18:13, Stephen Hemminger wrote:
+> On Fri, 05 Nov 2010 23:06:14 +0000
+> David <david@unsolicited.net> wrote:
+>
+>> I've just installed a Lycom dual port gigabit ethernet card, picked up
+>> as follows :-
+>>
+>> 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8062 PCI-E
+>> IPMI Gigabit Ethernet Controller (rev 14)
+>>     Subsystem: Marvell Technology Group Ltd. Device 6222
+>>     Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+>> Stepping- SERR+ FastB2B- DisINTx+
+>>     Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+>> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>>     Latency: 0, Cache Line Size: 64 bytes
+>>     Interrupt: pin A routed to IRQ 41
+>>     Region 0: Memory at fe8fc000 (64-bit, non-prefetchable) [size=16K]
+>>     Region 2: I/O ports at c800 [size=256]
+>>     Expansion ROM at fe8c0000 [disabled] [size=128K]
+>>     Capabilities: <access denied>
+>>     Kernel driver in use: sky2
+>>     Kernel modules: sky2
+>>
+>> I'm having a problem with VLANs. Outgoing packets are tagged correctly
+>> and devices on the VLAN are responding. Unfortunately all of the
+>> response packets stay on the raw device and are not allocated to the VLAN.
+>>
+>> I've done some investigation (printks etc.), and have found that neither
+>> of the following cases in sky2_status_intr() are being triggered...
+>>
+>>                 case OP_RXVLAN:
+>>                         printk("RXVLAN, length=%u, status=%u\n", length,
+>> status);
+>>                         sky2->rx_tag = length;
+>>                         break;
+>>
+>>                 case OP_RXCHKSVLAN:
+>>                         printk("RXCHKSVLAN, length=%u, status=%u\n",
+>> length, status);
+>>                         sky2->rx_tag = length;
+>>                         /* fall through */
+>>
+>> ... however the status when calling sky2_skb_rx() does have GMR_FS_VLAN
+>> set, it's just we haven't been able to find out which VLAN the packet
+>> comes from (and sky2->rx_tag is zero). Does anyone have any suggestions
+>> as to how I proceed from here? I'm happy to test patches etc.
+> Did it work with older kernels? 
+Unfortunately I don't know (as this was a new hardware setup). Since it was a while ago and no-one seemed to have any ideas, I fixed the problem by changing to an e1000 (which had no further issues).
+I've still got the offending hardware though, so it may be possible to throw some older distros at it to test.
 
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Friday, December 31, 2010 10:46 PM
-> To: stephen.hemminger@vyatta.com
-> Cc: Winkler, Tomas; shemminger@vyatta.com; johannes@sipsolutions.net;
-> netdev@vger.kernel.org; linux-wireless@vger.kernel.org
-> Subject: Re: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged
-> skbs
-> 
-> From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-> Date: Thu, 30 Dec 2010 15:06:16 -0800
-> 
-> > Although copy is slower for large packets, this is a non performance
-> > path. The code in question is for bridged multicast Ipv6 ICMP
-> > packets. This case is so uncritical it could be done in BASIC and no
-> > one could possibly care!
-> 
-> I still think we should be judicious and keep using skb_clone() here.
-> 
-> Simply combine the two pskb_may_pull() calls into one on "skb2" after
-> the clone and before the blind __skb_pull() call.  Then add a error
-> path "out:" called "out_nopush:" for the error path to goto.
-> 
-> Also, I think the "+ 1" in the ipv6 stack code comes from the fact that
-> the parsing loop can "peek" into the next header's byte to see the type.
-> And I really don't think it's relevant here.
-> 
-> Also, all of these "x_header + ... + 1 - skb->data" factors are
-> irrelevent and shouldn't be used.  Just pass "offset + sizeof(*icmp6h)"
-> to pskb_may_pull().
-
-Sounds reasonable but maybe we shall pass offset + sizeof(struct mld_msg) as *icmp6h is casted to this struct mld_mca is accessed.
-
-struct mld_msg {
-        struct icmp6hdr         mld_hdr;
-        struct in6_addr         mld_mca;
-};
-
-Thanks
-Tomas
-
-
----------------------------------------------------------------------
-Intel Israel (74) Limited
-
-This e-mail and any attachments may contain confidential material for
-the sole use of the intended recipient(s). Any review or distribution
-by others is strictly prohibited. If you are not the intended
-recipient, please contact the sender and delete all copies.
+Cheers
+David
 
