@@ -1,54 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sky2: Do not use legacy PCI power management
-Date: Fri, 31 Dec 2010 11:14:52 -0800 (PST)
-Message-ID: <20101231.111452.102554570.davem@davemloft.net>
-References: <201012261944.32517.rjw@sisk.pl>
-	<20101231101521.598d41c6@s6510>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V8 06/13] posix_clocks: add clock_adjtime for powerpc
+Date: Fri, 31 Dec 2010 20:14:26 +0100
+Message-ID: <2e9f64e263d709be48b4fd14c1af11c6c92d4b0d.1293820862.git.richard.cochran@omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-pm@lists.linux-foundation.org,
-        shemminger@linux-foundation.org
-To: shemminger@vyatta.com
-Return-path: <linux-pm-bounces@lists.linux-foundation.org>
-In-Reply-To: <20101231101521.598d41c6@s6510>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/linux-pm>
-List-Post: <mailto:linux-pm@lists.linux-foundation.org>
-List-Help: <mailto:linux-pm-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/linux-pm>,
-	<mailto:linux-pm-request@lists.linux-foundation.org?subject=subscribe>
-Sender: linux-pm-bounces@lists.linux-foundation.org
-Errors-To: linux-pm-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:50440 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754139Ab0LaTOk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:14:40 -0500
+Content-Disposition: inline
+In-Reply-To: <cover.1293820862.git.richard.cochran@omicron.at>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@vyatta.com>
-Date: Fri, 31 Dec 2010 10:15:21 -0800
+This patch adds the clock_adjtime system call to the powerpc architecture.
 
-> On Sun, 26 Dec 2010 19:44:32 +0100
-> "Rafael J. Wysocki" <rjw@sisk.pl> wrote:
-> 
->> From: Rafael J. Wysocki <rjw@sisk.pl>
->> 
->> The sky2 driver uses the legacy PCI power management, so it has to do
->> some PCI-specific things in its ->suspend() and ->resume() callbacks,
->> which isn't necessary and should better be done by the PCI
->> sybsystem-level power management code.  Moreover, it uses
->> device_set_wakeup_enable() incorrectly (that function should be
->> used when the WoL setting is changed rather than during suspend).
->> 
->> Convert sky2 to the new PCI power management framework and make it
->> let the PCI subsystem take care of all the PCI-specific aspects of
->> device handling during system power transitions.
->> 
->> Tested on a desktop machine with a Marvell 88E8056 PCI-E adapter.
->> 
->> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
-> 
-> Tested on 88E8055 (laptop), my desktop machines have video issues and
-> won't suspend/resume.
-> 
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+---
+ arch/powerpc/include/asm/systbl.h |    1 +
+ arch/powerpc/include/asm/unistd.h |    3 ++-
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-Applied.
+diff --git a/arch/powerpc/include/asm/systbl.h b/arch/powerpc/include/asm/systbl.h
+index aa0f1eb..6a1152c 100644
+--- a/arch/powerpc/include/asm/systbl.h
++++ b/arch/powerpc/include/asm/systbl.h
+@@ -348,3 +348,4 @@ COMPAT_SYS_SPU(sendmsg)
+ COMPAT_SYS_SPU(recvmsg)
+ COMPAT_SYS_SPU(recvmmsg)
+ SYSCALL_SPU(accept4)
++COMPAT_SYS_SPU(clock_adjtime)
+diff --git a/arch/powerpc/include/asm/unistd.h b/arch/powerpc/include/asm/unistd.h
+index 6151937..386de07 100644
+--- a/arch/powerpc/include/asm/unistd.h
++++ b/arch/powerpc/include/asm/unistd.h
+@@ -367,10 +367,11 @@
+ #define __NR_recvmsg		342
+ #define __NR_recvmmsg		343
+ #define __NR_accept4		344
++#define __NR_clock_adjtime	345
+ 
+ #ifdef __KERNEL__
+ 
+-#define __NR_syscalls		345
++#define __NR_syscalls		346
+ 
+ #define __NR__exit __NR_exit
+ #define NR_syscalls	__NR_syscalls
+-- 
+1.7.0.4
+
