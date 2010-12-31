@@ -1,39 +1,51 @@
-From: Adam Nielsen <a.nielsen@shikadi.net>
-Subject: Re: Why do programs freeze with big network transfers?
-Date: Fri, 31 Dec 2010 11:20:56 +1000
-Message-ID: <4D1D2FF8.2070806@shikadi.net>
-References: <ifhc54$efg$1@dough.gmane.org> <1293695919.7150.18.camel@edumazet-laptop>
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [PATCH 15/15]drivers:spi:dw_spi.c Typo change diable to
+ disable.
+Date: Fri, 31 Dec 2010 09:34:33 +0300
+Message-ID: <20101231063433.GB1886@bicker>
+References: <1293750484-1161-6-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-7-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-8-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-9-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-10-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-11-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-12-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-13-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-14-git-send-email-justinmattock@gmail.com>
+ <1293750484-1161-15-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293695919.7150.18.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: trivial@kernel.org, devel@driverdev.osuosl.org,
+	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ivtv-devel@ivtvdriver.org,
+	linux-m68k@lists.linux-m68k.org,
+	spi-devel-general@lists.sourceforge.net,
+	linux-media@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48660 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750811Ab0LaGer (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 01:34:47 -0500
+Content-Disposition: inline
+In-Reply-To: <1293750484-1161-15-git-send-email-justinmattock@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> After a few seconds of data going over the network, X-Windows freezes.  No
->> screen updates, the mouse cursor won't move, for all intents and purposes the
->> system has frozen solid.  I'm playing music with XMMS2 and that keeps going,
->> but occasionally even that stops too.  After a minute (between 45 and 65
->> seconds) everything unfreezes and keeps going as per normal.  Less than 10
->> seconds later everything freezes again for another minute!  This keeps going
->> until the file transfer has finished.
->
-> This rings a bell here, could you try to apply commit
->
-> 482964e56e1320cb7952faa1932d8ecf59c4bf75
-> (net: Fix the condition passed to sk_wait_event())
->
-> This commit was included in 2.6.36, so you could also try 2.6.36.2
-> kernel.
+On Thu, Dec 30, 2010 at 03:08:04PM -0800, Justin P. Mattock wrote:
+> The below patch fixes a typo "diable" to "disable". Please let me know if this
+> is correct or not.
+> 
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+> 
+> ---
+>  drivers/spi/dw_spi.c |    6 +++---
 
-Just booted into 2.6.36.2 and it looks like the problem has indeed been fixed! 
-  I've been able to perform the same transfer that would previously cause a 
-freeze 100% of the time and it went through fine.
+You missed one from this file:
 
-Many thanks for your help!
+/* Set the interrupt mask, for poll mode just diable all int */
+                                              ^^^^^^
+regards,
+dan carpenter
 
-Cheers,
-Adam.
