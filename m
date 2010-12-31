@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] bnx2: Update firmware and version
-Date: Fri, 31 Dec 2010 11:04:28 -0800 (PST)
-Message-ID: <20101231.110428.115926398.davem@davemloft.net>
-References: <1293157320-13758-1-git-send-email-mchan@broadcom.com>
-	<1293157320-13758-2-git-send-email-mchan@broadcom.com>
+Subject: Re: [PATCH] net: bridge: check the length of skb after
+ nf_bridge_maybe_copy_header()
+Date: Fri, 31 Dec 2010 11:10:03 -0800 (PST)
+Message-ID: <20101231.111003.48499853.davem@davemloft.net>
+References: <1293284490-17114-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mchan@broadcom.com
+Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58461
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60289
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754033Ab0LaTD5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:03:57 -0500
-In-Reply-To: <1293157320-13758-2-git-send-email-mchan@broadcom.com>
+	by vger.kernel.org with ESMTP id S1751622Ab0LaTJd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:09:33 -0500
+In-Reply-To: <1293284490-17114-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Michael Chan" <mchan@broadcom.com>
-Date: Thu, 23 Dec 2010 18:22:00 -0800
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Sat, 25 Dec 2010 21:41:30 +0800
 
-> Update MIPS firmware to 6.2.1, with improved small packet performance
-> in RSS mode, and iSCSI CID allocation bug fix on 5708.
+> Since nf_bridge_maybe_copy_header() may change the length of skb,
+> we should check the length of skb after it to handle the ppoe skbs.
 > 
-> Update driver version to 2.0.21.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Applied.
+This is really strange.
+
+packet_length() subtracts VLAN_HLEN from the value it returns, so the
+correct fix seems to be to make this function handle the PPPOE case
+too.
+
+Otherwise I suspect you have many other functions to fix as well.
+
+I'm not applying this patch.
