@@ -1,48 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] starfire: Fix dma_addr_t size test for MIPS
-Date: Fri, 31 Dec 2010 12:34:43 -0800 (PST)
-Message-ID: <20101231.123443.35039907.davem@davemloft.net>
-References: <1293632777.2928.127.camel@localhost>
+Subject: Re: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged
+ skbs
+Date: Fri, 31 Dec 2010 12:45:33 -0800 (PST)
+Message-ID: <20101231.124533.15243601.davem@davemloft.net>
+References: <9mk4bme8o97ir27xi8a9fbsd.1293750376929@email.android.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ionut@badula.org, akinobu.mita@gmail.com,
-	fujita.tomonori@lab.ntt.co.jp, netdev@vger.kernel.org
-To: ben@decadent.org.uk
+Cc: tomas.winkler@intel.com, shemminger@vyatta.com,
+	johannes@sipsolutions.net, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org
+To: stephen.hemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51401
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58736
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753492Ab0LaUeM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 15:34:12 -0500
-In-Reply-To: <1293632777.2928.127.camel@localhost>
+	by vger.kernel.org with ESMTP id S1753902Ab0LaUpD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 15:45:03 -0500
+In-Reply-To: <9mk4bme8o97ir27xi8a9fbsd.1293750376929@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Wed, 29 Dec 2010 14:26:17 +0000
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Thu, 30 Dec 2010 15:06:16 -0800
 
-> Commit 56543af "starfire: use BUILD_BUG_ON for netdrv_addr_t" revealed
-> that the preprocessor condition used to find the size of dma_addr_t
-> yielded the wrong result for some architectures and configurations.
-> This was kluged for 64-bit PowerPC in commit 3e502e6 by adding yet
-> another case to the condition.  However, 64-bit MIPS configurations
-> are not detected reliably either.
-> 
-> This should be fixed by using CONFIG_ARCH_DMA_ADDR_T_64BIT, but that
-> isn't yet defined everywhere it should be.
-> 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> Although copy is slower for large packets, this is a non performance
+> path. The code in question is for bridged multicast Ipv6 ICMP
+> packets. This case is so uncritical it could be done in BASIC and no
+> one could possibly care!
 
-Applied to net-2.6, thanks.
+I still think we should be judicious and keep using skb_clone() here.
 
-> The MIPS conditions are changed to match those Tomonori specified for
-> CONFIG_ARCH_DMA_ADDR_T_64BIT.
-> 
-> Please change the condition to defined(CONFIG_ARCH_DMA_ADDR_T_64BIT) in
-> net-next-2.6.  I leave it up to you to decide when to make that change.
-> (Simply applying a patch to net-next-2.6 now will result in a later
-> merge conflict and breakage for those two architectures.)
+Simply combine the two pskb_may_pull() calls into one on "skb2" after
+the clone and before the blind __skb_pull() call.  Then add a error
+path "out:" called "out_nopush:" for the error path to goto.
 
-The thing to do here is to make this change after the next merge
-window takes in Fujita's patch definiting ARCH_DMA_ADDR_T_64BIT from
-the -mm set.
+Also, I think the "+ 1" in the ipv6 stack code comes from the fact that
+the parsing loop can "peek" into the next header's byte to see the type.
+And I really don't think it's relevant here.
+
+Also, all of these "x_header + ... + 1 - skb->data" factors are
+irrelevent and shouldn't be used.  Just pass "offset + sizeof(*icmp6h)"
+to pskb_may_pull().
+
