@@ -1,90 +1,126 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH 07/15]drivers:net:wireless:iwlwifi Typo change diable
- to disable.
-Date: Fri, 31 Dec 2010 09:33:30 -0600
-Message-ID: <4D1DF7CA.8040504@lwfinger.net>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com> <1293750484-1161-4-git-send-email-justinmattock@gmail.com> <1293750484-1161-5-git-send-email-justinmattock@gmail.com> <1293750484-1161-6-git-send-email-justinmattock@gmail.com> <1293750484-1161-7-git-send-email-justinmattock@gmail.com>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [*v3 PATCH 01/22] IPVS: netns, add basic init per netns.
+Date: Fri, 31 Dec 2010 16:36:46 +0100
+Message-ID: <201012311636.46744.hans@schillstrom.com>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com> <1293706266-27152-2-git-send-email-hans@schillstrom.com> <alpine.LNX.2.01.1012310055050.15397@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: trivial@kernel.org, linux-m68k@lists.linux-m68k.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:52488 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753193Ab0LaPda (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 10:33:30 -0500
-In-Reply-To: <1293750484-1161-7-git-send-email-justinmattock@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: horms@verge.net.au, ja@ssi.bg, daniel.lezcano@free.fr,
+	wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1012310055050.15397@obet.zrqbmnf.qr>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/30/2010 05:07 PM, Justin P. Mattock wrote:
-> The below patch fixes a typo "diable" to "disable". Please let me know if this 
-> is correct or not.
+
+On Friday, December 31, 2010 00:58:35 Jan Engelhardt wrote:
 > 
-> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+> On Thursday 2010-12-30 11:50, hans@schillstrom.com wrote:
+> >+++ b/include/net/ip_vs.h
+> >@@ -28,6 +28,15 @@
+> > #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+> > #include <net/netfilter/nf_conntrack.h>
+> > #endif
+> >+#include <net/net_namespace.h>		/* Netw namespace */
+> >+
+> >+/*
+> >+ * Generic access of ipvs struct
+> >+ */
+> >+static inline struct netns_ipvs * net_ipvs(struct net* net)
 > 
-
-ACKed-by: Larry Finger <Larry.Finger@lwfinger.net>
-
-
-> ---
->  drivers/net/wireless/iwlwifi/iwl-agn-ict.c |    2 +-
->  drivers/net/wireless/iwlwifi/iwl-agn.c     |    4 ++--
->  drivers/net/wireless/iwlwifi/iwl-core.c    |    2 +-
->  3 files changed, 4 insertions(+), 4 deletions(-)
+> Balancing the '*' between the ' ' would be nice... I know it's hard at this
+> time of the year ;-)
 > 
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn-ict.c b/drivers/net/wireless/iwlwifi/iwl-agn-ict.c
-> index a5dbfea..b5cb3be 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-agn-ict.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-agn-ict.c
-> @@ -197,7 +197,7 @@ static irqreturn_t iwl_isr(int irq, void *data)
->  
->   none:
->  	/* re-enable interrupts here since we don't have anything to service. */
-> -	/* only Re-enable if diabled by irq  and no schedules tasklet. */
-> +	/* only Re-enable if disabled by irq  and no schedules tasklet. */
->  	if (test_bit(STATUS_INT_ENABLED, &priv->status) && !priv->_agn.inta)
->  		iwl_enable_interrupts(priv);
->  
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-agn.c b/drivers/net/wireless/iwlwifi/iwl-agn.c
-> index c2636a7..9b912c0 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-agn.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-agn.c
-> @@ -1316,7 +1316,7 @@ static void iwl_irq_tasklet_legacy(struct iwl_priv *priv)
->  	}
->  
->  	/* Re-enable all interrupts */
-> -	/* only Re-enable if diabled by irq */
-> +	/* only Re-enable if disabled by irq */
->  	if (test_bit(STATUS_INT_ENABLED, &priv->status))
->  		iwl_enable_interrupts(priv);
->  
-> @@ -1530,7 +1530,7 @@ static void iwl_irq_tasklet(struct iwl_priv *priv)
->  	}
->  
->  	/* Re-enable all interrupts */
-> -	/* only Re-enable if diabled by irq */
-> +	/* only Re-enable if disabled by irq */
->  	if (test_bit(STATUS_INT_ENABLED, &priv->status))
->  		iwl_enable_interrupts(priv);
->  }
-> diff --git a/drivers/net/wireless/iwlwifi/iwl-core.c b/drivers/net/wireless/iwlwifi/iwl-core.c
-> index 25fb391..8700ab3 100644
-> --- a/drivers/net/wireless/iwlwifi/iwl-core.c
-> +++ b/drivers/net/wireless/iwlwifi/iwl-core.c
-> @@ -1304,7 +1304,7 @@ irqreturn_t iwl_isr_legacy(int irq, void *data)
->  
->   none:
->  	/* re-enable interrupts here since we don't have anything to service. */
-> -	/* only Re-enable if diabled by irq */
-> +	/* only Re-enable if disabled by irq */
->  	if (test_bit(STATUS_INT_ENABLED, &priv->status))
->  		iwl_enable_interrupts(priv);
->  	spin_unlock_irqrestore(&priv->lock, flags);
+I'll send a new patch set and run checkpatch,
+but that will be after new years eve :-)
+
+> >diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
+> >new file mode 100644
+> >index 0000000..9068d95
+> >--- /dev/null
+> >+++ b/include/net/netns/ip_vs.h
+> >@@ -0,0 +1,26 @@
+> >+/*
+> >+ * ip_vs.h
+> >+ *
+> >+ *  Created on: Nov 23, 2010
+> >+ *  Author: hans
+> >+ */
+> 
+> Filenames, creation dates, author names (when they don't serve a copyright
+> notice), CVS $Id$ tags, etc. don't belong into files. The git log exists for
+> that very purpose.
+> 
+Oops that's an eclipse feature, that should be removed.
+
+> >+struct netns_ipvs {
+> >+	int			inc;		/* Incarnation */
+> >+};
+> 
+> Just my thoughts: Incarnation - haven't heard that in a while. ("inc"
+> is also used as an abbreviation for increment, so ~ ~). Other places
+> use "generation" as a term (such as the VFS on inode generation). [I
+> also get the feeling that (re)"incarnation" may require a death, so
+> it is different from "generation" after all -]
+
+:-))
+
+> 
+> >+++ b/net/netfilter/ipvs/ip_vs_core.c
+> >@@ -1813,6 +1820,44 @@ static struct nf_hook_ops ip_vs_ops[] __read_mostly = {
+> > #endif
+> > };
+> >
+> >+/*
+> >+ *	Initialize IP Virtual Server netns mem.
+> >+ */
+> >+static int __net_init  __ip_vs_init(struct net *net)
+> >+{
+> >+	struct netns_ipvs *ipvs;
+> >+
+> >+	if (!net_eq(net, &init_net)) {
+> >+		pr_err("The final patch for enabling netns is missing\n");
+> >+		return -EPERM;
+> >+	}
+> >+	ipvs = (struct netns_ipvs *)net_generic(net, ip_vs_net_id);
+> 
+> Pointless cast is pointless.
+
+Well, that is a reminder from a backport...
+
+> 
+> >index c1c167a..ea390f8 100644
+> >--- a/net/netfilter/ipvs/ip_vs_sync.c
+> >+++ b/net/netfilter/ipvs/ip_vs_sync.c
+> >@@ -1639,3 +1639,31 @@ int stop_sync_thread(int state)
+> >
+> > 	return 0;
+> > }
+> >+
+> >+/*
+> >+ * Initialize data struct for each netns
+> >+ */
+> >+static int __net_init __ip_vs_sync_init(struct net *net)
+> >+{
+> >+	return 0;
+> >+}
+> >+
+> >+static void __ip_vs_sync_cleanup(struct net *net)
+> >+{
+> >+	return;
+> >+}
+> 
+> The trailing return; in functions returning nothing can be (and
+> generally, is) omitted.
+> 
+Oops
+
+Thanks alot 
+
+/Hans
 
