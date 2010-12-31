@@ -1,63 +1,47 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Sky2 - problems with VLANs - kernel 2.6.36
-Date: Fri, 31 Dec 2010 10:13:03 -0800
-Message-ID: <20101231101303.6caed8ab@s6510>
-References: <4CD48DE6.7060906@unsolicited.net>
+Subject: Re: [PATCH] sky2: Do not use legacy PCI power management
+Date: Fri, 31 Dec 2010 10:15:21 -0800
+Message-ID: <20101231101521.598d41c6@s6510>
+References: <201012261944.32517.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: David <david@unsolicited.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4CD48DE6.7060906@unsolicited.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"Linux-pm mailing list" <linux-pm@lists.linux-foundation.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:32989 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753994Ab0LaSPY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 Dec 2010 13:15:24 -0500
+In-Reply-To: <201012261944.32517.rjw@sisk.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 05 Nov 2010 23:06:14 +0000
-David <david@unsolicited.net> wrote:
+On Sun, 26 Dec 2010 19:44:32 +0100
+"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
 
-> I've just installed a Lycom dual port gigabit ethernet card, picked up
-> as follows :-
+> From: Rafael J. Wysocki <rjw@sisk.pl>
 > 
-> 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8062 PCI-E
-> IPMI Gigabit Ethernet Controller (rev 14)
->     Subsystem: Marvell Technology Group Ltd. Device 6222
->     Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
-> Stepping- SERR+ FastB2B- DisINTx+
->     Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-> <TAbort- <MAbort- >SERR- <PERR- INTx-
->     Latency: 0, Cache Line Size: 64 bytes
->     Interrupt: pin A routed to IRQ 41
->     Region 0: Memory at fe8fc000 (64-bit, non-prefetchable) [size=16K]
->     Region 2: I/O ports at c800 [size=256]
->     Expansion ROM at fe8c0000 [disabled] [size=128K]
->     Capabilities: <access denied>
->     Kernel driver in use: sky2
->     Kernel modules: sky2
+> The sky2 driver uses the legacy PCI power management, so it has to do
+> some PCI-specific things in its ->suspend() and ->resume() callbacks,
+> which isn't necessary and should better be done by the PCI
+> sybsystem-level power management code.  Moreover, it uses
+> device_set_wakeup_enable() incorrectly (that function should be
+> used when the WoL setting is changed rather than during suspend).
 > 
-> I'm having a problem with VLANs. Outgoing packets are tagged correctly
-> and devices on the VLAN are responding. Unfortunately all of the
-> response packets stay on the raw device and are not allocated to the VLAN.
+> Convert sky2 to the new PCI power management framework and make it
+> let the PCI subsystem take care of all the PCI-specific aspects of
+> device handling during system power transitions.
 > 
-> I've done some investigation (printks etc.), and have found that neither
-> of the following cases in sky2_status_intr() are being triggered...
+> Tested on a desktop machine with a Marvell 88E8056 PCI-E adapter.
 > 
->                 case OP_RXVLAN:
->                         printk("RXVLAN, length=%u, status=%u\n", length,
-> status);
->                         sky2->rx_tag = length;
->                         break;
-> 
->                 case OP_RXCHKSVLAN:
->                         printk("RXCHKSVLAN, length=%u, status=%u\n",
-> length, status);
->                         sky2->rx_tag = length;
->                         /* fall through */
-> 
-> ... however the status when calling sky2_skb_rx() does have GMR_FS_VLAN
-> set, it's just we haven't been able to find out which VLAN the packet
-> comes from (and sky2->rx_tag is zero). Does anyone have any suggestions
-> as to how I proceed from here? I'm happy to test patches etc.
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-Did it work with older kernels? 
+Tested on 88E8055 (laptop), my desktop machines have video issues and
+won't suspend/resume.
+
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+
