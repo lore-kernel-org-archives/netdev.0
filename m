@@ -1,42 +1,39 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [*v3 PATCH 14/22] IPVS: netns awareness to ip_vs_sync
-Date: Fri, 31 Dec 2010 09:44:33 +0900
-Message-ID: <20101231004433.GA14681@verge.net.au>
-References: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
- <1293706266-27152-15-git-send-email-hans@schillstrom.com>
+From: Adam Nielsen <a.nielsen@shikadi.net>
+Subject: Re: Why do programs freeze with big network transfers?
+Date: Fri, 31 Dec 2010 11:20:56 +1000
+Message-ID: <4D1D2FF8.2070806@shikadi.net>
+References: <ifhc54$efg$1@dough.gmane.org> <1293695919.7150.18.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ja@ssi.bg, daniel.lezcano@free.fr, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: hans@schillstrom.com
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1293706266-27152-15-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293695919.7150.18.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 30, 2010 at 11:50:58AM +0100, hans@schillstrom.com wrote:
-> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-> 
-> All global variables moved to struct ipvs,
-> most external changes fixed (i.e. init_net removed)
-> in sync_buf create  + 4 replaced by sizeof(struct..)
+>> After a few seconds of data going over the network, X-Windows freezes.  No
+>> screen updates, the mouse cursor won't move, for all intents and purposes the
+>> system has frozen solid.  I'm playing music with XMMS2 and that keeps going,
+>> but occasionally even that stops too.  After a minute (between 45 and 65
+>> seconds) everything unfreezes and keeps going as per normal.  Less than 10
+>> seconds later everything freezes again for another minute!  This keeps going
+>> until the file transfer has finished.
+>
+> This rings a bell here, could you try to apply commit
+>
+> 482964e56e1320cb7952faa1932d8ecf59c4bf75
+> (net: Fix the condition passed to sk_wait_event())
+>
+> This commit was included in 2.6.36, so you could also try 2.6.36.2
+> kernel.
 
-[ snip ]
+Just booted into 2.6.36.2 and it looks like the problem has indeed been fixed! 
+  I've been able to perform the same transfer that would previously cause a 
+freeze 100% of the time and it went through fine.
 
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index 0454a11..5d6e250 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -1477,6 +1477,8 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
->  	struct ip_vs_proto_data *pd;
->  	struct ip_vs_conn *cp;
->  	int ret, restart, pkts;
-> +	struct net *net;
+Many thanks for your help!
 
-The line above adds a duplicate declaration of net as
-just before the diff-context starts there is
-
-	struct net *net = NULL;
+Cheers,
+Adam.
