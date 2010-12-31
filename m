@@ -1,51 +1,54 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to
- disable.
-Date: Fri, 31 Dec 2010 12:11:36 +0300
-Message-ID: <20101231091136.GC1886@bicker>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
- <1293750484-1161-2-git-send-email-justinmattock@gmail.com>
- <20101231064515.GC3733@angua.secretlab.ca>
- <4D1D7DAE.7060504@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v2 3/3] net_sched: implement a root
+	container qdisc sch_mclass
+Date: Fri, 31 Dec 2010 09:25:44 +0000
+Message-ID: <20101231092543.GA7809@ff.dom.local>
+References: <20101221192930.9703.63791.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Grant Likely <grant.likely@secretlab.ca>, trivial@kernel.org,
-	devel@driverdev.osuosl.org, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ivtv-devel@ivtvdriver.org, linux-m68k@lists.linux-m68k.org,
-	spi-devel-general@lists.sourceforge.net,
-	linux-media@vger.kernel.org
-To: "Justin P. Mattock" <justinmattock@gmail.com>
-Return-path: <linux-m68k-owner@vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, nhorman@tuxdriver.com
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55340 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750894Ab0LaJZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 04:25:52 -0500
+Received: by fxm20 with SMTP id 20so11752252fxm.19
+        for <netdev@vger.kernel.org>; Fri, 31 Dec 2010 01:25:51 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <4D1D7DAE.7060504@gmail.com>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20101221192930.9703.63791.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 30, 2010 at 10:52:30PM -0800, Justin P. Mattock wrote:
-> On 12/30/2010 10:45 PM, Grant Likely wrote:
-> >On Thu, Dec 30, 2010 at 03:07:51PM -0800, Justin P. Mattock wrote:
-> >>The below patch fixes a typo "diable" to "disable". Please let me know if this
-> >>is correct or not.
-> >>
-> >>Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
-> >
-> >applied, thanks.
-> >
-> >g.
-> 
-> ahh.. thanks.. just cleared up the left out diabled that I had
-> thought I forgotten(ended up separating comments and code and
-> forgot)
+On 2010-12-21 20:29, John Fastabend wrote:
+> This implements a mclass 'multi-class' queueing discipline that by
+> default creates multiple mq qdisc's one for each traffic class. Each
+> mq qdisc then owns a range of queues per the netdev_tc_txq mappings.
 
-This is really just defensiveness and random grumbling and grumpiness on
-my part, but one reason I may have missed the first patch is because
-your subject lines are crap.
+Btw, you could also consider better name (mqprio?) because there're
+many 'multi-class' queueing disciplines around.
 
-Wrong:  [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
+> +static int mclass_parse_opt(struct net_device *dev, struct tc_mclass_qopt *qopt)
+> +{
+> +	int i, j;
+> +
+> +	/* Verify TC offset and count are sane */
 
-Right:  [PATCH 02/15] spi/dw_spi: Typo change diable to disable
+if (qopt->num_tc > TC_MAX_QUEUE) ?
+	return -EINVAL;
 
-regards,
-dan carpenter
+> +	for (i = 0; i < qopt->num_tc; i++) {
+> +		int last = qopt->offset[i] + qopt->count[i];
+> +		if (last > dev->num_tx_queues)
+
+if (last >= dev->num_tx_queues) ?
+
+> +			return -EINVAL;
+> +		for (j = i + 1; j < qopt->num_tc; j++) {
+> +			if (last > qopt->offset[j])
+
+if (last >= qopt->offset[j]) ?
+
+Jarek P.
