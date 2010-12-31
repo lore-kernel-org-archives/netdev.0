@@ -1,51 +1,64 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: RE: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged
- skbs
-Date: Fri, 31 Dec 2010 11:18:15 +0100
-Message-ID: <1293790695.4507.0.camel@jlt3.sipsolutions.net>
-References: <9mk4bme8o97ir27xi8a9fbsd.1293750376929@email.android.com>
-	 <6F5C1D715B2DA5498A628E6B9C124F04019BF36ABD@hasmsx504.ger.corp.intel.com>
+From: Stefani Seibold <stefani@seibold.net>
+Subject: Re: [PATCH] UDPCP Communication Protocol
+Date: Fri, 31 Dec 2010 11:22:59 +0100
+Message-ID: <1293790979.4787.10.camel@wall-e>
+References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
+	 <1293789629.2973.26.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Winkler, Tomas" <tomas.winkler-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <6F5C1D715B2DA5498A628E6B9C124F04019BF36ABD-KS4eWWg9cz+vNW/NfzhIbrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293789629.2973.26.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2010-12-31 at 01:29 +0200, Winkler, Tomas wrote:
-> 
-> > -----Original Message-----
-> > From: Stephen Hemminger [mailto:stephen.hemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org]
-> > Sent: Friday, December 31, 2010 1:06 AM
-> > To: Winkler, Tomas; Stephen Hemminger; Johannes Berg
-> > Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org ; linux-
-> > wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> > Subject: RE: [PATCH net-2.6] bridge: fix br_multicast_ipv6_rcv for paged
-> > skbs
-> > 
-> > Although copy is slower for large packets, this is a non performance path.
-> > The code in question is for bridged multicast Ipv6 ICMP packets. This case
-> > is so uncritical it could be done in BASIC and no one could possibly care!
-> > 
-> 
-> 
-> Fair enough, although you got few of those when you connect to win7 client. 
-> Anyhow my fix would work if the second pull would be 
->   if (!pskb_may_pull(skb2, sizeof(struct mld_msg)))  instead of  (!pskb_may_pull(skb2, sizeof(*icmp6h)))
+Am Freitag, den 31.12.2010, 11:00 +0100 schrieb Eric Dumazet:
+> Le vendredi 31 d=E9cembre 2010 =E0 10:29 +0100, stefani@seibold.net a
+> =E9crit :
+> > From: Stefani Seibold <stefani@seibold.net>
+> >=20
+> > =20
+> >  /*
+> >   *	Handle MSG_ERRQUEUE
+> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> > index 2d3ded4..f9890a2 100644
+> > --- a/net/ipv4/udp.c
+> > +++ b/net/ipv4/udp.c
+> > @@ -1310,7 +1310,7 @@ static int __udp_queue_rcv_skb(struct sock *s=
+k, struct sk_buff *skb)
+> >  	if (inet_sk(sk)->inet_daddr)
+> >  		sock_rps_save_rxhash(sk, skb->rxhash);
+> > =20
+> > -	rc =3D ip_queue_rcv_skb(sk, skb);
+> > +	rc =3D sock_queue_rcv_skb(sk, skb);
+>=20
+> Ouch... Care to explain why you changed this part ???
+>=20
+> You just destroyed commit f84af32cbca70a intent, without any word in
+> your changelog. Making UDP slower, while others try to speed it must =
+be
+> explained and advertised.
+> =20
+> In general, we prefer a preliminary patch introducing all the changes=
+ in
+> current stack, then another one with the new protocol.
+>=20
 
-I don't think that works either since that may be longer than the entire
-skb's length since the payload still is variable at this point.
+I reverted this for two reasons:
 
-johannes
+=46irst ip_queue_rcv_skb drops the dst entry, which breaks the user lan=
+d
+application which expect packet info after a
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+setsockopt(handle, IPPROTO_IP, IP_PKTINFO, &const_int_1, sizeof(int));
+
+But for packets already in the queue this information will be lost. So
+it is a potential race condition.
+
+Second it breaks my UDPCP communication protocol stack module, which
+works very well till 2.6.35. I need this information in the data_ready(=
+)
+function to generate an ACK.
