@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v2 0/4] dcbnl: Extending dcbnl to support
- non-host DCBX
-Date: Fri, 31 Dec 2010 10:52:53 -0800 (PST)
-Message-ID: <20101231.105253.112601766.davem@davemloft.net>
-References: <1293726402.29378.91.camel@lb-tlvb-shmulik.il.broadcom.com>
+Subject: Re: [PATCH NEXT 1/3] netxen: update module description
+Date: Fri, 31 Dec 2010 10:55:45 -0800 (PST)
+Message-ID: <20101231.105545.183042934.davem@davemloft.net>
+References: <1293439423-25193-1-git-send-email-amit.salecha@qlogic.com>
+	<1293439423-25193-2-git-send-email-amit.salecha@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, john.r.fastabend@intel.com,
-	lucy.liu@intel.com, netdev@vger.kernel.org
-To: shmulikr@broadcom.com
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: amit.salecha@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34201
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34204
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751622Ab0LaSwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 13:52:23 -0500
-In-Reply-To: <1293726402.29378.91.camel@lb-tlvb-shmulik.il.broadcom.com>
+	by vger.kernel.org with ESMTP id S1753500Ab0LaSzO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 13:55:14 -0500
+In-Reply-To: <1293439423-25193-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Shmulik Ravid" <shmulikr@broadcom.com>
-Date: Thu, 30 Dec 2010 18:26:42 +0200
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Date: Mon, 27 Dec 2010 00:43:41 -0800
 
-> DCBX is the exchange protocol for negotiating DCB parameters between a
-> host and a switch. In some circumstances the DCBX negotiator can not
-> reside in the host directly on top of the networking interface. For
-> instance many converged network adapters support an embedded DCBX engine
-> that performs the negotiation and configures the device with the
-> negotiated parameters. Another example is virtual hosts and SRIOV
-> virtual functions.
+> This driver supports only Intelligent Ethernet Adapters.
 > 
-> The following patches extend the dcbnl netlink interface so in addition
-> to its current semantics it offers a standard mechanism for managing
-> such non-host DCBX engines. In this new mode 'set' operations are used
-> to set the initial negotiation configuration and the 'get' operation are
-> used to retrieve the negotiated results. 
+> Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
 
-All applied, thanks.
+Applied.
