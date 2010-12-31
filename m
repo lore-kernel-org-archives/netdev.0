@@ -1,66 +1,52 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH/RFC] Re: Compilation of pktgen fails for ARCH=um
-Date: Fri, 31 Dec 2010 11:26:29 +0100
-Message-ID: <201012311126.30027.christoph.paasch@uclouvain.be>
-References: <201012301133.14524.christoph.paasch@uclouvain.be> <20101230093925.3d6b567e.randy.dunlap@oracle.com>
-Reply-To: christoph.paasch@uclouvain.be
+From: Mauro Carvalho Chehab <maurochehab@gmail.com>
+Subject: Re: [PATCH 14/15]include:media:davinci:vpss.h Typo change diable
+ to disable.
+Date: Fri, 31 Dec 2010 08:27:01 -0200
+Message-ID: <4D1DAFF5.3090108@gmail.com>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com> <1293750484-1161-4-git-send-email-justinmattock@gmail.com> <1293750484-1161-5-git-send-email-justinmattock@gmail.com> <1293750484-1161-6-git-send-email-justinmattock@gmail.com> <1293750484-1161-7-git-send-email-justinmattock@gmail.com> <1293750484-1161-8-git-send-email-justinmattock@gmail.com> <1293750484-1161-9-git-send-email-justinmattock@gmail.com> <1293750484-1161-10-git-send-email-justinmattock@gmail.com> <1293750484-1161-11-git-send-email-justinmattock@gmail.com> <1293750484-1161-12-git-send-email-justinmattock@gmail.com> <1293750484-1161-13-git-send-email-justinmattock@gmail.com> <1293750484-1161-
+ 14-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-arch@vger.kernel.org
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20101230093925.3d6b567e.randy.dunlap@oracle.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: trivial@kernel.org, linux-m68k@lists.linux-m68k.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
+	spi-devel-general@lists.sourceforge.net,
+	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293750484-1161-14-git-send-email-justinmattock@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Em 30-12-2010 21:08, Justin P. Mattock escreveu:
+> The below patch fixes a typo "diable" to "disable". Please let me know if this 
+> is correct or not.
+> 
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+Acked-by: Mauro Carvalho Chehab <mchehab@redhat.com>
 
-On Thursday, December 30, 2010 wrote Randy Dunlap:
-> or ndelay() in arch/um/include/asm/delay.y can be removed completely
-> and then the default implementation of ndelay() will be used from
-> include/linux/delay.h.
-> This builds cleanly, but I don't know how well it would work.
-This will do a rounded up micro-second sleep. I think that it's ok.
+PS.: Next time, please c/c linux-media ONLY on patches related to media
+drivers (/drivers/video and the corresponding include files). Having to
+dig into a series of 15 patches to just actually look on 3 patches 
+is not nice.
 
-Christoph
-
+> 
 > ---
-> From: Randy Dunlap <randy.dunlap@oracle.com>
->=20
-> Allow uml to use the default implementation of ndelay() from
-> <linux/delay.h>.  Fixes build error:
->=20
-> net/built-in.o: In function `spin':
-> pktgen.c:(.text+0x27391): undefined reference to `__unimplemented_nde=
-lay'
->=20
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> ---
->  arch/um/include/asm/delay.h |    5 -----
->  1 file changed, 5 deletions(-)
->=20
-> --- linux-next-20101214.orig/arch/um/include/asm/delay.h
-> +++ linux-next-20101214/arch/um/include/asm/delay.h
-> @@ -12,9 +12,4 @@ extern void __delay(unsigned long loops)
->  #define udelay(n) ((__builtin_constant_p(n) && (n) > 20000) ? \
->  	__bad_udelay() : __udelay(n))
->=20
-> -/* It appears that ndelay is not used at all for UML, and has never =
-been
-> - * implemented. */
-> -extern void __unimplemented_ndelay(void);
-> -#define ndelay(n) __unimplemented_ndelay()
-> -
->  #endif
-
---
-Christoph Paasch
-PhD Student
-
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
-Universit=E9 Catholique de Louvain
-
-www.rollerbulls.be
---
+>  include/media/davinci/vpss.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/media/davinci/vpss.h b/include/media/davinci/vpss.h
+> index c59cc02..b586495 100644
+> --- a/include/media/davinci/vpss.h
+> +++ b/include/media/davinci/vpss.h
+> @@ -44,7 +44,7 @@ struct vpss_pg_frame_size {
+>  	short pplen;
+>  };
+>  
+> -/* Used for enable/diable VPSS Clock */
+> +/* Used for enable/disable VPSS Clock */
+>  enum vpss_clock_sel {
+>  	/* DM355/DM365 */
+>  	VPSS_CCDC_CLOCK,
