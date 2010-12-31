@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V8 06/13] posix_clocks: add clock_adjtime for powerpc
-Date: Fri, 31 Dec 2010 20:14:26 +0100
-Message-ID: <2e9f64e263d709be48b4fd14c1af11c6c92d4b0d.1293820862.git.richard.cochran@omicron.at>
+Subject: [PATCH V8 07/13] posix_clocks: add clock_adjtime for x86
+Date: Fri, 31 Dec 2010 20:14:50 +0100
+Message-ID: <e14ea99f32acc12a037f018af46285fca9950b27.1293820862.git.richard.cochran@omicron.at>
 References: <cover.1293820862.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -16,50 +16,70 @@ Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
 	Rodolfo Giometti <giometti@linux.it>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:50440 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754139Ab0LaTOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:14:40 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <cover.1293820862.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the clock_adjtime system call to the powerpc architecture.
+This patch adds the clock_adjtime system call to the x86 architecture.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- arch/powerpc/include/asm/systbl.h |    1 +
- arch/powerpc/include/asm/unistd.h |    3 ++-
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ arch/x86/ia32/ia32entry.S          |    1 +
+ arch/x86/include/asm/unistd_32.h   |    3 ++-
+ arch/x86/include/asm/unistd_64.h   |    2 ++
+ arch/x86/kernel/syscall_table_32.S |    1 +
+ 4 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/systbl.h b/arch/powerpc/include/asm/systbl.h
-index aa0f1eb..6a1152c 100644
---- a/arch/powerpc/include/asm/systbl.h
-+++ b/arch/powerpc/include/asm/systbl.h
-@@ -348,3 +348,4 @@ COMPAT_SYS_SPU(sendmsg)
- COMPAT_SYS_SPU(recvmsg)
- COMPAT_SYS_SPU(recvmmsg)
- SYSCALL_SPU(accept4)
-+COMPAT_SYS_SPU(clock_adjtime)
-diff --git a/arch/powerpc/include/asm/unistd.h b/arch/powerpc/include/asm/unistd.h
-index 6151937..386de07 100644
---- a/arch/powerpc/include/asm/unistd.h
-+++ b/arch/powerpc/include/asm/unistd.h
-@@ -367,10 +367,11 @@
- #define __NR_recvmsg		342
- #define __NR_recvmmsg		343
- #define __NR_accept4		344
-+#define __NR_clock_adjtime	345
+diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
+index 518bb99..0ed7896 100644
+--- a/arch/x86/ia32/ia32entry.S
++++ b/arch/x86/ia32/ia32entry.S
+@@ -851,4 +851,5 @@ ia32_sys_call_table:
+ 	.quad sys_fanotify_init
+ 	.quad sys32_fanotify_mark
+ 	.quad sys_prlimit64		/* 340 */
++	.quad compat_sys_clock_adjtime
+ ia32_syscall_end:
+diff --git a/arch/x86/include/asm/unistd_32.h b/arch/x86/include/asm/unistd_32.h
+index b766a5e..b6f73f1 100644
+--- a/arch/x86/include/asm/unistd_32.h
++++ b/arch/x86/include/asm/unistd_32.h
+@@ -346,10 +346,11 @@
+ #define __NR_fanotify_init	338
+ #define __NR_fanotify_mark	339
+ #define __NR_prlimit64		340
++#define __NR_clock_adjtime	341
  
  #ifdef __KERNEL__
  
--#define __NR_syscalls		345
-+#define __NR_syscalls		346
+-#define NR_syscalls 341
++#define NR_syscalls 342
  
- #define __NR__exit __NR_exit
- #define NR_syscalls	__NR_syscalls
+ #define __ARCH_WANT_IPC_PARSE_VERSION
+ #define __ARCH_WANT_OLD_READDIR
+diff --git a/arch/x86/include/asm/unistd_64.h b/arch/x86/include/asm/unistd_64.h
+index 363e9b8..5ee3085 100644
+--- a/arch/x86/include/asm/unistd_64.h
++++ b/arch/x86/include/asm/unistd_64.h
+@@ -669,6 +669,8 @@ __SYSCALL(__NR_fanotify_init, sys_fanotify_init)
+ __SYSCALL(__NR_fanotify_mark, sys_fanotify_mark)
+ #define __NR_prlimit64				302
+ __SYSCALL(__NR_prlimit64, sys_prlimit64)
++#define __NR_clock_adjtime			303
++__SYSCALL(__NR_clock_adjtime, sys_clock_adjtime)
+ 
+ #ifndef __NO_STUBS
+ #define __ARCH_WANT_OLD_READDIR
+diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
+index b35786d..68c7b9a 100644
+--- a/arch/x86/kernel/syscall_table_32.S
++++ b/arch/x86/kernel/syscall_table_32.S
+@@ -340,3 +340,4 @@ ENTRY(sys_call_table)
+ 	.long sys_fanotify_init
+ 	.long sys_fanotify_mark
+ 	.long sys_prlimit64		/* 340 */
++	.long sys_clock_adjtime
 -- 
 1.7.0.4
-
