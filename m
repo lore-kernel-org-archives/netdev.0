@@ -1,55 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] UDPCP Communication Protocol
-Date: Fri, 31 Dec 2010 09:46:58 -0800
-Message-ID: <20101231094658.1881c113@s6510>
-References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
+From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
+Date: Fri, 31 Dec 2010 09:59:19 -0800
+Message-ID: <4D1E19F7.6000608@gmail.com>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
+	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
+	<20101231064515.GC3733@angua.secretlab.ca>
+	<4D1D7DAE.7060504@gmail.com> <20101231091136.GC1886@bicker>
+	<4D1DE616.7010105@gmail.com> <20101231174100.GF1886@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: stefani@seibold.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293787785-3834-1-git-send-email-stefani@seibold.net>
-Sender: linux-kernel-owner@vger.kernel.org
+To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
+	trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	li
+Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20101231174100.GF1886@bicker>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
+	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
+List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
+	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Dec 2010 10:29:45 +0100
-stefani@seibold.net wrote:
+On 12/31/2010 09:41 AM, Dan Carpenter wrote:
+> On Fri, Dec 31, 2010 at 06:17:58AM -0800, Justin P. Mattock wrote:
+>>> Wrong:  [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
+>>>
+>>> Right:  [PATCH 02/15] spi/dw_spi: Typo change diable to disable
+>>>
+>>> regards,
+>>> dan carpenter
+>>>
+>>
+>> alright.. so having the backlash is alright for the subject
+>
+> Well really my point is not so much about backslashes vs colons, it's
+> about getting the *one* correct prefix.  This stuff is probably
+> scriptable most of the time, but you may still be required to think a
+> little on the corner cases.
+>
+> Here is a script to get you started.
+>
+> git log --format="%s" drivers/spi/dw_spi.c | \
+> 	head -n 20 |                         \
+> 	perl -ne 's/(.*):.*/$1/; print' |    \
+> 	sort | uniq -c | sort -rn |          \
+> 	perl -ne 's/^\W+\d+ //; print' |     \
+> 	head -n 1
+>
+> regards,
+> dan carpenter
+>
 
-> +/*
-> + * UDPCP destination descriptor
-> + *
-> + * For each communication address an individual destination descriptor will
-> + * be create.
-> + *
-> + * The fields has the following meanings:
-> + *
-> + * list:		link list: part of udpcp_sock.destlist
-> + * xmit:		messages fragments to be transmit
-> + * tx_time:		timestamp of the last transmitted message fragment
-> + * rx_time:		timestamp ot the last received message fragment
-> + * txTimeout:		statistic use only: number of transmit timeout
-> + * rxTimeout:		statistic use only: number of receive timeout
-> + * txRetries:		statistic use only: number of transmit retries
-> + * rxDiscardedFrags:	statistic use only: number of discarded messages
-> + * xmit_wait:		message fragment which is waiting for an ACK
-> + * xmit_last:		last fragment transmitted
-> + * recv_msg:		first fragment of the received message
-> + * recv_last:		last fragment of the received message
-> + * lastmsg:		last messages fragment header received
-> + * ipc:			linux internal ipc cookie
-> + * fl:			flow/routing information
-> + * rt:			routing entry currently used for this destination
-> + * addr:		ipv4 destination address
-> + * port:		destination port number
-> + * msgid:		current message id for outgoing data messages
-> + * use_flag:		statistic use only: flag for dest using TX and/or RX
-> + * insync:		flag for protocol synchronization
-> + * ackmode;		ack mode for the current assembled message
-> + * chkmode;		checksum mode for the current assembled message
-> + * try:			current number of retries xmit_wait message
-> + * acks:		number of outstandig ack's
-> + */
+thats a nice little script there(just ran it) any way you want to add 
+this into to getmaintainers.pl or something? (this way people get the 
+maintainers address plus a subject line in the mix)
 
-Why not use docbook format comments for this?
+Justin P. Mattock
+
+------------------------------------------------------------------------------
+Learn how Oracle Real Application Clusters (RAC) One Node allows customers
+to consolidate database storage, standardize their database environment, and, 
+should the need arise, upgrade to a full multi-node Oracle RAC database 
+without downtime or disruption
+http://p.sf.net/sfu/oracle-sfdevnl
