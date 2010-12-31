@@ -1,86 +1,52 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: eepro testing positive EBUSY return by
- request_irq()?
-Date: Fri, 31 Dec 2010 15:27:42 +0000
-Message-ID: <1293809262.2870.45.camel@localhost>
-References: <4D1DECFC.8020701@gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH 03/15]drivers:staging:rtl8187se:r8180_hw.h Typo change
+ diable to disable.
+Date: Fri, 31 Dec 2010 09:32:32 -0600
+Message-ID: <4D1DF790.2010500@lwfinger.net>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-jYbOy25JKJQuq2mVCUlZ"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: roel kluin <roel.kluin@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D1DECFC.8020701@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: trivial@kernel.org, linux-m68k@lists.linux-m68k.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
+	spi-devel-general@lists.sourceforge.net,
+	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:60331 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243Ab0LaPcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 10:32:33 -0500
+In-Reply-To: <1293750484-1161-3-git-send-email-justinmattock@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
---=-jYbOy25JKJQuq2mVCUlZ
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2010-12-31 at 15:47 +0100, roel kluin wrote:
-> Fix -EBUSY test for request_irq().
->=20
-> Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+On 12/30/2010 05:07 PM, Justin P. Mattock wrote:
+> The below patch fixes a typo "diable" to "disable". Please let me know if this 
+> is correct or not.
+> 
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+> 
 > ---
->  drivers/net/eepro.c |    2 +-
+
+ACKed-by: Larry Finger <Larry.Finger@lwfinger.net>
+
+>  drivers/staging/rtl8187se/r8180_hw.h |    2 +-
 >  1 files changed, 1 insertions(+), 1 deletions(-)
->=20
-> I just found this in the code, no bug was observed. Is this patch needed?=
- the test
-> for an -EBUSY return by request_irq() occurs much more frequently in kern=
-el code.
->=20
-> diff --git a/drivers/net/eepro.c b/drivers/net/eepro.c
-> index 7c82631..47cfecb 100644
-> --- a/drivers/net/eepro.c
-> +++ b/drivers/net/eepro.c
-> @@ -920,7 +920,7 @@ static int	eepro_grab_irq(struct net_device *dev)
-> =20
->  		eepro_sw2bank0(ioaddr); /* Switch back to Bank 0 */
-> =20
-> -		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) !=3D EBUSY) {
-> +		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) !=3D -EBUSY) =
-{
->  			unsigned long irq_mask;
->  			/* Twinkle the interrupt, and check if it's seen */
->  			irq_mask =3D probe_irq_on();
+> 
+> diff --git a/drivers/staging/rtl8187se/r8180_hw.h b/drivers/staging/rtl8187se/r8180_hw.h
+> index 3fca144..2911d40 100644
+> --- a/drivers/staging/rtl8187se/r8180_hw.h
+> +++ b/drivers/staging/rtl8187se/r8180_hw.h
+> @@ -554,7 +554,7 @@
+>  /* by amy for power save		*/
+>  /* by amy for antenna			*/
+>  #define EEPROM_SW_REVD_OFFSET 0x3f
+> -/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are diable.					*/
+> +/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are disabled.					*/
+>  #define EEPROM_SW_AD_MASK			0x0300
+>  #define EEPROM_SW_AD_ENABLE			0x0100
+>  
 
-This condition is completely bogus - request_irq() with a NULL handler
-now returns -EINVAL before even checking whether the IRQ is in use.  The
-code should be fixed along the lines of what I did for 3c503 in commit
-b0cf4dfb7cd21556efd9a6a67edcba0840b4d98d.
-
-The e2100 and hp net drivers have the same bug.
-
-Ben.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-jYbOy25JKJQuq2mVCUlZ
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATR32YOe/yOyVhhEJAQJRGRAAvRDwjYHPvS/fx8b2IDaj/aNUUVQ7pbrc
-ev4HUASdN1KlNzDji2RvUSH9xZJP2F68gJwgEOeLf9aEbPEiDDOqQuNtiIq56cY+
-kkYTENnV+fnrVEWxyyhIu6sNyZloZsxywx/tgTKMhXy8b4Aho1sehgOauEfNgJM+
-oYS2LeHaeJVsjTHcllfcDTWBQOKSbjMuusEISl2CVaRmMhu1d7+ooU3meM2aIkB8
-2D5PEnukgwqoEws/GDPygmq9uerL00HVM3IE+5f4HH3Hzf9W4g21KlCCoLK6Kaiu
-kpg3/FWX4JbkpJkyz6pUGwdC0t0HkZHGLT6K/7phLZ2uCM05DBeLD7jp6uBRIIw3
-e8PuSXaK3Z4fljmRh90/v6poVD5BXnT2H5R/uOQEV3awWA1xYsXc7KcCxUU3klCW
-IQK++swfM5qr/I9VL2/+lDs/WmNd58pjIUbo5Odc7EXYzefuQP2VbE6p7qxo5XPu
-VbAb8eMjM1TifjLOY1hM0FWEGR5zCyIvOFZ5TqklpDAtg2TWxLB7fj5ymirHFqqo
-r5XosF3rnx9RwhNmRv+Z5OxFxuPOsvTUUOmxvUt9nNlYhX6gKPEJT+bKpEZTmZrz
-N2iSwpROAAVfwltN11407wHP/KbFmtDi305KCfJpnLD1zfk7JygCobpYJAcAUxg7
-qBsfH37V8U4=
-=iQ9R
------END PGP SIGNATURE-----
-
---=-jYbOy25JKJQuq2mVCUlZ--
