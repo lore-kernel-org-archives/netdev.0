@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH NEXT 2/3] netxen: enable LRO based on NETIF_F_LRO
-Date: Fri, 31 Dec 2010 10:58:12 -0800 (PST)
-Message-ID: <20101231.105812.39181789.davem@davemloft.net>
-References: <1293439423-25193-1-git-send-email-amit.salecha@qlogic.com>
-	<1293439423-25193-3-git-send-email-amit.salecha@qlogic.com>
+Subject: Re: [PATCH net-next 1/2] bnx2: Free IRQ before freeing status
+ block memory
+Date: Fri, 31 Dec 2010 11:04:14 -0800 (PST)
+Message-ID: <20101231.110414.59672398.davem@davemloft.net>
+References: <1293157320-13758-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com, sucheta.chakraborty@qlogic.com
-To: amit.salecha@qlogic.com
+Cc: netdev@vger.kernel.org
+To: mchan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37670
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58457
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753166Ab0LaS5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 13:57:41 -0500
-In-Reply-To: <1293439423-25193-3-git-send-email-amit.salecha@qlogic.com>
+	by vger.kernel.org with ESMTP id S1751622Ab0LaTDn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:03:43 -0500
+In-Reply-To: <1293157320-13758-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Date: Mon, 27 Dec 2010 00:43:42 -0800
+From: "Michael Chan" <mchan@broadcom.com>
+Date: Thu, 23 Dec 2010 18:21:59 -0800
 
-> +	if (!!data) {
+> When changing ring size, we free all memory including status block
+> memory.  If we're in INTA mode and sharing IRQ, the IRQ handler can
+> be called and it will reference the NULL status block pointer.
+> 
+> Because of the lockless design of the IRQ handler, there is no simple
+> way to synchronize and prevent this.  So we avoid this problem by
+> freeing the IRQ handler before freeing the status block memory.
+> 
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-This form of the test is not only unnecessary, it's ugly.  Please just
-test plain "data".
-
-> +		dev->features &= ~NETIF_F_LRO;
-> +		netxen_send_lro_cleanup(adapter);
-> +		dev_info(&adapter->pdev->dev,
-> +					"disabling LRO as rx_csum is off\n");
-
-You should use netdev_info() and fix the tabbing here.
-
-> +	if (!adapter->rx_csum) {
-> +		dev_info(&adapter->pdev->dev, "rx csum is off, "
-> +			"cannot toggle LRO\n");
-> +		return -EINVAL;
-> +	}
-
-Please use netdev_info().
+Applied.
