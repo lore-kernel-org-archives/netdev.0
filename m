@@ -1,63 +1,37 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
-Date: Fri, 31 Dec 2010 06:17:58 -0800
-Message-ID: <4D1DE616.7010105@gmail.com>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
-	<20101231064515.GC3733@angua.secretlab.ca>
-	<4D1D7DAE.7060504@gmail.com> <20101231091136.GC1886@bicker>
+From: roel kluin <roel.kluin@gmail.com>
+Subject: [PATCH] net: eepro testing positive EBUSY return by request_irq()?
+Date: Fri, 31 Dec 2010 15:47:24 +0100
+Message-ID: <4D1DECFC.8020701@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Dan Carpenter <error27@gmail.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	trivial@kernel.org, devel@driverdev.osuosl.org,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	li
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20101231091136.GC1886@bicker>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Sender: devel-bounces@linuxdriverproject.org
-Errors-To: devel-bounces@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/31/2010 01:11 AM, Dan Carpenter wrote:
-> On Thu, Dec 30, 2010 at 10:52:30PM -0800, Justin P. Mattock wrote:
->> On 12/30/2010 10:45 PM, Grant Likely wrote:
->>> On Thu, Dec 30, 2010 at 03:07:51PM -0800, Justin P. Mattock wrote:
->>>> The below patch fixes a typo "diable" to "disable". Please let me know if this
->>>> is correct or not.
->>>>
->>>> Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
->>>
->>> applied, thanks.
->>>
->>> g.
->>
->> ahh.. thanks.. just cleared up the left out diabled that I had
->> thought I forgotten(ended up separating comments and code and
->> forgot)
->
-> This is really just defensiveness and random grumbling and grumpiness on
-> my part, but one reason I may have missed the first patch is because
-> your subject lines are crap.
->
-> Wrong:  [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
->
-> Right:  [PATCH 02/15] spi/dw_spi: Typo change diable to disable
->
-> regards,
-> dan carpenter
->
+Fix -EBUSY test for request_irq().
 
-alright.. so having the backlash is alright for the subject
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+---
+ drivers/net/eepro.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Thanks for the pointer on this..
+I just found this in the code, no bug was observed. Is this patch needed? the test
+for an -EBUSY return by request_irq() occurs much more frequently in kernel code.
 
-Justin P. Mattock
+diff --git a/drivers/net/eepro.c b/drivers/net/eepro.c
+index 7c82631..47cfecb 100644
+--- a/drivers/net/eepro.c
++++ b/drivers/net/eepro.c
+@@ -920,7 +920,7 @@ static int	eepro_grab_irq(struct net_device *dev)
+ 
+ 		eepro_sw2bank0(ioaddr); /* Switch back to Bank 0 */
+ 
+-		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) != EBUSY) {
++		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) != -EBUSY) {
+ 			unsigned long irq_mask;
+ 			/* Twinkle the interrupt, and check if it's seen */
+ 			irq_mask = probe_irq_on();
