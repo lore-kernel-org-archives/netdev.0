@@ -1,47 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sky2: Do not use legacy PCI power management
-Date: Fri, 31 Dec 2010 10:15:21 -0800
-Message-ID: <20101231101521.598d41c6@s6510>
-References: <201012261944.32517.rjw@sisk.pl>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 1/3] dcbnl: add support for ieee8021Qaz
+ attributes
+Date: Fri, 31 Dec 2010 10:42:30 -0800 (PST)
+Message-ID: <20101231.104230.226779540.davem@davemloft.net>
+References: <20101220205013.24232.3980.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	"Linux-pm mailing list" <linux-pm@lists.linux-foundation.org>
-To: "Rafael J. Wysocki" <rjw@sisk.pl>,
-	David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, tgraf@infradead.org
+To: john.r.fastabend@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:32989 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753994Ab0LaSPY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 Dec 2010 13:15:24 -0500
-In-Reply-To: <201012261944.32517.rjw@sisk.pl>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39812
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753164Ab0LaSmA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 13:42:00 -0500
+In-Reply-To: <20101220205013.24232.3980.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 26 Dec 2010 19:44:32 +0100
-"Rafael J. Wysocki" <rjw@sisk.pl> wrote:
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Mon, 20 Dec 2010 12:50:13 -0800
 
-> From: Rafael J. Wysocki <rjw@sisk.pl>
+> The IEEE8021Qaz is the IEEE standard version of CEE. The
+> standard has had enough significant changes from the CEE
+> version that many of the CEE attributes have no meaning
+> in the new spec or do not easily map to IEEE standards.
 > 
-> The sky2 driver uses the legacy PCI power management, so it has to do
-> some PCI-specific things in its ->suspend() and ->resume() callbacks,
-> which isn't necessary and should better be done by the PCI
-> sybsystem-level power management code.  Moreover, it uses
-> device_set_wakeup_enable() incorrectly (that function should be
-> used when the WoL setting is changed rather than during suspend).
-> 
-> Convert sky2 to the new PCI power management framework and make it
-> let the PCI subsystem take care of all the PCI-specific aspects of
-> device handling during system power transitions.
-> 
-> Tested on a desktop machine with a Marvell 88E8056 PCI-E adapter.
-> 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> Rather then attempt to create a complicated mapping
+> between CEE and IEEE standards this patch adds a nested
+> IEEE attribute to the list of DCB attributes. The policy
+> is,
+ ...
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Tested on 88E8055 (laptop), my desktop machines have video issues and
-won't suspend/resume.
-
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
-
+Applied.
