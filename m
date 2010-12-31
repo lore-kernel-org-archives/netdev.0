@@ -1,39 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: Do not use legacy PCI power management
-Date: Fri, 31 Dec 2010 11:14:40 -0800 (PST)
-Message-ID: <20101231.111440.28810446.davem@davemloft.net>
-References: <201012252356.23424.rjw@sisk.pl>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V8 05/13] posix_clocks: add clock_adjtime for blackfin
+Date: Fri, 31 Dec 2010 20:14:07 +0100
+Message-ID: <0a011917c6a869ca9dd22d56f95bc2c3aeb5621a.1293820862.git.richard.cochran@omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com,
-	linux-pm@lists.linux-foundation.org
-To: rjw@sisk.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41246
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754183Ab0LaTOK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 14:14:10 -0500
-In-Reply-To: <201012252356.23424.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1293820862.git.richard.cochran@omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Sat, 25 Dec 2010 23:56:23 +0100
+This patch adds the clock_adjtime system call to the blackfin architecture.
 
-> From: Rafael J. Wysocki <rjw@sisk.pl>
-> 
-> The tg3 driver uses the legacy PCI power management, so it has to do
-> some PCI-specific things in its ->suspend() and ->resume() callbacks,
-> which isn't necessary and should better be done by the PCI
-> sybsystem-level power management code.
-> 
-> Convert tg3 to the new PCI power management framework and make it
-> let the PCI subsystem take care of all the PCI-specific aspects of
-> device handling during system power transitions.
-> 
-> Tested on HP nx6325 with a NetXtreme BCM5788 adapter.
-> 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+---
+ arch/blackfin/include/asm/unistd.h |    3 ++-
+ arch/blackfin/mach-common/entry.S  |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-Applied.
+diff --git a/arch/blackfin/include/asm/unistd.h b/arch/blackfin/include/asm/unistd.h
+index 928ae97..e640c51 100644
+--- a/arch/blackfin/include/asm/unistd.h
++++ b/arch/blackfin/include/asm/unistd.h
+@@ -393,8 +393,9 @@
+ #define __NR_fanotify_mark	372
+ #define __NR_prlimit64		373
+ #define __NR_cacheflush		374
++#define __NR_clock_adjtime	375
+ 
+-#define __NR_syscall		375
++#define __NR_syscall		376
+ #define NR_syscalls		__NR_syscall
+ 
+ /* Old optional stuff no one actually uses */
+diff --git a/arch/blackfin/mach-common/entry.S b/arch/blackfin/mach-common/entry.S
+index 2ca915e..cb6cc1e 100644
+--- a/arch/blackfin/mach-common/entry.S
++++ b/arch/blackfin/mach-common/entry.S
+@@ -1738,6 +1738,7 @@ ENTRY(_sys_call_table)
+ 	.long _sys_fanotify_mark
+ 	.long _sys_prlimit64
+ 	.long _sys_cacheflush
++	.long _sys_clock_adjtime	/* 375 */
+ 
+ 	.rept NR_syscalls-(.-_sys_call_table)/4
+ 	.long _sys_ni_syscall
+-- 
+1.7.0.4
