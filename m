@@ -1,71 +1,63 @@
-From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
-Date: Fri, 31 Dec 2010 09:59:19 -0800
-Message-ID: <4D1E19F7.6000608@gmail.com>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
-	<20101231064515.GC3733@angua.secretlab.ca>
-	<4D1D7DAE.7060504@gmail.com> <20101231091136.GC1886@bicker>
-	<4D1DE616.7010105@gmail.com> <20101231174100.GF1886@bicker>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Sky2 - problems with VLANs - kernel 2.6.36
+Date: Fri, 31 Dec 2010 10:13:03 -0800
+Message-ID: <20101231101303.6caed8ab@s6510>
+References: <4CD48DE6.7060906@unsolicited.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>,
-	trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	li
-Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20101231174100.GF1886@bicker>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
-List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: David <david@unsolicited.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4CD48DE6.7060906@unsolicited.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 12/31/2010 09:41 AM, Dan Carpenter wrote:
-> On Fri, Dec 31, 2010 at 06:17:58AM -0800, Justin P. Mattock wrote:
->>> Wrong:  [PATCH 02/15]drivers:spi:dw_spi.c Typo change diable to disable.
->>>
->>> Right:  [PATCH 02/15] spi/dw_spi: Typo change diable to disable
->>>
->>> regards,
->>> dan carpenter
->>>
->>
->> alright.. so having the backlash is alright for the subject
->
-> Well really my point is not so much about backslashes vs colons, it's
-> about getting the *one* correct prefix.  This stuff is probably
-> scriptable most of the time, but you may still be required to think a
-> little on the corner cases.
->
-> Here is a script to get you started.
->
-> git log --format="%s" drivers/spi/dw_spi.c | \
-> 	head -n 20 |                         \
-> 	perl -ne 's/(.*):.*/$1/; print' |    \
-> 	sort | uniq -c | sort -rn |          \
-> 	perl -ne 's/^\W+\d+ //; print' |     \
-> 	head -n 1
->
-> regards,
-> dan carpenter
->
+On Fri, 05 Nov 2010 23:06:14 +0000
+David <david@unsolicited.net> wrote:
 
-thats a nice little script there(just ran it) any way you want to add 
-this into to getmaintainers.pl or something? (this way people get the 
-maintainers address plus a subject line in the mix)
+> I've just installed a Lycom dual port gigabit ethernet card, picked up
+> as follows :-
+> 
+> 03:00.0 Ethernet controller: Marvell Technology Group Ltd. 88E8062 PCI-E
+> IPMI Gigabit Ethernet Controller (rev 14)
+>     Subsystem: Marvell Technology Group Ltd. Device 6222
+>     Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr-
+> Stepping- SERR+ FastB2B- DisINTx+
+>     Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
+> <TAbort- <MAbort- >SERR- <PERR- INTx-
+>     Latency: 0, Cache Line Size: 64 bytes
+>     Interrupt: pin A routed to IRQ 41
+>     Region 0: Memory at fe8fc000 (64-bit, non-prefetchable) [size=16K]
+>     Region 2: I/O ports at c800 [size=256]
+>     Expansion ROM at fe8c0000 [disabled] [size=128K]
+>     Capabilities: <access denied>
+>     Kernel driver in use: sky2
+>     Kernel modules: sky2
+> 
+> I'm having a problem with VLANs. Outgoing packets are tagged correctly
+> and devices on the VLAN are responding. Unfortunately all of the
+> response packets stay on the raw device and are not allocated to the VLAN.
+> 
+> I've done some investigation (printks etc.), and have found that neither
+> of the following cases in sky2_status_intr() are being triggered...
+> 
+>                 case OP_RXVLAN:
+>                         printk("RXVLAN, length=%u, status=%u\n", length,
+> status);
+>                         sky2->rx_tag = length;
+>                         break;
+> 
+>                 case OP_RXCHKSVLAN:
+>                         printk("RXCHKSVLAN, length=%u, status=%u\n",
+> length, status);
+>                         sky2->rx_tag = length;
+>                         /* fall through */
+> 
+> ... however the status when calling sky2_skb_rx() does have GMR_FS_VLAN
+> set, it's just we haven't been able to find out which VLAN the packet
+> comes from (and sky2->rx_tag is zero). Does anyone have any suggestions
+> as to how I proceed from here? I'm happy to test patches etc.
 
-Justin P. Mattock
-
-------------------------------------------------------------------------------
-Learn how Oracle Real Application Clusters (RAC) One Node allows customers
-to consolidate database storage, standardize their database environment, and, 
-should the need arise, upgrade to a full multi-node Oracle RAC database 
-without downtime or disruption
-http://p.sf.net/sfu/oracle-sfdevnl
+Did it work with older kernels? 
