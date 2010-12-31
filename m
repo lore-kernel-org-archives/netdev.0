@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH 2/3] dcbnl: add appliction tlv handlers
-Date: Fri, 31 Dec 2010 10:42:43 -0800 (PST)
-Message-ID: <20101231.104243.104051102.davem@davemloft.net>
-References: <20101220205013.24232.3980.stgit@jf-dev1-dcblab>
-	<20101220205018.24232.994.stgit@jf-dev1-dcblab>
+Subject: Re: [net-next-2.6 PATCH v2 0/3] Series short description
+Date: Fri, 31 Dec 2010 10:49:41 -0800 (PST)
+Message-ID: <20101231.104941.189703153.davem@davemloft.net>
+References: <20101230192449.21487.9764.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tgraf@infradead.org
+Cc: netdev@vger.kernel.org, lucy.liu@intel.com, shmulikr@broadcom.com
 To: john.r.fastabend@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39821
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55649
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753907Ab0LaSmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 13:42:12 -0500
-In-Reply-To: <20101220205018.24232.994.stgit@jf-dev1-dcblab>
+	by vger.kernel.org with ESMTP id S1750923Ab0LaStK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 13:49:10 -0500
+In-Reply-To: <20101230192449.21487.9764.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
-Date: Mon, 20 Dec 2010 12:50:18 -0800
+Date: Thu, 30 Dec 2010 11:25:40 -0800
 
-> This patch adds application tlv handlers. Networking stacks
-> may use the application priority to set the skb priority of
-> their stack using the negoatiated dcbx priority.
+> Version 2 adds the recommended tlv attributes to the ets struct this will
+> be needed for offloaded LLDP engines. Host controlled LLDP agents will most
+> likely not use these fields.
 > 
-> This patch provides the dcb_{get|set}app() routines for the
-> stack to query these parameters. Notice lower layer drivers
-> can use the dcbnl_ops routines if additional handling is
-> needed. Perhaps in the firmware case for example
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Also Shmulik Ravid caught an error with a spin_lock on kmalloc failure.
 
-Applied.
+BTW, even though I replied "applied" to v1 of these patches I made
+sure to actully apply v2 :-)
