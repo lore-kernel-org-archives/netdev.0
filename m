@@ -1,64 +1,45 @@
-From: Stefani Seibold <stefani@seibold.net>
-Subject: Re: [PATCH] UDPCP Communication Protocol
-Date: Fri, 31 Dec 2010 11:22:59 +0100
-Message-ID: <1293790979.4787.10.camel@wall-e>
-References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
-	 <1293789629.2973.26.camel@edumazet-laptop>
+From: Mauro Carvalho Chehab <maurochehab@gmail.com>
+Subject: Re: [PATCH 11/15]drivers:media:video:cx18:cx23418.h Typo change diable
+ to disable.
+Date: Fri, 31 Dec 2010 08:23:41 -0200
+Message-ID: <4D1DAF2D.5070604@gmail.com>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com> <1293750484-1161-4-git-send-email-justinmattock@gmail.com> <1293750484-1161-5-git-send-email-justinmattock@gmail.com> <1293750484-1161-6-git-send-email-justinmattock@gmail.com> <1293750484-1161-7-git-send-email-justinmattock@gmail.com> <1293750484-1161-8-git-send-email-justinmattock@gmail.com> <1293750484-1161-9-git-send-email-justinmattock@gmail.com> <1293750484-1161-10-git-send-email-justinmattock@gmail.com> <1293750484-1161-11-git-send-email-justinmattock@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293789629.2973.26.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: trivial@kernel.org, linux-m68k@lists.linux-m68k.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	ivtv-devel@ivtvdriver.org, linux-media@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-scsi@vger.kernel.org,
+	spi-devel-general@lists.sourceforge.net,
+	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
+To: "Justin P. Mattock" <justinmattock@gmail.com>
+Return-path: <linux-media-owner@vger.kernel.org>
+In-Reply-To: <1293750484-1161-11-git-send-email-justinmattock@gmail.com>
+Sender: linux-media-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Freitag, den 31.12.2010, 11:00 +0100 schrieb Eric Dumazet:
-> Le vendredi 31 d=E9cembre 2010 =E0 10:29 +0100, stefani@seibold.net a
-> =E9crit :
-> > From: Stefani Seibold <stefani@seibold.net>
-> >=20
-> > =20
-> >  /*
-> >   *	Handle MSG_ERRQUEUE
-> > diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> > index 2d3ded4..f9890a2 100644
-> > --- a/net/ipv4/udp.c
-> > +++ b/net/ipv4/udp.c
-> > @@ -1310,7 +1310,7 @@ static int __udp_queue_rcv_skb(struct sock *s=
-k, struct sk_buff *skb)
-> >  	if (inet_sk(sk)->inet_daddr)
-> >  		sock_rps_save_rxhash(sk, skb->rxhash);
-> > =20
-> > -	rc =3D ip_queue_rcv_skb(sk, skb);
-> > +	rc =3D sock_queue_rcv_skb(sk, skb);
->=20
-> Ouch... Care to explain why you changed this part ???
->=20
-> You just destroyed commit f84af32cbca70a intent, without any word in
-> your changelog. Making UDP slower, while others try to speed it must =
-be
-> explained and advertised.
-> =20
-> In general, we prefer a preliminary patch introducing all the changes=
- in
-> current stack, then another one with the new protocol.
->=20
-
-I reverted this for two reasons:
-
-=46irst ip_queue_rcv_skb drops the dst entry, which breaks the user lan=
-d
-application which expect packet info after a
-
-setsockopt(handle, IPPROTO_IP, IP_PKTINFO, &const_int_1, sizeof(int));
-
-But for packets already in the queue this information will be lost. So
-it is a potential race condition.
-
-Second it breaks my UDPCP communication protocol stack module, which
-works very well till 2.6.35. I need this information in the data_ready(=
-)
-function to generate an ACK.
+Em 30-12-2010 21:08, Justin P. Mattock escreveu:
+> The below patch fixes a typo "diable" to "disable". Please let me know if this 
+> is correct or not.
+> 
+> Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+Acked-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+> 
+> ---
+>  drivers/media/video/cx18/cx23418.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/media/video/cx18/cx23418.h b/drivers/media/video/cx18/cx23418.h
+> index 2c00980..7e40035 100644
+> --- a/drivers/media/video/cx18/cx23418.h
+> +++ b/drivers/media/video/cx18/cx23418.h
+> @@ -177,7 +177,7 @@
+>     IN[0] - Task handle.
+>     IN[1] - luma type: 0 = disable, 1 = 1D horizontal only, 2 = 1D vertical only,
+>  		      3 = 2D H/V separable, 4 = 2D symmetric non-separable
+> -   IN[2] - chroma type: 0 - diable, 1 = 1D horizontal
+> +   IN[2] - chroma type: 0 - disable, 1 = 1D horizontal
+>     ReturnCode - One of the ERR_CAPTURE_... */
+>  #define CX18_CPU_SET_SPATIAL_FILTER_TYPE     	(CPU_CMD_MASK_CAPTURE | 0x000C)
+>  
