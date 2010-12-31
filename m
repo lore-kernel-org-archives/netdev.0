@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Fri, 31 Dec 2010 20:12:41 +0100
-Message-ID: <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+Subject: [PATCH V8 04/13] posix_clocks: add clock_adjtime for arm
+Date: Fri, 31 Dec 2010 20:13:47 +0100
+Message-ID: <5a4e56322f44083a532d9c474eccb7b26354e990.1293820862.git.richard.cochran@omicron.at>
 References: <cover.1293820862.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -22,57 +22,37 @@ In-Reply-To: <cover.1293820862.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a new mode bit into the timex structure. When set, the bit
-instructs the kernel to add the given time value to the current time.
+This patch adds the clock_adjtime system call to the arm architecture.
 
 Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
 ---
- include/linux/timex.h |    3 ++-
- kernel/time/ntp.c     |   11 +++++++++++
- 2 files changed, 13 insertions(+), 1 deletions(-)
+ arch/arm/include/asm/unistd.h |    1 +
+ arch/arm/kernel/calls.S       |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/include/linux/timex.h b/include/linux/timex.h
-index 32d852f..82d4b24 100644
---- a/include/linux/timex.h
-+++ b/include/linux/timex.h
-@@ -73,7 +73,7 @@ struct timex {
- 	long tolerance;		/* clock frequency tolerance (ppm)
- 				 * (read only)
- 				 */
--	struct timeval time;	/* (read only) */
-+	struct timeval time;	/* (read only, except for ADJ_SETOFFSET) */
- 	long tick;		/* (modified) usecs between clock ticks */
+diff --git a/arch/arm/include/asm/unistd.h b/arch/arm/include/asm/unistd.h
+index c891eb7..f58d881 100644
+--- a/arch/arm/include/asm/unistd.h
++++ b/arch/arm/include/asm/unistd.h
+@@ -396,6 +396,7 @@
+ #define __NR_fanotify_init		(__NR_SYSCALL_BASE+367)
+ #define __NR_fanotify_mark		(__NR_SYSCALL_BASE+368)
+ #define __NR_prlimit64			(__NR_SYSCALL_BASE+369)
++#define __NR_clock_adjtime		(__NR_SYSCALL_BASE+370)
  
- 	long ppsfreq;           /* pps frequency (scaled ppm) (ro) */
-@@ -101,6 +101,7 @@ struct timex {
- #define ADJ_ESTERROR		0x0008	/* estimated time error */
- #define ADJ_STATUS		0x0010	/* clock status */
- #define ADJ_TIMECONST		0x0020	/* pll time constant */
-+#define ADJ_SETOFFSET		0x0040  /* add 'time' to current time */
- #define ADJ_TAI			0x0080	/* set TAI offset */
- #define ADJ_MICRO		0x1000	/* select microsecond resolution */
- #define ADJ_NANO		0x2000	/* select nanosecond resolution */
-diff --git a/kernel/time/ntp.c b/kernel/time/ntp.c
-index d232189..0c87858 100644
---- a/kernel/time/ntp.c
-+++ b/kernel/time/ntp.c
-@@ -482,6 +482,17 @@ int do_adjtimex(struct timex *txc)
- 			hrtimer_cancel(&leap_timer);
- 	}
- 
-+	if (txc->modes & ADJ_SETOFFSET) {
-+		struct timespec delta;
-+		if ((unsigned long)txc->time.tv_usec >= NSEC_PER_SEC)
-+			return -EINVAL;
-+		delta.tv_sec  = txc->time.tv_sec;
-+		delta.tv_nsec = txc->time.tv_usec;
-+		if (!(txc->modes & ADJ_NANO))
-+			delta.tv_nsec *= 1000;
-+		timekeeping_inject_offset(&delta);
-+	}
-+
- 	getnstimeofday(&ts);
- 
- 	write_seqlock_irq(&xtime_lock);
+ /*
+  * The following SWIs are ARM private.
+diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
+index 5c26ecc..430de4c 100644
+--- a/arch/arm/kernel/calls.S
++++ b/arch/arm/kernel/calls.S
+@@ -379,6 +379,7 @@
+ 		CALL(sys_fanotify_init)
+ 		CALL(sys_fanotify_mark)
+ 		CALL(sys_prlimit64)
++/* 370 */	CALL(sys_clock_adjtime)
+ #ifndef syscalls_counted
+ .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
+ #define syscalls_counted
 -- 
 1.7.0.4
