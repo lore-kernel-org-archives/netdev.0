@@ -1,107 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Sat, 01 Jan 2011 23:23:21 +0100
-Message-ID: <1293920601.2535.64.camel@edumazet-laptop>
-References: <1293918276-28773-1-git-send-email-stefani@seibold.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 00/20] Delete more semi-useless stuff from
+ TIPC.
+Date: Sat, 1 Jan 2011 17:53:31 -0500
+Message-ID: <20110101225330.GF30150@windriver.com>
+References: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
+ <20110101.135952.226766850.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com
-To: stefani@seibold.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293918276-28773-1-git-send-email-stefani@seibold.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:54430 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751176Ab1AAWxe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 17:53:34 -0500
+Content-Disposition: inline
+In-Reply-To: <20110101.135952.226766850.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le samedi 01 janvier 2011 =C3=A0 22:44 +0100, stefani@seibold.net a =C3=
-=A9crit :
-> From: Stefani Seibold <stefani@seibold.net>
->=20
-> Changelog:
-> 31.12.2010 first proposal
-> 01.01.2011 code cleanup and fixes suggest by Eric Dumazet
->=20
-> UDPCP is a communication protocol specified by the Open Base Station
-> Architecture Initiative Special Interest Group (OBSAI SIG). The
-> protocol is based on UDP and is designed to meet the needs of "Mobile
-> Communcation Base Station" internal communications. It is widely used=
- by
-> the major networks infrastructure supplier.
->=20
-> The UDPCP communication service supports the following features:
->=20
-> -Connectionless communication for serial mode data transfer
-> -Acknowledged and unacknowledged transfer modes
-> -Retransmissions Algorithm
-> -Checksum Algorithm using Adler32
-> -Fragmentation of long messages (disassembly/reassembly) to match to =
-the MTU
->  during transport:
-> -Broadcasting and multicasting messages to multiple peers in unacknow=
-ledged
->  transfer mode
->=20
-> UDPCP supports application level messages up to 64 KBytes (limited by=
- 16-bit
-> packet data length field). Messages that are longer than the MTU will=
- be
-> fragmented to the MTU.
->=20
-> UDPCP provides a reliable transport service that will perform message
-> retransmissions in case transport failures occur.
->=20
-> The code is also a nice example how to implement a UDP based protocol=
- as
-> a kernel socket modules.
->=20
-> Due the nature of UDPCP which has no sliding windows support, the lat=
-ency has a
-> huge impact. The perfomance increase by implementing as a kernel modu=
-le is
-> about the factor 10, because there are no context switches and data p=
-ackets or
-> ACKs will be handled in the interrupt service.
->=20
-> There are no side effects to the network subsystems so i ask for merg=
-e it
-> into linux-next. Hope you like it.
->=20
-> The patch is against 2.6.37-rc8
->=20
+[Re: [PATCH net-next 00/20] Delete more semi-useless stuff from TIPC.] On 01/01/2011 (Sat 13:59) David Miller wrote:
 
-Hi Stefani
+> From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Date: Fri, 31 Dec 2010 23:59:15 -0500
+> 
+> > There really isn't a lot to see here technically.  There is a bunch of
+> > stuff in TIPC that I guess falls into the category of "seemed like a
+> > good idea at the time", but is now just inactive or at best unstable
+> > prototype code for things like slave nodes and routing features and
+> > mulitcluster support.  My favourite is this one:
+> > 
+> >  ----------
+> > config TIPC_CLUSTERS
+> >        int "Maximum number of clusters in a zone"
+> >        depends on TIPC_ADVANCED
+> >        range 1 1
+> >        default "1"
+> >        help
+> >          Specifies how many clusters can be supported in a TIPC zone.
+> > 
+> >          *** Currently TIPC only supports a single cluster per zone. ***
+> >  ----------
+> > 
+> > The remaining commits are just de-uglifying what is left, fixing whitespace
+> > crimes and other common errors typically picked up in janitor patches.
+> 
+> All applied, thanks Paul.
+> 
+> net/tipc/log.h still uses "_TIPC_DBG_H" for it's multiple-include protection
+> tests.  Please send me a patch to rename that to _TIPC_LOG_H
 
-1) Please base your next trys on net-next-2.6 : This is the reference
-for stuff like that. It probably does not matter a lot, but still...
+Ah crap, I should have spotted that.  Thanks for noticing it.  Patch
+follows.
 
+Paul.
 
-2) I still see some _irq() variants of spinlock(). Its not necessary in
-network stack at the level you are working (process context, and
-softirqs)
+----
 
-Please only use _bh() variants, it's enough.
+>From 443eb42b4e3e45b54698ee787ce7e5fb16acb57d Mon Sep 17 00:00:00 2001
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Sat, 1 Jan 2011 17:32:04 -0500
+Subject: [PATCH] tipc: update log.h re-include protection to reflect new name
 
-3) I see UDPLITE references in your code. Are you sure UDPCP protocol
-can really work on top of UDPLITE ? I think not, so please remove dead
-code.
+The tipc/dbg.h file was recently renamed to tipc/log.h,
+but the re-include define was not updated accordingly.
 
-4) udpcp_release_sock() seems expensive to me. Why not testing
-usk->timeout before releasing sock lock, and save a lock/unlock pair ?
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/log.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-static inline void udpcp_release_sock(struct sock *sk)
-{
-	struct udpcp_sock *usk =3D udpcp_sk(sk);
+diff --git a/net/tipc/log.h b/net/tipc/log.h
+index f4343bb..2248d96 100644
+--- a/net/tipc/log.h
++++ b/net/tipc/log.h
+@@ -34,8 +34,8 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
+-#ifndef _TIPC_DBG_H
+-#define _TIPC_DBG_H
++#ifndef _TIPC_LOG_H
++#define _TIPC_LOG_H
+ 
+ /**
+  * struct print_buf - TIPC print buffer structure
+-- 
+1.7.3.3
 
-	if (usk->timeout)
-		udpcp_handle_timeout(sk);
-	release_sock(sk);
-}
-
-5) In udpcp_timeout(), if you find socket is locked by user, you set
-timeout to one and rearm a timer to udpcp_timer(sk, jiffies + 1);=20
-
-Why is it needed, since user process is going to handle the timeout
-indication from udpcp_release_sock() ?
-
-Thanks
