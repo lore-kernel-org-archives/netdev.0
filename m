@@ -1,150 +1,211 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 08/20] tipc: Remove internal linked list of node objects
-Date: Fri, 31 Dec 2010 23:59:23 -0500
-Message-ID: <1293857975-30267-9-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 14/20] tipc: remove redundant #includes
+Date: Fri, 31 Dec 2010 23:59:29 -0500
+Message-ID: <1293857975-30267-15-git-send-email-paul.gortmaker@windriver.com>
 References: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	Allan Stephens <Allan.Stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53287 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:53332 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab1AAFAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 00:00:05 -0500
+	with ESMTP id S1750803Ab1AAFAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 00:00:11 -0500
 In-Reply-To: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Eliminates a sorted list TIPC uses to keep track of the neighboring
-nodes it has links to, since this duplicates information already present
-in the internal array of node object pointers.
+Eliminates a number of #include statements that no longer serve any
+useful purpose.
 
 Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/node.c |   43 ++++++++++++++++---------------------------
- 1 files changed, 16 insertions(+), 27 deletions(-)
+ net/tipc/addr.c       |    1 -
+ net/tipc/bcast.c      |    1 -
+ net/tipc/bearer.c     |    1 -
+ net/tipc/config.c     |    1 -
+ net/tipc/core.c       |    6 ------
+ net/tipc/discover.c   |    2 --
+ net/tipc/eth_media.c  |    4 ----
+ net/tipc/msg.c        |    1 -
+ net/tipc/name_distr.c |    1 -
+ net/tipc/net.c        |    2 --
+ net/tipc/node.c       |    1 -
+ net/tipc/socket.c     |   11 -----------
+ 12 files changed, 0 insertions(+), 32 deletions(-)
 
+diff --git a/net/tipc/addr.c b/net/tipc/addr.c
+index 483868a..88463d9 100644
+--- a/net/tipc/addr.c
++++ b/net/tipc/addr.c
+@@ -35,7 +35,6 @@
+  */
+ 
+ #include "core.h"
+-#include "node.h"
+ #include "addr.h"
+ 
+ /**
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 22a10fa..c0f3b09 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -38,7 +38,6 @@
+ #include "core.h"
+ #include "link.h"
+ #include "port.h"
+-#include "name_distr.h"
+ #include "bcast.h"
+ 
+ #define MAX_PKT_DEFAULT_MCAST 1500	/* bcast link max packet size (fixed) */
+diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
+index 24dc6c2..040f3ed 100644
+--- a/net/tipc/bearer.c
++++ b/net/tipc/bearer.c
+@@ -37,7 +37,6 @@
+ #include "core.h"
+ #include "config.h"
+ #include "bearer.h"
+-#include "port.h"
+ #include "discover.h"
+ 
+ #define MAX_ADDR_STR 32
+diff --git a/net/tipc/config.c b/net/tipc/config.c
+index a7894ff..6c67132 100644
+--- a/net/tipc/config.c
++++ b/net/tipc/config.c
+@@ -36,7 +36,6 @@
+ 
+ #include "core.h"
+ #include "port.h"
+-#include "link.h"
+ #include "name_table.h"
+ #include "config.h"
+ 
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index a02bc49..60b85ec 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -34,14 +34,8 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
+-#include <linux/init.h>
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/random.h>
+-
+ #include "core.h"
+ #include "ref.h"
+-#include "net.h"
+ #include "name_table.h"
+ #include "subscr.h"
+ #include "config.h"
+diff --git a/net/tipc/discover.c b/net/tipc/discover.c
+index e722378..be28f5a 100644
+--- a/net/tipc/discover.c
++++ b/net/tipc/discover.c
+@@ -37,8 +37,6 @@
+ #include "core.h"
+ #include "link.h"
+ #include "discover.h"
+-#include "port.h"
+-#include "name_table.h"
+ 
+ #define TIPC_LINK_REQ_INIT	125	/* min delay during bearer start up */
+ #define TIPC_LINK_REQ_FAST	2000	/* normal delay if bearer has no links */
+diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
+index ee683cc..101d9cb 100644
+--- a/net/tipc/eth_media.c
++++ b/net/tipc/eth_media.c
+@@ -34,10 +34,6 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
+-#include <linux/netdevice.h>
+-#include <linux/slab.h>
+-#include <net/net_namespace.h>
+-
+ #include "core.h"
+ #include "bearer.h"
+ 
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index a029cdc..2571ffb 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -35,7 +35,6 @@
+  */
+ 
+ #include "core.h"
+-#include "addr.h"
+ #include "msg.h"
+ 
+ u32 tipc_msg_tot_importance(struct tipc_msg *m)
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index 0dd648e..376a30b 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -35,7 +35,6 @@
+  */
+ 
+ #include "core.h"
+-#include "addr.h"
+ #include "link.h"
+ #include "name_distr.h"
+ 
+diff --git a/net/tipc/net.c b/net/tipc/net.c
+index 6290bec..9bacfd0 100644
+--- a/net/tipc/net.c
++++ b/net/tipc/net.c
+@@ -36,10 +36,8 @@
+ 
+ #include "core.h"
+ #include "net.h"
+-#include "name_table.h"
+ #include "name_distr.h"
+ #include "subscr.h"
+-#include "link.h"
+ #include "port.h"
+ #include "config.h"
+ 
 diff --git a/net/tipc/node.c b/net/tipc/node.c
-index 58e189b..31dcca9 100644
+index fb54719..126d774 100644
 --- a/net/tipc/node.c
 +++ b/net/tipc/node.c
-@@ -43,9 +43,6 @@
+@@ -37,7 +37,6 @@
+ #include "core.h"
+ #include "config.h"
+ #include "node.h"
+-#include "port.h"
+ #include "name_distr.h"
+ 
  static void node_lost_contact(struct tipc_node *n_ptr);
- static void node_established_contact(struct tipc_node *n_ptr);
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 7a21a5e..f972c0b 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -34,17 +34,6 @@
+  * POSSIBILITY OF SUCH DAMAGE.
+  */
  
--/* sorted list of nodes within cluster */
--static struct tipc_node *tipc_nodes = NULL;
--
- static DEFINE_SPINLOCK(node_create_lock);
+-#include <linux/module.h>
+-#include <linux/types.h>
+-#include <linux/net.h>
+-#include <linux/socket.h>
+-#include <linux/errno.h>
+-#include <linux/mm.h>
+-#include <linux/poll.h>
+-#include <linux/fcntl.h>
+-#include <linux/gfp.h>
+-#include <asm/string.h>
+-#include <asm/atomic.h>
+ #include <net/sock.h>
  
- u32 tipc_own_tag = 0;
-@@ -63,21 +60,17 @@ u32 tipc_own_tag = 0;
- struct tipc_node *tipc_node_create(u32 addr)
- {
- 	struct tipc_node *n_ptr;
--	struct tipc_node **curr_node;
- 	u32 n_num;
- 
- 	spin_lock_bh(&node_create_lock);
- 
--	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
--		if (addr < n_ptr->addr)
--			break;
--		if (addr == n_ptr->addr) {
--			spin_unlock_bh(&node_create_lock);
--			return n_ptr;
--		}
-+	n_ptr = tipc_node_find(addr);
-+	if (n_ptr) {
-+		spin_unlock_bh(&node_create_lock);
-+		return n_ptr;
- 	}
- 
--	n_ptr = kzalloc(sizeof(*n_ptr),GFP_ATOMIC);
-+	n_ptr = kzalloc(sizeof(*n_ptr), GFP_ATOMIC);
- 	if (!n_ptr) {
- 		spin_unlock_bh(&node_create_lock);
- 		warn("Node creation failed, no memory\n");
-@@ -93,15 +86,6 @@ struct tipc_node *tipc_node_create(u32 addr)
- 	if (n_num > tipc_net.highest_node)
- 		tipc_net.highest_node = n_num;
- 
--	/* Insert node into ordered list */
--	for (curr_node = &tipc_nodes; *curr_node;
--	     curr_node = &(*curr_node)->next) {
--		if (addr < (*curr_node)->addr) {
--			n_ptr->next = *curr_node;
--			break;
--		}
--	}
--	(*curr_node) = n_ptr;
- 	spin_unlock_bh(&node_create_lock);
- 	return n_ptr;
- }
-@@ -405,6 +389,7 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 	struct tipc_node *n_ptr;
- 	struct tipc_node_info node_info;
- 	u32 payload_size;
-+	u32 n_num;
- 
- 	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_NET_ADDR))
- 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
-@@ -415,14 +400,15 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 						   " (network address)");
- 
- 	read_lock_bh(&tipc_net_lock);
--	if (!tipc_nodes) {
-+	if (!tipc_net.nodes) {
- 		read_unlock_bh(&tipc_net_lock);
- 		return tipc_cfg_reply_none();
- 	}
- 
- 	/* For now, get space for all other nodes */
- 
--	payload_size = TLV_SPACE(sizeof(node_info)) * (tipc_max_nodes - 1);
-+	payload_size = TLV_SPACE(sizeof(node_info)) *
-+		(tipc_net.highest_node - 1);
- 	if (payload_size > 32768u) {
- 		read_unlock_bh(&tipc_net_lock);
- 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
-@@ -436,8 +422,9 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 
- 	/* Add TLVs for all nodes in scope */
- 
--	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
--		if (!tipc_in_scope(domain, n_ptr->addr))
-+	for (n_num = 1; n_num <= tipc_net.highest_node; n_num++) {
-+		n_ptr = tipc_net.nodes[n_num];
-+		if (!n_ptr || !tipc_in_scope(domain, n_ptr->addr))
- 			continue;
- 		node_info.addr = htonl(n_ptr->addr);
- 		node_info.up = htonl(tipc_node_is_up(n_ptr));
-@@ -456,6 +443,7 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
- 	struct tipc_node *n_ptr;
- 	struct tipc_link_info link_info;
- 	u32 payload_size;
-+	u32 n_num;
- 
- 	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_NET_ADDR))
- 		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
-@@ -493,10 +481,11 @@ struct sk_buff *tipc_node_get_links(const void *req_tlv_area, int req_tlv_space)
- 
- 	/* Add TLVs for any other links in scope */
- 
--	for (n_ptr = tipc_nodes; n_ptr; n_ptr = n_ptr->next) {
-+	for (n_num = 1; n_num <= tipc_net.highest_node; n_num++) {
- 		u32 i;
- 
--		if (!tipc_in_scope(domain, n_ptr->addr))
-+		n_ptr = tipc_net.nodes[n_num];
-+		if (!n_ptr || !tipc_in_scope(domain, n_ptr->addr))
- 			continue;
- 		tipc_node_lock(n_ptr);
- 		for (i = 0; i < MAX_BEARERS; i++) {
+ #include <linux/tipc.h>
 -- 
 1.7.3.3
 
