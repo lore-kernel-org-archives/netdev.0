@@ -1,83 +1,61 @@
-From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Sun, 2 Jan 2011 05:38:19 +0900
-Message-ID: <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
-References: <cover.1293820862.git.richard.cochran@omicron.at> <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+From: Stefani Seibold <stefani@seibold.net>
+Subject: Re: [PATCH] UDPCP Communication Protocol
+Date: Sat, 01 Jan 2011 22:28:45 +0100
+Message-ID: <1293917325.28510.1.camel@wall-e>
+References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
+	 <1293794758.2973.49.camel@edumazet-laptop>
+	 <1293796805.2973.62.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293796805.2973.62.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 1, 2011 at 4:12 AM, Richard Cochran
-<richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> +#define ADJ_SETOFFSET =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A00x0040 =C2=A0=
-/* add 'time' to current time */
+Am Freitag, den 31.12.2010, 13:00 +0100 schrieb Eric Dumazet:
+> Le vendredi 31 d=E9cembre 2010 =E0 12:25 +0100, Eric Dumazet a =E9cri=
+t :
+> > Le vendredi 31 d=E9cembre 2010 =E0 10:29 +0100, stefani@seibold.net=
+ a
+> > =E9crit :
+> > > +		if (!list_empty(&usk->destlist)) {
+> > > +			state->sk =3D (struct sock *)usk;
+> > > +			state->dest =3D list_first_entry(&usk->destlist,
+> > > +					struct udpcp_dest, list);
+> > > +			sock_hold(state->sk);
+> > > +
+> > > +			if (atomic_read(&state->sk->sk_refcnt) !=3D 1) {
+> > > +				spin_unlock_irqrestore(&spinlock, flags);
+> > > +				return state;
+> > > +			}
+> > > +			atomic_dec(&state->sk->sk_refcnt);
+> > > +		}
+> > > +
+> >=20
+> > I am trying to understand what you are doing here.
+> >=20
+> > It seems racy to me.
+> >=20
+> > Apparently, what you want is to take a reference only if actual
+> > sk_refcnt is not zero.
+> >=20
+> > I suggest using atomic_inc_notzero(&state->sk->sk_refcnt) to avoid =
+the
+> > race in atomic_dec().
+> >=20
+> >=20
+>=20
+> Before you ask why its racy, this is because UDP sockets are RCU
+> protected, and RCU lookups depend on sk_refcnt being zero or not.
+>=20
+> Doing an sk_refcnt increment/decrement opens a race window for the
+> concurrent lookups.
+>=20
 
-As you know, it conflicts with MOD_PPSMAX.  And also, it is logically
-the same as ADJ_OFFSET, unless the kernel PLL is enabled explicitly.
-
-So here's my simple solution:
-
----
-diff --git a/kernel/time/ntp.c b/kernel/time/ntp.c
-index c631168..d492887 100644
---- a/kernel/time/ntp.c
-+++ b/kernel/time/ntp.c
-@@ -119,14 +119,21 @@
- 	return div_s64(offset64 << (NTP_SCALE_SHIFT - SHIFT_FLL), secs);
- }
-
--static void ntp_update_offset(long offset)
-+static void ntp_update_offset(long offset, struct timespec *ts)
- {
- 	s64 freq_adj;
- 	s64 offset64;
- 	long secs;
-
--	if (!(time_status & STA_PLL))
-+	if (!(time_status & STA_PLL)) {
-+		offset64 =3D offset;
-+		if (!(time_status & STA_NANO))
-+			offset64 *=3D NSEC_PER_USEC;
-+
-+		set_normalized_timespec(ts, ts->tv_sec, offset64 + ts->tv_nsec);
-+
- 		return;
-+	}
-
- 	if (!(time_status & STA_NANO))
- 		offset *=3D NSEC_PER_USEC;
-@@ -430,7 +437,7 @@
- 		time_tai =3D txc->constant;
-
- 	if (txc->modes & ADJ_OFFSET)
--		ntp_update_offset(txc->offset);
-+		ntp_update_offset(txc->offset, ts);
-
- 	if (txc->modes & ADJ_TICK)
- 		tick_usec =3D txc->tick;
-@@ -526,6 +533,9 @@
-
- 	write_sequnlock_irq(&xtime_lock);
-
-+	if ((txc->modes & ADJ_OFFSET) && !(time_status & STA_PLL))
-+		do_settimeofday(&ts);
-+
- 	txc->time.tv_sec =3D ts.tv_sec;
- 	txc->time.tv_usec =3D ts.tv_nsec;
- 	if (!(time_status & STA_NANO))
---
+I still revamped the whole /proc/net/udpcp thing and hope it is now rac=
+e
+free.
