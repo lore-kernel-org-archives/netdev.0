@@ -1,694 +1,1099 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 02/20] tipc: Remove prototype code for supporting slave nodes
-Date: Fri, 31 Dec 2010 23:59:17 -0500
-Message-ID: <1293857975-30267-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 09/20] tipc: rename dbg.[ch] to log.[ch]
+Date: Fri, 31 Dec 2010 23:59:24 -0500
+Message-ID: <1293857975-30267-10-git-send-email-paul.gortmaker@windriver.com>
 References: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	Allan Stephens <Allan.Stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53099 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:53296 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300Ab1AAE77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 Dec 2010 23:59:59 -0500
+	with ESMTP id S1750751Ab1AAFAH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 00:00:07 -0500
 In-Reply-To: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Simplifies routines and data structures that were intended to allow
-TIPC to support slave nodes (i.e. nodes that did not have links to
-all of the other nodes in its cluster, forcing TIPC to route messages
-that it could not deliver directly through a non-slave node).
-
-Currently, TIPC supports only networks containing non-slave nodes,
-so this code is unnecessary.
-
-Note: The latest edition of the TIPC 2.0 Specification has eliminated
-the concept of slave nodes entirely.
+As the first step in removing obsolete debugging code from TIPC the
+files that implement TIPC's non-debug-related log buffer subsystem
+are renamed to better reflect their true nature.
 
 Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- include/linux/tipc_config.h |    4 +-
- net/tipc/addr.c             |    2 -
- net/tipc/addr.h             |   10 ---
- net/tipc/cluster.c          |  166 +++++-------------------------------------
- net/tipc/cluster.h          |    7 --
- net/tipc/config.c           |   21 +-----
- net/tipc/core.c             |    6 --
- net/tipc/core.h             |    1 -
- net/tipc/discover.c         |    4 -
- net/tipc/msg.h              |    2 +-
- net/tipc/node.c             |   59 ++++------------
- net/tipc/port.c             |    5 +-
- 12 files changed, 40 insertions(+), 247 deletions(-)
+ net/tipc/Makefile |    2 +-
+ net/tipc/core.h   |    2 +-
+ net/tipc/dbg.c    |  432 -----------------------------------------------------
+ net/tipc/dbg.h    |   67 --------
+ net/tipc/link.h   |    2 +-
+ net/tipc/log.c    |  428 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/tipc/log.h    |   67 ++++++++
+ 7 files changed, 498 insertions(+), 502 deletions(-)
+ delete mode 100644 net/tipc/dbg.c
+ delete mode 100644 net/tipc/dbg.h
+ create mode 100644 net/tipc/log.c
+ create mode 100644 net/tipc/log.h
 
-diff --git a/include/linux/tipc_config.h b/include/linux/tipc_config.h
-index fa3aeaa..dcc2b87 100644
---- a/include/linux/tipc_config.h
-+++ b/include/linux/tipc_config.h
-@@ -97,7 +97,7 @@
- #define  TIPC_CMD_GET_MAX_ZONES     0x4007    /* obsoleted */
- #define  TIPC_CMD_GET_MAX_CLUSTERS  0x4008    /* tx none, rx unsigned */
- #define  TIPC_CMD_GET_MAX_NODES     0x4009    /* tx none, rx unsigned */
--#define  TIPC_CMD_GET_MAX_SLAVES    0x400A    /* tx none, rx unsigned */
-+#define  TIPC_CMD_GET_MAX_SLAVES    0x400A    /* obsoleted */
- #define  TIPC_CMD_GET_NETID         0x400B    /* tx none, rx unsigned */
+diff --git a/net/tipc/Makefile b/net/tipc/Makefile
+index d41cd11..521d24d 100644
+--- a/net/tipc/Makefile
++++ b/net/tipc/Makefile
+@@ -8,6 +8,6 @@ tipc-y	+= addr.o bcast.o bearer.o config.o \
+ 	   core.o handler.o link.o discover.o msg.o  \
+ 	   name_distr.o  subscr.o name_table.o net.o  \
+ 	   netlink.o node.o node_subscr.o port.o ref.o  \
+-	   socket.o dbg.o eth_media.o
++	   socket.o log.o eth_media.o
  
- #define  TIPC_CMD_ENABLE_BEARER     0x4101    /* tx bearer_config, rx none */
-@@ -133,7 +133,7 @@
- #define  TIPC_CMD_SET_MAX_ZONES     0x8007    /* obsoleted */
- #define  TIPC_CMD_SET_MAX_CLUSTERS  0x8008    /* tx unsigned, rx none */
- #define  TIPC_CMD_SET_MAX_NODES     0x8009    /* tx unsigned, rx none */
--#define  TIPC_CMD_SET_MAX_SLAVES    0x800A    /* tx unsigned, rx none */
-+#define  TIPC_CMD_SET_MAX_SLAVES    0x800A    /* obsoleted */
- #define  TIPC_CMD_SET_NETID         0x800B    /* tx unsigned, rx none */
+ # End of file
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index c44f955..17f3670 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -59,7 +59,7 @@
+ #define TIPC_MOD_VER "2.0.0"
+ 
+ struct tipc_msg;	/* msg.h */
+-struct print_buf;	/* dbg.h */
++struct print_buf;	/* log.h */
  
  /*
-diff --git a/net/tipc/addr.c b/net/tipc/addr.c
-index 3d0f97d..8823e03 100644
---- a/net/tipc/addr.c
-+++ b/net/tipc/addr.c
-@@ -53,8 +53,6 @@ int tipc_addr_domain_valid(u32 addr)
- 	u32 z = tipc_zone(addr);
- 	u32 max_nodes = tipc_max_nodes;
- 
--	if (is_slave(addr))
--		max_nodes = LOWEST_SLAVE + tipc_max_slaves;
- 	if (n > max_nodes)
- 		return 0;
- 	if (c > tipc_max_clusters)
-diff --git a/net/tipc/addr.h b/net/tipc/addr.h
-index c1cc572..a16c6c8 100644
---- a/net/tipc/addr.h
-+++ b/net/tipc/addr.h
-@@ -57,16 +57,6 @@ static inline int in_own_cluster(u32 addr)
- 	return !((addr ^ tipc_own_addr) >> 12);
- }
- 
--static inline int is_slave(u32 addr)
--{
--	return addr & 0x800;
+  * TIPC sanity test macros
+diff --git a/net/tipc/dbg.c b/net/tipc/dbg.c
+deleted file mode 100644
+index 46f51d2..0000000
+--- a/net/tipc/dbg.c
++++ /dev/null
+@@ -1,432 +0,0 @@
+-/*
+- * net/tipc/dbg.c: TIPC print buffer routines for debugging
+- *
+- * Copyright (c) 1996-2006, Ericsson AB
+- * Copyright (c) 2005-2007, Wind River Systems
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions are met:
+- *
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. Neither the names of the copyright holders nor the names of its
+- *    contributors may be used to endorse or promote products derived from
+- *    this software without specific prior written permission.
+- *
+- * Alternatively, this software may be distributed under the terms of the
+- * GNU General Public License ("GPL") version 2 as published by the Free
+- * Software Foundation.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
+- */
+-
+-#include "core.h"
+-#include "config.h"
+-#include "dbg.h"
+-
+-/*
+- * TIPC pre-defines the following print buffers:
+- *
+- * TIPC_NULL : null buffer (i.e. print nowhere)
+- * TIPC_CONS : system console
+- * TIPC_LOG  : TIPC log buffer
+- *
+- * Additional user-defined print buffers are also permitted.
+- */
+-
+-static struct print_buf null_buf = { NULL, 0, NULL, 0 };
+-struct print_buf *const TIPC_NULL = &null_buf;
+-
+-static struct print_buf cons_buf = { NULL, 0, NULL, 1 };
+-static struct print_buf *const TIPC_CONS = &cons_buf;
+-
+-static struct print_buf log_buf = { NULL, 0, NULL, 1 };
+-struct print_buf *const TIPC_LOG = &log_buf;
+-
+-/*
+- * Locking policy when using print buffers.
+- *
+- * 1) tipc_printf() uses 'print_lock' to protect against concurrent access to
+- * 'print_string' when writing to a print buffer. This also protects against
+- * concurrent writes to the print buffer being written to.
+- *
+- * 2) tipc_dump() and tipc_log_XXX() leverage the aforementioned
+- * use of 'print_lock' to protect against all types of concurrent operations
+- * on their associated print buffer (not just write operations).
+- *
+- * Note: All routines of the form tipc_printbuf_XXX() are lock-free, and rely
+- * on the caller to prevent simultaneous use of the print buffer(s) being
+- * manipulated.
+- */
+-
+-static char print_string[TIPC_PB_MAX_STR];
+-static DEFINE_SPINLOCK(print_lock);
+-
+-static void tipc_printbuf_reset(struct print_buf *pb);
+-static int  tipc_printbuf_empty(struct print_buf *pb);
+-static void tipc_printbuf_move(struct print_buf *pb_to,
+-			       struct print_buf *pb_from);
+-
+-#define FORMAT(PTR,LEN,FMT) \
+-{\
+-       va_list args;\
+-       va_start(args, FMT);\
+-       LEN = vsprintf(PTR, FMT, args);\
+-       va_end(args);\
+-       *(PTR + LEN) = '\0';\
 -}
 -
--static inline int may_route(u32 addr)
--{
--	return(addr ^ tipc_own_addr) >> 11;
--}
+-/**
+- * tipc_printbuf_init - initialize print buffer to empty
+- * @pb: pointer to print buffer structure
+- * @raw: pointer to character array used by print buffer
+- * @size: size of character array
+- *
+- * Note: If the character array is too small (or absent), the print buffer
+- * becomes a null device that discards anything written to it.
+- */
 -
- /**
-  * addr_domain - convert 2-bit scope value to equivalent message lookup domain
-  *
-diff --git a/net/tipc/cluster.c b/net/tipc/cluster.c
-index 996b2b6..6bc9f07 100644
---- a/net/tipc/cluster.c
-+++ b/net/tipc/cluster.c
-@@ -43,7 +43,6 @@ static void tipc_cltr_multicast(struct cluster *c_ptr, struct sk_buff *buf,
- 
- struct tipc_node **tipc_local_nodes = NULL;
- struct tipc_node_map tipc_cltr_bcast_nodes = {0,{0,}};
--u32 tipc_highest_allowed_slave = 0;
- 
- struct cluster *tipc_cltr_create(u32 addr)
- {
-@@ -57,10 +56,7 @@ struct cluster *tipc_cltr_create(u32 addr)
- 	}
- 
- 	c_ptr->addr = tipc_addr(tipc_zone(addr), tipc_cluster(addr), 0);
--	if (in_own_cluster(addr))
--		max_nodes = LOWEST_SLAVE + tipc_max_slaves;
--	else
--		max_nodes = tipc_max_nodes + 1;
-+	max_nodes = tipc_max_nodes + 1;
- 
- 	c_ptr->nodes = kcalloc(max_nodes + 1, sizeof(void*), GFP_ATOMIC);
- 	if (c_ptr->nodes == NULL) {
-@@ -71,7 +67,6 @@ struct cluster *tipc_cltr_create(u32 addr)
- 
- 	if (in_own_cluster(addr))
- 		tipc_local_nodes = c_ptr->nodes;
--	c_ptr->highest_slave = LOWEST_SLAVE - 1;
- 	c_ptr->highest_node = 0;
- 
- 	tipc_net.clusters[1] = c_ptr;
-@@ -87,9 +82,6 @@ void tipc_cltr_delete(struct cluster *c_ptr)
- 	for (n_num = 1; n_num <= c_ptr->highest_node; n_num++) {
- 		tipc_node_delete(c_ptr->nodes[n_num]);
- 	}
--	for (n_num = LOWEST_SLAVE; n_num <= c_ptr->highest_slave; n_num++) {
--		tipc_node_delete(c_ptr->nodes[n_num]);
+-void tipc_printbuf_init(struct print_buf *pb, char *raw, u32 size)
+-{
+-	pb->buf = raw;
+-	pb->crs = raw;
+-	pb->size = size;
+-	pb->echo = 0;
+-
+-	if (size < TIPC_PB_MIN_SIZE) {
+-		pb->buf = NULL;
+-	} else if (raw) {
+-		pb->buf[0] = 0;
+-		pb->buf[size - 1] = ~0;
 -	}
- 	kfree(c_ptr->nodes);
- 	kfree(c_ptr);
- }
-@@ -100,8 +92,6 @@ void tipc_cltr_attach_node(struct cluster *c_ptr, struct tipc_node *n_ptr)
- 	u32 n_num = tipc_node(n_ptr->addr);
- 	u32 max_n_num = tipc_max_nodes;
- 
--	if (in_own_cluster(n_ptr->addr))
--		max_n_num = tipc_highest_allowed_slave;
- 	assert(n_num > 0);
- 	assert(n_num <= max_n_num);
- 	assert(c_ptr->nodes[n_num] == NULL);
-@@ -237,41 +227,6 @@ void tipc_cltr_bcast_lost_route(struct cluster *c_ptr, u32 dest,
- 	}
- }
- 
--void tipc_cltr_send_slave_routes(struct cluster *c_ptr, u32 dest)
--{
--	struct sk_buff *buf;
--	struct tipc_msg *msg;
--	u32 highest = c_ptr->highest_slave;
--	u32 n_num;
--	int send = 0;
+-}
 -
--	assert(!is_slave(dest));
--	assert(in_own_cluster(dest));
--	assert(in_own_cluster(c_ptr->addr));
--	if (highest <= LOWEST_SLAVE)
+-/**
+- * tipc_printbuf_reset - reinitialize print buffer to empty state
+- * @pb: pointer to print buffer structure
+- */
+-
+-static void tipc_printbuf_reset(struct print_buf *pb)
+-{
+-	if (pb->buf) {
+-		pb->crs = pb->buf;
+-		pb->buf[0] = 0;
+-		pb->buf[pb->size - 1] = ~0;
+-	}
+-}
+-
+-/**
+- * tipc_printbuf_empty - test if print buffer is in empty state
+- * @pb: pointer to print buffer structure
+- *
+- * Returns non-zero if print buffer is empty.
+- */
+-
+-static int tipc_printbuf_empty(struct print_buf *pb)
+-{
+-	return !pb->buf || (pb->crs == pb->buf);
+-}
+-
+-/**
+- * tipc_printbuf_validate - check for print buffer overflow
+- * @pb: pointer to print buffer structure
+- *
+- * Verifies that a print buffer has captured all data written to it.
+- * If data has been lost, linearize buffer and prepend an error message
+- *
+- * Returns length of print buffer data string (including trailing NUL)
+- */
+-
+-int tipc_printbuf_validate(struct print_buf *pb)
+-{
+-	char *err = "\n\n*** PRINT BUFFER OVERFLOW ***\n\n";
+-	char *cp_buf;
+-	struct print_buf cb;
+-
+-	if (!pb->buf)
+-		return 0;
+-
+-	if (pb->buf[pb->size - 1] == 0) {
+-		cp_buf = kmalloc(pb->size, GFP_ATOMIC);
+-		if (cp_buf) {
+-			tipc_printbuf_init(&cb, cp_buf, pb->size);
+-			tipc_printbuf_move(&cb, pb);
+-			tipc_printbuf_move(pb, &cb);
+-			kfree(cp_buf);
+-			memcpy(pb->buf, err, strlen(err));
+-		} else {
+-			tipc_printbuf_reset(pb);
+-			tipc_printf(pb, err);
+-		}
+-	}
+-	return pb->crs - pb->buf + 1;
+-}
+-
+-/**
+- * tipc_printbuf_move - move print buffer contents to another print buffer
+- * @pb_to: pointer to destination print buffer structure
+- * @pb_from: pointer to source print buffer structure
+- *
+- * Current contents of destination print buffer (if any) are discarded.
+- * Source print buffer becomes empty if a successful move occurs.
+- */
+-
+-static void tipc_printbuf_move(struct print_buf *pb_to,
+-			       struct print_buf *pb_from)
+-{
+-	int len;
+-
+-	/* Handle the cases where contents can't be moved */
+-
+-	if (!pb_to->buf)
 -		return;
--	buf = tipc_cltr_prepare_routing_msg(highest - LOWEST_SLAVE + 1,
--					    c_ptr->addr);
--	if (buf) {
--		msg = buf_msg(buf);
--		msg_set_remote_node(msg, c_ptr->addr);
--		msg_set_type(msg, SLAVE_ROUTING_TABLE);
--		for (n_num = LOWEST_SLAVE; n_num <= highest; n_num++) {
--			if (c_ptr->nodes[n_num] &&
--			    tipc_node_has_active_links(c_ptr->nodes[n_num])) {
--				send = 1;
--				msg_set_dataoctet(msg, n_num);
--			}
--		}
--		if (send)
--			tipc_link_send(buf, dest, dest);
--		else
--			buf_discard(buf);
--	} else {
--		warn("Memory squeeze: broadcast of lost route failed\n");
+-
+-	if (!pb_from->buf) {
+-		tipc_printbuf_reset(pb_to);
+-		return;
 -	}
+-
+-	if (pb_to->size < pb_from->size) {
+-		strcpy(pb_to->buf, "*** PRINT BUFFER MOVE ERROR ***");
+-		pb_to->buf[pb_to->size - 1] = ~0;
+-		pb_to->crs = strchr(pb_to->buf, 0);
+-		return;
+-	}
+-
+-	/* Copy data from char after cursor to end (if used) */
+-
+-	len = pb_from->buf + pb_from->size - pb_from->crs - 2;
+-	if ((pb_from->buf[pb_from->size - 1] == 0) && (len > 0)) {
+-		strcpy(pb_to->buf, pb_from->crs + 1);
+-		pb_to->crs = pb_to->buf + len;
+-	} else
+-		pb_to->crs = pb_to->buf;
+-
+-	/* Copy data from start to cursor (always) */
+-
+-	len = pb_from->crs - pb_from->buf;
+-	strcpy(pb_to->crs, pb_from->buf);
+-	pb_to->crs += len;
+-
+-	tipc_printbuf_reset(pb_from);
 -}
 -
- void tipc_cltr_send_ext_routes(struct cluster *c_ptr, u32 dest)
- {
- 	struct sk_buff *buf;
-@@ -282,7 +237,6 @@ void tipc_cltr_send_ext_routes(struct cluster *c_ptr, u32 dest)
- 
- 	if (in_own_cluster(c_ptr->addr))
- 		return;
--	assert(!is_slave(dest));
- 	assert(in_own_cluster(dest));
- 	highest = c_ptr->highest_node;
- 	buf = tipc_cltr_prepare_routing_msg(highest + 1, c_ptr->addr);
-@@ -306,37 +260,6 @@ void tipc_cltr_send_ext_routes(struct cluster *c_ptr, u32 dest)
- 	}
- }
- 
--void tipc_cltr_send_local_routes(struct cluster *c_ptr, u32 dest)
+-/**
+- * tipc_printf - append formatted output to print buffer
+- * @pb: pointer to print buffer
+- * @fmt: formatted info to be printed
+- */
+-
+-void tipc_printf(struct print_buf *pb, const char *fmt, ...)
 -{
--	struct sk_buff *buf;
--	struct tipc_msg *msg;
--	u32 highest = c_ptr->highest_node;
--	u32 n_num;
--	int send = 0;
+-	int chars_to_add;
+-	int chars_left;
+-	char save_char;
 -
--	assert(is_slave(dest));
--	assert(in_own_cluster(c_ptr->addr));
--	buf = tipc_cltr_prepare_routing_msg(highest, c_ptr->addr);
--	if (buf) {
--		msg = buf_msg(buf);
--		msg_set_remote_node(msg, c_ptr->addr);
--		msg_set_type(msg, LOCAL_ROUTING_TABLE);
--		for (n_num = 1; n_num <= highest; n_num++) {
--			if (c_ptr->nodes[n_num] &&
--			    tipc_node_has_active_links(c_ptr->nodes[n_num])) {
--				send = 1;
--				msg_set_dataoctet(msg, n_num);
--			}
+-	spin_lock_bh(&print_lock);
+-
+-	FORMAT(print_string, chars_to_add, fmt);
+-	if (chars_to_add >= TIPC_PB_MAX_STR)
+-		strcpy(print_string, "*** PRINT BUFFER STRING TOO LONG ***");
+-
+-	if (pb->buf) {
+-		chars_left = pb->buf + pb->size - pb->crs - 1;
+-		if (chars_to_add <= chars_left) {
+-			strcpy(pb->crs, print_string);
+-			pb->crs += chars_to_add;
+-		} else if (chars_to_add >= (pb->size - 1)) {
+-			strcpy(pb->buf, print_string + chars_to_add + 1
+-			       - pb->size);
+-			pb->crs = pb->buf + pb->size - 1;
+-		} else {
+-			strcpy(pb->buf, print_string + chars_left);
+-			save_char = print_string[chars_left];
+-			print_string[chars_left] = 0;
+-			strcpy(pb->crs, print_string);
+-			print_string[chars_left] = save_char;
+-			pb->crs = pb->buf + chars_to_add - chars_left;
 -		}
--		if (send)
--			tipc_link_send(buf, dest, dest);
--		else
--			buf_discard(buf);
--	} else {
--		warn("Memory squeeze: broadcast of local route failed\n");
+-	}
+-
+-	if (pb->echo)
+-		printk("%s", print_string);
+-
+-	spin_unlock_bh(&print_lock);
+-}
+-
+-#ifdef CONFIG_TIPC_DEBUG
+-
+-/**
+- * print_to_console - write string of bytes to console in multiple chunks
+- */
+-
+-static void print_to_console(char *crs, int len)
+-{
+-	int rest = len;
+-
+-	while (rest > 0) {
+-		int sz = rest < TIPC_PB_MAX_STR ? rest : TIPC_PB_MAX_STR;
+-		char c = crs[sz];
+-
+-		crs[sz] = 0;
+-		printk((const char *)crs);
+-		crs[sz] = c;
+-		rest -= sz;
+-		crs += sz;
 -	}
 -}
 -
- void tipc_cltr_recv_routing_table(struct sk_buff *buf)
- {
- 	struct tipc_msg *msg = buf_msg(buf);
-@@ -366,8 +289,6 @@ void tipc_cltr_recv_routing_table(struct sk_buff *buf)
- 	c_num = tipc_cluster(rem_node);
- 
- 	switch (msg_type(msg)) {
--	case LOCAL_ROUTING_TABLE:
--		assert(is_slave(tipc_own_addr));
- 	case EXT_ROUTING_TABLE:
- 		for (n_num = 1; n_num < table_size; n_num++) {
- 			if (node_table[n_num]) {
-@@ -382,29 +303,10 @@ void tipc_cltr_recv_routing_table(struct sk_buff *buf)
- 		}
- 		break;
- 	case SLAVE_ROUTING_TABLE:
--		assert(!is_slave(tipc_own_addr));
- 		assert(in_own_cluster(c_ptr->addr));
--		for (n_num = 1; n_num < table_size; n_num++) {
--			if (node_table[n_num]) {
--				u32 slave_num = n_num + LOWEST_SLAVE;
--				u32 addr = tipc_addr(z_num, c_num, slave_num);
--				n_ptr = c_ptr->nodes[slave_num];
--				if (!n_ptr) {
--					n_ptr = tipc_node_create(addr);
--				}
--				if (n_ptr)
--					tipc_node_add_router(n_ptr, router);
--			}
--		}
- 		break;
- 	case ROUTE_ADDITION:
--		if (!is_slave(tipc_own_addr)) {
--			assert(!in_own_cluster(c_ptr->addr) ||
--			       is_slave(rem_node));
--		} else {
--			assert(in_own_cluster(c_ptr->addr) &&
--			       !is_slave(rem_node));
--		}
-+		assert(!in_own_cluster(c_ptr->addr));
- 		n_ptr = c_ptr->nodes[tipc_node(rem_node)];
- 		if (!n_ptr)
- 			n_ptr = tipc_node_create(rem_node);
-@@ -412,13 +314,7 @@ void tipc_cltr_recv_routing_table(struct sk_buff *buf)
- 			tipc_node_add_router(n_ptr, router);
- 		break;
- 	case ROUTE_REMOVAL:
--		if (!is_slave(tipc_own_addr)) {
--			assert(!in_own_cluster(c_ptr->addr) ||
--			       is_slave(rem_node));
--		} else {
--			assert(in_own_cluster(c_ptr->addr) &&
--			       !is_slave(rem_node));
--		}
-+		assert(!in_own_cluster(c_ptr->addr));
- 		n_ptr = c_ptr->nodes[tipc_node(rem_node)];
- 		if (n_ptr)
- 			tipc_node_remove_router(n_ptr, router);
-@@ -431,22 +327,12 @@ void tipc_cltr_recv_routing_table(struct sk_buff *buf)
- 
- void tipc_cltr_remove_as_router(struct cluster *c_ptr, u32 router)
- {
--	u32 start_entry;
--	u32 tstop;
- 	u32 n_num;
- 
--	if (is_slave(router))
--		return;	/* Slave nodes can not be routers */
+-/**
+- * printbuf_dump - write print buffer contents to console
+- */
 -
--	if (in_own_cluster(c_ptr->addr)) {
--		start_entry = LOWEST_SLAVE;
--		tstop = c_ptr->highest_slave;
--	} else {
--		start_entry = 1;
--		tstop = c_ptr->highest_node;
+-static void printbuf_dump(struct print_buf *pb)
+-{
+-	int len;
+-
+-	if (!pb->buf) {
+-		printk("*** PRINT BUFFER NOT ALLOCATED ***");
+-		return;
 -	}
-+	if (in_own_cluster(c_ptr->addr))
-+		return;
- 
--	for (n_num = start_entry; n_num <= tstop; n_num++) {
-+	for (n_num = 1; n_num <= c_ptr->highest_node; n_num++) {
- 		if (c_ptr->nodes[n_num]) {
- 			tipc_node_remove_router(c_ptr->nodes[n_num], router);
- 		}
-@@ -466,13 +352,11 @@ static void tipc_cltr_multicast(struct cluster *c_ptr, struct sk_buff *buf,
- 	u32 tstop;
- 
- 	assert(lower <= upper);
--	assert(((lower >= 1) && (lower <= tipc_max_nodes)) ||
--	       ((lower >= LOWEST_SLAVE) && (lower <= tipc_highest_allowed_slave)));
--	assert(((upper >= 1) && (upper <= tipc_max_nodes)) ||
--	       ((upper >= LOWEST_SLAVE) && (upper <= tipc_highest_allowed_slave)));
-+	assert((lower >= 1) && (lower <= tipc_max_nodes));
-+	assert((upper >= 1) && (upper <= tipc_max_nodes));
- 	assert(in_own_cluster(c_ptr->addr));
- 
--	tstop = is_slave(upper) ? c_ptr->highest_slave : c_ptr->highest_node;
-+	tstop = c_ptr->highest_node;
- 	if (tstop > upper)
- 		tstop = upper;
- 	for (n_num = lower; n_num <= tstop; n_num++) {
-@@ -498,32 +382,23 @@ void tipc_cltr_broadcast(struct sk_buff *buf)
- 	struct cluster *c_ptr;
- 	struct tipc_node *n_ptr;
- 	u32 n_num;
--	u32 tstart;
--	u32 tstop;
--	u32 node_type;
- 
- 	if (tipc_mode == TIPC_NET_MODE) {
- 		c_ptr = tipc_cltr_find(tipc_own_addr);
- 		assert(in_own_cluster(c_ptr->addr));	/* For now */
- 
--		/* Send to standard nodes, then repeat loop sending to slaves */
--		tstart = 1;
--		tstop = c_ptr->highest_node;
--		for (node_type = 1; node_type <= 2; node_type++) {
--			for (n_num = tstart; n_num <= tstop; n_num++) {
--				n_ptr = c_ptr->nodes[n_num];
--				if (n_ptr && tipc_node_has_active_links(n_ptr)) {
--					buf_copy = skb_copy(buf, GFP_ATOMIC);
--					if (buf_copy == NULL)
--						goto exit;
--					msg_set_destnode(buf_msg(buf_copy),
--							 n_ptr->addr);
--					tipc_link_send(buf_copy, n_ptr->addr,
--						       n_ptr->addr);
--				}
-+		/* Send to nodes */
-+		for (n_num = 1; n_num <= c_ptr->highest_node; n_num++) {
-+			n_ptr = c_ptr->nodes[n_num];
-+			if (n_ptr && tipc_node_has_active_links(n_ptr)) {
-+				buf_copy = skb_copy(buf, GFP_ATOMIC);
-+				if (buf_copy == NULL)
-+					goto exit;
-+				msg_set_destnode(buf_msg(buf_copy),
-+						 n_ptr->addr);
-+				tipc_link_send(buf_copy, n_ptr->addr,
-+					       n_ptr->addr);
- 			}
--			tstart = LOWEST_SLAVE;
--			tstop = c_ptr->highest_slave;
- 		}
- 	}
- exit:
-@@ -532,7 +407,6 @@ exit:
- 
- int tipc_cltr_init(void)
- {
--	tipc_highest_allowed_slave = LOWEST_SLAVE + tipc_max_slaves;
- 	return tipc_cltr_create(tipc_own_addr) ? 0 : -ENOMEM;
- }
- 
-diff --git a/net/tipc/cluster.h b/net/tipc/cluster.h
-index 21493f7..aa1fd6a 100644
---- a/net/tipc/cluster.h
-+++ b/net/tipc/cluster.h
-@@ -40,26 +40,21 @@
- #include "addr.h"
- #include "net.h"
- 
--#define LOWEST_SLAVE  2048u
 -
- /**
-  * struct cluster - TIPC cluster structure
-  * @addr: network address of cluster
-  * @nodes: array of pointers to all nodes within cluster
-  * @highest_node: id of highest numbered node within cluster
-- * @highest_slave: (used for secondary node support)
-  */
- 
- struct cluster {
- 	u32 addr;
- 	struct tipc_node **nodes;
- 	u32 highest_node;
--	u32 highest_slave;
- };
- 
- 
- extern struct tipc_node **tipc_local_nodes;
--extern u32 tipc_highest_allowed_slave;
- extern struct tipc_node_map tipc_cltr_bcast_nodes;
- 
- void tipc_cltr_remove_as_router(struct cluster *c_ptr, u32 router);
-@@ -70,12 +65,10 @@ void tipc_cltr_recv_routing_table(struct sk_buff *buf);
- struct cluster *tipc_cltr_create(u32 addr);
- void tipc_cltr_delete(struct cluster *c_ptr);
- void tipc_cltr_attach_node(struct cluster *c_ptr, struct tipc_node *n_ptr);
--void tipc_cltr_send_slave_routes(struct cluster *c_ptr, u32 dest);
- void tipc_cltr_broadcast(struct sk_buff *buf);
- int tipc_cltr_init(void);
- 
- void tipc_cltr_bcast_new_route(struct cluster *c_ptr, u32 dest, u32 lo, u32 hi);
--void tipc_cltr_send_local_routes(struct cluster *c_ptr, u32 dest);
- void tipc_cltr_bcast_lost_route(struct cluster *c_ptr, u32 dest, u32 lo, u32 hi);
- 
- static inline struct cluster *tipc_cltr_find(u32 addr)
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index 8de97dd..05dc102 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -301,19 +301,6 @@ static struct sk_buff *cfg_set_max_nodes(void)
- 	return tipc_cfg_reply_none();
- }
- 
--static struct sk_buff *cfg_set_max_slaves(void)
+-	/* Dump print buffer from char after cursor to end (if used) */
+-
+-	len = pb->buf + pb->size - pb->crs - 2;
+-	if ((pb->buf[pb->size - 1] == 0) && (len > 0))
+-		print_to_console(pb->crs + 1, len);
+-
+-	/* Dump print buffer from start to cursor (always) */
+-
+-	len = pb->crs - pb->buf;
+-	print_to_console(pb->buf, len);
+-}
+-
+-/**
+- * tipc_dump_dbg - dump (non-console) print buffer to console
+- * @pb: pointer to print buffer
+- */
+-
+-void tipc_dump_dbg(struct print_buf *pb, const char *fmt, ...)
+-{
+-	int len;
+-
+-	if (pb == TIPC_CONS)
+-		return;
+-
+-	spin_lock_bh(&print_lock);
+-
+-	FORMAT(print_string, len, fmt);
+-	printk(print_string);
+-
+-	printk("\n---- Start of %s log dump ----\n\n",
+-	       (pb == TIPC_LOG) ? "global" : "local");
+-	printbuf_dump(pb);
+-	tipc_printbuf_reset(pb);
+-	printk("\n---- End of dump ----\n");
+-
+-	spin_unlock_bh(&print_lock);
+-}
+-
+-#endif
+-
+-/**
+- * tipc_log_resize - change the size of the TIPC log buffer
+- * @log_size: print buffer size to use
+- */
+-
+-int tipc_log_resize(int log_size)
+-{
+-	int res = 0;
+-
+-	spin_lock_bh(&print_lock);
+-	if (TIPC_LOG->buf) {
+-		kfree(TIPC_LOG->buf);
+-		TIPC_LOG->buf = NULL;
+-	}
+-	if (log_size) {
+-		if (log_size < TIPC_PB_MIN_SIZE)
+-			log_size = TIPC_PB_MIN_SIZE;
+-		res = TIPC_LOG->echo;
+-		tipc_printbuf_init(TIPC_LOG, kmalloc(log_size, GFP_ATOMIC),
+-				   log_size);
+-		TIPC_LOG->echo = res;
+-		res = !TIPC_LOG->buf;
+-	}
+-	spin_unlock_bh(&print_lock);
+-
+-	return res;
+-}
+-
+-/**
+- * tipc_log_resize_cmd - reconfigure size of TIPC log buffer
+- */
+-
+-struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area, int req_tlv_space)
 -{
 -	u32 value;
 -
 -	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_UNSIGNED))
 -		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
+-
 -	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
--	if (value != 0)
--		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
--						   " (max secondary nodes fixed at 0)");
+-	if (value != delimit(value, 0, 32768))
+-		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
+-						   " (log size must be 0-32768)");
+-	if (tipc_log_resize(value))
+-		return tipc_cfg_reply_error_string(
+-			"unable to create specified log (log size is now 0)");
 -	return tipc_cfg_reply_none();
 -}
 -
- static struct sk_buff *cfg_set_netid(void)
- {
- 	u32 value;
-@@ -439,9 +426,6 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	case TIPC_CMD_SET_MAX_NODES:
- 		rep_tlv_buf = cfg_set_max_nodes();
- 		break;
--	case TIPC_CMD_SET_MAX_SLAVES:
--		rep_tlv_buf = cfg_set_max_slaves();
--		break;
- 	case TIPC_CMD_SET_NETID:
- 		rep_tlv_buf = cfg_set_netid();
- 		break;
-@@ -463,9 +447,6 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	case TIPC_CMD_GET_MAX_NODES:
- 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_max_nodes);
- 		break;
--	case TIPC_CMD_GET_MAX_SLAVES:
--		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_max_slaves);
--		break;
- 	case TIPC_CMD_GET_NETID:
- 		rep_tlv_buf = tipc_cfg_reply_unsigned(tipc_net_id);
- 		break;
-@@ -475,6 +456,8 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 		break;
- 	case TIPC_CMD_SET_MAX_ZONES:
- 	case TIPC_CMD_GET_MAX_ZONES:
-+	case TIPC_CMD_SET_MAX_SLAVES:
-+	case TIPC_CMD_GET_MAX_SLAVES:
- 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 							  " (obsolete command)");
- 		break;
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 1394633..8b7af89 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -56,10 +56,6 @@
- #define CONFIG_TIPC_NODES 255
- #endif
- 
--#ifndef CONFIG_TIPC_SLAVE_NODES
--#define CONFIG_TIPC_SLAVE_NODES 0
--#endif
+-/**
+- * tipc_log_dump - capture TIPC log buffer contents in configuration message
+- */
 -
- #ifndef CONFIG_TIPC_PORTS
- #define CONFIG_TIPC_PORTS 8191
- #endif
-@@ -82,7 +78,6 @@ const char tipc_alphabet[] =
- u32 tipc_own_addr;
- int tipc_max_clusters;
- int tipc_max_nodes;
--int tipc_max_slaves;
- int tipc_max_ports;
- int tipc_max_subscriptions;
- int tipc_max_publications;
-@@ -206,7 +201,6 @@ static int __init tipc_init(void)
- 	tipc_max_ports = CONFIG_TIPC_PORTS;
- 	tipc_max_clusters = CONFIG_TIPC_CLUSTERS;
- 	tipc_max_nodes = CONFIG_TIPC_NODES;
--	tipc_max_slaves = CONFIG_TIPC_SLAVE_NODES;
- 	tipc_net_id = 4711;
- 
- 	if ((res = tipc_core_start()))
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 9403a22..8313a16 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -186,7 +186,6 @@ void tipc_dump_dbg(struct print_buf *, const char *fmt, ...);
- extern u32 tipc_own_addr;
- extern int tipc_max_clusters;
- extern int tipc_max_nodes;
--extern int tipc_max_slaves;
- extern int tipc_max_ports;
- extern int tipc_max_subscriptions;
- extern int tipc_max_publications;
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index f2ce36b..80799f6 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -149,10 +149,6 @@ void tipc_disc_recv_msg(struct sk_buff *buf, struct bearer *b_ptr)
- 	}
- 	if (!tipc_in_scope(dest, tipc_own_addr))
- 		return;
--	if (is_slave(tipc_own_addr) && is_slave(orig))
--		return;
--	if (is_slave(orig) && !in_own_cluster(orig))
--		return;
- 	if (in_own_cluster(orig)) {
- 		/* Always accept link here */
- 		struct sk_buff *rbuf;
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index aee5386..c1b6217 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -850,7 +850,7 @@ static inline void msg_set_dataoctet(struct tipc_msg *m, u32 pos)
-  * Routing table message types
-  */
- #define EXT_ROUTING_TABLE    0
--#define LOCAL_ROUTING_TABLE  1
-+#define LOCAL_ROUTING_TABLE  1		/* obsoleted */
- #define SLAVE_ROUTING_TABLE  2
- #define ROUTE_ADDITION       3
- #define ROUTE_REMOVAL        4
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index c20bd85..8ffbdb3 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -333,8 +333,6 @@ static void node_established_contact(struct tipc_node *n_ptr)
- 	/* Syncronize broadcast acks */
- 	n_ptr->bclink.acked = tipc_bclink_get_last_sent();
- 
--	if (is_slave(tipc_own_addr))
--		return;
- 	if (!in_own_cluster(n_ptr->addr)) {
- 		/* Usage case 1 (see above) */
- 		c_ptr = tipc_cltr_find(tipc_own_addr);
-@@ -347,13 +345,6 @@ static void node_established_contact(struct tipc_node *n_ptr)
- 	}
- 
- 	c_ptr = n_ptr->owner;
--	if (is_slave(n_ptr->addr)) {
--		/* Usage case 2 (see above) */
--		tipc_cltr_bcast_new_route(c_ptr, n_ptr->addr, 1, tipc_max_nodes);
--		tipc_cltr_send_local_routes(c_ptr, n_ptr->addr);
--		return;
+-struct sk_buff *tipc_log_dump(void)
+-{
+-	struct sk_buff *reply;
+-
+-	spin_lock_bh(&print_lock);
+-	if (!TIPC_LOG->buf) {
+-		spin_unlock_bh(&print_lock);
+-		reply = tipc_cfg_reply_ultra_string("log not activated\n");
+-	} else if (tipc_printbuf_empty(TIPC_LOG)) {
+-		spin_unlock_bh(&print_lock);
+-		reply = tipc_cfg_reply_ultra_string("log is empty\n");
 -	}
+-	else {
+-		struct tlv_desc *rep_tlv;
+-		struct print_buf pb;
+-		int str_len;
 -
- 	if (n_ptr->bclink.supported) {
- 		tipc_nmap_add(&tipc_cltr_bcast_nodes, n_ptr->addr);
- 		if (n_ptr->addr < tipc_own_addr)
-@@ -362,9 +353,6 @@ static void node_established_contact(struct tipc_node *n_ptr)
- 
- 	/* Case 3 (see above) */
- 	tipc_net_send_external_routes(n_ptr->addr);
--	tipc_cltr_send_slave_routes(c_ptr, n_ptr->addr);
--	tipc_cltr_bcast_new_route(c_ptr, n_ptr->addr, LOWEST_SLAVE,
--				  tipc_highest_allowed_slave);
- }
- 
- static void node_cleanup_finished(unsigned long node_addr)
-@@ -404,33 +392,20 @@ static void node_lost_contact(struct tipc_node *n_ptr)
- 	}
- 
- 	/* Update routing tables */
--	if (is_slave(tipc_own_addr)) {
--		tipc_net_remove_as_router(n_ptr->addr);
-+	if (!in_own_cluster(n_ptr->addr)) {
-+		/* Case 4 (see above) */
-+		c_ptr = tipc_cltr_find(tipc_own_addr);
-+		tipc_cltr_bcast_lost_route(c_ptr, n_ptr->addr, 1,
-+					   tipc_max_nodes);
- 	} else {
--		if (!in_own_cluster(n_ptr->addr)) {
--			/* Case 4 (see above) */
--			c_ptr = tipc_cltr_find(tipc_own_addr);
--			tipc_cltr_bcast_lost_route(c_ptr, n_ptr->addr, 1,
--						   tipc_max_nodes);
--		} else {
--			/* Case 5 (see above) */
--			c_ptr = tipc_cltr_find(n_ptr->addr);
--			if (is_slave(n_ptr->addr)) {
--				tipc_cltr_bcast_lost_route(c_ptr, n_ptr->addr, 1,
--							   tipc_max_nodes);
--			} else {
--				if (n_ptr->bclink.supported) {
--					tipc_nmap_remove(&tipc_cltr_bcast_nodes,
--							 n_ptr->addr);
--					if (n_ptr->addr < tipc_own_addr)
--						tipc_own_tag--;
--				}
--				tipc_net_remove_as_router(n_ptr->addr);
--				tipc_cltr_bcast_lost_route(c_ptr, n_ptr->addr,
--							   LOWEST_SLAVE,
--							   tipc_highest_allowed_slave);
--			}
-+		/* Case 5 (see above) */
-+		c_ptr = tipc_cltr_find(n_ptr->addr);
-+		if (n_ptr->bclink.supported) {
-+			tipc_nmap_remove(&tipc_cltr_bcast_nodes, n_ptr->addr);
-+			if (n_ptr->addr < tipc_own_addr)
-+				tipc_own_tag--;
- 		}
-+		tipc_net_remove_as_router(n_ptr->addr);
- 	}
- 	if (tipc_node_has_active_routes(n_ptr))
- 		return;
-@@ -482,7 +457,7 @@ struct tipc_node *tipc_node_select_next_hop(u32 addr, u32 selector)
- 		return n_ptr;
- 
- 	/* Cluster local system nodes *must* have direct links */
--	if (!is_slave(addr) && in_own_cluster(addr))
-+	if (in_own_cluster(addr))
- 		return NULL;
- 
- 	/* Look for cluster local router with direct link to node */
-@@ -490,11 +465,6 @@ struct tipc_node *tipc_node_select_next_hop(u32 addr, u32 selector)
- 	if (router_addr)
- 		return tipc_node_select(router_addr, selector);
- 
--	/* Slave nodes can only be accessed within own cluster via a
--	   known router with direct link -- if no router was found,give up */
--	if (is_slave(addr))
--		return NULL;
+-		str_len = min(TIPC_LOG->size, 32768u);
+-		spin_unlock_bh(&print_lock);
+-		reply = tipc_cfg_reply_alloc(TLV_SPACE(str_len));
+-		if (reply) {
+-			rep_tlv = (struct tlv_desc *)reply->data;
+-			tipc_printbuf_init(&pb, TLV_DATA(rep_tlv), str_len);
+-			spin_lock_bh(&print_lock);
+-			tipc_printbuf_move(&pb, TIPC_LOG);
+-			spin_unlock_bh(&print_lock);
+-			str_len = strlen(TLV_DATA(rep_tlv)) + 1;
+-			skb_put(reply, TLV_SPACE(str_len));
+-			TLV_SET(rep_tlv, TIPC_TLV_ULTRA_STRING, NULL, str_len);
+-		}
+-	}
+-	return reply;
+-}
 -
- 	/* Inter zone/cluster -- find any direct link to remote cluster */
- 	addr = tipc_addr(tipc_zone(addr), tipc_cluster(addr), 0);
- 	n_ptr = tipc_net_select_remote_node(addr, selector);
-@@ -603,8 +573,7 @@ struct sk_buff *tipc_node_get_nodes(const void *req_tlv_area, int req_tlv_space)
- 		return tipc_cfg_reply_none();
- 	}
+diff --git a/net/tipc/dbg.h b/net/tipc/dbg.h
+deleted file mode 100644
+index 3ba6ba8..0000000
+--- a/net/tipc/dbg.h
++++ /dev/null
+@@ -1,67 +0,0 @@
+-/*
+- * net/tipc/dbg.h: Include file for TIPC print buffer routines
+- *
+- * Copyright (c) 1997-2006, Ericsson AB
+- * Copyright (c) 2005-2007, Wind River Systems
+- * All rights reserved.
+- *
+- * Redistribution and use in source and binary forms, with or without
+- * modification, are permitted provided that the following conditions are met:
+- *
+- * 1. Redistributions of source code must retain the above copyright
+- *    notice, this list of conditions and the following disclaimer.
+- * 2. Redistributions in binary form must reproduce the above copyright
+- *    notice, this list of conditions and the following disclaimer in the
+- *    documentation and/or other materials provided with the distribution.
+- * 3. Neither the names of the copyright holders nor the names of its
+- *    contributors may be used to endorse or promote products derived from
+- *    this software without specific prior written permission.
+- *
+- * Alternatively, this software may be distributed under the terms of the
+- * GNU General Public License ("GPL") version 2 as published by the Free
+- * Software Foundation.
+- *
+- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+- * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+- * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+- * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+- * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+- * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+- * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+- * POSSIBILITY OF SUCH DAMAGE.
+- */
+-
+-#ifndef _TIPC_DBG_H
+-#define _TIPC_DBG_H
+-
+-/**
+- * struct print_buf - TIPC print buffer structure
+- * @buf: pointer to character array containing print buffer contents
+- * @size: size of character array
+- * @crs: pointer to first unused space in character array (i.e. final NUL)
+- * @echo: echo output to system console if non-zero
+- */
+-
+-struct print_buf {
+-	char *buf;
+-	u32 size;
+-	char *crs;
+-	int echo;
+-};
+-
+-#define TIPC_PB_MIN_SIZE 64	/* minimum size for a print buffer's array */
+-#define TIPC_PB_MAX_STR 512	/* max printable string (with trailing NUL) */
+-
+-void tipc_printbuf_init(struct print_buf *pb, char *buf, u32 size);
+-int  tipc_printbuf_validate(struct print_buf *pb);
+-
+-int tipc_log_resize(int log_size);
+-
+-struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area,
+-				    int req_tlv_space);
+-struct sk_buff *tipc_log_dump(void);
+-
+-#endif
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index c562888..eeb0c01 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -37,7 +37,7 @@
+ #ifndef _TIPC_LINK_H
+ #define _TIPC_LINK_H
  
--	/* For now, get space for all other nodes
--	   (will need to modify this when slave nodes are supported */
-+	/* For now, get space for all other nodes */
+-#include "dbg.h"
++#include "log.h"
+ #include "msg.h"
+ #include "node.h"
  
- 	payload_size = TLV_SPACE(sizeof(node_info)) * (tipc_max_nodes - 1);
- 	if (payload_size > 32768u) {
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 7873283..c033cb8 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -1110,10 +1110,7 @@ int tipc_connect2port(u32 ref, struct tipc_portid const *peer)
- 	msg_set_origport(msg, p_ptr->publ.ref);
- 	msg_set_transp_seqno(msg, 42);
- 	msg_set_type(msg, TIPC_CONN_MSG);
--	if (!may_route(peer->node))
--		msg_set_hdr_sz(msg, SHORT_H_SIZE);
--	else
--		msg_set_hdr_sz(msg, LONG_H_SIZE);
-+	msg_set_hdr_sz(msg, SHORT_H_SIZE);
- 
- 	p_ptr->probing_interval = PROBING_INTERVAL;
- 	p_ptr->probing_state = CONFIRMED;
+diff --git a/net/tipc/log.c b/net/tipc/log.c
+new file mode 100644
+index 0000000..9d99f70
+--- /dev/null
++++ b/net/tipc/log.c
+@@ -0,0 +1,428 @@
++/*
++ * net/tipc/log.c: TIPC print buffer routines for debugging
++ *
++ * Copyright (c) 1996-2006, Ericsson AB
++ * Copyright (c) 2005-2007, Wind River Systems
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "core.h"
++#include "config.h"
++#include "log.h"
++
++/*
++ * TIPC pre-defines the following print buffers:
++ *
++ * TIPC_NULL : null buffer (i.e. print nowhere)
++ * TIPC_CONS : system console
++ * TIPC_LOG  : TIPC log buffer
++ *
++ * Additional user-defined print buffers are also permitted.
++ */
++
++static struct print_buf null_buf = { NULL, 0, NULL, 0 };
++struct print_buf *const TIPC_NULL = &null_buf;
++
++static struct print_buf cons_buf = { NULL, 0, NULL, 1 };
++static struct print_buf *const TIPC_CONS = &cons_buf;
++
++static struct print_buf log_buf = { NULL, 0, NULL, 1 };
++struct print_buf *const TIPC_LOG = &log_buf;
++
++/*
++ * Locking policy when using print buffers.
++ *
++ * 1) tipc_printf() uses 'print_lock' to protect against concurrent access to
++ * 'print_string' when writing to a print buffer. This also protects against
++ * concurrent writes to the print buffer being written to.
++ *
++ * 2) tipc_dump() and tipc_log_XXX() leverage the aforementioned
++ * use of 'print_lock' to protect against all types of concurrent operations
++ * on their associated print buffer (not just write operations).
++ *
++ * Note: All routines of the form tipc_printbuf_XXX() are lock-free, and rely
++ * on the caller to prevent simultaneous use of the print buffer(s) being
++ * manipulated.
++ */
++
++static char print_string[TIPC_PB_MAX_STR];
++static DEFINE_SPINLOCK(print_lock);
++
++static void tipc_printbuf_reset(struct print_buf *pb);
++static int  tipc_printbuf_empty(struct print_buf *pb);
++static void tipc_printbuf_move(struct print_buf *pb_to,
++			       struct print_buf *pb_from);
++
++#define FORMAT(PTR, LEN, FMT) \
++{\
++	va_list args;\
++	va_start(args, FMT);\
++	LEN = vsprintf(PTR, FMT, args);\
++	va_end(args);\
++	*(PTR + LEN) = '\0';\
++}
++
++/**
++ * tipc_printbuf_init - initialize print buffer to empty
++ * @pb: pointer to print buffer structure
++ * @raw: pointer to character array used by print buffer
++ * @size: size of character array
++ *
++ * Note: If the character array is too small (or absent), the print buffer
++ * becomes a null device that discards anything written to it.
++ */
++
++void tipc_printbuf_init(struct print_buf *pb, char *raw, u32 size)
++{
++	pb->buf = raw;
++	pb->crs = raw;
++	pb->size = size;
++	pb->echo = 0;
++
++	if (size < TIPC_PB_MIN_SIZE) {
++		pb->buf = NULL;
++	} else if (raw) {
++		pb->buf[0] = 0;
++		pb->buf[size - 1] = ~0;
++	}
++}
++
++/**
++ * tipc_printbuf_reset - reinitialize print buffer to empty state
++ * @pb: pointer to print buffer structure
++ */
++
++static void tipc_printbuf_reset(struct print_buf *pb)
++{
++	if (pb->buf) {
++		pb->crs = pb->buf;
++		pb->buf[0] = 0;
++		pb->buf[pb->size - 1] = ~0;
++	}
++}
++
++/**
++ * tipc_printbuf_empty - test if print buffer is in empty state
++ * @pb: pointer to print buffer structure
++ *
++ * Returns non-zero if print buffer is empty.
++ */
++
++static int tipc_printbuf_empty(struct print_buf *pb)
++{
++	return !pb->buf || (pb->crs == pb->buf);
++}
++
++/**
++ * tipc_printbuf_validate - check for print buffer overflow
++ * @pb: pointer to print buffer structure
++ *
++ * Verifies that a print buffer has captured all data written to it.
++ * If data has been lost, linearize buffer and prepend an error message
++ *
++ * Returns length of print buffer data string (including trailing NUL)
++ */
++
++int tipc_printbuf_validate(struct print_buf *pb)
++{
++	char *err = "\n\n*** PRINT BUFFER OVERFLOW ***\n\n";
++	char *cp_buf;
++	struct print_buf cb;
++
++	if (!pb->buf)
++		return 0;
++
++	if (pb->buf[pb->size - 1] == 0) {
++		cp_buf = kmalloc(pb->size, GFP_ATOMIC);
++		if (cp_buf) {
++			tipc_printbuf_init(&cb, cp_buf, pb->size);
++			tipc_printbuf_move(&cb, pb);
++			tipc_printbuf_move(pb, &cb);
++			kfree(cp_buf);
++			memcpy(pb->buf, err, strlen(err));
++		} else {
++			tipc_printbuf_reset(pb);
++			tipc_printf(pb, err);
++		}
++	}
++	return pb->crs - pb->buf + 1;
++}
++
++/**
++ * tipc_printbuf_move - move print buffer contents to another print buffer
++ * @pb_to: pointer to destination print buffer structure
++ * @pb_from: pointer to source print buffer structure
++ *
++ * Current contents of destination print buffer (if any) are discarded.
++ * Source print buffer becomes empty if a successful move occurs.
++ */
++
++static void tipc_printbuf_move(struct print_buf *pb_to,
++			       struct print_buf *pb_from)
++{
++	int len;
++
++	/* Handle the cases where contents can't be moved */
++
++	if (!pb_to->buf)
++		return;
++
++	if (!pb_from->buf) {
++		tipc_printbuf_reset(pb_to);
++		return;
++	}
++
++	if (pb_to->size < pb_from->size) {
++		strcpy(pb_to->buf, "*** PRINT BUFFER MOVE ERROR ***");
++		pb_to->buf[pb_to->size - 1] = ~0;
++		pb_to->crs = strchr(pb_to->buf, 0);
++		return;
++	}
++
++	/* Copy data from char after cursor to end (if used) */
++
++	len = pb_from->buf + pb_from->size - pb_from->crs - 2;
++	if ((pb_from->buf[pb_from->size - 1] == 0) && (len > 0)) {
++		strcpy(pb_to->buf, pb_from->crs + 1);
++		pb_to->crs = pb_to->buf + len;
++	} else
++		pb_to->crs = pb_to->buf;
++
++	/* Copy data from start to cursor (always) */
++
++	len = pb_from->crs - pb_from->buf;
++	strcpy(pb_to->crs, pb_from->buf);
++	pb_to->crs += len;
++
++	tipc_printbuf_reset(pb_from);
++}
++
++/**
++ * tipc_printf - append formatted output to print buffer
++ * @pb: pointer to print buffer
++ * @fmt: formatted info to be printed
++ */
++
++void tipc_printf(struct print_buf *pb, const char *fmt, ...)
++{
++	int chars_to_add;
++	int chars_left;
++	char save_char;
++
++	spin_lock_bh(&print_lock);
++
++	FORMAT(print_string, chars_to_add, fmt);
++	if (chars_to_add >= TIPC_PB_MAX_STR)
++		strcpy(print_string, "*** PRINT BUFFER STRING TOO LONG ***");
++
++	if (pb->buf) {
++		chars_left = pb->buf + pb->size - pb->crs - 1;
++		if (chars_to_add <= chars_left) {
++			strcpy(pb->crs, print_string);
++			pb->crs += chars_to_add;
++		} else if (chars_to_add >= (pb->size - 1)) {
++			strcpy(pb->buf, print_string + chars_to_add + 1
++			       - pb->size);
++			pb->crs = pb->buf + pb->size - 1;
++		} else {
++			strcpy(pb->buf, print_string + chars_left);
++			save_char = print_string[chars_left];
++			print_string[chars_left] = 0;
++			strcpy(pb->crs, print_string);
++			print_string[chars_left] = save_char;
++			pb->crs = pb->buf + chars_to_add - chars_left;
++		}
++	}
++
++	if (pb->echo)
++		printk("%s", print_string);
++
++	spin_unlock_bh(&print_lock);
++}
++
++#ifdef CONFIG_TIPC_DEBUG
++
++/**
++ * print_to_console - write string of bytes to console in multiple chunks
++ */
++
++static void print_to_console(char *crs, int len)
++{
++	int rest = len;
++
++	while (rest > 0) {
++		int sz = rest < TIPC_PB_MAX_STR ? rest : TIPC_PB_MAX_STR;
++		char c = crs[sz];
++
++		crs[sz] = 0;
++		printk((const char *)crs);
++		crs[sz] = c;
++		rest -= sz;
++		crs += sz;
++	}
++}
++
++/**
++ * printbuf_dump - write print buffer contents to console
++ */
++
++static void printbuf_dump(struct print_buf *pb)
++{
++	int len;
++
++	if (!pb->buf) {
++		printk("*** PRINT BUFFER NOT ALLOCATED ***");
++		return;
++	}
++
++	/* Dump print buffer from char after cursor to end (if used) */
++
++	len = pb->buf + pb->size - pb->crs - 2;
++	if ((pb->buf[pb->size - 1] == 0) && (len > 0))
++		print_to_console(pb->crs + 1, len);
++
++	/* Dump print buffer from start to cursor (always) */
++
++	len = pb->crs - pb->buf;
++	print_to_console(pb->buf, len);
++}
++
++/**
++ * tipc_dump_dbg - dump (non-console) print buffer to console
++ * @pb: pointer to print buffer
++ */
++
++void tipc_dump_dbg(struct print_buf *pb, const char *fmt, ...)
++{
++	int len;
++
++	if (pb == TIPC_CONS)
++		return;
++
++	spin_lock_bh(&print_lock);
++
++	FORMAT(print_string, len, fmt);
++	printk(print_string);
++
++	printk("\n---- Start of %s log dump ----\n\n",
++	       (pb == TIPC_LOG) ? "global" : "local");
++	printbuf_dump(pb);
++	tipc_printbuf_reset(pb);
++	printk("\n---- End of dump ----\n");
++
++	spin_unlock_bh(&print_lock);
++}
++
++#endif
++
++/**
++ * tipc_log_resize - change the size of the TIPC log buffer
++ * @log_size: print buffer size to use
++ */
++
++int tipc_log_resize(int log_size)
++{
++	int res = 0;
++
++	spin_lock_bh(&print_lock);
++	kfree(TIPC_LOG->buf);
++	TIPC_LOG->buf = NULL;
++	if (log_size) {
++		if (log_size < TIPC_PB_MIN_SIZE)
++			log_size = TIPC_PB_MIN_SIZE;
++		res = TIPC_LOG->echo;
++		tipc_printbuf_init(TIPC_LOG, kmalloc(log_size, GFP_ATOMIC),
++				   log_size);
++		TIPC_LOG->echo = res;
++		res = !TIPC_LOG->buf;
++	}
++	spin_unlock_bh(&print_lock);
++
++	return res;
++}
++
++/**
++ * tipc_log_resize_cmd - reconfigure size of TIPC log buffer
++ */
++
++struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area, int req_tlv_space)
++{
++	u32 value;
++
++	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_UNSIGNED))
++		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
++
++	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
++	if (value != delimit(value, 0, 32768))
++		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
++						   " (log size must be 0-32768)");
++	if (tipc_log_resize(value))
++		return tipc_cfg_reply_error_string(
++			"unable to create specified log (log size is now 0)");
++	return tipc_cfg_reply_none();
++}
++
++/**
++ * tipc_log_dump - capture TIPC log buffer contents in configuration message
++ */
++
++struct sk_buff *tipc_log_dump(void)
++{
++	struct sk_buff *reply;
++
++	spin_lock_bh(&print_lock);
++	if (!TIPC_LOG->buf) {
++		spin_unlock_bh(&print_lock);
++		reply = tipc_cfg_reply_ultra_string("log not activated\n");
++	} else if (tipc_printbuf_empty(TIPC_LOG)) {
++		spin_unlock_bh(&print_lock);
++		reply = tipc_cfg_reply_ultra_string("log is empty\n");
++	} else {
++		struct tlv_desc *rep_tlv;
++		struct print_buf pb;
++		int str_len;
++
++		str_len = min(TIPC_LOG->size, 32768u);
++		spin_unlock_bh(&print_lock);
++		reply = tipc_cfg_reply_alloc(TLV_SPACE(str_len));
++		if (reply) {
++			rep_tlv = (struct tlv_desc *)reply->data;
++			tipc_printbuf_init(&pb, TLV_DATA(rep_tlv), str_len);
++			spin_lock_bh(&print_lock);
++			tipc_printbuf_move(&pb, TIPC_LOG);
++			spin_unlock_bh(&print_lock);
++			str_len = strlen(TLV_DATA(rep_tlv)) + 1;
++			skb_put(reply, TLV_SPACE(str_len));
++			TLV_SET(rep_tlv, TIPC_TLV_ULTRA_STRING, NULL, str_len);
++		}
++	}
++	return reply;
++}
+diff --git a/net/tipc/log.h b/net/tipc/log.h
+new file mode 100644
+index 0000000..f4343bb
+--- /dev/null
++++ b/net/tipc/log.h
+@@ -0,0 +1,67 @@
++/*
++ * net/tipc/log.h: Include file for TIPC print buffer routines
++ *
++ * Copyright (c) 1997-2006, Ericsson AB
++ * Copyright (c) 2005-2007, Wind River Systems
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _TIPC_DBG_H
++#define _TIPC_DBG_H
++
++/**
++ * struct print_buf - TIPC print buffer structure
++ * @buf: pointer to character array containing print buffer contents
++ * @size: size of character array
++ * @crs: pointer to first unused space in character array (i.e. final NUL)
++ * @echo: echo output to system console if non-zero
++ */
++
++struct print_buf {
++	char *buf;
++	u32 size;
++	char *crs;
++	int echo;
++};
++
++#define TIPC_PB_MIN_SIZE 64	/* minimum size for a print buffer's array */
++#define TIPC_PB_MAX_STR 512	/* max printable string (with trailing NUL) */
++
++void tipc_printbuf_init(struct print_buf *pb, char *buf, u32 size);
++int  tipc_printbuf_validate(struct print_buf *pb);
++
++int tipc_log_resize(int log_size);
++
++struct sk_buff *tipc_log_resize_cmd(const void *req_tlv_area,
++				    int req_tlv_space);
++struct sk_buff *tipc_log_dump(void);
++
++#endif
 -- 
 1.7.3.3
 
