@@ -1,230 +1,54 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [*v3 PATCH 00/22] IPVS Network Name Space aware
-Date: Sat, 1 Jan 2011 14:27:00 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1101011421410.2559@ja.ssi.bg>
-References: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
+From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 03/15]drivers:staging:rtl8187se:r8180_hw.h Typo change
+ diable to disable.
+Date: Sat, 01 Jan 2011 06:53:34 -0800
+Message-ID: <4D1F3FEE.7@gmail.com>
+References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com> <alpine.LNX.2.00.1012311722580.24460@nippy.intranet> <4D1EDB22.2020308@gmail.com> <20110101090931.GH1886@bicker>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: horms@verge.net.au, daniel.lezcano@free.fr, wensong@linux-vs.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: hans@schillstrom.com
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Finn Thain <fthain-PnMVE5gNl/W9dxLkCovUHLpzq4S04n8Q@public.gmane.org>,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110101090931.GH1886@bicker>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-
- 	Hello,
-
-On Thu, 30 Dec 2010, hans@schillstrom.com wrote:
-
-> From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+On 01/01/2011 01:09 AM, Dan Carpenter wrote:
+> On Fri, Dec 31, 2010 at 11:43:30PM -0800, Justin P. Mattock wrote:
+>> On 12/31/2010 10:48 PM, Finn Thain wrote:
+>>>> -/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are diable.					*/
+>>>> +/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are disabled.					*/
+>>>
+>>> I think, "other values disable" was what you meant?
+>>>
+>>> Finn
+>>>
+>>>>   #define EEPROM_SW_AD_MASK			0x0300
+>>>>   #define EEPROM_SW_AD_ENABLE			0x0100
+>>>>
+>>>>
+>>>
+>>
+>> no! I changed it to disabled to make it proper..
 >
-> This patch series adds network name space support to the LVS.
+> Finn is obviously right, but maybe a compromise would be:
 >
-> REVISION
+> Only the value EEPROM_SW_AD_ENABLE means "enable", other values mean
+> "disable".
 >
-> This is version 3
+> regards,
+> dan carpenter
 >
-> OVERVIEW
->
-> The patch doesn't remove or add any functionality except for netns.
-> For users that don't use network name space (netns) this patch is
-> completely transparent.
->
-> Now it's possible to run LVS in a Linux container (see lxc-tools)
-> i.e.  a light weight visualization. For example it's possible to run
-> one or several lvs on a real server in their own network name spaces.
->> From the LVS point of view it looks like it runs on it's own machine.
 
- 	Only some comments for two of the patches:
+ahh.. I see what you your saying now.. alright let me send this out that 
+way..
 
-v3 PATCH 10/22 use ip_vs_proto_data as param
-
- 	- Can ip_vs_protocol_timeout_change() walk
- 	proto_data_table instead of ip_vs_proto_table to avoid the
- 	__ipvs_proto_data_get call?
-
-v3 PATCH 15/22 ip_vs_stats
-
- 	- Is ustats_seq allocated with alloc_percpu?
-
- 	Such reader sections should be changed to use tmp vars because
- 	on retry we risk to add the values multiple times. For example:
-
- 		do {
- 			start = read_seqcount_begin(seq_count);
- 			ipvs->ctl_stats->ustats.inbytes += u->inbytes;
- 			ipvs->ctl_stats->ustats.outbytes += u->outbytes;
- 		} while (read_seqcount_retry(seq_count, start));
-
- 	should be changed as follows:
-
- 		u64 inbytes, outbytes;
-
- 		do {
- 			start = read_seqcount_begin(seq_count);
- 			inbytes = u->inbytes;
- 			outbytes = u->outbytes;
- 		} while (read_seqcount_retry(seq_count, start));
- 		ipvs->ctl_stats->ustats.inbytes += inbytes;
- 		ipvs->ctl_stats->ustats.outbytes += outbytes;
-
- 	Or it is better to create new struct for percpu stats,
- 	they will have their own syncp, because we can not
- 	change struct ip_vs_stats_user. syncp should be percpu
- 	because we remove locks.
-
- 	For example:
-
- 	struct ip_vs_cpu_stats {
- 		struct ip_vs_stats_user	ustats;
- 		struct u64_stats_sync	syncp;
- 	};
-
- 	Then we can add this in struct netns_ipvs:
-
- 	struct ip_vs_cpu_stats __percpu *stats;	/* Statistics */
-
- 	without the seqcount_t * ustats_seq;
-
- 	Then syncp does not need any initialization, it seems
- 	alloc_percpu returns zeroed area.
-
- 	When we use percpu stats for all places (dest and svc) we
- 	can create new struct struct ip_vs_counters, so that we
- 	can reduce the memory usage from percpu data. Now stats
- 	include counters and estimated values. The estimated
- 	values should not be percpu. Then ip_vs_cpu_stats
- 	will be shorter (it is not visible to user space):
-
- 	struct ip_vs_cpu_stats {
- 		struct ip_vs_counters	ustats;
- 		struct u64_stats_sync	syncp;
- 	};
-
- 	For writer side in softirq context we should protect the whole
- 	section with u64 counters, for example this code:
-
- 	spin_lock(&ip_vs_stats.lock);
- 	ip_vs_stats.ustats.outpkts++;
- 	ip_vs_stats.ustats.outbytes += skb->len;
- 	spin_unlock(&ip_vs_stats.lock);
-
- 	should be changed to:
-
- 	struct ip_vs_cpu_stats *s = this_cpu_ptr(ipvs->stats);
-
- 	u64_stats_update_begin(&s->syncp);
- 	s->ustats.outpkts++;
- 	s->ustats.outbytes += skb->len;
- 	u64_stats_update_end(&s->syncp);
-
- 	Readers should look in similar way, only that _bh fetching
- 	should be used only for the u64 counters because writer is in
- 	softirq context:
-
- 	u64 inbytes, outbytes;
-
- 	for_each_possible_cpu(i) {
- 		const struct ip_vs_cpu_stats *s = per_cpu_ptr(ipvs->stats, i);
- 		unsigned int start;
-
- 		...
- 		do {
- 			start = u64_stats_fetch_begin_bh(&s->syncp);
- 			inbytes = s->ustats.inbytes;
- 			outbytes = s->ustats.outbytes;
- 		} while (u64_stats_fetch_retry_bh(&s->syncp, start));
- 		ipvs->ctl_stats->ustats.inbytes += inbytes;
- 		ipvs->ctl_stats->ustats.outbytes += outbytes;
- 	}
-
- 	Then IPVS_STAT_ADD and IPVS_STAT_INC can not access
- 	the syncp. They do not look generic enough, in case we
- 	decide to use struct ip_vs_cpu_stats for dest and svc stats.
- 	I think, these macros are not needed.
- 	It is possible to have other macros for write side,
- 	for percpu stats:
-
- 	#define IP_VS_STATS_UPDATE_BEGIN(stats)		\
- 		{ struct ip_vs_cpu_stats *s = this_cpu_ptr(stats); \
- 		u64_stats_update_begin(&s->syncp)
-
- 	#define IP_VS_STATS_UPDATE_END()		\
- 		u64_stats_update_end(&s->syncp);	\
- 		}
-
- 	Then usage can be:
-
- 	IP_VS_STATS_UPDATE_BEGIN(ipvs->stats);
- 	s->ustats.outpkts++;
- 	s->ustats.outbytes += skb->len;
- 	IP_VS_STATS_UPDATE_END();
-
- 	Then we can rename ctl_stats to total_stats or full_stats.
- 	get_stats() can be changed to ip_vs_read_cpu_stats(), it
- 	will be used to read all percpu stats as sum in the
- 	total_stats/full_stats structure or tmp space:
-
- 	/* Get sum of percpu stats */
- 	... ip_vs_read_cpu_stats(struct ip_vs_stats_user *sum,
- 		struct ip_vs_cpu_stats *stats)
- 	{
- 		...
- 		for_each_possible_cpu(i) {
- 			const struct ip_vs_cpu_stats *s = per_cpu_ptr(stats, i);
- 			unsigned int start;
-
- 			if (i) {...
- 			...
- 			do {
- 				start = u64_stats_fetch_begin_bh(&s->syncp);
- 				inbytes = s->ustats.inbytes;
- 				outbytes = s->ustats.outbytes;
- 			} while (u64_stats_fetch_retry_bh(&s->syncp, start));
- 			sum->inbytes += inbytes;
- 			sum->outbytes += outbytes;
- 		}
- 	}
-
- 	As result, ip_vs_read_cpu_stats() will be used in
- 	estimation_timer() instead of get_stats():
-
- 	ip_vs_read_cpu_stats(&ipvs->total_stats->ustats, ipvs->stats);
-
- 	but also in ip_vs_stats_show()
- 	{
- 		// I hope struct ip_vs_stats_user can fit in stack:
- 		struct ip_vs_stats_user sum;
-
- 		here we do not need to use spin_lock_bh(&ctl_stats->lock);
- 		because now the stats are lockless, estimation_timer
- 		does not use ctl_stats->lock, so we have to call
- 		ip_vs_read_cpu_stats to avoid problems with
- 		reading incorrect u64 values directly from
- 		ipvs->total_stats->ustats.
-
- 		ip_vs_read_cpu_stats(&sum, ipvs->stats);
- 		seq_printf for sum
- 	}
-
- 	ip_vs_read_cpu_stats can be used also in ip_vs_copy_stats()
- 	which copies values to user space and needs proper u64 reading.
- 	But it is used only for svc and dest stats which are not
- 	percpu yet.
-
- 	Now this code does not look ok:
-
- 	ip_vs_zero_stats(net_ipvs(net)->ctl_stats);
-
- 	May be we need new func ip_vs_zero_percpu_stats that will
- 	reset stats for all CPUs, i.e. ipvs->stats in our case?
- 	Even if this operation is not very safe if done from
- 	user space while the softirq can modify u64 counters
- 	on another CPU.
-
-
-Happy New Year!
+Justin P. Mattock
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
