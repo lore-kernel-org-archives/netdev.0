@@ -1,249 +1,496 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 18/20] tipc: split variable assignments out of conditional expressions
-Date: Fri, 31 Dec 2010 23:59:33 -0500
-Message-ID: <1293857975-30267-19-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 12/20] tipc: Prune down link-specific debugging code
+Date: Fri, 31 Dec 2010 23:59:27 -0500
+Message-ID: <1293857975-30267-13-git-send-email-paul.gortmaker@windriver.com>
 References: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org, allan.stephens@windriver.com,
 	Allan Stephens <Allan.Stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:53347 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:53323 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214Ab1AAFAP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 00:00:15 -0500
+	with ESMTP id S1750751Ab1AAFAJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 00:00:09 -0500
 In-Reply-To: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Cleans up TIPC's source code to eliminate assigning values to variables
-within conditional expressions, improving code readability and reducing
-warnings from various code checker tools.
-
-These changes are purely cosmetic and do not alter the operation of TIPC
-in any way.
+Eliminates most link-specific debugging code in TIPC, which is now
+largely unnecessary. All calls to the link-specific debugging macros
+have been removed, as are the macros themselves; in addition, the optional
+allocation of print buffers to hold debugging information for each link
+endpoint has been removed. The ability for TIPC to print out helpful
+diagnostic information when link retransmit failures occur has been
+retained for the time being, as an aid in tracking down the cause of
+such failures.
 
 Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/bearer.c |    3 ++-
- net/tipc/core.c   |   33 +++++++++++++++++++++------------
- net/tipc/link.c   |   16 ++++++++++------
- net/tipc/socket.c |   36 +++++++++++++++++++++++-------------
- 4 files changed, 56 insertions(+), 32 deletions(-)
+ net/tipc/bcast.c |   13 ----
+ net/tipc/link.c  |  167 ++++++++++++------------------------------------------
+ net/tipc/link.h  |    3 -
+ 3 files changed, 36 insertions(+), 147 deletions(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 040f3ed..e9136f0 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -251,7 +251,8 @@ static int bearer_name_validate(const char *name,
- 	/* ensure all component parts of bearer name are present */
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index cb817d5..22a10fa 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -45,8 +45,6 @@
  
- 	media_name = name_copy;
--	if ((if_name = strchr(media_name, ':')) == NULL)
-+	if_name = strchr(media_name, ':');
-+	if (if_name == NULL)
- 		return 0;
- 	*(if_name++) = 0;
- 	media_len = if_name - media_name;
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 60b85ec..e071579 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -115,10 +115,11 @@ int tipc_core_start_net(unsigned long addr)
- {
- 	int res;
+ #define BCLINK_WIN_DEFAULT 20		/* bcast link window size (default) */
  
--	if ((res = tipc_net_start(addr)) ||
--	    (res = tipc_eth_media_start())) {
-+	res = tipc_net_start(addr);
-+	if (!res)
-+		res = tipc_eth_media_start();
-+	if (res)
- 		tipc_core_stop_net();
+-#define BCLINK_LOG_BUF_SIZE 0
+-
+ /*
+  * Loss rate for incoming broadcast frames; used to test retransmission code.
+  * Set to N to cause every N'th frame to be discarded; 0 => don't discard any.
+@@ -774,7 +772,6 @@ int tipc_bclink_init(void)
+ 	bcbearer = kzalloc(sizeof(*bcbearer), GFP_ATOMIC);
+ 	bclink = kzalloc(sizeof(*bclink), GFP_ATOMIC);
+ 	if (!bcbearer || !bclink) {
+- nomem:
+ 		warn("Multicast link creation failed, no memory\n");
+ 		kfree(bcbearer);
+ 		bcbearer = NULL;
+@@ -799,14 +796,6 @@ int tipc_bclink_init(void)
+ 	bcl->state = WORKING_WORKING;
+ 	strlcpy(bcl->name, tipc_bclink_name, TIPC_MAX_LINK_NAME);
+ 
+-	if (BCLINK_LOG_BUF_SIZE) {
+-		char *pb = kmalloc(BCLINK_LOG_BUF_SIZE, GFP_ATOMIC);
+-
+-		if (!pb)
+-			goto nomem;
+-		tipc_printbuf_init(&bcl->print_buf, pb, BCLINK_LOG_BUF_SIZE);
 -	}
- 	return res;
- }
- 
-@@ -157,15 +158,22 @@ static int tipc_core_start(void)
- 	get_random_bytes(&tipc_random, sizeof(tipc_random));
- 	tipc_mode = TIPC_NODE_MODE;
- 
--	if ((res = tipc_handler_start()) ||
--	    (res = tipc_ref_table_init(tipc_max_ports, tipc_random)) ||
--	    (res = tipc_nametbl_init()) ||
--	    (res = tipc_k_signal((Handler)tipc_subscr_start, 0)) ||
--	    (res = tipc_k_signal((Handler)tipc_cfg_init, 0)) ||
--	    (res = tipc_netlink_start()) ||
--	    (res = tipc_socket_init())) {
-+	res = tipc_handler_start();
-+	if (!res)
-+		res = tipc_ref_table_init(tipc_max_ports, tipc_random);
-+	if (!res)
-+		res = tipc_nametbl_init();
-+	if (!res)
-+		res = tipc_k_signal((Handler)tipc_subscr_start, 0);
-+	if (!res)
-+		res = tipc_k_signal((Handler)tipc_cfg_init, 0);
-+	if (!res)
-+		res = tipc_netlink_start();
-+	if (!res)
-+		res = tipc_socket_init();
-+	if (res)
- 		tipc_core_stop();
--	}
-+
- 	return res;
- }
- 
-@@ -188,7 +196,8 @@ static int __init tipc_init(void)
- 	tipc_max_nodes = CONFIG_TIPC_NODES;
- 	tipc_net_id = 4711;
- 
--	if ((res = tipc_core_start()))
-+	res = tipc_core_start();
-+	if (res)
- 		err("Unable to start in single node mode\n");
- 	else
- 		info("Started in single node mode\n");
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index ef203a1..de9d491 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -187,14 +187,17 @@ static int link_name_validate(const char *name, struct link_name *name_parts)
- 	/* ensure all component parts of link name are present */
- 
- 	addr_local = name_copy;
--	if ((if_local = strchr(addr_local, ':')) == NULL)
-+	if_local = strchr(addr_local, ':');
-+	if (if_local == NULL)
- 		return 0;
- 	*(if_local++) = 0;
--	if ((addr_peer = strchr(if_local, '-')) == NULL)
-+	addr_peer = strchr(if_local, '-');
-+	if (addr_peer == NULL)
- 		return 0;
- 	*(addr_peer++) = 0;
- 	if_local_len = addr_peer - if_local;
--	if ((if_peer = strchr(addr_peer, ':')) == NULL)
-+	if_peer = strchr(addr_peer, ':');
-+	if (if_peer == NULL)
- 		return 0;
- 	*(if_peer++) = 0;
- 	if_peer_len = strlen(if_peer) + 1;
-@@ -2044,8 +2047,8 @@ static void link_recv_proto_msg(struct link *l_ptr, struct sk_buff *buf)
- 
- 		strcpy((strrchr(l_ptr->name, ':') + 1), (char *)msg_data(msg));
- 
--		if ((msg_tol = msg_link_tolerance(msg)) &&
--		    (msg_tol > l_ptr->tolerance))
-+		msg_tol = msg_link_tolerance(msg);
-+		if (msg_tol > l_ptr->tolerance)
- 			link_set_supervision_props(l_ptr, msg_tol);
- 
- 		if (msg_linkprio(msg) > l_ptr->priority)
-@@ -2074,7 +2077,8 @@ static void link_recv_proto_msg(struct link *l_ptr, struct sk_buff *buf)
- 		break;
- 	case STATE_MSG:
- 
--		if ((msg_tol = msg_link_tolerance(msg)))
-+		msg_tol = msg_link_tolerance(msg);
-+		if (msg_tol)
- 			link_set_supervision_props(l_ptr, msg_tol);
- 
- 		if (msg_linkprio(msg) &&
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index e9fc5df..0895dec 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -563,7 +563,8 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
- 
- 	do {
- 		if (dest->addrtype == TIPC_ADDR_NAME) {
--			if ((res = dest_name_check(dest, m)))
-+			res = dest_name_check(dest, m);
-+			if (res)
- 				break;
- 			res = tipc_send2name(tport->ref,
- 					     &dest->addr.name.name,
-@@ -580,7 +581,8 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
- 				res = -EOPNOTSUPP;
- 				break;
- 			}
--			if ((res = dest_name_check(dest, m)))
-+			res = dest_name_check(dest, m);
-+			if (res)
- 				break;
- 			res = tipc_multicast(tport->ref,
- 					     &dest->addr.nameseq,
-@@ -750,7 +752,8 @@ static int send_stream(struct kiocb *iocb, struct socket *sock,
- 				bytes_to_send = curr_left;
- 			my_iov.iov_base = curr_start;
- 			my_iov.iov_len = bytes_to_send;
--			if ((res = send_packet(NULL, sock, &my_msg, 0)) < 0) {
-+			res = send_packet(NULL, sock, &my_msg, 0);
-+			if (res < 0) {
- 				if (bytes_sent)
- 					res = bytes_sent;
- 				goto exit;
-@@ -845,12 +848,15 @@ static int anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
- 	if (unlikely(err)) {
- 		anc_data[0] = err;
- 		anc_data[1] = msg_data_sz(msg);
--		if ((res = put_cmsg(m, SOL_TIPC, TIPC_ERRINFO, 8, anc_data)))
--			return res;
--		if (anc_data[1] &&
--		    (res = put_cmsg(m, SOL_TIPC, TIPC_RETDATA, anc_data[1],
--				    msg_data(msg))))
-+		res = put_cmsg(m, SOL_TIPC, TIPC_ERRINFO, 8, anc_data);
-+		if (res)
- 			return res;
-+		if (anc_data[1]) {
-+			res = put_cmsg(m, SOL_TIPC, TIPC_RETDATA, anc_data[1],
-+				       msg_data(msg));
-+			if (res)
-+				return res;
-+		}
- 	}
- 
- 	/* Optionally capture message destination object */
-@@ -878,9 +884,11 @@ static int anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
- 	default:
- 		has_name = 0;
- 	}
--	if (has_name &&
--	    (res = put_cmsg(m, SOL_TIPC, TIPC_DESTNAME, 12, anc_data)))
--		return res;
-+	if (has_name) {
-+		res = put_cmsg(m, SOL_TIPC, TIPC_DESTNAME, 12, anc_data);
-+		if (res)
-+			return res;
-+	}
- 
+-
  	return 0;
  }
-@@ -1664,7 +1672,8 @@ static int setsockopt(struct socket *sock,
- 		return -ENOPROTOOPT;
- 	if (ol < sizeof(value))
- 		return -EINVAL;
--	if ((res = get_user(value, (u32 __user *)ov)))
-+	res = get_user(value, (u32 __user *)ov);
-+	if (res)
- 		return res;
  
- 	lock_sock(sk);
-@@ -1722,7 +1731,8 @@ static int getsockopt(struct socket *sock,
- 		return put_user(0, ol);
- 	if (lvl != SOL_TIPC)
- 		return -ENOPROTOOPT;
--	if ((res = get_user(len, ol)))
-+	res = get_user(len, ol);
-+	if (res)
- 		return res;
+@@ -815,8 +804,6 @@ void tipc_bclink_stop(void)
+ 	spin_lock_bh(&bc_lock);
+ 	if (bcbearer) {
+ 		tipc_link_stop(bcl);
+-		if (BCLINK_LOG_BUF_SIZE)
+-			kfree(bcl->print_buf.buf);
+ 		bcl = NULL;
+ 		kfree(bclink);
+ 		bclink = NULL;
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index cb10d20..647f2ec 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -96,63 +96,10 @@ static int  link_send_sections_long(struct port *sender,
+ static void link_check_defragm_bufs(struct link *l_ptr);
+ static void link_state_event(struct link *l_ptr, u32 event);
+ static void link_reset_statistics(struct link *l_ptr);
+-static void link_print(struct link *l_ptr, struct print_buf *buf,
+-		       const char *str);
++static void link_print(struct link *l_ptr, const char *str);
+ static void link_start(struct link *l_ptr);
+ static int link_send_long_buf(struct link *l_ptr, struct sk_buff *buf);
  
- 	lock_sock(sk);
+-
+-/*
+- * Debugging code used by link routines only
+- *
+- * When debugging link problems on a system that has multiple links,
+- * the standard TIPC debugging routines may not be useful since they
+- * allow the output from multiple links to be intermixed.  For this reason
+- * routines of the form "dbg_link_XXX()" have been created that will capture
+- * debug info into a link's personal print buffer, which can then be dumped
+- * into the TIPC system log (TIPC_LOG) upon request.
+- *
+- * To enable per-link debugging, use LINK_LOG_BUF_SIZE to specify the size
+- * of the print buffer used by each link.  If LINK_LOG_BUF_SIZE is set to 0,
+- * the dbg_link_XXX() routines simply send their output to the standard
+- * debug print buffer (DBG_OUTPUT), if it has been defined; this can be useful
+- * when there is only a single link in the system being debugged.
+- *
+- * Notes:
+- * - When enabled, LINK_LOG_BUF_SIZE should be set to at least TIPC_PB_MIN_SIZE
+- * - "l_ptr" must be valid when using dbg_link_XXX() macros
+- */
+-
+-#define LINK_LOG_BUF_SIZE 0
+-
+-#define dbg_link(fmt, arg...) \
+-	do { \
+-		if (LINK_LOG_BUF_SIZE) \
+-			tipc_printf(&l_ptr->print_buf, fmt, ## arg); \
+-	} while (0)
+-#define dbg_link_msg(msg, txt) \
+-	do { \
+-		if (LINK_LOG_BUF_SIZE) \
+-			tipc_msg_dbg(&l_ptr->print_buf, msg, txt); \
+-	} while (0)
+-#define dbg_link_state(txt) \
+-	do { \
+-		if (LINK_LOG_BUF_SIZE) \
+-			link_print(l_ptr, &l_ptr->print_buf, txt); \
+-	} while (0)
+-#define dbg_link_dump() do { \
+-	if (LINK_LOG_BUF_SIZE) { \
+-		tipc_printf(LOG, "\n\nDumping link <%s>:\n", l_ptr->name); \
+-		tipc_printbuf_move(LOG, &l_ptr->print_buf); \
+-	} \
+-} while (0)
+-
+-static void dbg_print_link(struct link *l_ptr, const char *str)
+-{
+-	if (DBG_OUTPUT != TIPC_NULL)
+-		link_print(l_ptr, DBG_OUTPUT, str);
+-}
+-
+ /*
+  *  Simple link routines
+  */
+@@ -366,17 +313,6 @@ struct link *tipc_link_create(struct bearer *b_ptr, const u32 peer,
+ 		return NULL;
+ 	}
+ 
+-	if (LINK_LOG_BUF_SIZE) {
+-		char *pb = kmalloc(LINK_LOG_BUF_SIZE, GFP_ATOMIC);
+-
+-		if (!pb) {
+-			kfree(l_ptr);
+-			warn("Link creation failed, no memory for print buffer\n");
+-			return NULL;
+-		}
+-		tipc_printbuf_init(&l_ptr->print_buf, pb, LINK_LOG_BUF_SIZE);
+-	}
+-
+ 	l_ptr->addr = peer;
+ 	if_name = strchr(b_ptr->publ.name, ':') + 1;
+ 	sprintf(l_ptr->name, "%u.%u.%u:%s-%u.%u.%u:",
+@@ -411,8 +347,6 @@ struct link *tipc_link_create(struct bearer *b_ptr, const u32 peer,
+ 
+ 	l_ptr->owner = tipc_node_attach_link(l_ptr);
+ 	if (!l_ptr->owner) {
+-		if (LINK_LOG_BUF_SIZE)
+-			kfree(l_ptr->print_buf.buf);
+ 		kfree(l_ptr);
+ 		return NULL;
+ 	}
+@@ -447,8 +381,6 @@ void tipc_link_delete(struct link *l_ptr)
+ 	tipc_node_detach_link(l_ptr->owner, l_ptr);
+ 	tipc_link_stop(l_ptr);
+ 	list_del_init(&l_ptr->link_list);
+-	if (LINK_LOG_BUF_SIZE)
+-		kfree(l_ptr->print_buf.buf);
+ 	tipc_node_unlock(l_ptr->owner);
+ 	k_term_timer(&l_ptr->timer);
+ 	kfree(l_ptr);
+@@ -607,7 +539,6 @@ void tipc_link_reset(struct link *l_ptr)
+ 	link_init_max_pkt(l_ptr);
+ 
+ 	l_ptr->state = RESET_UNKNOWN;
+-	dbg_link_state("Resetting Link\n");
+ 
+ 	if ((prev_state == RESET_UNKNOWN) || (prev_state == RESET_RESET))
+ 		return;
+@@ -686,20 +617,14 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 		}
+ 		return;	  /* Changeover going on */
+ 	}
+-	dbg_link("STATE_EV: <%s> ", l_ptr->name);
+ 
+ 	switch (l_ptr->state) {
+ 	case WORKING_WORKING:
+-		dbg_link("WW/");
+ 		switch (event) {
+ 		case TRAFFIC_MSG_EVT:
+-			dbg_link("TRF-");
+-			/* fall through */
+ 		case ACTIVATE_MSG:
+-			dbg_link("ACT\n");
+ 			break;
+ 		case TIMEOUT_EVT:
+-			dbg_link("TIM ");
+ 			if (l_ptr->next_in_no != l_ptr->checkpoint) {
+ 				l_ptr->checkpoint = l_ptr->next_in_no;
+ 				if (tipc_bclink_acks_missing(l_ptr->owner)) {
+@@ -714,7 +639,6 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 				link_set_timer(l_ptr, cont_intv);
+ 				break;
+ 			}
+-			dbg_link(" -> WU\n");
+ 			l_ptr->state = WORKING_UNKNOWN;
+ 			l_ptr->fsm_msg_cnt = 0;
+ 			tipc_link_send_proto_msg(l_ptr, STATE_MSG, 1, 0, 0, 0, 0);
+@@ -722,7 +646,6 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 			link_set_timer(l_ptr, cont_intv / 4);
+ 			break;
+ 		case RESET_MSG:
+-			dbg_link("RES -> RR\n");
+ 			info("Resetting link <%s>, requested by peer\n",
+ 			     l_ptr->name);
+ 			tipc_link_reset(l_ptr);
+@@ -737,18 +660,14 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 		}
+ 		break;
+ 	case WORKING_UNKNOWN:
+-		dbg_link("WU/");
+ 		switch (event) {
+ 		case TRAFFIC_MSG_EVT:
+-			dbg_link("TRF-");
+ 		case ACTIVATE_MSG:
+-			dbg_link("ACT -> WW\n");
+ 			l_ptr->state = WORKING_WORKING;
+ 			l_ptr->fsm_msg_cnt = 0;
+ 			link_set_timer(l_ptr, cont_intv);
+ 			break;
+ 		case RESET_MSG:
+-			dbg_link("RES -> RR\n");
+ 			info("Resetting link <%s>, requested by peer "
+ 			     "while probing\n", l_ptr->name);
+ 			tipc_link_reset(l_ptr);
+@@ -759,9 +678,7 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 			link_set_timer(l_ptr, cont_intv);
+ 			break;
+ 		case TIMEOUT_EVT:
+-			dbg_link("TIM ");
+ 			if (l_ptr->next_in_no != l_ptr->checkpoint) {
+-				dbg_link("-> WW\n");
+ 				l_ptr->state = WORKING_WORKING;
+ 				l_ptr->fsm_msg_cnt = 0;
+ 				l_ptr->checkpoint = l_ptr->next_in_no;
+@@ -772,16 +689,11 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 				}
+ 				link_set_timer(l_ptr, cont_intv);
+ 			} else if (l_ptr->fsm_msg_cnt < l_ptr->abort_limit) {
+-				dbg_link("Probing %u/%u,timer = %u ms)\n",
+-					 l_ptr->fsm_msg_cnt, l_ptr->abort_limit,
+-					 cont_intv / 4);
+ 				tipc_link_send_proto_msg(l_ptr, STATE_MSG,
+ 							 1, 0, 0, 0, 0);
+ 				l_ptr->fsm_msg_cnt++;
+ 				link_set_timer(l_ptr, cont_intv / 4);
+ 			} else {	/* Link has failed */
+-				dbg_link("-> RU (%u probes unanswered)\n",
+-					 l_ptr->fsm_msg_cnt);
+ 				warn("Resetting link <%s>, peer not responding\n",
+ 				     l_ptr->name);
+ 				tipc_link_reset(l_ptr);
+@@ -798,18 +710,13 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 		}
+ 		break;
+ 	case RESET_UNKNOWN:
+-		dbg_link("RU/");
+ 		switch (event) {
+ 		case TRAFFIC_MSG_EVT:
+-			dbg_link("TRF-\n");
+ 			break;
+ 		case ACTIVATE_MSG:
+ 			other = l_ptr->owner->active_links[0];
+-			if (other && link_working_unknown(other)) {
+-				dbg_link("ACT\n");
++			if (other && link_working_unknown(other))
+ 				break;
+-			}
+-			dbg_link("ACT -> WW\n");
+ 			l_ptr->state = WORKING_WORKING;
+ 			l_ptr->fsm_msg_cnt = 0;
+ 			link_activate(l_ptr);
+@@ -818,8 +725,6 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 			link_set_timer(l_ptr, cont_intv);
+ 			break;
+ 		case RESET_MSG:
+-			dbg_link("RES\n");
+-			dbg_link(" -> RR\n");
+ 			l_ptr->state = RESET_RESET;
+ 			l_ptr->fsm_msg_cnt = 0;
+ 			tipc_link_send_proto_msg(l_ptr, ACTIVATE_MSG, 1, 0, 0, 0, 0);
+@@ -827,11 +732,9 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 			link_set_timer(l_ptr, cont_intv);
+ 			break;
+ 		case STARTING_EVT:
+-			dbg_link("START-");
+ 			l_ptr->started = 1;
+ 			/* fall through */
+ 		case TIMEOUT_EVT:
+-			dbg_link("TIM\n");
+ 			tipc_link_send_proto_msg(l_ptr, RESET_MSG, 0, 0, 0, 0, 0);
+ 			l_ptr->fsm_msg_cnt++;
+ 			link_set_timer(l_ptr, cont_intv);
+@@ -841,18 +744,12 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 		}
+ 		break;
+ 	case RESET_RESET:
+-		dbg_link("RR/ ");
+ 		switch (event) {
+ 		case TRAFFIC_MSG_EVT:
+-			dbg_link("TRF-");
+-			/* fall through */
+ 		case ACTIVATE_MSG:
+ 			other = l_ptr->owner->active_links[0];
+-			if (other && link_working_unknown(other)) {
+-				dbg_link("ACT\n");
++			if (other && link_working_unknown(other))
+ 				break;
+-			}
+-			dbg_link("ACT -> WW\n");
+ 			l_ptr->state = WORKING_WORKING;
+ 			l_ptr->fsm_msg_cnt = 0;
+ 			link_activate(l_ptr);
+@@ -861,14 +758,11 @@ static void link_state_event(struct link *l_ptr, unsigned event)
+ 			link_set_timer(l_ptr, cont_intv);
+ 			break;
+ 		case RESET_MSG:
+-			dbg_link("RES\n");
+ 			break;
+ 		case TIMEOUT_EVT:
+-			dbg_link("TIM\n");
+ 			tipc_link_send_proto_msg(l_ptr, ACTIVATE_MSG, 0, 0, 0, 0, 0);
+ 			l_ptr->fsm_msg_cnt++;
+ 			link_set_timer(l_ptr, cont_intv);
+-			dbg_link("fsm_msg_cnt %u\n", l_ptr->fsm_msg_cnt);
+ 			break;
+ 		default:
+ 			err("Unknown link event %u in RR state\n", event);
+@@ -1515,8 +1409,7 @@ static void link_reset_all(unsigned long addr)
+ 
+ 	for (i = 0; i < MAX_BEARERS; i++) {
+ 		if (n_ptr->links[i]) {
+-			link_print(n_ptr->links[i], TIPC_OUTPUT,
+-				   "Resetting link\n");
++			link_print(n_ptr->links[i], "Resetting link\n");
+ 			tipc_link_reset(n_ptr->links[i]);
+ 		}
+ 	}
+@@ -1535,7 +1428,7 @@ static void link_retransmit_failure(struct link *l_ptr, struct sk_buff *buf)
+ 
+ 		/* Handle failure on standard link */
+ 
+-		link_print(l_ptr, TIPC_OUTPUT, "Resetting link\n");
++		link_print(l_ptr, "Resetting link\n");
+ 		tipc_link_reset(l_ptr);
+ 
+ 	} else {
+@@ -1545,21 +1438,21 @@ static void link_retransmit_failure(struct link *l_ptr, struct sk_buff *buf)
+ 		struct tipc_node *n_ptr;
+ 		char addr_string[16];
+ 
+-		tipc_printf(TIPC_OUTPUT, "Msg seq number: %u,  ", msg_seqno(msg));
+-		tipc_printf(TIPC_OUTPUT, "Outstanding acks: %lu\n",
+-				     (unsigned long) TIPC_SKB_CB(buf)->handle);
++		info("Msg seq number: %u,  ", msg_seqno(msg));
++		info("Outstanding acks: %lu\n",
++		     (unsigned long) TIPC_SKB_CB(buf)->handle);
+ 
+ 		n_ptr = l_ptr->owner->next;
+ 		tipc_node_lock(n_ptr);
+ 
+ 		tipc_addr_string_fill(addr_string, n_ptr->addr);
+-		tipc_printf(TIPC_OUTPUT, "Multicast link info for %s\n", addr_string);
+-		tipc_printf(TIPC_OUTPUT, "Supported: %d,  ", n_ptr->bclink.supported);
+-		tipc_printf(TIPC_OUTPUT, "Acked: %u\n", n_ptr->bclink.acked);
+-		tipc_printf(TIPC_OUTPUT, "Last in: %u,  ", n_ptr->bclink.last_in);
+-		tipc_printf(TIPC_OUTPUT, "Gap after: %u,  ", n_ptr->bclink.gap_after);
+-		tipc_printf(TIPC_OUTPUT, "Gap to: %u\n", n_ptr->bclink.gap_to);
+-		tipc_printf(TIPC_OUTPUT, "Nack sync: %u\n\n", n_ptr->bclink.nack_sync);
++		info("Multicast link info for %s\n", addr_string);
++		info("Supported: %d,  ", n_ptr->bclink.supported);
++		info("Acked: %u\n", n_ptr->bclink.acked);
++		info("Last in: %u,  ", n_ptr->bclink.last_in);
++		info("Gap after: %u,  ", n_ptr->bclink.gap_after);
++		info("Gap to: %u\n", n_ptr->bclink.gap_to);
++		info("Nack sync: %u\n\n", n_ptr->bclink.nack_sync);
+ 
+ 		tipc_k_signal((Handler)link_reset_all, (unsigned long)n_ptr->addr);
+ 
+@@ -1581,7 +1474,6 @@ void tipc_link_retransmit(struct link *l_ptr, struct sk_buff *buf,
+ 
+ 	if (tipc_bearer_congested(l_ptr->b_ptr, l_ptr)) {
+ 		if (l_ptr->retransm_queue_size == 0) {
+-			dbg_print_link(l_ptr, "   ");
+ 			l_ptr->retransm_queue_head = msg_seqno(msg);
+ 			l_ptr->retransm_queue_size = retransmits;
+ 		} else {
+@@ -2458,7 +2350,6 @@ static int link_recv_changeover_msg(struct link **l_ptr,
+ 	if (dest_link->exp_msg_count == 0) {
+ 		warn("Link switchover error, "
+ 		     "got too many tunnelled messages\n");
+-		dbg_print_link(dest_link, "LINK:");
+ 		goto exit;
+ 	}
+ 	dest_link->exp_msg_count--;
+@@ -3066,14 +2957,22 @@ u32 tipc_link_get_max_pkt(u32 dest, u32 selector)
+ 	return res;
+ }
+ 
+-static void link_print(struct link *l_ptr, struct print_buf *buf,
+-		       const char *str)
++static void link_print(struct link *l_ptr, const char *str)
+ {
++	char print_area[256];
++	struct print_buf pb;
++	struct print_buf *buf = &pb;
++
++	tipc_printbuf_init(buf, print_area, sizeof(print_area));
++
+ 	tipc_printf(buf, str);
+-	if (link_reset_reset(l_ptr) || link_reset_unknown(l_ptr))
+-		return;
+ 	tipc_printf(buf, "Link %x<%s>:",
+ 		    l_ptr->addr, l_ptr->b_ptr->publ.name);
++
++#ifdef CONFIG_TIPC_DEBUG
++	if (link_reset_reset(l_ptr) || link_reset_unknown(l_ptr))
++		goto print_state;
++
+ 	tipc_printf(buf, ": NXO(%u):", mod(l_ptr->next_out_no));
+ 	tipc_printf(buf, "NXI(%u):", mod(l_ptr->next_in_no));
+ 	tipc_printf(buf, "SQUE");
+@@ -3104,14 +3003,20 @@ static void link_print(struct link *l_ptr, struct print_buf *buf,
+ 				    l_ptr->deferred_inqueue_sz);
+ 		}
+ 	}
++print_state:
++#endif
++
+ 	if (link_working_unknown(l_ptr))
+ 		tipc_printf(buf, ":WU");
+-	if (link_reset_reset(l_ptr))
++	else if (link_reset_reset(l_ptr))
+ 		tipc_printf(buf, ":RR");
+-	if (link_reset_unknown(l_ptr))
++	else if (link_reset_unknown(l_ptr))
+ 		tipc_printf(buf, ":RU");
+-	if (link_working_working(l_ptr))
++	else if (link_working_working(l_ptr))
+ 		tipc_printf(buf, ":WW");
+ 	tipc_printf(buf, "\n");
++
++	tipc_printbuf_validate(buf);
++	info("%s", print_area);
+ }
+ 
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index eeb0c01..eca19c2 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -107,7 +107,6 @@
+  * @long_msg_seq_no: next identifier to use for outbound fragmented messages
+  * @defragm_buf: list of partially reassembled inbound message fragments
+  * @stats: collects statistics regarding link activity
+- * @print_buf: print buffer used to log link activity
+  */
+ 
+ struct link {
+@@ -210,8 +209,6 @@ struct link {
+ 		u32 msg_lengths_total;
+ 		u32 msg_length_profile[7];
+ 	} stats;
+-
+-	struct print_buf print_buf;
+ };
+ 
+ struct port;
 -- 
 1.7.3.3
 
