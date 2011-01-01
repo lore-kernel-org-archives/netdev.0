@@ -1,58 +1,48 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] net/Space: delete orphaned externs from deleted drivers
-Date: Sat,  1 Jan 2011 18:15:01 -0500
-Message-ID: <1293923701-14147-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next] netdev: Update status of 8390 based drivers in MAINTAINERS
+Date: Sat,  1 Jan 2011 18:28:30 -0500
+Message-ID: <1293924510-14290-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:56630 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:57562 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973Ab1AAXPJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 18:15:09 -0500
+	with ESMTP id S1750973Ab1AAX3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 18:29:05 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The drivers associated with the prototypes in this commit have
-been deleted some time ago, but the externs escaped detection.
-Using a simple "git grep" shows that these references are
-historical artefacts, only mentioned by the deleted lines.
+With the original 8 bit ISA ne1000 card being over 20 years old, it
+only makes sense to consider ne.c and all the other toplevel 8390
+based driver files as legacy for obsolete hardware.  The most
+recent thing made in large quantities that was 8390 based were
+those crazy PCI ne2k clones - and even they are now 10+ years old.
+
+Also remove myself as maintainer, since the only changes to these
+drivers going forward will be the generic API type changes that
+touch all drivers.
 
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/Space.c |    5 -----
- 1 files changed, 0 insertions(+), 5 deletions(-)
+ MAINTAINERS |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/Space.c b/drivers/net/Space.c
-index 9bb405b..068c356 100644
---- a/drivers/net/Space.c
-+++ b/drivers/net/Space.c
-@@ -55,8 +55,6 @@ extern struct net_device *eth16i_probe(int unit);
- extern struct net_device *i82596_probe(int unit);
- extern struct net_device *ewrk3_probe(int unit);
- extern struct net_device *el1_probe(int unit);
--extern struct net_device *wavelan_probe(int unit);
--extern struct net_device *arlan_probe(int unit);
- extern struct net_device *el16_probe(int unit);
- extern struct net_device *elmc_probe(int unit);
- extern struct net_device *elplus_probe(int unit);
-@@ -68,7 +66,6 @@ extern struct net_device *ni5010_probe(int unit);
- extern struct net_device *ni52_probe(int unit);
- extern struct net_device *ni65_probe(int unit);
- extern struct net_device *sonic_probe(int unit);
--extern struct net_device *SK_init(int unit);
- extern struct net_device *seeq8005_probe(int unit);
- extern struct net_device *smc_init(int unit);
- extern struct net_device *atarilance_probe(int unit);
-@@ -76,8 +73,6 @@ extern struct net_device *sun3lance_probe(int unit);
- extern struct net_device *sun3_82586_probe(int unit);
- extern struct net_device *apne_probe(int unit);
- extern struct net_device *cs89x0_probe(int unit);
--extern struct net_device *hplance_probe(int unit);
--extern struct net_device *bagetlance_probe(int unit);
- extern struct net_device *mvme147lance_probe(int unit);
- extern struct net_device *tc515_probe(int unit);
- extern struct net_device *lance_probe(int unit);
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 4641289..aa835f7 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -166,9 +166,8 @@ F:	drivers/serial/8250*
+ F:	include/linux/serial_8250.h
+ 
+ 8390 NETWORK DRIVERS [WD80x3/SMC-ELITE, SMC-ULTRA, NE2000, 3C503, etc.]
+-M:	Paul Gortmaker <p_gortmaker@yahoo.com>
+ L:	netdev@vger.kernel.org
+-S:	Maintained
++S:	Orphan / Obsolete
+ F:	drivers/net/*8390*
+ F:	drivers/net/ax88796.c
+ 
 -- 
 1.7.3.3
 
