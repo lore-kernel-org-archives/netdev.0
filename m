@@ -1,54 +1,59 @@
-From: "Justin P. Mattock" <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 03/15]drivers:staging:rtl8187se:r8180_hw.h Typo change
- diable to disable.
-Date: Sat, 01 Jan 2011 06:53:34 -0800
-Message-ID: <4D1F3FEE.7@gmail.com>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com> <1293750484-1161-2-git-send-email-justinmattock@gmail.com> <1293750484-1161-3-git-send-email-justinmattock@gmail.com> <alpine.LNX.2.00.1012311722580.24460@nippy.intranet> <4D1EDB22.2020308@gmail.com> <20110101090931.GH1886@bicker>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [*v3 PATCH 02/22] IPVS: netns to services part 1
+Date: Sat, 1 Jan 2011 15:57:29 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1101011547040.9065@obet.zrqbmnf.qr>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com> <1293706266-27152-3-git-send-email-hans@schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Dan Carpenter <error27-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Finn Thain <fthain-PnMVE5gNl/W9dxLkCovUHLpzq4S04n8Q@public.gmane.org>,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110101090931.GH1886@bicker>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: horms@verge.net.au, ja@ssi.bg, daniel.lezcano@free.fr,
+	wensong@linux-vs.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: hans@schillstrom.com
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1293706266-27152-3-git-send-email-hans@schillstrom.com>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/01/2011 01:09 AM, Dan Carpenter wrote:
-> On Fri, Dec 31, 2010 at 11:43:30PM -0800, Justin P. Mattock wrote:
->> On 12/31/2010 10:48 PM, Finn Thain wrote:
->>>> -/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are diable.					*/
->>>> +/*  BIT[8-9] is for SW Antenna Diversity. Only the value EEPROM_SW_AD_ENABLE means enable, other values are disabled.					*/
->>>
->>> I think, "other values disable" was what you meant?
->>>
->>> Finn
->>>
->>>>   #define EEPROM_SW_AD_MASK			0x0300
->>>>   #define EEPROM_SW_AD_ENABLE			0x0100
->>>>
->>>>
->>>
->>
->> no! I changed it to disabled to make it proper..
->
-> Finn is obviously right, but maybe a compromise would be:
->
-> Only the value EEPROM_SW_AD_ENABLE means "enable", other values mean
-> "disable".
->
-> regards,
-> dan carpenter
->
 
-ahh.. I see what you your saying now.. alright let me send this out that 
-way..
+On Thursday 2010-12-30 11:50, hans@schillstrom.com wrote:
+>+/*
+>+ * Get net ptr from skb in traffic cases
+>+ * use skb_sknet when call is from userland (ioctl or netlink)
+>+ */
+>+static inline struct net *skb_net(struct sk_buff *skb) {
+>+#ifdef CONFIG_NET_NS
+>+#ifdef CONFIG_IP_VS_DEBUG
+>+	/*
+>+	 * This is used for debug only.
+>+	 * Start with the most likely hit
+>+	 * End with BUG
+>+	 */
+>+	if (likely(skb->dev && skb->dev->nd_net))
+>+		return dev_net(skb->dev);
+>+	if (skb_dst(skb)->dev)
+>+		return dev_net(skb_dst(skb)->dev);
+>+	WARN(skb->sk,"Maybe skb_sknet should be used instead in %s() line:%d\n",
+>+		      __func__, __LINE__);
+>+	if (likely(skb->sk && skb->sk->sk_net))
+>+		return sock_net(skb->sk);
+>+	pr_err("There is no net ptr to find in the skb in %s() line:%d\n",
+>+		__func__, __LINE__);
+>+	BUG();
+>+#else
+>+	return dev_net(skb->dev ? : skb_dst(skb)->dev);
+>+#endif
+>+#else
+>+	return &init_net;
+>+#endif
+>+}
 
-Justin P. Mattock
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Whether NETNS is disabled or not, dev_net(skb->dev) can be used in either case,
+so the extra return &init_net case is not really required AFAICS.
+
+>@@ -3446,43 +3471,48 @@ static struct pernet_operations ipvs_control_ops = {
+>-	smp_wmb();
+>+
+>+	smp_wmb();	/* Do wee really need it now ? */
+
+not "whee" :)
