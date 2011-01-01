@@ -1,50 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/20] Delete more semi-useless stuff from
- TIPC.
-Date: Sat, 01 Jan 2011 13:59:52 -0800 (PST)
-Message-ID: <20110101.135952.226766850.davem@davemloft.net>
-References: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next] sky2: implement 64 bit stats
+Date: Sat, 01 Jan 2011 14:02:35 -0800 (PST)
+Message-ID: <20110101.140235.71111544.davem@davemloft.net>
+References: <20101231173427.17f07ad3@nehalam>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, allan.stephens@windriver.com
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60987
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37245
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752691Ab1AAV7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 16:59:22 -0500
-In-Reply-To: <1293857975-30267-1-git-send-email-paul.gortmaker@windriver.com>
+	by vger.kernel.org with ESMTP id S1752691Ab1AAWCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 17:02:04 -0500
+In-Reply-To: <20101231173427.17f07ad3@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Fri, 31 Dec 2010 23:59:15 -0500
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Fri, 31 Dec 2010 17:34:27 -0800
 
-> There really isn't a lot to see here technically.  There is a bunch of
-> stuff in TIPC that I guess falls into the category of "seemed like a
-> good idea at the time", but is now just inactive or at best unstable
-> prototype code for things like slave nodes and routing features and
-> mulitcluster support.  My favourite is this one:
+> This implements 64 bit statistics support and fixes races when reading
+> counter values. The PHY counters can only be accessed 16 bits at a time,
+> so they are subject to carry races.
 > 
->  ----------
-> config TIPC_CLUSTERS
->        int "Maximum number of clusters in a zone"
->        depends on TIPC_ADVANCED
->        range 1 1
->        default "1"
->        help
->          Specifies how many clusters can be supported in a TIPC zone.
+> NB:
+>   * TX/RX counters are maintained in software because the the hardware packet count
+>     is only a 32 bit value.
 > 
->          *** Currently TIPC only supports a single cluster per zone. ***
->  ----------
+>   * Error counters are really only 32 bit.
 > 
-> The remaining commits are just de-uglifying what is left, fixing whitespace
-> crimes and other common errors typically picked up in janitor patches.
+>   * Old 32 bit counter fields in dev->stats still used for some
+>     software counters
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-All applied, thanks Paul.
-
-net/tipc/log.h still uses "_TIPC_DBG_H" for it's multiple-include protection
-tests.  Please send me a patch to rename that to _TIPC_LOG_H
-
-Thanks.
+Applied, thanks Stephen.
