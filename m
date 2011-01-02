@@ -1,42 +1,68 @@
-From: Stefani Seibold <stefani@seibold.net>
+From: Jesper Juhl <jj@chaosbits.net>
 Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Sun, 02 Jan 2011 22:37:47 +0100
-Message-ID: <1294004267.5675.5.camel@wall-e>
-References: <1293982286-15389-1-git-send-email-stefani@seibold.net>
-	 <201101022216.04863.remi@remlab.net>
+Date: Sun, 2 Jan 2011 22:40:38 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101022239010.11481@swampdragon.chaosbits.net>
+References: <1293982286-15389-1-git-send-email-stefani@seibold.net>  <AANLkTi=7M=gSgBjcrCVEj+GKZ5cf5t4MPqm6r9NGr=MZ@mail.gmail.com> <1294003993.5675.3.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www84.your-server.de ([213.133.104.84]:35135 "EHLO
-	www84.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751716Ab1ABVgo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jan 2011 16:36:44 -0500
-In-Reply-To: <201101022216.04863.remi@remlab.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Daniel Baluta <daniel.baluta@gmail.com>,
+	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, shemminger@vyatta.com
+To: Stefani Seibold <stefani@seibold.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294003993.5675.3.camel@wall-e>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am Sonntag, den 02.01.2011, 22:16 +0200 schrieb R=E9mi Denis-Courmont:
-> Le dimanche 2 janvier 2011 17:31:26 stefani@seibold.net, vous avez =E9=
-crit :
-> > UDPCP is a communication protocol specified by the Open Base Statio=
-n
-> > Architecture Initiative Special Interest Group (OBSAI SIG). The
-> > protocol is based on UDP and is designed to meet the needs of "Mobi=
-le
-> > Communcation Base Station" internal communications. It is widely us=
-ed by
-> > the major networks infrastructure supplier.
->=20
-> Unless I missed something, you did not declare the new lock classes f=
-or the=20
-> lock consistency checks.
->=20
+On Sun, 2 Jan 2011, Stefani Seibold wrote:
 
-Pardon, i did not realize what you mean, Which new lock class for what
-kind of lock consistency checks?
+> Am Sonntag, den 02.01.2011, 21:48 +0200 schrieb Daniel Baluta:
+> > Hello,
+> > 
+> > I have some style comments, please read below.
+> > 
+> > > +struct udpcp_statistics {
+> > > +       unsigned int txMsgs;            /* Num of transmitted messages */
+> > > +       unsigned int rxMsgs;            /* Num of received messages */
+> > > +       unsigned int txNodes;           /* Num of receiver nodes */
+> > > +       unsigned int rxNodes;           /* Num of transmitter nodes */
+> > > +       unsigned int txTimeout;         /* Num of unsuccessful transmissions */
+> > > +       unsigned int rxTimeout;         /* Num of partial message receptions */
+> > > +       unsigned int txRetries;         /* Num of resends */
+> > > +       unsigned int rxDiscardedFrags;  /* Num of discarded fragments */
+> > > +       unsigned int crcErrors;         /* Num of crc errors detected */
+> > 
+> > Is there any strong reason to have this camel case naming?
+[...]
+> > 
+> > same here.
+> > 
+> 
+> I think there is no nameing convention in linux, as i know it is a
+> developer decision.
+> 
+
+Chapter 4 of Documentation/CodingStyle seems to disagree with you:
 
 
+"                Chapter 4: Naming
 
+C is a Spartan language, and so should your naming be.  Unlike Modula-2
+and Pascal programmers, C programmers do not use cute names like
+ThisVariableIsATemporaryCounter.  A C programmer would call that
+variable "tmp", which is much easier to write, and not the least more
+difficult to understand.
+
+HOWEVER, while mixed-case names are frowned upon, descriptive names for
+global variables are a must.  To call a global function "foo" is a
+shooting offense.
+"
+
+This seems (to me at least) to suggest that CammelCase is frawned upon.
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
