@@ -1,55 +1,112 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: [PATCH v2] Broadcom CNIC core network driver: fix mem leak on
- allocation failures in cnic_alloc_uio_rings()
-Date: Sun, 2 Jan 2011 19:54:31 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1101021952400.11481@swampdragon.chaosbits.net>
-References: <alpine.LNX.2.00.1012262124320.20797@swampdragon.chaosbits.net> <1293396850.7726.14.camel@Joe-Laptop> <alpine.LNX.2.00.1012262154420.20797@swampdragon.chaosbits.net> <20101231.112025.245393392.davem@davemloft.net>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: Re: [PATCH] new UDPCP Communication Protocol
+Date: Sun, 2 Jan 2011 21:48:15 +0200
+Message-ID: <AANLkTi=7M=gSgBjcrCVEj+GKZ5cf5t4MPqm6r9NGr=MZ@mail.gmail.com>
+References: <1293982286-15389-1-git-send-email-stefani@seibold.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: joe@perches.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, zongxi@broadcom.com,
-	mchan@broadcom.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, shemminger@vyatta.com
+To: stefani@seibold.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20101231.112025.245393392.davem@davemloft.net>
+In-Reply-To: <1293982286-15389-1-git-send-email-stefani@seibold.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 31 Dec 2010, David Miller wrote:
+Hello,
 
-> From: Jesper Juhl <jj@chaosbits.net>
-> Date: Sun, 26 Dec 2010 21:57:39 +0100 (CET)
-> 
-> > We are leaking memory in drivers/net/cnic.c::cnic_alloc_uio_rings() if 
-> > either of the calls to dma_alloc_coherent() fail. This patch fixes it by 
-> > freeing both the memory allocated with kzalloc() and memory allocated with 
-> > previous calls to dma_alloc_coherent() when there's a failure.
-> > 
-> > Thanks to  Joe Perches <joe@perches.com>  for suggesting a better 
-> > implementation than my initial version.
-> > 
-> > 
-> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> 
->  ...
-> > + err_dma:
-> > +	dma_free_coherent(&udev->pdev->dev, udev->l2_ring_size,
-> > +       			  udev->l2_ring, udev->l2_ring_map);
-> 
-> Space before tab in indentation, improperly positioned third argument
-> indentation.
-> 
-Whoops.
+I have some style comments, please read below.
 
-> I fixed all of this up, but please do not skimp on making sure these
-> details are taken care of when updating your patch in response to feedback.
-> 
-I usually try to take care that such things are in order. I often even 
-point these details out to other people. It slipped past me this time. 
-That was a mistake. Sorry.
+> +struct udpcp_statistics {
+> + =A0 =A0 =A0 unsigned int txMsgs; =A0 =A0 =A0 =A0 =A0 =A0/* Num of t=
+ransmitted messages */
+> + =A0 =A0 =A0 unsigned int rxMsgs; =A0 =A0 =A0 =A0 =A0 =A0/* Num of r=
+eceived messages */
+> + =A0 =A0 =A0 unsigned int txNodes; =A0 =A0 =A0 =A0 =A0 /* Num of rec=
+eiver nodes */
+> + =A0 =A0 =A0 unsigned int rxNodes; =A0 =A0 =A0 =A0 =A0 /* Num of tra=
+nsmitter nodes */
+> + =A0 =A0 =A0 unsigned int txTimeout; =A0 =A0 =A0 =A0 /* Num of unsuc=
+cessful transmissions */
+> + =A0 =A0 =A0 unsigned int rxTimeout; =A0 =A0 =A0 =A0 /* Num of parti=
+al message receptions */
+> + =A0 =A0 =A0 unsigned int txRetries; =A0 =A0 =A0 =A0 /* Num of resen=
+ds */
+> + =A0 =A0 =A0 unsigned int rxDiscardedFrags; =A0/* Num of discarded f=
+ragments */
+> + =A0 =A0 =A0 unsigned int crcErrors; =A0 =A0 =A0 =A0 /* Num of crc e=
+rrors detected */
 
+Is there any strong reason to have this camel case naming?
+I would prefer tx_msgs, rx_msgs etc..
 
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+> +struct udpcp_dest {
+> + =A0 =A0 =A0 struct list_head list;
+> + =A0 =A0 =A0 struct sk_buff_head xmit;
+> + =A0 =A0 =A0 unsigned long tx_time;
+> + =A0 =A0 =A0 unsigned long rx_time;
+> + =A0 =A0 =A0 u32 txTimeout;
+> + =A0 =A0 =A0 u32 rxTimeout;
+
+Here you have mixed naming conventions. I guess
+tx_timeout will fit in better than txTimeout.
+
+> + =A0 =A0 =A0 u32 txRetries;
+> + =A0 =A0 =A0 u32 rxDiscardedFrags;
+> + =A0 =A0 =A0 struct sk_buff *xmit_wait;
+> + =A0 =A0 =A0 struct sk_buff *xmit_last;
+> + =A0 =A0 =A0 struct sk_buff *recv_msg;
+> + =A0 =A0 =A0 struct sk_buff *recv_last;
+> + =A0 =A0 =A0 struct udpcphdr lastmsg;
+> + =A0 =A0 =A0 struct ipcm_cookie ipc;
+> + =A0 =A0 =A0 struct flowi fl;
+> + =A0 =A0 =A0 struct rtable *rt;
+> + =A0 =A0 =A0 __be32 addr;
+> + =A0 =A0 =A0 __be16 port;
+> + =A0 =A0 =A0 u16 msgid;
+> + =A0 =A0 =A0 u8 use_flag;
+> + =A0 =A0 =A0 u8 insync;
+> + =A0 =A0 =A0 u8 ackmode;
+> + =A0 =A0 =A0 u8 chkmode;
+> + =A0 =A0 =A0 u8 try;
+> + =A0 =A0 =A0 u8 acks;
+> + =A0 =A0 =A0 struct udp_sock udpsock;
+> + =A0 =A0 =A0 struct sk_buff_head assembly;
+> + =A0 =A0 =A0 u32 assembly_len;
+> + =A0 =A0 =A0 struct udpcp_dest *assembly_dest;
+> + =A0 =A0 =A0 wait_queue_head_t wq;
+> + =A0 =A0 =A0 struct list_head destlist;
+> + =A0 =A0 =A0 struct list_head udpcplist;
+> + =A0 =A0 =A0 struct timer_list timer;
+> + =A0 =A0 =A0 struct udpcp_statistics stat;
+> + =A0 =A0 =A0 u32 pending;
+> + =A0 =A0 =A0 unsigned long tx_timeout;
+> + =A0 =A0 =A0 unsigned long rx_timeout;
+> + =A0 =A0 =A0 void (*udp_data_ready) (struct sock *sk, int bytes);
+> + =A0 =A0 =A0 u8 ackmode;
+> + =A0 =A0 =A0 u8 chkmode;
+> + =A0 =A0 =A0 u8 maxtry;
+> + =A0 =A0 =A0 u8 acks;
+> + =A0 =A0 =A0 u8 timeout;
+> +/* overall UDPCP statistics */
+> +static atomic_t udpcp_txMsgs;
+> +static atomic_t udpcp_rxMsgs;
+> +static atomic_t udpcp_txNodes;
+> +static atomic_t udpcp_rxNodes;
+> +static atomic_t udpcp_txTimeout;
+> +static atomic_t udpcp_rxTimeout;
+> +static atomic_t udpcp_txRetries;
+> +static atomic_t udpcp_rxDiscardedFrags;
+> +static atomic_t udpcp_crcErrors;
+
+same here.
+
+> +
+> +module_param(debug, int, 0);
+> +MODULE_PARM_DESC(debug, "Debug enabled or not");
+> +
+
+thanks,
+Daniel.
