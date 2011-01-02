@@ -1,154 +1,136 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [net-next-2.6 06/08] r8169: magic.
-Date: Mon, 3 Jan 2011 00:37:29 +0100
-Message-ID: <20110102233729.GG5780@electric-eye.fr.zoreil.com>
+Subject: [net-next-2.6 07/08] r8169: rtl_csi_access_enable rename.
+Date: Mon, 3 Jan 2011 00:37:40 +0100
+Message-ID: <20110102233740.GH5780@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
 	Ben Hutchings <benh@debian.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:51704 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51709 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611Ab1ABXhk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jan 2011 18:37:40 -0500
+	with ESMTP id S1752899Ab1ABXhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jan 2011 18:37:51 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adapted from version 8.019.00 of Realtek's r8168 driver.
+Newer 8168 needs a slightly different rtl_csi_access_enable.
+This patch separates some noise from the real thing.
+
+No functional change.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 Cc: Hayes <hayeswang@realtek.com>
 ---
- drivers/net/r8169.c |   93 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 93 insertions(+), 0 deletions(-)
+ drivers/net/r8169.c |   27 ++++++++++++++++-----------
+ 1 files changed, 16 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index fd7e40a..ab1741d 100644
+index ab1741d..a8df458 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -278,6 +278,18 @@ enum rtl8168_8101_registers {
- };
+@@ -3310,12 +3310,17 @@ static void rtl_tx_performance_tweak(struct pci_dev *pdev, u16 force)
+ 	}
+ }
  
- enum rtl8168_registers {
-+	ERIDR			= 0x70,
-+	ERIAR			= 0x74,
-+#define ERIAR_FLAG			0x80000000
-+#define ERIAR_WRITE_CMD			0x80000000
-+#define ERIAR_READ_CMD			0x00000000
-+#define ERIAR_ADDR_BYTE_ALIGN		4
-+#define ERIAR_EXGMAC			0
-+#define ERIAR_MSIX			1
-+#define ERIAR_ASF			2
-+#define ERIAR_TYPE_SHIFT		16
-+#define ERIAR_BYTEEN			0x0f
-+#define ERIAR_BYTEEN_SHIFT		12
- 	EPHY_RXER_NUM		= 0x7c,
- 	OCPDR			= 0xb0,	/* OCP GPHY access */
- #define OCPDR_WRITE_CMD			0x80000000
-@@ -572,6 +584,81 @@ static int rtl8169_poll(struct napi_struct *napi, int budget);
- static const unsigned int rtl8169_rx_config =
- 	(RX_FIFO_THRESH << RxCfgFIFOShift) | (RX_DMA_BURST << RxCfgDMAShift);
- 
-+static u32 ocp_read(struct rtl8169_private *tp, u8 mask, u16 reg)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	int i;
-+
-+	RTL_W32(OCPAR, ((u32)mask & 0x0f) << 12 | (reg & 0x0fff));
-+	for (i = 0; i < 20; i++) {
-+		udelay(100);
-+		if (RTL_R32(OCPAR) & OCPAR_FLAG)
-+			break;
-+	}
-+	return RTL_R32(OCPDR);
-+}
-+
-+static void ocp_write(struct rtl8169_private *tp, u8 mask, u16 reg, u32 data)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	int i;
-+
-+	RTL_W32(OCPDR, data);
-+	RTL_W32(OCPAR, OCPAR_FLAG | ((u32)mask & 0x0f) << 12 | (reg & 0x0fff));
-+	for (i = 0; i < 20; i++) {
-+		udelay(100);
-+		if ((RTL_R32(OCPAR) & OCPAR_FLAG) == 0)
-+			break;
-+	}
-+}
-+
-+static void rtl8168_oob_notify(void __iomem *ioaddr, u8 cmd)
-+{
-+	int i;
-+
-+	RTL_W8(ERIDR, cmd);
-+	RTL_W32(ERIAR, 0x800010e8);
-+	msleep(2);
-+	for (i = 0; i < 5; i++) {
-+		udelay(100);
-+		if (!(RTL_R32(ERIDR) & ERIAR_FLAG))
-+			break;
-+	}
-+
-+	ocp_write(ioaddr, 0x1, 0x30, 0x00000001);
-+}
-+
-+#define OOB_CMD_RESET		0x00
-+#define OOB_CMD_DRIVER_START	0x05
-+#define OOB_CMD_DRIVER_STOP	0x06
-+
-+static void rtl8168_driver_start(struct rtl8169_private *tp)
-+{
-+	int i;
-+
-+	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_START);
-+
-+	for (i = 0; i < 10; i++) {
-+		msleep(10);
-+		if (ocp_read(tp, 0x0f, 0x0010) & 0x00000800)
-+			break;
-+	}
-+}
-+
-+static void rtl8168_driver_stop(struct rtl8169_private *tp)
-+{
-+	int i;
-+
-+	rtl8168_oob_notify(tp, OOB_CMD_DRIVER_STOP);
-+
-+	for (i = 0; i < 10; i++) {
-+		msleep(10);
-+		if ((ocp_read(tp, 0x0f, 0x0010) & 0x00000800) == 0)
-+			break;
-+	}
-+}
-+
-+
- static void r8169_mdio_write(void __iomem *ioaddr, int reg_addr, int value)
+-static void rtl_csi_access_enable(void __iomem *ioaddr)
++static void rtl_csi_access_enable(void __iomem *ioaddr, u32 bits)
  {
- 	int i;
-@@ -2913,6 +3000,9 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		   dev->base_addr, dev->dev_addr,
- 		   (u32)(RTL_R32(TxConfig) & 0x9cf0f8ff), dev->irq);
+ 	u32 csi;
  
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
-+		rtl8168_driver_start(tp);
+ 	csi = rtl_csi_read(ioaddr, 0x070c) & 0x00ffffff;
+-	rtl_csi_write(ioaddr, 0x070c, csi | 0x27000000);
++	rtl_csi_write(ioaddr, 0x070c, csi | bits);
++}
 +
- 	rtl8169_init_phy(dev, tp);
++static void rtl_csi_access_enable_2(void __iomem *ioaddr)
++{
++	rtl_csi_access_enable(ioaddr, 0x27000000);
+ }
  
- 	/*
-@@ -2948,6 +3038,9 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
- 	struct net_device *dev = pci_get_drvdata(pdev);
- 	struct rtl8169_private *tp = netdev_priv(dev);
+ struct ephy_info {
+@@ -3403,7 +3408,7 @@ static void rtl_hw_start_8168cp_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ 		{ 0x07, 0,	0x2000 }
+ 	};
  
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
-+		rtl8168_driver_stop(tp);
-+
- 	cancel_delayed_work_sync(&tp->task);
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
  
- 	unregister_netdev(dev);
+ 	rtl_ephy_init(ioaddr, e_info_8168cp, ARRAY_SIZE(e_info_8168cp));
+ 
+@@ -3412,7 +3417,7 @@ static void rtl_hw_start_8168cp_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ 
+ static void rtl_hw_start_8168cp_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ {
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
+ 
+@@ -3423,7 +3428,7 @@ static void rtl_hw_start_8168cp_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ 
+ static void rtl_hw_start_8168cp_3(void __iomem *ioaddr, struct pci_dev *pdev)
+ {
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
+ 
+@@ -3445,7 +3450,7 @@ static void rtl_hw_start_8168c_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ 		{ 0x06, 0x0080,	0x0000 }
+ 	};
+ 
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	RTL_W8(DBG_REG, 0x06 | FIX_NAK_1 | FIX_NAK_2);
+ 
+@@ -3461,7 +3466,7 @@ static void rtl_hw_start_8168c_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ 		{ 0x03, 0x0400,	0x0220 }
+ 	};
+ 
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	rtl_ephy_init(ioaddr, e_info_8168c_2, ARRAY_SIZE(e_info_8168c_2));
+ 
+@@ -3475,14 +3480,14 @@ static void rtl_hw_start_8168c_3(void __iomem *ioaddr, struct pci_dev *pdev)
+ 
+ static void rtl_hw_start_8168c_4(void __iomem *ioaddr, struct pci_dev *pdev)
+ {
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	__rtl_hw_start_8168cp(ioaddr, pdev);
+ }
+ 
+ static void rtl_hw_start_8168d(void __iomem *ioaddr, struct pci_dev *pdev)
+ {
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	rtl_disable_clock_request(pdev);
+ 
+@@ -3611,7 +3616,7 @@ static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ 	};
+ 	u8 cfg1;
+ 
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	RTL_W8(DBG_REG, FIX_NAK_1);
+ 
+@@ -3632,7 +3637,7 @@ static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ 
+ static void rtl_hw_start_8102e_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ {
+-	rtl_csi_access_enable(ioaddr);
++	rtl_csi_access_enable_2(ioaddr);
+ 
+ 	rtl_tx_performance_tweak(pdev, 0x5 << MAX_READ_REQUEST_SHIFT);
+ 
 -- 
 1.7.3.4
 
