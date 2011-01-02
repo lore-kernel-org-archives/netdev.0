@@ -1,104 +1,187 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH] net: eepro testing positive EBUSY return by
- request_irq()?
-Date: Sun, 02 Jan 2011 19:51:32 +0000
-Message-ID: <1293997892.3167.53.camel@localhost>
-References: <4D1DECFC.8020701@gmail.com>
-	 <1293809262.2870.45.camel@localhost>  <4D209127.5080505@gmail.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: Re: [PATCH] new UDPCP Communication Protocol
+Date: Sun, 2 Jan 2011 20:55:15 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101022024200.11481@swampdragon.chaosbits.net>
+References: <1293982286-15389-1-git-send-email-stefani@seibold.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-okZWYZPtMlXy5ZLi623H"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: roel kluin <roel.kluin@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, shemminger@vyatta.com
+To: stefani@seibold.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D209127.5080505@gmail.com>
+In-Reply-To: <1293982286-15389-1-git-send-email-stefani@seibold.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Sun, 2 Jan 2011, stefani@seibold.net wrote:
 
---=-okZWYZPtMlXy5ZLi623H
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> From: Stefani Seibold <stefani@seibold.net>
+> 
+> Changelog:
+> 31.12.2010 first proposal
+> 01.01.2011 code cleanup and fixes suggest by Eric Dumazet
+> 02.01.2011 kick away UDP-Lite support
+>            change spin_lock_irq into spin_lock_bh
+> 	   faster udpcp_release_sock
+> 	   base is now linux-next
+> 
+> UDPCP is a communication protocol specified by the Open Base Station
+> Architecture Initiative Special Interest Group (OBSAI SIG). The
+> protocol is based on UDP and is designed to meet the needs of "Mobile
+> Communcation Base Station" internal communications. It is widely used by
+> the major networks infrastructure supplier.
+> 
+> The UDPCP communication service supports the following features:
+> 
+> -Connectionless communication for serial mode data transfer
+> -Acknowledged and unacknowledged transfer modes
+> -Retransmissions Algorithm
+> -Checksum Algorithm using Adler32
+> -Fragmentation of long messages (disassembly/reassembly) to match to the MTU
+>  during transport:
+> -Broadcasting and multicasting messages to multiple peers in unacknowledged
+>   transfer mode
+> 
+> UDPCP supports application level messages up to 64 KBytes (limited by 16-bit
+> packet data length field). Messages that are longer than the MTU will be
+> fragmented to the MTU.
+> 
+> UDPCP provides a reliable transport service that will perform message
+> retransmissions in case transport failures occur.
+> 
+> The code is also a nice example how to implement a UDP based protocol as
+> a kernel socket modules.
+> 
+> Due the nature of UDPCP which has no sliding windows support, the latency has
+> a huge impact. The perfomance increase by implementing as a kernel module is
+> about the factor 10, because there are no context switches and data packets or
+> ACKs will be handled in the interrupt service.
+> 
+> There are no side effects to the network subsystems so i ask for merge it
+> into linux-next. Hope you like it.
+> 
+> The patch is against linux next-20101231
+> 
+> - Stefani
+> 
+> Signed-off-by: Stefani Seibold <stefani@seibold.net>
 
-On Sun, 2011-01-02 at 15:52 +0100, roel kluin wrote:
-> >> -		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) !=3D EBUSY=
-) {
-> >> +		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) !=3D -EBUS=
-Y) {
->=20
-> > This condition is completely bogus - request_irq() with a NULL handler
-> > now returns -EINVAL before even checking whether the IRQ is in use.  Th=
-e
-> > code should be fixed along the lines of what I did for 3c503 in commit
-> > b0cf4dfb7cd21556efd9a6a67edcba0840b4d98d.
-> >=20
-> > The e2100 and hp net drivers have the same bug.
-> >=20
-> > Ben.
->=20
-> I've made an attempt to fix the mentioned issues, but I'm not sure it is =
-complete.
-> The commit made some other changes as well which didn't seem appropriate =
-here to me.
-
-They are absolutely necessary.
-
-In the bad old days before plug-and-play, some expansion cards would
-have jumpers to configure the IRQ number and no software mechanism to
-set or query it.  Users were expected to specify the IRQ to the driver
-explicitly.  probe_irq_{on,off}() allow drivers to avoid this by
-triggering an IRQ and checking which was received.  That assumes that
-there are no IRQ conflicts, and it only works reliably in a quiescent
-system.
-
-These drivers have been abusing request_irq(), probe_irq_{on,off}() to
-do resource allocation for hardware that *does* have a software
-mechanism to set the IRQ number.  This has become less reliable as
-driver loading has been made more dynamic, and is now broken completely
-due to the change in request_irq().  I believe the correct way to do
-this allocation is what I did in 3c503.  Possibly it's worth adding a
-generic function.
-
-> And I didn't compile or run test this.
-
-I compiled but didn't have hardware to test.
-
-> As a side note, in the function changed by the commit you mentioned, el2_=
-open(), it
-> appears that in current git, boolean `seen' cannot ever become true, can =
-it?
 [...]
+> +
+> +#define VERSION	"0.71"
 
-The IRQ handler data is set to &seen and el2_probe_interrupt() uses that
-pointer to set it.
+I personally don't think this makes much sense.
+Version numbers for individual modules tend to not get updated as the code 
+changes over the years, which make them rather meaningless.
+Since this module depends on functionallity of the kernel which it is 
+compiled with, the actual (meaningful) version of this code is that of the 
+kernel tree being compiled that includes this code. Which again makes this 
+specific version define meaningless.
 
-Ben.
+So, why not save a few lines of code and get rid of this rather pointless 
+thing?
 
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
+[...]
+> +static struct udpcp_dest *find_dest(struct sock *sk, __be32 addr, __be16 port)
+> +{
+> +	struct udpcp_dest *dest;
+> +
+> +	dest = __find_dest(sk, addr, port);
 
---=-okZWYZPtMlXy5ZLi623H
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+Why not
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+static struct udpcp_dest *find_dest(struct sock *sk, __be32 addr, __be16 port)
+{
+     struct udpcp_dest *dest =  __find_dest(sk, addr, port);
 
-iQIVAwUATSDXP+e/yOyVhhEJAQIL6Q//Y5oC8FGsBf0i5K/guIIMG5KupgziTDxe
-ETP5rQLLGKS/N66nbSHQPCVMzGdj8U/4hHjDQaVBEpyD4XD4wea3kVPMzzoV84Mc
-R/52TwXXtDqI0C1v1AyBID/1swRTCzhFeb+EnLyBThTRIfM4NRZhQq6rQuS3T9xM
-pawLhG+0w+M31PPS198gKEQ7Nq40hnpzo8wZ4powzGKVciTzakmstY81GF37rFjh
-p0QLiNV5yR8mzjA7bx9cyjxxaq8ZRWIr1eNNYJBcldbVjgbMXYkimucmx1MXagzW
-639UzKuoECtuLJOj1EzwOWnoOK4GhjjDp0W5uLJIZiadZy18YppVEKFwQd+AOj3y
-dqF4DFozsL5l/8zHLl2PZlOpUB3x02QzxoDOwIpJ6RKsaPnymkfdv8W4mmZp8+FX
-P2e9I4ZxQd1m/qDhBf2XZ6+Zy6azexoHVeWTzDbmOu/a4yv0/zLVt+FVKUEq9rBh
-4zwbYc38tdzBuZTi6StyRHowSvfGM1wCfDoAITI1QXoMrljUtyunXjT9nDZ1b6YK
-aF5UkQM87MFVURdDG5GSx9UJbpklhCPcDE33SAXTK8F0q+Bmnm2gLv5rBRn/G87S
-sCMeSADzDElV4FB9xlQskOu7sIovr8OAIEYARvg+9PxgzNPAxX9zuARiXcvggyc3
-/HKbCa7mqH8=
-=cJt2
------END PGP SIGNATURE-----
+?
 
---=-okZWYZPtMlXy5ZLi623H--
+
+[...]
+> + * Release a routing table entry if no packed will be assembled
+
+Don't you mean "packet" rather than "packed" here?
+
+
+[...]
+> + * Return true it the passed skb socket buffer is the last in the list
+
+I believe you mean "Return true if the passed ..."
+
+
+[...]
+> +static void udpcp_flush_err(struct sock *sk, struct udpcp_dest *dest)
+> +{
+> +	struct inet_sock *inet = inet_sk(sk);
+> +	struct udpcp_sock *usk = udpcp_sk(sk);
+> +
+> +	if (!inet->recverr)
+> +		skb_queue_purge(&dest->xmit);
+> +	else {
+
+CodingStyle would want this as
+
+     if (!inet->recverr) {
+             skb_queue_purge(&dest->xmit);
+     } else {
+
+If one branch needs {} then both should get them.
+
+
+[...]
+> +	if (!dest->xmit_last)
+> +		_udpcp_xmit(sk, dest);
+> +	else {
+> +		skb = dest->xmit_wait;
+
+Same comment as above.
+There are more occurences of this, I'm not going to point them all out.
+
+
+[...]
+> +static inline void udpcp_release_sock(struct sock *sk)
+> +{
+> +	struct udpcp_sock *usk = udpcp_sk(sk);
+> +
+> +	while (usk->timeout)
+> +		udpcp_handle_timeout(sk);
+> +	release_sock(sk);
+> +        check_timeout(sk);
+
+The line above uses spaces for indentation. It should use one tab.
+
+
+[...]
+> +static unsigned int udpcp_tx_queue_len(struct sock *sk, struct udpcp_dest *dest)
+> +{
+> +	struct sk_buff *skb;
+> +	unsigned int n;
+> +
+> +	n = 0;
+
+Might as well save a few lines and make this
+
+static unsigned int udpcp_tx_queue_len(struct sock *sk, struct udpcp_dest *dest)
+{
+     struct sk_buff *skb;
+     unsigned int n = 0;
+
+
+[...]
+> +static unsigned int udpcp_rx_queue_len(struct sock *sk, struct udpcp_dest *dest)
+> +{
+> +	struct sk_buff *skb;
+> +	unsigned int n;
+> +
+> +	n = 0;
+
+Here as well
+        unsigned int n = 0;
+
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
