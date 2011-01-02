@@ -1,53 +1,46 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [PATCH V7 7/8] ptp: Added a clock driver for the IXP46x.
-Date: Sun, 2 Jan 2011 10:20:42 +0100
-Message-ID: <20110102092042.GA14165@ucw.cz>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
- <d2e0a5ac5eb51e9e4c7fcc94723b67c72c2f57c1.1292512461.git.richard.cochran@omicron.at>
- <20110102084505.GA3980@ucw.cz>
- <20110102091233.GA2847@riccoc20.at.omicron.at>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [*v3 PATCH 14/22] IPVS: netns awareness to ip_vs_sync
+Date: Sun, 2 Jan 2011 10:47:30 +0100
+Message-ID: <201101021047.31268.hans@schillstrom.com>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com> <1293706266-27152-15-git-send-email-hans@schillstrom.com> <20101231004433.GA14681@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110102091233.GA2847-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: ja@ssi.bg, daniel.lezcano@free.fr, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20101231004433.GA14681@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun 2011-01-02 10:12:33, Richard Cochran wrote:
-> On Sun, Jan 02, 2011 at 09:45:05AM +0100, Pavel Machek wrote:
-> > Hi!!
-> > 
-> > > +struct ixp46x_channel_ctl {
-> > > +	u32 Ch_Control; /* 0x40 Time Synchronization Channel Control */
-> > > +	u32 Ch_Event;   /* 0x44 Time Synchronization Channel Event */
-> > > +	u32 TxSnapLo;   /* 0x48 Transmit Snapshot Low Register */
-> > > +	u32 TxSnapHi;   /* 0x4C Transmit Snapshot High Register */
-> > 
-> > CouldWeGetRidOfCamelCase?
-> 
-> I agree that CamelCase is ugly and in bad taste. However, I make an
-> exception when the register level programmer's manual uses this style.
-> 
-> IMHO, it is better to use the exact same mnemonics as in the
-> manual. That way, when the next person comes along to make a change to
 
-Given the comments -- does manual really use camelCase crap?
-And... the identifiers actually combine camelCase with _. Better fix
-it.
-							Pavel
-
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+On Friday, December 31, 2010 01:44:33 Simon Horman wrote:
+> On Thu, Dec 30, 2010 at 11:50:58AM +0100, hans@schillstrom.com wrote:
+> > From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> > 
+> > All global variables moved to struct ipvs,
+> > most external changes fixed (i.e. init_net removed)
+> > in sync_buf create  + 4 replaced by sizeof(struct..)
+> 
+> [ snip ]
+> 
+> > diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> > index 0454a11..5d6e250 100644
+> > --- a/net/netfilter/ipvs/ip_vs_core.c
+> > +++ b/net/netfilter/ipvs/ip_vs_core.c
+> > @@ -1477,6 +1477,8 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
+> >  	struct ip_vs_proto_data *pd;
+> >  	struct ip_vs_conn *cp;
+> >  	int ret, restart, pkts;
+> > +	struct net *net;
+> 
+> The line above adds a duplicate declaration of net as
+> just before the diff-context starts there is
+> 
+> 	struct net *net = NULL;
+> 
+I'll remove that
