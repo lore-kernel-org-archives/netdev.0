@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Subject: Re: [PATCH V7 7/8] ptp: Added a clock driver for the IXP46x.
-Date: Sun, 2 Jan 2011 10:12:33 +0100
-Message-ID: <20110102091233.GA2847@riccoc20.at.omicron.at>
+Date: Sun, 2 Jan 2011 10:19:49 +0100
+Message-ID: <20110102091949.GB2847@riccoc20.at.omicron.at>
 References: <cover.1292512461.git.richard.cochran@omicron.at>
  <d2e0a5ac5eb51e9e4c7fcc94723b67c72c2f57c1.1292512461.git.richard.cochran@omicron.at>
  <20110102084505.GA3980@ucw.cz>
@@ -24,23 +24,6 @@ In-Reply-To: <20110102084505.GA3980-+ZI9xUNit7I@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 02, 2011 at 09:45:05AM +0100, Pavel Machek wrote:
-> Hi!!
-> 
-> > +struct ixp46x_channel_ctl {
-> > +	u32 Ch_Control; /* 0x40 Time Synchronization Channel Control */
-> > +	u32 Ch_Event;   /* 0x44 Time Synchronization Channel Event */
-> > +	u32 TxSnapLo;   /* 0x48 Transmit Snapshot Low Register */
-> > +	u32 TxSnapHi;   /* 0x4C Transmit Snapshot High Register */
-> 
-> CouldWeGetRidOfCamelCase?
+BTW, I posted an updated V8 of this patch series on December 31.
 
-I agree that CamelCase is ugly and in bad taste. However, I make an
-exception when the register level programmer's manual uses this style.
-
-IMHO, it is better to use the exact same mnemonics as in the
-manual. That way, when the next person comes along to make a change to
-the code, with manual in hand, he will immediately know what is what.
-
-Thanks,
 Richard
