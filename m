@@ -1,85 +1,72 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Mon, 3 Jan 2011 00:04:32 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1101022356550.11481@swampdragon.chaosbits.net>
-References: <1294007971-18878-1-git-send-email-stefani@seibold.net>  <1294008562.2535.263.camel@edumazet-laptop> <1294008917.18963.3.camel@wall-e>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [net-next-2.6 00/08] r8169 driver updates
+Date: Mon, 3 Jan 2011 00:35:31 +0100
+Message-ID: <20110102233531.GA5780@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1374685088-1294009472=:11481"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com,
-	daniel.baluta@gmail.com, jochen@jochen.org
-To: Stefani Seibold <stefani@seibold.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294008917.18963.3.camel@wall-e>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Ben Hutchings <benh@debian.org>,
+	David Woodhouse <dwmw2@infradead.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:51672 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599Ab1ABXfu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jan 2011 18:35:50 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+The following series includes:
+- Hayes'firmware removal. The firmware is already included in linux-firmware.
+- my sauce to diminish the gap between the in-kernel r8169 driver
+  and Realtek's one(s).
 
---8323328-1374685088-1294009472=:11481
-Content-Type: TEXT/PLAIN; charset=ISO-8859-15
-Content-Transfer-Encoding: 8BIT
+I have not noticed any regression while doing some basic testing with the
+chipsets below (Realtek's own label are included between parenthesis).
 
-On Sun, 2 Jan 2011, Stefani Seibold wrote:
+- RTL8169sc/8110sc XID 98000000 (RTL8110SC)
+- RTL8102e         XID 14c00000 (RTL8103E-GR)
+- RTL8102e         XID 04a00000 (RTL8102E-VB-GR)
+- RTL8101e         XID 00a00000 (RTL8105E-VG)
+- RTL8168d/8111d   XID 083000c0 (RTL8111D-VB-GR)
+- RTL8168d/8111d   XID 081000c0 (RTL8168D-GR)
 
-> Am Sonntag, den 02.01.2011, 23:49 +0100 schrieb Eric Dumazet:
-> > Le dimanche 02 janvier 2011 à 23:39 +0100, stefani@seibold.net a écrit :
-> > > +
-> > > +/*
-> > > + * Create a new destination descriptor for the given IPV4 address and port
-> > > + */
-> > > +static struct udpcp_dest *new_dest(struct sock *sk, __be32 addr, __be16 port)
-> > > +{
-> > > +	struct udpcp_dest *dest;
-> > > +	struct udpcp_sock *usk = udpcp_sk(sk);
-> > > +
-> > > +	if (usk->connections >= udpcp_max_connections)
-> > > +		return NULL;
-> > > +
-> > > +	dest = kzalloc(sizeof(*dest), sk->sk_allocation);
-> > > +
-> > > +	if (dest) {
-> > > +		usk->connections++;
-> > > +		skb_queue_head_init(&dest->xmit);
-> > > +		dest->addr = addr;
-> > > +		dest->port = port;
-> > > +		dest->ackmode = UDPCP_ACK;
-> > > +		list_add_tail(&dest->list, &usk->destlist);
-> > > +	}
-> > > +
-> > > +	return dest;
-> > > +}
-> > > +
-> > 
-> > Hmm, so 'connections' is increased, never decreased.
-> > 
-> > This seems a fatal flaw in this protocol, since a malicious user can
-> > easily fill the list with garbage, and block regular communications.
-> 
-> You are right, there is now way to detect which connection is no longer
-> needed. I have not designed this protocol, so i cannot fix it. 
-> 
-> But in our environment this will be used together with an firewall
-> and/or ipsec. In this case it it safe.
-> 
+The series is available as
+git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-davem
 
-Hmm, the first thing that springs into my head as a possible band-aid 
-(which is probbaly wrong for many reasons I've not considered, so feel 
-free to shoot it down) is; couldn't we use a timer (set to some outrageous 
-high value by default and admin tunable) that would decrement 
-'connections' (discount dead connections) when there has not been any 
-acctivity for a huge period of time? Kill off connections that have been 
-idle for ages.
+Distance from 'net-next' (40cd201e37073b3e2281cf2c73fcf5674f22267f)
+-------------------------------------------------------------------
 
-Not perfect, but that would at least let the system recover after a while 
-if a malicious client did something nasty with many connections...
+c853fd7221941839af1799d8f47daa2ae8cf65ef
+ffbbf19c870a92b841a224db14cda64ad81598cf
+82636521a5a60abc6ccadbfed1b2424d5be6bb49
+ee37a075949e32bb336a54c93abc7d4771898264
+a19878e168201c09f6f631bbef40b67a0e374078
+dfbd1ebbd95cdc63f31b59d62bf9e652657d7241
+d7b9a3f0f524085cc8fee0388d369cfb43e588c7
+60631b47144e6f5d0003eaf66d376046d592b78f
 
+Diffstat
+--------
+
+ drivers/net/r8169.c | 1632 +++++++++++++++++++++++++--------------------------
+ 1 files changed, 784 insertions(+), 848 deletions(-)
+
+Shortlog
+--------
+
+Francois Romieu (7):
+      r8169: identify different registers.
+      r8169: use device dependent methods to access the MII registers.
+      r8169: 8168DP specific MII registers access methods.
+      r8169: phy power ops
+      r8169: magic.
+      r8169: rtl_csi_access_enable rename.
+      r8169: more 8168dp support.
+
+Hayes Wang (1):
+      r8169: remove the firmware of RTL8111D.
 
 -- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
-
---8323328-1374685088-1294009472=:11481--
+Ueimor
