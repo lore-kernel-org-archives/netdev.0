@@ -1,48 +1,93 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] netdev: Update status of 8390 based drivers in MAINTAINERS
-Date: Sat,  1 Jan 2011 18:28:30 -0500
-Message-ID: <1293924510-14290-1-git-send-email-paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:57562 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750973Ab1AAX3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jan 2011 18:29:05 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
+Date: Sat, 1 Jan 2011 19:27:49 -0500
+Message-ID: <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
+References: <1291536233.2806.102.camel@edumazet-laptop>
+	<20101205105528.49fa9a9f@xenia.leun.net>
+	<20101205114404.7c0cddc2@xenia.leun.net>
+	<AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
+	<20101206203437.54b550e0@xenia.leun.net>
+	<AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
+	<20101206222703.32fbe852@xenia.leun.net>
+	<AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
+	<20101213224510.GB17400@mcarlson.broadcom.com>
+	<AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
+	<20101214191500.GD19951@mcarlson.broadcom.com>
+	<1293901393.2535.49.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Leun <lkml20101129@newton.leun.net>,
+	Michael Chan <mchan@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1293901393.2535.49.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With the original 8 bit ISA ne1000 card being over 20 years old, it
-only makes sense to consider ne.c and all the other toplevel 8390
-based driver files as legacy for obsolete hardware.  The most
-recent thing made in large quantities that was 8390 based were
-those crazy PCI ne2k clones - and even they are now 10+ years old.
+On Sat, Jan 1, 2011 at 12:03 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le mardi 14 d=E9cembre 2010 =E0 11:15 -0800, Matt Carlson a =E9crit :
+>
+>> Thanks for the comments Jesse. =A0Below is an updated patch.
+>>
+>> Michael, I'm wondering if the difference in behavior can be explaine=
+d by
+>> the presence or absence of management firmware. =A0Can you look at t=
+he
+>> driver sign-on messages in your syslogs for ASF[]? =A0I'm half expec=
+ting
+>> the 5752 to show "ASF[0]" and the 5714 to show "ASF[1]". =A0If you s=
+ee
+>> this, and the below patch doesn't fix the problem, let me know. =A0I=
+ have
+>> another test I'd like you to run.
+>>
+>> ----
+>>
+>> [PATCH] tg3: Use new VLAN code
+>>
+>> This patch pivots the tg3 driver to the new VLAN infrastructure.
+>> All references to vlgrp have been removed and all VLAN code is
+>> unconditionally active.
+>>
+>> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 
-Also remove myself as maintainer, since the only changes to these
-drivers going forward will be the generic API type changes that
-touch all drivers.
+[...]
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- MAINTAINERS |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+> Hi Matt.
+>
+> Any news on this patch ?
+>
+> Without it, net-next-2.6 doesnt work for me on a vlan setup on top of
+> bonding.
+>
+> (bond0 : eth1 & eth2, eth1 being bnx2, eth2 beging tg3)
+>
+> ip link add link bond0 vlan.103 type vlan id 103
+> ip addr add 192.168.20.110/24 dev vlan.103
+> ip link set vlan.103 up
+>
+>
+> If active slave is eth1 (bnx2), everything works, but if active slave=
+ is
+> eth2 (tg3), incoming tagged frames (on vlan 103) are lost.
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 4641289..aa835f7 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -166,9 +166,8 @@ F:	drivers/serial/8250*
- F:	include/linux/serial_8250.h
- 
- 8390 NETWORK DRIVERS [WD80x3/SMC-ELITE, SMC-ULTRA, NE2000, 3C503, etc.]
--M:	Paul Gortmaker <p_gortmaker@yahoo.com>
- L:	netdev@vger.kernel.org
--S:	Maintained
-+S:	Orphan / Obsolete
- F:	drivers/net/*8390*
- F:	drivers/net/ax88796.c
- 
--- 
-1.7.3.3
+This patch isn't quite right - it always disables vlan stripping
+unless management firmware is in use, so it's not really a correct
+fix.
 
+You said that this used to work correctly on this NIC?  Does it work
+without a bond, just a vlan on the tg3 device?  It sounds like Michael
+has a problem with vlan stripping on one of his NICs but if it works
+with just a vlan or on older kernels, it's probably not the same
+thing.
+
+If it works on bnx2, it would seem to be a driver problem but it would
+be good to confirm that the tag in skb->vlan_tci is not being
+delievered to the networking core in this case.
