@@ -1,112 +1,104 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Sun, 2 Jan 2011 21:48:15 +0200
-Message-ID: <AANLkTi=7M=gSgBjcrCVEj+GKZ5cf5t4MPqm6r9NGr=MZ@mail.gmail.com>
-References: <1293982286-15389-1-git-send-email-stefani@seibold.net>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH] net: eepro testing positive EBUSY return by
+ request_irq()?
+Date: Sun, 02 Jan 2011 19:51:32 +0000
+Message-ID: <1293997892.3167.53.camel@localhost>
+References: <4D1DECFC.8020701@gmail.com>
+	 <1293809262.2870.45.camel@localhost>  <4D209127.5080505@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, shemminger@vyatta.com
-To: stefani@seibold.net
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-okZWYZPtMlXy5ZLi623H"
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: roel kluin <roel.kluin@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293982286-15389-1-git-send-email-stefani@seibold.net>
+In-Reply-To: <4D209127.5080505@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-I have some style comments, please read below.
+--=-okZWYZPtMlXy5ZLi623H
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> +struct udpcp_statistics {
-> + =A0 =A0 =A0 unsigned int txMsgs; =A0 =A0 =A0 =A0 =A0 =A0/* Num of t=
-ransmitted messages */
-> + =A0 =A0 =A0 unsigned int rxMsgs; =A0 =A0 =A0 =A0 =A0 =A0/* Num of r=
-eceived messages */
-> + =A0 =A0 =A0 unsigned int txNodes; =A0 =A0 =A0 =A0 =A0 /* Num of rec=
-eiver nodes */
-> + =A0 =A0 =A0 unsigned int rxNodes; =A0 =A0 =A0 =A0 =A0 /* Num of tra=
-nsmitter nodes */
-> + =A0 =A0 =A0 unsigned int txTimeout; =A0 =A0 =A0 =A0 /* Num of unsuc=
-cessful transmissions */
-> + =A0 =A0 =A0 unsigned int rxTimeout; =A0 =A0 =A0 =A0 /* Num of parti=
-al message receptions */
-> + =A0 =A0 =A0 unsigned int txRetries; =A0 =A0 =A0 =A0 /* Num of resen=
-ds */
-> + =A0 =A0 =A0 unsigned int rxDiscardedFrags; =A0/* Num of discarded f=
-ragments */
-> + =A0 =A0 =A0 unsigned int crcErrors; =A0 =A0 =A0 =A0 /* Num of crc e=
-rrors detected */
+On Sun, 2011-01-02 at 15:52 +0100, roel kluin wrote:
+> >> -		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) !=3D EBUSY=
+) {
+> >> +		if (request_irq (*irqp, NULL, IRQF_SHARED, "bogus", dev) !=3D -EBUS=
+Y) {
+>=20
+> > This condition is completely bogus - request_irq() with a NULL handler
+> > now returns -EINVAL before even checking whether the IRQ is in use.  Th=
+e
+> > code should be fixed along the lines of what I did for 3c503 in commit
+> > b0cf4dfb7cd21556efd9a6a67edcba0840b4d98d.
+> >=20
+> > The e2100 and hp net drivers have the same bug.
+> >=20
+> > Ben.
+>=20
+> I've made an attempt to fix the mentioned issues, but I'm not sure it is =
+complete.
+> The commit made some other changes as well which didn't seem appropriate =
+here to me.
 
-Is there any strong reason to have this camel case naming?
-I would prefer tx_msgs, rx_msgs etc..
+They are absolutely necessary.
 
-> +struct udpcp_dest {
-> + =A0 =A0 =A0 struct list_head list;
-> + =A0 =A0 =A0 struct sk_buff_head xmit;
-> + =A0 =A0 =A0 unsigned long tx_time;
-> + =A0 =A0 =A0 unsigned long rx_time;
-> + =A0 =A0 =A0 u32 txTimeout;
-> + =A0 =A0 =A0 u32 rxTimeout;
+In the bad old days before plug-and-play, some expansion cards would
+have jumpers to configure the IRQ number and no software mechanism to
+set or query it.  Users were expected to specify the IRQ to the driver
+explicitly.  probe_irq_{on,off}() allow drivers to avoid this by
+triggering an IRQ and checking which was received.  That assumes that
+there are no IRQ conflicts, and it only works reliably in a quiescent
+system.
 
-Here you have mixed naming conventions. I guess
-tx_timeout will fit in better than txTimeout.
+These drivers have been abusing request_irq(), probe_irq_{on,off}() to
+do resource allocation for hardware that *does* have a software
+mechanism to set the IRQ number.  This has become less reliable as
+driver loading has been made more dynamic, and is now broken completely
+due to the change in request_irq().  I believe the correct way to do
+this allocation is what I did in 3c503.  Possibly it's worth adding a
+generic function.
 
-> + =A0 =A0 =A0 u32 txRetries;
-> + =A0 =A0 =A0 u32 rxDiscardedFrags;
-> + =A0 =A0 =A0 struct sk_buff *xmit_wait;
-> + =A0 =A0 =A0 struct sk_buff *xmit_last;
-> + =A0 =A0 =A0 struct sk_buff *recv_msg;
-> + =A0 =A0 =A0 struct sk_buff *recv_last;
-> + =A0 =A0 =A0 struct udpcphdr lastmsg;
-> + =A0 =A0 =A0 struct ipcm_cookie ipc;
-> + =A0 =A0 =A0 struct flowi fl;
-> + =A0 =A0 =A0 struct rtable *rt;
-> + =A0 =A0 =A0 __be32 addr;
-> + =A0 =A0 =A0 __be16 port;
-> + =A0 =A0 =A0 u16 msgid;
-> + =A0 =A0 =A0 u8 use_flag;
-> + =A0 =A0 =A0 u8 insync;
-> + =A0 =A0 =A0 u8 ackmode;
-> + =A0 =A0 =A0 u8 chkmode;
-> + =A0 =A0 =A0 u8 try;
-> + =A0 =A0 =A0 u8 acks;
-> + =A0 =A0 =A0 struct udp_sock udpsock;
-> + =A0 =A0 =A0 struct sk_buff_head assembly;
-> + =A0 =A0 =A0 u32 assembly_len;
-> + =A0 =A0 =A0 struct udpcp_dest *assembly_dest;
-> + =A0 =A0 =A0 wait_queue_head_t wq;
-> + =A0 =A0 =A0 struct list_head destlist;
-> + =A0 =A0 =A0 struct list_head udpcplist;
-> + =A0 =A0 =A0 struct timer_list timer;
-> + =A0 =A0 =A0 struct udpcp_statistics stat;
-> + =A0 =A0 =A0 u32 pending;
-> + =A0 =A0 =A0 unsigned long tx_timeout;
-> + =A0 =A0 =A0 unsigned long rx_timeout;
-> + =A0 =A0 =A0 void (*udp_data_ready) (struct sock *sk, int bytes);
-> + =A0 =A0 =A0 u8 ackmode;
-> + =A0 =A0 =A0 u8 chkmode;
-> + =A0 =A0 =A0 u8 maxtry;
-> + =A0 =A0 =A0 u8 acks;
-> + =A0 =A0 =A0 u8 timeout;
-> +/* overall UDPCP statistics */
-> +static atomic_t udpcp_txMsgs;
-> +static atomic_t udpcp_rxMsgs;
-> +static atomic_t udpcp_txNodes;
-> +static atomic_t udpcp_rxNodes;
-> +static atomic_t udpcp_txTimeout;
-> +static atomic_t udpcp_rxTimeout;
-> +static atomic_t udpcp_txRetries;
-> +static atomic_t udpcp_rxDiscardedFrags;
-> +static atomic_t udpcp_crcErrors;
+> And I didn't compile or run test this.
 
-same here.
+I compiled but didn't have hardware to test.
 
-> +
-> +module_param(debug, int, 0);
-> +MODULE_PARM_DESC(debug, "Debug enabled or not");
-> +
+> As a side note, in the function changed by the commit you mentioned, el2_=
+open(), it
+> appears that in current git, boolean `seen' cannot ever become true, can =
+it?
+[...]
 
-thanks,
-Daniel.
+The IRQ handler data is set to &seen and el2_probe_interrupt() uses that
+pointer to set it.
+
+Ben.
+
+--=20
+Ben Hutchings
+Once a job is fouled up, anything done to improve it makes it worse.
+
+--=-okZWYZPtMlXy5ZLi623H
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQIVAwUATSDXP+e/yOyVhhEJAQIL6Q//Y5oC8FGsBf0i5K/guIIMG5KupgziTDxe
+ETP5rQLLGKS/N66nbSHQPCVMzGdj8U/4hHjDQaVBEpyD4XD4wea3kVPMzzoV84Mc
+R/52TwXXtDqI0C1v1AyBID/1swRTCzhFeb+EnLyBThTRIfM4NRZhQq6rQuS3T9xM
+pawLhG+0w+M31PPS198gKEQ7Nq40hnpzo8wZ4powzGKVciTzakmstY81GF37rFjh
+p0QLiNV5yR8mzjA7bx9cyjxxaq8ZRWIr1eNNYJBcldbVjgbMXYkimucmx1MXagzW
+639UzKuoECtuLJOj1EzwOWnoOK4GhjjDp0W5uLJIZiadZy18YppVEKFwQd+AOj3y
+dqF4DFozsL5l/8zHLl2PZlOpUB3x02QzxoDOwIpJ6RKsaPnymkfdv8W4mmZp8+FX
+P2e9I4ZxQd1m/qDhBf2XZ6+Zy6azexoHVeWTzDbmOu/a4yv0/zLVt+FVKUEq9rBh
+4zwbYc38tdzBuZTi6StyRHowSvfGM1wCfDoAITI1QXoMrljUtyunXjT9nDZ1b6YK
+aF5UkQM87MFVURdDG5GSx9UJbpklhCPcDE33SAXTK8F0q+Bmnm2gLv5rBRn/G87S
+sCMeSADzDElV4FB9xlQskOu7sIovr8OAIEYARvg+9PxgzNPAxX9zuARiXcvggyc3
+/HKbCa7mqH8=
+=cJt2
+-----END PGP SIGNATURE-----
+
+--=-okZWYZPtMlXy5ZLi623H--
