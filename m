@@ -1,93 +1,38 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
-Date: Sat, 1 Jan 2011 19:27:49 -0500
-Message-ID: <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
-References: <1291536233.2806.102.camel@edumazet-laptop>
-	<20101205105528.49fa9a9f@xenia.leun.net>
-	<20101205114404.7c0cddc2@xenia.leun.net>
-	<AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
-	<20101206203437.54b550e0@xenia.leun.net>
-	<AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
-	<20101206222703.32fbe852@xenia.leun.net>
-	<AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
-	<20101213224510.GB17400@mcarlson.broadcom.com>
-	<AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	<20101214191500.GD19951@mcarlson.broadcom.com>
-	<1293901393.2535.49.camel@edumazet-laptop>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [PATCH V7 7/8] ptp: Added a clock driver for the IXP46x.
+Date: Sun, 2 Jan 2011 09:45:05 +0100
+Message-ID: <20110102084505.GA3980@ucw.cz>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <d2e0a5ac5eb51e9e4c7fcc94723b67c72c2f57c1.1292512461.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293901393.2535.49.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <d2e0a5ac5eb51e9e4c7fcc94723b67c72c2f57c1.1292512461.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 1, 2011 at 12:03 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le mardi 14 d=E9cembre 2010 =E0 11:15 -0800, Matt Carlson a =E9crit :
->
->> Thanks for the comments Jesse. =A0Below is an updated patch.
->>
->> Michael, I'm wondering if the difference in behavior can be explaine=
-d by
->> the presence or absence of management firmware. =A0Can you look at t=
-he
->> driver sign-on messages in your syslogs for ASF[]? =A0I'm half expec=
-ting
->> the 5752 to show "ASF[0]" and the 5714 to show "ASF[1]". =A0If you s=
-ee
->> this, and the below patch doesn't fix the problem, let me know. =A0I=
- have
->> another test I'd like you to run.
->>
->> ----
->>
->> [PATCH] tg3: Use new VLAN code
->>
->> This patch pivots the tg3 driver to the new VLAN infrastructure.
->> All references to vlgrp have been removed and all VLAN code is
->> unconditionally active.
->>
->> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+Hi!!
 
-[...]
+> +struct ixp46x_channel_ctl {
+> +	u32 Ch_Control; /* 0x40 Time Synchronization Channel Control */
+> +	u32 Ch_Event;   /* 0x44 Time Synchronization Channel Event */
+> +	u32 TxSnapLo;   /* 0x48 Transmit Snapshot Low Register */
+> +	u32 TxSnapHi;   /* 0x4C Transmit Snapshot High Register */
 
-> Hi Matt.
->
-> Any news on this patch ?
->
-> Without it, net-next-2.6 doesnt work for me on a vlan setup on top of
-> bonding.
->
-> (bond0 : eth1 & eth2, eth1 being bnx2, eth2 beging tg3)
->
-> ip link add link bond0 vlan.103 type vlan id 103
-> ip addr add 192.168.20.110/24 dev vlan.103
-> ip link set vlan.103 up
->
->
-> If active slave is eth1 (bnx2), everything works, but if active slave=
- is
-> eth2 (tg3), incoming tagged frames (on vlan 103) are lost.
+CouldWeGetRidOfCamelCase?
 
-This patch isn't quite right - it always disables vlan stripping
-unless management firmware is in use, so it's not really a correct
-fix.
-
-You said that this used to work correctly on this NIC?  Does it work
-without a bond, just a vlan on the tg3 device?  It sounds like Michael
-has a problem with vlan stripping on one of his NICs but if it works
-with just a vlan or on older kernels, it's probably not the same
-thing.
-
-If it works on bnx2, it would seem to be a driver problem but it would
-be good to confirm that the tag in skb->vlan_tci is not being
-delievered to the networking core in this case.
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
