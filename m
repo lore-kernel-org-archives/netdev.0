@@ -1,134 +1,249 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
- used
-Date: Sun, 02 Jan 2011 17:05:48 +0100
-Message-ID: <1293984348.2535.101.camel@edumazet-laptop>
-References: <1291536233.2806.102.camel@edumazet-laptop>
-	 <20101205105528.49fa9a9f@xenia.leun.net>
-	 <20101205114404.7c0cddc2@xenia.leun.net>
-	 <AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
-	 <20101206203437.54b550e0@xenia.leun.net>
-	 <AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
-	 <20101206222703.32fbe852@xenia.leun.net>
-	 <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
-	 <20101213224510.GB17400@mcarlson.broadcom.com>
-	 <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	 <20101214191500.GD19951@mcarlson.broadcom.com>
-	 <1293901393.2535.49.camel@edumazet-laptop>
-	 <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
+From: Hans Schillstrom <hans@schillstrom.com>
+Subject: Re: [*v3 PATCH 00/22] IPVS Network Name Space aware
+Date: Sun, 2 Jan 2011 17:27:42 +0100
+Message-ID: <201101021727.42759.hans@schillstrom.com>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com> <alpine.LFD.2.00.1101011421410.2559@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, daniel.lezcano@free.fr, wensong@linux-vs.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1101011421410.2559@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le samedi 01 janvier 2011 =C3=A0 19:27 -0500, Jesse Gross a =C3=A9crit =
-:
-> On Sat, Jan 1, 2011 at 12:03 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le mardi 14 d=C3=A9cembre 2010 =C3=A0 11:15 -0800, Matt Carlson a =C3=
-=A9crit :
+On Saturday, January 01, 2011 13:27:00 Julian Anastasov wrote:
+> 
+>  	Hello,
+> 
+> On Thu, 30 Dec 2010, hans@schillstrom.com wrote:
+> 
+> > From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 > >
-> >> Thanks for the comments Jesse.  Below is an updated patch.
-> >>
-> >> Michael, I'm wondering if the difference in behavior can be explai=
-ned by
-> >> the presence or absence of management firmware.  Can you look at t=
-he
-> >> driver sign-on messages in your syslogs for ASF[]?  I'm half expec=
-ting
-> >> the 5752 to show "ASF[0]" and the 5714 to show "ASF[1]".  If you s=
-ee
-> >> this, and the below patch doesn't fix the problem, let me know.  I=
- have
-> >> another test I'd like you to run.
-> >>
-> >> ----
-> >>
-> >> [PATCH] tg3: Use new VLAN code
-> >>
-> >> This patch pivots the tg3 driver to the new VLAN infrastructure.
-> >> All references to vlgrp have been removed and all VLAN code is
-> >> unconditionally active.
-> >>
-> >> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
->=20
-> [...]
->=20
-> > Hi Matt.
+> > This patch series adds network name space support to the LVS.
 > >
-> > Any news on this patch ?
+> > REVISION
 > >
-> > Without it, net-next-2.6 doesnt work for me on a vlan setup on top =
-of
-> > bonding.
+> > This is version 3
 > >
-> > (bond0 : eth1 & eth2, eth1 being bnx2, eth2 beging tg3)
+> > OVERVIEW
 > >
-> > ip link add link bond0 vlan.103 type vlan id 103
-> > ip addr add 192.168.20.110/24 dev vlan.103
-> > ip link set vlan.103 up
+> > The patch doesn't remove or add any functionality except for netns.
+> > For users that don't use network name space (netns) this patch is
+> > completely transparent.
 > >
-> >
-> > If active slave is eth1 (bnx2), everything works, but if active sla=
-ve is
-> > eth2 (tg3), incoming tagged frames (on vlan 103) are lost.
->=20
-> This patch isn't quite right - it always disables vlan stripping
-> unless management firmware is in use, so it's not really a correct
-> fix.
->=20
-> You said that this used to work correctly on this NIC?  Does it work
-> without a bond, just a vlan on the tg3 device?  It sounds like Michae=
-l
-> has a problem with vlan stripping on one of his NICs but if it works
-> with just a vlan or on older kernels, it's probably not the same
-> thing.
->=20
+> > Now it's possible to run LVS in a Linux container (see lxc-tools)
+> > i.e.  a light weight visualization. For example it's possible to run
+> > one or several lvs on a real server in their own network name spaces.
+> >> From the LVS point of view it looks like it runs on it's own machine.
+> 
+>  	Only some comments for two of the patches:
+> 
+> v3 PATCH 10/22 use ip_vs_proto_data as param
+> 
+>  	- Can ip_vs_protocol_timeout_change() walk
+>  	proto_data_table instead of ip_vs_proto_table to avoid the
+>  	__ipvs_proto_data_get call?
+> 
 
-1) current linux-2.6 works OK for me (and previous versions as well, I
-am using this vlan/bonding setup since 3 years or so on one of my dev
-machine)
+I just forget to do that ...
 
-Only net-next-2.6 has the problem.
+> v3 PATCH 15/22 ip_vs_stats
+> 
+>  	- Is ustats_seq allocated with alloc_percpu?
+> 
+>  	Such reader sections should be changed to use tmp vars because
+>  	on retry we risk to add the values multiple times. For example:
+> 
+>  		do {
+>  			start = read_seqcount_begin(seq_count);
+>  			ipvs->ctl_stats->ustats.inbytes += u->inbytes;
+>  			ipvs->ctl_stats->ustats.outbytes += u->outbytes;
+>  		} while (read_seqcount_retry(seq_count, start));
+> 
+>  	should be changed as follows:
+> 
+>  		u64 inbytes, outbytes;
+> 
+>  		do {
+>  			start = read_seqcount_begin(seq_count);
+>  			inbytes = u->inbytes;
+>  			outbytes = u->outbytes;
+>  		} while (read_seqcount_retry(seq_count, start));
+>  		ipvs->ctl_stats->ustats.inbytes += inbytes;
+>  		ipvs->ctl_stats->ustats.outbytes += outbytes;
+> 
 
-If I remove bonding of the equation, I still have the problem, and can
-see the 'dropped' counter increasing while I send packets to eth2 (tg3)
+Ooops, that was a bug :-(
 
-$ ifconfig eth2
-eth2      Link encap:Ethernet  HWaddr 00:1E:0B:92:78:50 =20
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:94 errors:0 dropped:38686 overruns:0 frame:0
-          TX packets:18 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000=20
-          RX bytes:8332 (8.1 Kb)  TX bytes:1392 (1.3 Kb)
-          Interrupt:19=20
-$ ifconfig vlan.103
-vlan.103  Link encap:Ethernet  HWaddr 00:1E:0B:92:78:50 =20
-          inet addr:192.168.20.110  Bcast:0.0.0.0  Mask:255.255.255.0
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:15 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0=20
-          RX bytes:0 (0.0 b)  TX bytes:846 (846.0 b)
+>  	Or it is better to create new struct for percpu stats,
+>  	they will have their own syncp, because we can not
+>  	change struct ip_vs_stats_user. syncp should be percpu
+>  	because we remove locks.
+> 
+>  	For example:
+> 
+>  	struct ip_vs_cpu_stats {
+>  		struct ip_vs_stats_user	ustats;
+>  		struct u64_stats_sync	syncp;
+>  	};
+> 
+>  	Then we can add this in struct netns_ipvs:
+> 
+>  	struct ip_vs_cpu_stats __percpu *stats;	/* Statistics */
+> 
+>  	without the seqcount_t * ustats_seq;
+> 
+>  	Then syncp does not need any initialization, it seems
+>  	alloc_percpu returns zeroed area.
+> 
+>  	When we use percpu stats for all places (dest and svc) we
+>  	can create new struct struct ip_vs_counters, so that we
+>  	can reduce the memory usage from percpu data. Now stats
+>  	include counters and estimated values. The estimated
+>  	values should not be percpu. Then ip_vs_cpu_stats
+>  	will be shorter (it is not visible to user space):
+> 
+>  	struct ip_vs_cpu_stats {
+>  		struct ip_vs_counters	ustats;
+>  		struct u64_stats_sync	syncp;
+>  	};
+> 
+>  	For writer side in softirq context we should protect the whole
+>  	section with u64 counters, for example this code:
+> 
 
+There is only two u64,  inbytes and outbytes
 
+>  	spin_lock(&ip_vs_stats.lock);
+>  	ip_vs_stats.ustats.outpkts++;
+>  	ip_vs_stats.ustats.outbytes += skb->len;
+>  	spin_unlock(&ip_vs_stats.lock);
+> 
+>  	should be changed to:
+> 
+>  	struct ip_vs_cpu_stats *s = this_cpu_ptr(ipvs->stats);
+> 
+>  	u64_stats_update_begin(&s->syncp);
+>  	s->ustats.outpkts++;
+>  	s->ustats.outbytes += skb->len;
+>  	u64_stats_update_end(&s->syncp);
+> 
+>  	Readers should look in similar way, only that _bh fetching
+>  	should be used only for the u64 counters because writer is in
+>  	softirq context:
+> 
+>  	u64 inbytes, outbytes;
+> 
+>  	for_each_possible_cpu(i) {
+>  		const struct ip_vs_cpu_stats *s = per_cpu_ptr(ipvs->stats, i);
+>  		unsigned int start;
+> 
+>  		...
+>  		do {
+>  			start = u64_stats_fetch_begin_bh(&s->syncp);
+>  			inbytes = s->ustats.inbytes;
+>  			outbytes = s->ustats.outbytes;
+>  		} while (u64_stats_fetch_retry_bh(&s->syncp, start));
+>  		ipvs->ctl_stats->ustats.inbytes += inbytes;
+>  		ipvs->ctl_stats->ustats.outbytes += outbytes;
+>  	}
+> 
+>  	Then IPVS_STAT_ADD and IPVS_STAT_INC can not access
+>  	the syncp. They do not look generic enough, in case we
+>  	decide to use struct ip_vs_cpu_stats for dest and svc stats.
+>  	I think, these macros are not needed.
+>  	It is possible to have other macros for write side,
+>  	for percpu stats:
+> 
+>  	#define IP_VS_STATS_UPDATE_BEGIN(stats)		\
+>  		{ struct ip_vs_cpu_stats *s = this_cpu_ptr(stats); \
+>  		u64_stats_update_begin(&s->syncp)
+> 
+>  	#define IP_VS_STATS_UPDATE_END()		\
+>  		u64_stats_update_end(&s->syncp);	\
+>  		}
+> 
+>  	Then usage can be:
+> 
+>  	IP_VS_STATS_UPDATE_BEGIN(ipvs->stats);
+>  	s->ustats.outpkts++;
+>  	s->ustats.outbytes += skb->len;
+>  	IP_VS_STATS_UPDATE_END();
+> 
+>  	Then we can rename ctl_stats to total_stats or full_stats.
+>  	get_stats() can be changed to ip_vs_read_cpu_stats(), it
+>  	will be used to read all percpu stats as sum in the
+>  	total_stats/full_stats structure or tmp space:
+> 
+>  	/* Get sum of percpu stats */
+>  	... ip_vs_read_cpu_stats(struct ip_vs_stats_user *sum,
+>  		struct ip_vs_cpu_stats *stats)
+>  	{
+>  		...
+>  		for_each_possible_cpu(i) {
+>  			const struct ip_vs_cpu_stats *s = per_cpu_ptr(stats, i);
+>  			unsigned int start;
+> 
+>  			if (i) {...
+>  			...
+>  			do {
+>  				start = u64_stats_fetch_begin_bh(&s->syncp);
+>  				inbytes = s->ustats.inbytes;
+>  				outbytes = s->ustats.outbytes;
+>  			} while (u64_stats_fetch_retry_bh(&s->syncp, start));
+>  			sum->inbytes += inbytes;
+>  			sum->outbytes += outbytes;
+>  		}
+>  	}
+> 
+>  	As result, ip_vs_read_cpu_stats() will be used in
+>  	estimation_timer() instead of get_stats():
+> 
+>  	ip_vs_read_cpu_stats(&ipvs->total_stats->ustats, ipvs->stats);
+> 
+>  	but also in ip_vs_stats_show()
+>  	{
+>  		// I hope struct ip_vs_stats_user can fit in stack:
+>  		struct ip_vs_stats_user sum;
+> 
+>  		here we do not need to use spin_lock_bh(&ctl_stats->lock);
+>  		because now the stats are lockless, estimation_timer
+>  		does not use ctl_stats->lock, so we have to call
+>  		ip_vs_read_cpu_stats to avoid problems with
+>  		reading incorrect u64 values directly from
+>  		ipvs->total_stats->ustats.
+> 
+>  		ip_vs_read_cpu_stats(&sum, ipvs->stats);
+>  		seq_printf for sum
+>  	}
+> 
+>  	ip_vs_read_cpu_stats can be used also in ip_vs_copy_stats()
+>  	which copies values to user space and needs proper u64 reading.
+>  	But it is used only for svc and dest stats which are not
+>  	percpu yet.
+> 
+>  	Now this code does not look ok:
+> 
+>  	ip_vs_zero_stats(net_ipvs(net)->ctl_stats);
+> 
+>  	May be we need new func ip_vs_zero_percpu_stats that will
+>  	reset stats for all CPUs, i.e. ipvs->stats in our case?
+>  	Even if this operation is not very safe if done from
+>  	user space while the softirq can modify u64 counters
+>  	on another CPU.
 
+OK, I will take a look at this when I'm back from my vacation at 20 Jan.
+I guess it might be worth the work to make all the stat counters per_cpu.
 
+My tests shows that the big "CPU cycle bandit" was the one that I made per_cpu.
 
-> If it works on bnx2, it would seem to be a driver problem but it woul=
-d
-> be good to confirm that the tag in skb->vlan_tci is not being
-> delievered to the networking core in this case.
-
-Hmm, where do you want me to check this ?
+> 
+> 
+> Happy New Year!
+> 
