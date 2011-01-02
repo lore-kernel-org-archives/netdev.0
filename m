@@ -1,59 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Stefani Seibold <stefani@seibold.net>
 Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Sun, 02 Jan 2011 23:49:22 +0100
-Message-ID: <1294008562.2535.263.camel@edumazet-laptop>
+Date: Sun, 02 Jan 2011 23:55:17 +0100
+Message-ID: <1294008917.18963.3.camel@wall-e>
 References: <1294007971-18878-1-git-send-email-stefani@seibold.net>
+	 <1294008562.2535.263.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
 	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com,
 	jj@chaosbits.net, daniel.baluta@gmail.com, jochen@jochen.org
-To: stefani@seibold.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38108 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751192Ab1ABWta (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jan 2011 17:49:30 -0500
-In-Reply-To: <1294007971-18878-1-git-send-email-stefani@seibold.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294008562.2535.263.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 02 janvier 2011 =C3=A0 23:39 +0100, stefani@seibold.net a =C3=
-=A9crit :
-> +
-> +/*
-> + * Create a new destination descriptor for the given IPV4 address an=
-d port
-> + */
-> +static struct udpcp_dest *new_dest(struct sock *sk, __be32 addr, __b=
-e16 port)
-> +{
-> +	struct udpcp_dest *dest;
-> +	struct udpcp_sock *usk =3D udpcp_sk(sk);
-> +
-> +	if (usk->connections >=3D udpcp_max_connections)
-> +		return NULL;
-> +
-> +	dest =3D kzalloc(sizeof(*dest), sk->sk_allocation);
-> +
-> +	if (dest) {
-> +		usk->connections++;
-> +		skb_queue_head_init(&dest->xmit);
-> +		dest->addr =3D addr;
-> +		dest->port =3D port;
-> +		dest->ackmode =3D UDPCP_ACK;
-> +		list_add_tail(&dest->list, &usk->destlist);
-> +	}
-> +
-> +	return dest;
-> +}
-> +
+Am Sonntag, den 02.01.2011, 23:49 +0100 schrieb Eric Dumazet:
+> Le dimanche 02 janvier 2011 =E0 23:39 +0100, stefani@seibold.net a =E9=
+crit :
+> > +
+> > +/*
+> > + * Create a new destination descriptor for the given IPV4 address =
+and port
+> > + */
+> > +static struct udpcp_dest *new_dest(struct sock *sk, __be32 addr, _=
+_be16 port)
+> > +{
+> > +	struct udpcp_dest *dest;
+> > +	struct udpcp_sock *usk =3D udpcp_sk(sk);
+> > +
+> > +	if (usk->connections >=3D udpcp_max_connections)
+> > +		return NULL;
+> > +
+> > +	dest =3D kzalloc(sizeof(*dest), sk->sk_allocation);
+> > +
+> > +	if (dest) {
+> > +		usk->connections++;
+> > +		skb_queue_head_init(&dest->xmit);
+> > +		dest->addr =3D addr;
+> > +		dest->port =3D port;
+> > +		dest->ackmode =3D UDPCP_ACK;
+> > +		list_add_tail(&dest->list, &usk->destlist);
+> > +	}
+> > +
+> > +	return dest;
+> > +}
+> > +
+>=20
+> Hmm, so 'connections' is increased, never decreased.
+>=20
+> This seems a fatal flaw in this protocol, since a malicious user can
+> easily fill the list with garbage, and block regular communications.
 
-Hmm, so 'connections' is increased, never decreased.
+You are right, there is now way to detect which connection is no longer
+needed. I have not designed this protocol, so i cannot fix it.=20
 
-This seems a fatal flaw in this protocol, since a malicious user can
-easily fill the list with garbage, and block regular communications.
-
-
-
+But in our environment this will be used together with an firewall
+and/or ipsec. In this case it it safe.
