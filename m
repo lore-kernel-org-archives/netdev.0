@@ -1,187 +1,168 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Sun, 2 Jan 2011 20:55:15 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1101022024200.11481@swampdragon.chaosbits.net>
-References: <1293982286-15389-1-git-send-email-stefani@seibold.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, shemminger@vyatta.com
-To: stefani@seibold.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1293982286-15389-1-git-send-email-stefani@seibold.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tomas Winkler <tomas.winkler@intel.com>
+Subject: [PATCH 1/1 V3] bridge: fix br_multicast_ipv6_rcv for paged skbs
+Date: Sun,  2 Jan 2011 22:18:58 +0200
+Message-ID: <1293999538-9298-1-git-send-email-tomas.winkler@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Tomas Winkler <tomas.winkler@intel.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:10818 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751192Ab1ABUUH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jan 2011 15:20:07 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2 Jan 2011, stefani@seibold.net wrote:
+use pskb_may_pull to access ipv6 header correctly for paged skbs
+It was omitted in the bridge code leading to crash in blind
+__skb_pull
 
-> From: Stefani Seibold <stefani@seibold.net>
-> 
-> Changelog:
-> 31.12.2010 first proposal
-> 01.01.2011 code cleanup and fixes suggest by Eric Dumazet
-> 02.01.2011 kick away UDP-Lite support
->            change spin_lock_irq into spin_lock_bh
-> 	   faster udpcp_release_sock
-> 	   base is now linux-next
-> 
-> UDPCP is a communication protocol specified by the Open Base Station
-> Architecture Initiative Special Interest Group (OBSAI SIG). The
-> protocol is based on UDP and is designed to meet the needs of "Mobile
-> Communcation Base Station" internal communications. It is widely used by
-> the major networks infrastructure supplier.
-> 
-> The UDPCP communication service supports the following features:
-> 
-> -Connectionless communication for serial mode data transfer
-> -Acknowledged and unacknowledged transfer modes
-> -Retransmissions Algorithm
-> -Checksum Algorithm using Adler32
-> -Fragmentation of long messages (disassembly/reassembly) to match to the MTU
->  during transport:
-> -Broadcasting and multicasting messages to multiple peers in unacknowledged
->   transfer mode
-> 
-> UDPCP supports application level messages up to 64 KBytes (limited by 16-bit
-> packet data length field). Messages that are longer than the MTU will be
-> fragmented to the MTU.
-> 
-> UDPCP provides a reliable transport service that will perform message
-> retransmissions in case transport failures occur.
-> 
-> The code is also a nice example how to implement a UDP based protocol as
-> a kernel socket modules.
-> 
-> Due the nature of UDPCP which has no sliding windows support, the latency has
-> a huge impact. The perfomance increase by implementing as a kernel module is
-> about the factor 10, because there are no context switches and data packets or
-> ACKs will be handled in the interrupt service.
-> 
-> There are no side effects to the network subsystems so i ask for merge it
-> into linux-next. Hope you like it.
-> 
-> The patch is against linux next-20101231
-> 
-> - Stefani
-> 
-> Signed-off-by: Stefani Seibold <stefani@seibold.net>
+this fixes bug https://bugzilla.kernel.org/show_bug.cgi?id=25202
 
-[...]
-> +
-> +#define VERSION	"0.71"
+Dec 15 14:36:40 User-PC hostapd: wlan0: STA 00:15:00:60:5d:34 IEEE 802.11: authenticated
+Dec 15 14:36:40 User-PC hostapd: wlan0: STA 00:15:00:60:5d:34 IEEE 802.11: associated (aid 2)
+Dec 15 14:36:40 User-PC hostapd: wlan0: STA 00:15:00:60:5d:34 RADIUS: starting accounting session 4D0608A3-00000005
+Dec 15 14:36:41 User-PC kernel: [175576.120287] ------------[ cut here ]------------
+Dec 15 14:36:41 User-PC kernel: [175576.120452] kernel BUG at include/linux/skbuff.h:1178!
+Dec 15 14:36:41 User-PC kernel: [175576.120609] invalid opcode: 0000 [#1] SMP
+Dec 15 14:36:41 User-PC kernel: [175576.120749] last sysfs file: /sys/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/uevent
+Dec 15 14:36:41 User-PC kernel: [175576.121035] Modules linked in: oprofile binfmt_misc bridge stp llc parport_pc ppdev arc4 iwlagn snd_hda_codec_realtek iwlcore i915 snd_hda_intel mac80211 joydev snd_hda_codec snd_hwdep snd_pcm snd_seq_midi drm_kms_helper snd_rawmidi drm snd_seq_midi_event snd_seq snd_timer snd_seq_device cfg80211 eeepc_wmi usbhid psmouse intel_agp i2c_algo_bit intel_gtt uvcvideo agpgart videodev sparse_keymap snd shpchp v4l1_compat lp hid video serio_raw soundcore output snd_page_alloc ahci libahci atl1c
+Dec 15 14:36:41 User-PC kernel: [175576.122712]
+Dec 15 14:36:41 User-PC kernel: [175576.122769] Pid: 0, comm: kworker/0:0 Tainted: G        W   2.6.37-rc5-wl+ #3 1015PE/1016P
+Dec 15 14:36:41 User-PC kernel: [175576.123012] EIP: 0060:[<f83edd65>] EFLAGS: 00010283 CPU: 1
+Dec 15 14:36:41 User-PC kernel: [175576.123193] EIP is at br_multicast_rcv+0xc95/0xe1c [bridge]
+Dec 15 14:36:41 User-PC kernel: [175576.123362] EAX: 0000001c EBX: f5626318 ECX: 00000000 EDX: 00000000
+Dec 15 14:36:41 User-PC kernel: [175576.123550] ESI: ec512262 EDI: f5626180 EBP: f60b5ca0 ESP: f60b5bd8
+Dec 15 14:36:41 User-PC kernel: [175576.123737]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
+Dec 15 14:36:41 User-PC kernel: [175576.123902] Process kworker/0:0 (pid: 0, ti=f60b4000 task=f60a8000 task.ti=f60b0000)
+Dec 15 14:36:41 User-PC kernel: [175576.124137] Stack:
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  ec556500 f6d06800 f60b5be8 c01087d8 ec512262 00000030 00000024 f5626180
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  f572c200 ef463440 f5626300 3affffff f6d06dd0 e60766a4 000000c4 f6d06860
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  ffffffff ec55652c 00000001 f6d06844 f60b5c64 c0138264 c016e451 c013e47d
+Dec 15 14:36:41 User-PC kernel: [175576.124181] Call Trace:
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c01087d8>] ? sched_clock+0x8/0x10
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0138264>] ? enqueue_entity+0x174/0x440
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c016e451>] ? sched_clock_cpu+0x131/0x190
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c013e47d>] ? select_task_rq_fair+0x2ad/0x730
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0524fc1>] ? nf_iterate+0x71/0x90
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f83e4914>] ? br_handle_frame_finish+0x184/0x220 [bridge]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f83e4790>] ? br_handle_frame_finish+0x0/0x220 [bridge]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f83e46e9>] ? br_handle_frame+0x189/0x230 [bridge]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f83e4790>] ? br_handle_frame_finish+0x0/0x220 [bridge]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f83e4560>] ? br_handle_frame+0x0/0x230 [bridge]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c04ff026>] ? __netif_receive_skb+0x1b6/0x5b0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c04f7a30>] ? skb_copy_bits+0x110/0x210
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0503a7f>] ? netif_receive_skb+0x6f/0x80
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f82cb74c>] ? ieee80211_deliver_skb+0x8c/0x1a0 [mac80211]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f82cc836>] ? ieee80211_rx_handlers+0xeb6/0x1aa0 [mac80211]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c04ff1f0>] ? __netif_receive_skb+0x380/0x5b0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c016e242>] ? sched_clock_local+0xb2/0x190
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c012b688>] ? default_spin_lock_flags+0x8/0x10
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c05d83df>] ? _raw_spin_lock_irqsave+0x2f/0x50
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f82cd621>] ? ieee80211_prepare_and_rx_handle+0x201/0xa90 [mac80211]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f82ce154>] ? ieee80211_rx+0x2a4/0x830 [mac80211]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f815a8d6>] ? iwl_update_stats+0xa6/0x2a0 [iwlcore]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f8499212>] ? iwlagn_rx_reply_rx+0x292/0x3b0 [iwlagn]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c05d83df>] ? _raw_spin_lock_irqsave+0x2f/0x50
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f8483697>] ? iwl_rx_handle+0xe7/0x350 [iwlagn]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<f8486ab7>] ? iwl_irq_tasklet+0xf7/0x5c0 [iwlagn]
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c01aece1>] ? __rcu_process_callbacks+0x201/0x2d0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0150d05>] ? tasklet_action+0xc5/0x100
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0150a07>] ? __do_softirq+0x97/0x1d0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c05d910c>] ? nmi_stack_correct+0x2f/0x34
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0150970>] ? __do_softirq+0x0/0x1d0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  <IRQ>
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c01508f5>] ? irq_exit+0x65/0x70
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c05df062>] ? do_IRQ+0x52/0xc0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c01036b0>] ? common_interrupt+0x30/0x38
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c03a1fc2>] ? intel_idle+0xc2/0x160
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c04daebb>] ? cpuidle_idle_call+0x6b/0x100
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c0101dea>] ? cpu_idle+0x8a/0xf0
+Dec 15 14:36:41 User-PC kernel: [175576.124181]  [<c05d2702>] ? start_secondary+0x1e8/0x1ee
 
-I personally don't think this makes much sense.
-Version numbers for individual modules tend to not get updated as the code 
-changes over the years, which make them rather meaningless.
-Since this module depends on functionallity of the kernel which it is 
-compiled with, the actual (meaningful) version of this code is that of the 
-kernel tree being compiled that includes this code. Which again makes this 
-specific version define meaningless.
+Cc: David Miller <davem@davemloft.net>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
+---
+V2: Implement David Miller's suggestion 
+V3: Fix the mld_msg access:
+	Length check was wrong and psk_may_pull performs itself the length check
 
-So, why not save a few lines of code and get rid of this rather pointless 
-thing?
+ net/bridge/br_multicast.c |   24 ++++++++++++++++++------
+ 1 files changed, 18 insertions(+), 6 deletions(-)
 
-[...]
-> +static struct udpcp_dest *find_dest(struct sock *sk, __be32 addr, __be16 port)
-> +{
-> +	struct udpcp_dest *dest;
-> +
-> +	dest = __find_dest(sk, addr, port);
-
-Why not
-
-static struct udpcp_dest *find_dest(struct sock *sk, __be32 addr, __be16 port)
-{
-     struct udpcp_dest *dest =  __find_dest(sk, addr, port);
-
-?
-
-
-[...]
-> + * Release a routing table entry if no packed will be assembled
-
-Don't you mean "packet" rather than "packed" here?
-
-
-[...]
-> + * Return true it the passed skb socket buffer is the last in the list
-
-I believe you mean "Return true if the passed ..."
-
-
-[...]
-> +static void udpcp_flush_err(struct sock *sk, struct udpcp_dest *dest)
-> +{
-> +	struct inet_sock *inet = inet_sk(sk);
-> +	struct udpcp_sock *usk = udpcp_sk(sk);
-> +
-> +	if (!inet->recverr)
-> +		skb_queue_purge(&dest->xmit);
-> +	else {
-
-CodingStyle would want this as
-
-     if (!inet->recverr) {
-             skb_queue_purge(&dest->xmit);
-     } else {
-
-If one branch needs {} then both should get them.
-
-
-[...]
-> +	if (!dest->xmit_last)
-> +		_udpcp_xmit(sk, dest);
-> +	else {
-> +		skb = dest->xmit_wait;
-
-Same comment as above.
-There are more occurences of this, I'm not going to point them all out.
-
-
-[...]
-> +static inline void udpcp_release_sock(struct sock *sk)
-> +{
-> +	struct udpcp_sock *usk = udpcp_sk(sk);
-> +
-> +	while (usk->timeout)
-> +		udpcp_handle_timeout(sk);
-> +	release_sock(sk);
-> +        check_timeout(sk);
-
-The line above uses spaces for indentation. It should use one tab.
-
-
-[...]
-> +static unsigned int udpcp_tx_queue_len(struct sock *sk, struct udpcp_dest *dest)
-> +{
-> +	struct sk_buff *skb;
-> +	unsigned int n;
-> +
-> +	n = 0;
-
-Might as well save a few lines and make this
-
-static unsigned int udpcp_tx_queue_len(struct sock *sk, struct udpcp_dest *dest)
-{
-     struct sk_buff *skb;
-     unsigned int n = 0;
-
-
-[...]
-> +static unsigned int udpcp_rx_queue_len(struct sock *sk, struct udpcp_dest *dest)
-> +{
-> +	struct sk_buff *skb;
-> +	unsigned int n;
-> +
-> +	n = 0;
-
-Here as well
-        unsigned int n = 0;
-
-
-
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index f19e347..6932a0c 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1469,15 +1469,16 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 	if (!skb2)
+ 		return -ENOMEM;
+ 
++
++	err = -EINVAL;
++	if (!pskb_may_pull(skb2, offset + sizeof(struct icmp6hdr)))
++		goto out_nopush;
++
+ 	len -= offset - skb_network_offset(skb2);
+ 
+ 	__skb_pull(skb2, offset);
+ 	skb_reset_transport_header(skb2);
+ 
+-	err = -EINVAL;
+-	if (!pskb_may_pull(skb2, sizeof(*icmp6h)))
+-		goto out;
+-
+ 	icmp6h = icmp6_hdr(skb2);
+ 
+ 	switch (icmp6h->icmp6_type) {
+@@ -1516,7 +1517,12 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 	switch (icmp6h->icmp6_type) {
+ 	case ICMPV6_MGM_REPORT:
+ 	    {
+-		struct mld_msg *mld = (struct mld_msg *)icmp6h;
++		struct mld_msg *mld;
++		if (!pskb_may_pull(skb2, sizeof(*mld))) {
++			err = -EINVAL;
++			goto out;
++		}
++		mld = (struct mld_msg *)icmp6h;
+ 		BR_INPUT_SKB_CB(skb2)->mrouters_only = 1;
+ 		err = br_ip6_multicast_add_group(br, port, &mld->mld_mca);
+ 		break;
+@@ -1529,13 +1535,19 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+ 		break;
+ 	case ICMPV6_MGM_REDUCTION:
+ 	    {
+-		struct mld_msg *mld = (struct mld_msg *)icmp6h;
++		struct mld_msg *mld;
++		if (!pskb_may_pull(skb2, sizeof(*mld))) {
++			err = -EINVAL;
++			goto out;
++		}
++		mld = (struct mld_msg *)icmp6h;
+ 		br_ip6_multicast_leave_group(br, port, &mld->mld_mca);
+ 	    }
+ 	}
+ 
+ out:
+ 	__skb_push(skb2, offset);
++out_nopush:
+ 	if (skb2 != skb)
+ 		kfree_skb(skb2);
+ 	return err;
 -- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+1.7.3.4
+
+---------------------------------------------------------------------
+Intel Israel (74) Limited
+
+This e-mail and any attachments may contain confidential material for
+the sole use of the intended recipient(s). Any review or distribution
+by others is strictly prohibited. If you are not the intended
+recipient, please contact the sender and delete all copies.
+
