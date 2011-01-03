@@ -1,75 +1,57 @@
 From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: [PATCH] Typo in comments in include/linux/igmp.h
-Date: Mon, 3 Jan 2011 07:25:10 -0800 (PST)
-Message-ID: <868172.46833.qm@web62502.mail.re1.yahoo.com>
+Subject: [PATCH, second try] Typo in comments in include/linux/igmp.h
+Date: Mon, 3 Jan 2011 08:03:36 -0800 (PST)
+Message-ID: <542376.97776.qm@web62505.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: multipart/mixed; boundary="0-797806555-1294070616=:97776"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web62502.mail.re1.yahoo.com ([69.147.75.94]:35145 "HELO
-	web62502.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755270Ab1ACPbv convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 10:31:51 -0500
+Received: from web62505.mail.re1.yahoo.com ([69.147.75.97]:44352 "HELO
+	web62505.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932069Ab1ACQDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 11:03:38 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+--0-797806555-1294070616=:97776
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-There is a typo in comments in include/linux/igmp.h:
+[Second try, patch invalid, sorry]=0A=0AHello,=0A=0AThere is a typo in comm=
+ents in include/linux/igmp.h:=0A=0A83 #define IGMP_HOST_MEMBERSHIP_QUERY=A0=
+ =A0 =A0 0x11=A0 =A0 /* From RFC1112 */=0A84 #define IGMP_HOST_MEMBERSHIP_R=
+EPORT=A0 =A0=A0=A00x12=A0 =A0 /* Ditto */=0A85 #define IGMP_DVMRP=A0 =A0 =
+=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x13=A0 =A0 /* DVMRP routing */=0A86 #d=
+efine IGMP_PIM=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x14=A0 =A0 /=
+* PIM routing */=0A87 #define IGMP_TRACE=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 0x15=0A88 #define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A00x16=A0 =
+=A0 /* V2 version of 0x11 */=0A89 #define IGMP_HOST_LEAVE_MESSAGE=A0 =A0 =
+=A0 =A0=A0=A00x17=0A90 #define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A00x22=
+=A0 =A0 /* V3 version of 0x11 */=0A=0AThe line 88 and 90 are about REPORT m=
+essages.=0AThe IGMP_HOST_MEMBERSHIP_REPORT value is 0x12.=0ASo the comment =
+on line 88 must be /* V2 version of 0x12 */,=0Aand the comment on line 90 m=
+ust be /* V3 version of 0x12 */.=0A=0AHere is a patch.=0A=0AThank you,=0AFr=
+ancois-Xavier Le Bail=0A=0A=0A      
+--0-797806555-1294070616=:97776
+Content-Type: text/x-diff; name="igmp_h.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="igmp_h.diff"
 
-83 #define IGMP_HOST_MEMBERSHIP_QUERY=A0 =A0 =A0 0x11=A0 =A0 /* From RF=
-C1112 */
-84 #define IGMP_HOST_MEMBERSHIP_REPORT=A0 =A0=A0=A00x12=A0 =A0 /* Ditto=
- */
-85 #define IGMP_DVMRP=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x13=A0=
- =A0 /* DVMRP routing */
-86 #define IGMP_PIM=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x14=
-=A0 =A0 /* PIM routing */
-87 #define IGMP_TRACE=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x15
-88 #define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A00x16=A0 =A0 /* V2 vers=
-ion of 0x11 */
-89 #define IGMP_HOST_LEAVE_MESSAGE=A0 =A0 =A0 =A0=A0=A00x17
-90 #define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A00x22=A0 =A0 /* V3 vers=
-ion of 0x11 */
+ZGlmZiAtcnUgYS9pbmNsdWRlL2xpbnV4L2lnbXAuaCBiL2luY2x1ZGUvbGlu
+dXgvaWdtcC5oCi0tLSBhL2luY2x1ZGUvbGludXgvaWdtcC5oCTIwMTAtMDgt
+MjcgMDE6NDc6MTIuMDAwMDAwMDAwICswMjAwCisrKyBiL2luY2x1ZGUvbGlu
+dXgvaWdtcC5oCTIwMTAtMTItMTUgMDk6NTA6NDcuODA4MzYzMTQ0ICswMTAw
+CkBAIC04NSw5ICs4NSw5IEBACiAjZGVmaW5lIElHTVBfRFZNUlAJCQkweDEz
+CS8qIERWTVJQIHJvdXRpbmcgKi8KICNkZWZpbmUgSUdNUF9QSU0JCQkweDE0
+CS8qIFBJTSByb3V0aW5nICovCiAjZGVmaW5lIElHTVBfVFJBQ0UJCQkweDE1
+Ci0jZGVmaW5lIElHTVBWMl9IT1NUX01FTUJFUlNISVBfUkVQT1JUCTB4MTYJ
+LyogVjIgdmVyc2lvbiBvZiAweDExICovCisjZGVmaW5lIElHTVBWMl9IT1NU
+X01FTUJFUlNISVBfUkVQT1JUCTB4MTYJLyogVjIgdmVyc2lvbiBvZiAweDEy
+ICovCiAjZGVmaW5lIElHTVBfSE9TVF9MRUFWRV9NRVNTQUdFIAkweDE3Ci0j
+ZGVmaW5lIElHTVBWM19IT1NUX01FTUJFUlNISVBfUkVQT1JUCTB4MjIJLyog
+VjMgdmVyc2lvbiBvZiAweDExICovCisjZGVmaW5lIElHTVBWM19IT1NUX01F
+TUJFUlNISVBfUkVQT1JUCTB4MjIJLyogVjMgdmVyc2lvbiBvZiAweDEyICov
+CiAKICNkZWZpbmUgSUdNUF9NVFJBQ0VfUkVTUAkJMHgxZQogI2RlZmluZSBJ
+R01QX01UUkFDRQkJCTB4MWYK
 
-The line 88 and 90 are about REPORT messages.
-The IGMP_HOST_MEMBERSHIP_REPORT value is 0x12.
-So the comment on line 88 must be /* V2 version of 0x12 */,
-and the comment on line 90 must be /* V3 version of 0x12 */.
-
-Here is a patch.
-
-Thank you,
-=46rancois-Xavier Le Bail
-
-------------------------------------
-
-diff -ru a/include/linux/igmp.h b/include/linux/igmp.h
---- a/include/linux/igmp.h=A0=A0=A0 2010-08-27 01:47:12.000000000 +0200
-+++ b/include/linux/igmp.h=A0=A0=A0 2010-12-15 09:50:47.808363144 +0100
-@@ -85,9 +85,9 @@
- #define IGMP_DVMRP=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x13=A0=A0=A0 /* DVMRP=
- routing */
- #define IGMP_PIM=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x14=A0=A0=A0 /* PIM rou=
-ting */
- #define IGMP_TRACE=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x15
--#define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x16=A0=A0=A0 /* V2 ver=
-sion of 0x11 */
-+#define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x16=A0=A0=A0 /* V2 ver=
-sion of 0x12 */
- #define IGMP_HOST_LEAVE_MESSAGE =A0=A0=A0 0x17
--#define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x22=A0=A0=A0 /* V3 ver=
-sion of 0x11 */
-+#define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x22=A0=A0=A0 /* V3 ver=
-sion of 0x12 */
-=20
- #define IGMP_MTRACE_RESP=A0=A0=A0 =A0=A0=A0 0x1e
- #define IGMP_MTRACE=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x1f
-
-
-
-
-
-     =20
+--0-797806555-1294070616=:97776--
