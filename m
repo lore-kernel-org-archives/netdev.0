@@ -1,57 +1,36 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: [PATCH, second try] Typo in comments in include/linux/igmp.h
-Date: Mon, 3 Jan 2011 08:03:36 -0800 (PST)
-Message-ID: <542376.97776.qm@web62505.mail.re1.yahoo.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 1/2] can: add driver for Softing card
+Date: Mon, 3 Jan 2011 17:28:26 +0100
+Message-ID: <20110103162826.GC320@e-circ.dyndns.org>
+References: <20101223093627.GA325@e-circ.dyndns.org>
+	<20101223094302.GB325@e-circ.dyndns.org>
+	<4D135BC3.6070707@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="0-797806555-1294070616=:97776"
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web62505.mail.re1.yahoo.com ([69.147.75.97]:44352 "HELO
-	web62505.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932069Ab1ACQDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 11:03:38 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D135BC3.6070707-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---0-797806555-1294070616=:97776
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Thu, Dec 23, 2010 at 03:25:07PM +0100, Marc Kleine-Budde wrote:
+> 
+> Another option is to write a threaded interrupt handler.
+It seems a threaded irq is the way to go.
+During the implementation, a locking issue came up.
+Am I right that within a threaded irq handler, I should use spin_lock_bh()
+to prevent the ndo_start_xmit() to be called (ie. prevent the softirq).
+> 
 
-[Second try, patch invalid, sorry]=0A=0AHello,=0A=0AThere is a typo in comm=
-ents in include/linux/igmp.h:=0A=0A83 #define IGMP_HOST_MEMBERSHIP_QUERY=A0=
- =A0 =A0 0x11=A0 =A0 /* From RFC1112 */=0A84 #define IGMP_HOST_MEMBERSHIP_R=
-EPORT=A0 =A0=A0=A00x12=A0 =A0 /* Ditto */=0A85 #define IGMP_DVMRP=A0 =A0 =
-=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x13=A0 =A0 /* DVMRP routing */=0A86 #d=
-efine IGMP_PIM=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x14=A0 =A0 /=
-* PIM routing */=0A87 #define IGMP_TRACE=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 0x15=0A88 #define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A00x16=A0 =
-=A0 /* V2 version of 0x11 */=0A89 #define IGMP_HOST_LEAVE_MESSAGE=A0 =A0 =
-=A0 =A0=A0=A00x17=0A90 #define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A00x22=
-=A0 =A0 /* V3 version of 0x11 */=0A=0AThe line 88 and 90 are about REPORT m=
-essages.=0AThe IGMP_HOST_MEMBERSHIP_REPORT value is 0x12.=0ASo the comment =
-on line 88 must be /* V2 version of 0x12 */,=0Aand the comment on line 90 m=
-ust be /* V3 version of 0x12 */.=0A=0AHere is a patch.=0A=0AThank you,=0AFr=
-ancois-Xavier Le Bail=0A=0A=0A      
---0-797806555-1294070616=:97776
-Content-Type: text/x-diff; name="igmp_h.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="igmp_h.diff"
-
-ZGlmZiAtcnUgYS9pbmNsdWRlL2xpbnV4L2lnbXAuaCBiL2luY2x1ZGUvbGlu
-dXgvaWdtcC5oCi0tLSBhL2luY2x1ZGUvbGludXgvaWdtcC5oCTIwMTAtMDgt
-MjcgMDE6NDc6MTIuMDAwMDAwMDAwICswMjAwCisrKyBiL2luY2x1ZGUvbGlu
-dXgvaWdtcC5oCTIwMTAtMTItMTUgMDk6NTA6NDcuODA4MzYzMTQ0ICswMTAw
-CkBAIC04NSw5ICs4NSw5IEBACiAjZGVmaW5lIElHTVBfRFZNUlAJCQkweDEz
-CS8qIERWTVJQIHJvdXRpbmcgKi8KICNkZWZpbmUgSUdNUF9QSU0JCQkweDE0
-CS8qIFBJTSByb3V0aW5nICovCiAjZGVmaW5lIElHTVBfVFJBQ0UJCQkweDE1
-Ci0jZGVmaW5lIElHTVBWMl9IT1NUX01FTUJFUlNISVBfUkVQT1JUCTB4MTYJ
-LyogVjIgdmVyc2lvbiBvZiAweDExICovCisjZGVmaW5lIElHTVBWMl9IT1NU
-X01FTUJFUlNISVBfUkVQT1JUCTB4MTYJLyogVjIgdmVyc2lvbiBvZiAweDEy
-ICovCiAjZGVmaW5lIElHTVBfSE9TVF9MRUFWRV9NRVNTQUdFIAkweDE3Ci0j
-ZGVmaW5lIElHTVBWM19IT1NUX01FTUJFUlNISVBfUkVQT1JUCTB4MjIJLyog
-VjMgdmVyc2lvbiBvZiAweDExICovCisjZGVmaW5lIElHTVBWM19IT1NUX01F
-TUJFUlNISVBfUkVQT1JUCTB4MjIJLyogVjMgdmVyc2lvbiBvZiAweDEyICov
-CiAKICNkZWZpbmUgSUdNUF9NVFJBQ0VfUkVTUAkJMHgxZQogI2RlZmluZSBJ
-R01QX01UUkFDRQkJCTB4MWYK
-
---0-797806555-1294070616=:97776--
+Kurt
