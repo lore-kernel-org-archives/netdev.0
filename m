@@ -1,71 +1,75 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: [PATCH 14/15]include:media:davinci:vpss.h Typo change diable
-	to disable.
-Date: Mon, 03 Jan 2011 07:11:07 -0800
-Message-ID: <4D21E70B.6000703@gmail.com>
-References: <1293750484-1161-1-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-2-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-3-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-4-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-5-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-6-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-7-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-8-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-9-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-10-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-11-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-12-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-13-git-send-email-justinmattock@gmail.com>
-	<1293750484-1161-14-git-send-email-justinmattock@gmail.com>
-	<4D1DAFF5.3090108@gmail.com>
-	<alpine.LNX.2.00.1101031600510.26685@pobox.suse.cz>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: [PATCH] Typo in comments in include/linux/igmp.h
+Date: Mon, 3 Jan 2011 07:25:10 -0800 (PST)
+Message-ID: <868172.46833.qm@web62502.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, linux-m68k@vger.kernel.org,
-	linux-scsi@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ivtv-devel@ivtvdriver.org,
-	spi-devel-general@lists.sourceforge.net,
-	Mauro Carvalho Chehab <maurochehab@gmail.com>, linux-media@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <alpine.LNX.2.00.1101031600510.26685@pobox.suse.cz>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
-	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Sender: devel-bounces@linuxdriverproject.org
-Errors-To: devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web62502.mail.re1.yahoo.com ([69.147.75.94]:35145 "HELO
+	web62502.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755270Ab1ACPbv convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 10:31:51 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/03/2011 07:01 AM, Jiri Kosina wrote:
-> On Fri, 31 Dec 2010, Mauro Carvalho Chehab wrote:
->
->> Em 30-12-2010 21:08, Justin P. Mattock escreveu:
->>> The below patch fixes a typo "diable" to "disable". Please let me know if this
->>> is correct or not.
->>>
->>> Signed-off-by: Justin P. Mattock<justinmattock@gmail.com>
->> Acked-by: Mauro Carvalho Chehab<mchehab@redhat.com>
->
-> Applied.
->
->>
->> PS.: Next time, please c/c linux-media ONLY on patches related to media
->> drivers (/drivers/video and the corresponding include files). Having to
->> dig into a series of 15 patches to just actually look on 3 patches
->> is not nice.
->
-> Absolutely.
->
-> Justin, no kernel developer should be afraid of being CCed. But try to
-> avoid really unnecessary spamming (which this was).
->
+Hello,
 
-alright..
+There is a typo in comments in include/linux/igmp.h:
 
-Justin P. Mattock
+83 #define IGMP_HOST_MEMBERSHIP_QUERY=A0 =A0 =A0 0x11=A0 =A0 /* From RF=
+C1112 */
+84 #define IGMP_HOST_MEMBERSHIP_REPORT=A0 =A0=A0=A00x12=A0 =A0 /* Ditto=
+ */
+85 #define IGMP_DVMRP=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x13=A0=
+ =A0 /* DVMRP routing */
+86 #define IGMP_PIM=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x14=
+=A0 =A0 /* PIM routing */
+87 #define IGMP_TRACE=A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 0x15
+88 #define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A00x16=A0 =A0 /* V2 vers=
+ion of 0x11 */
+89 #define IGMP_HOST_LEAVE_MESSAGE=A0 =A0 =A0 =A0=A0=A00x17
+90 #define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A00x22=A0 =A0 /* V3 vers=
+ion of 0x11 */
+
+The line 88 and 90 are about REPORT messages.
+The IGMP_HOST_MEMBERSHIP_REPORT value is 0x12.
+So the comment on line 88 must be /* V2 version of 0x12 */,
+and the comment on line 90 must be /* V3 version of 0x12 */.
+
+Here is a patch.
+
+Thank you,
+=46rancois-Xavier Le Bail
+
+------------------------------------
+
+diff -ru a/include/linux/igmp.h b/include/linux/igmp.h
+--- a/include/linux/igmp.h=A0=A0=A0 2010-08-27 01:47:12.000000000 +0200
++++ b/include/linux/igmp.h=A0=A0=A0 2010-12-15 09:50:47.808363144 +0100
+@@ -85,9 +85,9 @@
+ #define IGMP_DVMRP=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x13=A0=A0=A0 /* DVMRP=
+ routing */
+ #define IGMP_PIM=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x14=A0=A0=A0 /* PIM rou=
+ting */
+ #define IGMP_TRACE=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x15
+-#define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x16=A0=A0=A0 /* V2 ver=
+sion of 0x11 */
++#define IGMPV2_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x16=A0=A0=A0 /* V2 ver=
+sion of 0x12 */
+ #define IGMP_HOST_LEAVE_MESSAGE =A0=A0=A0 0x17
+-#define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x22=A0=A0=A0 /* V3 ver=
+sion of 0x11 */
++#define IGMPV3_HOST_MEMBERSHIP_REPORT=A0=A0=A0 0x22=A0=A0=A0 /* V3 ver=
+sion of 0x12 */
+=20
+ #define IGMP_MTRACE_RESP=A0=A0=A0 =A0=A0=A0 0x1e
+ #define IGMP_MTRACE=A0=A0=A0 =A0=A0=A0 =A0=A0=A0 0x1f
+
+
+
+
+
+     =20
