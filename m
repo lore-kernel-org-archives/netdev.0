@@ -1,50 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next-2.6] ifb: add performance flags
-Date: Mon, 03 Jan 2011 11:40:33 -0800 (PST)
-Message-ID: <20110103.114033.28807428.davem@davemloft.net>
-References: <20101228230709.GA2088@del.dom.local>
-	<1293999876.2535.211.camel@edumazet-laptop>
-	<20110103193703.GA1977@del.dom.local>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
+Date: Mon, 03 Jan 2011 11:52:00 -0800
+Message-ID: <4D2228E0.9030908@intel.com>
+References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>	 <AANLkTiki5ZePtdj4ni2++z1KvHOttev1ZciaV-bRFbWA@mail.gmail.com>	 <20110103.110244.183045594.davem@davemloft.net> <1294083039.3167.184.camel@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eric.dumazet@gmail.com, xiaosuo@gmail.com, pstaszewski@itcare.pl,
-	netdev@vger.kernel.org
-To: jarkao2@gmail.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	"therbert@google.com" <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51380
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751285Ab1ACTkC convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 14:40:02 -0500
-In-Reply-To: <20110103193703.GA1977@del.dom.local>
+Received: from mga01.intel.com ([192.55.52.88]:42792 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752680Ab1ACTwB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 14:52:01 -0500
+In-Reply-To: <1294083039.3167.184.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jarek Poplawski <jarkao2@gmail.com>
-Date: Mon, 3 Jan 2011 20:37:03 +0100
+On 1/3/2011 11:30 AM, Ben Hutchings wrote:
+> On Mon, 2011-01-03 at 11:02 -0800, David Miller wrote:
+>> From: Tom Herbert<therbert@google.com>
+>> Date: Mon, 3 Jan 2011 10:47:20 -0800
+>>
+>>> I'm not sure why this would be needed.  What is the a advantage in
+>>> making the TX and RX queues match?
+>>
+>> That's how their hardware based RFS essentially works.
+>>
+>> Instead of watching for "I/O system calls" like we do in software, the
+>> chip watches for which TX queue a flow ends up on and matches things
+>> up on the receive side with the same numbered RX queue to match.
+>
+> ixgbe also implements IRQ affinity setting (or rather hinting) and TX
+> queue selection by CPU, the inverse of IRQ affinity setting.  Together
+> with the hardware/firmware Flow Director feature, this should indeed
+> result in hardware RFS.  (However, irqbalanced does not yet follow the
+> affinity hints AFAIK, so this requires some manual intervention.  Maybe
+> the OOT driver is different?)
+>
+> The proposed change to make TX queue selection hash-based seems to be a
+> step backwards.
+>
+> Ben.
+>
 
-> On Sun, Jan 02, 2011 at 09:24:36PM +0100, Eric Dumazet wrote:
->> Le mercredi 29 d=E9cembre 2010 ?? 00:07 +0100, Jarek Poplawski a =E9=
-crit :
->>=20
->> > Ingress is before vlans handler so these features and the
->> > NETIF_F_HW_VLAN_TX flag seem useful for ifb considering
->> > dev_hard_start_xmit() checks.
->>=20
->> OK, here is v2 of the patch then, thanks everybody.
->>=20
->>=20
->> [PATCH v2 net-next-2.6] ifb: add performance flags
->>=20
->> IFB can use the full set of features flags (NETIF_F_SG |
->> NETIF_F_FRAGLIST | NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA) =
-to
->> avoid unnecessary split of some packets (GRO for example)
->>=20
->> Changli suggested to also set vlan_features,
->=20
-> He also suggested more GSO flags of which especially NETIF_F_TSO6
-> seems interesting (wrt GRO)?
+Actually this code would only be applied in the case where Flow Director 
+didn't apply such as non-TCP frames.  It would essentially guarantee 
+that we end up with TX/RX on the same CPU for all cases instead of just 
+when Flow Director matches a given flow.
 
-I think at least TSO6 would very much be appropriate here.
+The general idea is to at least keep the traffic local to one TX/RX 
+queue pair so that if we cannot match the queue pair to the application, 
+perhaps the application can be affinitized to match up with the queue 
+pair.  Otherwise we end up with traffic getting routed to one TX queue 
+on one CPU, and the RX being routed to another queue on perhaps a 
+different CPU and it becomes quite difficult to match up the queues and 
+the applications.
+
+Since the approach is based on Toeplitz it can be applied to all 
+hardware capable of generating a Toeplitz based hash and as a result it 
+would likely also work in a much more vendor neutral kind of way than 
+Flow Director currently does.
+
+Thanks,
+
+Alex
