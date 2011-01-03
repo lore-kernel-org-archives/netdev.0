@@ -1,102 +1,73 @@
-From: Stefani Seibold <stefani@seibold.net>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Mon, 03 Jan 2011 10:08:52 +0100
-Message-ID: <1294045732.19666.6.camel@wall-e>
-References: <1294007971-18878-1-git-send-email-stefani@seibold.net>
-	 <1294008562.2535.263.camel@edumazet-laptop>
-	 <1294008917.18963.3.camel@wall-e>
-	 <alpine.LNX.2.00.1101022356550.11481@swampdragon.chaosbits.net>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Subject: Re: [*v3 PATCH 02/22] IPVS: netns to services part 1
+Date: Mon, 3 Jan 2011 10:14:00 +0100
+Message-ID: <1294046040.4983.60423.camel@seasc0214>
+References: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
+	 <1293706266-27152-3-git-send-email-hans@schillstrom.com>
+	 <alpine.LNX.2.01.1101011547040.9065@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com,
-	daniel.baluta@gmail.com, jochen@jochen.org
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1101022356550.11481@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "hans@schillstrom.com" <hans@schillstrom.com>,
+	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
+	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
+	"wensong@linux-vs.org" <wensong@linux-vs.org>,
+	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1101011547040.9065@obet.zrqbmnf.qr>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Montag, den 03.01.2011, 00:04 +0100 schrieb Jesper Juhl:
-> On Sun, 2 Jan 2011, Stefani Seibold wrote:
->=20
-> > Am Sonntag, den 02.01.2011, 23:49 +0100 schrieb Eric Dumazet:
-> > > Le dimanche 02 janvier 2011 =E0 23:39 +0100, stefani@seibold.net =
-a =E9crit :
-> > > > +
-> > > > +/*
-> > > > + * Create a new destination descriptor for the given IPV4 addr=
-ess and port
-> > > > + */
-> > > > +static struct udpcp_dest *new_dest(struct sock *sk, __be32 add=
-r, __be16 port)
-> > > > +{
-> > > > +	struct udpcp_dest *dest;
-> > > > +	struct udpcp_sock *usk =3D udpcp_sk(sk);
-> > > > +
-> > > > +	if (usk->connections >=3D udpcp_max_connections)
-> > > > +		return NULL;
-> > > > +
-> > > > +	dest =3D kzalloc(sizeof(*dest), sk->sk_allocation);
-> > > > +
-> > > > +	if (dest) {
-> > > > +		usk->connections++;
-> > > > +		skb_queue_head_init(&dest->xmit);
-> > > > +		dest->addr =3D addr;
-> > > > +		dest->port =3D port;
-> > > > +		dest->ackmode =3D UDPCP_ACK;
-> > > > +		list_add_tail(&dest->list, &usk->destlist);
-> > > > +	}
-> > > > +
-> > > > +	return dest;
-> > > > +}
-> > > > +
-> > >=20
-> > > Hmm, so 'connections' is increased, never decreased.
-> > >=20
-> > > This seems a fatal flaw in this protocol, since a malicious user =
-can
-> > > easily fill the list with garbage, and block regular communicatio=
-ns.
-> >=20
-> > You are right, there is now way to detect which connection is no lo=
-nger
-> > needed. I have not designed this protocol, so i cannot fix it.=20
-> >=20
-> > But in our environment this will be used together with an firewall
-> > and/or ipsec. In this case it it safe.
-> >=20
->=20
-> Hmm, the first thing that springs into my head as a possible band-aid=
-=20
-> (which is probbaly wrong for many reasons I've not considered, so fee=
-l=20
-> free to shoot it down) is; couldn't we use a timer (set to some outra=
-geous=20
-> high value by default and admin tunable) that would decrement=20
-> 'connections' (discount dead connections) when there has not been any=
-=20
-> acctivity for a huge period of time? Kill off connections that have b=
-een=20
-> idle for ages.
->=20
+On Sat, 2011-01-01 at 15:57 +0100, Jan Engelhardt wrote:
+> On Thursday 2010-12-30 11:50, hans@schillstrom.com wrote:
+> >+/*
+> >+ * Get net ptr from skb in traffic cases
+> >+ * use skb_sknet when call is from userland (ioctl or netlink)
+> >+ */
+> >+static inline struct net *skb_net(struct sk_buff *skb) {
+> >+#ifdef CONFIG_NET_NS
+> >+#ifdef CONFIG_IP_VS_DEBUG
+> >+	/*
+> >+	 * This is used for debug only.
+> >+	 * Start with the most likely hit
+> >+	 * End with BUG
+> >+	 */
+> >+	if (likely(skb->dev && skb->dev->nd_net))
+> >+		return dev_net(skb->dev);
+> >+	if (skb_dst(skb)->dev)
+> >+		return dev_net(skb_dst(skb)->dev);
+> >+	WARN(skb->sk,"Maybe skb_sknet should be used instead in %s() line:%d\n",
+> >+		      __func__, __LINE__);
+> >+	if (likely(skb->sk && skb->sk->sk_net))
+> >+		return sock_net(skb->sk);
+> >+	pr_err("There is no net ptr to find in the skb in %s() line:%d\n",
+> >+		__func__, __LINE__);
+> >+	BUG();
+> >+#else
+> >+	return dev_net(skb->dev ? : skb_dst(skb)->dev);
+> >+#endif
+> >+#else
+> >+	return &init_net;
+> >+#endif
+> >+}
+> 
+> Whether NETNS is disabled or not, dev_net(skb->dev) can be used in either case,
+> so the extra return &init_net case is not really required AFAICS.
 
-This will not work for two reasons:
+OK, but the debug part will not compile without the ifdef since there is
+some symbols that is #ifdef CONFIG_NET_NS.
+"&init_net" is faster than the " ? : "
+And the rest I guess is obvious.
 
-- First there is no way to detect a dead connection. A connection can
-stay for a very long time without data transfer.
+> 
+> >@@ -3446,43 +3471,48 @@ static struct pernet_operations ipvs_control_ops = {
+> >-	smp_wmb();
+> >+
+> >+	smp_wmb();	/* Do wee really need it now ? */
+> 
+> not "whee" :)
 
-- Second it will not save against a attack where all communication slot=
-s
-will be eaten by an attacker and then new valid connections will be not
-handled.
 
-The only thing what is possible to make an ioctl call which allows the
-user land client to cancel connections.=20
-
-But this will be in my opinion dead code, because white lists of truste=
-d
-address must be fostered and this will make the upgrading of a
-infrastructure to complicate.
