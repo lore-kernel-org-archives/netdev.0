@@ -1,38 +1,49 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V7 7/8] ptp: Added a clock driver for the IXP46x.
-Date: Mon, 3 Jan 2011 18:07:34 +0100
-Message-ID: <20110103170732.GA3700@riccoc20.at.omicron.at>
-References: <cover.1292512461.git.richard.cochran@omicron.at>
- <d2e0a5ac5eb51e9e4c7fcc94723b67c72c2f57c1.1292512461.git.richard.cochran@omicron.at>
- <20110102084505.GA3980@ucw.cz>
- <20110102091233.GA2847@riccoc20.at.omicron.at>
- <20110102092042.GA14165@ucw.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: bridge: check the length of skb after
+ nf_bridge_maybe_copy_header()
+Date: Mon, 03 Jan 2011 09:22:14 -0800 (PST)
+Message-ID: <20110103.092214.193706896.davem@davemloft.net>
+References: <1293284490-17114-1-git-send-email-xiaosuo@gmail.com>
+	<20101231.111003.48499853.davem@davemloft.net>
+	<AANLkTingFk8qJ8tBwSRCxD=9k-0O3GnTv9V9TbF4N=bg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110102092042.GA14165@ucw.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: xiaosuo@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33343
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932162Ab1ACRVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 12:21:43 -0500
+In-Reply-To: <AANLkTingFk8qJ8tBwSRCxD=9k-0O3GnTv9V9TbF4N=bg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 02, 2011 at 10:20:42AM +0100, Pavel Machek wrote:
-> Given the comments -- does manual really use camelCase crap?
-> And... the identifiers actually combine camelCase with _. Better fix
-> it.
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Mon, 3 Jan 2011 18:44:59 +0800
 
-Thats the way Intel likes it:
+> On Sat, Jan 1, 2011 at 3:10 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Changli Gao <xiaosuo@gmail.com>
+>> Date: Sat, 25 Dec 2010 21:41:30 +0800
+>>
+>>> Since nf_bridge_maybe_copy_header() may change the length of skb,
+>>> we should check the length of skb after it to handle the ppoe skbs.
+>>>
+>>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>>
+>> This is really strange.
+>>
+>> packet_length() subtracts VLAN_HLEN from the value it returns, so the
+>> correct fix seems to be to make this function handle the PPPOE case
+>> too.
+>>
+> 
+> It is correct. The actual MTU of 802.1q frame is 4 bytes larger. For
+> example, the MTU of ethernet is normally 1500, however the actual MTU
+> of the 802.1Q is 1504.
 
-http://download.intel.com/design/network/manuals/30626204.pdf
-
-Page 837
+Yes, I understand this, but I don't see why packet_length() cannot
+simply account for PPPOE's encapsulation overhead just as it does for
+VLAN's special MTU considerations.
