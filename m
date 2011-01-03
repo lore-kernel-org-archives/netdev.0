@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] smsc-ircc2: Fix section mismatch derived from
- smsc_ircc_pnp_driver variable
-Date: Mon, 03 Jan 2011 11:53:19 -0800 (PST)
-Message-ID: <20110103.115319.245401044.davem@davemloft.net>
-References: <1294021724-30337-1-git-send-email-sedat.dilek@gmail.com>
+Subject: Re: [PATCH] depca: Fix section mismatch derived from
+ depca_isa_driver variable
+Date: Mon, 03 Jan 2011 11:53:36 -0800 (PST)
+Message-ID: <20110103.115336.70200097.davem@davemloft.net>
+References: <1294021987-30385-1-git-send-email-sedat.dilek@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sedat.dilek@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sedat.dilek@gmail.com
 To: sedat.dilek@googlemail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294021724-30337-1-git-send-email-sedat.dilek@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60344
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932231Ab1ACTxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:53:05 -0500
+In-Reply-To: <1294021987-30385-1-git-send-email-sedat.dilek@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Sedat Dilek <sedat.dilek@googlemail.com>
-Date: Mon,  3 Jan 2011 03:28:44 +0100
+Date: Mon,  3 Jan 2011 03:33:07 +0100
 
 >>From my build.log:
 > 
-> drivers/net/irda/smsc-ircc2.o(.data+0x18): Section mismatch in reference from the variable smsc_ircc_pnp_driver to the function .init.text:smsc_ircc_pnp_probe()
-> The variable smsc_ircc_pnp_driver references
-> the function __init smsc_ircc_pnp_probe()
+> WARNING: drivers/net/depca.o(.data+0x0): Section mismatch in reference from the variable depca_isa_driver to the function .init.text:depca_isa_probe()
+> The variable depca_isa_driver references
+> the function __init depca_isa_probe()
 > If the reference is valid then annotate the
 > variable with __init* or __refdata (see linux/init.h) or name the variable:
 > *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
@@ -33,7 +37,4 @@ Date: Mon,  3 Jan 2011 03:28:44 +0100
 > 
 > Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
 
-Just like your other patch, this fix is not correct.
-
-Mark smsc_ircc_pbp_probe() as __devinit instead of __init to fix
-this bug.
+Again, mark depca_isa_probe() as __devinit to fix this bug.
