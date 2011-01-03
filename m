@@ -1,52 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
-Date: Mon, 03 Jan 2011 19:30:39 +0000
-Message-ID: <1294083039.3167.184.camel@localhost>
-References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>
-	 <AANLkTiki5ZePtdj4ni2++z1KvHOttev1ZciaV-bRFbWA@mail.gmail.com>
-	 <20110103.110244.183045594.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] bonding: remove meaningless
+ /sys/module/bonding/parameters entries.
+Date: Mon, 03 Jan 2011 11:32:12 -0800 (PST)
+Message-ID: <20110103.113212.260088613.davem@davemloft.net>
+References: <1293978915-29674-1-git-send-email-nicolas.2p.debian@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: therbert@google.com, alexander.h.duyck@intel.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	fubar@us.ibm.com
+To: nicolas.2p.debian@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:12967 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751783Ab1ACTaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:30:46 -0500
-In-Reply-To: <20110103.110244.183045594.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50466
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751783Ab1ACTbl convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 14:31:41 -0500
+In-Reply-To: <1293978915-29674-1-git-send-email-nicolas.2p.debian@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-01-03 at 11:02 -0800, David Miller wrote:
-> From: Tom Herbert <therbert@google.com>
-> Date: Mon, 3 Jan 2011 10:47:20 -0800
-> 
-> > I'm not sure why this would be needed.  What is the a advantage in
-> > making the TX and RX queues match?
-> 
-> That's how their hardware based RFS essentially works.
-> 
-> Instead of watching for "I/O system calls" like we do in software, the
-> chip watches for which TX queue a flow ends up on and matches things
-> up on the receive side with the same numbered RX queue to match.
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+Date: Sun,  2 Jan 2011 15:35:15 +0100
 
-ixgbe also implements IRQ affinity setting (or rather hinting) and TX
-queue selection by CPU, the inverse of IRQ affinity setting.  Together
-with the hardware/firmware Flow Director feature, this should indeed
-result in hardware RFS.  (However, irqbalanced does not yet follow the
-affinity hints AFAIK, so this requires some manual intervention.  Maybe
-the OOT driver is different?)
+> Only two bonding parameters are exposed in /sys/module/bonding:
+>=20
+> num_grat_arp
+> num_unsol_na
+>=20
+> Those values are not module global, but per device.
+>=20
+> The per device values are available in /sys/class/net/<device>/bondin=
+g.
+>=20
+> The values exposed in /sys/module/bonding are those given at module l=
+oad time
+> and only used as default values when creating a device. They are read=
+-only and
+> cannot change in any way.
+>=20
+> As such, they are mostly meaningless.
 
-The proposed change to make TX queue selection hash-based seems to be a
-step backwards.
+=46irst, you forgot to provide a proper "Signed-off-by: " line in your
+patch submission, please read Documentation/SubmittingPatches
 
-Ben.
+Secondly, you can't remove these, people might be using them.  It
+could be useful, for example, to debug problems with passing module
+parameters in.  This is the one way to find out what actually got
+passed to the module when it loaded.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Therefore I'm not applying this patch, sorry.
