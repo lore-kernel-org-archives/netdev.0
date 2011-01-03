@@ -1,62 +1,53 @@
-From: "Winkler, Tomas" <tomas.winkler@intel.com>
-Subject: RE: [PATCH 1/1 V3] bridge: fix br_multicast_ipv6_rcv for paged skbs
-Date: Mon, 3 Jan 2011 12:17:57 +0200
-Message-ID: <6F5C1D715B2DA5498A628E6B9C124F04019BF9E48E@hasmsx504.ger.corp.intel.com>
-References: <1293999538-9298-1-git-send-email-tomas.winkler@intel.com>
-	 <1294047254.4165.1.camel@jlt3.sipsolutions.net>
-	 <6F5C1D715B2DA5498A628E6B9C124F04019BF9E404@hasmsx504.ger.corp.intel.com>
- <1294049058.4165.3.camel@jlt3.sipsolutions.net>
+From: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+Subject: [PATCH] ll_temac: Fix section mismatch from the temac_of_probe
+Date: Mon,  3 Jan 2011 11:32:36 +0100
+Message-ID: <1294050756-31099-1-git-send-email-monstr@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47246 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751482Ab1ACKSV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 05:18:21 -0500
-In-Reply-To: <1294049058.4165.3.camel@jlt3.sipsolutions.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9oYW5uZXMgQmVyZyBb
-bWFpbHRvOmpvaGFubmVzQHNpcHNvbHV0aW9ucy5uZXRdDQo+IFNlbnQ6IE1vbmRheSwgSmFudWFy
-eSAwMywgMjAxMSAxMjowNCBQTQ0KPiBUbzogV2lua2xlciwgVG9tYXMNCj4gQ2M6IGRhdmVtQGRh
-dmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFN0ZXBoZW4gSGVtbWluZ2VyDQo+
-IFN1YmplY3Q6IFJFOiBbUEFUQ0ggMS8xIFYzXSBicmlkZ2U6IGZpeCBicl9tdWx0aWNhc3RfaXB2
-Nl9yY3YgZm9yIHBhZ2VkIHNrYnMNCj4gDQo+IE9uIE1vbiwgMjAxMS0wMS0wMyBhdCAxMTo0MyAr
-MDIwMCwgV2lua2xlciwgVG9tYXMgd3JvdGU6DQo+IA0KPiA+ID4gPiAtCQlzdHJ1Y3QgbWxkX21z
-ZyAqbWxkID0gKHN0cnVjdCBtbGRfbXNnICopaWNtcDZoOw0KPiA+ID4gPiArCQlzdHJ1Y3QgbWxk
-X21zZyAqbWxkOw0KPiA+ID4gPiArCQlpZiAoIXBza2JfbWF5X3B1bGwoc2tiMiwgc2l6ZW9mKCpt
-bGQpKSkgew0KPiA+ID4gPiArCQkJZXJyID0gLUVJTlZBTDsNCj4gPiA+ID4gKwkJCWdvdG8gb3V0
-Ow0KPiA+ID4gPiArCQl9DQo+ID4gPiA+ICsJCW1sZCA9IChzdHJ1Y3QgbWxkX21zZyAqKWljbXA2
-aDsNCj4gPiA+DQo+ID4gPiBUaGlzIChhbmQgdGhlIHNlY29uZCBpbnN0YW5jZSkgaXMgaW5jb3Jy
-ZWN0IGFmYWljdCAtLSB0aGUgcG9pbnRlcg0KPiA+ID4gImljbXA2aCIgc2hvdWxkIGJlIHJlbG9h
-ZGVkIGFmdGVyIHRoZSBwc2tiX21heV9wdWxsKCksIG5vPw0KPiA+DQo+ID4gbWxkX21zZyBpcyBi
-aWdnZXIgdGhhbiBpY21wNmggYnkgc2l6ZW9mKGluNl9hZGRyKSBzbyB3ZSBoYXZlIHRvIHRyeSBw
-dWxsDQo+IGFnYWluIGEgYmlnZ2VyIGNodW5rLg0KPiANCj4gUmlnaHQsIEkga25vdywgdGhlIHBz
-a2JfbWF5X3B1bGwoKSBpcyBuZWVkZWQsIGJ1dCBJIGJlbGlldmUgeW91IG5lZWQgdG8NCj4gcmUt
-Y2FsY3VsYXRlIGljbXA2aCBoZXJlLg0KDQpZb3UgYXJlIHJpZ2h0LCBpdCBjYW4gYmUgbW92ZWQg
-dG8gbmV3IG1lbW9yeSBidWZmZXIuDQoNClByb2JhYmx5IHNvbWV0aGluZyBsaWtlIHRoYXQgd2ls
-bCBkbyBpdDoNCg0KaWYgKCFwc2tiX21heV9wdWxsKHNrYjIsIHNpemVvZigqbWxkKSkpIHsNCgll
-cnIgPSAtRUlOVkFMOw0KCWdvdG8gb3V0Ow0KfQ0KbWxkID0gKHN0cnVjdCBtbGRfbXNnICopc2ti
-X3RyYW5zcG9ydF9oZWFkZXIoc2tiMikgDQoNCj4gDQo+ID4gPiBBbHNvLCB0aGUgIm91dF9ub3B1
-c2giIHRoaW5nIGlzIHBvaW50bGVzcyBzaW5jZSB0aGUgcHVzaCBpcyBjb21wbGV0ZWx5DQo+ID4g
-PiB1bm5lY2Vzc2FyeSBhcyAic2tiMiAhPSBza2IiIGlzIGFsd2F5cyB0cnVlLg0KPiA+DQo+ID4g
-WW91IGFyZSByaWdodCBpZiBza2JfY2xvbmUgZG9lc24ndCByZXR1cm4gdGhlIHNhbWUgcG9pbnRl
-ciB0aGVuIHllcy4NCj4gPiBTaGFtZSwgYnV0IEknbSBub3QgYSBzYmsgZXhwZXJ0LiBJJ20gZGl2
-aW5nIGludG8gaXQgbm93Lg0KPiANCj4gSSdtIHByZXR0eSBzdXJlIGl0J3MgZ3VhcmFudGVlZCB0
-byByZXR1cm4gYSBuZXcgcG9pbnRlci4NCg0KUmlnaHQsIGl0IGVpdGhlciByZXR1cm5zIHNrYiAr
-IDEgb3IgbmV3IG9uZSBmcm9tIHRoZSBjYWNoZS4gV2UgY2FuIGRyb3AgdGhlIG5vcHVzaCBzZWN0
-aW9uLg0KDQpUaGFua3MNClRvbWFzDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KSW50ZWwgSXNyYWVsICg3NCkgTGlt
-aXRlZAoKVGhpcyBlLW1haWwgYW5kIGFueSBhdHRhY2htZW50cyBtYXkgY29udGFpbiBjb25maWRl
-bnRpYWwgbWF0ZXJpYWwgZm9yCnRoZSBzb2xlIHVzZSBvZiB0aGUgaW50ZW5kZWQgcmVjaXBpZW50
-KHMpLiBBbnkgcmV2aWV3IG9yIGRpc3RyaWJ1dGlvbgpieSBvdGhlcnMgaXMgc3RyaWN0bHkgcHJv
-aGliaXRlZC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkCnJlY2lwaWVudCwgcGxlYXNlIGNv
-bnRhY3QgdGhlIHNlbmRlciBhbmQgZGVsZXRlIGFsbCBjb3BpZXMuCg==
+Replace __init by __devinit.
 
+Warning message:
+WARNING: vmlinux.o(.data+0xbc14): Section mismatch in reference from the variable
+temac_of_driver to the function .init.text:temac_of_probe()
+The variable temac_of_driver references
+the function __init temac_of_probe()
+If the reference is valid then annotate the
+variable with __init* or __refdata (see linux/init.h) or name the variable:
+*_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
+
+Signed-off-by: Michal Simek <monstr-pSz03upnqPeHXe+LvDLADg@public.gmane.org>
+---
+ drivers/net/ll_temac_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
+index 9f8e702..beb6ed8 100644
+--- a/drivers/net/ll_temac_main.c
++++ b/drivers/net/ll_temac_main.c
+@@ -952,7 +952,7 @@ static const struct attribute_group temac_attr_group = {
+ 	.attrs = temac_device_attrs,
+ };
+ 
+-static int __init
++static int __devinit
+ temac_of_probe(struct platform_device *op, const struct of_device_id *match)
+ {
+ 	struct device_node *np;
+-- 
+1.5.5.6
