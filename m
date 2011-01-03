@@ -1,126 +1,154 @@
-From: "Kirill A. Shutemov" <kas@openvz.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Mon, 3 Jan 2011 18:53:57 +0200
-Message-ID: <20110103165357.GA32196@shutemov.name>
-References: <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com>
- <20101230085139.GA29697@shutemov.name>
- <4D1C4C7C.6050606@parallels.com>
- <20101230094433.GB29697@shutemov.name>
- <4D1C5953.6020200@parallels.com>
- <20101230104416.GA31824@shutemov.name>
- <AANLkTim2QrkSW0HufD5wp=-8ikwydN5SUS+fdWK6JHqb@mail.gmail.com>
- <20101230114514.GA31976@shutemov.name>
- <4D1C809B.30405@parallels.com>
- <20101231130329.GA3610@shutemov.name>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v2 3/3] net_sched: implement a root
+ container qdisc sch_mclass
+Date: Mon, 3 Jan 2011 18:02:44 +0100
+Message-ID: <20110103170244.GA1843@del.dom.local>
+References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab>
+ <20101221192930.9703.63791.stgit@jf-dev1-dcblab>
+ <4D1D17C9.3040500@gmail.com>
+ <4D2161FF.4070804@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Rob Landley <rlandley@parallels.com>,
-	Rob Landley <rob@landley.net>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-nfs@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Kirill A. Shutemov" <kas@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63325 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895Ab1ACRCy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 12:02:54 -0500
+Received: by bwz15 with SMTP id 15so13873168bwz.19
+        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 09:02:52 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <20101231130329.GA3610@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4D2161FF.4070804@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Dec 31, 2010 at 03:03:29PM +0200, Kirill A. Shutemov wrote:
-> On Thu, Dec 30, 2010 at 06:52:43AM -0600, Rob Landley wrote:
-> > On 12/30/2010 05:45 AM, Kirill A. Shutemov wrote:
-> > > Currently, there is no association between rpc_pipefs and mount namespace,
+On Sun, Jan 02, 2011 at 09:43:27PM -0800, John Fastabend wrote:
+> On 12/30/2010 3:37 PM, Jarek Poplawski wrote:
+> > John Fastabend wrote:
+> >> This implements a mclass 'multi-class' queueing discipline that by
+> >> default creates multiple mq qdisc's one for each traffic class. Each
+> >> mq qdisc then owns a range of queues per the netdev_tc_txq mappings.
 > > 
-> > There is in that the root context doesn't need to have this mounted, and 
-> > new namespaces do.  So there's an existing association between a LACK of 
-> > a namespace and a different default behavior.
-> >
-> > My understanding (correct me if I'm wrong) is that the historical 
-> > behavior is that there's only one, and it doesn't actually live anywhere 
-> > in the filesystem tree.  You're adding a special location.  I'm 
-> > wondering if there's any way for that location not to be special.
-> 
-> /var/lib/net/rpc_pipefs is default path where userspace part of NFS stack
-> (gssd, idmapd) want to see rpc_pipefs
-> 
-> > > so I don't see simple way to restrict number of rpc_pipefs per mount
-> > > namespace. Associating mount namespace with rpc_pipefs is not a good idea,
-> > > I think.
+> > Is it really necessary to add one more abstraction layer for this,
+> > probably not most often used (or even asked by users), functionality?
+> > Why mclass can't simply do these few things more instead of attaching
+> > (and changing) mq?
 > > 
-> > I'm talking about associating a default rpc_pipefs instance with a 
-> > namespace, which it seems to me you're already doing by emulating the 
-> > legacy behavior.  Before you CLONE_NEWNS you get a magic default mount 
-> > that doesn't exist in the tree.  After you CLONE_NEWNS you get something 
-> > like -EINVAL unless you supply your own default.
 > 
-> Root namespace is special. In case of nfsroot you need rpc_pipefs before
-> root available.
-> 
-> > (I'm actually not sure 
-> > why new namespaces don't fall back to the magic global one...)
-> 
-> It breaks isolation. Container should not use host's rpc_pipefs without
-> host's permission.
->  
-> > I'm suggesting that if the user doesn't specify -o rpcmount then the 
-> > default could be the first rpc_pipefs mount visible to the current 
-> > process context, rather than a specific path.  Logic to do that exists 
-> > in the proc/self/mounts code (which I'm reading through now...).
-> 
-> static int check_rpc_pipefs(struct vfsmount *mnt, void *arg)
-> {
->         struct vfsmount **rpcmount = arg;
->         struct path path = {
->                 .mnt = mnt,
->                 .dentry = mnt->mnt_root,
->         };
-> 
->         if (!mnt->mnt_sb)
->                 return 0;
->         if (mnt->mnt_sb->s_magic != RPCAUTH_GSSMAGIC)
->                 return 0;
-> 
->         if (!path_is_under(&path, &current->fs->root))
->                 return 0;
-> 
->         *rpcmount = mntget(mnt);
->         return 1;
-> }
-> 
-> struct vfsmount *get_rpc_pipefs(const char *p)
-> {
->         int error;
->         struct vfsmount *rpcmount = ERR_PTR(-EINVAL);
->         struct path path;
-> 
->         if (!p) {
->                 iterate_mounts(check_rpc_pipefs, &rpcmount,
->                                 current->nsproxy->mnt_ns->root);
-> 
->                 if (IS_ERR(rpcmount) && (current->nsproxy->mnt_ns ==
->                                         init_task.nsproxy->mnt_ns))
->                         return mntget(init_rpc_pipefs);
-> 
->                 return rpcmount;
->         }
-> 
->         error = kern_path(p, LOOKUP_FOLLOW | LOOKUP_DIRECTORY, &path);
->         if (error)
->                 return ERR_PTR(error);
-> 
->         check_rpc_pipefs(path.mnt, &rpcmount);
->         path_put(&path);
-> 
->         return rpcmount;
-> }
-> EXPORT_SYMBOL_GPL(get_rpc_pipefs);
-> 
-> Something like this? Patch to replace patch #10 attached.
+> The statistics work nicely when the mq qdisc is used. 
 
-Any comments?
+Well, I sometimes add leaf qdiscs only to get class stats with less
+typing, too ;-)
 
--- 
- Kirill A. Shutemov
+> 
+> qdisc mclass 8002: root  tc 4 map 0 1 2 3 0 1 2 3 1 1 1 1 1 1 1 1
+>              queues:(0:1) (2:3) (4:5) (6:15)
+>  Sent 140 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> qdisc mq 8003: parent 8002:1
+>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> qdisc mq 8004: parent 8002:2
+>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> qdisc mq 8005: parent 8002:3
+>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> qdisc mq 8006: parent 8002:4
+>  Sent 140 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> qdisc sfq 8007: parent 8005:1 limit 127p quantum 1514b
+>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> qdisc sfq 8008: parent 8005:2 limit 127p quantum 1514b
+>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>  backlog 0b 0p requeues 0
+> 
+> The mclass gives the statistics for the interface and then statistics on the mq qdisc gives statistics for each traffic class. Also, when using the 'mq qdisc' with this abstraction other qdisc can be grafted onto the queue. For example the sch_sfq is used in the above example.
+
+IMHO, these tc offsets and counts make simply two level hierarchy
+(classes with leaf subclasses) similarly (or simpler) to other
+classful qdisc which manage it all inside one module. Of course,
+we could think of another way of code organization, but it should
+be rather done at the beginning of schedulers design. The mq qdisc
+broke the design a bit adding a fake root, but I doubt we should go
+deeper unless it's necessary. Doing mclass (or something) as a more
+complex alternative to mq should be enough. Why couldn't mclass graft
+sch_sfq the same way as mq?
+
+> 
+> Although I am not too hung up on this use case it does seem to be a good abstraction to me. Is it strictly necessary though no and looking at the class statistics of mclass could be used to get stats per traffic class.
+
+I am not too hung up on this either, especially if it's OK to others,
+especially to DaveM ;-)
+
+> 
+> > ...
+> >> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> >> index 0af57eb..723ee52 100644
+> >> --- a/include/net/sch_generic.h
+> >> +++ b/include/net/sch_generic.h
+> >> @@ -50,6 +50,7 @@ struct Qdisc {
+> >>  #define TCQ_F_INGRESS		4
+> >>  #define TCQ_F_CAN_BYPASS	8
+> >>  #define TCQ_F_MQROOT		16
+> >> +#define TCQ_F_MQSAFE		32
+> > 
+> > If every other qdisc added a flag for qdiscs it likes...
+> > 
+> 
+> then we run out of bits and get unneeded complexity. I think I will drop the MQSAFE bit completely and let user space catch this. The worst that should happen is the noop qdisc is used.
+
+Maybe you're right. On the other hand, usually flags are added for
+more general purpose and the optimal/wrong configs are the matter of
+documentation.
+
+> 
+> >> @@ -709,7 +709,13 @@ static void attach_default_qdiscs(struct net_device *dev)
+> >>  		dev->qdisc = txq->qdisc_sleeping;
+> >>  		atomic_inc(&dev->qdisc->refcnt);
+> >>  	} else {
+> >> -		qdisc = qdisc_create_dflt(txq, &mq_qdisc_ops, TC_H_ROOT);
+> >> +		if (dev->num_tc)
+> > 
+> > Actually, where this num_tc is expected to be set? I can see it inside
+> > mclass only, with unsetting on destruction, but probably I miss something.
+> 
+> Either through mclass as you noted or a driver could set the num_tc. One of the RFC's I sent out has ixgbe setting the num_tc when DCB was enabled.
+
+OK, I probably missed this second possibility in the last version.
+
+...
+> >> +	/* Unwind attributes on failure */
+> >> +	u8 unwnd_tc = dev->num_tc;
+> >> +	u8 unwnd_map[16];
+> > 
+> > [TC_MAX_QUEUE] ?
+> 
+> Actually TC_BITMASK+1 is probably more accurate. This array maps the skb priority to a traffic class after the priority is masked with TC_BITMASK.
+> 
+> > 
+> >> +	struct netdev_tc_txq unwnd_txq[16];
+> >> +
+> 
+> Although unwnd_txq should be TC_MAX_QUEUE.
+...
+> >> +	/* Always use supplied priority mappings */
+> >> +	for (i = 0; i < 16; i++) {
+> > 
+> > i < qopt->num_tc ?
+> 
+> Nope, TC_BITMASK+1 here. If we only have 4 tcs for example we still need to map all 16 priority values to a tc.
+
+OK, anyway, all these '16' should be 'upgraded'.
+ 
+Thanks,
+Jarek P.
