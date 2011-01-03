@@ -1,43 +1,68 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: [PATCH] depca: Fix section mismatch derived from depca_isa_driver variable
-Date: Mon,  3 Jan 2011 03:33:07 +0100
-Message-ID: <1294021987-30385-1-git-send-email-sedat.dilek@gmail.com>
-Cc: Sedat Dilek <sedat.dilek@gmail.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next-2.6 PATCH v2 2/4] dcbnl: adding DCBX feature flags
+ get-set
+Date: Sun, 02 Jan 2011 18:38:12 -0800
+Message-ID: <4D213694.5050001@intel.com>
+References: <1293726415.29378.93.camel@lb-tlvb-shmulik.il.broadcom.com> <4D1CD814.2010903@intel.com> <1293984061.29378.101.camel@lb-tlvb-shmulik.il.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	"Liu, Lucy" <lucy.liu@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shmulik Ravid <shmulikr@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:32069 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753222Ab1ACCiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jan 2011 21:38:13 -0500
+In-Reply-To: <1293984061.29378.101.camel@lb-tlvb-shmulik.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->From my build.log:
+On 1/2/2011 8:01 AM, Shmulik Ravid wrote:
+> 
+>> One more nit ;)
+>>
+>>> +
+>>> +	ret = nla_parse_nested(data, DCB_FEATCFG_ATTR_MAX, tb[DCB_ATTR_FEATCFG],
+>>> +			       dcbnl_featcfg_nest);
+>>> +	if (ret) {
+>>> +		ret = -EINVAL;
+>>> +		goto err_out;
+>>> +	}
+>>
+>> Why do you set EINVAL here if you use the returned error code from nla_parse_nested you get a more descriptive error. See ./lib/nlattr.c:nla_parse()/validate_nla().
+>>
+>> [...]
+>>
+>>> +static int dcbnl_setfeatcfg(struct net_device *netdev, struct nlattr **tb,
+>>> +			    u32 pid, u32 seq, u16 flags)
+>>> +{
+>>> +	struct nlattr *data[DCB_FEATCFG_ATTR_MAX + 1];
+>>> +	int ret = -EINVAL;
+>>> +	u8 value;
+>>> +	int i;
+>>> +
+>>> +	if (!tb[DCB_ATTR_FEATCFG] || !netdev->dcbnl_ops->setfeatcfg)
+>>> +		return ret;
+>>> +
+>>> +	ret = nla_parse_nested(data, DCB_FEATCFG_ATTR_MAX, tb[DCB_ATTR_FEATCFG],
+>>> +			       dcbnl_featcfg_nest);
+>>> +
+>>> +	if (ret) {
+>>> +		ret = -EINVAL;
+>>> +		goto err;
+>>> +	}
+>>
+>> Same here.
+>>
+> 
+> I'll send a patch with the improved return values for the the new dcbnl
+> routines. While I'm at it, is it safe to fix on the same lines the
+> older already established dcbnl routines?
 
-WARNING: drivers/net/depca.o(.data+0x0): Section mismatch in reference from the variable depca_isa_driver to the function .init.text:depca_isa_probe()
-The variable depca_isa_driver references
-the function __init depca_isa_probe()
-If the reference is valid then annotate the
-variable with __init* or __refdata (see linux/init.h) or name the variable:
-*_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
+This should be safe I would not expect using more accurate error values could hurt any existing applications. Be sure to make it a separate patch though.
 
-This patch fixes the warning.
-
-Tested with linux-next (next-20101231)
-
-Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
----
- drivers/net/depca.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/depca.c b/drivers/net/depca.c
-index 91b3846..dfaf746 100644
---- a/drivers/net/depca.c
-+++ b/drivers/net/depca.c
-@@ -405,7 +405,7 @@ static int __devexit depca_isa_remove(struct platform_device *pdev)
- 	return depca_device_remove(&pdev->dev);
- }
- 
--static struct platform_driver depca_isa_driver = {
-+static struct platform_driver depca_isa_driver __refdata = {
- 	.probe  = depca_isa_probe,
- 	.remove = __devexit_p(depca_isa_remove),
- 	.driver	= {
--- 
-1.7.4.rc0
+John
