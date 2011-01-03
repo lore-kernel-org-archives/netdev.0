@@ -1,56 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Mon, 03 Jan 2011 11:39:59 +0100
-Message-ID: <1294051199.2892.198.camel@edumazet-laptop>
-References: <1294007971-18878-1-git-send-email-stefani@seibold.net>
-	 <1294008562.2535.263.camel@edumazet-laptop>
-	 <1294008917.18963.3.camel@wall-e>
-	 <alpine.LNX.2.00.1101022356550.11481@swampdragon.chaosbits.net>
-	 <1294045732.19666.6.camel@wall-e>
-	 <1294046867.2892.101.camel@edumazet-laptop>
-	 <1294048469.20187.13.camel@wall-e>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: RE: [PATCH 1/1 V3] bridge: fix br_multicast_ipv6_rcv for paged skbs
+Date: Mon, 03 Jan 2011 11:41:59 +0100
+Message-ID: <1294051319.4165.5.camel@jlt3.sipsolutions.net>
+References: <1293999538-9298-1-git-send-email-tomas.winkler@intel.com>
+	 <1294047254.4165.1.camel@jlt3.sipsolutions.net>
+	 <6F5C1D715B2DA5498A628E6B9C124F04019BF9E404@hasmsx504.ger.corp.intel.com>
+	 <1294049058.4165.3.camel@jlt3.sipsolutions.net>
+	 <6F5C1D715B2DA5498A628E6B9C124F04019BF9E48E@hasmsx504.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesper Juhl <jj@chaosbits.net>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, davem@davemloft.net,
-	netdev@vger.kernel.org, shemminger@vyatta.com,
-	daniel.baluta@gmail.com, jochen@jochen.org
-To: Stefani Seibold <stefani@seibold.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294048469.20187.13.camel@wall-e>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: "Winkler, Tomas" <tomas.winkler@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from he.sipsolutions.net ([78.46.109.217]:47468 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754258Ab1ACKmD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 05:42:03 -0500
+In-Reply-To: <6F5C1D715B2DA5498A628E6B9C124F04019BF9E48E@hasmsx504.ger.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 03 janvier 2011 =C3=A0 10:54 +0100, Stefani Seibold a =C3=A9cr=
-it :
+On Mon, 2011-01-03 at 12:17 +0200, Winkler, Tomas wrote:
 
-> How can you do a routing, how can you determinate the MTU of the rout=
-e.
-> This are basics. Look into other code how this things will be handled=
- is
-> in my opinion the right way, since there a no function provide to do
-> this.
->=20
+> > > > > -		struct mld_msg *mld = (struct mld_msg *)icmp6h;
+> > > > > +		struct mld_msg *mld;
+> > > > > +		if (!pskb_may_pull(skb2, sizeof(*mld))) {
+> > > > > +			err = -EINVAL;
+> > > > > +			goto out;
+> > > > > +		}
+> > > > > +		mld = (struct mld_msg *)icmp6h;
+> > > >
+> > > > This (and the second instance) is incorrect afaict -- the pointer
+> > > > "icmp6h" should be reloaded after the pskb_may_pull(), no?
+> > >
+> > > mld_msg is bigger than icmp6h by sizeof(in6_addr) so we have to try pull
+> > again a bigger chunk.
+> > 
+> > Right, I know, the pskb_may_pull() is needed, but I believe you need to
+> > re-calculate icmp6h here.
+> 
+> You are right, it can be moved to new memory buffer.
+> 
+> Probably something like that will do it:
+> 
+> if (!pskb_may_pull(skb2, sizeof(*mld))) {
+> 	err = -EINVAL;
+> 	goto out;
+> }
+> mld = (struct mld_msg *)skb_transport_header(skb2) 
 
-Hmm, how user land can perform this task then ?
+Yeah, that'll do, although I see more callers of icmp6_hdr() here
+instead even for mld stuff (which is an inline though doing just this)
 
-Is there an open source implementation of UDPCP ?
+johannes
 
-What are its problems ? You say its dog slow, I really wonder why.
-UDP stack is pretty scalable these days, yet some improvements are
-possible.
-
-Why not adding generic helpers if you believe you miss some
-infrastructure ? This could benefit to other 'stacks' as well.
-
-> Otherwise you can say the same about all the filesystem or PCI
-> drvivers , which do also a lot in the same way. But since this is the
-> way to do it, it is the right way.
->=20
-
-These drivers are here because of high performance on top of high
-performance specs.
-
-While UDPCP is only a layer above UDP. If the problem comes from UDP
-being too slow, it'll be slow too.
