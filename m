@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] depca: Fix section mismatch derived from
- depca_isa_driver variable
-Date: Mon, 03 Jan 2011 11:53:36 -0800 (PST)
-Message-ID: <20110103.115336.70200097.davem@davemloft.net>
-References: <1294021987-30385-1-git-send-email-sedat.dilek@gmail.com>
+Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
+Date: Mon, 03 Jan 2011 11:54:21 -0800 (PST)
+Message-ID: <20110103.115421.232753837.davem@davemloft.net>
+References: <20110103.110244.183045594.davem@davemloft.net>
+	<1294083039.3167.184.camel@localhost>
+	<4D2228E0.9030908@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	sedat.dilek@gmail.com
-To: sedat.dilek@googlemail.com
+Cc: bhutchings@solarflare.com, therbert@google.com,
+	netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60344
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60349
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932231Ab1ACTxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:53:05 -0500
-In-Reply-To: <1294021987-30385-1-git-send-email-sedat.dilek@gmail.com>
+	by vger.kernel.org with ESMTP id S1753621Ab1ACTxu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:53:50 -0500
+In-Reply-To: <4D2228E0.9030908@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Date: Mon,  3 Jan 2011 03:33:07 +0100
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Mon, 03 Jan 2011 11:52:00 -0800
 
->>From my build.log:
-> 
-> WARNING: drivers/net/depca.o(.data+0x0): Section mismatch in reference from the variable depca_isa_driver to the function .init.text:depca_isa_probe()
-> The variable depca_isa_driver references
-> the function __init depca_isa_probe()
-> If the reference is valid then annotate the
-> variable with __init* or __refdata (see linux/init.h) or name the variable:
-> *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
-> 
-> This patch fixes the warning.
-> 
-> Tested with linux-next (next-20101231)
-> 
-> Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
+> Since the approach is based on Toeplitz it can be applied to all
+> hardware capable of generating a Toeplitz based hash and as a result
+> it would likely also work in a much more vendor neutral kind of way
+> than Flow Director currently does.
 
-Again, mark depca_isa_probe() as __devinit to fix this bug.
+Immediately this excludes NIU, for one, since it does not use Topelitz.
