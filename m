@@ -1,35 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: eepro testing positive EBUSY return by
- request_irq()?
-Date: Mon, 03 Jan 2011 11:37:26 -0800 (PST)
-Message-ID: <20110103.113726.246525147.davem@davemloft.net>
-References: <4D1DECFC.8020701@gmail.com>
-	<1293809262.2870.45.camel@localhost>
-	<4D209127.5080505@gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [PATCH v2 net-next-2.6] ifb: add performance flags
+Date: Mon, 3 Jan 2011 20:37:03 +0100
+Message-ID: <20110103193703.GA1977@del.dom.local>
+References: <20101220130247.GB9325@ff.dom.local>
+ <AANLkTi=eqCWpFpHQ86_yO544p5G6J6P2os7rCR9FBtUd@mail.gmail.com>
+ <1292855120.2800.45.camel@edumazet-laptop>
+ <20101228.135013.39173075.davem@davemloft.net>
+ <1293575781.20573.391.camel@edumazet-laptop>
+ <20101228230709.GA2088@del.dom.local>
+ <1293999876.2535.211.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, netdev@vger.kernel.org,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org
-To: roel.kluin@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D209127.5080505@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
+	pstaszewski@itcare.pl, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64844 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754330Ab1ACThN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:37:13 -0500
+Received: by bwz15 with SMTP id 15so14001410bwz.19
+        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 11:37:09 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1293999876.2535.211.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: roel kluin <roel.kluin@gmail.com>
-Date: Sun, 02 Jan 2011 15:52:23 +0100
+On Sun, Jan 02, 2011 at 09:24:36PM +0100, Eric Dumazet wrote:
+> Le mercredi 29 d=E9cembre 2010 ?? 00:07 +0100, Jarek Poplawski a =E9c=
+rit :
+>=20
+> > Ingress is before vlans handler so these features and the
+> > NETIF_F_HW_VLAN_TX flag seem useful for ifb considering
+> > dev_hard_start_xmit() checks.
+>=20
+> OK, here is v2 of the patch then, thanks everybody.
+>=20
+>=20
+> [PATCH v2 net-next-2.6] ifb: add performance flags
+>=20
+> IFB can use the full set of features flags (NETIF_F_SG |
+> NETIF_F_FRAGLIST | NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA) t=
+o
+> avoid unnecessary split of some packets (GRO for example)
+>=20
+> Changli suggested to also set vlan_features,
 
-> +		for (i = 0; i < ARRAY_SIZE(irqlist); i++) {
-> +			retval = request_irq (irqlist[i], NULL, 0, "bogus", NULL);
-> +			if (retval != -EBUSY)
-> +				continue;
-> +			if (retval < 0)
-> +				goto out;
-> +			dev->irq = irqlist[i];
-> +			break;
+He also suggested more GSO flags of which especially NETIF_F_TSO6
+seems interesting (wrt GRO)?
 
-This series of tests don't make much sense.
+Jarek P.
 
-If we get to the "retval < 0" check, retval must be -EBUSY.  So at
-best it's superfluous, at worst it's confusing.
+> Jarek suggested to add NETIF_F_HW_VLAN_TX as well.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Changli Gao <xiaosuo@gmail.com>
+> Cc: Jarek Poplawski <jarkao2@gmail.com>
+> Cc: Pawel Staszewski <pstaszewski@itcare.pl>
+> ---
+>  drivers/net/ifb.c |    6 ++++++
+>  1 file changed, 6 insertions(+)
+>=20
+> diff --git a/drivers/net/ifb.c b/drivers/net/ifb.c
+> index 124dac4..66ca7bf 100644
+> --- a/drivers/net/ifb.c
+> +++ b/drivers/net/ifb.c
+> @@ -126,6 +126,9 @@ static const struct net_device_ops ifb_netdev_ops=
+ =3D {
+>  	.ndo_validate_addr =3D eth_validate_addr,
+>  };
+> =20
+> +#define IFB_FEATURES (NETIF_F_NO_CSUM | NETIF_F_SG  | NETIF_F_FRAGLI=
+ST | \
+> +		      NETIF_F_HIGHDMA | NETIF_F_TSO | NETIF_F_HW_VLAN_TX)
+> +
+>  static void ifb_setup(struct net_device *dev)
+>  {
+>  	/* Initialize the device structure. */
+> @@ -136,6 +139,9 @@ static void ifb_setup(struct net_device *dev)
+>  	ether_setup(dev);
+>  	dev->tx_queue_len =3D TX_Q_LIMIT;
+> =20
+> +	dev->features |=3D IFB_FEATURES;
+> +	dev->vlan_features |=3D IFB_FEATURES;
+> +
+>  	dev->flags |=3D IFF_NOARP;
+>  	dev->flags &=3D ~IFF_MULTICAST;
+>  	dev->priv_flags &=3D ~IFF_XMIT_DST_RELEASE;
+>=20
+>=20
