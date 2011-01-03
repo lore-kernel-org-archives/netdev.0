@@ -1,21 +1,31 @@
-From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCHv2 0/2]netxen: updates
-Date: Sun,  2 Jan 2011 23:58:43 -0800
-Message-ID: <1294041525-15553-1-git-send-email-amit.salecha@qlogic.com>
-Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
-	anirban.chakraborty@qlogic.com
+From: Michal Simek <monstr@monstr.eu>
+Subject: [PATCH] trivial: Fix typo fault in netdevice.h
+Date: Mon,  3 Jan 2011 09:54:09 +0100
+Message-ID: <1294044849-10601-1-git-send-email-monstr@monstr.eu>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Michal Simek <monstr@monstr.eu>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:59549 "EHLO unm84.unminc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751864Ab1ACH7H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 02:59:07 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Signed-off-by: Michal Simek <monstr@monstr.eu>
+---
+ include/linux/netdevice.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Hi,
- Series v2 of 2 patches to fix LRO in netxen nic driver. Apply these on
- net-next branch.
-
--Amit
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d8fd2c2..c773bc8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -683,7 +683,7 @@ struct netdev_rx_queue {
+  *	   neither operation.
+  *
+  * void (*ndo_vlan_rx_register)(struct net_device *dev, struct vlan_group *grp);
+- *	If device support VLAN receive accleration
++ *	If device support VLAN receive acceleration
+  *	(ie. dev->features & NETIF_F_HW_VLAN_RX), then this function is called
+  *	when vlan groups for the device changes.  Note: grp is NULL
+  *	if no vlan's groups are being used.
+-- 
+1.5.5.6
