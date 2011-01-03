@@ -1,62 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] sch_red: report backlog information
-Date: Mon, 03 Jan 2011 19:11:38 +0100
-Message-ID: <1294078298.2892.1111.camel@edumazet-laptop>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
-	 <20101220232020.GB2052@del.dom.local>
-	 <1292887689.2627.150.camel@edumazet-laptop>
-	 <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
-	 <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
-	 <20101221223704.GA1979@del.dom.local> <1293111333.11306.170.camel@mojatatu>
-	 <1294003631.2535.253.camel@edumazet-laptop>
-	 <1294062755.2472.11.camel@mojatatu>
-	 <1294063372.2892.408.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [PATCH] net: bridge: check the length of skb after
+ nf_bridge_maybe_copy_header()
+Date: Mon, 3 Jan 2011 10:15:33 -0800
+Message-ID: <20110103101533.3f98b311@nehalam>
+References: <1293284490-17114-1-git-send-email-xiaosuo@gmail.com>
+	<20101231.111003.48499853.davem@davemloft.net>
+	<AANLkTingFk8qJ8tBwSRCxD=9k-0O3GnTv9V9TbF4N=bg@mail.gmail.com>
+	<20110103.092214.193706896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: hadi@cyberus.ca
+Cc: xiaosuo@gmail.com, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:49312 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755607Ab1ACSLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 13:11:47 -0500
-Received: by wwi17 with SMTP id 17so14079839wwi.1
-        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 10:11:46 -0800 (PST)
-In-Reply-To: <1294063372.2892.408.camel@edumazet-laptop>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:37563 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755392Ab1ACSPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 13:15:40 -0500
+In-Reply-To: <20110103.092214.193706896.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Provide child qdisc backlog (byte count) information so that "tc -s
-qdisc" can report it to user.
+On Mon, 03 Jan 2011 09:22:14 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
 
-packet count is already correctly provided.
+> From: Changli Gao <xiaosuo@gmail.com>
+> Date: Mon, 3 Jan 2011 18:44:59 +0800
+> 
+> > On Sat, Jan 1, 2011 at 3:10 AM, David Miller <davem@davemloft.net> wrote:
+> >> From: Changli Gao <xiaosuo@gmail.com>
+> >> Date: Sat, 25 Dec 2010 21:41:30 +0800
+> >>
+> >>> Since nf_bridge_maybe_copy_header() may change the length of skb,
+> >>> we should check the length of skb after it to handle the ppoe skbs.
+> >>>
+> >>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+> >>
+> >> This is really strange.
+> >>
+> >> packet_length() subtracts VLAN_HLEN from the value it returns, so the
+> >> correct fix seems to be to make this function handle the PPPOE case
+> >> too.
+> >>
+> > 
+> > It is correct. The actual MTU of 802.1q frame is 4 bytes larger. For
+> > example, the MTU of ethernet is normally 1500, however the actual MTU
+> > of the 802.1Q is 1504.
+> 
+> Yes, I understand this, but I don't see why packet_length() cannot
+> simply account for PPPOE's encapsulation overhead just as it does for
+> VLAN's special MTU considerations.
 
-qdisc red 11: parent 1:11 limit 60Kb min 15Kb max 45Kb ecn 
- Sent 3116427684 bytes 1415782 pkt (dropped 8, overlimits 7866 requeues 0) 
- rate 242385Kbit 13630pps backlog 13560b 8p requeues 0 
-  marked 7865 early 1 pdrop 7 other 0
+Because PPPOE happens afterwards and is not part the calculation.
+The check should be moved until after skb has reached final form.
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/sched/sch_red.c |    1 +
- 1 files changed, 1 insertion(+)
-
-diff --git a/net/sched/sch_red.c b/net/sched/sch_red.c
-index 8d42bb3..a67ba3c 100644
---- a/net/sched/sch_red.c
-+++ b/net/sched/sch_red.c
-@@ -239,6 +239,7 @@ static int red_dump(struct Qdisc *sch, struct sk_buff *skb)
- 		.Scell_log	= q->parms.Scell_log,
- 	};
- 
-+	sch->qstats.backlog = q->qdisc->qstats.backlog;
- 	opts = nla_nest_start(skb, TCA_OPTIONS);
- 	if (opts == NULL)
- 		goto nla_put_failure;
-
-
+-- 
