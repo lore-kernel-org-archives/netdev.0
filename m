@@ -1,75 +1,63 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [net-next-2.6 08/08] r8169: more 8168dp support.
-Date: Mon, 3 Jan 2011 20:50:03 +0800
-Message-ID: <C4B63551EF6C4B57BB20D6922F78AA12@realtek.com.tw>
-References: <20110102233751.GI5780@electric-eye.fr.zoreil.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] net_sched: mark packet staying on queue too long
+Date: Mon, 03 Jan 2011 08:52:35 -0500
+Message-ID: <1294062755.2472.11.camel@mojatatu>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	 <20101220232020.GB2052@del.dom.local>
+	 <1292887689.2627.150.camel@edumazet-laptop>
+	 <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
+	 <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+	 <20101221223704.GA1979@del.dom.local> <1293111333.11306.170.camel@mojatatu>
+	 <1294003631.2535.253.camel@edumazet-laptop>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, 'Ben Hutchings' <benh@debian.org>
-To: 'Francois Romieu' <romieu@fr.zoreil.com>, <davem@davemloft.net>
+Cc: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtitmf2.realtek.com.tw ([60.250.210.236]:3931 "EHLO
-	mf2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754306Ab1ACMuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 07:50:06 -0500
-In-Reply-To: <20110102233751.GI5780@electric-eye.fr.zoreil.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:59973 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932129Ab1ACNxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 08:53:09 -0500
+Received: by vws16 with SMTP id 16so5745170vws.19
+        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 05:53:09 -0800 (PST)
+In-Reply-To: <1294003631.2535.253.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Monday, January 03, 2011 7:38 AM
-> To: davem@davemloft.net
-> Cc: netdev@vger.kernel.org; Hayeswang; Ben Hutchings
-> Subject: [net-next-2.6 08/08] r8169: more 8168dp support.
+On Sun, 2011-01-02 at 22:27 +0100, Eric Dumazet wrote:
+> While playing with SFQ and other AQM, I was bothered to see how easy it
+> was for a single tcp flow to 'fill the pipe' and consume lot of memory
+> buffers in queues. I know Jesper use more than 50.000 SFQ on his
+> routers, and with GRO packets this can consume a lot of memory.
 > 
-> Adapted from version 8.019.00 of Realtek's r8168 driver
+> I played a bit adding ECN in SFQ, first by marking packets for a
+> particular flow if this flow qlen was above a given threshold, and later
+> using another trick : ECN mark packet if it stayed longer than a given
+> delay in the queue. This of course could be done on other modules, what
+> do you think ?
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Cc: Hayes <hayeswang@realtek.com>
-> ---
-> @@ -3038,8 +3104,10 @@ static void __devexit 
-> rtl8169_remove_one(struct pci_dev *pdev)
->  	struct net_device *dev = pci_get_drvdata(pdev);
->  	struct rtl8169_private *tp = netdev_priv(dev);
->  
-> -	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
-> +	if ((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
-> +	    (tp->mac_version == RTL_GIGA_MAC_VER_28)) {
->  		rtl8168_driver_stop(tp);
-> +	}
->  
->  	cancel_delayed_work_sync(&tp->task);
->  
-> @@ -3122,11 +3190,19 @@ err_pm_runtime_put:
->  	goto out;
->  }
->  
-> -static void rtl8169_hw_reset(void __iomem *ioaddr)
-> +static void rtl8169_hw_reset(struct rtl8169_private *tp)
->  {
-> +	void __iomem *ioaddr = tp->mmio_addr;
-> +
->  	/* Disable interrupts */
->  	rtl8169_irq_mask_and_ack(ioaddr);
->  
-> +	if (tp->mac_version == RTL_GIGA_MAC_VER_28) {
 
-This check should include RTL_GIGA_MAC_VER_27.
+I think for this to be effective, it would require maintaining some
+history of the effect (some form of moving window average)
+and probably a randomness in marking instead of a deterministic one.
+Something like what Stochastic Fair RED/BLUE Queueing does.
+Otherwise you get a burst of marked packets then silence then a burst
+etc (i.e the classical synchronization effect).
 
-> +		while (RTL_R8(TxPoll) & NPQ)
-> +			udelay(20);
-> +
-> +	}
-> +
->  	/* Reset the chipset */
->  	RTL_W8(ChipCmd, CmdReset);
->  
+It would probably be more effective to provide feedback to the local tcp
+since we can detect this locally instead of waiting to some round trip
+(or half roundtrip) effect at the receiver with ECN i.e in the same
+spirit as NET_XMIT_CN but for which local TCP does something useful with
+that info (instead of "retransmit shortly"). But even that would require
+maintaining some state on the scheduler per hash in this case....
 
-After the reset, there are something to do for RTL_GIGA_MAC_VER_27. You may
-check the soure code of realtek. Find "rtl8168_nic_reset".
- 
-Best Regards,
-Hayes
+cheers,
+jamal
 
 
