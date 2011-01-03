@@ -1,52 +1,88 @@
-From: Grant Likely <grant.likely@secretlab.ca>
-Subject: Re: [PATCH] ll_temac: Fix section mismatch from the temac_of_probe
-Date: Mon, 3 Jan 2011 10:03:32 -0700
-Message-ID: <20110103170332.GB2522@angua.secretlab.ca>
-References: <1294050756-31099-1-git-send-email-monstr@monstr.eu>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v2 3/3] net_sched: implement a root
+ container qdisc sch_mclass
+Date: Mon, 3 Jan 2011 18:04:49 +0100
+Message-ID: <20110103170449.GB1843@del.dom.local>
+References: <20101231092543.GA7809@ff.dom.local>
+ <4D2162A8.60305@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, davem@davemloft.net
-To: Michal Simek <monstr@monstr.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43195 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751198Ab1ACRE4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 12:04:56 -0500
+Received: by bwz15 with SMTP id 15so13874887bwz.19
+        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 09:04:55 -0800 (PST)
 Content-Disposition: inline
-In-Reply-To: <1294050756-31099-1-git-send-email-monstr@monstr.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4D2162A8.60305@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 03, 2011 at 11:32:36AM +0100, Michal Simek wrote:
-> Replace __init by __devinit.
+On Sun, Jan 02, 2011 at 09:46:16PM -0800, John Fastabend wrote:
+> On 12/31/2010 1:25 AM, Jarek Poplawski wrote:
+> > On 2010-12-21 20:29, John Fastabend wrote:
+> >> +static int mclass_parse_opt(struct net_device *dev, struct tc_mclass_qopt *qopt)
+> >> +{
+> >> +	int i, j;
+> >> +
+> >> +	/* Verify TC offset and count are sane */
+> > 
+> > if (qopt->num_tc > TC_MAX_QUEUE) ?
+> > 	return -EINVAL;
 > 
-> Warning message:
-> WARNING: vmlinux.o(.data+0xbc14): Section mismatch in reference from the variable
-> temac_of_driver to the function .init.text:temac_of_probe()
-> The variable temac_of_driver references
-> the function __init temac_of_probe()
-> If the reference is valid then annotate the
-> variable with __init* or __refdata (see linux/init.h) or name the variable:
-> *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
-> 
-> Signed-off-by: Michal Simek <monstr@monstr.eu>
+> This would be caught later when netdev_set_num_tc() fails although probably best to catch all failures in this function as early as possible.
 
-Acked-by: Grant Likely <grant.likely@secretlab.ca>
+Plus reading beyond the table range wouldn't look nice.
 
-> ---
->  drivers/net/ll_temac_main.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
-> diff --git a/drivers/net/ll_temac_main.c b/drivers/net/ll_temac_main.c
-> index 9f8e702..beb6ed8 100644
-> --- a/drivers/net/ll_temac_main.c
-> +++ b/drivers/net/ll_temac_main.c
-> @@ -952,7 +952,7 @@ static const struct attribute_group temac_attr_group = {
->  	.attrs = temac_device_attrs,
->  };
->  
-> -static int __init
-> +static int __devinit
->  temac_of_probe(struct platform_device *op, const struct of_device_id *match)
->  {
->  	struct device_node *np;
-> -- 
-> 1.5.5.6
+> > 
+> >> +	for (i = 0; i < qopt->num_tc; i++) {
+> >> +		int last = qopt->offset[i] + qopt->count[i];
+> >> +		if (last > dev->num_tx_queues)
+> > 
+> > if (last >= dev->num_tx_queues) ?
+> > 
+> >> +			return -EINVAL;
+> >> +		for (j = i + 1; j < qopt->num_tc; j++) {
+> >> +			if (last > qopt->offset[j])
+> > 
+> > if (last >= qopt->offset[j]) ?
+> 	
+> I believe the below works as expected. The offset needs to be verified (this I missed) but offset+count can be equal to num_tx_queue indicating the last queue is in use. With 8 tx queues and num_tc=2 a valid configuration is, tc1 offset of 0 and a count of 7 with tc2 offset of 7 and count of 1.
 > 
+> 
+>         /* Verify num_tc is in max range */
+>         if (qopt->num_tc > TC_MAX_QUEUE)
+>                 return -EINVAL;
+> 
+>         for (i = 0; i < qopt->num_tc; i++) {
+>                 /* Verify the queue offset is in the num tx range */
+>                 if (qopt->offset[i] >= dev->num_tx_queues)
+>                         return -EINVAL;
+>                 /* Verify the queue count is in tx range being equal to the
+>                  * num_tx_queues indicates the last queue is in use.
+>                  */
+>                 else if (qopt->offset[i] + qopt->count[i] > dev->num_tx_queues)
+>                         return -EINVAL;
+> 
+>                 /* Verify that the offset and counts do not overlap */
+>                 for (j = i + 1; j < qopt->num_tc; j++) {
+>                         if (last > qopt->offset[j])
+>                                 return -EINVAL;
+>                 }
+>         }
+
+Yes, after assigning the 'last' it should work OK ;-)
+
+Thanks,
+Jarek P.
