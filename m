@@ -1,41 +1,36 @@
-From: Sedat Dilek <sedat.dilek@googlemail.com>
-Subject: [PATCH] ksz884x: Fix section mismatch derived from pci_device_driver variable
-Date: Mon,  3 Jan 2011 03:01:44 +0100
-Message-ID: <1294020104-17124-1-git-send-email-sedat.dilek@gmail.com>
-Cc: Sedat Dilek <sedat.dilek@gmail.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next-2.6 PATCH v2 0/3] Series short description
+Date: Sun, 02 Jan 2011 18:27:08 -0800
+Message-ID: <4D2133FC.3050902@intel.com>
+References: <20101230192449.21487.9764.stgit@jf-dev1-dcblab> <20101231.104941.189703153.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Liu, Lucy" <lucy.liu@intel.com>,
+	"shmulikr@broadcom.com" <shmulikr@broadcom.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:32744 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753261Ab1ACC1J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jan 2011 21:27:09 -0500
+In-Reply-To: <20101231.104941.189703153.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WARNING: drivers/net/ksz884x.o(.data+0x18): Section mismatch in reference from the variable pci_device_driver to the function .init.text:pcidev_init()
-The variable pci_device_driver references
-the function __init pcidev_init()
-If the reference is valid then annotate the
-variable with __init* or __refdata (see linux/init.h) or name the variable:
-*_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
+On 12/31/2010 10:49 AM, David Miller wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Thu, 30 Dec 2010 11:25:40 -0800
+> 
+>> Version 2 adds the recommended tlv attributes to the ets struct this will
+>> be needed for offloaded LLDP engines. Host controlled LLDP agents will most
+>> likely not use these fields.
+>>
+>> Also Shmulik Ravid caught an error with a spin_lock on kmalloc failure.
+> 
+> BTW, even though I replied "applied" to v1 of these patches I made
+> sure to actully apply v2 :-)
+> --
 
-This patch fixes the warning.
-
-Tested with linux-next (next-20101231)
-
-Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
----
- drivers/net/ksz884x.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ksz884x.c b/drivers/net/ksz884x.c
-index 49ea870..515b0d7 100644
---- a/drivers/net/ksz884x.c
-+++ b/drivers/net/ksz884x.c
-@@ -7277,7 +7277,7 @@ static struct pci_device_id pcidev_table[] = {
- 
- MODULE_DEVICE_TABLE(pci, pcidev_table);
- 
--static struct pci_driver pci_device_driver = {
-+static struct pci_driver pci_device_driver __refdata = {
- #ifdef CONFIG_PM
- 	.suspend	= pcidev_suspend,
- 	.resume		= pcidev_resume,
--- 
-1.7.4.rc0
+Thanks David.
