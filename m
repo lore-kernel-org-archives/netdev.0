@@ -1,8 +1,7 @@
 From: Tomas Winkler <tomas.winkler@intel.com>
 Subject: [PATCH V4] bridge: fix br_multicast_ipv6_rcv for paged skbs
-Date: Mon,  3 Jan 2011 12:38:00 +0200
-Message-ID: <1294051080-29492-2-git-send-email-tomas.winkler@intel.com>
-References: <1294051080-29492-1-git-send-email-tomas.winkler@intel.com>
+Date: Mon,  3 Jan 2011 12:37:59 +0200
+Message-ID: <1294051080-29492-1-git-send-email-tomas.winkler@intel.com>
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Tomas Winkler <tomas.winkler@intel.com>,
@@ -10,11 +9,10 @@ Cc: netdev@vger.kernel.org, Tomas Winkler <tomas.winkler@intel.com>,
 	Stephen Hemminger <shemminger@vyatta.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:39533 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:50402 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751699Ab1ACKiG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751482Ab1ACKiG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 3 Jan 2011 05:38:06 -0500
-In-Reply-To: <1294051080-29492-1-git-send-email-tomas.winkler@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -34,7 +32,7 @@ Dec 15 14:36:41 User-PC kernel: [175576.120287] ------------[ cut here ]--------
 Dec 15 14:36:41 User-PC kernel: [175576.120452] kernel BUG at include/linux/skbuff.h:1178!
 Dec 15 14:36:41 User-PC kernel: [175576.120609] invalid opcode: 0000 [#1] SMP
 Dec 15 14:36:41 User-PC kernel: [175576.120749] last sysfs file: /sys/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/uevent
-Dec 15 14:36:41 User-PC kernel: [175576.121035] Modules linked in: oprofile binfmt_misc bridge stp llc parport_pc ppdev arc4 iwlagn snd_hda_codec_realtek iwlcore i915 snd_hda_intel mac80211 joydev snd_hda_codec snd_hwdep snd_pcm snd_seq_midi drm_kms_helper snd_rawmidi drm snd_seq_midi_event snd_seq snd_timer snd_seq_device cfg80211 eeepc_wmi usbhid psmouse intel_agp i2c_algo_bit intel_gtt uvcvideo agpgart videodev sparse_keymap snd shpchp v4l1_compat lp hid video serio_raw soundcore output snd_page_alloc ahci libahci atl1c
+Dec 15 14:36:41 User-PC kernel: [175576.121035] Modules linked in: approvals binfmt_misc bridge stp llc parport_pc ppdev arc4 iwlagn snd_hda_codec_realtek iwlcore i915 snd_hda_intel mac80211 joydev snd_hda_codec snd_hwdep snd_pcm snd_seq_midi drm_kms_helper snd_rawmidi drm snd_seq_midi_event snd_seq snd_timer snd_seq_device cfg80211 eeepc_wmi usbhid psmouse intel_agp i2c_algo_bit intel_gtt uvcvideo agpgart videodev sparse_keymap snd shpchp v4l1_compat lp hid video serio_raw soundcore output snd_page_alloc ahci libahci atl1c
 Dec 15 14:36:41 User-PC kernel: [175576.122712]
 Dec 15 14:36:41 User-PC kernel: [175576.122769] Pid: 0, comm: kworker/0:0 Tainted: G        W   2.6.37-rc5-wl+ #3 1015PE/1016P
 Dec 15 14:36:41 User-PC kernel: [175576.123012] EIP: 0060:[<f83edd65>] EFLAGS: 00010283 CPU: 1
