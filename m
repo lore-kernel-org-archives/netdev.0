@@ -1,45 +1,63 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 1/2] can: add driver for Softing card
-Date: Mon, 03 Jan 2011 09:33:27 -0800 (PST)
-Message-ID: <20110103.093327.104057155.davem@davemloft.net>
-References: <20101224091428.GA375@e-circ.dyndns.org>
-	<4D148788.3010808@pengutronix.de>
-	<20110103163835.GD320@e-circ.dyndns.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] net_sched: mark packet staying on queue too long
+Date: Mon, 3 Jan 2011 09:58:42 -0800
+Message-ID: <20110103095842.7677130d@nehalam>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	<20101220232020.GB2052@del.dom.local>
+	<1292887689.2627.150.camel@edumazet-laptop>
+	<20101220235209.GA1865@del.dom.local>
+	<1292939574.6535.27.camel@mojatatu>
+	<AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+	<20101221223704.GA1979@del.dom.local>
+	<1293111333.11306.170.camel@mojatatu>
+	<1294003631.2535.253.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-To: kurt.van.dijck-/BeEPy95v10@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110103163835.GD320-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: hadi@cyberus.ca, Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35794 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755365Ab1ACR6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 12:58:45 -0500
+In-Reply-To: <1294003631.2535.253.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Date: Mon, 3 Jan 2011 17:38:35 +0100
+On Sun, 02 Jan 2011 22:27:11 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Fri, Dec 24, 2010 at 12:44:08PM +0100, Marc Kleine-Budde wrote:
->> 
->> >> hmmm..all stuff behind dpram is __iomem, isn't it? I think it should
->> >> only be accessed with via the ioread/iowrite operators. Please check
->> > I did an ioremap_nocache. Since it is unaligned, ioread/iowrite would render
->> > a lot of statements.
->> 
->> The thing is, ioremapped mem should not be accessed directly. Instead
->> ioread/iowrite should be used. The softing driver should work on non x86
->> platforms, too.
->> 
-> I use __attribute__((packed)) structs to refer to the iomemory.
-> To read an unaligned uint16_t, is should then use 2 readb()'s ??
+> While playing with SFQ and other AQM, I was bothered to see how easy it
+> was for a single tcp flow to 'fill the pipe' and consume lot of memory
+> buffers in queues. I know Jesper use more than 50.000 SFQ on his
+> routers, and with GRO packets this can consume a lot of memory.
 > 
-> I could of course turn that sequence into a macro ....
+> I played a bit adding ECN in SFQ, first by marking packets for a
+> particular flow if this flow qlen was above a given threshold, and later
+> using another trick : ECN mark packet if it stayed longer than a given
+> delay in the queue. This of course could be done on other modules, what
+> do you think ?
+> 
+> The idea is to take into account the time packet stayed in the queue,
+> regardless of other class parameters.
+> 
+> Following quick and dirty patch to show the idea. Of course, the delay
+> should be configured on each SFQ/RED/XXXX class, so it would need an
+> iproute2 patch, and the delay unit should be "ms" (or even "us"), not
+> ticks, but as I said this is a quick and dirty patch (net-next-2.6
+> based)
+> 
+> Using jiffies allows only delays above 3 or 4 ticks...
+> 
+> Or maybe ECN is just a dream :(
 
-Yes, this is what you'll need to do.
+You might want to look into CHOKe and ECSFQ which are other AQM models
+that have shown up in research.
+
+
+-- 
