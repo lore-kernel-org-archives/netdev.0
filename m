@@ -1,131 +1,45 @@
-From: Ferenc Wagner <wferi@niif.hu>
-Subject: spurious netconsole: network logging stopped messages
-Date: Mon, 03 Jan 2011 17:57:35 +0100
-Message-ID: <87bp3yq60w.fsf@tac.ki.iif.hu>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 1/2] can: add driver for Softing card
+Date: Mon, 03 Jan 2011 09:33:27 -0800 (PST)
+Message-ID: <20110103.093327.104057155.davem@davemloft.net>
+References: <20101224091428.GA375@e-circ.dyndns.org>
+	<4D148788.3010808@pengutronix.de>
+	<20110103163835.GD320@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-=-="
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tac.ki.iif.hu ([193.6.222.43]:33988 "EHLO tac.ki.iif.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755524Ab1ACR1a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 12:27:30 -0500
-Received: from wferi by tac.ki.iif.hu with local (Exim 4.72)
-	(envelope-from <wferi@niif.hu>)
-	id 1PZnix-00084d-65
-	for netdev@vger.kernel.org; Mon, 03 Jan 2011 17:57:35 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+To: kurt.van.dijck-/BeEPy95v10@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110103163835.GD320-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---=-=-=
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Date: Mon, 3 Jan 2011 17:38:35 +0100
 
-Hi,
+> On Fri, Dec 24, 2010 at 12:44:08PM +0100, Marc Kleine-Budde wrote:
+>> 
+>> >> hmmm..all stuff behind dpram is __iomem, isn't it? I think it should
+>> >> only be accessed with via the ioread/iowrite operators. Please check
+>> > I did an ioremap_nocache. Since it is unaligned, ioread/iowrite would render
+>> > a lot of statements.
+>> 
+>> The thing is, ioremapped mem should not be accessed directly. Instead
+>> ioread/iowrite should be used. The softing driver should work on non x86
+>> platforms, too.
+>> 
+> I use __attribute__((packed)) structs to refer to the iomemory.
+> To read an unaligned uint16_t, is should then use 2 readb()'s ??
+> 
+> I could of course turn that sequence into a macro ....
 
-In a running system, I can load the netconsole module, and gather the
-messages on the other side all right. Now if I modprobe dummy and rmmod
-dummy, the following message gets logged (via netconsole as well):
-
-netconsole: network logging stopped, interface dummy0 unregistered
-
-although I never asked netconsole to log through dummy0. The problem is
-fairly obvious in netconsole_netdev_event() and could probably be fixed
-with something like the first attached patch.  I didn't even compile
-tested it, though, because the second attached patch made me realise
-that I don't quite understand the bridge logic here.  Why should
-netconsole stop logging through a bridge device if that loses a slave?
-Or do I misunderstand the meaning of NETDEV_BONDING_DESLAVE?
-
-Please Cc me, I'm not subscribed.
--- 
-Thanks,
-Feri.
-
-
---=-=-=
-Content-Type: text/x-diff
-Content-Disposition: inline;
- filename=0001-netconsole-don-t-announce-stopping-if-nothing-happen.patch
-
->From b324e4425f47fcde54757c134a7fdd98f3dc9521 Mon Sep 17 00:00:00 2001
-Message-Id: <b324e4425f47fcde54757c134a7fdd98f3dc9521.1294073227.git.wferi@niif.hu>
-From: Ferenc Wagner <wferi@niif.hu>
-Date: Mon, 3 Jan 2011 17:34:55 +0100
-Subject: [PATCH 1/2] netconsole: don't announce stopping if nothing happened
-
-
-Signed-off-by: Ferenc Wagner <wferi@niif.hu>
----
- drivers/net/netconsole.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index 94255f0..b2ad998 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -664,6 +664,7 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 	unsigned long flags;
- 	struct netconsole_target *nt;
- 	struct net_device *dev = ptr;
-+	bool stopped = false;
- 
- 	if (!(event == NETDEV_CHANGENAME || event == NETDEV_UNREGISTER ||
- 	      event == NETDEV_BONDING_DESLAVE || event == NETDEV_GOING_DOWN))
-@@ -690,13 +691,14 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 			case NETDEV_GOING_DOWN:
- 			case NETDEV_BONDING_DESLAVE:
- 				nt->enabled = 0;
-+				stopped = true;
- 				break;
- 			}
- 		}
- 		netconsole_target_put(nt);
- 	}
- 	spin_unlock_irqrestore(&target_list_lock, flags);
--	if (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE)
-+	if (stopped && (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE))
- 		printk(KERN_INFO "netconsole: network logging stopped, "
- 			"interface %s %s\n",  dev->name,
- 			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
--- 
-1.6.5
-
-
---=-=-=
-Content-Type: text/x-diff
-Content-Disposition: inline;
- filename=0002-netconsole-clarify-stopping-message.patch
-
->From 211feede3c64419e6997e62a60f4c3c70f237ef8 Mon Sep 17 00:00:00 2001
-Message-Id: <211feede3c64419e6997e62a60f4c3c70f237ef8.1294073227.git.wferi@niif.hu>
-In-Reply-To: <b324e4425f47fcde54757c134a7fdd98f3dc9521.1294073227.git.wferi@niif.hu>
-References: <b324e4425f47fcde54757c134a7fdd98f3dc9521.1294073227.git.wferi@niif.hu>
-From: Ferenc Wagner <wferi@niif.hu>
-Date: Mon, 3 Jan 2011 17:44:25 +0100
-Subject: [PATCH 2/2] netconsole: clarify stopping message
-
-
-Signed-off-by: Ferenc Wagner <wferi@niif.hu>
----
- drivers/net/netconsole.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index b2ad998..dfb67eb 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -699,8 +699,8 @@ static int netconsole_netdev_event(struct notifier_block *this,
- 	}
- 	spin_unlock_irqrestore(&target_list_lock, flags);
- 	if (stopped && (event == NETDEV_UNREGISTER || event == NETDEV_BONDING_DESLAVE))
--		printk(KERN_INFO "netconsole: network logging stopped, "
--			"interface %s %s\n",  dev->name,
-+		printk(KERN_INFO "netconsole: network logging stopped on "
-+			"interface %s as it %s\n",  dev->name,
- 			event == NETDEV_UNREGISTER ? "unregistered" : "released slaves");
- 
- done:
--- 
-1.6.5
-
-
---=-=-=--
+Yes, this is what you'll need to do.
