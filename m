@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ll_temac: Fix section mismatch from the temac_of_probe
-Date: Mon, 03 Jan 2011 12:07:52 -0800 (PST)
-Message-ID: <20110103.120752.15260093.davem@davemloft.net>
-References: <1294050756-31099-1-git-send-email-monstr@monstr.eu>
-	<20110103170332.GB2522@angua.secretlab.ca>
+Subject: Re: [PATCH 1/1] bridge: stp: ensure mac header is set
+Date: Mon, 03 Jan 2011 12:10:02 -0800 (PST)
+Message-ID: <20110103.121002.242143391.davem@davemloft.net>
+References: <1294064188-17722-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: monstr@monstr.eu, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: grant.likely@secretlab.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110103170332.GB2522@angua.secretlab.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, acme@ghostprotocols.net
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49637
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752678Ab1ACUJb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 15:09:31 -0500
+In-Reply-To: <1294064188-17722-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely@secretlab.ca>
-Date: Mon, 3 Jan 2011 10:03:32 -0700
+From: Florian Westphal <fw@strlen.de>
+Date: Mon,  3 Jan 2011 15:16:28 +0100
 
-> On Mon, Jan 03, 2011 at 11:32:36AM +0100, Michal Simek wrote:
->> Replace __init by __devinit.
->> 
->> Warning message:
->> WARNING: vmlinux.o(.data+0xbc14): Section mismatch in reference from the variable
->> temac_of_driver to the function .init.text:temac_of_probe()
->> The variable temac_of_driver references
->> the function __init temac_of_probe()
->> If the reference is valid then annotate the
->> variable with __init* or __refdata (see linux/init.h) or name the variable:
->> *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
->> 
->> Signed-off-by: Michal Simek <monstr@monstr.eu>
+> commit bf9ae5386bca8836c16e69ab8fdbe46767d7452a
+> (llc: use dev_hard_header) removed the
+> skb_reset_mac_header call from llc_mac_hdr_init.
 > 
-> Acked-by: Grant Likely <grant.likely@secretlab.ca>
+> This seems fine itself, but br_send_bpdu() invokes ebtables LOCAL_OUT.
+> 
+> We oops in ebt_basic_match() because it assumes eth_hdr(skb) returns
+> a meaningful result.
+> 
+> Cc: acme@ghostprotocols.net
+> References: https://bugzilla.kernel.org/show_bug.cgi?id=24532
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Applied, thanks everyone.
+Applied and queued up for -stable, thanks Florian.
