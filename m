@@ -1,36 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netdev: Update status of 8390 based drivers
- in MAINTAINERS
-Date: Mon, 03 Jan 2011 11:06:55 -0800 (PST)
-Message-ID: <20110103.110655.115926709.davem@davemloft.net>
-References: <1293924510-14290-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH V4] bridge: fix br_multicast_ipv6_rcv for paged skbs
+Date: Mon, 03 Jan 2011 11:29:26 -0800 (PST)
+Message-ID: <20110103.112926.48505128.davem@davemloft.net>
+References: <1294051080-29492-1-git-send-email-tomas.winkler@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+Cc: netdev@vger.kernel.org, johannes@sipsolutions.net,
+	shemminger@vyatta.com
+To: tomas.winkler@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55718
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34826
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752511Ab1ACTGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:06:23 -0500
-In-Reply-To: <1293924510-14290-1-git-send-email-paul.gortmaker@windriver.com>
+	by vger.kernel.org with ESMTP id S1751285Ab1ACT2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:28:55 -0500
+In-Reply-To: <1294051080-29492-1-git-send-email-tomas.winkler@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Sat,  1 Jan 2011 18:28:30 -0500
+From: Tomas Winkler <tomas.winkler@intel.com>
+Date: Mon,  3 Jan 2011 12:37:59 +0200
 
-> With the original 8 bit ISA ne1000 card being over 20 years old, it
-> only makes sense to consider ne.c and all the other toplevel 8390
-> based driver files as legacy for obsolete hardware.  The most
-> recent thing made in large quantities that was 8390 based were
-> those crazy PCI ne2k clones - and even they are now 10+ years old.
+> use pskb_may_pull to access ipv6 header correctly for paged skbs
+> It was omitted in the bridge code leading to crash in blind
+> __skb_pull
 > 
-> Also remove myself as maintainer, since the only changes to these
-> drivers going forward will be the generic API type changes that
-> touch all drivers.
+> since the skb is cloned undonditionally we also simplify the
+> the exit path
 > 
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> this fixes bug https://bugzilla.kernel.org/show_bug.cgi?id=25202
+ ...
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Johannes Berg <johannes@sipsolutions.net>
+> Cc: Stephen Hemminger <shemminger@vyatta.com>
+> Signed-off-by: Tomas Winkler <tomas.winkler@intel.com>
 
-Also applied, thanks Paul.
+Looks good, applied thanks Tomas.
+
+There are several simplifications we can make in the net-next-2.6
+tree.
+
+Most of this code just wants the query type and then optionally
+the ipv6 address the operation applies to.  For such simple value
+fetching, skb_header_pointer() is probably ideal compared to
+all of this pskb_may_pull() business.
