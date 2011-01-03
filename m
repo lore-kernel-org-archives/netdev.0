@@ -1,45 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1: fix oops when changing tx/rx ring params
-Date: Mon, 03 Jan 2011 11:04:52 -0800 (PST)
-Message-ID: <20110103.110452.39176099.davem@davemloft.net>
-References: <20110101090212.7149010d@osprey.hogchain.net>
+Subject: Re: [PATCH net-next] net/Space: delete orphaned externs from
+ deleted drivers
+Date: Mon, 03 Jan 2011 11:06:47 -0800 (PST)
+Message-ID: <20110103.110647.59672573.davem@davemloft.net>
+References: <1293923701-14147-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, stable@kernel.org, jussuf@linux.ee,
-	chris.snook@gmail.com, kronos.it@gmail.com, Xiong.Huang@Atheros.com
-To: jcliburn@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57401
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55714
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751285Ab1ACTEV convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 14:04:21 -0500
-In-Reply-To: <20110101090212.7149010d@osprey.hogchain.net>
+	by vger.kernel.org with ESMTP id S1751285Ab1ACTGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 14:06:16 -0500
+In-Reply-To: <1293923701-14147-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: "J. K. Cliburn" <jcliburn@gmail.com>
-Date: Sat, 1 Jan 2011 09:02:12 -0600
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Sat,  1 Jan 2011 18:15:01 -0500
 
-> Commit 3f5a2a713aad28480d86b0add00c68484b54febc zeroes out the statis=
-tics
-> message block (SMB) and coalescing message block (CMB) when adapter r=
-ing
-> resources are freed.  This is desirable behavior, but, as a side effe=
-ct,
-> the commit leads to an oops when atl1_set_ringparam() attempts to alt=
-er
-> the number of rx or tx elements in the ring buffer (by using ethtool
-> -G, for example).  We don't want SMB or CMB to change during this
-> operation.
->=20
-> Modify atl1_set_ringparam() to preserve SMB and CMB when changing rin=
-g
-> parameters.
->=20
-> Cc: stable@kernel.org
-> Signed-off-by: Jay Cliburn <jcliburn@gmail.com>
-> Reported-by: T=F5nu Raitviir <jussuf@linux.ee>
+> The drivers associated with the prototypes in this commit have
+> been deleted some time ago, but the externs escaped detection.
+> Using a simple "git grep" shows that these references are
+> historical artefacts, only mentioned by the deleted lines.
+> 
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-I'll apply this, thanks Jay.
+Applied.
