@@ -1,73 +1,73 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: Re: [*v3 PATCH 02/22] IPVS: netns to services part 1
-Date: Mon, 3 Jan 2011 10:14:00 +0100
-Message-ID: <1294046040.4983.60423.camel@seasc0214>
-References: <1293706266-27152-1-git-send-email-hans@schillstrom.com>
-	 <1293706266-27152-3-git-send-email-hans@schillstrom.com>
-	 <alpine.LNX.2.01.1101011547040.9065@obet.zrqbmnf.qr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] new UDPCP Communication Protocol
+Date: Mon, 03 Jan 2011 10:27:47 +0100
+Message-ID: <1294046867.2892.101.camel@edumazet-laptop>
+References: <1294007971-18878-1-git-send-email-stefani@seibold.net>
+	 <1294008562.2535.263.camel@edumazet-laptop>
+	 <1294008917.18963.3.camel@wall-e>
+	 <alpine.LNX.2.00.1101022356550.11481@swampdragon.chaosbits.net>
+	 <1294045732.19666.6.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "hans@schillstrom.com" <hans@schillstrom.com>,
-	"horms@verge.net.au" <horms@verge.net.au>, "ja@ssi.bg" <ja@ssi.bg>,
-	"daniel.lezcano@free.fr" <daniel.lezcano@free.fr>,
-	"wensong@linux-vs.org" <wensong@linux-vs.org>,
-	"lvs-devel@vger.kernel.org" <lvs-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1101011547040.9065@obet.zrqbmnf.qr>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jesper Juhl <jj@chaosbits.net>, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, davem@davemloft.net,
+	netdev@vger.kernel.org, shemminger@vyatta.com,
+	daniel.baluta@gmail.com, jochen@jochen.org
+To: Stefani Seibold <stefani@seibold.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294045732.19666.6.camel@wall-e>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2011-01-01 at 15:57 +0100, Jan Engelhardt wrote:
-> On Thursday 2010-12-30 11:50, hans@schillstrom.com wrote:
-> >+/*
-> >+ * Get net ptr from skb in traffic cases
-> >+ * use skb_sknet when call is from userland (ioctl or netlink)
-> >+ */
-> >+static inline struct net *skb_net(struct sk_buff *skb) {
-> >+#ifdef CONFIG_NET_NS
-> >+#ifdef CONFIG_IP_VS_DEBUG
-> >+	/*
-> >+	 * This is used for debug only.
-> >+	 * Start with the most likely hit
-> >+	 * End with BUG
-> >+	 */
-> >+	if (likely(skb->dev && skb->dev->nd_net))
-> >+		return dev_net(skb->dev);
-> >+	if (skb_dst(skb)->dev)
-> >+		return dev_net(skb_dst(skb)->dev);
-> >+	WARN(skb->sk,"Maybe skb_sknet should be used instead in %s() line:%d\n",
-> >+		      __func__, __LINE__);
-> >+	if (likely(skb->sk && skb->sk->sk_net))
-> >+		return sock_net(skb->sk);
-> >+	pr_err("There is no net ptr to find in the skb in %s() line:%d\n",
-> >+		__func__, __LINE__);
-> >+	BUG();
-> >+#else
-> >+	return dev_net(skb->dev ? : skb_dst(skb)->dev);
-> >+#endif
-> >+#else
-> >+	return &init_net;
-> >+#endif
-> >+}
-> 
-> Whether NETNS is disabled or not, dev_net(skb->dev) can be used in either case,
-> so the extra return &init_net case is not really required AFAICS.
+Le lundi 03 janvier 2011 =C3=A0 10:08 +0100, Stefani Seibold a =C3=A9cr=
+it :
 
-OK, but the debug part will not compile without the ifdef since there is
-some symbols that is #ifdef CONFIG_NET_NS.
-"&init_net" is faster than the " ? : "
-And the rest I guess is obvious.
+> This will not work for two reasons:
+>=20
+> - First there is no way to detect a dead connection. A connection can
+> stay for a very long time without data transfer.
+>=20
+> - Second it will not save against a attack where all communication sl=
+ots
+> will be eaten by an attacker and then new valid connections will be n=
+ot
+> handled.
+>=20
+> The only thing what is possible to make an ioctl call which allows th=
+e
+> user land client to cancel connections.=20
+>=20
+> But this will be in my opinion dead code, because white lists of trus=
+ted
+> address must be fostered and this will make the upgrading of a
+> infrastructure to complicate.
+>=20
+>=20
 
-> 
-> >@@ -3446,43 +3471,48 @@ static struct pernet_operations ipvs_control_ops = {
-> >-	smp_wmb();
-> >+
-> >+	smp_wmb();	/* Do wee really need it now ? */
-> 
-> not "whee" :)
+Yep, and as UDP messages can easily spoofed, this means you need more
+than a list of trusted addresses. You also need to encapsulate the thin=
+g
+in an secured layer.
 
+Stefani, your implementation has very litle chance being added in
+standard kernel, because it is not correctly layered, or documented.
 
+Copying hundred (thousand ?) of lines from existing code only shows
+there is a design error in your proposal. It means every time we have t=
+o
+make a change in this code, we'll have to do it twice.
+
+SUNRPC uses UDP/TCP sockets, and use callbacks to existing UDP/TCP code=
+,
+maybe you should take a look to implement an UDPCP stack in kernel.
+
+=46or instance, a pure socket API seems not the correct choice for UDPC=
+P,
+since a transmit should give a report to user, of frame being
+delivered/aknowledged or not to/by the remote side ?
+
+With send(), this means you have only one message in transit, no
+asynchronous handling.
+
+At least you forgot to document the API, and restrictions.
