@@ -1,69 +1,35 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
-Date: Mon, 03 Jan 2011 11:52:00 -0800
-Message-ID: <4D2228E0.9030908@intel.com>
-References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>	 <AANLkTiki5ZePtdj4ni2++z1KvHOttev1ZciaV-bRFbWA@mail.gmail.com>	 <20110103.110244.183045594.davem@davemloft.net> <1294083039.3167.184.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ksz884x: Fix section mismatch derived from
+ pci_device_driver variable
+Date: Mon, 03 Jan 2011 11:52:48 -0800 (PST)
+Message-ID: <20110103.115248.179942629.davem@davemloft.net>
+References: <1294020104-17124-1-git-send-email-sedat.dilek@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"therbert@google.com" <therbert@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:42792 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752680Ab1ACTwB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 14:52:01 -0500
-In-Reply-To: <1294083039.3167.184.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	sedat.dilek@gmail.com
+To: sedat.dilek@googlemail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294020104-17124-1-git-send-email-sedat.dilek@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/3/2011 11:30 AM, Ben Hutchings wrote:
-> On Mon, 2011-01-03 at 11:02 -0800, David Miller wrote:
->> From: Tom Herbert<therbert@google.com>
->> Date: Mon, 3 Jan 2011 10:47:20 -0800
->>
->>> I'm not sure why this would be needed.  What is the a advantage in
->>> making the TX and RX queues match?
->>
->> That's how their hardware based RFS essentially works.
->>
->> Instead of watching for "I/O system calls" like we do in software, the
->> chip watches for which TX queue a flow ends up on and matches things
->> up on the receive side with the same numbered RX queue to match.
->
-> ixgbe also implements IRQ affinity setting (or rather hinting) and TX
-> queue selection by CPU, the inverse of IRQ affinity setting.  Together
-> with the hardware/firmware Flow Director feature, this should indeed
-> result in hardware RFS.  (However, irqbalanced does not yet follow the
-> affinity hints AFAIK, so this requires some manual intervention.  Maybe
-> the OOT driver is different?)
->
-> The proposed change to make TX queue selection hash-based seems to be a
-> step backwards.
->
-> Ben.
->
+From: Sedat Dilek <sedat.dilek@googlemail.com>
+Date: Mon,  3 Jan 2011 03:01:44 +0100
 
-Actually this code would only be applied in the case where Flow Director 
-didn't apply such as non-TCP frames.  It would essentially guarantee 
-that we end up with TX/RX on the same CPU for all cases instead of just 
-when Flow Director matches a given flow.
+> WARNING: drivers/net/ksz884x.o(.data+0x18): Section mismatch in reference from the variable pci_device_driver to the function .init.text:pcidev_init()
+> The variable pci_device_driver references
+> the function __init pcidev_init()
+> If the reference is valid then annotate the
+> variable with __init* or __refdata (see linux/init.h) or name the variable:
+> *_template, *_timer, *_sht, *_ops, *_probe, *_probe_one, *_console,
+> 
+> This patch fixes the warning.
+> 
+> Tested with linux-next (next-20101231)
+> 
+> Signed-off-by: Sedat Dilek <sedat.dilek@gmail.com>
 
-The general idea is to at least keep the traffic local to one TX/RX 
-queue pair so that if we cannot match the queue pair to the application, 
-perhaps the application can be affinitized to match up with the queue 
-pair.  Otherwise we end up with traffic getting routed to one TX queue 
-on one CPU, and the RX being routed to another queue on perhaps a 
-different CPU and it becomes quite difficult to match up the queues and 
-the applications.
-
-Since the approach is based on Toeplitz it can be applied to all 
-hardware capable of generating a Toeplitz based hash and as a result it 
-would likely also work in a much more vendor neutral kind of way than 
-Flow Director currently does.
-
-Thanks,
-
-Alex
+pcidev_init() should be marked __devinit instead of __init to fix this
+bug.
