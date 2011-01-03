@@ -1,95 +1,54 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next-2.6 PATCH v2 3/3] net_sched: implement a root	container
- qdisc sch_mclass
-Date: Sun, 02 Jan 2011 21:46:16 -0800
-Message-ID: <4D2162A8.60305@intel.com>
-References: <20101231092543.GA7809@ff.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [patch] mac80211: potential null dereference in mesh forwarding
+Date: Mon, 03 Jan 2011 08:45:38 +0100
+Message-ID: <1294040738.2535.265.camel@edumazet-laptop>
+References: <20110103054355.GP1886@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hadi@cyberus.ca" <hadi@cyberus.ca>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <error27@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:33861 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751119Ab1ACFqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 00:46:17 -0500
-In-Reply-To: <20101231092543.GA7809@ff.dom.local>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:51431 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751961Ab1ACHpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 02:45:49 -0500
+In-Reply-To: <20110103054355.GP1886@bicker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 12/31/2010 1:25 AM, Jarek Poplawski wrote:
-> On 2010-12-21 20:29, John Fastabend wrote:
->> This implements a mclass 'multi-class' queueing discipline that by
->> default creates multiple mq qdisc's one for each traffic class. Each
->> mq qdisc then owns a range of queues per the netdev_tc_txq mappings.
-> 
-> Btw, you could also consider better name (mqprio?) because there're
-> many 'multi-class' queueing disciplines around.
-> 
+Le lundi 03 janvier 2011 =C3=A0 08:43 +0300, Dan Carpenter a =C3=A9crit=
+ :
+> The printk() is supposed to be ratelimited but we should always goto =
+out
+> when fwd_skb is NULL.  Otherwise it gets dereferenced on the next lin=
+e.
+>=20
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
+>=20
+> diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
+> index 5e9d3bc..dc8b566 100644
+> --- a/net/mac80211/rx.c
+> +++ b/net/mac80211/rx.c
+> @@ -1831,8 +1831,9 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_=
+data *rx)
+> =20
+>  			fwd_skb =3D skb_copy(skb, GFP_ATOMIC);
+> =20
+> -			if (!fwd_skb && net_ratelimit()) {
+> -				printk(KERN_DEBUG "%s: failed to clone mesh frame\n",
+> +			if (!fwd_skb) {
+> +				if (net_ratelimit())
+> +					printk(KERN_DEBUG "%s: failed to clone mesh frame\n",
+>  						   sdata->name);
+>  				goto out;
+>  			}
 
-OK.
-
->> +static int mclass_parse_opt(struct net_device *dev, struct tc_mclass_qopt *qopt)
->> +{
->> +	int i, j;
->> +
->> +	/* Verify TC offset and count are sane */
-> 
-> if (qopt->num_tc > TC_MAX_QUEUE) ?
-> 	return -EINVAL;
-
-This would be caught later when netdev_set_num_tc() fails although probably best to catch all failures in this function as early as possible.
-
-> 
->> +	for (i = 0; i < qopt->num_tc; i++) {
->> +		int last = qopt->offset[i] + qopt->count[i];
->> +		if (last > dev->num_tx_queues)
-> 
-> if (last >= dev->num_tx_queues) ?
-> 
->> +			return -EINVAL;
->> +		for (j = i + 1; j < qopt->num_tc; j++) {
->> +			if (last > qopt->offset[j])
-> 
-> if (last >= qopt->offset[j]) ?
-	
-I believe the below works as expected. The offset needs to be verified (this I missed) but offset+count can be equal to num_tx_queue indicating the last queue is in use. With 8 tx queues and num_tc=2 a valid configuration is, tc1 offset of 0 and a count of 7 with tc2 offset of 7 and count of 1.
+Already discovered/coped by Milton Miller.
 
 
-        /* Verify num_tc is in max range */
-        if (qopt->num_tc > TC_MAX_QUEUE)
-                return -EINVAL;
-
-        for (i = 0; i < qopt->num_tc; i++) {
-                /* Verify the queue offset is in the num tx range */
-                if (qopt->offset[i] >= dev->num_tx_queues)
-                        return -EINVAL;
-                /* Verify the queue count is in tx range being equal to the
-                 * num_tx_queues indicates the last queue is in use.
-                 */
-                else if (qopt->offset[i] + qopt->count[i] > dev->num_tx_queues)
-                        return -EINVAL;
-
-                /* Verify that the offset and counts do not overlap */
-                for (j = i + 1; j < qopt->num_tc; j++) {
-                        if (last > qopt->offset[j])
-                                return -EINVAL;
-                }
-        }
-
-
-Thanks for the review!
-
-John.
-
-> 
-> Jarek P.
 
