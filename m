@@ -1,39 +1,55 @@
-From: Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Mon, 3 Jan 2011 14:38:50 -0600
-Message-ID: <4D2233DA.1070801@parallels.com>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org> <AANLkTi=AXz21wDeE1vPVD-6cEtj6faXN9x09eHDCsTkB@mail.gmail.com> <20101230085139.GA29697@shutemov.name> <4D1C4C7C.6050606@parallels.com> <20101230094433.GB29697@shutemov.name> <4D1C5953.6020200@parallels.com> <20101230104416.GA31824@shutemov.name> <AANLkTim2QrkSW0HufD5wp=-8ikwydN5SUS+fdWK6JHqb@mail.gmail.com> <20101230114514.GA31976@shutemov.name> <4D1C809B.30405@parallels.com> <20101231130329.GA3610@shutemov.name>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next-2.6] ifb: add performance flags
+Date: Mon, 03 Jan 2011 12:40:55 -0800 (PST)
+Message-ID: <20110103.124055.68142309.davem@davemloft.net>
+References: <20110103193703.GA1977@del.dom.local>
+	<20110103.114033.28807428.davem@davemloft.net>
+	<1294086922.2711.18.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rob Landley <rob-VoJi6FS/r0vR7s880joybQ@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20101231130329.GA3610-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jarkao2@gmail.com, xiaosuo@gmail.com, pstaszewski@itcare.pl,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47584
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752930Ab1ACUkY convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 15:40:24 -0500
+In-Reply-To: <1294086922.2711.18.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/31/2010 07:03 AM, Kirill A. Shutemov wrote:
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 03 Jan 2011 21:35:22 +0100
 
-> EXPORT_SYMBOL_GPL(get_rpc_pipefs);
->
-> Something like this? Patch to replace patch #10 attached.
+> Le lundi 03 janvier 2011 =E0 11:40 -0800, David Miller a =E9crit :
+>> I think at least TSO6 would very much be appropriate here.
+>=20
+> Yes, why not, I am only wondering why loopback / dummy (and others ?)
+> only set NETIF_F_TSO :)
 
-Looks good to me.  Thanks.
+TSO6 probably didn't exist when the current set were added,
+at least in the loopback case that's almost certainly the
+reason.
 
-acked-by: Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Since I want to play with ECN, I might also add NETIF_F_TSO_ECN ;)
+>=20
+> For other flags, I really doubt it can matter on ifb ?
+>=20
+> [PATCH v3 net-next-2.6] ifb: add performance flags
+>=20
+> IFB can use the full set of features flags (NETIF_F_SG |
+> NETIF_F_FRAGLIST | NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA) t=
+o
+> avoid unnecessary split of some packets (GRO for example)
+>=20
+> Changli suggested to also set vlan_features, NETIF_F_TSO6,
+> NETIF_F_TSO_ECN.
+>=20
+> Jarek suggested to add NETIF_F_HW_VLAN_TX as well.
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Rob
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll apply this, thanks Eric.
