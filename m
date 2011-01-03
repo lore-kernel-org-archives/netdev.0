@@ -1,45 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 1/1 V3] bridge: fix br_multicast_ipv6_rcv for paged skbs
-Date: Mon, 03 Jan 2011 10:34:14 +0100
-Message-ID: <1294047254.4165.1.camel@jlt3.sipsolutions.net>
+From: "Winkler, Tomas" <tomas.winkler@intel.com>
+Subject: RE: [PATCH 1/1 V3] bridge: fix br_multicast_ipv6_rcv for paged skbs
+Date: Mon, 3 Jan 2011 11:43:52 +0200
+Message-ID: <6F5C1D715B2DA5498A628E6B9C124F04019BF9E404@hasmsx504.ger.corp.intel.com>
 References: <1293999538-9298-1-git-send-email-tomas.winkler@intel.com>
+ <1294047254.4165.1.camel@jlt3.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	Stephen Hemminger <shemminger@vyatta.com>
-To: Tomas Winkler <tomas.winkler@intel.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:57600 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751426Ab1ACJeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 04:34:20 -0500
-In-Reply-To: <1293999538-9298-1-git-send-email-tomas.winkler@intel.com>
+Received: from mga01.intel.com ([192.55.52.88]:27185 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751972Ab1ACJpM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 04:45:12 -0500
+In-Reply-To: <1294047254.4165.1.camel@jlt3.sipsolutions.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-01-02 at 22:18 +0200, Tomas Winkler wrote:
-
->  	icmp6h = icmp6_hdr(skb2);
->  
->  	switch (icmp6h->icmp6_type) {
-> @@ -1516,7 +1517,12 @@ static int br_multicast_ipv6_rcv(struct net_bridge *br,
->  	switch (icmp6h->icmp6_type) {
->  	case ICMPV6_MGM_REPORT:
->  	    {
-> -		struct mld_msg *mld = (struct mld_msg *)icmp6h;
-> +		struct mld_msg *mld;
-> +		if (!pskb_may_pull(skb2, sizeof(*mld))) {
-> +			err = -EINVAL;
-> +			goto out;
-> +		}
-> +		mld = (struct mld_msg *)icmp6h;
-
-This (and the second instance) is incorrect afaict -- the pointer
-"icmp6h" should be reloaded after the pskb_may_pull(), no?
-
-Also, the "out_nopush" thing is pointless since the push is completely
-unnecessary as "skb2 != skb" is always true.
-
-johannes
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogSm9oYW5uZXMgQmVyZyBb
+bWFpbHRvOmpvaGFubmVzQHNpcHNvbHV0aW9ucy5uZXRdDQo+IFNlbnQ6IE1vbmRheSwgSmFudWFy
+eSAwMywgMjAxMSAxMTozNCBBTQ0KPiBUbzogV2lua2xlciwgVG9tYXMNCj4gQ2M6IGRhdmVtQGRh
+dmVtbG9mdC5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7IFN0ZXBoZW4gSGVtbWluZ2VyDQo+
+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggMS8xIFYzXSBicmlkZ2U6IGZpeCBicl9tdWx0aWNhc3RfaXB2
+Nl9yY3YgZm9yIHBhZ2VkIHNrYnMNCj4gDQo+IE9uIFN1biwgMjAxMS0wMS0wMiBhdCAyMjoxOCAr
+MDIwMCwgVG9tYXMgV2lua2xlciB3cm90ZToNCj4gDQo+ID4gIAlpY21wNmggPSBpY21wNl9oZHIo
+c2tiMik7DQo+ID4NCj4gPiAgCXN3aXRjaCAoaWNtcDZoLT5pY21wNl90eXBlKSB7DQo+ID4gQEAg
+LTE1MTYsNyArMTUxNywxMiBAQCBzdGF0aWMgaW50IGJyX211bHRpY2FzdF9pcHY2X3JjdihzdHJ1
+Y3QgbmV0X2JyaWRnZQ0KPiAqYnIsDQo+ID4gIAlzd2l0Y2ggKGljbXA2aC0+aWNtcDZfdHlwZSkg
+ew0KPiA+ICAJY2FzZSBJQ01QVjZfTUdNX1JFUE9SVDoNCj4gPiAgCSAgICB7DQo+ID4gLQkJc3Ry
+dWN0IG1sZF9tc2cgKm1sZCA9IChzdHJ1Y3QgbWxkX21zZyAqKWljbXA2aDsNCj4gPiArCQlzdHJ1
+Y3QgbWxkX21zZyAqbWxkOw0KPiA+ICsJCWlmICghcHNrYl9tYXlfcHVsbChza2IyLCBzaXplb2Yo
+Km1sZCkpKSB7DQo+ID4gKwkJCWVyciA9IC1FSU5WQUw7DQo+ID4gKwkJCWdvdG8gb3V0Ow0KPiA+
+ICsJCX0NCj4gPiArCQltbGQgPSAoc3RydWN0IG1sZF9tc2cgKilpY21wNmg7DQo+IA0KPiBUaGlz
+IChhbmQgdGhlIHNlY29uZCBpbnN0YW5jZSkgaXMgaW5jb3JyZWN0IGFmYWljdCAtLSB0aGUgcG9p
+bnRlcg0KPiAiaWNtcDZoIiBzaG91bGQgYmUgcmVsb2FkZWQgYWZ0ZXIgdGhlIHBza2JfbWF5X3B1
+bGwoKSwgbm8/DQoNCm1sZF9tc2cgaXMgYmlnZ2VyIHRoYW4gaWNtcDZoIGJ5IHNpemVvZihpbjZf
+YWRkcikgc28gd2UgaGF2ZSB0byB0cnkgcHVsbCBhZ2FpbiBhIGJpZ2dlciBjaHVuay4gDQoNCj4g
+DQo+IEFsc28sIHRoZSAib3V0X25vcHVzaCIgdGhpbmcgaXMgcG9pbnRsZXNzIHNpbmNlIHRoZSBw
+dXNoIGlzIGNvbXBsZXRlbHkNCj4gdW5uZWNlc3NhcnkgYXMgInNrYjIgIT0gc2tiIiBpcyBhbHdh
+eXMgdHJ1ZS4NCg0KWW91IGFyZSByaWdodCBpZiBza2JfY2xvbmUgZG9lc24ndCByZXR1cm4gdGhl
+IHNhbWUgcG9pbnRlciB0aGVuIHllcy4gU2hhbWUsIGJ1dCBJJ20gbm90IGEgc2JrIGV4cGVydC4g
+SSdtIGRpdmluZyBpbnRvIGl0IG5vdy4NCg0KVGhhbmtzDQpUb21hcw0KLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCklu
+dGVsIElzcmFlbCAoNzQpIExpbWl0ZWQKClRoaXMgZS1tYWlsIGFuZCBhbnkgYXR0YWNobWVudHMg
+bWF5IGNvbnRhaW4gY29uZmlkZW50aWFsIG1hdGVyaWFsIGZvcgp0aGUgc29sZSB1c2Ugb2YgdGhl
+IGludGVuZGVkIHJlY2lwaWVudChzKS4gQW55IHJldmlldyBvciBkaXN0cmlidXRpb24KYnkgb3Ro
+ZXJzIGlzIHN0cmljdGx5IHByb2hpYml0ZWQuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZApy
+ZWNpcGllbnQsIHBsZWFzZSBjb250YWN0IHRoZSBzZW5kZXIgYW5kIGRlbGV0ZSBhbGwgY29waWVz
+Lgo=
 
