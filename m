@@ -1,63 +1,115 @@
-From: Ben Hutchings <benh@debian.org>
-Subject: Re: [net-next-2.6 01/08] r8169: remove the firmware of RTL8111D.
-Date: Mon, 03 Jan 2011 23:09:38 +0000
-Message-ID: <1294096178.3167.252.camel@localhost>
-References: <20110102233552.GB5780@electric-eye.fr.zoreil.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next-2.6 PATCH v2 3/3] net_sched: implement a root container
+ qdisc sch_mclass
+Date: Mon, 03 Jan 2011 16:18:19 -0800
+Message-ID: <4D22674B.6010304@intel.com>
+References: <20101221192831.9703.56356.stgit@jf-dev1-dcblab> <20101221192930.9703.63791.stgit@jf-dev1-dcblab> <4D1D17C9.3040500@gmail.com> <4D2161FF.4070804@intel.com> <20110103170244.GA1843@del.dom.local> <4D2233A4.9050701@intel.com> <20110103225947.GB1977@del.dom.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-AW7OtoqXiTL7LkNsUXce"
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>,
-	David Woodhouse <dwmw2@infradead.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:32813 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750716Ab1ACXJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 18:09:44 -0500
-In-Reply-To: <20110102233552.GB5780@electric-eye.fr.zoreil.com>
+Received: from mga09.intel.com ([134.134.136.24]:14703 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750738Ab1ADAST (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jan 2011 19:18:19 -0500
+In-Reply-To: <20110103225947.GB1977@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 1/3/2011 2:59 PM, Jarek Poplawski wrote:
+> On Mon, Jan 03, 2011 at 12:37:56PM -0800, John Fastabend wrote:
+>> On 1/3/2011 9:02 AM, Jarek Poplawski wrote:
+>>> On Sun, Jan 02, 2011 at 09:43:27PM -0800, John Fastabend wrote:
+>>>> On 12/30/2010 3:37 PM, Jarek Poplawski wrote:
+>>>>> John Fastabend wrote:
+>>>>>> This implements a mclass 'multi-class' queueing discipline that by
+>>>>>> default creates multiple mq qdisc's one for each traffic class. Each
+>>>>>> mq qdisc then owns a range of queues per the netdev_tc_txq mappings.
+>>>>>
+>>>>> Is it really necessary to add one more abstraction layer for this,
+>>>>> probably not most often used (or even asked by users), functionality?
+>>>>> Why mclass can't simply do these few things more instead of attaching
+>>>>> (and changing) mq?
+>>>>>
+>>>>
+>>>> The statistics work nicely when the mq qdisc is used. 
+>>>
+>>> Well, I sometimes add leaf qdiscs only to get class stats with less
+>>> typing, too ;-)
+>>>
+>>>>
+>>>> qdisc mclass 8002: root  tc 4 map 0 1 2 3 0 1 2 3 1 1 1 1 1 1 1 1
+>>>>              queues:(0:1) (2:3) (4:5) (6:15)
+>>>>  Sent 140 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>> qdisc mq 8003: parent 8002:1
+>>>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>> qdisc mq 8004: parent 8002:2
+>>>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>> qdisc mq 8005: parent 8002:3
+>>>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>> qdisc mq 8006: parent 8002:4
+>>>>  Sent 140 bytes 2 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>> qdisc sfq 8007: parent 8005:1 limit 127p quantum 1514b
+>>>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>> qdisc sfq 8008: parent 8005:2 limit 127p quantum 1514b
+>>>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>>>  backlog 0b 0p requeues 0
+>>>>
+>>>> The mclass gives the statistics for the interface and then statistics on the mq qdisc gives statistics for each traffic class. Also, when using the 'mq qdisc' with this abstraction other qdisc can be grafted onto the queue. For example the sch_sfq is used in the above example.
+>>>
+>>> IMHO, these tc offsets and counts make simply two level hierarchy
+>>> (classes with leaf subclasses) similarly (or simpler) to other
+>>> classful qdisc which manage it all inside one module. Of course,
+>>> we could think of another way of code organization, but it should
+>>> be rather done at the beginning of schedulers design. The mq qdisc
+>>> broke the design a bit adding a fake root, but I doubt we should go
+>>> deeper unless it's necessary. Doing mclass (or something) as a more
+>>> complex alternative to mq should be enough. Why couldn't mclass graft
+>>> sch_sfq the same way as mq?
+>>>
+>>
+>> If you also want to graft a scheduler onto a traffic class now your stuck. For now this qdisc doesn't exist, but I would like to have a software implementation of the currently offloaded DCB ETS scheduler. The 802.1Qaz spec allows different scheduling algorithms to be used on each traffic class. In the current implementation mclass could graft these scheduling schemes onto each traffic class independently.
+>>
+>>                               mclass
+>>                                 |
+>>     -------------------------------------------------------
+>>     |         |        |        |     |     |     |       |
+>>    mq_tbf   mq_tbf   mq_ets   mq_ets  mq    mq   mq_wrr greedy
+>>    |                            |
+>>  ---------                  ---------
+>>  |   |   |                  |   |   |
+>> red red red                red red red
+>>
+>> Perhaps, being concerned with hypothetical qdiscs is a bit of a stretch but I would like to at least not preclude this work from being done in the future.
+> 
+> Probably, despite this very nice figure and description, I still miss
+> something and can't see the problem. If you graft a qdisc/scheduler
+> to a traffic class you can change the way/range of grafting depending
+> on additional parameters or even by checking some properties of the
+> grafted qdisc. My main concern is adding complexity to the qdisc tree
+> structure (instead of hiding it at the class level) for something,
+> IMHO, hardly ever popular (like both mq and DCB).
+> 
 
---=-AW7OtoqXiTL7LkNsUXce
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+OK I'm convinced I'll keep everything contained in mclass. Building this mechanism into the qdisc seems to be adding extra complexity that is most likely not needed as you noted.
 
-On Mon, 2011-01-03 at 00:35 +0100, Francois Romieu wrote:
-> The binary file of the firmware is moved to linux-firmware repository.
-> The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw.
-> The driver goes along if the firmware couldn't be found. However, it
-> is suggested to be done with the suitable firmware.
-[...]
+Although I suspect the "additional parameter" would be something along the lines of a queue index and offset? right? Otherwise how would a mq like qdisc know which queues it owns.
 
-You should also add 'select FW_LOADER' to the Kconfig section for R8169.
+Thanks,
+John.
 
-Ben.
-
---=20
-Ben Hutchings, Debian Developer and kernel team member
-
-
---=-AW7OtoqXiTL7LkNsUXce
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATSJXKOe/yOyVhhEJAQIxdhAAoLLIhpnn1pTRP/+m/XCMzIKLuVu5X43c
-XeDKqginIqm7F1xsbtA+46ENqop0kbvN1DUdqdLznvIyJMIUw5ORMztJ3KHQgOtj
-G00CM6yreWD5iYMtuQi2wRH+F1IofHiUbeGveVpe/bV5i8nfV5sTzQ//Qq43fz33
-S3O29HLcsoNFu2L4seFDU3XB2Q73NAiraev/JvdqBKznABts7tQroficDijjUNSM
-mwt9HhFw1/dC92hvE/y5jR+okvcJ3pmbLRJoBKdA1l2k9xv4YGSg044VhILF5UB3
-xeokqxWEu467gHXfQrPo696V7K16a77dyQVfd+FK7d6mj5QYYmS7UjUdEbccLaMt
-Az/x874j31TUK4avcggbM3zAmLB8Bx4kOshuDP0SNquKUO1Cexm3cPTel0/kbdYJ
-1/NxpoHAdtjXq0XtjQEafPvBND1p91ng1jO8AdegXk8KirU1lh9UQ5fk7wdeqn1R
-RCyUc7+5GskbQdhFv1vnLolhvutTXJ+2Do/bhGMLATdma6DT0l8ez3SxeSiF8aQ8
-L2yJy+JWO38Cb2UnJvI5/xuYn0w0wimYCoAAl68ebJfanuIXthbYZcY6EquVZjcC
-TivovH/IUa9QW/6AoC19Z8x1zqVcc3zfKfX7uVDJ6Nt2Tjl2jNiBosNX+B+IyLxd
-CoT0+z8y2Mw=
-=kZf9
------END PGP SIGNATURE-----
-
---=-AW7OtoqXiTL7LkNsUXce--
