@@ -1,45 +1,38 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue, 04 Jan 2011 09:40:18 +0100
-Message-ID: <1294130418.2711.49.camel@edumazet-laptop>
-References: <1294122260-13245-1-git-send-email-jsing@google.com>
-	 <1294125880.2711.34.camel@edumazet-laptop>
-	 <1294126407.2711.39.camel@edumazet-laptop>
-	 <AANLkTimDms0FTmXWf9WSpcxwZXVVSXQj44jZ2Ag8Osuk@mail.gmail.com>
-	 <1294130315.2711.48.camel@edumazet-laptop>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: 'tcp: bind() fix when many ports are bound' problem
+Date: Tue, 4 Jan 2011 10:53:30 +0200
+Message-ID: <AANLkTimrpZOWEc5qXPEbrJbt2Nmh2vY69aC1Dwf1cCPH@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joe Perches <joe@perches.com>, Joel Sing <jsing@google.com>,
-	netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: eric.dumazet@gmail.com, gasparch@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:44231 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538Ab1ADIkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 03:40:24 -0500
-Received: by wwa36 with SMTP id 36so14946542wwa.1
-        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 00:40:23 -0800 (PST)
-In-Reply-To: <1294130315.2711.48.camel@edumazet-laptop>
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:44346 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750720Ab1ADIxc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 03:53:32 -0500
+Received: by pwj3 with SMTP id 3so1838100pwj.19
+        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 00:53:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 04 janvier 2011 =C3=A0 09:38 +0100, Eric Dumazet a =C3=A9crit =
-:
+Hi,
 
-> This could be properly done using another macro in include/net/ip_fib=
-=2Eh
-> to centralize this ternary op in one point :
->=20
-> #define __FIB_RES_PREFSRC(res, default) ((res).fi->fib_prefsrc ? : de=
-fault)
-> #define FIB_RES_PREFSRC(res) __FIB_RES_PREFSRC(res, default, __fib_re=
-s_prefsrc(&res)
+After a series of discussions [1], Eric provided
+"tcp: bind() fix when many ports are bound" patch. ([2])
 
-I meant
+Anyhow, due to this problem ([3]) it was reverted.
+Where there any follow ups on this patch?
 
-#define FIB_RES_PREFSRC(res) __FIB_RES_PREFSRC(res, __fib_res_prefsrc(&=
-res))
+I have spent some time looking at inet_csk_get_port with the
+only conclusion that it's scary :D.
 
+Should I work around patch "tcp: bind() fix when many ports are bound",
+and try to fix problem [3], or is that a dead end?
 
+thanks,
+Daniel.
 
+[1] http://kerneltrap.org/mailarchive/linux-netdev/2010/4/20/6275120
+[2] http://kerneltrap.org/mailarchive/git-commits-head/2010/4/24/32191
+[3] http://kerneltrap.org/mailarchive/linux-kernel/2010/4/28/4563937
