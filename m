@@ -1,51 +1,62 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue, 04 Jan 2011 07:32:09 -0800
-Message-ID: <1294155129.6617.37.camel@Joe-Laptop>
-References: <1294122260-13245-1-git-send-email-jsing@google.com>
-	 <1294125880.2711.34.camel@edumazet-laptop>
-	 <1294126407.2711.39.camel@edumazet-laptop>
-	 <AANLkTimDms0FTmXWf9WSpcxwZXVVSXQj44jZ2Ag8Osuk@mail.gmail.com>
-	 <1294130315.2711.48.camel@edumazet-laptop>
-	 <1294150591.3435.0.camel@bwh-desktop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
+Date: Tue, 04 Jan 2011 15:43:07 +0000
+Message-ID: <1294155787.3636.4.camel@bwh-desktop>
+References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>
+	 <AANLkTiki5ZePtdj4ni2++z1KvHOttev1ZciaV-bRFbWA@mail.gmail.com>
+	 <20110103.110244.183045594.davem@davemloft.net>
+	 <1294083039.3167.184.camel@localhost> <4D2228E0.9030908@intel.com>
+	 <1294085724.3167.202.camel@localhost>
+	 <AANLkTimFArsv1gF2BJabvbbQujpHdPC=bO204wkMbR_Z@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Changli Gao <xiaosuo@gmail.com>, Joel Sing <jsing@google.com>,
-	netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:2944 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751649Ab1ADPcL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jan 2011 10:32:11 -0500
-In-Reply-To: <1294150591.3435.0.camel@bwh-desktop>
+Received: from exchange.solarflare.com ([216.237.3.220]:3623 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002Ab1ADPnK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 10:43:10 -0500
+In-Reply-To: <AANLkTimFArsv1gF2BJabvbbQujpHdPC=bO204wkMbR_Z@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-04 at 14:16 +0000, Ben Hutchings wrote:
-> On Tue, 2011-01-04 at 09:38 +0100, Eric Dumazet wrote:
-> > Le mardi 04 janvier 2011 =C3=A0 16:07 +0800, Changli Gao a =C3=A9cr=
-it :
-> > > On Tue, Jan 4, 2011 at 3:33 PM, Eric Dumazet <eric.dumazet@gmail.=
-com> wrote:
-> > > > Le mardi 04 janvier 2011 =C3=A0 08:24 +0100, Eric Dumazet a =C3=
-=A9crit :
-> > > >> Please use FIB_RES_PREFSRC(res)
-> > > > Hmm no, this is not applicable, but this could be shorter :
-> > > > fl.fl4_src =3D res.fi->fib_prefsrc ? : fl.fl4_dst;
-> > > I think Joe may object the use of "? :"
-> > Ternary operator is standard C idiom, used in networking stuff, for
-> > example in FIB_RES_PREFSRC() ;)
-> However, the option to omit the second operand is a GNU extension.
+On Mon, 2011-01-03 at 19:25 -0800, Tom Herbert wrote:
+> >> The general idea is to at least keep the traffic local to one TX/RX
+> >> queue pair so that if we cannot match the queue pair to the application,
+> >> perhaps the application can be affinitized to match up with the queue
+> >> pair.  Otherwise we end up with traffic getting routed to one TX queue
+> >> on one CPU, and the RX being routed to another queue on perhaps a
+> >> different CPU and it becomes quite difficult to match up the queues and
+> >> the applications.
+> >
+> > Right.  That certainly seems like a Good Thing, though I believe it can
+> > be implemented generically by recording the RX queue number on the
+> > socket:
+> >
+> > http://article.gmane.org/gmane.linux.network/158477
+> >
+> I still don't see the value in doing this RX/TX queue pairing (unless
+> you're considering the possibility of explicitly binding sockets to
+> queue pairs).
 
-I don't object to using GNU extensions.
+Sure, the real value is in getting TX completions to line up with TX
+initiation and queue pairing is not a reliable way to do that.
 
-The ?: extension is used in most every major subsystem.
+> XPS should be sufficient mechanism to get affinity on
+> sending side.
+[...]
 
-$ grep -rP --include=3D*.[ch] "\?\s*:" * | wc -l
-515
+At least if it's configured properly... or if this is automated using my
+irq_cpu_rmap.
 
-(with some false positives)
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
