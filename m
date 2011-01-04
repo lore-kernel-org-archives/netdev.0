@@ -1,73 +1,97 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: [RFC] net_sched: mark packet staying on queue too long
-Date: Tue, 4 Jan 2011 15:19:26 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
- <20101220232020.GB2052@del.dom.local> <1292887689.2627.150.camel@edumazet-laptop>
- <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
- <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
- <20101221223704.GA1979@del.dom.local> <1293111333.11306.170.camel@mojatatu>
- <1294003631.2535.253.camel@edumazet-laptop> <20110103095842.7677130d@nehalam>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v2 06/10] ARM: mx28: update clocks for dual fec support
+Date: Tue, 4 Jan 2011 22:26:44 +0800
+Message-ID: <20110104142643.GB21274@freescale.com>
+References: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
+ <1294133056-21195-7-git-send-email-shawn.guo@freescale.com>
+ <20110104135818.GD25121@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, hadi@cyberus.ca,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<s.hauer@pengutronix.de>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:49912 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751409Ab1ADOTd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jan 2011 09:19:33 -0500
-In-Reply-To: <20110103095842.7677130d@nehalam>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:9802 "EHLO
+	TX2EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751028Ab1ADOZL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 09:25:11 -0500
+Received: from mail161-tx2 (localhost.localdomain [127.0.0.1])	by
+ mail161-tx2-R.bigfish.com (Postfix) with ESMTP id A6801A3840D	for
+ <netdev@vger.kernel.org>; Tue,  4 Jan 2011 14:25:10 +0000 (UTC)
+Received: from TX2EHSMHS009.bigfish.com (unknown [10.9.14.253])	by
+ mail161-tx2.bigfish.com (Postfix) with ESMTP id B369C740171	for
+ <netdev@vger.kernel.org>; Tue,  4 Jan 2011 14:24:39 +0000 (UTC)
+Received: from az33smr02.freescale.net (az33smr02.freescale.net
+ [10.64.34.200])	by de01egw01.freescale.net (8.14.3/8.14.3) with ESMTP id
+ p04EObU8024628	for <netdev@vger.kernel.org>; Tue, 4 Jan 2011 07:24:37 -0700
+ (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id
+ p04EOact014765	for <netdev@vger.kernel.org>; Tue, 4 Jan 2011 08:24:36 -0600
+ (CST)
+Content-Disposition: inline
+In-Reply-To: <20110104135818.GD25121@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 3 Jan 2011, Stephen Hemminger wrote:
+Hi Uwe,
 
-> On Sun, 02 Jan 2011 22:27:11 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
->> While playing with SFQ and other AQM, I was bothered to see how easy it
->> was for a single tcp flow to 'fill the pipe' and consume lot of memory
->> buffers in queues. I know Jesper use more than 50.000 SFQ on his
->> routers, and with GRO packets this can consume a lot of memory.
+On Tue, Jan 04, 2011 at 02:58:18PM +0100, Uwe Kleine-K=F6nig wrote:
+> Hello Shawn,
+>=20
+> On Tue, Jan 04, 2011 at 05:24:12PM +0800, Shawn Guo wrote:
+> > Register clocks fec.0 and fec.1 for dual fec support.
+> >=20
+> > Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+> > ---
+> > Changes for v2:
+> >  - Rebase the patch against patch below which gets fundamental
+> >    clocks explicitly called in clk_enable.
+> >    [PATCH v4] ARM: mxs: Change duart device to use amba-pl011
+> >  - Register clocks fec.0 and fec.1 respectively than use wildcard
+> >    NULL for both instances.
+> >=20
+> >  arch/arm/mach-mxs/clock-mx28.c |    1 +
+> >  1 files changed, 1 insertions(+), 0 deletions(-)
+> >=20
+> > diff --git a/arch/arm/mach-mxs/clock-mx28.c b/arch/arm/mach-mxs/clo=
+ck-mx28.c
+> > index f20b254..f79587b 100644
+> > --- a/arch/arm/mach-mxs/clock-mx28.c
+> > +++ b/arch/arm/mach-mxs/clock-mx28.c
+> > @@ -607,6 +607,7 @@ static struct clk_lookup lookups[] =3D {
+> >  	/* for amba-pl011 driver */
+> >  	_REGISTER_CLOCK("duart", NULL, uart_clk)
+> >  	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> > +	_REGISTER_CLOCK("fec.1", NULL, fec_clk)
+> Did you verify this works as intended?  I didn't and consider it
+> possible that after
+>=20
+> 	clk_enable("fec.0");
+> 	clk_enable("fec.1");
+> 	clk_disable("fec.1");
+>=20
+> the clk is off.  Probably it just works, just want to prevent hard to
+> find bugs ...
+>=20
+The clk should not be off.  Looking at _REGISTER_CLOCK below, we are
+registering both fec.0 and fec.1 on the same one fec_clk.  IOW, the
+usecount of the clk is working to control the on/off of the clk.
 
-That is true, operations department went kind of crazy when they started 
-to add/move customers to our new Nehalem Xeon 5550 systems.  I have 
-stopped them now ;-)
+#define _REGISTER_CLOCK(d, n, c) \
+	{ \
+		.dev_id =3D d, \
+		.con_id =3D n, \
+		.clk =3D &c, \
+	},
 
-The use of an SFQ per customer, actually also solves the buffer bloat 
-issue for our customers...
+--=20
+Regards,
+Shawn
 
-
->> I played a bit adding ECN in SFQ, first by marking packets for a
->> particular flow if this flow qlen was above a given threshold, and later
->> using another trick : ECN mark packet if it stayed longer than a given
->> delay in the queue. This of course could be done on other modules, what
->> do you think ?
-
-This is very interesting stuff! :-)
-
-Are you inspired by Jim Gettys buffer bloat discussions?
-
-> ...
-> You might want to look into CHOKe and ECSFQ which are other AQM models
-> that have shown up in research.
-
-Have you looked at the SFB (Stochastic Fair Blue) implementation by 
-Juliusz Chroboczek?
-
-http://www.pps.jussieu.fr/~jch/software/sfb/
-
-Cheers,
-   Jesper Brouer
-
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
