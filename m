@@ -1,54 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue, 04 Jan 2011 11:35:51 -0800 (PST)
-Message-ID: <20110104.113551.102540724.davem@davemloft.net>
-References: <1294122260-13245-1-git-send-email-jsing@google.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 0/2] IRQ affinity reverse-mapping
+Date: Tue, 04 Jan 2011 19:37:22 +0000
+Message-ID: <1294169842.3636.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jsing@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50305
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751014Ab1ADTfT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 14:35:19 -0500
-In-Reply-To: <1294122260-13245-1-git-send-email-jsing@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tom Herbert <therbert@google.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joel Sing <jsing@google.com>
-Date: Tue,  4 Jan 2011 17:24:20 +1100
+This patch series is intended to support queue selection on multiqueue
+IRQ-per-queue network devices (accelerated RFS and XPS-MQ) and
+potentially queue selection for other classes of multiqueue device.
 
-> The preferred source address is currently ignored for local routes,
-> which results in all local connections having a src address that is the
-> same as the local dst address. Fix this by respecting the preferred source
-> address when it is provided for local routes.
-> 
-> This bug can be demonstrated as follows:
-> 
->  # ifconfig dummy0 192.168.0.1
->  # ip route show table local | grep local.*dummy0
->  local 192.168.0.1 dev dummy0  proto kernel  scope host  src 192.168.0.1
->  # ip route change table local local 192.168.0.1 dev dummy0 \
->      proto kernel scope host src 127.0.0.1
->  # ip route show table local | grep local.*dummy0
->  local 192.168.0.1 dev dummy0  proto kernel  scope host  src 127.0.0.1
-> 
-> We now establish a local connection and verify the source IP
-> address selection:
-> 
->  # nc -l 192.168.0.1 3128 &
->  # nc 192.168.0.1 3128 &
->  # netstat -ant | grep 192.168.0.1:3128.*EST
->  tcp        0      0 192.168.0.1:3128        192.168.0.1:33228 ESTABLISHED
->  tcp        0      0 192.168.0.1:33228       192.168.0.1:3128  ESTABLISHED
-> 
-> Signed-off-by: Joel Sing <jsing@google.com>
+The first patch implements IRQ affinity notifiers, based on the outline
+that Thomas wrote in response to my earlier patch series for accelerated RFS.
 
-Applied to net-2.6, thanks Joel.
+The second patch is a generalisation of the CPU affinity reverse-
+mapping, plus functions to maintain such a mapping based on the new IRQ
+affinity notifiers.
 
-If you guys want to mess with ternary operators and new macros,
-please do that in net-next-2.6 the next time I merge or similar.
+I would like to be able to use this functionality in networking for
+2.6.38.  Thomas, if you are happy with this, could these changes go
+through net-next-2.6?  Alternately, if Linus pulls from linux-2.6-tip
+and David pulls from Linus during the merge window, I can (re-)submit
+the dependent changes after that.
 
-Thanks.
+Ben.
+
+Ben Hutchings (2):
+  genirq: Add IRQ affinity notifiers
+  lib: cpu_rmap: CPU affinity reverse-mapping
+
+ include/linux/cpu_rmap.h  |   73 +++++++++++++
+ include/linux/interrupt.h |   41 +++++++
+ include/linux/irqdesc.h   |    3 +
+ kernel/irq/manage.c       |   81 ++++++++++++++
+ lib/Kconfig               |    4 +
+ lib/Makefile              |    2 +
+ lib/cpu_rmap.c            |  262 +++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 466 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/cpu_rmap.h
+ create mode 100644 lib/cpu_rmap.c
+
+-- 
+1.7.3.4
+
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
