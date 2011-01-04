@@ -1,57 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue, 04 Jan 2011 14:16:31 +0000
-Message-ID: <1294150591.3435.0.camel@bwh-desktop>
-References: <1294122260-13245-1-git-send-email-jsing@google.com>
-	 <1294125880.2711.34.camel@edumazet-laptop>
-	 <1294126407.2711.39.camel@edumazet-laptop>
-	 <AANLkTimDms0FTmXWf9WSpcxwZXVVSXQj44jZ2Ag8Osuk@mail.gmail.com>
-	 <1294130315.2711.48.camel@edumazet-laptop>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [RFC] net_sched: mark packet staying on queue too long
+Date: Tue, 4 Jan 2011 15:19:26 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+ <20101220232020.GB2052@del.dom.local> <1292887689.2627.150.camel@edumazet-laptop>
+ <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
+ <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+ <20101221223704.GA1979@del.dom.local> <1293111333.11306.170.camel@mojatatu>
+ <1294003631.2535.253.camel@edumazet-laptop> <20110103095842.7677130d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Changli Gao <xiaosuo@gmail.com>, Joe Perches <joe@perches.com>,
-	Joel Sing <jsing@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, hadi@cyberus.ca,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:57601 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750947Ab1ADOQe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 09:16:34 -0500
-In-Reply-To: <1294130315.2711.48.camel@edumazet-laptop>
+Received: from mgw2.diku.dk ([130.225.96.92]:49912 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751409Ab1ADOTd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jan 2011 09:19:33 -0500
+In-Reply-To: <20110103095842.7677130d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-04 at 09:38 +0100, Eric Dumazet wrote:
-> Le mardi 04 janvier 2011 =C3=A0 16:07 +0800, Changli Gao a =C3=A9crit=
- :
-> > On Tue, Jan 4, 2011 at 3:33 PM, Eric Dumazet <eric.dumazet@gmail.co=
-m> wrote:
-> > > Le mardi 04 janvier 2011 =C3=A0 08:24 +0100, Eric Dumazet a =C3=A9=
-crit :
-> > >
-> > >> Please use FIB_RES_PREFSRC(res)
-> > >>
-> > >
-> > > Hmm no, this is not applicable, but this could be shorter :
-> > >
-> > > fl.fl4_src =3D res.fi->fib_prefsrc ? : fl.fl4_dst;
-> > >
-> > >
-> >=20
-> > I think Joe may object the use of "? :"
-> >=20
->=20
-> Ternary operator is standard C idiom, used in networking stuff, for
-> example in FIB_RES_PREFSRC() ;)
-[...]
+On Mon, 3 Jan 2011, Stephen Hemminger wrote:
 
-However, the option to omit the second operand is a GNU extension.
+> On Sun, 02 Jan 2011 22:27:11 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+>> While playing with SFQ and other AQM, I was bothered to see how easy it
+>> was for a single tcp flow to 'fill the pipe' and consume lot of memory
+>> buffers in queues. I know Jesper use more than 50.000 SFQ on his
+>> routers, and with GRO packets this can consume a lot of memory.
 
-Ben.
+That is true, operations department went kind of crazy when they started 
+to add/move customers to our new Nehalem Xeon 5550 systems.  I have 
+stopped them now ;-)
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+The use of an SFQ per customer, actually also solves the buffer bloat 
+issue for our customers...
 
+
+>> I played a bit adding ECN in SFQ, first by marking packets for a
+>> particular flow if this flow qlen was above a given threshold, and later
+>> using another trick : ECN mark packet if it stayed longer than a given
+>> delay in the queue. This of course could be done on other modules, what
+>> do you think ?
+
+This is very interesting stuff! :-)
+
+Are you inspired by Jim Gettys buffer bloat discussions?
+
+> ...
+> You might want to look into CHOKe and ECSFQ which are other AQM models
+> that have shown up in research.
+
+Have you looked at the SFB (Stochastic Fair Blue) implementation by 
+Juliusz Chroboczek?
+
+http://www.pps.jussieu.fr/~jch/software/sfb/
+
+Cheers,
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
