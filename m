@@ -1,568 +1,181 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-next-2.6 PATCH v4 2/2] net_sched: implement a root	container
- qdisc sch_mclass
-Date: Tue, 04 Jan 2011 10:16:32 -0800
-Message-ID: <4D236400.1070506@intel.com>
-References: <20110104030553.13187.69135.stgit@jf-dev1-dcblab> <20110104030558.13187.27076.stgit@jf-dev1-dcblab> <20110104111816.GA8085@ff.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] net_sched: mark packet staying on queue too long
+Date: Tue, 04 Jan 2011 19:20:15 +0100
+Message-ID: <1294165215.3579.133.camel@edumazet-laptop>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	 <20101220232020.GB2052@del.dom.local>
+	 <1292887689.2627.150.camel@edumazet-laptop>
+	 <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu>
+	 <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+	 <20101221223704.GA1979@del.dom.local> <1293111333.11306.170.camel@mojatatu>
+	 <1294003631.2535.253.camel@edumazet-laptop>
+	 <20110103095842.7677130d@nehalam>
+	 <Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
+	 <1294153329.3579.99.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"hadi@cyberus.ca" <hadi@cyberus.ca>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>, hadi@cyberus.ca,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jesper Dangaard Brouer <hawk@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:8521 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751834Ab1ADSQe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jan 2011 13:16:34 -0500
-In-Reply-To: <20110104111816.GA8085@ff.dom.local>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:48190 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751104Ab1ADSUV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 13:20:21 -0500
+Received: by wyb28 with SMTP id 28so14566566wyb.19
+        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 10:20:19 -0800 (PST)
+In-Reply-To: <1294153329.3579.99.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 1/4/2011 3:18 AM, Jarek Poplawski wrote:
-> On Mon, Jan 03, 2011 at 07:05:58PM -0800, John Fastabend wrote:
->> This implements a mqprio queueing discipline that by default creates
->> a pfifo_fast qdisc per tx queue and provides the needed configuration
->> interface.
->>
->> Using the mqprio qdisc the number of tcs currently in use along
->> with the range of queues alloted to each class can be configured. By
->> default skbs are mapped to traffic classes using the skb priority.
->> This mapping is configurable.
->>
->> Configurable parameters,
->>
->> struct tc_mclass_qopt {
-> 
-> Now *_mqprio here and in the subject of the message.
-> 
->>         __u8    num_tc;
->>         __u8    prio_tc_map[16];
-> 
-> s/16/TC_SOMETHING/
-> 
->>         __u8    hw;
->>         __u16   count[16];
->>         __u16   offset[16];
->> };
->>
->> Here the count/offset pairing give the queue alignment and the
->> prio_tc_map gives the mapping from skb->priority to tc.
->>
->> The hw bit determines if the hardware should configure the count
->> and offset values. If the hardware bit is set then the operation
->> will fail if the hardware does not implement the ndo_setup_tc
->> operation. This is to avoid undetermined states where the hardware
->> may or may not control the queue mapping. Also minimal bounds
->> checking is done on the count/offset to verify a queue does not
->> exceed num_tx_queues and that queue ranges do not overlap. Otherwise
->> it is left to user policy or hardware configuration to create
->> useful mappings.
->>
->> It is expected that hardware QOS schemes can be implemented by
->> creating appropriate mappings of queues in ndo_tc_setup().
->>
->> One expected use case is drivers will use the ndo_setup_tc to map
->> queue ranges onto 802.1Q traffic classes. This provides a generic
->> mechanism to map network traffic onto these traffic classes and
->> removes the need for lower layer drivers to no specifics about
->> traffic types.
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
->> ---
->>
->>  include/linux/netdevice.h |    3
->>  include/linux/pkt_sched.h |    9 +
->>  net/sched/Kconfig         |   10 +
->>  net/sched/Makefile        |    1
->>  net/sched/sch_generic.c   |    4 +
->>  net/sched/sch_mqprio.c    |  357 +++++++++++++++++++++++++++++++++++++++++++++
->>  6 files changed, 384 insertions(+), 0 deletions(-)
->>  create mode 100644 net/sched/sch_mqprio.c
->>
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->> index 073c48d..f90a863 100644
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -764,6 +764,8 @@ struct netdev_tc_txq {
->>   * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
->>   *                     struct nlattr *port[]);
->>   * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
->> + *
->> + * int (*ndo_setup_tc)(struct net_device *dev, int tc);
->>   */
->>  #define HAVE_NET_DEVICE_OPS
->>  struct net_device_ops {
->> @@ -822,6 +824,7 @@ struct net_device_ops {
->>                                                  struct nlattr *port[]);
->>       int                     (*ndo_get_vf_port)(struct net_device *dev,
->>                                                  int vf, struct sk_buff *skb);
->> +     int                     (*ndo_setup_tc)(struct net_device *dev, u8 tc);
->>  #if defined(CONFIG_FCOE) || defined(CONFIG_FCOE_MODULE)
->>       int                     (*ndo_fcoe_enable)(struct net_device *dev);
->>       int                     (*ndo_fcoe_disable)(struct net_device *dev);
->> diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
->> index 2cfa4bc..8e29fa6 100644
->> --- a/include/linux/pkt_sched.h
->> +++ b/include/linux/pkt_sched.h
->> @@ -481,4 +481,13 @@ struct tc_drr_stats {
->>       __u32   deficit;
->>  };
->>
->> +/* MCLASS */
-> 
-> /* MQPRIO */
-> 
->> +struct tc_mqprio_qopt {
->> +     __u8    num_tc;
->> +     __u8    prio_tc_map[16];
->> +     __u8    hw;
->> +     __u16   count[16];
->> +     __u16   offset[16];
-> 
-> s/16/TC_SOMETHING/
+Le mardi 04 janvier 2011 =C3=A0 16:02 +0100, Eric Dumazet a =C3=A9crit =
+:
 
-fixed.
+> I'd like to try kind of a SFQRED implementation, ie :
+>=20
+> classify flows, then instead of using plain pfifo queues (currently d=
+one
+> in SFQ), use N pseudo RED queues.
+>=20
+> RED is a bit complex because it tries to make the probability estimat=
+ion
+> given queue backlog average. It has to use expensive time services (o=
+n
+> some machines at least, if TSC not available)
+>=20
+> My idea was to take into account the delay packets stay in its queue,=
+ so
+> that no extra state is needed : Only take a timestamp when packet is
+> enqueued, compute delta when dequeued, get=20
+>=20
+> Px =3D delta * Prob_per_time_unit;
+> and drop/mark packet with Px probability.
+>=20
+> Ram usage of SFQRED would be the same than SFQ, and cost roughly the
+> same (because we could use jiffies based time sampling, (and HZ=3D100=
+0 for
+> a ms unit)).
+>=20
+>=20
 
-> 
->> +};
->> +
->>  #endif
->> diff --git a/net/sched/Kconfig b/net/sched/Kconfig
->> index a36270a..e42853b 100644
->> --- a/net/sched/Kconfig
->> +++ b/net/sched/Kconfig
->> @@ -205,6 +205,16 @@ config NET_SCH_DRR
->>
->>         If unsure, say N.
->>
->> +config NET_SCH_MQPRIO
->> +     tristate "Multi-queue priority scheduler (MQPRIO)"
->> +     help
->> +       Say Y here if you want to use the Multi-queue Priority scheduler.
-> 
-> We might mention about a proper NIC required.
-> 
+Here is the POC patch I am currently testing, with a probability to
+"early drop" a packet of one percent per ms (HZ=3D1000 here), only if
+packet stayed at least 4 ms on queue.
 
-Probably good to add a note here. Although you could use qdisc without NIC support.
+Of course, this only apply where SFQ is used, with known SFQ limits :)
 
->> +
->> +       To compile this driver as a module, choose M here: the module will
->> +       be called sch_mqprio.
->> +
->> +       If unsure, say N.
->> +
->>  config NET_SCH_INGRESS
->>       tristate "Ingress Qdisc"
->>       depends on NET_CLS_ACT
->> diff --git a/net/sched/Makefile b/net/sched/Makefile
->> index 960f5db..26ce681 100644
->> --- a/net/sched/Makefile
->> +++ b/net/sched/Makefile
->> @@ -32,6 +32,7 @@ obj-$(CONFIG_NET_SCH_MULTIQ)        += sch_multiq.o
->>  obj-$(CONFIG_NET_SCH_ATM)    += sch_atm.o
->>  obj-$(CONFIG_NET_SCH_NETEM)  += sch_netem.o
->>  obj-$(CONFIG_NET_SCH_DRR)    += sch_drr.o
->> +obj-$(CONFIG_NET_SCH_MQPRIO) += sch_mqprio.o
->>  obj-$(CONFIG_NET_CLS_U32)    += cls_u32.o
->>  obj-$(CONFIG_NET_CLS_ROUTE4) += cls_route.o
->>  obj-$(CONFIG_NET_CLS_FW)     += cls_fw.o
->> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
->> index 34dc598..723b278 100644
->> --- a/net/sched/sch_generic.c
->> +++ b/net/sched/sch_generic.c
->> @@ -540,6 +540,7 @@ struct Qdisc_ops pfifo_fast_ops __read_mostly = {
->>       .dump           =       pfifo_fast_dump,
->>       .owner          =       THIS_MODULE,
->>  };
->> +EXPORT_SYMBOL(pfifo_fast_ops);
->>
->>  struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
->>                         struct Qdisc_ops *ops)
->> @@ -674,6 +675,7 @@ struct Qdisc *dev_graft_qdisc(struct netdev_queue *dev_queue,
->>
->>       return oqdisc;
->>  }
->> +EXPORT_SYMBOL(dev_graft_qdisc);
->>
->>  static void attach_one_default_qdisc(struct net_device *dev,
->>                                    struct netdev_queue *dev_queue,
->> @@ -761,6 +763,7 @@ void dev_activate(struct net_device *dev)
->>               dev_watchdog_up(dev);
->>       }
->>  }
->> +EXPORT_SYMBOL(dev_activate);
->>
->>  static void dev_deactivate_queue(struct net_device *dev,
->>                                struct netdev_queue *dev_queue,
->> @@ -840,6 +843,7 @@ void dev_deactivate(struct net_device *dev)
->>       list_add(&dev->unreg_list, &single);
->>       dev_deactivate_many(&single);
->>  }
->> +EXPORT_SYMBOL(dev_deactivate);
->>
->>  static void dev_init_scheduler_queue(struct net_device *dev,
->>                                    struct netdev_queue *dev_queue,
->> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
->> new file mode 100644
->> index 0000000..e9e74c7
->> --- /dev/null
->> +++ b/net/sched/sch_mqprio.c
->> @@ -0,0 +1,357 @@
->> +/*
->> + * net/sched/sch_mqprio.c
->> + *
->> + * Copyright (c) 2010 John Fastabend <john.r.fastabend@intel.com>
->> + *
->> + * This program is free software; you can redistribute it and/or
->> + * modify it under the terms of the GNU General Public License
->> + * version 2 as published by the Free Software Foundation.
->> + */
->> +
->> +#include <linux/types.h>
->> +#include <linux/slab.h>
->> +#include <linux/kernel.h>
->> +#include <linux/string.h>
->> +#include <linux/errno.h>
->> +#include <linux/skbuff.h>
->> +#include <net/netlink.h>
->> +#include <net/pkt_sched.h>
->> +#include <net/sch_generic.h>
->> +
->> +struct mqprio_sched {
->> +     struct Qdisc            **qdiscs;
->> +     int hw_owned;
->> +};
->> +
->> +static void mqprio_destroy(struct Qdisc *sch)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     struct mqprio_sched *priv = qdisc_priv(sch);
->> +     unsigned int ntx;
->> +
->> +     if (!priv->qdiscs)
->> +             return;
->> +
->> +     for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
->> +             qdisc_destroy(priv->qdiscs[ntx]);
->> +
->> +     if (priv->hw_owned && dev->netdev_ops->ndo_setup_tc)
->> +             dev->netdev_ops->ndo_setup_tc(dev, 0);
->> +     else
->> +             netdev_set_num_tc(dev, 0);
-> 
-> I'm not sure why this unsetting is needed in case it was set by a
-> driver before mqprio was created.
-> 
+The term "early drop" is a lie. RED really early mark/drop a packet at
+enqueue() time, while I do it at dequeue() time [since I need to comput=
+e
+the delay]. But effect is the same on sent packets. This might use a bi=
+t
+more memory, but no more than current SFQ [and only if flows dont react
+to mark/drops]
 
-ndo_setup_tc(dev,x) is called at init to be symetric I think we need to call it here as well. Otherwise we could leave num_tc set unecessarily. Maybe saving the original value and setting it back to the orignal num_tc would be more correct.
+insmod net/sched/sch_sfq.ko red_delay=3D4
 
->> +
->> +     kfree(priv->qdiscs);
->> +}
->> +
->> +static int mqprio_parse_opt(struct net_device *dev, struct tc_mqprio_qopt *qopt)
->> +{
->> +     int i, j;
->> +
->> +     /* Verify num_tc is not out of max range */
->> +     if (qopt->num_tc > TC_MAX_QUEUE)
->> +             return -EINVAL;
->> +
->> +     for (i = 0; i < qopt->num_tc; i++) {
->> +             unsigned int last = qopt->offset[i] + qopt->count[i];
->> +             /* Verify the queue offset is in the num tx range */
->> +             if (qopt->offset[i] >= dev->num_tx_queues)
->> +                     return -EINVAL;
->> +             /* Verify the queue count is in tx range being equal to the
->> +              * num_tx_queues indicates the last queue is in use.
->> +              */
->> +             else if (last > dev->num_tx_queues)
->> +                     return -EINVAL;
->> +
->> +             /* Verify that the offset and counts do not overlap */
->> +             for (j = i + 1; j < qopt->num_tc; j++) {
->> +                     if (last > qopt->offset[j])
->> +                             return -EINVAL;
->> +             }
->> +     }
->> +
->> +     return 0;
->> +}
->> +
->> +static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     struct mqprio_sched *priv = qdisc_priv(sch);
->> +     struct netdev_queue *dev_queue;
->> +     struct Qdisc *qdisc;
->> +     int i, err = -EOPNOTSUPP;
->> +     struct tc_mqprio_qopt *qopt = NULL;
->> +
->> +     /* Unwind attributes on failure */
->> +     u8 unwnd_tc = dev->num_tc;
->> +     u8 unwnd_map[TC_BITMASK+1];
-> 
->         u8 unwnd_map[TC_BITMASK + 1];
-> 
+By the way, I do think we should lower SFQ_DEPTH a bit and increase
+SFQ_SLOTS by same amount. Allowing 127 packets per flow seems not
+necessary in most situations SFQ might be used.
 
-fixed
+ net/sched/sch_sfq.c |   37 +++++++++++++++++++++++++++++++++----
+ 1 files changed, 33 insertions(+), 4 deletions(-)
 
->> +     struct netdev_tc_txq unwnd_txq[TC_MAX_QUEUE];
->> +
->> +     if (sch->parent != TC_H_ROOT)
->> +             return -EOPNOTSUPP;
->> +
->> +     if (!netif_is_multiqueue(dev))
->> +             return -EOPNOTSUPP;
->> +
->> +     if (nla_len(opt) < sizeof(*qopt))
->> +             return -EINVAL;
->> +     qopt = nla_data(opt);
->> +
->> +     memcpy(unwnd_map, dev->prio_tc_map, sizeof(unwnd_map));
->> +     memcpy(unwnd_txq, dev->tc_to_txq, sizeof(unwnd_txq));
->> +
->> +     /* If the mqprio options indicate that hardware should own
->> +      * the queue mapping then run ndo_setup_tc if this can not
->> +      * be done fail immediately.
->> +      */
->> +     if (qopt->hw && dev->netdev_ops->ndo_setup_tc) {
->> +             priv->hw_owned = 1;
->> +             err = dev->netdev_ops->ndo_setup_tc(dev, qopt->num_tc);
->> +             if (err)
->> +                     return err;
->> +     } else if (!qopt->hw) {
->> +             if (mqprio_parse_opt(dev, qopt))
->> +                     return -EINVAL;
->> +
->> +             if (netdev_set_num_tc(dev, qopt->num_tc))
->> +                     return -EINVAL;
->> +
->> +             for (i = 0; i < qopt->num_tc; i++)
->> +                     netdev_set_tc_queue(dev, i,
->> +                                         qopt->count[i], qopt->offset[i]);
->> +     } else {
->> +             return -EINVAL;
->> +     }
->> +
->> +     /* Always use supplied priority mappings */
->> +     for (i = 0; i < TC_BITMASK+1; i++) {
-> 
->         for (i = 0; i < TC_BITMASK + 1; i++) {
-> 
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index d54ac94..4f958e3 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -24,6 +24,8 @@
+ #include <net/ip.h>
+ #include <net/netlink.h>
+ #include <net/pkt_sched.h>
++#include <net/inet_ecn.h>
++#include <linux/moduleparam.h>
+=20
+=20
+ /*	Stochastic Fairness Queuing algorithm.
+@@ -86,6 +88,10 @@
+ /* This type should contain at least SFQ_DEPTH + SFQ_SLOTS values */
+ typedef unsigned char sfq_index;
+=20
++static int red_delay; /* default : no RED handling */
++module_param(red_delay, int, 0);
++MODULE_PARM_DESC(red_delay, "mark/drop packets if they stay in queue l=
+onger than red_delay ticks");
++
+ /*
+  * We dont use pointers to save space.
+  * Small indexes [0 ... SFQ_SLOTS - 1] are 'pointers' to slots[] array
+@@ -391,6 +397,7 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+=20
+ 	sch->qstats.backlog +=3D qdisc_pkt_len(skb);
+ 	slot_queue_add(slot, skb);
++	qdisc_skb_cb(skb)->timestamp =3D jiffies;
+ 	sfq_inc(q, x);
+ 	if (slot->qlen =3D=3D 1) {		/* The flow is new */
+ 		if (q->tail =3D=3D NULL) {	/* It is the first flow */
+@@ -402,11 +409,8 @@ sfq_enqueue(struct sk_buff *skb, struct Qdisc *sch=
+)
+ 		q->tail =3D slot;
+ 		slot->allot =3D q->scaled_quantum;
+ 	}
+-	if (++sch->q.qlen <=3D q->limit) {
+-		sch->bstats.bytes +=3D qdisc_pkt_len(skb);
+-		sch->bstats.packets++;
++	if (++sch->q.qlen <=3D q->limit)
+ 		return NET_XMIT_SUCCESS;
+-	}
+=20
+ 	sfq_drop(sch);
+ 	return NET_XMIT_CN;
+@@ -432,6 +436,7 @@ sfq_dequeue(struct Qdisc *sch)
+ 	sfq_index a, next_a;
+ 	struct sfq_slot *slot;
+=20
++restart:
+ 	/* No active slots */
+ 	if (q->tail =3D=3D NULL)
+ 		return NULL;
+@@ -455,12 +460,36 @@ next_slot:
+ 		next_a =3D slot->next;
+ 		if (a =3D=3D next_a) {
+ 			q->tail =3D NULL; /* no more active slots */
++			/* last packet queued, dont even try to apply RED */
+ 			return skb;
+ 		}
+ 		q->tail->next =3D next_a;
+ 	} else {
+ 		slot->allot -=3D SFQ_ALLOT_SIZE(qdisc_pkt_len(skb));
+ 	}
++	if (red_delay) {
++		long delay =3D jiffies - qdisc_skb_cb(skb)->timestamp;
++
++		if (delay >=3D red_delay) {
++			long Px =3D delay * (0xFFFFFF / 100); /* 1 percent per jiffy */
++			if ((net_random() & 0xFFFFFF) < Px) {
++				if (INET_ECN_set_ce(skb)) {
++					/* no ecnmark counter yet :) */
++					sch->qstats.overlimits++;
++				} else {
++					/* penalize this flow : we drop the=20
++					 * packet while we changed slot->allot
++					 */
++					kfree_skb(skb);
++					/* no early_drop counter yet :) */
++					sch->qstats.drops++;
++					goto restart;
++				}
++			}
++		}
++	}
++	sch->bstats.bytes +=3D qdisc_pkt_len(skb);
++	sch->bstats.packets++;
+ 	return skb;
+ }
+=20
 
-fixed.
 
->> +             if (netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i])) {
->> +                     err = -EINVAL;
->> +                     goto tc_err;
->> +             }
->> +     }
->> +
->> +     /* pre-allocate qdisc, attachment can't fail */
->> +     priv->qdiscs = kcalloc(dev->num_tx_queues, sizeof(priv->qdiscs[0]),
->> +                            GFP_KERNEL);
->> +     if (priv->qdiscs == NULL) {
->> +             err = -ENOMEM;
->> +             goto tc_err;
->> +     }
->> +
->> +     for (i = 0; i < dev->num_tx_queues; i++) {
->> +             dev_queue = netdev_get_tx_queue(dev, i);
->> +             qdisc = qdisc_create_dflt(dev_queue, &pfifo_fast_ops,
->> +                                       TC_H_MAKE(TC_H_MAJ(sch->handle),
->> +                                                 TC_H_MIN(i + 1)));
->> +             if (qdisc == NULL) {
->> +                     err = -ENOMEM;
->> +                     goto err;
->> +             }
->> +             qdisc->flags |= TCQ_F_CAN_BYPASS;
->> +             priv->qdiscs[i] = qdisc;
->> +     }
->> +
->> +     sch->flags |= TCQ_F_MQROOT;
->> +     return 0;
->> +
->> +err:
->> +     mqprio_destroy(sch);
->> +tc_err:
->> +     if (priv->hw_owned)
->> +             dev->netdev_ops->ndo_setup_tc(dev, unwnd_tc);
->> +     else
->> +             netdev_set_num_tc(dev, unwnd_tc);
->> +
->> +     memcpy(dev->prio_tc_map, unwnd_map, sizeof(unwnd_map));
->> +     memcpy(dev->tc_to_txq, unwnd_txq, sizeof(unwnd_txq));
->> +
->> +     return err;
->> +}
->> +
->> +static void mqprio_attach(struct Qdisc *sch)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     struct mqprio_sched *priv = qdisc_priv(sch);
->> +     struct Qdisc *qdisc;
->> +     unsigned int ntx;
->> +
->> +     /* Attach underlying qdisc */
->> +     for (ntx = 0; ntx < dev->num_tx_queues; ntx++) {
->> +             qdisc = priv->qdiscs[ntx];
->> +             qdisc = dev_graft_qdisc(qdisc->dev_queue, qdisc);
->> +             if (qdisc)
->> +                     qdisc_destroy(qdisc);
->> +     }
->> +     kfree(priv->qdiscs);
->> +     priv->qdiscs = NULL;
->> +}
->> +
->> +static struct netdev_queue *mqprio_queue_get(struct Qdisc *sch,
->> +                                          unsigned long cl)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     unsigned long ntx = cl - 1;
->> +
->> +     if (ntx >= dev->num_tx_queues)
->> +             return NULL;
->> +     return netdev_get_tx_queue(dev, ntx);
->> +}
->> +
->> +static int mqprio_graft(struct Qdisc *sch, unsigned long cl, struct Qdisc *new,
->> +                 struct Qdisc **old)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
->> +
->> +     if (dev->flags & IFF_UP)
->> +             dev_deactivate(dev);
->> +
->> +     *old = dev_graft_qdisc(dev_queue, new);
->> +
->> +     if (dev->flags & IFF_UP)
->> +             dev_activate(dev);
->> +
->> +     return 0;
->> +}
->> +
->> +static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     struct mqprio_sched *priv = qdisc_priv(sch);
->> +     unsigned char *b = skb_tail_pointer(skb);
->> +     struct tc_mqprio_qopt opt;
->> +     struct Qdisc *qdisc;
->> +     unsigned int i;
->> +
->> +     sch->q.qlen = 0;
->> +     memset(&sch->bstats, 0, sizeof(sch->bstats));
->> +     memset(&sch->qstats, 0, sizeof(sch->qstats));
->> +
->> +     for (i = 0; i < dev->num_tx_queues; i++) {
->> +             qdisc = netdev_get_tx_queue(dev, i)->qdisc;
->> +             spin_lock_bh(qdisc_lock(qdisc));
->> +             sch->q.qlen             += qdisc->q.qlen;
->> +             sch->bstats.bytes       += qdisc->bstats.bytes;
->> +             sch->bstats.packets     += qdisc->bstats.packets;
->> +             sch->qstats.qlen        += qdisc->qstats.qlen;
->> +             sch->qstats.backlog     += qdisc->qstats.backlog;
->> +             sch->qstats.drops       += qdisc->qstats.drops;
->> +             sch->qstats.requeues    += qdisc->qstats.requeues;
->> +             sch->qstats.overlimits  += qdisc->qstats.overlimits;
->> +             spin_unlock_bh(qdisc_lock(qdisc));
->> +     }
->> +
->> +     opt.num_tc = dev->num_tc;
->> +     memcpy(opt.prio_tc_map, dev->prio_tc_map, 16);
-> 
-> s/16/TC_SOMETHING
-
-fixed
-
-> 
->> +     opt.hw = priv->hw_owned;
->> +
->> +     for (i = 0; i < dev->num_tc; i++) {
->> +             opt.count[i] = dev->tc_to_txq[i].count;
->> +             opt.offset[i] = dev->tc_to_txq[i].offset;
->> +     }
->> +
->> +     NLA_PUT(skb, TCA_OPTIONS, sizeof(opt), &opt);
->> +
->> +     return skb->len;
->> +nla_put_failure:
->> +     nlmsg_trim(skb, b);
->> +     return -1;
->> +}
->> +
->> +static struct Qdisc *mqprio_leaf(struct Qdisc *sch, unsigned long cl)
->> +{
->> +     struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
->> +
->> +     return dev_queue->qdisc_sleeping;
->> +}
->> +
->> +static unsigned long mqprio_get(struct Qdisc *sch, u32 classid)
->> +{
->> +     unsigned int ntx = TC_H_MIN(classid);
->> +
->> +     if (!mqprio_queue_get(sch, ntx))
->> +             return 0;
->> +     return ntx;
->> +}
->> +
->> +static void mqprio_put(struct Qdisc *sch, unsigned long cl)
->> +{
->> +}
->> +
->> +static int mqprio_dump_class(struct Qdisc *sch, unsigned long cl,
->> +                      struct sk_buff *skb, struct tcmsg *tcm)
->> +{
->> +     struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
->> +
->> +     tcm->tcm_parent = TC_H_ROOT;
->> +     tcm->tcm_handle |= TC_H_MIN(cl);
->> +     tcm->tcm_info = dev_queue->qdisc_sleeping->handle;
->> +     return 0;
->> +}
->> +
->> +static int mqprio_dump_class_stats(struct Qdisc *sch, unsigned long cl,
->> +                            struct gnet_dump *d)
->> +{
->> +     struct netdev_queue *dev_queue = mqprio_queue_get(sch, cl);
->> +
->> +     sch = dev_queue->qdisc_sleeping;
->> +     sch->qstats.qlen = sch->q.qlen;
->> +     if (gnet_stats_copy_basic(d, &sch->bstats) < 0 ||
->> +         gnet_stats_copy_queue(d, &sch->qstats) < 0)
->> +             return -1;
->> +     return 0;
->> +}
->> +
->> +static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
->> +{
->> +     struct net_device *dev = qdisc_dev(sch);
->> +     unsigned long ntx;
->> +
->> +     if (arg->stop)
->> +             return;
->> +
->> +     arg->count = arg->skip;
->> +     for (ntx = arg->skip; ntx < dev->num_tx_queues; ntx++) {
-> 
-> Did you give up those stats per tc class? You only show the leaf
-> classes here, but you could first loop per num_tc (as virtual
-> parent classes). So in dump_class_stats you should be able to
-> distinguish class 'level' by cl and do the second loop if necessary.
-> To show the class hierarchy you change tcm_parent in dump_class
-> for 'leaf' classes (like eg in sch_htb/htb_dump_class).
-> 
-
-I did give up... but got it working with your hint in v5 thanks.
-
-John.
