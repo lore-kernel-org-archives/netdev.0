@@ -1,121 +1,112 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 04 Jan 2011 11:56:00 -0800 (PST)
-Message-ID: <20110104.115600.245388910.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2] lib: cpu_rmap: CPU affinity reverse-mapping
+Date: Tue, 04 Jan 2011 22:17:03 +0100
+Message-ID: <1294175823.3420.7.camel@edumazet-laptop>
+References: <1294169842.3636.31.camel@bwh-desktop>
+	 <1294169967.3636.34.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294169967.3636.34.camel@bwh-desktop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Le mardi 04 janvier 2011 =C3=A0 19:39 +0000, Ben Hutchings a =C3=A9crit=
+ :
+> When initiating I/O on a multiqueue and multi-IRQ device, we may want
+> to select a queue for which the response will be handled on the same
+> or a nearby CPU.  This requires a reverse-map of IRQ affinity.  Add
+> library functions to support a generic reverse-mapping from CPUs to
+> objects with affinity and the specific case where the objects are
+> IRQs.
+>=20
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+>  include/linux/cpu_rmap.h |   73 +++++++++++++
+>  lib/Kconfig              |    4 +
+>  lib/Makefile             |    2 +
+>  lib/cpu_rmap.c           |  262 ++++++++++++++++++++++++++++++++++++=
+++++++++++
+>  4 files changed, 341 insertions(+), 0 deletions(-)
+>  create mode 100644 include/linux/cpu_rmap.h
+>  create mode 100644 lib/cpu_rmap.c
+>=20
+> diff --git a/include/linux/cpu_rmap.h b/include/linux/cpu_rmap.h
+> new file mode 100644
+> index 0000000..6e2f5ff
+> --- /dev/null
+> +++ b/include/linux/cpu_rmap.h
+> @@ -0,0 +1,73 @@
+> +/*
+> + * cpu_rmap.c: CPU affinity reverse-map support
+> + * Copyright 2010 Solarflare Communications Inc.
+> + *
+> + * This program is free software; you can redistribute it and/or mod=
+ify it
+> + * under the terms of the GNU General Public License version 2 as pu=
+blished
+> + * by the Free Software Foundation, incorporated herein by reference=
+=2E
+> + */
+> +
+> +#include <linux/cpumask.h>
+> +#include <linux/gfp.h>
+> +#include <linux/slab.h>
+> +
+> +/**
+> + * struct cpu_rmap - CPU affinity reverse-map
+> + * @near: For each CPU, the index and distance to the nearest object=
+,
+> + *      based on affinity masks
+> + * @size: Number of objects to be reverse-mapped
+> + * @used: Number of objects added
+> + * @obj: Array of object pointers
+> + */
+> +struct cpu_rmap {
+> +	struct {
+> +		u16     index;
+> +		u16     dist;
+> +	} near[NR_CPUS];
 
-Some stragglers, the most important bit is the bridging multicast
-crash cure.
+This [NR_CPUS] is highly suspect.
 
-1) MIPS build of starfire fails on some 64-bit platforms, fix from Ben
-   Hutchings.
+Are you sure you cant use a per_cpu allocation here ?
 
-2) VLAN flags of ehea inadvertantly changed when modifying other
-   feature flags.  Fix from Breno Leitao.
+> +	u16		size, used;
+> +	void		*obj[0];
+> +};
+> +#define CPU_RMAP_DIST_INF 0xffff
+> +
 
-3) Don't expose kernel addresses in CAN proc files, from Dan
-   Rosenberg.
 
-4) skfp driver probe checks wrong return value for error, from Dan
-   Carpenter.
+> +
+> +/**
+> + * alloc_cpu_rmap - allocate CPU affinity reverse-map
+> + * @size: Number of objects to be mapped
+> + * @flags: Allocation flags e.g. %GFP_KERNEL
+> + */
 
-5) Bridging netfilter expects SKB mac header to be initialized
-   properly, a simplification made to the STP code inadvertantly broke
-   that.  Fix from Florian Westphal.
+I really doubt you need other than GFP_KERNEL. (Especially if you switc=
+h
+to per_cpu alloc ;) )
 
-6) tg3_read_vpd() checks return value incorrectly, fix from David
-   Sterba.
-
-7) Bridging code doesn't handle non-linear SKBs properly when parsing
-   through ipv6 extension headers to get at the IGMP message bits.
-   Fix from Tomas Winkler.
-
-8) There's a rather pervasive CISCO ppp implementation bug regarding a
-   corner case of compression and protocol IDs, add a sysctl to work
-   around this so people can at least function while waiting for
-   various CISCO kit to get updated.  From Stephen Hemminger.
-
-9) Memory leaks in ISDN gigaset and broadcom CNIC drivers, from Jesper
-   Juhl.
-
-10) Changing ring parameters causes oops in atl1, fix from J. K. Cliburn.
-
-11) In ipv4 we ignore preferred source address setting for local routes,
-    fix from Joel Sing.
-
-12) Device leak in atmtcp.c, fix from Julia Lawall.
-
-Please pull, thanks a lot.
-
-The following changes since commit 989d873fc5b6a96695b97738dea8d9f02a60f8ab:
-
-  Merge master.kernel.org:/home/rmk/linux-2.6-arm (2011-01-03 16:37:01 -0800)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Ben Hutchings (1):
-      starfire: Fix dma_addr_t size test for MIPS
-
-Breno Leitao (1):
-      ehea: Avoid changing vlan flags
-
-Dan Carpenter (1):
-      skfp: testing the wrong variable in skfp_driver_init()
-
-Dan Rosenberg (1):
-      CAN: Use inode instead of kernel address for /proc file
-
-Dan Williams (1):
-      ueagle-atm: fix PHY signal initialization race
-
-David Sterba (1):
-      tg3: fix return value check in tg3_read_vpd()
-
-Florian Westphal (1):
-      bridge: stp: ensure mac header is set
-
-J. K. Cliburn (1):
-      atl1: fix oops when changing tx/rx ring params
-
-Jesper Juhl (2):
-      ISDN, Gigaset: Fix memory leak in do_disconnect_req()
-      Broadcom CNIC core network driver: fix mem leak on allocation failures in cnic_alloc_uio_rings()
-
-Joel Sing (1):
-      ipv4/route.c: respect prefsrc for local routes
-
-Julia Lawall (1):
-      drivers/atm/atmtcp.c: add missing atm_dev_put
-
-Tomas Winkler (1):
-      bridge: fix br_multicast_ipv6_rcv for paged skbs
-
-stephen hemminger (1):
-      ppp: allow disabling multilink protocol ID compression
-
- drivers/atm/atmtcp.c            |    5 ++++-
- drivers/isdn/gigaset/capi.c     |    1 +
- drivers/net/atlx/atl1.c         |   10 ++++++++++
- drivers/net/cnic.c              |   10 ++++++++--
- drivers/net/ehea/ehea_ethtool.c |    7 +++++++
- drivers/net/ppp_generic.c       |    9 +++++++--
- drivers/net/skfp/skfddi.c       |    2 +-
- drivers/net/starfire.c          |    2 +-
- drivers/net/tg3.c               |    2 +-
- drivers/usb/atm/ueagle-atm.c    |   22 +++++++++++++++++++---
- net/bridge/br_multicast.c       |   28 ++++++++++++++++++----------
- net/bridge/br_stp_bpdu.c        |    2 ++
- net/can/bcm.c                   |    4 ++--
- net/ipv4/route.c                |    8 ++++++--
- 14 files changed, 87 insertions(+), 25 deletions(-)
+> +struct cpu_rmap *alloc_cpu_rmap(unsigned int size, gfp_t flags)
+> +{
+> +	struct cpu_rmap *rmap;
+> +	unsigned int cpu;
+> +
+> +	/* This is a silly number of objects, and we use u16 indices. */
+> +	if (size > 0xffff)
+> +		return NULL;
+> +
+> +	rmap =3D kzalloc(sizeof(*rmap) + size * sizeof(rmap->obj[0]), flags=
+);
+> +	if (!rmap)
+> +		return NULL;
