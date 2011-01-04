@@ -1,131 +1,99 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: Re: [PATCH v2 05/10] net/fec: add dual fec support for mx28
-Date: Tue, 4 Jan 2011 11:59:16 +0200
-Message-ID: <20110104095916.GE2987@jasper.tkos.co.il>
-References: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
-	<1294133056-21195-6-git-send-email-shawn.guo@freescale.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 1/2] can: add driver for Softing card
+Date: Tue, 04 Jan 2011 11:54:42 +0100
+Message-ID: <4D22FC72.7040706@pengutronix.de>
+References: <20101224091428.GA375@e-circ.dyndns.org>	<4D148788.3010808@pengutronix.de>	<20110103163835.GD320@e-circ.dyndns.org>
+	<20110103.093327.104057155.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: gerg@snapgear.com, B32542@freescale.com, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, u.kleine-koenig@pengutronix.de,
-	w.sang@pengutronix.de, r64343@freescale.com, eric@eukrea.com,
-	bryan.wu@canonical.com, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
-To: Shawn Guo <shawn.guo@freescale.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1294133056-21195-6-git-send-email-shawn.guo@freescale.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: multipart/mixed; boundary="===============5590313513036385914=="
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110103.093327.104057155.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Shawn,
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============5590313513036385914==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigAC4AF823FABD19FAB1D2CD1D"
 
-On Tue, Jan 04, 2011 at 05:24:11PM +0800, Shawn Guo wrote:
-> This patch is to add mx28 dual fec support. Here are some key notes
-> for mx28 fec controller.
-> 
->  - mx28 fec design made an assumption that it runs on a
->    big-endian system, which is incorrect. As the result, the
->    driver has to swap every frame going to and coming from
->    the controller.
->  - external phys can only be configured by fec0, which means
->    fec1 can not work independently and both phys need to be
->    configured by mii_bus attached on fec0.
->  - mx28 fec reset will get mac address registers reset too.
->  - MII/RMII mode and 10M/100M speed are configured differently
->    from i.mx/mxs fec controller.
->  - ETHER_EN bit must be set to get interrupt work.
-> 
-> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> ---
-> Changes for v2:
->  - Use module parameter fec.macaddr over new kernel command line
->    fec_mac to pass mac address
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigAC4AF823FABD19FAB1D2CD1D
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Since you introduce this new kernel command line parameter in patch #3 of this 
-series, why not just make it right in the first place? This should make both 
-patches smaller and easier for review.
+On 01/03/2011 06:33 PM, David Miller wrote:
+> From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+> Date: Mon, 3 Jan 2011 17:38:35 +0100
+>=20
+>> On Fri, Dec 24, 2010 at 12:44:08PM +0100, Marc Kleine-Budde wrote:
+>>>
+>>>>> hmmm..all stuff behind dpram is __iomem, isn't it? I think it shoul=
+d
+>>>>> only be accessed with via the ioread/iowrite operators. Please chec=
+k
+>>>> I did an ioremap_nocache. Since it is unaligned, ioread/iowrite woul=
+d render
+>>>> a lot of statements.
+>>>
+>>> The thing is, ioremapped mem should not be accessed directly. Instead=
 
->  - Update comment in fec_get_mac() to stop using confusing word
->    "default"
->  - Fix copyright breakage in fec.h
+>>> ioread/iowrite should be used. The softing driver should work on non =
+x86
+>>> platforms, too.
+>>>
+>> I use __attribute__((packed)) structs to refer to the iomemory.
+>> To read an unaligned uint16_t, is should then use 2 readb()'s ??
+>>
+>> I could of course turn that sequence into a macro ....
+>=20
+> Yes, this is what you'll need to do.
 
-Ditto.
+There's ioread() and get_unaligned(). Do we have a combination of this?
 
->  drivers/net/Kconfig |    7 ++-
->  drivers/net/fec.c   |  139 ++++++++++++++++++++++++++++++++++++++++----------
->  drivers/net/fec.h   |    5 +-
->  include/linux/fec.h |    3 +-
->  4 files changed, 120 insertions(+), 34 deletions(-)
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-[snip]
 
-> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-> index f147508..b2b3e37 100644
-> --- a/drivers/net/fec.c
-> +++ b/drivers/net/fec.c
-> @@ -17,6 +17,8 @@
->   *
->   * Bug fixes and cleanup by Philippe De Muyter (phdm@macqel.be)
->   * Copyright (c) 2004-2006 Macq Electronique SA.
-> + *
-> + * Copyright (C) 2010 Freescale Semiconductor, Inc.
->   */
->  
->  #include <linux/module.h>
-> @@ -45,21 +47,34 @@
->  
->  #include <asm/cacheflush.h>
->  
-> -#ifndef CONFIG_ARCH_MXC
-> +#if !defined(CONFIG_ARCH_MXC) && !defined(CONFIG_SOC_IMX28)
->  #include <asm/coldfire.h>
->  #include <asm/mcfsim.h>
->  #endif
->  
->  #include "fec.h"
->  
-> -#ifdef CONFIG_ARCH_MXC
-> -#include <mach/hardware.h>
+--------------enigAC4AF823FABD19FAB1D2CD1D
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Since you now remove mach/hardware.h for ARCH_MXC, does this build for all 
-i.MX variants?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
 
-> +#ifdef CONFIG_SOC_IMX28
-> +/*
-> + * mx28 does not have MIIGSK registers
-> + */
-> +#undef FEC_MIIGSK_ENR
-> +#include <mach/mxs.h>
-> +#else
-> +#define cpu_is_mx28()	(0)
-> +#endif
+iEYEARECAAYFAk0i/HIACgkQjTAFq1RaXHOKlQCfXE6dKf/EvCls4MUAtCLNV80a
+vEQAnjVwBGA4KFeKKd/OVRsvuh16FTaD
+=EdEO
+-----END PGP SIGNATURE-----
 
-This breaks kernels for multiple archs (e.g. i.MX28 and i.MX25). Please use 
-run-time detection of CPU type, and do the MII/RMII etc. configuration 
-accordingly.
+--------------enigAC4AF823FABD19FAB1D2CD1D--
 
-> +
-> +#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
->  #define FEC_ALIGNMENT	0xf
->  #else
->  #define FEC_ALIGNMENT	0x3
->  #endif
+--===============5590313513036385914==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-[snip]
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
-baruch
-
--- 
-                                                     ~. .~   Tk Open Systems
-=}------------------------------------------------ooO--U--Ooo------------{=
-   - baruch@tkos.co.il - tel: +972.2.679.5364, http://www.tkos.co.il -
+--===============5590313513036385914==--
