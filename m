@@ -1,62 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
-Date: Tue, 04 Jan 2011 15:43:07 +0000
-Message-ID: <1294155787.3636.4.camel@bwh-desktop>
-References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>
-	 <AANLkTiki5ZePtdj4ni2++z1KvHOttev1ZciaV-bRFbWA@mail.gmail.com>
-	 <20110103.110244.183045594.davem@davemloft.net>
-	 <1294083039.3167.184.camel@localhost> <4D2228E0.9030908@intel.com>
-	 <1294085724.3167.202.camel@localhost>
-	 <AANLkTimFArsv1gF2BJabvbbQujpHdPC=bO204wkMbR_Z@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] net_sched: mark packet staying on queue too long
+Date: Tue, 4 Jan 2011 08:05:17 -0800
+Message-ID: <20110104080517.104de07c@nehalam>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	<20101220232020.GB2052@del.dom.local>
+	<1292887689.2627.150.camel@edumazet-laptop>
+	<20101220235209.GA1865@del.dom.local>
+	<1292939574.6535.27.camel@mojatatu>
+	<AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+	<20101221223704.GA1979@del.dom.local>
+	<1293111333.11306.170.camel@mojatatu>
+	<1294003631.2535.253.camel@edumazet-laptop>
+	<20110103095842.7677130d@nehalam>
+	<Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
+	<1294153329.3579.99.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: Jesper Dangaard Brouer <hawk@diku.dk>, hadi@cyberus.ca,
+	Jarek Poplawski <jarkao2@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:3623 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002Ab1ADPnK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 10:43:10 -0500
-In-Reply-To: <AANLkTimFArsv1gF2BJabvbbQujpHdPC=bO204wkMbR_Z@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:40347 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752025Ab1ADQFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jan 2011 11:05:21 -0500
+In-Reply-To: <1294153329.3579.99.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-01-03 at 19:25 -0800, Tom Herbert wrote:
-> >> The general idea is to at least keep the traffic local to one TX/RX
-> >> queue pair so that if we cannot match the queue pair to the application,
-> >> perhaps the application can be affinitized to match up with the queue
-> >> pair.  Otherwise we end up with traffic getting routed to one TX queue
-> >> on one CPU, and the RX being routed to another queue on perhaps a
-> >> different CPU and it becomes quite difficult to match up the queues and
-> >> the applications.
-> >
-> > Right.  That certainly seems like a Good Thing, though I believe it can
-> > be implemented generically by recording the RX queue number on the
-> > socket:
-> >
-> > http://article.gmane.org/gmane.linux.network/158477
-> >
-> I still don't see the value in doing this RX/TX queue pairing (unless
-> you're considering the possibility of explicitly binding sockets to
-> queue pairs).
+I am playing with Quick Fair Queue (QFQ) from FreeBSD.
+The authors started with Linux first and sent me their version,
+it needs some work first.
 
-Sure, the real value is in getting TX completions to line up with TX
-initiation and queue pairing is not a reliable way to do that.
+http://info.iet.unipi.it/~luigi/qfq/
 
-> XPS should be sufficient mechanism to get affinity on
-> sending side.
-[...]
-
-At least if it's configured properly... or if this is automated using my
-irq_cpu_rmap.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+http://www.google.com/search?client=ubuntu&channel=fs&q=QFQ+rizzo&ie=utf-8&oe=utf-8
