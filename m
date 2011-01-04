@@ -1,34 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
 Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue, 04 Jan 2011 08:33:27 +0100
-Message-ID: <1294126407.2711.39.camel@edumazet-laptop>
+Date: Tue, 4 Jan 2011 16:07:08 +0800
+Message-ID: <AANLkTimDms0FTmXWf9WSpcxwZXVVSXQj44jZ2Ag8Osuk@mail.gmail.com>
 References: <1294122260-13245-1-git-send-email-jsing@google.com>
-	 <1294125880.2711.34.camel@edumazet-laptop>
+ <1294125880.2711.34.camel@edumazet-laptop> <1294126407.2711.39.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Joel Sing <jsing@google.com>
+Cc: Joel Sing <jsing@google.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:33307 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750897Ab1ADHdc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 02:33:32 -0500
-Received: by wwa36 with SMTP id 36so14908345wwa.1
-        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 23:33:30 -0800 (PST)
-In-Reply-To: <1294125880.2711.34.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:36105 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751910Ab1ADIH3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 03:07:29 -0500
+Received: by fxm20 with SMTP id 20so13857564fxm.19
+        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 00:07:28 -0800 (PST)
+In-Reply-To: <1294126407.2711.39.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 04 janvier 2011 =C3=A0 08:24 +0100, Eric Dumazet a =C3=A9crit =
-:
+On Tue, Jan 4, 2011 at 3:33 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le mardi 04 janvier 2011 =E0 08:24 +0100, Eric Dumazet a =E9crit :
+>
+>> Please use FIB_RES_PREFSRC(res)
+>>
+>
+> Hmm no, this is not applicable, but this could be shorter :
+>
+> fl.fl4_src =3D res.fi->fib_prefsrc ? : fl.fl4_dst;
+>
+>
 
-> Please use FIB_RES_PREFSRC(res)
->=20
+I think Joe may object the use of "? :"
 
-Hmm no, this is not applicable, but this could be shorter :
-
-fl.fl4_src =3D res.fi->fib_prefsrc ? : fl.fl4_dst;
-
-
-
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
