@@ -1,102 +1,47 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH net-next-2.6 1/2] can: add driver for Softing card
-Date: Tue, 04 Jan 2011 13:25:22 +0100
-Message-ID: <4D2311B2.7000401@pengutronix.de>
-References: <20101223093627.GA325@e-circ.dyndns.org> <20101223094302.GB325@e-circ.dyndns.org> <4D135BC3.6070707@pengutronix.de> <20101224091428.GA375@e-circ.dyndns.org> <4D148788.3010808@pengutronix.de> <20110104121944.GB332@e-circ.dyndns.org>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [net-next-2.6 PATCH v4 1/2] net: implement mechanism for HW
+ based QOS
+Date: Tue, 04 Jan 2011 07:32:19 -0500
+Message-ID: <1294144339.4927.79.camel@mojatatu>
+References: <20110104030553.13187.69135.stgit@jf-dev1-dcblab>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigEE2C4DD5A110CA53B8AD56C6"
-Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
-To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jarkao2@gmail.com, shemminger@vyatta.com,
+	tgraf@infradead.org, eric.dumazet@gmail.com,
+	bhutchings@solarflare.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:55008 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983Ab1ADMZ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 07:25:29 -0500
-In-Reply-To: <20110104121944.GB332@e-circ.dyndns.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:32869 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895Ab1ADMcR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 07:32:17 -0500
+Received: by vws16 with SMTP id 16so6038579vws.19
+        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 04:32:17 -0800 (PST)
+In-Reply-To: <20110104030553.13187.69135.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigEE2C4DD5A110CA53B8AD56C6
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2011-01-03 at 19:05 -0800, John Fastabend wrote:
+[..]
 
-On 01/04/2011 01:19 PM, Kurt Van Dijck wrote:
-> On Fri, Dec 24, 2010 at 12:44:08PM +0100, Marc Kleine-Budde wrote:
->>
->>>> hmmm..all stuff behind dpram is __iomem, isn't it? I think it should=
+> To steer the skb we mask out the lower 4 bits of the priority
+> and allow the hardware to configure upto 15 distinct classes
+> of traffic. This is expected to be sufficient for most applications
+> at any rate it is more then the 8021Q spec designates and is
+> equal to the number of prio bands currently implemented in
+> the default qdisc.
 
->>>> only be accessed with via the ioread/iowrite operators. Please check=
+This seems very hardware specific.
+i.e may be true for 8021q (or like 8021q) type hardware and therefore
+your qdisc. 
+There are people with hardware that has thousands of hardware
+flow queues (or at least give impressions as such). Maybe a naming
+convention prefixed with 8021Q would be nicer or moving it into
+your qdisc infrastructure and export it so drivers needing it can.
 
->>> I did an ioremap_nocache. Since it is unaligned, ioread/iowrite would=
- render
->>> a lot of statements.
->>
->> The thing is, ioremapped mem should not be accessed directly. Instead
->> ioread/iowrite should be used. The softing driver should work on non x=
-86
->> platforms, too.
->>
->>>> your code with sparse (compile with "make C=3D2").
->>> (?)
->>
->> Sparse, a static syntax analyser tool, see "Documentation/sparse.txt".=
+cheers,
+jamal
 
->> It throws the following warnings on your driver:
->>
->>> make drivers/net/can/softing/softing.ko C=3D2
->>>   CHK     include/linux/version.h
->>>   CHK     include/generated/utsrelease.h
->>>   CALL    scripts/checksyscalls.sh
->>>   CHECK   scripts/mod/empty.c
->>>   CHECK   drivers/net/can/softing/softing_main.c
->>> drivers/net/can/softing/softing_main.c:98:15: warning: incorrect type=
- in argument 1 (different address spaces)
->>> drivers/net/can/softing/softing_main.c:98:15:    expected void volati=
-le [noderef] <asn:2>*dst
->>> drivers/net/can/softing/softing_main.c:98:15:    got unsigned char [u=
-sertype] *[assigned] ptr
-> [...]
->>
->> You should start with fixing the assignment of the ioremapped memory
->> (drivers/net/can/softing/softing_main.c:835), the fix the rest.
->>
-> (Thanks for the explanation)^2.
->=20
-> I left my code now with the only warning from sparse:
-
-Good!
-
-> warning: Using plain integer as NULL pointer
->=20
-> That means, I got all __iomem references fixed.
-> Is this '0' instead of 'NULL' a big problem? I got plenty of those.
-
-No problem for the compiler, but it's bad style :)
-Please fix it.
-
-cheers, Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigEE2C4DD5A110CA53B8AD56C6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk0jEbYACgkQjTAFq1RaXHOdbQCgjHlvYZksdVw8xiaGcMg3V8QK
-CuEAn2jJQOeDs74egC3Vaqp6qz+CXLSK
-=Gkez
------END PGP SIGNATURE-----
-
---------------enigEE2C4DD5A110CA53B8AD56C6--
