@@ -1,47 +1,247 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 #2 00/08] r8169 driver updates
-Date: Tue, 04 Jan 2011 11:38:32 -0800 (PST)
-Message-ID: <20110104.113832.179923880.davem@davemloft.net>
-References: <20110104010716.GA5957@electric-eye.fr.zoreil.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/2] genirq: Add IRQ affinity notifiers
+Date: Tue, 04 Jan 2011 19:38:39 +0000
+Message-ID: <1294169919.3636.33.camel@bwh-desktop>
+References: <1294169842.3636.31.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hayeswang@realtek.com, benh@debian.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32938
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751378Ab1ADTiB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 14:38:01 -0500
-In-Reply-To: <20110104010716.GA5957@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294169842.3636.31.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Tue, 4 Jan 2011 02:07:16 +0100
+When initiating I/O on a multiqueue and multi-IRQ device, we may want
+to select a queue for which the response will be handled on the same
+or a nearby CPU.  This requires a reverse-map of IRQ affinity.  Add a
+notification mechanism to support this.
 
-> The following series adds on top of the previous one :
-> - missing TxPacketMax and FW_LOADER (Ben Hutchings)
-> - wrong OCPDR_GPHY_REG offset and mask.
->   Hayes, are you ok with this one ?
-> 
-> The RTL_GIGA_MAC_VER_27 changes suggested by Hayes at the end of the
-> previous series are not included yet (feedback anyone ?).
-> 
-> The previous series included :
-> - Hayes'firmware removal. The firmware is already included in linux-firmware.
-> - my sauce to diminish the gap between the in-kernel r8169 driver
->   and Realtek's one(s).
-> 
-> The series is available as:
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-davem
+This is based closely on work by Thomas Gleixner <tglx@linutronix.de>.
 
-I applied all of these patches, thanks Francois.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ include/linux/interrupt.h |   41 +++++++++++++++++++++++
+ include/linux/irqdesc.h   |    3 ++
+ kernel/irq/manage.c       |   81 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 125 insertions(+), 0 deletions(-)
 
-Because I am an idiot, I didn't notice you had a GIT tree with this
-stuff prepared for me until after I pushed the patches out to
-kernel.org :-/
+diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
+index 55e0d42..09d6039 100644
+--- a/include/linux/interrupt.h
++++ b/include/linux/interrupt.h
+@@ -14,6 +14,8 @@
+ #include <linux/smp.h>
+ #include <linux/percpu.h>
+ #include <linux/hrtimer.h>
++#include <linux/kref.h>
++#include <linux/workqueue.h>
+ 
+ #include <asm/atomic.h>
+ #include <asm/ptrace.h>
+@@ -231,6 +233,28 @@ static inline void resume_device_irqs(void) { };
+ static inline int check_wakeup_irqs(void) { return 0; }
+ #endif
+ 
++/**
++ * struct irq_affinity_notify - context for notification of IRQ affinity changes
++ * @irq:		Interrupt to which notification applies
++ * @kref:		Reference count, for internal use
++ * @work:		Work item, for internal use
++ * @notify:		Function to be called on change.  This will be
++ *			called in process context.
++ * @release:		Function to be called on release.  This will be
++ *			called in process context.  Once registered, the
++ *			structure must only be freed when this function is
++ *			called or later.
++ */
++struct irq_affinity_notify {
++        unsigned int irq;
++        struct kref kref;
++#if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_HARDIRQS)
++        struct work_struct work;
++#endif
++        void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
++        void (*release)(struct kref *ref);
++};
++
+ #if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_HARDIRQS)
+ 
+ extern cpumask_var_t irq_default_affinity;
+@@ -240,6 +264,13 @@ extern int irq_can_set_affinity(unsigned int irq);
+ extern int irq_select_affinity(unsigned int irq);
+ 
+ extern int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m);
++extern int
++irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify);
++
++static inline void irq_run_affinity_notifiers(void)
++{
++	flush_scheduled_work();
++}
+ #else /* CONFIG_SMP */
+ 
+ static inline int irq_set_affinity(unsigned int irq, const struct cpumask *m)
+@@ -259,6 +290,16 @@ static inline int irq_set_affinity_hint(unsigned int irq,
+ {
+ 	return -EINVAL;
+ }
++
++static inline int
++irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
++{
++	return 0;
++}
++
++static inline void irq_run_affinity_notifiers(void)
++{
++}
+ #endif /* CONFIG_SMP && CONFIG_GENERIC_HARDIRQS */
+ 
+ #ifdef CONFIG_GENERIC_HARDIRQS
+diff --git a/include/linux/irqdesc.h b/include/linux/irqdesc.h
+index 979c68c..5e0d2e4 100644
+--- a/include/linux/irqdesc.h
++++ b/include/linux/irqdesc.h
+@@ -8,6 +8,7 @@
+  * For now it's included from <linux/irq.h>
+  */
+ 
++struct irq_affinity_notify;
+ struct proc_dir_entry;
+ struct timer_rand_state;
+ /**
+@@ -24,6 +25,7 @@ struct timer_rand_state;
+  * @last_unhandled:	aging timer for unhandled count
+  * @irqs_unhandled:	stats field for spurious unhandled interrupts
+  * @lock:		locking for SMP
++ * @affinity_notify:	context for notification of affinity changes
+  * @pending_mask:	pending rebalanced interrupts
+  * @threads_active:	number of irqaction threads currently running
+  * @wait_for_threads:	wait queue for sync_irq to wait for threaded handlers
+@@ -70,6 +72,7 @@ struct irq_desc {
+ 	raw_spinlock_t		lock;
+ #ifdef CONFIG_SMP
+ 	const struct cpumask	*affinity_hint;
++	struct irq_affinity_notify *affinity_notify;
+ #ifdef CONFIG_GENERIC_PENDING_IRQ
+ 	cpumask_var_t		pending_mask;
+ #endif
+diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
+index 91a5fa2..fb6525a 100644
+--- a/kernel/irq/manage.c
++++ b/kernel/irq/manage.c
+@@ -134,6 +134,10 @@ int irq_set_affinity(unsigned int irq, const struct cpumask *cpumask)
+ 		irq_set_thread_affinity(desc);
+ 	}
+ #endif
++	if (desc->affinity_notify) {
++		kref_get(&desc->affinity_notify->kref);
++		schedule_work(&desc->affinity_notify->work);
++	}
+ 	desc->status |= IRQ_AFFINITY_SET;
+ 	raw_spin_unlock_irqrestore(&desc->lock, flags);
+ 	return 0;
+@@ -155,6 +159,79 @@ int irq_set_affinity_hint(unsigned int irq, const struct cpumask *m)
+ }
+ EXPORT_SYMBOL_GPL(irq_set_affinity_hint);
+ 
++static void irq_affinity_notify(struct work_struct *work)
++{
++	struct irq_affinity_notify *notify =
++		container_of(work, struct irq_affinity_notify, work);
++	struct irq_desc *desc = irq_to_desc(notify->irq);
++	cpumask_var_t cpumask;
++	unsigned long flags;
++
++	if (!desc)
++		goto out;
++
++	if (!alloc_cpumask_var(&cpumask, GFP_KERNEL))
++		goto out;
++
++	raw_spin_lock_irqsave(&desc->lock, flags);
++#ifdef CONFIG_GENERIC_PENDING_IRQ
++	if (desc->status & IRQ_MOVE_PENDING)
++		cpumask_copy(cpumask, desc->pending_mask);
++	else
++#endif
++		cpumask_copy(cpumask, desc->affinity);
++	raw_spin_unlock_irqrestore(&desc->lock, flags);
++
++	notify->notify(notify, cpumask);
++
++	free_cpumask_var(cpumask);
++out:
++	kref_put(&notify->kref, notify->release);
++}
++
++/**
++ *	irq_set_affinity_notifier - control notification of IRQ affinity changes
++ *	@irq:		Interrupt for which to enable/disable notification
++ *	@notify:	Context for notification, or %NULL to disable
++ *			notification.  Function pointers must be initialised;
++ *			the other fields will be initialised by this function.
++ *
++ *	Must be called in process context.  Notification may only be enabled
++ *	after the IRQ is allocated but before it is bound with request_irq()
++ *	and must be disabled before the IRQ is freed using free_irq().
++ */
++int
++irq_set_affinity_notifier(unsigned int irq, struct irq_affinity_notify *notify)
++{
++	struct irq_desc *desc = irq_to_desc(irq);
++	struct irq_affinity_notify *old_notify;
++	unsigned long flags;
++
++	/* The release function is promised process context */
++	might_sleep();
++
++	if (!desc)
++		return -EINVAL;
++
++	/* Complete initialisation of *notify */
++	if (notify) {
++		notify->irq = irq;
++		kref_init(&notify->kref);
++		INIT_WORK(&notify->work, irq_affinity_notify);
++	}
++
++	raw_spin_lock_irqsave(&desc->lock, flags);
++	old_notify = desc->affinity_notify;
++	desc->affinity_notify = notify;
++	raw_spin_unlock_irqrestore(&desc->lock, flags);
++
++	if (old_notify)
++		kref_put(&old_notify->kref, old_notify->release);
++	
++	return 0;
++}
++EXPORT_SYMBOL_GPL(irq_set_affinity_notifier);
++
+ #ifndef CONFIG_AUTO_IRQ_AFFINITY
+ /*
+  * Generic version of the affinity autoselector.
+@@ -1004,6 +1081,10 @@ void free_irq(unsigned int irq, void *dev_id)
+ 	if (!desc)
+ 		return;
+ 
++#ifdef CONFIG_SMP
++	BUG_ON(desc->affinity_notify);
++#endif
++
+ 	chip_bus_lock(desc);
+ 	kfree(__free_irq(irq, dev_id));
+ 	chip_bus_sync_unlock(desc);
+-- 
+1.7.3.4
 
-Don't let this discourage you, using a GIT tree helps me a lot and I
-just didn't expect it from you for whatever reason.  :-) So please
-keep doing this and I will pull directly from your GIT tree next time.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
