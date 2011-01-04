@@ -1,41 +1,73 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue, 4 Jan 2011 16:07:08 +0800
-Message-ID: <AANLkTimDms0FTmXWf9WSpcxwZXVVSXQj44jZ2Ag8Osuk@mail.gmail.com>
-References: <1294122260-13245-1-git-send-email-jsing@google.com>
- <1294125880.2711.34.camel@edumazet-laptop> <1294126407.2711.39.camel@edumazet-laptop>
+From: "Sebastian J. Bronner" <sebastian.bronner@d9t.de>
+Subject: Re: bridge not routing packets via source bridgeport
+Date: Tue, 04 Jan 2011 09:25:52 +0100
+Message-ID: <4D22D990.7030409@d9t.de>
+References: <4D220CFB.5060300@d9t.de> <1294080135.2892.1152.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Joel Sing <jsing@google.com>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, Daniel Kraft <daniel.kraft@d9t.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36105 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751910Ab1ADIH3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 03:07:29 -0500
-Received: by fxm20 with SMTP id 20so13857564fxm.19
-        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 00:07:28 -0800 (PST)
-In-Reply-To: <1294126407.2711.39.camel@edumazet-laptop>
+Received: from sj232.sb.d9t.de ([94.186.148.168]:54819 "EHLO
+	zimbra.pool.b.d9tcloud.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752371Ab1ADIZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 03:25:58 -0500
+In-Reply-To: <1294080135.2892.1152.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 4, 2011 at 3:33 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le mardi 04 janvier 2011 =E0 08:24 +0100, Eric Dumazet a =E9crit :
->
->> Please use FIB_RES_PREFSRC(res)
->>
->
-> Hmm no, this is not applicable, but this could be shorter :
->
-> fl.fl4_src =3D res.fi->fib_prefsrc ? : fl.fl4_dst;
->
->
+On 03.01.2011 19:42, Eric Dumazet wrote:
+> Le lundi 03 janvier 2011 =C3=A0 18:52 +0100, Sebastian J. Bronner a =C3=
+=A9crit :
+>> we recently upgraded from 2.6.32.25 to 2.6.35.24 and discovered that=
+ our
+>> virtual machines can no longer access their own external IP addresse=
+s.
+>> Testing revealed that 2.6.34 was the last version not to have the
+>> problem. 2.6.36 still had it. But on to the details.
 
-I think Joe may object the use of "? :"
+[ Details snipped ]
 
+> random guess: maybe rp_filter hits you ?
+>=20
+>=20
+> With 2.6.36, a new SNMP counter was added,=20
+> "netstat -s | grep IPReversePathFilter"
+
+Thanks for your guess, Eric.
+
+Unfortunately, that didn't change anything.
+
+According to the documentation at
+
+http://lartc.org/howto/lartc.kernel.html
+
+that parameter is to prevent _responses_ leaving through a different
+interface that the original packet came in on. So, I wouldn't expect it
+to have any impact on _routed packets_.
+
+In my original e-mail, I forgot to mention something I noticed while
+debugging:
+
+If i put the bridge into promiscuous mode, then suddenly the packets ar=
+e
+routed.
+
+# ip link set promisc on dev virbr1
+
+Cheers,
+Sebastian
 --=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+*Sebastian J. Bronner*
+Administrator
+
+D9T GmbH - Magirusstr. 39/1 - D-89077 Ulm
+Tel: +49 731 1411 696-0 - Fax: +49 731 3799-220
+
+Gesch=C3=A4ftsf=C3=BChrer: Daniel Kraft
+Sitz und Register: Ulm, HRB 722416
+Ust.IdNr: DE 260484638
+
+http://d9t.de - D9T High Performance Hosting
+info@d9t.de
