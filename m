@@ -1,57 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH 0/2] IRQ affinity reverse-mapping
-Date: Tue, 04 Jan 2011 19:37:22 +0000
-Message-ID: <1294169842.3636.31.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 #2 00/08] r8169 driver updates
+Date: Tue, 04 Jan 2011 11:38:32 -0800 (PST)
+Message-ID: <20110104.113832.179923880.davem@davemloft.net>
+References: <20110104010716.GA5957@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <therbert@google.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hayeswang@realtek.com, benh@debian.org
+To: romieu@fr.zoreil.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32938
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751378Ab1ADTiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 14:38:01 -0500
+In-Reply-To: <20110104010716.GA5957@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch series is intended to support queue selection on multiqueue
-IRQ-per-queue network devices (accelerated RFS and XPS-MQ) and
-potentially queue selection for other classes of multiqueue device.
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 4 Jan 2011 02:07:16 +0100
 
-The first patch implements IRQ affinity notifiers, based on the outline
-that Thomas wrote in response to my earlier patch series for accelerated RFS.
+> The following series adds on top of the previous one :
+> - missing TxPacketMax and FW_LOADER (Ben Hutchings)
+> - wrong OCPDR_GPHY_REG offset and mask.
+>   Hayes, are you ok with this one ?
+> 
+> The RTL_GIGA_MAC_VER_27 changes suggested by Hayes at the end of the
+> previous series are not included yet (feedback anyone ?).
+> 
+> The previous series included :
+> - Hayes'firmware removal. The firmware is already included in linux-firmware.
+> - my sauce to diminish the gap between the in-kernel r8169 driver
+>   and Realtek's one(s).
+> 
+> The series is available as:
+> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-davem
 
-The second patch is a generalisation of the CPU affinity reverse-
-mapping, plus functions to maintain such a mapping based on the new IRQ
-affinity notifiers.
+I applied all of these patches, thanks Francois.
 
-I would like to be able to use this functionality in networking for
-2.6.38.  Thomas, if you are happy with this, could these changes go
-through net-next-2.6?  Alternately, if Linus pulls from linux-2.6-tip
-and David pulls from Linus during the merge window, I can (re-)submit
-the dependent changes after that.
+Because I am an idiot, I didn't notice you had a GIT tree with this
+stuff prepared for me until after I pushed the patches out to
+kernel.org :-/
 
-Ben.
-
-Ben Hutchings (2):
-  genirq: Add IRQ affinity notifiers
-  lib: cpu_rmap: CPU affinity reverse-mapping
-
- include/linux/cpu_rmap.h  |   73 +++++++++++++
- include/linux/interrupt.h |   41 +++++++
- include/linux/irqdesc.h   |    3 +
- kernel/irq/manage.c       |   81 ++++++++++++++
- lib/Kconfig               |    4 +
- lib/Makefile              |    2 +
- lib/cpu_rmap.c            |  262 +++++++++++++++++++++++++++++++++++++++++++++
- 7 files changed, 466 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/cpu_rmap.h
- create mode 100644 lib/cpu_rmap.c
-
--- 
-1.7.3.4
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Don't let this discourage you, using a GIT tree helps me a lot and I
+just didn't expect it from you for whatever reason.  :-) So please
+keep doing this and I will pull directly from your GIT tree next time.
