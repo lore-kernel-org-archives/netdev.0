@@ -1,72 +1,68 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [RFC PATCH 0/3] Simplified 16 bit Toeplitz hash algorithm
-Date: Mon, 3 Jan 2011 19:25:38 -0800
-Message-ID: <AANLkTimFArsv1gF2BJabvbbQujpHdPC=bO204wkMbR_Z@mail.gmail.com>
-References: <20101218004210.28602.18499.stgit@gitlad.jf.intel.com>
-	<AANLkTiki5ZePtdj4ni2++z1KvHOttev1ZciaV-bRFbWA@mail.gmail.com>
-	<20110103.110244.183045594.davem@davemloft.net>
-	<1294083039.3167.184.camel@localhost>
-	<4D2228E0.9030908@intel.com>
-	<1294085724.3167.202.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Joel Sing <jsing@google.com>
+Subject: [PATCH] ipv4/route.c: respect prefsrc for local routes
+Date: Tue,  4 Jan 2011 17:24:20 +1100
+Message-ID: <1294122260-13245-1-git-send-email-jsing@google.com>
+Cc: Joel Sing <jsing@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:27646 "EHLO
+Received: from smtp-out.google.com ([216.239.44.51]:50973 "EHLO
 	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941Ab1ADDZm convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 22:25:42 -0500
-Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
-	by smtp-out.google.com with ESMTP id p043PeaH019923
-	for <netdev@vger.kernel.org>; Mon, 3 Jan 2011 19:25:40 -0800
-Received: from pvg7 (pvg7.prod.google.com [10.241.210.135])
-	by hpaq2.eem.corp.google.com with ESMTP id p043PcSt027647
-	for <netdev@vger.kernel.org>; Mon, 3 Jan 2011 19:25:39 -0800
-Received: by pvg7 with SMTP id 7so5392351pvg.25
-        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 19:25:38 -0800 (PST)
-In-Reply-To: <1294085724.3167.202.camel@localhost>
+	with ESMTP id S1750886Ab1ADGYs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 01:24:48 -0500
+Received: from hpaq1.eem.corp.google.com (hpaq1.eem.corp.google.com [172.25.149.1])
+	by smtp-out.google.com with ESMTP id p046Olrc015007
+	for <netdev@vger.kernel.org>; Mon, 3 Jan 2011 22:24:47 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> The general idea is to at least keep the traffic local to one TX/RX
->> queue pair so that if we cannot match the queue pair to the applicat=
-ion,
->> perhaps the application can be affinitized to match up with the queu=
-e
->> pair. =A0Otherwise we end up with traffic getting routed to one TX q=
-ueue
->> on one CPU, and the RX being routed to another queue on perhaps a
->> different CPU and it becomes quite difficult to match up the queues =
-and
->> the applications.
->
-> Right. =A0That certainly seems like a Good Thing, though I believe it=
- can
-> be implemented generically by recording the RX queue number on the
-> socket:
->
-> http://article.gmane.org/gmane.linux.network/158477
->
-I still don't see the value in doing this RX/TX queue pairing (unless
-you're considering the possibility of explicitly binding sockets to
-queue pairs).  XPS should be sufficient mechanism to get affinity on
-sending side.  Also, don't know how the queue paring model will be
-maintained when using priority queues on transmit-- transmit is likely
-to be asymmetric to receive side.  The ability to seamlessly decouple
-transmit queues and receive queues seems like a nice property.
+The preferred source address is currently ignored for local routes,
+which results in all local connections having a src address that is the
+same as the local dst address. Fix this by respecting the preferred source
+address when it is provided for local routes.
 
->> Since the approach is based on Toeplitz it can be applied to all
->> hardware capable of generating a Toeplitz based hash and as a result=
- it
->> would likely also work in a much more vendor neutral kind of way tha=
-n
->> Flow Director currently does.
->
-The device hash should already be available in sk_rxhash, so maybe
-that could be used for this purpose.  I think it is a good property to
-keeping treat the device hashes as opaque values, any reasonable
-32-bit 4-tuple hash should work equally well in the stack.
+This bug can be demonstrated as follows:
+
+ # ifconfig dummy0 192.168.0.1
+ # ip route show table local | grep local.*dummy0
+ local 192.168.0.1 dev dummy0  proto kernel  scope host  src 192.168.0.1
+ # ip route change table local local 192.168.0.1 dev dummy0 \
+     proto kernel scope host src 127.0.0.1
+ # ip route show table local | grep local.*dummy0
+ local 192.168.0.1 dev dummy0  proto kernel  scope host  src 127.0.0.1
+
+We now establish a local connection and verify the source IP
+address selection:
+
+ # nc -l 192.168.0.1 3128 &
+ # nc 192.168.0.1 3128 &
+ # netstat -ant | grep 192.168.0.1:3128.*EST
+ tcp        0      0 192.168.0.1:3128        192.168.0.1:33228 ESTABLISHED
+ tcp        0      0 192.168.0.1:33228       192.168.0.1:3128  ESTABLISHED
+
+Signed-off-by: Joel Sing <jsing@google.com>
+---
+ net/ipv4/route.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index df948b0..93bfd95 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2649,8 +2649,12 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
+ 	}
+ 
+ 	if (res.type == RTN_LOCAL) {
+-		if (!fl.fl4_src)
+-			fl.fl4_src = fl.fl4_dst;
++		if (!fl.fl4_src) {
++			if (res.fi->fib_prefsrc)
++				fl.fl4_src = res.fi->fib_prefsrc;
++			else
++				fl.fl4_src = fl.fl4_dst;
++		}
+ 		dev_out = net->loopback_dev;
+ 		fl.oif = dev_out->ifindex;
+ 		res.fi = NULL;
+-- 
+1.7.3.1
+
