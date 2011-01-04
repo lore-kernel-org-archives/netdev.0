@@ -1,39 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: typos in comments in include/linux/igmp.h
-Date: Tue, 04 Jan 2011 11:30:01 -0800 (PST)
-Message-ID: <20110104.113001.28819146.davem@davemloft.net>
-References: <4D23709C.1040408@orange.fr>
+Subject: Re: [PATCH] ipv4/route.c: respect prefsrc for local routes
+Date: Tue, 04 Jan 2011 11:35:51 -0800 (PST)
+Message-ID: <20110104.113551.102540724.davem@davemloft.net>
+References: <1294122260-13245-1-git-send-email-jsing@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: fx.lebail@orange.fr
+To: jsing@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52835
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50305
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751014Ab1ADT33 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 14:29:29 -0500
-In-Reply-To: <4D23709C.1040408@orange.fr>
+	by vger.kernel.org with ESMTP id S1751014Ab1ADTfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 14:35:19 -0500
+In-Reply-To: <1294122260-13245-1-git-send-email-jsing@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois-Xavier Le Bail <fx.lebail@orange.fr>
-Date: Tue, 04 Jan 2011 20:10:20 +0100
+From: Joel Sing <jsing@google.com>
+Date: Tue,  4 Jan 2011 17:24:20 +1100
 
-> There are typos in comments in include/linux/igmp.h:
+> The preferred source address is currently ignored for local routes,
+> which results in all local connections having a src address that is the
+> same as the local dst address. Fix this by respecting the preferred source
+> address when it is provided for local routes.
 > 
-> 83 #define IGMP_HOST_MEMBERSHIP_QUERY      0x11    /* From RFC1112 */
-> 84 #define IGMP_HOST_MEMBERSHIP_REPORT     0x12    /* Ditto */
-> [snip]
-> 88 #define IGMPV2_HOST_MEMBERSHIP_REPORT   0x16    /* V2 version of 0x11 */
-> 89 #define IGMP_HOST_LEAVE_MESSAGE         0x17
-> 90 #define IGMPV3_HOST_MEMBERSHIP_REPORT   0x22    /* V3 version of 0x11 */
+> This bug can be demonstrated as follows:
 > 
-> The line 88 and 90 are about REPORT messages.
-> The IGMP_HOST_MEMBERSHIP_REPORT (IGMP V1) value is 0x12.
-> So the comment on line 88 must be /* V2 version of 0x12 */,
-> and the comment on line 90 must be /* V3 version of 0x12 */.
+>  # ifconfig dummy0 192.168.0.1
+>  # ip route show table local | grep local.*dummy0
+>  local 192.168.0.1 dev dummy0  proto kernel  scope host  src 192.168.0.1
+>  # ip route change table local local 192.168.0.1 dev dummy0 \
+>      proto kernel scope host src 127.0.0.1
+>  # ip route show table local | grep local.*dummy0
+>  local 192.168.0.1 dev dummy0  proto kernel  scope host  src 127.0.0.1
 > 
-> Signed-off-by: Francois-Xavier Le Bail <fx.lebail@orange.fr>
+> We now establish a local connection and verify the source IP
+> address selection:
+> 
+>  # nc -l 192.168.0.1 3128 &
+>  # nc 192.168.0.1 3128 &
+>  # netstat -ant | grep 192.168.0.1:3128.*EST
+>  tcp        0      0 192.168.0.1:3128        192.168.0.1:33228 ESTABLISHED
+>  tcp        0      0 192.168.0.1:33228       192.168.0.1:3128  ESTABLISHED
+> 
+> Signed-off-by: Joel Sing <jsing@google.com>
 
-Applied, thanks.
+Applied to net-2.6, thanks Joel.
+
+If you guys want to mess with ternary operators and new macros,
+please do that in net-next-2.6 the next time I merge or similar.
+
+Thanks.
