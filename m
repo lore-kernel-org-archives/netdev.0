@@ -1,104 +1,53 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next 2/2] cnic: Do not call bnx2i when bnx2i is
- calling cnic_unregister_driver()
-Date: Mon, 3 Jan 2011 17:21:46 -0800
-Message-ID: <1294104106-9758-2-git-send-email-mchan@broadcom.com>
-References: <1294104106-9758-1-git-send-email-mchan@broadcom.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net tree with the  tree
+Date: Tue, 4 Jan 2011 13:28:37 +1100
+Message-ID: <20110104132837.cfecc014.sfr@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2510 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751181Ab1ADCQj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jan 2011 21:16:39 -0500
-In-Reply-To: <1294104106-9758-1-git-send-email-mchan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__4_Jan_2011_13_28_37_+1100_gWXQ21Lg=xFmV4ME"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jon Mason <jon.mason@exar.com>,
+	Jesse Barnes <jbarnes@virtuousgeek.org>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We should call bnx2i to send the iSCSI netlink message earlier in
-cnic_unregister_device().  By the time cnic_unregister_driver() is
-called, bnx2i may have freed data structures used by the upcalls.
+--Signature=_Tue__4_Jan_2011_13_28_37_+1100_gWXQ21Lg=xFmV4ME
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Update version to 2.2.12.
+Hi all,
 
-Reviewed-by: Benjamin Li <benli@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/cnic.c    |   19 +++----------------
- drivers/net/cnic_if.h |    6 +++---
- 2 files changed, 6 insertions(+), 19 deletions(-)
+Today's linux-next merge of the net tree got a conflict in
+drivers/net/sky2.c between
+commit1d3c16a818e992c199844954d95c17fd7ce6cbba  ("PCI: make
+pci_restore_state return void") from the  tree and commit
+0f333d10e3f689640b229c8cf00b16ea51ce4951 ("sky2: Do not use legacy PCI
+power management") from the net tree.
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index 41957fa..6dfa564 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -426,19 +426,6 @@ static int cnic_abort_prep(struct cnic_sock *csk)
- 	return 0;
- }
- 
--static void cnic_uio_stop(void)
--{
--	struct cnic_dev *dev;
--
--	read_lock(&cnic_dev_lock);
--	list_for_each_entry(dev, &cnic_dev_list, list) {
--		struct cnic_local *cp = dev->cnic_priv;
--
--		cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
--	}
--	read_unlock(&cnic_dev_lock);
--}
--
- int cnic_register_driver(int ulp_type, struct cnic_ulp_ops *ulp_ops)
- {
- 	struct cnic_dev *dev;
-@@ -510,9 +497,6 @@ int cnic_unregister_driver(int ulp_type)
- 	}
- 	read_unlock(&cnic_dev_lock);
- 
--	if (ulp_type == CNIC_ULP_ISCSI)
--		cnic_uio_stop();
--
- 	rcu_assign_pointer(cnic_ulp_tbl[ulp_type], NULL);
- 
- 	mutex_unlock(&cnic_lock);
-@@ -596,6 +580,9 @@ static int cnic_unregister_device(struct cnic_dev *dev, int ulp_type)
- 	}
- 	mutex_unlock(&cnic_lock);
- 
-+	if (ulp_type == CNIC_ULP_ISCSI)
-+		cnic_send_nlmsg(cp, ISCSI_KEVENT_IF_DOWN, NULL);
-+
- 	synchronize_rcu();
- 
- 	while (test_bit(ULP_F_CALL_PENDING, &cp->ulp_flags[ulp_type]) &&
-diff --git a/drivers/net/cnic_if.h b/drivers/net/cnic_if.h
-index ccd8140..9f44e0f 100644
---- a/drivers/net/cnic_if.h
-+++ b/drivers/net/cnic_if.h
-@@ -1,6 +1,6 @@
- /* cnic_if.h: Broadcom CNIC core network driver.
-  *
-- * Copyright (c) 2006-2010 Broadcom Corporation
-+ * Copyright (c) 2006-2011 Broadcom Corporation
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License as published by
-@@ -12,8 +12,8 @@
- #ifndef CNIC_IF_H
- #define CNIC_IF_H
- 
--#define CNIC_MODULE_VERSION	"2.2.11"
--#define CNIC_MODULE_RELDATE	"Dec 22, 2010"
-+#define CNIC_MODULE_VERSION	"2.2.12"
-+#define CNIC_MODULE_RELDATE	"Jan 03, 2011"
- 
- #define CNIC_ULP_RDMA		0
- #define CNIC_ULP_ISCSI		1
--- 
-1.6.4.GIT
+The latter removes the code that the former modifies.  I used the latter.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
 
+--Signature=_Tue__4_Jan_2011_13_28_37_+1100_gWXQ21Lg=xFmV4ME
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEcBAEBAgAGBQJNIoXVAAoJEDMEi1NhKgbsgZkH/3XVI6R9d5aru9n36cylHa3U
+TMWONd+D1aoEZ1WkIPVIWnrKtPZnieAnXTUdSaLYZtmjDburZwYldUxR5O7kdy5y
+dDku/M5u6X2PPM4iuVJXeaGcdXAQwdDAbth0z9kQ6zJKi4kAApFg62R0ettepeXv
+hp3bGe+p3Hnym5yds1f6ZsSqSPHhsCDBoI8Wbj+MUIYddfcTM2eAASFIZtKxZ2Lt
+H2F+nzeUiNHRuaUsmQ0t1I+ZolvPWb4eh1BrqMZZ2K7GBhxi8OdnuvWgDfchj0xp
+QZd/KBiuF11KDA5LYw9Kc4XihipyK/IIJb1VVkGJhdJ/NCeOCw5hC6HAbE668Ss=
+=ykR6
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__4_Jan_2011_13_28_37_+1100_gWXQ21Lg=xFmV4ME--
