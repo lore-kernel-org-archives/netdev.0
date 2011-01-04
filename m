@@ -1,68 +1,76 @@
-From: Joel Sing <jsing@google.com>
-Subject: [PATCH] ipv4/route.c: respect prefsrc for local routes
-Date: Tue,  4 Jan 2011 17:24:20 +1100
-Message-ID: <1294122260-13245-1-git-send-email-jsing@google.com>
-Cc: Joel Sing <jsing@google.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next-2.6 PATCH v4 2/2] net_sched: implement a root
+ container qdisc sch_mclass
+Date: Tue, 04 Jan 2011 07:46:43 +0100
+Message-ID: <1294123603.2711.33.camel@edumazet-laptop>
+References: <20110104030553.13187.69135.stgit@jf-dev1-dcblab>
+	 <20110104030558.13187.27076.stgit@jf-dev1-dcblab>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, jarkao2@gmail.com, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org,
+	bhutchings@solarflare.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:50973 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750886Ab1ADGYs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 01:24:48 -0500
-Received: from hpaq1.eem.corp.google.com (hpaq1.eem.corp.google.com [172.25.149.1])
-	by smtp-out.google.com with ESMTP id p046Olrc015007
-	for <netdev@vger.kernel.org>; Mon, 3 Jan 2011 22:24:47 -0800
+Received: from mail-ww0-f66.google.com ([74.125.82.66]:54306 "EHLO
+	mail-ww0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750864Ab1ADGqt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 01:46:49 -0500
+Received: by wwb24 with SMTP id 24so4898899wwb.1
+        for <netdev@vger.kernel.org>; Mon, 03 Jan 2011 22:46:48 -0800 (PST)
+In-Reply-To: <20110104030558.13187.27076.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The preferred source address is currently ignored for local routes,
-which results in all local connections having a src address that is the
-same as the local dst address. Fix this by respecting the preferred source
-address when it is provided for local routes.
+Le lundi 03 janvier 2011 =C3=A0 19:05 -0800, John Fastabend a =C3=A9cri=
+t :
+> This implements a mqprio queueing discipline that by default creates
+> a pfifo_fast qdisc per tx queue and provides the needed configuration
+> interface.
 
-This bug can be demonstrated as follows:
 
- # ifconfig dummy0 192.168.0.1
- # ip route show table local | grep local.*dummy0
- local 192.168.0.1 dev dummy0  proto kernel  scope host  src 192.168.0.1
- # ip route change table local local 192.168.0.1 dev dummy0 \
-     proto kernel scope host src 127.0.0.1
- # ip route show table local | grep local.*dummy0
- local 192.168.0.1 dev dummy0  proto kernel  scope host  src 127.0.0.1
+> +static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
+> +{
+> +	struct net_device *dev =3D qdisc_dev(sch);
+> +	struct mqprio_sched *priv =3D qdisc_priv(sch);
+> +	unsigned char *b =3D skb_tail_pointer(skb);
+> +	struct tc_mqprio_qopt opt;
+> +	struct Qdisc *qdisc;
+> +	unsigned int i;
+> +
+> +	sch->q.qlen =3D 0;
+> +	memset(&sch->bstats, 0, sizeof(sch->bstats));
+> +	memset(&sch->qstats, 0, sizeof(sch->qstats));
+> +
+> +	for (i =3D 0; i < dev->num_tx_queues; i++) {
+> +		qdisc =3D netdev_get_tx_queue(dev, i)->qdisc;
+> +		spin_lock_bh(qdisc_lock(qdisc));
+> +		sch->q.qlen		+=3D qdisc->q.qlen;
+> +		sch->bstats.bytes	+=3D qdisc->bstats.bytes;
+> +		sch->bstats.packets	+=3D qdisc->bstats.packets;
+> +		sch->qstats.qlen	+=3D qdisc->qstats.qlen;
+> +		sch->qstats.backlog	+=3D qdisc->qstats.backlog;
+> +		sch->qstats.drops	+=3D qdisc->qstats.drops;
+> +		sch->qstats.requeues	+=3D qdisc->qstats.requeues;
+> +		sch->qstats.overlimits	+=3D qdisc->qstats.overlimits;
+> +		spin_unlock_bh(qdisc_lock(qdisc));
+> +	}
+> +
 
-We now establish a local connection and verify the source IP
-address selection:
+I understand this code already exists in mq, I just want to note that
+some qdiscs update their stats in their dump() subroutine, because thei=
+r
+enqueue()/dequeue() doesnt update all fields.
 
- # nc -l 192.168.0.1 3128 &
- # nc 192.168.0.1 3128 &
- # netstat -ant | grep 192.168.0.1:3128.*EST
- tcp        0      0 192.168.0.1:3128        192.168.0.1:33228 ESTABLISHED
- tcp        0      0 192.168.0.1:33228       192.168.0.1:3128  ESTABLISHED
+We might add a gather_stats() method, eventually, to get rid of all
+oddities we currently have with 0 backlogs (or qlen) here and here ;)
 
-Signed-off-by: Joel Sing <jsing@google.com>
----
- net/ipv4/route.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+=46or example, I am not even sure qdisc->qstats.qlen should not be
+replaced by to qdisc->qstats.qlen in your loop, as done in
+mqprio_dump_class_stats()
 
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index df948b0..93bfd95 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2649,8 +2649,12 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
- 	}
- 
- 	if (res.type == RTN_LOCAL) {
--		if (!fl.fl4_src)
--			fl.fl4_src = fl.fl4_dst;
-+		if (!fl.fl4_src) {
-+			if (res.fi->fib_prefsrc)
-+				fl.fl4_src = res.fi->fib_prefsrc;
-+			else
-+				fl.fl4_src = fl.fl4_dst;
-+		}
- 		dev_out = net->loopback_dev;
- 		fl.oif = dev_out->ifindex;
- 		res.fi = NULL;
--- 
-1.7.3.1
+Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+
 
