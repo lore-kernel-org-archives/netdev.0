@@ -1,44 +1,34 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: [net-next-2.6 PATCH] ethtool: update get_rx_ntuple to correctly
-	interpret string count
-Date: Tue, 04 Jan 2011 15:29:48 -0800
-Message-ID: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [net-next-2.6 08/08] r8169: more 8168dp support.
+Date: Wed, 5 Jan 2011 00:53:35 +0100
+Message-ID: <20110104235335.GA6161@electric-eye.fr.zoreil.com>
+References: <20110102233751.GI5780@electric-eye.fr.zoreil.com> <C4B63551EF6C4B57BB20D6922F78AA12@realtek.com.tw> <20110104002606.GA5934@electric-eye.fr.zoreil.com> <FFFEF1293F9B4E3B81D3777F91F21B01@realtek.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, bhutchings@solarflare.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	"'Ben Hutchings'" <benh@debian.org>
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:36425 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751014Ab1ADX3t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jan 2011 18:29:49 -0500
+Received: from violet.fr.zoreil.com ([92.243.8.30]:34817 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751075Ab1ADXxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 18:53:52 -0500
+Content-Disposition: inline
+In-Reply-To: <FFFEF1293F9B4E3B81D3777F91F21B01@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently any strings returned via the get_rx_ntuple call will just be
-dropped because the num_strings will be zero.  In order to correct this I
-am updating things so that the return value of get_rx_ntuple is the number
-of strings that were written, or a negative value if there was an error.
+hayeswang <hayeswang@realtek.com> :
+[...]
+> When doing reset, the nic has to notify the embedded system and wait a response.
+> However, maybe the system accesses the same register at the same time, so the
+> embedded system and the driver implement the same method of software mutex to
+> prevent this situation.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
----
+Thanks for the information.
 
- net/core/ethtool.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+I have found no 8168dp in my collection. A volunteer to test this patch with
+the relevant hardware would be welcome.
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 1774178..7ade13b 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -587,6 +587,9 @@ static int ethtool_get_rx_ntuple(struct net_device *dev, void __user *useraddr)
- 	if (ops->get_rx_ntuple) {
- 		/* driver-specific filter grab */
- 		ret = ops->get_rx_ntuple(dev, gstrings.string_set, data);
-+		if (ret < 0)
-+			goto out;
-+		num_strings = ret;
- 		goto copy;
- 	}
- 
-
+-- 
+Ueimor
