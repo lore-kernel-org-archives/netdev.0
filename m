@@ -1,8 +1,7 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v2 10/10] ARM: mxs: add initial pm support
-Date: Tue, 4 Jan 2011 17:24:16 +0800
-Message-ID: <1294133056-21195-11-git-send-email-shawn.guo@freescale.com>
-References: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
+Subject: [PATCH v2 00/10] net/fec: add dual fec support for i.MX28
+Date: Tue, 4 Jan 2011 17:24:06 +0800
+Message-ID: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
@@ -10,92 +9,48 @@ To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
 	<r64343@freescale.com>, <B32542@freescale.com>,
 	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:14110
-	"EHLO VA3EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805Ab1ADJXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 04:23:43 -0500
-In-Reply-To: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:33786 "EHLO
+	TX2EHSOBE007.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751916Ab1ADJXI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 04:23:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a very initial pm support and basically does nothing.
-With this pm support entry, drivers can start testing their own
-pm functions.
+This patch series is to add dual fec support for mx28, which is
+a mxs-based soc. Some code changes related to the following commits
+are also made in this patch set for some reasons.
 
-Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
----
-Changes for v2:
- - Let build of pm.c depend on CONFIG_PM
- - Remove the blank line above device_initcall in pm.c
+ e6b043d512fa8d9a3801bf5d72bfa3b8fc3b3cc8
+ netdev/fec.c: add phylib supporting to enable carrier detection (v2)
 
- arch/arm/mach-mxs/Makefile |    2 ++
- arch/arm/mach-mxs/pm.c     |   43 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+), 0 deletions(-)
- create mode 100644 arch/arm/mach-mxs/pm.c
+ e3fe8558c7fc182972c3d947d88744482111f304
+ net/fec: fix pm to survive to suspend/resume
 
-diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
-index f23ebbd..45a2925 100644
---- a/arch/arm/mach-mxs/Makefile
-+++ b/arch/arm/mach-mxs/Makefile
-@@ -1,6 +1,8 @@
- # Common support
- obj-y := clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system.o timer.o
- 
-+obj-$(CONFIG_PM) += pm.o
-+
- obj-$(CONFIG_SOC_IMX23) += clock-mx23.o mm-mx23.o
- obj-$(CONFIG_SOC_IMX28) += clock-mx28.o mm-mx28.o
- 
-diff --git a/arch/arm/mach-mxs/pm.c b/arch/arm/mach-mxs/pm.c
-new file mode 100644
-index 0000000..fb042da
---- /dev/null
-+++ b/arch/arm/mach-mxs/pm.c
-@@ -0,0 +1,43 @@
-+/*
-+ * Copyright (C) 2010 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/suspend.h>
-+#include <linux/io.h>
-+#include <mach/system.h>
-+
-+static int mxs_suspend_enter(suspend_state_t state)
-+{
-+	switch (state) {
-+	case PM_SUSPEND_MEM:
-+		arch_idle();
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static struct platform_suspend_ops mxs_suspend_ops = {
-+	.enter = mxs_suspend_enter,
-+	.valid = suspend_valid_only_mem,
-+};
-+
-+static int __init mxs_pm_init(void)
-+{
-+	suspend_set_ops(&mxs_suspend_ops);
-+	return 0;
-+}
-+device_initcall(mxs_pm_init);
--- 
-1.7.1
+It's been tested on mx28 evk and mx51 babbage. For mx28, it has
+to work against the tree
 
+ git://git.pengutronix.de/git/imx/linux-2.6.git imx-for-2.6.38
+
+plus patch
+
+ [PATCH v4] ARM: mxs: Change duart device to use amba-pl011
+
+The 5 patches below preceding with * have changes since v1, and
+the detailed change log can be found in individual patch.
+
+ [PATCH v2 01/10] net/fec: fix MMFR_OP type in fec_enet_mdio_write
+ [PATCH v2 02/10] net/fec: remove the use of "index" which is legacy
+ [PATCH v2 03/10] net/fec: add mac field into platform data and consolidate fec_get_mac
+ [PATCH v2 04/10] net/fec: improve pm for better suspend/resume
+*[PATCH v2 05/10] net/fec: add dual fec support for mx28
+*[PATCH v2 06/10] ARM: mx28: update clocks for dual fec support
+ [PATCH v2 07/10] ARM: mx28: add the second fec device registration
+*[PATCH v2 08/10] ARM: mxs: add ocotp read function
+*[PATCH v2 09/10] ARM: mx28: read fec mac address from ocotp
+*[PATCH v2 10/10] ARM: mxs: add initial pm support
+
+Thanks for review.
+
+Regards,
+Shawn
 
