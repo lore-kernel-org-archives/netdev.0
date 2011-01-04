@@ -1,80 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 'tcp: bind() fix when many ports are bound' problem
-Date: Tue, 04 Jan 2011 12:22:52 +0100
-Message-ID: <1294140172.3579.81.camel@edumazet-laptop>
-References: <AANLkTimrpZOWEc5qXPEbrJbt2Nmh2vY69aC1Dwf1cCPH@mail.gmail.com>
-	 <AANLkTinNcds1EAnWXOX6wAjg+wv4O=Xd65hHEGWoGos8@mail.gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 1/2] can: add driver for Softing card
+Date: Tue, 4 Jan 2011 13:19:44 +0100
+Message-ID: <20110104121944.GB332@e-circ.dyndns.org>
+References: <20101223093627.GA325@e-circ.dyndns.org>
+	<20101223094302.GB325@e-circ.dyndns.org>
+	<4D135BC3.6070707@pengutronix.de>
+	<20101224091428.GA375@e-circ.dyndns.org>
+	<4D148788.3010808@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Baluta <daniel.baluta@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Gaspar Chilingarov <gasparch@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:60028 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803Ab1ADLW4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 06:22:56 -0500
-Received: by wwi17 with SMTP id 17so14731335wwi.1
-        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 03:22:55 -0800 (PST)
-In-Reply-To: <AANLkTinNcds1EAnWXOX6wAjg+wv4O=Xd65hHEGWoGos8@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D148788.3010808-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 04 janvier 2011 =C3=A0 13:12 +0400, Gaspar Chilingarov a =C3=A9=
-crit :
-> Hi there!
->=20
-> Well, that looks strange.
->=20
-> On my own side I've just put workaround (manually binding to all port=
-s
-> in sequence :)
-> and moved production code to FreeBSD as it has better scalable networ=
-k stack.
->=20
-> I can see the potential problem with that bind() problem on highly
-> loaded DNS servers/resolvers which establish tons of outgoing UDP
-> connections.
->=20
-> In some cases that connections could fail and as not receiving the
-> answer it is normal condition for DNS this will go totally unnoticed.
->=20
-> I don't think anyone will hit this bug in production environment
-> except the very high load applications.
+On Fri, Dec 24, 2010 at 12:44:08PM +0100, Marc Kleine-Budde wrote:
+> 
+> >> hmmm..all stuff behind dpram is __iomem, isn't it? I think it should
+> >> only be accessed with via the ioread/iowrite operators. Please check
+> > I did an ioremap_nocache. Since it is unaligned, ioread/iowrite would render
+> > a lot of statements.
+> 
+> The thing is, ioremapped mem should not be accessed directly. Instead
+> ioread/iowrite should be used. The softing driver should work on non x86
+> platforms, too.
+> 
+> >> your code with sparse (compile with "make C=2").
+> > (?)
+> 
+> Sparse, a static syntax analyser tool, see "Documentation/sparse.txt".
+> It throws the following warnings on your driver:
+> 
+> > make drivers/net/can/softing/softing.ko C=2
+> >   CHK     include/linux/version.h
+> >   CHK     include/generated/utsrelease.h
+> >   CALL    scripts/checksyscalls.sh
+> >   CHECK   scripts/mod/empty.c
+> >   CHECK   drivers/net/can/softing/softing_main.c
+> > drivers/net/can/softing/softing_main.c:98:15: warning: incorrect type in argument 1 (different address spaces)
+> > drivers/net/can/softing/softing_main.c:98:15:    expected void volatile [noderef] <asn:2>*dst
+> > drivers/net/can/softing/softing_main.c:98:15:    got unsigned char [usertype] *[assigned] ptr
+[...]
+> 
+> You should start with fixing the assignment of the ioremapped memory
+> (drivers/net/can/softing/softing_main.c:835), the fix the rest.
+> 
+(Thanks for the explanation)^2.
 
-Dont mix TCP and UDP, they are not the same.
+I left my code now with the only warning from sparse:
+warning: Using plain integer as NULL pointer
 
-Problem with TCP is you can have TIME_WAIT sockets, disallowing a port
-to be reused. Not with UDP.
+That means, I got all __iomem references fixed.
+Is this '0' instead of 'NULL' a big problem? I got plenty of those.
 
-The connect() [without a previous bind()], or a sendto() [without a
-previous bind()] problem is more an API problem.
-
-When kernel autobinds an UDP socket [to get a local IP/port], there is =
-a
-problem on the selection of the local address : It must be ANY_ADDR
-(0.0.0.0)
-
-While for TCP, the IP address wont change for the whole session.
-Problem is : The port can really be random, while the local address
-comes from routing tables. To reach one destination, we usually use one
-pref IP address, even if many are available.
-
-If you dont bind() a socket before sending an UDP frame, kernel cannot
-assume the local IP address wont change later (for other sent frames, i=
-f
-routing takes another path), so must use the ANY address for the port
-selection done in autobind. Max 2^16-1 choices.
-
-If you have 100 IP addresses on your machine, it doesnt change this ANY
-selection [for UDP] at all.
-
-If you need more than 2^16 local endpoints and you have more than one
-external IP address, the only portable way is to use bind() yourself an=
-d
-manage a pool of [tuples]. Well, this is not true for some old OSes
-(Solaris 2.5.1 comes to mind with TCP sockets)
-
-
-
+Kurt
