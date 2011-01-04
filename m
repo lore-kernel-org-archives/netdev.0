@@ -1,74 +1,52 @@
-From: Gaspar Chilingarov <gasparch@gmail.com>
-Subject: Re: 'tcp: bind() fix when many ports are bound' problem
-Date: Tue, 4 Jan 2011 13:12:09 +0400
-Message-ID: <AANLkTinNcds1EAnWXOX6wAjg+wv4O=Xd65hHEGWoGos8@mail.gmail.com>
-References: <AANLkTimrpZOWEc5qXPEbrJbt2Nmh2vY69aC1Dwf1cCPH@mail.gmail.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: [PATCH v2 01/10] net/fec: fix MMFR_OP type in fec_enet_mdio_write
+Date: Tue, 4 Jan 2011 17:24:07 +0800
+Message-ID: <1294133056-21195-2-git-send-email-shawn.guo@freescale.com>
+References: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"eric.dumazet" <eric.dumazet@gmail.com>
-To: Daniel Baluta <daniel.baluta@gmail.com>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:53028 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751097Ab1ADJMK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 04:12:10 -0500
-Received: by qwa26 with SMTP id 26so14264491qwa.19
-        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 01:12:09 -0800 (PST)
-In-Reply-To: <AANLkTimrpZOWEc5qXPEbrJbt2Nmh2vY69aC1Dwf1cCPH@mail.gmail.com>
+Received: from va3ehsobe006.messaging.microsoft.com ([216.32.180.16]:34254
+	"EHLO VA3EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750853Ab1ADJXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 04:23:01 -0500
+In-Reply-To: <1294133056-21195-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi there!
+FEC_MMFR_OP_WRITE should be used than FEC_MMFR_OP_READ in
+a mdio write operation.
 
-Well, that looks strange.
+It's probably a typo introduced by commit:
 
-On my own side I've just put workaround (manually binding to all ports
-in sequence :)
-and moved production code to FreeBSD as it has better scalable network stack.
+e6b043d512fa8d9a3801bf5d72bfa3b8fc3b3cc8
+netdev/fec.c: add phylib supporting to enable carrier detection (v2)
 
-I can see the potential problem with that bind() problem on highly
-loaded DNS servers/resolvers which establish tons of outgoing UDP
-connections.
+Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+---
+ drivers/net/fec.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-In some cases that connections could fail and as not receiving the
-answer it is normal condition for DNS this will go totally unnoticed.
-
-I don't think anyone will hit this bug in production environment
-except the very high load applications.
-
-/Gaspar
-
-2011/1/4 Daniel Baluta <daniel.baluta@gmail.com>:
-> Hi,
->
-> After a series of discussions [1], Eric provided
-> "tcp: bind() fix when many ports are bound" patch. ([2])
->
-> Anyhow, due to this problem ([3]) it was reverted.
-> Where there any follow ups on this patch?
->
-> I have spent some time looking at inet_csk_get_port with the
-> only conclusion that it's scary :D.
->
-> Should I work around patch "tcp: bind() fix when many ports are bound",
-> and try to fix problem [3], or is that a dead end?
->
-> thanks,
-> Daniel.
->
-> [1] http://kerneltrap.org/mailarchive/linux-netdev/2010/4/20/6275120
-> [2] http://kerneltrap.org/mailarchive/git-commits-head/2010/4/24/32191
-> [3] http://kerneltrap.org/mailarchive/linux-kernel/2010/4/28/4563937
->
-
-
-
+diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+index cce32d4..52e9ca8 100644
+--- a/drivers/net/fec.c
++++ b/drivers/net/fec.c
+@@ -651,8 +651,8 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
+ 	fep->mii_timeout = 0;
+ 	init_completion(&fep->mdio_done);
+ 
+-	/* start a read op */
+-	writel(FEC_MMFR_ST | FEC_MMFR_OP_READ |
++	/* start a write op */
++	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
+ 		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) |
+ 		FEC_MMFR_TA | FEC_MMFR_DATA(value),
+ 		fep->hwp + FEC_MII_DATA);
 -- 
-Gaspar Chilingarov
+1.7.1
 
-tel +37493 419763 (mobile - leave voice mail message)
-icq 63174784
-skype://gasparch
-e mailto:nm@web.am mailto:gasparch@gmail.com
-w http://gasparchilingarov.com/
+
