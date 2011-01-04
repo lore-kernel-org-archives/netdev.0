@@ -1,53 +1,70 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the pci tree
-Date: Tue, 4 Jan 2011 13:28:47 +1100
-Message-ID: <20110104132847.de49be89.sfr@canb.auug.org.au>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [net-next-2.6 08/08] r8169: more 8168dp support.
+Date: Tue, 4 Jan 2011 10:43:43 +0800
+Message-ID: <FFFEF1293F9B4E3B81D3777F91F21B01@realtek.com.tw>
+References: <20110102233751.GI5780@electric-eye.fr.zoreil.com>     <C4B63551EF6C4B57BB20D6922F78AA12@realtek.com.tw> <20110104002606.GA5934@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Tue__4_Jan_2011_13_28_47_+1100_UUs6wAdx1GWG05ah"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jon Mason <jon.mason@exar.com>,
-	Jesse Barnes <jbarnes@virtuousgeek.org>,
-	stephen hemminger <shemminger@vyatta.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	'Ben Hutchings' <benh@debian.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtitmf2.realtek.com.tw ([60.250.210.236]:3960 "EHLO
+	mf2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750855Ab1ADCnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jan 2011 21:43:45 -0500
+In-Reply-To: <20110104002606.GA5934@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Tue__4_Jan_2011_13_28_47_+1100_UUs6wAdx1GWG05ah
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, January 04, 2011 8:26 AM
+> To: Hayeswang
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; 'Ben Hutchings'
+> Subject: Re: [net-next-2.6 08/08] r8169: more 8168dp support.
+> 
+> hayeswang <hayeswang@realtek.com> :
+> [...]
+> > > +static void rtl8169_hw_reset(struct rtl8169_private *tp)
+> > >  {
+> > > +	void __iomem *ioaddr = tp->mmio_addr;
+> > > +
+> > >  	/* Disable interrupts */
+> > >  	rtl8169_irq_mask_and_ack(ioaddr);
+> > >  
+> > > +	if (tp->mac_version == RTL_GIGA_MAC_VER_28) {
+> > 
+> > This check should include RTL_GIGA_MAC_VER_27.
+> 
+> Sure. I have a different (yet untested) patch for it. See below.
+> 
+> > > +		while (RTL_R8(TxPoll) & NPQ)
+> > > +			udelay(20);
+> > > +
+> > > +	}
+> > > +
+> > >  	/* Reset the chipset */
+> > >  	RTL_W8(ChipCmd, CmdReset);
+> > >  
+> > 
+> > After the reset, there are something to do for RTL_GIGA_MAC_VER_27. 
+> > You may check the soure code of realtek. Find "rtl8168_nic_reset".
+> 
+> Ok. Any comment about the patch below ? I wish it was more 
+> expressive, especially the "mutex" magic.
+> 
 
-Hi all,
+The chip of 8111DP has an embedded system inside. Thus, sometime the nic has to
+told the embedded system what the nic is doing now. For this reason, you can
+find the function "OOB_notify" in source code of realtek. Furthermore, we do a
+software mutex to avoid the driver and system from accessing the same register.
+When doing reset, the nic has to notify the embedded system and wait a response.
+However, maybe the system accesses the same register at the same time, so the
+embedded system and the driver implement the same method of software mutex to
+prevent this situation.
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/skge.c between commit
-1d3c16a818e992c199844954d95c17fd7ce6cbba ("PCI: make pci_restore_state
-return void") from the pci tree and commit
-7dbf6acdbad2fbc6eea72b58404461dcb7c6d9d2 ("skge: Do not use legacy PCI
-power management") from the net tree.
+ 
+Best Regards,
+Hayes
 
-The latter removes the code modified by the former, so I used the latter.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Tue__4_Jan_2011_13_28_47_+1100_UUs6wAdx1GWG05ah
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNIoXfAAoJEDMEi1NhKgbsIdoH/jG8Bf8qBF3eRqkmn2eThoHq
-w5G3XAXiDXNtwa8LSNvt68tZutIivWGT0COhqe47zGajlgKjshAji2dfdVdsAWC2
-SSpFLQkn7r9cXZMcTDoSM2hZzC/+IJMhMmBolsH6dZVBCPe5KMCJkHgjCeVvb8sI
-LrxG6w9j4DPvmiV+kGv4/Z5hEpBI+p8uPHuGWtnnsN+J/lN133zHVBYYwGVtRm4j
-6sAccIvBCEdPxnugGyTfgiE+2foQ8uFtgKqFET2SOee4r3alotxWysuesDLYhghe
-DuZoSPXhhVSeJmkv0giP73uy5vI8tqvU2W+30VSdhKEDyKYCgTwh3HI3xRizqTU=
-=8aXW
------END PGP SIGNATURE-----
-
---Signature=_Tue__4_Jan_2011_13_28_47_+1100_UUs6wAdx1GWG05ah--
