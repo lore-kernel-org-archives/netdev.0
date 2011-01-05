@@ -1,7 +1,7 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v3 02/10] net/fec: remove the use of "index" which is legacy
-Date: Wed, 5 Jan 2011 22:07:29 +0800
-Message-ID: <1294236457-17476-3-git-send-email-shawn.guo@freescale.com>
+Subject: [PATCH v3 04/10] net/fec: improve pm for better suspend/resume
+Date: Wed, 5 Jan 2011 22:07:31 +0800
+Message-ID: <1294236457-17476-5-git-send-email-shawn.guo@freescale.com>
 References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,80 +11,69 @@ To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
 	<r64343@freescale.com>, <B32542@freescale.com>,
 	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:28320
-	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751283Ab1AEOGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 09:06:17 -0500
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:23744 "EHLO
+	TX2EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026Ab1AEOGV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 09:06:21 -0500
 In-Reply-To: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The "index" becomes legacy since fep->pdev->id starts working
-to identify the instance.
+The following commit made a fix to use fec_enet_open/fec_enet_close
+over fec_enet_init/fec_stop for suspend/resume, because fec_enet_init
+does not allow to have a working network interface at resume.
 
-Moreover, the call of fec_enet_init(ndev, 0) always passes 0
-to fep->index. This makes the following code in fec_get_mac buggy.
+  e3fe8558c7fc182972c3d947d88744482111f304
+  net/fec: fix pm to survive to suspend/resume
 
-	/* Adjust MAC if using default MAC address */
-	if (iap == fec_mac_default)
-		dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
+This fix works for i.mx/mxc fec controller, but fails on mx28 fec
+which gets a different interrupt logic design. On i.mx fec, interrupt
+can be triggered even bit ETHER_EN of ECR register is not set. But
+on mx28 fec, ETHER_EN must be set to get interrupt work. Meanwhile,
+MII interrupt is mandatory to resume the driver, because MDIO
+read/write changed to interrupt mode by commit below.
 
-It may be the time to remove "index" and use fep->pdev->id instead.
+  97b72e4320a9aaa4a7f1592ee7d2da7e2c9bd349
+  fec: use interrupt for MDIO completion indication
+
+fec_restart/fec_stop comes out as the solution working for both
+cases.
 
 Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
 ---
- drivers/net/fec.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/fec.c |   12 ++++++++----
+ 1 files changed, 8 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 52e9ca8..47f6b3b 100644
+index 47a3c7b..8a1c51f 100644
 --- a/drivers/net/fec.c
 +++ b/drivers/net/fec.c
-@@ -186,7 +186,6 @@ struct fec_enet_private {
- 	int     mii_timeout;
- 	uint    phy_speed;
- 	phy_interface_t	phy_interface;
--	int	index;
- 	int	link;
- 	int	full_duplex;
- 	struct	completion mdio_done;
-@@ -566,7 +565,7 @@ static void __inline__ fec_get_mac(struct net_device *dev)
+@@ -1372,8 +1372,10 @@ fec_suspend(struct device *dev)
  
- 	/* Adjust MAC if using default MAC address */
- 	if (iap == fec_mac_default)
--		 dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
-+		 dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->pdev->id;
- }
- #endif
- 
-@@ -1067,9 +1066,8 @@ static const struct net_device_ops fec_netdev_ops = {
-  /*
-   * XXX:  We need to clean up on failure exits here.
-   *
--  * index is only used in legacy code
-   */
--static int fec_enet_init(struct net_device *dev, int index)
-+static int fec_enet_init(struct net_device *dev)
- {
- 	struct fec_enet_private *fep = netdev_priv(dev);
- 	struct bufdesc *cbd_base;
-@@ -1086,7 +1084,6 @@ static int fec_enet_init(struct net_device *dev, int index)
- 
- 	spin_lock_init(&fep->hw_lock);
- 
--	fep->index = index;
- 	fep->hwp = (void __iomem *)dev->base_addr;
- 	fep->netdev = dev;
- 
-@@ -1316,7 +1313,7 @@ fec_probe(struct platform_device *pdev)
+ 	if (ndev) {
+ 		fep = netdev_priv(ndev);
+-		if (netif_running(ndev))
+-			fec_enet_close(ndev);
++		if (netif_running(ndev)) {
++			fec_stop(ndev);
++			netif_device_detach(ndev);
++		}
+ 		clk_disable(fep->clk);
  	}
- 	clk_enable(fep->clk);
- 
--	ret = fec_enet_init(ndev, 0);
-+	ret = fec_enet_init(ndev);
- 	if (ret)
- 		goto failed_init;
- 
+ 	return 0;
+@@ -1388,8 +1390,10 @@ fec_resume(struct device *dev)
+ 	if (ndev) {
+ 		fep = netdev_priv(ndev);
+ 		clk_enable(fep->clk);
+-		if (netif_running(ndev))
+-			fec_enet_open(ndev);
++		if (netif_running(ndev)) {
++			fec_restart(ndev, fep->full_duplex);
++			netif_device_attach(ndev);
++		}
+ 	}
+ 	return 0;
+ }
 -- 
 1.7.1
 
