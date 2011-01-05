@@ -1,64 +1,45 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: Re: [PATCH v2] net: Allow ethtool to set interface in loopback mode.
-Date: Tue, 4 Jan 2011 18:06:40 -0800
-Message-ID: <AANLkTinWtLNGaNezxe0qMwDP3LQvAV7L_k_QPrwsar=e@mail.gmail.com>
-References: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
-	<1294187401-4662-1-git-send-email-maheshb@google.com>
-	<20110104163645.0b3a3687@nehalam>
-	<1294190504.2992.3.camel@localhost>
-	<20110104172939.711b758d@nehalam>
-	<4D23CAA5.7060902@hp.com>
+From: "Henry Ptasinski" <henryp@broadcom.com>
+Subject: [PATCH] include/linux/if_ether.h: Add #define ETH_P_LINK_CTL
+ for HPNA and wlan local tunnel
+Date: Tue, 4 Jan 2011 18:07:14 -0800
+Message-ID: <1294193234-804-1-git-send-email-henryp@broadcom.com>
+References: <1292298831.26970.263.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Laurent Chavey <chavey@google.com>,
-	Tom Herbert <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: henryp@broadcom.com, brudley@broadcom.com, arend@broadcom.com,
+	rvossen@broadcom.com, dowan@broadcom.com, netdev@vger.kernel.org
+To: davem@davemloft.net, joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:27577 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010Ab1AECGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 21:06:45 -0500
-Received: from hpaq2.eem.corp.google.com (hpaq2.eem.corp.google.com [172.25.149.2])
-	by smtp-out.google.com with ESMTP id p0526hHa009751
-	for <netdev@vger.kernel.org>; Tue, 4 Jan 2011 18:06:43 -0800
-Received: from bwz10 (bwz10.prod.google.com [10.188.26.10])
-	by hpaq2.eem.corp.google.com with ESMTP id p0526gLS006298
-	for <netdev@vger.kernel.org>; Tue, 4 Jan 2011 18:06:42 -0800
-Received: by bwz10 with SMTP id 10so14976049bwz.20
-        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 18:06:42 -0800 (PST)
-In-Reply-To: <4D23CAA5.7060902@hp.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:3117 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750875Ab1AECHg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jan 2011 21:07:36 -0500
+In-Reply-To: <1292298831.26970.263.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 4, 2011 at 5:34 PM, Rick Jones <rick.jones2@hp.com> wrote:
->>>> Since this is a boolean it SHOULD go into ethtool_flags rather than
->>>> being a high level operation.
->>>
->>> It could do, but I though ETHTOOL_{G,S}FLAGS were intended for
->>> controlling offload features.
->>
->>
->> It just seems the number of hooks keeps growing which takes more space
->> and increases complexity.
->
-> Is there any complication/downside to using flags in the (un?)likely event
-> of wanting different flavors of loopback in the card?
+Ethertype used by HPNA control protocols (LARQ, rate, link, etc) and by
+Broadcom wlan drivers for local signalling.
 
-The purpose of the patch is to stress / exercise the ingress/egress
-path(s). So like Ben had suggested earlier to keep the loopback
-implementation as near as possible to the host would streamline /
-simplify the implementation & usage.
+Signed-off-by: Henry Ptasinski <henryp@broadcom.com>
+---
+ include/linux/if_ether.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-This is not a new patch and the earlier thread has an answer for this.
-It's just that when I re-submitted this patch today, it went in as a
-new patch! Here are the reference(s) the old thread -
+diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
+index f9c3df0..be69043 100644
+--- a/include/linux/if_ether.h
++++ b/include/linux/if_ether.h
+@@ -72,6 +72,7 @@
+ #define ETH_P_MPLS_UC	0x8847		/* MPLS Unicast traffic		*/
+ #define ETH_P_MPLS_MC	0x8848		/* MPLS Multicast traffic	*/
+ #define ETH_P_ATMMPOA	0x884c		/* MultiProtocol Over ATM	*/
++#define ETH_P_LINK_CTL	0x886c		/* HPNA, wlan link local tunnel */
+ #define ETH_P_ATMFATE	0x8884		/* Frame-based ATM Transport
+ 					 * over Ethernet
+ 					 */
+-- 
+1.7.1
 
-http://marc.info/?l=linux-netdev&w=3&r=1&s=Allow+ethtool+to+set+interface&q=t
 
->
-> rick jones
->
