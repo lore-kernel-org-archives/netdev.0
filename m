@@ -1,190 +1,434 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Gaah: selinux_socket_unix_stream_connect oops
-Date: Wed, 5 Jan 2011 08:27:01 -0800
-Message-ID: <AANLkTikPvJLEZetB-CbVSO0VuYLnAQz5y8D_F0HGML=5@mail.gmail.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v3 05/10] net/fec: add dual fec support for mx28
+Date: Wed, 5 Jan 2011 17:34:49 +0100
+Message-ID: <20110105163449.GU25121@pengutronix.de>
+References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com> <1294236457-17476-6-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=000325575ae61248a204991bdc0c
-To: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	James Morris <jmorris@namei.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
+	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
+	B32542@freescale.com, lw@karo-electronics.de,
+	w.sang@pengutronix.de, s.hauer@pengutronix.de,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:35214 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751920Ab1AEQ1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 11:27:24 -0500
-Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
-	(authenticated bits=0)
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id p05GRM8r026270
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Wed, 5 Jan 2011 08:27:22 -0800
-Received: by iwn9 with SMTP id 9so15383217iwn.19
-        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 08:27:22 -0800 (PST)
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:56702 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026Ab1AEQfT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 11:35:19 -0500
+Content-Disposition: inline
+In-Reply-To: <1294236457-17476-6-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---000325575ae61248a204991bdc0c
-Content-Type: text/plain; charset=ISO-8859-1
+Hello,
 
-This was actually a regression entry, but only ever reported once by
-Jeremy, I think. So it was basically ignored as not being very common
-and there not being any hints about what causes it.
+On Wed, Jan 05, 2011 at 10:07:32PM +0800, Shawn Guo wrote:
+> This patch is to add mx28 dual fec support. Here are some key notes
+> for mx28 fec controller.
+>=20
+>  - The mx28 fec controller naming ENET-MAC is a different IP from FEC
+>    used on other i.mx variants.  But they are basically compatible
+>    on software interface, so it's possible to share the same driver.
+>  - ENET-MAC design made an improper assumption that it runs on a
+>    big-endian system. As the result, driver has to swap every frame
+>    going to and coming from the controller.
+>  - The external phys can only be configured by fec0, which means fec1
+>    can not work independently and both phys need to be configured by
+>    mii_bus attached on fec0.
+>  - ENET-MAC reset will get mac address registers reset too.
+>  - ENET-MAC MII/RMII mode and 10M/100M speed are configured
+>    differently FEC.
+>  - ETHER_EN bit must be set to get ENET-MAC interrupt work.
+>=20
+> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+> ---
+> Changes for v3:
+>  - Move v2 changes into patch #3
+>  - Use device name to check if it's running on ENET-MAC
+>=20
+>  drivers/net/Kconfig |    7 ++-
+>  drivers/net/fec.c   |  140 +++++++++++++++++++++++++++++++++++++++++=
+++++------
+>  drivers/net/fec.h   |    5 +-
+>  3 files changed, 131 insertions(+), 21 deletions(-)
+>=20
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 4f1755b..f34629b 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -1944,18 +1944,19 @@ config 68360_ENET
+>  config FEC
+>  	bool "FEC ethernet controller (of ColdFire and some i.MX CPUs)"
+>  	depends on M523x || M527x || M5272 || M528x || M520x || M532x || \
+> -		MACH_MX27 || ARCH_MX35 || ARCH_MX25 || ARCH_MX5
+> +		MACH_MX27 || ARCH_MX35 || ARCH_MX25 || ARCH_MX5 || SOC_IMX28
+>  	select PHYLIB
+>  	help
+>  	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+>  	  controller on some Motorola ColdFire and Freescale i.MX processor=
+s.
+> =20
+>  config FEC2
+> -	bool "Second FEC ethernet controller (on some ColdFire CPUs)"
+> +	bool "Second FEC ethernet controller"
+>  	depends on FEC
+>  	help
+>  	  Say Y here if you want to use the second built-in 10/100 Fast
+> -	  ethernet controller on some Motorola ColdFire processors.
+> +	  ethernet controller on some Motorola ColdFire and Freescale
+> +	  i.MX processors.
+> =20
+>  config FEC_MPC52xx
+>  	tristate "MPC52xx FEC driver"
+> diff --git a/drivers/net/fec.c b/drivers/net/fec.c
+> index 8a1c51f..67ba263 100644
+> --- a/drivers/net/fec.c
+> +++ b/drivers/net/fec.c
+> @@ -17,6 +17,8 @@
+>   *
+>   * Bug fixes and cleanup by Philippe De Muyter (phdm@macqel.be)
+>   * Copyright (c) 2004-2006 Macq Electronique SA.
+> + *
+> + * Copyright (C) 2010 Freescale Semiconductor, Inc.
+>   */
+> =20
+>  #include <linux/module.h>
+> @@ -45,20 +47,33 @@
+> =20
+>  #include <asm/cacheflush.h>
+> =20
+> -#ifndef CONFIG_ARCH_MXC
+> +#if !defined(CONFIG_ARCH_MXC) && !defined(CONFIG_SOC_IMX28)
+maybe !defined(CONFIG_ARM)?
 
-But after doing the 2.6.37 release, and intending to put it on all the
-machines I have access to, guess what I find on the kids computer?
-Right.
+>  #include <asm/coldfire.h>
+>  #include <asm/mcfsim.h>
+>  #endif
+> =20
+>  #include "fec.h"
+> =20
+> -#ifdef CONFIG_ARCH_MXC
+> -#include <mach/hardware.h>
+> +#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
+>  #define FEC_ALIGNMENT	0xf
+>  #else
+>  #define FEC_ALIGNMENT	0x3
+>  #endif
+> =20
+> +#define DRIVER_NAME	"fec"
+> +#define ENET_MAC_NAME	"enet-mac"
+> +
+> +static struct platform_device_id fec_devtype[] =3D {
+> +	{
+> +		.name =3D DRIVER_NAME,
+> +	}, {
+> +		.name =3D ENET_MAC_NAME,
+> +	}
+I'd done it differently:
 
-It must be a reasonably rare race condition, because that computer had
-been up for three weeks or so (since middle of December), but
-yesterday evening it crashed due to that thing.
+	{
+		.name =3D "fec",
+		.driver_data =3D 0,
+	}, {
+		.name =3D "imx28-fec",
+		.driver_data =3D HAS_ENET_MAC | ...,
+	}
 
-The code disassembly is
+and then test the bits in driver_data (which you get using
+platform_get_device_id() when you need to distinguish.
+Comparing names doesn't scale, assume there are three further features
+to distinguish, then you need to use strtok or index and get device
+names like enet-mac-with-feature1-but-without-feature2-and-feature3.
 
-  13:	55                   	push   %ebp
-  14:	89 e5                	mov    %esp,%ebp
-  16:	57                   	push   %edi
-  17:	8d 7d 90             	lea    -0x70(%ebp),%edi
-  1a:	56                   	push   %esi
-  1b:	53                   	push   %ebx
-  1c:	83 ec 6c             	sub    $0x6c,%esp
-  1f:	8b 40 14             	mov    0x14(%eax),%eax
-  22:	8b 52 14             	mov    0x14(%edx),%edx
-  25:	8b 98 58 01 00 00    	mov    0x158(%eax),%ebx
-  2b:*	8b 82 58 01 00 00    	mov    0x158(%edx),%eax     <-- trapping
-instruction
-  31:	89 45 8c             	mov    %eax,-0x74(%ebp)
-  34:	31 c0                	xor    %eax,%eax
-  36:	8b b1 58 01 00 00    	mov    0x158(%ecx),%esi
-  3c:	89 7d 88             	mov    %edi,-0x78(%ebp)
+> +};
+> +
+> +static unsigned fec_is_enetmac;
+> +static struct mii_bus *fec_mii_bus;
+In practice this might work, but actually these are per-device
+properties, not driver-global.  So it should go into the private data
+struct.
 
-which means that it's "other->sk" that is NULL, which I think matches
-Jeremy's case exactly.
+> +
+>  static unsigned char macaddr[ETH_ALEN];
+>  module_param_array(macaddr, byte, NULL, 0);
+>  MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+> @@ -129,7 +144,8 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC addre=
+ss");
+>   * account when setting it.
+>   */
+>  #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG=
+_M528x) || \
+> -    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG=
+_ARCH_MXC)
+> +    defined(CONFIG_M520x) || defined(CONFIG_M532x) || \
+> +    defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
+>  #define	OPT_FRAME_SIZE	(PKT_MAXBUF_SIZE << 16)
+>  #else
+>  #define	OPT_FRAME_SIZE	0
+> @@ -208,6 +224,17 @@ static void fec_stop(struct net_device *dev);
+>  /* Transmitter timeout */
+>  #define TX_TIMEOUT (2 * HZ)
+> =20
+> +static void *swap_buffer(void *bufaddr, int len)
+> +{
+> +	int i;
+> +	unsigned int *buf =3D bufaddr;
+> +
+> +	for (i =3D 0; i < (len + 3) / 4; i++, buf++)
+> +		*buf =3D __swab32(*buf);
+Would it better to use cpu_to_be32 here?  Then the compiler might
+be smart enough to optimize it away on BE.  (Currently the code
+generated for a BE build would be wrong with your patch, wouldn't it?)
+> +
+> +	return bufaddr;
+> +}
+> +
+>  static netdev_tx_t
+>  fec_enet_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  {
+> @@ -256,6 +283,14 @@ fec_enet_start_xmit(struct sk_buff *skb, struct =
+net_device *dev)
+>  		bufaddr =3D fep->tx_bounce[index];
+>  	}
+> =20
+> +	/*
+> +	 * enet-mac design made an improper assumption that it's running
+> +	 * on a big endian system. As the result, driver has to swap
+if he was really aware that he limits the performant use of the fec to
+big endian systems, can you please make him stop designing hardware!?
 
-The logs have a hint: this seems to have coincided with the
-console-kit-daemon giving a warning like:
+> +	 * every frame going to and coming from the controller.
+> +	 */
+> +	if (fec_is_enetmac)
+> +		swap_buffer(bufaddr, skb->len);
+> +
+>  	/* Save skb pointer */
+>  	fep->tx_skbuff[fep->skb_cur] =3D skb;
+> =20
+> @@ -487,6 +522,9 @@ fec_enet_rx(struct net_device *dev)
+>  	        dma_unmap_single(NULL, bdp->cbd_bufaddr, bdp->cbd_datlen,
+>          			DMA_FROM_DEVICE);
+> =20
+> +		if (fec_is_enetmac)
+> +			swap_buffer(data, pkt_len);
+> +
+>  		/* This does 16 byte alignment, exactly what we need.
+>  		 * The packet length includes FCS, but we don't want to
+>  		 * include that when passing upstream as it messes up
+> @@ -689,6 +727,7 @@ static int fec_enet_mii_probe(struct net_device *=
+dev)
+>  	char mdio_bus_id[MII_BUS_ID_SIZE];
+>  	char phy_name[MII_BUS_ID_SIZE + 3];
+>  	int phy_id;
+> +	int dev_id =3D fep->pdev->id;
+> =20
+>  	fep->phy_dev =3D NULL;
+> =20
+> @@ -700,6 +739,8 @@ static int fec_enet_mii_probe(struct net_device *=
+dev)
+>  			continue;
+>  		if (fep->mii_bus->phy_map[phy_id]->phy_id =3D=3D 0)
+>  			continue;
+> +		if (fec_is_enetmac && dev_id--)
+> +			continue;
+>  		strncpy(mdio_bus_id, fep->mii_bus->id, MII_BUS_ID_SIZE);
+>  		break;
+>  	}
+> @@ -741,6 +782,28 @@ static int fec_enet_mii_init(struct platform_dev=
+ice *pdev)
+>  	struct fec_enet_private *fep =3D netdev_priv(dev);
+>  	int err =3D -ENXIO, i;
+> =20
+> +	/*
+> +	 * The dual fec interfaces are not equivalent with enet-mac.
+> +	 * Here are the differences:
+> +	 *
+> +	 *  - fec0 supports MII & RMII modes while fec1 only supports RMII
+> +	 *  - fec0 acts as the 1588 time master while fec1 is slave
+> +	 *  - external phys can only be configured by fec0
+> +	 *
+> +	 * That is to say fec1 can not work independently. It only works
+> +	 * when fec0 is working. The reason behind this design is that the
+> +	 * second interface is added primarily for Switch mode.
+> +	 *
+> +	 * Because of the last point above, both phys are attached on fec0
+> +	 * mdio interface in board design, and need to be configured by
+> +	 * fec0 mii_bus.
+> +	 */
+> +	if (fec_is_enetmac && pdev->id) {
+> +		/* fec1 uses fec0 mii_bus */
+> +		fep->mii_bus =3D fec_mii_bus;
+> +		return 0;
+> +	}
+> +
+>  	fep->mii_timeout =3D 0;
+> =20
+>  	/*
+> @@ -777,6 +840,10 @@ static int fec_enet_mii_init(struct platform_dev=
+ice *pdev)
+>  	if (mdiobus_register(fep->mii_bus))
+>  		goto err_out_free_mdio_irq;
+> =20
+> +	/* save fec0 mii_bus */
+> +	if (fec_is_enetmac)
+> +		fec_mii_bus =3D fep->mii_bus;
+> +
+>  	return 0;
+> =20
+>  err_out_free_mdio_irq:
+> @@ -1149,11 +1216,22 @@ fec_restart(struct net_device *dev, int duple=
+x)
+>  {
+>  	struct fec_enet_private *fep =3D netdev_priv(dev);
+>  	int i;
+> +	u32 val, temp_mac[2];
+> =20
+>  	/* Whack a reset.  We should wait for this. */
+>  	writel(1, fep->hwp + FEC_ECNTRL);
+>  	udelay(10);
+> =20
+> +	/*
+> +	 * enet-mac reset will reset mac address registers too,
+> +	 * so need to reconfigure it.
+> +	 */
+> +	if (fec_is_enetmac) {
+> +		memcpy(&temp_mac, dev->dev_addr, ETH_ALEN);
+> +		writel(cpu_to_be32(temp_mac[0]), fep->hwp + FEC_ADDR_LOW);
+> +		writel(cpu_to_be32(temp_mac[1]), fep->hwp + FEC_ADDR_HIGH);
+where is the value saved to temp_mac[]?  For me it looks you write
+uninitialized data into the mac registers.
+> +	}
+> +
+>  	/* Clear any outstanding interrupt. */
+>  	writel(0xffc00000, fep->hwp + FEC_IEVENT);
+> =20
+> @@ -1200,20 +1278,45 @@ fec_restart(struct net_device *dev, int duple=
+x)
+>  	/* Set MII speed */
+>  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+> =20
+> -#ifdef FEC_MIIGSK_ENR
+> -	if (fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII) {
+> -		/* disable the gasket and wait */
+> -		writel(0, fep->hwp + FEC_MIIGSK_ENR);
+> -		while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
+> -			udelay(1);
+> +	/*
+> +	 * The phy interface and speed need to get configured
+> +	 * differently on enet-mac.
+> +	 */
+> +	if (fec_is_enetmac) {
+> +		val =3D readl(fep->hwp + FEC_R_CNTRL);
+> =20
+> -		/* configure the gasket: RMII, 50 MHz, no loopback, no echo */
+> -		writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+> +		/* MII or RMII */
+> +		if (fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII)
+> +			val |=3D (1 << 8);
+> +		else
+> +			val &=3D ~(1 << 8);
+> =20
+> -		/* re-enable the gasket */
+> -		writel(2, fep->hwp + FEC_MIIGSK_ENR);
+> -	}
+> +		/* 10M or 100M */
+> +		if (fep->phy_dev && fep->phy_dev->speed =3D=3D SPEED_100)
+> +			val &=3D ~(1 << 9);
+> +		else
+> +			val |=3D (1 << 9);
+> +
+> +		writel(val, fep->hwp + FEC_R_CNTRL);
+> +	} else {
+> +#ifdef FEC_MIIGSK_ENR
+> +		if (fep->phy_interface =3D=3D PHY_INTERFACE_MODE_RMII) {
+> +			/* disable the gasket and wait */
+> +			writel(0, fep->hwp + FEC_MIIGSK_ENR);
+> +			while (readl(fep->hwp + FEC_MIIGSK_ENR) & 4)
+> +				udelay(1);
+> +
+> +			/*
+> +			 * configure the gasket:
+> +			 *   RMII, 50 MHz, no loopback, no echo
+> +			 */
+> +			writel(1, fep->hwp + FEC_MIIGSK_CFGR);
+> +
+> +			/* re-enable the gasket */
+> +			writel(2, fep->hwp + FEC_MIIGSK_ENR);
+> +		}
+>  #endif
+> +	}
+> =20
+>  	/* And last, enable the transmit and receive processing */
+>  	writel(2, fep->hwp + FEC_ECNTRL);
+> @@ -1301,6 +1404,10 @@ fec_probe(struct platform_device *pdev)
+>  		}
+>  	}
+> =20
+> +	/* check if it's ENET-MAC controller via device name */
+> +	if (!strcmp(pdev->name, ENET_MAC_NAME))
+> +		fec_is_enetmac =3D 1;
+> +
+>  	fep->clk =3D clk_get(&pdev->dev, "fec_clk");
+>  	if (IS_ERR(fep->clk)) {
+>  		ret =3D PTR_ERR(fep->clk);
+> @@ -1410,12 +1517,13 @@ static const struct dev_pm_ops fec_pm_ops =3D=
+ {
+> =20
+>  static struct platform_driver fec_driver =3D {
+>  	.driver	=3D {
+> -		.name	=3D "fec",
+> +		.name	=3D DRIVER_NAME,
+>  		.owner	=3D THIS_MODULE,
+>  #ifdef CONFIG_PM
+>  		.pm	=3D &fec_pm_ops,
+>  #endif
+>  	},
+> +	.id_table =3D fec_devtype,
+>  	.probe	=3D fec_probe,
+>  	.remove	=3D __devexit_p(fec_drv_remove),
+>  };
+> diff --git a/drivers/net/fec.h b/drivers/net/fec.h
+> index 2c48b25..ace318d 100644
+> --- a/drivers/net/fec.h
+> +++ b/drivers/net/fec.h
+> @@ -14,7 +14,8 @@
+>  /*******************************************************************=
+*********/
+> =20
+>  #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONFIG=
+_M528x) || \
+> -    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONFIG=
+_ARCH_MXC)
+> +    defined(CONFIG_M520x) || defined(CONFIG_M532x) || \
+> +    defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
+>  /*
+>   *	Just figures, Motorola would have to change the offsets for
+>   *	registers in the same peripheral device on different models
+> @@ -78,7 +79,7 @@
+>  /*
+>   *	Define the buffer descriptor structure.
+>   */
+> -#ifdef CONFIG_ARCH_MXC
+> +#if defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
+>  struct bufdesc {
+>  	unsigned short cbd_datlen;	/* Data length */
+>  	unsigned short cbd_sc;	/* Control and status info */
+> --=20
+> 1.7.1
+>=20
+>=20
+>=20
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+>=20
 
-  WARNING: Couldn't read /proc/13585/environ: Failed to open file
-'/proc/13585/environ': No such file or directory
-
-and then NetworkManager having a bunch of authentication warnings that
-end up about being
-
-  Could not get UID of name ':1.3871': no such name
-
-(full text in the attachment).
-
-So I wonder if there is some subtle race that happens when one end of
-a unix domain socket attaches just as another end disconnects?
-Especially as "security_unix_stream_connect()" is called before the
-whole connect sequence is really final. It's generally
-"unix_release()" that sets 'sock->sk' to NULL.
-
-Btw, why do we pass in "sock" and "other->sk_socket" ("struct
-socket"), when it appears that what the security code really wants to
-get "struct sock" (which would be "sk" and "other" in the caller)? The
-calling convention seems to result in (a) this NULL pointer thing and
-(b) all these extra dereferences.
-
-Comments? Ideas?
-
-                              Linus
-
---000325575ae61248a204991bdc0c
-Content-Type: text/plain; charset=US-ASCII; name="kids.txt"
-Content-Disposition: attachment; filename="kids.txt"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gikf9ygx0
-
-SGFwcGVuZWQgd2l0aAoKIExpbnV4IHZlcnNpb24gMi42LjM3LXJjNS0wMDMzMy1nZGFlZmMzZAoK
-YWZ0ZXIgcGVyaGFwcyB0aHJlZSB3ZWVrcyBvZiB1cHRpbWUuICBUaGF0IGtlcm5lbCBpc24ndCBp
-biBnaXQsIGl0IGhhcwphbiBleHRyYSBwYXRjaCAodG8gZm9yY2UtZW5hYmxlIEFIQ0kgb24gdGhl
-IG1hYyBtaW5pKSwgc28gaXQncyByZWFsbHkKdjIuNi4zNy1yYzUtMzMyLWcwZmNkY2ZiYmM5OGYg
-aW4gYmFzZWxpbmUuCgotLS0KSmFuICA0IDE3OjAyOjUwIGtpZHMgY29uc29sZS1raXQtZGFlbW9u
-WzI4ODRdOiBXQVJOSU5HOiBDb3VsZG4ndCByZWFkIC9wcm9jLzEzNTg1L2Vudmlyb246IEZhaWxl
-ZCB0byBvcGVuIGZpbGUgJy9wcm9jLzEzNTg1L2Vudmlyb24nOiBObyBzdWNoIGZpbGUgb3IgZGly
-ZWN0b3J5CkphbiAgNCAxNzowMjo1MCBraWRzIE5ldHdvcmtNYW5hZ2VyWzI0MzhdOiA8d2Fybj4g
-ZXJyb3IgcmVxdWVzdGluZyBhdXRoIGZvciBvcmcuZnJlZWRlc2t0b3AuTmV0d29ya01hbmFnZXIu
-bmV0d29yay1jb250cm9sOiAoNikgUmVtb3RlIEV4Y2VwdGlvbiBpbnZva2luZyBvcmcuZnJlZWRl
-c2t0b3AuUG9saWN5S2l0MS5BdXRob3JpdHkuQ2hlY2tBdXRob3JpemF0aW9uKCkgb24gL29yZy9m
-cmVlZGUuLi4KCQkJCS4uLk5hbWVIYXNOb093bmVyOiBDb3VsZCBub3QgZ2V0IFVJRCBvZiBuYW1l
-ICc6MS4zODcxJzogbm8gc3VjaCBuYW1lCkphbiAgNCAxNzowMjo1MCBraWRzIE5ldHdvcmtNYW5h
-Z2VyWzI0MzhdOiA8d2Fybj4gVXNlciBjb25uZWN0aW9ucyB1bmF2YWlsYWJsZTogKDYpIFJlbW90
-ZSBFeGNlcHRpb24gaW52b2tpbmcgb3JnLmZyZWVkZXNrdG9wLlBvbGljeUtpdDEuQXV0aG9yaXR5
-LkNoZWNrQXV0aG9yaXphdGlvbigpIC4uLgpKYW4gIDQgMTc6MDI6NTAga2lkcyBOZXR3b3JrTWFu
-YWdlclsyNDM4XTogPHdhcm4+IGVycm9yIHJlcXVlc3RpbmcgYXV0aCBmb3Igb3JnLmZyZWVkZXNr
-dG9wLk5ldHdvcmtNYW5hZ2VyLmVuYWJsZS1kaXNhYmxlLW5ldHdvcms6ICg2KSBSZW1vdGUgRXhj
-ZXB0aW9uIGludm9raW5nIG9yZy5mcmUuLi4KSmFuICA0IDE3OjAyOjUwIGtpZHMgTmV0d29ya01h
-bmFnZXJbMjQzOF06IDx3YXJuPiBlcnJvciByZXF1ZXN0aW5nIGF1dGggZm9yIG9yZy5mcmVlZGVz
-a3RvcC5OZXR3b3JrTWFuYWdlci5zbGVlcC13YWtlOiAoNikgUmVtb3RlIEV4Y2VwdGlvbiBpbnZv
-a2luZyBvcmcuZnJlZWRlc2t0b3AuUG9sLi4uCkphbiAgNCAxNzowMjo1MCBraWRzIE5ldHdvcmtN
-YW5hZ2VyWzI0MzhdOiA8d2Fybj4gZXJyb3IgcmVxdWVzdGluZyBhdXRoIGZvciBvcmcuZnJlZWRl
-c2t0b3AuTmV0d29ya01hbmFnZXIuZW5hYmxlLWRpc2FibGUtd2lmaTogKDYpIFJlbW90ZSBFeGNl
-cHRpb24gaW52b2tpbmcgb3JnLmZyZWVkZS4uLgpKYW4gIDQgMTc6MDI6NTAga2lkcyBOZXR3b3Jr
-TWFuYWdlclsyNDM4XTogPHdhcm4+IGVycm9yIHJlcXVlc3RpbmcgYXV0aCBmb3Igb3JnLmZyZWVk
-ZXNrdG9wLk5ldHdvcmtNYW5hZ2VyLmVuYWJsZS1kaXNhYmxlLXd3YW46ICg2KSBSZW1vdGUgRXhj
-ZXB0aW9uIGludm9raW5nIG9yZy5mcmVlZGUuLi4KSmFuICA0IDE3OjAyOjUwIGtpZHMgTmV0d29y
-a01hbmFnZXJbMjQzOF06IDx3YXJuPiBlcnJvciByZXF1ZXN0aW5nIGF1dGggZm9yIG9yZy5mcmVl
-ZGVza3RvcC5OZXR3b3JrTWFuYWdlci51c2UtdXNlci1jb25uZWN0aW9uczogKDYpIFJlbW90ZSBF
-eGNlcHRpb24gaW52b2tpbmcgb3JnLmZyZWVkLi4uCkphbiAgNCAxNzowMjo1MCBraWRzIE5ldHdv
-cmtNYW5hZ2VyWzI0MzhdOiA8d2Fybj4gZXJyb3IgcmVxdWVzdGluZyBhdXRoIGZvciBvcmcuZnJl
-ZWRlc2t0b3AuTmV0d29ya01hbmFnZXIubmV0d29yay1jb250cm9sOiAoNikgUmVtb3RlIEV4Y2Vw
-dGlvbiBpbnZva2luZyBvcmcuZnJlZWRlc2t0by4uLgpKYW4gIDQgMTc6MDI6NTAga2lkcyBib25v
-Ym8tYWN0aXZhdGlvbi1zZXJ2ZXIgKGNlbGVzdGUtMTUwNzUpOiBjb3VsZCBub3QgYXNzb2NpYXRl
-IHdpdGggZGVza3RvcCBzZXNzaW9uOiBGYWlsZWQgdG8gY29ubmVjdCB0byBzb2NrZXQgL3RtcC9k
-YnVzLThBWGp6dXV3Mkk6IENvbm5lY3Rpb24gcmUuLi4KCQkJCS4uLk5hbWVIYXNOb093bmVyOiBD
-b3VsZCBub3QgZ2V0IFVJRCBvZiBuYW1lICc6MS4zODcxJzogbm8gc3VjaCBuYW1lCkphbiAgNCAx
-NzowMjo1MCBraWRzIGtlcm5lbDogWzE3NTU0NjUuOTU1NDgwXSBCVUc6IHVuYWJsZSB0byBoYW5k
-bGUga2VybmVsIE5VTEwgcG9pbnRlciBkZXJlZmVyZW5jZSBhdCAwMDAwMDE1OApKYW4gIDQgMTc6
-MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gSVA6IFs8YzExMTI5N2U+XSBzZWxp
-bnV4X3NvY2tldF91bml4X3N0cmVhbV9jb25uZWN0KzB4MTgvMHg4NApKYW4gIDQgMTc6MDI6NTAg
-a2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gKnBkZSA9IDAwMDAwMDAwCkphbiAgNCAxNzow
-Mjo1MCBraWRzIGtlcm5lbDogWzE3NTU0NjUuOTU2MjI2XSBPb3BzOiAwMDAwIFsjMV0gU01QCkph
-biAgNCAxNzowMjo1MCBraWRzIGtlcm5lbDogWzE3NTU0NjUuOTU2MjI2XSBsYXN0IHN5c2ZzIGZp
-bGU6IC9zeXMvZGV2aWNlcy92aXJ0dWFsL3NvdW5kL3RpbWVyL3VldmVudApKYW4gIDQgMTc6MDI6
-NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gTW9kdWxlcyBsaW5rZWQgaW46IFtsYXN0
-IHVubG9hZGVkOiBzY3NpX3dhaXRfc2Nhbl0KSmFuICA0IDE3OjAyOjUwIGtpZHMga2VybmVsOiBb
-MTc1NTQ2NS45NTYyMjZdCkphbiAgNCAxNzowMjo1MCBraWRzIGtlcm5lbDogWzE3NTU0NjUuOTU2
-MjI2XSBQaWQ6IDE1MDc1LCBjb21tOiBib25vYm8tYWN0aXZhdGkgTm90IHRhaW50ZWQgMi42LjM3
-LXJjNS0wMDMzMy1nZGFlZmMzZCAjMTMgTWFjLUY0MjA4RUM4L01hY21pbmkxLDEKSmFuICA0IDE3
-OjAyOjUwIGtpZHMga2VybmVsOiBbMTc1NTQ2NS45NTYyMjZdIEVJUDogMDA2MDpbPGMxMTEyOTdl
-Pl0gRUZMQUdTOiAwMDIxMDI5NiBDUFU6IDEKSmFuICA0IDE3OjAyOjUwIGtpZHMga2VybmVsOiBb
-MTc1NTQ2NS45NTYyMjZdIEVJUCBpcyBhdCBzZWxpbnV4X3NvY2tldF91bml4X3N0cmVhbV9jb25u
-ZWN0KzB4MTgvMHg4NApKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIy
-Nl0gRUFYOiBlZTQ4YjIwMCBFQlg6IGYxZjk4M2MwIEVDWDogZWU0OGJlMDAgRURYOiAwMDAwMDAw
-MApKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gRVNJOiBlZTQ4
-YjIwMCBFREk6IGY1OWM1ZTFjIEVCUDogZjU5YzVlOGMgRVNQOiBmNTljNWUxNApKYW4gIDQgMTc6
-MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gIERTOiAwMDdiIEVTOiAwMDdiIEZT
-OiAwMGQ4IEdTOiAwMDMzIFNTOiAwMDY4CkphbiAgNCAxNzowMjo1MCBraWRzIGtlcm5lbDogWzE3
-NTU0NjUuOTU2MjI2XSBQcm9jZXNzIGJvbm9iby1hY3RpdmF0aSAocGlkOiAxNTA3NSwgdGk9ZjU5
-YzQwMDAgdGFzaz1lZTQ1ZWI1MCB0YXNrLnRpPWY1OWM0MDAwKQpKYW4gIDQgMTc6MDI6NTAga2lk
-cyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gU3RhY2s6CkphbiAgNCAxNzowMjo1MCBraWRzIGtl
-cm5lbDogWzE3NTU0NjUuOTU2MjI2XSAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAwMDAgMDAwMDAw
-MDAgMDAwMDAwMDAgMDAyMDAwNDYgMDAyMDAwNDYgMDAwMDAwNTkKSmFuICA0IDE3OjAyOjUwIGtp
-ZHMga2VybmVsOiBbMTc1NTQ2NS45NTYyMjZdICAwMDAwMDAxMyAwMDAwMDAwMCBmNTljNWU0NCBj
-MTAzMDcwZSBmNTljNWU1YyBjMTAwM2NjNSBmNTljNWU2NCBlZTQzMmEwMApKYW4gIDQgMTc6MDI6
-NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gIGVlNDhiMjAwIGVlNDhiZTAwIGY1OWM1
-ZWQ0IGMxMDAyY2U5IGVlNDMyYTAwIGY1OWM1ZWMwIGUxYjAyOTAwIGVlNDhiMjAwCkphbiAgNCAx
-NzowMjo1MCBraWRzIGtlcm5lbDogWzE3NTU0NjUuOTU2MjI2XSBDYWxsIFRyYWNlOgpKYW4gIDQg
-MTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gIFs8YzEwMzA3MGU+XSA/IGly
-cV9leGl0KzB4MzkvMHg1ZApKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1
-NjIyNl0gIFs8YzEwMDNjYzU+XSA/IGRvX0lSUSsweDgzLzB4OTcKSmFuICA0IDE3OjAyOjUwIGtp
-ZHMga2VybmVsOiBbMTc1NTQ2NS45NTYyMjZdICBbPGMxMDAyY2U5Pl0gPyBjb21tb25faW50ZXJy
-dXB0KzB4MjkvMHgzMApKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIy
-Nl0gIFs8YzExMTA3MmM+XSA/IHNlY3VyaXR5X3VuaXhfc3RyZWFtX2Nvbm5lY3QrMHgxMC8weDEz
-CkphbiAgNCAxNzowMjo1MCBraWRzIGtlcm5lbDogWzE3NTU0NjUuOTU2MjI2XSAgWzxjMTM5MDAy
-OT5dID8gdW5peF9zdHJlYW1fY29ubmVjdCsweDFlMy8weDM1ZQpKYW4gIDQgMTc6MDI6NTAga2lk
-cyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gIFs8YzEzMTYwNDc+XSA/IHN5c19jb25uZWN0KzB4
-NjAvMHg3ZApKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIyNl0gIFs8
-YzEzMTZiMjk+XSA/IHN5c19zb2NrZXRjYWxsKzB4OGYvMHgxYTUKSmFuICA0IDE3OjAyOjUwIGtp
-ZHMga2VybmVsOiBbMTc1NTQ2NS45NTYyMjZdICBbPGMxMDAyNzhjPl0gPyBzeXNlbnRlcl9kb19j
-YWxsKzB4MTIvMHgyMgpKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY1Ljk1NjIy
-Nl0gQ29kZTogNTYgNjggMDAgMDAgMDQgMDAgZTggYmEgZjIgZmYgZmYgOGQgNjUgZjQgNWIgNWUg
-NWYgYzkgYzMgNTUgODkgZTUgNTcgOGQgN2QgOTAgNTYgNTMgODMgZWMgNmMgOGIgNDAgMTQgOGIg
-NTIgMTQgOGIgOTggNTggMDEgMDAgMDAgPDhiPiA4MiA1OCAwMSAwMCAwMCA4OSA0NSA4YyAzMSBj
-MCA4YiBiMSA1OCAwMSAwMCAwMCA4OSA3ZCA4OCBiOQpKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJu
-ZWw6IFsxNzU1NDY1Ljk1NjIyNl0gRUlQOiBbPGMxMTEyOTdlPl0gc2VsaW51eF9zb2NrZXRfdW5p
-eF9zdHJlYW1fY29ubmVjdCsweDE4LzB4ODQgU1M6RVNQIDAwNjg6ZjU5YzVlMTQKSmFuICA0IDE3
-OjAyOjUwIGtpZHMga2VybmVsOiBbMTc1NTQ2NS45NTYyMjZdIENSMjogMDAwMDAwMDAwMDAwMDE1
-OApKYW4gIDQgMTc6MDI6NTAga2lkcyBrZXJuZWw6IFsxNzU1NDY2LjAzNzE3OF0gLS0tWyBlbmQg
-dHJhY2UgOWZkMGQ5YjhmZWI3OGU2OSBdLS0tCg==
---000325575ae61248a204991bdc0c--
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
