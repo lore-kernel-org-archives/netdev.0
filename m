@@ -1,76 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] sched: CHOKe packet scheduler (v0.2)
-Date: Wed, 05 Jan 2011 21:06:07 +0100
-Message-ID: <1294257967.2723.9.camel@edumazet-laptop>
-References: <20110104162930.6fa672e3@nehalam>
-	 <1294208375.3420.46.camel@edumazet-laptop>
-	 <20110105091718.02f8a00f@nehalam>
-	 <1294248332.10633.25.camel@edumazet-laptop>
-	 <20110105112104.64ad3c86@nehalam>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH v3 08/10] ARM: mxs: add ocotp read function
+Date: Wed, 5 Jan 2011 20:15:02 +0000
+Message-ID: <20110105201502.GK8638@n2100.arm.linux.org.uk>
+References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com> <1294236457-17476-9-git-send-email-shawn.guo@freescale.com> <20110105161235.GA2112@gallagher> <20110105164409.GV25121@pengutronix.de> <20110105172501.GB2112@gallagher> <20110105175617.GD12222@shareable.org> <20110105183509.GH8638@n2100.arm.linux.org.uk> <20110105194418.GE12222@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Iles <jamie@jamieiles.com>, gerg@snapgear.com,
+	B32542@freescale.com, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de, bryan.wu@canonical.com, baruch@tkos.co.il,
+	w.sang@pengutronix.de, r64343@freescale.com,
+	Shawn Guo <shawn.guo@freescale.com>, eric@eukrea.com,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56065 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752760Ab1AEUGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 15:06:12 -0500
-Received: by wyb28 with SMTP id 28so15712060wyb.19
-        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 12:06:11 -0800 (PST)
-In-Reply-To: <20110105112104.64ad3c86@nehalam>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:44626 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751447Ab1AEUPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 15:15:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20110105194418.GE12222@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 05 janvier 2011 =C3=A0 11:21 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> This implements the CHOKe packet scheduler based on the existing
-> Linux RED scheduler based on the algorithm described in the paper.
->=20
+On Wed, Jan 05, 2011 at 07:44:18PM +0000, Jamie Lokier wrote:
+> 'git show 534be1d5' explains how it works: cpu_relax() flushes buffered
+> writes from _this_ CPU, so that other CPUs which are polling can make
+> progress, which avoids this CPU getting stuck if there is an indirect
+> dependency (no matter how convoluted) between what it's polling and which
+> it wrote just before.
+> 
+> So cpu_relax() is *essential* in some polling loops, not a hint.
+> 
+> In principle that could happen for I/O polling, if (a) buffered memory
+> writes are delayed by I/O read transactions, and (b) the device state we're
+> waiting on depends on I/O yet to be done on another CPU, which could be
+> polling memory first (e.g. a spinlock).
+> 
+> I doubt (a) in practice - but what about buses that block during I/O read?
+> (I have a chip like that here, but it's ARMv4T.)
 
-> +
-> +static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-> +{
-> +	struct choke_sched_data *q =3D qdisc_priv(sch);
-> +	struct red_parms *p =3D &q->parms;
-> +
-> +	p->qavg =3D red_calc_qavg(p, skb_queue_len(&sch->q));
-> +	if (red_is_idling(p))
-> +		red_end_of_idle_period(p);
-> +
-> +	if (p->qavg <=3D p->qth_min)
-> +		p->qcount =3D -1;
-> +	else {
-> +		struct sk_buff *oskb;
-> +
-> +		/* Draw a packet at random from queue */
-> +		oskb =3D skb_peek_random(&sch->q);
-> +
-> +		/* Both packets from same flow?
-> +		 * Assumes skb_get_rxhash already set hash on oskb->rxhash
-> +		 * prior to queuing
+Let's be clear - ARMv5 and below generally are well ordered architectures
+within the limits of caching.  There are cases where the write buffer
+allows two writes to pass each other.  However, for IO we generally map
+these - especially for ARMv4 and below - as 'uncacheable unbufferable'.
+So on these, if the program says "read this location" the pipeline will
+stall until the read has been issued - and if you use the result in the
+next instruction, it will stall until the data is available.  So really,
+it's not a problem here.
 
-but this is not true... if at that time, p->qavg was <=3D p->qth_min.
-Packet was directly enqueued.
+ARMv6 and above have a weakly ordered memory model with speculative
+prefetching, so memory reads/writes can be completely unordered.  Device
+accesses can pass memory accesses, but device accesses are always visible
+in program order with respect to each other.
 
-Just use :
-
-if (skb_get_rxhash(oskb) =3D=3D skb_get_rxhash(skb))
-
-Since skb_get_rxhash(skb) doesnt recompute rxhash if already set.
-
-Hmm... I am now wondering if this actually works on egress at all
-(can we use rxhash here I mean)
+So, if you're spinning in a loop reading an IO device, all previous IO
+accesses will be completed (in all ARM architectures) before the result
+of your read is evaluated.
 
 
-
-> +		 */
-> +		if (oskb->rxhash =3D=3D skb_get_rxhash(skb)) {
-> +			/* Drop both packets */
-> +			__skb_unlink(oskb, &sch->q);
-> +			qdisc_drop(oskb, sch);
-> +			goto congestion_drop;
-> +		}
-
-
+(But, let's make you squirm some more - mb() on ARMv6 and above may
+equate to a CPU memory barrier _plus_ a few IO accesses to the external
+L2 cache controller - which will be ordered wrt other IO accesses of
+course.)
