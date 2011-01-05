@@ -1,32 +1,34 @@
-From: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Wed, 5 Jan 2011 11:41:55 +0000
-Message-ID: <20110105114155.GN19804@ZenIV.linux.org.uk>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org>
+From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
+Subject: [RFC] ipmr: About origin IP address of flow in multicast routing API
+Date: Wed, 5 Jan 2011 04:59:07 -0800 (PST)
+Message-ID: <208282.77453.qm@web62507.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1293628470-28386-1-git-send-email-kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web62507.mail.re1.yahoo.com ([69.147.75.99]:42105 "HELO
+	web62507.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751810Ab1AEM7J convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jan 2011 07:59:09 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Dec 29, 2010 at 03:14:18PM +0200, Kirill A. Shutemov wrote:
-> Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+Hello,
 
-Won't that make sunrpc impossible to rmmod once you've got it in?
-Note that having a reference to vfsmount pins it down, which pins
-the superblock down, which pins the file_system_type down, which
-pins the damn module down.  So cleanup_sunrpc() won't be ever called,
-AFAICS...
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Context: IGMP Proxying.
+
+For using multicast routing API with setsockopt and MRT_ADD_MFC, we need to set the mfcc_origin in a struct mfcctl.
+
+Is there a way to use a wildcard for mfcc_origin to say "any origin" IP address, by example 0.0.0.0 ?
+
+Thus we could add a MFC with only the multicast group and the mfcc_parent, reading a SOCK_RAW/IPPROTO_IGMP socket, without the need to listen the multicast flow to find the origin IP.
+
+Any thought ?
+
+Francois-Xavier Le Bail
+
+
+
+      
