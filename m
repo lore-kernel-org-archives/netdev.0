@@ -1,33 +1,50 @@
-From: Toralf =?utf-8?q?F=C3=B6rster?= <toralf.foerster@gmx.de>
-Subject: unmet direct dependencies (NET && NET_SCHED)
-Date: Wed, 5 Jan 2011 14:22:20 +0100
-Message-ID: <201101051422.20490.toralf.foerster@gmx.de>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: [PATCH] xen: netfront: Drop GSO SKBs which do not have csum_blank.
+Date: Wed,  5 Jan 2011 13:23:31 +0000
+Message-ID: <1294233811-28123-1-git-send-email-ian.campbell@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	xen-devel@lists.xensource.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:11573 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752167Ab1AENXf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 08:23:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+The Linux network stack expects all GSO SKBs to have ip_summed ==
+CHECKSUM_PARTIAL (which implies that the frame contains a partial
+checksum) and the Xen network ring protocol similarly expects an SKB
+which has GSO set to also have NETRX_csum_blank (which also implies a
+partial checksum). Therefore drop such frames on receive otherwise
+they will trigger the warning in skb_gso_segment.
+
+Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Cc: xen-devel@lists.xensource.com
 Cc: netdev@vger.kernel.org
-To: netfilter@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+---
+ drivers/net/xen-netfront.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
 
-Hello,
-
-a "make randconfig 1>/dev/null" gave today :
-
-tfoerste@n22 ~/devel/linux-2.6 $ make randconfig 1>/dev/null
-warning: (NETFILTER_XT_MATCH_REALM && NET && INET && NETFILTER &&=20
-NETFILTER_XTABLES && NETFILTER_ADVANCED || NET_CLS_ROUTE4 && NET && NET=
-_SCHED)=20
-selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_S=
-CHED)
-
-for the current git kernel sources.
-Is this an already known issue ?
-
---=20
-MfG/Kind regards
-Toralf F=C3=B6rster
-
-pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index cdbeec9..8b8c480 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -836,6 +836,11 @@ static int handle_incoming_queue(struct net_device *dev,
+ 				dev->stats.rx_errors++;
+ 				continue;
+ 			}
++		} else if (skb_is_gso(skb)) {
++			kfree_skb(skb);
++			packets_dropped++;
++			dev->stats.rx_errors++;
++			continue;
+ 		}
+ 
+ 		dev->stats.rx_packets++;
+-- 
+1.5.6.5
 
