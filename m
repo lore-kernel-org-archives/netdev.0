@@ -1,7 +1,7 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v3 06/10] ARM: mx28: update clock and device name for dual fec support
-Date: Wed, 5 Jan 2011 22:07:33 +0800
-Message-ID: <1294236457-17476-7-git-send-email-shawn.guo@freescale.com>
+Subject: [PATCH v3 07/10] ARM: mx28: add the second fec device registration
+Date: Wed, 5 Jan 2011 22:07:34 +0800
+Message-ID: <1294236457-17476-8-git-send-email-shawn.guo@freescale.com>
 References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,52 +11,72 @@ To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
 	<r64343@freescale.com>, <B32542@freescale.com>,
 	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe002.messaging.microsoft.com ([65.55.88.12]:36440 "EHLO
-	TX2EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751508Ab1AEOG2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 09:06:28 -0500
+Received: from am1ehsobe003.messaging.microsoft.com ([213.199.154.206]:30933
+	"EHLO AM1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751508Ab1AEOGf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 09:06:35 -0500
 In-Reply-To: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change device name from "fec" to "enet-mac", so that fec driver
-can distinguish ENET-MAC controller from FEC.
-
 Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
 ---
-Changes for v3:
- - Change device name to "enet-mac"
+ arch/arm/mach-mxs/mach-mx28evk.c |   28 +++++++++++++++++++++++++---
+ 1 files changed, 25 insertions(+), 3 deletions(-)
 
- arch/arm/mach-mxs/clock-mx28.c           |    3 ++-
- arch/arm/mach-mxs/devices/platform-fec.c |    2 +-
- 2 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/arch/arm/mach-mxs/clock-mx28.c b/arch/arm/mach-mxs/clock-mx28.c
-index f20b254..933d3e6 100644
---- a/arch/arm/mach-mxs/clock-mx28.c
-+++ b/arch/arm/mach-mxs/clock-mx28.c
-@@ -606,7 +606,8 @@ static struct clk_lookup lookups[] = {
- 	_REGISTER_CLOCK("duart", "apb_pclk", xbus_clk)
- 	/* for amba-pl011 driver */
- 	_REGISTER_CLOCK("duart", NULL, uart_clk)
--	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
-+	_REGISTER_CLOCK("enet-mac.0", NULL, fec_clk)
-+	_REGISTER_CLOCK("enet-mac.1", NULL, fec_clk)
- 	_REGISTER_CLOCK("rtc", NULL, rtc_clk)
- 	_REGISTER_CLOCK("pll2", NULL, pll2_clk)
- 	_REGISTER_CLOCK(NULL, "hclk", hbus_clk)
-diff --git a/arch/arm/mach-mxs/devices/platform-fec.c b/arch/arm/mach-mxs/devices/platform-fec.c
-index c08168c..754bd83 100644
---- a/arch/arm/mach-mxs/devices/platform-fec.c
-+++ b/arch/arm/mach-mxs/devices/platform-fec.c
-@@ -45,6 +45,6 @@ struct platform_device *__init mxs_add_fec(
- 		},
- 	};
- 
--	return mxs_add_platform_device("fec", data->id,
-+	return mxs_add_platform_device("enet-mac", data->id,
- 			res, ARRAY_SIZE(res), pdata, sizeof(*pdata));
+diff --git a/arch/arm/mach-mxs/mach-mx28evk.c b/arch/arm/mach-mxs/mach-mx28evk.c
+index d162e95..def6519 100644
+--- a/arch/arm/mach-mxs/mach-mx28evk.c
++++ b/arch/arm/mach-mxs/mach-mx28evk.c
+@@ -57,6 +57,19 @@ static const iomux_cfg_t mx28evk_pads[] __initconst = {
+ 		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
+ 	MX28_PAD_ENET_CLK__CLKCTRL_ENET |
+ 		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	/* fec1 */
++	MX28_PAD_ENET0_CRS__ENET1_RX_EN |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_RXD2__ENET1_RXD0 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_RXD3__ENET1_RXD1 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_COL__ENET1_TX_EN |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_TXD2__ENET1_TXD0 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_TXD3__ENET1_TXD1 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
+ 	/* phy power line */
+ 	MX28_PAD_SSP1_DATA3__GPIO_2_15 |
+ 		(MXS_PAD_4MA | MXS_PAD_3V3 | MXS_PAD_NOPULL),
+@@ -106,8 +119,14 @@ static void __init mx28evk_fec_reset(void)
+ 	gpio_set_value(MX28EVK_FEC_PHY_RESET, 1);
  }
+ 
+-static const struct fec_platform_data mx28_fec_pdata __initconst = {
+-	.phy = PHY_INTERFACE_MODE_RMII,
++static struct fec_platform_data mx28_fec_pdata[] = {
++	{
++		/* fec0 */
++		.phy = PHY_INTERFACE_MODE_RMII,
++	}, {
++		/* fec1 */
++		.phy = PHY_INTERFACE_MODE_RMII,
++	},
+ };
+ 
+ static void __init mx28evk_init(void)
+@@ -117,7 +136,10 @@ static void __init mx28evk_init(void)
+ 	mx28_add_duart();
+ 
+ 	mx28evk_fec_reset();
+-	mx28_add_fec(0, &mx28_fec_pdata);
++	mx28_add_fec(0, &mx28_fec_pdata[0]);
++#ifdef CONFIG_FEC2
++	mx28_add_fec(1, &mx28_fec_pdata[1]);
++#endif
+ }
+ 
+ static void __init mx28evk_timer_init(void)
 -- 
 1.7.1
 
