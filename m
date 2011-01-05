@@ -1,90 +1,126 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v3 09/10] ARM: mx28: read fec mac address from ocotp
-Date: Wed, 5 Jan 2011 22:07:36 +0800
-Message-ID: <1294236457-17476-10-git-send-email-shawn.guo@freescale.com>
-References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shawn Guo <shawn.guo@freescale.com>
-To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
-	<eric@eukrea.com>, <bryan.wu@canonical.com>,
-	<r64343@freescale.com>, <B32542@freescale.com>,
-	<u.kleine-koenig@pengutro
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:8492 "EHLO
-	TX2EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751324Ab1AEOHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 09:07:02 -0500
-In-Reply-To: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v2] netfilter: fix the race when initializing nf_ct_expect_hash_rnd
+Date: Wed,  5 Jan 2011 22:23:23 +0800
+Message-ID: <1294237403-15616-1-git-send-email-xiaosuo@gmail.com>
+Cc: netfilter-devel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Read fec mac address from ocotp and save it into fec_platform_data
-mac field for fec driver to use.
+Since nf_ct_expect_dst_hash() may be called without nf_conntrack_lock
+locked, nf_ct_expect_hash_rnd should be initialized in the atomic way.
 
-Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+In this patch, we use nf_conntrack_hash_rnd instead of
+nf_ct_expect_hash_rnd.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
-Changes for v2:
- - It's not necessary to remove "const" for fec_platform_data from
-   platform-fec.c and devices-common.h, so add it back.
- - Hard-coding Freescale OUI (00:04:9f) instead of just the first
-   two two octets.
- - Correct the return of mx28evk_fec_get_mac() and check it
-   with caller
-
- arch/arm/mach-mxs/mach-mx28evk.c |   32 ++++++++++++++++++++++++++++++++
- 1 files changed, 32 insertions(+), 0 deletions(-)
-
-diff --git a/arch/arm/mach-mxs/mach-mx28evk.c b/arch/arm/mach-mxs/mach-mx28evk.c
-index def6519..54fa512 100644
---- a/arch/arm/mach-mxs/mach-mx28evk.c
-+++ b/arch/arm/mach-mxs/mach-mx28evk.c
-@@ -129,12 +129,44 @@ static struct fec_platform_data mx28_fec_pdata[] = {
- 	},
- };
+v2: use nf_conntrack_hash_rnd.
+ include/net/netfilter/nf_conntrack.h |    2 ++
+ net/netfilter/nf_conntrack_core.c    |   30 +++++++++++++++++-------------
+ net/netfilter/nf_conntrack_expect.c  |   10 +++-------
+ 3 files changed, 22 insertions(+), 20 deletions(-)
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index caf17db..d85cff1 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -298,6 +298,8 @@ static inline int nf_ct_is_untracked(const struct nf_conn *ct)
+ extern int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+ extern unsigned int nf_conntrack_htable_size;
+ extern unsigned int nf_conntrack_max;
++extern unsigned int nf_conntrack_hash_rnd;
++void init_nf_conntrack_hash_rnd(void);
  
-+static int __init mx28evk_fec_get_mac(void)
+ #define NF_CT_STAT_INC(net, count)	\
+ 	__this_cpu_inc((net)->ct.stat->count)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 27a5ea6..e615119 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -65,7 +65,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
+ EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
+ 
+-static unsigned int nf_conntrack_hash_rnd __read_mostly;
++unsigned int nf_conntrack_hash_rnd __read_mostly;
+ 
+ static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
+ {
+@@ -596,6 +596,21 @@ static noinline int early_drop(struct net *net, unsigned int hash)
+ 	return dropped;
+ }
+ 
++void init_nf_conntrack_hash_rnd(void)
 +{
-+	int i, ret;
-+	u32 val;
++	unsigned int rand;
 +
 +	/*
-+	 * OCOTP only stores the last 4 octets for each mac address,
-+	 * so hard-code Freescale OUI (00:04:9f) here.
++	 * Why not initialize nf_conntrack_rnd in a "init()" function ?
++	 * Because there isn't enough entropy when system initializing,
++	 * and we initialize it as late as possible.
 +	 */
-+	for (i = 0; i < 2; i++) {
-+		ret = mxs_read_ocotp(0x20 + i * 0x10, 1, &val);
-+		if (ret)
-+			goto error;
-+
-+		mx28_fec_pdata[i].mac[0] = 0x00;
-+		mx28_fec_pdata[i].mac[1] = 0x04;
-+		mx28_fec_pdata[i].mac[2] = 0x9f;
-+		mx28_fec_pdata[i].mac[3] = (val >> 16) & 0xff;
-+		mx28_fec_pdata[i].mac[4] = (val >> 8) & 0xff;
-+		mx28_fec_pdata[i].mac[5] = (val >> 0) & 0xff;
-+	}
-+
-+	return 0;
-+
-+error:
-+	pr_err("%s: timeout when reading fec mac from OCOTP\n", __func__);
-+	return ret;
++	do {
++		get_random_bytes(&rand, sizeof(rand));
++	} while (!rand);
++	cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
 +}
 +
- static void __init mx28evk_init(void)
+ static struct nf_conn *
+ __nf_conntrack_alloc(struct net *net, u16 zone,
+ 		     const struct nf_conntrack_tuple *orig,
+@@ -605,18 +620,7 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
+ 	struct nf_conn *ct;
+ 
+ 	if (unlikely(!nf_conntrack_hash_rnd)) {
+-		unsigned int rand;
+-
+-		/*
+-		 * Why not initialize nf_conntrack_rnd in a "init()" function ?
+-		 * Because there isn't enough entropy when system initializing,
+-		 * and we initialize it as late as possible.
+-		 */
+-		do {
+-			get_random_bytes(&rand, sizeof(rand));
+-		} while (!rand);
+-		cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
+-
++		init_nf_conntrack_hash_rnd();
+ 		/* recompute the hash as nf_conntrack_hash_rnd is initialized */
+ 		hash = hash_conntrack_raw(orig, zone);
+ 	}
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 46e8966..a20fb0b 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -32,9 +32,7 @@
+ unsigned int nf_ct_expect_hsize __read_mostly;
+ EXPORT_SYMBOL_GPL(nf_ct_expect_hsize);
+ 
+-static unsigned int nf_ct_expect_hash_rnd __read_mostly;
+ unsigned int nf_ct_expect_max __read_mostly;
+-static int nf_ct_expect_hash_rnd_initted __read_mostly;
+ 
+ static struct kmem_cache *nf_ct_expect_cachep __read_mostly;
+ 
+@@ -77,15 +75,13 @@ static unsigned int nf_ct_expect_dst_hash(const struct nf_conntrack_tuple *tuple
  {
- 	mxs_iomux_setup_multiple_pads(mx28evk_pads, ARRAY_SIZE(mx28evk_pads));
+ 	unsigned int hash;
  
- 	mx28_add_duart();
+-	if (unlikely(!nf_ct_expect_hash_rnd_initted)) {
+-		get_random_bytes(&nf_ct_expect_hash_rnd,
+-				 sizeof(nf_ct_expect_hash_rnd));
+-		nf_ct_expect_hash_rnd_initted = 1;
++	if (unlikely(!nf_conntrack_hash_rnd)) {
++		init_nf_conntrack_hash_rnd();
+ 	}
  
-+	if (mx28evk_fec_get_mac())
-+		pr_warn("%s: failed on fec mac setup\n", __func__);
-+
- 	mx28evk_fec_reset();
- 	mx28_add_fec(0, &mx28_fec_pdata[0]);
- #ifdef CONFIG_FEC2
--- 
-1.7.1
-
-
+ 	hash = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
+ 		      (((tuple->dst.protonum ^ tuple->src.l3num) << 16) |
+-		       (__force __u16)tuple->dst.u.all) ^ nf_ct_expect_hash_rnd);
++		       (__force __u16)tuple->dst.u.all) ^ nf_conntrack_hash_rnd);
+ 	return ((u64)hash * nf_ct_expect_hsize) >> 32;
+ }
+ 
