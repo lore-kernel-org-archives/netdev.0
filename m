@@ -1,47 +1,41 @@
 From: Dan Carpenter <error27@gmail.com>
-Subject: [patch 1/2] dcb: unlock on error in dcbnl_ieee_get()
-Date: Wed, 5 Jan 2011 10:03:12 +0300
-Message-ID: <20110105070312.GA24847@bicker>
+Subject: [patch 2/2] dcb: use after free in dcb_flushapp()
+Date: Wed, 5 Jan 2011 10:03:44 +0300
+Message-ID: <20110105070344.GB24847@bicker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: John Fastabend <john.r.fastabend@intel.com>,
 	Shmulik Ravid <shmulikr@broadcom.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	kernel-janitors@vger.kernel.org
+	kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:47802 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751298Ab1AEHDf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 02:03:35 -0500
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:49097 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298Ab1AEHEA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 02:04:00 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is a "goto nla_put_failure" hidden inside the NLA_PUT() macro, but
-we're holding the dcb_lock so we need to unlock first.
+The original code has a use after free bug because it's not using the
+_safe() version of the list_for_each_entry() macro.
 
 Signed-off-by: Dan Carpenter <error27@gmail.com>
 
 diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index ff3c12d..8881cb5 100644
+index 8881cb5..11bf6a2 100644
 --- a/net/dcb/dcbnl.c
 +++ b/net/dcb/dcbnl.c
-@@ -1264,9 +1264,14 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+@@ -1650,9 +1650,10 @@ EXPORT_SYMBOL(dcb_setapp);
+ static void dcb_flushapp(void)
+ {
+ 	struct dcb_app_type *app;
++	struct dcb_app_type *tmp;
  
  	spin_lock(&dcb_lock);
- 	list_for_each_entry(itr, &dcb_app_list, list) {
--		if (strncmp(itr->name, netdev->name, IFNAMSIZ) == 0)
--			NLA_PUT(skb, DCB_ATTR_IEEE_APP,
--				sizeof(itr->app), &itr->app);
-+		if (strncmp(itr->name, netdev->name, IFNAMSIZ) == 0) {
-+			err = nla_put(skb, DCB_ATTR_IEEE_APP, sizeof(itr->app),
-+					 &itr->app);
-+			if (err) {
-+				spin_unlock(&dcb_lock);
-+				goto nla_put_failure;
-+			}
-+		}
+-	list_for_each_entry(app, &dcb_app_list, list) {
++	list_for_each_entry_safe(app, tmp, &dcb_app_list, list) {
+ 		list_del(&app->list);
+ 		kfree(app);
  	}
- 	spin_unlock(&dcb_lock);
- 	nla_nest_end(skb, app);
