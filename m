@@ -1,69 +1,105 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH] ethtool: update get_rx_ntuple to
- correctly interpret string count
-Date: Wed, 05 Jan 2011 15:26:56 +0000
-Message-ID: <1294241216.15866.14.camel@bwh-desktop>
-References: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com>
-	 <1294185662.3636.61.camel@bwh-desktop>  <4D23C423.3050609@intel.com>
+From: Luca Tettamanti <kronos.it@gmail.com>
+Subject: Re: [PATCH] atl1: fix oops when changing tx/rx ring params
+Date: Wed, 5 Jan 2011 16:42:17 +0100
+Message-ID: <AANLkTinizyGFhzTgTMQ=ojL4v+htqvRM9c62dgHUss3f@mail.gmail.com>
+References: <20110101090212.7149010d@osprey.hogchain.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	stable@kernel.org, jussuf@linux.ee, chris.snook@gmail.com,
+	Xiong.Huang@atheros.com
+To: "J. K. Cliburn" <jcliburn@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:26892 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699Ab1AEP06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 10:26:58 -0500
-In-Reply-To: <4D23C423.3050609@intel.com>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:61148 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097Ab1AEPmS convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 10:42:18 -0500
+Received: by ywl5 with SMTP id 5so6034504ywl.19
+        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 07:42:18 -0800 (PST)
+In-Reply-To: <20110101090212.7149010d@osprey.hogchain.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-04 at 17:06 -0800, Alexander Duyck wrote:
-> On 1/4/2011 4:01 PM, Ben Hutchings wrote:
-> > On Tue, 2011-01-04 at 15:29 -0800, Alexander Duyck wrote:
-> >> Currently any strings returned via the get_rx_ntuple call will just be
-> >> dropped because the num_strings will be zero.  In order to correct this I
-> >> am updating things so that the return value of get_rx_ntuple is the number
-> >> of strings that were written, or a negative value if there was an error.
-> > [...]
-> >
-> > Nothing implements ethtool_ops::get_rx_ntuple, anyway.
-> >
-> > The fallback implementation is totally bogus, too.  Maximum of 1024
-> > filters?  Erm, sfc can handle more than that.  And doing complex string
-> > formatting in the kernel, even though all the parsing is in ethtool?
-> >
-> > Please, let's write off ETHTOOL_GRXNTUPLE as a failed experiment and
-> > replace it with a command that behaves more like ETHTOOL_GRXCLSRLALL.
-> >
-> > Ben.
-> 
-> In order to address several different issues in the perfect filters 
-> provided by 82599 I found it necessary to implement get_rx_ntuple so 
-> that the driver could maintain the filter list inside of the driver 
-> instead of having it maintained by the stack.  In doing so though I 
-> found the bug.
-> 
-> I agree the fallback implementation has a limitation on the number and 
-> format of filters it supports.  However declaring the function a "failed 
-> experiment" and just dropping it isn't exactly constructive since we 
-> have customers that are making use of the feature.
-[...]
+On Sat, Jan 1, 2011 at 4:02 PM, J. K. Cliburn <jcliburn@gmail.com> wrot=
+e:
+> Commit 3f5a2a713aad28480d86b0add00c68484b54febc zeroes out the statis=
+tics
+> message block (SMB) and coalescing message block (CMB) when adapter r=
+ing
+> resources are freed. =C2=A0This is desirable behavior, but, as a side=
+ effect,
+> the commit leads to an oops when atl1_set_ringparam() attempts to alt=
+er
+> the number of rx or tx elements in the ring buffer (by using ethtool
+> -G, for example). =C2=A0We don't want SMB or CMB to change during thi=
+s
+> operation.
+>
+> Modify atl1_set_ringparam() to preserve SMB and CMB when changing rin=
+g
+> parameters.
+>
+> Cc: stable@kernel.org
+> Signed-off-by: Jay Cliburn <jcliburn@gmail.com>
+> Reported-by: T=C3=B5nu Raitviir <jussuf@linux.ee>
+> ---
+> =C2=A0drivers/net/atlx/atl1.c | =C2=A0 10 ++++++++++
+> =C2=A01 files changed, 10 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/atlx/atl1.c b/drivers/net/atlx/atl1.c
+> index 5336310..3acf512 100644
+> --- a/drivers/net/atlx/atl1.c
+> +++ b/drivers/net/atlx/atl1.c
+> @@ -3504,6 +3504,8 @@ static int atl1_set_ringparam(struct net_device=
+ *netdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct atl1_rfd_ring rfd_old, rfd_new;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct atl1_rrd_ring rrd_old, rrd_new;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0struct atl1_ring_header rhdr_old, rhdr_new=
+;
+> + =C2=A0 =C2=A0 =C2=A0 struct atl1_smb smb;
+> + =C2=A0 =C2=A0 =C2=A0 struct atl1_cmb cmb;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0int err;
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0tpd_old =3D adapter->tpd_ring;
+> @@ -3544,11 +3546,19 @@ static int atl1_set_ringparam(struct net_devi=
+ce *netdev,
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->rrd_r=
+ing =3D rrd_old;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->tpd_r=
+ing =3D tpd_old;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->ring_=
+header =3D rhdr_old;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /*
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* Save SMB a=
+nd CMB, since atl1_free_ring_resources
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* will clear=
+ them.
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 smb =3D adapter->s=
+mb;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 cmb =3D adapter->c=
+mb;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0atl1_free_ring=
+_resources(adapter);
 
-We can at least drop that fallback implementation since it apparently
-doesn't work properly for either of the drivers that currently use it.
+Hum, unless I'm missing something atl1_free_ring_resources frees the
+whole ring_header->dma block which contains both SMB and CMB.
 
-In the medium term, I do want to replace it with a binary interface and
-move that formatting to ethtool.  ETHTOOL_GRXNTUPLE could be kept around
-for a while for ixgbe only, while your customers have a chance to get
-the updated ethtool.
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->rfd_r=
+ing =3D rfd_new;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->rrd_r=
+ing =3D rrd_new;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->tpd_r=
+ing =3D tpd_new;
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0adapter->ring_=
+header =3D rhdr_new;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 adapter->smb =3D s=
+mb;
+> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 adapter->cmb =3D c=
+mb;
 
-Ben.
+So here you're using pointers to freed memory.
+In order to preserve the stats you'd have to copy the structure.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Luca
