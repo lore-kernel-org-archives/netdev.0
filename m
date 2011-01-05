@@ -1,81 +1,74 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [net-next-2.6 PATCH] ethtool: update get_rx_ntuple to correctly
- interpret string count
-Date: Wed, 05 Jan 2011 08:57:01 -0800
-Message-ID: <4D24A2DD.2040603@intel.com>
-References: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com>	 <1294185662.3636.61.camel@bwh-desktop>  <4D23C423.3050609@intel.com> <1294241216.15866.14.camel@bwh-desktop>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [RFC PATCH] m68knommu: added dm9000 support
+Date: Wed, 5 Jan 2011 08:59:30 -0800
+Message-ID: <20110105085930.676fa5ce.randy.dunlap@oracle.com>
+References: <4D24A0E4.1070805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4825 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097Ab1AEQ5D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jan 2011 11:57:03 -0500
-In-Reply-To: <1294241216.15866.14.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Angelo Dureghello <angelo70@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D24A0E4.1070805@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/5/2011 7:26 AM, Ben Hutchings wrote:
-> On Tue, 2011-01-04 at 17:06 -0800, Alexander Duyck wrote:
->> On 1/4/2011 4:01 PM, Ben Hutchings wrote:
->>> On Tue, 2011-01-04 at 15:29 -0800, Alexander Duyck wrote:
->>>> Currently any strings returned via the get_rx_ntuple call will just be
->>>> dropped because the num_strings will be zero.  In order to correct this I
->>>> am updating things so that the return value of get_rx_ntuple is the number
->>>> of strings that were written, or a negative value if there was an error.
->>> [...]
->>>
->>> Nothing implements ethtool_ops::get_rx_ntuple, anyway.
->>>
->>> The fallback implementation is totally bogus, too.  Maximum of 1024
->>> filters?  Erm, sfc can handle more than that.  And doing complex string
->>> formatting in the kernel, even though all the parsing is in ethtool?
->>>
->>> Please, let's write off ETHTOOL_GRXNTUPLE as a failed experiment and
->>> replace it with a command that behaves more like ETHTOOL_GRXCLSRLALL.
->>>
->>> Ben.
->>
->> In order to address several different issues in the perfect filters
->> provided by 82599 I found it necessary to implement get_rx_ntuple so
->> that the driver could maintain the filter list inside of the driver
->> instead of having it maintained by the stack.  In doing so though I
->> found the bug.
->>
->> I agree the fallback implementation has a limitation on the number and
->> format of filters it supports.  However declaring the function a "failed
->> experiment" and just dropping it isn't exactly constructive since we
->> have customers that are making use of the feature.
-> [...]
->
-> We can at least drop that fallback implementation since it apparently
-> doesn't work properly for either of the drivers that currently use it.
->
-> In the medium term, I do want to replace it with a binary interface and
-> move that formatting to ethtool.  ETHTOOL_GRXNTUPLE could be kept around
-> for a while for ixgbe only, while your customers have a chance to get
-> the updated ethtool.
->
-> Ben.
->
+On Wed, 05 Jan 2011 17:48:36 +0100 Angelo Dureghello wrote:
 
-I'm fine with us replacing the ETHTOOL_GRXNTUPLE interface, but I would 
-prefer to do it after the merge windows for 2.6.39 has opened.  For now 
-I would like to get this patch accepted as my main concern is getting a 
-minor fix in versus rewriting the entire interface.
+> This patch allows to use the dm9000 network chip with a m68knommu 
+> big-endian cpu. From the HW point of view, the cpu data bus connected to 
+> the dm9000 chip should be hardware-byte-swapped, crossing the bytes 
+> wires (D0:7 to D24:31, etc.). In anyway, has been also added an option 
+> to swap the bytes in the driver, if some cpu has been wired straight 
+> D0:D31 to dm9000.
+> 
+> Signed-off-by: Angelo Dureghello <angelo70@gmail.com>
+> ---
+> 
+> --- drivers/net/Kconfig.orig  2011-01-05 17:11:37.992376124 +0100
+> +++ drivers/net/Kconfig 2011-01-04 22:33:14.132301872 +0100
 
-While we're at it how would you feel about us inverting the masks for 
-setting up an ntuple by making them an inclusion mask instead of an 
-exclusion one?  The reason why I ask is because I have to perform an and 
-operation over all the input anyway before I can use it to compute the 
-hashes and as such I am having to invert almost all of the mask bits, 
-and it appears you are having to do this as well for many of the masks 
-in sfc.
+File names should begin at top level of linux kernel source tree, like this e.g.:
 
-Thanks,
+> --- linux/drivers/net/Kconfig.orig  2011-01-05 17:11:37.992376124 +0100
+> +++ linux/drivers/net/Kconfig 2011-01-04 22:33:14.132301872 +0100
 
-Alex
+
+> @@ -960,7 +960,7 @@ config TI_DAVINCI_EMAC
+> 
+>   config DM9000
+>     tristate "DM9000 support"
+> -  depends on ARM || BLACKFIN || MIPS
+> +  depends on COLDFIRE || ARM || BLACKFIN || MIPS
+>     select CRC32
+>     select MII
+>     ---help---
+
+Something has modified tab(s) to spaces in this patch, so the patch won't
+apply cleanly.  See if Documentation/email-clients.txt can help you.
+
+Oh, are you using the gmail web-based email client?  That won't work
+for kernel patches.  You could use gmail via SMTP.
+
+
+> @@ -986,6 +986,14 @@ config DM9000_FORCE_SIMPLE_PHY_POLL
+>       costly MII PHY reads. Note, this will not work if the chip is
+>       operating with an external PHY.
+> 
+> +config DM9000_32BIT_SW_SWAP
+> +  bool "Software byte swap for 32 bit data bus"
+> +  depends on DM9000 && COLDFIRE
+> +  ---help---
+> +    This configuration allows to swap data bytes from the dm9000
+> +    driver itself, when the big endian cpu is wired straight to
+> +    the dm9000 32 bit data bus.
+> +
+>   config ENC28J60
+>     tristate "ENC28J60 support"
+>     depends on EXPERIMENTAL && SPI && NET_ETHERNET
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
+desserts:  http://www.xenotime.net/linux/recipes/
