@@ -1,43 +1,48 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH] ethtool: update get_rx_ntuple to
- correctly interpret string count
-Date: Wed, 05 Jan 2011 00:01:02 +0000
-Message-ID: <1294185662.3636.61.camel@bwh-desktop>
-References: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] ECN and IP defragmentation
+Date: Wed, 05 Jan 2011 01:13:51 +0100
+Message-ID: <1294186431.3420.19.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:42173 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957Ab1AEABF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 19:01:05 -0500
-In-Reply-To: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:51646 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750940Ab1AEANz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 19:13:55 -0500
+Received: by wwa36 with SMTP id 36so15759053wwa.1
+        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 16:13:54 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-04 at 15:29 -0800, Alexander Duyck wrote:
-> Currently any strings returned via the get_rx_ntuple call will just be
-> dropped because the num_strings will be zero.  In order to correct this I
-> am updating things so that the return value of get_rx_ntuple is the number
-> of strings that were written, or a negative value if there was an error.
-[...]
+Hi David
 
-Nothing implements ethtool_ops::get_rx_ntuple, anyway.
+It seems ip_fragment.c doesnt comply with RFC3168, section 5.3
 
-The fallback implementation is totally bogus, too.  Maximum of 1024
-filters?  Erm, sfc can handle more than that.  And doing complex string
-formatting in the kernel, even though all the parsing is in ethtool?
+5.3.  Fragmentation
 
-Please, let's write off ETHTOOL_GRXNTUPLE as a failed experiment and
-replace it with a command that behaves more like ETHTOOL_GRXCLSRLALL.
+   ECN-capable packets MAY have the DF (Don't Fragment) bit set.
+   Reassembly of a fragmented packet MUST NOT lose indications of
+   congestion.  In other words, if any fragment of an IP packet to be
+   reassembled has the CE codepoint set, then one of two actions MUST be
+   taken:
 
-Ben.
+      * Set the CE codepoint on the reassembled packet.  However, this
+        MUST NOT occur if any of the other fragments contributing to
+        this reassembly carries the Not-ECT codepoint.
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+      * The packet is dropped, instead of being reassembled, for any
+        other reason.
+
+
+
+
+Should we fix this ?
+
+(I tried to use ECN on UDP messages and noticed this problem)
+
+Thanks
+
 
