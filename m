@@ -1,58 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ethtool 2.6.37 released
-Date: Wed, 05 Jan 2011 18:12:38 +0000
-Message-ID: <1294251158.15866.133.camel@bwh-desktop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] netfilter: fix the race when initializing
+ nf_ct_expect_hash_rnd
+Date: Wed, 05 Jan 2011 10:32:46 -0800 (PST)
+Message-ID: <20110105.103246.193708786.davem@davemloft.net>
+References: <1294237403-15616-1-git-send-email-xiaosuo@gmail.com>
+	<1294250598.10633.77.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha256"; protocol="application/pgp-signature"; boundary="=-VHEMSzuQBZob9S0TYkmf"
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39731 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751608Ab1AESMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 13:12:41 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, kaber@trash.net,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1294250598.10633.77.camel@edumazet-laptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 05 Jan 2011 19:03:18 +0100
 
+> Le mercredi 05 janvier 2011 =E0 22:23 +0800, Changli Gao a =E9crit :
+>> Since nf_ct_expect_dst_hash() may be called without nf_conntrack_loc=
+k
+>> locked, nf_ct_expect_hash_rnd should be initialized in the atomic wa=
+y.
+>>=20
+>> In this patch, we use nf_conntrack_hash_rnd instead of
+>> nf_ct_expect_hash_rnd.
+>>=20
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>> ---
+>=20
+> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Problem is Patrick seems not responsive these days ;)
 
---=-VHEMSzuQBZob9S0TYkmf
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-ethtool version 2.6.37 has been released.
-
-Home page: https://ftp.kernel.org/pub/software/network/ethtool/
-Download link:
-https://ftp.kernel.org/pub/software/network/ethtool/ethtool-2.6.37.tar.gz
-
-Release notes:
-
-	* Fix: Build fix for distributions with kernel headers from
-	  Linux 2.6.9 or earlier
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
---=-VHEMSzuQBZob9S0TYkmf
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABCAAGBQJNJLSHAAoJEGkILBsOca60xYoH/3tL8Ey+ZihlNBVt++v0ouTN
-+9Yof419sMlI9ec+8il7AIi8hzcXEipWz0gHGWXN7N7eyaTQbU8hbK8RMF3gW+j0
-rn9zhuTan+6WGK2ypqIBTta0OCu0U9hYibuWlqGKZlGT8aVrzFE5HbA55Zfui2R3
-280RNhHY51lpMXgzv3dsquacU6z/SQL2P8y0ZCPEn0jkVVekGSIqBfTP6wUBamaU
-nY+XehHziH7osPI4GiSEeRXXzXprOXfJOypv5Y9PRtKRjXxaTwoy6e0cgtuhRICv
-g2FWdSNN4M1w2hri5fuyfeu9zwn+epctJ8an6xW5Hg8nbdCAz5njM5P6rUDRfGc=
-=C7Iy
------END PGP SIGNATURE-----
-
---=-VHEMSzuQBZob9S0TYkmf--
-
+As a result, I'll integrate this fix later today.
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
