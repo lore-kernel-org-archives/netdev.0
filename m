@@ -1,42 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC] ECN and IP defragmentation
-Date: Tue, 04 Jan 2011 18:53:05 -0800 (PST)
-Message-ID: <20110104.185305.226784718.davem@davemloft.net>
-References: <1294186431.3420.19.camel@edumazet-laptop>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH] net: ixp4xx_eth: Return proper error for eth_init_one
+Date: Wed, 05 Jan 2011 13:24:06 +0800
+Message-ID: <1294205046.8294.2.camel@mola>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38863
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751047Ab1AECwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 21:52:34 -0500
-In-Reply-To: <1294186431.3420.19.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krzysztof Halasa <khc@pm.waw.pl>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 05 Jan 2011 01:13:51 +0100
+Return PTR_ERR(port->phydev) instead of 1 if phy_connect failed.
 
-> It seems ip_fragment.c doesnt comply with RFC3168, section 5.3
-> 
-> 5.3.  Fragmentation
-> 
->    ECN-capable packets MAY have the DF (Don't Fragment) bit set.
->    Reassembly of a fragmented packet MUST NOT lose indications of
->    congestion.  In other words, if any fragment of an IP packet to be
->    reassembled has the CE codepoint set, then one of two actions MUST be
->    taken:
-> 
->       * Set the CE codepoint on the reassembled packet.  However, this
->         MUST NOT occur if any of the other fragments contributing to
->         this reassembly carries the Not-ECT codepoint.
-> 
->       * The packet is dropped, instead of being reassembled, for any
->         other reason.
->
-> Should we fix this ?
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+---
+ drivers/net/arm/ixp4xx_eth.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-Definitely, yes.
+diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
+index 6028226..9eb9b98 100644
+--- a/drivers/net/arm/ixp4xx_eth.c
++++ b/drivers/net/arm/ixp4xx_eth.c
+@@ -1229,8 +1229,10 @@ static int __devinit eth_init_one(struct platform_device *pdev)
+ 	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, "0", plat->phy);
+ 	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link, 0,
+ 				   PHY_INTERFACE_MODE_MII);
+-	if ((err = IS_ERR(port->phydev)))
++	if (IS_ERR(port->phydev)) {
++		err = PTR_ERR(port->phydev);
+ 		goto err_free_mem;
++	}
+ 
+ 	port->phydev->irq = PHY_POLL;
+ 
+-- 
+1.7.2
