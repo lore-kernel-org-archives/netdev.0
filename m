@@ -1,458 +1,147 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [RFC] sched: CHOKe packet scheduler
-Date: Tue, 4 Jan 2011 16:29:30 -0800
-Message-ID: <20110104162930.6fa672e3@nehalam>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v2] net: Allow ethtool to set interface in loopback mode.
+Date: Tue,  4 Jan 2011 16:30:01 -0800
+Message-ID: <1294187401-4662-1-git-send-email-maheshb@google.com>
+References: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>
+To: David Miller <davem@davemloft.net>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Laurent Chavey <chavey@google.com>,
+	Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:50374 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750919Ab1AEA3d convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 19:29:33 -0500
+Received: from smtp-out.google.com ([74.125.121.67]:48073 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474Ab1AEAaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 19:30:12 -0500
+In-Reply-To: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This implements the CHOKe packet scheduler based on the existing
-Linux RED scheduler based on the algorithm described in the paper.
-Configuration is the same as RED; only the name changes.
+This patch enables ethtool to set the loopback mode on a given interface.
+By configuring the interface in loopback mode in conjunction with a policy
+route / rule, a userland application can stress the egress / ingress path
+exposing the flows of the change in progress and potentially help developer(s)
+understand the impact of those changes without even sending a packet out
+on the network.
 
-The core idea is:
-  For every packet arrival:
-  	Calculate Qave
-	if (Qave < minth) {
-	   Queue the new packet
-	}
-	Else {
-	     Select randomly a packet from the queue for their flow id
-	     Compare arriving packet with a randomly selected packet.
-	     If they have the same flow id {
-	     	Drop both the packets
-	     }
-	     Else {
-	     	  if (Qave =E2=89=A5 maxth) {
-		     Calculate the dropping probability pa
-		     Drop the packet with probability pa
-		  }
-		  Else {
-		     Drop the new packet
-		  }
-	     }
-       }
+Following set of commands illustrates one such example -
+	a) ip -4 addr add 192.168.1.1/24 dev eth1
+	b) ip -4 rule add from all iif eth1 lookup 250
+	c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
+	d) arp -Ds 192.168.1.100 eth1
+	e) arp -Ds 192.168.1.200 eth1
+	f) sysctl -w net.ipv4.ip_nonlocal_bind=1
+	g) sysctl -w net.ipv4.conf.all.accept_local=1
+	# Assuming that the machine has 8 cores
+	h) taskset 000f netserver -L 192.168.1.200
+	i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
 
-This an early access version.
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- net/sched/Kconfig     |   11 +
- net/sched/Makefile    |    1=20
- net/sched/sch_choke.c |  364 +++++++++++++++++++++++++++++++++++++++++=
-+++++++++
- 3 files changed, 376 insertions(+)
+ include/linux/ethtool.h |   16 ++++++++++++++++
+ net/core/ethtool.c      |   39 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+), 0 deletions(-)
 
---- a/net/sched/Kconfig	2011-01-04 16:25:18.000000000 -0800
-+++ b/net/sched/Kconfig	2011-01-04 16:26:02.335973715 -0800
-@@ -205,6 +205,17 @@ config NET_SCH_DRR
-=20
- 	  If unsure, say N.
-=20
-+config NET_SCH_CHOKE
-+	tristate "CHOose and Keep responsive flow scheduler (CHOKE)"
-+	help
-+	  Say Y here if you want to use the CHOKe packet scheduler (CHOose
-+	  and Keep for responsive flows, CHOose and Kill for unresponsive
-+	  flows). This is a variation of RED which trys to penalize flows
-+	  that monopolize the queue.
-+
-+	  To compile this code as a module, choose M here: the
-+	  module will be called sch_choke.
-+
- config NET_SCH_INGRESS
- 	tristate "Ingress Qdisc"
- 	depends on NET_CLS_ACT
---- a/net/sched/Makefile	2011-01-04 16:25:18.000000000 -0800
-+++ b/net/sched/Makefile	2011-01-04 16:26:16.048938937 -0800
-@@ -32,6 +32,7 @@ obj-$(CONFIG_NET_SCH_MULTIQ)	+=3D sch_mult
- obj-$(CONFIG_NET_SCH_ATM)	+=3D sch_atm.o
- obj-$(CONFIG_NET_SCH_NETEM)	+=3D sch_netem.o
- obj-$(CONFIG_NET_SCH_DRR)	+=3D sch_drr.o
-+obj-$(CONFIG_NET_SCH_CHOKE)	+=3D sch_choke.o
- obj-$(CONFIG_NET_CLS_U32)	+=3D cls_u32.o
- obj-$(CONFIG_NET_CLS_ROUTE4)	+=3D cls_route.o
- obj-$(CONFIG_NET_CLS_FW)	+=3D cls_fw.o
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ b/net/sched/sch_choke.c	2011-01-04 16:25:33.913971468 -0800
-@@ -0,0 +1,364 @@
-+/*
-+ * net/sched/sch_choke.c	CHOKE scheduler
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 6628a50..c036347 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -616,6 +616,18 @@ void ethtool_ntuple_flush(struct net_device *dev);
+  *	Should validate the magic field.  Don't need to check len for zero
+  *	or wraparound.  Update len to the amount written.  Returns an error
+  *	or zero.
 + *
-+ * Copyright (c) 2011 Stephen Hemminger <shemminger@vyatta.com>
++ * get_loopback:
++ * set_loopback:
++ *	These are the driver specific get / set methods to report / enable-
++ *	disable loopback mode. The idea is to stress test the ingress/egress
++ *	paths by enabling this mode. There are multiple places this could be
++ *	done and choice of place will most likely be affected by the device
++ *	capabilities. So as a guiding principle; select a place to implement 
++ *	loopback mode as close to the host as possible. This would maximize
++ *	the soft-path length and maintain parity in terms of comparison with
++ *	different set of drivers.
 + *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/ipv6.h>
-+#include <linux/jhash.h>
-+#include <net/pkt_sched.h>
-+#include <net/ip.h>
-+#include <net/red.h>
-+#include <net/ipv6.h>
-+
-+/*	CHOKe stateless AQM for fair bandwidth allocation
-+        =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D
-+
-+	Source:
-+	R. Pan, B. Prabhakar, and K. Psounis, "CHOKe, A Stateless
-+	Active Queue Management Scheme for Approximating Fair Bandwidth Alloc=
-ation",
-+	IEEE INFOCOM, 2000.
-+
-+	A. Tang, J. Wang, S. Low, "Understanding CHOKe: Throughput and Spatia=
-l
-+	Characteristics", IEEE/ACM Transactions on Networking, 2004
-+
-+	ADVANTAGE:
-+	- Penalizes unfair flows
-+	- Random drop provide gradual feedback
-+
-+	DRAWBACKS:
-+	- Small queue for single flow
-+	- Can be gamed by opening lots of connections
-+	- Hard to get correct paremeters (same problem as RED)
-+
-+ */
-+
-+struct choke_sched_data
+  */
+ struct ethtool_ops {
+ 	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
+@@ -678,6 +690,8 @@ struct ethtool_ops {
+ 				  struct ethtool_rxfh_indir *);
+ 	int	(*set_rxfh_indir)(struct net_device *,
+ 				  const struct ethtool_rxfh_indir *);
++	int	(*get_loopback)(struct net_device *, u32 *);
++	int	(*set_loopback)(struct net_device *, u32);
+ };
+ #endif /* __KERNEL__ */
+ 
+@@ -741,6 +755,8 @@ struct ethtool_ops {
+ #define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
+ #define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table */
+ #define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table */
++#define ETHTOOL_SLOOPBACK	0x0000003a /* Enable / Disable Loopback */
++#define ETHTOOL_GLOOPBACK	0x0000003b /* Get Loopback status */
+ 
+ /* compatibility with older code */
+ #define SPARC_ETH_GSET		ETHTOOL_GSET
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 956a9f4..5c87c93 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -1434,6 +1434,39 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
+ 	return dev->ethtool_ops->flash_device(dev, &efl);
+ }
+ 
++static int ethtool_set_loopback(struct net_device *dev, void __user *useraddr)
 +{
-+	u32		  limit;
-+	unsigned char	  flags;
++	struct ethtool_value edata;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
 +
-+	struct red_parms  parms;
-+	struct red_stats  stats;
-+};
++	if (!ops || !ops->set_loopback)
++		return -EOPNOTSUPP;
 +
-+/* Select a packet at random from the list.
-+ * Same caveats as skb_peek.
-+ */
-+static struct sk_buff *skb_peek_random(struct sk_buff_head *list)
-+{
-+	struct sk_buff *skb =3D list->next;
-+	unsigned int idx =3D net_random() % list->qlen;
++	if (copy_from_user(&edata, useraddr, sizeof(edata)))
++		return -EFAULT;
 +
-+	while (skb && idx-- > 0)
-+		skb =3D skb->next;
-+
-+	return skb;
++	return ops->set_loopback(dev, edata.data);
 +}
 +
-+/* Given IP header and size find src/dst port pair */
-+static inline u32 get_ports(const void *hdr, size_t hdr_size, int offs=
-et)
++static int ethtool_get_loopback(struct net_device *dev, void __user *useraddr)
 +{
-+	return *(u32 *)(hdr + hdr_size + offset);
-+}
-+
-+
-+static bool same_flow(struct sk_buff *nskb, const struct sk_buff *oskb=
-)
-+{
-+	if (nskb->protocol !=3D oskb->protocol)
-+		return false;
-+
-+	switch (nskb->protocol) {
-+	case htons(ETH_P_IP):
-+	{
-+		const struct iphdr *iph1, *iph2;
-+		int poff;
-+
-+		if (!pskb_network_may_pull(nskb, sizeof(*iph1)))
-+			return false;
-+
-+		iph1 =3D ip_hdr(nskb);
-+		iph2 =3D ip_hdr(oskb);
-+
-+		if (iph1->protocol !=3D iph2->protocol ||
-+		    iph1->daddr !=3D iph2->daddr ||
-+		    iph1->saddr !=3D iph2->saddr)
-+			return false;
-+
-+		/* Be hostile to new fragmented packets */
-+		if (iph1->frag_off & htons(IP_MF|IP_OFFSET))
-+			return true;
-+
-+		if (iph2->frag_off & htons(IP_MF|IP_OFFSET))
-+			return false;
-+
-+		poff =3D proto_ports_offset(iph1->protocol);
-+		if (poff >=3D 0 &&
-+		    pskb_network_may_pull(nskb, iph1->ihl * 4 + 4 + poff)) {
-+			iph1 =3D ip_hdr(nskb);
-+
-+			return get_ports(iph1, iph1->ihl * 4, poff)
-+				=3D=3D get_ports(iph2, iph2->ihl * 4, poff);
-+		}
-+
-+		return false;
-+	}
-+
-+	case htons(ETH_P_IPV6):
-+	{
-+		const struct ipv6hdr *iph1, *iph2;
-+		int poff;
-+
-+		if (!pskb_network_may_pull(nskb, sizeof(*iph1)))
-+			return false;
-+
-+		iph1 =3D ipv6_hdr(nskb);
-+		iph2 =3D ipv6_hdr(oskb);
-+
-+		if (iph1->nexthdr !=3D iph2->nexthdr ||
-+		    ipv6_addr_cmp(&iph1->daddr, &iph2->daddr) !=3D 0 ||
-+		    ipv6_addr_cmp(&iph1->saddr, &iph2->saddr) !=3D 0)
-+			return false;
-+
-+		poff =3D proto_ports_offset(iph1->nexthdr);
-+		if (poff >=3D 0 &&
-+		    pskb_network_may_pull(nskb, sizeof(*iph1) + 4 + poff)) {
-+			iph1 =3D ipv6_hdr(nskb);
-+
-+			return get_ports(iph1, sizeof(*iph1), poff)
-+				=3D=3D get_ports(iph2, sizeof(*iph2), poff);
-+		}
-+		return false;
-+	}
-+	default:
-+		return false;
-+	}
-+
-+}
-+
-+/*
-+ * Decide what to do with new packet based on queue size.
-+ * returns 1 if packet should be admitted
-+ *         0 if packet should be dropped
-+ */
-+static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+	struct red_parms *p =3D &q->parms;
-+
-+	p->qavg =3D red_calc_qavg(p, skb_queue_len(&sch->q));
-+	if (red_is_idling(p))
-+		red_end_of_idle_period(p);
-+
-+	if (p->qavg <=3D p->qth_min)
-+		p->qcount =3D -1;
-+	else {
-+		struct sk_buff *oskb;
-+
-+		/* Draw a packet at random from queue */
-+		oskb =3D skb_peek_random(&sch->q);
-+
-+		/* Both packets from same flow? */
-+		if (same_flow(skb, oskb)) {
-+			/* Drop both packets */
-+			__skb_unlink(oskb, &sch->q);
-+			qdisc_drop(oskb, sch);
-+			goto congestion_drop;
-+		}
-+
-+		if (p->qavg > p->qth_max) {
-+			p->qcount =3D -1;
-+
-+			sch->qstats.overlimits++;
-+			q->stats.forced_drop++;
-+			goto congestion_drop;
-+		}
-+
-+		if (++p->qcount) {
-+			if (red_mark_probability(p, p->qavg)) {
-+				p->qcount =3D 0;
-+				p->qR =3D red_random(p);
-+
-+				sch->qstats.overlimits++;
-+				q->stats.prob_drop++;
-+				goto congestion_drop;
-+			}
-+		} else
-+			p->qR =3D red_random(p);
-+	}
-+
-+	/* Admit new packet */
-+	if (likely(skb_queue_len(&sch->q) < q->limit))
-+		return qdisc_enqueue_tail(skb, sch);
-+
-+	q->stats.pdrop++;
-+	sch->qstats.drops++;
-+	kfree_skb(skb);
-+	return NET_XMIT_DROP;
-+
-+ congestion_drop:
-+	qdisc_drop(skb, sch);
-+	return NET_XMIT_CN;
-+}
-+
-+static struct sk_buff *choke_dequeue(struct Qdisc* sch)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+	struct sk_buff *skb;
-+
-+	skb =3D qdisc_dequeue_head(sch);
-+	if (!skb) {
-+		if (!red_is_idling(&q->parms))
-+			red_start_of_idle_period(&q->parms);
-+	}
-+
-+	return skb;
-+}
-+
-+static unsigned int choke_drop(struct Qdisc* sch)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+	unsigned int len;
-+
-+	len =3D qdisc_queue_drop(sch);
-+
-+	if (len > 0)
-+		q->stats.other++;
-+	else {
-+		if (!red_is_idling(&q->parms))
-+			red_start_of_idle_period(&q->parms);
-+	}
-+
-+	return len;
-+}
-+
-+static void choke_reset(struct Qdisc* sch)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+
-+	red_restart(&q->parms);
-+}
-+
-+static const struct nla_policy choke_policy[TCA_RED_MAX + 1] =3D {
-+	[TCA_RED_PARMS]	=3D { .len =3D sizeof(struct tc_red_qopt) },
-+	[TCA_RED_STAB]	=3D { .len =3D RED_STAB_SIZE },
-+};
-+
-+static int choke_change(struct Qdisc *sch, struct nlattr *opt)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+	struct nlattr *tb[TCA_RED_MAX + 1];
-+	struct tc_red_qopt *ctl;
++	struct ethtool_value edata;
++	const struct ethtool_ops *ops = dev->ethtool_ops;
 +	int err;
 +
-+	if (opt =3D=3D NULL)
-+		return -EINVAL;
++	if (!ops || !ops->get_loopback)
++		return -EOPNOTSUPP;
 +
-+	err =3D nla_parse_nested(tb, TCA_RED_MAX, opt, choke_policy);
-+	if (err < 0)
-+		return err;
++	err = ops->get_loopback(dev, &edata.data);	
++	if (err)
++		return (err);
 +
-+	if (tb[TCA_RED_PARMS] =3D=3D NULL ||
-+	    tb[TCA_RED_STAB] =3D=3D NULL)
-+		return -EINVAL;
++	if (copy_to_user(useraddr, &edata, sizeof(edata)))
++		return -EFAULT;
 +
-+	ctl =3D nla_data(tb[TCA_RED_PARMS]);
-+
-+	sch_tree_lock(sch);
-+	q->flags =3D ctl->flags;
-+	q->limit =3D ctl->limit;
-+
-+	red_set_parms(&q->parms, ctl->qth_min, ctl->qth_max, ctl->Wlog,
-+		      ctl->Plog, ctl->Scell_log,
-+		      nla_data(tb[TCA_RED_STAB]));
-+
-+	if (skb_queue_empty(&sch->q))
-+		red_end_of_idle_period(&q->parms);
-+
-+	sch_tree_unlock(sch);
 +	return 0;
 +}
 +
-+static int choke_init(struct Qdisc* sch, struct nlattr *opt)
-+{
-+	return choke_change(sch, opt);
-+}
-+
-+static int choke_dump(struct Qdisc *sch, struct sk_buff *skb)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+	struct nlattr *opts =3D NULL;
-+	struct tc_red_qopt opt =3D {
-+		.limit		=3D q->limit,
-+		.flags		=3D q->flags,
-+		.qth_min	=3D q->parms.qth_min >> q->parms.Wlog,
-+		.qth_max	=3D q->parms.qth_max >> q->parms.Wlog,
-+		.Wlog		=3D q->parms.Wlog,
-+		.Plog		=3D q->parms.Plog,
-+		.Scell_log	=3D q->parms.Scell_log,
-+	};
-+
-+	opts =3D nla_nest_start(skb, TCA_OPTIONS);
-+	if (opts =3D=3D NULL)
-+		goto nla_put_failure;
-+
-+	NLA_PUT(skb, TCA_RED_PARMS, sizeof(opt), &opt);
-+	return nla_nest_end(skb, opts);
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, opts);
-+	return -EMSGSIZE;
-+}
-+
-+static int choke_dump_stats(struct Qdisc *sch, struct gnet_dump *d)
-+{
-+	struct choke_sched_data *q =3D qdisc_priv(sch);
-+	struct tc_red_xstats st =3D {
-+		.early	=3D q->stats.prob_drop + q->stats.forced_drop,
-+		.pdrop	=3D q->stats.pdrop,
-+		.other	=3D q->stats.other,
-+		.marked	=3D q->stats.prob_mark + q->stats.forced_mark,
-+	};
-+
-+	return gnet_stats_copy_app(d, &st, sizeof(st));
-+}
-+
-+static struct Qdisc_ops choke_qdisc_ops __read_mostly =3D {
-+	.id		=3D	"choke",
-+	.priv_size	=3D	sizeof(struct choke_sched_data),
-+
-+	.enqueue	=3D	choke_enqueue,
-+	.dequeue	=3D	choke_dequeue,
-+	.peek		=3D	qdisc_peek_head,
-+	.drop		=3D	choke_drop,
-+	.init		=3D	choke_init,
-+	.reset		=3D	choke_reset,
-+	.change		=3D	choke_change,
-+	.dump		=3D	choke_dump,
-+	.dump_stats	=3D	choke_dump_stats,
-+	.owner		=3D	THIS_MODULE,
-+};
-+
-+static int __init choke_module_init(void)
-+{
-+	return register_qdisc(&choke_qdisc_ops);
-+}
-+
-+static void __exit choke_module_exit(void)
-+{
-+	unregister_qdisc(&choke_qdisc_ops);
-+}
-+
-+module_init(choke_module_init)
-+module_exit(choke_module_exit)
-+
-+MODULE_LICENSE("GPL");
+ /* The main entry point in this file.  Called from net/core/dev.c */
+ 
+ int dev_ethtool(struct net *net, struct ifreq *ifr)
+@@ -1678,6 +1711,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
+ 	case ETHTOOL_SRXFHINDIR:
+ 		rc = ethtool_set_rxfh_indir(dev, useraddr);
+ 		break;
++	case ETHTOOL_SLOOPBACK:
++		rc = ethtool_set_loopback(dev, useraddr);
++		break;
++	case ETHTOOL_GLOOPBACK:
++		rc = ethtool_get_loopback(dev, useraddr);
++		break;
+ 	default:
+ 		rc = -EOPNOTSUPP;
+ 	}
+-- 
+1.7.3.1
+
