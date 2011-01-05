@@ -1,34 +1,33 @@
-From: =?iso-8859-1?Q?Fran=E7ois-Xavier_Le_Bail?= <fx.lebail@yahoo.com>
-Subject: [RFC] ipmr: About origin IP address of flow in multicast routing API
-Date: Wed, 5 Jan 2011 04:59:07 -0800 (PST)
-Message-ID: <208282.77453.qm@web62507.mail.re1.yahoo.com>
+From: Toralf =?utf-8?q?F=C3=B6rster?= <toralf.foerster@gmx.de>
+Subject: unmet direct dependencies (NET && NET_SCHED)
+Date: Wed, 5 Jan 2011 14:22:20 +0100
+Message-ID: <201101051422.20490.toralf.foerster@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web62507.mail.re1.yahoo.com ([69.147.75.99]:42105 "HELO
-	web62507.mail.re1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751810Ab1AEM7J convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jan 2011 07:59:09 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: netfilter@vger.kernel.org
+Return-path: <netfilter-owner@vger.kernel.org>
+Sender: netfilter-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello,
 
-Context: IGMP Proxying.
+a "make randconfig 1>/dev/null" gave today :
 
-For using multicast routing API with setsockopt and MRT_ADD_MFC, we need to set the mfcc_origin in a struct mfcctl.
+tfoerste@n22 ~/devel/linux-2.6 $ make randconfig 1>/dev/null
+warning: (NETFILTER_XT_MATCH_REALM && NET && INET && NETFILTER &&=20
+NETFILTER_XTABLES && NETFILTER_ADVANCED || NET_CLS_ROUTE4 && NET && NET=
+_SCHED)=20
+selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_S=
+CHED)
 
-Is there a way to use a wildcard for mfcc_origin to say "any origin" IP address, by example 0.0.0.0 ?
+for the current git kernel sources.
+Is this an already known issue ?
 
-Thus we could add a MFC with only the multicast group and the mfcc_parent, reading a SOCK_RAW/IPPROTO_IGMP socket, without the need to listen the multicast flow to find the origin IP.
+--=20
+MfG/Kind regards
+Toralf F=C3=B6rster
 
-Any thought ?
+pgp finger print: 7B1A 07F4 EC82 0F90 D4C2 8936 872A E508 7DB6 9DA3
 
-Francois-Xavier Le Bail
-
-
-
-      
