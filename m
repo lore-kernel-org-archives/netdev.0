@@ -1,153 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ipv4: IP defragmentation must be ECN aware
-Date: Wed, 05 Jan 2011 14:59:02 +0100
-Message-ID: <1294235942.2775.191.camel@edumazet-laptop>
-References: <1294186431.3420.19.camel@edumazet-laptop>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: [PATCH v3 00/10] net/fec: add dual fec support for i.MX28
+Date: Wed, 5 Jan 2011 22:07:27 +0800
+Message-ID: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59846 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751005Ab1AEN7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 08:59:06 -0500
-Received: by wyb28 with SMTP id 28so15361384wyb.19
-        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 05:59:05 -0800 (PST)
-In-Reply-To: <1294186431.3420.19.camel@edumazet-laptop>
+Received: from am1ehsobe006.messaging.microsoft.com ([213.199.154.209]:24573
+	"EHLO AM1EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751026Ab1AEOGD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 09:06:03 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC3168 (The Addition of Explicit Congestion Notification to IP)
-states :
+This patch series is to add dual fec support for mx28, which is
+a mxs-based soc. Some code changes related to the following commits
+are also made in this patch set for some reasons.
 
-5.3.  Fragmentation
+ e6b043d512fa8d9a3801bf5d72bfa3b8fc3b3cc8
+ netdev/fec.c: add phylib supporting to enable carrier detection (v2)
 
-   ECN-capable packets MAY have the DF (Don't Fragment) bit set.
-   Reassembly of a fragmented packet MUST NOT lose indications of
-   congestion.  In other words, if any fragment of an IP packet to be
-   reassembled has the CE codepoint set, then one of two actions MUST be
-   taken:
+ e3fe8558c7fc182972c3d947d88744482111f304
+ net/fec: fix pm to survive to suspend/resume
 
-      * Set the CE codepoint on the reassembled packet.  However, this
-        MUST NOT occur if any of the other fragments contributing to
-        this reassembly carries the Not-ECT codepoint.
+It's been tested on mx28 evk and mx51 babbage. For mx28, it has
+to work against the tree
 
-      * The packet is dropped, instead of being reassembled, for any
-        other reason.
+ git://git.pengutronix.de/git/imx/linux-2.6.git imx-for-2.6.38
 
-This patch implements this requirement for IPv4, choosing the first
-action : 
+plus patch
 
-If one fragment had NO-ECT codepoint
-	reassembled frame has NO-ECT
-ElIf one fragment had CE codepoint
-	reassembled frame has CE
+ [PATCH v4] ARM: mxs: Change duart device to use amba-pl011
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv4/ip_fragment.c |   34 ++++++++++++++++++++++++++++++++++
- 1 files changed, 34 insertions(+)
+Changes for v3:
+ - Move v2 changes on patch #5 to #3
+ - Use device name to detect the running of mx28 fec controller
+   naming ENET-MAC
 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index e6215bd..e6b53a7 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -45,6 +45,7 @@
- #include <linux/udp.h>
- #include <linux/inet.h>
- #include <linux/netfilter_ipv4.h>
-+#include <net/inet_ecn.h>
- 
- /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
-  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
-@@ -70,11 +71,28 @@ struct ipq {
- 	__be32		daddr;
- 	__be16		id;
- 	u8		protocol;
-+	u8		ecn; /* RFC3168 support */
- 	int             iif;
- 	unsigned int    rid;
- 	struct inet_peer *peer;
- };
- 
-+#define IPFRAG_ECN_CLEAR  0x01 /* one frag had INET_ECN_NOT_ECT */
-+#define IPFRAG_ECN_SET_CE 0x04 /* one frag had INET_ECN_CE */
-+
-+static inline int ip4_frag_ecn(int tos)
-+{
-+	tos = (tos & INET_ECN_MASK) + 1;
-+	/*
-+	 * After the last operation we have (in binary):
-+	 * INET_ECN_NOT_ECT => 001
-+	 * INET_ECN_ECT_1   => 010
-+	 * INET_ECN_ECT_0   => 011
-+	 * INET_ECN_CE      => 100
-+	 */
-+	return (tos & 2) ? 0 : tos;
-+}
-+
- static struct inet_frags ip4_frags;
- 
- int ip_frag_nqueues(struct net *net)
-@@ -137,6 +155,7 @@ static void ip4_frag_init(struct inet_frag_queue *q, void *a)
- 
- 	qp->protocol = arg->iph->protocol;
- 	qp->id = arg->iph->id;
-+	qp->ecn = ip4_frag_ecn(arg->iph->tos);
- 	qp->saddr = arg->iph->saddr;
- 	qp->daddr = arg->iph->daddr;
- 	qp->user = arg->user;
-@@ -316,6 +335,7 @@ static int ip_frag_reinit(struct ipq *qp)
- 	qp->q.fragments = NULL;
- 	qp->q.fragments_tail = NULL;
- 	qp->iif = 0;
-+	qp->ecn = 0;
- 
- 	return 0;
- }
-@@ -328,6 +348,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 	int flags, offset;
- 	int ihl, end;
- 	int err = -ENOENT;
-+	u8 ecn;
- 
- 	if (qp->q.last_in & INET_FRAG_COMPLETE)
- 		goto err;
-@@ -339,6 +360,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
- 		goto err;
- 	}
- 
-+	ecn = ip4_frag_ecn(ip_hdr(skb)->tos);
- 	offset = ntohs(ip_hdr(skb)->frag_off);
- 	flags = offset & ~IP_OFFSET;
- 	offset &= IP_OFFSET;
-@@ -472,6 +494,7 @@ found:
- 	}
- 	qp->q.stamp = skb->tstamp;
- 	qp->q.meat += skb->len;
-+	qp->ecn |= ecn;
- 	atomic_add(skb->truesize, &qp->q.net->mem);
- 	if (offset == 0)
- 		qp->q.last_in |= INET_FRAG_FIRST_IN;
-@@ -583,6 +606,17 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
- 	iph = ip_hdr(head);
- 	iph->frag_off = 0;
- 	iph->tot_len = htons(len);
-+	/* RFC3168 5.3 Fragmentation support :
-+	 * If one fragment had INET_ECN_NOT_ECT,
-+	 *	reassembled frame also has INET_ECN_NOT_ECT
-+	 * Elif one fragment had INET_ECN_CE
-+	 *	reassembled frame also has INET_ECN_CE
-+	 */
-+	if (qp->ecn & IPFRAG_ECN_CLEAR)
-+		iph->tos &= ~INET_ECN_MASK;
-+	else if (qp->ecn & IPFRAG_ECN_SET_CE)
-+		iph->tos |= INET_ECN_CE;
-+
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
- 	qp->q.fragments = NULL;
- 	qp->q.fragments_tail = NULL;
+The 3 patches below preceding with * have changes since v2, and
+the detailed change log can be found in individual patch.
 
+ [PATCH v3 01/10] net/fec: fix MMFR_OP type in fec_enet_mdio_write
+ [PATCH v3 02/10] net/fec: remove the use of "index" which is legacy
+*[PATCH v3 03/10] net/fec: add mac field into platform data and consolidate fec_get_mac
+ [PATCH v3 04/10] net/fec: improve pm for better suspend/resume
+*[PATCH v3 05/10] net/fec: add dual fec support for mx28
+*[PATCH v3 06/10] ARM: mx28: update clock and device name for dual fec support
+ [PATCH v3 07/10] ARM: mx28: add the second fec device registration
+ [PATCH v3 08/10] ARM: mxs: add ocotp read function
+ [PATCH v3 09/10] ARM: mx28: read fec mac address from ocotp
+ [PATCH v3 10/10] ARM: mxs: add initial pm support
+
+Thanks for the review.
+
+Regards,
+Shawn
 
