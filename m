@@ -1,55 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2] net: Allow ethtool to set interface in loopback
- mode.
-Date: Tue, 4 Jan 2011 16:36:45 -0800
-Message-ID: <20110104163645.0b3a3687@nehalam>
-References: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
-	<1294187401-4662-1-git-send-email-maheshb@google.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [net-next-2.6 PATCH] ethtool: update get_rx_ntuple to correctly
+ interpret string count
+Date: Tue, 04 Jan 2011 17:06:43 -0800
+Message-ID: <4D23C423.3050609@intel.com>
+References: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com> <1294185662.3636.61.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Laurent Chavey <chavey@google.com>,
-	Tom Herbert <therbert@google.com>,
-	netdev <netdev@vger.kernel.org>
-To: Mahesh Bandewar <maheshb@google.com>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43715 "EHLO mail.vyatta.com"
+Received: from mga03.intel.com ([143.182.124.21]:17253 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751641Ab1AEAgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jan 2011 19:36:47 -0500
-In-Reply-To: <1294187401-4662-1-git-send-email-maheshb@google.com>
+	id S1750875Ab1AEBGo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jan 2011 20:06:44 -0500
+In-Reply-To: <1294185662.3636.61.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue,  4 Jan 2011 16:30:01 -0800
-Mahesh Bandewar <maheshb@google.com> wrote:
+On 1/4/2011 4:01 PM, Ben Hutchings wrote:
+> On Tue, 2011-01-04 at 15:29 -0800, Alexander Duyck wrote:
+>> Currently any strings returned via the get_rx_ntuple call will just be
+>> dropped because the num_strings will be zero.  In order to correct this I
+>> am updating things so that the return value of get_rx_ntuple is the number
+>> of strings that were written, or a negative value if there was an error.
+> [...]
+>
+> Nothing implements ethtool_ops::get_rx_ntuple, anyway.
+>
+> The fallback implementation is totally bogus, too.  Maximum of 1024
+> filters?  Erm, sfc can handle more than that.  And doing complex string
+> formatting in the kernel, even though all the parsing is in ethtool?
+>
+> Please, let's write off ETHTOOL_GRXNTUPLE as a failed experiment and
+> replace it with a command that behaves more like ETHTOOL_GRXCLSRLALL.
+>
+> Ben.
 
-> This patch enables ethtool to set the loopback mode on a given interface.
-> By configuring the interface in loopback mode in conjunction with a policy
-> route / rule, a userland application can stress the egress / ingress path
-> exposing the flows of the change in progress and potentially help developer(s)
-> understand the impact of those changes without even sending a packet out
-> on the network.
-> 
-> Following set of commands illustrates one such example -
-> 	a) ip -4 addr add 192.168.1.1/24 dev eth1
-> 	b) ip -4 rule add from all iif eth1 lookup 250
-> 	c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
-> 	d) arp -Ds 192.168.1.100 eth1
-> 	e) arp -Ds 192.168.1.200 eth1
-> 	f) sysctl -w net.ipv4.ip_nonlocal_bind=1
-> 	g) sysctl -w net.ipv4.conf.all.accept_local=1
-> 	# Assuming that the machine has 8 cores
-> 	h) taskset 000f netserver -L 192.168.1.200
-> 	i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
-> 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+In order to address several different issues in the perfect filters 
+provided by 82599 I found it necessary to implement get_rx_ntuple so 
+that the driver could maintain the filter list inside of the driver 
+instead of having it maintained by the stack.  In doing so though I 
+found the bug.
 
-Since this is a boolean it SHOULD go into ethtool_flags rather than
-being a high level operation.
+I agree the fallback implementation has a limitation on the number and 
+format of filters it supports.  However declaring the function a "failed 
+experiment" and just dropping it isn't exactly constructive since we 
+have customers that are making use of the feature.  The fallback 
+implementation is meant to be just that, and the patch I provided makes 
+it possible to support more filters if needed by implementing a means of 
+tracking/displaying the filters within the driver itself.
 
+Thanks,
 
--- 
+Alex
