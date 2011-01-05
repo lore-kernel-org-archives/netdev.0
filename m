@@ -1,61 +1,43 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [BUG] net_sched: pfifo_head_drop problem
-Date: Wed, 5 Jan 2011 09:15:47 -0800
-Message-ID: <20110105091547.200b49ad@nehalam>
-References: <1294246850.2775.244.camel@edumazet-laptop>
+Subject: Re: [RFC] sched: CHOKe packet scheduler
+Date: Wed, 5 Jan 2011 09:17:18 -0800
+Message-ID: <20110105091718.02f8a00f@nehalam>
+References: <20110104162930.6fa672e3@nehalam>
+	<1294208375.3420.46.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
-	Patrick McHardy <kaber@trash.net>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jarek Poplawski <jarkao2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47232 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:47303 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751711Ab1AERPu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jan 2011 12:15:50 -0500
-In-Reply-To: <1294246850.2775.244.camel@edumazet-laptop>
+	id S1751231Ab1AERRU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 12:17:20 -0500
+In-Reply-To: <1294208375.3420.46.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 Jan 2011 18:00:50 +0100
+On Wed, 05 Jan 2011 07:19:35 +0100
 Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> While reviewing CHOKe stuff, I found following problem :
-> 
-> commit 57dbb2d83d100ea (sched: add head drop fifo queue)
-> introduced pfifo_head_drop, and broke the invariant that
-> sch->bstats.bytes and sch->bstats.packets are COUNTER (increasing
-> counters only)
-> 
-> This can break estimators because est_timer() handle unsigned deltas
-> only. A decreasing counter can then give a huge unsigned delta.
-> 
-> My suggestion would be to change things so that sch->bstats.bytes and
-> sch->bstats.packets are incremented in dequeue() only, not at enqueue()
-> time.
-> 
-> It would be more sensible anyway for very low speeds, and big bursts.
-> Right now, if we drop packets, they still are accounted in estimators.
-> 
-> Or maybe my understanding of estimators is wrong, and only apply to
-> enqueue rate, not dequeue rate ?
-> 
-> If so, we should remove the 
-> 
-> sch->bstats.bytes -= qdisc_pkt_len(skb_head);
-> sch->bstats.packets--;
-> 
-> done in pfifo_tail_enqueue() in case we drop the head skb.
-> 
-> 
-> My preference would be to add dropped pack/byte rates to estimators...
-> It might be good for tuning.
+> Le mardi 04 janvier 2011 =E0 16:29 -0800, Stephen Hemminger a =E9crit=
+ :
+> > +static struct sk_buff *skb_peek_random(struct sk_buff_head *list)
+> > +{
+> > +	struct sk_buff *skb =3D list->next;
+> > +	unsigned int idx =3D net_random() % list->qlen;
+> > +
+> > +	while (skb && idx-- > 0)
+> > +		skb =3D skb->next;
+> > +
+> > +	return skb;
+> > +}
+>=20
+> You could avoid the divide op :
+>=20
+> unsigned int idx =3D reciprocal_divide(random32(), list->qlen);
 
-Agreed counters should reflect dequeued packets not enqueued packets.
+How would this work, it is a mod not a divide??
 
-
--- 
+--=20
