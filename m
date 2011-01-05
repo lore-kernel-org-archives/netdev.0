@@ -1,44 +1,44 @@
-From: "Dr. Smith Lee." <MassageMasterTim@aol.com>
-Subject: ASSISTANCE CONEIDETIAL!!!
-Date: Wed, 5 Jan 2011 09:11:44 -0800
-Message-ID: <201101052037.p05KbB4v008092@omr-m32.mx.aol.com>
-Reply-To: <leeussmthdr@yahoo.co.jp>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] net_sched: pfifo_head_drop problem
+Date: Wed, 5 Jan 2011 21:52:17 +0100
+Message-ID: <20110105205217.GC10322@nuttenaction>
+References: <1294246850.2775.244.camel@edumazet-laptop>
+ <1294259702.2723.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>,
+	Patrick McHardy <kaber@trash.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jarek Poplawski <jarkao2@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from omr-m32.mx.aol.com ([64.12.143.152]:10304 "EHLO
-	omr-m32.mx.aol.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752817Ab1AEUkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 15:40:42 -0500
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:60518 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752855Ab1AEUwT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 15:52:19 -0500
+Content-Disposition: inline
+In-Reply-To: <1294259702.2723.22.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+* Eric Dumazet | 2011-01-05 21:35:02 [+0100]:
 
-I have a proposition for you, this however is not mandatory nor will I 
-in any manner compel you to honor against your will.Let me start by 
-introducing myself. I am Dr.Smith  Lee, Director of Operations 
-of the Hang Seng Bank Ltd,Sai Wan Ho Branch. I have a mutual beneficial 
-business suggestion for you.
+>My mid term suggestion would be to change things so that
+>sch->bstats.bytes and sch->bstats.packets are incremented in dequeue()
+>only, not at enqueue() time. We also could add drop_bytes/drop_packets
+>and provide estimations of drop rates.
+>
+>It would be more sensible anyway for very low speeds, and big bursts.
+>Right now, if we drop packets, they still are accounted in byte/packets
+>abolute counters and rate estimators.
+>
+>Before this mid term change, this patch makes pfifo_head_drop behavior
+>similar to other qdiscs in case of drops :
+>Dont decrement sch->bstats.bytes and sch->bstats.packets
 
-1. Can you handle this project?
-2. Can I give you this trust ?
+Thanks Stephen and Erik for spotting this bug!
 
-Absolute confidentiality is required from you.Besides,I will use my connection 
-to get some documents to back up the fund so that the fund can not be 
-question by any authority.
+>Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-More information await you in my next response to your email message.
-
-
-Treat as very urgent.
-
-Yours Faithfully,
-
-Dr. Smith Lee.
-
-
-smith@hangsengbankltd-hk.com
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
