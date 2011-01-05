@@ -1,46 +1,69 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: Re: linux-next: manual merge of the trivial tree with the net tree
-Date: Wed, 05 Jan 2011 07:22:45 -0800
-Message-ID: <4D248CC5.1050903@gmail.com>
-References: <20110104142229.7aa6b99f.sfr@canb.auug.org.au> <alpine.LNX.2.00.1101051550240.26685@pobox.suse.cz>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 PATCH] ethtool: update get_rx_ntuple to
+ correctly interpret string count
+Date: Wed, 05 Jan 2011 15:26:56 +0000
+Message-ID: <1294241216.15866.14.camel@bwh-desktop>
+References: <20110104232947.3451.91153.stgit@gitlad.jf.intel.com>
+	 <1294185662.3636.61.camel@bwh-desktop>  <4D23C423.3050609@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wey-Yi Guy <wey-yi.w.guy@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1101051550240.26685@pobox.suse.cz>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:26892 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750699Ab1AEP06 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 10:26:58 -0500
+In-Reply-To: <4D23C423.3050609@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/05/2011 06:51 AM, Jiri Kosina wrote:
-> On Tue, 4 Jan 2011, Stephen Rothwell wrote:
->
->> Today's linux-next merge of the trivial tree got a conflict in
->> drivers/net/wireless/iwlwifi/iwl-core.c between commit
->> 81baf6ec9c190ae128748cf2a026bff5cb811b70 ("iwlwifi: Legacy isr only used
->> by legacy devices") from the net tree and commit
->> 62e45c14fb9a978dca6c7a5dc8372cc8ea2f42c8 ("wireless: comment typo fix
->> diable ->  disable") from the trivial tree.
->>
->> The former moves the code modified by the latter to
->> drivers/net/wireless/iwlwifi/iwl-legacy.c. I didn't bother refixing the
->> typo there.
->
-> I will definitely be merging to Linus trivial queue later than davem will,
-> so I'll be resolving this. Thanks,
->
+On Tue, 2011-01-04 at 17:06 -0800, Alexander Duyck wrote:
+> On 1/4/2011 4:01 PM, Ben Hutchings wrote:
+> > On Tue, 2011-01-04 at 15:29 -0800, Alexander Duyck wrote:
+> >> Currently any strings returned via the get_rx_ntuple call will just be
+> >> dropped because the num_strings will be zero.  In order to correct this I
+> >> am updating things so that the return value of get_rx_ntuple is the number
+> >> of strings that were written, or a negative value if there was an error.
+> > [...]
+> >
+> > Nothing implements ethtool_ops::get_rx_ntuple, anyway.
+> >
+> > The fallback implementation is totally bogus, too.  Maximum of 1024
+> > filters?  Erm, sfc can handle more than that.  And doing complex string
+> > formatting in the kernel, even though all the parsing is in ethtool?
+> >
+> > Please, let's write off ETHTOOL_GRXNTUPLE as a failed experiment and
+> > replace it with a command that behaves more like ETHTOOL_GRXCLSRLALL.
+> >
+> > Ben.
+> 
+> In order to address several different issues in the perfect filters 
+> provided by 82599 I found it necessary to implement get_rx_ntuple so 
+> that the driver could maintain the filter list inside of the driver 
+> instead of having it maintained by the stack.  In doing so though I 
+> found the bug.
+> 
+> I agree the fallback implementation has a limitation on the number and 
+> format of filters it supports.  However declaring the function a "failed 
+> experiment" and just dropping it isn't exactly constructive since we 
+> have customers that are making use of the feature.
+[...]
 
+We can at least drop that fallback implementation since it apparently
+doesn't work properly for either of the drivers that currently use it.
 
-yeah, I saw this, but was not sure how to reply due to not really 
-knowing what happened(looking at the patch these are just in comments,
-as opposed to the other patch(7) that actually changes code. keep in 
-mind im not sure if it was moved forward due to me having to send out 
-another version due to changes(haven't gotten around due to external 
-things that need to be taken care of))..
+In the medium term, I do want to replace it with a binary interface and
+move that formatting to ethtool.  ETHTOOL_GRXNTUPLE could be kept around
+for a while for ixgbe only, while your customers have a chance to get
+the updated ethtool.
 
-Justin P. Mattock
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
