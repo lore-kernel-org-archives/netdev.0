@@ -1,41 +1,153 @@
-From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Wed, 5 Jan 2011 15:40:28 +0200
-Message-ID: <20110105134028.GA9620@shutemov.name>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org>
- <20110105114155.GN19804@ZenIV.linux.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] ipv4: IP defragmentation must be ECN aware
+Date: Wed, 05 Jan 2011 14:59:02 +0100
+Message-ID: <1294235942.2775.191.camel@edumazet-laptop>
+References: <1294186431.3420.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110105114155.GN19804-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:59846 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005Ab1AEN7G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 08:59:06 -0500
+Received: by wyb28 with SMTP id 28so15361384wyb.19
+        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 05:59:05 -0800 (PST)
+In-Reply-To: <1294186431.3420.19.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 05, 2011 at 11:41:55AM +0000, Al Viro wrote:
-> On Wed, Dec 29, 2010 at 03:14:18PM +0200, Kirill A. Shutemov wrote:
-> > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-> 
-> Won't that make sunrpc impossible to rmmod once you've got it in?
+RFC3168 (The Addition of Explicit Congestion Notification to IP)
+states :
 
-Oops.. Nice catch.
+5.3.  Fragmentation
 
-I'll fix it by relacing remaing references of init_rpc_pipefs with
-get_rpc_pipefs(NULL) at the end of the patchset and move init_rpc_pipefs
-mounting to get_rpc_pipefs(). So, we will have temporary regression in the
-middle of the patchset, but I think it's not a problem.
+   ECN-capable packets MAY have the DF (Don't Fragment) bit set.
+   Reassembly of a fragmented packet MUST NOT lose indications of
+   congestion.  In other words, if any fragment of an IP packet to be
+   reassembled has the CE codepoint set, then one of two actions MUST be
+   taken:
 
--- 
- Kirill A. Shutemov
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+      * Set the CE codepoint on the reassembled packet.  However, this
+        MUST NOT occur if any of the other fragments contributing to
+        this reassembly carries the Not-ECT codepoint.
+
+      * The packet is dropped, instead of being reassembled, for any
+        other reason.
+
+This patch implements this requirement for IPv4, choosing the first
+action : 
+
+If one fragment had NO-ECT codepoint
+	reassembled frame has NO-ECT
+ElIf one fragment had CE codepoint
+	reassembled frame has CE
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/ip_fragment.c |   34 ++++++++++++++++++++++++++++++++++
+ 1 files changed, 34 insertions(+)
+
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index e6215bd..e6b53a7 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -45,6 +45,7 @@
+ #include <linux/udp.h>
+ #include <linux/inet.h>
+ #include <linux/netfilter_ipv4.h>
++#include <net/inet_ecn.h>
+ 
+ /* NOTE. Logic of IP defragmentation is parallel to corresponding IPv6
+  * code now. If you change something here, _PLEASE_ update ipv6/reassembly.c
+@@ -70,11 +71,28 @@ struct ipq {
+ 	__be32		daddr;
+ 	__be16		id;
+ 	u8		protocol;
++	u8		ecn; /* RFC3168 support */
+ 	int             iif;
+ 	unsigned int    rid;
+ 	struct inet_peer *peer;
+ };
+ 
++#define IPFRAG_ECN_CLEAR  0x01 /* one frag had INET_ECN_NOT_ECT */
++#define IPFRAG_ECN_SET_CE 0x04 /* one frag had INET_ECN_CE */
++
++static inline int ip4_frag_ecn(int tos)
++{
++	tos = (tos & INET_ECN_MASK) + 1;
++	/*
++	 * After the last operation we have (in binary):
++	 * INET_ECN_NOT_ECT => 001
++	 * INET_ECN_ECT_1   => 010
++	 * INET_ECN_ECT_0   => 011
++	 * INET_ECN_CE      => 100
++	 */
++	return (tos & 2) ? 0 : tos;
++}
++
+ static struct inet_frags ip4_frags;
+ 
+ int ip_frag_nqueues(struct net *net)
+@@ -137,6 +155,7 @@ static void ip4_frag_init(struct inet_frag_queue *q, void *a)
+ 
+ 	qp->protocol = arg->iph->protocol;
+ 	qp->id = arg->iph->id;
++	qp->ecn = ip4_frag_ecn(arg->iph->tos);
+ 	qp->saddr = arg->iph->saddr;
+ 	qp->daddr = arg->iph->daddr;
+ 	qp->user = arg->user;
+@@ -316,6 +335,7 @@ static int ip_frag_reinit(struct ipq *qp)
+ 	qp->q.fragments = NULL;
+ 	qp->q.fragments_tail = NULL;
+ 	qp->iif = 0;
++	qp->ecn = 0;
+ 
+ 	return 0;
+ }
+@@ -328,6 +348,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 	int flags, offset;
+ 	int ihl, end;
+ 	int err = -ENOENT;
++	u8 ecn;
+ 
+ 	if (qp->q.last_in & INET_FRAG_COMPLETE)
+ 		goto err;
+@@ -339,6 +360,7 @@ static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ 		goto err;
+ 	}
+ 
++	ecn = ip4_frag_ecn(ip_hdr(skb)->tos);
+ 	offset = ntohs(ip_hdr(skb)->frag_off);
+ 	flags = offset & ~IP_OFFSET;
+ 	offset &= IP_OFFSET;
+@@ -472,6 +494,7 @@ found:
+ 	}
+ 	qp->q.stamp = skb->tstamp;
+ 	qp->q.meat += skb->len;
++	qp->ecn |= ecn;
+ 	atomic_add(skb->truesize, &qp->q.net->mem);
+ 	if (offset == 0)
+ 		qp->q.last_in |= INET_FRAG_FIRST_IN;
+@@ -583,6 +606,17 @@ static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
+ 	iph = ip_hdr(head);
+ 	iph->frag_off = 0;
+ 	iph->tot_len = htons(len);
++	/* RFC3168 5.3 Fragmentation support :
++	 * If one fragment had INET_ECN_NOT_ECT,
++	 *	reassembled frame also has INET_ECN_NOT_ECT
++	 * Elif one fragment had INET_ECN_CE
++	 *	reassembled frame also has INET_ECN_CE
++	 */
++	if (qp->ecn & IPFRAG_ECN_CLEAR)
++		iph->tos &= ~INET_ECN_MASK;
++	else if (qp->ecn & IPFRAG_ECN_SET_CE)
++		iph->tos |= INET_ECN_CE;
++
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMOKS);
+ 	qp->q.fragments = NULL;
+ 	qp->q.fragments_tail = NULL;
+
+
