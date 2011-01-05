@@ -1,40 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] sched: CHOKe packet scheduler
-Date: Wed, 05 Jan 2011 07:19:35 +0100
-Message-ID: <1294208375.3420.46.camel@edumazet-laptop>
-References: <20110104162930.6fa672e3@nehalam>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch 1/2] dcb: unlock on error in dcbnl_ieee_get()
+Date: Wed, 5 Jan 2011 10:03:12 +0300
+Message-ID: <20110105070312.GA24847@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Shmulik Ravid <shmulikr@broadcom.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	kernel-janitors@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46631 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751310Ab1AEGTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 01:19:40 -0500
-Received: by wyb28 with SMTP id 28so15053877wyb.19
-        for <netdev@vger.kernel.org>; Tue, 04 Jan 2011 22:19:39 -0800 (PST)
-In-Reply-To: <20110104162930.6fa672e3@nehalam>
+Received: from mail-gy0-f174.google.com ([209.85.160.174]:47802 "EHLO
+	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298Ab1AEHDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 02:03:35 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 04 janvier 2011 =C3=A0 16:29 -0800, Stephen Hemminger a =C3=A9=
-crit :
-> +static struct sk_buff *skb_peek_random(struct sk_buff_head *list)
-> +{
-> +	struct sk_buff *skb =3D list->next;
-> +	unsigned int idx =3D net_random() % list->qlen;
-> +
-> +	while (skb && idx-- > 0)
-> +		skb =3D skb->next;
-> +
-> +	return skb;
-> +}
+There is a "goto nla_put_failure" hidden inside the NLA_PUT() macro, but
+we're holding the dcb_lock so we need to unlock first.
 
-You could avoid the divide op :
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-unsigned int idx =3D reciprocal_divide(random32(), list->qlen);
-
-
-
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index ff3c12d..8881cb5 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1264,9 +1264,14 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 
+ 	spin_lock(&dcb_lock);
+ 	list_for_each_entry(itr, &dcb_app_list, list) {
+-		if (strncmp(itr->name, netdev->name, IFNAMSIZ) == 0)
+-			NLA_PUT(skb, DCB_ATTR_IEEE_APP,
+-				sizeof(itr->app), &itr->app);
++		if (strncmp(itr->name, netdev->name, IFNAMSIZ) == 0) {
++			err = nla_put(skb, DCB_ATTR_IEEE_APP, sizeof(itr->app),
++					 &itr->app);
++			if (err) {
++				spin_unlock(&dcb_lock);
++				goto nla_put_failure;
++			}
++		}
+ 	}
+ 	spin_unlock(&dcb_lock);
+ 	nla_nest_end(skb, app);
