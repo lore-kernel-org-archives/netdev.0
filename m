@@ -1,37 +1,41 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] net: bridge: check the length of skb after nf_bridge_maybe_copy_header()
-Date: Wed, 5 Jan 2011 21:37:28 +0800
-Message-ID: <AANLkTikb+o2tXg0uU92Q9foVqX2P49dhJX+umLX=Nhfn@mail.gmail.com>
-References: <AANLkTingFk8qJ8tBwSRCxD=9k-0O3GnTv9V9TbF4N=bg@mail.gmail.com>
- <20110103.092214.193706896.davem@davemloft.net> <20110103101533.3f98b311@nehalam>
- <20110103.121336.212692696.davem@davemloft.net>
+From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
+Date: Wed, 5 Jan 2011 15:40:28 +0200
+Message-ID: <20110105134028.GA9620@shutemov.name>
+References: <1293628470-28386-1-git-send-email-kas@openvz.org>
+ <20110105114155.GN19804@ZenIV.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54660 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257Ab1AENhu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 08:37:50 -0500
-Received: by fxm20 with SMTP id 20so15022856fxm.19
-        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 05:37:49 -0800 (PST)
-In-Reply-To: <20110103.121336.212692696.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110105114155.GN19804-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 4, 2011 at 4:13 AM, David Miller <davem@davemloft.net> wrote:
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
->>
->> Because PPPOE happens afterwards and is not part the calculation.
->> The check should be moved until after skb has reached final form.
->
-> That works for me.
->
+On Wed, Jan 05, 2011 at 11:41:55AM +0000, Al Viro wrote:
+> On Wed, Dec 29, 2010 at 03:14:18PM +0200, Kirill A. Shutemov wrote:
+> > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+> 
+> Won't that make sunrpc impossible to rmmod once you've got it in?
 
-So, is my patch acceptable?
+Oops.. Nice catch.
+
+I'll fix it by relacing remaing references of init_rpc_pipefs with
+get_rpc_pipefs(NULL) at the end of the patchset and move init_rpc_pipefs
+mounting to get_rpc_pipefs(). So, we will have temporary regression in the
+middle of the patchset, but I think it's not a problem.
 
 -- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+ Kirill A. Shutemov
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
