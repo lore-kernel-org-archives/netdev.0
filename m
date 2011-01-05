@@ -1,50 +1,37 @@
-From: Ian Campbell <ian.campbell@citrix.com>
-Subject: [PATCH] xen: netfront: Drop GSO SKBs which do not have csum_blank.
-Date: Wed,  5 Jan 2011 13:23:31 +0000
-Message-ID: <1294233811-28123-1-git-send-email-ian.campbell@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	xen-devel@lists.xensource.com
-To: netdev@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net: bridge: check the length of skb after nf_bridge_maybe_copy_header()
+Date: Wed, 5 Jan 2011 21:37:28 +0800
+Message-ID: <AANLkTikb+o2tXg0uU92Q9foVqX2P49dhJX+umLX=Nhfn@mail.gmail.com>
+References: <AANLkTingFk8qJ8tBwSRCxD=9k-0O3GnTv9V9TbF4N=bg@mail.gmail.com>
+ <20110103.092214.193706896.davem@davemloft.net> <20110103101533.3f98b311@nehalam>
+ <20110103.121336.212692696.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:11573 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752167Ab1AENXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 08:23:35 -0500
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54660 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751257Ab1AENhu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 08:37:50 -0500
+Received: by fxm20 with SMTP id 20so15022856fxm.19
+        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 05:37:49 -0800 (PST)
+In-Reply-To: <20110103.121336.212692696.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Linux network stack expects all GSO SKBs to have ip_summed ==
-CHECKSUM_PARTIAL (which implies that the frame contains a partial
-checksum) and the Xen network ring protocol similarly expects an SKB
-which has GSO set to also have NETRX_csum_blank (which also implies a
-partial checksum). Therefore drop such frames on receive otherwise
-they will trigger the warning in skb_gso_segment.
+On Tue, Jan 4, 2011 at 4:13 AM, David Miller <davem@davemloft.net> wrote:
+> From: Stephen Hemminger <shemminger@linux-foundation.org>
+>>
+>> Because PPPOE happens afterwards and is not part the calculation.
+>> The check should be moved until after skb has reached final form.
+>
+> That works for me.
+>
 
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
-Cc: xen-devel@lists.xensource.com
-Cc: netdev@vger.kernel.org
----
- drivers/net/xen-netfront.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+So, is my patch acceptable?
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index cdbeec9..8b8c480 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -836,6 +836,11 @@ static int handle_incoming_queue(struct net_device *dev,
- 				dev->stats.rx_errors++;
- 				continue;
- 			}
-+		} else if (skb_is_gso(skb)) {
-+			kfree_skb(skb);
-+			packets_dropped++;
-+			dev->stats.rx_errors++;
-+			continue;
- 		}
- 
- 		dev->stats.rx_packets++;
 -- 
-1.5.6.5
-
+Regards,
+Changli Gao(xiaosuo@gmail.com)
