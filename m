@@ -1,68 +1,38 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v2] net: Allow ethtool to set interface in loopback
- mode.
-Date: Tue, 4 Jan 2011 17:29:39 -0800
-Message-ID: <20110104172939.711b758d@nehalam>
-References: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
-	<1294187401-4662-1-git-send-email-maheshb@google.com>
-	<20110104163645.0b3a3687@nehalam>
-	<1294190504.2992.3.camel@localhost>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH v2] net: Allow ethtool to set interface in loopback mode.
+Date: Tue, 04 Jan 2011 17:34:29 -0800
+Message-ID: <4D23CAA5.7060902@hp.com>
+References: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>	<1294187401-4662-1-git-send-email-maheshb@google.com>	<20110104163645.0b3a3687@nehalam>	<1294190504.2992.3.camel@localhost> <20110104172939.711b758d@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Mahesh Bandewar <maheshb@google.com>,
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Mahesh Bandewar <maheshb@google.com>,
 	David Miller <davem@davemloft.net>,
 	Laurent Chavey <chavey@google.com>,
 	Tom Herbert <therbert@google.com>,
 	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:45656 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751163Ab1AEB3o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jan 2011 20:29:44 -0500
-In-Reply-To: <1294190504.2992.3.camel@localhost>
+Received: from g6t0187.atlanta.hp.com ([15.193.32.64]:8987 "EHLO
+	g6t0187.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933Ab1AEBed (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jan 2011 20:34:33 -0500
+In-Reply-To: <20110104172939.711b758d@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 05 Jan 2011 01:21:44 +0000
-Ben Hutchings <bhutchings@solarflare.com> wrote:
-
-> On Tue, 2011-01-04 at 16:36 -0800, Stephen Hemminger wrote:
-> > On Tue,  4 Jan 2011 16:30:01 -0800
-> > Mahesh Bandewar <maheshb@google.com> wrote:
-> > 
-> > > This patch enables ethtool to set the loopback mode on a given interface.
-> > > By configuring the interface in loopback mode in conjunction with a policy
-> > > route / rule, a userland application can stress the egress / ingress path
-> > > exposing the flows of the change in progress and potentially help developer(s)
-> > > understand the impact of those changes without even sending a packet out
-> > > on the network.
-> > > 
-> > > Following set of commands illustrates one such example -
-> > > 	a) ip -4 addr add 192.168.1.1/24 dev eth1
-> > > 	b) ip -4 rule add from all iif eth1 lookup 250
-> > > 	c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
-> > > 	d) arp -Ds 192.168.1.100 eth1
-> > > 	e) arp -Ds 192.168.1.200 eth1
-> > > 	f) sysctl -w net.ipv4.ip_nonlocal_bind=1
-> > > 	g) sysctl -w net.ipv4.conf.all.accept_local=1
-> > > 	# Assuming that the machine has 8 cores
-> > > 	h) taskset 000f netserver -L 192.168.1.200
-> > > 	i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
-> > > 
-> > > Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> > > Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
-> > 
-> > Since this is a boolean it SHOULD go into ethtool_flags rather than
-> > being a high level operation.
+>>>Since this is a boolean it SHOULD go into ethtool_flags rather than
+>>>being a high level operation.
+>>
+>>It could do, but I though ETHTOOL_{G,S}FLAGS were intended for
+>>controlling offload features.
 > 
-> It could do, but I though ETHTOOL_{G,S}FLAGS were intended for
-> controlling offload features.
+> 
+> It just seems the number of hooks keeps growing which takes more space
+> and increases complexity.
 
-It just seems the number of hooks keeps growing which takes more space
-and increases complexity.
+Is there any complication/downside to using flags in the (un?)likely event of 
+wanting different flavors of loopback in the card?
 
-There was some talk about changing GRO/TSO/UFO .. to be bits in FLAGS
-but not sure how far along that is.
--- 
+rick jones
