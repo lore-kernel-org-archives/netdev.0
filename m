@@ -1,91 +1,48 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: at91_can: errata "Contents of Mailbox 0 can be sent"
-Date: Thu, 06 Jan 2011 00:41:05 +0100
-Message-ID: <4D250191.80600@pengutronix.de>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: Gaah: selinux_socket_unix_stream_connect oops
+Date: Wed, 5 Jan 2011 15:32:44 -0800
+Message-ID: <AANLkTimZnqQ1xmQC2Bp3vj60uU_vPEwWi2n+G9MZ4Uo9@mail.gmail.com>
+References: <AANLkTikPvJLEZetB-CbVSO0VuYLnAQz5y8D_F0HGML=5@mail.gmail.com> <20110105.142540.245404254.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8030733073188025181=="
-Cc: Netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: SocketCAN Core Mailing List <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============8030733073188025181==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigFBA96F7FA04371C8BB3E4630"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigFBA96F7FA04371C8BB3E4630
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, jeremy@goop.org, jmorris@namei.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:45437 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753222Ab1AEXlP convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jan 2011 18:41:15 -0500
+Received: from mail-iw0-f174.google.com (mail-iw0-f174.google.com [209.85.214.174])
+	(authenticated bits=0)
+	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id p05NfDSA027772
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
+	for <netdev@vger.kernel.org>; Wed, 5 Jan 2011 15:41:14 -0800
+Received: by iwn9 with SMTP id 9so15757685iwn.19
+        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 15:41:13 -0800 (PST)
+In-Reply-To: <20110105.142540.245404254.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Moin,
+On Wed, Jan 5, 2011 at 2:25 PM, David Miller <davem@davemloft.net> wrot=
+e:
+>
+> More seriously, we can get at the struct socket via sk->sk_socket in
+> the SMACK code. =A0sk->sk_socket, unlike socket->sk, has it's state
+> change to NULL (via sock_orphen()) protected by unix_state_lock(),
+> which we hold for "other" in this unix connect code path.
+>
+> Therefore I propose we fix this like so:
 
-the at91_can core has the following problem:
-"50.3.5.3 CAN: Contents of Mailbox 0 can be sent Even if Mailbox is
-Disabled"
+Looks fine to me.
 
-This means under high bus load it can happen that the mailbox 0 is send
-to the bus. And it does happen, even with the mainline driver where
-Mailbox 0 is a receive mailbox. The errata proposes not to use mailbox 0
-and load it with a unused can_id that will not disturb the bus.
+And no, I don't think that selinux is all the world, but selinux is
+the _common_ case, and with the cross-pointers, the only difference
+can be whether you need to dereference the pointer or not - so
+choosing the "extra dereference" case for the common case seems silly.
 
-I'm going to implement the workaround. As the unused identifier is
-probably application specific my question is: What's the best way to
-configure this identifier?
+The fact that this also fixes locking is obviously an even better
+reason to do it, though ;)
 
-- sysfs
-- netlink
-- ioctl
-- ethtool
-- peek/poke :P
-
-What will be a good default can_id?
-
-regards, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigFBA96F7FA04371C8BB3E4630
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk0lAZUACgkQjTAFq1RaXHOd/wCdEdn2cHpUqXfkiZ299wBjXB4l
-B3sAnRSrjbYZuM9KE4VJ17ZO9NQeUekN
-=BYrn
------END PGP SIGNATURE-----
-
---------------enigFBA96F7FA04371C8BB3E4630--
-
---===============8030733073188025181==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
-
---===============8030733073188025181==--
+                      Linus
