@@ -1,86 +1,61 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH v3 08/10] ARM: mxs: add ocotp read function
-Date: Thu, 6 Jan 2011 09:13:01 +0000
-Message-ID: <20110106091301.GS8638@n2100.arm.linux.org.uk>
-References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com> <1294236457-17476-9-git-send-email-shawn.guo@freescale.com> <20110105161235.GA2112@gallagher> <20110105164409.GV25121@pengutronix.de> <20110105172501.GB2112@gallagher> <20110105175617.GD12222@shareable.org> <20110105183509.GH8638@n2100.arm.linux.org.uk> <20110105194418.GE12222@shareable.org> <20110105201502.GK8638@n2100.arm.linux.org.uk> <20110106005052.GA4476@shareable.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Flow Control and Port Mirroring Revisited
+Date: Thu, 6 Jan 2011 18:33:12 +0900
+Message-ID: <20110106093312.GA1564@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>, gerg@snapgear.com,
-	B32542@freescale.com, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, bryan.wu@canonical.com, baruch@tkos.co.il,
-	w.sang@pengutronix.de, r64343@freescale.com,
-	Shawn Guo <shawn.guo@freescale.com>, eric@eukrea.com,
-	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
-To: Jamie Lokier <jamie@shareable.org>
+Cc: virtualization@lists.linux-foundation.org,
+	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:58650 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751319Ab1AFJNt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 04:13:49 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:41217 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751319Ab1AFJdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 04:33:16 -0500
 Content-Disposition: inline
-In-Reply-To: <20110106005052.GA4476@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 06, 2011 at 12:50:52AM +0000, Jamie Lokier wrote:
-> Russell King - ARM Linux wrote:
-> > On Wed, Jan 05, 2011 at 07:44:18PM +0000, Jamie Lokier wrote:
-> > > 'git show 534be1d5' explains how it works: cpu_relax() flushes buffered
-> > > writes from _this_ CPU, so that other CPUs which are polling can make
-> > > progress, which avoids this CPU getting stuck if there is an indirect
-> > > dependency (no matter how convoluted) between what it's polling and which
-> > > it wrote just before.
-> > > 
-> > > So cpu_relax() is *essential* in some polling loops, not a hint.
-> > > 
-> > > In principle that could happen for I/O polling, if (a) buffered memory
-> > > writes are delayed by I/O read transactions, and (b) the device state we're
-> > > waiting on depends on I/O yet to be done on another CPU, which could be
-> > > polling memory first (e.g. a spinlock).
-> > > 
-> > > I doubt (a) in practice - but what about buses that block during I/O read?
-> > > (I have a chip like that here, but it's ARMv4T.)
-> > 
-> > Let's be clear - ARMv5 and below generally are well ordered architectures
-> > within the limits of caching.  There are cases where the write buffer
-> > allows two writes to pass each other.  However, for IO we generally map
-> > these - especially for ARMv4 and below - as 'uncacheable unbufferable'.
-> > So on these, if the program says "read this location" the pipeline will
-> > stall until the read has been issued - and if you use the result in the
-> > next instruction, it will stall until the data is available.  So really,
-> > it's not a problem here.
-> > 
-> > ARMv6 and above have a weakly ordered memory model with speculative
-> > prefetching, so memory reads/writes can be completely unordered.  Device
-> > accesses can pass memory accesses, but device accesses are always visible
-> > in program order with respect to each other.
-> > 
-> > So, if you're spinning in a loop reading an IO device, all previous IO
-> > accesses will be completed (in all ARM architectures) before the result
-> > of your read is evaluated.
-> 
-> No, that wasn't the scenario - it was:
-> 
-> You're spinning reading an IO device, whose state depends indirectly
-> on a *CPU memory* write that is forever buffered.
-> 
-> (Go and re-read 'git show 534be1d5' if you haven't already.)
+Hi,
 
-I know what that's about, and it's about memory based accesses _only_.
+Back in October I reported that I noticed a problem whereby flow control
+breaks down when openvswitch is configured to mirror a port[1].
 
-What you're talking about is a programming error.  Such errors cause
-data corruption if you're talking about DMA stuff.
+I have (finally) looked into this further and the problem appears to relate
+to cloning of skbs, as Jesse Gross originally suspected.
 
-At the moment, the solution to that is to put whatever's necessary into
-readl/writel to ensure that they behave as ordered operations with
-respect to everything else.  You'll find that on ARM, writel has a
-barrier before it to ensure memory writes are visible before the device
-write, and on readl there's a barrier to ensure that no memory read can
-happen before the IO device read.
+More specifically, in do_execute_actions[2] the first n-1 times that an skb
+needs to be transmitted it is cloned first and the final time the original
+skb is used.
 
-cpu_relax() has nothing to do with ensuring ordering with devices.
+In the case that there is only one action, which is the normal case, then
+the original skb will be used. But in the case of mirroring the cloning
+comes into effect. And in my case the cloned skb seems to go to the (slow)
+eth1 interface while the original skb goes to the (fast) dummy0 interface
+that I set up to be a mirror. The result is that dummy0 "paces" the flow,
+and its a cracking pace at that.
 
-With relaxed IO operations, the responsibility for ensuring proper ordering
-between memory and IO falls to the programmer.
+As an experiment I hacked do_execute_actions() to use the original skb
+for the first action instead of the last one.  In my case the result was
+that eth1 "paces" the flow, and things work reasonably nicely.
+
+Well, sort of. Things work well for non-GSO skbs but extremely poorly for
+GSO skbs where only 3 (yes 3, not 3%) end up at the remote host running
+netserv. I'm unsure why, but I digress.
+
+It seems to me that my hack illustrates the point that the flow ends up
+being "paced" by one interface. However I think that what would be
+desirable is that the flow is "paced" by the slowest link. Unfortunately
+I'm unsure how to achieve that.
+
+One idea that I had was to skb_get() the original skb each time it is
+cloned - that is easy enough. But unfortunately it seems to me that
+approach would require some sort of callback mechanism in kfree_skb() so
+that the cloned skbs can kfree_skb() the original skb.
+
+Ideas would be greatly appreciated.
+
+[1] http://openvswitch.org/pipermail/dev_openvswitch.org/2010-October/003806.html
+[2] http://openvswitch.org/cgi-bin/gitweb.cgi?p=openvswitch;a=blob;f=datapath/actions.c;h=5e16143ca402f7da0ee8fc18ee5eb16c3b7598e6;hb=HEAD
