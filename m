@@ -1,29 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: r6040: Return proper error for r6040_init_one
-Date: Thu, 06 Jan 2011 11:18:20 -0800 (PST)
-Message-ID: <20110106.111820.39176204.davem@davemloft.net>
-References: <1294216804.19064.2.camel@mola>
-	<201101051050.45381.florian@openwrt.org>
+Subject: Re: [PATCH] ipv4: IP defragmentation must be ECN aware
+Date: Thu, 06 Jan 2011 11:21:03 -0800 (PST)
+Message-ID: <20110106.112103.59674935.davem@davemloft.net>
+References: <1294249261.10633.54.camel@edumazet-laptop>
+	<20110105094830.63a68230@nehalam>
+	<1294249975.10633.74.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: axel.lin@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: florian@openwrt.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201101051050.45381.florian@openwrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38472
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751404Ab1AFTUb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:20:31 -0500
+In-Reply-To: <1294249975.10633.74.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 5 Jan 2011 10:50:45 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 05 Jan 2011 18:52:55 +0100
 
-> On Wednesday 05 January 2011 09:40:04 Axel Lin wrote:
->> Return -ENOMEM instead of 0 for the case of mdiobus_alloc and kmalloc
->> failure.
->>
->> Signed-off-by: Axel Lin <axel.lin@gmail.com>
+> [PATCH v2] ipv4: IP defragmentation must be ECN aware
 > 
-> Acked-by: Florian Fainelli <florian@openwrt.org>
+> RFC3168 (The Addition of Explicit Congestion Notification to IP)
+> states :
+> 
+> 5.3.  Fragmentation
+> 
+>    ECN-capable packets MAY have the DF (Don't Fragment) bit set.
+>    Reassembly of a fragmented packet MUST NOT lose indications of
+>    congestion.  In other words, if any fragment of an IP packet to be
+>    reassembled has the CE codepoint set, then one of two actions MUST be
+>    taken:
+> 
+>       * Set the CE codepoint on the reassembled packet.  However, this
+>         MUST NOT occur if any of the other fragments contributing to
+>         this reassembly carries the Not-ECT codepoint.
+> 
+>       * The packet is dropped, instead of being reassembled, for any
+>         other reason.
+> 
+> This patch implements this requirement for IPv4, choosing the first
+> action : 
+> 
+> If one fragment had NO-ECT codepoint
+>         reassembled frame has NO-ECT
+> ElIf one fragment had CE codepoint
+>         reassembled frame has CE
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Applied, thanks.
+Applied, thanks a lot Eric.
