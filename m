@@ -1,41 +1,31 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH] net: ppp: use {get,put}_unaligned_be{16,32}
-Date: Thu, 6 Jan 2011 11:07:56 -0800
-Message-ID: <AANLkTin+pgnTs67odj2qtrMD3AzgQ+Wv43a6NbBy6G8t@mail.gmail.com>
-References: <1294306655-22033-1-git-send-email-xiaosuo@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] include/linux/if_ether.h: Add #define ETH_P_LINK_CTL
+ for HPNA and wlan local tunnel
+Date: Thu, 06 Jan 2011 11:10:15 -0800 (PST)
+Message-ID: <20110106.111015.104054729.davem@davemloft.net>
+References: <1292298831.26970.263.camel@Joe-Laptop>
+	<1294193234-804-1-git-send-email-henryp@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1294306655-22033-1-git-send-email-xiaosuo@gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: joe@perches.com, brudley@broadcom.com, arend@broadcom.com,
+	rvossen@broadcom.com, dowan@broadcom.com, netdev@vger.kernel.org
+To: henryp@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60501
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751959Ab1AFTJo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:09:44 -0500
+In-Reply-To: <1294193234-804-1-git-send-email-henryp@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 6, 2011 at 1:37 AM, Changli Gao <xiaosuo@gmail.com> wrote:
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> ---
-> =C2=A0drivers/net/ppp_async.c =C2=A0 | =C2=A0 10 +++++-----
-> =C2=A0drivers/net/ppp_deflate.c | =C2=A0 =C2=A09 ++++-----
-> =C2=A0drivers/net/ppp_generic.c | =C2=A0 =C2=A09 ++++-----
-> =C2=A0drivers/net/ppp_mppe.c =C2=A0 =C2=A0| =C2=A0 =C2=A07 +++----
-> =C2=A0drivers/net/ppp_synctty.c | =C2=A0 =C2=A03 ++-
-> =C2=A05 files changed, 18 insertions(+), 20 deletions(-)
-> diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
-> index 78d70a6..cbe1e13 100644
-> --- a/drivers/net/ppp_async.c
-> +++ b/drivers/net/ppp_async.c
-> @@ -32,6 +32,7 @@
-> =C2=A0#include <linux/init.h>
-> =C2=A0#include <linux/jiffies.h>
-> =C2=A0#include <linux/slab.h>
-> +#include <linux/unaligned/be_struct.h>
+From: "Henry Ptasinski" <henryp@broadcom.com>
+Date: Tue, 4 Jan 2011 18:07:14 -0800
 
-#include <asm/unaligned.h>
+> Ethertype used by HPNA control protocols (LARQ, rate, link, etc) and by
+> Broadcom wlan drivers for local signalling.
+> 
+> Signed-off-by: Henry Ptasinski <henryp@broadcom.com>
 
-Same for the other occurances, otherwise looks OK.
-
-Harvey
+Applied, thanks.
