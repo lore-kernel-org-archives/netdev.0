@@ -1,76 +1,198 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
- used
-Date: Fri, 07 Jan 2011 00:34:47 +0100
-Message-ID: <1294356887.2704.13.camel@edumazet-laptop>
-References: <1291536233.2806.102.camel@edumazet-laptop>
-	 <20101205105528.49fa9a9f@xenia.leun.net>
-	 <20101205114404.7c0cddc2@xenia.leun.net>
-	 <AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
-	 <20101206203437.54b550e0@xenia.leun.net>
-	 <AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
-	 <20101206222703.32fbe852@xenia.leun.net>
-	 <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
-	 <20101213224510.GB17400@mcarlson.broadcom.com>
-	 <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	 <20101214191500.GD19951@mcarlson.broadcom.com>
-	 <1293901393.2535.49.camel@edumazet-laptop>
-	 <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
-	 <1293984348.2535.101.camel@edumazet-laptop>
-	 <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matt Carlson <mcarlson@broadcom.com>,
-	Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH v2] net: ppp: use {get,put}_unaligned_be{16,32}
+Date: Fri,  7 Jan 2011 07:37:36 +0800
+Message-ID: <1294357056-25889-1-git-send-email-xiaosuo@gmail.com>
+Cc: Paul Mackerras <paulus@samba.org>,
+	Harvey Harrison <harvey.harrison@gmail.com>,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 06 janvier 2011 =C3=A0 16:01 -0500, Jesse Gross a =C3=A9crit :
-
-> Hmm, I thought that it might be some interaction with a corner case i=
-n
-> the networking core but now it seems less likely.  There weren't too
-> many vlan changes between the working and non-working states.  Plus,
-> since the rx counter isn't increasing, the packets probably aren't
-> making it anywhere.
->=20
-> I see that tg3 increases the drop counter in one place, which also
-> happens to be checking for vlan errors (at tg3.c:4753).  That seems
-> suspicious - maybe the NIC is only partially configured for vlan
-> offloading.  If we can confirm that is where the drop counter is bein=
-g
-> incremented and what the error code is maybe it would shed some light=
-=2E
->=20
-
-Hmm... I am pretty sure the drop counter is the dev rx_dropped (core
-network handled, not tg3 one) incremented at the end of
-__netif_receive_skb() : We found no suitable handler for packets.
-
-atomic_long_inc(&skb->dev->rx_dropped);
-
-But thats a guess, I'll have to check
-
-> If it's a driver issue I don't have much insight - maybe Matt or
-> bisect can help.
->=20
-> >> If it works on bnx2, it would seem to be a driver problem but it w=
-ould
-> >> be good to confirm that the tag in skb->vlan_tci is not being
-> >> delievered to the networking core in this case.
-> >
-> > Hmm, where do you want me to check this ?
->=20
-> I was thinking right before vlan_gro_receive() at tg3.c:4837.  If my
-> theory above is right then this obviously isn't relevant since it
-> won't be hit at all.  Otherwise it would be good to know exactly what
-> the driver is producing.
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+v2: use asm/unaligned.h, thanks Harvey.
+ drivers/net/ppp_async.c   |   10 +++++-----
+ drivers/net/ppp_deflate.c |    9 ++++-----
+ drivers/net/ppp_generic.c |    9 ++++-----
+ drivers/net/ppp_mppe.c    |    7 +++----
+ drivers/net/ppp_synctty.c |    3 ++-
+ 5 files changed, 18 insertions(+), 20 deletions(-)
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index 78d70a6..cbe1e13 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -32,6 +32,7 @@
+ #include <linux/init.h>
+ #include <linux/jiffies.h>
+ #include <linux/slab.h>
++#include <asm/unaligned.h>
+ #include <asm/uaccess.h>
+ #include <asm/string.h>
+ 
+@@ -542,7 +543,7 @@ ppp_async_encode(struct asyncppp *ap)
+ 	data = ap->tpkt->data;
+ 	count = ap->tpkt->len;
+ 	fcs = ap->tfcs;
+-	proto = (data[0] << 8) + data[1];
++	proto = get_unaligned_be16(data);
+ 
+ 	/*
+ 	 * LCP packets with code values between 1 (configure-reqest)
+@@ -963,7 +964,7 @@ static void async_lcp_peek(struct asyncppp *ap, unsigned char *data,
+ 	code = data[0];
+ 	if (code != CONFACK && code != CONFREQ)
+ 		return;
+-	dlen = (data[2] << 8) + data[3];
++	dlen = get_unaligned_be16(data + 2);
+ 	if (len < dlen)
+ 		return;		/* packet got truncated or length is bogus */
+ 
+@@ -997,15 +998,14 @@ static void async_lcp_peek(struct asyncppp *ap, unsigned char *data,
+ 	while (dlen >= 2 && dlen >= data[1] && data[1] >= 2) {
+ 		switch (data[0]) {
+ 		case LCP_MRU:
+-			val = (data[2] << 8) + data[3];
++			val = get_unaligned_be16(data + 2);
+ 			if (inbound)
+ 				ap->mru = val;
+ 			else
+ 				ap->chan.mtu = val;
+ 			break;
+ 		case LCP_ASYNCMAP:
+-			val = (data[2] << 24) + (data[3] << 16)
+-				+ (data[4] << 8) + data[5];
++			val = get_unaligned_be32(data + 2);
+ 			if (inbound)
+ 				ap->raccm = val;
+ 			else
+diff --git a/drivers/net/ppp_deflate.c b/drivers/net/ppp_deflate.c
+index 695bc83..df3ce78 100644
+--- a/drivers/net/ppp_deflate.c
++++ b/drivers/net/ppp_deflate.c
+@@ -41,6 +41,7 @@
+ #include <linux/ppp-comp.h>
+ 
+ #include <linux/zlib.h>
++#include <asm/unaligned.h>
+ 
+ /*
+  * State for a Deflate (de)compressor.
+@@ -232,11 +233,9 @@ static int z_compress(void *arg, unsigned char *rptr, unsigned char *obuf,
+ 	 */
+ 	wptr[0] = PPP_ADDRESS(rptr);
+ 	wptr[1] = PPP_CONTROL(rptr);
+-	wptr[2] = PPP_COMP >> 8;
+-	wptr[3] = PPP_COMP;
++	put_unaligned_be16(PPP_COMP, wptr + 2);
+ 	wptr += PPP_HDRLEN;
+-	wptr[0] = state->seqno >> 8;
+-	wptr[1] = state->seqno;
++	put_unaligned_be16(state->seqno, wptr);
+ 	wptr += DEFLATE_OVHD;
+ 	olen = PPP_HDRLEN + DEFLATE_OVHD;
+ 	state->strm.next_out = wptr;
+@@ -451,7 +450,7 @@ static int z_decompress(void *arg, unsigned char *ibuf, int isize,
+ 	}
+ 
+ 	/* Check the sequence number. */
+-	seq = (ibuf[PPP_HDRLEN] << 8) + ibuf[PPP_HDRLEN+1];
++	seq = get_unaligned_be16(ibuf + PPP_HDRLEN);
+ 	if (seq != (state->seqno & 0xffff)) {
+ 		if (state->debug)
+ 			printk(KERN_DEBUG "z_decompress%d: bad seq # %d, expected %d\n",
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 6456484..0a81f0b 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -46,6 +46,7 @@
+ #include <linux/device.h>
+ #include <linux/mutex.h>
+ #include <linux/slab.h>
++#include <asm/unaligned.h>
+ #include <net/slhc_vj.h>
+ #include <asm/atomic.h>
+ 
+@@ -210,7 +211,7 @@ struct ppp_net {
+ };
+ 
+ /* Get the PPP protocol number from a skb */
+-#define PPP_PROTO(skb)	(((skb)->data[0] << 8) + (skb)->data[1])
++#define PPP_PROTO(skb)	get_unaligned_be16((skb)->data)
+ 
+ /* We limit the length of ppp->file.rq to this (arbitrary) value */
+ #define PPP_MAX_RQLEN	32
+@@ -964,8 +965,7 @@ ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	pp = skb_push(skb, 2);
+ 	proto = npindex_to_proto[npi];
+-	pp[0] = proto >> 8;
+-	pp[1] = proto;
++	put_unaligned_be16(proto, pp);
+ 
+ 	netif_stop_queue(dev);
+ 	skb_queue_tail(&ppp->file.xq, skb);
+@@ -1473,8 +1473,7 @@ static int ppp_mp_explode(struct ppp *ppp, struct sk_buff *skb)
+ 		q = skb_put(frag, flen + hdrlen);
+ 
+ 		/* make the MP header */
+-		q[0] = PPP_MP >> 8;
+-		q[1] = PPP_MP;
++		put_unaligned_be16(PPP_MP, q);
+ 		if (ppp->flags & SC_MP_XSHORTSEQ) {
+ 			q[2] = bits + ((ppp->nxseq >> 8) & 0xf);
+ 			q[3] = ppp->nxseq;
+diff --git a/drivers/net/ppp_mppe.c b/drivers/net/ppp_mppe.c
+index 6d1a1b8..44dab65 100644
+--- a/drivers/net/ppp_mppe.c
++++ b/drivers/net/ppp_mppe.c
+@@ -55,6 +55,7 @@
+ #include <linux/ppp_defs.h>
+ #include <linux/ppp-comp.h>
+ #include <linux/scatterlist.h>
++#include <asm/unaligned.h>
+ 
+ #include "ppp_mppe.h"
+ 
+@@ -395,16 +396,14 @@ mppe_compress(void *arg, unsigned char *ibuf, unsigned char *obuf,
+ 	 */
+ 	obuf[0] = PPP_ADDRESS(ibuf);
+ 	obuf[1] = PPP_CONTROL(ibuf);
+-	obuf[2] = PPP_COMP >> 8;	/* isize + MPPE_OVHD + 1 */
+-	obuf[3] = PPP_COMP;	/* isize + MPPE_OVHD + 2 */
++	put_unaligned_be16(PPP_COMP, obuf + 2);
+ 	obuf += PPP_HDRLEN;
+ 
+ 	state->ccount = (state->ccount + 1) % MPPE_CCOUNT_SPACE;
+ 	if (state->debug >= 7)
+ 		printk(KERN_DEBUG "mppe_compress[%d]: ccount %d\n", state->unit,
+ 		       state->ccount);
+-	obuf[0] = state->ccount >> 8;
+-	obuf[1] = state->ccount & 0xff;
++	put_unaligned_be16(state->ccount, obuf);
+ 
+ 	if (!state->stateful ||	/* stateless mode     */
+ 	    ((state->ccount & 0xff) == 0xff) ||	/* "flag" packet      */
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
+index 4c95ec3..fe86826 100644
+--- a/drivers/net/ppp_synctty.c
++++ b/drivers/net/ppp_synctty.c
+@@ -45,6 +45,7 @@
+ #include <linux/completion.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
++#include <asm/unaligned.h>
+ #include <asm/uaccess.h>
+ 
+ #define PPP_VERSION	"2.4.2"
+@@ -563,7 +564,7 @@ ppp_sync_txmunge(struct syncppp *ap, struct sk_buff *skb)
+ 	int islcp;
+ 
+ 	data  = skb->data;
+-	proto = (data[0] << 8) + data[1];
++	proto = get_unaligned_be16(data);
+ 
+ 	/* LCP packets with codes between 1 (configure-request)
+ 	 * and 7 (code-reject) must be sent as though no options
