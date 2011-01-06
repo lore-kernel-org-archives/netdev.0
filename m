@@ -1,86 +1,37 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH net-next-2.6 v2 1/2] can: add driver for Softing card
-Date: Thu, 6 Jan 2011 16:05:26 +0100
-Message-ID: <20110106150525.GB324@e-circ.dyndns.org>
-References: <20110104150513.GA321@e-circ.dyndns.org>
- <20110104150759.GB321@e-circ.dyndns.org>
- <4D24DB2C.9040104@grandegger.com>
+From: Chin Shi Hong <cshong87@gmail.com>
+Subject: Use ioctl() to list all network interfaces.
+Date: Thu, 6 Jan 2011 23:33:39 +0800
+Message-ID: <AANLkTi=Xb4TuKcCd-DgN5ZnYzRHV1RjDScyjRkqyb4P+@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de
-To: Wolfgang Grandegger <wg@grandegger.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:33218 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753036Ab1AFPFi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 10:05:38 -0500
-Content-Disposition: inline
-In-Reply-To: <4D24DB2C.9040104@grandegger.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:65324 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753042Ab1AFPdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 10:33:41 -0500
+Received: by eye27 with SMTP id 27so7214518eye.19
+        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 07:33:40 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wolfgang,
+Dear all,
 
-On Wed, Jan 05, 2011 at 09:57:16PM +0100, Wolfgang Grandegger wrote:
-> 
-> here comes my review... First some general remarks. As Mark already
-> pointed out, there are still some coding style issues:
-Oops, I tried to eliminate those.
-> 
-> - Please use the following style for multi line comments:
-shame on me. I should have done them all after Mark pointed me to it.
-> 
-> - Please avoid alignment of expressions and structure members.
-I see:
-diff --git a/include/linux/can.h b/include/linux/can.h
-index d183333..6b1e5a6 100644
---- a/include/linux/can.h
-+++ b/include/linux/can.h
-@@ -56,18 +56,18 @@ typedef __u32 can_err_mask_t;
-  */
- struct can_frame {
- 	canid_t can_id;  /* 32 bit CAN_ID + EFF/RTR/ERR flags */
--	__u8    can_dlc; /* data length code: 0 .. 8 */
--	__u8    data[8] __attribute__((aligned(8)));
-+	__u8 can_dlc; /* data length code: 0 .. 8 */
-+	__u8 data[8] __attribute__((aligned(8)));
- };
- 
- /* particular protocols of the protocol family PF_CAN */
--#define CAN_RAW		1 /* RAW sockets */
--#define CAN_BCM		2 /* Broadcast Manager */
--#define CAN_TP16	3 /* VAG Transport Protocol v1.6 */
--#define CAN_TP20	4 /* VAG Transport Protocol v2.0 */
--#define CAN_MCNET	5 /* Bosch MCNet */
--#define CAN_ISOTP	6 /* ISO 15765-2 Transport Protocol */
--#define CAN_NPROTO	7
-+#define CAN_RAW 1 /* RAW sockets */
-+#define CAN_BCM 2 /* Broadcast Manager */
-+#define CAN_TP16 3 /* VAG Transport Protocol v1.6 */
-+#define CAN_TP20 4 /* VAG Transport Protocol v2.0 */
-+#define CAN_MCNET 5 /* Bosch MCNet */
-+#define CAN_ISOTP 6 /* ISO 15765-2 Transport Protocol */
-+#define CAN_NPROTO 7
- 
- #define SOL_CAN_BASE 100
- 
-@@ -79,7 +79,7 @@ struct can_frame {
-  */
- struct sockaddr_can {
- 	sa_family_t can_family;
--	int         can_ifindex;
-+	int can_ifindex;
- 	union {
- 		/* transport protocol class address information (e.g. ISOTP) */
- 		struct { canid_t rx_id, tx_id; } tp;
+The following codes are just part of my application's source codes:
 
-I applied a search pattern on this, since I seem incapable of finding
-alignment problems in my own code :-).
-I assume alignment is ok for definitions, but not within functions?
-I consulted the Documentation/Coding-style, but I did not find
-the exact answer.
-> 
-> More comments inline...
-More to process for me too ...
+--begin of some codes--
+ifconf ifc;
+ret = ioctl(n, SIOCGIFCONF,&ifc);
+--End of some codes--
 
-Kurt
+My application's role is to display all network interfaces, including
+the network interface which are down.
+
+However, with the above codes, my application only display the network
+interface which are already up. The network interface which are down
+will not be displayed.
+
+So, what can I do to make my application display all network
+interfaces, including the network interface which are down?
+
+regards,
