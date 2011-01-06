@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ixp4xx_eth: Return proper error for eth_init_one
-Date: Thu, 06 Jan 2011 11:11:48 -0800 (PST)
-Message-ID: <20110106.111148.189705155.davem@davemloft.net>
-References: <1294205046.8294.2.camel@mola>
-	<m3bp3vi6v9.fsf@intrepid.localdomain>
+Subject: Re: [patch 1/2] dcb: unlock on error in dcbnl_ieee_get()
+Date: Thu, 06 Jan 2011 11:17:06 -0800 (PST)
+Message-ID: <20110106.111706.112600632.davem@davemloft.net>
+References: <20110105070312.GA24847@bicker>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: axel.lin@gmail.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: khc@pm.waw.pl
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m3bp3vi6v9.fsf@intrepid.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
+	shmulikr@broadcom.com, kernel-janitors@vger.kernel.org
+To: error27@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38454
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751815Ab1AFTQe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:16:34 -0500
+In-Reply-To: <20110105070312.GA24847@bicker>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Date: Wed, 05 Jan 2011 18:43:22 +0100
+From: Dan Carpenter <error27@gmail.com>
+Date: Wed, 5 Jan 2011 10:03:12 +0300
 
-> Axel Lin <axel.lin@gmail.com> writes:
+> There is a "goto nla_put_failure" hidden inside the NLA_PUT() macro, but
+> we're holding the dcb_lock so we need to unlock first.
 > 
->> Return PTR_ERR(port->phydev) instead of 1 if phy_connect failed.
->>
->> Signed-off-by: Axel Lin <axel.lin@gmail.com>
-> 
->> --- a/drivers/net/arm/ixp4xx_eth.c
->> +++ b/drivers/net/arm/ixp4xx_eth.c
->> @@ -1229,8 +1229,10 @@ static int __devinit eth_init_one(struct platform_device *pdev)
->>  	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, "0", plat->phy);
->>  	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link, 0,
->>  				   PHY_INTERFACE_MODE_MII);
->> -	if ((err = IS_ERR(port->phydev)))
->> +	if (IS_ERR(port->phydev)) {
->> +		err = PTR_ERR(port->phydev);
->>  		goto err_free_mem;
->> +	}
->>  
->>  	port->phydev->irq = PHY_POLL;
-> 
-> Right. Thanks.
-> 
-> Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
+> Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-I'll apply this, thanks.
+Applied, thanks Dan.
