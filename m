@@ -1,93 +1,133 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v3 08/10] ARM: mxs: add ocotp read function
-Date: Thu, 6 Jan 2011 09:45:19 +0800
-Message-ID: <20110106014518.GA17891@freescale.com>
-References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
- <1294236457-17476-9-git-send-email-shawn.guo@freescale.com>
- <20110105161235.GA2112@gallagher>
- <20110105164409.GV25121@pengutronix.de>
- <20110105172501.GB2112@gallagher>
- <20110105175617.GD12222@shareable.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-next] cnic: Fix the type field in SPQ messages
+Date: Wed, 5 Jan 2011 17:14:13 -0800
+Message-ID: <1294276453-5957-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, <gerg@snapgear.com>,
-	<B32542@freescale.com>, <netdev@vger.kernel.org>,
-	<s.hauer@pengutronix.de>, <baruch@tkos.co.il>,
-	<w.sang@pengutronix.de>, <r64343@freescale.com>,
-	<linux-arm-kernel@lists.infradead.org>, <eric@eukrea.com>,
-	<bryan.wu@canonical.com>, <davem@davemloft.net>,
-	<lw@karo-electronics.de>
-To: Jamie Lokier <jamie@shareable.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:11955 "EHLO
-	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751906Ab1AFBnI convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jan 2011 20:43:08 -0500
-Received: from mail50-tx2 (localhost.localdomain [127.0.0.1])	by
- mail50-tx2-R.bigfish.com (Postfix) with ESMTP id 53EA46E0103	for
- <netdev@vger.kernel.org>; Thu,  6 Jan 2011 01:43:07 +0000 (UTC)
-Received: from TX2EHSMHS040.bigfish.com (unknown [10.9.14.243])	by
- mail50-tx2.bigfish.com (Postfix) with ESMTP id EC029109004F	for
- <netdev@vger.kernel.org>; Thu,  6 Jan 2011 01:43:06 +0000 (UTC)
-Received: from az33smr01.freescale.net (az33smr01.freescale.net
- [10.64.34.199])	by az33egw02.freescale.net (8.14.3/8.14.3) with ESMTP id
- p061h4Nv008612	for <netdev@vger.kernel.org>; Wed, 5 Jan 2011 18:43:04 -0700
- (MST)
-Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
- [10.192.242.196])	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
- p061h3Od021344	for <netdev@vger.kernel.org>; Wed, 5 Jan 2011 19:43:04 -0600
- (CST)
-Content-Disposition: inline
-In-Reply-To: <20110105175617.GD12222@shareable.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1964 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753798Ab1AFCJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jan 2011 21:09:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 05, 2011 at 05:56:17PM +0000, Jamie Lokier wrote:
-> Jamie Iles wrote:
-> > On Wed, Jan 05, 2011 at 05:44:09PM +0100, Uwe Kleine-K=F6nig wrote:
-> > > Hello Jamie,
-> > > On Wed, Jan 05, 2011 at 04:16:46PM +0000, Jamie Iles wrote:
-> > > > On Wed, Jan 05, 2011 at 10:07:35PM +0800, Shawn Guo wrote:
-> > > > > +	/* check both BUSY and ERROR cleared */
-> > > > > +	while ((__raw_readl(ocotp_base) &
-> > > > > +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
-> > > > > +		/* nothing */;
-> > > >=20
-> > > > Is it worth using cpu_relax() in these polling loops?
-> > > I don't know what cpu_relax does for other platforms, but on ARM =
-it's
-> > > just a memory barrier which AFAICT doesn't help here at all (whic=
-h
-> > > doesn't need to be correct).  Why do you think it would be better=
-?
-> >=20
-> > Well I don't see that there's anything broken without cpu_relax() b=
-ut=20
-> > using cpu_relax() seems to be the most common way of doing busy pol=
-ling=20
-> > loops that I've seen. It's also a bit easier to read than a comment=
- and=20
-> > semi-colon. Perhaps it's just personal preference.
->=20
-> cpu_relax() is a hint to the CPU to, for example, save power or be
-> less aggressive on the memory bus (to save power or be fairer).
->=20
-> Currently these architectures do more than just a barrier in cpu_rela=
-x():
-> x86, IA64, PowerPC, Tile and S390.
->=20
-> Although it's just a hint on ARM at the moment, it might change in
-> future - especially with power mattering on so many ARM systems.
-> (Even now, just changing it to a very short udelay might save power
-> on existing ARMs without breaking drivers.)
->=20
-Sounds reasonable.  I would take the suggestion.  Thanks, both Jamie.
+The new firmware interface requires each Slow Path Queue (SPQ) message's
+type field to include the function number.  The existing code does not
+do this consistently.  We fix this by OR'ing in the function number
+into the type field centrally in cnic_submit_kwqe_16().
 
---=20
-Regards,
-Shawn
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/cnic.c |   33 ++++++++++++---------------------
+ 1 files changed, 12 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
+index aa5016a..263a294 100644
+--- a/drivers/net/cnic.c
++++ b/drivers/net/cnic.c
+@@ -1290,12 +1290,18 @@ static int cnic_submit_kwqe_16(struct cnic_dev *dev, u32 cmd, u32 cid,
+ 	struct cnic_local *cp = dev->cnic_priv;
+ 	struct l5cm_spe kwqe;
+ 	struct kwqe_16 *kwq[1];
++	u16 type_16;
+ 	int ret;
+ 
+ 	kwqe.hdr.conn_and_cmd_data =
+ 		cpu_to_le32(((cmd << SPE_HDR_CMD_ID_SHIFT) |
+ 			     BNX2X_HW_CID(cp, cid)));
+-	kwqe.hdr.type = cpu_to_le16(type);
++
++	type_16 = (type << SPE_HDR_CONN_TYPE_SHIFT) & SPE_HDR_CONN_TYPE;
++	type_16 |= (cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
++		   SPE_HDR_FUNCTION_ID;
++
++	kwqe.hdr.type = cpu_to_le16(type_16);
+ 	kwqe.hdr.reserved1 = 0;
+ 	kwqe.data.phy_address.lo = cpu_to_le32(l5_data->phy_address.lo);
+ 	kwqe.data.phy_address.hi = cpu_to_le32(l5_data->phy_address.hi);
+@@ -1819,19 +1825,15 @@ static int cnic_bnx2x_destroy_ramrod(struct cnic_dev *dev, u32 l5_cid)
+ 	struct cnic_context *ctx = &cp->ctx_tbl[l5_cid];
+ 	union l5cm_specific_data l5_data;
+ 	int ret;
+-	u32 hw_cid, type;
++	u32 hw_cid;
+ 
+ 	init_waitqueue_head(&ctx->waitq);
+ 	ctx->wait_cond = 0;
+ 	memset(&l5_data, 0, sizeof(l5_data));
+ 	hw_cid = BNX2X_HW_CID(cp, ctx->cid);
+-	type = (NONE_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
+-		& SPE_HDR_CONN_TYPE;
+-	type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
+-		 SPE_HDR_FUNCTION_ID);
+ 
+ 	ret = cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_COMMON_CFC_DEL,
+-				  hw_cid, type, &l5_data);
++				  hw_cid, NONE_CONNECTION_TYPE, &l5_data);
+ 
+ 	if (ret == 0)
+ 		wait_event(ctx->waitq, ctx->wait_cond);
+@@ -2204,7 +2206,6 @@ static int cnic_bnx2x_fcoe_init1(struct cnic_dev *dev, struct kwqe *wqes[],
+ 	cp->kcq2.sw_prod_idx = 0;
+ 
+ 	cid = BNX2X_HW_CID(cp, cp->fcoe_init_cid);
+-	printk(KERN_ERR "bdbg: submitting INIT RAMROD \n");
+ 	ret = cnic_submit_kwqe_16(dev, FCOE_RAMROD_CMD_ID_INIT, cid,
+ 				  FCOE_CONNECTION_TYPE, &l5_data);
+ 	*work = 3;
+@@ -4977,7 +4978,7 @@ static void cnic_init_rings(struct cnic_dev *dev)
+ 	} else if (test_bit(CNIC_F_BNX2X_CLASS, &dev->flags)) {
+ 		u32 cli = cp->ethdev->iscsi_l2_client_id;
+ 		u32 cid = cp->ethdev->iscsi_l2_cid;
+-		u32 cl_qzone_id, type;
++		u32 cl_qzone_id;
+ 		struct client_init_ramrod_data *data;
+ 		union l5cm_specific_data l5_data;
+ 		struct ustorm_eth_rx_producers rx_prods = {0};
+@@ -5009,15 +5010,10 @@ static void cnic_init_rings(struct cnic_dev *dev)
+ 		l5_data.phy_address.lo = udev->l2_buf_map & 0xffffffff;
+ 		l5_data.phy_address.hi = (u64) udev->l2_buf_map >> 32;
+ 
+-		type = (ETH_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
+-			& SPE_HDR_CONN_TYPE;
+-		type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
+-			SPE_HDR_FUNCTION_ID);
+-
+ 		set_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
+ 
+ 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_ETH_CLIENT_SETUP,
+-			cid, type, &l5_data);
++			cid, ETH_CONNECTION_TYPE, &l5_data);
+ 
+ 		i = 0;
+ 		while (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags) &&
+@@ -5047,7 +5043,6 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
+ 		u32 cid = cp->ethdev->iscsi_l2_cid;
+ 		union l5cm_specific_data l5_data;
+ 		int i;
+-		u32 type;
+ 
+ 		cnic_ring_ctl(dev, cid, cli, 0);
+ 
+@@ -5068,12 +5063,8 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
+ 		cnic_spq_completion(dev, DRV_CTL_RET_L2_SPQ_CREDIT_CMD, 1);
+ 
+ 		memset(&l5_data, 0, sizeof(l5_data));
+-		type = (NONE_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
+-			& SPE_HDR_CONN_TYPE;
+-		type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
+-			 SPE_HDR_FUNCTION_ID);
+ 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_COMMON_CFC_DEL,
+-			cid, type, &l5_data);
++			cid, NONE_CONNECTION_TYPE, &l5_data);
+ 		msleep(10);
+ 	}
+ 	clear_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
+-- 
+1.6.4.GIT
+
 
