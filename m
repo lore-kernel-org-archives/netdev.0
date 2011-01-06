@@ -1,72 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Thu, 06 Jan 2011 14:28:18 +0100
-Message-ID: <1294320498.3074.36.camel@edumazet-laptop>
-References: <20110106093312.GA1564@verge.net.au>
-	 <1294309362.3074.11.camel@edumazet-laptop>
-	 <20110106124439.GA17004@verge.net.au>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: genetlink misinterprets NEW as GET
+Date: Thu, 06 Jan 2011 14:48:31 +0100
+Message-ID: <4D25C82F.4010306@netfilter.org>
+References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:62754 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751725Ab1AFN2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 08:28:24 -0500
-In-Reply-To: <20110106124439.GA17004@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 06 janvier 2011 =C3=A0 21:44 +0900, Simon Horman a =C3=A9crit =
-:
+On 04/01/11 03:14, Jan Engelhardt wrote:
+> Hey there,
+> 
+> 
+> I can't really say whether it's genetlink or netlink to blame,
+> but I noticed that a request with
+> 
+> 	nlmsg_flags = NLM_F_CREATE | NLM_F_EXCL
+> 
+> to a genl-registered component can return -EOPNOTSUPP because it does 
+> not have a dumpit function defined in struct genl_ops. Make sense?
+> Not at first sight at least.
+> include/linux/netlink.h has this nice anecdote:
+> 
+> 	/* Modifiers to GET request */
+> 	#define NLM_F_ROOT      0x100
+> 	#define NLM_F_MATCH     0x200
+> 	#define NLM_F_ATOMIC    0x400
+> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
+> 	
+> 	/* Modifiers to NEW request */
+> 	#define NLM_F_REPLACE   0x100
+> 	#define NLM_F_EXCL      0x200
+> 	#define NLM_F_CREATE    0x400
+> 	#define NLM_F_APPEND    0x800
+> 
+> Except there is nothing that declares a particular Netlink message
+> as "GET" or "NEW". Subsequently, genetlink chokes:
+> 
+> 	if (nlh->nlmsg_flags & NLM_F_DUMP)
+> 		if (ops->dumpit == NULL)
+> 			return -EOPNOTSUPP;
+> 
+> Because NLM_F_CREATE | NLM_F_EXCL == NLM_F_DUMP.
+> That, of course, is absolutely bogus.
 
-> Hi Eric !
->=20
-> Thanks for the advice. I had thought about the socket buffer but at s=
-ome
-> point it slipped my mind.
->=20
-> In any case the following patch seems to implement the change that I =
-had in
-> mind. However my discussions Michael Tsirkin elsewhere in this thread=
- are
-> beginning to make me think that think that perhaps this change isn't =
-the
-> best solution.
->=20
-> diff --git a/datapath/actions.c b/datapath/actions.c
-> index 5e16143..505f13f 100644
-> --- a/datapath/actions.c
-> +++ b/datapath/actions.c
-> @@ -384,7 +384,12 @@ static int do_execute_actions(struct datapath *d=
-p, struct sk_buff *skb,
-> =20
->  	for (a =3D actions, rem =3D actions_len; rem > 0; a =3D nla_next(a,=
- &rem)) {
->  		if (prev_port !=3D -1) {
-> -			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
-> +			struct sk_buff *nskb =3D skb_clone(skb, GFP_ATOMIC);
-> +			if (nskb) {
-> +				if (skb->sk)
-> +					skb_set_owner_w(nskb, skb->sk);
-> +				do_output(dp, nskb, prev_port);
-> +			}
->  			prev_port =3D -1;
->  		}
->=20
-> I got a rather nasty panic without the if (skb->sk),
-> I guess some skbs don't have a socket.
+Hm, NLM_F_CREATE | NLM_F_EXCL is not equal to NLM_F_DUMP.
 
-Indeed, some packets are not linked to a socket.
+You must be hitting -EOPNOTSUPP elsewhere.
 
-(ARP packets for example)
+> [N.B.: I am also wondering whether
+> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
+> may have been desired, because NLM_F_DUMP is composed of two bits.]
 
-Sorry, I should have mentioned it :)
-
-
+Someone may include NLM_F_ATOMIC to a dump operation, in that case the
+checking that you propose is not valid.
