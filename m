@@ -1,94 +1,75 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Thu, 06 Jan 2011 20:44:36 +0100
-Message-ID: <4D261BA4.2020003@pengutronix.de>
-References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<20110106.113356.102556872.davem@davemloft.net>
-	<4D261AAA.5030005@grandegger.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 2/3] tlan: Fix partner capability printout
+Date: Thu, 06 Jan 2011 19:44:46 +0000
+Message-ID: <1294343086.11825.31.camel@bwh-desktop>
+References: <4D260ED0.5040301@iki.fi>
+	 <1294339817-31434-1-git-send-email-sakari.ailus@iki.fi>
+	 <1294339817-31434-2-git-send-email-sakari.ailus@iki.fi>
+	 <1294341774.11825.27.camel@bwh-desktop>  <4D2619BC.1030606@iki.fi>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3107986359821671244=="
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D261AAA.5030005-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============3107986359821671244==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigDF0BBA439C9D3722317CCB08"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigDF0BBA439C9D3722317CCB08
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-Hello Wolfgang,
-
-On 01/06/2011 08:40 PM, Wolfgang Grandegger wrote:
-> On 01/06/2011 08:33 PM, David Miller wrote:
->> From: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
->> Date: Tue, 4 Jan 2011 15:29:55 +0530
->>
->>> Bosch C_CAN controller is a full-CAN implementation which is complian=
-t
->>> to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can=
- be
->>> obtained from:
->>> http://www.semiconductors.bosch.de/pdf/Users_Manual_C_CAN.pdf
->>
->> Can someone please review this driver submission?
->=20
-> Yes, of course. I'm still on holiday, hope to find some time tomorrow.
-
-If this driver will be merged, we'll have two drivers for the same can
-core in the tree. The other one is the pch_can. What do you think should
-be the mid term perspective for ccan based hardware?
-
-regards, Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigDF0BBA439C9D3722317CCB08
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk0mG6oACgkQjTAFq1RaXHPs+QCfUAxbHsKbwssUJJiYTWTNUHzI
-vwYAn1wqcmTIoZt92hD4+mU7IWuuDoBF
-=yP1i
------END PGP SIGNATURE-----
-
---------------enigDF0BBA439C9D3722317CCB08--
-
---===============3107986359821671244==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org
+To: Sakari Ailus <sakari.ailus@iki.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:6602 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753147Ab1AFTot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:44:49 -0500
+In-Reply-To: <4D2619BC.1030606@iki.fi>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+On Thu, 2011-01-06 at 21:36 +0200, Sakari Ailus wrote:
+> Ben Hutchings wrote:
+> > On Thu, 2011-01-06 at 20:50 +0200, Sakari Ailus wrote:
+> >> Fix partner capability printout. Add spaces and do not print null.
+> >>
+> >> Signed-off-by: Sakari Ailus<sakari.ailus@iki.fi>
+> >> ---
+> >>   drivers/net/tlan.c |    6 +++---
+> >>   1 files changed, 3 insertions(+), 3 deletions(-)
+> >>
+> >> diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
+> >> index 57380b1..090ce21 100644
+> >> --- a/drivers/net/tlan.c
+> >> +++ b/drivers/net/tlan.c
+> >> @@ -2367,10 +2367,10 @@ tlan_finish_reset(struct net_device *dev)
+> >>   					? "" : "0",
+> >>   					tlphy_par&  TLAN_PHY_DUPLEX_FULL
+> >>   					? "Full" : "half");
+> >> -				pr_info("TLAN: Partner capability: ");
+> >> -				for (i = 5; i<= 10; i++)
+> >> +				pr_info("TLAN: Partner capability:");
+> >> +				for (i = 5; i<  10; i++)
+> >>   					if (partner&  (1<<i))
+> >> -						printk("%s", media[i-5]);
+> >> +						printk(" %s", media[i-5]);
+> >>   				printk("\n");
+> >>   			}
+> >>
+> >
+> > Really you should remove this logging and report the information through
+> > the ethtool interface.
+> 
+> Hi Ben,
+> 
+> Thanks for the comments.
+> 
+> The driver supports mii-tool but not ethtool. Do you think it'd be fine 
+> to remove these prints with just mii-tool interface support?
+> 
+> I agree ethtool support would definitely make sense to have in tlan.
 
---===============3107986359821671244==--
+Assuming that tlan drives a fairly standard MDIO PHY, you should be able
+to implement the PHY-related ethtool operations using
+ethtool_op_get_link(), mii_nway_restart(), mii_ethtool_gset() and
+mii_ethtool_sset().
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
