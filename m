@@ -1,38 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: bridge: check the length of skb after
- nf_bridge_maybe_copy_header()
-Date: Thu, 06 Jan 2011 11:33:20 -0800 (PST)
-Message-ID: <20110106.113320.28809548.davem@davemloft.net>
-References: <20110103101533.3f98b311@nehalam>
-	<20110103.121336.212692696.davem@davemloft.net>
-	<AANLkTikb+o2tXg0uU92Q9foVqX2P49dhJX+umLX=Nhfn@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for
+	Bosch C_CAN controller
+Date: Thu, 06 Jan 2011 11:33:56 -0800 (PST)
+Message-ID: <20110106.113356.102556872.davem@davemloft.net>
+References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, bridge@lists.linux-foundation.org,
-	netdev@vger.kernel.org
-To: xiaosuo@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45274
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752644Ab1AFTcs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:32:48 -0500
-In-Reply-To: <AANLkTikb+o2tXg0uU92Q9foVqX2P49dhJX+umLX=Nhfn@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bhupesh.sharma-qxv4g6HH51o@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1294135195-9448-1-git-send-email-bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Wed, 5 Jan 2011 21:37:28 +0800
+From: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Date: Tue, 4 Jan 2011 15:29:55 +0530
 
-> On Tue, Jan 4, 2011 at 4:13 AM, David Miller <davem@davemloft.net> wrote:
->> From: Stephen Hemminger <shemminger@linux-foundation.org>
->>>
->>> Because PPPOE happens afterwards and is not part the calculation.
->>> The check should be moved until after skb has reached final form.
->>
->> That works for me.
->>
-> 
-> So, is my patch acceptable?
+> Bosch C_CAN controller is a full-CAN implementation which is compliant
+> to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can be
+> obtained from:
+> http://www.semiconductors.bosch.de/pdf/Users_Manual_C_CAN.pdf
 
-Yes, I've applied it, thank you.
+Can someone please review this driver submission?
+
+Thank you.
