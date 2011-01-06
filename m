@@ -1,129 +1,72 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Thu, 6 Jan 2011 14:47:51 +0200
-Message-ID: <20110106124751.GF12142@redhat.com>
+Date: Thu, 06 Jan 2011 14:28:18 +0100
+Message-ID: <1294320498.3074.36.camel@edumazet-laptop>
 References: <20110106093312.GA1564@verge.net.au>
- <20110106102755.GC12142@redhat.com>
- <20110106113052.GA2541@verge.net.au>
- <20110106120722.GD12142@redhat.com>
- <20110106122859.GA13253@verge.net.au>
+	 <1294309362.3074.11.camel@edumazet-laptop>
+	 <20110106124439.GA17004@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	virtualization@lists.linux-foundation.org,
 	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
 	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
 To: Simon Horman <horms@verge.net.au>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110106122859.GA13253@verge.net.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:62754 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751725Ab1AFN2Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 08:28:24 -0500
+In-Reply-To: <20110106124439.GA17004@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 06, 2011 at 09:29:02PM +0900, Simon Horman wrote:
-> On Thu, Jan 06, 2011 at 02:07:22PM +0200, Michael S. Tsirkin wrote:
-> > On Thu, Jan 06, 2011 at 08:30:52PM +0900, Simon Horman wrote:
-> > > On Thu, Jan 06, 2011 at 12:27:55PM +0200, Michael S. Tsirkin wrote:
-> > > > On Thu, Jan 06, 2011 at 06:33:12PM +0900, Simon Horman wrote:
-> > > > > Hi,
-> > > > > 
-> > > > > Back in October I reported that I noticed a problem whereby flow control
-> > > > > breaks down when openvswitch is configured to mirror a port[1].
-> > > > 
-> > > > Apropos the UDP flow control.  See this
-> > > > http://www.spinics.net/lists/netdev/msg150806.html
-> > > > for some problems it introduces.
-> > > > Unfortunately UDP does not have built-in flow control.
-> > > > At some level it's just conceptually broken:
-> > > > it's not present in physical networks so why should
-> > > > we try and emulate it in a virtual network?
-> > > > 
-> > > > 
-> > > > Specifically, when you do:
-> > > > # netperf -c -4 -t UDP_STREAM -H 172.17.60.218 -l 30 -- -m 1472
-> > > > You are asking: what happens if I push data faster than it can be received?
-> > > > But why is this an interesting question?
-> > > > Ask 'what is the maximum rate at which I can send data with %X packet
-> > > > loss' or 'what is the packet loss at rate Y Gb/s'. netperf has
-> > > > -b and -w flags for this. It needs to be configured
-> > > > with --enable-intervals=yes for them to work.
-> > > > 
-> > > > If you pose the questions this way the problem of pacing
-> > > > the execution just goes away.
-> > > 
-> > > I am aware that UDP inherently lacks flow control.
-> > 
-> > Everyone's is aware of that, but this is always followed by a 'however'
-> > :).
-> > 
-> > > The aspect of flow control that I am interested in is situations where the
-> > > guest can create large amounts of work for the host. However, it seems that
-> > > in the case of virtio with vhostnet that the CPU utilisation seems to be
-> > > almost entirely attributable to the vhost and qemu-system processes.  And
-> > > in the case of virtio without vhost net the CPU is used by the qemu-system
-> > > process. In both case I assume that I could use a cgroup or something
-> > > similar to limit the guests.
-> > 
-> > cgroups, yes. the vhost process inherits the cgroups
-> > from the qemu process so you can limit them all.
-> > 
-> > If you are after limiting the max troughput of the guest
-> > you can do this with cgroups as well.
-> 
-> Do you mean a CPU cgroup or something else?
+Le jeudi 06 janvier 2011 =C3=A0 21:44 +0900, Simon Horman a =C3=A9crit =
+:
 
-net classifier cgroup
+> Hi Eric !
+>=20
+> Thanks for the advice. I had thought about the socket buffer but at s=
+ome
+> point it slipped my mind.
+>=20
+> In any case the following patch seems to implement the change that I =
+had in
+> mind. However my discussions Michael Tsirkin elsewhere in this thread=
+ are
+> beginning to make me think that think that perhaps this change isn't =
+the
+> best solution.
+>=20
+> diff --git a/datapath/actions.c b/datapath/actions.c
+> index 5e16143..505f13f 100644
+> --- a/datapath/actions.c
+> +++ b/datapath/actions.c
+> @@ -384,7 +384,12 @@ static int do_execute_actions(struct datapath *d=
+p, struct sk_buff *skb,
+> =20
+>  	for (a =3D actions, rem =3D actions_len; rem > 0; a =3D nla_next(a,=
+ &rem)) {
+>  		if (prev_port !=3D -1) {
+> -			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
+> +			struct sk_buff *nskb =3D skb_clone(skb, GFP_ATOMIC);
+> +			if (nskb) {
+> +				if (skb->sk)
+> +					skb_set_owner_w(nskb, skb->sk);
+> +				do_output(dp, nskb, prev_port);
+> +			}
+>  			prev_port =3D -1;
+>  		}
+>=20
+> I got a rather nasty panic without the if (skb->sk),
+> I guess some skbs don't have a socket.
 
-> > > Assuming all of that is true then from a resource control problem point of
-> > > view, which is mostly what I am concerned about, the problem goes away.
-> > > However, I still think that it would be nice to resolve the situation I
-> > > described.
-> > 
-> > We need to articulate what's wrong here, otherwise we won't
-> > be able to resolve the situation. We are sending UDP packets
-> > as fast as we can and some receivers can't cope. Is this the problem?
-> > We have made attempts to add a pseudo flow control in the past
-> > in an attempt to make UDP on the same host work better.
-> > Maybe they help some but they also sure introduce problems.
-> 
-> In the case where port mirroring is not active, which is the
-> usual case, to some extent there is flow control in place due to
-> (as Eric Dumazet pointed out) the socket buffer.
-> 
-> When port mirroring is activated the flow control operates based
-> only on one port - which can't be controlled by the administrator
-> in an obvious way.
-> 
-> I think that it would be more intuitive if flow control was
-> based on sending a packet to all ports rather than just one.
-> 
-> Though now I think about it some more, perhaps this isn't the best either.
-> For instance the case where data was being sent to dummy0 and suddenly
-> adding a mirror on eth1 slowed everything down.
-> 
-> So perhaps there needs to be another knob to tune when setting
-> up port-mirroring. Or perhaps the current situation isn't so bad.
+Indeed, some packets are not linked to a socket.
 
-To understand whether it's bad, you'd need to measure it.
-The netperf manual says:
-	5.2.4 UDP_STREAM
+(ARP packets for example)
 
-		A UDP_STREAM test is similar to a TCP_STREAM test except UDP is used as
-	the transport rather than TCP.
+Sorry, I should have mentioned it :)
 
-		A UDP_STREAM test has no end-to-end flow control - UDP provides none
-	and neither does netperf. However, if you wish, you can configure netperf with
-	--enable-intervals=yes to enable the global command-line -b and -w options to
-	pace bursts of traffic onto the network.
 
-	This has a number of implications.
-
-	...
-and one of the implications is that the max throughput
-might not be reached when you try to send as much data as possible.
-It might be confusing that this is what netperf does by default with UDP_STREAM:
-if the endpoint is much faster than the network the issue might not appear.
-
--- 
-MST
