@@ -1,112 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Thu, 06 Jan 2011 11:22:42 +0100
-Message-ID: <1294309362.3074.11.camel@edumazet-laptop>
+Date: Thu, 6 Jan 2011 12:27:55 +0200
+Message-ID: <20110106102755.GC12142@redhat.com>
 References: <20110106093312.GA1564@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: Rusty Russell <rusty@rustcorp.com.au>,
 	virtualization@lists.linux-foundation.org,
 	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
 	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+	kvm@vger.kernel.org
 To: Simon Horman <horms@verge.net.au>
-Return-path: <kvm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:49500 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752516Ab1AFK2Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 05:28:25 -0500
+Content-Disposition: inline
 In-Reply-To: <20110106093312.GA1564@verge.net.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 06 janvier 2011 =C3=A0 18:33 +0900, Simon Horman a =C3=A9crit =
-:
+On Thu, Jan 06, 2011 at 06:33:12PM +0900, Simon Horman wrote:
 > Hi,
->=20
-> Back in October I reported that I noticed a problem whereby flow cont=
-rol
+> 
+> Back in October I reported that I noticed a problem whereby flow control
 > breaks down when openvswitch is configured to mirror a port[1].
->=20
-> I have (finally) looked into this further and the problem appears to =
-relate
+
+Apropos the UDP flow control.  See this
+http://www.spinics.net/lists/netdev/msg150806.html
+for some problems it introduces.
+Unfortunately UDP does not have built-in flow control.
+At some level it's just conceptually broken:
+it's not present in physical networks so why should
+we try and emulate it in a virtual network?
+
+
+Specifically, when you do:
+# netperf -c -4 -t UDP_STREAM -H 172.17.60.218 -l 30 -- -m 1472
+You are asking: what happens if I push data faster than it can be received?
+But why is this an interesting question?
+Ask 'what is the maximum rate at which I can send data with %X packet
+loss' or 'what is the packet loss at rate Y Gb/s'. netperf has
+-b and -w flags for this. It needs to be configured
+with --enable-intervals=yes for them to work.
+
+If you pose the questions this way the problem of pacing
+the execution just goes away.
+
+> 
+> I have (finally) looked into this further and the problem appears to relate
 > to cloning of skbs, as Jesse Gross originally suspected.
->=20
-> More specifically, in do_execute_actions[2] the first n-1 times that =
-an skb
-> needs to be transmitted it is cloned first and the final time the ori=
-ginal
+> 
+> More specifically, in do_execute_actions[2] the first n-1 times that an skb
+> needs to be transmitted it is cloned first and the final time the original
 > skb is used.
->=20
-> In the case that there is only one action, which is the normal case, =
-then
-> the original skb will be used. But in the case of mirroring the cloni=
-ng
-> comes into effect. And in my case the cloned skb seems to go to the (=
-slow)
-> eth1 interface while the original skb goes to the (fast) dummy0 inter=
-face
-> that I set up to be a mirror. The result is that dummy0 "paces" the f=
-low,
+> 
+> In the case that there is only one action, which is the normal case, then
+> the original skb will be used. But in the case of mirroring the cloning
+> comes into effect. And in my case the cloned skb seems to go to the (slow)
+> eth1 interface while the original skb goes to the (fast) dummy0 interface
+> that I set up to be a mirror. The result is that dummy0 "paces" the flow,
 > and its a cracking pace at that.
->=20
-> As an experiment I hacked do_execute_actions() to use the original sk=
-b
-> for the first action instead of the last one.  In my case the result =
-was
+> 
+> As an experiment I hacked do_execute_actions() to use the original skb
+> for the first action instead of the last one.  In my case the result was
 > that eth1 "paces" the flow, and things work reasonably nicely.
->=20
-> Well, sort of. Things work well for non-GSO skbs but extremely poorly=
- for
-> GSO skbs where only 3 (yes 3, not 3%) end up at the remote host runni=
-ng
+> 
+> Well, sort of. Things work well for non-GSO skbs but extremely poorly for
+> GSO skbs where only 3 (yes 3, not 3%) end up at the remote host running
 > netserv. I'm unsure why, but I digress.
->=20
-> It seems to me that my hack illustrates the point that the flow ends =
-up
+> 
+> It seems to me that my hack illustrates the point that the flow ends up
 > being "paced" by one interface. However I think that what would be
-> desirable is that the flow is "paced" by the slowest link. Unfortunat=
-ely
+> desirable is that the flow is "paced" by the slowest link. Unfortunately
 > I'm unsure how to achieve that.
->=20
 
-Hi Simon !
-
-"pacing" is done because skb is attached to a socket, and a socket has =
-a
-limited (but configurable) sndbuf. sk->sk_wmem_alloc is the current sum
-of all truesize skbs in flight.
-
-When you enter something that :
-
-1) Get a clone of the skb, queue the clone to device X
-2) queue the original skb to device Y
-
-Then :	Socket sndbuf is not affected at all by device X queue.
-	This is speed on device Y that matters.
-
-You want to get servo control on both X and Y
-
-You could try to
-
-1) Get a clone of skb
-   Attach it to socket too (so that socket get a feedback of final
-orphaning for the clone) with skb_set_owner_w()
-   queue the clone to device X
-
-Unfortunatly, stacked skb->destructor() makes this possible only for
-known destructor (aka sock_wfree())
+What if you have multiple UDP sockets with different targets
+in the guest?
 
 > One idea that I had was to skb_get() the original skb each time it is
 > cloned - that is easy enough. But unfortunately it seems to me that
-> approach would require some sort of callback mechanism in kfree_skb()=
- so
+> approach would require some sort of callback mechanism in kfree_skb() so
 > that the cloned skbs can kfree_skb() the original skb.
->=20
+> 
 > Ideas would be greatly appreciated.
->=20
-> [1] http://openvswitch.org/pipermail/dev_openvswitch.org/2010-October=
-/003806.html
-> [2] http://openvswitch.org/cgi-bin/gitweb.cgi?p=3Dopenvswitch;a=3Dblo=
-b;f=3Ddatapath/actions.c;h=3D5e16143ca402f7da0ee8fc18ee5eb16c3b7598e6;h=
-b=3DHEAD
-> --
-
-
+> 
+> [1] http://openvswitch.org/pipermail/dev_openvswitch.org/2010-October/003806.html
+> [2] http://openvswitch.org/cgi-bin/gitweb.cgi?p=openvswitch;a=blob;f=datapath/actions.c;h=5e16143ca402f7da0ee8fc18ee5eb16c3b7598e6;hb=HEAD
