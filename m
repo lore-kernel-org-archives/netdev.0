@@ -1,75 +1,45 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 2/3] tlan: Fix partner capability printout
-Date: Thu, 06 Jan 2011 19:44:46 +0000
-Message-ID: <1294343086.11825.31.camel@bwh-desktop>
-References: <4D260ED0.5040301@iki.fi>
-	 <1294339817-31434-1-git-send-email-sakari.ailus@iki.fi>
-	 <1294339817-31434-2-git-send-email-sakari.ailus@iki.fi>
-	 <1294341774.11825.27.camel@bwh-desktop>  <4D2619BC.1030606@iki.fi>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [PATCH V7 7/8] ptp: Added a clock driver for the IXP46x.
+Date: Thu, 6 Jan 2011 21:04:56 +0100
+Message-ID: <20110106200456.GB1521@ucw.cz>
+References: <cover.1292512461.git.richard.cochran@omicron.at>
+ <d2e0a5ac5eb51e9e4c7fcc94723b67c72c2f57c1.1292512461.git.richard.cochran@omicron.at>
+ <20110102084505.GA3980@ucw.cz>
+ <20110102091233.GA2847@riccoc20.at.omicron.at>
+ <20110102092042.GA14165@ucw.cz>
+ <20110103170732.GA3700@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sakari Ailus <sakari.ailus@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:6602 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147Ab1AFTot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:44:49 -0500
-In-Reply-To: <4D2619BC.1030606@iki.fi>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110103170732.GA3700-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-01-06 at 21:36 +0200, Sakari Ailus wrote:
-> Ben Hutchings wrote:
-> > On Thu, 2011-01-06 at 20:50 +0200, Sakari Ailus wrote:
-> >> Fix partner capability printout. Add spaces and do not print null.
-> >>
-> >> Signed-off-by: Sakari Ailus<sakari.ailus@iki.fi>
-> >> ---
-> >>   drivers/net/tlan.c |    6 +++---
-> >>   1 files changed, 3 insertions(+), 3 deletions(-)
-> >>
-> >> diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
-> >> index 57380b1..090ce21 100644
-> >> --- a/drivers/net/tlan.c
-> >> +++ b/drivers/net/tlan.c
-> >> @@ -2367,10 +2367,10 @@ tlan_finish_reset(struct net_device *dev)
-> >>   					? "" : "0",
-> >>   					tlphy_par&  TLAN_PHY_DUPLEX_FULL
-> >>   					? "Full" : "half");
-> >> -				pr_info("TLAN: Partner capability: ");
-> >> -				for (i = 5; i<= 10; i++)
-> >> +				pr_info("TLAN: Partner capability:");
-> >> +				for (i = 5; i<  10; i++)
-> >>   					if (partner&  (1<<i))
-> >> -						printk("%s", media[i-5]);
-> >> +						printk(" %s", media[i-5]);
-> >>   				printk("\n");
-> >>   			}
-> >>
-> >
-> > Really you should remove this logging and report the information through
-> > the ethtool interface.
-> 
-> Hi Ben,
-> 
-> Thanks for the comments.
-> 
-> The driver supports mii-tool but not ethtool. Do you think it'd be fine 
-> to remove these prints with just mii-tool interface support?
-> 
-> I agree ethtool support would definitely make sense to have in tlan.
+Hi!
 
-Assuming that tlan drives a fairly standard MDIO PHY, you should be able
-to implement the PHY-related ethtool operations using
-ethtool_op_get_link(), mii_nway_restart(), mii_ethtool_gset() and
-mii_ethtool_sset().
+> > Given the comments -- does manual really use camelCase crap?
+> > And... the identifiers actually combine camelCase with _. Better fix
+> > it.
+> 
+> Thats the way Intel likes it:
+> 
+> http://download.intel.com/design/network/manuals/30626204.pdf
 
-Ben.
+Ok... I'd say that it is so ugly that it should be replaced, but it is
+not huge deal.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
