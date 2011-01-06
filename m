@@ -1,52 +1,41 @@
-From: Alexander Clouter <alex@digriz.org.uk>
-Subject: Re: Use ioctl() to list all network interfaces.
-Date: Thu, 6 Jan 2011 17:07:16 +0000
-Message-ID: <4f9hv7-kev.ln1@chipmunk.wormnet.eu>
-References: <AANLkTi=Xb4TuKcCd-DgN5ZnYzRHV1RjDScyjRkqyb4P+@mail.gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:54624 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753633Ab1AFRIV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 12:08:21 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1PatK0-0000bv-BU
-	for netdev@vger.kernel.org; Thu, 06 Jan 2011 18:08:20 +0100
-Received: from chipmunk.wormnet.eu ([195.195.131.226])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 18:08:20 +0100
-Received: from alex by chipmunk.wormnet.eu with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 18:08:20 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ben Pfaff <blp@nicira.com>
+Subject: Re: genetlink misinterprets NEW as GET
+Date: Thu, 06 Jan 2011 09:23:57 -0800
+Message-ID: <878vyyvtci.fsf@benpfaff.org>
+References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr>
+	<4D25C82F.4010306@netfilter.org>
+Reply-To: Ben Pfaff <blp@nicira.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Engelhardt <jengelh@medozas.de>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D25C82F.4010306@netfilter.org> (Pablo Neira Ayuso's message of
+	"Thu, 06 Jan 2011 14:48:31 +0100")
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Chin Shi Hong <cshong87@gmail.com> wrote:
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
+
+> On 04/01/11 03:14, Jan Engelhardt wrote:
+>> 	/* Modifiers to GET request */
+>> 	#define NLM_F_ROOT      0x100
+>> 	#define NLM_F_MATCH     0x200
+>> 	#define NLM_F_ATOMIC    0x400
+>> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
+[...]
+>> [N.B.: I am also wondering whether
+>> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
+>> may have been desired, because NLM_F_DUMP is composed of two bits.]
 >
-> The following codes are just part of my application's source codes:
-> 
-> --begin of some codes--
-> ifconf ifc;
-> ret = ioctl(n, SIOCGIFCONF,&ifc);
-> --End of some codes--
-> 
-> My application's role is to display all network interfaces, including
-> the network interface which are down.
-> 
-> However, with the above codes, my application only display the network
-> interface which are already up. The network interface which are down
-> will not be displayed.
-> 
-> So, what can I do to make my application display all network
-> interfaces, including the network interface which are down?
->
-getifaddrs(), you get the IPv6 ones too this way.
+> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
+> checking that you propose is not valid.
 
-Cheers
-
--- 
-Alexander Clouter
-.sigmonster says: I've only got 12 cards.
-
+Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
+exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
+dump operation?  Otherwise the test that Jan proposes looks valid
+to me.
