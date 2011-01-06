@@ -1,75 +1,76 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Fri, 7 Jan 2011 07:01:12 +0900
-Message-ID: <20110106220030.GA2084@verge.net.au>
-References: <20110106093312.GA1564@verge.net.au>
- <1294309362.3074.11.camel@edumazet-laptop>
- <20110106124439.GA17004@verge.net.au>
- <1294320498.3074.36.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
+ used
+Date: Fri, 07 Jan 2011 00:34:47 +0100
+Message-ID: <1294356887.2704.13.camel@edumazet-laptop>
+References: <1291536233.2806.102.camel@edumazet-laptop>
+	 <20101205105528.49fa9a9f@xenia.leun.net>
+	 <20101205114404.7c0cddc2@xenia.leun.net>
+	 <AANLkTikrDTCDxsyOG4m0XcrOY=3pTRwWqnPGsio9cBFj@mail.gmail.com>
+	 <20101206203437.54b550e0@xenia.leun.net>
+	 <AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
+	 <20101206222703.32fbe852@xenia.leun.net>
+	 <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
+	 <20101213224510.GB17400@mcarlson.broadcom.com>
+	 <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
+	 <20101214191500.GD19951@mcarlson.broadcom.com>
+	 <1293901393.2535.49.camel@edumazet-laptop>
+	 <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
+	 <1293984348.2535.101.camel@edumazet-laptop>
+	 <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:49033 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752385Ab1AFWuu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 17:50:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1294320498.3074.36.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Michael Leun <lkml20101129@newton.leun.net>,
+	Michael Chan <mchan@broadcom.com>,
+	David Miller <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 06, 2011 at 02:28:18PM +0100, Eric Dumazet wrote:
-> Le jeudi 06 janvier 2011 =C3=A0 21:44 +0900, Simon Horman a =C3=A9cri=
-t :
->=20
-> > Hi Eric !
-> >=20
-> > Thanks for the advice. I had thought about the socket buffer but at=
- some
-> > point it slipped my mind.
-> >=20
-> > In any case the following patch seems to implement the change that =
-I had in
-> > mind. However my discussions Michael Tsirkin elsewhere in this thre=
-ad are
-> > beginning to make me think that think that perhaps this change isn'=
-t the
-> > best solution.
-> >=20
-> > diff --git a/datapath/actions.c b/datapath/actions.c
-> > index 5e16143..505f13f 100644
-> > --- a/datapath/actions.c
-> > +++ b/datapath/actions.c
-> > @@ -384,7 +384,12 @@ static int do_execute_actions(struct datapath =
-*dp, struct sk_buff *skb,
-> > =20
-> >  	for (a =3D actions, rem =3D actions_len; rem > 0; a =3D nla_next(=
-a, &rem)) {
-> >  		if (prev_port !=3D -1) {
-> > -			do_output(dp, skb_clone(skb, GFP_ATOMIC), prev_port);
-> > +			struct sk_buff *nskb =3D skb_clone(skb, GFP_ATOMIC);
-> > +			if (nskb) {
-> > +				if (skb->sk)
-> > +					skb_set_owner_w(nskb, skb->sk);
-> > +				do_output(dp, nskb, prev_port);
-> > +			}
-> >  			prev_port =3D -1;
-> >  		}
-> >=20
-> > I got a rather nasty panic without the if (skb->sk),
-> > I guess some skbs don't have a socket.
->=20
-> Indeed, some packets are not linked to a socket.
->=20
-> (ARP packets for example)
->=20
-> Sorry, I should have mentioned it :)
+Le jeudi 06 janvier 2011 =C3=A0 16:01 -0500, Jesse Gross a =C3=A9crit :
 
-Not at all, the occasional panic during hacking is good for the soul.
+> Hmm, I thought that it might be some interaction with a corner case i=
+n
+> the networking core but now it seems less likely.  There weren't too
+> many vlan changes between the working and non-working states.  Plus,
+> since the rx counter isn't increasing, the packets probably aren't
+> making it anywhere.
+>=20
+> I see that tg3 increases the drop counter in one place, which also
+> happens to be checking for vlan errors (at tg3.c:4753).  That seems
+> suspicious - maybe the NIC is only partially configured for vlan
+> offloading.  If we can confirm that is where the drop counter is bein=
+g
+> incremented and what the error code is maybe it would shed some light=
+=2E
+>=20
+
+Hmm... I am pretty sure the drop counter is the dev rx_dropped (core
+network handled, not tg3 one) incremented at the end of
+__netif_receive_skb() : We found no suitable handler for packets.
+
+atomic_long_inc(&skb->dev->rx_dropped);
+
+But thats a guess, I'll have to check
+
+> If it's a driver issue I don't have much insight - maybe Matt or
+> bisect can help.
+>=20
+> >> If it works on bnx2, it would seem to be a driver problem but it w=
+ould
+> >> be good to confirm that the tag in skb->vlan_tci is not being
+> >> delievered to the networking core in this case.
+> >
+> > Hmm, where do you want me to check this ?
+>=20
+> I was thinking right before vlan_gro_receive() at tg3.c:4837.  If my
+> theory above is right then this obviously isn't relevant since it
+> won't be hit at all.  Otherwise it would be good to know exactly what
+> the driver is producing.
