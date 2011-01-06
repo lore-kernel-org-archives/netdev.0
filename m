@@ -1,74 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bad TCP timestamps on non-PC platforms
-Date: Thu, 06 Jan 2011 09:09:16 +0100
-Message-ID: <1294301356.2723.73.camel@edumazet-laptop>
-References: <219643.83181.qm@web37604.mail.mud.yahoo.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH v3 08/10] ARM: mxs: add ocotp read function
+Date: Thu, 6 Jan 2011 09:13:01 +0000
+Message-ID: <20110106091301.GS8638@n2100.arm.linux.org.uk>
+References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com> <1294236457-17476-9-git-send-email-shawn.guo@freescale.com> <20110105161235.GA2112@gallagher> <20110105164409.GV25121@pengutronix.de> <20110105172501.GB2112@gallagher> <20110105175617.GD12222@shareable.org> <20110105183509.GH8638@n2100.arm.linux.org.uk> <20110105194418.GE12222@shareable.org> <20110105201502.GK8638@n2100.arm.linux.org.uk> <20110106005052.GA4476@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Alex Dubov <oakad@yahoo.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamie Iles <jamie@jamieiles.com>, gerg@snapgear.com,
+	B32542@freescale.com, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de, bryan.wu@canonical.com, baruch@tkos.co.il,
+	w.sang@pengutronix.de, r64343@freescale.com,
+	Shawn Guo <shawn.guo@freescale.com>, eric@eukrea.com,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:39017 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751356Ab1AFIJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 03:09:21 -0500
-Received: by wyb28 with SMTP id 28so16161676wyb.19
-        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 00:09:20 -0800 (PST)
-In-Reply-To: <219643.83181.qm@web37604.mail.mud.yahoo.com>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:58650 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751319Ab1AFJNt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 04:13:49 -0500
+Content-Disposition: inline
+In-Reply-To: <20110106005052.GA4476@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 05 janvier 2011 =C3=A0 22:55 -0800, Alex Dubov a =C3=A9crit=
- :
-> Greetings.
-> I'm dealing with 2.6.37-rc7 kernel on MPC8548 platform.
->=20
-> It so appears, that recent kernels have sysctl_tcp_timestamps set to =
-"1"
-> by default.
->=20
-> On embedded platforms, where real time clock is initialized lately or
-> absent outright, this causes TSval field of outgoing TCP packets to b=
-e
-> set to some garbage value, in my case in the vicinity of 0xffffffff. =
-As a
-> result, other Linux machines silently drop such packets, preventing n=
-ormal
-> completion of network boot or any other TCP dependent operation.
->=20
-> Therefore, I feel, two changes are necessary (I can send in a patch):
-> 1. Make sysctl_tcp_timestamps value config-time selectable (it must b=
-e
-> disabled by default on machines without RTC).
-> 2. When re-enabling tcp_timestamps through sysctl, reset the timestam=
-p
-> counter to the current system clock value.
->=20
-> And an optional, tricky one:
-> 3. Postpone TCP timestamp counter initialization until RTC is actuall=
-y
-> available (if RTC is connected to i2c bus, TCP is initialized well ah=
-ead
-> of it).
->=20
+On Thu, Jan 06, 2011 at 12:50:52AM +0000, Jamie Lokier wrote:
+> Russell King - ARM Linux wrote:
+> > On Wed, Jan 05, 2011 at 07:44:18PM +0000, Jamie Lokier wrote:
+> > > 'git show 534be1d5' explains how it works: cpu_relax() flushes buffered
+> > > writes from _this_ CPU, so that other CPUs which are polling can make
+> > > progress, which avoids this CPU getting stuck if there is an indirect
+> > > dependency (no matter how convoluted) between what it's polling and which
+> > > it wrote just before.
+> > > 
+> > > So cpu_relax() is *essential* in some polling loops, not a hint.
+> > > 
+> > > In principle that could happen for I/O polling, if (a) buffered memory
+> > > writes are delayed by I/O read transactions, and (b) the device state we're
+> > > waiting on depends on I/O yet to be done on another CPU, which could be
+> > > polling memory first (e.g. a spinlock).
+> > > 
+> > > I doubt (a) in practice - but what about buses that block during I/O read?
+> > > (I have a chip like that here, but it's ARMv4T.)
+> > 
+> > Let's be clear - ARMv5 and below generally are well ordered architectures
+> > within the limits of caching.  There are cases where the write buffer
+> > allows two writes to pass each other.  However, for IO we generally map
+> > these - especially for ARMv4 and below - as 'uncacheable unbufferable'.
+> > So on these, if the program says "read this location" the pipeline will
+> > stall until the read has been issued - and if you use the result in the
+> > next instruction, it will stall until the data is available.  So really,
+> > it's not a problem here.
+> > 
+> > ARMv6 and above have a weakly ordered memory model with speculative
+> > prefetching, so memory reads/writes can be completely unordered.  Device
+> > accesses can pass memory accesses, but device accesses are always visible
+> > in program order with respect to each other.
+> > 
+> > So, if you're spinning in a loop reading an IO device, all previous IO
+> > accesses will be completed (in all ARM architectures) before the result
+> > of your read is evaluated.
+> 
+> No, that wasn't the scenario - it was:
+> 
+> You're spinning reading an IO device, whose state depends indirectly
+> on a *CPU memory* write that is forever buffered.
+> 
+> (Go and re-read 'git show 534be1d5' if you haven't already.)
 
-I am trying to understand the problem, but I guess you hit something no=
-t
-related to RTC at all.
+I know what that's about, and it's about memory based accesses _only_.
 
-#define tcp_time_stamp		((__u32)(jiffies))
-#define INITIAL_JIFFIES ((unsigned long)(unsigned int) (-300*HZ))
+What you're talking about is a programming error.  Such errors cause
+data corruption if you're talking about DMA stuff.
 
-jiffies can be ZERO 300 seconds after boot.
+At the moment, the solution to that is to put whatever's necessary into
+readl/writel to ensure that they behave as ordered operations with
+respect to everything else.  You'll find that on ARM, writel has a
+barrier before it to ensure memory writes are visible before the device
+write, and on readl there's a barrier to ensure that no memory read can
+happen before the IO device read.
 
-It should not matter with RFC1323. Some TCP session could in theory be
-done without TCP timestamps being activated (because SYN paquet would
-carry a ZERO  tsval/tsecr), but this should not prevents normal network
-operation.
+cpu_relax() has nothing to do with ensuring ordering with devices.
 
-Are you sure the "other linux machines" dont have
-strange /etc/sysctl.conf settings ?
-
-
-
+With relaxed IO operations, the responsibility for ensuring proper ordering
+between memory and IO falls to the programmer.
