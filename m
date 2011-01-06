@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] dcb: use after free in dcb_flushapp()
-Date: Thu, 06 Jan 2011 11:17:12 -0800 (PST)
-Message-ID: <20110106.111712.183045224.davem@davemloft.net>
-References: <20110105070344.GB24847@bicker>
+Subject: Re: [PATCH] net: r6040: Return proper error for r6040_init_one
+Date: Thu, 06 Jan 2011 11:18:20 -0800 (PST)
+Message-ID: <20110106.111820.39176204.davem@davemloft.net>
+References: <1294216804.19064.2.camel@mola>
+	<201101051050.45381.florian@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, john.r.fastabend@intel.com,
-	shmulikr@broadcom.com, kernel-janitors@vger.kernel.org
-To: error27@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38460
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752465Ab1AFTQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:16:40 -0500
-In-Reply-To: <20110105070344.GB24847@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: axel.lin@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: florian@openwrt.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201101051050.45381.florian@openwrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
-Date: Wed, 5 Jan 2011 10:03:44 +0300
+From: Florian Fainelli <florian@openwrt.org>
+Date: Wed, 5 Jan 2011 10:50:45 +0100
 
-> The original code has a use after free bug because it's not using the
-> _safe() version of the list_for_each_entry() macro.
+> On Wednesday 05 January 2011 09:40:04 Axel Lin wrote:
+>> Return -ENOMEM instead of 0 for the case of mdiobus_alloc and kmalloc
+>> failure.
+>>
+>> Signed-off-by: Axel Lin <axel.lin@gmail.com>
 > 
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> Acked-by: Florian Fainelli <florian@openwrt.org>
 
-Also applied.
+Applied, thanks.
