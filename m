@@ -1,43 +1,57 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] hv: don't enable Scatter/Gather
-Date: Thu, 6 Jan 2011 12:28:27 -0800
-Message-ID: <20110106122827.733b5438@nehalam>
-References: <20101210180954.58441856@nehalam>
-	<8AFC7968D54FB448A30D8F38F259C5622C0BD044@TK5EX14MBXC116.redmond.corp.microsoft.com>
-	<1FB5E1D5CA062146B38059374562DF7292CCE678@TK5EX14MBXC121.redmond.corp.microsoft.com>
-	<1FB5E1D5CA062146B38059374562DF729555F841@TK5EX14MBXC121.redmond.corp.microsoft.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] hamradio: Resolve memory leak due to missing firmware release
+ in add_mcs()
+Date: Thu, 6 Jan 2011 21:50:29 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101062146430.13988@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Haiyang Zhang <haiyangz@microsoft.com>,
-	Hank Janssen <hjanssen@microsoft.com>,
-	Mike Sterling <Mike.Sterling@microsoft.com>,
-	netdev@vger.kernel.org, <virtualization@lists.linux-foundation.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:37989 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751763Ab1AFU2a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 15:28:30 -0500
-In-Reply-To: <1FB5E1D5CA062146B38059374562DF729555F841@TK5EX14MBXC121.redmond.corp.microsoft.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-hams@vger.kernel.org,
+	Jean-Paul Roubelat <jpr@f6fbb.org>,
+	Frederic Rible <frible@teaser.fr>,
+	Thomas Sailer <sailer@ife.ee.ethz.ch>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-hams-owner@vger.kernel.org>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The HyperV network driver can do scatter/gather but does not
-do checksum offload. Since the network stack requires checksum offload
-to do direct transmit (sendfile), netdev_register produces a message
-when driver is loaded.
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Failure to release_firmware() in drivers/net/hamradio/yam.c::add_mcs() 
+causes memory leak.
+This patch should fix it.
 
---- a/drivers/staging/hv/netvsc_drv.c	2011-01-06 12:23:48.143333212 -0800
-+++ b/drivers/staging/hv/netvsc_drv.c	2011-01-06 12:24:10.447744121 -0800
-@@ -390,8 +390,6 @@ static int netvsc_probe(struct device *d
- 	net->netdev_ops = &device_ops;
- 
- 	/* TODO: Add GSO and Checksum offload */
--	net->features = NETIF_F_SG;
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ yam.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+  compile tested only
+
+diff --git a/drivers/net/hamradio/yam.c b/drivers/net/hamradio/yam.c
+index 4e7d1d0..7d9ced0 100644
+--- a/drivers/net/hamradio/yam.c
++++ b/drivers/net/hamradio/yam.c
+@@ -396,7 +396,7 @@ static unsigned char *add_mcs(unsigned char *bits, int bitrate,
+ 	while (p) {
+ 		if (p->bitrate == bitrate) {
+ 			memcpy(p->bits, bits, YAM_FPGA_SIZE);
+-			return p->bits;
++			goto out;
+ 		}
+ 		p = p->next;
+ 	}
+@@ -411,7 +411,7 @@ static unsigned char *add_mcs(unsigned char *bits, int bitrate,
+ 	p->bitrate = bitrate;
+ 	p->next = yam_data;
+ 	yam_data = p;
 -
- 	SET_ETHTOOL_OPS(net, &ethtool_ops);
- 	SET_NETDEV_DEV(net, device);
- 
++ out:
+ 	release_firmware(fw);
+ 	return p->bits;
+ }
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
+
