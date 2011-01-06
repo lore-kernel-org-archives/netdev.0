@@ -1,105 +1,126 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [net-next-2.6 PATCH v5 2/2] net_sched: implement a root
- container qdisc sch_mqprio
-Date: Thu, 6 Jan 2011 01:32:08 +0100
-Message-ID: <20110106003208.GA2166@del.dom.local>
-References: <20110104185600.13692.47967.stgit@jf-dev1-dcblab>
- <20110104185646.13692.68146.stgit@jf-dev1-dcblab>
- <20110104225936.GA2030@del.dom.local>
- <4D24ACA4.3000301@intel.com>
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: [PATCH v3 08/10] ARM: mxs: add ocotp read function
+Date: Thu, 6 Jan 2011 00:50:52 +0000
+Message-ID: <20110106005052.GA4476@shareable.org>
+References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com> <1294236457-17476-9-git-send-email-shawn.guo@freescale.com> <20110105161235.GA2112@gallagher> <20110105164409.GV25121@pengutronix.de> <20110105172501.GB2112@gallagher> <20110105175617.GD12222@shareable.org> <20110105183509.GH8638@n2100.arm.linux.org.uk> <20110105194418.GE12222@shareable.org> <20110105201502.GK8638@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"hadi@cyberus.ca" <hadi@cyberus.ca>,
-	"shemminger@vyatta.com" <shemminger@vyatta.com>,
-	"tgraf@infradead.org" <tgraf@infradead.org>,
-	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
-	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: John Fastabend <john.r.fastabend@intel.com>
+Cc: Jamie Iles <jamie@jamieiles.com>, gerg@snapgear.com,
+	B32542@freescale.com, netdev@vger.kernel.org,
+	s.hauer@pengutronix.de, bryan.wu@canonical.com, baruch@tkos.co.il,
+	w.sang@pengutronix.de, r64343@freescale.com,
+	Shawn Guo <shawn.guo@freescale.com>, eric@eukrea.com,
+	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>, davem@davemloft.net,
+	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:63592 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754759Ab1AFAcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 19:32:15 -0500
-Received: by bwz15 with SMTP id 15so16002117bwz.19
-        for <netdev@vger.kernel.org>; Wed, 05 Jan 2011 16:32:14 -0800 (PST)
+Received: from mail2.shareable.org ([80.68.89.115]:39616 "EHLO
+	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753538Ab1AFAvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 19:51:15 -0500
 Content-Disposition: inline
-In-Reply-To: <4D24ACA4.3000301@intel.com>
+In-Reply-To: <20110105201502.GK8638@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 05, 2011 at 09:38:44AM -0800, John Fastabend wrote:
-> On 1/4/2011 2:59 PM, Jarek Poplawski wrote:
-> > On Tue, Jan 04, 2011 at 10:56:46AM -0800, John Fastabend wrote:
-...
-> >> +
-> >> +     /* Always use supplied priority mappings */
-> >> +     for (i = 0; i < TC_BITMASK + 1; i++) {
-> >> +             if (netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i])) {
-> >> +                     err = -EINVAL;
-> >
-> > This would probably trigger if we try qopt->num_tc == 0. Is it expected?
+Russell King - ARM Linux wrote:
+> On Wed, Jan 05, 2011 at 07:44:18PM +0000, Jamie Lokier wrote:
+> > 'git show 534be1d5' explains how it works: cpu_relax() flushes buffered
+> > writes from _this_ CPU, so that other CPUs which are polling can make
+> > progress, which avoids this CPU getting stuck if there is an indirect
+> > dependency (no matter how convoluted) between what it's polling and which
+> > it wrote just before.
+> > 
+> > So cpu_relax() is *essential* in some polling loops, not a hint.
+> > 
+> > In principle that could happen for I/O polling, if (a) buffered memory
+> > writes are delayed by I/O read transactions, and (b) the device state we're
+> > waiting on depends on I/O yet to be done on another CPU, which could be
+> > polling memory first (e.g. a spinlock).
+> > 
+> > I doubt (a) in practice - but what about buses that block during I/O read?
+> > (I have a chip like that here, but it's ARMv4T.)
 > 
-> netdev_set_prio_tc_map() returns 0 on sucess. This if(..) is a bit strange though.
+> Let's be clear - ARMv5 and below generally are well ordered architectures
+> within the limits of caching.  There are cases where the write buffer
+> allows two writes to pass each other.  However, for IO we generally map
+> these - especially for ARMv4 and below - as 'uncacheable unbufferable'.
+> So on these, if the program says "read this location" the pipeline will
+> stall until the read has been issued - and if you use the result in the
+> next instruction, it will stall until the data is available.  So really,
+> it's not a problem here.
 > 
->         err = netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i])
->         if (err)
->                 ...
+> ARMv6 and above have a weakly ordered memory model with speculative
+> prefetching, so memory reads/writes can be completely unordered.  Device
+> accesses can pass memory accesses, but device accesses are always visible
+> in program order with respect to each other.
 > 
-> Is cleaner IMHO.
+> So, if you're spinning in a loop reading an IO device, all previous IO
+> accesses will be completed (in all ARM architectures) before the result
+> of your read is evaluated.
 
-Maybe. But I still wonder if qopt->num_tc == 0 is valid (by design)?
-(netdev_set_prio_tc_map() returns -EINVAL if dev->num_tc == 0)
+No, that wasn't the scenario - it was:
 
-> >> +static unsigned long mqprio_get(struct Qdisc *sch, u32 classid)
-> >> +{
-> >> +     unsigned int ntx = TC_H_MIN(classid);
-> >
-> > We need to 'get' tc classes too, eg for individual dumps. Then we
-> > should omit them in .leaf, .graft etc.
-> >
-> 
-> OK missed this. Looks like iproute2 always sets NLM_F_DUMP which works because it uses cl_ops->walk
-> 
-> # tc -s class show dev eth3 classid 800b:1
-> class mqprio 800b:1 root
->  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
->  backlog 0b 0p requeues 0
+You're spinning reading an IO device, whose state depends indirectly
+on a *CPU memory* write that is forever buffered.
 
-OK, then it might be only of theoretical value (for some other tools).
+(Go and re-read 'git show 534be1d5' if you haven't already.)
 
-> > Why dev->num_tc above, netdev_get_num_tc(dev) here, and dev->num_tc
-> > below?
-> 
-> No reason just inconsistant I will use dev->num_tc.
+The indirect dependence is that another CPU needs to see that write
+before it can tell the device to change state in whatever way the
+first CPU is polling for.
 
-Well, this would suggest netdev_get_num_tc() is redundant.
+It's probably clearer in code:
 
-> >> +static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
-> >> +{
-> >> +     struct net_device *dev = qdisc_dev(sch);
-> >> +     unsigned long ntx;
-> >> +     u8 num_tc = netdev_get_num_tc(dev);
-> >> +
-> >> +     if (arg->stop)
-> >> +             return;
-> >> +
-> >> +     /* Walk hierarchy with a virtual class per tc */
-> >> +     arg->count = arg->skip;
-> >> +     for (ntx = arg->skip; ntx < dev->num_tx_queues + num_tc; ntx++) {
-> >
-> > Should we report possibly unused/unconfigured tx_queues?
-> 
-> I think it may be OK select_queue() could push skbs onto these queues and we may still want to see the statistics in this case. Although (real_num_tx_queues + num_tc) may make sense I see no reason to show queues above real_num_tx_queues.
+CPU #1
 
-IMHO, pushing skbs to unconfigured/unwanted/disabled queues is a bug,
-and select should handle this, but probably it's a matter of taste.
-Btw, I wonder how dev->real_num_tx_queues is obeyed here.
+    spin_lock(&mydev->lock);
+    /* Look at state. */
+    spin_unlock(&mydev->lock);       <-- THIS MEMORY WRITE BUFFERED FOREVER
 
-Thanks,
-Jarek P.
+    /* We expect this to be quick enough that polling is cool. */
+    while (readl(mydev->reg_status) & MYDEV_STATUS_BUSY) {
+        /* If only we had cpu_relax() */
+    }
 
-PS: No offense, but could you try cutting lines ~70c. It's strongly
-recommended on kernel lists.
+CPU #2
+
+    spin_lock(&mydev->lock);         <-- STUCK HERE
+    /* Look at state. */
+    spin_unlock(&mydev->lock);
+
+    writel(MYDEV_TRIGGER, mydev->reg_go);   /* Device is BUSY until this. */
+
+The deadlock in this code (might) happen when CPU #2 is waiting for
+the spinlock, and CPU #1's memory write remains in its write buffer
+during CPU #1's polling loop.
+
+If that can happen, it's fixed by adding cpu_relax() - to generic
+driver code with polling loops.
+
+It can only happen if any CPUs (i.e. ARMv6) that buffer writes due to
+prioritising continuous memory reads also have that effect for
+continuous IO reads.  This might even apply to non-ARM archs with
+non-trivial cpu_relax() definitions; I don't know as they don't always
+explain why.
+
+The above driver style isn't particularly obvious, but there are a lot
+of drivers with almost every conceivable access pattern.  If you use
+your imagination, especially if the second code is an interrupt
+handler, it's plausible.  Even though this example would be better
+sleeping and waiting normally - there's nothing inherently forbidden
+about the above pattern (except that cpu_relax() is needed).
+
+> (But, let's make you squirm some more - mb() on ARMv6 and above may
+> equate to a CPU memory barrier _plus_ a few IO accesses to the external
+> L2 cache controller - which will be ordered wrt other IO accesses of
+> course.)
+
+I squirm at all modern ARM architectures.  Omit the slightest highly
+version-specific thing, or run a kernel built with slightly wrong
+config options, and it's fine except for random, very rare memory or
+I/O corruption.  The workarounds and special bits seem to get more and
+more convoluted with each version.
+
+-- Jamie
