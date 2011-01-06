@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] include/linux/if_ether.h: Add #define ETH_P_LINK_CTL
- for HPNA and wlan local tunnel
-Date: Thu, 06 Jan 2011 11:10:15 -0800 (PST)
-Message-ID: <20110106.111015.104054729.davem@davemloft.net>
-References: <1292298831.26970.263.camel@Joe-Laptop>
-	<1294193234-804-1-git-send-email-henryp@broadcom.com>
+Subject: Re: [PATCH] net: ixp4xx_eth: Return proper error for eth_init_one
+Date: Thu, 06 Jan 2011 11:11:48 -0800 (PST)
+Message-ID: <20110106.111148.189705155.davem@davemloft.net>
+References: <1294205046.8294.2.camel@mola>
+	<m3bp3vi6v9.fsf@intrepid.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, brudley@broadcom.com, arend@broadcom.com,
-	rvossen@broadcom.com, dowan@broadcom.com, netdev@vger.kernel.org
-To: henryp@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60501
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751959Ab1AFTJo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 14:09:44 -0500
-In-Reply-To: <1294193234-804-1-git-send-email-henryp@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: axel.lin@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: khc@pm.waw.pl
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <m3bp3vi6v9.fsf@intrepid.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Henry Ptasinski" <henryp@broadcom.com>
-Date: Tue, 4 Jan 2011 18:07:14 -0800
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Date: Wed, 05 Jan 2011 18:43:22 +0100
 
-> Ethertype used by HPNA control protocols (LARQ, rate, link, etc) and by
-> Broadcom wlan drivers for local signalling.
+> Axel Lin <axel.lin@gmail.com> writes:
 > 
-> Signed-off-by: Henry Ptasinski <henryp@broadcom.com>
+>> Return PTR_ERR(port->phydev) instead of 1 if phy_connect failed.
+>>
+>> Signed-off-by: Axel Lin <axel.lin@gmail.com>
+> 
+>> --- a/drivers/net/arm/ixp4xx_eth.c
+>> +++ b/drivers/net/arm/ixp4xx_eth.c
+>> @@ -1229,8 +1229,10 @@ static int __devinit eth_init_one(struct platform_device *pdev)
+>>  	snprintf(phy_id, MII_BUS_ID_SIZE + 3, PHY_ID_FMT, "0", plat->phy);
+>>  	port->phydev = phy_connect(dev, phy_id, &ixp4xx_adjust_link, 0,
+>>  				   PHY_INTERFACE_MODE_MII);
+>> -	if ((err = IS_ERR(port->phydev)))
+>> +	if (IS_ERR(port->phydev)) {
+>> +		err = PTR_ERR(port->phydev);
+>>  		goto err_free_mem;
+>> +	}
+>>  
+>>  	port->phydev->irq = PHY_POLL;
+> 
+> Right. Thanks.
+> 
+> Acked-by: Krzysztof Halasa <khc@pm.waw.pl>
 
-Applied, thanks.
+I'll apply this, thanks.
