@@ -1,126 +1,93 @@
-From: Jamie Lokier <jamie@shareable.org>
+From: Shawn Guo <shawn.guo@freescale.com>
 Subject: Re: [PATCH v3 08/10] ARM: mxs: add ocotp read function
-Date: Thu, 6 Jan 2011 00:50:52 +0000
-Message-ID: <20110106005052.GA4476@shareable.org>
-References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com> <1294236457-17476-9-git-send-email-shawn.guo@freescale.com> <20110105161235.GA2112@gallagher> <20110105164409.GV25121@pengutronix.de> <20110105172501.GB2112@gallagher> <20110105175617.GD12222@shareable.org> <20110105183509.GH8638@n2100.arm.linux.org.uk> <20110105194418.GE12222@shareable.org> <20110105201502.GK8638@n2100.arm.linux.org.uk>
+Date: Thu, 6 Jan 2011 09:45:19 +0800
+Message-ID: <20110106014518.GA17891@freescale.com>
+References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
+ <1294236457-17476-9-git-send-email-shawn.guo@freescale.com>
+ <20110105161235.GA2112@gallagher>
+ <20110105164409.GV25121@pengutronix.de>
+ <20110105172501.GB2112@gallagher>
+ <20110105175617.GD12222@shareable.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamie Iles <jamie@jamieiles.com>, gerg@snapgear.com,
-	B32542@freescale.com, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, bryan.wu@canonical.com, baruch@tkos.co.il,
-	w.sang@pengutronix.de, r64343@freescale.com,
-	Shawn Guo <shawn.guo@freescale.com>, eric@eukrea.com,
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jamie Iles <jamie@jamieiles.com>,
 	Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+	<u.kleine-koenig@pengutronix.de>, <gerg@snapgear.com>,
+	<B32542@freescale.com>, <netdev@vger.kernel.org>,
+	<s.hauer@pengutronix.de>, <baruch@tkos.co.il>,
+	<w.sang@pengutronix.de>, <r64343@freescale.com>,
+	<linux-arm-kernel@lists.infradead.org>, <eric@eukrea.com>,
+	<bryan.wu@canonical.com>, <davem@davemloft.net>,
+	<lw@karo-electronics.de>
+To: Jamie Lokier <jamie@shareable.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.shareable.org ([80.68.89.115]:39616 "EHLO
-	mail2.shareable.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753538Ab1AFAvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jan 2011 19:51:15 -0500
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:11955 "EHLO
+	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751906Ab1AFBnI convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jan 2011 20:43:08 -0500
+Received: from mail50-tx2 (localhost.localdomain [127.0.0.1])	by
+ mail50-tx2-R.bigfish.com (Postfix) with ESMTP id 53EA46E0103	for
+ <netdev@vger.kernel.org>; Thu,  6 Jan 2011 01:43:07 +0000 (UTC)
+Received: from TX2EHSMHS040.bigfish.com (unknown [10.9.14.243])	by
+ mail50-tx2.bigfish.com (Postfix) with ESMTP id EC029109004F	for
+ <netdev@vger.kernel.org>; Thu,  6 Jan 2011 01:43:06 +0000 (UTC)
+Received: from az33smr01.freescale.net (az33smr01.freescale.net
+ [10.64.34.199])	by az33egw02.freescale.net (8.14.3/8.14.3) with ESMTP id
+ p061h4Nv008612	for <netdev@vger.kernel.org>; Wed, 5 Jan 2011 18:43:04 -0700
+ (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
+ p061h3Od021344	for <netdev@vger.kernel.org>; Wed, 5 Jan 2011 19:43:04 -0600
+ (CST)
 Content-Disposition: inline
-In-Reply-To: <20110105201502.GK8638@n2100.arm.linux.org.uk>
+In-Reply-To: <20110105175617.GD12222@shareable.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Russell King - ARM Linux wrote:
-> On Wed, Jan 05, 2011 at 07:44:18PM +0000, Jamie Lokier wrote:
-> > 'git show 534be1d5' explains how it works: cpu_relax() flushes buffered
-> > writes from _this_ CPU, so that other CPUs which are polling can make
-> > progress, which avoids this CPU getting stuck if there is an indirect
-> > dependency (no matter how convoluted) between what it's polling and which
-> > it wrote just before.
-> > 
-> > So cpu_relax() is *essential* in some polling loops, not a hint.
-> > 
-> > In principle that could happen for I/O polling, if (a) buffered memory
-> > writes are delayed by I/O read transactions, and (b) the device state we're
-> > waiting on depends on I/O yet to be done on another CPU, which could be
-> > polling memory first (e.g. a spinlock).
-> > 
-> > I doubt (a) in practice - but what about buses that block during I/O read?
-> > (I have a chip like that here, but it's ARMv4T.)
-> 
-> Let's be clear - ARMv5 and below generally are well ordered architectures
-> within the limits of caching.  There are cases where the write buffer
-> allows two writes to pass each other.  However, for IO we generally map
-> these - especially for ARMv4 and below - as 'uncacheable unbufferable'.
-> So on these, if the program says "read this location" the pipeline will
-> stall until the read has been issued - and if you use the result in the
-> next instruction, it will stall until the data is available.  So really,
-> it's not a problem here.
-> 
-> ARMv6 and above have a weakly ordered memory model with speculative
-> prefetching, so memory reads/writes can be completely unordered.  Device
-> accesses can pass memory accesses, but device accesses are always visible
-> in program order with respect to each other.
-> 
-> So, if you're spinning in a loop reading an IO device, all previous IO
-> accesses will be completed (in all ARM architectures) before the result
-> of your read is evaluated.
+On Wed, Jan 05, 2011 at 05:56:17PM +0000, Jamie Lokier wrote:
+> Jamie Iles wrote:
+> > On Wed, Jan 05, 2011 at 05:44:09PM +0100, Uwe Kleine-K=F6nig wrote:
+> > > Hello Jamie,
+> > > On Wed, Jan 05, 2011 at 04:16:46PM +0000, Jamie Iles wrote:
+> > > > On Wed, Jan 05, 2011 at 10:07:35PM +0800, Shawn Guo wrote:
+> > > > > +	/* check both BUSY and ERROR cleared */
+> > > > > +	while ((__raw_readl(ocotp_base) &
+> > > > > +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
+> > > > > +		/* nothing */;
+> > > >=20
+> > > > Is it worth using cpu_relax() in these polling loops?
+> > > I don't know what cpu_relax does for other platforms, but on ARM =
+it's
+> > > just a memory barrier which AFAICT doesn't help here at all (whic=
+h
+> > > doesn't need to be correct).  Why do you think it would be better=
+?
+> >=20
+> > Well I don't see that there's anything broken without cpu_relax() b=
+ut=20
+> > using cpu_relax() seems to be the most common way of doing busy pol=
+ling=20
+> > loops that I've seen. It's also a bit easier to read than a comment=
+ and=20
+> > semi-colon. Perhaps it's just personal preference.
+>=20
+> cpu_relax() is a hint to the CPU to, for example, save power or be
+> less aggressive on the memory bus (to save power or be fairer).
+>=20
+> Currently these architectures do more than just a barrier in cpu_rela=
+x():
+> x86, IA64, PowerPC, Tile and S390.
+>=20
+> Although it's just a hint on ARM at the moment, it might change in
+> future - especially with power mattering on so many ARM systems.
+> (Even now, just changing it to a very short udelay might save power
+> on existing ARMs without breaking drivers.)
+>=20
+Sounds reasonable.  I would take the suggestion.  Thanks, both Jamie.
 
-No, that wasn't the scenario - it was:
+--=20
+Regards,
+Shawn
 
-You're spinning reading an IO device, whose state depends indirectly
-on a *CPU memory* write that is forever buffered.
-
-(Go and re-read 'git show 534be1d5' if you haven't already.)
-
-The indirect dependence is that another CPU needs to see that write
-before it can tell the device to change state in whatever way the
-first CPU is polling for.
-
-It's probably clearer in code:
-
-CPU #1
-
-    spin_lock(&mydev->lock);
-    /* Look at state. */
-    spin_unlock(&mydev->lock);       <-- THIS MEMORY WRITE BUFFERED FOREVER
-
-    /* We expect this to be quick enough that polling is cool. */
-    while (readl(mydev->reg_status) & MYDEV_STATUS_BUSY) {
-        /* If only we had cpu_relax() */
-    }
-
-CPU #2
-
-    spin_lock(&mydev->lock);         <-- STUCK HERE
-    /* Look at state. */
-    spin_unlock(&mydev->lock);
-
-    writel(MYDEV_TRIGGER, mydev->reg_go);   /* Device is BUSY until this. */
-
-The deadlock in this code (might) happen when CPU #2 is waiting for
-the spinlock, and CPU #1's memory write remains in its write buffer
-during CPU #1's polling loop.
-
-If that can happen, it's fixed by adding cpu_relax() - to generic
-driver code with polling loops.
-
-It can only happen if any CPUs (i.e. ARMv6) that buffer writes due to
-prioritising continuous memory reads also have that effect for
-continuous IO reads.  This might even apply to non-ARM archs with
-non-trivial cpu_relax() definitions; I don't know as they don't always
-explain why.
-
-The above driver style isn't particularly obvious, but there are a lot
-of drivers with almost every conceivable access pattern.  If you use
-your imagination, especially if the second code is an interrupt
-handler, it's plausible.  Even though this example would be better
-sleeping and waiting normally - there's nothing inherently forbidden
-about the above pattern (except that cpu_relax() is needed).
-
-> (But, let's make you squirm some more - mb() on ARMv6 and above may
-> equate to a CPU memory barrier _plus_ a few IO accesses to the external
-> L2 cache controller - which will be ordered wrt other IO accesses of
-> course.)
-
-I squirm at all modern ARM architectures.  Omit the slightest highly
-version-specific thing, or run a kernel built with slightly wrong
-config options, and it's fine except for random, very rare memory or
-I/O corruption.  The workarounds and special bits seem to get more and
-more convoluted with each version.
-
--- Jamie
