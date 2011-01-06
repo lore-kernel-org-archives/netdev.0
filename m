@@ -1,101 +1,50 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v4 10/10] ARM: mxs: add initial pm support
-Date: Thu, 6 Jan 2011 15:13:18 +0800
-Message-ID: <1294297998-26930-11-git-send-email-shawn.guo@freescale.com>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+From: Kelly Anderson <kelly@silka.with-linux.com>
+Subject: patch ethtool 2.6.37 classificationoptions
+Date: Thu, 06 Jan 2011 00:00:55 -0700
+Message-ID: <4D2568A7.8040904@silka.with-linux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
-	<eric@eukrea.com>, <bryan.wu@canonical.com>,
-	<r64343@freescale.com>, <B32542@freescale.com>,
-	<u.kleine-koenig@pengutro
+Content-Type: multipart/mixed;
+ boundary="------------040304030605080908020603"
+To: bhutchings@solarflare.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe003.messaging.microsoft.com ([213.199.154.206]:3983
-	"EHLO AM1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754030Ab1AFHMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 02:12:15 -0500
-In-Reply-To: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+Received: from 216-146-103-100.dsl.nemontel.net ([216.146.103.100]:33922 "EHLO
+	silka.with-linux.com" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1751526Ab1AFHY1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 02:24:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a very initial pm support and basically does nothing.
-With this pm support entry, drivers can start testing their own
-pm functions.
+This is a multi-part message in MIME format.
+--------------040304030605080908020603
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
----
-Changes for v2:
- - Let build of pm.c depend on CONFIG_PM
- - Remove the blank line above device_initcall in pm.c
-
- arch/arm/mach-mxs/Makefile |    2 ++
- arch/arm/mach-mxs/pm.c     |   43 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 45 insertions(+), 0 deletions(-)
- create mode 100644 arch/arm/mach-mxs/pm.c
-
-diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
-index f23ebbd..45a2925 100644
---- a/arch/arm/mach-mxs/Makefile
-+++ b/arch/arm/mach-mxs/Makefile
-@@ -1,6 +1,8 @@
- # Common support
- obj-y := clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system.o timer.o
- 
-+obj-$(CONFIG_PM) += pm.o
-+
- obj-$(CONFIG_SOC_IMX23) += clock-mx23.o mm-mx23.o
- obj-$(CONFIG_SOC_IMX28) += clock-mx28.o mm-mx28.o
- 
-diff --git a/arch/arm/mach-mxs/pm.c b/arch/arm/mach-mxs/pm.c
-new file mode 100644
-index 0000000..fb042da
---- /dev/null
-+++ b/arch/arm/mach-mxs/pm.c
-@@ -0,0 +1,43 @@
-+/*
-+ * Copyright (C) 2010 Freescale Semiconductor, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/suspend.h>
-+#include <linux/io.h>
-+#include <mach/system.h>
-+
-+static int mxs_suspend_enter(suspend_state_t state)
-+{
-+	switch (state) {
-+	case PM_SUSPEND_MEM:
-+		arch_idle();
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+	return 0;
-+}
-+
-+static struct platform_suspend_ops mxs_suspend_ops = {
-+	.enter = mxs_suspend_enter,
-+	.valid = suspend_valid_only_mem,
-+};
-+
-+static int __init mxs_pm_init(void)
-+{
-+	suspend_set_ops(&mxs_suspend_ops);
-+	return 0;
-+}
-+device_initcall(mxs_pm_init);
--- 
-1.7.1
+Attached is a fix for the missing space in classificationoptions when 
+using --help.
 
 
+--------------040304030605080908020603
+Content-Type: text/plain;
+ name="EthTool-2.6.37-fix-classificationoptions.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="EthTool-2.6.37-fix-classificationoptions.patch"
+
+--- ./ethtool.c.orig	2010-12-16 17:37:59.000000000 -0700
++++ ./ethtool.c	2011-01-05 23:55:00.363077978 -0700
+@@ -231,11 +231,11 @@ static struct option {
+                 "               [ online | offline ]\n" },
+     { "-S", "--statistics", MODE_GSTATS, "Show adapter statistics" },
+     { "-n", "--show-nfc", MODE_GNFC, "Show Rx network flow classification"
+-		"options",
++		" options",
+ 		"		[ rx-flow-hash tcp4|udp4|ah4|sctp4|"
+ 		"tcp6|udp6|ah6|sctp6 ]\n" },
+     { "-f", "--flash", MODE_FLASHDEV, "FILENAME " "Flash firmware image "
+-    		"from the specified file to a region on the device",
++		"from the specified file to a region on the device",
+ 		"               [ REGION-NUMBER-TO-FLASH ]\n" },
+     { "-N", "--config-nfc", MODE_SNFC, "Configure Rx network flow "
+ 		"classification options",
+
+--------------040304030605080908020603--
