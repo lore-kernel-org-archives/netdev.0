@@ -1,138 +1,68 @@
-From: Leonardo Chiquitto <leonardo.lists@gmail.com>
-Subject: Re: POLLPRI/poll() behavior change since 2.6.31
-Date: Thu, 6 Jan 2011 16:10:23 -0200
-Message-ID: <AANLkTi=iiT9rYobAzJgbd6SBwkOqDBHKTenmb+4xhs9=@mail.gmail.com>
-References: <20110106155040.GA27769@libre.l.ngdn.org>
-	<1294332929.3074.49.camel@edumazet-laptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next-2.6 PATCH v5 1/2] net: implement mechanism for HW
+ based QOS
+Date: Thu, 06 Jan 2011 18:20:15 +0000
+Message-ID: <1294338015.11825.26.camel@bwh-desktop>
+References: <20110104185600.13692.47967.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jarkao2@gmail.com, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org
+To: John Fastabend <john.r.fastabend@intel.com>, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57841 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751907Ab1AFSPS convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 13:15:18 -0500
-Received: by wwa36 with SMTP id 36so17670560wwa.1
-        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 10:15:12 -0800 (PST)
-In-Reply-To: <1294332929.3074.49.camel@edumazet-laptop>
+Received: from mail.solarflare.com ([216.237.3.220]:58893 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574Ab1AFSUT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 13:20:19 -0500
+In-Reply-To: <20110104185600.13692.47967.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 6, 2011 at 2:55 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le jeudi 06 janvier 2011 =E0 13:50 -0200, Leonardo Chiquitto a =E9cri=
-t :
->> Hello,
->>
->> Since 2.6.31, poll() no longer returns when waiting exclusively for =
-a
->> POLLPRI event. If we wait for POLLPRI | POLLIN, though, it will
->> correctly return POLLPRI as a received event.
->>
->> The reproducer (code below) will print the following when running on
->> 2.6.30:
->>
->> $ ./pollpri-oob
->> main: starting
->> main: setup_pipe ok (sfd[0] =3D 5, sfd[1] =3D 4)
->> parent: child <pid 3790> started
->> child: polling...
->> parent: sending the message
->> parent: waiting for child to exit
->> child: poll(): some data <1,2> has arrived!
->> child: done
->> parent: done
->>
->> ... and will block when running on 2.6.37-rc7:
->>
->> $ ./pollpri-oob
->> main: starting
->> main: setup_pipe ok (sfd[0] =3D 5, sfd[1] =3D 4)
->> parent: child <pid 14148> started
->> child: polling...
->> parent: sending the message
->> parent: waiting for child to exit
->> [hangs here]
->>
->> I've bisected this behavior change to the following commit:
->>
->> commit 4938d7e0233a455f04507bac81d0886c71529537
->> Author: Eric Dumazet <dada1@cosmosbay.com>
->> Date: =A0 Tue Jun 16 15:33:36 2009 -0700
->>
->> =A0 poll: avoid extra wakeups in select/poll
->>
->> =A0 After introduction of keyed wakeups Davide Libenzi did on epoll,=
- we are
->> =A0 able to avoid spurious wakeups in poll()/select() code too.
->>
->> =A0 For example, typical use of poll()/select() is to wait for incom=
-ing
->> =A0 network frames on many sockets. =A0But TX completion for UDP/TCP=
- frames call
->> =A0 sock_wfree() which in turn schedules thread.
->>
->> =A0 When scheduled, thread does a full scan of all polled fds and ca=
-n sleep
->> =A0 again, because nothing is really available. =A0If number of fds =
-is large,
->> =A0 this cause significant load.
->>
->> =A0 This patch makes select()/poll() aware of keyed wakeups and usel=
-ess
->> =A0 wakeups are avoided. =A0This reduces number of context switches =
-by about 50%
->> =A0 on some setups, and work performed by sofirq handlers.
->>
->>
->> I don't know if the new behavior is correct, but we've got one repor=
-t of
->> an application that broke due to the change.
->
-> Hi Leonardo
->
-> Hmm, this is because =A0 =A0sock_def_readable() uses :
->
-> wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLRDNORM |
-> POLLRDBAND);
->
-> So POLLPRI bit is not signaled.
->
-> I would just add POLLPRI flag in sock_def_readable()
->
-> (Alternatively, define a tcp_def_readable() function to pass POLLPRI
-> only if TCP_URG is set, but is it worth the pain for a seldom used
-> feature ?)
->
-> David, do you have an opinion on this ?
->
-> Thanks
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index e5af8d5..7fd3541 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1907,7 +1907,7 @@ static void sock_def_readable(struct sock *sk, =
-int len)
-> =A0 =A0 =A0 =A0rcu_read_lock();
-> =A0 =A0 =A0 =A0wq =3D rcu_dereference(sk->sk_wq);
-> =A0 =A0 =A0 =A0if (wq_has_sleeper(wq))
-> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 wake_up_interruptible_sync_poll(&wq->wa=
-it, POLLIN |
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 wake_up_interruptible_sync_poll(&wq->wa=
-it, POLLIN | POLLPRI |
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 =A0 =A0 =A0 =A0POLLRDNORM | POLLRDBAND);
-> =A0 =A0 =A0 =A0sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
-> =A0 =A0 =A0 =A0rcu_read_unlock();
+On Tue, 2011-01-04 at 10:56 -0800, John Fastabend wrote:
+[...]
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 0f6b1c9..ae51323 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -646,6 +646,14 @@ struct xps_dev_maps {
+>      (nr_cpu_ids * sizeof(struct xps_map *)))
+>  #endif /* CONFIG_XPS */
+>  
+> +#define TC_MAX_QUEUE	16
+> +#define TC_BITMASK	15
+> +/* HW offloaded queuing disciplines txq count and offset maps */
+> +struct netdev_tc_txq {
+> +	u16 count;
+> +	u16 offset;
+> +};
+> +
+>  /*
+>   * This structure defines the management hooks for network devices.
+>   * The following hooks can be defined; unless noted otherwise, they are
+> @@ -1146,6 +1154,9 @@ struct net_device {
+>  	/* Data Center Bridging netlink ops */
+>  	const struct dcbnl_rtnl_ops *dcbnl_ops;
+>  #endif
+> +	u8 num_tc;
+> +	struct netdev_tc_txq tc_to_txq[TC_MAX_QUEUE];
+> +	u8 prio_tc_map[TC_BITMASK+1];
+[...]
 
-Eric,
+I'm still concerned by the addition of all this state to every
+net_device.  From previous discussion, Eric wanted this, citing 'false
+sharing' while Stephen thought it should be accessed indirectly.
 
-Thanks for the quick reply. I tested your patch and confirm that it res=
-olves the
-problem.
+Eric, when you refer to 'false sharing' do you mean that the TC state
+might end up sharing a cache line with some other data?  That seems
+quite unlikely as the allocation size will be 128 bytes, and it could be
+padded to fill a cache line if that's still a concern.
 
-Regards,
-Leonardo
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
