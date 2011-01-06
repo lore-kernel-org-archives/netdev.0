@@ -1,133 +1,135 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-next] cnic: Fix the type field in SPQ messages
-Date: Wed, 5 Jan 2011 17:14:13 -0800
-Message-ID: <1294276453-5957-1-git-send-email-mchan@broadcom.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next-2.6 PATCH v5 2/2] net_sched: implement a root container
+ qdisc sch_mqprio
+Date: Wed, 05 Jan 2011 18:31:09 -0800
+Message-ID: <4D25296D.8070902@intel.com>
+References: <20110104185600.13692.47967.stgit@jf-dev1-dcblab> <20110104185646.13692.68146.stgit@jf-dev1-dcblab> <20110104225936.GA2030@del.dom.local> <4D24ACA4.3000301@intel.com> <20110106003208.GA2166@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1964 "EHLO MMS3.broadcom.com"
+Received: from mga11.intel.com ([192.55.52.93]:46302 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753798Ab1AFCJH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jan 2011 21:09:07 -0500
+	id S1753797Ab1AFCbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jan 2011 21:31:11 -0500
+In-Reply-To: <20110106003208.GA2166@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The new firmware interface requires each Slow Path Queue (SPQ) message's
-type field to include the function number.  The existing code does not
-do this consistently.  We fix this by OR'ing in the function number
-into the type field centrally in cnic_submit_kwqe_16().
+On 1/5/2011 4:32 PM, Jarek Poplawski wrote:
+> On Wed, Jan 05, 2011 at 09:38:44AM -0800, John Fastabend wrote:
+>> On 1/4/2011 2:59 PM, Jarek Poplawski wrote:
+>>> On Tue, Jan 04, 2011 at 10:56:46AM -0800, John Fastabend wrote:
+> ...
+>>>> +
+>>>> +     /* Always use supplied priority mappings */
+>>>> +     for (i = 0; i < TC_BITMASK + 1; i++) {
+>>>> +             if (netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i])) {
+>>>> +                     err = -EINVAL;
+>>>
+>>> This would probably trigger if we try qopt->num_tc == 0. Is it expected?
+>>
+>> netdev_set_prio_tc_map() returns 0 on sucess. This if(..) is a bit strange though.
+>>
+>>         err = netdev_set_prio_tc_map(dev, i, qopt->prio_tc_map[i])
+>>         if (err)
+>>                 ...
+>>
+>> Is cleaner IMHO.
+> 
+> Maybe. But I still wonder if qopt->num_tc == 0 is valid (by design)?
+> (netdev_set_prio_tc_map() returns -EINVAL if dev->num_tc == 0)
+> 
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/cnic.c |   33 ++++++++++++---------------------
- 1 files changed, 12 insertions(+), 21 deletions(-)
+I guess I don't see how it returns -EINVAL. Although setting
+qopt->num_tc = 0 is equivalent to disabling traffic classes so
+it is a strange thing to do but I don't expect it should be a
+problem.
 
-diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index aa5016a..263a294 100644
---- a/drivers/net/cnic.c
-+++ b/drivers/net/cnic.c
-@@ -1290,12 +1290,18 @@ static int cnic_submit_kwqe_16(struct cnic_dev *dev, u32 cmd, u32 cid,
- 	struct cnic_local *cp = dev->cnic_priv;
- 	struct l5cm_spe kwqe;
- 	struct kwqe_16 *kwq[1];
-+	u16 type_16;
- 	int ret;
- 
- 	kwqe.hdr.conn_and_cmd_data =
- 		cpu_to_le32(((cmd << SPE_HDR_CMD_ID_SHIFT) |
- 			     BNX2X_HW_CID(cp, cid)));
--	kwqe.hdr.type = cpu_to_le16(type);
-+
-+	type_16 = (type << SPE_HDR_CONN_TYPE_SHIFT) & SPE_HDR_CONN_TYPE;
-+	type_16 |= (cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
-+		   SPE_HDR_FUNCTION_ID;
-+
-+	kwqe.hdr.type = cpu_to_le16(type_16);
- 	kwqe.hdr.reserved1 = 0;
- 	kwqe.data.phy_address.lo = cpu_to_le32(l5_data->phy_address.lo);
- 	kwqe.data.phy_address.hi = cpu_to_le32(l5_data->phy_address.hi);
-@@ -1819,19 +1825,15 @@ static int cnic_bnx2x_destroy_ramrod(struct cnic_dev *dev, u32 l5_cid)
- 	struct cnic_context *ctx = &cp->ctx_tbl[l5_cid];
- 	union l5cm_specific_data l5_data;
- 	int ret;
--	u32 hw_cid, type;
-+	u32 hw_cid;
- 
- 	init_waitqueue_head(&ctx->waitq);
- 	ctx->wait_cond = 0;
- 	memset(&l5_data, 0, sizeof(l5_data));
- 	hw_cid = BNX2X_HW_CID(cp, ctx->cid);
--	type = (NONE_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
--		& SPE_HDR_CONN_TYPE;
--	type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
--		 SPE_HDR_FUNCTION_ID);
- 
- 	ret = cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_COMMON_CFC_DEL,
--				  hw_cid, type, &l5_data);
-+				  hw_cid, NONE_CONNECTION_TYPE, &l5_data);
- 
- 	if (ret == 0)
- 		wait_event(ctx->waitq, ctx->wait_cond);
-@@ -2204,7 +2206,6 @@ static int cnic_bnx2x_fcoe_init1(struct cnic_dev *dev, struct kwqe *wqes[],
- 	cp->kcq2.sw_prod_idx = 0;
- 
- 	cid = BNX2X_HW_CID(cp, cp->fcoe_init_cid);
--	printk(KERN_ERR "bdbg: submitting INIT RAMROD \n");
- 	ret = cnic_submit_kwqe_16(dev, FCOE_RAMROD_CMD_ID_INIT, cid,
- 				  FCOE_CONNECTION_TYPE, &l5_data);
- 	*work = 3;
-@@ -4977,7 +4978,7 @@ static void cnic_init_rings(struct cnic_dev *dev)
- 	} else if (test_bit(CNIC_F_BNX2X_CLASS, &dev->flags)) {
- 		u32 cli = cp->ethdev->iscsi_l2_client_id;
- 		u32 cid = cp->ethdev->iscsi_l2_cid;
--		u32 cl_qzone_id, type;
-+		u32 cl_qzone_id;
- 		struct client_init_ramrod_data *data;
- 		union l5cm_specific_data l5_data;
- 		struct ustorm_eth_rx_producers rx_prods = {0};
-@@ -5009,15 +5010,10 @@ static void cnic_init_rings(struct cnic_dev *dev)
- 		l5_data.phy_address.lo = udev->l2_buf_map & 0xffffffff;
- 		l5_data.phy_address.hi = (u64) udev->l2_buf_map >> 32;
- 
--		type = (ETH_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
--			& SPE_HDR_CONN_TYPE;
--		type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
--			SPE_HDR_FUNCTION_ID);
--
- 		set_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
- 
- 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_ETH_CLIENT_SETUP,
--			cid, type, &l5_data);
-+			cid, ETH_CONNECTION_TYPE, &l5_data);
- 
- 		i = 0;
- 		while (test_bit(CNIC_LCL_FL_L2_WAIT, &cp->cnic_local_flags) &&
-@@ -5047,7 +5043,6 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
- 		u32 cid = cp->ethdev->iscsi_l2_cid;
- 		union l5cm_specific_data l5_data;
- 		int i;
--		u32 type;
- 
- 		cnic_ring_ctl(dev, cid, cli, 0);
- 
-@@ -5068,12 +5063,8 @@ static void cnic_shutdown_rings(struct cnic_dev *dev)
- 		cnic_spq_completion(dev, DRV_CTL_RET_L2_SPQ_CREDIT_CMD, 1);
- 
- 		memset(&l5_data, 0, sizeof(l5_data));
--		type = (NONE_CONNECTION_TYPE << SPE_HDR_CONN_TYPE_SHIFT)
--			& SPE_HDR_CONN_TYPE;
--		type |= ((cp->pfid << SPE_HDR_FUNCTION_ID_SHIFT) &
--			 SPE_HDR_FUNCTION_ID);
- 		cnic_submit_kwqe_16(dev, RAMROD_CMD_ID_COMMON_CFC_DEL,
--			cid, type, &l5_data);
-+			cid, NONE_CONNECTION_TYPE, &l5_data);
- 		msleep(10);
- 	}
- 	clear_bit(CNIC_LCL_FL_RINGS_INITED, &cp->cnic_local_flags);
--- 
-1.6.4.GIT
+static inline
+int netdev_set_prio_tc_map(struct net_device *dev, u8 prio, u8 tc)
+{
+        if (tc >= dev->num_tc)
+                return -EINVAL;
 
+        dev->prio_tc_map[prio & TC_BITMASK] = tc & TC_BITMASK;
+        return 0;
+}
 
+>>>> +static unsigned long mqprio_get(struct Qdisc *sch, u32 classid)
+>>>> +{
+>>>> +     unsigned int ntx = TC_H_MIN(classid);
+>>>
+>>> We need to 'get' tc classes too, eg for individual dumps. Then we
+>>> should omit them in .leaf, .graft etc.
+>>>
+>>
+>> OK missed this. Looks like iproute2 always sets NLM_F_DUMP which works because it uses cl_ops->walk
+>>
+>> # tc -s class show dev eth3 classid 800b:1
+>> class mqprio 800b:1 root
+>>  Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+>>  backlog 0b 0p requeues 0
+> 
+> OK, then it might be only of theoretical value (for some other tools).
+>>> Why dev->num_tc above, netdev_get_num_tc(dev) here, and dev->num_tc
+>>> below?
+>>
+>> No reason just inconsistant I will use dev->num_tc.
+> 
+> Well, this would suggest netdev_get_num_tc() is redundant.
+> 
+
+Guess it is I can remove it.
+
+static inline
+u8 netdev_get_num_tc(const struct net_device *dev)
+{
+        return dev->num_tc;
+}
+
+>>>> +static void mqprio_walk(struct Qdisc *sch, struct qdisc_walker *arg)
+>>>> +{
+>>>> +     struct net_device *dev = qdisc_dev(sch);
+>>>> +     unsigned long ntx;
+>>>> +     u8 num_tc = netdev_get_num_tc(dev);
+>>>> +
+>>>> +     if (arg->stop)
+>>>> +             return;
+>>>> +
+>>>> +     /* Walk hierarchy with a virtual class per tc */
+>>>> +     arg->count = arg->skip;
+>>>> +     for (ntx = arg->skip; ntx < dev->num_tx_queues + num_tc; ntx++) {
+>>>
+>>> Should we report possibly unused/unconfigured tx_queues?
+>>
+>> I think it may be OK select_queue() could push skbs onto these queues and we may still want to see the statistics in this case. Although (real_num_tx_queues + num_tc) may make sense I see no reason to show queues above real_num_tx_queues.
+> 
+> IMHO, pushing skbs to unconfigured/unwanted/disabled queues is a bug,
+> and select should handle this, but probably it's a matter of taste.
+
+certainly a bug for queues >= real_num_tx_queues.
+
+> Btw, I wonder how dev->real_num_tx_queues is obeyed here.
+> 
+
+Its not. real_num_tx_queues is not handled correctly here also
+real_num_tx_queues can be changed so this need to be handled as well.
+This means an additional check in the options parsing.
+
+> Thanks,
+> Jarek P.
+> 
+> PS: No offense, but could you try cutting lines ~70c. It's strongly
+> recommended on kernel lists.
+
+None taken ~70c from now on.
