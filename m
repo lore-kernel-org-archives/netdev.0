@@ -1,41 +1,63 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: genetlink misinterprets NEW as GET
-Date: Thu, 06 Jan 2011 09:23:57 -0800
-Message-ID: <878vyyvtci.fsf@benpfaff.org>
-References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr>
-	<4D25C82F.4010306@netfilter.org>
-Reply-To: Ben Pfaff <blp@nicira.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: add POLLPRI to sock_def_readable()
+Date: Thu, 06 Jan 2011 18:44:57 +0100
+Message-ID: <1294335897.3074.83.camel@edumazet-laptop>
+References: <20110106155040.GA27769@libre.l.ngdn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D25C82F.4010306@netfilter.org> (Pablo Neira Ayuso's message of
-	"Thu, 06 Jan 2011 14:48:31 +0100")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Leonardo Chiquitto <leonardo.lists@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:40212 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752071Ab1AFRqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 12:46:14 -0500
+Received: by wwa36 with SMTP id 36so17639604wwa.1
+        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 09:46:07 -0800 (PST)
+In-Reply-To: <20110106155040.GA27769@libre.l.ngdn.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pablo Neira Ayuso <pablo@netfilter.org> writes:
+Leonardo Chiquitto found poll() could block forever on tcp sockets and
+Urgent data was received, if the event flag only contains POLLPRI.
 
-> On 04/01/11 03:14, Jan Engelhardt wrote:
->> 	/* Modifiers to GET request */
->> 	#define NLM_F_ROOT      0x100
->> 	#define NLM_F_MATCH     0x200
->> 	#define NLM_F_ATOMIC    0x400
->> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
-[...]
->> [N.B.: I am also wondering whether
->> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
->> may have been desired, because NLM_F_DUMP is composed of two bits.]
->
-> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
-> checking that you propose is not valid.
+He did a bisection and found commit 4938d7e0233 (poll: avoid extra
+wakeups in select/poll) was the source of the problem.
 
-Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
-exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
-dump operation?  Otherwise the test that Jan proposes looks valid
-to me.
+Problem is TCP sockets use standard sock_def_readable() function for
+their sk_data_ready() handler, and sock_def_readable() doesnt signal
+POLLPRI.
+
+Only TCP is affected by the problem. Adding POLLPRI to the list of flags
+might trigger unnecessary schedules, but URGENT handling is such a
+seldom used feature this seems a good compromise.
+
+Thanks a lot to Leonardo for providing the bisection result and a test
+program as well.
+
+Reference : http://www.spinics.net/lists/netdev/msg151793.html
+
+Reported-and-bisected-by: Leonardo Chiquitto <leonardo.lists@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Tested-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/sock.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index e5af8d5..7fd3541 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1907,7 +1907,7 @@ static void sock_def_readable(struct sock *sk, int len)
+ 	rcu_read_lock();
+ 	wq = rcu_dereference(sk->sk_wq);
+ 	if (wq_has_sleeper(wq))
+-		wake_up_interruptible_sync_poll(&wq->wait, POLLIN |
++		wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLPRI |
+ 						POLLRDNORM | POLLRDBAND);
+ 	sk_wake_async(sk, SOCK_WAKE_WAITD, POLL_IN);
+ 	rcu_read_unlock();
+
+
