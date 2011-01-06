@@ -1,7 +1,7 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v4 01/10] net/fec: fix MMFR_OP type in fec_enet_mdio_write
-Date: Thu, 6 Jan 2011 15:13:09 +0800
-Message-ID: <1294297998-26930-2-git-send-email-shawn.guo@freescale.com>
+Subject: [PATCH v4 02/10] net/fec: remove the use of "index" which is legacy
+Date: Thu, 6 Jan 2011 15:13:10 +0800
+Message-ID: <1294297998-26930-3-git-send-email-shawn.guo@freescale.com>
 References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,42 +10,80 @@ To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
 	<r64343@freescale.com>, <B32542@freescale.com>,
 	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from am1ehsobe003.messaging.microsoft.com ([213.199.154.206]:3804
-	"EHLO AM1EHSOBE003.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753972Ab1AFHLh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 02:11:37 -0500
+Received: from am1ehsobe005.messaging.microsoft.com ([213.199.154.208]:26722
+	"EHLO AM1EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753972Ab1AFHLk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 02:11:40 -0500
 In-Reply-To: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FEC_MMFR_OP_WRITE should be used than FEC_MMFR_OP_READ in
-a mdio write operation.
+The "index" becomes legacy since fep->pdev->id starts working
+to identify the instance.
 
-It's probably a typo introduced by commit:
+Moreover, the call of fec_enet_init(ndev, 0) always passes 0
+to fep->index. This makes the following code in fec_get_mac buggy.
 
-e6b043d512fa8d9a3801bf5d72bfa3b8fc3b3cc8
-netdev/fec.c: add phylib supporting to enable carrier detection (v2)
+	/* Adjust MAC if using default MAC address */
+	if (iap == fec_mac_default)
+		dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
+
+It may be the time to remove "index" and use fep->pdev->id instead.
 
 Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
 ---
- drivers/net/fec.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/fec.c |    9 +++------
+ 1 files changed, 3 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index cce32d4..52e9ca8 100644
+index 52e9ca8..47f6b3b 100644
 --- a/drivers/net/fec.c
 +++ b/drivers/net/fec.c
-@@ -651,8 +651,8 @@ static int fec_enet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	fep->mii_timeout = 0;
- 	init_completion(&fep->mdio_done);
+@@ -186,7 +186,6 @@ struct fec_enet_private {
+ 	int     mii_timeout;
+ 	uint    phy_speed;
+ 	phy_interface_t	phy_interface;
+-	int	index;
+ 	int	link;
+ 	int	full_duplex;
+ 	struct	completion mdio_done;
+@@ -566,7 +565,7 @@ static void __inline__ fec_get_mac(struct net_device *dev)
  
--	/* start a read op */
--	writel(FEC_MMFR_ST | FEC_MMFR_OP_READ |
-+	/* start a write op */
-+	writel(FEC_MMFR_ST | FEC_MMFR_OP_WRITE |
- 		FEC_MMFR_PA(mii_id) | FEC_MMFR_RA(regnum) |
- 		FEC_MMFR_TA | FEC_MMFR_DATA(value),
- 		fep->hwp + FEC_MII_DATA);
+ 	/* Adjust MAC if using default MAC address */
+ 	if (iap == fec_mac_default)
+-		 dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->index;
++		 dev->dev_addr[ETH_ALEN-1] = fec_mac_default[ETH_ALEN-1] + fep->pdev->id;
+ }
+ #endif
+ 
+@@ -1067,9 +1066,8 @@ static const struct net_device_ops fec_netdev_ops = {
+  /*
+   * XXX:  We need to clean up on failure exits here.
+   *
+-  * index is only used in legacy code
+   */
+-static int fec_enet_init(struct net_device *dev, int index)
++static int fec_enet_init(struct net_device *dev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(dev);
+ 	struct bufdesc *cbd_base;
+@@ -1086,7 +1084,6 @@ static int fec_enet_init(struct net_device *dev, int index)
+ 
+ 	spin_lock_init(&fep->hw_lock);
+ 
+-	fep->index = index;
+ 	fep->hwp = (void __iomem *)dev->base_addr;
+ 	fep->netdev = dev;
+ 
+@@ -1316,7 +1313,7 @@ fec_probe(struct platform_device *pdev)
+ 	}
+ 	clk_enable(fep->clk);
+ 
+-	ret = fec_enet_init(ndev, 0);
++	ret = fec_enet_init(ndev);
+ 	if (ret)
+ 		goto failed_init;
+ 
 -- 
 1.7.1
 
