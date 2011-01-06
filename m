@@ -1,7 +1,7 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH v4 04/10] net/fec: improve pm for better suspend/resume
-Date: Thu, 6 Jan 2011 15:13:12 +0800
-Message-ID: <1294297998-26930-5-git-send-email-shawn.guo@freescale.com>
+Subject: [PATCH v4 06/10] ARM: mx28: update clock and device name for dual fec support
+Date: Thu, 6 Jan 2011 15:13:14 +0800
+Message-ID: <1294297998-26930-7-git-send-email-shawn.guo@freescale.com>
 References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,68 +10,54 @@ To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
 	<r64343@freescale.com>, <B32542@freescale.com>,
 	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:28207
-	"EHLO VA3EHSOBE008.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754030Ab1AFHLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 02:11:50 -0500
+Received: from am1ehsobe004.messaging.microsoft.com ([213.199.154.207]:58502
+	"EHLO AM1EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754030Ab1AFHMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 02:12:03 -0500
 In-Reply-To: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following commit made a fix to use fec_enet_open/fec_enet_close
-over fec_enet_init/fec_stop for suspend/resume, because fec_enet_init
-does not allow to have a working network interface at resume.
-
-  e3fe8558c7fc182972c3d947d88744482111f304
-  net/fec: fix pm to survive to suspend/resume
-
-This fix works for i.mx/mxc fec controller, but fails on mx28 fec
-which gets a different interrupt logic design. On i.mx fec, interrupt
-can be triggered even bit ETHER_EN of ECR register is not set. But
-on mx28 fec, ETHER_EN must be set to get interrupt work. Meanwhile,
-MII interrupt is mandatory to resume the driver, because MDIO
-read/write changed to interrupt mode by commit below.
-
-  97b72e4320a9aaa4a7f1592ee7d2da7e2c9bd349
-  fec: use interrupt for MDIO completion indication
-
-fec_restart/fec_stop comes out as the solution working for both
-cases.
+Change device name from "fec" to "imx28-fec", so that fec driver
+can distinguish mx28.
 
 Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
 ---
- drivers/net/fec.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+Changes for v4:
+ - Use "imx28-fec" as fec device name
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 47a3c7b..8a1c51f 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -1372,8 +1372,10 @@ fec_suspend(struct device *dev)
+Changes for v3:
+ - Change device name to "enet-mac"
+
+ arch/arm/mach-mxs/clock-mx28.c           |    3 ++-
+ arch/arm/mach-mxs/devices/platform-fec.c |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/mach-mxs/clock-mx28.c b/arch/arm/mach-mxs/clock-mx28.c
+index f20b254..e2a8b0f 100644
+--- a/arch/arm/mach-mxs/clock-mx28.c
++++ b/arch/arm/mach-mxs/clock-mx28.c
+@@ -606,7 +606,8 @@ static struct clk_lookup lookups[] = {
+ 	_REGISTER_CLOCK("duart", "apb_pclk", xbus_clk)
+ 	/* for amba-pl011 driver */
+ 	_REGISTER_CLOCK("duart", NULL, uart_clk)
+-	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
++	_REGISTER_CLOCK("imx28-fec.0", NULL, fec_clk)
++	_REGISTER_CLOCK("imx28-fec.1", NULL, fec_clk)
+ 	_REGISTER_CLOCK("rtc", NULL, rtc_clk)
+ 	_REGISTER_CLOCK("pll2", NULL, pll2_clk)
+ 	_REGISTER_CLOCK(NULL, "hclk", hbus_clk)
+diff --git a/arch/arm/mach-mxs/devices/platform-fec.c b/arch/arm/mach-mxs/devices/platform-fec.c
+index c08168c..c42dff7 100644
+--- a/arch/arm/mach-mxs/devices/platform-fec.c
++++ b/arch/arm/mach-mxs/devices/platform-fec.c
+@@ -45,6 +45,6 @@ struct platform_device *__init mxs_add_fec(
+ 		},
+ 	};
  
- 	if (ndev) {
- 		fep = netdev_priv(ndev);
--		if (netif_running(ndev))
--			fec_enet_close(ndev);
-+		if (netif_running(ndev)) {
-+			fec_stop(ndev);
-+			netif_device_detach(ndev);
-+		}
- 		clk_disable(fep->clk);
- 	}
- 	return 0;
-@@ -1388,8 +1390,10 @@ fec_resume(struct device *dev)
- 	if (ndev) {
- 		fep = netdev_priv(ndev);
- 		clk_enable(fep->clk);
--		if (netif_running(ndev))
--			fec_enet_open(ndev);
-+		if (netif_running(ndev)) {
-+			fec_restart(ndev, fep->full_duplex);
-+			netif_device_attach(ndev);
-+		}
- 	}
- 	return 0;
+-	return mxs_add_platform_device("fec", data->id,
++	return mxs_add_platform_device("imx28-fec", data->id,
+ 			res, ARRAY_SIZE(res), pdata, sizeof(*pdata));
  }
 -- 
 1.7.1
