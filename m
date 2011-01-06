@@ -1,106 +1,263 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Thu, 6 Jan 2011 21:29:02 +0900
-Message-ID: <20110106122859.GA13253@verge.net.au>
-References: <20110106093312.GA1564@verge.net.au>
- <20110106102755.GC12142@redhat.com>
- <20110106113052.GA2541@verge.net.au>
- <20110106120722.GD12142@redhat.com>
+From: Angelo Dureghello <angelo70@gmail.com>
+Subject: Re: [RFC v2 PATCH] m68knommu: added dm9000 support
+Date: Thu, 06 Jan 2011 13:39:27 +0100
+Message-ID: <4D25B7FF.5030204@gmail.com>
+References: <4D24B27F.3020104@gmail.com> <AANLkTi=E0hkTUSd-rXWh5tkct0wwYX_75E-oaSWaa2bn@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org,
-	Jesse Gross <jesse@nicira.com>, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:33062 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751312Ab1AFM3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 07:29:07 -0500
-Content-Disposition: inline
-In-Reply-To: <20110106120722.GD12142@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	m68k@vger.kernel.org
+To: Arnaud Lacombe <lacombar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=E0hkTUSd-rXWh5tkct0wwYX_75E-oaSWaa2bn@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 06, 2011 at 02:07:22PM +0200, Michael S. Tsirkin wrote:
-> On Thu, Jan 06, 2011 at 08:30:52PM +0900, Simon Horman wrote:
-> > On Thu, Jan 06, 2011 at 12:27:55PM +0200, Michael S. Tsirkin wrote:
-> > > On Thu, Jan 06, 2011 at 06:33:12PM +0900, Simon Horman wrote:
-> > > > Hi,
-> > > > 
-> > > > Back in October I reported that I noticed a problem whereby flow control
-> > > > breaks down when openvswitch is configured to mirror a port[1].
-> > > 
-> > > Apropos the UDP flow control.  See this
-> > > http://www.spinics.net/lists/netdev/msg150806.html
-> > > for some problems it introduces.
-> > > Unfortunately UDP does not have built-in flow control.
-> > > At some level it's just conceptually broken:
-> > > it's not present in physical networks so why should
-> > > we try and emulate it in a virtual network?
-> > > 
-> > > 
-> > > Specifically, when you do:
-> > > # netperf -c -4 -t UDP_STREAM -H 172.17.60.218 -l 30 -- -m 1472
-> > > You are asking: what happens if I push data faster than it can be received?
-> > > But why is this an interesting question?
-> > > Ask 'what is the maximum rate at which I can send data with %X packet
-> > > loss' or 'what is the packet loss at rate Y Gb/s'. netperf has
-> > > -b and -w flags for this. It needs to be configured
-> > > with --enable-intervals=yes for them to work.
-> > > 
-> > > If you pose the questions this way the problem of pacing
-> > > the execution just goes away.
-> > 
-> > I am aware that UDP inherently lacks flow control.
+thanks for the review, 
+- sure, i agree the sw byte swap could be related to a BIG_ENDIAN config option only.
+- about HW, can be replaced with something like "dm9000 to cpu bus wiring", i will be more clear in my next patch version.
+- i will remove blank lines
+- readsX and writesX was completely missing for m68knommu, i have seen that the most appropriate file where to create them was probably "linux/arch/m68k/include/asm/io_no.h" but any comment is appreciated.
+- i am adding m68k guys list from now.
+
+thanks
+angelo
+
+On 06/01/2011 00:51, Arnaud Lacombe wrote:
+> Hi,
 > 
-> Everyone's is aware of that, but this is always followed by a 'however'
-> :).
+> [disclamer: I have no power whatsoever on the dm9k driver, and the
+> only dm9000 chip I've access to belongs to hardware whose parent
+> company is now defunct.]
 > 
-> > The aspect of flow control that I am interested in is situations where the
-> > guest can create large amounts of work for the host. However, it seems that
-> > in the case of virtio with vhostnet that the CPU utilisation seems to be
-> > almost entirely attributable to the vhost and qemu-system processes.  And
-> > in the case of virtio without vhost net the CPU is used by the qemu-system
-> > process. In both case I assume that I could use a cgroup or something
-> > similar to limit the guests.
+> Btw, Linux 68k folks is missing from the CC list.
 > 
-> cgroups, yes. the vhost process inherits the cgroups
-> from the qemu process so you can limit them all.
+> On Wed, Jan 5, 2011 at 1:03 PM, Angelo Dureghello <angelo70@gmail.com> wrote:
+>> This patch allows to use the dm9000 network chip with a m68knommu
+>> big-endian cpu. From the HW point of view,
+> what hardware ?
 > 
-> If you are after limiting the max troughput of the guest
-> you can do this with cgroups as well.
-
-Do you mean a CPU cgroup or something else?
-
-> > Assuming all of that is true then from a resource control problem point of
-> > view, which is mostly what I am concerned about, the problem goes away.
-> > However, I still think that it would be nice to resolve the situation I
-> > described.
+>> the cpu data bus connected to
+>> the dm9000 chip should be hardware-byte-swapped, crossing the bytes
+>> wires (D0:7 to D24:31, etc.). In anyway, has been also added an option
+>> to swap the bytes in the driver, if some cpu has been wired straight
+>> D0:D31 to dm9000.
+>>
+>> Signed-off-by: Angelo Dureghello <angelo70@gmail.com>
+>> ---
+>>
+>> --- linux/drivers/net/Kconfig.orig      2011-01-05 17:11:37.992376124 +0100
+>> +++ linux/drivers/net/Kconfig   2011-01-04 22:33:14.132301872 +0100
+>> @@ -960,7 +960,7 @@ config TI_DAVINCI_EMAC
+>>
+>>  config DM9000
+>>        tristate "DM9000 support"
+>> -       depends on ARM || BLACKFIN || MIPS
+>> +       depends on COLDFIRE || ARM || BLACKFIN || MIPS
+>>        select CRC32
+>>        select MII
+>>        ---help---
+>> @@ -986,6 +986,14 @@ config DM9000_FORCE_SIMPLE_PHY_POLL
+>>          costly MII PHY reads. Note, this will not work if the chip is
+>>          operating with an external PHY.
+>>
+>> +config DM9000_32BIT_SW_SWAP
+>> +       bool "Software byte swap for 32 bit data bus"
+>> +       depends on DM9000 && COLDFIRE
+>> +       ---help---
+>> +         This configuration allows to swap data bytes from the dm9000
+>> +         driver itself, when the big endian cpu is wired straight to
+>> +         the dm9000 32 bit data bus.
+>> +
+> I'm not sure COLDFIRE is the best dependency. AFAICS, it should
+> depends on endianness, and potentially board specific settings.
 > 
-> We need to articulate what's wrong here, otherwise we won't
-> be able to resolve the situation. We are sending UDP packets
-> as fast as we can and some receivers can't cope. Is this the problem?
-> We have made attempts to add a pseudo flow control in the past
-> in an attempt to make UDP on the same host work better.
-> Maybe they help some but they also sure introduce problems.
-
-In the case where port mirroring is not active, which is the
-usual case, to some extent there is flow control in place due to
-(as Eric Dumazet pointed out) the socket buffer.
-
-When port mirroring is activated the flow control operates based
-only on one port - which can't be controlled by the administrator
-in an obvious way.
-
-I think that it would be more intuitive if flow control was
-based on sending a packet to all ports rather than just one.
-
-Though now I think about it some more, perhaps this isn't the best either.
-For instance the case where data was being sent to dummy0 and suddenly
-adding a mirror on eth1 slowed everything down.
-
-So perhaps there needs to be another knob to tune when setting
-up port-mirroring. Or perhaps the current situation isn't so bad.
+>>  config ENC28J60
+>>        tristate "ENC28J60 support"
+>>        depends on EXPERIMENTAL && SPI && NET_ETHERNET
+>> @@ -3347,4 +3355,3 @@ config VMXNET3
+>>          module will be called vmxnet3.
+>>
+>>  endif # NETDEVICES
+>> -
+>>
+> useless whitespace change ...
+> 
+>> --- linux/drivers/net/dm9000.c.orig     2010-12-30 23:19:39.747836070 +0100
+>> +++ linux/drivers/net/dm9000.c  2011-01-05 16:30:48.636116500 +0100
+>> [...]
+>> @@ -981,7 +1032,11 @@ dm9000_rx(struct net_device *dev)
+>>                ior(db, DM9000_MRCMDX); /* Dummy read */
+>>
+>>                /* Get most updated data */
+>> -               rxbyte = readb(db->io_data);
+>> +#ifdef CONFIG_DM9000_32BIT_SW_SWAP
+>> +      rxbyte = (u8)readl(db->io_data);
+>> +#else
+>> +      rxbyte = readb(db->io_data);
+>> +#endif
+>>
+>>                /* Status check: this byte must be 0 or 1 */
+>>                if (rxbyte & DM9000_PKT_ERR) {
+>> @@ -996,8 +1051,13 @@ dm9000_rx(struct net_device *dev)
+>>
+>>                /* A packet ready now  & Get status/length */
+>>                GoodPacket = true;
+>> -               writeb(DM9000_MRCMD, db->io_addr);
+>>
+>> +#ifdef CONFIG_DM9000_32BIT_SW_SWAP
+>> +               writel(DM9000_MRCMD, db->io_addr);
+>> +#else
+>> +      writeb(DM9000_MRCMD, db->io_addr);
+>> +#endif
+>> +
+> All these #ifdef make the driver quite horrible to read.
+> 
+>>                (db->inblk)(db->io_data, &rxhdr, sizeof(rxhdr));
+>>
+>>                RxLen = le16_to_cpu(rxhdr.RxLen);
+>> @@ -1077,7 +1137,7 @@ static irqreturn_t dm9000_interrupt(int
+>>        unsigned long flags;
+>>        u8 reg_save;
+>>
+>> -       dm9000_dbg(db, 3, "entering %s\n", __func__);
+>> +       //dm9000_dbg(db, 3, "entering %s\n", __func__);
+>>
+> C++ comment ... Why do you comment this ?
+> 
+>>        /* Disable all interrupts */
+>>        iow(db, DM9000_IMR, IMR_PAR);
+>> @@ -1100,7 +1164,7 @@ static irqreturn_t dm9000_interrupt(int
+>>        /* Received the coming packet */
+>>        if (int_status & ISR_PRS)
+>>                dm9000_rx(dev);
+>> -
+>> +
+> whitespace ...
+> 
+>> @@ -1233,11 +1301,15 @@ dm9000_phy_read(struct net_device *dev,
+>>        int ret;
+>>
+>>        mutex_lock(&db->addr_lock);
+>> -
+>> +
+> whitespace ...
+> 
+>> @@ -1713,4 +1811,3 @@ MODULE_AUTHOR("Sascha Hauer, Ben Dooks")
+>>  MODULE_DESCRIPTION("Davicom DM9000 network driver");
+>>  MODULE_LICENSE("GPL");
+>>  MODULE_ALIAS("platform:dm9000");
+>> -
+> whitespace ...
+> 
+>> --- linux/arch/m68k/include/asm/io_no.h.orig    2011-01-05 16:53:55.904905038 +0100
+>> +++ linux/arch/m68k/include/asm/io_no.h 2011-01-04 23:45:08.893049554 +0100
+>> @@ -47,6 +47,91 @@ static inline unsigned int _swapl(volati
+>>  #define writew(b,addr) (void)((*(volatile unsigned short *) (addr)) = (b))
+>>  #define writel(b,addr) (void)((*(volatile unsigned int *) (addr)) = (b))
+>>
+>> +static inline void writesb (void __iomem *reg, void *data, int count)
+>> +{
+>> +       unsigned char *p = (unsigned char*) data;
+>> +
+>> +       while (count--) writeb(*p++, reg);
+>> +}
+>> +
+>> +static inline void writesbsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +       unsigned char *p = (unsigned char *) data;
+>> +
+>> +       while (count--) writel((int)(*p++), reg);
+>> +}
+>> +
+>> +static inline void writesw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned short *p = (unsigned short*) data;
+>> +
+>> +   while (count--) writew(*p++, reg);
+>> +}
+>> +
+>> +static inline void writeswsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned short *p = (unsigned short *) data;
+>> +
+>> +   while (count--) writel((int)(_swapw(*p++)), reg);
+>> +}
+>> +
+>> +static inline void writesl (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned long *p = (unsigned long*) data;
+>> +
+>> +   while (count--) writel(*p++, reg);
+>> +}
+>> +
+>> +static inline void writeslsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned long *p = (unsigned long *) data;
+>> +
+>> +   while (count--) writel((int)(_swapl(*p++)), reg);
+>> +}
+>> +
+>> +static inline void readsb (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned char *p = (unsigned char *) data;
+>> +
+>> +   while (count--) *p++ = readb(reg);
+>> +}
+>> +
+>> +static inline void readsbsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned char *p = (unsigned char *) data;
+>> +
+>> +   while (count--) *p++ = (unsigned char)readl(reg);
+>> +}
+>> +
+>> +static inline void readsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned short *p = (unsigned short *) data;
+>> +
+>> +   while (count--) *p++ = readb(reg);
+>> +}
+>> +
+>> +static inline void readswsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned short *p = (unsigned short *) data;
+>> +
+>> +   while (count--) *p++ = _swapw((unsigned short)readw(reg));
+>> +}
+>> +
+>> +static inline void readsl (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned long *p = (unsigned long *) data;
+>> +
+>> +   while (count--) *p++ = readb(reg);
+>> +}
+>> +
+>> +static inline void readslsw (void __iomem *reg, void *data, int count)
+>> +{
+>> +   unsigned long *p = (unsigned long *) data;
+>> +
+>> +   while (count--) *p++ = _swapl(readl(reg));
+>> +}
+>> +
+>> +
+>>  #define __raw_readb readb
+>>  #define __raw_readw readw
+>>  #define __raw_readl readl
+>> @@ -180,4 +265,3 @@ extern void iounmap(void *addr);
+>>  #endif /* __KERNEL__ */
+>>
+>>  #endif /* _M68KNOMMU_IO_H */
+> Could not this be moved to a separate patch ? That way arch specific
+> changes are separated from the network arch-indep changes.
+> 
+>  - Arnaud
+> 
+>> -
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+>>
