@@ -1,96 +1,99 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [ANNOUNCE] iproute2 2.6.37
-Date: Fri, 7 Jan 2011 10:24:48 -0800
-Message-ID: <20110107102448.2470638e@nehalam>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Fri, 7 Jan 2011 10:46:48 -0800
+Message-ID: <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
+References: <20110106.122003.233698077.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org, linux-net@vger.kernel.org,
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:53048 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755192Ab1AGSYx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 13:24:53 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Hayes Wang <hayeswang@realtek.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Ben Hutchings <benh@debian.org>,
+	David Woodhouse <dwmw2@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110106.122003.233698077.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This version of iproute2 utilities intended for use with 2.6.37 or
-later kernel, but should be backward compatible with older releases.
-Most of the changes are minor cleanups and fixes; new features
-are:
-   * support for flow matching based on rxhash
-   * checksum update action
+On Thu, Jan 6, 2011 at 12:20 PM, David Miller <davem@davemloft.net> wro=
+te:
+>
+> Plus the usual spattering of wireless, bluetooth, and wired driver
+> updates.
 
-Source: (note old developer.osdl.org address works as well)
-  http://devresources.linuxfoundation.org/dev/iproute2/download/iproute=
-2-2.6.37.tar.bz2
+Grr.
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+This breaks booting for me.
 
-=46or more info on iproute2 see:
-  http://www.linuxfoundation.org/collaborate/workgroups/networking/ipro=
-ute2
+[torvalds@i5 linux]$ git bisect good
+bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0 is the first bad commit
+commit bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0
+Author: fran=E7ois romieu <romieu@fr.zoreil.com>
+Date:   Mon Jan 3 15:07:31 2011 +0000
 
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing=
- list.
+    r8169: remove the firmware of RTL8111D.
 
-Andreas Schwab (1):
-      iproute2: remove useless use of buffer
+    The binary file of the firmware is moved to linux-firmware reposito=
+ry.
+    The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw.
+    The driver goes along if the firmware couldn't be found. However, i=
+t
+    is suggested to be done with the suitable firmware.
 
-Ben Greear (2):
-      iproute2: Fix filtering related to flushing IP addresses.
-      Allow 'ip addr flush' to loop more than 10 times
+    Some wrong PHY parameters are directly corrected in the driver.
 
-Changli Gao (1):
-      iproute2: tc: f_flow: add key rxhash
+    Simple firmware checking added per Ben Hutchings suggestion.
 
-Dan Smith (1):
-      Add ip route save/restore
+    Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+    Cc: Ben Hutchings <benh@debian.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Eric Dumazet (2):
-      ip: add RTA_MARK support
-      iproute2: add 64bit support to ifstat
+and the behavior is very broken: it just hangs at boot-time. No
+messages from the driver (certainly not any messages about missing
+firmware), no nothing. The thing is just hung.
 
-Gerrit Renker (1):
-      tc-red: typo in man page
+On a working setup, I have
 
-Gregoire Baron (1):
-      tc: add ACT_CSUM action support (csum)
 
-Mike Frysinger (1):
-      m_xt: stop using xtables_set_revision()
+  [    1.595071] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+  [    1.595114] r8169 0000:01:00.0: PCI INT A -> GSI 19 (level, low) -=
+> IRQ 19
+  [    1.595174] r8169 0000:01:00.0: setting latency timer to 64
+  [    1.595227] r8169 0000:01:00.0: irq 42 for MSI/MSI-X
+  [    1.595770] r8169 0000:01:00.0: eth0: RTL8168d/8111d at
+0xffffc90000068000, e0:cb:4e:95:1a:d7, XID 083000c0 IRQ 42
+  ...
+  [    7.985917] r8169 0000:01:00.0: eth0: link up
+  [    7.987525] r8169 0000:01:00.0: eth0: link up
 
-Octavian Purdila (1):
-      iproute2: initialize the ll_map only once
+while on a non-working setup, I get that XID line, and after that a
+few other init routines continue to show up (probably just
+multi-threaded initcalls), but the box is dead.
 
-Petr Sabata (3):
-      ss(8) improvements by Jiri Popelka <jpopelka@redhat.com>
-      ss: Change "do now" to "do not" in ss(8), -n option
-      ip: Few typo and grammar errors fixes for ip(8) manpage
+Quite frankly, that commit looks broken anyway. It doesn't just switch
+to the firmware loader, it also seems to change other things (ie
+removed some mdio writes, added others).
 
-Sridhar Samudrala (1):
-      Support 'mode' parameter when creating macvtap device
+What's going on? This is NOT how things are supposed to happen. Yes,
+the firmware file is in the external linux-firmware repo, but that
+doesn't help if the kernel build won't even notice and pick it up (or
+warn about it not being found). Also, the external linux-firmware repo
+isn't even support any sane installation scripts, nor does it work
+with the "build automatically into the kernel" mode.
 
-Stephen Hemminger (11):
-      Snapshot for 2.6.35.1
-      Update kernel headers to 2.6.36-rc2
-      Use correct rt_link_statistics
-      Fix GRED options clearing
-      Update to 2.6.36 headers
-      Workaround for repeated distclean
-      Use standard routines for interface name to index etc
-      Increase size of ifindex hash heads
-      Cleanup ll_map
-      Update to 2.6.37-rc8 headers
-      v2.6.37
+We also have those CONFIG_FIRMWARE_IN_KERNEL and CONFIG_STANDALONE
+flags, and the build apparently failed both of those.
 
-Timo Ter=E4s (2):
-      iproute2: treat gre key as number
-      iproute2: support xfrm upper protocol gre key
+Not acceptable. I'm ok with an external firmware repository, but only
+if it _works_. Right now it doesn't. It just seems to cause silent
+failures: there were no warnings about missing firmware at ANY time.
+Not build-time, not run-time.
 
-Ulrich Weber (2):
-      iproute2: dont filter cached routes on iproute_get
-      iproute2: display xfrm socket policy direction
+I bet I can make it work by making it a module, and installing the
+firmware manually. But it's supposed to work even without that.
 
+                             Linus
