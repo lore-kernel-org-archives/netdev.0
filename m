@@ -1,16 +1,16 @@
 From: jeffrey.t.kirsher@intel.com
-Subject: [net-next 04/12] e1000e: use either_crc_le() rather than re-write it
-Date: Thu,  6 Jan 2011 16:29:51 -0800
-Message-ID: <1294360199-9860-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/12] e1000e: cleanup variables set but not used
+Date: Thu,  6 Jan 2011 16:29:48 -0800
+Message-ID: <1294360199-9860-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
 	gosp@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:23661 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:19337 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753863Ab1AGAar (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 19:30:47 -0500
+	id S1753345Ab1AGAaq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 19:30:46 -0500
 To: davem@davemloft.net
 In-Reply-To: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
@@ -19,66 +19,144 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Bruce Allan <bruce.w.allan@intel.com>
 
-For the 82579 jumbo frame workaround, there is no need to re-write the CRC
-calculation functionality already found in the kernel's ether_crc_le().
+The ICR register is clear on read and we don't care what the returned value
+is when resetting the hardware so the icr variable(s) can be removed.  We
+should not ignore the return from e1000_lv_jumbo_workaround_ich8lan() and
+from e1000_get_phy_id_82571() (dump a debug message when it fails and when
+an unknown Phy id is returned).
 
 Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/e1000.h   |    1 +
- drivers/net/e1000e/ich8lan.c |   19 +------------------
- 2 files changed, 2 insertions(+), 18 deletions(-)
+ drivers/net/e1000e/82571.c   |   21 ++++++++++++++-------
+ drivers/net/e1000e/es2lan.c  |    4 ++--
+ drivers/net/e1000e/ich8lan.c |    4 ++--
+ drivers/net/e1000e/netdev.c  |    3 +++
+ 4 files changed, 21 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-index 2c913b8..4b3802a 100644
---- a/drivers/net/e1000e/e1000.h
-+++ b/drivers/net/e1000e/e1000.h
-@@ -38,6 +38,7 @@
- #include <linux/netdevice.h>
- #include <linux/pci.h>
- #include <linux/pci-aspm.h>
-+#include <linux/crc32.h>
+diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
+index e57e409..11a273e 100644
+--- a/drivers/net/e1000e/82571.c
++++ b/drivers/net/e1000e/82571.c
+@@ -121,29 +121,36 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
  
- #include "hw.h"
+ 	/* This can only be done after all function pointers are setup. */
+ 	ret_val = e1000_get_phy_id_82571(hw);
++	if (ret_val) {
++		e_dbg("Error getting PHY ID\n");
++		return ret_val;
++	}
  
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 902e493..5328a292 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -1395,22 +1395,6 @@ void e1000_copy_rx_addrs_to_phy_ich8lan(struct e1000_hw *hw)
+ 	/* Verify phy id */
+ 	switch (hw->mac.type) {
+ 	case e1000_82571:
+ 	case e1000_82572:
+ 		if (phy->id != IGP01E1000_I_PHY_ID)
+-			return -E1000_ERR_PHY;
++			ret_val = -E1000_ERR_PHY;
+ 		break;
+ 	case e1000_82573:
+ 		if (phy->id != M88E1111_I_PHY_ID)
+-			return -E1000_ERR_PHY;
++			ret_val = -E1000_ERR_PHY;
+ 		break;
+ 	case e1000_82574:
+ 	case e1000_82583:
+ 		if (phy->id != BME1000_E_PHY_ID_R2)
+-			return -E1000_ERR_PHY;
++			ret_val = -E1000_ERR_PHY;
+ 		break;
+ 	default:
+-		return -E1000_ERR_PHY;
++		ret_val = -E1000_ERR_PHY;
+ 		break;
  	}
+ 
+-	return 0;
++	if (ret_val)
++		e_dbg("PHY ID unknown: type = 0x%08x\n", phy->id);
++
++	return ret_val;
  }
  
--static u32 e1000_calc_rx_da_crc(u8 mac[])
--{
--	u32 poly = 0xEDB88320;	/* Polynomial for 802.3 CRC calculation */
--	u32 i, j, mask, crc;
--
--	crc = 0xffffffff;
--	for (i = 0; i < 6; i++) {
--		crc = crc ^ mac[i];
--		for (j = 8; j > 0; j--) {
--			mask = (crc & 1) * (-1);
--			crc = (crc >> 1) ^ (poly & mask);
--		}
--	}
--	return ~crc;
--}
--
  /**
-  *  e1000_lv_jumbo_workaround_ich8lan - required for jumbo frame operation
-  *  with 82579 PHY
-@@ -1453,8 +1437,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
- 			mac_addr[4] = (addr_high & 0xFF);
- 			mac_addr[5] = ((addr_high >> 8) & 0xFF);
+@@ -956,7 +963,7 @@ static s32 e1000_set_d0_lplu_state_82571(struct e1000_hw *hw, bool active)
+  **/
+ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
+ {
+-	u32 ctrl, ctrl_ext, icr;
++	u32 ctrl, ctrl_ext;
+ 	s32 ret_val;
  
--			ew32(PCH_RAICC(i),
--					e1000_calc_rx_da_crc(mac_addr));
-+			ew32(PCH_RAICC(i), ~ether_crc_le(ETH_ALEN, mac_addr));
- 		}
+ 	/*
+@@ -1040,7 +1047,7 @@ static s32 e1000_reset_hw_82571(struct e1000_hw *hw)
  
- 		/* Write Rx addresses to the PHY */
+ 	/* Clear any pending interrupt events. */
+ 	ew32(IMC, 0xffffffff);
+-	icr = er32(ICR);
++	er32(ICR);
+ 
+ 	if (hw->mac.type == e1000_82571) {
+ 		/* Install any alternate MAC address into RAR0 */
+diff --git a/drivers/net/e1000e/es2lan.c b/drivers/net/e1000e/es2lan.c
+index b18c644..e45a61c 100644
+--- a/drivers/net/e1000e/es2lan.c
++++ b/drivers/net/e1000e/es2lan.c
+@@ -784,7 +784,7 @@ static s32 e1000_get_link_up_info_80003es2lan(struct e1000_hw *hw, u16 *speed,
+  **/
+ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
+ {
+-	u32 ctrl, icr;
++	u32 ctrl;
+ 	s32 ret_val;
+ 
+ 	/*
+@@ -818,7 +818,7 @@ static s32 e1000_reset_hw_80003es2lan(struct e1000_hw *hw)
+ 
+ 	/* Clear any pending interrupt events. */
+ 	ew32(IMC, 0xffffffff);
+-	icr = er32(ICR);
++	er32(ICR);
+ 
+ 	ret_val = e1000_check_alt_mac_addr_generic(hw);
+ 
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index d86cc08..754590d 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -2977,7 +2977,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ {
+ 	struct e1000_dev_spec_ich8lan *dev_spec = &hw->dev_spec.ich8lan;
+ 	u16 reg;
+-	u32 ctrl, icr, kab;
++	u32 ctrl, kab;
+ 	s32 ret_val;
+ 
+ 	/*
+@@ -3067,7 +3067,7 @@ static s32 e1000_reset_hw_ich8lan(struct e1000_hw *hw)
+ 		ew32(CRC_OFFSET, 0x65656565);
+ 
+ 	ew32(IMC, 0xffffffff);
+-	icr = er32(ICR);
++	er32(ICR);
+ 
+ 	kab = er32(KABGTXD);
+ 	kab |= E1000_KABGTXD_BGSQLBIAS;
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index fe50242..5498689 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -2734,6 +2734,9 @@ static void e1000_setup_rctl(struct e1000_adapter *adapter)
+ 			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, true);
+ 		else
+ 			ret_val = e1000_lv_jumbo_workaround_ich8lan(hw, false);
++
++		if (ret_val)
++			e_dbg("failed to enable jumbo frame workaround mode\n");
+ 	}
+ 
+ 	/* Program MC offset vector base */
 -- 
 1.7.3.4
 
