@@ -1,52 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Fri, 7 Jan 2011 10:23:58 +0900
-Message-ID: <20110107012356.GA1257@verge.net.au>
-References: <20110106093312.GA1564@verge.net.au>
- <1294309362.3074.11.camel@edumazet-laptop>
- <20110106124439.GA17004@verge.net.au>
- <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
+From: Syed Obaid Amin <obaidasyed@gmail.com>
+Subject: About disabling congestion control
+Date: Thu, 6 Jan 2011 20:25:18 -0500
+Message-ID: <AANLkTin53drsv18TZ0CPZM7==6G=rK6vScUb=SCQ4-xr@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:55149 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754975Ab1AGBZU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 20:25:20 -0500
+Received: by fxm20 with SMTP id 20so16563645fxm.19
+        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 17:25:19 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
+Hey all,
 
-[ snip ]
-> 
-> I know that everyone likes a nice netperf result but I agree with
-> Michael that this probably isn't the right question to be asking.  I
-> don't think that socket buffers are a real solution to the flow
-> control problem: they happen to provide that functionality but it's
-> more of a side effect than anything.  It's just that the amount of
-> memory consumed by packets in the queue(s) doesn't really have any
-> implicit meaning for flow control (think multiple physical adapters,
-> all with the same speed instead of a virtual device and a physical
-> device with wildly different speeds).  The analog in the physical
-> world that you're looking for would be Ethernet flow control.
-> Obviously, if the question is limiting CPU or memory consumption then
-> that's a different story.
+I am currently working on a socket option to disable the tcp
+congestion control. I think the simplest approach to do this is to
+ignore cwnd before sending out a packet.
 
-Point taken. I will see if I can control CPU (and thus memory) consumption
-using cgroups and/or tc.
+After going through tcp output engine it seems that tcp_cwnd_test is
+the method that decides that how many segments can be sent out on a
+wire. For testing it out, I changed this method so that if no-cc
+option is ON, just return a big constant value. But, it didn't work
+and I am unable to see a burst of pkts. It looks like that I am
+missing something here.
 
-> This patch also double counts memory, since the full size of the
-> packet will be accounted for by each clone, even though they share the
-> actual packet data.  Probably not too significant here but it might be
-> when flooding/mirroring to many interfaces.  This is at least fixable
-> (the Xen-style accounting through page tracking deals with it, though
-> it has its own problems).
+Any suggestions that what is the right place to look for disabling the
+congestion control ?
 
-Agreed on all counts.
+Thanks much!
 
-
+Obaid
