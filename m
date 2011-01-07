@@ -1,40 +1,51 @@
-From: Janne Karhunen <janne.karhunen@gmail.com>
-Subject: Re: via-velocity: corrupted mac, deadlock on link
-Date: Fri, 7 Jan 2011 17:31:07 +0200
-Message-ID: <AANLkTikFik4t8Vu8CkUWCCR5yZ4cpVdEdP9qPHT3DQBQ@mail.gmail.com>
-References: <AANLkTi=SV=_s3ViveEX4e2FpEGKK+w6BiGs=QYCsgPsv@mail.gmail.com>
-	<20110106125822.70a85e0a@nehalam>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
+Date: Fri, 7 Jan 2011 10:41:18 -0500
+Message-ID: <AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
+References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
+	netdev@vger.kernel.org, gosp@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-px0-f174.google.com ([209.85.212.174]:63070 "EHLO
-	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751748Ab1AGPbI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 10:31:08 -0500
-Received: by pxi15 with SMTP id 15so3080883pxi.19
-        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 07:31:07 -0800 (PST)
-In-Reply-To: <20110106125822.70a85e0a@nehalam>
+Received: from mail-pz0-f46.google.com ([209.85.210.46]:51997 "EHLO
+	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753484Ab1AGPlT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 10:41:19 -0500
+Received: by pzk35 with SMTP id 35so1981386pzk.19
+        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 07:41:19 -0800 (PST)
+In-Reply-To: <1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 6, 2011 at 10:58 PM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
+On Thu, Jan 6, 2011 at 7:29 PM,  <jeffrey.t.kirsher@intel.com> wrote:
+> +static int ixgb_set_flags(struct net_device *netdev, u32 data)
+> +{
+> + =A0 =A0 =A0 struct ixgb_adapter *adapter =3D netdev_priv(netdev);
+> + =A0 =A0 =A0 bool need_reset;
+> + =A0 =A0 =A0 int rc;
+> +
+> + =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0* TX vlan insertion does not work per HW design when=
+ Rx stripping is
+> + =A0 =A0 =A0 =A0* disabled. =A0Disable txvlan when rxvlan is off.
+> + =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 if ((data & ETH_FLAG_RXVLAN) !=3D (netdev->features & N=
+ETIF_F_HW_VLAN_RX))
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 data ^=3D ETH_FLAG_TXVLAN;
 
-> To debug, remove the udev rule that does renaming
-> =A0cd /lib/udev
-> =A0mkdir save; mv rules.d/75-persistent-net-generator-rules save
-> and remove any rules
-> =A0rm /etc/udev/70-persistent-net.rules
->
-> Then after bootup you can debug problem.
+Does this really do the right thing?  If the RX vlan setting is
+changed, it will do the opposite of what the user requested for TX
+vlan?
 
-Yeah.. before wasting anyones time with this, will have the
-board replaced just in case. Looks suspicious enough already.
-Thanks.
+So if I start with both on (the default) and turn them both off in one
+command (a valid setting), I will get RX off and TX on (an invalid
+setting).
 
+Why not:
 
---=20
-// Janne
+if (!(data & ETH_FLAG_RXVLAN))
+=A0 =A0 =A0 =A0 data &=3D ~ETH_FLAG_TXVLAN;
