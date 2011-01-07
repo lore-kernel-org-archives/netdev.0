@@ -1,124 +1,77 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
- entries
-Date: Fri, 07 Jan 2011 14:47:58 +0200
-Message-ID: <1294404478.7674.0.camel@maxim-laptop>
-References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
-	 <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
+From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjurbren@stericsson.com>
+Subject: [PATCH] CAIF: Fix IPv6 support in receive path for GPRS/3G
+Date: Fri, 07 Jan 2011 12:57:08 +0100
+Message-ID: <1294401428-2085-1-git-send-email-sjurbren@stericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>
-To: linux1394-devel <linux1394-devel@lists.sourceforge.net>
+Content-Type: TEXT/PLAIN
+Content-Transfer-Encoding: 7BIT
+Cc: Kumar Sanghvi <kumar.sanghvi@stericsson.com>,
+	Sjur Braendeland <sjur.brandeland@stericsson.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:35760 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752561Ab1AGMsB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 07:48:01 -0500
-Received: by bwz15 with SMTP id 15so17251936bwz.19
-        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 04:47:59 -0800 (PST)
-In-Reply-To: <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
+Received: from thalia-smout.broadpark.no ([80.202.8.21]:54951 "EHLO
+	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752911Ab1AGM5m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 07:57:42 -0500
+Received: from terra-smin.broadpark.no ([80.202.8.13])
+ by thalia-smout.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
+ with ESMTP id <0LEN00EN5IJN6E60@thalia-smout.broadpark.no> for
+ netdev@vger.kernel.org; Fri, 07 Jan 2011 12:57:23 +0100 (CET)
+Received: from localhost.localdomain ([80.203.137.56])
+ by terra-smin.broadpark.no
+ (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
+ with ESMTP id <0LEN0009PIJMSA50@terra-smin.broadpark.no> for
+ netdev@vger.kernel.org; Fri, 07 Jan 2011 12:57:23 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2010-11-29 at 04:09 +0200, Maxim Levitsky wrote:
-> IPv4 over firewire needs to be able to remove ARP entries
-> from the ARP cache that belong to nodes that are removed, because
-> IPv4 over firewire uses ARP packets for private information
-> about nodes.
-> 
-> This information becomes invalid as soon as node drops
-> off the bus and when it reconnects, its only possible
-> to start takling to is after it responded to an ARP packet.
-> But ARP cache prevents such packets from being sent.
-> 
-> CC: netdev@vger.kernel.org
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> CC: James Morris <jmorris@namei.org>
-> CC: Patrick McHardy <kaber@trash.net>
+From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
 
-Anybody?
+Checks version field of IP in the receive path for GPRS/3G data
+and appropriately sets the value of skb->protocol.
 
-Best regards,
-	Maxim Levitsky
+Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+---
+ net/caif/chnl_net.c |   18 +++++++++++++++++-
+ 1 files changed, 17 insertions(+), 1 deletions(-)
 
-> 
-> 
-> Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
-> ---
->  include/net/arp.h |    1 +
->  net/ipv4/arp.c    |   29 ++++++++++++++++++-----------
->  2 files changed, 19 insertions(+), 11 deletions(-)
-> 
-> diff --git a/include/net/arp.h b/include/net/arp.h
-> index f4cf6ce..91f0568 100644
-> --- a/include/net/arp.h
-> +++ b/include/net/arp.h
-> @@ -25,5 +25,6 @@ extern struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
->  				  const unsigned char *src_hw,
->  				  const unsigned char *target_hw);
->  extern void arp_xmit(struct sk_buff *skb);
-> +int arp_invalidate(struct net_device *dev, __be32 ip);
->  
->  #endif	/* _ARP_H */
-> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> index d8e540c..35b1272 100644
-> --- a/net/ipv4/arp.c
-> +++ b/net/ipv4/arp.c
-> @@ -1142,6 +1142,23 @@ static int arp_req_get(struct arpreq *r, struct net_device *dev)
->  	return err;
->  }
->  
-> +int arp_invalidate(struct net_device *dev, __be32 ip)
-> +{
-> +	int err = -ENXIO;
-> +	struct neighbour *neigh = neigh_lookup(&arp_tbl, &ip, dev);
-> +
-> +	if (neigh) {
-> +		if (neigh->nud_state & ~NUD_NOARP)
-> +			err = neigh_update(neigh, NULL, NUD_FAILED,
-> +					   NEIGH_UPDATE_F_OVERRIDE|
-> +					   NEIGH_UPDATE_F_ADMIN);
-> +		neigh_release(neigh);
-> +	}
-> +
-> +	return err;
-> +}
-> +EXPORT_SYMBOL(arp_invalidate);
-> +
->  static int arp_req_delete_public(struct net *net, struct arpreq *r,
->  		struct net_device *dev)
->  {
-> @@ -1162,7 +1179,6 @@ static int arp_req_delete(struct net *net, struct arpreq *r,
->  {
->  	int err;
->  	__be32 ip;
-> -	struct neighbour *neigh;
->  
->  	if (r->arp_flags & ATF_PUBL)
->  		return arp_req_delete_public(net, r, dev);
-> @@ -1180,16 +1196,7 @@ static int arp_req_delete(struct net *net, struct arpreq *r,
->  		if (!dev)
->  			return -EINVAL;
->  	}
-> -	err = -ENXIO;
-> -	neigh = neigh_lookup(&arp_tbl, &ip, dev);
-> -	if (neigh) {
-> -		if (neigh->nud_state & ~NUD_NOARP)
-> -			err = neigh_update(neigh, NULL, NUD_FAILED,
-> -					   NEIGH_UPDATE_F_OVERRIDE|
-> -					   NEIGH_UPDATE_F_ADMIN);
-> -		neigh_release(neigh);
-> -	}
-> -	return err;
-> +	return arp_invalidate(dev, ip);
->  }
->  
->  /*
-
+diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
+index 84a422c..fa9dab3 100644
+--- a/net/caif/chnl_net.c
++++ b/net/caif/chnl_net.c
+@@ -76,6 +76,8 @@ static int chnl_recv_cb(struct cflayer *layr, struct cfpkt *pkt)
+ 	struct chnl_net *priv  = container_of(layr, struct chnl_net, chnl);
+ 	int pktlen;
+ 	int err = 0;
++	const u8 *ip_version;
++	u8 buf;
+ 
+ 	priv = container_of(layr, struct chnl_net, chnl);
+ 
+@@ -90,7 +92,21 @@ static int chnl_recv_cb(struct cflayer *layr, struct cfpkt *pkt)
+ 	 * send the packet to the net stack.
+ 	 */
+ 	skb->dev = priv->netdev;
+-	skb->protocol = htons(ETH_P_IP);
++
++	/* check the version of IP */
++	ip_version = skb_header_pointer(skb, 0, 1, &buf);
++	if (!ip_version)
++		return -EINVAL;
++	switch (*ip_version >> 4) {
++	case 4:
++		skb->protocol = htons(ETH_P_IP);
++		break;
++	case 6:
++		skb->protocol = htons(ETH_P_IPV6);
++		break;
++	default:
++		return -EINVAL;
++	}
+ 
+ 	/* If we change the header in loop mode, the checksum is corrupted. */
+ 	if (priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP)
+-- 
+1.7.0.4
 
