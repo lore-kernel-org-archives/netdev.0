@@ -1,84 +1,95 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not
- used
-Date: Fri, 07 Jan 2011 03:43:22 +0100
-Message-ID: <1294368202.2704.50.camel@edumazet-laptop>
-References: <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
-	 <20101213224510.GB17400@mcarlson.broadcom.com>
-	 <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	 <20101214191500.GD19951@mcarlson.broadcom.com>
-	 <1293901393.2535.49.camel@edumazet-laptop>
-	 <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
-	 <1293984348.2535.101.camel@edumazet-laptop>
-	 <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
-	 <1294356887.2704.13.camel@edumazet-laptop>
-	 <1294363201.2704.19.camel@edumazet-laptop>
-	 <20110107022912.GA17757@mcarlson.broadcom.com>
-	 <1294368071.2704.49.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>,
-	Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294368071.2704.49.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [Bugme-new] [Bug 25062] New: Bonding packet deduplication doesn't work properly anymore
+Date: Thu, 06 Jan 2011 18:47:11 -0800
+Message-ID: <14110.1294368431@death>
+References: <bug-25062-10286@https.bugzilla.kernel.org/> <20110104133936.60d389e2.akpm@linux-foundation.org>
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-new@lists.osdl.org, bugme-daemon@bugzilla.kernel.org,
+	kevin.lapagna@bigtag.ch
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e32.co.us.ibm.com ([32.97.110.150]:50957 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753924Ab1AGCrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 21:47:17 -0500
+Received: from d03relay02.boulder.ibm.com (d03relay02.boulder.ibm.com [9.17.195.227])
+	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p072bM2A006473
+	for <netdev@vger.kernel.org>; Thu, 6 Jan 2011 19:37:22 -0700
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d03relay02.boulder.ibm.com (8.13.8/8.13.8/NCO v9.1) with ESMTP id p072lEa0251588
+	for <netdev@vger.kernel.org>; Thu, 6 Jan 2011 19:47:14 -0700
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p072lDgv010314
+	for <netdev@vger.kernel.org>; Thu, 6 Jan 2011 19:47:14 -0700
+In-reply-to: <20110104133936.60d389e2.akpm@linux-foundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 07 janvier 2011 =C3=A0 03:41 +0100, Eric Dumazet a =C3=A9cr=
-it :
-> Le jeudi 06 janvier 2011 =C3=A0 18:29 -0800, Matt Carlson a =C3=A9cri=
-t :
->=20
-> > Hi Eric.  Sorry for the delay.  I was under the impression that you=
-r
-> > problems were software related and that you just needed a revised
-> > version of these VLAN patches I was sending to Michael.  Is this no=
-t
-> > true?
-> >=20
-> > Having a hardware stat increment suggests this is a new problem.
-> > Maybe I missed it, but I didn't see what hardware you are working
-> > with and whether or not management firmware was enabled.  Could you=
- tell
-> > me that info?
-> >=20
->=20
-> Hi Matt
->=20
-> I started a bisection, because I couldnt sleep tonight anyway :(
->=20
-> 14:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5715S
-> Gigabit Ethernet (rev a3)
-> 	Subsystem: Hewlett-Packard Company NC326m PCIe Dual Port Adapter
-> 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 43
-> 	Memory at fdff0000 (64-bit, non-prefetchable) [size=3D64K]
-> 	Memory at fdfe0000 (64-bit, non-prefetchable) [size=3D64K]
-> 	[virtual] Expansion ROM at fdbe0000 [disabled] [size=3D128K]
-> 	Capabilities: [40] PCI-X non-bridge device
-> 	Capabilities: [48] Power Management version 2
-> 	Capabilities: [50] Vital Product Data
-> 	Capabilities: [58] MSI: Enable+ Count=3D1/8 Maskable- 64bit+
-> 	Kernel driver in use: tg3
-> 	Kernel modules: tg3
->=20
->=20
+Andrew Morton <akpm@linux-foundation.org> wrote:
 
-$ ethtool -i eth2
-driver: tg3
-version: 3.115
-firmware-version: 5715s-v3.28
-bus-info: 0000:14:04.0
-$ dmesg | grep ASF
-[    6.220577] tg3 0000:14:04.0: eth2: RXcsums[1] LinkChgREG[0] MIirq[0=
-]
-ASF[0] TSOcap[1]
-[    6.228586] tg3 0000:14:04.1: eth3: RXcsums[1] LinkChgREG[0] MIirq[0=
-]
-ASF[0] TSOcap[1]
+>On Fri, 17 Dec 2010 11:45:18 GMT
+>bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=25062
+>> 
+>>            Summary: Bonding packet deduplication doesn't work properly
+>>                     anymore
+>>            Product: Networking
+>>            Version: 2.5
+>>     Kernel Version: > 2.6.33
+>>           Platform: All
+>>         OS/Version: Linux
+>>               Tree: Mainline
+>>             Status: NEW
+>>           Severity: high
+>>           Priority: P1
+>>          Component: Other
+>>         AssignedTo: acme@ghostprotocols.net
+>>         ReportedBy: kevin.lapagna@bigtag.ch
+>>         Regression: No
+>> 
+>> 
+>> Here's the setup:
+>> 
+>> switch: ordinary cisco switch
+>> eth0: NIC with kernel module tg3
+>> eth1: NIC with kernel module e1000e
+>> bond0: bond with slaves eth0,eth1 in mode 1 (or 5)
+>> bond0.100: vlan device created with vconfig
+>> bridge100: bridge created with brctl
+>> tap1: tap device created with tunctl
+>> vguest: qemu-kvm vguest whit emulated e1000 NIC
+>> 
+>> 
+>> |________________|-- eth0 \                                               |________________|
+>> | switch |          -- bond0 -- bond0.100 -- bridge100 -- tap1 -- | vguest |
+>> |________|-- eth1 /                                               |________|
+>> 
+>> When the vguest emits an ethernet broadcast (DHCP-request), it's forwarded all
+>> the way up to the switch, through eth0. The switch forwards the broadcast -
+>> also to eth1. The packet travels then all the way back to bridge100. So the
+>> last status known for bridge100, regarding the mac address of the vgeust is,
+>> that it is behind bond0.110 (instead of tap1). If a DHCP-server responds to the
+>> request, the packet travels to bridge100, which has now a faulty
+>> MAC-address-table and the packet will be rejected and never reaches tap1 and
+>> therefor not the vguest.
+>> 
+>> I witnessed this wrong behavior in kernel 2.6.37-rc5 (debian package), 2.6.36.2
+>> and 2.6.35.9 (self compiled -  vanilla). The setup has worked with kernels <=
+>> 2.6.33.7. I've never tried 2.6.34.
+>> 
+>> I assume the setup above is a common way for the separation of virtual guests
+>> on a network level. So this could become a major issue for a lot of people when
+>> upgrading their kernels.
+
+	Just a note that I have reproduced what I believe is the same
+problem (I didn't use tap, and assigned an IP to the bridge).  I used
+arping to generate ethernet broadcasts.  I see the problem on 2.6.36.2,
+but not on today's net-next-2.6.
+
+	I'll see if I can dig up the root cause tomorrow.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
