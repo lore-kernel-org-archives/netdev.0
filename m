@@ -1,85 +1,165 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] phonet: some signedness bugs
-Date: Fri, 7 Jan 2011 23:37:55 +0300
-Message-ID: <20110107203755.GB1959@bicker>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH] forcedeth: Do not use legacy PCI power management
+Date: Fri, 7 Jan 2011 22:12:05 +0100
+Message-ID: <201101072212.05449.rjw@sisk.pl>
+References: <201101070049.16833.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
-To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:46615 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751972Ab1AGUiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 15:38:09 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Linux-pm mailing list" <linux-pm@lists.linux-foundation.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201101070049.16833.rjw@sisk.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dan Rosenberg pointed out that there were some signed comparison bugs
-in the phonet protocol.
+On Friday, January 07, 2011, Rafael J. Wysocki wrote:
+> From: Rafael J. Wysocki <rjw@sisk.pl>
+> 
+> The forcedeth driver uses the legacy PCI power management, so it has
+> to do PCI-specific things in its ->suspend() and ->resume() callbacks
+> and some of them are not done correctly.
+> 
+> Convert forcedeth to the new PCI power management framework and make
+> it let the PCI subsystem take care of all the PCI-specific aspects of
+> device handling during system power transitions.
+> 
+> Tested with nVidia Corporation MCP55 Ethernet (rev a2).
 
-http://marc.info/?l=full-disclosure&m=129424528425330&w=2
+This version of the patch contains a mistake (nv_shutdown should be #defined
+as NULL if !CONFIG_PM, not nv_resume), please disregard it.
 
-If you have already have CAP_SYS_ADMIN then you could use the bugs to
-get root, or someone could cause an oops by mistake.
+Fixed patch is appended.
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+Thanks,
+Rafael
 
-diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
-index d5df797..5395e09 100644
---- a/include/net/phonet/phonet.h
-+++ b/include/net/phonet/phonet.h
-@@ -107,8 +107,8 @@ struct phonet_protocol {
- 	int			sock_type;
+
+---
+From: Rafael J. Wysocki <rjw@sisk.pl>
+Subject: forcedeth: Do not use legacy PCI power management (v2)
+
+The forcedeth driver uses the legacy PCI power management, so it has
+to do PCI-specific things in its ->suspend() and ->resume() callbacks
+and some of them are not done correctly.
+
+Convert forcedeth to the new PCI power management framework and make
+it let the PCI subsystem take care of all the PCI-specific aspects of
+device handling during system power transitions.
+
+Tested with nVidia Corporation MCP55 Ethernet (rev a2).
+
+Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+---
+ drivers/net/forcedeth.c |   34 ++++++++++++----------------------
+ 1 file changed, 12 insertions(+), 22 deletions(-)
+
+Index: linux-2.6/drivers/net/forcedeth.c
+===================================================================
+--- linux-2.6.orig/drivers/net/forcedeth.c
++++ linux-2.6/drivers/net/forcedeth.c
+@@ -4082,6 +4082,7 @@ static int nv_set_wol(struct net_device
+ 		writel(flags, base + NvRegWakeUpFlags);
+ 		spin_unlock_irq(&np->lock);
+ 	}
++	device_set_wakeup_enable(&np->pci_dev->dev, np->wolenabled);
+ 	return 0;
+ }
+ 
+@@ -5643,14 +5644,10 @@ static int __devinit nv_probe(struct pci
+ 	/* set mac address */
+ 	nv_copy_mac_to_hw(dev);
+ 
+-	/* Workaround current PCI init glitch:  wakeup bits aren't
+-	 * being set from PCI PM capability.
+-	 */
+-	device_init_wakeup(&pci_dev->dev, 1);
+-
+ 	/* disable WOL */
+ 	writel(0, base + NvRegWakeUpFlags);
+ 	np->wolenabled = 0;
++	device_set_wakeup_enable(&pci_dev->dev, false);
+ 
+ 	if (id->driver_data & DEV_HAS_POWER_CNTRL) {
+ 
+@@ -5923,8 +5920,9 @@ static void __devexit nv_remove(struct p
+ }
+ 
+ #ifdef CONFIG_PM
+-static int nv_suspend(struct pci_dev *pdev, pm_message_t state)
++static int nv_suspend(struct device *device)
+ {
++	struct pci_dev *pdev = to_pci_dev(device);
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+@@ -5940,25 +5938,17 @@ static int nv_suspend(struct pci_dev *pd
+ 	for (i = 0;i <= np->register_size/sizeof(u32); i++)
+ 		np->saved_config_space[i] = readl(base + i*sizeof(u32));
+ 
+-	pci_save_state(pdev);
+-	pci_enable_wake(pdev, pci_choose_state(pdev, state), np->wolenabled);
+-	pci_disable_device(pdev);
+-	pci_set_power_state(pdev, pci_choose_state(pdev, state));
+ 	return 0;
+ }
+ 
+-static int nv_resume(struct pci_dev *pdev)
++static int nv_resume(struct device *device)
+ {
++	struct pci_dev *pdev = to_pci_dev(device);
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct fe_priv *np = netdev_priv(dev);
+ 	u8 __iomem *base = get_hwbase(dev);
+ 	int i, rc = 0;
+ 
+-	pci_set_power_state(pdev, PCI_D0);
+-	pci_restore_state(pdev);
+-	/* ack any pending wake events, disable PME */
+-	pci_enable_wake(pdev, PCI_D0, 0);
+-
+ 	/* restore non-pci configuration space */
+ 	for (i = 0;i <= np->register_size/sizeof(u32); i++)
+ 		writel(np->saved_config_space[i], base+i*sizeof(u32));
+@@ -5977,6 +5967,9 @@ static int nv_resume(struct pci_dev *pde
+ 	return rc;
+ }
+ 
++static SIMPLE_DEV_PM_OPS(nv_pm_ops, nv_suspend, nv_resume);
++#define NV_PM_OPS (&nv_pm_ops)
++
+ static void nv_shutdown(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+@@ -6000,15 +5993,13 @@ static void nv_shutdown(struct pci_dev *
+ 	 * only put the device into D3 if we really go for poweroff.
+ 	 */
+ 	if (system_state == SYSTEM_POWER_OFF) {
+-		if (pci_enable_wake(pdev, PCI_D3cold, np->wolenabled))
+-			pci_enable_wake(pdev, PCI_D3hot, np->wolenabled);
++		pci_wake_from_d3(pdev, np->wolenabled);
+ 		pci_set_power_state(pdev, PCI_D3hot);
+ 	}
+ }
+ #else
+-#define nv_suspend NULL
++#define NV_PM_OPS NULL
+ #define nv_shutdown NULL
+-#define nv_resume NULL
+ #endif /* CONFIG_PM */
+ 
+ static DEFINE_PCI_DEVICE_TABLE(pci_tbl) = {
+@@ -6180,9 +6171,8 @@ static struct pci_driver driver = {
+ 	.id_table	= pci_tbl,
+ 	.probe		= nv_probe,
+ 	.remove		= __devexit_p(nv_remove),
+-	.suspend	= nv_suspend,
+-	.resume		= nv_resume,
+ 	.shutdown	= nv_shutdown,
++	.driver.pm	= NV_PM_OPS,
  };
  
--int phonet_proto_register(int protocol, struct phonet_protocol *pp);
--void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
-+int phonet_proto_register(unsigned int protocol, struct phonet_protocol *pp);
-+void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp);
- 
- int phonet_sysctl_init(void);
- void phonet_sysctl_exit(void);
-diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
-index fd95beb..c627d2e 100644
---- a/net/phonet/af_phonet.c
-+++ b/net/phonet/af_phonet.c
-@@ -37,7 +37,7 @@
- /* Transport protocol registration */
- static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
- 
--static struct phonet_protocol *phonet_proto_get(int protocol)
-+static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
- {
- 	struct phonet_protocol *pp;
- 
-@@ -60,8 +60,8 @@ static inline void phonet_proto_put(struct phonet_protocol *pp)
- 
- /* protocol family functions */
- 
--static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
--			    int kern)
-+static int pn_socket_create(struct net *net, struct socket *sock,
-+			    unsigned int protocol, int kern)
- {
- 	struct sock *sk;
- 	struct pn_sock *pn;
-@@ -458,7 +458,7 @@ static struct packet_type phonet_packet_type __read_mostly = {
- 
- static DEFINE_MUTEX(proto_tab_lock);
- 
--int __init_or_module phonet_proto_register(int protocol,
-+int __init_or_module phonet_proto_register(unsigned int protocol,
- 						struct phonet_protocol *pp)
- {
- 	int err = 0;
-@@ -481,7 +481,7 @@ int __init_or_module phonet_proto_register(int protocol,
- }
- EXPORT_SYMBOL(phonet_proto_register);
- 
--void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
-+void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp)
- {
- 	mutex_lock(&proto_tab_lock);
- 	BUG_ON(proto_tab[protocol] != pp);
+ static int __init init_nic(void)
