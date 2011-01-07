@@ -1,40 +1,48 @@
-From: "Kirill A. Shutemov" <kas@openvz.org>
-Subject: Re: [PATCH v2 00/12] make rpc_pipefs be mountable multiple time
-Date: Fri, 7 Jan 2011 13:19:27 +0200
-Message-ID: <20110107111927.GB19395@shutemov.name>
-References: <1293628470-28386-1-git-send-email-kas@openvz.org>
- <20110105114155.GN19804@ZenIV.linux.org.uk>
- <20110107111222.GA19395@shutemov.name>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: rndis gadget: Inconsistent locking
+Date: Fri, 7 Jan 2011 03:20:29 -0800 (PST)
+Message-ID: <113676.26138.qm@web180310.mail.gq1.yahoo.com>
+References: <AANLkTi=OS+jernOe8y1fbMbx5Rf+JRcvzqGY4Z2LKqsH@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	linux-nfs@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Al Viro <viro@ZenIV.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110107111222.GA19395@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: Neil Jones <neiljay@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm29.bullet.mail.sp2.yahoo.com ([98.139.91.99]:40705 "HELO
+	nm29.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751728Ab1AGLUc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 06:20:32 -0500
+In-Reply-To: <AANLkTi=OS+jernOe8y1fbMbx5Rf+JRcvzqGY4Z2LKqsH@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 07, 2011 at 01:12:22PM +0200, Kirill A. Shutemov wrote:
-> On Wed, Jan 05, 2011 at 11:41:55AM +0000, Al Viro wrote:
-> > On Wed, Dec 29, 2010 at 03:14:18PM +0200, Kirill A. Shutemov wrote:
-> > > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-> > 
-> > Won't that make sunrpc impossible to rmmod once you've got it in?
-> > Note that having a reference to vfsmount pins it down, which pins
-> > the superblock down, which pins the file_system_type down, which
-> > pins the damn module down.  So cleanup_sunrpc() won't be ever called,
-> > AFAICS...
-> 
-> Hm.. rpc_pipe_fs_type.owner = NULL seems fix the problem.
-> Is it valid solution in this case?
 
-Please, ignore it. :)
 
--- 
- Kirill A. Shutemov
+> Yes Michal Nazarewicz has seen this on a S3C UDC, 
+
+Good to confirm that.  As I mentioned, other folk have seen much the same bug on other hardware; we
+know it's neither a new nor a HW-specific issue.
+
+Correction to an earlier comment of mine: 
+
+https://patchwork.kernel.org/patch/195562/
+does correctly identify the commit which
+caused this bug in multiple drivers.
+
+However, that patch won't apply to the latest
+tree from Linus.
+
+Michal, can you update and resubmit, so I can
+at least ack your fix and xpedite its merge?
+
+It'd be good  to have RNDIS work again, a fair
+number of folk rely on it, and this seems to be
+the main obstacle to continuing to do that.
+
+
+- Dave
+
+
+
+
+
