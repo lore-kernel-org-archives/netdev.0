@@ -1,52 +1,85 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [GIT] Networking
-Date: Fri, 07 Jan 2011 20:34:28 +0000
-Message-ID: <1294432468.2520.24.camel@macbook.infradead.org>
-References: <20110106.122003.233698077.davem@davemloft.net>
-	 <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
-	 <20110107190656.GQ3702@decadent.org.uk>
-	 <AANLkTikwrHoOY4wvUp1qn-OT=EjZesSNR29US1ERc0o2@mail.gmail.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] phonet: some signedness bugs
+Date: Fri, 7 Jan 2011 23:37:55 +0300
+Message-ID: <20110107203755.GB1959@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <benh@debian.org>,
-	David Miller <davem@davemloft.net>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikwrHoOY4wvUp1qn-OT=EjZesSNR29US1ERc0o2@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
+To: Remi Denis-Courmont <remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46615 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751972Ab1AGUiJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 15:38:09 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-01-07 at 11:49 -0800, Linus Torvalds wrote:
-> [ Apart from the annoyance of also having to manually copying the
-> firmware files: why the heck doesn't that firmware tree even have a
-> "make firmware-install" makefile or something? The kernel has a "make
-> firmware-install" thing, why doesn't the firmware tree itself have
-> that?
+Dan Rosenberg pointed out that there were some signed comparison bugs
+in the phonet protocol.
 
-Yeah, the main reason I haven't yet submitted a patch to remove the
-legacy firmware/ directory from the kernel source, as discussed at the
-Kernel Summit, is because I need to implement some makefiles for the
-firmware tree first.
+http://marc.info/?l=full-disclosure&m=129424528425330&w=2
 
-I'll do a 'make install' for the firmware tree which installs it all,
-and lets you specify min/max kernel versions so you can omit stuff that
-*really* isn't relevant.
+If you have already have CAP_SYS_ADMIN then you could use the bugs to
+get root, or someone could cause an oops by mistake.
 
-I also want to preserve the CONFIG_FIRMWARE_IN_KERNEL option, but that
-can't easily be based on the hardcoded knowledge of the config options;
-it wants to be based on the MODULE_FIRMWARE tags of the built-in
-drivers. And once we're enumerating those, it should be relatively
-simple to warn about missing firmwares in the non-FIRMWARE_IN_KERNEL
-case too.
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-I didn't find the time to do that for the 2.6.38 merge window, but I
-should get it done for 2.6.39.
-
--- 
-David Woodhouse                            Open Source Technology Centre
-David.Woodhouse@intel.com                              Intel Corporation
+diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
+index d5df797..5395e09 100644
+--- a/include/net/phonet/phonet.h
++++ b/include/net/phonet/phonet.h
+@@ -107,8 +107,8 @@ struct phonet_protocol {
+ 	int			sock_type;
+ };
+ 
+-int phonet_proto_register(int protocol, struct phonet_protocol *pp);
+-void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
++int phonet_proto_register(unsigned int protocol, struct phonet_protocol *pp);
++void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp);
+ 
+ int phonet_sysctl_init(void);
+ void phonet_sysctl_exit(void);
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index fd95beb..c627d2e 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -37,7 +37,7 @@
+ /* Transport protocol registration */
+ static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
+ 
+-static struct phonet_protocol *phonet_proto_get(int protocol)
++static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
+ {
+ 	struct phonet_protocol *pp;
+ 
+@@ -60,8 +60,8 @@ static inline void phonet_proto_put(struct phonet_protocol *pp)
+ 
+ /* protocol family functions */
+ 
+-static int pn_socket_create(struct net *net, struct socket *sock, int protocol,
+-			    int kern)
++static int pn_socket_create(struct net *net, struct socket *sock,
++			    unsigned int protocol, int kern)
+ {
+ 	struct sock *sk;
+ 	struct pn_sock *pn;
+@@ -458,7 +458,7 @@ static struct packet_type phonet_packet_type __read_mostly = {
+ 
+ static DEFINE_MUTEX(proto_tab_lock);
+ 
+-int __init_or_module phonet_proto_register(int protocol,
++int __init_or_module phonet_proto_register(unsigned int protocol,
+ 						struct phonet_protocol *pp)
+ {
+ 	int err = 0;
+@@ -481,7 +481,7 @@ int __init_or_module phonet_proto_register(int protocol,
+ }
+ EXPORT_SYMBOL(phonet_proto_register);
+ 
+-void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
++void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp)
+ {
+ 	mutex_lock(&proto_tab_lock);
+ 	BUG_ON(proto_tab[protocol] != pp);
