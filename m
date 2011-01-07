@@ -1,95 +1,83 @@
-From: Alex Dubov <oakad@yahoo.com>
-Subject: Re: Bad TCP timestamps on non-PC platforms
-Date: Thu, 6 Jan 2011 22:39:39 -0800 (PST)
-Message-ID: <543528.19748.qm@web37605.mail.mud.yahoo.com>
-References: <1294366281.2704.36.camel@edumazet-laptop>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v3 05/10] net/fec: add dual fec support for mx28
+Date: Fri, 7 Jan 2011 15:00:57 +0800
+Message-ID: <20110107070056.GA28358@freescale.com>
+References: <1294236457-17476-1-git-send-email-shawn.guo@freescale.com>
+ <1294236457-17476-6-git-send-email-shawn.guo@freescale.com>
+ <20110105163449.GU25121@pengutronix.de>
+ <20110106041457.GC17891@freescale.com>
+ <20110106071047.GW25121@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<s.hauer@pengutronix.de>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web37605.mail.mud.yahoo.com ([209.191.87.88]:26836 "HELO
-	web37605.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751328Ab1AGGjl convert rfc822-to-8bit
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:29320
+	"EHLO VA3EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752060Ab1AGG6n convert rfc822-to-8bit
 	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jan 2011 01:39:41 -0500
-In-Reply-To: <1294366281.2704.36.camel@edumazet-laptop>
+	Fri, 7 Jan 2011 01:58:43 -0500
+Received: from mail116-va3 (localhost.localdomain [127.0.0.1])	by
+ mail116-va3-R.bigfish.com (Postfix) with ESMTP id 106017702C7	for
+ <netdev@vger.kernel.org>; Fri,  7 Jan 2011 06:58:41 +0000 (UTC)
+Received: from VA3EHSMHS018.bigfish.com (unknown [10.7.14.236])	by
+ mail116-va3.bigfish.com (Postfix) with ESMTP id D595A1390055	for
+ <netdev@vger.kernel.org>; Fri,  7 Jan 2011 06:58:40 +0000 (UTC)
+Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
+	by de01egw02.freescale.net (8.14.3/8.14.3) with ESMTP id p076waeS001446	for
+ <netdev@vger.kernel.org>; Thu, 6 Jan 2011 23:58:38 -0700 (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
+ p076wZKe015257	for <netdev@vger.kernel.org>; Fri, 7 Jan 2011 00:58:35 -0600
+ (CST)
+Content-Disposition: inline
+In-Reply-To: <20110106071047.GW25121@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> 
-> 
-> You dont give new informations ;)
-> 
-> I asked if you could give information on the other side :
-> The bug is to
-> drop this legal packet.
-> 
-> uname -a
-> sysctl -a | grep tcp
-> 
+Hi Uwe,
 
-One of the other machines:
+On Thu, Jan 06, 2011 at 08:10:47AM +0100, Uwe Kleine-K=F6nig wrote:
+> Hello Shawn,
+>=20
+[...]
+> > > > +     /*
+> > > > +      * enet-mac reset will reset mac address registers too,
+> > > > +      * so need to reconfigure it.
+> > > > +      */
+> > > > +     if (fec_is_enetmac) {
+> > > > +             memcpy(&temp_mac, dev->dev_addr, ETH_ALEN);
+> > 		  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> > > > +             writel(cpu_to_be32(temp_mac[0]), fep->hwp + FEC_A=
+DDR_LOW);
+> > > > +             writel(cpu_to_be32(temp_mac[1]), fep->hwp + FEC_A=
+DDR_HIGH);
+> > > where is the value saved to temp_mac[]?  For me it looks you writ=
+e
+> > > uninitialized data into the mac registers.
+> >=20
+> > memcpy above.
+> oops.  right.  I looked for something like
+>=20
+> 	temp_mac[0] =3D dev->dev_addr[0] << $shiftfor0 | ...
+>=20
+> which AFAIK is what you want here.  memcpy is sensible to (at least)
+> endian issues.  If you ask me factor out the setting of the mac addre=
+ss
+> in probe to a function and use that here, too.
+>=20
+The memcpy of mac address is being widely used in fec and other
+network drivers, and I do not prefer to change something so common
+in this patch set.
 
-Linux sunapp 2.6.31.3 #2 SMP Mon Oct 12 21:32:20 EST 2009 x86_64 Dual-Core AMD Opteron(tm) Processor 8220 AuthenticAMD GNU/Linux
+--=20
+Regards,
+Shawn
 
-error: permission denied on key 'net.ipv4.route.flush'                          
-fs.nfs.nlm_tcpport = 0
-fs.nfs.nfs_callback_tcpport = 0
-net.ipv4.tcp_timestamps = 1
-net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_sack = 1
-net.ipv4.tcp_retrans_collapse = 1
-net.ipv4.tcp_syn_retries = 5
-net.ipv4.tcp_synack_retries = 5
-net.ipv4.tcp_max_orphans = 65536
-net.ipv4.tcp_max_tw_buckets = 180000
-net.ipv4.tcp_keepalive_time = 7200
-net.ipv4.tcp_keepalive_probes = 9
-net.ipv4.tcp_keepalive_intvl = 75
-net.ipv4.tcp_retries1 = 3
-net.ipv4.tcp_retries2 = 15
-net.ipv4.tcp_fin_timeout = 60
-net.ipv4.tcp_syncookies = 0
-net.ipv4.tcp_tw_recycle = 0
-net.ipv4.tcp_abort_on_overflow = 0
-net.ipv4.tcp_stdurg = 0
-net.ipv4.tcp_rfc1337 = 0
-net.ipv4.tcp_max_syn_backlog = 1024
-net.ipv4.tcp_orphan_retries = 0
-net.ipv4.tcp_fack = 1
-net.ipv4.tcp_reordering = 3
-net.ipv4.tcp_ecn = 2
-net.ipv4.tcp_dsack = 1
-net.ipv4.tcp_mem = 3095040      4126720 6190080
-net.ipv4.tcp_wmem = 4096        16384   4194304
-net.ipv4.tcp_rmem = 4096        87380   4194304
-net.ipv4.tcp_app_win = 31
-net.ipv4.tcp_adv_win_scale = 2
-net.ipv4.tcp_tw_reuse = 0
-net.ipv4.tcp_frto = 2
-net.ipv4.tcp_frto_response = 0
-net.ipv4.tcp_low_latency = 0
-net.ipv4.tcp_no_metrics_save = 0
-net.ipv4.tcp_moderate_rcvbuf = 1
-net.ipv4.tcp_tso_win_divisor = 3
-net.ipv4.tcp_congestion_control = reno
-net.ipv4.tcp_abc = 0
-net.ipv4.tcp_mtu_probing = 0
-net.ipv4.tcp_base_mss = 512
-net.ipv4.tcp_workaround_signed_windows = 0
-net.ipv4.tcp_dma_copybreak = 4096
-net.ipv4.tcp_slow_start_after_idle = 1
-net.ipv4.tcp_available_congestion_control = reno
-net.ipv4.tcp_allowed_congestion_control = reno
-net.ipv4.tcp_max_ssthresh = 0
-error: permission denied on key 'net.ipv6.route.flush'
-sunrpc.transports = tcp 1048576
-sunrpc.tcp_slot_table_entries = 16
-sunrpc.tcp_fin_timeout = 15
-
-
-
-
-      
