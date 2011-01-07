@@ -1,79 +1,84 @@
 From: jeffrey.t.kirsher@intel.com
-Subject: [net-next 00/12][pull-request] Intel Wired LAN Driver Updates
-Date: Thu,  6 Jan 2011 16:29:47 -0800
-Message-ID: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gosp@redhat.com, bphilips@novell.com
+Subject: [net-next 04/12] e1000e: use either_crc_le() rather than re-write it
+Date: Thu,  6 Jan 2011 16:29:51 -0800
+Message-ID: <1294360199-9860-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gosp@redhat.com, bphilips@novell.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:61497 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:23661 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752727Ab1AGAaP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 19:30:15 -0500
+	id S1753863Ab1AGAar (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 19:30:47 -0500
 To: davem@davemloft.net
+In-Reply-To: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The following series contains ixgbe/e1000e cleanups and fixes.  The
-addition of CE4100 support in e1000, and ixgb VLAN conversion to the
-new model.
+For the 82579 jumbo frame workaround, there is no need to re-write the CRC
+calculation functionality already found in the kernel's ether_crc_le().
 
-The following changes since commit dbbe68bb12b34f3e450da7a73c20e6fa1f85d63a:
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/e1000e/e1000.h   |    1 +
+ drivers/net/e1000e/ich8lan.c |   19 +------------------
+ 2 files changed, 2 insertions(+), 18 deletions(-)
 
-  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git master
-
-Alexander Duyck (3):
-  ixgbe: cleanup flow director hash computation to improve performance
-  ixgbe: further flow director performance optimizations
-  ixgbe: update ntuple filter configuration
-
-Bruce Allan (6):
-  e1000e: cleanup variables set but not used
-  e1000e: convert calls of ops.[read|write]_reg to e1e_[r|w]phy
-  e1000e: properly bounds-check string functions
-  e1000e: use either_crc_le() rather than re-write it
-  e1000e: power off PHY after reset when interface is down
-  e1000e: add custom set_d[0|3]_lplu_state function pointer for 82574
-
-Dirk Brandewie (1):
-  e1000: Add support for the CE4100 reference platform
-
-Emil Tantilov (1):
-  ixgb: convert to new VLAN model
-
-Yi Zou (1):
-  ixgbe: make sure per Rx queue is disabled before unmapping the
-    receive buffer
-
- drivers/net/e1000/e1000_hw.c      |  328 +++++++++++++----
- drivers/net/e1000/e1000_hw.h      |   59 +++-
- drivers/net/e1000/e1000_main.c    |   35 ++
- drivers/net/e1000/e1000_osdep.h   |   19 +-
- drivers/net/e1000e/82571.c        |   77 ++++-
- drivers/net/e1000e/e1000.h        |    3 +
- drivers/net/e1000e/es2lan.c       |    4 +-
- drivers/net/e1000e/ethtool.c      |   54 ++-
- drivers/net/e1000e/hw.h           |    1 +
- drivers/net/e1000e/ich8lan.c      |   77 ++---
- drivers/net/e1000e/lib.c          |    3 +-
- drivers/net/e1000e/netdev.c       |   53 ++--
- drivers/net/e1000e/phy.c          |   40 +--
- drivers/net/ixgb/ixgb.h           |    2 +-
- drivers/net/ixgb/ixgb_ethtool.c   |   35 ++
- drivers/net/ixgb/ixgb_main.c      |   54 +--
- drivers/net/ixgbe/ixgbe.h         |   21 +-
- drivers/net/ixgbe/ixgbe_82599.c   |  749 +++++++++++++++----------------------
- drivers/net/ixgbe/ixgbe_ethtool.c |  142 +++++---
- drivers/net/ixgbe/ixgbe_main.c    |  169 ++++++---
- drivers/net/ixgbe/ixgbe_type.h    |   91 +++--
- 21 files changed, 1182 insertions(+), 834 deletions(-)
-
+diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
+index 2c913b8..4b3802a 100644
+--- a/drivers/net/e1000e/e1000.h
++++ b/drivers/net/e1000e/e1000.h
+@@ -38,6 +38,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/pci.h>
+ #include <linux/pci-aspm.h>
++#include <linux/crc32.h>
+ 
+ #include "hw.h"
+ 
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 902e493..5328a292 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -1395,22 +1395,6 @@ void e1000_copy_rx_addrs_to_phy_ich8lan(struct e1000_hw *hw)
+ 	}
+ }
+ 
+-static u32 e1000_calc_rx_da_crc(u8 mac[])
+-{
+-	u32 poly = 0xEDB88320;	/* Polynomial for 802.3 CRC calculation */
+-	u32 i, j, mask, crc;
+-
+-	crc = 0xffffffff;
+-	for (i = 0; i < 6; i++) {
+-		crc = crc ^ mac[i];
+-		for (j = 8; j > 0; j--) {
+-			mask = (crc & 1) * (-1);
+-			crc = (crc >> 1) ^ (poly & mask);
+-		}
+-	}
+-	return ~crc;
+-}
+-
+ /**
+  *  e1000_lv_jumbo_workaround_ich8lan - required for jumbo frame operation
+  *  with 82579 PHY
+@@ -1453,8 +1437,7 @@ s32 e1000_lv_jumbo_workaround_ich8lan(struct e1000_hw *hw, bool enable)
+ 			mac_addr[4] = (addr_high & 0xFF);
+ 			mac_addr[5] = ((addr_high >> 8) & 0xFF);
+ 
+-			ew32(PCH_RAICC(i),
+-					e1000_calc_rx_da_crc(mac_addr));
++			ew32(PCH_RAICC(i), ~ether_crc_le(ETH_ALEN, mac_addr));
+ 		}
+ 
+ 		/* Write Rx addresses to the PHY */
 -- 
 1.7.3.4
 
