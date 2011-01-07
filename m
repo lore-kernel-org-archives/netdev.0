@@ -1,50 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: POLLPRI/poll() behavior change since 2.6.31
-Date: Fri, 07 Jan 2011 14:31:45 +0100
-Message-ID: <1294407105.3306.32.camel@edumazet-laptop>
-References: <20110106155040.GA27769@libre.l.ngdn.org>
-	 <1294332929.3074.49.camel@edumazet-laptop>
-	 <alpine.DEB.2.00.1101061429080.4928@davide-lnx1>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch] Re: genetlink misinterprets NEW as GET
+Date: Fri, 07 Jan 2011 14:33:08 +0100
+Message-ID: <4D271614.6000303@netfilter.org>
+References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr> <4D25C82F.4010306@netfilter.org> <878vyyvtci.fsf@benpfaff.org> <4D266CE5.4000309@netfilter.org> <alpine.LNX.2.01.1101071357420.27454@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Leonardo Chiquitto <leonardo.lists@gmail.com>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Davide Libenzi <davidel@xmailserver.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63179 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752728Ab1AGNbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 08:31:51 -0500
-Received: by wyb28 with SMTP id 28so17381765wyb.19
-        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 05:31:49 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1101061429080.4928@davide-lnx1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ben Pfaff <blp@nicira.com>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1101071357420.27454@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 06 janvier 2011 =C3=A0 14:40 -0800, Davide Libenzi a =C3=A9cri=
-t :
-> On Thu, 6 Jan 2011, Eric Dumazet wrote:
->=20
-> > Hmm, this is because 	sock_def_readable() uses :
-> >=20
-> > wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLRDNORM |
-> > POLLRDBAND);
-> >=20
-> > So POLLPRI bit is not signaled.=20
-> >=20
-> > I would just add POLLPRI flag in sock_def_readable()
-> >=20
-> > (Alternatively, define a tcp_def_readable() function to pass POLLPR=
-I
-> > only if TCP_URG is set, but is it worth the pain for a seldom used
-> > feature ?)
->=20
-> It would be kinda cleaner though, /me thinks.
->=20
+On 07/01/11 14:15, Jan Engelhardt wrote:
+> On Friday 2011-01-07 02:31, Pablo Neira Ayuso wrote:
+>>>> On 04/01/11 03:14, Jan Engelhardt wrote:
+>>>>> 	/* Modifiers to GET request */
+>>>>> 	#define NLM_F_ROOT      0x100
+>>>>> 	#define NLM_F_MATCH     0x200
+>>>>> 	#define NLM_F_ATOMIC    0x400
+>>>>> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
+>>> [...]
+>>>>> [N.B.: I am also wondering whether
+>>>>> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
+>>>>> may have been desired, because NLM_F_DUMP is composed of two bits.]
+>>>>
+>>>> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
+>>>> checking that you propose is not valid.
+>>>
+>>> Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
+>>> exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
+>>> dump operation?  Otherwise the test that Jan proposes looks valid
+>>> to me.
+>>
+>> Indeed, Jan's test is fine to fix this. Please, send a patch to Davem asap.
+> 
+> Turns out genetlink isn't the only place where &NLM_F_DUMP is used 
+> without ==NLM_F_DUMP.
+> Thus I am adding it to other spots in net/ too.
+> 
+> 
+> 
+> parent c235848c5a76520b90cf31bfbcc17720b24745a2 (v2.6.37-rc1-230-gc235848)
+> commit eaab9042b29931730d6785bb3f27b174fb2f5518
+> Author: Jan Engelhardt <jengelh@medozas.de>
+> Date:   Fri Jan 7 13:53:49 2011 +0100
+> 
+> netlink: test for all flags of the NLM_F_DUMP composite
+> 
+> Due to NLM_F_DUMP is composed of two bits, NLM_F_ROOT | NLM_F_MATCH,
+> when doing "if (x & NLM_F_DUMP)", it tests for _either_ of the bits
+> being set. Because NLM_F_MATCH's value overlaps with NLM_F_EXCL,
+> non-dump requests with NLM_F_EXCL set are mistaken as dump requests.
+> 
+> Substitute the condition to test for _all_ bits being set.
+> 
+> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 
-Yep, we'll do this in net-next-2.6 for 2.6.39 :)
-
-Thanks !
-
-
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
