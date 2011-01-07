@@ -1,292 +1,125 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 2/2] sky2: convert to new VLAN model
-Date: Thu, 6 Jan 2011 20:41:46 -0800
-Message-ID: <20110106204146.16b3a328@nehalam>
+Subject: Re: [RFC] sched: CHOKe packet scheduler (v0.2)
+Date: Thu, 6 Jan 2011 20:55:49 -0800
+Message-ID: <20110106205549.0de56de1@nehalam>
+References: <20110104162930.6fa672e3@nehalam>
+	<1294208375.3420.46.camel@edumazet-laptop>
+	<20110105091718.02f8a00f@nehalam>
+	<1294248332.10633.25.camel@edumazet-laptop>
+	<20110105112104.64ad3c86@nehalam>
+	<1294286850.2723.65.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60766 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:45961 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754783Ab1AGElt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 23:41:49 -0500
+	id S1752957Ab1AGEz5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 23:55:57 -0500
+In-Reply-To: <1294286850.2723.65.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This converts sky2 to new VLAN offload flags control via ethtool.
-It also allows for transmit offload of vlan tagged frames which
-was not possible before.
+On Thu, 06 Jan 2011 05:07:30 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Le mercredi 05 janvier 2011 =E0 11:21 -0800, Stephen Hemminger a =E9c=
+rit :
+> > This implements the CHOKe packet scheduler based on the existing
+> > Linux RED scheduler based on the algorithm described in the paper.
+> >=20
+> > The core idea is:
+> >   For every packet arrival:
+> >   	Calculate Qave
+> > 	if (Qave < minth)=20
+> > 	     Queue the new packet
+> > 	else=20
+> > 	     Select randomly a packet from the queue=20
+> > 	     if (both packets from same flow)
+> > 	     then Drop both the packets
+> > 	     else if (Qave > maxth)
+> > 	          Drop packet
+> > 	     else
+> > 	       	  Admit packet with probability p (same as RED)
+> >=20
+> > See also:
+> >   Rong Pan, Balaji Prabhakar, Konstantinos Psounis, "CHOKe: a state=
+less active
+> >    queue management scheme for approximating fair bandwidth allocat=
+ion",=20
+> >   Proceeding of INFOCOM'2000, March 2000.=20
+> >=20
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >=20
+>=20
+> To be really useful in a wide range of environments, I believe that :
+>=20
+> - CHOKe should be able to use an external flow classifier (like say..=
+=2E
+> SFQ) to compute a token and compare two skbs by this token instead of
+> custom rxhash or whatever. (rxhash can be the default in absence of f=
+low
+> classifier). Probably you need to store the token in skb->cb[] to avo=
+id
+> calling tc_classify() several times for a given packet.=20
+>=20
+> http://lwn.net/Articles/236200/
+> http://kerneltrap.org/mailarchive/linux-netdev/2008/1/31/667679
+
+Probably should split SFQ flow hash stuff into core code for reuse.
 
 
---- a/drivers/net/sky2.c	2011-01-06 17:44:00.643524039 -0800
-+++ b/drivers/net/sky2.c	2011-01-06 19:05:06.100968234 -0800
-@@ -46,10 +46,6 @@
- 
- #include <asm/irq.h>
- 
--#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
--#define SKY2_VLAN_TAG_USED 1
--#endif
--
- #include "sky2.h"
- 
- #define DRV_NAME		"sky2"
-@@ -1326,40 +1322,33 @@ static int sky2_ioctl(struct net_device
- 	return err;
- }
- 
--#ifdef SKY2_VLAN_TAG_USED
--static void sky2_set_vlan_mode(struct sky2_hw *hw, u16 port, bool onoff)
-+/* Features available on VLAN with transmit tag stripped */
-+#define VLAN_FEAT (NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO)
-+
-+static void sky2_vlan_mode(struct net_device *dev)
- {
--	if (onoff) {
-+	struct sky2_port *sky2 = netdev_priv(dev);
-+	struct sky2_hw *hw = sky2->hw;
-+	u16 port = sky2->port;
-+
-+	if (dev->features & NETIF_F_HW_VLAN_RX)
- 		sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T),
- 			     RX_VLAN_STRIP_ON);
-+	else
-+		sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T),
-+			     RX_VLAN_STRIP_OFF);
-+
-+	if (dev->features & NETIF_F_HW_VLAN_TX) {
- 		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
- 			     TX_VLAN_TAG_ON);
-+		dev->vlan_features = dev->features & VLAN_FEAT;
- 	} else {
--		sky2_write32(hw, SK_REG(port, RX_GMF_CTRL_T),
--			     RX_VLAN_STRIP_OFF);
- 		sky2_write32(hw, SK_REG(port, TX_GMF_CTRL_T),
- 			     TX_VLAN_TAG_OFF);
-+		dev->vlan_features = dev->features & NETIF_F_HIGHDMA;
- 	}
- }
- 
--static void sky2_vlan_rx_register(struct net_device *dev, struct vlan_group *grp)
--{
--	struct sky2_port *sky2 = netdev_priv(dev);
--	struct sky2_hw *hw = sky2->hw;
--	u16 port = sky2->port;
--
--	netif_tx_lock_bh(dev);
--	napi_disable(&hw->napi);
--
--	sky2->vlgrp = grp;
--	sky2_set_vlan_mode(hw, port, grp != NULL);
--
--	sky2_read32(hw, B0_Y2_SP_LISR);
--	napi_enable(&hw->napi);
--	netif_tx_unlock_bh(dev);
--}
--#endif
--
- /* Amount of required worst case padding in rx buffer */
- static inline unsigned sky2_rx_pad(const struct sky2_hw *hw)
- {
-@@ -1635,9 +1624,7 @@ static void sky2_hw_up(struct sky2_port
- 	sky2_prefetch_init(hw, txqaddr[port], sky2->tx_le_map,
- 			   sky2->tx_ring_size - 1);
- 
--#ifdef SKY2_VLAN_TAG_USED
--	sky2_set_vlan_mode(hw, port, sky2->vlgrp != NULL);
--#endif
-+	sky2_vlan_mode(sky2->netdev);
- 
- 	sky2_rx_start(sky2);
- }
-@@ -1780,7 +1767,7 @@ static netdev_tx_t sky2_xmit_frame(struc
- 	}
- 
- 	ctrl = 0;
--#ifdef SKY2_VLAN_TAG_USED
-+
- 	/* Add VLAN tag, can piggyback on LRGLEN or ADDR64 */
- 	if (vlan_tx_tag_present(skb)) {
- 		if (!le) {
-@@ -1792,7 +1779,6 @@ static netdev_tx_t sky2_xmit_frame(struc
- 		le->length = cpu_to_be16(vlan_tx_tag_get(skb));
- 		ctrl |= INS_VLAN;
- 	}
--#endif
- 
- 	/* Handle TCP checksum offload */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
-@@ -2432,11 +2418,8 @@ static struct sk_buff *sky2_receive(stru
- 	struct sk_buff *skb = NULL;
- 	u16 count = (status & GMR_FS_LEN) >> 16;
- 
--#ifdef SKY2_VLAN_TAG_USED
--	/* Account for vlan tag */
--	if (sky2->vlgrp && (status & GMR_FS_VLAN))
--		count -= VLAN_HLEN;
--#endif
-+	if (status & GMR_FS_VLAN)
-+		count -= VLAN_HLEN; 	/* Account for vlan tag */
- 
- 	netif_printk(sky2, rx_status, KERN_DEBUG, dev,
- 		     "rx slot %u status 0x%x len %d\n",
-@@ -2504,17 +2487,9 @@ static inline void sky2_tx_done(struct n
- static inline void sky2_skb_rx(const struct sky2_port *sky2,
- 			       u32 status, struct sk_buff *skb)
- {
--#ifdef SKY2_VLAN_TAG_USED
--	u16 vlan_tag = be16_to_cpu(sky2->rx_tag);
--	if (sky2->vlgrp && (status & GMR_FS_VLAN)) {
--		if (skb->ip_summed == CHECKSUM_NONE)
--			vlan_hwaccel_receive_skb(skb, sky2->vlgrp, vlan_tag);
--		else
--			vlan_gro_receive(&sky2->hw->napi, sky2->vlgrp,
--					 vlan_tag, skb);
--		return;
--	}
--#endif
-+	if (status & GMR_FS_VLAN)
-+		__vlan_hwaccel_put_tag(skb, be16_to_cpu(sky2->rx_tag));
-+
- 	if (skb->ip_summed == CHECKSUM_NONE)
- 		netif_receive_skb(skb);
- 	else
-@@ -2631,7 +2606,6 @@ static int sky2_status_intr(struct sky2_
- 				goto exit_loop;
- 			break;
- 
--#ifdef SKY2_VLAN_TAG_USED
- 		case OP_RXVLAN:
- 			sky2->rx_tag = length;
- 			break;
-@@ -2639,7 +2613,6 @@ static int sky2_status_intr(struct sky2_
- 		case OP_RXCHKSVLAN:
- 			sky2->rx_tag = length;
- 			/* fall through */
--#endif
- 		case OP_RXCHKS:
- 			if (likely(sky2->flags & SKY2_FLAG_RX_CHECKSUM))
- 				sky2_rx_checksum(sky2, status);
-@@ -3042,6 +3015,10 @@ static int __devinit sky2_init(struct sk
- 			| SKY2_HW_NEW_LE
- 			| SKY2_HW_AUTO_TX_SUM
- 			| SKY2_HW_ADV_POWER_CTL;
-+
-+		/* The workaround for status conflicts VLAN tag detection. */
-+		if (hw->chip_rev == CHIP_REV_YU_FE2_A0)
-+			hw->flags |= SKY2_HW_VLAN_BROKEN;
- 		break;
- 
- 	case CHIP_ID_YUKON_SUPR:
-@@ -4237,15 +4214,28 @@ static int sky2_set_eeprom(struct net_de
- static int sky2_set_flags(struct net_device *dev, u32 data)
- {
- 	struct sky2_port *sky2 = netdev_priv(dev);
--	u32 supported =
--		(sky2->hw->flags & SKY2_HW_RSS_BROKEN) ? 0 : ETH_FLAG_RXHASH;
-+	unsigned long old_feat = dev->features;
-+	u32 supported = 0;
- 	int rc;
- 
-+	if (!(sky2->hw->flags & SKY2_HW_RSS_BROKEN))
-+		supported |= ETH_FLAG_RXHASH;
-+
-+	if (!(sky2->hw->flags & SKY2_HW_VLAN_BROKEN))
-+		supported |= ETH_FLAG_RXVLAN | ETH_FLAG_TXVLAN;
-+
-+	printk(KERN_DEBUG "sky2 set_flags: supported %x data %x\n",
-+	       supported, data);
-+
- 	rc = ethtool_op_set_flags(dev, data, supported);
- 	if (rc)
- 		return rc;
- 
--	rx_set_rss(dev);
-+	if ((old_feat ^ dev->features) & NETIF_F_RXHASH)
-+		rx_set_rss(dev);
-+
-+	if ((old_feat ^ dev->features) & (NETIF_F_HW_VLAN_RX|NETIF_F_HW_VLAN_TX))
-+		sky2_vlan_mode(dev);
- 
- 	return 0;
- }
-@@ -4281,6 +4271,7 @@ static const struct ethtool_ops sky2_eth
- 	.get_sset_count = sky2_get_sset_count,
- 	.get_ethtool_stats = sky2_get_ethtool_stats,
- 	.set_flags	= sky2_set_flags,
-+	.get_flags	= ethtool_op_get_flags,
- };
- 
- #ifdef CONFIG_SKY2_DEBUG
-@@ -4562,9 +4553,6 @@ static const struct net_device_ops sky2_
- 	.ndo_change_mtu		= sky2_change_mtu,
- 	.ndo_tx_timeout		= sky2_tx_timeout,
- 	.ndo_get_stats64	= sky2_get_stats,
--#ifdef SKY2_VLAN_TAG_USED
--	.ndo_vlan_rx_register	= sky2_vlan_rx_register,
--#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= sky2_netpoll,
- #endif
-@@ -4580,9 +4568,6 @@ static const struct net_device_ops sky2_
- 	.ndo_change_mtu		= sky2_change_mtu,
- 	.ndo_tx_timeout		= sky2_tx_timeout,
- 	.ndo_get_stats64	= sky2_get_stats,
--#ifdef SKY2_VLAN_TAG_USED
--	.ndo_vlan_rx_register	= sky2_vlan_rx_register,
--#endif
-   },
- };
- 
-@@ -4633,7 +4618,8 @@ static __devinit struct net_device *sky2
- 	sky2->port = port;
- 
- 	dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG
--		| NETIF_F_TSO  | NETIF_F_GRO;
-+		| NETIF_F_TSO | NETIF_F_GRO;
-+
- 	if (highmem)
- 		dev->features |= NETIF_F_HIGHDMA;
- 
-@@ -4641,13 +4627,8 @@ static __devinit struct net_device *sky2
- 	if (!(hw->flags & SKY2_HW_RSS_BROKEN))
- 		dev->features |= NETIF_F_RXHASH;
- 
--#ifdef SKY2_VLAN_TAG_USED
--	/* The workaround for FE+ status conflicts with VLAN tag detection. */
--	if (!(sky2->hw->chip_id == CHIP_ID_YUKON_FE_P &&
--	      sky2->hw->chip_rev == CHIP_REV_YU_FE2_A0)) {
-+	if (!(hw->flags & SKY2_HW_VLAN_BROKEN))
- 		dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--	}
--#endif
- 
- 	/* read the mac address */
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port * 8, ETH_ALEN);
---- a/drivers/net/sky2.h	2011-01-06 17:44:01.939546184 -0800
-+++ b/drivers/net/sky2.h	2011-01-06 17:59:12.430966390 -0800
-@@ -2236,11 +2236,8 @@ struct sky2_port {
- 	u16		     rx_pending;
- 	u16		     rx_data_size;
- 	u16		     rx_nfrags;
--
--#ifdef SKY2_VLAN_TAG_USED
- 	u16		     rx_tag;
--	struct vlan_group    *vlgrp;
--#endif
-+
- 	struct {
- 		unsigned long last;
- 		u32	mac_rp;
-@@ -2284,6 +2281,7 @@ struct sky2_hw {
- #define SKY2_HW_AUTO_TX_SUM	0x00000040	/* new IP decode for Tx */
- #define SKY2_HW_ADV_POWER_CTL	0x00000080	/* additional PHY power regs */
- #define SKY2_HW_RSS_BROKEN	0x00000100
-+#define SKY2_HW_VLAN_BROKEN     0x00000200
- 
- 	u8	     	     chip_id;
- 	u8		     chip_rev;
+> - Must use a FIFO with O(1) access to Nth skb in queue.
+> =20
+>  A linked list makes this implementation too expensive for big queues=
+=2E
+>=20
+> For small queues (less than 128 skbs at this moment for SFQ), existin=
+g
+> schedulers are good enough.
+>=20
+> CHOKe authors dont mention this in their paper, but their experiments
+> were done in 1999 with 1Mbs links. minth=3D100 and maxth=3D200, limit=
+=3D300
+>=20
+> We want to try CHOKe with modern links, probably with minth=3D2000 an=
+d
+> maxth=3D4000 or more.
+>=20
+> They said "It is arguably more difficult to drop a randomy chosen pac=
+ket
+> since this means removing from a linked-list. Instead of doing this, =
+we
+> propose to add one extra bit to the packet header. The bit is set to =
+one
+> if the drop candidate is to be dropped. When a packet advance to the
+> head of the FIFO buffer, the status of the bit determines whether it =
+is
+> to be immediately discarded or transmitted on the outgoind line"
+>=20
+> If they thought removing a buffer from a linked list was expensive
+> (!!!), they certainly assumed the previous access to the randomly cho=
+sen
+> buffer was faster than the skb unlink !
+>=20
+> Using a circular buffer should be enough, using a similar trick than
+> suggested : when droping an skb from the ring, stick a NULL pointer a=
+nd
+> dont memmove() the window to shrink it.
+>=20
+> struct skb_ring {
+> 	unsigned int head;
+> 	unsigned int tail;
+> 	unsigned int size; /* a power of two */
+> 	struct sk_buff **table;
+> };
+>=20
+> Doing so avoids the cache misses to adjacent skbs prev/next when
+> queue/dequeue is done.
+
+The problem is that large tables of pointers in kernel require either
+contiguous allocation or some indirect table algorithm.
+
+--=20
