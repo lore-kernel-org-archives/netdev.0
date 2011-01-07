@@ -1,98 +1,146 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
-	entries
-Date: Fri, 07 Jan 2011 13:57:42 +0100
-Message-ID: <1294405062.3306.11.camel@edumazet-laptop>
-References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
-	<1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
-	<1294404478.7674.0.camel@maxim-laptop>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: [patch] Re: genetlink misinterprets NEW as GET
+Date: Fri, 7 Jan 2011 14:15:05 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1101071357420.27454@obet.zrqbmnf.qr>
+References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr> <4D25C82F.4010306@netfilter.org> <878vyyvtci.fsf@benpfaff.org> <4D266CE5.4000309@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>, James,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	linux1394-devel <linux1394-devel@lists.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Maxim Levitsky <maximlevitsky@gmail.com>
-Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1294404478.7674.0.camel@maxim-laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
-List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
-List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
-	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Aysuo <pablo@netfilter.org>,
+	Ben Pfaff <blp@nicira.com>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D266CE5.4000309@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-TGUgdmVuZHJlZGkgMDcgamFudmllciAyMDExIMOgIDE0OjQ3ICswMjAwLCBNYXhpbSBMZXZpdHNr
-eSBhIMOpY3JpdCA6Cj4gT24gTW9uLCAyMDEwLTExLTI5IGF0IDA0OjA5ICswMjAwLCBNYXhpbSBM
-ZXZpdHNreSB3cm90ZToKPiA+IElQdjQgb3ZlciBmaXJld2lyZSBuZWVkcyB0byBiZSBhYmxlIHRv
-IHJlbW92ZSBBUlAgZW50cmllcwo+ID4gZnJvbSB0aGUgQVJQIGNhY2hlIHRoYXQgYmVsb25nIHRv
-IG5vZGVzIHRoYXQgYXJlIHJlbW92ZWQsIGJlY2F1c2UKPiA+IElQdjQgb3ZlciBmaXJld2lyZSB1
-c2VzIEFSUCBwYWNrZXRzIGZvciBwcml2YXRlIGluZm9ybWF0aW9uCj4gPiBhYm91dCBub2Rlcy4K
-PiA+IAo+ID4gVGhpcyBpbmZvcm1hdGlvbiBiZWNvbWVzIGludmFsaWQgYXMgc29vbiBhcyBub2Rl
-IGRyb3BzCj4gPiBvZmYgdGhlIGJ1cyBhbmQgd2hlbiBpdCByZWNvbm5lY3RzLCBpdHMgb25seSBw
-b3NzaWJsZQo+ID4gdG8gc3RhcnQgdGFrbGluZyB0byBpcyBhZnRlciBpdCByZXNwb25kZWQgdG8g
-YW4gQVJQIHBhY2tldC4KPiA+IEJ1dCBBUlAgY2FjaGUgcHJldmVudHMgc3VjaCBwYWNrZXRzIGZy
-b20gYmVpbmcgc2VudC4KPiA+IAo+ID4gQ0M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKPiA+IEND
-OiAiRGF2aWQgUy4gTWlsbGVyIiA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiA+IENDOiBBbGV4ZXkg
-S3V6bmV0c292IDxrdXpuZXRAbXMyLmluci5hYy5ydT4KPiA+IENDOiBKYW1lcyBNb3JyaXMgPGpt
-b3JyaXNAbmFtZWkub3JnPgo+ID4gQ0M6IFBhdHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0
-Pgo+IAo+IEFueWJvZHk/Cj4gCj4gQmVzdCByZWdhcmRzLAo+IAlNYXhpbSBMZXZpdHNreQo+IAo+
-ID4gCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IE1heGltIExldml0c2t5IDxtYXhpbWxldml0c2t5
-QGdtYWlsLmNvbT4KPiA+IC0tLQo+ID4gIGluY2x1ZGUvbmV0L2FycC5oIHwgICAgMSArCj4gPiAg
-bmV0L2lwdjQvYXJwLmMgICAgfCAgIDI5ICsrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tCj4g
-PiAgMiBmaWxlcyBjaGFuZ2VkLCAxOSBpbnNlcnRpb25zKCspLCAxMSBkZWxldGlvbnMoLSkKPiA+
-IAo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2FycC5oIGIvaW5jbHVkZS9uZXQvYXJwLmgK
-PiA+IGluZGV4IGY0Y2Y2Y2UuLjkxZjA1NjggMTAwNjQ0Cj4gPiAtLS0gYS9pbmNsdWRlL25ldC9h
-cnAuaAo+ID4gKysrIGIvaW5jbHVkZS9uZXQvYXJwLmgKPiA+IEBAIC0yNSw1ICsyNSw2IEBAIGV4
-dGVybiBzdHJ1Y3Qgc2tfYnVmZiAqYXJwX2NyZWF0ZShpbnQgdHlwZSwgaW50IHB0eXBlLCBfX2Jl
-MzIgZGVzdF9pcCwKPiA+ICAJCQkJICBjb25zdCB1bnNpZ25lZCBjaGFyICpzcmNfaHcsCj4gPiAg
-CQkJCSAgY29uc3QgdW5zaWduZWQgY2hhciAqdGFyZ2V0X2h3KTsKPiA+ICBleHRlcm4gdm9pZCBh
-cnBfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKPiA+ICtpbnQgYXJwX2ludmFsaWRhdGUoc3Ry
-dWN0IG5ldF9kZXZpY2UgKmRldiwgX19iZTMyIGlwKTsKPiA+ICAKPiA+ICAjZW5kaWYJLyogX0FS
-UF9IICovCj4gPiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvYXJwLmMgYi9uZXQvaXB2NC9hcnAuYwo+
-ID4gaW5kZXggZDhlNTQwYy4uMzViMTI3MiAxMDA2NDQKPiA+IC0tLSBhL25ldC9pcHY0L2FycC5j
-Cj4gPiArKysgYi9uZXQvaXB2NC9hcnAuYwo+ID4gQEAgLTExNDIsNiArMTE0MiwyMyBAQCBzdGF0
-aWMgaW50IGFycF9yZXFfZ2V0KHN0cnVjdCBhcnByZXEgKnIsIHN0cnVjdCBuZXRfZGV2aWNlICpk
-ZXYpCj4gPiAgCXJldHVybiBlcnI7Cj4gPiAgfQo+ID4gIAo+ID4gK2ludCBhcnBfaW52YWxpZGF0
-ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBfX2JlMzIgaXApCj4gPiArewo+ID4gKwlpbnQgZXJy
-ID0gLUVOWElPOwo+ID4gKwlzdHJ1Y3QgbmVpZ2hib3VyICpuZWlnaCA9IG5laWdoX2xvb2t1cCgm
-YXJwX3RibCwgJmlwLCBkZXYpOwo+ID4gKwo+ID4gKwlpZiAobmVpZ2gpIHsKPiA+ICsJCWlmIChu
-ZWlnaC0+bnVkX3N0YXRlICYgfk5VRF9OT0FSUCkKPiA+ICsJCQllcnIgPSBuZWlnaF91cGRhdGUo
-bmVpZ2gsIE5VTEwsIE5VRF9GQUlMRUQsCj4gPiArCQkJCQkgICBORUlHSF9VUERBVEVfRl9PVkVS
-UklERXwKPiA+ICsJCQkJCSAgIE5FSUdIX1VQREFURV9GX0FETUlOKTsKPiA+ICsJCW5laWdoX3Jl
-bGVhc2UobmVpZ2gpOwo+ID4gKwl9Cj4gPiArCj4gPiArCXJldHVybiBlcnI7Cj4gPiArfQo+ID4g
-K0VYUE9SVF9TWU1CT0woYXJwX2ludmFsaWRhdGUpOwo+ID4gKwo+ID4gIHN0YXRpYyBpbnQgYXJw
-X3JlcV9kZWxldGVfcHVibGljKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IGFycHJlcSAqciwKPiA+
-ICAJCXN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4gPiAgewo+ID4gQEAgLTExNjIsNyArMTE3OSw2
-IEBAIHN0YXRpYyBpbnQgYXJwX3JlcV9kZWxldGUoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgYXJw
-cmVxICpyLAo+ID4gIHsKPiA+ICAJaW50IGVycjsKPiA+ICAJX19iZTMyIGlwOwo+ID4gLQlzdHJ1
-Y3QgbmVpZ2hib3VyICpuZWlnaDsKPiA+ICAKPiA+ICAJaWYgKHItPmFycF9mbGFncyAmIEFURl9Q
-VUJMKQo+ID4gIAkJcmV0dXJuIGFycF9yZXFfZGVsZXRlX3B1YmxpYyhuZXQsIHIsIGRldik7Cj4g
-PiBAQCAtMTE4MCwxNiArMTE5Niw3IEBAIHN0YXRpYyBpbnQgYXJwX3JlcV9kZWxldGUoc3RydWN0
-IG5ldCAqbmV0LCBzdHJ1Y3QgYXJwcmVxICpyLAo+ID4gIAkJaWYgKCFkZXYpCj4gPiAgCQkJcmV0
-dXJuIC1FSU5WQUw7Cj4gPiAgCX0KPiA+IC0JZXJyID0gLUVOWElPOwo+ID4gLQluZWlnaCA9IG5l
-aWdoX2xvb2t1cCgmYXJwX3RibCwgJmlwLCBkZXYpOwo+ID4gLQlpZiAobmVpZ2gpIHsKPiA+IC0J
-CWlmIChuZWlnaC0+bnVkX3N0YXRlICYgfk5VRF9OT0FSUCkKPiA+IC0JCQllcnIgPSBuZWlnaF91
-cGRhdGUobmVpZ2gsIE5VTEwsIE5VRF9GQUlMRUQsCj4gPiAtCQkJCQkgICBORUlHSF9VUERBVEVf
-Rl9PVkVSUklERXwKPiA+IC0JCQkJCSAgIE5FSUdIX1VQREFURV9GX0FETUlOKTsKPiA+IC0JCW5l
-aWdoX3JlbGVhc2UobmVpZ2gpOwo+ID4gLQl9Cj4gPiAtCXJldHVybiBlcnI7Cj4gPiArCXJldHVy
-biBhcnBfaW52YWxpZGF0ZShkZXYsIGlwKTsKPiA+ICB9Cj4gPiAgCj4gPiAgLyoKPiAKCkhpIE1h
-eGltCgpZb3Ugd2VyZSBzdXBwb3NlZCB0byByZXNwaW4geW91ciBwYXRjaCBhZnRlciBteSBjb21t
-aXQgOgoKKDk0MTY2NmMyZTNlMGY5ZjZhMSBuZXQ6IFJDVSBjb252ZXJzaW9uIG9mIGRldl9nZXRi
-eWh3YWRkcigpIGFuZAphcnBfaW9jdGwoKSkKClRoYW5rcwoKCgotLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0KR2FpbmluZyB0aGUgdHJ1c3Qgb2Ygb25saW5lIGN1c3RvbWVycyBpcyB2aXRhbCBmb3IgdGhl
-IHN1Y2Nlc3Mgb2YgYW55IGNvbXBhbnkKdGhhdCByZXF1aXJlcyBzZW5zaXRpdmUgZGF0YSB0byBi
-ZSB0cmFuc21pdHRlZCBvdmVyIHRoZSBXZWIuICAgTGVhcm4gaG93IHRvIApiZXN0IGltcGxlbWVu
-dCBhIHNlY3VyaXR5IHN0cmF0ZWd5IHRoYXQga2VlcHMgY29uc3VtZXJzJyBpbmZvcm1hdGlvbiBz
-ZWN1cmUgCmFuZCBpbnN0aWxscyB0aGUgY29uZmlkZW5jZSB0aGV5IG5lZWQgdG8gcHJvY2VlZCB3
-aXRoIHRyYW5zYWN0aW9ucy4KaHR0cDovL3Auc2YubmV0L3NmdS9vcmFjbGUtc2ZkZXZubCAKX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbWFpbGluZyBsaXN0
-IGxpbnV4MTM5NC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3Vy
-Y2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vbGludXgxMzk0LWRldmVsCg==
+On Friday 2011-01-07 02:31, Pablo Neira Ayuso wrote:
+>>> On 04/01/11 03:14, Jan Engelhardt wrote:
+>>>> 	/* Modifiers to GET request */
+>>>> 	#define NLM_F_ROOT      0x100
+>>>> 	#define NLM_F_MATCH     0x200
+>>>> 	#define NLM_F_ATOMIC    0x400
+>>>> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
+>> [...]
+>>>> [N.B.: I am also wondering whether
+>>>> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
+>>>> may have been desired, because NLM_F_DUMP is composed of two bits.]
+>>>
+>>> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
+>>> checking that you propose is not valid.
+>> 
+>> Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
+>> exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
+>> dump operation?  Otherwise the test that Jan proposes looks valid
+>> to me.
+>
+>Indeed, Jan's test is fine to fix this. Please, send a patch to Davem asap.
+
+Turns out genetlink isn't the only place where &NLM_F_DUMP is used 
+without ==NLM_F_DUMP.
+Thus I am adding it to other spots in net/ too.
+
+
+
+parent c235848c5a76520b90cf31bfbcc17720b24745a2 (v2.6.37-rc1-230-gc235848)
+commit eaab9042b29931730d6785bb3f27b174fb2f5518
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Fri Jan 7 13:53:49 2011 +0100
+
+netlink: test for all flags of the NLM_F_DUMP composite
+
+Due to NLM_F_DUMP is composed of two bits, NLM_F_ROOT | NLM_F_MATCH,
+when doing "if (x & NLM_F_DUMP)", it tests for _either_ of the bits
+being set. Because NLM_F_MATCH's value overlaps with NLM_F_EXCL,
+non-dump requests with NLM_F_EXCL set are mistaken as dump requests.
+
+Substitute the condition to test for _all_ bits being set.
+
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+ net/core/rtnetlink.c                 |    2 +-
+ net/ipv4/inet_diag.c                 |    2 +-
+ net/netfilter/nf_conntrack_netlink.c |    4 ++--
+ net/netlink/genetlink.c              |    2 +-
+ net/xfrm/xfrm_user.c                 |    2 +-
+ 5 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 8121268..14dcb43 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1657,7 +1657,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (kind != 2 && security_netlink_recv(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
++	if (kind == 2 && (nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		struct sock *rtnl;
+ 		rtnl_dumpit_func dumpit;
+ 
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 2ada171..2746c1f 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -858,7 +858,7 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	    nlmsg_len(nlh) < hdrlen)
+ 		return -EINVAL;
+ 
+-	if (nlh->nlmsg_flags & NLM_F_DUMP) {
++	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		if (nlmsg_attrlen(nlh, hdrlen)) {
+ 			struct nlattr *attr;
+ 
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 7f59be8..edc737e 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -925,7 +925,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 	u16 zone;
+ 	int err;
+ 
+-	if (nlh->nlmsg_flags & NLM_F_DUMP)
++	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP)
+ 		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
+ 					  ctnetlink_done);
+ 
+@@ -1788,7 +1788,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
+ 	u16 zone;
+ 	int err;
+ 
+-	if (nlh->nlmsg_flags & NLM_F_DUMP) {
++	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		return netlink_dump_start(ctnl, skb, nlh,
+ 					  ctnetlink_exp_dump_table,
+ 					  ctnetlink_exp_done);
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 1781d99..f83cb37 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -519,7 +519,7 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	    security_netlink_recv(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (nlh->nlmsg_flags & NLM_F_DUMP) {
++	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		if (ops->dumpit == NULL)
+ 			return -EOPNOTSUPP;
+ 
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8bae6b2..6770895 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2174,7 +2174,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 
+ 	if ((type == (XFRM_MSG_GETSA - XFRM_MSG_BASE) ||
+ 	     type == (XFRM_MSG_GETPOLICY - XFRM_MSG_BASE)) &&
+-	    (nlh->nlmsg_flags & NLM_F_DUMP)) {
++	    (nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
+ 		if (link->dump == NULL)
+ 			return -EINVAL;
+ 
+-- 
+# Created with git-export-patch
