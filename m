@@ -1,146 +1,150 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: [patch] Re: genetlink misinterprets NEW as GET
-Date: Fri, 7 Jan 2011 14:15:05 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1101071357420.27454@obet.zrqbmnf.qr>
-References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr> <4D25C82F.4010306@netfilter.org> <878vyyvtci.fsf@benpfaff.org> <4D266CE5.4000309@netfilter.org>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
+ entries
+Date: Fri, 07 Jan 2011 15:15:43 +0200
+Message-ID: <1294406143.7674.1.camel@maxim-laptop>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	 <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
+	 <1294404478.7674.0.camel@maxim-laptop>
+	 <1294405062.3306.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pablo Neira Aysuo <pablo@netfilter.org>,
-	Ben Pfaff <blp@nicira.com>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D266CE5.4000309@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux1394-devel <linux1394-devel@lists.sourceforge.net>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:39478 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752728Ab1AGNPp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 08:15:45 -0500
+Received: by eye27 with SMTP id 27so7629086eye.19
+        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 05:15:44 -0800 (PST)
+In-Reply-To: <1294405062.3306.11.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 2011-01-07 02:31, Pablo Neira Ayuso wrote:
->>> On 04/01/11 03:14, Jan Engelhardt wrote:
->>>> 	/* Modifiers to GET request */
->>>> 	#define NLM_F_ROOT      0x100
->>>> 	#define NLM_F_MATCH     0x200
->>>> 	#define NLM_F_ATOMIC    0x400
->>>> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
->> [...]
->>>> [N.B.: I am also wondering whether
->>>> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
->>>> may have been desired, because NLM_F_DUMP is composed of two bits.]
->>>
->>> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
->>> checking that you propose is not valid.
->> 
->> Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
->> exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
->> dump operation?  Otherwise the test that Jan proposes looks valid
->> to me.
->
->Indeed, Jan's test is fine to fix this. Please, send a patch to Davem asap.
+On Fri, 2011-01-07 at 13:57 +0100, Eric Dumazet wrote:
+> Le vendredi 07 janvier 2011 =C3=A0 14:47 +0200, Maxim Levitsky a =C3=A9=
+crit :
+> > On Mon, 2010-11-29 at 04:09 +0200, Maxim Levitsky wrote:
+> > > IPv4 over firewire needs to be able to remove ARP entries
+> > > from the ARP cache that belong to nodes that are removed, because
+> > > IPv4 over firewire uses ARP packets for private information
+> > > about nodes.
+> > >=20
+> > > This information becomes invalid as soon as node drops
+> > > off the bus and when it reconnects, its only possible
+> > > to start takling to is after it responded to an ARP packet.
+> > > But ARP cache prevents such packets from being sent.
+> > >=20
+> > > CC: netdev@vger.kernel.org
+> > > CC: "David S. Miller" <davem@davemloft.net>
+> > > CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> > > CC: James Morris <jmorris@namei.org>
+> > > CC: Patrick McHardy <kaber@trash.net>
+> >=20
+> > Anybody?
+> >=20
+> > Best regards,
+> > 	Maxim Levitsky
+> >=20
+> > >=20
+> > >=20
+> > > Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
+> > > ---
+> > >  include/net/arp.h |    1 +
+> > >  net/ipv4/arp.c    |   29 ++++++++++++++++++-----------
+> > >  2 files changed, 19 insertions(+), 11 deletions(-)
+> > >=20
+> > > diff --git a/include/net/arp.h b/include/net/arp.h
+> > > index f4cf6ce..91f0568 100644
+> > > --- a/include/net/arp.h
+> > > +++ b/include/net/arp.h
+> > > @@ -25,5 +25,6 @@ extern struct sk_buff *arp_create(int type, int=
+ ptype, __be32 dest_ip,
+> > >  				  const unsigned char *src_hw,
+> > >  				  const unsigned char *target_hw);
+> > >  extern void arp_xmit(struct sk_buff *skb);
+> > > +int arp_invalidate(struct net_device *dev, __be32 ip);
+> > > =20
+> > >  #endif	/* _ARP_H */
+> > > diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> > > index d8e540c..35b1272 100644
+> > > --- a/net/ipv4/arp.c
+> > > +++ b/net/ipv4/arp.c
+> > > @@ -1142,6 +1142,23 @@ static int arp_req_get(struct arpreq *r, s=
+truct net_device *dev)
+> > >  	return err;
+> > >  }
+> > > =20
+> > > +int arp_invalidate(struct net_device *dev, __be32 ip)
+> > > +{
+> > > +	int err =3D -ENXIO;
+> > > +	struct neighbour *neigh =3D neigh_lookup(&arp_tbl, &ip, dev);
+> > > +
+> > > +	if (neigh) {
+> > > +		if (neigh->nud_state & ~NUD_NOARP)
+> > > +			err =3D neigh_update(neigh, NULL, NUD_FAILED,
+> > > +					   NEIGH_UPDATE_F_OVERRIDE|
+> > > +					   NEIGH_UPDATE_F_ADMIN);
+> > > +		neigh_release(neigh);
+> > > +	}
+> > > +
+> > > +	return err;
+> > > +}
+> > > +EXPORT_SYMBOL(arp_invalidate);
+> > > +
+> > >  static int arp_req_delete_public(struct net *net, struct arpreq =
+*r,
+> > >  		struct net_device *dev)
+> > >  {
+> > > @@ -1162,7 +1179,6 @@ static int arp_req_delete(struct net *net, =
+struct arpreq *r,
+> > >  {
+> > >  	int err;
+> > >  	__be32 ip;
+> > > -	struct neighbour *neigh;
+> > > =20
+> > >  	if (r->arp_flags & ATF_PUBL)
+> > >  		return arp_req_delete_public(net, r, dev);
+> > > @@ -1180,16 +1196,7 @@ static int arp_req_delete(struct net *net,=
+ struct arpreq *r,
+> > >  		if (!dev)
+> > >  			return -EINVAL;
+> > >  	}
+> > > -	err =3D -ENXIO;
+> > > -	neigh =3D neigh_lookup(&arp_tbl, &ip, dev);
+> > > -	if (neigh) {
+> > > -		if (neigh->nud_state & ~NUD_NOARP)
+> > > -			err =3D neigh_update(neigh, NULL, NUD_FAILED,
+> > > -					   NEIGH_UPDATE_F_OVERRIDE|
+> > > -					   NEIGH_UPDATE_F_ADMIN);
+> > > -		neigh_release(neigh);
+> > > -	}
+> > > -	return err;
+> > > +	return arp_invalidate(dev, ip);
+> > >  }
+> > > =20
+> > >  /*
+> >=20
+>=20
+> Hi Maxim
+>=20
+> You were supposed to respin your patch after my commit :
+>=20
+> (941666c2e3e0f9f6a1 net: RCU conversion of dev_getbyhwaddr() and
+> arp_ioctl())
+>=20
+> Thanks
 
-Turns out genetlink isn't the only place where &NLM_F_DUMP is used 
-without ==NLM_F_DUMP.
-Thus I am adding it to other spots in net/ too.
 
+Will do very soon.
 
+Best regards,
+	Maxim Levitsky
 
-parent c235848c5a76520b90cf31bfbcc17720b24745a2 (v2.6.37-rc1-230-gc235848)
-commit eaab9042b29931730d6785bb3f27b174fb2f5518
-Author: Jan Engelhardt <jengelh@medozas.de>
-Date:   Fri Jan 7 13:53:49 2011 +0100
-
-netlink: test for all flags of the NLM_F_DUMP composite
-
-Due to NLM_F_DUMP is composed of two bits, NLM_F_ROOT | NLM_F_MATCH,
-when doing "if (x & NLM_F_DUMP)", it tests for _either_ of the bits
-being set. Because NLM_F_MATCH's value overlaps with NLM_F_EXCL,
-non-dump requests with NLM_F_EXCL set are mistaken as dump requests.
-
-Substitute the condition to test for _all_ bits being set.
-
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
----
- net/core/rtnetlink.c                 |    2 +-
- net/ipv4/inet_diag.c                 |    2 +-
- net/netfilter/nf_conntrack_netlink.c |    4 ++--
- net/netlink/genetlink.c              |    2 +-
- net/xfrm/xfrm_user.c                 |    2 +-
- 5 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 8121268..14dcb43 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1657,7 +1657,7 @@ static int rtnetlink_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (kind != 2 && security_netlink_recv(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	if (kind == 2 && nlh->nlmsg_flags&NLM_F_DUMP) {
-+	if (kind == 2 && (nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
- 		struct sock *rtnl;
- 		rtnl_dumpit_func dumpit;
- 
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 2ada171..2746c1f 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -858,7 +858,7 @@ static int inet_diag_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	    nlmsg_len(nlh) < hdrlen)
- 		return -EINVAL;
- 
--	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-+	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
- 		if (nlmsg_attrlen(nlh, hdrlen)) {
- 			struct nlattr *attr;
- 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 7f59be8..edc737e 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -925,7 +925,7 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
- 	u16 zone;
- 	int err;
- 
--	if (nlh->nlmsg_flags & NLM_F_DUMP)
-+	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP)
- 		return netlink_dump_start(ctnl, skb, nlh, ctnetlink_dump_table,
- 					  ctnetlink_done);
- 
-@@ -1788,7 +1788,7 @@ ctnetlink_get_expect(struct sock *ctnl, struct sk_buff *skb,
- 	u16 zone;
- 	int err;
- 
--	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-+	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
- 		return netlink_dump_start(ctnl, skb, nlh,
- 					  ctnetlink_exp_dump_table,
- 					  ctnetlink_exp_done);
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 1781d99..f83cb37 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -519,7 +519,7 @@ static int genl_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	    security_netlink_recv(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	if (nlh->nlmsg_flags & NLM_F_DUMP) {
-+	if ((nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
- 		if (ops->dumpit == NULL)
- 			return -EOPNOTSUPP;
- 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 8bae6b2..6770895 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -2174,7 +2174,7 @@ static int xfrm_user_rcv_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 
- 	if ((type == (XFRM_MSG_GETSA - XFRM_MSG_BASE) ||
- 	     type == (XFRM_MSG_GETPOLICY - XFRM_MSG_BASE)) &&
--	    (nlh->nlmsg_flags & NLM_F_DUMP)) {
-+	    (nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP) {
- 		if (link->dump == NULL)
- 			return -EINVAL;
- 
--- 
-# Created with git-export-patch
