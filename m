@@ -1,95 +1,199 @@
-From: Ben Hutchings <benh@debian.org>
-Subject: Re: [GIT] Networking
-Date: Fri, 7 Jan 2011 19:06:56 +0000
-Message-ID: <20110107190656.GQ3702@decadent.org.uk>
-References: <20110106.122003.233698077.davem@davemloft.net> <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [RFC] sched: QFQ - quick fair queue scheduler (iproute2)
+Date: Fri, 7 Jan 2011 11:24:29 -0800
+Message-ID: <20110107112429.5e43171d@nehalam>
+References: <20110106195614.20dbc402@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Eric Dumazet <dada1@cosmosbay.com>,
+	Fabio Checconi <fabio@gandalf.sssup.it>,
+	netdev@vger.kernel.org, Luigi Rizzo <rizzo@iet.unipi.it>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:36799 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753137Ab1AGTYc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jan 2011 14:24:32 -0500
+In-Reply-To: <20110106195614.20dbc402@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 07, 2011 at 10:46:48AM -0800, Linus Torvalds wrote:
-> On Thu, Jan 6, 2011 at 12:20 PM, David Miller <davem@davemloft.net> w=
-rote:
-> >
-> > Plus the usual spattering of wireless, bluetooth, and wired driver
-> > updates.
->=20
-> Grr.
->=20
-> This breaks booting for me.
->=20
-> [torvalds@i5 linux]$ git bisect good
-> bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0 is the first bad commit
-> commit bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0
-> Author: fran=E7ois romieu <romieu@fr.zoreil.com>
-> Date:   Mon Jan 3 15:07:31 2011 +0000
->=20
->     r8169: remove the firmware of RTL8111D.
->=20
->     The binary file of the firmware is moved to linux-firmware reposi=
-tory.
->     The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw=
-=2E
->     The driver goes along if the firmware couldn't be found. However,=
- it
->     is suggested to be done with the suitable firmware.
->=20
->     Some wrong PHY parameters are directly corrected in the driver.
->=20
->     Simple firmware checking added per Ben Hutchings suggestion.
->=20
->     Signed-off-by: Hayes Wang <hayeswang@realtek.com>
->     Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
->     Cc: Ben Hutchings <benh@debian.org>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> and the behavior is very broken: it just hangs at boot-time. No
-> messages from the driver (certainly not any messages about missing
-> firmware), no nothing. The thing is just hung.
+This is the iproute2 interface for QFQ. It is spartan at this point
+and needs a man page.
 
-This is because the driver is requesting firmware during probe, before
-there is a firmware agent available (maybe even before / is mounted?)
-rather than when the interface is brought up, as many other network
-drivers do.
+---
+ include/linux/pkt_sched.h |   14 +++++
+ tc/Makefile               |    1 +
+ tc/q_qfq.c                |  123 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 138 insertions(+), 0 deletions(-)
+ create mode 100644 tc/q_qfq.c
 
-At the very least, we ought to make firmware loading fail fast and
-noisily if this happens.
+diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+index 2cfa4bc..c3ca324 100644
+--- a/include/linux/pkt_sched.h
++++ b/include/linux/pkt_sched.h
+@@ -481,4 +481,18 @@ struct tc_drr_stats {
+ 	__u32	deficit;
+ };
+ 
++/* QFQ */
++enum {
++	TCA_QFQ_WEIGHT,
++	TCA_QFQ_LMAX,
++	__TCA_QFQ_MAX
++};
++
++#define TCA_QFQ_MAX	(__TCA_QFQ_MAX - 1)
++
++struct tc_qfq_stats {
++	__u32 weight;
++	__u32 lmax;
++};
++
+ #endif
+diff --git a/tc/Makefile b/tc/Makefile
+index 101cc83..715b34e 100644
+--- a/tc/Makefile
++++ b/tc/Makefile
+@@ -29,6 +29,7 @@ TCMODULES += q_ingress.o
+ TCMODULES += q_hfsc.o
+ TCMODULES += q_htb.o
+ TCMODULES += q_drr.o
++TCMODULES += q_qfq.o
+ TCMODULES += m_gact.o
+ TCMODULES += m_mirred.o
+ TCMODULES += m_nat.o
+diff --git a/tc/q_qfq.c b/tc/q_qfq.c
+new file mode 100644
+index 0000000..ad77f45
+--- /dev/null
++++ b/tc/q_qfq.c
+@@ -0,0 +1,123 @@
++/*
++ * q_qfq.c	QFQ.
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Authors:	Stephen Hemminger <shemminger@vyatta.com>
++ *		Fabio Checconi <fabio@gandalf.sssup.it>
++ *
++ */
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
++
++#include "utils.h"
++#include "tc_util.h"
++
++static void explain(void)
++{
++	fprintf(stderr, "Usage: ... qfq\n");
++}
++
++static void explain1(const char *arg)
++{
++	fprintf(stderr, "Illegal \"%s\"\n", arg);
++}
++
++static void explain_class(void)
++{
++	fprintf(stderr, "Usage: ... qfq weight NUMBER maxpkt BYTES\n");
++}
++
++static int qfq_parse_opt(struct qdisc_util *qu, int argc, char **argv, 
++			 struct nlmsghdr *n)
++{
++	while (argc > 0) {
++		if (matches(*argv, "help") == 0) {
++			explain();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain();
++			return -1;
++		}
++		argc--; argv++;
++	}
++
++	return 0;
++}
++
++static int qfq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv,
++			       struct nlmsghdr *n)
++{
++	struct rtattr *tail;
++	__u32 tmp;
++
++	tail = NLMSG_TAIL(n);
++	addattr_l(n, 4096, TCA_OPTIONS, NULL, 0);
++
++	while (argc > 0) {
++		if (matches(*argv, "weight") == 0) {
++			NEXT_ARG();
++			if (get_u32(&tmp, *argv, 10)) {
++				explain1("weight"); return -1;
++			}
++			addattr32(n, 4096, TCA_QFQ_WEIGHT, tmp);
++		} else if (matches(*argv, "maxpkt") == 0) {
++			NEXT_ARG();
++			if (get_u32(&tmp, *argv, 10)) {
++				explain1("maxpkt"); return -1;
++			}
++			addattr32(n, 4096, TCA_QFQ_LMAX, tmp);
++		} else if (strcmp(*argv, "help") == 0) {
++			explain_class();
++			return -1;
++		} else {
++			fprintf(stderr, "What is \"%s\"?\n", *argv);
++			explain_class();
++			return -1;
++		}
++		argc--; argv++;
++	}
++
++	tail->rta_len = (void *)NLMSG_TAIL(n) - (void *)tail;
++
++	return 0;
++}
++
++static int qfq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
++{
++	struct rtattr *tb[TCA_QFQ_MAX + 1];
++
++	if (opt == NULL)
++		return 0;
++
++	parse_rtattr_nested(tb, TCA_QFQ_MAX, opt);
++
++	if (tb[TCA_QFQ_WEIGHT]) {
++		fprintf(f, "weight %u ", 
++			*(__u32 *)RTA_DATA(tb[TCA_QFQ_WEIGHT]));
++	}
++
++	if (tb[TCA_QFQ_LMAX]) {
++		fprintf(f, "maxpkt %u ", 
++			*(__u32 *)RTA_DATA(tb[TCA_QFQ_LMAX]));
++	}
++
++	return 0;
++}
++
++struct qdisc_util qfq_qdisc_util = {
++	.id		= "qfq",
++	.parse_qopt	= qfq_parse_opt,
++	.print_qopt	= qfq_print_opt,
++	.parse_copt	= qfq_parse_class_opt,
++	.print_copt	= qfq_print_opt,
++};
++
+-- 
+1.7.1
 
-[...]
-> Quite frankly, that commit looks broken anyway. It doesn't just switc=
-h
-> to the firmware loader, it also seems to change other things (ie
-> removed some mdio writes, added others).
-
-There were some tables of PHY registers to poke that were a mixture of
-control register writes and transfer of firmware to the microcontroller=
-=2E
-Hayes and Francois have separated those out.
-
-[...]
-> I bet I can make it work by making it a module, and installing the
-> firmware manually. But it's supposed to work even without that.
-=20
-Right.  This is very vaguely based on a patch I applied in Debian
-where we build r8169 as a module, and I don't think anyone reported
-this behaviour.
-
-Ben.
-
---=20
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert =
-Camus
