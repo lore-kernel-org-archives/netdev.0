@@ -1,380 +1,322 @@
 From: jeffrey.t.kirsher@intel.com
-Subject: [net-next 11/12] ixgbe: further flow director performance optimizations
-Date: Thu,  6 Jan 2011 16:29:58 -0800
-Message-ID: <1294360199-9860-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/12] e1000e: convert calls of ops.[read|write]_reg to e1e_[r|w]phy
+Date: Thu,  6 Jan 2011 16:29:49 -0800
+Message-ID: <1294360199-9860-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	netdev@vger.kernel.org, gosp@redhat.com, bphilips@novell.com,
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gosp@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:64375 "EHLO mga03.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:19337 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754124Ab1AGAax (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 19:30:53 -0500
+	id S1753369Ab1AGAaq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 19:30:46 -0500
 To: davem@davemloft.net
 In-Reply-To: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <alexander.h.duyck@intel.com>
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-This change adds a compressed input type for atr signature hash
-computation.  It also drops the use of the set functions when setting up
-the ATR input since we can then directly setup the hash input as two dwords
-that can be stored and passed as registers.
+Cleans up the code a bit by using the driver-specific e1e_rphy and
+e1e_wphy macros instead of the full function pointer variants.  Fix
+a couple whitespace issue with two already existing calls to e1e_wphy.
 
-With these changes the cost of computing the has is low enough that we can
-perform a hash computation on each TCP SYN flagged packet allowing us to
-drop the number of flow director misses considerably in tests such as
-netperf TCP_CRR.
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe.h       |    3 +-
- drivers/net/ixgbe/ixgbe_82599.c |  112 ++++++++++++++++++++++++++++++++++-----
- drivers/net/ixgbe/ixgbe_main.c  |  107 +++++++++++++++++++++++++++----------
- drivers/net/ixgbe/ixgbe_type.h  |   16 ++++++
- 4 files changed, 194 insertions(+), 44 deletions(-)
+ drivers/net/e1000e/ich8lan.c |   54 +++++++++++++++++++----------------------
+ drivers/net/e1000e/lib.c     |    3 +-
+ drivers/net/e1000e/phy.c     |   40 +++++++++++++------------------
+ 3 files changed, 44 insertions(+), 53 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe.h b/drivers/net/ixgbe/ixgbe.h
-index 2666e69..341b3db 100644
---- a/drivers/net/ixgbe/ixgbe.h
-+++ b/drivers/net/ixgbe/ixgbe.h
-@@ -526,7 +526,8 @@ extern s32 ixgbe_reinit_fdir_tables_82599(struct ixgbe_hw *hw);
- extern s32 ixgbe_init_fdir_signature_82599(struct ixgbe_hw *hw, u32 pballoc);
- extern s32 ixgbe_init_fdir_perfect_82599(struct ixgbe_hw *hw, u32 pballoc);
- extern s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
--                                                 union ixgbe_atr_input *input,
-+						 union ixgbe_atr_hash_dword input,
-+						 union ixgbe_atr_hash_dword common,
-                                                  u8 queue);
- extern s32 ixgbe_fdir_add_perfect_filter_82599(struct ixgbe_hw *hw,
-                                       union ixgbe_atr_input *input,
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index 40aa3c2..d41931f 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -1331,6 +1331,96 @@ static u32 ixgbe_atr_compute_hash_82599(union ixgbe_atr_input *atr_input,
- 	return hash_result & IXGBE_ATR_HASH_MASK;
- }
+diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
+index 754590d..902e493 100644
+--- a/drivers/net/e1000e/ich8lan.c
++++ b/drivers/net/e1000e/ich8lan.c
+@@ -3118,7 +3118,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
+ 	 * Reset the phy after disabling host wakeup to reset the Rx buffer.
+ 	 */
+ 	if (hw->phy.type == e1000_phy_82578) {
+-		hw->phy.ops.read_reg(hw, BM_WUC, &i);
++		e1e_rphy(hw, BM_WUC, &i);
+ 		ret_val = e1000_phy_hw_reset_ich8lan(hw);
+ 		if (ret_val)
+ 			return ret_val;
+@@ -3276,9 +3276,8 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
+ 	    (hw->phy.type == e1000_phy_82577)) {
+ 		ew32(FCRTV_PCH, hw->fc.refresh_time);
  
-+/*
-+ * These defines allow us to quickly generate all of the necessary instructions
-+ * in the function below by simply calling out IXGBE_COMPUTE_SIG_HASH_ITERATION
-+ * for values 0 through 15
-+ */
-+#define IXGBE_ATR_COMMON_HASH_KEY \
-+		(IXGBE_ATR_BUCKET_HASH_KEY & IXGBE_ATR_SIGNATURE_HASH_KEY)
-+#define IXGBE_COMPUTE_SIG_HASH_ITERATION(_n) \
-+do { \
-+	u32 n = (_n); \
-+	if (IXGBE_ATR_COMMON_HASH_KEY & (0x01 << n)) \
-+		common_hash ^= lo_hash_dword >> n; \
-+	else if (IXGBE_ATR_BUCKET_HASH_KEY & (0x01 << n)) \
-+		bucket_hash ^= lo_hash_dword >> n; \
-+	else if (IXGBE_ATR_SIGNATURE_HASH_KEY & (0x01 << n)) \
-+		sig_hash ^= lo_hash_dword << (16 - n); \
-+	if (IXGBE_ATR_COMMON_HASH_KEY & (0x01 << (n + 16))) \
-+		common_hash ^= hi_hash_dword >> n; \
-+	else if (IXGBE_ATR_BUCKET_HASH_KEY & (0x01 << (n + 16))) \
-+		bucket_hash ^= hi_hash_dword >> n; \
-+	else if (IXGBE_ATR_SIGNATURE_HASH_KEY & (0x01 << (n + 16))) \
-+		sig_hash ^= hi_hash_dword << (16 - n); \
-+} while (0);
-+
-+/**
-+ *  ixgbe_atr_compute_sig_hash_82599 - Compute the signature hash
-+ *  @stream: input bitstream to compute the hash on
-+ *
-+ *  This function is almost identical to the function above but contains
-+ *  several optomizations such as unwinding all of the loops, letting the
-+ *  compiler work out all of the conditional ifs since the keys are static
-+ *  defines, and computing two keys at once since the hashed dword stream
-+ *  will be the same for both keys.
-+ **/
-+static u32 ixgbe_atr_compute_sig_hash_82599(union ixgbe_atr_hash_dword input,
-+					    union ixgbe_atr_hash_dword common)
-+{
-+	u32 hi_hash_dword, lo_hash_dword, flow_vm_vlan;
-+	u32 sig_hash = 0, bucket_hash = 0, common_hash = 0;
-+
-+	/* record the flow_vm_vlan bits as they are a key part to the hash */
-+	flow_vm_vlan = ntohl(input.dword);
-+
-+	/* generate common hash dword */
-+	hi_hash_dword = ntohl(common.dword);
-+
-+	/* low dword is word swapped version of common */
-+	lo_hash_dword = (hi_hash_dword >> 16) | (hi_hash_dword << 16);
-+
-+	/* apply flow ID/VM pool/VLAN ID bits to hash words */
-+	hi_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan >> 16);
-+
-+	/* Process bits 0 and 16 */
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(0);
-+
-+	/*
-+	 * apply flow ID/VM pool/VLAN ID bits to lo hash dword, we had to
-+	 * delay this because bit 0 of the stream should not be processed
-+	 * so we do not add the vlan until after bit 0 was processed
-+	 */
-+	lo_hash_dword ^= flow_vm_vlan ^ (flow_vm_vlan << 16);
-+
-+	/* Process remaining 30 bit of the key */
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(1);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(2);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(3);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(4);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(5);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(6);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(7);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(8);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(9);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(10);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(11);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(12);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(13);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(14);
-+	IXGBE_COMPUTE_SIG_HASH_ITERATION(15);
-+
-+	/* combine common_hash result with signature and bucket hashes */
-+	bucket_hash ^= common_hash;
-+	bucket_hash &= IXGBE_ATR_HASH_MASK;
-+
-+	sig_hash ^= common_hash << 16;
-+	sig_hash &= IXGBE_ATR_HASH_MASK << 16;
-+
-+	/* return completed signature hash */
-+	return sig_hash ^ bucket_hash;
-+}
-+
- /**
-  *  ixgbe_atr_set_vlan_id_82599 - Sets the VLAN id in the ATR input stream
-  *  @input: input stream to modify
-@@ -1539,22 +1629,23 @@ static s32 ixgbe_atr_get_l4type_82599(union ixgbe_atr_input *input,
- /**
-  *  ixgbe_atr_add_signature_filter_82599 - Adds a signature hash filter
-  *  @hw: pointer to hardware structure
-- *  @stream: input bitstream
-+ *  @input: unique input dword
-+ *  @common: compressed common input dword
-  *  @queue: queue index to direct traffic to
-  **/
- s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
--                                          union ixgbe_atr_input *input,
-+                                          union ixgbe_atr_hash_dword input,
-+                                          union ixgbe_atr_hash_dword common,
-                                           u8 queue)
+-		ret_val = hw->phy.ops.write_reg(hw,
+-		                             PHY_REG(BM_PORT_CTRL_PAGE, 27),
+-		                             hw->fc.pause_time);
++		ret_val = e1e_wphy(hw, PHY_REG(BM_PORT_CTRL_PAGE, 27),
++				   hw->fc.pause_time);
+ 		if (ret_val)
+ 			return ret_val;
+ 	}
+@@ -3342,8 +3341,7 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
+ 			return ret_val;
+ 		break;
+ 	case e1000_phy_ife:
+-		ret_val = hw->phy.ops.read_reg(hw, IFE_PHY_MDIX_CONTROL,
+-		                               &reg_data);
++		ret_val = e1e_rphy(hw, IFE_PHY_MDIX_CONTROL, &reg_data);
+ 		if (ret_val)
+ 			return ret_val;
+ 
+@@ -3361,8 +3359,7 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
+ 			reg_data |= IFE_PMC_AUTO_MDIX;
+ 			break;
+ 		}
+-		ret_val = hw->phy.ops.write_reg(hw, IFE_PHY_MDIX_CONTROL,
+-		                                reg_data);
++		ret_val = e1e_wphy(hw, IFE_PHY_MDIX_CONTROL, reg_data);
+ 		if (ret_val)
+ 			return ret_val;
+ 		break;
+@@ -3646,7 +3643,8 @@ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw)
  {
- 	u64  fdirhashcmd;
- 	u32  fdircmd;
--	u32  bucket_hash, sig_hash;
+ 	if (hw->phy.type == e1000_phy_ife)
+ 		return e1e_wphy(hw, IFE_PHY_SPECIAL_CONTROL_LED,
+-			       (IFE_PSCL_PROBE_MODE | IFE_PSCL_PROBE_LEDS_OFF));
++				(IFE_PSCL_PROBE_MODE |
++				 IFE_PSCL_PROBE_LEDS_OFF));
  
- 	/*
- 	 * Get the flow_type in order to program FDIRCMD properly
- 	 * lowest 2 bits are FDIRCMD.L4TYPE, third lowest bit is FDIRCMD.IPV6
- 	 */
--	switch (input->formatted.flow_type) {
-+	switch (input.formatted.flow_type) {
- 	case IXGBE_ATR_FLOW_TYPE_TCPV4:
- 	case IXGBE_ATR_FLOW_TYPE_UDPV4:
- 	case IXGBE_ATR_FLOW_TYPE_SCTPV4:
-@@ -1570,7 +1661,7 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
- 	/* configure FDIRCMD register */
- 	fdircmd = IXGBE_FDIRCMD_CMD_ADD_FLOW | IXGBE_FDIRCMD_FILTER_UPDATE |
- 	          IXGBE_FDIRCMD_LAST | IXGBE_FDIRCMD_QUEUE_EN;
--	fdircmd |= input->formatted.flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
-+	fdircmd |= input.formatted.flow_type << IXGBE_FDIRCMD_FLOW_TYPE_SHIFT;
- 	fdircmd |= (u32)queue << IXGBE_FDIRCMD_RX_QUEUE_SHIFT;
- 
- 	/*
-@@ -1578,17 +1669,12 @@ s32 ixgbe_fdir_add_signature_filter_82599(struct ixgbe_hw *hw,
- 	 * is for FDIRCMD.  Then do a 64-bit register write from FDIRHASH.
- 	 */
- 	fdirhashcmd = (u64)fdircmd << 32;
--
--	sig_hash = ixgbe_atr_compute_hash_82599(input,
--	                                        IXGBE_ATR_SIGNATURE_HASH_KEY);
--	fdirhashcmd |= sig_hash << IXGBE_FDIRHASH_SIG_SW_INDEX_SHIFT;
--
--	bucket_hash = ixgbe_atr_compute_hash_82599(input,
--	                                           IXGBE_ATR_BUCKET_HASH_KEY);
--	fdirhashcmd |= bucket_hash;
-+	fdirhashcmd |= ixgbe_atr_compute_sig_hash_82599(input, common);
- 
- 	IXGBE_WRITE_REG64(hw, IXGBE_FDIRHASH, fdirhashcmd);
- 
-+	hw_dbg(hw, "Tx Queue=%x hash=%x\n", queue, (u32)fdirhashcmd);
-+
+ 	ew32(LEDCTL, hw->mac.ledctl_mode1);
  	return 0;
+@@ -3660,8 +3658,7 @@ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw)
+  **/
+ static s32 e1000_setup_led_pchlan(struct e1000_hw *hw)
+ {
+-	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG,
+-					(u16)hw->mac.ledctl_mode1);
++	return e1e_wphy(hw, HV_LED_CONFIG, (u16)hw->mac.ledctl_mode1);
  }
  
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 26718ab..490818c 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6506,37 +6506,92 @@ static void ixgbe_tx_queue(struct ixgbe_ring *tx_ring,
- 	writel(i, tx_ring->tail);
+ /**
+@@ -3672,8 +3669,7 @@ static s32 e1000_setup_led_pchlan(struct e1000_hw *hw)
+  **/
+ static s32 e1000_cleanup_led_pchlan(struct e1000_hw *hw)
+ {
+-	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG,
+-					(u16)hw->mac.ledctl_default);
++	return e1e_wphy(hw, HV_LED_CONFIG, (u16)hw->mac.ledctl_default);
  }
  
--static void ixgbe_atr(struct ixgbe_adapter *adapter, struct sk_buff *skb,
--		      u8 queue, u32 tx_flags, __be16 protocol)
--{
--	union ixgbe_atr_input atr_input;
--	struct iphdr *iph = ip_hdr(skb);
--	struct ethhdr *eth = (struct ethhdr *)skb->data;
-+static void ixgbe_atr(struct ixgbe_ring *ring, struct sk_buff *skb,
-+		      u32 tx_flags, __be16 protocol)
-+{
-+	struct ixgbe_q_vector *q_vector = ring->q_vector;
-+	union ixgbe_atr_hash_dword input = { .dword = 0 };
-+	union ixgbe_atr_hash_dword common = { .dword = 0 };
-+	union {
-+		unsigned char *network;
-+		struct iphdr *ipv4;
-+		struct ipv6hdr *ipv6;
-+	} hdr;
- 	struct tcphdr *th;
- 	__be16 vlan_id;
+ /**
+@@ -3704,7 +3700,7 @@ static s32 e1000_led_on_pchlan(struct e1000_hw *hw)
+ 		}
+ 	}
  
--	/* Right now, we support IPv4 w/ TCP only */
--	if (protocol != htons(ETH_P_IP) ||
--	    iph->protocol != IPPROTO_TCP)
-+	/* if ring doesn't have a interrupt vector, cannot perform ATR */
-+	if (!q_vector)
-+		return;
-+
-+	/* do nothing if sampling is disabled */
-+	if (!ring->atr_sample_rate)
- 		return;
- 
--	memset(&atr_input, 0, sizeof(union ixgbe_atr_input));
-+	ring->atr_count++;
- 
--	vlan_id = htons(tx_flags >> IXGBE_TX_FLAGS_VLAN_SHIFT);
-+	/* snag network header to get L4 type and address */
-+	hdr.network = skb_network_header(skb);
-+
-+	/* Currently only IPv4/IPv6 with TCP is supported */
-+	if ((protocol != __constant_htons(ETH_P_IPV6) ||
-+	     hdr.ipv6->nexthdr != IPPROTO_TCP) &&
-+	    (protocol != __constant_htons(ETH_P_IP) ||
-+	     hdr.ipv4->protocol != IPPROTO_TCP))
-+		return;
- 
- 	th = tcp_hdr(skb);
- 
--	ixgbe_atr_set_vlan_id_82599(&atr_input, vlan_id);
--	ixgbe_atr_set_src_port_82599(&atr_input, th->dest);
--	ixgbe_atr_set_dst_port_82599(&atr_input, th->source);
--	ixgbe_atr_set_flex_byte_82599(&atr_input, eth->h_proto);
--	ixgbe_atr_set_l4type_82599(&atr_input, IXGBE_ATR_FLOW_TYPE_TCPV4);
--	/* src and dst are inverted, think how the receiver sees them */
--	ixgbe_atr_set_src_ipv4_82599(&atr_input, iph->daddr);
--	ixgbe_atr_set_dst_ipv4_82599(&atr_input, iph->saddr);
-+	/* skip this packet since the socket is closing */
-+	if (th->fin)
-+		return;
-+
-+	/* sample on all syn packets or once every atr sample count */
-+	if (!th->syn && (ring->atr_count < ring->atr_sample_rate))
-+		return;
-+
-+	/* reset sample count */
-+	ring->atr_count = 0;
-+
-+	vlan_id = htons(tx_flags >> IXGBE_TX_FLAGS_VLAN_SHIFT);
-+
-+	/*
-+	 * src and dst are inverted, think how the receiver sees them
-+	 *
-+	 * The input is broken into two sections, a non-compressed section
-+	 * containing vm_pool, vlan_id, and flow_type.  The rest of the data
-+	 * is XORed together and stored in the compressed dword.
-+	 */
-+	input.formatted.vlan_id = vlan_id;
-+
-+	/*
-+	 * since src port and flex bytes occupy the same word XOR them together
-+	 * and write the value to source port portion of compressed dword
-+	 */
-+	if (vlan_id)
-+		common.port.src ^= th->dest ^ __constant_htons(ETH_P_8021Q);
-+	else
-+		common.port.src ^= th->dest ^ protocol;
-+	common.port.dst ^= th->source;
-+
-+	if (protocol == __constant_htons(ETH_P_IP)) {
-+		input.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV4;
-+		common.ip ^= hdr.ipv4->saddr ^ hdr.ipv4->daddr;
-+	} else {
-+		input.formatted.flow_type = IXGBE_ATR_FLOW_TYPE_TCPV6;
-+		common.ip ^= hdr.ipv6->saddr.s6_addr32[0] ^
-+			     hdr.ipv6->saddr.s6_addr32[1] ^
-+			     hdr.ipv6->saddr.s6_addr32[2] ^
-+			     hdr.ipv6->saddr.s6_addr32[3] ^
-+			     hdr.ipv6->daddr.s6_addr32[0] ^
-+			     hdr.ipv6->daddr.s6_addr32[1] ^
-+			     hdr.ipv6->daddr.s6_addr32[2] ^
-+			     hdr.ipv6->daddr.s6_addr32[3];
-+	}
- 
- 	/* This assumes the Rx queue and Tx queue are bound to the same CPU */
--	ixgbe_fdir_add_signature_filter_82599(&adapter->hw, &atr_input, queue);
-+	ixgbe_fdir_add_signature_filter_82599(&q_vector->adapter->hw,
-+					      input, common, ring->queue_index);
+-	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG, data);
++	return e1e_wphy(hw, HV_LED_CONFIG, data);
  }
  
- static int __ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, int size)
-@@ -6707,16 +6762,8 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
- 	count = ixgbe_tx_map(adapter, tx_ring, skb, tx_flags, first, hdr_len);
- 	if (count) {
- 		/* add the ATR filter if ATR is on */
--		if (tx_ring->atr_sample_rate) {
--			++tx_ring->atr_count;
--			if ((tx_ring->atr_count >= tx_ring->atr_sample_rate) &&
--			     test_bit(__IXGBE_TX_FDIR_INIT_DONE,
--				      &tx_ring->state)) {
--				ixgbe_atr(adapter, skb, tx_ring->queue_index,
--					  tx_flags, protocol);
--				tx_ring->atr_count = 0;
--			}
--		}
-+		if (test_bit(__IXGBE_TX_FDIR_INIT_DONE, &tx_ring->state))
-+			ixgbe_atr(tx_ring, skb, tx_flags, protocol);
- 		txq = netdev_get_tx_queue(netdev, tx_ring->queue_index);
- 		txq->tx_bytes += skb->len;
- 		txq->tx_packets++;
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index c56a712..0d9392d 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -2198,6 +2198,22 @@ union ixgbe_atr_input {
- 	__be32 dword_stream[11];
- };
+ /**
+@@ -3735,7 +3731,7 @@ static s32 e1000_led_off_pchlan(struct e1000_hw *hw)
+ 		}
+ 	}
  
-+/* Flow Director compressed ATR hash input struct */
-+union ixgbe_atr_hash_dword {
-+	struct {
-+		u8 vm_pool;
-+		u8 flow_type;
-+		__be16 vlan_id;
-+	} formatted;
-+	__be32 ip;
-+	struct {
-+		__be16 src;
-+		__be16 dst;
-+	} port;
-+	__be16 flex_bytes;
-+	__be32 dword;
-+};
-+
- struct ixgbe_atr_input_masks {
- 	__be32 src_ip_mask;
- 	__be32 dst_ip_mask;
+-	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG, data);
++	return e1e_wphy(hw, HV_LED_CONFIG, data);
+ }
+ 
+ /**
+@@ -3844,20 +3840,20 @@ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
+ 	if ((hw->phy.type == e1000_phy_82578) ||
+ 	    (hw->phy.type == e1000_phy_82579) ||
+ 	    (hw->phy.type == e1000_phy_82577)) {
+-		hw->phy.ops.read_reg(hw, HV_SCC_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_SCC_LOWER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_ECOL_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_ECOL_LOWER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_MCC_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_MCC_LOWER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_LATECOL_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_LATECOL_LOWER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_COLC_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_COLC_LOWER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_DC_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_DC_LOWER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_TNCRS_UPPER, &phy_data);
+-		hw->phy.ops.read_reg(hw, HV_TNCRS_LOWER, &phy_data);
++		e1e_rphy(hw, HV_SCC_UPPER, &phy_data);
++		e1e_rphy(hw, HV_SCC_LOWER, &phy_data);
++		e1e_rphy(hw, HV_ECOL_UPPER, &phy_data);
++		e1e_rphy(hw, HV_ECOL_LOWER, &phy_data);
++		e1e_rphy(hw, HV_MCC_UPPER, &phy_data);
++		e1e_rphy(hw, HV_MCC_LOWER, &phy_data);
++		e1e_rphy(hw, HV_LATECOL_UPPER, &phy_data);
++		e1e_rphy(hw, HV_LATECOL_LOWER, &phy_data);
++		e1e_rphy(hw, HV_COLC_UPPER, &phy_data);
++		e1e_rphy(hw, HV_COLC_LOWER, &phy_data);
++		e1e_rphy(hw, HV_DC_UPPER, &phy_data);
++		e1e_rphy(hw, HV_DC_LOWER, &phy_data);
++		e1e_rphy(hw, HV_TNCRS_UPPER, &phy_data);
++		e1e_rphy(hw, HV_TNCRS_LOWER, &phy_data);
+ 	}
+ }
+ 
+diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
+index 7e55170..ff28721 100644
+--- a/drivers/net/e1000e/lib.c
++++ b/drivers/net/e1000e/lib.c
+@@ -1135,7 +1135,8 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
+ 		ret_val = e1e_rphy(hw, PHY_AUTONEG_ADV, &mii_nway_adv_reg);
+ 		if (ret_val)
+ 			return ret_val;
+-		ret_val = e1e_rphy(hw, PHY_LP_ABILITY, &mii_nway_lp_ability_reg);
++		ret_val =
++		    e1e_rphy(hw, PHY_LP_ABILITY, &mii_nway_lp_ability_reg);
+ 		if (ret_val)
+ 			return ret_val;
+ 
+diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
+index 1781efe..a640f1c 100644
+--- a/drivers/net/e1000e/phy.c
++++ b/drivers/net/e1000e/phy.c
+@@ -637,12 +637,11 @@ s32 e1000e_write_kmrn_reg_locked(struct e1000_hw *hw, u32 offset, u16 data)
+  **/
+ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
+ {
+-	struct e1000_phy_info *phy = &hw->phy;
+ 	s32 ret_val;
+ 	u16 phy_data;
+ 
+ 	/* Enable CRS on TX. This must be set for half-duplex operation. */
+-	ret_val = phy->ops.read_reg(hw, I82577_CFG_REG, &phy_data);
++	ret_val = e1e_rphy(hw, I82577_CFG_REG, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -651,7 +650,7 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
+ 	/* Enable downshift */
+ 	phy_data |= I82577_CFG_ENABLE_DOWNSHIFT;
+ 
+-	ret_val = phy->ops.write_reg(hw, I82577_CFG_REG, phy_data);
++	ret_val = e1e_wphy(hw, I82577_CFG_REG, phy_data);
+ 
+ out:
+ 	return ret_val;
+@@ -774,16 +773,14 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
+ 	}
+ 
+ 	if (phy->type == e1000_phy_82578) {
+-		ret_val = phy->ops.read_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
+-		                            &phy_data);
++		ret_val = e1e_rphy(hw, M88E1000_EXT_PHY_SPEC_CTRL, &phy_data);
+ 		if (ret_val)
+ 			return ret_val;
+ 
+ 		/* 82578 PHY - set the downshift count to 1x. */
+ 		phy_data |= I82578_EPSCR_DOWNSHIFT_ENABLE;
+ 		phy_data &= ~I82578_EPSCR_DOWNSHIFT_COUNTER_MASK;
+-		ret_val = phy->ops.write_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
+-		                             phy_data);
++		ret_val = e1e_wphy(hw, M88E1000_EXT_PHY_SPEC_CTRL, phy_data);
+ 		if (ret_val)
+ 			return ret_val;
+ 	}
+@@ -1319,9 +1316,8 @@ s32 e1000e_phy_force_speed_duplex_m88(struct e1000_hw *hw)
+ 				 * We didn't get link.
+ 				 * Reset the DSP and cross our fingers.
+ 				 */
+-				ret_val = e1e_wphy(hw,
+-						M88E1000_PHY_PAGE_SELECT,
+-						0x001d);
++				ret_val = e1e_wphy(hw, M88E1000_PHY_PAGE_SELECT,
++						   0x001d);
+ 				if (ret_val)
+ 					return ret_val;
+ 				ret_val = e1000e_phy_reset_dsp(hw);
+@@ -3071,12 +3067,12 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
+ 		goto out;
+ 
+ 	/* Do not apply workaround if in PHY loopback bit 14 set */
+-	hw->phy.ops.read_reg(hw, PHY_CONTROL, &data);
++	e1e_rphy(hw, PHY_CONTROL, &data);
+ 	if (data & PHY_CONTROL_LB)
+ 		goto out;
+ 
+ 	/* check if link is up and at 1Gbps */
+-	ret_val = hw->phy.ops.read_reg(hw, BM_CS_STATUS, &data);
++	ret_val = e1e_rphy(hw, BM_CS_STATUS, &data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -3092,14 +3088,12 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
+ 	mdelay(200);
+ 
+ 	/* flush the packets in the fifo buffer */
+-	ret_val = hw->phy.ops.write_reg(hw, HV_MUX_DATA_CTRL,
+-	                                HV_MUX_DATA_CTRL_GEN_TO_MAC |
+-	                                HV_MUX_DATA_CTRL_FORCE_SPEED);
++	ret_val = e1e_wphy(hw, HV_MUX_DATA_CTRL, HV_MUX_DATA_CTRL_GEN_TO_MAC |
++			   HV_MUX_DATA_CTRL_FORCE_SPEED);
+ 	if (ret_val)
+ 		goto out;
+ 
+-	ret_val = hw->phy.ops.write_reg(hw, HV_MUX_DATA_CTRL,
+-	                                HV_MUX_DATA_CTRL_GEN_TO_MAC);
++	ret_val = e1e_wphy(hw, HV_MUX_DATA_CTRL, HV_MUX_DATA_CTRL_GEN_TO_MAC);
+ 
+ out:
+ 	return ret_val;
+@@ -3119,7 +3113,7 @@ s32 e1000_check_polarity_82577(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 data;
+ 
+-	ret_val = phy->ops.read_reg(hw, I82577_PHY_STATUS_2, &data);
++	ret_val = e1e_rphy(hw, I82577_PHY_STATUS_2, &data);
+ 
+ 	if (!ret_val)
+ 		phy->cable_polarity = (data & I82577_PHY_STATUS2_REV_POLARITY)
+@@ -3142,13 +3136,13 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
+ 	u16 phy_data;
+ 	bool link;
+ 
+-	ret_val = phy->ops.read_reg(hw, PHY_CONTROL, &phy_data);
++	ret_val = e1e_rphy(hw, PHY_CONTROL, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+ 	e1000e_phy_force_speed_duplex_setup(hw, &phy_data);
+ 
+-	ret_val = phy->ops.write_reg(hw, PHY_CONTROL, phy_data);
++	ret_val = e1e_wphy(hw, PHY_CONTROL, phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -3212,7 +3206,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
+ 	if (ret_val)
+ 		goto out;
+ 
+-	ret_val = phy->ops.read_reg(hw, I82577_PHY_STATUS_2, &data);
++	ret_val = e1e_rphy(hw, I82577_PHY_STATUS_2, &data);
+ 	if (ret_val)
+ 		goto out;
+ 
+@@ -3224,7 +3218,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
+ 		if (ret_val)
+ 			goto out;
+ 
+-		ret_val = phy->ops.read_reg(hw, PHY_1000T_STATUS, &data);
++		ret_val = e1e_rphy(hw, PHY_1000T_STATUS, &data);
+ 		if (ret_val)
+ 			goto out;
+ 
+@@ -3258,7 +3252,7 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw)
+ 	s32 ret_val;
+ 	u16 phy_data, length;
+ 
+-	ret_val = phy->ops.read_reg(hw, I82577_PHY_DIAG_STATUS, &phy_data);
++	ret_val = e1e_rphy(hw, I82577_PHY_DIAG_STATUS, &phy_data);
+ 	if (ret_val)
+ 		goto out;
+ 
 -- 
 1.7.3.4
 
