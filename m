@@ -1,322 +1,113 @@
-From: jeffrey.t.kirsher@intel.com
-Subject: [net-next 02/12] e1000e: convert calls of ops.[read|write]_reg to e1e_[r|w]phy
-Date: Thu,  6 Jan 2011 16:29:49 -0800
-Message-ID: <1294360199-9860-3-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 00/12][pull-request] Intel Wired LAN Driver Updates
+Date: Thu, 06 Jan 2011 16:37:09 -0800
+Message-ID: <1294360629.2622.28.camel@jtkirshe-MOBL1>
 References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gosp@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-RckLjdt/PcE8d/zdV0dA"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"bphilips@novell.com" <bphilips@novell.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:19337 "EHLO mga14.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:59443 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753369Ab1AGAaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 19:30:46 -0500
-To: davem@davemloft.net
+	id S1751725Ab1AGAh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 19:37:59 -0500
 In-Reply-To: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
 
-Cleans up the code a bit by using the driver-specific e1e_rphy and
-e1e_wphy macros instead of the full function pointer variants.  Fix
-a couple whitespace issue with two already existing calls to e1e_wphy.
+--=-RckLjdt/PcE8d/zdV0dA
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/e1000e/ich8lan.c |   54 +++++++++++++++++++----------------------
- drivers/net/e1000e/lib.c     |    3 +-
- drivers/net/e1000e/phy.c     |   40 +++++++++++++------------------
- 3 files changed, 44 insertions(+), 53 deletions(-)
+On Thu, 2011-01-06 at 16:29 -0800, Kirsher, Jeffrey T wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>=20
+> The following series contains ixgbe/e1000e cleanups and fixes.  The
+> addition of CE4100 support in e1000, and ixgb VLAN conversion to the
+> new model.
+>=20
+> The following changes since commit dbbe68bb12b34f3e450da7a73c20e6fa1f85d6=
+3a:
+>=20
+>   Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/da=
+vem/net-2.6
+>=20
+> are available in the git repository at:
+>=20
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6.git m=
+aster
+>=20
+> Alexander Duyck (3):
+>   ixgbe: cleanup flow director hash computation to improve performance
+>   ixgbe: further flow director performance optimizations
+>   ixgbe: update ntuple filter configuration
+>=20
+> Bruce Allan (6):
+>   e1000e: cleanup variables set but not used
+>   e1000e: convert calls of ops.[read|write]_reg to e1e_[r|w]phy
+>   e1000e: properly bounds-check string functions
+>   e1000e: use either_crc_le() rather than re-write it
+>   e1000e: power off PHY after reset when interface is down
+>   e1000e: add custom set_d[0|3]_lplu_state function pointer for 82574
+>=20
+> Dirk Brandewie (1):
+>   e1000: Add support for the CE4100 reference platform
+>=20
+> Emil Tantilov (1):
+>   ixgb: convert to new VLAN model
+>=20
+> Yi Zou (1):
+>   ixgbe: make sure per Rx queue is disabled before unmapping the
+>     receive buffer
+>=20
+>  drivers/net/e1000/e1000_hw.c      |  328 +++++++++++++----
+>  drivers/net/e1000/e1000_hw.h      |   59 +++-
+>  drivers/net/e1000/e1000_main.c    |   35 ++
+>  drivers/net/e1000/e1000_osdep.h   |   19 +-
+>  drivers/net/e1000e/82571.c        |   77 ++++-
+>  drivers/net/e1000e/e1000.h        |    3 +
+>  drivers/net/e1000e/es2lan.c       |    4 +-
+>  drivers/net/e1000e/ethtool.c      |   54 ++-
+>  drivers/net/e1000e/hw.h           |    1 +
+>  drivers/net/e1000e/ich8lan.c      |   77 ++---
+>  drivers/net/e1000e/lib.c          |    3 +-
+>  drivers/net/e1000e/netdev.c       |   53 ++--
+>  drivers/net/e1000e/phy.c          |   40 +--
+>  drivers/net/ixgb/ixgb.h           |    2 +-
+>  drivers/net/ixgb/ixgb_ethtool.c   |   35 ++
+>  drivers/net/ixgb/ixgb_main.c      |   54 +--
+>  drivers/net/ixgbe/ixgbe.h         |   21 +-
+>  drivers/net/ixgbe/ixgbe_82599.c   |  749 +++++++++++++++----------------=
+------
+>  drivers/net/ixgbe/ixgbe_ethtool.c |  142 +++++---
+>  drivers/net/ixgbe/ixgbe_main.c    |  169 ++++++---
+>  drivers/net/ixgbe/ixgbe_type.h    |   91 +++--
+>  21 files changed, 1182 insertions(+), 834 deletions(-)
+>=20
 
-diff --git a/drivers/net/e1000e/ich8lan.c b/drivers/net/e1000e/ich8lan.c
-index 754590d..902e493 100644
---- a/drivers/net/e1000e/ich8lan.c
-+++ b/drivers/net/e1000e/ich8lan.c
-@@ -3118,7 +3118,7 @@ static s32 e1000_init_hw_ich8lan(struct e1000_hw *hw)
- 	 * Reset the phy after disabling host wakeup to reset the Rx buffer.
- 	 */
- 	if (hw->phy.type == e1000_phy_82578) {
--		hw->phy.ops.read_reg(hw, BM_WUC, &i);
-+		e1e_rphy(hw, BM_WUC, &i);
- 		ret_val = e1000_phy_hw_reset_ich8lan(hw);
- 		if (ret_val)
- 			return ret_val;
-@@ -3276,9 +3276,8 @@ static s32 e1000_setup_link_ich8lan(struct e1000_hw *hw)
- 	    (hw->phy.type == e1000_phy_82577)) {
- 		ew32(FCRTV_PCH, hw->fc.refresh_time);
- 
--		ret_val = hw->phy.ops.write_reg(hw,
--		                             PHY_REG(BM_PORT_CTRL_PAGE, 27),
--		                             hw->fc.pause_time);
-+		ret_val = e1e_wphy(hw, PHY_REG(BM_PORT_CTRL_PAGE, 27),
-+				   hw->fc.pause_time);
- 		if (ret_val)
- 			return ret_val;
- 	}
-@@ -3342,8 +3341,7 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
- 			return ret_val;
- 		break;
- 	case e1000_phy_ife:
--		ret_val = hw->phy.ops.read_reg(hw, IFE_PHY_MDIX_CONTROL,
--		                               &reg_data);
-+		ret_val = e1e_rphy(hw, IFE_PHY_MDIX_CONTROL, &reg_data);
- 		if (ret_val)
- 			return ret_val;
- 
-@@ -3361,8 +3359,7 @@ static s32 e1000_setup_copper_link_ich8lan(struct e1000_hw *hw)
- 			reg_data |= IFE_PMC_AUTO_MDIX;
- 			break;
- 		}
--		ret_val = hw->phy.ops.write_reg(hw, IFE_PHY_MDIX_CONTROL,
--		                                reg_data);
-+		ret_val = e1e_wphy(hw, IFE_PHY_MDIX_CONTROL, reg_data);
- 		if (ret_val)
- 			return ret_val;
- 		break;
-@@ -3646,7 +3643,8 @@ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw)
- {
- 	if (hw->phy.type == e1000_phy_ife)
- 		return e1e_wphy(hw, IFE_PHY_SPECIAL_CONTROL_LED,
--			       (IFE_PSCL_PROBE_MODE | IFE_PSCL_PROBE_LEDS_OFF));
-+				(IFE_PSCL_PROBE_MODE |
-+				 IFE_PSCL_PROBE_LEDS_OFF));
- 
- 	ew32(LEDCTL, hw->mac.ledctl_mode1);
- 	return 0;
-@@ -3660,8 +3658,7 @@ static s32 e1000_led_off_ich8lan(struct e1000_hw *hw)
-  **/
- static s32 e1000_setup_led_pchlan(struct e1000_hw *hw)
- {
--	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG,
--					(u16)hw->mac.ledctl_mode1);
-+	return e1e_wphy(hw, HV_LED_CONFIG, (u16)hw->mac.ledctl_mode1);
- }
- 
- /**
-@@ -3672,8 +3669,7 @@ static s32 e1000_setup_led_pchlan(struct e1000_hw *hw)
-  **/
- static s32 e1000_cleanup_led_pchlan(struct e1000_hw *hw)
- {
--	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG,
--					(u16)hw->mac.ledctl_default);
-+	return e1e_wphy(hw, HV_LED_CONFIG, (u16)hw->mac.ledctl_default);
- }
- 
- /**
-@@ -3704,7 +3700,7 @@ static s32 e1000_led_on_pchlan(struct e1000_hw *hw)
- 		}
- 	}
- 
--	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG, data);
-+	return e1e_wphy(hw, HV_LED_CONFIG, data);
- }
- 
- /**
-@@ -3735,7 +3731,7 @@ static s32 e1000_led_off_pchlan(struct e1000_hw *hw)
- 		}
- 	}
- 
--	return hw->phy.ops.write_reg(hw, HV_LED_CONFIG, data);
-+	return e1e_wphy(hw, HV_LED_CONFIG, data);
- }
- 
- /**
-@@ -3844,20 +3840,20 @@ static void e1000_clear_hw_cntrs_ich8lan(struct e1000_hw *hw)
- 	if ((hw->phy.type == e1000_phy_82578) ||
- 	    (hw->phy.type == e1000_phy_82579) ||
- 	    (hw->phy.type == e1000_phy_82577)) {
--		hw->phy.ops.read_reg(hw, HV_SCC_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_SCC_LOWER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_ECOL_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_ECOL_LOWER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_MCC_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_MCC_LOWER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_LATECOL_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_LATECOL_LOWER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_COLC_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_COLC_LOWER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_DC_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_DC_LOWER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_TNCRS_UPPER, &phy_data);
--		hw->phy.ops.read_reg(hw, HV_TNCRS_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_SCC_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_SCC_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_ECOL_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_ECOL_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_MCC_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_MCC_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_LATECOL_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_LATECOL_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_COLC_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_COLC_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_DC_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_DC_LOWER, &phy_data);
-+		e1e_rphy(hw, HV_TNCRS_UPPER, &phy_data);
-+		e1e_rphy(hw, HV_TNCRS_LOWER, &phy_data);
- 	}
- }
- 
-diff --git a/drivers/net/e1000e/lib.c b/drivers/net/e1000e/lib.c
-index 7e55170..ff28721 100644
---- a/drivers/net/e1000e/lib.c
-+++ b/drivers/net/e1000e/lib.c
-@@ -1135,7 +1135,8 @@ s32 e1000e_config_fc_after_link_up(struct e1000_hw *hw)
- 		ret_val = e1e_rphy(hw, PHY_AUTONEG_ADV, &mii_nway_adv_reg);
- 		if (ret_val)
- 			return ret_val;
--		ret_val = e1e_rphy(hw, PHY_LP_ABILITY, &mii_nway_lp_ability_reg);
-+		ret_val =
-+		    e1e_rphy(hw, PHY_LP_ABILITY, &mii_nway_lp_ability_reg);
- 		if (ret_val)
- 			return ret_val;
- 
-diff --git a/drivers/net/e1000e/phy.c b/drivers/net/e1000e/phy.c
-index 1781efe..a640f1c 100644
---- a/drivers/net/e1000e/phy.c
-+++ b/drivers/net/e1000e/phy.c
-@@ -637,12 +637,11 @@ s32 e1000e_write_kmrn_reg_locked(struct e1000_hw *hw, u32 offset, u16 data)
-  **/
- s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
- {
--	struct e1000_phy_info *phy = &hw->phy;
- 	s32 ret_val;
- 	u16 phy_data;
- 
- 	/* Enable CRS on TX. This must be set for half-duplex operation. */
--	ret_val = phy->ops.read_reg(hw, I82577_CFG_REG, &phy_data);
-+	ret_val = e1e_rphy(hw, I82577_CFG_REG, &phy_data);
- 	if (ret_val)
- 		goto out;
- 
-@@ -651,7 +650,7 @@ s32 e1000_copper_link_setup_82577(struct e1000_hw *hw)
- 	/* Enable downshift */
- 	phy_data |= I82577_CFG_ENABLE_DOWNSHIFT;
- 
--	ret_val = phy->ops.write_reg(hw, I82577_CFG_REG, phy_data);
-+	ret_val = e1e_wphy(hw, I82577_CFG_REG, phy_data);
- 
- out:
- 	return ret_val;
-@@ -774,16 +773,14 @@ s32 e1000e_copper_link_setup_m88(struct e1000_hw *hw)
- 	}
- 
- 	if (phy->type == e1000_phy_82578) {
--		ret_val = phy->ops.read_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
--		                            &phy_data);
-+		ret_val = e1e_rphy(hw, M88E1000_EXT_PHY_SPEC_CTRL, &phy_data);
- 		if (ret_val)
- 			return ret_val;
- 
- 		/* 82578 PHY - set the downshift count to 1x. */
- 		phy_data |= I82578_EPSCR_DOWNSHIFT_ENABLE;
- 		phy_data &= ~I82578_EPSCR_DOWNSHIFT_COUNTER_MASK;
--		ret_val = phy->ops.write_reg(hw, M88E1000_EXT_PHY_SPEC_CTRL,
--		                             phy_data);
-+		ret_val = e1e_wphy(hw, M88E1000_EXT_PHY_SPEC_CTRL, phy_data);
- 		if (ret_val)
- 			return ret_val;
- 	}
-@@ -1319,9 +1316,8 @@ s32 e1000e_phy_force_speed_duplex_m88(struct e1000_hw *hw)
- 				 * We didn't get link.
- 				 * Reset the DSP and cross our fingers.
- 				 */
--				ret_val = e1e_wphy(hw,
--						M88E1000_PHY_PAGE_SELECT,
--						0x001d);
-+				ret_val = e1e_wphy(hw, M88E1000_PHY_PAGE_SELECT,
-+						   0x001d);
- 				if (ret_val)
- 					return ret_val;
- 				ret_val = e1000e_phy_reset_dsp(hw);
-@@ -3071,12 +3067,12 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
- 		goto out;
- 
- 	/* Do not apply workaround if in PHY loopback bit 14 set */
--	hw->phy.ops.read_reg(hw, PHY_CONTROL, &data);
-+	e1e_rphy(hw, PHY_CONTROL, &data);
- 	if (data & PHY_CONTROL_LB)
- 		goto out;
- 
- 	/* check if link is up and at 1Gbps */
--	ret_val = hw->phy.ops.read_reg(hw, BM_CS_STATUS, &data);
-+	ret_val = e1e_rphy(hw, BM_CS_STATUS, &data);
- 	if (ret_val)
- 		goto out;
- 
-@@ -3092,14 +3088,12 @@ s32 e1000_link_stall_workaround_hv(struct e1000_hw *hw)
- 	mdelay(200);
- 
- 	/* flush the packets in the fifo buffer */
--	ret_val = hw->phy.ops.write_reg(hw, HV_MUX_DATA_CTRL,
--	                                HV_MUX_DATA_CTRL_GEN_TO_MAC |
--	                                HV_MUX_DATA_CTRL_FORCE_SPEED);
-+	ret_val = e1e_wphy(hw, HV_MUX_DATA_CTRL, HV_MUX_DATA_CTRL_GEN_TO_MAC |
-+			   HV_MUX_DATA_CTRL_FORCE_SPEED);
- 	if (ret_val)
- 		goto out;
- 
--	ret_val = hw->phy.ops.write_reg(hw, HV_MUX_DATA_CTRL,
--	                                HV_MUX_DATA_CTRL_GEN_TO_MAC);
-+	ret_val = e1e_wphy(hw, HV_MUX_DATA_CTRL, HV_MUX_DATA_CTRL_GEN_TO_MAC);
- 
- out:
- 	return ret_val;
-@@ -3119,7 +3113,7 @@ s32 e1000_check_polarity_82577(struct e1000_hw *hw)
- 	s32 ret_val;
- 	u16 data;
- 
--	ret_val = phy->ops.read_reg(hw, I82577_PHY_STATUS_2, &data);
-+	ret_val = e1e_rphy(hw, I82577_PHY_STATUS_2, &data);
- 
- 	if (!ret_val)
- 		phy->cable_polarity = (data & I82577_PHY_STATUS2_REV_POLARITY)
-@@ -3142,13 +3136,13 @@ s32 e1000_phy_force_speed_duplex_82577(struct e1000_hw *hw)
- 	u16 phy_data;
- 	bool link;
- 
--	ret_val = phy->ops.read_reg(hw, PHY_CONTROL, &phy_data);
-+	ret_val = e1e_rphy(hw, PHY_CONTROL, &phy_data);
- 	if (ret_val)
- 		goto out;
- 
- 	e1000e_phy_force_speed_duplex_setup(hw, &phy_data);
- 
--	ret_val = phy->ops.write_reg(hw, PHY_CONTROL, phy_data);
-+	ret_val = e1e_wphy(hw, PHY_CONTROL, phy_data);
- 	if (ret_val)
- 		goto out;
- 
-@@ -3212,7 +3206,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
- 	if (ret_val)
- 		goto out;
- 
--	ret_val = phy->ops.read_reg(hw, I82577_PHY_STATUS_2, &data);
-+	ret_val = e1e_rphy(hw, I82577_PHY_STATUS_2, &data);
- 	if (ret_val)
- 		goto out;
- 
-@@ -3224,7 +3218,7 @@ s32 e1000_get_phy_info_82577(struct e1000_hw *hw)
- 		if (ret_val)
- 			goto out;
- 
--		ret_val = phy->ops.read_reg(hw, PHY_1000T_STATUS, &data);
-+		ret_val = e1e_rphy(hw, PHY_1000T_STATUS, &data);
- 		if (ret_val)
- 			goto out;
- 
-@@ -3258,7 +3252,7 @@ s32 e1000_get_cable_length_82577(struct e1000_hw *hw)
- 	s32 ret_val;
- 	u16 phy_data, length;
- 
--	ret_val = phy->ops.read_reg(hw, I82577_PHY_DIAG_STATUS, &phy_data);
-+	ret_val = e1e_rphy(hw, I82577_PHY_DIAG_STATUS, &phy_data);
- 	if (ret_val)
- 		goto out;
- 
--- 
-1.7.3.4
+I apologize, I fat fingered Andy Gospodarek's email address.  I have
+corrected it in this response.
+
+--=-RckLjdt/PcE8d/zdV0dA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJNJmA0AAoJECTsCADr/EWUmvIH/Rx0B4q537b6dHtMMP0E7hnb
+kXTh6GeP5bEd6tAjHTZshuekF8ZgnX6vcbpyM+CtXSoEeD6mzmj8jGW5q7NJFZCm
+5cgm07IyPstl6CUrRv7zOzZ26PBb1l9O4jCLqj3kp15C0gDPW+XydcDzQNjfBnFR
+xJmReRV+GsR/uSs40cTXSGm862WKZ9Iq8K2L8w0KJQTy0EZH0M63+mqEH3oKTd4z
+c/zah7eXQ20V8kimIeinjZwTcxHjqX5/facjSuNxuN94er4+NjyAzEmUrI8msA0+
+WVBCukPsAUeo6Hi3eSnbWtV6mDySBrt0X9fC+yHwtERu4FK1pF1X9N18++laVkA=
+=2nQi
+-----END PGP SIGNATURE-----
+
+--=-RckLjdt/PcE8d/zdV0dA--
 
