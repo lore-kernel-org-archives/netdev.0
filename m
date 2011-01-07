@@ -1,90 +1,91 @@
-From: Ben Hutchings <benh@debian.org>
-Subject: Re: [PATCH] net/r8169: Update the function of parsing firmware
-Date: Fri, 7 Jan 2011 15:17:55 +0000
-Message-ID: <20110107151755.GN3702@decadent.org.uk>
-References: <1294393509-3492-1-git-send-email-hayeswang@realtek.com>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH] Madge Ambassador ATM Adapter driver: Always
+ release_firmware() in ucode_init() and don't leak memory.
+Date: Fri, 7 Jan 2011 10:02:39 -0500
+Message-ID: <20110107100239.28032e5d@thirdoffive.cmf.nrl.navy.mil>
+References: <alpine.LNX.2.00.1101062203160.13988@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
+To: Jesper Juhl <jj@chaosbits.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1294393509-3492-1-git-send-email-hayeswang@realtek.com>
+In-Reply-To: <alpine.LNX.2.00.1101062203160.13988@swampdragon.chaosbits.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-01-07 at 17:45 +0800, Hayes Wang wrote:
-> Update rtl_phy_write_fw function. The new function could
-> parse the complex firmware which is used by RTL8111E and later.
-> The new firmware may read data and do some operations, not just
-> do writing only.
+instead of duplicating the same section again and again, could you
+write something like:
+
+	errmsg = "no start record";
+	goto fail;
+
+	...
+
+	errmsg = "record to long"
+	goto fail;
+
+	.... whatever ...
+
+	return 0;
+
+fail:
+	release_firmware(fw)
+	PRINTK(KERN_ERR, "Bad microcode data (%s)\n", errmsg);
+	return -EINVAL;
+}
+
+On Thu, 6 Jan 2011 22:06:37 +0100 (CET)
+Jesper Juhl <jj@chaosbits.net> wrote:
+
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Failure to call release_firmware() will result in memory leak in 
+> drivers/atm/ambassador.c::ucode_init().
+> This patch makes sure we always call release_firmware() when needed, thus 
+> removing the leak(s).
+> 
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
 > ---
->  drivers/net/r8169.c |  112 ++++++++++++++++++++++++++++++++++++++++++++-------
->  1 files changed, 97 insertions(+), 15 deletions(-)
+>  ambassador.c |    5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 > 
-> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-> index 27a7c20..2115424 100644
-> --- a/drivers/net/r8169.c
-> +++ b/drivers/net/r8169.c
-[...] 
-> -	while (i-- != 0) {
-> -		u32 action = le32_to_cpu(*phytable);
-> -		u32 data = action & 0x0000ffff;
-> -		u32 reg = (action & 0x0fff0000) >> 16;
-> +	predata = 0;
-> +	count = 0;
+>   Compile tested only since I have no way to actually test this.
+> 
+> diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+> index ffe9b65..ab56539 100644
+> --- a/drivers/atm/ambassador.c
+> +++ b/drivers/atm/ambassador.c
+> @@ -1927,7 +1927,7 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+>    unsigned long start_address;no start record
+>    const struct ihex_binrec *rec;
+>    int res;
+> -  
 > +
-> +	for (index = 0; index < fw->size / sizeof(*phytable); ) {
-> +		u32 action = le32_to_cpu(phytable[index]);
-> +		u32 data = action & 0x0000FFFF;
-> +		u32 regno = (action & 0x0FFF0000) >> 16;
-> +
-> +		if (!action)
-> +			break;
->  
-> -		switch(action & 0xf0000000) {
-> +		switch(action & 0xF0000000) {
-[...]
-> +		case PHY_BJMPN:
-> +			index -= regno;
-> +			break;
-[...]
-
-I'm concerned that this is being extended from a firmware upload
-interface to a quite general interpreter for PHY initialisation.  I
-realise that this will make it easier to fix PHY firmware bugs in
-future but it also allows you to accidentally introduce infinite loops.
-The initialisation programs will obviously not be subject to the same
-sort of review on netdev that new C code is.
-
-> +		case PHY_DELAY_MS:
-> +			mdelay(data);
-> +			index++;
-> +			break;
-
-Why mdelay() and not msleep()?  This is not an atomic context.
-
-> +		case PHY_READ_MAC_BYTE:
-> +		case PHY_WRITE_MAC_BYTE:
-> +		case PHY_WRITE_ERI_WORD:
->  		default:
->  			BUG();
->  		}
-> +
-> +		if (index < 0)
-> +			BUG();
-[...]
-
-index is unsigned so it can't be < 0.  It looks like the loop condition
-should catch an out-of-range index, but really the range-checking should
-be done in the first loop.
-
-Ben.
-
--- 
-Ben Hutchings
-We get into the habit of living before acquiring the habit of thinking.
-                                                              - Albert Camus
+>    res = request_ihex_firmware(&fw, "atmsar11.fw", &dev->pci_dev->dev);
+>    if (res) {
+>      PRINTK (KERN_ERR, "Cannot load microcode data");
+> @@ -1937,6 +1937,7 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+>    /* First record contains just the start address */
+>    rec = (const struct ihex_binrec *)fw->data;
+>    if (be16_to_cpu(rec->len) != sizeof(__be32) || be32_to_cpu(rec->addr)) {
+> +    release_firmware(fw);
+>      PRINTK (KERN_ERR, "Bad microcode data (no start record)");
+>      return -EINVAL;
+>    }
+> @@ -1950,10 +1951,12 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+>      PRINTD (DBG_LOAD, "starting region (%x, %u)", be32_to_cpu(rec->addr),
+>  	    be16_to_cpu(rec->len));
+>      if (be16_to_cpu(rec->len) > 4 * MAX_TRANSFER_DATA) {
+> +	    release_firmware(fw);
+>  	    PRINTK (KERN_ERR, "Bad microcode data (record too long)");
+>  	    return -EINVAL;
+>      }
+>      if (be16_to_cpu(rec->len) & 3) {
+> +	    release_firmware(fw);
+>  	    PRINTK (KERN_ERR, "Bad microcode data (odd number of bytes)");
+>  	    return -EINVAL;
+>      }
+> 
+> 
+> 
