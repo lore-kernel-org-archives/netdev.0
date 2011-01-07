@@ -1,44 +1,54 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: [PATCH 2/3] dccp: fix bug in updating the GSR
-Date: Fri,  7 Jan 2011 12:35:29 +0100
-Message-ID: <1294400130-5604-3-git-send-email-gerrit@erg.abdn.ac.uk>
-References: <0110107112837.GA5315@gerrit.erg.abdn.ac.uk>
- <1294400130-5604-1-git-send-email-gerrit@erg.abdn.ac.uk>
- <1294400130-5604-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org,
-	Samuel Jero <sj323707@ohio.edu>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:57451 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751983Ab1AGLfp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jan 2011 06:35:45 -0500
-In-Reply-To: <1294400130-5604-2-git-send-email-gerrit@erg.abdn.ac.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: genetlink misinterprets NEW as GET
+Date: Fri, 07 Jan 2011 13:12:25 +0100
+Message-ID: <4D270329.3010702@netfilter.org>
+References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr> <4D25C82F.4010306@netfilter.org> <878vyyvtci.fsf@benpfaff.org> <4D266CE5.4000309@netfilter.org> <alpine.LNX.2.01.1101071033400.25363@obet.zrqbmnf.qr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Ben Pfaff <blp@nicira.com>,
+	Netfilter Developer Mailing List
+	<netfilter-devel@vger.kernel.org>,
+	Linux Networking Developer Mailing List
+	<netdev@vger.kernel.org>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1101071033400.25363@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Samuel Jero <sj323707@ohio.edu>
+On 07/01/11 10:38, Jan Engelhardt wrote:
+> 
+> On Friday 2011-01-07 02:31, Pablo Neira Ayuso wrote:
+>>>>> 	/* Modifiers to GET request */
+>>>>> 	#define NLM_F_ROOT      0x100
+>>>>> 	#define NLM_F_MATCH     0x200
+>>>>> 	#define NLM_F_ATOMIC    0x400
+>>>>> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
+>>> [...]
+>>>>> [N.B.: I am also wondering whether
+>>>>> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
+>>>>> may have been desired, because NLM_F_DUMP is composed of two bits.]
+>>>>
+>>>> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
+>>>> checking that you propose is not valid.
+>>>
+>>> Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
+>>> exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
+>>> dump operation?  Otherwise the test that Jan proposes looks valid
+>>> to me.
+>>
+>> Indeed, Jan's test is fine to fix this. Please, send a patch to Davem asap.
+> 
+> But that would still mean that a user sending a
+> NLM_F_REQUEST|NLM_F_REPLACE|NLM_F_EXCL message would be misinterpreted
+> as NLM_F_DUMP.
 
-Currently dccp_check_seqno allows any valid packet to update the Greatest
-Sequence Number Received, even if that packet's sequence number is less than
-the current GSR. This patch adds a check to make sure that the new packet's
-sequence number is greater than GSR.
+That flag combination does not make sense to me. Valid combinations are:
 
-Signed-off-by: Samuel Jero <sj323707@ohio.edu>
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/dccp.h |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
---- a/net/dccp/dccp.h
-+++ b/net/dccp/dccp.h
-@@ -426,7 +426,8 @@ static inline void dccp_update_gsr(struct sock *sk, u64 seq)
- {
- 	struct dccp_sock *dp = dccp_sk(sk);
- 
--	dp->dccps_gsr = seq;
-+	if (after48(seq, dp->dccps_gsr))
-+		dp->dccps_gsr = seq;
- 	/* Sequence validity window depends on remote Sequence Window (7.5.1) */
- 	dp->dccps_swl = SUB48(ADD48(dp->dccps_gsr, 1), dp->dccps_r_seq_win / 4);
- 	/*
+NLM_F_REQUEST|NLM_F_CREATE : if it does not exist, create it, if it
+exists, update it.
+NLM_F_REQUEST|NLM_F_CREATE|NLM_F_EXCL: if it does not exist, create it,
+if it exists, return -EEXIST.
+NLM_F_REQUEST|NLM_F_REPLACE: if it does not exist, return -ENOENT, if it
+exists, replace it.
