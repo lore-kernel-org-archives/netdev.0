@@ -1,56 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: About disabling congestion control
-Date: Fri, 07 Jan 2011 11:33:44 +0100
-Message-ID: <1294396424.3306.7.camel@edumazet-laptop>
-References: <AANLkTin53drsv18TZ0CPZM7==6G=rK6vScUb=SCQ4-xr@mail.gmail.com>
-	 <20110106173758.37bfef4d@nehalam>
-	 <AANLkTi=FLGM1z0VLH+WZXvF=7TZHtMhxLe+KRF3ojWR1@mail.gmail.com>
+From: Yann Dupont <Yann.Dupont@univ-nantes.fr>
+Subject: Re: possible issue between bridge igmp/multicast  handling & bnx2x
+ on kernel 2.6.34 and >
+Date: Fri, 07 Jan 2011 11:40:36 +0100
+Message-ID: <4D26EDA4.7060502@univ-nantes.fr>
+References: <4D23234E.30709@univ-nantes.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	Michael Kerrisk <mtk.manpages@gmail.com>
-To: Syed Obaid Amin <obaidasyed@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:58442 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751470Ab1AGKdt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 05:33:49 -0500
-Received: by wwa36 with SMTP id 36so18345973wwa.1
-        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 02:33:48 -0800 (PST)
-In-Reply-To: <AANLkTi=FLGM1z0VLH+WZXvF=7TZHtMhxLe+KRF3ojWR1@mail.gmail.com>
+Received: from smtp-tls1.univ-nantes.fr ([193.52.101.145]:58577 "EHLO
+	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751340Ab1AGKlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 05:41:46 -0500
+Received: from localhost (debian [127.0.0.1])
+	by smtp-tls.univ-nantes.fr (Postfix) with ESMTP id 709BC9540D
+	for <netdev@vger.kernel.org>; Fri,  7 Jan 2011 11:41:45 +0100 (CET)
+Received: from smtp-tls.univ-nantes.fr ([127.0.0.1])
+	by localhost (smtp-tls1.d101.univ-nantes.fr [127.0.0.1]) (amavisd-new, port 10024)
+	with LMTP id rGiB0H791LC9 for <netdev@vger.kernel.org>;
+	Fri,  7 Jan 2011 11:41:45 +0100 (CET)
+Received: from [172.20.13.9] (tomintoul.cri.univ-nantes.prive [172.20.13.9])
+	(using TLSv1 with cipher DHE-RSA-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by smtp-tls.univ-nantes.fr (Postfix) with ESMTPSA id 57B119540C
+	for <netdev@vger.kernel.org>; Fri,  7 Jan 2011 11:41:45 +0100 (CET)
+In-Reply-To: <4D23234E.30709@univ-nantes.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 07 janvier 2011 =C3=A0 05:04 -0500, Syed Obaid Amin a =C3=A9=
-crit :
-> Thanks for the reply. Yes I also thought to create a sort of NULL
-> congestion control type that does nothing. But this way the changes
-> would be system wide. BTW, would some one share the insight that why
-> linux uses sysctl to select a congestion control algorithm instead of
-> socket options.
+Le 04/01/2011 14:40, Yann Dupont a =E9crit :
+=2E..
+> We just added BCM57711 10G cards (bnx2x driver) on our blade servers=20
+> (connected to 10G Power Connect M8024).
+> Since then, we are experiencing random lost of packets.
+>
+> Symptom : packets are lost on some vlans for a few seconds, then=20
+> things go back to normal (and stops again a few minutes later)
+>
 
-Hmm, maybe "man 7 tcp" is not up2date.
+As I didn't had answer so far , I digged a little more and captured mor=
+e=20
+packets.
+I just noticed that an event trigger that problem : IPv6 neighbor=20
+discovery packet .
 
-It mentions TCP_CONGESTION once but doesnt describe it.
+This is , of course, a multicast packet.
 
-CC Michael Kerrisk <mtk.manpages@gmail.com> ;)
+Just saw that 2.6.36.3 should include this fix :
 
-http://www.kernel.org/doc/man-pages/online/pages/man7/tcp.7.html
+> From: David Stevens<dlstevens@us.ibm.com>
+>
+> [ Upstream commit 04bdf0c9a451863e50fff627713a900a2cabb998 ]
+>
+> This patch fixes a missing ntohs() for bridge IPv6 multicast snooping=
+=2E
+But in fact , I just tested, and this doesn't cure the problem :(
+
+This bug
+- only occurs with bnx2x with tagged vlans, attached to bridges. Other=20
+interfaces (bnx2 , for exemple) works fine. bnx2x without bridges works=
+=20
+fine.
+- only happens when bridge is compiled with CONFIG_BRIDGE_IGMP_SNOOPING=
+=20
+(default setting)
+- is triggered by IPv6 neighbor discovery packet. Just after that=20
+packet, others packets are discarded for some time.
+- packets originating from same vlans are not affected, only packets=20
+previously routed are discarded. Examinating those packets, I don't=20
+undersand why, apart TTL (and mac address), they seems similar .
+- has origin circa 2.6.33 :
+fe2d7c70b747d5d968f4e8fa210676d49d40059 is the first bad commit
+commit 3fe2d7c70b747d5d968f4e8fa210676d49d40059
+Author: Herbert Xu <herbert@gondor.apana.org.au>
+Date:   Sun Feb 28 00:49:38 2010 -0800
+
+     bridge: Add multicast start/stop hooks
+
+     This patch hooks up the bridge start/stop and add/delete/disable
+     port functions to the new multicast module.
+
+     Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+     Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
-Lets say you have a kernel with support for two congestion controls :
 
-# cat /proc/sys/net/ipv4/tcp_allowed_congestion_control
-cubic reno
-# cat /proc/sys/net/ipv4/tcp_congestion_control
-cubic
+What can I do to help fixing this bug ?
+regards,
 
-
-Therefore, default is cubic, but you can change to reno if you want.
-
-
-setsockopt(sock, SOL_TCP, TCP_CONGESTION, "reno", strlen("reno"));
-
-
+--=20
+Yann Dupont - Service IRTS, DSI Universit=E9 de Nantes
+Tel : 02.53.48.49.20 - Mail/Jabber : Yann.Dupont@univ-nantes.fr
 
