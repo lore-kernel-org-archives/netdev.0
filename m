@@ -1,99 +1,95 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Ben Hutchings <benh@debian.org>
 Subject: Re: [GIT] Networking
-Date: Fri, 7 Jan 2011 10:46:48 -0800
-Message-ID: <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
-References: <20110106.122003.233698077.davem@davemloft.net>
+Date: Fri, 7 Jan 2011 19:06:56 +0000
+Message-ID: <20110107190656.GQ3702@decadent.org.uk>
+References: <20110106.122003.233698077.davem@davemloft.net> <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
 	Hayes Wang <hayeswang@realtek.com>,
 	Francois Romieu <romieu@fr.zoreil.com>,
-	Ben Hutchings <benh@debian.org>,
-	David Woodhouse <dwmw2@infradead.org>
+	David Woodhouse <dwmw2@infradead.org>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110106.122003.233698077.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 6, 2011 at 12:20 PM, David Miller <davem@davemloft.net> wro=
-te:
->
-> Plus the usual spattering of wireless, bluetooth, and wired driver
-> updates.
+On Fri, Jan 07, 2011 at 10:46:48AM -0800, Linus Torvalds wrote:
+> On Thu, Jan 6, 2011 at 12:20 PM, David Miller <davem@davemloft.net> w=
+rote:
+> >
+> > Plus the usual spattering of wireless, bluetooth, and wired driver
+> > updates.
+>=20
+> Grr.
+>=20
+> This breaks booting for me.
+>=20
+> [torvalds@i5 linux]$ git bisect good
+> bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0 is the first bad commit
+> commit bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0
+> Author: fran=E7ois romieu <romieu@fr.zoreil.com>
+> Date:   Mon Jan 3 15:07:31 2011 +0000
+>=20
+>     r8169: remove the firmware of RTL8111D.
+>=20
+>     The binary file of the firmware is moved to linux-firmware reposi=
+tory.
+>     The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw=
+=2E
+>     The driver goes along if the firmware couldn't be found. However,=
+ it
+>     is suggested to be done with the suitable firmware.
+>=20
+>     Some wrong PHY parameters are directly corrected in the driver.
+>=20
+>     Simple firmware checking added per Ben Hutchings suggestion.
+>=20
+>     Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+>     Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>     Cc: Ben Hutchings <benh@debian.org>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>=20
+> and the behavior is very broken: it just hangs at boot-time. No
+> messages from the driver (certainly not any messages about missing
+> firmware), no nothing. The thing is just hung.
 
-Grr.
+This is because the driver is requesting firmware during probe, before
+there is a firmware agent available (maybe even before / is mounted?)
+rather than when the interface is brought up, as many other network
+drivers do.
 
-This breaks booting for me.
+At the very least, we ought to make firmware loading fail fast and
+noisily if this happens.
 
-[torvalds@i5 linux]$ git bisect good
-bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0 is the first bad commit
-commit bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0
-Author: fran=E7ois romieu <romieu@fr.zoreil.com>
-Date:   Mon Jan 3 15:07:31 2011 +0000
+[...]
+> Quite frankly, that commit looks broken anyway. It doesn't just switc=
+h
+> to the firmware loader, it also seems to change other things (ie
+> removed some mdio writes, added others).
 
-    r8169: remove the firmware of RTL8111D.
+There were some tables of PHY registers to poke that were a mixture of
+control register writes and transfer of firmware to the microcontroller=
+=2E
+Hayes and Francois have separated those out.
 
-    The binary file of the firmware is moved to linux-firmware reposito=
-ry.
-    The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw.
-    The driver goes along if the firmware couldn't be found. However, i=
-t
-    is suggested to be done with the suitable firmware.
+[...]
+> I bet I can make it work by making it a module, and installing the
+> firmware manually. But it's supposed to work even without that.
+=20
+Right.  This is very vaguely based on a patch I applied in Debian
+where we build r8169 as a module, and I don't think anyone reported
+this behaviour.
 
-    Some wrong PHY parameters are directly corrected in the driver.
+Ben.
 
-    Simple firmware checking added per Ben Hutchings suggestion.
-
-    Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-    Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-    Cc: Ben Hutchings <benh@debian.org>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-and the behavior is very broken: it just hangs at boot-time. No
-messages from the driver (certainly not any messages about missing
-firmware), no nothing. The thing is just hung.
-
-On a working setup, I have
-
-
-  [    1.595071] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-  [    1.595114] r8169 0000:01:00.0: PCI INT A -> GSI 19 (level, low) -=
-> IRQ 19
-  [    1.595174] r8169 0000:01:00.0: setting latency timer to 64
-  [    1.595227] r8169 0000:01:00.0: irq 42 for MSI/MSI-X
-  [    1.595770] r8169 0000:01:00.0: eth0: RTL8168d/8111d at
-0xffffc90000068000, e0:cb:4e:95:1a:d7, XID 083000c0 IRQ 42
-  ...
-  [    7.985917] r8169 0000:01:00.0: eth0: link up
-  [    7.987525] r8169 0000:01:00.0: eth0: link up
-
-while on a non-working setup, I get that XID line, and after that a
-few other init routines continue to show up (probably just
-multi-threaded initcalls), but the box is dead.
-
-Quite frankly, that commit looks broken anyway. It doesn't just switch
-to the firmware loader, it also seems to change other things (ie
-removed some mdio writes, added others).
-
-What's going on? This is NOT how things are supposed to happen. Yes,
-the firmware file is in the external linux-firmware repo, but that
-doesn't help if the kernel build won't even notice and pick it up (or
-warn about it not being found). Also, the external linux-firmware repo
-isn't even support any sane installation scripts, nor does it work
-with the "build automatically into the kernel" mode.
-
-We also have those CONFIG_FIRMWARE_IN_KERNEL and CONFIG_STANDALONE
-flags, and the build apparently failed both of those.
-
-Not acceptable. I'm ok with an external firmware repository, but only
-if it _works_. Right now it doesn't. It just seems to cause silent
-failures: there were no warnings about missing firmware at ANY time.
-Not build-time, not run-time.
-
-I bet I can make it work by making it a module, and installing the
-firmware manually. But it's supposed to work even without that.
-
-                             Linus
+--=20
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert =
+Camus
