@@ -1,150 +1,50 @@
-From: Maxim Levitsky <maximlevitsky@gmail.com>
-Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
- entries
-Date: Fri, 07 Jan 2011 15:15:43 +0200
-Message-ID: <1294406143.7674.1.camel@maxim-laptop>
-References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
-	 <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
-	 <1294404478.7674.0.camel@maxim-laptop>
-	 <1294405062.3306.11.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: POLLPRI/poll() behavior change since 2.6.31
+Date: Fri, 07 Jan 2011 14:31:45 +0100
+Message-ID: <1294407105.3306.32.camel@edumazet-laptop>
+References: <20110106155040.GA27769@libre.l.ngdn.org>
+	 <1294332929.3074.49.camel@edumazet-laptop>
+	 <alpine.DEB.2.00.1101061429080.4928@davide-lnx1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux1394-devel <linux1394-devel@lists.sourceforge.net>,
-	Stefan Richter <stefanr@s5r6.in-berlin.de>,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Leonardo Chiquitto <leonardo.lists@gmail.com>,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Davide Libenzi <davidel@xmailserver.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:39478 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752728Ab1AGNPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 08:15:45 -0500
-Received: by eye27 with SMTP id 27so7629086eye.19
-        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 05:15:44 -0800 (PST)
-In-Reply-To: <1294405062.3306.11.camel@edumazet-laptop>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63179 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752728Ab1AGNbv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 08:31:51 -0500
+Received: by wyb28 with SMTP id 28so17381765wyb.19
+        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 05:31:49 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1101061429080.4928@davide-lnx1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-01-07 at 13:57 +0100, Eric Dumazet wrote:
-> Le vendredi 07 janvier 2011 =C3=A0 14:47 +0200, Maxim Levitsky a =C3=A9=
-crit :
-> > On Mon, 2010-11-29 at 04:09 +0200, Maxim Levitsky wrote:
-> > > IPv4 over firewire needs to be able to remove ARP entries
-> > > from the ARP cache that belong to nodes that are removed, because
-> > > IPv4 over firewire uses ARP packets for private information
-> > > about nodes.
-> > >=20
-> > > This information becomes invalid as soon as node drops
-> > > off the bus and when it reconnects, its only possible
-> > > to start takling to is after it responded to an ARP packet.
-> > > But ARP cache prevents such packets from being sent.
-> > >=20
-> > > CC: netdev@vger.kernel.org
-> > > CC: "David S. Miller" <davem@davemloft.net>
-> > > CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> > > CC: James Morris <jmorris@namei.org>
-> > > CC: Patrick McHardy <kaber@trash.net>
-> >=20
-> > Anybody?
-> >=20
-> > Best regards,
-> > 	Maxim Levitsky
-> >=20
-> > >=20
-> > >=20
-> > > Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
-> > > ---
-> > >  include/net/arp.h |    1 +
-> > >  net/ipv4/arp.c    |   29 ++++++++++++++++++-----------
-> > >  2 files changed, 19 insertions(+), 11 deletions(-)
-> > >=20
-> > > diff --git a/include/net/arp.h b/include/net/arp.h
-> > > index f4cf6ce..91f0568 100644
-> > > --- a/include/net/arp.h
-> > > +++ b/include/net/arp.h
-> > > @@ -25,5 +25,6 @@ extern struct sk_buff *arp_create(int type, int=
- ptype, __be32 dest_ip,
-> > >  				  const unsigned char *src_hw,
-> > >  				  const unsigned char *target_hw);
-> > >  extern void arp_xmit(struct sk_buff *skb);
-> > > +int arp_invalidate(struct net_device *dev, __be32 ip);
-> > > =20
-> > >  #endif	/* _ARP_H */
-> > > diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-> > > index d8e540c..35b1272 100644
-> > > --- a/net/ipv4/arp.c
-> > > +++ b/net/ipv4/arp.c
-> > > @@ -1142,6 +1142,23 @@ static int arp_req_get(struct arpreq *r, s=
-truct net_device *dev)
-> > >  	return err;
-> > >  }
-> > > =20
-> > > +int arp_invalidate(struct net_device *dev, __be32 ip)
-> > > +{
-> > > +	int err =3D -ENXIO;
-> > > +	struct neighbour *neigh =3D neigh_lookup(&arp_tbl, &ip, dev);
-> > > +
-> > > +	if (neigh) {
-> > > +		if (neigh->nud_state & ~NUD_NOARP)
-> > > +			err =3D neigh_update(neigh, NULL, NUD_FAILED,
-> > > +					   NEIGH_UPDATE_F_OVERRIDE|
-> > > +					   NEIGH_UPDATE_F_ADMIN);
-> > > +		neigh_release(neigh);
-> > > +	}
-> > > +
-> > > +	return err;
-> > > +}
-> > > +EXPORT_SYMBOL(arp_invalidate);
-> > > +
-> > >  static int arp_req_delete_public(struct net *net, struct arpreq =
-*r,
-> > >  		struct net_device *dev)
-> > >  {
-> > > @@ -1162,7 +1179,6 @@ static int arp_req_delete(struct net *net, =
-struct arpreq *r,
-> > >  {
-> > >  	int err;
-> > >  	__be32 ip;
-> > > -	struct neighbour *neigh;
-> > > =20
-> > >  	if (r->arp_flags & ATF_PUBL)
-> > >  		return arp_req_delete_public(net, r, dev);
-> > > @@ -1180,16 +1196,7 @@ static int arp_req_delete(struct net *net,=
- struct arpreq *r,
-> > >  		if (!dev)
-> > >  			return -EINVAL;
-> > >  	}
-> > > -	err =3D -ENXIO;
-> > > -	neigh =3D neigh_lookup(&arp_tbl, &ip, dev);
-> > > -	if (neigh) {
-> > > -		if (neigh->nud_state & ~NUD_NOARP)
-> > > -			err =3D neigh_update(neigh, NULL, NUD_FAILED,
-> > > -					   NEIGH_UPDATE_F_OVERRIDE|
-> > > -					   NEIGH_UPDATE_F_ADMIN);
-> > > -		neigh_release(neigh);
-> > > -	}
-> > > -	return err;
-> > > +	return arp_invalidate(dev, ip);
-> > >  }
-> > > =20
-> > >  /*
-> >=20
+Le jeudi 06 janvier 2011 =C3=A0 14:40 -0800, Davide Libenzi a =C3=A9cri=
+t :
+> On Thu, 6 Jan 2011, Eric Dumazet wrote:
 >=20
-> Hi Maxim
+> > Hmm, this is because 	sock_def_readable() uses :
+> >=20
+> > wake_up_interruptible_sync_poll(&wq->wait, POLLIN | POLLRDNORM |
+> > POLLRDBAND);
+> >=20
+> > So POLLPRI bit is not signaled.=20
+> >=20
+> > I would just add POLLPRI flag in sock_def_readable()
+> >=20
+> > (Alternatively, define a tcp_def_readable() function to pass POLLPR=
+I
+> > only if TCP_URG is set, but is it worth the pain for a seldom used
+> > feature ?)
 >=20
-> You were supposed to respin your patch after my commit :
+> It would be kinda cleaner though, /me thinks.
 >=20
-> (941666c2e3e0f9f6a1 net: RCU conversion of dev_getbyhwaddr() and
-> arp_ioctl())
->=20
-> Thanks
 
+Yep, we'll do this in net-next-2.6 for 2.6.39 :)
 
-Will do very soon.
+Thanks !
 
-Best regards,
-	Maxim Levitsky
 
