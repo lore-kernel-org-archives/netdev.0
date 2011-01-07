@@ -1,126 +1,114 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
 Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid
  not used
-Date: Thu, 6 Jan 2011 19:24:59 -0800
-Message-ID: <20110107032459.GA17959@mcarlson.broadcom.com>
-References: <AANLkTikKkAesHc4Fi4SwAkV0e65D0TQRztrRYoDNu3MP@mail.gmail.com>
- <20101206222703.32fbe852@xenia.leun.net>
- <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
- <20101213224510.GB17400@mcarlson.broadcom.com>
- <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
- <20101214191500.GD19951@mcarlson.broadcom.com>
- <20101215012430.120fd47f@xenia.leun.net>
- <20101215013431.GA21173@mcarlson.broadcom.com>
- <20101215081606.18e12fc9@xenia.leun.net>
- <AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
+Date: Thu, 6 Jan 2011 19:41:30 -0800
+Message-ID: <20110107034130.GA18028@mcarlson.broadcom.com>
+References: <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
+ <1293984348.2535.101.camel@edumazet-laptop>
+ <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
+ <1294356887.2704.13.camel@edumazet-laptop>
+ <1294363201.2704.19.camel@edumazet-laptop>
+ <20110107022912.GA17757@mcarlson.broadcom.com>
+ <1294368071.2704.49.camel@edumazet-laptop>
+ <1294368202.2704.50.camel@edumazet-laptop>
+ <20110107025930.GA17808@mcarlson.broadcom.com>
+ <1294369486.2704.53.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael Leun" <lkml20101129@newton.leun.net>,
-	"Matthew Carlson" <mcarlson@broadcom.com>,
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Jesse Gross" <jesse@nicira.com>,
+	"Michael Leun" <lkml20101129@newton.leun.net>,
 	"Michael Chan" <mchan@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
 	"David Miller" <davem@davemloft.net>,
 	"Ben Greear" <greearb@candelatech.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Jesse Gross" <jesse@nicira.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:2450 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752819Ab1AGDll (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 22:41:41 -0500
+In-Reply-To: <1294369486.2704.53.camel@edumazet-laptop>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Dec 18, 2010 at 07:38:00PM -0800, Jesse Gross wrote:
-> On Tue, Dec 14, 2010 at 11:16 PM, Michael Leun
-> <lkml20101129@newton.leun.net> wrote:
-> > OK - all tests done on that DL320G5:
-> >
-> > For completeness, 2.6.37-rc5 unpatched:
-> >
-> > eth0, no vlan configured: totally broken - see double tagged vlans
-> > without tag, single or untagged packets missing at all
+On Thu, Jan 06, 2011 at 07:04:46PM -0800, Eric Dumazet wrote:
+> Le jeudi 06 janvier 2011 ?? 18:59 -0800, Matt Carlson a ??crit :
+> > On Thu, Jan 06, 2011 at 06:43:22PM -0800, Eric Dumazet wrote:
+> > > Le vendredi 07 janvier 2011 ?? 03:41 +0100, Eric Dumazet a ??crit :
+> > > > Le jeudi 06 janvier 2011 ?? 18:29 -0800, Matt Carlson a ??crit :
+> > > > 
+> > > > > Hi Eric.  Sorry for the delay.  I was under the impression that your
+> > > > > problems were software related and that you just needed a revised
+> > > > > version of these VLAN patches I was sending to Michael.  Is this not
+> > > > > true?
+> > > > > 
+> > > > > Having a hardware stat increment suggests this is a new problem.
+> > > > > Maybe I missed it, but I didn't see what hardware you are working
+> > > > > with and whether or not management firmware was enabled.  Could you tell
+> > > > > me that info?
+> > > > > 
+> > > > 
+> > > > Hi Matt
+> > > > 
+> > > > I started a bisection, because I couldnt sleep tonight anyway :(
+> > > > 
+> > > > 14:04.0 Ethernet controller: Broadcom Corporation NetXtreme BCM5715S
+> > > > Gigabit Ethernet (rev a3)
+> > > > 	Subsystem: Hewlett-Packard Company NC326m PCIe Dual Port Adapter
+> > > > 	Flags: bus master, 66MHz, medium devsel, latency 64, IRQ 43
+> > > > 	Memory at fdff0000 (64-bit, non-prefetchable) [size=64K]
+> > > > 	Memory at fdfe0000 (64-bit, non-prefetchable) [size=64K]
+> > > > 	[virtual] Expansion ROM at fdbe0000 [disabled] [size=128K]
+> > > > 	Capabilities: [40] PCI-X non-bridge device
+> > > > 	Capabilities: [48] Power Management version 2
+> > > > 	Capabilities: [50] Vital Product Data
+> > > > 	Capabilities: [58] MSI: Enable+ Count=1/8 Maskable- 64bit+
+> > > > 	Kernel driver in use: tg3
+> > > > 	Kernel modules: tg3
+> > > > 
+> > > > 
+> > > 
+> > > $ ethtool -i eth2
+> > > driver: tg3
+> > > version: 3.115
+> > > firmware-version: 5715s-v3.28
+> > > bus-info: 0000:14:04.0
+> > > $ dmesg | grep ASF
+> > > [    6.220577] tg3 0000:14:04.0: eth2: RXcsums[1] LinkChgREG[0] MIirq[0]
+> > > ASF[0] TSOcap[1]
+> > > [    6.228586] tg3 0000:14:04.1: eth3: RXcsums[1] LinkChgREG[0] MIirq[0]
+> > > ASF[0] TSOcap[1]
+> > 
+> > Thanks.  So management firmware is disabled.  This should be
+> > straightforward case.
+> > 
+> > I'm wondering if I'm misunderstanding something though.  You said earlier
+> > that VLAN tagging doesn't work unless you applied my patch.  Is this no
+> > longer true?
+> > 
 > 
-> Random behavior?  This one is somewhat hard to explain - maybe there
-> are some other factors.  eth0 has ASF on, so it always strips tags.  I
-> would expect it to behave like the vlan configured case.
-> 
-> >
-> > eth0, vlan configured: see packets without vlan tag (see double tagged
-> > packets with one vlan tag)
-> 
-> Both ASF and vlan group configured cause tag stripping to be enabled.
-> Missing tag.
-> 
-> >
-> > eth1 same as originally reported:
-> > without vlan configured see vlan tags (single and double tagged as
-> > expected)
-> 
-> No ASF and no vlan group means tag stripping is disabled.  Have tag.
-> 
-> > with vlan configured: see packets without vlan tag (see double tagged
-> > packets with one vlan tag)
-> 
-> Configuring vlan group causes stripping to be enabled.  Missing tag.
-> 
-> >
-> >
-> > 2.6.37-rc5, your tg3 use new vlan-code patch:
-> >
-> > eth0, no vlan configured: ?see packets without vlan tag (see double
-> > tagged packets with one vlan tag)
-> 
-> ASF enables tag stripping.  Missing tag.
-> 
-> > eth1, no vlan configured: see vlan tags (single and double tagged as
-> > expected)
-> 
-> No ASF, no vlan group means no stripping.  Have tag.
-> 
-> >
-> >
-> > eth0, vlan configured: as without vlan
-> 
-> ASF enables stripping.  Missing tag.
-> 
-> > eth1, vlan configured: as without vlan
-> 
-> With this patch vlan stripping is only enabled when ASF is on, so no
-> stripping.  Have tag.
-> 
-> >
-> > 2.6.37-rc5, your tg3 use new vlan-code patch with test patch ontop
-> >
-> > eth1 no vlan configured: see packets without vlan tag (see double tagged
-> > packets with one vlan tag)
-> 
-> With the second patch, vlan stripping is always enabled.  Missing tag.
-> 
-> > eth1 with vlan: the same
-> 
-> Stripping still always enabled.  Missing tag.
-> 
-> The bottom line is whenever vlan stripping is enabled we're missing
-> the outer tag.  It might be worth adding some debugging in the area
-> before napi_gro_receive/vlan_gro_receive (depending on version).  My
-> guess is that (desc->type_flags & RXD_FLAG_VLAN) is false even for
-> vlan packets on this NIC.
-> 
-> You said that everything works on the 5752?  Matt, is it possible that
-> the 5714 either has a problem with vlan stripping or a different way
-> of reporting it?
+> I dont apply your patch because Jesse said it was not a good patch ;)
 
-I don't think this is a 5714 specific issue.  I think the problem is
-rooted in the fact that the VLAN tag stripping is enabled.
+Oh.
 
-Your RXD_FLAG_VLAN idea sounds unlikely to me, but it's worth a check.
+> Maybe I missed something and it must be applied ? Problem is : current
+> Linus tree now includes net-next-2.6 and vlan doesnt work. You should
+> resubmit it perhaps ?
 
-The patch here is using __vlan_hwaccel_put_tag(), which informs the
-stack a VLAN tag is present.  If this is indeed a reporting problem, I'm
-not sure what else the driver should be doing.
+Yes, something needs to be submitted.  I want to make sure we aren't
+chasing the same problem though.  If the patch(es) fix your problem,
+then I can concentrate on finalizing the patch.
 
-> Also, why does ASF require vlan stripping?
+I can combine my last patch (the one that always enabled VLAN tag
+stripping) and the previous patch (that implements all your comments so
+far) into one patch, but that still leaves the behavior Michael noted
+unaddressed.
 
-This is a firmware limitation.
+Michael, did you ever find out whether or not RXD_FLAG_VLAN was being
+set?
+
