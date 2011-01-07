@@ -1,128 +1,226 @@
 From: jeffrey.t.kirsher@intel.com
-Subject: [net-next 06/12] e1000e: add custom set_d[0|3]_lplu_state function pointer for 82574
-Date: Thu,  6 Jan 2011 16:29:53 -0800
-Message-ID: <1294360199-9860-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/12] ixgb: convert to new VLAN model
+Date: Thu,  6 Jan 2011 16:29:55 -0800
+Message-ID: <1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gosp@redhat.com, bphilips@novell.com,
+	Jesse Gross <jesse@nicira.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:33065 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:39818 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753997Ab1AGAat (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 19:30:49 -0500
+	id S1754024Ab1AGAau (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 19:30:50 -0500
 To: davem@davemloft.net
 In-Reply-To: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-82574 needs to configure Low Power Link Up (or LPLU) differently than
-the other parts in the 8257x family supported by the driver.
+Based on a patch from Jesse Gross <jesse@nicira.com>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Emil Tantilov <emil.s.tantilov@intel.com>
+This switches the ixgb driver to use the new VLAN interfaces.
+In doing this, it completes the work begun in
+ae54496f9e8d40c89e5668205c181dccfa9ecda1 allowing the use of
+hardware VLAN insertion without having a VLAN group configured.
+
+CC: Jesse Gross <jesse@nicira.com>
+Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
+Tested-by: Jeff Pieper jeffrey.e.pieper@intel.com
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/82571.c |   56 ++++++++++++++++++++++++++++++++++++++++++++
- drivers/net/e1000e/hw.h    |    1 +
- 2 files changed, 57 insertions(+), 0 deletions(-)
+ drivers/net/ixgb/ixgb.h         |    2 +-
+ drivers/net/ixgb/ixgb_ethtool.c |   35 +++++++++++++++++++++++++
+ drivers/net/ixgb/ixgb_main.c    |   54 ++++++++------------------------------
+ 3 files changed, 48 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/e1000e/82571.c b/drivers/net/e1000e/82571.c
-index 11a273e..cb6c7b1 100644
---- a/drivers/net/e1000e/82571.c
-+++ b/drivers/net/e1000e/82571.c
-@@ -78,6 +78,8 @@ static void e1000_power_down_phy_copper_82571(struct e1000_hw *hw);
- static void e1000_put_hw_semaphore_82573(struct e1000_hw *hw);
- static s32 e1000_get_hw_semaphore_82574(struct e1000_hw *hw);
- static void e1000_put_hw_semaphore_82574(struct e1000_hw *hw);
-+static s32 e1000_set_d0_lplu_state_82574(struct e1000_hw *hw, bool active);
-+static s32 e1000_set_d3_lplu_state_82574(struct e1000_hw *hw, bool active);
+diff --git a/drivers/net/ixgb/ixgb.h b/drivers/net/ixgb/ixgb.h
+index 521c0c7..8f3df04 100644
+--- a/drivers/net/ixgb/ixgb.h
++++ b/drivers/net/ixgb/ixgb.h
+@@ -149,7 +149,7 @@ struct ixgb_desc_ring {
  
- /**
-  *  e1000_init_phy_params_82571 - Init PHY func ptrs.
-@@ -113,6 +115,8 @@ static s32 e1000_init_phy_params_82571(struct e1000_hw *hw)
- 		phy->type		 = e1000_phy_bm;
- 		phy->ops.acquire = e1000_get_hw_semaphore_82574;
- 		phy->ops.release = e1000_put_hw_semaphore_82574;
-+		phy->ops.set_d0_lplu_state = e1000_set_d0_lplu_state_82574;
-+		phy->ops.set_d3_lplu_state = e1000_set_d3_lplu_state_82574;
- 		break;
- 	default:
- 		return -E1000_ERR_PHY;
-@@ -656,6 +660,58 @@ static void e1000_put_hw_semaphore_82574(struct e1000_hw *hw)
+ struct ixgb_adapter {
+ 	struct timer_list watchdog_timer;
+-	struct vlan_group *vlgrp;
++	unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
+ 	u32 bd_number;
+ 	u32 rx_buffer_len;
+ 	u32 part_num;
+diff --git a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
+index 43994c1..1294161 100644
+--- a/drivers/net/ixgb/ixgb_ethtool.c
++++ b/drivers/net/ixgb/ixgb_ethtool.c
+@@ -706,6 +706,39 @@ ixgb_get_strings(struct net_device *netdev, u32 stringset, u8 *data)
+ 	}
  }
  
- /**
-+ *  e1000_set_d0_lplu_state_82574 - Set Low Power Linkup D0 state
-+ *  @hw: pointer to the HW structure
-+ *  @active: true to enable LPLU, false to disable
-+ *
-+ *  Sets the LPLU D0 state according to the active flag.
-+ *  LPLU will not be activated unless the
-+ *  device autonegotiation advertisement meets standards of
-+ *  either 10 or 10/100 or 10/100/1000 at all duplexes.
-+ *  This is a function pointer entry point only called by
-+ *  PHY setup routines.
-+ **/
-+static s32 e1000_set_d0_lplu_state_82574(struct e1000_hw *hw, bool active)
++static int ixgb_set_flags(struct net_device *netdev, u32 data)
 +{
-+	u16 data = er32(POEMB);
++	struct ixgb_adapter *adapter = netdev_priv(netdev);
++	bool need_reset;
++	int rc;
 +
-+	if (active)
-+		data |= E1000_PHY_CTRL_D0A_LPLU;
-+	else
-+		data &= ~E1000_PHY_CTRL_D0A_LPLU;
++	/* 
++	 * TX vlan insertion does not work per HW design when Rx stripping is
++	 * disabled.  Disable txvlan when rxvlan is off.
++	 */
++	if ((data & ETH_FLAG_RXVLAN) != (netdev->features & NETIF_F_HW_VLAN_RX))
++		data ^= ETH_FLAG_TXVLAN;
 +
-+	ew32(POEMB, data);
-+	return 0;
-+}
++	need_reset = (data & ETH_FLAG_RXVLAN) !=
++		     (netdev->features & NETIF_F_HW_VLAN_RX);
 +
-+/**
-+ *  e1000_set_d3_lplu_state_82574 - Sets low power link up state for D3
-+ *  @hw: pointer to the HW structure
-+ *  @active: boolean used to enable/disable lplu
-+ *
-+ *  The low power link up (lplu) state is set to the power management level D3
-+ *  when active is true, else clear lplu for D3. LPLU
-+ *  is used during Dx states where the power conservation is most important.
-+ *  During driver activity, SmartSpeed should be enabled so performance is
-+ *  maintained.
-+ **/
-+static s32 e1000_set_d3_lplu_state_82574(struct e1000_hw *hw, bool active)
-+{
-+	u16 data = er32(POEMB);
++	rc = ethtool_op_set_flags(netdev, data, ETH_FLAG_RXVLAN |
++						ETH_FLAG_TXVLAN);
++	if (rc)
++		return rc;
 +
-+	if (!active) {
-+		data &= ~E1000_PHY_CTRL_NOND0A_LPLU;
-+	} else if ((hw->phy.autoneg_advertised == E1000_ALL_SPEED_DUPLEX) ||
-+		   (hw->phy.autoneg_advertised == E1000_ALL_NOT_GIG) ||
-+		   (hw->phy.autoneg_advertised == E1000_ALL_10_SPEED)) {
-+		data |= E1000_PHY_CTRL_NOND0A_LPLU;
++	if (need_reset) {
++		if (netif_running(netdev)) {
++			ixgb_down(adapter, true);
++			ixgb_up(adapter);
++			ixgb_set_speed_duplex(netdev);
++		} else
++			ixgb_reset(adapter);
 +	}
 +
-+	ew32(POEMB, data);
 +	return 0;
 +}
 +
-+/**
-  *  e1000_acquire_nvm_82571 - Request for access to the EEPROM
-  *  @hw: pointer to the HW structure
-  *
-diff --git a/drivers/net/e1000e/hw.h b/drivers/net/e1000e/hw.h
-index ba302a5..e774380 100644
---- a/drivers/net/e1000e/hw.h
-+++ b/drivers/net/e1000e/hw.h
-@@ -83,6 +83,7 @@ enum e1e_registers {
- 	E1000_EXTCNF_CTRL  = 0x00F00, /* Extended Configuration Control */
- 	E1000_EXTCNF_SIZE  = 0x00F08, /* Extended Configuration Size */
- 	E1000_PHY_CTRL     = 0x00F10, /* PHY Control Register in CSR */
-+#define E1000_POEMB	E1000_PHY_CTRL	/* PHY OEM Bits */
- 	E1000_PBA      = 0x01000, /* Packet Buffer Allocation - RW */
- 	E1000_PBS      = 0x01008, /* Packet Buffer Size */
- 	E1000_EEMNGCTL = 0x01010, /* MNG EEprom Control */
+ static const struct ethtool_ops ixgb_ethtool_ops = {
+ 	.get_settings = ixgb_get_settings,
+ 	.set_settings = ixgb_set_settings,
+@@ -732,6 +765,8 @@ static const struct ethtool_ops ixgb_ethtool_ops = {
+ 	.phys_id = ixgb_phys_id,
+ 	.get_sset_count = ixgb_get_sset_count,
+ 	.get_ethtool_stats = ixgb_get_ethtool_stats,
++	.get_flags = ethtool_op_get_flags,
++	.set_flags = ixgb_set_flags,
+ };
+ 
+ void ixgb_set_ethtool_ops(struct net_device *netdev)
+diff --git a/drivers/net/ixgb/ixgb_main.c b/drivers/net/ixgb/ixgb_main.c
+index 5639ccc..0f681ac 100644
+--- a/drivers/net/ixgb/ixgb_main.c
++++ b/drivers/net/ixgb/ixgb_main.c
+@@ -100,8 +100,6 @@ static void ixgb_tx_timeout_task(struct work_struct *work);
+ 
+ static void ixgb_vlan_strip_enable(struct ixgb_adapter *adapter);
+ static void ixgb_vlan_strip_disable(struct ixgb_adapter *adapter);
+-static void ixgb_vlan_rx_register(struct net_device *netdev,
+-                                  struct vlan_group *grp);
+ static void ixgb_vlan_rx_add_vid(struct net_device *netdev, u16 vid);
+ static void ixgb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid);
+ static void ixgb_restore_vlan(struct ixgb_adapter *adapter);
+@@ -336,7 +334,6 @@ static const struct net_device_ops ixgb_netdev_ops = {
+ 	.ndo_set_mac_address	= ixgb_set_mac,
+ 	.ndo_change_mtu		= ixgb_change_mtu,
+ 	.ndo_tx_timeout		= ixgb_tx_timeout,
+-	.ndo_vlan_rx_register	= ixgb_vlan_rx_register,
+ 	.ndo_vlan_rx_add_vid	= ixgb_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= ixgb_vlan_rx_kill_vid,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -1508,7 +1505,7 @@ ixgb_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
+                      DESC_NEEDED)))
+ 		return NETDEV_TX_BUSY;
+ 
+-	if (adapter->vlgrp && vlan_tx_tag_present(skb)) {
++	if (vlan_tx_tag_present(skb)) {
+ 		tx_flags |= IXGB_TX_FLAGS_VLAN;
+ 		vlan_id = vlan_tx_tag_get(skb);
+ 	}
+@@ -2049,12 +2046,11 @@ ixgb_clean_rx_irq(struct ixgb_adapter *adapter, int *work_done, int work_to_do)
+ 		ixgb_rx_checksum(adapter, rx_desc, skb);
+ 
+ 		skb->protocol = eth_type_trans(skb, netdev);
+-		if (adapter->vlgrp && (status & IXGB_RX_DESC_STATUS_VP)) {
+-			vlan_hwaccel_receive_skb(skb, adapter->vlgrp,
+-			                        le16_to_cpu(rx_desc->special));
+-		} else {
+-			netif_receive_skb(skb);
+-		}
++		if (status & IXGB_RX_DESC_STATUS_VP)
++			__vlan_hwaccel_put_tag(skb,
++					       le16_to_cpu(rx_desc->special));
++
++		netif_receive_skb(skb);
+ 
+ rxdesc_done:
+ 		/* clean up descriptor, might be written over by hw */
+@@ -2152,20 +2148,6 @@ map_skb:
+ 	}
+ }
+ 
+-/**
+- * ixgb_vlan_rx_register - enables or disables vlan tagging/stripping.
+- *
+- * @param netdev network interface device structure
+- * @param grp indicates to enable or disable tagging/stripping
+- **/
+-static void
+-ixgb_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
+-{
+-	struct ixgb_adapter *adapter = netdev_priv(netdev);
+-
+-	adapter->vlgrp = grp;
+-}
+-
+ static void
+ ixgb_vlan_strip_enable(struct ixgb_adapter *adapter)
+ {
+@@ -2200,6 +2182,7 @@ ixgb_vlan_rx_add_vid(struct net_device *netdev, u16 vid)
+ 	vfta = IXGB_READ_REG_ARRAY(&adapter->hw, VFTA, index);
+ 	vfta |= (1 << (vid & 0x1F));
+ 	ixgb_write_vfta(&adapter->hw, index, vfta);
++	set_bit(vid, adapter->active_vlans);
+ }
+ 
+ static void
+@@ -2208,35 +2191,22 @@ ixgb_vlan_rx_kill_vid(struct net_device *netdev, u16 vid)
+ 	struct ixgb_adapter *adapter = netdev_priv(netdev);
+ 	u32 vfta, index;
+ 
+-	ixgb_irq_disable(adapter);
+-
+-	vlan_group_set_device(adapter->vlgrp, vid, NULL);
+-
+-	/* don't enable interrupts unless we are UP */
+-	if (adapter->netdev->flags & IFF_UP)
+-		ixgb_irq_enable(adapter);
+-
+ 	/* remove VID from filter table */
+ 
+ 	index = (vid >> 5) & 0x7F;
+ 	vfta = IXGB_READ_REG_ARRAY(&adapter->hw, VFTA, index);
+ 	vfta &= ~(1 << (vid & 0x1F));
+ 	ixgb_write_vfta(&adapter->hw, index, vfta);
++	clear_bit(vid, adapter->active_vlans);
+ }
+ 
+ static void
+ ixgb_restore_vlan(struct ixgb_adapter *adapter)
+ {
+-	ixgb_vlan_rx_register(adapter->netdev, adapter->vlgrp);
+-
+-	if (adapter->vlgrp) {
+-		u16 vid;
+-		for (vid = 0; vid < VLAN_N_VID; vid++) {
+-			if (!vlan_group_get_device(adapter->vlgrp, vid))
+-				continue;
+-			ixgb_vlan_rx_add_vid(adapter->netdev, vid);
+-		}
+-	}
++	u16 vid;
++
++	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
++		ixgb_vlan_rx_add_vid(adapter->netdev, vid);
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
 -- 
 1.7.3.4
 
