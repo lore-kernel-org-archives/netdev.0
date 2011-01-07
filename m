@@ -1,51 +1,43 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
-Date: Fri, 7 Jan 2011 10:41:18 -0500
-Message-ID: <AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
-References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V8 09/13] posix clocks: introduce dynamic clocks
+Date: Fri, 7 Jan 2011 17:41:49 +0100
+Message-ID: <20110107164149.GA8666@riccoc20.at.omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+ <c28004fc5d121c1dd5f842550663fc9d6f55a114.1293820862.git.richard.cochran@omicron.at>
+ <201101062056.22423.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, Emil Tantilov <emil.s.tantilov@intel.com>,
-	netdev@vger.kernel.org, gosp@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:51997 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753484Ab1AGPlT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 10:41:19 -0500
-Received: by pzk35 with SMTP id 35so1981386pzk.19
-        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 07:41:19 -0800 (PST)
-In-Reply-To: <1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:53583 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753989Ab1AGQl4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 11:41:56 -0500
+Content-Disposition: inline
+In-Reply-To: <201101062056.22423.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 6, 2011 at 7:29 PM,  <jeffrey.t.kirsher@intel.com> wrote:
-> +static int ixgb_set_flags(struct net_device *netdev, u32 data)
-> +{
-> + =A0 =A0 =A0 struct ixgb_adapter *adapter =3D netdev_priv(netdev);
-> + =A0 =A0 =A0 bool need_reset;
-> + =A0 =A0 =A0 int rc;
-> +
-> + =A0 =A0 =A0 /*
-> + =A0 =A0 =A0 =A0* TX vlan insertion does not work per HW design when=
- Rx stripping is
-> + =A0 =A0 =A0 =A0* disabled. =A0Disable txvlan when rxvlan is off.
-> + =A0 =A0 =A0 =A0*/
-> + =A0 =A0 =A0 if ((data & ETH_FLAG_RXVLAN) !=3D (netdev->features & N=
-ETIF_F_HW_VLAN_RX))
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 data ^=3D ETH_FLAG_TXVLAN;
+On Thu, Jan 06, 2011 at 08:56:22PM +0100, Arnd Bergmann wrote:
+> It should be just a trivial change and just affect how easy it is for
+> other people to understand the code if they are already familiar
+> with other kernel code.
+ 
+Okay, I'll get right on it.
 
-Does this really do the right thing?  If the RX vlan setting is
-changed, it will do the opposite of what the user requested for TX
-vlan?
+> Overall, your series looks really good now, it would be nice if this
+> could still make it into 2.6.38.
 
-So if I start with both on (the default) and turn them both off in one
-command (a valid setting), I will get RX off and TX on (an invalid
-setting).
+Yes, that would be great.
 
-Why not:
-
-if (!(data & ETH_FLAG_RXVLAN))
-=A0 =A0 =A0 =A0 data &=3D ~ETH_FLAG_TXVLAN;
+Thanks,
+Richard
