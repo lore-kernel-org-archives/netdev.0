@@ -1,91 +1,40 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH] Madge Ambassador ATM Adapter driver: Always
- release_firmware() in ucode_init() and don't leak memory.
-Date: Fri, 7 Jan 2011 10:02:39 -0500
-Message-ID: <20110107100239.28032e5d@thirdoffive.cmf.nrl.navy.mil>
-References: <alpine.LNX.2.00.1101062203160.13988@swampdragon.chaosbits.net>
+From: Janne Karhunen <janne.karhunen@gmail.com>
+Subject: Re: via-velocity: corrupted mac, deadlock on link
+Date: Fri, 7 Jan 2011 17:31:07 +0200
+Message-ID: <AANLkTikFik4t8Vu8CkUWCCR5yZ4cpVdEdP9qPHT3DQBQ@mail.gmail.com>
+References: <AANLkTi=SV=_s3ViveEX4e2FpEGKK+w6BiGs=QYCsgPsv@mail.gmail.com>
+	<20110106125822.70a85e0a@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1101062203160.13988@swampdragon.chaosbits.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:63070 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751748Ab1AGPbI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 10:31:08 -0500
+Received: by pxi15 with SMTP id 15so3080883pxi.19
+        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 07:31:07 -0800 (PST)
+In-Reply-To: <20110106125822.70a85e0a@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-instead of duplicating the same section again and again, could you
-write something like:
+On Thu, Jan 6, 2011 at 10:58 PM, Stephen Hemminger
+<shemminger@vyatta.com> wrote:
 
-	errmsg = "no start record";
-	goto fail;
+> To debug, remove the udev rule that does renaming
+> =A0cd /lib/udev
+> =A0mkdir save; mv rules.d/75-persistent-net-generator-rules save
+> and remove any rules
+> =A0rm /etc/udev/70-persistent-net.rules
+>
+> Then after bootup you can debug problem.
 
-	...
+Yeah.. before wasting anyones time with this, will have the
+board replaced just in case. Looks suspicious enough already.
+Thanks.
 
-	errmsg = "record to long"
-	goto fail;
 
-	.... whatever ...
-
-	return 0;
-
-fail:
-	release_firmware(fw)
-	PRINTK(KERN_ERR, "Bad microcode data (%s)\n", errmsg);
-	return -EINVAL;
-}
-
-On Thu, 6 Jan 2011 22:06:37 +0100 (CET)
-Jesper Juhl <jj@chaosbits.net> wrote:
-
-> 
-> Failure to call release_firmware() will result in memory leak in 
-> drivers/atm/ambassador.c::ucode_init().
-> This patch makes sure we always call release_firmware() when needed, thus 
-> removing the leak(s).
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> ---
->  ambassador.c |    5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
->   Compile tested only since I have no way to actually test this.
-> 
-> diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
-> index ffe9b65..ab56539 100644
-> --- a/drivers/atm/ambassador.c
-> +++ b/drivers/atm/ambassador.c
-> @@ -1927,7 +1927,7 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
->    unsigned long start_address;no start record
->    const struct ihex_binrec *rec;
->    int res;
-> -  
-> +
->    res = request_ihex_firmware(&fw, "atmsar11.fw", &dev->pci_dev->dev);
->    if (res) {
->      PRINTK (KERN_ERR, "Cannot load microcode data");
-> @@ -1937,6 +1937,7 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
->    /* First record contains just the start address */
->    rec = (const struct ihex_binrec *)fw->data;
->    if (be16_to_cpu(rec->len) != sizeof(__be32) || be32_to_cpu(rec->addr)) {
-> +    release_firmware(fw);
->      PRINTK (KERN_ERR, "Bad microcode data (no start record)");
->      return -EINVAL;
->    }
-> @@ -1950,10 +1951,12 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
->      PRINTD (DBG_LOAD, "starting region (%x, %u)", be32_to_cpu(rec->addr),
->  	    be16_to_cpu(rec->len));
->      if (be16_to_cpu(rec->len) > 4 * MAX_TRANSFER_DATA) {
-> +	    release_firmware(fw);
->  	    PRINTK (KERN_ERR, "Bad microcode data (record too long)");
->  	    return -EINVAL;
->      }
->      if (be16_to_cpu(rec->len) & 3) {
-> +	    release_firmware(fw);
->  	    PRINTK (KERN_ERR, "Bad microcode data (odd number of bytes)");
->  	    return -EINVAL;
->      }
-> 
-> 
-> 
+--=20
+// Janne
