@@ -1,71 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bad TCP timestamps on non-PC platforms
-Date: Fri, 07 Jan 2011 03:11:21 +0100
-Message-ID: <1294366281.2704.36.camel@edumazet-laptop>
-References: <117536.54377.qm@web37607.mail.mud.yahoo.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid
+ not used
+Date: Thu, 6 Jan 2011 18:29:12 -0800
+Message-ID: <20110107022912.GA17757@mcarlson.broadcom.com>
+References: <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
+ <20101213224510.GB17400@mcarlson.broadcom.com>
+ <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
+ <20101214191500.GD19951@mcarlson.broadcom.com>
+ <1293901393.2535.49.camel@edumazet-laptop>
+ <AANLkTinq9ABi0prxe0m1Ma6rno4UnAOzuW-b5L362ij9@mail.gmail.com>
+ <1293984348.2535.101.camel@edumazet-laptop>
+ <AANLkTincX-wPQE9gs16v53E4=Skivzc4ZSJS43oNBLD_@mail.gmail.com>
+ <1294356887.2704.13.camel@edumazet-laptop>
+ <1294363201.2704.19.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Alex Dubov <oakad@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:63324 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756876Ab1AGCL0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 21:11:26 -0500
-Received: by wyb28 with SMTP id 28so16992713wyb.19
-        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 18:11:24 -0800 (PST)
-In-Reply-To: <117536.54377.qm@web37607.mail.mud.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Jesse Gross" <jesse@nicira.com>,
+	"Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Leun" <lkml20101129@newton.leun.net>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Ben Greear" <greearb@candelatech.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294363201.2704.19.camel@edumazet-laptop>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 06 janvier 2011 =C3=A0 17:55 -0800, Alex Dubov a =C3=A9crit :
-> Sorry for the awful synopsis of my problem. I never cease to amaze my=
-self
-> at how bad those usually turn up. :-)
->=20
-> What I really meant to write is:
->=20
-> I have a dev board running 2.6.37-rc7. Normal kernel config, nothing =
-fancy.
-> Remote machines are just usual linux boxes in constant operation (I t=
-ried
-> several of those).
->=20
-> UDP/DHCP works correctly all the time, so ethernet side is probably o=
-k.
->=20
-> When tcp_timestamps are enabled, SYN packets from dev board just get
-> ignored by the remote side. I see them arrive in wireshark, but nothi=
-ng
-> else happens.
->=20
-> When I disable tcp_timestamps on the dev board everything works.
->=20
-> The problem is reproducible every single time.
->=20
-> The only difference is the "Options" block of the SYN packets.
-> If timestamps are not really to blame, then it probably window scale
-> parameters. That's what I see on a usual dropped packet:
->=20
-> Options: (20 bytes)
->         Maximum segment size: 1460 bytes
->         SACK permitted
->         Timestamps: TSval 4294893842, TSecr 0
->         NOP
->         Window scale: 5 (multiply by 32)
->=20
->=20
->=20
->      =20
+On Thu, Jan 06, 2011 at 05:20:01PM -0800, Eric Dumazet wrote:
+> Le vendredi 07 janvier 2011 ?? 00:34 +0100, Eric Dumazet a ??crit :
+> > Le jeudi 06 janvier 2011 ?? 16:01 -0500, Jesse Gross a ??crit :
+> > 
+> > > Hmm, I thought that it might be some interaction with a corner case in
+> > > the networking core but now it seems less likely.  There weren't too
+> > > many vlan changes between the working and non-working states.  Plus,
+> > > since the rx counter isn't increasing, the packets probably aren't
+> > > making it anywhere.
+> > > 
+> > > I see that tg3 increases the drop counter in one place, which also
+> > > happens to be checking for vlan errors (at tg3.c:4753).  That seems
+> > > suspicious - maybe the NIC is only partially configured for vlan
+> > > offloading.  If we can confirm that is where the drop counter is being
+> > > incremented and what the error code is maybe it would shed some light.
+> > > 
+> > 
+> > Hmm... I am pretty sure the drop counter is the dev rx_dropped (core
+> > network handled, not tg3 one) incremented at the end of
+> > __netif_receive_skb() : We found no suitable handler for packets.
+> > 
+> > atomic_long_inc(&skb->dev->rx_dropped);
+> > 
+> > But thats a guess, I'll have to check
+> > 
+> 
+> wrong guess. Its really the tg3 which drops frames
+> 
+> increasing rx_missed_errors  (get_stat64(&hw_stats->rx_discards)
+> 
+> ip -s -s link show dev eth2
+> 5: eth2: <BROADCAST,MULTICAST,SLAVE,UP,LOWER_UP> mtu 1500 qdisc mq
+> master bond0 state UP qlen 1000
+>     link/ether 00:1e:0b:92:78:50 brd ff:ff:ff:ff:ff:ff
+>     RX: bytes  packets  errors  dropped overrun mcast   
+>     11627      167      0       0       0       2      
+>     RX errors: length  crc     frame   fifo    missed
+>                0        0       0       0       2713   
+>     TX: bytes  packets  errors  dropped carrier collsns 
+>     2274       31       0       0       0       0      
+>     TX errors: aborted fifo    window  heartbeat
+>                0        0       0       0      
+> 
+> 
+> 
+> It would be nice Broadcom guys could help a bit ?
 
+Hi Eric.  Sorry for the delay.  I was under the impression that your
+problems were software related and that you just needed a revised
+version of these VLAN patches I was sending to Michael.  Is this not
+true?
 
-You dont give new informations ;)
-
-I asked if you could give information on the other side : The bug is to
-drop this legal packet.
-
-uname -a
-sysctl -a | grep tcp
-
-
+Having a hardware stat increment suggests this is a new problem.
+Maybe I missed it, but I didn't see what hardware you are working
+with and whether or not management firmware was enabled.  Could you tell
+me that info?
