@@ -1,115 +1,181 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 7 Jan 2011 22:13:54 +0100
-Message-ID: <20110107211354.GA1862@electric-eye.fr.zoreil.com>
-References: <20110106.122003.233698077.davem@davemloft.net> <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-next-2.6 PATCH v6 1/2] net: implement mechanism for HW based
+ QOS
+Date: Fri, 07 Jan 2011 14:48:13 -0800
+Message-ID: <4D27982D.6080002@intel.com>
+References: <20110107031211.2446.35715.stgit@jf-dev1-dcblab> <20110107214645.GB2050@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Hayes Wang <hayeswang@realtek.com>,
-	Ben Hutchings <benh@debian.org>,
-	David Woodhouse <dwmw2@infradead.org>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57240 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753232Ab1AGWeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 17:34:03 -0500
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com>
+Received: from mga03.intel.com ([143.182.124.21]:57713 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754914Ab1AGWsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jan 2011 17:48:15 -0500
+In-Reply-To: <20110107214645.GB2050@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Linus Torvalds <torvalds@linux-foundation.org> :
-> On Thu, Jan 6, 2011 at 12:20 PM, David Miller <davem@davemloft.net> wrote:
-> >
-> > Plus the usual spattering of wireless, bluetooth, and wired driver
-> > updates.
+On 1/7/2011 1:46 PM, Jarek Poplawski wrote:
+> On Thu, Jan 06, 2011 at 07:12:11PM -0800, John Fastabend wrote:
+>> This patch provides a mechanism for lower layer devices to
+>> steer traffic using skb->priority to tx queues. This allows
+>> for hardware based QOS schemes to use the default qdisc without
+>> incurring the penalties related to global state and the qdisc
+>> lock. While reliably receiving skbs on the correct tx ring
+>> to avoid head of line blocking resulting from shuffling in
+>> the LLD. Finally, all the goodness from txq caching and xps/rps
+>> can still be leveraged.
+>>
+>> Many drivers and hardware exist with the ability to implement
+>> QOS schemes in the hardware but currently these drivers tend
+>> to rely on firmware to reroute specific traffic, a driver
+>> specific select_queue or the queue_mapping action in the
+>> qdisc.
+>>
+>> By using select_queue for this drivers need to be updated for
+>> each and every traffic type and we lose the goodness of much
+>> of the upstream work. Firmware solutions are inherently
+>> inflexible. And finally if admins are expected to build a
+>> qdisc and filter rules to steer traffic this requires knowledge
+>> of how the hardware is currently configured. The number of tx
+>> queues and the queue offsets may change depending on resources.
+>> Also this approach incurs all the overhead of a qdisc with filters.
+>>
+>> With the mechanism in this patch users can set skb priority using
+>> expected methods ie setsockopt() or the stack can set the priority
+>> directly. Then the skb will be steered to the correct tx queues
+>> aligned with hardware QOS traffic classes. In the normal case with
+>> a single traffic class and all queues in this class everything
+>> works as is until the LLD enables multiple tcs.
+>>
+>> To steer the skb we mask out the lower 4 bits of the priority
+>> and allow the hardware to configure upto 15 distinct classes
+>> of traffic. This is expected to be sufficient for most applications
+>> at any rate it is more then the 8021Q spec designates and is
+>> equal to the number of prio bands currently implemented in
+>> the default qdisc.
+>>
+>> This in conjunction with a userspace application such as
+>> lldpad can be used to implement 8021Q transmission selection
+>> algorithms one of these algorithms being the extended transmission
+>> selection algorithm currently being used for DCB.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>
+>>  include/linux/netdevice.h |   65 +++++++++++++++++++++++++++++++++++++++++++++
+>>  net/core/dev.c            |   52 +++++++++++++++++++++++++++++++++++-
+>>  2 files changed, 116 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 0f6b1c9..12fff42 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -646,6 +646,14 @@ struct xps_dev_maps {
+>>      (nr_cpu_ids * sizeof(struct xps_map *)))
+>>  #endif /* CONFIG_XPS */
+>>  
+>> +#define TC_MAX_QUEUE	16
+>> +#define TC_BITMASK	15
+>> +/* HW offloaded queuing disciplines txq count and offset maps */
+>> +struct netdev_tc_txq {
+>> +	u16 count;
+>> +	u16 offset;
+>> +};
+>> +
+>>  /*
+>>   * This structure defines the management hooks for network devices.
+>>   * The following hooks can be defined; unless noted otherwise, they are
+>> @@ -756,6 +764,7 @@ struct xps_dev_maps {
+>>   * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
+>>   *			  struct nlattr *port[]);
+>>   * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
+>> + * void (*ndo_setup_tc)(struct net_device *dev, u8 tc)
 > 
-> Grr.
-
-Oops.
-
-[...]
-> [torvalds@i5 linux]$ git bisect good
-> bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0 is the first bad commit
-> commit bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0
-> Author: fran?ois romieu <romieu@fr.zoreil.com>
-> Date:   Mon Jan 3 15:07:31 2011 +0000
+> ..., unsigned int txq) ?
 > 
->     r8169: remove the firmware of RTL8111D.
+>>   */
+>>  #define HAVE_NET_DEVICE_OPS
+>>  struct net_device_ops {
+>> @@ -814,6 +823,8 @@ struct net_device_ops {
+>>  						   struct nlattr *port[]);
+>>  	int			(*ndo_get_vf_port)(struct net_device *dev,
+>>  						   int vf, struct sk_buff *skb);
+>> +	int			(*ndo_setup_tc)(struct net_device *dev, u8 tc,
+>> +						unsigned int txq);
 > 
->     The binary file of the firmware is moved to linux-firmware repository.
->     The firmwares are rtl_nic/rtl8168d-1.fw and rtl_nic/rtl8168d-2.fw.
->     The driver goes along if the firmware couldn't be found. However, it
->     is suggested to be done with the suitable firmware.
+> ...
+>> +/* netif_setup_tc - Handle tc mappings on real_num_tx_queues change
+>> + * @dev: Network device
+>> + * @txq: number of queues available
+>> + *
+>> + * If real_num_tx_queues is changed the tc mappings may no longer be
+>> + * valid. To resolve this if the net_device supports ndo_setup_tc
+>> + * call the ops routine with the new queue number. If the ops is not
+>> + * available verify the tc mapping remains valid and if not NULL the
+>> + * mapping. With no priorities mapping to this offset/count pair it
+>> + * will no longer be used. In the worst case TC0 is invalid nothing
+>> + * can be done so disable priority mappings.
+>> + */
+>> +void netif_setup_tc(struct net_device *dev, unsigned int txq)
+>> +{
+>> +	const struct net_device_ops *ops = dev->netdev_ops;
+>> +
+>> +	if (ops->ndo_setup_tc) {
+>> +		ops->ndo_setup_tc(dev, dev->num_tc, txq);
+>> +	} else {
+>> +		int i;
+>> +		struct netdev_tc_txq *tc = &dev->tc_to_txq[0];
+>> +
+>> +		/* If TC0 is invalidated disable TC mapping */
+>> +		if (tc->offset + tc->count > txq) {
+>> +			dev->num_tc = 0;
+>> +			return;
+>> +		}
+>> +
+>> +		/* Invalidated prio to tc mappings set to TC0 */
+>> +		for (i = 1; i < TC_BITMASK + 1; i++) {
+>> +			int q = netdev_get_prio_tc_map(dev, i);
 > 
->     Some wrong PHY parameters are directly corrected in the driver.
+> (empty line)
+> Btw, probably some warning should be logged on config change here.
 > 
->     Simple firmware checking added per Ben Hutchings suggestion.
+
+OK maybe I should see about making at least my local checkpatch script
+look for this. Also added pr_warnings here.
+
+>> +			tc = &dev->tc_to_txq[q];
+>> +
+>> +			if (tc->offset + tc->count > txq)
+>> +				netdev_set_prio_tc_map(dev, i, 0);
+>> +		}
+>> +	}
+>> +}
+>> +
+>>  /*
+>>   * Routine to help set real_num_tx_queues. To avoid skbs mapped to queues
+>>   * greater then real_num_tx_queues stale skbs on the qdisc must be flushed.
+>> @@ -1614,6 +1653,9 @@ int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
+>>  
+>>  		if (txq < dev->real_num_tx_queues)
+>>  			qdisc_reset_all_tx_gt(dev, txq);
+>> +
+>> +		if (dev->num_tc)
+>> +			netif_setup_tc(dev, txq);
 > 
->     Signed-off-by: Hayes Wang <hayeswang@realtek.com>
->     Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
->     Cc: Ben Hutchings <benh@debian.org>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
+> Should be before qdisc_reset_all_tx_gt (above).
 > 
-> and the behavior is very broken: it just hangs at boot-time. No
-> messages from the driver (certainly not any messages about missing
-> firmware), no nothing. The thing is just hung.
->
-> On a working setup, I have
-> 
-> 
->   [    1.595071] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
->   [    1.595114] r8169 0000:01:00.0: PCI INT A -> GSI 19 (level, low) -> IRQ 19
->   [    1.595174] r8169 0000:01:00.0: setting latency timer to 64
->   [    1.595227] r8169 0000:01:00.0: irq 42 for MSI/MSI-X
->   [    1.595770] r8169 0000:01:00.0: eth0: RTL8168d/8111d at
-> 0xffffc90000068000, e0:cb:4e:95:1a:d7, XID 083000c0 IRQ 42
+> Jarek P.
 
->   ...
->   [    7.985917] r8169 0000:01:00.0: eth0: link up
->   [    7.987525] r8169 0000:01:00.0: eth0: link up
-> 
-> while on a non-working setup, I get that XID line, and after that a
-> few other init routines continue to show up (probably just
-> multi-threaded initcalls), but the box is dead.
-> 
-> Quite frankly, that commit looks broken anyway. It doesn't just switch
-> to the firmware loader, it also seems to change other things (ie
-> removed some mdio writes, added others).
+I will fix this. Thanks!
 
-It was described in the commit message as
-[...]
-    Some wrong PHY parameters are directly corrected in the driver.
-
-> What's going on?
-
-The firmware is supposed to be optional. The (relevant) 8168 have
-been reported to work without it. I have tested it with my hardware
-(RTL_GIGA_MAC_VER_26 (== your), RTL_GIGA_MAC_VER_25 + some others),
-seen the "r8169 0000:02:00.0: eth0: unable to apply firmware patch"
-message and noticed that the card was actually working. Though I did
-not try a non-modular build, this was not exactly a five minutes
-test.
-
-I had no technical reason [*] to turn the firmware mandatory and screw
-distro-maintainers who have decided that the firmware is not free enough.
-
-[*] The small "I will regret it" voices in my head do not count as
-    technical reasons.
-
-[...]
-> Not acceptable. I'm ok with an external firmware repository, but only
-> if it _works_. Right now it doesn't. It just seems to cause silent
-> failures: there were no warnings about missing firmware at ANY time.
-> Not build-time, not run-time.
-
-?
-
-The driver is supposed to display a message at KERN_WARNING.
-
--- 
-Ueimor
