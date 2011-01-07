@@ -1,46 +1,48 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: genetlink misinterprets NEW as GET
-Date: Fri, 07 Jan 2011 02:31:17 +0100
-Message-ID: <4D266CE5.4000309@netfilter.org>
-References: <alpine.LNX.2.01.1101040304500.29858@obet.zrqbmnf.qr>	<4D25C82F.4010306@netfilter.org> <878vyyvtci.fsf@benpfaff.org>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: About disabling congestion control
+Date: Thu, 6 Jan 2011 17:37:58 -0800
+Message-ID: <20110106173758.37bfef4d@nehalam>
+References: <AANLkTin53drsv18TZ0CPZM7==6G=rK6vScUb=SCQ4-xr@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Netfilter Developer Mailing List
-	<netfilter-devel@vger.kernel.org>,
-	Linux Networking Developer Mailing List
-	<netdev@vger.kernel.org>
-To: Ben Pfaff <blp@nicira.com>
+Cc: netdev@vger.kernel.org
+To: Syed Obaid Amin <obaidasyed@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47719 "EHLO mail.us.es"
+Received: from mail.vyatta.com ([76.74.103.46]:38238 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755236Ab1AGBbZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jan 2011 20:31:25 -0500
-In-Reply-To: <878vyyvtci.fsf@benpfaff.org>
+	id S1754849Ab1AGBiB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jan 2011 20:38:01 -0500
+In-Reply-To: <AANLkTin53drsv18TZ0CPZM7==6G=rK6vScUb=SCQ4-xr@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/01/11 18:23, Ben Pfaff wrote:
-> Pablo Neira Ayuso <pablo@netfilter.org> writes:
-> 
->> On 04/01/11 03:14, Jan Engelhardt wrote:
->>> 	/* Modifiers to GET request */
->>> 	#define NLM_F_ROOT      0x100
->>> 	#define NLM_F_MATCH     0x200
->>> 	#define NLM_F_ATOMIC    0x400
->>> 	#define NLM_F_DUMP      (NLM_F_ROOT|NLM_F_MATCH)
-> [...]
->>> [N.B.: I am also wondering whether
->>> 	(nlh->nlmsg_flags & NLM_F_DUMP) == NLM_F_DUMP
->>> may have been desired, because NLM_F_DUMP is composed of two bits.]
->>
->> Someone may include NLM_F_ATOMIC to a dump operation, in that case the
->> checking that you propose is not valid.
-> 
-> Are you saying that NLM_F_MATCH and NLM_F_ATOMIC are mutually
-> exclusive, and that NLM_F_ROOT|NLM_F_ATOMIC would also signal a
-> dump operation?  Otherwise the test that Jan proposes looks valid
-> to me.
+On Thu, 6 Jan 2011 20:25:18 -0500
+Syed Obaid Amin <obaidasyed@gmail.com> wrote:
 
-Indeed, Jan's test is fine to fix this. Please, send a patch to Davem asap.
+> Hey all,
+> 
+> I am currently working on a socket option to disable the tcp
+> congestion control. I think the simplest approach to do this is to
+> ignore cwnd before sending out a packet.
+> 
+> After going through tcp output engine it seems that tcp_cwnd_test is
+> the method that decides that how many segments can be sent out on a
+> wire. For testing it out, I changed this method so that if no-cc
+> option is ON, just return a big constant value. But, it didn't work
+> and I am unable to see a burst of pkts. It looks like that I am
+> missing something here.
+> 
+> Any suggestions that what is the right place to look for disabling the
+> congestion control ?
+> 
+> Thanks much!
+> 
+> Obaid
+
+I assume this is just a local hack experiment; not something you
+want to actually submit for other users to use...
+
+The easiest/safest way to do this would be to build/define a new TCP congestion
+control type that does nothing.
+
