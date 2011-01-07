@@ -1,77 +1,98 @@
-From: =?UTF-8?q?Sjur=20Br=C3=A6ndeland?= <sjurbren@stericsson.com>
-Subject: [PATCH] CAIF: Fix IPv6 support in receive path for GPRS/3G
-Date: Fri, 07 Jan 2011 12:57:08 +0100
-Message-ID: <1294401428-2085-1-git-send-email-sjurbren@stericsson.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
+	entries
+Date: Fri, 07 Jan 2011 13:57:42 +0100
+Message-ID: <1294405062.3306.11.camel@edumazet-laptop>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	<1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
+	<1294404478.7674.0.camel@maxim-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN
-Content-Transfer-Encoding: 7BIT
-Cc: Kumar Sanghvi <kumar.sanghvi@stericsson.com>,
-	Sjur Braendeland <sjur.brandeland@stericsson.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from thalia-smout.broadpark.no ([80.202.8.21]:54951 "EHLO
-	thalia-smout.broadpark.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752911Ab1AGM5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 07:57:42 -0500
-Received: from terra-smin.broadpark.no ([80.202.8.13])
- by thalia-smout.broadpark.no
- (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
- with ESMTP id <0LEN00EN5IJN6E60@thalia-smout.broadpark.no> for
- netdev@vger.kernel.org; Fri, 07 Jan 2011 12:57:23 +0100 (CET)
-Received: from localhost.localdomain ([80.203.137.56])
- by terra-smin.broadpark.no
- (Sun Java(tm) System Messaging Server 7u3-15.01 64bit (built Feb 12 2010))
- with ESMTP id <0LEN0009PIJMSA50@terra-smin.broadpark.no> for
- netdev@vger.kernel.org; Fri, 07 Jan 2011 12:57:23 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Stefan Richter <stefanr@s5r6.in-berlin.de>, James,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	linux1394-devel <linux1394-devel@lists.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Maxim Levitsky <maximlevitsky@gmail.com>
+Return-path: <linux1394-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1294404478.7674.0.camel@maxim-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux1394-devel>
+List-Post: <mailto:linux1394-devel@lists.sourceforge.net>
+List-Help: <mailto:linux1394-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux1394-devel>,
+	<mailto:linux1394-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: linux1394-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Kumar Sanghvi <kumar.sanghvi@stericsson.com>
-
-Checks version field of IP in the receive path for GPRS/3G data
-and appropriately sets the value of skb->protocol.
-
-Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
----
- net/caif/chnl_net.c |   18 +++++++++++++++++-
- 1 files changed, 17 insertions(+), 1 deletions(-)
-
-diff --git a/net/caif/chnl_net.c b/net/caif/chnl_net.c
-index 84a422c..fa9dab3 100644
---- a/net/caif/chnl_net.c
-+++ b/net/caif/chnl_net.c
-@@ -76,6 +76,8 @@ static int chnl_recv_cb(struct cflayer *layr, struct cfpkt *pkt)
- 	struct chnl_net *priv  = container_of(layr, struct chnl_net, chnl);
- 	int pktlen;
- 	int err = 0;
-+	const u8 *ip_version;
-+	u8 buf;
- 
- 	priv = container_of(layr, struct chnl_net, chnl);
- 
-@@ -90,7 +92,21 @@ static int chnl_recv_cb(struct cflayer *layr, struct cfpkt *pkt)
- 	 * send the packet to the net stack.
- 	 */
- 	skb->dev = priv->netdev;
--	skb->protocol = htons(ETH_P_IP);
-+
-+	/* check the version of IP */
-+	ip_version = skb_header_pointer(skb, 0, 1, &buf);
-+	if (!ip_version)
-+		return -EINVAL;
-+	switch (*ip_version >> 4) {
-+	case 4:
-+		skb->protocol = htons(ETH_P_IP);
-+		break;
-+	case 6:
-+		skb->protocol = htons(ETH_P_IPV6);
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
- 
- 	/* If we change the header in loop mode, the checksum is corrupted. */
- 	if (priv->conn_req.protocol == CAIFPROTO_DATAGRAM_LOOP)
--- 
-1.7.0.4
-
+TGUgdmVuZHJlZGkgMDcgamFudmllciAyMDExIMOgIDE0OjQ3ICswMjAwLCBNYXhpbSBMZXZpdHNr
+eSBhIMOpY3JpdCA6Cj4gT24gTW9uLCAyMDEwLTExLTI5IGF0IDA0OjA5ICswMjAwLCBNYXhpbSBM
+ZXZpdHNreSB3cm90ZToKPiA+IElQdjQgb3ZlciBmaXJld2lyZSBuZWVkcyB0byBiZSBhYmxlIHRv
+IHJlbW92ZSBBUlAgZW50cmllcwo+ID4gZnJvbSB0aGUgQVJQIGNhY2hlIHRoYXQgYmVsb25nIHRv
+IG5vZGVzIHRoYXQgYXJlIHJlbW92ZWQsIGJlY2F1c2UKPiA+IElQdjQgb3ZlciBmaXJld2lyZSB1
+c2VzIEFSUCBwYWNrZXRzIGZvciBwcml2YXRlIGluZm9ybWF0aW9uCj4gPiBhYm91dCBub2Rlcy4K
+PiA+IAo+ID4gVGhpcyBpbmZvcm1hdGlvbiBiZWNvbWVzIGludmFsaWQgYXMgc29vbiBhcyBub2Rl
+IGRyb3BzCj4gPiBvZmYgdGhlIGJ1cyBhbmQgd2hlbiBpdCByZWNvbm5lY3RzLCBpdHMgb25seSBw
+b3NzaWJsZQo+ID4gdG8gc3RhcnQgdGFrbGluZyB0byBpcyBhZnRlciBpdCByZXNwb25kZWQgdG8g
+YW4gQVJQIHBhY2tldC4KPiA+IEJ1dCBBUlAgY2FjaGUgcHJldmVudHMgc3VjaCBwYWNrZXRzIGZy
+b20gYmVpbmcgc2VudC4KPiA+IAo+ID4gQ0M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcKPiA+IEND
+OiAiRGF2aWQgUy4gTWlsbGVyIiA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4KPiA+IENDOiBBbGV4ZXkg
+S3V6bmV0c292IDxrdXpuZXRAbXMyLmluci5hYy5ydT4KPiA+IENDOiBKYW1lcyBNb3JyaXMgPGpt
+b3JyaXNAbmFtZWkub3JnPgo+ID4gQ0M6IFBhdHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0
+Pgo+IAo+IEFueWJvZHk/Cj4gCj4gQmVzdCByZWdhcmRzLAo+IAlNYXhpbSBMZXZpdHNreQo+IAo+
+ID4gCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IE1heGltIExldml0c2t5IDxtYXhpbWxldml0c2t5
+QGdtYWlsLmNvbT4KPiA+IC0tLQo+ID4gIGluY2x1ZGUvbmV0L2FycC5oIHwgICAgMSArCj4gPiAg
+bmV0L2lwdjQvYXJwLmMgICAgfCAgIDI5ICsrKysrKysrKysrKysrKysrKy0tLS0tLS0tLS0tCj4g
+PiAgMiBmaWxlcyBjaGFuZ2VkLCAxOSBpbnNlcnRpb25zKCspLCAxMSBkZWxldGlvbnMoLSkKPiA+
+IAo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2FycC5oIGIvaW5jbHVkZS9uZXQvYXJwLmgK
+PiA+IGluZGV4IGY0Y2Y2Y2UuLjkxZjA1NjggMTAwNjQ0Cj4gPiAtLS0gYS9pbmNsdWRlL25ldC9h
+cnAuaAo+ID4gKysrIGIvaW5jbHVkZS9uZXQvYXJwLmgKPiA+IEBAIC0yNSw1ICsyNSw2IEBAIGV4
+dGVybiBzdHJ1Y3Qgc2tfYnVmZiAqYXJwX2NyZWF0ZShpbnQgdHlwZSwgaW50IHB0eXBlLCBfX2Jl
+MzIgZGVzdF9pcCwKPiA+ICAJCQkJICBjb25zdCB1bnNpZ25lZCBjaGFyICpzcmNfaHcsCj4gPiAg
+CQkJCSAgY29uc3QgdW5zaWduZWQgY2hhciAqdGFyZ2V0X2h3KTsKPiA+ICBleHRlcm4gdm9pZCBh
+cnBfeG1pdChzdHJ1Y3Qgc2tfYnVmZiAqc2tiKTsKPiA+ICtpbnQgYXJwX2ludmFsaWRhdGUoc3Ry
+dWN0IG5ldF9kZXZpY2UgKmRldiwgX19iZTMyIGlwKTsKPiA+ICAKPiA+ICAjZW5kaWYJLyogX0FS
+UF9IICovCj4gPiBkaWZmIC0tZ2l0IGEvbmV0L2lwdjQvYXJwLmMgYi9uZXQvaXB2NC9hcnAuYwo+
+ID4gaW5kZXggZDhlNTQwYy4uMzViMTI3MiAxMDA2NDQKPiA+IC0tLSBhL25ldC9pcHY0L2FycC5j
+Cj4gPiArKysgYi9uZXQvaXB2NC9hcnAuYwo+ID4gQEAgLTExNDIsNiArMTE0MiwyMyBAQCBzdGF0
+aWMgaW50IGFycF9yZXFfZ2V0KHN0cnVjdCBhcnByZXEgKnIsIHN0cnVjdCBuZXRfZGV2aWNlICpk
+ZXYpCj4gPiAgCXJldHVybiBlcnI7Cj4gPiAgfQo+ID4gIAo+ID4gK2ludCBhcnBfaW52YWxpZGF0
+ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBfX2JlMzIgaXApCj4gPiArewo+ID4gKwlpbnQgZXJy
+ID0gLUVOWElPOwo+ID4gKwlzdHJ1Y3QgbmVpZ2hib3VyICpuZWlnaCA9IG5laWdoX2xvb2t1cCgm
+YXJwX3RibCwgJmlwLCBkZXYpOwo+ID4gKwo+ID4gKwlpZiAobmVpZ2gpIHsKPiA+ICsJCWlmIChu
+ZWlnaC0+bnVkX3N0YXRlICYgfk5VRF9OT0FSUCkKPiA+ICsJCQllcnIgPSBuZWlnaF91cGRhdGUo
+bmVpZ2gsIE5VTEwsIE5VRF9GQUlMRUQsCj4gPiArCQkJCQkgICBORUlHSF9VUERBVEVfRl9PVkVS
+UklERXwKPiA+ICsJCQkJCSAgIE5FSUdIX1VQREFURV9GX0FETUlOKTsKPiA+ICsJCW5laWdoX3Jl
+bGVhc2UobmVpZ2gpOwo+ID4gKwl9Cj4gPiArCj4gPiArCXJldHVybiBlcnI7Cj4gPiArfQo+ID4g
+K0VYUE9SVF9TWU1CT0woYXJwX2ludmFsaWRhdGUpOwo+ID4gKwo+ID4gIHN0YXRpYyBpbnQgYXJw
+X3JlcV9kZWxldGVfcHVibGljKHN0cnVjdCBuZXQgKm5ldCwgc3RydWN0IGFycHJlcSAqciwKPiA+
+ICAJCXN0cnVjdCBuZXRfZGV2aWNlICpkZXYpCj4gPiAgewo+ID4gQEAgLTExNjIsNyArMTE3OSw2
+IEBAIHN0YXRpYyBpbnQgYXJwX3JlcV9kZWxldGUoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3QgYXJw
+cmVxICpyLAo+ID4gIHsKPiA+ICAJaW50IGVycjsKPiA+ICAJX19iZTMyIGlwOwo+ID4gLQlzdHJ1
+Y3QgbmVpZ2hib3VyICpuZWlnaDsKPiA+ICAKPiA+ICAJaWYgKHItPmFycF9mbGFncyAmIEFURl9Q
+VUJMKQo+ID4gIAkJcmV0dXJuIGFycF9yZXFfZGVsZXRlX3B1YmxpYyhuZXQsIHIsIGRldik7Cj4g
+PiBAQCAtMTE4MCwxNiArMTE5Niw3IEBAIHN0YXRpYyBpbnQgYXJwX3JlcV9kZWxldGUoc3RydWN0
+IG5ldCAqbmV0LCBzdHJ1Y3QgYXJwcmVxICpyLAo+ID4gIAkJaWYgKCFkZXYpCj4gPiAgCQkJcmV0
+dXJuIC1FSU5WQUw7Cj4gPiAgCX0KPiA+IC0JZXJyID0gLUVOWElPOwo+ID4gLQluZWlnaCA9IG5l
+aWdoX2xvb2t1cCgmYXJwX3RibCwgJmlwLCBkZXYpOwo+ID4gLQlpZiAobmVpZ2gpIHsKPiA+IC0J
+CWlmIChuZWlnaC0+bnVkX3N0YXRlICYgfk5VRF9OT0FSUCkKPiA+IC0JCQllcnIgPSBuZWlnaF91
+cGRhdGUobmVpZ2gsIE5VTEwsIE5VRF9GQUlMRUQsCj4gPiAtCQkJCQkgICBORUlHSF9VUERBVEVf
+Rl9PVkVSUklERXwKPiA+IC0JCQkJCSAgIE5FSUdIX1VQREFURV9GX0FETUlOKTsKPiA+IC0JCW5l
+aWdoX3JlbGVhc2UobmVpZ2gpOwo+ID4gLQl9Cj4gPiAtCXJldHVybiBlcnI7Cj4gPiArCXJldHVy
+biBhcnBfaW52YWxpZGF0ZShkZXYsIGlwKTsKPiA+ICB9Cj4gPiAgCj4gPiAgLyoKPiAKCkhpIE1h
+eGltCgpZb3Ugd2VyZSBzdXBwb3NlZCB0byByZXNwaW4geW91ciBwYXRjaCBhZnRlciBteSBjb21t
+aXQgOgoKKDk0MTY2NmMyZTNlMGY5ZjZhMSBuZXQ6IFJDVSBjb252ZXJzaW9uIG9mIGRldl9nZXRi
+eWh3YWRkcigpIGFuZAphcnBfaW9jdGwoKSkKClRoYW5rcwoKCgotLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0KR2FpbmluZyB0aGUgdHJ1c3Qgb2Ygb25saW5lIGN1c3RvbWVycyBpcyB2aXRhbCBmb3IgdGhl
+IHN1Y2Nlc3Mgb2YgYW55IGNvbXBhbnkKdGhhdCByZXF1aXJlcyBzZW5zaXRpdmUgZGF0YSB0byBi
+ZSB0cmFuc21pdHRlZCBvdmVyIHRoZSBXZWIuICAgTGVhcm4gaG93IHRvIApiZXN0IGltcGxlbWVu
+dCBhIHNlY3VyaXR5IHN0cmF0ZWd5IHRoYXQga2VlcHMgY29uc3VtZXJzJyBpbmZvcm1hdGlvbiBz
+ZWN1cmUgCmFuZCBpbnN0aWxscyB0aGUgY29uZmlkZW5jZSB0aGV5IG5lZWQgdG8gcHJvY2VlZCB3
+aXRoIHRyYW5zYWN0aW9ucy4KaHR0cDovL3Auc2YubmV0L3NmdS9vcmFjbGUtc2ZkZXZubCAKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KbWFpbGluZyBsaXN0
+IGxpbnV4MTM5NC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3Vy
+Y2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vbGludXgxMzk0LWRldmVsCg==
