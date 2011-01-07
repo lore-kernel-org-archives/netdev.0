@@ -1,105 +1,90 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sh: sh_eth: Add support ethtool
-Date: Fri, 07 Jan 2011 14:35:55 +0000
-Message-ID: <1294410955.4200.3.camel@bwh-desktop>
-References: <1294385126-3098-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+From: Ben Hutchings <benh@debian.org>
+Subject: Re: [PATCH] net/r8169: Update the function of parsing firmware
+Date: Fri, 7 Jan 2011 15:17:55 +0000
+Message-ID: <20110107151755.GN3702@decadent.org.uk>
+References: <1294393509-3492-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1294385126-3098-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1294393509-3492-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-01-07 at 16:25 +0900, Nobuhiro Iwamatsu wrote:
-> This commit supports following functions.
->  - get_drvinfo
->  - get_settings
->  - set_settings
->  - nway_reset
->  - get_msglevel
->  - set_msglevel
->  - get_link
->  - get_strings
->  - get_ethtool_stats
->  - get_sset_count
+On Fri, 2011-01-07 at 17:45 +0800, Hayes Wang wrote:
+> Update rtl_phy_write_fw function. The new function could
+> parse the complex firmware which is used by RTL8111E and later.
+> The new firmware may read data and do some operations, not just
+> do writing only.
 > 
-> About other function, the device does not support.
-> 
-> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 > ---
->  drivers/net/sh_eth.c |  190 ++++++++++++++++++++++++++++++++++++++++++++++----
->  1 files changed, 176 insertions(+), 14 deletions(-)
+>  drivers/net/r8169.c |  112 ++++++++++++++++++++++++++++++++++++++++++++-------
+>  1 files changed, 97 insertions(+), 15 deletions(-)
 > 
-> diff --git a/drivers/net/sh_eth.c b/drivers/net/sh_eth.c
-> index 819c175..10493e8 100644
-> --- a/drivers/net/sh_eth.c
-> +++ b/drivers/net/sh_eth.c
-> @@ -32,6 +32,7 @@
->  #include <linux/io.h>
->  #include <linux/pm_runtime.h>
->  #include <linux/slab.h>
-> +#include <linux/ethtool.h>
->  #include <asm/cacheflush.h>
+> diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+> index 27a7c20..2115424 100644
+> --- a/drivers/net/r8169.c
+> +++ b/drivers/net/r8169.c
+[...] 
+> -	while (i-- != 0) {
+> -		u32 action = le32_to_cpu(*phytable);
+> -		u32 data = action & 0x0000ffff;
+> -		u32 reg = (action & 0x0fff0000) >> 16;
+> +	predata = 0;
+> +	count = 0;
+> +
+> +	for (index = 0; index < fw->size / sizeof(*phytable); ) {
+> +		u32 action = le32_to_cpu(phytable[index]);
+> +		u32 data = action & 0x0000FFFF;
+> +		u32 regno = (action & 0x0FFF0000) >> 16;
+> +
+> +		if (!action)
+> +			break;
 >  
->  #include "sh_eth.h"
-> @@ -573,7 +574,7 @@ static int sh_eth_ring_init(struct net_device *ndev)
->  	}
->  
->  	/* Allocate all Rx descriptors. */
-> -	rx_ringsize = sizeof(struct sh_eth_rxdesc) * RX_RING_SIZE;
-> +	rx_ringsize = sizeof(struct sh_eth_rxdesc) *RX_RING_SIZE;
-
-Please don't delete spaces just because checkpatch.pl is too stupid to
-recognise a multiplication.
-
-Also, don't mix formatting cleanup with actual feature changes.
-
+> -		switch(action & 0xf0000000) {
+> +		switch(action & 0xF0000000) {
 [...]
-> +static const char sh_eth_gstrings_stats[][ETH_GSTRING_LEN] = {
-> +	"rx_packets", "tx_packets", "rx_bytes", "tx_bytes", "rx_errors",
-> +	"tx_errors", "rx_dropped", "tx_dropped", "multicast", "collisions",
-> +	"rx_length_errors", "rx_over_errors", "rx_crc_errors",
-> +	"rx_frame_errors", "rx_fifo_errors", "rx_missed_errors",
-> +	"tx_aborted_errors", "tx_carrier_errors", "tx_fifo_errors",
-> +	"tx_heartbeat_errors", "tx_window_errors",
-> +	/* device-specific stats */
-> +	"rx_current", "tx_current",
-> +	"rx_dirty", "tx_dirty",
-> +};
-> +#define SH_ETH_NET_STATS_LEN  21
-> +#define SH_ETH_STATS_LEN  ARRAY_SIZE(sh_eth_gstrings_stats)
-> +
-> +static int sh_eth_get_sset_count(struct net_device *netdev, int sset)
-> +{
-> +	switch (sset) {
-> +	case ETH_SS_STATS:
-> +		return SH_ETH_STATS_LEN;
-> +	default:
-> +		return -EOPNOTSUPP;
-> +	}
-> +}
-> +
-> +static void sh_eth_get_ethtool_stats(struct net_device *ndev,
-> +			struct ethtool_stats *stats, u64 *data)
-> +{
-> +	struct sh_eth_private *mdp = netdev_priv(ndev);
-> +	int i;
-> +
-> +	for (i = 0; i < SH_ETH_NET_STATS_LEN; i++)
-> +		data[i] = ((unsigned long *)&ndev->stats)[i];
+> +		case PHY_BJMPN:
+> +			index -= regno;
+> +			break;
 [...]
 
-There is no need to duplicate net_device_stats here.
+I'm concerned that this is being extended from a firmware upload
+interface to a quite general interpreter for PHY initialisation.  I
+realise that this will make it easier to fix PHY firmware bugs in
+future but it also allows you to accidentally introduce infinite loops.
+The initialisation programs will obviously not be subject to the same
+sort of review on netdev that new C code is.
+
+> +		case PHY_DELAY_MS:
+> +			mdelay(data);
+> +			index++;
+> +			break;
+
+Why mdelay() and not msleep()?  This is not an atomic context.
+
+> +		case PHY_READ_MAC_BYTE:
+> +		case PHY_WRITE_MAC_BYTE:
+> +		case PHY_WRITE_ERI_WORD:
+>  		default:
+>  			BUG();
+>  		}
+> +
+> +		if (index < 0)
+> +			BUG();
+[...]
+
+index is unsigned so it can't be < 0.  It looks like the loop condition
+should catch an out-of-range index, but really the range-checking should
+be done in the first loop.
 
 Ben.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert Camus
