@@ -1,38 +1,124 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2 1/2] can: add driver for Softing card
-Date: Fri, 7 Jan 2011 13:29:18 +0100
-Message-ID: <20110107122918.GB324@e-circ.dyndns.org>
-References: <20110104150513.GA321@e-circ.dyndns.org>
-	<20110104150759.GB321@e-circ.dyndns.org>
-	<4D24DB2C.9040104@grandegger.com>
-	<20110106150525.GB324@e-circ.dyndns.org>
-	<4D25ED70.7000303@grandegger.com>
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
+ entries
+Date: Fri, 07 Jan 2011 14:47:58 +0200
+Message-ID: <1294404478.7674.0.camel@maxim-laptop>
+References: <1290996593-32416-1-git-send-email-maximlevitsky@gmail.com>
+	 <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <4D25ED70.7000303-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Stefan Richter <stefanr@s5r6.in-berlin.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Patrick McHardy <kaber@trash.net>
+To: linux1394-devel <linux1394-devel@lists.sourceforge.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:35760 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752561Ab1AGMsB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jan 2011 07:48:01 -0500
+Received: by bwz15 with SMTP id 15so17251936bwz.19
+        for <netdev@vger.kernel.org>; Fri, 07 Jan 2011 04:47:59 -0800 (PST)
+In-Reply-To: <1290996593-32416-4-git-send-email-maximlevitsky@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 06, 2011 at 05:27:28PM +0100, Wolfgang Grandegger wrote:
-> >> - Please avoid alignment of expressions and structure members.
+On Mon, 2010-11-29 at 04:09 +0200, Maxim Levitsky wrote:
+> IPv4 over firewire needs to be able to remove ARP entries
+> from the ARP cache that belong to nodes that are removed, because
+> IPv4 over firewire uses ARP packets for private information
+> about nodes.
 > 
-I agree with most of them.
-The alignment of register offset macro's is 1 thing I intend to
-keep as is ...
-Maybe I put a comment in front to explain why it's aligned...
+> This information becomes invalid as soon as node drops
+> off the bus and when it reconnects, its only possible
+> to start takling to is after it responded to an ARP packet.
+> But ARP cache prevents such packets from being sent.
+> 
+> CC: netdev@vger.kernel.org
+> CC: "David S. Miller" <davem@davemloft.net>
+> CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> CC: James Morris <jmorris@namei.org>
+> CC: Patrick McHardy <kaber@trash.net>
 
-Kurt
+Anybody?
+
+Best regards,
+	Maxim Levitsky
+
 > 
+> 
+> Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
+> ---
+>  include/net/arp.h |    1 +
+>  net/ipv4/arp.c    |   29 ++++++++++++++++++-----------
+>  2 files changed, 19 insertions(+), 11 deletions(-)
+> 
+> diff --git a/include/net/arp.h b/include/net/arp.h
+> index f4cf6ce..91f0568 100644
+> --- a/include/net/arp.h
+> +++ b/include/net/arp.h
+> @@ -25,5 +25,6 @@ extern struct sk_buff *arp_create(int type, int ptype, __be32 dest_ip,
+>  				  const unsigned char *src_hw,
+>  				  const unsigned char *target_hw);
+>  extern void arp_xmit(struct sk_buff *skb);
+> +int arp_invalidate(struct net_device *dev, __be32 ip);
+>  
+>  #endif	/* _ARP_H */
+> diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+> index d8e540c..35b1272 100644
+> --- a/net/ipv4/arp.c
+> +++ b/net/ipv4/arp.c
+> @@ -1142,6 +1142,23 @@ static int arp_req_get(struct arpreq *r, struct net_device *dev)
+>  	return err;
+>  }
+>  
+> +int arp_invalidate(struct net_device *dev, __be32 ip)
+> +{
+> +	int err = -ENXIO;
+> +	struct neighbour *neigh = neigh_lookup(&arp_tbl, &ip, dev);
+> +
+> +	if (neigh) {
+> +		if (neigh->nud_state & ~NUD_NOARP)
+> +			err = neigh_update(neigh, NULL, NUD_FAILED,
+> +					   NEIGH_UPDATE_F_OVERRIDE|
+> +					   NEIGH_UPDATE_F_ADMIN);
+> +		neigh_release(neigh);
+> +	}
+> +
+> +	return err;
+> +}
+> +EXPORT_SYMBOL(arp_invalidate);
+> +
+>  static int arp_req_delete_public(struct net *net, struct arpreq *r,
+>  		struct net_device *dev)
+>  {
+> @@ -1162,7 +1179,6 @@ static int arp_req_delete(struct net *net, struct arpreq *r,
+>  {
+>  	int err;
+>  	__be32 ip;
+> -	struct neighbour *neigh;
+>  
+>  	if (r->arp_flags & ATF_PUBL)
+>  		return arp_req_delete_public(net, r, dev);
+> @@ -1180,16 +1196,7 @@ static int arp_req_delete(struct net *net, struct arpreq *r,
+>  		if (!dev)
+>  			return -EINVAL;
+>  	}
+> -	err = -ENXIO;
+> -	neigh = neigh_lookup(&arp_tbl, &ip, dev);
+> -	if (neigh) {
+> -		if (neigh->nud_state & ~NUD_NOARP)
+> -			err = neigh_update(neigh, NULL, NUD_FAILED,
+> -					   NEIGH_UPDATE_F_OVERRIDE|
+> -					   NEIGH_UPDATE_F_ADMIN);
+> -		neigh_release(neigh);
+> -	}
+> -	return err;
+> +	return arp_invalidate(dev, ip);
+>  }
+>  
+>  /*
+
+
