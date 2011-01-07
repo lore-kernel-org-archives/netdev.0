@@ -1,65 +1,137 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the security-testing tree with the net
- tree
-Date: Fri, 7 Jan 2011 11:44:00 +1100
-Message-ID: <20110107114400.e4d1d33b.sfr@canb.auug.org.au>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH v2] net: Allow ethtool to set interface in loopback mode.
+Date: Thu, 6 Jan 2011 16:47:04 -0800
+Message-ID: <AANLkTi=3ewzgz=z-WmqT=vBvci3-H6HE3CCVk4ZGuFED@mail.gmail.com>
+References: <AANLkTikW24AcLEAioYtCwuQOoVnTrqVoAaZw3sksZ_jU@mail.gmail.com>
+	<1294187401-4662-1-git-send-email-maheshb@google.com>
+	<20110104163645.0b3a3687@nehalam>
+	<1294190504.2992.3.camel@localhost>
+	<4D249ABD.4080209@garzik.org>
+	<1294352011.11825.50.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Casey Schaufler <casey@schaufler-ca.com>
-To: James Morris <jmorris@namei.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Garzik <jeff@garzik.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Laurent Chavey <chavey@google.com>,
+	Tom Herbert <therbert@google.com>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:7544 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752753Ab1AGArJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jan 2011 19:47:09 -0500
+Received: from hpaq6.eem.corp.google.com (hpaq6.eem.corp.google.com [172.25.149.6])
+	by smtp-out.google.com with ESMTP id p070l6eG010316
+	for <netdev@vger.kernel.org>; Thu, 6 Jan 2011 16:47:06 -0800
+Received: from bwz12 (bwz12.prod.google.com [10.188.26.12])
+	by hpaq6.eem.corp.google.com with ESMTP id p070l4pK017697
+	for <netdev@vger.kernel.org>; Thu, 6 Jan 2011 16:47:04 -0800
+Received: by bwz12 with SMTP id 12so16811124bwz.31
+        for <netdev@vger.kernel.org>; Thu, 06 Jan 2011 16:47:04 -0800 (PST)
+In-Reply-To: <1294352011.11825.50.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi James,
+On Thu, Jan 6, 2011 at 2:13 PM, Ben Hutchings <bhutchings@solarflare.co=
+m> wrote:
+> On Wed, 2011-01-05 at 11:22 -0500, Jeff Garzik wrote:
+>> On 01/04/2011 08:21 PM, Ben Hutchings wrote:
+>> > On Tue, 2011-01-04 at 16:36 -0800, Stephen Hemminger wrote:
+>> >> On Tue, =A04 Jan 2011 16:30:01 -0800
+>> >> Mahesh Bandewar<maheshb@google.com> =A0wrote:
+>> >>
+>> >>> This patch enables ethtool to set the loopback mode on a given i=
+nterface.
+>> >>> By configuring the interface in loopback mode in conjunction wit=
+h a policy
+>> >>> route / rule, a userland application can stress the egress / ing=
+ress path
+>> >>> exposing the flows of the change in progress and potentially hel=
+p developer(s)
+>> >>> understand the impact of those changes without even sending a pa=
+cket out
+>> >>> on the network.
+>> >>>
+>> >>> Following set of commands illustrates one such example -
+>> >>> =A0 a) ip -4 addr add 192.168.1.1/24 dev eth1
+>> >>> =A0 b) ip -4 rule add from all iif eth1 lookup 250
+>> >>> =A0 c) ip -4 route add local 0/0 dev lo proto kernel scope host =
+table 250
+>> >>> =A0 d) arp -Ds 192.168.1.100 eth1
+>> >>> =A0 e) arp -Ds 192.168.1.200 eth1
+>> >>> =A0 f) sysctl -w net.ipv4.ip_nonlocal_bind=3D1
+>> >>> =A0 g) sysctl -w net.ipv4.conf.all.accept_local=3D1
+>> >>> =A0 # Assuming that the machine has 8 cores
+>> >>> =A0 h) taskset 000f netserver -L 192.168.1.200
+>> >>> =A0 i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.1=
+68.1.200 -l 30
+>> >>>
+>> >>> Signed-off-by: Mahesh Bandewar<maheshb@google.com>
+>> >>> Reviewed-by: Ben Hutchings<bhutchings@solarflare.com>
+>> >>
+>> >> Since this is a boolean it SHOULD go into ethtool_flags rather th=
+an
+>> >> being a high level operation.
+>> >
+>> > It could do, but I though ETHTOOL_{G,S}FLAGS were intended for
+>> > controlling offload features.
+>>
+>> It doesn't have to be. =A0As Stephen guessed, [GS]FLAGS are basicall=
+y
+>> common flags -- as differentiated from private,
+>> driver-specific/hardware-specific flags.
+>
+> Well, that would allow the patch to be simplified quite a bit. :-)
 
-Today's linux-next merge of the security-testing tree got a conflict in
-security/smack/smack_lsm.c between commit
-3610cda53f247e176bcbb7a7cca64bc53b12acdb ("af_unix: Avoid socket->sk NULL
-OOPS in stream connect security hooks") from the net tree and commit
-b4e0d5f0791bd6dd12a1c1edea0340969c7c1f90 ("Smack: UDS revision") from the
-security-testing tree.
+Ben, Are you suggesting to use ETH_FLAG_LOOPBACK instead of
+ETHTOOL_{G|S}LOOPBACK flags?
 
-I fixed it up (I think - see below) and can carry the fix as necessary.
--- 
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Thanks,
+--mahesh..
 
-diff --cc security/smack/smack_lsm.c
-index ccb71a0,05dc4da..0000000
---- a/security/smack/smack_lsm.c
-+++ b/security/smack/smack_lsm.c
-@@@ -2415,17 -2534,21 +2534,21 @@@ static int smack_setprocattr(struct tas
-   * Return 0 if a subject with the smack of sock could access
-   * an object with the smack of other, otherwise an error code
-   */
- -static int smack_unix_stream_connect(struct socket *sock,
- -				     struct socket *other, struct sock *newsk)
- +static int smack_unix_stream_connect(struct sock *sock,
- +				     struct sock *other, struct sock *newsk)
-  {
-- 	struct inode *sp = SOCK_INODE(sock->sk_socket);
-- 	struct inode *op = SOCK_INODE(other->sk_socket);
- -	struct socket_smack *ssp = sock->sk->sk_security;
- -	struct socket_smack *osp = other->sk->sk_security;
-++	struct socket_smack *ssp = sock->sk_security;
-++	struct socket_smack *osp = other->sk_security;
-  	struct smk_audit_info ad;
-+ 	int rc = 0;
-  
-  	smk_ad_init(&ad, __func__, LSM_AUDIT_DATA_NET);
- -	smk_ad_setfield_u_net_sk(&ad, other->sk);
- +	smk_ad_setfield_u_net_sk(&ad, other);
-- 	return smk_access(smk_of_inode(sp), smk_of_inode(op),
-- 				 MAY_READWRITE, &ad);
-+ 
-+ 	if (!capable(CAP_MAC_OVERRIDE))
-+ 		rc = smk_access(ssp->smk_out, osp->smk_in, MAY_WRITE, &ad);
-+ 
-+ 	return rc;
-  }
-  
-  /**
+>
+> Ben.
+>
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Subject: [PATCH net-2.6] ethtool: Define ETH_FLAG_LOOPBACK
+> Date: Thu, 6 Jan 2011 22:10:55 +0000
+>
+> Mahesh Bandewar <maheshb@google.com> requested this, writing:
+>
+> By configuring the interface in loopback mode in conjunction with a p=
+olicy
+> route / rule, a userland application can stress the egress / ingress =
+path
+> exposing the flows of the change in progress and potentially help dev=
+eloper(s)
+> understand the impact of those changes without even sending a packet =
+out
+> on the network.
+>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+>
+> --- a/include/linux/ethtool.h
+> +++ b/include/linux/ethtool.h
+> @@ -309,6 +309,7 @@ struct ethtool_perm_addr {
+> =A0* flag differs from the read-only value.
+> =A0*/
+> =A0enum ethtool_flags {
+> + =A0 =A0 =A0 ETH_FLAG_LOOPBACK =A0 =A0 =A0 =3D (1 << 2), =A0 =A0 /* =
+Host-side loopback enabled */
+> =A0 =A0 =A0 =A0ETH_FLAG_TXVLAN =A0 =A0 =A0 =A0 =3D (1 << 7), =A0 =A0 =
+/* TX VLAN offload enabled */
+> =A0 =A0 =A0 =A0ETH_FLAG_RXVLAN =A0 =A0 =A0 =A0 =3D (1 << 8), =A0 =A0 =
+/* RX VLAN offload enabled */
+> =A0 =A0 =A0 =A0ETH_FLAG_LRO =A0 =A0 =A0 =A0 =A0 =A0=3D (1 << 15), =A0=
+ =A0/* LRO is enabled */
+> ---
+>
+> --
+> Ben Hutchings, Senior Software Engineer, Solarflare Communications
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
+>
