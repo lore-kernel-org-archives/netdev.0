@@ -1,43 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: factorize qdisc stats handling
-Date: Sat, 08 Jan 2011 16:40:25 +0100
-Message-ID: <1294501225.2709.453.camel@edumazet-laptop>
-References: <20110106195614.20dbc402@nehalam>
-	 <AANLkTi=pqZ3CwLTAZnhd-cyQNj8OSeBHsP_bFiH3hJ-_@mail.gmail.com>
-	 <20110107200234.3f5e7ff8@nehalam>
-	 <1294478789.2709.79.camel@edumazet-laptop>  <4D286823.8050707@gmail.com>
+From: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [PATCH V8 12/13] ptp: Added a clock driver for the IXP46x.
+Date: Sat, 08 Jan 2011 17:25:36 +0100
+Message-ID: <m3r5cnuzun.fsf@intrepid.localdomain>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+	<8151196c018776704df34748f333bdb159497d0b.1293820862.git.richard.cochran@omicron.at>
+	<m3ei8plpa0.fsf@intrepid.localdomain>
+	<20110107170752.GB8666@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Fabio Checconi <fabio@gandalf.sssup.it>,
-	netdev@vger.kernel.org, Luigi Rizzo <rizzo@iet.unipi.it>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:54894 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752905Ab1AHPkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jan 2011 10:40:32 -0500
-Received: by wwa36 with SMTP id 36so19437457wwa.1
-        for <netdev@vger.kernel.org>; Sat, 08 Jan 2011 07:40:31 -0800 (PST)
-In-Reply-To: <4D286823.8050707@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110107170752.GB8666-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org> (Richard Cochran's
+	message of "Fri, 7 Jan 2011 18:07:52 +0100")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 08 janvier 2011 =C3=A0 14:35 +0100, Jarek Poplawski a =C3=A9c=
-rit :
+Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-> I guess you can't use qdisc_pkt_len() without qdisc_enqueue_root().
->=20
+> The time stamp code clones the skb, but the LE version frees the skb
+> too early. Perhaps we can move that dev_kfree_skb(skb) in the LE case
+> to be the last statement in eth_xmit(). What do you think?
 
-Indeed !
+I think so. Or something similar.
 
-This TCQ_F_CAN_BYPASS thing is truly evil ;)
+> Do you mean, you don't like the constant on the left hand side?
 
-Hmm, this makes me thing we could add TCQ_F_CAN_BYPASS on SFQ.
+Yes.
 
-Thanks !
+> Is that prohibited by CodingStyle or similar?
 
+I don't think so. It's just a personal taste. I think it's based on
+things learned in primary school, they teach to write (comparisons)
+X = 4 instead of the other way around, and my brain seems to shock
+a bit on the opposite.
 
+> I got into the habit of writing it that way to prevent a typo like:
+>
+> 	if (irq = NO_IRQ)
+
+I see. Unfortunately it doesn't prevent typos like this when the right
+side isn't a constant. Anyway gcc warns about them, even when both sides
+are variable.
+
+>> Also I don't like the ixp_read/ixp_write() trivial macros. Why not
+>> simply call __raw_readl() and __raw_writel()?
+>
+> Well, I have had the experience back in 2.4 days of having my drivers
+> ruined by the changing IO macros in the kernel. The wrappers are
+> supposed to help if that ever happens again. Seeing *two* leading
+> underscores in the macro names certainly makes me nervous.
+
+Well, these two underscores mainly mean it's arch-dependent, but so are
+the ixp4xx drivers. Using the __raw_read* directly is the preferred
+method (or, perhaps, in such case, it's the only way).
+
+Actually, I was thinking about changing the macros some time ago, and it
+may eventually happen. But we'll fix all the code using them then.
+-- 
+Krzysztof Halasa
