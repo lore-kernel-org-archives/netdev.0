@@ -1,38 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [GIT] Networking
-Date: Sat, 8 Jan 2011 01:09:01 +0100
-Message-ID: <20110108000901.GA2133@electric-eye.fr.zoreil.com>
-References: <20110106.122003.233698077.davem@davemloft.net> <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com> <20110107190656.GQ3702@decadent.org.uk> <AANLkTikwrHoOY4wvUp1qn-OT=EjZesSNR29US1ERc0o2@mail.gmail.com> <20110107215505.GA1892@electric-eye.fr.zoreil.com> <AANLkTinANp+Jp8TPKzii6iZLUFpMyrXhmxYr42nZrXQU@mail.gmail.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH v2] net: ppp: use {get,put}_unaligned_be{16,32}
+Date: Sat, 8 Jan 2011 08:43:01 +0800
+Message-ID: <AANLkTim=1GCah0qp8HJK31LWXPb5vAZYp+d2BTQM+Q+B@mail.gmail.com>
+References: <1294357056-25889-1-git-send-email-xiaosuo@gmail.com> <20110107030145.GA8021@brick.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ben Hutchings <benh@debian.org>,
-	David Miller <davem@davemloft.net>,
-	Hayes Wang <hayeswang@realtek.com>,
-	David Woodhouse <dwmw2@infradead.org>,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTinANp+Jp8TPKzii6iZLUFpMyrXhmxYr42nZrXQU@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Harvey Harrison <harvey.harrison@gmail.com>,
+	linux-ppp@vger.kernel.org, netdev@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20110107030145.GA8021@brick.ozlabs.ibm.com>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@linux-foundation.org> :
-[...]
-> Hmm. I never even waited for 60 seconds. Maybe my boot would have
-> continued after the delay.
+On Fri, Jan 7, 2011 at 11:01 AM, Paul Mackerras <paulus@samba.org> wrot=
+e:
+> On Fri, Jan 07, 2011 at 07:37:36AM +0800, Changli Gao wrote:
+>
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>
+> This patch description is inadequate. =A0It should tell us why you ar=
+e
+> making this change. =A0Does it result in smaller and/or faster code, =
+and
+> if so by how much on what sort of machine? =A0Do you think it makes t=
+he
+> code clearer? =A0(I don't.) =A0Or is there some other motivation for =
+this?
+>
 
-The 60 seconds delay is here :
+Good designed APIs always make code clearer, smaller and faster. It is
+obvious enough I think.
 
-drivers/base/firmware_class.c
-[...]
-static int loading_timeout = 60;        /* In seconds */
+The names of the functions imply the endianness, like comments. On
+some MIPS architectures which support unaligned load and store
+instructions, the APIs result in smaller and faster code.
 
-It can be read and set through sysfs.
 
-I'll give a try at moving the request-firmware dependent stuff to
-device-open time in drivers/net/r8169.c tomorrow morning. It's friday.
-
--- 
-Ueimor
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
