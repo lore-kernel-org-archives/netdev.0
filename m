@@ -1,86 +1,70 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Sat, 8 Jan 2011 18:50:28 +0100
-Message-ID: <20110108175028.GA22308@riccoc20.at.omicron.at>
-References: <cover.1293820862.git.richard.cochran@omicron.at>
- <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
- <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: 2.6.37 vlans on bnx2 not functional, panic with tcpdump
+Date: Sat, 08 Jan 2011 19:41:21 +0100
+Message-ID: <4D28AFD1.3020808@gmail.com>
+References: <4D2634DE.2060907@gmail.com> <1294357941.21580.2.camel@HP1> <1294361206.21580.7.camel@HP1> <AANLkTi=PGPVRbS3XViskpZ0GSS8ouBcgVZYYG9EoM-Nz@mail.gmail.com> <1294422653.14051.11.camel@HP1> <4D2754F9.8050707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------090806050204080902040303"
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Iain Paton <selsinork@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63408 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751045Ab1AHSl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jan 2011 13:41:27 -0500
+In-Reply-To: <4D2754F9.8050707@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 02, 2011 at 05:38:19AM +0900, Kuwahara,T. wrote:
-> As you know, it conflicts with MOD_PPSMAX.  And also, it is logically
-> the same as ADJ_OFFSET, unless the kernel PLL is enabled explicitly.
+This is a multi-part message in MIME format.
+--------------090806050204080902040303
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
-I choose another bit, for the next version of the patch series.
+Iain Paton wrote:
+...
+> So you can consider any bnx2 cause for this closed. I'll get back to the
+> list if I can come up with any more useful info.
 
-> 
-> So here's my simple solution:
-> 
+Hi Iain,
+If it's not a problem, please try if the attached debugging patch
+(not tested) can change anything.
 
-I have read the API documentation in the nanokernel source archive. It
-explains the (very complex looking) timex structure quite clearly and
-nicely. Now I am more convinced than ever that adding a new mode bit
-is the best way to go, as opposed to ADJ_OFFSET/!STA_PLL, because:
+Thanks,
+Jarek P.
 
-1. The mode bits update kernel variables. That is what we want.
-2. Clearing STA_PLL means disable adjustments.
-3. The range of the timex.offset is way too small.
+--------------090806050204080902040303
+Content-Type: text/plain;
+ name="dev.c.deliver_skb.1.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="dev.c.deliver_skb.1.diff"
 
-I expand on each point, below. BTW, the API document is also available
-for online reading here:
-
-   http://www.slac.stanford.edu/comp/unix/package/rtems/src/ssrlApps/ntpNanoclock/api.htm
-
-1. Looking at the API, the documentation for the bits of the 'modes'
-   field states:
-
-        These bits control which field of the timex structure are used
-        to update the corresponding kernel variable. The bits may be
-        set in any combination. See the description below for which
-        bits control which variable.
-
-   With the ADJ_SETOFFSET mode, we are telling the kernel to update
-   the instantaneous value of the 'current time' variable. That usage
-   agrees with the sematics of the other mode bits.
-
-2. The documentation for STA_PLL states:
-
-        Master enable switch for the PLL/FLL loop. The algorithm is
-        responsive to time and/or frequency updates if set; otherwise,
-        no change in the current time or frequency will be made other
-        than to complete a pending phase adjustment. This bit does not
-        affect the PPS loop.
-
-   So when we clear this bit, the kernel promises that it will make
-   "no change in the current time." The proposed ADJ_OFFSET/!STA_PLL
-   solution would break this pattern.
-
-3. The timex.offset field is of type "long" and represents either
-   nanoseconds or microseconds. On 32 bit architectures, the maximum
-   possible adjustment would be
-
-   2^31 * 10^-6 = 2147.5 seconds
-
-   which is less than one hour. For the first adjustment of a clock,
-   we want to be able to jump the clock arbitrarily. Not every
-   computer has an RTC, and so some boot up believing that it is still
-   the year 1970.
-
-Richard
+ZGlmZiAtLWdpdCBhL25ldC9jb3JlL2Rldi5jIGIvbmV0L2NvcmUvZGV2LmMKaW5kZXggMGRk
+NTRhNi4uOTI0NDM3MyAxMDA2NDQKLS0tIGEvbmV0L2NvcmUvZGV2LmMKKysrIGIvbmV0L2Nv
+cmUvZGV2LmMKQEAgLTI3MjAsNiArMjcyMCwxNyBAQCBzdGF0aWMgaW5saW5lIGludCBkZWxp
+dmVyX3NrYihzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAogCXJldHVybiBwdF9wcmV2LT5mdW5jKHNr
+Yiwgc2tiLT5kZXYsIHB0X3ByZXYsIG9yaWdfZGV2KTsKIH0KIAorc3RhdGljIGlubGluZSBp
+bnQgZGVsaXZlcl9za2JfY2xvbmUoc3RydWN0IHNrX2J1ZmYgKnNrYiwKKwkJCSAgICAgIHN0
+cnVjdCBwYWNrZXRfdHlwZSAqcHRfcHJldiwKKwkJCSAgICAgIHN0cnVjdCBuZXRfZGV2aWNl
+ICpvcmlnX2RldikKK3sKKwlzdHJ1Y3Qgc2tfYnVmZiAqbnNrYiA9IHNrYl9jbG9uZShza2Is
+IEdGUF9BVE9NSUMpOworCisJaWYgKCFuc2tiKQorCQlyZXR1cm4gMDsKKwlyZXR1cm4gcHRf
+cHJldi0+ZnVuYyhuc2tiLCBuc2tiLT5kZXYsIHB0X3ByZXYsIG9yaWdfZGV2KTsKK30KKwog
+I2lmIChkZWZpbmVkKENPTkZJR19CUklER0UpIHx8IGRlZmluZWQoQ09ORklHX0JSSURHRV9N
+T0RVTEUpKSAmJiBcCiAgICAgKGRlZmluZWQoQ09ORklHX0FUTV9MQU5FKSB8fCBkZWZpbmVk
+KENPTkZJR19BVE1fTEFORV9NT0RVTEUpKQogLyogVGhpcyBob29rIGlzIGRlZmluZWQgaGVy
+ZSBmb3IgQVRNIExBTkUgKi8KQEAgLTI5NTAsNyArMjk2MSw3IEBAIHN0YXRpYyBpbnQgX19u
+ZXRpZl9yZWNlaXZlX3NrYihzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQogCQlpZiAocHR5cGUtPmRl
+diA9PSBudWxsX29yX29yaWcgfHwgcHR5cGUtPmRldiA9PSBza2ItPmRldiB8fAogCQkgICAg
+cHR5cGUtPmRldiA9PSBvcmlnX2RldikgewogCQkJaWYgKHB0X3ByZXYpCi0JCQkJcmV0ID0g
+ZGVsaXZlcl9za2Ioc2tiLCBwdF9wcmV2LCBvcmlnX2Rldik7CisJCQkJcmV0ID0gZGVsaXZl
+cl9za2JfY2xvbmUoc2tiLCBwdF9wcmV2LCBvcmlnX2Rldik7CiAJCQlwdF9wcmV2ID0gcHR5
+cGU7CiAJCX0KIAl9CkBAIC0yOTc2LDcgKzI5ODcsNyBAQCBuY2xzOgogCiAJaWYgKHZsYW5f
+dHhfdGFnX3ByZXNlbnQoc2tiKSkgewogCQlpZiAocHRfcHJldikgewotCQkJcmV0ID0gZGVs
+aXZlcl9za2Ioc2tiLCBwdF9wcmV2LCBvcmlnX2Rldik7CisJCQlyZXQgPSBkZWxpdmVyX3Nr
+Yl9jbG9uZShza2IsIHB0X3ByZXYsIG9yaWdfZGV2KTsKIAkJCXB0X3ByZXYgPSBOVUxMOwog
+CQl9CiAJCWlmICh2bGFuX2h3YWNjZWxfZG9fcmVjZWl2ZSgmc2tiKSkgewo=
+--------------090806050204080902040303--
