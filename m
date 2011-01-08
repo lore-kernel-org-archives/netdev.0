@@ -1,62 +1,80 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH v2] net: ppp: use {get,put}_unaligned_be{16,32}
-Date: Sat, 08 Jan 2011 11:33:14 +0100
-Message-ID: <4D283D6A.4050502@gmail.com>
-References: <1294357056-25889-1-git-send-email-xiaosuo@gmail.com>	 <20110107030145.GA8021@brick.ozlabs.ibm.com>	 <AANLkTim=1GCah0qp8HJK31LWXPb5vAZYp+d2BTQM+Q+B@mail.gmail.com>	 <20110107.171534.193718114.davem@davemloft.net>	 <4D2836BB.6000600@gmail.com> <1294482005.2709.90.camel@edumazet-laptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [GIT] Networking
+Date: Sat, 8 Jan 2011 13:17:26 +0100
+Message-ID: <20110108121726.GA2216@electric-eye.fr.zoreil.com>
+References: <20110106.122003.233698077.davem@davemloft.net> <AANLkTi=7=_FyVsjA3vKEpg8RwfC=m-8QGfqa6ctxQday@mail.gmail.com> <20110107190656.GQ3702@decadent.org.uk> <AANLkTikwrHoOY4wvUp1qn-OT=EjZesSNR29US1ERc0o2@mail.gmail.com> <20110107215505.GA1892@electric-eye.fr.zoreil.com> <AANLkTinANp+Jp8TPKzii6iZLUFpMyrXhmxYr42nZrXQU@mail.gmail.com> <20110108000901.GA2133@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, xiaosuo@gmail.com,
-	paulus@samba.org, harvey.harrison@gmail.com,
-	linux-ppp@vger.kernel.org, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:39249 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949Ab1AHKdU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jan 2011 05:33:20 -0500
-In-Reply-To: <1294482005.2709.90.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Hutchings <benh@debian.org>,
+	David Miller <davem@davemloft.net>,
+	Hayes Wang <hayeswang@realtek.com>,
+	David Woodhouse <dwmw2@infradead.org>,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110108000901.GA2133@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet wrote:
-> Le samedi 08 janvier 2011 =C3=A0 11:04 +0100, Jarek Poplawski a =C3=A9=
-crit :
->=20
->> Just for the record: I agree with Paul that current code is more rea=
-dable.
->> This code still requires thinking about specific bytes and the patch=
- mixes
->> it only with word access.
->>
->> Jarek P.
->>
->>> @@ -395,16 +396,14 @@ mppe_compress(void *arg, unsigned char *ibuf,=
- unsigned char *obuf,
->>>  	 */
->>>  	obuf[0] =3D PPP_ADDRESS(ibuf);
->>>  	obuf[1] =3D PPP_CONTROL(ibuf);
->>> -	obuf[2] =3D PPP_COMP >> 8;	/* isize + MPPE_OVHD + 1 */
->>> -	obuf[3] =3D PPP_COMP;	/* isize + MPPE_OVHD + 2 */
->>> +	put_unaligned_be16(PPP_COMP, obuf + 2);
->>>  	obuf +=3D PPP_HDRLEN;
->=20
-> Compilers are stupid not generating optimal code, so we should help t=
-hem
-> a bit.
->=20
-> Yes, I agree this is ugly Jarek and makes reading of this code a bit
-> more complex, but this is a move we cannot stop. Number of functions,
-> macros, etc... is exploding and we must follow the trend ;)
->=20
-> 41 c6 44 24 02 00       movb   $0x0,0x2(%r12)
-> 41 c6 44 24 03 fd       movb   $0xfd,0x3(%r12)
->=20
-> After patch :
->=20
-> 66 41 c7 44 24 02 00 fd   movw   $0xfd00,0x2(%r12)
+r8169: delay phy init until device opens.
 
-And that's why Paul wanted more justification, because readability
-gain is questionable.
+It workarounds the 60s firmware load failure timeout for the
+non-modular case.
 
-Jarek P.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 27a7c20..dd758cd 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -3069,15 +3069,6 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		rtl8168_driver_start(tp);
+ 	}
+ 
+-	rtl8169_init_phy(dev, tp);
+-
+-	/*
+-	 * Pretend we are using VLANs; This bypasses a nasty bug where
+-	 * Interrupts stop flowing on high load on 8110SCd controllers.
+-	 */
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
+-		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | RxVlan);
+-
+ 	device_set_wakeup_enable(&pdev->dev, tp->features & RTL_FEATURE_WOL);
+ 
+ 	if (pci_dev_run_wake(pdev))
+@@ -3127,6 +3118,7 @@ static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
+ static int rtl8169_open(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
++	void __iomem *ioaddr = tp->mmio_addr;
+ 	struct pci_dev *pdev = tp->pci_dev;
+ 	int retval = -ENOMEM;
+ 
+@@ -3162,6 +3154,15 @@ static int rtl8169_open(struct net_device *dev)
+ 
+ 	napi_enable(&tp->napi);
+ 
++	rtl8169_init_phy(dev, tp);
++
++	/*
++	 * Pretend we are using VLANs; This bypasses a nasty bug where
++	 * Interrupts stop flowing on high load on 8110SCd controllers.
++	 */
++	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
++		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | RxVlan);
++
+ 	rtl_pll_power_up(tp);
+ 
+ 	rtl_hw_start(dev);
+@@ -3171,7 +3172,7 @@ static int rtl8169_open(struct net_device *dev)
+ 	tp->saved_wolopts = 0;
+ 	pm_runtime_put_noidle(&pdev->dev);
+ 
+-	rtl8169_check_link_status(dev, tp, tp->mmio_addr);
++	rtl8169_check_link_status(dev, tp, ioaddr);
+ out:
+ 	return retval;
+ 
