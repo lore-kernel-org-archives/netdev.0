@@ -1,40 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter:  fix  race in conntrack between dump_table
- and destroy
-Date: Sun, 09 Jan 2011 22:32:06 +0100
-Message-ID: <4D2A2956.8050505@netfilter.org>
-References: <20101124222716.437c5547@nehalam>	<1290666873.2798.89.camel@edumazet-laptop>	<20101124230004.1dc28e5a@nehalam>	<1290669214.2798.109.camel@edumazet-laptop> <20101126135101.4e4b97cc@nehalam>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
+Date: Sun, 9 Jan 2011 22:32:18 +0100
+Message-ID: <201101092232.19171.christoph.paasch@uclouvain.be>
+References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be> <20110109130608.5c7bb4b0.rdunlap@xenotime.net>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20101126135101.4e4b97cc@nehalam>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110109130608.5c7bb4b0.rdunlap@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 26/11/10 22:51, Stephen Hemminger wrote:
-> The netlink interface to dump the connection tracking table has a race
-> when entries are deleted at the same time. A customer reported a crash 
-> and the backtrace showed thatctnetlink_dump_table was running while a 
-> conntrack entry wasbeing destroyed.
-> (see https://bugzilla.vyatta.com/show_bug.cgi?id=6402).
-> 
-> According to RCU documentation, when using hlist_nulls the reader
-> must handle the case of seeing a deleted entry and not proceed
-> further down the linked list.  The old code would continue
-> which caused the scan to walk into the free list. 
-> 
-> This patch uses locking (rather than RCU) for this operation which
-> is guaranteed safe, and no longer requires getting reference while
-> doing dump operation.
+Hello,
 
-I have put this in my tree:
+On Sunday, January 09, 2011 wrote Randy Dunlap:
+> On Sun,  9 Jan 2011 21:55:34 +0100 Christoph Paasch wrote:
+> If there is something in net/tcp.h that uses data or functions from
+> <linux/list.h>, then <linux/list.h> should be #included in net/tcp.h,
+> whether some other file pulls it in indirectly or not.
+>=20
+> etc. etc. etc.
+Why?
 
-http://1984.lsi.us.es/git/?p=net-2.6/.git;a=summary
+IMHO I think that it increases compile-time.
+Ok, here in that case it only increases it slightly (probably it isn't =
+even=20
+measurable). But, if *all* the files would be more strict in including,=
+ I'm=20
+sure that it would make a difference.
+The less files you include, the faster the compilation will be.
 
-I'll pass it to David for -stable inclusion.
+In net/tcp.h there were even 4 unnecessary included files.
+
+And, then we would also need to include:
+net/net_namespace.h (for struct net)
+
+Also, I think that it makes the code more readable and also easier to=20
+maintain. The more files we include, the bigger the chance is that we w=
+ill end=20
+up with plenty of files unnecessarily included, and thus the compile-ti=
+me will=20
+explode.
+
+Regards,
+Christoph
+
+--
+Christoph Paasch
+PhD Student
+
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
+Universit=E9 Catholique de Louvain
+
+www.rollerbulls.be
+--
