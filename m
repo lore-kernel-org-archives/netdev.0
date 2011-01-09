@@ -1,97 +1,104 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH 6/6] offloading: Convert checksums to use centrally computed features.
-Date: Sun,  9 Jan 2011 08:23:35 -0800
-Message-ID: <1294590215-15541-6-git-send-email-jesse@nicira.com>
+Subject: [PATCH 3/6] offloading: Pass features into netif_needs_gso().
+Date: Sun,  9 Jan 2011 08:23:32 -0800
+Message-ID: <1294590215-15541-3-git-send-email-jesse@nicira.com>
 References: <1294590215-15541-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:37428 "EHLO
+Received: from mail-yi0-f46.google.com ([209.85.218.46]:41095 "EHLO
 	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752202Ab1AIQXu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 11:23:50 -0500
-Received: by mail-yi0-f46.google.com with SMTP id 18so5042831yib.19
-        for <netdev@vger.kernel.org>; Sun, 09 Jan 2011 08:23:50 -0800 (PST)
+	with ESMTP id S1752055Ab1AIQXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 11:23:45 -0500
+Received: by yib18 with SMTP id 18so5042835yib.19
+        for <netdev@vger.kernel.org>; Sun, 09 Jan 2011 08:23:45 -0800 (PST)
 In-Reply-To: <1294590215-15541-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to compute the features for other offloads (primarily
-scatter/gather), we need to first check the ability of the NIC to
-offload the checksum for the packet.  Since we have already computed
-this, we can directly use the result instead of figuring it out
-again.
+Now that there is a single function that can compute the device
+features relevant to a packet, we don't want to run it for each
+offload.  This converts netif_needs_gso() to take the features
+of the device, rather than computing them itself.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/core/dev.c |   40 ++++++++++++----------------------------
- 1 files changed, 12 insertions(+), 28 deletions(-)
+ drivers/net/xen-netfront.c |    2 +-
+ include/linux/netdevice.h  |   12 +++---------
+ net/core/dev.c             |    8 ++++++--
+ 3 files changed, 10 insertions(+), 12 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 2f838f1..3fe443b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1732,33 +1732,6 @@ void netif_device_attach(struct net_device *dev)
- }
- EXPORT_SYMBOL(netif_device_attach);
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index cdbeec9..546de57 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -488,7 +488,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
  
--static bool can_checksum_protocol(unsigned long features, __be16 protocol)
--{
--	return ((features & NETIF_F_GEN_CSUM) ||
--		((features & NETIF_F_V4_CSUM) &&
--		 protocol == htons(ETH_P_IP)) ||
--		((features & NETIF_F_V6_CSUM) &&
--		 protocol == htons(ETH_P_IPV6)) ||
--		((features & NETIF_F_FCOE_CRC) &&
--		 protocol == htons(ETH_P_FCOE)));
--}
+ 	if (unlikely(!netif_carrier_ok(dev) ||
+ 		     (frags > 1 && !xennet_can_sg(dev)) ||
+-		     netif_needs_gso(dev, skb))) {
++		     netif_needs_gso(skb, netif_skb_features(skb)))) {
+ 		spin_unlock_irq(&np->tx_lock);
+ 		goto drop;
+ 	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d4dac09..de2bfe6 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2317,16 +2317,10 @@ static inline int skb_gso_ok(struct sk_buff *skb, int features)
+ 	       (!skb_has_frag_list(skb) || (features & NETIF_F_FRAGLIST));
+ }
+ 
+-static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
++static inline int netif_needs_gso(struct sk_buff *skb, int features)
+ {
+-	if (skb_is_gso(skb)) {
+-		int features = netif_skb_features(skb);
 -
--static bool dev_can_checksum(struct net_device *dev, struct sk_buff *skb)
--{
--	__be16 protocol = skb->protocol;
--	int features = dev->features;
--
--	if (vlan_tx_tag_present(skb)) {
--		features &= dev->vlan_features;
--	} else if (protocol == htons(ETH_P_8021Q)) {
--		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
--		protocol = veh->h_vlan_encapsulated_proto;
--		features &= dev->vlan_features;
+-		return (!skb_gso_ok(skb, features) ||
+-			unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
 -	}
 -
--	return can_checksum_protocol(features, protocol);
--}
--
- /**
-  * skb_dev_set -- assign a new device to a buffer
-  * @skb: buffer for the new device
-@@ -2015,6 +1988,17 @@ static inline void skb_orphan_try(struct sk_buff *skb)
- 	}
+-	return 0;
++	return skb_is_gso(skb) && (!skb_gso_ok(skb, features) ||
++		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
  }
  
-+static bool can_checksum_protocol(unsigned long features, __be16 protocol)
-+{
-+	return ((features & NETIF_F_GEN_CSUM) ||
-+		((features & NETIF_F_V4_CSUM) &&
-+		 protocol == htons(ETH_P_IP)) ||
-+		((features & NETIF_F_V6_CSUM) &&
-+		 protocol == htons(ETH_P_IPV6)) ||
-+		((features & NETIF_F_FCOE_CRC) &&
-+		 protocol == htons(ETH_P_FCOE)));
-+}
+ static inline void netif_set_gso_max_size(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a51dfd7..1444ed3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2086,6 +2086,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	int rc = NETDEV_TX_OK;
+ 
+ 	if (likely(!skb->next)) {
++		int features;
 +
- static int harmonize_features(struct sk_buff *skb, __be16 protocol, int features)
- {
- 	if (!can_checksum_protocol(protocol, features)) {
-@@ -2117,7 +2101,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 			if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 				skb_set_transport_header(skb,
- 					skb_checksum_start_offset(skb));
--				if (!dev_can_checksum(dev, skb) &&
-+				if (!(features & NETIF_F_ALL_CSUM) &&
- 				     skb_checksum_help(skb))
- 					goto out_kfree_skb;
- 			}
+ 		/*
+ 		 * If device doesnt need skb->dst, release it right now while
+ 		 * its hot in this cpu cache
+@@ -2098,8 +2100,10 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 
+ 		skb_orphan_try(skb);
+ 
++		features = netif_skb_features(skb);
++
+ 		if (vlan_tx_tag_present(skb) &&
+-		    !(dev->features & NETIF_F_HW_VLAN_TX)) {
++		    !(features & NETIF_F_HW_VLAN_TX)) {
+ 			skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+ 			if (unlikely(!skb))
+ 				goto out;
+@@ -2107,7 +2111,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			skb->vlan_tci = 0;
+ 		}
+ 
+-		if (netif_needs_gso(dev, skb)) {
++		if (netif_needs_gso(skb, features)) {
+ 			if (unlikely(dev_gso_segment(skb)))
+ 				goto out_kfree_skb;
+ 			if (skb->next)
 -- 
 1.7.1
 
