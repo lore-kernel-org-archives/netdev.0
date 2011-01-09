@@ -1,61 +1,120 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
-Date: Sun, 9 Jan 2011 22:32:18 +0100
-Message-ID: <201101092232.19171.christoph.paasch@uclouvain.be>
-References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be> <20110109130608.5c7bb4b0.rdunlap@xenotime.net>
-Reply-To: christoph.paasch@uclouvain.be
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH v2] Madge Ambassador ATM Adapter driver: Always release_firmware()
+ in ucode_init() and don't leak memory.
+Date: Sun, 9 Jan 2011 22:32:38 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101092229160.633@swampdragon.chaosbits.net>
+References: <alpine.LNX.2.00.1101062203160.13988@swampdragon.chaosbits.net> <20110107100239.28032e5d@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110109130608.5c7bb4b0.rdunlap@xenotime.net>
+In-Reply-To: <20110107100239.28032e5d@thirdoffive.cmf.nrl.navy.mil>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Fri, 7 Jan 2011, chas williams - CONTRACTOR wrote:
 
-On Sunday, January 09, 2011 wrote Randy Dunlap:
-> On Sun,  9 Jan 2011 21:55:34 +0100 Christoph Paasch wrote:
-> If there is something in net/tcp.h that uses data or functions from
-> <linux/list.h>, then <linux/list.h> should be #included in net/tcp.h,
-> whether some other file pulls it in indirectly or not.
->=20
-> etc. etc. etc.
-Why?
+> instead of duplicating the same section again and again, could you
+> write something like:
+> 
+> 	errmsg = "no start record";
+> 	goto fail;
+> 
+> 	...
+> 
+> 	errmsg = "record to long"
+> 	goto fail;
+> 
+> 	.... whatever ...
+> 
+> 	return 0;
+> 
+> fail:
+> 	release_firmware(fw)
+> 	PRINTK(KERN_ERR, "Bad microcode data (%s)\n", errmsg);
+> 	return -EINVAL;
+> }
+> 
 
-IMHO I think that it increases compile-time.
-Ok, here in that case it only increases it slightly (probably it isn't =
-even=20
-measurable). But, if *all* the files would be more strict in including,=
- I'm=20
-sure that it would make a difference.
-The less files you include, the faster the compilation will be.
+Sure, we can do that instead.
 
-In net/tcp.h there were even 4 unnecessary included files.
+Failure to call release_firmware() will result in memory leak in
+drivers/atm/ambassador.c::ucode_init().
+This patch makes sure we always call release_firmware() when needed, 
+thus removing the leak(s).
 
-And, then we would also need to include:
-net/net_namespace.h (for struct net)
+Yes, I know checkpatch complains about this patch, but it was either that 
+or completely mess up the existing style, so I opted to use the existing 
+style and live with the checkpatch related flak.
 
-Also, I think that it makes the code more readable and also easier to=20
-maintain. The more files we include, the bigger the chance is that we w=
-ill end=20
-up with plenty of files unnecessarily included, and thus the compile-ti=
-me will=20
-explode.
 
-Regards,
-Christoph
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ ambassador.c |   19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
 
---
-Christoph Paasch
-PhD Student
+  compile tested only.
 
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
-Universit=E9 Catholique de Louvain
+diff --git a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+index ffe9b65..9f47e86 100644
+--- a/drivers/atm/ambassador.c
++++ b/drivers/atm/ambassador.c
+@@ -1926,8 +1926,9 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+   const struct firmware *fw;
+   unsigned long start_address;
+   const struct ihex_binrec *rec;
++  const char *errmsg = 0;
+   int res;
+-  
++
+   res = request_ihex_firmware(&fw, "atmsar11.fw", &dev->pci_dev->dev);
+   if (res) {
+     PRINTK (KERN_ERR, "Cannot load microcode data");
+@@ -1937,8 +1938,8 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+   /* First record contains just the start address */
+   rec = (const struct ihex_binrec *)fw->data;
+   if (be16_to_cpu(rec->len) != sizeof(__be32) || be32_to_cpu(rec->addr)) {
+-    PRINTK (KERN_ERR, "Bad microcode data (no start record)");
+-    return -EINVAL;
++    errmsg = "no start record";
++    goto fail;
+   }
+   start_address = be32_to_cpup((__be32 *)rec->data);
+ 
+@@ -1950,12 +1951,12 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+     PRINTD (DBG_LOAD, "starting region (%x, %u)", be32_to_cpu(rec->addr),
+ 	    be16_to_cpu(rec->len));
+     if (be16_to_cpu(rec->len) > 4 * MAX_TRANSFER_DATA) {
+-	    PRINTK (KERN_ERR, "Bad microcode data (record too long)");
+-	    return -EINVAL;
++	    errmsg = "record too long";
++	    goto fail;
+     }
+     if (be16_to_cpu(rec->len) & 3) {
+-	    PRINTK (KERN_ERR, "Bad microcode data (odd number of bytes)");
+-	    return -EINVAL;
++	    errmsg = "odd number of bytes";
++	    goto fail;
+     }
+     res = loader_write(lb, dev, rec);
+     if (res)
+@@ -1970,6 +1971,10 @@ static int __devinit ucode_init (loader_block * lb, amb_dev * dev) {
+     res = loader_start(lb, dev, start_address);
+ 
+   return res;
++fail:
++  release_firmware(fw);
++  PRINTK(KERN_ERR, "Bad microcode data (%s)", errmsg);
++  return -EINVAL;
+ }
+ 
+ /********** give adapter parameters **********/
 
-www.rollerbulls.be
---
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
