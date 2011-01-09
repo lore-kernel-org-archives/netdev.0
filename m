@@ -1,24 +1,84 @@
-From: Balaji Venkatachalam <balaji.v@thotakaa.com>
-Subject: Re: [PATCH]netdev: add driver for enc424j600 ethernet chip on SPI bus
-Date: Sun, 9 Jan 2011 14:30:38 +0530
-Message-ID: <AANLkTi=WQ-o+D0NicpGBd_qcfivLYaix_CUGWi2Rd_Zv@mail.gmail.com>
-References: <AANLkTi=cJuDX7RZCFD4ovgGQi7gBXchoMLx8BeuiGz8G@mail.gmail.com>
-	<AANLkTinosxXKgfkqGKqCLGi8tWeP4xnT1P3kMRu51CvS@mail.gmail.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Sun, 09 Jan 2011 12:01:23 +0100
+Message-ID: <4D299583.10909@hartkopp.net>
+References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<20110106.113356.102556872.davem@davemloft.net>
+	<4D261AAA.5030005@grandegger.com> <4D261BA4.2020003@pengutronix.de>
+	<4D262158.4030301@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, mohan@thotakaa.com, blue.cube@seznam.cz,
-	lanconelli.claudio@eptar.com,
-	Sriram Subramanian <sriram@thotakaa.com>
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:36150 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751336Ab1AIJAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 04:00:39 -0500
-Received: by wyb28 with SMTP id 28so18625279wyb.19
-        for <netdev@vger.kernel.org>; Sun, 09 Jan 2011 01:00:38 -0800 (PST)
-In-Reply-To: <AANLkTinosxXKgfkqGKqCLGi8tWeP4xnT1P3kMRu51CvS@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
+	Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D262158.4030301-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Thanks for the comments. I am working on them. Will post the updated patch soon.
+On 06.01.2011 21:08, Wolfgang Grandegger wrote:
+> Hi Marc,
+> 
+> On 01/06/2011 08:44 PM, Marc Kleine-Budde wrote:
+
+>> If this driver will be merged, we'll have two drivers for the same can
+>> core in the tree. The other one is the pch_can. What do you think should
+>> be the mid term perspective for ccan based hardware?
+> 
+> Yes, I know. Unfortunately, we did realize rather late the the PCH
+> controller is a C_CAN clone and the OKI/Intel ppls did not tell us
+> either. Therefore I asked Bhupesh to provide a SJA1000-a-like interface
+> for the C_CAN, which would allow us to provide an alternative PCI driver
+> "pch_pci.c" for the PCH. If that driver works well on the PCH hardware
+> as well, we should merge the best of both, if necessary, and then
+> finally remove the pch_can driver. Would that be a reasonable proposal.
+
+At least for me this looks great. The idea to have a similar approach as we
+successfully implemented for the sja1000 will solve future hardware
+implementations based on the ccan controller core.
+
+BTW. for the next submission of Bhupeshs patchset, i would propose to name the
+driver 'ccan' instead of 'c_can', so that we have a
+
+    linux/drivers/net/can/ccan/...
+
+path.
+
+Checking directory names in linux/drivers with
+
+    find . -type d | grep '_'
+
+driver names with underscores are pretty unusual and mostly selected without
+fortune:
+
+./staging/olpc_dcon
+./staging/wlags49_h2
+./staging/wlags49_h2/man
+./staging/serqt_usb2
+./staging/intel_sst
+./staging/quatech_usb2
+./staging/asus_oled
+./staging/wlags49_h25
+./staging/ath6kl/hif/sdio/linux_sdio             <- Ugh!
+./staging/ath6kl/hif/sdio/linux_sdio/src
+./staging/ath6kl/hif/sdio/linux_sdio/include
+./net/pch_gbe
+./net/fs_enet
+./net/wireless/libertas_tf
+./net/ibm_newemacds
+
+For that reason i would prefer 'ccan' to name this driver core.
+
+Best regards,
+Oliver
