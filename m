@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] hamradio: Resolve memory leak due to missing firmware
- release in add_mcs()
-Date: Sun, 09 Jan 2011 15:46:15 -0800 (PST)
-Message-ID: <20110109.154615.200375094.davem@davemloft.net>
-References: <alpine.LNX.2.00.1101062146430.13988@swampdragon.chaosbits.net>
+Subject: Re: [PATCH net-2.6 1/5] bnx2x: Don't prevent RSS configuration in
+ INT#x and MSI interrupt modes.
+Date: Sun, 09 Jan 2011 15:49:41 -0800 (PST)
+Message-ID: <20110109.154941.212684332.davem@davemloft.net>
+References: <1294575580.31551.12.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-hams@vger.kernel.org, jpr@f6fbb.org, frible@teaser.fr,
-	sailer@ife.ee.ethz.ch
-To: jj@chaosbits.net
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.00.1101062146430.13988@swampdragon.chaosbits.net>
-Sender: linux-hams-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: vladz@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49589
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752071Ab1AIXtJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 18:49:09 -0500
+In-Reply-To: <1294575580.31551.12.camel@lb-tlvb-vladz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Juhl <jj@chaosbits.net>
-Date: Thu, 6 Jan 2011 21:50:29 +0100 (CET)
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Date: Sun, 9 Jan 2011 14:19:40 +0200
 
+> Don't prevent RSS configuration in INT#x and MSI interrupt modes. Otherwise
+> Rx hash key won't be available.
 > 
-> Failure to release_firmware() in drivers/net/hamradio/yam.c::add_mcs() 
-> causes memory leak.
-> This patch should fix it.
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
 Applied.
