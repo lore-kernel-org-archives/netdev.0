@@ -1,48 +1,40 @@
 From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: [PATCH 4/6] net/sock.h: make some fields private to fix kernel-doc
- warning(s)
-Date: Sat, 8 Jan 2011 19:39:21 -0800
-Message-ID: <20110108193921.e03ca09e.randy.dunlap@oracle.com>
+Subject: [PATCH 6/6] net: fix kernel-doc warning in core/filter.c
+Date: Sat, 8 Jan 2011 19:41:42 -0800
+Message-ID: <20110108194142.22a0c3d8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: lkml <linux-kernel@vger.kernel.org>,
-	Linus <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Linus <torvalds@linux-foundation.org>, davem@davemloft.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:57816 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114Ab1AIDpf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jan 2011 22:45:35 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Fix new kernel-doc notation warning in sock.h by annotating skc_dontcopy_*
-as private fields.
+Fix new kernel-doc notation warning in net/core/filter.c:
 
-Warning(include/net/sock.h:163): No description found for parameter 'skc_dontcopy_end[0]'
+Warning(net/core/filter.c:172): No description found for parameter 'fentry'
+Warning(net/core/filter.c:172): Excess function parameter 'filter' description in 'sk_run_filter'
 
 Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
 ---
- include/net/sock.h |    4 ++++
- 1 file changed, 4 insertions(+)
+ net/core/filter.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
---- lnx0107.orig/include/net/sock.h
-+++ lnx0107/include/net/sock.h
-@@ -152,14 +152,18 @@ struct sock_common {
- 	 * fields between dontcopy_begin/dontcopy_end
- 	 * are not copied in sock_copy()
- 	 */
-+	/* private: */
- 	int			skc_dontcopy_begin[0];
-+	/* public: */
- 	union {
- 		struct hlist_node	skc_node;
- 		struct hlist_nulls_node skc_nulls_node;
- 	};
- 	int			skc_tx_queue_mapping;
- 	atomic_t		skc_refcnt;
-+	/* private: */
- 	int                     skc_dontcopy_end[0];
-+	/* public: */
- };
- 
+--- lnx0107.orig/net/core/filter.c
++++ lnx0107/net/core/filter.c
+@@ -158,7 +158,7 @@ EXPORT_SYMBOL(sk_filter);
  /**
+  *	sk_run_filter - run a filter on a socket
+  *	@skb: buffer to run the filter on
+- *	@filter: filter to apply
++ *	@fentry: filter to apply
+  *
+  * Decode and apply filter instructions to the skb->data.
+  * Return length to keep, 0 for none. @skb is the data we are
