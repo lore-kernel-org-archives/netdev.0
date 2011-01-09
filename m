@@ -1,64 +1,34 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and
- coding-style
-Date: Sun, 9 Jan 2011 13:06:08 -0800
-Message-ID: <20110109130608.5c7bb4b0.rdunlap@xenotime.net>
-References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be>
+From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Mon, 10 Jan 2011 06:07:26 +0900
+Message-ID: <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+ <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+ <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com> <20110108175028.GA22308@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110108175028.GA22308-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun,  9 Jan 2011 21:55:34 +0100 Christoph Paasch wrote:
+On Sun, Jan 9, 2011 at 2:50 AM, Richard Cochran
+<richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> we want to be able to jump the clock arbitrarily.
 
-> This patch reviews the include-files of net/tcp.h
-> Several #include where redundant. Some where not directly needed by
-> net/tcp.h
-> 
-> Files, including net/tcp.h where also including some the *.h-files that
-> net/tcp.h is already including. Thus, in these files the inclusion of
-> the *.h file is unnecessary.
-> 
-> Redundant includes in net/tcp.h:
-> 
-> linux/list.h --- included by linux/textsearch.h which is included by
->                  linux/skbuff.h
-
-If there is something in net/tcp.h that uses data or functions from <linux/list.h>,
-then <linux/list.h> should be #included in net/tcp.h, whether some other file
-pulls it in indirectly or not.
-
-etc. etc. etc.
-
-> linux/slab.h --- included by linux/crypto.h
-> linux/cache.h --- included by linux/skbuff.h
-> linux/skbuff.h --- included by net/sock.h
-> linux/kref.h --- included by linux/kobject.h, which is  included by
->                  linux/device.h, which is included by
->                  linux/dmaengine.h, which is included by
->                  linux/skbuff.h
-> net/inet_connection_sock.h --- included by net/inet_hashtables.h
-> net/checksum.h --- included by net/sock.h
-> net/request_sock.h --- included by net/inet_connection_sock.h
-> net/sock.h --- included by net/request_sock.h
-> net/snmp.h --- included by net/ip.h
-> net/dst.h --- included by net/sock.h
-> linux/seq_file.h --- included by net/neighbour.h, which is included by
->                      net/dst.h
-> 
-> Include-files not directly needed by net/tcp.h:
-> 
-> linux/percpu.h
-> linux/dmaengine.h
-> net/tcp_states.h
-> net/inet_ecn.h
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+Another problem remains:  How do you deal with leap seconds?  I mean,
+given that 1 minute is not always 60 seconds, then what time was it
+XXXXX seconds ago?   Maybe some kind of lookup table is necessary, but
+in such case, isn't it a better choice just to use the
+clock_settime/settimeofday syscall?
