@@ -1,104 +1,63 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH 3/6] offloading: Pass features into netif_needs_gso().
-Date: Sun,  9 Jan 2011 08:23:32 -0800
-Message-ID: <1294590215-15541-3-git-send-email-jesse@nicira.com>
+Subject: [PATCH 4/6] offloading: Convert dev_gso_segment() to use precomputed features.
+Date: Sun,  9 Jan 2011 08:23:33 -0800
+Message-ID: <1294590215-15541-4-git-send-email-jesse@nicira.com>
 References: <1294590215-15541-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:41095 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752055Ab1AIQXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 11:23:45 -0500
-Received: by yib18 with SMTP id 18so5042835yib.19
-        for <netdev@vger.kernel.org>; Sun, 09 Jan 2011 08:23:45 -0800 (PST)
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:48080 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752061Ab1AIQXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 11:23:47 -0500
+Received: by ywl5 with SMTP id 5so7269958ywl.19
+        for <netdev@vger.kernel.org>; Sun, 09 Jan 2011 08:23:47 -0800 (PST)
 In-Reply-To: <1294590215-15541-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that there is a single function that can compute the device
-features relevant to a packet, we don't want to run it for each
-offload.  This converts netif_needs_gso() to take the features
-of the device, rather than computing them itself.
+This switches dev_gso_segment() to use the device features computed
+by the centralized routine.  In doing so, it fixes a problem where
+it would always use dev->features, instead of those appropriate
+to the number of vlan tags if any are present.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- drivers/net/xen-netfront.c |    2 +-
- include/linux/netdevice.h  |   12 +++---------
- net/core/dev.c             |    8 ++++++--
- 3 files changed, 10 insertions(+), 12 deletions(-)
+ net/core/dev.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index cdbeec9..546de57 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -488,7 +488,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (unlikely(!netif_carrier_ok(dev) ||
- 		     (frags > 1 && !xennet_can_sg(dev)) ||
--		     netif_needs_gso(dev, skb))) {
-+		     netif_needs_gso(skb, netif_skb_features(skb)))) {
- 		spin_unlock_irq(&np->tx_lock);
- 		goto drop;
- 	}
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d4dac09..de2bfe6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2317,16 +2317,10 @@ static inline int skb_gso_ok(struct sk_buff *skb, int features)
- 	       (!skb_has_frag_list(skb) || (features & NETIF_F_FRAGLIST));
- }
- 
--static inline int netif_needs_gso(struct net_device *dev, struct sk_buff *skb)
-+static inline int netif_needs_gso(struct sk_buff *skb, int features)
- {
--	if (skb_is_gso(skb)) {
--		int features = netif_skb_features(skb);
--
--		return (!skb_gso_ok(skb, features) ||
--			unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
--	}
--
--	return 0;
-+	return skb_is_gso(skb) && (!skb_gso_ok(skb, features) ||
-+		unlikely(skb->ip_summed != CHECKSUM_PARTIAL));
- }
- 
- static inline void netif_set_gso_max_size(struct net_device *dev,
 diff --git a/net/core/dev.c b/net/core/dev.c
-index a51dfd7..1444ed3 100644
+index 1444ed3..4cd3e84 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -2086,6 +2086,8 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 	int rc = NETDEV_TX_OK;
+@@ -1971,16 +1971,14 @@ static void dev_gso_skb_destructor(struct sk_buff *skb)
+ /**
+  *	dev_gso_segment - Perform emulated hardware segmentation on skb.
+  *	@skb: buffer to segment
++ *	@features: device features as applicable to this skb
+  *
+  *	This function segments the given skb and stores the list of segments
+  *	in skb->next.
+  */
+-static int dev_gso_segment(struct sk_buff *skb)
++static int dev_gso_segment(struct sk_buff *skb, int features)
+ {
+-	struct net_device *dev = skb->dev;
+ 	struct sk_buff *segs;
+-	int features = dev->features & ~(illegal_highdma(dev, skb) ?
+-					 NETIF_F_SG : 0);
  
- 	if (likely(!skb->next)) {
-+		int features;
-+
- 		/*
- 		 * If device doesnt need skb->dst, release it right now while
- 		 * its hot in this cpu cache
-@@ -2098,8 +2100,10 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	segs = skb_gso_segment(skb, features);
  
- 		skb_orphan_try(skb);
- 
-+		features = netif_skb_features(skb);
-+
- 		if (vlan_tx_tag_present(skb) &&
--		    !(dev->features & NETIF_F_HW_VLAN_TX)) {
-+		    !(features & NETIF_F_HW_VLAN_TX)) {
- 			skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
- 			if (unlikely(!skb))
- 				goto out;
-@@ -2107,7 +2111,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
- 			skb->vlan_tci = 0;
+@@ -2112,7 +2110,7 @@ int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
  		}
  
--		if (netif_needs_gso(dev, skb)) {
-+		if (netif_needs_gso(skb, features)) {
- 			if (unlikely(dev_gso_segment(skb)))
+ 		if (netif_needs_gso(skb, features)) {
+-			if (unlikely(dev_gso_segment(skb)))
++			if (unlikely(dev_gso_segment(skb, features)))
  				goto out_kfree_skb;
  			if (skb->next)
+ 				goto gso;
 -- 
 1.7.1
 
