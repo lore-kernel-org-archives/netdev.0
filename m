@@ -1,84 +1,41 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Sun, 09 Jan 2011 12:01:23 +0100
-Message-ID: <4D299583.10909@hartkopp.net>
-References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<20110106.113356.102556872.davem@davemloft.net>
-	<4D261AAA.5030005@grandegger.com> <4D261BA4.2020003@pengutronix.de>
-	<4D262158.4030301@grandegger.com>
+From: Iain Paton <selsinork@gmail.com>
+Subject: Re: 2.6.37 vlans on bnx2 not functional, panic with tcpdump
+Date: Sun, 09 Jan 2011 11:22:39 +0000
+Message-ID: <4D299A7F.40604@gmail.com>
+References: <4D2634DE.2060907@gmail.com> <1294357941.21580.2.camel@HP1> <1294361206.21580.7.camel@HP1> <AANLkTi=PGPVRbS3XViskpZ0GSS8ouBcgVZYYG9EoM-Nz@mail.gmail.com> <1294422653.14051.11.camel@HP1> <4D2754F9.8050707@gmail.com> <4D28AFD1.3020808@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>,
-	Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D262158.4030301-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D28AFD1.3020808@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06.01.2011 21:08, Wolfgang Grandegger wrote:
-> Hi Marc,
+Jarek Poplawski wrote:
+> Iain Paton wrote:
+> ...
+>> So you can consider any bnx2 cause for this closed. I'll get back to the
+>> list if I can come up with any more useful info.
 > 
-> On 01/06/2011 08:44 PM, Marc Kleine-Budde wrote:
+> Hi Iain,
+> If it's not a problem, please try if the attached debugging patch
+> (not tested) can change anything.
 
->> If this driver will be merged, we'll have two drivers for the same can
->> core in the tree. The other one is the pch_can. What do you think should
->> be the mid term perspective for ccan based hardware?
-> 
-> Yes, I know. Unfortunately, we did realize rather late the the PCH
-> controller is a C_CAN clone and the OKI/Intel ppls did not tell us
-> either. Therefore I asked Bhupesh to provide a SJA1000-a-like interface
-> for the C_CAN, which would allow us to provide an alternative PCI driver
-> "pch_pci.c" for the PCH. If that driver works well on the PCH hardware
-> as well, we should merge the best of both, if necessary, and then
-> finally remove the pch_can driver. Would that be a reasonable proposal.
+No problem testing with the patch installed, however I'm now unable to duplicate the problem with a rebuilt kernel, with or without 
+the patch.
 
-At least for me this looks great. The idea to have a similar approach as we
-successfully implemented for the sja1000 will solve future hardware
-implementations based on the ccan controller core.
+The original kernel build I did still fails repeatably, but something as simple as erasing the directory, unpacking the same source 
+tarball and re-compiling using the same config file gets me a working kernel.
 
-BTW. for the next submission of Bhupeshs patchset, i would propose to name the
-driver 'ccan' instead of 'c_can', so that we have a
+This is somewhat troubling as there must have been some initial cause, but I'm unable to pin it down. Have spent the last day or so 
+checking toolchain versions, running hardware tests on the physical build server and have come up completely empty.
 
-    linux/drivers/net/can/ccan/...
+I think we can safely ignore this now as it appears to be a one-off bad compile, for reasons unknown, but totally unrepeatable.
 
-path.
+Thanks to all for your help, and apologies for the noise.
 
-Checking directory names in linux/drivers with
-
-    find . -type d | grep '_'
-
-driver names with underscores are pretty unusual and mostly selected without
-fortune:
-
-./staging/olpc_dcon
-./staging/wlags49_h2
-./staging/wlags49_h2/man
-./staging/serqt_usb2
-./staging/intel_sst
-./staging/quatech_usb2
-./staging/asus_oled
-./staging/wlags49_h25
-./staging/ath6kl/hif/sdio/linux_sdio             <- Ugh!
-./staging/ath6kl/hif/sdio/linux_sdio/src
-./staging/ath6kl/hif/sdio/linux_sdio/include
-./net/pch_gbe
-./net/fs_enet
-./net/wireless/libertas_tf
-./net/ibm_newemacds
-
-For that reason i would prefer 'ccan' to name this driver core.
-
-Best regards,
-Oliver
+Iain
