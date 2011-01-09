@@ -1,30 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sky2: fix limited auto negotiation
-Date: Sun, 09 Jan 2011 15:53:35 -0800 (PST)
-Message-ID: <20110109.155335.27810695.davem@davemloft.net>
-References: <AANLkTimGZbDNeRccp4SkgOsJsLXjyKNq+ma4UvW=-5GG@mail.gmail.com>
-	<20110106204036.1e45e982@nehalam>
+Subject: Re: [PATCH 2/2] sky2: convert to new VLAN model (v0.2)
+Date: Sun, 09 Jan 2011 15:54:23 -0800 (PST)
+Message-ID: <20110109.155423.191399001.davem@davemloft.net>
+References: <AANLkTikwGQFByOZGgCCjTJySPa8QYndZ903CFmOkS1Ha@mail.gmail.com>
+	<20110107201350.0be350bf@nehalam>
+	<AANLkTimyfSJwgcDOQK2hpWdJ08CNCerLM=0+NBA6+VZd@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: m.hariri@gmail.com, netdev@vger.kernel.org
-To: shemminger@linux-foundation.org
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54960
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54966
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752774Ab1AIXxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 18:53:04 -0500
-In-Reply-To: <20110106204036.1e45e982@nehalam>
+	by vger.kernel.org with ESMTP id S1753144Ab1AIXxv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 18:53:51 -0500
+In-Reply-To: <AANLkTimyfSJwgcDOQK2hpWdJ08CNCerLM=0+NBA6+VZd@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Date: Thu, 6 Jan 2011 20:40:36 -0800
+From: Jesse Gross <jesse@nicira.com>
+Date: Sun, 9 Jan 2011 11:13:31 -0500
 
-> The sky2 driver would always try all possible supported speeds even
-> if the user only asked for a limited set of speed/duplex combinations.
+> On Fri, Jan 7, 2011 at 11:13 PM, Stephen Hemminger
+> <shemminger@vyatta.com> wrote:
+>> This converts sky2 to new VLAN offload flags control via ethtool.
+>> It also allows for transmit offload of vlan tagged frames which
+>> was not possible before.
+>>
+>> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> ---
+>> Changed the setting of vlan_features in this version to keep
+>> non-offload settings (GRO|HIGHDMA) even if vlan offload is not
+>> enabled.
 > 
-> Reported-by: Mohsen Hariri <m.hariri@gmail.com>
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> Thanks Stephen.
+> 
+> Reviewed-by: Jesse Gross <jesse@nicira.com>
 
-Applied.
+Applied, thanks everyone.
