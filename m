@@ -1,51 +1,45 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH 0/3] iproute2: ip link: add support for network device
- groups
-Date: Mon, 10 Jan 2011 08:47:00 -0800
-Message-ID: <20110110084700.17798894@nehalam>
-References: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
+From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Mon, 10 Jan 2011 08:49:05 -0800
+Message-ID: <1294678145.3068.6.camel@work-vm>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+	 <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+	 <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
+	 <20110108175028.GA22308@riccoc20.at.omicron.at>
+	 <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: Vlad Dogaru <ddvlad@rosedu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51537 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753513Ab1AJQrE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 11:47:04 -0500
-In-Reply-To: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Jan 2011 13:39:16 +0200
-Vlad Dogaru <ddvlad@rosedu.org> wrote:
+On Mon, 2011-01-10 at 06:07 +0900, Kuwahara,T. wrote:
+> On Sun, Jan 9, 2011 at 2:50 AM, Richard Cochran
+> <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > we want to be able to jump the clock arbitrarily.
+> 
+> Another problem remains:  How do you deal with leap seconds?  I mean,
+> given that 1 minute is not always 60 seconds, then what time was it
+> XXXXX seconds ago?   Maybe some kind of lookup table is necessary, but
+> in such case, isn't it a better choice just to use the
+> clock_settime/settimeofday syscall?
 
-> This patch series adds userspace support for network device groups.
-> There is support for setting device groups, listing only interfaces of a
-> specific group, and setting basic device parameters for all interfaces
-> in a group.
-> 
-> The patches use the IFLA_GROUP and IFLA_FILTERGROUP messages, for which
-> I posted pathes in a different set.
-> 
-> 
-> Vlad Dogaru (3):
->   ip link: add support for setting device groups
->   ip link: support listing devices by group
->   ip link: support setting device parameters by group
-> 
->  include/linux/if_link.h   |    3 ++
->  include/linux/netdevice.h |    2 +-
->  include/utils.h           |    3 +-
->  ip/ipaddress.c            |   14 +++++++++++
->  ip/iplink.c               |   54 +++++++++++++++++++++++++++++++++++++++++++-
->  ip/link_veth.c            |    3 +-
->  6 files changed, 74 insertions(+), 5 deletions(-)
+Leapsecond processing is done via an absolute hrtimer. Thus when the
+time offset is set, the hrtimers that should have expired will fire
+(just like with settimeofday) and the adjustment will then be made.
 
-I like the idea, but I wonder if we should take it farther?
-Should it be hierarchal tree of groups?
-Should slave devices (ppp, vlan, etc) be automatically assigned
-to group of parent?
-
+thanks
+-john
