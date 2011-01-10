@@ -1,62 +1,181 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
-Date: Mon, 10 Jan 2011 12:44:24 +0100
-Message-ID: <201101101244.24932.christoph.paasch@uclouvain.be>
-References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be> <1294614389.2823.35.camel@localhost> <AANLkTik7mug7j=VLz80DX_hJokeO3=ie+KRcMViSL4kB@mail.gmail.com>
-Reply-To: christoph.paasch@uclouvain.be
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH v2] net/r8169: Update the function of parsing firmware
+Date: Mon, 10 Jan 2011 20:07:25 +0800
+Message-ID: <1294661245-2191-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Randy Dunlap <rdunlap@xenotime.net>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTik7mug7j=VLz80DX_hJokeO3=ie+KRcMViSL4kB@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:46816 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752349Ab1AJMIK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 07:08:10 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Update rtl_phy_write_fw function. The new function could
+parse the complex firmware which is used by RTL8111E and later.
+The new firmware may read data and do some operations, not just
+do writing only.
 
-On Monday, January 10, 2011 wrote Alexey Dobriyan:
-> >> linux/percpu_counter.h (needed for percpu_counter_sum_positive)
-> >=20
-> > Yes.
->=20
-> Currently code compiles fine, so necessary headers are in place,
-> so simply adding new headers doesn't help anything.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/r8169.c |  122 ++++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 110 insertions(+), 12 deletions(-)
 
-I totally agree with you.
-However we need a consistent coding style.
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 27a7c20..1e71912 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1632,36 +1632,134 @@ rtl_phy_write_fw(struct rtl8169_private *tp, const struct firmware *fw)
+ {
+ 	__le32 *phytable = (__le32 *)fw->data;
+ 	struct net_device *dev = tp->dev;
+-	size_t i;
++	size_t index, fw_size = fw->size / sizeof(*phytable);
++	u32 predata, count;
+ 
+ 	if (fw->size % sizeof(*phytable)) {
+ 		netif_err(tp, probe, dev, "odd sized firmware %zd\n", fw->size);
+ 		return;
+ 	}
+ 
+-	for (i = 0; i < fw->size / sizeof(*phytable); i++) {
+-		u32 action = le32_to_cpu(phytable[i]);
++	for (index = 0; index < fw_size; index++) {
++		u32 action = le32_to_cpu(phytable[index]);
++		u32 regno = (action & 0x0fff0000) >> 16;
+ 
+-		if (!action)
++		switch(action & 0xf0000000) {
++		case PHY_READ:
++		case PHY_DATA_OR:
++		case PHY_DATA_AND:
++		case PHY_READ_EFUSE:
++		case PHY_CLEAR_READCOUNT:
++		case PHY_WRITE:
++		case PHY_WRITE_PREVIOUS:
++		case PHY_DELAY_MS:
+ 			break;
+ 
+-		if ((action & 0xf0000000) != PHY_WRITE) {
+-			netif_err(tp, probe, dev,
+-				  "unknown action 0x%08x\n", action);
++		case PHY_BJMPN:
++			if (regno > index) {
++				netif_err(tp, probe, tp->dev,
++					"Out of range of firmware\n");
++				return;
++			}
++			break;
++		case PHY_READCOUNT_EQ_SKIP:
++			if (index + 2 >= fw_size) {
++				netif_err(tp, probe, tp->dev,
++					"Out of range of firmware\n");
++				return;
++			}
++			break;
++		case PHY_COMP_EQ_SKIPN:
++		case PHY_COMP_NEQ_SKIPN:
++		case PHY_SKIPN:
++			if (index + 1 + regno >= fw_size) {
++				netif_err(tp, probe, tp->dev,
++					"Out of range of firmware\n");
++				return;
++			}
++			break;
++
++		case PHY_READ_MAC_BYTE:
++		case PHY_WRITE_MAC_BYTE:
++		case PHY_WRITE_ERI_WORD:
++		default:
++			netif_err(tp, probe, tp->dev,
++				  "Invalid action 0x%08x\n", action);
+ 			return;
+ 		}
+ 	}
+ 
+-	while (i-- != 0) {
+-		u32 action = le32_to_cpu(*phytable);
++	predata = 0;
++	count = 0;
++
++	for (index = 0; index < fw_size; ) {
++		u32 action = le32_to_cpu(phytable[index]);
+ 		u32 data = action & 0x0000ffff;
+-		u32 reg = (action & 0x0fff0000) >> 16;
++		u32 regno = (action & 0x0fff0000) >> 16;
++
++		if (!action)
++			break;
+ 
+ 		switch(action & 0xf0000000) {
++		case PHY_READ:
++			predata = rtl_readphy(tp, regno);
++			count++;
++			index++;
++			break;
++		case PHY_DATA_OR:
++			predata |= data;
++			index++;
++			break;
++		case PHY_DATA_AND:
++			predata &= data;
++			index++;
++			break;
++		case PHY_BJMPN:
++			index -= regno;
++			break;
++		case PHY_READ_EFUSE:
++			predata = rtl8168d_efuse_read(tp->mmio_addr, regno);
++			index++;
++			break;
++		case PHY_CLEAR_READCOUNT:
++			count = 0;
++			index++;
++			break;
+ 		case PHY_WRITE:
+-			rtl_writephy(tp, reg, data);
+-			phytable++;
++			rtl_writephy(tp, regno, data);
++			index++;
++			break;
++		case PHY_READCOUNT_EQ_SKIP:
++			if (count == data)
++				index += 2;
++			else
++				index += 1;
++			break;
++		case PHY_COMP_EQ_SKIPN:
++			if (predata == data)
++				index += regno;
++			index++;
++			break;
++		case PHY_COMP_NEQ_SKIPN:
++			if (predata != data)
++				index += regno;
++			index++;
++			break;
++		case PHY_WRITE_PREVIOUS:
++			rtl_writephy(tp, regno, predata);
++			index++;
+ 			break;
++		case PHY_SKIPN:
++			index += regno + 1;
++			break;
++		case PHY_DELAY_MS:
++			mdelay(data);
++			index++;
++			break;
++
++		case PHY_READ_MAC_BYTE:
++		case PHY_WRITE_MAC_BYTE:
++		case PHY_WRITE_ERI_WORD:
+ 		default:
+ 			BUG();
+ 		}
+-- 
+1.7.3.2
 
-Or we just include the minimum necessary headers (as originally propose=
-d by=20
-me).
-Or we include every header whose structs/functions are referenced.
-
-In my opinion the current "mixed" state is not ok, because some include=
-s are=20
-there because there *are* references (even if these includes could be o=
-mitted,=20
-e.g., linux/list.h).
-Other includes (like linux/percpu_counter.h) are not there, because the=
-y are=20
-indirectly included by another header and thus the code compiles. Even =
-if=20
-there are references.
-And there are no rules/guidelines to identify the headers that should b=
-e=20
-included and those that should not.
-
-Regards,
-Christoph
-
---
-Christoph Paasch
-PhD Student
-
-IP Networking Lab --- http://inl.info.ucl.ac.be
-MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
-Universit=E9 Catholique de Louvain
-
-www.rollerbulls.be
---
