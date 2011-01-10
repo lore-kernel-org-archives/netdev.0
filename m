@@ -1,77 +1,50 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 4/5] netdev: bfin_mac: let boards set vlan masks
-Date: Mon, 10 Jan 2011 07:54:32 -0500
-Message-ID: <1294664073-1950-4-git-send-email-vapier@gentoo.org>
+Subject: [PATCH 5/5] netdev: bfin_mac: disable hardware checksum if writeback cache is enabled
+Date: Mon, 10 Jan 2011 07:54:33 -0500
+Message-ID: <1294664073-1950-5-git-send-email-vapier@gentoo.org>
 References: <1294664073-1950-1-git-send-email-vapier@gentoo.org>
-Cc: uclinux-dist-devel@blackfin.uclinux.org
+Cc: uclinux-dist-devel@blackfin.uclinux.org,
+	Sonic Zhang <sonic.zhang@analog.com>
 To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:36705 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:36708 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753717Ab1AJMqx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 07:46:53 -0500
+	id S1753975Ab1AJMqy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 07:46:54 -0500
 In-Reply-To: <1294664073-1950-1-git-send-email-vapier@gentoo.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Sonic Zhang <sonic.zhang@analog.com>
+
+With writeback caches, corrupted RX packets will be sent up the stack
+without any error markings.
+
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- drivers/net/bfin_mac.c   |    7 +++++++
- drivers/net/bfin_mac.h   |    3 +++
- include/linux/bfin_mac.h |    1 +
- 3 files changed, 11 insertions(+), 0 deletions(-)
+ drivers/net/bfin_mac.h |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index e712be4..0b9fc51 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -588,6 +588,10 @@ static void setup_system_regs(struct net_device *dev)
- 
- 	bfin_write_EMAC_MMC_CTL(RSTC | CROLL);
- 
-+	/* Set vlan regs to let 1522 bytes long packets pass through */
-+	bfin_write_EMAC_VLAN1(lp->vlan1_mask);
-+	bfin_write_EMAC_VLAN2(lp->vlan2_mask);
-+
- 	/* Initialize the TX DMA channel registers */
- 	bfin_write_DMA2_X_COUNT(0);
- 	bfin_write_DMA2_X_MODIFY(4);
-@@ -1520,6 +1524,9 @@ static int __devinit bfin_mac_probe(struct platform_device *pdev)
- 		goto out_err_mii_probe;
- 	}
- 
-+	lp->vlan1_mask = ETH_P_8021Q | mii_bus_data->vlan1_mask;
-+	lp->vlan2_mask = ETH_P_8021Q | mii_bus_data->vlan2_mask;
-+
- 	/* Fill in the fields of the device structure with ethernet values. */
- 	ether_setup(ndev);
- 
 diff --git a/drivers/net/bfin_mac.h b/drivers/net/bfin_mac.h
-index 4827f6b..c1a0d66 100644
+index c1a0d66..f8559ac 100644
 --- a/drivers/net/bfin_mac.h
 +++ b/drivers/net/bfin_mac.h
-@@ -75,6 +75,9 @@ struct bfin_mac_local {
- 	struct timer_list tx_reclaim_timer;
- 	struct net_device *ndev;
+@@ -17,7 +17,14 @@
+ #include <linux/etherdevice.h>
+ #include <linux/bfin_mac.h>
  
-+	/* Data for EMAC_VLAN1 regs */
-+	u16 vlan1_mask, vlan2_mask;
-+
- 	/* MII and PHY stuffs */
- 	int old_link;          /* used by bf537_adjust_link */
- 	int old_speed;
-diff --git a/include/linux/bfin_mac.h b/include/linux/bfin_mac.h
-index 904dec7..a69554e 100644
---- a/include/linux/bfin_mac.h
-+++ b/include/linux/bfin_mac.h
-@@ -24,6 +24,7 @@ struct bfin_mii_bus_platform_data {
- 	const unsigned short *mac_peripherals;
- 	int phy_mode;
- 	unsigned int phy_mask;
-+	unsigned short vlan1_mask, vlan2_mask;
- };
++/*
++ * Disable hardware checksum for bug #5600 if writeback cache is
++ * enabled. Otherwize, corrupted RX packet will be sent up stack
++ * without error mark.
++ */
++#ifndef CONFIG_BFIN_EXTMEM_WRITEBACK
+ #define BFIN_MAC_CSUM_OFFLOAD
++#endif
  
- #endif
+ #define TX_RECLAIM_JIFFIES (HZ / 5)
+ 
 -- 
 1.7.4.rc1
 
