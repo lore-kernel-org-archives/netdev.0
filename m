@@ -1,33 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Bad TCP timestamps on non-PC platforms
-Date: Sun, 09 Jan 2011 23:19:03 -0800 (PST)
-Message-ID: <20110109.231903.42797119.davem@davemloft.net>
-References: <373539.88491.qm@web37603.mail.mud.yahoo.com>
-	<1294643276.2709.877.camel@edumazet-laptop>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Mon, 10 Jan 2011 08:22:26 +0100
+Message-ID: <20110110072226.GB4864@riccoc20.at.omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+ <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+ <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
+ <20110108175028.GA22308@riccoc20.at.omicron.at>
+ <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: oakad@yahoo.com, shemminger@vyatta.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42482
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751292Ab1AJHSb convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 02:18:31 -0500
-In-Reply-To: <1294643276.2709.877.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:43315 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751756Ab1AJHWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 02:22:30 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Mon, 10 Jan 2011 08:07:56 +0100
+On Mon, Jan 10, 2011 at 06:07:26AM +0900, Kuwahara,T. wrote:
+> 
+> Another problem remains:  How do you deal with leap seconds?  I mean,
 
-> Le dimanche 09 janvier 2011 =E0 22:33 -0800, Alex Dubov a =E9crit :
->> I managed to work around the issue by clearing the NETIF_F_IP_CSUM
->> feature flag of the gianfar network driver, so it appears the bug is
->> indeed somewhere there.
->>=20
->=20
-> Its incredible how TCP timestamps can be "usual suspects" ;)
+Since you have changed the topic, does that mean that you now agree
+with adding a new mode bit? ;)
 
-Or RTC chips! :-)
+Richard
