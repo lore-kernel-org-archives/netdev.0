@@ -1,26 +1,82 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
-Date: Mon, 10 Jan 2011 19:02:06 +0200
-Message-ID: <AANLkTim38gKQqrh=wKC+NRf=ypKus1t8mdtmGtW-3rKU@mail.gmail.com>
-References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be>
-	<201101101244.24932.christoph.paasch@uclouvain.be>
-	<20110110075032.e38955ef.rdunlap@xenotime.net>
-	<201101101724.46023.christoph.paasch@uclouvain.be>
-	<20110110083024.ab3bad25.rdunlap@xenotime.net>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] Move an assert under DEBUG_KERNEL. (attempt 2)
+Date: Mon, 10 Jan 2011 09:19:59 -0800
+Message-ID: <20110110091959.ff4a2bfe.randy.dunlap@oracle.com>
+References: <4D2579B2.7060704@parallels.com>
+	<20110106154120.b69118c9.akpm@linux-foundation.org>
+	<4D2AC4D5.5070503@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: christoph.paasch@uclouvain.be,
-	Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>, <trivial@kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-embedded@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rob Landley <rlandley@parallels.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110110083024.ab3bad25.rdunlap@xenotime.net>
+In-Reply-To: <4D2AC4D5.5070503@parallels.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 10, 2011 at 6:30 PM, Randy Dunlap <rdunlap@xenotime.net> wrote:
-> If you just want to fix source files that are missing header files, then
-> the patches should be accepted, even if they are not "needed" in some
-> strong sense of that word.
+On Mon, 10 Jan 2011 02:35:33 -0600 Rob Landley wrote:
 
-This will create a lot of noise. As if we haven't seen enough before.
+> On 01/06/2011 05:41 PM, Andrew Morton wrote:
+> > Probably a worthwhile thing to do, IMO.  If there's some net-specific
+> > CONFIG_DEBUG_ setting then that wold be a better thing to use.
+> > 
+> > However the patch was a) wordwrapped, b) space-stuffed and c) not cc'ed
+> > to the networking list.  So its prospects are dim.
+> 
+> Ok, either I've beaten thunderbird into submission, or I'll be submitting a patch to Documentation/email-clients.txt.  (Whether or not I need to find a different smtp server to send this through remains an open question.)
+> 
+> (Confirming: I looked for a more specific DEBUG symbol, but couldn't find one.  I can add one, but this seems a bit small to have its own symbol, and DEBUG_KERNEL is already used in a few *.c files.)
+> 
+> From: Rob Landley <rlandley@parallels.com>
+> 
+> Move an assert under DEBUG_KERNEL.  (Minor cleanup to save a few bytes.)
+> 
+> Signed-off-by: Rob Landley <rlandley@parallels.com>
+> ---
+> 
+>  include/linux/rtnetlink.h |    4 ++++
+>  1 file changed, 4 insertions(+)
+
+
+Hm, cc to linux-net should be to netdev instead (so I changed it).
+
+
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index bbad657..28c4025 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+> @@ -782,6 +782,7 @@ extern struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
+>  extern void rtnetlink_init(void);
+>  extern void __rtnl_unlock(void);
+>  
+> +#ifdef CONFIG_DEBUG_KERNEL
+>  #define ASSERT_RTNL() do { \
+>  	if (unlikely(!rtnl_is_locked())) { \
+>  		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
+> @@ -789,6 +790,9 @@ extern void __rtnl_unlock(void);
+>  		dump_stack(); \
+>  	} \
+>  } while(0)
+> +#else
+> +#define ASSERT_RTNL()
+> +#endif
+
+Empty macros in Linux usually take the (preferred) form of this one from kernel.h:
+
+#define might_resched() do { } while (0)
+
+although it's up to DaveM in this case.
+
+
+>  
+>  static inline u32 rtm_get_table(struct rtattr **rta, u8 table)
+>  {
+> --
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
