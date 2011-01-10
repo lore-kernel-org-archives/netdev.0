@@ -1,57 +1,35 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
-Date: Mon, 10 Jan 2011 14:12:46 +0200
-Message-ID: <AANLkTim0U22b+S=9qZj5BP5TTxEM=U2BhpO4ZjfQAuOz@mail.gmail.com>
-References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be>
-	<1294614389.2823.35.camel@localhost>
-	<AANLkTik7mug7j=VLz80DX_hJokeO3=ie+KRcMViSL4kB@mail.gmail.com>
-	<201101101244.24932.christoph.paasch@uclouvain.be>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: rndis gadget: Inconsistent locking
+Date: Mon, 10 Jan 2011 04:14:17 -0800 (PST)
+Message-ID: <466657.40223.qm@web180306.mail.gq1.yahoo.com>
+References: <AANLkTikkkit_L3qHgoyfVUwDYwahbFDJdF8eosH+woAz@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Randy Dunlap <rdunlap@xenotime.net>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: christoph.paasch@uclouvain.be
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org
+To: =?utf-8?B?TWljaGHFgiBOYXphcmV3aWN6?= <m.nazarewicz@samsung.com>,
+	Neil Jones <neiljay@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39455 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753883Ab1AJMMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 07:12:47 -0500
-In-Reply-To: <201101101244.24932.christoph.paasch@uclouvain.be>
+Received: from nm25.bullet.mail.sp2.yahoo.com ([98.139.91.95]:43581 "HELO
+	nm25.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753802Ab1AJMOU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 07:14:20 -0500
+In-Reply-To: <AANLkTikkkit_L3qHgoyfVUwDYwahbFDJdF8eosH+woAz@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/1/10 Christoph Paasch <christoph.paasch@uclouvain.be>:
->
-> On Monday, January 10, 2011 wrote Alexey Dobriyan:
->> >> linux/percpu_counter.h (needed for percpu_counter_sum_positive)
->> >
->> > Yes.
->>
->> Currently code compiles fine, so necessary headers are in place,
->> so simply adding new headers doesn't help anything.
->
-> I totally agree with you.
-> However we need a consistent coding style.
->
-> Or we just include the minimum necessary headers (as originally proposed by
-> me).
-> Or we include every header whose structs/functions are referenced.
 
-This is false dichotomy and extreme siding.
 
-We need code that compiles.
-We need headers to include realistically minimum amount of stuff (not
-#include lines,
-but stuff)
+> I have just retested Michals patch but I have found another
+> lockdep failure.
+> 
+> It looks like rndis_msg_parser() can call dev_get_stats> too:
 
-> In my opinion the current "mixed" state is not ok, because some includes are
-> there because there *are* references (even if these includes could be omitted,
-> e.g., linux/list.h).
-> Other includes (like linux/percpu_counter.h) are not there, because they are
-> indirectly included by another header and thus the code compiles. Even if
-> there are references.
-> And there are no rules/guidelines to identify the headers that should be
-> included and those that should not.
+Can someone provide a fully working patch then?
+Or maybe just revert the one that caused all the
+breakage??
 
-That because the issue not that important. :-)
+Rememeber that this driver was working fine for
+years before netdev changes added multiple bugs
+because (at least) they didn't update all callers.
