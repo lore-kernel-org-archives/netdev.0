@@ -1,58 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 0/3] net: add device groups
-Date: Mon, 10 Jan 2011 09:00:21 -0500
-Message-ID: <1294668021.6063.315.camel@mojatatu>
-References: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
-	 <1294666875.3583.6.camel@jlt3.sipsolutions.net>
-Reply-To: hadi@cyberus.ca
+From: Dan Carpenter <error27@gmail.com>
+Subject: Re: [patch] phonet: some signedness bugs
+Date: Mon, 10 Jan 2011 17:01:41 +0300
+Message-ID: <20110110140141.GA2721@bicker>
+References: <20110107203755.GB1959@bicker>
+ <201101100958.32549.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Dogaru <ddvlad@rosedu.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:46441 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751710Ab1AJOAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:00:21 -0500
-Received: by qwa26 with SMTP id 26so19787472qwa.19
-        for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 06:00:21 -0800 (PST)
-In-Reply-To: <1294666875.3583.6.camel@jlt3.sipsolutions.net>
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:42750 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753426Ab1AJOCH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:02:07 -0500
+Content-Disposition: inline
+In-Reply-To: <201101100958.32549.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-01-10 at 14:41 +0100, Johannes Berg wrote:
+On Mon, Jan 10, 2011 at 09:58:32AM +0200, R=E9mi Denis-Courmont wrote:
+> On Friday 07 January 2011 22:37:55 ext Dan Carpenter, you wrote:
+> > Dan Rosenberg pointed out that there were some signed comparison bu=
+gs
+> > in the phonet protocol.
+>=20
+> There are two ways to solve this: change *only* the proto_get functio=
+n to use=20
+> an unsigned parameter, or cast the protocol to unsigned in the compar=
+ison.
+>=20
+> As David pointed out, your patch breaks the socket() callback prototy=
+pe.
+>=20
 
-> Can you explain the purpose of this? I'm wondering if it would make
-> sense to automatically group all virtual interfaces belonging to a
-> single 802.11 device, for instance.
+Yes.  I really appologize for that.  I'll send version 2 with that crea=
+te()
+change dropped.  It's not needed.
 
-It depends what you want to do with that grouping.
-In a nutshell, this greatly reduces the amount of kernel-user netlink
-traffic in presence of multi interfaces.
-you can do things like:
- 
-ip link set dev ppp0 group 1
-...
-...
-ip link set dev pppN group 1
+I would like to keep the change to phonet_proto_register() because the
+check in there isn't right and it's similar to phonet_proto_get().   We
+may as well keep phonet_proto_unregister() as well so it's symmetric.
+Let me know if you disagree and I'll redo it.
 
-ip link ls group 1
-ip link set down group 1
-ip link set mtu 512 group 1
-etc
-
-Although now that i am thinking of it,
-I am not sure whether it would be a legit thing to change
-the MAC address of a group of devices - we may need to put
-some restrictions.
-
-Note: this grouping thing can also be potentially used in
-packet policies etc (but i dont want to distract the simple
-requirement we have at the moment).
-
-cheers,
-jamal 
-
+regards,
+dan carpenter
