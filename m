@@ -1,108 +1,62 @@
-From: Vlad Dogaru <ddvlad@rosedu.org>
-Subject: [PATCH 2/3] ip link: support listing devices by group
-Date: Mon, 10 Jan 2011 13:39:18 +0200
-Message-ID: <1294659559-22648-3-git-send-email-ddvlad@rosedu.org>
-References: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
-Cc: Vlad Dogaru <ddvlad@rosedu.org>, jamal <hadi@cyberus.ca>,
-	Octavian Purdila <opurdila@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [141.85.37.41] ([141.85.37.41]:33770 "EHLO swarm.cs.pub.ro"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753759Ab1AJLjY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 06:39:24 -0500
-To: netdev@vger.kernel.org
-In-Reply-To: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
-To: netdev@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
+Date: Mon, 10 Jan 2011 12:44:24 +0100
+Message-ID: <201101101244.24932.christoph.paasch@uclouvain.be>
+References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be> <1294614389.2823.35.camel@localhost> <AANLkTik7mug7j=VLz80DX_hJokeO3=ie+KRcMViSL4kB@mail.gmail.com>
+Reply-To: christoph.paasch@uclouvain.be
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	Randy Dunlap <rdunlap@xenotime.net>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTik7mug7j=VLz80DX_hJokeO3=ie+KRcMViSL4kB@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-User can specify device group to list by using the devgroup keyword:
 
-	ip link lst devgroup 1
+On Monday, January 10, 2011 wrote Alexey Dobriyan:
+> >> linux/percpu_counter.h (needed for percpu_counter_sum_positive)
+> >=20
+> > Yes.
+>=20
+> Currently code compiles fine, so necessary headers are in place,
+> so simply adding new headers doesn't help anything.
 
-If no group is specified, 0 is implied.
+I totally agree with you.
+However we need a consistent coding style.
 
-Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
----
- include/linux/netdevice.h |    2 +-
- ip/ipaddress.c            |   14 ++++++++++++++
- ip/iplink.c               |    1 +
- 3 files changed, 16 insertions(+), 1 deletions(-)
+Or we just include the minimum necessary headers (as originally propose=
+d by=20
+me).
+Or we include every header whose structs/functions are referenced.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index bec4e23..ad2e34d 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -33,7 +33,7 @@
- 
- #define MAX_ADDR_LEN	32		/* Largest hardware address length */
- 
--
-+#define INIT_NETDEV_GROUP	0	/* Initial group net devices belong to */
- 
- /* Media selection options. */
- enum {
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index a775ecd..66e4350 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -49,6 +49,7 @@ static struct
- 	char *flushb;
- 	int flushp;
- 	int flushe;
-+	int group;
- } filter;
- 
- static int do_link;
-@@ -246,6 +247,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
- 	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
- 		return 0;
- 
-+	if (tb[IFLA_GROUP]) {
-+		int group = *(int*)RTA_DATA(tb[IFLA_GROUP]);
-+		if (group != filter.group)
-+			return -1;
-+	}
-+
- 	if (n->nlmsg_type == RTM_DELLINK)
- 		fprintf(fp, "Deleted ");
- 
-@@ -718,9 +725,12 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 	if (filter.family == AF_UNSPEC)
- 		filter.family = preferred_family;
- 
-+	filter.group = INIT_NETDEV_GROUP;
-+
- 	if (flush) {
- 		if (argc <= 0) {
- 			fprintf(stderr, "Flush requires arguments.\n");
-+
- 			return -1;
- 		}
- 		if (filter.family == AF_PACKET) {
-@@ -779,6 +789,10 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
- 		} else if (strcmp(*argv, "label") == 0) {
- 			NEXT_ARG();
- 			filter.label = *argv;
-+		} else if (strcmp(*argv, "devgroup") == 0) {
-+			NEXT_ARG();
-+			if (get_integer(&filter.group, *argv, 0))
-+				invarg("Invalid \"devgroup\" value\n", *argv);
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
-diff --git a/ip/iplink.c b/ip/iplink.c
-index a7bad2c..c0378e7 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -66,6 +66,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "	                  [ address LLADDR ]\n");
- 	fprintf(stderr, "	                  [ broadcast LLADDR ]\n");
- 	fprintf(stderr, "	                  [ mtu MTU ]\n");
-+	fprintf(stderr, "	                  [ group GROUP ]\n");
- 	fprintf(stderr, "	                  [ netns PID ]\n");
- 	fprintf(stderr, "			  [ alias NAME ]\n");
- 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
--- 
-1.7.1
+In my opinion the current "mixed" state is not ok, because some include=
+s are=20
+there because there *are* references (even if these includes could be o=
+mitted,=20
+e.g., linux/list.h).
+Other includes (like linux/percpu_counter.h) are not there, because the=
+y are=20
+indirectly included by another header and thus the code compiles. Even =
+if=20
+there are references.
+And there are no rules/guidelines to identify the headers that should b=
+e=20
+included and those that should not.
 
+Regards,
+Christoph
+
+--
+Christoph Paasch
+PhD Student
+
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
+Universit=E9 Catholique de Louvain
+
+www.rollerbulls.be
+--
