@@ -1,60 +1,83 @@
 From: Vlad Dogaru <ddvlad@rosedu.org>
-Subject: [PATCH 2/3] net/dummy: add device group parameter
-Date: Mon, 10 Jan 2011 13:38:43 +0200
-Message-ID: <1294659524-22509-3-git-send-email-ddvlad@rosedu.org>
+Subject: [PATCH 3/3] netlink: support setting devgroup parameters
+Date: Mon, 10 Jan 2011 13:38:44 +0200
+Message-ID: <1294659524-22509-4-git-send-email-ddvlad@rosedu.org>
 References: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
 Cc: Vlad Dogaru <ddvlad@rosedu.org>, jamal <hadi@cyberus.ca>,
 	Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [141.85.37.41] ([141.85.37.41]:33740 "EHLO swarm.cs.pub.ro"
+Received: from [141.85.37.41] ([141.85.37.41]:33746 "EHLO swarm.cs.pub.ro"
 	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753739Ab1AJLiz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 06:38:55 -0500
+	id S1752359Ab1AJLi5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 06:38:57 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When inserting the dummy module, the user can specify the group of the
-dummy devices. This avoids manually moving the newly created pseudo
-devices to a different group.
+Add a new type of message, IFLA_FILTERGROUP, which, if present in a
+userspace request, specifies that parameters should be changed for all
+devices in the group.
 
 Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
 ---
- drivers/net/dummy.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
+ include/linux/if_link.h |    1 +
+ net/core/rtnetlink.c    |   22 ++++++++++++++++++++++
+ 2 files changed, 23 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/dummy.c b/drivers/net/dummy.c
-index ff2d29b..a974c05 100644
---- a/drivers/net/dummy.c
-+++ b/drivers/net/dummy.c
-@@ -39,6 +39,7 @@
- #include <linux/u64_stats_sync.h>
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index f4a2e6b..1bbacf9 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -136,6 +136,7 @@ enum {
+ 	IFLA_PORT_SELF,
+ 	IFLA_AF_SPEC,
+ 	IFLA_GROUP,		/* Group the device belongs to */
++	IFLA_FILTERGROUP,	/* Set parameters for a specific device group */
+ 	__IFLA_MAX
+ };
  
- static int numdummies = 1;
-+static int ingroup;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 012b0f0..8d7af8c 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1558,6 +1558,24 @@ err:
+ }
+ EXPORT_SYMBOL(rtnl_create_link);
  
- static int dummy_set_address(struct net_device *dev, void *p)
++static int rtnl_group_changelink(struct net *net, int group,
++		struct ifinfomsg *ifm,
++		struct nlattr **tb)
++{
++	struct net_device *dev;
++	int err;
++
++	for_each_netdev(net, dev) {
++		if (dev->group == group) {
++			err = do_setlink(dev, ifm, tb, NULL, 0);
++			if (err < 0)
++				return err;
++		}
++	}
++
++	return 0;
++}
++
+ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
  {
-@@ -158,6 +159,9 @@ static struct rtnl_link_ops dummy_link_ops __read_mostly = {
- /* Number of dummy devices to be set up by this module. */
- module_param(numdummies, int, 0);
- MODULE_PARM_DESC(numdummies, "Number of dummy pseudo devices");
-+/* Group to add the dummy devices to. */
-+module_param(ingroup, int, 0);
-+MODULE_PARM_DESC(ingroup, "Group the dummy devices belong to");
+ 	struct net *net = sock_net(skb->sk);
+@@ -1587,6 +1605,10 @@ replay:
+ 		dev = __dev_get_by_index(net, ifm->ifi_index);
+ 	else if (ifname[0])
+ 		dev = __dev_get_by_name(net, ifname);
++	else if (tb[IFLA_FILTERGROUP])
++		return rtnl_group_changelink(net,
++				nla_get_u32(tb[IFLA_FILTERGROUP]),
++				ifm, tb);
+ 	else
+ 		dev = NULL;
  
- static int __init dummy_init_one(void)
- {
-@@ -167,6 +171,7 @@ static int __init dummy_init_one(void)
- 	dev_dummy = alloc_netdev(0, "dummy%d", dummy_setup);
- 	if (!dev_dummy)
- 		return -ENOMEM;
-+	dev_set_group(dev_dummy, ingroup);
- 
- 	err = dev_alloc_name(dev_dummy, dev_dummy->name);
- 	if (err < 0)
 -- 
 1.7.1
 
