@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] forcedeth: Do not use legacy PCI power management
-Date: Sun, 09 Jan 2011 16:20:52 -0800 (PST)
-Message-ID: <20110109.162052.98884306.davem@davemloft.net>
-References: <201101070049.16833.rjw@sisk.pl>
-	<201101072212.05449.rjw@sisk.pl>
+Subject: Re: [patch] Re: genetlink misinterprets NEW as GET
+Date: Sun, 09 Jan 2011 16:25:33 -0800 (PST)
+Message-ID: <20110109.162533.241446494.davem@davemloft.net>
+References: <4D266CE5.4000309@netfilter.org>
+	<alpine.LNX.2.01.1101071357420.27454@obet.zrqbmnf.qr>
+	<4D271614.6000303@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org
-To: rjw@sisk.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51372
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751818Ab1AJAUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 19:20:20 -0500
-In-Reply-To: <201101072212.05449.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jengelh@medozas.de, blp@nicira.com,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D271614.6000303@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Date: Fri, 7 Jan 2011 22:12:05 +0100
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 07 Jan 2011 14:33:08 +0100
 
-> Subject: forcedeth: Do not use legacy PCI power management (v2)
+> On 07/01/11 14:15, Jan Engelhardt wrote:
+>> netlink: test for all flags of the NLM_F_DUMP composite
+>> 
+>> Due to NLM_F_DUMP is composed of two bits, NLM_F_ROOT | NLM_F_MATCH,
+>> when doing "if (x & NLM_F_DUMP)", it tests for _either_ of the bits
+>> being set. Because NLM_F_MATCH's value overlaps with NLM_F_EXCL,
+>> non-dump requests with NLM_F_EXCL set are mistaken as dump requests.
+>> 
+>> Substitute the condition to test for _all_ bits being set.
+>> 
+>> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 > 
-> The forcedeth driver uses the legacy PCI power management, so it has
-> to do PCI-specific things in its ->suspend() and ->resume() callbacks
-> and some of them are not done correctly.
-> 
-> Convert forcedeth to the new PCI power management framework and make
-> it let the PCI subsystem take care of all the PCI-specific aspects of
-> device handling during system power transitions.
-> 
-> Tested with nVidia Corporation MCP55 Ethernet (rev a2).
-> 
-> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Applied, thanks.
+Applied, and queued up for -stable, thanks guys!
