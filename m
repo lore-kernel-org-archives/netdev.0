@@ -1,34 +1,53 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [patch] phonet: some signedness bugs
-Date: Mon, 10 Jan 2011 16:08:43 +0200
-Message-ID: <201101101608.44403.remi.denis-courmont@nokia.com>
-References: <20110107203755.GB1959@bicker> <201101100958.32549.remi.denis-courmont@nokia.com> <20110110140141.GA2721@bicker>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH 0/3] net: add device groups
+Date: Mon, 10 Jan 2011 15:08:25 +0100
+Message-ID: <1294668505.3583.9.camel@jlt3.sipsolutions.net>
+References: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
+	 <1294666875.3583.6.camel@jlt3.sipsolutions.net>
+	 <1294668021.6063.315.camel@mojatatu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
-To: ext Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Dogaru <ddvlad@rosedu.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev <netdev@vger.kernel.org>
+To: hadi@cyberus.ca
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw-da01.ext.nokia.com ([147.243.128.24]:59440 "EHLO
-	mgw-da01.nokia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754086Ab1AJOIf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:08:35 -0500
-In-Reply-To: <20110110140141.GA2721@bicker>
+Received: from he.sipsolutions.net ([78.46.109.217]:58425 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753650Ab1AJOI3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:08:29 -0500
+In-Reply-To: <1294668021.6063.315.camel@mojatatu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 10 January 2011 16:01:41 ext Dan Carpenter, you wrote:
-> I would like to keep the change to phonet_proto_register() because th=
-e
-> check in there isn't right and it's similar to phonet_proto_get().   =
-We
-> may as well keep phonet_proto_unregister() as well so it's symmetric.
-> Let me know if you disagree and I'll redo it.
+On Mon, 2011-01-10 at 09:00 -0500, jamal wrote:
+> On Mon, 2011-01-10 at 14:41 +0100, Johannes Berg wrote:
+> 
+> > Can you explain the purpose of this? I'm wondering if it would make
+> > sense to automatically group all virtual interfaces belonging to a
+> > single 802.11 device, for instance.
+> 
+> It depends what you want to do with that grouping.
+> In a nutshell, this greatly reduces the amount of kernel-user netlink
+> traffic in presence of multi interfaces.
+> you can do things like:
+>  
+> ip link set dev ppp0 group 1
+> ...
+> ...
+> ip link set dev pppN group 1
+> 
+> ip link ls group 1
+> ip link set down group 1
+> ip link set mtu 512 group 1
+> etc
 
-Sounds sensible to me.
+Right, but where would you want to use it -- what's the use case right
+now? Your ppp example here makes me think the use case is some PPP
+endpoint server that has lots of these interfaces. It also means the
+grouping is entirely user-space controlled. In this case, the idea of
+automatically grouping based on the device structure seems pointless.
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+johannes
+
