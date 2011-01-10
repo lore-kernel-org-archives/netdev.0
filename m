@@ -1,49 +1,61 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: Re: [patch] phonet: some signedness bugs
-Date: Mon, 10 Jan 2011 17:01:41 +0300
-Message-ID: <20110110140141.GA2721@bicker>
-References: <20110107203755.GB1959@bicker>
- <201101100958.32549.remi.denis-courmont@nokia.com>
+From: Wolfgang Grandegger <wg@grandegger.com>
+Subject: Re: [PATCH net-next-2.6 v2 1/2] can: add driver for Softing card
+Date: Mon, 10 Jan 2011 15:05:57 +0100
+Message-ID: <4D2B1245.9060303@grandegger.com>
+References: <20110104150513.GA321@e-circ.dyndns.org>	<20110104150759.GB321@e-circ.dyndns.org>	<4D24DB2C.9040104@grandegger.com> <20110110133112.GA324@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
-	<remi.denis-courmont@nokia.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:42750 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753426Ab1AJOCH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:02:07 -0500
-Content-Disposition: inline
-In-Reply-To: <201101100958.32549.remi.denis-courmont@nokia.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:48460 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457Ab1AJOEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:04:21 -0500
+In-Reply-To: <20110110133112.GA324@e-circ.dyndns.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 10, 2011 at 09:58:32AM +0200, R=E9mi Denis-Courmont wrote:
-> On Friday 07 January 2011 22:37:55 ext Dan Carpenter, you wrote:
-> > Dan Rosenberg pointed out that there were some signed comparison bu=
-gs
-> > in the phonet protocol.
->=20
-> There are two ways to solve this: change *only* the proto_get functio=
-n to use=20
-> an unsigned parameter, or cast the protocol to unsigned in the compar=
-ison.
->=20
-> As David pointed out, your patch breaks the socket() callback prototy=
-pe.
->=20
+On 01/10/2011 02:31 PM, Kurt Van Dijck wrote:
+> Wolfgang,
+> 
+> A few thoughts ...
+> 
+> On Wed, Jan 05, 2011 at 09:57:16PM +0100, Wolfgang Grandegger wrote:
+>>>  
+>>>  obj-y				+= usb/
+>>> +obj-y				+= softing/
+>>
+>> Please use "obj-$(CONFIG_CAN_SOFTING)" here.
+> As I explained, softing does not depend on softing_cs or vice versa,
+> which makes "obj-$(CONFIG_CAN_SOFTING)" not right.
 
-Yes.  I really appologize for that.  I'll send version 2 with that crea=
-te()
-change dropped.  It's not needed.
+OK, another good reason to make softing_cs depend on CONFIG_CAN_SOFTING.
+Does it make sense to compile softing_cs without CONFIG_CAN_SOFTING for
+the *real* user?
 
-I would like to keep the change to phonet_proto_register() because the
-check in there isn't right and it's similar to phonet_proto_get().   We
-may as well keep phonet_proto_unregister() as well so it's symmetric.
-Let me know if you disagree and I'll redo it.
+...
 
-regards,
-dan carpenter
+>>> +	priv->can.ctrlmode_supported =
+>>> +		CAN_CTRLMODE_3_SAMPLES;/* | CAN_CTRLMODE_BERR_REPORTING */;
+>>
+>> Hm, any chance to support CAN_CTRLMODE_BERR_REPORTING? If not, please
+>> remove the comment.
+> 
+> I think I better try to write it properly without, and add error reporting
+> later, after serious testing of the error reporting on a softing card.
+
+OK, then just cleanup properly.
+
+> The primary goal now is get this driver in mainline kernel since PCMCIA
+> has been changing recently, and I found it hard to keep up. So, first things
+> first ...
+
+Fine for me. You can then add my:
+
+Acked-by: Wolfgang Grandegger <wg@grandegger.com>
+
+Thanks.
+
+Wolfgang.
