@@ -1,36 +1,70 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [patch] phonet: some signedness bugs
-Date: Mon, 10 Jan 2011 09:58:32 +0200
-Message-ID: <201101100958.32549.remi.denis-courmont@nokia.com>
-References: <20110107203755.GB1959@bicker>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH] vhost: fix signed/unsigned comparison
+Date: Mon, 10 Jan 2011 10:03:21 +0200
+Message-ID: <20110110080320.GA10846@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
-To: ext Dan Carpenter <error27@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.24]:62781 "EHLO mgw-da01.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751820Ab1AJH6Z convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 02:58:25 -0500
-In-Reply-To: <20110107203755.GB1959@bicker>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Jes.Sorensen@redhat.com,
+	stable@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Friday 07 January 2011 22:37:55 ext Dan Carpenter, you wrote:
-> Dan Rosenberg pointed out that there were some signed comparison bugs
-> in the phonet protocol.
+To detect that a sequence number is done, we are doing math on unsigned
+integers so the result is unsigned too. Not what was intended for the <=
+comparison. The result is user stuck forever in flush call.
+Convert to int to fix this.
 
-There are two ways to solve this: change *only* the proto_get function =
-to use=20
-an unsigned parameter, or cast the protocol to unsigned in the comparis=
-on.
+Further, get rid of ({}) to make code clearer.
 
-As David pointed out, your patch breaks the socket() callback prototype=
-=2E
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+I've put this on my vhost.git tree.
+
+ drivers/vhost/vhost.c |   18 +++++++++++-------
+ 1 files changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+index 159c77a..522b8fc 100644
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -98,22 +98,26 @@ void vhost_poll_stop(struct vhost_poll *poll)
+ 	remove_wait_queue(poll->wqh, &poll->wait);
+ }
+ 
++static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
++				unsigned seq)
++{
++	int left;
++	spin_lock_irq(&dev->work_lock);
++	left = seq - work->done_seq;
++	spin_unlock_irq(&dev->work_lock);
++	return left <= 0;
++}
++
+ static void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
+ {
+ 	unsigned seq;
+-	int left;
+ 	int flushing;
+ 
+ 	spin_lock_irq(&dev->work_lock);
+ 	seq = work->queue_seq;
+ 	work->flushing++;
+ 	spin_unlock_irq(&dev->work_lock);
+-	wait_event(work->done, ({
+-		   spin_lock_irq(&dev->work_lock);
+-		   left = seq - work->done_seq <= 0;
+-		   spin_unlock_irq(&dev->work_lock);
+-		   left;
+-	}));
++	wait_event(work->done, vhost_work_seq_done(dev, work, seq));
+ 	spin_lock_irq(&dev->work_lock);
+ 	flushing = --work->flushing;
+ 	spin_unlock_irq(&dev->work_lock);
+-- 
+1.7.3.2.91.g446ac
