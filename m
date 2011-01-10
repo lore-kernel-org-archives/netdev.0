@@ -1,161 +1,83 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC] sched: CHOKe packet scheduler (v0.2)
-Date: Mon, 10 Jan 2011 18:45:11 +0100
-Message-ID: <1294681511.3491.21.camel@edumazet-laptop>
-References: <20110104162930.6fa672e3@nehalam>
-	 <1294208375.3420.46.camel@edumazet-laptop>
-	 <20110105091718.02f8a00f@nehalam>
-	 <1294248332.10633.25.camel@edumazet-laptop>
-	 <20110105112104.64ad3c86@nehalam>
-	 <1294286850.2723.65.camel@edumazet-laptop>
-	 <20110106205549.0de56de1@nehalam> <1294667210.3491.7.camel@edumazet-laptop>
-	 <20110110093123.5431b368@nehalam>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH] Export ACPI _DSM provided firmware instance number and
+ string name to sysfs
+Date: Mon, 10 Jan 2011 10:48:26 -0800
+Message-ID: <E31FB011129F30488D5861F3839049151D10F8EF9D@BLRX7MCDC201.AMER.DELL.COM>
+References: <20101222170737.GA2428@fedora14-r610.oslab.blr.amer.dell.com>
+	<20101223143203.GA12256@auslistsprd01.us.dell.com>
+	<20101223194927.GA2717@fedora14-r610.oslab.blr.amer.dell.com>
+ <20110107142750.21ea39f0@jbarnes-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:42579 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220Ab1AJRt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 12:49:28 -0500
-Received: by wwa36 with SMTP id 36so886023wwa.1
-        for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 09:49:23 -0800 (PST)
-In-Reply-To: <20110110093123.5431b368@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <Matt_Domsch@Dell.com>, <linux-pci@vger.kernel.org>,
+	<linux-hotplug@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<Jordan_Hargrave@Dell.com>, <Charles_Rose@Dell.com>,
+	<Vijay_Nijhawan@Dell.com>
+To: <jbarnes@virtuousgeek.org>
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+In-Reply-To: <20110107142750.21ea39f0@jbarnes-desktop>
+Content-Language: en-US
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 10 janvier 2011 =C3=A0 09:31 -0800, Stephen Hemminger a =C3=A9=
-crit :
-> On Mon, 10 Jan 2011 14:46:50 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->=20
-> > Le jeudi 06 janvier 2011 =C3=A0 20:55 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> >=20
-> > >=20
-> > > The problem is that large tables of pointers in kernel require ei=
-ther
-> > > contiguous allocation or some indirect table algorithm.
-> > >=20
-> >=20
-> > Here is a v3 version with an array based queue for O(1) peek_random
-> > complexity.
-> >=20
-> > Could you send the iproute2 patch so that I can test it ?
-> >=20
-> > Thanks !
-> >=20
-> >=20
-> > diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
-> > index e69de29..ea9db00 100644
-> > --- a/net/sched/sch_choke.c
-> > +++ b/net/sched/sch_choke.c
-> > @@ -0,0 +1,388 @@
-> > +/*
-> > + * net/sched/sch_choke.c	CHOKE scheduler
-> > + *
-> > + * Copyright (c) 2011 Stephen Hemminger <shemminger@vyatta.com>
-> > + * Copyright (c) 2011 Eric Dumazet <eric.dumazet@gmail.com>
-> > + *
-> > + * This program is free software; you can redistribute it and/or
-> > + * modify it under the terms of the GNU General Public License
-> > + * version 2 as published by the Free Software Foundation.
-> > + *
-> > + */
-> > +
-> > +#include <linux/module.h>
-> > +#include <linux/types.h>
-> > +#include <linux/kernel.h>
-> > +#include <linux/skbuff.h>
-> > +#include <linux/reciprocal_div.h>
-> > +#include <net/pkt_sched.h>
-> > +#include <net/inet_ecn.h>
-> > +#include <net/red.h>
-> > +
-> > +/*	CHOKe stateless AQM for fair bandwidth allocation
-> > +        =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D
-> > +
-> > +   CHOKe (CHOose and Keep for responsive flows, CHOose and Kill fo=
-r
-> > +   unresponsive flows) is a variant of RED that penalizes misbehav=
-ing flows but
-> > +   maintains no flow state. The difference from RED is an addition=
-al step
-> > +   during the enqueuing process. If average queue size is over the
-> > +   low threshold (qmin), a packet is chosen at random from the que=
-ue.
-> > +   If both the new and chosen packet are from the same flow, both
-> > +   are dropped. Unlike RED, CHOKe is not a "classful" qdisc becaus=
-e it
-> > +   needs to access packets in queue randomly.
-> > +
-> > +   Source:
-> > +   R. Pan, B. Prabhakar, and K. Psounis, "CHOKe, A Stateless
-> > +   Active Queue Management Scheme for Approximating Fair Bandwidth=
- Allocation",
-> > +   IEEE INFOCOM, 2000.
-> > +
-> > +   A. Tang, J. Wang, S. Low, "Understanding CHOKe: Throughput and =
-Spatial
-> > +   Characteristics", IEEE/ACM Transactions on Networking, 2004
-> > +
-> > + */
-> > +
-> > +struct choke_sched_data {
-> > +	u32		 limit;
-> > +	unsigned char	 flags;
-> > +
-> > +	struct red_parms parms;
-> > +	struct red_stats stats;
-> > +
-> > +	unsigned int	 head;
-> > +	unsigned int	 tail;
-> > +	unsigned int	 holes;
-> > +	unsigned int	 tab_mask; /* size - 1 */
-> > +	struct sk_buff **tab;
-> > +};
-> > +
-> > +static inline unsigned int choke_len(const struct choke_sched_data=
- *q)
-> > +{
-> > +	return (q->tail - q->head) & q->tab_mask;
-> > +}
-> > +
-> > +/* deliver a random number between 0 and N - 1 */
-> > +static inline u32 random_N(unsigned int N)
-> > +{
-> > +	return reciprocal_divide(random32(), N);
-> > +}
-> > +
-> > +/* Select a packet at random from the queue in O(1) */
-> > +static struct sk_buff *choke_peek_random(struct choke_sched_data *=
-q, unsigned int *pidx)
-> > +{
-> > +	*pidx =3D (q->head + random_N(choke_len(q))) & q->tab_mask;
-> > +	return q->tab[*pidx];
-> > +}
->=20
-> I don't think this works right. The choke_peek_random could find a ho=
-le.
-> Either the data structure has to change, or the peek_random has to re=
-try,
-> or if quick peek fails then compress the slot with memmove and retry.
->=20
->=20
+> -----Original Message-----
+> From: Jesse Barnes [mailto:jbarnes@virtuousgeek.org]
+> Sent: Saturday, January 08, 2011 3:58 AM
+> To: K, Narendra
+> Cc: Domsch, Matt; linux-pci@vger.kernel.org; linux-
+> hotplug@vger.kernel.org; netdev@vger.kernel.org; Hargrave, Jordan;
+> Rose, Charles; Nijhawan, Vijay
+> Subject: Re: [PATCH] Export ACPI _DSM provided firmware instance number
+> and string name to sysfs
+> 
+> On Thu, 23 Dec 2010 11:24:36 -0800
+> <Narendra_K@Dell.com> wrote:
+> 
+> > On Thu, Dec 23, 2010 at 08:02:03PM +0530, Domsch, Matt wrote:
+> > > On Wed, Dec 22, 2010 at 08:42:39AM -0800, Narendra_K@Dell.com
+> wrote:
+> > > > Hello,
+> > > >
+> > > > This patch exports ACPI _DSM provided firmware instance number
+> and
+> > > > string name to sysfs.
+> > > >
+> > > > Please review -
+> > >
+> > > There are now two different meanings for the 'index' file:
+> > >
+> > > 1) SMBIOS-provided "type instance" value, which I've only seen in
+> > >    range [1..N] for N devices, monotonically stepwise increasing.
+> > >
+> > > 2) ACPI-provided "index" value, which per spec only needs to be a
+> > >    "sort key", not starting at 0 or 1, and while monotonically
+> > >    increasing, not necessarily stepwise.  It's perfectly valid for
+> the
+> > >    values to be (12, 16, 27, 29) if that's convenient for BIOS to
+> > >    generate.
+> > >
+> > > Therefore, a consumer of this value (such as biosdevname) must know
+> > > which of the two it's dealing with, and either accept the value as-
+> is,
+> > > or sort the value list.  While I suppose it could sort the value
+> list
+> > > in either case, I'd prefer the ACPI value to be exposed in its own
+> > > file, perhaps 'acpi_index', to make this explicit rather than
+> > > implicit.
+> > >
+> > > 'label' is fine for either case, with ACPI taking priority over
+> > > SMBIOS if both happen to be present.
+> > >
+> 
+> Applied, thanks.
 
-Yes, this "compress only if peek_random() finds a hole seems good, I'll
-try this.
+Jesse,
 
-As number of holes is known, we could have :
+Thank you.
 
-if (holes_proportion_is_less_than_20_percent())
-	try another random number X times
-else
-	compress table to remove holes.
+With regards,
+Narendra K
 
 
 
