@@ -1,42 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] sky2: convert to new VLAN model (v0.2)
-Date: Sun, 09 Jan 2011 15:54:23 -0800 (PST)
-Message-ID: <20110109.155423.191399001.davem@davemloft.net>
-References: <AANLkTikwGQFByOZGgCCjTJySPa8QYndZ903CFmOkS1Ha@mail.gmail.com>
-	<20110107201350.0be350bf@nehalam>
-	<AANLkTimyfSJwgcDOQK2hpWdJ08CNCerLM=0+NBA6+VZd@mail.gmail.com>
+Subject: Re: net-next-2.6 [PATCH 0/3] dccp: several sequence-number
+ validation fixes
+Date: Sun, 09 Jan 2011 16:17:33 -0800 (PST)
+Message-ID: <20110109.161733.241928340.davem@davemloft.net>
+References: <0110107112837.GA5315@gerrit.erg.abdn.ac.uk>
+	<1294400130-5604-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: jesse@nicira.com
+Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54966
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51368
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753144Ab1AIXxv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 18:53:51 -0500
-In-Reply-To: <AANLkTimyfSJwgcDOQK2hpWdJ08CNCerLM=0+NBA6+VZd@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1751343Ab1AJARB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 19:17:01 -0500
+In-Reply-To: <1294400130-5604-1-git-send-email-gerrit@erg.abdn.ac.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Gross <jesse@nicira.com>
-Date: Sun, 9 Jan 2011 11:13:31 -0500
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Date: Fri,  7 Jan 2011 12:35:27 +0100
 
-> On Fri, Jan 7, 2011 at 11:13 PM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
->> This converts sky2 to new VLAN offload flags control via ethtool.
->> It also allows for transmit offload of vlan tagged frames which
->> was not possible before.
->>
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>
->> ---
->> Changed the setting of vlan_features in this version to keep
->> non-offload settings (GRO|HIGHDMA) even if vlan offload is not
->> enabled.
+> Hi Dave,
 > 
-> Thanks Stephen.
+> please find attached 3 bug fixes which recently came up on dccp@vger.
 > 
-> Reviewed-by: Jesse Gross <jesse@nicira.com>
+>  Patch #1: fixes a bug which wrongly classified sequence-invalid packets. 
+>  Patch #2: fixes a bug in updating the Greatest Sequence number Received (GSR).
+>  Patch #3: fixes an inconsistency in setting the sequence window on 32/64 bit.
+> 
+> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
+> 
+>     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
 
-Applied, thanks everyone.
+Pulled, thanks a lot Gerrit.
