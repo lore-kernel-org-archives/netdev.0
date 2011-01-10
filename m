@@ -1,34 +1,66 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: RE: [PATCH net-2.6 5/5] bnx2x: Update version to 1.60.01-1
-Date: Mon, 10 Jan 2011 01:18:18 -0800
-Message-ID: <8628FE4E7912BF47A96AE7DD7BAC0AADDDEFEFE509@SJEXCHCCR02.corp.ad.broadcom.com>
-References: <1294575646.31551.20.camel@lb-tlvb-vladz>
- <20110109.155038.68127568.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Mon, 10 Jan 2011 18:31:55 +0900
+Message-ID: <20110110093155.GB13420@verge.net.au>
+References: <20110106093312.GA1564@verge.net.au>
+ <1294309362.3074.11.camel@edumazet-laptop>
+ <20110106124439.GA17004@verge.net.au>
+ <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
+ <20110107012356.GA1257@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2013 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752071Ab1AJJSa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 04:18:30 -0500
-In-Reply-To: <20110109.155038.68127568.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110107012356.GA1257@verge.net.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> You made these patches against net-2.6 which was inactive for nearly
-> a full week as we were largely into the merge window.
+On Fri, Jan 07, 2011 at 10:23:58AM +0900, Simon Horman wrote:
+> On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
 > 
-> I applied these, but since the version number of the driver is now
-> 1.62.x I skipped this last patch.
+> [ snip ]
+> > 
+> > I know that everyone likes a nice netperf result but I agree with
+> > Michael that this probably isn't the right question to be asking.  I
+> > don't think that socket buffers are a real solution to the flow
+> > control problem: they happen to provide that functionality but it's
+> > more of a side effect than anything.  It's just that the amount of
+> > memory consumed by packets in the queue(s) doesn't really have any
+> > implicit meaning for flow control (think multiple physical adapters,
+> > all with the same speed instead of a virtual device and a physical
+> > device with wildly different speeds).  The analog in the physical
+> > world that you're looking for would be Ethernet flow control.
+> > Obviously, if the question is limiting CPU or memory consumption then
+> > that's a different story.
+> 
+> Point taken. I will see if I can control CPU (and thus memory) consumption
+> using cgroups and/or tc.
 
-Thanks, Dave. 
-I've missed that the tree is closed - my bad, sorry... :)
+I have found that I can successfully control the throughput using
+the following techniques
 
-vlad
+1) Place a tc egress filter on dummy0
+
+2) Use ovs-ofctl to add a flow that sends skbs to dummy0 and then eth1,
+   this is effectively the same as one of my hacks to the datapath
+   that I mentioned in an earlier mail. The result is that eth1
+   "paces" the connection.
+
+3) 2) + place a tc egress filter on eth1
+
+Which mostly makes sense to me although I am a little confused about
+why 1) needs a filter on dummy0 (a filter on eth1 has no effect)
+but 3) needs a filter on eth1 (a filter on dummy0 has no effect,
+even if the skb is sent to dummy0 last.
+
+I also had some limited success using CPU cgroups, though obviously
+that targets CPU usage and thus the effect on throughput is fairly course.
+In short, its a useful technique but not one that bares further
+discussion here.
 
