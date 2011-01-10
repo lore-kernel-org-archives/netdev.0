@@ -1,68 +1,84 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v2 1/2] can: add driver for Softing card
-Date: Mon, 10 Jan 2011 15:07:25 +0100
-Message-ID: <4D2B129D.30908@grandegger.com>
-References: <20110104150513.GA321@e-circ.dyndns.org>	<20110104150759.GB321@e-circ.dyndns.org>	<4D24DB2C.9040104@grandegger.com>	<20110110133112.GA324@e-circ.dyndns.org>
-	<4D2B1245.9060303@grandegger.com>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch v2] phonet: some signedness bugs
+Date: Mon, 10 Jan 2011 17:06:58 +0300
+Message-ID: <20110110140658.GB2721@bicker>
+References: <20110107203755.GB1959@bicker>
+ <201101100958.32549.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D2B1245.9060303-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
+To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont
+	<remi.denis-courmont@nokia.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:41255 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753800Ab1AJOHW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:07:22 -0500
+Content-Disposition: inline
+In-Reply-To: <201101100958.32549.remi.denis-courmont@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/10/2011 03:05 PM, Wolfgang Grandegger wrote:
-> On 01/10/2011 02:31 PM, Kurt Van Dijck wrote:
->> Wolfgang,
->>
->> A few thoughts ...
->>
->> On Wed, Jan 05, 2011 at 09:57:16PM +0100, Wolfgang Grandegger wrote:
->>>>  
->>>>  obj-y				+= usb/
->>>> +obj-y				+= softing/
->>>
->>> Please use "obj-$(CONFIG_CAN_SOFTING)" here.
->> As I explained, softing does not depend on softing_cs or vice versa,
->> which makes "obj-$(CONFIG_CAN_SOFTING)" not right.
-> 
-> OK, another good reason to make softing_cs depend on CONFIG_CAN_SOFTING.
-> Does it make sense to compile softing_cs without CONFIG_CAN_SOFTING for
-> the *real* user?
-> 
-> ...
-> 
->>>> +	priv->can.ctrlmode_supported =
->>>> +		CAN_CTRLMODE_3_SAMPLES;/* | CAN_CTRLMODE_BERR_REPORTING */;
->>>
->>> Hm, any chance to support CAN_CTRLMODE_BERR_REPORTING? If not, please
->>> remove the comment.
->>
->> I think I better try to write it properly without, and add error reporting
->> later, after serious testing of the error reporting on a softing card.
-> 
-> OK, then just cleanup properly.
-> 
->> The primary goal now is get this driver in mainline kernel since PCMCIA
->> has been changing recently, and I found it hard to keep up. So, first things
->> first ...
-> 
-> Fine for me. You can then add my:
-> 
-> Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Dan Rosenberg pointed out that there were some signed comparison bugs
+in the phonet protocol.
 
-Is there a mailing list for the PCMCIA interface? If yes, please add it
-to the CC as well.
+http://marc.info/?l=full-disclosure&m=129424528425330&w=2
 
-Wolfgang.
+The problem is that we check for array overflows but "protocol" is
+signed and we don't check for array underflows.  If you have already
+have CAP_SYS_ADMIN then you could use the bugs to get root, or someone
+could cause an oops by mistake.
+
+Signed-off-by: Dan Carpenter <error27@gmail.com>
+---
+v2:  in v1 I changed pn_socket_create() but that change caused a
+compiler warning.  That part of the patch wasn't needed so I've just
+dropped.
+
+diff --git a/include/net/phonet/phonet.h b/include/net/phonet/phonet.h
+index d5df797..5395e09 100644
+--- a/include/net/phonet/phonet.h
++++ b/include/net/phonet/phonet.h
+@@ -107,8 +107,8 @@ struct phonet_protocol {
+ 	int			sock_type;
+ };
+ 
+-int phonet_proto_register(int protocol, struct phonet_protocol *pp);
+-void phonet_proto_unregister(int protocol, struct phonet_protocol *pp);
++int phonet_proto_register(unsigned int protocol, struct phonet_protocol *pp);
++void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp);
+ 
+ int phonet_sysctl_init(void);
+ void phonet_sysctl_exit(void);
+diff --git a/net/phonet/af_phonet.c b/net/phonet/af_phonet.c
+index fd95beb..1072b2c 100644
+--- a/net/phonet/af_phonet.c
++++ b/net/phonet/af_phonet.c
+@@ -37,7 +37,7 @@
+ /* Transport protocol registration */
+ static struct phonet_protocol *proto_tab[PHONET_NPROTO] __read_mostly;
+ 
+-static struct phonet_protocol *phonet_proto_get(int protocol)
++static struct phonet_protocol *phonet_proto_get(unsigned int protocol)
+ {
+ 	struct phonet_protocol *pp;
+ 
+@@ -458,7 +458,7 @@ static struct packet_type phonet_packet_type __read_mostly = {
+ 
+ static DEFINE_MUTEX(proto_tab_lock);
+ 
+-int __init_or_module phonet_proto_register(int protocol,
++int __init_or_module phonet_proto_register(unsigned int protocol,
+ 						struct phonet_protocol *pp)
+ {
+ 	int err = 0;
+@@ -481,7 +481,7 @@ int __init_or_module phonet_proto_register(int protocol,
+ }
+ EXPORT_SYMBOL(phonet_proto_register);
+ 
+-void phonet_proto_unregister(int protocol, struct phonet_protocol *pp)
++void phonet_proto_unregister(unsigned int protocol, struct phonet_protocol *pp)
+ {
+ 	mutex_lock(&proto_tab_lock);
+ 	BUG_ON(proto_tab[protocol] != pp);
