@@ -1,47 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bad TCP timestamps on non-PC platforms
-Date: Mon, 10 Jan 2011 08:07:56 +0100
-Message-ID: <1294643276.2709.877.camel@edumazet-laptop>
-References: <373539.88491.qm@web37603.mail.mud.yahoo.com>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Mon, 10 Jan 2011 08:17:59 +0100
+Message-ID: <20110110071759.GA4864@riccoc20.at.omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+ <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+ <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
+ <20110108175028.GA22308@riccoc20.at.omicron.at>
+ <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Alex Dubov <oakad@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43048 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730Ab1AJHIN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 02:08:13 -0500
-Received: by wwa36 with SMTP id 36so368944wwa.1
-        for <netdev@vger.kernel.org>; Sun, 09 Jan 2011 23:08:12 -0800 (PST)
-In-Reply-To: <373539.88491.qm@web37603.mail.mud.yahoo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le dimanche 09 janvier 2011 =C3=A0 22:33 -0800, Alex Dubov a =C3=A9crit=
- :
-> > > Any ideas where this particular problem may
-> > originate?
-> >=20
-> > Is there a bug in checksum offload in the driver?
-> > Does the hardware correctly handle checksum of packets that
-> > are
-> > unaligned or whose length is an odd number of bytes?
-> >=20
-> > If the hardware can't do checksum correctly, the driver
-> > should either
-> > disable checksum offload or in worst case copy the packet
-> > to a new
-> > buffer that is in a known safe place.
->=20
-> I managed to work around the issue by clearing the NETIF_F_IP_CSUM
-> feature flag of the gianfar network driver, so it appears the bug is
-> indeed somewhere there.
->=20
+On Mon, Jan 10, 2011 at 06:07:26AM +0900, Kuwahara,T. wrote:
+> On Sun, Jan 9, 2011 at 2:50 AM, Richard Cochran
+> <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > we want to be able to jump the clock arbitrarily.
+> 
+> Another problem remains:  How do you deal with leap seconds?  I mean,
+> given that 1 minute is not always 60 seconds, then what time was it
+> XXXXX seconds ago?   Maybe some kind of lookup table is necessary, but
+> in such case, isn't it a better choice just to use the
+> clock_settime/settimeofday syscall?
 
-Its incredible how TCP timestamps can be "usual suspects" ;)
+Well, first of all, the PTP Hardware Clocks for which this whole patch
+set was created in the first place will keep their time as TAI. Adding
+seconds to such time values is unambiguous.
 
+Secondly, the question you ask applies equally to the existing
+interfaces, so it is a mute point with regard to the patch series.
 
-
+Richard
