@@ -1,40 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 0/3] net: add device groups
-Date: Mon, 10 Jan 2011 15:38:30 +0100
-Message-ID: <1294670310.3583.16.camel@jlt3.sipsolutions.net>
-References: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
-	 <1294666875.3583.6.camel@jlt3.sipsolutions.net>
-	 <1294668021.6063.315.camel@mojatatu>
-	 <1294668505.3583.9.camel@jlt3.sipsolutions.net>
-	 <1294669450.6063.319.camel@mojatatu>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v2 1/2] can: add driver for Softing card
+Date: Mon, 10 Jan 2011 15:40:09 +0100
+Message-ID: <20110110144009.GC324@e-circ.dyndns.org>
+References: <20110104150513.GA321@e-circ.dyndns.org>
+	<20110104150759.GB321@e-circ.dyndns.org>
+	<4D24DB2C.9040104@grandegger.com>
+	<20110110133112.GA324@e-circ.dyndns.org>
+	<4D2B1245.9060303@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Dogaru <ddvlad@rosedu.org>,
-	Octavian Purdila <opurdila@ixiacom.com>,
-	netdev <netdev@vger.kernel.org>
-To: hadi@cyberus.ca
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from he.sipsolutions.net ([78.46.109.217]:49048 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754166Ab1AJOie (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:38:34 -0500
-In-Reply-To: <1294669450.6063.319.camel@mojatatu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D2B1245.9060303-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-01-10 at 09:24 -0500, jamal wrote:
+On Mon, Jan 10, 2011 at 03:05:57PM +0100, Wolfgang Grandegger wrote:
+> On 01/10/2011 02:31 PM, Kurt Van Dijck wrote:
+> > On Wed, Jan 05, 2011 at 09:57:16PM +0100, Wolfgang Grandegger wrote:
 
-> > It also means the
-> > grouping is entirely user-space controlled. In this case, the idea of
-> > automatically grouping based on the device structure seems pointless.
+> OK, another good reason to make softing_cs depend on CONFIG_CAN_SOFTING.
+> Does it make sense to compile softing_cs without CONFIG_CAN_SOFTING for
+> the *real* user?
 > 
-> You still havent said what you want this grouping for. What is your
-> use case? ;->
+Good point.
+I will add in Kconfig:
+ config CAN_SOFTING_CS
+        tristate "Softing CAN pcmcia cards"
+        depends on PCMCIA
++       select CAN_SOFTING
+        ---help---
 
-I don't have a use case. I was just wondering if there's any benefit in
-grouping virtual devices that belong to a single physical device, but I
-suppose there isn't.
+Thanks,
 
-johannes
-
+Kurt
