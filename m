@@ -1,48 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] phonet: some signedness bugs
-Date: Sun, 09 Jan 2011 18:13:36 -0800 (PST)
-Message-ID: <20110109.181336.91348184.davem@davemloft.net>
-References: <20110107203755.GB1959@bicker>
-	<20110109.164548.58428218.davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Sun, 09 Jan 2011 18:15:19 -0800 (PST)
+Message-ID: <20110109.181519.45898043.davem@davemloft.net>
+References: <AANLkTinANp+Jp8TPKzii6iZLUFpMyrXhmxYr42nZrXQU@mail.gmail.com>
+	<20110108000901.GA2133@electric-eye.fr.zoreil.com>
+	<20110108121726.GA2216@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: remi.denis-courmont@nokia.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org, dan.j.rosenberg@gmail.com
-To: error27@gmail.com
+Cc: torvalds@linux-foundation.org, benh@debian.org,
+	hayeswang@realtek.com, dwmw2@infradead.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47491
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47495
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750942Ab1AJCNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 21:13:06 -0500
-In-Reply-To: <20110109.164548.58428218.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1751290Ab1AJCOs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 21:14:48 -0500
+In-Reply-To: <20110108121726.GA2216@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 09 Jan 2011 16:45:48 -0800 (PST)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Sat, 8 Jan 2011 13:17:26 +0100
 
-> From: Dan Carpenter <error27@gmail.com>
-> Date: Fri, 7 Jan 2011 23:37:55 +0300
+> r8169: delay phy init until device opens.
 > 
->> Dan Rosenberg pointed out that there were some signed comparison bugs
->> in the phonet protocol.
->> 
->> http://marc.info/?l=full-disclosure&m=129424528425330&w=2
->> 
->> If you have already have CAP_SYS_ADMIN then you could use the bugs to
->> get root, or someone could cause an oops by mistake.
->> 
->> Signed-off-by: Dan Carpenter <error27@gmail.com>
+> It workarounds the 60s firmware load failure timeout for the
+> non-modular case.
 > 
-> Applied and queued up for -stable, thanks Dan.
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Actually I'm reverting this.
-
-You can't change the prototype of pn_socket_create() because if you do
-then it doesn't match up with the prototype required by
-net_proto_family->create().
-
-You didn't see this warning in your build?
-
-net/phonet/af_phonet.c:124:2: warning: initialization from incompatible pointer type
+Applied, thanks.
