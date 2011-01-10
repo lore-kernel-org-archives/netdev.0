@@ -1,124 +1,77 @@
-From: hayeswang <hayeswang@realtek.com>
-Subject: RE: [PATCH] net/r8169: Update the function of parsing firmware
-Date: Mon, 10 Jan 2011 10:25:15 +0800
-Message-ID: <BB1CAEB2DB6746D39E020502E48AB45F@realtek.com.tw>
-References: <1294393509-3492-1-git-send-email-hayeswang@realtek.com> <20110107151755.GN3702@decadent.org.uk>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v4 00/10] net/fec: add dual fec support for i.MX28
+Date: Mon, 10 Jan 2011 11:08:12 +0800
+Message-ID: <20110110030811.GA415@freescale.com>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <20110109.154409.242134862.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <romieu@fr.zoreil.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: 'Ben Hutchings' <benh@debian.org>
+Cc: <gerg@snapgear.com>, <baruch@tkos.co.il>, <eric@eukrea.com>,
+	<bryan.wu@canonical.com>, <r64343@freescale.com>,
+	<B32542@freescale.com>, <u.kleine-koenig@pengutronix.de>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<s.hauer@pengutronix.de>, <jamie@jamieiles.com>,
+	<jamie@shareable.org>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:52989 "EHLO
-	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752452Ab1AJC0U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 21:26:20 -0500
-In-Reply-To: <20110107151755.GN3702@decadent.org.uk>
+Received: from va3ehsobe004.messaging.microsoft.com ([216.32.180.14]:43296
+	"EHLO VA3EHSOBE004.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752452Ab1AJDGG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 22:06:06 -0500
+Received: from mail9-va3 (localhost.localdomain [127.0.0.1])	by
+ mail9-va3-R.bigfish.com (Postfix) with ESMTP id 559A015083E0	for
+ <netdev@vger.kernel.org>; Mon, 10 Jan 2011 03:06:04 +0000 (UTC)
+Received: from VA3EHSMHS033.bigfish.com (unknown [10.7.14.250])	by
+ mail9-va3.bigfish.com (Postfix) with ESMTP id 21FF9A4004D	for
+ <netdev@vger.kernel.org>; Mon, 10 Jan 2011 03:06:04 +0000 (UTC)
+Received: from az33smr02.freescale.net (az33smr02.freescale.net
+ [10.64.34.200])	by az33egw01.freescale.net (8.14.3/8.14.3) with ESMTP id
+ p0A35aBt019350	for <netdev@vger.kernel.org>; Sun, 9 Jan 2011 20:05:36 -0700
+ (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by az33smr02.freescale.net (8.13.1/8.13.0) with ESMTP id
+ p0A35ZBY023632	for <netdev@vger.kernel.org>; Sun, 9 Jan 2011 21:05:35 -0600
+ (CST)
+Content-Disposition: inline
+In-Reply-To: <20110109.154409.242134862.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> From: Ben Hutchings [mailto:benh@debian.org] 
-> Sent: Friday, January 07, 2011 11:18 PM
-> To: Hayeswang
-> Cc: romieu@fr.zoreil.com; netdev@vger.kernel.org; 
-> linux-kernel@vger.kernel.org
-> Subject: Re: [PATCH] net/r8169: Update the function of 
-> parsing firmware
+On Sun, Jan 09, 2011 at 03:44:09PM -0800, David Miller wrote:
+> From: Shawn Guo <shawn.guo@freescale.com>
+> Date: Thu, 6 Jan 2011 15:13:08 +0800
 > 
-> On Fri, 2011-01-07 at 17:45 +0800, Hayes Wang wrote:
-> > Update rtl_phy_write_fw function. The new function could parse the 
-> > complex firmware which is used by RTL8111E and later.
-> > The new firmware may read data and do some operations, not just do 
-> > writing only.
+> > This patch series is to add dual fec support for mx28, which is
+> > a mxs-based soc. Some code changes related to the following commits
+> > are also made in this patch set for some reasons.
 > > 
-> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> > ---
-> >  drivers/net/r8169.c |  112 
-> > ++++++++++++++++++++++++++++++++++++++++++++-------
-> >  1 files changed, 97 insertions(+), 15 deletions(-)
+> >  e6b043d512fa8d9a3801bf5d72bfa3b8fc3b3cc8
+> >  netdev/fec.c: add phylib supporting to enable carrier detection (v2)
 > > 
-> > diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c index 
-> > 27a7c20..2115424 100644
-> > --- a/drivers/net/r8169.c
-> > +++ b/drivers/net/r8169.c
-> [...] 
-> > -	while (i-- != 0) {
-> > -		u32 action = le32_to_cpu(*phytable);
-> > -		u32 data = action & 0x0000ffff;
-> > -		u32 reg = (action & 0x0fff0000) >> 16;
-> > +	predata = 0;
-> > +	count = 0;
-> > +
-> > +	for (index = 0; index < fw->size / sizeof(*phytable); ) {
-> > +		u32 action = le32_to_cpu(phytable[index]);
-> > +		u32 data = action & 0x0000FFFF;
-> > +		u32 regno = (action & 0x0FFF0000) >> 16;
-> > +
-> > +		if (!action)
-> > +			break;
-> >  
-> > -		switch(action & 0xf0000000) {
-> > +		switch(action & 0xF0000000) {
-> [...]
-> > +		case PHY_BJMPN:
-> > +			index -= regno;
-> > +			break;
-> [...]
+> >  e3fe8558c7fc182972c3d947d88744482111f304
+> >  net/fec: fix pm to survive to suspend/resume
+> > 
+> > It's been tested on mx28 evk and mx51 babbage. For mx28, it has
+> > to work against the tree
+> > 
+> >  git://git.pengutronix.de/git/imx/linux-2.6.git imx-for-2.6.38
+> > 
+> > plus patch
+> > 
+> >  [PATCH v4] ARM: mxs: Change duart device to use amba-pl011
+> > 
+> > The 3 patches below preceding with * have changes since v3, and
+> > the detailed change log can be found in individual patch.
 > 
-> I'm concerned that this is being extended from a firmware 
-> upload interface to a quite general interpreter for PHY 
-> initialisation.  I realise that this will make it easier to 
-> fix PHY firmware bugs in future but it also allows you to 
-> accidentally introduce infinite loops.
-> The initialisation programs will obviously not be subject to 
-> the same sort of review on netdev that new C code is.
+> I've applied all of the "net/fec:" patches (#1 to #5) to net-2.6,
+> please push the ARM changes via the appropriate ARM tree.
 > 
-I know the situation which you worry. However, the real action is depend to the
-status of the hardware, and it is hard that I couldn't assume any situation to
-check the firmware. Thus, I just check if every commands are valid. I could only
-promise that there is no infinite loop if the firmware is correct.
+> Thanks.
+> 
+Thanks, David.  I will ping Sascha for ARM changes.
 
-> > +		case PHY_DELAY_MS:
-> > +			mdelay(data);
-> > +			index++;
-> > +			break;
-> 
-> Why mdelay() and not msleep()?  This is not an atomic context.
-> 
-Accounding to the document, the msleep have to larger than 10ms. It would run
-more than 10ms if you set less than 10 for msleep. I think it takes more delay
-than which I need. Beside, I don't sure if it would be run during atomic
-context, so I think using mdelay is safer.
-
-> > +		case PHY_READ_MAC_BYTE:
-> > +		case PHY_WRITE_MAC_BYTE:
-> > +		case PHY_WRITE_ERI_WORD:
-> >  		default:
-> >  			BUG();
-> >  		}
-> > +
-> > +		if (index < 0)
-> > +			BUG();
-> [...]
-> 
-> index is unsigned so it can't be < 0.  It looks like the loop 
-> condition should catch an out-of-range index, but really the 
-> range-checking should be done in the first loop.
-> 
-I would try to fix this.
-
-> Ben.
-> 
-> --
-> Ben Hutchings
-> We get into the habit of living before acquiring the habit of 
-> thinking.
->                                                               
-> - Albert Camus
-> 
-> 
-> ------Please consider the environment before printing this e-mail. 
-> 
-> 
+-- 
+Regards,
+Shawn
 
