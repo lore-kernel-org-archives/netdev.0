@@ -1,66 +1,84 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Mon, 10 Jan 2011 18:31:55 +0900
-Message-ID: <20110110093155.GB13420@verge.net.au>
-References: <20110106093312.GA1564@verge.net.au>
- <1294309362.3074.11.camel@edumazet-laptop>
- <20110106124439.GA17004@verge.net.au>
- <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
- <20110107012356.GA1257@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110107012356.GA1257@verge.net.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amit Kumar Salecha <amit.salecha@qlogic.com>
+Subject: [PATCH 3/3] qlcnic: change module parameter permissions
+Date: Mon, 10 Jan 2011 02:15:23 -0800
+Message-ID: <1294654523-3085-4-git-send-email-amit.salecha@qlogic.com>
+References: <1294654523-3085-1-git-send-email-amit.salecha@qlogic.com>
+Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
+	anirban.chakraborty@qlogic.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mvnat01.qlogic.com ([198.186.3.73]:42614 "EHLO unm84.unminc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753410Ab1AJKPl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 05:15:41 -0500
+In-Reply-To: <1294654523-3085-1-git-send-email-amit.salecha@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 07, 2011 at 10:23:58AM +0900, Simon Horman wrote:
-> On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
-> 
-> [ snip ]
-> > 
-> > I know that everyone likes a nice netperf result but I agree with
-> > Michael that this probably isn't the right question to be asking.  I
-> > don't think that socket buffers are a real solution to the flow
-> > control problem: they happen to provide that functionality but it's
-> > more of a side effect than anything.  It's just that the amount of
-> > memory consumed by packets in the queue(s) doesn't really have any
-> > implicit meaning for flow control (think multiple physical adapters,
-> > all with the same speed instead of a virtual device and a physical
-> > device with wildly different speeds).  The analog in the physical
-> > world that you're looking for would be Ethernet flow control.
-> > Obviously, if the question is limiting CPU or memory consumption then
-> > that's a different story.
-> 
-> Point taken. I will see if I can control CPU (and thus memory) consumption
-> using cgroups and/or tc.
+o Updating module parameter after driver load is not supported
+  except auto_fw_reset parameter. Changing these parameter after
+  driver load, can have weird result.
 
-I have found that I can successfully control the throughput using
-the following techniques
+o Update driver version to 5.0.15.
 
-1) Place a tc egress filter on dummy0
+Signed-off-by: Amit Kumar Salecha <amit.salecha@qlogic.com>
+---
+ drivers/net/qlcnic/qlcnic.h      |    4 ++--
+ drivers/net/qlcnic/qlcnic_main.c |   10 +++++-----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
-2) Use ovs-ofctl to add a flow that sends skbs to dummy0 and then eth1,
-   this is effectively the same as one of my hacks to the datapath
-   that I mentioned in an earlier mail. The result is that eth1
-   "paces" the connection.
-
-3) 2) + place a tc egress filter on eth1
-
-Which mostly makes sense to me although I am a little confused about
-why 1) needs a filter on dummy0 (a filter on eth1 has no effect)
-but 3) needs a filter on eth1 (a filter on dummy0 has no effect,
-even if the skb is sent to dummy0 last.
-
-I also had some limited success using CPU cgroups, though obviously
-that targets CPU usage and thus the effect on throughput is fairly course.
-In short, its a useful technique but not one that bares further
-discussion here.
+diff --git a/drivers/net/qlcnic/qlcnic.h b/drivers/net/qlcnic/qlcnic.h
+index 14b6322..44e316f 100644
+--- a/drivers/net/qlcnic/qlcnic.h
++++ b/drivers/net/qlcnic/qlcnic.h
+@@ -34,8 +34,8 @@
+ 
+ #define _QLCNIC_LINUX_MAJOR 5
+ #define _QLCNIC_LINUX_MINOR 0
+-#define _QLCNIC_LINUX_SUBVERSION 14
+-#define QLCNIC_LINUX_VERSIONID  "5.0.14"
++#define _QLCNIC_LINUX_SUBVERSION 15
++#define QLCNIC_LINUX_VERSIONID  "5.0.15"
+ #define QLCNIC_DRV_IDC_VER  0x01
+ #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
+ 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+diff --git a/drivers/net/qlcnic/qlcnic_main.c b/drivers/net/qlcnic/qlcnic_main.c
+index 11e3a46..37c04b4 100644
+--- a/drivers/net/qlcnic/qlcnic_main.c
++++ b/drivers/net/qlcnic/qlcnic_main.c
+@@ -31,15 +31,15 @@ static const char qlcnic_driver_string[] = "QLogic 1/10 GbE "
+ 
+ static struct workqueue_struct *qlcnic_wq;
+ static int qlcnic_mac_learn;
+-module_param(qlcnic_mac_learn, int, 0644);
++module_param(qlcnic_mac_learn, int, 0444);
+ MODULE_PARM_DESC(qlcnic_mac_learn, "Mac Filter (0=disabled, 1=enabled)");
+ 
+ static int use_msi = 1;
+-module_param(use_msi, int, 0644);
++module_param(use_msi, int, 0444);
+ MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
+ 
+ static int use_msi_x = 1;
+-module_param(use_msi_x, int, 0644);
++module_param(use_msi_x, int, 0444);
+ MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled");
+ 
+ static int auto_fw_reset = AUTO_FW_RESET_ENABLED;
+@@ -47,11 +47,11 @@ module_param(auto_fw_reset, int, 0644);
+ MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
+ 
+ static int load_fw_file;
+-module_param(load_fw_file, int, 0644);
++module_param(load_fw_file, int, 0444);
+ MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
+ 
+ static int qlcnic_config_npars;
+-module_param(qlcnic_config_npars, int, 0644);
++module_param(qlcnic_config_npars, int, 0444);
+ MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled");
+ 
+ static int __devinit qlcnic_probe(struct pci_dev *pdev,
+-- 
+1.7.3.2
 
