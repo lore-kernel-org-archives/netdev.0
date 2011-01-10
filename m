@@ -1,174 +1,137 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: weird network problem - stalls, reload works
-Date: Mon, 10 Jan 2011 15:36:13 +0300
-Message-ID: <4D2AFD3D.3010701@msgid.tls.msk.ru>
-References: <4CFC17B8.4050908@msgid.tls.msk.ru>
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: Re: [net-next 07/12] e1000: Add support for the CE4100 reference platform
+Date: Mon, 10 Jan 2011 13:44:39 +0100
+Message-ID: <201101101344.40001.ffainelli@freebox.fr>
+References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com> <1294360199-9860-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Cc: davem@davemloft.net, Dirk Brandewie <dirk.j.brandewie@intel.com>,
+	netdev@vger.kernel.org, gosp@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from isrv.corpit.ru ([86.62.121.231]:54783 "EHLO isrv.corpit.ru"
+Received: from smtp4-g21.free.fr ([212.27.42.4]:33612 "EHLO smtp4-g21.free.fr"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753666Ab1AJMgQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 07:36:16 -0500
-In-Reply-To: <4CFC17B8.4050908@msgid.tls.msk.ru>
+	id S1753816Ab1AJMnR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 07:43:17 -0500
+In-Reply-To: <1294360199-9860-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replying to my old email, full details below.
+Hello,
 
-So I replaced the motherboard on this machine,
-and now everything is working fine.  Difficult
-to tell if it was really hardware issue or a
-software problem specific to this hardware,
-but the problem is weird enough.
+On Friday 07 January 2011 01:29:54 jeffrey.t.kirsher@intel.com wrote:
+> From: Dirk Brandewie <dirk.j.brandewie@intel.com>
+> 
+> This patch adds support for the gigabit phys present on the CE4100
+> reference platforms.
+> 
+> Signed-off-by:  Dirk Brandewie <dirk.j.brandewie@intel.com>
+> Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> ---
+>  drivers/net/e1000/e1000_hw.c    |  328
+> +++++++++++++++++++++++++++++++-------- drivers/net/e1000/e1000_hw.h    | 
+>  59 +++++++-
+>  drivers/net/e1000/e1000_main.c  |   35 ++++
+>  drivers/net/e1000/e1000_osdep.h |   19 ++-
+>  4 files changed, 365 insertions(+), 76 deletions(-)
+> 
+[snip]
+> @@ -2840,7 +2985,7 @@ static s32 e1000_write_phy_reg_ex(struct e1000_hw
+> *hw, u32 reg_addr, {
+>  	u32 i;
+>  	u32 mdic = 0;
+> -	const u32 phy_addr = 1;
+> +	const u32 phy_addr = (hw->mac_type == e1000_ce4100) ? hw->phy_addr : 1;
 
-It's more: I can't reproduce the issue on this
-motherboard in a test environment.
+Why not simply use hw->phy_addr and set it to 1 when mac_type is not e1000_ce4100?
+hw->phy_addr for CE4100 is auto detected later in this patch, so this should be safe.
 
-/mjt
+> 
+>  	e_dbg("e1000_write_phy_reg_ex");
+> 
+[snip]
+> @@ -1135,6 +1153,20 @@ static int __devinit e1000_probe(struct pci_dev
+> *pdev, adapter->wol = adapter->eeprom_wol;
+>  	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
+> 
+> +	/* Auto detect PHY address */
+> +	if (hw->mac_type == e1000_ce4100) {
+> +		for (i = 0; i < 32; i++) {
+                                      ^PHY_MAX_ADDR (in linux/phy.h)
+> +			hw->phy_addr = i;
+> +			e1000_read_phy_reg(hw, PHY_ID2, &tmp);
+> +			if (tmp == 0 || tmp == 0xFF) {
+> +				if (i == 31)
+> +					goto err_eeprom;
+> +				continue;
+> +			} else
+> +				break;
+> +		}
+> +	}
 
-06.12.2010 01:52, Michael Tokarev wrote:
-> Hello.
-> 
-> I've a weird networking problem here, which I'm
-> trying to hunt for some time.
-> 
-> Small LAN, just 3 machines and a server, all in
-> single small room, all connected to a 100Mbps switch.
-> 
-> Sometimes, network between the (linux) server and
-> workstations just stops.  It may happen after
-> transferring a few megabytes of data (rare), or
-> whole thing may work for several days or even
-> weeks in a row, but end result is the same: at
-> some point it stalls.
-> 
-> Reloading the interface in question, like this:
-> 
->  ifdown eth0; sleep 2; ifup eth0
-> 
-> restores the network back, till it breaks again.
-> Note here that, say, sleep 1 is not sufficient
-> to restore the functionality, it has little effect.
-> No sleep at all makes almost no difference, ie,
-> such reload does not help.
-> 
-> The stalls looks like the server is suffering from
-> massive packet loss in receive path.  It does not
-> lose all packets, and the amount of lost packets
-> increases with time, in a timeframe of several
-> minutes.
-> 
-> Doing a data transfer from a client machine to this
-> linux box, it goes at full ~10MB/s speed, next when
-> the stall is about to happen the speed drops to 6MB/s,
-> 4, 1MB/s, 600KB/s, till eventually the connection just
-> times out.
-> 
-> The interesting data point is that the NIC does not
-> generate any interrupts during such stalls, as if
-> there's no packets are coming from the network at
-> all - even if during that time, the client workstations
-> are sending ARP requests (if nothing more).
-> 
-> Here's how ping on the server looks like (pinging one
-> of the machine on the LAN):
-> 
-> 64 bytes from 192.168.78.20: icmp_seq=1 ttl=128 time=5008 ms
-> 64 bytes from 192.168.78.20: icmp_seq=2 ttl=128 time=5000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=3 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=4 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=5 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=6 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=7 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=8 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=9 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=10 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=11 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=12 ttl=128 time=6320 ms
-> 64 bytes from 192.168.78.20: icmp_seq=13 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=14 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=15 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=16 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=17 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=18 ttl=128 time=6000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=19 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=20 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=21 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=22 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=23 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=24 ttl=128 time=6007 ms
-> 64 bytes from 192.168.78.20: icmp_seq=25 ttl=128 time=6001 ms
-> 64 bytes from 192.168.78.20: icmp_seq=26 ttl=128 time=6010 ms
-> 64 bytes from 192.168.78.20: icmp_seq=27 ttl=128 time=5014 ms
-> 64 bytes from 192.168.78.20: icmp_seq=28 ttl=128 time=5011 ms
-> 64 bytes from 192.168.78.20: icmp_seq=29 ttl=128 time=5020 ms
-> 64 bytes from 192.168.78.20: icmp_seq=30 ttl=128 time=5020 ms
-> 64 bytes from 192.168.78.20: icmp_seq=31 ttl=128 time=6018 ms
-> 64 bytes from 192.168.78.20: icmp_seq=32 ttl=128 time=7010 ms
-> 64 bytes from 192.168.78.20: icmp_seq=33 ttl=128 time=7008 ms
-> 64 bytes from 192.168.78.20: icmp_seq=34 ttl=128 time=7000 ms
-> 64 bytes from 192.168.78.20: icmp_seq=35 ttl=128 time=7000 ms
-> 
-> It looks like the NIC does not deliver any packets by its
-> own, but notices something arrived when you actually try
-> to _send_ sometihng - hence the delays above, almost whole
-> seconds (since ping sends data with 1sec intervals).
-> 
-> Here's normal ping output right after "restarting" the interface:
-> 
-> 64 bytes from 192.168.78.20: icmp_seq=1 ttl=128 time=0.161 ms
-> 64 bytes from 192.168.78.20: icmp_seq=2 ttl=128 time=0.119 ms
-> 64 bytes from 192.168.78.20: icmp_seq=3 ttl=128 time=0.117 ms
-> 64 bytes from 192.168.78.20: icmp_seq=4 ttl=128 time=0.381 ms
-> 64 bytes from 192.168.78.20: icmp_seq=5 ttl=128 time=0.131 ms
-> 64 bytes from 192.168.78.20: icmp_seq=6 ttl=128 time=0.133 ms
-> 
-> And at restart, the following gets printed in dmesg:
-> 
-> [ 3439.360831] forcedeth 0000:00:0a.0: irq 47 for MSI/MSI-X
-> 
-> 
-> So far we tried to replace everything in this network:
-> started with the NIC on the server, all wires, the switch,
-> and even replaced the client computers (upgraded them from
-> some old to current hardware).  Even changing the NIC on
-> the server did not help - rtl8139 behaves the same way,
-> but it needs a bit more time to trigger the issue.
-> 
-> The problem happens with several different kernels - at
-> least 2.6.27 triggers it, 2.6.32 and 2.6.35 all behaves
-> the same, 32 or 64bit.
-> 
-> The machine is based on Asus M2N-VM DVI motherboard, which
-> is nVidia MCP67-based system.  The NIC is on-board forcedeth
-> (and as I mentioned above the same prob happens with rtl8139
-> card).
-> 
-> This machine has 2 more NICs inserted (used for WAN link and
-> for another tiny LAN segment) - these does not show the issue,
-> but they both run at 10Mbps, so maybe it needs 10x more time.
-> When the eth0 LAN segment stops working, the rest of the system
-> works just fine, including these 2 NICs and hard drives.
-> 
-> I also tried to disable MSI, loading forcedeth with msi=0, -
-> this results in usage of IO-APIC-fasteoi for the NIC instead
-> of usual PCI-MSI-edge, but does not change the situation.
-> 
-> So I'm quite stuck here, and don't know what to do next.
-> My next bet is to try another motherboard, in a hope that
-> this is just some broken interrupt controller, but it is
-> a bit too unreal...
-> 
-> Any hints on what to try are greatly apprecated...
-> 
-> Thanks!
-> 
-> /mjt
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Do not  you want to also autodetect the PHY address for all e1000
+variants?
 
+> +
+>  	/* reset the hardware with the new settings */
+>  	e1000_reset(adapter);
+> 
+> @@ -1171,6 +1203,8 @@ err_eeprom:
+>  	kfree(adapter->rx_ring);
+>  err_dma:
+>  err_sw_init:
+> +err_mdio_ioremap:
+> +	iounmap(ce4100_gbe_mdio_base_virt);
+>  	iounmap(hw->hw_addr);
+>  err_ioremap:
+>  	free_netdev(netdev);
+> @@ -1409,6 +1443,7 @@ static bool e1000_check_64k_bound(struct
+> e1000_adapter *adapter, void *start, /* First rev 82545 and 82546 need to
+> not allow any memory
+>  	 * write location to cross 64k boundary due to errata 23 */
+>  	if (hw->mac_type == e1000_82545 ||
+> +	    hw->mac_type == e1000_ce4100 ||
+>  	    hw->mac_type == e1000_82546) {
+>  		return ((begin ^ (end - 1)) >> 16) != 0 ? false : true;
+>  	}
+> diff --git a/drivers/net/e1000/e1000_osdep.h
+> b/drivers/net/e1000/e1000_osdep.h index edd1c75..55c1711 100644
+> --- a/drivers/net/e1000/e1000_osdep.h
+> +++ b/drivers/net/e1000/e1000_osdep.h
+> @@ -34,12 +34,21 @@
+>  #ifndef _E1000_OSDEP_H_
+>  #define _E1000_OSDEP_H_
+> 
+> -#include <linux/types.h>
+> -#include <linux/pci.h>
+> -#include <linux/delay.h>
+>  #include <asm/io.h>
+> -#include <linux/interrupt.h>
+> -#include <linux/sched.h>
+> +
+> +#define CONFIG_RAM_BASE         0x60000
+> +#define GBE_CONFIG_OFFSET       0x0
+> +
+> +#define GBE_CONFIG_RAM_BASE \
+> +	((unsigned int)(CONFIG_RAM_BASE + GBE_CONFIG_OFFSET))
+> +
+> +#define GBE_CONFIG_BASE_VIRT    phys_to_virt(GBE_CONFIG_RAM_BASE)
+> +
+> +#define GBE_CONFIG_FLASH_WRITE(base, offset, count, data) \
+> +	(iowrite16_rep(base + offset, data, count))
+> +
+> +#define GBE_CONFIG_FLASH_READ(base, offset, count, data) \
+> +	(ioread16_rep(base + (offset << 1), data, count))
+
+In my opinion, this is unsafe, especially because not everyone places a valid
+e1000 "fake" EEPROM at 0x60000. Also, this is done by the bootloader, so there
+is no guarantee chainloading, kexec/kdump or anything overwrites the zone.
+Rather I'd go with doing a request_firmware() of the eeprom or, a platform-
+specific callback to access it.
+
+Retrieving such board specific informations is really integrator specific.
+--
+Florian
