@@ -1,37 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net-next-2.6 [PATCH 0/3] dccp: several sequence-number
- validation fixes
-Date: Sun, 09 Jan 2011 16:17:33 -0800 (PST)
-Message-ID: <20110109.161733.241928340.davem@davemloft.net>
-References: <0110107112837.GA5315@gerrit.erg.abdn.ac.uk>
-	<1294400130-5604-1-git-send-email-gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH] forcedeth: Do not use legacy PCI power management
+Date: Sun, 09 Jan 2011 16:20:52 -0800 (PST)
+Message-ID: <20110109.162052.98884306.davem@davemloft.net>
+References: <201101070049.16833.rjw@sisk.pl>
+	<201101072212.05449.rjw@sisk.pl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: gerrit@erg.abdn.ac.uk
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-pm@lists.linux-foundation.org
+To: rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51368
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51372
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751343Ab1AJARB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 19:17:01 -0500
-In-Reply-To: <1294400130-5604-1-git-send-email-gerrit@erg.abdn.ac.uk>
+	by vger.kernel.org with ESMTP id S1751818Ab1AJAUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 19:20:20 -0500
+In-Reply-To: <201101072212.05449.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Fri,  7 Jan 2011 12:35:27 +0100
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Fri, 7 Jan 2011 22:12:05 +0100
 
-> Hi Dave,
+> Subject: forcedeth: Do not use legacy PCI power management (v2)
 > 
-> please find attached 3 bug fixes which recently came up on dccp@vger.
+> The forcedeth driver uses the legacy PCI power management, so it has
+> to do PCI-specific things in its ->suspend() and ->resume() callbacks
+> and some of them are not done correctly.
 > 
->  Patch #1: fixes a bug which wrongly classified sequence-invalid packets. 
->  Patch #2: fixes a bug in updating the Greatest Sequence number Received (GSR).
->  Patch #3: fixes an inconsistency in setting the sequence window on 32/64 bit.
+> Convert forcedeth to the new PCI power management framework and make
+> it let the PCI subsystem take care of all the PCI-specific aspects of
+> device handling during system power transitions.
 > 
-> I have also placed this in into a fresh (today's) copy of net-next-2.6, on
+> Tested with nVidia Corporation MCP55 Ethernet (rev a2).
 > 
->     git://eden-feed.erg.abdn.ac.uk/net-next-2.6        [subtree 'dccp']
+> Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
 
-Pulled, thanks a lot Gerrit.
+Applied, thanks.
