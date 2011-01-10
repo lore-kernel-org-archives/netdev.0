@@ -1,63 +1,51 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and
- coding-style
-Date: Mon, 10 Jan 2011 08:30:24 -0800
-Message-ID: <20110110083024.ab3bad25.rdunlap@xenotime.net>
-References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be>
-	<201101101244.24932.christoph.paasch@uclouvain.be>
-	<20110110075032.e38955ef.rdunlap@xenotime.net>
-	<201101101724.46023.christoph.paasch@uclouvain.be>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 0/3] iproute2: ip link: add support for network device
+ groups
+Date: Mon, 10 Jan 2011 08:47:00 -0800
+Message-ID: <20110110084700.17798894@nehalam>
+References: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Dobriyan <adobriyan@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: christoph.paasch@uclouvain.be
+Cc: netdev@vger.kernel.org, jamal <hadi@cyberus.ca>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Vlad Dogaru <ddvlad@rosedu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from xenotime.net ([72.52.115.56]:42817 "HELO xenotime.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753153Ab1AJQa0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jan 2011 11:30:26 -0500
-Received: from chimera.site ([173.50.240.230]) by xenotime.net for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 08:30:24 -0800
-In-Reply-To: <201101101724.46023.christoph.paasch@uclouvain.be>
+Received: from mail.vyatta.com ([76.74.103.46]:51537 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753513Ab1AJQrE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 11:47:04 -0500
+In-Reply-To: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Jan 2011 17:24:45 +0100 Christoph Paasch wrote:
+On Mon, 10 Jan 2011 13:39:16 +0200
+Vlad Dogaru <ddvlad@rosedu.org> wrote:
 
+> This patch series adds userspace support for network device groups.
+> There is support for setting device groups, listing only interfaces of a
+> specific group, and setting basic device parameters for all interfaces
+> in a group.
 > 
-> On Monday, January 10, 2011 wrote Randy Dunlap:
-> > Documentation/SubmitChecklist, #1:
-> > 
-> > 1: If you use a facility then #include the file that defines/declares
-> >    that facility.  Don't depend on other header files pulling in ones
-> >    that you use.
-> Ok, great. That was the answer I was looking for.
+> The patches use the IFLA_GROUP and IFLA_FILTERGROUP messages, for which
+> I posted pathes in a different set.
 > 
-> So, there is a clear rule that defines the #include-policy.
 > 
-> Now, should the missing #include's be added, or not?
+> Vlad Dogaru (3):
+>   ip link: add support for setting device groups
+>   ip link: support listing devices by group
+>   ip link: support setting device parameters by group
 > 
-> Alexey Dobriyan is against it, as he says in one of his previous mails.
-> And, I'm nearly sure that the rule is not respected in plenty of other files 
-> of the Linux Kernel.
+>  include/linux/if_link.h   |    3 ++
+>  include/linux/netdevice.h |    2 +-
+>  include/utils.h           |    3 +-
+>  ip/ipaddress.c            |   14 +++++++++++
+>  ip/iplink.c               |   54 +++++++++++++++++++++++++++++++++++++++++++-
+>  ip/link_veth.c            |    3 +-
+>  6 files changed, 74 insertions(+), 5 deletions(-)
 
-If a build fails on any $architecture due to a missing header file, then
-the header file should be added.
+I like the idea, but I wonder if we should take it farther?
+Should it be hierarchal tree of groups?
+Should slave devices (ppp, vlan, etc) be automatically assigned
+to group of parent?
 
-If you just want to fix source files that are missing header files, then
-the patches should be accepted, even if they are not "needed" in some
-strong sense of that word.
-
-Adding the header files adds documentation that some interface from that
-header file is being used and it prevents failures that would happen
-if an indirect #include were removed, so it's a good practice, but sure,
-there are plenty of places that miss this.  It was added as Rule #1
-(explicity as Rule __#1__) due to so many build errors due to this
-that were occurring in linux-next trees.
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
