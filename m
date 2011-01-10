@@ -1,45 +1,26 @@
-From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Mon, 10 Jan 2011 08:49:05 -0800
-Message-ID: <1294678145.3068.6.camel@work-vm>
-References: <cover.1293820862.git.richard.cochran@omicron.at>
-	 <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
-	 <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
-	 <20110108175028.GA22308@riccoc20.at.omicron.at>
-	 <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH] Cleanup include/net/tcp.h include-files and coding-style
+Date: Mon, 10 Jan 2011 19:02:06 +0200
+Message-ID: <AANLkTim38gKQqrh=wKC+NRf=ypKus1t8mdtmGtW-3rKU@mail.gmail.com>
+References: <1294606534-28522-1-git-send-email-christoph.paasch@uclouvain.be>
+	<201101101244.24932.christoph.paasch@uclouvain.be>
+	<20110110075032.e38955ef.rdunlap@xenotime.net>
+	<201101101724.46023.christoph.paasch@uclouvain.be>
+	<20110110083024.ab3bad25.rdunlap@xenotime.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: christoph.paasch@uclouvain.be,
+	Ben Hutchings <bhutchings@solarflare.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110110083024.ab3bad25.rdunlap@xenotime.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2011-01-10 at 06:07 +0900, Kuwahara,T. wrote:
-> On Sun, Jan 9, 2011 at 2:50 AM, Richard Cochran
-> <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> > we want to be able to jump the clock arbitrarily.
-> 
-> Another problem remains:  How do you deal with leap seconds?  I mean,
-> given that 1 minute is not always 60 seconds, then what time was it
-> XXXXX seconds ago?   Maybe some kind of lookup table is necessary, but
-> in such case, isn't it a better choice just to use the
-> clock_settime/settimeofday syscall?
+On Mon, Jan 10, 2011 at 6:30 PM, Randy Dunlap <rdunlap@xenotime.net> wrote:
+> If you just want to fix source files that are missing header files, then
+> the patches should be accepted, even if they are not "needed" in some
+> strong sense of that word.
 
-Leapsecond processing is done via an absolute hrtimer. Thus when the
-time offset is set, the hrtimers that should have expired will fire
-(just like with settimeofday) and the adjustment will then be made.
-
-thanks
--john
+This will create a lot of noise. As if we haven't seen enough before.
