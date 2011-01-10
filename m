@@ -1,82 +1,144 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH] Move an assert under DEBUG_KERNEL. (attempt 2)
-Date: Mon, 10 Jan 2011 09:19:59 -0800
-Message-ID: <20110110091959.ff4a2bfe.randy.dunlap@oracle.com>
-References: <4D2579B2.7060704@parallels.com>
-	<20110106154120.b69118c9.akpm@linux-foundation.org>
-	<4D2AC4D5.5070503@parallels.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [RFC] sched: CHOKe packet scheduler (v0.2)
+Date: Mon, 10 Jan 2011 09:31:23 -0800
+Message-ID: <20110110093123.5431b368@nehalam>
+References: <20110104162930.6fa672e3@nehalam>
+	<1294208375.3420.46.camel@edumazet-laptop>
+	<20110105091718.02f8a00f@nehalam>
+	<1294248332.10633.25.camel@edumazet-laptop>
+	<20110105112104.64ad3c86@nehalam>
+	<1294286850.2723.65.camel@edumazet-laptop>
+	<20110106205549.0de56de1@nehalam>
+	<1294667210.3491.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, <trivial@kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-embedded@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rob Landley <rlandley@parallels.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D2AC4D5.5070503@parallels.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:35039 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753063Ab1AJRb1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 12:31:27 -0500
+In-Reply-To: <1294667210.3491.7.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Jan 2011 02:35:33 -0600 Rob Landley wrote:
+On Mon, 10 Jan 2011 14:46:50 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On 01/06/2011 05:41 PM, Andrew Morton wrote:
-> > Probably a worthwhile thing to do, IMO.  If there's some net-specific
-> > CONFIG_DEBUG_ setting then that wold be a better thing to use.
-> > 
-> > However the patch was a) wordwrapped, b) space-stuffed and c) not cc'ed
-> > to the networking list.  So its prospects are dim.
-> 
-> Ok, either I've beaten thunderbird into submission, or I'll be submitting a patch to Documentation/email-clients.txt.  (Whether or not I need to find a different smtp server to send this through remains an open question.)
-> 
-> (Confirming: I looked for a more specific DEBUG symbol, but couldn't find one.  I can add one, but this seems a bit small to have its own symbol, and DEBUG_KERNEL is already used in a few *.c files.)
-> 
-> From: Rob Landley <rlandley@parallels.com>
-> 
-> Move an assert under DEBUG_KERNEL.  (Minor cleanup to save a few bytes.)
-> 
-> Signed-off-by: Rob Landley <rlandley@parallels.com>
-> ---
-> 
->  include/linux/rtnetlink.h |    4 ++++
->  1 file changed, 4 insertions(+)
+> Le jeudi 06 janvier 2011 =E0 20:55 -0800, Stephen Hemminger a =E9crit=
+ :
+>=20
+> >=20
+> > The problem is that large tables of pointers in kernel require eith=
+er
+> > contiguous allocation or some indirect table algorithm.
+> >=20
+>=20
+> Here is a v3 version with an array based queue for O(1) peek_random
+> complexity.
+>=20
+> Could you send the iproute2 patch so that I can test it ?
+>=20
+> Thanks !
+>=20
+>=20
+> diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+> index e69de29..ea9db00 100644
+> --- a/net/sched/sch_choke.c
+> +++ b/net/sched/sch_choke.c
+> @@ -0,0 +1,388 @@
+> +/*
+> + * net/sched/sch_choke.c	CHOKE scheduler
+> + *
+> + * Copyright (c) 2011 Stephen Hemminger <shemminger@vyatta.com>
+> + * Copyright (c) 2011 Eric Dumazet <eric.dumazet@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or
+> + * modify it under the terms of the GNU General Public License
+> + * version 2 as published by the Free Software Foundation.
+> + *
+> + */
+> +
+> +#include <linux/module.h>
+> +#include <linux/types.h>
+> +#include <linux/kernel.h>
+> +#include <linux/skbuff.h>
+> +#include <linux/reciprocal_div.h>
+> +#include <net/pkt_sched.h>
+> +#include <net/inet_ecn.h>
+> +#include <net/red.h>
+> +
+> +/*	CHOKe stateless AQM for fair bandwidth allocation
+> +        =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D
+> +
+> +   CHOKe (CHOose and Keep for responsive flows, CHOose and Kill for
+> +   unresponsive flows) is a variant of RED that penalizes misbehavin=
+g flows but
+> +   maintains no flow state. The difference from RED is an additional=
+ step
+> +   during the enqueuing process. If average queue size is over the
+> +   low threshold (qmin), a packet is chosen at random from the queue=
+=2E
+> +   If both the new and chosen packet are from the same flow, both
+> +   are dropped. Unlike RED, CHOKe is not a "classful" qdisc because =
+it
+> +   needs to access packets in queue randomly.
+> +
+> +   Source:
+> +   R. Pan, B. Prabhakar, and K. Psounis, "CHOKe, A Stateless
+> +   Active Queue Management Scheme for Approximating Fair Bandwidth A=
+llocation",
+> +   IEEE INFOCOM, 2000.
+> +
+> +   A. Tang, J. Wang, S. Low, "Understanding CHOKe: Throughput and Sp=
+atial
+> +   Characteristics", IEEE/ACM Transactions on Networking, 2004
+> +
+> + */
+> +
+> +struct choke_sched_data {
+> +	u32		 limit;
+> +	unsigned char	 flags;
+> +
+> +	struct red_parms parms;
+> +	struct red_stats stats;
+> +
+> +	unsigned int	 head;
+> +	unsigned int	 tail;
+> +	unsigned int	 holes;
+> +	unsigned int	 tab_mask; /* size - 1 */
+> +	struct sk_buff **tab;
+> +};
+> +
+> +static inline unsigned int choke_len(const struct choke_sched_data *=
+q)
+> +{
+> +	return (q->tail - q->head) & q->tab_mask;
+> +}
+> +
+> +/* deliver a random number between 0 and N - 1 */
+> +static inline u32 random_N(unsigned int N)
+> +{
+> +	return reciprocal_divide(random32(), N);
+> +}
+> +
+> +/* Select a packet at random from the queue in O(1) */
+> +static struct sk_buff *choke_peek_random(struct choke_sched_data *q,=
+ unsigned int *pidx)
+> +{
+> +	*pidx =3D (q->head + random_N(choke_len(q))) & q->tab_mask;
+> +	return q->tab[*pidx];
+> +}
+
+I don't think this works right. The choke_peek_random could find a hole=
+=2E
+Either the data structure has to change, or the peek_random has to retr=
+y,
+or if quick peek fails then compress the slot with memmove and retry.
 
 
-Hm, cc to linux-net should be to netdev instead (so I changed it).
-
-
-> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-> index bbad657..28c4025 100644
-> --- a/include/linux/rtnetlink.h
-> +++ b/include/linux/rtnetlink.h
-> @@ -782,6 +782,7 @@ extern struct netdev_queue *dev_ingress_queue_create(struct net_device *dev);
->  extern void rtnetlink_init(void);
->  extern void __rtnl_unlock(void);
->  
-> +#ifdef CONFIG_DEBUG_KERNEL
->  #define ASSERT_RTNL() do { \
->  	if (unlikely(!rtnl_is_locked())) { \
->  		printk(KERN_ERR "RTNL: assertion failed at %s (%d)\n", \
-> @@ -789,6 +790,9 @@ extern void __rtnl_unlock(void);
->  		dump_stack(); \
->  	} \
->  } while(0)
-> +#else
-> +#define ASSERT_RTNL()
-> +#endif
-
-Empty macros in Linux usually take the (preferred) form of this one from kernel.h:
-
-#define might_resched() do { } while (0)
-
-although it's up to DaveM in this case.
-
-
->  
->  static inline u32 rtm_get_table(struct rtattr **rta, u8 table)
->  {
-> --
-
-
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+--=20
