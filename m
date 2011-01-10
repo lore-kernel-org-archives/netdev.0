@@ -1,36 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] net/dummy: add device group parameter
-Date: Mon, 10 Jan 2011 13:37:48 -0800 (PST)
-Message-ID: <20110110.133748.85424564.davem@davemloft.net>
-References: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
-	<1294659524-22509-3-git-send-email-ddvlad@rosedu.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hadi@cyberus.ca, opurdila@ixiacom.com
-To: ddvlad@rosedu.org
+From: Casey Leedom <leedom@chelsio.com>
+Subject: [PATCH net-26] cxgb4vf: fix mailbox data/control coherency domain race
+Date: Mon, 10 Jan 2011 13:51:01 -0800
+Message-ID: <1294696261-21209-1-git-send-email-leedom@chelsio.com>
+Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57072
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754265Ab1AJVhQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 16:37:16 -0500
-In-Reply-To: <1294659524-22509-3-git-send-email-ddvlad@rosedu.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:2252 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752874Ab1AJVvH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 16:51:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Dogaru <ddvlad@rosedu.org>
-Date: Mon, 10 Jan 2011 13:38:43 +0200
+For the VFs, the Mailbox Data "registers" are actually backed by
+T4's "MA" interface rather than PL Registers (as is the case for
+the PFs).  Because these are in different coherency domains, the
+write to the VF's PL-register-backed Mailbox Control can race in
+front of the writes to the MA-backed VF Mailbox Data "registers".
+So we need to do a read-back on at least one byte of the VF Mailbox
+Data registers before doing the write to the VF Mailbox Control
+register.
 
-> When inserting the dummy module, the user can specify the group of the
-> dummy devices. This avoids manually moving the newly created pseudo
-> devices to a different group.
-> 
-> Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+---
+ drivers/net/cxgb4vf/t4vf_hw.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
-The amount of hacks people wish to add to the dummy driver is one step
-away from amazing.
+diff --git a/drivers/net/cxgb4vf/t4vf_hw.c b/drivers/net/cxgb4vf/t4vf_hw.c
+index e4bec78..0f51c80 100644
+--- a/drivers/net/cxgb4vf/t4vf_hw.c
++++ b/drivers/net/cxgb4vf/t4vf_hw.c
+@@ -147,9 +147,20 @@ int t4vf_wr_mbox_core(struct adapter *adapter, const void *cmd, int size,
+ 	/*
+ 	 * Write the command array into the Mailbox Data register array and
+ 	 * transfer ownership of the mailbox to the firmware.
++	 *
++	 * For the VFs, the Mailbox Data "registers" are actually backed by
++	 * T4's "MA" interface rather than PL Registers (as is the case for
++	 * the PFs).  Because these are in different coherency domains, the
++	 * write to the VF's PL-register-backed Mailbox Control can race in
++	 * front of the writes to the MA-backed VF Mailbox Data "registers".
++	 * So we need to do a read-back on at least one byte of the VF Mailbox
++	 * Data registers before doing the write to the VF Mailbox Control
++	 * register.
+ 	 */
+ 	for (i = 0, p = cmd; i < size; i += 8)
+ 		t4_write_reg64(adapter, mbox_data + i, be64_to_cpu(*p++));
++	t4_read_reg(adapter, mbox_data);         /* flush write */
++
+ 	t4_write_reg(adapter, mbox_ctl,
+ 		     MBMSGVALID | MBOWNER(MBOX_OWNER_FW));
+ 	t4_read_reg(adapter, mbox_ctl);          /* flush write */
+-- 
+1.7.0.4
 
-Just use the standard APIs to add dummy devices to the group you want,
-instead of these ad-hoc device specific module parameters.
-
-Thanks.
