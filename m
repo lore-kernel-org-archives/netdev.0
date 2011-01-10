@@ -1,70 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: fix signed/unsigned comparison
-Date: Mon, 10 Jan 2011 10:03:21 +0200
-Message-ID: <20110110080320.GA10846@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.37-rc8: Reported regressions from 2.6.36
+Date: Mon, 10 Jan 2011 00:08:13 -0800 (PST)
+Message-ID: <20110110.000813.173856001.davem@davemloft.net>
+References: <96DQe4a_2tH.A.cFB.l27GNB@chimera>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Jes.Sorensen@redhat.com,
-	stable@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, maciej.rutecki@gmail.com,
+	florian@mickler.org, akpm@linux-foundation.org,
+	torvalds@linux-foundation.org, kernel-testers@vger.kernel.org,
+	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
+	linux-pm@lists.linux-foundation.org, linux-scsi@vger.kernel.org,
+	linux-wireless@vger.kernel.org, dri-devel@lists.freedesktop.org
+To: rjw@sisk.pl
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <96DQe4a_2tH.A.cFB.l27GNB@chimera>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-To detect that a sequence number is done, we are doing math on unsigned
-integers so the result is unsigned too. Not what was intended for the <=
-comparison. The result is user stuck forever in flush call.
-Convert to int to fix this.
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Wed, 29 Dec 2010 23:59:38 +0100 (CET)
 
-Further, get rid of ({}) to make code clearer.
+> Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24592
+> Subject		: 2.6.37-rc5: NULL pointer oops in selinux_socket_unix_stream_connect
+> Submitter	: Jeremy Fitzhardinge <jeremy@goop.org>
+> Date		: 2010-12-08 21:09 (22 days old)
+> Message-ID	: <4CFFF3F3.90100@goop.org>
+> References	: http://marc.info/?l=linux-kernel&m=129184256629712&w=2
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+This bug is intended to be fixed by:
 
-I've put this on my vhost.git tree.
+commit 3610cda53f247e176bcbb7a7cca64bc53b12acdb
+Author: David S. Miller <davem@davemloft.net>
+Date:   Wed Jan 5 15:38:53 2011 -0800
 
- drivers/vhost/vhost.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+    af_unix: Avoid socket->sk NULL OOPS in stream connect security hooks.
+    
+    unix_release() can asynchornously set socket->sk to NULL, and
+    it does so without holding the unix_state_lock() on "other"
+    during stream connects.
+    
+    However, the reverse mapping, sk->sk_socket, is only transitioned
+    to NULL under the unix_state_lock().
+    
+    Therefore make the security hooks follow the reverse mapping instead
+    of the forward mapping.
+    
+    Reported-by: Jeremy Fitzhardinge <jeremy@goop.org>
+    Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index 159c77a..522b8fc 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -98,22 +98,26 @@ void vhost_poll_stop(struct vhost_poll *poll)
- 	remove_wait_queue(poll->wqh, &poll->wait);
- }
- 
-+static bool vhost_work_seq_done(struct vhost_dev *dev, struct vhost_work *work,
-+				unsigned seq)
-+{
-+	int left;
-+	spin_lock_irq(&dev->work_lock);
-+	left = seq - work->done_seq;
-+	spin_unlock_irq(&dev->work_lock);
-+	return left <= 0;
-+}
-+
- static void vhost_work_flush(struct vhost_dev *dev, struct vhost_work *work)
- {
- 	unsigned seq;
--	int left;
- 	int flushing;
- 
- 	spin_lock_irq(&dev->work_lock);
- 	seq = work->queue_seq;
- 	work->flushing++;
- 	spin_unlock_irq(&dev->work_lock);
--	wait_event(work->done, ({
--		   spin_lock_irq(&dev->work_lock);
--		   left = seq - work->done_seq <= 0;
--		   spin_unlock_irq(&dev->work_lock);
--		   left;
--	}));
-+	wait_event(work->done, vhost_work_seq_done(dev, work, seq));
- 	spin_lock_irq(&dev->work_lock);
- 	flushing = --work->flushing;
- 	spin_unlock_irq(&dev->work_lock);
--- 
-1.7.3.2.91.g446ac
