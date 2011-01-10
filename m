@@ -1,47 +1,38 @@
-From: Dan Rosenberg <drosenberg@vsecurity.com>
-Subject: [PATCH] caif: don't set connection request param size before
- copying data
-Date: Mon, 10 Jan 2011 18:36:37 -0500
-Message-ID: <1294702597.2125.74.camel@dan>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in 2.6.36.3
+Date: Mon, 10 Jan 2011 15:41:48 -0800 (PST)
+Message-ID: <688142.89079.qm@web121707.mail.ne1.yahoo.com>
+References: <F675EE07F28A0A4E933E5F9DD28672FB01197E08E2@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sjur Braendeland <sjur.brandeland@stericsson.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Tushar NDave <tushar.n.dave@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.vsecurity.com ([209.67.252.12]:54290 "EHLO
-	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754554Ab1AJXgl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 18:36:41 -0500
+Received: from web121707.mail.ne1.yahoo.com ([98.138.90.128]:38989 "HELO
+	web121707.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752061Ab1AJXlt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jan 2011 18:41:49 -0500
+In-Reply-To: <F675EE07F28A0A4E933E5F9DD28672FB01197E08E2@orsmsx508.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The size field should not be set until after the data is successfully
-copied in.
+--- On Mon, 10/1/11, Dave, Tushar N <tushar.n.dave@intel.com> wrote:
+> Does the issue appears only when you add a bridge?
 
-Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
----
- net/caif/caif_socket.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Tushar,
 
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index 1bf0cf5..8184c03 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -740,12 +740,12 @@ static int setsockopt(struct socket *sock,
- 		if (cf_sk->sk.sk_protocol != CAIFPROTO_UTIL)
- 			return -ENOPROTOOPT;
- 		lock_sock(&(cf_sk->sk));
--		cf_sk->conn_req.param.size = ol;
- 		if (ol > sizeof(cf_sk->conn_req.param.data) ||
- 			copy_from_user(&cf_sk->conn_req.param.data, ov, ol)) {
- 			release_sock(&cf_sk->sk);
- 			return -EINVAL;
- 		}
-+		cf_sk->conn_req.param.size = ol;
- 		release_sock(&cf_sk->sk);
- 		return 0;
- 
+I'm not sure what you mean by "add a bridge". I've been using this box ever since the late 1990s, and have had the 3 e100 port since the early 2000s, so I can't say that I "do" anything with it apart from use it. 
+
+The PCI configuration remains as it always has, and the box get rebooted only to receive stable kernel updates. Looking back through old dmesg logs, it looks like this issue also happened in 2.6.33.6 too without me ever realising. Hence I am suspecting that this problem has been happening intermittently for ages...
+
+Is there anything else I can tell you about this ropey old P200 MMX PC before Indiana Jones finds it and tries putting it in his museum ;-)?
+
+Cheers,
+Chris
 
 
+      
