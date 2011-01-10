@@ -1,58 +1,56 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 2.6.37-rc8: Reported regressions from 2.6.36
-Date: Mon, 10 Jan 2011 21:11:06 +0100
-Message-ID: <201101102111.07266.rjw@sisk.pl>
-References: <96DQe4a_2tH.A.cFB.l27GNB@chimera> <20110110.000813.173856001.davem@davemloft.net>
+From: Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [PATCH V8 12/13] ptp: Added a clock driver for the IXP46x.
+Date: Mon, 10 Jan 2011 21:24:15 +0100
+Message-ID: <m31v4kpkwg.fsf@intrepid.localdomain>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+	<8151196c018776704df34748f333bdb159497d0b.1293820862.git.richard.cochran@omicron.at>
+	<m3ei8plpa0.fsf@intrepid.localdomain>
+	<20110107170752.GB8666@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, maciej.rutecki@gmail.com,
-	florian@mickler.org, akpm@linux-foundation.org,
-	torvalds@linux-foundation.org, kernel-testers@vger.kernel.org,
-	netdev@vger.kernel.org, linux-acpi@vger.kernel.org,
-	linux-pm@lists.linux-foundation.org, linux-scsi@vger.kernel.org,
-	linux-wireless@vger.kernel.org, dri-devel@lists.freedesktop.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20110110.000813.173856001.davem@davemloft.net>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110107170752.GB8666-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org> (Richard Cochran's
+	message of "Fri, 7 Jan 2011 18:07:52 +0100")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, January 10, 2011, David Miller wrote:
-> From: "Rafael J. Wysocki" <rjw@sisk.pl>
-> Date: Wed, 29 Dec 2010 23:59:38 +0100 (CET)
-> 
-> > Bug-Entry	: http://bugzilla.kernel.org/show_bug.cgi?id=24592
-> > Subject		: 2.6.37-rc5: NULL pointer oops in selinux_socket_unix_stream_connect
-> > Submitter	: Jeremy Fitzhardinge <jeremy@goop.org>
-> > Date		: 2010-12-08 21:09 (22 days old)
-> > Message-ID	: <4CFFF3F3.90100@goop.org>
-> > References	: http://marc.info/?l=linux-kernel&m=129184256629712&w=2
-> 
-> This bug is intended to be fixed by:
-> 
-> commit 3610cda53f247e176bcbb7a7cca64bc53b12acdb
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Wed Jan 5 15:38:53 2011 -0800
-> 
->     af_unix: Avoid socket->sk NULL OOPS in stream connect security hooks.
->     
->     unix_release() can asynchornously set socket->sk to NULL, and
->     it does so without holding the unix_state_lock() on "other"
->     during stream connects.
->     
->     However, the reverse mapping, sk->sk_socket, is only transitioned
->     to NULL under the unix_state_lock().
->     
->     Therefore make the security hooks follow the reverse mapping instead
->     of the forward mapping.
->     
->     Reported-by: Jeremy Fitzhardinge <jeremy@goop.org>
->     Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
+Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-OK, thanks for the info, closing.
+> But before that, I have a big favor to ask you. Can you please look at
+> the TODO in my patch and give me a hint? I don't know how to relate
+> the port instance (NPE A,B,C) to the two time stamping channels.
 
-Rafael
+I assume you mean this:
++ * PHYSICAL_ID(p->id) ?
++ * TODO - Figure out correct mapping.
+
+Unfortunately I can's find this information in the devel manual. I think
+there are 3 channels (not two), each for one Ethernet port. IXP465 can
+have a port on each NPE.
+
+PHYSICAL_ID etc. are described at the start of the file:
+ * logical port         0x00            0x10            0x20
+ * NPE                  0 (NPE-A)       1 (NPE-B)       2 (NPE-C)
+ * physical PortId      2               0               1
+
+This means the first port (usually "eth0") is connected to NPE-B, the
+second port to NPE-C, and the third port to NPE-A (not available on
+IXP42x).
+
+Also, the manual says NPE-B can serve 3 additional Ethernet ports
+(6 total).
+
+I only have access to IXP425 (and 421) hardware. I think someone with
+the actual IXP465 has to check the details.
+-- 
+Krzysztof Halasa
