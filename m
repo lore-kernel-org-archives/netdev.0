@@ -1,56 +1,47 @@
-From: kxie@chelsio.com
-Subject: [PATCH] cxgb3i: fixed connection problem with iscsi private ip
-Date: Mon, 10 Jan 2011 15:15:26 -0800
-Message-ID: <201101102315.p0ANFQ8u015283@localhost6.localdomain6>
+From: Dan Rosenberg <drosenberg@vsecurity.com>
+Subject: [PATCH] caif: don't set connection request param size before
+ copying data
+Date: Mon, 10 Jan 2011 18:36:37 -0500
+Message-ID: <1294702597.2125.74.camel@dan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kxie@chelsio.com, davem@davemloft.net,
-	James.Bottomley@HansenPartnership.com, michaelc@cs.wisc.edu
-To: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	open-iscsi@googlegroups.com
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Sjur Braendeland <sjur.brandeland@stericsson.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.vsecurity.com ([209.67.252.12]:54290 "EHLO
+	mx1.vsecurity.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754554Ab1AJXgl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 18:36:41 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[PATCH] cxgb3i: fixed connection problem with iscsi private ip
+The size field should not be set until after the data is successfully
+copied in.
 
-From: Karen Xie <kxie@chelsio.com>
-
-fixed the connection problem when the private iscsi ipv4 address is provisioned on the interface.
-
-Signed-off-by: Karen Xie <kxie@chelsio.com>
+Signed-off-by: Dan Rosenberg <drosenberg@vsecurity.com>
 ---
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.h |   18 ++++++++++++++----
- 1 files changed, 15 insertions(+), 4 deletions(-)
+ net/caif/caif_socket.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h
-index 5f5e339..bed14db 100644
---- a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h
-+++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.h
-@@ -24,10 +24,20 @@
+diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
+index 1bf0cf5..8184c03 100644
+--- a/net/caif/caif_socket.c
++++ b/net/caif/caif_socket.c
+@@ -740,12 +740,12 @@ static int setsockopt(struct socket *sock,
+ 		if (cf_sk->sk.sk_protocol != CAIFPROTO_UTIL)
+ 			return -ENOPROTOOPT;
+ 		lock_sock(&(cf_sk->sk));
+-		cf_sk->conn_req.param.size = ol;
+ 		if (ol > sizeof(cf_sk->conn_req.param.data) ||
+ 			copy_from_user(&cf_sk->conn_req.param.data, ov, ol)) {
+ 			release_sock(&cf_sk->sk);
+ 			return -EINVAL;
+ 		}
++		cf_sk->conn_req.param.size = ol;
+ 		release_sock(&cf_sk->sk);
+ 		return 0;
  
- extern cxgb3_cpl_handler_func cxgb3i_cpl_handlers[NUM_CPL_CMDS];
- 
--#define cxgb3i_get_private_ipv4addr(ndev) \
--	(((struct port_info *)(netdev_priv(ndev)))->iscsi_ipv4addr)
--#define cxgb3i_set_private_ipv4addr(ndev, addr) \
--	(((struct port_info *)(netdev_priv(ndev)))->iscsi_ipv4addr) = addr
-+static inline unsigned int cxgb3i_get_private_ipv4addr(struct net_device *ndev)
-+{
-+	return ((struct port_info *)(netdev_priv(ndev)))->iscsi_ipv4addr;
-+}
-+
-+static inline void cxgb3i_set_private_ipv4addr(struct net_device *ndev,
-+					unsigned int addr)
-+{
-+	struct port_info *pi =  (struct port_info *)netdev_priv(ndev);
-+
-+	pi->iscsic.flags = addr ? 1 : 0;
-+	pi->iscsi_ipv4addr = addr;
-+	if (addr)
-+		memcpy(pi->iscsic.mac_addr, ndev->dev_addr, ETH_ALEN);
-+}
- 
- struct cpl_iscsi_hdr_norss {
- 	union opcode_tid ot;
+
+
