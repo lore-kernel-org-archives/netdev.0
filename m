@@ -1,35 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Sun, 09 Jan 2011 18:15:19 -0800 (PST)
-Message-ID: <20110109.181519.45898043.davem@davemloft.net>
-References: <AANLkTinANp+Jp8TPKzii6iZLUFpMyrXhmxYr42nZrXQU@mail.gmail.com>
-	<20110108000901.GA2133@electric-eye.fr.zoreil.com>
-	<20110108121726.GA2216@electric-eye.fr.zoreil.com>
+From: Axel Lin <axel.lin@gmail.com>
+Subject: [PATCH] iwmc3200wifi: Return proper error for iwm_if_alloc
+Date: Mon, 10 Jan 2011 10:26:00 +0800
+Message-ID: <1294626360.25455.1.camel@mola>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, benh@debian.org,
-	hayeswang@realtek.com, dwmw2@infradead.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47495
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751290Ab1AJCOs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jan 2011 21:14:48 -0500
-In-Reply-To: <20110108121726.GA2216@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Samuel Ortiz <samuel.ortiz@intel.com>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Zhu Yi <yi.zhu@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Sat, 8 Jan 2011 13:17:26 +0100
+In the case of alloc_netdev_mq failure and kmalloc failure,
+current implementation returns ERR_PTR(0).
 
-> r8169: delay phy init until device opens.
-> 
-> It workarounds the 60s firmware load failure timeout for the
-> non-modular case.
-> 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+As a result, the caller of iwm_if_alloc does not catch the error by IS_ERR
+macro. Fix it by setting proper error code for ret variable in the failure
+cases.
 
-Applied, thanks.
+Signed-off-by: Axel Lin <axel.lin@gmail.com>
+---
+ drivers/net/wireless/iwmc3200wifi/netdev.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/wireless/iwmc3200wifi/netdev.c b/drivers/net/wireless/iwmc3200wifi/netdev.c
+index 13a69eb..5091d77 100644
+--- a/drivers/net/wireless/iwmc3200wifi/netdev.c
++++ b/drivers/net/wireless/iwmc3200wifi/netdev.c
+@@ -126,6 +126,7 @@ void *iwm_if_alloc(int sizeof_bus, struct device *dev,
+ 	ndev = alloc_netdev_mq(0, "wlan%d", ether_setup, IWM_TX_QUEUES);
+ 	if (!ndev) {
+ 		dev_err(dev, "no memory for network device instance\n");
++		ret = -ENOMEM;
+ 		goto out_priv;
+ 	}
+ 
+@@ -138,6 +139,7 @@ void *iwm_if_alloc(int sizeof_bus, struct device *dev,
+ 				    GFP_KERNEL);
+ 	if (!iwm->umac_profile) {
+ 		dev_err(dev, "Couldn't alloc memory for profile\n");
++		ret = -ENOMEM;
+ 		goto out_profile;
+ 	}
+ 
+-- 
+1.7.2
