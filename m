@@ -1,7 +1,7 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [Bug 24592] Re: 2.6.37-rc8: Reported regressions from 2.6.36
-Date: Mon, 10 Jan 2011 21:09:31 +0100
-Message-ID: <201101102109.32177.rjw@sisk.pl>
+Subject: Re: 2.6.37-rc8: Reported regressions from 2.6.36
+Date: Mon, 10 Jan 2011 21:11:06 +0100
+Message-ID: <201101102111.07266.rjw@sisk.pl>
 References: <96DQe4a_2tH.A.cFB.l27GNB@chimera> <20110110.000813.173856001.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -27,6 +27,8 @@ On Monday, January 10, 2011, David Miller wrote:
 > > Subject		: 2.6.37-rc5: NULL pointer oops in selinux_socket_unix_stream_connect
 > > Submitter	: Jeremy Fitzhardinge <jeremy@goop.org>
 > > Date		: 2010-12-08 21:09 (22 days old)
+> > Message-ID	: <4CFFF3F3.90100@goop.org>
+> > References	: http://marc.info/?l=linux-kernel&m=129184256629712&w=2
 > 
 > This bug is intended to be fixed by:
 > 
@@ -49,3 +51,8 @@ On Monday, January 10, 2011, David Miller wrote:
 >     Reported-by: Jeremy Fitzhardinge <jeremy@goop.org>
 >     Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
 >     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+
+OK, thanks for the info, closing.
+
+Rafael
