@@ -1,41 +1,59 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
+From: Jesper Juhl <jj@chaosbits.net>
 Subject: Re: [PATCH] UDPCP Communication Protocol
-Date: Mon, 10 Jan 2011 23:28:44 +0100
-Message-ID: <20110110222844.GE3006@nuttenaction>
+Date: Mon, 10 Jan 2011 23:53:17 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101102352010.32164@swampdragon.chaosbits.net>
 References: <1293787785-3834-1-git-send-email-stefani@seibold.net>
- <1293789629.2973.26.camel@edumazet-laptop>
- <1293790979.4787.10.camel@wall-e>
- <1293792066.2973.43.camel@edumazet-laptop>
- <1293794589.5285.16.camel@wall-e>
- <1293796458.2973.59.camel@edumazet-laptop>
- <1293918016.28646.3.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
 	davem@davemloft.net, netdev@vger.kernel.org
-To: Stefani Seibold <stefani@seibold.net>
+To: stefani@seibold.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:56467 "EHLO
-	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754893Ab1AJW2q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 17:28:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1293918016.28646.3.camel@wall-e>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:16240 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755069Ab1AJWxS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 17:53:18 -0500
+In-Reply-To: <1293787785-3834-1-git-send-email-stefani@seibold.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-* Stefani Seibold | 2011-01-01 22:40:16 [+0100]:
 
->> > I cannot fix it, because the information is still lost, and i need it. 
->> > 
->> 
->> You can fix it. Really. If not, you can pay me and I'll fix it for you.
->> 
->
->I am a poor girl, so i did it by me self. Hope you like the new
->approach.
+stefani@seibold.net wrote:
++static int udpcp_xmit(struct sock *sk, struct udpcp_dest *dest)
++{
++       struct udpcp_sock *usk = udpcp_sk(sk);
++       int ret;
++
++       ret = _udpcp_xmit(sk, dest);
++
++       if (dest->xmit_wait) {
++               dest->tx_time = jiffies;
++
++               if (!timer_pending(&usk->timer))
++                       udpcp_timer(sk, dest->tx_time + usk->tx_timeout);
++       }
++       return ret;
++}
 
-Stefani, Eric try to support your effort and helps you the whole time. You
-should trust him and align your effort more on his tips and the way the
-kernel is developed.
+Wouldn't this be slightly nicer as 
+
+static int udpcp_xmit(struct sock *sk, struct udpcp_dest *dest)
+{
+       int ret = _udpcp_xmit(sk, dest);
+
+       if (dest->xmit_wait) {
+               struct udpcp_sock *usk = udpcp_sk(sk);
+               dest->tx_time = jiffies;
+               if (!timer_pending(&usk->timer))
+                       udpcp_timer(sk, dest->tx_time + usk->tx_timeout);
+       }
+       return ret;
+}
+
+??
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
+
