@@ -1,41 +1,51 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [patch v2] phonet: some signedness bugs
-Date: Mon, 10 Jan 2011 16:12:03 +0200
-Message-ID: <201101101612.04296.remi.denis-courmont@nokia.com>
-References: <20110107203755.GB1959@bicker> <201101100958.32549.remi.denis-courmont@nokia.com> <20110110140658.GB2721@bicker>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 0/3] net: add device groups
+Date: Mon, 10 Jan 2011 09:24:10 -0500
+Message-ID: <1294669450.6063.319.camel@mojatatu>
+References: <1294659524-22509-1-git-send-email-ddvlad@rosedu.org>
+	 <1294666875.3583.6.camel@jlt3.sipsolutions.net>
+	 <1294668021.6063.315.camel@mojatatu>
+	 <1294668505.3583.9.camel@jlt3.sipsolutions.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	dan.j.rosenberg@gmail.com
-To: ext Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Dogaru <ddvlad@rosedu.org>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.26]:61298 "EHLO mgw-da02.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751756Ab1AJOLy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:11:54 -0500
-In-Reply-To: <20110110140658.GB2721@bicker>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:45150 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753415Ab1AJOYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 09:24:11 -0500
+Received: by vws16 with SMTP id 16so8070129vws.19
+        for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 06:24:10 -0800 (PST)
+In-Reply-To: <1294668505.3583.9.camel@jlt3.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 10 January 2011 16:06:58 ext Dan Carpenter, you wrote:
-> Dan Rosenberg pointed out that there were some signed comparison bugs
-> in the phonet protocol.
->=20
-> http://marc.info/?l=3Dfull-disclosure&m=3D129424528425330&w=3D2
->=20
-> The problem is that we check for array overflows but "protocol" is
-> signed and we don't check for array underflows.  If you have already
-> have CAP_SYS_ADMIN then you could use the bugs to get root, or someon=
-e
-> could cause an oops by mistake.
->=20
-> Signed-off-by: Dan Carpenter <error27@gmail.com>
+On Mon, 2011-01-10 at 15:08 +0100, Johannes Berg wrote:
 
-Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+> 
+> Right, but where would you want to use it -- what's the use case right
+> now? Your ppp example here makes me think the use case is some PPP
+> endpoint server that has lots of these interfaces. 
 
+That was just an example because someone mentioned PPP earlier.
+Originally, this came from someone (Octavian?) trying to setup
+a gazillion netdevs for testing purposes and then needing to
+do "ip link ls dummy*" which causes a gazillion messages between
+kernel and user space and all the filtering of what dummy* being
+done in user space.
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+> It also means the
+> grouping is entirely user-space controlled. In this case, the idea of
+> automatically grouping based on the device structure seems pointless.
+
+You still havent said what you want this grouping for. What is your
+use case? ;->
+
+cheers,
+jamal
+
