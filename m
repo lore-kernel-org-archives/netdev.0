@@ -1,66 +1,38 @@
-From: Bernhard Walle <walle@corscience.de>
-Subject: [PATCH] [RFC] ath9k: Fix reporting of RX STBC streams to userspace
-Date: Tue, 11 Jan 2011 17:59:54 +0100
-Message-ID: <1294765194-30542-1-git-send-email-walle@corscience.de>
-Cc: linux-wireless@vger.kernel.org, ath9k-devel@lists.ath9k.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: lrodriguez@atheros.com, jmalinen@atheros.com, vasanth@atheros.com,
-	senthilkumar@atheros.com, linville@tuxdriver.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] new UDPCP Communication Protocol
+Date: Tue, 11 Jan 2011 18:01:13 +0100
+Message-ID: <1294765273.2927.65.camel@edumazet-laptop>
+References: <1294764515-15356-1-git-send-email-stefani@seibold.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com,
+	jj@chaosbits.net, daniel.baluta@gmail.com, jochen@jochen.org,
+	hagen@jauu.net, torvalds@linux-foundation.org, pavel@ucw.cz
+To: stefani@seibold.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294764515-15356-1-git-send-email-stefani@seibold.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-While the driver reports
+Le mardi 11 janvier 2011 =C3=A0 17:48 +0100, stefani@seibold.net a =C3=A9=
+crit :
+> From: Stefani Seibold <stefani@seibold.net>
+>=20
+=2E..
+> The implementation is clean and has absolut no side effects to the ne=
+twork
+> subsystems so i ask for merge it into linux, mm-tree or linux-next.
+>=20
+> The patch is against the current linux git tree
+>=20
+> - Stefani
+>=20
+> Signed-off-by: Stefani Seibold <stefani@seibold.net>
+> ---
+> =20
 
-        ath: TX streams 2, RX streams: 2
+Reading again UDPCP specs, I find it is IPv4/IPv6 agnostic
 
-in the kernel log (with ATH_DBG_CONFIG set in the debug module
-parameter), "iw list" only reported
-
-[...]
-        Capabilities: 0x12ce
-                HT20/HT40
-                SM Power Save disabled
-                RX HT40 SGI
-                TX STBC
-                RX STBC 1-streams
-[...]
-
-The driver seems to set the value as flag while the iw tool interprets
-it as number. This patch fixes that.
-
-Signed-off-by: Bernhard Walle <walle@corscience.de>
----
- drivers/net/wireless/ath/ath9k/init.c |   12 ++++++------
- 1 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
-index 639dc93..935b6c3 100644
---- a/drivers/net/wireless/ath/ath9k/init.c
-+++ b/drivers/net/wireless/ath/ath9k/init.c
-@@ -215,17 +215,17 @@ static void setup_ht_cap(struct ath_softc *sc,
- 	else
- 		max_streams = 2;
- 
--	if (AR_SREV_9280_20_OR_LATER(ah)) {
--		if (max_streams >= 2)
--			ht_info->cap |= IEEE80211_HT_CAP_TX_STBC;
--		ht_info->cap |= (1 << IEEE80211_HT_CAP_RX_STBC_SHIFT);
--	}
--
- 	/* set up supported mcs set */
- 	memset(&ht_info->mcs, 0, sizeof(ht_info->mcs));
- 	tx_streams = ath9k_cmn_count_streams(common->tx_chainmask, max_streams);
- 	rx_streams = ath9k_cmn_count_streams(common->rx_chainmask, max_streams);
- 
-+	if (AR_SREV_9280_20_OR_LATER(ah)) {
-+		if (max_streams >= 2)
-+			ht_info->cap |= IEEE80211_HT_CAP_TX_STBC;
-+		ht_info->cap |= (rx_streams << IEEE80211_HT_CAP_RX_STBC_SHIFT);
-+	}
-+
- 	ath_print(common, ATH_DBG_CONFIG,
- 		  "TX streams %d, RX streams: %d\n",
- 		  tx_streams, rx_streams);
--- 
-1.7.1
+You copied IPv4 UDP code, so this only handles IPv4...
