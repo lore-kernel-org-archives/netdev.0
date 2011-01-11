@@ -1,9 +1,11 @@
 From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCH 14/16] can: mpc5xxx_can: don't treat NULL clk as an error
-Date: Tue, 11 Jan 2011 12:43:51 +0000
-Message-ID: <1294749833-32019-15-git-send-email-jamie@jamieiles.com>
+Subject: [PATCH 10/16] drivers/net: stmmac: don't treat NULL clk as an error
+Date: Tue, 11 Jan 2011 12:43:47 +0000
+Message-ID: <1294749833-32019-11-git-send-email-jamie@jamieiles.com>
 References: <1294749833-32019-1-git-send-email-jamie@jamieiles.com>
-Cc: Jamie Iles <jamie@jamieiles.com>, netdev@vger.kernel.org
+Cc: Jamie Iles <jamie@jamieiles.com>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1294749833-32019-1-git-send-email-jamie@jamieiles.com>
@@ -14,41 +16,33 @@ clk_get() returns a struct clk cookie to the driver and some platforms
 may return NULL if they only support a single clock.  clk_get() has only
 failed if it returns a ERR_PTR() encoded pointer.
 
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 Cc: netdev@vger.kernel.org
 Signed-off-by: Jamie Iles <jamie@jamieiles.com>
 ---
- drivers/net/can/mscan/mpc5xxx_can.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/stmmac/stmmac_timer.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/can/mscan/mpc5xxx_can.c b/drivers/net/can/mscan/mpc5xxx_can.c
-index 312b9c8..15377c0 100644
---- a/drivers/net/can/mscan/mpc5xxx_can.c
-+++ b/drivers/net/can/mscan/mpc5xxx_can.c
-@@ -29,6 +29,7 @@
- #include <linux/of_platform.h>
- #include <sysdev/fsl_soc.h>
+diff --git a/drivers/net/stmmac/stmmac_timer.c b/drivers/net/stmmac/stmmac_timer.c
+index 2a0e1ab..ebb1b37 100644
+--- a/drivers/net/stmmac/stmmac_timer.c
++++ b/drivers/net/stmmac/stmmac_timer.c
+@@ -91,6 +91,7 @@ int stmmac_close_ext_timer(void)
+ 
+ #elif defined(CONFIG_STMMAC_TMU_TIMER)
  #include <linux/clk.h>
 +#include <linux/err.h>
- #include <linux/io.h>
- #include <asm/mpc52xx.h>
+ #define TMU_CHANNEL "tmu2_clk"
+ static struct clk *timer_clock;
  
-@@ -181,7 +182,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
+@@ -109,7 +110,7 @@ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+ {
+ 	timer_clock = clk_get(NULL, TMU_CHANNEL);
  
- 		if (!clock_name || !strcmp(clock_name, "sys")) {
- 			sys_clk = clk_get(&ofdev->dev, "sys_clk");
--			if (!sys_clk) {
-+			if (IS_ERR(sys_clk)) {
- 				dev_err(&ofdev->dev, "couldn't get sys_clk\n");
- 				goto exit_unmap;
- 			}
-@@ -204,7 +205,7 @@ static u32 __devinit mpc512x_can_get_clock(struct platform_device *ofdev,
+-	if (timer_clock == NULL)
++	if (IS_ERR(timer_clock))
+ 		return -1;
  
- 		if (clocksrc < 0) {
- 			ref_clk = clk_get(&ofdev->dev, "ref_clk");
--			if (!ref_clk) {
-+			if (IS_ERR(ref_clk)) {
- 				dev_err(&ofdev->dev, "couldn't get ref_clk\n");
- 				goto exit_unmap;
- 			}
+ 	if (tmu2_register_user(stmmac_timer_handler, (void *)dev) < 0) {
 -- 
 1.7.3.4
