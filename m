@@ -1,88 +1,114 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH 3/3] can: at91_can: make can_id of mailbox 0 configurable
-Date: Tue, 11 Jan 2011 14:43:00 +0100
-Message-ID: <20110111134300.GA387@e-circ.dyndns.org>
-References: <1294741688-22699-1-git-send-email-mkl@pengutronix.de>
-	<1294741688-22699-4-git-send-email-mkl@pengutronix.de>
-	<4D2C42F0.5080703@grandegger.com> <4D2C4586.60207@pengutronix.de>
-	<4D2C4CC1.4070109@grandegger.com> <4D2C4E2D.7050309@pengutronix.de>
-	<4D2C5B04.4090706@grandegger.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v4 08/10] ARM: mxs: add ocotp read function
+Date: Tue, 11 Jan 2011 15:05:30 +0100
+Message-ID: <20110111140530.GS24920@pengutronix.de>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
+ <20110111133137.GS12078@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shawn Guo <shawn.guo@freescale.com>, gerg@snapgear.com,
+	B32542@freescale.com, netdev@vger.kernel.org, jamie@shareable.org,
+	baruch@tkos.co.il, w.sang@pengutronix.de, r64343@freescale.com,
+	eric@eukrea.com, bryan.wu@canonical.com, jamie@jamieiles.com,
+	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
+	lw@karo-electronics.de
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47766 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754144Ab1AKOFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 09:05:33 -0500
 Content-Disposition: inline
-In-Reply-To: <4D2C5B04.4090706-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110111133137.GS12078@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 11, 2011 at 02:28:36PM +0100, Wolfgang Grandegger wrote:
-> 
-> On 01/11/2011 01:33 PM, Marc Kleine-Budde wrote:
-> > On 01/11/2011 01:27 PM, Wolfgang Grandegger wrote:
-> >> On 01/11/2011 12:56 PM, Marc Kleine-Budde wrote:
-> >>> On 01/11/2011 12:45 PM, Wolfgang Grandegger wrote:
-> >>>> On 01/11/2011 11:28 AM, Marc Kleine-Budde wrote:
-> >>>>> Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
-> >>>>> "AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mailbox
-> >>>>> 0 may be send under certain conditions (even if disabled or in rx mode).
-> >>>>>
-> >>>>> The workaround in the errata suggests not to use the mailbox and load it
-> >>>>> with a unused identifier.
-> >>>>>
-> >>>>> This patch implements the second part of the workaround. A sysfs entry
-> >>>>> "mb0_id" is introduced. While the interface is down it can be used to
-> >>>>> configure the can_id of mailbox 0. The default value id 0x7ff.
-> >>>>>
-> >>>>> In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U)
-> >>>>> to the can_id. Example:
-> >>>>>
-> >>>>> - standard id 0x7ff:
-> >>>>> echo 0x7ff      > /sys/class/net/can0/mb0_id
-> >>>>>
-> >>>>> - extended if 0x1fffffff:
-> >>>               ^^
-> >>> I've fixed the typo on my git repo. I'll send an updated series later.
-> >>>
-> >>>>> echo 0x9fffffff > /sys/class/net/can0/mb0_id
-> >>>>
-> >>>> As this is a device specific property, I think it should go into
-> >>>> /sys/class/net/can0/device/.
-> >>>
-> >>> The attribute goes autoamtically to /sys/class/net/can0 if you add it to
-> >>> the driver via:
-> >>>
-> >>> +       dev->sysfs_groups[0] = &at91_sysfs_attr_group;
-> >>>
-> >>> I've copied this from the janz-ican3 driver[1].
-> >>
-> >> Oh, I missed that. And also the Softing driver does it that way :-(. The
-> >> member has the comment:
-> >>
-> >>   /* space for optional device, statistics, and wireless sysfs groups */
-> >>   const struct attribute_group *sysfs_groups[4];
-> >>
-> >> Therefore it seems to be legal to use it for device specific properties.
-> > 
-> > I'm not really happy with these sysfs approach, but it's quick
-> > implemented. Is device specific rtnetlink an option here?
-> 
-> That's toooooooo heavy, I think. I personally would just use
-> device_create_file for that purpose. But let's keep using sysfs_groups[]
-> if nobody else complains.
+Hello Sascha,
 
-sysfs_groups[0] has the advantage that it's ready during the uevent
-(ie. for use in udev). device_create_file() may get online after the uevent...
+On Tue, Jan 11, 2011 at 02:31:37PM +0100, Sascha Hauer wrote:
+> On Thu, Jan 06, 2011 at 03:13:16PM +0800, Shawn Guo wrote:
+> > diff --git a/arch/arm/mach-mxs/ocotp.c b/arch/arm/mach-mxs/ocotp.c
+> > new file mode 100644
+> > index 0000000..e2d39aa
+> > --- /dev/null
+> > +++ b/arch/arm/mach-mxs/ocotp.c
+> > @@ -0,0 +1,79 @@
+> > +/*
+> > + * Copyright 2010 Freescale Semiconductor, Inc. All Rights Reserve=
+d.
+> > + *
+> > + * This program is free software; you can redistribute it and/or m=
+odify
+> > + * it under the terms of the GNU General Public License as publish=
+ed by
+> > + * the Free Software Foundation; either version 2 of the License, =
+or
+> > + * (at your option) any later version.
+> > + *
+> > + * This program is distributed in the hope that it will be useful,
+> > + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> > + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> > + * GNU General Public License for more details.
+> > + */
+> > +
+> > +#include <linux/delay.h>
+> > +#include <linux/err.h>
+> > +#include <linux/mutex.h>
+> > +
+> > +#include <mach/mxs.h>
+> > +
+> > +#define BM_OCOTP_CTRL_BUSY		(1 << 8)
+> > +#define BM_OCOTP_CTRL_ERROR		(1 << 9)
+> > +#define BM_OCOTP_CTRL_RD_BANK_OPEN	(1 << 12)
+> > +
+> > +static DEFINE_MUTEX(ocotp_mutex);
+> > +
+> > +int mxs_read_ocotp(unsigned offset, size_t count, u32 *values)
+> > +{
+> > +	void __iomem *ocotp_base =3D MXS_IO_ADDRESS(MXS_OCOTP_BASE_ADDR);
+> > +	int timeout =3D 0x400;
+> > +	size_t i;
+> > +
+> > +	mutex_lock(&ocotp_mutex);
+> > +
+> > +	/*
+> > +	 * clk_enable(hbus_clk) for ocotp can be skipped
+> > +	 * as it must be on when system is running.
+> > +	 */
+> > +
+> > +	/* try to clear ERROR bit */
+> > +	__mxs_clrl(BM_OCOTP_CTRL_ERROR, ocotp_base);
+>=20
+> This operation does not try to clear the error bit but actually clear=
+s
+> it...
+>=20
+> > +
+> > +	/* check both BUSY and ERROR cleared */
+> > +	while ((__raw_readl(ocotp_base) &
+> > +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
+> > +		cpu_relax();
+>=20
+> ...which means you do not have to poll the error bit here...
+well, I don't know how the hardware works here, but in general the
+argument is broken.  Registers are not memory, so just because you set =
+a
+bit in register space it doesn't mean it is really set when you read
+from the same address.
 
-Kurt
+If there is something wrong with the ocotp I'd even expect that clearin=
+g
+the error bit doesn't work because it doesn't change the general
+condition.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
