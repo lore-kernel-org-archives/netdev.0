@@ -1,239 +1,158 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH v2 3/3] can: at91_can: make can_id of mailbox 0 configurable
-Date: Tue, 11 Jan 2011 14:21:25 +0100
-Message-ID: <1294752085-30151-4-git-send-email-mkl@pengutronix.de>
-References: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>
-Cc: netdev@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
-To: Socketcan-core@lists.berlios.de
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Bug#609538: r8169: long delay during resume
+Date: Tue, 11 Jan 2011 14:25:24 +0100
+Message-ID: <20110111132524.GA2479@electric-eye.fr.zoreil.com>
+References: <20110110131439.GA663@rocket.almost.secure.la> <1294724952.3235.2.camel@localhost> <4D2C06CF.4090507@vilo.eu.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <ben@decadent.org.uk>, 609538@bugs.debian.org,
+	Hayes Wang <hayeswang@realtek.com>,
+	netdev <netdev@vger.kernel.org>
+To: Jarek =?utf-8?B?S2FtacWEc2tp?= <jarek@vilo.eu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:40193 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755824Ab1AKNVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:21:32 -0500
-In-Reply-To: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59236 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753837Ab1AKN0F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:26:05 -0500
+Content-Disposition: inline
+In-Reply-To: <4D2C06CF.4090507@vilo.eu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
-"AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mailbox
-0 may be send under certain conditions (even if disabled or in rx mode).
+Jarek Kami=C5=84ski <jarek@vilo.eu.org> :
+[...]
+> The last 2.6.36 I've tried was 2.6.36-1~experimental.1, I've then
+> passsed and returned to 2.6.32 for unrelated problems. I think it was=
+n't
+> affected, but I can re-check it and/or test later 2.6.36 versions if =
+it
+> may help.
 
-The workaround in the errata suggests not to use the mailbox and load it
-with an unused identifier.
+The patch below against 2.6.37-git + davem's pending fixes (see
+http://marc.info/?l=3Dlinux-netdev&m=3D129448910825754) should help.
 
-This patch implements the second part of the workaround. A sysfs entry
-"mb0_id" is introduced. While the interface is down it can be used to
-configure the can_id of mailbox 0. The default value id 0x7ff.
+Can you give it a try ?
 
-In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U)
-to the can_id. Example:
+r8169: keep firmware in memory.
 
-- standard id 0x7ff:
-echo 0x7ff      > /sys/class/net/can0/mb0_id
+The firmware agent is not available during resume.
 
-- extended id 0x1fffffff:
-echo 0x9fffffff > /sys/class/net/can0/mb0_id
+It will help with http://bugs.debian.org/609538 but it will not avoid
+the 60 seconds delay when there is no firmware.
 
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Cc: Hayes <hayeswang@realtek.com>
+Cc: Ben Hutchings <benh@debian.org>
 ---
-changes since v1:
-- Documentation/ABI/testing/sysfs-platform-at91 (as suggested by Wolfram Sang)
-- fixed typo in commit message
+ drivers/net/r8169.c |   43 +++++++++++++++++++++++++++++++------------
+ 1 files changed, 31 insertions(+), 12 deletions(-)
 
- Documentation/ABI/testing/sysfs-platform-at91 |   25 +++++++
- drivers/net/can/at91_can.c                    |   90 +++++++++++++++++++++++--
- 2 files changed, 108 insertions(+), 7 deletions(-)
- create mode 100644 Documentation/ABI/testing/sysfs-platform-at91
-
-diff --git a/Documentation/ABI/testing/sysfs-platform-at91 b/Documentation/ABI/testing/sysfs-platform-at91
-new file mode 100644
-index 0000000..4cc6a86
---- /dev/null
-+++ b/Documentation/ABI/testing/sysfs-platform-at91
-@@ -0,0 +1,25 @@
-+What:		/sys/devices/platform/at91_can/net/<iface>/mb0_id
-+Date:		January 2011
-+KernelVersion:	2.6.38
-+Contact:	Marc Kleine-Budde <kernel@pengutronix.de>
-+Description:
-+		Value representing the can_id of mailbox 0.
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index dd758cd..7e2f01c 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -554,6 +554,8 @@ struct rtl8169_private {
+ 	struct mii_if_info mii;
+ 	struct rtl8169_counters counters;
+ 	u32 saved_wolopts;
 +
-+		Default: 0x7ff (standard frame)
-+
-+		Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
-+		"AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the
-+		contents of mailbox 0 may be send under certain
-+		conditions (even if disabled or in rx mode).
-+
-+		The workaround in the errata suggests not to use the
-+		mailbox and load it with an unused identifier.
-+
-+		In order to use an extended can_id add the
-+		CAN_EFF_FLAG (0x80000000U) to the can_id. Example:
-+
-+		- standard id 0x7ff:
-+		echo 0x7ff      > /sys/class/net/can0/mb0_id
-+
-+		- extended id 0x1fffffff:
-+		echo 0x9fffffff > /sys/class/net/can0/mb0_id
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 16e45a5..2532b96 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -30,6 +30,7 @@
- #include <linux/module.h>
- #include <linux/netdevice.h>
- #include <linux/platform_device.h>
-+#include <linux/rtnetlink.h>
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
- #include <linux/string.h>
-@@ -169,6 +170,8 @@ struct at91_priv {
- 
- 	struct clk		*clk;
- 	struct at91_can_data	*pdata;
-+
-+	canid_t			mb0_id;
++	const struct firmware *fw;
  };
- 
- static struct can_bittiming_const at91_bittiming_const = {
-@@ -221,6 +224,18 @@ static inline void set_mb_mode(const struct at91_priv *priv, unsigned int mb,
- 	set_mb_mode_prio(priv, mb, mode, 0);
- }
- 
-+static inline u32 at91_can_id_to_reg_mid(canid_t can_id)
-+{
-+	u32 reg_mid;
-+
-+	if (can_id & CAN_EFF_FLAG)
-+		reg_mid = (can_id & CAN_EFF_MASK) | AT91_MID_MIDE;
-+	else
-+		reg_mid = (can_id & CAN_SFF_MASK) << 18;
-+
-+	return reg_mid;
-+}
-+
- /*
-  * Swtich transceiver on or off
-  */
-@@ -234,6 +249,7 @@ static void at91_setup_mailboxes(struct net_device *dev)
- {
- 	struct at91_priv *priv = netdev_priv(dev);
- 	unsigned int i;
-+	u32 reg_mid;
- 
- 	/*
- 	 * Due to a chip bug (errata 50.2.6.3 & 50.3.5.3) the first
-@@ -242,8 +258,13 @@ static void at91_setup_mailboxes(struct net_device *dev)
- 	 * overwrite option. The overwrite flag indicates a FIFO
- 	 * overflow.
- 	 */
--	for (i = 0; i < AT91_MB_RX_FIRST; i++)
-+	reg_mid = at91_can_id_to_reg_mid(priv->mb0_id);
-+	for (i = 0; i < AT91_MB_RX_FIRST; i++) {
- 		set_mb_mode(priv, i, AT91_MB_MODE_DISABLED);
-+		at91_write(priv, AT91_MID(i), reg_mid);
-+		at91_write(priv, AT91_MCR(i), 0x0);	/* clear dlc */
-+	}
-+
- 	for (i = AT91_MB_RX_FIRST; i < AT91_MB_RX_LAST; i++)
- 		set_mb_mode(priv, i, AT91_MB_MODE_RX);
- 	set_mb_mode(priv, AT91_MB_RX_LAST, AT91_MB_MODE_RX_OVRWR);
-@@ -378,12 +399,7 @@ static netdev_tx_t at91_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 		netdev_err(dev, "BUG! TX buffer full when queue awake!\n");
- 		return NETDEV_TX_BUSY;
+=20
+ MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.or=
+g>");
+@@ -1668,6 +1670,29 @@ rtl_phy_write_fw(struct rtl8169_private *tp, con=
+st struct firmware *fw)
  	}
--
--	if (cf->can_id & CAN_EFF_FLAG)
--		reg_mid = (cf->can_id & CAN_EFF_MASK) | AT91_MID_MIDE;
--	else
--		reg_mid = (cf->can_id & CAN_SFF_MASK) << 18;
--
-+	reg_mid = at91_can_id_to_reg_mid(cf->can_id);
- 	reg_mcr = ((cf->can_id & CAN_RTR_FLAG) ? AT91_MCR_MRTR : 0) |
- 		(cf->can_dlc << 16) | AT91_MCR_MTCR;
- 
-@@ -1047,6 +1063,64 @@ static const struct net_device_ops at91_netdev_ops = {
- 	.ndo_start_xmit	= at91_start_xmit,
- };
- 
-+static ssize_t at91_sysfs_show_mb0_id(struct device *dev,
-+		struct device_attribute *attr, char *buf)
+ }
+=20
++static void rtl_release_firmware(struct rtl8169_private *tp)
 +{
-+	struct at91_priv *priv = netdev_priv(to_net_dev(dev));
-+
-+	if (priv->mb0_id & CAN_EFF_FLAG)
-+		return snprintf(buf, PAGE_SIZE, "0x%08x\n", priv->mb0_id);
-+	else
-+		return snprintf(buf, PAGE_SIZE, "0x%03x\n", priv->mb0_id);
++	release_firmware(tp->fw);
++	tp->fw =3D NULL;
 +}
 +
-+static ssize_t at91_sysfs_set_mb0_id(struct device *dev,
-+		struct device_attribute *attr, const char *buf, size_t count)
++static int rtl_apply_firmware(struct rtl8169_private *tp, const char *=
+fw_name)
 +{
-+	struct net_device *ndev = to_net_dev(dev);
-+	struct at91_priv *priv = netdev_priv(ndev);
-+	unsigned long can_id;
-+	ssize_t ret;
-+	int err;
++	const struct firmware **fw =3D &tp->fw;
++	int rc =3D !*fw;
 +
-+	rtnl_lock();
-+
-+	if (ndev->flags & IFF_UP) {
-+		ret = -EBUSY;
-+		goto out;
++	if (rc) {
++		rc =3D request_firmware(fw, fw_name, &tp->pci_dev->dev);
++		if (rc < 0)
++			goto out;
 +	}
 +
-+	err = strict_strtoul(buf, 0, &can_id);
-+	if (err) {
-+		ret = err;
-+		goto out;
-+	}
-+
-+	if (can_id & CAN_EFF_FLAG)
-+		can_id &= CAN_EFF_MASK | CAN_EFF_FLAG;
-+	else
-+		can_id &= CAN_SFF_MASK;
-+
-+	priv->mb0_id = can_id;
-+	ret = count;
-+
-+ out:
-+	rtnl_unlock();
-+	return ret;
++	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
++	rtl_phy_write_fw(tp, *fw);
++out:
++	return rc;
 +}
 +
-+static DEVICE_ATTR(mb0_id, S_IWUGO | S_IRUGO,
-+	at91_sysfs_show_mb0_id, at91_sysfs_set_mb0_id);
-+
-+static struct attribute *at91_sysfs_attrs[] = {
-+	&dev_attr_mb0_id.attr,
-+	NULL,
-+};
-+
-+static struct attribute_group at91_sysfs_attr_group = {
-+	.attrs = at91_sysfs_attrs,
-+};
-+
- static int __devinit at91_can_probe(struct platform_device *pdev)
+ static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
  {
- 	struct net_device *dev;
-@@ -1092,6 +1166,7 @@ static int __devinit at91_can_probe(struct platform_device *pdev)
- 	dev->netdev_ops	= &at91_netdev_ops;
- 	dev->irq = irq;
- 	dev->flags |= IFF_ECHO;
-+	dev->sysfs_groups[0] = &at91_sysfs_attr_group;
- 
- 	priv = netdev_priv(dev);
- 	priv->can.clock.freq = clk_get_rate(clk);
-@@ -1103,6 +1178,7 @@ static int __devinit at91_can_probe(struct platform_device *pdev)
- 	priv->dev = dev;
- 	priv->clk = clk;
- 	priv->pdata = pdev->dev.platform_data;
-+	priv->mb0_id = 0x7ff;
- 
- 	netif_napi_add(dev, &priv->napi, at91_poll, AT91_NAPI_WEIGHT);
- 
--- 
-1.7.2.3
+ 	static const struct phy_reg phy_reg_init[] =3D {
+@@ -2041,7 +2066,6 @@ static void rtl8168d_1_hw_phy_config(struct rtl81=
+69_private *tp)
+ 		{ 0x0d, 0xf880 }
+ 	};
+ 	void __iomem *ioaddr =3D tp->mmio_addr;
+-	const struct firmware *fw;
+=20
+ 	rtl_writephy_batch(tp, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
+=20
+@@ -2105,11 +2129,8 @@ static void rtl8168d_1_hw_phy_config(struct rtl8=
+169_private *tp)
+=20
+ 	rtl_writephy(tp, 0x1f, 0x0005);
+ 	rtl_writephy(tp, 0x05, 0x001b);
+-	if (rtl_readphy(tp, 0x06) =3D=3D 0xbf00 &&
+-	    request_firmware(&fw, FIRMWARE_8168D_1, &tp->pci_dev->dev) =3D=3D=
+ 0) {
+-		rtl_phy_write_fw(tp, fw);
+-		release_firmware(fw);
+-	} else {
++	if ((rtl_readphy(tp, 0x06) !=3D 0xbf00) ||
++	    (rtl_apply_firmware(tp, FIRMWARE_8168D_1) < 0)) {
+ 		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+ 	}
+=20
+@@ -2159,7 +2180,6 @@ static void rtl8168d_2_hw_phy_config(struct rtl81=
+69_private *tp)
+ 		{ 0x0d, 0xf880 }
+ 	};
+ 	void __iomem *ioaddr =3D tp->mmio_addr;
+-	const struct firmware *fw;
+=20
+ 	rtl_writephy_batch(tp, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
+=20
+@@ -2214,11 +2234,8 @@ static void rtl8168d_2_hw_phy_config(struct rtl8=
+169_private *tp)
+=20
+ 	rtl_writephy(tp, 0x1f, 0x0005);
+ 	rtl_writephy(tp, 0x05, 0x001b);
+-	if (rtl_readphy(tp, 0x06) =3D=3D 0xb300 &&
+-	    request_firmware(&fw, FIRMWARE_8168D_2, &tp->pci_dev->dev) =3D=3D=
+ 0) {
+-		rtl_phy_write_fw(tp, fw);
+-		release_firmware(fw);
+-	} else {
++	if ((rtl_readphy(tp, 0x06) !=3D 0xb300) ||
++	    (rtl_apply_firmware(tp, FIRMWARE_8168D_2) < 0)) {
+ 		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+ 	}
+=20
+@@ -4662,6 +4679,8 @@ static int rtl8169_close(struct net_device *dev)
+ 	tp->TxDescArray =3D NULL;
+ 	tp->RxDescArray =3D NULL;
+=20
++	rtl_release_firmware(tp);
++
+ 	pm_runtime_put_sync(&pdev->dev);
+=20
+ 	return 0;
+--=20
+1.7.3.4
 
