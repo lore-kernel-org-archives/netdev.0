@@ -1,70 +1,59 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] ah: update maximum truncated ICV length
-Date: Tue, 11 Jan 2011 19:06:19 +0100
-Message-ID: <4D2C9C1B.1030907@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: =?UTF-8?B?SmFyZWsgS2FtacWEc2tp?= <jarek@vilo.eu.org>
+Subject: Re: Bug#609538: r8169: long delay during resume
+Date: Tue, 11 Jan 2011 19:21:28 +0100
+Message-ID: <4D2C9FA8.7010401@vilo.eu.org>
+References: <20110110131439.GA663@rocket.almost.secure.la> <1294724952.3235.2.camel@localhost> <4D2C06CF.4090507@vilo.eu.org> <20110111132524.GA2479@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030506020404000205020600"
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <ben@decadent.org.uk>, 609538@bugs.debian.org,
+	Hayes Wang <hayeswang@realtek.com>,
+	netdev <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53597 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756252Ab1AKSGY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 13:06:24 -0500
-Received: by wwa36 with SMTP id 36so2066873wwa.1
-        for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 10:06:23 -0800 (PST)
+Received: from vilo.eu.org ([80.52.229.66]:37907 "EHLO vilo.eu.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753913Ab1AKSVc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jan 2011 13:21:32 -0500
+In-Reply-To: <20110111132524.GA2479@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------030506020404000205020600
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+W dniu 11.01.2011 14:25, Francois Romieu pisze:
+> Jarek Kami=C5=84ski <jarek@vilo.eu.org> :
+> [...]
+>> The last 2.6.36 I've tried was 2.6.36-1~experimental.1, I've then
+>> passsed and returned to 2.6.32 for unrelated problems. I think it wa=
+sn't
+>> affected, but I can re-check it and/or test later 2.6.36 versions if=
+ it
+>> may help.
+>=20
+> The patch below against 2.6.37-git + davem's pending fixes (see
+> http://marc.info/?l=3Dlinux-netdev&m=3D129448910825754) should help.
+>=20
+> Can you give it a try ?
+>=20
+> r8169: keep firmware in memory.
 
-Hi,
+This patch applied against current git tree fixes problem (with firmwar=
+e
+installed). However, cherry-picking
+eee3a96c6368f47df8df5bd4ed1843600652b337 (r8169: delay phy init until
+device opens.) from net-2.6.git and applying "r8169: keep firmware in
+memory." still results with
+#v+
+Jan 11 19:05:18 rocket kernel: [  673.176439] ata1.00: configured for
+UDMA/100
+Jan 11 19:05:18 rocket kernel: [  731.639054] r8169 0000:13:00.0: eth0:
+unable to apply firmware patch
+Jan 11 19:05:18 rocket kernel: [  731.640486] PM: resume of devices
+complete after 60228.033 msecs
+#v-
+(I don't fully understand why)
 
-patch is enclosed.
+"r8169: delay phy init until device opens." alone also doesn't do the t=
+rick.
 
-
-Regards,
-Nicolas
-
---------------030506020404000205020600
-Content-Type: text/x-patch;
- name="0001-ah-update-maximum-truncated-ICV-length.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="0001-ah-update-maximum-truncated-ICV-length.patch"
-
->From 2ca463cf672f000d37a0aaa5e3d3738b50661926 Mon Sep 17 00:00:00 2001
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 23 Dec 2010 09:52:21 -0500
-Subject: [PATCH] ah: update maximum truncated ICV length
-
-For SHA256, RFC4868 requires to truncate ICV length to 128 bits,
-hence MAX_AH_AUTH_LEN should be updated to 16.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/net/ah.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/ah.h b/include/net/ah.h
-index f0129f7..be7798d 100644
---- a/include/net/ah.h
-+++ b/include/net/ah.h
-@@ -4,7 +4,7 @@
- #include <linux/skbuff.h>
- 
- /* This is the maximum truncated ICV length that we know of. */
--#define MAX_AH_AUTH_LEN	12
-+#define MAX_AH_AUTH_LEN	16
- 
- struct crypto_ahash;
- 
--- 
-1.7.3.4
-
-
---------------030506020404000205020600--
+--=20
+pozdr(); // Jarek
