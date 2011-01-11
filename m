@@ -1,60 +1,65 @@
-From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Tue, 11 Jan 2011 22:01:56 +0100
-Message-ID: <4D2CC544.7090407@hartkopp.net>
-References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<20110106.113356.102556872.davem@davemloft.net>
-	<4D261AAA.5030005@grandegger.com> <4D261BA4.2020003@pengutronix.de>
-	<4D262158.4030301@grandegger.com> <4D299583.10909@hartkopp.net>
-	<4D29C8F6.5030806@grandegger.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEAFA2D56@EAPEX1MAIL1.st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] new UDPCP Communication Protocol
+Date: Tue, 11 Jan 2011 22:06:17 +0100
+Message-ID: <1294779977.3447.3.camel@edumazet-laptop>
+References: <1294764515-15356-1-git-send-email-stefani@seibold.net>
+	 <1294765273.2927.65.camel@edumazet-laptop>
+	 <1294779020.16410.2.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEAFA2D56-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com,
+	jj@chaosbits.net, daniel.baluta@gmail.com, jochen@jochen.org,
+	hagen@jauu.net, torvalds@linux-foundation.org, pavel@ucw.cz
+To: Stefani Seibold <stefani@seibold.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294779020.16410.2.camel@wall-e>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11.01.2011 05:13, Bhupesh SHARMA wrote:
->> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
->> On 01/09/2011 12:01 PM, Oliver Hartkopp wrote:
+Le mardi 11 janvier 2011 =C3=A0 21:50 +0100, Stefani Seibold a =C3=A9cr=
+it :
+> Am Dienstag, den 11.01.2011, 18:01 +0100 schrieb Eric Dumazet:
+> > Le mardi 11 janvier 2011 =C3=A0 17:48 +0100, stefani@seibold.net a =
+=C3=A9crit :
+> > > From: Stefani Seibold <stefani@seibold.net>
+> > >=20
+> > ...
+> > > The implementation is clean and has absolut no side effects to th=
+e network
+> > > subsystems so i ask for merge it into linux, mm-tree or linux-nex=
+t.
+> > >=20
+> > > The patch is against the current linux git tree
+> > >=20
+> > > - Stefani
+> > >=20
+> > > Signed-off-by: Stefani Seibold <stefani@seibold.net>
+> > > ---
+> > > =20
+> >=20
+> > Reading again UDPCP specs, I find it is IPv4/IPv6 agnostic
+> >=20
+> > You copied IPv4 UDP code, so this only handles IPv4...
+> >=20
+>=20
+> Right, but currently there is no need for an IPV6 implementation, non=
+ of
+> our base station provide it and non of our mobile network customers u=
+se
+> it.
+>=20
+> If it will be required in the future it will be implemented.
+>=20
+>=20
 
->>> BTW. for the next submission of Bhupeshs patchset, i would propose to
->> name the
->>> driver 'ccan' instead of 'c_can', so that we have a
->>>
->>>     linux/drivers/net/can/ccan/...
->>>
->>> path.
->>
->> You are late ;-). Bosch named the controller *C_CAN* and therefore I
->> asked Bhupesh some time ago to change the file name and variable name
->> prefix from ccan to c_can.
-> 
-> Actually V1 of this patchset used the naming convention ccan.
-> But as was rightly pointed out by Wolfgang and Mark, Bosch
-> has officially named this core as C_CAN and the naming convention
-> is kept as C_CAN throughout their user-manual and technical articles.
-> IMHO, `c_can` seems to represent this Bosch core in a better way 
-> than ccan.
+All I wanted to point out is the implementation you did, using a copy o=
+f
+code instead of stacked layer, makes this ipv6 a whole rewrite.
 
-Looks like there are really good reasons for the c_can naming :-)
+Better understand know the implications, before code inclusion.
 
-Thanks for explanation & also sorry for the noise!
-
-Best regards,
-Oliver
+I understand your code satisfies your immediate needs (and companies
+that paid this development), but we should make a step forward in code
+reuse.
