@@ -1,80 +1,80 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH 3/3] can: at91_can: make can_id of mailbox 0 configurable
-Date: Tue, 11 Jan 2011 14:28:36 +0100
-Message-ID: <4D2C5B04.4090706@grandegger.com>
-References: <1294741688-22699-1-git-send-email-mkl@pengutronix.de>	<1294741688-22699-4-git-send-email-mkl@pengutronix.de>	<4D2C42F0.5080703@grandegger.com>	<4D2C4586.60207@pengutronix.de>	<4D2C4CC1.4070109@grandegger.com>
-	<4D2C4E2D.7050309@pengutronix.de>
+From: Greg Ungerer <gerg@snapgear.com>
+Subject: Re: [PATCH v4 05/10] net/fec: add dual fec support for mx28
+Date: Tue, 11 Jan 2011 23:25:41 +1000
+Message-ID: <4D2C5A55.7050502@snapgear.com>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>	<1294297998-26930-6-git-send-email-shawn.guo@freescale.com>	<20110111102717.GG26617@pengutronix.de>	<4D2C4BEC.1030003@snapgear.com> <20110111130749.GQ24920@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D2C4E2D.7050309-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <baruch@tkos.co.il>, <B32542@freescale.com>,
+	<netdev@vger.kernel.org>, Sascha Hauer <s.hauer@pengutronix.de>,
+	<jamie@shareable.org>, <w.sang@pengutronix.de>,
+	<r64343@freescale.com>, <linux-arm-kernel@lists.infradead.org>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>, <jamie@jamieiles.com>,
+	<davem@davemloft.net>, Shawn Guo <shawn.guo@freescale.com>,
+	<lw@karo-electronics.de>
+To: =?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sncsmrelay2.nai.com ([67.97.80.206]:42218 "EHLO
+	sncsmrelay2.nai.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754009Ab1AKN2w convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:28:52 -0500
+In-Reply-To: <20110111130749.GQ24920@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2011 01:33 PM, Marc Kleine-Budde wrote:
-> On 01/11/2011 01:27 PM, Wolfgang Grandegger wrote:
->> On 01/11/2011 12:56 PM, Marc Kleine-Budde wrote:
->>> On 01/11/2011 12:45 PM, Wolfgang Grandegger wrote:
->>>> On 01/11/2011 11:28 AM, Marc Kleine-Budde wrote:
->>>>> Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
->>>>> "AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mailbox
->>>>> 0 may be send under certain conditions (even if disabled or in rx mode).
->>>>>
->>>>> The workaround in the errata suggests not to use the mailbox and load it
->>>>> with a unused identifier.
->>>>>
->>>>> This patch implements the second part of the workaround. A sysfs entry
->>>>> "mb0_id" is introduced. While the interface is down it can be used to
->>>>> configure the can_id of mailbox 0. The default value id 0x7ff.
->>>>>
->>>>> In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U)
->>>>> to the can_id. Example:
->>>>>
->>>>> - standard id 0x7ff:
->>>>> echo 0x7ff      > /sys/class/net/can0/mb0_id
->>>>>
->>>>> - extended if 0x1fffffff:
->>>               ^^
->>> I've fixed the typo on my git repo. I'll send an updated series later.
->>>
->>>>> echo 0x9fffffff > /sys/class/net/can0/mb0_id
->>>>
->>>> As this is a device specific property, I think it should go into
->>>> /sys/class/net/can0/device/.
->>>
->>> The attribute goes autoamtically to /sys/class/net/can0 if you add it to
->>> the driver via:
->>>
->>> +       dev->sysfs_groups[0] = &at91_sysfs_attr_group;
->>>
->>> I've copied this from the janz-ican3 driver[1].
+Hi Uwe,
+
+On 11/01/11 23:07, Uwe Kleine-K=F6nig wrote:
+> Hi Greg,
+>
+> On Tue, Jan 11, 2011 at 10:24:12PM +1000, Greg Ungerer wrote:
+>> On 11/01/11 20:27, Sascha Hauer wrote:
+>>> On Thu, Jan 06, 2011 at 03:13:13PM +0800, Shawn Guo wrote:
+>>> This option is used nowhere and should be removed. Certainly it doe=
+s not
+>>> have the effect of enabling the second ethernet controller.
 >>
->> Oh, I missed that. And also the Softing driver does it that way :-(. The
->> member has the comment:
+>> It does for a ColdFire platform...
 >>
->>   /* space for optional device, statistics, and wireless sysfs groups */
->>   const struct attribute_group *sysfs_groups[4];
+>> grep -r CONFIG_FEC2 *
 >>
->> Therefore it seems to be legal to use it for device specific properties.
-> 
-> I'm not really happy with these sysfs approach, but it's quick
-> implemented. Is device specific rtnetlink an option here?
+>> arch/m68knommu/configs/m5275evb_defconfig:CONFIG_FEC2=3Dy
+>> arch/m68knommu/platform/527x/config.c:#ifdef CONFIG_FEC2
+>> arch/m68knommu/platform/527x/config.c:#ifdef CONFIG_FEC2
+> IMHO Sascha's comment[1] applies here, too.
 
-That's toooooooo heavy, I think. I personally would just use
-device_create_file for that purpose. But let's keep using sysfs_groups[]
-if nobody else complains.
+I am not arguing that it doesn't :-)
 
-Wolfgang.
+Simply that removing that config option and doing nothing
+else would not be the right thing to do.
 
-Wolfgang.
+Regards
+Greg
+
+
+> And someone might want to do what he suggested soon or the patch
+> removing CONFIG_FEC2[2] needs to be commented accordingly.
+>
+> Best regards
+> Uwe
+>
+> [1] http://thread.gmane.org/gmane.linux.network/182929/focus=3D183378
+> [2] http://mid.gmane.org/1294747672-4433-1-git-send-email-shawn.guo@f=
+reescale.com
+>
+
+
+--=20
+-----------------------------------------------------------------------=
+-
+Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.co=
+m
+SnapGear Group, McAfee                      PHONE:       +61 7 3435 288=
+8
+8 Gardner Close,                            FAX:         +61 7 3891 363=
+0
+Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.co=
+m
