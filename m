@@ -1,31 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/r8169: Update the function of parsing firmware
-Date: Mon, 10 Jan 2011 16:14:02 -0800 (PST)
-Message-ID: <20110110.161402.236235481.davem@davemloft.net>
-References: <1294661245-2191-1-git-send-email-hayeswang@realtek.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/2] net: Allow allocating different number RX and TX mqs
+Date: Mon, 10 Jan 2011 16:28:36 -0800
+Message-ID: <AANLkTik=Ko9KCi9pVm_d+yaDtM-LkVC1bazSPFfV57b1@mail.gmail.com>
+References: <alpine.DEB.2.00.1101092123340.3137@pokey.mtv.corp.google.com>
+	<20110110.160642.146350621.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hayeswang@realtek.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54364
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753358Ab1AKAN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 19:13:29 -0500
-In-Reply-To: <1294661245-2191-1-git-send-email-hayeswang@realtek.com>
+Received: from smtp-out.google.com ([216.239.44.51]:17288 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755184Ab1AKA2j convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 19:28:39 -0500
+Received: from wpaz24.hot.corp.google.com (wpaz24.hot.corp.google.com [172.24.198.88])
+	by smtp-out.google.com with ESMTP id p0B0ScAY001755
+	for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 16:28:38 -0800
+Received: from pwj10 (pwj10.prod.google.com [10.241.219.74])
+	by wpaz24.hot.corp.google.com with ESMTP id p0B0SaTl007970
+	for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 16:28:37 -0800
+Received: by pwj10 with SMTP id 10so3955544pwj.2
+        for <netdev@vger.kernel.org>; Mon, 10 Jan 2011 16:28:36 -0800 (PST)
+In-Reply-To: <20110110.160642.146350621.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Mon, 10 Jan 2011 20:07:25 +0800
+On Mon, Jan 10, 2011 at 4:06 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: Tom Herbert <therbert@google.com>
+> Date: Sun, 9 Jan 2011 21:36:25 -0800 (PST)
+>
+>> Add functions so that a different number of TX and RX queues can be
+>> allocated in a netdevice. =A0Second patch modifies mlx4 driver to ca=
+ll
+>> this function which is an example of a driver that allocates differe=
+nt
+>> numbers for TX and RX queues.
+>
+> Both applied, thanks Tom.
+>
 
-> Update rtl_phy_write_fw function. The new function could
-> parse the complex firmware which is used by RTL8111E and later.
-> The new firmware may read data and do some operations, not just
-> do writing only.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-
-Applied, thank you.
+Thanks.  By the way I didn't see a maintainer for the mlx drivers in
+the MAINTAINERS files.  Who maintains these?
