@@ -1,158 +1,80 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Bug#609538: r8169: long delay during resume
-Date: Tue, 11 Jan 2011 14:25:24 +0100
-Message-ID: <20110111132524.GA2479@electric-eye.fr.zoreil.com>
-References: <20110110131439.GA663@rocket.almost.secure.la> <1294724952.3235.2.camel@localhost> <4D2C06CF.4090507@vilo.eu.org>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 3/3] can: at91_can: make can_id of mailbox 0 configurable
+Date: Tue, 11 Jan 2011 14:28:36 +0100
+Message-ID: <4D2C5B04.4090706@grandegger.com>
+References: <1294741688-22699-1-git-send-email-mkl@pengutronix.de>	<1294741688-22699-4-git-send-email-mkl@pengutronix.de>	<4D2C42F0.5080703@grandegger.com>	<4D2C4586.60207@pengutronix.de>	<4D2C4CC1.4070109@grandegger.com>
+	<4D2C4E2D.7050309@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <ben@decadent.org.uk>, 609538@bugs.debian.org,
-	Hayes Wang <hayeswang@realtek.com>,
-	netdev <netdev@vger.kernel.org>
-To: Jarek =?utf-8?B?S2FtacWEc2tp?= <jarek@vilo.eu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:59236 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753837Ab1AKN0F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:26:05 -0500
-Content-Disposition: inline
-In-Reply-To: <4D2C06CF.4090507@vilo.eu.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D2C4E2D.7050309-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Jarek Kami=C5=84ski <jarek@vilo.eu.org> :
-[...]
-> The last 2.6.36 I've tried was 2.6.36-1~experimental.1, I've then
-> passsed and returned to 2.6.32 for unrelated problems. I think it was=
-n't
-> affected, but I can re-check it and/or test later 2.6.36 versions if =
-it
-> may help.
+On 01/11/2011 01:33 PM, Marc Kleine-Budde wrote:
+> On 01/11/2011 01:27 PM, Wolfgang Grandegger wrote:
+>> On 01/11/2011 12:56 PM, Marc Kleine-Budde wrote:
+>>> On 01/11/2011 12:45 PM, Wolfgang Grandegger wrote:
+>>>> On 01/11/2011 11:28 AM, Marc Kleine-Budde wrote:
+>>>>> Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
+>>>>> "AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mailbox
+>>>>> 0 may be send under certain conditions (even if disabled or in rx mode).
+>>>>>
+>>>>> The workaround in the errata suggests not to use the mailbox and load it
+>>>>> with a unused identifier.
+>>>>>
+>>>>> This patch implements the second part of the workaround. A sysfs entry
+>>>>> "mb0_id" is introduced. While the interface is down it can be used to
+>>>>> configure the can_id of mailbox 0. The default value id 0x7ff.
+>>>>>
+>>>>> In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U)
+>>>>> to the can_id. Example:
+>>>>>
+>>>>> - standard id 0x7ff:
+>>>>> echo 0x7ff      > /sys/class/net/can0/mb0_id
+>>>>>
+>>>>> - extended if 0x1fffffff:
+>>>               ^^
+>>> I've fixed the typo on my git repo. I'll send an updated series later.
+>>>
+>>>>> echo 0x9fffffff > /sys/class/net/can0/mb0_id
+>>>>
+>>>> As this is a device specific property, I think it should go into
+>>>> /sys/class/net/can0/device/.
+>>>
+>>> The attribute goes autoamtically to /sys/class/net/can0 if you add it to
+>>> the driver via:
+>>>
+>>> +       dev->sysfs_groups[0] = &at91_sysfs_attr_group;
+>>>
+>>> I've copied this from the janz-ican3 driver[1].
+>>
+>> Oh, I missed that. And also the Softing driver does it that way :-(. The
+>> member has the comment:
+>>
+>>   /* space for optional device, statistics, and wireless sysfs groups */
+>>   const struct attribute_group *sysfs_groups[4];
+>>
+>> Therefore it seems to be legal to use it for device specific properties.
+> 
+> I'm not really happy with these sysfs approach, but it's quick
+> implemented. Is device specific rtnetlink an option here?
 
-The patch below against 2.6.37-git + davem's pending fixes (see
-http://marc.info/?l=3Dlinux-netdev&m=3D129448910825754) should help.
+That's toooooooo heavy, I think. I personally would just use
+device_create_file for that purpose. But let's keep using sysfs_groups[]
+if nobody else complains.
 
-Can you give it a try ?
+Wolfgang.
 
-r8169: keep firmware in memory.
-
-The firmware agent is not available during resume.
-
-It will help with http://bugs.debian.org/609538 but it will not avoid
-the 60 seconds delay when there is no firmware.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Cc: Hayes <hayeswang@realtek.com>
-Cc: Ben Hutchings <benh@debian.org>
----
- drivers/net/r8169.c |   43 +++++++++++++++++++++++++++++++------------
- 1 files changed, 31 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index dd758cd..7e2f01c 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -554,6 +554,8 @@ struct rtl8169_private {
- 	struct mii_if_info mii;
- 	struct rtl8169_counters counters;
- 	u32 saved_wolopts;
-+
-+	const struct firmware *fw;
- };
-=20
- MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@vger.kernel.or=
-g>");
-@@ -1668,6 +1670,29 @@ rtl_phy_write_fw(struct rtl8169_private *tp, con=
-st struct firmware *fw)
- 	}
- }
-=20
-+static void rtl_release_firmware(struct rtl8169_private *tp)
-+{
-+	release_firmware(tp->fw);
-+	tp->fw =3D NULL;
-+}
-+
-+static int rtl_apply_firmware(struct rtl8169_private *tp, const char *=
-fw_name)
-+{
-+	const struct firmware **fw =3D &tp->fw;
-+	int rc =3D !*fw;
-+
-+	if (rc) {
-+		rc =3D request_firmware(fw, fw_name, &tp->pci_dev->dev);
-+		if (rc < 0)
-+			goto out;
-+	}
-+
-+	/* TODO: release firmware once rtl_phy_write_fw signals failures. */
-+	rtl_phy_write_fw(tp, *fw);
-+out:
-+	return rc;
-+}
-+
- static void rtl8169s_hw_phy_config(struct rtl8169_private *tp)
- {
- 	static const struct phy_reg phy_reg_init[] =3D {
-@@ -2041,7 +2066,6 @@ static void rtl8168d_1_hw_phy_config(struct rtl81=
-69_private *tp)
- 		{ 0x0d, 0xf880 }
- 	};
- 	void __iomem *ioaddr =3D tp->mmio_addr;
--	const struct firmware *fw;
-=20
- 	rtl_writephy_batch(tp, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
-=20
-@@ -2105,11 +2129,8 @@ static void rtl8168d_1_hw_phy_config(struct rtl8=
-169_private *tp)
-=20
- 	rtl_writephy(tp, 0x1f, 0x0005);
- 	rtl_writephy(tp, 0x05, 0x001b);
--	if (rtl_readphy(tp, 0x06) =3D=3D 0xbf00 &&
--	    request_firmware(&fw, FIRMWARE_8168D_1, &tp->pci_dev->dev) =3D=3D=
- 0) {
--		rtl_phy_write_fw(tp, fw);
--		release_firmware(fw);
--	} else {
-+	if ((rtl_readphy(tp, 0x06) !=3D 0xbf00) ||
-+	    (rtl_apply_firmware(tp, FIRMWARE_8168D_1) < 0)) {
- 		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
- 	}
-=20
-@@ -2159,7 +2180,6 @@ static void rtl8168d_2_hw_phy_config(struct rtl81=
-69_private *tp)
- 		{ 0x0d, 0xf880 }
- 	};
- 	void __iomem *ioaddr =3D tp->mmio_addr;
--	const struct firmware *fw;
-=20
- 	rtl_writephy_batch(tp, phy_reg_init_0, ARRAY_SIZE(phy_reg_init_0));
-=20
-@@ -2214,11 +2234,8 @@ static void rtl8168d_2_hw_phy_config(struct rtl8=
-169_private *tp)
-=20
- 	rtl_writephy(tp, 0x1f, 0x0005);
- 	rtl_writephy(tp, 0x05, 0x001b);
--	if (rtl_readphy(tp, 0x06) =3D=3D 0xb300 &&
--	    request_firmware(&fw, FIRMWARE_8168D_2, &tp->pci_dev->dev) =3D=3D=
- 0) {
--		rtl_phy_write_fw(tp, fw);
--		release_firmware(fw);
--	} else {
-+	if ((rtl_readphy(tp, 0x06) !=3D 0xb300) ||
-+	    (rtl_apply_firmware(tp, FIRMWARE_8168D_2) < 0)) {
- 		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
- 	}
-=20
-@@ -4662,6 +4679,8 @@ static int rtl8169_close(struct net_device *dev)
- 	tp->TxDescArray =3D NULL;
- 	tp->RxDescArray =3D NULL;
-=20
-+	rtl_release_firmware(tp);
-+
- 	pm_runtime_put_sync(&pdev->dev);
-=20
- 	return 0;
---=20
-1.7.3.4
-
+Wolfgang.
