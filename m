@@ -1,74 +1,49 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v4 07/10] ARM: mx28: add the second fec device
- registration
-Date: Tue, 11 Jan 2011 19:39:52 +0800
-Message-ID: <20110111113951.GB2888@freescale.com>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-8-git-send-email-shawn.guo@freescale.com>
- <20110111102909.GH26617@pengutronix.de>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 3/3] can: at91_can: make can_id of mailbox 0 configurable
+Date: Tue, 11 Jan 2011 12:45:52 +0100
+Message-ID: <4D2C42F0.5080703@grandegger.com>
+References: <1294741688-22699-1-git-send-email-mkl@pengutronix.de>
+	<1294741688-22699-4-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
-	<eric@eukrea.com>, <bryan.wu@canonical.com>,
-	<r64343@freescale.com>, <B32542@freescale.com>,
-	<u.kleine-koenig@pengutronix.de>, <lw@karo-electronics.de>,
-	<w.sang@pengutronix.de>, <jamie@jamieiles.com>,
-	<jamie@shareable.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Sascha Hauer <s.hauer@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:48268
-	"EHLO VA3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752979Ab1AKLiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 06:38:10 -0500
-Received: from mail25-va3 (localhost.localdomain [127.0.0.1])	by
- mail25-va3-R.bigfish.com (Postfix) with ESMTP id 2D45F11F061B	for
- <netdev@vger.kernel.org>; Tue, 11 Jan 2011 11:38:07 +0000 (UTC)
-Received: from VA3EHSMHS006.bigfish.com (unknown [10.7.14.243])	by
- mail25-va3.bigfish.com (Postfix) with ESMTP id B5CD2EC80CD	for
- <netdev@vger.kernel.org>; Tue, 11 Jan 2011 11:37:19 +0000 (UTC)
-Received: from az33smr01.freescale.net (az33smr01.freescale.net
- [10.64.34.199])	by az33egw02.freescale.net (8.14.3/8.14.3) with ESMTP id
- p0BBb7rg012380	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 04:37:07 -0700
- (MST)
-Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
- [10.192.242.196])	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
- p0BBb6p5027496	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 05:37:06 -0600
- (CST)
-Content-Disposition: inline
-In-Reply-To: <20110111102909.GH26617@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1294741688-22699-4-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Sascha,
-
-On Tue, Jan 11, 2011 at 11:29:09AM +0100, Sascha Hauer wrote:
-> On Thu, Jan 06, 2011 at 03:13:15PM +0800, Shawn Guo wrote:
-> > Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> > ---
-> >  arch/arm/mach-mxs/mach-mx28evk.c |   28 +++++++++++++++++++++++++---
-> >  1 files changed, 25 insertions(+), 3 deletions(-)
-> > 
-> >  
-> >  static void __init mx28evk_init(void)
-> > @@ -117,7 +136,10 @@ static void __init mx28evk_init(void)
-> >  	mx28_add_duart();
-> >  
-> >  	mx28evk_fec_reset();
-> > -	mx28_add_fec(0, &mx28_fec_pdata);
-> > +	mx28_add_fec(0, &mx28_fec_pdata[0]);
-> > +#ifdef CONFIG_FEC2
-> > +	mx28_add_fec(1, &mx28_fec_pdata[1]);
-> > +#endif
+On 01/11/2011 11:28 AM, Marc Kleine-Budde wrote:
+> Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
+> "AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mailbox
+> 0 may be send under certain conditions (even if disabled or in rx mode).
 > 
-> Please don't do this. If you really want to make this configurable with
-> kconfig use a board specific option, not a driver specific option. I
-> think this should be made unconditional though.
+> The workaround in the errata suggests not to use the mailbox and load it
+> with a unused identifier.
 > 
-I will resend this patch as v5 than the whole patch set, if you
-do not mind.
+> This patch implements the second part of the workaround. A sysfs entry
+> "mb0_id" is introduced. While the interface is down it can be used to
+> configure the can_id of mailbox 0. The default value id 0x7ff.
+> 
+> In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U)
+> to the can_id. Example:
+> 
+> - standard id 0x7ff:
+> echo 0x7ff      > /sys/class/net/can0/mb0_id
+> 
+> - extended if 0x1fffffff:
+> echo 0x9fffffff > /sys/class/net/can0/mb0_id
 
--- 
-Regards,
-Shawn
+As this is a device specific property, I think it should go into
+/sys/class/net/can0/device/.
 
+Wolfgang.
