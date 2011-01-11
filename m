@@ -1,59 +1,138 @@
-From: =?UTF-8?B?SmFyZWsgS2FtacWEc2tp?= <jarek@vilo.eu.org>
-Subject: Re: Bug#609538: r8169: long delay during resume
-Date: Tue, 11 Jan 2011 19:21:28 +0100
-Message-ID: <4D2C9FA8.7010401@vilo.eu.org>
-References: <20110110131439.GA663@rocket.almost.secure.la> <1294724952.3235.2.camel@localhost> <4D2C06CF.4090507@vilo.eu.org> <20110111132524.GA2479@electric-eye.fr.zoreil.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Tue, 11 Jan 2011 19:25:46 +0100
+Message-ID: <4D2CA0AA.6080505@grandegger.com>
+References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<4D2829C5.5020206@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAFA2D9D@EAPEX1MAIL1.st.com>
+	<4D2C14FE.7080903@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <ben@decadent.org.uk>, 609538@bugs.debian.org,
-	Hayes Wang <hayeswang@realtek.com>,
-	netdev <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vilo.eu.org ([80.52.229.66]:37907 "EHLO vilo.eu.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753913Ab1AKSVc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jan 2011 13:21:32 -0500
-In-Reply-To: <20110111132524.GA2479@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D2C14FE.7080903-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-W dniu 11.01.2011 14:25, Francois Romieu pisze:
-> Jarek Kami=C5=84ski <jarek@vilo.eu.org> :
-> [...]
->> The last 2.6.36 I've tried was 2.6.36-1~experimental.1, I've then
->> passsed and returned to 2.6.32 for unrelated problems. I think it wa=
-sn't
->> affected, but I can re-check it and/or test later 2.6.36 versions if=
- it
->> may help.
->=20
-> The patch below against 2.6.37-git + davem's pending fixes (see
-> http://marc.info/?l=3Dlinux-netdev&m=3D129448910825754) should help.
->=20
-> Can you give it a try ?
->=20
-> r8169: keep firmware in memory.
+Hello,
 
-This patch applied against current git tree fixes problem (with firmwar=
-e
-installed). However, cherry-picking
-eee3a96c6368f47df8df5bd4ed1843600652b337 (r8169: delay phy init until
-device opens.) from net-2.6.git and applying "r8169: keep firmware in
-memory." still results with
-#v+
-Jan 11 19:05:18 rocket kernel: [  673.176439] ata1.00: configured for
-UDMA/100
-Jan 11 19:05:18 rocket kernel: [  731.639054] r8169 0000:13:00.0: eth0:
-unable to apply firmware patch
-Jan 11 19:05:18 rocket kernel: [  731.640486] PM: resume of devices
-complete after 60228.033 msecs
-#v-
-(I don't fully understand why)
+On 01/11/2011 09:29 AM, Wolfgang Grandegger wrote:
+> Hi Bhupesh,
+> 
+> On 01/11/2011 05:50 AM, Bhupesh SHARMA wrote:
+>> Hi Wolfgang,
+>>
+>> Thanks for your review.
+>> Please see my comments inline.
+>>
+>>> -----Original Message-----
+>>> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
+> ...
+> 
+>>>> + * Bosch C_CAN controller is compliant to CAN protocol version 2.0
+>>> part A and B.
+>>>> + * Bosch C_CAN user manual can be obtained from:
+>>>> + * http://www.semiconductors.bosch.de/pdf/Users_Manual_C_CAN.pdf
+>>>
+>>> Unfortunately, this link is not valid any more.
+>>
+>> Oops..
+>> It seems they have shifted to:
+>> http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/c_can/users_manual_c_can.pdf
+> 
+> Ah, nice. I was not aware of that new link.
 
-"r8169: delay phy init until device opens." alone also doesn't do the t=
-rick.
+I was told that Bosch's page for the C_CAN is here:
 
---=20
-pozdr(); // Jarek
+ http://www.semiconductors.bosch.de/en/ipmodules/can/canipmodules/c_can/c_can.asp
+
+There it's also written for what bus interfaces the C_CAN is available for, e.g.:
+
+  "The ASIC version is delivered with the AMBA APB bus interface from ARM."
+
+which is obviously used in the "Platform Controller Hub" eg20t.
+
+Wolfgang.
+> 
+> ...
+>>>> +int c_can_write_msg_object(struct net_device *dev,
+>>>> +                   int iface, struct can_frame *frame, int objno)
+>>>> +{
+>>>> +   int i;
+>>>> +   u16 flags = 0;
+>>>> +   unsigned int id;
+>>>> +   struct c_can_priv *priv = netdev_priv(dev);
+>>>> +
+>>>> +   if (frame->can_id & CAN_EFF_FLAG) {
+>>>> +           id = frame->can_id & CAN_EFF_MASK;
+>>>> +           flags |= IF_ARB_MSGXTD;
+>>>> +   } else
+>>>> +           id = ((frame->can_id & CAN_SFF_MASK) << 18);
+> 
+> I just realize that the  {} for the else block is missing.
+> 
+>>>> +   /*
+>>>> +    * check for 'last error code' which tells us the
+>>>> +    * type of the last error to occur on the CAN bus
+>>>> +    */
+>>>> +   switch (lec_type) {
+>>>> +           /* common for all type of bus errors */
+>>>> +           priv->can.can_stats.bus_error++;
+>>>> +           stats->rx_errors++;
+>>>> +           cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+>>>> +           cf->data[2] |= CAN_ERR_PROT_UNSPEC;
+>>>
+>>> Are you sure that this part is ever executed? I wonder why the compile
+>>> does
+>>> not complain.
+>>
+>> I did not get any compilation error.
+> 
+> I know.
+> 
+>> But I will check if the program flow enters this part or not.
+> 
+> Good. It was *not* executed in my little user space test program.
+> 
+> ...
+>>>> +static int __devexit c_can_plat_remove(struct platform_device *pdev)
+>>>> +{
+>>>> +   struct net_device *dev = platform_get_drvdata(pdev);
+>>>> +   struct c_can_priv *priv = netdev_priv(dev);
+>>>> +   struct resource *mem;
+>>>> +
+>>>> +   /* disable all interrupts */
+>>>> +   c_can_enable_all_interrupts(priv, DISABLE_ALL_INTERRUPTS);
+>>>
+>>> To avoid exportign that function, couldn't it be done at the beginning
+>>> of
+>>> unregister_c_can_dev()?
+>>
+>> Yes this can be done.
+>> But, IMHO *disabling* interrupts seems more logical as part of __devexit
+>> Code.
+> 
+> I think the interrupts are already disabled when you unload the module
+> because the device must be closed (c_can_stop has been called). Anyway,
+> I think the above c_can_enable_all_interrupts() call is well placed in
+> the unregister function. I would avoid the export the function.
+> 
+> Wolfgang.
+> _______________________________________________
+> Socketcan-core mailing list
+> Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+> https://lists.berlios.de/mailman/listinfo/socketcan-core
+> 
+> 
