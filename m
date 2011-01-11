@@ -1,77 +1,80 @@
-From: leitao@linux.vnet.ibm.com
-Subject: [PATCH] ehea: Increase the skb array usage
-Date: Tue, 11 Jan 2011 15:45:57 -0200
-Message-ID: <1294767957-25804-1-git-send-email-leitao@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] xfrm: check trunc_len in XFRMA_ALG_AUTH_TRUNC
+Date: Tue, 11 Jan 2011 19:04:12 +0100
+Message-ID: <4D2C9B9C.9020800@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------040401050009090205060801"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:44531 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754410Ab1AKRqa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 12:46:30 -0500
-Received: from mailhub3.br.ibm.com (mailhub3.br.ibm.com [9.18.232.110])
-	by e24smtp04.br.ibm.com (8.14.4/8.13.1) with ESMTP id p0BHaf7m027384
-	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 15:36:41 -0200
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by mailhub3.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0BHrkrT2437216
-	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 15:53:49 -0200
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0BHjpxQ014526
-	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 15:45:51 -0200
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38340 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753913Ab1AKSEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 13:04:16 -0500
+Received: by wwa36 with SMTP id 36so2064423wwa.1
+        for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 10:04:15 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Breno Leitao <leitao@linux.vnet.ibm.com>
+This is a multi-part message in MIME format.
+--------------040401050009090205060801
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Currently the skb array is not fully allocated, and the allocation
-is done as it' s requested, which is not the expected way.
+Hi,
 
-This patch just allocate the full skb array at driver initialization.
-Also, this patch increases ehea version to 107.
+patch is attached.
 
-Signed-off-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+
+Regards,
+Nicolas
+
+--------------040401050009090205060801
+Content-Type: text/x-patch;
+ name="0001-xfrm-check-trunc_len-in-XFRMA_ALG_AUTH_TRUNC.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="0001-xfrm-check-trunc_len-in-XFRMA_ALG_AUTH_TRUNC.patch"
+
+>From 48dd29c69f150fc55bf3a477b9365d1575a9cfbe Mon Sep 17 00:00:00 2001
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 11 Jan 2011 13:23:51 -0500
+Subject: [PATCH] xfrm: check trunc_len in XFRMA_ALG_AUTH_TRUNC
+
+Maximum trunc length is defined by MAX_AH_AUTH_LEN (in bytes)
+and need to be checked when this value is set (in bits) by
+the user. In ah4.c and ah6.c a BUG_ON() checks this condiftion.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- drivers/net/ehea/ehea.h      |    2 +-
- drivers/net/ehea/ehea_main.c |    6 ++----
- 2 files changed, 3 insertions(+), 5 deletions(-)
+ net/xfrm/xfrm_user.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ehea/ehea.h b/drivers/net/ehea/ehea.h
-index a724a2d..6c7257b 100644
---- a/drivers/net/ehea/ehea.h
-+++ b/drivers/net/ehea/ehea.h
-@@ -40,7 +40,7 @@
- #include <asm/io.h>
- 
- #define DRV_NAME	"ehea"
--#define DRV_VERSION	"EHEA_0106"
-+#define DRV_VERSION	"EHEA_0107"
- 
- /* eHEA capability flags */
- #define DLPAR_PORT_ADD_REM 1
-diff --git a/drivers/net/ehea/ehea_main.c b/drivers/net/ehea/ehea_main.c
-index 1032b5b..f75d314 100644
---- a/drivers/net/ehea/ehea_main.c
-+++ b/drivers/net/ehea/ehea_main.c
-@@ -437,7 +437,7 @@ static void ehea_init_fill_rq1(struct ehea_port_res *pr, int nr_rq1a)
- 		}
- 	}
- 	/* Ring doorbell */
--	ehea_update_rq1a(pr->qp, i);
-+	ehea_update_rq1a(pr->qp, i - 1);
- }
- 
- static int ehea_refill_rq_def(struct ehea_port_res *pr,
-@@ -1329,9 +1329,7 @@ static int ehea_fill_port_res(struct ehea_port_res *pr)
- 	int ret;
- 	struct ehea_qp_init_attr *init_attr = &pr->qp->init_attr;
- 
--	ehea_init_fill_rq1(pr, init_attr->act_nr_rwqes_rq1
--			       - init_attr->act_nr_rwqes_rq2
--			       - init_attr->act_nr_rwqes_rq3 - 1);
-+	ehea_init_fill_rq1(pr, pr->rq1_skba.len);
- 
- 	ret = ehea_refill_rq2(pr, init_attr->act_nr_rwqes_rq2 - 1);
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+index 8bae6b2..b45288f 100644
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -26,6 +26,7 @@
+ #include <net/sock.h>
+ #include <net/xfrm.h>
+ #include <net/netlink.h>
++#include <net/ah.h>
+ #include <asm/uaccess.h>
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #include <linux/in6.h>
+@@ -296,7 +297,8 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
+ 	algo = xfrm_aalg_get_byname(ualg->alg_name, 1);
+ 	if (!algo)
+ 		return -ENOSYS;
+-	if (ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
++	if ((ualg->alg_trunc_len / 8) > MAX_AH_AUTH_LEN ||
++	    ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
+ 		return -EINVAL;
+ 	*props = algo->desc.sadb_alg_id;
  
 -- 
-1.7.1
+1.5.6.5
 
+
+--------------040401050009090205060801--
