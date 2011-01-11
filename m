@@ -1,51 +1,35 @@
-From: Stefani Seibold <stefani@seibold.net>
-Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Tue, 11 Jan 2011 23:23:29 +0100
-Message-ID: <1294784609.18562.4.camel@wall-e>
-References: <1294779020.16410.2.camel@wall-e>
-	 <20110111.125254.133402589.davem@davemloft.net>
-	 <1294780480.17388.2.camel@wall-e>
-	 <20110111.131953.180400101.davem@davemloft.net>
-	 <1294782117.17531.18.camel@wall-e>
-	 <1294782386.3447.21.camel@edumazet-laptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next-2.6] ipvs namespaces
+Date: Tue, 11 Jan 2011 15:21:14 +0900
+Message-ID: <20110111062114.GA5630@verge.net.au>
+References: <1294294578-8601-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	shemminger@vyatta.com, jj@chaosbits.net, daniel.baluta@gmail.com,
-	jochen@jochen.org, hagen@jauu.net, torvalds@linux-foundation.org,
-	pavel@ucw.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294782386.3447.21.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	David Miller <davem@davemloft.org>
+To: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1294294578-8601-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, den 11.01.2011, 22:46 +0100 schrieb Eric Dumazet:
-> Le mardi 11 janvier 2011 =E0 22:41 +0100, Stefani Seibold a =E9crit :
->=20
-> > Second, the design is may in your opinion poor. I like it. What is
-> > really poor is the kernel_...() socket functions, which are only si=
-mple
-> > wrapper of the system calls without any performance improvement, sk=
-b
-> > support and memory saving.
-> >=20
->=20
-> The only thing you want is to have a callback to your own code to
-> deliver an decapsulated skb to your state machine.
->=20
-> Take a look at other layers on top of UDP
->=20
-> (L2TP comes to mind)
->=20
+On Thu, Jan 06, 2011 at 03:15:56PM +0900, Simon Horman wrote:
+> Hi Patrick,
+> 
+> please consider pulling
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+> in order to get the netns changes to IPVS from Hans Schillstrom.
+> 
+> Thanks
 
-I have looked on it. And it will not work since UDPCP is UDP. And so
-IPPROTO_UDP (17) is still handled by the UDP handler.
+Hi Dave,
 
-Despite this it will also make no sense to rewrite the whole UDP socket
-layer.
+Patrick seems to be rather quiet (perhaps he is on holidays?).
+Could you consider taking these changes through your tree as
+it would be nice to get this feature in 2.6.38?
+If so I'll send you a fresh pull request as I think there
+is a conflict with your tree (but not nf-next-2.6).
 
-The only thing i have found with comes near to my requirements is the
-rxrpc module, but i see no real different to my solution.
