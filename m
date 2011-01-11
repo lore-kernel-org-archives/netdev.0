@@ -1,108 +1,60 @@
-From: Chris Rankin <rankincj@yahoo.com>
-Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in 2.6.36.3
-Date: Tue, 11 Jan 2011 12:59:24 -0800 (PST)
-Message-ID: <314995.84049.qm@web121708.mail.ne1.yahoo.com>
-References: <F675EE07F28A0A4E933E5F9DD28672FB01197E098F@orsmsx508.amr.corp.intel.com>
+From: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Tue, 11 Jan 2011 22:01:56 +0100
+Message-ID: <4D2CC544.7090407@hartkopp.net>
+References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<20110106.113356.102556872.davem@davemloft.net>
+	<4D261AAA.5030005@grandegger.com> <4D261BA4.2020003@pengutronix.de>
+	<4D262158.4030301@grandegger.com> <4D299583.10909@hartkopp.net>
+	<4D29C8F6.5030806@grandegger.com>
+	<D5ECB3C7A6F99444980976A8C6D896384DEAFA2D56@EAPEX1MAIL1.st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Tushar NDave <tushar.n.dave@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from web121708.mail.ne1.yahoo.com ([98.138.90.129]:28964 "HELO
-	web121708.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754502Ab1AKU7Z convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jan 2011 15:59:25 -0500
-In-Reply-To: <F675EE07F28A0A4E933E5F9DD28672FB01197E098F@orsmsx508.amr.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEAFA2D56-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Tushar,
+On 11.01.2011 05:13, Bhupesh SHARMA wrote:
+>> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
+>> On 01/09/2011 12:01 PM, Oliver Hartkopp wrote:
 
-As promised:
+>>> BTW. for the next submission of Bhupeshs patchset, i would propose to
+>> name the
+>>> driver 'ccan' instead of 'c_can', so that we have a
+>>>
+>>>     linux/drivers/net/can/ccan/...
+>>>
+>>> path.
+>>
+>> You are late ;-). Bosch named the controller *C_CAN* and therefore I
+>> asked Bhupesh some time ago to change the file name and variable name
+>> prefix from ccan to c_can.
+> 
+> Actually V1 of this patchset used the naming convention ccan.
+> But as was rightly pointed out by Wolfgang and Mark, Bosch
+> has officially named this core as C_CAN and the naming convention
+> is kept as C_CAN throughout their user-manual and technical articles.
+> IMHO, `c_can` seems to represent this Bosch core in a better way 
+> than ccan.
 
-$ /sbin/ifconfig -a
-br0       Link encap:Ethernet  HWaddr 00:03:47:3b:29:5c  
-          inet addr:192.168.0.1  Bcast:192.168.0.255  Mask:255.255.255.0
-          inet6 addr: fe80::203:47ff:fe3b:295c/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:372485 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:383917 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:37566127 (35.8 MiB)  TX bytes:225458273 (215.0 MiB)
+Looks like there are really good reasons for the c_can naming :-)
 
-eth0      Link encap:Ethernet  HWaddr 00:90:27:76:d0:ec  
-          inet addr:10.0.43.2  Bcast:10.0.43.255  Mask:255.255.255.0
-          inet6 addr: fe80::290:27ff:fe76:d0ec/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:432016 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:377602 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:229629017 (218.9 MiB)  TX bytes:41958103 (40.0 MiB)
+Thanks for explanation & also sorry for the noise!
 
-eth1      Link encap:Ethernet  HWaddr 00:03:47:3b:29:5c  
-          inet6 addr: fe80::203:47ff:fe3b:295c/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:364683 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:369235 errors:1 dropped:0 overruns:0 carrier:1
-          collisions:0 txqueuelen:1000 
-          RX bytes:42445811 (40.4 MiB)  TX bytes:203414933 (193.9 MiB)
-
-eth2      Link encap:Ethernet  HWaddr 00:03:47:3b:29:5d  
-          inet6 addr: fe80::203:47ff:fe3b:295d/64 Scope:Link
-          UP BROADCAST MULTICAST  MTU:1500  Metric:1
-          RX packets:9059 errors:1 dropped:0 overruns:0 frame:1
-          TX packets:15437 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:691449 (675.2 KiB)  TX bytes:22232699 (21.2 MiB)
-
-lo        Link encap:Local Loopback  
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:797 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:797 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0 
-          RX bytes:81543 (79.6 KiB)  TX bytes:81543 (79.6 KiB)
-
-$ cat /etc/network/interfaces 
-# This file describes the network interfaces available on your system
-# and how to activate them. For more information, see interfaces(5).
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-# The primary network interface
-allow-hotplug eth0
-iface eth0 inet static
-	address 10.0.43.2
-	netmask 255.255.255.0
-	network 10.0.43.0
-	broadcast 10.0.43.255
-	gateway 10.0.43.1
-	# dns-* options are implemented by the resolvconf package, if installed
-	dns-nameservers 192.168.0.1
-	dns-search underworld
-
-auto br0
-iface br0 inet static
-	address 192.168.0.1
-	netmask 255.255.255.0
-	network 192.168.0.0
-	broadcast 192.168.0.255
-	bridge-ports eth1 eth2
-	bridge_hello 1
-	bridge_fd 4
-	bridge_maxage 4
-	post-up /sbin/route add -net 224.0.0.0 netmask 240.0.0.0 dev br0
-
-Cheers,
-Chris
-
-
-
-      
+Best regards,
+Oliver
