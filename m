@@ -1,29 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] net: Allow allocating different number RX and TX
- mqs
-Date: Mon, 10 Jan 2011 16:06:42 -0800 (PST)
-Message-ID: <20110110.160642.146350621.davem@davemloft.net>
-References: <alpine.DEB.2.00.1101092123340.3137@pokey.mtv.corp.google.com>
+Subject: Re: [PATCH] net_sched: factorize qdisc stats handling
+Date: Mon, 10 Jan 2011 16:08:15 -0800 (PST)
+Message-ID: <20110110.160815.148553725.davem@davemloft.net>
+References: <1294478789.2709.79.camel@edumazet-laptop>
+	<20110109095735.5241e755@nehalam>
+	<1294597854.2709.850.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: shemminger@vyatta.com, jarkao2@gmail.com, xiaosuo@gmail.com,
+	fabio@gandalf.sssup.it, netdev@vger.kernel.org, rizzo@iet.unipi.it
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56474
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56480
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753800Ab1AKAGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 19:06:10 -0500
-In-Reply-To: <alpine.DEB.2.00.1101092123340.3137@pokey.mtv.corp.google.com>
+	by vger.kernel.org with ESMTP id S1752642Ab1AKAHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 19:07:46 -0500
+In-Reply-To: <1294597854.2709.850.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 9 Jan 2011 21:36:25 -0800 (PST)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 09 Jan 2011 19:30:54 +0100
 
-> Add functions so that a different number of TX and RX queues can be
-> allocated in a netdevice.  Second patch modifies mlx4 driver to call
-> this function which is an example of a driver that allocates different
-> numbers for TX and RX queues.
+> [PATCH v2] net_sched: factorize qdisc stats handling
+> 
+> HTB takes into account skb is segmented in stats updates.
+> Generalize this to all schedulers.
+> 
+> They should use qdisc_bstats_update() helper instead of manipulating
+> bstats.bytes and bstats.packets
+> 
+> Add bstats_update() helper too for classes that use
+> gnet_stats_basic_packed fields.
+> 
+> Note : Right now, TCQ_F_CAN_BYPASS shortcurt can be taken only if no
+> stab is setup on qdisc.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+> v2: constify some methods, and make sure qdisc_skb_cb(skb)->pkt_len is
+> set in the TCQ_F_CAN_BYPASS shortcut in __dev_xmit_skb()
 
-Both applied, thanks Tom.
+Applied, thanks Eric.
