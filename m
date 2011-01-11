@@ -1,130 +1,39 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH 3/3] can: at91_can: make can_id of mailbox 0 configurable
-Date: Tue, 11 Jan 2011 13:33:49 +0100
-Message-ID: <4D2C4E2D.7050309@pengutronix.de>
-References: <1294741688-22699-1-git-send-email-mkl@pengutronix.de>	<1294741688-22699-4-git-send-email-mkl@pengutronix.de>	<4D2C42F0.5080703@grandegger.com>	<4D2C4586.60207@pengutronix.de>
-	<4D2C4CC1.4070109@grandegger.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 0/3] iproute2: ip link: add support for network device
+ groups
+Date: Tue, 11 Jan 2011 07:38:30 -0500
+Message-ID: <1294749510.3157.2.camel@mojatatu>
+References: <1294659559-22648-1-git-send-email-ddvlad@rosedu.org>
+	 <20110110084700.17798894@nehalam>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8643973702659565235=="
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D2C4CC1.4070109-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============8643973702659565235==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig3889995BBD6100A3669589EA"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig3889995BBD6100A3669589EA
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 01/11/2011 01:27 PM, Wolfgang Grandegger wrote:
-> On 01/11/2011 12:56 PM, Marc Kleine-Budde wrote:
->> On 01/11/2011 12:45 PM, Wolfgang Grandegger wrote:
->>> On 01/11/2011 11:28 AM, Marc Kleine-Budde wrote:
->>>> Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
->>>> "AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mai=
-lbox
->>>> 0 may be send under certain conditions (even if disabled or in rx mo=
-de).
->>>>
->>>> The workaround in the errata suggests not to use the mailbox and loa=
-d it
->>>> with a unused identifier.
->>>>
->>>> This patch implements the second part of the workaround. A sysfs ent=
-ry
->>>> "mb0_id" is introduced. While the interface is down it can be used t=
-o
->>>> configure the can_id of mailbox 0. The default value id 0x7ff.
->>>>
->>>> In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U=
-)
->>>> to the can_id. Example:
->>>>
->>>> - standard id 0x7ff:
->>>> echo 0x7ff      > /sys/class/net/can0/mb0_id
->>>>
->>>> - extended if 0x1fffffff:
->>               ^^
->> I've fixed the typo on my git repo. I'll send an updated series later.=
-
->>
->>>> echo 0x9fffffff > /sys/class/net/can0/mb0_id
->>>
->>> As this is a device specific property, I think it should go into
->>> /sys/class/net/can0/device/.
->>
->> The attribute goes autoamtically to /sys/class/net/can0 if you add it =
-to
->> the driver via:
->>
->> +       dev->sysfs_groups[0] =3D &at91_sysfs_attr_group;
->>
->> I've copied this from the janz-ican3 driver[1].
->=20
-> Oh, I missed that. And also the Softing driver does it that way :-(. Th=
-e
-> member has the comment:
->=20
->   /* space for optional device, statistics, and wireless sysfs groups *=
-/
->   const struct attribute_group *sysfs_groups[4];
->=20
-> Therefore it seems to be legal to use it for device specific properties=
-=2E
-
-I'm not really happy with these sysfs approach, but it's quick
-implemented. Is device specific rtnetlink an option here?
-
-cheers, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig3889995BBD6100A3669589EA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk0sTi0ACgkQjTAFq1RaXHP37ACfT6GdHTgr1Ks6yNpGUFB7mJJF
-5GUAn0o3n7fhGRoAddNhs4aTCZUc7tzu
-=70nh
------END PGP SIGNATURE-----
-
---------------enig3889995BBD6100A3669589EA--
-
---===============8643973702659565235==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: Vlad Dogaru <ddvlad@rosedu.org>, netdev@vger.kernel.org,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:33326 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753511Ab1AKMif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 07:38:35 -0500
+Received: by gwj20 with SMTP id 20so8905812gwj.19
+        for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 04:38:34 -0800 (PST)
+In-Reply-To: <20110110084700.17798894@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
+On Mon, 2011-01-10 at 08:47 -0800, Stephen Hemminger wrote:
 
---===============8643973702659565235==--
+> I like the idea, but I wonder if we should take it farther?
+> Should it be hierarchal tree of groups?
+> Should slave devices (ppp, vlan, etc) be automatically assigned
+> to group of parent?
+
+I think that would be treading into policy land.
+The whole point is that the admin sets this value (just like the
+skb->mark) and specifies how it is to be used.
+
+cheers,
+jamal
+
