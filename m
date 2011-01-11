@@ -1,57 +1,80 @@
-From: =?UTF-8?B?SmFyZWsgS2FtacWEc2tp?= <jarek@vilo.eu.org>
-Subject: Re: Bug#609538: r8169: long delay during resume
-Date: Tue, 11 Jan 2011 08:29:19 +0100
-Message-ID: <4D2C06CF.4090507@vilo.eu.org>
-References: <20110110131439.GA663@rocket.almost.secure.la> <1294724952.3235.2.camel@localhost>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v4 00/10] net/fec: add dual fec support for i.MX28
+Date: Tue, 11 Jan 2011 16:15:36 +0800
+Message-ID: <20110111081535.GA2686@freescale.com>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <20110109.154409.242134862.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: 609538@bugs.debian.org, Hayes Wang <hayeswang@realtek.com>,
-	romieu@fr.zoreil.com, netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <gerg@snapgear.com>, <baruch@tkos.co.il>, <eric@eukrea.com>,
+	<bryan.wu@canonical.com>, <r64343@freescale.com>,
+	<B32542@freescale.com>, <u.kleine-koenig@pengutronix.de>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<jamie@jamieiles.com>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: <s.hauer@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vilo.eu.org ([80.52.229.66]:36892 "EHLO vilo.eu.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751405Ab1AKHjO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jan 2011 02:39:14 -0500
-In-Reply-To: <1294724952.3235.2.camel@localhost>
+Received: from db3ehsobe006.messaging.microsoft.com ([213.199.154.144]:39713
+	"EHLO DB3EHSOBE006.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753988Ab1AKIM6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 03:12:58 -0500
+Received: from mail107-db3 (localhost.localdomain [127.0.0.1])	by
+ mail107-db3-R.bigfish.com (Postfix) with ESMTP id 73E801C6053C	for
+ <netdev@vger.kernel.org>; Tue, 11 Jan 2011 08:12:56 +0000 (UTC)
+Received: from DB3EHSMHS012.bigfish.com (unknown [10.3.81.246])	by
+ mail107-db3.bigfish.com (Postfix) with ESMTP id 31B284B804E	for
+ <netdev@vger.kernel.org>; Tue, 11 Jan 2011 08:12:56 +0000 (UTC)
+Received: from az33smr01.freescale.net (az33smr01.freescale.net
+ [10.64.34.199])	by de01egw02.freescale.net (8.14.3/8.14.3) with ESMTP id
+ p0B8CqOG003642	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 01:12:52 -0700
+ (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by az33smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
+ p0B8CpQi016778	for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 02:12:51 -0600
+ (CST)
+Content-Disposition: inline
+In-Reply-To: <20110109.154409.242134862.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-W dniu 11.01.2011 06:49, Ben Hutchings pisze:
-> On Mon, 2011-01-10 at 14:14 +0100, Jarek Kami=C5=84ski wrote:
->> Package: linux-2.6
->> Version: 2.6.37-1~experimental.1
+Hi Sascha,
 
->> 2.6.37 introduces regression in r8169. During every resume I get ~20
->> seconds delay:
->> Jan 10 13:57:15 rocket kernel: [36458.257780] ata1.00: configured fo=
-r UDMA/100
->> Jan 10 13:57:15 rocket kernel: [36517.738421] r8169 0000:13:00.0: et=
-h0: unable to apply firmware patch
->> Jan 10 13:57:15 rocket kernel: [36517.739859] PM: resume of devices =
-complete after 61177.644 msecs
->> Jan 10 13:57:15 rocket kernel: [36517.740258] PM: Finishing wakeup.
->> Jan 10 13:57:15 rocket kernel: [36517.740259] Restarting tasks ... d=
-one.
->>
->> Bisecting leads to commit bca03d5f32c8ee9b5cfa1d32640a63fded6cb3c0
->> (r8169: remove the firmware of RTL8111D.).
+On Sun, Jan 09, 2011 at 03:44:09PM -0800, David Miller wrote:
+> From: Shawn Guo <shawn.guo@freescale.com>
+> Date: Thu, 6 Jan 2011 15:13:08 +0800
+> 
+> > This patch series is to add dual fec support for mx28, which is
+> > a mxs-based soc. Some code changes related to the following commits
+> > are also made in this patch set for some reasons.
+> > 
+> >  e6b043d512fa8d9a3801bf5d72bfa3b8fc3b3cc8
+> >  netdev/fec.c: add phylib supporting to enable carrier detection (v2)
+> > 
+> >  e3fe8558c7fc182972c3d947d88744482111f304
+> >  net/fec: fix pm to survive to suspend/resume
+> > 
+> > It's been tested on mx28 evk and mx51 babbage. For mx28, it has
+> > to work against the tree
+> > 
+> >  git://git.pengutronix.de/git/imx/linux-2.6.git imx-for-2.6.38
+> > 
+> > plus patch
+> > 
+> >  [PATCH v4] ARM: mxs: Change duart device to use amba-pl011
+> > 
+> > The 3 patches below preceding with * have changes since v3, and
+> > the detailed change log can be found in individual patch.
+> 
+> I've applied all of the "net/fec:" patches (#1 to #5) to net-2.6,
+> please push the ARM changes via the appropriate ARM tree.
+> 
+Is there anything needs to be done to get the following patches
+merged?
 
->> Either r8169 tries to load firmware too early, or it should keep it
->> loaded in memory for use during resume.
->=20
-> It should.  But an earlier version of this patch was also in Debian's
-> 2.6.36 so it would have had the same problem.
+ [PATCH v4] ARM: mxs: Change duart device to use amba-pl011
+ [PATCH v4 00/10] net/fec: add dual fec support for i.MX28, #6 to #10.
 
-The last 2.6.36 I've tried was 2.6.36-1~experimental.1, I've then
-passsed and returned to 2.6.32 for unrelated problems. I think it wasn'=
-t
-affected, but I can re-check it and/or test later 2.6.36 versions if it
-may help.
+-- 
+Regards,
+Shawn
 
-Sorry if my information was misleading.
-
-
---=20
-pozdr(); // Jarek
