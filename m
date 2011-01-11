@@ -1,81 +1,115 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Tue, 11 Jan 2011 12:09:48 +0100
-Message-ID: <20110111110948.GA5279@riccoc20.at.omicron.at>
-References: <cover.1293820862.git.richard.cochran@omicron.at>
- <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
- <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
- <20110108175028.GA22308@riccoc20.at.omicron.at>
- <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
- <20110110071759.GA4864@riccoc20.at.omicron.at>
- <AANLkTimS0-ih=WZ_GvPi9NFjbYMT4OctWV943ri4GuTD@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] tcp: disallow bind() to reuse addr/port
+Date: Tue, 11 Jan 2011 12:14:22 +0100
+Message-ID: <1294744462.2927.53.camel@edumazet-laptop>
+References: <AANLkTimrpZOWEc5qXPEbrJbt2Nmh2vY69aC1Dwf1cCPH@mail.gmail.com>
+	 <AANLkTinNcds1EAnWXOX6wAjg+wv4O=Xd65hHEGWoGos8@mail.gmail.com>
+	 <1294140172.3579.81.camel@edumazet-laptop>
+	 <AANLkTimuNM7vmeR89WKXtrUbJO1Wt1ivp9y=bQvtWg0j@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
-	David Miller <davem@davemloft.net>,
-	John Stultz <johnstul@us.ibm.com>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimS0-ih=WZ_GvPi9NFjbYMT4OctWV943ri4GuTD@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Gaspar Chilingarov <gasparch@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Baluta <daniel.baluta@gmail.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46944 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754102Ab1AKLO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 06:14:27 -0500
+Received: by wyb28 with SMTP id 28so20340719wyb.19
+        for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 03:14:26 -0800 (PST)
+In-Reply-To: <AANLkTimuNM7vmeR89WKXtrUbJO1Wt1ivp9y=bQvtWg0j@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 11, 2011 at 05:47:13AM +0900, Kuwahara,T. wrote:
-> On Mon, Jan 10, 2011 at 4:17 PM, Richard Cochran
-> <richardcochran@gmail.com> wrote:
-> > the PTP Hardware Clocks for which this whole patch
-> > set was created in the first place will keep their time as TAI.
-> 
-> Are you sure of that?
+Le mercredi 05 janvier 2011 =C3=A0 11:00 +0200, Daniel Baluta a =C3=A9c=
+rit :
 
-Yes.
+> Going back to my first email, are there any follow ups on your
+> "tcp: bind() fix when many ports are bound" patch. I've searched
+> netdev archives but no luck. I might have missed something.
+>=20
+> I really appreciate your help.
+>=20
 
-> I don't have the standard handy (it's non-free, right?) but it seems
-> that the Annex B states differently.
+I believe following patch should solve the problem.
 
-IEEE Std 1588-2008, Page 41:
+Thanks for reminding us this issue !
 
-        The timescale PTP: In normal operation, the epoch is the PTP
-        epoch and the timescale is continuous; see 7.2.4. The unit of
-        measure of time is the SI second as realized on the rotating
-        geoid.
+I checked FreeBSD : It doesnt allow two sockets (in CLOSE state) bound
+on same addr/port, even if both have REUSEADDR set
 
-IEEE Std 1588-2008, Page 42:
 
-        The PTP epoch is 1 January 1970 00:00:00 TAI, which is 31
-        December 1969 23:59:51.999918 UTC.
 
-The standard does permit using some other, arbitrary timescale, "set
-by an administrative procedure." But no other timescales are
-standardized by 1588.
+[PATCH] tcp: disallow bind() to reuse addr/port
 
-> But that's not the point anyway.  My concern is that your patch not
-> only adds the useless (and broken) feature to the existing syscall
-> but also makes a permanent change to the public interface for your
-> own use.
+inet_csk_bind_conflict() logic currently disallows a bind() if
+it finds a friend socket (a socket bound on same address/port)
+satisfying a set of conditions :
 
-It is neither useless or broken. Using the new interface, you can
-estimate offset and frequency for a few seconds and jump directly into
-a closely synchronized state (like within 100 nanoseconds) relative to
-another clock on the network. That is pretty useful.
+1) Current (to be bound) socket doesnt have sk_reuse set
+OR
+2) other socket doesnt have sk_reuse set
+OR
+3) other socket is in LISTEN state
 
-Your issue with leap seconds is really a non-issue. The time value of
-the ADJ_SETOFFSET mode is a time interval, *not* an absolute time.
+We should add the CLOSE state in the 3) condition, in order to avoid tw=
+o
+REUSEADDR sockets in CLOSE state with same local address/port, since
+this can deny further operations.
 
->  That's what I'm against.  So if you stop touching the struct timex,
-> I won't complain anymore.
+Note : a prior patch tried to address the problem in a different (and
+buggy) way. (commit fda48a0d7a8412ced tcp: bind() fix when many ports
+are bound).
 
-I have no love for the timex interface. However, I used it for the new
-syscall because Arnd Bergmann and John Stultz specifically asked for
-it. Also, several other people have reviewed the new call without
-objecting to the new mode.
+Reported-by: Gaspar Chilingarov <gasparch@gmail.com>
+Reported-by: Daniel Baluta <daniel.baluta@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/inet_connection_sock.c  |    5 +++--
+ net/ipv6/inet6_connection_sock.c |    2 +-
+ 2 files changed, 4 insertions(+), 3 deletions(-)
 
-Richard
+diff --git a/net/ipv4/inet_connection_sock.c b/net/ipv4/inet_connection=
+_sock.c
+index 25e3181..9f6d585 100644
+--- a/net/ipv4/inet_connection_sock.c
++++ b/net/ipv4/inet_connection_sock.c
+@@ -73,7 +73,7 @@ int inet_csk_bind_conflict(const struct sock *sk,
+ 		     !sk2->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if)) {
+ 			if (!reuse || !sk2->sk_reuse ||
+-			    sk2->sk_state =3D=3D TCP_LISTEN) {
++			    ((1 << sk2->sk_state) & (TCPF_LISTEN | TCPF_CLOSE))) {
+ 				const __be32 sk2_rcv_saddr =3D sk_rcv_saddr(sk2);
+ 				if (!sk2_rcv_saddr || !sk_rcv_saddr(sk) ||
+ 				    sk2_rcv_saddr =3D=3D sk_rcv_saddr(sk))
+@@ -122,7 +122,8 @@ again:
+ 					    (tb->num_owners < smallest_size || smallest_size =3D=3D -1)) =
+{
+ 						smallest_size =3D tb->num_owners;
+ 						smallest_rover =3D rover;
+-						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1) {
++						if (atomic_read(&hashinfo->bsockets) > (high - low) + 1 &&=20
++						    !inet_csk(sk)->icsk_af_ops->bind_conflict(sk, tb)) {
+ 							spin_unlock(&head->lock);
+ 							snum =3D smallest_rover;
+ 							goto have_snum;
+diff --git a/net/ipv6/inet6_connection_sock.c b/net/ipv6/inet6_connecti=
+on_sock.c
+index e46305d..d144e62 100644
+--- a/net/ipv6/inet6_connection_sock.c
++++ b/net/ipv6/inet6_connection_sock.c
+@@ -44,7 +44,7 @@ int inet6_csk_bind_conflict(const struct sock *sk,
+ 		     !sk2->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if =3D=3D sk2->sk_bound_dev_if) &&
+ 		    (!sk->sk_reuse || !sk2->sk_reuse ||
+-		     sk2->sk_state =3D=3D TCP_LISTEN) &&
++		     ((1 << sk2->sk_state) & (TCPF_LISTEN | TCPF_CLOSE))) &&
+ 		     ipv6_rcv_saddr_equal(sk, sk2))
+ 			break;
+ 	}
+
+
