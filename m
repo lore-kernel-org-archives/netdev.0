@@ -1,67 +1,98 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH net-26] cxgb4vf: recover from failure in cxgb4vf_open()
-Date: Tue, 11 Jan 2011 13:57:59 -0800
-Message-ID: <1294783079-7481-1-git-send-email-leedom@chelsio.com>
-Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:4044 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752112Ab1AKV6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 16:58:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Tue, 11 Jan 2011 23:01:47 +0100
+Message-ID: <4D2CD34B.8000609@pengutronix.de>
+References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<4D2829C5.5020206@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEAFA2D9D@EAPEX1MAIL1.st.com>
+	<4D2C14FE.7080903@grandegger.com> <4D2CA0AA.6080505@grandegger.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============1435740107854944712=="
+Cc: Wolfram Sang <wsa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D2CA0AA.6080505-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If the Link Start fails in cxgb4vf_open(), we need to back out any state
-that we've built up ...
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============1435740107854944712==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig63E6082BFD088CB6EB9DD5F4"
 
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
----
- drivers/net/cxgb4vf/cxgb4vf_main.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig63E6082BFD088CB6EB9DD5F4
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
-index 3c403f8..56166ae 100644
---- a/drivers/net/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
-@@ -749,13 +749,19 @@ static int cxgb4vf_open(struct net_device *dev)
- 	netif_set_real_num_tx_queues(dev, pi->nqsets);
- 	err = netif_set_real_num_rx_queues(dev, pi->nqsets);
- 	if (err)
--		return err;
--	set_bit(pi->port_id, &adapter->open_device_map);
-+		goto err_unwind;
- 	err = link_start(dev);
- 	if (err)
--		return err;
-+		goto err_unwind;
-+
- 	netif_tx_start_all_queues(dev);
-+	set_bit(pi->port_id, &adapter->open_device_map);
- 	return 0;
-+
-+err_unwind:
-+	if (adapter->open_device_map == 0)
-+		adapter_down(adapter);
-+	return err;
- }
- 
- /*
-@@ -764,13 +770,12 @@ static int cxgb4vf_open(struct net_device *dev)
-  */
- static int cxgb4vf_stop(struct net_device *dev)
- {
--	int ret;
- 	struct port_info *pi = netdev_priv(dev);
- 	struct adapter *adapter = pi->adapter;
- 
- 	netif_tx_stop_all_queues(dev);
- 	netif_carrier_off(dev);
--	ret = t4vf_enable_vi(adapter, pi->viid, false, false);
-+	t4vf_enable_vi(adapter, pi->viid, false, false);
- 	pi->link_cfg.link_ok = 0;
- 
- 	clear_bit(pi->port_id, &adapter->open_device_map);
--- 
-1.7.0.4
+On 01/11/2011 07:25 PM, Wolfgang Grandegger wrote:
 
+[...]
+
+> I was told that Bosch's page for the C_CAN is here:
+>=20
+>  http://www.semiconductors.bosch.de/en/ipmodules/can/canipmodules/c_can=
+/c_can.asp
+>=20
+> There it's also written for what bus interfaces the C_CAN is available =
+for, e.g.:
+>=20
+>   "The ASIC version is delivered with the AMBA APB bus interface from A=
+RM."
+
+On ARM we also have the AMBA bus abstraction in Linux, but I've never
+worked with it. IIRC Wolfram (Cc'ed) has recently touched it.
+
+> which is obviously used in the "Platform Controller Hub" eg20t.
+
+But in the pch, they've attached the AMBA to the PCI bus.
+
+cheers, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig63E6082BFD088CB6EB9DD5F4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk0s03gACgkQjTAFq1RaXHPqbwCfRoW3DaaPXaDu5YHy1BodA+y9
+2FYAn0jj5cxuciUA19jZhKvxc8e1GNDr
+=Gh1U
+-----END PGP SIGNATURE-----
+
+--------------enig63E6082BFD088CB6EB9DD5F4--
+
+--===============1435740107854944712==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============1435740107854944712==--
