@@ -1,162 +1,88 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH v4 08/10] ARM: mxs: add ocotp read function
-Date: Tue, 11 Jan 2011 14:31:37 +0100
-Message-ID: <20110111133137.GS12078@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH 3/3] can: at91_can: make can_id of mailbox 0 configurable
+Date: Tue, 11 Jan 2011 14:43:00 +0100
+Message-ID: <20110111134300.GA387@e-circ.dyndns.org>
+References: <1294741688-22699-1-git-send-email-mkl@pengutronix.de>
+	<1294741688-22699-4-git-send-email-mkl@pengutronix.de>
+	<4D2C42F0.5080703@grandegger.com> <4D2C4586.60207@pengutronix.de>
+	<4D2C4CC1.4070109@grandegger.com> <4D2C4E2D.7050309@pengutronix.de>
+	<4D2C5B04.4090706@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
-	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
-	B32542@freescale.com, u.kleine-koenig@pengutronix.de,
-	lw@karo-electronics.de, w.sang@pengutronix.de, jamie@jamieiles.com,
-	jamie@shareable.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47985 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753786Ab1AKNcE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:32:04 -0500
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <4D2C5B04.4090706-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 06, 2011 at 03:13:16PM +0800, Shawn Guo wrote:
-> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> ---
-> Changes for v4:
->  - Call cpu_relax() during polling
+On Tue, Jan 11, 2011 at 02:28:36PM +0100, Wolfgang Grandegger wrote:
 > 
-> Changes for v2:
->  - Add mutex locking for mxs_read_ocotp()
->  - Use type size_t for count and i
->  - Add comment for clk_enable/disable skipping
->  - Add ERROR bit clearing and polling step
+> On 01/11/2011 01:33 PM, Marc Kleine-Budde wrote:
+> > On 01/11/2011 01:27 PM, Wolfgang Grandegger wrote:
+> >> On 01/11/2011 12:56 PM, Marc Kleine-Budde wrote:
+> >>> On 01/11/2011 12:45 PM, Wolfgang Grandegger wrote:
+> >>>> On 01/11/2011 11:28 AM, Marc Kleine-Budde wrote:
+> >>>>> Due to a chip bug (errata 50.2.6.3 & 50.3.5.3 in
+> >>>>> "AT91SAM9263 Preliminary 6249H-ATARM-27-Jul-09") the contents of mailbox
+> >>>>> 0 may be send under certain conditions (even if disabled or in rx mode).
+> >>>>>
+> >>>>> The workaround in the errata suggests not to use the mailbox and load it
+> >>>>> with a unused identifier.
+> >>>>>
+> >>>>> This patch implements the second part of the workaround. A sysfs entry
+> >>>>> "mb0_id" is introduced. While the interface is down it can be used to
+> >>>>> configure the can_id of mailbox 0. The default value id 0x7ff.
+> >>>>>
+> >>>>> In order to use an extended can_id add the CAN_EFF_FLAG (0x80000000U)
+> >>>>> to the can_id. Example:
+> >>>>>
+> >>>>> - standard id 0x7ff:
+> >>>>> echo 0x7ff      > /sys/class/net/can0/mb0_id
+> >>>>>
+> >>>>> - extended if 0x1fffffff:
+> >>>               ^^
+> >>> I've fixed the typo on my git repo. I'll send an updated series later.
+> >>>
+> >>>>> echo 0x9fffffff > /sys/class/net/can0/mb0_id
+> >>>>
+> >>>> As this is a device specific property, I think it should go into
+> >>>> /sys/class/net/can0/device/.
+> >>>
+> >>> The attribute goes autoamtically to /sys/class/net/can0 if you add it to
+> >>> the driver via:
+> >>>
+> >>> +       dev->sysfs_groups[0] = &at91_sysfs_attr_group;
+> >>>
+> >>> I've copied this from the janz-ican3 driver[1].
+> >>
+> >> Oh, I missed that. And also the Softing driver does it that way :-(. The
+> >> member has the comment:
+> >>
+> >>   /* space for optional device, statistics, and wireless sysfs groups */
+> >>   const struct attribute_group *sysfs_groups[4];
+> >>
+> >> Therefore it seems to be legal to use it for device specific properties.
+> > 
+> > I'm not really happy with these sysfs approach, but it's quick
+> > implemented. Is device specific rtnetlink an option here?
 > 
->  arch/arm/mach-mxs/Makefile              |    2 +-
->  arch/arm/mach-mxs/include/mach/common.h |    1 +
->  arch/arm/mach-mxs/ocotp.c               |   79 +++++++++++++++++++++++++++++++
->  3 files changed, 81 insertions(+), 1 deletions(-)
->  create mode 100644 arch/arm/mach-mxs/ocotp.c
-> 
-> diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
-> index 39d3f9c..f23ebbd 100644
-> --- a/arch/arm/mach-mxs/Makefile
-> +++ b/arch/arm/mach-mxs/Makefile
-> @@ -1,5 +1,5 @@
->  # Common support
-> -obj-y := clock.o devices.o gpio.o icoll.o iomux.o system.o timer.o
-> +obj-y := clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system.o timer.o
->  
->  obj-$(CONFIG_SOC_IMX23) += clock-mx23.o mm-mx23.o
->  obj-$(CONFIG_SOC_IMX28) += clock-mx28.o mm-mx28.o
-> diff --git a/arch/arm/mach-mxs/include/mach/common.h b/arch/arm/mach-mxs/include/mach/common.h
-> index 59133eb..cf02552 100644
-> --- a/arch/arm/mach-mxs/include/mach/common.h
-> +++ b/arch/arm/mach-mxs/include/mach/common.h
-> @@ -13,6 +13,7 @@
->  
->  struct clk;
->  
-> +extern int mxs_read_ocotp(int offset, int count, u32 *values);
->  extern int mxs_reset_block(void __iomem *);
->  extern void mxs_timer_init(struct clk *, int);
->  
-> diff --git a/arch/arm/mach-mxs/ocotp.c b/arch/arm/mach-mxs/ocotp.c
-> new file mode 100644
-> index 0000000..e2d39aa
-> --- /dev/null
-> +++ b/arch/arm/mach-mxs/ocotp.c
-> @@ -0,0 +1,79 @@
-> +/*
-> + * Copyright 2010 Freescale Semiconductor, Inc. All Rights Reserved.
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License as published by
-> + * the Free Software Foundation; either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + */
-> +
-> +#include <linux/delay.h>
-> +#include <linux/err.h>
-> +#include <linux/mutex.h>
-> +
-> +#include <mach/mxs.h>
-> +
-> +#define BM_OCOTP_CTRL_BUSY		(1 << 8)
-> +#define BM_OCOTP_CTRL_ERROR		(1 << 9)
-> +#define BM_OCOTP_CTRL_RD_BANK_OPEN	(1 << 12)
-> +
-> +static DEFINE_MUTEX(ocotp_mutex);
-> +
-> +int mxs_read_ocotp(unsigned offset, size_t count, u32 *values)
-> +{
-> +	void __iomem *ocotp_base = MXS_IO_ADDRESS(MXS_OCOTP_BASE_ADDR);
-> +	int timeout = 0x400;
-> +	size_t i;
-> +
-> +	mutex_lock(&ocotp_mutex);
-> +
-> +	/*
-> +	 * clk_enable(hbus_clk) for ocotp can be skipped
-> +	 * as it must be on when system is running.
-> +	 */
-> +
-> +	/* try to clear ERROR bit */
-> +	__mxs_clrl(BM_OCOTP_CTRL_ERROR, ocotp_base);
+> That's toooooooo heavy, I think. I personally would just use
+> device_create_file for that purpose. But let's keep using sysfs_groups[]
+> if nobody else complains.
 
-This operation does not try to clear the error bit but actually clears
-it...
+sysfs_groups[0] has the advantage that it's ready during the uevent
+(ie. for use in udev). device_create_file() may get online after the uevent...
 
-> +
-> +	/* check both BUSY and ERROR cleared */
-> +	while ((__raw_readl(ocotp_base) &
-> +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
-> +		cpu_relax();
-
-...which means you do not have to poll the error bit here...
-
-> +
-> +	if (unlikely(!timeout))
-> +		goto error_unlock;
-> +
-> +	/* open OCOTP banks for read */
-> +	__mxs_setl(BM_OCOTP_CTRL_RD_BANK_OPEN, ocotp_base);
-> +
-> +	/* approximately wait 32 hclk cycles */
-> +	udelay(1);
-> +
-> +	/* poll BUSY bit becoming cleared */
-> +	timeout = 0x400;
-> +	while ((__raw_readl(ocotp_base) & BM_OCOTP_CTRL_BUSY) && --timeout)
-> +		cpu_relax();
-
-...which means you can factor out a ocotp_wait_busy function and let the
-code speak instead of the comments.
-
-> +
-> +	if (unlikely(!timeout))
-> +		goto error_unlock;
-> +
-> +	for (i = 0; i < count; i++, offset += 4)
-> +		*values++ = __raw_readl(ocotp_base + offset);
-
-The registers in the ocotp are 16 byte aligned. Does it really make
-sense to provide a function allowing to read the gaps between the
-registers?
-
-Sascha
-
-
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+Kurt
