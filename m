@@ -1,80 +1,70 @@
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] xfrm: check trunc_len in XFRMA_ALG_AUTH_TRUNC
-Date: Tue, 11 Jan 2011 19:04:12 +0100
-Message-ID: <4D2C9B9C.9020800@6wind.com>
+Subject: [PATCH] ah: update maximum truncated ICV length
+Date: Tue, 11 Jan 2011 19:06:19 +0100
+Message-ID: <4D2C9C1B.1030907@6wind.com>
 Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040401050009090205060801"
+ boundary="------------030506020404000205020600"
 To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:38340 "EHLO
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:53597 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913Ab1AKSEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 13:04:16 -0500
-Received: by wwa36 with SMTP id 36so2064423wwa.1
-        for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 10:04:15 -0800 (PST)
+	with ESMTP id S1756252Ab1AKSGY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 13:06:24 -0500
+Received: by wwa36 with SMTP id 36so2066873wwa.1
+        for <netdev@vger.kernel.org>; Tue, 11 Jan 2011 10:06:23 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is a multi-part message in MIME format.
---------------040401050009090205060801
+--------------030506020404000205020600
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
 
 Hi,
 
-patch is attached.
+patch is enclosed.
 
 
 Regards,
 Nicolas
 
---------------040401050009090205060801
+--------------030506020404000205020600
 Content-Type: text/x-patch;
- name="0001-xfrm-check-trunc_len-in-XFRMA_ALG_AUTH_TRUNC.patch"
+ name="0001-ah-update-maximum-truncated-ICV-length.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
- filename="0001-xfrm-check-trunc_len-in-XFRMA_ALG_AUTH_TRUNC.patch"
+ filename="0001-ah-update-maximum-truncated-ICV-length.patch"
 
->From 48dd29c69f150fc55bf3a477b9365d1575a9cfbe Mon Sep 17 00:00:00 2001
+>From 2ca463cf672f000d37a0aaa5e3d3738b50661926 Mon Sep 17 00:00:00 2001
 From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 11 Jan 2011 13:23:51 -0500
-Subject: [PATCH] xfrm: check trunc_len in XFRMA_ALG_AUTH_TRUNC
+Date: Thu, 23 Dec 2010 09:52:21 -0500
+Subject: [PATCH] ah: update maximum truncated ICV length
 
-Maximum trunc length is defined by MAX_AH_AUTH_LEN (in bytes)
-and need to be checked when this value is set (in bits) by
-the user. In ah4.c and ah6.c a BUG_ON() checks this condiftion.
+For SHA256, RFC4868 requires to truncate ICV length to 128 bits,
+hence MAX_AH_AUTH_LEN should be updated to 16.
 
 Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- net/xfrm/xfrm_user.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ include/net/ah.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 8bae6b2..b45288f 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -26,6 +26,7 @@
- #include <net/sock.h>
- #include <net/xfrm.h>
- #include <net/netlink.h>
-+#include <net/ah.h>
- #include <asm/uaccess.h>
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- #include <linux/in6.h>
-@@ -296,7 +297,8 @@ static int attach_auth_trunc(struct xfrm_algo_auth **algpp, u8 *props,
- 	algo = xfrm_aalg_get_byname(ualg->alg_name, 1);
- 	if (!algo)
- 		return -ENOSYS;
--	if (ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
-+	if ((ualg->alg_trunc_len / 8) > MAX_AH_AUTH_LEN ||
-+	    ualg->alg_trunc_len > algo->uinfo.auth.icv_fullbits)
- 		return -EINVAL;
- 	*props = algo->desc.sadb_alg_id;
+diff --git a/include/net/ah.h b/include/net/ah.h
+index f0129f7..be7798d 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -4,7 +4,7 @@
+ #include <linux/skbuff.h>
+ 
+ /* This is the maximum truncated ICV length that we know of. */
+-#define MAX_AH_AUTH_LEN	12
++#define MAX_AH_AUTH_LEN	16
+ 
+ struct crypto_ahash;
  
 -- 
-1.5.6.5
+1.7.3.4
 
 
---------------040401050009090205060801--
+--------------030506020404000205020600--
