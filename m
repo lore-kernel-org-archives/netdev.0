@@ -1,56 +1,81 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH v4 07/10] ARM: mx28: add the second fec device
- registration
-Date: Tue, 11 Jan 2011 11:29:09 +0100
-Message-ID: <20110111102909.GH26617@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-8-git-send-email-shawn.guo@freescale.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Tue, 11 Jan 2011 12:09:48 +0100
+Message-ID: <20110111110948.GA5279@riccoc20.at.omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+ <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+ <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
+ <20110108175028.GA22308@riccoc20.at.omicron.at>
+ <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
+ <20110110071759.GA4864@riccoc20.at.omicron.at>
+ <AANLkTimS0-ih=WZ_GvPi9NFjbYMT4OctWV943ri4GuTD@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
-	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
-	B32542@freescale.com, u.kleine-koenig@pengutronix.de,
-	lw@karo-electronics.de, w.sang@pengutronix.de, jamie@jamieiles.com,
-	jamie@shareable.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50339 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755559Ab1AKK3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 05:29:31 -0500
+Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1294297998-26930-8-git-send-email-shawn.guo@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <AANLkTimS0-ih=WZ_GvPi9NFjbYMT4OctWV943ri4GuTD@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 06, 2011 at 03:13:15PM +0800, Shawn Guo wrote:
-> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> ---
->  arch/arm/mach-mxs/mach-mx28evk.c |   28 +++++++++++++++++++++++++---
->  1 files changed, 25 insertions(+), 3 deletions(-)
+On Tue, Jan 11, 2011 at 05:47:13AM +0900, Kuwahara,T. wrote:
+> On Mon, Jan 10, 2011 at 4:17 PM, Richard Cochran
+> <richardcochran@gmail.com> wrote:
+> > the PTP Hardware Clocks for which this whole patch
+> > set was created in the first place will keep their time as TAI.
 > 
->  
->  static void __init mx28evk_init(void)
-> @@ -117,7 +136,10 @@ static void __init mx28evk_init(void)
->  	mx28_add_duart();
->  
->  	mx28evk_fec_reset();
-> -	mx28_add_fec(0, &mx28_fec_pdata);
-> +	mx28_add_fec(0, &mx28_fec_pdata[0]);
-> +#ifdef CONFIG_FEC2
-> +	mx28_add_fec(1, &mx28_fec_pdata[1]);
-> +#endif
+> Are you sure of that?
 
-Please don't do this. If you really want to make this configurable with
-kconfig use a board specific option, not a driver specific option. I
-think this should be made unconditional though.
+Yes.
 
-Sascha
+> I don't have the standard handy (it's non-free, right?) but it seems
+> that the Annex B states differently.
 
+IEEE Std 1588-2008, Page 41:
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+        The timescale PTP: In normal operation, the epoch is the PTP
+        epoch and the timescale is continuous; see 7.2.4. The unit of
+        measure of time is the SI second as realized on the rotating
+        geoid.
+
+IEEE Std 1588-2008, Page 42:
+
+        The PTP epoch is 1 January 1970 00:00:00 TAI, which is 31
+        December 1969 23:59:51.999918 UTC.
+
+The standard does permit using some other, arbitrary timescale, "set
+by an administrative procedure." But no other timescales are
+standardized by 1588.
+
+> But that's not the point anyway.  My concern is that your patch not
+> only adds the useless (and broken) feature to the existing syscall
+> but also makes a permanent change to the public interface for your
+> own use.
+
+It is neither useless or broken. Using the new interface, you can
+estimate offset and frequency for a few seconds and jump directly into
+a closely synchronized state (like within 100 nanoseconds) relative to
+another clock on the network. That is pretty useful.
+
+Your issue with leap seconds is really a non-issue. The time value of
+the ADJ_SETOFFSET mode is a time interval, *not* an absolute time.
+
+>  That's what I'm against.  So if you stop touching the struct timex,
+> I won't complain anymore.
+
+I have no love for the timex interface. However, I used it for the new
+syscall because Arnd Bergmann and John Stultz specifically asked for
+it. Also, several other people have reviewed the new call without
+objecting to the new mode.
+
+Richard
