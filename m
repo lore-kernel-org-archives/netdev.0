@@ -1,45 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net_sched: factorize qdisc stats handling
-Date: Mon, 10 Jan 2011 16:08:15 -0800 (PST)
-Message-ID: <20110110.160815.148553725.davem@davemloft.net>
-References: <1294478789.2709.79.camel@edumazet-laptop>
-	<20110109095735.5241e755@nehalam>
-	<1294597854.2709.850.camel@edumazet-laptop>
+Subject: Re: [PATCH 3/5] NET: IPV4: ARP: allow to invalidate specific ARP
+ entries
+Date: Mon, 10 Jan 2011 16:11:12 -0800 (PST)
+Message-ID: <20110110.161112.62346640.davem@davemloft.net>
+References: <1294404478.7674.0.camel@maxim-laptop>
+	<1294405062.3306.11.camel@edumazet-laptop>
+	<1294531032.25396.11.camel@maxim-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, jarkao2@gmail.com, xiaosuo@gmail.com,
-	fabio@gandalf.sssup.it, netdev@vger.kernel.org, rizzo@iet.unipi.it
-To: eric.dumazet@gmail.com
+Cc: eric.dumazet@gmail.com, linux1394-devel@lists.sourceforge.net,
+	stefanr@s5r6.in-berlin.de, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, kaber@trash.net
+To: maximlevitsky@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56480
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54350
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752642Ab1AKAHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 19:07:46 -0500
-In-Reply-To: <1294597854.2709.850.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751292Ab1AKAKl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jan 2011 19:10:41 -0500
+In-Reply-To: <1294531032.25396.11.camel@maxim-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 09 Jan 2011 19:30:54 +0100
+From: Maxim Levitsky <maximlevitsky@gmail.com>
+Date: Sun, 09 Jan 2011 01:57:12 +0200
 
-> [PATCH v2] net_sched: factorize qdisc stats handling
-> 
-> HTB takes into account skb is segmented in stats updates.
-> Generalize this to all schedulers.
-> 
-> They should use qdisc_bstats_update() helper instead of manipulating
-> bstats.bytes and bstats.packets
-> 
-> Add bstats_update() helper too for classes that use
-> gnet_stats_basic_packed fields.
-> 
-> Note : Right now, TCQ_F_CAN_BYPASS shortcurt can be taken only if no
-> stab is setup on qdisc.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
-> v2: constify some methods, and make sure qdisc_skb_cb(skb)->pkt_len is
-> set in the TCQ_F_CAN_BYPASS shortcut in __dev_xmit_skb()
+>     NET: IPV4: ARP: allow to invalidate specific ARP entries
+>     
+>     IPv4 over firewire needs to be able to remove ARP entries
+>     from the ARP cache that belong to nodes that are removed, because
+>     IPv4 over firewire uses ARP packets for private information
+>     about nodes.
+>     
+>     This information becomes invalid as soon as node drops
+>     off the bus and when it reconnects, its only possible
+>     to start takling to is after it responded to an ARP packet.
+>     But ARP cache prevents such packets from being sent.
+>     
+>     Signed-off-by: Maxim Levitsky <maximlevitsky@gmail.com>
 
-Applied, thanks Eric.
+Applied, thanks.
