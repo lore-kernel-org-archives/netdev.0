@@ -1,48 +1,83 @@
 From: Shawn Guo <shawn.guo@freescale.com>
-Subject: [PATCH] net/fec: remove config FEC2 as it's used nowhere
-Date: Tue, 11 Jan 2011 20:07:52 +0800
-Message-ID: <1294747672-4433-1-git-send-email-shawn.guo@freescale.com>
+Subject: [PATCH v5] ARM: mx28: add the second fec device registration
+Date: Tue, 11 Jan 2011 20:09:24 +0800
+Message-ID: <1294747764-4499-1-git-send-email-shawn.guo@freescale.com>
 References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Shawn Guo <shawn.guo@freescale.com>
-To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
-	<eric@eukrea.com>, <bryan.wu@canonical.com>,
-	<r64343@freescale.com>, <B32542@freescale.com>,
-	<u.kleine-koenig@pengutro
+To: <s.hauer@pengutronix.de>, <davem@davemloft.net>,
+	<gerg@snapgear.com>, <baruch@tkos.co.il>, <eric@eukrea.com>,
+	<bryan.wu@canonical.com>, <r64343@freescale.com>,
+	<B32542@freescale.com>,
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:51434 "EHLO
-	TX2EHSOBE009.bigfish.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755521Ab1AKMFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 07:05:25 -0500
+Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:20270 "EHLO
+	TX2EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755564Ab1AKMHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 07:07:01 -0500
 In-Reply-To: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
 ---
- drivers/net/Kconfig |    8 --------
- 1 files changed, 0 insertions(+), 8 deletions(-)
+Changes for v5:
+ - Do not use CONFIG_FEC2 which is a fec driver configration
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f34629b..24b1b33 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -1950,14 +1950,6 @@ config FEC
- 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
- 	  controller on some Motorola ColdFire and Freescale i.MX processors.
+ arch/arm/mach-mxs/mach-mx28evk.c |   26 +++++++++++++++++++++++---
+ 1 files changed, 23 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/mach-mxs/mach-mx28evk.c b/arch/arm/mach-mxs/mach-mx28evk.c
+index d162e95..8e2c597 100644
+--- a/arch/arm/mach-mxs/mach-mx28evk.c
++++ b/arch/arm/mach-mxs/mach-mx28evk.c
+@@ -57,6 +57,19 @@ static const iomux_cfg_t mx28evk_pads[] __initconst = {
+ 		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
+ 	MX28_PAD_ENET_CLK__CLKCTRL_ENET |
+ 		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	/* fec1 */
++	MX28_PAD_ENET0_CRS__ENET1_RX_EN |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_RXD2__ENET1_RXD0 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_RXD3__ENET1_RXD1 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_COL__ENET1_TX_EN |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_TXD2__ENET1_TXD0 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
++	MX28_PAD_ENET0_TXD3__ENET1_TXD1 |
++		(MXS_PAD_8MA | MXS_PAD_3V3 | MXS_PAD_PULLUP),
+ 	/* phy power line */
+ 	MX28_PAD_SSP1_DATA3__GPIO_2_15 |
+ 		(MXS_PAD_4MA | MXS_PAD_3V3 | MXS_PAD_NOPULL),
+@@ -106,8 +119,14 @@ static void __init mx28evk_fec_reset(void)
+ 	gpio_set_value(MX28EVK_FEC_PHY_RESET, 1);
+ }
  
--config FEC2
--	bool "Second FEC ethernet controller"
--	depends on FEC
--	help
--	  Say Y here if you want to use the second built-in 10/100 Fast
--	  ethernet controller on some Motorola ColdFire and Freescale
--	  i.MX processors.
--
- config FEC_MPC52xx
- 	tristate "MPC52xx FEC driver"
- 	depends on PPC_MPC52xx && PPC_BESTCOMM
+-static const struct fec_platform_data mx28_fec_pdata __initconst = {
+-	.phy = PHY_INTERFACE_MODE_RMII,
++static struct fec_platform_data mx28_fec_pdata[] = {
++	{
++		/* fec0 */
++		.phy = PHY_INTERFACE_MODE_RMII,
++	}, {
++		/* fec1 */
++		.phy = PHY_INTERFACE_MODE_RMII,
++	},
+ };
+ 
+ static void __init mx28evk_init(void)
+@@ -117,7 +136,8 @@ static void __init mx28evk_init(void)
+ 	mx28_add_duart();
+ 
+ 	mx28evk_fec_reset();
+-	mx28_add_fec(0, &mx28_fec_pdata);
++	mx28_add_fec(0, &mx28_fec_pdata[0]);
++	mx28_add_fec(1, &mx28_fec_pdata[1]);
+ }
+ 
+ static void __init mx28evk_timer_init(void)
 -- 
 1.7.1
 
