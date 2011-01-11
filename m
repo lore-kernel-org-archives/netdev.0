@@ -1,80 +1,162 @@
-From: Greg Ungerer <gerg@snapgear.com>
-Subject: Re: [PATCH v4 05/10] net/fec: add dual fec support for mx28
-Date: Tue, 11 Jan 2011 23:25:41 +1000
-Message-ID: <4D2C5A55.7050502@snapgear.com>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>	<1294297998-26930-6-git-send-email-shawn.guo@freescale.com>	<20110111102717.GG26617@pengutronix.de>	<4D2C4BEC.1030003@snapgear.com> <20110111130749.GQ24920@pengutronix.de>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH v4 08/10] ARM: mxs: add ocotp read function
+Date: Tue, 11 Jan 2011 14:31:37 +0100
+Message-ID: <20110111133137.GS12078@pengutronix.de>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <baruch@tkos.co.il>, <B32542@freescale.com>,
-	<netdev@vger.kernel.org>, Sascha Hauer <s.hauer@pengutronix.de>,
-	<jamie@shareable.org>, <w.sang@pengutronix.de>,
-	<r64343@freescale.com>, <linux-arm-kernel@lists.infradead.org>,
-	<eric@eukrea.com>, <bryan.wu@canonical.com>, <jamie@jamieiles.com>,
-	<davem@davemloft.net>, Shawn Guo <shawn.guo@freescale.com>,
-	<lw@karo-electronics.de>
-To: =?ISO-8859-1?Q?Uwe_Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
+	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
+	B32542@freescale.com, u.kleine-koenig@pengutronix.de,
+	lw@karo-electronics.de, w.sang@pengutronix.de, jamie@jamieiles.com,
+	jamie@shareable.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sncsmrelay2.nai.com ([67.97.80.206]:42218 "EHLO
-	sncsmrelay2.nai.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754009Ab1AKN2w convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:28:52 -0500
-In-Reply-To: <20110111130749.GQ24920@pengutronix.de>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47985 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786Ab1AKNcE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jan 2011 08:32:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Uwe,
+On Thu, Jan 06, 2011 at 03:13:16PM +0800, Shawn Guo wrote:
+> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+> ---
+> Changes for v4:
+>  - Call cpu_relax() during polling
+> 
+> Changes for v2:
+>  - Add mutex locking for mxs_read_ocotp()
+>  - Use type size_t for count and i
+>  - Add comment for clk_enable/disable skipping
+>  - Add ERROR bit clearing and polling step
+> 
+>  arch/arm/mach-mxs/Makefile              |    2 +-
+>  arch/arm/mach-mxs/include/mach/common.h |    1 +
+>  arch/arm/mach-mxs/ocotp.c               |   79 +++++++++++++++++++++++++++++++
+>  3 files changed, 81 insertions(+), 1 deletions(-)
+>  create mode 100644 arch/arm/mach-mxs/ocotp.c
+> 
+> diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
+> index 39d3f9c..f23ebbd 100644
+> --- a/arch/arm/mach-mxs/Makefile
+> +++ b/arch/arm/mach-mxs/Makefile
+> @@ -1,5 +1,5 @@
+>  # Common support
+> -obj-y := clock.o devices.o gpio.o icoll.o iomux.o system.o timer.o
+> +obj-y := clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system.o timer.o
+>  
+>  obj-$(CONFIG_SOC_IMX23) += clock-mx23.o mm-mx23.o
+>  obj-$(CONFIG_SOC_IMX28) += clock-mx28.o mm-mx28.o
+> diff --git a/arch/arm/mach-mxs/include/mach/common.h b/arch/arm/mach-mxs/include/mach/common.h
+> index 59133eb..cf02552 100644
+> --- a/arch/arm/mach-mxs/include/mach/common.h
+> +++ b/arch/arm/mach-mxs/include/mach/common.h
+> @@ -13,6 +13,7 @@
+>  
+>  struct clk;
+>  
+> +extern int mxs_read_ocotp(int offset, int count, u32 *values);
+>  extern int mxs_reset_block(void __iomem *);
+>  extern void mxs_timer_init(struct clk *, int);
+>  
+> diff --git a/arch/arm/mach-mxs/ocotp.c b/arch/arm/mach-mxs/ocotp.c
+> new file mode 100644
+> index 0000000..e2d39aa
+> --- /dev/null
+> +++ b/arch/arm/mach-mxs/ocotp.c
+> @@ -0,0 +1,79 @@
+> +/*
+> + * Copyright 2010 Freescale Semiconductor, Inc. All Rights Reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#include <linux/delay.h>
+> +#include <linux/err.h>
+> +#include <linux/mutex.h>
+> +
+> +#include <mach/mxs.h>
+> +
+> +#define BM_OCOTP_CTRL_BUSY		(1 << 8)
+> +#define BM_OCOTP_CTRL_ERROR		(1 << 9)
+> +#define BM_OCOTP_CTRL_RD_BANK_OPEN	(1 << 12)
+> +
+> +static DEFINE_MUTEX(ocotp_mutex);
+> +
+> +int mxs_read_ocotp(unsigned offset, size_t count, u32 *values)
+> +{
+> +	void __iomem *ocotp_base = MXS_IO_ADDRESS(MXS_OCOTP_BASE_ADDR);
+> +	int timeout = 0x400;
+> +	size_t i;
+> +
+> +	mutex_lock(&ocotp_mutex);
+> +
+> +	/*
+> +	 * clk_enable(hbus_clk) for ocotp can be skipped
+> +	 * as it must be on when system is running.
+> +	 */
+> +
+> +	/* try to clear ERROR bit */
+> +	__mxs_clrl(BM_OCOTP_CTRL_ERROR, ocotp_base);
 
-On 11/01/11 23:07, Uwe Kleine-K=F6nig wrote:
-> Hi Greg,
->
-> On Tue, Jan 11, 2011 at 10:24:12PM +1000, Greg Ungerer wrote:
->> On 11/01/11 20:27, Sascha Hauer wrote:
->>> On Thu, Jan 06, 2011 at 03:13:13PM +0800, Shawn Guo wrote:
->>> This option is used nowhere and should be removed. Certainly it doe=
-s not
->>> have the effect of enabling the second ethernet controller.
->>
->> It does for a ColdFire platform...
->>
->> grep -r CONFIG_FEC2 *
->>
->> arch/m68knommu/configs/m5275evb_defconfig:CONFIG_FEC2=3Dy
->> arch/m68knommu/platform/527x/config.c:#ifdef CONFIG_FEC2
->> arch/m68knommu/platform/527x/config.c:#ifdef CONFIG_FEC2
-> IMHO Sascha's comment[1] applies here, too.
+This operation does not try to clear the error bit but actually clears
+it...
 
-I am not arguing that it doesn't :-)
+> +
+> +	/* check both BUSY and ERROR cleared */
+> +	while ((__raw_readl(ocotp_base) &
+> +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
+> +		cpu_relax();
 
-Simply that removing that config option and doing nothing
-else would not be the right thing to do.
+...which means you do not have to poll the error bit here...
 
-Regards
-Greg
+> +
+> +	if (unlikely(!timeout))
+> +		goto error_unlock;
+> +
+> +	/* open OCOTP banks for read */
+> +	__mxs_setl(BM_OCOTP_CTRL_RD_BANK_OPEN, ocotp_base);
+> +
+> +	/* approximately wait 32 hclk cycles */
+> +	udelay(1);
+> +
+> +	/* poll BUSY bit becoming cleared */
+> +	timeout = 0x400;
+> +	while ((__raw_readl(ocotp_base) & BM_OCOTP_CTRL_BUSY) && --timeout)
+> +		cpu_relax();
+
+...which means you can factor out a ocotp_wait_busy function and let the
+code speak instead of the comments.
+
+> +
+> +	if (unlikely(!timeout))
+> +		goto error_unlock;
+> +
+> +	for (i = 0; i < count; i++, offset += 4)
+> +		*values++ = __raw_readl(ocotp_base + offset);
+
+The registers in the ocotp are 16 byte aligned. Does it really make
+sense to provide a function allowing to read the gaps between the
+registers?
+
+Sascha
 
 
-> And someone might want to do what he suggested soon or the patch
-> removing CONFIG_FEC2[2] needs to be commented accordingly.
->
-> Best regards
-> Uwe
->
-> [1] http://thread.gmane.org/gmane.linux.network/182929/focus=3D183378
-> [2] http://mid.gmane.org/1294747672-4433-1-git-send-email-shawn.guo@f=
-reescale.com
->
-
-
---=20
------------------------------------------------------------------------=
--
-Greg Ungerer  --  Principal Engineer        EMAIL:     gerg@snapgear.co=
-m
-SnapGear Group, McAfee                      PHONE:       +61 7 3435 288=
-8
-8 Gardner Close,                            FAX:         +61 7 3891 363=
-0
-Milton, QLD, 4064, Australia                WEB: http://www.SnapGear.co=
-m
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
