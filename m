@@ -1,131 +1,108 @@
 From: Vlad Dogaru <ddvlad@rosedu.org>
-Subject: [PATCH v2 1/2] net_device: add support for network device groups
-Date: Tue, 11 Jan 2011 18:35:23 +0200
-Message-ID: <1294763724-9927-2-git-send-email-ddvlad@rosedu.org>
-References: <1294763724-9927-1-git-send-email-ddvlad@rosedu.org>
+Subject: [PATCH v2 iproute2 2/3] ip link: support listing devices by group
+Date: Tue, 11 Jan 2011 18:35:48 +0200
+Message-ID: <1294763749-9997-3-git-send-email-ddvlad@rosedu.org>
+References: <1294763749-9997-1-git-send-email-ddvlad@rosedu.org>
 Cc: Vlad Dogaru <ddvlad@rosedu.org>, jamal <hadi@cyberus.ca>,
 	Octavian Purdila <opurdila@ixiacom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [141.85.37.41] ([141.85.37.41]:60280 "EHLO swarm.cs.pub.ro"
+Received: from [141.85.37.41] ([141.85.37.41]:60302 "EHLO swarm.cs.pub.ro"
 	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932388Ab1AKQfb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jan 2011 11:35:31 -0500
+	id S932405Ab1AKQfy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jan 2011 11:35:54 -0500
 To: netdev@vger.kernel.org
-In-Reply-To: <1294763724-9927-1-git-send-email-ddvlad@rosedu.org>
+In-Reply-To: <1294763749-9997-1-git-send-email-ddvlad@rosedu.org>
 To: netdev@vger.kernel.org
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Net devices can now be grouped, enabling simpler manipulation from
-userspace. This patch adds a group field to the net_device strucure, as
-well as rtnetlink support to query and modify it.
+User can specify device group to list by using the devgroup keyword:
+
+	ip link lst devgroup 1
+
+If no group is specified, 0 is implied.
 
 Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
 ---
- include/linux/if_link.h   |    1 +
- include/linux/netdevice.h |    7 +++++++
- net/core/dev.c            |   12 ++++++++++++
- net/core/rtnetlink.c      |    6 ++++++
- 4 files changed, 26 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    2 +-
+ ip/ipaddress.c            |   14 ++++++++++++++
+ ip/iplink.c               |    1 +
+ 3 files changed, 16 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 6485d2a..f4a2e6b 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -135,6 +135,7 @@ enum {
- 	IFLA_VF_PORTS,
- 	IFLA_PORT_SELF,
- 	IFLA_AF_SPEC,
-+	IFLA_GROUP,		/* Group the device belongs to */
- 	__IFLA_MAX
- };
- 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 0f6b1c9..5f624ad 100644
+index bec4e23..ad2e34d 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -75,6 +75,9 @@ struct wireless_dev;
- #define NET_RX_SUCCESS		0	/* keep 'em coming, baby */
- #define NET_RX_DROP		1	/* packet dropped */
+@@ -33,7 +33,7 @@
  
-+/* Initial net device group. All devices belong to group 0 by default. */
-+#define INIT_NETDEV_GROUP	0
-+
- /*
-  * Transmit return codes: transmit return codes originate from three different
-  * namespaces:
-@@ -1156,6 +1159,9 @@ struct net_device {
+ #define MAX_ADDR_LEN	32		/* Largest hardware address length */
  
- 	/* phy device may attach itself for hardware timestamping */
- 	struct phy_device *phydev;
-+
-+	/* group the device belongs to */
-+	unsigned int group;
- };
- #define to_net_dev(d) container_of(d, struct net_device, dev)
+-
++#define INIT_NETDEV_GROUP	0	/* Initial group net devices belong to */
  
-@@ -1847,6 +1853,7 @@ extern int		dev_set_alias(struct net_device *, const char *, size_t);
- extern int		dev_change_net_namespace(struct net_device *,
- 						 struct net *, const char *);
- extern int		dev_set_mtu(struct net_device *, int);
-+extern void		dev_set_group(struct net_device *, int);
- extern int		dev_set_mac_address(struct net_device *,
- 					    struct sockaddr *);
- extern int		dev_hard_start_xmit(struct sk_buff *skb,
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a215269..6cf0cd2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4573,6 +4573,17 @@ int dev_set_mtu(struct net_device *dev, int new_mtu)
- EXPORT_SYMBOL(dev_set_mtu);
+ /* Media selection options. */
+ enum {
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index a775ecd..66e4350 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -49,6 +49,7 @@ static struct
+ 	char *flushb;
+ 	int flushp;
+ 	int flushe;
++	int group;
+ } filter;
  
- /**
-+ *	dev_set_group - Change group this device belongs to
-+ *	@dev: device
-+ *	@new_group: group this device should belong to
-+ */
-+void dev_set_group(struct net_device *dev, int new_group)
-+{
-+	dev->group = new_group;
-+}
-+EXPORT_SYMBOL(dev_set_group);
-+
-+/**
-  *	dev_set_mac_address - Change Media Access Control Address
-  *	@dev: device
-  *	@sa: new address
-@@ -5698,6 +5709,7 @@ struct net_device *alloc_netdev_mq(int sizeof_priv, const char *name,
- 	dev->priv_flags = IFF_XMIT_DST_RELEASE;
- 	setup(dev);
- 	strcpy(dev->name, name);
-+	dev->group = INIT_NETDEV_GROUP;
- 	return dev;
- 
- free_pcpu:
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 750db57..012b0f0 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -868,6 +868,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 		   netif_running(dev) ? dev->operstate : IF_OPER_DOWN);
- 	NLA_PUT_U8(skb, IFLA_LINKMODE, dev->link_mode);
- 	NLA_PUT_U32(skb, IFLA_MTU, dev->mtu);
-+	NLA_PUT_U32(skb, IFLA_GROUP, dev->group);
- 
- 	if (dev->ifindex != dev->iflink)
- 		NLA_PUT_U32(skb, IFLA_LINK, dev->iflink);
-@@ -1265,6 +1266,11 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 		modified = 1;
- 	}
+ static int do_link;
+@@ -246,6 +247,12 @@ int print_linkinfo(const struct sockaddr_nl *who,
+ 	    fnmatch(filter.label, RTA_DATA(tb[IFLA_IFNAME]), 0))
+ 		return 0;
  
 +	if (tb[IFLA_GROUP]) {
-+		dev_set_group(dev, nla_get_u32(tb[IFLA_GROUP]));
-+		modified = 1;
++		int group = *(int*)RTA_DATA(tb[IFLA_GROUP]);
++		if (group != filter.group)
++			return -1;
 +	}
 +
- 	/*
- 	 * Interface selected by interface index but interface
- 	 * name provided implies that a name change has been
+ 	if (n->nlmsg_type == RTM_DELLINK)
+ 		fprintf(fp, "Deleted ");
+ 
+@@ -718,9 +725,12 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+ 	if (filter.family == AF_UNSPEC)
+ 		filter.family = preferred_family;
+ 
++	filter.group = INIT_NETDEV_GROUP;
++
+ 	if (flush) {
+ 		if (argc <= 0) {
+ 			fprintf(stderr, "Flush requires arguments.\n");
++
+ 			return -1;
+ 		}
+ 		if (filter.family == AF_PACKET) {
+@@ -779,6 +789,10 @@ static int ipaddr_list_or_flush(int argc, char **argv, int flush)
+ 		} else if (strcmp(*argv, "label") == 0) {
+ 			NEXT_ARG();
+ 			filter.label = *argv;
++		} else if (strcmp(*argv, "devgroup") == 0) {
++			NEXT_ARG();
++			if (get_integer(&filter.group, *argv, 0))
++				invarg("Invalid \"devgroup\" value\n", *argv);
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
+diff --git a/ip/iplink.c b/ip/iplink.c
+index a7bad2c..c0378e7 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -66,6 +66,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                  [ address LLADDR ]\n");
+ 	fprintf(stderr, "	                  [ broadcast LLADDR ]\n");
+ 	fprintf(stderr, "	                  [ mtu MTU ]\n");
++	fprintf(stderr, "	                  [ group GROUP ]\n");
+ 	fprintf(stderr, "	                  [ netns PID ]\n");
+ 	fprintf(stderr, "			  [ alias NAME ]\n");
+ 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
 -- 
 1.7.1
 
