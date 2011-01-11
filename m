@@ -1,125 +1,48 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v3 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Tue, 11 Jan 2011 09:31:20 +0100
-Message-ID: <4D2C1558.9070100@grandegger.com>
-References: <1294135195-9448-1-git-send-email-bhupesh.sharma@st.com>	<20110106.113356.102556872.davem@davemloft.net>
-	<4D261AAA.5030005@grandegger.com> <4D261BA4.2020003@pengutronix.de>
-	<4D262158.4030301@grandegger.com> <4D299583.10909@hartkopp.net>
-	<4D29C8F6.5030806@grandegger.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEAFA2D56@EAPEX1MAIL1.st.com>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in 2.6.36.3
+Date: Tue, 11 Jan 2011 00:52:37 -0800 (PST)
+Message-ID: <838977.21111.qm@web121703.mail.ne1.yahoo.com>
+References: <F675EE07F28A0A4E933E5F9DD28672FB01197E098F@orsmsx508.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>,
-	"Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEAFA2D56-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Tushar NDave <tushar.n.dave@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from web121703.mail.ne1.yahoo.com ([98.138.90.124]:45158 "HELO
+	web121703.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751035Ab1AKIwj convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jan 2011 03:52:39 -0500
+In-Reply-To: <F675EE07F28A0A4E933E5F9DD28672FB01197E098F@orsmsx508.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2011 05:13 AM, Bhupesh SHARMA wrote:
-> Hi Oliver and Wolfgang,
-> 
->> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
->> Hi Oliver,
->>
->> On 01/09/2011 12:01 PM, Oliver Hartkopp wrote:
->>> On 06.01.2011 21:08, Wolfgang Grandegger wrote:
->>>> Hi Marc,
->>>>
->>>> On 01/06/2011 08:44 PM, Marc Kleine-Budde wrote:
->>>
->>>>> If this driver will be merged, we'll have two drivers for the same
->> can
->>>>> core in the tree. The other one is the pch_can. What do you think
->> should
->>>>> be the mid term perspective for ccan based hardware?
->>>>
->>>> Yes, I know. Unfortunately, we did realize rather late the the PCH
->>>> controller is a C_CAN clone and the OKI/Intel ppls did not tell us
->>>> either. Therefore I asked Bhupesh to provide a SJA1000-a-like
->> interface
->>>> for the C_CAN, which would allow us to provide an alternative PCI
->> driver
->>>> "pch_pci.c" for the PCH. If that driver works well on the PCH
->> hardware
->>>> as well, we should merge the best of both, if necessary, and then
->>>> finally remove the pch_can driver. Would that be a reasonable
->> proposal.
->>>
->>> At least for me this looks great. The idea to have a similar approach
->> as we
->>> successfully implemented for the sja1000 will solve future hardware
->>> implementations based on the ccan controller core.
->>
->> A common driver for c_can based devices will stabilize more quickly and
->> does also especially reduce the maintanance effort significantly.
->>
->>> BTW. for the next submission of Bhupeshs patchset, i would propose to
->> name the
->>> driver 'ccan' instead of 'c_can', so that we have a
->>>
->>>     linux/drivers/net/can/ccan/...
->>>
->>> path.
->>
->> You are late ;-). Bosch named the controller *C_CAN* and therefore I
->> asked Bhupesh some time ago to change the file name and variable name
->> prefix from ccan to c_can.
-> 
-> Actually V1 of this patchset used the naming convention ccan.
-> But as was rightly pointed out by Wolfgang and Mark, Bosch
-> has officially named this core as C_CAN and the naming convention
-> is kept as C_CAN throughout their user-manual and technical articles.
-> IMHO, `c_can` seems to represent this Bosch core in a better way 
-> than ccan.
-> 
->>> Checking directory names in linux/drivers with
->>>
->>>     find . -type d | grep '_'
->>>
->>> driver names with underscores are pretty unusual and mostly selected
->> without
->>> fortune:
->>>
->>> ./staging/olpc_dcon
->>> ./staging/wlags49_h2
->>> ./staging/wlags49_h2/man
->>> ./staging/serqt_usb2
->>> ./staging/intel_sst
->>> ./staging/quatech_usb2
->>> ./staging/asus_oled
->>> ./staging/wlags49_h25
->>> ./staging/ath6kl/hif/sdio/linux_sdio             <- Ugh!
->>> ./staging/ath6kl/hif/sdio/linux_sdio/src
->>> ./staging/ath6kl/hif/sdio/linux_sdio/include
->>> ./net/pch_gbe
->>> ./net/fs_enet
->>> ./net/wireless/libertas_tf
->>> ./net/ibm_newemacds
->>>
->>> For that reason i would prefer 'ccan' to name this driver core.
->>
->> Well, not really a strong argument. But well, if other people do
->> *prefer* ccan I would not object against it. Bhupesh, what's your
->> opinion.
-> 
-> I also prefer c_can :), because it makes the driver name similar to the
-> core name. Please let me know if you agree for the same.
+--- On Tue, 11/1/11, Dave, Tushar N <tushar.n.dave@intel.com> wrote:
+The reason I asked you about bridge is because I have
+> noticed "br0: port 1(eth1) entering learning state" in the
+> dmesg log you sent.
+> I am trying to figure out exactly what sequence of commands
+> you run that produce this message " br0: port 1(eth1)
+> entering learning state" in log.
 
-I fully agree and if nobody else complains, we should keep "c_can".
+Tushar,
 
-Wolfgang.
+Ah, sorry. I thought you were referring to a PCI bridge, or something similar.
+
+The br0 interface contains the eth1 and eth2 interfaces, which each connects to a PC on the private LAN. The eth0 interface connects to the ADSL router, and br0 holds the PC's internal LAN IP address. (eth0, eth1 and eth2 are all e100 interfaces, of course.)
+
+It's impossible to state whether the problem *only* happens when I use the bridge because:
+a) I've always used the bridge, and need to for the LAN to work, and
+b) the problem is both rare and intermittent, even when it does happen. I certainly didn't notice it with the 2.6.36.2 kernel, nor any of the 2.6.34 or 2.6.35 kernels, although the fact that I did with the 2.6.33.6 kernel suggests it was present in all those kernels anyway.
+
+I'll send you the bridge setup and ifconfig information later; I'm not in front of that PC right now.
+
+Thanks,
+Chris
+
+
+
+      
