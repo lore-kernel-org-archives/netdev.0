@@ -1,48 +1,35 @@
-From: Stefani Seibold <stefani@seibold.net>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] new UDPCP Communication Protocol
-Date: Tue, 11 Jan 2011 21:50:20 +0100
-Message-ID: <1294779020.16410.2.camel@wall-e>
+Date: Tue, 11 Jan 2011 12:52:54 -0800 (PST)
+Message-ID: <20110111.125254.133402589.davem@davemloft.net>
 References: <1294764515-15356-1-git-send-email-stefani@seibold.net>
-	 <1294765273.2927.65.camel@edumazet-laptop>
+	<1294765273.2927.65.camel@edumazet-laptop>
+	<1294779020.16410.2.camel@wall-e>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	davem@davemloft.net, netdev@vger.kernel.org, shemminger@vyatta.com,
-	jj@chaosbits.net, daniel.baluta@gmail.com, jochen@jochen.org,
-	hagen@jauu.net, torvalds@linux-foundation.org, pavel@ucw.cz
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	shemminger@vyatta.com, jj@chaosbits.net, daniel.baluta@gmail.com,
+	jochen@jochen.org, hagen@jauu.net, torvalds@linux-foundation.org,
+	pavel@ucw.cz
+To: stefani@seibold.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294765273.2927.65.camel@edumazet-laptop>
+In-Reply-To: <1294779020.16410.2.camel@wall-e>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am Dienstag, den 11.01.2011, 18:01 +0100 schrieb Eric Dumazet:
-> Le mardi 11 janvier 2011 =E0 17:48 +0100, stefani@seibold.net a =E9cr=
-it :
-> > From: Stefani Seibold <stefani@seibold.net>
-> >=20
-> ...
-> > The implementation is clean and has absolut no side effects to the =
-network
-> > subsystems so i ask for merge it into linux, mm-tree or linux-next.
-> >=20
-> > The patch is against the current linux git tree
-> >=20
-> > - Stefani
-> >=20
-> > Signed-off-by: Stefani Seibold <stefani@seibold.net>
-> > ---
-> > =20
->=20
-> Reading again UDPCP specs, I find it is IPv4/IPv6 agnostic
->=20
-> You copied IPv4 UDP code, so this only handles IPv4...
->=20
+From: Stefani Seibold <stefani@seibold.net>
+Date: Tue, 11 Jan 2011 21:50:20 +0100
 
-Right, but currently there is no need for an IPV6 implementation, non o=
-f
-our base station provide it and non of our mobile network customers use
-it.
+> Right, but currently there is no need for an IPV6 implementation, non of
+> our base station provide it and non of our mobile network customers use
+> it.
+> 
+> If it will be required in the future it will be implemented.
 
-If it will be required in the future it will be implemented.
+We require that you implement the ipv6 side for the submission right
+now.
+
+Long gone are the days when we add ipv4 only implementations of
+protocols.
