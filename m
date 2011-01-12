@@ -1,70 +1,70 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in
- 2.6.36.3
-Date: Wed, 12 Jan 2011 10:05:11 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1101120958080.5816@JBRANDEB-DESK2.amr.corp.intel.com>
-References: <314995.84049.qm@web121708.mail.ne1.yahoo.com> <1294853710.3981.108.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v1 1/2] TCPCT API sysctl update to draft -03
+Date: Wed, 12 Jan 2011 19:05:25 +0100
+Message-ID: <1294855525.3981.119.camel@edumazet-laptop>
+References: <4D2DE824.10205@gmail.com>  <4D2DEA73.4000708@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Chris Rankin <rankincj@yahoo.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Dave, Tushar N" <tushar.n.dave@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:47808 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753457Ab1ALSFM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jan 2011 13:05:12 -0500
-In-Reply-To: <1294853710.3981.108.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: William Allen Simpson <william.allen.simpson@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D2DEA73.4000708@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Eric, thanks for doing this work!
+Le mercredi 12 janvier 2011 =C3=A0 12:52 -0500, William Allen Simpson a
+=C3=A9crit :
+> Use most recently specified symbols of RFC-to-be-6013.
+>=20
+> Allows different global s_data limits for SYN and SYN_ACK.
+>=20
+> CC: "Eric W. Biederman" <ebiederm@xmission.com>
+> CC: Stephen Hemminger <shemminger@vyatta.com>
+> CC: Andi Kleen <andi@firstfloor.org>
 
-On Wed, 12 Jan 2011, Eric Dumazet wrote:
-> Apparently e100 driver uses GFP_ATOMIC allocations in setup phase, and
-> your machine doesnt have enough memory.
 
-This part looks great.
- 
-> I would try following patch, allowing the use of GFP_KERNEL at init
-> time, to let vm games play.
-> 
-> Thanks
-> 
-> [PATCH] e100: use GFP_KERNEL allocations at device init stage
-> 
-> In lowmem conditions, e100 driver can fail its initialization, because
-> of GFP_ATOMIC abuse.
-> 
-> Switch to GFP_KERNEL were applicable.
-> 
-> Add __GFP_NOWARN flag to GFP_ATOMIC allocations, since driver can cope
-> with failed allocations (if setup succeeded)
-> 
-> Reported-by: Chris Rankin <rankincj@yahoo.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Signed-off-by: William.Allen.Simpson@gmail.com
 
-Reviewed-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Should be :
 
-> -		if (unlikely(e100_rx_alloc_skb(nic, rx)))
-> +		if (unlikely(e100_rx_alloc_skb(nic, rx,
-> +					       GFP_ATOMIC | __GFP_NOWARN)))
+Signed-off-by: William Allen Simpson <William.Allen.Simpson@gmail.com>
 
-First, I don't think the following comment should hold up this patch.
+> ---
+>   Documentation/networking/ip-sysctl.txt |   10 ++++++++++
+>   include/net/tcp.h                      |    2 ++
+>   net/ipv4/sysctl_net_ipv4.c             |   25 +++++++++++++++++++++=
++++-
+>   net/ipv4/tcp_output.c                  |   19 +++++++++++++++++--
+>   4 files changed, 53 insertions(+), 3 deletions(-)
 
-As a policy question when I asked about using __GFP_NOWARN before in other 
-Intel ethernet drivers the consensus seemed to be that the warning 
-messages were useful.  All our drivers correctly handle runtime memory 
-failures, but none of them are currently using __GFP_NOWARN.
+Hmm, patch is not inlined, so I have to copy/paste
 
-Can I submit patches to change our other drivers to __GFP_NOWARN?  I think 
-it will make for quite a few less reports of non-issues to the list.  All 
-our drivers that I would be patching already have ethtool counters that 
-count failed allocations.
++static int tcp_cookie_max =3D TCP_COOKIE_MAX;
 
+=2E..
+=20
+ /* Update system visible IP port range */
+ static void set_local_port_range(int range[2])
+@@ -588,7 +591,27 @@ static struct ctl_table ipv4_table[] =3D {
+                .data           =3D &sysctl_tcp_cookie_size,
+                .maxlen         =3D sizeof(int),
+                .mode           =3D 0644,
+-               .proc_handler   =3D proc_dointvec
++               .proc_handler   =3D proc_dointvec_minmax,
++               .extra1         =3D &zero,
++               .extra2         =3D &tcp_cookie_max,
++       },
+
+
+Now sysctl_tcp_cookie_size has a max limit of TCP_COOKIE_MAX, you can
+remove the now uneeded check in :
+
+static u8 tcp_cookie_size_check(u8 desired)
+=2E..
+if (cookie_size >=3D TCP_COOKIE_MAX)
+	/* value too large, specify maximum */
+	return TCP_COOKIE_MAX;
