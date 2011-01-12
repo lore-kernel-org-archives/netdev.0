@@ -1,33 +1,44 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 2/3] bna: Remove unnecessary memset(,0,)
-Date: Wed, 12 Jan 2011 13:21:18 -0800
-Message-ID: <0ed96bd1a053e61c827f2ac09e38cba59e32a21b.1294867098.git.joe@perches.com>
-References: <6f6d4a7a705949a3464471f364f77215f1e796f3.1294867098.git.joe@perches.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rasesh Mody <rmody@brocade.com>, Debashis Dutt <ddutt@brocade.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6f6d4a7a705949a3464471f364f77215f1e796f3.1294867098.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] netfilter: x_table: speedup compat operations
+Date: Wed, 12 Jan 2011 22:14:25 +0100
+Message-ID: <1294866865.3335.3.camel@edumazet-laptop>
+References: <1292693715.18869.148.camel@edumazet-laptop>
+	 <4D2E12B9.6090201@netfilter.org> <1294866229.3335.2.camel@edumazet-laptop>
+	 <4D2E18E5.4000902@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D2E18E5.4000902@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-kzalloc'd memory doesn't need a memset to 0.
+Le mercredi 12 janvier 2011 =C3=A0 22:11 +0100, Pablo Neira Ayuso a =C3=
+=A9crit :
+> On 12/01/11 22:03, Eric Dumazet wrote:
+> > Le mercredi 12 janvier 2011 =C3=A0 21:44 +0100, Pablo Neira Ayuso a=
+ =C3=A9crit :
+> >=20
+> >> minor glitch: We leak xp->compat_tab if this error condition above=
+ is true.
+> >>
+> >=20
+> > I dont think so, pointer is stored in xp->compat_tab
+> >=20
+> > xt_compat_flush_offsets() will free it.
+>=20
+> Indeed, sorry. I'm going apply your patch. Thanks Eric.
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/bna/bnad_ethtool.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Thanks ! I completely forgot about it, to be honest :)
 
-diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/bna/bnad_ethtool.c
-index 99be5ae..142d604 100644
---- a/drivers/net/bna/bnad_ethtool.c
-+++ b/drivers/net/bna/bnad_ethtool.c
-@@ -275,7 +275,6 @@ bnad_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
- 
- 	ioc_attr = kzalloc(sizeof(*ioc_attr), GFP_KERNEL);
- 	if (ioc_attr) {
--		memset(ioc_attr, 0, sizeof(*ioc_attr));
- 		spin_lock_irqsave(&bnad->bna_lock, flags);
- 		bfa_nw_ioc_get_attr(&bnad->bna.device.ioc, ioc_attr);
- 		spin_unlock_irqrestore(&bnad->bna_lock, flags);
--- 
-1.7.3.3.398.g0b0cd.dirty
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
