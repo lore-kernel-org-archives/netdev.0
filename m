@@ -1,49 +1,33 @@
-From: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Subject: Re: TCP connections stall when station re-associates.
-Date: Wed, 12 Jan 2011 13:19:51 -0800
-Message-ID: <4D2E1AF7.4000104@candelatech.com>
-References: <4D2CFDB8.3010907@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: NetDev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4D2CFDB8.3010907-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 2/3] bna: Remove unnecessary memset(,0,)
+Date: Wed, 12 Jan 2011 13:21:18 -0800
+Message-ID: <0ed96bd1a053e61c827f2ac09e38cba59e32a21b.1294867098.git.joe@perches.com>
+References: <6f6d4a7a705949a3464471f364f77215f1e796f3.1294867098.git.joe@perches.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Rasesh Mody <rmody@brocade.com>, Debashis Dutt <ddutt@brocade.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6f6d4a7a705949a3464471f364f77215f1e796f3.1294867098.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 01/11/2011 05:02 PM, Ben Greear wrote:
->
-> We're seeing something funny while testing ath9k and ath5k with
-> multiple VIFs. We are using send-to-self routing rules
-> and have a TCP connection going between two station interfaces
-> connected to the same AP. Kernel is ~2.6.37 (wireless-testing from
-> a few days ago, plus some local patches). We tried commercial
-> APs and ath9k/ath5k APs running 2.6.37 kernel and hostap with
-> similar results.
+kzalloc'd memory doesn't need a memset to 0.
 
-When the stations re-connect, we re-run dhcp client, which involves
-setting IP to zero and then re-acquiring the IP address.  We
-then set up new routing rules, etc to have it back to the way
-it was before the station lost contact with the AP.
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/bna/bnad_ethtool.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-The TCP/IP connections are specifically bound to local IP and port.
-
-Maybe it is invalid to expect TCP connections to survive this
-IP change?
-
-I'll work on reproducing this DHCP behaviour on some regular
-wired interfaces and see if I can reproduce in a simpler test
-case.
-
-Thanks,
-Ben
-
+diff --git a/drivers/net/bna/bnad_ethtool.c b/drivers/net/bna/bnad_ethtool.c
+index 99be5ae..142d604 100644
+--- a/drivers/net/bna/bnad_ethtool.c
++++ b/drivers/net/bna/bnad_ethtool.c
+@@ -275,7 +275,6 @@ bnad_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *drvinfo)
+ 
+ 	ioc_attr = kzalloc(sizeof(*ioc_attr), GFP_KERNEL);
+ 	if (ioc_attr) {
+-		memset(ioc_attr, 0, sizeof(*ioc_attr));
+ 		spin_lock_irqsave(&bnad->bna_lock, flags);
+ 		bfa_nw_ioc_get_attr(&bnad->bna.device.ioc, ioc_attr);
+ 		spin_unlock_irqrestore(&bnad->bna_lock, flags);
 -- 
-Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Candela Technologies Inc  http://www.candelatech.com
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.3.3.398.g0b0cd.dirty
