@@ -1,203 +1,303 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH v4 08/10] ARM: mxs: add ocotp read function
-Date: Wed, 12 Jan 2011 15:50:36 +0100
-Message-ID: <20110112145036.GY12078@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
- <20110111133137.GS12078@pengutronix.de>
- <20110112064711.GG2888@freescale.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: remove dev_txq_stats_fold()
+Date: Wed, 12 Jan 2011 16:02:00 +0100
+Message-ID: <1294844520.3981.84.camel@edumazet-laptop>
+References: <20110112122811.GA9513@ff.dom.local>
+	 <1294837632.3981.18.camel@edumazet-laptop>
+	 <20110112132314.GA9920@ff.dom.local>
+	 <1294839140.3981.23.camel@edumazet-laptop>
+	 <1294840379.3981.31.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
-	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
-	B32542@freescale.com, u.kleine-koenig@pengutronix.de,
-	lw@karo-electronics.de, w.sang@pengutronix.de, jamie@jamieiles.com,
-	jamie@shareable.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Brownell <david-b@pacbell.net>,
+	=?UTF-8?Q?Micha=C5=82?= Nazarewicz <m.nazarewicz@samsung.com>,
+	Neil Jones <neiljay@gmail.com>, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jarek Poplawski <jarkao2@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:50971 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751248Ab1ALOu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 09:50:58 -0500
-Content-Disposition: inline
-In-Reply-To: <20110112064711.GG2888@freescale.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41728 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751730Ab1ALPCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 10:02:05 -0500
+In-Reply-To: <1294840379.3981.31.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 12, 2011 at 02:47:12PM +0800, Shawn Guo wrote:
-> Hi Sascha,
-> 
-> On Tue, Jan 11, 2011 at 02:31:37PM +0100, Sascha Hauer wrote:
-> > On Thu, Jan 06, 2011 at 03:13:16PM +0800, Shawn Guo wrote:
-> > > Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> > > ---
-> > > Changes for v4:
-> > >  - Call cpu_relax() during polling
-> > > 
-> > > Changes for v2:
-> > >  - Add mutex locking for mxs_read_ocotp()
-> > >  - Use type size_t for count and i
-> > >  - Add comment for clk_enable/disable skipping
-> > >  - Add ERROR bit clearing and polling step
-> > > 
-> > >  arch/arm/mach-mxs/Makefile              |    2 +-
-> > >  arch/arm/mach-mxs/include/mach/common.h |    1 +
-> > >  arch/arm/mach-mxs/ocotp.c               |   79 +++++++++++++++++++++++++++++++
-> > >  3 files changed, 81 insertions(+), 1 deletions(-)
-> > >  create mode 100644 arch/arm/mach-mxs/ocotp.c
-> > > 
-> > > diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
-> > > index 39d3f9c..f23ebbd 100644
-> > > --- a/arch/arm/mach-mxs/Makefile
-> > > +++ b/arch/arm/mach-mxs/Makefile
-> > > @@ -1,5 +1,5 @@
-> > >  # Common support
-> > > -obj-y := clock.o devices.o gpio.o icoll.o iomux.o system.o timer.o
-> > > +obj-y := clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system.o timer.o
-> > >  
-> > >  obj-$(CONFIG_SOC_IMX23) += clock-mx23.o mm-mx23.o
-> > >  obj-$(CONFIG_SOC_IMX28) += clock-mx28.o mm-mx28.o
-> > > diff --git a/arch/arm/mach-mxs/include/mach/common.h b/arch/arm/mach-mxs/include/mach/common.h
-> > > index 59133eb..cf02552 100644
-> > > --- a/arch/arm/mach-mxs/include/mach/common.h
-> > > +++ b/arch/arm/mach-mxs/include/mach/common.h
-> > > @@ -13,6 +13,7 @@
-> > >  
-> > >  struct clk;
-> > >  
-> > > +extern int mxs_read_ocotp(int offset, int count, u32 *values);
-> > >  extern int mxs_reset_block(void __iomem *);
-> > >  extern void mxs_timer_init(struct clk *, int);
-> > >  
-> > > diff --git a/arch/arm/mach-mxs/ocotp.c b/arch/arm/mach-mxs/ocotp.c
-> > > new file mode 100644
-> > > index 0000000..e2d39aa
-> > > --- /dev/null
-> > > +++ b/arch/arm/mach-mxs/ocotp.c
-> > > @@ -0,0 +1,79 @@
-> > > +/*
-> > > + * Copyright 2010 Freescale Semiconductor, Inc. All Rights Reserved.
-> > > + *
-> > > + * This program is free software; you can redistribute it and/or modify
-> > > + * it under the terms of the GNU General Public License as published by
-> > > + * the Free Software Foundation; either version 2 of the License, or
-> > > + * (at your option) any later version.
-> > > + *
-> > > + * This program is distributed in the hope that it will be useful,
-> > > + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> > > + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> > > + * GNU General Public License for more details.
-> > > + */
-> > > +
-> > > +#include <linux/delay.h>
-> > > +#include <linux/err.h>
-> > > +#include <linux/mutex.h>
-> > > +
-> > > +#include <mach/mxs.h>
-> > > +
-> > > +#define BM_OCOTP_CTRL_BUSY		(1 << 8)
-> > > +#define BM_OCOTP_CTRL_ERROR		(1 << 9)
-> > > +#define BM_OCOTP_CTRL_RD_BANK_OPEN	(1 << 12)
-> > > +
-> > > +static DEFINE_MUTEX(ocotp_mutex);
-> > > +
-> > > +int mxs_read_ocotp(unsigned offset, size_t count, u32 *values)
-> > > +{
-> > > +	void __iomem *ocotp_base = MXS_IO_ADDRESS(MXS_OCOTP_BASE_ADDR);
-> > > +	int timeout = 0x400;
-> > > +	size_t i;
-> > > +
-> > > +	mutex_lock(&ocotp_mutex);
-> > > +
-> > > +	/*
-> > > +	 * clk_enable(hbus_clk) for ocotp can be skipped
-> > > +	 * as it must be on when system is running.
-> > > +	 */
-> > > +
-> > > +	/* try to clear ERROR bit */
-> > > +	__mxs_clrl(BM_OCOTP_CTRL_ERROR, ocotp_base);
-> > 
-> > This operation does not try to clear the error bit but actually clears
-> > it...
-> > 
-> > > +
-> > > +	/* check both BUSY and ERROR cleared */
-> > > +	while ((__raw_readl(ocotp_base) &
-> > > +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
-> > > +		cpu_relax();
-> > 
-> > ...which means you do not have to poll the error bit here...
-> > 
-> > > +
-> > > +	if (unlikely(!timeout))
-> > > +		goto error_unlock;
-> > > +
-> > > +	/* open OCOTP banks for read */
-> > > +	__mxs_setl(BM_OCOTP_CTRL_RD_BANK_OPEN, ocotp_base);
-> > > +
-> > > +	/* approximately wait 32 hclk cycles */
-> > > +	udelay(1);
-> > > +
-> > > +	/* poll BUSY bit becoming cleared */
-> > > +	timeout = 0x400;
-> > > +	while ((__raw_readl(ocotp_base) & BM_OCOTP_CTRL_BUSY) && --timeout)
-> > > +		cpu_relax();
-> > 
-> > ...which means you can factor out a ocotp_wait_busy function and let the
-> > code speak instead of the comments.
-> > 
-> > > +
-> > > +	if (unlikely(!timeout))
-> > > +		goto error_unlock;
-> > > +
-> > > +	for (i = 0; i < count; i++, offset += 4)
-> > > +		*values++ = __raw_readl(ocotp_base + offset);
-> > 
-> > The registers in the ocotp are 16 byte aligned. Does it really make
-> > sense to provide a function allowing to read the gaps between the
-> > registers?
-> > 
-> Good catch.  The count was added to ease the consecutive otp word
-> reading, as there is bank open/close cost for otp read.  What about
-> the following changes?
-> 
-> int mxs_read_ocotp(unsigned offset, size_t otp_word_cnt, u32 *values)
-> {
-> 	......
-> 
-> 	for (i = 0; i < otp_word_cnt; i++, offset += 0x10)
-> 		*values++ = __raw_readl(ocotp_base + offset);
-> 
-> 	......
-> }
+Le mercredi 12 janvier 2011 =C3=A0 14:52 +0100, Eric Dumazet a =C3=A9cr=
+it :
 
-I would rather make a function like this:
+> Or even better, remove these counters since there is no users left bu=
+t
+> ixgbe.
+>=20
+> (vlans, tunnels, ... now use percpu stats)
+>=20
+>=20
 
-static u32 ocotp[0x27];
+Thanks Jarek for the reminder :)
 
-const u32 *mxs_get_ocotp(void)
-{
-	static int once = 0;
+[PATCH] net: remove dev_txq_stats_fold()
 
-	if (once)
-		return ocotp
+After recent changes, (percpu stats on vlan/tunnels...), we dont need
+anymore per struct netdev_queue tx_bytes/tx_packets/tx_dropped counters=
+=2E
 
-	/* bank open */
+Only remaining users are ixgbe, sch_teql & macvlan :
 
-	for (i = 0; i < 0x27; i++)
-		ocotp[i] = readl(ocotp_base + 0x20 + i * 0x10)
+1) ixgbe can be converted to use existing tx_ring counters.
 
-	/* bank_close */
+2) macvlan incremented txq->tx_dropped, it can use the
+dev->stats.tx_dropped counter.
 
-	once = 1;
+3) sch_teql : almost revert ab35cd4b8f42 (Use net_device internal stats=
+)
+    Now we have ndo_get_stats64(), use it.
 
-	return ocotp;
-}
+This removes a lockdep warning (and possible lockup) in rndis gadget,
+calling dev_get_stats() from hard IRQ context.
+
+Ref: http://www.spinics.net/lists/netdev/msg149202.html
+
+Reported-by: Neil Jones <neiljay@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jarek Poplawski <jarkao2@gmail.com>
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |   23 ++++++++++++++++-------
+ drivers/net/macvtap.c          |    2 +-
+ include/linux/netdevice.h      |    5 -----
+ net/core/dev.c                 |   29 -----------------------------
+ net/sched/sch_teql.c           |   26 +++++++++++++++++++++-----
+ 5 files changed, 38 insertions(+), 47 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_m=
+ain.c
+index a060610..602078b 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -6667,8 +6667,6 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff =
+*skb,
+ 			  struct ixgbe_adapter *adapter,
+ 			  struct ixgbe_ring *tx_ring)
+ {
+-	struct net_device *netdev =3D tx_ring->netdev;
+-	struct netdev_queue *txq;
+ 	unsigned int first;
+ 	unsigned int tx_flags =3D 0;
+ 	u8 hdr_len =3D 0;
+@@ -6765,9 +6763,6 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff =
+*skb,
+ 		/* add the ATR filter if ATR is on */
+ 		if (test_bit(__IXGBE_TX_FDIR_INIT_DONE, &tx_ring->state))
+ 			ixgbe_atr(tx_ring, skb, tx_flags, protocol);
+-		txq =3D netdev_get_tx_queue(netdev, tx_ring->queue_index);
+-		txq->tx_bytes +=3D skb->len;
+-		txq->tx_packets++;
+ 		ixgbe_tx_queue(tx_ring, tx_flags, count, skb->len, hdr_len);
+ 		ixgbe_maybe_stop_tx(tx_ring, DESC_NEEDED);
+=20
+@@ -6925,8 +6920,6 @@ static struct rtnl_link_stats64 *ixgbe_get_stats6=
+4(struct net_device *netdev,
+ 	struct ixgbe_adapter *adapter =3D netdev_priv(netdev);
+ 	int i;
+=20
+-	/* accurate rx/tx bytes/packets stats */
+-	dev_txq_stats_fold(netdev, stats);
+ 	rcu_read_lock();
+ 	for (i =3D 0; i < adapter->num_rx_queues; i++) {
+ 		struct ixgbe_ring *ring =3D ACCESS_ONCE(adapter->rx_ring[i]);
+@@ -6943,6 +6936,22 @@ static struct rtnl_link_stats64 *ixgbe_get_stats=
+64(struct net_device *netdev,
+ 			stats->rx_bytes   +=3D bytes;
+ 		}
+ 	}
++
++	for (i =3D 0; i < adapter->num_tx_queues; i++) {
++		struct ixgbe_ring *ring =3D ACCESS_ONCE(adapter->tx_ring[i]);
++		u64 bytes, packets;
++		unsigned int start;
++
++		if (ring) {
++			do {
++				start =3D u64_stats_fetch_begin_bh(&ring->syncp);
++				packets =3D ring->stats.packets;
++				bytes   =3D ring->stats.bytes;
++			} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
++			stats->tx_packets +=3D packets;
++			stats->tx_bytes   +=3D bytes;
++		}
++	}
+ 	rcu_read_unlock();
+ 	/* following stats updated by ixgbe_watchdog_task() */
+ 	stats->multicast	=3D netdev->stats.multicast;
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 21845af..5933621 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -585,7 +585,7 @@ err:
+ 	rcu_read_lock_bh();
+ 	vlan =3D rcu_dereference(q->vlan);
+ 	if (vlan)
+-		netdev_get_tx_queue(vlan->dev, 0)->tx_dropped++;
++		vlan->dev->stats.tx_dropped++;
+ 	rcu_read_unlock_bh();
+=20
+ 	return err;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index be4957c..d971346 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -520,9 +520,6 @@ struct netdev_queue {
+ 	 * please use this field instead of dev->trans_start
+ 	 */
+ 	unsigned long		trans_start;
+-	u64			tx_bytes;
+-	u64			tx_packets;
+-	u64			tx_dropped;
+ } ____cacheline_aligned_in_smp;
+=20
+ static inline int netdev_queue_numa_node_read(const struct netdev_queu=
+e *q)
+@@ -2265,8 +2262,6 @@ extern void		dev_load(struct net *net, const char=
+ *name);
+ extern void		dev_mcast_init(void);
+ extern struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
+ 					       struct rtnl_link_stats64 *storage);
+-extern void		dev_txq_stats_fold(const struct net_device *dev,
+-					   struct rtnl_link_stats64 *stats);
+=20
+ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a3ef808..83507c2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5523,34 +5523,6 @@ void netdev_run_todo(void)
+ 	}
+ }
+=20
+-/**
+- *	dev_txq_stats_fold - fold tx_queues stats
+- *	@dev: device to get statistics from
+- *	@stats: struct rtnl_link_stats64 to hold results
+- */
+-void dev_txq_stats_fold(const struct net_device *dev,
+-			struct rtnl_link_stats64 *stats)
+-{
+-	u64 tx_bytes =3D 0, tx_packets =3D 0, tx_dropped =3D 0;
+-	unsigned int i;
+-	struct netdev_queue *txq;
+-
+-	for (i =3D 0; i < dev->num_tx_queues; i++) {
+-		txq =3D netdev_get_tx_queue(dev, i);
+-		spin_lock_bh(&txq->_xmit_lock);
+-		tx_bytes   +=3D txq->tx_bytes;
+-		tx_packets +=3D txq->tx_packets;
+-		tx_dropped +=3D txq->tx_dropped;
+-		spin_unlock_bh(&txq->_xmit_lock);
+-	}
+-	if (tx_bytes || tx_packets || tx_dropped) {
+-		stats->tx_bytes   =3D tx_bytes;
+-		stats->tx_packets =3D tx_packets;
+-		stats->tx_dropped =3D tx_dropped;
+-	}
+-}
+-EXPORT_SYMBOL(dev_txq_stats_fold);
+-
+ /* Convert net_device_stats to rtnl_link_stats64.  They have the same
+  * fields in the same order, with only the type differing.
+  */
+@@ -5594,7 +5566,6 @@ struct rtnl_link_stats64 *dev_get_stats(struct ne=
+t_device *dev,
+ 		netdev_stats_to_stats64(storage, ops->ndo_get_stats(dev));
+ 	} else {
+ 		netdev_stats_to_stats64(storage, &dev->stats);
+-		dev_txq_stats_fold(dev, storage);
+ 	}
+ 	storage->rx_dropped +=3D atomic_long_read(&dev->rx_dropped);
+ 	return storage;
+diff --git a/net/sched/sch_teql.c b/net/sched/sch_teql.c
+index af9360d..8b82c13 100644
+--- a/net/sched/sch_teql.c
++++ b/net/sched/sch_teql.c
+@@ -59,6 +59,10 @@ struct teql_master
+ 	struct net_device *dev;
+ 	struct Qdisc *slaves;
+ 	struct list_head master_list;
++	u64	tx_bytes;
++	u64	tx_packets;
++	u64	tx_errors;
++	u64	tx_dropped;
+ };
+=20
+ struct teql_sched_data
+@@ -274,7 +278,6 @@ static inline int teql_resolve(struct sk_buff *skb,
+ static netdev_tx_t teql_master_xmit(struct sk_buff *skb, struct net_de=
+vice *dev)
+ {
+ 	struct teql_master *master =3D netdev_priv(dev);
+-	struct netdev_queue *txq =3D netdev_get_tx_queue(dev, 0);
+ 	struct Qdisc *start, *q;
+ 	int busy;
+ 	int nores;
+@@ -314,8 +317,8 @@ restart:
+ 					__netif_tx_unlock(slave_txq);
+ 					master->slaves =3D NEXT_SLAVE(q);
+ 					netif_wake_queue(dev);
+-					txq->tx_packets++;
+-					txq->tx_bytes +=3D length;
++ 					master->tx_packets++;
++ 					master->tx_bytes +=3D length;
+ 					return NETDEV_TX_OK;
+ 				}
+ 				__netif_tx_unlock(slave_txq);
+@@ -342,10 +345,10 @@ restart:
+ 		netif_stop_queue(dev);
+ 		return NETDEV_TX_BUSY;
+ 	}
+-	dev->stats.tx_errors++;
++	master->tx_errors++;
+=20
+ drop:
+-	txq->tx_dropped++;
++	master->tx_dropped++;
+ 	dev_kfree_skb(skb);
+ 	return NETDEV_TX_OK;
+ }
+@@ -398,6 +401,18 @@ static int teql_master_close(struct net_device *de=
+v)
+ 	return 0;
+ }
+=20
++static struct rtnl_link_stats64 *teql_master_stats64(struct net_device=
+ *dev,
++						     struct rtnl_link_stats64 *stats)
++{
++	struct teql_master *m =3D netdev_priv(dev);
++
++	stats->tx_packets	=3D m->tx_packets;
++	stats->tx_bytes		=3D m->tx_bytes;
++	stats->tx_errors	=3D m->tx_errors;
++	stats->tx_dropped	=3D m->tx_dropped;
++	return stats;
++}
++
+ static int teql_master_mtu(struct net_device *dev, int new_mtu)
+ {
+ 	struct teql_master *m =3D netdev_priv(dev);
+@@ -422,6 +437,7 @@ static const struct net_device_ops teql_netdev_ops =
+=3D {
+ 	.ndo_open	=3D teql_master_open,
+ 	.ndo_stop	=3D teql_master_close,
+ 	.ndo_start_xmit	=3D teql_master_xmit,
++	.ndo_get_stats64 =3D teql_master_stats64,
+ 	.ndo_change_mtu	=3D teql_master_mtu,
+ };
+=20
 
 
--- 
-Pengutronix e.K.                           |                             |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
