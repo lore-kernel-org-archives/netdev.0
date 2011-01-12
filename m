@@ -1,53 +1,169 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next-2.6] netdev: tilepro: Use is_multicast_ether_addr helper
-Date: Wed, 12 Jan 2011 10:31:53 +0100
-Message-ID: <1294824713-10644-1-git-send-email-tklauser@distanz.ch>
-To: Chris Metcalf <cmetcalf@tilera.com>, netdev@vger.kernel.org
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
+Date: Wed, 12 Jan 2011 12:19:10 +0200
+Message-ID: <AANLkTin1LCgEpBNay_o4dzF1ONKanR1HRqcOu3AqqyHu@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=00163630ffe36568b00499a389f9
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Octavian Purdila <opurdila@ixiacom.com>,
+	Vlad Dogaru <ddvlad@rosedu.org>
+To: netdev@vger.kernel.org, Thomas Graf <tgraf@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.zhaw.ch ([160.85.104.50]:38644 "EHLO mx1.zhaw.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751023Ab1ALJbz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jan 2011 04:31:55 -0500
+Received: from mail-qy0-f181.google.com ([209.85.216.181]:53710 "EHLO
+	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751322Ab1ALKTb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 05:19:31 -0500
+Received: by qyk12 with SMTP id 12so483136qyk.19
+        for <netdev@vger.kernel.org>; Wed, 12 Jan 2011 02:19:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use is_multicast_ether_addr from linux/etherdevice.h instead of a custom
-macro. Also remove the broadcast address check, as it is considered a
-multicast address too.
+--00163630ffe36568b00499a389f9
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+The IPV4_DEVCONF_* enums are never exposed to the userspace and it
+would make code simpler to remove all the useless (-1) adjustments.
+
+-----
+
+Thomas Graf added an interface that exposes the enums (counting from 1)
+for libnl which seems to be the only user of the interface:
+
+commit 9f0f7272ac9506f4c8c05cc597b7e376b0b9f3e4
+Author: Thomas Graf <tgraf@infradead.org>
+Date:   Tue Nov 16 04:32:48 2010 +0000
+
+    ipv4: AF_INET link address family
+
+The development branch of libnl[0] redefines the enums in userspace
+counting from 1 (to mimic the 2.6.37 kernel).
+
+The stable[1] version of libnl does not define or use these enums.
+
+This patch adjusts the number received from userspace to not break the
+ABI, but given these circumstances, could we consider the 2.6.37 ABI
+unstable and change the only user to start counting from 0?
+
+[0] http://git.kernel.org/?p=3Dlibs/netlink/libnl.git
+[1] http://git.kernel.org/?p=3Dlibs/netlink/libnl-stable.git
+
+-----
+
+    And the moral of the story is that we had better regard =E2=80=94 after
+    all those centuries! =E2=80=94 zero as a most natural number.
+
+    http://www.cs.utexas.edu/users/EWD/transcriptions/EWD08xx/EWD831.html
+
+CC: Edsger Wybe Dijkstra <dijkstra@cs.utexas.edu>
+CC: Thomas Graf <tgraf@infradead.org>
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- drivers/net/tile/tilepro.c |   10 +---------
- 1 files changed, 1 insertions(+), 9 deletions(-)
+ include/linux/inetdevice.h |    9 +++------
+ net/ipv4/devinet.c         |   44 ++++++++++++++++++++++++++--------------=
+----
+ 2 files changed, 29 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/tile/tilepro.c b/drivers/net/tile/tilepro.c
-index 0e6bac5..8d8b67b 100644
---- a/drivers/net/tile/tilepro.c
-+++ b/drivers/net/tile/tilepro.c
-@@ -142,14 +142,6 @@
- MODULE_AUTHOR("Tilera");
- MODULE_LICENSE("GPL");
- 
--
--#define IS_MULTICAST(mac_addr) \
--	(((u8 *)(mac_addr))[0] & 0x01)
--
--#define IS_BROADCAST(mac_addr) \
--	(((u16 *)(mac_addr))[0] == 0xffff)
--
--
- /*
-  * Queue of incoming packets for a specific cpu and device.
-  *
-@@ -795,7 +787,7 @@ static bool tile_net_poll_aux(struct tile_net_cpu *info, int index)
- 		/*
- 		 * FIXME: Implement HW multicast filter.
- 		 */
--		if (!IS_MULTICAST(buf) && !IS_BROADCAST(buf)) {
-+		if (!is_multicast_ether_addr(buf)) {
- 			/* Filter packets not for our address. */
- 			const u8 *mine = dev->dev_addr;
- 			filter = compare_ether_addr(mine, buf);
--- 
-1.7.0.4
+--00163630ffe36568b00499a389f9
+Content-Type: text/x-patch; charset=US-ASCII;
+	name="0003-ipv4-devconf-start-IPV4_DEVCONF_-from-0.patch"
+Content-Disposition: attachment;
+	filename="0003-ipv4-devconf-start-IPV4_DEVCONF_-from-0.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: a5b366fce8fb224f_0.1
 
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvaW5ldGRldmljZS5oIGIvaW5jbHVkZS9saW51eC9p
+bmV0ZGV2aWNlLmgNCmluZGV4IGFlOGZkYzUuLmU0ZDkzYjIgMTAwNjQ0DQotLS0gYS9pbmNsdWRl
+L2xpbnV4L2luZXRkZXZpY2UuaA0KKysrIGIvaW5jbHVkZS9saW51eC9pbmV0ZGV2aWNlLmgNCkBA
+IC0xMyw3ICsxMyw3IEBADQogDQogZW51bQ0KIHsNCi0JSVBWNF9ERVZDT05GX0ZPUldBUkRJTkc9
+MSwNCisJSVBWNF9ERVZDT05GX0ZPUldBUkRJTkcsDQogCUlQVjRfREVWQ09ORl9NQ19GT1JXQVJE
+SU5HLA0KIAlJUFY0X0RFVkNPTkZfUFJPWFlfQVJQLA0KIAlJUFY0X0RFVkNPTkZfQUNDRVBUX1JF
+RElSRUNUUywNCkBAIC0zOCwxMCArMzgsOSBAQCBlbnVtDQogCUlQVjRfREVWQ09ORl9BQ0NFUFRf
+TE9DQUwsDQogCUlQVjRfREVWQ09ORl9TUkNfVk1BUkssDQogCUlQVjRfREVWQ09ORl9QUk9YWV9B
+UlBfUFZMQU4sDQotCV9fSVBWNF9ERVZDT05GX01BWA0KKwlJUFY0X0RFVkNPTkZfTUFYDQogfTsN
+CiANCi0jZGVmaW5lIElQVjRfREVWQ09ORl9NQVggKF9fSVBWNF9ERVZDT05GX01BWCAtIDEpDQog
+DQogc3RydWN0IGlwdjRfZGV2Y29uZiB7DQogCXZvaWQJKnN5c2N0bDsNCkBAIC03MiwyMCArNzEs
+MTggQEAgc3RydWN0IGluX2RldmljZSB7DQogCXN0cnVjdCByY3VfaGVhZAkJcmN1X2hlYWQ7DQog
+fTsNCiANCi0jZGVmaW5lIElQVjRfREVWQ09ORihjbmYsIGF0dHIpICgoY25mKS5kYXRhW0lQVjRf
+REVWQ09ORl8gIyMgYXR0ciAtIDFdKQ0KKyNkZWZpbmUgSVBWNF9ERVZDT05GKGNuZiwgYXR0cikg
+KChjbmYpLmRhdGFbSVBWNF9ERVZDT05GXyAjIyBhdHRyXSkNCiAjZGVmaW5lIElQVjRfREVWQ09O
+Rl9BTEwobmV0LCBhdHRyKSBcDQogCUlQVjRfREVWQ09ORigoKihuZXQpLT5pcHY0LmRldmNvbmZf
+YWxsKSwgYXR0cikNCiANCiBzdGF0aWMgaW5saW5lIGludCBpcHY0X2RldmNvbmZfZ2V0KHN0cnVj
+dCBpbl9kZXZpY2UgKmluX2RldiwgaW50IGluZGV4KQ0KIHsNCi0JaW5kZXgtLTsNCiAJcmV0dXJu
+IGluX2Rldi0+Y25mLmRhdGFbaW5kZXhdOw0KIH0NCiANCiBzdGF0aWMgaW5saW5lIHZvaWQgaXB2
+NF9kZXZjb25mX3NldChzdHJ1Y3QgaW5fZGV2aWNlICppbl9kZXYsIGludCBpbmRleCwNCiAJCQkJ
+ICAgIGludCB2YWwpDQogew0KLQlpbmRleC0tOw0KIAlzZXRfYml0KGluZGV4LCBpbl9kZXYtPmNu
+Zi5zdGF0ZSk7DQogCWluX2Rldi0+Y25mLmRhdGFbaW5kZXhdID0gdmFsOw0KIH0NCmRpZmYgLS1n
+aXQgYS9uZXQvaXB2NC9kZXZpbmV0LmMgYi9uZXQvaXB2NC9kZXZpbmV0LmMNCmluZGV4IDc0OGNi
+NWIuLjE4MWQ1NTggMTAwNjQ0DQotLS0gYS9uZXQvaXB2NC9kZXZpbmV0LmMNCisrKyBiL25ldC9p
+cHY0L2RldmluZXQuYw0KQEAgLTY1LDIwICs2NSwyMCBAQA0KIA0KIHN0YXRpYyBzdHJ1Y3QgaXB2
+NF9kZXZjb25mIGlwdjRfZGV2Y29uZiA9IHsNCiAJLmRhdGEgPSB7DQotCQlbSVBWNF9ERVZDT05G
+X0FDQ0VQVF9SRURJUkVDVFMgLSAxXSA9IDEsDQotCQlbSVBWNF9ERVZDT05GX1NFTkRfUkVESVJF
+Q1RTIC0gMV0gPSAxLA0KLQkJW0lQVjRfREVWQ09ORl9TRUNVUkVfUkVESVJFQ1RTIC0gMV0gPSAx
+LA0KLQkJW0lQVjRfREVWQ09ORl9TSEFSRURfTUVESUEgLSAxXSA9IDEsDQorCQlbSVBWNF9ERVZD
+T05GX0FDQ0VQVF9SRURJUkVDVFNdID0gMSwNCisJCVtJUFY0X0RFVkNPTkZfU0VORF9SRURJUkVD
+VFNdICAgPSAxLA0KKwkJW0lQVjRfREVWQ09ORl9TRUNVUkVfUkVESVJFQ1RTXSA9IDEsDQorCQlb
+SVBWNF9ERVZDT05GX1NIQVJFRF9NRURJQV0gICAgID0gMSwNCiAJfSwNCiB9Ow0KIA0KIHN0YXRp
+YyBzdHJ1Y3QgaXB2NF9kZXZjb25mIGlwdjRfZGV2Y29uZl9kZmx0ID0gew0KIAkuZGF0YSA9IHsN
+Ci0JCVtJUFY0X0RFVkNPTkZfQUNDRVBUX1JFRElSRUNUUyAtIDFdID0gMSwNCi0JCVtJUFY0X0RF
+VkNPTkZfU0VORF9SRURJUkVDVFMgLSAxXSA9IDEsDQotCQlbSVBWNF9ERVZDT05GX1NFQ1VSRV9S
+RURJUkVDVFMgLSAxXSA9IDEsDQotCQlbSVBWNF9ERVZDT05GX1NIQVJFRF9NRURJQSAtIDFdID0g
+MSwNCi0JCVtJUFY0X0RFVkNPTkZfQUNDRVBUX1NPVVJDRV9ST1VURSAtIDFdID0gMSwNCisJCVtJ
+UFY0X0RFVkNPTkZfQUNDRVBUX1JFRElSRUNUU10gICAgPSAxLA0KKwkJW0lQVjRfREVWQ09ORl9T
+RU5EX1JFRElSRUNUU10gICAgICA9IDEsDQorCQlbSVBWNF9ERVZDT05GX1NFQ1VSRV9SRURJUkVD
+VFNdICAgID0gMSwNCisJCVtJUFY0X0RFVkNPTkZfU0hBUkVEX01FRElBXSAgICAgICAgPSAxLA0K
+KwkJW0lQVjRfREVWQ09ORl9BQ0NFUFRfU09VUkNFX1JPVVRFXSA9IDEsDQogCX0sDQogfTsNCiAN
+CkBAIC0xMzA0LDEyICsxMzA0LDE1IEBAIHN0YXRpYyBpbnQgaW5ldF92YWxpZGF0ZV9saW5rX2Fm
+KGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsDQogDQogCWlmICh0YltJRkxBX0lORVRfQ09O
+Rl0pIHsNCiAJCW5sYV9mb3JfZWFjaF9uZXN0ZWQoYSwgdGJbSUZMQV9JTkVUX0NPTkZdLCByZW0p
+IHsNCi0JCQlpbnQgY2ZnaWQgPSBubGFfdHlwZShhKTsNCisJCQkvKiBVc2Vyc3BhY2UgaW5kZXhl
+cyB0aGVzZSBpZHMgc3RhcnRpbmcgZnJvbSAxLg0KKwkJCSAqIFRoaXMgd2FzIHRoZSB3YXkgdGhl
+IGtlcm5lbCBpbmRleGVkIGVsZW1lbnRzIHRvbywNCisJCQkgKiBidXQgbm93IGl0IGNvdW50cyBm
+cm9tIDAgKi8NCisJCQlpbnQgY2ZnaWQgPSBubGFfdHlwZShhKSAtIDE7DQogDQogCQkJaWYgKG5s
+YV9sZW4oYSkgPCA0KQ0KIAkJCQlyZXR1cm4gLUVJTlZBTDsNCiANCi0JCQlpZiAoY2ZnaWQgPD0g
+MCB8fCBjZmdpZCA+IElQVjRfREVWQ09ORl9NQVgpDQorCQkJaWYgKGNmZ2lkIDwgMCB8fCBjZmdp
+ZCA+PSBJUFY0X0RFVkNPTkZfTUFYKQ0KIAkJCQlyZXR1cm4gLUVJTlZBTDsNCiAJCX0NCiAJfQ0K
+QEAgLTEzMzAsOCArMTMzMywxMyBAQCBzdGF0aWMgaW50IGluZXRfc2V0X2xpbmtfYWYoc3RydWN0
+IG5ldF9kZXZpY2UgKmRldiwgY29uc3Qgc3RydWN0IG5sYXR0ciAqbmxhKQ0KIAkJQlVHKCk7DQog
+DQogCWlmICh0YltJRkxBX0lORVRfQ09ORl0pIHsNCi0JCW5sYV9mb3JfZWFjaF9uZXN0ZWQoYSwg
+dGJbSUZMQV9JTkVUX0NPTkZdLCByZW0pDQotCQkJaXB2NF9kZXZjb25mX3NldChpbl9kZXYsIG5s
+YV90eXBlKGEpLCBubGFfZ2V0X3UzMihhKSk7DQorCQlubGFfZm9yX2VhY2hfbmVzdGVkKGEsIHRi
+W0lGTEFfSU5FVF9DT05GXSwgcmVtKSB7DQorCQkJLyogVXNlcnNwYWNlIGluZGV4ZXMgdGhlc2Ug
+aWRzIHN0YXJ0aW5nIGZyb20gMS4NCisJCQkgKiBUaGlzIHdhcyB0aGUgd2F5IHRoZSBrZXJuZWwg
+aW5kZXhlZCBlbGVtZW50cyB0b28sDQorCQkJICogYnV0IG5vdyBpdCBjb3VudHMgZnJvbSAwICov
+DQorCQkJaW50IGNmZ2lkID0gbmxhX3R5cGUoYSkgLSAxOw0KKwkJCWlwdjRfZGV2Y29uZl9zZXQo
+aW5fZGV2LCBjZmdpZCwgbmxhX2dldF91MzIoYSkpOw0KKwkJfQ0KIAl9DQogDQogCXJldHVybiAw
+Ow0KQEAgLTE0NDksNyArMTQ1Nyw3IEBAIHN0YXRpYyBpbnQgaXB2NF9kb2ludF9hbmRfZmx1c2go
+Y3RsX3RhYmxlICpjdGwsIGludCB3cml0ZSwNCiAJeyBcDQogCQkucHJvY25hbWUJPSBuYW1lLCBc
+DQogCQkuZGF0YQkJPSBpcHY0X2RldmNvbmYuZGF0YSArIFwNCi0JCQkJICBJUFY0X0RFVkNPTkZf
+ICMjIGF0dHIgLSAxLCBcDQorCQkJCSAgSVBWNF9ERVZDT05GXyAjIyBhdHRyLCBcDQogCQkubWF4
+bGVuCQk9IHNpemVvZihpbnQpLCBcDQogCQkubW9kZQkJPSBtdmFsLCBcDQogCQkucHJvY19oYW5k
+bGVyCT0gcHJvYywgXA0KQEAgLTE0NzAsNyArMTQ3OCw3IEBAIHN0YXRpYyBpbnQgaXB2NF9kb2lu
+dF9hbmRfZmx1c2goY3RsX3RhYmxlICpjdGwsIGludCB3cml0ZSwNCiANCiBzdGF0aWMgc3RydWN0
+IGRldmluZXRfc3lzY3RsX3RhYmxlIHsNCiAJc3RydWN0IGN0bF90YWJsZV9oZWFkZXIgKnN5c2N0
+bF9oZWFkZXI7DQotCXN0cnVjdCBjdGxfdGFibGUgZGV2aW5ldF92YXJzW19fSVBWNF9ERVZDT05G
+X01BWF07DQorCXN0cnVjdCBjdGxfdGFibGUgZGV2aW5ldF92YXJzW0lQVjRfREVWQ09ORl9NQVgg
+KyAxXTsNCiAJY2hhciAqZGV2X25hbWU7DQogfSBkZXZpbmV0X3N5c2N0bCA9IHsNCiAJLmRldmlu
+ZXRfdmFycyA9IHsNCkBAIC0xNTA1LDYgKzE1MTMsNyBAQCBzdGF0aWMgc3RydWN0IGRldmluZXRf
+c3lzY3RsX3RhYmxlIHsNCiAJCQkJCSAgICAgICJmb3JjZV9pZ21wX3ZlcnNpb24iKSwNCiAJCURF
+VklORVRfU1lTQ1RMX0ZMVVNISU5HX0VOVFJZKFBST01PVEVfU0VDT05EQVJJRVMsDQogCQkJCQkg
+ICAgICAicHJvbW90ZV9zZWNvbmRhcmllcyIpLA0KKwkJeyB9DQogCX0sDQogfTsNCiANCkBAIC0x
+NTkwLDggKzE1OTksNyBAQCBzdGF0aWMgdm9pZCBkZXZpbmV0X3N5c2N0bF91bnJlZ2lzdGVyKHN0
+cnVjdCBpbl9kZXZpY2UgKmlkZXYpDQogc3RhdGljIHN0cnVjdCBjdGxfdGFibGUgY3RsX2Zvcndh
+cmRfZW50cnlbXSA9IHsNCiAJew0KIAkJLnByb2NuYW1lCT0gImlwX2ZvcndhcmQiLA0KLQkJLmRh
+dGEJCT0gJmlwdjRfZGV2Y29uZi5kYXRhWw0KLQkJCQkJSVBWNF9ERVZDT05GX0ZPUldBUkRJTkcg
+LSAxXSwNCisJCS5kYXRhCQk9ICZpcHY0X2RldmNvbmYuZGF0YVtJUFY0X0RFVkNPTkZfRk9SV0FS
+RElOR10sDQogCQkubWF4bGVuCQk9IHNpemVvZihpbnQpLA0KIAkJLm1vZGUJCT0gMDY0NCwNCiAJ
+CS5wcm9jX2hhbmRsZXIJPSBkZXZpbmV0X3N5c2N0bF9mb3J3YXJkLA0KQEAgLTE2MzUsNyArMTY0
+Myw3IEBAIHN0YXRpYyBfX25ldF9pbml0IGludCBkZXZpbmV0X2luaXRfbmV0KHN0cnVjdCBuZXQg
+Km5ldCkNCiAJCWlmICh0YmwgPT0gTlVMTCkNCiAJCQlnb3RvIGVycl9hbGxvY19jdGw7DQogDQot
+CQl0YmxbMF0uZGF0YSA9ICZhbGwtPmRhdGFbSVBWNF9ERVZDT05GX0ZPUldBUkRJTkcgLSAxXTsN
+CisJCXRibFswXS5kYXRhID0gJmFsbC0+ZGF0YVtJUFY0X0RFVkNPTkZfRk9SV0FSRElOR107DQog
+CQl0YmxbMF0uZXh0cmExID0gYWxsOw0KIAkJdGJsWzBdLmV4dHJhMiA9IG5ldDsNCiAjZW5kaWYN
+Cg==
+--00163630ffe36568b00499a389f9--
