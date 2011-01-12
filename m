@@ -1,49 +1,41 @@
-From: Anton Danilov <littlesmilingcloud@gmail.com>
-Subject: [patch] bridge-utils: show selected bridge
-Date: Wed, 12 Jan 2011 18:29:16 +0300
-Message-ID: <AANLkTi=2TGTSnFLAV0ucST7oWeaxHfchhxPd3y=F-dai@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH v2 1/2] net_device: add support for network device
+ groups
+Date: Wed, 12 Jan 2011 10:40:18 -0500
+Message-ID: <1294846818.2129.3.camel@mojatatu>
+References: <1294763724-9927-1-git-send-email-ddvlad@rosedu.org>
+	 <1294763724-9927-2-git-send-email-ddvlad@rosedu.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Octavian Purdila <opurdila@ixiacom.com>
+To: Vlad Dogaru <ddvlad@rosedu.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:54199 "EHLO
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:49058 "EHLO
 	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754699Ab1ALP3R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 10:29:17 -0500
-Received: by vws16 with SMTP id 16so173903vws.19
-        for <netdev@vger.kernel.org>; Wed, 12 Jan 2011 07:29:16 -0800 (PST)
+	with ESMTP id S1751276Ab1ALPkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 10:40:22 -0500
+Received: by vws16 with SMTP id 16so181789vws.19
+        for <netdev@vger.kernel.org>; Wed, 12 Jan 2011 07:40:21 -0800 (PST)
+In-Reply-To: <1294763724-9927-2-git-send-email-ddvlad@rosedu.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-diff --git a/brctl/brctl_cmd.c b/brctl/brctl_cmd.c
-index d37e99c..d95fe54 100644
---- a/brctl/brctl_cmd.c
-+++ b/brctl/brctl_cmd.c
-@@ -338,8 +338,14 @@ static int show_bridge(const char *name, void *arg)
+On Tue, 2011-01-11 at 18:35 +0200, Vlad Dogaru wrote:
+> Net devices can now be grouped, enabling simpler manipulation from
+> userspace. This patch adds a group field to the net_device strucure, as
+                                                             ^^^^^
+typo
 
- static int br_cmd_show(int argc, char *const* argv)
- {
-+       int i = 0;
-+
-        printf("bridge name\tbridge id\t\tSTP enabled\tinterfaces\n");
--       br_foreach_bridge(show_bridge, NULL);
-+       if (argc == 1)
-+               br_foreach_bridge(show_bridge, NULL);
-+       else
-+               for(i = 2; i <= argc; i++)
-+                       show_bridge(argv[i - 1], NULL);
-        return 0;
- }
+> well as rtnetlink support to query and modify it.
+> 
 
-@@ -454,7 +460,8 @@ static const struct command commands[] = {
-          "<bridge> <port> <cost>\tset path cost" },
-        { 3, "setportprio", br_cmd_setportprio,
-          "<bridge> <port> <prio>\tset port priority" },
--       { 0, "show", br_cmd_show, "\t\t\tshow a list of bridges" },
-+       { 0, "show", br_cmd_show,
-+         "[ <bridge> ]\t\tshow a list of bridges" },
-        { 1, "showmacs", br_cmd_showmacs,
-          "<bridge>\t\tshow a list of mac addrs"},
-        { 1, "showstp", br_cmd_showstp,
--- 
-Anton.
+
+> +	unsigned int group;
+
+Should that be int?
+
+cheers,
+jamal
+
