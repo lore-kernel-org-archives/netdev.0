@@ -1,62 +1,40 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: XT_MATCH_REALM Kconfig whinge...
-Date: Wed, 12 Jan 2011 20:48:13 +0100
-Message-ID: <4D2E057D.30707@netfilter.org>
-References: <20519.1294859715@localhost>
+Subject: Re: [GIT PULL nf-next-2.6] ipvs namespaces
+Date: Wed, 12 Jan 2011 21:29:38 +0100
+Message-ID: <4D2E0F32.8020602@netfilter.org>
+References: <1294294578-8601-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040802060206090200020108"
-Cc: Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20519.1294859715@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------040802060206090200020108
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1294294578-8601-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12/01/11 20:15, Valdis.Kletnieks@vt.edu wrote:
-> scripts/kconfig/conf --silentoldconfig Kconfig
-> warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
-> warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
+Hi Simon,
 
-Does this fix your problem?
+On 06/01/11 07:15, Simon Horman wrote:
+> Hi Patrick,
+> 
+> please consider pulling
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+> in order to get the netns changes to IPVS from Hans Schillstrom.
 
---------------040802060206090200020108
-Content-Type: text/x-patch;
- name="realm.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="realm.patch"
+I'm hitting some conflicts when pulling from your tree.
 
-netfilter: xt_realm: fix unmet direct dependencies
-
-scripts/kconfig/conf --silentoldconfig Kconfig
-warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
-warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
-
-Reported by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 1534f2b..ae56764 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -886,7 +886,8 @@ config NETFILTER_XT_MATCH_RATEEST
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_ADVANCED
--	select NET_CLS_ROUTE
-+	depends on NET_SCHED
-+	depends on NET_CLS_ROUTE
- 	help
- 	  This option adds a `realm' match, which allows you to use the realm
- 	  key from the routing subsystem inside iptables.
-
---------------040802060206090200020108--
+>From git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6
+ * branch            master     -> FETCH_HEAD
+Auto-merging include/linux/netfilter.h
+Auto-merging include/linux/skbuff.h
+Auto-merging include/net/netfilter/nf_conntrack.h
+Auto-merging net/core/skbuff.c
+Auto-merging net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+Auto-merging net/ipv6/netfilter/nf_conntrack_reasm.c
+Auto-merging net/netfilter/core.c
+Auto-merging net/netfilter/ipvs/ip_vs_ctl.c
+CONFLICT (content): Merge conflict in net/netfilter/ipvs/ip_vs_ctl.c
