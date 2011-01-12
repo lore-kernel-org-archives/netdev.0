@@ -1,281 +1,58 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: x_table: speedup compat operations
-Date: Wed, 12 Jan 2011 21:44:41 +0100
-Message-ID: <4D2E12B9.6090201@netfilter.org>
-References: <1292693715.18869.148.camel@edumazet-laptop>
+From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH V8 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Wed, 12 Jan 2011 12:55:17 -0800
+Message-ID: <1294865717.7696.17.camel@work-vm>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+	 <fe2bec763bec155381d62721aa9da84aeca2785c.1293820862.git.richard.cochran@omicron.at>
+	 <AANLkTini2WdT-1v4k9V3JOZYDkA59P+SyscTe8-fK2Wk@mail.gmail.com>
+	 <20110108175028.GA22308@riccoc20.at.omicron.at>
+	 <AANLkTikigXGSACF6R6kfNHyKZ7GFWrUrCMxygvL3fUC6@mail.gmail.com>
+	 <1294678145.3068.6.camel@work-vm>
+	 <AANLkTikdg4Pb5c4wcCU3d3Eku=mpiW_TEkBz0A2VPdVp@mail.gmail.com>
+	 <1294693597.3068.12.camel@work-vm>
+	 <AANLkTik+2udoJ6JyZMhkd1yhr2W9hSWO_vD_zdm+BoOG@mail.gmail.com>
+	 <1294779309.3441.66.camel@work-vm>
+	 <AANLkTikYuYwb4BLsU3BF_=d9fAdcfb0AC2itDBeyFsNq@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:32803 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755462Ab1ALUoq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jan 2011 15:44:46 -0500
-In-Reply-To: <1292693715.18869.148.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTikYuYwb4BLsU3BF_=d9fAdcfb0AC2itDBeyFsNq-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 18/12/10 18:35, Eric Dumazet wrote:
-> One iptables invocation with 135000 rules takes 35 seconds of cpu time
-> on a recent server, using a 32bit distro and a 64bit kernel.
+On Thu, 2011-01-13 at 05:39 +0900, Kuwahara,T. wrote:
+> On Wed, Jan 12, 2011 at 5:55 AM, john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org> wrote:
+> > So the kernel handles leap second insertion via a timer. Thus at the end
+> > of 23:59:59, it will inject a leapsecond by setting the time back by one
+> > second (back to 23:59:59) and setting the TIME_OOP flag.
+> >
+> > This timer is an absolute timer, so if someone moves the clock forward
+> > across the 23:59:59 boundary, the adjustment will still be made.
+> >
+> > The patch is not broken, nor useless.
 > 
-> We eventually trigger NMI/RCU watchdog.
-> 
-> INFO: rcu_sched_state detected stall on CPU 3 (t=6000 jiffies)
-> 
-> COMPAT mode has quadratic behavior and consume 16 bytes of memory per
-> rule.
-> 
-> Switch the xt_compat algos to use an array instead of list, and use a
-> binary search to locate an offset in the sorted array.
-> 
-> This halves memory need (8 bytes per rule), and removes quadratic
-> behavior [ O(N*N) -> O(N*log2(N)) ]
-> 
-> Time of iptables goes from 35 s to 150 ms.
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  include/linux/netfilter/x_tables.h |    3 
->  net/bridge/netfilter/ebtables.c    |    1 
->  net/ipv4/netfilter/arp_tables.c    |    2 
->  net/ipv4/netfilter/ip_tables.c     |    2 
->  net/ipv6/netfilter/ip6_tables.c    |    2 
->  net/netfilter/x_tables.c           |   82 +++++++++++++++------------
->  6 files changed, 57 insertions(+), 35 deletions(-)
-> 
-> diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-> index 742bec0..0f04d98 100644
-> --- a/include/linux/netfilter/x_tables.h
-> +++ b/include/linux/netfilter/x_tables.h
-> @@ -611,8 +611,9 @@ struct _compat_xt_align {
->  extern void xt_compat_lock(u_int8_t af);
->  extern void xt_compat_unlock(u_int8_t af);
->  
-> -extern int xt_compat_add_offset(u_int8_t af, unsigned int offset, short delta);
-> +extern int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta);
->  extern void xt_compat_flush_offsets(u_int8_t af);
-> +extern void xt_compat_init_offsets(u_int8_t af, unsigned int number);
->  extern int xt_compat_calc_jump(u_int8_t af, unsigned int offset);
->  
->  extern int xt_compat_match_offset(const struct xt_match *match);
-> diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-> index cbc9f39..2bf2fb2 100644
-> --- a/net/bridge/netfilter/ebtables.c
-> +++ b/net/bridge/netfilter/ebtables.c
-> @@ -1764,6 +1764,7 @@ static int compat_table_info(const struct ebt_table_info *info,
->  
->  	newinfo->entries_size = size;
->  
-> +	xt_compat_init_offsets(AF_INET, info->nentries);
->  	return EBT_ENTRY_ITERATE(entries, size, compat_calc_entry, info,
->  							entries, newinfo);
->  }
-> diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-> index 3fac340..47e5178 100644
-> --- a/net/ipv4/netfilter/arp_tables.c
-> +++ b/net/ipv4/netfilter/arp_tables.c
-> @@ -883,6 +883,7 @@ static int compat_table_info(const struct xt_table_info *info,
->  	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
->  	newinfo->initial_entries = 0;
->  	loc_cpu_entry = info->entries[raw_smp_processor_id()];
-> +	xt_compat_init_offsets(NFPROTO_ARP, info->number);
->  	xt_entry_foreach(iter, loc_cpu_entry, info->size) {
->  		ret = compat_calc_entry(iter, info, loc_cpu_entry, newinfo);
->  		if (ret != 0)
-> @@ -1350,6 +1351,7 @@ static int translate_compat_table(const char *name,
->  	duprintf("translate_compat_table: size %u\n", info->size);
->  	j = 0;
->  	xt_compat_lock(NFPROTO_ARP);
-> +	xt_compat_init_offsets(NFPROTO_ARP, number);
->  	/* Walk through entries, checking offsets. */
->  	xt_entry_foreach(iter0, entry0, total_size) {
->  		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
-> diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-> index a846d63..c5a75d7 100644
-> --- a/net/ipv4/netfilter/ip_tables.c
-> +++ b/net/ipv4/netfilter/ip_tables.c
-> @@ -1080,6 +1080,7 @@ static int compat_table_info(const struct xt_table_info *info,
->  	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
->  	newinfo->initial_entries = 0;
->  	loc_cpu_entry = info->entries[raw_smp_processor_id()];
-> +	xt_compat_init_offsets(AF_INET, info->number);
->  	xt_entry_foreach(iter, loc_cpu_entry, info->size) {
->  		ret = compat_calc_entry(iter, info, loc_cpu_entry, newinfo);
->  		if (ret != 0)
-> @@ -1681,6 +1682,7 @@ translate_compat_table(struct net *net,
->  	duprintf("translate_compat_table: size %u\n", info->size);
->  	j = 0;
->  	xt_compat_lock(AF_INET);
-> +	xt_compat_init_offsets(AF_INET, number);
->  	/* Walk through entries, checking offsets. */
->  	xt_entry_foreach(iter0, entry0, total_size) {
->  		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
-> diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-> index 4555823..0c9973a 100644
-> --- a/net/ipv6/netfilter/ip6_tables.c
-> +++ b/net/ipv6/netfilter/ip6_tables.c
-> @@ -1093,6 +1093,7 @@ static int compat_table_info(const struct xt_table_info *info,
->  	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
->  	newinfo->initial_entries = 0;
->  	loc_cpu_entry = info->entries[raw_smp_processor_id()];
-> +	xt_compat_init_offsets(AF_INET6, info->number);
->  	xt_entry_foreach(iter, loc_cpu_entry, info->size) {
->  		ret = compat_calc_entry(iter, info, loc_cpu_entry, newinfo);
->  		if (ret != 0)
-> @@ -1696,6 +1697,7 @@ translate_compat_table(struct net *net,
->  	duprintf("translate_compat_table: size %u\n", info->size);
->  	j = 0;
->  	xt_compat_lock(AF_INET6);
-> +	xt_compat_init_offsets(AF_INET6, number);
->  	/* Walk through entries, checking offsets. */
->  	xt_entry_foreach(iter0, entry0, total_size) {
->  		ret = check_compat_entry_size_and_hooks(iter0, info, &size,
-> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> index 8046350..75182ed 100644
-> --- a/net/netfilter/x_tables.c
-> +++ b/net/netfilter/x_tables.c
-> @@ -38,9 +38,8 @@ MODULE_DESCRIPTION("{ip,ip6,arp,eb}_tables backend module");
->  #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
->  
->  struct compat_delta {
-> -	struct compat_delta *next;
-> -	unsigned int offset;
-> -	int delta;
-> +	unsigned int offset; /* offset in kernel */
-> +	int delta; /* delta in 32bit user land */
->  };
->  
->  struct xt_af {
-> @@ -49,7 +48,9 @@ struct xt_af {
->  	struct list_head target;
->  #ifdef CONFIG_COMPAT
->  	struct mutex compat_mutex;
-> -	struct compat_delta *compat_offsets;
-> +	struct compat_delta *compat_tab;
-> +	unsigned int number; /* number of slots in compat_tab[] */
-> +	unsigned int cur; /* number of used slots in compat_tab[] */
->  #endif
->  };
->  
-> @@ -414,54 +415,67 @@ int xt_check_match(struct xt_mtchk_param *par,
->  EXPORT_SYMBOL_GPL(xt_check_match);
->  
->  #ifdef CONFIG_COMPAT
-> -int xt_compat_add_offset(u_int8_t af, unsigned int offset, short delta)
-> +int xt_compat_add_offset(u_int8_t af, unsigned int offset, int delta)
->  {
-> -	struct compat_delta *tmp;
-> +	struct xt_af *xp = &xt[af];
->  
-> -	tmp = kmalloc(sizeof(struct compat_delta), GFP_KERNEL);
-> -	if (!tmp)
-> -		return -ENOMEM;
-> +	if (!xp->compat_tab) {
-> +		if (!xp->number)
-> +			return -EINVAL;
-> +		xp->compat_tab = vmalloc(sizeof(struct compat_delta) * xp->number);
-> +		if (!xp->compat_tab)
-> +			return -ENOMEM;
-> +		xp->cur = 0;
-> +	}
->  
-> -	tmp->offset = offset;
-> -	tmp->delta = delta;
-> +	if (xp->cur >= xp->number)
-> +		return -EINVAL;
+> It takes into account only one upcoming leap second, but ignores all
+> the others.  That's not sufficient for arbitrary adjustments.
 
-minor glitch: We leak xp->compat_tab if this error condition above is true.
+If an application wants to manage the full historical table of
+leapseconds and compensate appropriately, then that's fine. The
+interface proposed still functions in a reasonable manner.
 
->  
-> -	if (xt[af].compat_offsets) {
-> -		tmp->next = xt[af].compat_offsets->next;
-> -		xt[af].compat_offsets->next = tmp;
-> -	} else {
-> -		xt[af].compat_offsets = tmp;
-> -		tmp->next = NULL;
-> -	}
-> +	if (xp->cur)
-> +		delta += xp->compat_tab[xp->cur - 1].delta;
-> +	xp->compat_tab[xp->cur].offset = offset;
-> +	xp->compat_tab[xp->cur].delta = delta;
-> +	xp->cur++;
->  	return 0;
->  }
->  EXPORT_SYMBOL_GPL(xt_compat_add_offset);
->  
->  void xt_compat_flush_offsets(u_int8_t af)
->  {
-> -	struct compat_delta *tmp, *next;
-> -
-> -	if (xt[af].compat_offsets) {
-> -		for (tmp = xt[af].compat_offsets; tmp; tmp = next) {
-> -			next = tmp->next;
-> -			kfree(tmp);
-> -		}
-> -		xt[af].compat_offsets = NULL;
-> +	if (xt[af].compat_tab) {
-> +		vfree(xt[af].compat_tab);
-> +		xt[af].compat_tab = NULL;
-> +		xt[af].number = 0;
->  	}
->  }
->  EXPORT_SYMBOL_GPL(xt_compat_flush_offsets);
->  
->  int xt_compat_calc_jump(u_int8_t af, unsigned int offset)
->  {
-> -	struct compat_delta *tmp;
-> -	int delta;
-> -
-> -	for (tmp = xt[af].compat_offsets, delta = 0; tmp; tmp = tmp->next)
-> -		if (tmp->offset < offset)
-> -			delta += tmp->delta;
-> -	return delta;
-> +	struct compat_delta *tmp = xt[af].compat_tab;
-> +	int mid, left = 0, right = xt[af].cur - 1;
-> +
-> +	while (left <= right) {
-> +		mid = (left + right) >> 1;
-> +		if (offset > tmp[mid].offset)
-> +			left = mid + 1;
-> +		else if (offset < tmp[mid].offset)
-> +			right = mid - 1;
-> +		else
-> +			return mid ? tmp[mid - 1].delta : 0;
-> +	}
-> +	WARN_ON_ONCE(1);
-> +	return 0;
->  }
->  EXPORT_SYMBOL_GPL(xt_compat_calc_jump);
->  
-> +void xt_compat_init_offsets(u_int8_t af, unsigned int number)
-> +{
-> +	xt[af].number = number;
-> +	xt[af].cur = 0;
-> +}
-> +EXPORT_SYMBOL(xt_compat_init_offsets);
-> +
->  int xt_compat_match_offset(const struct xt_match *match)
->  {
->  	u_int16_t csize = match->compatsize ? : match->matchsize;
-> @@ -1337,7 +1351,7 @@ static int __init xt_init(void)
->  		mutex_init(&xt[i].mutex);
->  #ifdef CONFIG_COMPAT
->  		mutex_init(&xt[i].compat_mutex);
-> -		xt[i].compat_offsets = NULL;
-> +		xt[i].compat_tab = NULL;
->  #endif
->  		INIT_LIST_HEAD(&xt[i].target);
->  		INIT_LIST_HEAD(&xt[i].match);
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Again, I agree that leapseconds are annoying to deal with. It would be
+great if time() was defined as TAI time instead of UTC. I'm actually
+hoping to provide a CLOCK_TAI clockid someday.
 
+thanks
+-john
