@@ -1,82 +1,72 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V8 08/13] posix clocks: cleanup the CLOCK_DISPTACH macro
-Date: Wed, 12 Jan 2011 08:37:28 +0100
-Message-ID: <20110112073728.GA2935@riccoc20.at.omicron.at>
-References: <cover.1293820862.git.richard.cochran@omicron.at>
- <503cd1fa268867573001cfc9bb5681ee3b5b32fa.1293820862.git.richard.cochran@omicron.at>
- <alpine.LFD.2.00.1101111224280.12146@localhost6.localdomain6>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v4 05/10] net/fec: add dual fec support for mx28
+Date: Wed, 12 Jan 2011 08:42:25 +0100
+Message-ID: <20110112074225.GY24920@pengutronix.de>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <1294297998-26930-6-git-send-email-shawn.guo@freescale.com>
+ <20110111102717.GG26617@pengutronix.de>
+ <4D2C4BEC.1030003@snapgear.com>
+ <20110111130749.GQ24920@pengutronix.de>
+ <4D2C5A55.7050502@snapgear.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>
-To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: baruch@tkos.co.il, B32542@freescale.com, netdev@vger.kernel.org,
+	Sascha Hauer <s.hauer@pengutronix.de>, jamie@shareable.org,
+	w.sang@pengutronix.de, r64343@freescale.com,
+	linux-arm-kernel@lists.infradead.org, eric@eukrea.com,
+	bryan.wu@canonical.com, jamie@jamieiles.com, davem@davemloft.net,
+	Shawn Guo <shawn.guo@freescale.com>, lw@karo-electronics.de
+To: Greg Ungerer <gerg@snapgear.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42661 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753770Ab1ALHmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 02:42:35 -0500
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1101111224280.12146-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <4D2C5A55.7050502@snapgear.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 11, 2011 at 01:57:23PM +0100, Thomas Gleixner wrote:
-> I wonder whether we should be a bit more clever here and create an
-> extra entry for posix_cpu_timers in the posix_clocks array and do the
-> following:
-...
-> That reduces the code significantly and the MAX_CLOCKS check in
-> clock_get_array_id() replaces the invalid_clock() check in the
-> syscalls as well. It does not matter whether we check this before or
-> after copying stuff from user.
+Hi Greg,
 
-Well, this does reduce the number of LOC, but the number of
-comparisons is the same. I think the code size would be also no
-different.
+On Tue, Jan 11, 2011 at 11:25:41PM +1000, Greg Ungerer wrote:
+> On 11/01/11 23:07, Uwe Kleine-K=F6nig wrote:
+> >On Tue, Jan 11, 2011 at 10:24:12PM +1000, Greg Ungerer wrote:
+> >>On 11/01/11 20:27, Sascha Hauer wrote:
+> >>>On Thu, Jan 06, 2011 at 03:13:13PM +0800, Shawn Guo wrote:
+> >>>This option is used nowhere and should be removed. Certainly it do=
+es not
+> >>>have the effect of enabling the second ethernet controller.
+> >>
+> >>It does for a ColdFire platform...
+> >>
+> >>grep -r CONFIG_FEC2 *
+> >>
+> >>arch/m68knommu/configs/m5275evb_defconfig:CONFIG_FEC2=3Dy
+> >>arch/m68knommu/platform/527x/config.c:#ifdef CONFIG_FEC2
+> >>arch/m68knommu/platform/527x/config.c:#ifdef CONFIG_FEC2
+> >IMHO Sascha's comment[1] applies here, too.
+>=20
+> I am not arguing that it doesn't :-)
+>=20
+> Simply that removing that config option and doing nothing
+> else would not be the right thing to do.
+>=20
+> Regards
+> Greg
+>=20
+>=20
+> >And someone might want to do what he suggested soon or the patch
+> >removing CONFIG_FEC2[2] needs to be commented accordingly.
+note that davem took the patch removing CONFIG_FEC2 now.
 
-> Adding your new stuff requires just another entry in the array, the
-> setup of the function pointers and the CLOCKFD check in
-> clock_get_array_id(). Everything else just falls in place.
+Best regards
+Uwe
 
-For me, I am not sure if either version is really very pretty or easy
-to understand.
-
-My instinct is to keep the posix_cpu_X and pc_X functions out of the
-array of static clock id functions, if only to make the distinction
-between the legacy static ids and new dynamic ids clear.
-
-The conclusion from the "dynamic clock as file" discussion was that we
-don't want to add any more static clock ids, and new clocks should use
-the new, dynamic clock API. So, we should discourage any future
-attempt to add to that function array!
-
-Having said that, if you insist on it, I won't mind reworking the
-dispatch code as you suggested.
-
-> > +
-> > +#define CLOCK_DISPATCH(clock, call, arglist) dispatch_##call arglist
-> > +
-> 
-> Can we get rid of this completely please ?
-
-Yes, gladly.
-
-> >  clock_nanosleep_restart(struct restart_block *restart_block)
-> >  {
-> > -	clockid_t which_clock = restart_block->arg0;
-> > -
-> 
-> How does that compile ?
-
-Because the CLOCK_DISPATCH macro, above, makes no use of the first
-argument! I have removed the macro for the next round.
-
-> >  	return CLOCK_DISPATCH(which_clock, nsleep_restart,
-> >  			      (restart_block));
-> >  }
-
-Thanks,
-Richard
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
