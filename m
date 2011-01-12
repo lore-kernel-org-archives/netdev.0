@@ -1,285 +1,263 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: panic in tg3 driver
-Date: Tue, 11 Jan 2011 19:06:52 -0800
-Message-ID: <20110112030652.GA27164@mcarlson.broadcom.com>
-References: <4D2334B5.1060408@earthlink.net>
- <4D2A371A.40103@earthlink.net>
- <20110110192216.GA23741@mcarlson.broadcom.com>
- <4D2B6652.7040607@earthlink.net>
- <20110111020055.GA25351@mcarlson.broadcom.com>
- <4D2C64EF.1080905@earthlink.net>
+From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Subject: RE: [PATCH net-next-2.6 v4 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Wed, 12 Jan 2011 11:30:54 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEAFA3066@EAPEX1MAIL1.st.com>
+References: <1294746592-12144-1-git-send-email-bhupesh.sharma@st.com>
+	<4D2C5845.4050805@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Linux Kernel Network Developers" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Stephen Clark" <sclark46@earthlink.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4227 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756190Ab1ALDHG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jan 2011 22:07:06 -0500
-In-Reply-To: <4D2C64EF.1080905@earthlink.net>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D2C5845.4050805-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 11, 2011 at 06:10:55AM -0800, Stephen Clark wrote:
-> On 01/10/2011 09:00 PM, Matt Carlson wrote:
-> > On Mon, Jan 10, 2011 at 12:04:34PM -0800, Stephen Clark wrote:
-> >    
-> >> On 01/10/2011 02:22 PM, Matt Carlson wrote:
-> >>      
-> >>> On Sun, Jan 09, 2011 at 02:30:50PM -0800, Stephen Clark wrote:
-> >>>
-> >>>        
-> >>>> On 01/04/2011 09:54 AM, Stephen Clark wrote:
-> >>>>
-> >>>>          
-> >>>>> Hello,
-> >>>>>
-> >>>>>
-> >>>>> The hardware is an Acrosser AR-M0898B micro box.
-> >>>>>    lspci
-> >>>>> 00:00.0 Host bridge: VIA Technologies, Inc. CN700/VN800/P4M800CE/Pro
-> >>>>> Host Bridge
-> >>>>> 00:00.1 Host bridge: VIA Technologies, Inc. CN700/VN800/P4M800CE/Pro
-> >>>>> Host Bridge
-> >>>>> 00:00.2 Host bridge: VIA Technologies, Inc. CN700/VN800/P4M800CE/Pro
-> >>>>> Host Bridge
-> >>>>> 00:00.3 Host bridge: VIA Technologies, Inc. PT890 Host Bridge
-> >>>>> 00:00.4 Host bridge: VIA Technologies, Inc. CN700/VN800/P4M800CE/Pro
-> >>>>> Host Bridge
-> >>>>> 00:00.7 Host bridge: VIA Technologies, Inc. CN700/VN800/P4M800CE/Pro
-> >>>>> Host Bridge
-> >>>>> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8237/VX700 PCI Bridge
-> >>>>> 00:0f.0 IDE interface: VIA Technologies, Inc. VT8251 Serial ATA
-> >>>>> Controller (rev
-> >>>>> 20)
-> >>>>> 00:0f.1 IDE interface: VIA Technologies, Inc.
-> >>>>> VT82C586A/B/VT82C686/A/B/VT823x/A/
-> >>>>> C PIPC Bus Master IDE (rev 07)
-> >>>>> 00:10.0 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
-> >>>>> Controller
-> >>>>>    (rev 91)
-> >>>>> 00:10.1 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
-> >>>>> Controller
-> >>>>>    (rev 91)
-> >>>>> 00:10.2 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
-> >>>>> Controller
-> >>>>>    (rev 91)
-> >>>>> 00:10.3 USB Controller: VIA Technologies, Inc. VT82xxxxx UHCI USB 1.1
-> >>>>> Controller
-> >>>>>    (rev 91)
-> >>>>> 00:10.4 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 90)
-> >>>>> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8251 PCI to ISA Bridge
-> >>>>> 00:11.7 Host bridge: VIA Technologies, Inc. VT8251 Ultra VLINK Controller
-> >>>>> 00:13.0 Host bridge: VIA Technologies, Inc. VT8251 Host Bridge
-> >>>>> 00:13.1 PCI bridge: VIA Technologies, Inc. VT8251 PCI to PCI Bridge
-> >>>>> 02:08.0 Ethernet controller: Broadcom Corporation BCM4401 100Base-T
-> >>>>> (rev 02)
-> >>>>> 02:09.0 Ethernet controller: Broadcom Corporation BCM4401 100Base-T
-> >>>>> (rev 02)
-> >>>>> 80:00.0 PCI bridge: VIA Technologies, Inc. VT8251 PCIE Root Port
-> >>>>> 80:00.1 PCI bridge: VIA Technologies, Inc. VT8251 PCIE Root Port
-> >>>>> 81:00.0 Ethernet controller: Broadcom Corporation NetLink BCM5906M
-> >>>>> Fast Ethernet
-> >>>>>    PCI Express (rev 02)
-> >>>>> 82:00.0 Ethernet controller: Broadcom Corporation NetLink BCM5906M
-> >>>>> Fast Ethernet
-> >>>>>    PCI Express (rev 02)
-> >>>>>
-> >>>>> Kernel 2.6.36-2.el5.elrepo on an i686
-> >>>>>
-> >>>>> When I try to ifconfig either of the BCM5906M ports the system panics.
-> >>>>>
-> >>>>> Ideas, fixes ?
-> >>>>>
-> >>>>> [root@Z1010 ~]# modprobe tg3
-> >>>>> [root@Z1010 ~]# ifconfig eth2 2.2.2.2/24
-> >>>>> ------------[ cut here ]------------
-> >>>>> kernel BUG at drivers/net/tg3.c:4365!
-> >>>>> invalid opcode: 0000 [#1] PREEMPT SMP
-> >>>>> last sysfs file: /sys/class/net/eth3/address
-> >>>>> Modules linked in: tg3 xt_tcpudp ipt_LOG xt_limit xt_state
-> >>>>> iptable_mangle af_ke]
-> >>>>>
-> >>>>> Pid: 20303, comm: kworker/0:2 Not tainted 2.6.36-2.el5.elrepo #1
-> >>>>> CN700-8251/
-> >>>>> EIP: 0060:[<e1c62f19>] EFLAGS: 00010202 CPU: 0
-> >>>>> EIP is at tg3_tx_recover+0x1e/0x53 [tg3]
-> >>>>> EAX: deece4c0 EBX: dfa9c000 ECX: deece4c0 EDX: ffffffff
-> >>>>> ESI: deece4c0 EDI: deece500 EBP: c1801f38 ESP: c1801f30
-> >>>>>    DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-> >>>>> Process kworker/0:2 (pid: 20303, ti=c1801000 task=df0105d0
-> >>>>> task.ti=dee62000)
-> >>>>> Stack:
-> >>>>>    dfa9c000 00000000 c1801f6c e1c630be c1801f6c deece4c0 00000840 00000000
-> >>>>> <0>   df251cc0 00000005 00000000 df979800 deece500 deece4c0 00000040
-> >>>>> c1801f94
-> >>>>> <0>   e1c661e5 00000000 00000040 c1801f88 e09df1d2 00000000 deece500
-> >>>>> dfab4000
-> >>>>> Call Trace:
-> >>>>>    [<e1c630be>] ? tg3_tx+0x157/0x1a2 [tg3]
-> >>>>>    [<e1c661e5>] ? tg3_poll_work+0x2b/0x10b [tg3]
-> >>>>>    [<e09df1d2>] ? ssb_write32+0x11/0x14 [b44]
-> >>>>>    [<e1c662f9>] ? tg3_poll+0x34/0x9a [tg3]
-> >>>>>    [<c0674058>] ? net_rx_action+0x7e/0x11c
-> >>>>>    [<c04409c9>] ? __do_softirq+0x85/0x10c
-> >>>>>    [<c0440944>] ? __do_softirq+0x0/0x10c
-> >>>>> <IRQ>
-> >>>>>    [<c04404ef>] ? _local_bh_enable_ip+0x68/0x87
-> >>>>>    [<c044051b>] ? local_bh_enable_ip+0xd/0xf
-> >>>>>    [<c046593b>] ? __raw_spin_unlock_bh+0x1c/0x1e
-> >>>>>    [<c06fa4f2>] ? _raw_spin_unlock_bh+0xd/0xf
-> >>>>>    [<e1c6281f>] ? spin_unlock_bh+0xd/0xf [tg3]
-> >>>>>    [<e1c62cbe>] ? tg3_full_unlock+0x10/0x12 [tg3]
-> >>>>>    [<e1c664c7>] ? tg3_reset_task+0xd7/0xe3 [tg3]
-> >>>>>    [<c044ec37>] ? process_one_work+0x10b/0x1bc
-> >>>>>    [<e1c663f0>] ? tg3_reset_task+0x0/0xe3 [tg3]
-> >>>>>    [<c044fd41>] ? worker_thread+0x77/0xf9
-> >>>>>    [<c0453048>] ? kthread+0x60/0x65
-> >>>>>    [<c044fcca>] ? worker_thread+0x0/0xf9
-> >>>>>    [<c0452fe8>] ? kthread+0x0/0x65
-> >>>>>    [<c040337e>] ? kernel_thread_helper+0x6/0x10
-> >>>>> Code: f0 e8 88 ff ff ff 8d 65 f8 5b 5e 5d c3 55 89 e5 56 53 0f 1f 44
-> >>>>> 00 00 f6 8
-> >>>>> EIP: [<e1c62f19>] tg3_tx_recover+0x1e/0x53 [tg3] SS:ESP 0068:c1801f30
-> >>>>> ---[ end trace 82381e9b93e397ad ]---
-> >>>>> Kernel panic - not syncing: Fatal exception in interrupt
-> >>>>> Pid: 20303, comm: kworker/0:2 Tainted: G      D
-> >>>>> 2.6.36-2.el5.elrepo #1
-> >>>>> Call Trace:
-> >>>>>    [<c043b3cd>] panic+0x62/0x15d
-> >>>>>    [<c06fb7d1>] oops_end+0x99/0xa8
-> >>>>>    [<e1c62f19>] ? tg3_tx_recover+0x1e/0x53 [tg3]
-> >>>>>    [<c0405a62>] die+0x58/0x5e
-> >>>>>
-> >>>>> Thanks,
-> >>>>> Steve
-> >>>>>
-> >>>>>
-> >>>>>            
-> >>>> Additonal info I compiled the latest kernel 2.6.37-rc8+ and still have the problem.
-> >>>> Also boot with noapic I see this in the dmesg log and interrupts are increasing
-> >>>> like crazy:
-> >>>> tg3.c:v3.115 (October 14, 2010)
-> >>>> tg3 0000:81:00.0: PCI INT A ->   Link[LNKA] ->   GSI 10 (level, low) ->   IRQ 10
-> >>>> tg3 0000:81:00.0: setting latency timer to 64
-> >>>> tg3 0000:81:00.0: PCI: Disallowing DAC for device
-> >>>> tg3 0000:81:00.0: eth2: Tigon3 [partno(BCM95906) rev c002] (PCI Express) MAC add
-> >>>> ress 00:02:b6:36:d1:39
-> >>>> tg3 0000:81:00.0: eth2: attached PHY is 5906 (10/100Base-TX Ethernet) (WireSpeed
-> >>>> [0])
-> >>>> tg3 0000:81:00.0: eth2: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-> >>>> tg3 0000:81:00.0: eth2: dma_rwctrl[76180000] dma_mask[32-bit]
-> >>>> tg3 0000:82:00.0: PCI INT A ->   Link[LNKA] ->   GSI 10 (level, low) ->   IRQ 10
-> >>>> tg3 0000:82:00.0: setting latency timer to 64
-> >>>> tg3 0000:82:00.0: PCI: Disallowing DAC for device
-> >>>> tg3 0000:82:00.0: eth3: Tigon3 [partno(BCM95906) rev c002] (PCI Express) MAC add
-> >>>> ress 00:02:b6:36:d1:3a
-> >>>> tg3 0000:82:00.0: eth3: attached PHY is 5906 (10/100Base-TX Ethernet) (WireSpeed
-> >>>> [0])
-> >>>> tg3 0000:82:00.0: eth3: RXcsums[1] LinkChgREG[0] MIirq[0] ASF[0] TSOcap[1]
-> >>>> tg3 0000:82:00.0: eth3: dma_rwctrl[76180000] dma_mask[32-bit]
-> >>>> tg3 0000:81:00.0: irq 40 for MSI/MSI-X
-> >>>> tg3 0000:81:00.0: eth2: No interrupt was generated using MSI. Switching to INTx
-> >>>> mode. Please report this failure to the PCI maintainer and include system chipse
-> >>>> t information
-> >>>> ADDRCONF(NETDEV_UP): eth2: link is not ready
-> >>>> [root@Z1010 ~]# cat /proc/interrupts
-> >>>>               CPU0
-> >>>>      0:        162    XT-PIC-XT-PIC    timer
-> >>>>      1:          2    XT-PIC-XT-PIC    i8042
-> >>>>      2:          0    XT-PIC-XT-PIC    cascade
-> >>>>      3:          1    XT-PIC-XT-PIC
-> >>>>      4:       4863    XT-PIC-XT-PIC    serial
-> >>>>      6:          2    XT-PIC-XT-PIC    floppy
-> >>>>      7:          5    XT-PIC-XT-PIC    ehci_hcd:usb1, uhci_hcd:usb3
-> >>>>      8:          0    XT-PIC-XT-PIC    rtc0
-> >>>>      9:          0    XT-PIC-XT-PIC    acpi
-> >>>>     10:    2334234    XT-PIC-XT-PIC    uhci_hcd:usb2, eth0, eth2
-> >>>>
-> >>>> [root@Z1010 ~]# cat /proc/interrupts |grep eth2
-> >>>>     10:   18388914    XT-PIC-XT-PIC    uhci_hcd:usb2, eth0, eth2
-> >>>> [root@Z1010 ~]# cat /proc/interrupts |grep eth2
-> >>>>     10:   18901627    XT-PIC-XT-PIC    uhci_hcd:usb2, eth0, eth2
-> >>>>
-> >>>> -- 
-> >>>>
-> >>>> "They that give up essential liberty to obtain temporary safety,
-> >>>> deserve neither liberty nor safety."  (Ben Franklin)
-> >>>>
-> >>>> "The course of history shows that as a government grows, liberty
-> >>>> decreases."  (Thomas Jefferson)
-> >>>>
-> >>>>          
-> >>> I think drivers/net/tg3.c:4365 is at the line that reads
-> >>> "spin_lock(&tp->lock);" in tg3_tx_recover.  Can you verify?
-> >>>
-> >>>
-> >>>        
-> >>
-> >>           tg3_readphy(tp, MII_TG3_DSP_RW_PORT,&phy2);
-> >>
-> >> in static void tg3_serdes_parallel_detect(struct tg3 *tp)
-> >>
-> >> The driver version is:
-> >> #define DRV_MODULE_NAME        "tg3"
-> >> #define TG3_MAJ_NUM            3
-> >> #define TG3_MIN_NUM            115
-> >>      
-> >
-> > That doesn't look right.  The line number I quoted came from the kernel
-> > panic output from 2.6.36-2.el5.elrepo.  I'm guessing you quoted me the
-> > sources from the tg3.c file in 2.6.37-rc8+.  If you don't have the
-> > 2.6.36-2.el5.elrepo sources readily available, can you give me the line
-> > the kernel panic specifies from the tg3.c file from your 2.6.37-rc8+
-> > sources?
-> >
-> >    
-> Oops - You are correct. The problem is most of the time I don't get a 
-> panic on the
-> screen the box simply reboots.
+Hi Wolfgang,
+
+> -----Original Message-----
+> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
+> Hi Bhupesh,
 > 
-> I'll see if I can get the 2.6.36-2 sources - though they are suppose to 
-> be the virgin
-> kernel.org sources simply recompiled for Centos.
+> some final nitpicking as you need to fix Marc remarks anyway...
 > 
-> static void tg3_tx_recover(struct tg3 *tp)
-> {
->      BUG_ON((tp->tg3_flags & TG3_FLAG_MBOX_WRITE_REORDER) ||
-> 4365:           tp->write32_tx_mbox == tg3_write_indirect_mbox);
-> 
-> 
-> > It looks like there are a lot of devices on IRQ 10.  Does the interrupt
-> > count drop if you bring down eth0 (which I'm guessing is the b44 device)?
-> >    
-> This happens when I boot with noapic. Which I only did as a test. With 
-> the noapic option
-> the system doesn't panic - but gets all these extra interrupts as soon 
-> as I ifconfig one of
-> the 5906 ports.
-
-I was wondering if the b44 device is having a problem with shared
-interrupts.
-
-> > Can you tell me if you saw the following message in the syslogs?
+> On 01/11/2011 12:49 PM, Bhupesh Sharma wrote:
+> > Bosch C_CAN controller is a full-CAN implementation which is
+> compliant
+> > to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can
+> be
+> > obtained from:
+> > http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/
+> > c_can/users_manual_c_can.pdf
 > >
-> > "The system may be re-ordering memory-mapped I/O cycles to the network
-> >   device, attempting to recover.  Please report the problem to the driver
-> >   maintainer and include system chipset information."
+> > This patch adds the support for this controller.
+> > The following are the design choices made while writing the
+> controller
+> > driver:
+> > 1. Interface Register set IF1 has be used only in the current design.
+> > 2. Out of the 32 Message objects available, 16 are kept aside for RX
+> >    purposes and the rest for TX purposes.
+> > 3. NAPI implementation is such that both the TX and RX paths function
+> >    in polling mode.
 > >
-> >    
-> Couldn't find this in the messages file.
+> > Changes since V3:
+> > 1. Corrected commenting style.
+> > 2. Removing *non-required* header files from driver files.
+> > 3. Removed extra *non-required* outer brackets globally.
+> > 4. Implemented and used a inline routine to check BUSY status.
+> > 5. Added a board-specific param *priv* inside the c_can_priv struct.
+> >
+> > Signed-off-by: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+> 
+> ...
+> > +++ b/drivers/net/can/c_can/c_can.h
+> > @@ -0,0 +1,235 @@
+> > +/*
+> > + * CAN bus driver for Bosch C_CAN controller
+> > + *
+> > + * Copyright (C) 2010 ST Microelectronics
+> > + * Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+> > + *
+> > + * Borrowed heavily from the C_CAN driver originally written by:
+> > + * Copyright (C) 2007
+> > + * - Sascha Hauer, Marc Kleine-Budde, Pengutronix
+> <s.hauer-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> > + * - Simon Kallweit, intefo AG <simon.kallweit-+G9qxTFKJT/tRgLqZ5aouw@public.gmane.org>
+> > + *
+> > + * TX and RX NAPI implementation has been borrowed from at91 CAN
+> driver
+> > + * written by:
+> > + * Copyright
+> > + * (C) 2007 by Hans J. Koch <hjk-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+> > + * (C) 2008, 2009 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> > + *
+> > + * Bosch C_CAN controller is compliant to CAN protocol version 2.0
+> part A and B.
+> > + * Bosch C_CAN user manual can be obtained from:
+> > + *
+> http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/c_can/
+> > + * users_manual_c_can.pdf
+> > + *
+> > + * This file is licensed under the terms of the GNU General Public
+> > + * License version 2. This program is licensed "as is" without any
+> > + * warranty of any kind, whether express or implied.
+> > + */
+> > +
+> > +#ifndef C_CAN_H
+> > +#define C_CAN_H
+> > +
+> > +/* control register */
+> > +#define CONTROL_TEST		BIT(7)
+> > +#define CONTROL_CCE		BIT(6)
+> > +#define CONTROL_DISABLE_AR	BIT(5)
+> > +#define CONTROL_ENABLE_AR	(0 << 5)
+> > +#define CONTROL_EIE		BIT(3)
+> > +#define CONTROL_SIE		BIT(2)
+> > +#define CONTROL_IE		BIT(1)
+> > +#define CONTROL_INIT		BIT(0)
+> > +
+> > +/* test register */
+> > +#define TEST_RX			BIT(7)
+> > +#define TEST_TX1		BIT(6)
+> > +#define TEST_TX2		BIT(5)
+> > +#define TEST_LBACK		BIT(4)
+> > +#define TEST_SILENT		BIT(3)
+> > +#define TEST_BASIC		BIT(2)
+> > +
+> > +/* status register */
+> > +#define STATUS_BOFF		BIT(7)
+> > +#define STATUS_EWARN		BIT(6)
+> > +#define STATUS_EPASS		BIT(5)
+> > +#define STATUS_RXOK		BIT(4)
+> > +#define STATUS_TXOK		BIT(3)
+> > +#define STATUS_LEC_MASK		0x07
+> > +
+> > +/* error counter register */
+> > +#define ERR_COUNTER_TEC_MASK	0xff
+> > +#define ERR_COUNTER_TEC_SHIFT	0
+> > +#define ERR_COUNTER_REC_SHIFT	8
+> > +#define ERR_COUNTER_REC_MASK	(0x7f << ERR_COUNTER_REC_SHIFT)
+> > +#define ERR_COUNTER_RP_SHIFT	15
+> > +#define ERR_COUNTER_RP_MASK	(0x1 << ERR_COUNTER_RP_SHIFT)
+> 
+> s/ERR_COUNTER/ERR_CNT/ to match the member name.
 
-Can you give me the output of 'lspci -vvv -xxx -s 81:00.0' and
-'ethtool -i eth2'?
+Ok.
 
-I'm wondering if this BUG_ON is a symptom of a different problem
-masquerading as a write-reordering bug.  Do you have IPv6 configured?
-If not, what happens if you just run 'ifconfig eth2 up', without
-assigning an IP address?
+> > +
+> > +/* bit-timing register */
+> > +#define BTR_BRP_MASK		0x3f
+> > +#define BTR_BRP_SHIFT		0
+> > +#define BTR_SJW_SHIFT		6
+> > +#define BTR_SJW_MASK		(0x3 << BTR_SJW_SHIFT)
+> > +#define BTR_TSEG1_SHIFT		8
+> > +#define BTR_TSEG1_MASK		(0xf << BTR_TSEG1_SHIFT)
+> > +#define BTR_TSEG2_SHIFT		12
+> > +#define BTR_TSEG2_MASK		(0x7 << BTR_TSEG2_SHIFT)
+> > +
+> > +/* brp extension register */
+> > +#define BRP_EXT_BRPE_MASK	0x0f
+> > +#define BRP_EXT_BRPE_SHIFT	0
+> > +
+> > +/* IFx command request */
+> > +#define IF_COMR_BUSY		BIT(15)
+> > +
+> > +/* IFx command mask */
+> > +#define IF_COMM_WR		BIT(7)
+> > +#define IF_COMM_MASK		BIT(6)
+> > +#define IF_COMM_ARB		BIT(5)
+> > +#define IF_COMM_CONTROL		BIT(4)
+> > +#define IF_COMM_CLR_INT_PND	BIT(3)
+> > +#define IF_COMM_TXRQST		BIT(2)
+> > +#define IF_COMM_DATAA		BIT(1)
+> > +#define IF_COMM_DATAB		BIT(0)
+> > +#define IF_COMM_ALL		(IF_COMM_MASK | IF_COMM_ARB | \
+> > +				IF_COMM_CONTROL | IF_COMM_TXRQST | \
+> > +				IF_COMM_DATAA | IF_COMM_DATAB)
+> > +
+> > +/* IFx arbitration */
+> > +#define IF_ARB_MSGVAL		BIT(15)
+> > +#define IF_ARB_MSGXTD		BIT(14)
+> > +#define IF_ARB_TRANSMIT		BIT(13)
+> > +
+> > +/* IFx message control */
+> > +#define IF_MCONT_NEWDAT		BIT(15)
+> > +#define IF_MCONT_MSGLST		BIT(14)
+> > +#define IF_MCONT_CLR_MSGLST	(0 << 14)
+> > +#define IF_MCONT_INTPND		BIT(13)
+> > +#define IF_MCONT_UMASK		BIT(12)
+> > +#define IF_MCONT_TXIE		BIT(11)
+> > +#define IF_MCONT_RXIE		BIT(10)
+> > +#define IF_MCONT_RMTEN		BIT(9)
+> > +#define IF_MCONT_TXRQST		BIT(8)
+> > +#define IF_MCONT_EOB		BIT(7)
+> > +#define IF_MCONT_DLC_MASK	0xf
+> > +
+> > +/*
+> > + * IFx register masks:
+> > + * allow easy operation on 16-bit registers when the
+> > + * argument is 32-bit instead
+> > + */
+> > +#define IFX_WRITE_LOW_16BIT(x)	((x) & 0xFFFF)
+> > +#define IFX_WRITE_HIGH_16BIT(x)	(((x) & 0xFFFF0000) >> 16)
+> > +
+> > +/* message object split */
+> > +#define C_CAN_NO_OF_OBJECTS	31
+> > +#define C_CAN_MSG_OBJ_RX_NUM	16
+> > +#define C_CAN_MSG_OBJ_TX_NUM	16
+> > +
+> > +#define C_CAN_MSG_OBJ_RX_FIRST	0
+> > +#define C_CAN_MSG_OBJ_RX_LAST	(C_CAN_MSG_OBJ_RX_FIRST + \
+> > +				C_CAN_MSG_OBJ_RX_NUM - 1)
+> > +
+> > +#define C_CAN_MSG_OBJ_TX_FIRST	(C_CAN_MSG_OBJ_RX_LAST + 1)
+> > +#define C_CAN_MSG_OBJ_TX_LAST	(C_CAN_MSG_OBJ_TX_FIRST + \
+> > +				C_CAN_MSG_OBJ_TX_NUM - 1)
+> > +
+> > +#define C_CAN_MSG_OBJ_RX_SPLIT	8
+> > +#define C_CAN_MSG_RX_LOW_LAST	(C_CAN_MSG_OBJ_RX_SPLIT - 1)
+> > +
+> > +#define C_CAN_NEXT_MSG_OBJ_MASK	(C_CAN_MSG_OBJ_TX_NUM - 1)
+> > +#define RECEIVE_OBJECT_BITS	0x0000ffff
+> > +
+> > +/* status interrupt */
+> > +#define STATUS_INTERRUPT	0x8000
+> > +
+> > +/* global interrupt masks */
+> > +#define ENABLE_ALL_INTERRUPTS	1
+> > +#define DISABLE_ALL_INTERRUPTS	0
+> > +
+> > +/* minimum timeout for checking BUSY status */
+> > +#define MIN_TIMEOUT_VALUE	6
+> > +
+> > +/* napi related */
+> > +#define C_CAN_NAPI_WEIGHT	C_CAN_MSG_OBJ_RX_NUM
+> > +
+> > +/* c_can IF registers */
+> > +struct c_can_if_regs {
+> > +	u16 com_reg;
+> > +	u16 com_mask;
+> > +	u16 mask1;
+> > +	u16 mask2;
+> > +	u16 arb1;
+> > +	u16 arb2;
+> > +	u16 msg_cntrl;
+> > +	u16 data[4];
+> > +	u16 _reserved[13];
+> > +};
+> > +
+> > +/* c_can hardware registers */
+> > +struct c_can_regs {
+> > +	u16 control;
+> > +	u16 status;
+> > +	u16 err_cnt;
+> > +	u16 btr;
+> > +	u16 interrupt;
+> > +	u16 test;
+> > +	u16 brp_ext;
+> > +	u16 _reserved1;
+> > +	struct c_can_if_regs intf[2]; /* [0] = IF1 and [1] = IF2 */
+> 
+> I not happy with the name "intf". Sounds more like an interrupt related
+> property. Above you already use the prefix IF_ for the corresponding
+> macro definitions and somewhere else the name "iface".
 
+I tried using the name *if* suggested by you here but the compiler will complain
+considering it as a usage of if-construct. Do you have a better name that we
+can use here?
+
+Regards,
+Bhupesh
