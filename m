@@ -1,41 +1,44 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v1 2/2] TCPCT API sockopt update to draft -03
-Date: Wed, 12 Jan 2011 10:56:08 -0800
-Message-ID: <20110112105608.793787b2@s6510>
-References: <4D2DE824.10205@gmail.com>
-	<4D2DEC0A.70608@gmail.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: [PATCH] inet6: prevent network storms caused by linux IPv6 routers
+Date: Wed, 12 Jan 2011 21:34:08 +0300
+Message-ID: <20110112183408.GA8417@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46226 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755066Ab1ALS4M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jan 2011 13:56:12 -0500
-In-Reply-To: <4D2DEC0A.70608@gmail.com>
+Received: from minus.inr.ac.ru ([194.67.69.97]:50636 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1753748Ab1ALTOA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jan 2011 14:14:00 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 12 Jan 2011 12:59:38 -0500
-William Allen Simpson <william.allen.simpson@gmail.com> wrote:
+Linux IPv6 forwards unicast packets, which are link layer multicasts...
+The hole was present since day one. I was 100% this check is there, but it is not.
 
-> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> index e64f4c6..c8f4017 100644
-> --- a/include/linux/tcp.h
-> +++ b/include/linux/tcp.h
-> @@ -185,22 +185,37 @@ struct tcp_md5sig {
->  #define TCP_COOKIE_PAIR_SIZE	(2*TCP_COOKIE_MAX)
->  
->  /* Flags for both getsockopt and setsockopt */
-> -#define TCP_COOKIE_IN_ALWAYS	(1 << 0)	/* Discard SYN without cookie */
-> -#define TCP_COOKIE_OUT_NEVER	(1 << 1)	/* Prohibit outgoing cookies,
-> +#define TCPCT_IN_ALWAYS		(1 << 0)	/* Discard SYN without cookie */
-> +#define TCPCT_OUT_NEVER		(1 << 1)	/* Prohibit outgoing cookies,
+The problem shows itself, f.e. when Microsoft Network Load Balancer runs on a network.
+This software resolves IPv6 unicast addresses to multicast MAC addresses.
 
-You end up changing values in kernel userspace API in a way
-that is incompatible with older applications. This is not acceptable.
+Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+---
+ net/ipv6/ip6_output.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 94b5bf1..5f8d242 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -401,6 +401,9 @@ int ip6_forward(struct sk_buff *skb)
+ 		goto drop;
+ 	}
+ 
++	if (skb->pkt_type != PACKET_HOST)
++		goto drop;
++
+ 	skb_forward_csum(skb);
+ 
+ 	/*
+-- 
+1.7.2.3
+
