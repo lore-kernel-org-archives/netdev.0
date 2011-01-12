@@ -1,44 +1,41 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: [PATCH] inet6: prevent network storms caused by linux IPv6 routers
-Date: Wed, 12 Jan 2011 21:34:08 +0300
-Message-ID: <20110112183408.GA8417@ms2.inr.ac.ru>
+From: Valdis.Kletnieks@vt.edu
+Subject: XT_MATCH_REALM Kconfig whinge...
+Date: Wed, 12 Jan 2011 14:15:15 -0500
+Message-ID: <20519.1294859715@localhost>
 Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="==_Exmh_1294859715_4778P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--==_Exmh_1294859715_4778P
 Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:50636 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1753748Ab1ALTOA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jan 2011 14:14:00 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
 
-Linux IPv6 forwards unicast packets, which are link layer multicasts...
-The hole was present since day one. I was 100% this check is there, but it is not.
+I think I posted about this a long ways back, still seeing it in yesterday's linux-next:
 
-The problem shows itself, f.e. when Microsoft Network Load Balancer runs on a network.
-This software resolves IPv6 unicast addresses to multicast MAC addresses.
+scripts/kconfig/conf --silentoldconfig Kconfig
+warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
+warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
 
-Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
----
- net/ipv6/ip6_output.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+(NET is of course set, NET_SCHED isn't).
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 94b5bf1..5f8d242 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -401,6 +401,9 @@ int ip6_forward(struct sk_buff *skb)
- 		goto drop;
- 	}
- 
-+	if (skb->pkt_type != PACKET_HOST)
-+		goto drop;
-+
- 	skb_forward_csum(skb);
- 
- 	/*
--- 
-1.7.2.3
+--==_Exmh_1294859715_4778P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFNLf3DcC3lWbTT17ARAkv7AJ9npRmZcvO5kl/lQNBNaDxcjCsKAQCcCxJR
+t2cc2/jjFQMsH4mJW0xcStw=
+=sfka
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1294859715_4778P--
 
