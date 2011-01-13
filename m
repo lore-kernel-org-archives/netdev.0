@@ -1,33 +1,102 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
-Date: Thu, 13 Jan 2011 12:31:18 +0100
-Message-ID: <4D2EE286.1040207@trash.net>
-References: <1294883588-5683-1-git-send-email-horms@verge.net.au> <4D2EDDD0.8060903@netfilter.org>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH V9 01/13] time: Introduce timekeeping_inject_offset
+Date: Thu, 13 Jan 2011 12:31:54 +0100
+Message-ID: <c2bafa6aed65e81b6af4a1287207d531eddc2524.1294917348.git.richard.cochran@omicron.at>
+References: <cover.1294917347.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4D2EDDD0.8060903@netfilter.org>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1294917347.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 13.01.2011 12:11, Pablo Neira Ayuso wrote:
-> On 13/01/11 02:52, Simon Horman wrote:
->> In order to create this series I merged net-next-2.6 into nf-next-2.6.
->> The result is at
->> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
->>
->> However, I guess that you have already done your own merge and simply
->> pulling the branch above will create a bit of a mess. Please let me know
->> if you have a tree/branch that I should use as a base for a pull request.
-> 
-> I have pulled it, everything was fine. Thanks Simon!
-> 
+From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 
-Thanks Pablo. I'm back up to speed, if you want, I can pull your tree
-into mine.
+This adds a kernel-internal timekeeping interface to add or subtract
+a fixed amount from CLOCK_REALTIME. This makes it so kernel users or
+interfaces trying to do so do not have to read the time, then add an
+offset and then call settimeofday(), which adds some extra error in
+comparision to just simply adding the offset in the kernel timekeeping
+core.
+
+CC: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Signed-off-by: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+---
+ include/linux/time.h      |    1 +
+ kernel/time/timekeeping.c |   36 ++++++++++++++++++++++++++++++++++++
+ 2 files changed, 37 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/time.h b/include/linux/time.h
+index 9f15ac7..b402134 100644
+--- a/include/linux/time.h
++++ b/include/linux/time.h
+@@ -166,6 +166,7 @@ extern int timekeeping_valid_for_hres(void);
+ extern u64 timekeeping_max_deferment(void);
+ extern void update_wall_time(void);
+ extern void timekeeping_leap_insert(int leapsecond);
++extern int timekeeping_inject_offset(struct timespec *ts);
+ 
+ struct tms;
+ extern void do_sys_times(struct tms *);
+diff --git a/kernel/time/timekeeping.c b/kernel/time/timekeeping.c
+index 5bb86da..bc10622 100644
+--- a/kernel/time/timekeeping.c
++++ b/kernel/time/timekeeping.c
+@@ -344,6 +344,42 @@ int do_settimeofday(struct timespec *tv)
+ 
+ EXPORT_SYMBOL(do_settimeofday);
+ 
++
++/**
++ * timekeeping_inject_offset - Adds or subtracts from the current time.
++ * @tv:		pointer to the timespec variable containing the offset
++ *
++ * Adds or subtracts an offset value from the current time.
++ */
++int timekeeping_inject_offset(struct timespec *ts)
++{
++	unsigned long flags;
++
++	if ((unsigned long)ts->tv_nsec >= NSEC_PER_SEC)
++		return -EINVAL;
++
++	write_seqlock_irqsave(&xtime_lock, flags);
++
++	timekeeping_forward_now();
++
++	xtime = timespec_add(xtime, *ts);
++	wall_to_monotonic = timespec_sub(wall_to_monotonic, *ts);
++
++	timekeeper.ntp_error = 0;
++	ntp_clear();
++
++	update_vsyscall(&xtime, &wall_to_monotonic, timekeeper.clock,
++				timekeeper.mult);
++
++	write_sequnlock_irqrestore(&xtime_lock, flags);
++
++	/* signal hrtimers about time change */
++	clock_was_set();
++
++	return 0;
++}
++EXPORT_SYMBOL(timekeeping_inject_offset);
++
+ /**
+  * change_clocksource - Swaps clocksources if a new one is available
+  *
+-- 
+1.7.0.4
