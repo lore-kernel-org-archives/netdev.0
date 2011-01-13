@@ -1,63 +1,85 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
-Date: Thu, 13 Jan 2011 22:18:22 +0900
-Message-ID: <20110113131822.GB11202@verge.net.au>
-References: <1294883588-5683-1-git-send-email-horms@verge.net.au>
- <4D2EDDD0.8060903@netfilter.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v4] netfilter: ipt_CLUSTERIP: remove "no conntrack!"
+Date: Thu, 13 Jan 2011 14:38:35 +0100
+Message-ID: <1294925915.3570.87.camel@edumazet-laptop>
+References: <4D2E1A74.5080102@netfilter.org>
+	 <1294917210.3570.48.camel@edumazet-laptop> <4D2EE09A.1010409@netfilter.org>
+	 <1294918365.3570.56.camel@edumazet-laptop> <4D2EE80B.6010707@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
 To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:58370 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756635Ab1AMNS0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 08:18:26 -0500
-Content-Disposition: inline
-In-Reply-To: <4D2EDDD0.8060903@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D2EE80B.6010707@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 13, 2011 at 12:11:12PM +0100, Pablo Neira Ayuso wrote:
-> On 13/01/11 02:52, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > this changest includes the following changes since the v3.2 series
-> > which was most recently posted as "[GIT PULL nf-next-2.6] ipvs namespaces".
-> > 
-> > * Remove several hunks that only make whitespace changes
-> 
-> Thanks a lot for doing this.
-> 
-> > * Add Acked-by: Julian Anastasov <ja@ssi.bg>
-> >   (It was an omission from v3.2)
-> > * Fix merge conflicts
-> > 
-> > There are two changes that produce conflicts
-> > * In the current net-next-2.6 tree but absent from the current nf-next-2.6 tree
-> >   there is "workqueue: convert
-> >   cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()"
-> > * And in the current nf-next-2.6 tree  but absent from the current
-> >   net-next-2.6 tree there is "net: use the macros defined for the members
-> >   of flowi"
-> 
-> nf-*-2.6 are Patrick's trees. My trees are here:
-> 
-> http://1984.lsi.us.es/git/
+Le jeudi 13 janvier 2011 =C3=A0 12:54 +0100, Pablo Neira Ayuso a =C3=A9=
+crit :
 
-Thanks, noted.
+> But printing this does not provide any useful information. The first
+> packet that does not belong to the cluster node that has received the
+> packet, or the first invalid packet, will trigger this.
+>=20
+> Moreover, this confuses users since they can do nothing if they recei=
+ve
+> this message.
+>=20
+> Moreover, this target should be supersedes by the cluster match, whic=
+h
+> has been there for quite some time (it's also more flexible).
 
-> > In order to create this series I merged net-next-2.6 into nf-next-2.6.
-> > The result is at
-> > git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
-> > 
-> > However, I guess that you have already done your own merge and simply
-> > pulling the branch above will create a bit of a mess. Please let me know
-> > if you have a tree/branch that I should use as a base for a pull request.
-> 
-> I have pulled it, everything was fine. Thanks Simon!
+Now you mentioned it, cluster match is not as flexible right now,
+its hashing is on source_ip only.
 
-Great!
+Many people still use ipt_CLUSTERIP, and probably for couple of years.
+
+This issue was raised several times, we should fix CLUSTERIP for good.
+
+Thanks
+
+[PATCH v4] netfilter: ipt_CLUSTERIP: remove "no conntrack!"
+
+When a packet is meant to be handled by another node of the cluster,
+silently drop it instead of flooding kernel log.
+
+Note : INVALID packets are also dropped without notice.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |    7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ip=
+t_CLUSTERIP.c
+index 1e26a48..403ca57 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -300,13 +300,8 @@ clusterip_tg(struct sk_buff *skb, const struct xt_=
+action_param *par)
+ 	 * that the ->target() function isn't called after ->destroy() */
+=20
+ 	ct =3D nf_ct_get(skb, &ctinfo);
+-	if (ct =3D=3D NULL) {
+-		pr_info("no conntrack!\n");
+-			/* FIXME: need to drop invalid ones, since replies
+-			 * to outgoing connections of other nodes will be
+-			 * marked as INVALID */
++	if (ct =3D=3D NULL)
+ 		return NF_DROP;
+-	}
+=20
+ 	/* special case: ICMP error handling. conntrack distinguishes between
+ 	 * error messages (RELATED) and information requests (see below) */
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
