@@ -1,39 +1,36 @@
-From: Chris Rankin <rankincj@yahoo.com>
-Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in 2.6.36.3
-Date: Thu, 13 Jan 2011 01:24:53 -0800 (PST)
-Message-ID: <945863.60555.qm@web121706.mail.ne1.yahoo.com>
-References: <1294909556.3570.25.camel@edumazet-laptop>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
+Date: Thu, 13 Jan 2011 05:02:24 -0500
+Message-ID: <20110113100224.GB30432@canuck.infradead.org>
+References: <AANLkTin1LCgEpBNay_o4dzF1ONKanR1HRqcOu3AqqyHu@mail.gmail.com>
+ <20110112.184734.38051229.davem@davemloft.net>
+ <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8BIT
-Cc: JesseBrandeburg <jesse.brandeburg@intel.com>,
-	David Miller <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Tushar NDave <tushar.n.dave@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeffrey TKirsher <jeffrey.t.kirsher@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, opurdila@ixiacom.com,
+	ddvlad@rosedu.org
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from web121706.mail.ne1.yahoo.com ([98.138.90.127]:34739 "HELO
-	web121706.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932610Ab1AMJYy convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 04:24:54 -0500
-In-Reply-To: <1294909556.3570.25.camel@edumazet-laptop>
+Received: from canuck.infradead.org ([134.117.69.58]:43454 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752749Ab1AMKCc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 05:02:32 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
--- On Thu, 13/1/11, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> If you care of performance, dont unload/reload your driver
-> all the time, and dont use modules (this matter on old hardware because
-> of TLB misses)
+On Thu, Jan 13, 2011 at 09:50:14AM +0200, Lucian Adrian Grijincu wrote:
+> Yes it works, but there does not seem to be a good reason why to
+> complicate things like this (again the sentinel nature of zero is not
+> used in any place here).
 
-As long as I can route the full bandwidth of my ADSLv2 connection then it's fine.
+The reason I didn't change anything was the same as Dave's reply, I
+thought it must have been done on purpose. It probably was but I can't
+spot any reason now either.
 
-Cheers,
-Chris
+Also, IPv6 is doing just fine with using '0' as its first devconf id.
 
-
-
-      
+I have no objects to changing this at all but we don't gain much either.
