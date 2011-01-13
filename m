@@ -1,41 +1,45 @@
-From: Daniel Hellstrom <daniel@gaisler.com>
-Subject: [PATCH 02/10] GRETH: added option to disable a device node from bootloader.
-Date: Thu, 13 Jan 2011 09:25:27 +0100
-Message-ID: <1294907135-24884-2-git-send-email-daniel@gaisler.com>
-References: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
-Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
-To: davem@davemloft.net
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in 2.6.36.3
+Date: Thu, 13 Jan 2011 01:00:35 -0800 (PST)
+Message-ID: <895344.13845.qm@web121707.mail.ne1.yahoo.com>
+References: <1294894536.3335.510.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: JesseBrandeburg <jesse.brandeburg@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Tushar NDave <tushar.n.dave@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeffrey TKirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail201c2.megamailservers.com ([69.49.111.102]:39241 "EHLO
-	mail201c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932429Ab1AMJAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 04:00:03 -0500
-In-Reply-To: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
+Received: from web121707.mail.ne1.yahoo.com ([98.138.90.128]:40388 "HELO
+	web121707.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932429Ab1AMJAh convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 04:00:37 -0500
+In-Reply-To: <1294894536.3335.510.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
----
- drivers/net/greth.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+--- On Thu, 13/1/11, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Problem is e100 allocates an order-6 page in DMA zone
+> (a 256 KB contigous area of ram)
+> 
+> This contigous area of ram is not available but just after
+> booting...
 
-diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index 1c2dbdb..1b10186 100644
---- a/drivers/net/greth.c
-+++ b/drivers/net/greth.c
-@@ -1383,6 +1383,12 @@ static int __devinit greth_of_probe(struct platform_device *ofdev, const struct
- 	int err;
- 	int tmp;
- 	unsigned long timeout;
-+	int *ampopts;
-+
-+	/* Skip device if used by another OS instance */
-+	ampopts = (int *) of_get_property(ofdev->dev.of_node, "ampopts", NULL);
-+	if (ampopts && (*ampopts == 0))
-+		return -EIO;
- 
- 	dev = alloc_etherdev(sizeof(struct greth_private));
- 
--- 
-1.5.4
+I suspected as much. Fortunately, this machine has no function apart from routing and can happily left untouched for extended periods of time.
 
+> On such small router, I doubt you need more than 64 slots
+> in TX ring buffer.
+
+But what would the effect of that change be to the interfaces' performance, please?
+
+Cheers,
+Chris
+
+
+      
