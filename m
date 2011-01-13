@@ -1,51 +1,63 @@
-From: Stephen Clark <sclark46@earthlink.net>
-Subject: Re: panic in tg3 driver
-Date: Thu, 13 Jan 2011 08:12:36 -0500
-Message-ID: <4D2EFA44.8080008@earthlink.net>
-References: <4D2334B5.1060408@earthlink.net> <4D2A371A.40103@earthlink.net> <20110110192216.GA23741@mcarlson.broadcom.com> <4D2B6652.7040607@earthlink.net> <20110111020055.GA25351@mcarlson.broadcom.com> <4D2C64EF.1080905@earthlink.net> <20110112030652.GA27164@mcarlson.broadcom.com>
-Reply-To: sclark46@earthlink.net
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
+Date: Thu, 13 Jan 2011 22:18:22 +0900
+Message-ID: <20110113131822.GB11202@verge.net.au>
+References: <1294883588-5683-1-git-send-email-horms@verge.net.au>
+ <4D2EDDD0.8060903@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Michael Chan <mchan@broadcom.com>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:50692 "EHLO
-	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756713Ab1AMNMh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 08:12:37 -0500
-In-Reply-To: <20110112030652.GA27164@mcarlson.broadcom.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:58370 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756635Ab1AMNS0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 08:18:26 -0500
+Content-Disposition: inline
+In-Reply-To: <4D2EDDD0.8060903@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/11/2011 10:06 PM, Matt Carlson wrote:
-> lspci -vvv -xxx -s 81:00.0
+On Thu, Jan 13, 2011 at 12:11:12PM +0100, Pablo Neira Ayuso wrote:
+> On 13/01/11 02:52, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > this changest includes the following changes since the v3.2 series
+> > which was most recently posted as "[GIT PULL nf-next-2.6] ipvs namespaces".
+> > 
+> > * Remove several hunks that only make whitespace changes
+> 
+> Thanks a lot for doing this.
+> 
+> > * Add Acked-by: Julian Anastasov <ja@ssi.bg>
+> >   (It was an omission from v3.2)
+> > * Fix merge conflicts
+> > 
+> > There are two changes that produce conflicts
+> > * In the current net-next-2.6 tree but absent from the current nf-next-2.6 tree
+> >   there is "workqueue: convert
+> >   cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()"
+> > * And in the current nf-next-2.6 tree  but absent from the current
+> >   net-next-2.6 tree there is "net: use the macros defined for the members
+> >   of flowi"
+> 
+> nf-*-2.6 are Patrick's trees. My trees are here:
+> 
+> http://1984.lsi.us.es/git/
 
+Thanks, noted.
 
+> > In order to create this series I merged net-next-2.6 into nf-next-2.6.
+> > The result is at
+> > git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
+> > 
+> > However, I guess that you have already done your own merge and simply
+> > pulling the branch above will create a bit of a mess. Please let me know
+> > if you have a tree/branch that I should use as a base for a pull request.
+> 
+> I have pulled it, everything was fine. Thanks Simon!
 
-Further information - I found these messages in /var/log/messages. It looks
-like after it switched to INTx mode interrupts for other devices were hosed.
-
-Jan 12 08:37:49 localhost kernel: tg3 0000:81:00.0: eth2: No interrupt was gener
-ated using MSI. Switching to INTx mode. Please report this failure to the PCI ma
-intainer and include system chipset information
-Jan 12 08:37:49 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is not ready
-Jan 12 08:38:50 localhost kernel: ata2: lost interrupt (Status 0x50)
-Jan 12 08:38:50 localhost kernel: ata2.01: exception Emask 0x0 SAct 0x0 SErr 0x0
-  action 0x6 frozen
-Jan 12 08:38:50 localhost kernel: ata2.01: failed command: WRITE DMA
-Jan 12 08:38:50 localhost kernel: ata2.01: cmd 
-ca/00:08:e0:bc:51/00:00:00:00:00/f0 tag 0 dma 4096 out
-Jan 12 08:38:50 localhost kernel:          res 
-40/00:01:00:4f:c2/00:00:00:00:00/b0 Emask 0x4 (timeout)
-Jan 12 08:38:50 localhost kernel: ata2.01: status: { DRDY }
-Jan 12 08:38:50 localhost kernel: ata2: soft resetting link
-Jan 12 08:38:50 localhost kernel: do_IRQ: 0.64 No irq handler for vector (irq -1)
-Jan 12 08:38:50 localhost kernel: ata2.01: configured for UDMA/33
-Jan 12 08:38:54 localhost pppd[1983]: No response to 3 echo-requests
-Jan 12 08:39:55 localhost pppoe[1988]: Inactivity timeout... something wicked 
-happened on session 3363
-
-
-
+Great!
