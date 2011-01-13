@@ -1,30 +1,51 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
-Date: Thu, 13 Jan 2011 15:51:15 +0300
-Message-ID: <20110113125115.GA28332@ms2.inr.ac.ru>
-References: <AANLkTin1LCgEpBNay_o4dzF1ONKanR1HRqcOu3AqqyHu@mail.gmail.com> <20110112.184734.38051229.davem@davemloft.net> <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com> <20110113100224.GB30432@canuck.infradead.org>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: panic in tg3 driver
+Date: Thu, 13 Jan 2011 08:12:36 -0500
+Message-ID: <4D2EFA44.8080008@earthlink.net>
+References: <4D2334B5.1060408@earthlink.net> <4D2A371A.40103@earthlink.net> <20110110192216.GA23741@mcarlson.broadcom.com> <4D2B6652.7040607@earthlink.net> <20110111020055.GA25351@mcarlson.broadcom.com> <4D2C64EF.1080905@earthlink.net> <20110112030652.GA27164@mcarlson.broadcom.com>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: tgraf@infradead.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: Matt Carlson <mcarlson@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from minus.inr.ac.ru ([194.67.69.97]:55175 "HELO ms2.inr.ac.ru"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1751621Ab1AMMw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 07:52:59 -0500
-Content-Disposition: inline
-In-Reply-To: <20110113100224.GB30432@canuck.infradead.org>
+Received: from elasmtp-masked.atl.sa.earthlink.net ([209.86.89.68]:50692 "EHLO
+	elasmtp-masked.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756713Ab1AMNMh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 08:12:37 -0500
+In-Reply-To: <20110112030652.GA27164@mcarlson.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 01/11/2011 10:06 PM, Matt Carlson wrote:
+> lspci -vvv -xxx -s 81:00.0
 
-On Thu, Jan 13, 2011 at 05:02:24AM -0500, Thomas Graf wrote:
-> The reason I didn't change anything was the same as Dave's reply, I
-> thought it must have been done on purpose.
 
-The days, when this was written, 0 was interpreted as end of array by sysctl core.
-BTW, -1=CTL_ANY also used to be special, that's why NET_PROTO_CONF_ALL=-2 rather than -1.
 
-So, yes, it was done on purpose. And, yes, this purpose is not a legal purpose now.
+Further information - I found these messages in /var/log/messages. It looks
+like after it switched to INTx mode interrupts for other devices were hosed.
 
-Alexey
+Jan 12 08:37:49 localhost kernel: tg3 0000:81:00.0: eth2: No interrupt was gener
+ated using MSI. Switching to INTx mode. Please report this failure to the PCI ma
+intainer and include system chipset information
+Jan 12 08:37:49 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is not ready
+Jan 12 08:38:50 localhost kernel: ata2: lost interrupt (Status 0x50)
+Jan 12 08:38:50 localhost kernel: ata2.01: exception Emask 0x0 SAct 0x0 SErr 0x0
+  action 0x6 frozen
+Jan 12 08:38:50 localhost kernel: ata2.01: failed command: WRITE DMA
+Jan 12 08:38:50 localhost kernel: ata2.01: cmd 
+ca/00:08:e0:bc:51/00:00:00:00:00/f0 tag 0 dma 4096 out
+Jan 12 08:38:50 localhost kernel:          res 
+40/00:01:00:4f:c2/00:00:00:00:00/b0 Emask 0x4 (timeout)
+Jan 12 08:38:50 localhost kernel: ata2.01: status: { DRDY }
+Jan 12 08:38:50 localhost kernel: ata2: soft resetting link
+Jan 12 08:38:50 localhost kernel: do_IRQ: 0.64 No irq handler for vector (irq -1)
+Jan 12 08:38:50 localhost kernel: ata2.01: configured for UDMA/33
+Jan 12 08:38:54 localhost pppd[1983]: No response to 3 echo-requests
+Jan 12 08:39:55 localhost pppoe[1988]: Inactivity timeout... something wicked 
+happened on session 3363
+
+
+
