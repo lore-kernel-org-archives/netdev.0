@@ -1,81 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] netfilter: ipt_CLUSTERIP: remove "no conntrack!"
-Date: Thu, 13 Jan 2011 15:39:39 +0100
-Message-ID: <1294929579.3570.163.camel@edumazet-laptop>
-References: <4D2E1A74.5080102@netfilter.org>
-	 <1294917210.3570.48.camel@edumazet-laptop> <4D2EE09A.1010409@netfilter.org>
-	 <1294918365.3570.56.camel@edumazet-laptop> <4D2EE80B.6010707@netfilter.org>
-	 <1294925915.3570.87.camel@edumazet-laptop>
-	 <alpine.LNX.2.01.1101131502240.25211@obet.zrqbmnf.qr>
+From: Anand Raj Manickam <anandrm@gmail.com>
+Subject: Realtek r8168C / r8169 driver VLAN TAG stripping
+Date: Thu, 13 Jan 2011 20:10:44 +0530
+Message-ID: <AANLkTi=qVSEh=RyzJ6y4kQvJW+hxqWMh2gAMmhk7GGob@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LNX.2.01.1101131502240.25211@obet.zrqbmnf.qr>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59835 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756656Ab1AMOkp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 09:40:45 -0500
+Received: by bwz15 with SMTP id 15so1576819bwz.19
+        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 06:40:44 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 13 janvier 2011 =C3=A0 15:02 +0100, Jan Engelhardt a =C3=A9cri=
-t :
-> On Thursday 2011-01-13 14:38, Eric Dumazet wrote:
->=20
-> >Le jeudi 13 janvier 2011 =C3=A0 12:54 +0100, Pablo Neira Ayuso a =C3=
-=A9crit :
-> >
-> >> But printing this does not provide any useful information. The fir=
-st
-> >> packet that does not belong to the cluster node that has received =
-the
-> >> packet, or the first invalid packet, will trigger this.
-> >>=20
-> >> Moreover, this confuses users since they can do nothing if they re=
-ceive
-> >> this message.
-> >>=20
-> >> Moreover, this target should be supersedes by the cluster match, w=
-hich
-> >> has been there for quite some time (it's also more flexible).
-> >
-> >Now you mentioned it, cluster match is not as flexible right now,
-> >its hashing is on source_ip only.
->=20
-> I think in that case, xt_cluster should be improved rather
-> than an old module.
+Hi ,
+I have a problem on Realtek 8168C chipset - r8169 Driver .
+The VLAN tag on Tx  & Rx gets stripped .
 
-Amen
+The 8021q module is loaded .
+vconfig add eth0 50
+ifconfig eth0.50 172.16.1.10 up
 
-We should not improve IPv4 support then, I see.
+ping -I eth0.50 172.16.1.1 .
 
-My customers use this old module, and upgrading to xt_cluster is not an
-option.
+All packets on Tx & Rx have the VLAN tag stripped on Tx & Rx.
 
-Should we discuss this forever or fix it ?
+On debugging the Driver , we found that on Tx the VLAN tag is present.
 
-In the end, people are forced to add useless iptables rule to DROP
-INVALID packets before entering ipt_CLUSTERIP, after googling or
-eventually asking to experts.
+static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+.
+.
+tp->tx_skb[entry].len = len;
+txd->addr = cpu_to_le64(mapping);
+txd->opts2 = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
+printk("The Vlan tag %x \n",txd->opts2);
+.
+.
+}
 
-Last time this was discussed, this went nowhere :
+The Vlan tag 23200
 
-http://www.spinics.net/lists/netfilter/msg48676.html
+In the above value 23200
+2 - TxVlanTag
+32 - Vlan tag (50).
 
-Come on guys, we can do it, dont be afraid.
+>From the above we are clear that the Vlan tag reaches the driver .
 
-A non rate limited printk() in kernel is forbidden, especially in
-network stack.
-
-Then, cluster match can be improved, I am sure you already have a patch
-for it.
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Can someone shed some light on this issue ?
+Any pointer are welcome.
+Thanks,
+Anand
