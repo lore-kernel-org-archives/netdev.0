@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V9 05/13] posix_clocks: add clock_adjtime for blackfin
-Date: Thu, 13 Jan 2011 12:33:10 +0100
-Message-ID: <d870769c83f6b210ae769d740e8c9719e2905ba6.1294917348.git.richard.cochran@omicron.at>
+Subject: [PATCH V9 07/13] posix_clocks: add clock_adjtime for x86
+Date: Thu, 13 Jan 2011 12:33:35 +0100
+Message-ID: <43ef7ff959a74df784bad897a31241e41e010373.1294917348.git.richard.cochran@omicron.at>
 References: <cover.1294917347.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -22,40 +22,64 @@ In-Reply-To: <cover.1294917347.git.richard.cochran@omicron.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the clock_adjtime system call to the blackfin architecture.
+This patch adds the clock_adjtime system call to the x86 architecture.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- arch/blackfin/include/asm/unistd.h |    3 ++-
- arch/blackfin/mach-common/entry.S  |    1 +
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ arch/x86/ia32/ia32entry.S          |    1 +
+ arch/x86/include/asm/unistd_32.h   |    3 ++-
+ arch/x86/include/asm/unistd_64.h   |    2 ++
+ arch/x86/kernel/syscall_table_32.S |    1 +
+ 4 files changed, 6 insertions(+), 1 deletions(-)
 
-diff --git a/arch/blackfin/include/asm/unistd.h b/arch/blackfin/include/asm/unistd.h
-index 928ae97..e640c51 100644
---- a/arch/blackfin/include/asm/unistd.h
-+++ b/arch/blackfin/include/asm/unistd.h
-@@ -393,8 +393,9 @@
- #define __NR_fanotify_mark	372
- #define __NR_prlimit64		373
- #define __NR_cacheflush		374
-+#define __NR_clock_adjtime	375
+diff --git a/arch/x86/ia32/ia32entry.S b/arch/x86/ia32/ia32entry.S
+index 518bb99..0ed7896 100644
+--- a/arch/x86/ia32/ia32entry.S
++++ b/arch/x86/ia32/ia32entry.S
+@@ -851,4 +851,5 @@ ia32_sys_call_table:
+ 	.quad sys_fanotify_init
+ 	.quad sys32_fanotify_mark
+ 	.quad sys_prlimit64		/* 340 */
++	.quad compat_sys_clock_adjtime
+ ia32_syscall_end:
+diff --git a/arch/x86/include/asm/unistd_32.h b/arch/x86/include/asm/unistd_32.h
+index b766a5e..b6f73f1 100644
+--- a/arch/x86/include/asm/unistd_32.h
++++ b/arch/x86/include/asm/unistd_32.h
+@@ -346,10 +346,11 @@
+ #define __NR_fanotify_init	338
+ #define __NR_fanotify_mark	339
+ #define __NR_prlimit64		340
++#define __NR_clock_adjtime	341
  
--#define __NR_syscall		375
-+#define __NR_syscall		376
- #define NR_syscalls		__NR_syscall
+ #ifdef __KERNEL__
  
- /* Old optional stuff no one actually uses */
-diff --git a/arch/blackfin/mach-common/entry.S b/arch/blackfin/mach-common/entry.S
-index 2ca915e..cb6cc1e 100644
---- a/arch/blackfin/mach-common/entry.S
-+++ b/arch/blackfin/mach-common/entry.S
-@@ -1738,6 +1738,7 @@ ENTRY(_sys_call_table)
- 	.long _sys_fanotify_mark
- 	.long _sys_prlimit64
- 	.long _sys_cacheflush
-+	.long _sys_clock_adjtime	/* 375 */
+-#define NR_syscalls 341
++#define NR_syscalls 342
  
- 	.rept NR_syscalls-(.-_sys_call_table)/4
- 	.long _sys_ni_syscall
+ #define __ARCH_WANT_IPC_PARSE_VERSION
+ #define __ARCH_WANT_OLD_READDIR
+diff --git a/arch/x86/include/asm/unistd_64.h b/arch/x86/include/asm/unistd_64.h
+index 363e9b8..5ee3085 100644
+--- a/arch/x86/include/asm/unistd_64.h
++++ b/arch/x86/include/asm/unistd_64.h
+@@ -669,6 +669,8 @@ __SYSCALL(__NR_fanotify_init, sys_fanotify_init)
+ __SYSCALL(__NR_fanotify_mark, sys_fanotify_mark)
+ #define __NR_prlimit64				302
+ __SYSCALL(__NR_prlimit64, sys_prlimit64)
++#define __NR_clock_adjtime			303
++__SYSCALL(__NR_clock_adjtime, sys_clock_adjtime)
+ 
+ #ifndef __NO_STUBS
+ #define __ARCH_WANT_OLD_READDIR
+diff --git a/arch/x86/kernel/syscall_table_32.S b/arch/x86/kernel/syscall_table_32.S
+index b35786d..68c7b9a 100644
+--- a/arch/x86/kernel/syscall_table_32.S
++++ b/arch/x86/kernel/syscall_table_32.S
+@@ -340,3 +340,4 @@ ENTRY(sys_call_table)
+ 	.long sys_fanotify_init
+ 	.long sys_fanotify_mark
+ 	.long sys_prlimit64		/* 340 */
++	.long sys_clock_adjtime
 -- 
 1.7.0.4
