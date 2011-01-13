@@ -1,39 +1,39 @@
-From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V9 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Thu, 13 Jan 2011 12:57:08 -0800
-Message-ID: <1294952228.5617.20.camel@work-vm>
-References: <cover.1294917347.git.richard.cochran@omicron.at>
-	 <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran@omicron.at>
-	 <AANLkTimHP1OsWauj6O566WgnxVTjMbNg2PK644QcT9Lq@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] CHOKe flow scheduler (iproute)
+Date: Thu, 13 Jan 2011 22:01:49 +0100
+Message-ID: <1294952509.3403.15.camel@edumazet-laptop>
+References: <20110113092706.154748c2@s6510>  <20110113094847.565add51@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTimHP1OsWauj6O566WgnxVTjMbNg2PK644QcT9Lq-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:63779 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752064Ab1AMVCP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 16:02:15 -0500
+Received: by wwa36 with SMTP id 36so2250637wwa.1
+        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 13:01:52 -0800 (PST)
+In-Reply-To: <20110113094847.565add51@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-01-14 at 05:39 +0900, Kuwahara,T. wrote:
-> My proposal: Limit the adjustable range of the offset so that leap
-> seconds will never occur more than once. (2147.5 seconds would be the
-> best choice. :-)
+Le jeudi 13 janvier 2011 =C3=A0 09:48 -0800, Stephen Hemminger a =C3=A9=
+crit :
+> Preliminary interface for CHOKe scheduler in iproute
+>=20
+> +		return -1;
+> +	fprintf(f, "limit %s min %s max %s ",
+> +		sprint_size(qopt->limit, b1),
+> +		sprint_size(qopt->qth_min, b2),
+> +		sprint_size(qopt->qth_max, b3));
+> +
 
-2147.5? That's ~36 minutes. 
+sprint_size() adds 'b', not 'p' (packets)
 
-While I think a limit could be a sensible compromise here. Leap seconds
-are limited to every six months. So surely a limit of 86400 (one day),
-or 2592000 (30 days) would be more reasonable.
+fprintf(f, "limit %up min %up max %up ", qopt->limit, ...
 
-thanks
--john
+
+
+
