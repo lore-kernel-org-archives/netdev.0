@@ -1,42 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
-Date: Thu, 13 Jan 2011 12:28:56 -0800 (PST)
-Message-ID: <20110113.122856.112848917.davem@davemloft.net>
-References: <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com>
-	<20110113100224.GB30432@canuck.infradead.org>
-	<AANLkTi=jRKjxCJ+LitX5TaqxWakj39DM37hGUw_rJG4H@mail.gmail.com>
+Subject: Re: [patch v2] phonet: some signedness bugs
+Date: Thu, 13 Jan 2011 12:30:02 -0800 (PST)
+Message-ID: <20110113.123002.46348652.davem@davemloft.net>
+References: <20110110140658.GB2721@bicker>
+	<20110110.160620.133889003.davem@davemloft.net>
+	<201101131432.58059.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	opurdila@ixiacom.com, ddvlad@rosedu.org
-To: lucian.grijincu@gmail.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: error27@gmail.com, dan.j.rosenberg@gmail.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: remi.denis-courmont@nokia.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44953
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44960
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756822Ab1AMU2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 15:28:24 -0500
-In-Reply-To: <AANLkTi=jRKjxCJ+LitX5TaqxWakj39DM37hGUw_rJG4H@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1756915Ab1AMU33 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 15:29:29 -0500
+In-Reply-To: <201101131432.58059.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Date: Thu, 13 Jan 2011 14:23:41 +0200
+=46rom: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
+Date: Thu, 13 Jan 2011 14:32:57 +0200
 
-> On Thu, Jan 13, 2011 at 12:02 PM, Thomas Graf <tgraf@infradead.org> wrote:
->> On Thu, Jan 13, 2011 at 09:50:14AM +0200, Lucian Adrian Grijincu wrote:
->>> Yes it works, but there does not seem to be a good reason why to
->>> complicate things like this (again the sentinel nature of zero is not
->>> used in any place here).
->>
->> I have no objects to changing this at all but we don't gain much either.
-> 
-> 
-> Should I post a new patch in which IFLA_INET_CONF cfgid values start
-> from 0 also or must the ABI for libnl be kept as-is (counting from 1)?
+> On Tuesday 11 January 2011 02:06:20 ext David Miller, you wrote:
+>> From: Dan Carpenter <error27@gmail.com>
+>> Date: Mon, 10 Jan 2011 17:06:58 +0300
+>>=20
+>> > Dan Rosenberg pointed out that there were some signed comparison b=
+ugs
+>> > in the phonet protocol.
+>> >=20
+>> > http://marc.info/?l=3Dfull-disclosure&m=3D129424528425330&w=3D2
+>> >=20
+>> > The problem is that we check for array overflows but "protocol" is
+>> > signed and we don't check for array underflows.  If you have alrea=
+dy
+>> > have CAP_SYS_ADMIN then you could use the bugs to get root, or som=
+eone
+>> > could cause an oops by mistake.
+>> >=20
+>> > Signed-off-by: Dan Carpenter <error27@gmail.com>
+>>=20
+>> Applied.
+>=20
+> Shouldn't this be sent to stable trees?
 
-I think the conclusion is that we won't apply your change, sorry.
-
-There is almost zero upside, and one known downside in that we have
-to deal with this user visible breakage somehow.
+It will be.
