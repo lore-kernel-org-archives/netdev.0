@@ -1,456 +1,583 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: XT_MATCH_REALM Kconfig whinge...
-Date: Thu, 13 Jan 2011 12:35:12 +0100
-Message-ID: <4D2EE370.3090001@trash.net>
-References: <20519.1294859715@localhost> <4D2E057D.30707@netfilter.org> <alpine.LNX.2.01.1101122156310.27393@obet.zrqbmnf.qr> <4D2E183C.4070908@netfilter.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V9 08/13] posix clocks: cleanup the CLOCK_DISPTACH macro
+Date: Thu, 13 Jan 2011 12:35:17 +0100
+Message-ID: <90b2beef441615d01c93fcad029c44af4e505c5f.1294917348.git.richard.cochran@omicron.at>
+References: <cover.1294917347.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010508000700080004050003"
-Cc: Jan Engelhardt <jengelh@medozas.de>, Valdis.Kletnieks@vt.edu,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D2E183C.4070908@netfilter.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1294917347.git.richard.cochran@omicron.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010508000700080004050003
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
+Paraphrasing tglx:
 
-On 12.01.2011 22:08, Pablo Neira Ayuso wrote:
-> On 12/01/11 21:57, Jan Engelhardt wrote:
->> On Wednesday 2011-01-12 20:48, Pablo Neira Ayuso wrote:
->>
->>> On 12/01/11 20:15, Valdis.Kletnieks@vt.edu wrote:
->>>> scripts/kconfig/conf --silentoldconfig Kconfig
->>>> warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
->>>> warning: (NETFILTER_XT_MATCH_REALM) selects NET_CLS_ROUTE which has unmet direct dependencies (NET && NET_SCHED)
->>>
->>> Does this fix your problem?
->>>
->>
->> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
->> index 1534f2b..ae56764 100644
->> --- a/net/netfilter/Kconfig
->> +++ b/net/netfilter/Kconfig
->> @@ -886,7 +886,8 @@ config NETFILTER_XT_MATCH_RATEEST
->>  config NETFILTER_XT_MATCH_REALM
->>  	tristate  '"realm" match support'
->>  	depends on NETFILTER_ADVANCED
->> -	select NET_CLS_ROUTE
->> +	depends on NET_SCHED
->> +	depends on NET_CLS_ROUTE
->>  	help
->>  	  This option adds a `realm' match, which allows you to use the realm
->>  	  key from the routing subsystem inside iptables.
->>
->>
->> This patch is not right. The select should just be removed, because
->> xt_realm is useful even without SCHED and CLS_ROUTE.
-> 
-> I wonder why NET_CLS_ROUTE has been there as dependency.
-> 
-> Then this patch should be fine.
+This patch simplifies and clarifies the code, doing the normal thing
+with function pointer structures. Stuff which is not implemented does
+not magically become called via some common function. There is no
+point in doing that.
 
-This doesn't look correct to me. NET_CLS_ROUTE guards the tclassid
-member of struct dst_entry, which is used by the realm match.
+We fill in the various k_clock structs with the correct pointers in
+the first place and let the NULL case return a sensible error
+value. The data structure does not become larger that way. It's a
+little bit more init code, but that's fine if we make the code better
+in general. In that case it's not even more init code, it's just
+filling the data structures which we register.
 
-I have a patch to use a seperate define for the tclassid member
-and have realm and cls_route select that. I'll add that one to
-my tree after testing whether it still builds.
+My own words:
 
---------------010508000700080004050003
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="x"
+For now, each of the registered k_clocks has the previously NULL
+functions assigned to the common_xyz function, since that usage was
+implicitly enforced by the CLOCK_DISPTACH macro. These functions are
+marked with a /* default: */ comment.
 
-commit f6ce9a8f0a591865534f1fdd78848c328e36f08d
-Author: Patrick McHardy <kaber@trash.net>
-Date:   Fri Oct 29 19:09:49 2010 +0200
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
+---
+ include/linux/posix-timers.h |   16 +++-
+ include/linux/time.h         |    2 +
+ kernel/posix-cpu-timers.c    |    2 +-
+ kernel/posix-timers.c        |  218 +++++++++++++++++++++++-------------------
+ 4 files changed, 137 insertions(+), 101 deletions(-)
 
-    netfilter: fix Kconfig dependencies
-    
-    Fix dependencies of netfilter realm match: it depends on NET_CLS_ROUTE,
-    which itself depends on NET_SCHED; this dependency is missing from netfilter.
-    
-    Since matching on realms is also useful without having NET_SCHED enabled and
-    the option really only controls whether the tclassid member is included in
-    route and dst entries, rename the config option to IP_ROUTE_CLASSID and move
-    it outside of traffic scheduling context to get rid of the NET_SCHED dependeny.
-    
-    Reported-by: Vladis Kletnieks <Valdis.Kletnieks@vt.edu>
-    Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-diff --git a/include/net/dst.h b/include/net/dst.h
-index ffe9cb7..4639ca5 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -72,7 +72,7 @@ struct dst_entry {
+diff --git a/include/linux/posix-timers.h b/include/linux/posix-timers.h
+index b05d9b8..b83cceb 100644
+--- a/include/linux/posix-timers.h
++++ b/include/linux/posix-timers.h
+@@ -18,6 +18,18 @@ struct cpu_timer_list {
+ 	int firing;
+ };
  
- 	u32			metrics[RTAX_MAX];
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	__u32			tclassid;
- #else
- 	__u32			__pad2;
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index ba3666d..626b448 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -55,7 +55,7 @@ struct fib_nh {
- 	int			nh_weight;
- 	int			nh_power;
- #endif
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	__u32			nh_tclassid;
- #endif
- 	int			nh_oif;
-@@ -199,7 +199,7 @@ static inline int fib_lookup(struct net *net, const struct flowi *flp,
- extern int __net_init fib4_rules_init(struct net *net);
- extern void __net_exit fib4_rules_exit(struct net *net);
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- extern u32 fib_rules_tclass(struct fib_result *res);
- #endif
- 
-@@ -233,7 +233,7 @@ extern struct fib_table *fib_hash_table(u32 id);
- 
- static inline void fib_combine_itag(u32 *itag, struct fib_result *res)
- {
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- 	u32 rtag;
- #endif
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index 9e95d7f..dcb2e18 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -140,6 +140,9 @@ config IP_ROUTE_VERBOSE
- 	  handled by the klogd daemon which is responsible for kernel messages
- 	  ("man klogd").
- 
-+config IP_ROUTE_CLASSID
-+	bool
++/* Bit fields within a clockid:
++ *
++ * The most significant 29 bits hold either a pid or a file descriptor.
++ *
++ * Bit 2 indicates whether a cpu clock refers to a thread or a process.
++ *
++ * Bits 1 and 0 give the type: PROF=0, VIRT=1, SCHED=2, or FD=3.
++ *
++ * A clockid is invalid if bits 2, 1, and 0 all set (see also CLOCK_INVALID
++ * in include/linux/time.h)
++ */
 +
- config IP_PNP
- 	bool "IP: kernel level autoconfiguration"
- 	help
-@@ -655,4 +658,3 @@ config TCP_MD5SIG
- 	  on the Internet.
+ #define CPUCLOCK_PID(clock)		((pid_t) ~((clock) >> 3))
+ #define CPUCLOCK_PERTHREAD(clock) \
+ 	(((clock) & (clockid_t) CPUCLOCK_PERTHREAD_MASK) != 0)
+@@ -29,6 +41,8 @@ struct cpu_timer_list {
+ #define CPUCLOCK_VIRT		1
+ #define CPUCLOCK_SCHED		2
+ #define CPUCLOCK_MAX		3
++#define CLOCKFD			CPUCLOCK_MAX
++#define CLOCKFD_MASK		(CPUCLOCK_PERTHREAD_MASK|CPUCLOCK_CLOCK_MASK)
  
- 	  If unsure, say N.
+ #define MAKE_PROCESS_CPUCLOCK(pid, clock) \
+ 	((~(clockid_t) (pid) << 3) | (clockid_t) (clock))
+@@ -99,7 +113,7 @@ int posix_timer_event(struct k_itimer *timr, int si_private);
+ 
+ int posix_cpu_clock_getres(const clockid_t which_clock, struct timespec *ts);
+ int posix_cpu_clock_get(const clockid_t which_clock, struct timespec *ts);
+-int posix_cpu_clock_set(const clockid_t which_clock, const struct timespec *ts);
++int posix_cpu_clock_set(const clockid_t which_clock, struct timespec *ts);
+ int posix_cpu_clock_adj(const clockid_t which_clock, struct timex *tx);
+ int posix_cpu_timer_create(struct k_itimer *timer);
+ int posix_cpu_nsleep(const clockid_t which_clock, int flags,
+diff --git a/include/linux/time.h b/include/linux/time.h
+index b402134..99d4b14 100644
+--- a/include/linux/time.h
++++ b/include/linux/time.h
+@@ -300,6 +300,8 @@ struct itimerval {
+ #define CLOCKS_MASK			(CLOCK_REALTIME | CLOCK_MONOTONIC)
+ #define CLOCKS_MONO			CLOCK_MONOTONIC
+ 
++#define CLOCK_INVALID			-1
++
+ /*
+  * The various flags for setting POSIX.1b interval timers:
+  */
+diff --git a/kernel/posix-cpu-timers.c b/kernel/posix-cpu-timers.c
+index 0206116..6ebf01c 100644
+--- a/kernel/posix-cpu-timers.c
++++ b/kernel/posix-cpu-timers.c
+@@ -194,7 +194,7 @@ int posix_cpu_clock_getres(const clockid_t which_clock, struct timespec *tp)
+ 	return error;
+ }
+ 
+-int posix_cpu_clock_set(const clockid_t which_clock, const struct timespec *tp)
++int posix_cpu_clock_set(const clockid_t which_clock, struct timespec *tp)
+ {
+ 	/*
+ 	 * You can never reset a CPU clock, but we check for other errors
+diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
+index 91f9b4b..519802e 100644
+--- a/kernel/posix-timers.c
++++ b/kernel/posix-timers.c
+@@ -94,11 +94,7 @@ static DEFINE_SPINLOCK(idr_lock);
+ /*
+  * CLOCKs: The POSIX standard calls for a couple of clocks and allows us
+  *	    to implement others.  This structure defines the various
+- *	    clocks and allows the possibility of adding others.	 We
+- *	    provide an interface to add clocks to the table and expect
+- *	    the "arch" code to add at least one clock that is high
+- *	    resolution.	 Here we define the standard CLOCK_REALTIME as a
+- *	    1/HZ resolution clock.
++ *	    clocks.
+  *
+  * RESOLUTION: Clock resolution is used to round up timer and interval
+  *	    times, NOT to report clock times, which are reported with as
+@@ -108,20 +104,13 @@ static DEFINE_SPINLOCK(idr_lock);
+  *	    necessary code is written.	The standard says we should say
+  *	    something about this issue in the documentation...
+  *
+- * FUNCTIONS: The CLOCKs structure defines possible functions to handle
+- *	    various clock functions.  For clocks that use the standard
+- *	    system timer code these entries should be NULL.  This will
+- *	    allow dispatch without the overhead of indirect function
+- *	    calls.  CLOCKS that depend on other sources (e.g. WWV or GPS)
+- *	    must supply functions here, even if the function just returns
+- *	    ENOSYS.  The standard POSIX timer management code assumes the
+- *	    following: 1.) The k_itimer struct (sched.h) is used for the
+- *	    timer.  2.) The list, it_lock, it_clock, it_id and it_pid
+- *	    fields are not modified by timer code.
++ * FUNCTIONS: The CLOCKs structure defines possible functions to
++ *	    handle various clock functions.
+  *
+- *          At this time all functions EXCEPT clock_nanosleep can be
+- *          redirected by the CLOCKS structure.  Clock_nanosleep is in
+- *          there, but the code ignores it.
++ *	    The standard POSIX timer management code assumes the
++ *	    following: 1.) The k_itimer struct (sched.h) is used for
++ *	    the timer.  2.) The list, it_lock, it_clock, it_id and
++ *	    it_pid fields are not modified by timer code.
+  *
+  * Permissions: It is assumed that the clock_settime() function defined
+  *	    for each clock will take care of permission checks.	 Some
+@@ -131,13 +120,18 @@ static DEFINE_SPINLOCK(idr_lock);
+  *	    which we beg off on and pass to do_sys_settimeofday().
+  */
+ 
+-static struct k_clock posix_clocks[MAX_CLOCKS];
++#define POSIX_INV_CLOCK_ID	MAX_CLOCKS
++#define POSIX_CPU_CLOCK_ID	(MAX_CLOCKS + 1)
++#define NR_CLOCK_ENTRIES	(MAX_CLOCKS + 2)
++
++static struct k_clock posix_clocks[NR_CLOCK_ENTRIES];
+ 
+ /*
+  * These ones are defined below.
+  */
+ static int common_nsleep(const clockid_t, int flags, struct timespec *t,
+ 			 struct timespec __user *rmtp);
++static long common_nsleep_restart(struct restart_block *restart_block);
+ static void common_timer_get(struct k_itimer *, struct itimerspec *);
+ static int common_timer_set(struct k_itimer *, int,
+ 			    struct itimerspec *, struct itimerspec *);
+@@ -158,41 +152,14 @@ static inline void unlock_timer(struct k_itimer *timr, unsigned long flags)
+ 	spin_unlock_irqrestore(&timr->it_lock, flags);
+ }
+ 
+-/*
+- * Call the k_clock hook function if non-null, or the default function.
+- */
+-#define CLOCK_DISPATCH(clock, call, arglist) \
+- 	((clock) < 0 ? posix_cpu_##call arglist : \
+- 	 (posix_clocks[clock].call != NULL \
+- 	  ? (*posix_clocks[clock].call) arglist : common_##call arglist))
 -
-diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
-index 7981a24..9cefe72 100644
---- a/net/ipv4/fib_rules.c
-+++ b/net/ipv4/fib_rules.c
-@@ -41,12 +41,12 @@ struct fib4_rule {
- 	__be32			srcmask;
- 	__be32			dst;
- 	__be32			dstmask;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	u32			tclassid;
- #endif
- };
+-/*
+- * Default clock hook functions when the struct k_clock passed
+- * to register_posix_clock leaves a function pointer null.
+- *
+- * The function common_CALL is the default implementation for
+- * the function pointer CALL in struct k_clock.
+- */
  
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- u32 fib_rules_tclass(struct fib_result *res)
+-static inline int common_clock_getres(const clockid_t which_clock,
+-				      struct timespec *tp)
+-{
+-	tp->tv_sec = 0;
+-	tp->tv_nsec = posix_clocks[which_clock].res;
+-	return 0;
+-}
+-
+-/*
+- * Get real time for posix timers
+- */
+ static int common_clock_get(clockid_t which_clock, struct timespec *tp)
  {
- 	return res->r ? ((struct fib4_rule *) res->r)->tclassid : 0;
-@@ -165,7 +165,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
- 	if (frh->dst_len)
- 		rule4->dst = nla_get_be32(tb[FRA_DST]);
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (tb[FRA_FLOW])
- 		rule4->tclassid = nla_get_u32(tb[FRA_FLOW]);
- #endif
-@@ -195,7 +195,7 @@ static int fib4_rule_compare(struct fib_rule *rule, struct fib_rule_hdr *frh,
- 	if (frh->tos && (rule4->tos != frh->tos))
- 		return 0;
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (tb[FRA_FLOW] && (rule4->tclassid != nla_get_u32(tb[FRA_FLOW])))
- 		return 0;
- #endif
-@@ -224,7 +224,7 @@ static int fib4_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
- 	if (rule4->src_len)
- 		NLA_PUT_BE32(skb, FRA_SRC, rule4->src);
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (rule4->tclassid)
- 		NLA_PUT_U32(skb, FRA_FLOW, rule4->tclassid);
- #endif
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 3e0da3e..a72c62d 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -200,7 +200,7 @@ static inline int nh_comp(const struct fib_info *fi, const struct fib_info *ofi)
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 		    nh->nh_weight != onh->nh_weight ||
- #endif
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 		    nh->nh_tclassid != onh->nh_tclassid ||
- #endif
- 		    ((nh->nh_flags ^ onh->nh_flags) & ~RTNH_F_DEAD))
-@@ -422,7 +422,7 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
- 
- 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
- 			nexthop_nh->nh_gw = nla ? nla_get_be32(nla) : 0;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 			nla = nla_find(attrs, attrlen, RTA_FLOW);
- 			nexthop_nh->nh_tclassid = nla ? nla_get_u32(nla) : 0;
- #endif
-@@ -476,7 +476,7 @@ int fib_nh_match(struct fib_config *cfg, struct fib_info *fi)
- 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
- 			if (nla && nla_get_be32(nla) != nh->nh_gw)
- 				return 1;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 			nla = nla_find(attrs, attrlen, RTA_FLOW);
- 			if (nla && nla_get_u32(nla) != nh->nh_tclassid)
- 				return 1;
-@@ -783,7 +783,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 			goto err_inval;
- 		if (cfg->fc_gw && fi->fib_nh->nh_gw != cfg->fc_gw)
- 			goto err_inval;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 		if (cfg->fc_flow && fi->fib_nh->nh_tclassid != cfg->fc_flow)
- 			goto err_inval;
- #endif
-@@ -796,7 +796,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 		nh->nh_oif = cfg->fc_oif;
- 		nh->nh_gw = cfg->fc_gw;
- 		nh->nh_flags = cfg->fc_flags;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 		nh->nh_tclassid = cfg->fc_flow;
- #endif
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
-@@ -1006,7 +1006,7 @@ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
- 
- 		if (fi->fib_nh->nh_oif)
- 			NLA_PUT_U32(skb, RTA_OIF, fi->fib_nh->nh_oif);
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 		if (fi->fib_nh[0].nh_tclassid)
- 			NLA_PUT_U32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid);
- #endif
-@@ -1031,7 +1031,7 @@ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
- 
- 			if (nh->nh_gw)
- 				NLA_PUT_BE32(skb, RTA_GATEWAY, nh->nh_gw);
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 			if (nh->nh_tclassid)
- 				NLA_PUT_U32(skb, RTA_FLOW, nh->nh_tclassid);
- #endif
-diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index d859bcc..d7b2b09 100644
---- a/net/ipv4/ip_input.c
-+++ b/net/ipv4/ip_input.c
-@@ -340,7 +340,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
- 		}
- 	}
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (unlikely(skb_dst(skb)->tclassid)) {
- 		struct ip_rt_acct *st = this_cpu_ptr(ip_rt_acct);
- 		u32 idx = skb_dst(skb)->tclassid;
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 987bf9a..866b226 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -509,7 +509,7 @@ static const struct file_operations rt_cpu_seq_fops = {
- 	.release = seq_release,
- };
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- static int rt_acct_proc_show(struct seq_file *m, void *v)
- {
- 	struct ip_rt_acct *dst, *src;
-@@ -562,14 +562,14 @@ static int __net_init ip_rt_do_proc_init(struct net *net)
- 	if (!pde)
- 		goto err2;
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	pde = proc_create("rt_acct", 0, net->proc_net, &rt_acct_proc_fops);
- 	if (!pde)
- 		goto err3;
- #endif
+ 	ktime_get_real_ts(tp);
  	return 0;
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- err3:
- 	remove_proc_entry("rt_cache", net->proc_net_stat);
- #endif
-@@ -583,7 +583,7 @@ static void __net_exit ip_rt_do_proc_exit(struct net *net)
- {
- 	remove_proc_entry("rt_cache", net->proc_net_stat);
- 	remove_proc_entry("rt_cache", net->proc_net);
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	remove_proc_entry("rt_acct", net->proc_net);
- #endif
- }
-@@ -1804,7 +1804,7 @@ void ip_rt_get_source(u8 *addr, struct rtable *rt)
- 	memcpy(addr, &src, 4);
  }
  
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- static void set_class_tag(struct rtable *rt, u32 tag)
+-static inline int common_clock_set(const clockid_t which_clock,
+-				   struct timespec *tp)
++static int common_clock_set(const clockid_t which_clock, struct timespec *tp)
  {
- 	if (!(rt->dst.tclassid & 0xFFFF))
-@@ -1831,7 +1831,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
- 			    rt->dst.dev->mtu > 576)
- 				rt->dst.metrics[RTAX_MTU-1] = 576;
- 		}
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 		rt->dst.tclassid = FIB_RES_NH(*res).nh_tclassid;
- #endif
- 	} else
-@@ -1847,7 +1847,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
- 	if (dst_metric(&rt->dst, RTAX_ADVMSS) > 65535 - 40)
- 		rt->dst.metrics[RTAX_ADVMSS-1] = 65535 - 40;
+ 	return do_sys_settimeofday(tp, NULL);
+ }
+@@ -203,7 +170,7 @@ static int common_timer_create(struct k_itimer *new_timer)
+ 	return 0;
+ }
  
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- #ifdef CONFIG_IP_MULTIPLE_TABLES
- 	set_class_tag(rt, fib_rules_tclass(res));
- #endif
-@@ -1903,7 +1903,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	rth->fl.mark    = skb->mark;
- 	rth->fl.fl4_src	= saddr;
- 	rth->rt_src	= saddr;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	rth->dst.tclassid = itag;
- #endif
- 	rth->rt_iif	=
-@@ -2224,7 +2224,7 @@ local_input:
- 	rth->fl.mark    = skb->mark;
- 	rth->fl.fl4_src	= saddr;
- 	rth->rt_src	= saddr;
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	rth->dst.tclassid = itag;
- #endif
- 	rth->rt_iif	=
-@@ -2849,7 +2849,7 @@ static int rt_fill_info(struct net *net,
- 	}
- 	if (rt->dst.dev)
- 		NLA_PUT_U32(skb, RTA_OIF, rt->dst.dev->ifindex);
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (rt->dst.tclassid)
- 		NLA_PUT_U32(skb, RTA_FLOW, rt->dst.tclassid);
- #endif
-@@ -3274,9 +3274,9 @@ static __net_initdata struct pernet_operations rt_genid_ops = {
- };
- 
- 
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- struct ip_rt_acct __percpu *ip_rt_acct __read_mostly;
--#endif /* CONFIG_NET_CLS_ROUTE */
-+#endif /* CONFIG_IP_ROUTE_CLASSID */
- 
- static __initdata unsigned long rhash_entries;
- static int __init set_rhash_entries(char *str)
-@@ -3292,7 +3292,7 @@ int __init ip_rt_init(void)
+-static inline int common_clock_adj(const clockid_t which_clock, struct timex *t)
++static int common_clock_adj(const clockid_t which_clock, struct timex *t)
  {
- 	int rc = 0;
+ 	return do_adjtimex(t);
+ }
+@@ -220,22 +187,6 @@ static int no_nsleep(const clockid_t which_clock, int flags,
+ }
  
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	ip_rt_acct = __alloc_percpu(256 * sizeof(struct ip_rt_acct), __alignof__(struct ip_rt_acct));
- 	if (!ip_rt_acct)
- 		panic("IP: failed to allocate ip_rt_acct\n");
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 1534f2b..1b79353 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -886,7 +886,7 @@ config NETFILTER_XT_MATCH_RATEEST
- config NETFILTER_XT_MATCH_REALM
- 	tristate  '"realm" match support'
- 	depends on NETFILTER_ADVANCED
--	select NET_CLS_ROUTE
-+	select IP_ROUTE_CLASSID
- 	help
- 	  This option adds a `realm' match, which allows you to use the realm
- 	  key from the routing subsystem inside iptables.
-diff --git a/net/sched/Kconfig b/net/sched/Kconfig
-index a36270a..4b753ef 100644
---- a/net/sched/Kconfig
-+++ b/net/sched/Kconfig
-@@ -243,7 +243,7 @@ config NET_CLS_TCINDEX
- 
- config NET_CLS_ROUTE4
- 	tristate "Routing decision (ROUTE)"
--	select NET_CLS_ROUTE
-+	select IP_ROUTE_CLASSID
- 	select NET_CLS
- 	---help---
- 	  If you say Y here, you will be able to classify packets
-@@ -252,9 +252,6 @@ config NET_CLS_ROUTE4
- 	  To compile this code as a module, choose M here: the
- 	  module will be called cls_route.
- 
--config NET_CLS_ROUTE
--	bool
+ /*
+- * Return nonzero if we know a priori this clockid_t value is bogus.
+- */
+-static inline int invalid_clockid(const clockid_t which_clock)
+-{
+-	if (which_clock < 0)	/* CPU clock, posix_cpu_* will check it */
+-		return 0;
+-	if ((unsigned) which_clock >= MAX_CLOCKS)
+-		return 1;
+-	if (posix_clocks[which_clock].clock_getres != NULL)
+-		return 0;
+-	if (posix_clocks[which_clock].res != 0)
+-		return 0;
+-	return 1;
+-}
 -
- config NET_CLS_FW
- 	tristate "Netfilter mark (FW)"
- 	select NET_CLS
-diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
-index 5b271a1..a3b293d 100644
---- a/net/sched/cls_flow.c
-+++ b/net/sched/cls_flow.c
-@@ -276,7 +276,7 @@ fallback:
- 
- static u32 flow_get_rtclassid(const struct sk_buff *skb)
+-/*
+  * Get monotonic time for posix timers
+  */
+ static int posix_ktime_get_ts(clockid_t which_clock, struct timespec *tp)
+@@ -279,12 +230,29 @@ static __init int init_posix_timers(void)
  {
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 	if (skb_dst(skb))
- 		return skb_dst(skb)->tclassid;
- #endif
-diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-index 34da5e2..0d66e58 100644
---- a/net/sched/em_meta.c
-+++ b/net/sched/em_meta.c
-@@ -255,7 +255,7 @@ META_COLLECTOR(int_rtclassid)
- 	if (unlikely(skb_dst(skb) == NULL))
- 		*err = -1;
- 	else
--#ifdef CONFIG_NET_CLS_ROUTE
-+#ifdef CONFIG_IP_ROUTE_CLASSID
- 		dst->value = skb_dst(skb)->tclassid;
- #else
- 		dst->value = 0;
-
---------------010508000700080004050003--
+ 	struct k_clock clock_realtime = {
+ 		.clock_getres = hrtimer_get_res,
++		/* defaults: */
++		.clock_adj	= common_clock_adj,
++		.clock_get	= common_clock_get,
++		.clock_set	= common_clock_set,
++		.nsleep		= common_nsleep,
++		.nsleep_restart	= common_nsleep_restart,
++		.timer_create	= common_timer_create,
++		.timer_del	= common_timer_del,
++		.timer_get	= common_timer_get,
++		.timer_set	= common_timer_set,
+ 	};
+ 	struct k_clock clock_monotonic = {
+ 		.clock_getres = hrtimer_get_res,
+ 		.clock_get = posix_ktime_get_ts,
+ 		.clock_set = do_posix_clock_nosettime,
+ 		.clock_adj = do_posix_clock_noadjtime,
++		/* defaults: */
++		.nsleep		= common_nsleep,
++		.nsleep_restart	= common_nsleep_restart,
++		.timer_create	= common_timer_create,
++		.timer_del	= common_timer_del,
++		.timer_get	= common_timer_get,
++		.timer_set	= common_timer_set,
+ 	};
+ 	struct k_clock clock_monotonic_raw = {
+ 		.clock_getres = hrtimer_get_res,
+@@ -293,6 +261,11 @@ static __init int init_posix_timers(void)
+ 		.clock_adj = do_posix_clock_noadjtime,
+ 		.timer_create = no_timer_create,
+ 		.nsleep = no_nsleep,
++		/* defaults: */
++		.nsleep_restart	= common_nsleep_restart,
++		.timer_del	= common_timer_del,
++		.timer_get	= common_timer_get,
++		.timer_set	= common_timer_set,
+ 	};
+ 	struct k_clock clock_realtime_coarse = {
+ 		.clock_getres = posix_get_coarse_res,
+@@ -301,6 +274,11 @@ static __init int init_posix_timers(void)
+ 		.clock_adj = do_posix_clock_noadjtime,
+ 		.timer_create = no_timer_create,
+ 		.nsleep = no_nsleep,
++		/* defaults: */
++		.nsleep_restart	= common_nsleep_restart,
++		.timer_del	= common_timer_del,
++		.timer_get	= common_timer_get,
++		.timer_set	= common_timer_set,
+ 	};
+ 	struct k_clock clock_monotonic_coarse = {
+ 		.clock_getres = posix_get_coarse_res,
+@@ -309,6 +287,23 @@ static __init int init_posix_timers(void)
+ 		.clock_adj = do_posix_clock_noadjtime,
+ 		.timer_create = no_timer_create,
+ 		.nsleep = no_nsleep,
++		/* defaults: */
++		.nsleep_restart	= common_nsleep_restart,
++		.timer_del	= common_timer_del,
++		.timer_get	= common_timer_get,
++		.timer_set	= common_timer_set,
++	};
++	struct k_clock clock_posix_cpu = {
++		.clock_getres	= posix_cpu_clock_getres,
++		.clock_set	= posix_cpu_clock_set,
++		.clock_get	= posix_cpu_clock_get,
++		.clock_adj	= posix_cpu_clock_adj,
++		.timer_create	= posix_cpu_timer_create,
++		.nsleep		= posix_cpu_nsleep,
++		.nsleep_restart	= posix_cpu_nsleep_restart,
++		.timer_set	= posix_cpu_timer_set,
++		.timer_del	= posix_cpu_timer_del,
++		.timer_get	= posix_cpu_timer_get,
+ 	};
+ 
+ 	register_posix_clock(CLOCK_REALTIME, &clock_realtime);
+@@ -317,10 +312,17 @@ static __init int init_posix_timers(void)
+ 	register_posix_clock(CLOCK_REALTIME_COARSE, &clock_realtime_coarse);
+ 	register_posix_clock(CLOCK_MONOTONIC_COARSE, &clock_monotonic_coarse);
+ 
++	/*
++	 * We leave the POSIX_INV_CLOCK_ID entry zeroed out, so that
++	 * the clock returned by clockid_to_kclock() will trigger -EINVAL.
++	 */
++	posix_clocks[POSIX_CPU_CLOCK_ID] = clock_posix_cpu;
++
+ 	posix_timers_cache = kmem_cache_create("posix_timers_cache",
+ 					sizeof (struct k_itimer), 0, SLAB_PANIC,
+ 					NULL);
+ 	idr_init(&posix_timers_id);
++
+ 	return 0;
+ }
+ 
+@@ -532,20 +534,39 @@ static void release_posix_timer(struct k_itimer *tmr, int it_id_set)
+ 	kmem_cache_free(posix_timers_cache, tmr);
+ }
+ 
++static inline bool clock_is_posix_cpu(const clockid_t id)
++{
++	if ((id & CLOCKFD_MASK) == CLOCKFD)
++		return false;
++	else
++		return true;
++}
++
++static struct k_clock *clockid_to_kclock(const clockid_t id)
++{
++	if (id >= 0) {
++		return id < MAX_CLOCKS ?
++			&posix_clocks[id] : &posix_clocks[POSIX_INV_CLOCK_ID];
++	}
++
++	if (clock_is_posix_cpu(id))
++		return &posix_clocks[POSIX_CPU_CLOCK_ID];
++
++	return &posix_clocks[POSIX_INV_CLOCK_ID];
++}
++
+ /* Create a POSIX.1b interval timer. */
+ 
+ SYSCALL_DEFINE3(timer_create, const clockid_t, which_clock,
+ 		struct sigevent __user *, timer_event_spec,
+ 		timer_t __user *, created_timer_id)
+ {
++	struct k_clock *kc = clockid_to_kclock(which_clock);
+ 	struct k_itimer *new_timer;
+ 	int error, new_timer_id;
+ 	sigevent_t event;
+ 	int it_id_set = IT_ID_NOT_SET;
+ 
+-	if (invalid_clockid(which_clock))
+-		return -EINVAL;
+-
+ 	new_timer = alloc_posix_timer();
+ 	if (unlikely(!new_timer))
+ 		return -EAGAIN;
+@@ -606,7 +627,7 @@ SYSCALL_DEFINE3(timer_create, const clockid_t, which_clock,
+ 		goto out;
+ 	}
+ 
+-	error = CLOCK_DISPATCH(which_clock, timer_create, (new_timer));
++	error = kc->timer_create ? kc->timer_create(new_timer) : -EINVAL;
+ 	if (error)
+ 		goto out;
+ 
+@@ -718,6 +739,7 @@ common_timer_get(struct k_itimer *timr, struct itimerspec *cur_setting)
+ SYSCALL_DEFINE2(timer_gettime, timer_t, timer_id,
+ 		struct itimerspec __user *, setting)
+ {
++	struct k_clock *kc;
+ 	struct k_itimer *timr;
+ 	struct itimerspec cur_setting;
+ 	unsigned long flags;
+@@ -726,7 +748,10 @@ SYSCALL_DEFINE2(timer_gettime, timer_t, timer_id,
+ 	if (!timr)
+ 		return -EINVAL;
+ 
+-	CLOCK_DISPATCH(timr->it_clock, timer_get, (timr, &cur_setting));
++	kc = clockid_to_kclock(timr->it_clock);
++
++	if (kc->timer_get)
++		kc->timer_get(timr, &cur_setting);
+ 
+ 	unlock_timer(timr, flags);
+ 
+@@ -817,6 +842,7 @@ SYSCALL_DEFINE4(timer_settime, timer_t, timer_id, int, flags,
+ 		const struct itimerspec __user *, new_setting,
+ 		struct itimerspec __user *, old_setting)
+ {
++	struct k_clock *kc;
+ 	struct k_itimer *timr;
+ 	struct itimerspec new_spec, old_spec;
+ 	int error = 0;
+@@ -837,8 +863,10 @@ retry:
+ 	if (!timr)
+ 		return -EINVAL;
+ 
+-	error = CLOCK_DISPATCH(timr->it_clock, timer_set,
+-			       (timr, flags, &new_spec, rtn));
++	kc = clockid_to_kclock(timr->it_clock);
++
++	error = kc->timer_set ?
++		kc->timer_set(timr, flags, &new_spec, rtn) : -EINVAL;
+ 
+ 	unlock_timer(timr, flag);
+ 	if (error == TIMER_RETRY) {
+@@ -853,7 +881,7 @@ retry:
+ 	return error;
+ }
+ 
+-static inline int common_timer_del(struct k_itimer *timer)
++static int common_timer_del(struct k_itimer *timer)
+ {
+ 	timer->it.real.interval.tv64 = 0;
+ 
+@@ -864,7 +892,9 @@ static inline int common_timer_del(struct k_itimer *timer)
+ 
+ static inline int timer_delete_hook(struct k_itimer *timer)
+ {
+-	return CLOCK_DISPATCH(timer->it_clock, timer_del, (timer));
++	struct k_clock *kc = clockid_to_kclock(timer->it_clock);
++
++	return kc->timer_del ? kc->timer_del(timer) : -EINVAL;
+ }
+ 
+ /* Delete a POSIX.1b interval timer. */
+@@ -963,46 +993,42 @@ EXPORT_SYMBOL_GPL(do_posix_clock_nonanosleep);
+ SYSCALL_DEFINE2(clock_settime, const clockid_t, which_clock,
+ 		const struct timespec __user *, tp)
+ {
++	struct k_clock *kc = clockid_to_kclock(which_clock);
+ 	struct timespec new_tp;
+ 
+-	if (invalid_clockid(which_clock))
+-		return -EINVAL;
+ 	if (copy_from_user(&new_tp, tp, sizeof (*tp)))
+ 		return -EFAULT;
+ 
+-	return CLOCK_DISPATCH(which_clock, clock_set, (which_clock, &new_tp));
++	return kc->clock_set ? kc->clock_set(which_clock, &new_tp) : -EINVAL;
+ }
+ 
+ SYSCALL_DEFINE2(clock_gettime, const clockid_t, which_clock,
+ 		struct timespec __user *,tp)
+ {
++	struct k_clock *kc = clockid_to_kclock(which_clock);
+ 	struct timespec kernel_tp;
+ 	int error;
+ 
+-	if (invalid_clockid(which_clock))
+-		return -EINVAL;
+-	error = CLOCK_DISPATCH(which_clock, clock_get,
+-			       (which_clock, &kernel_tp));
++	error = kc->clock_get ?
++		kc->clock_get(which_clock, &kernel_tp) : -EINVAL;
++
+ 	if (!error && copy_to_user(tp, &kernel_tp, sizeof (kernel_tp)))
+ 		error = -EFAULT;
+ 
+ 	return error;
+-
+ }
+ 
+ SYSCALL_DEFINE2(clock_adjtime, const clockid_t, which_clock,
+ 		struct timex __user *, utx)
+ {
++	struct k_clock *kc = clockid_to_kclock(which_clock);
+ 	struct timex ktx;
+ 	int err;
+ 
+ 	if (copy_from_user(&ktx, utx, sizeof(ktx)))
+ 		return -EFAULT;
+ 
+-	if (invalid_clockid(which_clock))
+-		return -EINVAL;
+-
+-	err = CLOCK_DISPATCH(which_clock, clock_adj, (which_clock, &ktx));
++	err = kc->clock_adj ? kc->clock_adj(which_clock, &ktx) : -EINVAL;
+ 
+ 	if (copy_to_user(utx, &ktx, sizeof(ktx)))
+ 		return -EFAULT;
+@@ -1013,14 +1039,12 @@ SYSCALL_DEFINE2(clock_adjtime, const clockid_t, which_clock,
+ SYSCALL_DEFINE2(clock_getres, const clockid_t, which_clock,
+ 		struct timespec __user *, tp)
+ {
++	struct k_clock *kc = clockid_to_kclock(which_clock);
+ 	struct timespec rtn_tp;
+ 	int error;
+ 
+-	if (invalid_clockid(which_clock))
+-		return -EINVAL;
+-
+-	error = CLOCK_DISPATCH(which_clock, clock_getres,
+-			       (which_clock, &rtn_tp));
++	error = kc->clock_getres ?
++		kc->clock_getres(which_clock, &rtn_tp) : -EINVAL;
+ 
+ 	if (!error && tp && copy_to_user(tp, &rtn_tp, sizeof (rtn_tp))) {
+ 		error = -EFAULT;
+@@ -1044,25 +1068,22 @@ SYSCALL_DEFINE4(clock_nanosleep, const clockid_t, which_clock, int, flags,
+ 		const struct timespec __user *, rqtp,
+ 		struct timespec __user *, rmtp)
+ {
++	struct k_clock *kc = clockid_to_kclock(which_clock);
+ 	struct timespec t;
+ 
+-	if (invalid_clockid(which_clock))
+-		return -EINVAL;
+-
+ 	if (copy_from_user(&t, rqtp, sizeof (struct timespec)))
+ 		return -EFAULT;
+ 
+ 	if (!timespec_valid(&t))
+ 		return -EINVAL;
+ 
+-	return CLOCK_DISPATCH(which_clock, nsleep,
+-			      (which_clock, flags, &t, rmtp));
++	return kc->nsleep ? kc->nsleep(which_clock, flags, &t, rmtp) : -EINVAL;
+ }
+ 
+ /*
+  * nanosleep_restart for monotonic and realtime clocks
+  */
+-static int common_nsleep_restart(struct restart_block *restart_block)
++static long common_nsleep_restart(struct restart_block *restart_block)
+ {
+ 	return hrtimer_nanosleep_restart(restart_block);
+ }
+@@ -1074,8 +1095,7 @@ static int common_nsleep_restart(struct restart_block *restart_block)
+ long
+ clock_nanosleep_restart(struct restart_block *restart_block)
+ {
+-	clockid_t which_clock = restart_block->arg0;
++	struct k_clock *kc = clockid_to_kclock(restart_block->arg0);
+ 
+-	return CLOCK_DISPATCH(which_clock, nsleep_restart,
+-			      (restart_block));
++	return kc->nsleep_restart ? kc->nsleep_restart(restart_block) : -EINVAL;
+ }
+-- 
+1.7.0.4
