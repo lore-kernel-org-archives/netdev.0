@@ -1,77 +1,58 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Thu, 13 Jan 2011 15:47:19 +0900
-Message-ID: <20110113064718.GA17905@verge.net.au>
-References: <20110106093312.GA1564@verge.net.au>
- <1294309362.3074.11.camel@edumazet-laptop>
- <20110106124439.GA17004@verge.net.au>
- <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
- <20110107012356.GA1257@verge.net.au>
- <20110110093155.GB13420@verge.net.au>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH net-next-2.6] netdev: tilepro: Use
+	is_multicast_ether_addr helper
+Date: Thu, 13 Jan 2011 07:58:55 +0100
+Message-ID: <20110113065855.GU29757@distanz.ch>
+References: <1294824713-10644-1-git-send-email-tklauser@distanz.ch> <4D2DE98F.1090705@tilera.com> <20110112.184501.00455226.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: cmetcalf@tilera.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from symlink.to.noone.org ([85.10.207.172]:40710 "EHLO sym.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751194Ab1AMG65 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 01:58:57 -0500
 Content-Disposition: inline
-In-Reply-To: <20110110093155.GB13420@verge.net.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110112.184501.00455226.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 10, 2011 at 06:31:55PM +0900, Simon Horman wrote:
-> On Fri, Jan 07, 2011 at 10:23:58AM +0900, Simon Horman wrote:
-> > On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
+On 2011-01-13 at 03:45:01 +0100, David Miller <davem@davemloft.net> wrote:
+> From: Chris Metcalf <cmetcalf@tilera.com>
+> Date: Wed, 12 Jan 2011 12:49:03 -0500
+> 
+> > On 1/12/2011 4:31 AM, Tobias Klauser wrote:
+> >> Use is_multicast_ether_addr from linux/etherdevice.h instead of a custom
+> >> macro. Also remove the broadcast address check, as it is considered a
+> >> multicast address too.
+> >>
+> >> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> >> ---
+> >>  drivers/net/tile/tilepro.c |   10 +---------
+> >>  1 files changed, 1 insertions(+), 9 deletions(-)
 > > 
-> > [ snip ]
-> > > 
-> > > I know that everyone likes a nice netperf result but I agree with
-> > > Michael that this probably isn't the right question to be asking.  I
-> > > don't think that socket buffers are a real solution to the flow
-> > > control problem: they happen to provide that functionality but it's
-> > > more of a side effect than anything.  It's just that the amount of
-> > > memory consumed by packets in the queue(s) doesn't really have any
-> > > implicit meaning for flow control (think multiple physical adapters,
-> > > all with the same speed instead of a virtual device and a physical
-> > > device with wildly different speeds).  The analog in the physical
-> > > world that you're looking for would be Ethernet flow control.
-> > > Obviously, if the question is limiting CPU or memory consumption then
-> > > that's a different story.
-> > 
-> > Point taken. I will see if I can control CPU (and thus memory) consumption
-> > using cgroups and/or tc.
+> > Thanks, I've taken this into the Tilera tree!
 > 
-> I have found that I can successfully control the throughput using
-> the following techniques
-> 
-> 1) Place a tc egress filter on dummy0
-> 
-> 2) Use ovs-ofctl to add a flow that sends skbs to dummy0 and then eth1,
->    this is effectively the same as one of my hacks to the datapath
->    that I mentioned in an earlier mail. The result is that eth1
->    "paces" the connection.
+> Don't, his transformation is buggy.
 
-Further to this, I wonder if there is any interest in providing
-a method to switch the action order - using ovs-ofctl is a hack imho -
-and/or switching the default action order for mirroring.
+Why?
 
-> 3) 2) + place a tc egress filter on eth1
-> 
-> Which mostly makes sense to me although I am a little confused about
-> why 1) needs a filter on dummy0 (a filter on eth1 has no effect)
-> but 3) needs a filter on eth1 (a filter on dummy0 has no effect,
-> even if the skb is sent to dummy0 last.
-> 
-> I also had some limited success using CPU cgroups, though obviously
-> that targets CPU usage and thus the effect on throughput is fairly course.
-> In short, its a useful technique but not one that bares further
-> discussion here.
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Doesn't the code want to make sure that only unicast addresses get
+filtered?
+
+> You can't get rid of the broadcast check, it needs to be there.
+> Think about it.
+
+If a unicast address is in buf, is_multicast_ether_addr returns false
+(and is_broadcast_addr would too) and thus it would get filtered.
+
+If a multicast address is in buf, is_multicast_ether_addr returns
+true, so the it won't get filtered (no matter what is_broadcast_addr
+would tell).
+
+If a broadcast address is in buf, is_multicast_ether_addr returns true,
+so it won't get filtered (no matter what is_broadcast_addr would tell).
+
+Are there any special addresses I missed? Or did I didn't get the above
+right?
