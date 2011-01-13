@@ -1,184 +1,174 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
-Date: Thu, 13 Jan 2011 10:06:22 -0500
-Message-ID: <AANLkTimz3Mw5itChtTgHTeGT4seJauy3+FVrpEJn1iez@mail.gmail.com>
-References: <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
-	<20101213224510.GB17400@mcarlson.broadcom.com>
-	<AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	<20101214191500.GD19951@mcarlson.broadcom.com>
-	<20101215012430.120fd47f@xenia.leun.net>
-	<20101215013431.GA21173@mcarlson.broadcom.com>
-	<20101215081606.18e12fc9@xenia.leun.net>
-	<AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
-	<20110107032459.GA17959@mcarlson.broadcom.com>
-	<AANLkTi=N6jFE7T1=W-WLo_eHYWeE=oB6n8C8zPGoBNQF@mail.gmail.com>
-	<20110113012157.GA28147@mcarlson.broadcom.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH v4 08/10] ARM: mxs: add ocotp read function
+Date: Thu, 13 Jan 2011 16:19:39 +0100
+Message-ID: <20110113151939.GX24920@pengutronix.de>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110113012157.GA28147@mcarlson.broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
+	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
+	B32542@freescale.com, lw@karo-electronics.de,
+	w.sang@pengutronix.de, s.hauer@pengutronix.de, jamie@jamieiles.com,
+	jamie@shareable.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:50901 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756869Ab1AMPTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 10:19:53 -0500
+Content-Disposition: inline
+In-Reply-To: <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 12, 2011 at 8:21 PM, Matt Carlson <mcarlson@broadcom.com> w=
-rote:
-> On Thu, Jan 06, 2011 at 08:36:27PM -0800, Jesse Gross wrote:
->> On Thu, Jan 6, 2011 at 10:24 PM, Matt Carlson <mcarlson@broadcom.com=
-> wrote:
->> > On Sat, Dec 18, 2010 at 07:38:00PM -0800, Jesse Gross wrote:
->> >> On Tue, Dec 14, 2010 at 11:16 PM, Michael Leun
->> >> <lkml20101129@newton.leun.net> wrote:
->> >> > OK - all tests done on that DL320G5:
->> >> >
->> >> > For completeness, 2.6.37-rc5 unpatched:
->> >> >
->> >> > eth0, no vlan configured: totally broken - see double tagged vl=
-ans
->> >> > without tag, single or untagged packets missing at all
->> >>
->> >> Random behavior? ?This one is somewhat hard to explain - maybe th=
-ere
->> >> are some other factors. ?eth0 has ASF on, so it always strips tag=
-s. ?I
->> >> would expect it to behave like the vlan configured case.
->> >>
->> >> >
->> >> > eth0, vlan configured: see packets without vlan tag (see double=
- tagged
->> >> > packets with one vlan tag)
->> >>
->> >> Both ASF and vlan group configured cause tag stripping to be enab=
-led.
->> >> Missing tag.
->> >>
->> >> >
->> >> > eth1 same as originally reported:
->> >> > without vlan configured see vlan tags (single and double tagged=
- as
->> >> > expected)
->> >>
->> >> No ASF and no vlan group means tag stripping is disabled. ?Have t=
-ag.
->> >>
->> >> > with vlan configured: see packets without vlan tag (see double =
-tagged
->> >> > packets with one vlan tag)
->> >>
->> >> Configuring vlan group causes stripping to be enabled. ?Missing t=
-ag.
->> >>
->> >> >
->> >> >
->> >> > 2.6.37-rc5, your tg3 use new vlan-code patch:
->> >> >
->> >> > eth0, no vlan configured: ?see packets without vlan tag (see do=
-uble
->> >> > tagged packets with one vlan tag)
->> >>
->> >> ASF enables tag stripping. ?Missing tag.
->> >>
->> >> > eth1, no vlan configured: see vlan tags (single and double tagg=
-ed as
->> >> > expected)
->> >>
->> >> No ASF, no vlan group means no stripping. ?Have tag.
->> >>
->> >> >
->> >> >
->> >> > eth0, vlan configured: as without vlan
->> >>
->> >> ASF enables stripping. ?Missing tag.
->> >>
->> >> > eth1, vlan configured: as without vlan
->> >>
->> >> With this patch vlan stripping is only enabled when ASF is on, so=
- no
->> >> stripping. ?Have tag.
->> >>
->> >> >
->> >> > 2.6.37-rc5, your tg3 use new vlan-code patch with test patch on=
-top
->> >> >
->> >> > eth1 no vlan configured: see packets without vlan tag (see doub=
-le tagged
->> >> > packets with one vlan tag)
->> >>
->> >> With the second patch, vlan stripping is always enabled. ?Missing=
- tag.
->> >>
->> >> > eth1 with vlan: the same
->> >>
->> >> Stripping still always enabled. ?Missing tag.
->> >>
->> >> The bottom line is whenever vlan stripping is enabled we're missi=
-ng
->> >> the outer tag. ?It might be worth adding some debugging in the ar=
-ea
->> >> before napi_gro_receive/vlan_gro_receive (depending on version). =
-?My
->> >> guess is that (desc->type_flags & RXD_FLAG_VLAN) is false even fo=
-r
->> >> vlan packets on this NIC.
->> >>
->> >> You said that everything works on the 5752? ?Matt, is it possible=
- that
->> >> the 5714 either has a problem with vlan stripping or a different =
-way
->> >> of reporting it?
->> >
->> > I don't think this is a 5714 specific issue. ?I think the problem =
-is
->> > rooted in the fact that the VLAN tag stripping is enabled.
->>
->> It's definitely related to vlan stripping being enabled. =A0Other ca=
-rds
->> using tg3 seem to work fine with stripping though, which is why I
->> thought it might be specific to the 5714.
->
-> I just tested this on a 5714S, using a net-next-2.6 snapshot obtained
-> today. =A0It does the right thing in both cases (2nd tg3 patch ommite=
-d /
-> applied). =A0The tag is always visible in the packet stream as seen f=
-rom
-> tcpdump.
->
->> > Your RXD_FLAG_VLAN idea sounds unlikely to me, but it's worth a ch=
-eck.
->> >
->> > The patch here is using __vlan_hwaccel_put_tag(), which informs th=
-e
->> > stack a VLAN tag is present. ?If this is indeed a reporting proble=
-m, I'm
->> > not sure what else the driver should be doing.
->>
->> The code to hand off the tag to the stack looks OK to me. =A0Michael=
- was
->> seeing this on older versions of the kernel as well with this NIC,
->> which predates both this patch and the larger vlan changes so it
->> doesn't seem like a problem with passing the tag to the network stac=
-k.
->> =A0It's hard to know exactly what is going on though without seeing =
-what
->> the hardware is reporting.
->
-> When RX_MODE_KEEP_VLAN_TAG is set, the RXD_FLAG_VLAN flag will not be=
- set
-> when receiving a packet. =A0The driver skips the __vlan_hwaccel_put_t=
-ag()
-> call.
->
-> When RX_MODE_KEEP_VLAN_TAG is unset, the RXD_FLAG_VLAN flag is set, a=
-nd
-> __vlan_hwaccel_put_tag() is called to reinject the packet.
+On Thu, Jan 06, 2011 at 03:13:16PM +0800, Shawn Guo wrote:
+> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+> ---
+> Changes for v4:
+>  - Call cpu_relax() during polling
+>=20
+> Changes for v2:
+>  - Add mutex locking for mxs_read_ocotp()
+>  - Use type size_t for count and i
+>  - Add comment for clk_enable/disable skipping
+>  - Add ERROR bit clearing and polling step
+>=20
+>  arch/arm/mach-mxs/Makefile              |    2 +-
+>  arch/arm/mach-mxs/include/mach/common.h |    1 +
+>  arch/arm/mach-mxs/ocotp.c               |   79 +++++++++++++++++++++=
+++++++++++
+>  3 files changed, 81 insertions(+), 1 deletions(-)
+>  create mode 100644 arch/arm/mach-mxs/ocotp.c
+>=20
+> diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
+> index 39d3f9c..f23ebbd 100644
+> --- a/arch/arm/mach-mxs/Makefile
+> +++ b/arch/arm/mach-mxs/Makefile
+> @@ -1,5 +1,5 @@
+>  # Common support
+> -obj-y :=3D clock.o devices.o gpio.o icoll.o iomux.o system.o timer.o
+> +obj-y :=3D clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system.o=
+ timer.o
+is it worth to make ocotp optional?  (and let evk select
+CONFIG_MXS_OCOTP)
 
-OK, thanks for testing it out.  I'm not sure that there's anything
-more we can do without hearing from Michael.
+Best regards
+Uwe
+> =20
+>  obj-$(CONFIG_SOC_IMX23) +=3D clock-mx23.o mm-mx23.o
+>  obj-$(CONFIG_SOC_IMX28) +=3D clock-mx28.o mm-mx28.o
+> diff --git a/arch/arm/mach-mxs/include/mach/common.h b/arch/arm/mach-=
+mxs/include/mach/common.h
+> index 59133eb..cf02552 100644
+> --- a/arch/arm/mach-mxs/include/mach/common.h
+> +++ b/arch/arm/mach-mxs/include/mach/common.h
+> @@ -13,6 +13,7 @@
+> =20
+>  struct clk;
+> =20
+> +extern int mxs_read_ocotp(int offset, int count, u32 *values);
+>  extern int mxs_reset_block(void __iomem *);
+>  extern void mxs_timer_init(struct clk *, int);
+> =20
+> diff --git a/arch/arm/mach-mxs/ocotp.c b/arch/arm/mach-mxs/ocotp.c
+> new file mode 100644
+> index 0000000..e2d39aa
+> --- /dev/null
+> +++ b/arch/arm/mach-mxs/ocotp.c
+> @@ -0,0 +1,79 @@
+> +/*
+> + * Copyright 2010 Freescale Semiconductor, Inc. All Rights Reserved.
+> + *
+> + * This program is free software; you can redistribute it and/or mod=
+ify
+> + * it under the terms of the GNU General Public License as published=
+ by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#include <linux/delay.h>
+> +#include <linux/err.h>
+> +#include <linux/mutex.h>
+> +
+> +#include <mach/mxs.h>
+> +
+> +#define BM_OCOTP_CTRL_BUSY		(1 << 8)
+> +#define BM_OCOTP_CTRL_ERROR		(1 << 9)
+> +#define BM_OCOTP_CTRL_RD_BANK_OPEN	(1 << 12)
+> +
+> +static DEFINE_MUTEX(ocotp_mutex);
+> +
+> +int mxs_read_ocotp(unsigned offset, size_t count, u32 *values)
+> +{
+> +	void __iomem *ocotp_base =3D MXS_IO_ADDRESS(MXS_OCOTP_BASE_ADDR);
+> +	int timeout =3D 0x400;
+> +	size_t i;
+> +
+> +	mutex_lock(&ocotp_mutex);
+> +
+> +	/*
+> +	 * clk_enable(hbus_clk) for ocotp can be skipped
+> +	 * as it must be on when system is running.
+> +	 */
+> +
+> +	/* try to clear ERROR bit */
+> +	__mxs_clrl(BM_OCOTP_CTRL_ERROR, ocotp_base);
+> +
+> +	/* check both BUSY and ERROR cleared */
+> +	while ((__raw_readl(ocotp_base) &
+> +		(BM_OCOTP_CTRL_BUSY | BM_OCOTP_CTRL_ERROR)) && --timeout)
+> +		cpu_relax();
+> +
+> +	if (unlikely(!timeout))
+> +		goto error_unlock;
+> +
+> +	/* open OCOTP banks for read */
+> +	__mxs_setl(BM_OCOTP_CTRL_RD_BANK_OPEN, ocotp_base);
+> +
+> +	/* approximately wait 32 hclk cycles */
+> +	udelay(1);
+> +
+> +	/* poll BUSY bit becoming cleared */
+> +	timeout =3D 0x400;
+> +	while ((__raw_readl(ocotp_base) & BM_OCOTP_CTRL_BUSY) && --timeout)
+> +		cpu_relax();
+> +
+> +	if (unlikely(!timeout))
+> +		goto error_unlock;
+> +
+> +	for (i =3D 0; i < count; i++, offset +=3D 4)
+> +		*values++ =3D __raw_readl(ocotp_base + offset);
+> +
+> +	/* close banks for power saving */
+> +	__mxs_clrl(BM_OCOTP_CTRL_RD_BANK_OPEN, ocotp_base);
+> +
+> +	mutex_unlock(&ocotp_mutex);
+> +
+> +	return 0;
+> +
+> +error_unlock:
+> +	mutex_unlock(&ocotp_mutex);
+> +	pr_err("%s: timeout in reading OCOTP\n", __func__);
+> +	return -ETIMEDOUT;
+> +}
+> --=20
+> 1.7.1
+>=20
+>=20
+>=20
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
