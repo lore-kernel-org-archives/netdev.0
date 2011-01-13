@@ -1,8 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V9 10/13] ptp: Added a brand new class driver for ptp
- clocks.
-Date: Thu, 13 Jan 2011 12:35:42 +0100
-Message-ID: <83d59e926a4bd5ecab721754a9c5d5d313f67958.1294917348.git.richard.cochran@omicron.at>
+Subject: [PATCH V9 12/13] ptp: Added a clock driver for the IXP46x.
+Date: Thu, 13 Jan 2011 12:36:08 +0100
+Message-ID: <feeccda7367e7cf19411cf78cd711673c6a9ede5.1294917348.git.richard.cochran@omicron.at>
 References: <cover.1294917347.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -23,255 +22,28 @@ In-Reply-To: <cover.1294917347.git.richard.cochran@omicron.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds an infrastructure for hardware clocks that implement
-IEEE 1588, the Precision Time Protocol (PTP). A class driver offers a
-registration method to particular hardware clock drivers. Each clock is
-presented as a standard POSIX clock.
-
-The ancillary clock features are exposed in two different ways, via
-the sysfs and by a character device.
+This patch adds a driver for the hardware time stamping unit found on the
+IXP465. The basic clock operations and an external trigger are implemented.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- Documentation/ABI/testing/sysfs-ptp |   97 ++++++++++
- Documentation/ptp/ptp.txt           |   93 +++++++++
- Documentation/ptp/testptp.c         |  352 +++++++++++++++++++++++++++++++++++
- Documentation/ptp/testptp.mk        |   33 ++++
- drivers/Kconfig                     |    2 +
- drivers/Makefile                    |    1 +
- drivers/ptp/Kconfig                 |   27 +++
- drivers/ptp/Makefile                |    6 +
- drivers/ptp/ptp_chardev.c           |  144 ++++++++++++++
- drivers/ptp/ptp_clock.c             |  319 +++++++++++++++++++++++++++++++
- drivers/ptp/ptp_private.h           |   85 +++++++++
- drivers/ptp/ptp_sysfs.c             |  226 ++++++++++++++++++++++
- include/linux/Kbuild                |    1 +
- include/linux/ptp_clock.h           |   79 ++++++++
- include/linux/ptp_clock_kernel.h    |  141 ++++++++++++++
- 15 files changed, 1606 insertions(+), 0 deletions(-)
- create mode 100644 Documentation/ABI/testing/sysfs-ptp
- create mode 100644 Documentation/ptp/ptp.txt
- create mode 100644 Documentation/ptp/testptp.c
- create mode 100644 Documentation/ptp/testptp.mk
- create mode 100644 drivers/ptp/Kconfig
- create mode 100644 drivers/ptp/Makefile
- create mode 100644 drivers/ptp/ptp_chardev.c
- create mode 100644 drivers/ptp/ptp_clock.c
- create mode 100644 drivers/ptp/ptp_private.h
- create mode 100644 drivers/ptp/ptp_sysfs.c
- create mode 100644 include/linux/ptp_clock.h
- create mode 100644 include/linux/ptp_clock_kernel.h
+ arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h |   78 ++++++
+ drivers/net/arm/ixp4xx_eth.c                  |  192 ++++++++++++++-
+ drivers/ptp/Kconfig                           |   13 +
+ drivers/ptp/Makefile                          |    1 +
+ drivers/ptp/ptp_ixp46x.c                      |  332 +++++++++++++++++++++++++
+ 5 files changed, 613 insertions(+), 3 deletions(-)
+ create mode 100644 arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+ create mode 100644 drivers/ptp/ptp_ixp46x.c
 
-diff --git a/Documentation/ABI/testing/sysfs-ptp b/Documentation/ABI/testing/sysfs-ptp
+diff --git a/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
 new file mode 100644
-index 0000000..60e3f45
+index 0000000..292d55e
 --- /dev/null
-+++ b/Documentation/ABI/testing/sysfs-ptp
-@@ -0,0 +1,97 @@
-+What:		/sys/class/ptp/
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This directory contains files and directories
-+		providing a standardized interface to the ancillary
-+		features of PTP hardware clocks.
-+
-+What:		/sys/class/ptp/ptpN/
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This directory contains the attributes of the Nth PTP
-+		hardware clock registered into the PTP class driver
-+		subsystem.
-+
-+What:		/sys/class/ptp/ptpN/clock_name
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file contains the name of the PTP hardware clock
-+		as a human readable string.
-+
-+What:		/sys/class/ptp/ptpN/max_adjustment
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file contains the PTP hardware clock's maximum
-+		frequency adjustment value (a positive integer) in
-+		parts per billion.
-+
-+What:		/sys/class/ptp/ptpN/n_alarms
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file contains the number of periodic or one shot
-+		alarms offer by the PTP hardware clock.
-+
-+What:		/sys/class/ptp/ptpN/n_external_timestamps
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file contains the number of external timestamp
-+		channels offered by the PTP hardware clock.
-+
-+What:		/sys/class/ptp/ptpN/n_periodic_outputs
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file contains the number of programmable periodic
-+		output channels offered by the PTP hardware clock.
-+
-+What:		/sys/class/ptp/ptpN/pps_avaiable
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file indicates whether the PTP hardware clock
-+		supports a Pulse Per Second to the host CPU. Reading
-+		"1" means that the PPS is supported, while "0" means
-+		not supported.
-+
-+What:		/sys/class/ptp/ptpN/extts_enable
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This write-only file enables or disables external
-+		timestamps. To enable external timestamps, write the
-+		channel index followed by a "1" into the file.
-+		To disable external timestamps, write the channel
-+		index followed by a "0" into the file.
-+
-+What:		/sys/class/ptp/ptpN/fifo
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This file provides timestamps on external events, in
-+		the form of three integers: channel index, seconds,
-+		and nanoseconds.
-+
-+What:		/sys/class/ptp/ptpN/period
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This write-only file enables or disables periodic
-+		outputs. To enable a periodic output, write three
-+		integers into the file: channel index, seconds, and
-+		nanoseconds. To disable a periodic output, set seconds
-+		and nanoseconds to zero.
-+
-+What:		/sys/class/ptp/ptpN/pps_enable
-+Date:		September 2010
-+Contact:	Richard Cochran <richardcochran@gmail.com>
-+Description:
-+		This write-only file enables or disables delivery of
-+		PPS events to the Linux PPS subsystem. To enable PPS
-+		events, write a "1" into the file. To disable events,
-+		write a "0" into the file.
-diff --git a/Documentation/ptp/ptp.txt b/Documentation/ptp/ptp.txt
-new file mode 100644
-index 0000000..fb4d1c9
---- /dev/null
-+++ b/Documentation/ptp/ptp.txt
-@@ -0,0 +1,93 @@
-+
-+* PTP hardware clock infrastructure for Linux
-+
-+  This patch set introduces support for IEEE 1588 PTP clocks in
-+  Linux. Together with the SO_TIMESTAMPING socket options, this
-+  presents a standardized method for developing PTP user space
-+  programs, synchronizing Linux with external clocks, and using the
-+  ancillary features of PTP hardware clocks.
-+
-+  A new class driver exports a kernel interface for specific clock
-+  drivers and a user space interface. The infrastructure supports a
-+  complete set of PTP hardware clock functionality.
-+
-+  + Basic clock operations
-+    - Set time
-+    - Get time
-+    - Shift the clock by a given offset atomically
-+    - Adjust clock frequency
-+
-+  + Ancillary clock features
-+    - One short or periodic alarms, with signal delivery to user program
-+    - Time stamp external events
-+    - Period output signals configurable from user space
-+    - Synchronization of the Linux system time via the PPS subsystem
-+
-+** PTP hardware clock kernel API
-+
-+   A PTP clock driver registers itself with the class driver. The
-+   class driver handles all of the dealings with user space. The
-+   author of a clock driver need only implement the details of
-+   programming the clock hardware. The clock driver notifies the class
-+   driver of asynchronous events (alarms and external time stamps) via
-+   a simple message passing interface.
-+
-+   The class driver supports multiple PTP clock drivers. In normal use
-+   cases, only one PTP clock is needed. However, for testing and
-+   development, it can be useful to have more than one clock in a
-+   single system, in order to allow performance comparisons.
-+
-+** PTP hardware clock user space API
-+
-+   The class driver also creates a character device for each
-+   registered clock. User space can use an open file descriptor from
-+   the character device as a POSIX clock id and may call
-+   clock_gettime, clock_settime, and clock_adjtime.  These calls
-+   implement the basic clock operations.
-+
-+   User space programs may control the clock using standardized
-+   ioctls. A program may query, enable, configure, and disable the
-+   ancillary clock features. User space can receive time stamped
-+   events via blocking read() and poll(). One shot and periodic
-+   signals may be configured via the POSIX timer_settime() system
-+   call.
-+
-+** Writing clock drivers
-+
-+   Clock drivers include include/linux/ptp_clock_kernel.h and register
-+   themselves by presenting a 'struct ptp_clock_info' to the
-+   registration method. Clock drivers must implement all of the
-+   functions in the interface. If a clock does not offer a particular
-+   ancillary feature, then the driver should just return -EOPNOTSUPP
-+   from those functions.
-+
-+   Drivers must ensure that all of the methods in interface are
-+   reentrant. Since most hardware implementations treat the time value
-+   as a 64 bit integer accessed as two 32 bit registers, drivers
-+   should use spin_lock_irqsave/spin_unlock_irqrestore to protect
-+   against concurrent access. This locking cannot be accomplished in
-+   class driver, since the lock may also be needed by the clock
-+   driver's interrupt service routine.
-+
-+** Supported hardware
-+
-+   + Standard Linux system timer
-+     - No special PTP features
-+     - For use with software time stamping
-+
-+   + Freescale eTSEC gianfar
-+     - 2 Time stamp external triggers, programmable polarity (opt. interrupt)
-+     - 2 Alarm registers (optional interrupt)
-+     - 3 Periodic signals (optional interrupt)
-+
-+   + National DP83640
-+     - 6 GPIOs programmable as inputs or outputs
-+     - 6 GPIOs with dedicated functions (LED/JTAG/clock) can also be
-+       used as general inputs or outputs
-+     - GPIO inputs can time stamp external triggers
-+     - GPIO outputs can produce periodic signals
-+     - 1 interrupt pin
-+
-+   + Intel IXP465
-+     - Auxiliary Slave/Master Mode Snapshot (optional interrupt)
-+     - Target Time (optional interrupt)
-diff --git a/Documentation/ptp/testptp.c b/Documentation/ptp/testptp.c
-new file mode 100644
-index 0000000..a1d2bf1
---- /dev/null
-+++ b/Documentation/ptp/testptp.c
-@@ -0,0 +1,352 @@
++++ b/arch/arm/mach-ixp4xx/include/mach/ixp46x_ts.h
+@@ -0,0 +1,78 @@
 +/*
-+ * PTP 1588 clock support - User space test program
++ * PTP 1588 clock using the IXP46X
 + *
 + * Copyright (C) 2010 OMICRON electronics GmbH
 + *
@@ -289,1489 +61,700 @@ index 0000000..a1d2bf1
 + *  along with this program; if not, write to the Free Software
 + *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 + */
-+#include <errno.h>
-+#include <fcntl.h>
-+#include <math.h>
-+#include <signal.h>
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <string.h>
-+#include <sys/ioctl.h>
-+#include <sys/mman.h>
-+#include <sys/stat.h>
-+#include <sys/time.h>
-+#include <sys/timex.h>
-+#include <sys/types.h>
-+#include <time.h>
-+#include <unistd.h>
 +
-+#include <linux/ptp_clock.h>
-+
-+#define DEVICE "/dev/ptp0"
-+
-+#ifndef ADJ_SETOFFSET
-+#define ADJ_SETOFFSET 0x0100
-+#endif
-+
-+#ifndef CLOCK_INVALID
-+#define CLOCK_INVALID -1
-+#endif
-+
-+/* When glibc offers the syscall, this will go away. */
-+#include <sys/syscall.h>
-+static int clock_adjtime(clockid_t id, struct timex *tx)
-+{
-+	return syscall(__NR_clock_adjtime, id, tx);
-+}
-+
-+static clockid_t get_clockid(int fd)
-+{
-+#define CLOCKFD 3
-+#define FD_TO_CLOCKID(fd)	((~(clockid_t) (fd) << 3) | CLOCKFD)
-+
-+	return FD_TO_CLOCKID(fd);
-+}
-+
-+static void handle_alarm(int s)
-+{
-+	printf("received signal %d\n", s);
-+}
-+
-+static int install_handler(int signum, void (*handler)(int))
-+{
-+	struct sigaction action;
-+	sigset_t mask;
-+
-+	/* Unblock the signal. */
-+	sigemptyset(&mask);
-+	sigaddset(&mask, signum);
-+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
-+
-+	/* Install the signal handler. */
-+	action.sa_handler = handler;
-+	action.sa_flags = 0;
-+	sigemptyset(&action.sa_mask);
-+	sigaction(signum, &action, NULL);
-+
-+	return 0;
-+}
-+
-+static void usage(char *progname)
-+{
-+	fprintf(stderr,
-+		"usage: %s [options]\n"
-+		" -a val     request a one-shot alarm after 'val' seconds\n"
-+		" -A val     request a periodic alarm every 'val' seconds\n"
-+		" -c         query the ptp clock's capabilities\n"
-+		" -d name    device to open\n"
-+		" -e val     read 'val' external time stamp events\n"
-+		" -f val     adjust the ptp clock frequency by 'val' ppb\n"
-+		" -g         get the ptp clock time\n"
-+		" -h         prints this message\n"
-+		" -p val     enable output with a period of 'val' nanoseconds\n"
-+		" -P val     enable or disable (val=1|0) the system clock PPS\n"
-+		" -s         set the ptp clock time from the system time\n"
-+		" -t val     shift the ptp clock time by 'val' seconds\n",
-+		progname);
-+}
-+
-+int main(int argc, char *argv[])
-+{
-+	struct ptp_clock_caps caps;
-+	struct ptp_extts_event event;
-+	struct ptp_extts_request extts_request;
-+	struct ptp_perout_request perout_request;
-+	struct timespec ts;
-+	struct timex tx;
-+
-+	static timer_t timerid;
-+	struct itimerspec timeout;
-+	struct sigevent sigevent;
-+
-+	char *progname;
-+	int c, cnt, fd;
-+
-+	char *device = DEVICE;
-+	clockid_t clkid;
-+	int adjfreq = 0x7fffffff;
-+	int adjtime = 0;
-+	int capabilities = 0;
-+	int extts = 0;
-+	int gettime = 0;
-+	int oneshot = 0;
-+	int periodic = 0;
-+	int perout = -1;
-+	int pps = -1;
-+	int settime = 0;
-+
-+	progname = strrchr(argv[0], '/');
-+	progname = progname ? 1+progname : argv[0];
-+	while (EOF != (c = getopt(argc, argv, "a:A:cd:e:f:ghp:P:st:v"))) {
-+		switch (c) {
-+		case 'a':
-+			oneshot = atoi(optarg);
-+			break;
-+		case 'A':
-+			periodic = atoi(optarg);
-+			break;
-+		case 'c':
-+			capabilities = 1;
-+			break;
-+		case 'd':
-+			device = optarg;
-+			break;
-+		case 'e':
-+			extts = atoi(optarg);
-+			break;
-+		case 'f':
-+			adjfreq = atoi(optarg);
-+			break;
-+		case 'g':
-+			gettime = 1;
-+			break;
-+		case 'p':
-+			perout = atoi(optarg);
-+			break;
-+		case 'P':
-+			pps = atoi(optarg);
-+			break;
-+		case 's':
-+			settime = 1;
-+			break;
-+		case 't':
-+			adjtime = atoi(optarg);
-+			break;
-+		case 'h':
-+			usage(progname);
-+			return 0;
-+		case '?':
-+		default:
-+			usage(progname);
-+			return -1;
-+		}
-+	}
-+
-+	fd = open(device, O_RDWR);
-+	if (fd < 0) {
-+		fprintf(stderr, "opening %s: %s\n", device, strerror(errno));
-+		return -1;
-+	}
-+
-+	clkid = get_clockid(fd);
-+	if (CLOCK_INVALID == clkid) {
-+		fprintf(stderr, "failed to read clock id\n");
-+		return -1;
-+	}
-+
-+	if (capabilities) {
-+		if (ioctl(fd, PTP_CLOCK_GETCAPS, &caps)) {
-+			perror("PTP_CLOCK_GETCAPS");
-+		} else {
-+			printf("capabilities:\n"
-+			       "  %d maximum frequency adjustment (ppb)\n"
-+			       "  %d programmable alarms\n"
-+			       "  %d external time stamp channels\n"
-+			       "  %d programmable periodic signals\n"
-+			       "  %d pulse per second\n",
-+			       caps.max_adj,
-+			       caps.n_alarm,
-+			       caps.n_ext_ts,
-+			       caps.n_per_out,
-+			       caps.pps);
-+		}
-+	}
-+
-+	if (0x7fffffff != adjfreq) {
-+		memset(&tx, 0, sizeof(tx));
-+		tx.modes = ADJ_FREQUENCY;
-+		tx.freq = (long) (adjfreq * 65.536);
-+		if (clock_adjtime(clkid, &tx)) {
-+			perror("clock_adjtime");
-+		} else {
-+			puts("frequency adjustment okay");
-+		}
-+	}
-+
-+	if (adjtime) {
-+		memset(&tx, 0, sizeof(tx));
-+		tx.modes = ADJ_SETOFFSET;
-+		tx.time.tv_sec = adjtime;
-+		tx.time.tv_usec = 0;
-+		if (clock_adjtime(clkid, &tx) < 0) {
-+			perror("clock_adjtime");
-+		} else {
-+			puts("time shift okay");
-+		}
-+	}
-+
-+	if (gettime) {
-+		if (clock_gettime(clkid, &ts)) {
-+			perror("clock_gettime");
-+		} else {
-+			printf("clock time: %ld.%09ld or %s",
-+			       ts.tv_sec, ts.tv_nsec, ctime(&ts.tv_sec));
-+		}
-+	}
-+
-+	if (settime) {
-+		clock_gettime(CLOCK_REALTIME, &ts);
-+		if (clock_settime(clkid, &ts)) {
-+			perror("clock_settime");
-+		} else {
-+			puts("set time okay");
-+		}
-+	}
-+
-+	if (extts) {
-+		memset(&extts_request, 0, sizeof(extts_request));
-+		extts_request.index = 0;
-+		extts_request.flags = PTP_ENABLE_FEATURE;
-+		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
-+			perror("PTP_EXTTS_REQUEST");
-+			extts = 0;
-+		} else {
-+			puts("external time stamp request okay");
-+		}
-+		for (; extts; extts--) {
-+			cnt = read(fd, &event, sizeof(event));
-+			if (cnt != sizeof(event)) {
-+				perror("read");
-+				break;
-+			}
-+			printf("event index %u at %lld.%09u\n", event.index,
-+			       event.t.sec, event.t.nsec);
-+			fflush(stdout);
-+		}
-+		/* Disable the feature again. */
-+		extts_request.flags = 0;
-+		if (ioctl(fd, PTP_EXTTS_REQUEST, &extts_request)) {
-+			perror("PTP_EXTTS_REQUEST");
-+		}
-+	}
-+
-+	if (oneshot) {
-+		install_handler(SIGALRM, handle_alarm);
-+		/* Create a timer. */
-+		sigevent.sigev_notify = SIGEV_SIGNAL;
-+		sigevent.sigev_signo = SIGALRM;
-+		if (timer_create(clkid, &sigevent, &timerid)) {
-+			perror("timer_create");
-+			return -1;
-+		}
-+		/* Start the timer. */
-+		memset(&timeout, 0, sizeof(timeout));
-+		timeout.it_value.tv_sec = oneshot;
-+		if (timer_settime(timerid, 0, &timeout, NULL)) {
-+			perror("timer_settime");
-+			return -1;
-+		}
-+		pause();
-+		timer_delete(timerid);
-+	}
-+
-+	if (periodic) {
-+		install_handler(SIGALRM, handle_alarm);
-+		/* Create a timer. */
-+		sigevent.sigev_notify = SIGEV_SIGNAL;
-+		sigevent.sigev_signo = SIGALRM;
-+		if (timer_create(clkid, &sigevent, &timerid)) {
-+			perror("timer_create");
-+			return -1;
-+		}
-+		/* Start the timer. */
-+		memset(&timeout, 0, sizeof(timeout));
-+		timeout.it_interval.tv_sec = periodic;
-+		timeout.it_value.tv_sec = periodic;
-+		if (timer_settime(timerid, 0, &timeout, NULL)) {
-+			perror("timer_settime");
-+			return -1;
-+		}
-+		while (1) {
-+			pause();
-+		}
-+		timer_delete(timerid);
-+	}
-+
-+	if (perout >= 0) {
-+		if (clock_gettime(clkid, &ts)) {
-+			perror("clock_gettime");
-+			return -1;
-+		}
-+		memset(&perout_request, 0, sizeof(perout_request));
-+		perout_request.index = 0;
-+		perout_request.start.sec = ts.tv_sec + 2;
-+		perout_request.start.nsec = 0;
-+		perout_request.period.sec = 0;
-+		perout_request.period.nsec = perout;
-+		if (ioctl(fd, PTP_PEROUT_REQUEST, &perout_request)) {
-+			perror("PTP_PEROUT_REQUEST");
-+		} else {
-+			puts("periodic output request okay");
-+		}
-+	}
-+
-+	if (pps != -1) {
-+		int enable = pps ? 1 : 0;
-+		if (ioctl(fd, PTP_ENABLE_PPS, enable)) {
-+			perror("PTP_ENABLE_PPS");
-+		} else {
-+			puts("pps for system time request okay");
-+		}
-+	}
-+
-+	close(fd);
-+	return 0;
-+}
-diff --git a/Documentation/ptp/testptp.mk b/Documentation/ptp/testptp.mk
-new file mode 100644
-index 0000000..4ef2d97
---- /dev/null
-+++ b/Documentation/ptp/testptp.mk
-@@ -0,0 +1,33 @@
-+# PTP 1588 clock support - User space test program
-+#
-+# Copyright (C) 2010 OMICRON electronics GmbH
-+#
-+#  This program is free software; you can redistribute it and/or modify
-+#  it under the terms of the GNU General Public License as published by
-+#  the Free Software Foundation; either version 2 of the License, or
-+#  (at your option) any later version.
-+#
-+#  This program is distributed in the hope that it will be useful,
-+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+#  GNU General Public License for more details.
-+#
-+#  You should have received a copy of the GNU General Public License
-+#  along with this program; if not, write to the Free Software
-+#  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+
-+CC        = $(CROSS_COMPILE)gcc
-+INC       = -I$(KBUILD_OUTPUT)/usr/include
-+CFLAGS    = -Wall $(INC)
-+LDLIBS    = -lrt
-+PROGS     = testptp
-+
-+all: $(PROGS)
-+
-+testptp: testptp.o
-+
-+clean:
-+	rm -f testptp.o
-+
-+distclean: clean
-+	rm -f $(PROGS)
-diff --git a/drivers/Kconfig b/drivers/Kconfig
-index 3d93b3a..84e29e6 100644
---- a/drivers/Kconfig
-+++ b/drivers/Kconfig
-@@ -52,6 +52,8 @@ source "drivers/spi/Kconfig"
- 
- source "drivers/pps/Kconfig"
- 
-+source "drivers/ptp/Kconfig"
-+
- source "drivers/gpio/Kconfig"
- 
- source "drivers/w1/Kconfig"
-diff --git a/drivers/Makefile b/drivers/Makefile
-index bf15ce7..3a2ffce 100644
---- a/drivers/Makefile
-+++ b/drivers/Makefile
-@@ -76,6 +76,7 @@ obj-$(CONFIG_I2O)		+= message/
- obj-$(CONFIG_RTC_LIB)		+= rtc/
- obj-y				+= i2c/ media/
- obj-$(CONFIG_PPS)		+= pps/
-+obj-$(CONFIG_PTP_1588_CLOCK)	+= ptp/
- obj-$(CONFIG_W1)		+= w1/
- obj-$(CONFIG_POWER_SUPPLY)	+= power/
- obj-$(CONFIG_HWMON)		+= hwmon/
-diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
-new file mode 100644
-index 0000000..17be208
---- /dev/null
-+++ b/drivers/ptp/Kconfig
-@@ -0,0 +1,27 @@
-+#
-+# PTP clock support configuration
-+#
-+
-+menu "PTP clock support"
-+
-+config PTP_1588_CLOCK
-+	tristate "PTP clock support"
-+	depends on EXPERIMENTAL
-+	depends on PPS
-+	help
-+	  The IEEE 1588 standard defines a method to precisely
-+	  synchronize distributed clocks over Ethernet networks. The
-+	  standard defines a Precision Time Protocol (PTP), which can
-+	  be used to achieve synchronization within a few dozen
-+	  microseconds. In addition, with the help of special hardware
-+	  time stamping units, it can be possible to achieve
-+	  synchronization to within a few hundred nanoseconds.
-+
-+	  This driver adds support for PTP clocks as character
-+	  devices. If you want to use a PTP clock, then you should
-+	  also enable at least one clock driver as well.
-+
-+	  To compile this driver as a module, choose M here: the module
-+	  will be called ptp.
-+
-+endmenu
-diff --git a/drivers/ptp/Makefile b/drivers/ptp/Makefile
-new file mode 100644
-index 0000000..480e2af
---- /dev/null
-+++ b/drivers/ptp/Makefile
-@@ -0,0 +1,6 @@
-+#
-+# Makefile for PTP 1588 clock support.
-+#
-+
-+ptp-y					:= ptp_clock.o ptp_chardev.o ptp_sysfs.o
-+obj-$(CONFIG_PTP_1588_CLOCK)		+= ptp.o
-diff --git a/drivers/ptp/ptp_chardev.c b/drivers/ptp/ptp_chardev.c
-new file mode 100644
-index 0000000..be79c41
---- /dev/null
-+++ b/drivers/ptp/ptp_chardev.c
-@@ -0,0 +1,144 @@
-+/*
-+ * PTP 1588 clock support - character device implementation.
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+#include <linux/module.h>
-+#include <linux/posix-clock.h>
-+#include <linux/poll.h>
-+#include <linux/sched.h>
-+
-+#include "ptp_private.h"
-+
-+int ptp_open(struct posix_clock *pc, fmode_t fmode)
-+{
-+	return 0;
-+}
-+
-+long ptp_ioctl(struct posix_clock *pc, unsigned int cmd, unsigned long arg)
-+{
-+	struct ptp_clock_caps caps;
-+	struct ptp_clock_request req;
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-+	struct ptp_clock_info *ops = ptp->info;
-+	int enable, err = 0;
-+
-+	switch (cmd) {
-+
-+	case PTP_CLOCK_GETCAPS:
-+		memset(&caps, 0, sizeof(caps));
-+		caps.max_adj = ptp->info->max_adj;
-+		caps.n_alarm = ptp->info->n_alarm;
-+		caps.n_ext_ts = ptp->info->n_ext_ts;
-+		caps.n_per_out = ptp->info->n_per_out;
-+		caps.pps = ptp->info->pps;
-+		err = copy_to_user((void __user *)arg, &caps, sizeof(caps));
-+		break;
-+
-+	case PTP_EXTTS_REQUEST:
-+		if (copy_from_user(&req.extts, (void __user *)arg,
-+				   sizeof(req.extts))) {
-+			err = -EFAULT;
-+			break;
-+		}
-+		if (req.extts.index >= ops->n_ext_ts) {
-+			err = -EINVAL;
-+			break;
-+		}
-+		req.type = PTP_CLK_REQ_EXTTS;
-+		enable = req.extts.flags & PTP_ENABLE_FEATURE ? 1 : 0;
-+		err = ops->enable(ops, &req, enable);
-+		break;
-+
-+	case PTP_PEROUT_REQUEST:
-+		if (copy_from_user(&req.perout, (void __user *)arg,
-+				   sizeof(req.perout))) {
-+			err = -EFAULT;
-+			break;
-+		}
-+		if (req.perout.index >= ops->n_per_out) {
-+			err = -EINVAL;
-+			break;
-+		}
-+		req.type = PTP_CLK_REQ_PEROUT;
-+		enable = req.perout.period.sec || req.perout.period.nsec;
-+		err = ops->enable(ops, &req, enable);
-+		break;
-+
-+	case PTP_ENABLE_PPS:
-+		if (!capable(CAP_SYS_TIME))
-+			return -EPERM;
-+		req.type = PTP_CLK_REQ_PPS;
-+		enable = arg ? 1 : 0;
-+		err = ops->enable(ops, &req, enable);
-+		break;
-+
-+	default:
-+		err = -ENOTTY;
-+		break;
-+	}
-+	return err;
-+}
-+
-+uint ptp_poll(struct posix_clock *pc, struct file *fp, poll_table *wait)
-+{
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-+
-+	poll_wait(fp, &ptp->tsev_wq, wait);
-+
-+	return queue_cnt(&ptp->tsevq) ? POLLIN : 0;
-+}
-+
-+ssize_t ptp_read(struct posix_clock *pc,
-+		 uint flags, char __user *buf, size_t cnt)
-+{
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-+	struct timestamp_event_queue *queue = &ptp->tsevq;
-+	struct ptp_extts_event *event;
-+	size_t qcnt;
-+
-+	if (mutex_lock_interruptible(&ptp->tsevq_mux))
-+		return -ERESTARTSYS;
-+
-+	cnt = cnt / sizeof(struct ptp_extts_event);
-+
-+	if (wait_event_interruptible(ptp->tsev_wq,
-+				     (qcnt = queue_cnt(&ptp->tsevq)))) {
-+		mutex_unlock(&ptp->tsevq_mux);
-+		return -ERESTARTSYS;
-+	}
-+
-+	if (cnt > qcnt)
-+		cnt = qcnt;
-+
-+	event = &queue->buf[queue->head];
-+
-+	if (copy_to_user(buf, event, cnt * sizeof(struct ptp_extts_event))) {
-+		mutex_unlock(&ptp->tsevq_mux);
-+		return -EFAULT;
-+	}
-+	queue->head = (queue->head + cnt) % PTP_MAX_TIMESTAMPS;
-+
-+	mutex_unlock(&ptp->tsevq_mux);
-+
-+	return cnt * sizeof(struct ptp_extts_event);
-+}
-+
-+int ptp_release(struct posix_clock *pc)
-+{
-+	return 0;
-+}
-diff --git a/drivers/ptp/ptp_clock.c b/drivers/ptp/ptp_clock.c
-new file mode 100644
-index 0000000..02ca856
---- /dev/null
-+++ b/drivers/ptp/ptp_clock.c
-@@ -0,0 +1,319 @@
-+/*
-+ * PTP 1588 clock support
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+#include <linux/bitops.h>
-+#include <linux/device.h>
-+#include <linux/err.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/posix-clock.h>
-+#include <linux/pps_kernel.h>
-+#include <linux/slab.h>
-+#include <linux/syscalls.h>
-+#include <linux/uaccess.h>
-+
-+#include "ptp_private.h"
-+
-+#define PTP_MAX_ALARMS 4
-+#define PTP_MAX_CLOCKS (MAX_CLOCKS/2)
-+#define PTP_PPS_DEFAULTS (PPS_CAPTUREASSERT | PPS_OFFSETASSERT)
-+#define PTP_PPS_EVENT PPS_CAPTUREASSERT
-+#define PTP_PPS_MODE (PTP_PPS_DEFAULTS | PPS_CANWAIT | PPS_TSFMT_TSPEC)
-+
-+/* private globals */
-+
-+static dev_t ptp_devt;
-+static struct class *ptp_class;
-+
-+static DECLARE_BITMAP(ptp_clocks_map, PTP_MAX_CLOCKS);
-+static DEFINE_MUTEX(ptp_clocks_mutex); /* protects 'ptp_clocks_map' */
-+
-+/* time stamp event queue operations */
-+
-+static inline int queue_free(struct timestamp_event_queue *q)
-+{
-+	return PTP_MAX_TIMESTAMPS - queue_cnt(q) - 1;
-+}
-+
-+static void enqueue_external_timestamp(struct timestamp_event_queue *queue,
-+				       struct ptp_clock_event *src)
-+{
-+	struct ptp_extts_event *dst;
-+	u32 remainder;
-+
-+	dst = &queue->buf[queue->tail];
-+
-+	dst->index = src->index;
-+	dst->t.sec = div_u64_rem(src->timestamp, 1000000000, &remainder);
-+	dst->t.nsec = remainder;
-+
-+	if (!queue_free(queue))
-+		queue->overflow++;
-+
-+	queue->tail = (queue->tail + 1) % PTP_MAX_TIMESTAMPS;
-+}
-+
-+/* posix clock implementation */
-+
-+static int ptp_clock_getres(struct posix_clock *pc, struct timespec *tp)
-+{
-+	return 1; /* always round timer functions to one nanosecond */
-+}
-+
-+static int ptp_clock_settime(struct posix_clock *pc, const struct timespec *tp)
-+{
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-+	return ptp->info->settime(ptp->info, tp);
-+}
-+
-+static int ptp_clock_gettime(struct posix_clock *pc, struct timespec *tp)
-+{
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-+	return ptp->info->gettime(ptp->info, tp);
-+}
-+
-+static int ptp_clock_adjtime(struct posix_clock *pc, struct timex *tx)
-+{
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
-+	struct ptp_clock_info *ops;
-+	int err = -EOPNOTSUPP;
-+
-+	ops = ptp->info;
-+
-+	if (tx->modes & ADJ_SETOFFSET) {
-+		struct timespec ts;
-+		ktime_t kt;
-+		s64 delta;
-+
-+		if (tx->time.tv_usec < 0)
-+			return -EINVAL;
-+
-+		if (tx->modes & ADJ_NANO) {
-+			ts.tv_sec  = tx->time.tv_sec;
-+			ts.tv_nsec = tx->time.tv_usec;
-+			kt = timespec_to_ktime(ts);
-+		} else
-+			kt = timeval_to_ktime(tx->time);
-+
-+		delta = ktime_to_ns(kt);
-+
-+		err = ops->adjtime(ops, delta);
-+
-+	} else if (tx->modes & ADJ_FREQUENCY) {
-+		s64 ppb = 1 + tx->freq;
-+		ppb *= 125;
-+		ppb >>= 13;
-+		err = ops->adjfreq(ops, (s32)ppb);
-+	}
-+
-+	return err;
-+}
-+
-+static struct posix_clock_operations ptp_clock_ops = {
-+	.owner		= THIS_MODULE,
-+	.clock_adjtime	= ptp_clock_adjtime,
-+	.clock_gettime	= ptp_clock_gettime,
-+	.clock_getres	= ptp_clock_getres,
-+	.clock_settime	= ptp_clock_settime,
-+	.ioctl		= ptp_ioctl,
-+	.open		= ptp_open,
-+	.poll		= ptp_poll,
-+	.read		= ptp_read,
-+	.release	= ptp_release,
++#ifndef _IXP46X_TS_H_
++#define _IXP46X_TS_H_
++
++#define DEFAULT_ADDEND 0xF0000029
++#define TICKS_NS_SHIFT 4
++
++struct ixp46x_channel_ctl {
++	u32 ch_control;  /* 0x40 Time Synchronization Channel Control */
++	u32 ch_event;    /* 0x44 Time Synchronization Channel Event */
++	u32 tx_snap_lo;  /* 0x48 Transmit Snapshot Low Register */
++	u32 tx_snap_hi;  /* 0x4C Transmit Snapshot High Register */
++	u32 rx_snap_lo;  /* 0x50 Receive Snapshot Low Register */
++	u32 rx_snap_hi;  /* 0x54 Receive Snapshot High Register */
++	u32 src_uuid_lo; /* 0x58 Source UUID0 Low Register */
++	u32 src_uuid_hi; /* 0x5C Sequence Identifier/Source UUID0 High */
 +};
 +
-+static void delete_ptp_clock(struct posix_clock *pc)
++struct ixp46x_ts_regs {
++	u32 control;     /* 0x00 Time Sync Control Register */
++	u32 event;       /* 0x04 Time Sync Event Register */
++	u32 addend;      /* 0x08 Time Sync Addend Register */
++	u32 accum;       /* 0x0C Time Sync Accumulator Register */
++	u32 test;        /* 0x10 Time Sync Test Register */
++	u32 unused;      /* 0x14 */
++	u32 rsystime_lo; /* 0x18 RawSystemTime_Low Register */
++	u32 rsystime_hi; /* 0x1C RawSystemTime_High Register */
++	u32 systime_lo;  /* 0x20 SystemTime_Low Register */
++	u32 systime_hi;  /* 0x24 SystemTime_High Register */
++	u32 trgt_lo;     /* 0x28 TargetTime_Low Register */
++	u32 trgt_hi;     /* 0x2C TargetTime_High Register */
++	u32 asms_lo;     /* 0x30 Auxiliary Slave Mode Snapshot Low  */
++	u32 asms_hi;     /* 0x34 Auxiliary Slave Mode Snapshot High */
++	u32 amms_lo;     /* 0x38 Auxiliary Master Mode Snapshot Low */
++	u32 amms_hi;     /* 0x3C Auxiliary Master Mode Snapshot High */
++
++	struct ixp46x_channel_ctl channel[3];
++};
++
++/* 0x00 Time Sync Control Register Bits */
++#define TSCR_AMM (1<<3)
++#define TSCR_ASM (1<<2)
++#define TSCR_TTM (1<<1)
++#define TSCR_RST (1<<0)
++
++/* 0x04 Time Sync Event Register Bits */
++#define TSER_SNM (1<<3)
++#define TSER_SNS (1<<2)
++#define TTIPEND  (1<<1)
++
++/* 0x40 Time Synchronization Channel Control Register Bits */
++#define MASTER_MODE   (1<<0)
++#define TIMESTAMP_ALL (1<<1)
++
++/* 0x44 Time Synchronization Channel Event Register Bits */
++#define TX_SNAPSHOT_LOCKED (1<<0)
++#define RX_SNAPSHOT_LOCKED (1<<1)
++
++#endif
+diff --git a/drivers/net/arm/ixp4xx_eth.c b/drivers/net/arm/ixp4xx_eth.c
+index 9eb9b98..fa08c17 100644
+--- a/drivers/net/arm/ixp4xx_eth.c
++++ b/drivers/net/arm/ixp4xx_eth.c
+@@ -30,9 +30,12 @@
+ #include <linux/etherdevice.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
++#include <linux/net_tstamp.h>
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
++#include <linux/ptp_classify.h>
+ #include <linux/slab.h>
++#include <mach/ixp46x_ts.h>
+ #include <mach/npe.h>
+ #include <mach/qmgr.h>
+ 
+@@ -67,6 +70,10 @@
+ #define RXFREE_QUEUE(port_id)	(NPE_ID(port_id) + 26)
+ #define TXDONE_QUEUE		31
+ 
++#define PTP_SLAVE_MODE		1
++#define PTP_MASTER_MODE		2
++#define PORT2CHANNEL(p)		NPE_ID(p->id)
++
+ /* TX Control Registers */
+ #define TX_CNTRL0_TX_EN		0x01
+ #define TX_CNTRL0_HALFDUPLEX	0x02
+@@ -171,6 +178,8 @@ struct port {
+ 	int id;			/* logical port ID */
+ 	int speed, duplex;
+ 	u8 firmware[4];
++	int hwts_tx_en;
++	int hwts_rx_en;
+ };
+ 
+ /* NPE message structure */
+@@ -246,6 +255,169 @@ static int ports_open;
+ static struct port *npe_port_tab[MAX_NPES];
+ static struct dma_pool *dma_pool;
+ 
++static struct sock_filter ptp_filter[] = {
++	PTP_FILTER
++};
++
++static int match(struct sk_buff *skb, u16 uid_hi, u32 uid_lo, u16 seq)
 +{
-+	struct ptp_clock *ptp = container_of(pc, struct ptp_clock, clock);
++	unsigned int type;
++	u16 *hi, *id;
++	u8 *lo, *data = skb->data;
 +
-+	/* Release the clock's resources. */
-+	if (ptp->info->pps)
-+		pps_unregister_source(ptp->pps_source);
-+	ptp_cleanup_sysfs(ptp);
-+	device_destroy(ptp_class, ptp->devid);
-+	mutex_destroy(&ptp->tsevq_mux);
++	type = sk_run_filter(skb, ptp_filter);
 +
-+	/* Remove the clock from the bit map. */
-+	mutex_lock(&ptp_clocks_mutex);
-+	clear_bit(ptp->index, ptp_clocks_map);
-+	mutex_unlock(&ptp_clocks_mutex);
++	if (PTP_CLASS_V1_IPV4 == type) {
 +
-+	kfree(ptp);
-+}
++		id = (u16 *)(data + 42 + 30);
++		hi = (u16 *)(data + 42 + 22);
++		lo = data + 42 + 24;
 +
-+/* public interface */
-+
-+struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info)
-+{
-+	struct ptp_clock *ptp;
-+	int err = 0, index, major = MAJOR(ptp_devt);
-+
-+	if (info->n_alarm > PTP_MAX_ALARMS)
-+		return ERR_PTR(-EINVAL);
-+
-+	/* Find a free clock slot and reserve it. */
-+	err = -EBUSY;
-+	mutex_lock(&ptp_clocks_mutex);
-+	index = find_first_zero_bit(ptp_clocks_map, PTP_MAX_CLOCKS);
-+	if (index < PTP_MAX_CLOCKS)
-+		set_bit(index, ptp_clocks_map);
-+	else
-+		goto no_slot;
-+
-+	/* Initialize a clock structure. */
-+	err = -ENOMEM;
-+	ptp = kzalloc(sizeof(struct ptp_clock), GFP_KERNEL);
-+	if (ptp == NULL)
-+		goto no_memory;
-+
-+	ptp->clock.ops = ptp_clock_ops;
-+	ptp->clock.release = delete_ptp_clock;
-+	ptp->info = info;
-+	ptp->devid = MKDEV(major, index);
-+	ptp->index = index;
-+	mutex_init(&ptp->tsevq_mux);
-+	init_waitqueue_head(&ptp->tsev_wq);
-+
-+	/* Create a new device in our class. */
-+	ptp->dev = device_create(ptp_class, NULL, ptp->devid, ptp,
-+				 "ptp%d", ptp->index);
-+	if (IS_ERR(ptp->dev))
-+		goto no_device;
-+
-+	dev_set_drvdata(ptp->dev, ptp);
-+
-+	err = ptp_populate_sysfs(ptp);
-+	if (err)
-+		goto no_sysfs;
-+
-+	/* Register a new PPS source. */
-+	if (info->pps) {
-+		struct pps_source_info pps;
-+		memset(&pps, 0, sizeof(pps));
-+		snprintf(pps.name, PPS_MAX_NAME_LEN, "ptp%d", index);
-+		pps.mode = PTP_PPS_MODE;
-+		pps.owner = info->owner;
-+		err = pps_register_source(&pps, PTP_PPS_DEFAULTS);
-+		if (err < 0) {
-+			pr_err("failed to register pps source\n");
-+			goto no_pps;
-+		} else
-+			ptp->pps_source = err;
++		return (uid_hi == *hi &&
++			0 == memcmp(&uid_lo, lo, sizeof(uid_lo)) &&
++			seq == *id);
 +	}
 +
-+	/* Create a posix clock. */
-+	err = posix_clock_register(&ptp->clock, ptp->devid);
-+	if (err) {
-+		pr_err("failed to create posix clock\n");
-+		goto no_clock;
-+	}
-+
-+	mutex_unlock(&ptp_clocks_mutex);
-+	return ptp;
-+
-+no_clock:
-+	if (ptp->info->pps)
-+		pps_unregister_source(ptp->pps_source);
-+no_pps:
-+	ptp_cleanup_sysfs(ptp);
-+no_sysfs:
-+	device_destroy(ptp_class, ptp->devid);
-+no_device:
-+	mutex_destroy(&ptp->tsevq_mux);
-+	kfree(ptp);
-+no_memory:
-+	clear_bit(index, ptp_clocks_map);
-+no_slot:
-+	mutex_unlock(&ptp_clocks_mutex);
-+	return ERR_PTR(err);
-+}
-+EXPORT_SYMBOL(ptp_clock_register);
-+
-+int ptp_clock_unregister(struct ptp_clock *ptp)
-+{
-+	posix_clock_unregister(&ptp->clock);
 +	return 0;
 +}
-+EXPORT_SYMBOL(ptp_clock_unregister);
 +
-+void ptp_clock_event(struct ptp_clock *ptp, struct ptp_clock_event *event)
++static void do_rx_timestamp(struct port *port, struct sk_buff *skb)
 +{
-+	struct timespec ts;
-+	struct pps_ktime pps_ts;
++	struct skb_shared_hwtstamps *shhwtstamps;
++	struct ixp46x_ts_regs *regs;
++	u64 ns;
++	u32 ch, hi, lo, val;
++	u16 uid, seq;
 +
-+	switch (event->type) {
++	if (!port->hwts_rx_en)
++		return;
 +
-+	case PTP_CLOCK_ALARM:
++	ch = PORT2CHANNEL(port);
++
++	regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
++
++	val = __raw_readl(&regs->channel[ch].ch_event);
++
++	if (!(val & RX_SNAPSHOT_LOCKED))
++		return;
++
++	lo = __raw_readl(&regs->channel[ch].src_uuid_lo);
++	hi = __raw_readl(&regs->channel[ch].src_uuid_hi);
++
++	uid = hi & 0xffff;
++	seq = (hi >> 16) & 0xffff;
++
++	if (!match(skb, htons(uid), htonl(lo), htons(seq)))
++		goto out;
++
++	lo = __raw_readl(&regs->channel[ch].rx_snap_lo);
++	hi = __raw_readl(&regs->channel[ch].rx_snap_hi);
++	ns = ((u64) hi) << 32;
++	ns |= lo;
++	ns <<= TICKS_NS_SHIFT;
++
++	shhwtstamps = skb_hwtstamps(skb);
++	memset(shhwtstamps, 0, sizeof(*shhwtstamps));
++	shhwtstamps->hwtstamp = ns_to_ktime(ns);
++out:
++	__raw_writel(RX_SNAPSHOT_LOCKED, &regs->channel[ch].ch_event);
++}
++
++static void do_tx_timestamp(struct port *port, struct sk_buff *skb)
++{
++	struct skb_shared_hwtstamps shhwtstamps;
++	struct ixp46x_ts_regs *regs;
++	struct skb_shared_info *shtx;
++	u64 ns;
++	u32 ch, cnt, hi, lo, val;
++
++	shtx = skb_shinfo(skb);
++	if (unlikely(shtx->tx_flags & SKBTX_HW_TSTAMP && port->hwts_tx_en))
++		shtx->tx_flags |= SKBTX_IN_PROGRESS;
++	else
++		return;
++
++	ch = PORT2CHANNEL(port);
++
++	regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
++
++	/*
++	 * This really stinks, but we have to poll for the Tx time stamp.
++	 * Usually, the time stamp is ready after 4 to 6 microseconds.
++	 */
++	for (cnt = 0; cnt < 100; cnt++) {
++		val = __raw_readl(&regs->channel[ch].ch_event);
++		if (val & TX_SNAPSHOT_LOCKED)
++			break;
++		udelay(1);
++	}
++	if (!(val & TX_SNAPSHOT_LOCKED)) {
++		shtx->tx_flags &= ~SKBTX_IN_PROGRESS;
++		return;
++	}
++
++	lo = __raw_readl(&regs->channel[ch].tx_snap_lo);
++	hi = __raw_readl(&regs->channel[ch].tx_snap_hi);
++	ns = ((u64) hi) << 32;
++	ns |= lo;
++	ns <<= TICKS_NS_SHIFT;
++
++	memset(&shhwtstamps, 0, sizeof(shhwtstamps));
++	shhwtstamps.hwtstamp = ns_to_ktime(ns);
++	skb_tstamp_tx(skb, &shhwtstamps);
++
++	__raw_writel(TX_SNAPSHOT_LOCKED, &regs->channel[ch].ch_event);
++}
++
++static int hwtstamp_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd)
++{
++	struct hwtstamp_config cfg;
++	struct ixp46x_ts_regs *regs;
++	struct port *port = netdev_priv(netdev);
++	int ch;
++
++	if (copy_from_user(&cfg, ifr->ifr_data, sizeof(cfg)))
++		return -EFAULT;
++
++	if (cfg.flags) /* reserved for future extensions */
++		return -EINVAL;
++
++	ch = PORT2CHANNEL(port);
++	regs = (struct ixp46x_ts_regs __iomem *) IXP4XX_TIMESYNC_BASE_VIRT;
++
++	switch (cfg.tx_type) {
++	case HWTSTAMP_TX_OFF:
++		port->hwts_tx_en = 0;
 +		break;
-+
-+	case PTP_CLOCK_EXTTS:
-+		enqueue_external_timestamp(&ptp->tsevq, event);
-+		wake_up_interruptible(&ptp->tsev_wq);
++	case HWTSTAMP_TX_ON:
++		port->hwts_tx_en = 1;
 +		break;
++	default:
++		return -ERANGE;
++	}
 +
-+	case PTP_CLOCK_PPS:
-+		getnstimeofday(&ts);
-+		pps_ts.sec = ts.tv_sec;
-+		pps_ts.nsec = ts.tv_nsec;
-+		pps_event(ptp->pps_source, &pps_ts, PTP_PPS_EVENT, NULL);
++	switch (cfg.rx_filter) {
++	case HWTSTAMP_FILTER_NONE:
++		port->hwts_rx_en = 0;
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_SYNC:
++		port->hwts_rx_en = PTP_SLAVE_MODE;
++		__raw_writel(0, &regs->channel[ch].ch_control);
++		break;
++	case HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ:
++		port->hwts_rx_en = PTP_MASTER_MODE;
++		__raw_writel(MASTER_MODE, &regs->channel[ch].ch_control);
++		break;
++	default:
++		return -ERANGE;
++	}
++
++	/* Clear out any old time stamps. */
++	__raw_writel(TX_SNAPSHOT_LOCKED | RX_SNAPSHOT_LOCKED,
++		     &regs->channel[ch].ch_event);
++
++	return copy_to_user(ifr->ifr_data, &cfg, sizeof(cfg)) ? -EFAULT : 0;
++}
+ 
+ static int ixp4xx_mdio_cmd(struct mii_bus *bus, int phy_id, int location,
+ 			   int write, u16 cmd)
+@@ -573,6 +745,7 @@ static int eth_poll(struct napi_struct *napi, int budget)
+ 
+ 		debug_pkt(dev, "eth_poll", skb->data, skb->len);
+ 
++		do_rx_timestamp(port, skb);
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 		dev->stats.rx_packets++;
+ 		dev->stats.rx_bytes += skb->len;
+@@ -679,14 +852,12 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		return NETDEV_TX_OK;
+ 	}
+ 	memcpy_swab32(mem, (u32 *)((int)skb->data & ~3), bytes / 4);
+-	dev_kfree_skb(skb);
+ #endif
+ 
+ 	phys = dma_map_single(&dev->dev, mem, bytes, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(&dev->dev, phys)) {
+-#ifdef __ARMEB__
+ 		dev_kfree_skb(skb);
+-#else
++#ifndef __ARMEB__
+ 		kfree(mem);
+ #endif
+ 		dev->stats.tx_dropped++;
+@@ -728,6 +899,13 @@ static int eth_xmit(struct sk_buff *skb, struct net_device *dev)
+ #if DEBUG_TX
+ 	printk(KERN_DEBUG "%s: eth_xmit end\n", dev->name);
+ #endif
++
++	do_tx_timestamp(port, skb);
++	skb_tx_timestamp(skb);
++
++#ifndef __ARMEB__
++	dev_kfree_skb(skb);
++#endif
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -783,6 +961,9 @@ static int eth_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+ 
++	if (cpu_is_ixp46x() && cmd == SIOCSHWTSTAMP)
++		return hwtstamp_ioctl(dev, req, cmd);
++
+ 	return phy_mii_ioctl(port->phydev, req, cmd);
+ }
+ 
+@@ -1171,6 +1352,11 @@ static int __devinit eth_init_one(struct platform_device *pdev)
+ 	char phy_id[MII_BUS_ID_SIZE + 3];
+ 	int err;
+ 
++	if (ptp_filter_init(ptp_filter, ARRAY_SIZE(ptp_filter))) {
++		pr_err("ixp4xx_eth: bad ptp filter\n");
++		return -EINVAL;
++	}
++
+ 	if (!(dev = alloc_etherdev(sizeof(struct port))))
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index a4df298..6f1dcbf 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -37,4 +37,17 @@ config PTP_1588_CLOCK_GIANFAR
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called gianfar_ptp.
+ 
++config PTP_1588_CLOCK_IXP46X
++	tristate "Intel IXP46x as PTP clock"
++	depends on PTP_1588_CLOCK
++	depends on IXP4XX_ETH
++	help
++	  This driver adds support for using the IXP46X as a PTP
++	  clock. This clock is only useful if your PTP programs are
++	  getting hardware time stamps on the PTP Ethernet packets
++	  using the SO_TIMESTAMPING API.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called ptp_ixp46x.
++
+ endmenu
+diff --git a/drivers/ptp/Makefile b/drivers/ptp/Makefile
+index 480e2af..f6933e8 100644
+--- a/drivers/ptp/Makefile
++++ b/drivers/ptp/Makefile
+@@ -4,3 +4,4 @@
+ 
+ ptp-y					:= ptp_clock.o ptp_chardev.o ptp_sysfs.o
+ obj-$(CONFIG_PTP_1588_CLOCK)		+= ptp.o
++obj-$(CONFIG_PTP_1588_CLOCK_IXP46X)	+= ptp_ixp46x.o
+diff --git a/drivers/ptp/ptp_ixp46x.c b/drivers/ptp/ptp_ixp46x.c
+new file mode 100644
+index 0000000..c860030
+--- /dev/null
++++ b/drivers/ptp/ptp_ixp46x.c
+@@ -0,0 +1,332 @@
++/*
++ * PTP 1588 clock using the IXP46X
++ *
++ * Copyright (C) 2010 OMICRON electronics GmbH
++ *
++ *  This program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2 of the License, or
++ *  (at your option) any later version.
++ *
++ *  This program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this program; if not, write to the Free Software
++ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ */
++#include <linux/device.h>
++#include <linux/err.h>
++#include <linux/gpio.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/io.h>
++#include <linux/irq.h>
++#include <linux/kernel.h>
++#include <linux/module.h>
++
++#include <linux/ptp_clock_kernel.h>
++#include <mach/ixp46x_ts.h>
++
++#define DRIVER		"ptp_ixp46x"
++#define N_EXT_TS	2
++#define MASTER_GPIO	8
++#define MASTER_IRQ	25
++#define SLAVE_GPIO	7
++#define SLAVE_IRQ	24
++
++struct ixp_clock {
++	struct ixp46x_ts_regs *regs;
++	struct ptp_clock *ptp_clock;
++	struct ptp_clock_info caps;
++	int exts0_enabled;
++	int exts1_enabled;
++};
++
++DEFINE_SPINLOCK(register_lock);
++
++/*
++ * Register access functions
++ */
++
++static u64 sys_time_read(struct ixp46x_ts_regs *regs)
++{
++	u64 ns;
++	u32 lo, hi;
++
++	lo = __raw_readl(&regs->systime_lo);
++	hi = __raw_readl(&regs->systime_hi);
++
++	ns = ((u64) hi) << 32;
++	ns |= lo;
++	ns <<= TICKS_NS_SHIFT;
++
++	return ns;
++}
++
++static void sys_time_write(struct ixp46x_ts_regs *regs, u64 ns)
++{
++	u32 hi, lo;
++
++	ns >>= TICKS_NS_SHIFT;
++	hi = ns >> 32;
++	lo = ns & 0xffffffff;
++
++	__raw_writel(lo, &regs->systime_lo);
++	__raw_writel(hi, &regs->systime_hi);
++}
++
++/*
++ * Interrupt service routine
++ */
++
++static irqreturn_t isr(int irq, void *priv)
++{
++	struct ixp_clock *ixp_clock = priv;
++	struct ixp46x_ts_regs *regs = ixp_clock->regs;
++	struct ptp_clock_event event;
++	u32 ack = 0, lo, hi, val;
++
++	val = __raw_readl(&regs->event);
++
++	if (val & TSER_SNS) {
++		ack |= TSER_SNS;
++		if (ixp_clock->exts0_enabled) {
++			hi = __raw_readl(&regs->asms_hi);
++			lo = __raw_readl(&regs->asms_lo);
++			event.type = PTP_CLOCK_EXTTS;
++			event.index = 0;
++			event.timestamp = ((u64) hi) << 32;
++			event.timestamp |= lo;
++			event.timestamp <<= TICKS_NS_SHIFT;
++			ptp_clock_event(ixp_clock->ptp_clock, &event);
++		}
++	}
++
++	if (val & TSER_SNM) {
++		ack |= TSER_SNM;
++		if (ixp_clock->exts1_enabled) {
++			hi = __raw_readl(&regs->amms_hi);
++			lo = __raw_readl(&regs->amms_lo);
++			event.type = PTP_CLOCK_EXTTS;
++			event.index = 1;
++			event.timestamp = ((u64) hi) << 32;
++			event.timestamp |= lo;
++			event.timestamp <<= TICKS_NS_SHIFT;
++			ptp_clock_event(ixp_clock->ptp_clock, &event);
++		}
++	}
++
++	if (val & TTIPEND)
++		ack |= TTIPEND; /* this bit seems to be always set */
++
++	if (ack) {
++		__raw_writel(ack, &regs->event);
++		return IRQ_HANDLED;
++	} else
++		return IRQ_NONE;
++}
++
++/*
++ * PTP clock operations
++ */
++
++static int ptp_ixp_adjfreq(struct ptp_clock_info *ptp, s32 ppb)
++{
++	u64 adj;
++	u32 diff, addend;
++	int neg_adj = 0;
++	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
++	struct ixp46x_ts_regs *regs = ixp_clock->regs;
++
++	if (ppb < 0) {
++		neg_adj = 1;
++		ppb = -ppb;
++	}
++	addend = DEFAULT_ADDEND;
++	adj = addend;
++	adj *= ppb;
++	diff = div_u64(adj, 1000000000ULL);
++
++	addend = neg_adj ? addend - diff : addend + diff;
++
++	__raw_writel(addend, &regs->addend);
++
++	return 0;
++}
++
++static int ptp_ixp_adjtime(struct ptp_clock_info *ptp, s64 delta)
++{
++	s64 now;
++	unsigned long flags;
++	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
++	struct ixp46x_ts_regs *regs = ixp_clock->regs;
++
++	spin_lock_irqsave(&register_lock, flags);
++
++	now = sys_time_read(regs);
++	now += delta;
++	sys_time_write(regs, now);
++
++	spin_unlock_irqrestore(&register_lock, flags);
++
++	return 0;
++}
++
++static int ptp_ixp_gettime(struct ptp_clock_info *ptp, struct timespec *ts)
++{
++	u64 ns;
++	u32 remainder;
++	unsigned long flags;
++	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
++	struct ixp46x_ts_regs *regs = ixp_clock->regs;
++
++	spin_lock_irqsave(&register_lock, flags);
++
++	ns = sys_time_read(regs);
++
++	spin_unlock_irqrestore(&register_lock, flags);
++
++	ts->tv_sec = div_u64_rem(ns, 1000000000, &remainder);
++	ts->tv_nsec = remainder;
++	return 0;
++}
++
++static int ptp_ixp_settime(struct ptp_clock_info *ptp,
++			   const struct timespec *ts)
++{
++	u64 ns;
++	unsigned long flags;
++	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
++	struct ixp46x_ts_regs *regs = ixp_clock->regs;
++
++	ns = ts->tv_sec * 1000000000ULL;
++	ns += ts->tv_nsec;
++
++	spin_lock_irqsave(&register_lock, flags);
++
++	sys_time_write(regs, ns);
++
++	spin_unlock_irqrestore(&register_lock, flags);
++
++	return 0;
++}
++
++static int ptp_ixp_enable(struct ptp_clock_info *ptp,
++			  struct ptp_clock_request *rq, int on)
++{
++	struct ixp_clock *ixp_clock = container_of(ptp, struct ixp_clock, caps);
++
++	switch (rq->type) {
++	case PTP_CLK_REQ_EXTTS:
++		switch (rq->extts.index) {
++		case 0:
++			ixp_clock->exts0_enabled = on ? 1 : 0;
++			break;
++		case 1:
++			ixp_clock->exts1_enabled = on ? 1 : 0;
++			break;
++		default:
++			return -EINVAL;
++		}
++		return 0;
++	default:
 +		break;
 +	}
++
++	return -EOPNOTSUPP;
 +}
-+EXPORT_SYMBOL(ptp_clock_event);
++
++static struct ptp_clock_info ptp_ixp_caps = {
++	.owner		= THIS_MODULE,
++	.name		= "IXP46X timer",
++	.max_adj	= 66666655,
++	.n_ext_ts	= N_EXT_TS,
++	.pps		= 0,
++	.adjfreq	= ptp_ixp_adjfreq,
++	.adjtime	= ptp_ixp_adjtime,
++	.gettime	= ptp_ixp_gettime,
++	.settime	= ptp_ixp_settime,
++	.enable		= ptp_ixp_enable,
++};
 +
 +/* module operations */
 +
-+static void __exit ptp_exit(void)
++static struct ixp_clock ixp_clock;
++
++static int setup_interrupt(int gpio)
 +{
-+	class_destroy(ptp_class);
-+	unregister_chrdev_region(ptp_devt, PTP_MAX_CLOCKS);
++	int irq;
++
++	gpio_line_config(gpio, IXP4XX_GPIO_IN);
++
++	irq = gpio_to_irq(gpio);
++
++	if (NO_IRQ == irq)
++		return NO_IRQ;
++
++	if (set_irq_type(irq, IRQF_TRIGGER_FALLING)) {
++		pr_err("cannot set trigger type for irq %d\n", irq);
++		return NO_IRQ;
++	}
++
++	if (request_irq(irq, isr, 0, DRIVER, &ixp_clock)) {
++		pr_err("request_irq failed for irq %d\n", irq);
++		return NO_IRQ;
++	}
++
++	return irq;
 +}
 +
-+static int __init ptp_init(void)
++static void __exit ptp_ixp_exit(void)
 +{
-+	int err;
++	free_irq(MASTER_IRQ, &ixp_clock);
++	free_irq(SLAVE_IRQ, &ixp_clock);
++	ptp_clock_unregister(ixp_clock.ptp_clock);
++}
 +
-+	ptp_class = class_create(THIS_MODULE, "ptp");
-+	if (IS_ERR(ptp_class)) {
-+		pr_err("ptp: failed to allocate class\n");
-+		return PTR_ERR(ptp_class);
++static int __init ptp_ixp_init(void)
++{
++	if (!cpu_is_ixp46x())
++		return -ENODEV;
++
++	ixp_clock.regs = 
++		(struct ixp46x_ts_regs __iomem *)IXP4XX_TIMESYNC_BASE_VIRT;
++
++	ixp_clock.caps = ptp_ixp_caps;
++
++	ixp_clock.ptp_clock = ptp_clock_register(&ixp_clock.caps);
++
++	if (IS_ERR(ixp_clock.ptp_clock))
++		return PTR_ERR(ixp_clock.ptp_clock);
++
++	__raw_writel(DEFAULT_ADDEND, &ixp_clock.regs->addend);
++	__raw_writel(1, &ixp_clock.regs->trgt_lo);
++	__raw_writel(0, &ixp_clock.regs->trgt_hi);
++	__raw_writel(TTIPEND, &ixp_clock.regs->event);
++
++	if (MASTER_IRQ != setup_interrupt(MASTER_GPIO)) {
++		pr_err("failed to setup gpio %d as irq\n", MASTER_GPIO);
++		goto no_master;
++	}
++	if (SLAVE_IRQ != setup_interrupt(SLAVE_GPIO)) {
++		pr_err("failed to setup gpio %d as irq\n", SLAVE_GPIO);
++		goto no_slave;
 +	}
 +
-+	err = alloc_chrdev_region(&ptp_devt, 0, PTP_MAX_CLOCKS, "ptp");
-+	if (err < 0) {
-+		pr_err("ptp: failed to allocate device region\n");
-+		goto no_region;
-+	}
-+
-+	ptp_class->dev_attrs = ptp_dev_attrs;
-+	pr_info("PTP clock support registered\n");
 +	return 0;
-+
-+no_region:
-+	class_destroy(ptp_class);
-+	return err;
++no_slave:
++	free_irq(MASTER_IRQ, &ixp_clock);
++no_master:
++	ptp_clock_unregister(ixp_clock.ptp_clock);
++	return -ENODEV;
 +}
 +
-+subsys_initcall(ptp_init);
-+module_exit(ptp_exit);
++module_init(ptp_ixp_init);
++module_exit(ptp_ixp_exit);
 +
 +MODULE_AUTHOR("Richard Cochran <richard.cochran@omicron.at>");
-+MODULE_DESCRIPTION("PTP clocks support");
++MODULE_DESCRIPTION("PTP clock using the IXP46X timer");
 +MODULE_LICENSE("GPL");
-diff --git a/drivers/ptp/ptp_private.h b/drivers/ptp/ptp_private.h
-new file mode 100644
-index 0000000..9609c36
---- /dev/null
-+++ b/drivers/ptp/ptp_private.h
-@@ -0,0 +1,85 @@
-+/*
-+ * PTP 1588 clock support - private declarations for the core module.
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+#ifndef _PTP_PRIVATE_H_
-+#define _PTP_PRIVATE_H_
-+
-+#include <linux/cdev.h>
-+#include <linux/device.h>
-+#include <linux/mutex.h>
-+#include <linux/posix-clock.h>
-+#include <linux/ptp_clock.h>
-+#include <linux/ptp_clock_kernel.h>
-+#include <linux/time.h>
-+
-+#define PTP_MAX_TIMESTAMPS 128
-+
-+struct timestamp_event_queue {
-+	struct ptp_extts_event buf[PTP_MAX_TIMESTAMPS];
-+	int head;
-+	int tail;
-+	int overflow;
-+};
-+
-+struct ptp_clock {
-+	struct posix_clock clock;
-+	struct device *dev;
-+	struct ptp_clock_info *info;
-+	dev_t devid;
-+	int index; /* index into clocks.map */
-+	int pps_source;
-+	struct timestamp_event_queue tsevq; /* simple fifo for time stamps */
-+	struct mutex tsevq_mux; /* one process at a time reading the fifo */
-+	wait_queue_head_t tsev_wq;
-+};
-+
-+static inline int queue_cnt(struct timestamp_event_queue *q)
-+{
-+	int cnt = q->tail - q->head;
-+	return cnt < 0 ? PTP_MAX_TIMESTAMPS + cnt : cnt;
-+}
-+
-+/*
-+ * see ptp_chardev.c
-+ */
-+
-+long ptp_ioctl(struct posix_clock *pc,
-+	       unsigned int cmd, unsigned long arg);
-+
-+int ptp_open(struct posix_clock *pc, fmode_t fmode);
-+
-+ssize_t ptp_read(struct posix_clock *pc,
-+		 uint flags, char __user *buf, size_t cnt);
-+
-+int ptp_release(struct posix_clock *pc);
-+
-+uint ptp_poll(struct posix_clock *pc,
-+	      struct file *fp, poll_table *wait);
-+
-+/*
-+ * see ptp_sysfs.c
-+ */
-+
-+extern struct device_attribute ptp_dev_attrs[];
-+
-+int ptp_cleanup_sysfs(struct ptp_clock *ptp);
-+
-+int ptp_populate_sysfs(struct ptp_clock *ptp);
-+
-+#endif
-diff --git a/drivers/ptp/ptp_sysfs.c b/drivers/ptp/ptp_sysfs.c
-new file mode 100644
-index 0000000..0450f33
---- /dev/null
-+++ b/drivers/ptp/ptp_sysfs.c
-@@ -0,0 +1,226 @@
-+/*
-+ * PTP 1588 clock support - sysfs interface.
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+#include <linux/capability.h>
-+
-+#include "ptp_private.h"
-+
-+static ssize_t clock_name_show(struct device *dev,
-+			       struct device_attribute *attr, char *page)
-+{
-+	struct ptp_clock *ptp = dev_get_drvdata(dev);
-+	return snprintf(page, PAGE_SIZE-1, "%s\n", ptp->info->name);
-+}
-+
-+#define PTP_SHOW_INT(name)						\
-+static ssize_t name##_show(struct device *dev,				\
-+			   struct device_attribute *attr, char *page)	\
-+{									\
-+	struct ptp_clock *ptp = dev_get_drvdata(dev);			\
-+	return snprintf(page, PAGE_SIZE-1, "%d\n", ptp->info->name);	\
-+}
-+
-+PTP_SHOW_INT(max_adj);
-+PTP_SHOW_INT(n_alarm);
-+PTP_SHOW_INT(n_ext_ts);
-+PTP_SHOW_INT(n_per_out);
-+PTP_SHOW_INT(pps);
-+
-+#define PTP_RO_ATTR(_var, _name) {				\
-+	.attr	= { .name = __stringify(_name), .mode = 0444 },	\
-+	.show	= _var##_show,					\
-+}
-+
-+struct device_attribute ptp_dev_attrs[] = {
-+	PTP_RO_ATTR(clock_name,	clock_name),
-+	PTP_RO_ATTR(max_adj,	max_adjustment),
-+	PTP_RO_ATTR(n_alarm,	n_alarms),
-+	PTP_RO_ATTR(n_ext_ts,	n_external_timestamps),
-+	PTP_RO_ATTR(n_per_out,	n_periodic_outputs),
-+	PTP_RO_ATTR(pps,	pps_available),
-+	__ATTR_NULL,
-+};
-+
-+static ssize_t extts_enable_store(struct device *dev,
-+				  struct device_attribute *attr,
-+				  const char *buf, size_t count)
-+{
-+	struct ptp_clock *ptp = dev_get_drvdata(dev);
-+	struct ptp_clock_info *ops = ptp->info;
-+	struct ptp_clock_request req = { .type = PTP_CLK_REQ_EXTTS };
-+	int cnt, enable;
-+	int err = -EINVAL;
-+
-+	cnt = sscanf(buf, "%u %d", &req.extts.index, &enable);
-+	if (cnt != 2)
-+		goto out;
-+	if (req.extts.index >= ops->n_ext_ts)
-+		goto out;
-+
-+	err = ops->enable(ops, &req, enable ? 1 : 0);
-+	if (err)
-+		goto out;
-+
-+	return count;
-+out:
-+	return err;
-+}
-+
-+static ssize_t extts_fifo_show(struct device *dev,
-+			       struct device_attribute *attr, char *page)
-+{
-+	struct ptp_clock *ptp = dev_get_drvdata(dev);
-+	struct timestamp_event_queue *queue = &ptp->tsevq;
-+	struct ptp_extts_event *event;
-+	size_t qcnt;
-+	int cnt;
-+
-+	if (mutex_lock_interruptible(&ptp->tsevq_mux))
-+		return -ERESTARTSYS;
-+
-+	qcnt = queue_cnt(&ptp->tsevq);
-+	if (!qcnt) {
-+		mutex_unlock(&ptp->tsevq_mux);
-+		return 0;
-+	}
-+	event = &queue->buf[queue->head];
-+
-+	cnt = snprintf(page, PAGE_SIZE, "%u %lld %u\n",
-+		       event->index, event->t.sec, event->t.nsec);
-+
-+	queue->head = (1 + queue->head) % PTP_MAX_TIMESTAMPS;
-+
-+	mutex_unlock(&ptp->tsevq_mux);
-+
-+	return cnt;
-+}
-+
-+static ssize_t period_store(struct device *dev,
-+			    struct device_attribute *attr,
-+			    const char *buf, size_t count)
-+{
-+	struct ptp_clock *ptp = dev_get_drvdata(dev);
-+	struct ptp_clock_info *ops = ptp->info;
-+	struct ptp_clock_request req = { .type = PTP_CLK_REQ_PEROUT };
-+	int cnt, enable, err = -EINVAL;
-+
-+	cnt = sscanf(buf, "%u %lld %u %lld %u", &req.perout.index,
-+		     &req.perout.start.sec, &req.perout.start.nsec,
-+		     &req.perout.period.sec, &req.perout.period.nsec);
-+	if (cnt != 5)
-+		goto out;
-+	if (req.perout.index >= ops->n_per_out)
-+		goto out;
-+
-+	enable = req.perout.period.sec || req.perout.period.nsec;
-+	err = ops->enable(ops, &req, enable);
-+	if (err)
-+		goto out;
-+
-+	return count;
-+out:
-+	return err;
-+}
-+
-+static ssize_t pps_enable_store(struct device *dev,
-+				struct device_attribute *attr,
-+				const char *buf, size_t count)
-+{
-+	struct ptp_clock *ptp = dev_get_drvdata(dev);
-+	struct ptp_clock_info *ops = ptp->info;
-+	struct ptp_clock_request req = { .type = PTP_CLK_REQ_PPS };
-+	int cnt, enable;
-+	int err = -EINVAL;
-+
-+	if (!capable(CAP_SYS_TIME))
-+		return -EPERM;
-+
-+	cnt = sscanf(buf, "%d", &enable);
-+	if (cnt != 1)
-+		goto out;
-+
-+	err = ops->enable(ops, &req, enable ? 1 : 0);
-+	if (err)
-+		goto out;
-+
-+	return count;
-+out:
-+	return err;
-+}
-+
-+static DEVICE_ATTR(extts_enable, 0220, NULL, extts_enable_store);
-+static DEVICE_ATTR(fifo,         0444, extts_fifo_show, NULL);
-+static DEVICE_ATTR(period,       0220, NULL, period_store);
-+static DEVICE_ATTR(pps_enable,   0220, NULL, pps_enable_store);
-+
-+int ptp_cleanup_sysfs(struct ptp_clock *ptp)
-+{
-+	struct device *dev = ptp->dev;
-+	struct ptp_clock_info *info = ptp->info;
-+
-+	if (info->n_ext_ts) {
-+		device_remove_file(dev, &dev_attr_extts_enable);
-+		device_remove_file(dev, &dev_attr_fifo);
-+	}
-+	if (info->n_per_out)
-+		device_remove_file(dev, &dev_attr_period);
-+
-+	if (info->pps)
-+		device_remove_file(dev, &dev_attr_pps_enable);
-+
-+	return 0;
-+}
-+
-+int ptp_populate_sysfs(struct ptp_clock *ptp)
-+{
-+	struct device *dev = ptp->dev;
-+	struct ptp_clock_info *info = ptp->info;
-+	int err;
-+
-+	if (info->n_ext_ts) {
-+		err = device_create_file(dev, &dev_attr_extts_enable);
-+		if (err)
-+			goto out1;
-+		err = device_create_file(dev, &dev_attr_fifo);
-+		if (err)
-+			goto out2;
-+	}
-+	if (info->n_per_out) {
-+		err = device_create_file(dev, &dev_attr_period);
-+		if (err)
-+			goto out3;
-+	}
-+	if (info->pps) {
-+		err = device_create_file(dev, &dev_attr_pps_enable);
-+		if (err)
-+			goto out4;
-+	}
-+	return 0;
-+out4:
-+	if (info->n_per_out)
-+		device_remove_file(dev, &dev_attr_period);
-+out3:
-+	if (info->n_ext_ts)
-+		device_remove_file(dev, &dev_attr_fifo);
-+out2:
-+	if (info->n_ext_ts)
-+		device_remove_file(dev, &dev_attr_extts_enable);
-+out1:
-+	return err;
-+}
-diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index a354c19..0a11d5c 100644
---- a/include/linux/Kbuild
-+++ b/include/linux/Kbuild
-@@ -295,6 +295,7 @@ header-y += ppp-comp.h
- header-y += ppp_defs.h
- header-y += pps.h
- header-y += prctl.h
-+header-y += ptp_clock.h
- header-y += ptrace.h
- header-y += qnx4_fs.h
- header-y += qnxtypes.h
-diff --git a/include/linux/ptp_clock.h b/include/linux/ptp_clock.h
-new file mode 100644
-index 0000000..b4ef2cb
---- /dev/null
-+++ b/include/linux/ptp_clock.h
-@@ -0,0 +1,79 @@
-+/*
-+ * PTP 1588 clock support - user space interface
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+
-+#ifndef _PTP_CLOCK_H_
-+#define _PTP_CLOCK_H_
-+
-+#include <linux/ioctl.h>
-+#include <linux/types.h>
-+
-+/* PTP_xxx bits, for the flags field within the request structures. */
-+#define PTP_ENABLE_FEATURE (1<<0)
-+#define PTP_RISING_EDGE    (1<<1)
-+#define PTP_FALLING_EDGE   (1<<2)
-+
-+/*
-+ * struct ptp_clock_time - represents a time value
-+ *
-+ * The sign of the seconds field applies to the whole value. The
-+ * nanoseconds field is always unsigned. The reserved field is
-+ * included for sub-nanosecond resolution, should the demand for
-+ * this ever appear.
-+ *
-+ */
-+struct ptp_clock_time {
-+	__s64 sec;  /* seconds */
-+	__u32 nsec; /* nanoseconds */
-+	__u32 reserved;
-+};
-+
-+struct ptp_clock_caps {
-+	int max_adj;   /* Maximum frequency adjustment in parts per billon. */
-+	int n_alarm;   /* Number of programmable alarms. */
-+	int n_ext_ts;  /* Number of external time stamp channels. */
-+	int n_per_out; /* Number of programmable periodic signals. */
-+	int pps;       /* Whether the clock supports a PPS callback. */
-+};
-+
-+struct ptp_extts_request {
-+	unsigned int index; /* Which channel to configure. */
-+	unsigned int flags; /* Bit field for PTP_xxx flags. */
-+};
-+
-+struct ptp_perout_request {
-+	struct ptp_clock_time start;  /* Absolute start time. */
-+	struct ptp_clock_time period; /* Desired period, zero means disable. */
-+	unsigned int index;           /* Which channel to configure. */
-+	unsigned int flags;           /* Reserved for future use. */
-+};
-+
-+#define PTP_CLK_MAGIC '='
-+
-+#define PTP_CLOCK_GETCAPS  _IOR(PTP_CLK_MAGIC, 1, struct ptp_clock_caps)
-+#define PTP_EXTTS_REQUEST  _IOW(PTP_CLK_MAGIC, 2, struct ptp_extts_request)
-+#define PTP_PEROUT_REQUEST _IOW(PTP_CLK_MAGIC, 3, struct ptp_perout_request)
-+#define PTP_ENABLE_PPS     _IOW(PTP_CLK_MAGIC, 4, int)
-+
-+struct ptp_extts_event {
-+	struct ptp_clock_time t; /* Time event occured. */
-+	unsigned int index;      /* Which channel produced the event. */
-+};
-+
-+#endif
-diff --git a/include/linux/ptp_clock_kernel.h b/include/linux/ptp_clock_kernel.h
-new file mode 100644
-index 0000000..6cd242a
---- /dev/null
-+++ b/include/linux/ptp_clock_kernel.h
-@@ -0,0 +1,141 @@
-+/*
-+ * PTP 1588 clock support
-+ *
-+ * Copyright (C) 2010 OMICRON electronics GmbH
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-+ */
-+
-+#ifndef _PTP_CLOCK_KERNEL_H_
-+#define _PTP_CLOCK_KERNEL_H_
-+
-+#include <linux/ptp_clock.h>
-+
-+
-+struct ptp_clock_request {
-+	enum {
-+		PTP_CLK_REQ_EXTTS,
-+		PTP_CLK_REQ_PEROUT,
-+		PTP_CLK_REQ_PPS,
-+	} type;
-+	union {
-+		struct ptp_extts_request extts;
-+		struct ptp_perout_request perout;
-+	};
-+};
-+
-+/**
-+ * struct ptp_clock_info - decribes a PTP hardware clock
-+ *
-+ * @owner:     The clock driver should set to THIS_MODULE.
-+ * @name:      A short name to identify the clock.
-+ * @max_adj:   The maximum possible frequency adjustment, in parts per billon.
-+ * @n_alarm:   The number of programmable alarms.
-+ * @n_ext_ts:  The number of external time stamp channels.
-+ * @n_per_out: The number of programmable periodic signals.
-+ * @pps:       Indicates whether the clock supports a PPS callback.
-+ *
-+ * clock operations
-+ *
-+ * @adjfreq:  Adjusts the frequency of the hardware clock.
-+ *            parameter delta: Desired period change in parts per billion.
-+ *
-+ * @adjtime:  Shifts the time of the hardware clock.
-+ *            parameter delta: Desired change in nanoseconds.
-+ *
-+ * @gettime:  Reads the current time from the hardware clock.
-+ *            parameter ts: Holds the result.
-+ *
-+ * @settime:  Set the current time on the hardware clock.
-+ *            parameter ts: Time value to set.
-+ *
-+ * @enable:   Request driver to enable or disable an ancillary feature.
-+ *            parameter request: Desired resource to enable or disable.
-+ *            parameter on: Caller passes one to enable or zero to disable.
-+ *
-+ * Drivers should embed their ptp_clock_info within a private
-+ * structure, obtaining a reference to it using container_of().
-+ *
-+ * The callbacks must all return zero on success, non-zero otherwise.
-+ */
-+
-+struct ptp_clock_info {
-+	struct module *owner;
-+	char name[16];
-+	s32 max_adj;
-+	int n_alarm;
-+	int n_ext_ts;
-+	int n_per_out;
-+	int pps;
-+	int (*adjfreq)(struct ptp_clock_info *ptp, s32 delta);
-+	int (*adjtime)(struct ptp_clock_info *ptp, s64 delta);
-+	int (*gettime)(struct ptp_clock_info *ptp, struct timespec *ts);
-+	int (*settime)(struct ptp_clock_info *ptp, const struct timespec *ts);
-+	int (*enable)(struct ptp_clock_info *ptp,
-+		      struct ptp_clock_request *request, int on);
-+};
-+
-+struct ptp_clock;
-+
-+/**
-+ * ptp_clock_register() - register a PTP hardware clock driver
-+ *
-+ * @info:  Structure describing the new clock.
-+ */
-+
-+extern struct ptp_clock *ptp_clock_register(struct ptp_clock_info *info);
-+
-+/**
-+ * ptp_clock_unregister() - unregister a PTP hardware clock driver
-+ *
-+ * @ptp:  The clock to remove from service.
-+ */
-+
-+extern int ptp_clock_unregister(struct ptp_clock *ptp);
-+
-+
-+enum ptp_clock_events {
-+	PTP_CLOCK_ALARM,
-+	PTP_CLOCK_EXTTS,
-+	PTP_CLOCK_PPS,
-+};
-+
-+/**
-+ * struct ptp_clock_event - decribes a PTP hardware clock event
-+ *
-+ * @type:  One of the ptp_clock_events enumeration values.
-+ * @index: Identifies the source of the event.
-+ * @timestamp: When the event occured.
-+ */
-+
-+struct ptp_clock_event {
-+	int type;
-+	int index;
-+	u64 timestamp;
-+};
-+
-+/**
-+ * ptp_clock_event() - notify the PTP layer about an event
-+ *
-+ * This function should only be called from interrupt context.
-+ *
-+ * @ptp:    The clock obtained from ptp_clock_register().
-+ * @event:  Message structure describing the event.
-+ */
-+
-+extern void ptp_clock_event(struct ptp_clock *ptp,
-+			    struct ptp_clock_event *event);
-+
-+#endif
 -- 
 1.7.0.4
