@@ -1,68 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] etherdevice.h: Add is_unicast_ether_addr
- function
-Date: Thu, 13 Jan 2011 09:55:16 +0100
-Message-ID: <1294908916.3570.21.camel@edumazet-laptop>
-References: <20110112.234250.10542369.davem@davemloft.net>
-	 <1294906496-14950-1-git-send-email-tklauser@distanz.ch>
-	 <1294907081.4114.35.camel@Joe-Laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Tobias Klauser <tklauser@distanz.ch>,
-	David Miller <davem@davemloft.net>, cmetcalf@tilera.com,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+From: Daniel Hellstrom <daniel@gaisler.com>
+Subject: [PATCH 05/10] GRETH: fix opening/closing
+Date: Thu, 13 Jan 2011 09:25:30 +0100
+Message-ID: <1294907135-24884-5-git-send-email-daniel@gaisler.com>
+References: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
+Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:58892 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756090Ab1AMIzW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 03:55:22 -0500
-Received: by wwi17 with SMTP id 17so4833336wwi.1
-        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 00:55:21 -0800 (PST)
-In-Reply-To: <1294907081.4114.35.camel@Joe-Laptop>
+Received: from mail201c2.megamailservers.com ([69.49.111.102]:39241 "EHLO
+	mail201c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753307Ab1AMJAE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 04:00:04 -0500
+In-Reply-To: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 13 janvier 2011 =C3=A0 00:24 -0800, Joe Perches a =C3=A9crit :
-> On Thu, 2011-01-13 at 09:14 +0100, Tobias Klauser wrote:
-> > >From a check for !is_multicast_ether_addr it is not always obvious=
- that
-> > we're checking for a unicast address. So add this helper function t=
-o
-> > make those code paths easier to read.
-> >  include/linux/etherdevice.h |   11 +++++++++++
-> []
-> >  /**
-> > + * is_unicast_ether_addr - Determine if the Ethernet address is un=
-icast
-> > + * @addr: Pointer to a six-byte array containing the Ethernet addr=
-ess
-> > + *
-> > + * Return true if the address is a unicast address.
-> > + */
-> > +static inline int is_unicast_ether_addr(const u8 *addr)
-> > +{
-> > +	return !is_multicast_ether_addr(addr);
-> > +}
->=20
-> Can't you simply use is_valid_ether_addr?
->=20
-> I can't think of much reason that a new function for
-> !multicast without the !is_zero is needed.
->=20
+When NAPI is disabled there is no point in having IRQs enabled, TX/RX
+should be off before clearing the TX/RX descriptor rings.
 
-performance ?
+Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
+---
+ drivers/net/greth.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-is_valid_ether_addr() is used at device init time, not when receiving
-packets.
-
-I am not sure we _need_ to check for is_zero_ether_addr() each time we
-receive a packet.
-
-Either a MAC is unicast or multicast.
-
-A zero address is not multicast for sure.
-
-
+diff --git a/drivers/net/greth.c b/drivers/net/greth.c
+index 775dc24..27578c9 100644
+--- a/drivers/net/greth.c
++++ b/drivers/net/greth.c
+@@ -366,6 +366,8 @@ static int greth_open(struct net_device *dev)
+ 		dev_dbg(&dev->dev, " starting queue\n");
+ 	netif_start_queue(dev);
+ 
++	GRETH_REGSAVE(greth->regs->status, 0xFF);
++
+ 	napi_enable(&greth->napi);
+ 
+ 	greth_enable_irqs(greth);
+@@ -381,7 +383,9 @@ static int greth_close(struct net_device *dev)
+ 
+ 	napi_disable(&greth->napi);
+ 
++	greth_disable_irqs(greth);
+ 	greth_disable_tx(greth);
++	greth_disable_rx(greth);
+ 
+ 	netif_stop_queue(dev);
+ 
+-- 
+1.5.4
 
