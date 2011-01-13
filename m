@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] inet6: prevent network storms caused by linux IPv6
- routers
-Date: Wed, 12 Jan 2011 18:52:11 -0800 (PST)
-Message-ID: <20110112.185211.181474894.davem@davemloft.net>
-References: <20110112183408.GA8417@ms2.inr.ac.ru>
+Subject: Re: pull request: wireless-2.6 2011-01-12
+Date: Wed, 12 Jan 2011 18:52:34 -0800 (PST)
+Message-ID: <20110112.185234.11965972.davem@davemloft.net>
+References: <20110112183754.GC8674@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: kuznet@ms2.inr.ac.ru
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49530
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932565Ab1AMCvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 21:51:39 -0500
-In-Reply-To: <20110112183408.GA8417@ms2.inr.ac.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110112183754.GC8674@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Date: Wed, 12 Jan 2011 21:34:08 +0300
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Wed, 12 Jan 2011 13:37:54 -0500
 
-> Linux IPv6 forwards unicast packets, which are link layer multicasts...
-> The hole was present since day one. I was 100% this check is there, but it is not.
+> This is an initial batch of wireless fixes intended for 2.6.38-rc1.
+> Highlights include a number of small ath9k fixes, some documentation
+> fixes from Johannes, and an ssb fix that stops loading b44 inadvertently
+> when certain b43 devices are present.
 > 
-> The problem shows itself, f.e. when Microsoft Network Load Balancer runs on a network.
-> This software resolves IPv6 unicast addresses to multicast MAC addresses.
-> 
-> Signed-off-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Please let me know if there are problems!
 
-Applied, thanks Alexey.
+Pulled, thanks a lot John.
