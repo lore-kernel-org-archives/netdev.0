@@ -1,49 +1,37 @@
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Subject: RE: [PATCH] vxge: Remember to release firmware after upgrading
- firmware {nodisc}
-Date: Thu, 13 Jan 2011 12:35:14 -0800
-Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EFB6B2F34@FRE1EXCH02.hq.exar.com>
-References: <alpine.LNX.2.00.1101132119080.11347@swampdragon.chaosbits.net>
+From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V9 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Fri, 14 Jan 2011 05:39:31 +0900
+Message-ID: <AANLkTimHP1OsWauj6O566WgnxVTjMbNg2PK644QcT9Lq@mail.gmail.com>
+References: <cover.1294917347.git.richard.cochran@omicron.at> <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jon Mason <Jon.Mason@exar.com>,
-	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
-To: Jesper Juhl <jj@chaosbits.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.exar.com ([204.154.183.83]:54847 "EHLO smtp1.exar.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751663Ab1AMUfQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 15:35:16 -0500
-In-Reply-To: <alpine.LNX.2.00.1101132119080.11347@swampdragon.chaosbits.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> Regardless of whether the firmware update being performed by
-> vxge_fw_upgrade() is a success or not we must still remember to always
-> release_firmware() before returning.
-> 
-> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> ---
->  vxge-main.c |    1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
-> index 1ac9b56..c81a651 100644
-> --- a/drivers/net/vxge/vxge-main.c
-> +++ b/drivers/net/vxge/vxge-main.c
-> @@ -4120,6 +4120,7 @@ int vxge_fw_upgrade(struct vxgedev *vdev, char
-> *fw_name, int override)
->  	       "hotplug event.\n");
-> 
->  out:
-> +	release_firmware(fw);
->  	return ret;
->  }
-Thanks!
+On Thu, Jan 13, 2011 at 8:32 PM, Richard Cochran
+<richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> This patch adds a new mode bit into the timex structure. When set, the bit
+> instructs the kernel to add the given time value to the current time.
 
-Acked-by: Ram Vepa <ram.vepa@exar.com>
+The unix time is a nonlinear timescale and there's no way to predict
+how many leap seconds will be inserted/deleted during the given time
+interval.  So it is impossible to convert relative time to absolute
+time and thus your patch is broken. (More specifically, the
+timekeeping_inject_offset function is broken.)
+
+My proposal: Limit the adjustable range of the offset so that leap
+seconds will never occur more than once. (2147.5 seconds would be the
+best choice. :-)
