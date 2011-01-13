@@ -1,56 +1,45 @@
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
-Subject: Re: [patch 2/2] [PATCH] qeth: l3 hw tx csum circumvent hw bug
-Date: Thu, 13 Jan 2011 09:23:59 +0100
-Message-ID: <20110113082359.GA11455@tuxmaker.boeblingen.de.ibm.com>
-References: <20110113064223.429450048@de.ibm.com> <20110113064310.729751199@de.ibm.com> <20110112.234735.160088590.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next-2.6] etherdevice.h: Add is_unicast_ether_addr
+ function
+Date: Thu, 13 Jan 2011 00:24:41 -0800
+Message-ID: <1294907081.4114.35.camel@Joe-Laptop>
+References: <20110112.234250.10542369.davem@davemloft.net>
+	 <1294906496-14950-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, cmetcalf@tilera.com,
+	netdev@vger.kernel.org
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:33666 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753171Ab1AMIYC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 03:24:02 -0500
-Content-Disposition: inline
-In-Reply-To: <20110112.234735.160088590.davem@davemloft.net>
+Received: from mail.perches.com ([173.55.12.10]:3124 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751202Ab1AMIYn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 03:24:43 -0500
+In-Reply-To: <1294906496-14950-1-git-send-email-tklauser@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 12, 2011 at 11:47:35PM -0800, David Miller wrote:
-> From: frank.blaschka@de.ibm.com
-> Date: Thu, 13 Jan 2011 07:42:25 +0100
-> 
-> > --- a/drivers/s390/net/qeth_l3_main.c
-> > +++ b/drivers/s390/net/qeth_l3_main.c
-> > @@ -2998,7 +2998,9 @@ static inline void qeth_l3_hdr_csum(stru
-> >  	 */
-> >  	if (iph->protocol == IPPROTO_UDP)
-> >  		hdr->hdr.l3.ext_flags |= QETH_HDR_EXT_UDP;
-> > -	hdr->hdr.l3.ext_flags |= QETH_HDR_EXT_CSUM_TRANSP_REQ;
-> > +	hdr->hdr.l3.ext_flags |= QETH_HDR_EXT_CSUM_TRANSP_REQ |
-> > +		QETH_HDR_EXT_CSUM_HDR_REQ;
-> > +	iph->check = 0;
-> >  	if (card->options.performance_stats)
-> >  		card->perf_stats.tx_csum++;
-> >  }
-> 
-> You may not change the packet header contents blindly like this.
-> Otherwise unpredictable contents will be seen by tcpdump and any
-> other code path which has a clone of this packet.
-> 
-> Thus, you'll need to guard this change with something like:
-> 
-> 		if (skb_header_cloned(skb) &&
-> 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
-> 			dev_kfree_skb(skb);
-> 			goto tx_fail;
-> 		}
-Yes I know. Because of the suboptimal l3 driver design :-) we already have
-a private copy of the skb at this place. Thx!
-> 
-> Please fix this and resubmit your two patches.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2011-01-13 at 09:14 +0100, Tobias Klauser wrote:
+> >From a check for !is_multicast_ether_addr it is not always obvious that
+> we're checking for a unicast address. So add this helper function to
+> make those code paths easier to read.
+>  include/linux/etherdevice.h |   11 +++++++++++
+[]
+>  /**
+> + * is_unicast_ether_addr - Determine if the Ethernet address is unicast
+> + * @addr: Pointer to a six-byte array containing the Ethernet address
+> + *
+> + * Return true if the address is a unicast address.
+> + */
+> +static inline int is_unicast_ether_addr(const u8 *addr)
+> +{
+> +	return !is_multicast_ether_addr(addr);
+> +}
+
+Can't you simply use is_valid_ether_addr?
+
+I can't think of much reason that a new function for
+!multicast without the !is_zero is needed.
+
+
