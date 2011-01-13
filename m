@@ -1,124 +1,184 @@
-From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: STMMAC driver: NFS Problem on 2.6.37
-Date: Thu, 13 Jan 2011 10:07:08 -0500
-Message-ID: <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com>
-References: <4D2EC133.7010607@st.com>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Armando VISCONTI <armando.visconti-qxv4g6HH51o@public.gmane.org>,
-	Shiraz HASHIM <shiraz.hashim-qxv4g6HH51o@public.gmane.org>,
-	Viresh KUMAR <viresh.kumar-qxv4g6HH51o@public.gmane.org>
-To: deepaksi <deepak.sikri-qxv4g6HH51o@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4D2EC133.7010607-qxv4g6HH51o@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
+Date: Thu, 13 Jan 2011 10:06:22 -0500
+Message-ID: <AANLkTimz3Mw5itChtTgHTeGT4seJauy3+FVrpEJn1iez@mail.gmail.com>
+References: <AANLkTinLMCzKz7n45HdeAwNxsWjCADAkgfK+MjXVcFqh@mail.gmail.com>
+	<20101213224510.GB17400@mcarlson.broadcom.com>
+	<AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
+	<20101214191500.GD19951@mcarlson.broadcom.com>
+	<20101215012430.120fd47f@xenia.leun.net>
+	<20101215013431.GA21173@mcarlson.broadcom.com>
+	<20101215081606.18e12fc9@xenia.leun.net>
+	<AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
+	<20110107032459.GA17959@mcarlson.broadcom.com>
+	<AANLkTi=N6jFE7T1=W-WLo_eHYWeE=oB6n8C8zPGoBNQF@mail.gmail.com>
+	<20110113012157.GA28147@mcarlson.broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Leun <lkml20101129@newton.leun.net>,
+	Michael Chan <mchan@broadcom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Ben Greear <greearb@candelatech.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Matt Carlson <mcarlson@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110113012157.GA28147@mcarlson.broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jan 12, 2011 at 8:21 PM, Matt Carlson <mcarlson@broadcom.com> w=
+rote:
+> On Thu, Jan 06, 2011 at 08:36:27PM -0800, Jesse Gross wrote:
+>> On Thu, Jan 6, 2011 at 10:24 PM, Matt Carlson <mcarlson@broadcom.com=
+> wrote:
+>> > On Sat, Dec 18, 2010 at 07:38:00PM -0800, Jesse Gross wrote:
+>> >> On Tue, Dec 14, 2010 at 11:16 PM, Michael Leun
+>> >> <lkml20101129@newton.leun.net> wrote:
+>> >> > OK - all tests done on that DL320G5:
+>> >> >
+>> >> > For completeness, 2.6.37-rc5 unpatched:
+>> >> >
+>> >> > eth0, no vlan configured: totally broken - see double tagged vl=
+ans
+>> >> > without tag, single or untagged packets missing at all
+>> >>
+>> >> Random behavior? ?This one is somewhat hard to explain - maybe th=
+ere
+>> >> are some other factors. ?eth0 has ASF on, so it always strips tag=
+s. ?I
+>> >> would expect it to behave like the vlan configured case.
+>> >>
+>> >> >
+>> >> > eth0, vlan configured: see packets without vlan tag (see double=
+ tagged
+>> >> > packets with one vlan tag)
+>> >>
+>> >> Both ASF and vlan group configured cause tag stripping to be enab=
+led.
+>> >> Missing tag.
+>> >>
+>> >> >
+>> >> > eth1 same as originally reported:
+>> >> > without vlan configured see vlan tags (single and double tagged=
+ as
+>> >> > expected)
+>> >>
+>> >> No ASF and no vlan group means tag stripping is disabled. ?Have t=
+ag.
+>> >>
+>> >> > with vlan configured: see packets without vlan tag (see double =
+tagged
+>> >> > packets with one vlan tag)
+>> >>
+>> >> Configuring vlan group causes stripping to be enabled. ?Missing t=
+ag.
+>> >>
+>> >> >
+>> >> >
+>> >> > 2.6.37-rc5, your tg3 use new vlan-code patch:
+>> >> >
+>> >> > eth0, no vlan configured: ?see packets without vlan tag (see do=
+uble
+>> >> > tagged packets with one vlan tag)
+>> >>
+>> >> ASF enables tag stripping. ?Missing tag.
+>> >>
+>> >> > eth1, no vlan configured: see vlan tags (single and double tagg=
+ed as
+>> >> > expected)
+>> >>
+>> >> No ASF, no vlan group means no stripping. ?Have tag.
+>> >>
+>> >> >
+>> >> >
+>> >> > eth0, vlan configured: as without vlan
+>> >>
+>> >> ASF enables stripping. ?Missing tag.
+>> >>
+>> >> > eth1, vlan configured: as without vlan
+>> >>
+>> >> With this patch vlan stripping is only enabled when ASF is on, so=
+ no
+>> >> stripping. ?Have tag.
+>> >>
+>> >> >
+>> >> > 2.6.37-rc5, your tg3 use new vlan-code patch with test patch on=
+top
+>> >> >
+>> >> > eth1 no vlan configured: see packets without vlan tag (see doub=
+le tagged
+>> >> > packets with one vlan tag)
+>> >>
+>> >> With the second patch, vlan stripping is always enabled. ?Missing=
+ tag.
+>> >>
+>> >> > eth1 with vlan: the same
+>> >>
+>> >> Stripping still always enabled. ?Missing tag.
+>> >>
+>> >> The bottom line is whenever vlan stripping is enabled we're missi=
+ng
+>> >> the outer tag. ?It might be worth adding some debugging in the ar=
+ea
+>> >> before napi_gro_receive/vlan_gro_receive (depending on version). =
+?My
+>> >> guess is that (desc->type_flags & RXD_FLAG_VLAN) is false even fo=
+r
+>> >> vlan packets on this NIC.
+>> >>
+>> >> You said that everything works on the 5752? ?Matt, is it possible=
+ that
+>> >> the 5714 either has a problem with vlan stripping or a different =
+way
+>> >> of reporting it?
+>> >
+>> > I don't think this is a 5714 specific issue. ?I think the problem =
+is
+>> > rooted in the fact that the VLAN tag stripping is enabled.
+>>
+>> It's definitely related to vlan stripping being enabled. =A0Other ca=
+rds
+>> using tg3 seem to work fine with stripping though, which is why I
+>> thought it might be specific to the 5714.
+>
+> I just tested this on a 5714S, using a net-next-2.6 snapshot obtained
+> today. =A0It does the right thing in both cases (2nd tg3 patch ommite=
+d /
+> applied). =A0The tag is always visible in the packet stream as seen f=
+rom
+> tcpdump.
+>
+>> > Your RXD_FLAG_VLAN idea sounds unlikely to me, but it's worth a ch=
+eck.
+>> >
+>> > The patch here is using __vlan_hwaccel_put_tag(), which informs th=
+e
+>> > stack a VLAN tag is present. ?If this is indeed a reporting proble=
+m, I'm
+>> > not sure what else the driver should be doing.
+>>
+>> The code to hand off the tag to the stack looks OK to me. =A0Michael=
+ was
+>> seeing this on older versions of the kernel as well with this NIC,
+>> which predates both this patch and the larger vlan changes so it
+>> doesn't seem like a problem with passing the tag to the network stac=
+k.
+>> =A0It's hard to know exactly what is going on though without seeing =
+what
+>> the hardware is reporting.
+>
+> When RX_MODE_KEEP_VLAN_TAG is set, the RXD_FLAG_VLAN flag will not be=
+ set
+> when receiving a packet. =A0The driver skips the __vlan_hwaccel_put_t=
+ag()
+> call.
+>
+> When RX_MODE_KEEP_VLAN_TAG is unset, the RXD_FLAG_VLAN flag is set, a=
+nd
+> __vlan_hwaccel_put_tag() is called to reinject the packet.
 
-On Jan 13, 2011, at 4:09 AM, deepaksi wrote:
-
-> Hi
-> 
-> I am facing a problem related to nfs boot, while using the stmmac driver
-> ported on 2.6.37 kernel. When we use a JFFS2 file system and mount the kernel,
-> the network driver works fine.
-> 
-> I have been following the mailing list and could find some issues with NFS 
-> on 2.6.37 but I am not too sure whether the kernel crash I am getting is 
-> related to that.
-> 
-> The driver worked fine on 2.6.32 kernel, but while booting the 2.6.37
-> kernel I get the following log messages:
-> 
-> stmmac: Rx Checksum Offload Engine supported
->        TX Checksum insertion supported
-> IP-Config: Complete:
->     device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=255.255.255.255,
->     host=192.168.1.10, domain=, nis-domain=(none),
->     bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
-
-Why is rootpath left undefined?
-
-> VFS: Unable to mount root fs via NFS, trying floppy.
-> VFS: Cannot open root device "nfs" or unknown-block(2,0)
-> Please append a correct "root=" boot option; here are the available
-> partitions:
-> 1f00              64 mtdblock0  (driver?)
-> 1f01             256 mtdblock1  (driver?)
-> 1f02            2816 mtdblock2  (driver?)
-> 1f03            5056 mtdblock3  (driver?)
-> Kernel panic - not syncing: VFS: Unable to mount root fs on
-> unknown-block(2,0)
-> Backtrace:
-> [<c00370f0>] (dump_backtrace+0x0/0x110) from [<c0037234>]
-> (dump_stack+0x18/0x1c)
-> r7:c7b5b000 r6:00000000 r5:c7b5b015 r4:c04296b8
-> [<c003721c>] (dump_stack+0x0/0x1c) from [<c004ebf8>] (panic+0x60/0x180)
-> [<c004eb98>] (panic+0x0/0x180) from [<c0009114>]
-> (mount_block_root+0x1d4/0x214)
-> r3:00000000 r2:00000001 r1:c782bf50 r0:c0394851
-> [<c0008f40>] (mount_block_root+0x0/0x214) from [<c00091fc>]
-> (mount_root+0xa8/0xc8)
-> [<c0009154>] (mount_root+0x0/0xc8) from [<c0009388>]
-> (prepare_namespace+0x16c/0x1d0)
-> r4:c04288c0
-> [<c000921c>] (prepare_namespace+0x0/0x1d0) from [<c0008904>]
-> (kernel_init+0x1cc/0x220)
-> r5:c0402048 r4:c0428860
-> [<c0008738>] (kernel_init+0x0/0x220) from [<c00522a8>] (do_exit+0x0/0x5e0)
-> r7:00000013 r6:c00522a8 r5:c0008738 r4:00000000
-> CPU0: stopping
-> Backtrace:
-> [<c00370f0>] (dump_backtrace+0x0/0x110) from [<c0037234>]
-> (dump_stack+0x18/0x1c)
-> r7:c0405484 r6:00000406 r5:00000000 r4:00000000
-> [<c003721c>] (dump_stack+0x0/0x1c) from [<c002d334>] (do_IPI+0xb4/0x124)
-> [<c002d280>] (do_IPI+0x0/0x124) from [<c0032bb4>] (__irq_svc+0x34/0xc0)
-> Exception stack(0xc03f3f50 to 0xc03f3f98)
-> 3f40:                                     c0402048 00000000 c03f3f98
-> 00000000
-> 3f60: c03f2000 c04288dc c0027290 c0405484 000258e8 411fc091 00000000
-> c03f3fa4
-> 3f80: c03f3fa8 c03f3f98 c0034a24 c0034a28 60000013 ffffffff
-> r5:fc800100 r4:ffffffff
-> [<c00349fc>] (default_idle+0x0/0x30) from [<c0034874>] (cpu_idle+0x80/0xc0)
-> [<c00347f4>] (cpu_idle+0x0/0xc0) from [<c030602c>] (rest_init+0x64/0x7c)
-> r5:c04288dc r4:c04020b0
-> [<c0305fc8>] (rest_init+0x0/0x7c) from [<c0008bd4>]
-> (start_kernel+0x27c/0x2d8)
-> [<c0008958>] (start_kernel+0x0/0x2d8) from [<00008038>] (0x8038)
-> r5:c0401fac r4:10c5387d
-> 
-> I have tried the same over latest source picked from linus tree,
-> 4162cf64973df51fc885825bc9ca4d055891c49f
-> Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6
-> 
-> We are using version 3 of the NFs protocol in kernel's NFS client.
-> 
-> 
-> Regards
-> Deepak
-> ST Microelectronics
-> 
-> .
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
--- 
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+OK, thanks for testing it out.  I'm not sure that there's anything
+more we can do without hearing from Michael.
