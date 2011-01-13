@@ -1,36 +1,45 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
-Date: Thu, 13 Jan 2011 13:16:55 +0100
-Message-ID: <4D2EED37.6070108@netfilter.org>
-References: <1294883588-5683-1-git-send-email-horms@verge.net.au> <4D2EDDD0.8060903@netfilter.org> <4D2EE286.1040207@trash.net>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: Re: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
+Date: Thu, 13 Jan 2011 14:23:41 +0200
+Message-ID: <AANLkTi=jRKjxCJ+LitX5TaqxWakj39DM37hGUw_rJG4H@mail.gmail.com>
+References: <AANLkTin1LCgEpBNay_o4dzF1ONKanR1HRqcOu3AqqyHu@mail.gmail.com>
+ <20110112.184734.38051229.davem@davemloft.net> <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com>
+ <20110113100224.GB30432@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>, netfilter-devel@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <4D2EE286.1040207@trash.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@li
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:57990 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756576Ab1AMMYC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 07:24:02 -0500
+Received: by iwn9 with SMTP id 9so1504693iwn.19
+        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 04:24:01 -0800 (PST)
+In-Reply-To: <20110113100224.GB30432@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/01/11 12:31, Patrick McHardy wrote:
-> On 13.01.2011 12:11, Pablo Neira Ayuso wrote:
->> On 13/01/11 02:52, Simon Horman wrote:
->>> In order to create this series I merged net-next-2.6 into nf-next-2.6.
->>> The result is at
->>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
->>>
->>> However, I guess that you have already done your own merge and simply
->>> pulling the branch above will create a bit of a mess. Please let me know
->>> if you have a tree/branch that I should use as a base for a pull request.
->>
->> I have pulled it, everything was fine. Thanks Simon!
->>
-> 
-> Thanks Pablo. I'm back up to speed, if you want, I can pull your tree
-> into mine.
+On Thu, Jan 13, 2011 at 12:02 PM, Thomas Graf <tgraf@infradead.org> wro=
+te:
+> On Thu, Jan 13, 2011 at 09:50:14AM +0200, Lucian Adrian Grijincu wrot=
+e:
+>> Yes it works, but there does not seem to be a good reason why to
+>> complicate things like this (again the sentinel nature of zero is no=
+t
+>> used in any place here).
+>
+> I have no objects to changing this at all but we don't gain much eith=
+er.
 
-Go ahead Patrick.
+
+Should I post a new patch in which IFLA_INET_CONF cfgid values start
+from 0 also or must the ABI for libnl be kept as-is (counting from 1)?
+
+
+--=20
+=C2=A0.
+=2E.: Lucian
