@@ -1,57 +1,66 @@
 From: Daniel Hellstrom <daniel@gaisler.com>
-Subject: [PATCH 04/10] GRETH: added greth_compat_mode module parameter
-Date: Thu, 13 Jan 2011 09:25:29 +0100
-Message-ID: <1294907135-24884-4-git-send-email-daniel@gaisler.com>
+Subject: [PATCH 07/10] GRETH: fixed skb buffer memory leak on frame errors
+Date: Thu, 13 Jan 2011 09:25:32 +0100
+Message-ID: <1294907135-24884-7-git-send-email-daniel@gaisler.com>
 References: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
 Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail201c2.megamailservers.com ([69.49.111.102]:39241 "EHLO
 	mail201c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755699Ab1AMJAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 04:00:05 -0500
+	by vger.kernel.org with ESMTP id S932796Ab1AMJAJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 04:00:09 -0500
 In-Reply-To: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The greth_compat_mode option can be used to set a GRETH GBit capable MAC
-in operate as if the GRETH 10/100 device was found. The GRETH GBit supports
-TCP/UDP checksum offloading, unaligned frame buffers, scatter gather etc.
-Enabling this mode allows the developer to test the GRETH 10/100 device
-without all features mentioned above on a GBit MAC capable of the above.
+A new SKB buffer should not be allocated when the old SKB is reused.
 
 Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
 ---
- drivers/net/greth.c |   10 ++++++++++
- 1 files changed, 10 insertions(+), 0 deletions(-)
+ drivers/net/greth.c |   18 ++++++++++++++----
+ 1 files changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index ef8da22..775dc24 100644
+index 72a4317..888dc65 100644
 --- a/drivers/net/greth.c
 +++ b/drivers/net/greth.c
-@@ -70,6 +70,12 @@ static int no_gbit = 0;
- module_param(no_gbit, int, S_IRUGO);
- MODULE_PARM_DESC(no_gbit, "GRETH reports only 10/100 support to PHY layer if set to 1. Only affects GRETH GBit MAC, default 0 (off).");
+@@ -880,10 +880,9 @@ static int greth_rx_gbit(struct net_device *dev, int limit)
+ 			}
+ 		}
  
-+/* Use this option to enable GRETH 10/100 code on GRETH_GBIT hardware
-+ * (debug legacy code option) */
-+static int compat_mode = 0;
-+module_param(compat_mode, int, S_IRUGO);
-+MODULE_PARM_DESC(compat_mode, "GRETH 10/100 legacy mode enable. Only affects GRETH GBit MAC, default 0 (off).");
-+
- static int greth_open(struct net_device *dev);
- static netdev_tx_t greth_start_xmit(struct sk_buff *skb,
- 	   struct net_device *dev);
-@@ -1458,6 +1464,10 @@ static int __devinit greth_of_probe(struct platform_device *ofdev, const struct
- 	else
- 		greth->gbit_phy_support = 0;
+-		/* Allocate new skb to replace current */
+-		newskb = netdev_alloc_skb(dev, MAX_FRAME_SIZE + NET_IP_ALIGN);
+-
+-		if (!bad && newskb) {
++		/* Allocate new skb to replace current, not needed if the
++		 * current skb can be reused */
++		if (!bad && (newskb=netdev_alloc_skb(dev, MAX_FRAME_SIZE + NET_IP_ALIGN))) {
+ 			skb_reserve(newskb, NET_IP_ALIGN);
  
-+	/* Force GBit MAC in legacy 10/100 mode (no offloading etc.) */
-+	if (compat_mode == 1)
-+		greth->gbit_mac = 0;
-+
- 	/* Check for multicast capability */
- 	greth->multicast = (tmp >> 25) & 1;
+ 			dma_addr = dma_map_single(greth->dev,
+@@ -920,11 +919,22 @@ static int greth_rx_gbit(struct net_device *dev, int limit)
+ 				if (net_ratelimit())
+ 					dev_warn(greth->dev, "Could not create DMA mapping, dropping packet\n");
+ 				dev_kfree_skb(newskb);
++				/* reusing current skb, so it is a drop */
+ 				dev->stats.rx_dropped++;
+ 			}
++		} else if (bad) {
++			/* Bad Frame transfer, the skb is reused */
++			dev->stats.rx_dropped++;
+ 		} else {
++			/* Failed Allocating a new skb. This is rather stupid
++			 * but the current "filled" skb is reused, as if
++			 * transfer failure. One could argue that RX descriptor
++			 * table handling should be divided into cleaning and
++			 * filling as the TX part of the driver
++			 */
+ 			if (net_ratelimit())
+ 				dev_warn(greth->dev, "Could not allocate SKB, dropping packet\n");
++			/* reusing current skb, so it is a drop */
+ 			dev->stats.rx_dropped++;
+ 		}
  
 -- 
 1.5.4
