@@ -1,80 +1,72 @@
-From: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
-Subject: [PATCH] USB CDC NCM: Don't deref NULL in cdc_ncm_rx_fixup() and
- don't use uninitialized variable.
-Date: Thu, 13 Jan 2011 22:40:11 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1101132229260.11347@swampdragon.chaosbits.net>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH] ipsec: update MAX_AH_AUTH_LEN to support sha512
+Date: Thu, 13 Jan 2011 22:51:03 +0100
+Message-ID: <4D2F73C7.8010107@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-2038640018-1294954811=:11347"
-Cc: Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>,
-	Hans Petter Selasky <hans.petter.selasky-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------020200010607080509020103"
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:40757 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751869Ab1AMVvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 16:51:08 -0500
+Received: by wwa36 with SMTP id 36so2307442wwa.1
+        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 13:51:07 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+This is a multi-part message in MIME format.
+--------------020200010607080509020103
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
---8323328-2038640018-1294954811=:11347
-Content-Type: TEXT/PLAIN; charset=ISO-8859-7
-Content-Transfer-Encoding: 8BIT
+Hi,
 
-skb_clone() dynamically allocates memory and may fail. If it does it 
-returns NULL. This means we'll dereference a NULL pointer in 
-drivers/net/usb/cdc_ncm.c::cdc_ncm_rx_fixup().
-As far as I can tell, the proper way to deal with this is simply to goto 
-the error label.
+here is a second patch after "ah: update maximum truncated ICV length". Sorry 
+for not being more watchful the first time.
+512 is the maximum I found in net/xfrm/xfrm_algo.c
 
-Furthermore gcc complains that 'skb' may be used uninitialized:
-  drivers/net/usb/cdc_ncm.c: In function ¡cdc_ncm_rx_fixup¢:
-  drivers/net/usb/cdc_ncm.c:922:18: warning: ¡skb¢ may be used uninitialized in this function
-and I believe it is right. On the line where we
-  pr_debug("invalid frame detected (ignored)" ...
-we are using the local variable 'skb' but nothing has ever been assigned 
-to that variable yet. I believe the correct fix for that is to use 
-'skb_in' instead.
 
-Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Regards,
+Nicolas
+
+--------------020200010607080509020103
+Content-Type: text/x-patch;
+ name="0001-ipsec-update-MAX_AH_AUTH_LEN-to-support-sha512.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-ipsec-update-MAX_AH_AUTH_LEN-to-support-sha512.patch"
+
+>From e330817aa2b33e9d1f44071072fdc4778acf8d76 Mon Sep 17 00:00:00 2001
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 13 Jan 2011 14:20:19 -0500
+Subject: [PATCH] ipsec: update MAX_AH_AUTH_LEN to support sha512
+
+icv_truncbits is set to 256 for sha512, so update
+MAX_AH_AUTH_LEN to 64.
+
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
- cdc_ncm.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/net/ah.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-  compile tested only.
-
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 593c104..d776c4a 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -1021,13 +1021,15 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
- 		    (temp > CDC_NCM_MAX_DATAGRAM_SIZE) || (temp < ETH_HLEN)) {
- 			pr_debug("invalid frame detected (ignored)"
- 				"offset[%u]=%u, length=%u, skb=%p\n",
--							x, offset, temp, skb);
-+							x, offset, temp, skb_in);
- 			if (!x)
- 				goto error;
- 			break;
+diff --git a/include/net/ah.h b/include/net/ah.h
+index be7798d..ca95b98 100644
+--- a/include/net/ah.h
++++ b/include/net/ah.h
+@@ -4,7 +4,7 @@
+ #include <linux/skbuff.h>
  
- 		} else {
- 			skb = skb_clone(skb_in, GFP_ATOMIC);
-+			if (!skb)
-+				goto error;
- 			skb->len = temp;
- 			skb->data = ((u8 *)skb_in->data) + offset;
- 			skb_set_tail_pointer(skb, temp);
-
-
-
+ /* This is the maximum truncated ICV length that we know of. */
+-#define MAX_AH_AUTH_LEN	16
++#define MAX_AH_AUTH_LEN	64
+ 
+ struct crypto_ahash;
+ 
 -- 
-Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+1.5.6.5
 
---8323328-2038640018-1294954811=:11347--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--------------020200010607080509020103--
