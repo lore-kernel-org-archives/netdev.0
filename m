@@ -1,53 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
-Date: Thu, 13 Jan 2011 12:11:12 +0100
-Message-ID: <4D2EDDD0.8060903@netfilter.org>
-References: <1294883588-5683-1-git-send-email-horms@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netfilter: ipt_CLUSTERIP: dont flood with "no conntrack!"
+Date: Thu, 13 Jan 2011 12:13:29 +0100
+Message-ID: <1294917210.3570.48.camel@edumazet-laptop>
+References: <4D2E1A74.5080102@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1294883588-5683-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D2E1A74.5080102@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13/01/11 02:52, Simon Horman wrote:
-> Hi Pablo,
-> 
-> this changest includes the following changes since the v3.2 series
-> which was most recently posted as "[GIT PULL nf-next-2.6] ipvs namespaces".
-> 
-> * Remove several hunks that only make whitespace changes
+ipt_CLUSTERIP users might hit this annoying printk, if they forgot an
+"iptables -I INPUT -m state --state INVALID -j DROP" before CLUSTERIP
+rule. We could use net_ratelimit() here, or not log the message at all.
+I chose to log it once per config.
 
-Thanks a lot for doing this.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter/ipt_CLUSTERIP.c |   13 +++++++++----
+ 1 file changed, 9 insertions(+), 4 deletions(-)
 
-> * Add Acked-by: Julian Anastasov <ja@ssi.bg>
->   (It was an omission from v3.2)
-> * Fix merge conflicts
-> 
-> There are two changes that produce conflicts
-> * In the current net-next-2.6 tree but absent from the current nf-next-2.6 tree
->   there is "workqueue: convert
->   cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()"
-> * And in the current nf-next-2.6 tree  but absent from the current
->   net-next-2.6 tree there is "net: use the macros defined for the members
->   of flowi"
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 1e26a48..bac8739 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -47,6 +47,7 @@ struct clusterip_config {
+ 	u_int8_t clustermac[ETH_ALEN];		/* the MAC address */
+ 	struct net_device *dev;			/* device */
+ 	u_int16_t num_total_nodes;		/* total number of nodes */
++	bool warned_no_conntrack;
+ 	unsigned long local_nodes;		/* node number array */
+ 
+ #ifdef CONFIG_PROC_FS
+@@ -301,10 +302,14 @@ clusterip_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 
+ 	ct = nf_ct_get(skb, &ctinfo);
+ 	if (ct == NULL) {
+-		pr_info("no conntrack!\n");
+-			/* FIXME: need to drop invalid ones, since replies
+-			 * to outgoing connections of other nodes will be
+-			 * marked as INVALID */
++		if (unlikely(!cipinfo->config->warned_no_conntrack)) {
++			cipinfo->config->warned_no_conntrack = true;
++			pr_info("no conntrack!\n");
++		}
++		/* FIXME: need to drop invalid ones, since replies
++		 * to outgoing connections of other nodes will be
++		 * marked as INVALID
++		 */
+ 		return NF_DROP;
+ 	}
+ 
 
-nf-*-2.6 are Patrick's trees. My trees are here:
 
-http://1984.lsi.us.es/git/
-
-> In order to create this series I merged net-next-2.6 into nf-next-2.6.
-> The result is at
-> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
-> 
-> However, I guess that you have already done your own merge and simply
-> pulling the branch above will create a bit of a mess. Please let me know
-> if you have a tree/branch that I should use as a base for a pull request.
-
-I have pulled it, everything was fine. Thanks Simon!
