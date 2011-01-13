@@ -1,310 +1,434 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] CHOKe flow scheduler (iproute)
-Date: Thu, 13 Jan 2011 09:48:47 -0800
-Message-ID: <20110113094847.565add51@s6510>
-References: <20110113092706.154748c2@s6510>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH 1/2] ks8695net: Disable non-working ethtool operations
+Date: Thu, 13 Jan 2011 17:50:14 +0000
+Message-ID: <1294941014.3946.46.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: netdev@vger.kernel.org
+To: "Figo.zhang" <figo1802@gmail.com>, zeal <zealcook@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55450 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756943Ab1AMRsw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 12:48:52 -0500
-In-Reply-To: <20110113092706.154748c2@s6510>
+Received: from mail.solarflare.com ([216.237.3.220]:40567 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933022Ab1AMRuS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 12:50:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Preliminary interface for CHOKe scheduler in iproute
+Some ethtool operations can only be implemented for the WAN port, and
+not all such operations are allowed to return an error code such as
+-EOPNOTSUPP.  Therefore, define two separate ethtool_ops structures
+for WAN and non-WAN ports; simplify and rename the WAN-only functions.
 
+This is completely untested as I don't have an ARM build environment.
+
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/pkt_sched.h |   29 ++++++
- tc/Makefile               |    1 +
- tc/q_choke.c              |  221 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 251 insertions(+), 0 deletions(-)
- create mode 100644 tc/q_choke.c
+This has nothing much to do with my work, but I spotted it while
+auditing the various implementations of ethtool_ops::get_link.  While
+ks8695net doesn't have a regular maintainer, the commit log suggests
+that you are using it so perhaps you could test this change.
 
-diff --git a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
-index 2cfa4bc..83bac92 100644
---- a/include/linux/pkt_sched.h
-+++ b/include/linux/pkt_sched.h
-@@ -247,6 +247,35 @@ struct tc_gred_sopt {
- 	__u16		pad1;
+Ben.
+
+ drivers/net/arm/ks8695net.c |  282 +++++++++++++++----------------------------
+ 1 files changed, 99 insertions(+), 183 deletions(-)
+
+diff --git a/drivers/net/arm/ks8695net.c b/drivers/net/arm/ks8695net.c
+index 54c6d84..8820fcd 100644
+--- a/drivers/net/arm/ks8695net.c
++++ b/drivers/net/arm/ks8695net.c
+@@ -854,12 +854,12 @@ ks8695_set_msglevel(struct net_device *ndev, u32 value)
+ }
+ 
+ /**
+- *	ks8695_get_settings - Get device-specific settings.
++ *	ks8695_wan_get_settings - Get device-specific settings.
+  *	@ndev: The network device to read settings from
+  *	@cmd: The ethtool structure to read into
+  */
+ static int
+-ks8695_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
++ks8695_wan_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ {
+ 	struct ks8695_priv *ksp = netdev_priv(ndev);
+ 	u32 ctrl;
+@@ -870,69 +870,50 @@ ks8695_get_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ 			  SUPPORTED_TP | SUPPORTED_MII);
+ 	cmd->transceiver = XCVR_INTERNAL;
+ 
+-	/* Port specific extras */
+-	switch (ksp->dtype) {
+-	case KS8695_DTYPE_HPNA:
+-		cmd->phy_address = 0;
+-		/* not supported for HPNA */
+-		cmd->autoneg = AUTONEG_DISABLE;
++	cmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
++	cmd->port = PORT_MII;
++	cmd->supported |= (SUPPORTED_Autoneg | SUPPORTED_Pause);
++	cmd->phy_address = 0;
+ 
+-		/* BUG: Erm, dtype hpna implies no phy regs */
+-		/*
+-		ctrl = readl(KS8695_MISC_VA + KS8695_HMC);
+-		cmd->speed = (ctrl & HMC_HSS) ? SPEED_100 : SPEED_10;
+-		cmd->duplex = (ctrl & HMC_HDS) ? DUPLEX_FULL : DUPLEX_HALF;
+-		*/
+-		return -EOPNOTSUPP;
+-	case KS8695_DTYPE_WAN:
+-		cmd->advertising = ADVERTISED_TP | ADVERTISED_MII;
+-		cmd->port = PORT_MII;
+-		cmd->supported |= (SUPPORTED_Autoneg | SUPPORTED_Pause);
+-		cmd->phy_address = 0;
++	ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
++	if ((ctrl & WMC_WAND) == 0) {
++		/* auto-negotiation is enabled */
++		cmd->advertising |= ADVERTISED_Autoneg;
++		if (ctrl & WMC_WANA100F)
++			cmd->advertising |= ADVERTISED_100baseT_Full;
++		if (ctrl & WMC_WANA100H)
++			cmd->advertising |= ADVERTISED_100baseT_Half;
++		if (ctrl & WMC_WANA10F)
++			cmd->advertising |= ADVERTISED_10baseT_Full;
++		if (ctrl & WMC_WANA10H)
++			cmd->advertising |= ADVERTISED_10baseT_Half;
++		if (ctrl & WMC_WANAP)
++			cmd->advertising |= ADVERTISED_Pause;
++		cmd->autoneg = AUTONEG_ENABLE;
++
++		cmd->speed = (ctrl & WMC_WSS) ? SPEED_100 : SPEED_10;
++		cmd->duplex = (ctrl & WMC_WDS) ?
++			DUPLEX_FULL : DUPLEX_HALF;
++	} else {
++		/* auto-negotiation is disabled */
++		cmd->autoneg = AUTONEG_DISABLE;
+ 
+-		ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+-		if ((ctrl & WMC_WAND) == 0) {
+-			/* auto-negotiation is enabled */
+-			cmd->advertising |= ADVERTISED_Autoneg;
+-			if (ctrl & WMC_WANA100F)
+-				cmd->advertising |= ADVERTISED_100baseT_Full;
+-			if (ctrl & WMC_WANA100H)
+-				cmd->advertising |= ADVERTISED_100baseT_Half;
+-			if (ctrl & WMC_WANA10F)
+-				cmd->advertising |= ADVERTISED_10baseT_Full;
+-			if (ctrl & WMC_WANA10H)
+-				cmd->advertising |= ADVERTISED_10baseT_Half;
+-			if (ctrl & WMC_WANAP)
+-				cmd->advertising |= ADVERTISED_Pause;
+-			cmd->autoneg = AUTONEG_ENABLE;
+-
+-			cmd->speed = (ctrl & WMC_WSS) ? SPEED_100 : SPEED_10;
+-			cmd->duplex = (ctrl & WMC_WDS) ?
+-				DUPLEX_FULL : DUPLEX_HALF;
+-		} else {
+-			/* auto-negotiation is disabled */
+-			cmd->autoneg = AUTONEG_DISABLE;
+-
+-			cmd->speed = (ctrl & WMC_WANF100) ?
+-				SPEED_100 : SPEED_10;
+-			cmd->duplex = (ctrl & WMC_WANFF) ?
+-				DUPLEX_FULL : DUPLEX_HALF;
+-		}
+-		break;
+-	case KS8695_DTYPE_LAN:
+-		return -EOPNOTSUPP;
++		cmd->speed = (ctrl & WMC_WANF100) ?
++			SPEED_100 : SPEED_10;
++		cmd->duplex = (ctrl & WMC_WANFF) ?
++			DUPLEX_FULL : DUPLEX_HALF;
+ 	}
+ 
+ 	return 0;
+ }
+ 
+ /**
+- *	ks8695_set_settings - Set device-specific settings.
++ *	ks8695_wan_set_settings - Set device-specific settings.
+  *	@ndev: The network device to configure
+  *	@cmd: The settings to configure
+  */
+ static int
+-ks8695_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
++ks8695_wan_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ {
+ 	struct ks8695_priv *ksp = netdev_priv(ndev);
+ 	u32 ctrl;
+@@ -956,171 +937,99 @@ ks8695_set_settings(struct net_device *ndev, struct ethtool_cmd *cmd)
+ 				ADVERTISED_100baseT_Full)) == 0)
+ 			return -EINVAL;
+ 
+-		switch (ksp->dtype) {
+-		case KS8695_DTYPE_HPNA:
+-			/* HPNA does not support auto-negotiation. */
+-			return -EINVAL;
+-		case KS8695_DTYPE_WAN:
+-			ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+-
+-			ctrl &= ~(WMC_WAND | WMC_WANA100F | WMC_WANA100H |
+-				  WMC_WANA10F | WMC_WANA10H);
+-			if (cmd->advertising & ADVERTISED_100baseT_Full)
+-				ctrl |= WMC_WANA100F;
+-			if (cmd->advertising & ADVERTISED_100baseT_Half)
+-				ctrl |= WMC_WANA100H;
+-			if (cmd->advertising & ADVERTISED_10baseT_Full)
+-				ctrl |= WMC_WANA10F;
+-			if (cmd->advertising & ADVERTISED_10baseT_Half)
+-				ctrl |= WMC_WANA10H;
+-
+-			/* force a re-negotiation */
+-			ctrl |= WMC_WANR;
+-			writel(ctrl, ksp->phyiface_regs + KS8695_WMC);
+-			break;
+-		case KS8695_DTYPE_LAN:
+-			return -EOPNOTSUPP;
+-		}
++		ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+ 
++		ctrl &= ~(WMC_WAND | WMC_WANA100F | WMC_WANA100H |
++			  WMC_WANA10F | WMC_WANA10H);
++		if (cmd->advertising & ADVERTISED_100baseT_Full)
++			ctrl |= WMC_WANA100F;
++		if (cmd->advertising & ADVERTISED_100baseT_Half)
++			ctrl |= WMC_WANA100H;
++		if (cmd->advertising & ADVERTISED_10baseT_Full)
++			ctrl |= WMC_WANA10F;
++		if (cmd->advertising & ADVERTISED_10baseT_Half)
++			ctrl |= WMC_WANA10H;
++
++		/* force a re-negotiation */
++		ctrl |= WMC_WANR;
++		writel(ctrl, ksp->phyiface_regs + KS8695_WMC);
+ 	} else {
+-		switch (ksp->dtype) {
+-		case KS8695_DTYPE_HPNA:
+-			/* BUG: dtype_hpna implies no phy registers */
+-			/*
+-			ctrl = __raw_readl(KS8695_MISC_VA + KS8695_HMC);
+-
+-			ctrl &= ~(HMC_HSS | HMC_HDS);
+-			if (cmd->speed == SPEED_100)
+-				ctrl |= HMC_HSS;
+-			if (cmd->duplex == DUPLEX_FULL)
+-				ctrl |= HMC_HDS;
+-
+-			__raw_writel(ctrl, KS8695_MISC_VA + KS8695_HMC);
+-			*/
+-			return -EOPNOTSUPP;
+-		case KS8695_DTYPE_WAN:
+-			ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+-
+-			/* disable auto-negotiation */
+-			ctrl |= WMC_WAND;
+-			ctrl &= ~(WMC_WANF100 | WMC_WANFF);
+-
+-			if (cmd->speed == SPEED_100)
+-				ctrl |= WMC_WANF100;
+-			if (cmd->duplex == DUPLEX_FULL)
+-				ctrl |= WMC_WANFF;
+-
+-			writel(ctrl, ksp->phyiface_regs + KS8695_WMC);
+-			break;
+-		case KS8695_DTYPE_LAN:
+-			return -EOPNOTSUPP;
+-		}
++		ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
++
++		/* disable auto-negotiation */
++		ctrl |= WMC_WAND;
++		ctrl &= ~(WMC_WANF100 | WMC_WANFF);
++
++		if (cmd->speed == SPEED_100)
++			ctrl |= WMC_WANF100;
++		if (cmd->duplex == DUPLEX_FULL)
++			ctrl |= WMC_WANFF;
++
++		writel(ctrl, ksp->phyiface_regs + KS8695_WMC);
+ 	}
+ 
+ 	return 0;
+ }
+ 
+ /**
+- *	ks8695_nwayreset - Restart the autonegotiation on the port.
++ *	ks8695_wan_nwayreset - Restart the autonegotiation on the port.
+  *	@ndev: The network device to restart autoneotiation on
+  */
+ static int
+-ks8695_nwayreset(struct net_device *ndev)
++ks8695_wan_nwayreset(struct net_device *ndev)
+ {
+ 	struct ks8695_priv *ksp = netdev_priv(ndev);
+ 	u32 ctrl;
+ 
+-	switch (ksp->dtype) {
+-	case KS8695_DTYPE_HPNA:
+-		/* No phy means no autonegotiation on hpna */
+-		return -EINVAL;
+-	case KS8695_DTYPE_WAN:
+-		ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
++	ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+ 
+-		if ((ctrl & WMC_WAND) == 0)
+-			writel(ctrl | WMC_WANR,
+-			       ksp->phyiface_regs + KS8695_WMC);
+-		else
+-			/* auto-negotiation not enabled */
+-			return -EINVAL;
+-		break;
+-	case KS8695_DTYPE_LAN:
+-		return -EOPNOTSUPP;
+-	}
++	if ((ctrl & WMC_WAND) == 0)
++		writel(ctrl | WMC_WANR,
++		       ksp->phyiface_regs + KS8695_WMC);
++	else
++		/* auto-negotiation not enabled */
++		return -EINVAL;
+ 
+ 	return 0;
+ }
+ 
+ /**
+- *	ks8695_get_link - Retrieve link status of network interface
++ *	ks8695_wan_get_link - Retrieve link status of network interface
+  *	@ndev: The network interface to retrive the link status of.
+  */
+ static u32
+-ks8695_get_link(struct net_device *ndev)
++ks8695_wan_get_link(struct net_device *ndev)
+ {
+ 	struct ks8695_priv *ksp = netdev_priv(ndev);
+ 	u32 ctrl;
+ 
+-	switch (ksp->dtype) {
+-	case KS8695_DTYPE_HPNA:
+-		/* HPNA always has link */
+-		return 1;
+-	case KS8695_DTYPE_WAN:
+-		/* WAN we can read the PHY for */
+-		ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+-		return ctrl & WMC_WLS;
+-	case KS8695_DTYPE_LAN:
+-		return -EOPNOTSUPP;
+-	}
+-	return 0;
++	ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
++	return ctrl & WMC_WLS;
+ }
+ 
+ /**
+- *	ks8695_get_pause - Retrieve network pause/flow-control advertising
++ *	ks8695_wan_get_pause - Retrieve network pause/flow-control advertising
+  *	@ndev: The device to retrieve settings from
+  *	@param: The structure to fill out with the information
+  */
+ static void
+-ks8695_get_pause(struct net_device *ndev, struct ethtool_pauseparam *param)
++ks8695_wan_get_pause(struct net_device *ndev, struct ethtool_pauseparam *param)
+ {
+ 	struct ks8695_priv *ksp = netdev_priv(ndev);
+ 	u32 ctrl;
+ 
+-	switch (ksp->dtype) {
+-	case KS8695_DTYPE_HPNA:
+-		/* No phy link on hpna to configure */
+-		return;
+-	case KS8695_DTYPE_WAN:
+-		ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+-
+-		/* advertise Pause */
+-		param->autoneg = (ctrl & WMC_WANAP);
++	ctrl = readl(ksp->phyiface_regs + KS8695_WMC);
+ 
+-		/* current Rx Flow-control */
+-		ctrl = ks8695_readreg(ksp, KS8695_DRXC);
+-		param->rx_pause = (ctrl & DRXC_RFCE);
++	/* advertise Pause */
++	param->autoneg = (ctrl & WMC_WANAP);
+ 
+-		/* current Tx Flow-control */
+-		ctrl = ks8695_readreg(ksp, KS8695_DTXC);
+-		param->tx_pause = (ctrl & DTXC_TFCE);
+-		break;
+-	case KS8695_DTYPE_LAN:
+-		/* The LAN's "phy" is a direct-attached switch */
+-		return;
+-	}
+-}
++	/* current Rx Flow-control */
++	ctrl = ks8695_readreg(ksp, KS8695_DRXC);
++	param->rx_pause = (ctrl & DRXC_RFCE);
+ 
+-/**
+- *	ks8695_set_pause - Configure pause/flow-control
+- *	@ndev: The device to configure
+- *	@param: The pause parameters to set
+- *
+- *	TODO: Implement this
+- */
+-static int
+-ks8695_set_pause(struct net_device *ndev, struct ethtool_pauseparam *param)
+-{
+-	return -EOPNOTSUPP;
++	/* current Tx Flow-control */
++	ctrl = ks8695_readreg(ksp, KS8695_DTXC);
++	param->tx_pause = (ctrl & DTXC_TFCE);
+ }
+ 
+ /**
+@@ -1140,12 +1049,17 @@ ks8695_get_drvinfo(struct net_device *ndev, struct ethtool_drvinfo *info)
+ static const struct ethtool_ops ks8695_ethtool_ops = {
+ 	.get_msglevel	= ks8695_get_msglevel,
+ 	.set_msglevel	= ks8695_set_msglevel,
+-	.get_settings	= ks8695_get_settings,
+-	.set_settings	= ks8695_set_settings,
+-	.nway_reset	= ks8695_nwayreset,
+-	.get_link	= ks8695_get_link,
+-	.get_pauseparam = ks8695_get_pause,
+-	.set_pauseparam = ks8695_set_pause,
++	.get_drvinfo	= ks8695_get_drvinfo,
++};
++
++static const struct ethtool_ops ks8695_wan_ethtool_ops = {
++	.get_msglevel	= ks8695_get_msglevel,
++	.set_msglevel	= ks8695_set_msglevel,
++	.get_settings	= ks8695_wan_get_settings,
++	.set_settings	= ks8695_wan_set_settings,
++	.nway_reset	= ks8695_wan_nwayreset,
++	.get_link	= ks8695_wan_get_link,
++	.get_pauseparam = ks8695_wan_get_pause,
+ 	.get_drvinfo	= ks8695_get_drvinfo,
  };
  
-+/* CHOKe section */
-+
-+enum {
-+	TCA_CHOKE_UNSPEC,
-+	TCA_CHOKE_PARMS,
-+	TCA_CHOKE_STAB,
-+	__TCA_CHOKE_MAX,
-+};
-+
-+#define TCA_CHOKE_MAX (__TCA_CHOKE_MAX - 1)
-+
-+struct tc_choke_qopt {
-+	__u32		limit;		/* HARD maximal queue length (packets)	*/
-+	__u32		qth_min;	/* Min average length threshold (packets) */
-+	__u32		qth_max;	/* Max average length threshold (packets) */
-+	unsigned char   Wlog;		/* log(W)		*/
-+	unsigned char   Plog;		/* log(P_max/(qth_max-qth_min))	*/
-+	unsigned char   Scell_log;	/* cell size for idle damping */
-+	unsigned char	flags;		/* see RED flags */
-+};
-+
-+struct tc_choke_xstats {
-+	__u32           early;          /* Early drops */
-+	__u32           pdrop;          /* Drops due to queue limits */
-+	__u32           other;          /* Drops due to drop() calls */
-+	__u32           marked;         /* Marked packets */
-+	__u32		matched;	/* Drops due to flow match */
-+};
-+
- /* HTB section */
- #define TC_HTB_NUMPRIO		8
- #define TC_HTB_MAXDEPTH		8
-diff --git a/tc/Makefile b/tc/Makefile
-index 101cc83..2cbd5d5 100644
---- a/tc/Makefile
-+++ b/tc/Makefile
-@@ -15,6 +15,7 @@ TCMODULES += q_cbq.o
- TCMODULES += q_rr.o
- TCMODULES += q_multiq.o
- TCMODULES += q_netem.o
-+TCMODULES += q_choke.o
- TCMODULES += f_rsvp.o
- TCMODULES += f_u32.o
- TCMODULES += f_route.o
-diff --git a/tc/q_choke.c b/tc/q_choke.c
-new file mode 100644
-index 0000000..044ae9a
---- /dev/null
-+++ b/tc/q_choke.c
-@@ -0,0 +1,221 @@
-+/*
-+ * q_choke.c		CHOKE.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Stephen Hemminger <shemminger@vyatta.com>
-+ */
-+
-+#include <stdio.h>
-+#include <stdlib.h>
-+#include <unistd.h>
-+#include <syslog.h>
-+#include <fcntl.h>
-+#include <sys/socket.h>
-+#include <netinet/in.h>
-+#include <arpa/inet.h>
-+#include <string.h>
-+
-+#include "utils.h"
-+#include "tc_util.h"
-+
-+#include "tc_red.h"
-+
-+static void explain(void)
-+{
-+	fprintf(stderr, "Usage: ... choke limit PACKETS bandwidth KBPS [ecn]\n");
-+	fprintf(stderr, "                 [ min PACKETS ] [ max PACKETS ] [ burst PACKETS ]\n");
-+}
-+
-+static int choke_parse_opt(struct qdisc_util *qu, int argc, char **argv,
-+			   struct nlmsghdr *n)
-+{
-+	struct tc_red_qopt opt;
-+	unsigned burst = 0;
-+	unsigned avpkt = 1000;
-+	double probability = 0.02;
-+	unsigned rate = 0;
-+	int ecn_ok = 0;
-+	int wlog;
-+	__u8 sbuf[256];
-+	struct rtattr *tail;
-+
-+	memset(&opt, 0, sizeof(opt));
-+
-+	while (argc > 0) {
-+		if (strcmp(*argv, "limit") == 0) {
-+			NEXT_ARG();
-+			if (get_unsigned(&opt.limit, *argv, 0)) {
-+				fprintf(stderr, "Illegal \"limit\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "bandwidth") == 0) {
-+			NEXT_ARG();
-+			if (get_rate(&rate, *argv)) {
-+				fprintf(stderr, "Illegal \"bandwidth\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "ecn") == 0) {
-+			ecn_ok = 1;
-+		} else if (strcmp(*argv, "min") == 0) {
-+			NEXT_ARG();
-+			if (get_unsigned(&opt.qth_min, *argv, 0)) {
-+				fprintf(stderr, "Illegal \"min\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "max") == 0) {
-+			NEXT_ARG();
-+			if (get_unsigned(&opt.qth_max, *argv, 0)) {
-+				fprintf(stderr, "Illegal \"max\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "burst") == 0) {
-+			NEXT_ARG();
-+			if (get_unsigned(&burst, *argv, 0)) {
-+				fprintf(stderr, "Illegal \"burst\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "avpkt") == 0) {
-+			NEXT_ARG();
-+			if (get_size(&avpkt, *argv)) {
-+				fprintf(stderr, "Illegal \"avpkt\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "probability") == 0) {
-+			NEXT_ARG();
-+			if (sscanf(*argv, "%lg", &probability) != 1) {
-+				fprintf(stderr, "Illegal \"probability\"\n");
-+				return -1;
-+			}
-+		} else if (strcmp(*argv, "help") == 0) {
-+			explain();
-+			return -1;
-+		} else {
-+			fprintf(stderr, "What is \"%s\"?\n", *argv);
-+			explain();
-+			return -1;
-+		}
-+		argc--; argv++;
-+	}
-+
-+	if (!rate || !opt.limit) {
-+		fprintf(stderr, "Required parameter (bandwidth, limit) is missing\n");
-+		return -1;
-+	}
-+
-+	/* Compute default min/max thresholds based on 
-+	   Sally Floyd's recommendations:
-+	   http://www.icir.org/floyd/REDparameters.txt
-+	*/
-+	if (!opt.qth_max) 
-+		opt.qth_max = opt.limit / 4;
-+	if (!opt.qth_min)
-+		opt.qth_min = opt.qth_max / 3;
-+	if (!burst)
-+		burst = (2 * opt.qth_min + opt.qth_max) / 3;
-+
-+	if (opt.qth_max > opt.limit) {
-+		fprintf(stderr, "\"max\" is larger than \"limit\"\n");
-+		return -1;
-+	}
-+
-+	if (opt.qth_min > opt.qth_min) {
-+		fprintf(stderr, "\"min\" is not smaller than \"max\"\n");
-+		return -1;
-+	}
-+
-+	printf("min=%u max=%u burst=%u limit=%u\n",
-+	       opt.qth_min, opt.qth_max, burst, opt.limit);
-+	wlog = tc_red_eval_ewma(opt.qth_min, burst, 1);
-+	if (wlog < 0) {
-+		fprintf(stderr, "CHOKE: failed to calculate EWMA constant.\n");
-+		return -1;
-+	}
-+	if (wlog >= 10)
-+		fprintf(stderr, "CHOKE: WARNING. Burst %d seems to be to large.\n", burst);
-+	opt.Wlog = wlog;
-+
-+	wlog = tc_red_eval_P(opt.qth_min, opt.qth_max, probability);
-+	if (wlog < 0) {
-+		fprintf(stderr, "CHOKE: failed to calculate probability.\n");
-+		return -1;
-+	}
-+	opt.Plog = wlog;
-+
-+	wlog = tc_red_eval_idle_damping(opt.Wlog, avpkt, rate, sbuf);
-+	if (wlog < 0) {
-+		fprintf(stderr, "CHOKE: failed to calculate idle damping table.\n");
-+		return -1;
-+	}
-+	opt.Scell_log = wlog;
-+	if (ecn_ok)
-+		opt.flags |= TC_RED_ECN;
-+
-+	tail = NLMSG_TAIL(n);
-+	addattr_l(n, 1024, TCA_OPTIONS, NULL, 0);
-+	addattr_l(n, 1024, TCA_CHOKE_PARMS, &opt, sizeof(opt));
-+	addattr_l(n, 1024, TCA_CHOKE_STAB, sbuf, 256);
-+	tail->rta_len = (void *) NLMSG_TAIL(n) - (void *) tail;
-+	return 0;
-+}
-+
-+static int choke_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
-+{
-+	struct rtattr *tb[TCA_CHOKE_STAB+1];
-+	struct tc_red_qopt *qopt;
-+	SPRINT_BUF(b1);
-+	SPRINT_BUF(b2);
-+	SPRINT_BUF(b3);
-+
-+	if (opt == NULL)
-+		return 0;
-+
-+	parse_rtattr_nested(tb, TCA_CHOKE_STAB, opt);
-+
-+	if (tb[TCA_CHOKE_PARMS] == NULL)
-+		return -1;
-+	qopt = RTA_DATA(tb[TCA_CHOKE_PARMS]);
-+	if (RTA_PAYLOAD(tb[TCA_CHOKE_PARMS])  < sizeof(*qopt))
-+		return -1;
-+	fprintf(f, "limit %s min %s max %s ",
-+		sprint_size(qopt->limit, b1),
-+		sprint_size(qopt->qth_min, b2),
-+		sprint_size(qopt->qth_max, b3));
-+
-+	if (qopt->flags & TC_RED_ECN)
-+		fprintf(f, "ecn ");
-+
-+	if (show_details) {
-+		fprintf(f, "ewma %u Plog %u Scell_log %u",
-+			qopt->Wlog, qopt->Plog, qopt->Scell_log);
-+	}
-+	return 0;
-+}
-+
-+static int choke_print_xstats(struct qdisc_util *qu, FILE *f,
-+			      struct rtattr *xstats)
-+{
-+	struct tc_choke_xstats *st;
-+
-+	if (xstats == NULL)
-+		return 0;
-+
-+	if (RTA_PAYLOAD(xstats) < sizeof(*st))
-+		return -1;
-+
-+	st = RTA_DATA(xstats);
-+	fprintf(f, "  marked %u early %u pdrop %u other %u matched %u",
-+		st->marked, st->early, st->pdrop, st->other, st->matched);
-+	return 0;
-+
-+}
-+
-+struct qdisc_util choke_qdisc_util = {
-+	.id		= "choke",
-+	.parse_qopt	= choke_parse_opt,
-+	.print_qopt	= choke_print_opt,
-+	.print_xstats	= choke_print_xstats,
-+};
+@@ -1541,7 +1455,6 @@ ks8695_probe(struct platform_device *pdev)
+ 
+ 	/* driver system setup */
+ 	ndev->netdev_ops = &ks8695_netdev_ops;
+-	SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
+ 	ndev->watchdog_timeo	 = msecs_to_jiffies(watchdog);
+ 
+ 	netif_napi_add(ndev, &ksp->napi, ks8695_poll, NAPI_WEIGHT);
+@@ -1608,12 +1521,15 @@ ks8695_probe(struct platform_device *pdev)
+ 	if (ksp->phyiface_regs && ksp->link_irq == -1) {
+ 		ks8695_init_switch(ksp);
+ 		ksp->dtype = KS8695_DTYPE_LAN;
++		SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
+ 	} else if (ksp->phyiface_regs && ksp->link_irq != -1) {
+ 		ks8695_init_wan_phy(ksp);
+ 		ksp->dtype = KS8695_DTYPE_WAN;
++		SET_ETHTOOL_OPS(ndev, &ks8695_wan_ethtool_ops);
+ 	} else {
+ 		/* No initialisation since HPNA does not have a PHY */
+ 		ksp->dtype = KS8695_DTYPE_HPNA;
++		SET_ETHTOOL_OPS(ndev, &ks8695_ethtool_ops);
+ 	}
+ 
+ 	/* And bring up the net_device with the net core */
 -- 
-1.7.1
+1.7.3.4
+
+
+
 
