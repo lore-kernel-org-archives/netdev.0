@@ -1,33 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] etherdevice.h: Add is_unicast_ether_addr
- function
-Date: Thu, 13 Jan 2011 12:35:38 -0800 (PST)
-Message-ID: <20110113.123538.21305451.davem@davemloft.net>
-References: <1294907081.4114.35.camel@Joe-Laptop>
-	<1294908916.3570.21.camel@edumazet-laptop>
-	<4D2F2A92.7020909@tilera.com>
+From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
+Subject: RE: [PATCH] vxge: Remember to release firmware after upgrading
+ firmware {nodisc}
+Date: Thu, 13 Jan 2011 12:35:14 -0800
+Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EFB6B2F34@FRE1EXCH02.hq.exar.com>
+References: <alpine.LNX.2.00.1101132119080.11347@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, joe@perches.com, tklauser@distanz.ch,
-	netdev@vger.kernel.org
-To: cmetcalf@tilera.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Jon Mason <Jon.Mason@exar.com>,
+	Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
+	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>
+To: Jesper Juhl <jj@chaosbits.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42668
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S933541Ab1AMUfF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 15:35:05 -0500
-In-Reply-To: <4D2F2A92.7020909@tilera.com>
+Received: from webmail.exar.com ([204.154.183.83]:54847 "EHLO smtp1.exar.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751663Ab1AMUfQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 15:35:16 -0500
+In-Reply-To: <alpine.LNX.2.00.1101132119080.11347@swampdragon.chaosbits.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Metcalf <cmetcalf@tilera.com>
-Date: Thu, 13 Jan 2011 11:38:42 -0500
+> Regardless of whether the firmware update being performed by
+> vxge_fw_upgrade() is a success or not we must still remember to always
+> release_firmware() before returning.
+> 
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+> ---
+>  vxge-main.c |    1 +
+>  1 file changed, 1 insertion(+)
+> 
+> diff --git a/drivers/net/vxge/vxge-main.c b/drivers/net/vxge/vxge-main.c
+> index 1ac9b56..c81a651 100644
+> --- a/drivers/net/vxge/vxge-main.c
+> +++ b/drivers/net/vxge/vxge-main.c
+> @@ -4120,6 +4120,7 @@ int vxge_fw_upgrade(struct vxgedev *vdev, char
+> *fw_name, int override)
+>  	       "hotplug event.\n");
+> 
+>  out:
+> +	release_firmware(fw);
+>  	return ret;
+>  }
+Thanks!
 
-> So, I like Tobias' reworked patches.  I can take them into the Tilera tree,
-> but I'd prefer David Miller take them into the net tree if he is agreeable,
-> since it now includes changes to generic networking code.  If you take the
-> latter approach you can include my:
-
-I'll take them into my networking tree, which is where all network
-device changes ought to go in the first place.
+Acked-by: Ram Vepa <ram.vepa@exar.com>
