@@ -1,36 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/3] bna: Remove unnecessary memset(,0,)
-Date: Wed, 12 Jan 2011 19:01:01 -0800 (PST)
-Message-ID: <20110112.190101.93384575.davem@davemloft.net>
-References: <6f6d4a7a705949a3464471f364f77215f1e796f3.1294867098.git.joe@perches.com>
-	<0ed96bd1a053e61c827f2ac09e38cba59e32a21b.1294867098.git.joe@perches.com>
-	<E5313AF6F2BFD14293E5FD0F94750F86A5CFF6C4A8@HQ1-EXCH01.corp.brocade.com>
+Subject: Re: [uclinux-dist-devel] [PATCH net-next-2.6] netdev: bfin_mac:
+ Use is_multicast_ether_addr helper
+Date: Wed, 12 Jan 2011 19:01:43 -0800 (PST)
+Message-ID: <20110112.190143.184432859.davem@davemloft.net>
+References: <1294824611-10483-1-git-send-email-tklauser@distanz.ch>
+	<AANLkTimztPZB3N+ZYNsDM9L3ZEM+x__bBc-JCRgO8iDC@mail.gmail.com>
+	<1294852681.4114.6.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, ddutt@Brocade.COM, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: rmody@brocade.com
+Cc: vapier.adi@gmail.com, tklauser@distanz.ch,
+	michael.hennerich@analog.com,
+	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34846
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56948
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932780Ab1AMDA3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 22:00:29 -0500
-In-Reply-To: <E5313AF6F2BFD14293E5FD0F94750F86A5CFF6C4A8@HQ1-EXCH01.corp.brocade.com>
+	by vger.kernel.org with ESMTP id S932780Ab1AMDBK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 22:01:10 -0500
+In-Reply-To: <1294852681.4114.6.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rasesh Mody <rmody@brocade.com>
-Date: Wed, 12 Jan 2011 14:55:25 -0800
+From: Joe Perches <joe@perches.com>
+Date: Wed, 12 Jan 2011 09:18:01 -0800
 
+> On Wed, 2011-01-12 at 11:38 -0500, Mike Frysinger wrote:
+>> On Wed, Jan 12, 2011 at 04:30, Tobias Klauser wrote:
+>> > --- a/drivers/net/bfin_mac.c
+>> > +++ b/drivers/net/bfin_mac.c
+>> > @@ -1293,7 +1293,7 @@ static void bfin_mac_multicast_hash(struct net_device *dev)
+>> >                addrs = ha->addr;
+>> >
+>> >                /* skip non-multicast addresses */
+>> > -               if (!(*addrs & 1))
+>> > +               if (!is_multicast_ether_addr(addrs))
+>> >                        continue;
+>> 
+>> looks good to me ...
+>> Acked-by: Mike Frysinger <vapier@gentoo.org>
 > 
->>From: Joe Perches [mailto:joe@perches.com]
->>Sent: Wednesday, January 12, 2011 1:21 PM
->>
->>kzalloc'd memory doesn't need a memset to 0.
->>
->>Signed-off-by: Joe Perches <joe@perches.com>
+> Does a netdev_for_each_mc_addr loop entry really
+> need to verify that the address is multicast?
 > 
-> Acked-by: Rasesh Mody <rmody@brocade.com>
+> Couldn't this just be:
 
-Applied.
+It could, and I'd be happy to apply a follow-on patch that does
+this.
