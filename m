@@ -1,50 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: remove duplicate th = tcp_hdr(skb)
-Date: Thu, 13 Jan 2011 16:59:03 +0100
-Message-ID: <1294934343.3570.253.camel@edumazet-laptop>
-References: <1294933302-28469-1-git-send-email-christoph.paasch@uclouvain.be>
+From: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Subject: sch_sfb [was: net_sched: mark packet staying on queue too long]
+Date: Thu, 13 Jan 2011 17:04:13 +0100
+Message-ID: <87bp3kg58i.fsf_-_@trurl.pps.jussieu.fr>
+References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
+	<20101220232020.GB2052@del.dom.local>
+	<1292887689.2627.150.camel@edumazet-laptop>
+	<20101220235209.GA1865@del.dom.local>
+	<1292939574.6535.27.camel@mojatatu>
+	<AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
+	<20101221223704.GA1979@del.dom.local>
+	<1293111333.11306.170.camel@mojatatu>
+	<1294003631.2535.253.camel@edumazet-laptop>
+	<20110103095842.7677130d@nehalam>
+	<Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
+	<4D2EE708.8010806@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Content-Type: text/plain
+Cc: netdev <netdev@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	David Miller <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:57700 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755832Ab1AMP7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 10:59:09 -0500
-Received: by wyb28 with SMTP id 28so1848644wyb.19
-        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 07:59:08 -0800 (PST)
-In-Reply-To: <1294933302-28469-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from witko.kerneis.info ([213.186.56.95]:41038 "EHLO
+	witko.kerneis.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933040Ab1AMQWh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 11:22:37 -0500
+In-Reply-To: <4D2EE708.8010806@trash.net> (Patrick McHardy's message of "Thu,
+	13 Jan 2011 12:50:32 +0100")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 13 janvier 2011 =C3=A0 16:41 +0100, Christoph Paasch a =C3=A9c=
-rit :
-> th is already set some lines before to be th =3D tcp_hdr(skb).
->=20
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
->  net/ipv4/tcp_ipv4.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
->=20
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index 856f684..7fe29c6 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1644,7 +1644,6 @@ int tcp_v4_rcv(struct sk_buff *skb)
->  	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
->  		goto bad_packet;
-> =20
+>> Have you looked at the SFB (Stochastic Fair Blue) implementation by
+>> Juliusz Chroboczek?
 
-Well... no please.
+>> http://www.pps.jussieu.fr/~jch/software/sfb/
 
-> -	th =3D tcp_hdr(skb);
->  	iph =3D ip_hdr(skb);
->  	TCP_SKB_CB(skb)->seq =3D ntohl(th->seq);
->  	TCP_SKB_CB(skb)->end_seq =3D (TCP_SKB_CB(skb)->seq + th->syn + th->=
-fin +
+> I had a closer look at this some time ago and noticed a couple of bugs
+> (f.i. double buffering might be enabled or disabled or the buffers
+> switched while a packet is queued, so on dequeue the wrong buffer will
+> have its queue length decremented) and also found the hashing quite
+> inefficient,
 
-Hint : pskb_may_pull() can change tcp_hdr(skb) result.
+And you never found the time to drop me a mail on the subject?
 
+> so I've implemented my own version.
 
+I see.
+
+                                        Juliusz
