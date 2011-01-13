@@ -1,36 +1,53 @@
-From: Thomas Graf <tgraf@infradead.org>
-Subject: Re: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
-Date: Thu, 13 Jan 2011 05:02:24 -0500
-Message-ID: <20110113100224.GB30432@canuck.infradead.org>
-References: <AANLkTin1LCgEpBNay_o4dzF1ONKanR1HRqcOu3AqqyHu@mail.gmail.com>
- <20110112.184734.38051229.davem@davemloft.net>
- <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
+Date: Thu, 13 Jan 2011 12:11:12 +0100
+Message-ID: <4D2EDDD0.8060903@netfilter.org>
+References: <1294883588-5683-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, opurdila@ixiacom.com,
-	ddvlad@rosedu.org
-To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canuck.infradead.org ([134.117.69.58]:43454 "EHLO
-	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752749Ab1AMKCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 05:02:32 -0500
-Content-Disposition: inline
-In-Reply-To: <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1294883588-5683-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 13, 2011 at 09:50:14AM +0200, Lucian Adrian Grijincu wrote:
-> Yes it works, but there does not seem to be a good reason why to
-> complicate things like this (again the sentinel nature of zero is not
-> used in any place here).
+On 13/01/11 02:52, Simon Horman wrote:
+> Hi Pablo,
+> 
+> this changest includes the following changes since the v3.2 series
+> which was most recently posted as "[GIT PULL nf-next-2.6] ipvs namespaces".
+> 
+> * Remove several hunks that only make whitespace changes
 
-The reason I didn't change anything was the same as Dave's reply, I
-thought it must have been done on purpose. It probably was but I can't
-spot any reason now either.
+Thanks a lot for doing this.
 
-Also, IPv6 is doing just fine with using '0' as its first devconf id.
+> * Add Acked-by: Julian Anastasov <ja@ssi.bg>
+>   (It was an omission from v3.2)
+> * Fix merge conflicts
+> 
+> There are two changes that produce conflicts
+> * In the current net-next-2.6 tree but absent from the current nf-next-2.6 tree
+>   there is "workqueue: convert
+>   cancel_rearming_delayed_work[queue]() users to cancel_delayed_work_sync()"
+> * And in the current nf-next-2.6 tree  but absent from the current
+>   net-next-2.6 tree there is "net: use the macros defined for the members
+>   of flowi"
 
-I have no objects to changing this at all but we don't gain much either.
+nf-*-2.6 are Patrick's trees. My trees are here:
+
+http://1984.lsi.us.es/git/
+
+> In order to create this series I merged net-next-2.6 into nf-next-2.6.
+> The result is at
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
+> 
+> However, I guess that you have already done your own merge and simply
+> pulling the branch above will create a bit of a mess. Please let me know
+> if you have a tree/branch that I should use as a base for a pull request.
+
+I have pulled it, everything was fine. Thanks Simon!
