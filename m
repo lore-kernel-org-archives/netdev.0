@@ -1,55 +1,39 @@
-From: Jesper Dangaard Brouer <hawk@diku.dk>
-Subject: Re: what are txqueuelen and nic ring parameters exactly?
-Date: Thu, 13 Jan 2011 10:21:13 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1101131009420.17215@ask.diku.dk>
-References: <AANLkTi=_hbmvgO9wrX6sg7Q=Wh+iVaqGdga08M-ypqae@mail.gmail.com>
+From: Chris Rankin <rankincj@yahoo.com>
+Subject: RE: [E1000-devel] [e100] Page allocation failure warning(?) in 2.6.36.3
+Date: Thu, 13 Jan 2011 01:24:53 -0800 (PST)
+Message-ID: <945863.60555.qm@web121706.mail.ne1.yahoo.com>
+References: <1294909556.3570.25.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@vger.kernel.org
-To: MK <stardust496@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8BIT
+Cc: JesseBrandeburg <jesse.brandeburg@intel.com>,
+	David Miller <davem@davemloft.net>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Tushar NDave <tushar.n.dave@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jeffrey TKirsher <jeffrey.t.kirsher@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:35054 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752713Ab1AMJVS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 04:21:18 -0500
-In-Reply-To: <AANLkTi=_hbmvgO9wrX6sg7Q=Wh+iVaqGdga08M-ypqae@mail.gmail.com>
+Received: from web121706.mail.ne1.yahoo.com ([98.138.90.127]:34739 "HELO
+	web121706.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932610Ab1AMJYy convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 04:24:54 -0500
+In-Reply-To: <1294909556.3570.25.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 10 Jan 2011, MK wrote:
+-- On Thu, 13/1/11, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> If you care of performance, dont unload/reload your driver
+> all the time, and dont use modules (this matter on old hardware because
+> of TLB misses)
 
-> I often come across two variables that can be tuned for networking -
->
-> 1) txqueuelen (via ifconfig )
-> 2) NIC ring parameters for tx and rx (via ethtool)
->
-> Can someone please tell me where these queues are exactly? Are both
-> the same (seems not since their current values are different on my
-> computer) . Is txqueuelen somehow part of the linux networking
-> subsystem whereas the other is purely a h/w device construct?
-
-You are spot on.
-
-The txqueuelen is a Linux network stack thing, and is related to the 
-traffic control subsystem, BUT only when using the default qdisc 
-(pfifo_fast or mq).
-If you add another qdisc, then its that specific qdiscs limits which 
-counts, not the device txqueuelen.
-
-When tuning these queue lengths, you probably decrease these queue sizes, 
-NOT increase!
-
-See the bufferbloat debate:
-   http://netoptimizer.blogspot.com/2010/12/buffer-bloat-calculations.html
-   http://netoptimizer.blogspot.com/2011/01/bufferbloat-wireless-is-worse-than.html
-   http://gettys.wordpress.com/bufferbloat-faq/
+As long as I can route the full bandwidth of my ADSLv2 connection then it's fine.
 
 Cheers,
-   Jesper Brouer
+Chris
 
---
--------------------------------------------------------------------
-MSc. Master of Computer Science
-Dept. of Computer Science, University of Copenhagen
-Author of http://www.adsl-optimizer.dk
--------------------------------------------------------------------
+
+
+      
