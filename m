@@ -1,87 +1,71 @@
 From: Daniel Hellstrom <daniel@gaisler.com>
-Subject: [PATCH 03/10] GRETH: added no_gbit option
-Date: Thu, 13 Jan 2011 09:25:28 +0100
-Message-ID: <1294907135-24884-3-git-send-email-daniel@gaisler.com>
+Subject: [PATCH 09/10] GRETH: handle frame error interrupts
+Date: Thu, 13 Jan 2011 09:25:34 +0100
+Message-ID: <1294907135-24884-9-git-send-email-daniel@gaisler.com>
 References: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
 Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail201c2.megamailservers.com ([69.49.111.102]:39241 "EHLO
 	mail201c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932796Ab1AMJAM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 04:00:12 -0500
+	by vger.kernel.org with ESMTP id S932703Ab1AMJAG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 04:00:06 -0500
 In-Reply-To: <1294907135-24884-1-git-send-email-daniel@gaisler.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For debug only. The driver does not report that it is GBit capable, instead
-it will report 10/100 mode to the generic PHY layer.
+Frame error interrupts must also be handled since the RX flag only indicates
+successful reception, it is unlikely but the old code may lead to dead lock
+if 128 error frames are recieved in a row.
 
 Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
 ---
- drivers/net/greth.c |   15 +++++++++++++--
- drivers/net/greth.h |    1 +
- 2 files changed, 14 insertions(+), 2 deletions(-)
+ drivers/net/greth.c |    9 +++++----
+ drivers/net/greth.h |    2 ++
+ 2 files changed, 7 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/greth.c b/drivers/net/greth.c
-index 1b10186..ef8da22 100644
+index fea1e20..b9623d2 100644
 --- a/drivers/net/greth.c
 +++ b/drivers/net/greth.c
-@@ -66,6 +66,10 @@ static int greth_edcl = 1;
- module_param(greth_edcl, int, 0);
- MODULE_PARM_DESC(greth_edcl, "GRETH EDCL usage indicator. Set to 1 if EDCL is used.");
+@@ -596,12 +596,13 @@ static irqreturn_t greth_interrupt(int irq, void *dev_id)
+ 	status = GRETH_REGLOAD(greth->regs->status);
  
-+static int no_gbit = 0;
-+module_param(no_gbit, int, S_IRUGO);
-+MODULE_PARM_DESC(no_gbit, "GRETH reports only 10/100 support to PHY layer if set to 1. Only affects GRETH GBit MAC, default 0 (off).");
-+
- static int greth_open(struct net_device *dev);
- static netdev_tx_t greth_start_xmit(struct sk_buff *skb,
- 	   struct net_device *dev);
-@@ -1284,7 +1288,7 @@ static int greth_mdio_probe(struct net_device *dev)
- 	}
+ 	/* Handle rx and tx interrupts through poll */
+-	if (status & (GRETH_INT_RX | GRETH_INT_TX)) {
++	if (status & (GRETH_INT_RE | GRETH_INT_RX |
++		      GRETH_INT_TE | GRETH_INT_TX)) {
  
- 	ret = phy_connect_direct(dev, phy, &greth_link_change,
--			0, greth->gbit_mac ?
-+			0, greth->gbit_phy_support ?
- 			PHY_INTERFACE_MODE_GMII :
- 			PHY_INTERFACE_MODE_MII);
- 	if (ret) {
-@@ -1293,7 +1297,7 @@ static int greth_mdio_probe(struct net_device *dev)
- 		return ret;
- 	}
+ 		/* Clear interrupt status */
+-		GRETH_REGORIN(greth->regs->status,
+-			      status & (GRETH_INT_RX | GRETH_INT_TX));
+-
++		GRETH_REGSAVE(greth->regs->status,
++			      status & (GRETH_INT_RE | GRETH_INT_RX |
++					GRETH_INT_TE | GRETH_INT_TX));
+ 		retval = IRQ_HANDLED;
  
--	if (greth->gbit_mac)
-+	if (greth->gbit_phy_support)
- 		phy->supported &= PHY_GBIT_FEATURES;
- 	else
- 		phy->supported &= PHY_BASIC_FEATURES;
-@@ -1447,6 +1451,13 @@ static int __devinit greth_of_probe(struct platform_device *ofdev, const struct
- 	tmp = GRETH_REGLOAD(regs->control);
- 	greth->gbit_mac = (tmp >> 27) & 1;
- 
-+	/* Let user skip GBit link mode by telling MDIO layer that MAC does
-+	 * not support GBIT (for debug) */
-+	if (greth->gbit_mac && !no_gbit)
-+		greth->gbit_phy_support = 1;
-+	else
-+		greth->gbit_phy_support = 0;
-+
- 	/* Check for multicast capability */
- 	greth->multicast = (tmp >> 25) & 1;
- 
+ 		/* Disable interrupts and schedule poll() */
 diff --git a/drivers/net/greth.h b/drivers/net/greth.h
-index 03ad903..9414169 100644
+index 9414169..f97f553 100644
 --- a/drivers/net/greth.h
 +++ b/drivers/net/greth.h
-@@ -138,6 +138,7 @@ struct greth_private {
- 	u8 gbit_mac;
- 	u8 mdio_int_en;
- 	u8 edcl;
-+	u8 gbit_phy_support;
- };
+@@ -23,6 +23,7 @@
+ #define GRETH_BD_LEN 0x7FF
  
- #endif
+ #define GRETH_TXEN 0x1
++#define GRETH_INT_TE 0x2
+ #define GRETH_INT_TX 0x8
+ #define GRETH_TXI 0x4
+ #define GRETH_TXBD_STATUS 0x0001C000
+@@ -35,6 +36,7 @@
+ #define GRETH_TXBD_ERR_UE 0x4000
+ #define GRETH_TXBD_ERR_AL 0x8000
+ 
++#define GRETH_INT_RE         0x1
+ #define GRETH_INT_RX         0x4
+ #define GRETH_RXEN           0x2
+ #define GRETH_RXI            0x8
 -- 
 1.5.4
 
