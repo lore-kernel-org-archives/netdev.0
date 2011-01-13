@@ -1,49 +1,38 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-next-2.6] ipvs namespaces
-Date: Thu, 13 Jan 2011 10:57:09 +0900
-Message-ID: <20110113015707.GA7082@verge.net.au>
-References: <1294294578-8601-1-git-send-email-horms@verge.net.au>
- <4D2E0F32.8020602@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip: reuse ip_summed of first fragment for all
+ subsequent fragments
+Date: Wed, 12 Jan 2011 18:42:20 -0800 (PST)
+Message-ID: <20110112.184220.250810179.davem@davemloft.net>
+References: <1292841525-15572-1-git-send-email-timo.lindfors@iki.fi>
+	<20101228.134905.183040321.davem@davemloft.net>
+	<84mxn7czz4.fsf@sauna.l.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D2E0F32.8020602@netfilter.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: timo.lindfors@iki.fi
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56507
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932538Ab1AMCls (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jan 2011 21:41:48 -0500
+In-Reply-To: <84mxn7czz4.fsf@sauna.l.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 12, 2011 at 09:29:38PM +0100, Pablo Neira Ayuso wrote:
-> Hi Simon,
-> 
-> On 06/01/11 07:15, Simon Horman wrote:
-> > Hi Patrick,
-> > 
-> > please consider pulling
-> > git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
-> > in order to get the netns changes to IPVS from Hans Schillstrom.
-> 
-> I'm hitting some conflicts when pulling from your tree.
-> 
-> >From git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6
->  * branch            master     -> FETCH_HEAD
-> Auto-merging include/linux/netfilter.h
-> Auto-merging include/linux/skbuff.h
-> Auto-merging include/net/netfilter/nf_conntrack.h
-> Auto-merging net/core/skbuff.c
-> Auto-merging net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-> Auto-merging net/ipv6/netfilter/nf_conntrack_reasm.c
-> Auto-merging net/netfilter/core.c
-> Auto-merging net/netfilter/ipvs/ip_vs_ctl.c
-> CONFLICT (content): Merge conflict in net/netfilter/ipvs/ip_vs_ctl.c
+From: Timo Juhani Lindfors <timo.lindfors@iki.fi>
+Date: Tue, 11 Jan 2011 15:49:19 +0200
 
-Hi Pablo,
+> Anyways, socket option SO_NO_CHECK sets sk->sk_no_check. Could this be
+> checked before calculating checksums of each fragment? Currently
+> udp_push_pending_frames checks this but checksums have already been
+> calculated at that point (and the only job left is to sum the
+> checksums together). Here's a patch that works for me (=according to
+> perf time is no longer spent calculating checksums) but probably
+> should be reviewed carefully:
 
-I've sent a fresh series "[PATCH 00/22] ipvs namespaces v3.3" that should
-resolve the conficts (I think).  More details in the cover email for that
-series.
+You're now not handling the code block above this one, guarded
+by the "if (len <= 0)" check.
 
+You seem to just be peppering checks all over the place rather
+than coming up with a coherent, complete, fix for this problem.
