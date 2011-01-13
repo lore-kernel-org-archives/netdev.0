@@ -1,161 +1,62 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid
- not used
-Date: Thu, 13 Jan 2011 12:50:56 -0800
-Message-ID: <20110113205056.GA29254@mcarlson.broadcom.com>
-References: <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
- <20101214191500.GD19951@mcarlson.broadcom.com>
- <20101215012430.120fd47f@xenia.leun.net>
- <20101215013431.GA21173@mcarlson.broadcom.com>
- <20101215081606.18e12fc9@xenia.leun.net>
- <AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
- <20110107032459.GA17959@mcarlson.broadcom.com>
- <AANLkTi=N6jFE7T1=W-WLo_eHYWeE=oB6n8C8zPGoBNQF@mail.gmail.com>
- <20110113012157.GA28147@mcarlson.broadcom.com>
- <AANLkTimz3Mw5itChtTgHTeGT4seJauy3+FVrpEJn1iez@mail.gmail.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Even Batman should not dereference NULL pointers
+Date: Thu, 13 Jan 2011 21:53:38 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101132146400.11347@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Michael Leun" <lkml20101129@newton.leun.net>,
-	"Michael Chan" <mchan@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>,
-	"Ben Greear" <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Jesse Gross" <jesse@nicira.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
+	Sven Eckelmann <sven@narfation.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4148 "EHLO MMS3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752022Ab1AMUvO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 15:51:14 -0500
-In-Reply-To: <AANLkTimz3Mw5itChtTgHTeGT4seJauy3+FVrpEJn1iez@mail.gmail.com>
-Content-Disposition: inline
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:26077 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752083Ab1AMUxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 15:53:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 13, 2011 at 07:06:22AM -0800, Jesse Gross wrote:
-> On Wed, Jan 12, 2011 at 8:21 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
-> > On Thu, Jan 06, 2011 at 08:36:27PM -0800, Jesse Gross wrote:
-> >> On Thu, Jan 6, 2011 at 10:24 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
-> >> > On Sat, Dec 18, 2010 at 07:38:00PM -0800, Jesse Gross wrote:
-> >> >> On Tue, Dec 14, 2010 at 11:16 PM, Michael Leun
-> >> >> <lkml20101129@newton.leun.net> wrote:
-> >> >> > OK - all tests done on that DL320G5:
-> >> >> >
-> >> >> > For completeness, 2.6.37-rc5 unpatched:
-> >> >> >
-> >> >> > eth0, no vlan configured: totally broken - see double tagged vlans
-> >> >> > without tag, single or untagged packets missing at all
-> >> >>
-> >> >> Random behavior? ?This one is somewhat hard to explain - maybe there
-> >> >> are some other factors. ?eth0 has ASF on, so it always strips tags. ?I
-> >> >> would expect it to behave like the vlan configured case.
-> >> >>
-> >> >> >
-> >> >> > eth0, vlan configured: see packets without vlan tag (see double tagged
-> >> >> > packets with one vlan tag)
-> >> >>
-> >> >> Both ASF and vlan group configured cause tag stripping to be enabled.
-> >> >> Missing tag.
-> >> >>
-> >> >> >
-> >> >> > eth1 same as originally reported:
-> >> >> > without vlan configured see vlan tags (single and double tagged as
-> >> >> > expected)
-> >> >>
-> >> >> No ASF and no vlan group means tag stripping is disabled. ?Have tag.
-> >> >>
-> >> >> > with vlan configured: see packets without vlan tag (see double tagged
-> >> >> > packets with one vlan tag)
-> >> >>
-> >> >> Configuring vlan group causes stripping to be enabled. ?Missing tag.
-> >> >>
-> >> >> >
-> >> >> >
-> >> >> > 2.6.37-rc5, your tg3 use new vlan-code patch:
-> >> >> >
-> >> >> > eth0, no vlan configured: ?see packets without vlan tag (see double
-> >> >> > tagged packets with one vlan tag)
-> >> >>
-> >> >> ASF enables tag stripping. ?Missing tag.
-> >> >>
-> >> >> > eth1, no vlan configured: see vlan tags (single and double tagged as
-> >> >> > expected)
-> >> >>
-> >> >> No ASF, no vlan group means no stripping. ?Have tag.
-> >> >>
-> >> >> >
-> >> >> >
-> >> >> > eth0, vlan configured: as without vlan
-> >> >>
-> >> >> ASF enables stripping. ?Missing tag.
-> >> >>
-> >> >> > eth1, vlan configured: as without vlan
-> >> >>
-> >> >> With this patch vlan stripping is only enabled when ASF is on, so no
-> >> >> stripping. ?Have tag.
-> >> >>
-> >> >> >
-> >> >> > 2.6.37-rc5, your tg3 use new vlan-code patch with test patch ontop
-> >> >> >
-> >> >> > eth1 no vlan configured: see packets without vlan tag (see double tagged
-> >> >> > packets with one vlan tag)
-> >> >>
-> >> >> With the second patch, vlan stripping is always enabled. ?Missing tag.
-> >> >>
-> >> >> > eth1 with vlan: the same
-> >> >>
-> >> >> Stripping still always enabled. ?Missing tag.
-> >> >>
-> >> >> The bottom line is whenever vlan stripping is enabled we're missing
-> >> >> the outer tag. ?It might be worth adding some debugging in the area
-> >> >> before napi_gro_receive/vlan_gro_receive (depending on version). ?My
-> >> >> guess is that (desc->type_flags & RXD_FLAG_VLAN) is false even for
-> >> >> vlan packets on this NIC.
-> >> >>
-> >> >> You said that everything works on the 5752? ?Matt, is it possible that
-> >> >> the 5714 either has a problem with vlan stripping or a different way
-> >> >> of reporting it?
-> >> >
-> >> > I don't think this is a 5714 specific issue. ?I think the problem is
-> >> > rooted in the fact that the VLAN tag stripping is enabled.
-> >>
-> >> It's definitely related to vlan stripping being enabled. ?Other cards
-> >> using tg3 seem to work fine with stripping though, which is why I
-> >> thought it might be specific to the 5714.
-> >
-> > I just tested this on a 5714S, using a net-next-2.6 snapshot obtained
-> > today. ?It does the right thing in both cases (2nd tg3 patch ommited /
-> > applied). ?The tag is always visible in the packet stream as seen from
-> > tcpdump.
-> >
-> >> > Your RXD_FLAG_VLAN idea sounds unlikely to me, but it's worth a check.
-> >> >
-> >> > The patch here is using __vlan_hwaccel_put_tag(), which informs the
-> >> > stack a VLAN tag is present. ?If this is indeed a reporting problem, I'm
-> >> > not sure what else the driver should be doing.
-> >>
-> >> The code to hand off the tag to the stack looks OK to me. ?Michael was
-> >> seeing this on older versions of the kernel as well with this NIC,
-> >> which predates both this patch and the larger vlan changes so it
-> >> doesn't seem like a problem with passing the tag to the network stack.
-> >> ?It's hard to know exactly what is going on though without seeing what
-> >> the hardware is reporting.
-> >
-> > When RX_MODE_KEEP_VLAN_TAG is set, the RXD_FLAG_VLAN flag will not be set
-> > when receiving a packet. ?The driver skips the __vlan_hwaccel_put_tag()
-> > call.
-> >
-> > When RX_MODE_KEEP_VLAN_TAG is unset, the RXD_FLAG_VLAN flag is set, and
-> > __vlan_hwaccel_put_tag() is called to reinject the packet.
-> 
-> OK, thanks for testing it out.  I'm not sure that there's anything
-> more we can do without hearing from Michael.
+There's a problem in net/batman-adv/unicast.c::frag_send_skb().
+dev_alloc_skb() allocates memory and may fail, thus returning NULL. If 
+this happens we'll pass a NULL pointer on to skb_split() which in turn 
+hands it to skb_split_inside_header() from where it gets passed to 
+skb_put() that lets skb_tail_pointer() play with it and that function 
+dereferences it. And thus the bat dies.
 
-In the meantime, I think what we have should go upstream.  Just to be
-absolutely clear though, your position is that VLAN tags should always
-be stripped?
+While I was at it I also moved the call to dev_alloc_skb() above the 
+assignment to 'unicast_packet' since there's no reason to do that 
+assignment if the memory allocation fails.
+
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ unicast.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index dc2e28b..ee41fef 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -229,10 +229,12 @@ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
+ 	if (!bat_priv->primary_if)
+ 		goto dropped;
+ 
+-	unicast_packet = (struct unicast_packet *) skb->data;
++	frag_skb = dev_alloc_skb(data_len - (data_len / 2) + ucf_hdr_len);
++	if (!frag_skb)
++		goto dropped;
+ 
++	unicast_packet = (struct unicast_packet *) skb->data;
+ 	memcpy(&tmp_uc, unicast_packet, uc_hdr_len);
+-	frag_skb = dev_alloc_skb(data_len - (data_len / 2) + ucf_hdr_len);
+ 	skb_split(skb, frag_skb, data_len / 2);
+ 
+ 	if (my_skb_head_push(skb, ucf_hdr_len - uc_hdr_len) < 0 ||
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
 
