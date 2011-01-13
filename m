@@ -1,66 +1,81 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Thu, 13 Jan 2011 15:22:39 +0100
-Message-ID: <1294928559.3570.130.camel@edumazet-laptop>
-References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
+Subject: Re: [PATCH v4] netfilter: ipt_CLUSTERIP: remove "no conntrack!"
+Date: Thu, 13 Jan 2011 15:39:39 +0100
+Message-ID: <1294929579.3570.163.camel@edumazet-laptop>
+References: <4D2E1A74.5080102@netfilter.org>
+	 <1294917210.3570.48.camel@edumazet-laptop> <4D2EE09A.1010409@netfilter.org>
+	 <1294918365.3570.56.camel@edumazet-laptop> <4D2EE80B.6010707@netfilter.org>
+	 <1294925915.3570.87.camel@edumazet-laptop>
+	 <alpine.LNX.2.01.1101131502240.25211@obet.zrqbmnf.qr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1101131502240.25211@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 13 janvier 2011 =C3=A0 19:49 +0800, Po-Yu Chuang a =C3=A9crit =
-:
-> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+Le jeudi 13 janvier 2011 =C3=A0 15:02 +0100, Jan Engelhardt a =C3=A9cri=
+t :
+> On Thursday 2011-01-13 14:38, Eric Dumazet wrote:
 >=20
-> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
-> MII.  This driver has been working on some ARM/NDS32 SoC including
-> Faraday A320 and Andes AG101.
+> >Le jeudi 13 janvier 2011 =C3=A0 12:54 +0100, Pablo Neira Ayuso a =C3=
+=A9crit :
+> >
+> >> But printing this does not provide any useful information. The fir=
+st
+> >> packet that does not belong to the cluster node that has received =
+the
+> >> packet, or the first invalid packet, will trigger this.
+> >>=20
+> >> Moreover, this confuses users since they can do nothing if they re=
+ceive
+> >> this message.
+> >>=20
+> >> Moreover, this target should be supersedes by the cluster match, w=
+hich
+> >> has been there for quite some time (it's also more flexible).
+> >
+> >Now you mentioned it, cluster match is not as flexible right now,
+> >its hashing is on source_ip only.
 >=20
-> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
-> ---
->  drivers/net/Kconfig    |    9 +
->  drivers/net/Makefile   |    1 +
->  drivers/net/ftmac100.c | 1341 ++++++++++++++++++++++++++++++++++++++=
-++++++++++
->  drivers/net/ftmac100.h |  180 +++++++
->  4 files changed, 1531 insertions(+), 0 deletions(-)
->  create mode 100644 drivers/net/ftmac100.c
->  create mode 100644 drivers/net/ftmac100.h
+> I think in that case, xt_cluster should be improved rather
+> than an old module.
 
-Hi
+Amen
 
-1) please use netdev_alloc_skb_ip_align() instead of dev_alloc_skb() +
-skb_reserve(skb, NET_IP_ALIGN);
+We should not improve IPv4 support then, I see.
 
-2) Dont include a "struct net_device_stats stats" in struct ftmac100,
-you can use the one included in struct net_device
-  (You can then remove ftmac100_get_stats())
+My customers use this old module, and upgrading to xt_cluster is not an
+option.
 
-3) Dont "netdev->last_rx =3D jiffies;" : This is not driver job.
- Ditto for trans_start
+Should we discuss this forever or fix it ?
 
-4) You must comment why wmb() is needed in ftmac100_xmit()
+In the end, people are forced to add useless iptables rule to DROP
+INVALID packets before entering ipt_CLUSTERIP, after googling or
+eventually asking to experts.
 
-5) Why isnt NAPI used too for TX completions ?
-   BTW, I am not sure we want a define. All new drivers must use NAPI.
+Last time this was discussed, this went nowhere :
 
-6) Use is_valid_ether_addr() instead of is_zero_ether_addr() in
-ftmac100_probe()
+http://www.spinics.net/lists/netfilter/msg48676.html
 
-7) "static struct ethtool_ops ftmac100_ethtool_ops" should be const :
-	"static const struct ethtool_ops ftmac100_ethtool_ops"
-  Ditto for :
-	"static struct net_device_ops ftmac100_netdev_ops"
+Come on guys, we can do it, dont be afraid.
+
+A non rate limited printk() in kernel is forbidden, especially in
+network stack.
+
+Then, cluster match can be improved, I am sure you already have a patch
+for it.
 
 
-8) Why an interrupt handler (ftmac100_interrupt()) needs to block
-interrupts with spin_lock_irqsave(&priv->hw_lock, flags); ?
 
-9) Instead of dev_info(&netdev->dev ...) , please consider netdev_info(=
-)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
