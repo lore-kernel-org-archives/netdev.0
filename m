@@ -1,71 +1,80 @@
-From: Sven Eckelmann <sven@narfation.org>
-Subject: Re: [PATCH] Even Batman should not dereference NULL pointers
-Date: Thu, 13 Jan 2011 22:13:15 +0100
-Message-ID: <201101132213.18503.sven@narfation.org>
-References: <alpine.LNX.2.00.1101132146400.11347@swampdragon.chaosbits.net>
+From: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Subject: [PATCH] USB CDC NCM: Don't deref NULL in cdc_ncm_rx_fixup() and
+ don't use uninitialized variable.
+Date: Thu, 13 Jan 2011 22:40:11 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1101132229260.11347@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart12825553.O9jQGzAFVI";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha512
-Content-Transfer-Encoding: 7bit
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:36199 "EHLO v3-1039.vlinux.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756915Ab1AMVNW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 16:13:22 -0500
-In-Reply-To: <alpine.LNX.2.00.1101132146400.11347@swampdragon.chaosbits.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-2038640018-1294954811=:11347"
+Cc: Oliver Neukum <oliver-Q6YOFhsQ4GZ7tPAFqOLdPg@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>,
+	Hans Petter Selasky <hans.petter.selasky-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
---nextPart12825553.O9jQGzAFVI
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-On Thursday 13 January 2011 21:53:38 Jesper Juhl wrote:
-> There's a problem in net/batman-adv/unicast.c::frag_send_skb().
-> dev_alloc_skb() allocates memory and may fail, thus returning NULL. If
-> this happens we'll pass a NULL pointer on to skb_split() which in turn
-> hands it to skb_split_inside_header() from where it gets passed to
-> skb_put() that lets skb_tail_pointer() play with it and that function
-> dereferences it. And thus the bat dies.
->=20
-> While I was at it I also moved the call to dev_alloc_skb() above the
-> assignment to 'unicast_packet' since there's no reason to do that
-> assignment if the memory allocation fails.
+--8323328-2038640018-1294954811=:11347
+Content-Type: TEXT/PLAIN; charset=ISO-8859-7
+Content-Transfer-Encoding: 8BIT
 
-Applied
+skb_clone() dynamically allocates memory and may fail. If it does it 
+returns NULL. This means we'll dereference a NULL pointer in 
+drivers/net/usb/cdc_ncm.c::cdc_ncm_rx_fixup().
+As far as I can tell, the proper way to deal with this is simply to goto 
+the error label.
 
-Thanks,
-	Sven
+Furthermore gcc complains that 'skb' may be used uninitialized:
+  drivers/net/usb/cdc_ncm.c: In function ¡cdc_ncm_rx_fixup¢:
+  drivers/net/usb/cdc_ncm.c:922:18: warning: ¡skb¢ may be used uninitialized in this function
+and I believe it is right. On the line where we
+  pr_debug("invalid frame detected (ignored)" ...
+we are using the local variable 'skb' but nothing has ever been assigned 
+to that variable yet. I believe the correct fix for that is to use 
+'skb_in' instead.
 
---nextPart12825553.O9jQGzAFVI
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
+Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+---
+ cdc_ncm.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
+  compile tested only.
 
-iQIcBAABCgAGBQJNL2rsAAoJEF2HCgfBJntG0DIQAIbD6U+6ITHA4PD08pn2Vq6K
-3iioaSryDTDa+a9nEz6T3vox64dSLTQVC4fzXkFQW+FGUX3QzGVCh4cpNPjgSpoI
-gL9+DK5OahV4TZVSy2yjGDX230H7GjlwXRycTuALx0Xk3pS/ElAjoJc9W79rN9xC
-P7mBbFEskPO4L8rkcTSRWGPlWoSHo++q8nWHmDN+5HitmyfTMFBFiQN0IRxQh62+
-gM1usbAIPOLoqwer3udI/tw+J2nrkmVFDtmFGAzgznKMqv1++hqUrtib2603yzZs
-0NNOLOvWc0zyHtwoBK9jmEvD2hrqiB/pvjQWz37JZ5Pi7M6eXaCKPZgNPtrJj1xT
-kqFjDdNsUK72RNNJqrV2Kd+3LPIsofwH6EJ9XxvIBJzlJXhUJmTn6zpl94UtoEQc
-q/xsqPMTHm1E4kM8dcJELXSFDsPlFEzu3p33M2+/FNIxLFlb8nUKB6GDVxo2PGYM
-NG0zT341rzDNmbzUshcPolWR+h69+6De0HPQvsDBbzqtTLQV1IxGaTzvkNHPCaSY
-F/73q3QJsCIbpwy9kVo5j4G4m17IicGIIXUzIUqMacGYsspHE7/obzEl7MWmlC08
-slNxmCrNzfSMeyFF4kmPzeuY//tH9SfjL7iFJ5brU6/nCq5+Kf0tXdLsrTML7PnE
-ex3OQ/zyZp1EcKcjYjmJ
-=heoP
------END PGP SIGNATURE-----
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 593c104..d776c4a 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -1021,13 +1021,15 @@ static int cdc_ncm_rx_fixup(struct usbnet *dev, struct sk_buff *skb_in)
+ 		    (temp > CDC_NCM_MAX_DATAGRAM_SIZE) || (temp < ETH_HLEN)) {
+ 			pr_debug("invalid frame detected (ignored)"
+ 				"offset[%u]=%u, length=%u, skb=%p\n",
+-							x, offset, temp, skb);
++							x, offset, temp, skb_in);
+ 			if (!x)
+ 				goto error;
+ 			break;
+ 
+ 		} else {
+ 			skb = skb_clone(skb_in, GFP_ATOMIC);
++			if (!skb)
++				goto error;
+ 			skb->len = temp;
+ 			skb->data = ((u8 *)skb_in->data) + offset;
+ 			skb_set_tail_pointer(skb, temp);
 
---nextPart12825553.O9jQGzAFVI--
+
+
+-- 
+Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
+
+--8323328-2038640018-1294954811=:11347--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
