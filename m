@@ -1,71 +1,67 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next-2.6] netdev: bfin_mac: Remove
- is_multicast_ether_addr use in netdev_for_each_mc_addr
-Date: Wed, 12 Jan 2011 20:08:04 -0800
-Message-ID: <1294891685.4114.29.camel@Joe-Laptop>
-References: <1294824611-10483-1-git-send-email-tklauser@distanz.ch>
-	 <AANLkTimztPZB3N+ZYNsDM9L3ZEM+x__bBc-JCRgO8iDC@mail.gmail.com>
-	 <1294852681.4114.6.camel@Joe-Laptop>
-	 <20110112.190143.184432859.davem@davemloft.net>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V8 08/13] posix clocks: cleanup the CLOCK_DISPTACH macro
+Date: Thu, 13 Jan 2011 05:30:45 +0100
+Message-ID: <20110113043037.GA17726@riccoc20.at.omicron.at>
+References: <cover.1293820862.git.richard.cochran@omicron.at>
+ <503cd1fa268867573001cfc9bb5681ee3b5b32fa.1293820862.git.richard.cochran@omicron.at>
+ <alpine.LFD.2.00.1101111224280.12146@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: vapier.adi@gmail.com, tklauser@distanz.ch,
-	michael.hennerich@analog.com,
-	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3119 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752027Ab1AMEIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jan 2011 23:08:07 -0500
-In-Reply-To: <20110112.190143.184432859.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>
+To: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.00.1101111224280.12146-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Remove code that has no effect.
+On Tue, Jan 11, 2011 at 01:57:23PM +0100, Thomas Gleixner wrote:
+> 
+> static clockid_t clock_get_array_id(const clockid_t id)
+> {
+> 	if (id >= 0)
+> 	       return id < MAX_CLOCKS ? id : POSIX_INV_CLOCK_ID;
+> 
+>       	if (clock_is_posix_cpu(id))
+> 		return POSIX_CPU_CLOCK_ID;
+> 
+> 	return POSIX_INV_CLOCK_ID;
+> }
+> 
+> static inline int dispatch_clock_getres(const clockid_t id, struct timespec *ts)
+> {
+> 	struct k_clock *clk = &posix_clocks[clock_get_array_id(id)];
+> 
+> 	return clk->clock_getres ? clk->clock_getres(id, ts) : -EINVAL;
+> }
 
-Signed-off-by: Joe Perches <joe@perches.com>
+I would like to take this idea one step further, like so:
 
----
+static struct k_clock *clockid_to_kclock(const clockid_t id)
+{
+	if (id >= 0)
+		return id < MAX_CLOCKS ?
+			&posix_clocks[id] : &posix_clocks[POSIX_INV_CLOCK_ID];
+	...
+}
 
-Uncompiled, untested...
+SYSCALL( ... , const clockid_t id, struct timespec *ts)
+{
+	struct k_clock *clk = clockid_to_kclock(id);
 
-> > Does a netdev_for_each_mc_addr loop entry really
-> > need to verify that the address is multicast?
-> > Couldn't this just be:
-> It could, and I'd be happy to apply a follow-on patch that does
-> this.
+	return clk->clock_getres ? clk->clock_getres(id, ts) : -EINVAL;
+}
 
- drivers/net/bfin_mac.c |    9 +--------
- 1 files changed, 1 insertions(+), 8 deletions(-)
+What do you think?
 
-diff --git a/drivers/net/bfin_mac.c b/drivers/net/bfin_mac.c
-index fe75e7a..22abfb3 100644
---- a/drivers/net/bfin_mac.c
-+++ b/drivers/net/bfin_mac.c
-@@ -1284,19 +1284,12 @@ static void bfin_mac_multicast_hash(struct net_device *dev)
- {
- 	u32 emac_hashhi, emac_hashlo;
- 	struct netdev_hw_addr *ha;
--	char *addrs;
- 	u32 crc;
- 
- 	emac_hashhi = emac_hashlo = 0;
- 
- 	netdev_for_each_mc_addr(ha, dev) {
--		addrs = ha->addr;
--
--		/* skip non-multicast addresses */
--		if (!is_multicast_ether_addr(addrs))
--			continue;
--
--		crc = ether_crc(ETH_ALEN, addrs);
-+		crc = ether_crc(ETH_ALEN, ha->addr);
- 		crc >>= 26;
- 
- 		if (crc & 0x20)
+Thanks,
 
-
-
-
+Richard
