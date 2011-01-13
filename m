@@ -1,46 +1,30 @@
-From: "=?iso-8859-1?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [patch v2] phonet: some signedness bugs
-Date: Thu, 13 Jan 2011 14:32:57 +0200
-Message-ID: <201101131432.58059.remi.denis-courmont@nokia.com>
-References: <20110107203755.GB1959@bicker> <20110110140658.GB2721@bicker> <20110110.160620.133889003.davem@davemloft.net>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] ipv4: devconf: start IPV4_DEVCONF_* from 0
+Date: Thu, 13 Jan 2011 15:51:15 +0300
+Message-ID: <20110113125115.GA28332@ms2.inr.ac.ru>
+References: <AANLkTin1LCgEpBNay_o4dzF1ONKanR1HRqcOu3AqqyHu@mail.gmail.com> <20110112.184734.38051229.davem@davemloft.net> <AANLkTimLyNf-sgLtzf0i3k7om9MEQ2t8tSOwDcpS66dv@mail.gmail.com> <20110113100224.GB30432@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: error27@gmail.com, dan.j.rosenberg@gmail.com
+Content-Type: text/plain; charset=us-ascii
+To: tgraf@infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.26]:60841 "EHLO mgw-da02.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756629Ab1AMMcp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 07:32:45 -0500
-In-Reply-To: <20110110.160620.133889003.davem@davemloft.net>
+Received: from minus.inr.ac.ru ([194.67.69.97]:55175 "HELO ms2.inr.ac.ru"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751621Ab1AMMw7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 07:52:59 -0500
+Content-Disposition: inline
+In-Reply-To: <20110113100224.GB30432@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 11 January 2011 02:06:20 ext David Miller, you wrote:
-> From: Dan Carpenter <error27@gmail.com>
-> Date: Mon, 10 Jan 2011 17:06:58 +0300
->=20
-> > Dan Rosenberg pointed out that there were some signed comparison bu=
-gs
-> > in the phonet protocol.
-> >=20
-> > http://marc.info/?l=3Dfull-disclosure&m=3D129424528425330&w=3D2
-> >=20
-> > The problem is that we check for array overflows but "protocol" is
-> > signed and we don't check for array underflows.  If you have alread=
-y
-> > have CAP_SYS_ADMIN then you could use the bugs to get root, or some=
-one
-> > could cause an oops by mistake.
-> >=20
-> > Signed-off-by: Dan Carpenter <error27@gmail.com>
->=20
-> Applied.
+Hello!
 
-Shouldn't this be sent to stable trees?
+On Thu, Jan 13, 2011 at 05:02:24AM -0500, Thomas Graf wrote:
+> The reason I didn't change anything was the same as Dave's reply, I
+> thought it must have been done on purpose.
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+The days, when this was written, 0 was interpreted as end of array by sysctl core.
+BTW, -1=CTL_ANY also used to be special, that's why NET_PROTO_CONF_ALL=-2 rather than -1.
+
+So, yes, it was done on purpose. And, yes, this purpose is not a legal purpose now.
+
+Alexey
