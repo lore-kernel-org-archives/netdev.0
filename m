@@ -1,39 +1,54 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] net_sched: mark packet staying on queue too long
-Date: Thu, 13 Jan 2011 12:50:32 +0100
-Message-ID: <4D2EE708.8010806@trash.net>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com> <20101220232020.GB2052@del.dom.local> <1292887689.2627.150.camel@edumazet-laptop> <20101220235209.GA1865@del.dom.local> <1292939574.6535.27.camel@mojatatu> <AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com> <20101221223704.GA1979@del.dom.local> <1293111333.11306.170.camel@mojatatu> <1294003631.2535.253.camel@edumazet-laptop> <20110103095842.7677130d@nehalam> <Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: ipt_CLUSTERIP: dont flood with "no conntrack!"
+Date: Thu, 13 Jan 2011 12:54:51 +0100
+Message-ID: <4D2EE80B.6010707@netfilter.org>
+References: <4D2E1A74.5080102@netfilter.org>	 <1294917210.3570.48.camel@edumazet-laptop> <4D2EE09A.1010409@netfilter.org> <1294918365.3570.56.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>, hadi@cyberus.ca,
-	Jarek Poplawski <jarkao2@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jesper Dangaard Brouer <hawk@diku.dk>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Netfilter Development Mailinglist
+	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:41907 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932732Ab1AMLub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 06:50:31 -0500
-In-Reply-To: <Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
+Received: from mail.us.es ([193.147.175.20]:52704 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756566Ab1AMLyz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 06:54:55 -0500
+In-Reply-To: <1294918365.3570.56.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04.01.2011 15:19, Jesper Dangaard Brouer wrote:
->> ...
->> You might want to look into CHOKe and ECSFQ which are other AQM models
->> that have shown up in research.
-> 
-> Have you looked at the SFB (Stochastic Fair Blue) implementation by Juliusz Chroboczek?
-> 
-> http://www.pps.jussieu.fr/~jch/software/sfb/
+On 13/01/11 12:32, Eric Dumazet wrote:
+> Le jeudi 13 janvier 2011 =C3=A0 12:23 +0100, Pablo Neira Ayuso a =C3=A9=
+crit :
+>> Hi Eric,
+>>
+>> On 13/01/11 12:13, Eric Dumazet wrote:
+>>> ipt_CLUSTERIP users might hit this annoying printk, if they forgot =
+an
+>>> "iptables -I INPUT -m state --state INVALID -j DROP" before CLUSTER=
+IP
+>>> rule. We could use net_ratelimit() here, or not log the message at =
+all.
+>>> I chose to log it once per config.
+>>
+>> I think that this should be converted to pr_debug() instead, there's
+>> also another reference to "unknown protocol" that should be converte=
+d as
+>> well.
+>=20
+> Problem is pr_debug() is a noop most of the time,
+> and printk(KERN_DEBUG is a bit ugly ...
+>=20
+> If we print the message once, better to really print it ;)
 
-I had a closer look at this some time ago and noticed a couple of bugs
-(f.i. double buffering might be enabled or disabled or the buffers
-switched while a packet is queued, so on dequeue the wrong buffer will
-have its queue length decremented) and also found the hashing quite
-inefficient, so I've implemented my own version. There's still a minor
-bug somewhere, but if people are interested I could finish it some
-time soon and post the patches.
+But printing this does not provide any useful information. The first
+packet that does not belong to the cluster node that has received the
+packet, or the first invalid packet, will trigger this.
+
+Moreover, this confuses users since they can do nothing if they receive
+this message.
+
+Moreover, this target should be supersedes by the cluster match, which
+has been there for quite some time (it's also more flexible).
