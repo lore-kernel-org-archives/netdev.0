@@ -1,210 +1,73 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid not used
-Date: Thu, 13 Jan 2011 16:58:40 -0500
-Message-ID: <AANLkTimQ1T0erugwK17o0zuSwxVh-Ro4yCsBpOqCykyr@mail.gmail.com>
-References: <AANLkTi=9BYt=vkNkAiTBxnfnCjCX7AqCG=ML6coc4vdZ@mail.gmail.com>
-	<20101214191500.GD19951@mcarlson.broadcom.com>
-	<20101215012430.120fd47f@xenia.leun.net>
-	<20101215013431.GA21173@mcarlson.broadcom.com>
-	<20101215081606.18e12fc9@xenia.leun.net>
-	<AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
-	<20110107032459.GA17959@mcarlson.broadcom.com>
-	<AANLkTi=N6jFE7T1=W-WLo_eHYWeE=oB6n8C8zPGoBNQF@mail.gmail.com>
-	<20110113012157.GA28147@mcarlson.broadcom.com>
-	<AANLkTimz3Mw5itChtTgHTeGT4seJauy3+FVrpEJn1iez@mail.gmail.com>
-	<20110113205056.GA29254@mcarlson.broadcom.com>
+From: Jonathan Thibault <jonathan@navigue.com>
+Subject: Tagged/untagged and gretap bridging question.
+Date: Thu, 13 Jan 2011 17:07:36 -0500
+Message-ID: <4D2F77A8.1010700@navigue.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Leun <lkml20101129@newton.leun.net>,
-	Michael Chan <mchan@broadcom.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Ben Greear <greearb@candelatech.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matt Carlson <mcarlson@broadcom.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:37412 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755699Ab1AMV6m convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 16:58:42 -0500
-In-Reply-To: <20110113205056.GA29254@mcarlson.broadcom.com>
+Received: from mail.navigue.com ([74.117.40.3]:43120 "EHLO mail.navigue.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757044Ab1AMWOg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 17:14:36 -0500
+Received: from [192.168.7.132] (unknown [74.117.40.10])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail.navigue.com (Postfix) with ESMTPSA id 1E09F528F95
+	for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 17:07:36 -0500 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 13, 2011 at 3:50 PM, Matt Carlson <mcarlson@broadcom.com> w=
-rote:
-> On Thu, Jan 13, 2011 at 07:06:22AM -0800, Jesse Gross wrote:
->> On Wed, Jan 12, 2011 at 8:21 PM, Matt Carlson <mcarlson@broadcom.com=
-> wrote:
->> > On Thu, Jan 06, 2011 at 08:36:27PM -0800, Jesse Gross wrote:
->> >> On Thu, Jan 6, 2011 at 10:24 PM, Matt Carlson <mcarlson@broadcom.=
-com> wrote:
->> >> > On Sat, Dec 18, 2010 at 07:38:00PM -0800, Jesse Gross wrote:
->> >> >> On Tue, Dec 14, 2010 at 11:16 PM, Michael Leun
->> >> >> <lkml20101129@newton.leun.net> wrote:
->> >> >> > OK - all tests done on that DL320G5:
->> >> >> >
->> >> >> > For completeness, 2.6.37-rc5 unpatched:
->> >> >> >
->> >> >> > eth0, no vlan configured: totally broken - see double tagged=
- vlans
->> >> >> > without tag, single or untagged packets missing at all
->> >> >>
->> >> >> Random behavior? ?This one is somewhat hard to explain - maybe=
- there
->> >> >> are some other factors. ?eth0 has ASF on, so it always strips =
-tags. ?I
->> >> >> would expect it to behave like the vlan configured case.
->> >> >>
->> >> >> >
->> >> >> > eth0, vlan configured: see packets without vlan tag (see dou=
-ble tagged
->> >> >> > packets with one vlan tag)
->> >> >>
->> >> >> Both ASF and vlan group configured cause tag stripping to be e=
-nabled.
->> >> >> Missing tag.
->> >> >>
->> >> >> >
->> >> >> > eth1 same as originally reported:
->> >> >> > without vlan configured see vlan tags (single and double tag=
-ged as
->> >> >> > expected)
->> >> >>
->> >> >> No ASF and no vlan group means tag stripping is disabled. ?Hav=
-e tag.
->> >> >>
->> >> >> > with vlan configured: see packets without vlan tag (see doub=
-le tagged
->> >> >> > packets with one vlan tag)
->> >> >>
->> >> >> Configuring vlan group causes stripping to be enabled. ?Missin=
-g tag.
->> >> >>
->> >> >> >
->> >> >> >
->> >> >> > 2.6.37-rc5, your tg3 use new vlan-code patch:
->> >> >> >
->> >> >> > eth0, no vlan configured: ?see packets without vlan tag (see=
- double
->> >> >> > tagged packets with one vlan tag)
->> >> >>
->> >> >> ASF enables tag stripping. ?Missing tag.
->> >> >>
->> >> >> > eth1, no vlan configured: see vlan tags (single and double t=
-agged as
->> >> >> > expected)
->> >> >>
->> >> >> No ASF, no vlan group means no stripping. ?Have tag.
->> >> >>
->> >> >> >
->> >> >> >
->> >> >> > eth0, vlan configured: as without vlan
->> >> >>
->> >> >> ASF enables stripping. ?Missing tag.
->> >> >>
->> >> >> > eth1, vlan configured: as without vlan
->> >> >>
->> >> >> With this patch vlan stripping is only enabled when ASF is on,=
- so no
->> >> >> stripping. ?Have tag.
->> >> >>
->> >> >> >
->> >> >> > 2.6.37-rc5, your tg3 use new vlan-code patch with test patch=
- ontop
->> >> >> >
->> >> >> > eth1 no vlan configured: see packets without vlan tag (see d=
-ouble tagged
->> >> >> > packets with one vlan tag)
->> >> >>
->> >> >> With the second patch, vlan stripping is always enabled. ?Miss=
-ing tag.
->> >> >>
->> >> >> > eth1 with vlan: the same
->> >> >>
->> >> >> Stripping still always enabled. ?Missing tag.
->> >> >>
->> >> >> The bottom line is whenever vlan stripping is enabled we're mi=
-ssing
->> >> >> the outer tag. ?It might be worth adding some debugging in the=
- area
->> >> >> before napi_gro_receive/vlan_gro_receive (depending on version=
-). ?My
->> >> >> guess is that (desc->type_flags & RXD_FLAG_VLAN) is false even=
- for
->> >> >> vlan packets on this NIC.
->> >> >>
->> >> >> You said that everything works on the 5752? ?Matt, is it possi=
-ble that
->> >> >> the 5714 either has a problem with vlan stripping or a differe=
-nt way
->> >> >> of reporting it?
->> >> >
->> >> > I don't think this is a 5714 specific issue. ?I think the probl=
-em is
->> >> > rooted in the fact that the VLAN tag stripping is enabled.
->> >>
->> >> It's definitely related to vlan stripping being enabled. ?Other c=
-ards
->> >> using tg3 seem to work fine with stripping though, which is why I
->> >> thought it might be specific to the 5714.
->> >
->> > I just tested this on a 5714S, using a net-next-2.6 snapshot obtai=
-ned
->> > today. ?It does the right thing in both cases (2nd tg3 patch ommit=
-ed /
->> > applied). ?The tag is always visible in the packet stream as seen =
-from
->> > tcpdump.
->> >
->> >> > Your RXD_FLAG_VLAN idea sounds unlikely to me, but it's worth a=
- check.
->> >> >
->> >> > The patch here is using __vlan_hwaccel_put_tag(), which informs=
- the
->> >> > stack a VLAN tag is present. ?If this is indeed a reporting pro=
-blem, I'm
->> >> > not sure what else the driver should be doing.
->> >>
->> >> The code to hand off the tag to the stack looks OK to me. ?Michae=
-l was
->> >> seeing this on older versions of the kernel as well with this NIC=
-,
->> >> which predates both this patch and the larger vlan changes so it
->> >> doesn't seem like a problem with passing the tag to the network s=
-tack.
->> >> ?It's hard to know exactly what is going on though without seeing=
- what
->> >> the hardware is reporting.
->> >
->> > When RX_MODE_KEEP_VLAN_TAG is set, the RXD_FLAG_VLAN flag will not=
- be set
->> > when receiving a packet. ?The driver skips the __vlan_hwaccel_put_=
-tag()
->> > call.
->> >
->> > When RX_MODE_KEEP_VLAN_TAG is unset, the RXD_FLAG_VLAN flag is set=
-, and
->> > __vlan_hwaccel_put_tag() is called to reinject the packet.
->>
->> OK, thanks for testing it out. =A0I'm not sure that there's anything
->> more we can do without hearing from Michael.
->
-> In the meantime, I think what we have should go upstream. =A0Just to =
-be
-> absolutely clear though, your position is that VLAN tags should alway=
-s
-> be stripped?
+Greetings list,
 
-That's what the other converted drivers do by default (though most of
-them also provide an ethtool set_flags() method to change this).  It's
-generally the most efficient and is now safe to do in all cases.  It's
-also the consistent with what was happening before, since stripping
-was enabled when a vlan device was configured.  So, yes, normally I
-think stripping should be enabled.
+Assuming the following network setup of three locations linked by two
+ethernet over gre (gretap) tunnels.
 
-I assumed that disabling stripping in most situations was just an
-oversight.  Was there a reason why you feel it is better not to use
-it?
+I am assuming that a broadcast on the local network, if it comes
+untagged to eth0 will reach both network1 and network2 untagged.
+
+My main question is about a broadcast happening in the tagged portion of
+(local network).  Is there a chance for an ethernet broadcast in vlan 1
+on the local network to reach remote network 2?  I'm thinking not, but
+if I tcpdump an interface that has vlans enabled, I will see the tagged
+packets on eth0.  As such I wonder if they will travel through br0 to
+the remote locations as well, something I would rather avoid.
+
+(local network)
+|                                              (remote network 1)
+| eth0.1 <--br1--> gre1.1                                       |
++-eth0   <--br0--> gre1-- (l3_to_host1) -- gre0 <--br0--> eth0-+
+            |
+            +----> gre2 -- (l3-to_host2) -- gre0 <--br0--> eth0-+
+  eth0.2 <--br2--> gre2.2                                       |
+                                               (remote network 2)
+
+Of interest too is knowing if the tags will survive all the way to
+remote networks or if I need to enable vlans on the remote gretap and
+ethernet interfaces as well for them to work.
+
+Alternatively, the setup would look like this:
+
+(local network)
+|                                              (remote network 1)
+| eth0.1 <--br1--> gre1.1                                       |
+| eth0.3 <--br0--> gre1-- (l3_to_host1) -- gre0 <--br0--> eth0-+
++-eth0
+  eth0.4 <--br3-->gre2 -- (l3-to_host2) -- gre0 <--br0--> eth0-+
+  eth0.2 <--br2--> gre2.2                                       |
+                                               (remote network 2)
+
+The goal being not to see any untagged frames coming out on the local
+network from remote locations and instead having them appear in specific
+local vlans.
+
+So at the core of my questions really is this:  Will bridging the
+untagged portion of an interface that has vlans enabled (eth0 when
+eth0.x exists) let tagged frames go through to other members of the bridge?
+
+Thanks for your collective wisdom,
+
+Jonathan
+
+P.S.:  Please include me in the CC, I am not currently a member of the list.
