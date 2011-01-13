@@ -1,10 +1,11 @@
 From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
 	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v4 09/10] ARM: mx28: read fec mac address from ocotp
-Date: Thu, 13 Jan 2011 15:50:47 +0100
-Message-ID: <20110113145047.GU24920@pengutronix.de>
+Subject: Re: [PATCH v4 06/10] ARM: mx28: update clock and device name for
+ dual fec support
+Date: Thu, 13 Jan 2011 16:06:22 +0100
+Message-ID: <20110113150622.GV24920@pengutronix.de>
 References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-10-git-send-email-shawn.guo@freescale.com>
+ <1294297998-26930-7-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -16,89 +17,65 @@ Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
 	linux-arm-kernel@lists.infradead.org
 To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:32893 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43739 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756847Ab1AMOvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 09:51:00 -0500
+	with ESMTP id S1756921Ab1AMPGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 10:06:38 -0500
 Content-Disposition: inline
-In-Reply-To: <1294297998-26930-10-git-send-email-shawn.guo@freescale.com>
+In-Reply-To: <1294297998-26930-7-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Shawn,
+Hi Shawn,
 
-$SUBJECT ~=3D s,mx28,mxs/mx28evk, please
-
-On Thu, Jan 06, 2011 at 03:13:17PM +0800, Shawn Guo wrote:
-> Read fec mac address from ocotp and save it into fec_platform_data
-> mac field for fec driver to use.
+On Thu, Jan 06, 2011 at 03:13:14PM +0800, Shawn Guo wrote:
+> Change device name from "fec" to "imx28-fec", so that fec driver
+> can distinguish mx28.
 >=20
 > Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
 > ---
-> Changes for v2:
->  - It's not necessary to remove "const" for fec_platform_data from
->    platform-fec.c and devices-common.h, so add it back.
->  - Hard-coding Freescale OUI (00:04:9f) instead of just the first
->    two two octets.
->  - Correct the return of mx28evk_fec_get_mac() and check it
->    with caller
+> Changes for v4:
+>  - Use "imx28-fec" as fec device name
 >=20
->  arch/arm/mach-mxs/mach-mx28evk.c |   32 ++++++++++++++++++++++++++++=
-++++
->  1 files changed, 32 insertions(+), 0 deletions(-)
+> Changes for v3:
+>  - Change device name to "enet-mac"
 >=20
-> diff --git a/arch/arm/mach-mxs/mach-mx28evk.c b/arch/arm/mach-mxs/mac=
-h-mx28evk.c
-> index def6519..54fa512 100644
-> --- a/arch/arm/mach-mxs/mach-mx28evk.c
-> +++ b/arch/arm/mach-mxs/mach-mx28evk.c
-> @@ -129,12 +129,44 @@ static struct fec_platform_data mx28_fec_pdata[=
-] =3D {
->  	},
->  };
+>  arch/arm/mach-mxs/clock-mx28.c           |    3 ++-
+>  arch/arm/mach-mxs/devices/platform-fec.c |    2 +-
+>  2 files changed, 3 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/arch/arm/mach-mxs/clock-mx28.c b/arch/arm/mach-mxs/clock=
+-mx28.c
+> index f20b254..e2a8b0f 100644
+> --- a/arch/arm/mach-mxs/clock-mx28.c
+> +++ b/arch/arm/mach-mxs/clock-mx28.c
+> @@ -606,7 +606,8 @@ static struct clk_lookup lookups[] =3D {
+>  	_REGISTER_CLOCK("duart", "apb_pclk", xbus_clk)
+>  	/* for amba-pl011 driver */
+>  	_REGISTER_CLOCK("duart", NULL, uart_clk)
+> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx28-fec.0", NULL, fec_clk)
+> +	_REGISTER_CLOCK("imx28-fec.1", NULL, fec_clk)
+>  	_REGISTER_CLOCK("rtc", NULL, rtc_clk)
+>  	_REGISTER_CLOCK("pll2", NULL, pll2_clk)
+>  	_REGISTER_CLOCK(NULL, "hclk", hbus_clk)
+> diff --git a/arch/arm/mach-mxs/devices/platform-fec.c b/arch/arm/mach=
+-mxs/devices/platform-fec.c
+> index c08168c..c42dff7 100644
+> --- a/arch/arm/mach-mxs/devices/platform-fec.c
+> +++ b/arch/arm/mach-mxs/devices/platform-fec.c
+> @@ -45,6 +45,6 @@ struct platform_device *__init mxs_add_fec(
+>  		},
+>  	};
 > =20
-> +static int __init mx28evk_fec_get_mac(void)
-> +{
-> +	int i, ret;
-> +	u32 val;
-> +
-> +	/*
-> +	 * OCOTP only stores the last 4 octets for each mac address,
-> +	 * so hard-code Freescale OUI (00:04:9f) here.
-> +	 */
-> +	for (i =3D 0; i < 2; i++) {
-> +		ret =3D mxs_read_ocotp(0x20 + i * 0x10, 1, &val);
-> +		if (ret)
-> +			goto error;
-> +
-> +		mx28_fec_pdata[i].mac[0] =3D 0x00;
-> +		mx28_fec_pdata[i].mac[1] =3D 0x04;
-> +		mx28_fec_pdata[i].mac[2] =3D 0x9f;
-> +		mx28_fec_pdata[i].mac[3] =3D (val >> 16) & 0xff;
-> +		mx28_fec_pdata[i].mac[4] =3D (val >> 8) & 0xff;
-> +		mx28_fec_pdata[i].mac[5] =3D (val >> 0) & 0xff;
-> +	}
-> +
-> +	return 0;
-> +
-> +error:
-> +	pr_err("%s: timeout when reading fec mac from OCOTP\n", __func__);
-> +	return ret;
-> +}
-> +
->  static void __init mx28evk_init(void)
->  {
->  	mxs_iomux_setup_multiple_pads(mx28evk_pads, ARRAY_SIZE(mx28evk_pads=
-));
-> =20
->  	mx28_add_duart();
-> =20
-> +	if (mx28evk_fec_get_mac())
-> +		pr_warn("%s: failed on fec mac setup\n", __func__);
-> +
->  	mx28evk_fec_reset();
->  	mx28_add_fec(0, &mx28_fec_pdata[0]);
->  #ifdef CONFIG_FEC2
+> -	return mxs_add_platform_device("fec", data->id,
+> +	return mxs_add_platform_device("imx28-fec", data->id,
+IMHO "imx28-fec" shouldn't be hard coded here but come from data.  See
+imx-spi device registration for an example.
+
+Uwe
+>  			res, ARRAY_SIZE(res), pdata, sizeof(*pdata));
+>  }
 > --=20
 > 1.7.1
 >=20
