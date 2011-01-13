@@ -1,128 +1,77 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/2] [PATCH] qeth: postpone open till recovery is finished
-Date: Thu, 13 Jan 2011 07:42:24 +0100
-Message-ID: <20110113064310.564184240@de.ibm.com>
-References: <20110113064223.429450048@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate3.uk.ibm.com ([194.196.100.163]:52013 "EHLO
-	mtagate3.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124Ab1AMGnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 01:43:13 -0500
-Content-Disposition: inline; filename=601-qeth-postpone-open.diff
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Thu, 13 Jan 2011 15:47:19 +0900
+Message-ID: <20110113064718.GA17905@verge.net.au>
+References: <20110106093312.GA1564@verge.net.au>
+ <1294309362.3074.11.camel@edumazet-laptop>
+ <20110106124439.GA17004@verge.net.au>
+ <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
+ <20110107012356.GA1257@verge.net.au>
+ <20110110093155.GB13420@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110110093155.GB13420@verge.net.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+On Mon, Jan 10, 2011 at 06:31:55PM +0900, Simon Horman wrote:
+> On Fri, Jan 07, 2011 at 10:23:58AM +0900, Simon Horman wrote:
+> > On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
+> > 
+> > [ snip ]
+> > > 
+> > > I know that everyone likes a nice netperf result but I agree with
+> > > Michael that this probably isn't the right question to be asking.  I
+> > > don't think that socket buffers are a real solution to the flow
+> > > control problem: they happen to provide that functionality but it's
+> > > more of a side effect than anything.  It's just that the amount of
+> > > memory consumed by packets in the queue(s) doesn't really have any
+> > > implicit meaning for flow control (think multiple physical adapters,
+> > > all with the same speed instead of a virtual device and a physical
+> > > device with wildly different speeds).  The analog in the physical
+> > > world that you're looking for would be Ethernet flow control.
+> > > Obviously, if the question is limiting CPU or memory consumption then
+> > > that's a different story.
+> > 
+> > Point taken. I will see if I can control CPU (and thus memory) consumption
+> > using cgroups and/or tc.
+> 
+> I have found that I can successfully control the throughput using
+> the following techniques
+> 
+> 1) Place a tc egress filter on dummy0
+> 
+> 2) Use ovs-ofctl to add a flow that sends skbs to dummy0 and then eth1,
+>    this is effectively the same as one of my hacks to the datapath
+>    that I mentioned in an earlier mail. The result is that eth1
+>    "paces" the connection.
 
-The open function of qeth is not executed if the qeth device is in
-state DOWN or HARDSETUP. A recovery switches from state SOFTSETUP to 
-HARDSETUP to DOWN to HARDSETUP and back to SOFTSETUP. If open and
-recover are running concurrently, open fails if it hits the states
-HARDSETUP or DOWN. This patch inserts waiting for recovery finish
-in the qeth open functions to enable successful qeth device opening
-in spite of a running recovery.
+Further to this, I wonder if there is any interest in providing
+a method to switch the action order - using ovs-ofctl is a hack imho -
+and/or switching the default action order for mirroring.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
-
- drivers/s390/net/qeth_l2_main.c |   18 ++++++++++++++++--
- drivers/s390/net/qeth_l3_main.c |   18 ++++++++++++++++--
- 2 files changed, 32 insertions(+), 4 deletions(-)
-
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -831,12 +831,14 @@ tx_drop:
- 	return NETDEV_TX_OK;
- }
- 
--static int qeth_l2_open(struct net_device *dev)
-+static int __qeth_l2_open(struct net_device *dev)
- {
- 	struct qeth_card *card = dev->ml_priv;
- 	int rc = 0;
- 
- 	QETH_CARD_TEXT(card, 4, "qethopen");
-+	if (card->state == CARD_STATE_UP)
-+		return rc;
- 	if (card->state != CARD_STATE_SOFTSETUP)
- 		return -ENODEV;
- 
-@@ -857,6 +859,18 @@ static int qeth_l2_open(struct net_devic
- 	return rc;
- }
- 
-+static int qeth_l2_open(struct net_device *dev)
-+{
-+	struct qeth_card *card = dev->ml_priv;
-+
-+	QETH_CARD_TEXT(card, 5, "qethope_");
-+	if (qeth_wait_for_threads(card, QETH_RECOVER_THREAD)) {
-+		QETH_CARD_TEXT(card, 3, "openREC");
-+		return -ERESTARTSYS;
-+	}
-+	return __qeth_l2_open(dev);
-+}
-+
- static int qeth_l2_stop(struct net_device *dev)
- {
- 	struct qeth_card *card = dev->ml_priv;
-@@ -1046,7 +1060,7 @@ contin:
- 	if (recover_flag == CARD_STATE_RECOVER) {
- 		if (recovery_mode &&
- 		    card->info.type != QETH_CARD_TYPE_OSN) {
--			qeth_l2_open(card->dev);
-+			__qeth_l2_open(card->dev);
- 		} else {
- 			rtnl_lock();
- 			dev_open(card->dev);
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3240,12 +3240,14 @@ tx_drop:
- 	return NETDEV_TX_OK;
- }
- 
--static int qeth_l3_open(struct net_device *dev)
-+static int __qeth_l3_open(struct net_device *dev)
- {
- 	struct qeth_card *card = dev->ml_priv;
- 	int rc = 0;
- 
- 	QETH_CARD_TEXT(card, 4, "qethopen");
-+	if (card->state == CARD_STATE_UP)
-+		return rc;
- 	if (card->state != CARD_STATE_SOFTSETUP)
- 		return -ENODEV;
- 	card->data.state = CH_STATE_UP;
-@@ -3260,6 +3262,18 @@ static int qeth_l3_open(struct net_devic
- 	return rc;
- }
- 
-+static int qeth_l3_open(struct net_device *dev)
-+{
-+	struct qeth_card *card = dev->ml_priv;
-+
-+	QETH_CARD_TEXT(card, 5, "qethope_");
-+	if (qeth_wait_for_threads(card, QETH_RECOVER_THREAD)) {
-+		QETH_CARD_TEXT(card, 3, "openREC");
-+		return -ERESTARTSYS;
-+	}
-+	return __qeth_l3_open(dev);
-+}
-+
- static int qeth_l3_stop(struct net_device *dev)
- {
- 	struct qeth_card *card = dev->ml_priv;
-@@ -3564,7 +3578,7 @@ contin:
- 		netif_carrier_off(card->dev);
- 	if (recover_flag == CARD_STATE_RECOVER) {
- 		if (recovery_mode)
--			qeth_l3_open(card->dev);
-+			__qeth_l3_open(card->dev);
- 		else {
- 			rtnl_lock();
- 			dev_open(card->dev);
-
+> 3) 2) + place a tc egress filter on eth1
+> 
+> Which mostly makes sense to me although I am a little confused about
+> why 1) needs a filter on dummy0 (a filter on eth1 has no effect)
+> but 3) needs a filter on eth1 (a filter on dummy0 has no effect,
+> even if the skb is sent to dummy0 last.
+> 
+> I also had some limited success using CPU cgroups, though obviously
+> that targets CPU usage and thus the effect on throughput is fairly course.
+> In short, its a useful technique but not one that bares further
+> discussion here.
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
