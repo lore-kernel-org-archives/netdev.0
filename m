@@ -1,103 +1,55 @@
-From: deepaksi <deepak.sikri-qxv4g6HH51o@public.gmane.org>
-Subject: STMMAC driver: NFS Problem on 2.6.37
-Date: Thu, 13 Jan 2011 14:39:07 +0530
-Message-ID: <4D2EC133.7010607@st.com>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: what are txqueuelen and nic ring parameters exactly?
+Date: Thu, 13 Jan 2011 10:21:13 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1101131009420.17215@ask.diku.dk>
+References: <AANLkTi=_hbmvgO9wrX6sg7Q=Wh+iVaqGdga08M-ypqae@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Armando VISCONTI <armando.visconti-qxv4g6HH51o@public.gmane.org>,
-	Shiraz HASHIM <shiraz.hashim-qxv4g6HH51o@public.gmane.org>,
-	Viresh KUMAR <viresh.kumar-qxv4g6HH51o@public.gmane.org>
-To: <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@vger.kernel.org
+To: MK <stardust496@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:35054 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752713Ab1AMJVS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jan 2011 04:21:18 -0500
+In-Reply-To: <AANLkTi=_hbmvgO9wrX6sg7Q=Wh+iVaqGdga08M-ypqae@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+On Mon, 10 Jan 2011, MK wrote:
 
-I am facing a problem related to nfs boot, while using the stmmac driver
-ported on 2.6.37 kernel. When we use a JFFS2 file system and mount the kernel,
-the network driver works fine.
+> I often come across two variables that can be tuned for networking -
+>
+> 1) txqueuelen (via ifconfig )
+> 2) NIC ring parameters for tx and rx (via ethtool)
+>
+> Can someone please tell me where these queues are exactly? Are both
+> the same (seems not since their current values are different on my
+> computer) . Is txqueuelen somehow part of the linux networking
+> subsystem whereas the other is purely a h/w device construct?
 
-I have been following the mailing list and could find some issues with NFS 
-on 2.6.37 but I am not too sure whether the kernel crash I am getting is 
-related to that.
+You are spot on.
 
-The driver worked fine on 2.6.32 kernel, but while booting the 2.6.37
-kernel I get the following log messages:
+The txqueuelen is a Linux network stack thing, and is related to the 
+traffic control subsystem, BUT only when using the default qdisc 
+(pfifo_fast or mq).
+If you add another qdisc, then its that specific qdiscs limits which 
+counts, not the device txqueuelen.
 
-stmmac: Rx Checksum Offload Engine supported
-        TX Checksum insertion supported
-IP-Config: Complete:
-     device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=255.255.255.255,
-     host=192.168.1.10, domain=, nis-domain=(none),
-     bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
-VFS: Unable to mount root fs via NFS, trying floppy.
-VFS: Cannot open root device "nfs" or unknown-block(2,0)
-Please append a correct "root=" boot option; here are the available
-partitions:
-1f00              64 mtdblock0  (driver?)
-1f01             256 mtdblock1  (driver?)
-1f02            2816 mtdblock2  (driver?)
-1f03            5056 mtdblock3  (driver?)
-Kernel panic - not syncing: VFS: Unable to mount root fs on
-unknown-block(2,0)
-Backtrace:
-[<c00370f0>] (dump_backtrace+0x0/0x110) from [<c0037234>]
-(dump_stack+0x18/0x1c)
- r7:c7b5b000 r6:00000000 r5:c7b5b015 r4:c04296b8
-[<c003721c>] (dump_stack+0x0/0x1c) from [<c004ebf8>] (panic+0x60/0x180)
-[<c004eb98>] (panic+0x0/0x180) from [<c0009114>]
-(mount_block_root+0x1d4/0x214)
- r3:00000000 r2:00000001 r1:c782bf50 r0:c0394851
-[<c0008f40>] (mount_block_root+0x0/0x214) from [<c00091fc>]
-(mount_root+0xa8/0xc8)
-[<c0009154>] (mount_root+0x0/0xc8) from [<c0009388>]
-(prepare_namespace+0x16c/0x1d0)
- r4:c04288c0
-[<c000921c>] (prepare_namespace+0x0/0x1d0) from [<c0008904>]
-(kernel_init+0x1cc/0x220)
- r5:c0402048 r4:c0428860
-[<c0008738>] (kernel_init+0x0/0x220) from [<c00522a8>] (do_exit+0x0/0x5e0)
- r7:00000013 r6:c00522a8 r5:c0008738 r4:00000000
-CPU0: stopping
-Backtrace:
-[<c00370f0>] (dump_backtrace+0x0/0x110) from [<c0037234>]
-(dump_stack+0x18/0x1c)
- r7:c0405484 r6:00000406 r5:00000000 r4:00000000
-[<c003721c>] (dump_stack+0x0/0x1c) from [<c002d334>] (do_IPI+0xb4/0x124)
-[<c002d280>] (do_IPI+0x0/0x124) from [<c0032bb4>] (__irq_svc+0x34/0xc0)
-Exception stack(0xc03f3f50 to 0xc03f3f98)
-3f40:                                     c0402048 00000000 c03f3f98
-00000000
-3f60: c03f2000 c04288dc c0027290 c0405484 000258e8 411fc091 00000000
-c03f3fa4
-3f80: c03f3fa8 c03f3f98 c0034a24 c0034a28 60000013 ffffffff
- r5:fc800100 r4:ffffffff
-[<c00349fc>] (default_idle+0x0/0x30) from [<c0034874>] (cpu_idle+0x80/0xc0)
-[<c00347f4>] (cpu_idle+0x0/0xc0) from [<c030602c>] (rest_init+0x64/0x7c)
- r5:c04288dc r4:c04020b0
-[<c0305fc8>] (rest_init+0x0/0x7c) from [<c0008bd4>]
-(start_kernel+0x27c/0x2d8)
-[<c0008958>] (start_kernel+0x0/0x2d8) from [<00008038>] (0x8038)
- r5:c0401fac r4:10c5387d
+When tuning these queue lengths, you probably decrease these queue sizes, 
+NOT increase!
 
-I have tried the same over latest source picked from linus tree,
-4162cf64973df51fc885825bc9ca4d055891c49f
-Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-2.6
+See the bufferbloat debate:
+   http://netoptimizer.blogspot.com/2010/12/buffer-bloat-calculations.html
+   http://netoptimizer.blogspot.com/2011/01/bufferbloat-wireless-is-worse-than.html
+   http://gettys.wordpress.com/bufferbloat-faq/
 
-We are using version 3 of the NFs protocol in kernel's NFS client.
-
-
-Regards
-Deepak
-ST Microelectronics
-
-.
-
+Cheers,
+   Jesper Brouer
 
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
