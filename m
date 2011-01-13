@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V9 06/13] posix_clocks: add clock_adjtime for powerpc
-Date: Thu, 13 Jan 2011 12:33:22 +0100
-Message-ID: <53bb3ab0e33f2eb260d3ddf4e6a25918d62f3eb4.1294917348.git.richard.cochran@omicron.at>
+Subject: [PATCH V9 04/13] posix_clocks: add clock_adjtime for arm
+Date: Thu, 13 Jan 2011 12:32:58 +0100
+Message-ID: <d0209ca6b95985da186ab920ffee7d133dfb8f28.1294917348.git.richard.cochran@omicron.at>
 References: <cover.1294917347.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -16,50 +16,43 @@ Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
 	Rodolfo Giometti <giometti@linux.it>,
 	Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39048 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932932Ab1AMLd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 06:33:27 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <cover.1294917347.git.richard.cochran@omicron.at>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds the clock_adjtime system call to the powerpc architecture.
+This patch adds the clock_adjtime system call to the arm architecture.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- arch/powerpc/include/asm/systbl.h |    1 +
- arch/powerpc/include/asm/unistd.h |    3 ++-
- 2 files changed, 3 insertions(+), 1 deletions(-)
+ arch/arm/include/asm/unistd.h |    1 +
+ arch/arm/kernel/calls.S       |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/arch/powerpc/include/asm/systbl.h b/arch/powerpc/include/asm/systbl.h
-index aa0f1eb..6a1152c 100644
---- a/arch/powerpc/include/asm/systbl.h
-+++ b/arch/powerpc/include/asm/systbl.h
-@@ -348,3 +348,4 @@ COMPAT_SYS_SPU(sendmsg)
- COMPAT_SYS_SPU(recvmsg)
- COMPAT_SYS_SPU(recvmmsg)
- SYSCALL_SPU(accept4)
-+COMPAT_SYS_SPU(clock_adjtime)
-diff --git a/arch/powerpc/include/asm/unistd.h b/arch/powerpc/include/asm/unistd.h
-index 6151937..386de07 100644
---- a/arch/powerpc/include/asm/unistd.h
-+++ b/arch/powerpc/include/asm/unistd.h
-@@ -367,10 +367,11 @@
- #define __NR_recvmsg		342
- #define __NR_recvmmsg		343
- #define __NR_accept4		344
-+#define __NR_clock_adjtime	345
+diff --git a/arch/arm/include/asm/unistd.h b/arch/arm/include/asm/unistd.h
+index c891eb7..f58d881 100644
+--- a/arch/arm/include/asm/unistd.h
++++ b/arch/arm/include/asm/unistd.h
+@@ -396,6 +396,7 @@
+ #define __NR_fanotify_init		(__NR_SYSCALL_BASE+367)
+ #define __NR_fanotify_mark		(__NR_SYSCALL_BASE+368)
+ #define __NR_prlimit64			(__NR_SYSCALL_BASE+369)
++#define __NR_clock_adjtime		(__NR_SYSCALL_BASE+370)
  
- #ifdef __KERNEL__
- 
--#define __NR_syscalls		345
-+#define __NR_syscalls		346
- 
- #define __NR__exit __NR_exit
- #define NR_syscalls	__NR_syscalls
+ /*
+  * The following SWIs are ARM private.
+diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
+index 5c26ecc..430de4c 100644
+--- a/arch/arm/kernel/calls.S
++++ b/arch/arm/kernel/calls.S
+@@ -379,6 +379,7 @@
+ 		CALL(sys_fanotify_init)
+ 		CALL(sys_fanotify_mark)
+ 		CALL(sys_prlimit64)
++/* 370 */	CALL(sys_clock_adjtime)
+ #ifndef syscalls_counted
+ .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
+ #define syscalls_counted
 -- 
 1.7.0.4
-
