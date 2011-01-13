@@ -1,45 +1,52 @@
-From: Jan Hugo Prins <jhp@jhprins.org>
-Subject: Linux IPv6 router table size.
-Date: Sat, 15 Jan 2011 22:11:44 +0100
-Message-ID: <4D320D90.3090005@jhprins.org>
+From: Sakari Ailus <sakari.ailus@iki.fi>
+Subject: Re: [PATCH] tlan: Use pr_fmt, pr_<level> and netdev_<level>,
+	remove changelog
+Date: Thu, 13 Jan 2011 08:19:26 +0200
+Message-ID: <20110113061926.GA1900@valkosipuli.localdomain>
+References: <4D260ED0.5040301@iki.fi> <1294339817-31434-1-git-send-email-sakari.ailus@iki.fi> <1294354088.12561.295.camel@Joe-Laptop> <20110109.233950.71582613.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: joe@perches.com, netdev@vger.kernel.org, chessman@tux.org,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from jhprins.org ([82.95.243.75]:50143 "EHLO mail.jhprins.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753329Ab1AOVWg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jan 2011 16:22:36 -0500
+Received: from smtp-68.nebula.fi ([83.145.220.68]:34098 "EHLO
+	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754079Ab1APAsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jan 2011 19:48:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20110109.233950.71582613.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi netdev kernel developers,
+Hi David,
 
-In the beginning of December the number of IPv6 routes in the BPG router
-tables got somewhere close to 4096 and this number is somewhat magical
-in Linux. Why is it magical? Well, the default setting for
-net.ipv6.route.max_size is hardcoded in the linux kernel to be exactly
-this number, this in contradiction with the IPv4 net.ipv4.route.max_size
-which is set based upon the size of your memory. Actually, in the IPv4
-part of the kernel sources their is a route.c with a nice formula
-telling the kernel how big this number should be. For IPv6 their is also
-a route.c with some nice formula in it, the formula says exactly the
-following:
-net->ipv6.sysctl.ip6_rt_max_size = 4096;
+On Sun, Jan 09, 2011 at 11:39:50PM -0800, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Thu, 06 Jan 2011 14:48:08 -0800
+> 
+> > Neatening and standardization to the standard logging mechanisms.
+> > The changelog isn't useful anymore.
+> > Miscellaneous speen/speed typo correction.
+> > 
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> 
+> This patch didn't apply cleanly to the current sources.
+> 
+> And anyways, please resubmit this once 2.6.38-rc1 is out and I
+> start taking net-next-2.6 patches again.
 
-The result of all this magic was that when the BGP RIB in my quagga
-routers went over the 4096 routes, quagga started complaining that it
-couldn't put the routes in the kernel FIB anymore and this went all into
-syslog.
+Joe's patch applies on top of my patchset "tlan improvements" which contains
+a largish code cleanup for the tlan driver. I got comments on that from Ben
+Hutchings and haven't sent a new patchset yet.
 
-It took some digging to find the reason for these error messages, but
-after changing this sysctl to something more useful, everything was fine
-again.
+Instead of fixing partner capability printout I'm removing it since the same
+information is available under the mii-tool interface. Ben notified, quite
+rightly, that the tlan should be using ethtool interface. That looks like a
+topic for another patchset, though.
 
-Maybe it is a good idea to change this in the IPv6 tree to something
-more useful in the same direction of the solution that is in the IPv4 tree.
+Regards,
 
-Greetings,
-Jan Hugo Prins
-
+-- 
+Sakari Ailus
+sakari dot ailus at iki dot fi
