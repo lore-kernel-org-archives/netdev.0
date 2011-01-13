@@ -1,48 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4] netfilter: ipt_CLUSTERIP: remove "no conntrack!"
-Date: Thu, 13 Jan 2011 17:48:49 +0100
-Message-ID: <1294937329.3570.304.camel@edumazet-laptop>
-References: <4D2E1A74.5080102@netfilter.org>
-	 <1294917210.3570.48.camel@edumazet-laptop> <4D2EE09A.1010409@netfilter.org>
-	 <1294918365.3570.56.camel@edumazet-laptop> <4D2EE80B.6010707@netfilter.org>
-	 <1294925915.3570.87.camel@edumazet-laptop>
-	 <alpine.LNX.2.01.1101131502240.25211@obet.zrqbmnf.qr>
-	 <1294929579.3570.163.camel@edumazet-laptop> <4D2F28B9.50407@netfilter.org>
-	 <4D2F29D6.3040600@netfilter.org>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH V9 08/13] posix clocks: cleanup the CLOCK_DISPTACH
+ macro
+Date: Thu, 13 Jan 2011 18:03:24 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.1101131745400.2678@localhost6.localdomain6>
+References: <cover.1294917347.git.richard.cochran@omicron.at> <90b2beef441615d01c93fcad029c44af4e505c5f.1294917348.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D2F29D6.3040600@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <90b2beef441615d01c93fcad029c44af4e505c5f.1294917348.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 13 janvier 2011 =C3=A0 17:35 +0100, Pablo Neira Ayuso a =C3=A9=
-crit :
-> On 13/01/11 17:30, Pablo Neira Ayuso wrote:
-> > On 13/01/11 15:39, Eric Dumazet wrote:
-> >> Then, cluster match can be improved, I am sure you already have a =
-patch
-> >> for it.
-> >=20
-> > what scenario could benefit from the destination-based hashing?
->=20
-> I'm telling this because it doesn't make too sense to me.
+On Thu, 13 Jan 2011, Richard Cochran wrote:
+>  int posix_cpu_clock_getres(const clockid_t which_clock, struct timespec *ts);
+>  int posix_cpu_clock_get(const clockid_t which_clock, struct timespec *ts);
+> -int posix_cpu_clock_set(const clockid_t which_clock, const struct timespec *ts);
+> +int posix_cpu_clock_set(const clockid_t which_clock, struct timespec *ts);
 
-Me too ;)
+Shouldn't we change the clock_set function to have *ts const in all places ?
 
-But hash(source_IP, source_PORT) definitely make sense in some
-workloads.
+>  static int posix_ktime_get_ts(clockid_t which_clock, struct timespec *tp)
+> @@ -279,12 +230,29 @@ static __init int init_posix_timers(void)
+>  {
+>  	struct k_clock clock_realtime = {
+>  		.clock_getres = hrtimer_get_res,
+> +		/* defaults: */
+> +		.clock_adj	= common_clock_adj,
+> +		.clock_get	= common_clock_get,
+> +		.clock_set	= common_clock_set,
+> +		.nsleep		= common_nsleep,
+> +		.nsleep_restart	= common_nsleep_restart,
+> +		.timer_create	= common_timer_create,
+> +		.timer_del	= common_timer_del,
+> +		.timer_get	= common_timer_get,
+> +		.timer_set	= common_timer_set,
+>  	};
+>  	struct k_clock clock_monotonic = {
+>  		.clock_getres = hrtimer_get_res,
+>  		.clock_get = posix_ktime_get_ts,
+>  		.clock_set = do_posix_clock_nosettime,
+>  		.clock_adj = do_posix_clock_noadjtime,
+> +		/* defaults: */
+> +		.nsleep		= common_nsleep,
+> +		.nsleep_restart	= common_nsleep_restart,
+> +		.timer_create	= common_timer_create,
+> +		.timer_del	= common_timer_del,
+> +		.timer_get	= common_timer_get,
+> +		.timer_set	= common_timer_set,
+>  	};
+>  	struct k_clock clock_monotonic_raw = {
+>  		.clock_getres = hrtimer_get_res,
+> @@ -293,6 +261,11 @@ static __init int init_posix_timers(void)
+>  		.clock_adj = do_posix_clock_noadjtime,
+>  		.timer_create = no_timer_create,
+>  		.nsleep = no_nsleep,
+> +		/* defaults: */
+> +		.nsleep_restart	= common_nsleep_restart,
+> +		.timer_del	= common_timer_del,
+> +		.timer_get	= common_timer_get,
+> +		.timer_set	= common_timer_set,
 
+Hmm, we do not need to set functional entries for clocks which neither
+implement timer_create nor nsleep.
 
+Otherwise I really like the outcome. :)
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks for your patience !
+
+       tglx
