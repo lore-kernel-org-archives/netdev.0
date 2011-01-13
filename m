@@ -1,72 +1,60 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH] ipsec: update MAX_AH_AUTH_LEN to support sha512
-Date: Thu, 13 Jan 2011 22:51:03 +0100
-Message-ID: <4D2F73C7.8010107@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH V9 02/13] ntp: add ADJ_SETOFFSET mode bit
+Date: Thu, 13 Jan 2011 13:52:17 -0800
+Message-ID: <1294955537.5617.50.camel@work-vm>
+References: <cover.1294917347.git.richard.cochran@omicron.at>
+	 <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran@omicron.at>
+	 <AANLkTimHP1OsWauj6O566WgnxVTjMbNg2PK644QcT9Lq@mail.gmail.com>
+	 <1294952228.5617.20.camel@work-vm>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------020200010607080509020103"
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:40757 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751869Ab1AMVvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 16:51:08 -0500
-Received: by wwa36 with SMTP id 36so2307442wwa.1
-        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 13:51:07 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------020200010607080509020103
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+To: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1294952228.5617.20.camel@work-vm>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2011-01-13 at 12:57 -0800, john stultz wrote:
+> On Fri, 2011-01-14 at 05:39 +0900, Kuwahara,T. wrote:
+> > My proposal: Limit the adjustable range of the offset so that leap
+> > seconds will never occur more than once. (2147.5 seconds would be the
+> > best choice. :-)
+> 
+> 2147.5? That's ~36 minutes. 
+> 
+> While I think a limit could be a sensible compromise here. Leap seconds
+> are limited to every six months. So surely a limit of 86400 (one day),
+> or 2592000 (30 days) would be more reasonable.
 
-here is a second patch after "ah: update maximum truncated ICV length". Sorry 
-for not being more watchful the first time.
-512 is the maximum I found in net/xfrm/xfrm_algo.c
+Actually. Thinking about this some more (and having to try to
+rationalize it for Thomas), this doesn't really seem reasonable. If an
+application wants to adjust the time, we can leave the responsibility to
+userland to handle compensation for expected or historical leapseconds
+if they care.
 
+Since if you're adjusting the time, especially by a large amount, you're
+not starting from the correct time value. So expecting the kernel to
+incorperate historical or planned future leapseconds (outside of the
+TIME_INS notification from NTP) is silly. 
 
-Regards,
-Nicolas
+Really, in Linux leapseconds do not really exist except for the moment
+they occur. If a leapsecond occurs, then you set your time back to
+before the leapsecond, it won't happen a second time. 
 
---------------020200010607080509020103
-Content-Type: text/x-patch;
- name="0001-ipsec-update-MAX_AH_AUTH_LEN-to-support-sha512.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-ipsec-update-MAX_AH_AUTH_LEN-to-support-sha512.patch"
+So I don't think we need to enforce a limit. The interface suggested
+seems totally reasonable to me. I'm happy to hear arguments to the
+contrary, but they really must be more convincing.
 
->From e330817aa2b33e9d1f44071072fdc4778acf8d76 Mon Sep 17 00:00:00 2001
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 13 Jan 2011 14:20:19 -0500
-Subject: [PATCH] ipsec: update MAX_AH_AUTH_LEN to support sha512
-
-icv_truncbits is set to 256 for sha512, so update
-MAX_AH_AUTH_LEN to 64.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/net/ah.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/include/net/ah.h b/include/net/ah.h
-index be7798d..ca95b98 100644
---- a/include/net/ah.h
-+++ b/include/net/ah.h
-@@ -4,7 +4,7 @@
- #include <linux/skbuff.h>
- 
- /* This is the maximum truncated ICV length that we know of. */
--#define MAX_AH_AUTH_LEN	16
-+#define MAX_AH_AUTH_LEN	64
- 
- struct crypto_ahash;
- 
--- 
-1.5.6.5
-
-
---------------020200010607080509020103--
+thanks
+-john
