@@ -1,78 +1,61 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH V9 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Thu, 13 Jan 2011 12:32:20 +0100
-Message-ID: <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran@omicron.at>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: [PATCH V9 05/13] posix_clocks: add clock_adjtime for blackfin
+Date: Thu, 13 Jan 2011 12:33:10 +0100
+Message-ID: <d870769c83f6b210ae769d740e8c9719e2905ba6.1294917348.git.richard.cochran@omicron.at>
 References: <cover.1294917347.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: linux-api@vger.kernel.org, netdev@vger.kernel.org,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Christoph Lameter <cl@linux.com>,
+	David Miller <davem@davemloft.net>,
+	John Stultz <johnstul@us.ibm.com>,
+	Krzysztof Halasa <khc@pm.waw.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Thomas Gleixner <tglx@linutronix.de>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <cover.1294917347.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <cover.1294917347.git.richard.cochran@omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds a new mode bit into the timex structure. When set, the bit
-instructs the kernel to add the given time value to the current time.
+This patch adds the clock_adjtime system call to the blackfin architecture.
 
-Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- include/linux/timex.h |    3 ++-
- kernel/time/ntp.c     |   11 +++++++++++
- 2 files changed, 13 insertions(+), 1 deletions(-)
+ arch/blackfin/include/asm/unistd.h |    3 ++-
+ arch/blackfin/mach-common/entry.S  |    1 +
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/timex.h b/include/linux/timex.h
-index 32d852f..800a2c8 100644
---- a/include/linux/timex.h
-+++ b/include/linux/timex.h
-@@ -73,7 +73,7 @@ struct timex {
- 	long tolerance;		/* clock frequency tolerance (ppm)
- 				 * (read only)
- 				 */
--	struct timeval time;	/* (read only) */
-+	struct timeval time;	/* (read only, except for ADJ_SETOFFSET) */
- 	long tick;		/* (modified) usecs between clock ticks */
+diff --git a/arch/blackfin/include/asm/unistd.h b/arch/blackfin/include/asm/unistd.h
+index 928ae97..e640c51 100644
+--- a/arch/blackfin/include/asm/unistd.h
++++ b/arch/blackfin/include/asm/unistd.h
+@@ -393,8 +393,9 @@
+ #define __NR_fanotify_mark	372
+ #define __NR_prlimit64		373
+ #define __NR_cacheflush		374
++#define __NR_clock_adjtime	375
  
- 	long ppsfreq;           /* pps frequency (scaled ppm) (ro) */
-@@ -102,6 +102,7 @@ struct timex {
- #define ADJ_STATUS		0x0010	/* clock status */
- #define ADJ_TIMECONST		0x0020	/* pll time constant */
- #define ADJ_TAI			0x0080	/* set TAI offset */
-+#define ADJ_SETOFFSET		0x0100  /* add 'time' to current time */
- #define ADJ_MICRO		0x1000	/* select microsecond resolution */
- #define ADJ_NANO		0x2000	/* select nanosecond resolution */
- #define ADJ_TICK		0x4000	/* tick value */
-diff --git a/kernel/time/ntp.c b/kernel/time/ntp.c
-index d232189..0c87858 100644
---- a/kernel/time/ntp.c
-+++ b/kernel/time/ntp.c
-@@ -482,6 +482,17 @@ int do_adjtimex(struct timex *txc)
- 			hrtimer_cancel(&leap_timer);
- 	}
+-#define __NR_syscall		375
++#define __NR_syscall		376
+ #define NR_syscalls		__NR_syscall
  
-+	if (txc->modes & ADJ_SETOFFSET) {
-+		struct timespec delta;
-+		if ((unsigned long)txc->time.tv_usec >= NSEC_PER_SEC)
-+			return -EINVAL;
-+		delta.tv_sec  = txc->time.tv_sec;
-+		delta.tv_nsec = txc->time.tv_usec;
-+		if (!(txc->modes & ADJ_NANO))
-+			delta.tv_nsec *= 1000;
-+		timekeeping_inject_offset(&delta);
-+	}
-+
- 	getnstimeofday(&ts);
+ /* Old optional stuff no one actually uses */
+diff --git a/arch/blackfin/mach-common/entry.S b/arch/blackfin/mach-common/entry.S
+index 2ca915e..cb6cc1e 100644
+--- a/arch/blackfin/mach-common/entry.S
++++ b/arch/blackfin/mach-common/entry.S
+@@ -1738,6 +1738,7 @@ ENTRY(_sys_call_table)
+ 	.long _sys_fanotify_mark
+ 	.long _sys_prlimit64
+ 	.long _sys_cacheflush
++	.long _sys_clock_adjtime	/* 375 */
  
- 	write_seqlock_irq(&xtime_lock);
+ 	.rept NR_syscalls-(.-_sys_call_table)/4
+ 	.long _sys_ni_syscall
 -- 
 1.7.0.4
