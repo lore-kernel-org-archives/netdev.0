@@ -1,37 +1,40 @@
-From: "Kuwahara,T." <6vvetjsrt26xsrzlh1z0zn4d2grdah-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V9 02/13] ntp: add ADJ_SETOFFSET mode bit
-Date: Fri, 14 Jan 2011 05:39:31 +0900
-Message-ID: <AANLkTimHP1OsWauj6O566WgnxVTjMbNg2PK644QcT9Lq@mail.gmail.com>
-References: <cover.1294917347.git.richard.cochran@omicron.at> <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran@omicron.at>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] CHOKe flow scheduler (0.7)
+Date: Thu, 13 Jan 2011 21:37:49 +0100
+Message-ID: <1294951069.3403.11.camel@edumazet-laptop>
+References: <20110113092706.154748c2@s6510>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <60566a54842bcf5974d55ed39f387c32ff9cf5cb.1294917348.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61440 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756789Ab1AMUnO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 15:43:14 -0500
+Received: by wyb28 with SMTP id 28so2121693wyb.19
+        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 12:42:32 -0800 (PST)
+In-Reply-To: <20110113092706.154748c2@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 13, 2011 at 8:32 PM, Richard Cochran
-<richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
-> This patch adds a new mode bit into the timex structure. When set, the bit
-> instructs the kernel to add the given time value to the current time.
+Le jeudi 13 janvier 2011 =C3=A0 09:27 -0800, Stephen Hemminger a =C3=A9=
+crit :
+> +	/* Admit new packet */
+> +	if (likely(choke_len(q) < q->limit)) {
+> +
+> +		q->tab[q->tail] =3D skb;
+> +		q->tail =3D (q->tail + 1) & q->tab_mask;
+> +
+> +		sch->qstats.backlog +=3D qdisc_pkt_len(skb);
+> +		qdisc_update_bstats(sch, skb);
+> +		sch->q.qlen =3D choke_len(q) - q->holes;
+> +		return NET_XMIT_SUCCESS;
+> +	}
+> +
 
-The unix time is a nonlinear timescale and there's no way to predict
-how many leap seconds will be inserted/deleted during the given time
-interval.  So it is impossible to convert relative time to absolute
-time and thus your patch is broken. (More specifically, the
-timekeeping_inject_offset function is broken.)
+You now must use qdisc_bstats_update() ;)
 
-My proposal: Limit the adjustable range of the offset so that leap
-seconds will never occur more than once. (2147.5 seconds would be the
-best choice. :-)
+
+
