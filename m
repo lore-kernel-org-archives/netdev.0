@@ -1,78 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v1 2/2] TCPCT API sockopt update to draft -03
-Date: Thu, 13 Jan 2011 19:00:18 +0100
-Message-ID: <1294941618.3570.418.camel@edumazet-laptop>
-References: <4D2DE824.10205@gmail.com>	<4D2DEC0A.70608@gmail.com>
-	 <20110112105608.793787b2@s6510>  <4D2F3723.9040405@gmail.com>
+From: Armando Visconti <armando.visconti-qxv4g6HH51o@public.gmane.org>
+Subject: Re: STMMAC driver: NFS Problem on 2.6.37
+Date: Thu, 13 Jan 2011 19:28:35 +0100
+Message-ID: <4D2F4453.4040400@st.com>
+References: <4D2EC133.7010607@st.com> <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: William Allen Simpson <william.allen.simpson@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D2F3723.9040405@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org" <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shiraz HASHIM <shiraz.hashim-qxv4g6HH51o@public.gmane.org>,
+	Viresh KUMAR <viresh.kumar-qxv4g6HH51o@public.gmane.org>,
+	Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+To: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	Deepak SIKRI <deepak.sikri-qxv4g6HH51o@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <2D04CF75-CA68-4BDC-99A3-FA1DD6113602-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le jeudi 13 janvier 2011 =C3=A0 12:32 -0500, William Allen Simpson a =C3=
-=A9crit :
-> On 1/12/11 1:56 PM, Stephen Hemminger wrote:
-> > On Wed, 12 Jan 2011 12:59:38 -0500
-> > William Allen Simpson<william.allen.simpson@gmail.com>  wrote:
-> >
-> >> diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-> >> index e64f4c6..c8f4017 100644
-> >> --- a/include/linux/tcp.h
-> >> +++ b/include/linux/tcp.h
-> >> @@ -185,22 +185,37 @@ struct tcp_md5sig {
-> >>   #define TCP_COOKIE_PAIR_SIZE	(2*TCP_COOKIE_MAX)
-> >>
-> >>   /* Flags for both getsockopt and setsockopt */
-> >> -#define TCP_COOKIE_IN_ALWAYS	(1<<  0)	/* Discard SYN without cook=
-ie */
-> >> -#define TCP_COOKIE_OUT_NEVER	(1<<  1)	/* Prohibit outgoing cookie=
-s,
-> >> +#define TCPCT_IN_ALWAYS		(1<<  0)	/* Discard SYN without cookie *=
-/
-> >> +#define TCPCT_OUT_NEVER		(1<<  1)	/* Prohibit outgoing cookies,
-> >
-> > You end up changing values in kernel userspace API in a way
-> > that is incompatible with older applications. This is not acceptabl=
-e.
-> >
-> While I agree in principle and argued strongly against it, other
-> members of the research group (particularly the original project
-> sponsor) have over-ridden my concerns.  I'm sorry to inform you that
-> many/most participants don't care much about Linux.
->=20
+Chuck Lever wrote:
+> On Jan 13, 2011, at 4:09 AM, deepaksi wrote:
+>
+>   
+>> Hi
+>>
+>> I am facing a problem related to nfs boot, while using the stmmac driver
+>> ported on 2.6.37 kernel. When we use a JFFS2 file system and mount the kernel,
+>> the network driver works fine.
+>>
+>> I have been following the mailing list and could find some issues with NFS 
+>> on 2.6.37 but I am not too sure whether the kernel crash I am getting is 
+>> related to that.
+>>
+>> The driver worked fine on 2.6.32 kernel, but while booting the 2.6.37
+>> kernel I get the following log messages:
+>>
+>> stmmac: Rx Checksum Offload Engine supported
+>>        TX Checksum insertion supported
+>> IP-Config: Complete:
+>>     device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=255.255.255.255,
+>>     host=192.168.1.10, domain=, nis-domain=(none),
+>>     bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
+>>     
+>
+> Why is rootpath left undefined?
+>   
 
-How leaving TCP_COOKIE_IN_ALWAYS and TCP_COOKIE_OUT_NEVER definitions s=
-o
-that user space programs compiles can be a problem to "research group" =
-?
+Yes, Chuck.
+Good catch.
 
-AFAIK, TCPCT_IN_ALWAYS / TCPCT_OUT_NEVER are not mentioned in
-http://www.rfc-editor.org/authors/rfc6013.txt
+Deepak,
+Can you possibly verify  your bootargs?
 
-But TCP_COOKIE_IN_ALWAYS and TCP_COOKIE_OUT_NEVER are ...
+I  see exactly your same problem with kernel 2.6.32 (rc6.3) on my
+board, where the bootargs is defined like this:
 
-Isnt it a bit confusing ?
+bootargs=console=ttyAMA0,115200 mem=128M root=/dev/nfs 
+ip=192.168.1.10:192.168.1
+.1:192.168.1.1:255.255.255.0 nfsroot=192.168.1.1:/home/guest/armv7/target
 
-> Note that the *bits* are the same, and previously compiled programs
-> (that don't access more advanced features) should continue to run as
-> they have in the past.
->=20
-> Even though I'm not paid to work on Linux, I'm doing my best to give =
-you
-> folks a quick heads up and provide code to rectify the very recent ch=
-anges
-> that can be propagated back through the stable tree (to 2.6.33).
->=20
-> As always, what you actually do with my code is up to you....
+In fact, rootpath is undefined also in my case...
 
-Maybe its too early, and we should wait for an official RFC, especially
-if you insist breaking API in 6 months.
+But if I get the network info from my DHCP server the system is booting 
+correctly.
+(i.e. console=ttyAMA0,115200 mem=128M root=/dev/nfs ip=dhcp)
+
+So, why do we have rootpath undefined in our bootargs?
+I guess we screwed up something someway...
+
+Let's see it tomorrow.
+
+Ciao,
+Arm
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
