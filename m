@@ -1,50 +1,53 @@
-From: Juliusz Chroboczek <jch@pps.jussieu.fr>
-Subject: sch_sfb [was: net_sched: mark packet staying on queue too long]
-Date: Thu, 13 Jan 2011 17:04:13 +0100
-Message-ID: <87bp3kg58i.fsf_-_@trurl.pps.jussieu.fr>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>
-	<20101220232020.GB2052@del.dom.local>
-	<1292887689.2627.150.camel@edumazet-laptop>
-	<20101220235209.GA1865@del.dom.local>
-	<1292939574.6535.27.camel@mojatatu>
-	<AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>
-	<20101221223704.GA1979@del.dom.local>
-	<1293111333.11306.170.camel@mojatatu>
-	<1294003631.2535.253.camel@edumazet-laptop>
-	<20110103095842.7677130d@nehalam>
-	<Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>
-	<4D2EE708.8010806@trash.net>
+From: Andres Salomon <dilinger@queued.net>
+Subject: Re: [PATCH] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Thu, 13 Jan 2011 08:29:50 -0800
+Message-ID: <20110113082950.6747ebb8@queued.net>
+References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
+	<1294928559.3570.130.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	David Miller <davem@davemloft.net>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from witko.kerneis.info ([213.186.56.95]:41038 "EHLO
-	witko.kerneis.info" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933040Ab1AMQWh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 11:22:37 -0500
-In-Reply-To: <4D2EE708.8010806@trash.net> (Patrick McHardy's message of "Thu,
-	13 Jan 2011 12:50:32 +0100")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1294928559.3570.130.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> Have you looked at the SFB (Stochastic Fair Blue) implementation by
->> Juliusz Chroboczek?
+On Thu, 13 Jan 2011 15:22:39 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
->> http://www.pps.jussieu.fr/~jch/software/sfb/
+> Le jeudi 13 janvier 2011 =C3=A0 19:49 +0800, Po-Yu Chuang a =C3=A9cri=
+t :
+> > From: Po-Yu Chuang <ratbert@faraday-tech.com>
+> >=20
+> > FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
+> > MII.  This driver has been working on some ARM/NDS32 SoC including
+> > Faraday A320 and Andes AG101.
+> >=20
+> > Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+> > ---
+> >  drivers/net/Kconfig    |    9 +
+> >  drivers/net/Makefile   |    1 +
+> >  drivers/net/ftmac100.c | 1341
+> > ++++++++++++++++++++++++++++++++++++++++++++++++
+> > drivers/net/ftmac100.h |  180 +++++++ 4 files changed, 1531
+> > insertions(+), 0 deletions(-) create mode 100644
+> > drivers/net/ftmac100.c create mode 100644 drivers/net/ftmac100.h
+>=20
+> Hi
+>=20
+[...]
+>=20
+> 9) Instead of dev_info(&netdev->dev ...) , please consider
+> netdev_info()
+>=20
+>=20
 
-> I had a closer look at this some time ago and noticed a couple of bugs
-> (f.i. double buffering might be enabled or disabled or the buffers
-> switched while a packet is queued, so on dequeue the wrong buffer will
-> have its queue length decremented) and also found the hashing quite
-> inefficient,
+No one else mentioned it, so I'll add:
 
-And you never found the time to drop me a mail on the subject?
-
-> so I've implemented my own version.
-
-I see.
-
-                                        Juliusz
+Don't explicitly inline functions unless they're in a header, or you
+have a really good reason (and that reason should probably be described
+in a comment).  Otherwise, just leave off the 'inline' keyword; the
+compiler is smart enough to decide whether a function should be inlined
+or not.
