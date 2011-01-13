@@ -1,89 +1,66 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v4 06/10] ARM: mx28: update clock and device name for
- dual fec support
-Date: Thu, 13 Jan 2011 16:06:22 +0100
-Message-ID: <20110113150622.GV24920@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-7-git-send-email-shawn.guo@freescale.com>
+From: Anand Raj Manickam <anandrm@gmail.com>
+Subject: Re: Realtek r8168C / r8169 driver VLAN TAG stripping
+Date: Thu, 13 Jan 2011 20:39:07 +0530
+Message-ID: <AANLkTimqkJ3DGBX5iREEcx6sgAM+2CZHNWMU+noNSitp@mail.gmail.com>
+References: <AANLkTi=qVSEh=RyzJ6y4kQvJW+hxqWMh2gAMmhk7GGob@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
-	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
-	B32542@freescale.com, lw@karo-electronics.de,
-	w.sang@pengutronix.de, s.hauer@pengutronix.de, jamie@jamieiles.com,
-	jamie@shareable.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:43739 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756921Ab1AMPGi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 10:06:38 -0500
-Content-Disposition: inline
-In-Reply-To: <1294297998-26930-7-git-send-email-shawn.guo@freescale.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:37829 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757028Ab1AMPJJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 10:09:09 -0500
+Received: by bwz15 with SMTP id 15so1606440bwz.19
+        for <netdev@vger.kernel.org>; Thu, 13 Jan 2011 07:09:07 -0800 (PST)
+In-Reply-To: <AANLkTi=qVSEh=RyzJ6y4kQvJW+hxqWMh2gAMmhk7GGob@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Shawn,
+Sorry,
+This happens on a Linux 2.6.30.8 kernel .The driver is  in-kernel.
 
-On Thu, Jan 06, 2011 at 03:13:14PM +0800, Shawn Guo wrote:
-> Change device name from "fec" to "imx28-fec", so that fec driver
-> can distinguish mx28.
->=20
-> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> ---
-> Changes for v4:
->  - Use "imx28-fec" as fec device name
->=20
-> Changes for v3:
->  - Change device name to "enet-mac"
->=20
->  arch/arm/mach-mxs/clock-mx28.c           |    3 ++-
->  arch/arm/mach-mxs/devices/platform-fec.c |    2 +-
->  2 files changed, 3 insertions(+), 2 deletions(-)
->=20
-> diff --git a/arch/arm/mach-mxs/clock-mx28.c b/arch/arm/mach-mxs/clock=
--mx28.c
-> index f20b254..e2a8b0f 100644
-> --- a/arch/arm/mach-mxs/clock-mx28.c
-> +++ b/arch/arm/mach-mxs/clock-mx28.c
-> @@ -606,7 +606,8 @@ static struct clk_lookup lookups[] =3D {
->  	_REGISTER_CLOCK("duart", "apb_pclk", xbus_clk)
->  	/* for amba-pl011 driver */
->  	_REGISTER_CLOCK("duart", NULL, uart_clk)
-> -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
-> +	_REGISTER_CLOCK("imx28-fec.0", NULL, fec_clk)
-> +	_REGISTER_CLOCK("imx28-fec.1", NULL, fec_clk)
->  	_REGISTER_CLOCK("rtc", NULL, rtc_clk)
->  	_REGISTER_CLOCK("pll2", NULL, pll2_clk)
->  	_REGISTER_CLOCK(NULL, "hclk", hbus_clk)
-> diff --git a/arch/arm/mach-mxs/devices/platform-fec.c b/arch/arm/mach=
--mxs/devices/platform-fec.c
-> index c08168c..c42dff7 100644
-> --- a/arch/arm/mach-mxs/devices/platform-fec.c
-> +++ b/arch/arm/mach-mxs/devices/platform-fec.c
-> @@ -45,6 +45,6 @@ struct platform_device *__init mxs_add_fec(
->  		},
->  	};
-> =20
-> -	return mxs_add_platform_device("fec", data->id,
-> +	return mxs_add_platform_device("imx28-fec", data->id,
-IMHO "imx28-fec" shouldn't be hard coded here but come from data.  See
-imx-spi device registration for an example.
-
-Uwe
->  			res, ARRAY_SIZE(res), pdata, sizeof(*pdata));
->  }
-> --=20
-> 1.7.1
->=20
->=20
->=20
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+On Thu, Jan 13, 2011 at 8:10 PM, Anand Raj Manickam <anandrm@gmail.com>=
+ wrote:
+> Hi ,
+> I have a problem on Realtek 8168C chipset - r8169 Driver .
+> The VLAN tag on Tx =A0& Rx gets stripped .
+>
+> The 8021q module is loaded .
+> vconfig add eth0 50
+> ifconfig eth0.50 172.16.1.10 up
+>
+> ping -I eth0.50 172.16.1.1 .
+>
+> All packets on Tx & Rx have the VLAN tag stripped on Tx & Rx.
+>
+> On debugging the Driver , we found that on Tx the VLAN tag is present=
+=2E
+>
+> static int rtl8169_start_xmit(struct sk_buff *skb, struct net_device =
+*dev)
+> {
+> .
+> .
+> tp->tx_skb[entry].len =3D len;
+> txd->addr =3D cpu_to_le64(mapping);
+> txd->opts2 =3D cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
+> printk("The Vlan tag %x \n",txd->opts2);
+> .
+> .
+> }
+>
+> The Vlan tag 23200
+>
+> In the above value 23200
+> 2 - TxVlanTag
+> 32 - Vlan tag (50).
+>
+> From the above we are clear that the Vlan tag reaches the driver .
+>
+> Can someone shed some light on this issue ?
+> Any pointers are welcome.
+> Thanks,
+> Anand
+>
