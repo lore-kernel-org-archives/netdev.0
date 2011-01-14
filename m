@@ -1,119 +1,100 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Fri, 14 Jan 2011 15:35:28 +0900
-Message-ID: <20110114063528.GB10957@verge.net.au>
-References: <20110106093312.GA1564@verge.net.au>
- <1294309362.3074.11.camel@edumazet-laptop>
- <20110106124439.GA17004@verge.net.au>
- <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
- <20110107012356.GA1257@verge.net.au>
- <20110110093155.GB13420@verge.net.au>
- <20110113064718.GA17905@verge.net.au>
- <AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>
- <20110113234135.GC8426@verge.net.au>
- <20110114045818.GA29738@redhat.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v4 06/10] ARM: mx28: update clock and device name for
+ dual fec support
+Date: Fri, 14 Jan 2011 14:46:27 +0800
+Message-ID: <20110114064626.GB14491@freescale.com>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
+ <1294297998-26930-7-git-send-email-shawn.guo@freescale.com>
+ <20110113150622.GV24920@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<lw@karo-electronics.de>, <w.sang@pengutronix.de>,
+	<s.hauer@pengutronix.de>, <jamie@jamieiles.com>,
+	<jamie@shareable.org>, <netdev@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>
+To: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tx2ehsobe001.messaging.microsoft.com ([65.55.88.11]:49386 "EHLO
+	TX2EHSOBE001.bigfish.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132Ab1ANGna convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 01:43:30 -0500
+Received: from mail182-tx2 (localhost.localdomain [127.0.0.1])	by
+ mail182-tx2-R.bigfish.com (Postfix) with ESMTP id D53E213682F6	for
+ <netdev@vger.kernel.org>; Fri, 14 Jan 2011 06:43:28 +0000 (UTC)
+Received: from TX2EHSMHS037.bigfish.com (unknown [10.9.14.252])	by
+ mail182-tx2.bigfish.com (Postfix) with ESMTP id A1A271270052	for
+ <netdev@vger.kernel.org>; Fri, 14 Jan 2011 06:43:28 +0000 (UTC)
+Received: from de01smr02.am.mot.com (de01smr02.freescale.net [10.208.0.151])
+	by de01egw02.freescale.net (8.14.3/8.14.3) with ESMTP id p0E6hRfg004057	for
+ <netdev@vger.kernel.org>; Thu, 13 Jan 2011 23:43:27 -0700 (MST)
+Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
+ [10.192.242.196])	by de01smr02.am.mot.com (8.13.1/8.13.0) with ESMTP id
+ p0E6hQNI005697	for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 00:43:26 -0600
+ (CST)
 Content-Disposition: inline
-In-Reply-To: <20110114045818.GA29738@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110113150622.GV24920@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 14, 2011 at 06:58:18AM +0200, Michael S. Tsirkin wrote:
-> On Fri, Jan 14, 2011 at 08:41:36AM +0900, Simon Horman wrote:
-> > On Thu, Jan 13, 2011 at 10:45:38AM -0500, Jesse Gross wrote:
-> > > On Thu, Jan 13, 2011 at 1:47 AM, Simon Horman <horms@verge.net.au=
-> wrote:
-> > > > On Mon, Jan 10, 2011 at 06:31:55PM +0900, Simon Horman wrote:
-> > > >> On Fri, Jan 07, 2011 at 10:23:58AM +0900, Simon Horman wrote:
-> > > >> > On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
-> > > >> >
-> > > >> > [ snip ]
-> > > >> > >
-> > > >> > > I know that everyone likes a nice netperf result but I agr=
-ee with
-> > > >> > > Michael that this probably isn't the right question to be =
-asking. =C2=A0I
-> > > >> > > don't think that socket buffers are a real solution to the=
- flow
-> > > >> > > control problem: they happen to provide that functionality=
- but it's
-> > > >> > > more of a side effect than anything. =C2=A0It's just that =
-the amount of
-> > > >> > > memory consumed by packets in the queue(s) doesn't really =
-have any
-> > > >> > > implicit meaning for flow control (think multiple physical=
- adapters,
-> > > >> > > all with the same speed instead of a virtual device and a =
-physical
-> > > >> > > device with wildly different speeds). =C2=A0The analog in =
-the physical
-> > > >> > > world that you're looking for would be Ethernet flow contr=
-ol.
-> > > >> > > Obviously, if the question is limiting CPU or memory consu=
-mption then
-> > > >> > > that's a different story.
-> > > >> >
-> > > >> > Point taken. I will see if I can control CPU (and thus memor=
-y) consumption
-> > > >> > using cgroups and/or tc.
-> > > >>
-> > > >> I have found that I can successfully control the throughput us=
-ing
-> > > >> the following techniques
-> > > >>
-> > > >> 1) Place a tc egress filter on dummy0
-> > > >>
-> > > >> 2) Use ovs-ofctl to add a flow that sends skbs to dummy0 and t=
-hen eth1,
-> > > >> =C2=A0 =C2=A0this is effectively the same as one of my hacks t=
-o the datapath
-> > > >> =C2=A0 =C2=A0that I mentioned in an earlier mail. The result i=
-s that eth1
-> > > >> =C2=A0 =C2=A0"paces" the connection.
+Hi Uwe,
+
+On Thu, Jan 13, 2011 at 04:06:22PM +0100, Uwe Kleine-K=F6nig wrote:
+> Hi Shawn,
 >=20
-> This is actually a bug. This means that one slow connection will affe=
-ct
-> fast ones. I intend to change the default for qemu to sndbuf=3D0 : th=
-is
-> will fix it but break your "pacing". So pls do not count on this
-> behaviour.
-
-Do you have a patch I could test?
-
-> > > > Further to this, I wonder if there is any interest in providing
-> > > > a method to switch the action order - using ovs-ofctl is a hack=
- imho -
-> > > > and/or switching the default action order for mirroring.
-> > >=20
-> > > I'm not sure that there is a way to do this that is correct in th=
-e
-> > > generic case.  It's possible that the destination could be a VM w=
-hile
-> > > packets are being mirrored to a physical device or we could be
-> > > multicasting or some other arbitrarily complex scenario.  Just th=
-ink
-> > > of what a physical switch would do if it has ports with two diffe=
-rent
-> > > speeds.
+> On Thu, Jan 06, 2011 at 03:13:14PM +0800, Shawn Guo wrote:
+> > Change device name from "fec" to "imx28-fec", so that fec driver
+> > can distinguish mx28.
 > >=20
-> > Yes, I have considered that case. And I agree that perhaps there
-> > is no sensible default. But perhaps we could make it configurable s=
-omehow?
+> > Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+> > ---
+> > Changes for v4:
+> >  - Use "imx28-fec" as fec device name
+> >=20
+> > Changes for v3:
+> >  - Change device name to "enet-mac"
+> >=20
+> >  arch/arm/mach-mxs/clock-mx28.c           |    3 ++-
+> >  arch/arm/mach-mxs/devices/platform-fec.c |    2 +-
+> >  2 files changed, 3 insertions(+), 2 deletions(-)
+> >=20
+> > diff --git a/arch/arm/mach-mxs/clock-mx28.c b/arch/arm/mach-mxs/clo=
+ck-mx28.c
+> > index f20b254..e2a8b0f 100644
+> > --- a/arch/arm/mach-mxs/clock-mx28.c
+> > +++ b/arch/arm/mach-mxs/clock-mx28.c
+> > @@ -606,7 +606,8 @@ static struct clk_lookup lookups[] =3D {
+> >  	_REGISTER_CLOCK("duart", "apb_pclk", xbus_clk)
+> >  	/* for amba-pl011 driver */
+> >  	_REGISTER_CLOCK("duart", NULL, uart_clk)
+> > -	_REGISTER_CLOCK("fec.0", NULL, fec_clk)
+> > +	_REGISTER_CLOCK("imx28-fec.0", NULL, fec_clk)
+> > +	_REGISTER_CLOCK("imx28-fec.1", NULL, fec_clk)
+> >  	_REGISTER_CLOCK("rtc", NULL, rtc_clk)
+> >  	_REGISTER_CLOCK("pll2", NULL, pll2_clk)
+> >  	_REGISTER_CLOCK(NULL, "hclk", hbus_clk)
+> > diff --git a/arch/arm/mach-mxs/devices/platform-fec.c b/arch/arm/ma=
+ch-mxs/devices/platform-fec.c
+> > index c08168c..c42dff7 100644
+> > --- a/arch/arm/mach-mxs/devices/platform-fec.c
+> > +++ b/arch/arm/mach-mxs/devices/platform-fec.c
+> > @@ -45,6 +45,6 @@ struct platform_device *__init mxs_add_fec(
+> >  		},
+> >  	};
+> > =20
+> > -	return mxs_add_platform_device("fec", data->id,
+> > +	return mxs_add_platform_device("imx28-fec", data->id,
+> IMHO "imx28-fec" shouldn't be hard coded here but come from data.  Se=
+e
+> imx-spi device registration for an example.
 >=20
-> The fix is at the application level. Run netperf with -b and -w flags=
- to
-> limit the speed to a sensible value.
+Sascha has merged the patch, so I will send a follow-up patch.
 
-Perhaps I should have stated my goals more clearly.
-I'm interested in situations where I don't control the application.
+--=20
+Regards,
+Shawn
 
