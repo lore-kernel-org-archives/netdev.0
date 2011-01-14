@@ -1,76 +1,81 @@
 From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
 Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
  single TCP session balancing
-Date: Sat, 15 Jan 2011 01:51:39 +0300
-Message-ID: <4D30D37B.6090908@yandex-team.ru>
-References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death>
+Date: Sat, 15 Jan 2011 02:12:12 +0300
+Message-ID: <4D30D84C.6000801@yandex-team.ru>
+References: <20110114190714.GA11655@yandex-team.ru> <4D30ADB3.7010509@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: John Fastabend <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elephant.yandex.ru ([77.88.34.7]:24232 "EHLO elephant.yandex.ru"
+Received: from dinosaur.yandex.ru ([77.88.34.8]:32207 "EHLO dinosaur.yandex.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752315Ab1ANXCU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jan 2011 18:02:20 -0500
-In-Reply-To: <17405.1295036019@death>
+	id S1752468Ab1ANXMP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 18:12:15 -0500
+In-Reply-To: <4D30ADB3.7010509@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
 
-Jay Vosburgh wrote:
+John Fastabend wrote:
 
-> 	This is a violation of the 802.3ad (now 802.1ax) standard, 5.2.1
-> (f), which requires that all frames of a given "conversation" are passed
-> to a single port.
-> 
-> 	The existing layer3+4 hash has a similar problem (that it may
-> send packets from a conversation to multiple ports), but for that case
-> it's an unlikely exception (only in the case of IP fragmentation), but
-> here it's the norm.  At a minimum, this must be clearly documented.
-> 
-> 	Also, what does a round robin in 802.3ad provide that the
-> existing round robin does not?  My presumption is that you're looking to
-> get the aggregator autoconfiguration that 802.3ad provides, but you
-> don't say.
-> 
-> 	I don't necessarily think this is a bad cheat (round robining on
-> 802.3ad as an explicit non-standard extension), since everybody wants to
-> stripe their traffic across multiple slaves.  I've given some thought to
-> making round robin into just another hash mode, but this also does some
-> magic to the MAC addresses of the outgoing frames (more on that below).
-Yes, I am resetting MAC addresses when transmitting packets to have 
-switch to put packets into different ports of the receiving etherchannel.
-I am using this patch to provide full-mesh ISCSI connectivity between at 
-least 4 hosts (all hosts of course are in same ethernet segment) and 
-every host is connected with aggregate link with 4 slaves(usually).
-Using round-robin I provide near-equal load striping when transmitting, 
-using MAC address magic I force switch to stripe packets over all slave 
-links in destination port-channel(when number of rx-ing slaves is equal 
-to number ot tx-ing slaves and is even). So I am able to utilize all 
-slaves for tx and for rx up to maximum capacity; besides I am getting L2 
-link failure detection (and load rebalancing), which is (in my opinion) 
-much faster and robust than L3 or than dm-multipath provides.
-It's my idea with the patch
-> 
+>=20
+> I think you want this patch against net-next not 2.6.37.
+This patch is against  2.6.37-git11 and I've tried to apply it to=20
+net-next - it applied ok
+>=20
+> Oleg, sorry but I don't follow. If this is simply sending every next =
+packet
+> via "next" slave interface how are packets not going to get out of or=
+der? If
+> the links have different RTT this would seem problematic.
+>=20
+> Have you considered using multipath at the block layer? This is how I=
+ generally
+> handle load balancing over iSCSI/FCoE and it works reasonably well.
+>=20
+> see ./drivers/md/dm-mpath.c
 
-> 
-> 	This is the code that resets the MAC header as described above.
-> It doesn't quite match the documentation, since it only resets the MAC
-> for ETH_P_IP packets.
-Yes, I really meant that my patch applies to ETH_P_IP packets and I've 
-missed that from documentation I wrote.
-> 
+John, the first solution I was using a long time for ISCSI load=20
+balancing was multipath. But there are some problems with dm-multipath:
+- it is slow(I am using ISCSI for Oracle , so I need to minimize latenc=
+y)
+- it handles any link failures bad, because of it's command queue=20
+limitation(all queued commands above 32 are discarded in case of path=20
+failure, as I remember)
+- it performs very bad when there are many devices and ma=D1=82y paths(=
+I was=20
+unable to utilize more that 2Gbps of 4 even with 100 disks with 4 paths=
+=20
+per each disk)
 
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
+My patch won't work correct when slave links have different RTT, this i=
+s=20
+true - it is usable only within one ethernet segment with equal/near=20
+equal RTT. This is it's limitation.
 
--- 
-Best regards,
 
+>> +static int bond_xmit_hash_policy_rr(struct sk_buff *skb,
+>> +				   struct net_device *bond_dev, int count)
+>=20
+> Here's one reason why this won't work on net-next-2.6.
+>=20
+> int      (*xmit_hash_policy)(struct sk_buff *, int);
+
+Thank you, I've missed that change.
+
+>=20
+>=20
+> Thanks,
+> John
+>=20
+
+--=20
+Best reagrds,
 Oleg Ukhno
-
