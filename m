@@ -1,51 +1,117 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v5 08/10] ARM: mxs: add ocotp read function
-Date: Fri, 14 Jan 2011 10:48:32 +0100
-Message-ID: <20110114094832.GG24920@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294989894-20780-1-git-send-email-shawn.guo@freescale.com>
- <20110114084009.GL26617@pengutronix.de>
+From: deepaksi <deepak.sikri@st.com>
+Subject: Re: STMMAC driver: NFS Problem on 2.6.37
+Date: Fri, 14 Jan 2011 15:26:33 +0530
+Message-ID: <4D301DD1.9070104@st.com>
+References: <4D2EC133.7010607@st.com> <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com> <4D2F4453.4040400@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shawn Guo <shawn.guo@freescale.com>, gerg@snapgear.com,
-	B32542@freescale.com, netdev@vger.kernel.org, jamie@shareable.org,
-	baruch@tkos.co.il, w.sang@pengutronix.de, r64343@freescale.com,
-	eric@eukrea.com, bryan.wu@canonical.com, jamie@jamieiles.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	lw@karo-electronics.de
-To: Sascha Hauer <s.hauer@pengutronix.de>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Chuck Lever <chuck.lever@oracle.com>,
+	"Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
+	Shiraz HASHIM <shiraz.hashim@st.com>,
+	Viresh KUMAR <viresh.kumar@st.com>,
+	Peppe CAVALLARO <peppe.cavallaro@st.com>,
+	Amit GOEL <amit.goel@st.com>
+To: Armando VISCONTI <armando.visconti@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:54481 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751294Ab1ANJtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 04:49:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20110114084009.GL26617@pengutronix.de>
+Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:49175 "EHLO
+	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751294Ab1ANJ4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 04:56:52 -0500
+In-Reply-To: <4D2F4453.4040400@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Sascha,
+Hi All,
 
-On Fri, Jan 14, 2011 at 09:40:09AM +0100, Sascha Hauer wrote:
-> On Fri, Jan 14, 2011 at 03:24:54PM +0800, Shawn Guo wrote:
-> > +const u32 *mxs_get_ocotp(void)
-> > +{
-> > + [...]
-> > +}
->=20
-> EXPORT_SYMBOL?
-I don't think this should be necessary.  mxs_get_ocotp should only be
-called from platform code that cannot (ot at least should not) be
-modular.  I suggest to skip it for now and if we really need it later
-only add it then.
+On 1/13/2011 11:58 PM, Armando VISCONTI wrote:
+> Chuck Lever wrote:
+>   
+>> On Jan 13, 2011, at 4:09 AM, deepaksi wrote:
+>>
+>>   
+>>     
+>>> Hi
+>>>
+>>> I am facing a problem related to nfs boot, while using the stmmac driver
+>>> ported on 2.6.37 kernel. When we use a JFFS2 file system and mount the kernel,
+>>> the network driver works fine.
+>>>
+>>> I have been following the mailing list and could find some issues with NFS 
+>>> on 2.6.37 but I am not too sure whether the kernel crash I am getting is 
+>>> related to that.
+>>>
+>>> The driver worked fine on 2.6.32 kernel, but while booting the 2.6.37
+>>> kernel I get the following log messages:
+>>>
+>>> stmmac: Rx Checksum Offload Engine supported
+>>>        TX Checksum insertion supported
+>>> IP-Config: Complete:
+>>>     device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=255.255.255.255,
+>>>     host=192.168.1.10, domain=, nis-domain=(none),
+>>>     bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
+>>>     
+>>>       
+>> Why is rootpath left undefined?
+>>   
+>>     
+>   
+Even with dhcp server, we get the same log for rootpath. It never
+appears over there.
 
-Best regards
-Uwe
+> Yes, Chuck.
+> Good catch.
+>
+> Deepak,
+> Can you possibly verify  your bootargs?
+>
+> I  see exactly your same problem with kernel 2.6.32 (rc6.3) on my
+> board, where the bootargs is defined like this:
+>
+> bootargs=console=ttyAMA0,115200 mem=128M root=/dev/nfs 
+> ip=192.168.1.10:192.168.1
+> .1:192.168.1.1:255.255.255.0 nfsroot=192.168.1.1:/home/guest/armv7/target
+>
+> In fact, rootpath is undefined also in my case...
+>
+> But if I get the network info from my DHCP server the system is booting 
+> correctly.
+> (i.e. console=ttyAMA0,115200 mem=128M root=/dev/nfs ip=dhcp)
+>
+> So, why do we have rootpath undefined in our bootargs?
+> I guess we screwed up something someway...
+>
+> Let's see it tomorrow.
+>
+> Ciao,
+> Arm
+>
+>
+>
+>   
+The nfs work fine when you use the dhcp server, but still it is a
+totally different proposition. The problem comes when we assign a static
+IP in the bootargs, and then try to boot the system using NFS. here is
+the bootargs setting at the u-boot.
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+bootargs = console=ttyAMA0,115200 mem=128M root=/dev/nfs
+nfsroot=192.168.1.1:/opt/STM/STLinux-2.3/devkit/arm/target
+ip=192.168.1.10:192.168.1.1:192.168.1.1:255.255.255.0::eth0
+
+These settings have been working fine for earlier kernels. The tcp dump
+while doing the nfs boot is quite different between the 2.6.32 and
+2.6.37 kernels.
+
+
+
+Regards
+Deepak
+
+
+
+> .
+>
+>   
+
