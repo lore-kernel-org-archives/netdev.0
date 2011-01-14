@@ -1,117 +1,176 @@
-From: deepaksi <deepak.sikri@st.com>
-Subject: Re: STMMAC driver: NFS Problem on 2.6.37
-Date: Fri, 14 Jan 2011 15:26:33 +0530
-Message-ID: <4D301DD1.9070104@st.com>
-References: <4D2EC133.7010607@st.com> <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com> <4D2F4453.4040400@st.com>
+From: Kirill Smelkov <kirr@mns.spb.ru>
+Subject: Re: net 00/05: routing based send-to-self implementation
+Date: Fri, 14 Jan 2011 13:18:32 +0300
+Message-ID: <20110114101832.GA3170@tugrik.mns.mnsspb.ru>
+References: <20091203112550.15100.86217.sendpatchset@x2.localnet>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Chuck Lever <chuck.lever@oracle.com>,
-	"Trond.Myklebust@netapp.com" <Trond.Myklebust@netapp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-nfs@vger.kernel.org" <linux-nfs@vger.kernel.org>,
-	Shiraz HASHIM <shiraz.hashim@st.com>,
-	Viresh KUMAR <viresh.kumar@st.com>,
-	Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	Amit GOEL <amit.goel@st.com>
-To: Armando VISCONTI <armando.visconti@st.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Jonathan Corbet <corbet@lwn.net>,
+	Boris Kocherov <bkocherov@gmail.com>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog112.obsmtp.com ([207.126.144.133]:49175 "EHLO
-	eu1sys200aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751294Ab1ANJ4w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 04:56:52 -0500
-In-Reply-To: <4D2F4453.4040400@st.com>
+Received: from mail.mnsspb.ru ([84.204.75.2]:40374 "EHLO mail.mnsspb.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752245Ab1ANKdz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 05:33:55 -0500
+Content-Disposition: inline
+In-Reply-To: <20091203112550.15100.86217.sendpatchset@x2.localnet>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+ [ Cc'ing Jonathan Corbet and a friend of mine ]
 
-On 1/13/2011 11:58 PM, Armando VISCONTI wrote:
-> Chuck Lever wrote:
->   
->> On Jan 13, 2011, at 4:09 AM, deepaksi wrote:
->>
->>   
->>     
->>> Hi
->>>
->>> I am facing a problem related to nfs boot, while using the stmmac driver
->>> ported on 2.6.37 kernel. When we use a JFFS2 file system and mount the kernel,
->>> the network driver works fine.
->>>
->>> I have been following the mailing list and could find some issues with NFS 
->>> on 2.6.37 but I am not too sure whether the kernel crash I am getting is 
->>> related to that.
->>>
->>> The driver worked fine on 2.6.32 kernel, but while booting the 2.6.37
->>> kernel I get the following log messages:
->>>
->>> stmmac: Rx Checksum Offload Engine supported
->>>        TX Checksum insertion supported
->>> IP-Config: Complete:
->>>     device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=255.255.255.255,
->>>     host=192.168.1.10, domain=, nis-domain=(none),
->>>     bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
->>>     
->>>       
->> Why is rootpath left undefined?
->>   
->>     
->   
-Even with dhcp server, we get the same log for rootpath. It never
-appears over there.
+On Thu, Dec 03, 2009 at 12:25:52PM +0100, Patrick McHardy wrote:
+> These patches are yet another attempt at adding "send-to-self" functionality,
+> allowing to send packets between two local interfaces over the wire. Unlike
+> the approaches I've seen so far, this one is purely routing based.
+> Especially the oif classification should also be useful for different setups.
+> 
+> The patchset consists of three parts:
+> 
+> - the first three patches add oif classification to fib_rules. This can be
+>   used create special routing tables for sockets bound to an interface.
+> 
+> - the fourth patch changes IPv4 and IPv6 to allow to delete the local rule
+>   with priority 0. This allows to re-create it using a lower priority and
+>   insert new rules below it to force packets with a local destination out
+>   on the wire.
+> 
+> - the fifth patch adds a devinet sysctl to accept packets with local source
+>   addresses in fib_validate_source(). This one unfortunately seems to be
+>   necessary, I couldn't come up with a method based purely on adding more
+>   routes to fool fib_validate_source() into accepting those packets.
+> 
+> Usage example:
+> 
+> # move local routing rule to lower priority
+> ip rule add pref 1000 lookup local
+> ip rule del pref 0
+> 
+> # only reply to ARP requests for addresses configured on the device
+> echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore
+> 
+> # configure device and force packets of bound sockets out on eth1
+> ip address add dev eth1 10.0.0.1/24
+> echo 1 > /proc/sys/net/ipv4/conf/eth1/accept_local
+> ip link set eth1 up
+> ip rule add pref 500 oif eth1 lookup 500
+> ip route add default dev eth1 table 500
+> 
+> # configure device and force packets of bound sockets out on eth2
+> ip address add dev eth2 10.0.0.2/24
+> echo 1 > /proc/sys/net/ipv4/conf/eth2/accept_local
+> ip link set eth2 up
+> ip rule add pref 501 oif eth2 lookup 501
+> ip route add default dev eth2 table 501
+> 
+> At this point packets between sockets bound to eth1/eth2 will go over the wire.
 
-> Yes, Chuck.
-> Good catch.
->
-> Deepak,
-> Can you possibly verify  your bootargs?
->
-> I  see exactly your same problem with kernel 2.6.32 (rc6.3) on my
-> board, where the bootargs is defined like this:
->
-> bootargs=console=ttyAMA0,115200 mem=128M root=/dev/nfs 
-> ip=192.168.1.10:192.168.1
-> .1:192.168.1.1:255.255.255.0 nfsroot=192.168.1.1:/home/guest/armv7/target
->
-> In fact, rootpath is undefined also in my case...
->
-> But if I get the network info from my DHCP server the system is booting 
-> correctly.
-> (i.e. console=ttyAMA0,115200 mem=128M root=/dev/nfs ip=dhcp)
->
-> So, why do we have rootpath undefined in our bootargs?
-> I guess we screwed up something someway...
->
-> Let's see it tomorrow.
->
-> Ciao,
-> Arm
->
->
->
->   
-The nfs work fine when you use the dhcp server, but still it is a
-totally different proposition. The problem comes when we assign a static
-IP in the bootargs, and then try to boot the system using NFS. here is
-the bootargs setting at the u-boot.
+Patrick, thanks a lot for doing this!
 
-bootargs = console=ttyAMA0,115200 mem=128M root=/dev/nfs
-nfsroot=192.168.1.1:/opt/STM/STLinux-2.3/devkit/arm/target
-ip=192.168.1.10:192.168.1.1:192.168.1.1:255.255.255.0::eth0
+Just a small follow-up: it is possible to setup such loops without
+requiring sockets to be bound to devices. The idea is to setup rules
+like
 
-These settings have been working fine for earlier kernels. The tcp dump
-while doing the nfs boot is quite different between the 2.6.32 and
-2.6.37 kernels.
+    $ ip rule add pref 100 to <ip-on-eth1> lookup 100
+    $ ip route add default dev eth0 table 100
+
+so that on TX, packets go through appropriate interfaces.
+
+And for RX, another rules like
+
+    $ ip rule add pref 10 iif eth0 lookup local
+
+so that packets can be received at all.
 
 
+I've spent several days to find this, debugging and tracing kernel and
+trying various variants on how to do it, so I though I'd better share
+the info for poor souls like me :)
 
-Regards
-Deepak
+For completeness, here is the script which will setup tap0/tap1 loop
+through virtual vde_switch.
+
+ ( Jonathan, I though something like this could be useful for LDD4 in
+   revised snull not needing to play dirty tricks with IP addresses anymore )
+
+
+---- 8< (mk-tap-loop.sh) ----
+#!/bin/sh -e
+
+# reset interfaces
+ip link del tap0 2>/dev/null || :
+ip link del tap1 2>/dev/null || :
+
+# create interfaces
+vde_tunctl -t tap0
+vde_tunctl -t tap1
+
+# assign addresses
+ip addr add 192.168.23.10/24 dev tap0
+ip addr add 192.168.23.11/24 dev tap1
+
+# put ifs up
+ip link set tap0 up
+ip link set tap1 up
+
+# lower priority of kernel local table to 500
+ip rule del pref   0 lookup local 2>/dev/null || :
+ip rule del pref 500 lookup local 2>/dev/null || :
+ip rule add pref 500 lookup local
+
+# on rx side handle packets by local table, so we can receive them
+echo 1 >/proc/sys/net/ipv4/conf/tap0/accept_local
+echo 1 >/proc/sys/net/ipv4/conf/tap1/accept_local
+ip rule del pref 10 2>/dev/null || :
+ip rule del pref 11 2>/dev/null || :
+ip rule add pref 10 iif tap0 lookup local
+ip rule add pref 11 iif tap1 lookup local
+
+# tx
+ip rule del pref 100 2>/dev/null || :
+ip rule del pref 101 2>/dev/null || :
+ip rule add pref 100 to 192.168.23.10 lookup 100	# tap0 <- tap1
+ip rule add pref 101 to 192.168.23.11 lookup 101	# tap1 <- tap0
+
+ip route flush table 100
+ip route flush table 101
+ip route add default dev tap1 table 100
+ip route add default dev tap0 table 101
+
+
+# ensure (visually) we've set up it ok
+
+echo
+echo " >>> rules:"
+ip rule
+
+echo
+echo " >>> tap(0|1) routing table:"
+#routel | grep '\<tap\(0\|1\)\>'
+ip route show table all | grep '\<tap\(0\|1\)\>'
+
+# tx path
+echo
+echo " >>> checking routing for tx path:"
+ip route get 192.168.23.10 connected
+ip route get 192.168.23.11 connected
+
+# rx path
+echo
+echo " >>> checking routing for rx path:"
+ip route get from 192.168.23.10 to 192.168.23.11 iif tap1
+ip route get from 192.168.23.11 to 192.168.23.10 iif tap0
 
 
 
-> .
->
->   
+# start switch and connect switch-tap0 and switch-tap1
+echo
+echo " >>> ready to start vde_switch and connect wires..."
+read
+screen sh -c 'screen sh -cx "sleep 4; vde_plug2tap tap0"; screen sh -cx "sleep 4; vde_plug2tap tap1"; sh -cx vde_switch'
 
+
+# now e.g. ping 192.168.23.11 sends packets to tap0 which are received
+# on tap1 and ICMP-ECHO'ed by kernel on tap1 and received on tap0.
