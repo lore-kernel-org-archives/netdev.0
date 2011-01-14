@@ -1,70 +1,39 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 1/3] e1000: Avoid unhandled IRQ
-Date: Fri, 14 Jan 2011 03:42:28 -0800
-Message-ID: <1295005350-28124-2-git-send-email-jeffrey.t.kirsher__45122.6925164976$1295010609$gmane$org@intel.com>
-References: <1295005350-28124-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 00/22] ipvs namespaces v3.3
+Date: Fri, 14 Jan 2011 14:26:15 +0100
+Message-ID: <4D304EF7.5000604@trash.net>
+References: <1294883588-5683-1-git-send-email-horms@verge.net.au> <4D2EDDD0.8060903@netfilter.org> <4D2EE286.1040207@trash.net> <4D2EED37.6070108@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bphilips@novell.com,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Tushar Dave <tushar.n.dave@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>, gospo@redhat.com,
-        stable@kernel.org
-Return-path: <stable-bounces@linux.kernel.org>
-To: davem@davemloft.net
-In-Reply-To: <1295005350-28124-1-git-send-email-jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
+Cc: Simon Horman <horms@verge.net.au>, netfilter-devel@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <4D2EED37.6070108@netfilter.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On 13.01.2011 13:16, Pablo Neira Ayuso wrote:
+> On 13/01/11 12:31, Patrick McHardy wrote:
+>> On 13.01.2011 12:11, Pablo Neira Ayuso wrote:
+>>> On 13/01/11 02:52, Simon Horman wrote:
+>>>> In order to create this series I merged net-next-2.6 into nf-next-2.6.
+>>>> The result is at
+>>>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6 ipvs-netns3.3
+>>>>
+>>>> However, I guess that you have already done your own merge and simply
+>>>> pulling the branch above will create a bit of a mess. Please let me know
+>>>> if you have a tree/branch that I should use as a base for a pull request.
+>>>
+>>> I have pulled it, everything was fine. Thanks Simon!
+>>>
+>>
+>> Thanks Pablo. I'm back up to speed, if you want, I can pull your tree
+>> into mine.
+> 
+> Go ahead Patrick.
 
-If hardware asserted an interrupt and driver is down,
-then there is nothing to do so return IRQ_HANDLED
-instead of IRQ_NONE. Returning IRQ_NONE in above
-situation causes screaming IRQ on virtual machines.
-
-CC: Andy Gospodarek <gospo@redhat.com>
-CC: stable@kernel.org
-Signed-off-by: Tushar Dave <tushar.n.dave@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/e1000/e1000_main.c |   10 +++++++++-
- 1 files changed, 9 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index 4ff88a6..e332aee 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -3478,9 +3478,17 @@ static irqreturn_t e1000_intr(int irq, void *data)
- 	struct e1000_hw *hw = &adapter->hw;
- 	u32 icr = er32(ICR);
- 
--	if (unlikely((!icr) || test_bit(__E1000_DOWN, &adapter->flags)))
-+	if (unlikely((!icr)))
- 		return IRQ_NONE;  /* Not our interrupt */
- 
-+	/*
-+	 * we might have caused the interrupt, but the above
-+	 * read cleared it, and just in case the driver is
-+	 * down there is nothing to do so return handled
-+	 */
-+	if (unlikely(test_bit(__E1000_DOWN, &adapter->flags)))
-+		return IRQ_HANDLED;
-+
- 	if (unlikely(icr & (E1000_ICR_RXSEQ | E1000_ICR_LSC))) {
- 		hw->get_link_status = 1;
- 		/* guard against interrupt when we're going down */
--- 
-1.7.3.4
+I've pulled your tree in and pushed everything out. Thanks Pablo!
