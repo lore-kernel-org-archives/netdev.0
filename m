@@ -1,7 +1,7 @@
 From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v3 14/16] sunrpc: make rpc_pipefs be mountable multiple times
-Date: Fri, 14 Jan 2011 15:49:12 +0200
-Message-ID: <1295012954-7769-15-git-send-email-kas@openvz.org>
+Subject: [PATCH v3 11/16] Export iterate_mounts symbol to be able to use from sunrpc module.
+Date: Fri, 14 Jan 2011 15:49:09 +0200
+Message-ID: <1295012954-7769-12-git-send-email-kas@openvz.org>
 References: <1295012954-7769-1-git-send-email-kas@openvz.org>
 Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -17,124 +17,23 @@ In-Reply-To: <1295012954-7769-1-git-send-email-kas-GEFAQzZX7r8dnm+yROfE0A@public
 Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-To support containers, allow multiple independent instances of
-rpc_pipefs. Use '-o newinstance' to create new of the filesystem.
-The same semantics as with devpts.
-
 Signed-off-by: Kirill A. Shutemov <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- net/sunrpc/rpc_pipe.c |   80 ++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 79 insertions(+), 1 deletions(-)
+ fs/namespace.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index b72cb01..02416f1 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -19,6 +19,7 @@
- #include <linux/nsproxy.h>
- #include <linux/mnt_namespace.h>
- #include <linux/fs_struct.h>
-+#include <linux/parser.h>
- 
- #include <asm/ioctls.h>
- #include <linux/fs.h>
-@@ -41,6 +42,49 @@ static struct kmem_cache *rpc_inode_cachep __read_mostly;
- 
- #define RPC_UPCALL_TIMEOUT (30*HZ)
- 
-+struct rpc_mount_opts {
-+	int newinstance;
-+};
-+
-+enum {
-+	Opt_newinstance,
-+
-+	Opt_err
-+};
-+
-+static const match_table_t tokens = {
-+	{Opt_newinstance, "newinstance"},
-+
-+	{Opt_err, NULL}
-+};
-+
-+static int
-+parse_mount_options(char *data, struct rpc_mount_opts *opts)
-+{
-+	char *p;
-+
-+	opts->newinstance = 0;
-+
-+	while ((p = strsep(&data, ",")) != NULL) {
-+		substring_t args[MAX_OPT_ARGS];
-+		int token;
-+
-+		if (!*p)
-+			continue;
-+
-+		token = match_token(p, tokens, args);
-+		switch (token) {
-+		case Opt_newinstance:
-+			opts->newinstance = 1;
-+			break;
-+		default:
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static void rpc_purge_list(struct rpc_inode *rpci, struct list_head *head,
- 		void (*destroy_msg)(struct rpc_pipe_msg *), int err)
- {
-@@ -1093,11 +1137,45 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
+diff --git a/fs/namespace.c b/fs/namespace.c
+index 3ddfd90..f73054d 100644
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -1498,6 +1498,7 @@ int iterate_mounts(int (*f)(struct vfsmount *, void *), void *arg,
+ 	}
  	return 0;
  }
++EXPORT_SYMBOL_GPL(iterate_mounts);
  
-+static int
-+compare_rpc_mnt_sb(struct super_block *s, void *p)
-+{
-+	if (init_rpc_pipefs)
-+		return init_rpc_pipefs->mnt_sb == s;
-+	return 0;
-+}
-+
- static struct dentry *
- rpc_mount(struct file_system_type *fs_type,
- 		int flags, const char *dev_name, void *data)
+ static void cleanup_group_ids(struct vfsmount *mnt, struct vfsmount *end)
  {
--	return mount_single(fs_type, flags, data, rpc_fill_super);
-+	int error;
-+	struct rpc_mount_opts opts;
-+	struct super_block *s;
-+
-+	error = parse_mount_options(data, &opts);
-+	if (error)
-+		return ERR_PTR(error);
-+
-+	if (opts.newinstance)
-+		s = sget(fs_type, NULL, set_anon_super, NULL);
-+	else
-+		s = sget(fs_type, compare_rpc_mnt_sb, set_anon_super, NULL);
-+
-+	if (IS_ERR(s))
-+		return ERR_CAST(s);
-+
-+	if (!s->s_root) {
-+		s->s_flags = flags;
-+		error = rpc_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
-+		if (error) {
-+			deactivate_locked_super(s);
-+			return ERR_PTR(error);
-+		}
-+		s->s_flags |= MS_ACTIVE;
-+	}
-+
-+	return dget(s->s_root);
- }
- 
- static void rpc_kill_sb(struct super_block *sb)
 -- 
 1.7.3.4
 
