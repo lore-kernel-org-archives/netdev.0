@@ -1,49 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] CHOKe flow scheduler (0.8)
-Date: Fri, 14 Jan 2011 14:55:14 +0100
-Message-ID: <4D3055C2.3060807@trash.net>
-References: <20110113092706.154748c2@s6510>	<1294951069.3403.11.camel@edumazet-laptop> <20110113153436.70d3c0a3@s6510> <4D305598.1010207@trash.net>
+From: David Sterba <dsterba@suse.cz>
+Subject: [PATCH resend] Bluetooth: l2cap: fix misuse of logical operation in place of bitop
+Date: Fri, 14 Jan 2011 14:59:44 +0100
+Message-ID: <1295013584-15592-1-git-send-email-dsterba@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: marcel@holtmann.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Sterba <dsterba@suse.cz>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	=?UTF-8?q?Jo=C3=A3o=20Paulo=20Rechi=20Vita?=
+	<jprvita@profusion.mobi>
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35731 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756794Ab1ANNzK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 08:55:10 -0500
-In-Reply-To: <4D305598.1010207@trash.net>
+Received: from cantor.suse.de ([195.135.220.2]:39087 "EHLO mx1.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757717Ab1ANN7x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 08:59:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 14.01.2011 14:54, Patrick McHardy wrote:
-> On 14.01.2011 00:34, Stephen Hemminger wrote:
->> +static int choke_enqueue(struct sk_buff *skb, struct Qdisc *sch)
->> +{
->> ...
->> +	/* Is queue small? */
->> +	if (p->qavg <= p->qth_min)
->> +		p->qcount = -1;
->> +	else {
->> +		struct sk_buff *oskb;
->> +		unsigned int idx;
->> +
->> +		/* Draw a packet at random from queue */
->> +		oskb = choke_peek_random(sch, &idx);
->> +
->> +		/* Both packets from same flow ? */
->> +		if (*(unsigned int *)(qdisc_skb_cb(oskb)->data) == hash) {
->> +			/* Drop both packets */
->> +			q->stats.matched++;
->> +			choke_drop_by_idx(q, idx);
->> +			sch->qstats.backlog -= qdisc_pkt_len(skb);
->> +			--sch->q.qlen;
->> +			qdisc_drop(oskb, sch);
-> 
-> You need to adjust the qlen values of parent qdiscs by calling
-> qdisc_tree_decrease_qlen(), they are not aware that a second
-> packet has been dropped.
+CC: Marcel Holtmann <marcel@holtmann.org>
+CC: "Gustavo F. Padovan" <padovan@profusion.mobi>
+CC: Jo=C3=A3o Paulo Rechi Vita <jprvita@profusion.mobi>
+Signed-off-by: David Sterba <dsterba@suse.cz>
+---
 
-I just saw that Eric already fixed this :)
+Andrew, this has not been picked up by maintainers since 27.12., please=
+ consider it for -mm.
+
+ net/bluetooth/l2cap.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/bluetooth/l2cap.c b/net/bluetooth/l2cap.c
+index cd8f6ea..bdfdfdc 100644
+--- a/net/bluetooth/l2cap.c
++++ b/net/bluetooth/l2cap.c
+@@ -1893,8 +1893,8 @@ static int l2cap_sock_sendmsg(struct kiocb *iocb,=
+ struct socket *sock, struct ms
+ 		if (pi->mode =3D=3D L2CAP_MODE_STREAMING) {
+ 			l2cap_streaming_send(sk);
+ 		} else {
+-			if (pi->conn_state & L2CAP_CONN_REMOTE_BUSY &&
+-					pi->conn_state && L2CAP_CONN_WAIT_F) {
++			if ((pi->conn_state & L2CAP_CONN_REMOTE_BUSY) &&
++					(pi->conn_state & L2CAP_CONN_WAIT_F)) {
+ 				err =3D len;
+ 				break;
+ 			}
+--=20
+1.7.3.4.626.g73e7b
+
