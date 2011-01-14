@@ -1,176 +1,72 @@
-From: Kirill Smelkov <kirr@mns.spb.ru>
-Subject: Re: net 00/05: routing based send-to-self implementation
-Date: Fri, 14 Jan 2011 13:18:32 +0300
-Message-ID: <20110114101832.GA3170@tugrik.mns.mnsspb.ru>
-References: <20091203112550.15100.86217.sendpatchset@x2.localnet>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] CHOKe flow scheduler (0.8)
+Date: Fri, 14 Jan 2011 12:32:51 +0100
+Message-ID: <1295004771.3937.8.camel@edumazet-laptop>
+References: <20110113092706.154748c2@s6510>
+	 <1294951069.3403.11.camel@edumazet-laptop>  <20110113153436.70d3c0a3@s6510>
+	 <1294975793.3403.117.camel@edumazet-laptop>
+	 <1294976067.3403.118.camel@edumazet-laptop>
+	 <1294977498.3403.127.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jonathan Corbet <corbet@lwn.net>,
-	Boris Kocherov <bkocherov@gmail.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mnsspb.ru ([84.204.75.2]:40374 "EHLO mail.mnsspb.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752245Ab1ANKdz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jan 2011 05:33:55 -0500
-Content-Disposition: inline
-In-Reply-To: <20091203112550.15100.86217.sendpatchset@x2.localnet>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:41849 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751530Ab1ANLc4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 06:32:56 -0500
+Received: by wyb28 with SMTP id 28so2721105wyb.19
+        for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 03:32:54 -0800 (PST)
+In-Reply-To: <1294977498.3403.127.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- [ Cc'ing Jonathan Corbet and a friend of mine ]
+Le vendredi 14 janvier 2011 =C3=A0 04:58 +0100, Eric Dumazet a =C3=A9cr=
+it :
+> Le vendredi 14 janvier 2011 =C3=A0 04:34 +0100, Eric Dumazet a =C3=A9=
+crit :
+>=20
+> > Hmm, please wait a bit, I had another crash when I stopped my
+> > bench/stress
+>=20
+> I am not sure p->qavg is correctly computed.
+>=20
+> Crash happened because choke_peek_random() was called while no packet
+> was in queue.
+>=20
+> With my params (min=3D10833 max=3D32500 burst=3D18055 limit=3D130000)=
+ this
+> implies qavg was very big while qlen=3D=3D0 !
+>=20
+> qdisc choke 11: dev ifb0 parent 1:11 limit 130000b min 10833b max 325=
+00b ewma 13 Plog 21 Scell_log 30
+>  Sent 200857857 bytes 365183 pkt (dropped 1010937, overlimits 557577 =
+requeues 0)=20
+>  rate 32253Kbit 7330pps backlog 17875996b 32505p requeues 0=20
+>   marked 0 early 557577 pdrop 0 other 0 matched 226680
 
-On Thu, Dec 03, 2009 at 12:25:52PM +0100, Patrick McHardy wrote:
-> These patches are yet another attempt at adding "send-to-self" functionality,
-> allowing to send packets between two local interfaces over the wire. Unlike
-> the approaches I've seen so far, this one is purely routing based.
-> Especially the oif classification should also be useful for different setups.
-> 
-> The patchset consists of three parts:
-> 
-> - the first three patches add oif classification to fib_rules. This can be
->   used create special routing tables for sockets bound to an interface.
-> 
-> - the fourth patch changes IPv4 and IPv6 to allow to delete the local rule
->   with priority 0. This allows to re-create it using a lower priority and
->   insert new rules below it to force packets with a local destination out
->   on the wire.
-> 
-> - the fifth patch adds a devinet sysctl to accept packets with local source
->   addresses in fib_validate_source(). This one unfortunately seems to be
->   necessary, I couldn't come up with a method based purely on adding more
->   routes to fool fib_validate_source() into accepting those packets.
-> 
-> Usage example:
-> 
-> # move local routing rule to lower priority
-> ip rule add pref 1000 lookup local
-> ip rule del pref 0
-> 
-> # only reply to ARP requests for addresses configured on the device
-> echo 1 > /proc/sys/net/ipv4/conf/all/arp_ignore
-> 
-> # configure device and force packets of bound sockets out on eth1
-> ip address add dev eth1 10.0.0.1/24
-> echo 1 > /proc/sys/net/ipv4/conf/eth1/accept_local
-> ip link set eth1 up
-> ip rule add pref 500 oif eth1 lookup 500
-> ip route add default dev eth1 table 500
-> 
-> # configure device and force packets of bound sockets out on eth2
-> ip address add dev eth2 10.0.0.2/24
-> echo 1 > /proc/sys/net/ipv4/conf/eth2/accept_local
-> ip link set eth2 up
-> ip rule add pref 501 oif eth2 lookup 501
-> ip route add default dev eth2 table 501
-> 
-> At this point packets between sockets bound to eth1/eth2 will go over the wire.
+Moving the qdisc_bstats_update(sch, skb); out of choke_enqueue() to
+choke_dequeue(), I get nicer rate values (because packets that are
+enqueued but CHOKed dont artificialy raise the packet/byte rates)
 
-Patrick, thanks a lot for doing this!
+Now, rate properly matches my 10Mbit CBQ bandwidth :
 
-Just a small follow-up: it is possible to setup such loops without
-requiring sockets to be bound to devices. The idea is to setup rules
-like
-
-    $ ip rule add pref 100 to <ip-on-eth1> lookup 100
-    $ ip route add default dev eth0 table 100
-
-so that on TX, packets go through appropriate interfaces.
-
-And for RX, another rules like
-
-    $ ip rule add pref 10 iif eth0 lookup local
-
-so that packets can be received at all.
+qdisc choke 11: parent 1:11 limit 130000b min 10833b max 32500b ewma 13=
+ Plog 21 Scell_log 30
+ Sent 86470970 bytes 157418 pkt (dropped 127451, overlimits 48275 reque=
+ues 0)=20
+ rate 9947Kbit 2264pps backlog 17759368b 32288p requeues 0=20
+  marked 0 early 48275 pdrop 0 other 0 matched 39588
 
 
-I've spent several days to find this, debugging and tracing kernel and
-trying various variants on how to do it, so I though I'd better share
-the info for poor souls like me :)
-
-For completeness, here is the script which will setup tap0/tap1 loop
-through virtual vde_switch.
-
- ( Jonathan, I though something like this could be useful for LDD4 in
-   revised snull not needing to play dirty tricks with IP addresses anymore )
-
-
----- 8< (mk-tap-loop.sh) ----
-#!/bin/sh -e
-
-# reset interfaces
-ip link del tap0 2>/dev/null || :
-ip link del tap1 2>/dev/null || :
-
-# create interfaces
-vde_tunctl -t tap0
-vde_tunctl -t tap1
-
-# assign addresses
-ip addr add 192.168.23.10/24 dev tap0
-ip addr add 192.168.23.11/24 dev tap1
-
-# put ifs up
-ip link set tap0 up
-ip link set tap1 up
-
-# lower priority of kernel local table to 500
-ip rule del pref   0 lookup local 2>/dev/null || :
-ip rule del pref 500 lookup local 2>/dev/null || :
-ip rule add pref 500 lookup local
-
-# on rx side handle packets by local table, so we can receive them
-echo 1 >/proc/sys/net/ipv4/conf/tap0/accept_local
-echo 1 >/proc/sys/net/ipv4/conf/tap1/accept_local
-ip rule del pref 10 2>/dev/null || :
-ip rule del pref 11 2>/dev/null || :
-ip rule add pref 10 iif tap0 lookup local
-ip rule add pref 11 iif tap1 lookup local
-
-# tx
-ip rule del pref 100 2>/dev/null || :
-ip rule del pref 101 2>/dev/null || :
-ip rule add pref 100 to 192.168.23.10 lookup 100	# tap0 <- tap1
-ip rule add pref 101 to 192.168.23.11 lookup 101	# tap1 <- tap0
-
-ip route flush table 100
-ip route flush table 101
-ip route add default dev tap1 table 100
-ip route add default dev tap0 table 101
-
-
-# ensure (visually) we've set up it ok
-
-echo
-echo " >>> rules:"
-ip rule
-
-echo
-echo " >>> tap(0|1) routing table:"
-#routel | grep '\<tap\(0\|1\)\>'
-ip route show table all | grep '\<tap\(0\|1\)\>'
-
-# tx path
-echo
-echo " >>> checking routing for tx path:"
-ip route get 192.168.23.10 connected
-ip route get 192.168.23.11 connected
-
-# rx path
-echo
-echo " >>> checking routing for rx path:"
-ip route get from 192.168.23.10 to 192.168.23.11 iif tap1
-ip route get from 192.168.23.11 to 192.168.23.10 iif tap0
+=46or other qdiscs, it is less easy because qdisc_bstats_update() call =
+is
+integrated in __qdisc_enqueue_tail() / qdisc_enqueue_tail(), so all
+users shall be updated at once.
 
 
 
-# start switch and connect switch-tap0 and switch-tap1
-echo
-echo " >>> ready to start vde_switch and connect wires..."
-read
-screen sh -c 'screen sh -cx "sleep 4; vde_plug2tap tap0"; screen sh -cx "sleep 4; vde_plug2tap tap1"; sh -cx vde_switch'
 
 
-# now e.g. ping 192.168.23.11 sends packets to tap0 which are received
-# on tap1 and ICMP-ECHO'ed by kernel on tap1 and received on tap0.
