@@ -1,49 +1,60 @@
-From: Anca Emanuel <anca.emanuel@gmail.com>
-Subject: Kernel 2.6.37-git10 build failure: cassini.c
-Date: Fri, 14 Jan 2011 10:09:43 +0200
-Message-ID: <AANLkTin61iqrD0Jbax+cvQ1wxD8b=c4KJv7pBSvU7kbv@mail.gmail.com>
+From: Daniel Hellstrom <daniel@gaisler.com>
+Subject: Re: [PATCH 04/10] GRETH: added greth_compat_mode module parameter
+Date: Fri, 14 Jan 2011 09:10:43 +0100
+Message-ID: <4D300503.9030709@gaisler.com>
+References: <1294907135-24884-1-git-send-email-daniel@gaisler.com>	<1294907135-24884-4-git-send-email-daniel@gaisler.com> <20110113.221454.149673942.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Grant Likely <grant.likely@secretlab.ca>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Christoph Egger <siccegge@cs.fau.de>,
-	Jiri Pirko <jpirko@redhat.com>
-To: LKML <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kristoffer@gaisler.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43082 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951Ab1ANIJq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 03:09:46 -0500
+Received: from mail175c2.megamailservers.com ([69.49.111.75]:42686 "EHLO
+	mail175c2.megamailservers.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752865Ab1ANIKx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 03:10:53 -0500
+In-Reply-To: <20110113.221454.149673942.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-drivers/net/cassini.c: In function =91cas_get_vpd_info=92:
-drivers/net/cassini.c:3358: error: implicit declaration of function
-=91of_get_property=92
-drivers/net/cassini.c:3358: warning: assignment makes pointer from
-integer without a cast
-drivers/net/cassini.c: In function =91cas_init_one=92:
-drivers/net/cassini.c:5035: error: implicit declaration of function
-=91pci_device_to_OF_node=92
-drivers/net/cassini.c:5035: warning: assignment makes pointer from
-integer without a cast
-make[3]: *** [drivers/net/cassini.o] Error 1
-make[2]: *** [drivers/net] Error 2
+David Miller wrote:
 
+>From: Daniel Hellstrom <daniel@gaisler.com>
+>Date: Thu, 13 Jan 2011 09:25:29 +0100
+>
+>  
+>
+>>The greth_compat_mode option can be used to set a GRETH GBit capable MAC
+>>in operate as if the GRETH 10/100 device was found. The GRETH GBit supports
+>>TCP/UDP checksum offloading, unaligned frame buffers, scatter gather etc.
+>>Enabling this mode allows the developer to test the GRETH 10/100 device
+>>without all features mentioned above on a GBit MAC capable of the above.
+>>
+>>Signed-off-by: Daniel Hellstrom <daniel@gaisler.com>
+>>    
+>>
+>
+>No special device specific module parameters please.
+>
+>What if every single driver author added something like this and they
+>all named it something different or made it behave in slightly differing
+>ways?
+>
+>What kind of user experience would that result in?
+>
+>It would result in a sucky one, which is why we avoid adding all kinds
+>of hacky driver specific module options.
+>
+>Find a generic way to provide this functionality.
+>  
+>
+I understand, it was not ment to be a user-experience, rather a 
+developer debugging option. I will probably need an option like this in 
+the future to avoid searching a very long time for very old hardware, I 
+will try to find an other solution for it in the future.
 
-The first part can be solved with:
+I will remove the 3 GRETH patches and resubmit the others.
 
-diff --git a/drivers/net/cassini.c b/drivers/net/cassini.c
-index 7206ab2..fe3795e 100644
---- a/drivers/net/cassini.c
-+++ b/drivers/net/cassini.c
-@@ -94,6 +94,7 @@
- #include <linux/tcp.h>
- #include <linux/mutex.h>
- #include <linux/firmware.h>
-+#include <linux/of.h>
+Thanks,
+Daniel
 
- #include <net/checksum.h>
