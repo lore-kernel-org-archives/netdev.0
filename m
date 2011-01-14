@@ -1,43 +1,61 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: [PATCH resend] Bluetooth: l2cap: fix misuse of logical
- operation in place of bitop
-Date: Fri, 14 Jan 2011 14:30:56 -0200
-Message-ID: <20110114163056.GA3736@vigoh>
-References: <1295013584-15592-1-git-send-email-dsterba@suse.cz>
+From: Ben Hutchings <benh@debian.org>
+Subject: Re: [PATCH] r8169: keep firmware in memory.
+Date: Fri, 14 Jan 2011 16:30:35 +0000
+Message-ID: <20110114163035.GY3702@decadent.org.uk>
+References: <20110113230753.GA2750@electric-eye.fr.zoreil.com> <4D2FF29C.1050101@msgid.tls.msk.ru> <AANLkTikiGeSfae3guWRMp_hsh61JibacPpwGZVbgSy7h@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-To: David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Michael Tokarev <mjt@tls.msk.ru>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jarek =?utf-8?B?S2FtacWEc2tp?= <jarek@vilo.eu.org>,
+	Hayes <hayeswang@realtek.com>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52283 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757972Ab1ANQbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 11:31:21 -0500
 Content-Disposition: inline
-In-Reply-To: <1295013584-15592-1-git-send-email-dsterba-AlSwsSmVLrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <AANLkTikiGeSfae3guWRMp_hsh61JibacPpwGZVbgSy7h@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-* David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org> [2011-01-14 14:59:44 +0100]:
-
-> CC: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> CC: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> CC: Jo=E3o Paulo Rechi Vita <jprvita-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> Signed-off-by: David Sterba <dsterba-AlSwsSmVLrQ@public.gmane.org>
-> ---
+On Fri, Jan 14, 2011 at 08:05:22AM -0800, Linus Torvalds wrote:
+> [ background for new people in discussion: once more, a driver resume
+> didn't get a working firmware load. ]
 >=20
-> Andrew, this has not been picked up by maintainers since 27.12., plea=
-se consider it for -mm.
+> On Thu, Jan 13, 2011 at 10:52 PM, Michael Tokarev <mjt@tls.msk.ru> wr=
+ote:
+> >
+> > Given all this I think this is somewhat clumsy still. =A0How
+> > does other NIC drivers handles this situation - e.g. tg3?
+> > Maybe this needs to be a generic solution instead of per-driver?
 >=20
->  net/bluetooth/l2cap.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+> We've had this bug several times - and not just for network drivers
+> either.
+[...]
+> Maybe the firmware loader could be made more useful to automatically
+> handle the caching (it already knows about built-in firmware) for the
+> case where CONFIG_PM is enabled. So that drivers _could_ just
+> basically do "request_firmware()" in their resume functions, and it
+> would get satisfied from RAM for the re-request case.
+[...]
+=20
+This is something I started to implement, but never got finished.  I
+don't think it can be done without an API change, though, as we need
+to know when to drop firmware from the cache.  But perhaps this could
+be done with a hook in the device-driver binding code.
 
-I'm taking care of this. Sorry for the delay, I've been away a bit.
-Patch is now applied to Bluetooth tree. Thanks.
+Ben.
 
 --=20
-Gustavo F. Padovan
-http://profusion.mobi
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+                                                              - Albert =
+Camus
