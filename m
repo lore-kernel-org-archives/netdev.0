@@ -1,53 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: Kernel 2.6.37-git10 build failure: cassini.c
-Date: Fri, 14 Jan 2011 12:41:16 -0800 (PST)
-Message-ID: <20110114.124116.197952526.davem@davemloft.net>
-References: <AANLkTin61iqrD0Jbax+cvQ1wxD8b=c4KJv7pBSvU7kbv@mail.gmail.com>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 1/2] genirq: Add IRQ affinity notifiers
+Date: Fri, 14 Jan 2011 21:40:16 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.1101142138090.2678@localhost6.localdomain6>
+References: <1294169842.3636.31.camel@bwh-desktop>  <1294169919.3636.33.camel@bwh-desktop>  <alpine.LFD.2.00.1101141928210.2678@localhost6.localdomain6> <1295035597.5386.8.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	grant.likely@secretlab.ca, eric.dumazet@gmail.com, joe@perches.com,
-	siccegge@cs.fau.de, jpirko@redhat.com
-To: anca.emanuel@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTin61iqrD0Jbax+cvQ1wxD8b=c4KJv7pBSvU7kbv@mail.gmail.com>
+In-Reply-To: <1295035597.5386.8.camel@bwh-desktop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogQW5jYSBFbWFudWVsIDxhbmNhLmVtYW51ZWxAZ21haWwuY29tPg0KRGF0ZTogRnJpLCAx
-NCBKYW4gMjAxMSAxMDowOTo0MyArMDIwMA0KDQo+IGRyaXZlcnMvbmV0L2Nhc3NpbmkuYzogSW4g
-ZnVuY3Rpb24goWNhc19nZXRfdnBkX2luZm+iOg0KPiBkcml2ZXJzL25ldC9jYXNzaW5pLmM6MzM1
-ODogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uIG9mIGZ1bmN0aW9uDQo+IKFvZl9nZXRfcHJv
-cGVydHmiDQo+IGRyaXZlcnMvbmV0L2Nhc3NpbmkuYzozMzU4OiB3YXJuaW5nOiBhc3NpZ25tZW50
-IG1ha2VzIHBvaW50ZXIgZnJvbQ0KPiBpbnRlZ2VyIHdpdGhvdXQgYSBjYXN0DQo+IGRyaXZlcnMv
-bmV0L2Nhc3NpbmkuYzogSW4gZnVuY3Rpb24goWNhc19pbml0X29uZaI6DQo+IGRyaXZlcnMvbmV0
-L2Nhc3NpbmkuYzo1MDM1OiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24N
-Cj4goXBjaV9kZXZpY2VfdG9fT0Zfbm9kZaINCj4gZHJpdmVycy9uZXQvY2Fzc2luaS5jOjUwMzU6
-IHdhcm5pbmc6IGFzc2lnbm1lbnQgbWFrZXMgcG9pbnRlciBmcm9tDQo+IGludGVnZXIgd2l0aG91
-dCBhIGNhc3QNCj4gbWFrZVszXTogKioqIFtkcml2ZXJzL25ldC9jYXNzaW5pLm9dIEVycm9yIDEN
-Cj4gbWFrZVsyXTogKioqIFtkcml2ZXJzL25ldF0gRXJyb3IgMg0KDQpUaGlzIGlzIHRoZSBmaXgg
-SSdsbCBiZSB1c2luZzoNCg0KLS0tLS0tLS0tLS0tLS0tLS0tLS0NCmNhc3Npbmk6IEZpeCBidWls
-ZCBidXN0YWdlIG9uIHg4Ni4NCg0KVW5mb3J0dW5hdGVseSwgbm90IGFsbCBDT05GSUdfT0YgcGxh
-dGZvcm1zIHByb3ZpZGUNCnBjaV9kZXZpY2VfdG9fT0Zfbm9kZSgpLg0KDQpDaGFuZ2UgdGhlIHRl
-c3QgdG8gQ09ORklHX1NQQVJDIGZvciBub3cgdG8gZGVhbCB3aXRoDQp0aGUgYnVpbGQgcmVncmVz
-c2lvbnMuDQoNClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0
-Lm5ldD4NCi0tLQ0KIGRyaXZlcnMvbmV0L2Nhc3NpbmkuYyB8ICAgIDYgKysrLS0tDQogMSBmaWxl
-cyBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC9jYXNzaW5pLmMgYi9kcml2ZXJzL25ldC9jYXNzaW5pLmMNCmluZGV4IDcy
-MDZhYjIuLjM0Mzc2MTMgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9jYXNzaW5pLmMNCisrKyBi
-L2RyaXZlcnMvbmV0L2Nhc3NpbmkuYw0KQEAgLTMyMDMsNyArMzIwMyw3IEBAIHN0YXRpYyBpbnQg
-Y2FzX2dldF92cGRfaW5mbyhzdHJ1Y3QgY2FzICpjcCwgdW5zaWduZWQgY2hhciAqZGV2X2FkZHIs
-DQogCWludCBwaHlfdHlwZSA9IENBU19QSFlfTUlJX01ESU8wOyAvKiBkZWZhdWx0IHBoeSB0eXBl
-ICovDQogCWludCBtYWNfb2ZmICA9IDA7DQogDQotI2lmIGRlZmluZWQoQ09ORklHX09GKQ0KKyNp
-ZiBkZWZpbmVkKENPTkZJR19TUEFSQykNCiAJY29uc3QgdW5zaWduZWQgY2hhciAqYWRkcjsNCiAj
-ZW5kaWYNCiANCkBAIC0zMzU0LDcgKzMzNTQsNyBAQCB1c2VfcmFuZG9tX21hY19hZGRyOg0KIAlp
-ZiAoZm91bmQgJiBWUERfRk9VTkRfTUFDKQ0KIAkJZ290byBkb25lOw0KIA0KLSNpZiBkZWZpbmVk
-KENPTkZJR19PRikNCisjaWYgZGVmaW5lZChDT05GSUdfU1BBUkMpDQogCWFkZHIgPSBvZl9nZXRf
-cHJvcGVydHkoY3AtPm9mX25vZGUsICJsb2NhbC1tYWMtYWRkcmVzcyIsIE5VTEwpOw0KIAlpZiAo
-YWRkciAhPSBOVUxMKSB7DQogCQltZW1jcHkoZGV2X2FkZHIsIGFkZHIsIDYpOw0KQEAgLTUwMzEs
-NyArNTAzMSw3IEBAIHN0YXRpYyBpbnQgX19kZXZpbml0IGNhc19pbml0X29uZShzdHJ1Y3QgcGNp
-X2RldiAqcGRldiwNCiAJY3AtPm1zZ19lbmFibGUgPSAoY2Fzc2luaV9kZWJ1ZyA8IDApID8gQ0FT
-X0RFRl9NU0dfRU5BQkxFIDoNCiAJICBjYXNzaW5pX2RlYnVnOw0KIA0KLSNpZiBkZWZpbmVkKENP
-TkZJR19PRikNCisjaWYgZGVmaW5lZChDT05GSUdfU1BBUkMpDQogCWNwLT5vZl9ub2RlID0gcGNp
-X2RldmljZV90b19PRl9ub2RlKHBkZXYpOw0KICNlbmRpZg0KIA0KLS0gDQoxLjcuMy40DQoNCg==
+On Fri, 14 Jan 2011, Ben Hutchings wrote:
+> On Fri, 2011-01-14 at 20:47 +0100, Thomas Gleixner wrote:
+> > > +#if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_HARDIRQS)
+> > 
+> > The whole affinity thing is SMP and GENERIC_HARDIRQS only anyway, so
+> > what's the point of this ifdeffery ?
+> 
+> The intent is that code using this can be compiled even if those config
+> options are not set.  The work_struct is not needed in that case.  I
+> think this is probably pointless though.
+
+Yup, work_struct is defined for the !SMP and !GENERIC_HARDIRQS case as
+well :)
+ 
+> > > +        struct work_struct work;
+> > > +#endif
+> > > +        void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
+> > > +        void (*release)(struct kref *ref);
+> > > +};
+> > > +
+> > 
+> > > +/**
+> > > + *	irq_set_affinity_notifier - control notification of IRQ affinity changes
+> > > + *	@irq:		Interrupt for which to enable/disable notification
+> > > + *	@notify:	Context for notification, or %NULL to disable
+> > > + *			notification.  Function pointers must be initialised;
+> > > + *			the other fields will be initialised by this function.
+> > > + *
+> > > + *	Must be called in process context.  Notification may only be enabled
+> > > + *	after the IRQ is allocated but before it is bound with request_irq()
+> > 
+> > Why? And if there is that restriction, then it needs to be
+> > checked. But I don't see why this is necessary.
+> 
+> Which restriction?
+
+  Notification may only be enabled after the IRQ is allocated but
+  before it is bound with request_irq()
+
+After IRQ is allocated is obvious, but why needs it to be done
+_before_ request_irq() ?
+
+Thanks,
+
+	tglx
