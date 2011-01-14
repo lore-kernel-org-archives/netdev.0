@@ -1,45 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8169: keep firmware in memory.
-Date: Thu, 13 Jan 2011 21:50:20 -0800 (PST)
-Message-ID: <20110113.215020.69966117.davem@davemloft.net>
-References: <20110113230753.GA2750@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] USB CDC NCM: Don't deref NULL in cdc_ncm_rx_fixup()
+ and don't use uninitialized variable.
+Date: Thu, 13 Jan 2011 21:50:28 -0800 (PST)
+Message-ID: <20110113.215028.237355303.davem@davemloft.net>
+References: <alpine.LNX.2.00.1101132229260.11347@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, jarek@vilo.eu.org, hayeswang@realtek.com,
-	benh@debian.org, torvalds@linux-foundation.org
-To: romieu@fr.zoreil.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, oliver@neukum.name, gregkh@suse.de,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	alexey.orishko@stericsson.com, hans.petter.selasky@stericsson.com
+To: jj@chaosbits.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49933
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49940
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752375Ab1ANFtr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jan 2011 00:49:47 -0500
-In-Reply-To: <20110113230753.GA2750@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1752375Ab1ANFt4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 00:49:56 -0500
+In-Reply-To: <alpine.LNX.2.00.1101132229260.11347@swampdragon.chaosbits.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Francois Romieu <romieu@fr.zoreil.com>
-Date: Fri, 14 Jan 2011 00:07:53 +0100
-
-> The firmware agent is not available during resume. Loading the firmwa=
-re
-> during open() (see eee3a96c6368f47df8df5bd4ed1843600652b337) is not
-> enough.
->=20
-> close() is run during resume through rtl8169_reset_task(), whence the
-> mildly natural release of firmware in the driver removal method inste=
-ad.
->=20
-> It will help with http://bugs.debian.org/609538. It will not avoid
-> the 60 seconds delay when:
-> - there is no firmware
-> - the driver is loaded and the device is not up before a suspend/resu=
-me
->=20
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-> Tested-by: Jarek Kami=F1ski <jarek@vilo.eu.org>
-> Cc: Hayes <hayeswang@realtek.com>
-> Cc: Ben Hutchings <benh@debian.org>
-
-Applied.
+RnJvbTogSmVzcGVyIEp1aGwgPGpqQGNoYW9zYml0cy5uZXQ+DQpEYXRlOiBUaHUsIDEzIEphbiAy
+MDExIDIyOjQwOjExICswMTAwIChDRVQpDQoNCj4gc2tiX2Nsb25lKCkgZHluYW1pY2FsbHkgYWxs
+b2NhdGVzIG1lbW9yeSBhbmQgbWF5IGZhaWwuIElmIGl0IGRvZXMgaXQgDQo+IHJldHVybnMgTlVM
+TC4gVGhpcyBtZWFucyB3ZSdsbCBkZXJlZmVyZW5jZSBhIE5VTEwgcG9pbnRlciBpbiANCj4gZHJp
+dmVycy9uZXQvdXNiL2NkY19uY20uYzo6Y2RjX25jbV9yeF9maXh1cCgpLg0KPiBBcyBmYXIgYXMg
+SSBjYW4gdGVsbCwgdGhlIHByb3BlciB3YXkgdG8gZGVhbCB3aXRoIHRoaXMgaXMgc2ltcGx5IHRv
+IGdvdG8gDQo+IHRoZSBlcnJvciBsYWJlbC4NCj4gDQo+IEZ1cnRoZXJtb3JlIGdjYyBjb21wbGFp
+bnMgdGhhdCAnc2tiJyBtYXkgYmUgdXNlZCB1bmluaXRpYWxpemVkOg0KPiAgIGRyaXZlcnMvbmV0
+L3VzYi9jZGNfbmNtLmM6IEluIGZ1bmN0aW9uIKFjZGNfbmNtX3J4X2ZpeHVwojoNCj4gICBkcml2
+ZXJzL25ldC91c2IvY2RjX25jbS5jOjkyMjoxODogd2FybmluZzogoXNrYqIgbWF5IGJlIHVzZWQg
+dW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uDQo+IGFuZCBJIGJlbGlldmUgaXQgaXMgcmln
+aHQuIE9uIHRoZSBsaW5lIHdoZXJlIHdlDQo+ICAgcHJfZGVidWcoImludmFsaWQgZnJhbWUgZGV0
+ZWN0ZWQgKGlnbm9yZWQpIiAuLi4NCj4gd2UgYXJlIHVzaW5nIHRoZSBsb2NhbCB2YXJpYWJsZSAn
+c2tiJyBidXQgbm90aGluZyBoYXMgZXZlciBiZWVuIGFzc2lnbmVkIA0KPiB0byB0aGF0IHZhcmlh
+YmxlIHlldC4gSSBiZWxpZXZlIHRoZSBjb3JyZWN0IGZpeCBmb3IgdGhhdCBpcyB0byB1c2UgDQo+
+ICdza2JfaW4nIGluc3RlYWQuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBKZXNwZXIgSnVobCA8ampA
+Y2hhb3NiaXRzLm5ldD4NCg0KQXBwbGllZC4NCg==
