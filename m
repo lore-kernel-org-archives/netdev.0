@@ -1,327 +1,124 @@
-From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v3 06/16] lockd: get rpc_pipefs mount point from callers
-Date: Fri, 14 Jan 2011 15:49:04 +0200
-Message-ID: <1295012954-7769-7-git-send-email-kas@openvz.org>
+From: "Kirill A. Shutemov" <kas@openvz.org>
+Subject: [PATCH v3 09/16] sunrpc: introduce rpc_pipefs_add_destroy_cb()
+Date: Fri, 14 Jan 2011 15:49:07 +0200
+Message-ID: <1295012954-7769-10-git-send-email-kas@openvz.org>
 References: <1295012954-7769-1-git-send-email-kas@openvz.org>
-Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-To: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1295012954-7769-1-git-send-email-kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Rob Landley <rlandley@parallels.com>,
+	Al Viro <viro@ZenIV.linux.org.uk>,
+	containers@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, "Kirill A. Shutemov" <kas@openvz.org>
+To: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Neil Brown <neilb@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1295012954-7769-1-git-send-email-kas@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Kirill A. Shutemov <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
----
- fs/lockd/clntlock.c         |    8 +++++---
- fs/lockd/host.c             |   17 ++++++++++++++---
- fs/lockd/mon.c              |   15 ++++++++-------
- fs/lockd/svc.c              |    6 ++----
- fs/nfs/client.c             |    1 +
- fs/nfsd/nfssvc.c            |    2 +-
- include/linux/lockd/bind.h  |    3 ++-
- include/linux/lockd/lockd.h |    4 +++-
- 8 files changed, 36 insertions(+), 20 deletions(-)
+Add facility to do some action on destroying of rpc_pipefs superblock.
 
-diff --git a/fs/lockd/clntlock.c b/fs/lockd/clntlock.c
-index 8d4ea83..4664c56 100644
---- a/fs/lockd/clntlock.c
-+++ b/fs/lockd/clntlock.c
-@@ -56,13 +56,14 @@ struct nlm_host *nlmclnt_init(const struct nlmclnt_initdata *nlm_init)
- 	u32 nlm_version = (nlm_init->nfs_version == 2) ? 1 : 4;
- 	int status;
+Signed-off-by: Kirill A. Shutemov <kas@openvz.org>
+---
+ include/linux/sunrpc/rpc_pipe_fs.h |    3 ++
+ net/sunrpc/rpc_pipe.c              |   51 ++++++++++++++++++++++++++++++++++-
+ 2 files changed, 52 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index b09bfa5..f5216f1 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -46,6 +46,9 @@ RPC_I(struct inode *inode)
  
--	status = lockd_up();
-+	status = lockd_up(nlm_init->rpcmount);
- 	if (status < 0)
- 		return ERR_PTR(status);
+ extern struct vfsmount *init_rpc_pipefs;
  
- 	host = nlmclnt_lookup_host(nlm_init->address, nlm_init->addrlen,
- 				   nlm_init->protocol, nlm_version,
--				   nlm_init->hostname, nlm_init->noresvport);
-+				   nlm_init->hostname, nlm_init->noresvport,
-+				   nlm_init->rpcmount);
- 	if (host == NULL) {
- 		lockd_down();
- 		return ERR_PTR(-ENOLCK);
-@@ -223,7 +224,8 @@ reclaimer(void *ptr)
- 	allow_signal(SIGKILL);
- 
- 	down_write(&host->h_rwsem);
--	lockd_up();	/* note: this cannot fail as lockd is already running */
-+	/* note: this cannot fail as lockd is already running */
-+	lockd_up(host->h_rpcmount);
- 
- 	dprintk("lockd: reclaiming locks for host %s\n", host->h_name);
- 
-diff --git a/fs/lockd/host.c b/fs/lockd/host.c
-index 7ed06d2..d5ca8f9 100644
---- a/fs/lockd/host.c
-+++ b/fs/lockd/host.c
-@@ -14,9 +14,10 @@
- #include <linux/in6.h>
- #include <linux/sunrpc/clnt.h>
- #include <linux/sunrpc/svc.h>
--#include <linux/sunrpc/rpc_pipe_fs.h>
- #include <linux/lockd/lockd.h>
- #include <linux/mutex.h>
-+#include <linux/mount.h>
++extern int rpc_pipefs_add_destroy_cb(struct super_block *sb,
++		void (*destroy_cb)(void *data), void *data);
 +
+ extern int rpc_queue_upcall(struct inode *, struct rpc_pipe_msg *);
  
- #include <net/ipv6.h>
+ struct rpc_clnt;
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 484c9a3..39511e3 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -939,6 +939,31 @@ static const struct super_operations s_ops = {
  
-@@ -55,6 +56,7 @@ struct nlm_lookup_host_info {
- 	const char		*hostname;	/* remote's hostname */
- 	const size_t		hostname_len;	/* it's length */
- 	const int		noresvport;	/* use non-priv port */
-+	struct vfsmount		*rpcmount;	/* rpc_pipefs mount point */
- };
+ #define RPCAUTH_GSSMAGIC 0x67596969
  
++struct destroy_cb {
++	struct list_head list;
++	void (*callback)(void *data);
++	void *data;
++};
++
++int rpc_pipefs_add_destroy_cb(struct super_block *sb,
++		void (*destroy_cb)(void *data), void *data)
++{
++	struct destroy_cb *dcb;
++	struct list_head *destroy_cb_list = sb->s_fs_info;
++
++	dcb = kmalloc(sizeof(*dcb), GFP_KERNEL);
++	if (!dcb)
++		return -ENOMEM;
++
++	dcb->callback = destroy_cb;
++	dcb->data = data;
++	INIT_LIST_HEAD(&dcb->list);
++	list_add(&dcb->list, destroy_cb_list);
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(rpc_pipefs_add_destroy_cb);
++
  /*
-@@ -134,6 +136,7 @@ static struct nlm_host *nlm_alloc_host(struct nlm_lookup_host_info *ni,
- 	host->h_srcaddrlen = 0;
- 
- 	host->h_rpcclnt    = NULL;
-+	host->h_rpcmount   = mntget(ni->rpcmount);
- 	host->h_name	   = nsm->sm_name;
- 	host->h_version    = ni->version;
- 	host->h_proto      = ni->protocol;
-@@ -179,6 +182,7 @@ static void nlm_destroy_host_locked(struct nlm_host *host)
- 
- 	nsm_unmonitor(host);
- 	nsm_release(host->h_nsmhandle);
-+	mntput(host->h_rpcmount);
- 
- 	clnt = host->h_rpcclnt;
- 	if (clnt != NULL)
-@@ -207,7 +211,8 @@ struct nlm_host *nlmclnt_lookup_host(const struct sockaddr *sap,
- 				     const unsigned short protocol,
- 				     const u32 version,
- 				     const char *hostname,
--				     int noresvport)
-+				     int noresvport,
-+				     struct vfsmount *rpcmount)
- {
- 	struct nlm_lookup_host_info ni = {
- 		.server		= 0,
-@@ -218,6 +223,7 @@ struct nlm_host *nlmclnt_lookup_host(const struct sockaddr *sap,
- 		.hostname	= hostname,
- 		.hostname_len	= strlen(hostname),
- 		.noresvport	= noresvport,
-+		.rpcmount	= rpcmount,
- 	};
- 	struct hlist_head *chain;
- 	struct hlist_node *pos;
-@@ -243,6 +249,8 @@ struct nlm_host *nlmclnt_lookup_host(const struct sockaddr *sap,
- 			continue;
- 		if (host->h_version != version)
- 			continue;
-+		if (host->h_rpcmount->mnt_sb != ni.rpcmount->mnt_sb)
-+			continue;
- 
- 		nlm_get_host(host);
- 		dprintk("lockd: %s found host %s (%s)\n", __func__,
-@@ -333,6 +341,7 @@ struct nlm_host *nlmsvc_lookup_host(const struct svc_rqst *rqstp,
- 		.version	= rqstp->rq_vers,
- 		.hostname	= hostname,
- 		.hostname_len	= hostname_len,
-+		.rpcmount	= rqstp->rq_server->sv_rpcmount,
- 	};
- 
- 	dprintk("lockd: %s(host='%*s', vers=%u, proto=%s)\n", __func__,
-@@ -374,6 +383,8 @@ struct nlm_host *nlmsvc_lookup_host(const struct svc_rqst *rqstp,
- 			continue;
- 		if (!rpc_cmp_addr(nlm_srcaddr(host), src_sap))
- 			continue;
-+		if (host->h_rpcmount->mnt_sb != ni.rpcmount->mnt_sb)
-+			continue;
- 
- 		/* Move to head of hash chain. */
- 		hlist_del(&host->h_hash);
-@@ -464,7 +475,7 @@ nlm_bind_host(struct nlm_host *host)
- 			.authflavor	= RPC_AUTH_UNIX,
- 			.flags		= (RPC_CLNT_CREATE_NOPING |
- 					   RPC_CLNT_CREATE_AUTOBIND),
--			.rpcmount	= init_rpc_pipefs,
-+			.rpcmount	= host->h_rpcmount,
- 		};
- 
- 		/*
-diff --git a/fs/lockd/mon.c b/fs/lockd/mon.c
-index 6219026..a121f5e 100644
---- a/fs/lockd/mon.c
-+++ b/fs/lockd/mon.c
-@@ -15,7 +15,6 @@
- #include <linux/sunrpc/clnt.h>
- #include <linux/sunrpc/xprtsock.h>
- #include <linux/sunrpc/svc.h>
--#include <linux/sunrpc/rpc_pipe_fs.h>
- #include <linux/lockd/lockd.h>
- 
- #include <asm/unaligned.h>
-@@ -63,7 +62,7 @@ static inline struct sockaddr *nsm_addr(const struct nsm_handle *nsm)
- 	return (struct sockaddr *)&nsm->sm_addr;
- }
- 
--static struct rpc_clnt *nsm_create(void)
-+static struct rpc_clnt *nsm_create(struct vfsmount *rpcmount)
- {
- 	struct sockaddr_in sin = {
- 		.sin_family		= AF_INET,
-@@ -79,13 +78,14 @@ static struct rpc_clnt *nsm_create(void)
- 		.version		= NSM_VERSION,
- 		.authflavor		= RPC_AUTH_NULL,
- 		.flags			= RPC_CLNT_CREATE_NOPING,
--		.rpcmount		= init_rpc_pipefs,
-+		.rpcmount		= rpcmount,
- 	};
- 
- 	return rpc_create(&args);
- }
- 
--static int nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res)
-+static int nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res,
-+		struct vfsmount *rpcmount)
- {
- 	struct rpc_clnt	*clnt;
- 	int		status;
-@@ -101,7 +101,7 @@ static int nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res)
- 		.rpc_resp	= res,
- 	};
- 
--	clnt = nsm_create();
-+	clnt = nsm_create(rpcmount);
- 	if (IS_ERR(clnt)) {
- 		status = PTR_ERR(clnt);
- 		dprintk("lockd: failed to create NSM upcall transport, "
-@@ -151,7 +151,7 @@ int nsm_monitor(const struct nlm_host *host)
- 	 */
- 	nsm->sm_mon_name = nsm_use_hostnames ? nsm->sm_name : nsm->sm_addrbuf;
- 
--	status = nsm_mon_unmon(nsm, NSMPROC_MON, &res);
-+	status = nsm_mon_unmon(nsm, NSMPROC_MON, &res, host->h_rpcmount);
- 	if (unlikely(res.status != 0))
- 		status = -EIO;
- 	if (unlikely(status < 0)) {
-@@ -185,7 +185,8 @@ void nsm_unmonitor(const struct nlm_host *host)
- 	 && nsm->sm_monitored && !nsm->sm_sticky) {
- 		dprintk("lockd: nsm_unmonitor(%s)\n", nsm->sm_name);
- 
--		status = nsm_mon_unmon(nsm, NSMPROC_UNMON, &res);
-+		status = nsm_mon_unmon(nsm, NSMPROC_UNMON, &res,
-+				host->h_rpcmount);
- 		if (res.status != 0)
- 			status = -EIO;
- 		if (status < 0)
-diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index 32310b1..7387b04 100644
---- a/fs/lockd/svc.c
-+++ b/fs/lockd/svc.c
-@@ -31,7 +31,6 @@
- #include <linux/sunrpc/clnt.h>
- #include <linux/sunrpc/svc.h>
- #include <linux/sunrpc/svcsock.h>
--#include <linux/sunrpc/rpc_pipe_fs.h>
- #include <net/ip.h>
- #include <linux/lockd/lockd.h>
- #include <linux/nfs.h>
-@@ -249,7 +248,7 @@ out_err:
- /*
-  * Bring up the lockd process if it's not already up.
+  * We have a single directory with 1 node in it.
   */
--int lockd_up(void)
-+int lockd_up(struct vfsmount *rpcmount)
- {
- 	struct svc_serv *serv;
- 	int		error = 0;
-@@ -270,8 +269,7 @@ int lockd_up(void)
- 			"lockd_up: no pid, %d users??\n", nlmsvc_users);
+@@ -1004,8 +1029,16 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
+ 		iput(inode);
+ 		return -ENOMEM;
+ 	}
+-	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL))
++	/* List of destroy callbacks */
++	sb->s_fs_info = kmalloc(sizeof(struct list_head), GFP_KERNEL);
++	if (!sb->s_fs_info)
++		return -ENOMEM;
++	INIT_LIST_HEAD((struct list_head*) &sb->s_fs_info);
++	if (rpc_populate(root, files, RPCAUTH_lockd, RPCAUTH_RootEOF, NULL)) {
++		kfree(sb->s_fs_info);
+ 		return -ENOMEM;
++	}
++
+ 	return 0;
+ }
  
- 	error = -ENOMEM;
--	serv = svc_create(&nlmsvc_program, init_rpc_pipefs, LOCKD_BUFSIZE,
--			NULL);
-+	serv = svc_create(&nlmsvc_program, rpcmount, LOCKD_BUFSIZE, NULL);
- 	if (!serv) {
- 		printk(KERN_WARNING "lockd_up: create service failed\n");
- 		goto out;
-diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index 36847f8..ad3b5e8 100644
---- a/fs/nfs/client.c
-+++ b/fs/nfs/client.c
-@@ -675,6 +675,7 @@ static int nfs_start_lockd(struct nfs_server *server)
- 		.nfs_version	= clp->rpc_ops->version,
- 		.noresvport	= server->flags & NFS_MOUNT_NORESVPORT ?
- 					1 : 0,
-+		.rpcmount	= init_rpc_pipefs,
- 	};
+@@ -1016,11 +1049,25 @@ rpc_mount(struct file_system_type *fs_type,
+ 	return mount_single(fs_type, flags, data, rpc_fill_super);
+ }
  
- 	if (nlm_init.nfs_version > 3)
-diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
-index d96c32b..17d78d3 100644
---- a/fs/nfsd/nfssvc.c
-+++ b/fs/nfsd/nfssvc.c
-@@ -220,7 +220,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
- 	ret = nfsd_init_socks(port);
- 	if (ret)
- 		goto out_racache;
--	ret = lockd_up();
-+	ret = lockd_up(init_rpc_pipefs);
- 	if (ret)
- 		goto out_racache;
- 	ret = nfs4_state_start();
-diff --git a/include/linux/lockd/bind.h b/include/linux/lockd/bind.h
-index fbc48f8..97cd4bf 100644
---- a/include/linux/lockd/bind.h
-+++ b/include/linux/lockd/bind.h
-@@ -42,6 +42,7 @@ struct nlmclnt_initdata {
- 	unsigned short		protocol;
- 	u32			nfs_version;
- 	int			noresvport;
-+	struct vfsmount		*rpcmount;
++static void rpc_kill_sb(struct super_block *sb)
++{
++	struct list_head *destroy_cb_list = sb->s_fs_info;
++	struct destroy_cb *dcb, *tmp;
++
++	list_for_each_entry_safe(dcb, tmp, destroy_cb_list, list) {
++		dcb->callback(dcb->data);
++		list_del(&dcb->list);
++		kfree(dcb);
++	}
++	kfree(destroy_cb_list);
++	kill_litter_super(sb);
++}
++
+ static struct file_system_type rpc_pipe_fs_type = {
+ 	.owner		= THIS_MODULE,
+ 	.name		= "rpc_pipefs",
+ 	.mount		= rpc_mount,
+-	.kill_sb	= kill_litter_super,
++	.kill_sb	= rpc_kill_sb,
  };
  
- /*
-@@ -53,7 +54,7 @@ extern void	nlmclnt_done(struct nlm_host *host);
- 
- extern int	nlmclnt_proc(struct nlm_host *host, int cmd,
- 					struct file_lock *fl);
--extern int	lockd_up(void);
-+extern int	lockd_up(struct vfsmount *rpcmount);
- extern void	lockd_down(void);
- 
- #endif /* LINUX_LOCKD_BIND_H */
-diff --git a/include/linux/lockd/lockd.h b/include/linux/lockd/lockd.h
-index ff9abff..32dbb7f 100644
---- a/include/linux/lockd/lockd.h
-+++ b/include/linux/lockd/lockd.h
-@@ -44,6 +44,7 @@ struct nlm_host {
- 	size_t			h_addrlen;
- 	struct sockaddr_storage	h_srcaddr;	/* our address (optional) */
- 	size_t			h_srcaddrlen;
-+	struct vfsmount		*h_rpcmount;	/* rpc_pipefs mount point */
- 	struct rpc_clnt		*h_rpcclnt;	/* RPC client to talk to peer */
- 	char			*h_name;		/* remote hostname */
- 	u32			h_version;	/* interface version */
-@@ -222,7 +223,8 @@ struct nlm_host  *nlmclnt_lookup_host(const struct sockaddr *sap,
- 					const unsigned short protocol,
- 					const u32 version,
- 					const char *hostname,
--					int noresvport);
-+					int noresvport,
-+					struct vfsmount *rpcmount);
- void		  nlmclnt_release_host(struct nlm_host *);
- struct nlm_host  *nlmsvc_lookup_host(const struct svc_rqst *rqstp,
- 					const char *hostname,
+ static void
 -- 
 1.7.3.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
