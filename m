@@ -1,7 +1,7 @@
 From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Subject: [PATCH v3 16/16] Rework get_rpc_pipefs and introduce put_rpc_pipefs()
-Date: Fri, 14 Jan 2011 15:49:14 +0200
-Message-ID: <1295012954-7769-17-git-send-email-kas@openvz.org>
+Subject: [PATCH v3 14/16] sunrpc: make rpc_pipefs be mountable multiple times
+Date: Fri, 14 Jan 2011 15:49:12 +0200
+Message-ID: <1295012954-7769-15-git-send-email-kas@openvz.org>
 References: <1295012954-7769-1-git-send-email-kas@openvz.org>
 Cc: Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -17,191 +17,124 @@ In-Reply-To: <1295012954-7769-1-git-send-email-kas-GEFAQzZX7r8dnm+yROfE0A@public
 Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Now sunrpc module can be removed normally.
+To support containers, allow multiple independent instances of
+rpc_pipefs. Use '-o newinstance' to create new of the filesystem.
+The same semantics as with devpts.
 
 Signed-off-by: Kirill A. Shutemov <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
 ---
- fs/nfs/client.c                    |    4 +-
- fs/nfs/super.c                     |    2 +-
- fs/nfsd/nfs4callback.c             |    2 +-
- fs/nfsd/nfssvc.c                   |    4 +-
- include/linux/sunrpc/rpc_pipe_fs.h |    1 +
- net/sunrpc/rpc_pipe.c              |   51 +++++++++++++++++++++++------------
- 6 files changed, 40 insertions(+), 24 deletions(-)
+ net/sunrpc/rpc_pipe.c |   80 ++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 79 insertions(+), 1 deletions(-)
 
-diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index 8dd0e99..0b8ac12 100644
---- a/fs/nfs/client.c
-+++ b/fs/nfs/client.c
-@@ -838,7 +838,7 @@ static int nfs_init_server(struct nfs_server *server,
- 
- 	/* Allocate or find a client reference we can use */
- 	clp = nfs_get_client(&cl_init);
--	mntput(cl_init.rpcmount);
-+	put_rpc_pipefs(cl_init.rpcmount);
- 	if (IS_ERR(clp)) {
- 		dprintk("<-- nfs_init_server() = error %ld\n", PTR_ERR(clp));
- 		return PTR_ERR(clp);
-@@ -1533,7 +1533,7 @@ static int nfs4_init_server(struct nfs_server *server,
- 			&timeparms,
- 			data->minorversion,
- 			rpcmount);
--	mntput(rpcmount);
-+	put_rpc_pipefs(rpcmount);
- 	if (error < 0)
- 		goto error;
- 
-diff --git a/fs/nfs/super.c b/fs/nfs/super.c
-index be4852b..148843e 100644
---- a/fs/nfs/super.c
-+++ b/fs/nfs/super.c
-@@ -1668,7 +1668,7 @@ static int nfs_try_mount(struct nfs_parsed_mount_data *args,
- 	 * to a file handle.
- 	 */
- 	status = nfs_mount(&request);
--	mntput(request.rpcmount);
-+	put_rpc_pipefs(request.rpcmount);
- 	if (status != 0) {
- 		dfprintk(MOUNT, "NFS: unable to mount server %s, error %d\n",
- 				request.hostname, status);
-diff --git a/fs/nfsd/nfs4callback.c b/fs/nfsd/nfs4callback.c
-index 61210b6..4d8383b 100644
---- a/fs/nfsd/nfs4callback.c
-+++ b/fs/nfsd/nfs4callback.c
-@@ -667,7 +667,7 @@ int setup_callback_client(struct nfs4_client *clp, struct nfs4_cb_conn *conn)
- 		return PTR_ERR(args.rpcmount);
- 	/* Create RPC client */
- 	client = rpc_create(&args);
--	mntput(args.rpcmount);
-+	put_rpc_pipefs(args.rpcmount);
- 	if (IS_ERR(client)) {
- 		dprintk("NFSD: couldn't create callback client: %ld\n",
- 			PTR_ERR(client));
-diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
-index 7353420..cff49fc 100644
---- a/fs/nfsd/nfssvc.c
-+++ b/fs/nfsd/nfssvc.c
-@@ -227,7 +227,7 @@ static int nfsd_startup(unsigned short port, int nrservs)
- 		goto out_racache;
- 	}
- 	ret = lockd_up(rpcmount);
--	mntput(rpcmount);
-+	put_rpc_pipefs(rpcmount);
- 	if (ret)
- 		goto out_racache;
- 	ret = nfs4_state_start();
-@@ -346,7 +346,7 @@ int nfsd_create_serv(void)
- 	nfsd_serv = svc_create_pooled(&nfsd_program, rpcmount,
- 				      nfsd_max_blksize, nfsd_last_thread, nfsd,
- 				      THIS_MODULE);
--	mntput(rpcmount);
-+	put_rpc_pipefs(rpcmount);
- 	if (nfsd_serv == NULL)
- 		return -ENOMEM;
- 
-diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index a0b9c46..328b3da 100644
---- a/include/linux/sunrpc/rpc_pipe_fs.h
-+++ b/include/linux/sunrpc/rpc_pipe_fs.h
-@@ -45,6 +45,7 @@ RPC_I(struct inode *inode)
- }
- 
- extern struct vfsmount *get_rpc_pipefs(const char *path);
-+extern void put_rpc_pipefs(struct vfsmount *rpcmount);
- extern int rpc_pipefs_add_destroy_cb(struct super_block *sb,
- 		void (*destroy_cb)(void *data), void *data);
- 
 diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 96973c0..82feacd 100644
+index b72cb01..02416f1 100644
 --- a/net/sunrpc/rpc_pipe.c
 +++ b/net/sunrpc/rpc_pipe.c
-@@ -33,6 +33,7 @@
- #include <linux/sunrpc/cache.h>
+@@ -19,6 +19,7 @@
+ #include <linux/nsproxy.h>
+ #include <linux/mnt_namespace.h>
+ #include <linux/fs_struct.h>
++#include <linux/parser.h>
  
- struct vfsmount *init_rpc_pipefs __read_mostly;
-+static int init_rpc_pipefs_count;
+ #include <asm/ioctls.h>
+ #include <linux/fs.h>
+@@ -41,6 +42,49 @@ static struct kmem_cache *rpc_inode_cachep __read_mostly;
  
- static struct file_system_type rpc_pipe_fs_type;
+ #define RPC_UPCALL_TIMEOUT (30*HZ)
  
-@@ -1005,22 +1006,35 @@ static int check_rpc_pipefs(struct vfsmount *mnt, void *arg)
- 	return 1;
- }
- 
--struct vfsmount *get_rpc_pipefs(const char *p)
-+static struct vfsmount *find_rpc_pipefs(void)
++struct rpc_mount_opts {
++	int newinstance;
++};
++
++enum {
++	Opt_newinstance,
++
++	Opt_err
++};
++
++static const match_table_t tokens = {
++	{Opt_newinstance, "newinstance"},
++
++	{Opt_err, NULL}
++};
++
++static int
++parse_mount_options(char *data, struct rpc_mount_opts *opts)
++{
++	char *p;
++
++	opts->newinstance = 0;
++
++	while ((p = strsep(&data, ",")) != NULL) {
++		substring_t args[MAX_OPT_ARGS];
++		int token;
++
++		if (!*p)
++			continue;
++
++		token = match_token(p, tokens, args);
++		switch (token) {
++		case Opt_newinstance:
++			opts->newinstance = 1;
++			break;
++		default:
++			return -EINVAL;
++		}
++	}
++
++	return 0;
++}
++
+ static void rpc_purge_list(struct rpc_inode *rpci, struct list_head *head,
+ 		void (*destroy_msg)(struct rpc_pipe_msg *), int err)
  {
--	int error;
- 	struct vfsmount *rpcmount = ERR_PTR(-EINVAL);
--	struct path path;
-+	int err;
- 
--	if (!p) {
--		iterate_mounts(check_rpc_pipefs, &rpcmount,
--				current->nsproxy->mnt_ns->root);
-+	iterate_mounts(check_rpc_pipefs, &rpcmount,
-+			current->nsproxy->mnt_ns->root);
- 
--		if (IS_ERR(rpcmount) && (current->nsproxy->mnt_ns ==
--					init_task.nsproxy->mnt_ns))
--			return mntget(init_rpc_pipefs);
-+	if (!IS_ERR(rpcmount))
-+		return rpcmount;
- 
-+	if (current->nsproxy->mnt_ns != init_task.nsproxy->mnt_ns)
- 		return rpcmount;
--	}
-+
-+	err = simple_pin_fs(&rpc_pipe_fs_type, &init_rpc_pipefs,
-+			&init_rpc_pipefs_count);
-+	if (err)
-+		return ERR_PTR(err);
-+	return init_rpc_pipefs;
-+}
-+
-+struct vfsmount *get_rpc_pipefs(const char *p)
-+{
-+	int error;
-+	struct vfsmount *rpcmount = ERR_PTR(-EINVAL);
-+	struct path path;
-+
-+	if (!p)
-+		return find_rpc_pipefs();
- 
- 	error = kern_path(p, LOOKUP_FOLLOW | LOOKUP_DIRECTORY, &path);
- 	if (error)
-@@ -1033,6 +1047,15 @@ struct vfsmount *get_rpc_pipefs(const char *p)
- }
- EXPORT_SYMBOL_GPL(get_rpc_pipefs);
- 
-+void put_rpc_pipefs(struct vfsmount *rpcmount)
-+{
-+	if (rpcmount == init_rpc_pipefs)
-+		simple_release_fs(&init_rpc_pipefs, &init_rpc_pipefs_count);
-+	else
-+		mntput(rpcmount);
-+}
-+EXPORT_SYMBOL_GPL(put_rpc_pipefs);
-+
- struct destroy_cb {
- 	struct list_head list;
- 	void (*callback)(void *data);
-@@ -1232,16 +1255,8 @@ int register_rpc_pipefs(void)
- 	if (err)
- 		goto destroy_cache;
- 
--	init_rpc_pipefs = kern_mount(&rpc_pipe_fs_type);
--	if (IS_ERR(init_rpc_pipefs)) {
--		err = PTR_ERR(init_rpc_pipefs);
--		goto unregister_fs;
--	}
--
+@@ -1093,11 +1137,45 @@ rpc_fill_super(struct super_block *sb, void *data, int silent)
  	return 0;
+ }
  
--unregister_fs:
--	unregister_filesystem(&rpc_pipe_fs_type);
- destroy_cache:
- 	kmem_cache_destroy(rpc_inode_cachep);
- 	return err;
++static int
++compare_rpc_mnt_sb(struct super_block *s, void *p)
++{
++	if (init_rpc_pipefs)
++		return init_rpc_pipefs->mnt_sb == s;
++	return 0;
++}
++
+ static struct dentry *
+ rpc_mount(struct file_system_type *fs_type,
+ 		int flags, const char *dev_name, void *data)
+ {
+-	return mount_single(fs_type, flags, data, rpc_fill_super);
++	int error;
++	struct rpc_mount_opts opts;
++	struct super_block *s;
++
++	error = parse_mount_options(data, &opts);
++	if (error)
++		return ERR_PTR(error);
++
++	if (opts.newinstance)
++		s = sget(fs_type, NULL, set_anon_super, NULL);
++	else
++		s = sget(fs_type, compare_rpc_mnt_sb, set_anon_super, NULL);
++
++	if (IS_ERR(s))
++		return ERR_CAST(s);
++
++	if (!s->s_root) {
++		s->s_flags = flags;
++		error = rpc_fill_super(s, data, flags & MS_SILENT ? 1 : 0);
++		if (error) {
++			deactivate_locked_super(s);
++			return ERR_PTR(error);
++		}
++		s->s_flags |= MS_ACTIVE;
++	}
++
++	return dget(s->s_root);
+ }
+ 
+ static void rpc_kill_sb(struct super_block *sb)
 -- 
 1.7.3.4
 
