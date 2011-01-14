@@ -1,46 +1,212 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: accurate bytes/packets stats/rates
-Date: Fri, 14 Jan 2011 19:08:22 +0100
-Message-ID: <1295028502.3937.116.camel@edumazet-laptop>
-References: <1295021808.3937.110.camel@edumazet-laptop>
-	 <20110114095201.4fc58a45@nehalam>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: [PATCH 2.6.36] vlan: Avoid hwaccel vlan packets when vid
+ not used
+Date: Fri, 14 Jan 2011 10:38:16 -0800
+Message-ID: <20110114183816.GB1288@mcarlson.broadcom.com>
+References: <20101215081606.18e12fc9@xenia.leun.net>
+ <AANLkTi=hGRW+DwoKQzxPAZao6-y_tvn6nNXS-tj_-Y6T@mail.gmail.com>
+ <20110107032459.GA17959@mcarlson.broadcom.com>
+ <AANLkTi=N6jFE7T1=W-WLo_eHYWeE=oB6n8C8zPGoBNQF@mail.gmail.com>
+ <20110113012157.GA28147@mcarlson.broadcom.com>
+ <AANLkTimz3Mw5itChtTgHTeGT4seJauy3+FVrpEJn1iez@mail.gmail.com>
+ <20110113205056.GA29254@mcarlson.broadcom.com>
+ <AANLkTimQ1T0erugwK17o0zuSwxVh-Ro4yCsBpOqCykyr@mail.gmail.com>
+ <20110114011533.GA29723@mcarlson.broadcom.com>
+ <AANLkTi=Z4mtV5SUqORivPKPxEGddsmQQ2sVdkeOAogeY@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:33038 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752414Ab1ANSI1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 13:08:27 -0500
-Received: by eye27 with SMTP id 27so1577915eye.19
-        for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 10:08:25 -0800 (PST)
-In-Reply-To: <20110114095201.4fc58a45@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Michael Leun" <lkml20101129@newton.leun.net>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	"Ben Greear" <greearb@candelatech.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jesse Gross" <jesse@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=Z4mtV5SUqORivPKPxEGddsmQQ2sVdkeOAogeY@mail.gmail.com>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 14 janvier 2011 =C3=A0 09:52 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> By using __qdisc_queue_drop_head in sch_fifo.c the stats_update param=
-eter won't be
-> needed.
+On Fri, Jan 14, 2011 at 09:49:47AM -0800, Jesse Gross wrote:
+> On Thu, Jan 13, 2011 at 8:15 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
+> > On Thu, Jan 13, 2011 at 01:58:40PM -0800, Jesse Gross wrote:
+> >> On Thu, Jan 13, 2011 at 3:50 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
+> >> > On Thu, Jan 13, 2011 at 07:06:22AM -0800, Jesse Gross wrote:
+> >> >> On Wed, Jan 12, 2011 at 8:21 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
+> >> >> > On Thu, Jan 06, 2011 at 08:36:27PM -0800, Jesse Gross wrote:
+> >> >> >> On Thu, Jan 6, 2011 at 10:24 PM, Matt Carlson <mcarlson@broadcom.com> wrote:
+> >> >> >> > On Sat, Dec 18, 2010 at 07:38:00PM -0800, Jesse Gross wrote:
+> >> >> >> >> On Tue, Dec 14, 2010 at 11:16 PM, Michael Leun
+> >> >> >> >> <lkml20101129@newton.leun.net> wrote:
+> >> >> >> >> > OK - all tests done on that DL320G5:
+> >> >> >> >> >
+> >> >> >> >> > For completeness, 2.6.37-rc5 unpatched:
+> >> >> >> >> >
+> >> >> >> >> > eth0, no vlan configured: totally broken - see double tagged vlans
+> >> >> >> >> > without tag, single or untagged packets missing at all
+> >> >> >> >>
+> >> >> >> >> Random behavior? ?This one is somewhat hard to explain - maybe there
+> >> >> >> >> are some other factors. ?eth0 has ASF on, so it always strips tags. ?I
+> >> >> >> >> would expect it to behave like the vlan configured case.
+> >> >> >> >>
+> >> >> >> >> >
+> >> >> >> >> > eth0, vlan configured: see packets without vlan tag (see double tagged
+> >> >> >> >> > packets with one vlan tag)
+> >> >> >> >>
+> >> >> >> >> Both ASF and vlan group configured cause tag stripping to be enabled.
+> >> >> >> >> Missing tag.
+> >> >> >> >>
+> >> >> >> >> >
+> >> >> >> >> > eth1 same as originally reported:
+> >> >> >> >> > without vlan configured see vlan tags (single and double tagged as
+> >> >> >> >> > expected)
+> >> >> >> >>
+> >> >> >> >> No ASF and no vlan group means tag stripping is disabled. ?Have tag.
+> >> >> >> >>
+> >> >> >> >> > with vlan configured: see packets without vlan tag (see double tagged
+> >> >> >> >> > packets with one vlan tag)
+> >> >> >> >>
+> >> >> >> >> Configuring vlan group causes stripping to be enabled. ?Missing tag.
+> >> >> >> >>
+> >> >> >> >> >
+> >> >> >> >> >
+> >> >> >> >> > 2.6.37-rc5, your tg3 use new vlan-code patch:
+> >> >> >> >> >
+> >> >> >> >> > eth0, no vlan configured: ?see packets without vlan tag (see double
+> >> >> >> >> > tagged packets with one vlan tag)
+> >> >> >> >>
+> >> >> >> >> ASF enables tag stripping. ?Missing tag.
+> >> >> >> >>
+> >> >> >> >> > eth1, no vlan configured: see vlan tags (single and double tagged as
+> >> >> >> >> > expected)
+> >> >> >> >>
+> >> >> >> >> No ASF, no vlan group means no stripping. ?Have tag.
+> >> >> >> >>
+> >> >> >> >> >
+> >> >> >> >> >
+> >> >> >> >> > eth0, vlan configured: as without vlan
+> >> >> >> >>
+> >> >> >> >> ASF enables stripping. ?Missing tag.
+> >> >> >> >>
+> >> >> >> >> > eth1, vlan configured: as without vlan
+> >> >> >> >>
+> >> >> >> >> With this patch vlan stripping is only enabled when ASF is on, so no
+> >> >> >> >> stripping. ?Have tag.
+> >> >> >> >>
+> >> >> >> >> >
+> >> >> >> >> > 2.6.37-rc5, your tg3 use new vlan-code patch with test patch ontop
+> >> >> >> >> >
+> >> >> >> >> > eth1 no vlan configured: see packets without vlan tag (see double tagged
+> >> >> >> >> > packets with one vlan tag)
+> >> >> >> >>
+> >> >> >> >> With the second patch, vlan stripping is always enabled. ?Missing tag.
+> >> >> >> >>
+> >> >> >> >> > eth1 with vlan: the same
+> >> >> >> >>
+> >> >> >> >> Stripping still always enabled. ?Missing tag.
+> >> >> >> >>
+> >> >> >> >> The bottom line is whenever vlan stripping is enabled we're missing
+> >> >> >> >> the outer tag. ?It might be worth adding some debugging in the area
+> >> >> >> >> before napi_gro_receive/vlan_gro_receive (depending on version). ?My
+> >> >> >> >> guess is that (desc->type_flags & RXD_FLAG_VLAN) is false even for
+> >> >> >> >> vlan packets on this NIC.
+> >> >> >> >>
+> >> >> >> >> You said that everything works on the 5752? ?Matt, is it possible that
+> >> >> >> >> the 5714 either has a problem with vlan stripping or a different way
+> >> >> >> >> of reporting it?
+> >> >> >> >
+> >> >> >> > I don't think this is a 5714 specific issue. ?I think the problem is
+> >> >> >> > rooted in the fact that the VLAN tag stripping is enabled.
+> >> >> >>
+> >> >> >> It's definitely related to vlan stripping being enabled. ?Other cards
+> >> >> >> using tg3 seem to work fine with stripping though, which is why I
+> >> >> >> thought it might be specific to the 5714.
+> >> >> >
+> >> >> > I just tested this on a 5714S, using a net-next-2.6 snapshot obtained
+> >> >> > today. ?It does the right thing in both cases (2nd tg3 patch ommited /
+> >> >> > applied). ?The tag is always visible in the packet stream as seen from
+> >> >> > tcpdump.
+> >> >> >
+> >> >> >> > Your RXD_FLAG_VLAN idea sounds unlikely to me, but it's worth a check.
+> >> >> >> >
+> >> >> >> > The patch here is using __vlan_hwaccel_put_tag(), which informs the
+> >> >> >> > stack a VLAN tag is present. ?If this is indeed a reporting problem, I'm
+> >> >> >> > not sure what else the driver should be doing.
+> >> >> >>
+> >> >> >> The code to hand off the tag to the stack looks OK to me. ?Michael was
+> >> >> >> seeing this on older versions of the kernel as well with this NIC,
+> >> >> >> which predates both this patch and the larger vlan changes so it
+> >> >> >> doesn't seem like a problem with passing the tag to the network stack.
+> >> >> >> ?It's hard to know exactly what is going on though without seeing what
+> >> >> >> the hardware is reporting.
+> >> >> >
+> >> >> > When RX_MODE_KEEP_VLAN_TAG is set, the RXD_FLAG_VLAN flag will not be set
+> >> >> > when receiving a packet. ?The driver skips the __vlan_hwaccel_put_tag()
+> >> >> > call.
+> >> >> >
+> >> >> > When RX_MODE_KEEP_VLAN_TAG is unset, the RXD_FLAG_VLAN flag is set, and
+> >> >> > __vlan_hwaccel_put_tag() is called to reinject the packet.
+> >> >>
+> >> >> OK, thanks for testing it out. ?I'm not sure that there's anything
+> >> >> more we can do without hearing from Michael.
+> >> >
+> >> > In the meantime, I think what we have should go upstream. ?Just to be
+> >> > absolutely clear though, your position is that VLAN tags should always
+> >> > be stripped?
+> >>
+> >> That's what the other converted drivers do by default (though most of
+> >> them also provide an ethtool set_flags() method to change this). ?It's
+> >> generally the most efficient and is now safe to do in all cases. ?It's
+> >> also the consistent with what was happening before, since stripping
+> >> was enabled when a vlan device was configured. ?So, yes, normally I
+> >> think stripping should be enabled.
+> >>
+> >> I assumed that disabling stripping in most situations was just an
+> >> oversight. ?Was there a reason why you feel it is better not to use
+> >> it?
+> >
+> > Actually, the tg3 driver was trying to disable VLAN tag stripping
+> > when possible. ?I believe this was primarily to support the raw packet
+> > interface.
+> 
+> Hmm, is this really true?
+> 
+>         if (!tp->vlgrp &&
+>             !(tp->tg3_flags & TG3_FLAG_ENABLE_ASF))
+>                 rx_mode |= RX_MODE_KEEP_VLAN_TAG;
+> 
+> So if a vlan device is registered or ASF is enabled we will use
+> stripping.  That seems like it is using stripping in the common case
+> when vlans are used.
 
+Right.
 
-Hmm, this is a constant parameter in inline function so removed by
-compiler.
+> Before 2.6.37 it was only possible to deliver stripped tags if a vlan
+> group was configured.  This means that if ASF was enabled and forced
+> stripping but no group was configured we would lose the tag.  In this
+> situation tg3 manually reinserts the tags so raw packet capture will
+> see them, as you say.
 
-And you add a bug in pfifo_tail_enqueue(), it now lacks the
-sch->qstats.drops++;
+Right.  VLAN tagged frames can still arrive if CONFIG_VLAN_8021Q or
+CONFIG_VLAN_8021Q_MODULE is not set.  That's why the driver was trying
+to keep them inline.  To eliminate the unnecessary overhead of
+reinjecting the VLAN tag.
 
->=20
-> From Eric Dumazet <eric.dumazet@gmail.com>
->=20
+> However, in the current tree this limitation no
+> longer exists and it is always possible to deliver stripped tags to
+> the networking core, which should do the right thing in all
+> situations.
 
-Note : This line should be the first one in mail ;)
+Yes.  Even though the stack is capable of reinjecting the VLAN tag,
+doesn't it make sense to avoid that if we knew they would never be
+needed out-of-packet?
 
+> So I believe the only reason to disable tag stripping is for debugging
+> or some other special purpose situation.
 
-
+Nope.  I think we covered it all.  Thanks for the info.
