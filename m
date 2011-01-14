@@ -1,55 +1,80 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] r8169: keep firmware in memory.
-Date: Fri, 14 Jan 2011 09:21:41 -0800
-Message-ID: <AANLkTinumTQN3F=O_hC=jFTFLKVYyWmJNNvHx2A1jL2p@mail.gmail.com>
-References: <20110113230753.GA2750@electric-eye.fr.zoreil.com>
- <4D2FF29C.1050101@msgid.tls.msk.ru> <AANLkTikiGeSfae3guWRMp_hsh61JibacPpwGZVbgSy7h@mail.gmail.com>
- <20110114163035.GY3702@decadent.org.uk>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: [PATCH] can: test size of struct sockaddr
+Date: Fri, 14 Jan 2011 18:23:21 +0100
+Message-ID: <20110114172321.GB331@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Michael Tokarev <mjt@tls.msk.ru>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	=?ISO-8859-2?Q?Jarek_Kami=F1ski?= <jarek@vilo.eu.org>,
-	Hayes <hayeswang@realtek.com>
-To: Ben Hutchings <benh@debian.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:49442 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752019Ab1ANRWD convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jan 2011 12:22:03 -0500
-Received: from mail-iy0-f174.google.com (mail-iy0-f174.google.com [209.85.210.174])
-	(authenticated bits=0)
-	by smtp1.linux-foundation.org (8.14.2/8.13.5/Debian-3ubuntu1.1) with ESMTP id p0EHM1sn027078
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 09:22:01 -0800
-Received: by iyj18 with SMTP id 18so2696261iyj.19
-        for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 09:22:01 -0800 (PST)
-In-Reply-To: <20110114163035.GY3702@decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 14, 2011 at 8:30 AM, Ben Hutchings <benh@debian.org> wrote:
->
-> This is something I started to implement, but never got finished. =A0=
-I
-> don't think it can be done without an API change, though, as we need
-> to know when to drop firmware from the cache. =A0But perhaps this cou=
-ld
-> be done with a hook in the device-driver binding code.
+I think this patch makes the CAN socket code comform to the
+manpages of sendmsg & recvmsg.
 
-Or just associate the firmware with a module?
+Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+---
+ net/can/bcm.c |    6 +++++-
+ net/can/raw.c |    6 +++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-So if the firmware gets loaded, it stays in memory until the module is =
-unloaded?
-
-And this all would only be the case if CONFIG_PM is set, so you'd not
-waste memory unnecessarily.
-
-                Linus
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 6faa825..dc0d5d6 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1256,6 +1256,9 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		struct sockaddr_can *addr =
+ 			(struct sockaddr_can *)msg->msg_name;
+ 
++		if (msg->msg_namelen < sizeof(*addr))
++			return -EINVAL;
++
+ 		if (addr->can_family != AF_CAN)
+ 			return -EINVAL;
+ 
+@@ -1557,8 +1560,9 @@ static int bcm_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	sock_recv_ts_and_drops(msg, sk, skb);
+ 
+ 	if (msg->msg_name) {
++		memcpy(msg->msg_name, skb->cb, MIN(msg->msg_namelen,
++					sizeof(struct sockaddr_can)));
+ 		msg->msg_namelen = sizeof(struct sockaddr_can);
+-		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+ 	}
+ 
+ 	skb_free_datagram(sk, skb);
+diff --git a/net/can/raw.c b/net/can/raw.c
+index e88f610..e68a6d3 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -649,6 +649,9 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		struct sockaddr_can *addr =
+ 			(struct sockaddr_can *)msg->msg_name;
+ 
++		if (msg->msg_namelen < sizeof(*addr))
++			return -EINVAL;
++
+ 		if (addr->can_family != AF_CAN)
+ 			return -EINVAL;
+ 
+@@ -727,8 +730,9 @@ static int raw_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	sock_recv_ts_and_drops(msg, sk, skb);
+ 
+ 	if (msg->msg_name) {
++		memcpy(msg->msg_name, skb->cb, MIN(msg->msg_namelen,
++					sizeof(struct sockaddr_can)));
+ 		msg->msg_namelen = sizeof(struct sockaddr_can);
+-		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
+ 	}
+ 
+ 	/* assign the flags that have been recorded in raw_rcv() */
