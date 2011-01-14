@@ -1,62 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: accurate bytes/packets stats/rates
-Date: Fri, 14 Jan 2011 20:21:07 +0100
-Message-ID: <1295032867.3977.1.camel@edumazet-laptop>
-References: <1295021808.3937.110.camel@edumazet-laptop>
-	 <20110114095201.4fc58a45@nehalam>
-	 <1295028502.3937.116.camel@edumazet-laptop>
-	 <20110114110342.4d95ad5b@nehalam>
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: [PATCH 1/2] genirq: Add IRQ affinity notifiers
+Date: Fri, 14 Jan 2011 20:47:23 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.1101141928210.2678@localhost6.localdomain6>
+References: <1294169842.3636.31.camel@bwh-desktop> <1294169919.3636.33.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>,
-	Jarek Poplawski <jarkao2@gmail.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
+	Tom Herbert <therbert@google.com>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:56420 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751937Ab1ANTV3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 14:21:29 -0500
-Received: by wyb28 with SMTP id 28so3156891wyb.19
-        for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 11:21:14 -0800 (PST)
-In-Reply-To: <20110114110342.4d95ad5b@nehalam>
+Received: from www.tglx.de ([62.245.132.106]:48198 "EHLO www.tglx.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751490Ab1ANTrj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 14:47:39 -0500
+In-Reply-To: <1294169919.3636.33.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 14 janvier 2011 =C3=A0 11:03 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> From Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> In commit 44b8288308ac9d (net_sched: pfifo_head_drop problem), we fix=
-ed
-> a problem with pfifo_head drops that incorrectly decreased
-> sch->bstats.bytes and sch->bstats.packets
->=20
-> Several qdiscs (CHOKe, SFQ, pfifo_head, ...) are able to drop a
-> previously enqueued packet, and bstats cannot be changed, so
-> bstats/rates are not accurate (over estimated)
->=20
-> This patch changes the qdisc_bstats updates to be done at dequeue() t=
-ime
-> instead of enqueue() time. bstats counters no longer account for drop=
-ped
-> frames, and rates are more correct, since enqueue() bursts dont have
-> effect on dequeue() rate.
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
->=20
-> CC: Patrick McHardy <kaber@trash.net>
-> CC: Jarek Poplawski <jarkao2@gmail.com>
-> CC: jamal <hadi@cyberus.ca>
-> ---
-> sch_fifo now changed to use __qdisc_queue_drop_head which
-> keeps correct statistics and is actually clearer.
->=20
-> =20
+On Tue, 4 Jan 2011, Ben Hutchings wrote:
+> +/**
+> + * struct irq_affinity_notify - context for notification of IRQ affinity changes
+> + * @irq:		Interrupt to which notification applies
+> + * @kref:		Reference count, for internal use
+> + * @work:		Work item, for internal use
+> + * @notify:		Function to be called on change.  This will be
+> + *			called in process context.
+> + * @release:		Function to be called on release.  This will be
+> + *			called in process context.  Once registered, the
+> + *			structure must only be freed when this function is
+> + *			called or later.
+> + */
+> +struct irq_affinity_notify {
+> +        unsigned int irq;
+> +        struct kref kref;
+> +#if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_HARDIRQS)
 
-Thanks for doing this Stephen, this version seems fine.
+The whole affinity thing is SMP and GENERIC_HARDIRQS only anyway, so
+what's the point of this ifdeffery ?
 
+> +        struct work_struct work;
+> +#endif
+> +        void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
+> +        void (*release)(struct kref *ref);
+> +};
+> +
 
+> +/**
+> + *	irq_set_affinity_notifier - control notification of IRQ affinity changes
+> + *	@irq:		Interrupt for which to enable/disable notification
+> + *	@notify:	Context for notification, or %NULL to disable
+> + *			notification.  Function pointers must be initialised;
+> + *			the other fields will be initialised by this function.
+> + *
+> + *	Must be called in process context.  Notification may only be enabled
+> + *	after the IRQ is allocated but before it is bound with request_irq()
+
+Why? And if there is that restriction, then it needs to be
+checked. But I don't see why this is necessary.
+
+> + *	and must be disabled before the IRQ is freed using free_irq().
+> + */
+
+> +#ifdef CONFIG_SMP
+> +	BUG_ON(desc->affinity_notify);
+
+We should be nice here and just WARN and fixup the wreckage by
+uninstalling it.
+
+Thanks,
+
+	tglx
