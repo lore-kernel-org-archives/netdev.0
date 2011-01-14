@@ -1,7 +1,7 @@
 From: "Kirill A. Shutemov" <kas@openvz.org>
-Subject: [PATCH v3 07/16] sunrpc: get rpc_pipefs mount point for rpcb_create[_local] from callers
-Date: Fri, 14 Jan 2011 15:49:05 +0200
-Message-ID: <1295012954-7769-8-git-send-email-kas@openvz.org>
+Subject: [PATCH v3 02/16] sunrpc: introduce init_rpc_pipefs
+Date: Fri, 14 Jan 2011 15:49:00 +0200
+Message-ID: <1295012954-7769-3-git-send-email-kas@openvz.org>
 References: <1295012954-7769-1-git-send-email-kas@openvz.org>
 Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
@@ -12,249 +12,165 @@ Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 To: Trond Myklebust <Trond.Myklebust@netapp.com>,
 	"J. Bruce Fields" <bfields@fieldses.org>,
 	Neil Brown <neilb@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shutemov.name ([188.40.19.243]:53269 "EHLO shutemov.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756652Ab1ANNth (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 08:49:37 -0500
 In-Reply-To: <1295012954-7769-1-git-send-email-kas@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Introduce global variable init_rpc_pipefs and use it instead of
+rpc_get_mount()/rpc_put_mount().
 
 Signed-off-by: Kirill A. Shutemov <kas@openvz.org>
 ---
- include/linux/sunrpc/clnt.h |    4 ++--
- net/sunrpc/rpcb_clnt.c      |   22 ++++++++++++----------
- net/sunrpc/svc.c            |   34 +++++++++++++++++++++-------------
- 3 files changed, 35 insertions(+), 25 deletions(-)
+ fs/nfs/cache_lib.c                 |    6 +++---
+ include/linux/sunrpc/rpc_pipe_fs.h |    4 ++--
+ net/sunrpc/clnt.c                  |   10 ++++------
+ net/sunrpc/rpc_pipe.c              |   21 +++++----------------
+ 4 files changed, 14 insertions(+), 27 deletions(-)
 
-diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
-index dffaaaa..52f6142 100644
---- a/include/linux/sunrpc/clnt.h
-+++ b/include/linux/sunrpc/clnt.h
-@@ -135,10 +135,10 @@ void		rpc_shutdown_client(struct rpc_clnt *);
- void		rpc_release_client(struct rpc_clnt *);
- void		rpc_task_release_client(struct rpc_task *);
+diff --git a/fs/nfs/cache_lib.c b/fs/nfs/cache_lib.c
+index 8469031..dd7ca5f 100644
+--- a/fs/nfs/cache_lib.c
++++ b/fs/nfs/cache_lib.c
+@@ -117,7 +117,7 @@ int nfs_cache_register(struct cache_detail *cd)
+ 	struct vfsmount *mnt;
+ 	int ret;
  
--int		rpcb_register(u32, u32, int, unsigned short);
-+int		rpcb_register(u32, u32, int, unsigned short, struct vfsmount *);
- int		rpcb_v4_register(const u32 program, const u32 version,
- 				 const struct sockaddr *address,
--				 const char *netid);
-+				 const char *netid, struct vfsmount *rpcmount);
- void		rpcb_getport_async(struct rpc_task *);
- 
- void		rpc_call_start(struct rpc_task *);
-diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index b059cbe..7fddafa 100644
---- a/net/sunrpc/rpcb_clnt.c
-+++ b/net/sunrpc/rpcb_clnt.c
-@@ -27,7 +27,6 @@
- #include <linux/sunrpc/clnt.h>
- #include <linux/sunrpc/sched.h>
- #include <linux/sunrpc/xprtsock.h>
--#include <linux/sunrpc/rpc_pipe_fs.h>
- 
- #ifdef RPC_DEBUG
- # define RPCDBG_FACILITY	RPCDBG_BIND
-@@ -171,7 +170,7 @@ static DEFINE_MUTEX(rpcb_create_local_mutex);
-  * Returns zero on success, otherwise a negative errno value
-  * is returned.
-  */
--static int rpcb_create_local(void)
-+static int rpcb_create_local(struct vfsmount *rpcmount)
- {
- 	struct rpc_create_args args = {
- 		.net		= &init_net,
-@@ -183,7 +182,7 @@ static int rpcb_create_local(void)
- 		.version	= RPCBVERS_2,
- 		.authflavor	= RPC_AUTH_UNIX,
- 		.flags		= RPC_CLNT_CREATE_NOPING,
--		.rpcmount	= init_rpc_pipefs,
-+		.rpcmount	= rpcmount,
- 	};
- 	struct rpc_clnt *clnt, *clnt4;
- 	int result = 0;
-@@ -225,7 +224,8 @@ out:
+-	mnt = rpc_get_mount();
++	mnt = mntget(init_rpc_pipefs);
+ 	if (IS_ERR(mnt))
+ 		return PTR_ERR(mnt);
+ 	ret = vfs_path_lookup(mnt->mnt_root, mnt, "/cache", 0, &nd);
+@@ -129,13 +129,13 @@ int nfs_cache_register(struct cache_detail *cd)
+ 	if (!ret)
+ 		return ret;
+ err:
+-	rpc_put_mount();
++	mntput(mnt);
+ 	return ret;
  }
  
- static struct rpc_clnt *rpcb_create(char *hostname, struct sockaddr *srvaddr,
--				    size_t salen, int proto, u32 version)
-+				    size_t salen, int proto, u32 version,
-+				    struct vfsmount *rpcmount)
+ void nfs_cache_unregister(struct cache_detail *cd)
  {
- 	struct rpc_create_args args = {
- 		.net		= &init_net,
-@@ -238,7 +238,7 @@ static struct rpc_clnt *rpcb_create(char *hostname, struct sockaddr *srvaddr,
- 		.authflavor	= RPC_AUTH_UNIX,
- 		.flags		= (RPC_CLNT_CREATE_NOPING |
- 					RPC_CLNT_CREATE_NONPRIVPORT),
--		.rpcmount	= init_rpc_pipefs,
-+		.rpcmount	= rpcmount,
- 	};
+ 	sunrpc_cache_unregister_pipefs(cd);
+-	rpc_put_mount();
++	mntput(init_rpc_pipefs);
+ }
  
- 	switch (srvaddr->sa_family) {
-@@ -305,7 +305,8 @@ static int rpcb_register_call(struct rpc_clnt *clnt, struct rpc_message *msg)
-  * IN6ADDR_ANY (ie available for all AF_INET and AF_INET6
-  * addresses).
-  */
--int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
-+int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port,
-+		struct vfsmount *rpcmount)
- {
- 	struct rpcbind_args map = {
- 		.r_prog		= prog,
-@@ -318,7 +319,7 @@ int rpcb_register(u32 prog, u32 vers, int prot, unsigned short port)
- 	};
- 	int error;
+diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
+index cf14db9..b09bfa5 100644
+--- a/include/linux/sunrpc/rpc_pipe_fs.h
++++ b/include/linux/sunrpc/rpc_pipe_fs.h
+@@ -44,6 +44,8 @@ RPC_I(struct inode *inode)
+ 	return container_of(inode, struct rpc_inode, vfs_inode);
+ }
  
--	error = rpcb_create_local();
-+	error = rpcb_create_local(rpcmount);
++extern struct vfsmount *init_rpc_pipefs;
++
+ extern int rpc_queue_upcall(struct inode *, struct rpc_pipe_msg *);
+ 
+ struct rpc_clnt;
+@@ -60,8 +62,6 @@ extern void rpc_remove_cache_dir(struct dentry *);
+ extern struct dentry *rpc_mkpipe(struct dentry *, const char *, void *,
+ 				 const struct rpc_pipe_ops *, int flags);
+ extern int rpc_unlink(struct dentry *);
+-extern struct vfsmount *rpc_get_mount(void);
+-extern void rpc_put_mount(void);
+ extern int register_rpc_pipefs(void);
+ extern void unregister_rpc_pipefs(void);
+ 
+diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
+index 57d344c..f3812d0 100644
+--- a/net/sunrpc/clnt.c
++++ b/net/sunrpc/clnt.c
+@@ -112,9 +112,7 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
+ 	if (dir_name == NULL)
+ 		return 0;
+ 
+-	path.mnt = rpc_get_mount();
+-	if (IS_ERR(path.mnt))
+-		return PTR_ERR(path.mnt);
++	path.mnt = mntget(init_rpc_pipefs);
+ 	error = vfs_path_lookup(path.mnt->mnt_root, path.mnt, dir_name, 0, &nd);
  	if (error)
- 		return error;
- 
-@@ -445,7 +446,8 @@ static int rpcb_unregister_all_protofamilies(struct rpc_message *msg)
-  * advertises the service on all IPv4 and IPv6 addresses.
-  */
- int rpcb_v4_register(const u32 program, const u32 version,
--		     const struct sockaddr *address, const char *netid)
-+		     const struct sockaddr *address, const char *netid,
-+		     struct vfsmount *rpcmount)
- {
- 	struct rpcbind_args map = {
- 		.r_prog		= program,
-@@ -458,7 +460,7 @@ int rpcb_v4_register(const u32 program, const u32 version,
- 	};
- 	int error;
- 
--	error = rpcb_create_local();
-+	error = rpcb_create_local(rpcmount);
- 	if (error)
- 		return error;
- 	if (rpcb_local_clnt4 == NULL)
-@@ -594,7 +596,7 @@ void rpcb_getport_async(struct rpc_task *task)
- 		task->tk_pid, __func__, bind_version);
- 
- 	rpcb_clnt = rpcb_create(clnt->cl_server, sap, salen, xprt->prot,
--				bind_version);
-+				bind_version, clnt->cl_path.mnt);
- 	if (IS_ERR(rpcb_clnt)) {
- 		status = PTR_ERR(rpcb_clnt);
- 		dprintk("RPC: %5u %s: rpcb_create failed, error %ld\n",
-diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 8472798..4d0b45a 100644
---- a/net/sunrpc/svc.c
-+++ b/net/sunrpc/svc.c
-@@ -739,7 +739,8 @@ EXPORT_SYMBOL_GPL(svc_exit_thread);
-  */
- static int __svc_rpcb_register4(const u32 program, const u32 version,
- 				const unsigned short protocol,
--				const unsigned short port)
-+				const unsigned short port,
-+				struct vfsmount *rpcmount)
- {
- 	const struct sockaddr_in sin = {
- 		.sin_family		= AF_INET,
-@@ -761,14 +762,16 @@ static int __svc_rpcb_register4(const u32 program, const u32 version,
- 	}
- 
- 	error = rpcb_v4_register(program, version,
--					(const struct sockaddr *)&sin, netid);
-+					(const struct sockaddr *)&sin, netid,
-+					rpcmount);
- 
- 	/*
- 	 * User space didn't support rpcbind v4, so retry this
- 	 * registration request with the legacy rpcbind v2 protocol.
- 	 */
- 	if (error == -EPROTONOSUPPORT)
--		error = rpcb_register(program, version, protocol, port);
-+		error = rpcb_register(program, version, protocol, port,
-+				rpcmount);
- 
+ 		goto err;
+@@ -140,7 +138,7 @@ rpc_setup_pipedir(struct rpc_clnt *clnt, char *dir_name)
+ err_path_put:
+ 	path_put(&nd.path);
+ err:
+-	rpc_put_mount();
++	mntput(path.mnt);
  	return error;
  }
-@@ -786,7 +789,8 @@ static int __svc_rpcb_register4(const u32 program, const u32 version,
-  */
- static int __svc_rpcb_register6(const u32 program, const u32 version,
- 				const unsigned short protocol,
--				const unsigned short port)
-+				const unsigned short port,
-+				struct vfsmount *rpcmount)
- {
- 	const struct sockaddr_in6 sin6 = {
- 		.sin6_family		= AF_INET6,
-@@ -808,7 +812,8 @@ static int __svc_rpcb_register6(const u32 program, const u32 version,
+ 
+@@ -251,7 +249,7 @@ static struct rpc_clnt * rpc_new_client(const struct rpc_create_args *args, stru
+ out_no_auth:
+ 	if (!IS_ERR(clnt->cl_path.dentry)) {
+ 		rpc_remove_client_dir(clnt->cl_path.dentry);
+-		rpc_put_mount();
++		mntput(clnt->cl_path.mnt);
  	}
- 
- 	error = rpcb_v4_register(program, version,
--					(const struct sockaddr *)&sin6, netid);
-+					(const struct sockaddr *)&sin6, netid,
-+					rpcmount);
- 
- 	/*
- 	 * User space didn't support rpcbind version 4, so we won't
-@@ -831,19 +836,20 @@ static int __svc_register(const char *progname,
- 			  const u32 program, const u32 version,
- 			  const int family,
- 			  const unsigned short protocol,
--			  const unsigned short port)
-+			  const unsigned short port,
-+			  struct vfsmount *rpcmount)
- {
- 	int error = -EAFNOSUPPORT;
- 
- 	switch (family) {
- 	case PF_INET:
- 		error = __svc_rpcb_register4(program, version,
--						protocol, port);
-+						protocol, port, rpcmount);
- 		break;
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- 	case PF_INET6:
- 		error = __svc_rpcb_register6(program, version,
--						protocol, port);
-+						protocol, port, rpcmount);
- #endif	/* defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE) */
+ out_no_path:
+ 	kfree(clnt->cl_principal);
+@@ -472,7 +470,7 @@ rpc_free_client(struct rpc_clnt *clnt)
+ 			clnt->cl_protname, clnt->cl_server);
+ 	if (!IS_ERR(clnt->cl_path.dentry)) {
+ 		rpc_remove_client_dir(clnt->cl_path.dentry);
+-		rpc_put_mount();
++		mntput(clnt->cl_path.mnt);
  	}
+ 	if (clnt->cl_parent != clnt) {
+ 		rpc_release_client(clnt->cl_parent);
+diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
+index 9ab9355..484c9a3 100644
+--- a/net/sunrpc/rpc_pipe.c
++++ b/net/sunrpc/rpc_pipe.c
+@@ -28,7 +28,8 @@
+ #include <linux/sunrpc/rpc_pipe_fs.h>
+ #include <linux/sunrpc/cache.h>
  
-@@ -889,7 +895,8 @@ int svc_register(const struct svc_serv *serv, const int family,
- 				continue;
+-static struct vfsmount *rpc_mnt __read_mostly;
++struct vfsmount *init_rpc_pipefs __read_mostly;
++EXPORT_SYMBOL_GPL(init_rpc_pipefs);
  
- 			error = __svc_register(progp->pg_name, progp->pg_prog,
--						i, family, proto, port);
-+						i, family, proto, port,
-+						serv->sv_rpcmount);
- 			if (error < 0)
- 				break;
- 		}
-@@ -906,18 +913,18 @@ int svc_register(const struct svc_serv *serv, const int family,
-  * in this case to clear all existing entries for [program, version].
-  */
- static void __svc_unregister(const u32 program, const u32 version,
--			     const char *progname)
-+			     const char *progname, struct vfsmount *rpcmount)
+ static struct file_system_type rpc_pipe_fs_type;
+ 
+@@ -420,18 +421,6 @@ struct rpc_filelist {
+ 	umode_t mode;
+ };
+ 
+-struct vfsmount *rpc_get_mount(void)
+-{
+-	return mntget(rpc_mnt);
+-}
+-EXPORT_SYMBOL_GPL(rpc_get_mount);
+-
+-void rpc_put_mount(void)
+-{
+-	mntput(rpc_mnt);
+-}
+-EXPORT_SYMBOL_GPL(rpc_put_mount);
+-
+ static int rpc_delete_dentry(const struct dentry *dentry)
  {
- 	int error;
+ 	return 1;
+@@ -1068,9 +1057,9 @@ int register_rpc_pipefs(void)
+ 	if (err)
+ 		goto destroy_cache;
  
--	error = rpcb_v4_register(program, version, NULL, "");
-+	error = rpcb_v4_register(program, version, NULL, "", rpcmount);
- 
- 	/*
- 	 * User space didn't support rpcbind v4, so retry this
- 	 * request with the legacy rpcbind v2 protocol.
- 	 */
- 	if (error == -EPROTONOSUPPORT)
--		error = rpcb_register(program, version, 0, 0);
-+		error = rpcb_register(program, version, 0, 0, rpcmount);
- 
- 	dprintk("svc: %s(%sv%u), error %d\n",
- 			__func__, progname, version, error);
-@@ -946,7 +953,8 @@ static void svc_unregister(const struct svc_serv *serv)
- 			if (progp->pg_vers[i]->vs_hidden)
- 				continue;
- 
--			__svc_unregister(progp->pg_prog, i, progp->pg_name);
-+			__svc_unregister(progp->pg_prog, i, progp->pg_name,
-+					serv->sv_rpcmount);
- 		}
+-	rpc_mnt = kern_mount(&rpc_pipe_fs_type);
+-	if (IS_ERR(rpc_mnt)) {
+-		err = PTR_ERR(rpc_mnt);
++	init_rpc_pipefs = kern_mount(&rpc_pipe_fs_type);
++	if (IS_ERR(init_rpc_pipefs)) {
++		err = PTR_ERR(init_rpc_pipefs);
+ 		goto unregister_fs;
  	}
  
 -- 
 1.7.3.4
+
