@@ -1,42 +1,50 @@
 From: Po-Yu Chuang <ratbert.chuang@gmail.com>
 Subject: Re: [PATCH] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Fri, 14 Jan 2011 14:44:03 +0800
-Message-ID: <AANLkTimsY88hD8HkBvMMTT2cs7vec2p8yUBNfeKsHod2@mail.gmail.com>
-References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
- <1294928559.3570.130.camel@edumazet-laptop> <20110113082950.6747ebb8@queued.net>
+Date: Fri, 14 Jan 2011 14:49:45 +0800
+Message-ID: <AANLkTikP1T9XXPVNHnmPnamjwyF5nNn+hVvpovAxTx69@mail.gmail.com>
+References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com> <1294959948.4114.189.camel@Joe-Laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Andres Salomon <dilinger@queued.net>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110113082950.6747ebb8@queued.net>
+In-Reply-To: <1294959948.4114.189.camel@Joe-Laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dear Andres,
+Dear Joe,
 
-On Fri, Jan 14, 2011 at 12:29 AM, Andres Salomon <dilinger@queued.net> =
-wrote:
-> On Thu, 13 Jan 2011 15:22:39 +0100
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> Le jeudi 13 janvier 2011 =C3=A0 19:49 +0800, Po-Yu Chuang a =C3=A9cr=
-it :
-
-> No one else mentioned it, so I'll add:
+On Fri, Jan 14, 2011 at 7:05 AM, Joe Perches <joe@perches.com> wrote:
+> On Thu, 2011-01-13 at 19:49 +0800, Po-Yu Chuang wrote:
+>> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+> []
+>> + =C2=A0 =C2=A0 if (is_zero_ether_addr(netdev->dev_addr)) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 random_ether_addr(netdev=
+->dev_addr);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dev_info(&netdev->dev, "=
+generated random MAC address "
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n",
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 netdev->dev_addr[0], netdev->dev_addr[1],
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 netdev->dev_addr[2], netdev->dev_addr[3],
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 netdev->dev_addr[4], netdev->dev_addr[5]);
 >
-> Don't explicitly inline functions unless they're in a header, or you
-> have a really good reason (and that reason should probably be describ=
-ed
-> in a comment). =C2=A0Otherwise, just leave off the 'inline' keyword; =
-the
-> compiler is smart enough to decide whether a function should be inlin=
-ed
-> or not.
+> Sorry, one other thing.
+> There are kernel specific printf extensions for pointer types.
+> (look at lib/vsprintf.c) =C2=A0There's one for mac addresses: "%pM".
+> This could be done as:
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_info(ne=
+tdev, "Generated random MAC address: %pM\n",
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev->dev_addr);
 
-OK, fixed.
+Wow, this is pretty beautiful. Thanks.
 
-Thanks,
+best regards,
 Po-Yu Chuang
