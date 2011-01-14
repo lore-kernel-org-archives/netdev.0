@@ -1,62 +1,35 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH 1/2] genirq: Add IRQ affinity notifiers
-Date: Fri, 14 Jan 2011 21:40:16 +0100 (CET)
-Message-ID: <alpine.LFD.2.00.1101142138090.2678@localhost6.localdomain6>
-References: <1294169842.3636.31.camel@bwh-desktop>  <1294169919.3636.33.camel@bwh-desktop>  <alpine.LFD.2.00.1101141928210.2678@localhost6.localdomain6> <1295035597.5386.8.camel@bwh-desktop>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
+ single TCP session balancing
+Date: Fri, 14 Jan 2011 21:41:09 +0100
+Message-ID: <4D30B4E5.1090203@gmail.com>
+References: <20110114190714.GA11655@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>,
-	Tom Herbert <therbert@google.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295035597.5386.8.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f42.google.com ([74.125.82.42]:64507 "EHLO
+	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751913Ab1ANUlQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 15:41:16 -0500
+Received: by wwi17 with SMTP id 17so77775wwi.1
+        for <netdev@vger.kernel.org>; Fri, 14 Jan 2011 12:41:15 -0800 (PST)
+In-Reply-To: <20110114190714.GA11655@yandex-team.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 14 Jan 2011, Ben Hutchings wrote:
-> On Fri, 2011-01-14 at 20:47 +0100, Thomas Gleixner wrote:
-> > > +#if defined(CONFIG_SMP) && defined(CONFIG_GENERIC_HARDIRQS)
-> > 
-> > The whole affinity thing is SMP and GENERIC_HARDIRQS only anyway, so
-> > what's the point of this ifdeffery ?
-> 
-> The intent is that code using this can be compiled even if those config
-> options are not set.  The work_struct is not needed in that case.  I
-> think this is probably pointless though.
+Le 14/01/2011 20:07, Oleg V. Ukhno a =E9crit :
 
-Yup, work_struct is defined for the !SMP and !GENERIC_HARDIRQS case as
-well :)
- 
-> > > +        struct work_struct work;
-> > > +#endif
-> > > +        void (*notify)(struct irq_affinity_notify *, const cpumask_t *mask);
-> > > +        void (*release)(struct kref *ref);
-> > > +};
-> > > +
-> > 
-> > > +/**
-> > > + *	irq_set_affinity_notifier - control notification of IRQ affinity changes
-> > > + *	@irq:		Interrupt for which to enable/disable notification
-> > > + *	@notify:	Context for notification, or %NULL to disable
-> > > + *			notification.  Function pointers must be initialised;
-> > > + *			the other fields will be initialised by this function.
-> > > + *
-> > > + *	Must be called in process context.  Notification may only be enabled
-> > > + *	after the IRQ is allocated but before it is bound with request_irq()
-> > 
-> > Why? And if there is that restriction, then it needs to be
-> > checked. But I don't see why this is necessary.
-> 
-> Which restriction?
+> +
+> +		For correct load baalncing on the receiving side you must
+> +		configure switch for using src-dst-mac or src-mac hashing
+> +		mode.
 
-  Notification may only be enabled after the IRQ is allocated but
-  before it is bound with request_irq()
+Typo in baalncing -> balancing.
 
-After IRQ is allocated is obvious, but why needs it to be done
-_before_ request_irq() ?
-
-Thanks,
-
-	tglx
+	Nicolas.
