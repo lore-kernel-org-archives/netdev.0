@@ -1,116 +1,201 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Fri, 14 Jan 2011 06:58:18 +0200
-Message-ID: <20110114045818.GA29738@redhat.com>
-References: <20110106093312.GA1564@verge.net.au>
- <1294309362.3074.11.camel@edumazet-laptop>
- <20110106124439.GA17004@verge.net.au>
- <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>
- <20110107012356.GA1257@verge.net.au>
- <20110110093155.GB13420@verge.net.au>
- <20110113064718.GA17905@verge.net.au>
- <AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>
- <20110113234135.GC8426@verge.net.au>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Fri, 14 Jan 2011 13:37:40 +0800
+Message-ID: <AANLkTimNekxXpovXOHW1eNvvdzMfLyhOyum44AKMOmDj@mail.gmail.com>
+References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com> <1294927387.3044.76.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60051 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750941Ab1ANE6x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jan 2011 23:58:53 -0500
-Content-Disposition: inline
-In-Reply-To: <20110113234135.GC8426@verge.net.au>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:47451 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941Ab1ANFiC convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 00:38:02 -0500
+In-Reply-To: <1294927387.3044.76.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 14, 2011 at 08:41:36AM +0900, Simon Horman wrote:
-> On Thu, Jan 13, 2011 at 10:45:38AM -0500, Jesse Gross wrote:
-> > On Thu, Jan 13, 2011 at 1:47 AM, Simon Horman <horms@verge.net.au> =
-wrote:
-> > > On Mon, Jan 10, 2011 at 06:31:55PM +0900, Simon Horman wrote:
-> > >> On Fri, Jan 07, 2011 at 10:23:58AM +0900, Simon Horman wrote:
-> > >> > On Thu, Jan 06, 2011 at 05:38:01PM -0500, Jesse Gross wrote:
-> > >> >
-> > >> > [ snip ]
-> > >> > >
-> > >> > > I know that everyone likes a nice netperf result but I agree=
- with
-> > >> > > Michael that this probably isn't the right question to be as=
-king. =A0I
-> > >> > > don't think that socket buffers are a real solution to the f=
-low
-> > >> > > control problem: they happen to provide that functionality b=
-ut it's
-> > >> > > more of a side effect than anything. =A0It's just that the a=
-mount of
-> > >> > > memory consumed by packets in the queue(s) doesn't really ha=
-ve any
-> > >> > > implicit meaning for flow control (think multiple physical a=
-dapters,
-> > >> > > all with the same speed instead of a virtual device and a ph=
-ysical
-> > >> > > device with wildly different speeds). =A0The analog in the p=
-hysical
-> > >> > > world that you're looking for would be Ethernet flow control=
-=2E
-> > >> > > Obviously, if the question is limiting CPU or memory consump=
-tion then
-> > >> > > that's a different story.
-> > >> >
-> > >> > Point taken. I will see if I can control CPU (and thus memory)=
- consumption
-> > >> > using cgroups and/or tc.
-> > >>
-> > >> I have found that I can successfully control the throughput usin=
-g
-> > >> the following techniques
-> > >>
-> > >> 1) Place a tc egress filter on dummy0
-> > >>
-> > >> 2) Use ovs-ofctl to add a flow that sends skbs to dummy0 and the=
-n eth1,
-> > >> =A0 =A0this is effectively the same as one of my hacks to the da=
-tapath
-> > >> =A0 =A0that I mentioned in an earlier mail. The result is that e=
-th1
-> > >> =A0 =A0"paces" the connection.
+Dear Ben,
 
-This is actually a bug. This means that one slow connection will
-affect fast ones. I intend to change the default for qemu to sndbuf=3D0=
- :
-this will fix it but break your "pacing". So pls do not count on this b=
-ehaviour.
+On Thu, Jan 13, 2011 at 10:03 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Thu, 2011-01-13 at 19:49 +0800, Po-Yu Chuang wrote:
+>> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>>
+>> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
+>> MII. =C2=A0This driver has been working on some ARM/NDS32 SoC includ=
+ing
+>> Faraday A320 and Andes AG101.
+> [...]
+>> +#define USE_NAPI
+>
+> All new network drivers should use NAPI only, so please remove the
+> definition of USE_NAPI and change the conditional code to use NAPI
+> always.
 
-> > > Further to this, I wonder if there is any interest in providing
-> > > a method to switch the action order - using ovs-ofctl is a hack i=
-mho -
-> > > and/or switching the default action order for mirroring.
-> >=20
-> > I'm not sure that there is a way to do this that is correct in the
-> > generic case.  It's possible that the destination could be a VM whi=
-le
-> > packets are being mirrored to a physical device or we could be
-> > multicasting or some other arbitrarily complex scenario.  Just thin=
-k
-> > of what a physical switch would do if it has ports with two differe=
-nt
-> > speeds.
->=20
-> Yes, I have considered that case. And I agree that perhaps there
-> is no sensible default. But perhaps we could make it configurable som=
-ehow?
+OK, fixed.
 
-The fix is at the application level. Run netperf with -b and -w flags t=
-o
-limit the speed to a sensible value.
+> [...]
+>> + =C2=A0 =C2=A0 struct net_device_stats stats;
+>
+> There is a net_device_stats structure in the net_device structure; yo=
+u
+> should normally use that instead of adding another one.
 
---=20
-MST
+OK, fixed.
+
+> [...]
+>> +static int ftmac100_reset(struct ftmac100 *priv)
+>> +{
+>> + =C2=A0 =C2=A0 struct device *dev =3D &priv->netdev->dev;
+>> + =C2=A0 =C2=A0 unsigned long flags;
+>> + =C2=A0 =C2=A0 int i;
+>> +
+>> + =C2=A0 =C2=A0 /* NOTE: reset clears all registers */
+>> +
+>> + =C2=A0 =C2=A0 spin_lock_irqsave(&priv->hw_lock, flags);
+>> + =C2=A0 =C2=A0 iowrite32(FTMAC100_MACCR_SW_RST, priv->base + FTMAC1=
+00_OFFSET_MACCR);
+>> + =C2=A0 =C2=A0 spin_unlock_irqrestore(&priv->hw_lock, flags);
+>> +
+>> + =C2=A0 =C2=A0 for (i =3D 0; i < 5; i++) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 int maccr;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_lock_irqsave(&priv-=
+>hw_lock, flags);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 maccr =3D ioread32(priv-=
+>base + FTMAC100_OFFSET_MACCR);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 spin_unlock_irqrestore(&=
+priv->hw_lock, flags);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (!(maccr & FTMAC100_M=
+ACCR_SW_RST)) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 /*
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0* FTMAC100_MACCR_SW_RST cleared does not indicate
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0* that hardware reset completed (what the f*ck).
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0* We still need to wait for a while.
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0*/
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 usleep_range(500, 1000);
+>
+> Sleeping here means this must be running in process context. =C2=A0Bu=
+t you
+> used spin_lock_irqsave() above which implies you're not sure what the
+> context is. =C2=A0One of these must be wrong.
+>
+> I wonder whether hw_lock is even needed; you seem to acquire and rele=
+ase
+> it around each PIO (read or write). =C2=A0This should be unnecessary =
+since
+> each PIO is atomic.
+
+OK, fixed.
+
+> I think you can also get rid of rx_lock; it's only used in the RX dat=
+a
+> path which is already serialised by NAPI.
+
+OK, fixed.
+
+> [...]
+>> + =C2=A0 =C2=A0 netdev->last_rx =3D jiffies;
+>
+> Don't set last_rx; the networking core takes care of it now.
+
+OK, fixed.
+
+>> + =C2=A0 =C2=A0 priv->stats.rx_packets++;
+>> + =C2=A0 =C2=A0 priv->stats.rx_bytes +=3D skb->len;
+>
+> This should be done earlier, so that these stats include packets that
+> are dropped for any reason.
+
+OK, fixed.
+
+> [...]
+>> + =C2=A0 =C2=A0 netdev->trans_start =3D jiffies;
+>
+> Don't set trans_start; the networking core takes care of it now.
+
+OK, fixed.
+
+> [...]
+>> + =C2=A0 =C2=A0 priv->descs =3D dma_alloc_coherent(priv->dev,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 sizeof(struct ftmac100_d=
+escs), &priv->descs_dma_addr,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 GFP_KERNEL | GFP_DMA);
+>
+> On x86, GFP_DMA means the memory must be within the ISA DMA range
+> (< 16 MB). =C2=A0I don't know quite what it means on ARM but it may n=
+ot be
+> what you want.
+
+On ARM, all 4G address space can be used by DMA (at least for all the
+hardwares I have ever used). All memory pages are in DMA zone AFAIK.
+I put GFP_DMA here just to be safe if there were any constraints.
+
+By checking drivers in drivers/net/arm/, ep93xx_eth.c also uses this fl=
+ag,
+so I guess this is acceptable?
+
+> [...]
+>> + =C2=A0 =C2=A0 if (status & (FTMAC100_INT_XPKT_OK | FTMAC100_INT_XP=
+KT_LOST)) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /*
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* FTMAC100_INT_XPK=
+T_OK:
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* =C2=A0 =C2=A0 =C2=
+=A0 packet transmitted to ethernet successfully
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* FTMAC100_INT_XPK=
+T_LOST:
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* =C2=A0 =C2=A0 =C2=
+=A0packet transmitted to ethernet lost due to late
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* =C2=A0 =C2=A0 =C2=
+=A0collision or excessive collision
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_tx_complete(pri=
+v);
+>> + =C2=A0 =C2=A0 }
+>
+> TX completions should also be handled through NAPI if possible.
+
+OK, I'll study how to do that.
+
+> [...]
+>> + =C2=A0 =C2=A0 priv->rx_pointer =3D 0;
+>> + =C2=A0 =C2=A0 priv->tx_clean_pointer =3D 0;
+>> + =C2=A0 =C2=A0 priv->tx_pointer =3D 0;
+>> + =C2=A0 =C2=A0 spin_lock_init(&priv->hw_lock);
+>> + =C2=A0 =C2=A0 spin_lock_init(&priv->rx_lock);
+>> + =C2=A0 =C2=A0 spin_lock_init(&priv->tx_lock);
+>
+> These locks should be initialised in your probe function.
+
+OK, fixed.
+
+> [...]
+>> + =C2=A0 =C2=A0 unregister_netdev(netdev);
+>
+> There should be a netif_napi_del() before this.
+
+OK, fixed.
+
+> A general comment: please use netdev_err(), netdev_info() etc. for
+> logging. =C2=A0This ensures that both the platform device address and=
+ the
+> network device name appears in the log messages.
+
+OK, fixed.
+
+Thanks a lot for your detailed review. I'll submit a new version ASAP.
+
+Thanks,
+Po-Yu Chuang
