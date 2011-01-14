@@ -1,30 +1,77 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost-net: 2.6.38 fix
-Date: Fri, 14 Jan 2011 11:33:02 +0200
-Message-ID: <20110114093302.GA702@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vlad Dogaru <ddvlad@rosedu.org>
+Subject: [PATCH v3 0/2] net: add device groups
+Date: Fri, 14 Jan 2011 11:38:29 +0200
+Message-ID: <1294997911-13866-1-git-send-email-ddvlad@rosedu.org>
+Cc: Vlad Dogaru <ddvlad@rosedu.org>, jamal <hadi@cyberus.ca>,
+	Octavian Purdila <opurdila@ixiacom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [141.85.37.41] ([141.85.37.41]:39236 "EHLO swarm.cs.pub.ro"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751729Ab1ANJif (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 04:38:35 -0500
+To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Please pull the following for 2.6.38.
-Thanks!
+This patchset implements network device grouping and simple manipulation
+of groups. Netlink has been updated to provide group information and
+means of applying changes to members of a specific group via a single
+message.
 
-The following changes since commit 0c21e3aaf6ae85bee804a325aa29c325209180fd:
+The patchset has a corresponding one for iproute2, which implements the
+new functionality in userspace.
 
-  Merge branch 'for-next' of git://git.kernel.org/pub/scm/linux/kernel/git/hch/hfsplus (2011-01-07 17:16:27 -0800)
+Some basic testing, using 1024 dummy network interfaces (all of them in
+group 0):
 
-are available in the git repository at:
+# time { for i in `seq 0 1023`; do ip l s dev dummy$i up; done }
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net
+real	0m7.70s
+user	0m0.36s
+sys	0m4.85s
 
-Michael S. Tsirkin (1):
-      vhost: fix signed/unsigned comparison
+# time ip l s devgroup 0 up
 
- drivers/vhost/vhost.c |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+real	0m0.14s
+user	0m0.00s
+sys	0m0.14s
+
+# time { for i in `seq 0 1023`; do ip l s dev dummy$i mtu 2000; done }
+
+real	0m7.43s
+user	0m0.48s
+sys	0m4.72s
+
+# time ip l s devgroup 0 mtu 2000
+
+real	0m0.02s
+user	0m0.00s
+sys	0m0.02s
+
+Improvement stems both from less user-kernel communication and from less
+processes being created.
+
+Changes since version 2:
+ * fix net_device field type (should be int, not unsigned int).
+ * fix typo in commit message.
+
+Changes since version 1:
+ * we avoid adding a new attribute type by using the following
+   convention: if no device name is specified, the interface index is
+   negative, and there is a group specified, we change parameters for
+   the whole group.
+ * the dummy module is no longer modified to include an initial group
+   for the devices it creates. The user is responsible for moving them
+   to a different group by means of the provided netlink interface.
+
+Vlad Dogaru (2):
+  net_device: add support for network device groups
+  netlink: support setting devgroup parameters
+
+ include/linux/if_link.h   |    1 +
+ include/linux/netdevice.h |    7 +++++++
+ net/core/dev.c            |   12 ++++++++++++
+ net/core/rtnetlink.c      |   38 ++++++++++++++++++++++++++++++++++----
+ 4 files changed, 54 insertions(+), 4 deletions(-)
+
