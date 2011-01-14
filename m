@@ -1,8 +1,7 @@
 From: "Kirill A. Shutemov" <kas@openvz.org>
-Subject: [PATCH v3 01/16] sunrpc: mount rpc_pipefs on initialization
-Date: Fri, 14 Jan 2011 15:48:59 +0200
-Message-ID: <1295012954-7769-2-git-send-email-kas@openvz.org>
-References: <1295012954-7769-1-git-send-email-kas@openvz.org>
+Subject: [PATCH v3 00/16] make rpc_pipefs be mountable multiple time
+Date: Fri, 14 Jan 2011 15:48:58 +0200
+Message-ID: <1295012954-7769-1-git-send-email-kas@openvz.org>
 Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Rob Landley <rlandley@parallels.com>,
@@ -12,85 +11,84 @@ Cc: Pavel Emelyanov <xemul@parallels.com>, linux-nfs@vger.kernel.org,
 To: Trond Myklebust <Trond.Myklebust@netapp.com>,
 	"J. Bruce Fields" <bfields@fieldses.org>,
 	Neil Brown <neilb@suse.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shutemov.name ([188.40.19.243]:53260 "EHLO shutemov.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751928Ab1ANNth (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jan 2011 08:49:37 -0500
-In-Reply-To: <1295012954-7769-1-git-send-email-kas@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mount rpc_pipefs on register_rpc_pipefs() and replace
-rpc_get_mount()/rpc_put_mount() implementation with mntget()/mntput().
+Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+Only for client for now.
 
-This commit introduces temprorary regression: there is no way to
-remove the module. It will be fixed at the end of the patchset.
+It's step forwart to get nfs work from container.
 
-Signed-off-by: Kirill A. Shutemov <kas@openvz.org>
----
- net/sunrpc/rpc_pipe.c |   26 +++++++++++++++-----------
- 1 files changed, 15 insertions(+), 11 deletions(-)
+Changelog:
 
-diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 72bc536..9ab9355 100644
---- a/net/sunrpc/rpc_pipe.c
-+++ b/net/sunrpc/rpc_pipe.c
-@@ -29,7 +29,6 @@
- #include <linux/sunrpc/cache.h>
- 
- static struct vfsmount *rpc_mnt __read_mostly;
--static int rpc_mount_count;
- 
- static struct file_system_type rpc_pipe_fs_type;
- 
-@@ -423,18 +422,13 @@ struct rpc_filelist {
- 
- struct vfsmount *rpc_get_mount(void)
- {
--	int err;
--
--	err = simple_pin_fs(&rpc_pipe_fs_type, &rpc_mnt, &rpc_mount_count);
--	if (err != 0)
--		return ERR_PTR(err);
--	return rpc_mnt;
-+	return mntget(rpc_mnt);
- }
- EXPORT_SYMBOL_GPL(rpc_get_mount);
- 
- void rpc_put_mount(void)
- {
--	simple_release_fs(&rpc_mnt, &rpc_mount_count);
-+	mntput(rpc_mnt);
- }
- EXPORT_SYMBOL_GPL(rpc_put_mount);
- 
-@@ -1071,12 +1065,22 @@ int register_rpc_pipefs(void)
- 	if (!rpc_inode_cachep)
- 		return -ENOMEM;
- 	err = register_filesystem(&rpc_pipe_fs_type);
--	if (err) {
--		kmem_cache_destroy(rpc_inode_cachep);
--		return err;
-+	if (err)
-+		goto destroy_cache;
-+
-+	rpc_mnt = kern_mount(&rpc_pipe_fs_type);
-+	if (IS_ERR(rpc_mnt)) {
-+		err = PTR_ERR(rpc_mnt);
-+		goto unregister_fs;
- 	}
- 
- 	return 0;
-+
-+unregister_fs:
-+	unregister_filesystem(&rpc_pipe_fs_type);
-+destroy_cache:
-+	kmem_cache_destroy(rpc_inode_cachep);
-+	return err;
- }
- 
- void unregister_rpc_pipefs(void)
+v3:
+ - rebase to the current Linus' tree (52cfd503ad)
+ - rework get_rpc_pipefs() once again;
+ - solve problem with rmmod sunrpc moudle;
+ - free dns cache on killing rpc_pipefs superblock.
+
+v2:
+ - one of rpc_create() calls was missed initially, fixed;
+ - change logic for get_rpc_pipefs(NULL);
+ - export get_rpc_pipefs() to be able to use from modules (tnx J. Bruce Field);
+ - change "From:" and "Signed-off-by:" addresses.
+
+v1:
+ - initial revision of the patchset.
+
+Kirill A. Shutemov (16):
+  sunrpc: mount rpc_pipefs on initialization
+  sunrpc: introduce init_rpc_pipefs
+  sunrpc: push init_rpc_pipefs up to rpc_create() callers
+  sunrpc: tag svc_serv with rpc_pipefs mount point
+  sunrpc: get rpc_pipefs mount point for svc_serv from callers
+  lockd: get rpc_pipefs mount point from callers
+  sunrpc: get rpc_pipefs mount point for rpcb_create[_local] from
+    callers
+  sunrpc: tag pipefs field of cache_detail with rpc_pipefs mount point
+  sunrpc: introduce rpc_pipefs_add_destroy_cb()
+  nfs: per-rpc_pipefs dns cache
+  Export iterate_mounts symbol to be able to use from sunrpc module.
+  sunrpc: introduce get_rpc_pipefs()
+  nfs: introduce mount option 'rpcmount'
+  sunrpc: make rpc_pipefs be mountable multiple times
+  sunrpc: remove global init_rpc_pipefs
+  Rework get_rpc_pipefs and introduce put_rpc_pipefs()
+
+ fs/lockd/clntlock.c                |    8 +-
+ fs/lockd/host.c                    |   15 ++-
+ fs/lockd/mon.c                     |   13 ++-
+ fs/lockd/svc.c                     |    4 +-
+ fs/namespace.c                     |    1 +
+ fs/nfs/cache_lib.c                 |   18 +--
+ fs/nfs/cache_lib.h                 |    3 +-
+ fs/nfs/callback.c                  |    7 +-
+ fs/nfs/callback.h                  |    3 +-
+ fs/nfs/client.c                    |   45 ++++++-
+ fs/nfs/dns_resolve.c               |  137 ++++++++++++++++-----
+ fs/nfs/dns_resolve.h               |   15 +--
+ fs/nfs/inode.c                     |    9 +--
+ fs/nfs/internal.h                  |   10 ++-
+ fs/nfs/mount_clnt.c                |    1 +
+ fs/nfs/namespace.c                 |    3 +-
+ fs/nfs/nfs4namespace.c             |   20 ++--
+ fs/nfs/super.c                     |   20 +++
+ fs/nfsd/nfs4callback.c             |    5 +
+ fs/nfsd/nfssvc.c                   |   20 +++-
+ include/linux/lockd/bind.h         |    3 +-
+ include/linux/lockd/lockd.h        |    4 +-
+ include/linux/nfs_fs_sb.h          |    1 +
+ include/linux/sunrpc/cache.h       |    9 +-
+ include/linux/sunrpc/clnt.h        |    5 +-
+ include/linux/sunrpc/rpc_pipe_fs.h |    7 +-
+ include/linux/sunrpc/svc.h         |    9 +-
+ net/sunrpc/cache.c                 |   16 ++-
+ net/sunrpc/clnt.c                  |   19 ++--
+ net/sunrpc/rpc_pipe.c              |  235 ++++++++++++++++++++++++++++++++----
+ net/sunrpc/rpcb_clnt.c             |   19 ++-
+ net/sunrpc/svc.c                   |   52 +++++---
+ 32 files changed, 549 insertions(+), 187 deletions(-)
+
 -- 
 1.7.3.4
-
