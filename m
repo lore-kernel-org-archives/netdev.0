@@ -1,75 +1,105 @@
-From: Sascha Hauer <s.hauer@pengutronix.de>
-Subject: Re: [PATCH v4 08/10] ARM: mxs: add ocotp read function
-Date: Fri, 14 Jan 2011 09:33:20 +0100
-Message-ID: <20110114083320.GK26617@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-9-git-send-email-shawn.guo@freescale.com>
- <20110113151939.GX24920@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shawn Guo <shawn.guo@freescale.com>, gerg@snapgear.com,
-	B32542@freescale.com, netdev@vger.kernel.org, jamie@shareable.org,
-	baruch@tkos.co.il, w.sang@pengutronix.de, r64343@freescale.com,
-	eric@eukrea.com, bryan.wu@canonical.com, jamie@jamieiles.com,
-	davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	lw@karo-electronics.de
-To: Uwe =?iso-8859-15?Q?Kleine-K=F6nig?=
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
 	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] ARM: mxs: pass fec device name via platform data
+Date: Fri, 14 Jan 2011 09:38:52 +0100
+Message-ID: <20110114083852.GE24920@pengutronix.de>
+References: <20110113150622.GV24920@pengutronix.de>
+ <1294988000-20232-1-git-send-email-shawn.guo@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, gerg@snapgear.com, baruch@tkos.co.il,
+	eric@eukrea.com, bryan.wu@canonical.com, r64343@freescale.com,
+	B32542@freescale.com, lw@karo-electronics.de,
+	w.sang@pengutronix.de, s.hauer@pengutronix.de, jamie@jamieiles.com,
+	jamie@shareable.org, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:53341 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42264 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751341Ab1ANIdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 03:33:22 -0500
+	with ESMTP id S1751046Ab1ANIjH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 03:39:07 -0500
 Content-Disposition: inline
-In-Reply-To: <20110113151939.GX24920@pengutronix.de>
+In-Reply-To: <1294988000-20232-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 13, 2011 at 04:19:39PM +0100, Uwe Kleine-K=F6nig wrote:
-> On Thu, Jan 06, 2011 at 03:13:16PM +0800, Shawn Guo wrote:
-> > Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
-> > ---
-> > Changes for v4:
-> >  - Call cpu_relax() during polling
-> >=20
-> > Changes for v2:
-> >  - Add mutex locking for mxs_read_ocotp()
-> >  - Use type size_t for count and i
-> >  - Add comment for clk_enable/disable skipping
-> >  - Add ERROR bit clearing and polling step
-> >=20
-> >  arch/arm/mach-mxs/Makefile              |    2 +-
-> >  arch/arm/mach-mxs/include/mach/common.h |    1 +
-> >  arch/arm/mach-mxs/ocotp.c               |   79 +++++++++++++++++++=
-++++++++++++
-> >  3 files changed, 81 insertions(+), 1 deletions(-)
-> >  create mode 100644 arch/arm/mach-mxs/ocotp.c
-> >=20
-> > diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefil=
-e
-> > index 39d3f9c..f23ebbd 100644
-> > --- a/arch/arm/mach-mxs/Makefile
-> > +++ b/arch/arm/mach-mxs/Makefile
-> > @@ -1,5 +1,5 @@
-> >  # Common support
-> > -obj-y :=3D clock.o devices.o gpio.o icoll.o iomux.o system.o timer=
-=2Eo
-> > +obj-y :=3D clock.o devices.o gpio.o icoll.o iomux.o ocotp.o system=
-=2Eo timer.o
-> is it worth to make ocotp optional?  (and let evk select
-> CONFIG_MXS_OCOTP)
+On Fri, Jan 14, 2011 at 02:53:20PM +0800, Shawn Guo wrote:
+> Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+Acked-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
-I think not.
-
-Sascha
+> ---
+>  arch/arm/mach-mxs/devices/platform-fec.c        |   11 ++++++-----
+>  arch/arm/mach-mxs/include/mach/devices-common.h |    1 +
+>  2 files changed, 7 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/arch/arm/mach-mxs/devices/platform-fec.c b/arch/arm/mach=
+-mxs/devices/platform-fec.c
+> index c42dff7..75eb26b 100644
+> --- a/arch/arm/mach-mxs/devices/platform-fec.c
+> +++ b/arch/arm/mach-mxs/devices/platform-fec.c
+> @@ -10,20 +10,21 @@
+>  #include <mach/mx28.h>
+>  #include <mach/devices-common.h>
+> =20
+> -#define mxs_fec_data_entry_single(soc, _id)				\
+> +#define mxs_fec_data_entry_single(soc, _devid, _id)			\
+>  	{								\
+> +		.devid =3D _devid,					\
+>  		.id =3D _id,						\
+>  		.iobase =3D soc ## _ENET_MAC ## _id ## _BASE_ADDR,	\
+>  		.irq =3D soc ## _INT_ENET_MAC ## _id,			\
+>  	}
+> =20
+> -#define mxs_fec_data_entry(soc, _id)					\
+> -	[_id] =3D mxs_fec_data_entry_single(soc, _id)
+> +#define mxs_fec_data_entry(soc, _devid, _id)				\
+> +	[_id] =3D mxs_fec_data_entry_single(soc, _devid, _id)
+> =20
+>  #ifdef CONFIG_SOC_IMX28
+>  const struct mxs_fec_data mx28_fec_data[] __initconst =3D {
+>  #define mx28_fec_data_entry(_id)					\
+> -	mxs_fec_data_entry(MX28, _id)
+> +	mxs_fec_data_entry(MX28, "imx28-fec", _id)
+>  	mx28_fec_data_entry(0),
+>  	mx28_fec_data_entry(1),
+>  };
+> @@ -45,6 +46,6 @@ struct platform_device *__init mxs_add_fec(
+>  		},
+>  	};
+> =20
+> -	return mxs_add_platform_device("imx28-fec", data->id,
+> +	return mxs_add_platform_device(data->devid, data->id,
+>  			res, ARRAY_SIZE(res), pdata, sizeof(*pdata));
+>  }
+> diff --git a/arch/arm/mach-mxs/include/mach/devices-common.h b/arch/a=
+rm/mach-mxs/include/mach/devices-common.h
+> index 6c3d1a1..10fbcfd 100644
+> --- a/arch/arm/mach-mxs/include/mach/devices-common.h
+> +++ b/arch/arm/mach-mxs/include/mach/devices-common.h
+> @@ -33,6 +33,7 @@ int __init mxs_add_duart(const struct amba_device *=
+dev);
+>  /* fec */
+>  #include <linux/fec.h>
+>  struct mxs_fec_data {
+> +	const char *devid;
+>  	int id;
+>  	resource_size_t iobase;
+>  	resource_size_t iosize;
+> --=20
+> 1.7.1
+>=20
+>=20
+>=20
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+>=20
 
 --=20
-Pengutronix e.K.                           |                           =
-  |
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
 Industrial Linux Solutions                 | http://www.pengutronix.de/=
   |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0  =
-  |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-555=
-5 |
