@@ -1,51 +1,41 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-2.6 2/2] sfc: Restore the effect of the rss_cpus module
- parameter
-Date: Fri, 14 Jan 2011 14:25:40 +0000
-Message-ID: <1295015140.5386.3.camel@bwh-desktop>
-References: <1295014889.5386.1.camel@bwh-desktop>
+From: Kirill Smelkov <kirr@mns.spb.ru>
+Subject: Re: net 00/05: routing based send-to-self implementation
+Date: Fri, 14 Jan 2011 18:02:25 +0300
+Message-ID: <20110114150225.GA8815@tugrik.mns.mnsspb.ru>
+References: <20091203112550.15100.86217.sendpatchset@x2.localnet> <20110114101832.GA3170@tugrik.mns.mnsspb.ru> <20110114064048.5829220a@bike.lwn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, davem@davemloft.net,
+	netdev@vger.kernel.org, Boris Kocherov <bkocherov@gmail.com>
+To: Jonathan Corbet <corbet@lwn.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:57990 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756855Ab1ANOZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jan 2011 09:25:43 -0500
-In-Reply-To: <1295014889.5386.1.camel@bwh-desktop>
+Received: from mail.mnsspb.ru ([84.204.75.2]:49826 "EHLO mail.mnsspb.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757676Ab1ANPBO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jan 2011 10:01:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20110114064048.5829220a@bike.lwn.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit a4900ac ("sfc: Create multiple TX queues") accidentally
-disabled the rss_cpus module parameter.
+On Fri, Jan 14, 2011 at 06:40:48AM -0700, Jonathan Corbet wrote:
+> On Fri, 14 Jan 2011 13:18:32 +0300
+> Kirill Smelkov <kirr@mns.spb.ru> wrote:
+> 
+> >  ( Jonathan, I though something like this could be useful for LDD4 in
+> >    revised snull not needing to play dirty tricks with IP addresses anymore )
+> 
+> Nice thought, thanks.  I don't know yet whether we'd want to do that or
+> just run stuff on a virtual machine for LDD4 - lots of stuff to figure
+> out still.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/efx.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+Just FYI: I've started with virtual machines, but figured out it is
+(sometimes, maybe my fault) a bit of pain to coherently setup and also
+that not all hardware have support for KVM - for example my netbook with
+Atom N455, which I use half the time, does not support VT and they've
+killed support for KQEMU in QEMU recently...
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index c2dc9a5..002bac7 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1153,6 +1153,9 @@ static int efx_wanted_channels(void)
- 	int count;
- 	int cpu;
- 
-+	if (rss_cpus)
-+		return rss_cpus;
-+
- 	if (unlikely(!zalloc_cpumask_var(&core_mask, GFP_KERNEL))) {
- 		printk(KERN_WARNING
- 		       "sfc: RSS disabled due to allocation failure\n");
--- 
-1.7.3.4
+Anyway, good luck with LDD4!
 
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Thanks,
+Kirill
