@@ -1,40 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: sch_sfb
-Date: Fri, 14 Jan 2011 02:39:21 +0100
-Message-ID: <4D2FA949.8020701@trash.net>
-References: <1292855730-19265-1-git-send-email-xiaosuo@gmail.com>	<20101220232020.GB2052@del.dom.local>	<1292887689.2627.150.camel@edumazet-laptop>	<20101220235209.GA1865@del.dom.local>	<1292939574.6535.27.camel@mojatatu>	<AANLkTikwMQBwNdT1nZ97NNFYGJnwhk39+8afTKONgeF5@mail.gmail.com>	<20101221223704.GA1979@del.dom.local>	<1293111333.11306.170.camel@mojatatu>	<1294003631.2535.253.camel@edumazet-laptop>	<20110103095842.7677130d@nehalam>	<Pine.LNX.4.64.1101041506300.2576@ask.diku.dk>	<4D2EE708.8010806@trash.net> <87bp3kg58i.fsf_-_@trurl.pps.jussieu.fr>	<4D2F4B83.6060001@trash.net> <7ir5cgs3k1.fsf@lanthane.pps.jussieu.fr>
+From: William Allen Simpson <william.allen.simpson@gmail.com>
+Subject: Re: [PATCH v1 2/2] TCPCT API sockopt update to draft -03
+Date: Thu, 13 Jan 2011 22:00:04 -0500
+Message-ID: <4D2FBC34.6050901@gmail.com>
+References: <4D2DE824.10205@gmail.com>	<4D2DEC0A.70608@gmail.com>	<20110112105608.793787b2@s6510>	<4D2F3723.9040405@gmail.com> <AANLkTinhnaF3-scKnTOC5rF68+5otVW2NG3v1y80L0k6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	David Miller <davem@davemloft.net>
-To: Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56042 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034Ab1ANBjT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jan 2011 20:39:19 -0500
-In-Reply-To: <7ir5cgs3k1.fsf@lanthane.pps.jussieu.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Linux Kernel Developers <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: Arnaud Lacombe <lacombar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinhnaF3-scKnTOC5rF68+5otVW2NG3v1y80L0k6@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14.01.2011 01:59, Juliusz Chroboczek wrote:
->> Since to my knowledge you've never attempted an upstream merge
-> 
-> You're kidding, I hope.
-> 
->   http://thread.gmane.org/gmane.linux.network/90225
->   http://thread.gmane.org/gmane.linux.network/90375
-> 
-> It was reviewed in particular by one Patrick McHardy.
+On 1/13/11 12:53 PM, Arnaud Lacombe wrote:
+> On Thu, Jan 13, 2011 at 12:32 PM, William Allen Simpson
+> <william.allen.simpson@gmail.com>  wrote:
+>> Even though I'm not paid to work on Linux, I'm doing my best to give you
+>> folks a quick heads up and provide code to rectify the very recent changes
+>> that can be propagated back through the stable tree (to 2.6.33).
+>>
+>> As always, what you actually do with my code is up to you....
+>>
+> FWIW, what is the basis of this hunk ? The RFC text[0] seems to use
+> the TCP_COOKIE_* naming, not TCPCT_.
+>
+> Thanks,
+>   - Arnaud
+>
+> [0]: http://www.rfc-editor.org/authors/rfc6013.txt
+>
+Is this supposed to be humorous?  Maybe folks here find it amusing that
+somebody thinks they know more than the *author* about the contents of the
+document?  Did you note the words above?  That is, "very recent changes"?
 
-Well, sorry, I don't remember every patch I've ever reviewed.
+Perhaps you are viewing an older cached version.  Please check for the
+current month on every page: "January 2011".
 
-Just to state it again, I've actually started implementing this
-years ago without every finishing it and was quite happy about
-noticing your implementation for inspiration. There's no reason
-to be pissed, I don't really mind which version is merged if
-any, reimplementing just forced me to think from scratch, with
-existing code at hand this makes it easier to avoid or fix
-mistakes.
+We discussed -- and ultimately decided -- these changes in private email
+during the independent review process before making them available to the
+general public.  That's how the RFC publication procedure works.
+
+I tried to be helpful to the Linux community in advance of publication, so
+you would be prepared.  I'm sorry that the community here is so lacking in
+appreciation for my efforts on your behalf.
+
+As always, what you actually do with my code is up to you....
