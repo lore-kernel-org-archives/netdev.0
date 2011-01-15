@@ -1,17 +1,14 @@
 From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH] can: test size of struct sockaddr
-Date: Sat, 15 Jan 2011 20:35:27 +0100
-Message-ID: <20110115193526.GB463@e-circ.dyndns.org>
-References: <20110114172321.GB331@e-circ.dyndns.org>
-	<4D31D4A6.4040701@hartkopp.net>
+Subject: [PATCH v2] can: test size of struct sockaddr in sendmsg
+Date: Sat, 15 Jan 2011 20:39:16 +0100
+Message-ID: <20110115193916.GC463@e-circ.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
+	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <4D31D4A6.4040701-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -23,32 +20,39 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 15, 2011 at 06:08:54PM +0100, Oliver Hartkopp wrote:
-> On 14.01.2011 18:23, Kurt Van Dijck wrote:
-> > I think this patch makes the CAN socket code comform to the
-> > manpages of sendmsg & recvmsg.
-> 
-> Hello Kurt,
-> 
-> if you check similar code sniplets in the kernel you would see, that in
-> recvmsg()-cases the given namelen is not used from userspace.
-I went into udp code, but my mind got troubled there.
-> 
-> If msg->msg_name is not NULL the msg_namelen is just set by the kernel. E.g.
-> see af_packet.c, af_econet.c, etc.
-I should have looked further ...
-Given this, I went up to net/socket.c:__sys_recvmsg.
-Within kernel space, a struct sockaddr_storage is used in fact ....
-This solves indeed the problem I was trying to address.
-> 
-> So the code in candump.c setting the msg_namelen before recvmsg() is obviously
-> obsolete ...
-I think no, since after the socket's recvmsg() has been called, 
-since move_addr_to_user() will do checks similar as I tried to reimplement.
-> 
-> Btw. your two patches below for bcm_sendmsg() and raw_sendmesg() look good.
-> 
-> If you would like to resubmit these two patches, you may add my Acked-by
-Thanks, I will do so.
+This patch makes the CAN socket code conform to the manpage of sendmsg.
 
-Kurt
+Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Acked-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+---
+ net/can/bcm.c |    3 +++
+ net/can/raw.c |    3 +++
+ 2 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/can/bcm.c b/net/can/bcm.c
+index 6faa825..2f804e4 100644
+--- a/net/can/bcm.c
++++ b/net/can/bcm.c
+@@ -1256,6 +1256,9 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		struct sockaddr_can *addr =
+ 			(struct sockaddr_can *)msg->msg_name;
+ 
++		if (msg->msg_namelen < sizeof(*addr))
++			return -EINVAL;
++
+ 		if (addr->can_family != AF_CAN)
+ 			return -EINVAL;
+ 
+diff --git a/net/can/raw.c b/net/can/raw.c
+index e88f610..883e9d7 100644
+--- a/net/can/raw.c
++++ b/net/can/raw.c
+@@ -649,6 +649,9 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 		struct sockaddr_can *addr =
+ 			(struct sockaddr_can *)msg->msg_name;
+ 
++		if (msg->msg_namelen < sizeof(*addr))
++			return -EINVAL;
++
+ 		if (addr->can_family != AF_CAN)
+ 			return -EINVAL;
