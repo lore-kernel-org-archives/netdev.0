@@ -1,7 +1,7 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH resend] netfilter: change IPS_*_BIT to IPS_*
-Date: Sat, 15 Jan 2011 19:20:45 +0800
-Message-ID: <1295090445-14431-1-git-send-email-xiaosuo@gmail.com>
+Subject: [PATCH v2 resend] netfilter: remove an atomic bit operation
+Date: Sat, 15 Jan 2011 19:23:00 +0800
+Message-ID: <1295090580-14472-1-git-send-email-xiaosuo@gmail.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Changli Gao <xiaosuo@gmail.com>,
@@ -12,54 +12,26 @@ Return-path: <netfilter-devel-owner@vger.kernel.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-My previous patch made a mistake when converting atomic_set to a normal
-bit 'or'. IPS_*_BIT should be replaced with IPS_*.
-
-  commit 76a2d3bcfcc86e2a8044258515b86492a37631a3
-  Author: Changli Gao <xiaosuo@gmail.com>
-  Date:   Mon Nov 15 11:59:03 2010 +0100
-
-  netfilter: nf_nat: don't use atomic bit operation
-
-  As we own the conntrack and the others can't see it until we confirm it,
-  we don't need to use atomic bit operation on ct->status.
+As this ct won't be seen by the others, we don't need to set the
+IPS_CONFIRMED_BIT in atomic way.
 
 Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 Cc: Tim Gardner <tim.gardner@canonical.com>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 ---
- include/net/netfilter/nf_nat_core.h |    4 ++--
- net/ipv4/netfilter/nf_nat_core.c    |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
-diff --git a/include/net/netfilter/nf_nat_core.h b/include/net/netfilter/nf_nat_core.h
-index 5aec85c..3dc7b98 100644
---- a/include/net/netfilter/nf_nat_core.h
-+++ b/include/net/netfilter/nf_nat_core.h
-@@ -21,9 +21,9 @@ static inline int nf_nat_initialized(struct nf_conn *ct,
- 				     enum nf_nat_manip_type manip)
- {
- 	if (manip == IP_NAT_MANIP_SRC)
--		return ct->status & IPS_SRC_NAT_DONE_BIT;
-+		return ct->status & IPS_SRC_NAT_DONE;
- 	else
--		return ct->status & IPS_DST_NAT_DONE_BIT;
-+		return ct->status & IPS_DST_NAT_DONE;
- }
+v2: IPS_CONFIRMED_BIT is changed to IPS_CONFIRMED.
+ net/netfilter/nf_conntrack_core.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 27a5ea6..c708248 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -486,7 +486,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 	ct->timeout.expires += jiffies;
+ 	add_timer(&ct->timeout);
+ 	atomic_inc(&ct->ct_general.use);
+-	set_bit(IPS_CONFIRMED_BIT, &ct->status);
++	ct->status |= IPS_CONFIRMED;
  
- struct nlattr;
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index eb55835..21e6e92 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -323,9 +323,9 @@ nf_nat_setup_info(struct nf_conn *ct,
- 
- 	/* It's done. */
- 	if (maniptype == IP_NAT_MANIP_DST)
--		ct->status |= IPS_DST_NAT_DONE_BIT;
-+		ct->status |= IPS_DST_NAT_DONE;
- 	else
--		ct->status |= IPS_SRC_NAT_DONE_BIT;
-+		ct->status |= IPS_SRC_NAT_DONE;
- 
- 	return NF_ACCEPT;
- }
+ 	/* Since the lookup is lockless, hash insertion must be done after
+ 	 * starting the timer and setting the CONFIRMED bit. The RCU barriers
