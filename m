@@ -1,50 +1,54 @@
-From: Alessandro Suardi <alessandro.suardi@gmail.com>
-Subject: NETLINK: Failed to browse: Invalid argument from avahi-daemon in F14
- since 2.6.37-git8
-Date: Sat, 15 Jan 2011 19:34:41 +0100
-Message-ID: <AANLkTinHOFwPCwJNCy9cFMCf+_VNb-7YFk-3VJFXoaoZ@mail.gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Subject: Re: [PATCH] can: test size of struct sockaddr
+Date: Sat, 15 Jan 2011 20:35:27 +0100
+Message-ID: <20110115193526.GB463@e-circ.dyndns.org>
+References: <20110114172321.GB331@e-circ.dyndns.org>
+	<4D31D4A6.4040701@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D31D4A6.4040701-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-/var/log/messages says:
+On Sat, Jan 15, 2011 at 06:08:54PM +0100, Oliver Hartkopp wrote:
+> On 14.01.2011 18:23, Kurt Van Dijck wrote:
+> > I think this patch makes the CAN socket code comform to the
+> > manpages of sendmsg & recvmsg.
+> 
+> Hello Kurt,
+> 
+> if you check similar code sniplets in the kernel you would see, that in
+> recvmsg()-cases the given namelen is not used from userspace.
+I went into udp code, but my mind got troubled there.
+> 
+> If msg->msg_name is not NULL the msg_namelen is just set by the kernel. E.g.
+> see af_packet.c, af_econet.c, etc.
+I should have looked further ...
+Given this, I went up to net/socket.c:__sys_recvmsg.
+Within kernel space, a struct sockaddr_storage is used in fact ....
+This solves indeed the problem I was trying to address.
+> 
+> So the code in candump.c setting the msg_namelen before recvmsg() is obviously
+> obsolete ...
+I think no, since after the socket's recvmsg() has been called, 
+since move_addr_to_user() will do checks similar as I tried to reimplement.
+> 
+> Btw. your two patches below for bcm_sendmsg() and raw_sendmesg() look good.
+> 
+> If you would like to resubmit these two patches, you may add my Acked-by
+Thanks, I will do so.
 
-Jan 13 12:42:02 duff avahi-daemon[2771]: Found user 'avahi' (UID 70)
-and group 'avahi' (GID 70).
-Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped root priv=
-ileges.
-Jan 13 12:42:02 duff avahi-daemon[2771]: avahi-daemon 0.6.27 starting u=
-p.
-Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully called chroot().
-Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped
-remaining capabilities.
-Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file
-/services/ssh.service.
-Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file
-/services/udisks.service.
-Jan 13 12:42:02 duff avahi-daemon[2771]: NETLINK: Failed to browse:
-Invalid argument
-Jan 13 12:42:23 duff acpid: starting up with netlink and the input laye=
-r
-
-
-Happens both at boot and after boot if restarting avahi-daemon service,
- and there is a 10-15" wait before the service start script prints a [F=
-AILED]
- red tag; avahi-daemon process does start up anyways.
-
--git7 is the latest "good" kernel
--git8, -git9, -git11, -git13 have been reproducing the issue
-
-
-thanks, ciao,
-
---alessandro
-
-=A0"There's always a siren singing you to shipwreck"
-
-=A0=A0 (Radiohead, "There There")
+Kurt
