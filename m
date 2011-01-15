@@ -1,58 +1,40 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: [PATCH v2] can: test size of struct sockaddr in sendmsg
-Date: Sat, 15 Jan 2011 20:39:16 +0100
-Message-ID: <20110115193916.GC463@e-circ.dyndns.org>
+From: Dan Carpenter <error27@gmail.com>
+Subject: [patch] 9p: fix min_t() casting
+Date: Sat, 15 Jan 2011 23:35:39 +0300
+Message-ID: <20110115203539.GF2721@bicker>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org,
-	Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Sripathi Kodi <sripathik@in.ibm.com>,
+	Venkateswararao Jujjuri <jvrao@linux.vnet.ibm.com>,
+	"Aneesh Kumar K.V" <aneesh.kumar@linux.vnet.ibm.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Eric Van Hensbergen <ericvh@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:56806 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789Ab1AOUgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jan 2011 15:36:52 -0500
 Content-Disposition: inline
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch makes the CAN socket code conform to the manpage of sendmsg.
+The intent here was to cap the length to USHRT_MAX, but what the
+code actually does is it just casts the return from strlen() to
+unsigned short and truncates the significant bits away.
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Acked-by: Oliver Hartkopp <socketcan-fJ+pQTUTwRTk1uMJSBkQmQ@public.gmane.org>
----
- net/can/bcm.c |    3 +++
- net/can/raw.c |    3 +++
- 2 files changed, 6 insertions(+), 0 deletions(-)
+Signed-off-by: Dan Carpenter <error27@gmail.com>
 
-diff --git a/net/can/bcm.c b/net/can/bcm.c
-index 6faa825..2f804e4 100644
---- a/net/can/bcm.c
-+++ b/net/can/bcm.c
-@@ -1256,6 +1256,9 @@ static int bcm_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		struct sockaddr_can *addr =
- 			(struct sockaddr_can *)msg->msg_name;
+diff --git a/net/9p/protocol.c b/net/9p/protocol.c
+index 1e308f2..0422581 100644
+--- a/net/9p/protocol.c
++++ b/net/9p/protocol.c
+@@ -403,7 +403,7 @@ p9pdu_vwritef(struct p9_fcall *pdu, int proto_version, const char *fmt,
+ 				const char *sptr = va_arg(ap, const char *);
+ 				uint16_t len = 0;
+ 				if (sptr)
+-					len = min_t(uint16_t, strlen(sptr),
++					len = min_t(size_t, strlen(sptr),
+ 								USHRT_MAX);
  
-+		if (msg->msg_namelen < sizeof(*addr))
-+			return -EINVAL;
-+
- 		if (addr->can_family != AF_CAN)
- 			return -EINVAL;
- 
-diff --git a/net/can/raw.c b/net/can/raw.c
-index e88f610..883e9d7 100644
---- a/net/can/raw.c
-+++ b/net/can/raw.c
-@@ -649,6 +649,9 @@ static int raw_sendmsg(struct kiocb *iocb, struct socket *sock,
- 		struct sockaddr_can *addr =
- 			(struct sockaddr_can *)msg->msg_name;
- 
-+		if (msg->msg_namelen < sizeof(*addr))
-+			return -EINVAL;
-+
- 		if (addr->can_family != AF_CAN)
- 			return -EINVAL;
+ 				errcode = p9pdu_writef(pdu, proto_version,
