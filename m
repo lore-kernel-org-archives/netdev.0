@@ -1,66 +1,72 @@
 From: Shreyas N Bhatewara <sbhatewara@vmware.com>
-Subject: [PATCH net-next 3/8] vmxnet3: Enable HW Rx VLAN stripping by default
-Date: Fri, 14 Jan 2011 16:59:36 -0800
-Message-ID: <20110115005936.1064.46582.stgit@sbhatewara-dev1.eng.vmware.com>
+Subject: [PATCH net-next 8/8] vmxnet3: Dont allocate extra MSI-x vectors
+Date: Fri, 14 Jan 2011 17:00:03 -0800
+Message-ID: <20110115010002.1064.74546.stgit@sbhatewara-dev1.eng.vmware.com>
 References: <20110115005701.1064.67435.stgit@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: pv-drivers@vmware.com, Guolin Yang <gyang@vmware.com>
+Cc: pv-drivers@vmware.com
 To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20110115005701.1064.67435.stgit@sbhatewara-dev1.eng.vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Make hw vlan tag stripping as enabled by default. Thereby remove
-the code to conditionally enable it later.
+In case of single tx and rx queues, three MSI-x vectors are allocated instead
+of two. This patch fixes that.
 
-Signed-off-by: Guolin Yang <gyang@vmware.com>
 Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c |   14 +-------------
- 1 files changed, 1 insertions(+), 13 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_drv.c |    4 ++--
+ drivers/net/vmxnet3/vmxnet3_int.h |    6 +++---
+ 2 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index 89bcee8..f47db1c 100644
+index 3b5b134..cc14b4a 100644
 --- a/drivers/net/vmxnet3/vmxnet3_drv.c
 +++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -1867,13 +1867,8 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
- 		/* add vlan rx stripping. */
- 		if (adapter->netdev->features & NETIF_F_HW_VLAN_RX) {
- 			int i;
--			struct Vmxnet3_DSDevRead *devRead = &shared->devRead;
- 			adapter->vlan_grp = grp;
+@@ -2712,7 +2712,7 @@ vmxnet3_acquire_msix_vectors(struct vmxnet3_adapter *adapter,
+ 			break;
+ 		} else {
+ 			/* If fails to enable required number of MSI-x vectors
+-			 * try enabling 3 of them. One each for rx, tx and event
++			 * try enabling minimum number of vectors required.
+ 			 */
+ 			vectors = vector_threshold;
+ 			printk(KERN_ERR "Failed to enable %d MSI-X for %s, try"
+@@ -2774,7 +2774,7 @@ vmxnet3_alloc_intr_resources(struct vmxnet3_adapter *adapter)
+ 		 */
+ 		if (err == VMXNET3_LINUX_MIN_MSIX_VECT) {
+ 			if (adapter->share_intr != VMXNET3_INTR_BUDDYSHARE
+-			    || adapter->num_rx_queues != 2) {
++			    || adapter->num_rx_queues != 1) {
+ 				adapter->share_intr = VMXNET3_INTR_TXSHARE;
+ 				printk(KERN_ERR "Number of rx queues : 1\n");
+ 				adapter->num_rx_queues = 1;
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 474f5df..fb5d245 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -68,10 +68,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.0.16.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.0.25.0-k"
  
--			/* update FEATURES to device */
--			devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
--			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
--					       VMXNET3_CMD_UPDATE_FEATURE);
- 			/*
- 			 *  Clear entire vfTable; then enable untagged pkts.
- 			 *  Note: setting one entry in vfTable to non-zero turns
-@@ -1905,11 +1900,6 @@ vmxnet3_vlan_rx_register(struct net_device *netdev, struct vlan_group *grp)
- 			}
- 			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
- 					       VMXNET3_CMD_UPDATE_VLAN_FILTERS);
--
--			/* update FEATURES to device */
--			devRead->misc.uptFeatures &= ~UPT1_F_RXVLAN;
--			VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_CMD,
--					       VMXNET3_CMD_UPDATE_FEATURE);
- 		}
- 	}
- }
-@@ -2083,10 +2073,8 @@ vmxnet3_setup_driver_shared(struct vmxnet3_adapter *adapter)
- 		devRead->misc.uptFeatures |= UPT1_F_LRO;
- 		devRead->misc.maxNumRxSG = cpu_to_le16(1 + MAX_SKB_FRAGS);
- 	}
--	if ((adapter->netdev->features & NETIF_F_HW_VLAN_RX) &&
--	    adapter->vlan_grp) {
-+	if (adapter->netdev->features & NETIF_F_HW_VLAN_RX)
- 		devRead->misc.uptFeatures |= UPT1_F_RXVLAN;
--	}
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01001000
++#define VMXNET3_DRIVER_VERSION_NUM      0x01001900
  
- 	devRead->misc.mtu = cpu_to_le32(adapter->netdev->mtu);
- 	devRead->misc.queueDescPA = cpu_to_le64(adapter->queue_desc_pa);
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+@@ -289,7 +289,7 @@ struct vmxnet3_rx_queue {
+ 
+ #define VMXNET3_LINUX_MAX_MSIX_VECT     (VMXNET3_DEVICE_MAX_TX_QUEUES + \
+ 					 VMXNET3_DEVICE_MAX_RX_QUEUES + 1)
+-#define VMXNET3_LINUX_MIN_MSIX_VECT     3    /* 1 for each : tx, rx and event */
++#define VMXNET3_LINUX_MIN_MSIX_VECT     2 /* 1 for tx-rx pair and 1 for event */
+ 
+ 
+ struct vmxnet3_intr {
