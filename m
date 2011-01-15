@@ -1,58 +1,40 @@
-From: Dan Carpenter <error27@gmail.com>
-Subject: [patch] caif: checking the wrong variable
-Date: Sat, 15 Jan 2011 16:06:39 +0300
-Message-ID: <20110115130639.GA2721@bicker>
+From: =?UTF-8?Q?Sjur_Br=C3=A6ndeland?= <sjurbren@gmail.com>
+Subject: Re: [PATCH net-next] net: cleanup unused macros in net directory
+Date: Sat, 15 Jan 2011 14:59:54 +0100
+Message-ID: <AANLkTikBObita8BjHaphpjpVOpWw2SK1ZSVPR79YNCh4@mail.gmail.com>
+References: <4D300728.8030402@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Sjur Braendeland <sjur.brandeland@stericsson.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, andy.grover@oracle.com,
+	ericvh@gmail.com, jvrao@us.ibm.com,
+	aneesh.kumar@linux.vnet.ibm.com, joe@perches.com,
+	Changli Gao <xiaosuo@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, jpirko@redhat.com,
+	nhorman@tuxdriver.com, pebolle@tiscali.nl, jkosina@suse.cz,
+	arnd@arndb.de, Network-Maillist <netdev@vger.kernel.org>,
+	linux-decnet-user@lists.sourceforge.net, rds-devel@oss.oracle.com
+To: Shan Wei <shanwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:39644 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752968Ab1AONGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jan 2011 08:06:53 -0500
-Content-Disposition: inline
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:52725 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210Ab1AON74 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jan 2011 08:59:56 -0500
+Received: by fxm20 with SMTP id 20so3920134fxm.19
+        for <netdev@vger.kernel.org>; Sat, 15 Jan 2011 05:59:54 -0800 (PST)
+In-Reply-To: <4D300728.8030402@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the original code we check if (servl == NULL) twice.  The first time
-should print the message that cfmuxl_remove_uplayer() failed and set
-"ret" correctly, but instead it just returns success.  The second check
-should be checking the value of "ret" instead of "servl".
+> Clean up some unused macros in net/*.
+> 1. be left for code change. e.g. PGV_FROM_VMALLOC, PGV_FROM_VMALLOC, =
+KMEM_SAFETYZONE.
+> 2. never be used since introduced to kernel.
+> =C2=A0 e.g. P9_RDMA_MAX_SGE, UTIL_CTRL_PKT_SIZE.
+>
+>
+> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 
-Signed-off-by: Dan Carpenter <error27@gmail.com>
+CAIF parts looks ok to me (reviewed only).
 
-diff --git a/net/caif/cfcnfg.c b/net/caif/cfcnfg.c
-index 21ede14..c665de7 100644
---- a/net/caif/cfcnfg.c
-+++ b/net/caif/cfcnfg.c
-@@ -191,6 +191,7 @@ int cfcnfg_disconn_adapt_layer(struct cfcnfg *cnfg, struct cflayer *adap_layer)
- 	struct cflayer *servl = NULL;
- 	struct cfcnfg_phyinfo *phyinfo = NULL;
- 	u8 phyid = 0;
-+
- 	caif_assert(adap_layer != NULL);
- 	channel_id = adap_layer->id;
- 	if (adap_layer->dn == NULL || channel_id == 0) {
-@@ -199,16 +200,16 @@ int cfcnfg_disconn_adapt_layer(struct cfcnfg *cnfg, struct cflayer *adap_layer)
- 		goto end;
- 	}
- 	servl = cfmuxl_remove_uplayer(cnfg->mux, channel_id);
--	if (servl == NULL)
--		goto end;
--	layer_set_up(servl, NULL);
--	ret = cfctrl_linkdown_req(cnfg->ctrl, channel_id, adap_layer);
- 	if (servl == NULL) {
- 		pr_err("PROTOCOL ERROR - Error removing service_layer Channel_Id(%d)",
- 		       channel_id);
- 		ret = -EINVAL;
- 		goto end;
- 	}
-+	layer_set_up(servl, NULL);
-+	ret = cfctrl_linkdown_req(cnfg->ctrl, channel_id, adap_layer);
-+	if (ret)
-+		goto end;
- 	caif_assert(channel_id == servl->id);
- 	if (adap_layer->dn != NULL) {
- 		phyid = cfsrvl_getphyid(adap_layer->dn);
+Acked-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
