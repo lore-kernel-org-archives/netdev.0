@@ -1,29 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] can: test size of struct sockaddr in sendmsg
-Date: Sat, 15 Jan 2011 20:56:50 -0800 (PST)
-Message-ID: <20110115.205650.189715430.davem@davemloft.net>
-References: <20110115193916.GC463@e-circ.dyndns.org>
+Subject: Re: [patch] caif: checking the wrong variable
+Date: Sat, 15 Jan 2011 21:05:17 -0800 (PST)
+Message-ID: <20110115.210517.112602810.davem@davemloft.net>
+References: <20110115130639.GA2721@bicker>
+	<AANLkTimyZQ1BEJ=tPK4LrYWhQaGd+xhYUsVEENibEVoU@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
-	socketcan@hartkopp.net
-To: kurt.van.dijck@eia.be
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: error27@gmail.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: sjurbren@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41278
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41322
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751552Ab1APE4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jan 2011 23:56:18 -0500
-In-Reply-To: <20110115193916.GC463@e-circ.dyndns.org>
+	by vger.kernel.org with ESMTP id S1750734Ab1APFEo convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jan 2011 00:04:44 -0500
+In-Reply-To: <AANLkTimyZQ1BEJ=tPK4LrYWhQaGd+xhYUsVEENibEVoU@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Date: Sat, 15 Jan 2011 20:39:16 +0100
+=46rom: Sjur Br=E6ndeland <sjurbren@gmail.com>
+Date: Sat, 15 Jan 2011 15:03:31 +0100
 
-> This patch makes the CAN socket code conform to the manpage of sendmsg.
-> 
-> Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
-> Acked-by: Oliver Hartkopp <socketcan@hartkopp.net>
+>> In the original code we check if (servl =3D=3D NULL) twice. =A0The f=
+irst time
+>> should print the message that cfmuxl_remove_uplayer() failed and set
+>> "ret" correctly, but instead it just returns success. =A0The second =
+check
+>> should be checking the value of "ret" instead of "servl".
+>>
+>> Signed-off-by: Dan Carpenter <error27@gmail.com>
+>=20
+> Thank you for spotting and correcting this.
+> Looks good to me (reviewed only)
+>=20
+> Acked-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
 Applied, thanks.
