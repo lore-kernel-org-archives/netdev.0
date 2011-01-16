@@ -1,59 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 2/2] [PATCH] qeth: l3 hw tx csum circumvent hw bug
-Date: Sat, 15 Jan 2011 20:46:25 -0800 (PST)
-Message-ID: <20110115.204625.226782089.davem@davemloft.net>
-References: <20110113064310.729751199@de.ibm.com>
-	<20110112.234735.160088590.davem@davemloft.net>
-	<20110113082359.GA11455@tuxmaker.boeblingen.de.ibm.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: batman-adv 2011-01-16
+Date: Sat, 15 Jan 2011 20:48:33 -0800 (PST)
+Message-ID: <20110115.204833.71097454.davem@davemloft.net>
+References: <1295145527-17537-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
-To: frank.blaschka@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49731
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754349Ab1APEpw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jan 2011 23:45:52 -0500
-In-Reply-To: <20110113082359.GA11455@tuxmaker.boeblingen.de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1295145527-17537-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Frank Blaschka <frank.blaschka@de.ibm.com>
-Date: Thu, 13 Jan 2011 09:23:59 +0100
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Date: Sun, 16 Jan 2011 03:38:45 +0100
 
-> On Wed, Jan 12, 2011 at 11:47:35PM -0800, David Miller wrote:
->> From: frank.blaschka@de.ibm.com
->> Date: Thu, 13 Jan 2011 07:42:25 +0100
->> 
->> > --- a/drivers/s390/net/qeth_l3_main.c
->> > +++ b/drivers/s390/net/qeth_l3_main.c
->> > @@ -2998,7 +2998,9 @@ static inline void qeth_l3_hdr_csum(stru
->> >  	 */
->> >  	if (iph->protocol == IPPROTO_UDP)
->> >  		hdr->hdr.l3.ext_flags |= QETH_HDR_EXT_UDP;
->> > -	hdr->hdr.l3.ext_flags |= QETH_HDR_EXT_CSUM_TRANSP_REQ;
->> > +	hdr->hdr.l3.ext_flags |= QETH_HDR_EXT_CSUM_TRANSP_REQ |
->> > +		QETH_HDR_EXT_CSUM_HDR_REQ;
->> > +	iph->check = 0;
->> >  	if (card->options.performance_stats)
->> >  		card->perf_stats.tx_csum++;
->> >  }
->> 
->> You may not change the packet header contents blindly like this.
->> Otherwise unpredictable contents will be seen by tcpdump and any
->> other code path which has a clone of this packet.
->> 
->> Thus, you'll need to guard this change with something like:
->> 
->> 		if (skb_header_cloned(skb) &&
->> 		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
->> 			dev_kfree_skb(skb);
->> 			goto tx_fail;
->> 		}
-> Yes I know. Because of the suboptimal l3 driver design :-) we already have
-> a private copy of the skb at this place. Thx!
+> The following changes since commit 53320fe3bb1b1eef1aaff8dd47aae530ebeeb1e5:
+> 
+>   batman-adv: Return hna count on local buffer fill (2010-12-20 10:32:03 -0800)
+> 
+> are available in the git repository at:
+>   git://git.open-mesh.org/ecsv/linux-merge.git for-david
 
-I see, thanks for explaining.
-
-Both patches applied, thanks.
+Pulled, thanks Sven.
