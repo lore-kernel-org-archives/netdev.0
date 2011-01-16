@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] caif: checking the wrong variable
-Date: Sat, 15 Jan 2011 21:05:17 -0800 (PST)
-Message-ID: <20110115.210517.112602810.davem@davemloft.net>
-References: <20110115130639.GA2721@bicker>
-	<AANLkTimyZQ1BEJ=tPK4LrYWhQaGd+xhYUsVEENibEVoU@mail.gmail.com>
+Subject: Re: [PATCH net-next 0/8] vmxnet3 fixes and enhancements
+Date: Sat, 15 Jan 2011 21:21:26 -0800 (PST)
+Message-ID: <20110115.212126.115922222.davem@davemloft.net>
+References: <20110115005701.1064.67435.stgit@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: error27@gmail.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: sjurbren@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41322
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750734Ab1APFEo convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jan 2011 00:04:44 -0500
-In-Reply-To: <AANLkTimyZQ1BEJ=tPK4LrYWhQaGd+xhYUsVEENibEVoU@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com
+To: sbhatewara@vmware.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110115005701.1064.67435.stgit@sbhatewara-dev1.eng.vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Sjur Br=E6ndeland <sjurbren@gmail.com>
-Date: Sat, 15 Jan 2011 15:03:31 +0100
+From: Shreyas N Bhatewara <sbhatewara@vmware.com>
+Date: Fri, 14 Jan 2011 16:59:20 -0800
 
->> In the original code we check if (servl =3D=3D NULL) twice. =A0The f=
-irst time
->> should print the message that cfmuxl_remove_uplayer() failed and set
->> "ret" correctly, but instead it just returns success. =A0The second =
-check
->> should be checking the value of "ret" instead of "servl".
->>
->> Signed-off-by: Dan Carpenter <error27@gmail.com>
->=20
-> Thank you for spotting and correcting this.
-> Looks good to me (reviewed only)
->=20
-> Acked-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
+> The following series fixes bugs and enhances functionality in the
+> vmxnet3 driver.
+> 
+> ---
+> 
+> Shreyas N Bhatewara (8):
+>       vmxnet3: fix ring size update
+>       vmxnet3: Preserve the MAC address configured by ifconfig
+>       vmxnet3: Enable HW Rx VLAN stripping by default
+>       vmxnet3: Provide required number of bytes in first SG buffer
+>       vmxnet3: Make ethtool handlers multiqueue aware
+>       vmxnet3: Disable napi in suspend, reenable in resume.
+>       vmxnet3: Add locking for access to command register
+>       vmxnet3: Dont allocate extra MSI-x vectors
 
-Applied, thanks.
+All applied, thanks.
