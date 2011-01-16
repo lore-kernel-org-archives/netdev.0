@@ -1,62 +1,61 @@
-From: Eric Van Hensbergen <ericvh@gmail.com>
-Subject: Re: [patch] 9p: fix min_t() casting
-Date: Sun, 16 Jan 2011 10:33:16 -0600
-Message-ID: <AANLkTi=vdKX9ruvrdiPgnr59WWrGaP0roFyBvqWW3VSU@mail.gmail.com>
-References: <20110115203539.GF2721@bicker>
-	<20110115.205208.104051310.davem@davemloft.net>
-	<20110116114526.GG2721@bicker>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Re: panic in tg3 driver
+Date: Sun, 16 Jan 2011 13:11:50 -0500
+Message-ID: <4D3334E6.40100@earthlink.net>
+References: <4D2334B5.1060408@earthlink.net> <4D2A371A.40103@earthlink.net> <20110110192216.GA23741@mcarlson.broadcom.com> <4D2B6652.7040607@earthlink.net> <20110111020055.GA25351@mcarlson.broadcom.com> <4D2C64EF.1080905@earthlink.net> <20110112030652.GA27164@mcarlson.broadcom.com> <4D2EFA44.8080008@earthlink.net>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, sripathik@in.ibm.com,
-	jvrao@linux.vnet.ibm.com, aneesh.kumar@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	mohan@in.ibm.com
-To: Dan Carpenter <error27@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Matt Carlson <mcarlson@broadcom.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>
+To: sclark46@earthlink.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:35208 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751467Ab1APQdR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jan 2011 11:33:17 -0500
-In-Reply-To: <20110116114526.GG2721@bicker>
+Received: from elasmtp-curtail.atl.sa.earthlink.net ([209.86.89.64]:35242 "EHLO
+	elasmtp-curtail.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753170Ab1APSLw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jan 2011 13:11:52 -0500
+In-Reply-To: <4D2EFA44.8080008@earthlink.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The patch has already made it upstream via the v9fs pull.  I'll pull
-in your fix Dan and request a second pull by Linus.
-Thanks for catching this.
+On 01/13/2011 08:12 AM, Stephen Clark wrote:
+> On 01/11/2011 10:06 PM, Matt Carlson wrote:
+>> lspci -vvv -xxx -s 81:00.0
+>
+>
+>
+> Further information - I found these messages in /var/log/messages. It 
+> looks
+> like after it switched to INTx mode interrupts for other devices were 
+> hosed.
+>
+> Jan 12 08:37:49 localhost kernel: tg3 0000:81:00.0: eth2: No interrupt 
+> was gener
+> ated using MSI. Switching to INTx mode. Please report this failure to 
+> the PCI ma
+> intainer and include system chipset information
+> Jan 12 08:37:49 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is 
+> not ready
+> Jan 12 08:38:50 localhost kernel: ata2: lost interrupt (Status 0x50)
+> Jan 12 08:38:50 localhost kernel: ata2.01: exception Emask 0x0 SAct 
+> 0x0 SErr 0x0
+>  action 0x6 frozen
+> Jan 12 08:38:50 localhost kernel: ata2.01: failed command: WRITE DMA
+> Jan 12 08:38:50 localhost kernel: ata2.01: cmd 
+> ca/00:08:e0:bc:51/00:00:00:00:00/f0 tag 0 dma 4096 out
+> Jan 12 08:38:50 localhost kernel:          res 
+> 40/00:01:00:4f:c2/00:00:00:00:00/b0 Emask 0x4 (timeout)
+> Jan 12 08:38:50 localhost kernel: ata2.01: status: { DRDY }
+> Jan 12 08:38:50 localhost kernel: ata2: soft resetting link
+> Jan 12 08:38:50 localhost kernel: do_IRQ: 0.64 No irq handler for 
+> vector (irq -1)
+> Jan 12 08:38:50 localhost kernel: ata2.01: configured for UDMA/33
+> Jan 12 08:38:54 localhost pppd[1983]: No response to 3 echo-requests
+> Jan 12 08:39:55 localhost pppoe[1988]: Inactivity timeout... something 
+> wicked happened on session 3363 
+Just checking to make sure you have everything you need?
 
-      -eric
-
-
-On Sun, Jan 16, 2011 at 5:45 AM, Dan Carpenter <error27@gmail.com> wrot=
-e:
-> On Sat, Jan 15, 2011 at 08:52:08PM -0800, David Miller wrote:
->> From: Dan Carpenter <error27@gmail.com>
->> Date: Sat, 15 Jan 2011 23:35:39 +0300
->>
->> > The intent here was to cap the length to USHRT_MAX, but what the
->> > code actually does is it just casts the return from strlen() to
->> > unsigned short and truncates the significant bits away.
->> >
->> > Signed-off-by: Dan Carpenter <error27@gmail.com>
->>
->> If you want me to apply this, it doesn't apply cleanly to net-2.6
->> at all.
->
-> Sorry. =A0I screwed up.
->
-> This was on top of a patch from M. Mohan Kumar <mohan@in.ibm.com>
-> that hasn't hit net-2.6 yet. =A0Mohan wasn't included on the CC
-> list because get_maintainer.pl changed and I didn't notice and
-> I wasn't careful.
->
-> Eric, could Mohan just fix his patch before it gets merged or is it
-> better to send these as two patches?
->
-> regards,
-> dan carpenter
->
-> Ps: =A0Mohon the patch is here:
-> http://marc.info/?l=3Dlinux-netdev&m=3D129512381528034&w=3D2
->
+Thanks,
+Steve
