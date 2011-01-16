@@ -1,78 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Linux IPv6 router table size.
-Date: Sun, 16 Jan 2011 09:44:22 +0100
-Message-ID: <1295167463.3977.33.camel@edumazet-laptop>
-References: <4D320D90.3090005@jhprins.org>
+From: Arthur Marsh <arthur.marsh@internode.on.net>
+Subject: inbound connection problems when "netlink: test for all flags of the NLM_F_DUMP composite" commit applied
+Date: Sun, 16 Jan 2011 19:24:41 +1030
+Message-ID: <54347.1295168081@internode.on.net>
+Reply-To: arthur.marsh@internode.on.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jan Hugo Prins <jhp@jhprins.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:50449 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751200Ab1APIoc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jan 2011 03:44:32 -0500
-Received: by wyb28 with SMTP id 28so4185769wyb.19
-        for <netdev@vger.kernel.org>; Sun, 16 Jan 2011 00:44:30 -0800 (PST)
-In-Reply-To: <4D320D90.3090005@jhprins.org>
+Received: from ipmail04.adl6.internode.on.net ([150.101.137.141]:8390 "EHLO
+	ipmail04.adl6.internode.on.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751011Ab1API7s convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jan 2011 03:59:48 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 15 janvier 2011 =C3=A0 22:11 +0100, Jan Hugo Prins a =C3=A9cr=
-it :
-> Hi netdev kernel developers,
->=20
-> In the beginning of December the number of IPv6 routes in the BPG rou=
-ter
-> tables got somewhere close to 4096 and this number is somewhat magica=
-l
-> in Linux. Why is it magical? Well, the default setting for
-> net.ipv6.route.max_size is hardcoded in the linux kernel to be exactl=
-y
-> this number, this in contradiction with the IPv4 net.ipv4.route.max_s=
-ize
-> which is set based upon the size of your memory. Actually, in the IPv=
-4
-> part of the kernel sources their is a route.c with a nice formula
-> telling the kernel how big this number should be. For IPv6 their is a=
-lso
-> a route.c with some nice formula in it, the formula says exactly the
-> following:
-> net->ipv6.sysctl.ip6_rt_max_size =3D 4096;
->=20
-> The result of all this magic was that when the BGP RIB in my quagga
-> routers went over the 4096 routes, quagga started complaining that it
-> couldn't put the routes in the kernel FIB anymore and this went all i=
-nto
-> syslog.
->=20
-> It took some digging to find the reason for these error messages, but
-> after changing this sysctl to something more useful, everything was f=
-ine
-> again.
->=20
-> Maybe it is a good idea to change this in the IPv6 tree to something
-> more useful in the same direction of the solution that is in the IPv4=
- tree.
->=20
-
-Hi
-
-IPv4 does an auto memsize tuning because it uses a hash table, and this
-table cant be resized after boot.
-
-IPv6 is different, and you can change=20
-/proc/sys/net/ipv6/route/gc_thresh & /proc/sys/net/ipv6/route/max_size
-whithout downsides.
-
-echo 32768 >/proc/sys/net/ipv6/route/max_size
-echo 8192 >/proc/sys/net/ipv6/route/gc_thresh
-
-(or equivalent lines in /etc/sysctl.conf)
-
-We probably could change default values, but they are "not hardcoded" ;=
-)
-
-
-
+ 
+ 
+ 
+ This bug was originally posted at https://bugzilla.kernel.org/show_bug.cgi?id=26632 
+ 
+With kernels up to and including 2.6.37-git7, inbound telnetd-ssl connections worked fine. 
+With kernel 2.6.37-git9 and later inbound telnetd-ssl connections failed, and on machine shut-down, there were warning messages about daemons not return status. 
+ 
+A git bisect on Linus' kernel tree revealed: 
+ 
+0ab03c2b1478f2438d2c80204f7fef65b1bca9cf is the first bad commit 
+commit 0ab03c2b1478f2438d2c80204f7fef65b1bca9cf 
+Author: Jan Engelhardt <jengelh@medozas.de> 
+Date:   Fri Jan 7 03:15:05 2011 +0000 
+ 
+    netlink: test for all flags of the NLM_F_DUMP composite 
+ 
+    Due to NLM_F_DUMP is composed of two bits, NLM_F_ROOT | NLM_F_MATCH, 
+    when doing "if (x & NLM_F_DUMP)", it tests for _either_ of the bits 
+    being set. Because NLM_F_MATCH's value overlaps with NLM_F_EXCL, 
+    non-dump requests with NLM_F_EXCL set are mistaken as dump requests. 
+ 
+    Substitute the condition to test for _all_ bits being set. 
+ 
+    Signed-off-by: Jan Engelhardt <jengelh@medozas.de> 
+    Acked-by: Pablo Neira Ayuso <pablo@netfilter.org> 
+    Signed-off-by: David S. Miller <davem@davemloft.net> 
+ 
+:040000 040000 1a0717ab0c87787309c3c3af88d666b44f327f64 
+cba6279de85b7ebeaf21f19f1d93b59468fdd01d M      net 
+ 
+I tried git cherry-pick 0ab03c2b1478f2438d2c80204f7fef65b1bca9cf and verified 
+that the resulting kernel had these problems, then git revert 
+0ab03c2b1478f2438d2c80204f7fef65b1bca9cf and verified that the resulting kernel 
+did *not* have problems. 
+ 
+Arthur. 
