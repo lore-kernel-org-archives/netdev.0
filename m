@@ -1,13 +1,12 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 1/2] batman-adv: Even Batman should not
-	dereference NULL pointers
-Date: Sun, 16 Jan 2011 03:38:46 +0100
-Message-ID: <1295145527-17537-2-git-send-email-sven@narfation.org>
+Subject: [PATCH 2/2] batman-adv: Use "__attribute__" shortcut
+	macros
+Date: Sun, 16 Jan 2011 03:38:47 +0100
+Message-ID: <1295145527-17537-3-git-send-email-sven@narfation.org>
 References: <1295145527-17537-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
-	Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 In-Reply-To: <1295145527-17537-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
@@ -22,43 +21,122 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
+Linux 2.6.21 defines different macros for __attribute__ which are also
+used inside batman-adv. The next version of checkpatch.pl warns about
+the usage of __attribute__((packed))).
 
-There's a problem in net/batman-adv/unicast.c::frag_send_skb().
-dev_alloc_skb() allocates memory and may fail, thus returning NULL. If
-this happens we'll pass a NULL pointer on to skb_split() which in turn
-hands it to skb_split_inside_header() from where it gets passed to
-skb_put() that lets skb_tail_pointer() play with it and that function
-dereferences it. And thus the bat dies.
+Linux 2.6.33 defines an extra macro __always_unused which is used to
+assist source code analyzers and can be used to removed the last
+existing __attribute__ inside the source code.
 
-While I was at it I also moved the call to dev_alloc_skb() above the
-assignment to 'unicast_packet' since there's no reason to do that
-assignment if the memory allocation fails.
-
-Signed-off-by: Jesper Juhl <jj-IYz4IdjRLj0sV2N9l4h3zg@public.gmane.org>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/unicast.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+ net/batman-adv/main.h   |    6 +++---
+ net/batman-adv/packet.h |   14 +++++++-------
+ net/batman-adv/types.h  |    4 ++--
+ 3 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
-index dc2e28b..ee41fef 100644
---- a/net/batman-adv/unicast.c
-+++ b/net/batman-adv/unicast.c
-@@ -229,10 +229,12 @@ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
- 	if (!bat_priv->primary_if)
- 		goto dropped;
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index d4d9926..65106fb 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -151,9 +151,9 @@ int debug_log(struct bat_priv *bat_priv, char *fmt, ...);
+ 	}							\
+ 	while (0)
+ #else /* !CONFIG_BATMAN_ADV_DEBUG */
+-static inline void bat_dbg(char type __attribute__((unused)),
+-			   struct bat_priv *bat_priv __attribute__((unused)),
+-			   char *fmt __attribute__((unused)), ...)
++static inline void bat_dbg(char type __always_unused,
++			   struct bat_priv *bat_priv __always_unused,
++			   char *fmt __always_unused, ...)
+ {
+ }
+ #endif
+diff --git a/net/batman-adv/packet.h b/net/batman-adv/packet.h
+index b49fdf7..2284e81 100644
+--- a/net/batman-adv/packet.h
++++ b/net/batman-adv/packet.h
+@@ -63,7 +63,7 @@ struct batman_packet {
+ 	uint8_t  num_hna;
+ 	uint8_t  gw_flags;  /* flags related to gateway class */
+ 	uint8_t  align;
+-} __attribute__((packed));
++} __packed;
  
--	unicast_packet = (struct unicast_packet *) skb->data;
-+	frag_skb = dev_alloc_skb(data_len - (data_len / 2) + ucf_hdr_len);
-+	if (!frag_skb)
-+		goto dropped;
+ #define BAT_PACKET_LEN sizeof(struct batman_packet)
  
-+	unicast_packet = (struct unicast_packet *) skb->data;
- 	memcpy(&tmp_uc, unicast_packet, uc_hdr_len);
--	frag_skb = dev_alloc_skb(data_len - (data_len / 2) + ucf_hdr_len);
- 	skb_split(skb, frag_skb, data_len / 2);
+@@ -76,7 +76,7 @@ struct icmp_packet {
+ 	uint8_t  orig[6];
+ 	uint16_t seqno;
+ 	uint8_t  uid;
+-} __attribute__((packed));
++} __packed;
  
- 	if (my_skb_head_push(skb, ucf_hdr_len - uc_hdr_len) < 0 ||
+ #define BAT_RR_LEN 16
+ 
+@@ -93,14 +93,14 @@ struct icmp_packet_rr {
+ 	uint8_t  uid;
+ 	uint8_t  rr_cur;
+ 	uint8_t  rr[BAT_RR_LEN][ETH_ALEN];
+-} __attribute__((packed));
++} __packed;
+ 
+ struct unicast_packet {
+ 	uint8_t  packet_type;
+ 	uint8_t  version;  /* batman version field */
+ 	uint8_t  dest[6];
+ 	uint8_t  ttl;
+-} __attribute__((packed));
++} __packed;
+ 
+ struct unicast_frag_packet {
+ 	uint8_t  packet_type;
+@@ -110,7 +110,7 @@ struct unicast_frag_packet {
+ 	uint8_t  flags;
+ 	uint8_t  orig[6];
+ 	uint16_t seqno;
+-} __attribute__((packed));
++} __packed;
+ 
+ struct bcast_packet {
+ 	uint8_t  packet_type;
+@@ -118,7 +118,7 @@ struct bcast_packet {
+ 	uint8_t  orig[6];
+ 	uint8_t  ttl;
+ 	uint32_t seqno;
+-} __attribute__((packed));
++} __packed;
+ 
+ struct vis_packet {
+ 	uint8_t  packet_type;
+@@ -131,6 +131,6 @@ struct vis_packet {
+ 				  * neighbors */
+ 	uint8_t  target_orig[6]; /* who should receive this packet */
+ 	uint8_t  sender_orig[6]; /* who sent or rebroadcasted this packet */
+-} __attribute__((packed));
++} __packed;
+ 
+ #endif /* _NET_BATMAN_ADV_PACKET_H_ */
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 97cb23d..bf3f6f5 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -246,13 +246,13 @@ struct vis_info {
+ 	/* this packet might be part of the vis send queue. */
+ 	struct sk_buff *skb_packet;
+ 	/* vis_info may follow here*/
+-} __attribute__((packed));
++} __packed;
+ 
+ struct vis_info_entry {
+ 	uint8_t  src[ETH_ALEN];
+ 	uint8_t  dest[ETH_ALEN];
+ 	uint8_t  quality;	/* quality = 0 means HNA */
+-} __attribute__((packed));
++} __packed;
+ 
+ struct recvlist_node {
+ 	struct list_head list;
 -- 
 1.7.2.3
