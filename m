@@ -1,173 +1,103 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Mon, 17 Jan 2011 09:19:48 -0800
-Message-ID: <1295284788.21277.65.camel@Joe-Laptop>
-References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] CHOKe flow scheduler (0.9)
+Date: Mon, 17 Jan 2011 09:25:32 -0800
+Message-ID: <20110117092532.7d5f5a5b@nehalam>
+References: <20110113092706.154748c2@s6510>
+	<1294951069.3403.11.camel@edumazet-laptop>
+	<20110113153436.70d3c0a3@s6510>
+	<4D305598.1010207@trash.net>
+	<4D3055C2.3060807@trash.net>
+	<1295015043.3937.20.camel@edumazet-laptop>
+	<20110114154521.54cc8ef5@nehalam>
+	<1295077542.3977.20.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ratbert@faraday-tech.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com, dilinger@queued.net
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:43185 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753397Ab1AQRZf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 12:25:35 -0500
+In-Reply-To: <1295077542.3977.20.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-01-17 at 17:21 +0800, Po-Yu Chuang wrote:
-> From: Po-Yu Chuang <ratbert@faraday-tech.com>
-> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
-> MII.  This driver has been working on some ARM/NDS32 SoC's including
-> Faraday A320 and Andes AG101.
+On Sat, 15 Jan 2011 08:45:42 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Hi again.
+> Le vendredi 14 janvier 2011 =E0 15:45 -0800, Stephen Hemminger a =E9c=
+rit :
+> > CHOKe ("CHOose and Kill" or "CHOose and Keep") is an alternative
+> > packet scheduler based on the Random Exponential Drop (RED) algorit=
+hm.
+> >=20
+> > The core idea is:
+> >   For every packet arrival:
+> >   	Calculate Qave
+> > 	if (Qave < minth)=20
+> > 	     Queue the new packet
+> > 	else=20
+> > 	     Select randomly a packet from the queue=20
+> > 	     if (both packets from same flow)
+> > 	     then Drop both the packets
+> > 	     else if (Qave > maxth)
+> > 	          Drop packet
+> > 	     else
+> > 	       	  Admit packet with proability p (same as RED)
+> >=20
+> > See also:
+> >   Rong Pan, Balaji Prabhakar, Konstantinos Psounis, "CHOKe: a state=
+less active
+> >    queue management scheme for approximating fair bandwidth allocat=
+ion",=20
+> >   Proceeding of INFOCOM'2000, March 2000.
+> >=20
+> > Help from:
+> >      Eric Dumazet <eric.dumazet@gmail.com>
+> >      Patrick McHardy <kaber@trash.net>
+> >=20
+> > Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+> >=20
+> > ---
+> > This version is based on net-next, and assumes Eric's patch for
+> > corrected bstats is already applied.
+> >=20
+> > 0.9 incorporate patches from Patrick/Eric
+> >     rework the peek_random and drop code to simplify and fix bug wh=
+ere
+> >     random_N needs to called with full length (including holes).
+>=20
+> Nice catch, I now have more "matched" counts after my test :
+>=20
+> qdisc choke 11: parent 1:11 limit 130000b min 10833b max 32500b ewma =
+13 Plog 21 Scell_log 30
+>  Sent 93944198 bytes 170889 pkt (dropped 829140, overlimits 436686 re=
+queues 0)=20
+>  rate 48bit 0pps backlog 0b 0p requeues 0=20
+>   marked 0 early 436686 pdrop 0 other 0 matched 196227
+>=20
+> You missed the qdisc_bstats_update() move from enqueue() to dequeue()
+>=20
+> And some minor CodingStyle / checkpatch.pl changes, here is my
+> latest diff on top of 0.9
+>=20
+> I believe you can release v1 :)
+>=20
+> Thanks !
 
-> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
-> ---
-> v2:
-> always use NAPI
-> do not use our own net_device_stats structure
-> don't set trans_start and last_rx
-> stats.rx_packets and stats.rx_bytes include dropped packets
-> add missed netif_napi_del()
-> initialize spinlocks in probe function
-> remove rx_lock and hw_lock
-> use netdev_[err/info/dbg] instead of dev_* ones
-> use netdev_alloc_skb_ip_align()
-> remove ftmac100_get_stats()
-> use is_valid_ether_addr() instead of is_zero_ether_addr()
-> add const to ftmac100_ethtool_ops and ftmac100_netdev_ops
-> use net_ratelimit() instead of printk_ratelimit()
-> no explicit inline
-> use %pM to print MAC address
-> add comment before wmb
-> use napi poll() to handle all interrupts
+I rolled in your changes. But there is one more change I want to make.
+The existing flow match based on hash is vulnerable to side-channel DoS=
+ attack.
+It is possible for a hostile flow to send packets that match the same
+hash value which would effectively kill a targeted flow.
 
-This looks very clean, thanks for doing the rework.
+The solution is to match based on full source and destination, not hash=
+ value.
+Still coding that up.
 
-Now the the really trivial...
 
-> + * priveate data
 
-private
-
-> +static void ftmac100_enable_all_int(struct ftmac100 *priv)
-> +{
-> +	unsigned int imr;
-> +
-> +	imr = FTMAC100_INT_RPKT_FINISH | FTMAC100_INT_NORXBUF
-> +	     | FTMAC100_INT_XPKT_OK | FTMAC100_INT_XPKT_LOST
-> +	     | FTMAC100_INT_RPKT_LOST | FTMAC100_INT_AHB_ERR
-> +	     | FTMAC100_INT_PHYSTS_CHG;
-
-This could be a #define.
-
-> +	maccr = FTMAC100_MACCR_XMT_EN |
-> +		FTMAC100_MACCR_RCV_EN |
-> +		FTMAC100_MACCR_XDMA_EN |
-> +		FTMAC100_MACCR_RDMA_EN |
-> +		FTMAC100_MACCR_CRC_APD |
-> +		FTMAC100_MACCR_FULLDUP |
-> +		FTMAC100_MACCR_RX_RUNT |
-> +		FTMAC100_MACCR_RX_BROADPKT;
-
-Here too.
-
-> +static int ftmac100_rx_packet_error(struct ftmac100 *priv,
-> +		struct ftmac100_rxdes *rxdes)
-[]
-> +	if (unlikely(ftmac100_rxdes_frame_too_long(rxdes))) {
-> +		if (net_ratelimit())
-> +			netdev_info(netdev, "rx frame too long\n");
-> +
-> +		netdev->stats.rx_length_errors++;
-> +		error = 1;
-> +	}
-> +
-> +	if (unlikely(ftmac100_rxdes_runt(rxdes))) {
-
-else if ?
-
-> +static int ftmac100_rx_packet(struct ftmac100 *priv, int *processed)
-> +{
-> +	struct net_device *netdev = priv->netdev;
-> +	struct ftmac100_rxdes *rxdes;
-> +	struct sk_buff *skb;
-> +	int length;
-> +	int copied = 0;
-> +	int done = 0;
-
-You could use bool/true/false here for copied and done
-and all the other uses of an int for a logical bool.
-
-> +static void ftmac100_txdes_set_dma_own(struct ftmac100_txdes *txdes)
-> +{
-> +	/*
-> +	 * Make sure dma own bit will not be set before any other
-> +	 * descriptor fiels.
-
-field/fields
-
-> +static int ftmac100_mdio_read(struct net_device *netdev, int phy_id, int reg)
-> +{
-> +	struct ftmac100 *priv = netdev_priv(netdev);
-> +	int phycr;
-> +	int i;
-> +
-> +	phycr = FTMAC100_PHYCR_PHYAD(phy_id) |
-> +		FTMAC100_PHYCR_REGAD(reg) |
-> +		FTMAC100_PHYCR_MIIRD;
-> +
-> +	iowrite32(phycr, priv->base + FTMAC100_OFFSET_PHYCR);
-> +	for (i = 0; i < 10; i++) {
-> +		phycr = ioread32(priv->base + FTMAC100_OFFSET_PHYCR);
-> +
-> +		if ((phycr & FTMAC100_PHYCR_MIIRD) == 0)
-> +			return phycr & FTMAC100_PHYCR_MIIRDATA;
-> +
-> +		usleep_range(100, 1000);
-> +	}
-> +
-> +	netdev_err(netdev, "mdio read timed out\n");
-> +	return 0xffff;
-
-0xffff is a rather odd return, perhaps a #define?
-
-> +/******************************************************************************
-> + * initialization / finalization
-> + *****************************************************************************/
-> +static int __init ftmac100_init(void)
-> +{
-> +	printk(KERN_INFO "Loading " DRV_NAME ": version " DRV_VERSION " ...\n");
-
-You could use
-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-before any #include and
-	pr_info("Loading version " DRV_VERSION " ...\n");
-
-One last comment on split long line indentation style
-and long function declarations.
-
-There's no required style so you can use what you are
-most comfortable doing.
-
-Most of drivers/net uses an alignment to open parenthesis
-using maximal tabs and minimal necessary spaces instead of
-an extra tabstop.
-
-Like:
-
-static int some_long_function(type var1, type var2...
-			      type varN)
-and
-	some_long_function(var1, var2, ...
-			   varN);
-
-not
-static int some_long_function(type var1, type var2...
-				type varN)
-and
-	some_long_function(var1, var2, ...
-				varN);
+--=20
