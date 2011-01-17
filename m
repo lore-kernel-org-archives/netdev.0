@@ -1,79 +1,55 @@
-From: =?utf-8?Q?Lothar_Wa=C3=9Fmann?= <LW@KARO-electronics.de>
-Subject: Re: [PATCH v4 05/10] net/fec: add dual fec support for mx28
-Date: Mon, 17 Jan 2011 09:16:22 +0100
-Message-ID: <19763.64214.220441.325208@ipc1.ka-ro>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
-	<1294297998-26930-6-git-send-email-shawn.guo@freescale.com>
-	<20110113144805.GS24920@pengutronix.de>
-	<20110114054838.GA14491@freescale.com>
-	<20110114075223.GC24920@pengutronix.de>
-	<20110114130849.GA27583@freescale.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: NETLINK: Failed to browse: Invalid argument from avahi-daemon
+	in F14 since 2.6.37-git8
+Date: Mon, 17 Jan 2011 08:32:08 +0000
+Message-ID: <20110117083208.GA7569@ff.dom.local>
+References: <AANLkTinHOFwPCwJNCy9cFMCf+_VNb-7YFk-3VJFXoaoZ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: gerg@snapgear.com, B32542@freescale.com, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, bryan.wu@canonical.com,
-	jamie@shareable.org, baruch@tkos.co.il, w.sang@pengutronix.de,
-	r64343@freescale.com, eric@eukrea.com,
-	Uwe =?utf-8?Q?Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>,
-	jamie@jamieiles.com, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org
-To: Shawn Guo <shawn.guo@freescale.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <20110114130849.GA27583@freescale.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Alessandro Suardi <alessandro.suardi@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:41316 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032Ab1AQIcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 03:32:15 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTinHOFwPCwJNCy9cFMCf+_VNb-7YFk-3VJFXoaoZ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGksCgpTaGF3biBHdW8gd3JpdGVzOgo+IE9uIEZyaSwgSmFuIDE0LCAyMDExIGF0IDA4OjUyOjIz
-QU0gKzAxMDAsIFV3ZSBLbGVpbmUtS8O2bmlnIHdyb3RlOgo+ID4gT24gRnJpLCBKYW4gMTQsIDIw
-MTEgYXQgMDE6NDg6NDBQTSArMDgwMCwgU2hhd24gR3VvIHdyb3RlOgo+ID4gPiBIaSBVd2UsCj4g
-PiA+IAo+ID4gPiBPbiBUaHUsIEphbiAxMywgMjAxMSBhdCAwMzo0ODowNVBNICswMTAwLCBVd2Ug
-S2xlaW5lLUvDtm5pZyB3cm90ZToKPiA+ID4gCj4gPiA+IFsuLi5dCj4gPiA+IAo+ID4gPiA+ID4g
-Ky8qIENvbnRyb2xsZXIgaXMgRU5FVC1NQUMgKi8KPiA+ID4gPiA+ICsjZGVmaW5lIEZFQ19RVUlS
-S19FTkVUX01BQyAgICAgICAgICAgKDEgPDwgMCkKPiA+ID4gPiBkb2VzIHRoaXMgcmVhbGx5IHF1
-YWxpZnkgdG8gYmUgYSBxdWlyaz8KPiA+ID4gPiAKPiA+ID4gTXkgdW5kZXJzdGFuZGluZyBpcyB0
-aGF0IEVORVQtTUFDIGlzIGEgdHlwZSBvZiAicXVpcmt5IiBGRUMKPiA+ID4gY29udHJvbGxlci4K
-PiA+ID4gCj4gPiA+ID4gPiArLyogQ29udHJvbGxlciBuZWVkcyBkcml2ZXIgdG8gc3dhcCBmcmFt
-ZSAqLwo+ID4gPiA+ID4gKyNkZWZpbmUgRkVDX1FVSVJLX1NXQVBfRlJBTUUgICAgICAgICAoMSA8
-PCAxKQo+ID4gPiA+IElNSE8gdGhpcyBpcyBhIGJpdCBtaXNuYW1lZC4gIEZFQ19RVUlSS19ORUVE
-U19CRV9EQVRBIG9yIHNpbWlsYXIgd291bGQKPiA+ID4gPiBiZSBtb3JlIGFjY3VyYXRlLgo+ID4g
-PiA+IAo+ID4gPiBXaGVuIHlvdXIgbWFrZSB0aGlzIGNoYW5nZSwgeW91IG1heSB3YW50IHRvIHBp
-Y2sgYSBiZXR0ZXIgbmFtZSBmb3IKPiA+ID4gZnVuY3Rpb24gc3dhcF9idWZmZXIgdG9vLgo+ID4g
-PiAKPiA+ID4gWy4uLl0KPiA+ID4gCj4gPiA+ID4gPiArc3RhdGljIHZvaWQgKnN3YXBfYnVmZmVy
-KHZvaWQgKmJ1ZmFkZHIsIGludCBsZW4pCj4gPiA+ID4gPiArewo+ID4gPiA+ID4gKyAgICAgaW50
-IGk7Cj4gPiA+ID4gPiArICAgICB1bnNpZ25lZCBpbnQgKmJ1ZiA9IGJ1ZmFkZHI7Cj4gPiA+ID4g
-PiArCj4gPiA+ID4gPiArICAgICBmb3IgKGkgPSAwOyBpIDwgKGxlbiArIDMpIC8gNDsgaSsrLCBi
-dWYrKykKPiA+ID4gPiA+ICsgICAgICAgICAgICAgKmJ1ZiA9IGNwdV90b19iZTMyKCpidWYpOwo+
-ID4gPiA+IGlmIGxlbiBpc24ndCBhIG11bHRpcGxlIG9mIDQgdGhpcyBhY2Nlc3NlcyBieXRlcyBi
-ZWhpbmQgbGVuLiAgSXMgdGhpcwo+ID4gPiA+IGdlbmVyYWxseSBPSyBoZXJlPyAgKEUuZy4gYmVj
-YXVzZSBza2JzIGFsd2F5cyBoYXZlIGEgbGVuZ3RoIHRoYXQgaXMgYQo+ID4gPiA+IG11bHRpcGxl
-IG9mIDQ/KQo+ID4gPiBUaGUgbGVuIG1heSBub3QgYmUgYSBtdWx0aXBsZSBvZiA0LiAgQnV0IEkg
-YmVsaWV2ZSBidWZhZGRyIGlzIGFsd2F5cwo+ID4gPiBhIGJ1ZmZlciBhbGxvY2F0ZWQgaW4gYSBs
-ZW5ndGggdGhhdCBpcyBhIG11bHRpcGxlIG9mIDQsIGFuZCB0aGUgMX4zCj4gPiA+IGJ5dGVzIGV4
-Y2VlZGluZyB0aGUgbGVuIHZlcnkgbGlrZWx5IGhhcyBubyBkYXRhIHRoYXQgbWF0dGVycy4gIEJ1
-dAo+ID4gPiB5ZXMsIGl0IGRlc2VydmVzIGEgc2FmZXIgaW1wbGVtZW50YXRpb24uCj4gPiBEaWQg
-eW91IHRlc3Qgd2hhdCBoYXBwZW5zIGlmIGJ1ZmFkZHIgaXNuJ3QgYWxpZ25lZD8gIERvZXMgaXQg
-d29yayBhdCBhbGwKPiA+IHRoZW4/Cj4gPiAKPiBJIHNlZSBtYW55IGNhbGxzIHBhc3NpbmcgYSBs
-ZW4gdGhhdCBpcyBub3QgYSBtdWx0aXBsZSBvZiA0LCBidXQgaXQKPiB3b3JrcyBnb29kLgo+IApU
-aGF0IGRvZXMgbm90IHByb3ZlIGFueXRoaW5nLCBhY3R1YWxseS4KCkFueXdheSAiYnVmYWRkciBp
-c24ndCBhbGlnbmVkIiAhPSAibGVuIGlzIG5vdCBhIG11bHRpcGxlIG9mIDQiLgpJcyB0aGVyZSBh
-bnkgZ3VhcmFudGVlIHRoYXQgdGhlIGZ1bmN0aW9uIGNhbm5vdCBiZSBjYWxsZWQgd2l0aCBhCm5v
-bi1hbGlnbmVkIGJ1ZmZlciBhZGRyZXNzPwoKCkxvdGhhciBXYcOfbWFubgotLSAKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KCkthLVJv
-IGVsZWN0cm9uaWNzIEdtYkggfCBQYXNjYWxzdHJhw59lIDIyIHwgRCAtIDUyMDc2IEFhY2hlbgpQ
-aG9uZTogKzQ5IDI0MDggMTQwMi0wIHwgRmF4OiArNDkgMjQwOCAxNDAyLTEwCkdlc2Now6RmdHNm
-w7xocmVyOiBNYXR0aGlhcyBLYXVzc2VuCkhhbmRlbHNyZWdpc3RlcmVpbnRyYWc6IEFtdHNnZXJp
-Y2h0IEFhY2hlbiwgSFJCIDQ5OTYKCnd3dy5rYXJvLWVsZWN0cm9uaWNzLmRlIHwgaW5mb0BrYXJv
-LWVsZWN0cm9uaWNzLmRlCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVs
-QGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+On 2011-01-15 19:34, Alessandro Suardi wrote:
+> /var/log/messages says:
+> 
+> Jan 13 12:42:02 duff avahi-daemon[2771]: Found user 'avahi' (UID 70)
+> and group 'avahi' (GID 70).
+> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped root privileges.
+> Jan 13 12:42:02 duff avahi-daemon[2771]: avahi-daemon 0.6.27 starting up.
+> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully called chroot().
+> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped
+> remaining capabilities.
+> Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file
+> /services/ssh.service.
+> Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file
+> /services/udisks.service.
+> Jan 13 12:42:02 duff avahi-daemon[2771]: NETLINK: Failed to browse:
+> Invalid argument
+> Jan 13 12:42:23 duff acpid: starting up with netlink and the input layer
+> 
+> 
+> Happens both at boot and after boot if restarting avahi-daemon service,
+>  and there is a 10-15" wait before the service start script prints a [FAILED]
+>  red tag; avahi-daemon process does start up anyways.
+> 
+> -git7 is the latest "good" kernel
+> -git8, -git9, -git11, -git13 have been reproducing the issue
+> 
+> 
+> thanks, ciao,
+
+Seems to be resolved in this thread:
+
+http://www.spinics.net/lists/netdev/msg152762.html
+
+Thanks,
+Jarek P.
