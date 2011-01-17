@@ -1,64 +1,53 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH v4 05/10] net/fec: add dual fec support for mx28
-Date: Mon, 17 Jan 2011 10:06:20 +0100
-Message-ID: <20110117090620.GN6917@pengutronix.de>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-6-git-send-email-shawn.guo@freescale.com>
- <20110113144805.GS24920@pengutronix.de>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] net_sched: accurate bytes/packets stats/rates
+Date: Mon, 17 Jan 2011 10:16:35 +0100
+Message-ID: <20110117091635.GA8751@nuttenaction>
+References: <1295021808.3937.110.camel@edumazet-laptop>
+ <20110114095201.4fc58a45@nehalam>
+ <1295028502.3937.116.camel@edumazet-laptop>
+ <20110114110342.4d95ad5b@nehalam>
+ <20110116223540.GA1861@del.dom.local>
+ <AANLkTim14h+6k6nt+UWP5gDcT5NmAGLU_S+wG6VhDn-O@mail.gmail.com>
+ <1295248669.12859.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gerg@snapgear.com, Greg Ungerer <gerg@uclinux.org>,
-	B32542@freescale.com, netdev@vger.kernel.org,
-	s.hauer@pengutronix.de, jamie@shareable.org, baruch@tkos.co.il,
-	w.sang@pengutronix.de, r64343@freescale.com, eric@eukrea.com,
-	bryan.wu@canonical.com, jamie@jamieiles.com, davem@davemloft.net,
-	linux-arm-kernel@lists.infradead.org, lw@karo-electronics.de
-To: Shawn Guo <shawn.guo@freescale.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	Jarek Poplawski <jarkao2@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:59497 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752238Ab1AQJGW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 04:06:22 -0500
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:56737 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752777Ab1AQJQi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 04:16:38 -0500
 Content-Disposition: inline
-In-Reply-To: <20110113144805.GS24920@pengutronix.de>
+In-Reply-To: <1295248669.12859.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+* Eric Dumazet | 2011-01-17 08:17:49 [+0100]:
 
-On Thu, Jan 13, 2011 at 03:48:05PM +0100, Uwe Kleine-K=F6nig wrote:
-> >  #if defined(CONFIG_M523x) || defined(CONFIG_M527x) || defined(CONF=
-IG_M528x) || \
-> > -    defined(CONFIG_M520x) || defined(CONFIG_M532x) || defined(CONF=
-IG_ARCH_MXC)
-> > +    defined(CONFIG_M520x) || defined(CONFIG_M532x) || \
-> > +    defined(CONFIG_ARCH_MXC) || defined(CONFIG_SOC_IMX28)
-> I wonder what is excluded here.  FEC depends on
->=20
-> 	M523x || M527x || M5272 || M528x || M520x || M532x || \
-> 	MACH_MX27 || ARCH_MX35 || ARCH_MX25 || ARCH_MX5 || SOC_IMX28
->=20
-> so the only difference is that the latter lists M5272 which seems a b=
-it
-> redundant in the presence of M527x.
-M527x =3D {M5271, M5275}, so it seems to me that only M5272 is excluded
-here.  I don't know if it's possible to have a kernel supporting M5272
-and (e.g.) M527x.  If yes, does the driver work correct on M5272 then?
+>Hmm, considering qdisc stats are not used in kernel (only updated and
+>reported to tc users) it seems to me counting arrival instead of
+>departure rates is mostly useless for the user, if drops are ignored.
+>
+>(I am not speaking of direct drops, when we try to enqueue() this skb,
+>but later ones, when another skb is enqueued and we drop a previously
+>enqueued skb)
+>
+>User really wants to see the effective departure rate, to check its
+>qdisc parameters in respect with kernel ones (HZ=100/1000, HIGH res
+>timers off/on, ...)
+>
+>Arrival rates are of litle use. However, it might be good to have a
+>second "bstats" only for dropped packets/bytes, or extend bstats in a
+>compatible way (maybe adding fields to the end of structure)
 
-Greg, it seems to me that M5272 is the exception here, not all the
-others.  Would it make sense to make the above read:
+Sure, qdiscs like CHOKe, SFQ, pfifo_head are only analyzable with this kind of
+additional information. E.g. pfifo_head currently provides no statistic that
+the queue length is possible underestimated and tunning is required.
 
-	#if !defined(CONFIG_M5272)
-
-?
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+Hagen
