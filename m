@@ -1,40 +1,55 @@
-From: Rob Landley <rlandley@parallels.com>
-Subject: Re: [PATCH v3 00/16] make rpc_pipefs be mountable multiple time
-Date: Mon, 17 Jan 2011 06:30:16 -0600
-Message-ID: <4D343658.1020205@parallels.com>
-References: <1295012954-7769-1-git-send-email-kas@openvz.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: rps testing questions
+Date: Mon, 17 Jan 2011 13:08:33 +0000
+Message-ID: <1295269713.3700.5.camel@localhost>
+References: <AANLkTin1pC=auiFBt83YomdhVgUO8uSdvq=tPaDu0=3U@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	<linux-nfs@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	<containers@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Kirill A. Shutemov" <kas@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295012954-7769-1-git-send-email-kas@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: mi wake <wakemi.wake@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:36720 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752395Ab1AQNIz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 08:08:55 -0500
+In-Reply-To: <AANLkTin1pC=auiFBt83YomdhVgUO8uSdvq=tPaDu0=3U@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/14/2011 07:48 AM, Kirill A. Shutemov wrote:
-> Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-> Only for client for now.
+On Mon, 2011-01-17 at 17:43 +0800, mi wake wrote:
+> I do a rps(Receive Packet Steering) testing on centos 5.5 with  kerne=
+l 2.6.37.
+> cpu: 8 core Intel.
+> ethernet adapter: bnx2x
+>=20
+> Problem statement:
+> enable rps with:
+> echo "ff" > /sys/class/net/eth2/queues/rx-0/rps_cpus.
+>=20
+> running 1 instances of netperf TCP_RR: netperf  -t TCP_RR -H 192.168.=
+0.1 -c -C
+> without rps: 9963.48(Trans Rate per sec)
+> with rps:  9387.59(Trans Rate per sec)
+>=20
+> I do ab and tbench testing also find there is less tps with enable
+> rps.but,there is more cpu using when with enable rps.when with enable
+> rps =EF=BC=8Csoftirqs is blanced  on cpus.
+>=20
+> is there something wrong with my test=EF=BC=9F
 
-Ok, Google is being really unhelpful here.
+In addition to what Eric said, check the interrupt moderation settings
+(ethtool -c/-C options).  One-way latency for a single request/response
+test will be at least the interrupt moderation value.
 
-What is rpc_pipefs for?  What uses it, and to do what exactly?  Is it
-used by nfs server code, or by the client code, or both?  Is it a way
-for userspace to talk to the kernel, or for the kernel to talk to
-itself?  Is it used at mount time, or during filesystem operation?
+I haven't tested RPS by itself (Solarflare NICs have plenty of hardware
+queues) so I don't know whether it can improve latency.  However, RFS
+certainly does when there are many flows.
 
-I'm interested in giving this patch series a much more thorough review,
-but I can't figure out what the subsystem it's modifying actually _is_.
+Ben.
 
-(Maybe this is something to do with filesystems/nfs/rpc-cache.txt?)
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
-Rob
