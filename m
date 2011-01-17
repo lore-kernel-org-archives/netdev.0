@@ -1,42 +1,40 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: [PATCH] USB CDC NCM: tx_fixup() race condition fix
-Date: Mon, 17 Jan 2011 16:04:32 +0100
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153BB5B84E45@EXDCVYMBSTM006.EQ1STM.local>
-References: <1295271573-8890-1-git-send-email-alexey.orishko@stericsson.com>
- <4D3458F7.5070209@ru.mvista.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks
+ vlan interface RX
+Date: Mon, 17 Jan 2011 16:00:44 +0000
+Message-ID: <1295280044.6264.5.camel@bwh-desktop>
+References: <4D32FC1C.3010905@simon.arlott.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"gregkh-l3A5Bk7waGM@public.gmane.org" <gregkh-l3A5Bk7waGM@public.gmane.org>,
-	"yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org" <yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>
-To: Sergei Shtylyov <sshtylyov-Igf4POYTYCDQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4D3458F7.5070209-hkdhdckH98+B+jHODAdFcQ@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	jesse@nicira.com, Herbert Xu <herbert@gondor.apana.org.au>
+To: Simon Arlott <simon@fire.lp0.eu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D32FC1C.3010905@simon.arlott.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> > - tx_fixup() call be called from either timer callback or from xmit()
+On Sun, 2011-01-16 at 14:09 +0000, Simon Arlott wrote:
+> [    1.666706] forcedeth 0000:00:08.0: ifname eth0, PHY OUI 0x5043 @ 16, addr 00:e0:81:4d:2b:ec
+> [    1.666767] forcedeth 0000:00:08.0: highdma csum vlan pwrctl mgmt gbit lnktim msi desc-v3
 > 
->     s/call/can/?
-Yes :-)
+> I have eth0 and eth0.3840 which works until I add eth0 to a bridge.
+> While eth0 is in a bridge (the bridge device is up), eth0.3840 is unable
+> to receive packets. Using tcpdump on eth0 shows the packets being
+> received with a VLAN tag but they don't appear on eth0.3840. They appear
+> with the VLAN tag on the bridge interface.
+[...]
 
-> 
-> >   in usbnet, so spinlock is added to avoid concurrency-related
-> problem.
-> > - minor correction due checkpatch warning for some line over 80 chars
-> 
->     Due to?
-yep
+This means the behaviour is now consistent, whether or not hardware VLAN
+tag stripping is enabled.  (I previously pointed out the inconsistent
+behaviour in <http://thread.gmane.org/gmane.linux.network/149864>.)  I
+would consider this an improvement.
 
-Sorry for typos...
+Ben.
 
-Regards,
-alexey
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
