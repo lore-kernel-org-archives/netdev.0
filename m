@@ -1,40 +1,57 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks
- vlan interface RX
-Date: Mon, 17 Jan 2011 16:00:44 +0000
-Message-ID: <1295280044.6264.5.camel@bwh-desktop>
-References: <4D32FC1C.3010905@simon.arlott.org.uk>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] dummy: do not create a link (dummy0) at module init by
+ default
+Date: Mon, 17 Jan 2011 08:56:42 -0800
+Message-ID: <20110117085642.0dddd66e@nehalam>
+References: <1295225393-5779-1-git-send-email-david.ward@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jesse@nicira.com, Herbert Xu <herbert@gondor.apana.org.au>
-To: Simon Arlott <simon@fire.lp0.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D32FC1C.3010905@simon.arlott.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Ward <david.ward@ll.mit.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:44185 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752128Ab1AQQ4p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jan 2011 11:56:45 -0500
+In-Reply-To: <1295225393-5779-1-git-send-email-david.ward@ll.mit.edu>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2011-01-16 at 14:09 +0000, Simon Arlott wrote:
-> [    1.666706] forcedeth 0000:00:08.0: ifname eth0, PHY OUI 0x5043 @ 16, addr 00:e0:81:4d:2b:ec
-> [    1.666767] forcedeth 0000:00:08.0: highdma csum vlan pwrctl mgmt gbit lnktim msi desc-v3
+On Sun, 16 Jan 2011 19:49:53 -0500
+David Ward <david.ward@ll.mit.edu> wrote:
+
+> When the dummy network driver is initialized with no parameters, a link
+> is automatically created (named 'dummy0'). This is inconsistent with
+> other virtual network drivers such as veth, macvlan, and macvtap, which
+> do not create a link upon initialization.
 > 
-> I have eth0 and eth0.3840 which works until I add eth0 to a bridge.
-> While eth0 is in a bridge (the bridge device is up), eth0.3840 is unable
-> to receive packets. Using tcpdump on eth0 shows the packets being
-> received with a VLAN tag but they don't appear on eth0.3840. They appear
-> with the VLAN tag on the bridge interface.
-[...]
+> This also causes confusing behavior when sending an RTM_NEWLINK message
+> for a dummy link, because the kernel will load the dummy network driver
+> first if it has not already been loaded. When that occurs, the result
+> is that two new links are actually created (or if IFLA_IFNAME is set to
+> 'dummy0', the error EEXIST is returned). The following iproute command
+> demonstrates this behavior:
+> 
+>   ip link add [ name dummy0 ] type dummy
+> 
+> With this change, users who still want to have a link created when the
+> dummy network driver is loaded (instead of using iproute to create the
+> link as shown above) just need to set the 'numdummies' parameter to 1:
+> 
+>   modprobe dummy numdummies=1
+> 
+> Signed-off-by: David Ward <david.ward@ll.mit.edu>
 
-This means the behaviour is now consistent, whether or not hardware VLAN
-tag stripping is enabled.  (I previously pointed out the inconsistent
-behaviour in <http://thread.gmane.org/gmane.linux.network/149864>.)  I
-would consider this an improvement.
+I understand what you are trying to do, and it makes sense.
+But because of the history behind this it can't change.
+We can't change existing API and break user scripts.
 
-Ben.
+The 'ip link' command support is new (in last couple of years), and
+the module parameter has been around since early days.
+
+If you want to load module without any devices just use:
+  modprobe dummy numdummies=0
+
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
