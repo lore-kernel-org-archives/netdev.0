@@ -1,55 +1,57 @@
-From: Romain Francoise <romain@orebokech.com>
-Subject: [PATCH] ipv6: Silence privacy extensions initialization
-Date: Mon, 17 Jan 2011 18:59:18 +0100
-Message-ID: <87sjwr4djd.fsf@elegiac.orebokech.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-next-2.6 PATCH v8 0/2] Series short description
+Date: Mon, 17 Jan 2011 10:05:58 -0800
+Message-ID: <20110117175542.29543.38690.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola \(ipv6\)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: bhutchings@solarflare.com, jarkao2@gmail.com, hadi@cyberus.ca,
+	eric.dumazet@gmail.com, shemminger@vyatta.com, tgraf@infradead.org,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-g21.free.fr ([212.27.42.6]:32786 "EHLO smtp6-g21.free.fr"
+Received: from mga03.intel.com ([143.182.124.21]:32768 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751658Ab1AQR7e (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jan 2011 12:59:34 -0500
+	id S1751859Ab1AQSKe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jan 2011 13:10:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a network namespace is created (via CLONE_NEWNET), the loopback
-interface is automatically added to the new namespace, triggering a
-printk in ipv6_add_dev() if CONFIG_IPV6_PRIVACY is set.
+Changed from v7, Ben Hutchings wants to actively manage queues
+from the ndo_setup_tc() routine. Presumably to change the number
+of tx queues creating n queues per traffic class. I agreed so
+this version updates the patch to work correctly in this case.
 
-This is problematic for applications which use CLONE_NEWNET as
-part of a sandbox, like Chromium's suid sandbox or recent versions of
-vsftpd. On a busy machine, it can lead to thousands of useless
-"lo: Disabled Privacy Extensions" messages appearing in dmesg.
+Previously I was calling ndo_setup_tc from netif_set_num_tx_queues(),
+to verify the queue offset/count but this would break any
+queue management so this is removed. Now the mappings are
+invalidated if the mapping requires it and it is expected
+that the netdevice configured a valid mapping so calling
+back into the driver is not needed. Validation is still
+required in the case of a netdevice that does not
+implement ndo_setup_tc() or to recover in cases where
+ndo_open is adjusting number of queues do to resource
+constraints.
 
-It's easy enough to check the status of privacy extensions via the
-use_tempaddr sysctl, so just removing the printk seems like the most
-sensible solution.
+Finally added some documentation to netdevice.h regarding
+the new ops routine.
 
-Signed-off-by: Romain Francoise <romain@orebokech.com>
 ---
- net/ipv6/addrconf.c |    3 ---
- 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 5b189c9..24a1cf1 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -420,9 +420,6 @@ static struct inet6_dev * ipv6_add_dev(struct net_device *dev)
- 	    dev->type == ARPHRD_TUNNEL6 ||
- 	    dev->type == ARPHRD_SIT ||
- 	    dev->type == ARPHRD_NONE) {
--		printk(KERN_INFO
--		       "%s: Disabled Privacy Extensions\n",
--		       dev->name);
- 		ndev->cnf.use_tempaddr = -1;
- 	} else {
- 		in6_dev_hold(ndev);
+John Fastabend (2):
+      net_sched: implement a root container qdisc sch_mqprio
+      net: implement mechanism for HW based QOS
+
+
+ include/linux/netdevice.h |   68 +++++++
+ include/linux/pkt_sched.h |   12 +
+ net/core/dev.c            |   55 ++++++
+ net/sched/Kconfig         |   12 +
+ net/sched/Makefile        |    1 
+ net/sched/sch_generic.c   |    4 
+ net/sched/sch_mqprio.c    |  417 +++++++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 568 insertions(+), 1 deletions(-)
+ create mode 100644 net/sched/sch_mqprio.c
+
 -- 
-1.7.2.3
-
+Signature
