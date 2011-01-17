@@ -1,71 +1,35 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 1/3] vhost-net: check the support of mergeable buffer
- outside the receive loop
-Date: Mon, 17 Jan 2011 10:46:44 +0200
-Message-ID: <20110117084644.GB23479@redhat.com>
-References: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-Sender: kvm-owner@vger.kernel.org
+From: Aurelien Jarno <aurelien@aurel32.net>
+Subject: [PATCH] virtio-net: fix a typo
+Date: Mon, 17 Jan 2011 09:14:19 +0100
+Message-ID: <1295252059-27438-1-git-send-email-aurelien@aurel32.net>
+Cc: Aurelien Jarno <aurelien@aurel32.net>, netdev@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 17, 2011 at 04:10:59PM +0800, Jason Wang wrote:
-> No need to check the support of mergeable buffer inside the recevie
-> loop as the whole handle_rx()_xx is in the read critical region.  So
-> this patch move it ahead of the receiving loop.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+fitler -> filter
 
-Well feature check is mostly just features & bit
-so why would it be slower? Because of the rcu
-adding memory barriers? Do you observe a
-measureable speedup with this patch?
+Cc: netdev@vger.kernel.org
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
+---
+ drivers/net/virtio_net.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Apropos, I noticed that the check in vhost_has_feature
-is wrong: it uses the same kind of RCU as the
-private pointer. So we'll have to fix that properly
-by adding more lockdep classes, but for now
-we'll need to make
-the check 1 || lockdep_is_held(&dev->mutex);
-and add a TODO.
-
-> ---
->  drivers/vhost/net.c |    5 +++--
->  1 files changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 14fc189..95e49de 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -411,7 +411,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
->  	};
->  
->  	size_t total_len = 0;
-> -	int err, headcount;
-> +	int err, headcount, mergeable;
->  	size_t vhost_hlen, sock_hlen;
->  	size_t vhost_len, sock_len;
->  	struct socket *sock = rcu_dereference(vq->private_data);
-> @@ -425,6 +425,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
->  
->  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
->  		vq->log : NULL;
-> +	mergeable = vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF);
->  
->  	while ((sock_len = peek_head_len(sock->sk))) {
->  		sock_len += sock_hlen;
-> @@ -474,7 +475,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
->  			break;
->  		}
->  		/* TODO: Should check and handle checksum. */
-> -		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
-> +		if (likely(mergeable) &&
->  		    memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
->  				      offsetof(typeof(hdr), num_buffers),
->  				      sizeof hdr.num_buffers)) {
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 90a23e4..48a4297 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -787,7 +787,7 @@ static void virtnet_set_rx_mode(struct net_device *dev)
+ 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MAC,
+ 				  VIRTIO_NET_CTRL_MAC_TABLE_SET,
+ 				  sg, 2, 0))
+-		dev_warn(&dev->dev, "Failed to set MAC fitler table.\n");
++		dev_warn(&dev->dev, "Failed to set MAC filter table.\n");
+ 
+ 	kfree(buf);
+ }
+-- 
+1.7.2.3
