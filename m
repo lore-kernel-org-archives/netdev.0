@@ -1,67 +1,59 @@
-From: Andrei Emeltchenko <andrei.emeltchenko.news@gmail.com>
-Subject: Re: [PATCH] net: bluetooth: fix locking problem
-Date: Mon, 17 Jan 2011 12:28:29 +0200
-Message-ID: <AANLkTi=5GpSEsGNMcfTVDyo_cHoELPaD8EmJGUhPxPw2@mail.gmail.com>
-References: <1295258917-31092-1-git-send-email-segoon@openwall.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Mon, 17 Jan 2011 12:38:42 +0200
+Message-ID: <20110117103841.GI23479@redhat.com>
+References: <20110106124439.GA17004@verge.net.au>
+ <20110114065415.GA30300@redhat.com>
+ <20110116223728.GA6279@verge.net.au>
+ <201101171026.26213.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kernel-janitors@vger.kernel.org,
-	Marcel Holtmann <marcel@holtmann.org>,
-	"Gustavo F. Padovan" <padovan@profusion.mobi>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Vasiliy Kulikov <segoon@openwall.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Simon Horman <horms@verge.net.au>, Jesse Gross <jesse@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:47559 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751417Ab1AQK2a convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 05:28:30 -0500
-In-Reply-To: <1295258917-31092-1-git-send-email-segoon@openwall.com>
+Received: from mx1.redhat.com ([209.132.183.28]:11088 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753228Ab1AQKjP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jan 2011 05:39:15 -0500
+Content-Disposition: inline
+In-Reply-To: <201101171026.26213.rusty@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 17, 2011 at 12:08 PM, Vasiliy Kulikov <segoon@openwall.com>=
- wrote:
-> If alloc_skb() failed we still hold hci_dev_list_lock. =A0The code sh=
-ould
-> unlock it before exit.
->
-> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
-> ---
-> =A0Compile tested only.
->
-> =A0net/bluetooth/mgmt.c | =A0 =A04 +++-
-> =A01 files changed, 3 insertions(+), 1 deletions(-)
->
-> diff --git a/net/bluetooth/mgmt.c b/net/bluetooth/mgmt.c
-> index f827fd9..ace8726 100644
-> --- a/net/bluetooth/mgmt.c
-> +++ b/net/bluetooth/mgmt.c
-> @@ -111,8 +111,10 @@ static int read_index_list(struct sock *sk)
->
-> =A0 =A0 =A0 =A0body_len =3D sizeof(*ev) + sizeof(*rp) + (2 * count);
-> =A0 =A0 =A0 =A0skb =3D alloc_skb(sizeof(*hdr) + body_len, GFP_ATOMIC)=
-;
-> - =A0 =A0 =A0 if (!skb)
-> + =A0 =A0 =A0 if (!skb) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 read_unlock(&hci_dev_list_lock);
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ENOMEM;
-> + =A0 =A0 =A0 }
+On Mon, Jan 17, 2011 at 10:26:25AM +1030, Rusty Russell wrote:
+> On Mon, 17 Jan 2011 09:07:30 am Simon Horman wrote:
+> 
+> [snip]
+> 
+> I've been away, but what concerns me is that socket buffer limits are
+> bypassed in various configurations, due to skb cloning.  We should probably
+> drop such limits altogether, or fix them to be consistent.
 
-patch was send already on weekend
+Further, it looks like when the limits are not bypassed, they
+easily result in deadlocks. For example, with
+multiple tun devices attached to a single bridge in host,
+if a number of these have their queues blocked,
+others will reach the socket buffer limit and
+traffic on the bridge will get blocked altogether.
 
->
-> =A0 =A0 =A0 =A0hdr =3D (void *) skb_put(skb, sizeof(*hdr));
-> =A0 =A0 =A0 =A0hdr->opcode =3D cpu_to_le16(MGMT_EV_CMD_COMPLETE);
-> --
-> 1.7.0.4
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kerne=
-l" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at =A0http://www.tux.org/lkml/
->
+It might be better to drop the limits altogether
+unless we can fix them. Happily, as the limits are off by
+default, doing so does not require kernel changes.
+
+> Simple fix is as someone suggested here, to attach the clone.  That might
+> seriously reduce your sk limit, though.  I haven't thought about it hard,
+> but might it make sense to move ownership into skb_shared_info; ie. the
+> data, rather than the skb head?
+> 
+> Cheers,
+> Rusty.
+
+tracking data ownership might benefit others such as various zero-copy
+strategies. It might need to be done per-page, though, not per-skb.
+
+-- 
+MST
