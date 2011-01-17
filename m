@@ -1,32 +1,44 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: [PATCH] dummy: do not create a link (dummy0) at module init by
-	default
-Date: Mon, 17 Jan 2011 09:25:56 +0000
-Message-ID: <20110117092556.GA7934@ff.dom.local>
-References: <1295225393-5779-1-git-send-email-david.ward@ll.mit.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 3/3] vhost-net: use lock_sock_fast() in peek_head_len()
+Date: Mon, 17 Jan 2011 10:33:48 +0100
+Message-ID: <1295256828.3335.2.camel@edumazet-laptop>
+References: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+	<20110117081117.18900.48672.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com
-To: David Ward <david.ward@ll.mit.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:53358 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751326Ab1AQJ0D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 04:26:03 -0500
-Received: by fxm20 with SMTP id 20so5770195fxm.19
-        for <netdev@vger.kernel.org>; Mon, 17 Jan 2011 01:26:01 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <1295225393-5779-1-git-send-email-david.ward@ll.mit.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: virtualization@lists.osdl.org, mst@redhat.com,
+        linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+        netdev@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20110117081117.18900.48672.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
+List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linux-foundation.org/pipermail/virtualization>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 2011-01-17 01:49, David Ward wrote:
-> When the dummy network driver is initialized with no parameters, a link
-> is automatically created (named 'dummy0'). This is inconsistent with
-> other virtual network drivers such as veth, macvlan, and macvtap, which
-> do not create a link upon initialization.
-
-Actually, this is consistent with _other_ virtual network drivers such
-as loopback, ifb, and teql, which create a link upon initialization ;-)
-
-Jarek P.
+TGUgbHVuZGkgMTcgamFudmllciAyMDExIMOgIDE2OjExICswODAwLCBKYXNvbiBXYW5nIGEgw6lj
+cml0IDoKPiBXZSBjYW4gdXNlIGxvY2tfc29ja19mYXN0KCkgaW5zdGVhZCBvZiBsb2NrX3NvY2so
+KSBpbiBvcmRlciB0byBnZXQKPiBzcGVlZHVwIGluIHBlZWtfaGVhZF9sZW4oKS4KPiAKPiBTaWdu
+ZWQtb2ZmLWJ5OiBKYXNvbiBXYW5nIDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+IC0tLQo+ICBkcml2
+ZXJzL3Zob3N0L25ldC5jIHwgICAgNCArKy0tCj4gIDEgZmlsZXMgY2hhbmdlZCwgMiBpbnNlcnRp
+b25zKCspLCAyIGRlbGV0aW9ucygtKQo+IAo+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0L25l
+dC5jIGIvZHJpdmVycy92aG9zdC9uZXQuYwo+IGluZGV4IGMzMmEyZTQuLjUwYjYyMmEgMTAwNjQ0
+Cj4gLS0tIGEvZHJpdmVycy92aG9zdC9uZXQuYwo+ICsrKyBiL2RyaXZlcnMvdmhvc3QvbmV0LmMK
+PiBAQCAtMjExLDEyICsyMTEsMTIgQEAgc3RhdGljIGludCBwZWVrX2hlYWRfbGVuKHN0cnVjdCBz
+b2NrICpzaykKPiAgewo+ICAJc3RydWN0IHNrX2J1ZmYgKmhlYWQ7Cj4gIAlpbnQgbGVuID0gMDsK
+PiArCWJvb2wgc2xvdyA9IGxvY2tfc29ja19mYXN0KHNrKTsKPiAgCj4gLQlsb2NrX3NvY2soc2sp
+Owo+ICAJaGVhZCA9IHNrYl9wZWVrKCZzay0+c2tfcmVjZWl2ZV9xdWV1ZSk7Cj4gIAlpZiAoaGVh
+ZCkKPiAgCQlsZW4gPSBoZWFkLT5sZW47Cj4gLQlyZWxlYXNlX3NvY2soc2spOwo+ICsJdW5sb2Nr
+X3NvY2tfZmFzdChzaywgc2xvdyk7Cj4gIAlyZXR1cm4gbGVuOwo+ICB9Cj4gIApBY2tlZC1ieTog
+RXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPgoKCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlz
+dApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3Rz
+LmxpbnV4LWZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
