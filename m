@@ -1,40 +1,84 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Mon, 17 Jan 2011 10:26:25 +1030
-Message-ID: <201101171026.26213.rusty@rustcorp.com.au>
-References: <20110106124439.GA17004@verge.net.au> <20110114065415.GA30300@redhat.com> <20110116223728.GA6279@verge.net.au>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH] net_sched: accurate bytes/packets stats/rates
+Date: Mon, 17 Jan 2011 08:09:40 +0800
+Message-ID: <AANLkTim14h+6k6nt+UWP5gDcT5NmAGLU_S+wG6VhDn-O@mail.gmail.com>
+References: <1295021808.3937.110.camel@edumazet-laptop> <20110114095201.4fc58a45@nehalam>
+ <1295028502.3937.116.camel@edumazet-laptop> <20110114110342.4d95ad5b@nehalam> <20110116223540.GA1861@del.dom.local>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Jesse Gross <jesse@nicira.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Patrick McHardy <kaber@trash.net>, jamal <hadi@cyberus.ca>
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:60573 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752027Ab1APX4c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jan 2011 18:56:32 -0500
-In-Reply-To: <20110116223728.GA6279@verge.net.au>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47069 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736Ab1AQAKM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jan 2011 19:10:12 -0500
+Received: by fxm20 with SMTP id 20so5305966fxm.19
+        for <netdev@vger.kernel.org>; Sun, 16 Jan 2011 16:10:11 -0800 (PST)
+In-Reply-To: <20110116223540.GA1861@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 17 Jan 2011 09:07:30 am Simon Horman wrote:
+On Mon, Jan 17, 2011 at 6:35 AM, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+> On Fri, Jan 14, 2011 at 11:03:42AM -0800, Stephen Hemminger wrote:
+>> From Eric Dumazet <eric.dumazet@gmail.com>
+>>
+>> In commit 44b8288308ac9d (net_sched: pfifo_head_drop problem), we fi=
+xed
+>> a problem with pfifo_head drops that incorrectly decreased
+>> sch->bstats.bytes and sch->bstats.packets
+>>
+>> Several qdiscs (CHOKe, SFQ, pfifo_head, ...) are able to drop a
+>> previously enqueued packet, and bstats cannot be changed, so
+>> bstats/rates are not accurate (over estimated)
+>>
+>> This patch changes the qdisc_bstats updates to be done at dequeue() =
+time
+>> instead of enqueue() time. bstats counters no longer account for dro=
+pped
+>> frames, and rates are more correct, since enqueue() bursts dont have
+>> effect on dequeue() rate.
+>>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+>>
+>> CC: Patrick McHardy <kaber@trash.net>
+>> CC: Jarek Poplawski <jarkao2@gmail.com>
+>> CC: jamal <hadi@cyberus.ca>
+> ...
+>> --- a/net/sched/sch_drr.c =A0 =A0 2011-01-14 09:19:00.830857886 -080=
+0
+>> +++ b/net/sched/sch_drr.c =A0 =A0 2011-01-14 09:28:20.398631228 -080=
+0
+>> @@ -376,7 +376,6 @@ static int drr_enqueue(struct sk_buff *s
+>> =A0 =A0 =A0 }
+>>
+>> =A0 =A0 =A0 bstats_update(&cl->bstats, skb);
+>
+> Why leave leaf classes with different stats?
+>
 
-[snip]
+HTB also has the same problem, and I have fixed in my own product, but
+the patch was rejected.
 
-I've been away, but what concerns me is that socket buffer limits are
-bypassed in various configurations, due to skb cloning.  We should probably
-drop such limits altogether, or fix them to be consistent.
+http://patchwork.ozlabs.org/patch/6227/
 
-Simple fix is as someone suggested here, to attach the clone.  That might
-seriously reduce your sk limit, though.  I haven't thought about it hard,
-but might it make sense to move ownership into skb_shared_info; ie. the
-data, rather than the skb head?
+> Jarek P.
+>
+>> - =A0 =A0 qdisc_bstats_update(sch, skb);
+>>
+>> =A0 =A0 =A0 sch->q.qlen++;
+>> =A0 =A0 =A0 return err;
+> ...
 
-Cheers,
-Rusty.
+
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
