@@ -1,67 +1,62 @@
-From: Alessandro Suardi <alessandro.suardi@gmail.com>
-Subject: Re: NETLINK: Failed to browse: Invalid argument from avahi-daemon in
- F14 since 2.6.37-git8
-Date: Mon, 17 Jan 2011 22:23:18 +0100
-Message-ID: <AANLkTikF4HtXzvyiST72t4XE14sjCX-27CLLWvsF8D5o@mail.gmail.com>
-References: <AANLkTinHOFwPCwJNCy9cFMCf+_VNb-7YFk-3VJFXoaoZ@mail.gmail.com>
-	<20110117083208.GA7569@ff.dom.local>
+From: Jesper Dangaard Brouer <hawk@diku.dk>
+Subject: Re: [PATCH] net_sched: factorize qdisc stats handling
+Date: Mon, 17 Jan 2011 22:55:23 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1101172243470.15896@ask.diku.dk>
+References: <20110106195614.20dbc402@nehalam>
+ <AANLkTi=pqZ3CwLTAZnhd-cyQNj8OSeBHsP_bFiH3hJ-_@mail.gmail.com>
+ <20110107200234.3f5e7ff8@nehalam> <1294478789.2709.79.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110117083208.GA7569@ff.dom.local>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Fabio Checconi <fabio@gandalf.sssup.it>,
+	netdev <netdev@vger.kernel.org>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, hawk@comx.dk
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mgw2.diku.dk ([130.225.96.92]:55309 "EHLO mgw2.diku.dk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752750Ab1AQVza (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jan 2011 16:55:30 -0500
+In-Reply-To: <1294478789.2709.79.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 17, 2011 at 9:32 AM, Jarek Poplawski <jarkao2@gmail.com> wr=
-ote:
-> On 2011-01-15 19:34, Alessandro Suardi wrote:
->> /var/log/messages says:
->>
->> Jan 13 12:42:02 duff avahi-daemon[2771]: Found user 'avahi' (UID 70)
->> and group 'avahi' (GID 70).
->> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped root p=
-rivileges.
->> Jan 13 12:42:02 duff avahi-daemon[2771]: avahi-daemon 0.6.27 startin=
-g up.
->> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully called chroot(=
-).
->> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped remain=
-ing capabilities.
->> Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file /servi=
-ces/ssh.service.
->> Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file /servi=
-ces/udisks.service.
->> Jan 13 12:42:02 duff avahi-daemon[2771]: NETLINK: Failed to browse: =
-Invalid argument
->> Jan 13 12:42:23 duff acpid: starting up with netlink and the input l=
-ayer
->>
->>
->> Happens both at boot and after boot if restarting avahi-daemon servi=
-ce,
->> =A0and there is a 10-15" wait before the service start script prints=
- a [FAILED]
->> =A0red tag; avahi-daemon process does start up anyways.
->>
->> -git7 is the latest "good" kernel
->> -git8, -git9, -git11, -git13 have been reproducing the issue
->>
->>
->> thanks, ciao,
->
-> Seems to be resolved in this thread:
->
-> http://www.spinics.net/lists/netdev/msg152762.html
 
-Thanks Jarek - filed Fedora bug 670316 for this one.
 
-https://bugzilla.redhat.com/show_bug.cgi?id=3D670316
+On Sat, 8 Jan 2011, Eric Dumazet wrote:
+>> Changli Gao <xiaosuo@gmail.com> wrote:
+>>
+>>>> +       cl->bstats.packets += skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
 
---alessandro
+What about the qlen when we enqueue a GSO packet? Should we account for 
+the number of internal GSO packets, or just account a GSO packet as a 
+single packet?
 
-=A0"There's always a siren singing you to shipwreck"
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 0918834..1a8c0a3 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -453,7 +453,8 @@ static int pfifo_fast_enqueue(struct sk_buff *skb, 
+struct Qdisc* qdisc)
+                 struct sk_buff_head *list = band2list(priv, band);
 
-=A0=A0 (Radiohead, "There There")
+                 priv->bitmap |= (1 << band);
+-               qdisc->q.qlen++;
++               /* Should the number of GSO packets be taken into account?*/
++               qdisc->q.qlen += skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
+                 return __qdisc_enqueue_tail(skb, qdisc, list);
+         }
+
+Is is at all legal to modify the q.qlen this way?
+
+Cheers
+   Jesper Brouer
+
+--
+-------------------------------------------------------------------
+MSc. Master of Computer Science
+Dept. of Computer Science, University of Copenhagen
+Author of http://www.adsl-optimizer.dk
+-------------------------------------------------------------------
