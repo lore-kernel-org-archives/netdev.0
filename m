@@ -1,124 +1,92 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v4 05/10] net/fec: add dual fec support for mx28
-Date: Mon, 17 Jan 2011 19:52:05 +0800
-Message-ID: <20110117115204.GB23185@freescale.com>
-References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
- <1294297998-26930-6-git-send-email-shawn.guo@freescale.com>
- <20110113144805.GS24920@pengutronix.de>
- <20110114054838.GA14491@freescale.com>
- <20110114075223.GC24920@pengutronix.de>
- <20110114130849.GA27583@freescale.com>
- <19763.64214.220441.325208@ipc1.ka-ro>
+From: Michael =?ISO-8859-1?Q?B=FCsch?= <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org>
+Subject: Re: Merging SSB and HND/AI support
+Date: Mon, 17 Jan 2011 12:57:48 +0100
+Message-ID: <1295265468.24530.23.camel@maggie>
+References: <AANLkTi=GDcy50zsC6=Dgv1-Ty3cYK2qpx9o=q3JdXuCh@mail.gmail.com>
+	 <1295261783.24530.3.camel@maggie>
+	 <AANLkTikJcug7LUTgX_YDD4Z8ZBrdkAdLq8_Epa6TkA5f@mail.gmail.com>
+	 (sfid-20110117_122135_343461_FFFFFFFFFA00D75F)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, <gerg@snapgear.com>,
-	<B32542@freescale.com>, <netdev@vger.kernel.org>,
-	<s.hauer@pengutronix.de>, <jamie@shareable.org>,
-	<baruch@tkos.co.il>, <w.sang@pengutronix.de>,
-	<r64343@freescale.com>, <eric@eukrea.com>,
-	<bryan.wu@canonical.com>, <jamie@jamieiles.com>,
-	<davem@davemloft.net>, <linux-arm-kernel@lists.infradead.org>
-To: Lothar =?iso-8859-1?Q?Wa=DFmann?= <LW@KARO-electronics.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from db3ehsobe005.messaging.microsoft.com ([213.199.154.143]:14585
-	"EHLO DB3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751428Ab1AQLs7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jan 2011 06:48:59 -0500
-Received: from mail79-db3 (localhost.localdomain [127.0.0.1])	by
- mail79-db3-R.bigfish.com (Postfix) with ESMTP id 9E6D214A8576	for
- <netdev@vger.kernel.org>; Mon, 17 Jan 2011 11:48:56 +0000 (UTC)
-Received: from DB3EHSMHS002.bigfish.com (unknown [10.3.81.254])	by
- mail79-db3.bigfish.com (Postfix) with ESMTP id 2975B13E0052	for
- <netdev@vger.kernel.org>; Mon, 17 Jan 2011 11:48:56 +0000 (UTC)
-Received: from de01smr01.freescale.net (de01smr01.freescale.net [10.208.0.31])
-	by de01egw01.freescale.net (8.14.3/8.14.3) with ESMTP id p0HBmnTZ004844	for
- <netdev@vger.kernel.org>; Mon, 17 Jan 2011 04:48:49 -0700 (MST)
-Received: from ubuntu.localdomain (ubuntu-010192242196.ap.freescale.net
- [10.192.242.196])	by de01smr01.freescale.net (8.13.1/8.13.0) with ESMTP id
- p0HBmmYl020178	for <netdev@vger.kernel.org>; Mon, 17 Jan 2011 05:48:48 -0600
- (CST)
-Content-Disposition: inline
-In-Reply-To: <19763.64214.220441.325208@ipc1.ka-ro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jonas Gorski <jonas.gorski-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AANLkTikJcug7LUTgX_YDD4Z8ZBrdkAdLq8_Epa6TkA5f-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20110117_122135_343461_FFFFFFFFFA00D75F)
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Lothar,
+On Mon, 2011-01-17 at 12:21 +0100, Jonas Gorski wrote:=20
+> On 17 January 2011 11:56, Michael B=C3=BCsch <mb-fseUSCV1ubazQB+pC5nmwQ@public.gmane.org> wrote:
+> > On Mon, 2011-01-17 at 11:46 +0100, Jonas Gorski wrote:
+> >> a) Merge the HND/AI code into the current SSB code, or
+> >>
+> >> b) add the missing code for SoCs to brcm80211 and replace the SSB =
+code with it.
+> >
+> > Why can't we keep those two platforms separated?
+> > Is there really a lot of shared code between SSB and HND/AI?
+>=20
+> Yes, as far as I understand the AI bus behaves mostly like a SSB bus
+> except for places like enabling/disabling cores. E.g. the AI bus also
+> has a common core, which has a bit for telling whether its a SSB or A=
+I
+> bus, and has the mostly the same registers as the SSB common cores (s=
+o
+> most driver_chipcommon_* stuff also applies for the AI bus).
 
-On Mon, Jan 17, 2011 at 09:16:22AM +0100, Lothar Wa=DFmann wrote:
-> Hi,
->=20
-> Shawn Guo writes:
-> > On Fri, Jan 14, 2011 at 08:52:23AM +0100, Uwe Kleine-K=F6nig wrote:
-> > > On Fri, Jan 14, 2011 at 01:48:40PM +0800, Shawn Guo wrote:
-> > > > Hi Uwe,
-> > > >=20
-> > > > On Thu, Jan 13, 2011 at 03:48:05PM +0100, Uwe Kleine-K=F6nig wr=
-ote:
-> > > >=20
-> > > > [...]
-> > > >=20
-> > > > > > +/* Controller is ENET-MAC */
-> > > > > > +#define FEC_QUIRK_ENET_MAC           (1 << 0)
-> > > > > does this really qualify to be a quirk?
-> > > > >=20
-> > > > My understanding is that ENET-MAC is a type of "quirky" FEC
-> > > > controller.
-> > > >=20
-> > > > > > +/* Controller needs driver to swap frame */
-> > > > > > +#define FEC_QUIRK_SWAP_FRAME         (1 << 1)
-> > > > > IMHO this is a bit misnamed.  FEC_QUIRK_NEEDS_BE_DATA or simi=
-lar would
-> > > > > be more accurate.
-> > > > >=20
-> > > > When your make this change, you may want to pick a better name =
-for
-> > > > function swap_buffer too.
-> > > >=20
-> > > > [...]
-> > > >=20
-> > > > > > +static void *swap_buffer(void *bufaddr, int len)
-> > > > > > +{
-> > > > > > +     int i;
-> > > > > > +     unsigned int *buf =3D bufaddr;
-> > > > > > +
-> > > > > > +     for (i =3D 0; i < (len + 3) / 4; i++, buf++)
-> > > > > > +             *buf =3D cpu_to_be32(*buf);
-> > > > > if len isn't a multiple of 4 this accesses bytes behind len. =
- Is this
-> > > > > generally OK here?  (E.g. because skbs always have a length t=
-hat is a
-> > > > > multiple of 4?)
-> > > > The len may not be a multiple of 4.  But I believe bufaddr is a=
-lways
-> > > > a buffer allocated in a length that is a multiple of 4, and the=
- 1~3
-> > > > bytes exceeding the len very likely has no data that matters.  =
-But
-> > > > yes, it deserves a safer implementation.
-> > > Did you test what happens if bufaddr isn't aligned?  Does it work=
- at all
-> > > then?
-> > >=20
-> > I see many calls passing a len that is not a multiple of 4, but it
-> > works good.
-> >=20
-> That does not prove anything, actually.
->=20
-> Anyway "bufaddr isn't aligned" !=3D "len is not a multiple of 4".
-> Is there any guarantee that the function cannot be called with a
-> non-aligned buffer address?
->=20
-Oops, I misunderstood the comment.  With bounce buffer alignment
-handling removed, the driver stops working.  But at least, mx28
-fec driver can work with FEC_ALIGNMENT 0x3 and not necessarily with
-0xf.=20
+Well... I don't really like the idea of running one driver and
+subsystem implementation on completely distinct types of silicon.
+We will end up with the same mess that broadcom ended up with in
+their "SB" code (broadcom's SSB backplane implementation).
+=46or example, in their code the driver calls pci_enable_device() and
+related PCI functions, even if there is no PCI device at all. The calls
+are magically re-routed to the actual SB backplane.
+You'd have to do the same mess with SSB. Calling ssb_device_enable()
+will mean "enable the SSB device", if the backplane is SSB, and will
+mean "enable the HND/AI" device, if the backplane is HND/AI.
 
-I hope this is what you intended to know.
+So I'm still in favor of doing a separate HND/AI bus implementation,
+even if
+that means duplicating a few lines of code. I think that compared to th=
+e
+workarounds and conditionals needed for getting SSB to run on HND/AI
+hardware, it will be a net win.
+
+> > So why do we need to replace or merge SSB in the first place? Can't
+> > it co-exist with HND/AI?
+>=20
+> It probably can, but then the SSB code must be at least made AI aware
+> so it doesn't try to attach itself if it finds one.
+
+SSB doesn't search for SSB busses in the system, because there's no
+way to do so. The architecture (or the PCI/PCMCIA/SDIO device) register=
+s
+the bus,
+if it detected an SSB device. So for the embedded case, it's hardcoded
+in the arch code. For the PCI case it simply depends on the PCI IDs.
+I don't see a problem here. Your arch code will already have to know
+what machine it is running on. So it will have to decide whether to
+register a SSB or HND/AI bus.
+
+It's like a platform_device. However, it doesn't use the platform_devic=
+e
+mechanism. There's no technical reason. It would be trivial to port the
+SSB bus registration to use platform_device, however.
+
+> Also I don't know
+> if it is a good idea to let arch-specific code depend on code in
+> staging.
+
+Sure. The code needs to be cleaned up and moved to the mainline kernel
+_anyway_. You don't get around this.
 
 --=20
-Regards,
-Shawn
+Greetings Michael.
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
