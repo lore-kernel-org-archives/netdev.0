@@ -1,94 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Mon, 17 Jan 2011 21:39:32 +0100
-Message-ID: <1295296772.3362.7.camel@edumazet-laptop>
-References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295285354.3335.10.camel@edumazet-laptop>
-	 <1295290718.6264.19.camel@bwh-desktop>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: NETLINK: Failed to browse: Invalid argument from avahi-daemon in
+ F14 since 2.6.37-git8
+Date: Mon, 17 Jan 2011 22:23:18 +0100
+Message-ID: <AANLkTikF4HtXzvyiST72t4XE14sjCX-27CLLWvsF8D5o@mail.gmail.com>
+References: <AANLkTinHOFwPCwJNCy9cFMCf+_VNb-7YFk-3VJFXoaoZ@mail.gmail.com>
+	<20110117083208.GA7569@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Po-Yu Chuang <ratbert.chuang@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ratbert@faraday-tech.com,
-	joe@perches.com, dilinger@queued.net
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:43878 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751725Ab1AQUq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jan 2011 15:46:59 -0500
-In-Reply-To: <1295290718.6264.19.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110117083208.GA7569@ff.dom.local>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le lundi 17 janvier 2011 =C3=A0 18:58 +0000, Ben Hutchings a =C3=A9crit=
- :
-> On Mon, 2011-01-17 at 18:29 +0100, Eric Dumazet wrote:
-> > Le lundi 17 janvier 2011 =C3=A0 17:21 +0800, Po-Yu Chuang a =C3=A9c=
-rit :
-> >=20
-> >=20
-> > > +static int ftmac100_rx_packet(struct ftmac100 *priv, int *proces=
-sed)
-> > > +{
-> > > +	struct net_device *netdev =3D priv->netdev;
-> > > +	struct ftmac100_rxdes *rxdes;
-> > > +	struct sk_buff *skb;
-> > > +	int length;
-> > > +	int copied =3D 0;
-> > > +	int done =3D 0;
-> > > +
-> > > +	rxdes =3D ftmac100_rx_locate_first_segment(priv);
-> > > +	if (!rxdes)
-> > > +		return 0;
-> > > +
-> > > +	length =3D ftmac100_rxdes_frame_length(rxdes);
-> > > +
-> > > +	netdev->stats.rx_packets++;
-> > > +	netdev->stats.rx_bytes +=3D length;
-> > > +
-> > > +	if (unlikely(ftmac100_rx_packet_error(priv, rxdes))) {
-> > > +		ftmac100_rx_drop_packet(priv);
-> > > +		return 1;
-> > > +	}
-> > > +
-> > > +	/* start processing */
-> > > +	skb =3D netdev_alloc_skb_ip_align(netdev, length);
-> > > +	if (unlikely(!skb)) {
-> > > +		if (net_ratelimit())
-> > > +			netdev_err(netdev, "rx skb alloc failed\n");
-> > > +
-> > > +		ftmac100_rx_drop_packet(priv);
-> > > +		return 1;
-> > > +	}
-> > > +
-> >=20
-> > Please dont increase rx_packets/rx_bytes before the
-> > netdev_alloc_skb_ip_align().
-> >=20
-> > In case of mem allocation failure, it would be better not pretendin=
-g we
-> > handled a packet.
-> >
-> > drivers/net/r8169.c for example does the rx_packets/rx_bytes only i=
-f
-> > packet is delivered to upper stack.
->=20
-> That's news to me.  I specifically advised Po-Yu Chuang to increment
-> these earlier because my understanding is that all packets/bytes shou=
-ld
-> be counted.  And drivers which use hardware MAC stats will generally =
-do
-> that, so I really don't think it makes sense to make other drivers
-> different deliberately.
->=20
+On Mon, Jan 17, 2011 at 9:32 AM, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+> On 2011-01-15 19:34, Alessandro Suardi wrote:
+>> /var/log/messages says:
+>>
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: Found user 'avahi' (UID 70)
+>> and group 'avahi' (GID 70).
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped root p=
+rivileges.
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: avahi-daemon 0.6.27 startin=
+g up.
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully called chroot(=
+).
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: Successfully dropped remain=
+ing capabilities.
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file /servi=
+ces/ssh.service.
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: Loading service file /servi=
+ces/udisks.service.
+>> Jan 13 12:42:02 duff avahi-daemon[2771]: NETLINK: Failed to browse: =
+Invalid argument
+>> Jan 13 12:42:23 duff acpid: starting up with netlink and the input l=
+ayer
+>>
+>>
+>> Happens both at boot and after boot if restarting avahi-daemon servi=
+ce,
+>> =A0and there is a 10-15" wait before the service start script prints=
+ a [FAILED]
+>> =A0red tag; avahi-daemon process does start up anyways.
+>>
+>> -git7 is the latest "good" kernel
+>> -git8, -git9, -git11, -git13 have been reproducing the issue
+>>
+>>
+>> thanks, ciao,
+>
+> Seems to be resolved in this thread:
+>
+> http://www.spinics.net/lists/netdev/msg152762.html
 
-I see, but when one frame is dropped because of RX ring buffer
-under/overflow we dont account for the lost packet/bytes.
+Thanks Jarek - filed Fedora bug 670316 for this one.
 
-Thats probably not very important, but would be good if all drivers
-behave the same.
+https://bugzilla.redhat.com/show_bug.cgi?id=3D670316
 
+--alessandro
 
+=A0"There's always a siren singing you to shipwreck"
 
+=A0=A0 (Radiohead, "There There")
