@@ -1,130 +1,92 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] CHOKe flow scheduler (0.9)
-Date: Tue, 18 Jan 2011 20:34:17 +0100
-Message-ID: <1295379257.9097.9.camel@edumazet-laptop>
-References: <20110113092706.154748c2@s6510>
-	 <1294951069.3403.11.camel@edumazet-laptop> <20110113153436.70d3c0a3@s6510>
-	 <4D305598.1010207@trash.net> <4D3055C2.3060807@trash.net>
-	 <1295015043.3937.20.camel@edumazet-laptop>
-	 <20110114154521.54cc8ef5@nehalam>
-	 <1295077542.3977.20.camel@edumazet-laptop>
-	 <20110117092532.7d5f5a5b@nehalam>
-	 <1295286851.3335.36.camel@edumazet-laptop>
-	 <20110118110634.7386c757@nehalam>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Tue, 18 Jan 2011 11:41:22 -0800
+Message-ID: <4D35ECE2.4040901@hp.com>
+References: <AANLkTinJK-nbkP5_ee2cuS8RA7jTB4-bcWmAf4bjSouP@mail.gmail.com>	<20110107012356.GA1257@verge.net.au>	<20110110093155.GB13420@verge.net.au>	<20110113064718.GA17905@verge.net.au>	<AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>	<20110113234135.GC8426@verge.net.au>	<20110114045818.GA29738@redhat.com>	<20110114063528.GB10957@verge.net.au>	<20110114065415.GA30300@redhat.com>	<20110116223728.GA6279@verge.net.au> <20110117102655.GH23479@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>, Jesse Gross <jesse@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64081 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060Ab1ARTft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 14:35:49 -0500
-Received: by wyb28 with SMTP id 28so6490640wyb.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 11:35:46 -0800 (PST)
-In-Reply-To: <20110118110634.7386c757@nehalam>
+Received: from g4t0016.houston.hp.com ([15.201.24.19]:38569 "EHLO
+	g4t0016.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912Ab1ARTl1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 14:41:27 -0500
+In-Reply-To: <20110117102655.GH23479@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 18 janvier 2011 =C3=A0 11:06 -0800, Stephen Hemminger a =C3=A9=
-crit :
+> So it won't be all that simple to implement well, and before we try,
+> I'd like to know whether there are applications that are helped
+> by it. For example, we could try to measure latency at various
+> pps and see whether the backpressure helps. netperf has -b, -w
+> flags which might help these measurements.
 
-> +static bool choke_match_flow(struct sk_buff *skb1, struct sk_buff *s=
-kb2)
-> +{
-> +	int off1, off2, poff;
-> +	u8 ip_proto;
-> +	u32 ihl;
-> +
-> +	if (skb1->protocol !=3D skb2->protocol)
-> +		return false;
-> +
-> +	off1 =3D skb_network_offset(skb1);
-> +	off2 =3D skb_network_offset(skb2);
+Those options are enabled when one adds --enable-burst to the pre-compilation 
+./configure  of netperf (one doesn't have to recompile netserver).  However, if 
+one is also looking at latency statistics via the -j option in the top-of-trunk, 
+or simply at the histogram with --enable-histogram on the ./configure and a 
+verbosity level of 2 (global -v 2) then one wants the very top of trunk netperf 
+from:
 
-> +
-> +	switch (skb1->protocol) {
-> +	case __constant_htons(ETH_P_IP): {
-> +		struct iphdr *ip1, *ip2;
-> +
-> +		if (!pskb_may_pull(skb1, sizeof(struct iphdr) + off1))
-> +			return false;
-> +
-	pskb_network_may_pull() might be cleaner
+http://www.netperf.org/svn/netperf2/trunk
 
+to get the recently added support for accurate (netperf level) RTT measuremnts 
+on burst-mode request/response tests.
 
-> +		ip1 =3D (struct iphdr *) (skb1->data + off1);
-	ip1 =3D ip_hdr(skb);
+happy benchmarking,
 
-> +		if (ip1->frag_off & htons(IP_MF | IP_OFFSET))
-> +			return false;	/* don't compare fragments */
-> +
+rick jones
 
-Hmm, we should compare fragments if possible.
+PS - the enhanced latency statistics from -j are only available in the "omni" 
+version of the TCP_RR test.  To get that add a --enable-omni to the ./configure 
+- and in this case both netperf and netserver have to be recompiled.  For very 
+basic output one can peruse the output of:
 
-saddr/daddr are available, not the ports.
+src/netperf -t omni -- -O /?
 
-> +		if (!pskb_may_pull(skb2, sizeof(struct iphdr) + off2))
-> +			return false;
-> +
-> +		ip2 =3D (struct iphdr *) (skb2->data + off2);
-> +		if (ip2->frag_off & htons(IP_MF | IP_OFFSET))
-> +			return false;
-> +
-> +		if (ip1->protocol !=3D ip2->protocol ||
-> +		    ip1->saddr !=3D ip2->saddr || ip1->daddr !=3D ip2->daddr)
-> +			return false;
-> +
+and then pick those outputs of interest and put them into an output selection 
+file which one then passes to either (test-specific) -o, -O or -k to get CVS, 
+"Human" or keyval output respectively.  E.G.
 
+raj@tardy:~/netperf2_trunk$ cat foo
+THROUGHPUT,THROUGHPUT_UNITS
+RT_LATENCY,MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY
+P50_LATENCY,P90_LATENCY,P99_LATENCY,STDDEV_LATENCY
 
-	What happens if ip1->ihl !=3D ip2->ihl  here ?
+when foo is passed to -o one will get those all on one line of CSV.  To -O one 
+gets three lines of more netperf-classic-like "human" readable output, and when 
+one passes that to -k one gets a string of keyval output a la:
 
-Here I would add the fragment test :
+raj@tardy:~/netperf2_trunk$ src/netperf -t omni -j -v 2 -- -r 1 -d rr -k foo
+OMNI TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to localhost (127.0.0.1) port 0 
+AF_INET : histogram
+THROUGHPUT=29454.12
+THROUGHPUT_UNITS=Trans/s
+RT_LATENCY=33.951
+MIN_LATENCY=19
+MEAN_LATENCY=32.00
+MAX_LATENCY=126
+P50_LATENCY=32
+P90_LATENCY=38
+P99_LATENCY=41
+STDDEV_LATENCY=5.46
 
-	if ((ip1->frag_off | ip2->frag_off)) & htons(IP_MF | IP_OFFSET))
-		return true;
-
-> +		ip_proto =3D ip1->protocol;
-> +		ihl =3D ip1->ihl;
-> +		break;
-> +	}
-> +
-> +	case __constant_htons(ETH_P_IPV6): {
-> +		struct ipv6hdr *ip1, *ip2;
-> +
-> +		if (!pskb_may_pull(skb1, sizeof(struct ipv6hdr *) + off1))
-> +			return false;
-
-ouch... sizeof(sizeof(struct ipv6hdr *) is not what you want but
-sizeof(struct ipv6hdr) is.
-
-So just use :
-
-	pskb_network_may_pull(skb1, sizeof(*ip1))
-> +
-> +		if (!pskb_may_pull(skb2, sizeof(struct ipv6hdr *) + off2))
-> +			return false;
-> +
-> +		ip1 =3D (struct ipv6hdr *) (skb1->data + off1);
-	ip1 =3D ipv6_hdr(skb1);
-> +		ip2 =3D (struct ipv6hdr *) (skb2->data + off2);
-> +
-> +		if (ip1->nexthdr !=3D ip2->nexthdr ||
-> +		    ipv6_addr_cmp(&ip1->saddr, &ip2->saddr) !=3D 0 ||
-> +		    ipv6_addr_cmp(&ip1->daddr, &ip2->daddr))
-> +			return false;
-> +
-> +		ihl =3D (40 >> 2);
-> +		ip_proto =3D ip1->nexthdr;
-> +		break;
-> +	}
-> +
-> +	default:
-> +		return false;
-> +	}
-> +
-
-
+Histogram of request/response times
+UNIT_USEC     :    0:    0:    0:    0:    0:    0:    0:    0:    0:    0
+TEN_USEC      :    0: 3553: 45244: 237790: 7859:   86:   10:    3:    0:    0
+HUNDRED_USEC  :    0:    2:    0:    0:    0:    0:    0:    0:    0:    0
+UNIT_MSEC     :    0:    0:    0:    0:    0:    0:    0:    0:    0:    0
+TEN_MSEC      :    0:    0:    0:    0:    0:    0:    0:    0:    0:    0
+HUNDRED_MSEC  :    0:    0:    0:    0:    0:    0:    0:    0:    0:    0
+UNIT_SEC      :    0:    0:    0:    0:    0:    0:    0:    0:    0:    0
+TEN_SEC       :    0:    0:    0:    0:    0:    0:    0:    0:    0:    0
+ >100_SECS: 0
+HIST_TOTAL:      294547
 
