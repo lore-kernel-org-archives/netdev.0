@@ -1,149 +1,238 @@
-From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
- single TCP session balancing
-Date: Wed, 19 Jan 2011 01:22:12 +0300
-Message-ID: <4D361294.2060304@yandex-team.ru>
-References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
-	Christophe Paasch <christoph.paasch@uclouvain.be>
-To: Jay Vosburgh <fubar@us.ibm.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: [PATCH v2] ethtool : Add option -L | --set-common to set common flags.
+Date: Tue, 18 Jan 2011 14:37:17 -0800
+Message-ID: <1295390237-27381-1-git-send-email-maheshb@google.com>
+References: <1294963892-11997-1-git-send-email-maheshb@google.com>
+Cc: David Miller <davem@davemloft.net>,
+	Tom Herbert <therbert@google.com>,
+	Laurent Chavey <chavey@google.com>,
+	netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from elephant.yandex.ru ([77.88.34.7]:26454 "EHLO elephant.yandex.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751136Ab1ARWWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jan 2011 17:22:16 -0500
-In-Reply-To: <28837.1295382268@death>
+Received: from smtp-out.google.com ([216.239.44.51]:1669 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440Ab1ARWh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 17:37:26 -0500
+In-Reply-To: <1294963892-11997-1-git-send-email-maheshb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This patch adds -L | --set-common option to add / remove common flags which
+includes loopback flag. The -l | --show-common displays the current values
+for these common flags.
 
+Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+---
+ ethtool-copy.h |    1 +
+ ethtool.8.in   |   16 ++++++++++
+ ethtool.c      |   84 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 101 insertions(+), 0 deletions(-)
 
-Jay Vosburgh wrote:
-> 
-> 	One item I'd like to see some more data on is the level of
-> reordering at the receiver in Oleg's system.
-> 
-> 	One of the reasons round robin isn't as useful as it once was is
-> due to the rise of NAPI and interrupt coalescing, both of which will
-> tend to increase the reordering of packets at the receiver when the
-> packets are evenly striped.  In the old days, it was one interrupt, one
-> packet.  Now, it's one interrupt or NAPI poll, many packets.  With the
-> packets striped across interfaces, this will tend to increase
-> reordering.  E.g.,
-> 
-> 	slave 1		slave 2		slave 3
-> 	Packet 1	P2		P3
-> 	P4		P5		P6
-> 	P7		P8		P9
-> 
-> 	and so on.  A poll of slave 1 will get packets 1, 4 and 7 (and
-> probably several more), then a poll of slave 2 will get 2, 5 and 8, etc.
-> 
-> 	I haven't done much testing with this lately, but I suspect this
-> behavior hasn't really changed.  Raising the tcp_reordering sysctl value
-> can mitigate this somewhat (by making TCP more tolerant of this), but
-> that doesn't help non-TCP protocols.
-> 
-> 	Barring evidence to the contrary, I presume that Oleg's system
-> delivers out of order at the receiver.  That's not automatically a
-> reason to reject it, but this entire proposal is sufficiently complex to
-> configure that very explicit documentation will be necessary.
-
-Jay, here is some network stats from one of my iSCSI targets with avg 
-load of 1.5-2.5Gbit/sec(4 slaves in etherchannel).Not perfect and not 
-very "clean"(there are more interfaces on host, than these 4)
-[root@<somehost> ~]# netstat -st 
-
-IcmpMsg: 
-
-     InType0: 6 
-
-     InType3: 1872 
-
-     InType8: 60557 
-
-     InType11: 23 
-
-     OutType0: 60528 
-
-     OutType3: 1755 
-
-     OutType8: 6 
-
-Tcp: 
-
-     1298909 active connections openings 
-
-     61090 passive connection openings 
-
-     2374 failed connection attempts 
-
-     62781 connection resets received 
-
-     3 connections established 
-
-     1268233942 segments received 
-
-     1198020318 segments send out 
-
-     18939618 segments retransmited 
-
-     0 bad segments received. 
-
-     23643 resets sent 
-
-TcpExt:
-     294935 TCP sockets finished time wait in fast timer
-     472 time wait sockets recycled by time stamp
-     819481 delayed acks sent
-     295332 delayed acks further delayed because of locked socket
-     Quick ack mode was activated 30616377 times
-     3516920 packets directly queued to recvmsg prequeue.
-     4353 packets directly received from backlog
-     44873453 packets directly received from prequeue
-     1442812750 packets header predicted
-     1077442 packets header predicted and directly queued to user
-     2123453975 acknowledgments not containing data received
-     2375328274 predicted acknowledgments
-     8462439 times recovered from packet loss due to fast retransmit
-     Detected reordering 19203 times using reno fast retransmit
-     Detected reordering 100 times using time stamp
-     3429 congestion windows fully recovered
-     11760 congestion windows partially recovered using Hoe heuristic
-     398 congestion windows recovered after partial ack
-     0 TCP data loss events
-     3671 timeouts after reno fast retransmit
-     6 timeouts in loss state
-     18919118 fast retransmits
-     11637 retransmits in slow start
-     1756 other TCP timeouts
-     TCPRenoRecoveryFail: 3187
-     62779 connections reset due to early user close
-IpExt:
-     InBcastPkts: 512616
-[root@<somehost> ~]# uptime
-  00:35:49 up 42 days,  8:27,  1 user,  load average: 3.70, 3.80, 4.07
-[root@<somehost> ~]# sysctl -a|grep tcp_reo
-net.ipv4.tcp_reordering = 3
-
-I will get back with "clean" results after I'll setup test system tomorrow.
-TcpExt stats from other hosts are similar.
-
-> 
-> 	-J
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
-
+diff --git a/ethtool-copy.h b/ethtool-copy.h
+index 75c3ae7..5fd18c7 100644
+--- a/ethtool-copy.h
++++ b/ethtool-copy.h
+@@ -309,6 +309,7 @@ struct ethtool_perm_addr {
+  * flag differs from the read-only value.
+  */
+ enum ethtool_flags {
++	ETH_FLAG_LOOPBACK	= (1 << 2),	/* Loopback enable / disable */
+ 	ETH_FLAG_TXVLAN		= (1 << 7),	/* TX VLAN offload enabled */
+ 	ETH_FLAG_RXVLAN		= (1 << 8),	/* RX VLAN offload enabled */
+ 	ETH_FLAG_LRO		= (1 << 15),	/* LRO is enabled */
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 0ee91a0..b9f8892 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -211,6 +211,13 @@ ethtool \- query or control network driver and hardware settings
+ .B2 txvlan on off
+ .B2 rxhash on off
+ 
++.B ethtool \-l|\-\-show\-common
++.I ethX
++
++.B ethtool \-L|\-\-set\-common
++.I ethX
++.B2 loopback on off
++
+ .B ethtool \-p|\-\-identify
+ .I ethX
+ .RI [ N ]
+@@ -444,6 +451,15 @@ Specifies whether TX VLAN acceleration should be enabled
+ .A2 rxhash on off
+ Specifies whether receive hashing offload should be enabled
+ .TP
++.B \-l \-\-show\-common
++Queries the specified network device for common flag settings.
++.TP
++.B \-L \-\-set\-common
++Changes the common parameters of the specified network device.
++.TP
++.A2 loopback on off
++Specifies whether loopback should be enabled.
++.TP
+ .B \-p \-\-identify
+ Initiates adapter-specific action intended to enable an operator to
+ easily identify the adapter by sight.  Typically this involves
+diff --git a/ethtool.c b/ethtool.c
+index 1afdfe4..0e234ea 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -97,6 +97,8 @@ static int do_gcoalesce(int fd, struct ifreq *ifr);
+ static int do_scoalesce(int fd, struct ifreq *ifr);
+ static int do_goffload(int fd, struct ifreq *ifr);
+ static int do_soffload(int fd, struct ifreq *ifr);
++static int do_gcommon(int fd, struct ifreq *ifr);
++static int do_scommon(int fd, struct ifreq *ifr);
+ static int do_gstats(int fd, struct ifreq *ifr);
+ static int rxflow_str_to_type(const char *str);
+ static int parse_rxfhashopts(char *optstr, u32 *data);
+@@ -142,6 +144,8 @@ static enum {
+ 	MODE_GNTUPLE,
+ 	MODE_FLASHDEV,
+ 	MODE_PERMADDR,
++	MODE_GCOMMON,
++	MODE_SCOMMON,
+ } mode = MODE_GSET;
+ 
+ static struct option {
+@@ -211,6 +215,10 @@ static struct option {
+ 		"		[ ntuple on|off ]\n"
+ 		"		[ rxhash on|off ]\n"
+     },
++    { "-l", "--show-common", MODE_GCOMMON, "Get common flags information" },
++    { "-L", "--set-common", MODE_SCOMMON, "Set common flags",
++		"               [ loopback on|off ]\n"
++    },
+     { "-i", "--driver", MODE_GDRV, "Show driver information" },
+     { "-d", "--register-dump", MODE_GREGS, "Do a register dump",
+ 		"		[ raw on|off ]\n"
+@@ -309,6 +317,10 @@ static u32 off_flags_wanted = 0;
+ static u32 off_flags_mask = 0;
+ static int off_gro_wanted = -1;
+ 
++static int gcommon_changed = 0;
++static u32 common_flags_wanted = 0;
++static u32 common_flags_mask = 0;
++
+ static struct ethtool_pauseparam epause;
+ static int gpause_changed = 0;
+ static int pause_autoneg_wanted = -1;
+@@ -482,6 +494,11 @@ static struct cmdline_info cmdline_offload[] = {
+ 	  ETH_FLAG_RXHASH, &off_flags_mask },
+ };
+ 
++static struct cmdline_info cmdline_commonflags[] = {
++	{ "loopback", CMDL_FLAG, &common_flags_wanted, NULL,
++	  ETH_FLAG_LOOPBACK, &common_flags_mask },
++};
++
+ static struct cmdline_info cmdline_pause[] = {
+ 	{ "autoneg", CMDL_BOOL, &pause_autoneg_wanted, &epause.autoneg },
+ 	{ "rx", CMDL_BOOL, &pause_rx_wanted, &epause.rx_pause },
+@@ -829,6 +846,8 @@ static void parse_cmdline(int argc, char **argp)
+ 			    (mode == MODE_SRING) ||
+ 			    (mode == MODE_GOFFLOAD) ||
+ 			    (mode == MODE_SOFFLOAD) ||
++			    (mode == MODE_GCOMMON) ||
++			    (mode == MODE_SCOMMON) ||
+ 			    (mode == MODE_GSTATS) ||
+ 			    (mode == MODE_GNFC) ||
+ 			    (mode == MODE_SNFC) ||
+@@ -919,6 +938,14 @@ static void parse_cmdline(int argc, char **argp)
+ 				i = argc;
+ 				break;
+ 			}
++			if (mode == MODE_SCOMMON) {
++				parse_generic_cmdline(argc, argp, i,
++					&gcommon_changed,
++			      		cmdline_commonflags,
++			      		ARRAY_SIZE(cmdline_offload));
++				i = argc;
++				break;
++			}
+ 			if (mode == MODE_SNTUPLE) {
+ 				if (!strcmp(argp[i], "flow-type")) {
+ 					i += 1;
+@@ -1905,6 +1932,13 @@ static int dump_offload(int rx, int tx, int sg, int tso, int ufo, int gso,
+ 	return 0;
+ }
+ 
++static int dump_common_flags(int loopback)
++{
++	fprintf(stdout, "loopback: %s\n", loopback ? "on" : "off");
++
++	return 0;
++}
++
+ static int dump_rxfhash(int fhash, u64 val)
+ {
+ 	switch (fhash) {
+@@ -1998,6 +2032,10 @@ static int doit(void)
+ 		return do_goffload(fd, &ifr);
+ 	} else if (mode == MODE_SOFFLOAD) {
+ 		return do_soffload(fd, &ifr);
++	} else if (mode == MODE_GCOMMON) {
++		return do_gcommon(fd, &ifr);
++	} else if (mode == MODE_SCOMMON) {
++		return do_scommon(fd, &ifr);
+ 	} else if (mode == MODE_GSTATS) {
+ 		return do_gstats(fd, &ifr);
+ 	} else if (mode == MODE_GNFC) {
+@@ -2219,6 +2257,52 @@ static int do_scoalesce(int fd, struct ifreq *ifr)
+ 	return 0;
+ }
+ 
++static int do_gcommon(int fd, struct ifreq *ifr)
++{
++	struct ethtool_value eval;
++	int loopback = 0;
++
++	fprintf(stdout, "Common flags for %s:\n", devname);
++
++	eval.cmd = ETHTOOL_GFLAGS;
++	ifr->ifr_data = (caddr_t)&eval;
++	if (ioctl(fd, SIOCETHTOOL, ifr)) {
++		perror("Cannot get device flags");
++	} else {
++		loopback = (eval.data & ETH_FLAG_LOOPBACK) != 0;
++	}
++
++	return dump_common_flags(loopback);
++}
++
++static int do_scommon(int fd, struct ifreq *ifr)
++{
++	struct ethtool_value eval;
++
++	if (common_flags_mask) {
++		eval.cmd = ETHTOOL_GFLAGS;
++		eval.data = 0;
++		ifr->ifr_data = (caddr_t)&eval;
++		if (ioctl(fd, SIOCETHTOOL, ifr)) {
++			perror("Cannot get device common flags");
++			return 1;
++		}
++
++		eval.cmd = ETHTOOL_SFLAGS;
++		eval.data = ((eval.data & ~common_flags_mask) |
++			     common_flags_wanted);
++
++		if (ioctl(fd, SIOCETHTOOL, ifr)) {
++			perror("Cannot set device common flags");
++			return 1;
++		}
++	} else {
++		fprintf(stdout, "No common settings changed\n");
++	}
++
++	return 0;
++}
++
+ static int do_goffload(int fd, struct ifreq *ifr)
+ {
+ 	struct ethtool_value eval;
 -- 
-Best regards,
-Oleg Ukhno
+1.7.3.1
+
