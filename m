@@ -1,71 +1,129 @@
-From: mi wake <wakemi.wake@gmail.com>
-Subject: Re: rps testing questions
-Date: Tue, 18 Jan 2011 16:34:08 +0800
-Message-ID: <AANLkTi=FBM0v0Cs+Mx4Qxddzm8XV3JzjiR64kRVLgs7H@mail.gmail.com>
-References: <AANLkTin1pC=auiFBt83YomdhVgUO8uSdvq=tPaDu0=3U@mail.gmail.com>
-	<1295257994.3335.6.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Alan Ott <alan@signal11.us>
+Subject: [PATCH v5 1/4] bt hidp: Move hid_add_device() call to after hidp_session() has started.
+Date: Tue, 18 Jan 2011 03:04:37 -0500
+Message-ID: <1295337880-12452-2-git-send-email-alan__25500.4852232107$1295339833$gmane$org@signal11.us>
+References: <1295337880-12452-1-git-send-email-alan@signal11.us>
+Cc: Alan Ott <alan@signal11.us>
+To: Jiri Kosina <jkosina@suse.cz>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alan Ott <alan@signal11.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f46.google.com ([74.125.83.46]:38678 "EHLO
-	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751105Ab1ARIeJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 03:34:09 -0500
-Received: by gwj20 with SMTP id 20so2202748gwj.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 00:34:09 -0800 (PST)
-In-Reply-To: <1295257994.3335.6.camel@edumazet-laptop>
+Received: from core.signal11.us ([64.251.29.136]:43404 "EHLO core.signal11.us"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751673Ab1ARIgw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jan 2011 03:36:52 -0500
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by core.signal11.us (Postfix) with SMTP id EA0C01CCABAB
+	for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 03:05:09 -0500 (EST)
+In-Reply-To: <1295337880-12452-1-git-send-email-alan@signal11.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2011/1/17 Eric Dumazet <eric.dumazet@gmail.com>:
-> Le lundi 17 janvier 2011 =A8=A4 17:43 +0800, mi wake a =A8=A6crit :
->> I do a rps(Receive Packet Steering) testing on centos 5.5 with  kern=
-el 2.6.37.
->> cpu: 8 core Intel.
->> ethernet adapter: bnx2x
->>
->> Problem statement:
->> enable rps with:
->> echo "ff" > /sys/class/net/eth2/queues/rx-0/rps_cpus.
->>
->
-> bnx2x with one queue only ?
->
->> running 1 instances of netperf TCP_RR: netperf  -t TCP_RR -H 192.168=
-=2E0.1 -c -C
->> without rps: 9963.48(Trans Rate per sec)
->> with rps:  9387.59(Trans Rate per sec)
->>
->> I do ab and tbench testing also find there is less tps with enable
->> rps.but,there is more cpu using when with enable rps.when with enabl=
-e
->> rps =A3=ACsoftirqs is blanced  on cpus.
->
-> Really ? that seems unlikely with your one flow test, unless you _als=
-o_
-> have hardware IRQS hitting all your cpus. (That would be very bad)
->
->>
->> is there something wrong with my test=A3=BF
->> --
->
-> If you test with one flow, RPS brings nothing at all. Better handle t=
-he
-> packet directly from the cpu handling the hardware IRQ (and NAPI)
->
-> You better make sure hardware IRQ are on one cpu, instead of many cpu=
-s.
->
->
- I have checked that bnx2x with one queue only and hardware IRQ are on =
-one cpu.
- I do testing again with more flows.when I use ip range from 192.x.x.1
-to 192.x.x.200 to send syn packets.
-Server can deal with :
- without rps + rfs : 18M/s
- with     rps +rfs : 21M/s.
-Maybe  in previous tests,there are less flow. I will continue testing.
-Thank you!
+Move the call to hid_add_device() (which calls a device's probe() function)
+to after the kernel_thread() call which starts the hidp_session() thread.
+This ensures the Bluetooth receive socket is fully running by the time a
+device's probe() function is called. This way, a device can communicate
+(send and receive) with the Bluetooth device from its probe() function.
+
+Signed-off-by: Alan Ott <alan@signal11.us>
+---
+ net/bluetooth/hidp/core.c |   28 ++++++++++++++++++++--------
+ net/bluetooth/hidp/hidp.h |    3 +++
+ 2 files changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 29544c2..67cc4bc 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -563,6 +563,8 @@ static int hidp_session(void *arg)
+ 	init_waitqueue_entry(&intr_wait, current);
+ 	add_wait_queue(sk_sleep(ctrl_sk), &ctrl_wait);
+ 	add_wait_queue(sk_sleep(intr_sk), &intr_wait);
++	session->waiting_for_startup = 0;
++	wake_up_interruptible(&session->startup_queue);
+ 	while (!atomic_read(&session->terminate)) {
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -754,6 +756,8 @@ static struct hid_ll_driver hidp_hid_driver = {
+ 	.hidinput_input_event = hidp_hidinput_event,
+ };
+ 
++/* This function sets up the hid device. It does not add it
++   to the HID system. That is done in hidp_add_connection(). */
+ static int hidp_setup_hid(struct hidp_session *session,
+ 				struct hidp_connadd_req *req)
+ {
+@@ -795,16 +799,8 @@ static int hidp_setup_hid(struct hidp_session *session,
+ 
+ 	hid->hid_output_raw_report = hidp_output_raw_report;
+ 
+-	err = hid_add_device(hid);
+-	if (err < 0)
+-		goto failed;
+-
+ 	return 0;
+ 
+-failed:
+-	hid_destroy_device(hid);
+-	session->hid = NULL;
+-
+ fault:
+ 	kfree(session->rd_data);
+ 	session->rd_data = NULL;
+@@ -853,6 +849,8 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock,
+ 	skb_queue_head_init(&session->ctrl_transmit);
+ 	skb_queue_head_init(&session->intr_transmit);
+ 
++	init_waitqueue_head(&session->startup_queue);
++	session->waiting_for_startup = 1;
+ 	session->flags   = req->flags & (1 << HIDP_BLUETOOTH_VENDOR_ID);
+ 	session->idle_to = req->idle_to;
+ 
+@@ -875,6 +873,14 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock,
+ 	err = kernel_thread(hidp_session, session, CLONE_KERNEL);
+ 	if (err < 0)
+ 		goto unlink;
++	while (session->waiting_for_startup) {
++		wait_event_interruptible(session->startup_queue,
++			!session->waiting_for_startup);
++	}
++
++	err = hid_add_device(session->hid);
++	if (err < 0)
++		goto err_add_device;
+ 
+ 	if (session->input) {
+ 		hidp_send_ctrl_message(session,
+@@ -888,6 +894,12 @@ int hidp_add_connection(struct hidp_connadd_req *req, struct socket *ctrl_sock,
+ 	up_write(&hidp_session_sem);
+ 	return 0;
+ 
++err_add_device:
++	hid_destroy_device(session->hid);
++	session->hid = NULL;
++	atomic_inc(&session->terminate);
++	hidp_schedule(session);
++
+ unlink:
+ 	hidp_del_timer(session);
+ 
+diff --git a/net/bluetooth/hidp/hidp.h b/net/bluetooth/hidp/hidp.h
+index 8d934a1..2cc35dc 100644
+--- a/net/bluetooth/hidp/hidp.h
++++ b/net/bluetooth/hidp/hidp.h
+@@ -157,6 +157,9 @@ struct hidp_session {
+ 	/* Report descriptor */
+ 	__u8 *rd_data;
+ 	uint rd_size;
++
++	wait_queue_head_t startup_queue;
++	int waiting_for_startup;
+ };
+ 
+ static inline void hidp_schedule(struct hidp_session *session)
+-- 
+1.7.0.4
+
+
