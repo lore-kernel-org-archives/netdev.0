@@ -1,82 +1,120 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: rps testing questions
-Date: Tue, 18 Jan 2011 11:10:36 -0800
-Message-ID: <4D35E5AC.6000804@hp.com>
-References: <AANLkTin1pC=auiFBt83YomdhVgUO8uSdvq=tPaDu0=3U@mail.gmail.com>	<1295269713.3700.5.camel@localhost>  <4D35DAB0.9030201@hp.com> <1295375676.3537.83.camel@bwh-desktop>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: inbound connection problems when "netlink: test for all flags of
+ the NLM_F_DUMP composite" commit applied
+Date: Tue, 18 Jan 2011 20:26:42 +0100
+Message-ID: <AANLkTi=00FRr08NjeMLN75U_N-cb9F78=E26LmMY7-uV@mail.gmail.com>
+References: <20110118172340.GB1843@del.dom.local>
+	<AANLkTikUPRfYupw1-Py5mHeN+pFv-zMKhmK3DKixxsH4@mail.gmail.com>
+	<alpine.LNX.2.01.1101181921320.17010@obet.zrqbmnf.qr>
+	<20110118182852.GC4202@del.dom.local>
+	<20110118184730.GD4202@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mi wake <wakemi.wake@gmail.com>, netdev@vger.kernel.org
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Jan Engelhardt <jengelh@medozas.de>, jamal <hadi@cyberus.ca>,
+	David Miller <davem@davemloft.net>, pablo@netfilter.org,
+	arthur.marsh@internode.on.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:30099 "EHLO
-	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345Ab1ARTKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 14:10:39 -0500
-In-Reply-To: <1295375676.3537.83.camel@bwh-desktop>
+Received: from mail-qy0-f174.google.com ([209.85.216.174]:59095 "EHLO
+	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752572Ab1ART0n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 14:26:43 -0500
+Received: by qyj19 with SMTP id 19so3553180qyj.19
+        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 11:26:42 -0800 (PST)
+In-Reply-To: <20110118184730.GD4202@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings wrote:
-> On Tue, 2011-01-18 at 10:23 -0800, Rick Jones wrote:
->=20
->>Ben Hutchings wrote:
+On Tue, Jan 18, 2011 at 7:47 PM, Jarek Poplawski <jarkao2@gmail.com> wr=
+ote:
+> On Tue, Jan 18, 2011 at 07:28:52PM +0100, Jarek Poplawski wrote:
+>> On Tue, Jan 18, 2011 at 07:24:40PM +0100, Jan Engelhardt wrote:
+>> >
+>> > On Tuesday 2011-01-18 19:10, Alessandro Suardi wrote:
+>> > >On Tue, Jan 18, 2011 at 6:23 PM, Jarek Poplawski <jarkao2@gmail.c=
+om> wrote:
+>> > >>
+>> > >> NLM_F_DUMP flags should be applied to GET requests only, eg. rt=
+netlink
+>> > >> tests message type to verify this. Since genetlink can't do the=
+ same
+>> > >> use "practical" test for ops->dumpit (assuming NEW request won'=
+t be
+>> > >> mixed with GET).
+>> ...
+>> > >2.6.37-git18 + netlink revert + this patch
+>> > > - fixes Avahi
+>> > > - breaks acpid
+>> > >Starting acpi daemon: RTNETLINK1 answers: Operation not supported
+>> > >acpid: error talking to the kernel via netlink
+>> >
+>> > Deducing from that, it is a GET-like request that was sent by acpi=
+d,
+>> > and the message type is one that has both a dumpit and a doit func=
+tion.
+>> > So if EOPNOTSUPP now occurs on all message types that have both du=
+mpit
+>> > and doit, you should have broken a lot more than just acpid.
 >>
->>>On Mon, 2011-01-17 at 17:43 +0800, mi wake wrote:
->=20
-> [...]
->=20
->>>>I do ab and tbench testing also find there is less tps with enable
->>>>rps.but,there is more cpu using when with enable rps.when with enab=
-le
->>>>rps =EF=BC=8Csoftirqs is blanced  on cpus.
->>>>
->>>>is there something wrong with my test=EF=BC=9F
->>>
->>>
->>>In addition to what Eric said, check the interrupt moderation settin=
-gs
->>>(ethtool -c/-C options).  One-way latency for a single request/respo=
-nse
->>>test will be at least the interrupt moderation value.
->>>
->>>I haven't tested RPS by itself (Solarflare NICs have plenty of hardw=
-are
->>>queues) so I don't know whether it can improve latency.  However, RF=
-S
->>>certainly does when there are many flows.
->>
->>Is there actually an expectation that either RPS or RFS would improve=
- *latency*?=20
->>  Multiple-stream throughput certainly, but with the additional work =
-done to=20
->>spread things around, I wouldn't expect either to improve latency.
->=20
->=20
-> Yes, it seems to make a big improvement to latency when many flows ar=
-e
-> active.=20
+>> Right, we need something better here.
+>
+> On the other hand, until there is something better, we might try to
+> fix it at least for "normal" dumpit cases?
+>
+> Alessandro, could you try (with the netlink revert)?
+>
+> Thanks,
+> Jarek P.
+>
+> ---
+> diff -Nurp a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+> --- a/net/netlink/genetlink.c =A0 2011-01-18 16:58:16.000000000 +0100
+> +++ b/net/netlink/genetlink.c =A0 2011-01-18 19:36:25.000000000 +0100
+> @@ -519,15 +519,14 @@ static int genl_rcv_msg(struct sk_buff *
+> =A0 =A0 =A0 =A0 =A0 =A0security_netlink_recv(skb, CAP_NET_ADMIN))
+> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -EPERM;
+>
+> - =A0 =A0 =A0 if (nlh->nlmsg_flags & NLM_F_DUMP) {
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (ops->dumpit =3D=3D NULL)
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -EOPNOTSUPP;
+> -
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 genl_unlock();
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D netlink_dump_start(net->genl_so=
+ck, skb, nlh,
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0ops->dumpit, ops->done);
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 genl_lock();
+> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
+> + =A0 =A0 =A0 if (ops->dumpit) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (nlh->nlmsg_flags & NLM_F_DUMP) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 genl_unlock();
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 err =3D netlink_dump_st=
+art(net->genl_sock, skb, nlh,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0 =A0 =A0 =A0 =A0ops->dumpit, ops->done);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 genl_lock();
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return err;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> =A0 =A0 =A0 =A0}
+>
+> =A0 =A0 =A0 =A0if (ops->doit =3D=3D NULL)
+>
 
-OK, you and I were using different definitions.  I was speaking to sing=
-le-stream=20
-latency, but didn't say it explicitly (I may have subconsciously though=
-t it was=20
-implicit given the OP used a single instance of netperf :).
+Sure enough :)
 
-happy benchmarking,
 
-rick jones
+2.6.37-git18 + netlink revert + this 2nd attempt
 
-> Tom told me that one of his benchmarks was 200 * netperf TCP_RR
-> in parallel, and I've seen over 40% reduction in latency for that. Th=
-at
-> said, allocating more RX queues might also help (sfc currently defaul=
-ts
-> to one per processor package rather than one per processor thread, du=
-e
-> to concerns about CPU efficiency).
->=20
-> Ben.
->=20
+ appears to be good for me - both Avahi and acpid start up fine and I
+ can't see any other program misbehaving.
 
+
+Thanks, ciao,
+
+--alessandro
+
+=A0"There's always a siren singing you to shipwreck"
+
+=A0=A0 (Radiohead, "There There")
