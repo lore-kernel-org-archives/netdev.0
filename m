@@ -1,34 +1,48 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: [patch 2/4] ipset: make IPv4 and IPv6 address handling similar
-Date: Tue, 18 Jan 2011 21:25:48 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1101182121310.19007@obet.zrqbmnf.qr>
-References: <20110118142154.697547841@eitzenberger.org> <20110118142247.498399684@eitzenberger.org> <alpine.DEB.2.00.1101182116150.28203@blackhole.kfki.hu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: WARNING in module rt2870sta stable kernel 2.6.37
+Date: Tue, 18 Jan 2011 21:30:16 +0100
+Message-ID: <1295382616.3194.10.camel@edumazet-laptop>
+References: <AANLkTi=HsE+h9GU8rM6zW2BVtoayEGfKOmPCsrrNHiz5@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: holger@eitzenberger.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.00.1101182116150.28203@blackhole.kfki.hu>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: devel@driverdev.osuosl.org, netdev <netdev@vger.kernel.org>,
+	Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org
+To: Giangiacomo Mariotti <gg.mariotti@gmail.com>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <AANLkTi=HsE+h9GU8rM6zW2BVtoayEGfKOmPCsrrNHiz5@mail.gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+	<mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Sender: devel-bounces@linuxdriverproject.org
+Errors-To: devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-
-On Tuesday 2011-01-18 21:18, Jozsef Kadlecsik wrote:
->On Tue, 18 Jan 2011, holger@eitzenberger.org wrote:
->
->> While the following works for AF_INET:
->> 
->>  ipset add foo 192.168.1.1/32
->> 
->> this does not work for AF_INET6:
->> 
->>  ipset add foo6 20a1:1:2:3:4:5:6:7/128
->>  ipset v5.2: Syntax error: plain IP address must be supplied: 20a1:1:2:3:4:5:6:7/128
->
->Yeah, the usual issue: should IPv4/32 and IPv6/128 be handled as a plain 
->IPv4/v6 address when the manual says "enter a plain IPv4/v6 address" :-).
-
-(Assuming this was a question, heuristically based on the word order
-you used:) I don't think so. iptables, resp. its modules, do not
-allow that either.
+TGUgbWFyZGkgMTggamFudmllciAyMDExIMOgIDIxOjE2ICswMTAwLCBHaWFuZ2lhY29tbyBNYXJp
+b3R0aSBhIMOpY3JpdCA6Cj4gSGksIHRoZSBmb2xsb3dpbmcgbWVzc2FnZSB3YXMgbG9nZ2VkIG9u
+IGEgMi42LjM3IGtlcm5lbChpdCBzYXlzCj4gdGFpbnRlZCwgYnV0IGl0J3MgYWN0dWFsbHkgYSBt
+aWNybyBwYXRjaCBJIHdyb3RlIGFuZCBhcHBsaWVkIG9uIHRvcCBvZgo+IGN1cnJlbnQgMi42LjM3
+IHZhbmlsbGEsIHBhdGNoIGFwcGVuZGVkLCBidXQgaXQgc2hvdWxkIGJlIGlycmVsZXZhbnQsIEkK
+PiBqdXN0IHNodXQgdXAgYSBidW5jaCBvZiB1c2VsZXNzIGRlYnVnIG91dHB1dCBmb3IgdGhpcyBz
+dGFnaW5nIGRyaXZlcik6CgpUaGF0cyBhIGtub3duIHByb2JsZW0KClBsZWFzZSB0cnkgZm9sbG93
+aW5nIHBhdGNoCgpbUEFUQ0hdIHN0YWdpbmcsIHJ0Mjg2MDogZml4IHBhbmljCgpJdHMgbm93IGls
+bGVnYWwgdG8gY2FsbCBuZXRpZl9zdG9wX3F1ZXVlKCkgYmVmb3JlIHJlZ2lzdGVyX25ldGRldigp
+Cihjb21taXQgZTY0ODQ5MzBkNyAoIm5ldDogYWxsb2NhdGUgdHggcXVldWVzIGlucmVnaXN0ZXJf
+bmV0ZGV2aWNlIikKICAgIApSZXBvcnRlZC1ieTogR2lhbmdpYWNvbW8gTWFyaW90dGkgPGdnLm1h
+cmlvdHRpQGdtYWlsLmNvbT4KU2lnbmVkLW9mZi1ieTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6
+ZXRAZ21haWwuY29tPgotLS0KIGRyaXZlcnMvc3RhZ2luZy9ydDI4NjAvcnRfbWFpbl9kZXYuYyB8
+ICAgIDIgLS0KIDEgZmlsZSBjaGFuZ2VkLCAyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMvc3RhZ2luZy9ydDI4NjAvcnRfbWFpbl9kZXYuYyBiL2RyaXZlcnMvc3RhZ2luZy9ydDI4
+NjAvcnRfbWFpbl9kZXYuYwppbmRleCA3MDE1NjFkLi4yMzZkZDM2IDEwMDY0NAotLS0gYS9kcml2
+ZXJzL3N0YWdpbmcvcnQyODYwL3J0X21haW5fZGV2LmMKKysrIGIvZHJpdmVycy9zdGFnaW5nL3J0
+Mjg2MC9ydF9tYWluX2Rldi5jCkBAIC00ODQsOCArNDg0LDYgQEAgc3RydWN0IG5ldF9kZXZpY2Ug
+KlJ0bXBQaHlOZXREZXZJbml0KHN0cnVjdCBydF9ydG1wX2FkYXB0ZXIgKnBBZCwKIAluZXRfZGV2
+LT5tbF9wcml2ID0gKHZvaWQgKilwQWQ7CiAJcEFkLT5uZXRfZGV2ID0gbmV0X2RldjsKIAotCW5l
+dGlmX3N0b3BfcXVldWUobmV0X2Rldik7Ci0KIAlyZXR1cm4gbmV0X2RldjsKIAogfQoKCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldmVsIG1haWxpbmcg
+bGlzdApkZXZlbEBsaW51eGRyaXZlcnByb2plY3Qub3JnCmh0dHA6Ly9kcml2ZXJkZXYubGludXhk
+cml2ZXJwcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RldmVsCg==
