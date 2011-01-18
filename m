@@ -1,65 +1,39 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: inbound connection problems when "netlink: test for all flags
- of the NLM_F_DUMP composite" commit applied
-Date: Tue, 18 Jan 2011 18:23:40 +0100
-Message-ID: <20110118172340.GB1843@del.dom.local>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] af_unix: implement socket filter
+Date: Tue, 18 Jan 2011 18:22:41 +0100
+Message-ID: <1295371361.3290.15.camel@edumazet-laptop>
+References: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
-	arthur.marsh@internode.on.net, jengelh@medozas.de,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	Alessandro Suardi <alessandro.suardi@gmail.com>
-To: jamal <hadi@cyberus.ca>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:49555 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753154Ab1ARRXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 12:23:47 -0500
-Received: by ewy5 with SMTP id 5so3426544ewy.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 09:23:46 -0800 (PST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, ebiederm@xmission.com, xemul@openvz.org,
+	davidel@xmailserver.org,
+	Alban Crequy <alban.crequy@collabora.co.uk>
+To: Ian Molton <ian.molton@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[PATCH] netlink: Fix possible NLM_F_DUMP misuse in genetlink
+Le mardi 18 janvier 2011 =C3=A0 16:39 +0000, Ian Molton a =C3=A9crit :
+> From: Alban Crequy <alban.crequy@collabora.co.uk>
+>=20
+> Linux Socket Filters can already be successfully attached and detache=
+d on unix
+> sockets with setsockopt(sockfd, SOL_SOCKET, SO_{ATTACH,DETACH}_FILTER=
+, ...).
+> See: Documentation/networking/filter.txt
+>=20
+> But the filter was never used in the unix socket code so it did not w=
+ork. This
+> patch uses sk_filter() to filter buffers before delivery.
+>=20
+> This short program demonstrates the problem on SOCK_DGRAM.
 
-NLM_F_DUMP flags should be applied to GET requests only, eg. rtnetlink
-tests message type to verify this. Since genetlink can't do the same
-use "practical" test for ops->dumpit (assuming NEW request won't be
-mixed with GET).
 
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Cc: Jan Engelhardt <jengelh@medozas.de>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>
----
-Not for stable before testing!
+Any idea on performance cost adding sk_filter() call ?
 
-diff -Nurp a/net/netlink/genetlink.c b/net/netlink/genetlink.c
---- a/net/netlink/genetlink.c	2011-01-18 16:58:16.000000000 +0100
-+++ b/net/netlink/genetlink.c	2011-01-18 17:08:43.000000000 +0100
-@@ -519,15 +519,16 @@ static int genl_rcv_msg(struct sk_buff *
- 	    security_netlink_recv(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	if (nlh->nlmsg_flags & NLM_F_DUMP) {
--		if (ops->dumpit == NULL)
-+	if (ops->dumpit) {
-+		if (nlh->nlmsg_flags & NLM_F_DUMP) {
-+			genl_unlock();
-+			err = netlink_dump_start(net->genl_sock, skb, nlh,
-+						 ops->dumpit, ops->done);
-+			genl_lock();
-+			return err;
-+		} else {
- 			return -EOPNOTSUPP;
--
--		genl_unlock();
--		err = netlink_dump_start(net->genl_sock, skb, nlh,
--					 ops->dumpit, ops->done);
--		genl_lock();
--		return err;
-+		}
- 	}
- 
- 	if (ops->doit == NULL)
+Hmm, looking at it, I have no idea why sk_filter() needs to block BH.
+
+I'll send a patch to relax this requirement.
