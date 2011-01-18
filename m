@@ -1,93 +1,78 @@
-From: Ian Molton <ian.molton@collabora.co.uk>
-Subject: [PATCH] af_unix: implement socket filter
-Date: Tue, 18 Jan 2011 16:39:15 +0000
-Message-ID: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, ebiederm@xmission.com, xemul@openvz.org,
-	davidel@xmailserver.org,
-	Alban Crequy <alban.crequy@collabora.co.uk>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
+ single TCP session balancing
+Date: Tue, 18 Jan 2011 20:21:02 +0300
+Message-ID: <4D35CBFE.5030406@yandex-team.ru>
+References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35C2D7.6090008@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from archeopterix.yandex.ru ([93.158.136.52]:49220 "EHLO
+	archeopterix.yandex.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752800Ab1ARRVD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 12:21:03 -0500
+In-Reply-To: <4D35C2D7.6090008@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alban Crequy <alban.crequy@collabora.co.uk>
+On 01/18/2011 07:41 PM, John Fastabend wrote:
 
-Linux Socket Filters can already be successfully attached and detached on unix
-sockets with setsockopt(sockfd, SOL_SOCKET, SO_{ATTACH,DETACH}_FILTER, ...).
-See: Documentation/networking/filter.txt
+>>
+>> John, what is you opinion on such load balancing method in general,
+>> without referring to particular use cases?
+>>
+>
+> This seems reasonable to me, but I'll defer to Jay on this. As long a=
+s the
+> limitations are documented and it looks like they are this may be fin=
+e.
+>
+> Mostly I was interested to know what led you down this path and why M=
+PIO
+> was not working as at least I expected it should. When I get some tim=
+e I'll
+> see if we can address at least some of these issues. Even so it seems=
+ like
+> this bonding mode may still be useful for some use cases perhaps even=
+ none
+> storage use cases.
+>
+>>
 
-But the filter was never used in the unix socket code so it did not work. This
-patch uses sk_filter() to filter buffers before delivery.
+I was adressing several problems with my patch:
+  - I was unable to consume whole bandwidth with multipath - with four=20
+1Gbit "paths" it was slightly above 2Gbit/s
+  - Link failures caused quite often disk failures, which led to Oracle=
+=20
+ASM rebalance, especially with versions below 11.
+  - It is not always possible to autogenerate multipathd.conf with=20
+human-readable device names because of iscsi session id and scsi device=
+=20
+bus/channel/etc mismatch(usually it differs by 1, but not necessarily),=
+=20
+with bonding solution I can just look into /dev/disk/by-path to find ou=
+t=20
+where physically is device, let's  say, /dev/sdab, located(it's just a=20
+free bonus I've got, so to say:)) .
 
-This short program demonstrates the problem on SOCK_DGRAM.
 
-int main(void) {
-  int i, j, ret;
-  int sv[2];
-  struct pollfd fds[2];
-  char *message = "Hello world!";
-  char buffer[64];
-  struct sock_filter ins[32] = {{0,},};
-  struct sock_fprog filter;
 
-  socketpair(AF_UNIX, SOCK_DGRAM, 0, sv);
+--=20
+=D0=A1 =D1=83=D0=B2=D0=B0=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5=D0=BC,
+=D1=80=D1=83=D0=BA=D0=BE=D0=B2=D0=BE=D0=B4=D0=B8=D1=82=D0=B5=D0=BB=D1=8C=
+ =D1=81=D0=BB=D1=83=D0=B6=D0=B1=D1=8B
+=D1=8D=D0=BA=D1=81=D0=BF=D0=BB=D1=83=D0=B0=D1=82=D0=B0=D1=86=D0=B8=D0=B8=
+ =D0=BA=D0=BE=D0=BC=D0=BC=D0=B5=D1=80=D1=87=D0=B5=D1=81=D0=BA=D0=B8=D1=85=
+ =D0=B8 =D1=84=D0=B8=D0=BD=D0=B0=D0=BD=D1=81=D0=BE=D0=B2=D1=8B=D1=85 =D1=
+=81=D0=B5=D1=80=D0=B2=D0=B8=D1=81=D0=BE=D0=B2
+=D0=9E=D0=9E=D0=9E =D0=AF=D0=BD=D0=B4=D0=B5=D0=BA=D1=81
 
-  for (i = 0 ; i < 2 ; i++) {
-    fds[i].fd = sv[i];
-    fds[i].events = POLLIN;
-    fds[i].revents = 0;
-  }
+=D0=9E=D0=BB=D0=B5=D0=B3 =D0=AE=D1=85=D0=BD=D0=BE
 
-  for(j = 1 ; j < 13 ; j++) {
 
-    /* Set a socket filter to truncate the message */
-    memset(ins, 0, sizeof(ins));
-    ins[0].code = BPF_RET|BPF_K;
-    ins[0].k = j;
-    filter.len = 1;
-    filter.filter = ins;
-    setsockopt(sv[1], SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
-
-    /* send a message */
-    send(sv[0], message, strlen(message) + 1, 0);
-
-    /* The filter should let the message pass but truncated. */
-    poll(fds, 2, 0);
-
-    /* Receive the truncated message*/
-    ret = recv(sv[1], buffer, 64, 0);
-    printf("received %d bytes, expected %d\n", ret, j);
-  }
-
-    for (i = 0 ; i < 2 ; i++)
-      close(sv[i]);
-
-  return 0;
-}
-
-Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
-Reviewed-by: Ian Molton <ian.molton@collabora.co.uk>
----
- net/unix/af_unix.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index dd419d2..8d9bbba 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1475,6 +1475,12 @@ restart:
- 			goto out_free;
- 	}
- 
-+	if (sk_filter(other, skb) < 0) {
-+		/* Toss the packet but do not return any error to the sender */
-+		err = len;
-+		goto out_free;
-+	}
-+
- 	unix_state_lock(other);
- 	err = -EPERM;
- 	if (!unix_may_send(sk, other))
--- 
-1.7.2.3
