@@ -1,60 +1,87 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: Re: [PATCH] af_unix: implement socket filter
-Date: Tue, 18 Jan 2011 17:51:43 +0000
-Message-ID: <20110118175143.3a164669@chocolatine.cbg.collabora.co.uk>
-References: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
-	<1295371361.3290.15.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCHv2] vhost: rcu annotation fixup
+Date: Tue, 18 Jan 2011 20:08:13 +0200
+Message-ID: <20110118180813.GA18757@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, ebiederm@xmission.com, xemul@openvz.org,
-	davidel@xmailserver.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ian Molton <ian.molton@collabora.co.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.128.226]:58899 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042Ab1ARSEe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 13:04:34 -0500
-In-Reply-To: <1295371361.3290.15.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le Tue, 18 Jan 2011 18:22:41 +0100,
-Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
+When built with rcu checks enabled, vhost triggers
+bogus warnings as vhost features are read without
+dev->mutex sometimes, and private pointer is read
+with our kind of rcu where work serves as a
+read side critical section.
 
-> Le mardi 18 janvier 2011 =C3=A0 16:39 +0000, Ian Molton a =C3=A9crit =
-:
-> > From: Alban Crequy <alban.crequy@collabora.co.uk>
-> >=20
-> > Linux Socket Filters can already be successfully attached and
-> > detached on unix sockets with setsockopt(sockfd, SOL_SOCKET,
-> > SO_{ATTACH,DETACH}_FILTER, ....). See:
-> > Documentation/networking/filter.txt
-> >=20
-> > But the filter was never used in the unix socket code so it did not
-> > work. This patch uses sk_filter() to filter buffers before delivery=
-=2E
-> >=20
-> > This short program demonstrates the problem on SOCK_DGRAM.
+Fixing it properly is not trivial.
+Disable the warnings by stubbing out the checks for now.
 
-By the way, the patch implements socket filters on SOCK_DGRAM and
-SOCK_SEQPACKET but not SOCK_STREAM. Socket filters does not make sense
-to me when there is no packet boundaries. But if there is a need for
-it, the code for SOCK_STREAM could be added easily.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-> Any idea on performance cost adding sk_filter() call ?
+Changes from v1: add TODO, fix more warnings.
 
-Ian will write a performance test and repost the patch with some stats.
-I don't know about the performance cost.
+ drivers/vhost/net.c   |    9 +++++----
+ drivers/vhost/vhost.h |    6 +++---
+ 2 files changed, 8 insertions(+), 7 deletions(-)
 
-> Hmm, looking at it, I have no idea why sk_filter() needs to block BH.
-
-I don't know neither.
-
-> I'll send a patch to relax this requirement.
-
-Thanks for your review!
-
-Alban
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 9b3ca10..f616cef 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -128,8 +128,7 @@ static void handle_tx(struct vhost_net *net)
+ 	size_t hdr_size;
+ 	struct socket *sock;
+ 
+-	/* TODO: check that we are running from vhost_worker?
+-	 * Not sure it's worth it, it's straight-forward enough. */
++	/* TODO: check that we are running from vhost_worker? */
+ 	sock = rcu_dereference_check(vq->private_data, 1);
+ 	if (!sock)
+ 		return;
+@@ -306,7 +305,8 @@ static void handle_rx_big(struct vhost_net *net)
+ 	size_t len, total_len = 0;
+ 	int err;
+ 	size_t hdr_size;
+-	struct socket *sock = rcu_dereference(vq->private_data);
++	/* TODO: check that we are running from vhost_worker? */
++	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
+ 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
+ 		return;
+ 
+@@ -415,7 +415,8 @@ static void handle_rx_mergeable(struct vhost_net *net)
+ 	int err, headcount;
+ 	size_t vhost_hlen, sock_hlen;
+ 	size_t vhost_len, sock_len;
+-	struct socket *sock = rcu_dereference(vq->private_data);
++	/* TODO: check that we are running from vhost_worker? */
++	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
+ 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
+ 		return;
+ 
+diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+index 2af44b7..b3363ae 100644
+--- a/drivers/vhost/vhost.h
++++ b/drivers/vhost/vhost.h
+@@ -173,9 +173,9 @@ static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
+ {
+ 	unsigned acked_features;
+ 
+-	acked_features =
+-		rcu_dereference_index_check(dev->acked_features,
+-					    lockdep_is_held(&dev->mutex));
++	/* TODO: check that we are running from vhost_worker or dev mutex is
++	 * held? */
++	acked_features = rcu_dereference_index_check(dev->acked_features, 1);
+ 	return acked_features & (1 << bit);
+ }
+ 
+-- 
+1.7.3.2.91.g446ac
