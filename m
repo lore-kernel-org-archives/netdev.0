@@ -1,25 +1,73 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v4] netfilter: ipt_CLUSTERIP: remove "no conntrack!"
-Date: Tue, 18 Jan 2011 16:28:59 +0100
-Message-ID: <4D35B1BB.3010306@trash.net>
-References: <4D2E1A74.5080102@netfilter.org>	 <1294917210.3570.48.camel@edumazet-laptop> <4D2EE09A.1010409@netfilter.org>	 <1294918365.3570.56.camel@edumazet-laptop> <4D2EE80B.6010707@netfilter.org>	 <1294925915.3570.87.camel@edumazet-laptop>	 <alpine.LNX.2.01.1101131502240.25211@obet.zrqbmnf.qr> <1294929579.3570.163.camel@edumazet-laptop> <4D2F28B9.50407@netfilter.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 5/8] vmxnet3: Make ethtool handlers multiqueue
+ aware
+Date: Tue, 18 Jan 2011 16:05:14 +0000
+Message-ID: <1295366715.3537.9.camel@bwh-desktop>
+References: <20110115005701.1064.67435.stgit@sbhatewara-dev1.eng.vmware.com>
+	 <20110115005946.1064.97955.stgit@sbhatewara-dev1.eng.vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jan Engelhardt <jengelh@medozas.de>,
-	Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D2F28B9.50407@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com
+To: Shreyas N Bhatewara <sbhatewara@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110115005946.1064.97955.stgit@sbhatewara-dev1.eng.vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 13.01.2011 17:30, Pablo Neira Ayuso wrote:
-> On 13/01/11 15:39, Eric Dumazet wrote:
-> hey hey, I'm fine with fixing things. Patch v4 is OK.
+On Fri, 2011-01-14 at 16:59 -0800, Shreyas N Bhatewara wrote:
+> Show per-queue stats in ethtool -S output for vmxnet3 interface. Register dump
+> of ethtool should dump registers for all tx and rx queues.
 > 
-> Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Shreyas N Bhatewara <sbhatewara@vmware.com>
+> ---
+>  drivers/net/vmxnet3/vmxnet3_ethtool.c |  259 ++++++++++++++++++---------------
+>  1 files changed, 145 insertions(+), 114 deletions(-)
+> 
+> diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> index 8e17fc8..d70cee1 100644
+> --- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> @@ -68,76 +68,78 @@ vmxnet3_set_rx_csum(struct net_device *netdev, u32 val)
+>  static const struct vmxnet3_stat_desc
+>  vmxnet3_tq_dev_stats[] = {
+>  	/* description,         offset */
+> -	{ "TSO pkts tx",        offsetof(struct UPT1_TxStats, TSOPktsTxOK) },
+> -	{ "TSO bytes tx",       offsetof(struct UPT1_TxStats, TSOBytesTxOK) },
+> -	{ "ucast pkts tx",      offsetof(struct UPT1_TxStats, ucastPktsTxOK) },
+> -	{ "ucast bytes tx",     offsetof(struct UPT1_TxStats, ucastBytesTxOK) },
+> -	{ "mcast pkts tx",      offsetof(struct UPT1_TxStats, mcastPktsTxOK) },
+> -	{ "mcast bytes tx",     offsetof(struct UPT1_TxStats, mcastBytesTxOK) },
+> -	{ "bcast pkts tx",      offsetof(struct UPT1_TxStats, bcastPktsTxOK) },
+> -	{ "bcast bytes tx",     offsetof(struct UPT1_TxStats, bcastBytesTxOK) },
+> -	{ "pkts tx err",        offsetof(struct UPT1_TxStats, pktsTxError) },
+> -	{ "pkts tx discard",    offsetof(struct UPT1_TxStats, pktsTxDiscard) },
+> +	{ "Tx Queue#",        0 },
+> +	{ "  TSO pkts tx",	offsetof(struct UPT1_TxStats, TSOPktsTxOK) },
+> +	{ "  TSO bytes tx",	offsetof(struct UPT1_TxStats, TSOBytesTxOK) },
+[...]
 
-Applied, thanks.
+I really don't like this.  You're making the assumption that these stats
+will always be displayed as they are now by the ethtool command, but
+that is not the only user of the ethtool API.
+
+I expect that some people have scripts that involve reading ethtool
+stats into a hash/dictionary.  (In fact, I wrote a diagnostic script for
+Solarflare that does that.)  After this change to your driver, they
+would get results from only one TX queue (with different names from
+before).
+
+So please:
+- Don't use leading or trailing spaces in names
+- Keep the global statistics, as most users will be more interested in
+these
+- If you think users actually want per-queue statistics, add them with
+unique names (like bnx2x does)
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
