@@ -1,137 +1,149 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [regression] 2.6.37+ commit 0363466866d9.... breaks tcp ipv6
-Date: Tue, 18 Jan 2011 23:03:58 +0100
-Message-ID: <1295388238.8449.10.camel@edumazet-laptop>
-References: <4D335417.80704@xmsnet.nl>	<4D35EF64.1040906@xmsnet.nl>
-	 <AANLkTinejKw0pY5HncB2e0ocjqYuCwTBUwd2xkroWu+E@mail.gmail.com>
-	 <4D36092B.1090406@xmsnet.nl>
+From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
+ single TCP session balancing
+Date: Wed, 19 Jan 2011 01:22:12 +0300
+Message-ID: <4D361294.2060304@yandex-team.ru>
+References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Hans de Bruin <jmdebruin@xmsnet.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D36092B.1090406@xmsnet.nl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Le mardi 18 janvier 2011 =C3=A0 22:42 +0100, Hans de Bruin a =C3=A9crit=
- :
-> On 01/18/2011 09:06 PM, Jesse Gross wrote:
-> > On Tue, Jan 18, 2011 at 11:52 AM, Hans de Bruin<jmdebruin@xmsnet.nl=
->  wrote:
-> >> On 01/16/2011 09:24 PM, Hans de Bruin wrote:
-> >>>
-> >>> After last nights compile i lost the possibility to connect to ss=
-h and
-> >>> http over ipv6. The connection stops at syn_sent. connections to =
-my
-> >>> machine end in syn_recv. ping6 still works.
-> >>>
-> >>
-> >> The bisect ended in:
-> >>
-> >> 0363466866d901fbc658f4e63dd61e7cc93dd0af is the first bad commit
-> >> commit 0363466866d901fbc658f4e63dd61e7cc93dd0af
-> >> Author: Jesse Gross<jesse@nicira.com>
-> >> Date:   Sun Jan 9 06:23:35 2011 +0000
-> >>
-> >>     net offloading: Convert checksums to use centrally computed fe=
-atures.
-> >>
-> >>     In order to compute the features for other offloads (primarily
-> >>     scatter/gather), we need to first check the ability of the NIC=
- to
-> >>     offload the checksum for the packet.  Since we have already co=
-mputed
-> >>     this, we can directly use the result instead of figuring it ou=
-t
-> >>     again.
-> >>
-> >>     Signed-off-by: Jesse Gross<jesse@nicira.com>
-> >>     Signed-off-by: David S. Miller<davem@davemloft.net>
-> >>
-> >>
-> >> ssh ::1  still works. And since dns still works I guess udp is not=
- affected.
-> >> My nic is a:
-> >>
-> >> 09:00.0 Ethernet controller: Broadcom Corporation NetXtreme BCM575=
-2 Gigabit
-> >> Ethernet PCI Express (rev 02)
-> >
-> > Are you using vlans?  If so, can you please test this patch?
-> > http://patchwork.ozlabs.org/patch/79264/
-> >
->=20
-> No I am not using vlans. The option is even not set in the config fil=
-e.=20
-> Except for the disk less bit is a straightforward setup:
->=20
->    bash-4.1# ip addr show
-> 1: lo: <LOOPBACK,UP,LOWER_UP> mtu 16436 qdisc noqueue state UNKNOWN
->      link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
->      inet 127.0.0.1/8 scope host lo
->      inet6 ::1/128 scope host
->         valid_lft forever preferred_lft forever
-> 2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP=
-=20
-> qlen 1000
->      link/ether 00:1c:23:2d:73:87 brd ff:ff:ff:ff:ff:ff
->      inet 10.10.0.6/16 brd 10.10.255.255 scope global eth0
->      inet6 2001:610:76e:0:21c:23ff:fe2d:7387/64 scope global dynamic
->         valid_lft 86399sec preferred_lft 14399sec
->      inet6 fe80::21c:23ff:fe2d:7387/64 scope link
->         valid_lft forever preferred_lft forever
-> 3: sit0: <NOARP> mtu 1480 qdisc noop state DOWN
->      link/sit 0.0.0.0 brd 0.0.0.0
-> bash-4.1# ip route show
-> 10.10.0.0/16 dev eth0  proto kernel  scope link  src 10.10.0.6
-> default via 10.10.0.1 dev eth0
-> bash-4.1# ip -6 route show
-> 2001:610:76e::/64 dev eth0  proto kernel  metric 256  expires 86404se=
-c
-> fe80::/64 dev eth0  proto kernel  metric 256
-> ff00::/8 dev eth0  metric 256
-> default via fe80::230:18ff:feae:75d8 dev eth0  proto kernel  metric 1=
-024=20
->   expires 29sec hoplimit 64
-> bash-4.1# iptables -L
-> Chain INPUT (policy ACCEPT)
-> target     prot opt source               destination
->=20
-> Chain FORWARD (policy ACCEPT)
-> target     prot opt source               destination
->=20
-> Chain OUTPUT (policy ACCEPT)
-> target     prot opt source               destination
-> bash-4.1# ip6tables -L
-> Chain INPUT (policy ACCEPT)
-> target     prot opt source               destination
->=20
-> Chain FORWARD (policy ACCEPT)
-> target     prot opt source               destination
->=20
-> Chain OUTPUT (policy ACCEPT)
-> target     prot opt source               destination
-> bash-4.1# brctl show
-> bridge name     bridge id               STP enabled     interfaces
-> bash-4.1# cat /proc/cmdline
-> root=3D/dev/nfs nfsroot=3D10.10.0.2:/nfs/root/psion/,v3,tcp ro ip=3D:=
-:: ::dhcp=20
-> BOOT_IMAGE=3Dnightlybuild-psion
->=20
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
+	Christophe Paasch <christoph.paasch@uclouvain.be>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elephant.yandex.ru ([77.88.34.7]:26454 "EHLO elephant.yandex.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751136Ab1ARWWQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jan 2011 17:22:16 -0500
+In-Reply-To: <28837.1295382268@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-You could try "tcpdump -i eth0 ip6 -v"
 
-I guess you receive frames with bad checksums
+Jay Vosburgh wrote:
+> 
+> 	One item I'd like to see some more data on is the level of
+> reordering at the receiver in Oleg's system.
+> 
+> 	One of the reasons round robin isn't as useful as it once was is
+> due to the rise of NAPI and interrupt coalescing, both of which will
+> tend to increase the reordering of packets at the receiver when the
+> packets are evenly striped.  In the old days, it was one interrupt, one
+> packet.  Now, it's one interrupt or NAPI poll, many packets.  With the
+> packets striped across interfaces, this will tend to increase
+> reordering.  E.g.,
+> 
+> 	slave 1		slave 2		slave 3
+> 	Packet 1	P2		P3
+> 	P4		P5		P6
+> 	P7		P8		P9
+> 
+> 	and so on.  A poll of slave 1 will get packets 1, 4 and 7 (and
+> probably several more), then a poll of slave 2 will get 2, 5 and 8, etc.
+> 
+> 	I haven't done much testing with this lately, but I suspect this
+> behavior hasn't really changed.  Raising the tcp_reordering sysctl value
+> can mitigate this somewhat (by making TCP more tolerant of this), but
+> that doesn't help non-TCP protocols.
+> 
+> 	Barring evidence to the contrary, I presume that Oleg's system
+> delivers out of order at the receiver.  That's not automatically a
+> reason to reject it, but this entire proposal is sufficiently complex to
+> configure that very explicit documentation will be necessary.
 
-You can ask other system to not offload tx checksums
+Jay, here is some network stats from one of my iSCSI targets with avg 
+load of 1.5-2.5Gbit/sec(4 slaves in etherchannel).Not perfect and not 
+very "clean"(there are more interfaces on host, than these 4)
+[root@<somehost> ~]# netstat -st 
 
-ethtool -K eth0 tx off
+IcmpMsg: 
 
-Please give result of (on both machines)
-lspci -v
+     InType0: 6 
+
+     InType3: 1872 
+
+     InType8: 60557 
+
+     InType11: 23 
+
+     OutType0: 60528 
+
+     OutType3: 1755 
+
+     OutType8: 6 
+
+Tcp: 
+
+     1298909 active connections openings 
+
+     61090 passive connection openings 
+
+     2374 failed connection attempts 
+
+     62781 connection resets received 
+
+     3 connections established 
+
+     1268233942 segments received 
+
+     1198020318 segments send out 
+
+     18939618 segments retransmited 
+
+     0 bad segments received. 
+
+     23643 resets sent 
+
+TcpExt:
+     294935 TCP sockets finished time wait in fast timer
+     472 time wait sockets recycled by time stamp
+     819481 delayed acks sent
+     295332 delayed acks further delayed because of locked socket
+     Quick ack mode was activated 30616377 times
+     3516920 packets directly queued to recvmsg prequeue.
+     4353 packets directly received from backlog
+     44873453 packets directly received from prequeue
+     1442812750 packets header predicted
+     1077442 packets header predicted and directly queued to user
+     2123453975 acknowledgments not containing data received
+     2375328274 predicted acknowledgments
+     8462439 times recovered from packet loss due to fast retransmit
+     Detected reordering 19203 times using reno fast retransmit
+     Detected reordering 100 times using time stamp
+     3429 congestion windows fully recovered
+     11760 congestion windows partially recovered using Hoe heuristic
+     398 congestion windows recovered after partial ack
+     0 TCP data loss events
+     3671 timeouts after reno fast retransmit
+     6 timeouts in loss state
+     18919118 fast retransmits
+     11637 retransmits in slow start
+     1756 other TCP timeouts
+     TCPRenoRecoveryFail: 3187
+     62779 connections reset due to early user close
+IpExt:
+     InBcastPkts: 512616
+[root@<somehost> ~]# uptime
+  00:35:49 up 42 days,  8:27,  1 user,  load average: 3.70, 3.80, 4.07
+[root@<somehost> ~]# sysctl -a|grep tcp_reo
+net.ipv4.tcp_reordering = 3
+
+I will get back with "clean" results after I'll setup test system tomorrow.
+TcpExt stats from other hosts are similar.
+
+> 
+> 	-J
+> 
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+> 
+
+-- 
+Best regards,
+Oleg Ukhno
