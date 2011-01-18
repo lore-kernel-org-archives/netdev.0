@@ -1,73 +1,90 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH] net offloading: Do not mask out NETIF_F_HW_VLAN_TX
- for vlan.
-Date: Tue, 18 Jan 2011 09:21:52 -0800
-Message-ID: <1295371312.10343.13.camel@nseg_linux_HP1.broadcom.com>
-References: <1295333160-1667-1-git-send-email-jesse@nicira.com>
- <1295333714.3362.561.camel@edumazet-laptop>
- <AANLkTikmadouBTgkf4OZy30=Zg6uZ+qSng=rWhTjjm8e@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: filter: dont block softirqs in sk_run_filter()
+Date: Tue, 18 Jan 2011 18:46:52 +0100
+Message-ID: <1295372812.3290.35.camel@edumazet-laptop>
+References: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
+	 <1295371361.3290.15.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Jesse Gross" <jesse@nicira.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	ebiederm@xmission.com, xemul@openvz.org, davidel@xmailserver.org,
+	Alban Crequy <alban.crequy@collabora.co.uk>,
+	Ian Molton <ian.molton@collabora.co.uk>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4506 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752686Ab1ARR0P convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 12:26:15 -0500
-In-Reply-To: <AANLkTikmadouBTgkf4OZy30=Zg6uZ+qSng=rWhTjjm8e@mail.gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:40535 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032Ab1ARRrf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 12:47:35 -0500
+In-Reply-To: <1295371361.3290.15.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Packet filter (BPF) doesnt need to disable softirqs, being fully
+re-entrant and lock-less.
 
-On Mon, 2011-01-17 at 23:12 -0800, Jesse Gross wrote:
-> On Tue, Jan 18, 2011 at 1:55 AM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le lundi 17 janvier 2011 =C3=A0 22:46 -0800, Jesse Gross a =C3=A9cr=
-it :
-> >> In netif_skb_features() we return only the features that are valid=
- for vlans
-> >> if we have a vlan packet.  However, we should not mask out NETIF_F=
-_HW_VLAN_TX
-> >> since it enables transmission of vlan tags and is obviously valid.
-> >>
-> >> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-> >> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> >
-> > Thanks Jesse
-> >
-> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-> >
-> > Now back to the "ethtool -K eth0 txvlan off" problem on bnx2
-> >
-> > Is it a driver/software problem or hardware/firmware one ?
->=20
-> CC'ing Michael Chan
->=20
-> It looks like bnx2 is storing the offsets of various headers so the
-> hardware can find them for TSO.  The parsing logic doesn't do anythin=
-g
-> for vlan tags, so the hardware gets confused if one is present in the
-> packet itself.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ include/net/sock.h     |    2 +-
+ net/core/filter.c      |    6 +++---
+ net/packet/af_packet.c |    6 +++---
+ 3 files changed, 7 insertions(+), 7 deletions(-)
 
-Yeah, I don't think the hardware/firmware can replicate the vlan tag +
-headers properly for TSO if there is a VLAN tag in the packet.  Even
-simple tx checksum offload may have problem, but I'll need to check.
-
->=20
-> Quick fix is to simply disallow disabling TX vlan offload or disable
-> TSO at the same time or some other Ethtool game.  However, if the
-> hardware supports it then it would be nicer to fix up the TSO setup
-> logic.  Maybe we can just add the size of the vlan tag to the offset
-> but I am not certain.  Michael, do you know if this is possible?
->=20
-
-I doubt it, as the VLAN tag needs to be replicated for each transmitted
-packet.  I'll check with the firmware/hardware guys.
-
-Thanks.
+diff --git a/include/net/sock.h b/include/net/sock.h
+index d884d26..ba6465b 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1189,7 +1189,7 @@ extern void sk_filter_release_rcu(struct rcu_head *rcu);
+ static inline void sk_filter_release(struct sk_filter *fp)
+ {
+ 	if (atomic_dec_and_test(&fp->refcnt))
+-		call_rcu_bh(&fp->rcu, sk_filter_release_rcu);
++		call_rcu(&fp->rcu, sk_filter_release_rcu);
+ }
+ 
+ static inline void sk_filter_uncharge(struct sock *sk, struct sk_filter *fp)
+diff --git a/net/core/filter.c b/net/core/filter.c
+index afc5837..232b187 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -142,14 +142,14 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
+ 	if (err)
+ 		return err;
+ 
+-	rcu_read_lock_bh();
+-	filter = rcu_dereference_bh(sk->sk_filter);
++	rcu_read_lock();
++	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter) {
+ 		unsigned int pkt_len = sk_run_filter(skb, filter->insns);
+ 
+ 		err = pkt_len ? pskb_trim(skb, pkt_len) : -EPERM;
+ 	}
+-	rcu_read_unlock_bh();
++	rcu_read_unlock();
+ 
+ 	return err;
+ }
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 91cb1d7..c3fc7b7 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -523,11 +523,11 @@ static inline unsigned int run_filter(const struct sk_buff *skb,
+ {
+ 	struct sk_filter *filter;
+ 
+-	rcu_read_lock_bh();
+-	filter = rcu_dereference_bh(sk->sk_filter);
++	rcu_read_lock();
++	filter = rcu_dereference(sk->sk_filter);
+ 	if (filter != NULL)
+ 		res = sk_run_filter(skb, filter->insns);
+-	rcu_read_unlock_bh();
++	rcu_read_unlock();
+ 
+ 	return res;
+ }
 
 
