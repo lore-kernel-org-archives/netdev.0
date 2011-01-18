@@ -1,33 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: WARNING in module rt2870sta stable kernel 2.6.37
-Date: Tue, 18 Jan 2011 21:33:23 +0100
-Message-ID: <1295382803.3194.11.camel@edumazet-laptop>
-References: <AANLkTi=HsE+h9GU8rM6zW2BVtoayEGfKOmPCsrrNHiz5@mail.gmail.com>
-	 <AANLkTi=-4k0hbM9gESLBfzJW_reonqX_GMiVzXzRJFqu@mail.gmail.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: Re: [patch 2/4] ipset: make IPv4 and IPv6 address handling similar
+Date: Tue, 18 Jan 2011 21:37:06 +0100 (CET)
+Message-ID: <alpine.DEB.2.00.1101182128210.28350@blackhole.kfki.hu>
+References: <20110118142154.697547841@eitzenberger.org> <20110118142247.498399684@eitzenberger.org> <alpine.DEB.2.00.1101182116150.28203@blackhole.kfki.hu> <alpine.LNX.2.01.1101182121310.19007@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Giangiacomo Mariotti <gg.mariotti@gmail.com>,
-	Greg KH <gregkh@suse.de>, devel@driverdev.osuosl.org,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Denis Kirjanov <kirjanov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:47311 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752780Ab1ARUd1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 15:33:27 -0500
-In-Reply-To: <AANLkTi=-4k0hbM9gESLBfzJW_reonqX_GMiVzXzRJFqu@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: holger@eitzenberger.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.01.1101182121310.19007@obet.zrqbmnf.qr>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 18 janvier 2011 =C3=A0 23:25 +0300, Denis Kirjanov a =C3=A9cri=
-t :
-> I have sent a patch to fix this problem: https://lkml.org/lkml/2011/1=
-/10/329
-> It also fixes a bug #26472: https://bugzilla.kernel.org/show_bug.cgi?=
-id=3D26472
+On Tue, 18 Jan 2011, Jan Engelhardt wrote:
 
-OK, next time CC netdev so that we can Ack your patches ;)
+> On Tuesday 2011-01-18 21:18, Jozsef Kadlecsik wrote:
+> >On Tue, 18 Jan 2011, holger@eitzenberger.org wrote:
+> >
+> >> While the following works for AF_INET:
+> >> 
+> >>  ipset add foo 192.168.1.1/32
+> >> 
+> >> this does not work for AF_INET6:
+> >> 
+> >>  ipset add foo6 20a1:1:2:3:4:5:6:7/128
+> >>  ipset v5.2: Syntax error: plain IP address must be supplied: 20a1:1:2:3:4:5:6:7/128
+> >
+> >Yeah, the usual issue: should IPv4/32 and IPv6/128 be handled as a plain 
+> >IPv4/v6 address when the manual says "enter a plain IPv4/v6 address" :-).
+> 
+> (Assuming this was a question, heuristically based on the word order
+> you used:) I don't think so. iptables, resp. its modules, do not
+> allow that either.
 
+I know, but the situation is a little bit more complicated: the set type 
+in question works differently with IPv4 and IPv6. In the IPv4 case, a 
+range of IP addresses as IPv4/prefix is accepted as input (thus 
+192.168.1.1/32 too), while for IPv6, only plain IPv6 addresses are allowed 
+and therefore 20a1:1:2:3:4:5:6:7/128 was rejected.
 
+That looks really odd so I added the feature (but could not resist to add 
+my comment as a pseudo-question :-).
 
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : KFKI Research Institute for Particle and Nuclear Physics
+          H-1525 Budapest 114, POB. 49, Hungary
