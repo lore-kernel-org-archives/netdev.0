@@ -1,66 +1,88 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: rps testing questions
-Date: Tue, 18 Jan 2011 18:34:36 +0000
-Message-ID: <1295375676.3537.83.camel@bwh-desktop>
-References: <AANLkTin1pC=auiFBt83YomdhVgUO8uSdvq=tPaDu0=3U@mail.gmail.com>
-	 <1295269713.3700.5.camel@localhost>  <4D35DAB0.9030201@hp.com>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: inbound connection problems when "netlink: test for all flags
+ of the NLM_F_DUMP composite" commit applied
+Date: Tue, 18 Jan 2011 19:47:30 +0100
+Message-ID: <20110118184730.GD4202@del.dom.local>
+References: <20110118172340.GB1843@del.dom.local>
+ <AANLkTikUPRfYupw1-Py5mHeN+pFv-zMKhmK3DKixxsH4@mail.gmail.com>
+ <alpine.LNX.2.01.1101181921320.17010@obet.zrqbmnf.qr>
+ <20110118182852.GC4202@del.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mi wake <wakemi.wake@gmail.com>, netdev@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alessandro Suardi <alessandro.suardi@gmail.com>,
+	jamal <hadi@cyberus.ca>, David Miller <davem@davemloft.net>,
+	pablo@netfilter.org, arthur.marsh@internode.on.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:18396 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457Ab1ARSej convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 13:34:39 -0500
-In-Reply-To: <4D35DAB0.9030201@hp.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:51093 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751645Ab1ARSrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 13:47:37 -0500
+Received: by fxm20 with SMTP id 20so7528983fxm.19
+        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 10:47:35 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <20110118182852.GC4202@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-18 at 10:23 -0800, Rick Jones wrote:
-> Ben Hutchings wrote:
-> > On Mon, 2011-01-17 at 17:43 +0800, mi wake wrote:
-[...]
-> >>I do ab and tbench testing also find there is less tps with enable
-> >>rps.but,there is more cpu using when with enable rps.when with enab=
-le
-> >>rps =EF=BC=8Csoftirqs is blanced  on cpus.
-> >>
-> >>is there something wrong with my test=EF=BC=9F
-> >=20
-> >=20
-> > In addition to what Eric said, check the interrupt moderation setti=
-ngs
-> > (ethtool -c/-C options).  One-way latency for a single request/resp=
-onse
-> > test will be at least the interrupt moderation value.
-> >=20
-> > I haven't tested RPS by itself (Solarflare NICs have plenty of hard=
-ware
-> > queues) so I don't know whether it can improve latency.  However, R=
-=46S
-> > certainly does when there are many flows.
->=20
-> Is there actually an expectation that either RPS or RFS would improve=
- *latency*?=20
->   Multiple-stream throughput certainly, but with the additional work =
-done to=20
-> spread things around, I wouldn't expect either to improve latency.
+On Tue, Jan 18, 2011 at 07:28:52PM +0100, Jarek Poplawski wrote:
+> On Tue, Jan 18, 2011 at 07:24:40PM +0100, Jan Engelhardt wrote:
+> > 
+> > On Tuesday 2011-01-18 19:10, Alessandro Suardi wrote:
+> > >On Tue, Jan 18, 2011 at 6:23 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
+> > >>
+> > >> NLM_F_DUMP flags should be applied to GET requests only, eg. rtnetlink
+> > >> tests message type to verify this. Since genetlink can't do the same
+> > >> use "practical" test for ops->dumpit (assuming NEW request won't be
+> > >> mixed with GET).
+> ...
+> > >2.6.37-git18 + netlink revert + this patch
+> > > - fixes Avahi
+> > > - breaks acpid
+> > >Starting acpi daemon: RTNETLINK1 answers: Operation not supported
+> > >acpid: error talking to the kernel via netlink
+> > 
+> > Deducing from that, it is a GET-like request that was sent by acpid, 
+> > and the message type is one that has both a dumpit and a doit function.
+> > So if EOPNOTSUPP now occurs on all message types that have both dumpit 
+> > and doit, you should have broken a lot more than just acpid.
+> 
+> Right, we need something better here.
 
-Yes, it seems to make a big improvement to latency when many flows are
-active.  Tom told me that one of his benchmarks was 200 * netperf TCP_R=
-R
-in parallel, and I've seen over 40% reduction in latency for that.  Tha=
-t
-said, allocating more RX queues might also help (sfc currently defaults
-to one per processor package rather than one per processor thread, due
-to concerns about CPU efficiency).
+On the other hand, until there is something better, we might try to
+fix it at least for "normal" dumpit cases?
 
-Ben.
+Alessandro, could you try (with the netlink revert)?
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+Jarek P.
 
+---
+diff -Nurp a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+--- a/net/netlink/genetlink.c	2011-01-18 16:58:16.000000000 +0100
++++ b/net/netlink/genetlink.c	2011-01-18 19:36:25.000000000 +0100
+@@ -519,15 +519,14 @@ static int genl_rcv_msg(struct sk_buff *
+ 	    security_netlink_recv(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+-		if (ops->dumpit == NULL)
+-			return -EOPNOTSUPP;
+-
+-		genl_unlock();
+-		err = netlink_dump_start(net->genl_sock, skb, nlh,
+-					 ops->dumpit, ops->done);
+-		genl_lock();
+-		return err;
++	if (ops->dumpit) {
++		if (nlh->nlmsg_flags & NLM_F_DUMP) {
++			genl_unlock();
++			err = netlink_dump_start(net->genl_sock, skb, nlh,
++						 ops->dumpit, ops->done);
++			genl_lock();
++			return err;
++		}
+ 	}
+ 
+ 	if (ops->doit == NULL)
