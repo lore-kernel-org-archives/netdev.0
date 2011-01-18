@@ -1,62 +1,51 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [patch 2/4] ipset: make IPv4 and IPv6 address handling similar
-Date: Tue, 18 Jan 2011 21:54:46 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1101182144510.28424@blackhole.kfki.hu>
-References: <20110118142154.697547841@eitzenberger.org> <20110118142247.498399684@eitzenberger.org> <alpine.DEB.2.00.1101182116150.28203@blackhole.kfki.hu> <alpine.LNX.2.01.1101182121310.19007@obet.zrqbmnf.qr> <alpine.DEB.2.00.1101182128210.28350@blackhole.kfki.hu>
- <alpine.LNX.2.01.1101182139030.19166@obet.zrqbmnf.qr>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: inbound connection problems when "netlink: test for all flags
+ of the NLM_F_DUMP composite" commit applied
+Date: Tue, 18 Jan 2011 21:55:07 +0100
+Message-ID: <20110118205507.GB4288@del.dom.local>
+References: <4D336050.9030602@netfilter.org>
+ <20110118093811.GA7520@ff.dom.local>
+ <20110118.020702.115924992.davem@davemloft.net>
+ <20110118102437.GB7520@ff.dom.local>
+ <4D35F8A3.1010600@netfilter.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: holger@eitzenberger.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, arthur.marsh@internode.on.net,
+	jengelh@medozas.de, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	hadi@cyberus.ca
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-in.kfki.hu ([148.6.0.25]:34032 "EHLO smtp0.kfki.hu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752856Ab1ARUyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jan 2011 15:54:47 -0500
-In-Reply-To: <alpine.LNX.2.01.1101182139030.19166@obet.zrqbmnf.qr>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:38745 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752839Ab1ARUzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 15:55:13 -0500
+Received: by eye27 with SMTP id 27so41477eye.19
+        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 12:55:12 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4D35F8A3.1010600@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 Jan 2011, Jan Engelhardt wrote:
-
-> On Tuesday 2011-01-18 21:37, Jozsef Kadlecsik wrote:
-> >> >> 
-> >> >> this does not work for AF_INET6:
-> >> >> 
-> >> >>  ipset add foo6 20a1:1:2:3:4:5:6:7/128
-> >> >>  ipset v5.2: Syntax error: plain IP address must be supplied: 20a1:1:2:3:4:5:6:7/128
-> >> >
-> >> >Yeah, the usual issue: should IPv4/32 and IPv6/128 be handled as a plain 
-> >> >IPv4/v6 address when the manual says "enter a plain IPv4/v6 address" :-).
-> >> 
-> >> (Assuming this was a question, heuristically based on the word order
-> >> you used:) I don't think so. iptables, resp. its modules, do not
-> >> allow that either.
-> >
-> >I know, but the situation is a little bit more complicated: the set type 
-> >in question works differently with IPv4 and IPv6. In the IPv4 case, a 
-> >range of IP addresses as IPv4/prefix is accepted as input (thus 
-> >192.168.1.1/32 too), while for IPv6, only plain IPv6 addresses are allowed 
-> >and therefore 20a1:1:2:3:4:5:6:7/128 was rejected.
+On Tue, Jan 18, 2011 at 09:31:31PM +0100, Pablo Neira Ayuso wrote:
+> On 18/01/11 11:24, Jarek Poplawski wrote:
+> > On Tue, Jan 18, 2011 at 02:07:02AM -0800, David Miller wrote:
+> >> From: Jarek Poplawski <jarkao2@gmail.com>
+> >> Date: Tue, 18 Jan 2011 09:38:11 +0000
+> >>
+> >>> Even if I'm wrong, this change added to stable will break many configs.
+> >>> My proposal is to revert commit 0ab03c2b147 until proper fix is found.
+> >>
+> >> The flag combination is, at best ambiguous, it has no proper
+> >> definition without the check we added.
+> > 
+> > Do you all expect all users manage to upgrade avahi app before
+> > changing their stable kernel? I mean "own distro" users especially.
 > 
-> Is there a specific reason that there is no IPv6 net support?
+> The combination that avahi uses makes no sense.
 
-Call it laziness: for IPv6, the hash:ip* types does *not* accept a 
-range of elements to be added/deleted in one command, expressed as
+I don't agree as explained in the reverting patch. Anyway, again,
+this is an old problem, so no reason to force "fixing" it just now
+at the expense of the obvious regression especially in stable kernels
+Anyway, I'll accept any David's decision wrt this problem.
 
-ipset add foo6 20a1:1:2:3:4:5:6:7/120
-
-or
-
-ipset add foo6 20A1:1:2:3:4:5:6:0-20A1:1:2:3:4:5:6:FF
-
-For IPv4 the syntax is accepted and handled.
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+Jarek P.
