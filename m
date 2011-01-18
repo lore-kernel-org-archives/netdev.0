@@ -1,46 +1,45 @@
 From: holger@eitzenberger.org
-Subject: [patch 3/4] ipset: do session initialization once
-Date: Tue, 18 Jan 2011 15:21:57 +0100
-Message-ID: <20110118142247.991392505@eitzenberger.org>
+Subject: [patch 4/4] ipset: fix build with NDEBUG defined
+Date: Tue, 18 Jan 2011 15:21:58 +0100
+Message-ID: <20110118142248.489615870@eitzenberger.org>
 References: <20110118142154.697547841@eitzenberger.org>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline; filename=ipset-one-time-session-init.diff
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:53188 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751938Ab1AROWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 09:22:51 -0500
+Content-Disposition: inline; filename=ipset-fix-NDEBUG.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+The usage of the gcc option -Wunused-parameter interferes badly with
+the assert() macros.  In case -DNDEBUG is specified build fails with:
+
+  cc1: warnings being treated as errors
+  print.c: In function 'ipset_print_family':
+  print.c:92: error: unused parameter 'opt'
+  print.c: In function 'ipset_print_port':
+  print.c:413: error: unused parameter 'opt'
+  print.c: In function 'ipset_print_proto':
+
+A possible fix is just to remove -Wunused, as -Wextra + -Wunused enables
+-Wunused-paramter.
 
 Signed-off-by: Holger Eitzenberger <holger@eitzenberger.org>
 
-Index: ipset/src/ipset.c
+Index: ipset/configure.ac
 ===================================================================
---- ipset.orig/src/ipset.c	2011-01-05 12:05:31.000000000 +0100
-+++ ipset/src/ipset.c	2011-01-05 12:07:02.000000000 +0100
-@@ -431,14 +431,6 @@
- 	const struct ipset_commands *command;
- 	const struct ipset_type *type;
+--- ipset.orig/configure.ac	2011-01-18 14:47:46.000000000 +0100
++++ ipset/configure.ac	2011-01-18 14:56:11.000000000 +0100
+@@ -144,7 +144,6 @@
+ AX_CFLAGS_GCC_OPTION(-Wstrict-prototypes)
+ AX_CFLAGS_GCC_OPTION(-Wswitch-default)
+ AX_CFLAGS_GCC_OPTION(-Wundef)
+-AX_CFLAGS_GCC_OPTION(-Wunused)
+ AX_CFLAGS_GCC_OPTION(-Wwrite-strings)
  
--	/* Initialize session */
--	if (session == NULL) {
--		session = ipset_session_init(printf);
--		if (session == NULL)
--			return exit_error(OTHER_PROBLEM,
--				"Cannot initialize ipset session, aborting.");
--	}
--
- 	/* Commandline parsing, somewhat similar to that of 'ip' */
- 
- 	/* First: parse core options */
-@@ -743,5 +735,10 @@
- 	ipset_type_add(&ipset_hash_ipportnet0);
- 	ipset_type_add(&ipset_list_set0);
- 
-+	session = ipset_session_init(printf);
-+	if (session == NULL)
-+		return exit_error(OTHER_PROBLEM,
-+						  "Cannot initialize ipset session, aborting.");
-+
- 	return parse_commandline(argc, argv);
- }
+ dnl Checks for library functions.
 
 -- 
