@@ -1,278 +1,150 @@
 From: Alan Ott <alan@signal11.us>
-Subject: [PATCH v5 3/4] hid: Add Support for Setting and Getting Feature Reports from hidraw
-Date: Tue, 18 Jan 2011 03:04:39 -0500
-Message-ID: <1295337880-12452-4-git-send-email-alan__1660.5727760636$1295339849$gmane$org@signal11.us>
+Subject: [PATCH v5 2/4] bt hidp: Wait for ACK on Sent Reports
+Date: Tue, 18 Jan 2011 03:04:38 -0500
+Message-ID: <1295337880-12452-3-git-send-email-alan__7983.33885982192$1295339851$gmane$org@signal11.us>
 References: <1295337880-12452-1-git-send-email-alan@signal11.us>
-Cc: Alan Ott <alan@signal11.us>,
-	Antonio Ospite <ospite@studenti.unina.it>
+Cc: Alan Ott <alan@signal11.us>
 To: Jiri Kosina <jkosina@suse.cz>,
 	Marcel Holtmann <marcel@holtmann.org>,
 	"Gustavo F. Padovan" <padovan@profusion.mobi>,
 	"David S. Miller" <davem@davemloft.net>,
 	Alan Ott <alan@signal11.
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from core.signal11.us ([64.251.29.136]:43407 "EHLO core.signal11.us"
+Received: from core.signal11.us ([64.251.29.136]:43408 "EHLO core.signal11.us"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752751Ab1ARIgx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752765Ab1ARIgx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 18 Jan 2011 03:36:53 -0500
 Received: from localhost (localhost.localdomain [127.0.0.1])
-	by core.signal11.us (Postfix) with SMTP id 9ED481CCABAF
-	for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 03:05:11 -0500 (EST)
+	by core.signal11.us (Postfix) with SMTP id 9F0DC1CCABAD
+	for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 03:05:10 -0500 (EST)
 In-Reply-To: <1295337880-12452-1-git-send-email-alan@signal11.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Per the HID Specification, Feature reports must be sent and received on
-the Configuration endpoint (EP 0) through the Set_Report/Get_Report
-interfaces.  This patch adds two ioctls to hidraw to set and get feature
-reports to and from the device.  Modifications were made to hidraw and
-usbhid.
-
-New hidraw ioctls:
-  HIDIOCSFEATURE - Perform a Set_Report transfer of a Feature report.
-  HIDIOCGFEATURE - Perform a Get_Report transfer of a Feature report.
+Wait for an ACK from the device before returning from
+hidp_output_raw_report(). This way, failures can be returned to the user
+application. Also, it prevents ACK/NAK packets from an output packet from
+being confused with ACK/NAK packets from an input request packet.
 
 Signed-off-by: Alan Ott <alan@signal11.us>
-Signed-off-by: Antonio Ospite <ospite@studenti.unina.it>
 ---
- drivers/hid/hidraw.c          |  106 ++++++++++++++++++++++++++++++++++++++--
- drivers/hid/usbhid/hid-core.c |   35 +++++++++++++
- include/linux/hid.h           |    3 +
- include/linux/hidraw.h        |    3 +
- 4 files changed, 141 insertions(+), 6 deletions(-)
+ net/bluetooth/hidp/core.c |   54 ++++++++++++++++++++++++++++++++++++++++++--
+ net/bluetooth/hidp/hidp.h |    4 +++
+ 2 files changed, 55 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/hid/hidraw.c b/drivers/hid/hidraw.c
-index 468e87b..8f06044 100644
---- a/drivers/hid/hidraw.c
-+++ b/drivers/hid/hidraw.c
-@@ -102,15 +102,14 @@ out:
- }
- 
- /* the first byte is expected to be a report number */
--static ssize_t hidraw_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
-+/* This function is to be called with the minors_lock mutex held */
-+static ssize_t hidraw_send_report(struct file *file, const char __user *buffer, size_t count, unsigned char report_type)
- {
- 	unsigned int minor = iminor(file->f_path.dentry->d_inode);
- 	struct hid_device *dev;
- 	__u8 *buf;
- 	int ret = 0;
- 
--	mutex_lock(&minors_lock);
--
- 	if (!hidraw_table[minor]) {
- 		ret = -ENODEV;
- 		goto out;
-@@ -148,14 +147,92 @@ static ssize_t hidraw_write(struct file *file, const char __user *buffer, size_t
- 		goto out_free;
- 	}
- 
--	ret = dev->hid_output_raw_report(dev, buf, count, HID_OUTPUT_REPORT);
-+	ret = dev->hid_output_raw_report(dev, buf, count, report_type);
- out_free:
- 	kfree(buf);
- out:
-+	return ret;
-+}
-+
-+/* the first byte is expected to be a report number */
-+static ssize_t hidraw_write(struct file *file, const char __user *buffer, size_t count, loff_t *ppos)
-+{
-+	ssize_t ret;
-+	mutex_lock(&minors_lock);
-+	ret = hidraw_send_report(file, buffer, count, HID_OUTPUT_REPORT);
- 	mutex_unlock(&minors_lock);
- 	return ret;
- }
- 
-+
-+/* This function performs a Get_Report transfer over the control endpoint
-+   per section 7.2.1 of the HID specification, version 1.1.  The first byte
-+   of buffer is the report number to request, or 0x0 if the defice does not
-+   use numbered reports. The report_type parameter can be HID_FEATURE_REPORT
-+   or HID_INPUT_REPORT.  This function is to be called with the minors_lock
-+   mutex held.  */
-+static ssize_t hidraw_get_report(struct file *file, char __user *buffer, size_t count, unsigned char report_type)
-+{
-+	unsigned int minor = iminor(file->f_path.dentry->d_inode);
-+	struct hid_device *dev;
-+	__u8 *buf;
-+	int ret = 0, len;
-+	unsigned char report_number;
-+
-+	dev = hidraw_table[minor]->hid;
-+
-+	if (!dev->hid_get_raw_report) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	if (count > HID_MAX_BUFFER_SIZE) {
-+		printk(KERN_WARNING "hidraw: pid %d passed too large report\n",
-+				task_pid_nr(current));
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (count < 2) {
-+		printk(KERN_WARNING "hidraw: pid %d passed too short report\n",
-+				task_pid_nr(current));
-+		ret = -EINVAL;
-+		goto out;
-+	}
-+
-+	buf = kmalloc(count * sizeof(__u8), GFP_KERNEL);
-+	if (!buf) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+
-+	/* Read the first byte from the user. This is the report number,
-+	   which is passed to dev->hid_get_raw_report(). */
-+	if (copy_from_user(&report_number, buffer, 1)) {
-+		ret = -EFAULT;
-+		goto out_free;
-+	}
-+
-+	ret = dev->hid_get_raw_report(dev, report_number, buf, count, report_type);
-+
-+	if (ret < 0)
-+		goto out_free;
-+
-+	len = (ret < count) ? ret : count;
-+
-+	if (copy_to_user(buffer, buf, len)) {
-+		ret = -EFAULT;
-+		goto out_free;
-+	}
-+
-+	ret = len;
-+
-+out_free:
-+	kfree(buf);
-+out:
-+	return ret;
-+}
-+
- static unsigned int hidraw_poll(struct file *file, poll_table *wait)
- {
- 	struct hidraw_list *list = file->private_data;
-@@ -295,7 +372,24 @@ static long hidraw_ioctl(struct file *file, unsigned int cmd,
- 		default:
- 			{
- 				struct hid_device *hid = dev->hid;
--				if (_IOC_TYPE(cmd) != 'H' || _IOC_DIR(cmd) != _IOC_READ) {
-+				if (_IOC_TYPE(cmd) != 'H') {
-+					ret = -EINVAL;
-+					break;
-+				}
-+
-+				if (_IOC_NR(cmd) == _IOC_NR(HIDIOCSFEATURE(0))) {
-+					int len = _IOC_SIZE(cmd);
-+					ret = hidraw_send_report(file, user_arg, len, HID_FEATURE_REPORT);
-+					break;
-+				}
-+				if (_IOC_NR(cmd) == _IOC_NR(HIDIOCGFEATURE(0))) {
-+					int len = _IOC_SIZE(cmd);
-+					ret = hidraw_get_report(file, user_arg, len, HID_FEATURE_REPORT);
-+					break;
-+				}
-+
-+				/* Begin Read-only ioctls. */
-+				if (_IOC_DIR(cmd) != _IOC_READ) {
- 					ret = -EINVAL;
- 					break;
- 				}
-@@ -327,7 +421,7 @@ static long hidraw_ioctl(struct file *file, unsigned int cmd,
- 						-EFAULT : len;
- 					break;
- 				}
--		}
-+			}
- 
- 		ret = -ENOTTY;
- 	}
-diff --git a/drivers/hid/usbhid/hid-core.c b/drivers/hid/usbhid/hid-core.c
-index b336dd8..38c261a 100644
---- a/drivers/hid/usbhid/hid-core.c
-+++ b/drivers/hid/usbhid/hid-core.c
-@@ -799,6 +799,40 @@ static int hid_alloc_buffers(struct usb_device *dev, struct hid_device *hid)
- 	return 0;
- }
- 
-+static int usbhid_get_raw_report(struct hid_device *hid,
-+		unsigned char report_number, __u8 *buf, size_t count,
-+		unsigned char report_type)
-+{
-+	struct usbhid_device *usbhid = hid->driver_data;
-+	struct usb_device *dev = hid_to_usb_dev(hid);
-+	struct usb_interface *intf = usbhid->intf;
-+	struct usb_host_interface *interface = intf->cur_altsetting;
-+	int skipped_report_id = 0;
-+	int ret;
-+
-+	/* Byte 0 is the report number. Report data starts at byte 1.*/
-+	buf[0] = report_number;
-+	if (report_number == 0x0) {
-+		/* Offset the return buffer by 1, so that the report ID
-+		   will remain in byte 0. */
-+		buf++;
-+		count--;
-+		skipped_report_id = 1;
-+	}
-+	ret = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
-+		HID_REQ_GET_REPORT,
-+		USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-+		((report_type + 1) << 8) | report_number,
-+		interface->desc.bInterfaceNumber, buf, count,
-+		USB_CTRL_SET_TIMEOUT);
-+
-+	/* count also the report id */
-+	if (ret > 0 && skipped_report_id)
-+		ret++;
-+
-+	return ret;
-+}
-+
- static int usbhid_output_raw_report(struct hid_device *hid, __u8 *buf, size_t count,
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 67cc4bc..5383e6c 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -316,6 +316,9 @@ static int hidp_send_report(struct hidp_session *session, struct hid_report *rep
+ static int hidp_output_raw_report(struct hid_device *hid, unsigned char *data, size_t count,
  		unsigned char report_type)
  {
-@@ -1139,6 +1173,7 @@ static int usbhid_probe(struct usb_interface *intf, const struct usb_device_id *
- 
- 	usb_set_intfdata(intf, hid);
- 	hid->ll_driver = &usb_hid_driver;
-+	hid->hid_get_raw_report = usbhid_get_raw_report;
- 	hid->hid_output_raw_report = usbhid_output_raw_report;
- 	hid->ff_init = hid_pidff_init;
- #ifdef CONFIG_USB_HIDDEV
-diff --git a/include/linux/hid.h b/include/linux/hid.h
-index d91c25e..e8ee0a9 100644
---- a/include/linux/hid.h
-+++ b/include/linux/hid.h
-@@ -504,6 +504,9 @@ struct hid_device {							/* device report descriptor */
- 				  struct hid_usage *, __s32);
- 	void (*hiddev_report_event) (struct hid_device *, struct hid_report *);
- 
-+	/* handler for raw input (Get_Report) data, used by hidraw */
-+	int (*hid_get_raw_report) (struct hid_device *, unsigned char, __u8 *, size_t, unsigned char);
++	struct hidp_session *session = hid->driver_data;
++	int ret;
 +
- 	/* handler for raw output data, used by hidraw */
- 	int (*hid_output_raw_report) (struct hid_device *, __u8 *, size_t, unsigned char);
+ 	switch (report_type) {
+ 	case HID_FEATURE_REPORT:
+ 		report_type = HIDP_TRANS_SET_REPORT | HIDP_DATA_RTYPE_FEATURE;
+@@ -327,10 +330,47 @@ static int hidp_output_raw_report(struct hid_device *hid, unsigned char *data, s
+ 		return -EINVAL;
+ 	}
  
-diff --git a/include/linux/hidraw.h b/include/linux/hidraw.h
-index dd8d692..4b88e69 100644
---- a/include/linux/hidraw.h
-+++ b/include/linux/hidraw.h
-@@ -35,6 +35,9 @@ struct hidraw_devinfo {
- #define HIDIOCGRAWINFO		_IOR('H', 0x03, struct hidraw_devinfo)
- #define HIDIOCGRAWNAME(len)     _IOC(_IOC_READ, 'H', 0x04, len)
- #define HIDIOCGRAWPHYS(len)     _IOC(_IOC_READ, 'H', 0x05, len)
-+/* The first byte of SFEATURE and GFEATURE is the report number */
-+#define HIDIOCSFEATURE(len)    _IOC(_IOC_WRITE|_IOC_READ, 'H', 0x06, len)
-+#define HIDIOCGFEATURE(len)    _IOC(_IOC_WRITE|_IOC_READ, 'H', 0x07, len)
++	if (mutex_lock_interruptible(&session->report_mutex))
++		return -ERESTARTSYS;
++
++	/* Set up our wait, and send the report request to the device. */
++	set_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags);
+ 	if (hidp_send_ctrl_message(hid->driver_data, report_type,
+-			data, count))
+-		return -ENOMEM;
+-	return count;
++			data, count)) {
++		ret = -ENOMEM;
++		goto err;
++	}
++
++	/* Wait for the ACK from the device. */
++	while (test_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags)) {
++		int res;
++
++		res = wait_event_interruptible_timeout(session->report_queue,
++			!test_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags),
++			10*HZ);
++		if (res == 0) {
++			/* timeout */
++			ret = -EIO;
++			goto err;
++		}
++		if (res < 0) {
++			/* signal */
++			ret = -ERESTARTSYS;
++			goto err;
++		}
++	}
++
++	if (!session->output_report_success) {
++		ret = -EIO;
++		goto err;
++	}
++
++	ret = count;
++
++err:
++	clear_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags);
++	mutex_unlock(&session->report_mutex);
++	return ret;
+ }
  
- #define HIDRAW_FIRST_MINOR 0
- #define HIDRAW_MAX_DEVICES 64
+ static void hidp_idle_timeout(unsigned long arg)
+@@ -357,10 +397,12 @@ static void hidp_process_handshake(struct hidp_session *session,
+ 					unsigned char param)
+ {
+ 	BT_DBG("session %p param 0x%02x", session, param);
++	session->output_report_success = 0; /* default condition */
+ 
+ 	switch (param) {
+ 	case HIDP_HSHK_SUCCESSFUL:
+ 		/* FIXME: Call into SET_ GET_ handlers here */
++		session->output_report_success = 1;
+ 		break;
+ 
+ 	case HIDP_HSHK_NOT_READY:
+@@ -385,6 +427,12 @@ static void hidp_process_handshake(struct hidp_session *session,
+ 			HIDP_TRANS_HANDSHAKE | HIDP_HSHK_ERR_INVALID_PARAMETER, NULL, 0);
+ 		break;
+ 	}
++
++	/* Wake up the waiting thread. */
++	if (test_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags)) {
++		clear_bit(HIDP_WAITING_FOR_SEND_ACK, &session->flags);
++		wake_up_interruptible(&session->report_queue);
++	}
+ }
+ 
+ static void hidp_process_hid_control(struct hidp_session *session,
+diff --git a/net/bluetooth/hidp/hidp.h b/net/bluetooth/hidp/hidp.h
+index 2cc35dc..92e093e 100644
+--- a/net/bluetooth/hidp/hidp.h
++++ b/net/bluetooth/hidp/hidp.h
+@@ -80,6 +80,7 @@
+ #define HIDP_VIRTUAL_CABLE_UNPLUG	0
+ #define HIDP_BOOT_PROTOCOL_MODE		1
+ #define HIDP_BLUETOOTH_VENDOR_ID	9
++#define HIDP_WAITING_FOR_SEND_ACK	11
+ 
+ struct hidp_connadd_req {
+ 	int   ctrl_sock;	// Connected control socket
+@@ -154,6 +155,9 @@ struct hidp_session {
+ 	struct sk_buff_head ctrl_transmit;
+ 	struct sk_buff_head intr_transmit;
+ 
++	/* Used in hidp_output_raw_report() */
++	int output_report_success; /* boolean */
++
+ 	/* Report descriptor */
+ 	__u8 *rd_data;
+ 	uint rd_size;
 -- 
 1.7.0.4
 
