@@ -1,44 +1,28 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: inbound connection problems when "netlink: test for all flags
- of the NLM_F_DUMP composite" commit applied
-Date: Tue, 18 Jan 2011 09:07:33 -0500
-Message-ID: <1295359653.2066.11.camel@mojatatu>
-References: <4D336050.9030602@netfilter.org>
-	 <20110118093811.GA7520@ff.dom.local>
-	 <20110118.020702.115924992.davem@davemloft.net>
-	 <20110118102437.GB7520@ff.dom.local>  <1295359503.2066.10.camel@mojatatu>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH v2 resend] netfilter: remove an atomic bit operation
+Date: Tue, 18 Jan 2011 15:08:41 +0100
+Message-ID: <4D359EE9.5070203@trash.net>
+References: <1295090580-14472-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
-	arthur.marsh@internode.on.net, jengelh@medozas.de,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f174.google.com ([209.85.216.174]:63204 "EHLO
-	mail-qy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962Ab1AROHe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 09:07:34 -0500
-Received: by qyj19 with SMTP id 19so3219284qyj.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 06:07:33 -0800 (PST)
-In-Reply-To: <1295359503.2066.10.camel@mojatatu>
+Received: from stinky.trash.net ([213.144.137.162]:56289 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751859Ab1AROIm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 09:08:42 -0500
+In-Reply-To: <1295090580-14472-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-18 at 09:05 -0500, jamal wrote:
-> On Tue, 2011-01-18 at 10:24 +0000, Jarek Poplawski wrote:
+On 15.01.2011 12:23, Changli Gao wrote:
+> As this ct won't be seen by the others, we don't need to set the
+> IPS_CONFIRMED_BIT in atomic way.
 > 
-> > Do you all expect all users manage to upgrade avahi app before
-> > changing their stable kernel? I mean "own distro" users especially.
-> 
-> Unfortunately if that app is widely deployed, it is not pragmatic
-> to break it in the name of pedanticity. 
 
-And to complete that thought - if avahi continues to work and merely
-whines, i dont see why this patch should be reverted..
-
-cheers,
-jamal
-
-
+Applied, thanks.
