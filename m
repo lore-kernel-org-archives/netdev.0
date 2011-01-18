@@ -1,152 +1,61 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
- single TCP session balancing
-Date: Tue, 18 Jan 2011 22:20:08 +0100
-Message-ID: <4D360408.1080104@gmail.com>
-References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Tue, 18 Jan 2011 13:28:58 -0800
+Message-ID: <4D36061A.5060108@hp.com>
+References: <20110110093155.GB13420@verge.net.au>	<20110113064718.GA17905@verge.net.au>	<AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>	<20110113234135.GC8426@verge.net.au>	<20110114045818.GA29738@redhat.com>	<20110114063528.GB10957@verge.net.au>	<20110114065415.GA30300@redhat.com>	<20110116223728.GA6279@verge.net.au>	<20110117102655.GH23479@redhat.com> <4D35ECE2.4040901@hp.com> <20110118201333.GD18760@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Oleg V. Ukhno" <olegu@yandex-team.ru>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
-	Christophe Paasch <christoph.paasch@uclouvain.be>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f42.google.com ([74.125.82.42]:35000 "EHLO
-	mail-ww0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750961Ab1ARVUL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 16:20:11 -0500
-Received: by wwi17 with SMTP id 17so3708531wwi.1
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 13:20:10 -0800 (PST)
-In-Reply-To: <28837.1295382268@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>, Jesse Gross <jesse@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110118201333.GD18760@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 18/01/2011 21:24, Jay Vosburgh a =C3=A9crit :
-> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
+Michael S. Tsirkin wrote:
+> On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
+> 
+>>PS - the enhanced latency statistics from -j are only available in
+>>the "omni" version of the TCP_RR test.  To get that add a
+>>--enable-omni to the ./configure - and in this case both netperf and
+>>netserver have to be recompiled.
+> 
+> Is this TCP only? I would love to get latency data from UDP as well.
 
->>>> - it is possible to detect path failure using arp monitoring inste=
-ad of
->>>> miimon.
->
-> 	I don't think this is true, at least not for the case of
-> balance-rr.  Using ARP monitoring with any sort of load balance schem=
-e
-> is problematic, because the replies may be balanced to a different sl=
-ave
-> than the sender.
+I believe it will work with UDP request response as well.  The omni test code 
+strives to be protocol agnostic.  (I'm sure there are bugs of course, there 
+always are.)
 
-Cannot we achieve the expected arp monitoring by using the exact same a=
-rtifice that Oleg suggested:=20
-using a different source MAC per slave for arp monitoring, so that retu=
-rn path match sending path ?
+There is though the added complication of there being no specific matching of 
+requests to responses.  The code as written takes advantage of TCP's in-order 
+semantics and recovery from packet loss.  In a "plain" UDP_RR test, with one at 
+a time transactions, if either the request or response are lost, data flow 
+effectively stops there until the timer expires.  So, one has "reasonable" RTT 
+numbers from before that point.  In a burst UDP RR test, the code doesn't know 
+which request/response was lost and so the matching being done to get RTTs will 
+be off by each lost datagram.  And if something were re-ordered the timstamps 
+would be off even without a datagram loss event.
 
->>>> - changing the destination MAC address of egress packets are not
->>>> necessary, because egress path selection force ingress path select=
-ion
->>>> due to the VLAN.
->
-> 	This is true, with one comment: Oleg's proposal we're discussing
-> changes the source MAC address of outgoing packets, not the destinati=
-on.
-> The purpose being to manipulate the src-mac balancing algorithm on th=
-e
-> switch when the packets are hashed at the egress port channel group.
-> The packets (for a particular destination) all bear the same destinat=
-ion
-> MAC, but (as I understand it) are manually assigned tailored source M=
-AC
-> addresses that hash to sequential values.
+To "fix" that would require netperf do something it has not yet done in 18-odd 
+years :)  That is actually echo something back from the netserver on the RR test 
+- either an id, or a timestamp.  That means "dirtying" the buffers which means 
+still more cache misses, from places other than the actual stack. Not beyond the 
+realm of the possible, but it would be a bit of departure for "normal" operation 
+(*) and could enforce a minimum request/response size beyond the present single 
+byte (ok, perhaps only two or four bytes :).  But that, perhaps, is a discussion 
+best left to netperf-talk at netperf.org.
 
-Yes, you're right.
+happy benchmarking,
 
-> 	That's true.  The big problem with the "VLAN tunnel" approach is
-> that it's not tolerant of link failures.
+rick jones
 
-Yes, except if we find a way to make arp monitoring reliable in load ba=
-lancing situation.
-
-[snip]
-
-> 	This is essentially the same thing as the diagram I pasted in up
-> above, except with VLANs and an additional layer of switches between =
-the
-> hosts.  The multiple VLANs take the place of multiple discrete switch=
-es.
->
-> 	This could also be accomplished via bridge groups (in
-> Cisco-speak).  For example, instead of VLAN 100, that could be bridge
-> group X, VLAN 200 is bridge group Y, and so on.
->
-> 	Neither the VLAN nor the bridge group methods handle link
-> failures very well; if, in the above diagram, the link from "switch 2
-> vlan 100" to "host B" fails, there's no way for host A to know to sto=
-p
-> sending to "switch 1 vlan 100," and there's no backup path for VLAN 1=
-00
-> to "host B."
-
-Can't we imagine to "arp monitor" the destination MAC address of host B=
-, on both paths ? That way,=20
-host A would know that a given path is down, because return path would =
-be the same. The target host=20
-should send the reply on the slave on which it receive the request, whi=
-ch is the normal way to reply=20
-to arp request.
-
-> 	One item I'd like to see some more data on is the level of
-> reordering at the receiver in Oleg's system.
-
-This is exactly the reason why I asked Oleg to do some test with balanc=
-e-rr. I cannot find a good=20
-reason for a possibly new xmit_hash_policy to provide better throughput=
- than current balance-rr. If=20
-the throughput increase by, let's say, less than 20%, whatever tcp_reor=
-dering value, then it is=20
-probably a dead end way.
-
-> 	One of the reasons round robin isn't as useful as it once was is
-> due to the rise of NAPI and interrupt coalescing, both of which will
-> tend to increase the reordering of packets at the receiver when the
-> packets are evenly striped.  In the old days, it was one interrupt, o=
-ne
-> packet.  Now, it's one interrupt or NAPI poll, many packets.  With th=
-e
-> packets striped across interfaces, this will tend to increase
-> reordering.  E.g.,
->
-> 	slave 1		slave 2		slave 3
-> 	Packet 1	P2		P3
-> 	P4		P5		P6
-> 	P7		P8		P9
->
-> 	and so on.  A poll of slave 1 will get packets 1, 4 and 7 (and
-> probably several more), then a poll of slave 2 will get 2, 5 and 8, e=
-tc.
-
-Any chance to receive P1, P2, P3 on slave 1, P4, P5, P6 on slave 2 et P=
-7, P8, P9 on slave3, possibly=20
-by sending grouped packets, changing the sending slave every N packets =
-instead of every packet ? I=20
-think we already discussed this possibility a few months or years ago i=
-n bonding-devel ML. For as=20
-far as I remember, the idea was not developed because it was not easy t=
-o find the number of packets=20
-to send through the same slave. Anyway, this might help reduce out of o=
-rder delivery.
-
-> 	Barring evidence to the contrary, I presume that Oleg's system
-> delivers out of order at the receiver.  That's not automatically a
-> reason to reject it, but this entire proposal is sufficiently complex=
- to
-> configure that very explicit documentation will be necessary.
-
-Yes, and this is already true for some bonding modes and in particular =
-for balance-rr.
-
-	Nicolas.
+(*) netperf does have the concept of reading from and/or dirtying buffers, 
+put-in back in the days of COW/page-remapping in HP-UX 9.0, but that was mainly 
+to force COW and/or show the effect of the required data cache purges/flushes. 
+As such it was made conditional on DIRTY being defined.
