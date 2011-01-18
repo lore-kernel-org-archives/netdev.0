@@ -1,92 +1,46 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH 1/3] vhost-net: check the support of mergeable buffer
- outside the receive loop
-Date: Tue, 18 Jan 2011 17:15:10 +0800
-Message-ID: <19765.23070.227449.870448@gargle.gargle.HOWL>
-References: <20110117081058.18900.67456.stgit@dhcp-91-7.nay.redhat.com.englab.nay.redhat.com>
-	<20110117084644.GB23479@redhat.com>
-	<19765.5737.352179.50100@gargle.gargle.HOWL>
-	<20110118043650.GA2233@redhat.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v2 1/3] can: at91_can: clean up usage of AT91_MB_RX_FIRST
+	and	AT91_MB_RX_NUM
+Date: Tue, 18 Jan 2011 10:26:11 +0100
+Message-ID: <4D355CB3.8000508@grandegger.com>
+References: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>	<1294752085-30151-2-git-send-email-mkl@pengutronix.de>
+	<4D349D8C.3010403@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110118043650.GA2233@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D349D8C.3010403-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Michael S. Tsirkin writes:
- > On Tue, Jan 18, 2011 at 12:26:17PM +0800, Jason Wang wrote:
- > > Michael S. Tsirkin writes:
- > >  > On Mon, Jan 17, 2011 at 04:10:59PM +0800, Jason Wang wrote:
- > >  > > No need to check the support of mergeable buffer inside the recevie
- > >  > > loop as the whole handle_rx()_xx is in the read critical region.  So
- > >  > > this patch move it ahead of the receiving loop.
- > >  > > 
- > >  > > Signed-off-by: Jason Wang <jasowang@redhat.com>
- > >  > 
- > >  > Well feature check is mostly just features & bit
- > >  > so why would it be slower? Because of the rcu
- > >  > adding memory barriers? Do you observe a
- > >  > measureable speedup with this patch?
- > >  > 
- > > 
- > > I do not measure the performance for just this patch, maybe not obvious. And it
- > > can also help the code unification.
- > > 
- > >  > Apropos, I noticed that the check in vhost_has_feature
- > >  > is wrong: it uses the same kind of RCU as the
- > >  > private pointer. So we'll have to fix that properly
- > >  > by adding more lockdep classes, but for now
- > >  > we'll need to make
- > >  > the check 1 || lockdep_is_held(&dev->mutex);
- > >  > and add a TODO.
- > >  > 
- > > 
- > > Not sure, lockdep_is_head(&dev->mutex) maybe not accurate but sufficient, as it
- > > was always held in the read critical region.
- > 
- > Not really, when we call vhost_has_feature from the vq handling thread
- > it's not.
- > 
+On 01/17/2011 08:50 PM, Marc Kleine-Budde wrote:
+> On 01/11/2011 02:21 PM, Marc Kleine-Budde wrote:
+>> This patch cleans up the usage of two macros which specify the mailbox
+>> usage. AT91_MB_RX_FIRST and AT91_MB_RX_NUM define the first and the
+>> number of RX mailboxes. The current driver uses these variables in an
+>> unclean way; assuming that AT91_MB_RX_FIRST is 0;
+>>
+>> This patch cleans up the usage of these macros, no longer assuming
+>> AT91_MB_RX_FIRST == 0.
+>>
+>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> 
+> Any comments on this?
 
-Seems not, see vhost_net_ioctl().
+Looks fine too me. You can add my:
 
- > >  > > ---
- > >  > >  drivers/vhost/net.c |    5 +++--
- > >  > >  1 files changed, 3 insertions(+), 2 deletions(-)
- > >  > > 
- > >  > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
- > >  > > index 14fc189..95e49de 100644
- > >  > > --- a/drivers/vhost/net.c
- > >  > > +++ b/drivers/vhost/net.c
- > >  > > @@ -411,7 +411,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
- > >  > >  	};
- > >  > >  
- > >  > >  	size_t total_len = 0;
- > >  > > -	int err, headcount;
- > >  > > +	int err, headcount, mergeable;
- > >  > >  	size_t vhost_hlen, sock_hlen;
- > >  > >  	size_t vhost_len, sock_len;
- > >  > >  	struct socket *sock = rcu_dereference(vq->private_data);
- > >  > > @@ -425,6 +425,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
- > >  > >  
- > >  > >  	vq_log = unlikely(vhost_has_feature(&net->dev, VHOST_F_LOG_ALL)) ?
- > >  > >  		vq->log : NULL;
- > >  > > +	mergeable = vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF);
- > >  > >  
- > >  > >  	while ((sock_len = peek_head_len(sock->sk))) {
- > >  > >  		sock_len += sock_hlen;
- > >  > > @@ -474,7 +475,7 @@ static void handle_rx_mergeable(struct vhost_net *net)
- > >  > >  			break;
- > >  > >  		}
- > >  > >  		/* TODO: Should check and handle checksum. */
- > >  > > -		if (vhost_has_feature(&net->dev, VIRTIO_NET_F_MRG_RXBUF) &&
- > >  > > +		if (likely(mergeable) &&
- > >  > >  		    memcpy_toiovecend(vq->hdr, (unsigned char *)&headcount,
- > >  > >  				      offsetof(typeof(hdr), num_buffers),
- > >  > >  				      sizeof hdr.num_buffers)) {
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+
+Thanks,
+
+Wolfgang.
