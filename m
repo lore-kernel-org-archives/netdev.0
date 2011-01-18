@@ -1,35 +1,31 @@
-From: Mel Gorman <mel@csn.ul.ie>
-Subject: Re: [PATCH] vhost: rcu annotation fixup
-Date: Wed, 19 Jan 2011 00:40:40 +0000
-Message-ID: <20110119004040.GE18984@csn.ul.ie>
-References: <20110118110845.GA11555@redhat.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: tool to send unsolicited neighbour advertisements?
+Date: Tue, 18 Jan 2011 14:42:27 -0600
+Message-ID: <4D35FB33.1080305@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110118110845.GA11555@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 18, 2011 at 01:08:45PM +0200, Michael S. Tsirkin wrote:
-> When built with rcu checks enabled, vhost triggers
-> bogus warnings as vhost features are read without
-> dev->mutex sometimes.
-> Fixing it properly is not trivial as vhost.h does not
-> know which lockdep classes it will be used under.
-> Disable the warning by stubbing out the check for now.
-> 
 
-What is the harm in leaving the bogus warnings until the difficult fix
-happens? RCU checks enabled does not seem like something that is enabled
-in production. If this patch is applied, there is always the risk that
-it'll be simply forgotten about.
+Hi,
+
+We're transitioning stuff to IPv6 and I've been trying (without much
+luck) to find a standard tool for sending out unsolicited neighbour
+advertisements for failover purposes.
+
+Is there such a thing?  In ipv4 arping works fine.
+
+Thanks,
+Chris
 
 -- 
-Mel Gorman
-Part-time Phd Student                          Linux Technology Center
-University of Limerick                         IBM Dublin Software Lab
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
