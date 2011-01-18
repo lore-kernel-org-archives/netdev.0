@@ -1,51 +1,103 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: inbound connection problems when "netlink: test for all flags
- of the NLM_F_DUMP composite" commit applied
-Date: Tue, 18 Jan 2011 19:28:52 +0100
-Message-ID: <20110118182852.GC4202@del.dom.local>
-References: <20110118172340.GB1843@del.dom.local>
- <AANLkTikUPRfYupw1-Py5mHeN+pFv-zMKhmK3DKixxsH4@mail.gmail.com>
- <alpine.LNX.2.01.1101181921320.17010@obet.zrqbmnf.qr>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: rps testing questions
+Date: Tue, 18 Jan 2011 10:23:44 -0800
+Message-ID: <4D35DAB0.9030201@hp.com>
+References: <AANLkTin1pC=auiFBt83YomdhVgUO8uSdvq=tPaDu0=3U@mail.gmail.com> <1295269713.3700.5.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alessandro Suardi <alessandro.suardi@gmail.com>,
-	jamal <hadi@cyberus.ca>, David Miller <davem@davemloft.net>,
-	pablo@netfilter.org, arthur.marsh@internode.on.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mi wake <wakemi.wake@gmail.com>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:59195 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab1ARS27 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 13:28:59 -0500
-Received: by ewy5 with SMTP id 5so3491790ewy.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 10:28:58 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1101181921320.17010@obet.zrqbmnf.qr>
+Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:23519 "EHLO
+	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751122Ab1ARScz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 13:32:55 -0500
+In-Reply-To: <1295269713.3700.5.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 18, 2011 at 07:24:40PM +0100, Jan Engelhardt wrote:
-> 
-> On Tuesday 2011-01-18 19:10, Alessandro Suardi wrote:
-> >On Tue, Jan 18, 2011 at 6:23 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> >>
-> >> NLM_F_DUMP flags should be applied to GET requests only, eg. rtnetlink
-> >> tests message type to verify this. Since genetlink can't do the same
-> >> use "practical" test for ops->dumpit (assuming NEW request won't be
-> >> mixed with GET).
-...
-> >2.6.37-git18 + netlink revert + this patch
-> > - fixes Avahi
-> > - breaks acpid
-> >Starting acpi daemon: RTNETLINK1 answers: Operation not supported
-> >acpid: error talking to the kernel via netlink
-> 
-> Deducing from that, it is a GET-like request that was sent by acpid, 
-> and the message type is one that has both a dumpit and a doit function.
-> So if EOPNOTSUPP now occurs on all message types that have both dumpit 
-> and doit, you should have broken a lot more than just acpid.
+Ben Hutchings wrote:
+> On Mon, 2011-01-17 at 17:43 +0800, mi wake wrote:
+>=20
+>>I do a rps(Receive Packet Steering) testing on centos 5.5 with  kerne=
+l 2.6.37.
+>>cpu: 8 core Intel.
+>>ethernet adapter: bnx2x
+>>
+>>Problem statement:
+>>enable rps with:
+>>echo "ff" > /sys/class/net/eth2/queues/rx-0/rps_cpus.
+>>
+>>running 1 instances of netperf TCP_RR: netperf  -t TCP_RR -H 192.168.=
+0.1 -c -C
+>>without rps: 9963.48(Trans Rate per sec)
+>>with rps:  9387.59(Trans Rate per sec)
 
-Right, we need something better here.
+Presumably there was an increase in service demand corresponding with t=
+he drop=20
+in transactions per second.
 
-Jarek P.
+Also, an unsolicited benchmarking style tip or two.  I find it helpful =
+to either=20
+do several discrete runs, or use the confidence intervals (global -i an=
+d -I=20
+options) with the TCP_RR tests when I am looking to compare two setting=
+s.  I=20
+find a bit more "variability" in the _RR tests than the _STREAM tests.
+
+http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#index-g_t_00=
+2dI_002c-Global-26
+
+Pinning netperf/netserver is also something I tend to do, but combining=
+ that=20
+with  confidence intervals, RPS is kind of difficult - the successive d=
+ata=20
+connections made while running the iterations of the confidence interva=
+ls will=20
+have different port numbers and so different hashing.  That would cause=
+ RPS to=20
+put the connections on different cores in turn, which would, in conjunc=
+tion with=20
+netperf/netserver being pinned to a core cause the relationship between=
+ where=20
+netperf runs and where netserver runs to change.  That will likely resu=
+lt in=20
+cache to cache (processor cache) transfers which will definitely up the=
+ service=20
+demand and drop the single-stream transactions per second.
+
+In theory :) with RFS that should not be an issue since where netperf/n=
+etserver=20
+are pinned controls where the inbound processing takes place.
+
+We are in a maze of twisty heuristics... :)
+
+>>I do ab and tbench testing also find there is less tps with enable
+>>rps.but,there is more cpu using when with enable rps.when with enable
+>>rps =EF=BC=8Csoftirqs is blanced  on cpus.
+>>
+>>is there something wrong with my test=EF=BC=9F
+>=20
+>=20
+> In addition to what Eric said, check the interrupt moderation setting=
+s
+> (ethtool -c/-C options).  One-way latency for a single request/respon=
+se
+> test will be at least the interrupt moderation value.
+>=20
+> I haven't tested RPS by itself (Solarflare NICs have plenty of hardwa=
+re
+> queues) so I don't know whether it can improve latency.  However, RFS
+> certainly does when there are many flows.
+
+Is there actually an expectation that either RPS or RFS would improve *=
+latency*?=20
+  Multiple-stream throughput certainly, but with the additional work do=
+ne to=20
+spread things around, I wouldn't expect either to improve latency.
+
+happy benchmarking,
+
+rick jones
