@@ -1,102 +1,51 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] vhost: rcu annotation fixup
-Date: Tue, 18 Jan 2011 12:28:46 -0800
-Message-ID: <20110118202846.GN2193@linux.vnet.ibm.com>
-References: <20110118110845.GA11555@redhat.com>
- <20110118174834.GF2193@linux.vnet.ibm.com>
- <20110118175500.GA6935@redhat.com>
- <20110118190232.GM2193@linux.vnet.ibm.com>
- <20110118201031.GC18760@redhat.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: inbound connection problems when "netlink: test for all flags
+ of the NLM_F_DUMP composite" commit applied
+Date: Tue, 18 Jan 2011 21:31:31 +0100
+Message-ID: <4D35F8A3.1010600@netfilter.org>
+References: <4D336050.9030602@netfilter.org> <20110118093811.GA7520@ff.dom.local> <20110118.020702.115924992.davem@davemloft.net> <20110118102437.GB7520@ff.dom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110118201031.GC18760@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, arthur.marsh@internode.on.net,
+	jengelh@medozas.de, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	hadi@cyberus.ca
+To: Jarek Poplawski <jarkao2@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:39628 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753661Ab1ARUbf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jan 2011 15:31:35 -0500
+In-Reply-To: <20110118102437.GB7520@ff.dom.local>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 18, 2011 at 10:10:31PM +0200, Michael S. Tsirkin wrote:
-> On Tue, Jan 18, 2011 at 11:02:33AM -0800, Paul E. McKenney wrote:
-> > On Tue, Jan 18, 2011 at 07:55:00PM +0200, Michael S. Tsirkin wrote:
-> > > On Tue, Jan 18, 2011 at 09:48:34AM -0800, Paul E. McKenney wrote:
-> > > > On Tue, Jan 18, 2011 at 01:08:45PM +0200, Michael S. Tsirkin wrote:
-> > > > > When built with rcu checks enabled, vhost triggers
-> > > > > bogus warnings as vhost features are read without
-> > > > > dev->mutex sometimes.
-> > > > > Fixing it properly is not trivial as vhost.h does not
-> > > > > know which lockdep classes it will be used under.
-> > > > > Disable the warning by stubbing out the check for now.
-> > > > > 
-> > > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > > > > ---
-> > > > >  drivers/vhost/vhost.h |    4 +---
-> > > > >  1 files changed, 1 insertions(+), 3 deletions(-)
-> > > > > 
-> > > > > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-> > > > > index 2af44b7..2d03a31 100644
-> > > > > --- a/drivers/vhost/vhost.h
-> > > > > +++ b/drivers/vhost/vhost.h
-> > > > > @@ -173,9 +173,7 @@ static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
-> > > > >  {
-> > > > >  	unsigned acked_features;
-> > > > > 
-> > > > > -	acked_features =
-> > > > > -		rcu_dereference_index_check(dev->acked_features,
-> > > > > -					    lockdep_is_held(&dev->mutex));
-> > > > > +	acked_features = rcu_dereference_index_check(dev->acked_features, 1);
-> > > > 
-> > > > Ouch!!!
-> > > > 
-> > > > Could you please at least add a comment?
-> > > 
-> > > Yes, OK.
-> > > 
-> > > > Alternatively, pass in the lock that is held and check for that?  Given
-> > > > that this is a static inline, the compiler should be able to optimize
-> > > > the argument away when !PROVE_RCU, correct?
-> > > > 
-> > > > 							Thanx, Paul
-> > > 
-> > > Hopefully, yes. We don't always have a lock: the idea was
-> > > to create a lockdep for these cases. But we can't pass
-> > > the pointer to that ...
-> > 
-> > I suppose you could pass a pointer to the lockdep map structure.
-> > Not sure if this makes sense, but it would handle the situation.
+On 18/01/11 11:24, Jarek Poplawski wrote:
+> On Tue, Jan 18, 2011 at 02:07:02AM -0800, David Miller wrote:
+>> From: Jarek Poplawski <jarkao2@gmail.com>
+>> Date: Tue, 18 Jan 2011 09:38:11 +0000
+>>
+>>> Even if I'm wrong, this change added to stable will break many configs.
+>>> My proposal is to revert commit 0ab03c2b147 until proper fix is found.
+>>
+>> The flag combination is, at best ambiguous, it has no proper
+>> definition without the check we added.
 > 
-> Will it compile with lockdep disabled too? What will the pointer be?
+> Do you all expect all users manage to upgrade avahi app before
+> changing their stable kernel? I mean "own distro" users especially.
 
-One (crude) approach would be to make the pointer void* if lockdep
-is disabled.
+The combination that avahi uses makes no sense.
 
-> > Alternatively, create a helper function that checks the possibilities
-> > and screams if none of them are in effect.
-> > 
-> > 							Thanx, Paul
-> 
-> The problem here is the callee needs to know about all callers.
+I've been auditing user-space tools that may have problems with this change:
 
-As does the guy reading the code.  ;-)
+* iw (it uses libnl)
+* acpid (it uses a mangled version of libnetlink shipped in iproute)
+* tstime, for taskstats, it uses libnl
+* wimax-tools, it uses libnl
+* quota-tools, it uses libnl
+* keepalived, no libs used
 
-							Thanx, Paul
+Well, I can keep looking for more, but I think that avahi is the only
+one doing this incorrectly.
 
-> > > > >  	return acked_features & (1 << bit);
-> > > > >  }
-> > > > > 
-> > > > > -- 
-> > > > > 1.7.3.2.91.g446ac
-> > > > > --
-> > > > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> > > > > the body of a message to majordomo@vger.kernel.org
-> > > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > > > > Please read the FAQ at  http://www.tux.org/lkml/
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Please, fix avahi instead.
