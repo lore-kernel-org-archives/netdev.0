@@ -1,41 +1,34 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [patch 4/4] ipset: fix build with NDEBUG defined
-Date: Tue, 18 Jan 2011 21:20:01 +0100 (CET)
-Message-ID: <alpine.DEB.2.00.1101182118480.28203@blackhole.kfki.hu>
-References: <20110118142154.697547841@eitzenberger.org> <20110118142248.489615870@eitzenberger.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] af_unix: implement socket filter
+Date: Tue, 18 Jan 2011 21:19:13 +0100
+Message-ID: <1295381953.3194.1.camel@edumazet-laptop>
+References: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
+	 <1295371361.3290.15.camel@edumazet-laptop>
+	 <20110118175143.3a164669@chocolatine.cbg.collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: holger@eitzenberger.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110118142248.489615870@eitzenberger.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ian Molton <ian.molton@collabora.co.uk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	ebiederm@xmission.com, xemul@openvz.org, davidel@xmailserver.org
+To: Alban Crequy <alban.crequy@collabora.co.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110118175143.3a164669@chocolatine.cbg.collabora.co.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jan 2011, holger@eitzenberger.org wrote:
+Le mardi 18 janvier 2011 =C3=A0 17:51 +0000, Alban Crequy a =C3=A9crit =
+:
+> Le Tue, 18 Jan 2011 18:22:41 +0100,
+> Eric Dumazet <eric.dumazet@gmail.com> a =C3=A9crit :
 
-> The usage of the gcc option -Wunused-parameter interferes badly with
-> the assert() macros.  In case -DNDEBUG is specified build fails with:
-> 
->   cc1: warnings being treated as errors
->   print.c: In function 'ipset_print_family':
->   print.c:92: error: unused parameter 'opt'
->   print.c: In function 'ipset_print_port':
->   print.c:413: error: unused parameter 'opt'
->   print.c: In function 'ipset_print_proto':
-> 
-> A possible fix is just to remove -Wunused, as -Wextra + -Wunused enables
-> -Wunused-paramter.
+> > Any idea on performance cost adding sk_filter() call ?
+>=20
+> Ian will write a performance test and repost the patch with some stat=
+s.
+> I don't know about the performance cost.
 
-I chose to keep the compiler flags and add the required attribute to the 
-function parameters instead.
+Dont spend time on this, it was more a question for myself ;)
 
-Many thanks again, Holger!
-
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlec@mail.kfki.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : KFKI Research Institute for Particle and Nuclear Physics
-          H-1525 Budapest 114, POB. 49, Hungary
+Cost should be very small, unless complex filter is used, and I have a
+JIT compiler for BPF on x86_64, will post it when net-next-2.6 reopens.
