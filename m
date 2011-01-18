@@ -1,39 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] af_unix: implement socket filter
-Date: Tue, 18 Jan 2011 18:22:41 +0100
-Message-ID: <1295371361.3290.15.camel@edumazet-laptop>
-References: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] net offloading: Do not mask out NETIF_F_HW_VLAN_TX
+ for vlan.
+Date: Tue, 18 Jan 2011 09:21:52 -0800
+Message-ID: <1295371312.10343.13.camel@nseg_linux_HP1.broadcom.com>
+References: <1295333160-1667-1-git-send-email-jesse@nicira.com>
+ <1295333714.3362.561.camel@edumazet-laptop>
+ <AANLkTikmadouBTgkf4OZy30=Zg6uZ+qSng=rWhTjjm8e@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, ebiederm@xmission.com, xemul@openvz.org,
-	davidel@xmailserver.org,
-	Alban Crequy <alban.crequy@collabora.co.uk>
-To: Ian Molton <ian.molton@collabora.co.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295368755-20931-1-git-send-email-ian.molton@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Jesse Gross" <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4506 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752686Ab1ARR0P convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 12:26:15 -0500
+In-Reply-To: <AANLkTikmadouBTgkf4OZy30=Zg6uZ+qSng=rWhTjjm8e@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 18 janvier 2011 =C3=A0 16:39 +0000, Ian Molton a =C3=A9crit :
-> From: Alban Crequy <alban.crequy@collabora.co.uk>
+
+On Mon, 2011-01-17 at 23:12 -0800, Jesse Gross wrote:
+> On Tue, Jan 18, 2011 at 1:55 AM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+> > Le lundi 17 janvier 2011 =C3=A0 22:46 -0800, Jesse Gross a =C3=A9cr=
+it :
+> >> In netif_skb_features() we return only the features that are valid=
+ for vlans
+> >> if we have a vlan packet.  However, we should not mask out NETIF_F=
+_HW_VLAN_TX
+> >> since it enables transmission of vlan tags and is obviously valid.
+> >>
+> >> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> >
+> > Thanks Jesse
+> >
+> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> >
+> > Now back to the "ethtool -K eth0 txvlan off" problem on bnx2
+> >
+> > Is it a driver/software problem or hardware/firmware one ?
 >=20
-> Linux Socket Filters can already be successfully attached and detache=
-d on unix
-> sockets with setsockopt(sockfd, SOL_SOCKET, SO_{ATTACH,DETACH}_FILTER=
-, ...).
-> See: Documentation/networking/filter.txt
+> CC'ing Michael Chan
 >=20
-> But the filter was never used in the unix socket code so it did not w=
-ork. This
-> patch uses sk_filter() to filter buffers before delivery.
+> It looks like bnx2 is storing the offsets of various headers so the
+> hardware can find them for TSO.  The parsing logic doesn't do anythin=
+g
+> for vlan tags, so the hardware gets confused if one is present in the
+> packet itself.
+
+Yeah, I don't think the hardware/firmware can replicate the vlan tag +
+headers properly for TSO if there is a VLAN tag in the packet.  Even
+simple tx checksum offload may have problem, but I'll need to check.
+
 >=20
-> This short program demonstrates the problem on SOCK_DGRAM.
+> Quick fix is to simply disallow disabling TX vlan offload or disable
+> TSO at the same time or some other Ethtool game.  However, if the
+> hardware supports it then it would be nicer to fix up the TSO setup
+> logic.  Maybe we can just add the size of the vlan tag to the offset
+> but I am not certain.  Michael, do you know if this is possible?
+>=20
+
+I doubt it, as the VLAN tag needs to be replicated for each transmitted
+packet.  I'll check with the firmware/hardware guys.
+
+Thanks.
 
 
-Any idea on performance cost adding sk_filter() call ?
-
-Hmm, looking at it, I have no idea why sk_filter() needs to block BH.
-
-I'll send a patch to relax this requirement.
