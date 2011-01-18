@@ -1,118 +1,87 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: inbound connection problems when "netlink: test for all flags
- of the NLM_F_DUMP composite" commit applied
-Date: Tue, 18 Jan 2011 21:07:16 +0100
-Message-ID: <20110118200716.GA4288@del.dom.local>
-References: <20110118172340.GB1843@del.dom.local>
- <AANLkTikUPRfYupw1-Py5mHeN+pFv-zMKhmK3DKixxsH4@mail.gmail.com>
- <alpine.LNX.2.01.1101181921320.17010@obet.zrqbmnf.qr>
- <20110118182852.GC4202@del.dom.local>
- <20110118184730.GD4202@del.dom.local>
- <AANLkTi=00FRr08NjeMLN75U_N-cb9F78=E26LmMY7-uV@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: rcu annotation fixup
+Date: Tue, 18 Jan 2011 22:10:31 +0200
+Message-ID: <20110118201031.GC18760@redhat.com>
+References: <20110118110845.GA11555@redhat.com>
+ <20110118174834.GF2193@linux.vnet.ibm.com>
+ <20110118175500.GA6935@redhat.com>
+ <20110118190232.GM2193@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Engelhardt <jengelh@medozas.de>, jamal <hadi@cyberus.ca>,
-	David Miller <davem@davemloft.net>, pablo@netfilter.org,
-	arthur.marsh@internode.on.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Alessandro Suardi <alessandro.suardi@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:38486 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060Ab1ARUHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 15:07:24 -0500
-Received: by fxm20 with SMTP id 20so22877fxm.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 12:07:22 -0800 (PST)
+Cc: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <AANLkTi=00FRr08NjeMLN75U_N-cb9F78=E26LmMY7-uV@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20110118190232.GM2193@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 18, 2011 at 08:26:42PM +0100, Alessandro Suardi wrote:
-> On Tue, Jan 18, 2011 at 7:47 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> > On Tue, Jan 18, 2011 at 07:28:52PM +0100, Jarek Poplawski wrote:
-> >> On Tue, Jan 18, 2011 at 07:24:40PM +0100, Jan Engelhardt wrote:
-> >> >
-> >> > On Tuesday 2011-01-18 19:10, Alessandro Suardi wrote:
-> >> > >On Tue, Jan 18, 2011 at 6:23 PM, Jarek Poplawski <jarkao2@gmail.com> wrote:
-> >> > >>
-> >> > >> NLM_F_DUMP flags should be applied to GET requests only, eg. rtnetlink
-> >> > >> tests message type to verify this. Since genetlink can't do the same
-> >> > >> use "practical" test for ops->dumpit (assuming NEW request won't be
-> >> > >> mixed with GET).
-> >> ...
-> >> > >2.6.37-git18 + netlink revert + this patch
-> >> > > - fixes Avahi
-> >> > > - breaks acpid
-> >> > >Starting acpi daemon: RTNETLINK1 answers: Operation not supported
-> >> > >acpid: error talking to the kernel via netlink
-> >> >
-> >> > Deducing from that, it is a GET-like request that was sent by acpid,
-> >> > and the message type is one that has both a dumpit and a doit function.
-> >> > So if EOPNOTSUPP now occurs on all message types that have both dumpit
-> >> > and doit, you should have broken a lot more than just acpid.
-> >>
-> >> Right, we need something better here.
-> >
-> > On the other hand, until there is something better, we might try to
-> > fix it at least for "normal" dumpit cases?
-> >
-> > Alessandro, could you try (with the netlink revert)?
-...
-> 2.6.37-git18 + netlink revert + this 2nd attempt
+On Tue, Jan 18, 2011 at 11:02:33AM -0800, Paul E. McKenney wrote:
+> On Tue, Jan 18, 2011 at 07:55:00PM +0200, Michael S. Tsirkin wrote:
+> > On Tue, Jan 18, 2011 at 09:48:34AM -0800, Paul E. McKenney wrote:
+> > > On Tue, Jan 18, 2011 at 01:08:45PM +0200, Michael S. Tsirkin wrote:
+> > > > When built with rcu checks enabled, vhost triggers
+> > > > bogus warnings as vhost features are read without
+> > > > dev->mutex sometimes.
+> > > > Fixing it properly is not trivial as vhost.h does not
+> > > > know which lockdep classes it will be used under.
+> > > > Disable the warning by stubbing out the check for now.
+> > > > 
+> > > > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > > > ---
+> > > >  drivers/vhost/vhost.h |    4 +---
+> > > >  1 files changed, 1 insertions(+), 3 deletions(-)
+> > > > 
+> > > > diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
+> > > > index 2af44b7..2d03a31 100644
+> > > > --- a/drivers/vhost/vhost.h
+> > > > +++ b/drivers/vhost/vhost.h
+> > > > @@ -173,9 +173,7 @@ static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
+> > > >  {
+> > > >  	unsigned acked_features;
+> > > > 
+> > > > -	acked_features =
+> > > > -		rcu_dereference_index_check(dev->acked_features,
+> > > > -					    lockdep_is_held(&dev->mutex));
+> > > > +	acked_features = rcu_dereference_index_check(dev->acked_features, 1);
+> > > 
+> > > Ouch!!!
+> > > 
+> > > Could you please at least add a comment?
+> > 
+> > Yes, OK.
+> > 
+> > > Alternatively, pass in the lock that is held and check for that?  Given
+> > > that this is a static inline, the compiler should be able to optimize
+> > > the argument away when !PROVE_RCU, correct?
+> > > 
+> > > 							Thanx, Paul
+> > 
+> > Hopefully, yes. We don't always have a lock: the idea was
+> > to create a lockdep for these cases. But we can't pass
+> > the pointer to that ...
 > 
->  appears to be good for me - both Avahi and acpid start up fine and I
->  can't see any other program misbehaving.
+> I suppose you could pass a pointer to the lockdep map structure.
+> Not sure if this makes sense, but it would handle the situation.
+
+Will it compile with lockdep disabled too? What will the pointer be?
+
+> Alternatively, create a helper function that checks the possibilities
+> and screams if none of them are in effect.
 > 
-> 
-Alessandro, thanks for testing!
+> 							Thanx, Paul
 
-Jan, feel free to NAK if it can't help for your problem.
+The problem here is the callee needs to know about all callers.
 
-Jarek P.
----------------->
-[PATCH v2] netlink: Fix possible NLM_F_DUMP misuse in genetlink
-
-NLM_F_DUMP flags should be applied to GET requests only, eg. rtnetlink
-tests message type to verify this. Since genetlink can't do the same
-use "practical" test for ops->dumpit, assuming NEW request won't be
-mixed with GET. Otherwise, it should work old way. Since, as reported
-by Alessandro, apps like acpid use messages with ops->dumpit without
-NLM_F_DUMP flags, there is no error reporting for this case.
-
-Original patch by: Jan Engelhardt <jengelh@medozas.de>
-
-Tested-by: Alessandro Suardi <alessandro.suardi@gmail.com>
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Cc: Jan Engelhardt <jengelh@medozas.de>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>
----
-
-diff -Nurp a/net/netlink/genetlink.c b/net/netlink/genetlink.c
---- a/net/netlink/genetlink.c	2011-01-18 16:58:16.000000000 +0100
-+++ b/net/netlink/genetlink.c	2011-01-18 19:36:25.000000000 +0100
-@@ -519,15 +519,14 @@ static int genl_rcv_msg(struct sk_buff *
- 	    security_netlink_recv(skb, CAP_NET_ADMIN))
- 		return -EPERM;
- 
--	if (nlh->nlmsg_flags & NLM_F_DUMP) {
--		if (ops->dumpit == NULL)
--			return -EOPNOTSUPP;
--
--		genl_unlock();
--		err = netlink_dump_start(net->genl_sock, skb, nlh,
--					 ops->dumpit, ops->done);
--		genl_lock();
--		return err;
-+	if (ops->dumpit) {
-+		if (nlh->nlmsg_flags & NLM_F_DUMP) {
-+			genl_unlock();
-+			err = netlink_dump_start(net->genl_sock, skb, nlh,
-+						 ops->dumpit, ops->done);
-+			genl_lock();
-+			return err;
-+		}
- 	}
- 
- 	if (ops->doit == NULL)
+> > > >  	return acked_features & (1 << bit);
+> > > >  }
+> > > > 
+> > > > -- 
+> > > > 1.7.3.2.91.g446ac
+> > > > --
+> > > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> > > > the body of a message to majordomo@vger.kernel.org
+> > > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > > > Please read the FAQ at  http://www.tux.org/lkml/
