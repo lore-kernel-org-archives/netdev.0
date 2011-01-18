@@ -1,95 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [BUG] bnx2 + vlan + TSO : doesnt work
-Date: Tue, 18 Jan 2011 07:38:52 +0100
-Message-ID: <1295332732.3362.541.camel@edumazet-laptop>
-References: <1295308844.3362.135.camel@edumazet-laptop>
-	 <1295309365.6264.23.camel@bwh-desktop>
-	 <AANLkTincFt4fKLvtity=MgQ2+cuvNFrBHqu3+bMLsypc@mail.gmail.com>
-	 <20110117.220927.189715926.davem@davemloft.net>
-	 <1295331690.3362.522.camel@edumazet-laptop>
-	 <AANLkTi=zvsmnemO+9OggD01i==3mZnb_-09CjAcRS94w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, bhutchings@solarflare.com,
-	netdev@vger.kernel.org
-To: Jesse Gross <jesse@nicira.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: [PATCH] net offloading: Do not mask out NETIF_F_HW_VLAN_TX for vlan.
+Date: Mon, 17 Jan 2011 22:46:00 -0800
+Message-ID: <1295333160-1667-1-git-send-email-jesse@nicira.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59891 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751521Ab1ARGi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 01:38:58 -0500
-Received: by wyb28 with SMTP id 28so5786569wyb.19
-        for <netdev@vger.kernel.org>; Mon, 17 Jan 2011 22:38:57 -0800 (PST)
-In-Reply-To: <AANLkTi=zvsmnemO+9OggD01i==3mZnb_-09CjAcRS94w@mail.gmail.com>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:45117 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984Ab1ARGqH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 01:46:07 -0500
+Received: by qwa26 with SMTP id 26so5557203qwa.19
+        for <netdev@vger.kernel.org>; Mon, 17 Jan 2011 22:46:06 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 18 janvier 2011 =C3=A0 01:32 -0500, Jesse Gross a =C3=A9crit :
-> On Tue, Jan 18, 2011 at 1:21 AM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-> > Le lundi 17 janvier 2011 =C3=A0 22:09 -0800, David Miller a =C3=A9c=
-rit :
-> >> From: Jesse Gross <jesse@nicira.com>
-> >> Date: Mon, 17 Jan 2011 16:13:18 -0800
-> >>
-> >> > I think it is better for netif_skb_features() to actually return=
- the
-> >> > correct features rather than bypass it here.  NETIF_F_HW_VLAN_TX
-> >> > doesn't depend on any other offloads, so we can always include i=
-t if
-> >> > it is in dev->features.
-> >> >
-> >> > Separately, this means there is a problem with bnx2 because it a=
-llows
-> >> > vlan insertion to be turned off, which would have the same effec=
-t.
-> >> > Maybe it is looking directly at skb->protocol or similar for TSO=
-=2E
-> >>
-> >> Please, someone cons up an acceptable fix fast.
-> >>
-> >
-> > I just woke up, and honestly dont understand why only bnx2 is affec=
-ted
-> > by this problem of masking NETIF_F_HW_VLAN_TX
->=20
-> If NETIF_F_HW_VLAN_TX is masked then the tag will be inserted in
-> software, which is generally OK.  The problem is that some drivers
-> assume that if they can do vlan tagging in hardware it will always be
-> used and therefore don't expect vlan tags when setting up TSO, etc.
->=20
+In netif_skb_features() we return only the features that are valid for vlans
+if we have a vlan packet.  However, we should not mask out NETIF_F_HW_VLAN_TX
+since it enables transmission of vlan tags and is obviously valid.
 
-OK, but then this driver gave us the hint core network was actually
-always doing software vlan, tagging ;)
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
+---
+ net/core/dev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-> >
-> > And I dont understand all this netif_skb_features() stuff : if we w=
-ant
-> > to actually test dev->features & NETIF_F_HW_VLAN_TX, and this flag
-> > doesnt depend on other offloads, why are we doing features &
-> > vlan_features.
->=20
-> The idea is to put all of the logic in one place rather than having
-> pieces that are really interdependent scattered around in the
-> different offloads.  So we could test dev->features directly for vlan=
-s
-> but I would rather just have netif_skb_features() return the right
-> values to start off with.
->=20
-> >
-> > Jesse, I dont understand why you say "bnx2 allows vlan insertion to=
- be
-> > turned off". Really.
->=20
-> You can disable it using Ethtool, which will turn off
-> NETIF_F_HW_VLAN_TX the same as this bug.
->=20
-> I'm running a quick test on a patch to always allow NETIF_F_HW_VLAN_T=
-X
-> to be returned from netif_skb_features().
-
-Thanks
-
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 83507c2..4c58d11 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2023,13 +2023,13 @@ int netif_skb_features(struct sk_buff *skb)
+ 		return harmonize_features(skb, protocol, features);
+ 	}
+ 
+-	features &= skb->dev->vlan_features;
++	features &= (skb->dev->vlan_features | NETIF_F_HW_VLAN_TX);
+ 
+ 	if (protocol != htons(ETH_P_8021Q)) {
+ 		return harmonize_features(skb, protocol, features);
+ 	} else {
+ 		features &= NETIF_F_SG | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST |
+-				NETIF_F_GEN_CSUM;
++				NETIF_F_GEN_CSUM | NETIF_F_HW_VLAN_TX;
+ 		return harmonize_features(skb, protocol, features);
+ 	}
+ }
+-- 
+1.7.1
 
