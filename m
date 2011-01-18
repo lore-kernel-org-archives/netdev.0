@@ -1,43 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost: rcu annotation fixup
-Date: Tue, 18 Jan 2011 13:08:45 +0200
-Message-ID: <20110118110845.GA11555@redhat.com>
+From: Anton Vorontsov <cbouatmailru@gmail.com>
+Subject: [PATCH] gianfar: Fix misleading indentation in startup_gfar()
+Date: Tue, 18 Jan 2011 15:36:02 +0300
+Message-ID: <20110118123602.GA26997@oksana.dev.rtsoft.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Jason Wang <jasowang@redhat.com>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:33146 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750893Ab1ARMgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 07:36:07 -0500
+Received: by ewy5 with SMTP id 5so3192523ewy.19
+        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 04:36:05 -0800 (PST)
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When built with rcu checks enabled, vhost triggers
-bogus warnings as vhost features are read without
-dev->mutex sometimes.
-Fixing it properly is not trivial as vhost.h does not
-know which lockdep classes it will be used under.
-Disable the warning by stubbing out the check for now.
+Just stumbled upon the issue while looking for another bug.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+The code looks correct, the indentation is not.
+
+Signed-off-by: Anton Vorontsov <cbouatmailru@gmail.com>
 ---
- drivers/vhost/vhost.h |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ drivers/net/gianfar.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index 2af44b7..2d03a31 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -173,9 +173,7 @@ static inline int vhost_has_feature(struct vhost_dev *dev, int bit)
- {
- 	unsigned acked_features;
- 
--	acked_features =
--		rcu_dereference_index_check(dev->acked_features,
--					    lockdep_is_held(&dev->mutex));
-+	acked_features = rcu_dereference_index_check(dev->acked_features, 1);
- 	return acked_features & (1 << bit);
- }
+diff --git a/drivers/net/gianfar.c b/drivers/net/gianfar.c
+index 119aa20..5ed8f9f 100644
+--- a/drivers/net/gianfar.c
++++ b/drivers/net/gianfar.c
+@@ -1920,7 +1920,7 @@ int startup_gfar(struct net_device *ndev)
+ 		if (err) {
+ 			for (j = 0; j < i; j++)
+ 				free_grp_irqs(&priv->gfargrp[j]);
+-				goto irq_fail;
++			goto irq_fail;
+ 		}
+ 	}
  
 -- 
-1.7.3.2.91.g446ac
+1.7.0.5
