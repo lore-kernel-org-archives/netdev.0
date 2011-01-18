@@ -1,49 +1,37 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: inbound connection problems when "netlink: test for all flags
- of the NLM_F_DUMP composite" commit applied
-Date: Tue, 18 Jan 2011 09:05:03 -0500
-Message-ID: <1295359503.2066.10.camel@mojatatu>
-References: <4D336050.9030602@netfilter.org>
-	 <20110118093811.GA7520@ff.dom.local>
-	 <20110118.020702.115924992.davem@davemloft.net>
-	 <20110118102437.GB7520@ff.dom.local>
-Reply-To: hadi@cyberus.ca
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH resend] netfilter: change IPS_*_BIT to IPS_*
+Date: Tue, 18 Jan 2011 15:05:51 +0100
+Message-ID: <4D359E3F.4040804@trash.net>
+References: <1295090445-14431-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, pablo@netfilter.org,
-	arthur.marsh@internode.on.net, jengelh@medozas.de,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: Jarek Poplawski <jarkao2@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:65086 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750900Ab1AROFD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 09:05:03 -0500
-Received: by iyj18 with SMTP id 18so5718370iyj.19
-        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 06:05:03 -0800 (PST)
-In-Reply-To: <20110118102437.GB7520@ff.dom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1295090445-14431-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-01-18 at 10:24 +0000, Jarek Poplawski wrote:
+On 15.01.2011 12:20, Changli Gao wrote:
+> My previous patch made a mistake when converting atomic_set to a normal
+> bit 'or'. IPS_*_BIT should be replaced with IPS_*.
 
-> Do you all expect all users manage to upgrade avahi app before
-> changing their stable kernel? I mean "own distro" users especially.
+Then please state this clearly in the subject instead of calling it
+a resend. Also we use "netfilter: <subsystem>: <change description>",
+as I've told you multiple times already.
 
-Unfortunately if that app is widely deployed, it is not pragmatic
-to break it in the name of pedanticity. i.e.
-Be conservative in what you send (clearly Avahi is farting all over the
-place) but more importantly be a nice liberal in what you accept.
-Maybe tell them if you have the cycles about their bad behavior.
-The important part is the GET (kind = 2). The DUMP as Jarek says
-is merely a utility to extrapolate that we need you to
-get everything.. So it is not such a big deal if someone passes
-extraneous senseless flags. Wrong? yes.
+> 
+>   commit 76a2d3bcfcc86e2a8044258515b86492a37631a3
+>   Author: Changli Gao <xiaosuo@gmail.com>
+>   Date:   Mon Nov 15 11:59:03 2010 +0100
+> 
+>   netfilter: nf_nat: don't use atomic bit operation
+> 
+>   As we own the conntrack and the others can't see it until we confirm it,
+>   we don't need to use atomic bit operation on ct->status.
 
-Jarek - For the record although i coauthored the doc, I was merely
-a messenger in putting together some artist painting.
-
-cheers,
-jamal
-
+Applied, thanks.
