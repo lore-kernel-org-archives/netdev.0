@@ -1,46 +1,79 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] can: at91_can: clean up usage of AT91_MB_RX_FIRST
-	and	AT91_MB_RX_NUM
-Date: Tue, 18 Jan 2011 10:26:11 +0100
-Message-ID: <4D355CB3.8000508@grandegger.com>
-References: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>	<1294752085-30151-2-git-send-email-mkl@pengutronix.de>
-	<4D349D8C.3010403@pengutronix.de>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: inbound connection problems when "netlink: test for all flags
+	of the NLM_F_DUMP composite" commit applied
+Date: Tue, 18 Jan 2011 09:38:11 +0000
+Message-ID: <20110118093811.GA7520@ff.dom.local>
+References: <4D336050.9030602@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D349D8C.3010403-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arthur Marsh <arthur.marsh@internode.on.net>,
+	Jan Engelhardt <jengelh@medozas.de>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <hadi@cyberus.ca>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:64554 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753223Ab1ARJiU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 04:38:20 -0500
+Received: by bwz15 with SMTP id 15so3170957bwz.19
+        for <netdev@vger.kernel.org>; Tue, 18 Jan 2011 01:38:19 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <4D336050.9030602@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/17/2011 08:50 PM, Marc Kleine-Budde wrote:
-> On 01/11/2011 02:21 PM, Marc Kleine-Budde wrote:
->> This patch cleans up the usage of two macros which specify the mailbox
->> usage. AT91_MB_RX_FIRST and AT91_MB_RX_NUM define the first and the
->> number of RX mailboxes. The current driver uses these variables in an
->> unclean way; assuming that AT91_MB_RX_FIRST is 0;
+On 2011-01-16 22:17, Pablo Neira Ayuso wrote:
+> On 16/01/11 13:25, Arthur Marsh wrote:
+>> Jan Engelhardt wrote, on 16/01/11 21:20:
+>>>
+>>> Le dimanche 16 janvier 2011 =C3  19:24 +1030, Arthur Marsh a =C3=A9=
+crit :
+>>>>
+>>>>> With kernels up to and including 2.6.37-git7, inbound telnetd-ssl
+>>>>> connections worked fine. With kernel 2.6.37-git9 and later inboun=
+d
+>>>>> telnetd-ssl connections failed, and on machine shut-down, there
+>>>>> were warning messages about daemons not return status.
+>>>
+>>> Which daemons are these? For reference, what distro do you happen
+>>> to use?
 >>
->> This patch cleans up the usage of these macros, no longer assuming
->> AT91_MB_RX_FIRST == 0.
+>> avahi-daemon (which gave multiple warning messages, hence I thought =
+it
+>> may have been multiple packages)
 >>
->> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> 
-> Any comments on this?
+>> I'm running Debian unstable with kernel.org kernels.
+>>
+>>>
+>>>>> commit 0ab03c2b1478f2438d2c80204f7fef65b1bca9cf
+>>>>>      netlink: test for all flags of the NLM_F_DUMP composite
+>>>
+>>> Each of the hunks in this commit is independent of another.
+>>> Would you mind bisecting these too?
+>>
+>> Recompiling with the only the first patch (attached) resulted in a
+>> repeat of the problem.
+>>
+>> I've removed one person from the cc: list as they did not want to
+>> receive email about this even though they signed off the commit.
+>=20
+> Please, pass this patch to the avahi-daemon developers. They use an
+> invalid netlink flag combination for dump operations.
 
-Looks fine too me. You can add my:
+Nothing in RFC suggests this is an invalid netlink flag combination,
+and author's implementation had suported it:
+ftp://ftp.rfc-editor.org/in-notes/rfc3549.txt
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+NLM_F_DUMP is called a convenience macro only, so might be interpreted
+as a special kind of dump. BTW, isn't NLM_F_ATOMIC flag with
+NLM_F_DUMP treated as invalid now either?
 
-Thanks,
+Even if I'm wrong, this change added to stable will break many configs.
+My proposal is to revert commit 0ab03c2b147 until proper fix is found.
 
-Wolfgang.
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>
+
+Jarek P.
