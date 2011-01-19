@@ -1,74 +1,66 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
- single TCP session balancing
-Date: Wed, 19 Jan 2011 21:12:31 +0100
-Message-ID: <4D3745AF.5040808@gmail.com>
-References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Xen-devel] Re: [PATCH] xen network backend driver
+Date: Wed, 19 Jan 2011 20:16:24 +0000
+Message-ID: <1295468184.11126.72.camel@bwh-desktop>
+References: <1295449318.14981.3484.camel@zakaz.uk.xensource.com>
+	 <1295455216.11126.39.camel@bwh-desktop>
+	 <1295459316.14981.3727.camel@zakaz.uk.xensource.com>
+	 <1295460304.11126.53.camel@bwh-desktop> <4D3738AB.60701@goop.org>
+	 <20110119192823.GN2754@reaktio.net> <1295466499.11126.67.camel@bwh-desktop>
+	 <20110119195839.GO2754@reaktio.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
+	Ian Campbell <Ian.Campbell@eu.citrix.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	=?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
-	Christophe Paasch <christoph.paasch@uclouvain.be>
-To: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+	xen-devel <xen-devel@lists.xensource.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f46.google.com ([209.85.213.46]:36303 "EHLO
-	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753079Ab1ASUMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:12:36 -0500
-Received: by ywl5 with SMTP id 5so512549ywl.19
-        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 12:12:36 -0800 (PST)
-In-Reply-To: <4D370DC7.6000500@yandex-team.ru>
+Received: from mail.solarflare.com ([216.237.3.220]:11592 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752533Ab1ASUQ2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:16:28 -0500
+In-Reply-To: <20110119195839.GO2754@reaktio.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 19/01/2011 17:13, Oleg V. Ukhno a =C3=A9crit :
-> On 01/18/2011 11:24 PM, Jay Vosburgh wrote:
-[snip]
->> I haven't done much testing with this lately, but I suspect this
->> behavior hasn't really changed. Raising the tcp_reordering sysctl va=
-lue
->> can mitigate this somewhat (by making TCP more tolerant of this), bu=
-t
->> that doesn't help non-TCP protocols.
->>
->> Barring evidence to the contrary, I presume that Oleg's system
->> delivers out of order at the receiver. That's not automatically a
->> reason to reject it, but this entire proposal is sufficiently comple=
-x to
->> configure that very explicit documentation will be necessary.
->>
->> -J
->>
->> ---
->> -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->>
->
-> Jay,
-[snip]
->
-> What is your opinion on my idea with patch?
->
-> I will come back with results for VLAN tunneling case, if this is
-> necessary (Nicolas, shall I do that test - I think it will show simil=
-ar
-> results for performance?)
+On Wed, 2011-01-19 at 21:58 +0200, Pasi K=C3=A4rkk=C3=A4inen wrote:
+> On Wed, Jan 19, 2011 at 07:48:19PM +0000, Ben Hutchings wrote:
+[...]
+> > It was possible to use multiple receive queues per device long befo=
+re
+> > this since the networking core is not involved in locking them.  (T=
+hough
+> > it did require some hacks to create multiple NAPI contexts, before
+> > 2.6.24.)  This is mostly useful useful in conjunction with separate=
+ IRQs
+> > per RX queue, spread across multiple CPUs (sometimes referred to as
+> > Receive Side Scaling or RSS).
+> >=20
+>=20
+> Ok. I should read changelogs more closely.. I thought both the receiv=
+e/transmit=20
+> multiqueue features appeared 'recently', but it seems I was wrong.
 
-If you have time for that, then yes, please, do the same test using bal=
-ance-rr+vlan to segregate=20
-path. With those results, we whould have the opportunity to enhance the=
- documentation with some well=20
-tested cases of TCP load balancing on a LAN, not limited to 802.3ad aut=
-omatic setup. Both setups=20
-make sense, and assuming the results would be similar is probably true,=
- but not reliable enough to=20
-assert it into the documentation.
+There was a relatively recent change that allows drivers to record whic=
+h
+receive queue each packet came in on.  This is used by RPS/RFS, and for
+transmit queue selection when bridging/forwarding.  But multiple receiv=
+e
+queues were still usable before that.
 
-Thanks,
+> I think Linux 2.6.32 added multiqueue VLAN support..
 
-	Nicolas.
+VLAN devices and several other types of software device don't have
+queues of their own, but they can now use all transmit queues of the
+underlying device rather than just one.
+
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
