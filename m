@@ -1,27 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 0/8] bnx2x: Minor link related fixes
-Date: Tue, 18 Jan 2011 16:10:57 -0800 (PST)
-Message-ID: <20110118.161057.102566725.davem@davemloft.net>
-References: <1295361191.5281.83.camel@lb-tlvb-dmitry>
-	<1295361876.5281.100.camel@lb-tlvb-dmitry>
+Subject: Re: [PATCH] ipv6: Silence privacy extensions initialization
+Date: Tue, 18 Jan 2011 16:14:12 -0800 (PST)
+Message-ID: <20110118.161412.179948581.davem@davemloft.net>
+References: <87sjwr4djd.fsf@elegiac.orebokech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: yanivr@broadcom.com
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: romain@orebokech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39741
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34789
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751967Ab1ASAKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 19:10:23 -0500
-In-Reply-To: <1295361876.5281.100.camel@lb-tlvb-dmitry>
+	by vger.kernel.org with ESMTP id S1751739Ab1ASANj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 19:13:39 -0500
+In-Reply-To: <87sjwr4djd.fsf@elegiac.orebokech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Date: Tue, 18 Jan 2011 16:44:36 +0200
+From: Romain Francoise <romain@orebokech.com>
+Date: Mon, 17 Jan 2011 18:59:18 +0100
 
-> Hi Dave,
-> I meant net-2.6, and not net-next-2.6
+> When a network namespace is created (via CLONE_NEWNET), the loopback
+> interface is automatically added to the new namespace, triggering a
+> printk in ipv6_add_dev() if CONFIG_IPV6_PRIVACY is set.
+> 
+> This is problematic for applications which use CLONE_NEWNET as
+> part of a sandbox, like Chromium's suid sandbox or recent versions of
+> vsftpd. On a busy machine, it can lead to thousands of useless
+> "lo: Disabled Privacy Extensions" messages appearing in dmesg.
+> 
+> It's easy enough to check the status of privacy extensions via the
+> use_tempaddr sysctl, so just removing the printk seems like the most
+> sensible solution.
+> 
+> Signed-off-by: Romain Francoise <romain@orebokech.com>
 
-Understood, all applied, thanks.
+Yes, this message always bugged me too, applied thanks!
