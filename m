@@ -1,272 +1,410 @@
 From: kaber@trash.net
-Subject: [PATCH 61/79] netfilter: nf_conntrack: use is_vmalloc_addr()
-Date: Wed, 19 Jan 2011 20:15:01 +0100
-Message-ID: <1295464519-21763-62-git-send-email-kaber@trash.net>
+Subject: [PATCH 60/79] netfilter: fix Kconfig dependencies
+Date: Wed, 19 Jan 2011 20:15:00 +0100
+Message-ID: <1295464519-21763-61-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:51978 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753970Ab1ASTPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:40 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Use is_vmalloc_addr() in nf_ct_free_hashtable() and get rid of
-the vmalloc flags to indicate that a hash table has been allocated
-using vmalloc().
+Fix dependencies of netfilter realm match: it depends on NET_CLS_ROUTE,
+which itself depends on NET_SCHED; this dependency is missing from netfilter.
 
+Since matching on realms is also useful without having NET_SCHED enabled and
+the option really only controls whether the tclassid member is included in
+route and dst entries, rename the config option to IP_ROUTE_CLASSID and move
+it outside of traffic scheduling context to get rid of the NET_SCHED dependeny.
+
+Reported-by: Vladis Kletnieks <Valdis.Kletnieks@vt.edu>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/netfilter/nf_conntrack.h |    4 ++--
- include/net/netns/conntrack.h        |    2 --
- include/net/netns/ipv4.h             |    1 -
- net/ipv4/netfilter/nf_nat_core.c     |    6 ++----
- net/netfilter/nf_conntrack_core.c    |   26 +++++++++-----------------
- net/netfilter/nf_conntrack_expect.c  |    9 +++------
- net/netfilter/nf_conntrack_helper.c  |   10 +++-------
- 7 files changed, 19 insertions(+), 39 deletions(-)
+ include/net/dst.h        |    2 +-
+ include/net/ip_fib.h     |    6 +++---
+ net/ipv4/Kconfig         |    4 +++-
+ net/ipv4/fib_rules.c     |   10 +++++-----
+ net/ipv4/fib_semantics.c |   14 +++++++-------
+ net/ipv4/ip_input.c      |    2 +-
+ net/ipv4/route.c         |   26 +++++++++++++-------------
+ net/netfilter/Kconfig    |    2 +-
+ net/sched/Kconfig        |    5 +----
+ net/sched/cls_flow.c     |    2 +-
+ net/sched/em_meta.c      |    2 +-
+ 11 files changed, 37 insertions(+), 38 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index 2bc344c..d0d1337 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -202,9 +202,9 @@ extern void nf_ct_l3proto_module_put(unsigned short l3proto);
-  * Allocate a hashtable of hlist_head (if nulls == 0),
-  * or hlist_nulls_head (if nulls == 1)
-  */
--extern void *nf_ct_alloc_hashtable(unsigned int *sizep, int *vmalloced, int nulls);
-+extern void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls);
+diff --git a/include/net/dst.h b/include/net/dst.h
+index a5bd726..6baba83 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -72,7 +72,7 @@ struct dst_entry {
  
--extern void nf_ct_free_hashtable(void *hash, int vmalloced, unsigned int size);
-+extern void nf_ct_free_hashtable(void *hash, unsigned int size);
+ 	u32			metrics[RTAX_MAX];
  
- extern struct nf_conntrack_tuple_hash *
- __nf_conntrack_find(struct net *net, u16 zone,
-diff --git a/include/net/netns/conntrack.h b/include/net/netns/conntrack.h
-index d4958d4..5cf8a8c 100644
---- a/include/net/netns/conntrack.h
-+++ b/include/net/netns/conntrack.h
-@@ -28,8 +28,6 @@ struct netns_ct {
- 	struct ctl_table_header	*acct_sysctl_header;
- 	struct ctl_table_header	*event_sysctl_header;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	__u32			tclassid;
+ #else
+ 	__u32			__pad2;
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 07bdb5e..65d1fcd 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -55,7 +55,7 @@ struct fib_nh {
+ 	int			nh_weight;
+ 	int			nh_power;
  #endif
--	int			hash_vmalloc;
--	int			expect_vmalloc;
- 	char			*slabname;
- };
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	__u32			nh_tclassid;
  #endif
-diff --git a/include/net/netns/ipv4.h b/include/net/netns/ipv4.h
-index d68c3f1..e2e2ef5 100644
---- a/include/net/netns/ipv4.h
-+++ b/include/net/netns/ipv4.h
-@@ -43,7 +43,6 @@ struct netns_ipv4 {
- 	struct xt_table		*nat_table;
- 	struct hlist_head	*nat_bysource;
- 	unsigned int		nat_htable_size;
--	int			nat_vmalloced;
+ 	int			nh_oif;
+@@ -201,7 +201,7 @@ static inline int fib_lookup(struct net *net, const struct flowi *flp,
+ extern int __net_init fib4_rules_init(struct net *net);
+ extern void __net_exit fib4_rules_exit(struct net *net);
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ extern u32 fib_rules_tclass(struct fib_result *res);
  #endif
  
- 	int sysctl_icmp_echo_ignore_all;
-diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index eb55835..6972cee 100644
---- a/net/ipv4/netfilter/nf_nat_core.c
-+++ b/net/ipv4/netfilter/nf_nat_core.c
-@@ -682,8 +682,7 @@ static int __net_init nf_nat_net_init(struct net *net)
+@@ -235,7 +235,7 @@ extern struct fib_table *fib_hash_table(u32 id);
+ 
+ static inline void fib_combine_itag(u32 *itag, struct fib_result *res)
  {
- 	/* Leave them the same for the moment. */
- 	net->ipv4.nat_htable_size = net->ct.htable_size;
--	net->ipv4.nat_bysource = nf_ct_alloc_hashtable(&net->ipv4.nat_htable_size,
--						       &net->ipv4.nat_vmalloced, 0);
-+	net->ipv4.nat_bysource = nf_ct_alloc_hashtable(&net->ipv4.nat_htable_size, 0);
- 	if (!net->ipv4.nat_bysource)
- 		return -ENOMEM;
- 	return 0;
-@@ -705,8 +704,7 @@ static void __net_exit nf_nat_net_exit(struct net *net)
- {
- 	nf_ct_iterate_cleanup(net, &clean_nat, NULL);
- 	synchronize_rcu();
--	nf_ct_free_hashtable(net->ipv4.nat_bysource, net->ipv4.nat_vmalloced,
--			     net->ipv4.nat_htable_size);
-+	nf_ct_free_hashtable(net->ipv4.nat_bysource, net->ipv4.nat_htable_size);
- }
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	u32 rtag;
+ #endif
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index 9e95d7f..dcb2e18 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -140,6 +140,9 @@ config IP_ROUTE_VERBOSE
+ 	  handled by the klogd daemon which is responsible for kernel messages
+ 	  ("man klogd").
  
- static struct pernet_operations nf_nat_net_ops = {
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index e95ac42..dc2ff2c 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -1202,9 +1202,9 @@ static int kill_all(struct nf_conn *i, void *data)
- 	return 1;
- }
++config IP_ROUTE_CLASSID
++	bool
++
+ config IP_PNP
+ 	bool "IP: kernel level autoconfiguration"
+ 	help
+@@ -655,4 +658,3 @@ config TCP_MD5SIG
+ 	  on the Internet.
  
--void nf_ct_free_hashtable(void *hash, int vmalloced, unsigned int size)
-+void nf_ct_free_hashtable(void *hash, unsigned int size)
- {
--	if (vmalloced)
-+	if (is_vmalloc_addr(hash))
- 		vfree(hash);
- 	else
- 		free_pages((unsigned long)hash,
-@@ -1271,8 +1271,7 @@ static void nf_conntrack_cleanup_net(struct net *net)
- 		goto i_see_dead_people;
- 	}
- 
--	nf_ct_free_hashtable(net->ct.hash, net->ct.hash_vmalloc,
--			     net->ct.htable_size);
-+	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
- 	nf_conntrack_ecache_fini(net);
- 	nf_conntrack_acct_fini(net);
- 	nf_conntrack_expect_fini(net);
-@@ -1301,21 +1300,18 @@ void nf_conntrack_cleanup(struct net *net)
- 	}
- }
- 
--void *nf_ct_alloc_hashtable(unsigned int *sizep, int *vmalloced, int nulls)
-+void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
- {
- 	struct hlist_nulls_head *hash;
- 	unsigned int nr_slots, i;
- 	size_t sz;
- 
--	*vmalloced = 0;
+ 	  If unsure, say N.
 -
- 	BUILD_BUG_ON(sizeof(struct hlist_nulls_head) != sizeof(struct hlist_head));
- 	nr_slots = *sizep = roundup(*sizep, PAGE_SIZE / sizeof(struct hlist_nulls_head));
- 	sz = nr_slots * sizeof(struct hlist_nulls_head);
- 	hash = (void *)__get_free_pages(GFP_KERNEL | __GFP_NOWARN | __GFP_ZERO,
- 					get_order(sz));
- 	if (!hash) {
--		*vmalloced = 1;
- 		printk(KERN_WARNING "nf_conntrack: falling back to vmalloc.\n");
- 		hash = __vmalloc(sz, GFP_KERNEL | __GFP_HIGHMEM | __GFP_ZERO,
- 				 PAGE_KERNEL);
-@@ -1331,7 +1327,7 @@ EXPORT_SYMBOL_GPL(nf_ct_alloc_hashtable);
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 7981a24..9cefe72 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -41,12 +41,12 @@ struct fib4_rule {
+ 	__be32			srcmask;
+ 	__be32			dst;
+ 	__be32			dstmask;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	u32			tclassid;
+ #endif
+ };
  
- int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ u32 fib_rules_tclass(struct fib_result *res)
  {
--	int i, bucket, vmalloced, old_vmalloced;
-+	int i, bucket;
- 	unsigned int hashsize, old_size;
- 	struct hlist_nulls_head *hash, *old_hash;
- 	struct nf_conntrack_tuple_hash *h;
-@@ -1348,7 +1344,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
- 	if (!hashsize)
- 		return -EINVAL;
+ 	return res->r ? ((struct fib4_rule *) res->r)->tclassid : 0;
+@@ -165,7 +165,7 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+ 	if (frh->dst_len)
+ 		rule4->dst = nla_get_be32(tb[FRA_DST]);
  
--	hash = nf_ct_alloc_hashtable(&hashsize, &vmalloced, 1);
-+	hash = nf_ct_alloc_hashtable(&hashsize, 1);
- 	if (!hash)
- 		return -ENOMEM;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (tb[FRA_FLOW])
+ 		rule4->tclassid = nla_get_u32(tb[FRA_FLOW]);
+ #endif
+@@ -195,7 +195,7 @@ static int fib4_rule_compare(struct fib_rule *rule, struct fib_rule_hdr *frh,
+ 	if (frh->tos && (rule4->tos != frh->tos))
+ 		return 0;
  
-@@ -1370,15 +1366,13 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (tb[FRA_FLOW] && (rule4->tclassid != nla_get_u32(tb[FRA_FLOW])))
+ 		return 0;
+ #endif
+@@ -224,7 +224,7 @@ static int fib4_rule_fill(struct fib_rule *rule, struct sk_buff *skb,
+ 	if (rule4->src_len)
+ 		NLA_PUT_BE32(skb, FRA_SRC, rule4->src);
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (rule4->tclassid)
+ 		NLA_PUT_U32(skb, FRA_FLOW, rule4->tclassid);
+ #endif
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 3e0da3e..a72c62d 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -200,7 +200,7 @@ static inline int nh_comp(const struct fib_info *fi, const struct fib_info *ofi)
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+ 		    nh->nh_weight != onh->nh_weight ||
+ #endif
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 		    nh->nh_tclassid != onh->nh_tclassid ||
+ #endif
+ 		    ((nh->nh_flags ^ onh->nh_flags) & ~RTNH_F_DEAD))
+@@ -422,7 +422,7 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
+ 
+ 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
+ 			nexthop_nh->nh_gw = nla ? nla_get_be32(nla) : 0;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 			nla = nla_find(attrs, attrlen, RTA_FLOW);
+ 			nexthop_nh->nh_tclassid = nla ? nla_get_u32(nla) : 0;
+ #endif
+@@ -476,7 +476,7 @@ int fib_nh_match(struct fib_config *cfg, struct fib_info *fi)
+ 			nla = nla_find(attrs, attrlen, RTA_GATEWAY);
+ 			if (nla && nla_get_be32(nla) != nh->nh_gw)
+ 				return 1;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 			nla = nla_find(attrs, attrlen, RTA_FLOW);
+ 			if (nla && nla_get_u32(nla) != nh->nh_tclassid)
+ 				return 1;
+@@ -783,7 +783,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 			goto err_inval;
+ 		if (cfg->fc_gw && fi->fib_nh->nh_gw != cfg->fc_gw)
+ 			goto err_inval;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 		if (cfg->fc_flow && fi->fib_nh->nh_tclassid != cfg->fc_flow)
+ 			goto err_inval;
+ #endif
+@@ -796,7 +796,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+ 		nh->nh_oif = cfg->fc_oif;
+ 		nh->nh_gw = cfg->fc_gw;
+ 		nh->nh_flags = cfg->fc_flags;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 		nh->nh_tclassid = cfg->fc_flow;
+ #endif
+ #ifdef CONFIG_IP_ROUTE_MULTIPATH
+@@ -1006,7 +1006,7 @@ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+ 
+ 		if (fi->fib_nh->nh_oif)
+ 			NLA_PUT_U32(skb, RTA_OIF, fi->fib_nh->nh_oif);
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 		if (fi->fib_nh[0].nh_tclassid)
+ 			NLA_PUT_U32(skb, RTA_FLOW, fi->fib_nh[0].nh_tclassid);
+ #endif
+@@ -1031,7 +1031,7 @@ int fib_dump_info(struct sk_buff *skb, u32 pid, u32 seq, int event,
+ 
+ 			if (nh->nh_gw)
+ 				NLA_PUT_BE32(skb, RTA_GATEWAY, nh->nh_gw);
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 			if (nh->nh_tclassid)
+ 				NLA_PUT_U32(skb, RTA_FLOW, nh->nh_tclassid);
+ #endif
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index d859bcc..d7b2b09 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -340,7 +340,7 @@ static int ip_rcv_finish(struct sk_buff *skb)
  		}
  	}
- 	old_size = init_net.ct.htable_size;
--	old_vmalloced = init_net.ct.hash_vmalloc;
- 	old_hash = init_net.ct.hash;
  
- 	init_net.ct.htable_size = nf_conntrack_htable_size = hashsize;
--	init_net.ct.hash_vmalloc = vmalloced;
- 	init_net.ct.hash = hash;
- 	spin_unlock_bh(&nf_conntrack_lock);
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (unlikely(skb_dst(skb)->tclassid)) {
+ 		struct ip_rt_acct *st = this_cpu_ptr(ip_rt_acct);
+ 		u32 idx = skb_dst(skb)->tclassid;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 66610ea..f70ae1b 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -511,7 +511,7 @@ static const struct file_operations rt_cpu_seq_fops = {
+ 	.release = seq_release,
+ };
  
--	nf_ct_free_hashtable(old_hash, old_vmalloced, old_size);
-+	nf_ct_free_hashtable(old_hash, old_size);
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(nf_conntrack_set_hashsize);
-@@ -1491,8 +1485,7 @@ static int nf_conntrack_init_net(struct net *net)
- 	}
- 
- 	net->ct.htable_size = nf_conntrack_htable_size;
--	net->ct.hash = nf_ct_alloc_hashtable(&net->ct.htable_size,
--					     &net->ct.hash_vmalloc, 1);
-+	net->ct.hash = nf_ct_alloc_hashtable(&net->ct.htable_size, 1);
- 	if (!net->ct.hash) {
- 		ret = -ENOMEM;
- 		printk(KERN_ERR "Unable to create nf_conntrack_hash\n");
-@@ -1515,8 +1508,7 @@ err_ecache:
- err_acct:
- 	nf_conntrack_expect_fini(net);
- err_expect:
--	nf_ct_free_hashtable(net->ct.hash, net->ct.hash_vmalloc,
--			     net->ct.htable_size);
-+	nf_ct_free_hashtable(net->ct.hash, net->ct.htable_size);
- err_hash:
- 	kmem_cache_destroy(net->ct.nf_conntrack_cachep);
- err_cache:
-diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 4a9ed23..cd1e8e0 100644
---- a/net/netfilter/nf_conntrack_expect.c
-+++ b/net/netfilter/nf_conntrack_expect.c
-@@ -639,8 +639,7 @@ int nf_conntrack_expect_init(struct net *net)
- 	}
- 
- 	net->ct.expect_count = 0;
--	net->ct.expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize,
--						  &net->ct.expect_vmalloc, 0);
-+	net->ct.expect_hash = nf_ct_alloc_hashtable(&nf_ct_expect_hsize, 0);
- 	if (net->ct.expect_hash == NULL)
- 		goto err1;
- 
-@@ -662,8 +661,7 @@ err3:
- 	if (net_eq(net, &init_net))
- 		kmem_cache_destroy(nf_ct_expect_cachep);
- err2:
--	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
--			     nf_ct_expect_hsize);
-+	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
- err1:
- 	return err;
- }
-@@ -675,6 +673,5 @@ void nf_conntrack_expect_fini(struct net *net)
- 		rcu_barrier(); /* Wait for call_rcu() before destroy */
- 		kmem_cache_destroy(nf_ct_expect_cachep);
- 	}
--	nf_ct_free_hashtable(net->ct.expect_hash, net->ct.expect_vmalloc,
--			     nf_ct_expect_hsize);
-+	nf_ct_free_hashtable(net->ct.expect_hash, nf_ct_expect_hsize);
- }
-diff --git a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
-index 767bbe9..1bdfea3 100644
---- a/net/netfilter/nf_conntrack_helper.c
-+++ b/net/netfilter/nf_conntrack_helper.c
-@@ -33,7 +33,6 @@ static DEFINE_MUTEX(nf_ct_helper_mutex);
- static struct hlist_head *nf_ct_helper_hash __read_mostly;
- static unsigned int nf_ct_helper_hsize __read_mostly;
- static unsigned int nf_ct_helper_count __read_mostly;
--static int nf_ct_helper_vmalloc;
- 
- 
- /* Stupid hash, but collision free for the default registrations of the
-@@ -267,8 +266,7 @@ int nf_conntrack_helper_init(void)
- 	int err;
- 
- 	nf_ct_helper_hsize = 1; /* gets rounded up to use one page */
--	nf_ct_helper_hash = nf_ct_alloc_hashtable(&nf_ct_helper_hsize,
--						  &nf_ct_helper_vmalloc, 0);
-+	nf_ct_helper_hash = nf_ct_alloc_hashtable(&nf_ct_helper_hsize, 0);
- 	if (!nf_ct_helper_hash)
- 		return -ENOMEM;
- 
-@@ -279,14 +277,12 @@ int nf_conntrack_helper_init(void)
- 	return 0;
- 
- err1:
--	nf_ct_free_hashtable(nf_ct_helper_hash, nf_ct_helper_vmalloc,
--			     nf_ct_helper_hsize);
-+	nf_ct_free_hashtable(nf_ct_helper_hash, nf_ct_helper_hsize);
- 	return err;
- }
- 
- void nf_conntrack_helper_fini(void)
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ static int rt_acct_proc_show(struct seq_file *m, void *v)
  {
- 	nf_ct_extend_unregister(&helper_extend);
--	nf_ct_free_hashtable(nf_ct_helper_hash, nf_ct_helper_vmalloc,
--			     nf_ct_helper_hsize);
-+	nf_ct_free_hashtable(nf_ct_helper_hash, nf_ct_helper_hsize);
+ 	struct ip_rt_acct *dst, *src;
+@@ -564,14 +564,14 @@ static int __net_init ip_rt_do_proc_init(struct net *net)
+ 	if (!pde)
+ 		goto err2;
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	pde = proc_create("rt_acct", 0, net->proc_net, &rt_acct_proc_fops);
+ 	if (!pde)
+ 		goto err3;
+ #endif
+ 	return 0;
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ err3:
+ 	remove_proc_entry("rt_cache", net->proc_net_stat);
+ #endif
+@@ -585,7 +585,7 @@ static void __net_exit ip_rt_do_proc_exit(struct net *net)
+ {
+ 	remove_proc_entry("rt_cache", net->proc_net_stat);
+ 	remove_proc_entry("rt_cache", net->proc_net);
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	remove_proc_entry("rt_acct", net->proc_net);
+ #endif
  }
+@@ -1784,7 +1784,7 @@ void ip_rt_get_source(u8 *addr, struct rtable *rt)
+ 	memcpy(addr, &src, 4);
+ }
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ static void set_class_tag(struct rtable *rt, u32 tag)
+ {
+ 	if (!(rt->dst.tclassid & 0xFFFF))
+@@ -1811,7 +1811,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
+ 			    rt->dst.dev->mtu > 576)
+ 				rt->dst.metrics[RTAX_MTU-1] = 576;
+ 		}
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 		rt->dst.tclassid = FIB_RES_NH(*res).nh_tclassid;
+ #endif
+ 	} else
+@@ -1827,7 +1827,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
+ 	if (dst_metric(&rt->dst, RTAX_ADVMSS) > 65535 - 40)
+ 		rt->dst.metrics[RTAX_ADVMSS-1] = 65535 - 40;
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	set_class_tag(rt, fib_rules_tclass(res));
+ #endif
+@@ -1883,7 +1883,7 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
+ 	rth->fl.mark    = skb->mark;
+ 	rth->fl.fl4_src	= saddr;
+ 	rth->rt_src	= saddr;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	rth->dst.tclassid = itag;
+ #endif
+ 	rth->rt_iif	=
+@@ -2202,7 +2202,7 @@ local_input:
+ 	rth->fl.mark    = skb->mark;
+ 	rth->fl.fl4_src	= saddr;
+ 	rth->rt_src	= saddr;
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	rth->dst.tclassid = itag;
+ #endif
+ 	rth->rt_iif	=
+@@ -2820,7 +2820,7 @@ static int rt_fill_info(struct net *net,
+ 	}
+ 	if (rt->dst.dev)
+ 		NLA_PUT_U32(skb, RTA_OIF, rt->dst.dev->ifindex);
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (rt->dst.tclassid)
+ 		NLA_PUT_U32(skb, RTA_FLOW, rt->dst.tclassid);
+ #endif
+@@ -3245,9 +3245,9 @@ static __net_initdata struct pernet_operations rt_genid_ops = {
+ };
+ 
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ struct ip_rt_acct __percpu *ip_rt_acct __read_mostly;
+-#endif /* CONFIG_NET_CLS_ROUTE */
++#endif /* CONFIG_IP_ROUTE_CLASSID */
+ 
+ static __initdata unsigned long rhash_entries;
+ static int __init set_rhash_entries(char *str)
+@@ -3263,7 +3263,7 @@ int __init ip_rt_init(void)
+ {
+ 	int rc = 0;
+ 
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	ip_rt_acct = __alloc_percpu(256 * sizeof(struct ip_rt_acct), __alignof__(struct ip_rt_acct));
+ 	if (!ip_rt_acct)
+ 		panic("IP: failed to allocate ip_rt_acct\n");
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 1534f2b..1b79353 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -886,7 +886,7 @@ config NETFILTER_XT_MATCH_RATEEST
+ config NETFILTER_XT_MATCH_REALM
+ 	tristate  '"realm" match support'
+ 	depends on NETFILTER_ADVANCED
+-	select NET_CLS_ROUTE
++	select IP_ROUTE_CLASSID
+ 	help
+ 	  This option adds a `realm' match, which allows you to use the realm
+ 	  key from the routing subsystem inside iptables.
+diff --git a/net/sched/Kconfig b/net/sched/Kconfig
+index a36270a..4b753ef 100644
+--- a/net/sched/Kconfig
++++ b/net/sched/Kconfig
+@@ -243,7 +243,7 @@ config NET_CLS_TCINDEX
+ 
+ config NET_CLS_ROUTE4
+ 	tristate "Routing decision (ROUTE)"
+-	select NET_CLS_ROUTE
++	select IP_ROUTE_CLASSID
+ 	select NET_CLS
+ 	---help---
+ 	  If you say Y here, you will be able to classify packets
+@@ -252,9 +252,6 @@ config NET_CLS_ROUTE4
+ 	  To compile this code as a module, choose M here: the
+ 	  module will be called cls_route.
+ 
+-config NET_CLS_ROUTE
+-	bool
+-
+ config NET_CLS_FW
+ 	tristate "Netfilter mark (FW)"
+ 	select NET_CLS
+diff --git a/net/sched/cls_flow.c b/net/sched/cls_flow.c
+index 5b271a1..a3b293d 100644
+--- a/net/sched/cls_flow.c
++++ b/net/sched/cls_flow.c
+@@ -276,7 +276,7 @@ fallback:
+ 
+ static u32 flow_get_rtclassid(const struct sk_buff *skb)
+ {
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 	if (skb_dst(skb))
+ 		return skb_dst(skb)->tclassid;
+ #endif
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index 34da5e2..0d66e58 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -255,7 +255,7 @@ META_COLLECTOR(int_rtclassid)
+ 	if (unlikely(skb_dst(skb) == NULL))
+ 		*err = -1;
+ 	else
+-#ifdef CONFIG_NET_CLS_ROUTE
++#ifdef CONFIG_IP_ROUTE_CLASSID
+ 		dst->value = skb_dst(skb)->tclassid;
+ #else
+ 		dst->value = 0;
 -- 
 1.7.2.3
 
