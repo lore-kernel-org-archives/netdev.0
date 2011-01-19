@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net offloading: Do not mask out NETIF_F_HW_VLAN_TX for
- vlan.
-Date: Tue, 18 Jan 2011 16:15:34 -0800 (PST)
-Message-ID: <20110118.161534.232762549.davem@davemloft.net>
-References: <1295333160-1667-1-git-send-email-jesse@nicira.com>
-	<1295333714.3362.561.camel@edumazet-laptop>
+Subject: Re: [PATCH] net/irda/sh_irda: return to RX mode when TX error
+Date: Tue, 18 Jan 2011 16:15:48 -0800 (PST)
+Message-ID: <20110118.161548.229732736.davem@davemloft.net>
+References: <w3ppqs0ncyp.wl%kuninori.morimoto.gx@renesas.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jesse@nicira.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, samuel@sortiz.org
+To: kuninori.morimoto.gx@renesas.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34809
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34814
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752255Ab1ASAPA convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jan 2011 19:15:00 -0500
-In-Reply-To: <1295333714.3362.561.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752255Ab1ASAPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jan 2011 19:15:14 -0500
+In-Reply-To: <w3ppqs0ncyp.wl%kuninori.morimoto.gx@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 18 Jan 2011 07:55:14 +0100
+From: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
+Date: Fri, 14 Jan 2011 16:47:42 +0900
 
-> Le lundi 17 janvier 2011 =E0 22:46 -0800, Jesse Gross a =E9crit :
->> In netif_skb_features() we return only the features that are valid f=
-or vlans
->> if we have a vlan packet.  However, we should not mask out NETIF_F_H=
-W_VLAN_TX
->> since it enables transmission of vlan tags and is obviously valid.
->>=20
->> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
->> Signed-off-by: Jesse Gross <jesse@nicira.com>
->=20
-> Thanks Jesse
->=20
-> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+> sh_irda can not use RX/TX in same time,
+> but this driver didn't return to RX mode when TX error occurred.
+> This patch care xmit error case to solve this issue.
+> 
+> Signed-off-by: Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
 
-Applied, thanks.
+Applied, thank you.
