@@ -1,169 +1,230 @@
 From: kaber@trash.net
-Subject: [PATCH 01/79] netfilter: nf_conntrack: don't always initialize ct->proto
-Date: Wed, 19 Jan 2011 20:14:01 +0100
-Message-ID: <1295464519-21763-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 72/79] netfilter: nfnetlink_queue: return error number to caller
+Date: Wed, 19 Jan 2011 20:15:12 +0100
+Message-ID: <1295464519-21763-73-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51971 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:51978 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753513Ab1ASTPY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:24 -0500
+	with ESMTP id S1754030Ab1ASTPn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:43 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Florian Westphal <fw@strlen.de>
 
-ct->proto is big(60 bytes) due to structure ip_ct_tcp, and we don't need
-to initialize the whole for all the other protocols. This patch moves
-proto to the end of structure nf_conn, and pushes the initialization down
-to the individual protocols.
+instead of returning -1 on error, return an error number to allow the
+caller to handle some errors differently.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+ECANCELED is used to indicate that the hook is going away and should be
+ignored.
+
+A followup patch will introduce more 'ignore this hook' conditions,
+(depending on queue settings) and will move kfree_skb responsibility
+to the caller.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/netfilter/nf_conntrack.h    |    6 +++---
- net/netfilter/nf_conntrack_core.c       |    3 ++-
- net/netfilter/nf_conntrack_netlink.c    |    1 +
- net/netfilter/nf_conntrack_proto_dccp.c |    3 +++
- net/netfilter/nf_conntrack_proto_sctp.c |    1 +
- net/netfilter/nf_conntrack_proto_tcp.c  |   14 +++-----------
- 6 files changed, 13 insertions(+), 15 deletions(-)
+ net/netfilter/core.c            |    6 +++-
+ net/netfilter/nf_queue.c        |   44 +++++++++++++++++++++++++++-----------
+ net/netfilter/nfnetlink_queue.c |   22 ++++++++++++-------
+ 3 files changed, 49 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index caf17db..abfff1e 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -116,14 +116,14 @@ struct nf_conn {
- 	u_int32_t secmark;
- #endif
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index e69d537..91d66d2f 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -179,9 +179,11 @@ next_hook:
+ 		if (ret == 0)
+ 			ret = -EPERM;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
+-		if (!nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+-			      verdict >> NF_VERDICT_BITS))
++		ret = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
++			       verdict >> NF_VERDICT_BITS);
++		if (ret == -ECANCELED)
+ 			goto next_hook;
++		ret = 0;
+ 	}
+ 	rcu_read_unlock();
+ 	return ret;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 1876f74..ad25c7e 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -125,7 +125,7 @@ static int __nf_queue(struct sk_buff *skb,
+ 		      int (*okfn)(struct sk_buff *),
+ 		      unsigned int queuenum)
+ {
+-	int status;
++	int status = -ENOENT;
+ 	struct nf_queue_entry *entry = NULL;
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	struct net_device *physindev;
+@@ -146,8 +146,10 @@ static int __nf_queue(struct sk_buff *skb,
+ 		goto err_unlock;
  
--	/* Storage reserved for other modules: */
--	union nf_conntrack_proto proto;
+ 	entry = kmalloc(sizeof(*entry) + afinfo->route_key_size, GFP_ATOMIC);
+-	if (!entry)
++	if (!entry) {
++		status = -ENOMEM;
+ 		goto err_unlock;
++	}
+ 
+ 	*entry = (struct nf_queue_entry) {
+ 		.skb	= skb,
+@@ -163,9 +165,8 @@ static int __nf_queue(struct sk_buff *skb,
+ 	if (!try_module_get(entry->elem->owner)) {
+ 		rcu_read_unlock();
+ 		kfree(entry);
+-		return 0;
++		return -ECANCELED;
+ 	}
 -
- 	/* Extensions */
- 	struct nf_ct_ext *ext;
- #ifdef CONFIG_NET_NS
- 	struct net *ct_net;
- #endif
+ 	/* Bump dev refs so they don't vanish while packet is out */
+ 	if (indev)
+ 		dev_hold(indev);
+@@ -192,14 +193,14 @@ static int __nf_queue(struct sk_buff *skb,
+ 		goto err;
+ 	}
+ 
+-	return 1;
++	return 0;
+ 
+ err_unlock:
+ 	rcu_read_unlock();
+ err:
+ 	kfree_skb(skb);
+ 	kfree(entry);
+-	return 1;
++	return status;
+ }
+ 
+ int nf_queue(struct sk_buff *skb,
+@@ -211,6 +212,8 @@ int nf_queue(struct sk_buff *skb,
+ 	     unsigned int queuenum)
+ {
+ 	struct sk_buff *segs;
++	int err;
++	unsigned int queued;
+ 
+ 	if (!skb_is_gso(skb))
+ 		return __nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+@@ -227,19 +230,32 @@ int nf_queue(struct sk_buff *skb,
+ 
+ 	segs = skb_gso_segment(skb, 0);
+ 	kfree_skb(skb);
++	/* Does not use PTR_ERR to limit the number of error codes that can be
++	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to mean
++	 * 'ignore this hook'.
++	 */
+ 	if (IS_ERR(segs))
+-		return 1;
++		return -EINVAL;
+ 
++	queued = 0;
++	err = 0;
+ 	do {
+ 		struct sk_buff *nskb = segs->next;
+ 
+ 		segs->next = NULL;
+-		if (!__nf_queue(segs, elem, pf, hook, indev, outdev, okfn,
+-				queuenum))
++		if (err == 0)
++			err = __nf_queue(segs, elem, pf, hook, indev,
++					   outdev, okfn, queuenum);
++		if (err == 0)
++			queued++;
++		else
+ 			kfree_skb(segs);
+ 		segs = nskb;
+ 	} while (segs);
+-	return 1;
 +
-+	/* Storage reserved for other modules, must be the last member */
-+	union nf_conntrack_proto proto;
- };
++	if (unlikely(err && queued))
++		err = 0;
++	return err;
+ }
  
- static inline struct nf_conn *
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 27a5ea6..0ba7d48 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -651,7 +651,8 @@ __nf_conntrack_alloc(struct net *net, u16 zone,
- 	 * and ct->tuplehash[IP_CT_DIR_REPLY].hnnode.next unchanged.
- 	 */
- 	memset(&ct->tuplehash[IP_CT_DIR_MAX], 0,
--	       sizeof(*ct) - offsetof(struct nf_conn, tuplehash[IP_CT_DIR_MAX]));
-+	       offsetof(struct nf_conn, proto) -
-+	       offsetof(struct nf_conn, tuplehash[IP_CT_DIR_MAX]));
- 	spin_lock_init(&ct->lock);
- 	ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *orig;
- 	ct->tuplehash[IP_CT_DIR_ORIGINAL].hnnode.pprev = NULL;
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index b729ace..7f59be8 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1375,6 +1375,7 @@ ctnetlink_create_conntrack(struct net *net, u16 zone,
- 	}
- #endif
+ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+@@ -247,6 +263,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 	struct sk_buff *skb = entry->skb;
+ 	struct list_head *elem = &entry->elem->list;
+ 	const struct nf_afinfo *afinfo;
++	int err;
  
-+	memset(&ct->proto, 0, sizeof(ct->proto));
- 	if (cda[CTA_PROTOINFO]) {
- 		err = ctnetlink_change_protoinfo(ct, cda);
- 		if (err < 0)
-diff --git a/net/netfilter/nf_conntrack_proto_dccp.c b/net/netfilter/nf_conntrack_proto_dccp.c
-index 5292560..9ae57c5 100644
---- a/net/netfilter/nf_conntrack_proto_dccp.c
-+++ b/net/netfilter/nf_conntrack_proto_dccp.c
-@@ -452,6 +452,9 @@ static bool dccp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	ct->proto.dccp.role[IP_CT_DIR_ORIGINAL] = CT_DCCP_ROLE_CLIENT;
- 	ct->proto.dccp.role[IP_CT_DIR_REPLY] = CT_DCCP_ROLE_SERVER;
- 	ct->proto.dccp.state = CT_DCCP_NONE;
-+	ct->proto.dccp.last_pkt = DCCP_PKT_REQUEST;
-+	ct->proto.dccp.last_dir = IP_CT_DIR_ORIGINAL;
-+	ct->proto.dccp.handshake_seq = 0;
- 	return true;
+ 	rcu_read_lock();
  
- out_invalid:
-diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
-index c6049c2..6f4ee70 100644
---- a/net/netfilter/nf_conntrack_proto_sctp.c
-+++ b/net/netfilter/nf_conntrack_proto_sctp.c
-@@ -413,6 +413,7 @@ static bool sctp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	    test_bit(SCTP_CID_COOKIE_ACK, map))
- 		return false;
+@@ -280,9 +297,10 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 		local_bh_enable();
+ 		break;
+ 	case NF_QUEUE:
+-		if (!__nf_queue(skb, elem, entry->pf, entry->hook,
+-				entry->indev, entry->outdev, entry->okfn,
+-				verdict >> NF_VERDICT_BITS))
++		err = __nf_queue(skb, elem, entry->pf, entry->hook,
++				 entry->indev, entry->outdev, entry->okfn,
++				 verdict >> NF_VERDICT_BITS);
++		if (err == -ECANCELED)
+ 			goto next_hook;
+ 		break;
+ 	case NF_STOLEN:
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index 68e67d1..b83123f 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -387,25 +387,31 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ {
+ 	struct sk_buff *nskb;
+ 	struct nfqnl_instance *queue;
+-	int err;
++	int err = -ENOBUFS;
  
-+	memset(&ct->proto.sctp, 0, sizeof(ct->proto.sctp));
- 	new_state = SCTP_CONNTRACK_MAX;
- 	for_each_sctp_chunk (skb, sch, _sch, offset, dataoff, count) {
- 		/* Don't need lock here: this conntrack not in circulation yet */
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 3fb2b73..6f38d0e 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -1066,9 +1066,7 @@ static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	BUG_ON(th == NULL);
+ 	/* rcu_read_lock()ed by nf_hook_slow() */
+ 	queue = instance_lookup(queuenum);
+-	if (!queue)
++	if (!queue) {
++		err = -ESRCH;
+ 		goto err_out;
++	}
  
- 	/* Don't need lock here: this conntrack not in circulation yet */
--	new_state
--		= tcp_conntracks[0][get_conntrack_index(th)]
--		[TCP_CONNTRACK_NONE];
-+	new_state = tcp_conntracks[0][get_conntrack_index(th)][TCP_CONNTRACK_NONE];
+-	if (queue->copy_mode == NFQNL_COPY_NONE)
++	if (queue->copy_mode == NFQNL_COPY_NONE) {
++		err = -EINVAL;
+ 		goto err_out;
++	}
  
- 	/* Invalid: delete conntrack */
- 	if (new_state >= TCP_CONNTRACK_MAX) {
-@@ -1077,6 +1075,7 @@ static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 	}
- 
- 	if (new_state == TCP_CONNTRACK_SYN_SENT) {
-+		memset(&ct->proto.tcp, 0, sizeof(ct->proto.tcp));
- 		/* SYN packet */
- 		ct->proto.tcp.seen[0].td_end =
- 			segment_seq_plus_len(ntohl(th->seq), skb->len,
-@@ -1088,11 +1087,11 @@ static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 			ct->proto.tcp.seen[0].td_end;
- 
- 		tcp_options(skb, dataoff, th, &ct->proto.tcp.seen[0]);
--		ct->proto.tcp.seen[1].flags = 0;
- 	} else if (nf_ct_tcp_loose == 0) {
- 		/* Don't try to pick up connections. */
- 		return false;
- 	} else {
-+		memset(&ct->proto.tcp, 0, sizeof(ct->proto.tcp));
- 		/*
- 		 * We are in the middle of a connection,
- 		 * its history is lost for us.
-@@ -1107,7 +1106,6 @@ static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 		ct->proto.tcp.seen[0].td_maxend =
- 			ct->proto.tcp.seen[0].td_end +
- 			ct->proto.tcp.seen[0].td_maxwin;
--		ct->proto.tcp.seen[0].td_scale = 0;
- 
- 		/* We assume SACK and liberal window checking to handle
- 		 * window scaling */
-@@ -1116,13 +1114,7 @@ static bool tcp_new(struct nf_conn *ct, const struct sk_buff *skb,
- 					      IP_CT_TCP_FLAG_BE_LIBERAL;
- 	}
- 
--	ct->proto.tcp.seen[1].td_end = 0;
--	ct->proto.tcp.seen[1].td_maxend = 0;
--	ct->proto.tcp.seen[1].td_maxwin = 0;
--	ct->proto.tcp.seen[1].td_scale = 0;
+ 	nskb = nfqnl_build_packet_message(queue, entry);
+-	if (nskb == NULL)
++	if (nskb == NULL) {
++		err = -ENOMEM;
+ 		goto err_out;
 -
- 	/* tcp_packet will set them */
--	ct->proto.tcp.state = TCP_CONNTRACK_NONE;
- 	ct->proto.tcp.last_index = TCP_NONE_SET;
++	}
+ 	spin_lock_bh(&queue->lock);
  
- 	pr_debug("tcp_new: sender end=%u maxend=%u maxwin=%u scale=%i "
+-	if (!queue->peer_pid)
++	if (!queue->peer_pid) {
++		err = -EINVAL;
+ 		goto err_out_free_nskb;
+-
++	}
+ 	if (queue->queue_total >= queue->queue_maxlen) {
+ 		queue->queue_dropped++;
+ 		if (net_ratelimit())
+@@ -432,7 +438,7 @@ err_out_free_nskb:
+ err_out_unlock:
+ 	spin_unlock_bh(&queue->lock);
+ err_out:
+-	return -1;
++	return err;
+ }
+ 
+ static int
 -- 
 1.7.2.3
 
