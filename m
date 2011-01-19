@@ -1,45 +1,41 @@
-From: Janek Wrobel <wrr@google.com>
-Subject: Altering default SO_PRIORITY of a socket.
-Date: Wed, 19 Jan 2011 11:02:52 +0100
-Message-ID: <AANLkTi=X3_fW9cB2nj6W=E9kivU_NfdbhGGh0Fvxbn4d@mail.gmail.com>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: netconsole build breakage (Re: [GIT] Networking)
+Date: Wed, 19 Jan 2011 18:08:24 +0800
+Message-ID: <20110119100824.GD9903@cr0.nay.redhat.com>
+References: <20110114.130323.201674039.davem@davemloft.net>
+ <20110119095920.GA10543@elte.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:24364 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753688Ab1ASKCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 05:02:55 -0500
-Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
-	by smtp-out.google.com with ESMTP id p0JA2tIS008014
-	for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 02:02:55 -0800
-Received: from fxm12 (fxm12.prod.google.com [10.184.13.12])
-	by kpbe17.cbf.corp.google.com with ESMTP id p0JA2qsb028121
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 02:02:53 -0800
-Received: by fxm12 with SMTP id 12so650299fxm.0
-        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 02:02:52 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Nicholas Bellinger <nab@linux-iscsi.org>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110119095920.GA10543@elte.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Jan 19, 2011 at 10:59:20AM +0100, Ingo Molnar wrote:
+>
+>FYI, there's a .38-rc1 build failure that triggers rather often:
+>
+> drivers/built-in.o: In function `drop_netconsole_target':
+> netconsole.c:(.text+0x130146): undefined reference to `config_item_put'
+> drivers/built-in.o: In function `write_msg':
+> netconsole.c:(.text+0x1301aa): undefined reference to `config_item_get'
+> netconsole.c:(.text+0x130217): undefined reference to `config_item_put'
+> drivers/built-in.o: In function `netconsole_netdev_event':
+> netconsole.c:(.text+0x1302ab): undefined reference to `config_item_get'
+> ...
+>
+>Triggered by this configuration:
+>
+> CONFIG_CONFIGFS_FS=m
+> CONFIG_NETCONSOLE=y
+>
 
-Does Linux allow to change default priority of listening or connected
-sockets, without process ever calling setsockopt(..,SO_PRIORITY,..)?
-In other words, in a following sequence of events, is it possible that
-priority_a, or priority_b will ever be non 0 (assuming all calls
-succeeded)?
-
-sock = socket(AF_INET, SOCK_STREAM, 0);
-bind(sock, some address)
-listen(sock, ...)
-int priority_a;
-getsockopt(sock, SOL_SOCKET, SO_PRIORITY, &priority_a, sizeof(priority_a))
-
-client_sock = accept(sock, ...);
-int priority_b;
-getsockopt(client_sock, SOL_SOCKET, SO_PRIORITY, &priority_b,
-sizeof(priority_b))
-
-thanks,
-Janek
+Should be "depends on CONFIGFS_FS=y".
