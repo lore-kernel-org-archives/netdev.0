@@ -1,230 +1,125 @@
 From: kaber@trash.net
-Subject: [PATCH 72/79] netfilter: nfnetlink_queue: return error number to caller
-Date: Wed, 19 Jan 2011 20:15:12 +0100
-Message-ID: <1295464519-21763-73-git-send-email-kaber@trash.net>
+Subject: [PATCH 74/79] netfilter: reduce NF_VERDICT_MASK to 0xff
+Date: Wed, 19 Jan 2011 20:15:14 +0100
+Message-ID: <1295464519-21763-75-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51978 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754030Ab1ASTPn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:43 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-instead of returning -1 on error, return an error number to allow the
-caller to handle some errors differently.
+NF_VERDICT_MASK is currently 0xffff. This is because the upper
+16 bits are used to store errno (for NF_DROP) or the queue number
+(NF_QUEUE verdict).
 
-ECANCELED is used to indicate that the hook is going away and should be
-ignored.
+As there are up to 0xffff different queues available, there is no more
+room to store additional flags.
 
-A followup patch will introduce more 'ignore this hook' conditions,
-(depending on queue settings) and will move kfree_skb responsibility
-to the caller.
+At the moment there are only 6 different verdicts, i.e. we can reduce
+NF_VERDICT_MASK to 0xff to allow storing additional flags in the 0xff00 space.
+
+NF_VERDICT_BITS would then be reduced to 8, but because the value is
+exported to userspace, this might cause breakage; e.g.:
+
+e.g. 'queuenr = (1 << NF_VERDICT_BITS) | NF_QUEUE'  would now break.
+
+Thus, remove NF_VERDICT_BITS usage in the kernel and move the old value
+to the 'userspace compat' section.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/core.c            |    6 +++-
- net/netfilter/nf_queue.c        |   44 +++++++++++++++++++++++++++-----------
- net/netfilter/nfnetlink_queue.c |   22 ++++++++++++-------
- 3 files changed, 49 insertions(+), 23 deletions(-)
+ include/linux/netfilter.h |   20 +++++++++++++++-----
+ net/netfilter/core.c      |    4 ++--
+ net/netfilter/nf_queue.c  |    2 +-
+ 3 files changed, 18 insertions(+), 8 deletions(-)
 
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 0ab7ca7..78b73cc 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -24,16 +24,19 @@
+ #define NF_MAX_VERDICT NF_STOP
+ 
+ /* we overload the higher bits for encoding auxiliary data such as the queue
+- * number. Not nice, but better than additional function arguments. */
+-#define NF_VERDICT_MASK 0x0000ffff
+-#define NF_VERDICT_BITS 16
++ * number or errno values. Not nice, but better than additional function
++ * arguments. */
++#define NF_VERDICT_MASK 0x000000ff
++
++/* extra verdict flags have mask 0x0000ff00 */
+ 
++/* queue number (NF_QUEUE) or errno (NF_DROP) */
+ #define NF_VERDICT_QMASK 0xffff0000
+ #define NF_VERDICT_QBITS 16
+ 
+-#define NF_QUEUE_NR(x) ((((x) << NF_VERDICT_BITS) & NF_VERDICT_QMASK) | NF_QUEUE)
++#define NF_QUEUE_NR(x) ((((x) << 16) & NF_VERDICT_QMASK) | NF_QUEUE)
+ 
+-#define NF_DROP_ERR(x) (((-x) << NF_VERDICT_BITS) | NF_DROP)
++#define NF_DROP_ERR(x) (((-x) << 16) | NF_DROP)
+ 
+ /* only for userspace compatibility */
+ #ifndef __KERNEL__
+@@ -41,6 +44,9 @@
+    <= 0x2000 is used for protocol-flags. */
+ #define NFC_UNKNOWN 0x4000
+ #define NFC_ALTERED 0x8000
++
++/* NF_VERDICT_BITS should be 8 now, but userspace might break if this changes */
++#define NF_VERDICT_BITS 16
+ #endif
+ 
+ enum nf_inet_hooks {
+@@ -72,6 +78,10 @@ union nf_inet_addr {
+ 
+ #ifdef __KERNEL__
+ #ifdef CONFIG_NETFILTER
++static inline int NF_DROP_GETERR(int verdict)
++{
++	return -(verdict >> NF_VERDICT_QBITS);
++}
+ 
+ static inline int nf_inet_addr_cmp(const union nf_inet_addr *a1,
+ 				   const union nf_inet_addr *a2)
 diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index e69d537..91d66d2f 100644
+index 0c5b796..4d88e45 100644
 --- a/net/netfilter/core.c
 +++ b/net/netfilter/core.c
-@@ -179,9 +179,11 @@ next_hook:
+@@ -175,12 +175,12 @@ next_hook:
+ 		ret = 1;
+ 	} else if ((verdict & NF_VERDICT_MASK) == NF_DROP) {
+ 		kfree_skb(skb);
+-		ret = -(verdict >> NF_VERDICT_BITS);
++		ret = NF_DROP_GETERR(verdict);
  		if (ret == 0)
  			ret = -EPERM;
  	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
--		if (!nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
--			      verdict >> NF_VERDICT_BITS))
-+		ret = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
-+			       verdict >> NF_VERDICT_BITS);
-+		if (ret == -ECANCELED)
- 			goto next_hook;
-+		ret = 0;
- 	}
- 	rcu_read_unlock();
- 	return ret;
+ 		ret = nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+-			       verdict >> NF_VERDICT_BITS);
++			       verdict >> NF_VERDICT_QBITS);
+ 		if (ret < 0) {
+ 			if (ret == -ECANCELED)
+ 				goto next_hook;
 diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index 1876f74..ad25c7e 100644
+index 5c4b730..ce1150d4a 100644
 --- a/net/netfilter/nf_queue.c
 +++ b/net/netfilter/nf_queue.c
-@@ -125,7 +125,7 @@ static int __nf_queue(struct sk_buff *skb,
- 		      int (*okfn)(struct sk_buff *),
- 		      unsigned int queuenum)
- {
--	int status;
-+	int status = -ENOENT;
- 	struct nf_queue_entry *entry = NULL;
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	struct net_device *physindev;
-@@ -146,8 +146,10 @@ static int __nf_queue(struct sk_buff *skb,
- 		goto err_unlock;
- 
- 	entry = kmalloc(sizeof(*entry) + afinfo->route_key_size, GFP_ATOMIC);
--	if (!entry)
-+	if (!entry) {
-+		status = -ENOMEM;
- 		goto err_unlock;
-+	}
- 
- 	*entry = (struct nf_queue_entry) {
- 		.skb	= skb,
-@@ -163,9 +165,8 @@ static int __nf_queue(struct sk_buff *skb,
- 	if (!try_module_get(entry->elem->owner)) {
- 		rcu_read_unlock();
- 		kfree(entry);
--		return 0;
-+		return -ECANCELED;
- 	}
--
- 	/* Bump dev refs so they don't vanish while packet is out */
- 	if (indev)
- 		dev_hold(indev);
-@@ -192,14 +193,14 @@ static int __nf_queue(struct sk_buff *skb,
- 		goto err;
- 	}
- 
--	return 1;
-+	return 0;
- 
- err_unlock:
- 	rcu_read_unlock();
- err:
- 	kfree_skb(skb);
- 	kfree(entry);
--	return 1;
-+	return status;
- }
- 
- int nf_queue(struct sk_buff *skb,
-@@ -211,6 +212,8 @@ int nf_queue(struct sk_buff *skb,
- 	     unsigned int queuenum)
- {
- 	struct sk_buff *segs;
-+	int err;
-+	unsigned int queued;
- 
- 	if (!skb_is_gso(skb))
- 		return __nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
-@@ -227,19 +230,32 @@ int nf_queue(struct sk_buff *skb,
- 
- 	segs = skb_gso_segment(skb, 0);
- 	kfree_skb(skb);
-+	/* Does not use PTR_ERR to limit the number of error codes that can be
-+	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to mean
-+	 * 'ignore this hook'.
-+	 */
- 	if (IS_ERR(segs))
--		return 1;
-+		return -EINVAL;
- 
-+	queued = 0;
-+	err = 0;
- 	do {
- 		struct sk_buff *nskb = segs->next;
- 
- 		segs->next = NULL;
--		if (!__nf_queue(segs, elem, pf, hook, indev, outdev, okfn,
--				queuenum))
-+		if (err == 0)
-+			err = __nf_queue(segs, elem, pf, hook, indev,
-+					   outdev, okfn, queuenum);
-+		if (err == 0)
-+			queued++;
-+		else
- 			kfree_skb(segs);
- 		segs = nskb;
- 	} while (segs);
--	return 1;
-+
-+	if (unlikely(err && queued))
-+		err = 0;
-+	return err;
- }
- 
- void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
-@@ -247,6 +263,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 	struct sk_buff *skb = entry->skb;
- 	struct list_head *elem = &entry->elem->list;
- 	const struct nf_afinfo *afinfo;
-+	int err;
- 
- 	rcu_read_lock();
- 
-@@ -280,9 +297,10 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 		local_bh_enable();
- 		break;
+@@ -299,7 +299,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
  	case NF_QUEUE:
--		if (!__nf_queue(skb, elem, entry->pf, entry->hook,
--				entry->indev, entry->outdev, entry->okfn,
--				verdict >> NF_VERDICT_BITS))
-+		err = __nf_queue(skb, elem, entry->pf, entry->hook,
-+				 entry->indev, entry->outdev, entry->okfn,
-+				 verdict >> NF_VERDICT_BITS);
-+		if (err == -ECANCELED)
- 			goto next_hook;
- 		break;
- 	case NF_STOLEN:
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 68e67d1..b83123f 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -387,25 +387,31 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
- {
- 	struct sk_buff *nskb;
- 	struct nfqnl_instance *queue;
--	int err;
-+	int err = -ENOBUFS;
- 
- 	/* rcu_read_lock()ed by nf_hook_slow() */
- 	queue = instance_lookup(queuenum);
--	if (!queue)
-+	if (!queue) {
-+		err = -ESRCH;
- 		goto err_out;
-+	}
- 
--	if (queue->copy_mode == NFQNL_COPY_NONE)
-+	if (queue->copy_mode == NFQNL_COPY_NONE) {
-+		err = -EINVAL;
- 		goto err_out;
-+	}
- 
- 	nskb = nfqnl_build_packet_message(queue, entry);
--	if (nskb == NULL)
-+	if (nskb == NULL) {
-+		err = -ENOMEM;
- 		goto err_out;
--
-+	}
- 	spin_lock_bh(&queue->lock);
- 
--	if (!queue->peer_pid)
-+	if (!queue->peer_pid) {
-+		err = -EINVAL;
- 		goto err_out_free_nskb;
--
-+	}
- 	if (queue->queue_total >= queue->queue_maxlen) {
- 		queue->queue_dropped++;
- 		if (net_ratelimit())
-@@ -432,7 +438,7 @@ err_out_free_nskb:
- err_out_unlock:
- 	spin_unlock_bh(&queue->lock);
- err_out:
--	return -1;
-+	return err;
- }
- 
- static int
+ 		err = __nf_queue(skb, elem, entry->pf, entry->hook,
+ 				 entry->indev, entry->outdev, entry->okfn,
+-				 verdict >> NF_VERDICT_BITS);
++				 verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+ 			if (err == -ECANCELED)
+ 				goto next_hook;
 -- 
 1.7.2.3
 
