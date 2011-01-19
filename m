@@ -1,67 +1,69 @@
-From: Florian Fainelli <ffainelli@freebox.fr>
-Subject: [PATCH] e1000: add support for Marvell Alaska M88E1118R PHY
-Date: Wed, 19 Jan 2011 10:09:44 +0100
-Message-ID: <201101191009.44707.ffainelli@freebox.fr>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Wed, 19 Jan 2011 18:11:36 +0900
+Message-ID: <20110119091135.GF1960@verge.net.au>
+References: <20110113064718.GA17905@verge.net.au>
+ <AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>
+ <20110113234135.GC8426@verge.net.au>
+ <20110114045818.GA29738@redhat.com>
+ <20110114063528.GB10957@verge.net.au>
+ <20110114065415.GA30300@redhat.com>
+ <20110116223728.GA6279@verge.net.au>
+ <20110117102655.GH23479@redhat.com>
+ <4D35ECE2.4040901@hp.com>
+ <20110118201333.GD18760@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Dirk Brandewie <dirk.j.brandewie@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:55356 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753746Ab1ASJJy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jan 2011 04:09:54 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:56897 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752651Ab1ASJLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 04:11:41 -0500
+Content-Disposition: inline
+In-Reply-To: <20110118201333.GD18760@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <ffainelli@freebox.fr>
+On Tue, Jan 18, 2011 at 10:13:33PM +0200, Michael S. Tsirkin wrote:
+> On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
+> > >So it won't be all that simple to implement well, and before we try,
+> > >I'd like to know whether there are applications that are helped
+> > >by it. For example, we could try to measure latency at various
+> > >pps and see whether the backpressure helps. netperf has -b, -w
+> > >flags which might help these measurements.
+> > 
+> > Those options are enabled when one adds --enable-burst to the
+> > pre-compilation ./configure  of netperf (one doesn't have to
+> > recompile netserver).  However, if one is also looking at latency
+> > statistics via the -j option in the top-of-trunk, or simply at the
+> > histogram with --enable-histogram on the ./configure and a verbosity
+> > level of 2 (global -v 2) then one wants the very top of trunk
+> > netperf from:
+> > 
+> > http://www.netperf.org/svn/netperf2/trunk
+> > 
+> > to get the recently added support for accurate (netperf level) RTT
+> > measuremnts on burst-mode request/response tests.
+> > 
+> > happy benchmarking,
+> > 
+> > rick jones
 
-This patch adds support for Marvell Alask M88E188R PHY chips. Support for
-other M88* PHYs is already there, so there is nothing more to add than its
-PHY id.
+Thanks Rick, that is really helpful.
 
-Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
-CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
-CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
-diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
-index aed223b..7501d97 100644
---- a/drivers/net/e1000/e1000_hw.c
-+++ b/drivers/net/e1000/e1000_hw.c
-@@ -124,6 +124,7 @@ static s32 e1000_set_phy_type(struct e1000_hw *hw)
- 	case M88E1000_I_PHY_ID:
- 	case M88E1011_I_PHY_ID:
- 	case M88E1111_I_PHY_ID:
-+	case M88E1118_E_PHY_ID:
- 		hw->phy_type = e1000_phy_m88;
- 		break;
- 	case IGP01E1000_I_PHY_ID:
-@@ -3222,7 +3223,8 @@ static s32 e1000_detect_gig_phy(struct e1000_hw *hw)
- 		break;
- 	case e1000_ce4100:
- 		if ((hw->phy_id == RTL8211B_PHY_ID) ||
--		    (hw->phy_id == RTL8201N_PHY_ID))
-+		    (hw->phy_id == RTL8201N_PHY_ID) ||
-+		    (hw->phy_id == M88E1118_E_PHY_ID))
- 			match = true;
- 		break;
- 	case e1000_82541:
-diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
-index 196eeda..c70b23d 100644
---- a/drivers/net/e1000/e1000_hw.h
-+++ b/drivers/net/e1000/e1000_hw.h
-@@ -2917,6 +2917,7 @@ struct e1000_host_command_info {
- #define M88E1000_14_PHY_ID M88E1000_E_PHY_ID
- #define M88E1011_I_REV_4   0x04
- #define M88E1111_I_PHY_ID  0x01410CC0
-+#define M88E1118_E_PHY_ID  0x01410E40
- #define L1LXT971A_PHY_ID   0x001378E0
- 
- #define RTL8211B_PHY_ID    0x001CC910
--- 
-1.7.1
+> > PS - the enhanced latency statistics from -j are only available in
+> > the "omni" version of the TCP_RR test.  To get that add a
+> > --enable-omni to the ./configure - and in this case both netperf and
+> > netserver have to be recompiled.
+> 
+> 
+> Is this TCP only? I would love to get latency data from UDP as well.
 
+At a glance, -- -T UDP is what you are after.
