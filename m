@@ -1,42 +1,67 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: Re: [PATCH-v2] sctp: user perfect name for Delayed SACK Timer option
-Date: Wed, 19 Jan 2011 16:54:00 +0800
-Message-ID: <4D36A6A8.4020402@cn.fujitsu.com>
-References: <4D3693CA.40508@cn.fujitsu.com> <4D36A324.4040307@cn.fujitsu.com> <4D36A557.6080708@cn.fujitsu.com>
+From: Florian Fainelli <ffainelli@freebox.fr>
+Subject: [PATCH] e1000: add support for Marvell Alaska M88E1118R PHY
+Date: Wed, 19 Jan 2011 10:09:44 +0100
+Message-ID: <201101191009.44707.ffainelli@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	Network-Maillist <netdev@vger.kernel.org>,
-	SCTP-Maillist <linux-sctp@vger.kernel.org>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+	Dirk Brandewie <dirk.j.brandewie@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:63322 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1752593Ab1ASI5a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jan 2011 03:57:30 -0500
-In-Reply-To: <4D36A557.6080708@cn.fujitsu.com>
+Received: from smtp4-g21.free.fr ([212.27.42.4]:55356 "EHLO smtp4-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753746Ab1ASJJy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jan 2011 04:09:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wei Yongjun wrote, at 01/19/2011 04:48 PM:
-> 
->> The option name of Delayed SACK Timer should be SCTP_DELAYED_SACK,
->> not SCTP_DELAYED_ACK.
->>
->> Left SCTP_DELAYED_ACK be concomitant with SCTP_DELAYED_SACK,
->> for making compatibility with existing applications.
-> 
-> SCTP_DELAYED_ACK is introduced by my typo when change it to
-> API compliance two years ago. So:
-> 
-> Acked-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+From: Florian Fainelli <ffainelli@freebox.fr>
 
-Thanks for your work. 
+This patch adds support for Marvell Alask M88E188R PHY chips. Support for
+other M88* PHYs is already there, so there is nothing more to add than its
+PHY id.
 
-
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
+CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index aed223b..7501d97 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -124,6 +124,7 @@ static s32 e1000_set_phy_type(struct e1000_hw *hw)
+ 	case M88E1000_I_PHY_ID:
+ 	case M88E1011_I_PHY_ID:
+ 	case M88E1111_I_PHY_ID:
++	case M88E1118_E_PHY_ID:
+ 		hw->phy_type = e1000_phy_m88;
+ 		break;
+ 	case IGP01E1000_I_PHY_ID:
+@@ -3222,7 +3223,8 @@ static s32 e1000_detect_gig_phy(struct e1000_hw *hw)
+ 		break;
+ 	case e1000_ce4100:
+ 		if ((hw->phy_id == RTL8211B_PHY_ID) ||
+-		    (hw->phy_id == RTL8201N_PHY_ID))
++		    (hw->phy_id == RTL8201N_PHY_ID) ||
++		    (hw->phy_id == M88E1118_E_PHY_ID))
+ 			match = true;
+ 		break;
+ 	case e1000_82541:
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 196eeda..c70b23d 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -2917,6 +2917,7 @@ struct e1000_host_command_info {
+ #define M88E1000_14_PHY_ID M88E1000_E_PHY_ID
+ #define M88E1011_I_REV_4   0x04
+ #define M88E1111_I_PHY_ID  0x01410CC0
++#define M88E1118_E_PHY_ID  0x01410E40
+ #define L1LXT971A_PHY_ID   0x001378E0
+ 
+ #define RTL8211B_PHY_ID    0x001CC910
 -- 
-Best Regards
------
-Shan Wei
+1.7.1
+
