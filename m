@@ -1,40 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ns83820: Avoid bad pointer deref in ns83820_init_one().
-Date: Tue, 18 Jan 2011 16:14:31 -0800 (PST)
-Message-ID: <20110118.161431.245411919.davem@davemloft.net>
-References: <alpine.LNX.2.00.1101172116330.27021@swampdragon.chaosbits.net>
-	<20110118164200.GI17839@kvack.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCHv2] USB CDC NCM: tx_fixup() race condition fix
+Date: Tue, 18 Jan 2011 16:14:49 -0800 (PST)
+Message-ID: <20110118.161449.70210939.davem@davemloft.net>
+References: <1295284045-9310-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jj@chaosbits.net, netdev@vger.kernel.org, linux-ns83820@kvack.org,
-	linux-kernel@vger.kernel.org, tj@kernel.org, segooon@gmail.com,
-	dkirjanov@kernel.org
-To: bcrl@kvack.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110118164200.GI17839@kvack.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org, alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org
+To: alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1295284045-9310-1-git-send-email-alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Tue, 18 Jan 2011 11:42:00 -0500
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 17 Jan 2011 18:07:25 +0100
 
-> On Mon, Jan 17, 2011 at 09:24:57PM +0100, Jesper Juhl wrote:
->> In drivers/net/ns83820.c::ns83820_init_one() we dynamically allocate 
->> memory via alloc_etherdev(). We then call PRIV() on the returned storage 
->> which is 'return netdev_priv()'. netdev_priv() takes the pointer it is 
->> passed and adds 'ALIGN(sizeof(struct net_device), NETDEV_ALIGN)' to it and 
->> returns it. Then we test the resulting pointer for NULL, which it is 
->> unlikely to be at this point, and later dereference it. This will go bad 
->> if alloc_etherdev() actually returned NULL.
->> 
->> This patch reworks the code slightly so that we test for a NULL pointer 
->> (and return -ENOMEM) directly after calling alloc_etherdev().
+> - tx_fixup() can be called from either timer callback or from xmit()
+>   in usbnet, so spinlock is added to avoid concurrency-related problem.
+> - minor correction due to checkpatch warning for some line over 80
+>   chars after previous patch was applied.
 > 
-> Looks good.
-> 
-> 		-ben
-> 
-> Signed-off-by: Benjamin LaHaise <bcrl@kvack.org>
+> Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
 
-Applied, thanks everyone.
+Applied, thanks a lot.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
