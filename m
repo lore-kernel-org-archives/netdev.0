@@ -1,27 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/79] netfilter: netfilter update
-Date: Wed, 19 Jan 2011 13:55:04 -0800 (PST)
-Message-ID: <20110119.135504.149816150.davem@davemloft.net>
-References: <1295464519-21763-1-git-send-email-kaber@trash.net>
+Subject: Re: [PATCH] net: fix can_checksum_protocol() arguments swap
+Date: Wed, 19 Jan 2011 14:14:36 -0800 (PST)
+Message-ID: <20110119.141436.55850267.davem@davemloft.net>
+References: <1295434296.3273.18.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
+Cc: netdev@vger.kernel.org, jesse@nicira.com, jmdebruin@xmsnet.nl
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55089
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43720
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754432Ab1ASVya (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 16:54:30 -0500
-In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
+	by vger.kernel.org with ESMTP id S1754142Ab1ASWOC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 17:14:02 -0500
+In-Reply-To: <1295434296.3273.18.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: kaber@trash.net
-Date: Wed, 19 Jan 2011 20:14:00 +0100
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 19 Jan 2011 11:51:36 +0100
 
-> Please pull from
+> commit 0363466866d901fbc (net offloading: Convert checksums to use
+> centrally computed features.) mistakenly swapped can_checksum_protocol()
+> arguments.
 > 
-> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+> This broke IPv6 on bnx2 for instance, on NIC without TCPv6 checksum
+> offloads.
+> 
+> Reported-by: Hans de Bruin <jmdebruin@xmsnet.nl>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Jesse Gross <jesse@nicira.com>
 
-Pulled, thanks.
+Applied, thanks!
