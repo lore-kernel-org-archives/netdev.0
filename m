@@ -1,123 +1,99 @@
 From: kaber@trash.net
-Subject: [PATCH 53/79] IPVS: netns, svc counters moved in ip_vs_ctl,c
-Date: Wed, 19 Jan 2011 20:14:53 +0100
-Message-ID: <1295464519-21763-54-git-send-email-kaber@trash.net>
+Subject: [PATCH 54/79] IPVS: netns, misc init_net removal in core.
+Date: Wed, 19 Jan 2011 20:14:54 +0100
+Message-ID: <1295464519-21763-55-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51980 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753891Ab1ASTPh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:37 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-Last two global vars to be moved,
-ip_vs_ftpsvc_counter and ip_vs_nullsvc_counter.
+init_net removed in __ip_vs_addr_is_local_v6, and got net as param.
 
-[horms@verge.net.au: removed whitespace-change-only hunk]
 Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/netns/ip_vs.h      |    3 +++
- net/netfilter/ipvs/ip_vs_ctl.c |   21 +++++++++------------
- 2 files changed, 12 insertions(+), 12 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c |    6 ++++--
+ net/netfilter/ipvs/ip_vs_ctl.c  |    9 +++++----
+ 2 files changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
-index 67ca1cf..259ebac 100644
---- a/include/net/netns/ip_vs.h
-+++ b/include/net/netns/ip_vs.h
-@@ -84,6 +84,9 @@ struct netns_ipvs {
- 	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
- 	/* Trash for destinations */
- 	struct list_head	dest_trash;
-+	/* Service counters */
-+	atomic_t		ftpsvc_counter;
-+	atomic_t		nullsvc_counter;
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index bdda346..9e10c7a 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -499,6 +499,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		struct ip_vs_proto_data *pd)
+ {
++	struct net *net;
+ 	struct netns_ipvs *ipvs;
+ 	__be16 _ports[2], *pptr;
+ 	struct ip_vs_iphdr iph;
+@@ -511,18 +512,19 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		ip_vs_service_put(svc);
+ 		return NF_DROP;
+ 	}
++	net = skb_net(skb);
  
- 	/* sys-ctl struct */
- 	struct ctl_table_header	*sysctl_hdr;
+ #ifdef CONFIG_IP_VS_IPV6
+ 	if (svc->af == AF_INET6)
+ 		unicast = ipv6_addr_type(&iph.daddr.in6) & IPV6_ADDR_UNICAST;
+ 	else
+ #endif
+-		unicast = (inet_addr_type(&init_net, iph.daddr.ip) == RTN_UNICAST);
++		unicast = (inet_addr_type(net, iph.daddr.ip) == RTN_UNICAST);
+ 
+ 	/* if it is fwmark-based service, the cache_bypass sysctl is up
+ 	   and the destination is a non-local unicast, then create
+ 	   a cache_bypass connection entry */
+-	ipvs = net_ipvs(skb_net(skb));
++	ipvs = net_ipvs(net);
+ 	if (ipvs->sysctl_cache_bypass && svc->fwmark && unicast) {
+ 		int ret, cs;
+ 		struct ip_vs_conn *cp;
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 442edf4..65f5de4 100644
+index 65f5de4..edf2b6d 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -254,12 +254,6 @@ static struct list_head ip_vs_svc_table[IP_VS_SVC_TAB_SIZE];
- /* the service table hashed by fwmark */
- static struct list_head ip_vs_svc_fwm_table[IP_VS_SVC_TAB_SIZE];
+@@ -71,7 +71,8 @@ int ip_vs_get_debug_level(void)
  
--/*
-- *	FTP & NULL virtual service counters
-- */
--static atomic_t ip_vs_ftpsvc_counter = ATOMIC_INIT(0);
--static atomic_t ip_vs_nullsvc_counter = ATOMIC_INIT(0);
--
- 
- /*
-  *	Returns hash value for virtual service
-@@ -409,6 +403,7 @@ ip_vs_service_get(struct net *net, int af, __u32 fwmark, __u16 protocol,
- 		  const union nf_inet_addr *vaddr, __be16 vport)
+ #ifdef CONFIG_IP_VS_IPV6
+ /* Taken from rt6_fill_node() in net/ipv6/route.c, is there a better way? */
+-static int __ip_vs_addr_is_local_v6(const struct in6_addr *addr)
++static int __ip_vs_addr_is_local_v6(struct net *net,
++				    const struct in6_addr *addr)
  {
- 	struct ip_vs_service *svc;
-+	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	struct rt6_info *rt;
+ 	struct flowi fl = {
+@@ -80,7 +81,7 @@ static int __ip_vs_addr_is_local_v6(const struct in6_addr *addr)
+ 		.fl6_src = { .s6_addr32 = {0, 0, 0, 0} },
+ 	};
  
- 	read_lock(&__ip_vs_svc_lock);
+-	rt = (struct rt6_info *)ip6_route_output(&init_net, NULL, &fl);
++	rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl);
+ 	if (rt && rt->rt6i_dev && (rt->rt6i_dev->flags & IFF_LOOPBACK))
+ 			return 1;
  
-@@ -427,7 +422,7 @@ ip_vs_service_get(struct net *net, int af, __u32 fwmark, __u16 protocol,
- 
- 	if (svc == NULL
- 	    && protocol == IPPROTO_TCP
--	    && atomic_read(&ip_vs_ftpsvc_counter)
-+	    && atomic_read(&ipvs->ftpsvc_counter)
- 	    && (vport == FTPDATA || ntohs(vport) >= PROT_SOCK)) {
- 		/*
- 		 * Check if ftp service entry exists, the packet
-@@ -437,7 +432,7 @@ ip_vs_service_get(struct net *net, int af, __u32 fwmark, __u16 protocol,
+@@ -810,12 +811,12 @@ ip_vs_new_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest,
+ 		atype = ipv6_addr_type(&udest->addr.in6);
+ 		if ((!(atype & IPV6_ADDR_UNICAST) ||
+ 			atype & IPV6_ADDR_LINKLOCAL) &&
+-			!__ip_vs_addr_is_local_v6(&udest->addr.in6))
++			!__ip_vs_addr_is_local_v6(svc->net, &udest->addr.in6))
+ 			return -EINVAL;
+ 	} else
+ #endif
+ 	{
+-		atype = inet_addr_type(&init_net, udest->addr.ip);
++		atype = inet_addr_type(svc->net, udest->addr.ip);
+ 		if (atype != RTN_LOCAL && atype != RTN_UNICAST)
+ 			return -EINVAL;
  	}
- 
- 	if (svc == NULL
--	    && atomic_read(&ip_vs_nullsvc_counter)) {
-+	    && atomic_read(&ipvs->nullsvc_counter)) {
- 		/*
- 		 * Check if the catch-all port (port zero) exists
- 		 */
-@@ -1173,9 +1168,9 @@ ip_vs_add_service(struct net *net, struct ip_vs_service_user_kern *u,
- 
- 	/* Update the virtual service counters */
- 	if (svc->port == FTPPORT)
--		atomic_inc(&ip_vs_ftpsvc_counter);
-+		atomic_inc(&ipvs->ftpsvc_counter);
- 	else if (svc->port == 0)
--		atomic_inc(&ip_vs_nullsvc_counter);
-+		atomic_inc(&ipvs->nullsvc_counter);
- 
- 	ip_vs_new_estimator(net, &svc->stats);
- 
-@@ -1359,9 +1354,9 @@ static void __ip_vs_del_service(struct ip_vs_service *svc)
- 	 *    Update the virtual service counters
- 	 */
- 	if (svc->port == FTPPORT)
--		atomic_dec(&ip_vs_ftpsvc_counter);
-+		atomic_dec(&ipvs->ftpsvc_counter);
- 	else if (svc->port == 0)
--		atomic_dec(&ip_vs_nullsvc_counter);
-+		atomic_dec(&ipvs->nullsvc_counter);
- 
- 	/*
- 	 *    Free the service if nobody refers to it
-@@ -3501,6 +3496,8 @@ int __net_init __ip_vs_control_init(struct net *net)
- 		INIT_LIST_HEAD(&ipvs->rs_table[idx]);
- 
- 	INIT_LIST_HEAD(&ipvs->dest_trash);
-+	atomic_set(&ipvs->ftpsvc_counter, 0);
-+	atomic_set(&ipvs->nullsvc_counter, 0);
- 
- 	/* procfs stats */
- 	ipvs->tot_stats = kzalloc(sizeof(struct ip_vs_stats), GFP_KERNEL);
 -- 
 1.7.2.3
 
