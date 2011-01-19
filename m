@@ -1,39 +1,49 @@
 From: kaber@trash.net
-Subject: [PATCH 16/79] IPVS: Only match pe_data created by the same pe
-Date: Wed, 19 Jan 2011 20:14:16 +0100
-Message-ID: <1295464519-21763-17-git-send-email-kaber@trash.net>
-References: <1295464519-21763-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 00/79] netfilter: netfilter update
+Date: Wed, 19 Jan 2011 20:14:00 +0100
+Message-ID: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:51968 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753495Ab1ASTPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
+following is a first batch of netfilter patches for 2.6.39, containing:
 
-Only match persistence engine data if it was
-created by the same persistence engine.
+- cleanups and removal of atomic operations from Changli Gao
 
-Reported-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_conn.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+- RCU annotations, removal of atomic operations and cleanups from Eric
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 64a9ca3..261db1a 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -354,7 +354,7 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
- 
- 	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
- 		if (p->pe_data && p->pe->ct_match) {
--			if (p->pe->ct_match(p, cp))
-+			if (p->pe == cp->pe && p->pe->ct_match(p, cp))
- 				goto out;
- 			continue;
- 		}
--- 
-1.7.2.3
+- a new queue bypass option for nfnetlink_queue from Florian Westphal
 
+- arp_tables support for xt_CLASSIFY from Frederic Leroy
+
+- a new backup protocol for IPVS from and Schillstrom
+
+- IPVS netns support from Hans Schillstrom
+
+- type and header cleanups from Jan
+
+- missing module aliases from Jan
+
+- a new SNMP conntrack helper from Jiri Olsa
+
+- optional timestamping for conntrack entries to simplify userspace IPFIX,
+  implementations, from Pablo
+
+- a new AUDIT target for logging packets through the audit framework,
+  from Thomas
+
+- Improvements for the IPVS persistence engine from Simon
+
+ipset from Jozsef will follow soon, once I'm done reviewing it.
+
+Please pull from
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
