@@ -1,35 +1,45 @@
 From: kaber@trash.net
-Subject: [PATCH 68/79] netfilter: xtables: add missing header files to export list
-Date: Wed, 19 Jan 2011 20:15:08 +0100
-Message-ID: <1295464519-21763-69-git-send-email-kaber@trash.net>
+Subject: [PATCH 70/79] netfilter: nf_conntrack: remove an atomic bit operation
+Date: Wed, 19 Jan 2011 20:15:10 +0100
+Message-ID: <1295464519-21763-71-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:51977 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754013Ab1ASTPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:42 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jan Engelhardt <jengelh@medozas.de>
+From: Changli Gao <xiaosuo@gmail.com>
 
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+As this ct won't be seen by the others, we don't need to set the
+IPS_CONFIRMED_BIT in atomic way.
+
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Cc: Tim Gardner <tim.gardner@canonical.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/Kbuild |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/netfilter/nf_conntrack_core.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
-index 9f11fbc..fc4e0aa 100644
---- a/include/linux/netfilter/Kbuild
-+++ b/include/linux/netfilter/Kbuild
-@@ -56,6 +56,8 @@ header-y += xt_rateest.h
- header-y += xt_realm.h
- header-y += xt_recent.h
- header-y += xt_sctp.h
-+header-y += xt_secmark.h
-+header-y += xt_socket.h
- header-y += xt_state.h
- header-y += xt_statistic.h
- header-y += xt_string.h
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index dc2ff2c..f47ac67 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -486,7 +486,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 	ct->timeout.expires += jiffies;
+ 	add_timer(&ct->timeout);
+ 	atomic_inc(&ct->ct_general.use);
+-	set_bit(IPS_CONFIRMED_BIT, &ct->status);
++	ct->status |= IPS_CONFIRMED;
+ 
+ 	/* Since the lookup is lockless, hash insertion must be done after
+ 	 * starting the timer and setting the CONFIRMED bit. The RCU barriers
 -- 
 1.7.2.3
 
