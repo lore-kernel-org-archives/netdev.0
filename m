@@ -1,99 +1,162 @@
 From: kaber@trash.net
-Subject: [PATCH 54/79] IPVS: netns, misc init_net removal in core.
-Date: Wed, 19 Jan 2011 20:14:54 +0100
-Message-ID: <1295464519-21763-55-git-send-email-kaber@trash.net>
+Subject: [PATCH 52/79] IPVS: netns, trash handling
+Date: Wed, 19 Jan 2011 20:14:52 +0100
+Message-ID: <1295464519-21763-53-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:51977 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753836Ab1ASTPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:37 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-init_net removed in __ip_vs_addr_is_local_v6, and got net as param.
+trash list per namspace,
+and reordering of some params in dst struct.
 
+[ horms@verge.net.au: Use cancel_delayed_work_sync() instead of
+	              cancel_rearming_delayed_work(). Found during
+		      merge conflict resoliution ]
 Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_core.c |    6 ++++--
- net/netfilter/ipvs/ip_vs_ctl.c  |    9 +++++----
- 2 files changed, 9 insertions(+), 6 deletions(-)
+ include/net/ip_vs.h            |    4 ++--
+ include/net/netns/ip_vs.h      |    3 +++
+ net/netfilter/ipvs/ip_vs_ctl.c |   23 +++++++++++------------
+ 3 files changed, 16 insertions(+), 14 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index bdda346..9e10c7a 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -499,6 +499,7 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
- int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- 		struct ip_vs_proto_data *pd)
- {
-+	struct net *net;
- 	struct netns_ipvs *ipvs;
- 	__be16 _ports[2], *pptr;
- 	struct ip_vs_iphdr iph;
-@@ -511,18 +512,19 @@ int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
- 		ip_vs_service_put(svc);
- 		return NF_DROP;
- 	}
-+	net = skb_net(skb);
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index fbe660f..b23bea6 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -662,8 +662,8 @@ struct ip_vs_dest {
+ 	struct list_head	d_list;   /* for table with all the dests */
  
- #ifdef CONFIG_IP_VS_IPV6
- 	if (svc->af == AF_INET6)
- 		unicast = ipv6_addr_type(&iph.daddr.in6) & IPV6_ADDR_UNICAST;
- 	else
- #endif
--		unicast = (inet_addr_type(&init_net, iph.daddr.ip) == RTN_UNICAST);
-+		unicast = (inet_addr_type(net, iph.daddr.ip) == RTN_UNICAST);
+ 	u16			af;		/* address family */
+-	union nf_inet_addr	addr;		/* IP address of the server */
+ 	__be16			port;		/* port number of the server */
++	union nf_inet_addr	addr;		/* IP address of the server */
+ 	volatile unsigned	flags;		/* dest status flags */
+ 	atomic_t		conn_flags;	/* flags to copy to conn */
+ 	atomic_t		weight;		/* server weight */
+@@ -690,8 +690,8 @@ struct ip_vs_dest {
+ 	/* for virtual service */
+ 	struct ip_vs_service	*svc;		/* service it belongs to */
+ 	__u16			protocol;	/* which protocol (TCP/UDP) */
+-	union nf_inet_addr	vaddr;		/* virtual IP address */
+ 	__be16			vport;		/* virtual port number */
++	union nf_inet_addr	vaddr;		/* virtual IP address */
+ 	__u32			vfwmark;	/* firewall mark of service */
+ };
  
- 	/* if it is fwmark-based service, the cache_bypass sysctl is up
- 	   and the destination is a non-local unicast, then create
- 	   a cache_bypass connection entry */
--	ipvs = net_ipvs(skb_net(skb));
-+	ipvs = net_ipvs(net);
- 	if (ipvs->sysctl_cache_bypass && svc->fwmark && unicast) {
- 		int ret, cs;
- 		struct ip_vs_conn *cp;
+diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
+index 4133261..67ca1cf 100644
+--- a/include/net/netns/ip_vs.h
++++ b/include/net/netns/ip_vs.h
+@@ -82,6 +82,9 @@ struct netns_ipvs {
+ 	rwlock_t		rs_lock;         /* real services table */
+ 	/* semaphore for IPVS sockopts. And, [gs]etsockopt may sleep. */
+ 	struct lock_class_key	ctl_key;	/* ctl_mutex debuging */
++	/* Trash for destinations */
++	struct list_head	dest_trash;
++
+ 	/* sys-ctl struct */
+ 	struct ctl_table_header	*sysctl_hdr;
+ 	struct ctl_table	*sysctl_tbl;
 diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 65f5de4..edf2b6d 100644
+index 6a963d4..442edf4 100644
 --- a/net/netfilter/ipvs/ip_vs_ctl.c
 +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -71,7 +71,8 @@ int ip_vs_get_debug_level(void)
+@@ -255,11 +255,6 @@ static struct list_head ip_vs_svc_table[IP_VS_SVC_TAB_SIZE];
+ static struct list_head ip_vs_svc_fwm_table[IP_VS_SVC_TAB_SIZE];
  
- #ifdef CONFIG_IP_VS_IPV6
- /* Taken from rt6_fill_node() in net/ipv6/route.c, is there a better way? */
--static int __ip_vs_addr_is_local_v6(const struct in6_addr *addr)
-+static int __ip_vs_addr_is_local_v6(struct net *net,
-+				    const struct in6_addr *addr)
+ /*
+- *	Trash for destinations
+- */
+-static LIST_HEAD(ip_vs_dest_trash);
+-
+-/*
+  *	FTP & NULL virtual service counters
+  */
+ static atomic_t ip_vs_ftpsvc_counter = ATOMIC_INIT(0);
+@@ -650,11 +645,12 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
+ 		     __be16 dport)
  {
- 	struct rt6_info *rt;
- 	struct flowi fl = {
-@@ -80,7 +81,7 @@ static int __ip_vs_addr_is_local_v6(const struct in6_addr *addr)
- 		.fl6_src = { .s6_addr32 = {0, 0, 0, 0} },
- 	};
+ 	struct ip_vs_dest *dest, *nxt;
++	struct netns_ipvs *ipvs = net_ipvs(svc->net);
  
--	rt = (struct rt6_info *)ip6_route_output(&init_net, NULL, &fl);
-+	rt = (struct rt6_info *)ip6_route_output(net, NULL, &fl);
- 	if (rt && rt->rt6i_dev && (rt->rt6i_dev->flags & IFF_LOOPBACK))
- 			return 1;
+ 	/*
+ 	 * Find the destination in trash
+ 	 */
+-	list_for_each_entry_safe(dest, nxt, &ip_vs_dest_trash, n_list) {
++	list_for_each_entry_safe(dest, nxt, &ipvs->dest_trash, n_list) {
+ 		IP_VS_DBG_BUF(3, "Destination %u/%s:%u still in trash, "
+ 			      "dest->refcnt=%d\n",
+ 			      dest->vfwmark,
+@@ -703,11 +699,12 @@ ip_vs_trash_get_dest(struct ip_vs_service *svc, const union nf_inet_addr *daddr,
+  *  are expired, and the refcnt of each destination in the trash must
+  *  be 1, so we simply release them here.
+  */
+-static void ip_vs_trash_cleanup(void)
++static void ip_vs_trash_cleanup(struct net *net)
+ {
+ 	struct ip_vs_dest *dest, *nxt;
++	struct netns_ipvs *ipvs = net_ipvs(net);
  
-@@ -810,12 +811,12 @@ ip_vs_new_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest,
- 		atype = ipv6_addr_type(&udest->addr.in6);
- 		if ((!(atype & IPV6_ADDR_UNICAST) ||
- 			atype & IPV6_ADDR_LINKLOCAL) &&
--			!__ip_vs_addr_is_local_v6(&udest->addr.in6))
-+			!__ip_vs_addr_is_local_v6(svc->net, &udest->addr.in6))
- 			return -EINVAL;
- 	} else
- #endif
- 	{
--		atype = inet_addr_type(&init_net, udest->addr.ip);
-+		atype = inet_addr_type(svc->net, udest->addr.ip);
- 		if (atype != RTN_LOCAL && atype != RTN_UNICAST)
- 			return -EINVAL;
+-	list_for_each_entry_safe(dest, nxt, &ip_vs_dest_trash, n_list) {
++	list_for_each_entry_safe(dest, nxt, &ipvs->dest_trash, n_list) {
+ 		list_del(&dest->n_list);
+ 		ip_vs_dst_reset(dest);
+ 		__ip_vs_unbind_svc(dest);
+@@ -1021,7 +1018,7 @@ static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
+ 			      IP_VS_DBG_ADDR(dest->af, &dest->addr),
+ 			      ntohs(dest->port),
+ 			      atomic_read(&dest->refcnt));
+-		list_add(&dest->n_list, &ip_vs_dest_trash);
++		list_add(&dest->n_list, &ipvs->dest_trash);
+ 		atomic_inc(&dest->refcnt);
  	}
+ }
+@@ -3503,6 +3500,8 @@ int __net_init __ip_vs_control_init(struct net *net)
+ 	for (idx = 0; idx < IP_VS_RTAB_SIZE; idx++)
+ 		INIT_LIST_HEAD(&ipvs->rs_table[idx]);
+ 
++	INIT_LIST_HEAD(&ipvs->dest_trash);
++
+ 	/* procfs stats */
+ 	ipvs->tot_stats = kzalloc(sizeof(struct ip_vs_stats), GFP_KERNEL);
+ 	if (ipvs->tot_stats == NULL) {
+@@ -3584,13 +3583,14 @@ static void __net_exit __ip_vs_control_cleanup(struct net *net)
+ 	if (!net_eq(net, &init_net))	/* netns not enabled yet */
+ 		return;
+ 
++	ip_vs_trash_cleanup(net);
+ 	ip_vs_kill_estimator(net, ipvs->tot_stats);
++	cancel_delayed_work_sync(&ipvs->defense_work);
++	cancel_work_sync(&ipvs->defense_work.work);
+ 	unregister_net_sysctl_table(ipvs->sysctl_hdr);
+ 	proc_net_remove(net, "ip_vs_stats_percpu");
+ 	proc_net_remove(net, "ip_vs_stats");
+ 	proc_net_remove(net, "ip_vs");
+-	cancel_delayed_work_sync(&ipvs->defense_work);
+-	cancel_work_sync(&ipvs->defense_work.work);
+ 	free_percpu(ipvs->cpustats);
+ 	kfree(ipvs->tot_stats);
+ }
+@@ -3647,7 +3647,6 @@ err:
+ void ip_vs_control_cleanup(void)
+ {
+ 	EnterFunction(2);
+-	ip_vs_trash_cleanup();
+ 	unregister_pernet_subsys(&ipvs_control_ops);
+ 	ip_vs_genl_unregister();
+ 	nf_unregister_sockopt(&ip_vs_sockopts);
 -- 
 1.7.2.3
 
