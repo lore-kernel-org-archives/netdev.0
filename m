@@ -1,130 +1,59 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] xen network backend driver
-Date: Wed, 19 Jan 2011 18:05:04 +0000
-Message-ID: <1295460304.11126.53.camel@bwh-desktop>
-References: <1295449318.14981.3484.camel@zakaz.uk.xensource.com>
-	 <1295455216.11126.39.camel@bwh-desktop>
-	 <1295459316.14981.3727.camel@zakaz.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:57337 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753464Ab1ASSFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 13:05:08 -0500
-In-Reply-To: <1295459316.14981.3727.camel@zakaz.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kaber@trash.net
+Subject: [PATCH 03/79] netfilter: xt_LOG: do print MAC header on FORWARD
+Date: Wed, 19 Jan 2011 20:14:03 +0100
+Message-ID: <1295464519-21763-4-git-send-email-kaber@trash.net>
+References: <1295464519-21763-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2011-01-19 at 17:48 +0000, Ian Campbell wrote:
-> Hi Ben,
-> 
-> Thanks for the very speedy review!
-> 
-> I don't have many comments other than "yes, you are right".
-> 
-> There are a couple of things inline below.
-> 
-> On Wed, 2011-01-19 at 16:40 +0000, Ben Hutchings wrote:
-> > On Wed, 2011-01-19 at 15:01 +0000, Ian Campbell wrote:
-> > [...]
-> > > +	/*
-> > > +	 * Initialise a dummy MAC address. We choose the numerically
-> > > +	 * largest non-broadcast address to prevent the address getting
-> > > +	 * stolen by an Ethernet bridge for STP purposes.
-> > > +	 * (FE:FF:FF:FF:FF:FF)
-> > > +	 */
-> > > +	memset(dev->dev_addr, 0xFF, ETH_ALEN);
-> > > +	dev->dev_addr[0] &= ~0x01;
-> > 
-> > I'm a bit dubious about this.
-> 
-> Which reminds me that I need to add the hook so that the Xen userspace
-> stuff can actually do the right thing and set the MAC address to
-> FE:FF:FF:FF:FF:FF itself as it puts the device on the bridge.
-> 
-> The toolstack has only recently been fixed to even try that though.
-> 
-> In use these devices aren't typically endpoints which generate or
-> receive any actual traffic so letting it pick up a random MAC address by
-> default isn't terribly useful. The actual useful MAC address is the one
-> which is configured in the frontend.
+From: Jan Engelhardt <jengelh@medozas.de>
 
-Right, I understand that.
+I am observing consistent behavior even with bridges, so let's unlock
+this. xt_mac is already usable in FORWARD, too. Section 9 of
+http://ebtables.sourceforge.net/br_fw_ia/br_fw_ia.html#section9 says
+the MAC source address is changed, but my observation does not match
+that claim -- the MAC header is retained.
 
-> > [...]
-> > > +static int MODPARM_netback_kthread;
-> > > +module_param_named(netback_kthread, MODPARM_netback_kthread, bool, 0);
-> > > +MODULE_PARM_DESC(netback_kthread, "Use kernel thread to replace tasklet");
-> > > +
-> > > +/*
-> > > + * Netback bottom half handler.
-> > > + * dir indicates the data direction.
-> > > + * rx: 1, tx: 0.
-> > > + */
-> > > +static inline void xen_netbk_bh_handler(struct xen_netbk *netbk, int dir)
-> > > +{
-> > > +	if (MODPARM_netback_kthread)
-> > > +		wake_up(&netbk->kthread.netbk_action_wq);
-> > > +	else if (dir)
-> > > +		tasklet_schedule(&netbk->tasklet.net_rx_tasklet);
-> > > +	else
-> > > +		tasklet_schedule(&netbk->tasklet.net_tx_tasklet);
-> > > +}
-> > 
-> > Ugh, please just use NAPI.
-> 
-> Although I only have a vague concept of what NAPI actually entails in
-> practice I think it most likely makes sense.
-> 
-> Am I right that NAPI only covers the RX case?
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+[Patrick; code inspection seems to confirm this]
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter/ipt_LOG.c  |    3 +--
+ net/ipv6/netfilter/ip6t_LOG.c |    3 +--
+ 2 files changed, 2 insertions(+), 4 deletions(-)
 
-All completions should be processed via NAPI, if possible.  The poll
-function is given a work budget and each RX completion is assigned a
-cost of 1.  TX completions are cheap enough that they aren't budgetted
-individually, but they must be limited somehow.  The standard practice
-is to consider the budget exhausted after processing an entire TX ring
-once.
-
-> Does NAPI processing happen in softirq context?
-
-Yes.
-
-> The reason for the
-> existing option to use a kthread was that the tasklets would completely
-> swamp the domain 0 CPU under load and prevent anything else from running
-> (including e.g. ssh or the toolstack allowing you to fix the
-> problem...).
-
-I can see that that could be a problem if dom0's processing power is low
-compared to the other domains.
-
-> I guess this is just a case of setting the NAPI weight
-> correctly (i.e. appropriately high in this case)?
-
-Sorry, I have not looked at adjusting NAPI weights before.
-
-> Last question before I go an actually investigate NAPI properly: Does
-> NAPI also scale out across CPUs? Currently the threads/tasklets are per
-> CPU and this is a significant scalability win.
-[...]
-
-Not in itself.  NAPI polling will run on the same CPU which scheduled it
-(so wherever the IRQ was initially handled).  If the protocol used
-between netfront and netback doesn't support RSS then RPS
-<http://lwn.net/Articles/362339/> can be used to spread the RX work
-across CPUs.
-
-Ben.
-
+diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
+index 72ffc8f..d76d6c9 100644
+--- a/net/ipv4/netfilter/ipt_LOG.c
++++ b/net/ipv4/netfilter/ipt_LOG.c
+@@ -442,8 +442,7 @@ ipt_log_packet(u_int8_t pf,
+ 	}
+ #endif
+ 
+-	/* MAC logging for input path only. */
+-	if (in && !out)
++	if (in != NULL)
+ 		dump_mac_header(m, loginfo, skb);
+ 
+ 	dump_packet(m, loginfo, skb, 0);
+diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
+index 09c8889..05027b7 100644
+--- a/net/ipv6/netfilter/ip6t_LOG.c
++++ b/net/ipv6/netfilter/ip6t_LOG.c
+@@ -452,8 +452,7 @@ ip6t_log_packet(u_int8_t pf,
+ 	       in ? in->name : "",
+ 	       out ? out->name : "");
+ 
+-	/* MAC logging for input path only. */
+-	if (in && !out)
++	if (in != NULL)
+ 		dump_mac_header(m, loginfo, skb);
+ 
+ 	dump_packet(m, loginfo, skb, skb_network_offset(skb), 1);
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.2.3
 
