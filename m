@@ -1,7 +1,7 @@
 From: kaber@trash.net
-Subject: [PATCH 36/79] IPVS: netns awarness to lblcr sheduler
-Date: Wed, 19 Jan 2011 20:14:36 +0100
-Message-ID: <1295464519-21763-37-git-send-email-kaber@trash.net>
+Subject: [PATCH 33/79] netfilter: fix compilation when conntrack is disabled but tproxy is enabled
+Date: Wed, 19 Jan 2011 20:14:33 +0100
+Message-ID: <1295464519-21763-34-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
@@ -10,157 +10,188 @@ In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: KOVACS Krisztian <hidden@balabit.hu>
 
-var sysctl_ip_vs_lblcr_expiration moved to ipvs struct as
-    sysctl_lblcr_expiration
+The IPv6 tproxy patches split IPv6 defragmentation off of conntrack, but
+failed to update the #ifdef stanzas guarding the defragmentation related
+fields and code in skbuff and conntrack related code in nf_defrag_ipv6.c.
 
-procfs updated to handle this.
+This patch adds the required #ifdefs so that IPv6 tproxy can truly be used
+without connection tracking.
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Original report:
+http://marc.info/?l=linux-netdev&m=129010118516341&w=2
+
+Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/netns/ip_vs.h        |    5 +++
- net/netfilter/ipvs/ip_vs_lblcr.c |   54 +++++++++++++++++++++++++------------
- 2 files changed, 41 insertions(+), 18 deletions(-)
+ include/linux/skbuff.h                         |   15 +++++++++++++++
+ include/net/netfilter/ipv6/nf_conntrack_ipv6.h |   10 ----------
+ include/net/netfilter/ipv6/nf_defrag_ipv6.h    |   10 ++++++++++
+ net/core/skbuff.c                              |    2 ++
+ net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |    8 +++++++-
+ 5 files changed, 34 insertions(+), 11 deletions(-)
 
-diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
-index 5b87d22..51a92ee 100644
---- a/include/net/netns/ip_vs.h
-+++ b/include/net/netns/ip_vs.h
-@@ -28,6 +28,11 @@ struct netns_ipvs {
- 	#define IP_VS_RTAB_MASK (IP_VS_RTAB_SIZE - 1)
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e6ba898..4f2db79 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -255,6 +255,11 @@ typedef unsigned int sk_buff_data_t;
+ typedef unsigned char *sk_buff_data_t;
+ #endif
  
- 	struct list_head	rs_table[IP_VS_RTAB_SIZE];
++#if defined(CONFIG_NF_DEFRAG_IPV4) || defined(CONFIG_NF_DEFRAG_IPV4_MODULE) || \
++    defined(CONFIG_NF_DEFRAG_IPV6) || defined(CONFIG_NF_DEFRAG_IPV6_MODULE)
++#define NET_SKBUFF_NF_DEFRAG_NEEDED 1
++#endif
 +
-+	/* ip_vs_lblcr */
-+	int			sysctl_lblcr_expiration;
-+	struct ctl_table_header	*lblcr_ctl_header;
-+	struct ctl_table	*lblcr_ctl_table;
- };
- 
- #endif /* IP_VS_H_ */
-diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index 7c7396a..61ae8cf 100644
---- a/net/netfilter/ipvs/ip_vs_lblcr.c
-+++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -70,8 +70,6 @@
-  *    entries that haven't been touched for a day.
-  */
- #define COUNT_FOR_FULL_EXPIRATION   30
--static int sysctl_ip_vs_lblcr_expiration = 24*60*60*HZ;
--
- 
- /*
-  *     for IPVS lblcr entry hash table
-@@ -296,7 +294,7 @@ struct ip_vs_lblcr_table {
- static ctl_table vs_vars_table[] = {
- 	{
- 		.procname	= "lblcr_expiration",
--		.data		= &sysctl_ip_vs_lblcr_expiration,
-+		.data		= NULL,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec_jiffies,
-@@ -304,8 +302,6 @@ static ctl_table vs_vars_table[] = {
- 	{ }
- };
- 
--static struct ctl_table_header * sysctl_header;
--
- static inline void ip_vs_lblcr_free(struct ip_vs_lblcr_entry *en)
- {
- 	list_del(&en->list);
-@@ -425,14 +421,15 @@ static inline void ip_vs_lblcr_full_check(struct ip_vs_service *svc)
- 	unsigned long now = jiffies;
- 	int i, j;
- 	struct ip_vs_lblcr_entry *en, *nxt;
-+	struct netns_ipvs *ipvs = net_ipvs(svc->net);
- 
- 	for (i=0, j=tbl->rover; i<IP_VS_LBLCR_TAB_SIZE; i++) {
- 		j = (j + 1) & IP_VS_LBLCR_TAB_MASK;
- 
- 		write_lock(&svc->sched_lock);
- 		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
--			if (time_after(en->lastuse+sysctl_ip_vs_lblcr_expiration,
--				       now))
-+			if (time_after(en->lastuse
-+					+ ipvs->sysctl_lblcr_expiration, now))
- 				continue;
- 
- 			ip_vs_lblcr_free(en);
-@@ -664,6 +661,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 	read_lock(&svc->sched_lock);
- 	en = ip_vs_lblcr_get(svc->af, tbl, &iph.daddr);
- 	if (en) {
-+		struct netns_ipvs *ipvs = net_ipvs(svc->net);
- 		/* We only hold a read lock, but this is atomic */
- 		en->lastuse = jiffies;
- 
-@@ -675,7 +673,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		/* More than one destination + enough time passed by, cleanup */
- 		if (atomic_read(&en->set.size) > 1 &&
- 				time_after(jiffies, en->set.lastmod +
--				sysctl_ip_vs_lblcr_expiration)) {
-+				ipvs->sysctl_lblcr_expiration)) {
- 			struct ip_vs_dest *m;
- 
- 			write_lock(&en->set.lock);
-@@ -749,23 +747,43 @@ static struct ip_vs_scheduler ip_vs_lblcr_scheduler =
-  */
- static int __net_init __ip_vs_lblcr_init(struct net *net)
- {
--	if (!net_eq(net, &init_net))	/* netns not enabled yet */
--		return -EPERM;
--
--	sysctl_header = register_net_sysctl_table(net, net_vs_ctl_path,
--						  vs_vars_table);
--	if (!sysctl_header)
--		return -ENOMEM;
-+	struct netns_ipvs *ipvs = net_ipvs(net);
-+
-+	if (!net_eq(net, &init_net)) {
-+		ipvs->lblcr_ctl_table = kmemdup(vs_vars_table,
-+						sizeof(vs_vars_table),
-+						GFP_KERNEL);
-+		if (ipvs->lblcr_ctl_table == NULL)
-+			goto err_dup;
-+	} else
-+		ipvs->lblcr_ctl_table = vs_vars_table;
-+	ipvs->sysctl_lblcr_expiration = 24*60*60*HZ;
-+	ipvs->lblcr_ctl_table[0].data = &ipvs->sysctl_lblcr_expiration;
-+
-+	ipvs->lblcr_ctl_header =
-+		register_net_sysctl_table(net, net_vs_ctl_path,
-+					  ipvs->lblcr_ctl_table);
-+	if (!ipvs->lblcr_ctl_header)
-+		goto err_reg;
- 
- 	return 0;
-+
-+err_reg:
-+	if (!net_eq(net, &init_net))
-+		kfree(ipvs->lblcr_ctl_table);
-+
-+err_dup:
-+	return -ENOMEM;
+ /** 
+  *	struct sk_buff - socket buffer
+  *	@next: Next buffer in list
+@@ -362,6 +367,8 @@ struct sk_buff {
+ 	void			(*destructor)(struct sk_buff *skb);
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	struct nf_conntrack	*nfct;
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	struct sk_buff		*nfct_reasm;
+ #endif
+ #ifdef CONFIG_BRIDGE_NETFILTER
+@@ -2051,6 +2058,8 @@ static inline void nf_conntrack_get(struct nf_conntrack *nfct)
+ 	if (nfct)
+ 		atomic_inc(&nfct->use);
  }
- 
- static void __net_exit __ip_vs_lblcr_exit(struct net *net)
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
  {
--	if (!net_eq(net, &init_net))	/* netns not enabled yet */
--		return;
-+	struct netns_ipvs *ipvs = net_ipvs(net);
+ 	if (skb)
+@@ -2079,6 +2088,8 @@ static inline void nf_reset(struct sk_buff *skb)
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	nf_conntrack_put(skb->nfct);
+ 	skb->nfct = NULL;
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	nf_conntrack_put_reasm(skb->nfct_reasm);
+ 	skb->nfct_reasm = NULL;
+ #endif
+@@ -2095,6 +2106,8 @@ static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src)
+ 	dst->nfct = src->nfct;
+ 	nf_conntrack_get(src->nfct);
+ 	dst->nfctinfo = src->nfctinfo;
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	dst->nfct_reasm = src->nfct_reasm;
+ 	nf_conntrack_get_reasm(src->nfct_reasm);
+ #endif
+@@ -2108,6 +2121,8 @@ static inline void nf_copy(struct sk_buff *dst, const struct sk_buff *src)
+ {
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	nf_conntrack_put(dst->nfct);
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	nf_conntrack_put_reasm(dst->nfct_reasm);
+ #endif
+ #ifdef CONFIG_BRIDGE_NETFILTER
+diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+index 1ee717e..a4c9936 100644
+--- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
+@@ -7,16 +7,6 @@ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6;
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6;
+ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
+ 
+-extern int nf_ct_frag6_init(void);
+-extern void nf_ct_frag6_cleanup(void);
+-extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
+-extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
+-			       struct net_device *in,
+-			       struct net_device *out,
+-			       int (*okfn)(struct sk_buff *));
+-
+-struct inet_frags_ctl;
+-
+ #include <linux/sysctl.h>
+ extern struct ctl_table nf_ct_ipv6_sysctl_table[];
+ 
+diff --git a/include/net/netfilter/ipv6/nf_defrag_ipv6.h b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
+index 94dd54d..fd79c9a 100644
+--- a/include/net/netfilter/ipv6/nf_defrag_ipv6.h
++++ b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
+@@ -3,4 +3,14 @@
+ 
+ extern void nf_defrag_ipv6_enable(void);
+ 
++extern int nf_ct_frag6_init(void);
++extern void nf_ct_frag6_cleanup(void);
++extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
++extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
++			       struct net_device *in,
++			       struct net_device *out,
++			       int (*okfn)(struct sk_buff *));
 +
-+	unregister_net_sysctl_table(ipvs->lblcr_ctl_header);
++struct inet_frags_ctl;
++
+ #endif /* _NF_DEFRAG_IPV6_H */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 104f844..74ebf4b 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -380,6 +380,8 @@ static void skb_release_head_state(struct sk_buff *skb)
+ 	}
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	nf_conntrack_put(skb->nfct);
++#endif
++#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
+ 	nf_conntrack_put_reasm(skb->nfct_reasm);
+ #endif
+ #ifdef CONFIG_BRIDGE_NETFILTER
+diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+index 99abfb5..97c5b21 100644
+--- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
++++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
+@@ -19,13 +19,15 @@
  
--	unregister_net_sysctl_table(sysctl_header);
-+	if (!net_eq(net, &init_net))
-+		kfree(ipvs->lblcr_ctl_table);
- }
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter_bridge.h>
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ #include <net/netfilter/nf_conntrack.h>
+ #include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_l3proto.h>
+ #include <net/netfilter/nf_conntrack_core.h>
+-#include <net/netfilter/nf_conntrack_zones.h>
+ #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
++#endif
++#include <net/netfilter/nf_conntrack_zones.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
  
- static struct pernet_operations ip_vs_lblcr_ops = {
+ static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
+@@ -33,8 +35,10 @@ static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
+ {
+ 	u16 zone = NF_CT_DEFAULT_ZONE;
+ 
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	if (skb->nfct)
+ 		zone = nf_ct_zone((struct nf_conn *)skb->nfct);
++#endif
+ 
+ #ifdef CONFIG_BRIDGE_NETFILTER
+ 	if (skb->nf_bridge &&
+@@ -56,9 +60,11 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
+ {
+ 	struct sk_buff *reasm;
+ 
++#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ 	/* Previously seen (loopback)?	*/
+ 	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
+ 		return NF_ACCEPT;
++#endif
+ 
+ 	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
+ 	/* queued */
 -- 
 1.7.2.3
 
