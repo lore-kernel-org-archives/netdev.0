@@ -1,41 +1,65 @@
 From: kaber@trash.net
-Subject: [PATCH 21/79] ipvs: remove shadow rt variable
-Date: Wed, 19 Jan 2011 20:14:21 +0100
-Message-ID: <1295464519-21763-22-git-send-email-kaber@trash.net>
+Subject: [PATCH 20/79] ipvs: add static and read_mostly attributes
+Date: Wed, 19 Jan 2011 20:14:20 +0100
+Message-ID: <1295464519-21763-21-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51977 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753624Ab1ASTP2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:28 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
 
-Remove a sparse warning about rt variable.
+ip_vs_conn_tab_bits & ip_vs_conn_tab_mask are static to
+ipvs/ip_vs_conn.c
+
+ip_vs_conn_tab_size, ip_vs_conn_tab_mask, ip_vs_conn_tab [the pointer],
+ip_vs_conn_rnd are mostly read.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+ net/netfilter/ipvs/ip_vs_conn.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 10bd39c..50b131c 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -188,7 +188,6 @@ __ip_vs_reroute_locally(struct sk_buff *skb)
- 			},
- 			.mark = skb->mark,
- 		};
--		struct rtable *rt;
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 261db1a..7615f9e 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -48,18 +48,18 @@
+ /*
+  * Connection hash size. Default is what was selected at compile time.
+ */
+-int ip_vs_conn_tab_bits = CONFIG_IP_VS_TAB_BITS;
++static int ip_vs_conn_tab_bits = CONFIG_IP_VS_TAB_BITS;
+ module_param_named(conn_tab_bits, ip_vs_conn_tab_bits, int, 0444);
+ MODULE_PARM_DESC(conn_tab_bits, "Set connections' hash size");
  
- 		if (ip_route_output_key(net, &rt, &fl))
- 			return 0;
+ /* size and mask values */
+-int ip_vs_conn_tab_size;
+-int ip_vs_conn_tab_mask;
++int ip_vs_conn_tab_size __read_mostly;
++static int ip_vs_conn_tab_mask __read_mostly;
+ 
+ /*
+  *  Connection hash table: for input and output packets lookups of IPVS
+  */
+-static struct list_head *ip_vs_conn_tab;
++static struct list_head *ip_vs_conn_tab __read_mostly;
+ 
+ /*  SLAB cache for IPVS connections */
+ static struct kmem_cache *ip_vs_conn_cachep __read_mostly;
+@@ -71,7 +71,7 @@ static atomic_t ip_vs_conn_count = ATOMIC_INIT(0);
+ static atomic_t ip_vs_conn_no_cport_cnt = ATOMIC_INIT(0);
+ 
+ /* random value for IPVS connection hash */
+-static unsigned int ip_vs_conn_rnd;
++static unsigned int ip_vs_conn_rnd __read_mostly;
+ 
+ /*
+  *  Fine locking granularity for big connection hash table
 -- 
 1.7.2.3
 
