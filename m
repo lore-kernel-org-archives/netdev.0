@@ -1,197 +1,294 @@
 From: kaber@trash.net
-Subject: [PATCH 33/79] netfilter: fix compilation when conntrack is disabled but tproxy is enabled
-Date: Wed, 19 Jan 2011 20:14:33 +0100
-Message-ID: <1295464519-21763-34-git-send-email-kaber@trash.net>
+Subject: [PATCH 27/79] IPVS: Handle Scheduling errors.
+Date: Wed, 19 Jan 2011 20:14:27 +0100
+Message-ID: <1295464519-21763-28-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:51989 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753690Ab1ASTP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:29 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: KOVACS Krisztian <hidden@balabit.hu>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-The IPv6 tproxy patches split IPv6 defragmentation off of conntrack, but
-failed to update the #ifdef stanzas guarding the defragmentation related
-fields and code in skbuff and conntrack related code in nf_defrag_ipv6.c.
+If ip_vs_conn_fill_param_persist return an error to ip_vs_sched_persist,
+this error must propagate as ignored=-1 to ip_vs_schedule().
+Errors from ip_vs_conn_new() in ip_vs_sched_persist() and ip_vs_schedule()
+should also return *ignored=-1;
 
-This patch adds the required #ifdefs so that IPv6 tproxy can truly be used
-without connection tracking.
+This patch just relies on the fact that ignored is 1 before calling
+ip_vs_sched_persist().
 
-Original report:
-http://marc.info/?l=linux-netdev&m=129010118516341&w=2
+Sent from Julian:
+  "The new case when ip_vs_conn_fill_param_persist fails
+   should set *ignored = -1, so that we can use NF_DROP,
+   see below. *ignored = -1 should be also used for ip_vs_conn_new
+   failure in ip_vs_sched_persist() and ip_vs_schedule().
+   The new negative value should be handled in tcp,udp,sctp"
 
-Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
-Signed-off-by: KOVACS Krisztian <hidden@balabit.hu>
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+"To summarize:
+
+- *ignored = 1:
+      protocol tried to schedule (eg. on SYN), found svc but the
+      svc/scheduler decides that this packet should be accepted with
+      NF_ACCEPT because it must not be scheduled.
+
+- *ignored = 0:
+      scheduler can not find destination, so try bypass or
+      return ICMP and then NF_DROP (ip_vs_leave).
+
+- *ignored = -1:
+      scheduler tried to schedule but fatal error occurred, eg.
+      ip_vs_conn_new failure (ENOMEM) or ip_vs_sip_fill_param
+      failure such as missing Call-ID, ENOMEM on skb_linearize
+      or pe_data. In this case we should return NF_DROP without
+      any attempts to send ICMP with ip_vs_leave."
+
+More or less all ideas and input to this patch is work from
+Julian Anastasov
+
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/linux/skbuff.h                         |   15 +++++++++++++++
- include/net/netfilter/ipv6/nf_conntrack_ipv6.h |   10 ----------
- include/net/netfilter/ipv6/nf_defrag_ipv6.h    |   10 ++++++++++
- net/core/skbuff.c                              |    2 ++
- net/ipv6/netfilter/nf_defrag_ipv6_hooks.c      |    8 +++++++-
- 5 files changed, 34 insertions(+), 11 deletions(-)
+ net/netfilter/ipvs/ip_vs_core.c       |   56 +++++++++++++++++++++++---------
+ net/netfilter/ipvs/ip_vs_proto_sctp.c |   11 +++++--
+ net/netfilter/ipvs/ip_vs_proto_tcp.c  |   10 +++++-
+ net/netfilter/ipvs/ip_vs_proto_udp.c  |   10 +++++-
+ 4 files changed, 64 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e6ba898..4f2db79 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -255,6 +255,11 @@ typedef unsigned int sk_buff_data_t;
- typedef unsigned char *sk_buff_data_t;
- #endif
- 
-+#if defined(CONFIG_NF_DEFRAG_IPV4) || defined(CONFIG_NF_DEFRAG_IPV4_MODULE) || \
-+    defined(CONFIG_NF_DEFRAG_IPV6) || defined(CONFIG_NF_DEFRAG_IPV6_MODULE)
-+#define NET_SKBUFF_NF_DEFRAG_NEEDED 1
-+#endif
-+
- /** 
-  *	struct sk_buff - socket buffer
-  *	@next: Next buffer in list
-@@ -362,6 +367,8 @@ struct sk_buff {
- 	void			(*destructor)(struct sk_buff *skb);
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	struct nf_conntrack	*nfct;
-+#endif
-+#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
- 	struct sk_buff		*nfct_reasm;
- #endif
- #ifdef CONFIG_BRIDGE_NETFILTER
-@@ -2051,6 +2058,8 @@ static inline void nf_conntrack_get(struct nf_conntrack *nfct)
- 	if (nfct)
- 		atomic_inc(&nfct->use);
+diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+index 9acdd79..3445da6 100644
+--- a/net/netfilter/ipvs/ip_vs_core.c
++++ b/net/netfilter/ipvs/ip_vs_core.c
+@@ -177,7 +177,7 @@ ip_vs_set_state(struct ip_vs_conn *cp, int direction,
+ 	return pp->state_transition(cp, direction, skb, pp);
  }
-+#endif
-+#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
- static inline void nf_conntrack_get_reasm(struct sk_buff *skb)
- {
- 	if (skb)
-@@ -2079,6 +2088,8 @@ static inline void nf_reset(struct sk_buff *skb)
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	nf_conntrack_put(skb->nfct);
- 	skb->nfct = NULL;
-+#endif
-+#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
- 	nf_conntrack_put_reasm(skb->nfct_reasm);
- 	skb->nfct_reasm = NULL;
- #endif
-@@ -2095,6 +2106,8 @@ static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src)
- 	dst->nfct = src->nfct;
- 	nf_conntrack_get(src->nfct);
- 	dst->nfctinfo = src->nfctinfo;
-+#endif
-+#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
- 	dst->nfct_reasm = src->nfct_reasm;
- 	nf_conntrack_get_reasm(src->nfct_reasm);
- #endif
-@@ -2108,6 +2121,8 @@ static inline void nf_copy(struct sk_buff *dst, const struct sk_buff *src)
- {
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	nf_conntrack_put(dst->nfct);
-+#endif
-+#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
- 	nf_conntrack_put_reasm(dst->nfct_reasm);
- #endif
- #ifdef CONFIG_BRIDGE_NETFILTER
-diff --git a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-index 1ee717e..a4c9936 100644
---- a/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_conntrack_ipv6.h
-@@ -7,16 +7,6 @@ extern struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp6;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6;
- extern struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6;
  
--extern int nf_ct_frag6_init(void);
--extern void nf_ct_frag6_cleanup(void);
--extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
--extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
--			       struct net_device *in,
--			       struct net_device *out,
--			       int (*okfn)(struct sk_buff *));
--
--struct inet_frags_ctl;
--
- #include <linux/sysctl.h>
- extern struct ctl_table nf_ct_ipv6_sysctl_table[];
- 
-diff --git a/include/net/netfilter/ipv6/nf_defrag_ipv6.h b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-index 94dd54d..fd79c9a 100644
---- a/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-+++ b/include/net/netfilter/ipv6/nf_defrag_ipv6.h
-@@ -3,4 +3,14 @@
- 
- extern void nf_defrag_ipv6_enable(void);
- 
-+extern int nf_ct_frag6_init(void);
-+extern void nf_ct_frag6_cleanup(void);
-+extern struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user);
-+extern void nf_ct_frag6_output(unsigned int hooknum, struct sk_buff *skb,
-+			       struct net_device *in,
-+			       struct net_device *out,
-+			       int (*okfn)(struct sk_buff *));
+-static inline void
++static inline int
+ ip_vs_conn_fill_param_persist(const struct ip_vs_service *svc,
+ 			      struct sk_buff *skb, int protocol,
+ 			      const union nf_inet_addr *caddr, __be16 cport,
+@@ -187,7 +187,9 @@ ip_vs_conn_fill_param_persist(const struct ip_vs_service *svc,
+ 	ip_vs_conn_fill_param(svc->af, protocol, caddr, cport, vaddr, vport, p);
+ 	p->pe = svc->pe;
+ 	if (p->pe && p->pe->fill_param)
+-		p->pe->fill_param(p, skb);
++		return p->pe->fill_param(p, skb);
 +
-+struct inet_frags_ctl;
-+
- #endif /* _NF_DEFRAG_IPV6_H */
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 104f844..74ebf4b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -380,6 +380,8 @@ static void skb_release_head_state(struct sk_buff *skb)
++	return 0;
+ }
+ 
+ /*
+@@ -200,7 +202,7 @@ ip_vs_conn_fill_param_persist(const struct ip_vs_service *svc,
+ static struct ip_vs_conn *
+ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 		    struct sk_buff *skb,
+-		    __be16 src_port, __be16 dst_port)
++		    __be16 src_port, __be16 dst_port, int *ignored)
+ {
+ 	struct ip_vs_conn *cp = NULL;
+ 	struct ip_vs_iphdr iph;
+@@ -268,20 +270,27 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 				vaddr = &fwmark;
+ 			}
+ 		}
+-		ip_vs_conn_fill_param_persist(svc, skb, protocol, &snet, 0,
+-					      vaddr, vport, &param);
++		/* return *ignored = -1 so NF_DROP can be used */
++		if (ip_vs_conn_fill_param_persist(svc, skb, protocol, &snet, 0,
++						  vaddr, vport, &param) < 0) {
++			*ignored = -1;
++			return NULL;
++		}
  	}
- #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	nf_conntrack_put(skb->nfct);
-+#endif
-+#ifdef NET_SKBUFF_NF_DEFRAG_NEEDED
- 	nf_conntrack_put_reasm(skb->nfct_reasm);
- #endif
- #ifdef CONFIG_BRIDGE_NETFILTER
-diff --git a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-index 99abfb5..97c5b21 100644
---- a/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-+++ b/net/ipv6/netfilter/nf_defrag_ipv6_hooks.c
-@@ -19,13 +19,15 @@
  
- #include <linux/netfilter_ipv6.h>
- #include <linux/netfilter_bridge.h>
-+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_helper.h>
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_l3proto.h>
- #include <net/netfilter/nf_conntrack_core.h>
--#include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>
-+#endif
-+#include <net/netfilter/nf_conntrack_zones.h>
- #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ 	/* Check if a template already exists */
+ 	ct = ip_vs_ct_in_get(&param);
+ 	if (!ct || !ip_vs_check_template(ct)) {
+-		/* No template found or the dest of the connection
++		/*
++		 * No template found or the dest of the connection
+ 		 * template is not available.
++		 * return *ignored=0 i.e. ICMP and NF_DROP
+ 		 */
+ 		dest = svc->scheduler->schedule(svc, skb);
+ 		if (!dest) {
+ 			IP_VS_DBG(1, "p-schedule: no dest found.\n");
+ 			kfree(param.pe_data);
++			*ignored = 0;
+ 			return NULL;
+ 		}
  
- static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
-@@ -33,8 +35,10 @@ static enum ip6_defrag_users nf_ct6_defrag_user(unsigned int hooknum,
- {
- 	u16 zone = NF_CT_DEFAULT_ZONE;
+@@ -296,6 +305,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 				    IP_VS_CONN_F_TEMPLATE, dest, skb->mark);
+ 		if (ct == NULL) {
+ 			kfree(param.pe_data);
++			*ignored = -1;
+ 			return NULL;
+ 		}
  
-+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	if (skb->nfct)
- 		zone = nf_ct_zone((struct nf_conn *)skb->nfct);
-+#endif
+@@ -323,6 +333,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+ 	cp = ip_vs_conn_new(&param, &dest->addr, dport, flags, dest, skb->mark);
+ 	if (cp == NULL) {
+ 		ip_vs_conn_put(ct);
++		*ignored = -1;
+ 		return NULL;
+ 	}
  
- #ifdef CONFIG_BRIDGE_NETFILTER
- 	if (skb->nf_bridge &&
-@@ -56,9 +60,11 @@ static unsigned int ipv6_defrag(unsigned int hooknum,
- {
- 	struct sk_buff *reasm;
+@@ -342,6 +353,21 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
+  *  It selects a server according to the virtual service, and
+  *  creates a connection entry.
+  *  Protocols supported: TCP, UDP
++ *
++ *  Usage of *ignored
++ *
++ * 1 :   protocol tried to schedule (eg. on SYN), found svc but the
++ *       svc/scheduler decides that this packet should be accepted with
++ *       NF_ACCEPT because it must not be scheduled.
++ *
++ * 0 :   scheduler can not find destination, so try bypass or
++ *       return ICMP and then NF_DROP (ip_vs_leave).
++ *
++ * -1 :  scheduler tried to schedule but fatal error occurred, eg.
++ *       ip_vs_conn_new failure (ENOMEM) or ip_vs_sip_fill_param
++ *       failure such as missing Call-ID, ENOMEM on skb_linearize
++ *       or pe_data. In this case we should return NF_DROP without
++ *       any attempts to send ICMP with ip_vs_leave.
+  */
+ struct ip_vs_conn *
+ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+@@ -372,11 +398,9 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	}
  
-+#if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
- 	/* Previously seen (loopback)?	*/
- 	if (skb->nfct && !nf_ct_is_template((struct nf_conn *)skb->nfct))
- 		return NF_ACCEPT;
-+#endif
+ 	/*
+-	 * Do not schedule replies from local real server. It is risky
+-	 * for fwmark services but mostly for persistent services.
++	 *    Do not schedule replies from local real server.
+ 	 */
+ 	if ((!skb->dev || skb->dev->flags & IFF_LOOPBACK) &&
+-	    (svc->flags & IP_VS_SVC_F_PERSISTENT || svc->fwmark) &&
+ 	    (cp = pp->conn_in_get(svc->af, skb, pp, &iph, iph.len, 1))) {
+ 		IP_VS_DBG_PKT(12, svc->af, pp, skb, 0,
+ 			      "Not scheduling reply for existing connection");
+@@ -387,10 +411,10 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 	/*
+ 	 *    Persistent service
+ 	 */
+-	if (svc->flags & IP_VS_SVC_F_PERSISTENT) {
+-		*ignored = 0;
+-		return ip_vs_sched_persist(svc, skb, pptr[0], pptr[1]);
+-	}
++	if (svc->flags & IP_VS_SVC_F_PERSISTENT)
++		return ip_vs_sched_persist(svc, skb, pptr[0], pptr[1], ignored);
++
++	*ignored = 0;
  
- 	reasm = nf_ct_frag6_gather(skb, nf_ct6_defrag_user(hooknum, skb));
- 	/* queued */
+ 	/*
+ 	 *    Non-persistent service
+@@ -403,8 +427,6 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		return NULL;
+ 	}
+ 
+-	*ignored = 0;
+-
+ 	dest = svc->scheduler->schedule(svc, skb);
+ 	if (dest == NULL) {
+ 		IP_VS_DBG(1, "Schedule: no dest found.\n");
+@@ -425,8 +447,10 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ 		cp = ip_vs_conn_new(&p, &dest->addr,
+ 				    dest->port ? dest->port : pptr[1],
+ 				    flags, dest, skb->mark);
+-		if (!cp)
++		if (!cp) {
++			*ignored = -1;
+ 			return NULL;
++		}
+ 	}
+ 
+ 	IP_VS_DBG_BUF(6, "Schedule fwd:%c c:%s:%u v:%s:%u "
+diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+index 1ea96bc..a315159 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
+@@ -47,13 +47,18 @@ sctp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		 * incoming connection, and create a connection entry.
+ 		 */
+ 		*cpp = ip_vs_schedule(svc, skb, pp, &ignored);
+-		if (!*cpp && !ignored) {
+-			*verdict = ip_vs_leave(svc, skb, pp);
++		if (!*cpp && ignored <= 0) {
++			if (!ignored)
++				*verdict = ip_vs_leave(svc, skb, pp);
++			else {
++				ip_vs_service_put(svc);
++				*verdict = NF_DROP;
++			}
+ 			return 0;
+ 		}
+ 		ip_vs_service_put(svc);
+ 	}
+-
++	/* NF_ACCEPT */
+ 	return 1;
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+index f6c5200..1cdab12 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
+@@ -64,12 +64,18 @@ tcp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		 * incoming connection, and create a connection entry.
+ 		 */
+ 		*cpp = ip_vs_schedule(svc, skb, pp, &ignored);
+-		if (!*cpp && !ignored) {
+-			*verdict = ip_vs_leave(svc, skb, pp);
++		if (!*cpp && ignored <= 0) {
++			if (!ignored)
++				*verdict = ip_vs_leave(svc, skb, pp);
++			else {
++				ip_vs_service_put(svc);
++				*verdict = NF_DROP;
++			}
+ 			return 0;
+ 		}
+ 		ip_vs_service_put(svc);
+ 	}
++	/* NF_ACCEPT */
+ 	return 1;
+ }
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
+index 9d106a0..cd398de 100644
+--- a/net/netfilter/ipvs/ip_vs_proto_udp.c
++++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
+@@ -63,12 +63,18 @@ udp_conn_schedule(int af, struct sk_buff *skb, struct ip_vs_protocol *pp,
+ 		 * incoming connection, and create a connection entry.
+ 		 */
+ 		*cpp = ip_vs_schedule(svc, skb, pp, &ignored);
+-		if (!*cpp && !ignored) {
+-			*verdict = ip_vs_leave(svc, skb, pp);
++		if (!*cpp && ignored <= 0) {
++			if (!ignored)
++				*verdict = ip_vs_leave(svc, skb, pp);
++			else {
++				ip_vs_service_put(svc);
++				*verdict = NF_DROP;
++			}
+ 			return 0;
+ 		}
+ 		ip_vs_service_put(svc);
+ 	}
++	/* NF_ACCEPT */
+ 	return 1;
+ }
+ 
 -- 
 1.7.2.3
 
