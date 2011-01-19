@@ -1,69 +1,70 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Wed, 19 Jan 2011 18:11:36 +0900
-Message-ID: <20110119091135.GF1960@verge.net.au>
-References: <20110113064718.GA17905@verge.net.au>
- <AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>
- <20110113234135.GC8426@verge.net.au>
- <20110114045818.GA29738@redhat.com>
- <20110114063528.GB10957@verge.net.au>
- <20110114065415.GA30300@redhat.com>
- <20110116223728.GA6279@verge.net.au>
- <20110117102655.GH23479@redhat.com>
- <4D35ECE2.4040901@hp.com>
- <20110118201333.GD18760@redhat.com>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH v2] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Wed, 19 Jan 2011 17:20:38 +0800
+Message-ID: <AANLkTikDkvcDhjEpVL+VK=UTHb5M19Mw167R_z0QwDVW@mail.gmail.com>
+References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
+ <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com> <1295288462.3335.55.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56897 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651Ab1ASJLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 04:11:41 -0500
-Content-Disposition: inline
-In-Reply-To: <20110118201333.GD18760@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ratbert@faraday-tech.com, bhutchings@solarflare.com,
+	joe@perches.com, dilinger@queued.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1295288462.3335.55.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 18, 2011 at 10:13:33PM +0200, Michael S. Tsirkin wrote:
-> On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
-> > >So it won't be all that simple to implement well, and before we try,
-> > >I'd like to know whether there are applications that are helped
-> > >by it. For example, we could try to measure latency at various
-> > >pps and see whether the backpressure helps. netperf has -b, -w
-> > >flags which might help these measurements.
-> > 
-> > Those options are enabled when one adds --enable-burst to the
-> > pre-compilation ./configure  of netperf (one doesn't have to
-> > recompile netserver).  However, if one is also looking at latency
-> > statistics via the -j option in the top-of-trunk, or simply at the
-> > histogram with --enable-histogram on the ./configure and a verbosity
-> > level of 2 (global -v 2) then one wants the very top of trunk
-> > netperf from:
-> > 
-> > http://www.netperf.org/svn/netperf2/trunk
-> > 
-> > to get the recently added support for accurate (netperf level) RTT
-> > measuremnts on burst-mode request/response tests.
-> > 
-> > happy benchmarking,
-> > 
-> > rick jones
+Dear Eric,
 
-Thanks Rick, that is really helpful.
+On Tue, Jan 18, 2011 at 2:21 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le lundi 17 janvier 2011 =C3=A0 17:21 +0800, Po-Yu Chuang a =C3=A9cri=
+t :
+>> + =C2=A0 =C2=A0 spin_lock_irqsave(&priv->tx_lock, flags);
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_skb(txdes, skb);
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_dma_addr(txdes, map);
+>> +
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_first_segment(txdes);
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_last_segment(txdes);
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_txint(txdes);
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_buffer_size(txdes, len);
+>
+> I wonder if its not too expensive to read/modify/write txdes->txdes1
+>
+> Maybe you should use a temporary u32 var and perform one final write =
+on
+> txdes->txdes1 (with the set_dma_own)
 
-> > PS - the enhanced latency statistics from -j are only available in
-> > the "omni" version of the TCP_RR test.  To get that add a
-> > --enable-omni to the ./configure - and in this case both netperf and
-> > netserver have to be recompiled.
-> 
-> 
-> Is this TCP only? I would love to get latency data from UDP as well.
+That's OK, the compiler combines these bits updates together and write =
+once
+since txdes is not volatile. (I checked the object file)
+It's not expensive.
 
-At a glance, -- -T UDP is what you are after.
+BTW, DMA_OWN bit is at txdes0
+
+>> + =C2=A0 =C2=A0 priv->tx_pending++;
+>> + =C2=A0 =C2=A0 if (priv->tx_pending =3D=3D TX_QUEUE_ENTRIES) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (net_ratelimit())
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 netdev_info(netdev, "tx queue full\n");
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 netif_stop_queue(netdev)=
+;
+>> + =C2=A0 =C2=A0 }
+>> +
+>> + =C2=A0 =C2=A0 /* start transmit */
+>> + =C2=A0 =C2=A0 ftmac100_txdes_set_dma_own(txdes);
+>
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0txdes->txdes1 =3D txdes1;
+>
+> BTW, shouldnt you use cpu_to_be32() or cpu_to_le32(), if this driver =
+is
+> multi platform ?
+
+OK, but I am not sure if I use them the right way.
+Please check my v3 patch later.
+
+Thanks,
+Po-Yu Chuang
