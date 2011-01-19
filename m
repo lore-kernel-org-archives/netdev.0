@@ -1,40 +1,39 @@
 From: kaber@trash.net
-Subject: [PATCH 11/79] netfilter: nf_ct_frag6_sysctl_table is static
-Date: Wed, 19 Jan 2011 20:14:11 +0100
-Message-ID: <1295464519-21763-12-git-send-email-kaber@trash.net>
+Subject: [PATCH 16/79] IPVS: Only match pe_data created by the same pe
+Date: Wed, 19 Jan 2011 20:14:16 +0100
+Message-ID: <1295464519-21763-17-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51978 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753560Ab1ASTP0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:26 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Simon Horman <horms@verge.net.au>
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Only match persistence engine data if it was
+created by the same persistence engine.
+
+Reported-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/ipv6/netfilter/nf_conntrack_reasm.c |    2 +-
+ net/netfilter/ipvs/ip_vs_conn.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 3a3f129..eb9f1c0 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -73,7 +73,7 @@ static struct inet_frags nf_frags;
- static struct netns_frags nf_init_frags;
+diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
+index 64a9ca3..261db1a 100644
+--- a/net/netfilter/ipvs/ip_vs_conn.c
++++ b/net/netfilter/ipvs/ip_vs_conn.c
+@@ -354,7 +354,7 @@ struct ip_vs_conn *ip_vs_ct_in_get(const struct ip_vs_conn_param *p)
  
- #ifdef CONFIG_SYSCTL
--struct ctl_table nf_ct_frag6_sysctl_table[] = {
-+static struct ctl_table nf_ct_frag6_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_frag6_timeout",
- 		.data		= &nf_init_frags.timeout,
+ 	list_for_each_entry(cp, &ip_vs_conn_tab[hash], c_list) {
+ 		if (p->pe_data && p->pe->ct_match) {
+-			if (p->pe->ct_match(p, cp))
++			if (p->pe == cp->pe && p->pe->ct_match(p, cp))
+ 				goto out;
+ 			continue;
+ 		}
 -- 
 1.7.2.3
 
