@@ -1,84 +1,59 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH-v2] sctp: user perfect name for Delayed SACK Timer option
-Date: Wed, 19 Jan 2011 08:37:08 -0500
-Message-ID: <4D36E904.4050609@hp.com>
-References: <4D3693CA.40508@cn.fujitsu.com> <4D36A324.4040307@cn.fujitsu.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: inbound connection problems when "netlink: test for all flags
+ of the NLM_F_DUMP composite" commit applied
+Date: Wed, 19 Jan 2011 09:28:06 -0500
+Message-ID: <1295447286.2008.850.camel@mojatatu>
+References: <4D336050.9030602@netfilter.org>
+	 <20110118093811.GA7520@ff.dom.local>
+	 <20110118.020702.115924992.davem@davemloft.net>
+	 <20110118102437.GB7520@ff.dom.local> <4D35F8A3.1010600@netfilter.org>
+	 <20110118205507.GB4288@del.dom.local>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	=?UTF-8?B?6a2P5YuH5Yab?= <yjwei@cn.fujitsu.com>,
-	Network-Maillist <netdev@vger.kernel.org>,
-	SCTP-Maillist <linux-sctp@vger.kernel.org>
-To: Shan Wei <shanwei@cn.fujitsu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
+	arthur.marsh@internode.on.net, jengelh@medozas.de,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Jarek Poplawski <jarkao2@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t0015.houston.hp.com ([15.201.24.18]:8805 "EHLO
-	g4t0015.houston.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389Ab1ASNho (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 08:37:44 -0500
-In-Reply-To: <4D36A324.4040307@cn.fujitsu.com>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:45048 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754076Ab1ASO2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 09:28:14 -0500
+Received: by vws16 with SMTP id 16so292043vws.19
+        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 06:28:14 -0800 (PST)
+In-Reply-To: <20110118205507.GB4288@del.dom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/19/2011 03:39 AM, Shan Wei wrote:
-> The option name of Delayed SACK Timer should be SCTP_DELAYED_SACK,
-> not SCTP_DELAYED_ACK.
->=20
-> Left SCTP_DELAYED_ACK be concomitant with SCTP_DELAYED_SACK,
-> for making compatibility with existing applications.
->=20
-> Reference:
-> 8.1.19.  Get or Set Delayed SACK Timer (SCTP_DELAYED_SACK)
-> =EF=BC=88http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-25)
->=20
+On Tue, 2011-01-18 at 21:55 +0100, Jarek Poplawski wrote:
+> On Tue, Jan 18, 2011 at 09:31:31PM +0100, Pablo Neira Ayuso wrote:
 
-this one much better.
+> > The combination that avahi uses makes no sense.
+> 
+> I don't agree as explained in the reverting patch. Anyway, again,
+> this is an old problem, so no reason to force "fixing" it just now
+> at the expense of the obvious regression especially in stable kernels
+> Anyway, I'll accept any David's decision wrt this problem.
+> 
 
-Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
+So here is what i think the criteria should be:
 
--vlad
+If Avahi is popular and widely deployed (I dont use it anywhere), it
+makes no sense to revert. 
+A middle ground is: instead of rejecting the nonsense passed, maybe a
+sane thing to do is a kernel warning for a period of time (sort of like
+feature removal warnings).
 
-> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
-> ---
->  include/net/sctp/user.h |    1 +
->  net/sctp/socket.c       |    4 ++--
->  2 files changed, 3 insertions(+), 2 deletions(-)
->=20
-> diff --git a/include/net/sctp/user.h b/include/net/sctp/user.h
-> index 2b2769c..92eedc0 100644
-> --- a/include/net/sctp/user.h
-> +++ b/include/net/sctp/user.h
-> @@ -78,6 +78,7 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_GET_PEER_ADDR_INFO	15
->  #define SCTP_DELAYED_ACK_TIME	16
->  #define SCTP_DELAYED_ACK SCTP_DELAYED_ACK_TIME
-> +#define SCTP_DELAYED_SACK SCTP_DELAYED_ACK_TIME
->  #define SCTP_CONTEXT	17
->  #define SCTP_FRAGMENT_INTERLEAVE	18
->  #define SCTP_PARTIAL_DELIVERY_POINT	19 /* Set/Get partial delivery p=
-oint */
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index a09b0dd..8e02550 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -3428,7 +3428,7 @@ SCTP_STATIC int sctp_setsockopt(struct sock *sk=
-, int level, int optname,
->  		retval =3D sctp_setsockopt_peer_addr_params(sk, optval, optlen);
->  		break;
-> =20
-> -	case SCTP_DELAYED_ACK:
-> +	case SCTP_DELAYED_SACK:
->  		retval =3D sctp_setsockopt_delayed_ack(sk, optval, optlen);
->  		break;
->  	case SCTP_PARTIAL_DELIVERY_POINT:
-> @@ -5333,7 +5333,7 @@ SCTP_STATIC int sctp_getsockopt(struct sock *sk=
-, int level, int optname,
->  		retval =3D sctp_getsockopt_peer_addr_params(sk, len, optval,
->  							  optlen);
->  		break;
-> -	case SCTP_DELAYED_ACK:
-> +	case SCTP_DELAYED_SACK:
->  		retval =3D sctp_getsockopt_delayed_ack(sk, len, optval,
->  							  optlen);
->  		break;
+The only way to keep the patch IMO (if avahi is widely deployed) is if
+common distro policy is such that they will immediately fix and
+distribute a new avahi even when this breakage is with a kernel that
+distro wont support for  a year.
+
+hope i am making sense.
+
+cheers,
+jamal
 
