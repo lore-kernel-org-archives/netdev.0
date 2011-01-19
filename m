@@ -1,367 +1,158 @@
 From: kaber@trash.net
-Subject: [PATCH 62/79] netfilter: audit target to record accepted/dropped packets
-Date: Wed, 19 Jan 2011 20:15:02 +0100
-Message-ID: <1295464519-21763-63-git-send-email-kaber@trash.net>
+Subject: [PATCH 59/79] netfilter: ebt_ip6: allow matching on ipv6-icmp types/codes
+Date: Wed, 19 Jan 2011 20:14:59 +0100
+Message-ID: <1295464519-21763-60-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51979 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:52012 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753466Ab1ASTPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:40 -0500
+	with ESMTP id S1753950Ab1ASTPj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:39 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Graf <tgraf@infradead.org>
+From: Florian Westphal <fw@strlen.de>
 
-This patch adds a new netfilter target which creates audit records
-for packets traversing a certain chain.
+To avoid adding a new match revision icmp type/code are stored
+in the sport/dport area.
 
-It can be used to record packets which are rejected administraively
-as follows:
-
-  -N AUDIT_DROP
-  -A AUDIT_DROP -j AUDIT --type DROP
-  -A AUDIT_DROP -j DROP
-
-a rule which would typically drop or reject a packet would then
-invoke the new chain to record packets before dropping them.
-
-  -j AUDIT_DROP
-
-The module is protocol independant and works for iptables, ip6tables
-and ebtables.
-
-The following information is logged:
- - netfilter hook
- - packet length
- - incomming/outgoing interface
- - MAC src/dst/proto for ethernet packets
- - src/dst/protocol address for IPv4/IPv6
- - src/dst port for TCP/UDP/UDPLITE
- - icmp type/code
-
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Eric Paris <eparis@parisplace.org>
-Cc: Al Viro <viro@ZenIV.linux.org.uk>
-Signed-off-by: Thomas Graf <tgraf@redhat.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Reviewed-by: Holger Eitzenberger <holger@eitzenberger.org>
+Reviewed-by: Bart De Schuymer<bdschuym@pandora.be>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/audit.h              |    1 +
- include/linux/netfilter/Kbuild     |    1 +
- include/linux/netfilter/xt_AUDIT.h |   30 ++++++
- net/netfilter/Kconfig              |   10 ++
- net/netfilter/Makefile             |    1 +
- net/netfilter/xt_AUDIT.c           |  204 ++++++++++++++++++++++++++++++++++++
- 6 files changed, 247 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter/xt_AUDIT.h
- create mode 100644 net/netfilter/xt_AUDIT.c
+ include/linux/netfilter_bridge/ebt_ip6.h |   15 ++++++++--
+ net/bridge/netfilter/ebt_ip6.c           |   46 ++++++++++++++++++++++--------
+ 2 files changed, 46 insertions(+), 15 deletions(-)
 
-diff --git a/include/linux/audit.h b/include/linux/audit.h
-index 8b5c062..ae227df 100644
---- a/include/linux/audit.h
-+++ b/include/linux/audit.h
-@@ -103,6 +103,7 @@
- #define AUDIT_BPRM_FCAPS	1321	/* Information about fcaps increasing perms */
- #define AUDIT_CAPSET		1322	/* Record showing argument to sys_capset */
- #define AUDIT_MMAP		1323	/* Record showing descriptor and flags in mmap */
-+#define AUDIT_NETFILTER_PKT	1324	/* Packets traversing netfilter chains */
+diff --git a/include/linux/netfilter_bridge/ebt_ip6.h b/include/linux/netfilter_bridge/ebt_ip6.h
+index e5de987..22af18a 100644
+--- a/include/linux/netfilter_bridge/ebt_ip6.h
++++ b/include/linux/netfilter_bridge/ebt_ip6.h
+@@ -18,8 +18,11 @@
+ #define EBT_IP6_PROTO 0x08
+ #define EBT_IP6_SPORT 0x10
+ #define EBT_IP6_DPORT 0x20
++#define EBT_IP6_ICMP6 0x40
++
+ #define EBT_IP6_MASK (EBT_IP6_SOURCE | EBT_IP6_DEST | EBT_IP6_TCLASS |\
+-		      EBT_IP6_PROTO | EBT_IP6_SPORT | EBT_IP6_DPORT)
++		      EBT_IP6_PROTO | EBT_IP6_SPORT | EBT_IP6_DPORT | \
++		      EBT_IP6_ICMP6)
+ #define EBT_IP6_MATCH "ip6"
  
- #define AUDIT_AVC		1400	/* SE Linux avc denial or grant */
- #define AUDIT_SELINUX_ERR	1401	/* Internal SE Linux Errors */
-diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
-index 9d40eff..9f11fbc 100644
---- a/include/linux/netfilter/Kbuild
-+++ b/include/linux/netfilter/Kbuild
-@@ -9,6 +9,7 @@ header-y += nfnetlink_conntrack.h
- header-y += nfnetlink_log.h
- header-y += nfnetlink_queue.h
- header-y += x_tables.h
-+header-y += xt_AUDIT.h
- header-y += xt_CHECKSUM.h
- header-y += xt_CLASSIFY.h
- header-y += xt_CONNMARK.h
-diff --git a/include/linux/netfilter/xt_AUDIT.h b/include/linux/netfilter/xt_AUDIT.h
-new file mode 100644
-index 0000000..38751d2
---- /dev/null
-+++ b/include/linux/netfilter/xt_AUDIT.h
-@@ -0,0 +1,30 @@
-+/*
-+ * Header file for iptables xt_AUDIT target
-+ *
-+ * (C) 2010-2011 Thomas Graf <tgraf@redhat.com>
-+ * (C) 2010-2011 Red Hat, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#ifndef _XT_AUDIT_TARGET_H
-+#define _XT_AUDIT_TARGET_H
-+
-+#include <linux/types.h>
-+
-+enum {
-+	XT_AUDIT_TYPE_ACCEPT = 0,
-+	XT_AUDIT_TYPE_DROP,
-+	XT_AUDIT_TYPE_REJECT,
-+	__XT_AUDIT_TYPE_MAX,
-+};
-+
-+#define XT_AUDIT_TYPE_MAX (__XT_AUDIT_TYPE_MAX - 1)
-+
-+struct xt_audit_info {
-+	__u8 type; /* XT_AUDIT_TYPE_* */
-+};
-+
-+#endif /* _XT_AUDIT_TARGET_H */
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 1b79353..93918f0 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -326,6 +326,16 @@ config NETFILTER_XT_CONNMARK
+ /* the same values are used for the invflags */
+@@ -32,8 +35,14 @@ struct ebt_ip6_info {
+ 	uint8_t  protocol;
+ 	uint8_t  bitmask;
+ 	uint8_t  invflags;
+-	uint16_t sport[2];
+-	uint16_t dport[2];
++	union {
++		uint16_t sport[2];
++		uint8_t icmpv6_type[2];
++	};
++	union {
++		uint16_t dport[2];
++		uint8_t icmpv6_code[2];
++	};
+ };
  
- comment "Xtables targets"
+ #endif
+diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
+index 50a46af..2ed0056 100644
+--- a/net/bridge/netfilter/ebt_ip6.c
++++ b/net/bridge/netfilter/ebt_ip6.c
+@@ -22,9 +22,15 @@
+ #include <linux/netfilter_bridge/ebtables.h>
+ #include <linux/netfilter_bridge/ebt_ip6.h>
  
-+config NETFILTER_XT_TARGET_AUDIT
-+	tristate "AUDIT target support"
-+	depends on AUDIT
-+	depends on NETFILTER_ADVANCED
-+	---help---
-+	  This option adds a 'AUDIT' target, which can be used to create
-+	  audit records for packets dropped/accepted.
-+
-+	  To compileit as a module, choose M here. If unsure, say N.
-+
- config NETFILTER_XT_TARGET_CHECKSUM
- 	tristate "CHECKSUM target support"
- 	depends on IP_NF_MANGLE || IP6_NF_MANGLE
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 441050f..401d574 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -45,6 +45,7 @@ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
- obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+-struct tcpudphdr {
+-	__be16 src;
+-	__be16 dst;
++union pkthdr {
++	struct {
++		__be16 src;
++		__be16 dst;
++	} tcpudphdr;
++	struct {
++		u8 type;
++		u8 code;
++	} icmphdr;
+ };
  
- # targets
-+obj-$(CONFIG_NETFILTER_XT_TARGET_AUDIT) += xt_AUDIT.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CHECKSUM) += xt_CHECKSUM.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
-diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
-new file mode 100644
-index 0000000..81802d2
---- /dev/null
-+++ b/net/netfilter/xt_AUDIT.c
-@@ -0,0 +1,204 @@
-+/*
-+ * Creates audit record for dropped/accepted packets
-+ *
-+ * (C) 2010-2011 Thomas Graf <tgraf@redhat.com>
-+ * (C) 2010-2011 Red Hat, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+*/
+ static bool
+@@ -33,8 +39,8 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 	const struct ebt_ip6_info *info = par->matchinfo;
+ 	const struct ipv6hdr *ih6;
+ 	struct ipv6hdr _ip6h;
+-	const struct tcpudphdr *pptr;
+-	struct tcpudphdr _ports;
++	const union pkthdr *pptr;
++	union pkthdr _pkthdr;
+ 
+ 	ih6 = skb_header_pointer(skb, 0, sizeof(_ip6h), &_ip6h);
+ 	if (ih6 == NULL)
+@@ -56,26 +62,34 @@ ebt_ip6_mt(const struct sk_buff *skb, struct xt_action_param *par)
+ 			return false;
+ 		if (FWINV(info->protocol != nexthdr, EBT_IP6_PROTO))
+ 			return false;
+-		if (!(info->bitmask & EBT_IP6_DPORT) &&
+-		    !(info->bitmask & EBT_IP6_SPORT))
++		if (!(info->bitmask & ( EBT_IP6_DPORT |
++					EBT_IP6_SPORT | EBT_IP6_ICMP6)))
+ 			return true;
+-		pptr = skb_header_pointer(skb, offset_ph, sizeof(_ports),
+-					  &_ports);
 +
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/audit.h>
-+#include <linux/module.h>
-+#include <linux/skbuff.h>
-+#include <linux/tcp.h>
-+#include <linux/udp.h>
-+#include <linux/if_arp.h>
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_AUDIT.h>
-+#include <net/ipv6.h>
-+#include <net/ip.h>
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Thomas Graf <tgraf@redhat.com>");
-+MODULE_DESCRIPTION("Xtables: creates audit records for dropped/accepted packets");
-+MODULE_ALIAS("ipt_AUDIT");
-+MODULE_ALIAS("ip6t_AUDIT");
-+MODULE_ALIAS("ebt_AUDIT");
-+MODULE_ALIAS("arpt_AUDIT");
-+
-+static void audit_proto(struct audit_buffer *ab, struct sk_buff *skb,
-+			unsigned int proto, unsigned int offset)
-+{
-+	switch (proto) {
-+	case IPPROTO_TCP:
-+	case IPPROTO_UDP:
-+	case IPPROTO_UDPLITE: {
-+		const __be16 *pptr;
-+		__be16 _ports[2];
-+
-+		pptr = skb_header_pointer(skb, offset, sizeof(_ports), _ports);
-+		if (pptr == NULL) {
-+			audit_log_format(ab, " truncated=1");
-+			return;
-+		}
-+
-+		audit_log_format(ab, " sport=%hu dport=%hu",
-+				 ntohs(pptr[0]), ntohs(pptr[1]));
-+		}
-+		break;
-+
-+	case IPPROTO_ICMP:
-+	case IPPROTO_ICMPV6: {
-+		const u8 *iptr;
-+		u8 _ih[2];
-+
-+		iptr = skb_header_pointer(skb, offset, sizeof(_ih), &_ih);
-+		if (iptr == NULL) {
-+			audit_log_format(ab, " truncated=1");
-+			return;
-+		}
-+
-+		audit_log_format(ab, " icmptype=%hhu icmpcode=%hhu",
-+				 iptr[0], iptr[1]);
-+
-+		}
-+		break;
++		/* min icmpv6 headersize is 4, so sizeof(_pkthdr) is ok. */
++		pptr = skb_header_pointer(skb, offset_ph, sizeof(_pkthdr),
++					  &_pkthdr);
+ 		if (pptr == NULL)
+ 			return false;
+ 		if (info->bitmask & EBT_IP6_DPORT) {
+-			u32 dst = ntohs(pptr->dst);
++			u16 dst = ntohs(pptr->tcpudphdr.dst);
+ 			if (FWINV(dst < info->dport[0] ||
+ 				  dst > info->dport[1], EBT_IP6_DPORT))
+ 				return false;
+ 		}
+ 		if (info->bitmask & EBT_IP6_SPORT) {
+-			u32 src = ntohs(pptr->src);
++			u16 src = ntohs(pptr->tcpudphdr.src);
+ 			if (FWINV(src < info->sport[0] ||
+ 				  src > info->sport[1], EBT_IP6_SPORT))
+ 			return false;
+ 		}
+-		return true;
++		if ((info->bitmask & EBT_IP6_ICMP6) &&
++		     FWINV(pptr->icmphdr.type < info->icmpv6_type[0] ||
++			   pptr->icmphdr.type > info->icmpv6_type[1] ||
++			   pptr->icmphdr.code < info->icmpv6_code[0] ||
++			   pptr->icmphdr.code > info->icmpv6_code[1],
++							EBT_IP6_ICMP6))
++			return false;
+ 	}
+ 	return true;
+ }
+@@ -103,6 +117,14 @@ static int ebt_ip6_mt_check(const struct xt_mtchk_param *par)
+ 		return -EINVAL;
+ 	if (info->bitmask & EBT_IP6_SPORT && info->sport[0] > info->sport[1])
+ 		return -EINVAL;
++	if (info->bitmask & EBT_IP6_ICMP6) {
++		if ((info->invflags & EBT_IP6_PROTO) ||
++		     info->protocol != IPPROTO_ICMPV6)
++			return -EINVAL;
++		if (info->icmpv6_type[0] > info->icmpv6_type[1] ||
++		    info->icmpv6_code[0] > info->icmpv6_code[1])
++			return -EINVAL;
 +	}
-+}
-+
-+static void audit_ip4(struct audit_buffer *ab, struct sk_buff *skb)
-+{
-+	struct iphdr _iph;
-+	const struct iphdr *ih;
-+
-+	ih = skb_header_pointer(skb, 0, sizeof(_iph), &_iph);
-+	if (!ih) {
-+		audit_log_format(ab, " truncated=1");
-+		return;
-+	}
-+
-+	audit_log_format(ab, " saddr=%pI4 daddr=%pI4 ipid=%hu proto=%hhu",
-+		&ih->saddr, &ih->daddr, ntohs(ih->id), ih->protocol);
-+
-+	if (ntohs(ih->frag_off) & IP_OFFSET) {
-+		audit_log_format(ab, " frag=1");
-+		return;
-+	}
-+
-+	audit_proto(ab, skb, ih->protocol, ih->ihl * 4);
-+}
-+
-+static void audit_ip6(struct audit_buffer *ab, struct sk_buff *skb)
-+{
-+	struct ipv6hdr _ip6h;
-+	const struct ipv6hdr *ih;
-+	u8 nexthdr;
-+	int offset;
-+
-+	ih = skb_header_pointer(skb, skb_network_offset(skb), sizeof(_ip6h), &_ip6h);
-+	if (!ih) {
-+		audit_log_format(ab, " truncated=1");
-+		return;
-+	}
-+
-+	nexthdr = ih->nexthdr;
-+	offset = ipv6_skip_exthdr(skb, skb_network_offset(skb) + sizeof(_ip6h),
-+				  &nexthdr);
-+
-+	audit_log_format(ab, " saddr=%pI6c daddr=%pI6c proto=%hhu",
-+			 &ih->saddr, &ih->daddr, nexthdr);
-+
-+	if (offset)
-+		audit_proto(ab, skb, nexthdr, offset);
-+}
-+
-+static unsigned int
-+audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	const struct xt_audit_info *info = par->targinfo;
-+	struct audit_buffer *ab;
-+
-+	ab = audit_log_start(NULL, GFP_ATOMIC, AUDIT_NETFILTER_PKT);
-+	if (ab == NULL)
-+		goto errout;
-+
-+	audit_log_format(ab, "action=%hhu hook=%u len=%u inif=%s outif=%s",
-+			 info->type, par->hooknum, skb->len,
-+			 par->in ? par->in->name : "?",
-+			 par->out ? par->out->name : "?");
-+
-+	if (skb->mark)
-+		audit_log_format(ab, " mark=%#x", skb->mark);
-+
-+	if (skb->dev && skb->dev->type == ARPHRD_ETHER) {
-+		audit_log_format(ab, " smac=%pM dmac=%pM macproto=0x%04x",
-+				 eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
-+				 ntohs(eth_hdr(skb)->h_proto));
-+
-+		if (par->family == NFPROTO_BRIDGE) {
-+			switch (eth_hdr(skb)->h_proto) {
-+			case __constant_htons(ETH_P_IP):
-+				audit_ip4(ab, skb);
-+				break;
-+
-+			case __constant_htons(ETH_P_IPV6):
-+				audit_ip6(ab, skb);
-+				break;
-+			}
-+		}
-+	}
-+
-+	switch (par->family) {
-+	case NFPROTO_IPV4:
-+		audit_ip4(ab, skb);
-+		break;
-+
-+	case NFPROTO_IPV6:
-+		audit_ip6(ab, skb);
-+		break;
-+	}
-+
-+	audit_log_end(ab);
-+
-+errout:
-+	return XT_CONTINUE;
-+}
-+
-+static int audit_tg_check(const struct xt_tgchk_param *par)
-+{
-+	const struct xt_audit_info *info = par->targinfo;
-+
-+	if (info->type > XT_AUDIT_TYPE_MAX) {
-+		pr_info("Audit type out of range (valid range: 0..%hhu)\n",
-+			XT_AUDIT_TYPE_MAX);
-+		return -ERANGE;
-+	}
-+
-+	return 0;
-+}
-+
-+static struct xt_target audit_tg_reg __read_mostly = {
-+	.name		= "AUDIT",
-+	.family		= NFPROTO_UNSPEC,
-+	.target		= audit_tg,
-+	.targetsize	= sizeof(struct xt_audit_info),
-+	.checkentry	= audit_tg_check,
-+	.me		= THIS_MODULE,
-+};
-+
-+static int __init audit_tg_init(void)
-+{
-+	return xt_register_target(&audit_tg_reg);
-+}
-+
-+static void __exit audit_tg_exit(void)
-+{
-+	xt_unregister_target(&audit_tg_reg);
-+}
-+
-+module_init(audit_tg_init);
-+module_exit(audit_tg_exit);
+ 	return 0;
+ }
+ 
 -- 
 1.7.2.3
 
