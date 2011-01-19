@@ -1,66 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Xen-devel] Re: [PATCH] xen network backend driver
-Date: Wed, 19 Jan 2011 20:16:24 +0000
-Message-ID: <1295468184.11126.72.camel@bwh-desktop>
-References: <1295449318.14981.3484.camel@zakaz.uk.xensource.com>
-	 <1295455216.11126.39.camel@bwh-desktop>
-	 <1295459316.14981.3727.camel@zakaz.uk.xensource.com>
-	 <1295460304.11126.53.camel@bwh-desktop> <4D3738AB.60701@goop.org>
-	 <20110119192823.GN2754@reaktio.net> <1295466499.11126.67.camel@bwh-desktop>
-	 <20110119195839.GO2754@reaktio.net>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: Bonding on bond
+Date: Wed, 19 Jan 2011 21:33:19 +0100
+Message-ID: <4D374A8F.2020303@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>,
-	Ian Campbell <Ian.Campbell@eu.citrix.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-To: Pasi =?ISO-8859-1?Q?K=E4rkk=E4inen?= <pasik@iki.fi>
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"bonding-devel@lists.sourceforge.net"
+	<bonding-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:11592 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752533Ab1ASUQ2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:16:28 -0500
-In-Reply-To: <20110119195839.GO2754@reaktio.net>
+Received: from mail-yi0-f46.google.com ([209.85.218.46]:62778 "EHLO
+	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753870Ab1ASUdX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:33:23 -0500
+Received: by yib18 with SMTP id 18so660469yib.19
+        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 12:33:22 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-01-19 at 21:58 +0200, Pasi K=C3=A4rkk=C3=A4inen wrote:
-> On Wed, Jan 19, 2011 at 07:48:19PM +0000, Ben Hutchings wrote:
-[...]
-> > It was possible to use multiple receive queues per device long befo=
-re
-> > this since the networking core is not involved in locking them.  (T=
-hough
-> > it did require some hacks to create multiple NAPI contexts, before
-> > 2.6.24.)  This is mostly useful useful in conjunction with separate=
- IRQs
-> > per RX queue, spread across multiple CPUs (sometimes referred to as
-> > Receive Side Scaling or RSS).
-> >=20
->=20
-> Ok. I should read changelogs more closely.. I thought both the receiv=
-e/transmit=20
-> multiqueue features appeared 'recently', but it seems I was wrong.
+Le 19/01/2011 16:49, Jiri Bohac a =E9crit :
+ > On Tue, Jan 18, 2011 at 09:07:20AM +0100, Nicolas de Peslo=FCan wrot=
+e:
+ >> Staking bond is not supported. Currently, no setup is know to
+ >> require stacking bond.
 
-There was a relatively recent change that allows drivers to record whic=
-h
-receive queue each packet came in on.  This is used by RPS/RFS, and for
-transmit queue selection when bridging/forwarding.  But multiple receiv=
-e
-queues were still usable before that.
+ > I agree. This question and weird bugreports from people trying
+ > this come up over and over. How about this patch?
 
-> I think Linux 2.6.32 added multiqueue VLAN support..
+Why not. Adding this to the documentation should also help.
 
-VLAN devices and several other types of software device don't have
-queues of their own, but they can now use all transmit queues of the
-underlying device rather than just one.
+ > bonding: prohibit enslaving of bonding masters
+ >
+ > Nested bonding is not supported and will result in strange problems,=
+ e.g.:
+ > - netif_receive_skb() will not properly change skb->dev to point to =
+the
+ >   uppoer-most bonding master
+ > - arp monitor will not work (dev->last_rx is only updated by hardwar=
+e drivers)
+ > - accidentally enslaving a bonding master to itself will cause an in=
+finite
+ >   recursion in the TX path
+ >
+ > This patch prevents this by prohibiting a bonding master from being =
+further enslaved.
+ >
+ > Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+ >
+ > diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+ > index b1025b8..d4d5f42 100644
+ > --- a/drivers/net/bonding/bond_main.c
+ > +++ b/drivers/net/bonding/bond_main.c
+ > @@ -1448,8 +1448,8 @@ int bond_enslave(struct net_device *bond_dev, =
+struct net_device *slave_dev)
+ >  	}
+ >
+ >  	/* already enslaved */
+ > -	if (slave_dev->flags & IFF_SLAVE) {
+ > -		pr_debug("Error, Device was already enslaved\n");
+ > +	if (slave_dev->priv_flags & IFF_BONDING) {
+ > +		pr_debug("Error, Device already enslaved or a bonding master\n");
 
-Ben.
+Even if it is possible to test for slave and for master with a single c=
+ondition (IFF_BONDING), I=20
+suggest to split the tests and the error messages, to give end user the=
+ best possible diagnostic.
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If the device is already a master, let's say it.
+If the device is already enslaved, let's continue to say it. It might e=
+ven be better to give the=20
+name of the other master that already own this slave.
 
+ >  		return -EBUSY;
+ >  	}
+ >
+ >
+ >
+ > --
+ > Jiri Bohac <jbohac@suse.cz>
+ > SUSE Labs, SUSE CZ
