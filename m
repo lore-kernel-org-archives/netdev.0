@@ -1,47 +1,74 @@
-From: Mr Dash Four <mr.dash.four@googlemail.com>
-Subject: Re: [patch 2/4] ipset: make IPv4 and IPv6 address handling similar
-Date: Tue, 18 Jan 2011 22:49:21 +0000
-Message-ID: <4D3618F1.2040409@googlemail.com>
-References: <20110118142154.697547841@eitzenberger.org> <20110118142247.498399684@eitzenberger.org> <alpine.DEB.2.00.1101182116150.28203@blackhole.kfki.hu> <alpine.LNX.2.01.1101182121310.19007@obet.zrqbmnf.qr> <alpine.DEB.2.00.1101182128210.28350@blackhole.kfki.hu> <alpine.LNX.2.01.1101182139030.19166@obet.zrqbmnf.qr> <20110118214343.GA4845@mail.eitzenberger.org>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH resend] netfilter: place in source hash after SNAT is done
+Date: Wed, 19 Jan 2011 08:03:48 +0800
+Message-ID: <AANLkTimPEaXiiFiyD7Anvg+x5zJUsF04P_yPbj8KzYaF@mail.gmail.com>
+References: <1295090930-16671-1-git-send-email-xiaosuo@gmail.com> <4D35A0F2.5010908@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Jan Engelhardt <jengelh@medozas.de>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
 	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110118214343.GA4845@mail.eitzenberger.org>
+In-Reply-To: <4D35A0F2.5010908@trash.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-> You shouldn't use hash:ip with ranges for IPv4 too because the range
-> members are added individually, which is less efficient both memory
-> and performance wise, see:
+On Tue, Jan 18, 2011 at 10:17 PM, Patrick McHardy <kaber@trash.net> wro=
+te:
+>> =A0net/ipv4/netfilter/nf_nat_core.c | =A0 18 +++++++++++-------
+>> =A01 file changed, 11 insertions(+), 7 deletions(-)
+>> diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/n=
+f_nat_core.c
+>> index c04787c..51ce55a 100644
+>> --- a/net/ipv4/netfilter/nf_nat_core.c
+>> +++ b/net/ipv4/netfilter/nf_nat_core.c
+>> @@ -221,7 +221,14 @@ get_unique_tuple(struct nf_conntrack_tuple *tup=
+le,
+>> =A0 =A0 =A0 =A0 =A0manips not an issue. =A0*/
+>> =A0 =A0 =A0 if (maniptype =3D=3D IP_NAT_MANIP_SRC &&
+>> =A0 =A0 =A0 =A0 =A0 !(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 if (find_appropriate_src(net, zone, orig_t=
+uple, tuple, range)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 /* try the original tuple first */
 >
->  $ ipset create foo hash:ip hashsize 64
->  $ ipset add foo 192.168.1.0/30
->  $ ipset list foo
->  Name: foo
->  Type: hash:ip
->  Header: family inet hashsize 64 maxelem 65536 
->  Size in memory: 628
->  References: 0
->  Members:
->  192.168.1.3
->  192.168.1.2
->  192.168.1.0
->  192.168.1.1
->   
-I disagree!
+> This doesn't seem to be related to the hashing change. Please describ=
+e
+> the intention behind this change.
 
-If I need to add the 192.168.1.0/30 then I have to execute a loop (via a 
-script) and add individual elements (i.e. ipset add foo 192.168.1.0, 
-ipset add foo 192.168.1.1 etc).
+Currently, we add the ct at the head of the corresponding bucket of
+the source hash table after DNAT is done, so when we do SNAT, the
+original ct will be tried first. This change is used to keep this
+behavior.
 
-By specifying ipset add foo 192.168.1.0/30 I do that in one go. Even 
-though I am inclined to agree that storing individual elements may not 
-be the best way memory/storage wise I think performance wise (i.e. when 
-the actual matching is performed) it is better matching a single IP 
-address than IP range.
 
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 if (in_range(orig_tuple, range)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!nf_nat_used_tuple(ori=
+g_tuple, ct)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 *tuple =3D=
+ *orig_tuple;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> + =A0 =A0 =A0 =A0 =A0 =A0 } else if (find_appropriate_src(net, zone,=
+ orig_tuple, tuple,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0range)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_debug("get_unique_tup=
+le: Found current src map\n");
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!nf_nat_used_tuple(t=
+uple, ct))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return;
+>
+>
+>
+
+
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
