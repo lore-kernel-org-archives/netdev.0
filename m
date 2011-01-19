@@ -1,258 +1,187 @@
 From: kaber@trash.net
-Subject: [PATCH 40/79] IPVS: netns preparation for proto_udp
-Date: Wed, 19 Jan 2011 20:14:40 +0100
-Message-ID: <1295464519-21763-41-git-send-email-kaber@trash.net>
+Subject: [PATCH 38/79] IPVS: netns, prepare protocol
+Date: Wed, 19 Jan 2011 20:14:38 +0100
+Message-ID: <1295464519-21763-39-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:52012 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753809Ab1ASTPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:33 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-In this phase (one), all local vars will be moved to ipvs struct.
+Add support for protocol data per name-space.
+in struct ip_vs_protocol, appcnt will be removed when all protos
+are modified for network name-space.
 
-Remaining work, add param struct net *net to a couple of
-functions that is common for all protos and use ip_vs_proto_data
-
-*v3
-Removed unused function set_state_timeout()
+This patch causes warnings of unused functions, they will be used
+when next patch will be applied.
 
 Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
 Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/netns/ip_vs.h            |    8 +++
- net/netfilter/ipvs/ip_vs_proto.c     |    3 +
- net/netfilter/ipvs/ip_vs_proto_udp.c |   86 +++++++++++++++++-----------------
- 3 files changed, 54 insertions(+), 43 deletions(-)
+ include/net/ip_vs.h              |   20 +++++++++++-
+ include/net/netns/ip_vs.h        |    3 ++
+ net/netfilter/ipvs/ip_vs_proto.c |   66 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 88 insertions(+), 1 deletions(-)
 
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index d551e0d..88d4e40 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -352,6 +352,7 @@ struct iphdr;
+ struct ip_vs_conn;
+ struct ip_vs_app;
+ struct sk_buff;
++struct ip_vs_proto_data;
+ 
+ struct ip_vs_protocol {
+ 	struct ip_vs_protocol	*next;
+@@ -366,6 +367,10 @@ struct ip_vs_protocol {
+ 
+ 	void (*exit)(struct ip_vs_protocol *pp);
+ 
++	void (*init_netns)(struct net *net, struct ip_vs_proto_data *pd);
++
++	void (*exit_netns)(struct net *net, struct ip_vs_proto_data *pd);
++
+ 	int (*conn_schedule)(int af, struct sk_buff *skb,
+ 			     struct ip_vs_protocol *pp,
+ 			     int *verdict, struct ip_vs_conn **cpp);
+@@ -417,7 +422,20 @@ struct ip_vs_protocol {
+ 	int (*set_state_timeout)(struct ip_vs_protocol *pp, char *sname, int to);
+ };
+ 
+-extern struct ip_vs_protocol * ip_vs_proto_get(unsigned short proto);
++/*
++ * protocol data per netns
++ */
++struct ip_vs_proto_data {
++	struct ip_vs_proto_data	*next;
++	struct ip_vs_protocol	*pp;
++	int			*timeout_table;	/* protocol timeout table */
++	atomic_t		appcnt;		/* counter of proto app incs. */
++	struct tcp_states_t	*tcp_state_table;
++};
++
++extern struct ip_vs_protocol   *ip_vs_proto_get(unsigned short proto);
++extern struct ip_vs_proto_data *ip_vs_proto_data_get(struct net *net,
++						     unsigned short proto);
+ 
+ struct ip_vs_conn_param {
+ 	const union nf_inet_addr	*caddr;
 diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
-index ac77363..62b1448 100644
+index d14581c..6f4e089 100644
 --- a/include/net/netns/ip_vs.h
 +++ b/include/net/netns/ip_vs.h
-@@ -39,6 +39,14 @@ struct netns_ipvs {
- 	struct list_head	tcp_apps[TCP_APP_TAB_SIZE];
- 	spinlock_t		tcp_app_lock;
- #endif
-+	/* ip_vs_proto_udp */
-+#ifdef CONFIG_IP_VS_PROTO_UDP
-+	#define	UDP_APP_TAB_BITS	4
-+	#define	UDP_APP_TAB_SIZE	(1 << UDP_APP_TAB_BITS)
-+	#define	UDP_APP_TAB_MASK	(UDP_APP_TAB_SIZE - 1)
-+	struct list_head	udp_apps[UDP_APP_TAB_SIZE];
-+	spinlock_t		udp_app_lock;
-+#endif
+@@ -28,6 +28,9 @@ struct netns_ipvs {
+ 	#define IP_VS_RTAB_MASK (IP_VS_RTAB_SIZE - 1)
+ 
+ 	struct list_head	rs_table[IP_VS_RTAB_SIZE];
++	/* ip_vs_proto */
++	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
++	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
  
  	/* ip_vs_lblc */
  	int			sysctl_lblc_expiration;
 diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 320c6a6..cdc4142 100644
+index 4539294..576e296 100644
 --- a/net/netfilter/ipvs/ip_vs_proto.c
 +++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -310,6 +310,9 @@ static int __net_init __ip_vs_protocol_init(struct net *net)
- #ifdef CONFIG_IP_VS_PROTO_TCP
- 	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
- #endif
-+#ifdef CONFIG_IP_VS_PROTO_UDP
-+	register_ip_vs_proto_netns(net, &ip_vs_protocol_udp);
-+#endif
+@@ -60,6 +60,31 @@ static int __used __init register_ip_vs_protocol(struct ip_vs_protocol *pp)
  	return 0;
  }
  
-diff --git a/net/netfilter/ipvs/ip_vs_proto_udp.c b/net/netfilter/ipvs/ip_vs_proto_udp.c
-index 5ab54f6..71a4721 100644
---- a/net/netfilter/ipvs/ip_vs_proto_udp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_udp.c
-@@ -9,7 +9,8 @@
-  *              as published by the Free Software Foundation; either version
-  *              2 of the License, or (at your option) any later version.
-  *
-- * Changes:
-+ * Changes:     Hans Schillstrom <hans.schillstrom@ericsson.com>
-+ *              Network name space (netns) aware.
-  *
-  */
- 
-@@ -345,19 +346,6 @@ udp_csum_check(int af, struct sk_buff *skb, struct ip_vs_protocol *pp)
- 	return 1;
- }
- 
--
--/*
-- *	Note: the caller guarantees that only one of register_app,
-- *	unregister_app or app_conn_bind is called each time.
-- */
--
--#define	UDP_APP_TAB_BITS	4
--#define	UDP_APP_TAB_SIZE	(1 << UDP_APP_TAB_BITS)
--#define	UDP_APP_TAB_MASK	(UDP_APP_TAB_SIZE - 1)
--
--static struct list_head udp_apps[UDP_APP_TAB_SIZE];
--static DEFINE_SPINLOCK(udp_app_lock);
--
- static inline __u16 udp_app_hashkey(__be16 port)
- {
- 	return (((__force u16)port >> UDP_APP_TAB_BITS) ^ (__force u16)port)
-@@ -371,22 +359,24 @@ static int udp_register_app(struct ip_vs_app *inc)
- 	__u16 hash;
- 	__be16 port = inc->port;
- 	int ret = 0;
-+	struct netns_ipvs *ipvs = net_ipvs(&init_net);
-+	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(&init_net, IPPROTO_UDP);
- 
- 	hash = udp_app_hashkey(port);
- 
- 
--	spin_lock_bh(&udp_app_lock);
--	list_for_each_entry(i, &udp_apps[hash], p_list) {
-+	spin_lock_bh(&ipvs->udp_app_lock);
-+	list_for_each_entry(i, &ipvs->udp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, &udp_apps[hash]);
--	atomic_inc(&ip_vs_protocol_udp.appcnt);
-+	list_add(&inc->p_list, &ipvs->udp_apps[hash]);
-+	atomic_inc(&pd->pp->appcnt);
- 
-   out:
--	spin_unlock_bh(&udp_app_lock);
-+	spin_unlock_bh(&ipvs->udp_app_lock);
- 	return ret;
- }
- 
-@@ -394,15 +384,19 @@ static int udp_register_app(struct ip_vs_app *inc)
- static void
- udp_unregister_app(struct ip_vs_app *inc)
- {
--	spin_lock_bh(&udp_app_lock);
--	atomic_dec(&ip_vs_protocol_udp.appcnt);
-+	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(&init_net, IPPROTO_UDP);
-+	struct netns_ipvs *ipvs = net_ipvs(&init_net);
++/*
++ *	register an ipvs protocols netns related data
++ */
++static int
++register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
++{
++	struct netns_ipvs *ipvs = net_ipvs(net);
++	unsigned hash = IP_VS_PROTO_HASH(pp->protocol);
++	struct ip_vs_proto_data *pd =
++			kzalloc(sizeof(struct ip_vs_proto_data), GFP_ATOMIC);
 +
-+	spin_lock_bh(&ipvs->udp_app_lock);
-+	atomic_dec(&pd->pp->appcnt);
- 	list_del(&inc->p_list);
--	spin_unlock_bh(&udp_app_lock);
-+	spin_unlock_bh(&ipvs->udp_app_lock);
- }
- 
- 
- static int udp_app_conn_bind(struct ip_vs_conn *cp)
- {
-+	struct netns_ipvs *ipvs = net_ipvs(&init_net);
- 	int hash;
- 	struct ip_vs_app *inc;
- 	int result = 0;
-@@ -414,12 +408,12 @@ static int udp_app_conn_bind(struct ip_vs_conn *cp)
- 	/* Lookup application incarnations and bind the right one */
- 	hash = udp_app_hashkey(cp->vport);
- 
--	spin_lock(&udp_app_lock);
--	list_for_each_entry(inc, &udp_apps[hash], p_list) {
-+	spin_lock(&ipvs->udp_app_lock);
-+	list_for_each_entry(inc, &ipvs->udp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
--			spin_unlock(&udp_app_lock);
-+			spin_unlock(&ipvs->udp_app_lock);
- 
- 			IP_VS_DBG_BUF(9, "%s(): Binding conn %s:%u->"
- 				      "%s:%u to app %s on port %u\n",
-@@ -436,14 +430,14 @@ static int udp_app_conn_bind(struct ip_vs_conn *cp)
- 			goto out;
- 		}
- 	}
--	spin_unlock(&udp_app_lock);
-+	spin_unlock(&ipvs->udp_app_lock);
- 
-   out:
- 	return result;
- }
- 
- 
--static int udp_timeouts[IP_VS_UDP_S_LAST+1] = {
-+static const int udp_timeouts[IP_VS_UDP_S_LAST+1] = {
- 	[IP_VS_UDP_S_NORMAL]		=	5*60*HZ,
- 	[IP_VS_UDP_S_LAST]		=	2*HZ,
- };
-@@ -453,14 +447,6 @@ static const char *const udp_state_name_table[IP_VS_UDP_S_LAST+1] = {
- 	[IP_VS_UDP_S_LAST]		=	"BUG!",
- };
- 
--
--static int
--udp_set_state_timeout(struct ip_vs_protocol *pp, char *sname, int to)
--{
--	return ip_vs_set_state_timeout(pp->timeout_table, IP_VS_UDP_S_LAST,
--				       udp_state_name_table, sname, to);
--}
--
- static const char * udp_state_name(int state)
- {
- 	if (state >= IP_VS_UDP_S_LAST)
-@@ -473,18 +459,31 @@ udp_state_transition(struct ip_vs_conn *cp, int direction,
- 		     const struct sk_buff *skb,
- 		     struct ip_vs_protocol *pp)
- {
--	cp->timeout = pp->timeout_table[IP_VS_UDP_S_NORMAL];
-+	struct ip_vs_proto_data *pd;   /* Temp fix, pp will be replaced by pd */
++	if (!pd) {
++		pr_err("%s(): no memory.\n", __func__);
++		return -ENOMEM;
++	}
++	pd->pp = pp;	/* For speed issues */
++	pd->next = ipvs->proto_data_table[hash];
++	ipvs->proto_data_table[hash] = pd;
++	atomic_set(&pd->appcnt, 0);	/* Init app counter */
 +
-+	pd = ip_vs_proto_data_get(&init_net, IPPROTO_UDP);
-+	if (unlikely(!pd)) {
-+		pr_err("UDP no ns data\n");
-+		return 0;
++	if (pp->init_netns != NULL)
++		pp->init_netns(net, pd);
++
++	return 0;
++}
+ 
+ /*
+  *	unregister an ipvs protocol
+@@ -82,6 +107,29 @@ static int unregister_ip_vs_protocol(struct ip_vs_protocol *pp)
+ 	return -ESRCH;
+ }
+ 
++/*
++ *	unregister an ipvs protocols netns data
++ */
++static int
++unregister_ip_vs_proto_netns(struct net *net, struct ip_vs_proto_data *pd)
++{
++	struct netns_ipvs *ipvs = net_ipvs(net);
++	struct ip_vs_proto_data **pd_p;
++	unsigned hash = IP_VS_PROTO_HASH(pd->pp->protocol);
++
++	pd_p = &ipvs->proto_data_table[hash];
++	for (; *pd_p; pd_p = &(*pd_p)->next) {
++		if (*pd_p == pd) {
++			*pd_p = pd->next;
++			if (pd->pp->exit_netns != NULL)
++				pd->pp->exit_netns(net, pd);
++			kfree(pd);
++			return 0;
++		}
 +	}
 +
-+	cp->timeout = pd->timeout_table[IP_VS_UDP_S_NORMAL];
- 	return 1;
- }
++	return -ESRCH;
++}
  
--static void udp_init(struct ip_vs_protocol *pp)
-+static void __udp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
--	IP_VS_INIT_HASH_TABLE(udp_apps);
--	pp->timeout_table = udp_timeouts;
+ /*
+  *	get ip_vs_protocol object by its proto.
+@@ -100,6 +148,24 @@ struct ip_vs_protocol * ip_vs_proto_get(unsigned short proto)
+ }
+ EXPORT_SYMBOL(ip_vs_proto_get);
+ 
++/*
++ *	get ip_vs_protocol object data by netns and proto
++ */
++struct ip_vs_proto_data *
++ip_vs_proto_data_get(struct net *net, unsigned short proto)
++{
 +	struct netns_ipvs *ipvs = net_ipvs(net);
++	struct ip_vs_proto_data *pd;
++	unsigned hash = IP_VS_PROTO_HASH(proto);
 +
-+	ip_vs_init_hash_table(ipvs->udp_apps, UDP_APP_TAB_SIZE);
-+	spin_lock_init(&ipvs->udp_app_lock);
-+	pd->timeout_table = ip_vs_create_timeout_table((int *)udp_timeouts,
-+							sizeof(udp_timeouts));
- }
++	for (pd = ipvs->proto_data_table[hash]; pd; pd = pd->next) {
++		if (pd->pp->protocol == proto)
++			return pd;
++	}
++
++	return NULL;
++}
++EXPORT_SYMBOL(ip_vs_proto_data_get);
  
--static void udp_exit(struct ip_vs_protocol *pp)
-+static void __udp_exit(struct net *net, struct ip_vs_proto_data *pd)
- {
-+	kfree(pd->timeout_table);
- }
- 
- 
-@@ -493,8 +492,10 @@ struct ip_vs_protocol ip_vs_protocol_udp = {
- 	.protocol =		IPPROTO_UDP,
- 	.num_states =		IP_VS_UDP_S_LAST,
- 	.dont_defrag =		0,
--	.init =			udp_init,
--	.exit =			udp_exit,
-+	.init =			NULL,
-+	.exit =			NULL,
-+	.init_netns =		__udp_init,
-+	.exit_netns =		__udp_exit,
- 	.conn_schedule =	udp_conn_schedule,
- 	.conn_in_get =		ip_vs_conn_in_get_proto,
- 	.conn_out_get =		ip_vs_conn_out_get_proto,
-@@ -508,5 +509,4 @@ struct ip_vs_protocol ip_vs_protocol_udp = {
- 	.app_conn_bind =	udp_app_conn_bind,
- 	.debug_packet =		ip_vs_tcpudp_debug_packet,
- 	.timeout_change =	NULL,
--	.set_state_timeout =	udp_set_state_timeout,
- };
+ /*
+  *	Propagate event for state change to all protocols
 -- 
 1.7.2.3
 
