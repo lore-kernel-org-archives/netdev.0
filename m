@@ -1,55 +1,71 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [RFC] ipv6: don't flush routes when setting loopback
-	down
-Date: Wed, 19 Jan 2011 12:01:23 -0800
-Message-ID: <20110119120123.40974cbe@s6510>
-References: <20101209.122033.183046393.davem@davemloft.net>
-	<20101216132812.2d7fd885@nehalam>
-	<m1mxo5tcx6.fsf@fess.ebiederm.org>
-	<20101216.182656.226781473.davem@davemloft.net>
-	<20110119191823.GC8442@midget.suse.cz>
-	<20110119113817.0819ddf1@s6510>
-	<20110119195632.GA27574@midget.suse.cz>
+From: Jarek Poplawski <jarkao2@gmail.com>
+Subject: Re: inbound connection problems when "netlink: test for all flags
+ of the NLM_F_DUMP composite" commit applied
+Date: Wed, 19 Jan 2011 21:12:27 +0100
+Message-ID: <20110119201227.GF1845@del.dom.local>
+References: <20110118093811.GA7520@ff.dom.local>
+ <20110118.020702.115924992.davem@davemloft.net>
+ <20110118102437.GB7520@ff.dom.local>
+ <4D35F8A3.1010600@netfilter.org>
+ <20110118205507.GB4288@del.dom.local>
+ <1295447286.2008.850.camel@mojatatu>
+ <20110119165413.GB1845@del.dom.local>
+ <alpine.LNX.2.01.1101191858390.13633@obet.zrqbmnf.qr>
+ <20110119192409.GE1845@del.dom.local>
+ <alpine.LNX.2.01.1101192044270.19837@obet.zrqbmnf.qr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-        stable@kernel.org, maheshkelkar@gmail.com, brian.haley@hp.com,
-        David Miller <davem@davemloft.net>, lorenzo@google.com
-To: Jiri Bohac <jbohac@suse.cz>
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <20110119195632.GA27574@midget.suse.cz>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>,
+	arthur.marsh@internode.on.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: Jan Engelhardt <jengelh@medozas.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35335 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750984Ab1ASUMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:12:33 -0500
+Received: by fxm20 with SMTP id 20so1277248fxm.19
+        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 12:12:32 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.01.1101192044270.19837@obet.zrqbmnf.qr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 19 Jan 2011 20:56:32 +0100
-Jiri Bohac <jbohac@suse.cz> wrote:
+On Wed, Jan 19, 2011 at 08:47:32PM +0100, Jan Engelhardt wrote:
+> 
+> On Wednesday 2011-01-19 20:24, Jarek Poplawski wrote:
+> >> On Wednesday 2011-01-19 17:54, Jarek Poplawski wrote:
+> >> 
+> >> It looks like the authors' intentinos were to make NLM_F_MATCH not
+> >> stop after a single entry has been found. So that sounds like dump,
+> >> ok.
+> >> 
+> >> But NLM_F_ROOT does not quite strike me as a dump request. What if I
+> >> wanted just a single item returned but still start at the root?
+> >
+> >Hmm... Does it say about starting at the root?:
+> >
+> >"          NLM_F_ROOT     Return the complete table instead of a
+> >                          single entry."
+> 
+> I was referring to netlink.h which paraphrased that, perhaps
+> too short:
+> 
+> #define NLM_F_ROOT      0x100   /* specify tree root    */
+> 
+> But the RFC description makes for a better wording: if NLM_F_ROOT is
+> supposed to return "the complete table", how is it different from
+> NLM_F_MATCH with a wildcard criteria?
+> 
+> |          NLM_F_MATCH    Return all entries matching criteria passed in
+> |                         message content.
 
-> On Wed, Jan 19, 2011 at 11:38:17AM -0800, Stephen Hemminger wrote:
-> > Jiri Bohac <jbohac@suse.cz> wrote:
-> > > I have the feeling that Eric's patch is the safest solution we
-> > > have so far:
-> > Eric's patch has other regressions, see the discussion.
-> 
-> What regression do you mean? I have read the whole discussion
-> thoroughly. You only say in one message that deleting ::1 would
-> propagate to routing daemons. And Eric correctly stated that
-> people couldn't hit this, because  deleting ::1 would break
-> things on its own.
-> 
-> Is there a real problem with Eric's fix?
-> 
-> Thanks,
-> 
+As I said, I'd prefer not to pretend I understand it, but, knowing
+names of people around this, I'm also quite sure there was a purpose.
+On the other hand, I'm not sure the names of flags and descriptions
+weren't mixed while making it general for different subsystems.
 
-If address is assigned to loopback interface (other than ::1) then
-Eric's fix doesn't work.  It is common to use an additional address
-on the lo device when doing routing protocols.
+BTW, don't we have in ip/tc many examples of duplicate options?
+
+Jarek P.
