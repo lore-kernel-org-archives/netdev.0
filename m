@@ -1,64 +1,69 @@
-From: Justin Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/7] dma/shdma.c Typo change desciptor to descriptor.
-Date: Wed, 19 Jan 2011 07:16:43 -0800
-Message-ID: <FD016761-9581-4730-BC79-CBEFEB9ED3EC@gmail.com>
-References: <1293817097-7945-1-git-send-email-justinmattock@gmail.com> <alpine.LNX.2.00.1101191537280.26685@pobox.suse.cz>
-Mime-Version: 1.0 (Apple Message framework v936)
-Content-Type: text/plain; charset=US-ASCII; format=flowed; delsp=yes
-Content-Transfer-Encoding: 7bit
-Cc: dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <alpine.LNX.2.00.1101191537280.26685-ztGlSCb7Y1iN3ZZ/Hiejyg@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [Bonding-devel] Bonding on bond
+Date: Wed, 19 Jan 2011 16:49:51 +0100
+Message-ID: <20110119154951.GB8442@midget.suse.cz>
+References: <AANLkTim95tsTiOcpPqet2BScZ0pzi5_EBy-PQ_52TjN_@mail.gmail.com>
+ <4D354A38.5000802@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>, Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:40750 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751973Ab1ASPtw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jan 2011 10:49:52 -0500
+Content-Disposition: inline
+In-Reply-To: <4D354A38.5000802@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Tue, Jan 18, 2011 at 09:07:20AM +0100, Nicolas de Peslo=FCan wrote:
+> Staking bond is not supported. Currently, no setup is know to
+> require stacking bond.
+
+I agree. This question and weird bugreports from people trying
+this come up over and over. How about this patch?
 
 
-On Jan 19, 2011, at 6:38 AM, Jiri Kosina wrote:
+bonding: prohibit enslaving of bonding masters
 
-> On Fri, 31 Dec 2010, Justin P. Mattock wrote:
->
->> Below is a patch, that changes a typo from "desciptor" to  
->> "descriptor".
->> Let me know if I missed anything.
->>
->> Signed-off-by: Justin P. Mattock <justinmattock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>
->> ---
->> drivers/dma/shdma.c |    2 +-
->> 1 files changed, 1 insertions(+), 1 deletions(-)
->>
->> diff --git a/drivers/dma/shdma.c b/drivers/dma/shdma.c
->> index 85ffd5e..72d25d9 100644
->> --- a/drivers/dma/shdma.c
->> +++ b/drivers/dma/shdma.c
->> @@ -740,7 +740,7 @@ static void sh_chan_xfer_ld_queue(struct  
->> sh_dmae_chan *sh_chan)
->> 		return;
->> 	}
->>
->> -	/* Find the first not transferred desciptor */
->> +	/* Find the first not transferred descriptor */
->> 	list_for_each_entry(desc, &sh_chan->ld_queue, node)
->> 		if (desc->mark == DESC_SUBMITTED) {
->> 			dev_dbg(sh_chan->dev, "Queue #%d to %d: %u@%x -> %x\n",
->
-> I have folded the whole series into one patch and applied, thanks.
->
-> -- 
-> Jiri Kosina
-> SUSE Labs, Novell Inc.
+Nested bonding is not supported and will result in strange problems, e.=
+g.:
+- netif_receive_skb() will not properly change skb->dev to point to the
+  uppoer-most bonding master
+- arp monitor will not work (dev->last_rx is only updated by hardware d=
+rivers)
+- accidentally enslaving a bonding master to itself will cause an infin=
+ite
+  recursion in the TX path
 
+This patch prevents this by prohibiting a bonding master from being fur=
+ther enslaved.
 
+Signed-off-by: Jiri Bohac <jbohac@suse.cz>
 
-alright... I think there was one that needed adjusting, but given the  
-situation Im in I wont be able to get to that
-until other things in my life get sorted out.. Thanks for taking these
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index b1025b8..d4d5f42 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1448,8 +1448,8 @@ int bond_enslave(struct net_device *bond_dev, str=
+uct net_device *slave_dev)
+ 	}
+=20
+ 	/* already enslaved */
+-	if (slave_dev->flags & IFF_SLAVE) {
+-		pr_debug("Error, Device was already enslaved\n");
++	if (slave_dev->priv_flags & IFF_BONDING) {
++		pr_debug("Error, Device already enslaved or a bonding master\n");
+ 		return -EBUSY;
+ 	}
+=20
 
-Justin P. Mattock
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--=20
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
+
