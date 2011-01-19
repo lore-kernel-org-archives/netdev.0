@@ -1,362 +1,77 @@
-From: kaber@trash.net
-Subject: [PATCH 39/79] IPVS: netns preparation for proto_tcp
-Date: Wed, 19 Jan 2011 20:14:39 +0100
-Message-ID: <1295464519-21763-40-git-send-email-kaber@trash.net>
-References: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Bohac <jbohac@suse.cz>
+Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
+Date: Wed, 19 Jan 2011 20:18:23 +0100
+Message-ID: <20110119191823.GC8442@midget.suse.cz>
+References: <20101209.122033.183046393.davem@davemloft.net>
+ <20101216132812.2d7fd885@nehalam>
+ <m1mxo5tcx6.fsf@fess.ebiederm.org>
+ <20101216.182656.226781473.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: ebiederm@xmission.com, shemminger@vyatta.com, brian.haley@hp.com,
+	netdev@vger.kernel.org, maheshkelkar@gmail.com, lorenzo@google.com,
+	yoshfuji@linux-ipv6.org, stable@kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:47514 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754465Ab1ASTS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jan 2011 14:18:27 -0500
+Content-Disposition: inline
+In-Reply-To: <20101216.182656.226781473.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Hi,
 
-In this phase (one), all local vars will be moved to ipvs struct.
 
-Remaining work, add param struct net *net to a couple of
-functions that is common for all protos and use all
-ip_vs_proto_data
+The commit (29ba5fed1bbd09c2cba890798c8f9eaab251401d) causes
+another regression:
 
-*v3
-Removed unused function as sugested by Simon
+Prior to the commit, on a freshly booted system, when I do:
+	sysctl net.ipv6.conf.all.disable_ipv6=1
+Then any attempt to connect to ::1 will fail immediately with
+"Network is unreachable" (e.g. "ping6 ::1" or "telnet ::1 22".
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h                  |    2 +-
- include/net/netns/ip_vs.h            |    8 +++
- net/netfilter/ipvs/ip_vs_ftp.c       |    8 ++-
- net/netfilter/ipvs/ip_vs_proto.c     |   13 ++++-
- net/netfilter/ipvs/ip_vs_proto_tcp.c |   97 ++++++++++++++++++----------------
- 5 files changed, 79 insertions(+), 49 deletions(-)
+After the commit, doing
+	sysctl net.ipv6.conf.all.disable_ipv6=1
+makes connection attempts to ::1 wait for a long time before they fail.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 88d4e40..3c45a00 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -807,7 +807,7 @@ extern void ip_vs_conn_expire_now(struct ip_vs_conn *cp);
- 
- extern const char * ip_vs_state_name(__u16 proto, int state);
- 
--extern void ip_vs_tcp_conn_listen(struct ip_vs_conn *cp);
-+extern void ip_vs_tcp_conn_listen(struct net *net, struct ip_vs_conn *cp);
- extern int ip_vs_check_template(struct ip_vs_conn *ct);
- extern void ip_vs_random_dropentry(void);
- extern int ip_vs_conn_init(void);
-diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
-index 6f4e089..ac77363 100644
---- a/include/net/netns/ip_vs.h
-+++ b/include/net/netns/ip_vs.h
-@@ -31,6 +31,14 @@ struct netns_ipvs {
- 	/* ip_vs_proto */
- 	#define IP_VS_PROTO_TAB_SIZE	32	/* must be power of 2 */
- 	struct ip_vs_proto_data *proto_data_table[IP_VS_PROTO_TAB_SIZE];
-+	/* ip_vs_proto_tcp */
-+#ifdef CONFIG_IP_VS_PROTO_TCP
-+	#define	TCP_APP_TAB_BITS	4
-+	#define	TCP_APP_TAB_SIZE	(1 << TCP_APP_TAB_BITS)
-+	#define	TCP_APP_TAB_MASK	(TCP_APP_TAB_SIZE - 1)
-+	struct list_head	tcp_apps[TCP_APP_TAB_SIZE];
-+	spinlock_t		tcp_app_lock;
-+#endif
- 
- 	/* ip_vs_lblc */
- 	int			sysctl_lblc_expiration;
-diff --git a/net/netfilter/ipvs/ip_vs_ftp.c b/net/netfilter/ipvs/ip_vs_ftp.c
-index 0e762f3..b38ae94 100644
---- a/net/netfilter/ipvs/ip_vs_ftp.c
-+++ b/net/netfilter/ipvs/ip_vs_ftp.c
-@@ -157,6 +157,7 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 	int ret = 0;
- 	enum ip_conntrack_info ctinfo;
- 	struct nf_conn *ct;
-+	struct net *net;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	/* This application helper doesn't work with IPv6 yet,
-@@ -257,8 +258,9 @@ static int ip_vs_ftp_out(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 		 * would be adjusted twice.
- 		 */
- 
-+		net = skb_net(skb);
- 		cp->app_data = NULL;
--		ip_vs_tcp_conn_listen(n_cp);
-+		ip_vs_tcp_conn_listen(net, n_cp);
- 		ip_vs_conn_put(n_cp);
- 		return ret;
- 	}
-@@ -287,6 +289,7 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 	union nf_inet_addr to;
- 	__be16 port;
- 	struct ip_vs_conn *n_cp;
-+	struct net *net;
- 
- #ifdef CONFIG_IP_VS_IPV6
- 	/* This application helper doesn't work with IPv6 yet,
-@@ -378,7 +381,8 @@ static int ip_vs_ftp_in(struct ip_vs_app *app, struct ip_vs_conn *cp,
- 	/*
- 	 *	Move tunnel to listen state
- 	 */
--	ip_vs_tcp_conn_listen(n_cp);
-+	net = skb_net(skb);
-+	ip_vs_tcp_conn_listen(net, n_cp);
- 	ip_vs_conn_put(n_cp);
- 
- 	return 1;
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 576e296..320c6a6 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -307,12 +307,23 @@ ip_vs_tcpudp_debug_packet(int af, struct ip_vs_protocol *pp,
-  */
- static int __net_init __ip_vs_protocol_init(struct net *net)
- {
-+#ifdef CONFIG_IP_VS_PROTO_TCP
-+	register_ip_vs_proto_netns(net, &ip_vs_protocol_tcp);
-+#endif
- 	return 0;
- }
- 
- static void __net_exit __ip_vs_protocol_cleanup(struct net *net)
- {
--	/* empty */
-+	struct netns_ipvs *ipvs = net_ipvs(net);
-+	struct ip_vs_proto_data *pd;
-+	int i;
-+
-+	/* unregister all the ipvs proto data for this netns */
-+	for (i = 0; i < IP_VS_PROTO_TAB_SIZE; i++) {
-+		while ((pd = ipvs->proto_data_table[i]) != NULL)
-+			unregister_ip_vs_proto_netns(net, pd);
-+	}
- }
- 
- static struct pernet_operations ipvs_proto_ops = {
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index c175d31..9d9df3d 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -9,8 +9,12 @@
-  *              as published by the Free Software Foundation; either version
-  *              2 of the License, or (at your option) any later version.
-  *
-- * Changes:
-+ * Changes:     Hans Schillstrom <hans.schillstrom@ericsson.com>
-  *
-+ *              Network name space (netns) aware.
-+ *              Global data moved to netns i.e struct netns_ipvs
-+ *              tcp_timeouts table has copy per netns in a hash table per
-+ *              protocol ip_vs_proto_data and is handled by netns
-  */
- 
- #define KMSG_COMPONENT "IPVS"
-@@ -345,7 +349,7 @@ static const int tcp_state_off[IP_VS_DIR_LAST] = {
- /*
-  *	Timeout table[state]
-  */
--static int tcp_timeouts[IP_VS_TCP_S_LAST+1] = {
-+static const int tcp_timeouts[IP_VS_TCP_S_LAST+1] = {
- 	[IP_VS_TCP_S_NONE]		=	2*HZ,
- 	[IP_VS_TCP_S_ESTABLISHED]	=	15*60*HZ,
- 	[IP_VS_TCP_S_SYN_SENT]		=	2*60*HZ,
-@@ -460,13 +464,6 @@ static void tcp_timeout_change(struct ip_vs_protocol *pp, int flags)
- 	tcp_state_table = (on? tcp_states_dos : tcp_states);
- }
- 
--static int
--tcp_set_state_timeout(struct ip_vs_protocol *pp, char *sname, int to)
--{
--	return ip_vs_set_state_timeout(pp->timeout_table, IP_VS_TCP_S_LAST,
--				       tcp_state_name_table, sname, to);
--}
--
- static inline int tcp_state_idx(struct tcphdr *th)
- {
- 	if (th->rst)
-@@ -487,6 +484,7 @@ set_tcp_state(struct ip_vs_protocol *pp, struct ip_vs_conn *cp,
- 	int state_idx;
- 	int new_state = IP_VS_TCP_S_CLOSE;
- 	int state_off = tcp_state_off[direction];
-+	struct ip_vs_proto_data *pd;  /* Temp fix */
- 
- 	/*
- 	 *    Update state offset to INPUT_ONLY if necessary
-@@ -542,10 +540,13 @@ set_tcp_state(struct ip_vs_protocol *pp, struct ip_vs_conn *cp,
- 		}
- 	}
- 
--	cp->timeout = pp->timeout_table[cp->state = new_state];
-+	pd = ip_vs_proto_data_get(&init_net, pp->protocol);
-+	if (likely(pd))
-+		cp->timeout = pd->timeout_table[cp->state = new_state];
-+	else	/* What to do ? */
-+		cp->timeout = tcp_timeouts[cp->state = new_state];
- }
- 
--
- /*
-  *	Handle state transitions
-  */
-@@ -573,17 +574,6 @@ tcp_state_transition(struct ip_vs_conn *cp, int direction,
- 	return 1;
- }
- 
--
--/*
-- *	Hash table for TCP application incarnations
-- */
--#define	TCP_APP_TAB_BITS	4
--#define	TCP_APP_TAB_SIZE	(1 << TCP_APP_TAB_BITS)
--#define	TCP_APP_TAB_MASK	(TCP_APP_TAB_SIZE - 1)
--
--static struct list_head tcp_apps[TCP_APP_TAB_SIZE];
--static DEFINE_SPINLOCK(tcp_app_lock);
--
- static inline __u16 tcp_app_hashkey(__be16 port)
- {
- 	return (((__force u16)port >> TCP_APP_TAB_BITS) ^ (__force u16)port)
-@@ -597,21 +587,23 @@ static int tcp_register_app(struct ip_vs_app *inc)
- 	__u16 hash;
- 	__be16 port = inc->port;
- 	int ret = 0;
-+	struct netns_ipvs *ipvs = net_ipvs(&init_net);
-+	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(&init_net, IPPROTO_TCP);
- 
- 	hash = tcp_app_hashkey(port);
- 
--	spin_lock_bh(&tcp_app_lock);
--	list_for_each_entry(i, &tcp_apps[hash], p_list) {
-+	spin_lock_bh(&ipvs->tcp_app_lock);
-+	list_for_each_entry(i, &ipvs->tcp_apps[hash], p_list) {
- 		if (i->port == port) {
- 			ret = -EEXIST;
- 			goto out;
- 		}
- 	}
--	list_add(&inc->p_list, &tcp_apps[hash]);
--	atomic_inc(&ip_vs_protocol_tcp.appcnt);
-+	list_add(&inc->p_list, &ipvs->tcp_apps[hash]);
-+	atomic_inc(&pd->pp->appcnt);
- 
-   out:
--	spin_unlock_bh(&tcp_app_lock);
-+	spin_unlock_bh(&ipvs->tcp_app_lock);
- 	return ret;
- }
- 
-@@ -619,16 +611,20 @@ static int tcp_register_app(struct ip_vs_app *inc)
- static void
- tcp_unregister_app(struct ip_vs_app *inc)
- {
--	spin_lock_bh(&tcp_app_lock);
--	atomic_dec(&ip_vs_protocol_tcp.appcnt);
-+	struct netns_ipvs *ipvs = net_ipvs(&init_net);
-+	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(&init_net, IPPROTO_TCP);
-+
-+	spin_lock_bh(&ipvs->tcp_app_lock);
-+	atomic_dec(&pd->pp->appcnt);
- 	list_del(&inc->p_list);
--	spin_unlock_bh(&tcp_app_lock);
-+	spin_unlock_bh(&ipvs->tcp_app_lock);
- }
- 
- 
- static int
- tcp_app_conn_bind(struct ip_vs_conn *cp)
- {
-+	struct netns_ipvs *ipvs = net_ipvs(&init_net);
- 	int hash;
- 	struct ip_vs_app *inc;
- 	int result = 0;
-@@ -640,12 +636,12 @@ tcp_app_conn_bind(struct ip_vs_conn *cp)
- 	/* Lookup application incarnations and bind the right one */
- 	hash = tcp_app_hashkey(cp->vport);
- 
--	spin_lock(&tcp_app_lock);
--	list_for_each_entry(inc, &tcp_apps[hash], p_list) {
-+	spin_lock(&ipvs->tcp_app_lock);
-+	list_for_each_entry(inc, &ipvs->tcp_apps[hash], p_list) {
- 		if (inc->port == cp->vport) {
- 			if (unlikely(!ip_vs_app_inc_get(inc)))
- 				break;
--			spin_unlock(&tcp_app_lock);
-+			spin_unlock(&ipvs->tcp_app_lock);
- 
- 			IP_VS_DBG_BUF(9, "%s(): Binding conn %s:%u->"
- 				      "%s:%u to app %s on port %u\n",
-@@ -662,7 +658,7 @@ tcp_app_conn_bind(struct ip_vs_conn *cp)
- 			goto out;
- 		}
- 	}
--	spin_unlock(&tcp_app_lock);
-+	spin_unlock(&ipvs->tcp_app_lock);
- 
-   out:
- 	return result;
-@@ -672,24 +668,34 @@ tcp_app_conn_bind(struct ip_vs_conn *cp)
- /*
-  *	Set LISTEN timeout. (ip_vs_conn_put will setup timer)
-  */
--void ip_vs_tcp_conn_listen(struct ip_vs_conn *cp)
-+void ip_vs_tcp_conn_listen(struct net *net, struct ip_vs_conn *cp)
- {
-+	struct ip_vs_proto_data *pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
-+
- 	spin_lock(&cp->lock);
- 	cp->state = IP_VS_TCP_S_LISTEN;
--	cp->timeout = ip_vs_protocol_tcp.timeout_table[IP_VS_TCP_S_LISTEN];
-+	cp->timeout = (pd ? pd->timeout_table[IP_VS_TCP_S_LISTEN]
-+			   : tcp_timeouts[IP_VS_TCP_S_LISTEN]);
- 	spin_unlock(&cp->lock);
- }
- 
--
--static void ip_vs_tcp_init(struct ip_vs_protocol *pp)
-+/* ---------------------------------------------
-+ *   timeouts is netns related now.
-+ * ---------------------------------------------
-+ */
-+static void __ip_vs_tcp_init(struct net *net, struct ip_vs_proto_data *pd)
- {
--	IP_VS_INIT_HASH_TABLE(tcp_apps);
--	pp->timeout_table = tcp_timeouts;
--}
-+	struct netns_ipvs *ipvs = net_ipvs(net);
- 
-+	ip_vs_init_hash_table(ipvs->tcp_apps, TCP_APP_TAB_SIZE);
-+	spin_lock_init(&ipvs->tcp_app_lock);
-+	pd->timeout_table = ip_vs_create_timeout_table((int *)tcp_timeouts,
-+							sizeof(tcp_timeouts));
-+}
- 
--static void ip_vs_tcp_exit(struct ip_vs_protocol *pp)
-+static void __ip_vs_tcp_exit(struct net *net, struct ip_vs_proto_data *pd)
- {
-+	kfree(pd->timeout_table);
- }
- 
- 
-@@ -699,8 +705,10 @@ struct ip_vs_protocol ip_vs_protocol_tcp = {
- 	.num_states =		IP_VS_TCP_S_LAST,
- 	.dont_defrag =		0,
- 	.appcnt =		ATOMIC_INIT(0),
--	.init =			ip_vs_tcp_init,
--	.exit =			ip_vs_tcp_exit,
-+	.init =			NULL,
-+	.exit =			NULL,
-+	.init_netns =		__ip_vs_tcp_init,
-+	.exit_netns =		__ip_vs_tcp_exit,
- 	.register_app =		tcp_register_app,
- 	.unregister_app =	tcp_unregister_app,
- 	.conn_schedule =	tcp_conn_schedule,
-@@ -714,5 +722,4 @@ struct ip_vs_protocol ip_vs_protocol_tcp = {
- 	.app_conn_bind =	tcp_app_conn_bind,
- 	.debug_packet =		ip_vs_tcpudp_debug_packet,
- 	.timeout_change =	tcp_timeout_change,
--	.set_state_timeout =	tcp_set_state_timeout,
- };
+This is caused by the local route which is now left configured. 
+"ip -6 r l table all" has an additional line in its output:
+	local ::1 via :: dev lo  table local  proto none  metric 0  mtu 16436 rtt 40ms rttvar 40ms cwnd 3 advmss 16376 hoplimit 0
+
+With both ::1 and 127.0.0.1 specified for localhost in
+/etc/hosts, disabling ipv6 now breaks many applications
+connecting to localhost. Deleting the local route manually solves
+the problems.
+
+Could this be reverted, please?
+
+I have the feeling that Eric's patch is the safest solution we
+have so far:
+
+> Finding the real bug is beyond me right now, but fixing the regression
+> in disable_ipv6 is simple.  We can just delete ::1 when we bring down
+> the loopback interface, and it will be restored automatically when we
+> bring the loopback interface back up.
+> 
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> ---
+> Index: linux-2.6.37-rc5.x86_64/net/ipv6/addrconf.c
+> ===================================================================
+> --- linux-2.6.37-rc5.x86_64.orig/net/ipv6/addrconf.c
+> +++ linux-2.6.37-rc5.x86_64/net/ipv6/addrconf.c
+> @@ -2727,6 +2727,7 @@ static int addrconf_ifdown(struct net_de
+>  		/* If just doing link down, and address is permanent
+>  		   and not link-local, then retain it. */
+>  		if (!how &&
+> +		    !ipv6_addr_loopback(&ifa->addr) &&
+>  		    (ifa->flags&IFA_F_PERMANENT) &&
+>  		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
+>  			list_move_tail(&ifa->if_list, &keep_list);
+
 -- 
-1.7.2.3
+Jiri Bohac <jbohac@suse.cz>
+SUSE Labs, SUSE CZ
 
