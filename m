@@ -1,71 +1,74 @@
-From: Jarek Poplawski <jarkao2@gmail.com>
-Subject: Re: inbound connection problems when "netlink: test for all flags
- of the NLM_F_DUMP composite" commit applied
-Date: Wed, 19 Jan 2011 21:12:27 +0100
-Message-ID: <20110119201227.GF1845@del.dom.local>
-References: <20110118093811.GA7520@ff.dom.local>
- <20110118.020702.115924992.davem@davemloft.net>
- <20110118102437.GB7520@ff.dom.local>
- <4D35F8A3.1010600@netfilter.org>
- <20110118205507.GB4288@del.dom.local>
- <1295447286.2008.850.camel@mojatatu>
- <20110119165413.GB1845@del.dom.local>
- <alpine.LNX.2.01.1101191858390.13633@obet.zrqbmnf.qr>
- <20110119192409.GE1845@del.dom.local>
- <alpine.LNX.2.01.1101192044270.19837@obet.zrqbmnf.qr>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
+ single TCP session balancing
+Date: Wed, 19 Jan 2011 21:12:31 +0100
+Message-ID: <4D3745AF.5040808@gmail.com>
+References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>,
-	arthur.marsh@internode.on.net, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	=?UTF-8?B?U8OpYmFzdGllbiBCYXJyw6k=?= <sebastien.barre@uclouvain.be>,
+	Christophe Paasch <christoph.paasch@uclouvain.be>
+To: "Oleg V. Ukhno" <olegu@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:35335 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750984Ab1ASUMd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:12:33 -0500
-Received: by fxm20 with SMTP id 20so1277248fxm.19
-        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 12:12:32 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.01.1101192044270.19837@obet.zrqbmnf.qr>
+Received: from mail-yw0-f46.google.com ([209.85.213.46]:36303 "EHLO
+	mail-yw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753079Ab1ASUMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 15:12:36 -0500
+Received: by ywl5 with SMTP id 5so512549ywl.19
+        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 12:12:36 -0800 (PST)
+In-Reply-To: <4D370DC7.6000500@yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 19, 2011 at 08:47:32PM +0100, Jan Engelhardt wrote:
-> 
-> On Wednesday 2011-01-19 20:24, Jarek Poplawski wrote:
-> >> On Wednesday 2011-01-19 17:54, Jarek Poplawski wrote:
-> >> 
-> >> It looks like the authors' intentinos were to make NLM_F_MATCH not
-> >> stop after a single entry has been found. So that sounds like dump,
-> >> ok.
-> >> 
-> >> But NLM_F_ROOT does not quite strike me as a dump request. What if I
-> >> wanted just a single item returned but still start at the root?
-> >
-> >Hmm... Does it say about starting at the root?:
-> >
-> >"          NLM_F_ROOT     Return the complete table instead of a
-> >                          single entry."
-> 
-> I was referring to netlink.h which paraphrased that, perhaps
-> too short:
-> 
-> #define NLM_F_ROOT      0x100   /* specify tree root    */
-> 
-> But the RFC description makes for a better wording: if NLM_F_ROOT is
-> supposed to return "the complete table", how is it different from
-> NLM_F_MATCH with a wildcard criteria?
-> 
-> |          NLM_F_MATCH    Return all entries matching criteria passed in
-> |                         message content.
+Le 19/01/2011 17:13, Oleg V. Ukhno a =C3=A9crit :
+> On 01/18/2011 11:24 PM, Jay Vosburgh wrote:
+[snip]
+>> I haven't done much testing with this lately, but I suspect this
+>> behavior hasn't really changed. Raising the tcp_reordering sysctl va=
+lue
+>> can mitigate this somewhat (by making TCP more tolerant of this), bu=
+t
+>> that doesn't help non-TCP protocols.
+>>
+>> Barring evidence to the contrary, I presume that Oleg's system
+>> delivers out of order at the receiver. That's not automatically a
+>> reason to reject it, but this entire proposal is sufficiently comple=
+x to
+>> configure that very explicit documentation will be necessary.
+>>
+>> -J
+>>
+>> ---
+>> -Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>>
+>
+> Jay,
+[snip]
+>
+> What is your opinion on my idea with patch?
+>
+> I will come back with results for VLAN tunneling case, if this is
+> necessary (Nicolas, shall I do that test - I think it will show simil=
+ar
+> results for performance?)
 
-As I said, I'd prefer not to pretend I understand it, but, knowing
-names of people around this, I'm also quite sure there was a purpose.
-On the other hand, I'm not sure the names of flags and descriptions
-weren't mixed while making it general for different subsystems.
+If you have time for that, then yes, please, do the same test using bal=
+ance-rr+vlan to segregate=20
+path. With those results, we whould have the opportunity to enhance the=
+ documentation with some well=20
+tested cases of TCP load balancing on a LAN, not limited to 802.3ad aut=
+omatic setup. Both setups=20
+make sense, and assuming the results would be similar is probably true,=
+ but not reliable enough to=20
+assert it into the documentation.
 
-BTW, don't we have in ip/tc many examples of duplicate options?
+Thanks,
 
-Jarek P.
+	Nicolas.
