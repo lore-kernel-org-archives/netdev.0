@@ -1,425 +1,268 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 2/5] lib: cpu_rmap: CPU affinity
- reverse-mapping
-Date: Wed, 19 Jan 2011 21:03:25 +0000
-Message-ID: <1295471005.11126.86.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 3/5] net: RPS: Enable hardware acceleration of
+ RFS
+Date: Wed, 19 Jan 2011 21:03:53 +0000
+Message-ID: <1295471033.11126.87.camel@bwh-desktop>
 References: <1295470787.11126.82.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	Tom Herbert <therbert@google.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>,
-	Thomas Gleixner <tglx@linutronix.de>
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:15245 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:15265 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751589Ab1ASVD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 16:03:29 -0500
+	with ESMTP id S1754751Ab1ASVD4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 16:03:56 -0500
 In-Reply-To: <1295470787.11126.82.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When initiating I/O on a multiqueue and multi-IRQ device, we may want
-to select a queue for which the response will be handled on the same
-or a nearby CPU.  This requires a reverse-map of IRQ affinity.  Add
-library functions to support a generic reverse-mapping from CPUs to
-objects with affinity and the specific case where the objects are
-IRQs.
+Allow drivers for multiqueue hardware with flow filter tables to
+accelerate RFS.  The driver must:
+
+1. Set net_device::rx_cpu_rmap to a cpu_rmap of the RX completion
+IRQs (in queue order).  This will provide a mapping from CPUs to the
+queues for which completions are handled nearest to them.
+
+2. Implement net_device_ops::ndo_rx_flow_steer.  This operation adds
+or replaces a filter steering the given flow to the given RX queue, if
+possible.
+
+3. Periodically remove filters for which rps_may_expire_flow() returns
+true.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/cpu_rmap.h |   73 +++++++++++++
- lib/Kconfig              |    4 +
- lib/Makefile             |    2 +
- lib/cpu_rmap.c           |  269 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 348 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/cpu_rmap.h
- create mode 100644 lib/cpu_rmap.c
+ include/linux/netdevice.h |   33 ++++++++++++++-
+ net/Kconfig               |    6 +++
+ net/core/dev.c            |   97 ++++++++++++++++++++++++++++++++++++++++++---
+ 3 files changed, 127 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/cpu_rmap.h b/include/linux/cpu_rmap.h
-new file mode 100644
-index 0000000..473771a
---- /dev/null
-+++ b/include/linux/cpu_rmap.h
-@@ -0,0 +1,73 @@
-+/*
-+ * cpu_rmap.c: CPU affinity reverse-map support
-+ * Copyright 2011 Solarflare Communications Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
-+
-+#include <linux/cpumask.h>
-+#include <linux/gfp.h>
-+#include <linux/slab.h>
-+
-+/**
-+ * struct cpu_rmap - CPU affinity reverse-map
-+ * @size: Number of objects to be reverse-mapped
-+ * @used: Number of objects added
-+ * @obj: Pointer to array of object pointers
-+ * @near: For each CPU, the index and distance to the nearest object,
-+ *      based on affinity masks
-+ */
-+struct cpu_rmap {
-+	u16		size, used;
-+	void		**obj;
-+	struct {
-+		u16	index;
-+		u16	dist;
-+	}		near[0];
-+};
-+#define CPU_RMAP_DIST_INF 0xffff
-+
-+extern struct cpu_rmap *alloc_cpu_rmap(unsigned int size, gfp_t flags);
-+
-+/**
-+ * free_cpu_rmap - free CPU affinity reverse-map
-+ * @rmap: Reverse-map allocated with alloc_cpu_rmap(), or %NULL
-+ */
-+static inline void free_cpu_rmap(struct cpu_rmap *rmap)
-+{
-+	kfree(rmap);
-+}
-+
-+extern int cpu_rmap_add(struct cpu_rmap *rmap, void *obj);
-+extern int cpu_rmap_update(struct cpu_rmap *rmap, u16 index,
-+			   const struct cpumask *affinity);
-+
-+static inline u16 cpu_rmap_lookup_index(struct cpu_rmap *rmap, unsigned int cpu)
-+{
-+	return rmap->near[cpu].index;
-+}
-+
-+static inline void *cpu_rmap_lookup_obj(struct cpu_rmap *rmap, unsigned int cpu)
-+{
-+	return rmap->obj[rmap->near[cpu].index];
-+}
-+
-+#ifdef CONFIG_GENERIC_HARDIRQS
-+
-+/**
-+ * alloc_irq_cpu_rmap - allocate CPU affinity reverse-map for IRQs
-+ * @size: Number of objects to be mapped
-+ *
-+ * Must be called in process context.
-+ */
-+static inline struct cpu_rmap *alloc_irq_cpu_rmap(unsigned int size)
-+{
-+	return alloc_cpu_rmap(size, GFP_KERNEL);
-+}
-+extern void free_irq_cpu_rmap(struct cpu_rmap *rmap);
-+
-+extern int irq_cpu_rmap_add(struct cpu_rmap *rmap, int irq);
-+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d971346..abe8b2d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -551,14 +551,16 @@ struct rps_map {
+ #define RPS_MAP_SIZE(_num) (sizeof(struct rps_map) + (_num * sizeof(u16)))
+ 
+ /*
+- * The rps_dev_flow structure contains the mapping of a flow to a CPU and the
+- * tail pointer for that CPU's input queue at the time of last enqueue.
++ * The rps_dev_flow structure contains the mapping of a flow to a CPU, the
++ * tail pointer for that CPU's input queue at the time of last enqueue, and
++ * a hardware filter index.
+  */
+ struct rps_dev_flow {
+ 	u16 cpu;
+-	u16 fill;
++	u16 filter;
+ 	unsigned int last_qtail;
+ };
++#define RPS_NO_FILTER 0xffff
+ 
+ /*
+  * The rps_dev_flow_table structure contains a table of flow mappings.
+@@ -608,6 +610,11 @@ static inline void rps_reset_sock_flow(struct rps_sock_flow_table *table,
+ 
+ extern struct rps_sock_flow_table __rcu *rps_sock_flow_table;
+ 
++#ifdef CONFIG_RFS_ACCEL
++extern bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
++				u32 flow_id, u16 filter_id);
 +#endif
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 0ee67e0..8334342 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -201,6 +201,10 @@ config DISABLE_OBSOLETE_CPUMASK_FUNCTIONS
-        bool "Disable obsolete cpumask functions" if DEBUG_PER_CPU_MAPS
-        depends on EXPERIMENTAL && BROKEN
- 
-+config CPU_RMAP
-+	bool
-+	depends on SMP
 +
- #
- # Netlink attribute parsing support is select'ed if needed
- #
-diff --git a/lib/Makefile b/lib/Makefile
-index cbb774f..b73ba01 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -110,6 +110,8 @@ obj-$(CONFIG_ATOMIC64_SELFTEST) += atomic64_test.o
- 
- obj-$(CONFIG_AVERAGE) += average.o
- 
-+obj-$(CONFIG_CPU_RMAP) += cpu_rmap.o
-+
- hostprogs-y	:= gen_crc32table
- clean-files	:= crc32table.h
- 
-diff --git a/lib/cpu_rmap.c b/lib/cpu_rmap.c
-new file mode 100644
-index 0000000..987acfa
---- /dev/null
-+++ b/lib/cpu_rmap.c
-@@ -0,0 +1,269 @@
-+/*
-+ * cpu_rmap.c: CPU affinity reverse-map support
-+ * Copyright 2011 Solarflare Communications Inc.
+ /* This structure contains an instance of an RX queue. */
+ struct netdev_rx_queue {
+ 	struct rps_map __rcu		*rps_map;
+@@ -753,6 +760,13 @@ struct xps_dev_maps {
+  * int (*ndo_set_vf_port)(struct net_device *dev, int vf,
+  *			  struct nlattr *port[]);
+  * int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
 + *
-+ * This program is free software; you can redistribute it and/or modify it
-+ * under the terms of the GNU General Public License version 2 as published
-+ * by the Free Software Foundation, incorporated herein by reference.
-+ */
++ *	RFS acceleration.
++ * int (*ndo_rx_flow_steer)(struct net_device *dev, const struct sk_buff *skb,
++ *			    u16 rxq_index, u32 flow_id);
++ *	Set hardware filter for RFS.  rxq_index is the target queue index;
++ *	flow_id is a flow ID to be passed to rps_may_expire_flow() later.
++ *	Return the filter ID on success, or a negative error code.
+  */
+ #define HAVE_NET_DEVICE_OPS
+ struct net_device_ops {
+@@ -825,6 +839,12 @@ struct net_device_ops {
+ 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
+ 						    u64 *wwn, int type);
+ #endif
++#ifdef CONFIG_RFS_ACCEL
++	int			(*ndo_rx_flow_steer)(struct net_device *dev,
++						     const struct sk_buff *skb,
++						     u16 rxq_index,
++						     u32 flow_id);
++#endif
+ };
+ 
+ /*
+@@ -1039,6 +1059,13 @@ struct net_device {
+ 
+ 	/* Number of RX queues currently active in device */
+ 	unsigned int		real_num_rx_queues;
 +
++#ifdef CONFIG_RFS_ACCEL
++	/* CPU reverse-mapping for RX completion interrupts, indexed
++	 * by RX queue number.  Assigned by driver.  This must only be
++	 * set if the ndo_rx_flow_steer operation is defined. */
++	struct cpu_rmap		*rx_cpu_rmap;
++#endif
+ #endif
+ 
+ 	rx_handler_func_t __rcu	*rx_handler;
+diff --git a/net/Kconfig b/net/Kconfig
+index 7284062..79cabf1 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -221,6 +221,12 @@ config RPS
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+ 	default y
+ 
++config RFS_ACCEL
++	boolean
++	depends on RPS && GENERIC_HARDIRQS
++	select CPU_RMAP
++	default y
++
+ config XPS
+ 	boolean
+ 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7741507..3c18d9c 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -132,6 +132,7 @@
+ #include <trace/events/skb.h>
+ #include <linux/pci.h>
+ #include <linux/inetdevice.h>
 +#include <linux/cpu_rmap.h>
-+#ifdef CONFIG_GENERIC_HARDIRQS
-+#include <linux/interrupt.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -2532,6 +2533,53 @@ EXPORT_SYMBOL(__skb_get_rxhash);
+ struct rps_sock_flow_table __rcu *rps_sock_flow_table __read_mostly;
+ EXPORT_SYMBOL(rps_sock_flow_table);
+ 
++static struct rps_dev_flow *
++set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
++	    struct rps_dev_flow *rflow, u16 next_cpu)
++{
++	u16 tcpu;
++
++	tcpu = rflow->cpu = next_cpu;
++	if (tcpu != RPS_NO_CPU) {
++#ifdef CONFIG_RFS_ACCEL
++		struct netdev_rx_queue *rxqueue;
++		struct rps_dev_flow_table *flow_table;
++		struct rps_dev_flow *old_rflow;
++		u32 flow_id;
++		u16 rxq_index;
++		int rc;
++
++		/* Should we steer this flow to a different hardware queue? */
++		if (!skb_rx_queue_recorded(skb) || !dev->rx_cpu_rmap)
++			goto out;
++		rxq_index = cpu_rmap_lookup_index(dev->rx_cpu_rmap, next_cpu);
++		if (rxq_index == skb_get_rx_queue(skb))
++			goto out;
++
++		rxqueue = dev->_rx + rxq_index;
++		flow_table = rcu_dereference(rxqueue->rps_flow_table);
++		if (!flow_table)
++			goto out;
++		flow_id = skb->rxhash & flow_table->mask;
++		rc = dev->netdev_ops->ndo_rx_flow_steer(dev, skb,
++							rxq_index, flow_id);
++		if (rc < 0)
++			goto out;
++		old_rflow = rflow;
++		rflow = &flow_table->flows[flow_id];
++		rflow->cpu = next_cpu;
++		rflow->filter = rc;
++		if (old_rflow->filter == rflow->filter)
++			old_rflow->filter = RPS_NO_FILTER;
++	out:
 +#endif
-+#include <linux/module.h>
++		rflow->last_qtail =
++			per_cpu(softnet_data, tcpu).input_queue_head;
++	}
 +
-+/*
-+ * These functions maintain a mapping from CPUs to some ordered set of
-+ * objects with CPU affinities.  This can be seen as a reverse-map of
-+ * CPU affinity.  However, we do not assume that the object affinities
-+ * cover all CPUs in the system.  For those CPUs not directly covered
-+ * by object affinities, we attempt to find a nearest object based on
-+ * CPU topology.
-+ */
++	return rflow;
++}
++
+ /*
+  * get_rps_cpu is called from netif_receive_skb and returns the target
+  * CPU from the RPS map of the receiving queue for a given skb.
+@@ -2602,12 +2650,9 @@ static int get_rps_cpu(struct net_device *dev, struct sk_buff *skb,
+ 		if (unlikely(tcpu != next_cpu) &&
+ 		    (tcpu == RPS_NO_CPU || !cpu_online(tcpu) ||
+ 		     ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
+-		      rflow->last_qtail)) >= 0)) {
+-			tcpu = rflow->cpu = next_cpu;
+-			if (tcpu != RPS_NO_CPU)
+-				rflow->last_qtail = per_cpu(softnet_data,
+-				    tcpu).input_queue_head;
+-		}
++		      rflow->last_qtail)) >= 0))
++			rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
++
+ 		if (tcpu != RPS_NO_CPU && cpu_online(tcpu)) {
+ 			*rflowp = rflow;
+ 			cpu = tcpu;
+@@ -2628,6 +2673,46 @@ done:
+ 	return cpu;
+ }
+ 
++#ifdef CONFIG_RFS_ACCEL
 +
 +/**
-+ * alloc_cpu_rmap - allocate CPU affinity reverse-map
-+ * @size: Number of objects to be mapped
-+ * @flags: Allocation flags e.g. %GFP_KERNEL
-+ */
-+struct cpu_rmap *alloc_cpu_rmap(unsigned int size, gfp_t flags)
-+{
-+	struct cpu_rmap *rmap;
-+	unsigned int cpu;
-+	size_t obj_offset;
-+
-+	/* This is a silly number of objects, and we use u16 indices. */
-+	if (size > 0xffff)
-+		return NULL;
-+
-+	/* Offset of object pointer array from base structure */
-+	obj_offset = ALIGN(offsetof(struct cpu_rmap, near[nr_cpu_ids]),
-+			   sizeof(void *));
-+
-+	rmap = kzalloc(obj_offset + size * sizeof(rmap->obj[0]), flags);
-+	if (!rmap)
-+		return NULL;
-+
-+	rmap->obj = (void **)((char *)rmap + obj_offset);
-+
-+	/* Initially assign CPUs to objects on a rota, since we have
-+	 * no idea where the objects are.  Use infinite distance, so
-+	 * any object with known distance is preferable.  Include the
-+	 * CPUs that are not present/online, since we definitely want
-+	 * any newly-hotplugged CPUs to have some object assigned.
-+	 */
-+	for_each_possible_cpu(cpu) {
-+		rmap->near[cpu].index = cpu % size;
-+		rmap->near[cpu].dist = CPU_RMAP_DIST_INF;
-+	}
-+
-+	rmap->size = size;
-+	return rmap;
-+}
-+EXPORT_SYMBOL(alloc_cpu_rmap);
-+
-+/* Reevaluate nearest object for given CPU, comparing with the given
-+ * neighbours at the given distance.
-+ */
-+static bool cpu_rmap_copy_neigh(struct cpu_rmap *rmap, unsigned int cpu,
-+				const struct cpumask *mask, u16 dist)
-+{
-+	int neigh;
-+
-+	for_each_cpu(neigh, mask) {
-+		if (rmap->near[cpu].dist > dist &&
-+		    rmap->near[neigh].dist <= dist) {
-+			rmap->near[cpu].index = rmap->near[neigh].index;
-+			rmap->near[cpu].dist = dist;
-+			return true;
-+		}
-+	}
-+	return false;
-+}
-+
-+#ifdef DEBUG
-+static void debug_print_rmap(const struct cpu_rmap *rmap, const char *prefix)
-+{
-+	unsigned index;
-+	unsigned int cpu;
-+
-+	pr_info("cpu_rmap %p, %s:\n", rmap, prefix);
-+
-+	for_each_possible_cpu(cpu) {
-+		index = rmap->near[cpu].index;
-+		pr_info("cpu %d -> obj %u (distance %u)\n",
-+			cpu, index, rmap->near[cpu].dist);
-+	}
-+}
-+#else
-+static inline void
-+debug_print_rmap(const struct cpu_rmap *rmap, const char *prefix)
-+{
-+}
-+#endif
-+
-+/**
-+ * cpu_rmap_add - add object to a rmap
-+ * @rmap: CPU rmap allocated with alloc_cpu_rmap()
-+ * @obj: Object to add to rmap
++ * rps_may_expire_flow - check whether an RFS hardware filter may be removed
++ * @dev: Device on which the filter was set
++ * @rxq_index: RX queue index
++ * @flow_id: Flow ID passed to ndo_rx_flow_steer()
++ * @filter_id: Filter ID returned by ndo_rx_flow_steer()
 + *
-+ * Return index of object.
++ * Drivers that implement ndo_rx_flow_steer() should periodically call
++ * this function for each installed filter and remove the filters for
++ * which it returns %true.
 + */
-+int cpu_rmap_add(struct cpu_rmap *rmap, void *obj)
++bool rps_may_expire_flow(struct net_device *dev, u16 rxq_index,
++			 u32 flow_id, u16 filter_id)
 +{
-+	u16 index;
++	struct netdev_rx_queue *rxqueue = dev->_rx + rxq_index;
++	struct rps_dev_flow_table *flow_table;
++	struct rps_dev_flow *rflow;
++	bool expire = true;
++	int cpu;
 +
-+	BUG_ON(rmap->used >= rmap->size);
-+	index = rmap->used++;
-+	rmap->obj[index] = obj;
-+	return index;
-+}
-+EXPORT_SYMBOL(cpu_rmap_add);
-+
-+/**
-+ * cpu_rmap_update - update CPU rmap following a change of object affinity
-+ * @rmap: CPU rmap to update
-+ * @index: Index of object whose affinity changed
-+ * @affinity: New CPU affinity of object
-+ */
-+int cpu_rmap_update(struct cpu_rmap *rmap, u16 index,
-+		    const struct cpumask *affinity)
-+{
-+	cpumask_var_t update_mask;
-+	unsigned int cpu;
-+
-+	if (unlikely(!zalloc_cpumask_var(&update_mask, GFP_KERNEL)))
-+		return -ENOMEM;
-+
-+	/* Invalidate distance for all CPUs for which this used to be
-+	 * the nearest object.  Mark those CPUs for update.
-+	 */
-+	for_each_online_cpu(cpu) {
-+		if (rmap->near[cpu].index == index) {
-+			rmap->near[cpu].dist = CPU_RMAP_DIST_INF;
-+			cpumask_set_cpu(cpu, update_mask);
-+		}
++	rcu_read_lock();
++	flow_table = rcu_dereference(rxqueue->rps_flow_table);
++	if (flow_table && flow_id <= flow_table->mask) {
++		rflow = &flow_table->flows[flow_id];
++		cpu = ACCESS_ONCE(rflow->cpu);
++		if (rflow->filter == filter_id && cpu != RPS_NO_CPU &&
++		    ((int)(per_cpu(softnet_data, cpu).input_queue_head -
++			   rflow->last_qtail) <
++		     (int)(10 * flow_table->mask)))
++			expire = false;
 +	}
-+
-+	debug_print_rmap(rmap, "after invalidating old distances");
-+
-+	/* Set distance to 0 for all CPUs in the new affinity mask.
-+	 * Mark all CPUs within their NUMA nodes for update.
-+	 */
-+	for_each_cpu(cpu, affinity) {
-+		rmap->near[cpu].index = index;
-+		rmap->near[cpu].dist = 0;
-+		cpumask_or(update_mask, update_mask,
-+			   cpumask_of_node(cpu_to_node(cpu)));
-+	}
-+
-+	debug_print_rmap(rmap, "after updating neighbours");
-+
-+	/* Update distances based on topology */
-+	for_each_cpu(cpu, update_mask) {
-+		if (cpu_rmap_copy_neigh(rmap, cpu,
-+					topology_thread_cpumask(cpu), 1))
-+			continue;
-+		if (cpu_rmap_copy_neigh(rmap, cpu,
-+					topology_core_cpumask(cpu), 2))
-+			continue;
-+		if (cpu_rmap_copy_neigh(rmap, cpu,
-+					cpumask_of_node(cpu_to_node(cpu)), 3))
-+			continue;
-+		/* We could continue into NUMA node distances, but for now
-+		 * we give up.
-+		 */
-+	}
-+
-+	debug_print_rmap(rmap, "after copying neighbours");
-+
-+	free_cpumask_var(update_mask);
-+	return 0;
++	rcu_read_unlock();
++	return expire;
 +}
-+EXPORT_SYMBOL(cpu_rmap_update);
++EXPORT_SYMBOL(rps_may_expire_flow);
 +
-+#ifdef CONFIG_GENERIC_HARDIRQS
++#endif /* CONFIG_RFS_ACCEL */
 +
-+/* Glue between IRQ affinity notifiers and CPU rmaps */
-+
-+struct irq_glue {
-+	struct irq_affinity_notify notify;
-+	struct cpu_rmap *rmap;
-+	u16 index;
-+};
-+
-+/**
-+ * free_irq_cpu_rmap - free a CPU affinity reverse-map used for IRQs
-+ * @rmap: Reverse-map allocated with alloc_irq_cpu_map(), or %NULL
-+ *
-+ * Must be called in process context, before freeing the IRQs, and
-+ * without holding any locks required by global workqueue items.
-+ */
-+void free_irq_cpu_rmap(struct cpu_rmap *rmap)
-+{
-+	struct irq_glue *glue;
-+	u16 index;
-+
-+	if (!rmap)
-+		return;
-+
-+	for (index = 0; index < rmap->used; index++) {
-+		glue = rmap->obj[index];
-+		irq_set_affinity_notifier(glue->notify.irq, NULL);
-+	}
-+	irq_run_affinity_notifiers();
-+
-+	kfree(rmap);
-+}
-+EXPORT_SYMBOL(free_irq_cpu_rmap);
-+
-+static void
-+irq_cpu_rmap_notify(struct irq_affinity_notify *notify, const cpumask_t *mask)
-+{
-+	struct irq_glue *glue =
-+		container_of(notify, struct irq_glue, notify);
-+	int rc;
-+
-+	rc = cpu_rmap_update(glue->rmap, glue->index, mask);
-+	if (rc)
-+		pr_warning("irq_cpu_rmap_notify: update failed: %d\n", rc);
-+}
-+
-+static void irq_cpu_rmap_release(struct kref *ref)
-+{
-+	struct irq_glue *glue =
-+		container_of(ref, struct irq_glue, notify.kref);
-+	kfree(glue);
-+}
-+
-+/**
-+ * irq_cpu_rmap_add - add an IRQ to a CPU affinity reverse-map
-+ * @rmap: The reverse-map
-+ * @irq: The IRQ number
-+ *
-+ * This adds an IRQ affinity notifier that will update the reverse-map
-+ * automatically.
-+ *
-+ * Must be called in process context, after the IRQ is allocated but
-+ * before it is bound with request_irq().
-+ */
-+int irq_cpu_rmap_add(struct cpu_rmap *rmap, int irq)
-+{
-+	struct irq_glue *glue = kzalloc(sizeof(*glue), GFP_KERNEL);
-+	int rc;
-+
-+	if (!glue)
-+		return -ENOMEM;
-+	glue->notify.notify = irq_cpu_rmap_notify;
-+	glue->notify.release = irq_cpu_rmap_release;
-+	glue->rmap = rmap;
-+	glue->index = cpu_rmap_add(rmap, glue);
-+	rc = irq_set_affinity_notifier(irq, &glue->notify);
-+	if (rc)
-+		kfree(glue);
-+	return rc;
-+}
-+EXPORT_SYMBOL(irq_cpu_rmap_add);
-+
-+#endif /* CONFIG_GENERIC_HARDIRQS */
+ /* Called from hardirq (IPI) context */
+ static void rps_trigger_softirq(void *data)
+ {
 -- 
 1.7.3.4
 
