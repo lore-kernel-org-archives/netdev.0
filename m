@@ -1,334 +1,367 @@
 From: kaber@trash.net
-Subject: [PATCH 46/79] IPVS: netns awareness to ip_vs_est
-Date: Wed, 19 Jan 2011 20:14:46 +0100
-Message-ID: <1295464519-21763-47-git-send-email-kaber@trash.net>
+Subject: [PATCH 62/79] netfilter: audit target to record accepted/dropped packets
+Date: Wed, 19 Jan 2011 20:15:02 +0100
+Message-ID: <1295464519-21763-63-git-send-email-kaber@trash.net>
 References: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:51989 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:51979 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753870Ab1ASTPg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:36 -0500
+	with ESMTP id S1753466Ab1ASTPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 14:15:40 -0500
 In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
+From: Thomas Graf <tgraf@infradead.org>
 
-All variables moved to struct ipvs,
-most external changes fixed (i.e. init_net removed)
+This patch adds a new netfilter target which creates audit records
+for packets traversing a certain chain.
 
-*v3
- timer per ns instead of a common timer in estimator.
+It can be used to record packets which are rejected administraively
+as follows:
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+  -N AUDIT_DROP
+  -A AUDIT_DROP -j AUDIT --type DROP
+  -A AUDIT_DROP -j DROP
+
+a rule which would typically drop or reject a packet would then
+invoke the new chain to record packets before dropping them.
+
+  -j AUDIT_DROP
+
+The module is protocol independant and works for iptables, ip6tables
+and ebtables.
+
+The following information is logged:
+ - netfilter hook
+ - packet length
+ - incomming/outgoing interface
+ - MAC src/dst/proto for ethernet packets
+ - src/dst/protocol address for IPv4/IPv6
+ - src/dst port for TCP/UDP/UDPLITE
+ - icmp type/code
+
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Eric Paris <eparis@parisplace.org>
+Cc: Al Viro <viro@ZenIV.linux.org.uk>
+Signed-off-by: Thomas Graf <tgraf@redhat.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/net/ip_vs.h            |    4 +-
- include/net/netns/ip_vs.h      |    4 ++
- net/netfilter/ipvs/ip_vs_ctl.c |   20 +++++-----
- net/netfilter/ipvs/ip_vs_est.c |   86 ++++++++++++++++++++++-----------------
- 4 files changed, 64 insertions(+), 50 deletions(-)
+ include/linux/audit.h              |    1 +
+ include/linux/netfilter/Kbuild     |    1 +
+ include/linux/netfilter/xt_AUDIT.h |   30 ++++++
+ net/netfilter/Kconfig              |   10 ++
+ net/netfilter/Makefile             |    1 +
+ net/netfilter/xt_AUDIT.c           |  204 ++++++++++++++++++++++++++++++++++++
+ 6 files changed, 247 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter/xt_AUDIT.h
+ create mode 100644 net/netfilter/xt_AUDIT.c
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 0cdd8ce..c08927b 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1004,8 +1004,8 @@ extern void ip_vs_sync_cleanup(void);
-  */
- extern int ip_vs_estimator_init(void);
- extern void ip_vs_estimator_cleanup(void);
--extern void ip_vs_new_estimator(struct ip_vs_stats *stats);
--extern void ip_vs_kill_estimator(struct ip_vs_stats *stats);
-+extern void ip_vs_new_estimator(struct net *net, struct ip_vs_stats *stats);
-+extern void ip_vs_kill_estimator(struct net *net, struct ip_vs_stats *stats);
- extern void ip_vs_zero_estimator(struct ip_vs_stats *stats);
+diff --git a/include/linux/audit.h b/include/linux/audit.h
+index 8b5c062..ae227df 100644
+--- a/include/linux/audit.h
++++ b/include/linux/audit.h
+@@ -103,6 +103,7 @@
+ #define AUDIT_BPRM_FCAPS	1321	/* Information about fcaps increasing perms */
+ #define AUDIT_CAPSET		1322	/* Record showing argument to sys_capset */
+ #define AUDIT_MMAP		1323	/* Record showing descriptor and flags in mmap */
++#define AUDIT_NETFILTER_PKT	1324	/* Packets traversing netfilter chains */
  
- /*
-diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
-index 03f7fe1..db02401 100644
---- a/include/net/netns/ip_vs.h
-+++ b/include/net/netns/ip_vs.h
-@@ -70,6 +70,10 @@ struct netns_ipvs {
- 	int			sysctl_lblcr_expiration;
- 	struct ctl_table_header	*lblcr_ctl_header;
- 	struct ctl_table	*lblcr_ctl_table;
-+	/* ip_vs_est */
-+	struct list_head	est_list;	/* estimator list */
-+	spinlock_t		est_lock;
-+	struct timer_list	est_timer;	/* Estimation timer */
- };
- 
- #endif /* IP_VS_H_ */
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 88474f1..c89beb8 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -816,7 +816,7 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
- 	spin_unlock(&dest->dst_lock);
- 
- 	if (add)
--		ip_vs_new_estimator(&dest->stats);
-+		ip_vs_new_estimator(svc->net, &dest->stats);
- 
- 	write_lock_bh(&__ip_vs_svc_lock);
- 
-@@ -1009,9 +1009,9 @@ ip_vs_edit_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- /*
-  *	Delete a destination (must be already unlinked from the service)
-  */
--static void __ip_vs_del_dest(struct ip_vs_dest *dest)
-+static void __ip_vs_del_dest(struct net *net, struct ip_vs_dest *dest)
- {
--	ip_vs_kill_estimator(&dest->stats);
-+	ip_vs_kill_estimator(net, &dest->stats);
- 
- 	/*
- 	 *  Remove it from the d-linked list with the real services.
-@@ -1080,6 +1080,7 @@ static int
- ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- {
- 	struct ip_vs_dest *dest;
-+	struct net *net = svc->net;
- 	__be16 dport = udest->port;
- 
- 	EnterFunction(2);
-@@ -1108,7 +1109,7 @@ ip_vs_del_dest(struct ip_vs_service *svc, struct ip_vs_dest_user_kern *udest)
- 	/*
- 	 *	Delete the destination
- 	 */
--	__ip_vs_del_dest(dest);
-+	__ip_vs_del_dest(net, dest);
- 
- 	LeaveFunction(2);
- 
-@@ -1197,7 +1198,7 @@ ip_vs_add_service(struct net *net, struct ip_vs_service_user_kern *u,
- 	else if (svc->port == 0)
- 		atomic_inc(&ip_vs_nullsvc_counter);
- 
--	ip_vs_new_estimator(&svc->stats);
-+	ip_vs_new_estimator(net, &svc->stats);
- 
- 	/* Count only IPv4 services for old get/setsockopt interface */
- 	if (svc->af == AF_INET)
-@@ -1345,7 +1346,7 @@ static void __ip_vs_del_service(struct ip_vs_service *svc)
- 	if (svc->af == AF_INET)
- 		ip_vs_num_services--;
- 
--	ip_vs_kill_estimator(&svc->stats);
-+	ip_vs_kill_estimator(svc->net, &svc->stats);
- 
- 	/* Unbind scheduler */
- 	old_sched = svc->scheduler;
-@@ -1368,7 +1369,7 @@ static void __ip_vs_del_service(struct ip_vs_service *svc)
- 	 */
- 	list_for_each_entry_safe(dest, nxt, &svc->destinations, n_list) {
- 		__ip_vs_unlink_dest(svc, dest, 0);
--		__ip_vs_del_dest(dest);
-+		__ip_vs_del_dest(svc->net, dest);
- 	}
- 
- 	/*
-@@ -3460,7 +3461,7 @@ int __net_init __ip_vs_control_init(struct net *net)
- 						  vs_vars);
- 	if (sysctl_header == NULL)
- 		goto err_reg;
--	ip_vs_new_estimator(&ip_vs_stats);
-+	ip_vs_new_estimator(net, &ip_vs_stats);
- 	return 0;
- 
- err_reg:
-@@ -3472,7 +3473,7 @@ static void __net_exit __ip_vs_control_cleanup(struct net *net)
- 	if (!net_eq(net, &init_net))	/* netns not enabled yet */
- 		return;
- 
--	ip_vs_kill_estimator(&ip_vs_stats);
-+	ip_vs_kill_estimator(net, &ip_vs_stats);
- 	unregister_net_sysctl_table(sysctl_header);
- 	proc_net_remove(net, "ip_vs_stats");
- 	proc_net_remove(net, "ip_vs");
-@@ -3536,7 +3537,6 @@ void ip_vs_control_cleanup(void)
- 	ip_vs_trash_cleanup();
- 	cancel_delayed_work_sync(&defense_work);
- 	cancel_work_sync(&defense_work.work);
--	ip_vs_kill_estimator(&ip_vs_stats);
- 	unregister_pernet_subsys(&ipvs_control_ops);
- 	ip_vs_genl_unregister();
- 	nf_unregister_sockopt(&ip_vs_sockopts);
-diff --git a/net/netfilter/ipvs/ip_vs_est.c b/net/netfilter/ipvs/ip_vs_est.c
-index 7417a0c..07d839b 100644
---- a/net/netfilter/ipvs/ip_vs_est.c
-+++ b/net/netfilter/ipvs/ip_vs_est.c
-@@ -8,8 +8,12 @@
-  *              as published by the Free Software Foundation; either version
-  *              2 of the License, or (at your option) any later version.
-  *
-- * Changes:
-- *
-+ * Changes:     Hans Schillstrom <hans.schillstrom@ericsson.com>
-+ *              Network name space (netns) aware.
-+ *              Global data moved to netns i.e struct netns_ipvs
-+ *              Affected data: est_list and est_lock.
-+ *              estimation_timer() runs with timer per netns.
-+ *              get_stats()) do the per cpu summing.
-  */
- 
- #define KMSG_COMPONENT "IPVS"
-@@ -48,12 +52,6 @@
-  */
- 
- 
--static void estimation_timer(unsigned long arg);
--
--static LIST_HEAD(est_list);
--static DEFINE_SPINLOCK(est_lock);
--static DEFINE_TIMER(est_timer, estimation_timer, 0, 0);
--
- static void estimation_timer(unsigned long arg)
- {
- 	struct ip_vs_estimator *e;
-@@ -62,9 +60,12 @@ static void estimation_timer(unsigned long arg)
- 	u32 n_inpkts, n_outpkts;
- 	u64 n_inbytes, n_outbytes;
- 	u32 rate;
-+	struct net *net = (struct net *)arg;
-+	struct netns_ipvs *ipvs;
- 
--	spin_lock(&est_lock);
--	list_for_each_entry(e, &est_list, list) {
-+	ipvs = net_ipvs(net);
-+	spin_lock(&ipvs->est_lock);
-+	list_for_each_entry(e, &ipvs->est_list, list) {
- 		s = container_of(e, struct ip_vs_stats, est);
- 
- 		spin_lock(&s->lock);
-@@ -75,38 +76,39 @@ static void estimation_timer(unsigned long arg)
- 		n_outbytes = s->ustats.outbytes;
- 
- 		/* scaled by 2^10, but divided 2 seconds */
--		rate = (n_conns - e->last_conns)<<9;
-+		rate = (n_conns - e->last_conns) << 9;
- 		e->last_conns = n_conns;
--		e->cps += ((long)rate - (long)e->cps)>>2;
--		s->ustats.cps = (e->cps+0x1FF)>>10;
-+		e->cps += ((long)rate - (long)e->cps) >> 2;
-+		s->ustats.cps = (e->cps + 0x1FF) >> 10;
- 
--		rate = (n_inpkts - e->last_inpkts)<<9;
-+		rate = (n_inpkts - e->last_inpkts) << 9;
- 		e->last_inpkts = n_inpkts;
--		e->inpps += ((long)rate - (long)e->inpps)>>2;
--		s->ustats.inpps = (e->inpps+0x1FF)>>10;
-+		e->inpps += ((long)rate - (long)e->inpps) >> 2;
-+		s->ustats.inpps = (e->inpps + 0x1FF) >> 10;
- 
--		rate = (n_outpkts - e->last_outpkts)<<9;
-+		rate = (n_outpkts - e->last_outpkts) << 9;
- 		e->last_outpkts = n_outpkts;
--		e->outpps += ((long)rate - (long)e->outpps)>>2;
--		s->ustats.outpps = (e->outpps+0x1FF)>>10;
-+		e->outpps += ((long)rate - (long)e->outpps) >> 2;
-+		s->ustats.outpps = (e->outpps + 0x1FF) >> 10;
- 
--		rate = (n_inbytes - e->last_inbytes)<<4;
-+		rate = (n_inbytes - e->last_inbytes) << 4;
- 		e->last_inbytes = n_inbytes;
--		e->inbps += ((long)rate - (long)e->inbps)>>2;
--		s->ustats.inbps = (e->inbps+0xF)>>5;
-+		e->inbps += ((long)rate - (long)e->inbps) >> 2;
-+		s->ustats.inbps = (e->inbps + 0xF) >> 5;
- 
--		rate = (n_outbytes - e->last_outbytes)<<4;
-+		rate = (n_outbytes - e->last_outbytes) << 4;
- 		e->last_outbytes = n_outbytes;
--		e->outbps += ((long)rate - (long)e->outbps)>>2;
--		s->ustats.outbps = (e->outbps+0xF)>>5;
-+		e->outbps += ((long)rate - (long)e->outbps) >> 2;
-+		s->ustats.outbps = (e->outbps + 0xF) >> 5;
- 		spin_unlock(&s->lock);
- 	}
--	spin_unlock(&est_lock);
--	mod_timer(&est_timer, jiffies + 2*HZ);
-+	spin_unlock(&ipvs->est_lock);
-+	mod_timer(&ipvs->est_timer, jiffies + 2*HZ);
- }
- 
--void ip_vs_new_estimator(struct ip_vs_stats *stats)
-+void ip_vs_new_estimator(struct net *net, struct ip_vs_stats *stats)
- {
-+	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_estimator *est = &stats->est;
- 
- 	INIT_LIST_HEAD(&est->list);
-@@ -126,18 +128,19 @@ void ip_vs_new_estimator(struct ip_vs_stats *stats)
- 	est->last_outbytes = stats->ustats.outbytes;
- 	est->outbps = stats->ustats.outbps<<5;
- 
--	spin_lock_bh(&est_lock);
--	list_add(&est->list, &est_list);
--	spin_unlock_bh(&est_lock);
-+	spin_lock_bh(&ipvs->est_lock);
-+	list_add(&est->list, &ipvs->est_list);
-+	spin_unlock_bh(&ipvs->est_lock);
- }
- 
--void ip_vs_kill_estimator(struct ip_vs_stats *stats)
-+void ip_vs_kill_estimator(struct net *net, struct ip_vs_stats *stats)
- {
-+	struct netns_ipvs *ipvs = net_ipvs(net);
- 	struct ip_vs_estimator *est = &stats->est;
- 
--	spin_lock_bh(&est_lock);
-+	spin_lock_bh(&ipvs->est_lock);
- 	list_del(&est->list);
--	spin_unlock_bh(&est_lock);
-+	spin_unlock_bh(&ipvs->est_lock);
- }
- 
- void ip_vs_zero_estimator(struct ip_vs_stats *stats)
-@@ -159,14 +162,25 @@ void ip_vs_zero_estimator(struct ip_vs_stats *stats)
- 
- static int __net_init __ip_vs_estimator_init(struct net *net)
- {
-+	struct netns_ipvs *ipvs = net_ipvs(net);
+ #define AUDIT_AVC		1400	/* SE Linux avc denial or grant */
+ #define AUDIT_SELINUX_ERR	1401	/* Internal SE Linux Errors */
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index 9d40eff..9f11fbc 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -9,6 +9,7 @@ header-y += nfnetlink_conntrack.h
+ header-y += nfnetlink_log.h
+ header-y += nfnetlink_queue.h
+ header-y += x_tables.h
++header-y += xt_AUDIT.h
+ header-y += xt_CHECKSUM.h
+ header-y += xt_CLASSIFY.h
+ header-y += xt_CONNMARK.h
+diff --git a/include/linux/netfilter/xt_AUDIT.h b/include/linux/netfilter/xt_AUDIT.h
+new file mode 100644
+index 0000000..38751d2
+--- /dev/null
++++ b/include/linux/netfilter/xt_AUDIT.h
+@@ -0,0 +1,30 @@
++/*
++ * Header file for iptables xt_AUDIT target
++ *
++ * (C) 2010-2011 Thomas Graf <tgraf@redhat.com>
++ * (C) 2010-2011 Red Hat, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
 +
- 	if (!net_eq(net, &init_net))	/* netns not enabled yet */
- 		return -EPERM;
++#ifndef _XT_AUDIT_TARGET_H
++#define _XT_AUDIT_TARGET_H
++
++#include <linux/types.h>
++
++enum {
++	XT_AUDIT_TYPE_ACCEPT = 0,
++	XT_AUDIT_TYPE_DROP,
++	XT_AUDIT_TYPE_REJECT,
++	__XT_AUDIT_TYPE_MAX,
++};
++
++#define XT_AUDIT_TYPE_MAX (__XT_AUDIT_TYPE_MAX - 1)
++
++struct xt_audit_info {
++	__u8 type; /* XT_AUDIT_TYPE_* */
++};
++
++#endif /* _XT_AUDIT_TARGET_H */
+diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+index 1b79353..93918f0 100644
+--- a/net/netfilter/Kconfig
++++ b/net/netfilter/Kconfig
+@@ -326,6 +326,16 @@ config NETFILTER_XT_CONNMARK
  
-+	INIT_LIST_HEAD(&ipvs->est_list);
-+	spin_lock_init(&ipvs->est_lock);
-+	setup_timer(&ipvs->est_timer, estimation_timer, (unsigned long)net);
-+	mod_timer(&ipvs->est_timer, jiffies + 2 * HZ);
- 	return 0;
- }
+ comment "Xtables targets"
  
-+static void __net_exit __ip_vs_estimator_exit(struct net *net)
++config NETFILTER_XT_TARGET_AUDIT
++	tristate "AUDIT target support"
++	depends on AUDIT
++	depends on NETFILTER_ADVANCED
++	---help---
++	  This option adds a 'AUDIT' target, which can be used to create
++	  audit records for packets dropped/accepted.
++
++	  To compileit as a module, choose M here. If unsure, say N.
++
+ config NETFILTER_XT_TARGET_CHECKSUM
+ 	tristate "CHECKSUM target support"
+ 	depends on IP_NF_MANGLE || IP6_NF_MANGLE
+diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
+index 441050f..401d574 100644
+--- a/net/netfilter/Makefile
++++ b/net/netfilter/Makefile
+@@ -45,6 +45,7 @@ obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
+ obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
+ 
+ # targets
++obj-$(CONFIG_NETFILTER_XT_TARGET_AUDIT) += xt_AUDIT.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CHECKSUM) += xt_CHECKSUM.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CLASSIFY) += xt_CLASSIFY.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_CONNSECMARK) += xt_CONNSECMARK.o
+diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
+new file mode 100644
+index 0000000..81802d2
+--- /dev/null
++++ b/net/netfilter/xt_AUDIT.c
+@@ -0,0 +1,204 @@
++/*
++ * Creates audit record for dropped/accepted packets
++ *
++ * (C) 2010-2011 Thomas Graf <tgraf@redhat.com>
++ * (C) 2010-2011 Red Hat, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++*/
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/audit.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <linux/tcp.h>
++#include <linux/udp.h>
++#include <linux/if_arp.h>
++#include <linux/netfilter/x_tables.h>
++#include <linux/netfilter/xt_AUDIT.h>
++#include <net/ipv6.h>
++#include <net/ip.h>
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Thomas Graf <tgraf@redhat.com>");
++MODULE_DESCRIPTION("Xtables: creates audit records for dropped/accepted packets");
++MODULE_ALIAS("ipt_AUDIT");
++MODULE_ALIAS("ip6t_AUDIT");
++MODULE_ALIAS("ebt_AUDIT");
++MODULE_ALIAS("arpt_AUDIT");
++
++static void audit_proto(struct audit_buffer *ab, struct sk_buff *skb,
++			unsigned int proto, unsigned int offset)
 +{
-+	del_timer_sync(&net_ipvs(net)->est_timer);
++	switch (proto) {
++	case IPPROTO_TCP:
++	case IPPROTO_UDP:
++	case IPPROTO_UDPLITE: {
++		const __be16 *pptr;
++		__be16 _ports[2];
++
++		pptr = skb_header_pointer(skb, offset, sizeof(_ports), _ports);
++		if (pptr == NULL) {
++			audit_log_format(ab, " truncated=1");
++			return;
++		}
++
++		audit_log_format(ab, " sport=%hu dport=%hu",
++				 ntohs(pptr[0]), ntohs(pptr[1]));
++		}
++		break;
++
++	case IPPROTO_ICMP:
++	case IPPROTO_ICMPV6: {
++		const u8 *iptr;
++		u8 _ih[2];
++
++		iptr = skb_header_pointer(skb, offset, sizeof(_ih), &_ih);
++		if (iptr == NULL) {
++			audit_log_format(ab, " truncated=1");
++			return;
++		}
++
++		audit_log_format(ab, " icmptype=%hhu icmpcode=%hhu",
++				 iptr[0], iptr[1]);
++
++		}
++		break;
++	}
 +}
- static struct pernet_operations ip_vs_app_ops = {
- 	.init = __ip_vs_estimator_init,
-+	.exit = __ip_vs_estimator_exit,
- };
- 
- int __init ip_vs_estimator_init(void)
-@@ -174,14 +188,10 @@ int __init ip_vs_estimator_init(void)
- 	int rv;
- 
- 	rv = register_pernet_subsys(&ip_vs_app_ops);
--	if (rv < 0)
--		return rv;
--	mod_timer(&est_timer, jiffies + 2 * HZ);
- 	return rv;
- }
- 
- void ip_vs_estimator_cleanup(void)
- {
--	del_timer_sync(&est_timer);
- 	unregister_pernet_subsys(&ip_vs_app_ops);
- }
++
++static void audit_ip4(struct audit_buffer *ab, struct sk_buff *skb)
++{
++	struct iphdr _iph;
++	const struct iphdr *ih;
++
++	ih = skb_header_pointer(skb, 0, sizeof(_iph), &_iph);
++	if (!ih) {
++		audit_log_format(ab, " truncated=1");
++		return;
++	}
++
++	audit_log_format(ab, " saddr=%pI4 daddr=%pI4 ipid=%hu proto=%hhu",
++		&ih->saddr, &ih->daddr, ntohs(ih->id), ih->protocol);
++
++	if (ntohs(ih->frag_off) & IP_OFFSET) {
++		audit_log_format(ab, " frag=1");
++		return;
++	}
++
++	audit_proto(ab, skb, ih->protocol, ih->ihl * 4);
++}
++
++static void audit_ip6(struct audit_buffer *ab, struct sk_buff *skb)
++{
++	struct ipv6hdr _ip6h;
++	const struct ipv6hdr *ih;
++	u8 nexthdr;
++	int offset;
++
++	ih = skb_header_pointer(skb, skb_network_offset(skb), sizeof(_ip6h), &_ip6h);
++	if (!ih) {
++		audit_log_format(ab, " truncated=1");
++		return;
++	}
++
++	nexthdr = ih->nexthdr;
++	offset = ipv6_skip_exthdr(skb, skb_network_offset(skb) + sizeof(_ip6h),
++				  &nexthdr);
++
++	audit_log_format(ab, " saddr=%pI6c daddr=%pI6c proto=%hhu",
++			 &ih->saddr, &ih->daddr, nexthdr);
++
++	if (offset)
++		audit_proto(ab, skb, nexthdr, offset);
++}
++
++static unsigned int
++audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
++{
++	const struct xt_audit_info *info = par->targinfo;
++	struct audit_buffer *ab;
++
++	ab = audit_log_start(NULL, GFP_ATOMIC, AUDIT_NETFILTER_PKT);
++	if (ab == NULL)
++		goto errout;
++
++	audit_log_format(ab, "action=%hhu hook=%u len=%u inif=%s outif=%s",
++			 info->type, par->hooknum, skb->len,
++			 par->in ? par->in->name : "?",
++			 par->out ? par->out->name : "?");
++
++	if (skb->mark)
++		audit_log_format(ab, " mark=%#x", skb->mark);
++
++	if (skb->dev && skb->dev->type == ARPHRD_ETHER) {
++		audit_log_format(ab, " smac=%pM dmac=%pM macproto=0x%04x",
++				 eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
++				 ntohs(eth_hdr(skb)->h_proto));
++
++		if (par->family == NFPROTO_BRIDGE) {
++			switch (eth_hdr(skb)->h_proto) {
++			case __constant_htons(ETH_P_IP):
++				audit_ip4(ab, skb);
++				break;
++
++			case __constant_htons(ETH_P_IPV6):
++				audit_ip6(ab, skb);
++				break;
++			}
++		}
++	}
++
++	switch (par->family) {
++	case NFPROTO_IPV4:
++		audit_ip4(ab, skb);
++		break;
++
++	case NFPROTO_IPV6:
++		audit_ip6(ab, skb);
++		break;
++	}
++
++	audit_log_end(ab);
++
++errout:
++	return XT_CONTINUE;
++}
++
++static int audit_tg_check(const struct xt_tgchk_param *par)
++{
++	const struct xt_audit_info *info = par->targinfo;
++
++	if (info->type > XT_AUDIT_TYPE_MAX) {
++		pr_info("Audit type out of range (valid range: 0..%hhu)\n",
++			XT_AUDIT_TYPE_MAX);
++		return -ERANGE;
++	}
++
++	return 0;
++}
++
++static struct xt_target audit_tg_reg __read_mostly = {
++	.name		= "AUDIT",
++	.family		= NFPROTO_UNSPEC,
++	.target		= audit_tg,
++	.targetsize	= sizeof(struct xt_audit_info),
++	.checkentry	= audit_tg_check,
++	.me		= THIS_MODULE,
++};
++
++static int __init audit_tg_init(void)
++{
++	return xt_register_target(&audit_tg_reg);
++}
++
++static void __exit audit_tg_exit(void)
++{
++	xt_unregister_target(&audit_tg_reg);
++}
++
++module_init(audit_tg_init);
++module_exit(audit_tg_exit);
 -- 
 1.7.2.3
 
