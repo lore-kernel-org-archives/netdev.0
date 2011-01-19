@@ -1,77 +1,155 @@
-From: Jiri Bohac <jbohac@suse.cz>
-Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
-Date: Wed, 19 Jan 2011 20:18:23 +0100
-Message-ID: <20110119191823.GC8442@midget.suse.cz>
-References: <20101209.122033.183046393.davem@davemloft.net>
- <20101216132812.2d7fd885@nehalam>
- <m1mxo5tcx6.fsf@fess.ebiederm.org>
- <20101216.182656.226781473.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ebiederm@xmission.com, shemminger@vyatta.com, brian.haley@hp.com,
-	netdev@vger.kernel.org, maheshkelkar@gmail.com, lorenzo@google.com,
-	yoshfuji@linux-ipv6.org, stable@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47514 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754465Ab1ASTS1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jan 2011 14:18:27 -0500
-Content-Disposition: inline
-In-Reply-To: <20101216.182656.226781473.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kaber@trash.net
+Subject: [PATCH 37/79] IPVS: netns awarness to lblc sheduler
+Date: Wed, 19 Jan 2011 20:14:37 +0100
+Message-ID: <1295464519-21763-38-git-send-email-kaber@trash.net>
+References: <1295464519-21763-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1295464519-21763-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
+var sysctl_ip_vs_lblc_expiration moved to ipvs struct as
+    sysctl_lblc_expiration
 
-The commit (29ba5fed1bbd09c2cba890798c8f9eaab251401d) causes
-another regression:
+procfs updated to handle this.
 
-Prior to the commit, on a freshly booted system, when I do:
-	sysctl net.ipv6.conf.all.disable_ipv6=1
-Then any attempt to connect to ::1 will fail immediately with
-"Network is unreachable" (e.g. "ping6 ::1" or "telnet ::1 22".
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ include/net/netns/ip_vs.h       |    4 +++
+ net/netfilter/ipvs/ip_vs_lblc.c |   50 ++++++++++++++++++++++++++------------
+ 2 files changed, 38 insertions(+), 16 deletions(-)
 
-After the commit, doing
-	sysctl net.ipv6.conf.all.disable_ipv6=1
-makes connection attempts to ::1 wait for a long time before they fail.
-
-This is caused by the local route which is now left configured. 
-"ip -6 r l table all" has an additional line in its output:
-	local ::1 via :: dev lo  table local  proto none  metric 0  mtu 16436 rtt 40ms rttvar 40ms cwnd 3 advmss 16376 hoplimit 0
-
-With both ::1 and 127.0.0.1 specified for localhost in
-/etc/hosts, disabling ipv6 now breaks many applications
-connecting to localhost. Deleting the local route manually solves
-the problems.
-
-Could this be reverted, please?
-
-I have the feeling that Eric's patch is the safest solution we
-have so far:
-
-> Finding the real bug is beyond me right now, but fixing the regression
-> in disable_ipv6 is simple.  We can just delete ::1 when we bring down
-> the loopback interface, and it will be restored automatically when we
-> bring the loopback interface back up.
-> 
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-> ---
-> Index: linux-2.6.37-rc5.x86_64/net/ipv6/addrconf.c
-> ===================================================================
-> --- linux-2.6.37-rc5.x86_64.orig/net/ipv6/addrconf.c
-> +++ linux-2.6.37-rc5.x86_64/net/ipv6/addrconf.c
-> @@ -2727,6 +2727,7 @@ static int addrconf_ifdown(struct net_de
->  		/* If just doing link down, and address is permanent
->  		   and not link-local, then retain it. */
->  		if (!how &&
-> +		    !ipv6_addr_loopback(&ifa->addr) &&
->  		    (ifa->flags&IFA_F_PERMANENT) &&
->  		    !(ipv6_addr_type(&ifa->addr) & IPV6_ADDR_LINKLOCAL)) {
->  			list_move_tail(&ifa->if_list, &keep_list);
-
+diff --git a/include/net/netns/ip_vs.h b/include/net/netns/ip_vs.h
+index 51a92ee..d14581c 100644
+--- a/include/net/netns/ip_vs.h
++++ b/include/net/netns/ip_vs.h
+@@ -29,6 +29,10 @@ struct netns_ipvs {
+ 
+ 	struct list_head	rs_table[IP_VS_RTAB_SIZE];
+ 
++	/* ip_vs_lblc */
++	int			sysctl_lblc_expiration;
++	struct ctl_table_header	*lblc_ctl_header;
++	struct ctl_table	*lblc_ctl_table;
+ 	/* ip_vs_lblcr */
+ 	int			sysctl_lblcr_expiration;
+ 	struct ctl_table_header	*lblcr_ctl_header;
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 84278fb..d5bec33 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -70,7 +70,6 @@
+  *    entries that haven't been touched for a day.
+  */
+ #define COUNT_FOR_FULL_EXPIRATION   30
+-static int sysctl_ip_vs_lblc_expiration = 24*60*60*HZ;
+ 
+ 
+ /*
+@@ -117,7 +116,7 @@ struct ip_vs_lblc_table {
+ static ctl_table vs_vars_table[] = {
+ 	{
+ 		.procname	= "lblc_expiration",
+-		.data		= &sysctl_ip_vs_lblc_expiration,
++		.data		= NULL,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -125,8 +124,6 @@ static ctl_table vs_vars_table[] = {
+ 	{ }
+ };
+ 
+-static struct ctl_table_header * sysctl_header;
+-
+ static inline void ip_vs_lblc_free(struct ip_vs_lblc_entry *en)
+ {
+ 	list_del(&en->list);
+@@ -248,6 +245,7 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
+ 	struct ip_vs_lblc_entry *en, *nxt;
+ 	unsigned long now = jiffies;
+ 	int i, j;
++	struct netns_ipvs *ipvs = net_ipvs(svc->net);
+ 
+ 	for (i=0, j=tbl->rover; i<IP_VS_LBLC_TAB_SIZE; i++) {
+ 		j = (j + 1) & IP_VS_LBLC_TAB_MASK;
+@@ -255,7 +253,8 @@ static inline void ip_vs_lblc_full_check(struct ip_vs_service *svc)
+ 		write_lock(&svc->sched_lock);
+ 		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+ 			if (time_before(now,
+-					en->lastuse + sysctl_ip_vs_lblc_expiration))
++					en->lastuse +
++					ipvs->sysctl_lblc_expiration))
+ 				continue;
+ 
+ 			ip_vs_lblc_free(en);
+@@ -548,23 +547,43 @@ static struct ip_vs_scheduler ip_vs_lblc_scheduler =
+  */
+ static int __net_init __ip_vs_lblc_init(struct net *net)
+ {
+-	if (!net_eq(net, &init_net))	/* netns not enabled yet */
+-		return -EPERM;
+-
+-	sysctl_header = register_net_sysctl_table(net, net_vs_ctl_path,
+-						  vs_vars_table);
+-	if (!sysctl_header)
+-		return -ENOMEM;
++	struct netns_ipvs *ipvs = net_ipvs(net);
++
++	if (!net_eq(net, &init_net)) {
++		ipvs->lblc_ctl_table = kmemdup(vs_vars_table,
++						sizeof(vs_vars_table),
++						GFP_KERNEL);
++		if (ipvs->lblc_ctl_table == NULL)
++			goto err_dup;
++	} else
++		ipvs->lblc_ctl_table = vs_vars_table;
++	ipvs->sysctl_lblc_expiration = 24*60*60*HZ;
++	ipvs->lblc_ctl_table[0].data = &ipvs->sysctl_lblc_expiration;
++
++	ipvs->lblc_ctl_header =
++		register_net_sysctl_table(net, net_vs_ctl_path,
++					  ipvs->lblc_ctl_table);
++	if (!ipvs->lblc_ctl_header)
++		goto err_reg;
+ 
+ 	return 0;
++
++err_reg:
++	if (!net_eq(net, &init_net))
++		kfree(ipvs->lblc_ctl_table);
++
++err_dup:
++	return -ENOMEM;
+ }
+ 
+ static void __net_exit __ip_vs_lblc_exit(struct net *net)
+ {
+-	if (!net_eq(net, &init_net))	/* netns not enabled yet */
+-		return;
++	struct netns_ipvs *ipvs = net_ipvs(net);
++
++	unregister_net_sysctl_table(ipvs->lblc_ctl_header);
+ 
+-	unregister_net_sysctl_table(sysctl_header);
++	if (!net_eq(net, &init_net))
++		kfree(ipvs->lblc_ctl_table);
+ }
+ 
+ static struct pernet_operations ip_vs_lblc_ops = {
+@@ -586,7 +605,6 @@ static int __init ip_vs_lblc_init(void)
+ 	return ret;
+ }
+ 
+-
+ static void __exit ip_vs_lblc_cleanup(void)
+ {
+ 	unregister_ip_vs_scheduler(&ip_vs_lblc_scheduler);
 -- 
-Jiri Bohac <jbohac@suse.cz>
-SUSE Labs, SUSE CZ
+1.7.2.3
 
