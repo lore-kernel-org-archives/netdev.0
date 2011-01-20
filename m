@@ -1,51 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/79] netfilter: netfilter update
-Date: Thu, 20 Jan 2011 02:13:31 +0100
-Message-ID: <4D378C3B.1020202@trash.net>
-References: <1295464519-21763-1-git-send-email-kaber@trash.net>	<20110119.135504.149816150.davem@davemloft.net> <20110119.165045.25148392.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Jan Engelhardt <jengelh@computergmbh.de>
-To: David Miller <davem@davemloft.net>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net-2.6] cxgb4: fix reported state of interfaces without link
+Date: Wed, 19 Jan 2011 17:29:05 -0800
+Message-ID: <1295486945-22015-1-git-send-email-dm@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57595 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753124Ab1ATBNf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 20:13:35 -0500
-In-Reply-To: <20110119.165045.25148392.davem@davemloft.net>
+Received: from stargate.chelsio.com ([67.207.112.58]:26156 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753687Ab1ATB3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 20:29:07 -0500
+Received: from tom.asicdesigners.com (tom.asicdesigners.com [10.192.167.168])
+	by stargate.chelsio.com (8.13.1/8.13.1) with ESMTP id p0K1T78R017861
+	for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 17:29:07 -0800
+Received: from tom.asicdesigners.com (localhost.localdomain [127.0.0.1])
+	by tom.asicdesigners.com (8.14.4/8.14.3) with ESMTP id p0K1T59C022067
+	for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 17:29:06 -0800
+Received: (from dm@localhost)
+	by tom.asicdesigners.com (8.14.4/8.14.4/Submit) id p0K1T54f022065
+	for netdev@vger.kernel.org; Wed, 19 Jan 2011 17:29:05 -0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.01.2011 01:50, David Miller wrote:
-> I'm undoing my pull, what was this build tested against?
+Currently tools like ip and ifconfig report incorrect state for cxgb4
+interfaces that are up but do not have link and do so until first link
+establishment.  This is because the initial netif_carrier_off call is
+before register_netdev and it needs to be after to be fully effective.
+Fix this by moving netif_carrier_off into .ndo_open.
 
-My build tests didn't include header-install. No idea what Jan
-tested against.
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/cxgb4/cxgb4_main.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-> In particular this commit breaks the build:
-> 
-> Subject: [PATCH 68/79] netfilter: xtables: add missing header files to export list
-> 
-> Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
->  ...
-> @@ -56,6 +56,8 @@ header-y += xt_rateest.h
->  header-y += xt_realm.h
->  header-y += xt_recent.h
->  header-y += xt_sctp.h
-> +header-y += xt_secmark.h
-> +header-y += xt_socket.h
->  header-y += xt_state.h
->  header-y += xt_statistic.h
->  header-y += xt_string.h
-> 
-> No active tree has a include/linux/netfilter/xt_secmark.h file.  Therefore
-> we end up with:
-> 
-> make[2]: `scripts/unifdef' is up to date.
-> make[4]: *** No rule to make target `/home/davem/src/GIT/net-next-2.6/include/linux/netfilter/xt_secmark.h', needed by `/home/davem/src/GIT/net-next-2.6/usr/include/linux/netfilter/.install'.  Stop.
-> 
-> Did you mean xt_SECMARK.h (caps)?
+diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
+index 059c1ee..ec35d45 100644
+--- a/drivers/net/cxgb4/cxgb4_main.c
++++ b/drivers/net/cxgb4/cxgb4_main.c
+@@ -2710,6 +2710,8 @@ static int cxgb_open(struct net_device *dev)
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct adapter *adapter = pi->adapter;
+ 
++	netif_carrier_off(dev);
++
+ 	if (!(adapter->flags & FULL_INIT_DONE)) {
+ 		err = cxgb_up(adapter);
+ 		if (err < 0)
+@@ -3661,7 +3663,6 @@ static int __devinit init_one(struct pci_dev *pdev,
+ 		pi->xact_addr_filt = -1;
+ 		pi->rx_offload = RX_CSO;
+ 		pi->port_id = i;
+-		netif_carrier_off(netdev);
+ 		netdev->irq = pdev->irq;
+ 
+ 		netdev->features |= NETIF_F_SG | TSO_FLAGS;
+-- 
+1.7.3.4
 
-I guess so. Jan, please fix this up.
