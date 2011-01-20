@@ -1,54 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/79] netfilter: netfilter update
-Date: Wed, 19 Jan 2011 16:50:45 -0800 (PST)
-Message-ID: <20110119.165045.25148392.davem@davemloft.net>
-References: <1295464519-21763-1-git-send-email-kaber@trash.net>
-	<20110119.135504.149816150.davem@davemloft.net>
+Subject: Re: [PATCH-v2] sctp: user perfect name for Delayed SACK Timer
+ option
+Date: Wed, 19 Jan 2011 16:51:42 -0800 (PST)
+Message-ID: <20110119.165142.63040447.davem@davemloft.net>
+References: <4D3693CA.40508@cn.fujitsu.com>
+	<4D36A324.4040307@cn.fujitsu.com>
+	<4D36E904.4050609@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: kaber@trash.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110119.135504.149816150.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: shanwei@cn.fujitsu.com, yjwei@cn.fujitsu.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: vladislav.yasevich@hp.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58594
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753163Ab1ATAvI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 19:51:08 -0500
+In-Reply-To: <4D36E904.4050609@hp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 19 Jan 2011 13:55:04 -0800 (PST)
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Date: Wed, 19 Jan 2011 08:37:08 -0500
 
-> From: kaber@trash.net
-> Date: Wed, 19 Jan 2011 20:14:00 +0100
-> 
->> Please pull from
+> On 01/19/2011 03:39 AM, Shan Wei wrote:
+>> The option name of Delayed SACK Timer should be SCTP_DELAYED_SACK,
+>> not SCTP_DELAYED_ACK.
 >> 
->> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+>> Left SCTP_DELAYED_ACK be concomitant with SCTP_DELAYED_SACK,
+>> for making compatibility with existing applications.
+>> 
+>> Reference:
+>> 8.1.19.  Get or Set Delayed SACK Timer (SCTP_DELAYED_SACK)
+>> （http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-25)
+>> 
 > 
-> Pulled, thanks.
+> this one much better.
+> 
+> Acked-by: Vlad Yasevich <vladislav.yasevich@hp.com>
 
-I'm undoing my pull, what was this build tested against?
-In particular this commit breaks the build:
-
-Subject: [PATCH 68/79] netfilter: xtables: add missing header files to export list
-
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
- ...
-@@ -56,6 +56,8 @@ header-y += xt_rateest.h
- header-y += xt_realm.h
- header-y += xt_recent.h
- header-y += xt_sctp.h
-+header-y += xt_secmark.h
-+header-y += xt_socket.h
- header-y += xt_state.h
- header-y += xt_statistic.h
- header-y += xt_string.h
-
-No active tree has a include/linux/netfilter/xt_secmark.h file.  Therefore
-we end up with:
-
-make[2]: `scripts/unifdef' is up to date.
-make[4]: *** No rule to make target `/home/davem/src/GIT/net-next-2.6/include/linux/netfilter/xt_secmark.h', needed by `/home/davem/src/GIT/net-next-2.6/usr/include/linux/netfilter/.install'.  Stop.
-
-Did you mean xt_SECMARK.h (caps)?
-
-Please fix this up and resubmit your pull request, thanks.
+Applied, thanks.
