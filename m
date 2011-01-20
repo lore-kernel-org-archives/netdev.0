@@ -1,81 +1,46 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: Bonding on bond
-Date: Thu, 20 Jan 2011 17:12:59 +0100
-Message-ID: <4D385F0B.1010000@gmail.com>
-References: <4D374A8F.2020303@gmail.com> <20110120153110.GA3931@midget.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] net_sched: RCU conversion of stab
+Date: Thu, 20 Jan 2011 17:39:22 +0100
+Message-ID: <1295541562.2825.368.camel@edumazet-laptop>
+References: <1295517052.2733.14.camel@edumazet-laptop>
+	 <1295518636.2825.4.camel@edumazet-laptop>
+	 <1295531299.2825.175.camel@edumazet-laptop>  <4D384E2D.5050001@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"bonding-devel@lists.sourceforge.net"
-	<bonding-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Bohac <jbohac@suse.cz>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Jarek Poplawski <jarkao2@gmail.com>, jamal <hadi@cyberus.ca>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:58133 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:61434 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753317Ab1ATQND (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 11:13:03 -0500
-Received: by wyb28 with SMTP id 28so779519wyb.19
-        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 08:13:02 -0800 (PST)
-In-Reply-To: <20110120153110.GA3931@midget.suse.cz>
+	with ESMTP id S1750923Ab1ATQj1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 11:39:27 -0500
+Received: by wyb28 with SMTP id 28so805765wyb.19
+        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 08:39:26 -0800 (PST)
+In-Reply-To: <4D384E2D.5050001@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 20/01/2011 16:31, Jiri Bohac a =E9crit :
-> On Wed, Jan 19, 2011 at 09:33:19PM +0100, Nicolas de Peslo=FCan wrote=
-:
->> Even if it is possible to test for slave and for master with a
->> single condition (IFF_BONDING), I suggest to split the tests and the
->> error messages, to give end user the best possible diagnostic.
->
-> OK, why not. The below patch still uses IFF_BONDING to detect a
-> master is being enslaved, because IFF_MASTER is also used by the
-> eql driver. No idea if it works / someone ever uses it with
-> bonding, but it might collide.
+Le jeudi 20 janvier 2011 =C3=A0 16:01 +0100, Patrick McHardy a =C3=A9cr=
+it :
+> Am 20.01.2011 14:48, schrieb Eric Dumazet:
+> > This patch converts stab qdisc management to RCU, so that we can pe=
+rform
+> > the qdisc_calculate_pkt_len() call before getting qdisc lock.
+> >=20
+> > This shortens the lock's held time in __dev_xmit_skb().
+> >=20
+> > This permits more qdiscs to get TCQ_F_CAN_BYPASS status, avoiding l=
+ot of
+> > cache misses and so reducing latencies.
+> >=20
+>=20
+> Looks good to me.
+>=20
 
-Thanks Jiri.
+Thanks for reviewing Patrick !
 
-> bonding: prohibit enslaving of bonding masters
->
-> Nested bonding is not supported and will result in strange problems, =
-e.g.:
-> - netif_receive_skb() will not properly change skb->dev to point to t=
-he
->    uppoer-most bonding master
-> - arp monitor will not work (dev->last_rx is only updated by hardware=
- drivers)
-> - accidentally enslaving a bonding master to itself will cause an inf=
-inite
->    recursion in the TX path
->
-> This patch prevents this by prohibiting a bonding master from being f=
-urther enslaved.
->
-> Signed-off-by: Jiri Bohac<jbohac@suse.cz>
-
-Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
-
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
-nd_main.c
-> index b1025b8..b117dd8 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1453,6 +1453,12 @@ int bond_enslave(struct net_device *bond_dev, =
-struct net_device *slave_dev)
->   		return -EBUSY;
->   	}
->
-> +	/* cannot enslave a master */
-> +	if (slave_dev->priv_flags&  IFF_BONDING) {
-> +		pr_debug("Error, cannot enslave a bonding master\n");
-> +		return -EBUSY;
-> +	}
-> +
->   	/* vlan challenged mutual exclusion */
->   	/* no need to lock since we're protected by rtnl_lock */
->   	if (slave_dev->features&  NETIF_F_VLAN_CHALLENGED) {
->
 
