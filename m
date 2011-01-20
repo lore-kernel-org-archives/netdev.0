@@ -1,84 +1,41 @@
-From: Rob Landley <rlandley@parallels.com>
-Subject: Re: [PATCH v3 00/16] make rpc_pipefs be mountable multiple time
-Date: Thu, 20 Jan 2011 07:57:52 -0600
-Message-ID: <4D383F60.4080907@parallels.com>
-References: <1295012954-7769-1-git-send-email-kas@openvz.org> <4D343658.1020205@parallels.com> <20110120113552.GB24349@shutemov.name>
+From: Jarek =?iso-8859-2?Q?Kami=F1ski?= <jarek@vilo.eu.org>
+Subject: Re: Bug#609538: r8169: long delay during resume
+Date: Thu, 20 Jan 2011 14:55:34 +0100
+Message-ID: <20110120135534.GA24545@rocket.almost.secure.la>
+References: <AANLkTikxpOS2fJ1Sqv=Lg6cX1TE+1W-ZxFV+YMOH1+Yp@mail.gmail.com>
+ <1295493603.2906.107.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	<linux-nfs@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Al Viro <viro@ZenIV.linux.org.uk>,
-	<containers@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "Kirill A. Shutemov" <kas@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110120113552.GB24349@shutemov.name>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: Ben Hutchings <ben@decadent.org.uk>, 609538@bugs.debian.org,
+	Daniel J Blueman <daniel.blueman@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vilo.eu.org ([80.52.229.66]:36666 "EHLO vilo.eu.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755609Ab1ATOEX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jan 2011 09:04:23 -0500
+Content-Disposition: inline
+In-Reply-To: <1295493603.2906.107.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 01/20/2011 05:35 AM, Kirill A. Shutemov wrote:
-> On Mon, Jan 17, 2011 at 06:30:16AM -0600, Rob Landley wrote:
->> On 01/14/2011 07:48 AM, Kirill A. Shutemov wrote:
->>> Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
->>> Only for client for now.
->>
->> Ok, Google is being really unhelpful here.
-> 
-> It's better if you read the code. :)
+On Thu, Jan 20, 2011 at 03:20:03AM +0000, Ben Hutchings wrote:
+> On Thu, 2011-01-20 at 10:04 +0700, Daniel J Blueman wrote:
+>> I see that Francois' patch is present in 2.6.38-rc1; is there a way to
+>> avoid this delay, or is this likely in request_firmware?
 
-I did.  That doesn't necessarily help if I don't know what it's _trying_
-to do and this implementation is just one small piece of a much larger
-mechanism.
+> It's a known problem with calls to request_firmware() when userland is
+> not running (early initialisation or resume from sleep).  It may be
+> fixable.
 
->> What is rpc_pipefs for?  What uses it, and to do what exactly?  Is it
->> used by nfs server code, or by the client code, or both?  Is it a way
->> for userspace to talk to the kernel, or for the kernel to talk to
->> itself?  Is it used at mount time, or during filesystem operation?
-> 
-> Ok, It try to answer. Please correct me, if I'm wrong.
-> 
-> rpc_pipefs is a userland/kernel interface (I don't see kernel-kernel
-> usecases, but it's possible, I guess).
+It was partially fixed in commit
+f1e02ed109df5f99abf942b8ccc99960cb09dd38 in linux-2.6.git (r8169: keep
+firmware in memory.). Sorry for not reporting it here, I clicked "reply"
+instead of "group reply" late in the night.
 
-Then why is the host context treated specially with an init_rcp_pipefs
-instance that isn't necessarily mounted anywhere?  (How does userspace
-access it if it isn't mounted anywhere?  Why doesn't the host context
-just use the same does-not-exist code as container context?  Presumably
-there's a reason for this?)
+If this commit could be included in Debian kernel, the bug could be
+closed.
 
-I've also mounted NFS shares in test environments I never mounted
-rpc_pipefs in.  (It's possible that the nfs.mount command was doing so
-for me, and apparently unmounting it again afterwards.)  My test
-environment is exporting with the userspace NFS daemon so it's not using
-the kernel cacheing infrastructure.
-
-> There is client dir (nfs/clntX) in rpc_pipefs for every sunrpc client.
-> Both client and server (see fs/nfsd/nfs4callback.c) can create sunrpc
-> client. So we rpc_pipefs on both side.
-
-Ok, both client and server can create instances.  And use them to do what?
-
-I understand that the kernel needs to handle RPC calls to service NFS
-requests, what I'm not figuring out is how userspace is involved after
-the initial mount except on the other side of filesystem-agnostic system
-calls.
-
-> rpc_pipefs uses not only on mount time. See old idmapper, for example.
-
-Um, does this sentence say that the old idmapper uses rpc_pipefs?
-(Presumably not the kernel infrastructure controlled by
-CONFIG_NFS_USE_NEW_IDMAPPER because you said it's not a kernel-kernel
-communication mechanism...  So you're saying that whatever userspace
-infrastructure interacts with that will also depend on rpc_pipefs.  But
-the new infrastructure doesn't, which is why I need to look at the old?)
-
-(And again, CONFIG_NFS_USE_NEW_IDMAPPER needs /sbin/request-key from the
-keyutils package implying this is primarily for authentication, which
-would explain why I haven't seen it in my simple test environment...)
-
-Rob
+J.
