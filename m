@@ -1,66 +1,28 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Thu, 20 Jan 2011 00:46:34 -0800
-Message-ID: <1295513194.1952.96.camel@Joe-Laptop>
-References: <1294919372-1904-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295284788.21277.65.camel@Joe-Laptop>
-	 <AANLkTi=nJxwR89CF3i0+L6+yM4Bg_PN8PQByTAHP2nPM@mail.gmail.com>
-	 <1295455290.1952.22.camel@Joe-Laptop>
-	 <AANLkTi=NU=ANUDGGdiCL+AP696nF1kXwPHOPZPrCti2u@mail.gmail.com>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: Re: [PATCH net-next-2.6 v3 2/2] can: add driver for Softing card
+Date: Thu, 20 Jan 2011 09:51:41 +0100
+Message-ID: <20110120085141.GA388@e-circ.dyndns.org>
+References: <20110111143007.GB387@e-circ.dyndns.org>
+ <20110111143428.GD387@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ratbert@faraday-tech.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com, dilinger@queued.net
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=NU=ANUDGGdiCL+AP696nF1kXwPHOPZPrCti2u@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
+	linux-pcmcia@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.eia.be ([194.78.71.18]:44679 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751782Ab1ATIvr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jan 2011 03:51:47 -0500
+Content-Disposition: inline
+In-Reply-To: <20110111143428.GD387@e-circ.dyndns.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-01-20 at 13:30 +0800, Po-Yu Chuang wrote:
-> One more question: how to deal with this? Add a local variable for the
-> 2nd argument?
-> 
-> 	ftmac100_set_receive_ring_base(priv,
-> 				       priv->descs_dma_addr + offsetof(struct ftmac100_descs, rxdes));
+Hi,
 
-That's one way, another is:
+I didn't get any remarks anymore on this series.
+Does this mean the PCMCIA interface is OK? I'm not so familiar
+with that part...
 
-	ftmac100_set_receive_ring_base(priv,
- 				       priv->descs_dma_addr +
-				       offsetof(struct ftmac100_descs, rxdes));
-
-Another would be to change set_receive_ring_base to
-just pass priv and determine the dma address there:
-
-static void ftmac100_set_receive_ring_base(struct ftmac100 *priv)
-{
-	dma_addr_t addr;
-
-	addr = priv->descs_dma_addr + offsetof(struct ftmac100_descs, rxdes);
-	iowrite32(addr, priv->base + FTMAC100_OFFSET_RXR_BADR);
-}
-...
-	ftmac100_set_receive_ring_base(priv);
-
-Another is not to be overly adherent to 80 columns.
-
-Pick one that suits you.
-
-You chose to use a lot of single use, single line
-functions with descriptive names that use iowrite32 or
-return some flag.  I probably would have just used
-iowrite32 or tested the flag directly, but that's your
-choice and it's perfectly fine.
-
-There are a lot of coding choices that are readable and
-good.  There isn't and shouldn't be some mandate for some
-specific code appearance before inclusion or acceptance.
-
-checkpatch is just a style guide.  Ignore it and ignore
-me when you feel it's appropriate.  I won't mind.
-
-cheers, Joe
+regards,
+Kurt
