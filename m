@@ -1,21 +1,23 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net_sched: sfq: allow divisor to be a variable
-Date: Thu, 20 Jan 2011 10:50:52 +0100
-Message-ID: <1295517052.2733.14.camel@edumazet-laptop>
+Subject: [PATCH net-next-2.6] net_sched: sfq: allow divisor to be a
+ parameter
+Date: Thu, 20 Jan 2011 11:14:58 +0100
+Message-ID: <1295518498.2825.2.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
 	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Jarek Poplawski <jarkao2@gmail.com>, jamal <hadi@cyberus.ca>
+	Jarek Poplawski <jarkao2@gmail.com>, jamal <hadi@cyberus.ca>,
+	Stephen Hemminger <shemminger@vyatta.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mail-ww0-f44.google.com ([74.125.82.44]:55074 "EHLO
 	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752110Ab1ATKPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 05:15:03 -0500
-Received: by wwa36 with SMTP id 36so445004wwa.1
-        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 02:15:02 -0800 (PST)
+	with ESMTP id S1755327Ab1ATKPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 05:15:05 -0500
+Received: by mail-ww0-f44.google.com with SMTP id 36so445004wwa.1
+        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 02:15:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -31,7 +33,7 @@ This allows admins to setup smaller (or bigger) SFQ for specific needs.
 This also brings back sfq_sched_data allocations to order-0 ones, saving
 3KB per SFQ qdisc.
 
-Jesper uses ~55.000 sfq in one machine, this patch should free 165 MB of
+Jesper uses ~55.000 SFQ in one machine, this patch should free 165 MB of
 memory.
 
 Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
@@ -39,7 +41,10 @@ CC: Patrick McHardy <kaber@trash.net>
 CC: Jesper Dangaard Brouer <hawk@diku.dk>
 CC: Jarek Poplawski <jarkao2@gmail.com>
 CC: Jamal Hadi Salim <hadi@cyberus.ca>
+CC: Stephen Hemminger <shemminger@vyatta.com>
 ---
+I'll send the iproute2 patch to Stephen
+
  net/sched/sch_sfq.c |   43 ++++++++++++++++++++++++++++++------------
  1 file changed, 31 insertions(+), 12 deletions(-)
 
@@ -194,5 +199,6 @@ index 3fe5c45..ad7fa8b 100644
  		if (q->ht[i] == SFQ_EMPTY_SLOT ||
  		    arg->count < arg->skip) {
  			arg->count++;
+
 
 
