@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] af_unix: coding style: remove one level of indentation
- in unix_shutdown()
-Date: Wed, 19 Jan 2011 23:41:57 -0800 (PST)
-Message-ID: <20110119.234157.84368294.davem@davemloft.net>
-References: <1295448997-9432-1-git-send-email-ian.molton@collabora.co.uk>
+Subject: Re: [PATCH net-next-2.6] net_sched: cleanups
+Date: Wed, 19 Jan 2011 23:42:10 -0800 (PST)
+Message-ID: <20110119.234210.133906291.davem@davemloft.net>
+References: <1295501217.2653.480.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, ebiederm@xmission.com, xemul@openvz.org,
-	davidel@xmailserver.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alban.crequy@collabora.co.uk
-To: ian.molton@collabora.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295448997-9432-1-git-send-email-ian.molton@collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49931
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754058Ab1ATHlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 02:41:36 -0500
+In-Reply-To: <1295501217.2653.480.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Molton <ian.molton@collabora.co.uk>
-Date: Wed, 19 Jan 2011 14:56:36 +0000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 20 Jan 2011 06:26:56 +0100
 
-> From: Alban Crequy <alban.crequy@collabora.co.uk>
+> Cleanup net/sched code to current CodingStyle and practices.
 > 
-> Signed-off-by: Alban Crequy <alban.crequy@collabora.co.uk>
-> Reviewed-by: Ian Molton <ian.molton@collabora.co.uk>
+> Reduce inline abuse
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
 Applied.
