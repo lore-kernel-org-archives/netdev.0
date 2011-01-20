@@ -1,45 +1,79 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: radvd 1.7 released
-Date: Thu, 20 Jan 2011 09:37:46 +0200 (EET)
-Message-ID: <alpine.LRH.2.02.1101200937320.9926@netcore.fi>
+From: Pierre Ossman <pierre-list@ossman.eu>
+Subject: Re: [RFC][PATCH] Export all RA options that we don't handle to
+ userspace
+Date: Thu, 20 Jan 2011 09:15:05 +0100
+Message-ID: <20110120091505.165737a1@mjolnir.ossman.eu>
+References: <20101212144300.68e0fb16@mjolnir.ossman.eu>
+	<20101212144706.1d2be015@mjolnir.ossman.eu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=PGP-SHA256; protocol="application/pgp-signature"; boundary="=_freyr.ossman.eu-13745-1295511308-0001-2"
+Cc: netdev@vger.kernel.org, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from netcore.fi ([193.94.160.1]:35550 "EHLO netcore.fi"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751521Ab1ATIS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jan 2011 03:18:58 -0500
-Received: from netcore.fi (localhost [127.0.0.1])
-	by netcore.fi (8.13.8/8.13.8) with ESMTP id p0K7bknt010092
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 09:37:46 +0200
-Received: from localhost (pekkas@localhost)
-	by netcore.fi (8.13.8/8.13.8/Submit) with ESMTP id p0K7bknh010089
-	for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 09:37:46 +0200
+Received: from 82-117-125-11.tcdsl.calypso.net ([82.117.125.11]:56453 "EHLO
+	smtp.ossman.eu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752110Ab1ATIUl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jan 2011 03:20:41 -0500
+In-Reply-To: <20101212144706.1d2be015@mjolnir.ossman.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+This is a MIME-formatted message.  If you see this text it means that your
+E-mail software does not support MIME-formatted messages.
 
-Radvd 1.7 has been released on Jan 12.  Most important changes:
+--=_freyr.ossman.eu-13745-1295511308-0001-2
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-      * Fix radvd skipping multiple interfaces when UnicastOnly is on or
-        AdvSendAdvert is off. This got broken in radvd 1.3. Patch from
-        Cedric BAIL.
-      * Fix a segmentation fault on reload_config() timer list
-        corruption that only occurs with multiple interfaces.
-      * Add '-c' flag to test configuration.
-      * Deprecate old, pre-RFC5006 parameters. Support RFC6106 by adding
-        DNS Search List support. From Pierre Ossman.
-      * AdvSourceLLAddress fixed on FreeBSD when link layer token length
-        is zero.
-      * Welcome new co-maintainer: Reuben Hawkins
+Ping!
 
-Get it from: http://www.litech.org/radvd/
+The userspace support is rather useless without these kernel bits...
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+On Sun, 12 Dec 2010 14:47:06 +0100
+Pierre Ossman <pierre-list@ossman.eu> wrote:
 
+> Second patch that exports everything. If noone objects to this model,
+> then merge the two patches and just use the commit message from the
+> second one.
+>=20
+> Pros:
+> - Kernel doesn't need to be updated for every new RA option that might
+>   show up.
+>=20
+> Cons:
+> - Possible security issue if it requires less privilege to read these
+>   netlink messages than to open a raw ICMPv6 socket.
+> - List of types the kernel is interested in is now in two places in the
+>   code, creating a risk for getting out of sync. I tried to come up
+>   with a structure that would prevent this, but couldn't think of
+>   anything that wouldn't require large changes. Ideas welcome...
+>=20
+> Rgds
+
+
+--=20
+     -- Pierre Ossman
+
+  WARNING: This correspondence is being monitored by FRA, a
+  Swedish intelligence agency. Make sure your server uses
+  encryption for SMTP traffic and consider using PGP for
+  end-to-end encryption.
+
+--=_freyr.ossman.eu-13745-1295511308-0001-2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.16 (GNU/Linux)
+
+iF4EAREIAAYFAk037wsACgkQopDLsoqlmEI0CAD+MHfMN4xK0mewoaTaM257AkCO
+A2GLWWp5715B6g27uAoA/1gOX8gpuB88iF2fSuxnfOnOcwT3noYwX70ND4pGUiBu
+=FrSU
+-----END PGP SIGNATURE-----
+
+--=_freyr.ossman.eu-13745-1295511308-0001-2--
