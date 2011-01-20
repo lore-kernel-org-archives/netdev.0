@@ -1,51 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net_sched: sfq: allow divisor to be a
- variable
-Date: Thu, 20 Jan 2011 11:17:16 +0100
-Message-ID: <1295518636.2825.4.camel@edumazet-laptop>
-References: <1295517052.2733.14.camel@edumazet-laptop>
+From: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v3 00/16] make rpc_pipefs be mountable multiple time
+Date: Thu, 20 Jan 2011 13:35:52 +0200
+Message-ID: <20110120113552.GB24349@shutemov.name>
+References: <1295012954-7769-1-git-send-email-kas@openvz.org>
+ <4D343658.1020205@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Jarek Poplawski <jarkao2@gmail.com>, jamal <hadi@cyberus.ca>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:53478 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755301Ab1ATKRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 05:17:20 -0500
-Received: by wwa36 with SMTP id 36so446889wwa.1
-        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 02:17:19 -0800 (PST)
-In-Reply-To: <1295517052.2733.14.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
+	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D343658.1020205-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 20 janvier 2011 =C3=A0 10:50 +0100, Eric Dumazet a =C3=A9crit =
-:
-> SFQ currently uses a 1024 slots hash table, and its internal structur=
-e
-> (sfq_sched_data) allocation needs order-1 page on x86_64
->=20
-> Allow tc command to specify a divisor value (hash table size), betwee=
-n 1
-> and 65536.
-> If no value is provided, assume the 1024 default size.
->=20
-> This allows admins to setup smaller (or bigger) SFQ for specific need=
-s.
->=20
-> This also brings back sfq_sched_data allocations to order-0 ones, sav=
-ing
-> 3KB per SFQ qdisc.
->=20
-> Jesper uses ~55.000 sfq in one machine, this patch should free 165 MB=
- of
-> memory.
+On Mon, Jan 17, 2011 at 06:30:16AM -0600, Rob Landley wrote:
+> On 01/14/2011 07:48 AM, Kirill A. Shutemov wrote:
+> > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
+> > Only for client for now.
+> 
+> Ok, Google is being really unhelpful here.
 
-Arg, sorry for the double post, I had a tg3 failure on my machine.
+It's better if you read the code. :)
+> 
+> What is rpc_pipefs for?  What uses it, and to do what exactly?  Is it
+> used by nfs server code, or by the client code, or both?  Is it a way
+> for userspace to talk to the kernel, or for the kernel to talk to
+> itself?  Is it used at mount time, or during filesystem operation?
 
-Please disregard this copy.
+Ok, It try to answer. Please correct me, if I'm wrong.
 
+rpc_pipefs is a userland/kernel interface (I don't see kernel-kernel
+usecases, but it's possible, I guess).
+There is client dir (nfs/clntX) in rpc_pipefs for every sunrpc client.
+Both client and server (see fs/nfsd/nfs4callback.c) can create sunrpc
+client. So we rpc_pipefs on both side.
+rpc_pipefs uses not only on mount time. See old idmapper, for example.
 
+> I'm interested in giving this patch series a much more thorough review,
+> but I can't figure out what the subsystem it's modifying actually _is_.
+> 
+> (Maybe this is something to do with filesystems/nfs/rpc-cache.txt?)
+> 
+> Rob
+
+-- 
+ Kirill A. Shutemov
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
