@@ -1,46 +1,42 @@
-From: Octavian Purdila <opurdila@ixiacom.com>
-Subject: Re: [PATCH] net: dev_close_many() is static
-Date: Thu, 20 Jan 2011 11:16:28 +0200
-Message-ID: <201101201116.29031.opurdila@ixiacom.com>
-References: <1295508202.2653.483.camel@edumazet-laptop>
+From: Shan Wei <shanwei@cn.fujitsu.com>
+Subject: [PATCH clean-up] dccp: clean up unused DCCP_STATE_MASK definition
+Date: Thu, 20 Jan 2011 17:12:54 +0800
+Message-ID: <4D37FC96.9000407@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: acme@ghostprotocols.net, dccp@vger.kernel.org,
+	Network-Maillist <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Gerrit Renker <gerrit@erg.abdn.ac.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:2798 "EHLO
-	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754919Ab1ATJQb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 04:16:31 -0500
-In-Reply-To: <1295508202.2653.483.camel@edumazet-laptop>
+Received: from cn.fujitsu.com ([222.73.24.84]:52133 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754984Ab1ATJQe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jan 2011 04:16:34 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thursday 20 January 2011, 09:23:22
+Remove unused DCCP_STATE_MASK macro.
 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Octavian Purdila <opurdila@ixiacom.com>
-> ---
->  net/core/dev.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 7c6a46f..c135268 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -1285,7 +1285,7 @@ static int __dev_close(struct net_device *dev)
->  	return __dev_close_many(&single);
->  }
-> 
-> -int dev_close_many(struct list_head *head)
-> +static int dev_close_many(struct list_head *head)
->  {
->  	struct net_device *dev, *tmp;
->  	LIST_HEAD(tmp_list);
 
-Oops, missed that. Thanks Eric !
+Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+---
+ include/linux/dccp.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-Reviewed-by: Octavian Purdila <opurdila@ixiacom.com>
+diff --git a/include/linux/dccp.h b/include/linux/dccp.h
+index 010e2d8..d638e85 100644
+--- a/include/linux/dccp.h
++++ b/include/linux/dccp.h
+@@ -279,8 +279,6 @@ enum dccp_state {
+ 	DCCP_MAX_STATES
+ };
+ 
+-#define DCCP_STATE_MASK 0x1f
+-
+ enum {
+ 	DCCPF_OPEN	      = TCPF_ESTABLISHED,
+ 	DCCPF_REQUESTING      = TCPF_SYN_SENT,
+-- 
+1.6.3.3
