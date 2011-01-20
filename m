@@ -1,36 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: MultiPath TCP in the Linux Kernel
-Date: Thu, 20 Jan 2011 16:42:56 +0100
-Message-ID: <1295538176.2825.311.camel@edumazet-laptop>
-References: <201101201509.34536.christoph.paasch@uclouvain.be>
-	 <7e28a5ddc16848dcd98c05351113304f@localhost>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH v3] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Thu, 20 Jan 2011 23:43:17 +0800
+Message-ID: <AANLkTi=BHxP465epxWwsZxfVtL7yJOCDRjQ3sKdmSYDp@mail.gmail.com>
+References: <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
+ <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com> <1295537746.2825.298.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
-	bonding-devel@lists.sourceforge.net, linux-sctp@vger.kernel.org
-To: Hagen Paul Pfeifer <hagen@jauu.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:52429 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755788Ab1ATPnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 10:43:01 -0500
-In-Reply-To: <7e28a5ddc16848dcd98c05351113304f@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1295537746.2825.298.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 20 janvier 2011 =C3=A0 16:38 +0100, Hagen Paul Pfeifer a =C3=A9=
-crit :
+Dear Eric,
 
-> Hello Christoph,
->=20
-> if you want that your work becomes part of the official network stack=
- you
-> should align your effort on the official Linux way. This means you sh=
-ould
-> split your work and publish patches on this maillinglist.
+On Thu, Jan 20, 2011 at 11:35 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> Le jeudi 20 janvier 2011 =C3=A0 23:30 +0800, Po-Yu Chuang a =C3=A9cri=
+t :
+>
+>> + =C2=A0 =C2=A0 /* push packet to protocol stack */
+>> + =C2=A0 =C2=A0 netif_receive_skb(skb);
+>> +
+>> + =C2=A0 =C2=A0 netdev->stats.rx_packets++;
+>> + =C2=A0 =C2=A0 netdev->stats.rx_bytes +=3D skb->len;
+>> +
+>> + =C2=A0 =C2=A0 (*processed)++;
+>> +
+>> + =C2=A0 =C2=A0 return true;
+>> +}
+>> +
+>
+> Hmm, after call to netif_receive_skb(skb), you are not allowed to acc=
+ess
+> skb anymore (maybe it was freed)
+>
+> netdev->stats.rx_packets++;
+> netdev->stats.rx_bytes +=3D skb->len;
+> netif_receive_skb(skb);
 
-Hmm, they probably know that, and prefer to wait MTCP stuff is mature
-before patch submission :)
+Wow, you are totally right.
 
-
+Thanks,
+Po-Yu Chuang
