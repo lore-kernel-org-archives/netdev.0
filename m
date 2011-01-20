@@ -1,99 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] net: ipv6: sit: fix rcu annotations
-Date: Thu, 20 Jan 2011 18:16:24 +0100
-Message-ID: <1295543784.2825.409.camel@edumazet-laptop>
+From: Alexander H Duyck <alexander.h.duyck@intel.com>
+Subject: Re: Question on RX packet classification in ethtool userspace
+Date: Thu, 20 Jan 2011 09:24:46 -0800
+Message-ID: <1295544286.4130.3.camel@ahduyck-mobl2.amr.corp.intel.com>
+References: <80769D7B14936844A23C0C43D9FBCF0F25C04CB6B2@orsmsx501.amr.corp.intel.com>
+	 <1295479169.2906.53.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>,
+	"santwona.behera@sun.com" <santwona.behera@sun.com>,
+	"jeff@garzik.org" <jeff@garzik.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:39128 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752343Ab1ATRQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 12:16:27 -0500
-Received: by wwa36 with SMTP id 36so876565wwa.1
-        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 09:16:26 -0800 (PST)
+Received: from mga09.intel.com ([134.134.136.24]:27986 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752617Ab1ATRXL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jan 2011 12:23:11 -0500
+In-Reply-To: <1295479169.2906.53.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix minor __rcu annotations and remove sparse warnings
+On Wed, 2011-01-19 at 15:19 -0800, Ben Hutchings wrote:
+> On Wed, 2011-01-19 at 14:52 -0800, Duyck, Alexander H wrote:
+> > So I was looking into the option of replacing the ETHTOOL_GRXNTUPLE
+> > call with something like ETHTOOL_GRXCLSRLALL and it seems like I
+> > wasn't having much luck finding the userspace implementation in the
+> > ethtool.
+> 
+> I wasn't aware until now that there was a public implementation!
+> 
+> > I eventually found a patch in patchwork at
+> > http://patchwork.ozlabs.org/patch/23223/ which is supposed to add
+> > support but the current ethtool git tree doesn't appear to contain
+> > this code.  I was wondering if I am missing something and it is on a
+> > branch somewhere, or is this something that was not applied to the
+> > userspace for some specific reason?
+> 
+> Thanks for digging this up.  It's not in any branch that I know of.  I'm
+> about to go on vacation, but I'll look at it when I get back.  I would
+> appreciate it if someone would refresh the patch against current ethtool
+> (preferably reusing some of the functions added for the RX n-tuple
+> operations).
+> 
+> Ben.
+> 
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
----
- net/ipv6/sit.c |   23 +++++++++++++----------
- 1 file changed, 13 insertions(+), 10 deletions(-)
+I'll look into updating the patch.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 8ce38f1..b1599a3 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -412,7 +412,7 @@ static void prl_list_destroy_rcu(struct rcu_head *head)
- 
- 	p = container_of(head, struct ip_tunnel_prl_entry, rcu_head);
- 	do {
--		n = p->next;
-+		n = rcu_dereference_protected(p->next, 1);
- 		kfree(p);
- 		p = n;
- 	} while (p);
-@@ -421,15 +421,17 @@ static void prl_list_destroy_rcu(struct rcu_head *head)
- static int
- ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
- {
--	struct ip_tunnel_prl_entry *x, **p;
-+	struct ip_tunnel_prl_entry *x;
-+	struct ip_tunnel_prl_entry __rcu **p;
- 	int err = 0;
- 
- 	ASSERT_RTNL();
- 
- 	if (a && a->addr != htonl(INADDR_ANY)) {
--		for (p = &t->prl; *p; p = &(*p)->next) {
--			if ((*p)->addr == a->addr) {
--				x = *p;
-+		for (p = &t->prl;
-+		     (x = rtnl_dereference(*p)) != NULL;
-+		     p = &x->next) {
-+			if (x->addr == a->addr) {
- 				*p = x->next;
- 				call_rcu(&x->rcu_head, prl_entry_destroy_rcu);
- 				t->prl_count--;
-@@ -438,9 +440,9 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
- 		}
- 		err = -ENXIO;
- 	} else {
--		if (t->prl) {
-+		x = rtnl_dereference(t->prl);
-+		if (x) {
- 			t->prl_count = 0;
--			x = t->prl;
- 			call_rcu(&x->rcu_head, prl_list_destroy_rcu);
- 			t->prl = NULL;
- 		}
-@@ -1179,7 +1181,7 @@ static int __net_init ipip6_fb_tunnel_init(struct net_device *dev)
- 	if (!dev->tstats)
- 		return -ENOMEM;
- 	dev_hold(dev);
--	sitn->tunnels_wc[0]	= tunnel;
-+	rcu_assign_pointer(sitn->tunnels_wc[0], tunnel);
- 	return 0;
- }
- 
-@@ -1196,11 +1198,12 @@ static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_hea
- 	for (prio = 1; prio < 4; prio++) {
- 		int h;
- 		for (h = 0; h < HASH_SIZE; h++) {
--			struct ip_tunnel *t = sitn->tunnels[prio][h];
-+			struct ip_tunnel *t;
- 
-+			t = rtnl_dereference(sitn->tunnels[prio][h]);
- 			while (t != NULL) {
- 				unregister_netdevice_queue(t->dev, head);
--				t = t->next;
-+				t = rtnl_dereference(t->next);
- 			}
- 		}
- 	}
+Thanks,
 
+Alex
 
