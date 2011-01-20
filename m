@@ -1,48 +1,42 @@
 From: kaber@trash.net
-Subject: [PATCH 00/80] netfilter: netfilter update
-Date: Thu, 20 Jan 2011 08:58:01 +0100
-Message-ID: <1295510282-16860-1-git-send-email-kaber@trash.net>
+Subject: [PATCH] netfilter: xtables: remove extraneous header that slipped in
+Date: Thu, 20 Jan 2011 08:58:02 +0100
+Message-ID: <1295510282-16860-2-git-send-email-kaber@trash.net>
+References: <1295510282-16860-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:62797 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755031Ab1ATH6F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 02:58:05 -0500
+In-Reply-To: <1295510282-16860-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[resend of the previous pull request, I've added Jan's fix to my tree,
- just resending the new patch instead of the entire batch]
+From: Jan Engelhardt <jengelh@medozas.de>
 
-following is a first batch of netfilter patches for 2.6.39, containing:
+Commit 0b8ad87 (netfilter: xtables: add missing header files to export
+list) erroneously added this.
 
-- cleanups and removal of atomic operations from Changli Gao
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/linux/netfilter/Kbuild |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-- RCU annotations, removal of atomic operations and cleanups from Eric
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index fc4e0aa..89c0d1e 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -56,7 +56,6 @@ header-y += xt_rateest.h
+ header-y += xt_realm.h
+ header-y += xt_recent.h
+ header-y += xt_sctp.h
+-header-y += xt_secmark.h
+ header-y += xt_socket.h
+ header-y += xt_state.h
+ header-y += xt_statistic.h
+-- 
+1.7.2.3
 
-- a new queue bypass option for nfnetlink_queue from Florian Westphal
-
-- arp_tables support for xt_CLASSIFY from Frederic Leroy
-
-- a new backup protocol for IPVS from and Schillstrom
-
-- IPVS netns support from Hans Schillstrom
-
-- type and header cleanups from Jan
-
-- missing module aliases from Jan
-
-- a new SNMP conntrack helper from Jiri Olsa
-
-- optional timestamping for conntrack entries to simplify userspace IPFIX,
-  implementations, from Pablo
-
-- a new AUDIT target for logging packets through the audit framework,
-  from Thomas
-
-- Improvements for the IPVS persistence engine from Simon
-
-ipset from Jozsef will follow soon, once I'm done reviewing it.
-
-Please pull from
-
-git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
-
-Thanks!
