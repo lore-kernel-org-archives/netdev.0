@@ -1,46 +1,99 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6] net_sched: RCU conversion of stab
-Date: Thu, 20 Jan 2011 17:39:22 +0100
-Message-ID: <1295541562.2825.368.camel@edumazet-laptop>
-References: <1295517052.2733.14.camel@edumazet-laptop>
-	 <1295518636.2825.4.camel@edumazet-laptop>
-	 <1295531299.2825.175.camel@edumazet-laptop>  <4D384E2D.5050001@trash.net>
+Subject: [PATCH] net: ipv6: sit: fix rcu annotations
+Date: Thu, 20 Jan 2011 18:16:24 +0100
+Message-ID: <1295543784.2825.409.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jesper Dangaard Brouer <hawk@diku.dk>,
-	Jarek Poplawski <jarkao2@gmail.com>, jamal <hadi@cyberus.ca>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:61434 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923Ab1ATQj1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 11:39:27 -0500
-Received: by wyb28 with SMTP id 28so805765wyb.19
-        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 08:39:26 -0800 (PST)
-In-Reply-To: <4D384E2D.5050001@trash.net>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:39128 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752343Ab1ATRQ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 12:16:27 -0500
+Received: by wwa36 with SMTP id 36so876565wwa.1
+        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 09:16:26 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 20 janvier 2011 =C3=A0 16:01 +0100, Patrick McHardy a =C3=A9cr=
-it :
-> Am 20.01.2011 14:48, schrieb Eric Dumazet:
-> > This patch converts stab qdisc management to RCU, so that we can pe=
-rform
-> > the qdisc_calculate_pkt_len() call before getting qdisc lock.
-> >=20
-> > This shortens the lock's held time in __dev_xmit_skb().
-> >=20
-> > This permits more qdiscs to get TCQ_F_CAN_BYPASS status, avoiding l=
-ot of
-> > cache misses and so reducing latencies.
-> >=20
->=20
-> Looks good to me.
->=20
+Fix minor __rcu annotations and remove sparse warnings
 
-Thanks for reviewing Patrick !
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv6/sit.c |   23 +++++++++++++----------
+ 1 file changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 8ce38f1..b1599a3 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -412,7 +412,7 @@ static void prl_list_destroy_rcu(struct rcu_head *head)
+ 
+ 	p = container_of(head, struct ip_tunnel_prl_entry, rcu_head);
+ 	do {
+-		n = p->next;
++		n = rcu_dereference_protected(p->next, 1);
+ 		kfree(p);
+ 		p = n;
+ 	} while (p);
+@@ -421,15 +421,17 @@ static void prl_list_destroy_rcu(struct rcu_head *head)
+ static int
+ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
+ {
+-	struct ip_tunnel_prl_entry *x, **p;
++	struct ip_tunnel_prl_entry *x;
++	struct ip_tunnel_prl_entry __rcu **p;
+ 	int err = 0;
+ 
+ 	ASSERT_RTNL();
+ 
+ 	if (a && a->addr != htonl(INADDR_ANY)) {
+-		for (p = &t->prl; *p; p = &(*p)->next) {
+-			if ((*p)->addr == a->addr) {
+-				x = *p;
++		for (p = &t->prl;
++		     (x = rtnl_dereference(*p)) != NULL;
++		     p = &x->next) {
++			if (x->addr == a->addr) {
+ 				*p = x->next;
+ 				call_rcu(&x->rcu_head, prl_entry_destroy_rcu);
+ 				t->prl_count--;
+@@ -438,9 +440,9 @@ ipip6_tunnel_del_prl(struct ip_tunnel *t, struct ip_tunnel_prl *a)
+ 		}
+ 		err = -ENXIO;
+ 	} else {
+-		if (t->prl) {
++		x = rtnl_dereference(t->prl);
++		if (x) {
+ 			t->prl_count = 0;
+-			x = t->prl;
+ 			call_rcu(&x->rcu_head, prl_list_destroy_rcu);
+ 			t->prl = NULL;
+ 		}
+@@ -1179,7 +1181,7 @@ static int __net_init ipip6_fb_tunnel_init(struct net_device *dev)
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
+ 	dev_hold(dev);
+-	sitn->tunnels_wc[0]	= tunnel;
++	rcu_assign_pointer(sitn->tunnels_wc[0], tunnel);
+ 	return 0;
+ }
+ 
+@@ -1196,11 +1198,12 @@ static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_hea
+ 	for (prio = 1; prio < 4; prio++) {
+ 		int h;
+ 		for (h = 0; h < HASH_SIZE; h++) {
+-			struct ip_tunnel *t = sitn->tunnels[prio][h];
++			struct ip_tunnel *t;
+ 
++			t = rtnl_dereference(sitn->tunnels[prio][h]);
+ 			while (t != NULL) {
+ 				unregister_netdevice_queue(t->dev, head);
+-				t = t->next;
++				t = rtnl_dereference(t->next);
+ 			}
+ 		}
+ 	}
 
 
