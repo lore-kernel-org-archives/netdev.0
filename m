@@ -1,40 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Thu, 20 Jan 2011 16:35:46 +0100
-Message-ID: <1295537746.2825.298.camel@edumazet-laptop>
-References: <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: MultiPath TCP in the Linux Kernel
+Date: Thu, 20 Jan 2011 16:38:25 +0100
+Message-ID: <7e28a5ddc16848dcd98c05351113304f@localhost>
+References: <201101201509.34536.christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <bonding-devel@lists.sourceforge.net>,
+	<linux-sctp@vger.kernel.org>
+To: <christoph.paasch@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:50908 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755736Ab1ATPi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 10:38:28 -0500
+In-Reply-To: <201101201509.34536.christoph.paasch@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 20 janvier 2011 =C3=A0 23:30 +0800, Po-Yu Chuang a =C3=A9crit =
-:
 
-> +	/* push packet to protocol stack */
-> +	netif_receive_skb(skb);
-> +
-> +	netdev->stats.rx_packets++;
-> +	netdev->stats.rx_bytes +=3D skb->len;
-> +
-> +	(*processed)++;
-> +
-> +	return true;
-> +}
-> +
+On Thu, 20 Jan 2011 15:09:34 +0100, Christoph Paasch wrote:
 
-Hmm, after call to netif_receive_skb(skb), you are not allowed to acces=
-s
-skb anymore (maybe it was freed)
+> Hi all,
 
-netdev->stats.rx_packets++;
-netdev->stats.rx_bytes +=3D skb->len;
-netif_receive_skb(skb);
+> 
+
+> The IETF is developing a new transport layer solution, MultiPath TCP,
+
+> which 
+
+> allows to efficiently exploit several Internet paths between a pair of
+
+> hosts, 
+
+> while presenting a single TCP connection to the application layer.
+
+> 
+
+> At the UCLouvain in Belgium we are developping the support for MultiPath
+
+> TCP 
+
+> in the Linux Kernel. The implementation is a major extension to the
+
+Linux
+
+> TCP-
+
+> stack.
+
+
+
+Hello Christoph,
+
+
+
+if you want that your work becomes part of the official network stack you
+
+should align your effort on the official Linux way. This means you should
+
+split your work and publish patches on this maillinglist.
+
+
+
+Cheers, Hagen
