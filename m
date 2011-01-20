@@ -1,35 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: add a missing include in nf_conntrack_reasm.c
-Date: Thu, 20 Jan 2011 20:18:27 +0100
-Message-ID: <4D388A83.5020501@trash.net>
-References: <1295545997.2825.458.camel@edumazet-laptop>
+From: Dirk Brandewie <dirk.j.brandewie@intel.com>
+Subject: Re: [PATCH] e1000: add support for Marvell Alaska M88E1118R PHY
+Date: Thu, 20 Jan 2011 10:49:19 -0800
+Message-ID: <1295549359.7387.30.camel@localhost.localdomain>
+References: <201101191009.44707.ffainelli@freebox.fr>
+	 <AANLkTinDh-ZnrZy3f5H72+FuNwvbnY-BnCns17+cpR=Z@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	KOVACS Krisztian <hidden@balabit.hu>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1295545997.2825.458.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Florian Fainelli <ffainelli@freebox.fr>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:52192 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750762Ab1ATTTA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jan 2011 14:19:00 -0500
+In-Reply-To: <AANLkTinDh-ZnrZy3f5H72+FuNwvbnY-BnCns17+cpR=Z@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 20.01.2011 18:53, schrieb Eric Dumazet:
-> After commit ae90bdeaeac6b (netfilter: fix compilation when conntrack is
-> disabled but tproxy is enabled) we have following warnings :
+On Wed, 2011-01-19 at 22:51 -0800, Jeff Kirsher wrote:
+> On Wed, Jan 19, 2011 at 01:09, Florian Fainelli <ffainelli@freebox.fr> wrote:
+> > From: Florian Fainelli <ffainelli@freebox.fr>
+> >
+> > This patch adds support for Marvell Alask M88E188R PHY chips. Support for
+> > other M88* PHYs is already there, so there is nothing more to add than its
+> > PHY id.
+> >
+> > Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+> > CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
+> > CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
 > 
-> net/ipv6/netfilter/nf_conntrack_reasm.c:520:16: warning: symbol
-> 'nf_ct_frag6_gather' was not declared. Should it be static?
-> net/ipv6/netfilter/nf_conntrack_reasm.c:591:6: warning: symbol
-> 'nf_ct_frag6_output' was not declared. Should it be static?
-> net/ipv6/netfilter/nf_conntrack_reasm.c:612:5: warning: symbol
-> 'nf_ct_frag6_init' was not declared. Should it be static?
-> net/ipv6/netfilter/nf_conntrack_reasm.c:640:6: warning: symbol
-> 'nf_ct_frag6_cleanup' was not declared. Should it be static?
+> The patch itself looks fine.  I am concerned about validation.
 > 
-> Fix this including net/netfilter/ipv6/nf_defrag_ipv6.h
+> Dirk - is there a chance that the ce4100 will use this PHY?  If so,
+> can you cover the validation?
+
+Florian is working on a CE4100 based platform.  It looks like they used
+a different PHY from the Flacon Falls reference platform. I can't
+directly test this patch since I don't have their hardware.  I will be
+testing .38-rc1 next week on falcon falls.
+
+I think the best we can do without the hardware is to compare the data
+sheet for the new PHY with the PHYs already supported and make sure they
+are compatible.  If the datasheets match up for the features the driver
+is using this seems pretty low risk IMHO.
+
+--Dirk
+> 
+> For now I will add this to my net-next tree while I await word from Dirk.
 > 
 
-I currently don't have access to all my trees, does this patch
-apply to 2.6.38 or just the current -rc?
+
