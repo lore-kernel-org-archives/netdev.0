@@ -1,169 +1,70 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] Ensure that we unshare skbs prior to calling pskb_may_pull in bonding driver
-Date: Thu, 20 Jan 2011 11:43:09 -0800
-Message-ID: <3874.1295552589@death>
-References: <1295550151-25913-1-git-send-email-nhorman@tuxdriver.com>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:46340 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752757Ab1ATTn3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jan 2011 14:43:29 -0500
-Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e9.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p0KJJ4GC029907
-	for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 14:19:04 -0500
-Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 29C39728051
-	for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 14:43:23 -0500 (EST)
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0KJhCtt389776
-	for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 14:43:13 -0500
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0KJhC3e000858
-	for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 14:43:12 -0500
-In-reply-to: <1295550151-25913-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: undefined reference to 'nf_conntrack_tstamp_*'
+Date: Thu, 20 Jan 2011 20:52:35 +0100
+Message-ID: <4D389283.3040307@trash.net>
+References: <20110120191612.24205.73463.stgit@jf-dev1-dcblab>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------040303090502060502060402"
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	pablo@netfilter.org
+To: John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110120191612.24205.73463.stgit@jf-dev1-dcblab>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Neil Horman <nhorman@tuxdriver.com> wrote:
+This is a multi-part message in MIME format.
+--------------040303090502060502060402
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
 
->Recently reported oops:
->
->kernel BUG at net/core/skbuff.c:813!
->invalid opcode: 0000 [#1] SMP
->last sysfs file: /sys/devices/virtual/net/bond0/broadcast
->CPU 8
->Modules linked in: sit tunnel4 cpufreq_ondemand acpi_cpufreq freq_table bonding
->ipv6 dm_mirror dm_region_hash dm_log cdc_ether usbnet mii serio_raw i2c_i801
->i2c_core iTCO_wdt iTCO_vendor_support shpchp ioatdma i7core_edac edac_core bnx2
->ixgbe dca mdio sg ext4 mbcache jbd2 sd_mod crc_t10dif mptsas mptscsih mptbase
->scsi_transport_sas dm_mod [last unloaded: microcode]
->
->Modules linked in: sit tunnel4 cpufreq_ondemand acpi_cpufreq freq_table bonding
->ipv6 dm_mirror dm_region_hash dm_log cdc_ether usbnet mii serio_raw i2c_i801
->i2c_core iTCO_wdt iTCO_vendor_support shpchp ioatdma i7core_edac edac_core bnx2
->ixgbe dca mdio sg ext4 mbcache jbd2 sd_mod crc_t10dif mptsas mptscsih mptbase
->scsi_transport_sas dm_mod [last unloaded: microcode]
->Pid: 0, comm: swapper Not tainted 2.6.32-71.el6.x86_64 #1 BladeCenter HS22
->-[7870AC1]-
->RIP: 0010:[<ffffffff81405b16>]  [<ffffffff81405b16>]
->pskb_expand_head+0x36/0x1e0
->RSP: 0018:ffff880028303b70  EFLAGS: 00010202
->RAX: 0000000000000002 RBX: ffff880c6458ec80 RCX: 0000000000000020
->RDX: 0000000000000000 RSI: 0000000000000000 RDI: ffff880c6458ec80
->RBP: ffff880028303bc0 R08: ffffffff818a6180 R09: ffff880c6458ed64
->R10: ffff880c622b36c0 R11: 0000000000000400 R12: 0000000000000000
->R13: 0000000000000180 R14: ffff880c622b3000 R15: 0000000000000000
->FS:  0000000000000000(0000) GS:ffff880028300000(0000) knlGS:0000000000000000
->CS:  0010 DS: 0018 ES: 0018 CR0: 000000008005003b
->CR2: 00000038653452a4 CR3: 0000000001001000 CR4: 00000000000006e0
->DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->Process swapper (pid: 0, threadinfo ffff8806649c2000, task ffff880c64f16ab0)
->Stack:
-> ffff880028303bc0 ffffffff8104fff9 000000000000001c 0000000100000000
-><0> ffff880000047d80 ffff880c6458ec80 000000000000001c ffff880c6223da00
-><0> ffff880c622b3000 0000000000000000 ffff880028303c10 ffffffff81407f7a
->Call Trace:
-><IRQ>
-> [<ffffffff8104fff9>] ? __wake_up_common+0x59/0x90
-> [<ffffffff81407f7a>] __pskb_pull_tail+0x2aa/0x360
-> [<ffffffffa0244530>] bond_arp_rcv+0x2c0/0x2e0 [bonding]
-> [<ffffffff814a0857>] ? packet_rcv+0x377/0x440
-> [<ffffffff8140f21b>] netif_receive_skb+0x2db/0x670
-> [<ffffffff8140f788>] napi_skb_finish+0x58/0x70
-> [<ffffffff8140fc89>] napi_gro_receive+0x39/0x50
-> [<ffffffffa01286eb>] ixgbe_clean_rx_irq+0x35b/0x900 [ixgbe]
-> [<ffffffffa01290f6>] ixgbe_clean_rxtx_many+0x136/0x240 [ixgbe]
-> [<ffffffff8140fe53>] net_rx_action+0x103/0x210
-> [<ffffffff81073bd7>] __do_softirq+0xb7/0x1e0
-> [<ffffffff810d8740>] ? handle_IRQ_event+0x60/0x170
-> [<ffffffff810142cc>] call_softirq+0x1c/0x30
-> [<ffffffff81015f35>] do_softirq+0x65/0xa0
-> [<ffffffff810739d5>] irq_exit+0x85/0x90
-> [<ffffffff814cf915>] do_IRQ+0x75/0xf0
-> [<ffffffff81013ad3>] ret_from_intr+0x0/0x11
-> <EOI>
-> [<ffffffff8101bc01>] ? mwait_idle+0x71/0xd0
-> [<ffffffff814cd80a>] ? atomic_notifier_call_chain+0x1a/0x20
-> [<ffffffff81011e96>] cpu_idle+0xb6/0x110
-> [<ffffffff814c17c8>] start_secondary+0x1fc/0x23f
->
->Resulted from bonding driver registering packet handlers via dev_add_pack and
->then trying to call pskb_may_pull. If another packet handler (like for AF_PACKET
->sockets) gets called first, the delivered skb will have a user count > 1, which
->causes pskb_may_pull to BUG halt when it does its skb_shared check.  Fix this by
->calling skb_share_check prior to the may_pull call sites in the bonding driver
->to clone the skb when needed.  Tested by myself and the reported successfully.
->
->Signed-off-by: Neil Horman
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: Jay Vosburgh <fubar@us.ibm.com>
->CC: "David S. Miller" <davem@davemloft.net>
+Am 20.01.2011 20:16, schrieb John Fastabend:
+> net/built-in.o: In function `nf_conntrack_init_net':
+> net/netfilter/nf_conntrack_core.c:1521:
+> 	undefined reference to `nf_conntrack_tstamp_init'
+> net/netfilter/nf_conntrack_core.c:1531:
+> 	undefined reference to `nf_conntrack_tstamp_fini'
+> 
+> Add 'selects' notation to Kconfig to include NF_CONNTRACK_TIMESTAMP
+> this resolves all the config files I tested.
 
-	Looks like a candidate for -stable as well.
-
-	-J
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+That's not the correct fix, NF_CONNTRACK_TIMESTAMP is supposed
+to be option. Please try whether this patch fixes the problem.
 
 
->---
-> drivers/net/bonding/bond_3ad.c  |    4 ++++
-> drivers/net/bonding/bond_alb.c  |    4 ++++
-> drivers/net/bonding/bond_main.c |    4 ++++
-> 3 files changed, 12 insertions(+), 0 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 171782e..1024ae1 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -2470,6 +2470,10 @@ int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev, struct pac
-> 	if (!(dev->flags & IFF_MASTER))
-> 		goto out;
->
->+	skb = skb_share_check(skb, GFP_ATOMIC);
->+	if (!skb)
->+		goto out;
->+
-> 	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
-> 		goto out;
->
->diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
->index f4e638c..5c6fba8 100644
->--- a/drivers/net/bonding/bond_alb.c
->+++ b/drivers/net/bonding/bond_alb.c
->@@ -326,6 +326,10 @@ static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond_dev, struct
-> 		goto out;
-> 	}
->
->+	skb = skb_share_check(skb, GFP_ATOMIC);
->+	if (!skb)
->+		goto out;
->+
-> 	if (!pskb_may_pull(skb, arp_hdr_len(bond_dev)))
-> 		goto out;
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index b1025b8..163e0b0 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2733,6 +2733,10 @@ static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev, struct pack
-> 	if (!slave || !slave_do_arp_validate(bond, slave))
-> 		goto out_unlock;
->
->+	skb = skb_share_check(skb, GFP_ATOMIC);
->+	if (!skb)
->+		goto out_unlock;
->+
-> 	if (!pskb_may_pull(skb, arp_hdr_len(dev)))
-> 		goto out_unlock;
->
->-- 
->1.7.3.4
->
+--------------040303090502060502060402
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="x"
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+Y29tbWl0IDJmMWUzMTc2NzIzZDc0ZWEyZGQ5NzVlNWJlMGVmNmJiNGZlZDJlMmUKQXV0aG9y
+OiBQYXRyaWNrIE1jSGFyZHkgPGthYmVyQHRyYXNoLm5ldD4KRGF0ZTogICBUaHUgSmFuIDIw
+IDIwOjQ2OjUyIDIwMTEgKzAxMDAKCiAgICBuZXRmaWx0ZXI6IG5mX2Nvbm50cmFjazogZml4
+IGxpbmtlciBlcnJvciB3aXRoIE5GX0NPTk5UUkFDS19USU1FU1RBTVA9bgogICAgCiAgICBu
+ZXQvYnVpbHQtaW4ubzogSW4gZnVuY3Rpb24gYG5mX2Nvbm50cmFja19pbml0X25ldCc6CiAg
+ICBuZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmM6MTUyMToKICAgIAl1bmRlZmlu
+ZWQgcmVmZXJlbmNlIHRvIGBuZl9jb25udHJhY2tfdHN0YW1wX2luaXQnCiAgICBuZXQvbmV0
+ZmlsdGVyL25mX2Nvbm50cmFja19jb3JlLmM6MTUzMToKICAgIAl1bmRlZmluZWQgcmVmZXJl
+bmNlIHRvIGBuZl9jb25udHJhY2tfdHN0YW1wX2ZpbmknCiAgICAKICAgIEFkZCBkdW1teSBp
+bmxpbmUgZnVuY3Rpb25zIGZvciB0aGUgPW4gY2FzZSB0byBmaXggdGhpcy4KICAgIAogICAg
+UmVwb3J0ZWQtYnk6IEpvaG4gRmFzdGFiZW5kIDxqb2huLnIuZmFzdGFiZW5kQGludGVsLmNv
+bT4KICAgIFNpZ25lZC1vZmYtYnk6IFBhdHJpY2sgTWNIYXJkeSA8a2FiZXJAdHJhc2gubmV0
+PgoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L25ldGZpbHRlci9uZl9jb25udHJhY2tfdGlt
+ZXN0YW1wLmggYi9pbmNsdWRlL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX3RpbWVzdGFt
+cC5oCmluZGV4IGYxN2RjYjYuLmZjOWM4MmIgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbmV0L25l
+dGZpbHRlci9uZl9jb25udHJhY2tfdGltZXN0YW1wLmgKKysrIGIvaW5jbHVkZS9uZXQvbmV0
+ZmlsdGVyL25mX2Nvbm50cmFja190aW1lc3RhbXAuaApAQCAtNDcsNyArNDcsMTkgQEAgc3Rh
+dGljIGlubGluZSB2b2lkIG5mX2N0X3NldF90c3RhbXAoc3RydWN0IG5ldCAqbmV0LCBib29s
+IGVuYWJsZSkKIAluZXQtPmN0LnN5c2N0bF90c3RhbXAgPSBlbmFibGU7CiB9CiAKKyNpZmRl
+ZiBDT05GSUdfTkZfQ09OTlRSQUNLX1RJTUVTVEFNUAogZXh0ZXJuIGludCBuZl9jb25udHJh
+Y2tfdHN0YW1wX2luaXQoc3RydWN0IG5ldCAqbmV0KTsKIGV4dGVybiB2b2lkIG5mX2Nvbm50
+cmFja190c3RhbXBfZmluaShzdHJ1Y3QgbmV0ICpuZXQpOworI2Vsc2UKK3N0YXRpYyBpbmxp
+bmUgaW50IG5mX2Nvbm50cmFja190c3RhbXBfaW5pdChzdHJ1Y3QgbmV0ICpuZXQpCit7CisJ
+cmV0dXJuIDA7Cit9CisKK3N0YXRpYyBpbmxpbmUgdm9pZCBuZl9jb25udHJhY2tfdHN0YW1w
+X2Zpbmkoc3RydWN0IG5ldCAqbmV0KQoreworCXJldHVybjsKK30KKyNlbmRpZiAvKiBDT05G
+SUdfTkZfQ09OTlRSQUNLX1RJTUVTVEFNUCAqLwogCiAjZW5kaWYgLyogX05GX0NPTk5UUkFD
+S19UU1RBTVBfSCAqLwo=
+--------------040303090502060502060402--
