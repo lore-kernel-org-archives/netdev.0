@@ -1,41 +1,61 @@
-From: Jarek =?iso-8859-2?Q?Kami=F1ski?= <jarek@vilo.eu.org>
-Subject: Re: Bug#609538: r8169: long delay during resume
-Date: Thu, 20 Jan 2011 14:55:34 +0100
-Message-ID: <20110120135534.GA24545@rocket.almost.secure.la>
-References: <AANLkTikxpOS2fJ1Sqv=Lg6cX1TE+1W-ZxFV+YMOH1+Yp@mail.gmail.com>
- <1295493603.2906.107.camel@localhost>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: MultiPath TCP in the Linux Kernel
+Date: Thu, 20 Jan 2011 15:09:34 +0100
+Message-ID: <201101201509.34536.christoph.paasch@uclouvain.be>
+Reply-To: christoph.paasch@uclouvain.be
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	netdev <netdev@vger.kernel.org>,
-	Hayes Wang <hayeswang@realtek.com>
-To: Ben Hutchings <ben@decadent.org.uk>, 609538@bugs.debian.org,
-	Daniel J Blueman <daniel.blueman@gmail.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, bonding-devel@lists.sourceforge.net,
+	linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vilo.eu.org ([80.52.229.66]:36666 "EHLO vilo.eu.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755609Ab1ATOEX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jan 2011 09:04:23 -0500
-Content-Disposition: inline
-In-Reply-To: <1295493603.2906.107.camel@localhost>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:35341 "EHLO
+	smtp4.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755559Ab1ATOLV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 09:11:21 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 20, 2011 at 03:20:03AM +0000, Ben Hutchings wrote:
-> On Thu, 2011-01-20 at 10:04 +0700, Daniel J Blueman wrote:
->> I see that Francois' patch is present in 2.6.38-rc1; is there a way to
->> avoid this delay, or is this likely in request_firmware?
+Hi all,
 
-> It's a known problem with calls to request_firmware() when userland is
-> not running (early initialisation or resume from sleep).  It may be
-> fixable.
+The IETF is developing a new transport layer solution, MultiPath TCP, w=
+hich=20
+allows to efficiently exploit several Internet paths between a pair of =
+hosts,=20
+while presenting a single TCP connection to the application layer.
 
-It was partially fixed in commit
-f1e02ed109df5f99abf942b8ccc99960cb09dd38 in linux-2.6.git (r8169: keep
-firmware in memory.). Sorry for not reporting it here, I clicked "reply"
-instead of "group reply" late in the night.
+At the UCLouvain in Belgium we are developping the support for MultiPat=
+h TCP=20
+in the Linux Kernel. The implementation is a major extension to the Lin=
+ux TCP-
+stack.
 
-If this commit could be included in Debian kernel, the bug could be
-closed.
+=46or general information, access:
+http://inl.info.ucl.ac.be/mptcp
+https://scm.info.ucl.ac.be/trac/mptcp/
 
-J.
+To access the git-repository:
+git://scm.info.ucl.ac.be/mtcp.git
+branches:
+	mptcp_2.6.36 - based on Linux Kernel 2.6.36
+	mtcp_no_subrcvqueue - based on Linux Kernel 2.6.28
+
+=46or questions, feedback,... feel free to subscribe to the mptcp-dev M=
+ailing-
+List:
+https://listes-2.sipr.ucl.ac.be/sympa/info/mptcp-dev
+
+
+Regards,
+Christoph
+
+--
+Christoph Paasch
+PhD Student
+
+IP Networking Lab --- http://inl.info.ucl.ac.be
+MultiPath TCP in the Linux Kernel --- http://inl.info.ucl.ac.be/mptcp
+Universit=E9 Catholique de Louvain
+
+www.rollerbulls.be
+--
