@@ -1,30 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 00/79] netfilter: netfilter update
-Date: Thu, 20 Jan 2011 08:49:41 +0100
-Message-ID: <4D37E915.90001@trash.net>
-References: <1295464519-21763-1-git-send-email-kaber@trash.net> <20110119.135504.149816150.davem@davemloft.net> <20110119.165045.25148392.davem@davemloft.net> <4D378C3B.1020202@trash.net> <alpine.LNX.2.01.1101200235350.31108@obet.zrqbmnf.qr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Engelhardt <jengelh@medozas.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:62686 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751614Ab1ATHto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 02:49:44 -0500
-In-Reply-To: <alpine.LNX.2.01.1101200235350.31108@obet.zrqbmnf.qr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kaber@trash.net
+Subject: [PATCH 00/80] netfilter: netfilter update
+Date: Thu, 20 Jan 2011 08:58:01 +0100
+Message-ID: <1295510282-16860-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 20.01.2011 02:36, Jan Engelhardt wrote:
-> netfilter: xtables: remove extraneous header that slipped in
-> 
-> Commit 0b8ad876275c74e4bfb6ec3150793f3c0ecfcee2 erroneously added
-> this.
+[resend of the previous pull request, I've added Jan's fix to my tree,
+ just resending the new patch instead of the entire batch]
 
-Please use the title when referencing commits unless its already
-in Linus' tree.
+following is a first batch of netfilter patches for 2.6.39, containing:
 
-Applied.
+- cleanups and removal of atomic operations from Changli Gao
+
+- RCU annotations, removal of atomic operations and cleanups from Eric
+
+- a new queue bypass option for nfnetlink_queue from Florian Westphal
+
+- arp_tables support for xt_CLASSIFY from Frederic Leroy
+
+- a new backup protocol for IPVS from and Schillstrom
+
+- IPVS netns support from Hans Schillstrom
+
+- type and header cleanups from Jan
+
+- missing module aliases from Jan
+
+- a new SNMP conntrack helper from Jiri Olsa
+
+- optional timestamping for conntrack entries to simplify userspace IPFIX,
+  implementations, from Pablo
+
+- a new AUDIT target for logging packets through the audit framework,
+  from Thomas
+
+- Improvements for the IPVS persistence engine from Simon
+
+ipset from Jozsef will follow soon, once I'm done reviewing it.
+
+Please pull from
+
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-next-2.6.git master
+
+Thanks!
