@@ -1,54 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: add a missing include in nf_conntrack_reasm.c
-Date: Thu, 20 Jan 2011 18:53:17 +0100
-Message-ID: <1295545997.2825.458.camel@edumazet-laptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Thu, 20 Jan 2011 09:56:19 -0800
+Message-ID: <1295546179.28001.4.camel@Joe-Laptop>
+References: <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
+	 <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Netfilter Development Mailinglist
-	<netfilter-devel@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	KOVACS Krisztian <hidden@balabit.hu>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:60699 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844Ab1ATRyK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 12:54:10 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, eric.dumazet@gmail.com,
+	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After commit ae90bdeaeac6b (netfilter: fix compilation when conntrack is
-disabled but tproxy is enabled) we have following warnings :
+On Thu, 2011-01-20 at 23:30 +0800, Po-Yu Chuang wrote:
+> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+[]
+> +	/* map io memory */
+> +	priv->res = request_mem_region(res->start, res->end - res->start,
+> +				       dev_name(&pdev->dev));
 
-net/ipv6/netfilter/nf_conntrack_reasm.c:520:16: warning: symbol
-'nf_ct_frag6_gather' was not declared. Should it be static?
-net/ipv6/netfilter/nf_conntrack_reasm.c:591:6: warning: symbol
-'nf_ct_frag6_output' was not declared. Should it be static?
-net/ipv6/netfilter/nf_conntrack_reasm.c:612:5: warning: symbol
-'nf_ct_frag6_init' was not declared. Should it be static?
-net/ipv6/netfilter/nf_conntrack_reasm.c:640:6: warning: symbol
-'nf_ct_frag6_cleanup' was not declared. Should it be static?
+Off by one?
 
-Fix this including net/netfilter/ipv6/nf_defrag_ipv6.h
-
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: KOVACS Krisztian <hidden@balabit.hu>
----
- net/ipv6/netfilter/nf_conntrack_reasm.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 66e003e..0857272 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -45,6 +45,7 @@
- #include <linux/netfilter_ipv6.h>
- #include <linux/kernel.h>
- #include <linux/module.h>
-+#include <net/netfilter/ipv6/nf_defrag_ipv6.h>
- 
- 
- struct nf_ct_frag6_skb_cb
-
-
+	priv->res = request_mem_region(res->start, resource_size(res),
+				       dev_name(&pdev->dev));
