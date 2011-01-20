@@ -1,85 +1,36 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Thu, 20 Jan 2011 16:41:45 +0100
-Message-ID: <1295538105.2825.308.camel@edumazet-laptop>
-References: <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+Subject: Re: MultiPath TCP in the Linux Kernel
+Date: Thu, 20 Jan 2011 16:42:56 +0100
+Message-ID: <1295538176.2825.311.camel@edumazet-laptop>
+References: <201101201509.34536.christoph.paasch@uclouvain.be>
+	 <7e28a5ddc16848dcd98c05351113304f@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: christoph.paasch@uclouvain.be, netdev@vger.kernel.org,
+	bonding-devel@lists.sourceforge.net, linux-sctp@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:52429 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755788Ab1ATPnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 10:43:01 -0500
+In-Reply-To: <7e28a5ddc16848dcd98c05351113304f@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 20 janvier 2011 =C3=A0 23:30 +0800, Po-Yu Chuang a =C3=A9crit =
-:
+Le jeudi 20 janvier 2011 =C3=A0 16:38 +0100, Hagen Paul Pfeifer a =C3=A9=
+crit :
 
-> +static bool ftmac100_tx_complete_packet(struct ftmac100 *priv)
-> +{
-> +	struct net_device *netdev =3D priv->netdev;
-> +	struct ftmac100_txdes *txdes;
-> +	struct sk_buff *skb;
-> +	dma_addr_t map;
-> +
-> +	if (priv->tx_pending =3D=3D 0)
-> +		return false;
-> +
-> +	txdes =3D ftmac100_current_clean_txdes(priv);
-> +
-> +	if (ftmac100_txdes_owned_by_dma(txdes))
-> +		return false;
-> +
-> +	skb =3D ftmac100_txdes_get_skb(txdes);
-> +	map =3D ftmac100_txdes_get_dma_addr(txdes);
-> +
-> +	if (unlikely(ftmac100_txdes_excessive_collision(txdes) ||
-> +		     ftmac100_txdes_late_collision(txdes))) {
-> +		/*
-> +		 * packet transmitted to ethernet lost due to late collision
-> +		 * or excessive collision
-> +		 */
-> +		netdev->stats.tx_aborted_errors++;
-> +	} else {
-> +		netdev->stats.tx_packets++;
-> +		netdev->stats.tx_bytes +=3D skb->len;
-> +	}
-> +
-> +	dma_unmap_single(priv->dev, map, skb_headlen(skb), DMA_TO_DEVICE);
-> +
-> +	dev_kfree_skb_irq(skb);
-> +
-> +	ftmac100_txdes_reset(txdes);
-> +
-> +	ftmac100_tx_clean_pointer_advance(priv);
-> +
-> +	priv->tx_pending--;
-> +	netif_wake_queue(netdev);
-> +
-> +	return true;
-> +}
-> +
-> +static void ftmac100_tx_complete(struct ftmac100 *priv)
-> +{
-> +	unsigned long flags;
-> +
-> +	spin_lock_irqsave(&priv->tx_lock, flags);
-> +	while (ftmac100_tx_complete_packet(priv))
-> +		;
-> +	spin_unlock_irqrestore(&priv->tx_lock, flags);
-> +}
-> +
+> Hello Christoph,
+>=20
+> if you want that your work becomes part of the official network stack=
+ you
+> should align your effort on the official Linux way. This means you sh=
+ould
+> split your work and publish patches on this maillinglist.
 
-I dont understand why you still block hard IRQS, after full NAPI
-conversion.
+Hmm, they probably know that, and prefer to wait MTCP stuff is mature
+before patch submission :)
 
-Now you run from NAPI, and softirq handler, are you sure you still need
-to block hard IRQ and tx_lock ?
 
-It seems to me ftmac100_xmit() could only block softirqs (but they
-already are blocked by caller), so you could use spin_lock() from
-ftmac100_xmit()
