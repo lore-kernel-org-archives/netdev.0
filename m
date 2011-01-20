@@ -1,43 +1,29 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e1000: add support for Marvell Alaska M88E1118R PHY
-Date: Wed, 19 Jan 2011 22:51:50 -0800
-Message-ID: <AANLkTinDh-ZnrZy3f5H72+FuNwvbnY-BnCns17+cpR=Z@mail.gmail.com>
-References: <201101191009.44707.ffainelli@freebox.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/4] vxge: cleanup probe error paths
+Date: Wed, 19 Jan 2011 23:18:39 -0800 (PST)
+Message-ID: <20110119.231839.35811639.davem@davemloft.net>
+References: <1295398942-4131-1-git-send-email-jon.mason@exar.com>
+	<20110119.165316.209979838.davem@davemloft.net>
+	<20110120044225.GA11231@exar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Dirk Brandewie <dirk.j.brandewie@intel.com>
-To: Florian Fainelli <ffainelli@freebox.fr>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Sivakumar.Subramani@exar.com,
+	Sreenivasa.Honnur@exar.com, Ramkrishna.Vepa@exar.com
+To: jon.mason@exar.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:44795 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754401Ab1ATGvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 01:51:51 -0500
-Received: by iyj18 with SMTP id 18so254560iyj.19
-        for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 22:51:50 -0800 (PST)
-In-Reply-To: <201101191009.44707.ffainelli@freebox.fr>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58431
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752963Ab1ATHSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 02:18:05 -0500
+In-Reply-To: <20110120044225.GA11231@exar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 19, 2011 at 01:09, Florian Fainelli <ffainelli@freebox.fr> wrote:
-> From: Florian Fainelli <ffainelli@freebox.fr>
->
-> This patch adds support for Marvell Alask M88E188R PHY chips. Support for
-> other M88* PHYs is already there, so there is nothing more to add than its
-> PHY id.
->
-> Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
-> CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
-> CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> ---
+From: Jon Mason <jon.mason@exar.com>
+Date: Wed, 19 Jan 2011 22:42:26 -0600
 
-The patch itself looks fine.  I am concerned about validation.
+> My apologies for not specifying, please include this only in the
+> net-next-2.6 tree.
 
-Dirk - is there a chance that the ce4100 will use this PHY?  If so,
-can you cover the validation?
-
-For now I will add this to my net-next tree while I await word from Dirk.
-
--- 
-Cheers,
-Jeff
+Done, thanks.
