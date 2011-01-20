@@ -1,28 +1,46 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH net-next-2.6 v3 2/2] can: add driver for Softing card
-Date: Thu, 20 Jan 2011 09:51:41 +0100
-Message-ID: <20110120085141.GA388@e-circ.dyndns.org>
-References: <20110111143007.GB387@e-circ.dyndns.org>
- <20110111143428.GD387@e-circ.dyndns.org>
+From: Octavian Purdila <opurdila@ixiacom.com>
+Subject: Re: [PATCH] net: dev_close_many() is static
+Date: Thu, 20 Jan 2011 11:16:28 +0200
+Message-ID: <201101201116.29031.opurdila@ixiacom.com>
+References: <1295508202.2653.483.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org, socketcan-core@lists.berlios.de,
-	linux-pcmcia@lists.infradead.org
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:44679 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751782Ab1ATIvr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jan 2011 03:51:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20110111143428.GD387@e-circ.dyndns.org>
+Received: from ixro-out-rtc.ixiacom.com ([92.87.192.98]:2798 "EHLO
+	ixro-ex1.ixiacom.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754919Ab1ATJQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 04:16:31 -0500
+In-Reply-To: <1295508202.2653.483.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thursday 20 January 2011, 09:23:22
 
-I didn't get any remarks anymore on this series.
-Does this mean the PCMCIA interface is OK? I'm not so familiar
-with that part...
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Octavian Purdila <opurdila@ixiacom.com>
+> ---
+>  net/core/dev.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 7c6a46f..c135268 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -1285,7 +1285,7 @@ static int __dev_close(struct net_device *dev)
+>  	return __dev_close_many(&single);
+>  }
+> 
+> -int dev_close_many(struct list_head *head)
+> +static int dev_close_many(struct list_head *head)
+>  {
+>  	struct net_device *dev, *tmp;
+>  	LIST_HEAD(tmp_list);
 
-regards,
-Kurt
+Oops, missed that. Thanks Eric !
+
+Reviewed-by: Octavian Purdila <opurdila@ixiacom.com>
