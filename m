@@ -1,57 +1,59 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH net-2.6] cxgb4: fix reported state of interfaces without link
-Date: Wed, 19 Jan 2011 17:29:05 -0800
-Message-ID: <1295486945-22015-1-git-send-email-dm@chelsio.com>
-To: netdev@vger.kernel.org
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: [PATCH 00/79] netfilter: netfilter update
+Date: Thu, 20 Jan 2011 02:36:10 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1101200235350.31108@obet.zrqbmnf.qr>
+References: <1295464519-21763-1-git-send-email-kaber@trash.net> <20110119.135504.149816150.davem@davemloft.net> <20110119.165045.25148392.davem@davemloft.net> <4D378C3B.1020202@trash.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:26156 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753687Ab1ATB3H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jan 2011 20:29:07 -0500
-Received: from tom.asicdesigners.com (tom.asicdesigners.com [10.192.167.168])
-	by stargate.chelsio.com (8.13.1/8.13.1) with ESMTP id p0K1T78R017861
-	for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 17:29:07 -0800
-Received: from tom.asicdesigners.com (localhost.localdomain [127.0.0.1])
-	by tom.asicdesigners.com (8.14.4/8.14.3) with ESMTP id p0K1T59C022067
-	for <netdev@vger.kernel.org>; Wed, 19 Jan 2011 17:29:06 -0800
-Received: (from dm@localhost)
-	by tom.asicdesigners.com (8.14.4/8.14.4/Submit) id p0K1T54f022065
-	for netdev@vger.kernel.org; Wed, 19 Jan 2011 17:29:05 -0800
+Received: from borg.medozas.de ([188.40.89.202]:59659 "EHLO borg.medozas.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752369Ab1ATBgL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jan 2011 20:36:11 -0500
+In-Reply-To: <4D378C3B.1020202@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently tools like ip and ifconfig report incorrect state for cxgb4
-interfaces that are up but do not have link and do so until first link
-establishment.  This is because the initial netif_carrier_off call is
-before register_netdev and it needs to be after to be fully effective.
-Fix this by moving netif_carrier_off into .ndo_open.
 
-Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+On Thursday 2011-01-20 02:13, Patrick McHardy wrote:
+>> +header-y += xt_secmark.h
+>> 
+>> No active tree has a include/linux/netfilter/xt_secmark.h file.  Therefore
+>> we end up with:
+>> 
+>> Did you mean xt_SECMARK.h (caps)?
+>
+>I guess so. Jan, please fix this up.
+
+parent f5c88f56b35599ab9ff2d3398e0153e4cd4a4c82 (v2.6.37-3820-gf5c88f5)
+commit 51c7fc9e4e086e4a145617945fdda92a8ae0290f
+Author: Jan Engelhardt <jengelh@medozas.de>
+Date:   Thu Jan 20 02:34:48 2011 +0100
+
+netfilter: xtables: remove extraneous header that slipped in
+
+Commit 0b8ad876275c74e4bfb6ec3150793f3c0ecfcee2 erroneously added
+this.
+
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
 ---
- drivers/net/cxgb4/cxgb4_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ include/linux/netfilter/Kbuild |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/cxgb4/cxgb4_main.c b/drivers/net/cxgb4/cxgb4_main.c
-index 059c1ee..ec35d45 100644
---- a/drivers/net/cxgb4/cxgb4_main.c
-+++ b/drivers/net/cxgb4/cxgb4_main.c
-@@ -2710,6 +2710,8 @@ static int cxgb_open(struct net_device *dev)
- 	struct port_info *pi = netdev_priv(dev);
- 	struct adapter *adapter = pi->adapter;
- 
-+	netif_carrier_off(dev);
-+
- 	if (!(adapter->flags & FULL_INIT_DONE)) {
- 		err = cxgb_up(adapter);
- 		if (err < 0)
-@@ -3661,7 +3663,6 @@ static int __devinit init_one(struct pci_dev *pdev,
- 		pi->xact_addr_filt = -1;
- 		pi->rx_offload = RX_CSO;
- 		pi->port_id = i;
--		netif_carrier_off(netdev);
- 		netdev->irq = pdev->irq;
- 
- 		netdev->features |= NETIF_F_SG | TSO_FLAGS;
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index fc4e0aa..89c0d1e 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -56,7 +56,6 @@ header-y += xt_rateest.h
+ header-y += xt_realm.h
+ header-y += xt_recent.h
+ header-y += xt_sctp.h
+-header-y += xt_secmark.h
+ header-y += xt_socket.h
+ header-y += xt_state.h
+ header-y += xt_statistic.h
 -- 
-1.7.3.4
-
+# Created with git-export-patch
