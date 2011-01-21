@@ -1,61 +1,29 @@
-From: Florian Fainelli <ffainelli@freebox.fr>
-Subject: Re: [PATCH] e1000: add support for Marvell Alaska M88E1118R PHY
-Date: Fri, 21 Jan 2011 17:27:57 +0100
-Message-ID: <201101211727.57971.ffainelli@freebox.fr>
-References: <201101191009.44707.ffainelli@freebox.fr> <AANLkTinDh-ZnrZy3f5H72+FuNwvbnY-BnCns17+cpR=Z@mail.gmail.com> <1295549359.7387.30.camel@localhost.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
+Date: Fri, 21 Jan 2011 17:50:03 +0100
+Message-ID: <4D39B93B.2000408@trash.net>
+References: <1295604133-6869-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Dirk Brandewie <dirk.j.brandewie@intel.com>
+Cc: Simon Horman <horms@verge.net.au>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4-g21.free.fr ([212.27.42.4]:60023 "EHLO smtp4-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750880Ab1AUQ1n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jan 2011 11:27:43 -0500
-In-Reply-To: <1295549359.7387.30.camel@localhost.localdomain>
+Received: from stinky.trash.net ([213.144.137.162]:64132 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752433Ab1AUQuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 11:50:09 -0500
+In-Reply-To: <1295604133-6869-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Dirk, Jeff,
+Am 21.01.2011 11:02, schrieb Changli Gao:
+> Fix compiler warnings when no transport protocol load balancing support
+> is configured.
 
-On Thursday 20 January 2011 19:49:19 Dirk Brandewie wrote:
-> On Wed, 2011-01-19 at 22:51 -0800, Jeff Kirsher wrote:
-> > On Wed, Jan 19, 2011 at 01:09, Florian Fainelli <ffainelli@freebox.fr> 
-wrote:
-> > > From: Florian Fainelli <ffainelli@freebox.fr>
-> > > 
-> > > This patch adds support for Marvell Alask M88E188R PHY chips. Support
-> > > for other M88* PHYs is already there, so there is nothing more to add
-> > > than its PHY id.
-> > > 
-> > > Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
-> > > CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
-> > > CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > ---
-> > 
-> > The patch itself looks fine.  I am concerned about validation.
-> > 
-> > Dirk - is there a chance that the ce4100 will use this PHY?  If so,
-> > can you cover the validation?
-> 
-> Florian is working on a CE4100 based platform.  It looks like they used
-> a different PHY from the Flacon Falls reference platform. I can't
-> directly test this patch since I don't have their hardware.  I will be
-> testing .38-rc1 next week on falcon falls.
-
-Indeed, we use this PHY on our hardware.
-
-> 
-> I think the best we can do without the hardware is to compare the data
-> sheet for the new PHY with the PHYs already supported and make sure they
-> are compatible.  If the datasheets match up for the features the driver
-> is using this seems pretty low risk IMHO.
-
-As far as I could check, all M88E111* should behave the same for the setup 
-done in e1000.
---
-Florian
+Thanks Changli, I'll apply your patch once one of the IPVS developers
+ACKs this.
