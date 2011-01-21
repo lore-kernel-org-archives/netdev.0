@@ -1,91 +1,161 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Fri, 21 Jan 2011 11:59:30 +0200
-Message-ID: <20110121095929.GE26070@redhat.com>
-References: <20110113064718.GA17905@verge.net.au>
- <AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>
- <20110113234135.GC8426@verge.net.au>
- <20110114045818.GA29738@redhat.com>
- <20110114063528.GB10957@verge.net.au>
- <20110114065415.GA30300@redhat.com>
- <20110116223728.GA6279@verge.net.au>
- <20110117102655.GH23479@redhat.com>
- <4D35ECE2.4040901@hp.com>
- <20110120083727.GA1807@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net_sched:  TCQ_F_CAN_BYPASS generalization
+Date: Fri, 21 Jan 2011 12:04:41 +0100
+Message-ID: <1295607881.2601.31.camel@edumazet-laptop>
+References: <1295517052.2733.14.camel@edumazet-laptop>
+	 <1295518636.2825.4.camel@edumazet-laptop>
+	 <1295531299.2825.175.camel@edumazet-laptop>
+	 <1295537236.2825.286.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Patrick McHardy <kaber@trash.net>,
+	Jesper Dangaard Brouer <hawk@diku.dk>,
+	Jarek Poplawski <jarkao2@gmail.com>, jamal <hadi@cyberus.ca>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30171 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750714Ab1AUKre (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jan 2011 05:47:34 -0500
-Content-Disposition: inline
-In-Reply-To: <20110120083727.GA1807@verge.net.au>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:49570 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844Ab1AULEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 06:04:47 -0500
+Received: by wyb28 with SMTP id 28so1667088wyb.19
+        for <netdev@vger.kernel.org>; Fri, 21 Jan 2011 03:04:45 -0800 (PST)
+In-Reply-To: <1295537236.2825.286.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 20, 2011 at 05:38:33PM +0900, Simon Horman wrote:
-> [ Trimmed Eric from CC list as vger was complaining that it is too long ]
-> 
-> On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
-> > >So it won't be all that simple to implement well, and before we try,
-> > >I'd like to know whether there are applications that are helped
-> > >by it. For example, we could try to measure latency at various
-> > >pps and see whether the backpressure helps. netperf has -b, -w
-> > >flags which might help these measurements.
-> > 
-> > Those options are enabled when one adds --enable-burst to the
-> > pre-compilation ./configure  of netperf (one doesn't have to
-> > recompile netserver).  However, if one is also looking at latency
-> > statistics via the -j option in the top-of-trunk, or simply at the
-> > histogram with --enable-histogram on the ./configure and a verbosity
-> > level of 2 (global -v 2) then one wants the very top of trunk
-> > netperf from:
-> 
-> Hi,
-> 
-> I have constructed a test where I run an un-paced  UDP_STREAM test in
-> one guest and a paced omni rr test in another guest at the same time.
+Now qdisc stab is handled before TCQ_F_CAN_BYPASS test in
+__dev_xmit_skb(), we can generalize TCQ_F_CAN_BYPASS to other qdiscs
+than pfifo_fast : pfifo, bfifo, pfifo_head_drop and sfq
 
-Hmm, what is this supposed to measure?  Basically each time you run an
-un-paced UDP_STREAM you get some random load on the network.
-You can't tell what it was exactly, only that it was between
-the send and receive throughput.
+SFQ is special because it can have external classifiers, and in these
+cases, we cannot bypass queue discipline (packet could be dropped by
+classifier) without admin asking it, or further changes.
 
-> Breifly I get the following results from the omni test..
-> 
-> 1. Omni test only:		MEAN_LATENCY=272.00
-> 2. Omni and stream test:	MEAN_LATENCY=3423.00
-> 3. cpu and net_cls group:	MEAN_LATENCY=493.00
->    As per 2 plus cgoups are created for each guest
->    and guest tasks added to the groups
-> 4. 100Mbit/s class:		MEAN_LATENCY=273.00
->    As per 3 plus the net_cls groups each have a 100MBit/s HTB class
-> 5. cpu.shares=128:		MEAN_LATENCY=652.00
->    As per 4 plus the cpu groups have cpu.shares set to 128
-> 6. Busy CPUS:			MEAN_LATENCY=15126.00
->    As per 5 but the CPUs are made busy using a simple shell while loop
-> 
-> There is a bit of noise in the results as the two netperf invocations
-> aren't started at exactly the same moment
-> 
-> For reference, my netperf invocations are:
-> netperf -c -C -t UDP_STREAM -H 172.17.60.216 -l 12
-> netperf.omni -p 12866 -D -c -C -H 172.17.60.216 -t omni -j -v 2 -- -r 1 -d rr -k foo -b 1 -w 200 -m 200
-> 
-> foo contains
-> PROTOCOL
-> THROUGHPUT,THROUGHPUT_UNITS
-> LOCAL_SEND_THROUGHPUT
-> LOCAL_RECV_THROUGHPUT
-> REMOTE_SEND_THROUGHPUT
-> REMOTE_RECV_THROUGHPUT
-> RT_LATENCY,MIN_LATENCY,MEAN_LATENCY,MAX_LATENCY
-> P50_LATENCY,P90_LATENCY,P99_LATENCY,STDDEV_LATENCY
-> LOCAL_CPU_UTIL,REMOTE_CPU_UTIL
+Its worth doing this, especially for SFQ, avoiding dirtying memory in
+case no packets are already waiting in queue.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Jesper Dangaard Brouer <hawk@diku.dk>
+CC: Jarek Poplawski <jarkao2@gmail.com>
+CC: Jamal Hadi Salim <hadi@cyberus.ca>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+---
+I am not sure RED can use bypass too, feel free to comment on this ;)
+
+ net/sched/sch_fifo.c    |   13 ++++++++++++-
+ net/sched/sch_generic.c |    5 ++---
+ net/sched/sch_mq.c      |    1 -
+ net/sched/sch_mqprio.c  |    1 -
+ net/sched/sch_sfq.c     |    6 ++++++
+ 5 files changed, 20 insertions(+), 6 deletions(-)
+
+diff --git a/net/sched/sch_fifo.c b/net/sched/sch_fifo.c
+index b3075f8..f7290d2 100644
+--- a/net/sched/sch_fifo.c
++++ b/net/sched/sch_fifo.c
+@@ -64,11 +64,13 @@ static int pfifo_tail_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ {
+ 	struct fifo_sched_data *q = qdisc_priv(sch);
++	bool bypass;
++	bool is_bfifo = sch->ops == &bfifo_qdisc_ops;
+ 
+ 	if (opt == NULL) {
+ 		u32 limit = qdisc_dev(sch)->tx_queue_len ? : 1;
+ 
+-		if (sch->ops == &bfifo_qdisc_ops)
++		if (is_bfifo)
+ 			limit *= psched_mtu(qdisc_dev(sch));
+ 
+ 		q->limit = limit;
+@@ -81,6 +83,15 @@ static int fifo_init(struct Qdisc *sch, struct nlattr *opt)
+ 		q->limit = ctl->limit;
+ 	}
+ 
++	if (is_bfifo)
++		bypass = q->limit >= psched_mtu(qdisc_dev(sch));
++	else
++		bypass = q->limit >= 1;
++
++	if (bypass)
++		sch->flags |= TCQ_F_CAN_BYPASS;
++	else
++		sch->flags &= ~TCQ_F_CAN_BYPASS;
+ 	return 0;
+ }
+ 
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index cc17e79..0da09d5 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -527,6 +527,8 @@ static int pfifo_fast_init(struct Qdisc *qdisc, struct nlattr *opt)
+ 	for (prio = 0; prio < PFIFO_FAST_BANDS; prio++)
+ 		skb_queue_head_init(band2list(priv, prio));
+ 
++	/* Can by-pass the queue discipline */
++	qdisc->flags |= TCQ_F_CAN_BYPASS;
+ 	return 0;
+ }
+ 
+@@ -691,9 +693,6 @@ static void attach_one_default_qdisc(struct net_device *dev,
+ 			netdev_info(dev, "activation failed\n");
+ 			return;
+ 		}
+-
+-		/* Can by-pass the queue discipline for default qdisc */
+-		qdisc->flags |= TCQ_F_CAN_BYPASS;
+ 	}
+ 	dev_queue->qdisc_sleeping = qdisc;
+ }
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index ecc302f..ec5cbc8 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -61,7 +61,6 @@ static int mq_init(struct Qdisc *sch, struct nlattr *opt)
+ 						    TC_H_MIN(ntx + 1)));
+ 		if (qdisc == NULL)
+ 			goto err;
+-		qdisc->flags |= TCQ_F_CAN_BYPASS;
+ 		priv->qdiscs[ntx] = qdisc;
+ 	}
+ 
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index 8620c65..fbc6f53 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -130,7 +130,6 @@ static int mqprio_init(struct Qdisc *sch, struct nlattr *opt)
+ 			err = -ENOMEM;
+ 			goto err;
+ 		}
+-		qdisc->flags |= TCQ_F_CAN_BYPASS;
+ 		priv->qdiscs[i] = qdisc;
+ 	}
+ 
+diff --git a/net/sched/sch_sfq.c b/net/sched/sch_sfq.c
+index 156ad30..fdba52a 100644
+--- a/net/sched/sch_sfq.c
++++ b/net/sched/sch_sfq.c
+@@ -560,6 +560,10 @@ static int sfq_init(struct Qdisc *sch, struct nlattr *opt)
+ 		slot_queue_init(&q->slots[i]);
+ 		sfq_link(q, i);
+ 	}
++	if (q->limit >= 1)
++		sch->flags |= TCQ_F_CAN_BYPASS;
++	else
++		sch->flags &= ~TCQ_F_CAN_BYPASS;
+ 	return 0;
+ }
+ 
+@@ -611,6 +615,8 @@ static unsigned long sfq_get(struct Qdisc *sch, u32 classid)
+ static unsigned long sfq_bind(struct Qdisc *sch, unsigned long parent,
+ 			      u32 classid)
+ {
++	/* we cannot bypass queue discipline anymore */
++	sch->flags &= ~TCQ_F_CAN_BYPASS;
+ 	return 0;
+ }
+ 
+
+
