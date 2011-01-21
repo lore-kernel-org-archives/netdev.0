@@ -1,117 +1,71 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH v2] e1000e: convert to stats64
-Date: Fri, 21 Jan 2011 14:19:05 -0800
-Message-ID: <1295648345.2825.60.camel@jtkirshe-MOBL1>
-References: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
-	 <1292362173.2478.6.camel@edumazet-laptop>
-	 <20101216123131.GA3070@redhat.com>
-	 <AANLkTi=y4u1DTtOX9-70CeDGhWGu4bBKK0Y32Js41=bK@mail.gmail.com>
-	 <20110121170340.GA3087@redhat.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Sat, 22 Jan 2011 10:11:52 +1100
+Message-ID: <20110121231149.GI2195@verge.net.au>
+References: <AANLkTimO=5HmTJO1kmHGAWa-HTac+3d0TbrmJX5W4hVu@mail.gmail.com>
+ <20110113234135.GC8426@verge.net.au>
+ <20110114045818.GA29738@redhat.com>
+ <20110114063528.GB10957@verge.net.au>
+ <20110114065415.GA30300@redhat.com>
+ <20110116223728.GA6279@verge.net.au>
+ <20110117102655.GH23479@redhat.com>
+ <4D35ECE2.4040901@hp.com>
+ <20110120083727.GA1807@verge.net.au>
+ <20110121095929.GE26070@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-TeJ4bZnF+C+UkCckSH8e"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Flavio Leitner <fleitner@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7858 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754162Ab1AUWTH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jan 2011 17:19:07 -0500
-In-Reply-To: <20110121170340.GA3087@redhat.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:42099 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753361Ab1AUXN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 18:13:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20110121095929.GE26070@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Fri, Jan 21, 2011 at 11:59:30AM +0200, Michael S. Tsirkin wrote:
+> On Thu, Jan 20, 2011 at 05:38:33PM +0900, Simon Horman wrote:
+> > [ Trimmed Eric from CC list as vger was complaining that it is too long ]
+> > 
+> > On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
+> > > >So it won't be all that simple to implement well, and before we try,
+> > > >I'd like to know whether there are applications that are helped
+> > > >by it. For example, we could try to measure latency at various
+> > > >pps and see whether the backpressure helps. netperf has -b, -w
+> > > >flags which might help these measurements.
+> > > 
+> > > Those options are enabled when one adds --enable-burst to the
+> > > pre-compilation ./configure  of netperf (one doesn't have to
+> > > recompile netserver).  However, if one is also looking at latency
+> > > statistics via the -j option in the top-of-trunk, or simply at the
+> > > histogram with --enable-histogram on the ./configure and a verbosity
+> > > level of 2 (global -v 2) then one wants the very top of trunk
+> > > netperf from:
+> > 
+> > Hi,
+> > 
+> > I have constructed a test where I run an un-paced  UDP_STREAM test in
+> > one guest and a paced omni rr test in another guest at the same time.
+> 
+> Hmm, what is this supposed to measure?  Basically each time you run an
+> un-paced UDP_STREAM you get some random load on the network.
+> You can't tell what it was exactly, only that it was between
+> the send and receive throughput.
 
---=-TeJ4bZnF+C+UkCckSH8e
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Rick mentioned in another email that I messed up my test parameters a bit,
+so I will re-run the tests, incorporating his suggestions.
 
-On Fri, 2011-01-21 at 09:03 -0800, Flavio Leitner wrote:
-> On Thu, Dec 16, 2010 at 07:14:35PM -0800, Jeff Kirsher wrote:
-> > On Thu, Dec 16, 2010 at 04:31, Flavio Leitner <fleitner@redhat.com> wro=
-te:
-> > > On Tue, Dec 14, 2010 at 10:29:33PM +0100, Eric Dumazet wrote:
-> > >> Le mardi 14 d=C3=A9cembre 2010 =C3=A0 18:32 -0200, Flavio Leitner a =
-=C3=A9crit :
-> > >> > Provides accurate stats at the time user reads them.
-> > >> >
-> > >> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> > >> > ---
-> > >> >  drivers/net/e1000e/e1000.h   |    5 ++-
-> > >> >  drivers/net/e1000e/ethtool.c |   27 +++++++++-------
-> > >> >  drivers/net/e1000e/netdev.c  |   68 ++++++++++++++++++++++++-----=
-------------
-> > >> >  3 files changed, 59 insertions(+), 41 deletions(-)
-> > >> >
-> > >> > diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000=
-.h
-> > >> > index fdc67fe..5a5e944 100644
-> > >> > --- a/drivers/net/e1000e/e1000.h
-> > >> > +++ b/drivers/net/e1000e/e1000.h
-> > >> > @@ -363,6 +363,8 @@ struct e1000_adapter {
-> > >> >     /* structs defined in e1000_hw.h */
-> > >> >     struct e1000_hw hw;
-> > >> >
-> > >> > +   spinlock_t stats64_lock;
-> > >> > +   struct rtnl_link_stats64 stats64;
-> > >>
-> > >> I am not sure why you add this stats64 in e1000_adapter ?
-> > >>
-> > >> Why isnt it provided by callers (automatic variable, or provided to
-> > >> ndo_get_stats64()). I dont see accumulators, only a full rewrite of =
-this
-> > >> structure in e1000e_update_stats() ?
-> > >
-> > > Good point. I have modified the patch to fix that.
-> > > thanks!
-> > >
-> > > From 3487bd7dacd0c23bba315270139dab6e00e5ff02 Mon Sep 17 00:00:00 200=
-1
-> > > From: Flavio Leitner <fleitner@redhat.com>
-> > > Date: Thu, 16 Dec 2010 10:26:03 -0200
-> > > Subject: [PATCH] e1000e: convert to stats64
-> > >
-> > > Provides accurate stats at the time user reads them.
-> > >
-> > > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> > > ---
-> > >  drivers/net/e1000e/e1000.h   |    3 ++
-> > >  drivers/net/e1000e/ethtool.c |   25 ++++++++-------
-> > >  drivers/net/e1000e/netdev.c  |   68 ++++++++++++++++++++++++++++++++=
-+--------
-> > >  3 files changed, 70 insertions(+), 26 deletions(-)
-> > >
-> >=20
-> > I have dropped you previous version of the patch and applied v2 to my
-> > tree for review and testing.
-> > Thanks Flavio!
->=20
-> Hi Jeff,
->=20
-> Do you have any feedback on this patch?
-> thanks,
+What I was attempting to measure was the effect of an unpaced UDP_STREAM
+on the latency of more moderated traffic. Because I am interested in
+what effect an abusive guest has on other guests and how that my be
+mitigated.
 
-I have the patch ready to push to Dave for net-next, along with a few
-other e1000e patches.  I was just waiting for net-next to open (which it
-did a few days ago).
-
---=-TeJ4bZnF+C+UkCckSH8e
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJNOgZZAAoJECTsCADr/EWUBuYIAKau0rtF0zz99yuy2XXdE5s5
-wSw1qwYHcoikervYvV3tIq8m2XtfzXC9ft1GzMWXg4mQWimVsbnOxosCdHUM++Vj
-dWA40Ctxx1pSwARXj+VVwc8bPTZg1ADqEyRWfEbEFY7RS9NZF1wqfcI8SKQJocHB
-nq8bHi57Zu68jNG8c97g9tRIh5/tJEj80iDYxB7Ff2xaMnxAWeLWALG8tONiGYAT
-MOQOqHdt7r59KmxGL+RFz8XXj4Jk9ZPbOExFh/VNdLYC5n8SIYhICBnaHOr1dqCc
-d1ubPQOH5608xqWBtoQzbyEjy1UjiNdBmOcD7eqd4QKjRHjFExPMkXwNAJItZrc=
-=9GmK
------END PGP SIGNATURE-----
-
---=-TeJ4bZnF+C+UkCckSH8e--
+Could you suggest some tests that you feel are more appropriate?
 
