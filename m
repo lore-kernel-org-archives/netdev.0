@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] cxgb4: fix reported state of interfaces
- without link
-Date: Thu, 20 Jan 2011 17:00:50 -0800 (PST)
-Message-ID: <20110120.170050.215541105.davem@davemloft.net>
-References: <1295486945-22015-1-git-send-email-dm@chelsio.com>
+Subject: Re: [PATCH clean-up] dccp: clean up unused DCCP_STATE_MASK
+ definition
+Date: Thu, 20 Jan 2011 17:00:59 -0800 (PST)
+Message-ID: <20110120.170059.135982293.davem@davemloft.net>
+References: <4D37FC96.9000407@cn.fujitsu.com>
+	<58207.148.187.160.35.1295523521.squirrel@148.187.160.35>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+Cc: shanwei@cn.fujitsu.com, acme@ghostprotocols.net,
+	dccp@vger.kernel.org, netdev@vger.kernel.org
+To: gerrit@erg.abdn.ac.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60601
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60605
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753196Ab1AUBAQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 20:00:16 -0500
-In-Reply-To: <1295486945-22015-1-git-send-email-dm@chelsio.com>
+	by vger.kernel.org with ESMTP id S1753564Ab1AUBAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 20:00:25 -0500
+In-Reply-To: <58207.148.187.160.35.1295523521.squirrel@148.187.160.35>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Wed, 19 Jan 2011 17:29:05 -0800
+From: gerrit@erg.abdn.ac.uk
+Date: Thu, 20 Jan 2011 11:38:41 -0000 (GMT)
 
-> Currently tools like ip and ifconfig report incorrect state for cxgb4
-> interfaces that are up but do not have link and do so until first link
-> establishment.  This is because the initial netif_carrier_off call is
-> before register_netdev and it needs to be after to be fully effective.
-> Fix this by moving netif_carrier_off into .ndo_open.
-> 
-> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+>> Remove unused DCCP_STATE_MASK macro.
+>>
+>>
+>> Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
+> Acked-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
 
 Applied.
