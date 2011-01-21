@@ -1,105 +1,35 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: Re: [PATCH v2] e1000e: convert to stats64
-Date: Fri, 21 Jan 2011 15:03:40 -0200
-Message-ID: <20110121170340.GA3087@redhat.com>
-References: <1292358735-32089-1-git-send-email-fleitner@redhat.com>
-	<1292362173.2478.6.camel@edumazet-laptop>
-	<20101216123131.GA3070@redhat.com>
-	<AANLkTi=y4u1DTtOX9-70CeDGhWGu4bBKK0Y32Js41=bK@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=y4u1DTtOX9-70CeDGhWGu4bBKK0Y32Js41=bK@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Jan Wulfes <jw@klobs.de>
+Subject: Typo in ip man page
+Date: Fri, 21 Jan 2011 18:23:46 +0100
+Message-ID: <7BCA5563-917A-4179-B097-DC387C546CE8@klobs.de>
+Mime-Version: 1.0 (Apple Message framework v1082)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.17.9]:63212 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751665Ab1AURXs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 12:23:48 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Dec 16, 2010 at 07:14:35PM -0800, Jeff Kirsher wrote:
-> On Thu, Dec 16, 2010 at 04:31, Flavio Leitner <fleitner@redhat.com> wrote:
-> > On Tue, Dec 14, 2010 at 10:29:33PM +0100, Eric Dumazet wrote:
-> >> Le mardi 14 d=E9cembre 2010 =E0 18:32 -0200, Flavio Leitner a =E9crit :
-> >> > Provides accurate stats at the time user reads them.
-> >> >
-> >> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> >> > ---
-> >> > =A0drivers/net/e1000e/e1000.h =A0 | =A0 =A05 ++-
-> >> > =A0drivers/net/e1000e/ethtool.c | =A0 27 +++++++++-------
-> >> > =A0drivers/net/e1000e/netdev.c =A0| =A0 68 ++++++++++++++++++++++++-=
-----------------
-> >> > =A03 files changed, 59 insertions(+), 41 deletions(-)
-> >> >
-> >> > diff --git a/drivers/net/e1000e/e1000.h b/drivers/net/e1000e/e1000.h
-> >> > index fdc67fe..5a5e944 100644
-> >> > --- a/drivers/net/e1000e/e1000.h
-> >> > +++ b/drivers/net/e1000e/e1000.h
-> >> > @@ -363,6 +363,8 @@ struct e1000_adapter {
-> >> > =A0 =A0 /* structs defined in e1000_hw.h */
-> >> > =A0 =A0 struct e1000_hw hw;
-> >> >
-> >> > + =A0 spinlock_t stats64_lock;
-> >> > + =A0 struct rtnl_link_stats64 stats64;
-> >>
-> >> I am not sure why you add this stats64 in e1000_adapter ?
-> >>
-> >> Why isnt it provided by callers (automatic variable, or provided to
-> >> ndo_get_stats64()). I dont see accumulators, only a full rewrite of th=
-is
-> >> structure in e1000e_update_stats() ?
-> >
-> > Good point. I have modified the patch to fix that.
-> > thanks!
-> >
-> > From 3487bd7dacd0c23bba315270139dab6e00e5ff02 Mon Sep 17 00:00:00 2001
-> > From: Flavio Leitner <fleitner@redhat.com>
-> > Date: Thu, 16 Dec 2010 10:26:03 -0200
-> > Subject: [PATCH] e1000e: convert to stats64
-> >
-> > Provides accurate stats at the time user reads them.
-> >
-> > Signed-off-by: Flavio Leitner <fleitner@redhat.com>
-> > ---
-> > =A0drivers/net/e1000e/e1000.h =A0 | =A0 =A03 ++
-> > =A0drivers/net/e1000e/ethtool.c | =A0 25 ++++++++-------
-> > =A0drivers/net/e1000e/netdev.c =A0| =A0 68 ++++++++++++++++++++++++++++=
-+++++--------
-> > =A03 files changed, 70 insertions(+), 26 deletions(-)
-> >
-> =
+I fixed a typo in the ip(8) man page.
 
-> I have dropped you previous version of the patch and applied v2 to my
-> tree for review and testing.
-> Thanks Flavio!
+Please find the output of git request-pull below:
 
-Hi Jeff,
+-- 
 
-Do you have any feedback on this patch?
-thanks,
--- =
+The following changes since commit 9351fec72d2bb4e7501c12949855ab252b037bce:
 
-Flavio
+  Update to lasest kernel headers (2011-01-12 18:46:54 -0800)
 
----------------------------------------------------------------------------=
----
-Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
-Finally, a world-class log management solution at an even better price-free!
-Download using promo code Free_Logger_4_Dev2Dev. Offer expires =
+are available in the git repository at:
+  https://klobs@github.com/klobs/iproute2.git master
 
-February 28th, so secure your free ArcSight Logger TODAY! =
+Jan Wulfes (1):
+      Fixed typo
 
-http://p.sf.net/sfu/arcsight-sfd2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.co=
-m/community/wired
+ man/man8/ip.8 |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
