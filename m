@@ -1,71 +1,77 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 1/4] ppp: Clean up kernel log messages.
-Date: Fri, 21 Jan 2011 11:30:32 -0800
-Message-ID: <1295638232.25868.27.camel@Joe-Laptop>
-References: <20110120.235601.139098188.davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: Fix possible NULL dereference
+Date: Fri, 21 Jan 2011 13:40:54 -0600
+Message-ID: <4d39e146.pMRUu8w8cfc0mj0L%Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paulus@samba.org
-To: David Miller <davem@davemloft.net>
+Cc: chaoming_li@realsil.com.cn, linux-kernel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: John W Linville <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:3238 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754895Ab1AUTae (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jan 2011 14:30:34 -0500
-In-Reply-To: <20110120.235601.139098188.davem@davemloft.net>
+Received: from hrndva-omtalb.mail.rr.com ([71.74.56.125]:54249 "EHLO
+	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754949Ab1AUTkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 14:40:22 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-01-20 at 23:56 -0800, David Miller wrote:
-> Use netdev_*() and pr_*().
+From: Jesper Juhl <jj@chaosbits.net>
 
-Perhaps it's better to standardize on "PPP: " or "ppp: "
-for these outputs.
+In drivers/net/wireless/rtlwifi/pci.c::_rtl_pci_rx_interrupt() we call 
+dev_alloc_skb(), which may fail and return NULL, but we do not check the 
+returned value against NULL before dereferencing the returned pointer. 
+This may lead to a NULL pointer dereference which means we'll crash - not 
+good.
 
-Maybe use pr_fmt(fmt) "ppp: " fmt or add a function like:
+In a separate call to dev_alloc_skb(), the debug level is changed so that
+the failure message will always be logged.
 
-void ppp_printk(const char *level, const struct ppp* ppp, const char *fmt, ...)
-{
-	struct va_list args;
-	struct va_format vaf;
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-	va_start(args, fmt);
+John,
 
-	vaf.fmt = fmt;
-	vaf.va = &args;
-	if (ppp && ppp->dev)
-		netdev_printk(level, ppp->dev, "ppp: %pV", &vaf);
-	else
-		printk("%sppp: %pV", level, &vaf);
+Material for 2.6.38.
 
-	va_end(va);
-}
-and
-#define ppp_err(ppp, fmt, ...) ppp_printk(KERN_ERR, ppp, fmt, ##__VA_ARGS__)
-etc...
+Larry
 
-> diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-> -			printk(KERN_DEBUG "PPPIOCDETACH file->f_count=%ld\n",
-> -			       atomic_long_read(&file->f_count));
-> +			pr_warn("PPPIOCDETACH file->f_count=%ld\n",
-[]
-> -		printk(KERN_ERR "PPP: not interface or channel??\n");
-> +		pr_err("PPP: not interface or channel??\n");
-[]
->  		if (net_ratelimit())
-> -			printk(KERN_ERR "ppp: compressor dropped pkt\n");
-> +			netdev_err(ppp->dev, "ppp: compressor dropped pkt\n");
-[]
-> -				printk(KERN_DEBUG "PPP: outbound frame not passed\n");
-> +				netdev_printk(KERN_DEBUG, ppp->dev,
-> +					      "PPP: outbound frame "
-> +					      "not passed\n");
-[]
-> -				printk(KERN_ERR "ppp: compression required but down - pkt dropped.\n");
-> +				netdev_err(ppp->dev,
-> +					   "ppp: compression required but "
-> +					   "down - pkt dropped.\n");
-
-etc.
-
+Index: wireless-testing/drivers/net/wireless/rtlwifi/pci.c
+===================================================================
+--- wireless-testing.orig/drivers/net/wireless/rtlwifi/pci.c
++++ wireless-testing/drivers/net/wireless/rtlwifi/pci.c
+@@ -619,6 +619,13 @@ static void _rtl_pci_rx_interrupt(struct
+ 					struct sk_buff *uskb = NULL;
+ 					u8 *pdata;
+ 					uskb = dev_alloc_skb(skb->len + 128);
++					if (!uskb) {
++						RT_TRACE(rtlpriv,
++							(COMP_INTR | COMP_RECV),
++							DBG_EMERG,
++							("can't alloc rx skb\n"));
++						goto done;
++					}
+ 					memcpy(IEEE80211_SKB_RXCB(uskb),
+ 							&rx_status,
+ 							sizeof(rx_status));
+@@ -641,7 +648,7 @@ static void _rtl_pci_rx_interrupt(struct
+ 			new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
+ 			if (unlikely(!new_skb)) {
+ 				RT_TRACE(rtlpriv, (COMP_INTR | COMP_RECV),
+-					 DBG_DMESG,
++					 DBG_EMERG,
+ 					 ("can't alloc skb for rx\n"));
+ 				goto done;
+ 			}
+@@ -1066,9 +1073,9 @@ static int _rtl_pci_init_rx_ring(struct
+ 			struct sk_buff *skb =
+ 			    dev_alloc_skb(rtlpci->rxbuffersize);
+ 			u32 bufferaddress;
+-			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
+ 			if (!skb)
+ 				return 0;
++			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
+ 
+ 			/*skb->dev = dev; */
+ 
