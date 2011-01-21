@@ -1,41 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] net_sched: sfq: allow divisor to be a
- parameter
-Date: Thu, 20 Jan 2011 16:56:18 -0800 (PST)
-Message-ID: <20110120.165618.180427971.davem@davemloft.net>
-References: <1295518498.2825.2.camel@edumazet-laptop>
+Subject: Re: [PATCH net-next-2.6] net_sched: RCU conversion of stab
+Date: Thu, 20 Jan 2011 16:56:27 -0800 (PST)
+Message-ID: <20110120.165627.128607017.davem@davemloft.net>
+References: <1295517052.2733.14.camel@edumazet-laptop>
+	<1295518636.2825.4.camel@edumazet-laptop>
+	<1295531299.2825.175.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, kaber@trash.net, hawk@diku.dk,
-	jarkao2@gmail.com, hadi@cyberus.ca, shemminger@vyatta.com
+	jarkao2@gmail.com, hadi@cyberus.ca
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55271
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55280
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753873Ab1AUAzn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:55:43 -0500
-In-Reply-To: <1295518498.2825.2.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1752518Ab1AUAzx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:55:53 -0500
+In-Reply-To: <1295531299.2825.175.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 20 Jan 2011 11:14:58 +0100
+Date: Thu, 20 Jan 2011 14:48:19 +0100
 
-> SFQ currently uses a 1024 slots hash table, and its internal structure
-> (sfq_sched_data) allocation needs order-1 page on x86_64
+> This patch converts stab qdisc management to RCU, so that we can perform
+> the qdisc_calculate_pkt_len() call before getting qdisc lock.
 > 
-> Allow tc command to specify a divisor value (hash table size), between 1
-> and 65536.
-> If no value is provided, assume the 1024 default size.
+> This shortens the lock's held time in __dev_xmit_skb().
 > 
-> This allows admins to setup smaller (or bigger) SFQ for specific needs.
-> 
-> This also brings back sfq_sched_data allocations to order-0 ones, saving
-> 3KB per SFQ qdisc.
-> 
-> Jesper uses ~55.000 SFQ in one machine, this patch should free 165 MB of
-> memory.
+> This permits more qdiscs to get TCQ_F_CAN_BYPASS status, avoiding lot of
+> cache misses and so reducing latencies.
 > 
 > Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
