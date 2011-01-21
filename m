@@ -1,74 +1,99 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Thu, 20 Jan 2011 16:11:55 -0800
-Message-ID: <AANLkTik8dk1o2u+JxzsijYFxJ7Y3ZV16DUNkc-+SYPnu@mail.gmail.com>
-References: <20110119.180418.216749267.davem@davemloft.net>
- <AANLkTin32jUnBtHF-EAkSMnFQM6cTbn-G3NZQJ3xjTWU@mail.gmail.com>
- <1295559646.2613.35.camel@edumazet-laptop> <AANLkTikLY1B3=C2TjAbYKVHbub-aPeG2heaUBWRUAg=R@mail.gmail.com>
- <AANLkTin6GM5W0nmWgD1a-2FK=CvHk=P3o6CYe-sFe6c=@mail.gmail.com>
- <AANLkTin-RBwg+J4MqOm7A40-TFAJ1sp4e6tzi6OaobNi@mail.gmail.com> <AANLkTim71374Qb1TW5Lc8H+rpQNk5a25ARczHU-+cn=D@mail.gmail.com>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Bug Fix: Dont reset ENIC_SET_APPLIED flag
+	on port profile disassociate
+Date: Thu, 20 Jan 2011 16:35:54 -0800
+Message-ID: <20110121003554.25697.15096.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=00221532cba8565fe3049a501a5f
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Colin Walters <walters@verbum.org>,
-	Davide Libenzi <davidel@xmailserver.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTim71374Qb1TW5Lc8H+rpQNk5a25ARczHU-+cn=D@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:27395 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753701Ab1AUAfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:35:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---00221532cba8565fe3049a501a5f
-Content-Type: text/plain; charset=ISO-8859-1
+From: Roopa Prabhu <roprabhu@cisco.com>
 
-On Thu, Jan 20, 2011 at 4:02 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
->
-> So far I only did a revert, I didn't see exactly _which_ of the wakeup
-> cases it was. But it's definitely that commit.
+enic_get_vf_port returns port profile operation status only if ENIC_SET_APPLIED
+flag is set. A recent rework of enic_set_port_profile added code to reset this
+flag on disassociate. As a result of which a client calling enic_get_vf_port
+to get the status of port profile disassociate will always get a return value
+of ENODATA. This patch renames ENIC_SET_APPLIED to more appropriate
+ENIC_PORT_REQUEST_APPLIED and reverts back the recent change so that the
+flag is set both at associate and disassociate of a port profile.
 
-This patch - that adds all the appropriate POLLxxx flags - seems to
-fix it for me. Will commit. Anybody wants to review/ack?
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+---
+ drivers/net/enic/enic.h      |    6 +++---
+ drivers/net/enic/enic_main.c |   10 ++++++----
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
-        Linus
 
---00221532cba8565fe3049a501a5f
-Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
-Content-Disposition: attachment; filename="patch.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_gj6c5oen0
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index a937f49..ca3be4f 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,8 +32,8 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"1.4.1.10"
+-#define DRV_COPYRIGHT		"Copyright 2008-2010 Cisco Systems, Inc"
++#define DRV_VERSION		"2.1.1.2"
++#define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+ 
+@@ -49,7 +49,7 @@ struct enic_msix_entry {
+ 	void *devid;
+ };
+ 
+-#define ENIC_SET_APPLIED		(1 << 0)
++#define ENIC_PORT_REQUEST_APPLIED	(1 << 0)
+ #define ENIC_SET_REQUEST		(1 << 1)
+ #define ENIC_SET_NAME			(1 << 2)
+ #define ENIC_SET_INSTANCE		(1 << 3)
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index a0af48c..89664c6 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -1318,18 +1318,20 @@ static int enic_set_port_profile(struct enic *enic, u8 *mac)
+ 		vic_provinfo_free(vp);
+ 		if (err)
+ 			return err;
+-
+-		enic->pp.set |= ENIC_SET_APPLIED;
+ 		break;
+ 
+ 	case PORT_REQUEST_DISASSOCIATE:
+-		enic->pp.set &= ~ENIC_SET_APPLIED;
+ 		break;
+ 
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
++	/* Set flag to indicate that the port assoc/disassoc
++	 * request has been sent out to fw
++	 */
++	enic->pp.set |= ENIC_PORT_REQUEST_APPLIED;
++
+ 	return 0;
+ }
+ 
+@@ -1411,7 +1413,7 @@ static int enic_get_vf_port(struct net_device *netdev, int vf,
+ 	int err, error, done;
+ 	u16 response = PORT_PROFILE_RESPONSE_SUCCESS;
+ 
+-	if (!(enic->pp.set & ENIC_SET_APPLIED))
++	if (!(enic->pp.set & ENIC_PORT_REQUEST_APPLIED))
+ 		return -ENODATA;
+ 
+ 	err = enic_dev_init_done(enic, &done, &error);
 
-IGZzL3BpcGUuYyB8ICAgMTAgKysrKystLS0tLQogMSBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlv
-bnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZnMvcGlwZS5jIGIvZnMvcGlwZS5j
-CmluZGV4IDg5ZTllMTkuLmRhNDJmN2QgMTAwNjQ0Ci0tLSBhL2ZzL3BpcGUuYworKysgYi9mcy9w
-aXBlLmMKQEAgLTQ0MSw3ICs0NDEsNyBAQCByZWRvOgogCQkJYnJlYWs7CiAJCX0KIAkJaWYgKGRv
-X3dha2V1cCkgewotCQkJd2FrZV91cF9pbnRlcnJ1cHRpYmxlX3N5bmNfcG9sbCgmcGlwZS0+d2Fp
-dCwgUE9MTE9VVCk7CisJCQl3YWtlX3VwX2ludGVycnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53
-YWl0LCBQT0xMT1VUIHwgUE9MTFdSTk9STSk7CiAgCQkJa2lsbF9mYXN5bmMoJnBpcGUtPmZhc3lu
-Y193cml0ZXJzLCBTSUdJTywgUE9MTF9PVVQpOwogCQl9CiAJCXBpcGVfd2FpdChwaXBlKTsKQEAg
-LTQ1MCw3ICs0NTAsNyBAQCByZWRvOgogCiAJLyogU2lnbmFsIHdyaXRlcnMgYXN5bmNocm9ub3Vz
-bHkgdGhhdCB0aGVyZSBpcyBtb3JlIHJvb20uICovCiAJaWYgKGRvX3dha2V1cCkgewotCQl3YWtl
-X3VwX2ludGVycnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMT1VUKTsKKwkJd2Fr
-ZV91cF9pbnRlcnJ1cHRpYmxlX3N5bmNfcG9sbCgmcGlwZS0+d2FpdCwgUE9MTE9VVCB8IFBPTExX
-Uk5PUk0pOwogCQlraWxsX2Zhc3luYygmcGlwZS0+ZmFzeW5jX3dyaXRlcnMsIFNJR0lPLCBQT0xM
-X09VVCk7CiAJfQogCWlmIChyZXQgPiAwKQpAQCAtNjEyLDcgKzYxMiw3IEBAIHJlZG8yOgogCQkJ
-YnJlYWs7CiAJCX0KIAkJaWYgKGRvX3dha2V1cCkgewotCQkJd2FrZV91cF9pbnRlcnJ1cHRpYmxl
-X3N5bmNfcG9sbCgmcGlwZS0+d2FpdCwgUE9MTElOKTsKKwkJCXdha2VfdXBfaW50ZXJydXB0aWJs
-ZV9zeW5jX3BvbGwoJnBpcGUtPndhaXQsIFBPTExJTiB8IFBPTExSRE5PUk0pOwogCQkJa2lsbF9m
-YXN5bmMoJnBpcGUtPmZhc3luY19yZWFkZXJzLCBTSUdJTywgUE9MTF9JTik7CiAJCQlkb193YWtl
-dXAgPSAwOwogCQl9CkBAIC02MjMsNyArNjIzLDcgQEAgcmVkbzI6CiBvdXQ6CiAJbXV0ZXhfdW5s
-b2NrKCZpbm9kZS0+aV9tdXRleCk7CiAJaWYgKGRvX3dha2V1cCkgewotCQl3YWtlX3VwX2ludGVy
-cnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMSU4pOworCQl3YWtlX3VwX2ludGVy
-cnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMSU4gfCBQT0xMUkROT1JNKTsKIAkJ
-a2lsbF9mYXN5bmMoJnBpcGUtPmZhc3luY19yZWFkZXJzLCBTSUdJTywgUE9MTF9JTik7CiAJfQog
-CWlmIChyZXQgPiAwKQpAQCAtNzE1LDcgKzcxNSw3IEBAIHBpcGVfcmVsZWFzZShzdHJ1Y3QgaW5v
-ZGUgKmlub2RlLCBpbnQgZGVjciwgaW50IGRlY3cpCiAJaWYgKCFwaXBlLT5yZWFkZXJzICYmICFw
-aXBlLT53cml0ZXJzKSB7CiAJCWZyZWVfcGlwZV9pbmZvKGlub2RlKTsKIAl9IGVsc2UgewotCQl3
-YWtlX3VwX2ludGVycnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMSU4gfCBQT0xM
-T1VUKTsKKwkJd2FrZV91cF9pbnRlcnJ1cHRpYmxlX3N5bmNfcG9sbCgmcGlwZS0+d2FpdCwgUE9M
-TElOIHwgUE9MTE9VVCB8IFBPTExSRE5PUk0gfCBQT0xMV1JOT1JNIHwgUE9MTEVSUiB8IFBPTExI
-VVApOwogCQlraWxsX2Zhc3luYygmcGlwZS0+ZmFzeW5jX3JlYWRlcnMsIFNJR0lPLCBQT0xMX0lO
-KTsKIAkJa2lsbF9mYXN5bmMoJnBpcGUtPmZhc3luY193cml0ZXJzLCBTSUdJTywgUE9MTF9PVVQp
-OwogCX0K
---00221532cba8565fe3049a501a5f--
