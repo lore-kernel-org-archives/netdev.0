@@ -1,43 +1,40 @@
-From: Sakari Ailus <sakari.ailus@iki.fi>
-Subject: [PATCH v2 0/2] tlan improvements
-Date: Fri, 21 Jan 2011 22:59:19 +0200
-Message-ID: <4D39F3A7.9050106@iki.fi>
+From: David Miller <davem@davemloft.net>
+Subject: Re: 2.6.38-rc1: arp triggers RTNL assertion
+Date: Fri, 21 Jan 2011 13:06:57 -0800 (PST)
+Message-ID: <20110121.130657.106806953.davem@davemloft.net>
+References: <20110121061758.GA2247@fifty-fifty.audible.transient.net>
+	<1295593946.2613.52.camel@edumazet-laptop>
+	<1295635976.2609.23.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Samuel Chessman <chessman@tux.org>, Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
+Cc: jamie@audible.transient.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-68.nebula.fi ([83.145.220.68]:49050 "EHLO
-	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751746Ab1AUU7V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 15:59:21 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53819
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751321Ab1AUVGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 16:06:23 -0500
+In-Reply-To: <1295635976.2609.23.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 21 Jan 2011 19:52:56 +0100
 
-This is the second version of the tlan improvements patchset.
+> Here is how I fixed this, thanks again Jamie !
+> 
+> [PATCH] net: neighbour: pneigh_lookup() doesnt need RTNL
 
-This patchset cleans up the tlan driver code and adds suspend/resume 
-support. The changes in coding style are big. There's one checkpatch.pl 
-warning left.
+Eric, I don't think we can do this.
 
-The last patch, which is the biggest usability improvement to the tlan 
-driver in this set, brings suspend/resume support. I lended a few bits 
-from the e100 driver which I know has received more attention from 
-developers over the years. That, I believe, is the only non-trivial 
-change in the set.
+Fundamentally, any time a user operation changes the configuration
+of the networking, we must hold the RTNL.
 
-Changes since v1:
+Eliding the RTNL for lookups is fine, but for things that change
+state it is not.
 
-The second patch has been dropped. Ben Hutchings pointed out that 
-instead of fixing the prints ethtool interface should be supported. I 
-have not time to do that right now and I would like the cleanup and 
-possibly also suspend/resume support in without that.
+I therefore think you'll need to rework the arp_ioctl() portions
+of the commit that introduced this regression.
 
-Cheers,
-
--- 
-Sakari Ailus
-sakari.ailus@iki.fi
