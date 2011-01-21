@@ -1,129 +1,63 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH v3] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Fri, 21 Jan 2011 13:03:18 +0800
-Message-ID: <AANLkTi=b9ma=xV1ovbJmy94BrDT696VR4OcyR9vqwGtB@mail.gmail.com>
-References: <1295256060-2091-1-git-send-email-ratbert.chuang@gmail.com>
- <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com> <1295550009.28001.59.camel@Joe-Laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] net: netif_setup_tc() is static
+Date: Fri, 21 Jan 2011 06:18:08 +0100
+Message-ID: <1295587088.2613.51.camel@edumazet-laptop>
+References: <20110117175542.29543.38690.stgit@jf-dev1-dcblab>
+	 <20110117180604.29543.38660.stgit@jf-dev1-dcblab>
+	 <20110119.234132.176672734.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, eric.dumazet@gmail.com,
-	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295550009.28001.59.camel@Joe-Laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: bhutchings@solarflare.com, jarkao2@gmail.com, hadi@cyberus.ca,
+	shemminger@vyatta.com, tgraf@infradead.org, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	John Fastabend <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:48131 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750695Ab1AUFSO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 00:18:14 -0500
+Received: by wwa36 with SMTP id 36so1488517wwa.1
+        for <netdev@vger.kernel.org>; Thu, 20 Jan 2011 21:18:13 -0800 (PST)
+In-Reply-To: <20110119.234132.176672734.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Joe,
+Le mercredi 19 janvier 2011 =C3=A0 23:41 -0800, David Miller a =C3=A9cr=
+it :
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Mon, 17 Jan 2011 10:06:04 -0800
+>=20
+> > This patch provides a mechanism for lower layer devices to
+> > steer traffic using skb->priority to tx queues.
+>  ...
+> > Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>=20
+> Applied.
 
-On Fri, Jan 21, 2011 at 3:00 AM, Joe Perches <joe@perches.com> wrote:
-> On Thu, 2011-01-20 at 23:30 +0800, Po-Yu Chuang wrote:
->> =C2=A0drivers/net/ftmac100.c | 1243 ++++++++++++++++++++++++++++++++=
-++++++++++++++++
->
-> []
->
->> +/******************************************************************=
-************
->> + * struct napi_struct functions
->> + ******************************************************************=
-***********/
->> +static int ftmac100_poll(struct napi_struct *napi, int budget)
->> +{
->> + =C2=A0 =C2=A0 struct ftmac100 *priv =3D container_of(napi, struct =
-ftmac100, napi);
->> + =C2=A0 =C2=A0 struct net_device *netdev =3D priv->netdev;
->> + =C2=A0 =C2=A0 unsigned int status;
->> + =C2=A0 =C2=A0 bool completed =3D true;
->> + =C2=A0 =C2=A0 int rx =3D 0;
->> +
->> + =C2=A0 =C2=A0 status =3D ioread32(priv->base + FTMAC100_OFFSET_ISR=
-);
->> +
->> + =C2=A0 =C2=A0 if (status & (FTMAC100_INT_RPKT_FINISH | FTMAC100_IN=
-T_NORXBUF)) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /*
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* FTMAC100_INT_RPK=
-T_FINISH:
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* =C2=A0 =C2=A0 =C2=
-=A0RX DMA has received packets into RX buffer successfully
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* FTMAC100_INT_NOR=
-XBUF:
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* =C2=A0 =C2=A0 =C2=
-=A0RX buffer unavailable
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 bool retry;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 do {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 retry =3D ftmac100_rx_packet(priv, &rx);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 } while (retry && rx < b=
-udget);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (retry && rx =3D=3D b=
-udget)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 completed =3D false;
->
-> Is it useful to retry the NORXBUF case?
+Hi John
 
-The idea is that if I miss packet finished interrupts (then rx buffers =
-used up),
-I should retrieve the received packets ASAP to free buffers to HW.
-Maybe this is really unnecessary.
-I am not quite sure, but I'll do your advice now.
+Should netif_setup_tc() be static, or is it meant to be exported
+somehow ?
 
->> + =C2=A0 =C2=A0 }
->> +
->> + =C2=A0 =C2=A0 if (status & FTMAC100_INT_NORXBUF) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* RX buffer unavailable=
- */
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (net_ratelimit())
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 netdev_info(netdev, "INT_NORXBUF\n");
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 netdev->stats.rx_over_er=
-rors++;
->> + =C2=A0 =C2=A0 }
->
-> Perhaps this "if (status & FTMAC100_INT_NORXBUF)" block should be
-> moved into the test block above it before the retry?
+[PATCH net-next-2.6] net: netif_setup_tc() is static
 
-Since status is not changed in the function, it does not matter where
-the test is.
-But I agree that it is better to handle error cases earlier.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 2730352..47d3d78 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1605,7 +1605,7 @@ static void dev_queue_xmit_nit(struct sk_buff *sk=
+b, struct net_device *dev)
+  * expected that drivers will fix this mapping if they can before
+  * calling netif_set_real_num_tx_queues.
+  */
+-void netif_setup_tc(struct net_device *dev, unsigned int txq)
++static void netif_setup_tc(struct net_device *dev, unsigned int txq)
+ {
+ 	int i;
+ 	struct netdev_tc_txq *tc =3D &dev->tc_to_txq[0];
 
-> It's possible to miss multiple states because of the ratelimit.
->
-> If multiple ISR status bits are possible, it might be better to
-> combine all netdev_info uses into a single call.
->
-> Something like:
->
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0if ((status & (FTMAC100_INT_NORXBUF | FTMA=
-C100_INT_RPKT_LOST |
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 FTMAC100_INT_AHB_ERR | FTMAC100_INT_PHYSTS_CHG)) &&
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0net_ratelimit())
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0netdev_info(ne=
-tdev, "ISR status: %x%s%s%s%s\n",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0status & FTMAC100_INT_NORXBUF ? ": INT_NORX=
-BUF" : "",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0status & FTMAC100_INT_RPKT_LOST ? ": INT_RP=
-KT_LOST" : "",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0status & FTMAC100_INT_AHB_ERR ? ": INT_AHB_=
-ERR" : "",
-> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0status & FTMAC100_INT_PHYSTS_CHG ? " : INT_=
-PHYSTS_CHG" : "");
 
-Agree. Thanks.
-
-best regards,
-Po-Yu Chuang
