@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] atl1e: remove private #define.
-Date: Thu, 20 Jan 2011 16:50:20 -0800 (PST)
-Message-ID: <20110120.165020.236247069.davem@davemloft.net>
-References: <20110120145922.GB7291@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH] net: dev_close_many() is static
+Date: Thu, 20 Jan 2011 16:55:54 -0800 (PST)
+Message-ID: <20110120.165554.223454771.davem@davemloft.net>
+References: <1295508202.2653.483.camel@edumazet-laptop>
+	<201101201116.29031.opurdila@ixiacom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
-	jie.yang@atheros.com
-To: romieu@fr.zoreil.com
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: opurdila@ixiacom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60718
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55261
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754313Ab1AUAtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:49:45 -0500
-In-Reply-To: <20110120145922.GB7291@electric-eye.fr.zoreil.com>
+	by vger.kernel.org with ESMTP id S1752121Ab1AUAzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:55:20 -0500
+In-Reply-To: <201101201116.29031.opurdila@ixiacom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
-Date: Thu, 20 Jan 2011 15:59:23 +0100
+From: Octavian Purdila <opurdila@ixiacom.com>
+Date: Thu, 20 Jan 2011 11:16:28 +0200
 
-> Either unused or duplicates from mii.h.
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thursday 20 January 2011, 09:23:22
 > 
-> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> CC: Octavian Purdila <opurdila@ixiacom.com>
+> Oops, missed that. Thanks Eric !
+> 
+> Reviewed-by: Octavian Purdila <opurdila@ixiacom.com>
 
 Applied.
