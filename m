@@ -1,165 +1,120 @@
-From: Sakari Ailus <sakari.ailus@iki.fi>
-Subject: [PATCH v2 2/2] tlan: add suspend/resume support
-Date: Fri, 21 Jan 2011 22:59:31 +0200
-Message-ID: <1295643571-21216-2-git-send-email-sakari.ailus@iki.fi>
-References: <4D39F3A7.9050106@iki.fi>
- <1295643571-21216-1-git-send-email-sakari.ailus@iki.fi>
-Cc: chessman@tux.org, joe@perches.com
-To: netdev@vger.kernel.org
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Fri, 21 Jan 2011 14:09:17 -0800 (Pacific Standard Time)
+Message-ID: <alpine.WNT.2.00.1101211400000.5816@JBRANDEB-DESK2.amr.corp.intel.com>
+References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com> <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "Loke, Chetan" <Chetan.Loke@netscout.com>,
+	Jon Zhou <jon.zhou@jdsu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: juice <juice@swagman.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-68.nebula.fi ([83.145.220.68]:48989 "EHLO
-	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752117Ab1AUVMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 16:12:38 -0500
-In-Reply-To: <1295643571-21216-1-git-send-email-sakari.ailus@iki.fi>
+Received: from mga01.intel.com ([192.55.52.88]:35937 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752946Ab1AUWJS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jan 2011 17:09:18 -0500
+In-Reply-To: <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add suspend/resume support to tlan driver. This allows not unloading the
-driver over suspend/resume.
 
-Also, start (or now, wake) the queue after resetting the adapter --- not the
-other way around.
 
-Signed-off-by: Sakari Ailus <sakari.ailus@iki.fi>
----
- drivers/net/tlan.c |   88 ++++++++++++++++++++++++++++++++++++++++++---------
- 1 files changed, 72 insertions(+), 16 deletions(-)
+On Fri, 21 Jan 2011, juice wrote:
+> I am using now a PCIe Intel e1000e card, that should be able to handle
+> the needed traffic amount.
+> 
+> The statistics that I get are as follows:
+> 
+> kernel 2.6.32-27 (ubuntu 10.10 default)
+>     pktgen:           750064pps 360Mb/sec (360030720bps)
+>     AX4000 analyser:  Total bitrate:             383.879 MBits/s
+>                       Bandwidth:                 38.39% GE
+>                       Average packet intereval:  1.33 us
+> 
+> kernel 2.6.37 (latest stable from kernel.org)
+>     pktgen:           786848pps 377Mb/sec (377687040bps)
+>     AX4000 analyser:  Total bitrate:             402.904 MBits/s
+>                       Bandwidth:                 40.29% GE
+>                       Average packet intereval:  1.27 us
+> 
+> kernel 2.6.38-rc1 (latest from kernel.org)
+>     pktgen:           795297pps 381Mb/sec (381742560bps)
+>     AX4000 analyser:  Total bitrate:             407.117 MBits/s
+>                       Bandwidth:                 40.72% GE
+>                       Average packet intereval:  1.26 us
+> 
 
-diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
-index 57380b1..0678e7e 100644
---- a/drivers/net/tlan.c
-+++ b/drivers/net/tlan.c
-@@ -168,6 +168,7 @@
-  *
-  *	v1.15a Dec 15 2008   - Remove bbuf support, it doesn't work anyway.
-  *	v1.16  Jan 6  2011   - Make checkpatch.pl happy.
-+ *	v1.17  Jan 6  2011   - Add suspend/resume support.
-  *
-  ******************************************************************************/
- 
-@@ -219,7 +220,7 @@ module_param(debug, int, 0);
- MODULE_PARM_DESC(debug, "ThunderLAN debug mask");
- 
- static	const char tlan_signature[] = "TLAN";
--static  const char tlan_banner[] = "ThunderLAN driver v1.16\n";
-+static  const char tlan_banner[] = "ThunderLAN driver v1.17\n";
- static  int tlan_have_pci;
- static  int tlan_have_eisa;
- 
-@@ -462,11 +463,79 @@ static void __devexit tlan_remove_one(struct pci_dev *pdev)
- 	pci_set_drvdata(pdev, NULL);
- }
- 
-+static void tlan_start(struct net_device *dev)
-+{
-+	tlan_reset_lists(dev);
-+	/* NOTE: It might not be necessary to read the stats before a
-+	   reset if you don't care what the values are.
-+	*/
-+	tlan_read_and_clear_stats(dev, TLAN_IGNORE);
-+	tlan_reset_adapter(dev);
-+	netif_wake_queue(dev);
-+}
-+
-+static void tlan_stop(struct net_device *dev)
-+{
-+	struct tlan_priv *priv = netdev_priv(dev);
-+
-+	tlan_read_and_clear_stats(dev, TLAN_RECORD);
-+	outl(TLAN_HC_AD_RST, dev->base_addr + TLAN_HOST_CMD);
-+	/* Reset and power down phy */
-+	tlan_reset_adapter(dev);
-+	if (priv->timer.function != NULL) {
-+		del_timer_sync(&priv->timer);
-+		priv->timer.function = NULL;
-+	}
-+}
-+
-+#ifdef CONFIG_PM
-+
-+static int tlan_suspend(struct pci_dev *pdev, pm_message_t state)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	if (netif_running(dev))
-+		tlan_stop(dev);
-+
-+	netif_device_detach(dev);
-+	pci_save_state(pdev);
-+	pci_disable_device(pdev);
-+	pci_wake_from_d3(pdev, false);
-+	pci_set_power_state(pdev, PCI_D3hot);
-+
-+	return 0;
-+}
-+
-+static int tlan_resume(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	pci_set_power_state(pdev, PCI_D0);
-+	pci_restore_state(pdev);
-+	pci_enable_wake(pdev, 0, 0);
-+	netif_device_attach(dev);
-+
-+	if (netif_running(dev))
-+		tlan_start(dev);
-+
-+	return 0;
-+}
-+
-+#else /* CONFIG_PM */
-+
-+#define tlan_suspend   NULL
-+#define tlan_resume    NULL
-+
-+#endif /* CONFIG_PM */
-+
-+
- static struct pci_driver tlan_driver = {
- 	.name		= "tlan",
- 	.id_table	= tlan_pci_tbl,
- 	.probe		= tlan_init_one,
- 	.remove		= __devexit_p(tlan_remove_one),
-+	.suspend	= tlan_suspend,
-+	.resume		= tlan_resume,
- };
- 
- static int __init tlan_probe(void)
-@@ -965,14 +1034,8 @@ static int tlan_open(struct net_device *dev)
- 	}
- 
- 	init_timer(&priv->timer);
--	netif_start_queue(dev);
- 
--	/* NOTE: It might not be necessary to read the stats before a
--	   reset if you don't care what the values are.
--	*/
--	tlan_reset_lists(dev);
--	tlan_read_and_clear_stats(dev, TLAN_IGNORE);
--	tlan_reset_adapter(dev);
-+	tlan_start(dev);
- 
- 	TLAN_DBG(TLAN_DEBUG_GNRL, "%s: Opened.  TLAN Chip Rev: %x\n",
- 		 dev->name, priv->tlan_rev);
-@@ -1243,15 +1306,8 @@ static int tlan_close(struct net_device *dev)
- {
- 	struct tlan_priv *priv = netdev_priv(dev);
- 
--	netif_stop_queue(dev);
- 	priv->neg_be_verbose = 0;
--
--	tlan_read_and_clear_stats(dev, TLAN_RECORD);
--	outl(TLAN_HC_AD_RST, dev->base_addr + TLAN_HOST_CMD);
--	if (priv->timer.function != NULL) {
--		del_timer_sync(&priv->timer);
--		priv->timer.function = NULL;
--	}
-+	tlan_stop(dev);
- 
- 	free_irq(dev->irq, dev);
- 	tlan_free_lists(dev);
--- 
-1.5.6.5
+your computation of Bandwidth (as Ben Greear said) is not accounting for 
+the interframe gaps.  Maybe more useful is to note that wire speed 64 byte 
+packets is 1.44 Million packets per second.
 
+> In every case I have set the IRQ affinity of eth1 to CPU0 and started
+> the test running in kpktgend_0.
+> 
+> The complete data of my measurements follows in the end of this post.
+> 
+> It looks like the small packet sending effiency of the ethernet driver
+> is improving all the time, albeit quite slowly.
+> 
+> Now, I would be intrested in knowing whether it is indeed possible to
+> increase the sending rate near full 1GE capacity with the current
+> ethernet card I am using or do I have here a hardware limitation here?
+> 
+> I recall hearing that there are some enhanced versions of the e1000
+> network card, such that have been geared towards higher performance
+> at the expense of some functionality or general system effiency.
+> Can anybody point me how to do that?
+
+I think you need different hardware (again) as you have saddled yourself 
+with a x1 PCIe connected adapter.  This adapter is not well suited to 
+small packet traffic because the sheer amount of transactions is effected 
+by the added latency due to the x1 connector (vs our dual port 1GbE 
+adapters with a x4 connector)
+
+
+> As I stated before, quoting myself:
+> 
+> > Which do you suppose is the reason for poor performance on my setup,
+> > is it lack of multiqueue HW in the GE NIC's I am using or is it lack
+> > of multiqueue support in the kernel (2.6.32) that I am using?
+> >
+> > Is multiqueue really necessary to achieve the full 1GE saturation, or
+> > is it only needed on 10GE NIC's?
+
+with Core i3/5/7 or newer cpus you should be able to saturate a 1Gb link 
+with a single core/queue.  With Core2 era processors you may have some 
+difficulty, with anything older than that you won't make it. :-)
+
+> > As I understand multiqueue is useful only if there are lots of CPU cores
+> > to run, each handling one queue.
+> >
+> > The application I am thinking of, preloading a packet sequence into
+> > kernel from userland application and then starting to send from buffer
+> > propably does not benefit so much from many cores, it would be enough
+> > that one CPU would handle the sending and other core(s) would handle
+> > other tasks.
+> 
+> Yours, Jussi Ohenoja
+> 
+> 
+> *** Measurement details follows ***
+> 
+> 
+> root@d8labralinux:/var/home/juice# lspci -vvv -s 04:00.0
+> 04:00.0 Ethernet controller: Intel Corporation 82572EI Gigabit Ethernet
+> Controller (Copper) (rev 06)
+
+My suggestion is to get one of the igb based adapters, 82576, or 82580 
+based that run the igb driver.
+
+If you can't get a hold of those you should be able to easily get 1.1M pps 
+from an 82571 adapter.
+
+you may also want to try reducing the tx descriptor ring count to 128 
+using ethtool, and change the ethtool -C rx-usecs 20 setting, try 
+20,30,40,50,60
+
+Jesse
