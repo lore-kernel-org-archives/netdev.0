@@ -1,137 +1,74 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: Re: [PATCH] Fix NULL dereference in rtlwifi driver
-Date: Fri, 21 Jan 2011 01:04:21 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1101210103240.11854@swampdragon.chaosbits.net>
-References: <alpine.LNX.2.00.1101202309030.11854@swampdragon.chaosbits.net> <4D38CB7E.5000304@lwfinger.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Thu, 20 Jan 2011 16:11:55 -0800
+Message-ID: <AANLkTik8dk1o2u+JxzsijYFxJ7Y3ZV16DUNkc-+SYPnu@mail.gmail.com>
+References: <20110119.180418.216749267.davem@davemloft.net>
+ <AANLkTin32jUnBtHF-EAkSMnFQM6cTbn-G3NZQJ3xjTWU@mail.gmail.com>
+ <1295559646.2613.35.camel@edumazet-laptop> <AANLkTikLY1B3=C2TjAbYKVHbub-aPeG2heaUBWRUAg=R@mail.gmail.com>
+ <AANLkTin6GM5W0nmWgD1a-2FK=CvHk=P3o6CYe-sFe6c=@mail.gmail.com>
+ <AANLkTin-RBwg+J4MqOm7A40-TFAJ1sp4e6tzi6OaobNi@mail.gmail.com> <AANLkTim71374Qb1TW5Lc8H+rpQNk5a25ARczHU-+cn=D@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: multipart/mixed; boundary=00221532cba8565fe3049a501a5f
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Colin Walters <walters@verbum.org>,
+	Davide Libenzi <davidel@xmailserver.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D38CB7E.5000304@lwfinger.net>
+In-Reply-To: <AANLkTim71374Qb1TW5Lc8H+rpQNk5a25ARczHU-+cn=D@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2011, Larry Finger wrote:
+--00221532cba8565fe3049a501a5f
+Content-Type: text/plain; charset=ISO-8859-1
 
-> On 01/20/2011 04:18 PM, Jesper Juhl wrote:
-> > In drivers/net/wireless/rtlwifi/pci.c::_rtl_pci_rx_interrupt() we call 
-> > dev_alloc_skb(), which may fail and return NULL, but we do not check the 
-> > returned value against NULL before dereferencing the returned pointer. 
-> > This may lead to a NULL pointer dereference which means we'll crash - not 
-> > good.
-> > 
-> > This patch tries to solve the issue by testing for NULL and bailing out if 
-> > we couldn't allocate a skb. However, I don't know this code well, so I'm 
-> > not sure that jumping to the 'done' label here is the correct action to 
-> > take. Someone more knowledgable about this code than me should definately 
-> > review it before it is applied anywhere.
-> > While I was in the area I also moved an assignment in 
-> > _rtl_pci_init_rx_ring() a bit - if the dev_alloc_skb() call in that 
-> > function fails there's no reason to waste clock cycles assigning to the 
-> > local variable 'entry', we may as well do that after the NULL check and 
-> > potential bail out.
-> > 
-> > Here's the proposed patch, but please don't take it as much more than a 
-> > bug report. If it happens to be correct, then by all means apply it, but 
-> > I'm not personally making any guarantees.
-> > 
-> > Signed-off-by: Jesper Juhl <jj@chaosbits.net>
-> > ---
-> >  pci.c |    9 ++++++++-
-> >  1 file changed, 8 insertions(+), 1 deletion(-)
-> > 
-> >   compile tested only, I don't have the hardware to test for real.
-> > 
-> > diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-> > index 0fa36aa..5e99f89 100644
-> > --- a/drivers/net/wireless/rtlwifi/pci.c
-> > +++ b/drivers/net/wireless/rtlwifi/pci.c
-> > @@ -619,6 +619,13 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
-> >  					struct sk_buff *uskb = NULL;
-> >  					u8 *pdata;
-> >  					uskb = dev_alloc_skb(skb->len + 128);
-> > +					if (!uskb) {
-> > +						RT_TRACE(rtlpriv,
-> > +							(COMP_INTR | COMP_RECV),
-> > +							DBG_DMESG,
-> > +							("can't alloc rx skb\n"));
-> > +						goto done;
-> > +					}
-> >  					memcpy(IEEE80211_SKB_RXCB(uskb),
-> >  							&rx_status,
-> >  							sizeof(rx_status));
-> > @@ -1066,9 +1073,9 @@ static int _rtl_pci_init_rx_ring(struct ieee80211_hw *hw)
-> >  			struct sk_buff *skb =
-> >  			    dev_alloc_skb(rtlpci->rxbuffersize);
-> >  			u32 bufferaddress;
-> > -			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
-> >  			if (!skb)
-> >  				return 0;
-> > +			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
-> >  
-> >  			/*skb->dev = dev; */
-> >  
-> 
-> This patch looks mostly good to me. The only change I would make is to replace
-> "DBG_DMESG" in the RT_TRACE statement with "DBG_EMERG". The standard setting of
-> the debug variable does not generate output for DBG_DMESG.
-> 
-> With that change, ACK and
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> 
+On Thu, Jan 20, 2011 at 4:02 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
+>
+> So far I only did a revert, I didn't see exactly _which_ of the wakeup
+> cases it was. But it's definitely that commit.
 
-Here you go.
+This patch - that adds all the appropriate POLLxxx flags - seems to
+fix it for me. Will commit. Anybody wants to review/ack?
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- pci.c |   11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+        Linus
 
-diff --git a/drivers/net/wireless/rtlwifi/pci.c b/drivers/net/wireless/rtlwifi/pci.c
-index 0fa36aa..1758d44 100644
---- a/drivers/net/wireless/rtlwifi/pci.c
-+++ b/drivers/net/wireless/rtlwifi/pci.c
-@@ -619,6 +619,13 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
- 					struct sk_buff *uskb = NULL;
- 					u8 *pdata;
- 					uskb = dev_alloc_skb(skb->len + 128);
-+					if (!uskb) {
-+						RT_TRACE(rtlpriv,
-+							(COMP_INTR | COMP_RECV),
-+							DBG_EMERG,
-+							("can't alloc rx skb\n"));
-+						goto done;
-+					}
- 					memcpy(IEEE80211_SKB_RXCB(uskb),
- 							&rx_status,
- 							sizeof(rx_status));
-@@ -641,7 +648,7 @@ static void _rtl_pci_rx_interrupt(struct ieee80211_hw *hw)
- 			new_skb = dev_alloc_skb(rtlpci->rxbuffersize);
- 			if (unlikely(!new_skb)) {
- 				RT_TRACE(rtlpriv, (COMP_INTR | COMP_RECV),
--					 DBG_DMESG,
-+					 DBG_EMERG,
- 					 ("can't alloc skb for rx\n"));
- 				goto done;
- 			}
-@@ -1066,9 +1073,9 @@ static int _rtl_pci_init_rx_ring(struct ieee80211_hw *hw)
- 			struct sk_buff *skb =
- 			    dev_alloc_skb(rtlpci->rxbuffersize);
- 			u32 bufferaddress;
--			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
- 			if (!skb)
- 				return 0;
-+			entry = &rtlpci->rx_ring[rx_queue_idx].desc[i];
- 
- 			/*skb->dev = dev; */
- 
+--00221532cba8565fe3049a501a5f
+Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gj6c5oen0
 
-
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+IGZzL3BpcGUuYyB8ICAgMTAgKysrKystLS0tLQogMSBmaWxlcyBjaGFuZ2VkLCA1IGluc2VydGlv
+bnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZnMvcGlwZS5jIGIvZnMvcGlwZS5j
+CmluZGV4IDg5ZTllMTkuLmRhNDJmN2QgMTAwNjQ0Ci0tLSBhL2ZzL3BpcGUuYworKysgYi9mcy9w
+aXBlLmMKQEAgLTQ0MSw3ICs0NDEsNyBAQCByZWRvOgogCQkJYnJlYWs7CiAJCX0KIAkJaWYgKGRv
+X3dha2V1cCkgewotCQkJd2FrZV91cF9pbnRlcnJ1cHRpYmxlX3N5bmNfcG9sbCgmcGlwZS0+d2Fp
+dCwgUE9MTE9VVCk7CisJCQl3YWtlX3VwX2ludGVycnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53
+YWl0LCBQT0xMT1VUIHwgUE9MTFdSTk9STSk7CiAgCQkJa2lsbF9mYXN5bmMoJnBpcGUtPmZhc3lu
+Y193cml0ZXJzLCBTSUdJTywgUE9MTF9PVVQpOwogCQl9CiAJCXBpcGVfd2FpdChwaXBlKTsKQEAg
+LTQ1MCw3ICs0NTAsNyBAQCByZWRvOgogCiAJLyogU2lnbmFsIHdyaXRlcnMgYXN5bmNocm9ub3Vz
+bHkgdGhhdCB0aGVyZSBpcyBtb3JlIHJvb20uICovCiAJaWYgKGRvX3dha2V1cCkgewotCQl3YWtl
+X3VwX2ludGVycnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMT1VUKTsKKwkJd2Fr
+ZV91cF9pbnRlcnJ1cHRpYmxlX3N5bmNfcG9sbCgmcGlwZS0+d2FpdCwgUE9MTE9VVCB8IFBPTExX
+Uk5PUk0pOwogCQlraWxsX2Zhc3luYygmcGlwZS0+ZmFzeW5jX3dyaXRlcnMsIFNJR0lPLCBQT0xM
+X09VVCk7CiAJfQogCWlmIChyZXQgPiAwKQpAQCAtNjEyLDcgKzYxMiw3IEBAIHJlZG8yOgogCQkJ
+YnJlYWs7CiAJCX0KIAkJaWYgKGRvX3dha2V1cCkgewotCQkJd2FrZV91cF9pbnRlcnJ1cHRpYmxl
+X3N5bmNfcG9sbCgmcGlwZS0+d2FpdCwgUE9MTElOKTsKKwkJCXdha2VfdXBfaW50ZXJydXB0aWJs
+ZV9zeW5jX3BvbGwoJnBpcGUtPndhaXQsIFBPTExJTiB8IFBPTExSRE5PUk0pOwogCQkJa2lsbF9m
+YXN5bmMoJnBpcGUtPmZhc3luY19yZWFkZXJzLCBTSUdJTywgUE9MTF9JTik7CiAJCQlkb193YWtl
+dXAgPSAwOwogCQl9CkBAIC02MjMsNyArNjIzLDcgQEAgcmVkbzI6CiBvdXQ6CiAJbXV0ZXhfdW5s
+b2NrKCZpbm9kZS0+aV9tdXRleCk7CiAJaWYgKGRvX3dha2V1cCkgewotCQl3YWtlX3VwX2ludGVy
+cnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMSU4pOworCQl3YWtlX3VwX2ludGVy
+cnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMSU4gfCBQT0xMUkROT1JNKTsKIAkJ
+a2lsbF9mYXN5bmMoJnBpcGUtPmZhc3luY19yZWFkZXJzLCBTSUdJTywgUE9MTF9JTik7CiAJfQog
+CWlmIChyZXQgPiAwKQpAQCAtNzE1LDcgKzcxNSw3IEBAIHBpcGVfcmVsZWFzZShzdHJ1Y3QgaW5v
+ZGUgKmlub2RlLCBpbnQgZGVjciwgaW50IGRlY3cpCiAJaWYgKCFwaXBlLT5yZWFkZXJzICYmICFw
+aXBlLT53cml0ZXJzKSB7CiAJCWZyZWVfcGlwZV9pbmZvKGlub2RlKTsKIAl9IGVsc2UgewotCQl3
+YWtlX3VwX2ludGVycnVwdGlibGVfc3luY19wb2xsKCZwaXBlLT53YWl0LCBQT0xMSU4gfCBQT0xM
+T1VUKTsKKwkJd2FrZV91cF9pbnRlcnJ1cHRpYmxlX3N5bmNfcG9sbCgmcGlwZS0+d2FpdCwgUE9M
+TElOIHwgUE9MTE9VVCB8IFBPTExSRE5PUk0gfCBQT0xMV1JOT1JNIHwgUE9MTEVSUiB8IFBPTExI
+VVApOwogCQlraWxsX2Zhc3luYygmcGlwZS0+ZmFzeW5jX3JlYWRlcnMsIFNJR0lPLCBQT0xMX0lO
+KTsKIAkJa2lsbF9mYXN5bmMoJnBpcGUtPmZhc3luY193cml0ZXJzLCBTSUdJTywgUE9MTF9PVVQp
+OwogCX0K
+--00221532cba8565fe3049a501a5f--
