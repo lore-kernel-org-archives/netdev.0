@@ -1,52 +1,53 @@
-From: Joel Becker <jlbec@evilplan.org>
-Subject: Re:
- =?utf-8?b?W1BhdGNoXSBLaWxsIG9mZiB3YXJuaW5nOiDigJhp?=
- =?utf-8?q?nline=E2=80=99_is_not_at_beginning_of_declaration?=
-Date: Fri, 21 Jan 2011 17:31:30 +0000
-Message-ID: <20110121173130.GD8323@ZenIV.linux.org.uk>
-References: <alpine.LNX.2.00.1101170000270.13377@swampdragon.chaosbits.net>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [PATCH net-next-2.6] net: netif_setup_tc() is static
+Date: Fri, 21 Jan 2011 09:54:53 -0800
+Message-ID: <4D39C86D.2060209@intel.com>
+References: <20110117175542.29543.38690.stgit@jf-dev1-dcblab>	 <20110117180604.29543.38660.stgit@jf-dev1-dcblab>	 <20110119.234132.176672734.davem@davemloft.net> <1295587088.2613.51.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: alsa-devel@alsa-project.org, Mauro Carvalho Chehab <mchehab@redhat.com>,
-        Takashi Iwai <tiwai@suse.de>, Frederic Weisbecker <fweisbec@gmail.com>,
-        "Gustavo F. Padovan" <padovan@profusion.mobi>,
-        Jaroslav Kysela <perex@perex.cz>, Jens Axboe <jens.axboe@oracle.com>,
-        Stephen Hemminger <shemminger@vyatta.com>,
-        Andi Kleen <ak@linux.intel.com>, "H. Peter Anvin" <hpa@zytor.com>,
-        "Pekka Savola \(ipv6\)" <pekkas@netcore.fi>,
-        Robert Richter <robert.richter@amd.com>, x86@kernel.org,
-        James Morris <jmorris@namei.org>, Ingo Molnar <mingo@redhat.com>,
-        oprofile-list@lists.sf.net, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        Mark Fasheh <mfasheh@suse.com>, Marcel Holtmann <marcel@holtmann.org>,
-        "John W. Linville" <linville@tuxdriver.com>,
-        Thomas Gleixner <tglx@linutronix.de>, linux-edac@vger.kernel.org,
-        t
-To: Jesper Juhl <jj@chaosbits.net>
-Return-path: <ocfs2-devel-bounces@oss.oracle.com>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.00.1101170000270.13377@swampdragon.chaosbits.net>
-List-Unsubscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
-	<mailto:ocfs2-devel-request@oss.oracle.com?subject=unsubscribe>
-List-Archive: <http://oss.oracle.com/pipermail/ocfs2-devel>
-List-Post: <mailto:ocfs2-devel@oss.oracle.com>
-List-Help: <mailto:ocfs2-devel-request@oss.oracle.com?subject=help>
-List-Subscribe: <http://oss.oracle.com/mailman/listinfo/ocfs2-devel>,
-	<mailto:ocfs2-devel-request@oss.oracle.com?subject=subscribe>
-Sender: ocfs2-devel-bounces@oss.oracle.com
-Errors-To: ocfs2-devel-bounces@oss.oracle.com
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"bhutchings@solarflare.com" <bhutchings@solarflare.com>,
+	"jarkao2@gmail.com" <jarkao2@gmail.com>,
+	"hadi@cyberus.ca" <hadi@cyberus.ca>,
+	"shemminger@vyatta.com" <shemminger@vyatta.com>,
+	"tgraf@infradead.org" <tgraf@infradead.org>,
+	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:51093 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754042Ab1AURyy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jan 2011 12:54:54 -0500
+In-Reply-To: <1295587088.2613.51.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKYW4gMTcsIDIwMTEgYXQgMTI6MDk6MzhBTSArMDEwMCwgSmVzcGVyIEp1aGwgd3Jv
-dGU6Cj4gRml4IGEgYnVuY2ggb2YgCj4gCXdhcm5pbmc6IOKAmGlubGluZeKAmSBpcyBub3QgYXQg
-YmVnaW5uaW5nIG9mIGRlY2xhcmF0aW9uCj4gbWVzc2FnZXMgd2hlbiBidWlsZGluZyBhICdtYWtl
-IGFsbHllc2NvbmZpZycga2VybmVsIHdpdGggLVdleHRyYS4KPiAKPiBUaGVzZSB3YXJuaW5ncyBh
-cmUgdHJpdmlhbCB0byBraWxsLCB5ZXQgcmF0aGVyIGFubm95aW5nIHdoZW4gYnVpbGRpbmcgd2l0
-aCAKPiAtV2V4dHJhLgo+IFRoZSBtb3JlIHdlIGNhbiBjdXQgZG93biBvbiBwb2ludGxlc3MgY3Jh
-cCBsaWtlIHRoaXMgdGhlIGJldHRlciAoSU1ITykuCj4gCj4gQSBwcmV2aW91cyBwYXRjaCB0byBk
-byB0aGlzIGZvciBhICdhbGxub2NvbmZpZycgYnVpbGQgaGFzIGFscmVhZHkgYmVlbiAKPiBtZXJn
-ZWQuIFRoaXMganVzdCB0YWtlcyB0aGUgY2xlYW51cCBhIGxpdHRsZSBmdXJ0aGVyLgo+IAo+IFNp
-Z25lZC1vZmYtYnk6IEplc3BlciBKdWhsIDxqakBjaGFvc2JpdHMubmV0PgoKQWNrZWQgZm9yIGZz
-L29jZnMyCgpKb2VsCgotLSAKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fCk9jZnMyLWRldmVsIG1haWxpbmcgbGlzdApPY2ZzMi1kZXZlbEBvc3Mub3JhY2xl
-LmNvbQpodHRwOi8vb3NzLm9yYWNsZS5jb20vbWFpbG1hbi9saXN0aW5mby9vY2ZzMi1kZXZlbA==
+On 1/20/2011 9:18 PM, Eric Dumazet wrote:
+> Le mercredi 19 janvier 2011 =C3=A0 23:41 -0800, David Miller a =C3=A9=
+crit :
+>> From: John Fastabend <john.r.fastabend@intel.com>
+>> Date: Mon, 17 Jan 2011 10:06:04 -0800
+>>
+>>> This patch provides a mechanism for lower layer devices to
+>>> steer traffic using skb->priority to tx queues.
+>>  ...
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>
+>> Applied.
+>=20
+> Hi John
+>=20
+> Should netif_setup_tc() be static, or is it meant to be exported
+> somehow ?
+>=20
+> [PATCH net-next-2.6] net: netif_setup_tc() is static
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
+
+Yes this should be static. Thanks Eric!
+
