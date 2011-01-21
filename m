@@ -1,76 +1,537 @@
-From: Hans de Bruin <jmdebruin@xmsnet.nl>
-Subject: Re: [regression] 2.6.37+ commit 0363466866d9.... breaks tcp ipv6
-Date: Fri, 21 Jan 2011 21:38:50 +0100
-Message-ID: <4D39EEDA.90902@xmsnet.nl>
-References: <4D335417.80704@xmsnet.nl>	<4D35EF64.1040906@xmsnet.nl>	 <AANLkTinejKw0pY5HncB2e0ocjqYuCwTBUwd2xkroWu+E@mail.gmail.com>	 <4D36092B.1090406@xmsnet.nl> <1295388238.8449.10.camel@edumazet-laptop>	 <4D39E2EC.9020906@xmsnet.nl> <1295639745.2609.29.camel@edumazet-laptop>
+From: Sakari Ailus <sakari.ailus@iki.fi>
+Subject: Re: [PATCH] tlan: Use pr_fmt, pr_<level> and netdev_<level>, remove
+ changelog
+Date: Fri, 21 Jan 2011 22:49:08 +0200
+Message-ID: <4D39F144.6090404@iki.fi>
+References: <4D260ED0.5040301@iki.fi>	 <1294339817-31434-1-git-send-email-sakari.ailus@iki.fi> <1294354088.12561.295.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jesse Gross <jesse@nicira.com>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Samuel Chessman <chessman@tux.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail10.mail.sp.isp-net.nl ([217.149.192.62]:39328 "EHLO
-	webmail10.mail.sp.isp-net.nl" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750817Ab1AUUht (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 15:37:49 -0500
-In-Reply-To: <1295639745.2609.29.camel@edumazet-laptop>
+Received: from smtp-68.nebula.fi ([83.145.220.68]:55992 "EHLO
+	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753029Ab1AUUtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 15:49:18 -0500
+In-Reply-To: <1294354088.12561.295.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/21/2011 08:55 PM, Eric Dumazet wrote:
-> Le vendredi 21 janvier 2011 =C3=A0 20:47 +0100, Hans de Bruin a =C3=A9=
-crit :
->> On 01/18/2011 11:03 PM, Eric Dumazet wrote:
->>> Le mardi 18 janvier 2011 =C3=A0 22:42 +0100, Hans de Bruin a =C3=A9=
-crit :
->>>> On 01/18/2011 09:06 PM, Jesse Gross wrote:
->>
->> ...
->>
->>> You could try "tcpdump -i eth0 ip6 -v"
->>>
->>> I guess you receive frames with bad checksums
->>
->> While you where staring at the code, I was fooling around with tcpdu=
-mp.
->> And while the problem is fixed, I still have some questions:
->>
->> Is there tool which shows whether a nic supports ipv6 checksum offlo=
-ad
->> or not?
->>
->> I have captured http traffic (wget http://bootes/) between psion (my=
- git
->> tree following laptop) and bootes (something running 2.6.33.7).
->> Attached is a capture with psion running 2.6.37 and one with this
->> morning's git tree. Wat's with the 'chsum ... ( incorrect ->  ' line=
-s ?
->> ifconfig does not show errors on either of the machines.
->>
+Joe Perches wrote:
+> Neatening and standardization to the standard logging mechanisms.
+> The changelog isn't useful anymore.
+> Miscellaneous speen/speed typo correction.
+
+Hi Joe,
+
+Many thanks for the patch!
+
+I definitely think it's good to replace pr_ prints with netdev_* macros. 
+I have a few other comments on your patch below.
+
+> Signed-off-by: Joe Perches<joe@perches.com>
+> ---
 >
-> tcpdump gets a copy of outgoing frames before NIC performs tx checksu=
-m
-> (if tx checksum handled by NIC), so it's normal to have "bad checksum=
-s"
-> on TX, unless you disable tx offloading (ethtool -K eth0 tx off)
-
-That seem reasonable but: the bug was triggered because my nic could no=
-t=20
-offload checksumming, so what's tx=3Don if there's no support for it? I=
-=20
-have turned tx off and my tcpdump still shows bad checksums on outgoing=
-=20
-tcp/ip6 packets. I have tried 2.6.36: bad checksums, 2.6.35 and=20
-surprise: good checksums with tx=3Don.
-
+> On top of Sakari Ailus' patches...
 >
-> I was referring to check with tcpdump incoming frames, because invali=
-d
-> checksums in RX is sign that other peer sent wrong checksums
+>   drivers/net/tlan.c |  304 +++++++++++++---------------------------------------
+>   1 files changed, 74 insertions(+), 230 deletions(-)
+>
+> diff --git a/drivers/net/tlan.c b/drivers/net/tlan.c
+> index bbb0b12..ecfae1d 100644
+> --- a/drivers/net/tlan.c
+> +++ b/drivers/net/tlan.c
+> @@ -25,153 +25,10 @@
+>    *		Microchip Technology, 24C01A/02A/04A Data Sheet
+>    *			available in PDF format from www.microchip.com
+>    *
+> - * Change History
+> - *
+> - *	Tigran Aivazian<tigran@sco.com>:	TLan_PciProbe() now uses
+> - *						new PCI BIOS interface.
+> - *	Alan Cox	<alan@lxorguk.ukuu.org.uk>:
+> - *						Fixed the out of memory
+> - *						handling.
+> - *
+> - *	Torben Mathiasen<torben.mathiasen@compaq.com>  New Maintainer!
+> - *
+> - *	v1.1 Dec 20, 1999    - Removed linux version checking
+> - *			       Patch from Tigran Aivazian.
+> - *			     - v1.1 includes Alan's SMP updates.
+> - *			     - We still have problems on SMP though,
+> - *			       but I'm looking into that.
+> - *
+> - *	v1.2 Jan 02, 2000    - Hopefully fixed the SMP deadlock.
+> - *			     - Removed dependency of HZ being 100.
+> - *			     - We now allow higher priority timers to
+> - *			       overwrite timers like TLAN_TIMER_ACTIVITY
+> - *			       Patch from John Cagle<john.cagle@compaq.com>.
+> - *			     - Fixed a few compiler warnings.
+> - *
+> - *	v1.3 Feb 04, 2000    - Fixed the remaining HZ issues.
+> - *			     - Removed call to pci_present().
+> - *			     - Removed SA_INTERRUPT flag from irq handler.
+> - *			     - Added __init and __initdata to reduce resisdent
+> - *			       code size.
+> - *			     - Driver now uses module_init/module_exit.
+> - *			     - Rewrote init_module and tlan_probe to
+> - *			       share a lot more code. We now use tlan_probe
+> - *			       with builtin and module driver.
+> - *			     - Driver ported to new net API.
+> - *			     - tlan.txt has been reworked to reflect current
+> - *			       driver (almost)
+> - *			     - Other minor stuff
+> - *
+> - *	v1.4 Feb 10, 2000    - Updated with more changes required after Dave's
+> - *			       network cleanup in 2.3.43pre7 (Tigran&  myself)
+> - *			     - Minor stuff.
+> - *
+> - *	v1.5 March 22, 2000  - Fixed another timer bug that would hang the
+> - *			       driver if no cable/link were present.
+> - *			     - Cosmetic changes.
+> - *			     - TODO: Port completely to new PCI/DMA API
+> - *				     Auto-Neg fallback.
+> - *
+> - *	v1.6 April 04, 2000  - Fixed driver support for kernel-parameters.
+> - *			       Haven't tested it though, as the kernel support
+> - *			       is currently broken (2.3.99p4p3).
+> - *			     - Updated tlan.txt accordingly.
+> - *			     - Adjusted minimum/maximum frame length.
+> - *			     - There is now a TLAN website up at
+> - *			       http://hp.sourceforge.net/
+> - *
+> - *	v1.7 April 07, 2000  - Started to implement custom ioctls. Driver now
+> - *			       reports PHY information when used with Donald
+> - *			       Beckers userspace MII diagnostics utility.
+> - *
+> - *	v1.8 April 23, 2000  - Fixed support for forced speed/duplex settings.
+> - *			     - Added link information to Auto-Neg and forced
+> - *			       modes. When NIC operates with auto-neg the driver
+> - *			       will report Link speed&  duplex modes as well as
+> - *			       link partner abilities. When forced link is used,
+> - *			       the driver will report status of the established
+> - *			       link.
+> - *			       Please read tlan.txt for additional information.
+> - *			     - Removed call to check_region(), and used
+> - *			       return value of request_region() instead.
+> - *
+> - *	v1.8a May 28, 2000   - Minor updates.
+> - *
+> - *	v1.9 July 25, 2000   - Fixed a few remaining Full-Duplex issues.
+> - *			     - Updated with timer fixes from Andrew Morton.
+> - *			     - Fixed module race in TLan_Open.
+> - *			     - Added routine to monitor PHY status.
+> - *			     - Added activity led support for Proliant devices.
+> - *
+> - *	v1.10 Aug 30, 2000   - Added support for EISA based tlan controllers
+> - *			       like the Compaq NetFlex3/E.
+> - *			     - Rewrote tlan_probe to better handle multiple
+> - *			       bus probes. Probing and device setup is now
+> - *			       done through TLan_Probe and TLan_init_one. Actual
+> - *			       hardware probe is done with kernel API and
+> - *			       TLan_EisaProbe.
+> - *			     - Adjusted debug information for probing.
+> - *			     - Fixed bug that would cause general debug
+> - *			       information to be printed after driver removal.
+> - *			     - Added transmit timeout handling.
+> - *			     - Fixed OOM return values in tlan_probe.
+> - *			     - Fixed possible mem leak in tlan_exit
+> - *			       (now tlan_remove_one).
+> - *			     - Fixed timer bug in TLan_phyMonitor.
+> - *			     - This driver version is alpha quality, please
+> - *			       send me any bug issues you may encounter.
+> - *
+> - *	v1.11 Aug 31, 2000   - Do not try to register irq 0 if no irq line was
+> - *			       set for EISA cards.
+> - *			     - Added support for NetFlex3/E with nibble-rate
+> - *			       10Base-T PHY. This is untestet as I haven't got
+> - *			       one of these cards.
+> - *			     - Fixed timer being added twice.
+> - *			     - Disabled PhyMonitoring by default as this is
+> - *			       work in progress. Define MONITOR to enable it.
+> - *			     - Now we don't display link info with PHYs that
+> - *			       doesn't support it (level1).
+> - *			     - Incresed tx_timeout beacuse of auto-neg.
+> - *			     - Adjusted timers for forced speeds.
+> - *
+> - *	v1.12 Oct 12, 2000   - Minor fixes (memleak, init, etc.)
+> - *
+> - *	v1.13 Nov 28, 2000   - Stop flooding console with auto-neg issues
+> - *			       when link can't be established.
+> - *			     - Added the bbuf option as a kernel parameter.
+> - *			     - Fixed ioaddr probe bug.
+> - *			     - Fixed stupid deadlock with MII interrupts.
+> - *			     - Added support for speed/duplex selection with
+> - *			       multiple nics.
+> - *			     - Added partly fix for TX Channel lockup with
+> - *			       TLAN v1.0 silicon. This needs to be investigated
+> - *			       further.
+> - *
+> - *	v1.14 Dec 16, 2000   - Added support for servicing multiple frames per.
+> - *			       interrupt. Thanks goes to
+> - *			       Adam Keys<adam@ti.com>
+> - *			       Denis Beaudoin<dbeaudoin@ti.com>
+> - *			       for providing the patch.
+> - *			     - Fixed auto-neg output when using multiple
+> - *			       adapters.
+> - *			     - Converted to use new taskq interface.
+> - *
+> - *	v1.14a Jan 6, 2001   - Minor adjustments (spinlocks, etc.)
+> - *
+> - *	Samuel Chessman<chessman@tux.org>  New Maintainer!
+> - *
+> - *	v1.15 Apr 4, 2002    - Correct operation when aui=1 to be
+> - *			       10T half duplex no loopback
+> - *			       Thanks to Gunnar Eikman
+> - *
+> - *	Sakari Ailus<sakari.ailus@iki.fi>:
+> - *
+> - *	v1.15a Dec 15 2008   - Remove bbuf support, it doesn't work anyway.
+> - *	v1.16  Jan 6  2011   - Make checkpatch.pl happy.
+> - *	v1.17  Jan 6  2011   - Add suspend/resume support.
+> - *
 
-Ok, thats clear, the receiving site is apparently a more reliable=20
-checksummer than the sending site.
+I agree with this. I just didn't think too much while writing my 
+patchset. :-)
 
---=20
-Hans
+>    ******************************************************************************/
+>
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+>   #include<linux/module.h>
+>   #include<linux/init.h>
+>   #include<linux/ioport.h>
+> @@ -204,7 +61,7 @@ module_param_array(speed, int, NULL, 0);
+>   MODULE_PARM_DESC(aui, "ThunderLAN use AUI port(s) (0-1)");
+>   MODULE_PARM_DESC(duplex,
+>   		 "ThunderLAN duplex setting(s) (0-default, 1-half, 2-full)");
+> -MODULE_PARM_DESC(speed, "ThunderLAN port speen setting(s) (0,10,100)");
+> +MODULE_PARM_DESC(speed, "ThunderLAN port speed setting(s) (0,10,100)");
+>
+>   MODULE_AUTHOR("Maintainer: Samuel Chessman<chessman@tux.org>");
+>   MODULE_DESCRIPTION("Driver for TI ThunderLAN based ethernet PCI adapters");
+> @@ -542,7 +399,7 @@ static int __init tlan_probe(void)
+>   {
+>   	int rc = -ENODEV;
+>
+> -	printk(KERN_INFO "%s", tlan_banner);
+> +	pr_info("%s", tlan_banner);
+>
+>   	TLAN_DBG(TLAN_DEBUG_PROBE, "Starting PCI Probe....\n");
+>
+> @@ -551,16 +408,16 @@ static int __init tlan_probe(void)
+>   	rc = pci_register_driver(&tlan_driver);
+>
+>   	if (rc != 0) {
+> -		printk(KERN_ERR "TLAN: Could not register pci driver.\n");
+> +		pr_err("Could not register pci driver\n");
+>   		goto err_out_pci_free;
+>   	}
+>
+>   	TLAN_DBG(TLAN_DEBUG_PROBE, "Starting EISA Probe....\n");
+>   	tlan_eisa_probe();
+>
+> -	printk(KERN_INFO "TLAN: %d device%s installed, PCI: %d  EISA: %d\n",
+> -	       tlan_devices_installed, tlan_devices_installed == 1 ? "" : "s",
+> -	       tlan_have_pci, tlan_have_eisa);
+> +	pr_info("%d device%s installed, PCI: %d  EISA: %d\n",
+> +		tlan_devices_installed, tlan_devices_installed == 1 ? "" : "s",
+> +		tlan_have_pci, tlan_have_eisa);
+>
+>   	if (tlan_devices_installed == 0) {
+>   		rc = -ENODEV;
+> @@ -619,7 +476,7 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
+>
+>   		rc = pci_request_regions(pdev, tlan_signature);
+>   		if (rc) {
+> -			printk(KERN_ERR "TLAN: Could not reserve IO regions\n");
+> +			pr_err("Could not reserve IO regions\n");
+
+I think that, now that we do have a struct device (pci_dev.dev) 
+reference, we should use dev_* macros.
+
+I think I'll just resend my patchset with Ben's comments --- i.e. for 
+now I just remove my 2nd patch. The first one I'm keeping as-is since 
+it's important that this one gets in. Everything else will conflict with 
+that!
+
+Ethtool interface support could perhaps be a topic for another set?
+
+>   			goto err_out;
+>   		}
+>   	}
+> @@ -627,7 +484,7 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
+>
+>   	dev = alloc_etherdev(sizeof(struct tlan_priv));
+>   	if (dev == NULL) {
+> -		printk(KERN_ERR "TLAN: Could not allocate memory for device.\n");
+> +		pr_err("Could not allocate memory for device\n");
+
+dev_err() also here.
+
+>   		rc = -ENOMEM;
+>   		goto err_out_regions;
+>   	}
+> @@ -646,8 +503,7 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
+>
+>   		rc = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
+>   		if (rc) {
+> -			printk(KERN_ERR
+> -			       "TLAN: No suitable PCI mapping available.\n");
+> +			pr_err("No suitable PCI mapping available\n");
+
+And here.
+
+>   			goto err_out_free_dev;
+>   		}
+>
+> @@ -661,7 +517,7 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
+>   			}
+>   		}
+>   		if (!pci_io_base) {
+> -			printk(KERN_ERR "TLAN: No IO mappings available\n");
+> +			pr_err("No IO mappings available\n");
+>   			rc = -EIO;
+>   			goto err_out_free_dev;
+>   		}
+> @@ -717,13 +573,13 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
+>
+>   	rc = tlan_init(dev);
+>   	if (rc) {
+> -		printk(KERN_ERR "TLAN: Could not set up device.\n");
+> +		pr_err("Could not set up device\n");
+>   		goto err_out_free_dev;
+>   	}
+>
+>   	rc = register_netdev(dev);
+>   	if (rc) {
+> -		printk(KERN_ERR "TLAN: Could not register device.\n");
+> +		pr_err("Could not register device\n");
+>   		goto err_out_uninit;
+>   	}
+>
+> @@ -740,12 +596,11 @@ static int __devinit tlan_probe1(struct pci_dev *pdev,
+>   		tlan_have_eisa++;
+>   	}
+>
+> -	printk(KERN_INFO "TLAN: %s irq=%2d, io=%04x, %s, Rev. %d\n",
+> -	       dev->name,
+> -	       (int) dev->irq,
+> -	       (int) dev->base_addr,
+> -	       priv->adapter->device_label,
+> -	       priv->adapter_rev);
+> +	netdev_info(dev, "irq=%2d, io=%04x, %s, Rev. %d\n",
+> +		    (int)dev->irq,
+> +		    (int)dev->base_addr,
+> +		    priv->adapter->device_label,
+> +		    priv->adapter_rev);
+>   	return 0;
+>
+>   err_out_uninit:
+> @@ -861,7 +716,7 @@ static void  __init tlan_eisa_probe(void)
+>   		}
+>
+>   		if (debug == 0x10)
+> -			printk(KERN_INFO "Found one\n");
+> +			pr_info("Found one\n");
+>
+>
+>   		/* Get irq from board */
+> @@ -890,12 +745,12 @@ static void  __init tlan_eisa_probe(void)
+>
+>   out:
+>   		if (debug == 0x10)
+> -			printk(KERN_INFO "None found\n");
+> +			pr_info("None found\n");
+>   		continue;
+>
+>   out2:
+>   		if (debug == 0x10)
+> -			printk(KERN_INFO "Card found but it is not enabled, skipping\n");
+> +			pr_info("Card found but it is not enabled, skipping\n");
+>   		continue;
+>
+>   	}
+> @@ -963,8 +818,7 @@ static int tlan_init(struct net_device *dev)
+>   	priv->dma_size = dma_size;
+>
+>   	if (priv->dma_storage == NULL) {
+> -		printk(KERN_ERR
+> -		       "TLAN:  Could not allocate lists and buffers for %s.\n",
+> +		pr_err("Could not allocate lists and buffers for %s\n",
+>   		       dev->name);
+>   		return -ENOMEM;
+>   	}
+> @@ -982,9 +836,8 @@ static int tlan_init(struct net_device *dev)
+>   					 (u8) priv->adapter->addr_ofs + i,
+>   					 (u8 *)&dev->dev_addr[i]);
+>   	if (err) {
+> -		printk(KERN_ERR "TLAN: %s: Error reading MAC from eeprom: %d\n",
+> -		       dev->name,
+> -		       err);
+> +		pr_err("%s: Error reading MAC from eeprom: %d\n",
+> +		       dev->name, err);
+>   	}
+>   	dev->addr_len = 6;
+>
+> @@ -1028,8 +881,8 @@ static int tlan_open(struct net_device *dev)
+>   			  dev->name, dev);
+>
+>   	if (err) {
+> -		pr_err("TLAN:  Cannot open %s because IRQ %d is already in use.\n",
+> -		       dev->name, dev->irq);
+> +		netdev_err(dev, "Cannot open because IRQ %d is already in use\n",
+> +			   dev->irq);
+>   		return err;
+>   	}
+>
+> @@ -1512,8 +1365,8 @@ static u32 tlan_handle_tx_eof(struct net_device *dev, u16 host_int)
+>   	}
+>
+>   	if (!ack)
+> -		printk(KERN_INFO
+> -		       "TLAN: Received interrupt for uncompleted TX frame.\n");
+> +		netdev_info(dev,
+> +			    "Received interrupt for uncompleted TX frame\n");
+>
+>   	if (eoc) {
+>   		TLAN_DBG(TLAN_DEBUG_TX,
+> @@ -1666,8 +1519,8 @@ drop_and_reuse:
+>   	}
+>
+>   	if (!ack)
+> -		printk(KERN_INFO
+> -		       "TLAN: Received interrupt for uncompleted RX frame.\n");
+> +		netdev_info(dev,
+> +			    "Received interrupt for uncompleted RX frame\n");
+>
+>
+>   	if (eoc) {
+> @@ -1723,7 +1576,7 @@ drop_and_reuse:
+>
+>   static u32 tlan_handle_dummy(struct net_device *dev, u16 host_int)
+>   {
+> -	pr_info("TLAN:  Test interrupt on %s.\n", dev->name);
+> +	netdev_info(dev, "Test interrupt\n");
+>   	return 1;
+>
+>   }
+> @@ -1816,7 +1669,7 @@ static u32 tlan_handle_status_check(struct net_device *dev, u16 host_int)
+>   	if (host_int&  TLAN_HI_IV_MASK) {
+>   		netif_stop_queue(dev);
+>   		error = inl(dev->base_addr + TLAN_CH_PARM);
+> -		pr_info("TLAN:  %s: Adaptor Error = 0x%x\n", dev->name, error);
+> +		netdev_info(dev, "Adaptor Error = 0x%x\n", error);
+>   		tlan_read_and_clear_stats(dev, TLAN_RECORD);
+>   		outl(TLAN_HC_AD_RST, dev->base_addr + TLAN_HOST_CMD);
+>
+> @@ -2057,7 +1910,7 @@ static void tlan_reset_lists(struct net_device *dev)
+>   		list->buffer[0].count = TLAN_MAX_FRAME_SIZE | TLAN_LAST_BUFFER;
+>   		skb = netdev_alloc_skb_ip_align(dev, TLAN_MAX_FRAME_SIZE + 5);
+>   		if (!skb) {
+> -			pr_err("TLAN: out of memory for received data.\n");
+> +			netdev_err(dev, "Out of memory for received data\n");
+>   			break;
+>   		}
+>
+> @@ -2141,13 +1994,13 @@ static void tlan_print_dio(u16 io_base)
+>   	u32 data0, data1;
+>   	int	i;
+>
+> -	pr_info("TLAN:   Contents of internal registers for io base 0x%04hx.\n",
+> -	       io_base);
+> -	pr_info("TLAN:      Off.  +0	 +4\n");
+> +	pr_info("Contents of internal registers for io base 0x%04hx\n",
+> +		io_base);
+> +	pr_info("Off.  +0        +4\n");
+
+I think struct struct net_device could replace io_base as the argument. 
+Then we'd have struct net_device and could use netdev_info.
+
+>   	for (i = 0; i<  0x4C; i += 8) {
+>   		data0 = tlan_dio_read32(io_base, i);
+>   		data1 = tlan_dio_read32(io_base, i + 0x4);
+> -		pr_info("TLAN:      0x%02x  0x%08x 0x%08x\n", i, data0, data1);
+> +		pr_info("0x%02x  0x%08x 0x%08x\n", i, data0, data1);
+>   	}
+>
+>   }
+> @@ -2176,14 +2029,14 @@ static void tlan_print_list(struct tlan_list *list, char *type, int num)
+
+Add struct net_device here as well.
+
+>   {
+>   	int i;
+>
+> -	pr_info("TLAN:   %s List %d at %p\n", type, num, list);
+> -	pr_info("TLAN:      Forward    = 0x%08x\n",  list->forward);
+> -	pr_info("TLAN:      CSTAT      = 0x%04hx\n", list->c_stat);
+> -	pr_info("TLAN:      Frame Size = 0x%04hx\n", list->frame_size);
+> +	pr_info("%s List %d at %p\n", type, num, list);
+> +	pr_info("   Forward    = 0x%08x\n",  list->forward);
+> +	pr_info("   CSTAT      = 0x%04hx\n", list->c_stat);
+> +	pr_info("   Frame Size = 0x%04hx\n", list->frame_size);
+>   	/* for (i = 0; i<  10; i++) { */
+>   	for (i = 0; i<  2; i++) {
+> -		pr_info("TLAN:      Buffer[%d].count, addr = 0x%08x, 0x%08x\n",
+> -		       i, list->buffer[i].count, list->buffer[i].address);
+> +		pr_info("   Buffer[%d].count, addr = 0x%08x, 0x%08x\n",
+> +			i, list->buffer[i].count, list->buffer[i].address);
+>   	}
+>
+>   }
+> @@ -2398,7 +2251,7 @@ tlan_finish_reset(struct net_device *dev)
+>   	if ((priv->adapter->flags&  TLAN_ADAPTER_UNMANAGED_PHY) ||
+>   	    (priv->aui)) {
+>   		status = MII_GS_LINK;
+> -		pr_info("TLAN:  %s: Link forced.\n", dev->name);
+> +		netdev_info(dev, "Link forced\n");
+>   	} else {
+>   		tlan_mii_read_reg(dev, phy, MII_GEN_STS,&status);
+>   		udelay(1000);
+> @@ -2410,24 +2263,20 @@ tlan_finish_reset(struct net_device *dev)
+>   			tlan_mii_read_reg(dev, phy, MII_AN_LPA,&partner);
+>   			tlan_mii_read_reg(dev, phy, TLAN_TLPHY_PAR,&tlphy_par);
+>
+> -			pr_info("TLAN: %s: Link active with ", dev->name);
+> -			if (!(tlphy_par&  TLAN_PHY_AN_EN_STAT)) {
+> -				pr_info("forced 10%sMbps %s-Duplex\n",
+> -					tlphy_par&  TLAN_PHY_SPEED_100
+> -					? "" : "0",
+> -					tlphy_par&  TLAN_PHY_DUPLEX_FULL
+> -					? "Full" : "Half");
+> -			} else {
+> -				pr_info("Autonegotiation enabled, at 10%sMbps %s-Duplex\n",
+> -					tlphy_par&  TLAN_PHY_SPEED_100
+> -					? "" : "0",
+> -					tlphy_par&  TLAN_PHY_DUPLEX_FULL
+> -					? "Full" : "half");
+> -				pr_info("TLAN: Partner capability:");
+> +			netdev_info(dev,
+> +				    "Link active with %s %uMbps %s-Duplex\n",
+> +				    !(tlphy_par&  TLAN_PHY_AN_EN_STAT)
+> +				    ? "forced" : "Autonegotiation enabled,",
+> +				    tlphy_par&  TLAN_PHY_SPEED_100
+> +				    ? 100 : 10,
+> +				    tlphy_par&  TLAN_PHY_DUPLEX_FULL
+> +				    ? "Full" : "Half");
+> +			if (tlphy_par&  TLAN_PHY_AN_EN_STAT) {
+> +				netdev_info(dev, "Partner capability:");
+>   				for (i = 5; i<  10; i++)
+>   					if (partner&  (1<<i))
+> -						printk(" %s", media[i-5]);
+> -				printk("\n");
+> +						pr_cont(" %s", media[i-5]);
+> +				pr_cont("\n");
+
+I think these prints could be removed by a separate patch before this 
+one. Would you like to do that, or shall I? :-)
+
+No further comments on this one. Thanks.
+
+Cheers,
+
+-- 
+Sakari Ailus
+sakari.ailus@iki.fi
