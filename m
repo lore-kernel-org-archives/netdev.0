@@ -1,80 +1,144 @@
-From: "juice" <juice@swagman.org>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Fri, 21 Jan 2011 14:12:33 +0200
-Message-ID: <37bfb9ca79c2325ec4b70033f509200a.squirrel@www.liukuma.net>
-References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
-    <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
-    <1295610709.2601.35.camel@edumazet-laptop>
-Reply-To: juice@swagman.org
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Fri, 21 Jan 2011 13:26:26 +0100
+Message-ID: <AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
+References: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+	<1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Loke, Chetan" <chetan.loke@netscout.com>,
-	"Jon Zhou" <jon.zhou@jdsu.com>,
-	"Stephen Hemminger" <shemminger@vyatta.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:24732 "EHLO www.liukuma.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754403Ab1AUMMj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jan 2011 07:12:39 -0500
-In-Reply-To: <1295610709.2601.35.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, eric.dumazet@gmail.com, joe@perches.com,
+	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Le vendredi 21 janvier 2011 =C3=A0 13:44 +0200, juice a =C3=A9crit :
+2011/1/21 Po-Yu Chuang <ratbert.chuang@gmail.com>:
+> From: Po-Yu Chuang <ratbert@faraday-tech.com>
 >
+> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
+> MII. =A0This driver has been working on some ARM/NDS32 SoC's includin=
+g
+> Faraday A320 and Andes AG101.
 >
-> You should try
->
-> CLONE_SKB=3D"clone_skb 10"
-> ...
-> pgset "$CLONE_SKB"
->
->
-> Because I suspect you hit a performance problem on skb
-> allocation/filling/use/freeing
+> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+[...]
+> +static void ftmac100_txdes_reset(struct ftmac100_txdes *txdes)
+> +{
+> + =A0 =A0 =A0 /* clear all except end of ring bit */
+> + =A0 =A0 =A0 txdes->txdes0 =3D 0;
+> + =A0 =A0 =A0 txdes->txdes1 &=3D FTMAC100_TXDES1_EDOTR;
+> + =A0 =A0 =A0 txdes->txdes2 =3D 0;
+> + =A0 =A0 =A0 txdes->txdes3 =3D 0;
+> +}
 
-Actually, that makes the performance worse:
-(Now I tried it with kernel 2.6.37, which is currently running)
+This also probably needs cpu_to_le32().
 
-root@d8labralinux:/var/home/juice/pkt_test# cat /proc/net/pktgen/eth1
-Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
-     frags: 0  delay: 0  clone_skb: 10  ifname: eth1
-     flows: 0 flowlen: 0
-     queue_map_min: 0  queue_map_max: 0
-     dst_min: 10.10.11.2  dst_max:
-        src_min:   src_max:
-     src_mac: 00:1b:21:7c:e5:b1 dst_mac: 00:04:23:08:91:dc
-     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
-     src_mac_count: 0  dst_mac_count: 0
-     Flags:
-Current:
-     pkts-sofar: 10000000  errors: 0
-     started: 2555660074us  stopped: 2569239323us idle: 3484us
-     seq_num: 10000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-     cur_saddr: 0x0  cur_daddr: 0x20b0a0a
-     cur_udp_dst: 9  cur_udp_src: 9
-     cur_queue_map: 0
-     flows: 0
-Result: OK: 13579248(c13575763+d3484) nsec, 10000000 (60byte,0frags)
-  736417pps 353Mb/sec (353480160bps) errors: 0
+[...]
+> +static void ftmac100_free_buffers(struct ftmac100 *priv)
+> +{
+> + =A0 =A0 =A0 int i;
+> +
+> + =A0 =A0 =A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ftmac100_rxdes *rxdes =3D &priv-=
+>descs->rxdes[i];
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_addr_t d =3D ftmac100_rxdes_get_dma=
+_addr(rxdes);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 void *page =3D ftmac100_rxdes_get_va(rx=
+des);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (d)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(priv->=
+dev, d, PAGE_SIZE,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0DMA_FROM_DEVICE);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (page !=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 free_page((unsigned lon=
+g)page);
+> + =A0 =A0 =A0 }
+> +
+[...]
 
+> +static int ftmac100_alloc_buffers(struct ftmac100 *priv)
+> +{
+> + =A0 =A0 =A0 int i;
+> +
+> + =A0 =A0 =A0 priv->descs =3D dma_alloc_coherent(priv->dev,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0sizeof(struct ftmac100_descs),
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0&priv->descs_dma_addr,
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0GFP_KERNEL | GFP_DMA);
+> + =A0 =A0 =A0 if (priv->descs =3D=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
+> +
+> + =A0 =A0 =A0 memset(priv->descs, 0, sizeof(struct ftmac100_descs));
+> +
+> + =A0 =A0 =A0 /* initialize RX ring */
+> +
+> + =A0 =A0 =A0 ftmac100_rxdes_set_end_of_ring(&priv->descs->rxdes[RX_Q=
+UEUE_ENTRIES - 1]);
+> +
+> + =A0 =A0 =A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ftmac100_rxdes *rxdes =3D &priv-=
+>descs->rxdes[i];
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 void *page;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_addr_t d;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 page =3D (void *)__get_free_page(GFP_KE=
+RNEL | GFP_DMA);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (page =3D=3D NULL)
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err;
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 d =3D dma_map_single(priv->dev, page, P=
+AGE_SIZE, DMA_FROM_DEVICE);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (unlikely(dma_mapping_error(priv->de=
+v, d))) {
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 free_page((unsigned lon=
+g)page);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err;
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* The hardware enforces a sub-2K max=
+imum packet size, so we
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* put two buffers on every hardware =
+page.
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_va(rxdes, page);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_va(rxdes + 1, page +=
+ PAGE_SIZE / 2);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_addr(rxdes, d);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_addr(rxdes + 1, =
+d + PAGE_SIZE / 2);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_buffer_size(rxdes, R=
+X_BUF_SIZE);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_buffer_size(rxdes + =
+1, RX_BUF_SIZE);
+> +
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_own(rxdes);
+> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_own(rxdes + 1);
+> + =A0 =A0 =A0 }
+[...]
 
-> You can use perf tool to get some performance profile while your pktg=
-en
-> session is running
->
-> # cd tools/perf
-> # make
-> ...
-> # ./perf top
->
+Did you test this? This looks like it will result in double free after
+packet RX, as you are giving the same page (referenced once) to two
+distinct RX descriptors, that may be assigned different packets.
 
-I can try that.
-Where do I get the performance profiler tool?
+Since your not implementing any RX offloads, you might just allocate
+fresh skb's with alloc_skb() and store skb pointer in rxdes3. Since
+hardware doesn't touch it, you can skip cpu_to_le32()/le32_to_cpu()
+there (leave a comment, though).
 
+Unless this needs to work for ISA devices, you should drop GFP_DMA
+allocation flag.
 
-Yours, Jussi Ohenoja
-
-
+Best Regards,
+Micha=B3 Miros=B3aw
