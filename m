@@ -1,37 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Ensure that we unshare skbs prior to calling
- pskb_may_pull in bonding driver
-Date: Thu, 20 Jan 2011 16:47:23 -0800 (PST)
-Message-ID: <20110120.164723.73670910.davem@davemloft.net>
-References: <1295550151-25913-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH] atl1c: remove private #define.
+Date: Thu, 20 Jan 2011 16:50:15 -0800 (PST)
+Message-ID: <20110120.165015.24599216.davem@davemloft.net>
+References: <20110120145906.GA7291@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: nhorman@tuxdriver.com
+Cc: netdev@vger.kernel.org, jcliburn@gmail.com, chris.snook@gmail.com,
+	jie.yang@atheros.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47884
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60711
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753873Ab1AUAqt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:46:49 -0500
-In-Reply-To: <1295550151-25913-1-git-send-email-nhorman@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1753873Ab1AUAtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jan 2011 19:49:41 -0500
+In-Reply-To: <20110120145906.GA7291@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Thu, 20 Jan 2011 14:02:31 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 20 Jan 2011 15:59:06 +0100
 
-> Recently reported oops:
+> Either unused or duplicates from mii.h.
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Applied, but please compose reasonable Subject lines with your patches,
-always begin the line with a subsystem tag followed by a colon.
-
-This way we get
-
-	bonding: Foo bar baz
-
-instead of
-
-	Foo bar baz in the bonding driver
-
-Thanks.
+Applied.
