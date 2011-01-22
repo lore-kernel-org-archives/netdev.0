@@ -1,38 +1,31 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH net-next-2.6 1/5] genirq: Add IRQ affinity notifiers
-Date: Sat, 22 Jan 2011 17:38:24 +0100 (CET)
-Message-ID: <alpine.LFD.2.00.1101221735080.31804@localhost6.localdomain6>
-References: <alpine.LFD.2.00.1101192214350.3211@localhost6.localdomain6> <20110119.132730.57462002.davem@davemloft.net> <alpine.LFD.2.00.1101192229500.3211@localhost6.localdomain6> <20110119.134812.123988295.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT PULL nf-next-2.6] IPVS updates for v2.6.38-rc1
+Date: Sat, 22 Jan 2011 18:04:24 +0100
+Message-ID: <4D3B0E18.7080501@trash.net>
+References: <1295665835-8708-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com, therbert@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.tglx.de ([62.245.132.106]:45601 "EHLO www.tglx.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750935Ab1AVQii (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jan 2011 11:38:38 -0500
-In-Reply-To: <20110119.134812.123988295.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1295665835-8708-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-B1;2401;0cOn Wed, 19 Jan 2011, David Miller wrote:
-> You said you had stuff before Ben's patches, and that's why you needed
-> to provide me with an -rc1 relative version of his commits.
-
-I hope a rc2 relative version works as well :)
- 
-> If that's not the case, then yes it would work just fine.
+On 22.01.2011 04:10, Simon Horman wrote:
+> Hi Patrick, please consider pulling
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
 > 
-> Just give me the URL to pull from, thanks!
+> This includes bugfixes by Changli Gao and Hans Schillstrom.
+> 
+> Changli Gao (1):
+>       netfilter: ipvs: fix compiler warnings
+> 
+> Simon Horman (1):
+>       IPVS: Change sock_create_kernel() to __sock_create()
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6-tip.git irq/numa
-
-@Ben: Your patch was pretty white space damaged. Please be more
-careful next time.
-
-Thanks,
-
-	tglx
-
+Pulled, thanks Simon.
