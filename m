@@ -1,26 +1,80 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 5/8] af_unix: find the recipients of a multicast group
-Date: Fri, 21 Jan 2011 16:58:39 -0800 (PST)
-Message-ID: <20110121.165839.221575506.davem@davemloft.net>
-References: <20110121143751.57b1453d@chocolatine.cbg.collabora.co.uk>
-	<1295620788-6002-5-git-send-email-alban.crequy@collabora.co.uk>
-	<20110121172420.7ac74133@chocolatine.cbg.collabora.co.uk>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [PATCH] xen: netfront: Drop GSO SKBs which do not have csum_blank.
+Date: Fri, 21 Jan 2011 16:58:58 -0800
+Message-ID: <4D3A2BD2.5030802@goop.org>
+References: <1294233811-28123-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, lennart@poettering.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ian.molton@collabora.co.uk
-To: alban.crequy@collabora.co.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110121172420.7ac74133@chocolatine.cbg.collabora.co.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, xen-devel@lists.xensource.com
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from claw.goop.org ([74.207.240.146]:41978 "EHLO claw.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750791Ab1AVA7C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jan 2011 19:59:02 -0500
+In-Reply-To: <1294233811-28123-1-git-send-email-ian.campbell@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Date: Fri, 21 Jan 2011 17:24:20 +0000
+On 01/05/2011 05:23 AM, Ian Campbell wrote:
+> The Linux network stack expects all GSO SKBs to have ip_summed ==
+> CHECKSUM_PARTIAL (which implies that the frame contains a partial
+> checksum) and the Xen network ring protocol similarly expects an SKB
+> which has GSO set to also have NETRX_csum_blank (which also implies a
+> partial checksum). Therefore drop such frames on receive otherwise
+> they will trigger the warning in skb_gso_segment.
+>
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+> Cc: xen-devel@lists.xensource.com
+> Cc: netdev@vger.kernel.org
+> ---
+>  drivers/net/xen-netfront.c |    5 +++++
+>  1 files changed, 5 insertions(+), 0 deletions(-)
+>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index cdbeec9..8b8c480 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -836,6 +836,11 @@ static int handle_incoming_queue(struct net_device *dev,
+>  				dev->stats.rx_errors++;
+>  				continue;
+>  			}
+> +		} else if (skb_is_gso(skb)) {
+> +			kfree_skb(skb);
+> +			packets_dropped++;
+> +			dev->stats.rx_errors++;
+> +			continue;
 
-> I don't know if I should avoid releasing sockets in RCU callbacks or
-> update the lockdep annotations.
+This looks redundant; why not something like:
 
-Releasing sockets in RCU callbacks is dangerous at best.
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 47e6a71..c1b8f64 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -852,13 +852,12 @@ static int handle_incoming_queue(struct net_device *dev,
+ 		/* Ethernet work: Delayed to here as it peeks the header. */
+ 		skb->protocol = eth_type_trans(skb, dev);
+ 
+-		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-			if (skb_checksum_setup(skb)) {
+-				kfree_skb(skb);
+-				packets_dropped++;
+-				dev->stats.rx_errors++;
+-				continue;
+-			}
++		if (skb->ip_summed != CHECKSUM_PARTIAL ||
++		    skb_checksum_setup(skb)) {
++			kfree_skb(skb);
++			packets_dropped++;
++			dev->stats.rx_errors++;
++			continue;
+ 		}
+ 
+ 		dev->stats.rx_packets++;
+
+Thanks,
+	J
+
+
