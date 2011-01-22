@@ -1,71 +1,71 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: does intel X520-SR(ixgbe) support RSS on single
-	VLAN?
-Date: Mon, 24 Jan 2011 10:10:43 -0800
-Message-ID: <4D3DC0A3.8080503@hp.com>
-References: <AANLkTinuozfPcAZStV-a=siqcLesqPHnGhVh=QitOnQs@mail.gmail.com>
-	<4D3DB248.5070802@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Rui <wirelesser@gmail.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <4D3DB248.5070802@intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Subject: [PATCH] TCP: fix a bug that triggers large number of TCP RST by mistake
+Date: Sat, 22 Jan 2011 11:06:17 -0800
+Message-ID: <1295723177-23576-1-git-send-email-hkchu@google.com>
+Cc: Jerry Chu <hkchu@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:25660 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754038Ab1AXSUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 13:20:53 -0500
+Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
+	by smtp-out.google.com with ESMTP id p0OIKqWH015304
+	for <netdev@vger.kernel.org>; Mon, 24 Jan 2011 10:20:52 -0800
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexander Duyck wrote:
-> I would recommend testing with something like the "netperf -t TCP_CRR" 
-> test which should open a number of ports and spread traffic out between 
-> multiple queues.
+From: Jerry Chu <hkchu@google.com>
 
-TCP_CRR - Connect Request Response - it will cycle through almost the entire 
-port space as it goes, one at a time.  Any one four-tuple will be unlikely to 
-have all that many packets - just the SYN exchange, the request/response 
-exchange and then the FIN exchange, so unless there is a tool looking at the 
-queues with microsecond granularity, it will appear like it is all happening at 
-once :)
+This patch fixes a bug that causes TCP RST packets to be generated
+on otherwise correctly behaved applications, e.g., no unread data
+on close,..., etc. To trigger the bug, at least two conditions must
+be met:
 
-If you want to see one queue used for "a while" and then another, I would 
-suggest a TCP_RR test with the confidence intervals set to say 30 iterations. 
-That will exchange packets for the test duration (global -l option) and then the 
-next iteration will have a four-tuple that differs in the client port number 
-from the previous (the "server" port number remains fixed through the iterations 
-of the TCP_RR test.
+1. The FIN flag is set on the last data packet, i.e., it's not on a
+separate, FIN only packet.
+2. The size of the last data chunk on the receive side matches
+exactly with the size of buffer posted by the receiver, and the
+receiver closes the socket without any further read attempt.
 
-One can also run TCP_RR tests in turn, one after the other, but that consumes 
-port numbers in twos on both sides.  I suppose that these days with port number 
-randomization that's OK, but in "the old days" it tended to mean that the 
-control and data ports marched in lock-step and one would always be even the 
-other odd, which didn't always work that well with hashes...  The use of the 
-confidence intervals with the TCP_RR test deals with that by having only the one 
-netperf control connection and then successive data connections.
+This bug was first noticed on our netperf based testbed for our IW10
+proposal to IETF where a large number of RST packets were observed.
+netperf's read side code meets the condition 2 above 100%.
 
-happy benchmarking,
+Before the fix, tcp_data_queue() will queue the last skb that meets
+condition 1 to sk_receive_queue even though it has fully copied out
+(skb_copy_datagram_iovec()) the data. Then if condition 2 is also met,
+tcp_recvmsg() often returns all the copied out data successfully
+without actually consuming the skb, due to a check
+"if ((chunk = len - tp->ucopy.len) != 0) {"
+and
+"len -= chunk;"
+after tcp_prequeue_process() that causes "len" to become 0 and an
+early exit from the big while loop.
 
-rick jones
+I don't see any reason not to free the skb whose data have been fully
+consumed in tcp_data_queue(), regardless of the FIN flag.  We won't
+get there if MSG_PEEK is on. Am I missing some arcane cases related
+to urgent data?
 
-There is also always the full specification of the port numbers and IP's for the 
-data connection, though it is a bit more cumbersome.
+Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+---
+ net/ipv4/tcp_input.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-------------------------------------------------------------------------------
-Special Offer-- Download ArcSight Logger for FREE (a $49 USD value)!
-Finally, a world-class log management solution at an even better price-free!
-Download using promo code Free_Logger_4_Dev2Dev. Offer expires 
-February 28th, so secure your free ArcSight Logger TODAY! 
-http://p.sf.net/sfu/arcsight-sfd2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 2549b29..eb7f82e 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -4399,7 +4399,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
+ 				tp->ucopy.len -= chunk;
+ 				tp->copied_seq += chunk;
+-				eaten = (chunk == skb->len && !th->fin);
++				eaten = (chunk == skb->len);
+ 				tcp_rcv_space_adjust(sk);
+ 			}
+ 			local_bh_disable();
+-- 
+1.7.3.1
+
