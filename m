@@ -1,116 +1,94 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] neigh: __rcu annotations
-Date: Fri, 21 Jan 2011 17:36:57 -0800
-Message-ID: <20110122013657.GP17752@linux.vnet.ibm.com>
-References: <1295510567.2653.487.camel@edumazet-laptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Problems with /proc/net/tcp6  - possible bug - ipv6
+Date: Sat, 22 Jan 2011 09:59:41 +0100
+Message-ID: <1295686781.2609.37.camel@edumazet-laptop>
+References: <702550.61465.qm@web63902.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:45506 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750935Ab1AVIoy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jan 2011 03:44:54 -0500
-Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p0M8UMbs018028
-	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:30:23 -0500
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 8D0B9728047
-	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:44:48 -0500 (EST)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0M8im9M319204
-	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:44:48 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0M8il2q008239
-	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:44:48 -0500
-Content-Disposition: inline
-In-Reply-To: <1295510567.2653.487.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: PK <runningdoglackey@yahoo.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <702550.61465.qm@web63902.mail.re1.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 20, 2011 at 09:02:47AM +0100, Eric Dumazet wrote:
-> fix some minor issues and sparse (__rcu) warnings
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> ---
->  net/core/neighbour.c |   13 +++++++------
->  1 file changed, 7 insertions(+), 6 deletions(-)
-> 
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 60a9029..799f06e 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -316,7 +316,7 @@ static struct neigh_hash_table *neigh_hash_alloc(unsigned int entries)
->  {
->  	size_t size = entries * sizeof(struct neighbour *);
->  	struct neigh_hash_table *ret;
-> -	struct neighbour **buckets;
-> +	struct neighbour __rcu **buckets;
-> 
->  	ret = kmalloc(sizeof(*ret), GFP_ATOMIC);
->  	if (!ret)
-> @@ -324,14 +324,14 @@ static struct neigh_hash_table *neigh_hash_alloc(unsigned int entries)
->  	if (size <= PAGE_SIZE)
->  		buckets = kzalloc(size, GFP_ATOMIC);
->  	else
-> -		buckets = (struct neighbour **)
-> +		buckets = (struct neighbour __rcu **)
->  			  __get_free_pages(GFP_ATOMIC | __GFP_ZERO,
->  					   get_order(size));
->  	if (!buckets) {
->  		kfree(ret);
->  		return NULL;
->  	}
-> -	rcu_assign_pointer(ret->hash_buckets, buckets);
-> +	ret->hash_buckets = buckets;
->  	ret->hash_mask = entries - 1;
->  	get_random_bytes(&ret->hash_rnd, sizeof(ret->hash_rnd));
->  	return ret;
-> @@ -343,7 +343,7 @@ static void neigh_hash_free_rcu(struct rcu_head *head)
->  						    struct neigh_hash_table,
->  						    rcu);
->  	size_t size = (nht->hash_mask + 1) * sizeof(struct neighbour *);
-> -	struct neighbour **buckets = nht->hash_buckets;
-> +	struct neighbour __rcu **buckets = nht->hash_buckets;
-> 
->  	if (size <= PAGE_SIZE)
->  		kfree(buckets);
-> @@ -1540,7 +1540,7 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
->  		panic("cannot create neighbour proc dir entry");
->  #endif
-> 
-> -	tbl->nht = neigh_hash_alloc(8);
-> +	RCU_INIT_POINTER(tbl->nht, neigh_hash_alloc(8));
-> 
->  	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
->  	tbl->phash_buckets = kzalloc(phsize, GFP_KERNEL);
-> @@ -1602,7 +1602,8 @@ int neigh_table_clear(struct neigh_table *tbl)
->  	}
->  	write_unlock(&neigh_tbl_lock);
-> 
-> -	call_rcu(&tbl->nht->rcu, neigh_hash_free_rcu);
-> +	call_rcu(&rcu_dereference_protected(tbl->nht, 1)->rcu,
-> +		 neigh_hash_free_rcu);
+Le vendredi 21 janvier 2011 =C3=A0 22:30 -0800, PK a =C3=A9crit :
+> Creating many ipv6 connections hits a ceiling on connections/fds ; ok=
+ay, fine.
+>=20
+> But in my case I'm seeing millions of entries spring up within a few =
+seconds and=20
+> then vanish within a few minutes, in /proc/net/tcp6 (vanish due to ga=
+rbage=20
+> collection?)
+>=20
+> Furthermore I can trigger this easily on vanilla kernels from 2.6.36 =
+to=20
+> 2.6.38-rc1-next-20110121  inside a ubuntu 10.10 amd64 vm, causing the=
+ kernel to=20
+> spew warnings.  There is also some corruption in the logs (see kernel=
+-sample.log=20
+> line 296), but that may be unrelated.
+>=20
+> More explanation, kernel config of the primary machine I saw this on,=
+ sample=20
+> ruby script to reproduce (inside the ubuntu VMs I apt-get and use rub=
+y-1.9.1),=20
+> are located at
+> https://github.com/runningdogx/net6-bug
+>=20
+> Seems to only affect 64-bit.  So far I have not been able to reproduc=
+e on 32-bit=20
+> ubuntu VMs of any kernel version.
+> Seems to only affect IPv6.  So far I have not been able to reproduce =
+using IPv4=20
+> connections (and watching /proc/net/tcp of course).
+> Does not trigger the bug if the connections are made to ::1.  Only ex=
+ternally=20
+> routable local and global IPv6 addresses seem to cause problems.
+> Seems to have been introduced between 2.6.35 and 2.6.36 (see README o=
+n github=20
+> for more kernels I've tried)
+>=20
+> All the tested Ubuntu VMs are stock 10.10 userland, with vanilla kern=
+els (the=20
+> latest ubuntu kernel is 2.6.35-something, and my initial test didn't =
+show it=20
+> suffering from this problem)
+>=20
+> Originally noticed on separate Gentoo 64-bit non-vm system when doing=
+ web=20
+> benchmarking.
+>=20
+> not subscribed, so please keep me in cc although I'll try to follow t=
+he thread
+>=20
+>=20
 
-Hello, Eric,
+Hi PK (Sorry, your real name is hidden)
 
-Any chance of a comment?  Perhaps something like:
+I could not reproduce this on current linux-2.6 kernel.
 
-	/*
-	 * Because this has been removed from the list, no other updater
-	 * can access this element.
-	 */
+How many vcpus running in your VM, and memory ?
 
-							Thanx, Paul
+Note : a recent commit did fix /proc/net/tcp[6] behavior
 
->  	tbl->nht = NULL;
-> 
->  	kfree(tbl->phash_buckets);
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+commit 1bde5ac49398a064c753bb490535cfad89e99a5f
+Author: Eric Dumazet <eric.dumazet@gmail.com>
+Date:   Thu Dec 23 09:32:46 2010 -0800
+
+    tcp: fix listening_get_next()
+   =20
+    Alexey Vlasov found /proc/net/tcp could sometime loop and display
+    millions of sockets in LISTEN state.
+   =20
+    In 2.6.29, when we converted TCP hash tables to RCU, we left two
+    sk_next() calls in listening_get_next().
+   =20
+    We must instead use sk_nulls_next() to properly detect an end of ch=
+ain.
+   =20
+    Reported-by: Alexey Vlasov <renton@renton.name>
+    Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
