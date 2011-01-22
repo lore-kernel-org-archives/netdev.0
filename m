@@ -1,30 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v3 0/2] can: add driver for Softing card
-Date: Fri, 21 Jan 2011 20:17:36 -0800 (PST)
-Message-ID: <20110121.201736.22513246.davem@davemloft.net>
-References: <20110111143007.GB387@e-circ.dyndns.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] ipsec: fix IPv4 AH alignment on 32 bits
+Date: Fri, 21 Jan 2011 20:20:21 -0800 (PST)
+Message-ID: <20110121.202021.32719353.davem@davemloft.net>
+References: <4D2F3453.9020203@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-pcmcia-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: kurt.van.dijck-/BeEPy95v10@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110111143007.GB387-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, christophe.gouault@6wind.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57543
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753258Ab1AVETr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 23:19:47 -0500
+In-Reply-To: <4D2F3453.9020203@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Date: Tue, 11 Jan 2011 15:30:08 +0100
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Thu, 13 Jan 2011 18:20:19 +0100
 
-> This series will add a driver for Softing PCMCIA CAN card.
+> here is a patch to fix alignment of IPv4 AH. Note that this break
+> compatiblity for some algorithms (like SHA256) with old kernels
+> ... but upstream cannot use SHA256 on IPv4, for example, with a target
+> that is RFC compliant.
+> 
+> I don't know what is the best way to fix this.
 
-Both patches applied, thanks.
+We cannot just start rejecting the old 8-byte alignment on input if
+Linux has been using an 8-byte alignment since day one.
+
+If you want this change to be considered seriously, you need to relax
+the AH4 input check.
