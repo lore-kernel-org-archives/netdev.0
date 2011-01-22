@@ -1,31 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GIT PULL nf-next-2.6] IPVS updates for v2.6.38-rc1
-Date: Sat, 22 Jan 2011 18:04:24 +0100
-Message-ID: <4D3B0E18.7080501@trash.net>
-References: <1295665835-8708-1-git-send-email-horms@verge.net.au>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH 1/2] linux-firmware: bnx2: Update firmware to 6.0.x.
+Date: Sun, 23 Jan 2011 03:40:35 +1000
+Message-ID: <1295718036.2980.1.camel@macbook.infradead.org>
+References: <1295473811-17443-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1295665835-8708-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canuck.infradead.org ([134.117.69.58]:37943 "EHLO
+	canuck.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752482Ab1AVRkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jan 2011 12:40:41 -0500
+In-Reply-To: <1295473811-17443-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22.01.2011 04:10, Simon Horman wrote:
-> Hi Patrick, please consider pulling
->   git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
+On Wed, 2011-01-19 at 13:50 -0800, Michael Chan wrote:
+> upstream kernel commit 22fa159d37efbfe781bbb99279efe83f58b87d29
 > 
-> This includes bugfixes by Changli Gao and Hans Schillstrom.
+> - Improved flow control and simplified interface
+> - Use hardware RSS indirection table instead of the slower firmware-
+>   based table
+> - Lower latency interrupt on 5709
 > 
-> Changli Gao (1):
->       netfilter: ipvs: fix compiler warnings
-> 
-> Simon Horman (1):
->       IPVS: Change sock_create_kernel() to __sock_create()
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> Reviewed-by: Benjamin Li <benli@broadcom.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  bnx2/bnx2-mips-06-6.0.15.fw   |  Bin 0 -> 92780 bytes
+>  bnx2/bnx2-mips-09-6.0.17.fw   |  Bin 0 -> 103488 bytes
+>  bnx2/bnx2-rv2p-06-6.0.15.fw   |  Bin 0 -> 5696 bytes
+>  bnx2/bnx2-rv2p-09-6.0.17.fw   |  Bin 0 -> 6104 bytes
+>  bnx2/bnx2-rv2p-09ax-6.0.17.fw |  Bin 0 -> 6616 bytes
+>  5 files changed, 0 insertions(+), 0 deletions(-)
+>  create mode 100644 bnx2/bnx2-mips-06-6.0.15.fw
+>  create mode 100644 bnx2/bnx2-mips-09-6.0.17.fw
+>  create mode 100644 bnx2/bnx2-rv2p-06-6.0.15.fw
+>  create mode 100644 bnx2/bnx2-rv2p-09-6.0.17.fw
+>  create mode 100644 bnx2/bnx2-rv2p-09ax-6.0.17.fw
 
-Pulled, thanks Simon.
+Please could you update the WHENCE file accordingly? 
+
+-- 
+dwmw2
+
