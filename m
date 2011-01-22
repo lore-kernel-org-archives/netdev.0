@@ -1,44 +1,29 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-2.6 PATCH 1/2] net: dcbnl: remove redundant DCB_CAP_DCBX_STATIC
- bit
-Date: Fri, 21 Jan 2011 18:52:15 -0800
-Message-ID: <4D3A465F.8020809@intel.com>
-References: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"shmulikr@broadcom.com" <shmulikr@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:33740 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754210Ab1AVCwR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jan 2011 21:52:17 -0500
-In-Reply-To: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next-2.6] IPVS updates for v2.6.38-rc1
+Date: Sat, 22 Jan 2011 14:10:33 +1100
+Message-ID: <1295665835-8708-1-git-send-email-horms@verge.net.au>
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>, Patrick McHardy <kaber@trash.net>
+To: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/21/2011 6:35 PM, John Fastabend wrote:
-> Remove redundant DCB_CAP_DCBX_STATIC bit in DCB capabilities
-> 
-> Setting this bit indicates that no embedded DCBx engine is
-> present and the hardware can not be configured. This is the
-> same as having none of the DCB capability flags set or simply
-> not implementing the dcbnl ops at all.
-> 
-> This patch removes this bit. The bit has not made a stable
-> release yet so removing it should not be an issue with
-> existing apps.
-> 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> CC: Shmulik Ravid <shmulikr@broadcom.com>
-> ---
-> 
+Hi Patrick, please consider pulling
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
 
-Shmulik, could you ACK this because you added these bits? But
-I was adding support for this in lldpad and I see no reason that
-we need these?
+This includes bugfixes by Changli Gao and Hans Schillstrom.
 
-Thanks,
-John.
+Changli Gao (1):
+      netfilter: ipvs: fix compiler warnings
+
+Simon Horman (1):
+      IPVS: Change sock_create_kernel() to __sock_create()
+
+ net/netfilter/ipvs/ip_vs_ctl.c   |    4 ++++
+ net/netfilter/ipvs/ip_vs_proto.c |    4 ++++
+ net/netfilter/ipvs/ip_vs_sync.c  |    4 ++--
+ 3 files changed, 10 insertions(+), 2 deletions(-)
+
