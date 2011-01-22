@@ -1,147 +1,44 @@
-From: Mahesh Bandewar <maheshb@google.com>
-Subject: [PATCH v4] net-next-2.6: Allow ethtool to set interface in loopback mode.
-Date: Fri, 21 Jan 2011 16:23:56 -0800
-Message-ID: <1295655836-23421-1-git-send-email-maheshb@google.com>
-References: <1294187401-4662-1-git-send-email-maheshb@google.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	Tom Herbert <therbert@google.com>,
-	Laurent Chavey <chavey@google.com>,
-	netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>
-To: David Miller <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net_sched: TCQ_F_CAN_BYPASS generalization
+Date: Fri, 21 Jan 2011 16:27:33 -0800 (PST)
+Message-ID: <20110121.162733.123411406.davem@davemloft.net>
+References: <1295531299.2825.175.camel@edumazet-laptop>
+	<1295537236.2825.286.camel@edumazet-laptop>
+	<1295607881.2601.31.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, hawk@diku.dk,
+	jarkao2@gmail.com, hadi@cyberus.ca
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:55628 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755123Ab1AVAYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 19:24:11 -0500
-In-Reply-To: <1294187401-4662-1-git-send-email-maheshb@google.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43422
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754942Ab1AVA07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jan 2011 19:26:59 -0500
+In-Reply-To: <1295607881.2601.31.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables ethtool to set the loopback mode on a given interface.
-By configuring the interface in loopback mode in conjunction with a policy
-route / rule, a userland application can stress the egress / ingress path
-exposing the flows of the change in progress and potentially help developer(s)
-understand the impact of those changes without even sending a packet out
-on the network.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 21 Jan 2011 12:04:41 +0100
 
-Following set of commands illustrates one such example -
-	a) ip -4 addr add 192.168.1.1/24 dev eth1
-	b) ip -4 rule add from all iif eth1 lookup 250
-	c) ip -4 route add local 0/0 dev lo proto kernel scope host table 250
-	d) arp -Ds 192.168.1.100 eth1
-	e) arp -Ds 192.168.1.200 eth1
-	f) sysctl -w net.ipv4.ip_nonlocal_bind=1
-	g) sysctl -w net.ipv4.conf.all.accept_local=1
-	# Assuming that the machine has 8 cores
-	h) taskset 000f netserver -L 192.168.1.200
-	i) taskset 00f0 netperf -t TCP_CRR -L 192.168.1.100 -H 192.168.1.200 -l 30
+> Now qdisc stab is handled before TCQ_F_CAN_BYPASS test in
+> __dev_xmit_skb(), we can generalize TCQ_F_CAN_BYPASS to other qdiscs
+> than pfifo_fast : pfifo, bfifo, pfifo_head_drop and sfq
+> 
+> SFQ is special because it can have external classifiers, and in these
+> cases, we cannot bypass queue discipline (packet could be dropped by
+> classifier) without admin asking it, or further changes.
+> 
+> Its worth doing this, especially for SFQ, avoiding dirtying memory in
+> case no packets are already waiting in queue.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
----
- include/linux/ethtool.h |   16 ++++++++++++++++
- net/core/ethtool.c      |   39 +++++++++++++++++++++++++++++++++++++++
- 2 files changed, 55 insertions(+), 0 deletions(-)
+Applied, thanks.
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index 1908929..1b12541 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -616,6 +616,18 @@ void ethtool_ntuple_flush(struct net_device *dev);
-  *	Should validate the magic field.  Don't need to check len for zero
-  *	or wraparound.  Update len to the amount written.  Returns an error
-  *	or zero.
-+ *
-+ * get_loopback:
-+ * set_loopback:
-+ *	These are the driver specific get / set methods to report / enable-
-+ *	disable loopback mode. The idea is to stress test the ingress/egress
-+ *	paths by enabling this mode. There are multiple places this could be
-+ *	done and choice of place will most likely be affected by the device
-+ *	capabilities. So as a guiding principle; select a place to implement 
-+ *	loopback mode as close to the host as possible. This would maximize
-+ *	the soft-path length and maintain parity in terms of comparison with
-+ *	different set of drivers.
-+ *
-  */
- struct ethtool_ops {
- 	int	(*get_settings)(struct net_device *, struct ethtool_cmd *);
-@@ -678,6 +690,8 @@ struct ethtool_ops {
- 				  struct ethtool_rxfh_indir *);
- 	int	(*set_rxfh_indir)(struct net_device *,
- 				  const struct ethtool_rxfh_indir *);
-+	int	(*get_loopback)(struct net_device *, u32 *);
-+	int	(*set_loopback)(struct net_device *, u32);
- };
- #endif /* __KERNEL__ */
- 
-@@ -743,6 +757,8 @@ struct ethtool_ops {
- #define ETHTOOL_GSSET_INFO	0x00000037 /* Get string set info */
- #define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n table */
- #define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n table */
-+#define ETHTOOL_SLOOPBACK	0x0000003a /* Enable / Disable Loopback */
-+#define ETHTOOL_GLOOPBACK	0x0000003b /* Get Loopback status */
- 
- /* compatibility with older code */
- #define SPARC_ETH_GSET		ETHTOOL_GSET
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 1774178..7a5f11a 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1450,6 +1450,39 @@ static noinline_for_stack int ethtool_flash_device(struct net_device *dev,
- 	return dev->ethtool_ops->flash_device(dev, &efl);
- }
- 
-+static int ethtool_set_loopback(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_value edata;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+
-+	if (!ops || !ops->set_loopback)
-+		return -EOPNOTSUPP;
-+
-+	if (copy_from_user(&edata, useraddr, sizeof(edata)))
-+		return -EFAULT;
-+
-+	return ops->set_loopback(dev, edata.data);
-+}
-+
-+static int ethtool_get_loopback(struct net_device *dev, void __user *useraddr)
-+{
-+	struct ethtool_value edata;
-+	const struct ethtool_ops *ops = dev->ethtool_ops;
-+	int err;
-+
-+	if (!ops || !ops->get_loopback)
-+		return -EOPNOTSUPP;
-+
-+	err = ops->get_loopback(dev, &edata.data);	
-+	if (err)
-+		return (err);
-+
-+	if (copy_to_user(useraddr, &edata, sizeof(edata)))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
- /* The main entry point in this file.  Called from net/core/dev.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
-@@ -1693,6 +1726,12 @@ int dev_ethtool(struct net *net, struct ifreq *ifr)
- 	case ETHTOOL_SRXFHINDIR:
- 		rc = ethtool_set_rxfh_indir(dev, useraddr);
- 		break;
-+	case ETHTOOL_SLOOPBACK:
-+		rc = ethtool_set_loopback(dev, useraddr);
-+		break;
-+	case ETHTOOL_GLOOPBACK:
-+		rc = ethtool_get_loopback(dev, useraddr);
-+		break;
- 	default:
- 		rc = -EOPNOTSUPP;
- 	}
--- 
-1.7.3.1
+> I am not sure RED can use bypass too, feel free to comment on this ;)
 
+The only thing that RED would seem to care about would be the
+queue size average calculation.
