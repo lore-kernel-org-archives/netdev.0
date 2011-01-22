@@ -1,50 +1,60 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: [PATCH V9 08/13] posix clocks: cleanup the CLOCK_DISPTACH
- macro
-Date: Sat, 22 Jan 2011 13:42:39 +0100 (CET)
-Message-ID: <alpine.LFD.2.00.1101221342100.31804@localhost6.localdomain6>
-References: <cover.1294917347.git.richard.cochran@omicron.at> <90b2beef441615d01c93fcad029c44af4e505c5f.1294917348.git.richard.cochran@omicron.at> <alpine.LFD.2.00.1101131745400.2678@localhost6.localdomain6> <20110122123840.GA30830@riccoc20.at.omicron.at>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
+ single TCP session balancing
+Date: Sat, 22 Jan 2011 13:48:52 +0100
+Message-ID: <4D3AD234.7080709@gmail.com>
+References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru> <4D3745AF.5040808@gmail.com> <4D399062.3060004@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110122123840.GA30830-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41872 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752810Ab1AVMsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jan 2011 07:48:55 -0500
+Received: by wwa36 with SMTP id 36so2818512wwa.1
+        for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 04:48:54 -0800 (PST)
+In-Reply-To: <4D399062.3060004@yandex-team.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 22 Jan 2011, Richard Cochran wrote:
+Le 21/01/2011 14:55, Oleg V. Ukhno a =C3=A9crit :
+> On 01/19/2011 11:12 PM, Nicolas de Peslo=C3=BCan wrote:
+>
+>> If you have time for that, then yes, please, do the same test using
+>> balance-rr+vlan to segregate path. With those results, we whould hav=
+e
+>> the opportunity to enhance the documentation with some well tested c=
+ases
+>> of TCP load balancing on a LAN, not limited to 802.3ad automatic set=
+up.
+>> Both setups make sense, and assuming the results would be similar is
+>> probably true, but not reliable enough to assert it into the
+>> documentation.
+>>
+>> Thanks,
+>>
+>> Nicolas.
+>>
+> Nicolas,
+> I've ran similar tests for VLAN tunneling scenario. Results are
+> identical, as I expected. The only significat difference is link fail=
+ure
+> handling. 802.3ad mode allows almost painless load reditribution,
+> balance-rr causes packet loss.
 
-> On Thu, Jan 13, 2011 at 06:03:24PM +0100, Thomas Gleixner wrote:
-> > On Thu, 13 Jan 2011, Richard Cochran wrote:
-> > >  int posix_cpu_clock_getres(const clockid_t which_clock, struct timespec *ts);
-> > >  int posix_cpu_clock_get(const clockid_t which_clock, struct timespec *ts);
-> > > -int posix_cpu_clock_set(const clockid_t which_clock, const struct timespec *ts);
-> > > +int posix_cpu_clock_set(const clockid_t which_clock, struct timespec *ts);
-> > 
-> > Shouldn't we change the clock_set function to have *ts const in all places ?
-> 
-> The common_clock_set function calls:
-> 
->     do_sys_settimeofday
->         security_settime
->             cap_settime
->     do_settimeofday
-> 
-> so all their signatures must also change.
-> 
-> Should I add that into my patch set?
+Oleg,
 
-Yes please as a separate patch.
+Thanks for doing the tests.
 
-Thanks,
+What link failure mode did you use for those tests ? miimon or arp moni=
+toring ?
 
-	tglx
+	Nicolas.
+
