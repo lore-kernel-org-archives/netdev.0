@@ -1,81 +1,111 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Sat, 22 Jan 2011 23:57:42 +0200
-Message-ID: <20110122215742.GC5617@redhat.com>
-References: <20110113234135.GC8426@verge.net.au>
- <20110114045818.GA29738@redhat.com>
- <20110114063528.GB10957@verge.net.au>
- <20110114065415.GA30300@redhat.com>
- <20110116223728.GA6279@verge.net.au>
- <20110117102655.GH23479@redhat.com>
- <4D35ECE2.4040901@hp.com>
- <20110120083727.GA1807@verge.net.au>
- <20110121095929.GE26070@redhat.com>
- <20110121231149.GI2195@verge.net.au>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v2 15/16] veth: convert to hw_features
+Date: Sat, 22 Jan 2011 23:14:14 +0100 (CET)
+Message-ID: <fd6de7dadb1127fdd3ab7abdf695937ae4ccfe11.1295734271.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110121231149.GI2195@verge.net.au>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:43059 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752772Ab1AVWOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Jan 2011 17:14:17 -0500
+In-Reply-To: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 22, 2011 at 10:11:52AM +1100, Simon Horman wrote:
-> On Fri, Jan 21, 2011 at 11:59:30AM +0200, Michael S. Tsirkin wrote:
-> > On Thu, Jan 20, 2011 at 05:38:33PM +0900, Simon Horman wrote:
-> > > [ Trimmed Eric from CC list as vger was complaining that it is too long ]
-> > > 
-> > > On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
-> > > > >So it won't be all that simple to implement well, and before we try,
-> > > > >I'd like to know whether there are applications that are helped
-> > > > >by it. For example, we could try to measure latency at various
-> > > > >pps and see whether the backpressure helps. netperf has -b, -w
-> > > > >flags which might help these measurements.
-> > > > 
-> > > > Those options are enabled when one adds --enable-burst to the
-> > > > pre-compilation ./configure  of netperf (one doesn't have to
-> > > > recompile netserver).  However, if one is also looking at latency
-> > > > statistics via the -j option in the top-of-trunk, or simply at the
-> > > > histogram with --enable-histogram on the ./configure and a verbosity
-> > > > level of 2 (global -v 2) then one wants the very top of trunk
-> > > > netperf from:
-> > > 
-> > > Hi,
-> > > 
-> > > I have constructed a test where I run an un-paced  UDP_STREAM test in
-> > > one guest and a paced omni rr test in another guest at the same time.
-> > 
-> > Hmm, what is this supposed to measure?  Basically each time you run an
-> > un-paced UDP_STREAM you get some random load on the network.
-> > You can't tell what it was exactly, only that it was between
-> > the send and receive throughput.
-> 
-> Rick mentioned in another email that I messed up my test parameters a bit,
-> so I will re-run the tests, incorporating his suggestions.
-> 
-> What I was attempting to measure was the effect of an unpaced UDP_STREAM
-> on the latency of more moderated traffic. Because I am interested in
-> what effect an abusive guest has on other guests and how that my be
-> mitigated.
-> 
-> Could you suggest some tests that you feel are more appropriate?
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ drivers/net/veth.c |   45 +++++---------------------------------------=
+-
+ 1 files changed, 5 insertions(+), 40 deletions(-)
 
-Yes. To refraze my concern in these terms, besides the malicious guest
-you have another software in host (netperf) that interferes with
-the traffic, and it cooperates with the malicious guest.
-Right?
-
-IMO for a malicious guest you would send
-UDP packets that then get dropped by the host.
-
-For example block netperf in host so that
-it does not consume packets from the socket.
-
-
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index cc83fa7..b4d0349 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -36,7 +36,6 @@ struct veth_net_stats {
+ struct veth_priv {
+ 	struct net_device *peer;
+ 	struct veth_net_stats __percpu *stats;
+-	unsigned ip_summed;
+ };
+=20
+ /*
+@@ -99,47 +98,10 @@ static void veth_get_ethtool_stats(struct net_devic=
+e *dev,
+ 	data[0] =3D priv->peer->ifindex;
+ }
+=20
+-static u32 veth_get_rx_csum(struct net_device *dev)
+-{
+-	struct veth_priv *priv;
+-
+-	priv =3D netdev_priv(dev);
+-	return priv->ip_summed =3D=3D CHECKSUM_UNNECESSARY;
+-}
+-
+-static int veth_set_rx_csum(struct net_device *dev, u32 data)
+-{
+-	struct veth_priv *priv;
+-
+-	priv =3D netdev_priv(dev);
+-	priv->ip_summed =3D data ? CHECKSUM_UNNECESSARY : CHECKSUM_NONE;
+-	return 0;
+-}
+-
+-static u32 veth_get_tx_csum(struct net_device *dev)
+-{
+-	return (dev->features & NETIF_F_NO_CSUM) !=3D 0;
+-}
+-
+-static int veth_set_tx_csum(struct net_device *dev, u32 data)
+-{
+-	if (data)
+-		dev->features |=3D NETIF_F_NO_CSUM;
+-	else
+-		dev->features &=3D ~NETIF_F_NO_CSUM;
+-	return 0;
+-}
+-
+ static const struct ethtool_ops veth_ethtool_ops =3D {
+ 	.get_settings		=3D veth_get_settings,
+ 	.get_drvinfo		=3D veth_get_drvinfo,
+ 	.get_link		=3D ethtool_op_get_link,
+-	.get_rx_csum		=3D veth_get_rx_csum,
+-	.set_rx_csum		=3D veth_set_rx_csum,
+-	.get_tx_csum		=3D veth_get_tx_csum,
+-	.set_tx_csum		=3D veth_set_tx_csum,
+-	.get_sg			=3D ethtool_op_get_sg,
+-	.set_sg			=3D ethtool_op_set_sg,
+ 	.get_strings		=3D veth_get_strings,
+ 	.get_sset_count		=3D veth_get_sset_count,
+ 	.get_ethtool_stats	=3D veth_get_ethtool_stats,
+@@ -168,8 +130,9 @@ static netdev_tx_t veth_xmit(struct sk_buff *skb, s=
+truct net_device *dev)
+=20
+ 	/* don't change ip_summed =3D=3D CHECKSUM_PARTIAL, as that
+ 	   will cause bad checksum on forwarded packets */
+-	if (skb->ip_summed =3D=3D CHECKSUM_NONE)
+-		skb->ip_summed =3D rcv_priv->ip_summed;
++	if (skb->ip_summed =3D=3D CHECKSUM_NONE &&
++	    rcv->features & NETIF_F_RXCSUM)
++		skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+=20
+ 	length =3D skb->len + ETH_HLEN;
+ 	if (dev_forward_skb(rcv, skb) !=3D NET_RX_SUCCESS)
+@@ -304,6 +267,8 @@ static void veth_setup(struct net_device *dev)
+ 	dev->ethtool_ops =3D &veth_ethtool_ops;
+ 	dev->features |=3D NETIF_F_LLTX;
+ 	dev->destructor =3D veth_dev_free;
++
++	dev->hw_features =3D NETIF_F_NO_CSUM | NETIF_F_SG | NETIF_F_RXCSUM;
+ }
+=20
+ /*
+--=20
+1.7.2.3
 
