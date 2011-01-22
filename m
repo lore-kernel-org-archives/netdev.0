@@ -1,9 +1,8 @@
 From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-2.6 PATCH 2/2] dcbnl: make get_app handling symmetric for IEEE
-	and CEE DCBx
-Date: Fri, 21 Jan 2011 18:35:18 -0800
-Message-ID: <20110122023518.4239.3464.stgit@jf-dev1-dcblab>
-References: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
+Subject: [net-2.6 PATCH 1/2] net: dcbnl: remove redundant DCB_CAP_DCBX_STATIC
+	bit
+Date: Fri, 21 Jan 2011 18:35:13 -0800
+Message-ID: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,52 +11,50 @@ To: davem@davemloft.net, shmulikr@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:54264 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753900Ab1AVCkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753387Ab1AVCkB (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 21 Jan 2011 21:40:01 -0500
-In-Reply-To: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The IEEE get/set app handlers use generic routines and do not
-require the net_device to implement the dcbnl_ops routines. This
-patch makes it symmetric so user space and drivers do not have
-to handle the CEE version and IEEE DCBx versions differently.
+Remove redundant DCB_CAP_DCBX_STATIC bit in DCB capabilities
+
+Setting this bit indicates that no embedded DCBx engine is
+present and the hardware can not be configured. This is the
+same as having none of the DCB capability flags set or simply
+not implementing the dcbnl ops at all.
+
+This patch removes this bit. The bit has not made a stable
+release yet so removing it should not be an issue with
+existing apps.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+CC: Shmulik Ravid <shmulikr@broadcom.com>
 ---
 
- net/dcb/dcbnl.c |   13 +++++++++++--
- 1 files changed, 11 insertions(+), 2 deletions(-)
+ include/linux/dcbnl.h |    7 -------
+ 1 files changed, 0 insertions(+), 7 deletions(-)
 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index d900ab9..6b03f56 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -583,7 +583,7 @@ static int dcbnl_getapp(struct net_device *netdev, struct nlattr **tb,
- 	u8 up, idtype;
- 	int ret = -EINVAL;
+diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+index 68cd248..ac9df34 100644
+--- a/include/linux/dcbnl.h
++++ b/include/linux/dcbnl.h
+@@ -423,18 +423,11 @@ enum dcbnl_cap_attrs {
+  *
+  * @DCB_CAP_DCBX_VER_IEEE: for a non-host DCBX engine, indicates the engine
+  *                         supports the IEEE protocol flavor
+- *
+- * @DCB_CAP_DCBX_STATIC: for a non-host DCBX engine, indicates the engine
+- *                       supports static configuration (i.e no actual
+- *                       negotiation is performed negotiated parameters equal
+- *                       the initial configuration)
+- *
+  */
+ #define DCB_CAP_DCBX_HOST		0x01
+ #define DCB_CAP_DCBX_LLD_MANAGED	0x02
+ #define DCB_CAP_DCBX_VER_CEE		0x04
+ #define DCB_CAP_DCBX_VER_IEEE		0x08
+-#define DCB_CAP_DCBX_STATIC		0x10
  
--	if (!tb[DCB_ATTR_APP] || !netdev->dcbnl_ops->getapp)
-+	if (!tb[DCB_ATTR_APP])
- 		goto out;
- 
- 	ret = nla_parse_nested(app_tb, DCB_APP_ATTR_MAX, tb[DCB_ATTR_APP],
-@@ -604,7 +604,16 @@ static int dcbnl_getapp(struct net_device *netdev, struct nlattr **tb,
- 		goto out;
- 
- 	id = nla_get_u16(app_tb[DCB_APP_ATTR_ID]);
--	up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
-+
-+	if (netdev->dcbnl_ops->getapp) {
-+		up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
-+	} else {
-+		struct dcb_app app = {
-+					.selector = idtype,
-+					.protocol = id,
-+				     };
-+		up = dcb_getapp(netdev, &app);
-+	}
- 
- 	/* send this back */
- 	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+ /**
+  * enum dcbnl_numtcs_attrs - number of traffic classes
 
