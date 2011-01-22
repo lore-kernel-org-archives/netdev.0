@@ -1,59 +1,63 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
-Date: Sat, 22 Jan 2011 10:34:23 +0800
-Message-ID: <AANLkTimoSQbjH-iW6x36FHs6yzDgsey9RS+yFXnKOxq5@mail.gmail.com>
-References: <1295604133-6869-1-git-send-email-xiaosuo@gmail.com> <20110122022232.GL2661@verge.net.au>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-2.6 PATCH 2/2] dcbnl: make get_app handling symmetric for IEEE
+	and CEE DCBx
+Date: Fri, 21 Jan 2011 18:35:18 -0800
+Message-ID: <20110122023518.4239.3464.stgit@jf-dev1-dcblab>
+References: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110122022232.GL2661@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, shmulikr@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:54264 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753900Ab1AVCkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jan 2011 21:40:01 -0500
+In-Reply-To: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 22, 2011 at 10:22 AM, Simon Horman <horms@verge.net.au> wro=
-te:
-> On Fri, Jan 21, 2011 at 06:02:13PM +0800, Changli Gao wrote:
->> Fix compiler warnings when no transport protocol load balancing supp=
-ort
->> is configured.
->>
->> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->> ---
->> =A0net/netfilter/ipvs/ip_vs_core.c =A0| =A0 =A04 +---
->> =A0net/netfilter/ipvs/ip_vs_ctl.c =A0 | =A0 =A04 ++++
->> =A0net/netfilter/ipvs/ip_vs_proto.c | =A0 =A04 ++++
->> =A03 files changed, 9 insertions(+), 3 deletions(-)
->> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip=
-_vs_core.c
->> index f36a84f..d889f4f 100644
->> --- a/net/netfilter/ipvs/ip_vs_core.c
->> +++ b/net/netfilter/ipvs/ip_vs_core.c
->> @@ -1894,9 +1894,7 @@ static int __net_init __ip_vs_init(struct net =
-*net)
->>
->> =A0static void __net_exit __ip_vs_cleanup(struct net *net)
->> =A0{
->> - =A0 =A0 struct netns_ipvs *ipvs =3D net_ipvs(net);
->> -
->> - =A0 =A0 IP_VS_DBG(10, "ipvs netns %d released\n", ipvs->gen);
->> + =A0 =A0 IP_VS_DBG(10, "ipvs netns %d released\n", net_ipvs(net)->g=
-en);
->> =A0}
->>
->
-> The hunk above seems unrelated to the problem described.
-> The rest of the changes look good. I will double check and
-> apply them to my tree.
->
+The IEEE get/set app handlers use generic routines and do not
+require the net_device to implement the dcbnl_ops routines. This
+patch makes it symmetric so user space and drivers do not have
+to handle the CEE version and IEEE DCBx versions differently.
 
-Yes, is a separated patch needed? It is trivial. Thanks.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+ net/dcb/dcbnl.c |   13 +++++++++++--
+ 1 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index d900ab9..6b03f56 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -583,7 +583,7 @@ static int dcbnl_getapp(struct net_device *netdev, struct nlattr **tb,
+ 	u8 up, idtype;
+ 	int ret = -EINVAL;
+ 
+-	if (!tb[DCB_ATTR_APP] || !netdev->dcbnl_ops->getapp)
++	if (!tb[DCB_ATTR_APP])
+ 		goto out;
+ 
+ 	ret = nla_parse_nested(app_tb, DCB_APP_ATTR_MAX, tb[DCB_ATTR_APP],
+@@ -604,7 +604,16 @@ static int dcbnl_getapp(struct net_device *netdev, struct nlattr **tb,
+ 		goto out;
+ 
+ 	id = nla_get_u16(app_tb[DCB_APP_ATTR_ID]);
+-	up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
++
++	if (netdev->dcbnl_ops->getapp) {
++		up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
++	} else {
++		struct dcb_app app = {
++					.selector = idtype,
++					.protocol = id,
++				     };
++		up = dcb_getapp(netdev, &app);
++	}
+ 
+ 	/* send this back */
+ 	dcbnl_skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+
