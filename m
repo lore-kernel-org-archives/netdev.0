@@ -1,62 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Problems with /proc/net/tcp6  - possible bug - ipv6
-Date: Sat, 22 Jan 2011 22:40:44 +0100
-Message-ID: <1295732444.2651.68.camel@edumazet-laptop>
-References: <702550.61465.qm@web63902.mail.re1.yahoo.com>
-	 <1295686781.2609.37.camel@edumazet-laptop>
-	 <1295709344.2651.55.camel@edumazet-laptop>
-	 <115440.16148.qm@web63902.mail.re1.yahoo.com>
-	 <1295731235.2651.66.camel@edumazet-laptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Sat, 22 Jan 2011 23:57:42 +0200
+Message-ID: <20110122215742.GC5617@redhat.com>
+References: <20110113234135.GC8426@verge.net.au>
+ <20110114045818.GA29738@redhat.com>
+ <20110114063528.GB10957@verge.net.au>
+ <20110114065415.GA30300@redhat.com>
+ <20110116223728.GA6279@verge.net.au>
+ <20110117102655.GH23479@redhat.com>
+ <4D35ECE2.4040901@hp.com>
+ <20110120083727.GA1807@verge.net.au>
+ <20110121095929.GE26070@redhat.com>
+ <20110121231149.GI2195@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: PK <runningdoglackey@yahoo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:44590 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738Ab1AVVkv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jan 2011 16:40:51 -0500
-In-Reply-To: <1295731235.2651.66.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110121231149.GI2195@verge.net.au>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le samedi 22 janvier 2011 =C3=A0 22:20 +0100, Eric Dumazet a =C3=A9crit=
- :
-> Le samedi 22 janvier 2011 =C3=A0 11:42 -0800, PK a =C3=A9crit :
-> > Eric Dumazet wrote:
-> > >=20
-> > > I had some incidents, after hours of testing...
-> > >
-> > > After following patch, I could not reproduce it.
-> >=20
-> >=20
-> > Looks like that patch solved the /proc/net/tcp6 problem.  The causa=
-l commit was=20
-> > the one you identified... confirmed with bisect.
-> >=20
-> > These warnings show up when I run the script (or I presume any tcp6=
- connection=20
-> > flooder) with /proc/sys/net/tcp/ipv4/tcp_tw_recycle enabled.  There=
-'s textual=20
-> > corruption of the traces a lot of the time.  Here's a sample trace =
-that doesn't=20
-> > appear to be corrupt.  All the warnings I've seen are from route.c:=
-209, and I=20
-> > don't see how that would cause memory corruption.
->=20
-> Thats a different isse, already reported, under investigation.
->=20
-> David did some changes recently
->=20
-> http://comments.gmane.org/gmane.linux.network/179874
->=20
->=20
->=20
+On Sat, Jan 22, 2011 at 10:11:52AM +1100, Simon Horman wrote:
+> On Fri, Jan 21, 2011 at 11:59:30AM +0200, Michael S. Tsirkin wrote:
+> > On Thu, Jan 20, 2011 at 05:38:33PM +0900, Simon Horman wrote:
+> > > [ Trimmed Eric from CC list as vger was complaining that it is too long ]
+> > > 
+> > > On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
+> > > > >So it won't be all that simple to implement well, and before we try,
+> > > > >I'd like to know whether there are applications that are helped
+> > > > >by it. For example, we could try to measure latency at various
+> > > > >pps and see whether the backpressure helps. netperf has -b, -w
+> > > > >flags which might help these measurements.
+> > > > 
+> > > > Those options are enabled when one adds --enable-burst to the
+> > > > pre-compilation ./configure  of netperf (one doesn't have to
+> > > > recompile netserver).  However, if one is also looking at latency
+> > > > statistics via the -j option in the top-of-trunk, or simply at the
+> > > > histogram with --enable-histogram on the ./configure and a verbosity
+> > > > level of 2 (global -v 2) then one wants the very top of trunk
+> > > > netperf from:
+> > > 
+> > > Hi,
+> > > 
+> > > I have constructed a test where I run an un-paced  UDP_STREAM test in
+> > > one guest and a paced omni rr test in another guest at the same time.
+> > 
+> > Hmm, what is this supposed to measure?  Basically each time you run an
+> > un-paced UDP_STREAM you get some random load on the network.
+> > You can't tell what it was exactly, only that it was between
+> > the send and receive throughput.
+> 
+> Rick mentioned in another email that I messed up my test parameters a bit,
+> so I will re-run the tests, incorporating his suggestions.
+> 
+> What I was attempting to measure was the effect of an unpaced UDP_STREAM
+> on the latency of more moderated traffic. Because I am interested in
+> what effect an abusive guest has on other guests and how that my be
+> mitigated.
+> 
+> Could you suggest some tests that you feel are more appropriate?
 
-In my testings, I even have crashes in cleanup_once() if I
-enable /proc/sys/net/ipv4/tcp_tw_recycle=20
+Yes. To refraze my concern in these terms, besides the malicious guest
+you have another software in host (netperf) that interferes with
+the traffic, and it cooperates with the malicious guest.
+Right?
+
+IMO for a malicious guest you would send
+UDP packets that then get dropped by the host.
+
+For example block netperf in host so that
+it does not consume packets from the socket.
 
 
 
