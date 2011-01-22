@@ -1,69 +1,30 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
-Date: Sat, 22 Jan 2011 14:12:02 +1100
-Message-ID: <20110122031202.GA9142@verge.net.au>
-References: <1295604133-6869-1-git-send-email-xiaosuo@gmail.com>
- <20110122022232.GL2661@verge.net.au>
- <AANLkTimoSQbjH-iW6x36FHs6yzDgsey9RS+yFXnKOxq5@mail.gmail.com>
- <20110122031116.GA8443@verge.net.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v3 0/2] can: add driver for Softing card
+Date: Fri, 21 Jan 2011 20:17:36 -0800 (PST)
+Message-ID: <20110121.201736.22513246.davem@davemloft.net>
+References: <20110111143007.GB387@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110122031116.GA8443@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-pcmcia-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: kurt.van.dijck-/BeEPy95v10@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110111143007.GB387-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 22, 2011 at 02:11:16PM +1100, Simon Horman wrote:
-> On Sat, Jan 22, 2011 at 10:34:23AM +0800, Changli Gao wrote:
-> > On Sat, Jan 22, 2011 at 10:22 AM, Simon Horman <horms@verge.net.au>=
- wrote:
-> > > On Fri, Jan 21, 2011 at 06:02:13PM +0800, Changli Gao wrote:
-> > >> Fix compiler warnings when no transport protocol load balancing =
-support
-> > >> is configured.
-> > >>
-> > >> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> > >> ---
-> > >> =C2=A0net/netfilter/ipvs/ip_vs_core.c =C2=A0| =C2=A0 =C2=A04 +--=
--
-> > >> =C2=A0net/netfilter/ipvs/ip_vs_ctl.c =C2=A0 | =C2=A0 =C2=A04 +++=
-+
-> > >> =C2=A0net/netfilter/ipvs/ip_vs_proto.c | =C2=A0 =C2=A04 ++++
-> > >> =C2=A03 files changed, 9 insertions(+), 3 deletions(-)
-> > >> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipv=
-s/ip_vs_core.c
-> > >> index f36a84f..d889f4f 100644
-> > >> --- a/net/netfilter/ipvs/ip_vs_core.c
-> > >> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> > >> @@ -1894,9 +1894,7 @@ static int __net_init __ip_vs_init(struct =
-net *net)
-> > >>
-> > >> =C2=A0static void __net_exit __ip_vs_cleanup(struct net *net)
-> > >> =C2=A0{
-> > >> - =C2=A0 =C2=A0 struct netns_ipvs *ipvs =3D net_ipvs(net);
-> > >> -
-> > >> - =C2=A0 =C2=A0 IP_VS_DBG(10, "ipvs netns %d released\n", ipvs->=
-gen);
-> > >> + =C2=A0 =C2=A0 IP_VS_DBG(10, "ipvs netns %d released\n", net_ip=
-vs(net)->gen);
-> > >> =C2=A0}
-> > >>
-> > >
-> > > The hunk above seems unrelated to the problem described.
-> > > The rest of the changes look good. I will double check and
-> > > apply them to my tree.
-> > >
-> >=20
-> > Yes, is a separated patch needed? It is trivial. Thanks.
->=20
-> Yes, please send a separate patch.
+From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Date: Tue, 11 Jan 2011 15:30:08 +0100
 
-To clarify, I have applied the other hunks and included
-them in a pull request that I sent to Patrick a few moments ago.
+> This series will add a driver for Softing PCMCIA CAN card.
+
+Both patches applied, thanks.
