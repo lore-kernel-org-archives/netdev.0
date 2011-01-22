@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2 10/16] vlan: convert VLAN devices to use ndo_fix_features()
+Subject: [PATCH v2 12/16] jme: convert offload constraints to ndo_fix_features
 Date: Sat, 22 Jan 2011 23:14:13 +0100 (CET)
-Message-ID: <cd588125add36235f392019452c13a9130cb76b6.1295734271.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <f3a4b4a9b2a0b1ee7ebf858c7a10c0453147c858.1295734271.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,143 +9,178 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:43065 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:43067 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752742Ab1AVWOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752758Ab1AVWOR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 22 Jan 2011 17:14:17 -0500
 In-Reply-To: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note: get_flags was actually broken, because it should return the
-flags capped with vlan_features. This is now done implicitly by
-limiting netdev->hw_features.
-
-RX checksumming offload control is (and was) broken, as there was no wa=
-y
-before to say whether it's done for tagged packets.
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- net/8021q/vlan.c     |    3 +--
- net/8021q/vlan_dev.c |   50 ++++++++++++++----------------------------=
+ drivers/net/jme.c |   77 +++++++++++++--------------------------------=
 --------
- 2 files changed, 15 insertions(+), 38 deletions(-)
+ drivers/net/jme.h |    2 -
+ 2 files changed, 19 insertions(+), 60 deletions(-)
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index 7850412..4b575de 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -329,8 +329,7 @@ static void vlan_transfer_features(struct net_devic=
-e *dev,
- {
- 	u32 old_features =3D vlandev->features;
-=20
--	vlandev->features &=3D ~dev->vlan_features;
--	vlandev->features |=3D dev->features & dev->vlan_features;
-+	netdev_update_features(vlandev);
- 	vlandev->gso_max_size =3D dev->gso_max_size;
-=20
- 	if (dev->features & NETIF_F_HW_VLAN_TX)
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index be73753..6cfca22 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -691,8 +691,8 @@ static int vlan_dev_init(struct net_device *dev)
- 					  (1<<__LINK_STATE_DORMANT))) |
- 		      (1<<__LINK_STATE_PRESENT);
-=20
--	dev->features |=3D real_dev->features & real_dev->vlan_features;
--	dev->features |=3D NETIF_F_LLTX;
-+	dev->hw_features =3D real_dev->vlan_features & NETIF_F_ALL_TX_OFFLOAD=
-S;
-+	dev->features |=3D real_dev->vlan_features | NETIF_F_LLTX;
- 	dev->gso_max_size =3D real_dev->gso_max_size;
-=20
- 	/* ipv6 shared card related stuff */
-@@ -745,6 +745,17 @@ static void vlan_dev_uninit(struct net_device *dev=
-)
+diff --git a/drivers/net/jme.c b/drivers/net/jme.c
+index e97ebef..8d43f58 100644
+--- a/drivers/net/jme.c
++++ b/drivers/net/jme.c
+@@ -2075,17 +2075,9 @@ jme_change_mtu(struct net_device *netdev, int ne=
+w_mtu)
+ 		jme_restart_rx_engine(jme);
  	}
- }
 =20
-+static u32 vlan_dev_fix_features(struct net_device *dev, u32 features)
-+{
-+	struct net_device *real_dev =3D vlan_dev_info(dev)->real_dev;
-+
-+	features &=3D (real_dev->features | NETIF_F_LLTX);
-+	if (dev_ethtool_get_rx_csum(real_dev))
-+		features |=3D NETIF_F_RXCSUM;
-+
-+	return features;
-+}
-+
- static int vlan_ethtool_get_settings(struct net_device *dev,
- 				     struct ethtool_cmd *cmd)
- {
-@@ -760,18 +771,6 @@ static void vlan_ethtool_get_drvinfo(struct net_de=
-vice *dev,
- 	strcpy(info->fw_version, "N/A");
- }
-=20
--static u32 vlan_ethtool_get_rx_csum(struct net_device *dev)
--{
--	const struct vlan_dev_info *vlan =3D vlan_dev_info(dev);
--	return dev_ethtool_get_rx_csum(vlan->real_dev);
--}
--
--static u32 vlan_ethtool_get_flags(struct net_device *dev)
--{
--	const struct vlan_dev_info *vlan =3D vlan_dev_info(dev);
--	return dev_ethtool_get_flags(vlan->real_dev);
--}
--
- static struct rtnl_link_stats64 *vlan_dev_get_stats64(struct net_devic=
-e *dev, struct rtnl_link_stats64 *stats)
- {
-=20
-@@ -809,32 +808,10 @@ static struct rtnl_link_stats64 *vlan_dev_get_sta=
-ts64(struct net_device *dev, st
- 	return stats;
- }
-=20
--static int vlan_ethtool_set_tso(struct net_device *dev, u32 data)
--{
--       if (data) {
--		struct net_device *real_dev =3D vlan_dev_info(dev)->real_dev;
--
--		/* Underlying device must support TSO for VLAN-tagged packets
--		 * and must have TSO enabled now.
--		 */
--		if (!(real_dev->vlan_features & NETIF_F_TSO))
--			return -EOPNOTSUPP;
--		if (!(real_dev->features & NETIF_F_TSO))
--			return -EINVAL;
--		dev->features |=3D NETIF_F_TSO;
+-	if (new_mtu > 1900) {
+-		netdev->features &=3D ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+-				NETIF_F_TSO | NETIF_F_TSO6);
 -	} else {
--		dev->features &=3D ~NETIF_F_TSO;
+-		if (test_bit(JME_FLAG_TXCSUM, &jme->flags))
+-			netdev->features |=3D NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+-		if (test_bit(JME_FLAG_TSO, &jme->flags))
+-			netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO6;
 -	}
+-
+ 	netdev->mtu =3D new_mtu;
++	netdev_update_features(netdev);
++
+ 	jme_reset_link(jme);
+=20
+ 	return 0;
+@@ -2483,19 +2475,20 @@ jme_set_msglevel(struct net_device *netdev, u32=
+ value)
+ }
+=20
+ static u32
+-jme_get_rx_csum(struct net_device *netdev)
++jme_fix_features(struct net_device *netdev, u32 features)
+ {
+-	struct jme_adapter *jme =3D netdev_priv(netdev);
+-	return jme->reg_rxmcs & RXMCS_CHECKSUM;
++	if (netdev->mtu > 1900)
++		features &=3D ~(NETIF_F_ALL_TSO | NETIF_F_ALL_CSUM);
++	return features;
+ }
+=20
+ static int
+-jme_set_rx_csum(struct net_device *netdev, u32 on)
++jme_set_features(struct net_device *netdev, u32 features)
+ {
+ 	struct jme_adapter *jme =3D netdev_priv(netdev);
+=20
+ 	spin_lock_bh(&jme->rxmcs_lock);
+-	if (on)
++	if (features & NETIF_F_RXCSUM)
+ 		jme->reg_rxmcs |=3D RXMCS_CHECKSUM;
+ 	else
+ 		jme->reg_rxmcs &=3D ~RXMCS_CHECKSUM;
+@@ -2506,42 +2499,6 @@ jme_set_rx_csum(struct net_device *netdev, u32 o=
+n)
+ }
+=20
+ static int
+-jme_set_tx_csum(struct net_device *netdev, u32 on)
+-{
+-	struct jme_adapter *jme =3D netdev_priv(netdev);
+-
+-	if (on) {
+-		set_bit(JME_FLAG_TXCSUM, &jme->flags);
+-		if (netdev->mtu <=3D 1900)
+-			netdev->features |=3D
+-				NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+-	} else {
+-		clear_bit(JME_FLAG_TXCSUM, &jme->flags);
+-		netdev->features &=3D
+-				~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+-	}
+-
 -	return 0;
 -}
 -
- static const struct ethtool_ops vlan_ethtool_ops =3D {
- 	.get_settings	        =3D vlan_ethtool_get_settings,
- 	.get_drvinfo	        =3D vlan_ethtool_get_drvinfo,
- 	.get_link		=3D ethtool_op_get_link,
--	.get_rx_csum		=3D vlan_ethtool_get_rx_csum,
--	.get_flags		=3D vlan_ethtool_get_flags,
--	.set_tso                =3D vlan_ethtool_set_tso,
- };
-=20
- static const struct net_device_ops vlan_netdev_ops =3D {
-@@ -859,6 +836,7 @@ static const struct net_device_ops vlan_netdev_ops =
+-static int
+-jme_set_tso(struct net_device *netdev, u32 on)
+-{
+-	struct jme_adapter *jme =3D netdev_priv(netdev);
+-
+-	if (on) {
+-		set_bit(JME_FLAG_TSO, &jme->flags);
+-		if (netdev->mtu <=3D 1900)
+-			netdev->features |=3D NETIF_F_TSO | NETIF_F_TSO6;
+-	} else {
+-		clear_bit(JME_FLAG_TSO, &jme->flags);
+-		netdev->features &=3D ~(NETIF_F_TSO | NETIF_F_TSO6);
+-	}
+-
+-	return 0;
+-}
+-
+-static int
+ jme_nway_reset(struct net_device *netdev)
+ {
+ 	struct jme_adapter *jme =3D netdev_priv(netdev);
+@@ -2682,11 +2639,6 @@ static const struct ethtool_ops jme_ethtool_ops =
 =3D {
- 	.ndo_fcoe_disable	=3D vlan_dev_fcoe_disable,
- 	.ndo_fcoe_get_wwn	=3D vlan_dev_fcoe_get_wwn,
- #endif
-+	.ndo_fix_features	=3D vlan_dev_fix_features,
+ 	.get_link		=3D jme_get_link,
+ 	.get_msglevel           =3D jme_get_msglevel,
+ 	.set_msglevel           =3D jme_set_msglevel,
+-	.get_rx_csum		=3D jme_get_rx_csum,
+-	.set_rx_csum		=3D jme_set_rx_csum,
+-	.set_tx_csum		=3D jme_set_tx_csum,
+-	.set_tso		=3D jme_set_tso,
+-	.set_sg			=3D ethtool_op_set_sg,
+ 	.nway_reset             =3D jme_nway_reset,
+ 	.get_eeprom_len		=3D jme_get_eeprom_len,
+ 	.get_eeprom		=3D jme_get_eeprom,
+@@ -2744,6 +2696,8 @@ static const struct net_device_ops jme_netdev_ops=
+ =3D {
+ 	.ndo_change_mtu		=3D jme_change_mtu,
+ 	.ndo_tx_timeout		=3D jme_tx_timeout,
+ 	.ndo_vlan_rx_register	=3D jme_vlan_rx_register,
++	.ndo_fix_features       =3D jme_fix_features,
++	.ndo_set_features       =3D jme_set_features,
  };
 =20
- void vlan_setup(struct net_device *dev)
+ static int __devinit
+@@ -2798,6 +2752,12 @@ jme_init_one(struct pci_dev *pdev,
+ 	netdev->netdev_ops =3D &jme_netdev_ops;
+ 	netdev->ethtool_ops		=3D &jme_ethtool_ops;
+ 	netdev->watchdog_timeo		=3D TX_TIMEOUT;
++	netdev->hw_features		=3D	NETIF_F_IP_CSUM |
++						NETIF_F_IPV6_CSUM |
++						NETIF_F_SG |
++						NETIF_F_TSO |
++						NETIF_F_TSO6 |
++						NETIF_F_RXCSUM;
+ 	netdev->features		=3D	NETIF_F_IP_CSUM |
+ 						NETIF_F_IPV6_CSUM |
+ 						NETIF_F_SG |
+@@ -2880,8 +2840,9 @@ jme_init_one(struct pci_dev *pdev,
+ 	jme->reg_rxmcs =3D RXMCS_DEFAULT;
+ 	jme->reg_txpfc =3D 0;
+ 	jme->reg_pmcs =3D PMCS_MFEN;
+-	set_bit(JME_FLAG_TXCSUM, &jme->flags);
+-	set_bit(JME_FLAG_TSO, &jme->flags);
++
++	if (jme->reg_rxmcs & RXMCS_CHECKSUM)
++		netdev->features |=3D NETIF_F_RXCSUM;
+=20
+ 	/*
+ 	 * Get Max Read Req Size from PCI Config Space
+diff --git a/drivers/net/jme.h b/drivers/net/jme.h
+index eac0926..4923376 100644
+--- a/drivers/net/jme.h
++++ b/drivers/net/jme.h
+@@ -434,8 +434,6 @@ struct jme_adapter {
+ enum jme_flags_bits {
+ 	JME_FLAG_MSI		=3D 1,
+ 	JME_FLAG_SSET		=3D 2,
+-	JME_FLAG_TXCSUM		=3D 3,
+-	JME_FLAG_TSO		=3D 4,
+ 	JME_FLAG_POLL		=3D 5,
+ 	JME_FLAG_SHUTDOWN	=3D 6,
+ };
 --=20
 1.7.2.3
 
