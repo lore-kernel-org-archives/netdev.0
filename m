@@ -1,64 +1,116 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
-Date: Sat, 22 Jan 2011 00:17:09 -0800
-Message-ID: <m1k4hxuzcq.fsf@fess.ebiederm.org>
-References: <20101209.122033.183046393.davem@davemloft.net>
-	<20101216132812.2d7fd885@nehalam> <m1mxo5tcx6.fsf@fess.ebiederm.org>
-	<20101216.182656.226781473.davem@davemloft.net>
-	<20110119191823.GC8442@midget.suse.cz> <20110119113817.0819ddf1@s6510>
-	<20110119195632.GA27574@midget.suse.cz>
-	<20110119120123.40974cbe@s6510>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH] neigh: __rcu annotations
+Date: Fri, 21 Jan 2011 17:36:57 -0800
+Message-ID: <20110122013657.GP17752@linux.vnet.ibm.com>
+References: <1295510567.2653.487.camel@edumazet-laptop>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Bohac <jbohac@suse.cz>, David Miller <davem@davemloft.net>,
-	brian.haley@hp.com, netdev@vger.kernel.org, maheshkelkar@gmail.com,
-	lorenzo@google.com, yoshfuji@linux-ipv6.org, stable@kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:39492 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752222Ab1AVIRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jan 2011 03:17:22 -0500
-In-Reply-To: <20110119120123.40974cbe@s6510> (Stephen Hemminger's message of
-	"Wed, 19 Jan 2011 12:01:23 -0800")
+Received: from e6.ny.us.ibm.com ([32.97.182.146]:45506 "EHLO e6.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750935Ab1AVIoy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Jan 2011 03:44:54 -0500
+Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
+	by e6.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p0M8UMbs018028
+	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:30:23 -0500
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 8D0B9728047
+	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:44:48 -0500 (EST)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0M8im9M319204
+	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:44:48 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0M8il2q008239
+	for <netdev@vger.kernel.org>; Sat, 22 Jan 2011 03:44:48 -0500
+Content-Disposition: inline
+In-Reply-To: <1295510567.2653.487.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+On Thu, Jan 20, 2011 at 09:02:47AM +0100, Eric Dumazet wrote:
+> fix some minor issues and sparse (__rcu) warnings
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> ---
+>  net/core/neighbour.c |   13 +++++++------
+>  1 file changed, 7 insertions(+), 6 deletions(-)
+> 
+> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+> index 60a9029..799f06e 100644
+> --- a/net/core/neighbour.c
+> +++ b/net/core/neighbour.c
+> @@ -316,7 +316,7 @@ static struct neigh_hash_table *neigh_hash_alloc(unsigned int entries)
+>  {
+>  	size_t size = entries * sizeof(struct neighbour *);
+>  	struct neigh_hash_table *ret;
+> -	struct neighbour **buckets;
+> +	struct neighbour __rcu **buckets;
+> 
+>  	ret = kmalloc(sizeof(*ret), GFP_ATOMIC);
+>  	if (!ret)
+> @@ -324,14 +324,14 @@ static struct neigh_hash_table *neigh_hash_alloc(unsigned int entries)
+>  	if (size <= PAGE_SIZE)
+>  		buckets = kzalloc(size, GFP_ATOMIC);
+>  	else
+> -		buckets = (struct neighbour **)
+> +		buckets = (struct neighbour __rcu **)
+>  			  __get_free_pages(GFP_ATOMIC | __GFP_ZERO,
+>  					   get_order(size));
+>  	if (!buckets) {
+>  		kfree(ret);
+>  		return NULL;
+>  	}
+> -	rcu_assign_pointer(ret->hash_buckets, buckets);
+> +	ret->hash_buckets = buckets;
+>  	ret->hash_mask = entries - 1;
+>  	get_random_bytes(&ret->hash_rnd, sizeof(ret->hash_rnd));
+>  	return ret;
+> @@ -343,7 +343,7 @@ static void neigh_hash_free_rcu(struct rcu_head *head)
+>  						    struct neigh_hash_table,
+>  						    rcu);
+>  	size_t size = (nht->hash_mask + 1) * sizeof(struct neighbour *);
+> -	struct neighbour **buckets = nht->hash_buckets;
+> +	struct neighbour __rcu **buckets = nht->hash_buckets;
+> 
+>  	if (size <= PAGE_SIZE)
+>  		kfree(buckets);
+> @@ -1540,7 +1540,7 @@ void neigh_table_init_no_netlink(struct neigh_table *tbl)
+>  		panic("cannot create neighbour proc dir entry");
+>  #endif
+> 
+> -	tbl->nht = neigh_hash_alloc(8);
+> +	RCU_INIT_POINTER(tbl->nht, neigh_hash_alloc(8));
+> 
+>  	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
+>  	tbl->phash_buckets = kzalloc(phsize, GFP_KERNEL);
+> @@ -1602,7 +1602,8 @@ int neigh_table_clear(struct neigh_table *tbl)
+>  	}
+>  	write_unlock(&neigh_tbl_lock);
+> 
+> -	call_rcu(&tbl->nht->rcu, neigh_hash_free_rcu);
+> +	call_rcu(&rcu_dereference_protected(tbl->nht, 1)->rcu,
+> +		 neigh_hash_free_rcu);
 
-> On Wed, 19 Jan 2011 20:56:32 +0100
-> Jiri Bohac <jbohac@suse.cz> wrote:
->
->> On Wed, Jan 19, 2011 at 11:38:17AM -0800, Stephen Hemminger wrote:
->> > Jiri Bohac <jbohac@suse.cz> wrote:
->> > > I have the feeling that Eric's patch is the safest solution we
->> > > have so far:
->> > Eric's patch has other regressions, see the discussion.
->> 
->> What regression do you mean? I have read the whole discussion
->> thoroughly. You only say in one message that deleting ::1 would
->> propagate to routing daemons. And Eric correctly stated that
->> people couldn't hit this, because  deleting ::1 would break
->> things on its own.
->> 
->> Is there a real problem with Eric's fix?
->> 
->> Thanks,
->> 
->
-> If address is assigned to loopback interface (other than ::1) then
-> Eric's fix doesn't work.  It is common to use an additional address
-> on the lo device when doing routing protocols.
+Hello, Eric,
 
-Sigh.
+Any chance of a comment?  Perhaps something like:
 
-I just got back to looking through the rest of my failures in 2.6.37 and
-despite it looking like it worked when i tested it, your patch doesn't
-actually work on my real work load that has broken.
+	/*
+	 * Because this has been removed from the list, no other updater
+	 * can access this element.
+	 */
 
-At least your change that confirmed that the root problem is somewhere
-in the routing.
+							Thanx, Paul
 
-Eric
-
-
+>  	tbl->nht = NULL;
+> 
+>  	kfree(tbl->phash_buckets);
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
