@@ -1,53 +1,64 @@
-From: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] can: at91_can: clean up usage of
-	AT91_MB_RX_FIRST and AT91_MB_RX_NUM
-Date: Sat, 22 Jan 2011 08:50:17 +0100
-Message-ID: <20110122075016.GA542@e-circ.dyndns.org>
-References: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>
-	<1294752085-30151-2-git-send-email-mkl@pengutronix.de>
-	<4D349D8C.3010403@pengutronix.de>
-	<20110121.165409.200115988.davem@davemloft.net>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
+Date: Sat, 22 Jan 2011 00:17:09 -0800
+Message-ID: <m1k4hxuzcq.fsf@fess.ebiederm.org>
+References: <20101209.122033.183046393.davem@davemloft.net>
+	<20101216132812.2d7fd885@nehalam> <m1mxo5tcx6.fsf@fess.ebiederm.org>
+	<20101216.182656.226781473.davem@davemloft.net>
+	<20110119191823.GC8442@midget.suse.cz> <20110119113817.0819ddf1@s6510>
+	<20110119195632.GA27574@midget.suse.cz>
+	<20110119120123.40974cbe@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110121.165409.200115988.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Bohac <jbohac@suse.cz>, David Miller <davem@davemloft.net>,
+	brian.haley@hp.com, netdev@vger.kernel.org, maheshkelkar@gmail.com,
+	lorenzo@google.com, yoshfuji@linux-ipv6.org, stable@kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:39492 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752222Ab1AVIRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jan 2011 03:17:22 -0500
+In-Reply-To: <20110119120123.40974cbe@s6510> (Stephen Hemminger's message of
+	"Wed, 19 Jan 2011 12:01:23 -0800")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jan 21, 2011 at 04:54:09PM -0800, David Miller wrote:
-> > On 01/11/2011 02:21 PM, Marc Kleine-Budde wrote:
-> >> This patch cleans up the usage of two macros which specify the mailbox
-> >> usage. AT91_MB_RX_FIRST and AT91_MB_RX_NUM define the first and the
-> >> number of RX mailboxes. The current driver uses these variables in an
-> >> unclean way; assuming that AT91_MB_RX_FIRST is 0;
-> >> 
-> >> This patch cleans up the usage of these macros, no longer assuming
-> >> AT91_MB_RX_FIRST == 0.
-> >> 
-> >> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> > 
-> > Any comments on this?
-> 
-> I would also seriously like to see these changes get some feedback,
-> they've been rotting in patchwork for more than a week.
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-I have no experience with this specific chip.
-IMO, this chip errata (as explained in the post) got an elegant solution.
-That part definitely gets my
-Acked-by: Kurt Van Dijck <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+> On Wed, 19 Jan 2011 20:56:32 +0100
+> Jiri Bohac <jbohac@suse.cz> wrote:
+>
+>> On Wed, Jan 19, 2011 at 11:38:17AM -0800, Stephen Hemminger wrote:
+>> > Jiri Bohac <jbohac@suse.cz> wrote:
+>> > > I have the feeling that Eric's patch is the safest solution we
+>> > > have so far:
+>> > Eric's patch has other regressions, see the discussion.
+>> 
+>> What regression do you mean? I have read the whole discussion
+>> thoroughly. You only say in one message that deleting ::1 would
+>> propagate to routing daemons. And Eric correctly stated that
+>> people couldn't hit this, because  deleting ::1 would break
+>> things on its own.
+>> 
+>> Is there a real problem with Eric's fix?
+>> 
+>> Thanks,
+>> 
+>
+> If address is assigned to loopback interface (other than ::1) then
+> Eric's fix doesn't work.  It is common to use an additional address
+> on the lo device when doing routing protocols.
 
-Regards,
-Kurt
+Sigh.
+
+I just got back to looking through the rest of my failures in 2.6.37 and
+despite it looking like it worked when i tested it, your patch doesn't
+actually work on my real work load that has broken.
+
+At least your change that confirmed that the root problem is somewhere
+in the routing.
+
+Eric
+
+
