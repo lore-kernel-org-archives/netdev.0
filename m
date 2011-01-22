@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v2 11/16] bonding: convert to ndo_fix_features
-Date: Sat, 22 Jan 2011 23:14:13 +0100 (CET)
-Message-ID: <8157326c0d02ef31e9441950d29c3a5f3b3a6770.1295734271.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v2 13/16] virtio_net: convert to ndo_fix_features
+Date: Sat, 22 Jan 2011 23:14:14 +0100 (CET)
+Message-ID: <c54e057dc1df23c43bd1388b8108545ae2a099ec.1295734271.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,148 +9,98 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:43066 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:43068 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752757Ab1AVWOR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752422Ab1AVWOR (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 22 Jan 2011 17:14:17 -0500
 In-Reply-To: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Note: Updating of vlan_features is and was broken, as its not propagate=
-d
-to vlan devices already created ontop of the bond.
-
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- drivers/net/bonding/bond_main.c |   45 +++++++++++++++++++++++++------=
--------
- 1 files changed, 29 insertions(+), 16 deletions(-)
+ drivers/net/virtio_net.c |   46 +++++++++++++++++++-------------------=
+--------
+ 1 files changed, 19 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index f4373e8..575c2df 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1368,29 +1368,42 @@ static int bond_sethwaddr(struct net_device *bo=
-nd_dev,
-  * feature bits are managed elsewhere, so preserve those feature bits
-  * on the master device.
-  */
--static int bond_compute_features(struct bonding *bond)
-+static u32 bond_fix_features(struct net_device *bond_dev, u32 features=
-)
- {
-+	struct bonding *bond =3D netdev_priv(bond_dev);
- 	struct slave *slave;
--	struct net_device *bond_dev =3D bond->dev;
--	u32 features =3D bond_dev->features;
--	u32 vlan_features =3D 0;
--	unsigned short max_hard_header_len =3D max((u16)ETH_HLEN,
--						bond_dev->hard_header_len);
- 	int i;
-=20
- 	features &=3D ~(NETIF_F_ALL_CSUM | BOND_VLAN_FEATURES);
- 	features |=3D  NETIF_F_GSO_MASK | NETIF_F_NO_CSUM;
-=20
- 	if (!bond->first_slave)
--		goto done;
-+		return features;
-=20
- 	features &=3D ~NETIF_F_ONE_FOR_ALL;
-=20
--	vlan_features =3D bond->first_slave->dev->vlan_features;
- 	bond_for_each_slave(bond, slave, i) {
- 		features =3D netdev_increment_features(features,
- 						     slave->dev->features,
- 						     NETIF_F_ONE_FOR_ALL);
-+	}
-+
-+	return features;
-+}
-+
-+static int bond_set_features(struct net_device *bond_dev, u32 features=
-)
-+{
-+	struct bonding *bond =3D netdev_priv(bond_dev);
-+	struct slave *slave;
-+	unsigned short max_hard_header_len =3D ETH_HLEN;
-+	u32 vlan_features =3D 0;
-+	int i;
-+
-+	if (!bond->first_slave)
-+		return 0;
-+
-+	vlan_features =3D bond->first_slave->dev->vlan_features;
-+	bond_for_each_slave(bond, slave, i) {
- 		vlan_features =3D netdev_increment_features(vlan_features,
- 							slave->dev->vlan_features,
- 							NETIF_F_ONE_FOR_ALL);
-@@ -1398,10 +1411,8 @@ static int bond_compute_features(struct bonding =
-*bond)
- 			max_hard_header_len =3D slave->dev->hard_header_len;
- 	}
-=20
--done:
--	features |=3D (bond_dev->features & BOND_VLAN_FEATURES);
--	bond_dev->features =3D netdev_fix_features(bond_dev, features);
--	bond_dev->vlan_features =3D netdev_fix_features(bond_dev, vlan_featur=
-es);
-+	/* vlan_features will be trimmed by vlan devices */
-+	bond_dev->vlan_features =3D vlan_features;
- 	bond_dev->hard_header_len =3D max_hard_header_len;
-=20
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 90a23e4..a6b3914 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -705,17 +705,6 @@ static int virtnet_close(struct net_device *dev)
  	return 0;
-@@ -1661,7 +1672,7 @@ int bond_enslave(struct net_device *bond_dev, str=
-uct net_device *slave_dev)
- 	new_slave->delay =3D 0;
- 	new_slave->link_failure_count =3D 0;
+ }
 =20
--	bond_compute_features(bond);
-+	netdev_update_features(bond_dev);
+-static int virtnet_set_tx_csum(struct net_device *dev, u32 data)
+-{
+-	struct virtnet_info *vi =3D netdev_priv(dev);
+-	struct virtio_device *vdev =3D vi->vdev;
+-
+-	if (data && !virtio_has_feature(vdev, VIRTIO_NET_F_CSUM))
+-		return -ENOSYS;
+-
+-	return ethtool_op_set_tx_hw_csum(dev, data);
+-}
+-
+ static void virtnet_set_rx_mode(struct net_device *dev)
+ {
+ 	struct virtnet_info *vi =3D netdev_priv(dev);
+@@ -817,10 +806,6 @@ static void virtnet_vlan_rx_kill_vid(struct net_de=
+vice *dev, u16 vid)
+ }
 =20
- 	write_unlock_bh(&bond->lock);
-=20
-@@ -1905,7 +1916,7 @@ int bond_release(struct net_device *bond_dev, str=
-uct net_device *slave_dev)
- 	/* release the slave from its bond */
- 	bond_detach_slave(bond, slave);
-=20
--	bond_compute_features(bond);
-+	netdev_update_features(bond_dev);
-=20
- 	if (bond->primary_slave =3D=3D slave)
- 		bond->primary_slave =3D NULL;
-@@ -2090,7 +2101,7 @@ static int bond_release_all(struct net_device *bo=
-nd_dev)
- 			bond_alb_deinit_slave(bond, slave);
- 		}
-=20
--		bond_compute_features(bond);
-+		netdev_update_features(bond_dev);
-=20
- 		bond_destroy_slave_symlinks(bond_dev, slave_dev);
- 		bond_del_vlans_from_slave(bond, slave_dev);
-@@ -3563,7 +3574,7 @@ static int bond_slave_netdev_event(unsigned long =
-event,
- 		 */
- 		break;
- 	case NETDEV_FEAT_CHANGE:
--		bond_compute_features(bond);
-+		netdev_update_features(bond_dev);
- 		break;
- 	default:
- 		break;
-@@ -4653,6 +4664,8 @@ static const struct net_device_ops bond_netdev_op=
-s =3D {
- 	.ndo_netpoll_cleanup	=3D bond_netpoll_cleanup,
- 	.ndo_poll_controller	=3D bond_poll_controller,
- #endif
-+	.ndo_fix_features	=3D bond_fix_features,
-+	.ndo_set_features	=3D bond_set_features,
+ static const struct ethtool_ops virtnet_ethtool_ops =3D {
+-	.set_tx_csum =3D virtnet_set_tx_csum,
+-	.set_sg =3D ethtool_op_set_sg,
+-	.set_tso =3D ethtool_op_set_tso,
+-	.set_ufo =3D ethtool_op_set_ufo,
+ 	.get_link =3D ethtool_op_get_link,
  };
 =20
- static void bond_destructor(struct net_device *bond_dev)
+@@ -907,22 +892,29 @@ static int virtnet_probe(struct virtio_device *vd=
+ev)
+ 	SET_NETDEV_DEV(dev, &vdev->dev);
+=20
+ 	/* Do we support "hardware" checksums? */
+-	if (csum && virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
++	if (virtio_has_feature(vdev, VIRTIO_NET_F_CSUM)) {
+ 		/* This opens up the world of extra features. */
+-		dev->features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
+-			dev->features |=3D NETIF_F_TSO | NETIF_F_UFO
++		dev->hw_features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++		if (csum)
++			dev->features |=3D NETIF_F_HW_CSUM|NETIF_F_SG|NETIF_F_FRAGLIST;
++
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_GSO)) {
++			dev->hw_features |=3D NETIF_F_TSO | NETIF_F_UFO
+ 				| NETIF_F_TSO_ECN | NETIF_F_TSO6;
+ 		}
+ 		/* Individual feature bits: what can host handle? */
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO4))
+-			dev->features |=3D NETIF_F_TSO;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO6))
+-			dev->features |=3D NETIF_F_TSO6;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
+-			dev->features |=3D NETIF_F_TSO_ECN;
+-		if (gso && virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
+-			dev->features |=3D NETIF_F_UFO;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO4))
++			dev->hw_features |=3D NETIF_F_TSO;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_TSO6))
++			dev->hw_features |=3D NETIF_F_TSO6;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_ECN))
++			dev->hw_features |=3D NETIF_F_TSO_ECN;
++		if (virtio_has_feature(vdev, VIRTIO_NET_F_HOST_UFO))
++			dev->hw_features |=3D NETIF_F_UFO;
++
++		if (gso)
++			dev->features |=3D dev->hw_features & (NETIF_F_ALL_TSO|NETIF_F_UFO)=
+;
++		/* (!csum && gso) case will be fixed by register_netdev() */
+ 	}
+=20
+ 	/* Configuration may specify what MAC to use.  Otherwise random. */
 --=20
 1.7.2.3
 
