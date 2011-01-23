@@ -1,113 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Sun, 23 Jan 2011 12:39:02 +0200
-Message-ID: <20110123103902.GA28585@redhat.com>
-References: <20110114063528.GB10957@verge.net.au>
- <20110114065415.GA30300@redhat.com>
- <20110116223728.GA6279@verge.net.au>
- <20110117102655.GH23479@redhat.com>
- <4D35ECE2.4040901@hp.com>
- <20110120083727.GA1807@verge.net.au>
- <20110121095929.GE26070@redhat.com>
- <20110121231149.GI2195@verge.net.au>
- <20110122215742.GC5617@redhat.com>
- <20110123063849.GB2673@verge.net.au>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: RFC: pid "ownership" of ip config information
+Date: Sun, 23 Jan 2011 13:32:53 +0100
+Message-ID: <4D3C1FF5.2010607@gmail.com>
+References: <1295602091.3582.1.camel@lat1>  <4D395D3C.9010308@gmail.com> <1295778271.5657.7.camel@lat1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rick Jones <rick.jones2@hp.com>, Jesse Gross <jesse@nicira.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Patrick Schaaf <netdev@bof.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55114 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751211Ab1AWKkg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Jan 2011 05:40:36 -0500
-Content-Disposition: inline
-In-Reply-To: <20110123063849.GB2673@verge.net.au>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:58565 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895Ab1AWMc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 07:32:58 -0500
+Received: by wwa36 with SMTP id 36so3417840wwa.1
+        for <netdev@vger.kernel.org>; Sun, 23 Jan 2011 04:32:57 -0800 (PST)
+In-Reply-To: <1295778271.5657.7.camel@lat1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 23, 2011 at 05:38:49PM +1100, Simon Horman wrote:
-> On Sat, Jan 22, 2011 at 11:57:42PM +0200, Michael S. Tsirkin wrote:
-> > On Sat, Jan 22, 2011 at 10:11:52AM +1100, Simon Horman wrote:
-> > > On Fri, Jan 21, 2011 at 11:59:30AM +0200, Michael S. Tsirkin wrote:
-> > > > On Thu, Jan 20, 2011 at 05:38:33PM +0900, Simon Horman wrote:
-> > > > > [ Trimmed Eric from CC list as vger was complaining that it is too long ]
-> > > > > 
-> > > > > On Tue, Jan 18, 2011 at 11:41:22AM -0800, Rick Jones wrote:
-> > > > > > >So it won't be all that simple to implement well, and before we try,
-> > > > > > >I'd like to know whether there are applications that are helped
-> > > > > > >by it. For example, we could try to measure latency at various
-> > > > > > >pps and see whether the backpressure helps. netperf has -b, -w
-> > > > > > >flags which might help these measurements.
-> > > > > > 
-> > > > > > Those options are enabled when one adds --enable-burst to the
-> > > > > > pre-compilation ./configure  of netperf (one doesn't have to
-> > > > > > recompile netserver).  However, if one is also looking at latency
-> > > > > > statistics via the -j option in the top-of-trunk, or simply at the
-> > > > > > histogram with --enable-histogram on the ./configure and a verbosity
-> > > > > > level of 2 (global -v 2) then one wants the very top of trunk
-> > > > > > netperf from:
-> > > > > 
-> > > > > Hi,
-> > > > > 
-> > > > > I have constructed a test where I run an un-paced  UDP_STREAM test in
-> > > > > one guest and a paced omni rr test in another guest at the same time.
-> > > > 
-> > > > Hmm, what is this supposed to measure?  Basically each time you run an
-> > > > un-paced UDP_STREAM you get some random load on the network.
-> > > > You can't tell what it was exactly, only that it was between
-> > > > the send and receive throughput.
-> > > 
-> > > Rick mentioned in another email that I messed up my test parameters a bit,
-> > > so I will re-run the tests, incorporating his suggestions.
-> > > 
-> > > What I was attempting to measure was the effect of an unpaced UDP_STREAM
-> > > on the latency of more moderated traffic. Because I am interested in
-> > > what effect an abusive guest has on other guests and how that my be
-> > > mitigated.
-> > > 
-> > > Could you suggest some tests that you feel are more appropriate?
-> > 
-> > Yes. To refraze my concern in these terms, besides the malicious guest
-> > you have another software in host (netperf) that interferes with
-> > the traffic, and it cooperates with the malicious guest.
-> > Right?
-> 
-> Yes, that is the scenario in this test.
+Le 23/01/2011 11:24, Patrick Schaaf a =C3=A9crit :
+> On Fri, 2011-01-21 at 11:17 +0100, Nicolas de Peslo=C3=BCan wrote:
+>> Le 21/01/2011 10:28, Patrick Schaaf a =C3=A9crit :
+>>> The alternative to such a feature, would be to have an additional
+>>> monitoring process, which would watch the PID somehow, and need to
+>>> be configured to know what to withdraw when it dies.
+>
+>> There exists some user space clustering system that should provide t=
+he same functionalities. Did you
+>> had a look at http://www.linux-ha.org/ ?
+>
+> Those would be the more complex instances of "an additional monitorin=
+g
+> process", right?
+ >
+> What happens when heartbeat is "kill -9"ed? Assume that I want to avo=
+id
+> STOMITH like approaches.
+ >
+> My proposal could be _used_ by such complex clustering managers, too.
+>
+> Or, did I overlook there a kernel based solution to "withdraw IP conf=
+ig
+> when processes die"?
+ >
+> Can you provide a direct link on linux-ha?
 
-Yes but I think that you want to put some controlled load on host.
-Let's assume that we impove the speed somehow and now you can push more
-bytes per second without loss.  Result might be a regression in your
-test because you let the guest push "as much as it can" and suddenly it
-can push more data through.  OTOH with packet loss the load on host is
-anywhere in between send and receive throughput: there's no easy way to
-measure it from netperf: the earlier some buffers overrun, the earlier
-the packets get dropped and the less the load on host.
+Do you consider "withdraw IP config" the only feature that is needed wh=
+en a process die ? Or shall=20
+we instead design a more generic framework to run a command or call a s=
+ystem call when a process die=20
+? /sbin/init is probably already doing something similar. Arguably, eve=
+n init mail hang...
 
-This is why I say that to get a specific
-load on host you want to limit the sender
-to a specific BW and then either
-- make sure packet loss % is close to 0.
-- make sure packet loss % is close to 100%.
+If your point is to provide a safety net for very sick but not really d=
+ied node, then, no userland=20
+system would help. As such, I agree with you that an automatic withdraw=
+ of IP config might help.=20
+However, how would you protect against a simple never ending loop in th=
+e process or against very=20
+slow process due to high load on the node? You probably also need to gu=
+ard against process not=20
+reading the network receive queue anymore.
 
-> > IMO for a malicious guest you would send
-> > UDP packets that then get dropped by the host.
-> > 
-> > For example block netperf in host so that
-> > it does not consume packets from the socket.
-> 
-> I'm more interested in rate-limiting netperf than blocking it.
+This might end up with some sort of local heart beating monitoring of u=
+serland process, in the=20
+kernel, and I'm not sure if someone would support this.
 
-Well I mean netperf on host.
+And whatever you do locally to a node to ensure proper operation, you n=
+eed a way to also check for=20
+proper operation from outside of the node. A STOMITH system is always r=
+equired, in order to kill a=20
+totally mad node. Even the kernel may become mad.
 
-> But in any case, do you mean use iptables or tc based on
-> classification made by net_cls?
-
-Just to block netperf you can send it SIGSTOP :)
-
--- 
-MST
+	Nicolas.
