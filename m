@@ -1,39 +1,47 @@
-From: Stanislav Fomichev <kernel@fomichev.me>
-Subject: [PATCH] netconsole: kbuild dependency fix
-Date: Sun, 23 Jan 2011 22:51:16 +0300
-Message-ID: <4d3c86b8.114ddf0a.7de4.ffffe043@mx.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [stable] [RFC] ipv6: don't flush routes when setting loopback
+ down
+Date: Sun, 23 Jan 2011 11:57:19 -0800 (PST)
+Message-ID: <20110123.115719.39193994.davem@davemloft.net>
+References: <20110123091531.GQ12837@1wt.eu>
+	<20110123213444.70d0b0f1@s6510>
+	<m1k4hv5sue.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, w@1wt.eu, jbohac@suse.cz,
+	yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, stable@kernel.org,
+	stephen.hemminger@vyatta.com, brian.haley@hp.com,
+	lorenzo@google.com, maheshkelkar@gmail.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:51840 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129Ab1AWTvW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 14:51:22 -0500
-Received: by fxm20 with SMTP id 20so3372843fxm.19
-        for <netdev@vger.kernel.org>; Sun, 23 Jan 2011 11:51:21 -0800 (PST)
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:50113
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752458Ab1AWT4o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 14:56:44 -0500
+In-Reply-To: <m1k4hv5sue.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello all,
-I'm not sure if it's the right place to send this patch, but I didn't find a better one.
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Sun, 23 Jan 2011 11:21:29 -0800
 
-Here is a small fix for netconsole dependency (upon config fs) that I unintentionally found.
+> Stephen Hemminger <shemminger@vyatta.com> writes:
+> 
+>> I think this fixes the issue with disable_ipv6
+> 
+> Somehow I doubt deleting the ipv6 state, and removing the per device
+> disable_ipv6 flag is going to be backwards compatible.
+> 
+> echo 0 > /proc/sys/net/ipv6/conf/disable_ipv6
+> 
+> Won't work.
+> 
+> What ever other good properties calling NETDEV_UNREGISTER for ipv6
+> devices may have.
 
-Hope you'll find it useful.
+Don't worry Eric, I'm reverting all of the changes that caused this
+problem in the first place.
 
-This patch is for 2.6.38-rc2.
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0382332..9733da1 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -3382,6 +3382,7 @@ config NET_FC
- 	  "SCSI generic support".
- 
- config NETCONSOLE
-+	depends on CONFIGFS_FS
- 	tristate "Network console logging support"
- 	---help---
- 	If you want to log kernel messages over the network, enable this.
+If Stephen wants his change back in, he'll have to resubmit it in
+a working state with all the known regressions dealt with.
