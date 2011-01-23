@@ -1,51 +1,59 @@
-From: Maciej Rutecki <maciej.rutecki@gmail.com>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
-Date: Sun, 23 Jan 2011 18:45:20 +0100
-Message-ID: <201101231845.20505.maciej.rutecki@gmail.com>
-References: <4D32FC1C.3010905@simon.arlott.org.uk>
-Reply-To: maciej.rutecki@gmail.com
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC] ipv6: don't flush routes when setting loopback
+	down
+Date: Sun, 23 Jan 2011 11:21:29 -0800
+Message-ID: <m1k4hv5sue.fsf@fess.ebiederm.org>
+References: <20110122.145438.193725532.davem@davemloft.net>
+	<901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
+	<20110122.214254.226765382.davem@davemloft.net>
+	<20110123192416.73cd7521@s6510> <20110123192624.5cfe33d0@s6510>
+	<20110123091531.GQ12837@1wt.eu> <20110123213444.70d0b0f1@s6510>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	jesse@nicira.com
-To: Simon Arlott <simon@fire.lp0.eu>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D32FC1C.3010905@simon.arlott.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: jbohac@suse.cz, David Miller <davem@davemloft.net>,
+        yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, stable@kernel.org,
+        stephen.hemminger@vyatta.com, maheshkelkar@gmail.com,
+        brian.haley@hp.com, Willy Tarreau <w@1wt.eu>, lorenzo@google.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <stable-bounces@linux.kernel.org>
+In-Reply-To: <20110123213444.70d0b0f1@s6510> (Stephen Hemminger's message of
+	"Sun, 23 Jan 2011 21:34:44 +1100")
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I created a Bugzilla entry at 
-https://bugzilla.kernel.org/show_bug.cgi?id=27432
-for your bug report, please add your address to the CC list in there, thanks!
+Stephen Hemminger <shemminger@vyatta.com> writes:
 
-On niedziela, 16 stycznia 2011 o 15:09:32 Simon Arlott wrote:
-> [    1.666706] forcedeth 0000:00:08.0: ifname eth0, PHY OUI 0x5043 @ 16,
-> addr 00:e0:81:4d:2b:ec [    1.666767] forcedeth 0000:00:08.0: highdma csum
-> vlan pwrctl mgmt gbit lnktim msi desc-v3
-> 
-> I have eth0 and eth0.3840 which works until I add eth0 to a bridge.
-> While eth0 is in a bridge (the bridge device is up), eth0.3840 is unable
-> to receive packets. Using tcpdump on eth0 shows the packets being
-> received with a VLAN tag but they don't appear on eth0.3840. They appear
-> with the VLAN tag on the bridge interface.
-> 
-> If I remove eth0 from the bridge, eth0.3840 starts working again. It
-> still works if eth0.3840 is part of a bridge but eth0 isn't (the device
-> is in promiscuous mode). I've only tested with broadcast traffic.
-> 
-> This works with 2.6.36.
-> 
-> git bisect produces 3701e51382a026cba10c60b03efabe534fba4ca4 as the
-> first bad commit.
-> 
-> The behaviour of drivers/net/forcedeth.c nv_rx_process_optimized looks
-> ok - vlan_gro_receive and napi_gro_receive are called correctly. (The
-> likely(!np->vlangrp) looks odd as it'll always be false if vlans are in
-> use).
+> I think this fixes the issue with disable_ipv6
 
--- 
-Maciej Rutecki
-http://www.maciek.unixy.pl
+Somehow I doubt deleting the ipv6 state, and removing the per device
+disable_ipv6 flag is going to be backwards compatible.
+
+echo 0 > /proc/sys/net/ipv6/conf/disable_ipv6
+
+Won't work.
+
+What ever other good properties calling NETDEV_UNREGISTER for ipv6
+devices may have.
+
+Eric
+
+> --- a/net/ipv6/addrconf.c	2011-01-23 20:30:25.897243002 +1100
+> +++ b/net/ipv6/addrconf.c	2011-01-23 20:30:41.161243002 +1100
+> @@ -4197,7 +4197,7 @@ static void dev_disable_change(struct in
+>  		return;
+>  
+>  	if (idev->cnf.disable_ipv6)
+> -		addrconf_notify(NULL, NETDEV_DOWN, idev->dev);
+> +		addrconf_notify(NULL, NETDEV_UNREGISTER, idev->dev);
+>  	else
+>  		addrconf_notify(NULL, NETDEV_UP, idev->dev);
+>  }
