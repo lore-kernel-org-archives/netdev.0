@@ -1,50 +1,48 @@
-From: Stephen Hemminger <stephen.hemminger@vyatta.com>
-Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
-Date: Sat, 22 Jan 2011 20:41:12 -0800 (PST)
-Message-ID: <901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] ipv6: don't flush routes when setting loopback
+	down
+Date: Sat, 22 Jan 2011 21:42:54 -0800 (PST)
+Message-ID: <20110122.214254.226765382.davem@davemloft.net>
 References: <20110122.145438.193725532.davem@davemloft.net>
+	<901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, jbohac@suse.cz,
-	brian haley <brian.haley@hp.com>, netdev@vger.kernel.org,
-	maheshkelkar@gmail.com, lorenzo@google.com,
-	yoshfuji@linux-ipv6.org, stable@kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52372 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751181Ab1AWElQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jan 2011 23:41:16 -0500
-In-Reply-To: <20110122.145438.193725532.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jbohac@suse.cz, ebiederm@xmission.com, yoshfuji@linux-ipv6.org,
+        netdev@vger.kernel.org, maheshkelkar@gmail.com, brian.haley@hp.com,
+        stable@kernel.org, lorenzo@google.com
+To: stephen.hemminger@vyatta.com
+Return-path: <stable-bounces@linux.kernel.org>
+In-Reply-To: <901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Having IPv6 remove all addresses when link goes down is fundamentally broken
-that is what the original problem being fixed. For users on servers or using
-Quagga this matters, how do you plan to fix that?
+From: Stephen Hemminger <stephen.hemminger@vyatta.com>
+Date: Sat, 22 Jan 2011 20:41:12 -0800 (PST)
 
------ Original Message -----
-> From: Stephen Hemminger <shemminger@vyatta.com>
-> Date: Sun, 23 Jan 2011 09:39:40 +1100
-> 
-> > The design problem behind all this is that sysctl disable_ipv6 as
-> > currently implemented is passive (just changes a variable). It needs
-> > to be implemented
-> > as a more active step that does the same thing as removing the
-> > interface from
-> > ipv6. I will look into it after LCA.
-> 
-> All of this stuff worked before your change Stephen.
-> 
-> It doesn't matter how it was implemented before, IT WORKED.
-> 
-> You broke it, and it's still broken.
-> 
-> You keep talking about fixing things other than the changes
-> you made, but honestly I think we're at the point where you've
-> been given enough changes and we need to simply revert your
-> change.
-> 
-> Things like that can't run on and on for months, I don't care
-> what the reason is.
+> Having IPv6 remove all addresses when link goes down is fundamentally broken
+> that is what the original problem being fixed. For users on servers or using
+> Quagga this matters, how do you plan to fix that?
+
+How about in a way that doesn't break stuff?
+
+And it's been beyond proven that people give more of a crap
+about disable_ipv6 than the thing you keep claiming is a big deal.
+
+NOBODY other than you even noticed the issue or made a report about
+it.
+
+Yet we have people actively complaining about disable_ipv6 being
+broken.
+
+So you lose on two counts.  You can't fix things by breaking other
+stuff, and your obscure stuff matters less than things people
+actually notice being broken.
