@@ -1,42 +1,63 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [stable] [RFC] ipv6: don't flush routes when setting loopback
- down
-Date: Sun, 23 Jan 2011 21:34:44 +1100
-Message-ID: <20110123213444.70d0b0f1@s6510>
-References: <20110122.145438.193725532.davem@davemloft.net>
-	<901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
-	<20110122.214254.226765382.davem@davemloft.net>
-	<20110123192416.73cd7521@s6510>
-	<20110123192624.5cfe33d0@s6510>
-	<20110123091531.GQ12837@1wt.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 02/16] net: change netdev->features to u32
+Date: Sun, 23 Jan 2011 11:35:13 +0100
+Message-ID: <1295778913.17333.28.camel@edumazet-laptop>
+References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
+	 <d9fe088556152bd3b43390e0fb5ea20d83aef233.1295734271.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jbohac@suse.cz, yoshfuji@linux-ipv6.org, netdev@vger.kernel.org,
-	stable@kernel.org, stephen.hemminger@vyatta.com,
-	ebiederm@xmission.com, brian.haley@hp.com, lorenzo@google.com,
-	David Miller <davem@davemloft.net>, maheshkelkar@gmail.com
-To: Willy Tarreau <w@1wt.eu>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54749 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751379Ab1AWKex (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Jan 2011 05:34:53 -0500
-In-Reply-To: <20110123091531.GQ12837@1wt.eu>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:37658 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751379Ab1AWKfU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 05:35:20 -0500
+Received: by wwa36 with SMTP id 36so3367127wwa.1
+        for <netdev@vger.kernel.org>; Sun, 23 Jan 2011 02:35:18 -0800 (PST)
+In-Reply-To: <d9fe088556152bd3b43390e0fb5ea20d83aef233.1295734271.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I think this fixes the issue with disable_ipv6
+Le samedi 22 janvier 2011 =C3=A0 23:14 +0100, Micha=C5=82 Miros=C5=82aw=
+ a =C3=A9crit :
+> Quoting Ben Hutchings: we presumably won't be defining features that
+> can only be enabled on 64-bit architectures.
+>=20
+> Occurences found by `grep -r` on net/, drivers/net, include/
+>=20
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> ---
 
---- a/net/ipv6/addrconf.c	2011-01-23 20:30:25.897243002 +1100
-+++ b/net/ipv6/addrconf.c	2011-01-23 20:30:41.161243002 +1100
-@@ -4197,7 +4197,7 @@ static void dev_disable_change(struct in
- 		return;
- 
- 	if (idev->cnf.disable_ipv6)
--		addrconf_notify(NULL, NETDEV_DOWN, idev->dev);
-+		addrconf_notify(NULL, NETDEV_UNREGISTER, idev->dev);
- 	else
- 		addrconf_notify(NULL, NETDEV_UP, idev->dev);
- }
+=2E..
+
+>  	/* Unset features, set them as we chew on the arg. */
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 371fa88..c73d63d 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -894,7 +894,7 @@ struct net_device {
+>  	struct list_head	unreg_list;
+> =20
+>  	/* Net device features */
+> -	unsigned long		features;
+> +	u32			features;
+>  #define NETIF_F_SG		1	/* Scatter/gather IO. */
+>  #define NETIF_F_IP_CSUM		2	/* Can checksum TCP/UDP over IPv4. */
+>  #define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopac=
+k. */
+> @@ -1150,7 +1150,7 @@ struct net_device {
+>  	const struct rtnl_link_ops *rtnl_link_ops;
+> =20
+>  	/* VLAN feature mask */
+> -	unsigned long vlan_features;
+> +	u32 vlan_features;
+> =20
+>  	/* for setting kernel sock attribute on TCP connection setup */
+
+
+Could you move "vlan_features" right after "features", so that no holes
+are there on 64bit arches ?
+
 
