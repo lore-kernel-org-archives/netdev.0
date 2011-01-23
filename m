@@ -1,59 +1,56 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC] ipv6: don't flush routes when setting loopback
-	down
-Date: Sun, 23 Jan 2011 11:21:29 -0800
-Message-ID: <m1k4hv5sue.fsf@fess.ebiederm.org>
-References: <20110122.145438.193725532.davem@davemloft.net>
-	<901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC] ipv6: don't flush routes when setting loopback down
+Date: Sun, 23 Jan 2011 11:47:40 -0800 (PST)
+Message-ID: <20110123.114740.189688941.davem@davemloft.net>
+References: <901400353.32377.1295757672292.JavaMail.root@tahiti.vyatta.com>
 	<20110122.214254.226765382.davem@davemloft.net>
-	<20110123192416.73cd7521@s6510> <20110123192624.5cfe33d0@s6510>
-	<20110123091531.GQ12837@1wt.eu> <20110123213444.70d0b0f1@s6510>
+	<20110123192416.73cd7521@s6510>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jbohac@suse.cz, David Miller <davem@davemloft.net>,
-        yoshfuji@linux-ipv6.org, netdev@vger.kernel.org, stable@kernel.org,
-        stephen.hemminger@vyatta.com, maheshkelkar@gmail.com,
-        brian.haley@hp.com, Willy Tarreau <w@1wt.eu>, lorenzo@google.com
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <20110123213444.70d0b0f1@s6510> (Stephen Hemminger's message of
-	"Sun, 23 Jan 2011 21:34:44 +1100")
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen.hemminger@vyatta.com, ebiederm@xmission.com,
+	jbohac@suse.cz, brian.haley@hp.com, netdev@vger.kernel.org,
+	maheshkelkar@gmail.com, lorenzo@google.com,
+	yoshfuji@linux-ipv6.org, stable@kernel.org
+To: shemminger@vyatta.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56735
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752372Ab1AWTrH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 14:47:07 -0500
+In-Reply-To: <20110123192416.73cd7521@s6510>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> writes:
+From: Stephen Hemminger <shemminger@vyatta.com>
+Date: Sun, 23 Jan 2011 19:24:16 +1100
 
-> I think this fixes the issue with disable_ipv6
+> You are probably so upset because I stepped on code you worked hard
+> on.
 
-Somehow I doubt deleting the ipv6 state, and removing the per device
-disable_ipv6 flag is going to be backwards compatible.
+Frankly, I honestly don't care much at all about ipv6, it's still only
+a tiny minuscule fraction of actual usage in this world, even with
+ipv4 addresses basically completely depleted right now, and it's also
+an over-engineered monster.
 
-echo 0 > /proc/sys/net/ipv6/conf/disable_ipv6
+> But the IPv6 semantics should not have been different from IPv4
+> and the disable_ipv6 flag was a poor API choice as well.
 
-Won't work.
+There are no equivalent semantics, because nobody wants to disable
+all IPV4 activity and socket protocol operations.  People want it
+only for ipv6.
 
-What ever other good properties calling NETDEV_UNREGISTER for ipv6
-devices may have.
+This interface was choosen because this is what users asked for.
 
-Eric
+They wanted global and per-interface ways to disable IPV6 protocol
+activity, so that's what we gave them.
 
-> --- a/net/ipv6/addrconf.c	2011-01-23 20:30:25.897243002 +1100
-> +++ b/net/ipv6/addrconf.c	2011-01-23 20:30:41.161243002 +1100
-> @@ -4197,7 +4197,7 @@ static void dev_disable_change(struct in
->  		return;
->  
->  	if (idev->cnf.disable_ipv6)
-> -		addrconf_notify(NULL, NETDEV_DOWN, idev->dev);
-> +		addrconf_notify(NULL, NETDEV_UNREGISTER, idev->dev);
->  	else
->  		addrconf_notify(NULL, NETDEV_UP, idev->dev);
->  }
+Stephen you don't get it.  The ball is completely in your court
+about this, you broke stuff to fix stuff and that's not allowed.
+
+You have also been given months of time to undo the breakage.
+Normally I would just immediately revert, so you were given
+special allowances because I respect and trust you.
+
+So stop this BS where you say that I'm treating you in an
+unfair way.
