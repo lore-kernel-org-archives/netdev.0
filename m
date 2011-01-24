@@ -1,62 +1,42 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: Problems with /proc/net/tcp6 - possible bug - ipv6
-Date: Mon, 24 Jan 2011 14:40:25 -0800 (PST)
-Message-ID: <20110124.144025.189712500.davem@davemloft.net>
-References: <115440.16148.qm@web63902.mail.re1.yahoo.com>
-	<1295731235.2651.66.camel@edumazet-laptop>
-	<1295732444.2651.68.camel@edumazet-laptop>
+Date: Mon, 24 Jan 2011 14:42:00 -0800 (PST)
+Message-ID: <20110124.144200.112610203.davem@davemloft.net>
+References: <702550.61465.qm@web63902.mail.re1.yahoo.com>
+	<1295686781.2609.37.camel@edumazet-laptop>
+	<1295709344.2651.55.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: runningdoglackey@yahoo.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+	netdev@vger.kernel.org, therbert@google.com
 To: eric.dumazet@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295732444.2651.68.camel@edumazet-laptop>
+In-Reply-To: <1295709344.2651.55.camel@edumazet-laptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 22 Jan 2011 22:40:44 +0100
+Date: Sat, 22 Jan 2011 16:15:44 +0100
 
-> In my testings, I even have crashes in cleanup_once() if I
-> enable /proc/sys/net/ipv4/tcp_tw_recycle 
+> [PATCH] tcp: fix bug in listening_get_next()
+> 
+> commit a8b690f98baf9fb19 (tcp: Fix slowness in read /proc/net/tcp)
+> introduced a bug in handling of SYN_RECV sockets.
+> 
+> st->offset represents number of sockets found since beginning of
+> listening_hash[st->bucket].
+> 
+> We should not reset st->offset when iterating through
+> syn_table[st->sbucket], or else if more than ~25 sockets (if
+> PAGE_SIZE=4096) are in SYN_RECV state, we exit from listening_get_next()
+> with a too small st->offset
+> 
+> Next time we enter tcp_seek_last_pos(), we are not able to seek past
+> already found sockets.
+> 
+> Reported-by: PK <runningdoglackey@yahoo.com>
+> CC: Tom Herbert <therbert@google.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Luckily, this bug was easy to fix, I've just committed the
-following to net-2.6
-
-The other crash (the !RTF_CACHE WARN assertion) I'm looking
-into now.
-
---------------------
->From 1c5642cf754939c318a0230b0f546a9e20888292 Mon Sep 17 00:00:00 2001
-From: David S. Miller <davem@davemloft.net>
-Date: Mon, 24 Jan 2011 14:37:46 -0800
-Subject: [PATCH] inetpeer: Use correct AVL tree base pointer in inet_getpeer().
-
-Family was hard-coded to AF_INET but should be daddr->family.
-
-This fixes crashes when unlinking ipv6 peer entries, since the
-unlink code was looking up the base pointer properly.
-
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/ipv4/inetpeer.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
-index d9bc857..a96e656 100644
---- a/net/ipv4/inetpeer.c
-+++ b/net/ipv4/inetpeer.c
-@@ -475,7 +475,7 @@ static int cleanup_once(unsigned long ttl)
- struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
- {
- 	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
--	struct inet_peer_base *base = family_to_base(AF_INET);
-+	struct inet_peer_base *base = family_to_base(daddr->family);
- 	struct inet_peer *p;
- 
- 	/* Look up for the address quickly, lockless.
--- 
-1.7.3.4
+Applied and queued up for -stable, thanks Eric.
