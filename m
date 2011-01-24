@@ -1,48 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 04/16] net: Introduce new feature setting ops
-Date: Mon, 24 Jan 2011 15:51:44 -0800 (PST)
-Message-ID: <20110124.155144.35028895.davem@davemloft.net>
-References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
-	<7f0bf8e3fa40db0e188fc6310a5dd670718c0fc0.1295734271.git.mirq-linux@rere.qmqm.pl>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-2.6] bnx2: Always set ETH_FLAG_TXVLAN
+Date: Mon, 24 Jan 2011 14:59:02 -0800
+Message-ID: <1295909942-758-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mirq-linux@rere.qmqm.pl
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, jesse@nicira.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51937
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751522Ab1AXXvJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 18:51:09 -0500
-In-Reply-To: <7f0bf8e3fa40db0e188fc6310a5dd670718c0fc0.1295734271.git.mirq-linux@rere.qmqm.pl>
+Received: from mms3.broadcom.com ([216.31.210.19]:1268 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751211Ab1AXXxP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 18:53:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Sat, 22 Jan 2011 23:14:13 +0100 (CET)
+TSO does not work if the VLAN tag is in the packet (non-accelerated).
+We may be able to remove this restriction in future firmware.
 
-> This introduces a new framework to handle device features setting.
-> It consists of:
->   - new fields in struct net_device:
-> 	+ hw_features - features that hw/driver supports toggling
-> 	+ wanted_features - features that user wants enabled, when possible
->   - new netdev_ops:
-> 	+ feat =3D ndo_fix_features(dev, feat) - API checking constraints fo=
-r
-> 		enabling features or their combinations
-> 	+ ndo_set_features(dev) - API updating hardware state to match
-> 		changed dev->features
->   - new ethtool commands:
-> 	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_features
-> 		and trigger device reconfiguration if resulting dev->features
-> 		changed
-> 	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (meaning=
-)
->=20
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-Ok, I'll stop applying patches right before this one as I'd like to see
-at least some feedback from Ben wrt. the ethtool bits.
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index df99edf..99e7652 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7553,6 +7553,10 @@ bnx2_set_flags(struct net_device *dev, u32 data)
+ 	    !(data & ETH_FLAG_RXVLAN))
+ 		return -EINVAL;
+ 
++	/* TSO with VLAN tag won't work with current firmware */
++	if (!(data & ETH_FLAG_TXVLAN))
++		return -EINVAL;
++
+ 	rc = ethtool_op_set_flags(dev, data, ETH_FLAG_RXHASH | ETH_FLAG_RXVLAN |
+ 				  ETH_FLAG_TXVLAN);
+ 	if (rc)
+-- 
+1.6.4.GIT
 
-=46WIW I like these changes (a lot). :-)
 
