@@ -1,65 +1,55 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: [PATCH] GRO: fix merging a paged skb after non-paged skbs
-Date: Mon, 24 Jan 2011 18:47:52 +0100
-Message-ID: <20110124184752.1d0947dd@delilah>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: netfilter: marking IPv6 packets sends them to the wrong interface
+Date: Mon, 24 Jan 2011 18:50:54 +0100
+Message-ID: <4D3DBBFE.7070701@trash.net>
+References: <20110123122108.GA30305@darkside.kls.lan> <4D3D82D1.6050305@trash.net> <20110124143518.GA2616@darkside.kls.lan> <4D3DA48A.2020605@trash.net> <20110124170213.GB2616@darkside.kls.lan>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63117 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751882Ab1AXRsE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 12:48:04 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Mario 'BitKoenig' Holbe <Mario.Holbe@TU-Ilmenau.DE>,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	NetDev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110124170213.GB2616@darkside.kls.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Suppose that several linear skbs of the same flow were received by GRO. They
-were thus merged into one skb with a frag_list. Then a new skb of the same flow
-arrives, but it is a paged skb with data starting in its frags[].
+Am 24.01.2011 18:02, schrieb Mario 'BitKoenig' Holbe:
+> On Mon, Jan 24, 2011 at 05:10:50PM +0100, Patrick McHardy wrote:
+>>> Yes, disabling the ip6_route_me_harder() call in ip6t_mangle_out()
+>>> results in the advertisements being transmitted on the correct
+>>> interfaces
+>> Thanks. The problem appears to be that ip6_route_me_harder()
+>> only uses the socket's oif for the route lookup when the
+>> socket is bound to an interface, but radvd uses IPV6_PKTINFO
+>> to specify the outgoing interface.
+>>
+>> I guess netfilter shouldn't be overriding IPV6_PKTINFO, but
+>> we unfortunately have neither an indication of this nor the
+>> original route lookup keys available at the time the packet
+>> is rerouted.
+> 
+> Mh, I'm not sure, but I guess an indication of netfilter not overriding
+> IPV6_PKTINFO could be the fact that the source address does not
+> change...
 
-Before adding the skb to the frag_list skb_gro_receive() will of course adjust
-the skb to throw away the headers. It correctly modifies the page_offset and
-size of the frag, but it leaves incorrect information in the skb:
- ->data_len is not decreased at all.
- ->len is decreased only by headlen, as if no change were done to the frag.
-Later in a receiving process this causes skb_copy_datagram_iovec() to return
--EFAULT and this is seen in userspace as the result of the recv() syscall.
+No, ip6_route_me_harder() only attaches a new route to the packet,
+the packets contents are not changed.
 
-In practice the bug can be reproduced with the sfc driver. By default the
-driver uses an adaptive scheme when it switches between using
-napi_gro_receive() (with skbs) and napi_gro_frags() (with pages). The bug is
-reproduced when under rx load with enough successful GRO merging the driver
-decides to switch from the former to the latter.
+> From my 1st mail:
+> | # ip6tables -t mangle -A OUTPUT -o eth0 -j MARK --set-mark 1
+> | # /etc/init.d/radvd start
+> | -> eth0: <no traffic>
+> | -> eth1: fe80::2a0:c9ff:fee6:90ce > ff02::1: prefix 2001:6f8:90c:10::/64
+> | -> eth1: fe80::2d0:b7ff:fe06:6b36 > ff02::1: prefix 2001:6f8:90c:12::/64
+> 
+> fe80::2d0:b7ff:fe06:6b36 is the link-local address of eth0 set by radvd
+> in IPV6_PKTINFO as well. This, of course, is no guarantee for
+> ipi6_ifindex not being changed, but I believe if something would have
+> changed it, it would also have changed ipi6_addr.
 
-Manual control is also possible, so reproducing this is easy with netcat:
- - on machine1 (with sfc): nc -l 12345 > /dev/null
- - on machine2: nc machine1 12345 < /dev/zero
- - on machine1:
-   echo 1 > /sys/module/sfc/parameters/rx_alloc_method  # use skbs
-   echo 2 > /sys/module/sfc/parameters/rx_alloc_method  # use pages
- - See that nc has quit suddenly.
-
-Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
----
- net/core/skbuff.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d31bb36..c231f5b 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2746,7 +2746,7 @@ merge:
- 	if (offset > headlen) {
- 		skbinfo->frags[0].page_offset += offset - headlen;
- 		skbinfo->frags[0].size -= offset - headlen;
--		offset = headlen;
-+		skb->data_len -= offset - headlen;
- 	}
- 
- 	__skb_pull(skb, offset);
--- 
-1.7.1
-
+No, what is happening is that radvd sends the packet with a specified
+ifindex using IPV6_PKTINFO. The mangle table notices that the mark
+changes and calls ip6_route_me_harder(), which performs a new route
+lookup without taking the specified oif into account. It therefore
+chooses the first of your two routes and sends the packet out eth1.
