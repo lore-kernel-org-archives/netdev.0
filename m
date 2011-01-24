@@ -1,51 +1,85 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Mon, 24 Jan 2011 17:34:04 +0100
-Message-ID: <1295886844.2755.36.camel@edumazet-laptop>
-References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
-	 <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
-	 <alpine.WNT.2.00.1101211400000.5816@JBRANDEB-DESK2.amr.corp.intel.com>
-	 <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
-	 <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
+From: "Mario 'BitKoenig' Holbe" <Mario.Holbe@TU-Ilmenau.DE>
+Subject: Re: netfilter: marking IPv6 packets sends them to the wrong
+ interface
+Date: Mon, 24 Jan 2011 18:02:13 +0100
+Message-ID: <20110124170213.GB2616@darkside.kls.lan>
+References: <20110123122108.GA30305@darkside.kls.lan>
+ <4D3D82D1.6050305@trash.net>
+ <20110124143518.GA2616@darkside.kls.lan>
+ <4D3DA48A.2020605@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Loke, Chetan" <chetan.loke@netscout.com>,
-	Jon Zhou <jon.zhou@jdsu.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: juice@swagman.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="7ZAtKRhVyVSsbBD2"
+Cc: netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	NetDev <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:41308 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753416Ab1AXQgP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 11:36:15 -0500
-Received: by bwz15 with SMTP id 15so3730912bwz.19
-        for <netdev@vger.kernel.org>; Mon, 24 Jan 2011 08:36:14 -0800 (PST)
-In-Reply-To: <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
+Received: from piggy.rz.tu-ilmenau.de ([141.24.4.8]:59627 "EHLO
+	piggy.rz.tu-ilmenau.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753772Ab1AXRCT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 12:02:19 -0500
+Content-Disposition: inline
+In-Reply-To: <4D3DA48A.2020605@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 24 janvier 2011 =C3=A0 10:10 +0200, juice a =C3=A9crit :
 
-> Result: OK: 12345544(c12344739+d804) nsec, 10000000 (60byte,0frags)
->   810008pps 388Mb/sec (388803840bps) errors: 0
+--7ZAtKRhVyVSsbBD2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, Jan 24, 2011 at 05:10:50PM +0100, Patrick McHardy wrote:
+> > Yes, disabling the ip6_route_me_harder() call in ip6t_mangle_out()
+> > results in the advertisements being transmitted on the correct
+> > interfaces
+> Thanks. The problem appears to be that ip6_route_me_harder()
+> only uses the socket's oif for the route lookup when the
+> socket is bound to an interface, but radvd uses IPV6_PKTINFO
+> to specify the outgoing interface.
 >=20
+> I guess netfilter shouldn't be overriding IPV6_PKTINFO, but
+> we unfortunately have neither an indication of this nor the
+> original route lookup keys available at the time the packet
+> is rerouted.
 
->=20
-> This is a bit better than the previous maxim of 750064pps / 360Mb/sec
-> that I was able to achieve without tuning parameters with ethtool, bu=
-t
-> still not near the 1.1Mpacks/s that shoud be doable with my card?
+Mh, I'm not sure, but I guess an indication of netfilter not overriding
+IPV6_PKTINFO could be the fact that the source address does not
+change...
 
-Please check what numbers you can get using dummy0 device instead of
-real ethernet driver.
+=46rom my 1st mail:
+| # ip6tables -t mangle -A OUTPUT -o eth0 -j MARK --set-mark 1
+| # /etc/init.d/radvd start
+| -> eth0: <no traffic>
+| -> eth1: fe80::2a0:c9ff:fee6:90ce > ff02::1: prefix 2001:6f8:90c:10::/64
+| -> eth1: fe80::2d0:b7ff:fe06:6b36 > ff02::1: prefix 2001:6f8:90c:12::/64
 
-Here : (E5540  @ 2.53GHz) clone =3D 1
+fe80::2d0:b7ff:fe06:6b36 is the link-local address of eth0 set by radvd
+in IPV6_PKTINFO as well. This, of course, is no guarantee for
+ipi6_ifindex not being changed, but I believe if something would have
+changed it, it would also have changed ipi6_addr.
 
-Result: OK: 34775941(c34775225+d716) nsec, 100000000 (60byte,0frags)
-  2875551pps 1380Mb/sec (1380264480bps) errors: 0
 
+Mario
+--=20
+Doing it right is no excuse for not meeting the schedule.
+                                -- Plant Manager, Delphi Corporation
 
+--7ZAtKRhVyVSsbBD2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iQEVAwUBTT2wlRS+e2HeSPbpAQKnAQf7BF6cP8EOCTP6nIII2iHZLeOg4FELkgak
+LeF3iH6OzoTQAUyTOP53sw3PZTmKayRdkd7i2qSRYzQ4WhouFwNDx0KP10HLCwMq
+ha9ut70TLwnxXbtoIyHMRBgHO1DvzJgSVvPshzaCREjbgwR9OLUj3J5CuWHxf16X
+9Nep9+1PZGLF/iUouzxsIab/2mW+g9wKl2bjaZ27aiqihNm+M3H5bXzfX6LmSCqS
+/KpbuAPcKh4PKas4nsDXNdTlcZfvIgHBZBUWawsk2Vr9pQ0HZEexcz4OJGmxn6v9
+NUDAJEKmVv24DxMsEapAwYQnx73LbGfiO9Zh109FBmd9TT2h3dGiwA==
+=ImCo
+-----END PGP SIGNATURE-----
+
+--7ZAtKRhVyVSsbBD2--
