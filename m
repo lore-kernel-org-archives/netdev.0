@@ -1,50 +1,87 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Mon, 24 Jan 2011 16:07:05 +0800
-Message-ID: <AANLkTim-u1V3-uPGrKLuG4SSQMY8HGrEThivgYA7XDeJ@mail.gmail.com>
-References: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
- <1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com> <1295600887.2601.5.camel@edumazet-laptop>
+From: "juice" <juice@swagman.org>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Mon, 24 Jan 2011 10:10:08 +0200
+Message-ID: <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
+References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
+    <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
+    <alpine.WNT.2.00.1101211400000.5816@JBRANDEB-DESK2.amr.corp.intel.com>
+    <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
+Reply-To: juice@swagman.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
-	mirqus@gmail.com, Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295600887.2601.5.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Loke, Chetan" <chetan.loke@netscout.com>,
+	"Jon Zhou" <jon.zhou@jdsu.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Stephen Hemming
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.liukuma.net ([62.220.235.15]:46194 "EHLO www.liukuma.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751915Ab1AXIKR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 03:10:17 -0500
+In-Reply-To: <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Dear Eric,
 
-On Fri, Jan 21, 2011 at 5:08 PM, Eric Dumazet <eric.dumazet@gmail.com> =
-wrote:
-> Le vendredi 21 janvier 2011 =C3=A0 15:55 +0800, Po-Yu Chuang a =C3=A9=
-crit :
-> ...
->> +
->> + =C2=A0 =C2=A0 dma_unmap_single(priv->dev, map, skb_headlen(skb), D=
-MA_TO_DEVICE);
->> +
->> + =C2=A0 =C2=A0 dev_kfree_skb_irq(skb);
->> +
->> + =C2=A0 =C2=A0 ftmac100_txdes_reset(txdes);
->> +
->> + =C2=A0 =C2=A0 ftmac100_tx_clean_pointer_advance(priv);
->> +
->> + =C2=A0 =C2=A0 priv->tx_pending--;
->> + =C2=A0 =C2=A0 netif_wake_queue(netdev);
->> +
->> + =C2=A0 =C2=A0 return true;
->> +}
->> +
+>> you may also want to try reducing the tx descriptor ring count to 128
+>> using ethtool, and change the ethtool -C rx-usecs 20 setting, try
+>> 20,30,40,50,60
 >
-> Thanks to NAPI, you can free skb directly, not queuing it via
-> NET_TX_SOFTIRQ softirq, using dev_kfree_skb() instead of
-> dev_kfree_skb_irq()
+> So this could up my current network card to a little faster?
+> If I can reach 1.1Mpackets/s, thats about 560Mbits/s. At least it would
+> get me a little closet to what I am trying to achieve.
+>
 
-=46ixed. Thanks a lot.
+I tried these tunings, and it turns out that I am able to get the best
+performance with pktgen when I set the options "ethtool -G eth1 tx 128"
+and "ethtool -C eth1 rx-usecs 10". Anything different will lower the TX
+performance.
 
-best regards,
-Po-Yu Chuang
+Now I can get these rates:
+
+root@d8labralinux:/var/home/juice/pkt_test# cat /proc/net/pktgen/eth1
+Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
+     frags: 0  delay: 0  clone_skb: 1  ifname: eth1
+     flows: 0 flowlen: 0
+     queue_map_min: 0  queue_map_max: 0
+     dst_min: 10.10.11.2  dst_max:
+        src_min:   src_max:
+     src_mac: 00:1b:21:7c:e5:b1 dst_mac: 00:04:23:08:91:dc
+     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+     src_mac_count: 0  dst_mac_count: 0
+     Flags:
+Current:
+     pkts-sofar: 10000000  errors: 0
+     started: 1205660106us  stopped: 1218005650us idle: 804us
+     seq_num: 10000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+     cur_saddr: 0x0  cur_daddr: 0x20b0a0a
+     cur_udp_dst: 9  cur_udp_src: 9
+     cur_queue_map: 0
+     flows: 0
+Result: OK: 12345544(c12344739+d804) nsec, 10000000 (60byte,0frags)
+  810008pps 388Mb/sec (388803840bps) errors: 0
+
+AX4000:
+  Total bitrate:             414.629 MBits/s
+  Packet rate:               809824 packets/s
+  Bandwidth:                 41.46% GE
+  Average packet intereval:  1.23 us
+
+This is a bit better than the previous maxim of 750064pps / 360Mb/sec
+that I was able to achieve without tuning parameters with ethtool, but
+still not near the 1.1Mpacks/s that shoud be doable with my card?
+
+Are there other tunings or alternate driver that I could use to get the
+best performance out of the card? Basically what puzzles me is the fact
+that I can get a lot better performance using larger packets, so that
+suggests to me that the bottleneck cannot be the PCIe interface, as I can
+push enough data through it. Is there any way of doing larger transfers
+on the bus, like grouping many smaller packets together to avoid the
+problems caused by so many TX interrupts?
+
+Yours, Jussi Ohenoja
+
+
+
