@@ -1,52 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] typhoon: Kill references to UTS_RELEASE
-Date: Mon, 24 Jan 2011 15:12:14 -0800 (PST)
-Message-ID: <20110124.151214.28803162.davem@davemloft.net>
+Subject: Re: [PATCH v3 0/3] can: at91_can: fix for errata 50.2.6.3 &
+ 50.3.5.3
+Date: Mon, 24 Jan 2011 15:17:10 -0800 (PST)
+Message-ID: <20110124.151710.102560158.davem@davemloft.net>
+References: <1295878532-15769-1-git-send-email-mkl@pengutronix.de>
+	<4D3D8A64.6000305@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dave@thedillows.org
-To: netdev@vger.kernel.org
+Cc: Socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43410
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48429
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751300Ab1AXXLl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 18:11:41 -0500
+	by vger.kernel.org with ESMTP id S1751300Ab1AXXQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 18:16:35 -0500
+In-Reply-To: <4D3D8A64.6000305@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Mon, 24 Jan 2011 15:19:16 +0100
 
-This makes the driver get rebuilt every single time you
-type 'make' which is beyond rediculious.
+> I've updated the patch series in my git-repo, too.
+> 
+> The following changes since commit b30532515f0a62bfe17207ab00883dd262497006:
+> 
+>   bonding: Ensure that we unshare skbs prior to calling pskb_may_pull (2011-01-20 16:45:56 -0800)
+> 
+> are available in the git repository at:
+>   git://git.pengutronix.de/git/mkl/linux-2.6.git can/at91_can-for-net-2.6
+> 
+> Marc Kleine-Budde (3):
+>       can: at91_can: clean up usage of AT91_MB_RX_FIRST and AT91_MB_RX_NUM
+>       can: at91_can: don't use mailbox 0
+>       can: at91_can: make can_id of mailbox 0 configurable
 
-I hereby declare this driver to have version "1.0"
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
-
-This has been driving me nuts for a long time.
-
- drivers/net/typhoon.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/typhoon.c b/drivers/net/typhoon.c
-index a3c46f6..7fa5ec2 100644
---- a/drivers/net/typhoon.c
-+++ b/drivers/net/typhoon.c
-@@ -123,12 +123,11 @@ static const int multicast_filter_limit = 32;
- #include <linux/in6.h>
- #include <linux/dma-mapping.h>
- #include <linux/firmware.h>
--#include <generated/utsrelease.h>
- 
- #include "typhoon.h"
- 
- MODULE_AUTHOR("David Dillow <dave@thedillows.org>");
--MODULE_VERSION(UTS_RELEASE);
-+MODULE_VERSION("1.0");
- MODULE_LICENSE("GPL");
- MODULE_FIRMWARE(FIRMWARE_NAME);
- MODULE_DESCRIPTION("3Com Typhoon Family (3C990, 3CR990, and variants)");
--- 
-1.7.3.4
-
+Pulled into net-2.6, thanks Marc.
