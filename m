@@ -1,87 +1,55 @@
-From: "juice" <juice@swagman.org>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Mon, 24 Jan 2011 10:10:08 +0200
-Message-ID: <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
-References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
-    <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
-    <alpine.WNT.2.00.1101211400000.5816@JBRANDEB-DESK2.amr.corp.intel.com>
-    <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
-Reply-To: juice@swagman.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 24 Jan 2011 00:19:30 -0800
+Message-ID: <AANLkTikmt1BsuLmw+6Lv_trPfRzHYdjWY-61DPv_3T7y@mail.gmail.com>
+References: <1295697376-2984-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Loke, Chetan" <chetan.loke@netscout.com>,
-	"Jon Zhou" <jon.zhou@jdsu.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Stephen Hemming
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:46194 "EHLO www.liukuma.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751915Ab1AXIKR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 03:10:17 -0500
-In-Reply-To: <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:54398 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751832Ab1AXITc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 03:19:32 -0500
+Received: by iwn9 with SMTP id 9so3727125iwn.19
+        for <netdev@vger.kernel.org>; Mon, 24 Jan 2011 00:19:32 -0800 (PST)
+In-Reply-To: <1295697376-2984-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
->> you may also want to try reducing the tx descriptor ring count to 128
->> using ethtool, and change the ethtool -C rx-usecs 20 setting, try
->> 20,30,40,50,60
+On Sat, Jan 22, 2011 at 03:56, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
+m> wrote:
+> The following series contains cleanups for e1000e and addition suppor=
+t
+> for the i340 adapter in igb.
 >
-> So this could up my current network card to a little faster?
-> If I can reach 1.1Mpackets/s, thats about 560Mbits/s. At least it would
-> get me a little closet to what I am trying to achieve.
+> The following are changes since commit bb134d2298b49f50cf6d9388410fba=
+96272905dc:
+> =C2=A0net: netif_setup_tc() is static
+>
+> and are available in the git repository at:
+> =C2=A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2=
+=2E6 master
+>
+> Bruce Allan (2):
+> =C2=A0e1000e: reduce scope of some variables, remove unnecessary ones
+> =C2=A0e1000e: Use kmemdup rather than duplicating its implementation
+>
+> Carolyn Wyborny (1):
+> =C2=A0igb: Add support for i340 Quad Port Fiber Adapter
+>
+> Jeff Kirsher (1):
+> =C2=A0e1000e: convert to stats64
 >
 
-I tried these tunings, and it turns out that I am able to get the best
-performance with pktgen when I set the options "ethtool -G eth1 tx 128"
-and "ethtool -C eth1 rx-usecs 10". Anything different will lower the TX
-performance.
+I have updated my tree to include Flavio's Signed-off-by on the followi=
+ng patch:
 
-Now I can get these rates:
+e1000e: convert to stats64
 
-root@d8labralinux:/var/home/juice/pkt_test# cat /proc/net/pktgen/eth1
-Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
-     frags: 0  delay: 0  clone_skb: 1  ifname: eth1
-     flows: 0 flowlen: 0
-     queue_map_min: 0  queue_map_max: 0
-     dst_min: 10.10.11.2  dst_max:
-        src_min:   src_max:
-     src_mac: 00:1b:21:7c:e5:b1 dst_mac: 00:04:23:08:91:dc
-     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
-     src_mac_count: 0  dst_mac_count: 0
-     Flags:
-Current:
-     pkts-sofar: 10000000  errors: 0
-     started: 1205660106us  stopped: 1218005650us idle: 804us
-     seq_num: 10000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-     cur_saddr: 0x0  cur_daddr: 0x20b0a0a
-     cur_udp_dst: 9  cur_udp_src: 9
-     cur_queue_map: 0
-     flows: 0
-Result: OK: 12345544(c12344739+d804) nsec, 10000000 (60byte,0frags)
-  810008pps 388Mb/sec (388803840bps) errors: 0
-
-AX4000:
-  Total bitrate:             414.629 MBits/s
-  Packet rate:               809824 packets/s
-  Bandwidth:                 41.46% GE
-  Average packet intereval:  1.23 us
-
-This is a bit better than the previous maxim of 750064pps / 360Mb/sec
-that I was able to achieve without tuning parameters with ethtool, but
-still not near the 1.1Mpacks/s that shoud be doable with my card?
-
-Are there other tunings or alternate driver that I could use to get the
-best performance out of the card? Basically what puzzles me is the fact
-that I can get a lot better performance using larger packets, so that
-suggests to me that the bottleneck cannot be the PCIe interface, as I can
-push enough data through it. Is there any way of doing larger transfers
-on the bus, like grouping many smaller packets together to avoid the
-problems caused by so many TX interrupts?
-
-Yours, Jussi Ohenoja
-
-
-
+--=20
+Cheers,
+Jeff
