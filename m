@@ -1,93 +1,75 @@
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Subject: [PATCH] pch_gbe: Fix the issue that the receiving data is not normal.
-Date: Mon, 24 Jan 2011 13:43:31 +0900
-Message-ID: <4D3D0373.30003@dsn.okisemi.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-2.6 PATCH 1/2] net: dcbnl: remove redundant DCB_CAP_DCBX_STATIC
+ bit
+Date: Sun, 23 Jan 2011 21:46:39 -0800
+Message-ID: <4D3D123F.40700@intel.com>
+References: <20110122023512.4239.40379.stgit@jf-dev1-dcblab> <4D3A465F.8020809@intel.com> <1295801600.25104.13.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Ewe, Kok Howg" <kok.howg.ewe@intel.com>
-To: ML netdev <netdev@vger.kernel.org>
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shmulik Ravid <shmulikr@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sm-d311v.smileserver.ne.jp ([203.211.202.206]:33070 "EHLO
-	sm-d311v.smileserver.ne.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751892Ab1AXElZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 23:41:25 -0500
+Received: from mga01.intel.com ([192.55.52.88]:28339 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751301Ab1AXFqk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 00:46:40 -0500
+In-Reply-To: <1295801600.25104.13.camel@lb-tlvb-shmulik.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This PCH_GBE driver had an issue that the receiving data is not normal.
-This driver had not removed correctly the padding data 
-which the DMA include in receiving data. 
+On 1/23/2011 8:53 AM, Shmulik Ravid wrote:
+> 
+> On Fri, 2011-01-21 at 18:52 -0800, John Fastabend wrote:
+>> On 1/21/2011 6:35 PM, John Fastabend wrote:
+>>> Remove redundant DCB_CAP_DCBX_STATIC bit in DCB capabilities
+>>>
+>>> Setting this bit indicates that no embedded DCBx engine is
+>>> present and the hardware can not be configured. This is the
+>>> same as having none of the DCB capability flags set or simply
+>>> not implementing the dcbnl ops at all.
+>>>
+>>> This patch removes this bit. The bit has not made a stable
+>>> release yet so removing it should not be an issue with
+>>> existing apps.
+>>>
+>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>> CC: Shmulik Ravid <shmulikr@broadcom.com>
+>>> ---
+>>>
+>>
+>> Shmulik, could you ACK this because you added these bits? But
+>> I was adding support for this in lldpad and I see no reason that
+>> we need these?
+>>
+> DCB_CAP_DCBX_STATIC means that the embedded engine will turn the user
+> configuration into the operational configuration without performing the
+> actual negotiation, so it is not equivalent to not having an embedded
+> DCBx engine. This is mostly a debug and integration option as it allows
+> you to do DCB related or dependent testing and development without
+> having a proper DCBx peer.
+> 
+> On second thought, I'm not sure this option is justified although we
+> found it useful during our development. If you think it's not useful
+> enough (or not at all) then by all means remove it.
 
-This patch fixed this issue.
+We have an advertise bit in userspace that can be set and cleared to
+do something similar for host based agents. I think for pg and application
+data you can get the same behavior by setting the device to not willing.
 
-Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
----
- drivers/net/pch_gbe/pch_gbe_main.c |   21 ++++++++++++---------
- 1 files changed, 12 insertions(+), 9 deletions(-)
+However for PFC it could potentially be useful. But how would the
+user set this mode? This is a capabilities bit indicating the device
+supports this. Is there a way to subsequently put the device in this
+mode?
 
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index 03a1d28..1bf2626 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -29,6 +29,7 @@ const char pch_driver_version[] = DRV_VERSION;
- #define PCH_GBE_SHORT_PKT		64
- #define DSC_INIT16			0xC000
- #define PCH_GBE_DMA_ALIGN		0
-+#define PCH_GBE_DMA_PADDING		2
- #define PCH_GBE_WATCHDOG_PERIOD		(1 * HZ)	/* watchdog time */
- #define PCH_GBE_COPYBREAK_DEFAULT	256
- #define PCH_GBE_PCI_BAR			1
-@@ -1422,8 +1423,8 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
- 			pr_err("Receive CRC Error\n");
- 		} else {
- 			/* get receive length */
--			/* length convert[-3], padding[-2] */
--			length = (rx_desc->rx_words_eob) - 3 - 2;
-+			/* length convert[-3] */
-+			length = (rx_desc->rx_words_eob) - 3;
- 
- 			/* Decide the data conversion method */
- 			if (!adapter->rx_csum) {
-@@ -1443,12 +1444,11 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
- 			if (skb_copy_flag) {	/* recycle  skb */
- 				struct sk_buff *new_skb;
- 				new_skb =
--				    netdev_alloc_skb(netdev,
--						     length + NET_IP_ALIGN);
-+				    netdev_alloc_skb(netdev, length);
- 				if (new_skb) {
- 					if (!skb_padding_flag) {
- 						skb_reserve(new_skb,
--								NET_IP_ALIGN);
-+							PCH_GBE_DMA_PADDING);
- 					}
- 					memcpy(new_skb->data, skb->data,
- 						length);
-@@ -1465,12 +1465,15 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
- 			}
- 			if (skb_padding_flag) {
- 				memcpy(&tmp_packet[0], &skb->data[0], ETH_HLEN);
--				memcpy(&skb->data[NET_IP_ALIGN], &tmp_packet[0],
--					ETH_HLEN);
--				skb_reserve(skb, NET_IP_ALIGN);
--
-+				memcpy(&skb->data[PCH_GBE_DMA_PADDING],
-+				       &tmp_packet[0], ETH_HLEN);
-+				skb_reserve(skb, PCH_GBE_DMA_PADDING);
-+				/* The length includes padding length */
-+				length = length - PCH_GBE_DMA_PADDING;
- 			}
- 
-+			/* The length includes FCS length */
-+			length = length - ETH_FCS_LEN;
- 			/* update status of driver */
- 			adapter->stats.rx_bytes += length;
- 			adapter->stats.rx_packets++;
--- 
-1.6.2.5
+--John  
+
+
+> 
+> Thanks,
+> Shmulik
+> 
+> 
+> 
+
