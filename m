@@ -1,150 +1,144 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Flow Control and Port Mirroring Revisited
-Date: Mon, 24 Jan 2011 21:42:24 +0200
-Message-ID: <20110124194224.GD29941@redhat.com>
-References: <4D35ECE2.4040901@hp.com>
- <20110120083727.GA1807@verge.net.au>
- <20110121095929.GE26070@redhat.com>
- <20110121231149.GI2195@verge.net.au>
- <20110122215742.GC5617@redhat.com>
- <20110123063849.GB2673@verge.net.au>
- <20110123103902.GA28585@redhat.com>
- <4D3DC4AB.1000207@hp.com>
- <20110124183626.GB29941@redhat.com>
- <4D3DCC99.5050101@hp.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Mon, 24 Jan 2011 21:22:03 +0100
+Message-ID: <AANLkTimWuBfeYPOsOFpTiAGS5uHysevAHiOg0svBQ4zW@mail.gmail.com>
+References: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+	<1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com>
+	<AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
+	<AANLkTinsWVHj6qdSS-_ztztcNPHAkwZQnimPbjzvcHb2@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, Jesse Gross <jesse@nicira.com>,
-	Rusty Russell <rusty@rustcorp.com.au>,
-	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	kvm@vger.kernel.org
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <4D3DCC99.5050101@hp.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, eric.dumazet@gmail.com, joe@perches.com,
+	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinsWVHj6qdSS-_ztztcNPHAkwZQnimPbjzvcHb2@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 24, 2011 at 11:01:45AM -0800, Rick Jones wrote:
-> Michael S. Tsirkin wrote:
-> >On Mon, Jan 24, 2011 at 10:27:55AM -0800, Rick Jones wrote:
-> >
-> >>>Just to block netperf you can send it SIGSTOP :)
-> >>>
-> >>
-> >>Clever :)  One could I suppose achieve the same result by making the
-> >>remote receive socket buffer size smaller than the UDP message size
-> >>and then not worry about having to learn the netserver's PID to send
-> >>it the SIGSTOP.  I *think* the semantics will be substantially the
-> >>same?
-> >
-> >
-> >If you could set, it, yes. But at least linux ignores
-> >any value substantially smaller than 1K, and then
-> >multiplies that by 2:
-> >
-> >        case SO_RCVBUF:
-> >                /* Don't error on this BSD doesn't and if you think
-> >                   about it this is right. Otherwise apps have to
-> >                   play 'guess the biggest size' games. RCVBUF/SNDBUF
-> >                   are treated in BSD as hints */
-> >
-> >                if (val > sysctl_rmem_max)
-> >                        val = sysctl_rmem_max;
-> >set_rcvbuf:                     sk->sk_userlocks |=
-> >SOCK_RCVBUF_LOCK;
-> >
-> >                /*
-> >                 * We double it on the way in to account for
-> >                 * "struct sk_buff" etc. overhead.   Applications
-> >                 * assume that the SO_RCVBUF setting they make will
-> >                 * allow that much actual data to be received on that
-> >                 * socket.
-> >                 *
-> >                 * Applications are unaware that "struct sk_buff" and
-> >                 * other overheads allocate from the receive buffer
-> >                 * during socket buffer allocation.
-> >*
-> >                 * And after considering the possible alternatives,
-> >                 * returning the value we actually used in getsockopt
-> >                 * is the most desirable behavior.
-> >                 */                 if ((val * 2) <
-> >SOCK_MIN_RCVBUF)
-> >                        sk->sk_rcvbuf = SOCK_MIN_RCVBUF;
-> >                else
-> >                        sk->sk_rcvbuf = val * 2;
-> >
-> >and
-> >
-> >/*                       * Since sk_rmem_alloc sums skb->truesize,
-> >even a small frame might need
-> > * sizeof(sk_buff) + MTU + padding, unless net driver perform copybreak
-> > */             #define SOCK_MIN_RCVBUF (2048 + sizeof(struct
-> >sk_buff))
-> 
-> Pity - seems to work back on 2.6.26:
+W dniu 24 stycznia 2011 09:26 u=BFytkownik Po-Yu Chuang
+<ratbert.chuang@gmail.com> napisa=B3:
+> 2011/1/21 Micha=B3 Miros=B3aw <mirqus@gmail.com>:
+>> 2011/1/21 Po-Yu Chuang <ratbert.chuang@gmail.com>:
+>>> +static void ftmac100_free_buffers(struct ftmac100 *priv)
+>>> +{
+>>> + =A0 =A0 =A0 int i;
+>>> +
+>>> + =A0 =A0 =A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2) {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ftmac100_rxdes *rxdes =3D &pri=
+v->descs->rxdes[i];
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_addr_t d =3D ftmac100_rxdes_get_d=
+ma_addr(rxdes);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 void *page =3D ftmac100_rxdes_get_va(=
+rxdes);
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (d)
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_unmap_single(priv=
+->dev, d, PAGE_SIZE,
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0DMA_FROM_DEVICE);
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (page !=3D NULL)
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 free_page((unsigned l=
+ong)page);
+>>> + =A0 =A0 =A0 }
+>>> +
+>> [...]
+>>
+>>> +static int ftmac100_alloc_buffers(struct ftmac100 *priv)
+>>> +{
+>>> + =A0 =A0 =A0 int i;
+>>> +
+>>> + =A0 =A0 =A0 priv->descs =3D dma_alloc_coherent(priv->dev,
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0sizeof(struct ftmac100_descs),
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0&priv->descs_dma_addr,
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 =A0GFP_KERNEL | GFP_DMA);
+>>> + =A0 =A0 =A0 if (priv->descs =3D=3D NULL)
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return -ENOMEM;
+>>> +
+>>> + =A0 =A0 =A0 memset(priv->descs, 0, sizeof(struct ftmac100_descs))=
+;
+>>> +
+>>> + =A0 =A0 =A0 /* initialize RX ring */
+>>> +
+>>> + =A0 =A0 =A0 ftmac100_rxdes_set_end_of_ring(&priv->descs->rxdes[RX=
+_QUEUE_ENTRIES - 1]);
+>>> +
+>>> + =A0 =A0 =A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2) {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 struct ftmac100_rxdes *rxdes =3D &pri=
+v->descs->rxdes[i];
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 void *page;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 dma_addr_t d;
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 page =3D (void *)__get_free_page(GFP_=
+KERNEL | GFP_DMA);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (page =3D=3D NULL)
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err;
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 d =3D dma_map_single(priv->dev, page,=
+ PAGE_SIZE, DMA_FROM_DEVICE);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (unlikely(dma_mapping_error(priv->=
+dev, d))) {
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 free_page((unsigned l=
+ong)page);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto err;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* The hardware enforces a sub-2K m=
+aximum packet size, so we
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* put two buffers on every hardwar=
+e page.
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0*/
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_va(rxdes, page);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_va(rxdes + 1, page=
+ + PAGE_SIZE / 2);
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_addr(rxdes, d)=
+;
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_addr(rxdes + 1=
+, d + PAGE_SIZE / 2);
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_buffer_size(rxdes,=
+ RX_BUF_SIZE);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_buffer_size(rxdes =
++ 1, RX_BUF_SIZE);
+>>> +
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_own(rxdes);
+>>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 ftmac100_rxdes_set_dma_own(rxdes + 1)=
+;
+>>> + =A0 =A0 =A0 }
+>> [...]
+>>
+>> Did you test this? This looks like it will result in double free aft=
+er
+>> packet RX, as you are giving the same page (referenced once) to two
+>> distinct RX descriptors, that may be assigned different packets.
+>
+> Yes, this is tested.
+>
+>> Since your not implementing any RX offloads, you might just allocate
+>> fresh skb's with alloc_skb() and store skb pointer in rxdes3. Since
+>
+> rxdes3 does not store virtual address of an skb.
+> It stores the address of the buffer allocated while open() and freed
+> only when stop().
+> The data in that buffer will be memcpy()ed to an skb allocated in
+> ftmac100_rx_packet().
+> No double free happens.
 
-Hmm, that code is there at least as far back as 2.6.12.
+Ah, I blindly assumed that you're just appending the buffers to the
+skb (using skb_fill_page_desc() and friends). Since you have to mark
+descriptors for the device anyway, it might be faster to allocate new
+skbs and map those as rx buffers (changing the descriptor's buffer
+address after every RX) instead of keeping static buffer and copying
+every time. (For small packets it wastes lot of memory, though - so
+the right choice depends on the expected workload.)
 
-> raj@tardy:~/netperf2_trunk$ src/netperf -t UDP_STREAM -- -S 1 -m 1024
-> MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> localhost (127.0.0.1) port 0 AF_INET : histogram
-> Socket  Message  Elapsed      Messages
-> Size    Size     Time         Okay Errors   Throughput
-> bytes   bytes    secs            #      #   10^6bits/sec
-> 
-> 124928    1024   10.00     2882334      0    2361.17
->    256           10.00           0              0.00
-> 
-> raj@tardy:~/netperf2_trunk$ uname -a
-> Linux tardy 2.6.26-2-amd64 #1 SMP Sun Jun 20 20:16:30 UTC 2010 x86_64 GNU/Linux
-> 
-> Still, even with that (or SIGSTOP) we don't really know where the
-> packets were dropped right?  There is no guarantee they weren't
-> dropped before they got to the socket buffer
-> 
-> happy benchmarking,
-> rick jones
-
-Right. Better send to a port with no socket listening there,
-that would drop the packet at an early (if not at the earliest
-possible)  opportunity.
-
-> PS - here is with a -S 1024 option:
-> 
-> raj@tardy:~/netperf2_trunk$ src/netperf -t UDP_STREAM -- -S 1024 -m 1024
-> MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> localhost (127.0.0.1) port 0 AF_INET : histogram
-> Socket  Message  Elapsed      Messages
-> Size    Size     Time         Okay Errors   Throughput
-> bytes   bytes    secs            #      #   10^6bits/sec
-> 
-> 124928    1024   10.00     1679269      0    1375.64
->   2048           10.00     1490662           1221.13
-> 
-> showing that there is a decent chance that many of the frames were
-> dropped at the socket buffer, but not all - I suppose I could/should
-> be checking netstat stats... :)
-> 
-> And just a little more, only because I was curious :)
-> 
-> raj@tardy:~/netperf2_trunk$ src/netperf -t UDP_STREAM -- -S 1M -m 257
-> MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> localhost (127.0.0.1) port 0 AF_INET : histogram
-> Socket  Message  Elapsed      Messages
-> Size    Size     Time         Okay Errors   Throughput
-> bytes   bytes    secs            #      #   10^6bits/sec
-> 
-> 124928     257   10.00     1869134      0     384.29
-> 262142           10.00     1869134            384.29
-> 
-> raj@tardy:~/netperf2_trunk$ src/netperf -t UDP_STREAM -- -S 1 -m 257
-> MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-> localhost (127.0.0.1) port 0 AF_INET : histogram
-> Socket  Message  Elapsed      Messages
-> Size    Size     Time         Okay Errors   Throughput
-> bytes   bytes    secs            #      #   10^6bits/sec
-> 
-> 124928     257   10.00     3076363      0     632.49
->    256           10.00           0              0.00
+Best Regards,
+Micha=B3 Miros=B3aw
