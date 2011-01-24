@@ -1,66 +1,55 @@
-From: "juice" <juice@swagman.org>
-Subject: RE: Using ethernet device as efficient small packet generator
-Date: Mon, 24 Jan 2011 22:51:08 +0200
-Message-ID: <b163b3ec7973e79dec94a21d5b0ab61b.squirrel@www.liukuma.net>
-References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
-    <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
-    <alpine.WNT.2.00.1101211400000.5816@JBRANDEB-DESK2.amr.corp.intel.com>
-    <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
-    <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
-    <1295886844.2755.36.camel@edumazet-laptop>
-Reply-To: juice@swagman.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
+Date: Mon, 24 Jan 2011 13:02:13 -0800 (PST)
+Message-ID: <20110124.130213.193692922.davem@davemloft.net>
+References: <1295697376-2984-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<AANLkTikmt1BsuLmw+6Lv_trPfRzHYdjWY-61DPv_3T7y@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"Loke, Chetan" <chetan.loke@netscout.com>,
-	"Jon Zhou" <jon.zhou@jdsu.com>,
-	"Stephen Hemming
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.liukuma.net ([62.220.235.15]:15305 "EHLO www.liukuma.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752707Ab1AXUvO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 15:51:14 -0500
-In-Reply-To: <1295886844.2755.36.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44595
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751384Ab1AXVBi convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 16:01:38 -0500
+In-Reply-To: <AANLkTikmt1BsuLmw+6Lv_trPfRzHYdjWY-61DPv_3T7y@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+=46rom: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Mon, 24 Jan 2011 00:19:30 -0800
 
+> On Sat, Jan 22, 2011 at 03:56, Jeff Kirsher <jeffrey.t.kirsher@intel.=
+com> wrote:
+>> The following series contains cleanups for e1000e and addition suppo=
+rt
+>> for the i340 adapter in igb.
+>>
+>> The following are changes since commit bb134d2298b49f50cf6d9388410fb=
+a96272905dc:
+>> =A0net: netif_setup_tc() is static
+>>
+>> and are available in the git repository at:
+>> =A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6=
+ master
+>>
+>> Bruce Allan (2):
+>> =A0e1000e: reduce scope of some variables, remove unnecessary ones
+>> =A0e1000e: Use kmemdup rather than duplicating its implementation
+>>
+>> Carolyn Wyborny (1):
+>> =A0igb: Add support for i340 Quad Port Fiber Adapter
+>>
+>> Jeff Kirsher (1):
+>> =A0e1000e: convert to stats64
+>>
+>=20
+> I have updated my tree to include Flavio's Signed-off-by on the follo=
+wing patch:
+>=20
+> e1000e: convert to stats64
 
-> Please check what numbers you can get using dummy0 device instead of
-> real ethernet driver.
->
-> Here : (E5540  @ 2.53GHz) clone = 1
->
-> Result: OK: 34775941(c34775225+d716) nsec, 100000000 (60byte,0frags)
->   2875551pps 1380Mb/sec (1380264480bps) errors: 0
->
-
-My result on the machine (W3503 @ 2.40GHz):
-
-Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
-     frags: 0  delay: 0  clone_skb: 0  ifname: dummy0
-     flows: 0 flowlen: 0
-     queue_map_min: 0  queue_map_max: 0
-     dst_min: 10.10.11.2  dst_max:
-     src_min:   src_max:
-     src_mac: b6:b2:a2:f4:8e:dc dst_mac: 00:04:23:08:91:dc
-     udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
-     src_mac_count: 0  dst_mac_count: 0
-     Flags:
-Current:
-     pkts-sofar: 10000000  errors: 0
-     started: 1295902048722173us  stopped: 1295902052312514us idle: 3664us
-     seq_num: 10000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
-     cur_saddr: 0x0  cur_daddr: 0x20b0a0a
-     cur_udp_dst: 9  cur_udp_src: 9
-     cur_queue_map: 0
-     flows: 0
-Result: OK: 3590341(c3586677+d3664) usec, 10000000 (60byte,0frags)
-  2785250pps 1336Mb/sec (1336920000bps) errors: 0
-
-
-Yours, Jussi Ohenoja
-
-
+Pulled, thanks a lot Jeff.
