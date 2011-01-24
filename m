@@ -1,55 +1,81 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: netfilter: marking IPv6 packets sends them to the wrong interface
-Date: Mon, 24 Jan 2011 18:50:54 +0100
-Message-ID: <4D3DBBFE.7070701@trash.net>
-References: <20110123122108.GA30305@darkside.kls.lan> <4D3D82D1.6050305@trash.net> <20110124143518.GA2616@darkside.kls.lan> <4D3DA48A.2020605@trash.net> <20110124170213.GB2616@darkside.kls.lan>
+From: Jeremy Fitzhardinge <jeremy@goop.org>
+Subject: Re: [PATCH] xen: netfront: Drop GSO SKBs which do not have csum_blank.
+Date: Mon, 24 Jan 2011 09:55:40 -0800
+Message-ID: <4D3DBD1C.6020503@goop.org>
+References: <1294233811-28123-1-git-send-email-ian.campbell@citrix.com>	 <4D3A2BD2.5030802@goop.org> <1295689392.3693.153.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: Mario 'BitKoenig' Holbe <Mario.Holbe@TU-Ilmenau.DE>,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	NetDev <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110124170213.GB2616@darkside.kls.lan>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>
+To: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from claw.goop.org ([74.207.240.146]:44610 "EHLO claw.goop.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753846Ab1AXRzn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 12:55:43 -0500
+In-Reply-To: <1295689392.3693.153.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 24.01.2011 18:02, schrieb Mario 'BitKoenig' Holbe:
-> On Mon, Jan 24, 2011 at 05:10:50PM +0100, Patrick McHardy wrote:
->>> Yes, disabling the ip6_route_me_harder() call in ip6t_mangle_out()
->>> results in the advertisements being transmitted on the correct
->>> interfaces
->> Thanks. The problem appears to be that ip6_route_me_harder()
->> only uses the socket's oif for the route lookup when the
->> socket is bound to an interface, but radvd uses IPV6_PKTINFO
->> to specify the outgoing interface.
+On 01/22/2011 01:43 AM, Ian Campbell wrote:
+> On Sat, 2011-01-22 at 00:58 +0000, Jeremy Fitzhardinge wrote: 
+>> On 01/05/2011 05:23 AM, Ian Campbell wrote:
+>>> The Linux network stack expects all GSO SKBs to have ip_summed ==
+>>> CHECKSUM_PARTIAL (which implies that the frame contains a partial
+>>> checksum) and the Xen network ring protocol similarly expects an SKB
+>>> which has GSO set to also have NETRX_csum_blank (which also implies a
+>>> partial checksum). Therefore drop such frames on receive otherwise
+>>> they will trigger the warning in skb_gso_segment.
+>>>
+>>> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
+>>> Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+>>> Cc: xen-devel@lists.xensource.com
+>>> Cc: netdev@vger.kernel.org
+>>> ---
+>>>  drivers/net/xen-netfront.c |    5 +++++
+>>>  1 files changed, 5 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>>> index cdbeec9..8b8c480 100644
+>>> --- a/drivers/net/xen-netfront.c
+>>> +++ b/drivers/net/xen-netfront.c
+>>> @@ -836,6 +836,11 @@ static int handle_incoming_queue(struct net_device *dev,
+>>>  				dev->stats.rx_errors++;
+>>>  				continue;
+>>>  			}
+>>> +		} else if (skb_is_gso(skb)) {
+>>> +			kfree_skb(skb);
+>>> +			packets_dropped++;
+>>> +			dev->stats.rx_errors++;
+>>> +			continue;
+>> This looks redundant; why not something like:
 >>
->> I guess netfilter shouldn't be overriding IPV6_PKTINFO, but
->> we unfortunately have neither an indication of this nor the
->> original route lookup keys available at the time the packet
->> is rerouted.
-> 
-> Mh, I'm not sure, but I guess an indication of netfilter not overriding
-> IPV6_PKTINFO could be the fact that the source address does not
-> change...
+>> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+>> index 47e6a71..c1b8f64 100644
+>> --- a/drivers/net/xen-netfront.c
+>> +++ b/drivers/net/xen-netfront.c
+>> @@ -852,13 +852,12 @@ static int handle_incoming_queue(struct net_device *dev,
+>>  		/* Ethernet work: Delayed to here as it peeks the header. */
+>>  		skb->protocol = eth_type_trans(skb, dev);
+>>  
+>> -		if (skb->ip_summed == CHECKSUM_PARTIAL) {
+>> -			if (skb_checksum_setup(skb)) {
+>> -				kfree_skb(skb);
+>> -				packets_dropped++;
+>> -				dev->stats.rx_errors++;
+>> -				continue;
+>> -			}
+>> +		if (skb->ip_summed != CHECKSUM_PARTIAL ||
+>> +		    skb_checksum_setup(skb)) {
+> That drops non-partial skbs. However they are fine unless they also
+> claim to be gso.
+>
+> Perhaps you meant "skb->ip_summed == CHECKSUM_PARTIAL && !
+> skb_checksum_setup(skb)" which I think works but doesn't allow us to
+> correctly chain the gso check onto the else.
 
-No, ip6_route_me_harder() only attaches a new route to the packet,
-the packets contents are not changed.
+No, I didn't mean to drop the skb_is_gso() test.  But still, the if()s
+can be folded to share the same body.
 
-> From my 1st mail:
-> | # ip6tables -t mangle -A OUTPUT -o eth0 -j MARK --set-mark 1
-> | # /etc/init.d/radvd start
-> | -> eth0: <no traffic>
-> | -> eth1: fe80::2a0:c9ff:fee6:90ce > ff02::1: prefix 2001:6f8:90c:10::/64
-> | -> eth1: fe80::2d0:b7ff:fe06:6b36 > ff02::1: prefix 2001:6f8:90c:12::/64
-> 
-> fe80::2d0:b7ff:fe06:6b36 is the link-local address of eth0 set by radvd
-> in IPV6_PKTINFO as well. This, of course, is no guarantee for
-> ipi6_ifindex not being changed, but I believe if something would have
-> changed it, it would also have changed ipi6_addr.
-
-No, what is happening is that radvd sends the packet with a specified
-ifindex using IPV6_PKTINFO. The mangle table notices that the mark
-changes and calls ip6_route_me_harder(), which performs a new route
-lookup without taking the specified oif into account. It therefore
-chooses the first of your two routes and sends the packet out eth1.
+    J
