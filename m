@@ -1,186 +1,121 @@
-From: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Mon, 24 Jan 2011 16:26:03 +0800
-Message-ID: <AANLkTinsWVHj6qdSS-_ztztcNPHAkwZQnimPbjzvcHb2@mail.gmail.com>
-References: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
- <1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com> <AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: Using ethernet device as efficient small packet generator
+Date: Mon, 24 Jan 2011 10:18:13 +0100
+Message-ID: <1295860693.2755.17.camel@edumazet-laptop>
+References: <D3F292ADF945FB49B35E96C94C2061B90ECC4FAC@nsmail.netscout.com>
+	 <13dbf221c875a931d408784495884998.squirrel@www.liukuma.net>
+	 <alpine.WNT.2.00.1101211400000.5816@JBRANDEB-DESK2.amr.corp.intel.com>
+	 <8ad1defdf427ceb7af94fad4d216b006.squirrel@www.liukuma.net>
+	 <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, eric.dumazet@gmail.com, joe@perches.com,
-	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
-To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
+Cc: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Loke, Chetan" <chetan.loke@netscout.com>,
+	Jon Zhou <jon.zhou@jdsu.com>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: juice@swagman.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:48542 "EHLO
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:39159 "EHLO
 	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751871Ab1AXI00 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 03:26:26 -0500
-In-Reply-To: <AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
+	with ESMTP id S1751357Ab1AXJSZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 04:18:25 -0500
+Received: by bwz15 with SMTP id 15so3354484bwz.19
+        for <netdev@vger.kernel.org>; Mon, 24 Jan 2011 01:18:24 -0800 (PST)
+In-Reply-To: <30747065682effddc661b8cd235553d9.squirrel@www.liukuma.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Micha=C5=82,
+Le lundi 24 janvier 2011 =C3=A0 10:10 +0200, juice a =C3=A9crit :
+> >> you may also want to try reducing the tx descriptor ring count to =
+128
+> >> using ethtool, and change the ethtool -C rx-usecs 20 setting, try
+> >> 20,30,40,50,60
+> >
+> > So this could up my current network card to a little faster?
+> > If I can reach 1.1Mpackets/s, thats about 560Mbits/s. At least it w=
+ould
+> > get me a little closet to what I am trying to achieve.
+> >
+>=20
+> I tried these tunings, and it turns out that I am able to get the bes=
+t
+> performance with pktgen when I set the options "ethtool -G eth1 tx 12=
+8"
+> and "ethtool -C eth1 rx-usecs 10". Anything different will lower the =
+TX
+> performance.
+>=20
 
-2011/1/21 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
-> 2011/1/21 Po-Yu Chuang <ratbert.chuang@gmail.com>:
->> From: Po-Yu Chuang <ratbert@faraday-tech.com>
->>
->> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
->> MII. =C2=A0This driver has been working on some ARM/NDS32 SoC's incl=
-uding
->> Faraday A320 and Andes AG101.
->>
->> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
-> [...]
->> +static void ftmac100_txdes_reset(struct ftmac100_txdes *txdes)
->> +{
->> + =C2=A0 =C2=A0 =C2=A0 /* clear all except end of ring bit */
->> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes0 =3D 0;
->> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes1 &=3D FTMAC100_TXDES1_EDOTR;
->> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes2 =3D 0;
->> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes3 =3D 0;
->> +}
->
-> This also probably needs cpu_to_le32().
+That (rx-usecs 10) makes no sense.
+pktgen sends packets.
+You should not receive packets ?
 
-Ah, I missed that. Fixed.
+> Now I can get these rates:
+>=20
+> root@d8labralinux:/var/home/juice/pkt_test# cat /proc/net/pktgen/eth1
+> Params: count 10000000  min_pkt_size: 60  max_pkt_size: 60
+>      frags: 0  delay: 0  clone_skb: 1  ifname: eth1
+>      flows: 0 flowlen: 0
+>      queue_map_min: 0  queue_map_max: 0
+>      dst_min: 10.10.11.2  dst_max:
+>         src_min:   src_max:
+>      src_mac: 00:1b:21:7c:e5:b1 dst_mac: 00:04:23:08:91:dc
+>      udp_src_min: 9  udp_src_max: 9  udp_dst_min: 9  udp_dst_max: 9
+>      src_mac_count: 0  dst_mac_count: 0
+>      Flags:
+> Current:
+>      pkts-sofar: 10000000  errors: 0
+>      started: 1205660106us  stopped: 1218005650us idle: 804us
+>      seq_num: 10000001  cur_dst_mac_offset: 0  cur_src_mac_offset: 0
+>      cur_saddr: 0x0  cur_daddr: 0x20b0a0a
+>      cur_udp_dst: 9  cur_udp_src: 9
+>      cur_queue_map: 0
+>      flows: 0
+> Result: OK: 12345544(c12344739+d804) nsec, 10000000 (60byte,0frags)
+>   810008pps 388Mb/sec (388803840bps) errors: 0
+>=20
+> AX4000:
+>   Total bitrate:             414.629 MBits/s
+>   Packet rate:               809824 packets/s
+>   Bandwidth:                 41.46% GE
+>   Average packet intereval:  1.23 us
+>=20
+> This is a bit better than the previous maxim of 750064pps / 360Mb/sec
+> that I was able to achieve without tuning parameters with ethtool, bu=
+t
+> still not near the 1.1Mpacks/s that shoud be doable with my card?
+>=20
+> Are there other tunings or alternate driver that I could use to get t=
+he
+> best performance out of the card? Basically what puzzles me is the fa=
+ct
+> that I can get a lot better performance using larger packets, so that
+> suggests to me that the bottleneck cannot be the PCIe interface, as I=
+ can
+> push enough data through it. Is there any way of doing larger transfe=
+rs
+> on the bus, like grouping many smaller packets together to avoid the
+> problems caused by so many TX interrupts?
+>=20
 
-> [...]
->> +static void ftmac100_free_buffers(struct ftmac100 *priv)
->> +{
->> + =C2=A0 =C2=A0 =C2=A0 int i;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2)=
- {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ftmac100_r=
-xdes *rxdes =3D &priv->descs->rxdes[i];
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dma_addr_t d =3D =
-ftmac100_rxdes_get_dma_addr(rxdes);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 void *page =3D ft=
-mac100_rxdes_get_va(rxdes);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (d)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 dma_unmap_single(priv->dev, d, PAGE_SIZE,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-DMA_FROM_DEVICE);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (page !=3D NUL=
-L)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 free_page((unsigned long)page);
->> + =C2=A0 =C2=A0 =C2=A0 }
->> +
-> [...]
->
->> +static int ftmac100_alloc_buffers(struct ftmac100 *priv)
->> +{
->> + =C2=A0 =C2=A0 =C2=A0 int i;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 priv->descs =3D dma_alloc_coherent(priv->dev,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-sizeof(struct ftmac100_descs),
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-&priv->descs_dma_addr,
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
-GFP_KERNEL | GFP_DMA);
->> + =C2=A0 =C2=A0 =C2=A0 if (priv->descs =3D=3D NULL)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENOMEM;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 memset(priv->descs, 0, sizeof(struct ftmac100=
-_descs));
->> +
->> + =C2=A0 =C2=A0 =C2=A0 /* initialize RX ring */
->> +
->> + =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_set_end_of_ring(&priv->descs->=
-rxdes[RX_QUEUE_ENTRIES - 1]);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2)=
- {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ftmac100_r=
-xdes *rxdes =3D &priv->descs->rxdes[i];
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 void *page;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dma_addr_t d;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 page =3D (void *)=
-__get_free_page(GFP_KERNEL | GFP_DMA);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (page =3D=3D N=
-ULL)
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 goto err;
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 d =3D dma_map_sin=
-gle(priv->dev, page, PAGE_SIZE, DMA_FROM_DEVICE);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (unlikely(dma_=
-mapping_error(priv->dev, d))) {
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 free_page((unsigned long)page);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 goto err;
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /*
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* The hardw=
-are enforces a sub-2K maximum packet size, so we
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* put two b=
-uffers on every hardware page.
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_va(rxdes, page);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_va(rxdes + 1, page + PAGE_SIZE / 2);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_dma_addr(rxdes, d);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_dma_addr(rxdes + 1, d + PAGE_SIZE / 2);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_buffer_size(rxdes, RX_BUF_SIZE);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_buffer_size(rxdes + 1, RX_BUF_SIZE);
->> +
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_dma_own(rxdes);
->> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
-t_dma_own(rxdes + 1);
->> + =C2=A0 =C2=A0 =C2=A0 }
-> [...]
->
-> Did you test this? This looks like it will result in double free afte=
-r
-> packet RX, as you are giving the same page (referenced once) to two
-> distinct RX descriptors, that may be assigned different packets.
+What matters is not size of packets, but number of transactions (packet=
+s
+per second)
 
-Yes, this is tested.
+You need a x4 or x8 connector to get more transactions per second, by a=
+n
+order of magnitude, not 10% or 15% ;)
 
-> Since your not implementing any RX offloads, you might just allocate
-> fresh skb's with alloc_skb() and store skb pointer in rxdes3. Since
+TX interrupts are already 'grouped', one for ~50 packets
 
-rxdes3 does not store virtual address of an skb.
-It stores the address of the buffer allocated while open() and freed
-only when stop().
-The data in that buffer will be memcpy()ed to an skb allocated in
-ftmac100_rx_packet().
-No double free happens.
+ethtool -c :
 
-> hardware doesn't touch it, you can skip cpu_to_le32()/le32_to_cpu()
-> there (leave a comment, though).
+tx-usecs: 72
+tx-frames: 53
+tx-usecs-irq: 0
+tx-frames-irq: 53
 
-Agree. Thanks.
 
-> Unless this needs to work for ISA devices, you should drop GFP_DMA
-> allocation flag.
 
-Ben mentioned about this in the previous mail. I thought that it is OK
-to keep GFP_DMA
-on ARM platform, but since you point out this flag is for ISA, I will d=
-rop it.
-
-best regards,
-Po-Yu Chuang
