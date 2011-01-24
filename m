@@ -1,72 +1,102 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: [net-next 08/12] ixgb: convert to new VLAN model
-Date: Sun, 23 Jan 2011 17:25:15 -0700
-Message-ID: <EA929A9653AAE14F841771FB1DE5A136602DEE63CB@rrsmsx501.amr.corp.intel.com>
-References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
- <AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: [PATCH v5] ARM: mxs: add initial pm support
+Date: Mon, 24 Jan 2011 17:05:25 +0800
+Message-ID: <1295859925-2639-1-git-send-email-shawn.guo@freescale.com>
+References: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gosp@redhat.com" <gosp@redhat.com>,
-	"bphilips@novell.com" <bphilips@novell.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>
-To: Jesse Gross <jesse@nicira.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain
+Cc: Shawn Guo <shawn.guo@freescale.com>
+To: <davem@davemloft.net>, <gerg@snapgear.com>, <baruch@tkos.co.il>,
+	<eric@eukrea.com>, <bryan.wu@canonical.com>,
+	<r64343@freescale.com>, <B32542@freescale.com>,
+	<u.kleine-koenig@pengutro
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:56059 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752608Ab1AXAZR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 19:25:17 -0500
-In-Reply-To: <AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
-Content-Language: en-US
+Received: from va3ehsobe005.messaging.microsoft.com ([216.32.180.31]:10094
+	"EHLO VA3EHSOBE005.bigfish.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751750Ab1AXBDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jan 2011 20:03:34 -0500
+In-Reply-To: <1294297998-26930-1-git-send-email-shawn.guo@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jesse Gross wrote:
-> On Thu, Jan 6, 2011 at 7:29 PM,  <jeffrey.t.kirsher@intel.com> wrote:
->> +static int ixgb_set_flags(struct net_device *netdev, u32 data) +{
->> + =A0 =A0 =A0 struct ixgb_adapter *adapter =3D netdev_priv(netdev); =
-+ =A0 =A0 =A0
->> bool need_reset; + =A0 =A0 =A0 int rc;
->> +
->> + =A0 =A0 =A0 /*
->> + =A0 =A0 =A0 =A0* TX vlan insertion does not work per HW design whe=
-n Rx
->> stripping is + =A0 =A0 =A0 =A0* disabled. =A0Disable txvlan when rxv=
-lan is
->> off. + =A0 =A0 =A0 =A0*/ + =A0 =A0 =A0 if ((data & ETH_FLAG_RXVLAN) =
-!=3D
->> (netdev->features & NETIF_F_HW_VLAN_RX)) + =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- data ^=3D
->> ETH_FLAG_TXVLAN;=20
->=20
-> Does this really do the right thing?  If the RX vlan setting is
-> changed, it will do the opposite of what the user requested for TX
-> vlan?
->=20
-> So if I start with both on (the default) and turn them both off in on=
-e
-> command (a valid setting), I will get RX off and TX on (an invalid
-> setting).
->=20
-> Why not:
->=20
-> if (!(data & ETH_FLAG_RXVLAN))
-> =A0 =A0 =A0 =A0 data &=3D ~ETH_FLAG_TXVLAN;
+This is a very initial pm support and basically does nothing.
+With this pm support entry, drivers can start testing their own
+pm functions.
 
-Yeah that works for disabling rxvlan, but what if rxvlan is disabled, a=
-nd the user attempts to enable txvlan? At least our validation argued t=
-hat we should make it work both ways. Perhaps something like the follow=
-ing?
+Signed-off-by: Shawn Guo <shawn.guo@freescale.com>
+---
+Hi Sascha,
 
-	if (!(data & ETH_FLAG_RXVLAN) &&=20
-	   (netdev->features & NETIF_F_HW_VLAN_TX))
-		data &=3D ~ETH_FLAG_TXVLAN;
-	else if (data & ETH_FLAG_TXVLAN)
-		data |=3D ETH_FLAG_RXVLAN;
+The merging conflict was fixed in this version, and you can pick it
+up on imx-for-2.6.39 branch now.
 
-Thanks,
-Emil
+ arch/arm/mach-mxs/Makefile |    1 +
+ arch/arm/mach-mxs/pm.c     |   43 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 44 insertions(+), 0 deletions(-)
+ create mode 100644 arch/arm/mach-mxs/pm.c
+
+diff --git a/arch/arm/mach-mxs/Makefile b/arch/arm/mach-mxs/Makefile
+index df501a8..6b26f02 100644
+--- a/arch/arm/mach-mxs/Makefile
++++ b/arch/arm/mach-mxs/Makefile
+@@ -2,6 +2,7 @@
+ obj-y := clock.o devices.o gpio.o icoll.o iomux.o system.o timer.o
+ 
+ obj-$(CONFIG_MXS_OCOTP) += ocotp.o
++obj-$(CONFIG_PM) += pm.o
+ 
+ obj-$(CONFIG_SOC_IMX23) += clock-mx23.o mm-mx23.o
+ obj-$(CONFIG_SOC_IMX28) += clock-mx28.o mm-mx28.o
+diff --git a/arch/arm/mach-mxs/pm.c b/arch/arm/mach-mxs/pm.c
+new file mode 100644
+index 0000000..fb042da
+--- /dev/null
++++ b/arch/arm/mach-mxs/pm.c
+@@ -0,0 +1,43 @@
++/*
++ * Copyright (C) 2010 Freescale Semiconductor, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
++
++#include <linux/kernel.h>
++#include <linux/suspend.h>
++#include <linux/io.h>
++#include <mach/system.h>
++
++static int mxs_suspend_enter(suspend_state_t state)
++{
++	switch (state) {
++	case PM_SUSPEND_MEM:
++		arch_idle();
++		break;
++
++	default:
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static struct platform_suspend_ops mxs_suspend_ops = {
++	.enter = mxs_suspend_enter,
++	.valid = suspend_valid_only_mem,
++};
++
++static int __init mxs_pm_init(void)
++{
++	suspend_set_ops(&mxs_suspend_ops);
++	return 0;
++}
++device_initcall(mxs_pm_init);
+-- 
+1.7.1
+
+
