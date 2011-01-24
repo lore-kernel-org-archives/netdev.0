@@ -1,55 +1,127 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 24 Jan 2011 13:02:13 -0800 (PST)
-Message-ID: <20110124.130213.193692922.davem@davemloft.net>
-References: <1295697376-2984-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<AANLkTikmt1BsuLmw+6Lv_trPfRzHYdjWY-61DPv_3T7y@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 2.6.38-rc1: arp triggers RTNL assertion
+Date: Mon, 24 Jan 2011 22:11:38 +0100
+Message-ID: <1295903498.2924.17.camel@edumazet-laptop>
+References: <20110121061758.GA2247@fifty-fifty.audible.transient.net>
+	 <1295593946.2613.52.camel@edumazet-laptop>
+	 <1295635976.2609.23.camel@edumazet-laptop>
+	 <20110121.130657.106806953.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
+Cc: jamie@audible.transient.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44595
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751384Ab1AXVBi convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 16:01:38 -0500
-In-Reply-To: <AANLkTikmt1BsuLmw+6Lv_trPfRzHYdjWY-61DPv_3T7y@mail.gmail.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:55586 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751878Ab1AXVLo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 16:11:44 -0500
+In-Reply-To: <20110121.130657.106806953.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 24 Jan 2011 00:19:30 -0800
-
-> On Sat, Jan 22, 2011 at 03:56, Jeff Kirsher <jeffrey.t.kirsher@intel.=
-com> wrote:
->> The following series contains cleanups for e1000e and addition suppo=
-rt
->> for the i340 adapter in igb.
->>
->> The following are changes since commit bb134d2298b49f50cf6d9388410fb=
-a96272905dc:
->> =A0net: netif_setup_tc() is static
->>
->> and are available in the git repository at:
->> =A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6=
- master
->>
->> Bruce Allan (2):
->> =A0e1000e: reduce scope of some variables, remove unnecessary ones
->> =A0e1000e: Use kmemdup rather than duplicating its implementation
->>
->> Carolyn Wyborny (1):
->> =A0igb: Add support for i340 Quad Port Fiber Adapter
->>
->> Jeff Kirsher (1):
->> =A0e1000e: convert to stats64
->>
+Le vendredi 21 janvier 2011 =C3=A0 13:06 -0800, David Miller a =C3=A9cr=
+it :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 21 Jan 2011 19:52:56 +0100
 >=20
-> I have updated my tree to include Flavio's Signed-off-by on the follo=
-wing patch:
+> > Here is how I fixed this, thanks again Jamie !
+> >=20
+> > [PATCH] net: neighbour: pneigh_lookup() doesnt need RTNL
 >=20
-> e1000e: convert to stats64
+> Eric, I don't think we can do this.
+>=20
+> Fundamentally, any time a user operation changes the configuration
+> of the networking, we must hold the RTNL.
+>=20
+> Eliding the RTNL for lookups is fine, but for things that change
+> state it is not.
+>=20
+> I therefore think you'll need to rework the arp_ioctl() portions
+> of the commit that introduced this regression.
+>=20
 
-Pulled, thanks a lot Jeff.
+Here is a second try of the fix, thanks !
+
+Note : Tested with CONFIG_PROVE_RCU=3Dy
+
+[PATCH] net: arp_ioctl() must hold RTNL
+
+Commit 941666c2e3e0 "net: RCU conversion of dev_getbyhwaddr() and
+arp_ioctl()" introduced a regression, reported by Jamie Heilman.
+"arp -Ds 192.168.2.41 eth0 pub" triggered the ASSERT_RTNL() assert
+in pneigh_lookup()
+
+Removing RTNL requirement from arp_ioctl() was a mistake, just revert
+that part.
+
+Reported-by: Jamie Heilman <jamie@audible.transient.net>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/core/dev.c |    3 ++-
+ net/ipv4/arp.c |   11 +++++------
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7c6a46f..24ea2d7 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -749,7 +749,8 @@ EXPORT_SYMBOL(dev_get_by_index);
+  *	@ha: hardware address
+  *
+  *	Search for an interface by MAC address. Returns NULL if the device
+- *	is not found or a pointer to the device. The caller must hold RCU
++ *	is not found or a pointer to the device.
++ *	The caller must hold RCU or RTNL.
+  *	The returned device has not had its ref count increased
+  *	and the caller must therefore be careful about locking
+  *
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 04c8b69..7927589 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1017,14 +1017,13 @@ static int arp_req_set_proxy(struct net *net, s=
+truct net_device *dev, int on)
+ 		IPV4_DEVCONF_ALL(net, PROXY_ARP) =3D on;
+ 		return 0;
+ 	}
+-	if (__in_dev_get_rcu(dev)) {
+-		IN_DEV_CONF_SET(__in_dev_get_rcu(dev), PROXY_ARP, on);
++	if (__in_dev_get_rtnl(dev)) {
++		IN_DEV_CONF_SET(__in_dev_get_rtnl(dev), PROXY_ARP, on);
+ 		return 0;
+ 	}
+ 	return -ENXIO;
+ }
+=20
+-/* must be called with rcu_read_lock() */
+ static int arp_req_set_public(struct net *net, struct arpreq *r,
+ 		struct net_device *dev)
+ {
+@@ -1233,10 +1232,10 @@ int arp_ioctl(struct net *net, unsigned int cmd=
+, void __user *arg)
+ 	if (!(r.arp_flags & ATF_NETMASK))
+ 		((struct sockaddr_in *)&r.arp_netmask)->sin_addr.s_addr =3D
+ 							   htonl(0xFFFFFFFFUL);
+-	rcu_read_lock();
++	rtnl_lock();
+ 	if (r.arp_dev[0]) {
+ 		err =3D -ENODEV;
+-		dev =3D dev_get_by_name_rcu(net, r.arp_dev);
++		dev =3D __dev_get_by_name(net, r.arp_dev);
+ 		if (dev =3D=3D NULL)
+ 			goto out;
+=20
+@@ -1263,7 +1262,7 @@ int arp_ioctl(struct net *net, unsigned int cmd, =
+void __user *arg)
+ 		break;
+ 	}
+ out:
+-	rcu_read_unlock();
++	rtnl_unlock();
+ 	if (cmd =3D=3D SIOCGARP && !err && copy_to_user(arg, &r, sizeof(r)))
+ 		err =3D -EFAULT;
+ 	return err;
+
+
