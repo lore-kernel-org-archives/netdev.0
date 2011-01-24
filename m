@@ -1,55 +1,186 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Mon, 24 Jan 2011 00:19:30 -0800
-Message-ID: <AANLkTikmt1BsuLmw+6Lv_trPfRzHYdjWY-61DPv_3T7y@mail.gmail.com>
-References: <1295697376-2984-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Mon, 24 Jan 2011 16:26:03 +0800
+Message-ID: <AANLkTinsWVHj6qdSS-_ztztcNPHAkwZQnimPbjzvcHb2@mail.gmail.com>
+References: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+ <1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com> <AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, eric.dumazet@gmail.com, joe@perches.com,
+	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:54398 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832Ab1AXITc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 03:19:32 -0500
-Received: by iwn9 with SMTP id 9so3727125iwn.19
-        for <netdev@vger.kernel.org>; Mon, 24 Jan 2011 00:19:32 -0800 (PST)
-In-Reply-To: <1295697376-2984-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48542 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871Ab1AXI00 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 03:26:26 -0500
+In-Reply-To: <AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jan 22, 2011 at 03:56, Jeff Kirsher <jeffrey.t.kirsher@intel.co=
-m> wrote:
-> The following series contains cleanups for e1000e and addition suppor=
-t
-> for the i340 adapter in igb.
->
-> The following are changes since commit bb134d2298b49f50cf6d9388410fba=
-96272905dc:
-> =C2=A0net: netif_setup_tc() is static
->
-> and are available in the git repository at:
-> =C2=A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2=
-=2E6 master
->
-> Bruce Allan (2):
-> =C2=A0e1000e: reduce scope of some variables, remove unnecessary ones
-> =C2=A0e1000e: Use kmemdup rather than duplicating its implementation
->
-> Carolyn Wyborny (1):
-> =C2=A0igb: Add support for i340 Quad Port Fiber Adapter
->
-> Jeff Kirsher (1):
-> =C2=A0e1000e: convert to stats64
->
+Dear Micha=C5=82,
 
-I have updated my tree to include Flavio's Signed-off-by on the followi=
-ng patch:
+2011/1/21 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
+> 2011/1/21 Po-Yu Chuang <ratbert.chuang@gmail.com>:
+>> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>>
+>> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
+>> MII. =C2=A0This driver has been working on some ARM/NDS32 SoC's incl=
+uding
+>> Faraday A320 and Andes AG101.
+>>
+>> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+> [...]
+>> +static void ftmac100_txdes_reset(struct ftmac100_txdes *txdes)
+>> +{
+>> + =C2=A0 =C2=A0 =C2=A0 /* clear all except end of ring bit */
+>> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes0 =3D 0;
+>> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes1 &=3D FTMAC100_TXDES1_EDOTR;
+>> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes2 =3D 0;
+>> + =C2=A0 =C2=A0 =C2=A0 txdes->txdes3 =3D 0;
+>> +}
+>
+> This also probably needs cpu_to_le32().
 
-e1000e: convert to stats64
+Ah, I missed that. Fixed.
 
---=20
-Cheers,
-Jeff
+> [...]
+>> +static void ftmac100_free_buffers(struct ftmac100 *priv)
+>> +{
+>> + =C2=A0 =C2=A0 =C2=A0 int i;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2)=
+ {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ftmac100_r=
+xdes *rxdes =3D &priv->descs->rxdes[i];
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dma_addr_t d =3D =
+ftmac100_rxdes_get_dma_addr(rxdes);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 void *page =3D ft=
+mac100_rxdes_get_va(rxdes);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (d)
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 dma_unmap_single(priv->dev, d, PAGE_SIZE,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+DMA_FROM_DEVICE);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (page !=3D NUL=
+L)
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 free_page((unsigned long)page);
+>> + =C2=A0 =C2=A0 =C2=A0 }
+>> +
+> [...]
+>
+>> +static int ftmac100_alloc_buffers(struct ftmac100 *priv)
+>> +{
+>> + =C2=A0 =C2=A0 =C2=A0 int i;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 priv->descs =3D dma_alloc_coherent(priv->dev,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+sizeof(struct ftmac100_descs),
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+&priv->descs_dma_addr,
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+GFP_KERNEL | GFP_DMA);
+>> + =C2=A0 =C2=A0 =C2=A0 if (priv->descs =3D=3D NULL)
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return -ENOMEM;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 memset(priv->descs, 0, sizeof(struct ftmac100=
+_descs));
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 /* initialize RX ring */
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_set_end_of_ring(&priv->descs->=
+rxdes[RX_QUEUE_ENTRIES - 1]);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 for (i =3D 0; i < RX_QUEUE_ENTRIES; i +=3D 2)=
+ {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 struct ftmac100_r=
+xdes *rxdes =3D &priv->descs->rxdes[i];
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 void *page;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 dma_addr_t d;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 page =3D (void *)=
+__get_free_page(GFP_KERNEL | GFP_DMA);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (page =3D=3D N=
+ULL)
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 goto err;
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 d =3D dma_map_sin=
+gle(priv->dev, page, PAGE_SIZE, DMA_FROM_DEVICE);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (unlikely(dma_=
+mapping_error(priv->dev, d))) {
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 free_page((unsigned long)page);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 goto err;
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 }
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /*
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* The hardw=
+are enforces a sub-2K maximum packet size, so we
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0* put two b=
+uffers on every hardware page.
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0*/
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_va(rxdes, page);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_va(rxdes + 1, page + PAGE_SIZE / 2);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_dma_addr(rxdes, d);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_dma_addr(rxdes + 1, d + PAGE_SIZE / 2);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_buffer_size(rxdes, RX_BUF_SIZE);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_buffer_size(rxdes + 1, RX_BUF_SIZE);
+>> +
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_dma_own(rxdes);
+>> + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rxdes_se=
+t_dma_own(rxdes + 1);
+>> + =C2=A0 =C2=A0 =C2=A0 }
+> [...]
+>
+> Did you test this? This looks like it will result in double free afte=
+r
+> packet RX, as you are giving the same page (referenced once) to two
+> distinct RX descriptors, that may be assigned different packets.
+
+Yes, this is tested.
+
+> Since your not implementing any RX offloads, you might just allocate
+> fresh skb's with alloc_skb() and store skb pointer in rxdes3. Since
+
+rxdes3 does not store virtual address of an skb.
+It stores the address of the buffer allocated while open() and freed
+only when stop().
+The data in that buffer will be memcpy()ed to an skb allocated in
+ftmac100_rx_packet().
+No double free happens.
+
+> hardware doesn't touch it, you can skip cpu_to_le32()/le32_to_cpu()
+> there (leave a comment, though).
+
+Agree. Thanks.
+
+> Unless this needs to work for ISA devices, you should drop GFP_DMA
+> allocation flag.
+
+Ben mentioned about this in the previous mail. I thought that it is OK
+to keep GFP_DMA
+on ARM platform, but since you point out this flag is for ISA, I will d=
+rop it.
+
+best regards,
+Po-Yu Chuang
