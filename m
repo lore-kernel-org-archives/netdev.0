@@ -1,65 +1,94 @@
-From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
- single TCP session balancing
-Date: Mon, 24 Jan 2011 22:32:42 +0300
-Message-ID: <4D3DD3DA.7060407@yandex-team.ru>
-References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru> <4D3745AF.5040808@gmail.com> <4D399062.3060004@yandex-team.ru> <4D3AD234.7080709@gmail.com>
+From: Wolfram Sang <w.sang@pengutronix.de>
+Subject: Re: [PATCH] MAINTAINERS: add second list for IRDA
+Date: Mon, 24 Jan 2011 20:34:24 +0100
+Message-ID: <20110124193424.GA6759@pengutronix.de>
+References: <1290535813-7487-1-git-send-email-w.sang@pengutronix.de>
+ <20101126120920.GK5520@sortiz-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="J/dobhs11T7y2rNN"
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Samuel Ortiz <sameo@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mammoth.yandex.ru ([93.158.136.51]:49829 "EHLO
-	mammoth.yandex.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751895Ab1AXTeN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 14:34:13 -0500
-In-Reply-To: <4D3AD234.7080709@gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:41098 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751521Ab1AXTeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 14:34:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20101126120920.GK5520@sortiz-mobl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 01/22/2011 03:48 PM, Nicolas de Peslo=C3=BCan wrote:
-> Le 21/01/2011 14:55, Oleg V. Ukhno a =C3=A9crit :
->> On 01/19/2011 11:12 PM, Nicolas de Peslo=C3=BCan wrote:
 
->>>
->> Nicolas,
->> I've ran similar tests for VLAN tunneling scenario. Results are
->> identical, as I expected. The only significat difference is link fai=
-lure
->> handling. 802.3ad mode allows almost painless load reditribution,
->> balance-rr causes packet loss.
->
-> Oleg,
->
-> Thanks for doing the tests.
->
-> What link failure mode did you use for those tests ? miimon or arp
-> monitoring ?
->
-> Nicolas.
->
->
+--J/dobhs11T7y2rNN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Nicolas,
-  as for tests:
-  MII link monitoring kills the whole transfer, when in ARP mode=20
-monitoring - it still works, but there is asymmetric load striping on=20
-bond slaves(one slave is overloaded, two other - about 50-60% badwidnth=
-=20
-utilized.
-Just as a summary - balance-rr behaves like patched 802.3ad when using=20
-arp monitoring mode, but there is quite asymmetric load striping and=20
-quite a monstrous configuration on switch and server sides.
+On Fri, Nov 26, 2010 at 01:09:21PM +0100, Samuel Ortiz wrote:
 
+> Hi Wolfgang,
 
+Wolfram, please ;)
+
+> On Tue, Nov 23, 2010 at 07:10:13PM +0100, Wolfram Sang wrote:
+> > The irda-users-list is currently almost dead and subscribers-only. Addi=
+ng
+> > netdev increases the audience which might help to not overlook a bugrep=
+ort
+> > (again).
+> Makes sense. I'll carry this patch, thanks.
+
+Ping. I could also send this to trivial@ with your ack if that makes it eas=
+ier?
+
+>=20
+> Cheers,
+> Samuel.
+>=20
+>=20
+> > Signed-off-by: Wolfram Sang <w.sang@pengutronix.de>
+> > Cc: Samuel Ortiz <sameo@linux.intel.com>
+> > Cc: David Miller <davem@davemloft.net>
+> > ---
+> >  MAINTAINERS |    1 +
+> >  1 files changed, 1 insertions(+), 0 deletions(-)
+> >=20
+> > diff --git a/MAINTAINERS b/MAINTAINERS
+> > index 8b6ca96..2596a78 100644
+> > --- a/MAINTAINERS
+> > +++ b/MAINTAINERS
+> > @@ -3261,6 +3261,7 @@ F:	net/ipx/
+> >  IRDA SUBSYSTEM
+> >  M:	Samuel Ortiz <samuel@sortiz.org>
+> >  L:	irda-users@lists.sourceforge.net (subscribers-only)
+> > +L:	netdev@vger.kernel.org
+> >  W:	http://irda.sourceforge.net/
+> >  S:	Maintained
+> >  T:	git git://git.kernel.org/pub/scm/linux/kernel/git/sameo/irda-2.6.git
+> > --=20
+> > 1.7.2.3
+> >=20
+>=20
+> --=20
+> Intel Open Source Technology Centre
+> http://oss.intel.com/
 
 --=20
-Best regards,
-Oleg Ukhno
+Pengutronix e.K.                           | Wolfram Sang                |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
 
+--J/dobhs11T7y2rNN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.9 (GNU/Linux)
+
+iEYEARECAAYFAk091D8ACgkQD27XaX1/VRtz6gCdG2Pht7CJt16POgSB5dAsfxi3
+ZCwAoJCd08oS+/xd744u5ORBDQyxYNw5
+=1SiJ
+-----END PGP SIGNATURE-----
+
+--J/dobhs11T7y2rNN--
