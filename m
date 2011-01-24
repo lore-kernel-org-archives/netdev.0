@@ -1,100 +1,80 @@
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: Re: [PATCH v2 1/3] can: at91_can: clean up usage of	AT91_MB_RX_FIRST
-	and AT91_MB_RX_NUM
-Date: Mon, 24 Jan 2011 13:44:46 +0100
-Message-ID: <4D3D743E.1030201@pengutronix.de>
-References: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>	<1294752085-30151-2-git-send-email-mkl@pengutronix.de>	<4D349D8C.3010403@pengutronix.de>
-	<20110121.165409.200115988.davem@davemloft.net>
+From: "Shmulik Ravid" <shmulikr@broadcom.com>
+Subject: Re: [net-2.6 PATCH 1/2] net: dcbnl: remove redundant
+ DCB_CAP_DCBX_STATIC bit
+Date: Mon, 24 Jan 2011 17:27:51 +0200
+Message-ID: <1295882871.25104.20.camel@lb-tlvb-shmulik.il.broadcom.com>
+References: <20110122023512.4239.40379.stgit@jf-dev1-dcblab>
+ <4D3A465F.8020809@intel.com>
+ <1295801600.25104.13.camel@lb-tlvb-shmulik.il.broadcom.com>
+ <4D3D123F.40700@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4524288515467409558=="
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110121.165409.200115988.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---===============4524288515467409558==
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigA69CC756316A117652BB8F90"
-
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigA69CC756316A117652BB8F90
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On 01/22/2011 01:54 AM, David Miller wrote:
-> From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-> Date: Mon, 17 Jan 2011 20:50:36 +0100
->=20
->> On 01/11/2011 02:21 PM, Marc Kleine-Budde wrote:
->>> This patch cleans up the usage of two macros which specify the mailbo=
-x
->>> usage. AT91_MB_RX_FIRST and AT91_MB_RX_NUM define the first and the
->>> number of RX mailboxes. The current driver uses these variables in an=
-
->>> unclean way; assuming that AT91_MB_RX_FIRST is 0;
->>>
->>> This patch cleans up the usage of these macros, no longer assuming
->>> AT91_MB_RX_FIRST =3D=3D 0.
->>>
->>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
->>
->> Any comments on this?
->=20
-> I would also seriously like to see these changes get some feedback,
-> they've been rotting in patchwork for more than a week.
-
-I've just talked to our customer (the one who noticed the problem in the
-first place). They have the patched driver running over the weekend
-without problems.
-
-I'm going to resend the series the the Acks.
-
-regards, Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enigA69CC756316A117652BB8F90
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk09dEIACgkQjTAFq1RaXHO+wwCfTLQAQWsqTR6WKXn0T1fe3PG7
-wlwAmgKrYD89660DgrlactGDcjoBQ6Yl
-=AHs6
------END PGP SIGNATURE-----
-
---------------enigA69CC756316A117652BB8F90--
-
---===============4524288515467409558==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "John Fastabend" <john.r.fastabend@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3959 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752843Ab1AXNbX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 08:31:23 -0500
+In-Reply-To: <4D3D123F.40700@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Socketcan-core mailing list
-Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-https://lists.berlios.de/mailman/listinfo/socketcan-core
 
---===============4524288515467409558==--
+On Sun, 2011-01-23 at 21:46 -0800, John Fastabend wrote:
+> On 1/23/2011 8:53 AM, Shmulik Ravid wrote:
+> > 
+> > On Fri, 2011-01-21 at 18:52 -0800, John Fastabend wrote:
+> >> On 1/21/2011 6:35 PM, John Fastabend wrote:
+> >>> Remove redundant DCB_CAP_DCBX_STATIC bit in DCB capabilities
+> >>>
+> >>> Setting this bit indicates that no embedded DCBx engine is
+> >>> present and the hardware can not be configured. This is the
+> >>> same as having none of the DCB capability flags set or simply
+> >>> not implementing the dcbnl ops at all.
+> >>>
+> >>> This patch removes this bit. The bit has not made a stable
+> >>> release yet so removing it should not be an issue with
+> >>> existing apps.
+> >>>
+> >>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> >>> CC: Shmulik Ravid <shmulikr@broadcom.com>
+> >>> ---
+> >>>
+> >>
+> >> Shmulik, could you ACK this because you added these bits? But
+> >> I was adding support for this in lldpad and I see no reason that
+> >> we need these?
+> >>
+> > DCB_CAP_DCBX_STATIC means that the embedded engine will turn the user
+> > configuration into the operational configuration without performing the
+> > actual negotiation, so it is not equivalent to not having an embedded
+> > DCBx engine. This is mostly a debug and integration option as it allows
+> > you to do DCB related or dependent testing and development without
+> > having a proper DCBx peer.
+> > 
+> > On second thought, I'm not sure this option is justified although we
+> > found it useful during our development. If you think it's not useful
+> > enough (or not at all) then by all means remove it.
+> 
+> We have an advertise bit in userspace that can be set and cleared to
+> do something similar for host based agents. I think for pg and application
+> data you can get the same behavior by setting the device to not willing.
+> 
+True, but this requires a proper DCBx peer. The STATIC option is a bit
+stronger.
+
+> However for PFC it could potentially be useful. But how would the
+> user set this mode? This is a capabilities bit indicating the device
+> supports this. Is there a way to subsequently put the device in this
+> mode?
+You can set this mode by specifying this attribute in the set_dcbx
+operation. The input to set_dcbx should be a subset of the advertised
+dcbx attributes.
+
+Shmulik 
+
+
+
