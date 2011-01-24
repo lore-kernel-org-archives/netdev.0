@@ -1,39 +1,99 @@
-From: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Subject: [PATCH 1/1] IPVS netns BUG, register sysctl for root ns
-Date: Mon, 24 Jan 2011 15:14:41 +0100
-Message-ID: <1295878481-13623-1-git-send-email-hans.schillstrom@ericsson.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH v3 1/3] can: at91_can: clean up usage of AT91_MB_RX_FIRST and
+	AT91_MB_RX_NUM
+Date: Mon, 24 Jan 2011 15:15:30 +0100
+Message-ID: <1295878532-15769-2-git-send-email-mkl@pengutronix.de>
+References: <1295878532-15769-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <hans@schillstrom.com>,
-	Hans Schillstrom <hans.schillstrom@ericsson.com>
-To: <horms@verge.net.au>, <ja@ssi.bg>, <wensong@linux-vs.org>,
-	<lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1295878532-15769-1-git-send-email-mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The newly created table was not used when register sysctl for a new namespace.
-I.e. sysctl doesn't work for other than root namespace (init_net)
+This patch cleans up the usage of two macros which specify the mailbox
+usage. AT91_MB_RX_FIRST and AT91_MB_RX_NUM define the first and the
+number of RX mailboxes. The current driver uses these variables in an
+unclean way; assuming that AT91_MB_RX_FIRST is 0;
 
-Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+This patch cleans up the usage of these macros, no longer assuming
+AT91_MB_RX_FIRST == 0.
+
+Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/can/at91_can.c |   18 ++++++++++--------
+ 1 files changed, 10 insertions(+), 8 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 68b8033..98df59a 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3556,7 +3556,7 @@ int __net_init __ip_vs_control_init(struct net *net)
+diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
+index 7ef83d0..892c3d8 100644
+--- a/drivers/net/can/at91_can.c
++++ b/drivers/net/can/at91_can.c
+@@ -2,7 +2,7 @@
+  * at91_can.c - CAN network driver for AT91 SoC CAN controller
+  *
+  * (C) 2007 by Hans J. Koch <hjk-vqZO0P4V72/QD6PfKP4TzA@public.gmane.org>
+- * (C) 2008, 2009, 2010 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
++ * (C) 2008, 2009, 2010, 2011 by Marc Kleine-Budde <kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+  *
+  * This software may be distributed under the terms of the GNU General
+  * Public License ("GPL") version 2 as distributed in the 'COPYING'
+@@ -55,7 +55,8 @@
+ #define AT91_MB_RX_MASK(i)	((1 << (i)) - 1)
+ #define AT91_MB_RX_SPLIT	8
+ #define AT91_MB_RX_LOW_LAST	(AT91_MB_RX_SPLIT - 1)
+-#define AT91_MB_RX_LOW_MASK	(AT91_MB_RX_MASK(AT91_MB_RX_SPLIT))
++#define AT91_MB_RX_LOW_MASK	(AT91_MB_RX_MASK(AT91_MB_RX_SPLIT) & \
++				 ~AT91_MB_RX_MASK(AT91_MB_RX_FIRST))
  
+ #define AT91_MB_TX_NUM		(1 << AT91_MB_TX_SHIFT)
+ #define AT91_MB_TX_FIRST	(AT91_MB_RX_LAST + 1)
+@@ -254,7 +255,8 @@ static void at91_setup_mailboxes(struct net_device *dev)
+ 		set_mb_mode_prio(priv, i, AT91_MB_MODE_TX, 0);
  
- 	ipvs->sysctl_hdr = register_net_sysctl_table(net, net_vs_ctl_path,
--						  vs_vars);
-+						     tbl);
- 	if (ipvs->sysctl_hdr == NULL)
- 		goto err_reg;
- 	ip_vs_new_estimator(net, ipvs->tot_stats);
+ 	/* Reset tx and rx helper pointers */
+-	priv->tx_next = priv->tx_echo = priv->rx_next = 0;
++	priv->tx_next = priv->tx_echo = 0;
++	priv->rx_next = AT91_MB_RX_FIRST;
+ }
+ 
+ static int at91_set_bittiming(struct net_device *dev)
+@@ -590,10 +592,10 @@ static int at91_poll_rx(struct net_device *dev, int quota)
+ 			"order of incoming frames cannot be guaranteed\n");
+ 
+  again:
+-	for (mb = find_next_bit(addr, AT91_MB_RX_NUM, priv->rx_next);
+-	     mb < AT91_MB_RX_NUM && quota > 0;
++	for (mb = find_next_bit(addr, AT91_MB_RX_LAST + 1, priv->rx_next);
++	     mb < AT91_MB_RX_LAST + 1 && quota > 0;
+ 	     reg_sr = at91_read(priv, AT91_SR),
+-	     mb = find_next_bit(addr, AT91_MB_RX_NUM, ++priv->rx_next)) {
++	     mb = find_next_bit(addr, AT91_MB_RX_LAST + 1, ++priv->rx_next)) {
+ 		at91_read_msg(dev, mb);
+ 
+ 		/* reactivate mailboxes */
+@@ -610,8 +612,8 @@ static int at91_poll_rx(struct net_device *dev, int quota)
+ 
+ 	/* upper group completed, look again in lower */
+ 	if (priv->rx_next > AT91_MB_RX_LOW_LAST &&
+-	    quota > 0 && mb >= AT91_MB_RX_NUM) {
+-		priv->rx_next = 0;
++	    quota > 0 && mb > AT91_MB_RX_LAST) {
++		priv->rx_next = AT91_MB_RX_FIRST;
+ 		goto again;
+ 	}
+ 
 -- 
 1.7.2.3
-
