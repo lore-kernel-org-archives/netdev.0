@@ -1,78 +1,100 @@
-From: Jesper Dangaard Brouer <hawk@comx.dk>
-Subject: [PATCH] textsearch: doc - fix spelling in lib/textsearch.c.
-Date: Mon, 24 Jan 2011 13:41:37 +0100
-Message-ID: <20110124124137.10202.47152.stgit@firesoul.comx.local>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v2 1/3] can: at91_can: clean up usage of	AT91_MB_RX_FIRST
+	and AT91_MB_RX_NUM
+Date: Mon, 24 Jan 2011 13:44:46 +0100
+Message-ID: <4D3D743E.1030201@pengutronix.de>
+References: <1294752085-30151-1-git-send-email-mkl@pengutronix.de>	<1294752085-30151-2-git-send-email-mkl@pengutronix.de>	<4D349D8C.3010403@pengutronix.de>
+	<20110121.165409.200115988.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: multipart/mixed; boundary="===============4524288515467409558=="
+Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110121.165409.200115988.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============4524288515467409558==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigA69CC756316A117652BB8F90"
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigA69CC756316A117652BB8F90
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 01/22/2011 01:54 AM, David Miller wrote:
+> From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Date: Mon, 17 Jan 2011 20:50:36 +0100
+>=20
+>> On 01/11/2011 02:21 PM, Marc Kleine-Budde wrote:
+>>> This patch cleans up the usage of two macros which specify the mailbo=
+x
+>>> usage. AT91_MB_RX_FIRST and AT91_MB_RX_NUM define the first and the
+>>> number of RX mailboxes. The current driver uses these variables in an=
+
+>>> unclean way; assuming that AT91_MB_RX_FIRST is 0;
+>>>
+>>> This patch cleans up the usage of these macros, no longer assuming
+>>> AT91_MB_RX_FIRST =3D=3D 0.
+>>>
+>>> Signed-off-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+>>
+>> Any comments on this?
+>=20
+> I would also seriously like to see these changes get some feedback,
+> they've been rotting in patchwork for more than a week.
+
+I've just talked to our customer (the one who noticed the problem in the
+first place). They have the patched driver running over the weekend
+without problems.
+
+I'm going to resend the series the the Acks.
+
+regards, Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigA69CC756316A117652BB8F90
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk09dEIACgkQjTAFq1RaXHO+wwCfTLQAQWsqTR6WKXn0T1fe3PG7
+wlwAmgKrYD89660DgrlactGDcjoBQ6Yl
+=AHs6
+-----END PGP SIGNATURE-----
+
+--------------enigA69CC756316A117652BB8F90--
+
+--===============4524288515467409558==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sander.contrib@gmail.com,
-	Jesper Dangaard Brouer <hawk@comx.dk>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lanfw001a.cxnet.dk ([87.72.215.196]:41292 "EHLO
-	lanfw001a.cxnet.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752344Ab1AXMlj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 07:41:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-Found the following spelling errors while reading the textsearch code:
-  "facitilies"  -> "facilities"
-  "continously" -> "continuously"
-  "arbitary"    -> "arbitrary"
-  "patern"      -> "pattern"
-  "occurences"  -> "occurrences"
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
 
-I'll try to push this patch through DaveM, given the only users
-of textsearch is in the net/ tree (nf_conntrack_amanda.c, xt_string.c
-and em_text.c)
-
-Signed-off-by: Jesper Sander <sander.contrib@gmail.com>
-Signed-off-by: Jesper Dangaard Brouer <hawk@comx.dk>
----
-
- lib/textsearch.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/lib/textsearch.c b/lib/textsearch.c
-index d608331..e0cc014 100644
---- a/lib/textsearch.c
-+++ b/lib/textsearch.c
-@@ -13,7 +13,7 @@
-  *
-  * INTRODUCTION
-  *
-- *   The textsearch infrastructure provides text searching facitilies for
-+ *   The textsearch infrastructure provides text searching facilities for
-  *   both linear and non-linear data. Individual search algorithms are
-  *   implemented in modules and chosen by the user.
-  *
-@@ -43,7 +43,7 @@
-  *       to the algorithm to store persistent variables.
-  *   (4) Core eventually resets the search offset and forwards the find()
-  *       request to the algorithm.
-- *   (5) Algorithm calls get_next_block() provided by the user continously
-+ *   (5) Algorithm calls get_next_block() provided by the user continuously
-  *       to fetch the data to be searched in block by block.
-  *   (6) Algorithm invokes finish() after the last call to get_next_block
-  *       to clean up any leftovers from get_next_block. (Optional)
-@@ -58,15 +58,15 @@
-  *   the pattern to look for and flags. As a flag, you can set TS_IGNORECASE
-  *   to perform case insensitive matching. But it might slow down
-  *   performance of algorithm, so you should use it at own your risk.
-- *   The returned configuration may then be used for an arbitary
-+ *   The returned configuration may then be used for an arbitrary
-  *   amount of times and even in parallel as long as a separate struct
-  *   ts_state variable is provided to every instance.
-  *
-  *   The actual search is performed by either calling textsearch_find_-
-  *   continuous() for linear data or by providing an own get_next_block()
-  *   implementation and calling textsearch_find(). Both functions return
-- *   the position of the first occurrence of the patern or UINT_MAX if
-- *   no match was found. Subsequent occurences can be found by calling
-+ *   the position of the first occurrence of the pattern or UINT_MAX if
-+ *   no match was found. Subsequent occurrences can be found by calling
-  *   textsearch_next() regardless of the linearity of the data.
-  *
-  *   Once you're done using a configuration it must be given back via
-
+--===============4524288515467409558==--
