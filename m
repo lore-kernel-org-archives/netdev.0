@@ -1,71 +1,46 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH] TCP: fix a bug that triggers large number of TCP RST by mistake
-Date: Sat, 22 Jan 2011 11:06:17 -0800
-Message-ID: <1295723177-23576-1-git-send-email-hkchu@google.com>
-Cc: Jerry Chu <hkchu@google.com>
-To: netdev@vger.kernel.org
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: Flow Control and Port Mirroring Revisited
+Date: Mon, 24 Jan 2011 10:27:55 -0800
+Message-ID: <4D3DC4AB.1000207@hp.com>
+References: <20110114063528.GB10957@verge.net.au>	<20110114065415.GA30300@redhat.com>	<20110116223728.GA6279@verge.net.au>	<20110117102655.GH23479@redhat.com> <4D35ECE2.4040901@hp.com>	<20110120083727.GA1807@verge.net.au>	<20110121095929.GE26070@redhat.com>	<20110121231149.GI2195@verge.net.au>	<20110122215742.GC5617@redhat.com>	<20110123063849.GB2673@verge.net.au> <20110123103902.GA28585@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Simon Horman <horms@verge.net.au>, Jesse Gross <jesse@nicira.com>,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	virtualization@lists.linux-foundation.org, dev@openvswitch.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:25660 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754038Ab1AXSUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 13:20:53 -0500
-Received: from hpaq13.eem.corp.google.com (hpaq13.eem.corp.google.com [172.25.149.13])
-	by smtp-out.google.com with ESMTP id p0OIKqWH015304
-	for <netdev@vger.kernel.org>; Mon, 24 Jan 2011 10:20:52 -0800
+Received: from g6t0186.atlanta.hp.com ([15.193.32.63]:14694 "EHLO
+	g6t0186.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752945Ab1AXS2A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 13:28:00 -0500
+In-Reply-To: <20110123103902.GA28585@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jerry Chu <hkchu@google.com>
+> 
+> Just to block netperf you can send it SIGSTOP :)
+> 
 
-This patch fixes a bug that causes TCP RST packets to be generated
-on otherwise correctly behaved applications, e.g., no unread data
-on close,..., etc. To trigger the bug, at least two conditions must
-be met:
+Clever :)  One could I suppose achieve the same result by making the remote 
+receive socket buffer size smaller than the UDP message size and then not worry 
+about having to learn the netserver's PID to send it the SIGSTOP.  I *think* the 
+semantics will be substantially the same?  Both will be drops at the socket 
+buffer, albeit for for different reasons.  The "too small socket buffer" version 
+though doesn't require one remember to "wake" the netserver in time to have it 
+send results back to netperf without netperf tossing-up an error and not 
+reporting any statistics.
 
-1. The FIN flag is set on the last data packet, i.e., it's not on a
-separate, FIN only packet.
-2. The size of the last data chunk on the receive side matches
-exactly with the size of buffer posted by the receiver, and the
-receiver closes the socket without any further read attempt.
+Also, netperf has a "no control connection" mode where you can, in effect cause 
+it to send UDP datagrams out into the void - I put it there to allow folks to 
+test against the likes of echo discard and chargen services but it may have a 
+use here.  Requires that one specify the destination IP and port for the "data 
+connection" explicitly via the test-specific options.  In that mode the only 
+stats reported are those local to netperf rather than netserver.
 
-This bug was first noticed on our netperf based testbed for our IW10
-proposal to IETF where a large number of RST packets were observed.
-netperf's read side code meets the condition 2 above 100%.
+happy benchmarking,
 
-Before the fix, tcp_data_queue() will queue the last skb that meets
-condition 1 to sk_receive_queue even though it has fully copied out
-(skb_copy_datagram_iovec()) the data. Then if condition 2 is also met,
-tcp_recvmsg() often returns all the copied out data successfully
-without actually consuming the skb, due to a check
-"if ((chunk = len - tp->ucopy.len) != 0) {"
-and
-"len -= chunk;"
-after tcp_prequeue_process() that causes "len" to become 0 and an
-early exit from the big while loop.
-
-I don't see any reason not to free the skb whose data have been fully
-consumed in tcp_data_queue(), regardless of the FIN flag.  We won't
-get there if MSG_PEEK is on. Am I missing some arcane cases related
-to urgent data?
-
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
----
- net/ipv4/tcp_input.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 2549b29..eb7f82e 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -4399,7 +4399,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
- 			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
- 				tp->ucopy.len -= chunk;
- 				tp->copied_seq += chunk;
--				eaten = (chunk == skb->len && !th->fin);
-+				eaten = (chunk == skb->len);
- 				tcp_rcv_space_adjust(sk);
- 			}
- 			local_bh_disable();
--- 
-1.7.3.1
-
+rick jones
