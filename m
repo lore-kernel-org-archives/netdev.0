@@ -1,53 +1,74 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [PATCH net-next-2.6] veth: remove unneeded ifname code from
- veth_newlink()
-Date: Mon, 24 Jan 2011 16:45:46 +0100
-Message-ID: <20110124154546.GA2689@psychotron.brq.redhat.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-2.6 PATCH 1/2] net: dcbnl: remove redundant DCB_CAP_DCBX_STATIC
+ bit
+Date: Mon, 24 Jan 2011 07:52:48 -0800
+Message-ID: <4D3DA050.3020006@intel.com>
+References: <20110122023512.4239.40379.stgit@jf-dev1-dcblab> <4D3A465F.8020809@intel.com> <1295801600.25104.13.camel@lb-tlvb-shmulik.il.broadcom.com> <4D3D123F.40700@intel.com> <1295882871.25104.20.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, xemul@openvz.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Shmulik Ravid <shmulikr@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62231 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:48301 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752847Ab1AXPpu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 10:45:50 -0500
-Content-Disposition: inline
+	id S1753281Ab1AXPwt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 10:52:49 -0500
+In-Reply-To: <1295882871.25104.20.camel@lb-tlvb-shmulik.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The code is not needed because tb[IFLA_IFNAME] is already
-processed in rtnl_newlink(). Remove this redundancy.
+On 1/24/2011 7:27 AM, Shmulik Ravid wrote:
+> 
+> On Sun, 2011-01-23 at 21:46 -0800, John Fastabend wrote:
+>> On 1/23/2011 8:53 AM, Shmulik Ravid wrote:
+>>>
+>>> On Fri, 2011-01-21 at 18:52 -0800, John Fastabend wrote:
+>>>> On 1/21/2011 6:35 PM, John Fastabend wrote:
+>>>>> Remove redundant DCB_CAP_DCBX_STATIC bit in DCB capabilities
+>>>>>
+>>>>> Setting this bit indicates that no embedded DCBx engine is
+>>>>> present and the hardware can not be configured. This is the
+>>>>> same as having none of the DCB capability flags set or simply
+>>>>> not implementing the dcbnl ops at all.
+>>>>>
+>>>>> This patch removes this bit. The bit has not made a stable
+>>>>> release yet so removing it should not be an issue with
+>>>>> existing apps.
+>>>>>
+>>>>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>>>>> CC: Shmulik Ravid <shmulikr@broadcom.com>
+>>>>> ---
+>>>>>
+>>>>
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Dave, Please drop this patch sorry for the noise.
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index cc83fa7..105d7f0 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -403,17 +403,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	if (tb[IFLA_ADDRESS] == NULL)
- 		random_ether_addr(dev->dev_addr);
- 
--	if (tb[IFLA_IFNAME])
--		nla_strlcpy(dev->name, tb[IFLA_IFNAME], IFNAMSIZ);
--	else
--		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
--
--	if (strchr(dev->name, '%')) {
--		err = dev_alloc_name(dev, dev->name);
--		if (err < 0)
--			goto err_alloc_name;
--	}
--
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto err_register_dev;
-@@ -433,7 +422,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 
- err_register_dev:
- 	/* nothing to do */
--err_alloc_name:
- err_configure_peer:
- 	unregister_netdevice(peer);
- 	return err;
+[...]
+
+>> We have an advertise bit in userspace that can be set and cleared to
+>> do something similar for host based agents. I think for pg and application
+>> data you can get the same behavior by setting the device to not willing.
+>>
+> True, but this requires a proper DCBx peer. The STATIC option is a bit
+> stronger.
+
+At least in the PG case the CEE spec says the local configuration should be
+used[1]. Application is a bit more vague in my opinion[2].
+
+> 
+>> However for PFC it could potentially be useful. But how would the
+>> user set this mode? This is a capabilities bit indicating the device
+>> supports this. Is there a way to subsequently put the device in this
+>> mode?
+> You can set this mode by specifying this attribute in the set_dcbx
+> operation. The input to set_dcbx should be a subset of the advertised
+> dcbx attributes.
+> 
+
+OK This works for me Shmulik thanks for the explanation.
+
+[1] 3.1.4. http://www.ieee802.org/1/files/public/docs2008/az-wadekar-dcbx-capability-exchange-discovery-protocol-1108-v1.01.pdf
+
+[2] 3.3.2. http://www.ieee802.org/1/files/public/docs2008/az-wadekar-dcbx-capability-exchange-discovery-protocol-1108-v1.01.pdf
