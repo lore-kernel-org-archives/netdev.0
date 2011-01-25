@@ -1,59 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: Revert 'administrative down' address handling
- changes.
-Date: Tue, 25 Jan 2011 12:49:08 -0800 (PST)
-Message-ID: <20110125.124908.112599966.davem@davemloft.net>
-References: <20110124.233813.246546891.davem@davemloft.net>
-	<m1zkqp2woo.fsf@fess.ebiederm.org>
-	<m1ei803ja4.fsf@fess.ebiederm.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [PATCH net-next-2.6] bonding: fix return value of
+ bonding_store_slaves_active()
+Date: Tue, 25 Jan 2011 21:52:49 +0100
+Message-ID: <20110125205248.GC2932@psychotron.redhat.com>
+References: <20110125185315.GB2932@psychotron.redhat.com>
+ <29198.1295983370@death>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, brian.haley@hp.com,
-	lorenzo@google.com, herbert@gondor.hengli.com.au
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33970
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753149Ab1AYUse (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 15:48:34 -0500
-In-Reply-To: <m1ei803ja4.fsf@fess.ebiederm.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1025 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752707Ab1AYUwx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jan 2011 15:52:53 -0500
+Content-Disposition: inline
+In-Reply-To: <29198.1295983370@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Tue, 25 Jan 2011 10:55:31 -0800
+Tue, Jan 25, 2011 at 08:22:50PM CET, fubar@us.ibm.com wrote:
+>Jiri Pirko <jpirko@redhat.com> wrote:
+>
+>>count is incorrectly returned even in case of fail. Return ret instead.
+>>
+>>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>
+>	It looks like bonding_store_carrier has the same problem, could
+>you fix it up too and resubmit?
 
-> ebiederm@xmission.com (Eric W. Biederman) writes:
-> 
->> David Miller <davem@davemloft.net> writes:
->>
->>> From: David Miller <davem@davemloft.net>
->>> Date: Sun, 23 Jan 2011 23:41:01 -0800 (PST)
->>>
->>>> Eric B. and co., please do some testing to make sure all of your
->>>> disable_ipv6 cases are functioning properly with this applied.
->>>
->>> Ping?
->>
->> In progress.  I had to make a small change to your patch to get it
->> to apply against 2.6.37.  neigh_ifdown has not been removed from the
->> beginning of addrconf_ifdown there.  The piece that was failing for
->> me is not failing now so, so far so good.
->>
->> It was reported that in 2.6.37 there was a new regression that
->> 1connecting to ::1 when ipv6 was disabled would not fail immediately but
->> would have to wait a while.  With your patch applied I am not seeing
->> that behavior either.
->>
->> Tomorrow I should know if I see any weird side effects with your patch,
->> after my regression tests for everything else have finished running.
-> 
-> I have to admit I am seeing weird side effects.  A test that was
-> mysteriously failing because it could not create a vlan on top of a tap
-> device has started working again ;)
-> 
-> So this change is looking really good for me.
+you are right, I missed that. Will resend.
 
-Thanks for the testing feedback, that's looking good enough for me,
-I'll start pushing this fix around.
+Thanks.
+
+Jirka
+>
+>	-J
+>
+>
+>>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>>index 8fd0174..f33155f 100644
+>>--- a/drivers/net/bonding/bond_sysfs.c
+>>+++ b/drivers/net/bonding/bond_sysfs.c
+>>@@ -1595,7 +1595,7 @@ static ssize_t bonding_store_slaves_active(struct device *d,
+>> 		}
+>> 	}
+>> out:
+>>-	return count;
+>>+	return ret;
+>> }
+>> static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+>> 		   bonding_show_slaves_active, bonding_store_slaves_active);
+>
