@@ -1,28 +1,90 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/1] IPVS netns BUG, register sysctl for root ns
-Date: Tue, 25 Jan 2011 12:15:17 +1000
-Message-ID: <20110125021516.GC7420@verge.net.au>
-References: <1295878481-13623-1-git-send-email-hans.schillstrom@ericsson.com>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: panic in tg3 driver
+Date: Mon, 24 Jan 2011 18:25:32 -0800
+Message-ID: <20110125022532.GA19884@mcarlson.broadcom.com>
+References: <4D2334B5.1060408@earthlink.net>
+ <4D2A371A.40103@earthlink.net>
+ <20110110192216.GA23741@mcarlson.broadcom.com>
+ <4D2B6652.7040607@earthlink.net>
+ <20110111020055.GA25351@mcarlson.broadcom.com>
+ <4D2C64EF.1080905@earthlink.net>
+ <20110112030652.GA27164@mcarlson.broadcom.com>
+ <4D2EFA44.8080008@earthlink.net> <4D3334E6.40100@earthlink.net>
+ <20110125005922.GA19701@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ja@ssi.bg, wensong@linux-vs.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Stephen Clark" <sclark46@earthlink.net>,
+	"Linux Kernel Network Developers" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Matt Carlson" <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1410 "EHLO MMS3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752356Ab1AYCZp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 21:25:45 -0500
+In-Reply-To: <20110125005922.GA19701@mcarlson.broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <1295878481-13623-1-git-send-email-hans.schillstrom@ericsson.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 24, 2011 at 03:14:41PM +0100, Hans Schillstrom wrote:
-> The newly created table was not used when register sysctl for a new namespace.
-> I.e. sysctl doesn't work for other than root namespace (init_net)
+On Mon, Jan 24, 2011 at 04:59:22PM -0800, Matt Carlson wrote:
+> On Sun, Jan 16, 2011 at 10:11:50AM -0800, Stephen Clark wrote:
+> > On 01/13/2011 08:12 AM, Stephen Clark wrote:
+> > > On 01/11/2011 10:06 PM, Matt Carlson wrote:
+> > >> lspci -vvv -xxx -s 81:00.0
+> > >
+> > >
+> > >
+> > > Further information - I found these messages in /var/log/messages. It 
+> > > looks
+> > > like after it switched to INTx mode interrupts for other devices were 
+> > > hosed.
+> > >
+> > > Jan 12 08:37:49 localhost kernel: tg3 0000:81:00.0: eth2: No interrupt 
+> > > was gener
+> > > ated using MSI. Switching to INTx mode. Please report this failure to 
+> > > the PCI ma
+> > > intainer and include system chipset information
+> > > Jan 12 08:37:49 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is 
+> > > not ready
+> > > Jan 12 08:38:50 localhost kernel: ata2: lost interrupt (Status 0x50)
+> > > Jan 12 08:38:50 localhost kernel: ata2.01: exception Emask 0x0 SAct 
+> > > 0x0 SErr 0x0
+> > >  action 0x6 frozen
+> > > Jan 12 08:38:50 localhost kernel: ata2.01: failed command: WRITE DMA
+> > > Jan 12 08:38:50 localhost kernel: ata2.01: cmd 
+> > > ca/00:08:e0:bc:51/00:00:00:00:00/f0 tag 0 dma 4096 out
+> > > Jan 12 08:38:50 localhost kernel:          res 
+> > > 40/00:01:00:4f:c2/00:00:00:00:00/b0 Emask 0x4 (timeout)
+> > > Jan 12 08:38:50 localhost kernel: ata2.01: status: { DRDY }
+> > > Jan 12 08:38:50 localhost kernel: ata2: soft resetting link
+> > > Jan 12 08:38:50 localhost kernel: do_IRQ: 0.64 No irq handler for 
+> > > vector (irq -1)
+> > > Jan 12 08:38:50 localhost kernel: ata2.01: configured for UDMA/33
+> > > Jan 12 08:38:54 localhost pppd[1983]: No response to 3 echo-requests
+> > > Jan 12 08:39:55 localhost pppoe[1988]: Inactivity timeout... something 
+> > > wicked happened on session 3363 
+> > Just checking to make sure you have everything you need?
 > 
-> Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+> Sorry for the delay Stephen.
+> 
+> It looks to me like interrupts aren't being setup correctly on this
+> system.  I tested MSI and INTx interrupt modes locally and they both
+> work.  I'm guessing one of two things could be happening:
+> 
+> 1) The 2nd parameter of the low-level ISR (tg3_interrupt_tagged()) is
+>    not correct.  The ISR tries to tell the hardware the interrupt is
+>    acknowledged, but the message goes unheard.  (This might also explain
+>    why other devices are also afflicted.)
+> 
+> 2) Something is blocking the delivery of the interrupt to the tg3 driver
+>    altogether.
+> 
+> In both cases, the hardware persistently nags the host to ack the
+> interrupt, hence the interrupt storm.
 
-Thanks Hans.
+Just curious, is the problem still there if you add pci=nomsi to the
+kernel command line?
 
-Patrick, please pull this change from
-
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
