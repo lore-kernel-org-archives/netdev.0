@@ -1,85 +1,54 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: Re: panic in tg3 driver
-Date: Mon, 24 Jan 2011 16:59:22 -0800
-Message-ID: <20110125005922.GA19701@mcarlson.broadcom.com>
-References: <4D2334B5.1060408@earthlink.net>
- <4D2A371A.40103@earthlink.net>
- <20110110192216.GA23741@mcarlson.broadcom.com>
- <4D2B6652.7040607@earthlink.net>
- <20110111020055.GA25351@mcarlson.broadcom.com>
- <4D2C64EF.1080905@earthlink.net>
- <20110112030652.GA27164@mcarlson.broadcom.com>
- <4D2EFA44.8080008@earthlink.net> <4D3334E6.40100@earthlink.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] GRO: fix merging a paged skb after non-paged skbs
+Date: Tue, 25 Jan 2011 11:24:35 +1000
+Message-ID: <1295918675.4105.5.camel@localhost>
+References: <20110124184752.1d0947dd@delilah>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
-	"Linux Kernel Network Developers" <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>
-To: "Stephen Clark" <sclark46@earthlink.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	linux-net-drivers@solarflare.com
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1772 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751374Ab1AYA7b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 19:59:31 -0500
-In-Reply-To: <4D3334E6.40100@earthlink.net>
-Content-Disposition: inline
+Received: from exchange.solarflare.com ([216.237.3.220]:31384 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751458Ab1AYBYi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 20:24:38 -0500
+In-Reply-To: <20110124184752.1d0947dd@delilah>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jan 16, 2011 at 10:11:50AM -0800, Stephen Clark wrote:
-> On 01/13/2011 08:12 AM, Stephen Clark wrote:
-> > On 01/11/2011 10:06 PM, Matt Carlson wrote:
-> >> lspci -vvv -xxx -s 81:00.0
-> >
-> >
-> >
-> > Further information - I found these messages in /var/log/messages. It 
-> > looks
-> > like after it switched to INTx mode interrupts for other devices were 
-> > hosed.
-> >
-> > Jan 12 08:37:49 localhost kernel: tg3 0000:81:00.0: eth2: No interrupt 
-> > was gener
-> > ated using MSI. Switching to INTx mode. Please report this failure to 
-> > the PCI ma
-> > intainer and include system chipset information
-> > Jan 12 08:37:49 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is 
-> > not ready
-> > Jan 12 08:38:50 localhost kernel: ata2: lost interrupt (Status 0x50)
-> > Jan 12 08:38:50 localhost kernel: ata2.01: exception Emask 0x0 SAct 
-> > 0x0 SErr 0x0
-> >  action 0x6 frozen
-> > Jan 12 08:38:50 localhost kernel: ata2.01: failed command: WRITE DMA
-> > Jan 12 08:38:50 localhost kernel: ata2.01: cmd 
-> > ca/00:08:e0:bc:51/00:00:00:00:00/f0 tag 0 dma 4096 out
-> > Jan 12 08:38:50 localhost kernel:          res 
-> > 40/00:01:00:4f:c2/00:00:00:00:00/b0 Emask 0x4 (timeout)
-> > Jan 12 08:38:50 localhost kernel: ata2.01: status: { DRDY }
-> > Jan 12 08:38:50 localhost kernel: ata2: soft resetting link
-> > Jan 12 08:38:50 localhost kernel: do_IRQ: 0.64 No irq handler for 
-> > vector (irq -1)
-> > Jan 12 08:38:50 localhost kernel: ata2.01: configured for UDMA/33
-> > Jan 12 08:38:54 localhost pppd[1983]: No response to 3 echo-requests
-> > Jan 12 08:39:55 localhost pppoe[1988]: Inactivity timeout... something 
-> > wicked happened on session 3363 
-> Just checking to make sure you have everything you need?
+On Mon, 2011-01-24 at 18:47 +0100, Michal Schmidt wrote:
+> Suppose that several linear skbs of the same flow were received by GRO. They
+> were thus merged into one skb with a frag_list. Then a new skb of the same flow
+> arrives, but it is a paged skb with data starting in its frags[].
+> 
+> Before adding the skb to the frag_list skb_gro_receive() will of course adjust
+> the skb to throw away the headers. It correctly modifies the page_offset and
+> size of the frag, but it leaves incorrect information in the skb:
+>  ->data_len is not decreased at all.
+>  ->len is decreased only by headlen, as if no change were done to the frag.
+> Later in a receiving process this causes skb_copy_datagram_iovec() to return
+> -EFAULT and this is seen in userspace as the result of the recv() syscall.
+> 
+> In practice the bug can be reproduced with the sfc driver. By default the
+> driver uses an adaptive scheme when it switches between using
+> napi_gro_receive() (with skbs) and napi_gro_frags() (with pages). The bug is
+> reproduced when under rx load with enough successful GRO merging the driver
+> decides to switch from the former to the latter.
+[...]
 
-Sorry for the delay Stephen.
+This is odd because I thought we made sure to flush before making such a
+change.  Perhaps that got lost during the conversion from inet_lro to
+GRO?
 
-It looks to me like interrupts aren't being setup correctly on this
-system.  I tested MSI and INTx interrupt modes locally and they both
-work.  I'm guessing one of two things could be happening:
+Anyway, thanks very much for fixing this.
 
-1) The 2nd parameter of the low-level ISR (tg3_interrupt_tagged()) is
-   not correct.  The ISR tries to tell the hardware the interrupt is
-   acknowledged, but the message goes unheard.  (This might also explain
-   why other devices are also afflicted.)
+Ben.
 
-2) Something is blocking the delivery of the interrupt to the tg3 driver
-   altogether.
-
-In both cases, the hardware persistently nags the host to ack the
-interrupt, hence the interrupt storm.
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
