@@ -1,34 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] bonding: fix return value of couple of
- store functions
-Date: Tue, 25 Jan 2011 13:13:42 -0800 (PST)
-Message-ID: <20110125.131342.183052964.davem@davemloft.net>
-References: <29198.1295983370@death>
-	<20110125210324.GD2932@psychotron.redhat.com>
-	<304.1295989626@death>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
+Date: Tue, 25 Jan 2011 23:22:42 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1101252317280.1690@ja.ssi.bg>
+References: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com> <20110125050535.GB7183@verge.net.au> <4D3EA526.5030704@trash.net> <20110125130933.GA2841@verge.net.au> <20110125131558.GB2841@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45576
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753167Ab1AYVNH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 16:13:07 -0500
-In-Reply-To: <304.1295989626@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Patrick McHardy <kaber@trash.net>, Changli Gao <xiaosuo@gmail.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20110125131558.GB2841@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Tue, 25 Jan 2011 13:07:06 -0800
 
-> Jiri Pirko <jpirko@redhat.com> wrote:
-> 
->>count is incorrectly returned even in case of fail. Return ret instead.
+ 	Hello,
+
+On Tue, 25 Jan 2011, Simon Horman wrote:
+
+>> Hi Patrick,
 >>
->>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+>> I'm a little unsure how you would like me to differentiate
+>> between fixes for 2.6.38 - e.g. my previous two pull requests.
+>> And patches intended for 2.6.39.
+>>
+>> In any case I will send a pull request that includes
+>> Changli's change against nf-next-2.6.
+>
+> Actually, I realise that Changli's change is actually
+> 2.6.38 material. I'll send a pull request. Please ignore
+> my noise about 2.6.39.
 
-Applied, thanks guys.
+ 	Simon, I don't see IPVS netns work in 2.6.38-rc2,
+so these changes are not for 2.6.38-rc.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
