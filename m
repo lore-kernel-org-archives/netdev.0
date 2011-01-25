@@ -1,47 +1,33 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
-Date: Tue, 25 Jan 2011 23:15:58 +1000
-Message-ID: <20110125131558.GB2841@verge.net.au>
-References: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com>
- <20110125050535.GB7183@verge.net.au>
- <4D3EA526.5030704@trash.net>
- <20110125130933.GA2841@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110125130933.GA2841@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [GIT PULL nf-next-2.6] IPVS changes for 2.6.38-rc3
+Date: Tue, 25 Jan 2011 23:17:04 +1000
+Message-ID: <1295961426-7402-1-git-send-email-horms@verge.net.au>
+Cc: Changli Gao <xiaosuo@gmail.com>, Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>
+To: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:33204 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753082Ab1AYNRM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 08:17:12 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 25, 2011 at 11:09:35PM +1000, Simon Horman wrote:
-> On Tue, Jan 25, 2011 at 11:25:42AM +0100, Patrick McHardy wrote:
-> > On 25.01.2011 06:05, Simon Horman wrote:
-> > > On Tue, Jan 25, 2011 at 12:40:18PM +0800, Changli Gao wrote:
-> > >> Fix compiler warnings when IP_VS_DBG() isn't defined.
-> > >>
-> > >> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-> > > 
-> > > Thanks, I will queue this up for when nf-next-2.6 is open again.
-> > 
-> > It's already open.
-> > 
-> 
-> Hi Patrick,
-> 
-> I'm a little unsure how you would like me to differentiate
-> between fixes for 2.6.38 - e.g. my previous two pull requests.
-> And patches intended for 2.6.39.
-> 
-> In any case I will send a pull request that includes
-> Changli's change against nf-next-2.6.
+Hi Patrick,
 
-Actually, I realise that Changli's change is actually
-2.6.38 material. I'll send a pull request. Please ignore
-my noise about 2.6.39.
+please consider pulling
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
+
+Which includes the following changes, both of which I believe 2.6.38 material.
+
+Changli Gao (1):
+      netfilter: ipvs: fix compiler warnings
+
+Hans Schillstrom (1):
+      IPVS netns BUG, register sysctl for root ns
+
+ net/netfilter/ipvs/ip_vs_core.c |    4 +---
+ net/netfilter/ipvs/ip_vs_ctl.c  |    2 +-
+ 2 files changed, 2 insertions(+), 4 deletions(-)
+
