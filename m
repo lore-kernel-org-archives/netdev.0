@@ -1,49 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] pktgen: speedup fragmented skbs
-Date: Tue, 25 Jan 2011 13:26:26 -0800 (PST)
-Message-ID: <20110125.132626.39178379.davem@davemloft.net>
-References: <1295975635.3588.337.camel@edumazet-laptop>
+Subject: Re: [PATCH] pch_gbe: Fix the issue that the receiving data is not
+ normal.
+Date: Tue, 25 Jan 2011 13:32:40 -0800 (PST)
+Message-ID: <20110125.133240.59688304.davem@davemloft.net>
+References: <4D3D0373.30003@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46241
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753850Ab1AYVZv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 16:25:51 -0500
-In-Reply-To: <1295975635.3588.337.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	qi.wang@intel.com, yong.y.wang@intel.com,
+	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
+	kok.howg.ewe@intel.com
+To: toshiharu-linux@dsn.okisemi.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D3D0373.30003@dsn.okisemi.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 25 Jan 2011 18:13:55 +0100
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Date: Mon, 24 Jan 2011 13:43:31 +0900
 
-> We spend lot of time clearing pages in pktgen.
-> (Or not clearing them on ipv6 and leaking kernel memory)
+> This PCH_GBE driver had an issue that the receiving data is not normal.
+> This driver had not removed correctly the padding data 
+> which the DMA include in receiving data. 
 > 
-> Since we dont modify them, we can use one zeroed page, and get
-> references on it. This page can use NUMA affinity as well.
+> This patch fixed this issue.
 > 
-> Define pktgen_finalize_skb() helper, used both in ipv4 and ipv6
-> 
-> Results using skbs with one frag :
-> 
-> Before patch :
-> 
-> Result: OK: 608980458(c608978520+d1938) nsec, 1000000000
-> (100byte,1frags)
->   1642088pps 1313Mb/sec (1313670400bps) errors: 0
-> 
-> After patch :
-> 
-> Result: OK: 345285014(c345283891+d1123) nsec, 1000000000
-> (100byte,1frags)
->   2896158pps 2316Mb/sec (2316926400bps) errors: 0
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
 
-Applied, although I changed "->page = 0;" to "->page = NULL;"
+There are bugs in these changes:
 
-Thanks!
+>  			if (skb_copy_flag) {	/* recycle  skb */
+>  				struct sk_buff *new_skb;
+>  				new_skb =
+> -				    netdev_alloc_skb(netdev,
+> -						     length + NET_IP_ALIGN);
+> +				    netdev_alloc_skb(netdev, length);
+>  				if (new_skb) {
+>  					if (!skb_padding_flag) {
+>  						skb_reserve(new_skb,
+> -								NET_IP_ALIGN);
+> +							PCH_GBE_DMA_PADDING);
+>  					}
+>  					memcpy(new_skb->data, skb->data,
+>  						length);
+
+If "!skb_padding_flag" then you will write past the end of the SKB
+data in that memcpy.
+
+You cannot allocate only "length" then proceed to reserve PCH_GBE_DMA_PADDING
+and then add "length" worth of data on top of that.  In such a cause you
+must allocate at least "length + PCH_GBE_DMA_PADDING".
+
+Furthermore you _MUST_ respect NET_IP_ALIGN.  Some platforms set this value
+to "0", because otherwise performance suffers greatly.
+
+There are two seperate issues, removing the padding bytes provided by
+the device, and aligning the IP headers as wanted by the cpu
+architecutre.  Therefore they should be handled seperately, and we
+therefore should still see references to NET_IP_ALIGN in your patch.
