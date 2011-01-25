@@ -1,223 +1,108 @@
-From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: STMMAC driver: NFS Problem on 2.6.37
-Date: Tue, 25 Jan 2011 13:04:21 -0500
-Message-ID: <EFFBD485-8B7E-44D1-A8D2-61E73BF42DF9@oracle.com>
-References: <4D2EC133.7010607@st.com> <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com> <4D2F4453.4040400@st.com> <4D301DD1.9070104@st.com> <593F2676-CA62-4D77-90AD-41F2FAF13EB6@oracle.com> <4D3EBA54.4020308@st.com>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Armando VISCONTI <armando.visconti-qxv4g6HH51o@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shiraz HASHIM <shiraz.hashim-qxv4g6HH51o@public.gmane.org>,
-	Viresh KUMAR <viresh.kumar-qxv4g6HH51o@public.gmane.org>,
-	Peppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	amitgoel <amit.goel-qxv4g6HH51o@public.gmane.org>
-To: deepaksi <deepak.sikri-qxv4g6HH51o@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <4D3EBA54.4020308-qxv4g6HH51o@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [net-next 08/12] ixgb: convert to new VLAN model
+Date: Tue, 25 Jan 2011 11:20:11 -0700
+Message-ID: <EA929A9653AAE14F841771FB1DE5A136602DF59AA3@rrsmsx501.amr.corp.intel.com>
+References: <1294360199-9860-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1294360199-9860-9-git-send-email-jeffrey.t.kirsher@intel.com>
+	<AANLkTik1rCFRtBWov5f8yfU+4JZnbzLHgcmRC1y_+TDP@mail.gmail.com>
+	<EA929A9653AAE14F841771FB1DE5A136602DEE63CB@rrsmsx501.amr.corp.intel.com>
+ <AANLkTikS7zw5OfPFTJBUeUyy39Tx26Wkg9FX3n77-v1G@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bphilips@novell.com" <bphilips@novell.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:19479 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751251Ab1AYSUO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 13:20:14 -0500
+In-Reply-To: <AANLkTikS7zw5OfPFTJBUeUyy39Tx26Wkg9FX3n77-v1G@mail.gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-See analysis in line.
+>-----Original Message-----
+>From: Jesse Gross [mailto:jesse@nicira.com]
+>Sent: Tuesday, January 25, 2011 9:23 AM
+>To: Tantilov, Emil S
+>Cc: Kirsher, Jeffrey T; davem@davemloft.net; netdev@vger.kernel.org;
+>bphilips@novell.com; Pieper, Jeffrey E
+>Subject: Re: [net-next 08/12] ixgb: convert to new VLAN model
+>
+>On Sun, Jan 23, 2011 at 4:25 PM, Tantilov, Emil S
+><emil.s.tantilov@intel.com> wrote:
+>> Jesse Gross wrote:
+>>> On Thu, Jan 6, 2011 at 7:29 PM, =A0<jeffrey.t.kirsher@intel.com> wr=
+ote:
+>>>> +static int ixgb_set_flags(struct net_device *netdev, u32 data) +{
+>>>> + =A0 =A0 =A0 struct ixgb_adapter *adapter =3D netdev_priv(netdev)=
+; +
+>>>> bool need_reset; + =A0 =A0 =A0 int rc;
+>>>> +
+>>>> + =A0 =A0 =A0 /*
+>>>> + =A0 =A0 =A0 =A0* TX vlan insertion does not work per HW design w=
+hen Rx
+>>>> stripping is + =A0 =A0 =A0 =A0* disabled. =A0Disable txvlan when r=
+xvlan is
+>>>> off. + =A0 =A0 =A0 =A0*/ + =A0 =A0 =A0 if ((data & ETH_FLAG_RXVLAN=
+) !=3D
+>>>> (netdev->features & NETIF_F_HW_VLAN_RX)) + =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 data ^=3D
+>>>> ETH_FLAG_TXVLAN;
+>>>
+>>> Does this really do the right thing? =A0If the RX vlan setting is
+>>> changed, it will do the opposite of what the user requested for TX
+>>> vlan?
+>>>
+>>> So if I start with both on (the default) and turn them both off in =
+one
+>>> command (a valid setting), I will get RX off and TX on (an invalid
+>>> setting).
+>>>
+>>> Why not:
+>>>
+>>> if (!(data & ETH_FLAG_RXVLAN))
+>>> =A0 =A0 =A0 =A0 data &=3D ~ETH_FLAG_TXVLAN;
+>>
+>> Yeah that works for disabling rxvlan, but what if rxvlan is disabled=
+, and
+>the user attempts to enable txvlan? At least our validation argued tha=
+t we
+>should make it work both ways. Perhaps something like the following?
+>>
+>> =A0 =A0 =A0 =A0if (!(data & ETH_FLAG_RXVLAN) &&
+>> =A0 =A0 =A0 =A0 =A0 (netdev->features & NETIF_F_HW_VLAN_TX))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data &=3D ~ETH_FLAG_TXVLAN;
+>> =A0 =A0 =A0 =A0else if (data & ETH_FLAG_TXVLAN)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0data |=3D ETH_FLAG_RXVLAN;
+>
+>I think the logic above does what you describe and will always result
+>in a consistent state.  Turning dependent features on when needed is a
+>little bit inconsistent with the rest of Ethtool (for example, turning
+>on TSO when checksum offloading is off will not enable checksum
+>offloading, it will produce an error).  However, I know that drivers
 
-On Jan 25, 2011, at 6:56 AM, deepaksi wrote:
+That is the reason I asked, as I don't want to keep bouncing the patch =
+back and forth. Personally I like the idea of helping the user and adju=
+sting the flags to something that works rather than a generic error mes=
+sage.
 
-> Hi All,
-> 
-> Please find more debug information on the issue. The log below is related to the kernel debug information.
-> 
-> 1. Kernel Debug Information log : ( The relevant portions are marked in bold )
-> 
-> [    2.980000] stmmac: Rx Checksum Offload Engine supported
-> [    3.980000]  ** phydev->state 4 
-> [    4.000000] IP-Config: Complete:                                                                                        /* Ethernet device open print */
-> [    4.000000]      device=eth0, addr=192.168.1.10, mask=255.255.255.0, gw=192.168.1.1,
-> [    4.010000]      host=192.168.1.10, domain=, nis-domain=(none),
-> [    4.010000]      bootserver=192.168.1.1, rootserver=192.168.1.1, rootpath=
-> [    4.020000] Root-NFS: nfsroot=/opt/STM/STLinux-2.4/devkit/armv7/target
-> [    4.030000] NFS: nfs mount opts='nolock,addr=192.168.1.1'
-> [    4.030000] NFS:   parsing nfs mount option 'nolock'
-> [    4.040000] NFS:   parsing nfs mount option 'addr=192.168.1.1'
-> [    4.040000] NFS: MNTPATH: '/opt/STM/STLinux-2.4/devkit/armv7/target'
-> [    4.050000] NFS: sending MNT request for 192.168.1.1:/opt/STM/STLinux-2.4/devkit/armv7/target
-> [    4.060000] Calling rpc_create
-> [    4.060000] RPC:       set up xprt to 192.168.1.1 (autobind) via tcp
-> [    4.070000] RPC:       created transport cf894000 with 16 slots
-> [    4.080000] xprt_create_transport: RPC:       created transport cf894000 with 16 slots
-> [    4.080000] RPC:       creating mount client for 192.168.1.1 (xprt cf894000)
-> [    4.090000] RPC:       creating UNIX authenticator for client cfa90800
-> [    4.100000] Calling rpc_ping
-> [    4.100000] RPC:       new task initialized, procpid 1
-> [    4.100000] RPC:       allocated task cfa11980
-> [    4.110000] RPC:     1 __rpc_execute flags=0x680
-> [    4.110000] RPC:     1 call_start mount3 proc NULL (sync)
+>aren't completely consistent here and the most important part is that
+>it enforces valid states, so I don't have a strong opinion.  Ben's
+>previous suggestion of Ethtool querying again after the operation and
+>reporting any flags that were automatically changed would help a lot
+>here.
 
-The first RPC request is a MNT protocol request to determine the NFS file handle for the export to be mounted.
+Sure, but I think a savvy user would always check the result of an etht=
+ool command (ie. `ethtool -K` followed with `ethtool -k`, -A/-a, etc).
+`
+Added Ben in case he has comments.
 
-> [    4.120000] RPC:     1 call_reserve (status 0)
-> [    4.120000] RPC:     1 reserved req cfb80000 xid f68b1f23
-> [    4.130000] RPC:     1 call_reserveresult (status 0)
-> [    4.130000] RPC:     1 call_refresh (status 0)
-> [    4.140000] RPC:     1 holding NULL cred c0492798
-> [    4.140000] RPC:     1 refreshing NULL cred c0492798
-> [    4.150000] RPC:     1 call_refreshresult (status 0)
-> [    4.150000] RPC:     1 call_allocate (status 0)
-> [    4.160000] RPC:     1 allocated buffer of size 92 at cf894800
-> [    4.160000] RPC:     1 call_bind (status 0)
-> [    4.170000] RPC:     1 rpcb_getport_async(192.168.1.1, 100005, 3, 6)
-> [    4.170000] RPC:     1 sleep_on(queue "xprt_binding" time 4294937713)
-> [    4.180000] RPC:     1 added to queue cf8940a4 "xprt_binding"
-> [    4.190000] RPC:     1 setting alarm for 60000 ms
-> [    4.190000] RPC:     1 rpcb_getport_async: trying rpcbind version 2
-> [    4.200000] Calling rpc_create
-> [    4.200000] RPC:       set up xprt to 192.168.1.1 (port 111) via tcp
-> [    4.210000] RPC:       created transport cf895000 with 16 slots
-> [    4.210000] xprt_create_transport: RPC:       created transport cf895000 with 16 slots
-> [    4.220000] RPC:       creating rpcbind client for 192.168.1.1 (xprt cf895000)
-> [    4.230000] RPC:       creating UNIX authenticator for client cfa90a00
-> [    4.230000] rpc_create returns 0xcfa90a00
-> [    4.240000] RPC:       new task initialized, procpid 1
-> [    4.240000] RPC:       allocated task cfa11a00
-> [    4.250000] RPC:       rpc_release_client(cfa90a00)
-> [    4.250000] RPC:     1 sync task going to sleep
-> [    4.260000] RPC:     2 __rpc_execute flags=0x681
-> [    4.260000] RPC:     2 call_start rpcbind2 proc GETPORT (async)
-
-This is a child RPC request, which is an rpcbind query to discover the port where the NFS server's MNT service resides.  This is necessary before a transport socket for the MNT request can be set up.  The MNT request is put to sleep while the rpcbind query proceeds.
-
-> [    4.270000] RPC:     2 call_reserve (status 0)
-> [    4.270000] RPC:     2 reserved req cfb81000 xid 59bc347d
-> [    4.280000] RPC:     2 call_reserveresult (status 0)
-> [    4.280000] RPC:     2 call_refresh (status 0)
-> [    4.290000] RPC:     2 looking up UNIX cred
-> [    4.290000] RPC:       looking up UNIX cred
-> [    4.300000] RPC:       allocating UNIX cred for uid 0 gid 0
-> [    4.300000] RPC:     2 refreshing UNIX cred cfa11a80
-> [    4.310000] RPC:     2 call_refreshresult (status 0)
-> [    4.310000] RPC:     2 call_allocate (status 0)
-> [    4.320000] RPC:     2 allocated buffer of size 412 at cf895800
-> [    4.320000] RPC:     2 call_bind (status 0)
-> [    4.330000] RPC:     2 call_connect xprt cf895000 is not connected
-> [    4.330000] RPC:     2 xprt_connect xprt cf895000 is not connected
-> [    4.340000] RPC:     2 sleep_on(queue "xprt_pending" time 4294937730)
-> [    4.340000] RPC:     2 added to queue cf8951dc "xprt_pending"
-> [    4.350000] RPC:     2 setting alarm for 60000 ms
-> [    4.360000] RPC:       xs_connect scheduled xprt cf895000
-> [    4.360000] RPC:       xs_bind 0.0.0.0:0: ok (0)
-> [    4.370000] RPC:       worker connecting xprt cf895000 via tcp to 192.168.1.1 (port 111)
-> [    4.370000] RPC:       cf895000 connect status 115 connected 0 sock state 2
-
-A transport socket is set up for the rpcbind query, which connects to port 111 on the server.  The RPC client puts the rpcbind query request to sleep waiting for the transport socket connection to complete.  This is done in a worker thread.
-
-> [    6.980000] PHY: 0:05 - Link is Up - 1000/Full            /* As soon as network link is up, post auto negotiation, we get the error below ( Unable to reach icmp)*/
-> [    7.380000] RPC:       xs_error_report client cf895000...    /* The ethernet phy on our board typically takes 3 seconds for auto negotiation process */
-> [    7.380000] RPC:       error 113                                 /* In case the frequency of the phy state machine (in phy framework) polling is increased from HZ to HZ/10, we do not face this issue*/
-
-After three seconds, the initial socket connection attempt is getting EHOSTUNREACH.  The transport socket's error report callback wakes up RPC task 2 with status -EAGAIN.
-
-"we do not face this issue" -- in that case, does the connection attempt succeed?  Do you have debugging output for that case?
-
-> [    7.390000] RPC:     2 __rpc_wake_up_task (now 4294938035)
-> [    7.390000] RPC:     2 disabling timer
-> [    7.390000] RPC:     2 removed from queue cf8951dc "xprt_pending"
-> [    7.400000] RPC:       __rpc_wake_up_task done
-> [    7.410000] RPC:       xs_tcp_state_change client cf895000...
-> [    7.410000] RPC:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
-> [    7.420000] RPC:       disconnected transport cf895000
-
-The transport is marked disconnected here by the transport socket's state change callback.  The socket state is TCP_CLOSE.  xprt_disconnect_done() wakes up any pending tasks with -EAGAIN (a second wake up).
-
-> [    7.420000] RPC:     2 __rpc_execute flags=0x681
-> [    7.420000] ************* skb->protocol = 608**************
-> [    7.420000] ************* skb->protocol = 8**************
-> [    7.440000] RPC:     2 xprt_connect_status: retrying
-
-Here is RPC task 2 waking up in xprt_connect_status with status -EAGAIN.
-
-> [    7.440000] RPC:     2 call_connect_status (status -11)
-> [    7.450000] RPC:     2 call_transmit (status 0)
-> [    7.450000] RPC:     2 xprt_prepare_transmit
-> [    7.460000] RPC:     2 rpc_xdr_encode (status 0)
-> [    7.460000] RPC:     2 marshaling UNIX cred cfa11a80
-> [    7.470000] RPC:     2 using AUTH_UNIX cred cfa11a80 to wrap rpc data
-> [    7.470000] RPC:     2 encoding PMAP_GETPORT call (100005, 3, 6, 0)
-> [    7.480000] RPC:     2 xprt_transmit(92)
-> [    7.480000] RPC:       xs_tcp_send_request(92) = -113
-
-> [    7.490000] RPC:       sendmsg returned unrecognized error 113
-
-I don't see a fresh connection attempt here.  The RPC client appears to be attempting to send on an unconnected transport socket.  The next send request is getting EHOSTUNREACH again, and thus the rpcbind query fails.
-
-I thought there used to be code in xprt_prepare_transmit() to reconnect if needed, but I no longer find it here.  call_connect_status() handles -EAGAIN by advancing the state machine to call_transmit(), so the FSM does expect call_transmit() and its children to deal with an unconnected transport.
-
-Possibly relevant commits: 2a491991, c8485e4d
-
-In any event, the outcome is probably correct: if the RPC client gets EHOSTUNREACH while trying to connect or send, then it will fail this RPC request.
-
-> [    7.490000] RPC:       xs_tcp_state_change client cf895000...
-> [    7.500000] RPC:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
-> [    7.510000] RPC:       disconnected transport cf895000
-> [    7.510000] RPC:       wake_up_next(cf895174 "xprt_resend")
-> [    7.520000] RPC:       wake_up_next(cf89510c "xprt_sending")
-> [    7.520000] RPC:       setting port for xprt cf894000 to 0
-> [    7.530000] RPC:     2 rpcb_getport_done(status -113, port 0)
-> [    7.530000] RPC:     2 return 0, status -113
-> [    7.540000] RPC:     2 release task
-> [    7.540000] RPC:       freeing buffer of size 412 at cf895800
-> [    7.550000] RPC:     2 release request cfb81000
-> [    7.550000] RPC:       wake_up_next(cf895244 "xprt_backlog")
-> [    7.560000] RPC:       rpc_release_client(cfa90a00)
-> [    7.560000] RPC:       destroying rpcbind client for 192.168.1.1
-> [    7.570000] RPC:       destroying transport cf895000
-> [    7.570000] RPC:       xs_destroy xprt cf895000
-> [    7.580000] RPC:       xs_close xprt cf895000
-> [    7.580000] RPC:       disconnected transport cf895000
-> [    7.590000] RPC:     2 freeing task
-> [    7.590000] RPC:     1 __rpc_wake_up_task (now 4294938055)
-> [    7.600000] RPC:     1 disabling timer
-> [    7.600000] RPC:     1 removed from queue cf8940a4 "xprt_binding"
-> [    7.610000] RPC:       __rpc_wake_up_task done
-> [    7.610000] RPC:     1 sync task resuming
-> [    7.620000] RPC:     1 remote rpcbind unreachable: -113
-> [    7.620000] RPC:     1 return 0, status -113
-> [    7.630000] RPC:     1 release task
-> [    7.630000] RPC:       freeing buffer of size 92 at cf894800
-> [    7.630000] RPC:     1 release request cfb80000
-> [    7.640000] RPC:       wake_up_next(cf894244 "xprt_backlog")
-> [    7.640000] RPC:       rpc_release_client(cfa90800)
-> [    7.650000] RPC:     1 freeing task
-> [    7.650000] rpc_ping returned -113
-> [    7.660000] Calling rpc_ping failed
-
-Note that the RPC ping is for RPC task 1, the MNT request, not for the rpcbind query (RPC task 2).
-
-An RPC ping for the MNT request can't proceed until the rpcbind query has discovered the correct server port to connect to.  The rpcbind query is done first, then, and is what is failing to connect.  So RPC ping is a red herring here -- the RPC client doesn't get far enough to send a MNT NULL request.
-
-  [ ... remaining dump contents snipped ... ]
-
-> We have made following observations
-> 1. It seems that the time taken by phy auto negotiation process is long and as soon as the link gets up rpc ping request is getting timed out and we receive "Unable to reach ICMP" error. The time out error is same even if you do not connect a network cable and do a nfs boot.
-> 2. We tried to modify the rate at which the work queue is scheduled in the phy framework. instead of scheduling every HZ ( 1 sec), we modified it to HZ/10. We did not received the error. This probably reduced the margin of the phy framework informing the kernel that the link is up.
-> 3. We tried to use another network card and did a nfs boot. The only relevant difference we could find was the time of auto negotiation.
-
-Can you post a similar debugging dump of a root mount that succeeds using a different network card?
-
-> Are there some changes in the kernel framework w.r.t rpc ping time out ? This problem was not there in previous kernels.
-
-There have been changes in the RPC socket code around how it manages recovery from failed attempts to connect.  We also have new logic now in the RPC client that causes RPC ping to fail immediately if a host can't be reached.
-
-Thanks for your efforts so far.  It would be helpful if you could bisect to determine which commit(s) introduced this RPC client behavior (or any related changes to your network driver behavior).
-
--- 
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Emil
