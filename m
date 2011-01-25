@@ -1,99 +1,31 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
-Subject: RE: does intel X520-SR(ixgbe) support RSS on single VLAN?
-Date: Mon, 24 Jan 2011 23:22:31 -0800
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F249E3CEB8A@MILEXCH2.ds.jdsu.net>
-References: <AANLkTinuozfPcAZStV-a=siqcLesqPHnGhVh=QitOnQs@mail.gmail.com>
-	 <4D3DB248.5070802@intel.com>
-	 <AANLkTimFuUp+wbgJY4koZ96st1eBbFqVOxOPj4tU_-Ao@mail.gmail.com>
- <1295924734.2896.6.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: remove tests on 64bit platforms
+Date: Mon, 24 Jan 2011 23:30:57 -0800 (PST)
+Message-ID: <20110124.233057.115949202.davem@davemloft.net>
+References: <1295929298-13163-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Rui <wirelesser@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: xiaosuo@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og115.obsmtp.com ([64.18.2.217]:59435 "HELO
-	exprod7og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1751233Ab1AYH01 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 02:26:27 -0500
-In-Reply-To: <1295924734.2896.6.camel@localhost>
-Content-Language: en-US
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49986
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751599Ab1AYHaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 02:30:23 -0500
+In-Reply-To: <1295929298-13163-1-git-send-email-xiaosuo@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIEphbnVh
-cnkgMjUsIDIwMTEgMTE6MDYgQU0NCj4gVG86IFJ1aQ0KPiBDYzogQWxleGFuZGVyIER1eWNrOyBu
-ZXRkZXZAdmdlci5rZXJuZWwub3JnOyBlMTAwMC0NCj4gZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2Uu
-bmV0DQo+IFN1YmplY3Q6IFJlOiBkb2VzIGludGVsIFg1MjAtU1IoaXhnYmUpIHN1cHBvcnQgUlNT
-IG9uIHNpbmdsZSBWTEFOPw0KPiANCj4gT24gVHVlLCAyMDExLTAxLTI1IGF0IDEwOjEwICswODAw
-LCBSdWkgd3JvdGU6DQo+ID4gT24gVHVlLCBKYW4gMjUsIDIwMTEgYXQgMTowOSBBTSwgQWxleGFu
-ZGVyIER1eWNrDQo+ID4gPGFsZXhhbmRlci5oLmR1eWNrQGludGVsLmNvbT4gd3JvdGU6DQo+ID4g
-PiBPbiAxLzI0LzIwMTEgNjoxOCBBTSwgUnVpIHdyb3RlOg0KPiA+ID4+DQo+ID4gPj4gaGkNCj4g
-PiA+PiBkb2VzIGludGVsIFg1MjAtU1Igc3VwcG9ydCBSU1Mgb24gc2luZ2xlIFZMQU4/DQo+ID4g
-Pj4NCj4gPiA+PiB0ZXN0ZWQgd2l0aCAzIGRpZmZlcmVudCB2bGFuIGlkIGFuZCBwcmlvcml0eSBw
-YWNrZXRzDQo+ID4gPj4gV2hhdCBJIHNhdyBpcyB0aGF0IGFsbCBwYWNrZXRzIHdlcmUgYWx3YXlz
-IGRlbGl2ZXJlZCB0byB0aGUgc2FtZQ0KPiBSeFEuDQo+ID4gPj4gbG9va3MgY2FuIG5vdCBnZXQg
-YSBkaWZmZXJlbnQgUlNTIGluZGV4IGZvciB0aGVzZSBwYWNrZXQ/DQo+ID4gPj4gYW55IHNldHRp
-bmcgbmVlZGVkPw0KPiA+ID4+IC0tDQo+ID4gPj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxp
-c3Q6IHNlbmQgdGhlIGxpbmUgInVuc3Vic2NyaWJlIG5ldGRldiINCj4gaW4NCj4gPiA+PiB0aGUg
-Ym9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9yZw0KPiA+ID4+IE1v
-cmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2VyLmtlcm5lbC5vcmcvbWFqb3Jkb21vLWlu
-Zm8uaHRtbA0KPiA+ID4NCj4gPiA+IFRoZSBYNTIwIHNob3VsZCBoYXZlIG5vIHByb2JsZW1zIGhh
-c2hpbmcgb24gYSBzaW5nbGUgVkxBTiB0YWdnZWQNCj4gZnJhbWUuDQo+ID4gPiAgSG93ZXZlciB0
-aGUgVkxBTiB3aWxsIG5vdCBiZSBhIHBhcnQgb2YgdGhlIFJTUyBoYXNoLiAgVGhlICBvbmx5DQo+
-IGNvbXBvbmVudHMNCj4gPiA+IG9mIHRoZSBoYXNoIGFyZSB0aGUgSVB2NC9JUHY2IHNvdXJjZSBh
-bmQgZGVzdGluYXRpb24gYWRkcmVzc2VzLCBhbmQNCj4gaWYgdGhlDQo+ID4gPiBmbG93IGlzIFRD
-UCB0aGVuIHRoZSBwb3J0IG51bWJlcnMuDQo+ID4gPg0KPiA+IGhpIGFsZXhhbmRlcg0KPiA+IEkg
-Z290IHRoZXNlIGluZm9ybWF0aW9uIGZyb20gdGhlIGludGVsIGNvbW11bml0eToNCj4gPg0KPiA+
-ICdJIGFza2VkIG91ciBzb2Z0d2FyZSBlbmdpbmVlcnMgYWJvdXQgeW91ciBxdWVzdGlvbiwgYW5k
-IHRoaXMgaXMgd2hhdA0KPiBJIGxlYXJuZWQuDQo+ID4gWW91IGNhbm5vdCBmaWx0ZXIgYnkganVz
-dCBWTEFOIG9yIFZMQU4gcHJpb3JpdHkuICBUaGUgTDQgdHlwZSB3aWxsDQo+ID4gYWxzbyBwbGF5
-IGEgcm9sZSBpbiB0aGUgZmlsdGVyIGFuZCBhcyBzdWNoIHlvdSB3b3VsZCBvbmx5IGJlIGFibGUg
-dG8NCj4gPiBmaWx0ZXIgVENQLCBVRFAsIGFuZCBTQ1RQIHBhY2tldHMgdGhhdCBhcmUgYm91bmQg
-Zm9yIGEgVkxBTi4NCj4gPiBUaGUgY29tbWFuZCBpdHNlbGYgdG8gc2V0dXAgYSBmaWx0ZXIgaXMg
-4oCcZXRodG9vbCDigJNVIGV0aFggZmxvdy10eXBlDQo+ID4gdGNwNCB2bGFuIDB4MjAwMCB2bGFu
-LW1hc2sgMHhFMDAwIGFjdGlvbiBZ4oCdIHdoZXJlIFggaXMgdGhlIGNvcnJlY3QNCj4gPiBpbmRl
-eCBmb3IgdGhlIGludGVyZmFjZSBhbmQgWSBpcyB0aGUgcXVldWUgeW91IHdhbnQgdG8gcm91dGUg
-dGhlDQo+ID4gdHJhZmZpYyB0by4gIFRoaXMgd291bGQgaGF2ZSB0byBiZSByZXBlYXRlZCBmb3Ig
-dWRwNCBhbmQgc2N0cDQuDQo+ID4gSSBob3BlIHRoaXMgd2lsbCBoZWxwLg0KPiA+IE1hcmsgSCIN
-Cj4gDQo+IFRoZSBtYXNrIHNwZWNpZmllcyBiaXRzIHRvIGJlIGlnbm9yZWQsIHNvIGlmIHlvdSB3
-YW50IHRvIGZpbHRlciBvbiB0aGUNCj4gYmFzaXMgb2Ygb25seSB0aGUgcHJpb3JpdHkgYml0cyB5
-b3Ugc2hvdWxkIHVzZSB2bGFuLW1hc2sgMHhmZmYuICBVbmxlc3MNCj4gdGhpcyBpcyBhbm90aGVy
-IGluY29uc2lzdGVuY3kgSSBmYWlsZWQgdG8gbm90aWNlLi4uDQo+IA0KPiA+IHNvIG15IHF1ZXN0
-aW9uIGlzIHRoYXQgdGhlIFZMQU4gaXMgUEFSVCBvZiB0aGUgUlNTIG9yIG5vdD8NCj4gDQo+IEl0
-J3Mgbm90IHBhcnQgb2YgYW55IHNwZWNpZmllZCBUb2VwbGl0eiBoYXNoLiAgSG93ZXZlciwgc29t
-ZSBoYXJkd2FyZQ0KPiBzdXBwb3J0cyBhZGRpbmcgdGhlIGhhc2ggKGFmdGVyIGluZGlyZWN0aW9u
-KSB0byB0aGUgcXVldWUgbnVtYmVyDQo+IHNwZWNpZmllZCBieSBhIGZpbHRlci4gIEN1cnJlbnRs
-eSB0aGUgZXRodG9vbCBBUEkgZG9lc24ndCBoYXZlIGEgd2F5IHRvDQo+IHJlcXVlc3QgdGhhdC4N
-Cj4gDQo+ID4gbG9va3MgdGhlDQo+ID4gcGVyZmVjdCBmaWx0ZXIgc3VwcG9ydCB2bGFuIGlkID9j
-YW4gdGhlIHBlcmZlY3QgZmlsdGVyIHN1cHBvcnQNCj4gPiB3aWxkY2hhcixzdWNoIGFzOiBmbG93
-LXR5cGUgQU5ZPw0KPiANCj4gSXQgaXMgcG9zc2libGUgdG8gc3BlY2lmeSB0aGlzIHVzaW5nIGZs
-b3ctdHlwZSBldGhlciwgYnV0IHRoZSBpeGdiZQ0KPiBkcml2ZXIgZG9lcyBub3QgeWV0IHN1cHBv
-cnQgdGhhdCAoYW5kIEkgaGF2ZSBubyBpZGVhIHdoZXRoZXIgdGhlDQo+IGhhcmR3YXJlIGRvZXMp
-Lg0KPiANCg0KDQpldGh0b29sIOKAk1UgZXRoWCBmbG93LXR5cGUgdGNwNCB2bGFuIDB4MjAwMCB2
-bGFuLW1hc2sgMHhFMDAwIGFjdGlvbiBZ4oCdDQoNCkkgZ290IHRoaXMgbXNnOg0KQ2Fubm90IGFk
-ZCBuZXcgUlggbi10dXBsZSBmaWx0ZXI6IE9wZXJhdGlvbiBub3Qgc3VwcG9ydGVkDQpUaGlzIGNv
-bW1hbmQgaXMgb25seSBzdXBwb3J0ZWQgYWZ0ZXIgMi42LjI0Pw0KDQpRdW90ZWQ6DQoNCiJldGh0
-b29sOiBJbnRyb2R1Y2Ugbi10dXBsZSBmaWx0ZXIgcHJvZ3JhbW1pbmcgc3VwcG9ydA0KDQphdXRo
-b3IgUGV0ZXIgUCBXYXNraWV3aWN6IEpyIDxwZXRlci5wLndhc2tpZXdpY3ouanJAaW50ZWwuY29t
-PiAgDQogVGh1LCAxMSBGZWIgMjAxMCAwNDowMzowNSArMDAwMCAoMjA6MDMgLTA4MDApIA0KY29t
-bWl0dGVyIERhdmlkIFMuIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gIA0KIFRodSwgMTEg
-RmViIDIwMTAgMDQ6MDM6MDUgKzAwMDAgKDIwOjAzIC0wODAwKSANCg0KVGhpcyBwYXRjaHNldCBl
-bmFibGVzIHRoZSBldGh0b29sIGxheWVyIHRvIHByb2dyYW0gbi10dXBsZQ0KZmlsdGVycyB0byBh
-biB1bmRlcmx5aW5nIGRldmljZS4gIFRoZSBpZGVhIGlzIHRvIGFsbG93IGNhcGFibGUNCmhhcmR3
-YXJlIHRvIGhhdmUgc3RhdGljIHJ1bGVzIGFwcGxpZWQgdGhhdCBjYW4gYXNzaXN0IHN0ZWVyaW5n
-DQpmbG93cyBpbnRvIGFwcHJvcHJpYXRlIHF1ZXVlcy4NCg0KSGFyZHdhcmUgdGhhdCBpcyBrbm93
-biB0byBzdXBwb3J0IHRoZXNlIHR5cGVzIG9mIGZpbHRlcnMgdG9kYXkNCmFyZSBpeGdiZSBhbmQg
-bml1Lg0KDQpTaWduZWQtb2ZmLWJ5OiBQZXRlciBQIFdhc2tpZXdpY3ogSnIgPHBldGVyLnAud2Fz
-a2lld2ljei5qckBpbnRlbC5jb20+DQpTaWduZWQtb2ZmLWJ5OiBKZWZmIEtpcnNoZXIgPGplZmZy
-ZXkudC5raXJzaGVyQGludGVsLmNvbT4NClNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8
-ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCiINCg0KDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRj
-aGluZ3MsIFNlbmlvciBTb2Z0d2FyZSBFbmdpbmVlciwgU29sYXJmbGFyZSBDb21tdW5pY2F0aW9u
-cw0KPiBOb3Qgc3BlYWtpbmcgZm9yIG15IGVtcGxveWVyOyB0aGF0J3MgdGhlIG1hcmtldGluZyBk
-ZXBhcnRtZW50J3Mgam9iLg0KPiBUaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xhcmZsYXJl
-IHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
+From: Changli Gao <xiaosuo@gmail.com>
+Date: Tue, 25 Jan 2011 12:21:38 +0800
+
+> On 64bit platforms, >31 bit shifting of a unsigned long variable is
+> valid, so we can remove the related boundary tests, which may slow
+> down the CPU if branch prediction fails.
+
+The key word is "may", you don't actually know if this kind of
+change actually matters for performance in practice.
+
+I'm not applying this.
