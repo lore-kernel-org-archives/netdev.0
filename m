@@ -1,50 +1,69 @@
-From: Hans Schillstrom <hans@schillstrom.com>
-Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
-Date: Tue, 25 Jan 2011 07:49:55 +0100
-Message-ID: <201101250749.57135.hans@schillstrom.com>
-References: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com>
+From: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+Subject: [PATCH v2] smc91x: add devicetree support
+Date: Tue, 25 Jan 2011 15:09:59 +0800
+Message-ID: <1295939399-4197-1-git-send-email-thomas@wytron.com.tw>
+References: <AANLkTikgsqJqdW2qh7h4yATCmGFb5MkHCosma_DOBq-Y@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms@verge.net.au>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	nios2-dev-1eJk0qcHJCcaeqlQEoCUNoJY59XmG8rH@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>, Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <AANLkTikgsqJqdW2qh7h4yATCmGFb5MkHCosma_DOBq-Y-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, January 25, 2011 05:40:18 Changli Gao wrote:
-> Fix compiler warnings when IP_VS_DBG() isn't defined.
-> 
-> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Acked-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+---
+v2 specify part numbers in compat as Grant suggested.
 
-> ---
->  net/netfilter/ipvs/ip_vs_core.c  |    4 +---
->  3 files changed, 9 insertions(+), 3 deletions(-)
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index f36a84f..d889f4f 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -1894,9 +1894,7 @@ static int __net_init __ip_vs_init(struct net *net)
->  
->  static void __net_exit __ip_vs_cleanup(struct net *net)
->  {
-> -	struct netns_ipvs *ipvs = net_ipvs(net);
-> -
-> -	IP_VS_DBG(10, "ipvs netns %d released\n", ipvs->gen);
-> +	IP_VS_DBG(10, "ipvs netns %d released\n", net_ipvs(net)->gen);
->  }
->  
->  static struct pernet_operations ipvs_core_ops = {
-> --
-Thanks I forgot that one.
+ drivers/net/smc91x.c |   11 +++++++++++
+ 1 files changed, 11 insertions(+), 0 deletions(-)
 
-Regards
-Hans Schillstrom
+diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
+index 726df61..de48ebd 100644
+--- a/drivers/net/smc91x.c
++++ b/drivers/net/smc91x.c
+@@ -81,6 +81,7 @@ static const char version[] =
+ #include <linux/ethtool.h>
+ #include <linux/mii.h>
+ #include <linux/workqueue.h>
++#include <linux/of.h>
+ 
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+@@ -2394,6 +2395,13 @@ static int smc_drv_resume(struct device *dev)
+ 	return 0;
+ }
+ 
++static const struct of_device_id smc91x_match[] = {
++	{ .compatible = "smsc,smc91c94", },
++	{ .compatible = "smsc,smc91c111", },
++	{},
++}
++MODULE_DEVICE_TABLE(of, smc91x_match);
++
+ static struct dev_pm_ops smc_drv_pm_ops = {
+ 	.suspend	= smc_drv_suspend,
+ 	.resume		= smc_drv_resume,
+@@ -2406,6 +2414,9 @@ static struct platform_driver smc_driver = {
+ 		.name	= CARDNAME,
+ 		.owner	= THIS_MODULE,
+ 		.pm	= &smc_drv_pm_ops,
++#ifdef CONFIG_OF
++		.of_match_table = smc91x_match,
++#endif
+ 	},
+ };
+ 
+-- 
+1.7.3.5
