@@ -1,52 +1,237 @@
-From: Piotr Hosowicz <piotr@hosowicz.com>
-Subject: Re: Something is wrong in your source, David
-Date: Tue, 25 Jan 2011 23:16:37 +0100
-Message-ID: <4D3F4BC5.5010507@example.com>
-References: <4D3F4277.20008@example.com> <20110125.134455.115939217.davem@davemloft.net> <4D3F47F8.2020007@example.com>
-Reply-To: piotr@hosowicz.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, kurt.van.dijck@eia.be
-To: piotr@hosowicz.com
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 16/20] ipx: remove the BKL
+Date: Tue, 25 Jan 2011 23:17:30 +0100
+Message-ID: <1295993854-4971-17-git-send-email-arnd@arndb.de>
+References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D3F47F8.2020007@example.com>
+In-Reply-To: <1295993854-4971-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 25.01.2011 23:00, Piotr Hosowicz wrote:
-> On 25.01.2011 22:44, David Miller wrote:
->> From: Piotr Hosowicz<piotr@hosowicz.com>
->> Date: Tue, 25 Jan 2011 22:36:55 +0100
->>
->>> Hello David, hello all,
->>>
->>> David, when I apply your source from GIT to Linus source I get this=
- in
->>> final part of the build process:
->>
->> Please always CC: the appropriate developer list for the subsystem
->> where you see the problem, and also make an effort to also contact t=
-he
->> developer who might be responsible for the sources in question.
->>
->> I've done this for you.
->
-> Aha, OK. Sorry for the inconvenience. I attach the config which
-> successfuly gets build.
+This replaces all instances of lock_kernel in the
+IPX code with lock_sock. As far as I can tell, this
+is safe to do, because there is no global state
+that needs to be locked in IPX, and the code does
+not recursively take the lock or sleep indefinitely
+while holding it.
 
-Aha, now it built OK, I disabled CAN driver.
+Compile-tested only.
 
-Regards,
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: netdev@vger.kernel.org
+---
+ net/ipx/Kconfig  |    1 -
+ net/ipx/af_ipx.c |   52 ++++++++++++++++++++--------------------------------
+ 2 files changed, 20 insertions(+), 33 deletions(-)
 
-Piotr Hosowicz
-
---=20
-=46=B1farowie wracaj=B1 pieszo do domu z opery.
-W pewnej chwili =BFona m=F3wi do m=EA=BFa:
-- Taki wstyd! Jak mog=B3e=B6 krzykn=B1=E6: Brawo! Bis!,
-gdy primadonna wpad=B3a do kana=B3u dla orkiestry?!
-NP: Peter Green Splinter Group - Big Change Is Gonna Come
-NB: 2.6.38-rc2-20110125-2155-pztidm+
+diff --git a/net/ipx/Kconfig b/net/ipx/Kconfig
+index 02549cb..e9ad006 100644
+--- a/net/ipx/Kconfig
++++ b/net/ipx/Kconfig
+@@ -3,7 +3,6 @@
+ #
+ config IPX
+ 	tristate "The IPX protocol"
+-	depends on BKL # should be fixable
+ 	select LLC
+ 	---help---
+ 	  This is support for the Novell networking protocol, IPX, commonly
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index da3d21c..2731b51 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -42,7 +42,6 @@
+ #include <linux/uio.h>
+ #include <linux/slab.h>
+ #include <linux/skbuff.h>
+-#include <linux/smp_lock.h>
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/string.h>
+@@ -1299,7 +1298,7 @@ static int ipx_setsockopt(struct socket *sock, int level, int optname,
+ 	int opt;
+ 	int rc = -EINVAL;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (optlen != sizeof(int))
+ 		goto out;
+ 
+@@ -1314,7 +1313,7 @@ static int ipx_setsockopt(struct socket *sock, int level, int optname,
+ 	ipx_sk(sk)->type = opt;
+ 	rc = 0;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1326,7 +1325,7 @@ static int ipx_getsockopt(struct socket *sock, int level, int optname,
+ 	int len;
+ 	int rc = -ENOPROTOOPT;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (!(level == SOL_IPX && optname == IPX_TYPE))
+ 		goto out;
+ 
+@@ -1347,7 +1346,7 @@ static int ipx_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 	rc = 0;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1396,7 +1395,7 @@ static int ipx_release(struct socket *sock)
+ 	if (!sk)
+ 		goto out;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (!sock_flag(sk, SOCK_DEAD))
+ 		sk->sk_state_change(sk);
+ 
+@@ -1404,7 +1403,7 @@ static int ipx_release(struct socket *sock)
+ 	sock->sk = NULL;
+ 	sk_refcnt_debug_release(sk);
+ 	ipx_destroy_socket(sk);
+-	unlock_kernel();
++	release_sock(sk);
+ out:
+ 	return 0;
+ }
+@@ -1530,11 +1529,12 @@ out:
+ 
+ static int ipx_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ {
++	struct sock *sk = sock->sk;
+ 	int rc;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	rc = __ipx_bind(sock, uaddr, addr_len);
+-	unlock_kernel();
++	release_sock(sk);
+ 
+ 	return rc;
+ }
+@@ -1551,7 +1551,7 @@ static int ipx_connect(struct socket *sock, struct sockaddr *uaddr,
+ 	sk->sk_state	= TCP_CLOSE;
+ 	sock->state 	= SS_UNCONNECTED;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (addr_len != sizeof(*addr))
+ 		goto out;
+ 	addr = (struct sockaddr_ipx *)uaddr;
+@@ -1598,7 +1598,7 @@ static int ipx_connect(struct socket *sock, struct sockaddr *uaddr,
+ 		ipxrtr_put(rt);
+ 	rc = 0;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1614,7 +1614,7 @@ static int ipx_getname(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	*uaddr_len = sizeof(struct sockaddr_ipx);
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (peer) {
+ 		rc = -ENOTCONN;
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+@@ -1649,19 +1649,7 @@ static int ipx_getname(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	rc = 0;
+ out:
+-	unlock_kernel();
+-	return rc;
+-}
+-
+-static unsigned int ipx_datagram_poll(struct file *file, struct socket *sock,
+-			   poll_table *wait)
+-{
+-	int rc;
+-
+-	lock_kernel();
+-	rc = datagram_poll(file, sock, wait);
+-	unlock_kernel();
+-
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1736,7 +1724,7 @@ static int ipx_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	int rc = -EINVAL;
+ 	int flags = msg->msg_flags;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	/* Socket gets bound below anyway */
+ /*	if (sk->sk_zapped)
+ 		return -EIO; */	/* Socket not bound */
+@@ -1788,7 +1776,7 @@ static int ipx_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (rc >= 0)
+ 		rc = len;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1803,7 +1791,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct sk_buff *skb;
+ 	int copied, rc;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	/* put the autobinding in */
+ 	if (!ipxs->port) {
+ 		struct sockaddr_ipx uaddr;
+@@ -1862,7 +1850,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ out_free:
+ 	skb_free_datagram(sk, skb);
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1874,7 +1862,7 @@ static int ipx_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 	struct sock *sk = sock->sk;
+ 	void __user *argp = (void __user *)arg;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	switch (cmd) {
+ 	case TIOCOUTQ:
+ 		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+@@ -1937,7 +1925,7 @@ static int ipx_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		rc = -ENOIOCTLCMD;
+ 		break;
+ 	}
+-	unlock_kernel();
++	release_sock(sk);
+ 
+ 	return rc;
+ }
+@@ -1984,7 +1972,7 @@ static const struct proto_ops ipx_dgram_ops = {
+ 	.socketpair	= sock_no_socketpair,
+ 	.accept		= sock_no_accept,
+ 	.getname	= ipx_getname,
+-	.poll		= ipx_datagram_poll,
++	.poll		= datagram_poll,
+ 	.ioctl		= ipx_ioctl,
+ #ifdef CONFIG_COMPAT
+ 	.compat_ioctl	= ipx_compat_ioctl,
+-- 
+1.7.1
