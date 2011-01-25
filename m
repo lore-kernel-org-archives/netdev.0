@@ -1,56 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: Something is wrong in your source, David
-Date: Tue, 25 Jan 2011 13:44:55 -0800 (PST)
-Message-ID: <20110125.134455.115939217.davem@davemloft.net>
-References: <4D3F4277.20008@example.com>
+Subject: Re: [PATCH] TCP: fix a bug that triggers large number of TCP RST
+ by mistake
+Date: Tue, 25 Jan 2011 13:48:16 -0800 (PST)
+Message-ID: <20110125.134816.48501871.davem@davemloft.net>
+References: <1295723177-23576-1-git-send-email-hkchu@google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kurt.van.dijck@eia.be
-To: piotr@hosowicz.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58284
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58288
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752618Ab1AYVoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 16:44:20 -0500
-In-Reply-To: <4D3F4277.20008@example.com>
+	by vger.kernel.org with ESMTP id S1751980Ab1AYVrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 16:47:41 -0500
+In-Reply-To: <1295723177-23576-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUGlvdHIgSG9zb3dpY3ogPHBpb3RyQGhvc293aWN6LmNvbT4NCkRhdGU6IFR1ZSwgMjUg
-SmFuIDIwMTEgMjI6MzY6NTUgKzAxMDANCg0KPiBIZWxsbyBEYXZpZCwgaGVsbG8gYWxsLA0KPiAN
-Cj4gRGF2aWQsIHdoZW4gSSBhcHBseSB5b3VyIHNvdXJjZSBmcm9tIEdJVCB0byBMaW51cyBzb3Vy
-Y2UgSSBnZXQgdGhpcyBpbg0KPiBmaW5hbCBwYXJ0IG9mIHRoZSBidWlsZCBwcm9jZXNzOg0KDQpQ
-bGVhc2UgYWx3YXlzIENDOiB0aGUgYXBwcm9wcmlhdGUgZGV2ZWxvcGVyIGxpc3QgZm9yIHRoZSBz
-dWJzeXN0ZW0NCndoZXJlIHlvdSBzZWUgdGhlIHByb2JsZW0sIGFuZCBhbHNvIG1ha2UgYW4gZWZm
-b3J0IHRvIGFsc28gY29udGFjdCB0aGUNCmRldmVsb3BlciB3aG8gbWlnaHQgYmUgcmVzcG9uc2li
-bGUgZm9yIHRoZSBzb3VyY2VzIGluIHF1ZXN0aW9uLg0KDQpJJ3ZlIGRvbmUgdGhpcyBmb3IgeW91
-Lg0KDQo+ICAgKC4uLikNCj4gICBMRCBbTV0gIGRyaXZlcnMvbmV0L3dpcmVsZXNzL2F0aC9hdGg5
-ay9hdGg5ay5vDQo+ICAgTEQgW01dICBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvYXRo
-OWtfaHcubw0KPiAgIExEIFtNXSAgZHJpdmVycy9uZXQvd2lyZWxlc3MvYXRoL2F0aDlrL2F0aDlr
-X2NvbW1vbi5vDQo+ICAgTEQgW01dICBkcml2ZXJzL25ldC93aXJlbGVzcy9hdGgvYXRoOWsvYXRo
-OWtfaHRjLm8NCj4gICBCdWlsZGluZyBtb2R1bGVzLCBzdGFnZSAyLg0KPiAgIE1PRFBPU1QgMjY5
-MCBtb2R1bGVzDQo+IEVSUk9SOiAicmVnaXN0ZXJfY2FuZGV2IiBbZHJpdmVycy9uZXQvY2FuL3Nv
-ZnRpbmcvc29mdGluZy5rb10NCj4gdW5kZWZpbmVkIQ0KPiBFUlJPUjogImFsbG9jX2NhbmRldiIg
-W2RyaXZlcnMvbmV0L2Nhbi9zb2Z0aW5nL3NvZnRpbmcua29dIHVuZGVmaW5lZCENCj4gRVJST1I6
-ICJjYW5fYnVzX29mZiIgW2RyaXZlcnMvbmV0L2Nhbi9zb2Z0aW5nL3NvZnRpbmcua29dIHVuZGVm
-aW5lZCENCj4gRVJST1I6ICJjbG9zZV9jYW5kZXYiIFtkcml2ZXJzL25ldC9jYW4vc29mdGluZy9z
-b2Z0aW5nLmtvXSB1bmRlZmluZWQhDQo+IEVSUk9SOiAiZnJlZV9jYW5kZXYiIFtkcml2ZXJzL25l
-dC9jYW4vc29mdGluZy9zb2Z0aW5nLmtvXSB1bmRlZmluZWQhDQo+IEVSUk9SOiAidW5yZWdpc3Rl
-cl9jYW5kZXYiIFtkcml2ZXJzL25ldC9jYW4vc29mdGluZy9zb2Z0aW5nLmtvXQ0KPiB1bmRlZmlu
-ZWQhDQo+IEVSUk9SOiAiYWxsb2NfY2FuX3NrYiIgW2RyaXZlcnMvbmV0L2Nhbi9zb2Z0aW5nL3Nv
-ZnRpbmcua29dIHVuZGVmaW5lZCENCj4gRVJST1I6ICJvcGVuX2NhbmRldiIgW2RyaXZlcnMvbmV0
-L2Nhbi9zb2Z0aW5nL3NvZnRpbmcua29dIHVuZGVmaW5lZCENCj4gRVJST1I6ICJjYW5fZ2V0X2Vj
-aG9fc2tiIiBbZHJpdmVycy9uZXQvY2FuL3NvZnRpbmcvc29mdGluZy5rb10NCj4gdW5kZWZpbmVk
-IQ0KPiBFUlJPUjogImNhbl9wdXRfZWNob19za2IiIFtkcml2ZXJzL25ldC9jYW4vc29mdGluZy9z
-b2Z0aW5nLmtvXQ0KPiB1bmRlZmluZWQhDQo+IFdBUk5JTkc6IG1vZHBvc3Q6IEZvdW5kIDI0IHNl
-Y3Rpb24gbWlzbWF0Y2goZXMpLg0KPiBUbyBzZWUgZnVsbCBkZXRhaWxzIGJ1aWxkIHlvdXIga2Vy
-bmVsIHdpdGg6DQo+ICdtYWtlIENPTkZJR19ERUJVR19TRUNUSU9OX01JU01BVENIPXknDQo+IG1h
-a2VbMl06ICoqKiBbX19tb2Rwb3N0XSBCxYLEhWQgMQ0KPiBtYWtlWzFdOiAqKiogW21vZHVsZXNd
-IELFgsSFZCAyDQo+IG1ha2VbMV06IE9wdXN6Y3plbmllIGthdGFsb2d1DQo+IGAvdXNyL3NyYy9s
-aW51cy9saW51eC0yLjYtMjAxMTAxMjUtMjE1NS1wenRpZG0nDQo+IG1ha2U6ICoqKiBbZGViaWFu
-L3N0YW1wL2J1aWxkL2tlcm5lbF0gQsWCxIVkIDINCj4gDQo+IA0KPiAtLSANCj4gVFY6ICJHcnVj
-aGHFgmEgamVzdCB0YWthLCDFvGUgY2llc3p5IHNpxJkgeiBrYcW8ZGVnbyBwY2huacSZY2lhLiIN
-Cj4gTlA6IFBhdHJpY2sgTydIZWFybiAtIEJlbmVhdGggdGhlIENlbGVzdGlhbCBTcGhlcmUNCj4g
-TkI6IDIuNi4zOC1yYzItMjAxMTAxMjUtMTg0OC10aSsNCg==
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Date: Sat, 22 Jan 2011 11:06:17 -0800
+
+> From: Jerry Chu <hkchu@google.com>
+> 
+> This patch fixes a bug that causes TCP RST packets to be generated
+> on otherwise correctly behaved applications, e.g., no unread data
+> on close,..., etc. To trigger the bug, at least two conditions must
+> be met:
+> 
+> 1. The FIN flag is set on the last data packet, i.e., it's not on a
+> separate, FIN only packet.
+> 2. The size of the last data chunk on the receive side matches
+> exactly with the size of buffer posted by the receiver, and the
+> receiver closes the socket without any further read attempt.
+> 
+> This bug was first noticed on our netperf based testbed for our IW10
+> proposal to IETF where a large number of RST packets were observed.
+> netperf's read side code meets the condition 2 above 100%.
+> 
+> Before the fix, tcp_data_queue() will queue the last skb that meets
+> condition 1 to sk_receive_queue even though it has fully copied out
+> (skb_copy_datagram_iovec()) the data. Then if condition 2 is also met,
+> tcp_recvmsg() often returns all the copied out data successfully
+> without actually consuming the skb, due to a check
+> "if ((chunk = len - tp->ucopy.len) != 0) {"
+> and
+> "len -= chunk;"
+> after tcp_prequeue_process() that causes "len" to become 0 and an
+> early exit from the big while loop.
+> 
+> I don't see any reason not to free the skb whose data have been fully
+> consumed in tcp_data_queue(), regardless of the FIN flag.  We won't
+> get there if MSG_PEEK is on. Am I missing some arcane cases related
+> to urgent data?
+> 
+> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+
+This bug goes as far back as January, 2000 right after the softnet
+mega-merge happened via the netdev CVS tree (netdev-vger-cvs GIT
+commit 214d457e)
+
+Good work, applied, thanks!
