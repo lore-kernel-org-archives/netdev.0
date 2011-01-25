@@ -1,53 +1,62 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] GRO: fix merging a paged skb after non-paged skbs
-Date: Tue, 25 Jan 2011 11:24:35 +1000
-Message-ID: <1295918675.4105.5.camel@localhost>
-References: <20110124184752.1d0947dd@delilah>
+Subject: Re: [PATCH v2 04/16] net: Introduce new feature setting ops
+Date: Tue, 25 Jan 2011 11:26:01 +1000
+Message-ID: <1295918761.4105.7.camel@localhost>
+References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
+	 <7f0bf8e3fa40db0e188fc6310a5dd670718c0fc0.1295734271.git.mirq-linux@rere.qmqm.pl>
+	 <20110124.155144.35028895.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	linux-net-drivers@solarflare.com
-To: Michal Schmidt <mschmidt@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:31384 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:31473 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751458Ab1AYBYi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 20:24:38 -0500
-In-Reply-To: <20110124184752.1d0947dd@delilah>
+	with ESMTP id S1752608Ab1AYB0D convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jan 2011 20:26:03 -0500
+In-Reply-To: <20110124.155144.35028895.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-01-24 at 18:47 +0100, Michal Schmidt wrote:
-> Suppose that several linear skbs of the same flow were received by GRO. They
-> were thus merged into one skb with a frag_list. Then a new skb of the same flow
-> arrives, but it is a paged skb with data starting in its frags[].
-> 
-> Before adding the skb to the frag_list skb_gro_receive() will of course adjust
-> the skb to throw away the headers. It correctly modifies the page_offset and
-> size of the frag, but it leaves incorrect information in the skb:
->  ->data_len is not decreased at all.
->  ->len is decreased only by headlen, as if no change were done to the frag.
-> Later in a receiving process this causes skb_copy_datagram_iovec() to return
-> -EFAULT and this is seen in userspace as the result of the recv() syscall.
-> 
-> In practice the bug can be reproduced with the sfc driver. By default the
-> driver uses an adaptive scheme when it switches between using
-> napi_gro_receive() (with skbs) and napi_gro_frags() (with pages). The bug is
-> reproduced when under rx load with enough successful GRO merging the driver
-> decides to switch from the former to the latter.
-[...]
+On Mon, 2011-01-24 at 15:51 -0800, David Miller wrote:
+> From: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> Date: Sat, 22 Jan 2011 23:14:13 +0100 (CET)
+>=20
+> > This introduces a new framework to handle device features setting.
+> > It consists of:
+> >   - new fields in struct net_device:
+> > 	+ hw_features - features that hw/driver supports toggling
+> > 	+ wanted_features - features that user wants enabled, when possibl=
+e
+> >   - new netdev_ops:
+> > 	+ feat =3D ndo_fix_features(dev, feat) - API checking constraints =
+for
+> > 		enabling features or their combinations
+> > 	+ ndo_set_features(dev) - API updating hardware state to match
+> > 		changed dev->features
+> >   - new ethtool commands:
+> > 	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_feature=
+s
+> > 		and trigger device reconfiguration if resulting dev->features
+> > 		changed
+> > 	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (meani=
+ng)
+> >=20
+> > Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+>=20
+> Ok, I'll stop applying patches right before this one as I'd like to s=
+ee
+> at least some feedback from Ben wrt. the ethtool bits.
+>=20
+> FWIW I like these changes (a lot). :-)
 
-This is odd because I thought we made sure to flush before making such a
-change.  Perhaps that got lost during the conversion from inet_lro to
-GRO?
-
-Anyway, thanks very much for fixing this.
+These are on my list to review.  I'm at LCA now (and not on work time)
+but I'll try to get through them in the next day or two.
 
 Ben.
 
--- 
+--=20
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
