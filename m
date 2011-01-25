@@ -1,243 +1,318 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 12/20] x25: remove the BKL
-Date: Tue, 25 Jan 2011 23:17:26 +0100
-Message-ID: <1295993854-4971-13-git-send-email-arnd@arndb.de>
-References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	linux-x25@vger.kernel.org, netdev@vger.kernel.org
+Subject: [RFC 00/20] Proposal for remaining BKL users
+Date: Tue, 25 Jan 2011 23:22:54 +0100
+Message-ID: <1295994174-5043-1-git-send-email-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: autofs@linux.kernel.org, linux-cifs@vger.kernel.org,
+	linux-x25@vger.kernel.org, Arnd Bergmann <arnd@arndb.de>,
+	netdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
+	linux-fsdevel@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1295993854-4971-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
 List-Id: netdev.vger.kernel.org
 
-This replaces all instances of lock_kernel in x25
-with lock_sock, taking care to release the socket
-lock around sleeping functions (sock_alloc_send_skb
-and skb_recv_datagram). It is not clear whether
-this is a correct solution, but it seem to be what
-other protocols do in the same situation.
+I've gone through all the code in the kernel that
+uses the big kernel lock and come up with a solution
+that seems at least half-reasonable for each of them.
 
-Compile-tested only.
+The decisions are somewhat arbitrary, but here is
+what I'd suggest we do:
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
+* Remove in 2.6.39:
+   i830, autofs3, smbfs
+
+* Move to staging now, kill in 2.6.41 (or later):
+   appletalk, hpfs
+
+* Work around in an ugly way, but keep alive:
+   * ufs, ipx, i810, cx25721
+
+* Fix properly:
+   * usbip, go7007, adfs, x25
+
+Some of the patches are rather tricky and I haven't
+really done much proper testing, so I'd much prefer
+the maintainers to pick up the patches and do the
+necessary testing where possible, or even come up
+with a better solution.
+
+Arnd Bergmann (20):
+  drm/i810: remove the BKL
+  drm: remove i830 driver
+  staging/usbip: convert to kthread
+  staging/cx25721: serialize access to devlist
+  staging/go7007: remove the BKL
+  staging: Remove autofs3
+  staging: remove smbfs
+  adfs: remove the big kernel lock
+  hpfs: rename big kernel lock to hpfs_lock
+  hpfs: replace BKL with a global mutex
+  hpfs: move to drivers/staging
+  x25: remove the BKL
+  appletalk: move to staging
+  staging/appletalk: remove the BKL
+  ufs: remove the BKL
+  ipx: remove the BKL
+  tracing: don't trace the BKL
+  rtmutex-tester: remove BKL tests
+  drivers: remove extraneous includes of smp_lock.h
+  BKL: That's all, folks
+
+ MAINTAINERS                                        |   11 +-
+ drivers/gpu/drm/Kconfig                            |   47 +-
+ drivers/gpu/drm/Makefile                           |    1 -
+ drivers/gpu/drm/i810/i810_dma.c                    |   18 +-
+ drivers/gpu/drm/i810/i810_drv.c                    |    6 +-
+ drivers/gpu/drm/i830/Makefile                      |    8 -
+ drivers/gpu/drm/i830/i830_dma.c                    | 1560 ---------
+ drivers/gpu/drm/i830/i830_drv.c                    |  107 -
+ drivers/gpu/drm/i830/i830_drv.h                    |  295 --
+ drivers/gpu/drm/i830/i830_irq.c                    |  186 --
+ drivers/net/Makefile                               |    1 -
+ drivers/net/appletalk/Makefile                     |    7 -
+ drivers/scsi/megaraid/megaraid_sas_fp.c            |    1 -
+ drivers/scsi/megaraid/megaraid_sas_fusion.c        |    1 -
+ drivers/staging/Kconfig                            |    8 +-
+ drivers/staging/Makefile                           |    4 +-
+ drivers/{net => staging}/appletalk/Kconfig         |    1 -
+ {net => drivers/staging}/appletalk/Makefile        |    7 +-
+ {net => drivers/staging}/appletalk/aarp.c          |    2 +-
+ .../linux => drivers/staging/appletalk}/atalk.h    |    0
+ {net => drivers/staging}/appletalk/atalk_proc.c    |    2 +-
+ drivers/{net => staging}/appletalk/cops.c          |    2 +-
+ drivers/{net => staging}/appletalk/cops.h          |    0
+ drivers/{net => staging}/appletalk/cops_ffdrv.h    |    0
+ drivers/{net => staging}/appletalk/cops_ltdrv.h    |    0
+ {net => drivers/staging}/appletalk/ddp.c           |   44 +-
+ {net => drivers/staging}/appletalk/dev.c           |    0
+ drivers/{net => staging}/appletalk/ipddp.c         |    2 +-
+ drivers/{net => staging}/appletalk/ipddp.h         |    0
+ drivers/{net => staging}/appletalk/ltpc.c          |    2 +-
+ drivers/{net => staging}/appletalk/ltpc.h          |    0
+ .../staging}/appletalk/sysctl_net_atalk.c          |    2 +-
+ drivers/staging/autofs/Kconfig                     |   22 -
+ drivers/staging/autofs/Makefile                    |    7 -
+ drivers/staging/autofs/TODO                        |    8 -
+ drivers/staging/autofs/autofs_i.h                  |  165 -
+ drivers/staging/autofs/dirhash.c                   |  260 --
+ drivers/staging/autofs/init.c                      |   52 -
+ drivers/staging/autofs/inode.c                     |  288 --
+ drivers/staging/autofs/root.c                      |  648 ----
+ drivers/staging/autofs/symlink.c                   |   26 -
+ drivers/staging/autofs/waitq.c                     |  205 --
+ drivers/staging/cx25821/Kconfig                    |    1 -
+ drivers/staging/cx25821/cx25821-alsa.c             |    2 +
+ drivers/staging/cx25821/cx25821-core.c             |   16 +-
+ drivers/staging/cx25821/cx25821-video.c            |    9 +-
+ drivers/staging/cx25821/cx25821.h                  |    3 +-
+ drivers/staging/easycap/easycap.h                  |    1 -
+ drivers/staging/easycap/easycap_ioctl.c            |    1 -
+ drivers/staging/go7007/Kconfig                     |    1 -
+ drivers/staging/go7007/s2250-loader.c              |    3 -
+ {fs => drivers/staging}/hpfs/Kconfig               |    5 +-
+ {fs => drivers/staging}/hpfs/Makefile              |    0
+ drivers/staging/hpfs/TODO                          |    5 +
+ {fs => drivers/staging}/hpfs/alloc.c               |    0
+ {fs => drivers/staging}/hpfs/anode.c               |    0
+ {fs => drivers/staging}/hpfs/buffer.c              |    0
+ {fs => drivers/staging}/hpfs/dentry.c              |    0
+ {fs => drivers/staging}/hpfs/dir.c                 |   23 +-
+ {fs => drivers/staging}/hpfs/dnode.c               |    0
+ {fs => drivers/staging}/hpfs/ea.c                  |    0
+ {fs => drivers/staging}/hpfs/file.c                |    9 +-
+ {fs => drivers/staging}/hpfs/hpfs.h                |    0
+ {fs => drivers/staging}/hpfs/hpfs_fn.h             |   36 +
+ {fs => drivers/staging}/hpfs/inode.c               |    9 +-
+ {fs => drivers/staging}/hpfs/map.c                 |    0
+ {fs => drivers/staging}/hpfs/name.c                |    0
+ {fs => drivers/staging}/hpfs/namei.c               |   49 +-
+ {fs => drivers/staging}/hpfs/super.c               |   21 +-
+ drivers/staging/smbfs/Kconfig                      |   56 -
+ drivers/staging/smbfs/Makefile                     |   18 -
+ drivers/staging/smbfs/TODO                         |    8 -
+ drivers/staging/smbfs/cache.c                      |  208 --
+ drivers/staging/smbfs/dir.c                        |  699 ----
+ drivers/staging/smbfs/file.c                       |  456 ---
+ drivers/staging/smbfs/getopt.c                     |   64 -
+ drivers/staging/smbfs/getopt.h                     |   14 -
+ drivers/staging/smbfs/inode.c                      |  854 -----
+ drivers/staging/smbfs/ioctl.c                      |   68 -
+ drivers/staging/smbfs/proc.c                       | 3502 --------------------
+ drivers/staging/smbfs/proto.h                      |   89 -
+ drivers/staging/smbfs/request.c                    |  817 -----
+ drivers/staging/smbfs/request.h                    |   70 -
+ drivers/staging/smbfs/smb.h                        |  118 -
+ drivers/staging/smbfs/smb_debug.h                  |   34 -
+ drivers/staging/smbfs/smb_fs.h                     |  153 -
+ drivers/staging/smbfs/smb_fs_i.h                   |   37 -
+ drivers/staging/smbfs/smb_fs_sb.h                  |  100 -
+ drivers/staging/smbfs/smb_mount.h                  |   65 -
+ drivers/staging/smbfs/smbfs.txt                    |    8 -
+ drivers/staging/smbfs/smbiod.c                     |  343 --
+ drivers/staging/smbfs/smbno.h                      |  363 --
+ drivers/staging/smbfs/sock.c                       |  385 ---
+ drivers/staging/smbfs/symlink.c                    |   67 -
+ drivers/staging/usbip/Kconfig                      |    2 +-
+ drivers/staging/usbip/stub.h                       |    4 +-
+ drivers/staging/usbip/stub_dev.c                   |   13 +-
+ drivers/staging/usbip/stub_rx.c                    |   13 +-
+ drivers/staging/usbip/stub_tx.c                    |   14 +-
+ drivers/staging/usbip/usbip_common.c               |  105 -
+ drivers/staging/usbip/usbip_common.h               |   20 +-
+ drivers/staging/usbip/usbip_event.c                |   31 +-
+ drivers/staging/usbip/vhci.h                       |    4 +-
+ drivers/staging/usbip/vhci_hcd.c                   |   10 +-
+ drivers/staging/usbip/vhci_rx.c                    |   16 +-
+ drivers/staging/usbip/vhci_sysfs.c                 |    9 +-
+ drivers/staging/usbip/vhci_tx.c                    |   14 +-
+ drivers/target/target_core_device.c                |    1 -
+ drivers/target/target_core_fabric_lib.c            |    1 -
+ drivers/target/target_core_file.c                  |    1 -
+ drivers/target/target_core_hba.c                   |    1 -
+ drivers/target/target_core_iblock.c                |    1 -
+ drivers/target/target_core_pscsi.c                 |    1 -
+ drivers/target/target_core_rd.c                    |    1 -
+ drivers/target/target_core_tpg.c                   |    1 -
+ drivers/target/target_core_transport.c             |    1 -
+ drivers/tty/n_hdlc.c                               |    1 -
+ drivers/tty/n_r3964.c                              |    1 -
+ drivers/tty/pty.c                                  |    1 -
+ drivers/tty/tty_io.c                               |    1 -
+ drivers/tty/tty_ldisc.c                            |    2 -
+ drivers/tty/vt/selection.c                         |    1 -
+ drivers/tty/vt/vc_screen.c                         |    1 -
+ drivers/tty/vt/vt.c                                |    1 -
+ drivers/tty/vt/vt_ioctl.c                          |    1 -
+ fs/Kconfig                                         |    1 -
+ fs/Makefile                                        |    1 -
+ fs/adfs/Kconfig                                    |    1 -
+ fs/adfs/dir.c                                      |    6 -
+ fs/adfs/inode.c                                    |    6 -
+ fs/adfs/super.c                                    |   13 +-
+ fs/compat_ioctl.c                                  |    1 -
+ fs/ufs/Kconfig                                     |    1 -
+ fs/ufs/inode.c                                     |   78 +-
+ fs/ufs/namei.c                                     |   35 +-
+ fs/ufs/super.c                                     |   55 +-
+ fs/ufs/truncate.c                                  |    5 +-
+ fs/ufs/ufs.h                                       |    6 +-
+ include/drm/Kbuild                                 |    1 -
+ include/drm/i830_drm.h                             |  342 --
+ include/linux/Kbuild                               |    1 -
+ include/linux/hardirq.h                            |    9 +-
+ include/linux/smp_lock.h                           |   65 -
+ include/trace/events/bkl.h                         |   61 -
+ init/Kconfig                                       |    5 -
+ kernel/rtmutex-tester.c                            |   39 +-
+ kernel/sched.c                                     |    7 -
+ lib/Makefile                                       |    1 -
+ lib/kernel_lock.c                                  |  143 -
+ net/Kconfig                                        |    1 -
+ net/Makefile                                       |    1 -
+ net/ipx/Kconfig                                    |    1 -
+ net/ipx/af_ipx.c                                   |   52 +-
+ net/socket.c                                       |    1 -
+ net/x25/Kconfig                                    |    1 -
+ net/x25/af_x25.c                                   |   61 +-
+ net/x25/x25_out.c                                  |    7 +-
+ 157 files changed, 356 insertions(+), 13722 deletions(-)
+ delete mode 100644 drivers/gpu/drm/i830/Makefile
+ delete mode 100644 drivers/gpu/drm/i830/i830_dma.c
+ delete mode 100644 drivers/gpu/drm/i830/i830_drv.c
+ delete mode 100644 drivers/gpu/drm/i830/i830_drv.h
+ delete mode 100644 drivers/gpu/drm/i830/i830_irq.c
+ delete mode 100644 drivers/net/appletalk/Makefile
+ rename drivers/{net => staging}/appletalk/Kconfig (98%)
+ rename {net => drivers/staging}/appletalk/Makefile (56%)
+ rename {net => drivers/staging}/appletalk/aarp.c (99%)
+ rename {include/linux => drivers/staging/appletalk}/atalk.h (100%)
+ rename {net => drivers/staging}/appletalk/atalk_proc.c (99%)
+ rename drivers/{net => staging}/appletalk/cops.c (99%)
+ rename drivers/{net => staging}/appletalk/cops.h (100%)
+ rename drivers/{net => staging}/appletalk/cops_ffdrv.h (100%)
+ rename drivers/{net => staging}/appletalk/cops_ltdrv.h (100%)
+ rename {net => drivers/staging}/appletalk/ddp.c (98%)
+ rename {net => drivers/staging}/appletalk/dev.c (100%)
+ rename drivers/{net => staging}/appletalk/ipddp.c (99%)
+ rename drivers/{net => staging}/appletalk/ipddp.h (100%)
+ rename drivers/{net => staging}/appletalk/ltpc.c (99%)
+ rename drivers/{net => staging}/appletalk/ltpc.h (100%)
+ rename {net => drivers/staging}/appletalk/sysctl_net_atalk.c (98%)
+ delete mode 100644 drivers/staging/autofs/Kconfig
+ delete mode 100644 drivers/staging/autofs/Makefile
+ delete mode 100644 drivers/staging/autofs/TODO
+ delete mode 100644 drivers/staging/autofs/autofs_i.h
+ delete mode 100644 drivers/staging/autofs/dirhash.c
+ delete mode 100644 drivers/staging/autofs/init.c
+ delete mode 100644 drivers/staging/autofs/inode.c
+ delete mode 100644 drivers/staging/autofs/root.c
+ delete mode 100644 drivers/staging/autofs/symlink.c
+ delete mode 100644 drivers/staging/autofs/waitq.c
+ rename {fs => drivers/staging}/hpfs/Kconfig (80%)
+ rename {fs => drivers/staging}/hpfs/Makefile (100%)
+ create mode 100644 drivers/staging/hpfs/TODO
+ rename {fs => drivers/staging}/hpfs/alloc.c (100%)
+ rename {fs => drivers/staging}/hpfs/anode.c (100%)
+ rename {fs => drivers/staging}/hpfs/buffer.c (100%)
+ rename {fs => drivers/staging}/hpfs/dentry.c (100%)
+ rename {fs => drivers/staging}/hpfs/dir.c (97%)
+ rename {fs => drivers/staging}/hpfs/dnode.c (100%)
+ rename {fs => drivers/staging}/hpfs/ea.c (100%)
+ rename {fs => drivers/staging}/hpfs/file.c (97%)
+ rename {fs => drivers/staging}/hpfs/hpfs.h (100%)
+ rename {fs => drivers/staging}/hpfs/hpfs_fn.h (91%)
+ rename {fs => drivers/staging}/hpfs/inode.c (98%)
+ rename {fs => drivers/staging}/hpfs/map.c (100%)
+ rename {fs => drivers/staging}/hpfs/name.c (100%)
+ rename {fs => drivers/staging}/hpfs/namei.c (96%)
+ rename {fs => drivers/staging}/hpfs/super.c (98%)
+ delete mode 100644 drivers/staging/smbfs/Kconfig
+ delete mode 100644 drivers/staging/smbfs/Makefile
+ delete mode 100644 drivers/staging/smbfs/TODO
+ delete mode 100644 drivers/staging/smbfs/cache.c
+ delete mode 100644 drivers/staging/smbfs/dir.c
+ delete mode 100644 drivers/staging/smbfs/file.c
+ delete mode 100644 drivers/staging/smbfs/getopt.c
+ delete mode 100644 drivers/staging/smbfs/getopt.h
+ delete mode 100644 drivers/staging/smbfs/inode.c
+ delete mode 100644 drivers/staging/smbfs/ioctl.c
+ delete mode 100644 drivers/staging/smbfs/proc.c
+ delete mode 100644 drivers/staging/smbfs/proto.h
+ delete mode 100644 drivers/staging/smbfs/request.c
+ delete mode 100644 drivers/staging/smbfs/request.h
+ delete mode 100644 drivers/staging/smbfs/smb.h
+ delete mode 100644 drivers/staging/smbfs/smb_debug.h
+ delete mode 100644 drivers/staging/smbfs/smb_fs.h
+ delete mode 100644 drivers/staging/smbfs/smb_fs_i.h
+ delete mode 100644 drivers/staging/smbfs/smb_fs_sb.h
+ delete mode 100644 drivers/staging/smbfs/smb_mount.h
+ delete mode 100644 drivers/staging/smbfs/smbfs.txt
+ delete mode 100644 drivers/staging/smbfs/smbiod.c
+ delete mode 100644 drivers/staging/smbfs/smbno.h
+ delete mode 100644 drivers/staging/smbfs/sock.c
+ delete mode 100644 drivers/staging/smbfs/symlink.c
+ delete mode 100644 include/drm/i830_drm.h
+ delete mode 100644 include/linux/smp_lock.h
+ delete mode 100644 include/trace/events/bkl.h
+ delete mode 100644 lib/kernel_lock.c
+
+[re-sent to mailing lists, due to overly long
+ Cc list getting rejected by vger]
+
+Cc: autofs@linux.kernel.org
+Cc: dri-devel@lists.freedesktop.org
+Cc: linux-cifs@vger.kernel.org
+Cc: linux-fsdevel@vger.kernel.org
 Cc: linux-x25@vger.kernel.org
 Cc: netdev@vger.kernel.org
----
- net/x25/Kconfig   |    1 -
- net/x25/af_x25.c  |   61 ++++++++++++++++------------------------------------
- net/x25/x25_out.c |    7 ++++-
- 3 files changed, 24 insertions(+), 45 deletions(-)
-
-diff --git a/net/x25/Kconfig b/net/x25/Kconfig
-index 2196e55..e6759c9 100644
---- a/net/x25/Kconfig
-+++ b/net/x25/Kconfig
-@@ -5,7 +5,6 @@
- config X25
- 	tristate "CCITT X.25 Packet Layer (EXPERIMENTAL)"
- 	depends on EXPERIMENTAL
--	depends on BKL # should be fixable
- 	---help---
- 	  X.25 is a set of standardized network protocols, similar in scope to
- 	  frame relay; the one physical line from your box to the X.25 network
-diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
-index ad96ee9..8f5d1bb 100644
---- a/net/x25/af_x25.c
-+++ b/net/x25/af_x25.c
-@@ -40,7 +40,6 @@
- #include <linux/errno.h>
- #include <linux/kernel.h>
- #include <linux/sched.h>
--#include <linux/smp_lock.h>
- #include <linux/timer.h>
- #include <linux/string.h>
- #include <linux/net.h>
-@@ -432,15 +431,6 @@ void x25_destroy_socket_from_timer(struct sock *sk)
- 	sock_put(sk);
- }
- 
--static void x25_destroy_socket(struct sock *sk)
--{
--	sock_hold(sk);
--	lock_sock(sk);
--	__x25_destroy_socket(sk);
--	release_sock(sk);
--	sock_put(sk);
--}
--
- /*
-  *	Handling for system calls applied via the various interfaces to a
-  *	X.25 socket object.
-@@ -647,18 +637,19 @@ static int x25_release(struct socket *sock)
- 	struct sock *sk = sock->sk;
- 	struct x25_sock *x25;
- 
--	lock_kernel();
- 	if (!sk)
--		goto out;
-+		return 0;
- 
- 	x25 = x25_sk(sk);
- 
-+	sock_hold(sk);
-+	lock_sock(sk);
- 	switch (x25->state) {
- 
- 		case X25_STATE_0:
- 		case X25_STATE_2:
- 			x25_disconnect(sk, 0, 0, 0);
--			x25_destroy_socket(sk);
-+			__x25_destroy_socket(sk);
- 			goto out;
- 
- 		case X25_STATE_1:
-@@ -678,7 +669,8 @@ static int x25_release(struct socket *sock)
- 
- 	sock_orphan(sk);
- out:
--	unlock_kernel();
-+	release_sock(sk);
-+	sock_put(sk);
- 	return 0;
- }
- 
-@@ -1085,7 +1077,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 	size_t size;
- 	int qbit = 0, rc = -EINVAL;
- 
--	lock_kernel();
-+	lock_sock(sk);
- 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_OOB|MSG_EOR|MSG_CMSG_COMPAT))
- 		goto out;
- 
-@@ -1148,9 +1140,10 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	size = len + X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
- 
-+	release_sock(sk);
- 	skb = sock_alloc_send_skb(sk, size, noblock, &rc);
--	if (!skb)
--		goto out;
-+	lock_sock(sk);
-+
- 	X25_SKB_CB(skb)->flags = msg->msg_flags;
- 
- 	skb_reserve(skb, X25_MAX_L2_LEN + X25_EXT_MIN_LEN);
-@@ -1231,26 +1224,10 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			len++;
- 	}
- 
--	/*
--	 * lock_sock() is currently only used to serialize this x25_kick()
--	 * against input-driven x25_kick() calls. It currently only blocks
--	 * incoming packets for this socket and does not protect against
--	 * any other socket state changes and is not called from anywhere
--	 * else. As x25_kick() cannot block and as long as all socket
--	 * operations are BKL-wrapped, we don't need take to care about
--	 * purging the backlog queue in x25_release().
--	 *
--	 * Using lock_sock() to protect all socket operations entirely
--	 * (and making the whole x25 stack SMP aware) unfortunately would
--	 * require major changes to {send,recv}msg and skb allocation methods.
--	 * -> 2.5 ;)
--	 */
--	lock_sock(sk);
- 	x25_kick(sk);
--	release_sock(sk);
- 	rc = len;
- out:
--	unlock_kernel();
-+	release_sock(sk);
- 	return rc;
- out_kfree_skb:
- 	kfree_skb(skb);
-@@ -1271,7 +1248,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
- 	unsigned char *asmptr;
- 	int rc = -ENOTCONN;
- 
--	lock_kernel();
-+	lock_sock(sk);
- 	/*
- 	 * This works for seqpacket too. The receiver has ordered the queue for
- 	 * us! We do one quick check first though
-@@ -1300,8 +1277,10 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		msg->msg_flags |= MSG_OOB;
- 	} else {
- 		/* Now we can treat all alike */
-+		release_sock(sk);
- 		skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
- 					flags & MSG_DONTWAIT, &rc);
-+		lock_sock(sk);
- 		if (!skb)
- 			goto out;
- 
-@@ -1338,14 +1317,12 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
- 
- 	msg->msg_namelen = sizeof(struct sockaddr_x25);
- 
--	lock_sock(sk);
- 	x25_check_rbuf(sk);
--	release_sock(sk);
- 	rc = copied;
- out_free_dgram:
- 	skb_free_datagram(sk, skb);
- out:
--	unlock_kernel();
-+	release_sock(sk);
- 	return rc;
- }
- 
-@@ -1581,18 +1558,18 @@ out_cud_release:
- 
- 		case SIOCX25CALLACCPTAPPRV: {
- 			rc = -EINVAL;
--			lock_kernel();
-+			lock_sock(sk);
- 			if (sk->sk_state != TCP_CLOSE)
- 				break;
- 			clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
--			unlock_kernel();
-+			release_sock(sk);
- 			rc = 0;
- 			break;
- 		}
- 
- 		case SIOCX25SENDCALLACCPT:  {
- 			rc = -EINVAL;
--			lock_kernel();
-+			lock_sock(sk);
- 			if (sk->sk_state != TCP_ESTABLISHED)
- 				break;
- 			/* must call accptapprv above */
-@@ -1600,7 +1577,7 @@ out_cud_release:
- 				break;
- 			x25_write_internal(sk, X25_CALL_ACCEPTED);
- 			x25->state = X25_STATE_3;
--			unlock_kernel();
-+			release_sock(sk);
- 			rc = 0;
- 			break;
- 		}
-diff --git a/net/x25/x25_out.c b/net/x25/x25_out.c
-index d00649f..f1a6ff1 100644
---- a/net/x25/x25_out.c
-+++ b/net/x25/x25_out.c
-@@ -68,8 +68,11 @@ int x25_output(struct sock *sk, struct sk_buff *skb)
- 		frontlen = skb_headroom(skb);
- 
- 		while (skb->len > 0) {
--			if ((skbn = sock_alloc_send_skb(sk, frontlen + max_len,
--							noblock, &err)) == NULL){
-+			release_sock(sk);
-+			skbn = sock_alloc_send_skb(sk, frontlen + max_len,
-+						   1, &err);
-+			lock_sock(sk);
-+			if (!skbn) {
- 				if (err == -EWOULDBLOCK && noblock){
- 					kfree_skb(skb);
- 					return sent;
--- 
-1.7.1
