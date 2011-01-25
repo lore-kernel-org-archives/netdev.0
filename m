@@ -1,51 +1,65 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] ipv6: Revert 'administrative down' address handling changes.
-Date: Tue, 25 Jan 2011 00:51:19 -0800
-Message-ID: <m1zkqp2woo.fsf@fess.ebiederm.org>
-References: <20110123.234101.71098533.davem@davemloft.net>
-	<20110124.233813.246546891.davem@davemloft.net>
+From: Yong Zhang <yong.zhang0@gmail.com>
+Subject: Re: [PATCH] net: NETCONSOLE_DYNAMIC need CONFIGFS_FS=y
+Date: Tue, 25 Jan 2011 17:01:35 +0800
+Message-ID: <AANLkTi=rL=rwhCPFedynBQm4Osf-8FjQBRwDi3bCrtq7@mail.gmail.com>
+References: <1295943748-9699-1-git-send-email-yong.zhang0@gmail.com>
+	<20110125083915.GE13618@cr0.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, brian.haley@hp.com,
-	lorenzo@google.com, herbert@gondor.hengli.com.au
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	nab@linux-iscsi.org, "David S. Miller" <davem@davemloft.net>,
+	Kevin Hilman <khilman@deeprootsystems.com>
+To: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:51516 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753104Ab1AYIv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 03:51:27 -0500
-In-Reply-To: <20110124.233813.246546891.davem@davemloft.net> (David Miller's
-	message of "Mon, 24 Jan 2011 23:38:13 -0800 (PST)")
+Received: from mail-yi0-f46.google.com ([209.85.218.46]:48291 "EHLO
+	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752511Ab1AYJBg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 04:01:36 -0500
+In-Reply-To: <20110125083915.GE13618@cr0.nay.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> writes:
-
-> From: David Miller <davem@davemloft.net>
-> Date: Sun, 23 Jan 2011 23:41:01 -0800 (PST)
+On Tue, Jan 25, 2011 at 4:39 PM, Am=C3=A9rico Wang <xiyou.wangcong@gmai=
+l.com> wrote:
+> On Tue, Jan 25, 2011 at 04:22:28PM +0800, Yong Zhang wrote:
+>>With CONFIGFS_FS=3Dm && NETCONSOLE_DYNAMIC=3Dy, build error:
+>>
+>>drivers/built-in.o: In function `netconsole_target_put':
+>>build/drivers/net/netconsole.c:133: undefined reference to `config_it=
+em_put'
+>>drivers/built-in.o: In function `netconsole_target_get':
+>>build/drivers/net/netconsole.c:127: undefined reference to `config_it=
+em_get'
+>>build/drivers/net/netconsole.c:127: undefined reference to `config_it=
+em_get'
+>>drivers/built-in.o: In function `netconsole_target_put':
+>>build/drivers/net/netconsole.c:133: undefined reference to `config_it=
+em_put'
+>>drivers/built-in.o: In function `drop_netconsole_target':
+>>build/drivers/net/netconsole.c:634: undefined reference to `config_it=
+em_put'
+>>drivers/built-in.o: In function `make_netconsole_target':
+>>build/drivers/net/netconsole.c:607: undefined reference to `config_it=
+em_init_type_name'
+>>drivers/built-in.o: In function `dynamic_netconsole_init':
+>>build/drivers/net/netconsole.c:109: undefined reference to `config_gr=
+oup_init'
+>>build/drivers/net/netconsole.c:111: undefined reference to `configfs_=
+register_subsystem'
+>>drivers/built-in.o: In function `dynamic_netconsole_exit':
+>>build/drivers/net/netconsole.c:116: undefined reference to `configfs_=
+unregister_subsystem'
+>>
 >
->> Eric B. and co., please do some testing to make sure all of your
->> disable_ipv6 cases are functioning properly with this applied.
->
-> Ping?
+> Yeah, this was reported, another way to fix this is "select CONFIGFS_=
+=46S".
+> Using "select" makes you configure NETCONSOLE_DYNAMIC without caring
+> about if you have configured CONFIGFS_FS=3Dy, which seems better.
 
-In progress.  I had to make a small change to your patch to get it
-to apply against 2.6.37.  neigh_ifdown has not been removed from the
-beginning of addrconf_ifdown there.  The piece that was failing for
-me is not failing now so, so far so good.
+OK. Find the original reporting.
 
-It was reported that in 2.6.37 there was a new regression that
-1connecting to ::1 when ipv6 was disabled would not fail immediately but
-would have to wait a while.  With your patch applied I am not seeing
-that behavior either.
+Sorry for the noise.
 
-Tomorrow I should know if I see any weird side effects with your patch,
-after my regression tests for everything else have finished running.
-
-My apologies for not testing Stephens patch more thoroughly in the lead
-up to 2.6.37.  I goofed and bear some of the responsibility.  Hopefully
-we can get the deeper problems fixed, and make Stephens use case work as
-well.
-
-Eric
-
+--=20
+Only stand for myself
