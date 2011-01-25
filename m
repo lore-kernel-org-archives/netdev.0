@@ -1,120 +1,85 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v3 00/16] make rpc_pipefs be mountable multiple time
-Date: Mon, 24 Jan 2011 19:25:18 -0500
-Message-ID: <20110125002518.GE22575@fieldses.org>
-References: <1295012954-7769-1-git-send-email-kas@openvz.org>
- <20110124235545.GA793@shutemov.name>
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Subject: Re: panic in tg3 driver
+Date: Mon, 24 Jan 2011 16:59:22 -0800
+Message-ID: <20110125005922.GA19701@mcarlson.broadcom.com>
+References: <4D2334B5.1060408@earthlink.net>
+ <4D2A371A.40103@earthlink.net>
+ <20110110192216.GA23741@mcarlson.broadcom.com>
+ <4D2B6652.7040607@earthlink.net>
+ <20110111020055.GA25351@mcarlson.broadcom.com>
+ <4D2C64EF.1080905@earthlink.net>
+ <20110112030652.GA27164@mcarlson.broadcom.com>
+ <4D2EFA44.8080008@earthlink.net> <4D3334E6.40100@earthlink.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Neil Brown <neilb-l3A5Bk7waGM@public.gmane.org>,
-	Pavel Emelyanov <xemul-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Rob Landley <rlandley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Al Viro <viro-3bDd1+5oDREiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "Kirill A. Shutemov" <kas-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Matthew Carlson" <mcarlson@broadcom.com>,
+	"Linux Kernel Network Developers" <netdev@vger.kernel.org>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Stephen Clark" <sclark46@earthlink.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1772 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751374Ab1AYA7b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 19:59:31 -0500
+In-Reply-To: <4D3334E6.40100@earthlink.net>
 Content-Disposition: inline
-In-Reply-To: <20110124235545.GA793-oKw7cIdHH8eLwutG50LtGA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 25, 2011 at 01:55:45AM +0200, Kirill A. Shutemov wrote:
-> On Fri, Jan 14, 2011 at 03:48:58PM +0200, Kirill A. Shutemov wrote:
-> > Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-> > Only for client for now.
-> > 
-> > It's step forwart to get nfs work from container.
-> 
-> Any feedback?
+On Sun, Jan 16, 2011 at 10:11:50AM -0800, Stephen Clark wrote:
+> On 01/13/2011 08:12 AM, Stephen Clark wrote:
+> > On 01/11/2011 10:06 PM, Matt Carlson wrote:
+> >> lspci -vvv -xxx -s 81:00.0
+> >
+> >
+> >
+> > Further information - I found these messages in /var/log/messages. It 
+> > looks
+> > like after it switched to INTx mode interrupts for other devices were 
+> > hosed.
+> >
+> > Jan 12 08:37:49 localhost kernel: tg3 0000:81:00.0: eth2: No interrupt 
+> > was gener
+> > ated using MSI. Switching to INTx mode. Please report this failure to 
+> > the PCI ma
+> > intainer and include system chipset information
+> > Jan 12 08:37:49 localhost kernel: ADDRCONF(NETDEV_UP): eth2: link is 
+> > not ready
+> > Jan 12 08:38:50 localhost kernel: ata2: lost interrupt (Status 0x50)
+> > Jan 12 08:38:50 localhost kernel: ata2.01: exception Emask 0x0 SAct 
+> > 0x0 SErr 0x0
+> >  action 0x6 frozen
+> > Jan 12 08:38:50 localhost kernel: ata2.01: failed command: WRITE DMA
+> > Jan 12 08:38:50 localhost kernel: ata2.01: cmd 
+> > ca/00:08:e0:bc:51/00:00:00:00:00/f0 tag 0 dma 4096 out
+> > Jan 12 08:38:50 localhost kernel:          res 
+> > 40/00:01:00:4f:c2/00:00:00:00:00/b0 Emask 0x4 (timeout)
+> > Jan 12 08:38:50 localhost kernel: ata2.01: status: { DRDY }
+> > Jan 12 08:38:50 localhost kernel: ata2: soft resetting link
+> > Jan 12 08:38:50 localhost kernel: do_IRQ: 0.64 No irq handler for 
+> > vector (irq -1)
+> > Jan 12 08:38:50 localhost kernel: ata2.01: configured for UDMA/33
+> > Jan 12 08:38:54 localhost pppd[1983]: No response to 3 echo-requests
+> > Jan 12 08:39:55 localhost pppoe[1988]: Inactivity timeout... something 
+> > wicked happened on session 3363 
+> Just checking to make sure you have everything you need?
 
-I haven't seen any more problems with them, but also haven't looked all
-that closely; I'm assuming Trond will handle them up at some point....
+Sorry for the delay Stephen.
 
-(Trond, tell me if I assume wrong.)
+It looks to me like interrupts aren't being setup correctly on this
+system.  I tested MSI and INTx interrupt modes locally and they both
+work.  I'm guessing one of two things could be happening:
 
---b.
+1) The 2nd parameter of the low-level ISR (tg3_interrupt_tagged()) is
+   not correct.  The ISR tries to tell the hardware the interrupt is
+   acknowledged, but the message goes unheard.  (This might also explain
+   why other devices are also afflicted.)
 
-> 
-> > Changelog:
-> > 
-> > v3:
-> >  - rebase to the current Linus' tree (52cfd503ad)
-> >  - rework get_rpc_pipefs() once again;
-> >  - solve problem with rmmod sunrpc moudle;
-> >  - free dns cache on killing rpc_pipefs superblock.
-> > 
-> > v2:
-> >  - one of rpc_create() calls was missed initially, fixed;
-> >  - change logic for get_rpc_pipefs(NULL);
-> >  - export get_rpc_pipefs() to be able to use from modules (tnx J. Bruce Field);
-> >  - change "From:" and "Signed-off-by:" addresses.
-> > 
-> > v1:
-> >  - initial revision of the patchset.
-> > 
-> > Kirill A. Shutemov (16):
-> >   sunrpc: mount rpc_pipefs on initialization
-> >   sunrpc: introduce init_rpc_pipefs
-> >   sunrpc: push init_rpc_pipefs up to rpc_create() callers
-> >   sunrpc: tag svc_serv with rpc_pipefs mount point
-> >   sunrpc: get rpc_pipefs mount point for svc_serv from callers
-> >   lockd: get rpc_pipefs mount point from callers
-> >   sunrpc: get rpc_pipefs mount point for rpcb_create[_local] from
-> >     callers
-> >   sunrpc: tag pipefs field of cache_detail with rpc_pipefs mount point
-> >   sunrpc: introduce rpc_pipefs_add_destroy_cb()
-> >   nfs: per-rpc_pipefs dns cache
-> >   Export iterate_mounts symbol to be able to use from sunrpc module.
-> >   sunrpc: introduce get_rpc_pipefs()
-> >   nfs: introduce mount option 'rpcmount'
-> >   sunrpc: make rpc_pipefs be mountable multiple times
-> >   sunrpc: remove global init_rpc_pipefs
-> >   Rework get_rpc_pipefs and introduce put_rpc_pipefs()
-> > 
-> >  fs/lockd/clntlock.c                |    8 +-
-> >  fs/lockd/host.c                    |   15 ++-
-> >  fs/lockd/mon.c                     |   13 ++-
-> >  fs/lockd/svc.c                     |    4 +-
-> >  fs/namespace.c                     |    1 +
-> >  fs/nfs/cache_lib.c                 |   18 +--
-> >  fs/nfs/cache_lib.h                 |    3 +-
-> >  fs/nfs/callback.c                  |    7 +-
-> >  fs/nfs/callback.h                  |    3 +-
-> >  fs/nfs/client.c                    |   45 ++++++-
-> >  fs/nfs/dns_resolve.c               |  137 ++++++++++++++++-----
-> >  fs/nfs/dns_resolve.h               |   15 +--
-> >  fs/nfs/inode.c                     |    9 +--
-> >  fs/nfs/internal.h                  |   10 ++-
-> >  fs/nfs/mount_clnt.c                |    1 +
-> >  fs/nfs/namespace.c                 |    3 +-
-> >  fs/nfs/nfs4namespace.c             |   20 ++--
-> >  fs/nfs/super.c                     |   20 +++
-> >  fs/nfsd/nfs4callback.c             |    5 +
-> >  fs/nfsd/nfssvc.c                   |   20 +++-
-> >  include/linux/lockd/bind.h         |    3 +-
-> >  include/linux/lockd/lockd.h        |    4 +-
-> >  include/linux/nfs_fs_sb.h          |    1 +
-> >  include/linux/sunrpc/cache.h       |    9 +-
-> >  include/linux/sunrpc/clnt.h        |    5 +-
-> >  include/linux/sunrpc/rpc_pipe_fs.h |    7 +-
-> >  include/linux/sunrpc/svc.h         |    9 +-
-> >  net/sunrpc/cache.c                 |   16 ++-
-> >  net/sunrpc/clnt.c                  |   19 ++--
-> >  net/sunrpc/rpc_pipe.c              |  235 ++++++++++++++++++++++++++++++++----
-> >  net/sunrpc/rpcb_clnt.c             |   19 ++-
-> >  net/sunrpc/svc.c                   |   52 +++++---
-> >  32 files changed, 549 insertions(+), 187 deletions(-)
-> > 
-> > -- 
-> > 1.7.3.4
-> > 
-> 
-> -- 
->  Kirill A. Shutemov
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2) Something is blocking the delivery of the interrupt to the tg3 driver
+   altogether.
+
+In both cases, the hardware persistently nags the host to ack the
+interrupt, hence the interrupt storm.
+
