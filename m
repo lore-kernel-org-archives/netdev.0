@@ -1,74 +1,38 @@
-From: Yong Zhang <yong.zhang0@gmail.com>
-Subject: Re: [PATCH] net: NETCONSOLE_DYNAMIC need CONFIGFS_FS=y
-Date: Tue, 25 Jan 2011 16:44:03 +0800
-Message-ID: <AANLkTi=To_JsnqrEz03ia15HSWWNjxNHpa3hSOnmFZ9z@mail.gmail.com>
-References: <1295943748-9699-1-git-send-email-yong.zhang0@gmail.com>
-	<20110125083915.GE13618@cr0.nay.redhat.com>
-	<AANLkTi=4HkAnwGVxypjGZHkwTbBrBvKk4ZOPnHG+SVRS@mail.gmail.com>
+From: Sakari Ailus <sakari.ailus@iki.fi>
+Subject: Re: [PATCH v2 2/2] tlan: add suspend/resume support
+Date: Tue, 25 Jan 2011 10:44:26 +0200
+Message-ID: <4D3E8D6A.5040705@iki.fi>
+References: <4D39F3A7.9050106@iki.fi>	<1295643571-21216-1-git-send-email-sakari.ailus@iki.fi>	<1295643571-21216-2-git-send-email-sakari.ailus@iki.fi> <20110124.150728.246519223.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	nab@linux-iscsi.org, "David S. Miller" <davem@davemloft.net>,
-	Kevin Hilman <khilman@deeprootsystems.com>
-To: =?UTF-8?Q?Am=C3=A9rico_Wang?= <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=4HkAnwGVxypjGZHkwTbBrBvKk4ZOPnHG+SVRS@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, chessman@tux.org, joe@perches.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-68.nebula.fi ([83.145.220.68]:46474 "EHLO
+	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753020Ab1AYIo3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 03:44:29 -0500
+In-Reply-To: <20110124.150728.246519223.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 25, 2011 at 4:42 PM, Yong Zhang <yong.zhang0@gmail.com> wro=
-te:
-> On Tue, Jan 25, 2011 at 4:39 PM, Am=C3=A9rico Wang <xiyou.wangcong@gm=
-ail.com> wrote:
->> On Tue, Jan 25, 2011 at 04:22:28PM +0800, Yong Zhang wrote:
->>>With CONFIGFS_FS=3Dm && NETCONSOLE_DYNAMIC=3Dy, build error:
->>>
->>>drivers/built-in.o: In function `netconsole_target_put':
->>>build/drivers/net/netconsole.c:133: undefined reference to `config_i=
-tem_put'
->>>drivers/built-in.o: In function `netconsole_target_get':
->>>build/drivers/net/netconsole.c:127: undefined reference to `config_i=
-tem_get'
->>>build/drivers/net/netconsole.c:127: undefined reference to `config_i=
-tem_get'
->>>drivers/built-in.o: In function `netconsole_target_put':
->>>build/drivers/net/netconsole.c:133: undefined reference to `config_i=
-tem_put'
->>>drivers/built-in.o: In function `drop_netconsole_target':
->>>build/drivers/net/netconsole.c:634: undefined reference to `config_i=
-tem_put'
->>>drivers/built-in.o: In function `make_netconsole_target':
->>>build/drivers/net/netconsole.c:607: undefined reference to `config_i=
-tem_init_type_name'
->>>drivers/built-in.o: In function `dynamic_netconsole_init':
->>>build/drivers/net/netconsole.c:109: undefined reference to `config_g=
-roup_init'
->>>build/drivers/net/netconsole.c:111: undefined reference to `configfs=
-_register_subsystem'
->>>drivers/built-in.o: In function `dynamic_netconsole_exit':
->>>build/drivers/net/netconsole.c:116: undefined reference to `configfs=
-_unregister_subsystem'
->>>
+David Miller wrote:
+> From: Sakari Ailus<sakari.ailus@iki.fi>
+> Date: Fri, 21 Jan 2011 22:59:31 +0200
+>
+>> Add suspend/resume support to tlan driver. This allows not unloading the
+>> driver over suspend/resume.
 >>
->> Yeah, this was reported, another way to fix this is "select CONFIGFS=
-_FS".
->> Using "select" makes you configure NETCONSOLE_DYNAMIC without caring
->> about if you have configured CONFIGFS_FS=3Dy, which seems better.
+>> Also, start (or now, wake) the queue after resetting the adapter --- not the
+>> other way around.
+>>
+>> Signed-off-by: Sakari Ailus<sakari.ailus@iki.fi>
 >
-> You mean commit d9f9ab51e55e36379773752ffeaac677b080d469?
+> Applied.
 
-That commit show "select CONFIGFS_FS" is the wrong way :(
+Thanks, David!
 
->
-> Thanks,
-> Yong
->
-> --
-> Only stand for myself
->
-
-
-
---=20
-Only stand for myself
+-- 
+Sakari Ailus
+sakari.ailus@iki.fi
