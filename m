@@ -1,33 +1,47 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL nf-next-2.6] IPVS changes for 2.6.38-rc3
-Date: Tue, 25 Jan 2011 23:17:04 +1000
-Message-ID: <1295961426-7402-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH 1/2] IPVS netns BUG, register sysctl for root ns
+Date: Tue, 25 Jan 2011 23:17:05 +1000
+Message-ID: <1295961426-7402-2-git-send-email-horms@verge.net.au>
+References: <1295961426-7402-1-git-send-email-horms@verge.net.au>
 Cc: Changli Gao <xiaosuo@gmail.com>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>
+	Patrick McHardy <kaber@trash.net>,
+	Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	Simon Horman <horms@verge.net.au>
 To: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:33204 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:33210 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753082Ab1AYNRM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 08:17:12 -0500
+	with ESMTP id S1753183Ab1AYNRN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 08:17:13 -0500
+In-Reply-To: <1295961426-7402-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick,
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-please consider pulling
-  git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
+The newly created table was not used when register sysctl for a new namespace.
+I.e. sysctl doesn't work for other than root namespace (init_net)
 
-Which includes the following changes, both of which I believe 2.6.38 material.
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Changli Gao (1):
-      netfilter: ipvs: fix compiler warnings
-
-Hans Schillstrom (1):
-      IPVS netns BUG, register sysctl for root ns
-
- net/netfilter/ipvs/ip_vs_core.c |    4 +---
- net/netfilter/ipvs/ip_vs_ctl.c  |    2 +-
- 2 files changed, 2 insertions(+), 4 deletions(-)
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 68b8033..98df59a 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3556,7 +3556,7 @@ int __net_init __ip_vs_control_init(struct net *net)
+ 
+ 
+ 	ipvs->sysctl_hdr = register_net_sysctl_table(net, net_vs_ctl_path,
+-						  vs_vars);
++						     tbl);
+ 	if (ipvs->sysctl_hdr == NULL)
+ 		goto err_reg;
+ 	ip_vs_new_estimator(net, ipvs->tot_stats);
+-- 
+1.7.2.3
 
