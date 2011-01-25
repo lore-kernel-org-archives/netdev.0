@@ -1,194 +1,243 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 14/20] staging/appletalk: remove the BKL
-Date: Tue, 25 Jan 2011 23:17:28 +0100
-Message-ID: <1295993854-4971-15-git-send-email-arnd@arndb.de>
+Subject: [PATCH 12/20] x25: remove the BKL
+Date: Tue, 25 Jan 2011 23:17:26 +0100
+Message-ID: <1295993854-4971-13-git-send-email-arnd@arndb.de>
 References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
 Cc: Arnd Bergmann <arnd@arndb.de>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	netdev@vger.kernel.org
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	linux-x25@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1295993854-4971-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This changes appletalk to use lock_sock instead of
-lock_kernel for serialization. I tried to make sure
-that we don't hold the socket lock during sleeping
-functions, but I did not try to prove whether the
-locks are necessary in the first place.
+This replaces all instances of lock_kernel in x25
+with lock_sock, taking care to release the socket
+lock around sleeping functions (sock_alloc_send_skb
+and skb_recv_datagram). It is not clear whether
+this is a correct solution, but it seem to be what
+other protocols do in the same situation.
 
 Compile-tested only.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Cc: linux-x25@vger.kernel.org
 Cc: netdev@vger.kernel.org
 ---
- drivers/staging/appletalk/Kconfig |    1 -
- drivers/staging/appletalk/ddp.c   |   40 ++++++++++++++----------------------
- 2 files changed, 16 insertions(+), 25 deletions(-)
+ net/x25/Kconfig   |    1 -
+ net/x25/af_x25.c  |   61 ++++++++++++++++------------------------------------
+ net/x25/x25_out.c |    7 ++++-
+ 3 files changed, 24 insertions(+), 45 deletions(-)
 
-diff --git a/drivers/staging/appletalk/Kconfig b/drivers/staging/appletalk/Kconfig
-index 0b376a9..f5a8916 100644
---- a/drivers/staging/appletalk/Kconfig
-+++ b/drivers/staging/appletalk/Kconfig
-@@ -3,7 +3,6 @@
- #
- config ATALK
- 	tristate "Appletalk protocol support"
--	depends on BKL # waiting to be removed from net/appletalk/ddp.c
- 	select LLC
+diff --git a/net/x25/Kconfig b/net/x25/Kconfig
+index 2196e55..e6759c9 100644
+--- a/net/x25/Kconfig
++++ b/net/x25/Kconfig
+@@ -5,7 +5,6 @@
+ config X25
+ 	tristate "CCITT X.25 Packet Layer (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL
+-	depends on BKL # should be fixable
  	---help---
- 	  AppleTalk is the protocol that Apple computers can use to communicate
-diff --git a/drivers/staging/appletalk/ddp.c b/drivers/staging/appletalk/ddp.c
-index 940dd19..0e2240c 100644
---- a/drivers/staging/appletalk/ddp.c
-+++ b/drivers/staging/appletalk/ddp.c
-@@ -54,7 +54,6 @@
- #include <linux/capability.h>
- #include <linux/module.h>
- #include <linux/if_arp.h>
+ 	  X.25 is a set of standardized network protocols, similar in scope to
+ 	  frame relay; the one physical line from your box to the X.25 network
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index ad96ee9..8f5d1bb 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -40,7 +40,6 @@
+ #include <linux/errno.h>
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
 -#include <linux/smp_lock.h>
- #include <linux/termios.h>	/* For TIOCOUTQ/INQ */
- #include <linux/compat.h>
- #include <linux/slab.h>
-@@ -1052,13 +1051,13 @@ static int atalk_release(struct socket *sock)
- {
+ #include <linux/timer.h>
+ #include <linux/string.h>
+ #include <linux/net.h>
+@@ -432,15 +431,6 @@ void x25_destroy_socket_from_timer(struct sock *sk)
+ 	sock_put(sk);
+ }
+ 
+-static void x25_destroy_socket(struct sock *sk)
+-{
+-	sock_hold(sk);
+-	lock_sock(sk);
+-	__x25_destroy_socket(sk);
+-	release_sock(sk);
+-	sock_put(sk);
+-}
+-
+ /*
+  *	Handling for system calls applied via the various interfaces to a
+  *	X.25 socket object.
+@@ -647,18 +637,19 @@ static int x25_release(struct socket *sock)
  	struct sock *sk = sock->sk;
+ 	struct x25_sock *x25;
  
 -	lock_kernel();
+ 	if (!sk)
+-		goto out;
++		return 0;
+ 
+ 	x25 = x25_sk(sk);
+ 
++	sock_hold(sk);
 +	lock_sock(sk);
- 	if (sk) {
- 		sock_orphan(sk);
- 		sock->sk = NULL;
- 		atalk_destroy_socket(sk);
- 	}
+ 	switch (x25->state) {
+ 
+ 		case X25_STATE_0:
+ 		case X25_STATE_2:
+ 			x25_disconnect(sk, 0, 0, 0);
+-			x25_destroy_socket(sk);
++			__x25_destroy_socket(sk);
+ 			goto out;
+ 
+ 		case X25_STATE_1:
+@@ -678,7 +669,8 @@ static int x25_release(struct socket *sock)
+ 
+ 	sock_orphan(sk);
+ out:
 -	unlock_kernel();
 +	release_sock(sk);
++	sock_put(sk);
  	return 0;
  }
  
-@@ -1143,7 +1142,7 @@ static int atalk_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	if (addr->sat_family != AF_APPLETALK)
- 		return -EAFNOSUPPORT;
+@@ -1085,7 +1077,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	size_t size;
+ 	int qbit = 0, rc = -EINVAL;
  
 -	lock_kernel();
 +	lock_sock(sk);
- 	if (addr->sat_addr.s_net == htons(ATADDR_ANYNET)) {
- 		struct atalk_addr *ap = atalk_find_primary();
- 
-@@ -1179,7 +1178,7 @@ static int atalk_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
- 	sock_reset_flag(sk, SOCK_ZAPPED);
- 	err = 0;
- out:
--	unlock_kernel();
-+	release_sock(sk);
- 	return err;
- }
- 
-@@ -1215,7 +1214,7 @@ static int atalk_connect(struct socket *sock, struct sockaddr *uaddr,
- #endif
- 	}
- 
--	lock_kernel();
-+	lock_sock(sk);
- 	err = -EBUSY;
- 	if (sock_flag(sk, SOCK_ZAPPED))
- 		if (atalk_autobind(sk) < 0)
-@@ -1233,7 +1232,7 @@ static int atalk_connect(struct socket *sock, struct sockaddr *uaddr,
- 	sk->sk_state = TCP_ESTABLISHED;
- 	err = 0;
- out:
--	unlock_kernel();
-+	release_sock(sk);
- 	return err;
- }
- 
-@@ -1249,7 +1248,7 @@ static int atalk_getname(struct socket *sock, struct sockaddr *uaddr,
- 	struct atalk_sock *at = at_sk(sk);
- 	int err;
- 
--	lock_kernel();
-+	lock_sock(sk);
- 	err = -ENOBUFS;
- 	if (sock_flag(sk, SOCK_ZAPPED))
- 		if (atalk_autobind(sk) < 0)
-@@ -1277,17 +1276,7 @@ static int atalk_getname(struct socket *sock, struct sockaddr *uaddr,
- 	memcpy(uaddr, &sat, sizeof(sat));
- 
- out:
--	unlock_kernel();
--	return err;
--}
--
--static unsigned int atalk_poll(struct file *file, struct socket *sock,
--			   poll_table *wait)
--{
--	int err;
--	lock_kernel();
--	err = datagram_poll(file, sock, wait);
--	unlock_kernel();
-+	release_sock(sk);
- 	return err;
- }
- 
-@@ -1596,7 +1585,7 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 	if (len > DDP_MAXSZ)
- 		return -EMSGSIZE;
- 
--	lock_kernel();
-+	lock_sock(sk);
- 	if (usat) {
- 		err = -EBUSY;
- 		if (sock_flag(sk, SOCK_ZAPPED))
-@@ -1651,7 +1640,9 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 			sk, size, dev->name);
- 
- 	size += dev->hard_header_len;
-+	release_sock(sk);
- 	skb = sock_alloc_send_skb(sk, size, (flags & MSG_DONTWAIT), &err);
-+	lock_sock(sk);
- 	if (!skb)
+ 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_OOB|MSG_EOR|MSG_CMSG_COMPAT))
  		goto out;
  
-@@ -1738,7 +1729,7 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 	SOCK_DEBUG(sk, "SK %p: Done write (%Zd).\n", sk, len);
+@@ -1148,9 +1140,10 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
  
- out:
--	unlock_kernel();
+ 	size = len + X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
+ 
 +	release_sock(sk);
- 	return err ? : len;
- }
- 
-@@ -1753,9 +1744,10 @@ static int atalk_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 	int err = 0;
- 	struct sk_buff *skb;
- 
--	lock_kernel();
- 	skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
- 						flags & MSG_DONTWAIT, &err);
+ 	skb = sock_alloc_send_skb(sk, size, noblock, &rc);
+-	if (!skb)
+-		goto out;
 +	lock_sock(sk);
 +
- 	if (!skb)
- 		goto out;
+ 	X25_SKB_CB(skb)->flags = msg->msg_flags;
  
-@@ -1787,7 +1779,7 @@ static int atalk_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 	skb_free_datagram(sk, skb);	/* Free the datagram. */
+ 	skb_reserve(skb, X25_MAX_L2_LEN + X25_EXT_MIN_LEN);
+@@ -1231,26 +1224,10 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			len++;
+ 	}
  
+-	/*
+-	 * lock_sock() is currently only used to serialize this x25_kick()
+-	 * against input-driven x25_kick() calls. It currently only blocks
+-	 * incoming packets for this socket and does not protect against
+-	 * any other socket state changes and is not called from anywhere
+-	 * else. As x25_kick() cannot block and as long as all socket
+-	 * operations are BKL-wrapped, we don't need take to care about
+-	 * purging the backlog queue in x25_release().
+-	 *
+-	 * Using lock_sock() to protect all socket operations entirely
+-	 * (and making the whole x25 stack SMP aware) unfortunately would
+-	 * require major changes to {send,recv}msg and skb allocation methods.
+-	 * -> 2.5 ;)
+-	 */
+-	lock_sock(sk);
+ 	x25_kick(sk);
+-	release_sock(sk);
+ 	rc = len;
  out:
 -	unlock_kernel();
 +	release_sock(sk);
- 	return err ? : copied;
+ 	return rc;
+ out_kfree_skb:
+ 	kfree_skb(skb);
+@@ -1271,7 +1248,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	unsigned char *asmptr;
+ 	int rc = -ENOTCONN;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	/*
+ 	 * This works for seqpacket too. The receiver has ordered the queue for
+ 	 * us! We do one quick check first though
+@@ -1300,8 +1277,10 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		msg->msg_flags |= MSG_OOB;
+ 	} else {
+ 		/* Now we can treat all alike */
++		release_sock(sk);
+ 		skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
+ 					flags & MSG_DONTWAIT, &rc);
++		lock_sock(sk);
+ 		if (!skb)
+ 			goto out;
+ 
+@@ -1338,14 +1317,12 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 	msg->msg_namelen = sizeof(struct sockaddr_x25);
+ 
+-	lock_sock(sk);
+ 	x25_check_rbuf(sk);
+-	release_sock(sk);
+ 	rc = copied;
+ out_free_dgram:
+ 	skb_free_datagram(sk, skb);
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
  }
  
-@@ -1887,7 +1879,7 @@ static const struct proto_ops atalk_dgram_ops = {
- 	.socketpair	= sock_no_socketpair,
- 	.accept		= sock_no_accept,
- 	.getname	= atalk_getname,
--	.poll		= atalk_poll,
-+	.poll		= datagram_poll,
- 	.ioctl		= atalk_ioctl,
- #ifdef CONFIG_COMPAT
- 	.compat_ioctl	= atalk_compat_ioctl,
+@@ -1581,18 +1558,18 @@ out_cud_release:
+ 
+ 		case SIOCX25CALLACCPTAPPRV: {
+ 			rc = -EINVAL;
+-			lock_kernel();
++			lock_sock(sk);
+ 			if (sk->sk_state != TCP_CLOSE)
+ 				break;
+ 			clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
+-			unlock_kernel();
++			release_sock(sk);
+ 			rc = 0;
+ 			break;
+ 		}
+ 
+ 		case SIOCX25SENDCALLACCPT:  {
+ 			rc = -EINVAL;
+-			lock_kernel();
++			lock_sock(sk);
+ 			if (sk->sk_state != TCP_ESTABLISHED)
+ 				break;
+ 			/* must call accptapprv above */
+@@ -1600,7 +1577,7 @@ out_cud_release:
+ 				break;
+ 			x25_write_internal(sk, X25_CALL_ACCEPTED);
+ 			x25->state = X25_STATE_3;
+-			unlock_kernel();
++			release_sock(sk);
+ 			rc = 0;
+ 			break;
+ 		}
+diff --git a/net/x25/x25_out.c b/net/x25/x25_out.c
+index d00649f..f1a6ff1 100644
+--- a/net/x25/x25_out.c
++++ b/net/x25/x25_out.c
+@@ -68,8 +68,11 @@ int x25_output(struct sock *sk, struct sk_buff *skb)
+ 		frontlen = skb_headroom(skb);
+ 
+ 		while (skb->len > 0) {
+-			if ((skbn = sock_alloc_send_skb(sk, frontlen + max_len,
+-							noblock, &err)) == NULL){
++			release_sock(sk);
++			skbn = sock_alloc_send_skb(sk, frontlen + max_len,
++						   1, &err);
++			lock_sock(sk);
++			if (!skbn) {
+ 				if (err == -EWOULDBLOCK && noblock){
+ 					kfree_skb(skb);
+ 					return sent;
 -- 
 1.7.1
