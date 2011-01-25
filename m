@@ -1,32 +1,24 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] net: add sysfs entry for device group
-Date: Tue, 25 Jan 2011 14:41:06 +1000
-Message-ID: <20110125144106.1cbd12b0@s6510>
-References: <1295876249-15634-1-git-send-email-ddvlad@rosedu.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] netfilter: ipvs: fix compiler warnings
+Date: Tue, 25 Jan 2011 15:05:36 +1000
+Message-ID: <20110125050535.GB7183@verge.net.au>
+References: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Vlad Dogaru <ddvlad@rosedu.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:59578 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752998Ab1AYElL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 23:41:11 -0500
-In-Reply-To: <1295876249-15634-1-git-send-email-ddvlad@rosedu.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 24 Jan 2011 15:37:29 +0200
-Vlad Dogaru <ddvlad@rosedu.org> wrote:
-
-> The group of a network device can be queried or changed from userspace
-> using sysfs.
+On Tue, Jan 25, 2011 at 12:40:18PM +0800, Changli Gao wrote:
+> Fix compiler warnings when IP_VS_DBG() isn't defined.
 > 
-> For example, considering sysfs mounted in /sys, one can change the group
-> that interface lo belongs to:
-> 	echo 1 > /sys/class/net/lo/group
-> 
-> Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
+> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 
-Acked-by: Stephen Hemminger <shemminger@vyatta.com>
+Thanks, I will queue this up for when nf-next-2.6 is open again.
