@@ -1,58 +1,51 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH] ipv6: Revert 'administrative down' address handling changes.
-Date: Tue, 25 Jan 2011 10:55:31 -0800
-Message-ID: <m1ei803ja4.fsf@fess.ebiederm.org>
-References: <20110123.234101.71098533.davem@davemloft.net>
-	<20110124.233813.246546891.davem@davemloft.net>
-	<m1zkqp2woo.fsf@fess.ebiederm.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, shemminger@vyatta.com, brian.haley@hp.com,
-	lorenzo@google.com, herbert@gondor.hengli.com.au
-To: David Miller <davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH net-next-2.6] bonding: fix return value of bonding_store_slaves_active()
+Date: Tue, 25 Jan 2011 11:22:50 -0800
+Message-ID: <29198.1295983370@death>
+References: <20110125185315.GB2932@psychotron.redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:54020 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752478Ab1AYSzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 13:55:42 -0500
-In-Reply-To: <m1zkqp2woo.fsf@fess.ebiederm.org> (Eric W. Biederman's message
-	of "Tue, 25 Jan 2011 00:51:19 -0800")
+Received: from e38.co.us.ibm.com ([32.97.110.159]:60921 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752444Ab1AYTW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 14:22:56 -0500
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e38.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p0PJ8ig9030983
+	for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 12:08:44 -0700
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0PJMsXu152674
+	for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 12:22:54 -0700
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0PJMrMY019256
+	for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 12:22:53 -0700
+In-reply-to: <20110125185315.GB2932@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ebiederm@xmission.com (Eric W. Biederman) writes:
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-> David Miller <davem@davemloft.net> writes:
+>count is incorrectly returned even in case of fail. Return ret instead.
 >
->> From: David Miller <davem@davemloft.net>
->> Date: Sun, 23 Jan 2011 23:41:01 -0800 (PST)
->>
->>> Eric B. and co., please do some testing to make sure all of your
->>> disable_ipv6 cases are functioning properly with this applied.
->>
->> Ping?
->
-> In progress.  I had to make a small change to your patch to get it
-> to apply against 2.6.37.  neigh_ifdown has not been removed from the
-> beginning of addrconf_ifdown there.  The piece that was failing for
-> me is not failing now so, so far so good.
->
-> It was reported that in 2.6.37 there was a new regression that
-> 1connecting to ::1 when ipv6 was disabled would not fail immediately but
-> would have to wait a while.  With your patch applied I am not seeing
-> that behavior either.
->
-> Tomorrow I should know if I see any weird side effects with your patch,
-> after my regression tests for everything else have finished running.
+>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 
-I have to admit I am seeing weird side effects.  A test that was
-mysteriously failing because it could not create a vlan on top of a tap
-device has started working again ;)
+	It looks like bonding_store_carrier has the same problem, could
+you fix it up too and resubmit?
 
-So this change is looking really good for me.
+	-J
 
-I have to track through some additional failures that I think are test
-bugs, but it looks like I might finally have 2.6.37 in a shape where I
-can use it.
 
-Eric
+>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+>index 8fd0174..f33155f 100644
+>--- a/drivers/net/bonding/bond_sysfs.c
+>+++ b/drivers/net/bonding/bond_sysfs.c
+>@@ -1595,7 +1595,7 @@ static ssize_t bonding_store_slaves_active(struct device *d,
+> 		}
+> 	}
+> out:
+>-	return count;
+>+	return ret;
+> }
+> static DEVICE_ATTR(all_slaves_active, S_IRUGO | S_IWUSR,
+> 		   bonding_show_slaves_active, bonding_store_slaves_active);
+
