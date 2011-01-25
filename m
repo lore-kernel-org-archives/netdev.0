@@ -1,351 +1,85 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [RFC 00/20] Proposal for remaining BKL users
-Date: Tue, 25 Jan 2011 23:17:14 +0100
-Message-ID: <1295993854-4971-1-git-send-email-arnd@arndb.de>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH] TCP: fix a bug that triggers large number of TCP RST by mistake
+Date: Tue, 25 Jan 2011 15:48:10 -0800
+Message-ID: <AANLkTinVrXDUUgpq2=CXqkNdTiidUPYcPVrY3Z3dgtEY@mail.gmail.com>
+References: <1295723177-23576-1-git-send-email-hkchu@google.com>
+	<20110125.134816.48501871.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mauro Carvalho Chehab <mchehab@redhat.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>, dri-devel@lists.freedesktop.org,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ian Kent <raven@themaw.net>,
-	linux-cifs@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
-	Jeff Layton <jlayton@redhat.com>,
-	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>,
-	Ross Cohen <rcohen@snurgle.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Evgeniy Dushistov <dushistov@mail.ru>, Arnd Bergmann <arnd@arndb.de>,
-	Stuart Swales <stuart.swales.croftnuisk@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	autofs@linux.kernel.org, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, Greg Kroah-Hartman <gregkh@suse.de>,
-	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
-	linux-fsdevel@vger.kernel.org, A
-To: linux-kernel@vger.kernel.org
-Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-List-Id: netdev.vger.kernel.org
-
-I've gone through all the code in the kernel that
-uses the big kernel lock and come up with a solution
-that seems at least half-reasonable for each of them.
-
-The decisions are somewhat arbitrary, but here is
-what I'd suggest we do:
-
-* Remove in 2.6.39:
-   i830, autofs3, smbfs
-
-* Move to staging now, kill in 2.6.41 (or later):
-   appletalk, hpfs
-
-* Work around in an ugly way, but keep alive:
-   * ufs, ipx, i810, cx25721
-
-* Fix properly:
-   * usbip, go7007, adfs, x25
-
-Some of the patches are rather tricky and I haven't
-really done much proper testing, so I'd much prefer
-the maintainers to pick up the patches and do the
-necessary testing where possible, or even come up
-with a better solution.
-
-Arnd Bergmann (20):
-  drm/i810: remove the BKL
-  drm: remove i830 driver
-  staging/usbip: convert to kthread
-  staging/cx25721: serialize access to devlist
-  staging/go7007: remove the BKL
-  staging: Remove autofs3
-  staging: remove smbfs
-  adfs: remove the big kernel lock
-  hpfs: rename big kernel lock to hpfs_lock
-  hpfs: replace BKL with a global mutex
-  hpfs: move to drivers/staging
-  x25: remove the BKL
-  appletalk: move to staging
-  staging/appletalk: remove the BKL
-  ufs: remove the BKL
-  ipx: remove the BKL
-  tracing: don't trace the BKL
-  rtmutex-tester: remove BKL tests
-  drivers: remove extraneous includes of smp_lock.h
-  BKL: That's all, folks
-
- MAINTAINERS                                        |   11 +-
- drivers/gpu/drm/Kconfig                            |   47 +-
- drivers/gpu/drm/Makefile                           |    1 -
- drivers/gpu/drm/i810/i810_dma.c                    |   18 +-
- drivers/gpu/drm/i810/i810_drv.c                    |    6 +-
- drivers/gpu/drm/i830/Makefile                      |    8 -
- drivers/gpu/drm/i830/i830_dma.c                    | 1560 ---------
- drivers/gpu/drm/i830/i830_drv.c                    |  107 -
- drivers/gpu/drm/i830/i830_drv.h                    |  295 --
- drivers/gpu/drm/i830/i830_irq.c                    |  186 --
- drivers/net/Makefile                               |    1 -
- drivers/net/appletalk/Makefile                     |    7 -
- drivers/scsi/megaraid/megaraid_sas_fp.c            |    1 -
- drivers/scsi/megaraid/megaraid_sas_fusion.c        |    1 -
- drivers/staging/Kconfig                            |    8 +-
- drivers/staging/Makefile                           |    4 +-
- drivers/{net => staging}/appletalk/Kconfig         |    1 -
- {net => drivers/staging}/appletalk/Makefile        |    7 +-
- {net => drivers/staging}/appletalk/aarp.c          |    2 +-
- .../linux => drivers/staging/appletalk}/atalk.h    |    0
- {net => drivers/staging}/appletalk/atalk_proc.c    |    2 +-
- drivers/{net => staging}/appletalk/cops.c          |    2 +-
- drivers/{net => staging}/appletalk/cops.h          |    0
- drivers/{net => staging}/appletalk/cops_ffdrv.h    |    0
- drivers/{net => staging}/appletalk/cops_ltdrv.h    |    0
- {net => drivers/staging}/appletalk/ddp.c           |   44 +-
- {net => drivers/staging}/appletalk/dev.c           |    0
- drivers/{net => staging}/appletalk/ipddp.c         |    2 +-
- drivers/{net => staging}/appletalk/ipddp.h         |    0
- drivers/{net => staging}/appletalk/ltpc.c          |    2 +-
- drivers/{net => staging}/appletalk/ltpc.h          |    0
- .../staging}/appletalk/sysctl_net_atalk.c          |    2 +-
- drivers/staging/autofs/Kconfig                     |   22 -
- drivers/staging/autofs/Makefile                    |    7 -
- drivers/staging/autofs/TODO                        |    8 -
- drivers/staging/autofs/autofs_i.h                  |  165 -
- drivers/staging/autofs/dirhash.c                   |  260 --
- drivers/staging/autofs/init.c                      |   52 -
- drivers/staging/autofs/inode.c                     |  288 --
- drivers/staging/autofs/root.c                      |  648 ----
- drivers/staging/autofs/symlink.c                   |   26 -
- drivers/staging/autofs/waitq.c                     |  205 --
- drivers/staging/cx25821/Kconfig                    |    1 -
- drivers/staging/cx25821/cx25821-alsa.c             |    2 +
- drivers/staging/cx25821/cx25821-core.c             |   16 +-
- drivers/staging/cx25821/cx25821-video.c            |    9 +-
- drivers/staging/cx25821/cx25821.h                  |    3 +-
- drivers/staging/easycap/easycap.h                  |    1 -
- drivers/staging/easycap/easycap_ioctl.c            |    1 -
- drivers/staging/go7007/Kconfig                     |    1 -
- drivers/staging/go7007/s2250-loader.c              |    3 -
- {fs => drivers/staging}/hpfs/Kconfig               |    5 +-
- {fs => drivers/staging}/hpfs/Makefile              |    0
- drivers/staging/hpfs/TODO                          |    5 +
- {fs => drivers/staging}/hpfs/alloc.c               |    0
- {fs => drivers/staging}/hpfs/anode.c               |    0
- {fs => drivers/staging}/hpfs/buffer.c              |    0
- {fs => drivers/staging}/hpfs/dentry.c              |    0
- {fs => drivers/staging}/hpfs/dir.c                 |   23 +-
- {fs => drivers/staging}/hpfs/dnode.c               |    0
- {fs => drivers/staging}/hpfs/ea.c                  |    0
- {fs => drivers/staging}/hpfs/file.c                |    9 +-
- {fs => drivers/staging}/hpfs/hpfs.h                |    0
- {fs => drivers/staging}/hpfs/hpfs_fn.h             |   36 +
- {fs => drivers/staging}/hpfs/inode.c               |    9 +-
- {fs => drivers/staging}/hpfs/map.c                 |    0
- {fs => drivers/staging}/hpfs/name.c                |    0
- {fs => drivers/staging}/hpfs/namei.c               |   49 +-
- {fs => drivers/staging}/hpfs/super.c               |   21 +-
- drivers/staging/smbfs/Kconfig                      |   56 -
- drivers/staging/smbfs/Makefile                     |   18 -
- drivers/staging/smbfs/TODO                         |    8 -
- drivers/staging/smbfs/cache.c                      |  208 --
- drivers/staging/smbfs/dir.c                        |  699 ----
- drivers/staging/smbfs/file.c                       |  456 ---
- drivers/staging/smbfs/getopt.c                     |   64 -
- drivers/staging/smbfs/getopt.h                     |   14 -
- drivers/staging/smbfs/inode.c                      |  854 -----
- drivers/staging/smbfs/ioctl.c                      |   68 -
- drivers/staging/smbfs/proc.c                       | 3502 --------------------
- drivers/staging/smbfs/proto.h                      |   89 -
- drivers/staging/smbfs/request.c                    |  817 -----
- drivers/staging/smbfs/request.h                    |   70 -
- drivers/staging/smbfs/smb.h                        |  118 -
- drivers/staging/smbfs/smb_debug.h                  |   34 -
- drivers/staging/smbfs/smb_fs.h                     |  153 -
- drivers/staging/smbfs/smb_fs_i.h                   |   37 -
- drivers/staging/smbfs/smb_fs_sb.h                  |  100 -
- drivers/staging/smbfs/smb_mount.h                  |   65 -
- drivers/staging/smbfs/smbfs.txt                    |    8 -
- drivers/staging/smbfs/smbiod.c                     |  343 --
- drivers/staging/smbfs/smbno.h                      |  363 --
- drivers/staging/smbfs/sock.c                       |  385 ---
- drivers/staging/smbfs/symlink.c                    |   67 -
- drivers/staging/usbip/Kconfig                      |    2 +-
- drivers/staging/usbip/stub.h                       |    4 +-
- drivers/staging/usbip/stub_dev.c                   |   13 +-
- drivers/staging/usbip/stub_rx.c                    |   13 +-
- drivers/staging/usbip/stub_tx.c                    |   14 +-
- drivers/staging/usbip/usbip_common.c               |  105 -
- drivers/staging/usbip/usbip_common.h               |   20 +-
- drivers/staging/usbip/usbip_event.c                |   31 +-
- drivers/staging/usbip/vhci.h                       |    4 +-
- drivers/staging/usbip/vhci_hcd.c                   |   10 +-
- drivers/staging/usbip/vhci_rx.c                    |   16 +-
- drivers/staging/usbip/vhci_sysfs.c                 |    9 +-
- drivers/staging/usbip/vhci_tx.c                    |   14 +-
- drivers/target/target_core_device.c                |    1 -
- drivers/target/target_core_fabric_lib.c            |    1 -
- drivers/target/target_core_file.c                  |    1 -
- drivers/target/target_core_hba.c                   |    1 -
- drivers/target/target_core_iblock.c                |    1 -
- drivers/target/target_core_pscsi.c                 |    1 -
- drivers/target/target_core_rd.c                    |    1 -
- drivers/target/target_core_tpg.c                   |    1 -
- drivers/target/target_core_transport.c             |    1 -
- drivers/tty/n_hdlc.c                               |    1 -
- drivers/tty/n_r3964.c                              |    1 -
- drivers/tty/pty.c                                  |    1 -
- drivers/tty/tty_io.c                               |    1 -
- drivers/tty/tty_ldisc.c                            |    2 -
- drivers/tty/vt/selection.c                         |    1 -
- drivers/tty/vt/vc_screen.c                         |    1 -
- drivers/tty/vt/vt.c                                |    1 -
- drivers/tty/vt/vt_ioctl.c                          |    1 -
- fs/Kconfig                                         |    1 -
- fs/Makefile                                        |    1 -
- fs/adfs/Kconfig                                    |    1 -
- fs/adfs/dir.c                                      |    6 -
- fs/adfs/inode.c                                    |    6 -
- fs/adfs/super.c                                    |   13 +-
- fs/compat_ioctl.c                                  |    1 -
- fs/ufs/Kconfig                                     |    1 -
- fs/ufs/inode.c                                     |   78 +-
- fs/ufs/namei.c                                     |   35 +-
- fs/ufs/super.c                                     |   55 +-
- fs/ufs/truncate.c                                  |    5 +-
- fs/ufs/ufs.h                                       |    6 +-
- include/drm/Kbuild                                 |    1 -
- include/drm/i830_drm.h                             |  342 --
- include/linux/Kbuild                               |    1 -
- include/linux/hardirq.h                            |    9 +-
- include/linux/smp_lock.h                           |   65 -
- include/trace/events/bkl.h                         |   61 -
- init/Kconfig                                       |    5 -
- kernel/rtmutex-tester.c                            |   39 +-
- kernel/sched.c                                     |    7 -
- lib/Makefile                                       |    1 -
- lib/kernel_lock.c                                  |  143 -
- net/Kconfig                                        |    1 -
- net/Makefile                                       |    1 -
- net/ipx/Kconfig                                    |    1 -
- net/ipx/af_ipx.c                                   |   52 +-
- net/socket.c                                       |    1 -
- net/x25/Kconfig                                    |    1 -
- net/x25/af_x25.c                                   |   61 +-
- net/x25/x25_out.c                                  |    7 +-
- 157 files changed, 356 insertions(+), 13722 deletions(-)
- delete mode 100644 drivers/gpu/drm/i830/Makefile
- delete mode 100644 drivers/gpu/drm/i830/i830_dma.c
- delete mode 100644 drivers/gpu/drm/i830/i830_drv.c
- delete mode 100644 drivers/gpu/drm/i830/i830_drv.h
- delete mode 100644 drivers/gpu/drm/i830/i830_irq.c
- delete mode 100644 drivers/net/appletalk/Makefile
- rename drivers/{net => staging}/appletalk/Kconfig (98%)
- rename {net => drivers/staging}/appletalk/Makefile (56%)
- rename {net => drivers/staging}/appletalk/aarp.c (99%)
- rename {include/linux => drivers/staging/appletalk}/atalk.h (100%)
- rename {net => drivers/staging}/appletalk/atalk_proc.c (99%)
- rename drivers/{net => staging}/appletalk/cops.c (99%)
- rename drivers/{net => staging}/appletalk/cops.h (100%)
- rename drivers/{net => staging}/appletalk/cops_ffdrv.h (100%)
- rename drivers/{net => staging}/appletalk/cops_ltdrv.h (100%)
- rename {net => drivers/staging}/appletalk/ddp.c (98%)
- rename {net => drivers/staging}/appletalk/dev.c (100%)
- rename drivers/{net => staging}/appletalk/ipddp.c (99%)
- rename drivers/{net => staging}/appletalk/ipddp.h (100%)
- rename drivers/{net => staging}/appletalk/ltpc.c (99%)
- rename drivers/{net => staging}/appletalk/ltpc.h (100%)
- rename {net => drivers/staging}/appletalk/sysctl_net_atalk.c (98%)
- delete mode 100644 drivers/staging/autofs/Kconfig
- delete mode 100644 drivers/staging/autofs/Makefile
- delete mode 100644 drivers/staging/autofs/TODO
- delete mode 100644 drivers/staging/autofs/autofs_i.h
- delete mode 100644 drivers/staging/autofs/dirhash.c
- delete mode 100644 drivers/staging/autofs/init.c
- delete mode 100644 drivers/staging/autofs/inode.c
- delete mode 100644 drivers/staging/autofs/root.c
- delete mode 100644 drivers/staging/autofs/symlink.c
- delete mode 100644 drivers/staging/autofs/waitq.c
- rename {fs => drivers/staging}/hpfs/Kconfig (80%)
- rename {fs => drivers/staging}/hpfs/Makefile (100%)
- create mode 100644 drivers/staging/hpfs/TODO
- rename {fs => drivers/staging}/hpfs/alloc.c (100%)
- rename {fs => drivers/staging}/hpfs/anode.c (100%)
- rename {fs => drivers/staging}/hpfs/buffer.c (100%)
- rename {fs => drivers/staging}/hpfs/dentry.c (100%)
- rename {fs => drivers/staging}/hpfs/dir.c (97%)
- rename {fs => drivers/staging}/hpfs/dnode.c (100%)
- rename {fs => drivers/staging}/hpfs/ea.c (100%)
- rename {fs => drivers/staging}/hpfs/file.c (97%)
- rename {fs => drivers/staging}/hpfs/hpfs.h (100%)
- rename {fs => drivers/staging}/hpfs/hpfs_fn.h (91%)
- rename {fs => drivers/staging}/hpfs/inode.c (98%)
- rename {fs => drivers/staging}/hpfs/map.c (100%)
- rename {fs => drivers/staging}/hpfs/name.c (100%)
- rename {fs => drivers/staging}/hpfs/namei.c (96%)
- rename {fs => drivers/staging}/hpfs/super.c (98%)
- delete mode 100644 drivers/staging/smbfs/Kconfig
- delete mode 100644 drivers/staging/smbfs/Makefile
- delete mode 100644 drivers/staging/smbfs/TODO
- delete mode 100644 drivers/staging/smbfs/cache.c
- delete mode 100644 drivers/staging/smbfs/dir.c
- delete mode 100644 drivers/staging/smbfs/file.c
- delete mode 100644 drivers/staging/smbfs/getopt.c
- delete mode 100644 drivers/staging/smbfs/getopt.h
- delete mode 100644 drivers/staging/smbfs/inode.c
- delete mode 100644 drivers/staging/smbfs/ioctl.c
- delete mode 100644 drivers/staging/smbfs/proc.c
- delete mode 100644 drivers/staging/smbfs/proto.h
- delete mode 100644 drivers/staging/smbfs/request.c
- delete mode 100644 drivers/staging/smbfs/request.h
- delete mode 100644 drivers/staging/smbfs/smb.h
- delete mode 100644 drivers/staging/smbfs/smb_debug.h
- delete mode 100644 drivers/staging/smbfs/smb_fs.h
- delete mode 100644 drivers/staging/smbfs/smb_fs_i.h
- delete mode 100644 drivers/staging/smbfs/smb_fs_sb.h
- delete mode 100644 drivers/staging/smbfs/smb_mount.h
- delete mode 100644 drivers/staging/smbfs/smbfs.txt
- delete mode 100644 drivers/staging/smbfs/smbiod.c
- delete mode 100644 drivers/staging/smbfs/smbno.h
- delete mode 100644 drivers/staging/smbfs/sock.c
- delete mode 100644 drivers/staging/smbfs/symlink.c
- delete mode 100644 include/drm/i830_drm.h
- delete mode 100644 include/linux/smp_lock.h
- delete mode 100644 include/trace/events/bkl.h
- delete mode 100644 lib/kernel_lock.c
-
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Arjan van de Ven <arjan@linux.intel.com>
-Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Cc: autofs@linux.kernel.org
-Cc: Chris Wilson <chris@chris-wilson.co.uk>
-Cc: Dave Airlie <airlied@linux.ie>
-Cc: David Airlie <airlied@linux.ie>
-Cc: dri-devel@lists.freedesktop.org
-Cc: Evgeniy Dushistov <dushistov@mail.ru>
-Cc: Frederic Weisbecker <fweisbec@gmail.com>
-Cc: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: Ian Kent <raven@themaw.net>
-Cc: Ingo Molnar <mingo@elte.hu>
-Cc: Jeff Layton <jlayton@redhat.com>
-Cc: linux-cifs@vger.kernel.org
-Cc: linux-fsdevel@vger.kernel.org
-Cc: linux-x25@vger.kernel.org
-Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
-Cc: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-Cc: Nick Bowler <nbowler@elliptictech.com>
-Cc: Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>
-Cc: Ross Cohen <rcohen@snurgle.org>
-Cc: Russell King <rmk@arm.linux.org.uk>
-Cc: Stuart Swales <stuart.swales.croftnuisk@gmail.com>
-Cc: Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>
-Cc: Thomas Gleixner <tglx@linutronix.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:53678 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751625Ab1AYXsO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 18:48:14 -0500
+Received: from wpaz33.hot.corp.google.com (wpaz33.hot.corp.google.com [172.24.198.97])
+	by smtp-out.google.com with ESMTP id p0PNmCKf003433
+	for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 15:48:12 -0800
+Received: from yxd39 (yxd39.prod.google.com [10.190.1.231])
+	by wpaz33.hot.corp.google.com with ESMTP id p0PNllIP002936
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 15:48:11 -0800
+Received: by yxd39 with SMTP id 39so2104838yxd.12
+        for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 15:48:11 -0800 (PST)
+In-Reply-To: <20110125.134816.48501871.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Tue, Jan 25, 2011 at 1:48 PM, David Miller <davem@davemloft.net> wro=
+te:
+> From: "H.K. Jerry Chu" <hkchu@google.com>
+> Date: Sat, 22 Jan 2011 11:06:17 -0800
+>
+>> From: Jerry Chu <hkchu@google.com>
+>>
+>> This patch fixes a bug that causes TCP RST packets to be generated
+>> on otherwise correctly behaved applications, e.g., no unread data
+>> on close,..., etc. To trigger the bug, at least two conditions must
+>> be met:
+>>
+>> 1. The FIN flag is set on the last data packet, i.e., it's not on a
+>> separate, FIN only packet.
+>> 2. The size of the last data chunk on the receive side matches
+>> exactly with the size of buffer posted by the receiver, and the
+>> receiver closes the socket without any further read attempt.
+>>
+>> This bug was first noticed on our netperf based testbed for our IW10
+>> proposal to IETF where a large number of RST packets were observed.
+>> netperf's read side code meets the condition 2 above 100%.
+>>
+>> Before the fix, tcp_data_queue() will queue the last skb that meets
+>> condition 1 to sk_receive_queue even though it has fully copied out
+>> (skb_copy_datagram_iovec()) the data. Then if condition 2 is also me=
+t,
+>> tcp_recvmsg() often returns all the copied out data successfully
+>> without actually consuming the skb, due to a check
+>> "if ((chunk =3D len - tp->ucopy.len) !=3D 0) {"
+>> and
+>> "len -=3D chunk;"
+>> after tcp_prequeue_process() that causes "len" to become 0 and an
+>> early exit from the big while loop.
+>>
+>> I don't see any reason not to free the skb whose data have been full=
+y
+>> consumed in tcp_data_queue(), regardless of the FIN flag. =A0We won'=
+t
+>> get there if MSG_PEEK is on. Am I missing some arcane cases related
+>> to urgent data?
+>>
+>> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+>
+> This bug goes as far back as January, 2000 right after the softnet
+> mega-merge happened via the netdev CVS tree (netdev-vger-cvs GIT
+> commit 214d457e)
+
+Yes I also tried to trace how long the bug has been there and it seems
+to go back to the prehistoric era :). Guess only TCP types got alarmed
+by spurious RSTs.
+
+Jerry
+
+>
+> Good work, applied, thanks!
+>
