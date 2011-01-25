@@ -1,106 +1,74 @@
-From: "Kirill A. Shutemov" <kas@openvz.org>
-Subject: Re: [PATCH v3 00/16] make rpc_pipefs be mountable multiple time
-Date: Tue, 25 Jan 2011 01:55:45 +0200
-Message-ID: <20110124235545.GA793__24817.0753046454$1295913365$gmane$org@shutemov.name>
-References: <1295012954-7769-1-git-send-email-kas@openvz.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Problems with /proc/net/tcp6 - possible bug - ipv6
+Date: Mon, 24 Jan 2011 16:02:23 -0800 (PST)
+Message-ID: <20110124.160223.15249309.davem@davemloft.net>
+References: <1295686781.2609.37.camel@edumazet-laptop>
+	<1295709344.2651.55.camel@edumazet-laptop>
+	<115440.16148.qm@web63902.mail.re1.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Trond Myklebust <Trond.Myklebust@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Neil Brown <neilb@suse.de>,
-	"Kirill A. Shutemov" <kas@openvz.org>,
-	Pavel Emelyanov <xemul@para
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shutemov.name ([188.40.19.243]:56016 "EHLO shutemov.name"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751242Ab1AXXzq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jan 2011 18:55:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1295012954-7769-1-git-send-email-kas@openvz.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: runningdoglackey@yahoo.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <115440.16148.qm@web63902.mail.re1.yahoo.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 14, 2011 at 03:48:58PM +0200, Kirill A. Shutemov wrote:
-> Prepare nfs/sunrpc stack to use multiple instances of rpc_pipefs.
-> Only for client for now.
-> 
-> It's step forwart to get nfs work from container.
+From: PK <runningdoglackey@yahoo.com>
+Date: Sat, 22 Jan 2011 11:42:54 -0800 (PST)
 
-Any feedback?
+> These warnings show up when I run the script (or I presume any tcp6 connection 
+> flooder) with /proc/sys/net/tcp/ipv4/tcp_tw_recycle enabled.  There's textual 
+> corruption of the traces a lot of the time.  Here's a sample trace that doesn't 
+> appear to be corrupt.  All the warnings I've seen are from route.c:209, and I 
+> don't see how that would cause memory corruption.
 
-> Changelog:
-> 
-> v3:
->  - rebase to the current Linus' tree (52cfd503ad)
->  - rework get_rpc_pipefs() once again;
->  - solve problem with rmmod sunrpc moudle;
->  - free dns cache on killing rpc_pipefs superblock.
-> 
-> v2:
->  - one of rpc_create() calls was missed initially, fixed;
->  - change logic for get_rpc_pipefs(NULL);
->  - export get_rpc_pipefs() to be able to use from modules (tnx J. Bruce Field);
->  - change "From:" and "Signed-off-by:" addresses.
-> 
-> v1:
->  - initial revision of the patchset.
-> 
-> Kirill A. Shutemov (16):
->   sunrpc: mount rpc_pipefs on initialization
->   sunrpc: introduce init_rpc_pipefs
->   sunrpc: push init_rpc_pipefs up to rpc_create() callers
->   sunrpc: tag svc_serv with rpc_pipefs mount point
->   sunrpc: get rpc_pipefs mount point for svc_serv from callers
->   lockd: get rpc_pipefs mount point from callers
->   sunrpc: get rpc_pipefs mount point for rpcb_create[_local] from
->     callers
->   sunrpc: tag pipefs field of cache_detail with rpc_pipefs mount point
->   sunrpc: introduce rpc_pipefs_add_destroy_cb()
->   nfs: per-rpc_pipefs dns cache
->   Export iterate_mounts symbol to be able to use from sunrpc module.
->   sunrpc: introduce get_rpc_pipefs()
->   nfs: introduce mount option 'rpcmount'
->   sunrpc: make rpc_pipefs be mountable multiple times
->   sunrpc: remove global init_rpc_pipefs
->   Rework get_rpc_pipefs and introduce put_rpc_pipefs()
-> 
->  fs/lockd/clntlock.c                |    8 +-
->  fs/lockd/host.c                    |   15 ++-
->  fs/lockd/mon.c                     |   13 ++-
->  fs/lockd/svc.c                     |    4 +-
->  fs/namespace.c                     |    1 +
->  fs/nfs/cache_lib.c                 |   18 +--
->  fs/nfs/cache_lib.h                 |    3 +-
->  fs/nfs/callback.c                  |    7 +-
->  fs/nfs/callback.h                  |    3 +-
->  fs/nfs/client.c                    |   45 ++++++-
->  fs/nfs/dns_resolve.c               |  137 ++++++++++++++++-----
->  fs/nfs/dns_resolve.h               |   15 +--
->  fs/nfs/inode.c                     |    9 +--
->  fs/nfs/internal.h                  |   10 ++-
->  fs/nfs/mount_clnt.c                |    1 +
->  fs/nfs/namespace.c                 |    3 +-
->  fs/nfs/nfs4namespace.c             |   20 ++--
->  fs/nfs/super.c                     |   20 +++
->  fs/nfsd/nfs4callback.c             |    5 +
->  fs/nfsd/nfssvc.c                   |   20 +++-
->  include/linux/lockd/bind.h         |    3 +-
->  include/linux/lockd/lockd.h        |    4 +-
->  include/linux/nfs_fs_sb.h          |    1 +
->  include/linux/sunrpc/cache.h       |    9 +-
->  include/linux/sunrpc/clnt.h        |    5 +-
->  include/linux/sunrpc/rpc_pipe_fs.h |    7 +-
->  include/linux/sunrpc/svc.h         |    9 +-
->  net/sunrpc/cache.c                 |   16 ++-
->  net/sunrpc/clnt.c                  |   19 ++--
->  net/sunrpc/rpc_pipe.c              |  235 ++++++++++++++++++++++++++++++++----
->  net/sunrpc/rpcb_clnt.c             |   19 ++-
->  net/sunrpc/svc.c                   |   52 +++++---
->  32 files changed, 549 insertions(+), 187 deletions(-)
-> 
-> -- 
-> 1.7.3.4
-> 
+Please give this patch a try:
 
+--------------------
+>From d80bc0fd262ef840ed4e82593ad6416fa1ba3fc4 Mon Sep 17 00:00:00 2001
+From: David S. Miller <davem@davemloft.net>
+Date: Mon, 24 Jan 2011 16:01:58 -0800
+Subject: [PATCH] ipv6: Always clone offlink routes.
+
+Do not handle PMTU vs. route lookup creation any differently
+wrt. offlink routes, always clone them.
+
+Reported-by: PK <runningdoglackey@yahoo.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/route.c |    9 +--------
+ 1 files changed, 1 insertions(+), 8 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 373bd04..1534508 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -72,8 +72,6 @@
+ #define RT6_TRACE(x...) do { ; } while (0)
+ #endif
+ 
+-#define CLONE_OFFLINK_ROUTE 0
+-
+ static struct rt6_info * ip6_rt_copy(struct rt6_info *ort);
+ static struct dst_entry	*ip6_dst_check(struct dst_entry *dst, u32 cookie);
+ static unsigned int	 ip6_default_advmss(const struct dst_entry *dst);
+@@ -738,13 +736,8 @@ restart:
+ 
+ 	if (!rt->rt6i_nexthop && !(rt->rt6i_flags & RTF_NONEXTHOP))
+ 		nrt = rt6_alloc_cow(rt, &fl->fl6_dst, &fl->fl6_src);
+-	else {
+-#if CLONE_OFFLINK_ROUTE
++	else
+ 		nrt = rt6_alloc_clone(rt, &fl->fl6_dst);
+-#else
+-		goto out2;
+-#endif
+-	}
+ 
+ 	dst_release(&rt->dst);
+ 	rt = nrt ? : net->ipv6.ip6_null_entry;
 -- 
- Kirill A. Shutemov
+1.7.3.4
