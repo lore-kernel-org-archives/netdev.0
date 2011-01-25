@@ -1,29 +1,32 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] netfilter: ipvs: fix compiler warnings
-Date: Tue, 25 Jan 2011 12:40:18 +0800
-Message-ID: <1295930418-14980-1-git-send-email-xiaosuo@gmail.com>
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] net: add sysfs entry for device group
+Date: Tue, 25 Jan 2011 14:41:06 +1000
+Message-ID: <20110125144106.1cbd12b0@s6510>
+References: <1295876249-15634-1-git-send-email-ddvlad@rosedu.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Vlad Dogaru <ddvlad@rosedu.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:59578 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752998Ab1AYElL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jan 2011 23:41:11 -0500
+In-Reply-To: <1295876249-15634-1-git-send-email-ddvlad@rosedu.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix compiler warnings when IP_VS_DBG() isn't defined.
+On Mon, 24 Jan 2011 15:37:29 +0200
+Vlad Dogaru <ddvlad@rosedu.org> wrote:
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/netfilter/ipvs/ip_vs_core.c  |    4 +---
- 3 files changed, 9 insertions(+), 3 deletions(-)
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index f36a84f..d889f4f 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1894,9 +1894,7 @@ static int __net_init __ip_vs_init(struct net *net)
- 
- static void __net_exit __ip_vs_cleanup(struct net *net)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
+> The group of a network device can be queried or changed from userspace
+> using sysfs.
+> 
+> For example, considering sysfs mounted in /sys, one can change the group
+> that interface lo belongs to:
+> 	echo 1 > /sys/class/net/lo/group
+> 
+> Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
+
+Acked-by: Stephen Hemminger <shemminger@vyatta.com>
