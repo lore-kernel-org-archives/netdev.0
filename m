@@ -1,84 +1,43 @@
-From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Subject: RE: [PATCH net-next-2.6 v5 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Tue, 25 Jan 2011 16:28:12 +0800
-Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE08274F@EAPEX1MAIL1.st.com>
-References: <1295515238-481-1-git-send-email-bhupesh.sharma@st.com>
-	<4D3B2F66.8090603@grandegger.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEE082650@EAPEX1MAIL1.st.com>
-	<4D3E8118.10904@grandegger.com>
+From: =?utf-8?Q?Am=C3=A9rico?= Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: NETCONSOLE_DYNAMIC need CONFIGFS_FS=y
+Date: Tue, 25 Jan 2011 16:39:15 +0800
+Message-ID: <20110125083915.GE13618@cr0.nay.redhat.com>
+References: <1295943748-9699-1-git-send-email-yong.zhang0@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D3E8118.10904-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	nab@linux-iscsi.org, "David S. Miller" <davem@davemloft.net>,
+	Kevin Hilman <khilman@deeprootsystems.com>
+To: Yong Zhang <yong.zhang0@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1295943748-9699-1-git-send-email-yong.zhang0@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
+On Tue, Jan 25, 2011 at 04:22:28PM +0800, Yong Zhang wrote:
+>With CONFIGFS_FS=m && NETCONSOLE_DYNAMIC=y, build error:
+>
+>drivers/built-in.o: In function `netconsole_target_put':
+>build/drivers/net/netconsole.c:133: undefined reference to `config_item_put'
+>drivers/built-in.o: In function `netconsole_target_get':
+>build/drivers/net/netconsole.c:127: undefined reference to `config_item_get'
+>build/drivers/net/netconsole.c:127: undefined reference to `config_item_get'
+>drivers/built-in.o: In function `netconsole_target_put':
+>build/drivers/net/netconsole.c:133: undefined reference to `config_item_put'
+>drivers/built-in.o: In function `drop_netconsole_target':
+>build/drivers/net/netconsole.c:634: undefined reference to `config_item_put'
+>drivers/built-in.o: In function `make_netconsole_target':
+>build/drivers/net/netconsole.c:607: undefined reference to `config_item_init_type_name'
+>drivers/built-in.o: In function `dynamic_netconsole_init':
+>build/drivers/net/netconsole.c:109: undefined reference to `config_group_init'
+>build/drivers/net/netconsole.c:111: undefined reference to `configfs_register_subsystem'
+>drivers/built-in.o: In function `dynamic_netconsole_exit':
+>build/drivers/net/netconsole.c:116: undefined reference to `configfs_unregister_subsystem'
+>
 
-> -----Original Message-----
-> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org]
-> Sent: Tuesday, January 25, 2011 1:22 PM
-> To: Bhupesh SHARMA
-> Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Marc
-> Kleine-Budde; David Miller
-> Subject: Re: [PATCH net-next-2.6 v5 1/1] can: c_can: Added support for
-> Bosch C_CAN controller
-> 
-> On 01/25/2011 05:36 AM, Bhupesh SHARMA wrote:
-> > Hi Wolfgang,
-> ...
-> >>> +		/* handle error on the bus */
-> >>> +		lec_type = c_can_has_and_handle_berr(priv);
-> >>> +		if (lec_type && (error_type != C_CAN_NO_ERROR))
-> >>> +			work_done += c_can_err(dev, error_type, lec_type);
-> >>
-> >> State changes are only reported if berr_reporting is enabled and a
-> bus
-> >> error occured. This needs to be fixed.
-> >
-> > As I mentioned earlier in a response to a review comment, the Bus
-> Error
-> > reporting for C_CAN seems different from sja1000 and flexcan
-> approaches.
-> > Do you think it will be useful to drop CAN_CTRLMODE_BERR_REPORTING
-> from
-> > priv->can.ctrlmode_supported as done by *pch* driver? Or do you have
-> > a better idea..
-> 
-> You bus error reporting is OK. The problem is that it does not only
-> affect bus errors but also state changes. State change messages should
-> alway be send independent of priv->can.ctrlmode. It's just a matter of
-> moving code to the right location. E.g. the code snippet above inside
-> c_can_err() before you check for bus errors.
+Yeah, this was reported, another way to fix this is "select CONFIGFS_FS".
+Using "select" makes you configure NETCONSOLE_DYNAMIC without caring
+about if you have configured CONFIGFS_FS=y, which seems better.
 
-I got your point.
-Ok, I will send V6 as per your comments.
-
-> >> Feel free to send the output of "candump any,0:0,#FFFFFFFF" when
-> >> sending
-> >> messages without cable connected and with a bus error provocuted.
-> >
-> > OK. I will try to cross-compile candump for my arm-v7 architecture
-> > and will send the output.
-> 
-> Thanks,
-> 
-> Wolfgang.
-
-Regards,
-Bhupesh
+Thanks.
