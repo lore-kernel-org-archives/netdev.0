@@ -1,37 +1,32 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 14/20] staging/appletalk: remove the BKL
-Date: Wed, 26 Jan 2011 13:57:37 +0100
-Message-ID: <201101261357.38132.arnd@arndb.de>
-References: <1295993854-4971-1-git-send-email-arnd@arndb.de> <1295993854-4971-15-git-send-email-arnd@arndb.de> <20110125.142926.246535705.davem@davemloft.net>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: Re: 40k+ outbound connections and bind() problem
+Date: Wed, 26 Jan 2011 15:00:58 +0200
+Message-ID: <AANLkTinDQ-n3Y2_8PtvdWSxkYV8Kvj8on3iEeHsBSFB-@mail.gmail.com>
+References: <8cdb2dde69120a8668b31e2050916493@visp.net.lb>
+	<AANLkTikSvf8bNK2_eHg+cWQJLz-56_88mrf0ttJX3W=0@mail.gmail.com>
+	<9e62acde19ef75f3f77468cd81ed7ffd@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, acme@ghostprotocols.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: denys@visp.net.lb
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:65533 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997Ab1AZM5o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 07:57:44 -0500
-In-Reply-To: <20110125.142926.246535705.davem@davemloft.net>
+Received: from mail-px0-f174.google.com ([209.85.212.174]:41351 "EHLO
+	mail-px0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751583Ab1AZNA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 08:00:59 -0500
+Received: by pxi15 with SMTP id 15so59750pxi.19
+        for <netdev@vger.kernel.org>; Wed, 26 Jan 2011 05:00:58 -0800 (PST)
+In-Reply-To: <9e62acde19ef75f3f77468cd81ed7ffd@visp.net.lb>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 25 January 2011, David Miller wrote:
-> If you're moving appletalk to staging because "nobody is motivated
-> enough to remove the BKL" and then you actually do the work to remove
-> the BKL, I really don't see any point in doing the whole staging
-> thing.
-> 
-> We always keep an eye on every protocol that sits under the top-level
-> net/.  Every socket API change propagates, as does every other
-> networking API change that matters for those protocols.
+Hi,
 
-Ok, fair enough. I've removed the "move to staging" patch now from my
-series. I'm going to need some help with testing, or at least thoroughly
-reviewing the patch, since I am not extremely confident in my own work
-there.
+> Latest stable, 2.6.37
 
-	Arnd
+Please apply this patch [1] and see if it's still happening.
+
+thanks,
+Daniel
+
+[1] http://www.spinics.net/lists/netdev/msg152204.html
