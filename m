@@ -1,143 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [Bugme-new] [Bug 27212] New: Warning kmemcheck: Caught 64-bit
- read from uninitialized memory in netlink_broadcast_filtered
-Date: Wed, 26 Jan 2011 10:18:38 +0100
-Message-ID: <1296033518.2899.41.camel@edumazet-laptop>
-References: <bug-27212-10286@https.bugzilla.kernel.org/>
-	 <20110120122549.85863a84.akpm@linux-foundation.org>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2 14/16] Intel net drivers: convert to ndo_fix_features
+Date: Wed, 26 Jan 2011 01:47:46 -0800
+Message-ID: <AANLkTikYg6x-T42eSh-ou=bJr=16wLxoVYXON5qiyyvu@mail.gmail.com>
+References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl>
+	<28a1c0f6e1ab9a523ee1e947ca4a013fd5730539.1295734271.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr,
-	Andrew Morton <akpm@linux-foundation.org>
-To: David Miller <davem@davemloft.net>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:57674 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752937Ab1AZJSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 04:18:44 -0500
-Received: by bwz15 with SMTP id 15so987190bwz.19
-        for <netdev@vger.kernel.org>; Wed, 26 Jan 2011 01:18:43 -0800 (PST)
-In-Reply-To: <20110120122549.85863a84.akpm@linux-foundation.org>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:38224 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751159Ab1AZJrq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 04:47:46 -0500
+Received: by iwn9 with SMTP id 9so694569iwn.19
+        for <netdev@vger.kernel.org>; Wed, 26 Jan 2011 01:47:46 -0800 (PST)
+In-Reply-To: <28a1c0f6e1ab9a523ee1e947ca4a013fd5730539.1295734271.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 20 janvier 2011 =C3=A0 12:25 -0800, Andrew Morton a =C3=A9crit=
- :
-> (switched to email.  Please respond via emailed reply-to-all, not via=
- the
-> bugzilla web interface).
->=20
-> On Thu, 20 Jan 2011 20:08:32 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->=20
-> > https://bugzilla.kernel.org/show_bug.cgi?id=3D27212
-> >=20
-> >            Summary: Warning kmemcheck: Caught 64-bit read from
-> >                     uninitialized memory in netlink_broadcast_filte=
-red
-> >            Product: Other
-> >            Version: 2.5
-> >     Kernel Version: 2.6.38-rc1
-> >           Platform: All
-> >         OS/Version: Linux
-> >               Tree: Mainline
-> >             Status: NEW
-> >           Severity: normal
-> >           Priority: P1
-> >          Component: Other
-> >         AssignedTo: other_other@kernel-bugs.osdl.org
-> >         ReportedBy: casteyde.christian@free.fr
-> >         Regression: Yes
-> >=20
-> >=20
-> > Athlon 64 X2 3000 in 64bits
-> > Slackware64 13.1
-> > Kernel compiled with kmemcheck and other debug options
-> >=20
-> > At boot I got the following warning:
-> >=20
-> > PCI: Using ACPI for IRQ routing
-> > PCI: pci_cache_line_size set to 64 bytes
-> > pci 0000:00:00.0: address space collision: [mem 0xe0000000-0xefffff=
-ff pref]
-> > conflicts with GART [mem 0x
-> > e0000000-0xefffffff]
-> > reserve RAM buffer: 000000000009fc00 - 000000000009ffff=20
-> > reserve RAM buffer: 000000003ffb0000 - 000000003fffffff
-> > WARNING: kmemcheck: Caught 64-bit read from uninitialized memory
-> > (ffff88003e170eb0)
-> > 0000000000000000010000000000000000000000000000000000000000000000
-> >  i i i i i i i i i i i i u u u u u u u u u u u u u u u u u u u u
-> >                                  ^
-> >=20
-> > Pid: 1, comm: swapper Not tainted 2.6.38-rc1 #2 K8 Combo-Z/K8 Combo=
--Z
-> > RIP: 0010:[<ffffffff8127ad72>]  [<ffffffff8127ad72>] memmove+0x122/=
-0x1a0
-> > RSP: 0018:ffff88003e0b3c60  EFLAGS: 00010202
-> > RAX: ffff88003e170080 RBX: ffff88003e27b500 RCX: 0000000000000020
-> > RDX: 0000000000000018 RSI: ffff88003e170ea0 RDI: ffff88003e1700a0
-> > RBP: ffff88003e0b3c60 R08: 0000000000000001 R09: 0000000000000001
-> > R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
-> > R13: 0000000000000080 R14: 0000000000000000 R15: 0000000000000001
-> > FS:  0000000000000000(0000) GS:ffff88003fc00000(0000) knlGS:0000000=
-000000000
-> > CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> > CR2: ffff88003e018abc CR3: 0000000001a1c000 CR4: 00000000000006f0
-> > DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> > DR3: 0000000000000000 DR6: 00000000ffff4ff0 DR7: 0000000000000400
-> >  [<ffffffff814741c2>] pskb_expand_head+0xc2/0x2a0
-> >  [<ffffffff81498fa7>] netlink_broadcast_filtered+0xa7/0x4a0
-> >  [<ffffffff814993b8>] netlink_broadcast+0x18/0x20
-> >  [<ffffffff8149b884>] genlmsg_mcast+0x144/0x180
-> >  [<ffffffff8149bc4a>] genl_ctrl_event+0xca/0x450
-> >  [<ffffffff8149c75d>] genl_register_mc_group+0x10d/0x2a0
-> >  [<ffffffff81ad9da4>] genl_init+0x6c/0x84
-> >  [<ffffffff810001de>] do_one_initcall+0x3e/0x170
-> >  [<ffffffff81aae6ea>] kernel_init+0x197/0x21b
-> >  [<ffffffff81003254>] kernel_thread_helper+0x4/0x10
-> >  [<ffffffffffffffff>] 0xffffffffffffffff
-> > pnp: PnP ACPI init
-> > ACPI: bus type pnp registered
-> > pnp 00:00: [bus 00-ff]
-> > pnp 00:00: [io  0x0cf8-0x0cff]
-> >=20
-> > This is specific to 2.6.38-rc1.
-> >=20
+2011/1/22 Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>:
+> Private rx_csum flags are now duplicate of netdev->features & NETIF_F=
+_RXCSUM.
+> Removing this needs deeper surgery.
+>
+> Since ixgbevf doesn't change hardware state on RX csum enable/disable
+> its reset is avoided.
+>
+> Things noticed:
+> =C2=A0- e1000, e1000e and ixgb have RX csum disabled by default
+> =C2=A0- HW VLAN acceleration probably can be toggled, but it's left a=
+s is
+> =C2=A0- the resets on RX csum offload change can probably be avoided
+> =C2=A0- there is A LOT of copy-and-pasted code here
+>
+> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+> ---
+> =C2=A0drivers/net/e1000/e1000_ethtool.c =C2=A0| =C2=A0 69 -----------=
+-------------------------
+> =C2=A0drivers/net/e1000/e1000_main.c =C2=A0 =C2=A0 | =C2=A0 30 ++++++=
++++++++--
+> =C2=A0drivers/net/e1000e/ethtool.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 62 -=
+-------------------------------
+> =C2=A0drivers/net/e1000e/netdev.c =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
+ 30 +++++++++++++--
+> =C2=A0drivers/net/igb/igb_ethtool.c =C2=A0 =C2=A0 =C2=A0| =C2=A0 67 -=
+---------------------------------
+> =C2=A0drivers/net/igb/igb_main.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ 33 +++++++++++++----
+> =C2=A0drivers/net/igbvf/ethtool.c =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
+ 57 -----------------------------
+> =C2=A0drivers/net/igbvf/netdev.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ 25 ++++++++++---
+> =C2=A0drivers/net/ixgb/ixgb.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+| =C2=A0 =C2=A02 +
+> =C2=A0drivers/net/ixgb/ixgb_ethtool.c =C2=A0 =C2=A0| =C2=A0 59 +-----=
+-------------------------
+> =C2=A0drivers/net/ixgb/ixgb_main.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 31 +=
++++++++++++++--
+> =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c =C2=A0| =C2=A0 65 -----------=
+----------------------
+> =C2=A0drivers/net/ixgbe/ixgbe_main.c =C2=A0 =C2=A0 | =C2=A0 31 ++++++=
++++++-----
+> =C2=A0drivers/net/ixgbevf/ethtool.c =C2=A0 =C2=A0 =C2=A0| =C2=A0 46 -=
+-----------------------
+> =C2=A0drivers/net/ixgbevf/ixgbevf_main.c | =C2=A0 26 +++++++++++---
+> =C2=A015 files changed, 172 insertions(+), 461 deletions(-)
+>
 
-[PATCH] net: add kmemcheck annotation in __alloc_skb()
+Upon initial reviews of the patch, we found issues with the e1000e
+changes so far.  We are working to put together a patch to resolve the
+issues (and to do the conversion to ndo_fix_features).  Based on the
+initial work done by Michal, we can take care of the changes necessary
+for the Intel Wired Ethernet drivers, and will wait for acceptance of
+the net and ethtool changes before pushing the Intel patch.  Is that
+acceptable?
 
-pskb_expand_head() triggers a kmemcheck warning when copy of
-skb_shared_info is done in pskb_expand_head()
+=46or e1000e, this patch breaks the ability to manually override the
+default behavior of disabling TSO for 10/100, and there is some
+additional cleanup that can be done w.r.t. Rx csum flags.
 
-This is because destructor_arg field is not necessarily initialized at
-this point. Add kmemcheck_annotate_variable() call in __alloc_skb() to
-instruct kmemcheck this is a normal situation.
-
-Resolves bugzilla.kernel.org 27212
-
-Reference: https://bugzilla.kernel.org/show_bug.cgi?id=3D27212
-Reported-by: Christian Casteyde <casteyde.christian@free.fr>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Andrew Morton <akpm@linux-foundation.org>
----
- net/core/skbuff.c |    1 +
- 1 files changed, 1 insertion(+)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index d31bb36..1762e97 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -210,6 +210,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_=
-t gfp_mask,
- 	shinfo =3D skb_shinfo(skb);
- 	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
- 	atomic_set(&shinfo->dataref, 1);
-+	kmemcheck_annotate_variable(shinfo->destructor_arg);
-=20
- 	if (fclone) {
- 		struct sk_buff *child =3D skb + 1;
-
-
+--=20
+Cheers,
+Jeff
