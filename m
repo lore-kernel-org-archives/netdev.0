@@ -1,75 +1,69 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 06/11] tg3: Fix loopback tests
-Date: Tue, 25 Jan 2011 17:58:52 -0800
-Message-ID: <1296007137-23146-7-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 11/11] tg3: Update copyrights and update
+ version to 3.117
+Date: Tue, 25 Jan 2011 17:58:57 -0800
+Message-ID: <1296007137-23146-12-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1814 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:3912 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752506Ab1AZB7U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jan 2011 20:59:20 -0500
+	id S1752506Ab1AZB7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jan 2011 20:59:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The half-duplex bit in the MAC MODE register will be set during the
-loopback test if the external link is in half-duplex mode.  This will
-cause the loopback test to fail on newer devices.  This patch turns the
-half-duplex bit off for the test.
-
-Also, newer devices fail the internal phy loopback test because the phy
-link takes a little while to come up.  This patch adds code to wait for
-the link before proceeding with the test.
+This patch updates copyrights and updates the tg3 version to 3.117.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |   15 ++++++++++++---
- 1 files changed, 12 insertions(+), 3 deletions(-)
+ drivers/net/tg3.c |    6 +++---
+ drivers/net/tg3.h |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index b957b60..988861a 100644
+index c7ac812..4ca0b7a 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -10845,8 +10845,9 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 		if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5780)
- 			return 0;
+@@ -4,7 +4,7 @@
+  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
+  * Copyright (C) 2001, 2002, 2003 Jeff Garzik (jgarzik@pobox.com)
+  * Copyright (C) 2004 Sun Microsystems Inc.
+- * Copyright (C) 2005-2010 Broadcom Corporation.
++ * Copyright (C) 2005-2011 Broadcom Corporation.
+  *
+  * Firmware is:
+  *	Derived from proprietary unpublished source code,
+@@ -64,10 +64,10 @@
  
--		mac_mode = (tp->mac_mode & ~MAC_MODE_PORT_MODE_MASK) |
--			   MAC_MODE_PORT_INT_LPBACK;
-+		mac_mode = tp->mac_mode &
-+			   ~(MAC_MODE_PORT_MODE_MASK | MAC_MODE_HALF_DUPLEX);
-+		mac_mode |= MAC_MODE_PORT_INT_LPBACK;
- 		if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS))
- 			mac_mode |= MAC_MODE_LINK_POLARITY;
- 		if (tp->phy_flags & TG3_PHYFLG_10_100_ONLY)
-@@ -10868,7 +10869,8 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 		tg3_writephy(tp, MII_BMCR, val);
- 		udelay(40);
+ #define DRV_MODULE_NAME		"tg3"
+ #define TG3_MAJ_NUM			3
+-#define TG3_MIN_NUM			116
++#define TG3_MIN_NUM			117
+ #define DRV_MODULE_VERSION	\
+ 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
+-#define DRV_MODULE_RELDATE	"December 3, 2010"
++#define DRV_MODULE_RELDATE	"January 25, 2011"
  
--		mac_mode = tp->mac_mode & ~MAC_MODE_PORT_MODE_MASK;
-+		mac_mode = tp->mac_mode &
-+			   ~(MAC_MODE_PORT_MODE_MASK | MAC_MODE_HALF_DUPLEX);
- 		if (tp->phy_flags & TG3_PHYFLG_IS_FET) {
- 			tg3_writephy(tp, MII_TG3_FET_PTEST,
- 				     MII_TG3_FET_PTEST_FRC_TX_LINK |
-@@ -10896,6 +10898,13 @@ static int tg3_run_loopback(struct tg3 *tp, int loopback_mode)
- 				     MII_TG3_EXT_CTRL_LNK3_LED_MODE);
- 		}
- 		tw32(MAC_MODE, mac_mode);
-+
-+		/* Wait for link */
-+		for (i = 0; i < 100; i++) {
-+			if (tr32(MAC_TX_STATUS) & TX_STATUS_LINK_UP)
-+				break;
-+			mdelay(1);
-+		}
- 	} else {
- 		return -EINVAL;
- 	}
+ #define TG3_DEF_MAC_MODE	0
+ #define TG3_DEF_RX_MODE		0
+diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
+index 716fc00..73884b6 100644
+--- a/drivers/net/tg3.h
++++ b/drivers/net/tg3.h
+@@ -4,7 +4,7 @@
+  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
+  * Copyright (C) 2001 Jeff Garzik (jgarzik@pobox.com)
+  * Copyright (C) 2004 Sun Microsystems Inc.
+- * Copyright (C) 2007-2010 Broadcom Corporation.
++ * Copyright (C) 2007-2011 Broadcom Corporation.
+  */
+ 
+ #ifndef _T3_H
 -- 
 1.7.2.2
 
