@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/11] tg3: 5719, VLAN, and EEE bugfixes
-Date: Tue, 25 Jan 2011 22:27:34 -0800 (PST)
-Message-ID: <20110125.222734.189693738.davem@davemloft.net>
-References: <1296007137-23146-1-git-send-email-mcarlson@broadcom.com>
-	<20110125.193859.193720518.davem@davemloft.net>
-	<1296022477.2633.16.camel@edumazet-laptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v4] smc91x: add devicetree support
+Date: Tue, 25 Jan 2011 22:42:09 -0800 (PST)
+Message-ID: <20110125.224209.183055030.davem@davemloft.net>
+References: <20110125.194532.71125517.davem@davemloft.net>
+	<1296019325-17801-1-git-send-email-thomas@wytron.com.tw>
+	<AANLkTindbigYzY0zJufpr-D25m_B5Gjqp09ZbcaN-aZ9@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, andy@greyhouse.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46244
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750932Ab1AZG07 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 01:26:59 -0500
-In-Reply-To: <1296022477.2633.16.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nios2-dev-1eJk0qcHJCcaeqlQEoCUNoJY59XmG8rH@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <AANLkTindbigYzY0zJufpr-D25m_B5Gjqp09ZbcaN-aZ9-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 26 Jan 2011 07:14:37 +0100
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Date: Tue, 25 Jan 2011 22:52:36 -0700
 
-> I tested the vlan patch on my machine, and it solves the problem I had
-> with linux-2.6
+> On Tue, Jan 25, 2011 at 10:22 PM, Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org> wrote:
+>> Signed-off-by: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+>> ---
+>> v2 specify part numbers in compat as Grant suggested.
+>> v3 more specific part name.
+>> v4 include match table only for OF as David suggested.
+>>
+>>  drivers/net/smc91x.c |   13 +++++++++++++
+>>  1 files changed, 13 insertions(+), 0 deletions(-)
 > 
-> I believe this particular patch should be net-2.6 material, not
-> net-next-2.6
+> Looks okay to me.
+> 
+> Reviewed-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
 
-Agreed.
-
-> (There is a small rejected hunk)
-
-Matt, if you would send me a net-2.6 backport with your blessing
-I'd appreciate it.
+Applied to net-next-2.6, thanks.
