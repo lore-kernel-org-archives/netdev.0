@@ -1,80 +1,66 @@
-From: Mauro Carvalho Chehab <mchehab@redhat.com>
-Subject: Re: [RFC 00/20] Proposal for remaining BKL users
-Date: Wed, 26 Jan 2011 09:58:21 -0200
-Message-ID: <4D400C5D.80004@redhat.com>
-References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
-	<20110126022223.GB28072@suse.de> <201101261231.30390.arnd@arndb.de>
+From: "Mills, Tony" <tony.mills@jagex.com>
+Subject: RE: bnx2 cards intermittantly going offline
+Date: Wed, 26 Jan 2011 12:44:52 +0000
+Message-ID: <6DD3782C33561D44B47071B09946026405F65F9333@exchange1>
+References: <6DD3782C33561D44B47071B09946026405F63853AB@exchange1>
+ <1295373358.8131.4.camel@HP1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Frederic Weisbecker <fweisbec@gmail.com>, dri-devel@lists.freedesktop.org,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ian Kent <raven@themaw.net>,
-	linux-cifs@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
-	linux-x25@vger.kernel.org,
-	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>,
-	Palash Bandyopadhyay <Palash.Bandyopadhyay@conexant.com>,
-	Ross Cohen <rcohen@snurgle.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Stuart Swales <stuart.swales.croftnuisk@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	autofs@linux.kernel.org, Jeff Layton <jlayton@redhat.com>,
-	netdev@vger.kernel.org, Greg KH <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org,
-	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
-	linux-fsdevel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
-In-Reply-To: <201101261231.30390.arnd@arndb.de>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.jagex.com ([212.44.19.211]:5894 "EHLO mx2.jagex.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753125Ab1AZMo5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 07:44:57 -0500
+In-Reply-To: <1295373358.8131.4.camel@HP1>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Em 26-01-2011 09:31, Arnd Bergmann escreveu:
-> On Wednesday 26 January 2011, Greg KH wrote:
->> On Tue, Jan 25, 2011 at 11:17:14PM +0100, Arnd Bergmann wrote:
->>> I've gone through all the code in the kernel that
->>> uses the big kernel lock and come up with a solution
->>> that seems at least half-reasonable for each of them.
->>>
->>> The decisions are somewhat arbitrary, but here is
->>> what I'd suggest we do:
->>>
->>> * Remove in 2.6.39:
->>>    i830, autofs3, smbfs
->>
->> I thought some people really wanted to keep i830.  Or was that i810?
->>  I'll drop autofs3 and smbfs, thanks.
+Hi, Thanks for your response. 
+
+I have done some further investigation and found that we have had a massive amount of interrupts occurring on our Broadcom cards, i have set the affinity for irq 36 and 48 to run on the first two vcpu's on the box and the java processes to run on the others. I have also replaced the debian bnx2 driver with the latest from the Broadcom website and made the rx ring buffer to 4080, this has stopped a multiplexed server running at 1.6 cycles per second from missing cycles due to interrupts on the interface and allowing much better processing time, and the ring buffer up at 4080 stops the rx_fw_discards i was seeing periodically, (even upping that to 1020 or 2040 did not sort the issue but the maximum setting from the Broadcom driver does. 
+
+I am now monitoring the system to see if the card ever becomes unresponsive. But i do have a question. 
+
+If i setup the smp_affinity with a mask of cpu 0 and 1 (the first two on the box) for the APIC-fasteoi irq's for the Ethernet devices, it appears that the kernel does not balance and will continue to use the same cpu to do the interrupts even though there is processing power on the other one. Is this a known issue or am i doing something wrong?
+
+Can i add it's on an dell r610 with a 12 core intel Xeon X5680, this shows up as 24 vcpu's. 
+
+Best Regards
+
+Tony Mills
+
+
+-----Original Message-----
+From: Michael Chan [mailto:mchan@broadcom.com] 
+Sent: 18 January 2011 17:56
+To: Mills, Tony
+Cc: netdev@vger.kernel.org
+Subject: Re: bnx2 cards intermittantly going offline
+
+
+On Tue, 2011-01-18 at 02:54 -0800, Mills, Tony wrote:
+> Last night i setup a machine to monitor overnight and at 3:52 this
+> morning it became unresponsive. 
 > 
-> i810 needs to be kept, i830 is obsolete, see the patch changelogs
-> there. I assume that Dave Airlie will take both patches (i810 BKL
-> removal and i830 removal) into his 2.6.39 queue.
-> 
->>> * Work around in an ugly way, but keep alive:
->>>    * ufs, ipx, i810, cx25721
->>>
->>> * Fix properly:
->>>    * usbip, go7007, adfs, x25
->>
->> Thanks for the usbip and go7007 patches, I'll queue them up.
-> 
-> It would be good if you could also take the cx25721 patch. It's
-> not the nicest one I've done, but it's a bug fix nonetheless.
 
-I guess you're meaning cx25821, right? 
+When it becomes unresponsive, please send some packets to the NIC (such
+as ping) and monitor statistics with ethtool -S.  See if the packets are
+being received or discarded.  Also, run tcpdump on the machine to see if
+the packets are properly received by the stack.  Thanks.
 
-Palash should take a look on it and review. This is a device that allows
-12 simultaneous streams, so, I suspect that he'll need to do some
-changes at the locking schema, to avoid performance bottlenecks.
 
-Cheers,
-Mauro
+-- 
+IMPORTANT NOTICE
+
+The sender does not guarantee that this message, including any attachment, is secure
+or virus free. Also, it is confidential and may be privileged or otherwise protected
+from disclosure. If you are not the intended recipient, do not disclose or copy it
+or its contents. Please telephone or email the sender and delete the message
+entirely from your system.
+Jagex Limited is a company registered in England & Wales with company number
+03982706 and a registered office at St John's Innovation Centre, Cowley Road, 
+Cambridge, CB4 0WS, UK.
