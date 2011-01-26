@@ -1,69 +1,80 @@
 From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-next 11/11] tg3: Update copyrights and update
- version to 3.117
-Date: Tue, 25 Jan 2011 17:58:57 -0800
-Message-ID: <1296007137-23146-12-git-send-email-mcarlson@broadcom.com>
+Subject: [PATCH net-next 02/11] tg3: Fix 5719 A0 tx completion bug
+Date: Tue, 25 Jan 2011 17:58:48 -0800
+Message-ID: <1296007137-23146-3-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, andy@greyhouse.net, mcarlson@broadcom.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:3912 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1765 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752506Ab1AZB7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jan 2011 20:59:24 -0500
+	id S1752476Ab1AZB7U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jan 2011 20:59:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch updates copyrights and updates the tg3 version to 3.117.
+The 5719 A0 has a bug that manifests itself as if the chipset were
+reordering memory writes.  The best known way to solve this problem is
+to turn off LSO and jumbo frames.
 
 Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
 Reviewed-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/tg3.c |    6 +++---
- drivers/net/tg3.h |    2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/tg3.c |   12 ++++++++----
+ drivers/net/tg3.h |    1 +
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index c7ac812..4ca0b7a 100644
+index 07d4e61..8756f31 100644
 --- a/drivers/net/tg3.c
 +++ b/drivers/net/tg3.c
-@@ -4,7 +4,7 @@
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-  * Copyright (C) 2001, 2002, 2003 Jeff Garzik (jgarzik@pobox.com)
-  * Copyright (C) 2004 Sun Microsystems Inc.
-- * Copyright (C) 2005-2010 Broadcom Corporation.
-+ * Copyright (C) 2005-2011 Broadcom Corporation.
-  *
-  * Firmware is:
-  *	Derived from proprietary unpublished source code,
-@@ -64,10 +64,10 @@
+@@ -8108,8 +8108,9 @@ static int tg3_reset_hw(struct tg3 *tp, int reset_phy)
+ 	/* Program the jumbo buffer descriptor ring control
+ 	 * blocks on those devices that have them.
+ 	 */
+-	if ((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) &&
+-	    !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS)) {
++	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0 ||
++	    ((tp->tg3_flags & TG3_FLAG_JUMBO_CAPABLE) &&
++	    !(tp->tg3_flags2 & TG3_FLG2_5780_CLASS))) {
+ 		/* Setup replenish threshold. */
+ 		tw32(RCVBDI_JUMBO_THRESH, tp->rx_jumbo_pending / 8);
  
- #define DRV_MODULE_NAME		"tg3"
- #define TG3_MAJ_NUM			3
--#define TG3_MIN_NUM			116
-+#define TG3_MIN_NUM			117
- #define DRV_MODULE_VERSION	\
- 	__stringify(TG3_MAJ_NUM) "." __stringify(TG3_MIN_NUM)
--#define DRV_MODULE_RELDATE	"December 3, 2010"
-+#define DRV_MODULE_RELDATE	"January 25, 2011"
+@@ -13329,7 +13330,9 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 	}
  
- #define TG3_DEF_MAC_MODE	0
- #define TG3_DEF_RX_MODE		0
+ 	/* Determine TSO capabilities */
+-	if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
++	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0)
++		; /* Do nothing. HW bug. */
++	else if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
+ 		tp->tg3_flags2 |= TG3_FLG2_HW_TSO_3;
+ 	else if ((tp->tg3_flags3 & TG3_FLG3_5755_PLUS) ||
+ 		 GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5906)
+@@ -13380,7 +13383,8 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
+ 		tp->tg3_flags3 |= TG3_FLG3_40BIT_DMA_LIMIT_BUG;
+ 	}
+ 
+-	if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
++	if ((tp->tg3_flags3 & TG3_FLG3_5717_PLUS) &&
++	    tp->pci_chip_rev_id != CHIPREV_ID_5719_A0)
+ 		tp->tg3_flags3 |= TG3_FLG3_USE_JUMBO_BDFLAG;
+ 
+ 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
 diff --git a/drivers/net/tg3.h b/drivers/net/tg3.h
-index 716fc00..73884b6 100644
+index 0a0987a..52ae644 100644
 --- a/drivers/net/tg3.h
 +++ b/drivers/net/tg3.h
-@@ -4,7 +4,7 @@
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-  * Copyright (C) 2001 Jeff Garzik (jgarzik@pobox.com)
-  * Copyright (C) 2004 Sun Microsystems Inc.
-- * Copyright (C) 2007-2010 Broadcom Corporation.
-+ * Copyright (C) 2007-2011 Broadcom Corporation.
-  */
- 
- #ifndef _T3_H
+@@ -141,6 +141,7 @@
+ #define  CHIPREV_ID_57780_A1		 0x57780001
+ #define  CHIPREV_ID_5717_A0		 0x05717000
+ #define  CHIPREV_ID_57765_A0		 0x57785000
++#define  CHIPREV_ID_5719_A0		 0x05719000
+ #define  GET_ASIC_REV(CHIP_REV_ID)	((CHIP_REV_ID) >> 12)
+ #define   ASIC_REV_5700			 0x07
+ #define   ASIC_REV_5701			 0x00
 -- 
 1.7.2.2
 
