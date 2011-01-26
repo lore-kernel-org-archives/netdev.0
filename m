@@ -1,64 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 40k+ outbound connections and bind() problem
-Date: Wed, 26 Jan 2011 14:26:49 +0100
-Message-ID: <1296048409.2899.63.camel@edumazet-laptop>
-References: <8cdb2dde69120a8668b31e2050916493@visp.net.lb>
-	 <AANLkTikSvf8bNK2_eHg+cWQJLz-56_88mrf0ttJX3W=0@mail.gmail.com>
-	 <9e62acde19ef75f3f77468cd81ed7ffd@visp.net.lb>
-	 <AANLkTinDQ-n3Y2_8PtvdWSxkYV8Kvj8on3iEeHsBSFB-@mail.gmail.com>
-	 <1296047834.2899.62.camel@edumazet-laptop>
-	 <398df9351d5c9aec1ba69511d9dc6a70@visp.net.lb>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [RFC 00/20] Proposal for remaining BKL users
+Date: Wed, 26 Jan 2011 14:45:17 +0100
+Message-ID: <201101261445.17751.arnd@arndb.de>
+References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
+	<201101261231.30390.arnd@arndb.de> <4D400C5D.80004@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Baluta <daniel.baluta@gmail.com>, netdev@vger.kernel.org
-To: denys@visp.net.lb
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:43164 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751594Ab1AZN04 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 08:26:56 -0500
-Received: by wwa36 with SMTP id 36so951952wwa.1
-        for <netdev@vger.kernel.org>; Wed, 26 Jan 2011 05:26:54 -0800 (PST)
-In-Reply-To: <398df9351d5c9aec1ba69511d9dc6a70@visp.net.lb>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Frederic Weisbecker <fweisbec@gmail.com>, dri-devel@lists.freedesktop.org,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	"H. Peter Anvin" <hpa@zytor.com>, Ian Kent <raven@themaw.net>,
+	linux-cifs@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
+	linux-x25@vger.kernel.org,
+	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>,
+	Ross Cohen <rcohen@snurgle.org>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	Stuart Swales <stuart.swales.croftnuisk@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Arjan van de Ven <arjan@linux.intel.com>,
+	autofs@linux.kernel.org, Jeff Layton <jlayton@redhat.com>,
+	netdev@vger.kernel.org, Greg KH <gregkh@suse.de>,
+	linux-kernel@vger.kernel.org,
+	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
+	linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
+	Andrew Hendry
+To: Mauro Carvalho Chehab <mchehab@redhat.com>
+Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
+In-Reply-To: <4D400C5D.80004@redhat.com>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 26 janvier 2011 =C3=A0 15:23 +0200, denys@visp.net.lb a =C3=
-=A9crit :
-> On Wed, 26 Jan 2011 14:17:14 +0100, Eric Dumazet wrote:
-> > Le mercredi 26 janvier 2011 =C3=A0 15:00 +0200, Daniel Baluta a =C3=
-=A9crit :
-> >> Hi,
-> >>
-> >> > Latest stable, 2.6.37
-> >>
-> >> Please apply this patch [1] and see if it's still happening.
-> >>
-> >> thanks,
-> >> Daniel
-> >>
-> >> [1] http://www.spinics.net/lists/netdev/msg152204.html
-> >> -
-> >
-> > I dont think it'll help ;)
-> >
-> > Denys problem is if one source IP address is used, there is an=20
-> > absolute
-> > 64K limit to (IP, port) tuple
-> >
-> > Only thing you can do is to tune=20
-> > /proc/sys/net/ipv4/ip_local_port_range
-> > to get close to 64K limit
->  No, it is not one ip source.
->  As i mention before, i am binding each instance to different IP befo=
-re=20
->  connect().
->  And when i am having issues and such errors, i am trying httping and=
-=20
->  binding it to some unused ip, but still getting this error.
+On Wednesday 26 January 2011, Mauro Carvalho Chehab wrote:
+> I guess you're meaning cx25821, right? 
 
-Ah OK, you definitely want to use REUSEADDR then.
+Right, sorry for the typo.
+ 
+> Palash should take a look on it and review. This is a device that allows
+> 12 simultaneous streams, so, I suspect that he'll need to do some
+> changes at the locking schema, to avoid performance bottlenecks.
 
+I would be surprised if there was any measurable performance change.
+The BKL was used only in the open() function to iterate the device
+list, and that code is nowhere on a critical path, as far as I can tell.
 
-
+	Arnd
