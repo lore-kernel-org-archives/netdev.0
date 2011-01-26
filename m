@@ -1,35 +1,47 @@
-From: Phil Blundell <philb@gnu.org>
-Subject: Re: [PATCH] econet: remove compiler warnings
-Date: Wed, 26 Jan 2011 14:19:59 +0100
-Message-ID: <20110126131959.GF3010@hetzner>
-References: <1296036258.2899.44.camel@edumazet-laptop>
+From: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Subject: [PATCH] fix validate_link_af in rtnetlink core
+Date: Wed, 26 Jan 2011 15:55:24 +0100
+Message-ID: <20110126145523.GA3171@e-circ.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.88-198-119-4.clients.your-server.de ([88.198.119.4]:44606
-	"EHLO hetzner" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751400Ab1AZNyb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 08:54:31 -0500
+Received: from gate.eia.be ([194.78.71.18]:20971 "EHLO mail.eia.be"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752813Ab1AZOz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jan 2011 09:55:28 -0500
 Content-Disposition: inline
-In-Reply-To: <1296036258.2899.44.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jan 26, 2011 at 11:04:18AM +0100, Eric Dumazet wrote:
-> net/econet/af_econet.c: In function =E2=80=98econet_sendmsg=E2=80=99:
-> net/econet/af_econet.c:494: warning: label =E2=80=98error=E2=80=99 de=
-fined but not used
-> net/econet/af_econet.c:268: warning: unused variable =E2=80=98sk=E2=80=
-=99
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Hi,
 
-Thanks, looks sensible.
+I'm not sure about this patch.
 
-Acked-by: Phil Blundell <philb@gnu.org>
+I'm testing an API that uses IFLA_AF_SPEC attribute.
+In the rtnetlink core , the set_link_af() member
+of the rtnl_af_ops struct receives the nested attribute
+(as I expected), but the validate_link_af() member
+receives the parent attribute.
+IMO, this patch fixes this.
 
-p.
+Since I didn't find any code in iproute2 that makes use
+of this attribute, I wasn't able to verify this on the userspace
+end.
 
+Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
+---
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 310eb80..c6aee92 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1122,8 +1122,7 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
+ 				return -EOPNOTSUPP;
+ 
+ 			if (af_ops->validate_link_af) {
+-				err = af_ops->validate_link_af(dev,
+-							tb[IFLA_AF_SPEC]);
++				err = af_ops->validate_link_af(dev, af);
+ 				if (err < 0)
+ 					return err;
+ 			}
