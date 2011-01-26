@@ -1,36 +1,50 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] fix validate_link_af in rtnetlink core
-Date: Wed, 26 Jan 2011 16:36:44 +0100
-Message-ID: <4D403F8C.2090703@trash.net>
-References: <20110126145523.GA3171@e-circ.dyndns.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+From: Vlad Dogaru <ddvlad@rosedu.org>
+Subject: [PATCH v3 0/3] iproute2: support for device groups
+Date: Wed, 26 Jan 2011 18:41:23 +0200
+Message-ID: <1296060086-18777-1-git-send-email-ddvlad@rosedu.org>
+Cc: Vlad Dogaru <ddvlad@rosedu.org>,
+	Stephen Hemminger <shemminger@vyatta.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:46002 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753336Ab1AZPgv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 10:36:51 -0500
-In-Reply-To: <20110126145523.GA3171@e-circ.dyndns.org>
+Received: from [141.85.37.41] ([141.85.37.41]:43643 "EHLO swarm.cs.pub.ro"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1752920Ab1AZQla (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jan 2011 11:41:30 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 26.01.2011 15:55, Kurt Van Dijck wrote:
-> Hi,
-> 
-> I'm not sure about this patch.
-> 
-> I'm testing an API that uses IFLA_AF_SPEC attribute.
-> In the rtnetlink core , the set_link_af() member
-> of the rtnl_af_ops struct receives the nested attribute
-> (as I expected), but the validate_link_af() member
-> receives the parent attribute.
-> IMO, this patch fixes this.
-> 
-> Since I didn't find any code in iproute2 that makes use
-> of this attribute, I wasn't able to verify this on the userspace
-> end.
+This patch series adds userspace support for network device groups.
+There is support for setting device groups, listing only interfaces of a
+specific group, and setting basic device parameters for all interfaces
+in a group.
 
-There's code in libnl using this, your patch looks fine to me.
+Changes since version 2:
+ * groups now have names. The mapping between names and numbers (which
+   are used by the kernel) is in /etc/iproute2/group_map.
+ * the ip man page and usage display function have been updated to
+   reflect the new functionality.
+
+Changes since version 1:
+ * a single attribute is used for both setting the group of a device and
+   manipulating an entire group.
+
+
+Vlad Dogaru (3):
+  iproute2: add support for setting device groups
+  iproute2: support listing devices by group
+  iproute2: support setting device parameters by group
+
+ etc/iproute2/group_map    |    2 +
+ include/linux/if_link.h   |    1 +
+ include/linux/netdevice.h |    2 +-
+ include/utils.h           |    5 +++-
+ ip/ip_common.h            |    2 +
+ ip/ipaddress.c            |   14 ++++++++++
+ ip/iplink.c               |   60 ++++++++++++++++++++++++++++++++++++++++++---
+ ip/link_veth.c            |    3 +-
+ lib/utils.c               |   41 ++++++++++++++++++++++++++++++
+ man/man8/ip.8             |   31 ++++++++++++++++++++---
+ tc/m_ematch.c             |   39 -----------------------------
+ 11 files changed, 150 insertions(+), 50 deletions(-)
+ create mode 100644 etc/iproute2/group_map
+
