@@ -1,28 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/11] tg3: 5719, VLAN, and EEE bugfixes
-Date: Tue, 25 Jan 2011 19:38:59 -0800 (PST)
-Message-ID: <20110125.193859.193720518.davem@davemloft.net>
-References: <1296007137-23146-1-git-send-email-mcarlson@broadcom.com>
+Subject: Re: [PATCH 2/2] xen: netfront: Drop GSO SKBs which do
+ not have csum_blank.
+Date: Tue, 25 Jan 2011 19:44:05 -0800 (PST)
+Message-ID: <20110125.194405.226769333.davem@davemloft.net>
+References: <1295975376.14780.6595.camel@zakaz.uk.xensource.com>
+	<1295975400-538-2-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net
-To: mcarlson@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53712
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752051Ab1AZDiY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jan 2011 22:38:24 -0500
-In-Reply-To: <1296007137-23146-1-git-send-email-mcarlson@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, jeremy@goop.org, xen-devel@lists.xensource.com
+To: ian.campbell@citrix.com
+Return-path: <xen-devel-bounces@lists.xensource.com>
+In-Reply-To: <1295975400-538-2-git-send-email-ian.campbell@citrix.com>
+List-Unsubscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xensource.com>
+List-Help: <mailto:xen-devel-request@lists.xensource.com?subject=help>
+List-Subscribe: <http://lists.xensource.com/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xensource.com?subject=subscribe>
+Sender: xen-devel-bounces@lists.xensource.com
+Errors-To: xen-devel-bounces@lists.xensource.com
+List-Id: netdev.vger.kernel.org
 
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Date: Tue, 25 Jan 2011 17:58:46 -0800
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Tue, 25 Jan 2011 17:10:00 +0000
 
-> This patchset implements bugfixes for the 5719, the VLAN code and
-> enhances EEE support.
+> The Linux network stack expects all GSO SKBs to have ip_summed ==
+> CHECKSUM_PARTIAL (which implies that the frame contains a partial
+> checksum) and the Xen network ring protocol similarly expects an SKB
+> which has GSO set to also have NETRX_csum_blank (which also implies a
+> partial checksum). Therefore drop such frames on receive otherwise
+> they will trigger the warning in skb_gso_segment.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 
-All applied to net-next-2.6, thanks.
+The GSO code does in fact warn in the logs about this situation, but
+it _DOES NOT_ drop the packet.  Therefore, either you guys should do
+the same or we should make the generic code drop too.
 
-In particular, thanks for taking care of the vlan conversion.
+I think the generic code is doing the right thing, therefore what you
+should probably do is put the checksum of the SKB into the right state
+when you detect this situation (and perhaps bump a ethtool driver
+local statistic which specifically tracks this exact event).
+
+Or, even better, you should fix whatever causes this in the first
+place.
+
+Dropping frames ought to be the last option, stuff like this is
+impossible to debug if someone starts wondering why they are getting
+frame drops.
+
+You don't even account for this in a unique statistic somewhere, so
+people can figure out the actual spcific _reason_ for the drop.  They
+will just see "rx_error" and scratch their heads.
+
+Anyways, I think dropping is fundamentally wrong, so I'm not applying
+this.
