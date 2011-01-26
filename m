@@ -1,89 +1,46 @@
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Subject: Re: [PATCH v4] smc91x: add devicetree support
-Date: Tue, 25 Jan 2011 22:52:36 -0700
-Message-ID: <AANLkTindbigYzY0zJufpr-D25m_B5Gjqp09ZbcaN-aZ9@mail.gmail.com>
-References: <20110125.194532.71125517.davem@davemloft.net>
-	<1296019325-17801-1-git-send-email-thomas@wytron.com.tw>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 0/11] tg3: 5719, VLAN, and EEE bugfixes
+Date: Wed, 26 Jan 2011 07:14:37 +0100
+Message-ID: <1296022477.2633.16.camel@edumazet-laptop>
+References: <1296007137-23146-1-git-send-email-mcarlson@broadcom.com>
+	 <20110125.193859.193720518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: nios2-dev-1eJk0qcHJCcaeqlQEoCUNoJY59XmG8rH@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1296019325-17801-1-git-send-email-thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: mcarlson@broadcom.com, netdev@vger.kernel.org, andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:43230 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818Ab1AZGOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 01:14:44 -0500
+Received: by wyb28 with SMTP id 28so601420wyb.19
+        for <netdev@vger.kernel.org>; Tue, 25 Jan 2011 22:14:43 -0800 (PST)
+In-Reply-To: <20110125.193859.193720518.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jan 25, 2011 at 10:22 PM, Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org> wrote:
-> Signed-off-by: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
-> ---
-> v2 specify part numbers in compat as Grant suggested.
-> v3 more specific part name.
-> v4 include match table only for OF as David suggested.
->
->  drivers/net/smc91x.c |   13 +++++++++++++
->  1 files changed, 13 insertions(+), 0 deletions(-)
-
-Looks okay to me.
-
-Reviewed-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-
->
-> diff --git a/drivers/net/smc91x.c b/drivers/net/smc91x.c
-> index 726df61..43654a3 100644
-> --- a/drivers/net/smc91x.c
-> +++ b/drivers/net/smc91x.c
-> @@ -81,6 +81,7 @@ static const char version[] =
->  #include <linux/ethtool.h>
->  #include <linux/mii.h>
->  #include <linux/workqueue.h>
-> +#include <linux/of.h>
->
->  #include <linux/netdevice.h>
->  #include <linux/etherdevice.h>
-> @@ -2394,6 +2395,15 @@ static int smc_drv_resume(struct device *dev)
->        return 0;
->  }
->
-> +#ifdef CONFIG_OF
-> +static const struct of_device_id smc91x_match[] = {
-> +       { .compatible = "smsc,lan91c94", },
-> +       { .compatible = "smsc,lan91c111", },
-> +       {},
-> +}
-> +MODULE_DEVICE_TABLE(of, smc91x_match);
-> +#endif
-> +
->  static struct dev_pm_ops smc_drv_pm_ops = {
->        .suspend        = smc_drv_suspend,
->        .resume         = smc_drv_resume,
-> @@ -2406,6 +2416,9 @@ static struct platform_driver smc_driver = {
->                .name   = CARDNAME,
->                .owner  = THIS_MODULE,
->                .pm     = &smc_drv_pm_ops,
-> +#ifdef CONFIG_OF
-> +               .of_match_table = smc91x_match,
-> +#endif
->        },
->  };
->
+Le mardi 25 janvier 2011 =C3=A0 19:38 -0800, David Miller a =C3=A9crit =
+:
+> From: "Matt Carlson" <mcarlson@broadcom.com>
+> Date: Tue, 25 Jan 2011 17:58:46 -0800
+>=20
+> > This patchset implements bugfixes for the 5719, the VLAN code and
+> > enhances EEE support.
+>=20
+> All applied to net-next-2.6, thanks.
+>=20
+> In particular, thanks for taking care of the vlan conversion.
 > --
-> 1.7.3.5
->
->
+
+I tested the vlan patch on my machine, and it solves the problem I had
+with linux-2.6
+
+I believe this particular patch should be net-2.6 material, not
+net-next-2.6
+
+(There is a small rejected hunk)
+
+Thanks !
 
 
-
--- 
-Grant Likely, B.Sc., P.Eng.
-Secret Lab Technologies Ltd.
