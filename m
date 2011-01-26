@@ -1,49 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GIT PULL nf-next-2.6] IPVS changes for 2.6.38-rc3
-Date: Wed, 26 Jan 2011 16:27:58 +0100
-Message-ID: <4D403D7E.2050902@trash.net>
-References: <1295961426-7402-1-git-send-email-horms@verge.net.au> <4D3ED7BF.1080202@trash.net> <20110125235744.GA11026@verge.net.au>
+From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Subject: Re: [PATCH v4] smc91x: add devicetree support
+Date: Wed, 26 Jan 2011 08:32:52 -0700
+Message-ID: <AANLkTimCMpB+mOHv+8GMOkFF0qMh+bVxr56_-8r3EOqc@mail.gmail.com>
+References: <20110125.194532.71125517.davem@davemloft.net>
+	<1296019325-17801-1-git-send-email-thomas@wytron.com.tw>
+	<alpine.LFD.2.00.1101261004560.8580@xanadu.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Changli Gao <xiaosuo@gmail.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20110125235744.GA11026@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: nios2-dev-1eJk0qcHJCcaeqlQEoCUNoJY59XmG8rH@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <alpine.LFD.2.00.1101261004560.8580-QuJgVwGFrdf/9pzu0YdTqQ@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 26.01.2011 00:57, Simon Horman wrote:
-> On Tue, Jan 25, 2011 at 03:01:35PM +0100, Patrick McHardy wrote:
->> On 25.01.2011 14:17, Simon Horman wrote:
->>> Hi Patrick,
->>>
->>> please consider pulling
->>>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
->>>
->>> Which includes the following changes, both of which I believe 2.6.38 material.
->>>
->>> Changli Gao (1):
->>>       netfilter: ipvs: fix compiler warnings
->>>
->>> Hans Schillstrom (1):
->>>       IPVS netns BUG, register sysctl for root ns
->>
->> That tree is based on nf-next-2.6, so I can't pull this into my nf-2.6
->> tree.
-> 
-> Hi Patrick,
-> 
-> Sorry about this.
-> 
-> As it turns out I was mistaken in assuming that the IPVS netns changes
-> had been merged into nf-2.6. They haven't, they only exist in net-next-2.6.
-> 
-> All of the recent patches that I have passed on to you relate to the IPVS
-> netns changes so nf-next-2.6 is the right place for these fixes. So could
-> you please pull the above tree into nf-next-2.6? I do not believe there are
-> any nf-2.6 changes at this time.
+On Wed, Jan 26, 2011 at 8:17 AM, Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org> wrote:
+> On Wed, 26 Jan 2011, Thomas Chou wrote:
+>
+>> Signed-off-by: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+>> ---
+>> v2 specify part numbers in compat as Grant suggested.
+>> v3 more specific part name.
+>> v4 include match table only for OF as David suggested.
+>
+> The smc91x driver relies on many parameters which are platform specific,
+> such as the bus width capabilities, register spacing due to special bus
+> wiring, interrupt signal level, LED configuration, whether or not to
+> configure the chip with a wait state, etc. =A0Will the device tree support
+> take care of those things?
 
-Thanks, I've pulled it into nf-next-2.6.git.
+Short answer, yes
+
+In general bindings are written and documented as they are needed.  In
+this specific case,yes the device configuration should be encoded into
+the device tree node.  It is okay for now to not wire up any of that
+configuration if the defaults work for Thomas' platform, but to be
+useful in the long run they do need to be added.
+
+Typically a block or function call is added to the drivers .probe hook
+to decode device tree data if the of_node pointer is set.
+
+g.
+
+-- =
+
+Grant Likely, B.Sc., P.Eng.
+Secret Lab Technologies Ltd.
