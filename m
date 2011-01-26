@@ -1,7 +1,8 @@
 From: Kiran Patil <kiran.patil@intel.com>
-Subject: [RFC PATCH 2/2] vlan: add support to ndo_fcoe_ddp_target()
-Date: Wed, 26 Jan 2011 10:09:06 -0800
-Message-ID: <20110126180906.25039.19009.stgit@localhost.localdomain>
+Subject: [RFC PATCH 1/2] net: add ndo_fcoe_ddp_target() to support FCoE DDP in
+	target mode
+Date: Wed, 26 Jan 2011 10:09:01 -0800
+Message-ID: <20110126180901.25039.18150.stgit@localhost.localdomain>
 References: <20110126180855.25039.82793.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,54 +10,46 @@ Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org, jeffrey.t.kirsher@intel.com,
 	yi.zou@intel.com, robert.w.love@intel.com, kiran.patil@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:32445 "EHLO mga09.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:33899 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753990Ab1AZSHH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jan 2011 13:07:07 -0500
+	id S1751736Ab1AZSHL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jan 2011 13:07:11 -0500
 In-Reply-To: <20110126180855.25039.82793.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yi Zou <yi.zou@intel.com>
 
-Add the new target ddp offload support ndo_fcoe_ddp_target().
+The Fiber Channel over Ethernet (FCoE) Direct Data Placement (DDP) can also be
+used for FCoE target, where the DDP used for read I/O on an initiator can be
+used on an FCoE target to speed up the write I/O to the target from the initiator.
+The added ndo_fcoe_ddp_target() works in the similar way as the existing
+ndo_fcoe_ddp_setup() to allow the underlying hardware set up the DDP context
+accordingly when it gets called from the FCoE target implementation on top
+the existing Open-FCoE fcoe/libfc protocol stack so without losing the ability
+to provide DDP for read I/O as an initiator, it can also provide DDP offload
+to the write I/O coming from the initiator as a target.
 
 Signed-off-by: Yi Zou <yi.zou@intel.com>
+Signed-off-by: Kiran Patil <kiran.patil@intel.com>
 ---
 
- net/8021q/vlan_dev.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ include/linux/netdevice.h |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 14e3d1f..f6e1ace 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -670,6 +670,19 @@ static int vlan_dev_fcoe_get_wwn(struct net_device *dev, u64 *wwn, int type)
- 		rc = ops->ndo_fcoe_get_wwn(real_dev, wwn, type);
- 	return rc;
- }
-+
-+static int vlan_dev_fcoe_ddp_target(struct net_device *dev, u16 xid,
-+				    struct scatterlist *sgl, unsigned int sgc)
-+{
-+	struct net_device *real_dev = vlan_dev_info(dev)->real_dev;
-+	const struct net_device_ops *ops = real_dev->netdev_ops;
-+	int rc = 0;
-+
-+	if (ops->ndo_fcoe_ddp_target)
-+		rc = ops->ndo_fcoe_ddp_target(real_dev, xid, sgl, sgc);
-+
-+	return rc;
-+}
- #endif
- 
- static void vlan_dev_change_rx_flags(struct net_device *dev, int change)
-@@ -905,6 +918,7 @@ static const struct net_device_ops vlan_netdev_ops = {
- 	.ndo_fcoe_enable	= vlan_dev_fcoe_enable,
- 	.ndo_fcoe_disable	= vlan_dev_fcoe_disable,
- 	.ndo_fcoe_get_wwn	= vlan_dev_fcoe_get_wwn,
-+	.ndo_fcoe_ddp_target	= vlan_dev_fcoe_ddp_target,
- #endif
- };
- 
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d8fd2c2..d96a198 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -774,6 +774,10 @@ struct net_device_ops {
+ 						      unsigned int sgc);
+ 	int			(*ndo_fcoe_ddp_done)(struct net_device *dev,
+ 						     u16 xid);
++	int			(*ndo_fcoe_ddp_target)(struct net_device *dev,
++						       u16 xid,
++						       struct scatterlist *sgl,
++						       unsigned int sgc);
+ #define NETDEV_FCOE_WWNN 0
+ #define NETDEV_FCOE_WWPN 1
+ 	int			(*ndo_fcoe_get_wwn)(struct net_device *dev,
 
