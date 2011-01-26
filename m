@@ -1,55 +1,35 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 00/20] Proposal for remaining BKL users
-Date: Wed, 26 Jan 2011 14:45:17 +0100
-Message-ID: <201101261445.17751.arnd@arndb.de>
-References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
-	<201101261231.30390.arnd@arndb.de> <4D400C5D.80004@redhat.com>
+From: Phil Blundell <philb@gnu.org>
+Subject: Re: [PATCH] econet: remove compiler warnings
+Date: Wed, 26 Jan 2011 14:19:59 +0100
+Message-ID: <20110126131959.GF3010@hetzner>
+References: <1296036258.2899.44.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Frederic Weisbecker <fweisbec@gmail.com>, dri-devel@lists.freedesktop.org,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ian Kent <raven@themaw.net>,
-	linux-cifs@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
-	linux-x25@vger.kernel.org,
-	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>,
-	Ross Cohen <rcohen@snurgle.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Stuart Swales <stuart.swales.croftnuisk@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	autofs@linux.kernel.org, Jeff Layton <jlayton@redhat.com>,
-	netdev@vger.kernel.org, Greg KH <gregkh@suse.de>,
-	linux-kernel@vger.kernel.org,
-	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
-	linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.org>,
-	Andrew Hendry
-To: Mauro Carvalho Chehab <mchehab@redhat.com>
-Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
-In-Reply-To: <4D400C5D.80004@redhat.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static.88-198-119-4.clients.your-server.de ([88.198.119.4]:44606
+	"EHLO hetzner" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751400Ab1AZNyb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 08:54:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1296036258.2899.44.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 26 January 2011, Mauro Carvalho Chehab wrote:
-> I guess you're meaning cx25821, right? 
+On Wed, Jan 26, 2011 at 11:04:18AM +0100, Eric Dumazet wrote:
+> net/econet/af_econet.c: In function =E2=80=98econet_sendmsg=E2=80=99:
+> net/econet/af_econet.c:494: warning: label =E2=80=98error=E2=80=99 de=
+fined but not used
+> net/econet/af_econet.c:268: warning: unused variable =E2=80=98sk=E2=80=
+=99
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Right, sorry for the typo.
- 
-> Palash should take a look on it and review. This is a device that allows
-> 12 simultaneous streams, so, I suspect that he'll need to do some
-> changes at the locking schema, to avoid performance bottlenecks.
+Thanks, looks sensible.
 
-I would be surprised if there was any measurable performance change.
-The BKL was used only in the open() function to iterate the device
-list, and that code is nowhere on a critical path, as far as I can tell.
+Acked-by: Phil Blundell <philb@gnu.org>
 
-	Arnd
+p.
+
