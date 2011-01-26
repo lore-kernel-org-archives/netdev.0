@@ -1,73 +1,79 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [RFC 00/20] Proposal for remaining BKL users
-Date: Wed, 26 Jan 2011 12:31:30 +0100
-Message-ID: <201101261231.30390.arnd@arndb.de>
-References: <1295993854-4971-1-git-send-email-arnd@arndb.de>
-	<20110126022223.GB28072@suse.de>
+From: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Subject: Re: [PATCH 2/2] xen: netfront: Drop GSO SKBs which do not have
+ csum_blank.
+Date: Wed, 26 Jan 2011 11:56:21 +0000
+Message-ID: <1296042981.14780.6813.camel@zakaz.uk.xensource.com>
+References: <1295975376.14780.6595.camel@zakaz.uk.xensource.com>
+	 <1295975400-538-2-git-send-email-ian.campbell@citrix.com>
+	 <20110125.194405.226769333.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mauro Carvalho Chehab <mchehab@redhat.com>,
-	Frederic Weisbecker <fweisbec@gmail.com>, dri-devel@lists.freedesktop.org,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ian Kent <raven@themaw.net>,
-	linux-cifs@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
-	linux-x25@vger.kernel.org,
-	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>,
-	Ross Cohen <rcohen@snurgle.org>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Stuart Swales <stuart.swales.croftnuisk@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Arjan van de Ven <arjan@linux.intel.com>,
-	autofs@linux.kernel.org, Jeff Layton <jlayton@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
-	linux-fsdevel@vger.kernel.org, Andrew Morton <akpm@linux-foundation.or
-To: Greg KH <gregkh@suse.de>
-Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
-In-Reply-To: <20110126022223.GB28072@suse.de>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-List-Id: netdev.vger.kernel.org
+Cc: "jeremy@goop.org" <jeremy@goop.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:30371 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751487Ab1AZL4Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 06:56:24 -0500
+In-Reply-To: <20110125.194405.226769333.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 26 January 2011, Greg KH wrote:
-> On Tue, Jan 25, 2011 at 11:17:14PM +0100, Arnd Bergmann wrote:
-> > I've gone through all the code in the kernel that
-> > uses the big kernel lock and come up with a solution
-> > that seems at least half-reasonable for each of them.
-> > 
-> > The decisions are somewhat arbitrary, but here is
-> > what I'd suggest we do:
-> > 
-> > * Remove in 2.6.39:
-> >    i830, autofs3, smbfs
+On Wed, 2011-01-26 at 03:44 +0000, David Miller wrote:
+> From: Ian Campbell <ian.campbell@citrix.com>
+> Date: Tue, 25 Jan 2011 17:10:00 +0000
 > 
-> I thought some people really wanted to keep i830.  Or was that i810?
->  I'll drop autofs3 and smbfs, thanks.
-
-i810 needs to be kept, i830 is obsolete, see the patch changelogs
-there. I assume that Dave Airlie will take both patches (i810 BKL
-removal and i830 removal) into his 2.6.39 queue.
-
-> > * Work around in an ugly way, but keep alive:
-> >    * ufs, ipx, i810, cx25721
+> > The Linux network stack expects all GSO SKBs to have ip_summed ==
+> > CHECKSUM_PARTIAL (which implies that the frame contains a partial
+> > checksum) and the Xen network ring protocol similarly expects an SKB
+> > which has GSO set to also have NETRX_csum_blank (which also implies a
+> > partial checksum). Therefore drop such frames on receive otherwise
+> > they will trigger the warning in skb_gso_segment.
 > > 
-> > * Fix properly:
-> >    * usbip, go7007, adfs, x25
+> > Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 > 
-> Thanks for the usbip and go7007 patches, I'll queue them up.
+> The GSO code does in fact warn in the logs about this situation, but
+> it _DOES NOT_ drop the packet.  Therefore, either you guys should do
+> the same or we should make the generic code drop too.
 
-It would be good if you could also take the cx25721 patch. It's
-not the nicest one I've done, but it's a bug fix nonetheless.
+Ah, yes. I misread the handling of an error from pskb_expand_head() in
+skb_gso_segment() and thought it was a more general error return
+covering the entire case.
+
+> I think the generic code is doing the right thing, therefore what you
+> should probably do is put the checksum of the SKB into the right state
+> when you detect this situation (and perhaps bump a ethtool driver
+> local statistic which specifically tracks this exact event).
+
+Yes, I think this is a good idea. I'll come up with a patch which does
+this.
+
+> Or, even better, you should fix whatever causes this in the first
+> place.
+
+Sure, that has already been done but the proper fix is in another guest,
+with a secondary robustness fix in netback (similar to this one, so I'll
+take your advice from above on board in that context too).
+
+The intention here was to be robust in the face of unfixed guests
+sharing the same host or future netback bugs etc.
+
+> Dropping frames ought to be the last option, stuff like this is
+> impossible to debug if someone starts wondering why they are getting
+> frame drops.
+> 
+> You don't even account for this in a unique statistic somewhere, so
+> people can figure out the actual spcific _reason_ for the drop.  They
+> will just see "rx_error" and scratch their heads.
+> 
+> Anyways, I think dropping is fundamentally wrong, so I'm not applying
+> this.
+
+You've convinced me too, thanks for the feedback.
 
 Thanks,
+Ian.
 
-	Arnd
