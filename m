@@ -1,75 +1,53 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Subject: biosdevname v0.3.6
-Date: Wed, 26 Jan 2011 13:18:09 -0600
-Message-ID: <20110126191809.GA15585@auslistsprd01.us.dell.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] net_sched: sch_mqprio: dont leak kernel
+ memory
+Date: Wed, 26 Jan 2011 11:55:30 -0800 (PST)
+Message-ID: <20110126.115530.226756606.davem@davemloft.net>
+References: <1296062517.2899.86.camel@edumazet-laptop>
+	<1296063823.6115.37.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
-	"K, Narendra" <Narendra_K@Dell.com>,
-	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
-	"Rose, Charles" <Charles_Rose@Dell.com>,
-	Co
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	john.r.fastabend@intel.com
+To: joe@perches.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49191
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753248Ab1AZTyz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jan 2011 14:54:55 -0500
+In-Reply-To: <1296063823.6115.37.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-biosdevname, now version 0.3.6.
+From: Joe Perches <joe@perches.com>
+Date: Wed, 26 Jan 2011 09:43:43 -0800
 
-(0.3.5 was a dud due to a change in gcc/libtool that broke building
- the static copy.  https://bugzilla.redhat.com/show_bug.cgi?id=672689)
+> On Wed, 2011-01-26 at 18:21 +0100, Eric Dumazet wrote:
+>> mqprio_dump() should make sure all fields of struct tc_mqprio_qopt are
+>> initialized.
+>> 
+>> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>> CC: John Fastabend <john.r.fastabend@intel.com>
+>> ---
+>>  net/sched/sch_mqprio.c |    2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>> 
+>> diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+>> index fbc6f53..effd4ee 100644
+>> --- a/net/sched/sch_mqprio.c
+>> +++ b/net/sched/sch_mqprio.c
+>> @@ -215,7 +215,7 @@ static int mqprio_dump(struct Qdisc *sch, struct sk_buff *skb)
+>>  	struct net_device *dev = qdisc_dev(sch);
+>>  	struct mqprio_sched *priv = qdisc_priv(sch);
+>>  	unsigned char *b = skb_tail_pointer(skb);
+>> -	struct tc_mqprio_qopt opt;
+>> +	struct tc_mqprio_qopt opt = { 0 };
+> 
+> I think the best style to use memset so that any
+> possible struct padding is guaranteed to be zeroed.
 
-this fixes the udev rules, such that biosdevname is not invoked if an
-earlier rule (such as 70-persistent-net.rules) sets a name.  this has
-been the intended behavior, but was missed until now.  
-furthermore, /usr/sbin/dump_pirq was added as a debugging aid, the
-static copy biosdevnames is no longer built (it was originally
-intended for use inside fairly limited initrd environments, but was
-never really used there, and with dracut is now unnecessary),
-and it checks if you're running as root, as it needs root to read
-SMBIOS and PCI IRQ Routing Table information.
+Such padding does not exist, and we won't add such padding since this is
+a user visible data structure and thus whose layout is cast in stone.
 
-Grab it here:
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.6.tar.gz
-http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.6.tar.gz.sign
-git://linux.dell.com/biosdevname.git
-
-I built this yesterday for Fedora rawhide (will be 15), and I encourage
-other distributions to pick it up as well.
-
-There is a Fedora Test Day tomorrow (Thursday)
-  https://fedoraproject.org/wiki/Test_Day:2011-01-27_Network_Device_Naming_With_Biosdevname
-and I encourage you to give this a try and report success/failures as
-noted here.
-
-There has also been a good bit of blog coverage over the last few
-days, with thanks to Joe Brockmeier.  
-  http://www.networkworld.com/community/fedora-15-changes-network-device-naming
-
-
-
-shortlog:
-
-Matt Domsch (13):
-      add check for running as root, exit if not
-      add exit code 3 to manpage
-      udev rules: skip if NAME is already set
-      build dump_pirq, minimizing library linking
-      install dump_pirq into /usr/sbin/
-      install dump_pirq in debs too
-      update changelogs, bump version
-      move udev rules file into /lib/udev/rules.d
-      update changelog
-      add TODO
-      automatically determine which dir the rules file goes
-      drop biosdevnameS, it's unused and fails to build on F15
-      bump version
-
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Anyways, I'm ambivalent to how this is fixed actually.
