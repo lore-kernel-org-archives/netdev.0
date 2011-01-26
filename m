@@ -1,47 +1,42 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: [PATCH] fix validate_link_af in rtnetlink core
-Date: Wed, 26 Jan 2011 15:55:24 +0100
-Message-ID: <20110126145523.GA3171@e-circ.dyndns.org>
+From: Nicolas Pitre <nico-vtqb6HGKxmzR7s880joybQ@public.gmane.org>
+Subject: Re: [PATCH v4] smc91x: add devicetree support
+Date: Wed, 26 Jan 2011 10:17:35 -0500 (EST)
+Message-ID: <alpine.LFD.2.00.1101261004560.8580@xanadu.home>
+References: <20110125.194532.71125517.davem@davemloft.net>
+	<1296019325-17801-1-git-send-email-thomas@wytron.com.tw>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.eia.be ([194.78.71.18]:20971 "EHLO mail.eia.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752813Ab1AZOz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jan 2011 09:55:28 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: nios2-dev-1eJk0qcHJCcaeqlQEoCUNoJY59XmG8rH@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-reply-to: <1296019325-17801-1-git-send-email-thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 26 Jan 2011, Thomas Chou wrote:
 
-I'm not sure about this patch.
+> Signed-off-by: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
+> ---
+> v2 specify part numbers in compat as Grant suggested.
+> v3 more specific part name.
+> v4 include match table only for OF as David suggested.
 
-I'm testing an API that uses IFLA_AF_SPEC attribute.
-In the rtnetlink core , the set_link_af() member
-of the rtnl_af_ops struct receives the nested attribute
-(as I expected), but the validate_link_af() member
-receives the parent attribute.
-IMO, this patch fixes this.
+The smc91x driver relies on many parameters which are platform specific, 
+such as the bus width capabilities, register spacing due to special bus 
+wiring, interrupt signal level, LED configuration, whether or not to 
+configure the chip with a wait state, etc.  Will the device tree support 
+take care of those things?
 
-Since I didn't find any code in iproute2 that makes use
-of this attribute, I wasn't able to verify this on the userspace
-end.
 
-Signed-off-by: Kurt Van Dijck <kurt.van.dijck@eia.be>
----
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 310eb80..c6aee92 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1122,8 +1122,7 @@ static int validate_linkmsg(struct net_device *dev, struct nlattr *tb[])
- 				return -EOPNOTSUPP;
- 
- 			if (af_ops->validate_link_af) {
--				err = af_ops->validate_link_af(dev,
--							tb[IFLA_AF_SPEC]);
-+				err = af_ops->validate_link_af(dev, af);
- 				if (err < 0)
- 					return err;
- 			}
+Nicolas
