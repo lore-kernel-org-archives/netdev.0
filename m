@@ -1,44 +1,100 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v4] smc91x: add devicetree support
-Date: Tue, 25 Jan 2011 22:42:09 -0800 (PST)
-Message-ID: <20110125.224209.183055030.davem@davemloft.net>
-References: <20110125.194532.71125517.davem@davemloft.net>
-	<1296019325-17801-1-git-send-email-thomas@wytron.com.tw>
-	<AANLkTindbigYzY0zJufpr-D25m_B5Gjqp09ZbcaN-aZ9@mail.gmail.com>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: [PATCH net-2.6] bnx2: Eliminate AER error messages on systems
+ not supporting it
+Date: Wed, 26 Jan 2011 00:14:51 -0800
+Message-ID: <1296029691-3591-2-git-send-email-mchan@broadcom.com>
+References: <1296029691-3591-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: nios2-dev-1eJk0qcHJCcaeqlQEoCUNoJY59XmG8rH@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <AANLkTindbigYzY0zJufpr-D25m_B5Gjqp09ZbcaN-aZ9-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
-	<mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Sender: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: leitao@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3044 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752487Ab1AZJJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jan 2011 04:09:03 -0500
+In-Reply-To: <1296029691-3591-1-git-send-email-mchan@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Date: Tue, 25 Jan 2011 22:52:36 -0700
+On PPC for example, AER is not supported and we see unnecessary AER
+error message without this patch:
 
-> On Tue, Jan 25, 2011 at 10:22 PM, Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org> wrote:
->> Signed-off-by: Thomas Chou <thomas-SDxUXYEhEBiCuPEqFHbRBg@public.gmane.org>
->> ---
->> v2 specify part numbers in compat as Grant suggested.
->> v3 more specific part name.
->> v4 include match table only for OF as David suggested.
->>
->>  drivers/net/smc91x.c |   13 +++++++++++++
->>  1 files changed, 13 insertions(+), 0 deletions(-)
-> 
-> Looks okay to me.
-> 
-> Reviewed-by: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+bnx2 0003:01:00.1: pci_cleanup_aer_uncorrect_error_status failed 0xfffffffb
 
-Applied to net-next-2.6, thanks.
+Reported-by: Breno Leitao <leitao@linux.vnet.ibm.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/bnx2.c |   17 +++++++++--------
+ drivers/net/bnx2.h |    1 +
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/bnx2.c b/drivers/net/bnx2.c
+index 99e7652..62c6079 100644
+--- a/drivers/net/bnx2.c
++++ b/drivers/net/bnx2.c
+@@ -7966,11 +7966,8 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 
+ 		/* AER (Advanced Error Reporting) hooks */
+ 		err = pci_enable_pcie_error_reporting(pdev);
+-		if (err) {
+-			dev_err(&pdev->dev, "pci_enable_pcie_error_reporting "
+-					    "failed 0x%x\n", err);
+-			/* non-fatal, continue */
+-		}
++		if (!err)
++			bp->flags |= BNX2_FLAG_AER_ENABLED;
+ 
+ 	} else {
+ 		bp->pcix_cap = pci_find_capability(pdev, PCI_CAP_ID_PCIX);
+@@ -8233,8 +8230,10 @@ bnx2_init_board(struct pci_dev *pdev, struct net_device *dev)
+ 	return 0;
+ 
+ err_out_unmap:
+-	if (bp->flags & BNX2_FLAG_PCIE)
++	if (bp->flags & BNX2_FLAG_AER_ENABLED) {
+ 		pci_disable_pcie_error_reporting(pdev);
++		bp->flags &= ~BNX2_FLAG_AER_ENABLED;
++	}
+ 
+ 	if (bp->regview) {
+ 		iounmap(bp->regview);
+@@ -8422,8 +8421,10 @@ bnx2_remove_one(struct pci_dev *pdev)
+ 
+ 	kfree(bp->temp_stats_blk);
+ 
+-	if (bp->flags & BNX2_FLAG_PCIE)
++	if (bp->flags & BNX2_FLAG_AER_ENABLED) {
+ 		pci_disable_pcie_error_reporting(pdev);
++		bp->flags &= ~BNX2_FLAG_AER_ENABLED;
++	}
+ 
+ 	free_netdev(dev);
+ 
+@@ -8539,7 +8540,7 @@ static pci_ers_result_t bnx2_io_slot_reset(struct pci_dev *pdev)
+ 	}
+ 	rtnl_unlock();
+ 
+-	if (!(bp->flags & BNX2_FLAG_PCIE))
++	if (!bp->flags & BNX2_FLAG_AER_ENABLED)
+ 		return result;
+ 
+ 	err = pci_cleanup_aer_uncorrect_error_status(pdev);
+diff --git a/drivers/net/bnx2.h b/drivers/net/bnx2.h
+index 5488a2e..f459fb2 100644
+--- a/drivers/net/bnx2.h
++++ b/drivers/net/bnx2.h
+@@ -6741,6 +6741,7 @@ struct bnx2 {
+ #define BNX2_FLAG_JUMBO_BROKEN		0x00000800
+ #define BNX2_FLAG_CAN_KEEP_VLAN		0x00001000
+ #define BNX2_FLAG_BROKEN_STATS		0x00002000
++#define BNX2_FLAG_AER_ENABLED		0x00004000
+ 
+ 	struct bnx2_napi	bnx2_napi[BNX2_MAX_MSIX_VEC];
+ 
+-- 
+1.6.4.GIT
+
+
