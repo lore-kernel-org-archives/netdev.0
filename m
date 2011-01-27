@@ -1,91 +1,38 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: netconsole build breakage (Re: [GIT] Networking)
-Date: Thu, 27 Jan 2011 16:51:30 +0100
-Message-ID: <20110127155130.GA8318@elte.hu>
-References: <20110114.130323.201674039.davem@davemloft.net>
- <20110119095920.GA10543@elte.hu>
- <20110119100824.GD9903@cr0.nay.redhat.com>
- <1295433231.21351.17.camel@haakon2.linux-iscsi.org>
+From: Bill Sommerfeld <wsommerfeld@google.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Thu, 27 Jan 2011 07:55:48 -0800
+Message-ID: <AANLkTint1T36oyj0R4rFPN6sewBxdNkz5xzHvWK-rq-0@mail.gmail.com>
+References: <AANLkTimDtaV=WhZUUEivg3_vEUeUk3_WQSs09h7USiUj@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	James Bottomley <James.Bottomley@suse.de>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joel Becker <jlbec@evilplan.org>
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1295433231.21351.17.camel@haakon2.linux-iscsi.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: Daniel Baluta <daniel.baluta@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([74.125.121.67]:4351 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751745Ab1A0Pzw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 10:55:52 -0500
+Received: from wpaz5.hot.corp.google.com (wpaz5.hot.corp.google.com [172.24.198.69])
+	by smtp-out.google.com with ESMTP id p0RFto9k023433
+	for <netdev@vger.kernel.org>; Thu, 27 Jan 2011 07:55:50 -0800
+Received: from qyl38 (qyl38.prod.google.com [10.241.83.230])
+	by wpaz5.hot.corp.google.com with ESMTP id p0RFtQBB008221
+	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 27 Jan 2011 07:55:49 -0800
+Received: by qyl38 with SMTP id 38so6658268qyl.18
+        for <netdev@vger.kernel.org>; Thu, 27 Jan 2011 07:55:48 -0800 (PST)
+In-Reply-To: <AANLkTimDtaV=WhZUUEivg3_vEUeUk3_WQSs09h7USiUj@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jan 27, 2011 at 02:07, Daniel Baluta <daniel.baluta@gmail.com> wrote:
+> How did you solved the issue regarding scaling TCP listeners?
+> I think SO_REUSEPORT proposed by patch [1] can be a good
+> start. Where there any follow ups?
 
-* Nicholas A. Bellinger <nab@linux-iscsi.org> wrote:
-
-> On Wed, 2011-01-19 at 18:08 +0800, Am=E9rico Wang wrote:
-> > On Wed, Jan 19, 2011 at 10:59:20AM +0100, Ingo Molnar wrote:
-> > >
-> > >FYI, there's a .38-rc1 build failure that triggers rather often:
-> > >
-> > > drivers/built-in.o: In function `drop_netconsole_target':
-> > > netconsole.c:(.text+0x130146): undefined reference to `config_ite=
-m_put'
-> > > drivers/built-in.o: In function `write_msg':
-> > > netconsole.c:(.text+0x1301aa): undefined reference to `config_ite=
-m_get'
-> > > netconsole.c:(.text+0x130217): undefined reference to `config_ite=
-m_put'
-> > > drivers/built-in.o: In function `netconsole_netdev_event':
-> > > netconsole.c:(.text+0x1302ab): undefined reference to `config_ite=
-m_get'
-> > > ...
-> > >
-> > >Triggered by this configuration:
-> > >
-> > > CONFIG_CONFIGFS_FS=3Dm
-> > > CONFIG_NETCONSOLE=3Dy
-> > >
-> >=20
-> > Should be "depends on CONFIGFS_FS=3Dy".
->=20
-> Sorry for breaking this one folks..
->=20
-> Where this was left yesterday was to change NETCONSOLE_DYNAMIC, DLM a=
-nd
-> OCFS2_FS symbols to use 'select configfs' instead of 'depends on SYSF=
-S
-> && CONFIGFS':
->=20
-> http://marc.info/?l=3Dlinux-kernel&m=3D129539400709508&w=3D2
->=20
-> but unfortuately this did not make it into .38-rc1 in time..
->=20
-> Using 'select CONFIGFS_FS' here for NETCONSOLE_DYNAMIC with the
-> following patches should do the trick.
->=20
->    git://git.kernel.org/pub/scm/linux/kernel/git/nab/scsi-post-merge-=
-2.6.git for-linus
->=20
-> Thanks,
->=20
-> Nicholas Bellinger (3):
->   net: Make NETCONSOLE_DYNAMIC use select CONFIGFS_FS
->   dlm: Make DLM use select CONFIGFS_FS
->   ocfs2: Make OCFS2_FS use select CONFIGFS_FS
->=20
->  drivers/net/Kconfig |    3 ++-
->  fs/dlm/Kconfig      |    4 ++--
->  fs/ocfs2/Kconfig    |    3 ++-
->  3 files changed, 6 insertions(+), 4 deletions(-)
-
-Ping? This is still broken in Linus's tree as of today ... simple build=
-s like=20
-allmodconfig still fail.
-
-Thanks,
-
-	Ingo
+Google is using the patch internally.  I've recently joined google and
+have picked up this work from Tom; I'm starting to rework how it
+interacts with TCP (in particular, changing how it interacts with
+request sockets and listen sockets so that incoming connections are
+not prematurely bound to a specific listener sharing the port).  I
+have nothing worth sharing yet.
