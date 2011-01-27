@@ -1,7 +1,7 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH V10 06/15] posix_clocks: add clock_adjtime for blackfin
-Date: Thu, 27 Jan 2011 11:57:05 +0100
-Message-ID: <c7f97e54605e23880e09a444b3e9403b14d87169.1296124770.git.richard.cochran@omicron.at>
+Subject: [PATCH V10 07/15] posix_clocks: add clock_adjtime for powerpc
+Date: Thu, 27 Jan 2011 11:57:26 +0100
+Message-ID: <c2677b1d527f30525c7d55d65ec9da995638c0bf.1296124770.git.richard.cochran@omicron.at>
 References: <cover.1296124770.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -27,40 +27,39 @@ In-Reply-To: <cover.1296124770.git.richard.cochran@omicron.at>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds the clock_adjtime system call to the blackfin architecture.
+This patch adds the clock_adjtime system call to the powerpc architecture.
 
 Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
 ---
- arch/blackfin/include/asm/unistd.h |    3 ++-
- arch/blackfin/mach-common/entry.S  |    1 +
+ arch/powerpc/include/asm/systbl.h |    1 +
+ arch/powerpc/include/asm/unistd.h |    3 ++-
  2 files changed, 3 insertions(+), 1 deletions(-)
 
-diff --git a/arch/blackfin/include/asm/unistd.h b/arch/blackfin/include/asm/unistd.h
-index 928ae97..e640c51 100644
---- a/arch/blackfin/include/asm/unistd.h
-+++ b/arch/blackfin/include/asm/unistd.h
-@@ -393,8 +393,9 @@
- #define __NR_fanotify_mark	372
- #define __NR_prlimit64		373
- #define __NR_cacheflush		374
-+#define __NR_clock_adjtime	375
+diff --git a/arch/powerpc/include/asm/systbl.h b/arch/powerpc/include/asm/systbl.h
+index aa0f1eb..6a1152c 100644
+--- a/arch/powerpc/include/asm/systbl.h
++++ b/arch/powerpc/include/asm/systbl.h
+@@ -348,3 +348,4 @@ COMPAT_SYS_SPU(sendmsg)
+ COMPAT_SYS_SPU(recvmsg)
+ COMPAT_SYS_SPU(recvmmsg)
+ SYSCALL_SPU(accept4)
++COMPAT_SYS_SPU(clock_adjtime)
+diff --git a/arch/powerpc/include/asm/unistd.h b/arch/powerpc/include/asm/unistd.h
+index 6151937..386de07 100644
+--- a/arch/powerpc/include/asm/unistd.h
++++ b/arch/powerpc/include/asm/unistd.h
+@@ -367,10 +367,11 @@
+ #define __NR_recvmsg		342
+ #define __NR_recvmmsg		343
+ #define __NR_accept4		344
++#define __NR_clock_adjtime	345
  
--#define __NR_syscall		375
-+#define __NR_syscall		376
- #define NR_syscalls		__NR_syscall
+ #ifdef __KERNEL__
  
- /* Old optional stuff no one actually uses */
-diff --git a/arch/blackfin/mach-common/entry.S b/arch/blackfin/mach-common/entry.S
-index bc08c98..ab8b4d7 100644
---- a/arch/blackfin/mach-common/entry.S
-+++ b/arch/blackfin/mach-common/entry.S
-@@ -1738,6 +1738,7 @@ ENTRY(_sys_call_table)
- 	.long _sys_fanotify_mark
- 	.long _sys_prlimit64
- 	.long _sys_cacheflush
-+	.long _sys_clock_adjtime	/* 375 */
+-#define __NR_syscalls		345
++#define __NR_syscalls		346
  
- 	.rept NR_syscalls-(.-_sys_call_table)/4
- 	.long _sys_ni_syscall
+ #define __NR__exit __NR_exit
+ #define NR_syscalls	__NR_syscalls
 -- 
 1.7.0.4
