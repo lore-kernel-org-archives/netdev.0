@@ -1,81 +1,86 @@
-From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
-Subject: skb_split in tcp_retransmit_skb question
-Date: Thu, 27 Jan 2011 17:20:57 +0200
-Message-ID: <20110127152057.GA4153@swordfish.minsk.epam.com>
+From: Anand Raj Manickam <anandrm@gmail.com>
+Subject: Re: Realtek r8168C / r8169 driver VLAN TAG stripping
+Date: Thu, 27 Jan 2011 21:01:44 +0530
+Message-ID: <AANLkTi=OwsMO8x9AOy=MmohU4SSQcv+o=TvwNs0NNsQR@mail.gmail.com>
+References: <AANLkTi=qVSEh=RyzJ6y4kQvJW+hxqWMh2gAMmhk7GGob@mail.gmail.com>
+	<AANLkTimqkJ3DGBX5iREEcx6sgAM+2CZHNWMU+noNSitp@mail.gmail.com>
+	<20110116192017.GA3569@electric-eye.fr.zoreil.com>
+	<AANLkTi=uNKMj_gs_bKRQ1tQa0TMwdnyrtVcR5JPNpmJv@mail.gmail.com>
+	<AANLkTikoXfgHrJyMbe6A_HmvXT_QRo55w76st5Wo0hSv@mail.gmail.com>
+	<20110118012146.GA3704@electric-eye.fr.zoreil.com>
+	<AANLkTimA1C=trH+WGpBdPU=vBf-cN+xB4Br3+vJb-Qum@mail.gmail.com>
+	<20110127150744.GA7925@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="AqsLC8rIMeq19msA"
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Hayes <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:48142 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751470Ab1A0Pbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 10:31:46 -0500
+Received: by bwz15 with SMTP id 15so2326058bwz.19
+        for <netdev@vger.kernel.org>; Thu, 27 Jan 2011 07:31:45 -0800 (PST)
+In-Reply-To: <20110127150744.GA7925@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+On Thu, Jan 27, 2011 at 8:37 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Anand Raj Manickam <anandrm@gmail.com> :
+> [...]
+>> We upgraded to 2.6.36 kernel . The result is SAME.
+>> The VLAN tag gets stripped ;-)
+>> Do let me know if you need more info .
+>
+
+> - ip addr show
+
+3: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
+    link/ether 00:17:54:00:f6:62 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.1.1/16 brd 172.16.255.255 scope global eth0
+    inet6 fe80::217:54ff:fe00:f662/64 scope link
+       valid_lft forever preferred_lft forever
+
+8: eth0.50@eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
+    link/ether 00:17:54:00:f6:62 brd ff:ff:ff:ff:ff:ff
+    inet 172.16.10.10/24 brd 172.16.10.255 scope global eth0.50
+    inet6 fe80::217:54ff:fe00:f662/64 scope link
+       valid_lft forever preferred_lft forever
 
 
---AqsLC8rIMeq19msA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> - ethtool -k eth0
 
-Hello,
-
-Suppose we have the following scenario:
-
-tcp_write_timer ->
- tcp_retransmit_skb
-
-in tcp_retransmit_skb we have `if (skb->len > cur_mss)' evaluted to true, w=
-hich leads
-to tcp_fragment(sk, skb, cur_mss, cur_mss) call. tcp_fragment calls skb_spl=
-it(skb, buff, len)
-which, in turn, calls skb_split_no_header(skb, skb1, len, pos), where we ha=
-ve
-`skb_shinfo(skb)->nr_frags++' while in `for (i =3D 0; i < nfrags; i++)' loo=
-p.
-
-Now we fall back to:=20
-  tcp_retransmit_skb ->
-   tcp_transmit_skb ->
-    pskb_copy(skb, gfp_mask)
-
-In pskb_copy we perform iteration on nr_frags:=20
-
- 729     if (skb_shinfo(skb)->nr_frags) {
- 730         int i;
- 731         for (i =3D 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 732             skb_shinfo(n)->frags[i] =3D skb_shinfo(skb)->frags[i];
- 733             get_page(skb_shinfo(n)->frags[i].page);
- 734         }
- 735         skb_shinfo(n)->nr_frags =3D i;
- 736     }
-
-The problem here is that nr_frags was increased in skb_split, yet new page =
-was not allocated.
-So, get_page(skb_shinfo(n)->frags[i].page) is actually get_page(NULL):
-
-	mov (%rdx), %eax
-	where %rdx is 0x00
-
-Please correct me if I'm missing something.
+Offload parameters for eth0:
+rx-checksumming: on
+tx-checksumming: off
+scatter-gather: off
+tcp segmentation offload: off
+udp fragmentation offload: off
+generic segmentation offload: off
 
 
-	Sergey
 
---AqsLC8rIMeq19msA
-Content-Type: application/pgp-signature
+> I do not get the "VLAN tag gets stripped" concept, especially on Tx.
+> Does it mean "no packet" or "a packet whose content is wrong" ?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Sorry for not being clear ;-)
 
-iJwEAQECAAYFAk1BjVkACgkQfKHnntdSXjStEQQAtGoCtmpqSH6kCkKWJnFZZudH
-cClpseWSBenwbOxsJS6qZ9F3KYAcuBHT9PwFPR8N+kNpkTEBqqTXrq3KJ4lIXRUe
-zMllGljq15rKk3tuXgJUsrgRMT3ovx/Y0PBe5pR5pubO5NWn2dSEfwvZxPG9+ueM
-TXf0AZlr4wpyNfALUjE=
-=Be4S
------END PGP SIGNATURE-----
+When we transmit a packet with VLAN TAG , the TAG get stripped when
+transmitted through the device , the other end trunk port / sniffer
+does NOT see a TAG.
+Similarly , when a VLAN Tagged packet is sent from the other end , The
+TAG gets stripped by the device , We DONOT see the tag .
 
---AqsLC8rIMeq19msA--
+I use tcpdump -i eth0 -n -nn -e vlan 50
+to see if the packets are gettin tagged or NOT .
+
+The same config works on forcedeth
+
+
+Thanks,
+Anand
+
+>
+> --
+> Ueimor
+>
