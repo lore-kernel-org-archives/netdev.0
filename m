@@ -1,59 +1,46 @@
-From: John Stultz <john.stultz@linaro.org>
-Subject: Re: [PATCH V10 01/15] time: Introduce timekeeping_inject_offset
-Date: Thu, 27 Jan 2011 10:48:19 -0800
-Message-ID: <1296154099.2855.162.camel@work-vm>
-References: <cover.1296124770.git.richard.cochran@omicron.at>
-	 <6aec014551fc1d34924d6a7bcf97769867c15ba9.1296124770.git.richard.cochran@omicron.at>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-api@vger.kernel.org,
-	netdev@vger.kernel.org, Alan Cox <alan@lxorguk.ukuu.org.uk>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Christoph Lameter <cl@linux.com>,
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: [PATCH 1/4] gfs2: Remove 'select SYSFS ...' from Kconfig
+Date: Thu, 27 Jan 2011 11:10:27 -0800
+Message-ID: <1296155430-3796-2-git-send-email-nab@linux-iscsi.org>
+References: <1296155430-3796-1-git-send-email-nab@linux-iscsi.org>
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
+	linux-netdev <netdev@vger.kernel.org>,
+	Ingo Molnar <mingo@elte.hu>, Joel Becker <jlbec@evilplan.org>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Americo Wang <xiyou.wangcong@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	Krzysztof Halasa <khc@pm.waw.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Rodolfo Giometti <giometti@linux.it>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	"H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@redhat.com>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Russell King <linux@arm.linux.org.uk>
-To: Richard Cochran <richardcochran@gmail.com>,
-	Richard Cochran <richard.cochran@omicron.at>
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nicholas Bellinger <nab@linux-iscsi.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6aec014551fc1d34924d6a7bcf97769867c15ba9.1296124770.git.richard.cochran@omicron.at>
+In-Reply-To: <1296155430-3796-1-git-send-email-nab@linux-iscsi.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-01-27 at 11:54 +0100, John Stultz wrote:
-> This adds a kernel-internal timekeeping interface to add or subtract
-> a fixed amount from CLOCK_REALTIME. This makes it so kernel users or
-> interfaces trying to do so do not have to read the time, then add an
-> offset and then call settimeofday(), which adds some extra error in
-> comparision to just simply adding the offset in the kernel timekeeping
-> core.
-> 
-> CC: Thomas Gleixner <tglx@linutronix.de>
-> Signed-off-by: John Stultz <john.stultz@linaro.org>
-> Signed-off-by: Richard Cochran <richard.cochran@omicron.at>
-> ---
+From: Nicholas Bellinger <nab@linux-iscsi.org>
 
+With CONFIGFS_FS now doing 'select SYSFS' by default, the extra
+'select SYSFS if GFS2_FS_LOCKING_DLM' for GFS2_FS is now unnecessary.
 
-Hey Richard,
-	Something seems wrong with your mail sending script. It looks like your
-sending the email under my name (John Stultz
-<richardcochran@gmail.com>).
+Reported-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Nicholas A. Bellinger <nab@linux-iscsi.org>
+---
+ fs/gfs2/Kconfig |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-While I appreciate you preserving the path author, and the signoffs are
-right, you really should send the email under your own name.
-
-The proper style is to keep the mail-header From: the same (ie: Richard
-Cochran <richardcochran@gmail.com>), but as the first line of the mail
-body put:
-   From: Author Name <author@lemail.com>
-
-thanks
--john
+diff --git a/fs/gfs2/Kconfig b/fs/gfs2/Kconfig
+index c465ae0..ff0a8eb 100644
+--- a/fs/gfs2/Kconfig
++++ b/fs/gfs2/Kconfig
+@@ -3,7 +3,6 @@ config GFS2_FS
+ 	depends on (64BIT || LBDAF)
+ 	select DLM if GFS2_FS_LOCKING_DLM
+ 	select CONFIGFS_FS if GFS2_FS_LOCKING_DLM
+-	select SYSFS if GFS2_FS_LOCKING_DLM
+ 	select IP_SCTP if DLM_SCTP
+ 	select FS_POSIX_ACL
+ 	select CRC32
+-- 
+1.7.3.5
