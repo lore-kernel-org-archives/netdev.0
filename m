@@ -1,38 +1,36 @@
-From: Julia Lawall <julia@diku.dk>
+From: Ben Pfaff <blp@cs.stanford.edu>
 Subject: Re: question about nla_nest_cancel
-Date: Thu, 27 Jan 2011 18:25:36 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1101271825040.13796@pc-004.diku.dk>
+Date: Thu, 27 Jan 2011 09:52:53 -0800
+Message-ID: <87pqrikzd6.fsf@benpfaff.org>
 References: <Pine.LNX.4.64.1101271804530.13796@pc-004.diku.dk>
- <20110127172118.GA331@e-circ.dyndns.org>
+Reply-To: Ben Pfaff <blp@cs.stanford.edu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+To: Julia Lawall <julia@diku.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:36568 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751520Ab1A0RZl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jan 2011 12:25:41 -0500
-In-Reply-To: <20110127172118.GA331@e-circ.dyndns.org>
+Received: from outmail148108.authsmtp.net ([62.13.148.108]:65528 "EHLO
+	outmail148108.authsmtp.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751313Ab1A0SMr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 13:12:47 -0500
+In-Reply-To: <Pine.LNX.4.64.1101271804530.13796@pc-004.diku.dk> (Julia
+	Lawall's message of "Thu, 27 Jan 2011 18:08:34 +0100 (CET)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 27 Jan 2011, Kurt Van Dijck wrote:
+Julia Lawall <julia@diku.dk> writes:
 
-> On Thu, Jan 27, 2011 at 06:08:34PM +0100, Julia Lawall wrote:
-> > 
-> > I find numerous occurrences of code like the following, in which nest ends 
-> > up with the value NULL and then nla_nest_cancel is called with nest as the 
-> > second argument.  But nla_nest_cancel just calls nlmsg_trim with the same 
-> > second argument, and nlmsg_trim does nothing if its second argument is 
-> > NULL.  Is there any reason to keep these calls?
-> I just learned this:
-> nla_nest_start() adds data to the skb.
-> nla_nest_end() 'commits' the proper length.
-> nla_nest_cancel() reverts skb to the state before nla_nest_start(),
-> as if nothing happened.
+> I find numerous occurrences of code like the following, in which nest ends 
+> up with the value NULL and then nla_nest_cancel is called with nest as the 
+> second argument.  But nla_nest_cancel just calls nlmsg_trim with the same 
+> second argument, and nlmsg_trim does nothing if its second argument is 
+> NULL.  Is there any reason to keep these calls?
 
-Yes, I can see this as well.  But in this case, it seems to me taht 
-nothing has happened, because nla_nest_star has returned NULL?
-
-julia
+I think that you are missing that NLA_PUT() contains an internal
+"goto nla_put_failure;".  If that branch is taken, then
+nla_nest_cancel() trims off the nested attribute.  So just
+removing the call to nla_nest_cancel() would change behavior in
+that case.
+-- 
+Ben Pfaff 
+http://benpfaff.org
