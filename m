@@ -1,8 +1,8 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 12/20] x25: remove the BKL
-Date: Thu, 27 Jan 2011 13:17:01 +0100
-Message-ID: <201101271317.01502.arnd@arndb.de>
-References: <1295993854-4971-1-git-send-email-arnd@arndb.de> <1295993854-4971-13-git-send-email-arnd@arndb.de> <AANLkTim=d4Tok-ri1BozZUfBFS=rofaodN8ZBA5AjKKd@mail.gmail.com>
+Subject: [PATCH v2] x25: remove the BKL
+Date: Thu, 27 Jan 2011 13:38:38 +0100
+Message-ID: <201101271338.39295.arnd@arndb.de>
+References: <1295993854-4971-1-git-send-email-arnd@arndb.de> <AANLkTim=d4Tok-ri1BozZUfBFS=rofaodN8ZBA5AjKKd@mail.gmail.com> <201101271317.01502.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
@@ -10,91 +10,234 @@ Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, linux-x25@vger.kernel.org,
 	netdev@vger.kernel.org
 To: Andrew Hendry <andrew.hendry@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:57976 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752213Ab1A0MRK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 07:17:10 -0500
-In-Reply-To: <AANLkTim=d4Tok-ri1BozZUfBFS=rofaodN8ZBA5AjKKd@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201101271317.01502.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thursday 27 January 2011, Andrew Hendry wrote:
-> Left it running and put about 3.0G through x.25, it was running fine
-> until after about 20 hours.
-> I was stopping the test programs and hit this.
-> 
-> Jan 27 20:18:34 jaunty kernel: [80403.945790] PGD 1d8b00067 PUD 1ddec3067 PMD 0
+This replaces all instances of lock_kernel in x25
+with lock_sock, taking care to release the socket
+lock around sleeping functions (sock_alloc_send_skb
+and skb_recv_datagram). It is not clear whether
+this is a correct solution, but it seem to be what
+other protocols do in the same situation.
 
-Is there no long above this about what problem was hit? There
-is normally one saying things like "Bug: unable to handle ..."
+Compile-tested only.
 
-Well, nevermind. It seems I could figure it out anyway:
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Cc: linux-x25@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+v2: fix possible NULL-pointer dereference in x25_sendmsg
 
-> Jan 27 20:18:34 jaunty kernel: [80403.946083] RAX: 0000000000000080 RBX: ffff880228dbfd70 RCX: ffff880228dbfce4
-> Jan 27 20:18:34 jaunty kernel: [80403.946096] RDX: 00000000fffffe00 RSI: 0000000000000000 RDI: ffff8801ba89f050
-> Jan 27 20:18:34 jaunty kernel: [80403.946109] RBP: ffff880228dbfd18 R08: ffff88022aa91000 R09: 0000000000000000
-> Jan 27 20:18:34 jaunty kernel: [80403.946482] R10: 0000000000000000 R11: 0000000000000000 R12: ffff8801ba89f000
-> Jan 27 20:18:34 jaunty kernel: [80403.946495] R13: 0000000000000000 R14: 0000000000000000 R15: 0000000000000000
-> ...
->
-> If i have done it right, x25_sendmsg+0x1a7/0x530 is the skb_reserve
-> which gets inlined here.
-> (af_x25.c)
->         /* Build a packet */
->         SOCK_DEBUG(sk, "x25_sendmsg: sendto: building packet.\n");
-> 
->         if ((msg->msg_flags & MSG_OOB) && len > 32)
->                 len = 32;
-> 
->         size = len + X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
-> 
->         release_sock(sk);
->         skb = sock_alloc_send_skb(sk, size, noblock, &rc);
->         lock_sock(sk);
-> 
->         X25_SKB_CB(skb)->flags = msg->msg_flags;
+ net/x25/Kconfig   |    1 -
+ net/x25/af_x25.c  |   58 ++++++++++++++++------------------------------------
+ net/x25/x25_out.c |    7 ++++-
+ 3 files changed, 23 insertions(+), 43 deletions(-)
 
-
-ok.
-
-> objdump -dS show it at 2197 here.
-> 
-> static inline void skb_reserve(struct sk_buff *skb, int len)
-> {
->         skb->data += len;
->         skb->tail += len;
->     2197:       41 83 87 b4 00 00 00    addl   $0x16,0xb4(%r15) <---
->     219e:       16
->     219f:       41 89 47 28             mov    %eax,0x28(%r15)
->     21a3:       49 8b 87 c8 00 00 00    mov    0xc8(%r15),%rax
->     21aa:       48 83 c0 16             add    $0x16,%rax
->         skb_reserve(skb, X25_MAX_L2_LEN + X25_EXT_MIN_LEN);
-> 
-> But im not sure where to go from there...
+diff --git a/net/x25/Kconfig b/net/x25/Kconfig
+index 2196e55..e6759c9 100644
+--- a/net/x25/Kconfig
++++ b/net/x25/Kconfig
+@@ -5,7 +5,6 @@
+ config X25
+ 	tristate "CCITT X.25 Packet Layer (EXPERIMENTAL)"
+ 	depends on EXPERIMENTAL
+-	depends on BKL # should be fixable
+ 	---help---
+ 	  X.25 is a set of standardized network protocols, similar in scope to
+ 	  frame relay; the one physical line from your box to the X.25 network
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index ad96ee9..4680b1e 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -40,7 +40,6 @@
+ #include <linux/errno.h>
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
+-#include <linux/smp_lock.h>
+ #include <linux/timer.h>
+ #include <linux/string.h>
+ #include <linux/net.h>
+@@ -432,15 +431,6 @@ void x25_destroy_socket_from_timer(struct sock *sk)
+ 	sock_put(sk);
+ }
  
-It's pretty clear that %r15 is the skb in this, and from the registers in the dump,
-you can see that it's NULL. skb has just been returned from sock_alloc_send_skb,
-which means that this function failed.
-
-And indeed:
-
-> > @@ -1148,9 +1140,10 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
-> >
-> >        size = len + X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
-> >
-> > +       release_sock(sk);
-> >        skb = sock_alloc_send_skb(sk, size, noblock, &rc);
-> > -       if (!skb)
-> > -               goto out;
-> > +       lock_sock(sk);
-> > +
-> >        X25_SKB_CB(skb)->flags = msg->msg_flags;
-
-I accidentally removed the error handling in my patch. No idea how that
-happened, it certainly wasn't intentional. Thanks a lot for the thorough
-testing and the detailed bug report!
-
-I'll follow up with a fixed patch that puts the error path back in.
-
-	Arnd
+-static void x25_destroy_socket(struct sock *sk)
+-{
+-	sock_hold(sk);
+-	lock_sock(sk);
+-	__x25_destroy_socket(sk);
+-	release_sock(sk);
+-	sock_put(sk);
+-}
+-
+ /*
+  *	Handling for system calls applied via the various interfaces to a
+  *	X.25 socket object.
+@@ -647,18 +637,19 @@ static int x25_release(struct socket *sock)
+ 	struct sock *sk = sock->sk;
+ 	struct x25_sock *x25;
+ 
+-	lock_kernel();
+ 	if (!sk)
+-		goto out;
++		return 0;
+ 
+ 	x25 = x25_sk(sk);
+ 
++	sock_hold(sk);
++	lock_sock(sk);
+ 	switch (x25->state) {
+ 
+ 		case X25_STATE_0:
+ 		case X25_STATE_2:
+ 			x25_disconnect(sk, 0, 0, 0);
+-			x25_destroy_socket(sk);
++			__x25_destroy_socket(sk);
+ 			goto out;
+ 
+ 		case X25_STATE_1:
+@@ -678,7 +669,8 @@ static int x25_release(struct socket *sock)
+ 
+ 	sock_orphan(sk);
+ out:
+-	unlock_kernel();
++	release_sock(sk);
++	sock_put(sk);
+ 	return 0;
+ }
+ 
+@@ -1085,7 +1077,7 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	size_t size;
+ 	int qbit = 0, rc = -EINVAL;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_OOB|MSG_EOR|MSG_CMSG_COMPAT))
+ 		goto out;
+ 
+@@ -1148,7 +1140,9 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 	size = len + X25_MAX_L2_LEN + X25_EXT_MIN_LEN;
+ 
++	release_sock(sk);
+ 	skb = sock_alloc_send_skb(sk, size, noblock, &rc);
++	lock_sock(sk);
+ 	if (!skb)
+ 		goto out;
+ 	X25_SKB_CB(skb)->flags = msg->msg_flags;
+@@ -1231,26 +1225,10 @@ static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			len++;
+ 	}
+ 
+-	/*
+-	 * lock_sock() is currently only used to serialize this x25_kick()
+-	 * against input-driven x25_kick() calls. It currently only blocks
+-	 * incoming packets for this socket and does not protect against
+-	 * any other socket state changes and is not called from anywhere
+-	 * else. As x25_kick() cannot block and as long as all socket
+-	 * operations are BKL-wrapped, we don't need take to care about
+-	 * purging the backlog queue in x25_release().
+-	 *
+-	 * Using lock_sock() to protect all socket operations entirely
+-	 * (and making the whole x25 stack SMP aware) unfortunately would
+-	 * require major changes to {send,recv}msg and skb allocation methods.
+-	 * -> 2.5 ;)
+-	 */
+-	lock_sock(sk);
+ 	x25_kick(sk);
+-	release_sock(sk);
+ 	rc = len;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ out_kfree_skb:
+ 	kfree_skb(skb);
+@@ -1271,7 +1249,7 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	unsigned char *asmptr;
+ 	int rc = -ENOTCONN;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	/*
+ 	 * This works for seqpacket too. The receiver has ordered the queue for
+ 	 * us! We do one quick check first though
+@@ -1300,8 +1278,10 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		msg->msg_flags |= MSG_OOB;
+ 	} else {
+ 		/* Now we can treat all alike */
++		release_sock(sk);
+ 		skb = skb_recv_datagram(sk, flags & ~MSG_DONTWAIT,
+ 					flags & MSG_DONTWAIT, &rc);
++		lock_sock(sk);
+ 		if (!skb)
+ 			goto out;
+ 
+@@ -1338,14 +1318,12 @@ static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 
+ 	msg->msg_namelen = sizeof(struct sockaddr_x25);
+ 
+-	lock_sock(sk);
+ 	x25_check_rbuf(sk);
+-	release_sock(sk);
+ 	rc = copied;
+ out_free_dgram:
+ 	skb_free_datagram(sk, skb);
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1581,18 +1559,18 @@ out_cud_release:
+ 
+ 		case SIOCX25CALLACCPTAPPRV: {
+ 			rc = -EINVAL;
+-			lock_kernel();
++			lock_sock(sk);
+ 			if (sk->sk_state != TCP_CLOSE)
+ 				break;
+ 			clear_bit(X25_ACCPT_APPRV_FLAG, &x25->flags);
+-			unlock_kernel();
++			release_sock(sk);
+ 			rc = 0;
+ 			break;
+ 		}
+ 
+ 		case SIOCX25SENDCALLACCPT:  {
+ 			rc = -EINVAL;
+-			lock_kernel();
++			lock_sock(sk);
+ 			if (sk->sk_state != TCP_ESTABLISHED)
+ 				break;
+ 			/* must call accptapprv above */
+@@ -1600,7 +1578,7 @@ out_cud_release:
+ 				break;
+ 			x25_write_internal(sk, X25_CALL_ACCEPTED);
+ 			x25->state = X25_STATE_3;
+-			unlock_kernel();
++			release_sock(sk);
+ 			rc = 0;
+ 			break;
+ 		}
+diff --git a/net/x25/x25_out.c b/net/x25/x25_out.c
+index d00649f..f1a6ff1 100644
+--- a/net/x25/x25_out.c
++++ b/net/x25/x25_out.c
+@@ -68,8 +68,11 @@ int x25_output(struct sock *sk, struct sk_buff *skb)
+ 		frontlen = skb_headroom(skb);
+ 
+ 		while (skb->len > 0) {
+-			if ((skbn = sock_alloc_send_skb(sk, frontlen + max_len,
+-							noblock, &err)) == NULL){
++			release_sock(sk);
++			skbn = sock_alloc_send_skb(sk, frontlen + max_len,
++						   1, &err);
++			lock_sock(sk);
++			if (!skbn) {
+ 				if (err == -EWOULDBLOCK && noblock){
+ 					kfree_skb(skb);
+ 					return sent;
