@@ -1,86 +1,91 @@
-From: Anand Raj Manickam <anandrm@gmail.com>
-Subject: Re: Realtek r8168C / r8169 driver VLAN TAG stripping
-Date: Thu, 27 Jan 2011 21:01:44 +0530
-Message-ID: <AANLkTi=OwsMO8x9AOy=MmohU4SSQcv+o=TvwNs0NNsQR@mail.gmail.com>
-References: <AANLkTi=qVSEh=RyzJ6y4kQvJW+hxqWMh2gAMmhk7GGob@mail.gmail.com>
-	<AANLkTimqkJ3DGBX5iREEcx6sgAM+2CZHNWMU+noNSitp@mail.gmail.com>
-	<20110116192017.GA3569@electric-eye.fr.zoreil.com>
-	<AANLkTi=uNKMj_gs_bKRQ1tQa0TMwdnyrtVcR5JPNpmJv@mail.gmail.com>
-	<AANLkTikoXfgHrJyMbe6A_HmvXT_QRo55w76st5Wo0hSv@mail.gmail.com>
-	<20110118012146.GA3704@electric-eye.fr.zoreil.com>
-	<AANLkTimA1C=trH+WGpBdPU=vBf-cN+xB4Br3+vJb-Qum@mail.gmail.com>
-	<20110127150744.GA7925@electric-eye.fr.zoreil.com>
+From: Ingo Molnar <mingo@elte.hu>
+Subject: Re: netconsole build breakage (Re: [GIT] Networking)
+Date: Thu, 27 Jan 2011 16:51:30 +0100
+Message-ID: <20110127155130.GA8318@elte.hu>
+References: <20110114.130323.201674039.davem@davemloft.net>
+ <20110119095920.GA10543@elte.hu>
+ <20110119100824.GD9903@cr0.nay.redhat.com>
+ <1295433231.21351.17.camel@haakon2.linux-iscsi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Hayes <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:48142 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751470Ab1A0Pbq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 10:31:46 -0500
-Received: by bwz15 with SMTP id 15so2326058bwz.19
-        for <netdev@vger.kernel.org>; Thu, 27 Jan 2011 07:31:45 -0800 (PST)
-In-Reply-To: <20110127150744.GA7925@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Thu, Jan 27, 2011 at 8:37 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Anand Raj Manickam <anandrm@gmail.com> :
-> [...]
->> We upgraded to 2.6.36 kernel . The result is SAME.
->> The VLAN tag gets stripped ;-)
->> Do let me know if you need more info .
->
-
-> - ip addr show
-
-3: eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc pfifo_fast qlen 1000
-    link/ether 00:17:54:00:f6:62 brd ff:ff:ff:ff:ff:ff
-    inet 172.16.1.1/16 brd 172.16.255.255 scope global eth0
-    inet6 fe80::217:54ff:fe00:f662/64 scope link
-       valid_lft forever preferred_lft forever
-
-8: eth0.50@eth0: <BROADCAST,MULTICAST,UP,10000> mtu 1500 qdisc noqueue
-    link/ether 00:17:54:00:f6:62 brd ff:ff:ff:ff:ff:ff
-    inet 172.16.10.10/24 brd 172.16.10.255 scope global eth0.50
-    inet6 fe80::217:54ff:fe00:f662/64 scope link
-       valid_lft forever preferred_lft forever
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?iso-8859-1?Q?Am=E9rico?= Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	James Bottomley <James.Bottomley@suse.de>,
+	Randy Dunlap <randy.dunlap@oracle.com>,
+	torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Joel Becker <jlbec@evilplan.org>
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1295433231.21351.17.camel@haakon2.linux-iscsi.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> - ethtool -k eth0
+* Nicholas A. Bellinger <nab@linux-iscsi.org> wrote:
 
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: off
-scatter-gather: off
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: off
+> On Wed, 2011-01-19 at 18:08 +0800, Am=E9rico Wang wrote:
+> > On Wed, Jan 19, 2011 at 10:59:20AM +0100, Ingo Molnar wrote:
+> > >
+> > >FYI, there's a .38-rc1 build failure that triggers rather often:
+> > >
+> > > drivers/built-in.o: In function `drop_netconsole_target':
+> > > netconsole.c:(.text+0x130146): undefined reference to `config_ite=
+m_put'
+> > > drivers/built-in.o: In function `write_msg':
+> > > netconsole.c:(.text+0x1301aa): undefined reference to `config_ite=
+m_get'
+> > > netconsole.c:(.text+0x130217): undefined reference to `config_ite=
+m_put'
+> > > drivers/built-in.o: In function `netconsole_netdev_event':
+> > > netconsole.c:(.text+0x1302ab): undefined reference to `config_ite=
+m_get'
+> > > ...
+> > >
+> > >Triggered by this configuration:
+> > >
+> > > CONFIG_CONFIGFS_FS=3Dm
+> > > CONFIG_NETCONSOLE=3Dy
+> > >
+> >=20
+> > Should be "depends on CONFIGFS_FS=3Dy".
+>=20
+> Sorry for breaking this one folks..
+>=20
+> Where this was left yesterday was to change NETCONSOLE_DYNAMIC, DLM a=
+nd
+> OCFS2_FS symbols to use 'select configfs' instead of 'depends on SYSF=
+S
+> && CONFIGFS':
+>=20
+> http://marc.info/?l=3Dlinux-kernel&m=3D129539400709508&w=3D2
+>=20
+> but unfortuately this did not make it into .38-rc1 in time..
+>=20
+> Using 'select CONFIGFS_FS' here for NETCONSOLE_DYNAMIC with the
+> following patches should do the trick.
+>=20
+>    git://git.kernel.org/pub/scm/linux/kernel/git/nab/scsi-post-merge-=
+2.6.git for-linus
+>=20
+> Thanks,
+>=20
+> Nicholas Bellinger (3):
+>   net: Make NETCONSOLE_DYNAMIC use select CONFIGFS_FS
+>   dlm: Make DLM use select CONFIGFS_FS
+>   ocfs2: Make OCFS2_FS use select CONFIGFS_FS
+>=20
+>  drivers/net/Kconfig |    3 ++-
+>  fs/dlm/Kconfig      |    4 ++--
+>  fs/ocfs2/Kconfig    |    3 ++-
+>  3 files changed, 6 insertions(+), 4 deletions(-)
 
-
-
-> I do not get the "VLAN tag gets stripped" concept, especially on Tx.
-> Does it mean "no packet" or "a packet whose content is wrong" ?
-
-Sorry for not being clear ;-)
-
-When we transmit a packet with VLAN TAG , the TAG get stripped when
-transmitted through the device , the other end trunk port / sniffer
-does NOT see a TAG.
-Similarly , when a VLAN Tagged packet is sent from the other end , The
-TAG gets stripped by the device , We DONOT see the tag .
-
-I use tcpdump -i eth0 -n -nn -e vlan 50
-to see if the packets are gettin tagged or NOT .
-
-The same config works on forcedeth
-
+Ping? This is still broken in Linus's tree as of today ... simple build=
+s like=20
+allmodconfig still fail.
 
 Thanks,
-Anand
 
->
-> --
-> Ueimor
->
+	Ingo
