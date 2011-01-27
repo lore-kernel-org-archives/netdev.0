@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] econet: remove compiler warnings
-Date: Thu, 27 Jan 2011 14:24:14 -0800 (PST)
-Message-ID: <20110127.142414.115939130.davem@davemloft.net>
-References: <1296036258.2899.44.camel@edumazet-laptop>
-	<20110126131959.GF3010@hetzner>
+Subject: Re: [PATCH] dl2k: nulify fraginfo after unmap
+Date: Thu, 27 Jan 2011 14:24:20 -0800 (PST)
+Message-ID: <20110127.142420.48502291.davem@davemloft.net>
+References: <20110126104521.GA2431@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: philb@gnu.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sgruszka@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56495
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56499
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753577Ab1A0WXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 17:23:39 -0500
-In-Reply-To: <20110126131959.GF3010@hetzner>
+	by vger.kernel.org with ESMTP id S1753692Ab1A0WXp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 17:23:45 -0500
+In-Reply-To: <20110126104521.GA2431@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogUGhpbCBCbHVuZGVsbCA8cGhpbGJAZ251Lm9yZz4NCkRhdGU6IFdlZCwgMjYgSmFuIDIw
-MTEgMTQ6MTk6NTkgKzAxMDANCg0KPiBPbiBXZWQsIEphbiAyNiwgMjAxMSBhdCAxMTowNDoxOEFN
-ICswMTAwLCBFcmljIER1bWF6ZXQgd3JvdGU6DQo+PiBuZXQvZWNvbmV0L2FmX2Vjb25ldC5jOiBJ
-biBmdW5jdGlvbiChZWNvbmV0X3NlbmRtc2eiOg0KPj4gbmV0L2Vjb25ldC9hZl9lY29uZXQuYzo0
-OTQ6IHdhcm5pbmc6IGxhYmVsIKFlcnJvcqIgZGVmaW5lZCBidXQgbm90IHVzZWQNCj4+IG5ldC9l
-Y29uZXQvYWZfZWNvbmV0LmM6MjY4OiB3YXJuaW5nOiB1bnVzZWQgdmFyaWFibGUgoXNrog0KPj4g
-DQo+PiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVyaWMuZHVtYXpldEBnbWFpbC5jb20+
-DQo+IA0KPiBUaGFua3MsIGxvb2tzIHNlbnNpYmxlLg0KPiANCj4gQWNrZWQtYnk6IFBoaWwgQmx1
-bmRlbGwgPHBoaWxiQGdudS5vcmc+DQoNCkFwcGxpZWQsIHRoYW5rcyBldmVyeW9uZS4NCg==
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Date: Wed, 26 Jan 2011 11:45:42 +0100
+
+> Patch fixes: "DMA-API: device driver tries to free an invalid DMA
+> memory address" warning reported here:
+> https://bugzilla.redhat.com/show_bug.cgi?id=639824
+> 
+> Reported-by: Frantisek Hanzlik <franta@hanzlici.cz>
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+
+Applied.
