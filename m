@@ -1,52 +1,39 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: [PATCH 3/4] dlm: Make DLM use select CONFIGFS_FS
-Date: Thu, 27 Jan 2011 11:10:29 -0800
-Message-ID: <1296155430-3796-4-git-send-email-nab@linux-iscsi.org>
-References: <1296155430-3796-1-git-send-email-nab@linux-iscsi.org>
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	linux-netdev <netdev@vger.kernel.org>,
-	Ingo Molnar <mingo@elte.hu>, Joel Becker <jlbec@evilplan.org>,
-	Randy Dunlap <randy.dunlap@oracle.com>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Americo Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nicholas Bellinger <nab@linux-iscsi.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH] r8169: use RxFIFO overflow workaround for 8168c chipset
+Date: Thu, 27 Jan 2011 20:23:36 +0100
+Message-ID: <1296156217.8720.3.camel@ceranb.brq.redhat.com>
+References: <1296127451-12640-1-git-send-email-ivecera@redhat.com>
+	 <20110127143219.GA7831@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Hayes <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm10.bullet.mail.ne1.yahoo.com ([98.138.90.73]:24752 "HELO
-	nm10.bullet.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753383Ab1A0TKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 14:10:39 -0500
-In-Reply-To: <1296155430-3796-1-git-send-email-nab@linux-iscsi.org>
+Received: from mx1.redhat.com ([209.132.183.28]:35070 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752680Ab1A0TXu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 27 Jan 2011 14:23:50 -0500
+In-Reply-To: <20110127143219.GA7831@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicholas Bellinger <nab@linux-iscsi.org>
+On Thu, 2011-01-27 at 15:32 +0100, Francois Romieu wrote:
+> Ivan Vecera <ivecera@redhat.com> :
+> > I found that one of the 8168c chipsets (concretely XID 1c4000c0) starts
+> > generating RxFIFO overflow errors. The result is an infinite loop in
+> > interrupt handler as the RxFIFOOver is handled only for ...MAC_VER_11.
+> 
+> Acked-by: as your patch ties it to a specific 8168 revision (CFG_METHOD_6
+> in Realtek's parlance).
+> 
+> Surprizing as it may seem, unconditionaly enabling it has not always
+> produced the expected result. See 53f57357ff0afc37804f4e82ee3123e0c0a2cad6
+> for instance. Realtek's r1868 driver ignores it most of time as well.
+> 
+> Was it normal high-load or pktgen like high load ?
+The test case was: Migration of the several kvm guests at the same time
+between two hosts.
 
-Convert 'depends && SYSFS && CONFIGFS_FS' to 'select CONFIGFS_FS'
-
-Reported-by: Joel Becker <jlbec@evilplan.org>
-Signed-off-by: Nicholas A. Bellinger <nab@linux-iscsi.org>
----
- fs/dlm/Kconfig |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/fs/dlm/Kconfig b/fs/dlm/Kconfig
-index 1897eb1..4f65a50 100644
---- a/fs/dlm/Kconfig
-+++ b/fs/dlm/Kconfig
-@@ -1,7 +1,7 @@
- menuconfig DLM
- 	tristate "Distributed Lock Manager (DLM)"
--	depends on EXPERIMENTAL && INET
--	depends on SYSFS && CONFIGFS_FS && (IPV6 || IPV6=n)
-+	depends on EXPERIMENTAL && INET && (IPV6 || IPV6=n)
-+	select CONFIGFS_FS
- 	select IP_SCTP
- 	help
- 	A general purpose distributed lock manager for kernel or userspace
--- 
-1.7.3.5
+Ivan
 
