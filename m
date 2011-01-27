@@ -1,80 +1,36 @@
-From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
-Subject: Re: [PATCH] pch_gbe: Fix the issue that the receiving data is not normal.
-Date: Thu, 27 Jan 2011 17:45:35 +0900
-Message-ID: <29E928B8732A4CB19946EEA9F004FACB@hacdom.okisemi.com>
-References: <4D3D0373.30003@dsn.okisemi.com> <20110125.133240.59688304.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next-2.6] drivers/net: remove some rcu sparse warnings
+Date: Thu, 27 Jan 2011 10:22:20 +0100
+Message-ID: <201101271022.21330.arnd@arndb.de>
+References: <1296106103.1783.114.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<qi.wang@intel.com>, <yong.y.wang@intel.com>,
-	<andrew.chih.howe.khor@intel.com>, <joel.clark@intel.com>,
-	<kok.howg.ewe@intel.com>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Michael Chan <mchan@broadcom.com>,
+	Eilon Greenstein <eilong@broadcom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from moutng.kundenserver.de ([212.227.126.186]:58604 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753858Ab1A0JW7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 04:22:59 -0500
+In-Reply-To: <1296106103.1783.114.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David
+On Thursday 27 January 2011, Eric Dumazet wrote:
+> Add missing __rcu annotations and helpers.
+> minor : Fix some rcu_dereference() calls in macvtap
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> CC: Arnd Bergmann <arnd@arndb.de>
+> CC: Michael Chan <mchan@broadcom.com>
+> CC: Eilon Greenstein <eilong@broadcom.com>
 
-Thank you for your comment.
-I will confirm them  and will submit the patch modified.
+Macvtap bits look good, thanks!
 
-Best regards
-Toshiharu Okada(OKI semiconductor)
------ Original Message ----- 
-From: "David Miller" <davem@davemloft.net>
-To: <toshiharu-linux@dsn.okisemi.com>
-Cc: <netdev@vger.kernel.org>; <linux-kernel@vger.kernel.org>; 
-<qi.wang@intel.com>; <yong.y.wang@intel.com>; 
-<andrew.chih.howe.khor@intel.com>; <joel.clark@intel.com>; 
-<kok.howg.ewe@intel.com>
-Sent: Wednesday, January 26, 2011 6:32 AM
-Subject: Re: [PATCH] pch_gbe: Fix the issue that the receiving data is not 
-normal.
+Acked-by: Arnd Bergmann <arnd@arndb.de>
 
-
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Date: Mon, 24 Jan 2011 13:43:31 +0900
-
-> This PCH_GBE driver had an issue that the receiving data is not normal.
-> This driver had not removed correctly the padding data
-> which the DMA include in receiving data.
->
-> This patch fixed this issue.
->
-> Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-
-There are bugs in these changes:
-
->  if (skb_copy_flag) { /* recycle  skb */
->  struct sk_buff *new_skb;
->  new_skb =
-> -     netdev_alloc_skb(netdev,
-> -      length + NET_IP_ALIGN);
-> +     netdev_alloc_skb(netdev, length);
->  if (new_skb) {
->  if (!skb_padding_flag) {
->  skb_reserve(new_skb,
-> - NET_IP_ALIGN);
-> + PCH_GBE_DMA_PADDING);
->  }
->  memcpy(new_skb->data, skb->data,
->  length);
-
-If "!skb_padding_flag" then you will write past the end of the SKB
-data in that memcpy.
-
-You cannot allocate only "length" then proceed to reserve 
-PCH_GBE_DMA_PADDING
-and then add "length" worth of data on top of that.  In such a cause you
-must allocate at least "length + PCH_GBE_DMA_PADDING".
-
-Furthermore you _MUST_ respect NET_IP_ALIGN.  Some platforms set this value
-to "0", because otherwise performance suffers greatly.
-
-There are two seperate issues, removing the padding bytes provided by
-the device, and aligning the IP headers as wanted by the cpu
-architecutre.  Therefore they should be handled seperately, and we
-therefore should still see references to NET_IP_ALIGN in your patch.
