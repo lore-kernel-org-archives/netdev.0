@@ -1,38 +1,64 @@
-From: Julia Lawall <julia@diku.dk>
-Subject: Re: question about nla_nest_cancel
-Date: Thu, 27 Jan 2011 19:18:35 +0100 (CET)
-Message-ID: <Pine.LNX.4.64.1101271918250.13796@pc-004.diku.dk>
-References: <Pine.LNX.4.64.1101271804530.13796@pc-004.diku.dk>
- <87pqrikzd6.fsf@benpfaff.org>
+From: Sergey Senozhatsky <sergey.senozhatsky@gmail.com>
+Subject: Re: skb_split in tcp_retransmit_skb question
+Date: Thu, 27 Jan 2011 20:33:28 +0200
+Message-ID: <20110127183327.GB4153@swordfish.minsk.epam.com>
+References: <20110127152057.GA4153@swordfish.minsk.epam.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: hadi@cyberus.ca, netdev@vger.kernel.org
-To: Ben Pfaff <blp@cs.stanford.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mgw2.diku.dk ([130.225.96.92]:43896 "EHLO mgw2.diku.dk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752000Ab1A0SSl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jan 2011 13:18:41 -0500
-In-Reply-To: <87pqrikzd6.fsf@benpfaff.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="VrqPEDrXMn8OVzN4"
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110127152057.GA4153@swordfish.minsk.epam.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Jan 2011, Ben Pfaff wrote:
 
-> Julia Lawall <julia@diku.dk> writes:
-> 
-> > I find numerous occurrences of code like the following, in which nest ends 
-> > up with the value NULL and then nla_nest_cancel is called with nest as the 
-> > second argument.  But nla_nest_cancel just calls nlmsg_trim with the same 
-> > second argument, and nlmsg_trim does nothing if its second argument is 
-> > NULL.  Is there any reason to keep these calls?
-> 
-> I think that you are missing that NLA_PUT() contains an internal
-> "goto nla_put_failure;".  If that branch is taken, then
-> nla_nest_cancel() trims off the nested attribute.  So just
-> removing the call to nla_nest_cancel() would change behavior in
-> that case.
+--VrqPEDrXMn8OVzN4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Indeed.  Thank you for the explanation.
+On (01/27/11 17:20), Sergey Senozhatsky wrote:
+> Hello,
+>=20
+> Suppose we have the following scenario:
+>=20
+> tcp_write_timer ->
+>  tcp_retransmit_skb
+>=20
+> in tcp_retransmit_skb we have `if (skb->len > cur_mss)' evaluted to true,=
+ which leads
+> to tcp_fragment(sk, skb, cur_mss, cur_mss) call. tcp_fragment calls skb_s=
+plit(skb, buff, len)
+> which, in turn, calls skb_split_no_header(skb, skb1, len, pos), where we =
+have
+> `skb_shinfo(skb)->nr_frags++' while in `for (i =3D 0; i < nfrags; i++)' l=
+oop.
 
-julia
+Sorry for the noise. Alexey has pointed out that we have=20
+skb_shinfo(skb)->nr_frags =3D 0 in skb_split_no_header. Have no idea how di=
+d I miss it.=20
+
+Thanks,
+
+	Sergey
+
+--VrqPEDrXMn8OVzN4
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iJwEAQECAAYFAk1BuncACgkQfKHnntdSXjRytwP/Wdjy9/P8mmMfzIknxb7s3jrO
+bFmBB4QcETA/j0ZndGhjU/PGngFMnloh+Oh1kPZ9FQplewyqoDiBj+Bk19uVB9bm
+273Rs5pjH99plbxFeWGPqRAGvvBrOvl6RvXHXPezlU8lynZgls/XgG+yPW1gkMKo
+tLhNmaWUky+Ts0sxVd0=
+=v8rH
+-----END PGP SIGNATURE-----
+
+--VrqPEDrXMn8OVzN4--
