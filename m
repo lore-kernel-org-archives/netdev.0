@@ -1,64 +1,42 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: Network performance with small packets
-Date: Thu, 27 Jan 2011 12:15:05 -0800
-Message-ID: <1296159305.1640.50.camel@localhost.localdomain>
-References: <OFD293DCD2.7F0260F0-ON86257823.0061DC39-86257823.00743BB3@us.ibm.com>
-	 <20110126151700.GA14113@redhat.com>
-	 <1296153874.1640.27.camel@localhost.localdomain>
-	 <20110127190031.GC5228@redhat.com>
-	 <1296155340.1640.34.camel@localhost.localdomain>
-	 <20110127193131.GD5228@redhat.com>
-	 <1296157547.1640.45.camel@localhost.localdomain>
-	 <20110127200548.GE5228@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH] net: Implement read-only protection and COW'ing of
+ metrics.
+Date: Thu, 27 Jan 2011 12:28:24 -0800 (PST)
+Message-ID: <20110127.122824.193719098.davem@davemloft.net>
+References: <20101216.115900.183061857.davem@davemloft.net>
+	<20110126.152538.260074157.davem@davemloft.net>
+	<1296122511.3027.11.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Steve Dobbelstein <steved@us.ibm.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:45457 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752516Ab1A0UPd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 27 Jan 2011 15:15:33 -0500
-In-Reply-To: <20110127200548.GE5228@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46486
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752485Ab1A0U1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 27 Jan 2011 15:27:49 -0500
+In-Reply-To: <1296122511.3027.11.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-01-27 at 22:05 +0200, Michael S. Tsirkin wrote:
-> Interesting. Could this is be a variant of the now famuous bufferbloat
-> then?
-> 
-> I guess we could drop some packets if we see we are not keeping up.
-> For
-> example if we see that the ring is > X% full, we could quickly
-> complete
-> Y% without transmitting packets on. Or maybe we should drop some bytes
-> not packets.
-It's worth to try to figure out what's the best approach. I will make a
-patch.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 27 Jan 2011 11:01:51 +0100
 
+> Since you use cmpxchg() to permut the dst->_metrics, I feel this rt->fi
+> needs some protection as well. Maybe store fi pointer inside the metrics
+> instead of dst, or else you need a spinlock to perform the whole
+> transaction (change dst->_metrics & rt->fi) ?
 
-> > 
-> > Requesting guest notification and extra interrupts is what we want
-> to
-> > avoid to reduce VM exits for saving CPUs. I don't think it's good.
-> 
-> Yes but how do you explain regression?
-> One simple theory is that guest net stack became faster
-> and so the host can't keep up.
+I think this is OK, because there are only two points at which the
+"rt->fi" is tested and (conditionally) released.
 
-Yes, that's what I think here. Some qdisc code has been changed
-recently.
+1) At dst destruction time, which is when no other references may
+   exist to the dst.
 
-> > 
-> > By polling the vq a bit more aggressively, you meant vhost, right?
-> > 
-> > Shirley
-> 
-> Yes. 
+2) At COW time, and here we know a) we are the one and only entity
+   which successfully COW'd the metrics and b) there is at least our
+   reference to the dst and therefore dst destroy (and therefore case
+   #1) may not execute in parallel with us.
 
-I had a similar patch before, I can modify it and test it out.
-
-Shirley
-
+So I think it's safe.
