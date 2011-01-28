@@ -1,28 +1,52 @@
-From: "Young Chang" <youngmevas11@lajt.hu>
-Subject: Re:
-Date: Fri, 28 Jan 2011 12:41:39 -0800
-Message-ID: <20110128114249.918DE664533@moh1-ve3.go2.pl>
-Reply-To: <youngchang.mb658@yahoo.com.hk>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH V10 01/15] time: Introduce timekeeping_inject_offset
+Date: Fri, 28 Jan 2011 13:05:37 +0100
+Message-ID: <201101281305.37370.arnd@arndb.de>
+References: <cover.1296124770.git.richard.cochran@omicron.at> <1296154099.2855.162.camel@work-vm> <20110128070800.GA3225@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tur.go2.pl ([193.17.41.50]:34107 "EHLO tur.go2.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751963Ab1A1Lng (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jan 2011 06:43:36 -0500
-Received: from moh1-ve3.go2.pl (moh1-ve3.go2.pl [193.17.41.134])
-	by tur.go2.pl (o2.pl Mailer 2.0.1) with ESMTP id C6F19233B3E
-	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 12:43:34 +0100 (CET)
-Received: from moh1-ve3.go2.pl (unknown [10.0.0.134])
-	by moh1-ve3.go2.pl (Postfix) with ESMTP id 918DE664533
-	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 12:42:49 +0100 (CET)
-Received: from unknown (unknown [10.0.0.142])
-	by moh1-ve3.go2.pl (Postfix) with SMTP
-	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 12:42:49 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110128070800.GA3225-7KxsofuKt4IfAd9E5cN8NEzG7cXyKsk/@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-My name is Mr. Young Chang, I work with the Mevas Bank bank here in Hong Kong. I have a business proposal that i will like you to handle with me from my bank worth $19.7m. If interested, kindly get back to me for more details.
+On Friday 28 January 2011, Richard Cochran wrote:
+> I would like to get to the bottom of this. Here is what I did:
+> 
+>    1. Saved your patch to disk in mbox format using Mutt.
+>    2. git am
+>    3. ... rebase, rebase, rebase, ...
+>    4. git format-patch [options] 1234..abcd
+>    5. Edit cover letter
+>    6. for x in 00*; do mutt -H $x; done
+> 
+> Git format-patch places the "From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>"
+> line with the other mail headers, and so I guess mutt just faithfully
+> preserves this.
+> 
+> I don't like having to remember to fix this manually. There must be a
+> better way...
+
+The problem is step 6. The output of git format-patch does not work when
+sending with mutt. The easiest solution is to send with git send-email,
+which does the same as mutt -H, but gets it right.
+
+	Arnd
