@@ -1,103 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Network performance with small packets
-Date: Fri, 28 Jan 2011 14:16:16 +0200
-Message-ID: <20110128121616.GA8374@redhat.com>
-References: <20110127193131.GD5228@redhat.com>
- <1296157547.1640.45.camel@localhost.localdomain>
- <20110127200548.GE5228@redhat.com>
- <20110127.130240.104065182.davem@davemloft.net>
- <1296163838.1640.53.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, steved@us.ibm.com,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1296163838.1640.53.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 v2 1/7] e1000: add support for Marvell Alaska M88E1118R PHY
+Date: Fri, 28 Jan 2011 04:28:57 -0800
+Message-ID: <1296217743-30093-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Florian Fainelli <ffainelli@freebox.fr>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com,
+	Dirk Brandewie <dirk.j.brandewie@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:55113 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754954Ab1A1M3I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jan 2011 07:29:08 -0500
+In-Reply-To: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jan 27, 2011 at 01:30:38PM -0800, Shirley Ma wrote:
-> On Thu, 2011-01-27 at 13:02 -0800, David Miller wrote:
-> > > Interesting. Could this is be a variant of the now famuous
-> > bufferbloat then?
-> > 
-> > Sigh, bufferbloat is the new global warming... :-/ 
-> 
-> Yep, some places become colder, some other places become warmer; Same as
-> BW results, sometimes faster, sometimes slower. :)
-> 
-> Shirley
+From: Florian Fainelli <ffainelli@freebox.fr>
 
-OK, so thinking about it more, maybe the issue is this:
-tx becomes full. We process one request and interrupt the guest,
-then it adds one request and the queue is full again.
+This patch adds support for Marvell Alask M88E188R PHY chips. Support for
+other M88* PHYs is already there, so there is nothing more to add than its
+PHY id.
 
-Maybe the following will help it stabilize?
-By itself it does nothing, but if you set
-all the parameters to a huge value we will
-only interrupt when we see an empty ring.
-Which might be too much: pls try other values
-in the middle: e.g. make bufs half the ring,
-or bytes some small value, or packets some
-small value etc.
+CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/e1000/e1000_hw.c |    4 +++-
+ drivers/net/e1000/e1000_hw.h |    1 +
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
-Warning: completely untested.
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index aac05bc..6769cdc 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -32,6 +32,13 @@
-  * Using this limit prevents one virtqueue from starving others. */
- #define VHOST_NET_WEIGHT 0x80000
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index aed223b..7501d97 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -124,6 +124,7 @@ static s32 e1000_set_phy_type(struct e1000_hw *hw)
+ 	case M88E1000_I_PHY_ID:
+ 	case M88E1011_I_PHY_ID:
+ 	case M88E1111_I_PHY_ID:
++	case M88E1118_E_PHY_ID:
+ 		hw->phy_type = e1000_phy_m88;
+ 		break;
+ 	case IGP01E1000_I_PHY_ID:
+@@ -3222,7 +3223,8 @@ static s32 e1000_detect_gig_phy(struct e1000_hw *hw)
+ 		break;
+ 	case e1000_ce4100:
+ 		if ((hw->phy_id == RTL8211B_PHY_ID) ||
+-		    (hw->phy_id == RTL8201N_PHY_ID))
++		    (hw->phy_id == RTL8201N_PHY_ID) ||
++		    (hw->phy_id == M88E1118_E_PHY_ID))
+ 			match = true;
+ 		break;
+ 	case e1000_82541:
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 196eeda..c70b23d 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -2917,6 +2917,7 @@ struct e1000_host_command_info {
+ #define M88E1000_14_PHY_ID M88E1000_E_PHY_ID
+ #define M88E1011_I_REV_4   0x04
+ #define M88E1111_I_PHY_ID  0x01410CC0
++#define M88E1118_E_PHY_ID  0x01410E40
+ #define L1LXT971A_PHY_ID   0x001378E0
  
-+int tx_bytes_coalesce = 0;
-+module_param(tx_bytes_coalesce, int, 0644);
-+int tx_bufs_coalesce = 0;
-+module_param(tx_bufs_coalesce, int, 0644);
-+int tx_packets_coalesce = 0;
-+module_param(tx_packets_coalesce, int, 0644);
-+
- enum {
- 	VHOST_NET_VQ_RX = 0,
- 	VHOST_NET_VQ_TX = 1,
-@@ -127,6 +134,9 @@ static void handle_tx(struct vhost_net *net)
- 	int err, wmem;
- 	size_t hdr_size;
- 	struct socket *sock;
-+	int bytes_coalesced = 0;
-+	int bufs_coalesced = 0;
-+	int packets_coalesced = 0;
- 
- 	/* TODO: check that we are running from vhost_worker? */
- 	sock = rcu_dereference_check(vq->private_data, 1);
-@@ -196,14 +206,26 @@ static void handle_tx(struct vhost_net *net)
- 		if (err != len)
- 			pr_debug("Truncated TX packet: "
- 				 " len %d != %zd\n", err, len);
--		vhost_add_used_and_signal(&net->dev, vq, head, 0);
- 		total_len += len;
-+		packets_coalesced += 1;
-+		bytes_coalesced += len;
-+		bufs_coalesced += in;
-+		if (unlikely(packets_coalesced > tx_packets_coalesce ||
-+			     bytes_coalesced > tx_bytes_coalesce ||
-+			     bufs_coalesced > tx_bufs_coalesce))
-+			vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+		else
-+			vhost_add_used(vq, head, 0);
- 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
- 			vhost_poll_queue(&vq->poll);
- 			break;
- 		}
- 	}
- 
-+	if (likely(packets_coalesced > tx_packets_coalesce ||
-+		   bytes_coalesced > tx_bytes_coalesce ||
-+		   bufs_coalesced > tx_bufs_coalesce))
-+		vhost_signal(&net->dev, vq);
- 	mutex_unlock(&vq->mutex);
- }
- 
+ #define RTL8211B_PHY_ID    0x001CC910
+-- 
+1.7.3.5
+
