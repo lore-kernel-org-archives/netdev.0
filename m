@@ -1,110 +1,231 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 3/3] ixgbe: Adding 100MB FULL support in ethtool
-Date: Fri, 28 Jan 2011 04:29:39 -0800
-Message-ID: <1296217779-30133-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 2/3] igb: add support for VF Transmit rate limit using iproute2
+Date: Fri, 28 Jan 2011 04:29:38 -0800
+Message-ID: <1296217779-30133-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Atita Shirwaikar <atita.shirwaikar@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+Cc: Lior Levy <lior.levy@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:32022 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:46329 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755245Ab1A1M3r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755140Ab1A1M3r (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Jan 2011 07:29:47 -0500
 In-Reply-To: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Atita Shirwaikar <atita.shirwaikar@intel.com>
+From: Lior Levy <lior.levy@intel.com>
 
-Current driver does not show 100MB support in ethtool.
-Adding support for the same.
+Implemented igb_ndo_set_vf_bw function which is being used
+by iproute2 tool. In addition, updated igb_ndo_get_vf_config function
+to show the actual rate limit to the user.
 
-Signed-off-by: Atita Shirwaikar <atita.shirwaikar@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+The rate limitation can be configured only when the link is up.
+The rate limit value can be ranged between 0 and actual
+link speed measured in Mbps. A value of '0' disables the rate limit for
+this specific VF.
+
+iproute2 usage will be 'ip link set ethX vf Y rate Z'.
+After the command is made, the rate will be changed instantly.
+To view the current rate limit, use 'ip link show ethX'.
+
+The rates will be zeroed only upon driver reload or a link speed change.
+
+This feature is being supported only by 82576 device.
+
+Signed-off-by: Lior Levy <lior.levy@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_ethtool.c |   34 ++++++++++++++++++++++++++++++++--
- drivers/net/ixgbe/ixgbe_main.c    |    5 ++++-
- 2 files changed, 36 insertions(+), 3 deletions(-)
+ drivers/net/igb/e1000_defines.h |    7 +++
+ drivers/net/igb/e1000_regs.h    |    4 ++
+ drivers/net/igb/igb.h           |    2 +
+ drivers/net/igb/igb_main.c      |   96 ++++++++++++++++++++++++++++++++++++++-
+ 4 files changed, 107 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_ethtool.c b/drivers/net/ixgbe/ixgbe_ethtool.c
-index 2002ea8..309272f 100644
---- a/drivers/net/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ixgbe/ixgbe_ethtool.c
-@@ -152,7 +152,17 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 		ecmd->supported |= (SUPPORTED_1000baseT_Full |
- 		                    SUPPORTED_Autoneg);
+diff --git a/drivers/net/igb/e1000_defines.h b/drivers/net/igb/e1000_defines.h
+index 6319ed9..0bd543f 100644
+--- a/drivers/net/igb/e1000_defines.h
++++ b/drivers/net/igb/e1000_defines.h
+@@ -770,4 +770,11 @@
+ #define E1000_PCIEMISC_LX_DECISION      0x00000080 /* Lx power decision based
+                                                       on DMA coal */
  
-+		switch (hw->mac.type) {
-+		case ixgbe_mac_X540:
-+			ecmd->supported |= SUPPORTED_100baseT_Full;
-+			break;
-+		default:
-+			break;
-+		}
++/* Tx Rate-Scheduler Config fields */
++#define E1000_RTTBCNRC_RS_ENA          0x80000000
++#define E1000_RTTBCNRC_RF_DEC_MASK     0x00003FFF
++#define E1000_RTTBCNRC_RF_INT_SHIFT    14
++#define E1000_RTTBCNRC_RF_INT_MASK     \
++	(E1000_RTTBCNRC_RF_DEC_MASK << E1000_RTTBCNRC_RF_INT_SHIFT)
 +
- 		ecmd->advertising = ADVERTISED_Autoneg;
-+		if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_100_FULL)
-+			ecmd->advertising |= ADVERTISED_100baseT_Full;
- 		if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_10GB_FULL)
- 			ecmd->advertising |= ADVERTISED_10000baseT_Full;
- 		if (hw->phy.autoneg_advertised & IXGBE_LINK_SPEED_1GB_FULL)
-@@ -167,6 +177,15 @@ static int ixgbe_get_settings(struct net_device *netdev,
- 			ecmd->advertising |= (ADVERTISED_10000baseT_Full |
- 					      ADVERTISED_1000baseT_Full);
+ #endif
+diff --git a/drivers/net/igb/e1000_regs.h b/drivers/net/igb/e1000_regs.h
+index 8ac83c5..a6485a1 100644
+--- a/drivers/net/igb/e1000_regs.h
++++ b/drivers/net/igb/e1000_regs.h
+@@ -106,6 +106,10 @@
  
-+		switch (hw->mac.type) {
-+		case ixgbe_mac_X540:
-+			if (!(ecmd->advertising & ADVERTISED_100baseT_Full))
-+				ecmd->advertising |= (ADVERTISED_100baseT_Full);
-+			break;
-+		default:
-+			break;
-+		}
+ #define E1000_RQDPC(_n) (0x0C030 + ((_n) * 0x40))
+ 
++/* TX Rate Limit Registers */
++#define E1000_RTTDQSEL 0x3604  /* Tx Desc Plane Queue Select - WO */
++#define E1000_RTTBCNRC 0x36B0  /* Tx BCN Rate-Scheduler Config - WO */
 +
- 		if (hw->phy.media_type == ixgbe_media_type_copper) {
- 			ecmd->supported |= SUPPORTED_TP;
- 			ecmd->advertising |= ADVERTISED_TP;
-@@ -271,8 +290,19 @@ static int ixgbe_get_settings(struct net_device *netdev,
+ /* Split and Replication RX Control - RW */
+ #define E1000_RXPBS    0x02404  /* Rx Packet Buffer Size - RW */
+ /*
+diff --git a/drivers/net/igb/igb.h b/drivers/net/igb/igb.h
+index 92a4ef0..bbc5ebf 100644
+--- a/drivers/net/igb/igb.h
++++ b/drivers/net/igb/igb.h
+@@ -77,6 +77,7 @@ struct vf_data_storage {
+ 	unsigned long last_nack;
+ 	u16 pf_vlan; /* When set, guest VLAN config not allowed. */
+ 	u16 pf_qos;
++	u16 tx_rate;
+ };
  
- 	hw->mac.ops.check_link(hw, &link_speed, &link_up, false);
- 	if (link_up) {
--		ecmd->speed = (link_speed == IXGBE_LINK_SPEED_10GB_FULL) ?
--		               SPEED_10000 : SPEED_1000;
-+		switch (link_speed) {
-+		case IXGBE_LINK_SPEED_10GB_FULL:
-+			ecmd->speed = SPEED_10000;
-+			break;
-+		case IXGBE_LINK_SPEED_1GB_FULL:
-+			ecmd->speed = SPEED_1000;
-+			break;
-+		case IXGBE_LINK_SPEED_100_FULL:
-+			ecmd->speed = SPEED_100;
-+			break;
-+		default:
-+			break;
-+		}
- 		ecmd->duplex = DUPLEX_FULL;
- 	} else {
- 		ecmd->speed = -1;
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 602078b..b923e42 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -6095,7 +6095,10 @@ static void ixgbe_watchdog_task(struct work_struct *work)
- 			       (link_speed == IXGBE_LINK_SPEED_10GB_FULL ?
- 			       "10 Gbps" :
- 			       (link_speed == IXGBE_LINK_SPEED_1GB_FULL ?
--			       "1 Gbps" : "unknown speed")),
-+			       "1 Gbps" :
-+			       (link_speed == IXGBE_LINK_SPEED_100_FULL ?
-+			       "100 Mbps" :
-+			       "unknown speed"))),
- 			       ((flow_rx && flow_tx) ? "RX/TX" :
- 			       (flow_rx ? "RX" :
- 			       (flow_tx ? "TX" : "None"))));
+ #define IGB_VF_FLAG_CTS            0x00000001 /* VF is clear to send data */
+@@ -323,6 +324,7 @@ struct igb_adapter {
+ 	u16 rx_ring_count;
+ 	unsigned int vfs_allocated_count;
+ 	struct vf_data_storage *vf_data;
++	int vf_rate_link_speed;
+ 	u32 rss_queues;
+ 	u32 wvbr;
+ };
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index cb6bf7b..6b17317 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -150,6 +150,7 @@ static int igb_ndo_set_vf_vlan(struct net_device *netdev,
+ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate);
+ static int igb_ndo_get_vf_config(struct net_device *netdev, int vf,
+ 				 struct ifla_vf_info *ivi);
++static void igb_check_vf_rate_limit(struct igb_adapter *);
+ 
+ #ifdef CONFIG_PM
+ static int igb_suspend(struct pci_dev *, pm_message_t);
+@@ -3511,6 +3512,7 @@ static void igb_watchdog_task(struct work_struct *work)
+ 			netif_carrier_on(netdev);
+ 
+ 			igb_ping_all_vfs(adapter);
++			igb_check_vf_rate_limit(adapter);
+ 
+ 			/* link state has changed, schedule phy info update */
+ 			if (!test_bit(__IGB_DOWN, &adapter->state))
+@@ -6599,9 +6601,99 @@ static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac)
+ 	return igb_set_vf_mac(adapter, vf, mac);
+ }
+ 
++static int igb_link_mbps(int internal_link_speed)
++{
++	switch (internal_link_speed) {
++	case SPEED_100:
++		return 100;
++	case SPEED_1000:
++		return 1000;
++	default:
++		return 0;
++	}
++}
++
++static void igb_set_vf_rate_limit(struct e1000_hw *hw, int vf, int tx_rate,
++                                  int link_speed)
++{
++	int rf_dec, rf_int;
++	u32 bcnrc_val;
++
++	if (tx_rate != 0) {
++		/* Calculate the rate factor values to set */
++		rf_int = link_speed / tx_rate;
++		rf_dec = (link_speed - (rf_int * tx_rate));
++		rf_dec = (rf_dec * (1 << E1000_RTTBCNRC_RF_INT_SHIFT)) /
++		         tx_rate;
++
++		bcnrc_val = E1000_RTTBCNRC_RS_ENA;
++		bcnrc_val |= ((rf_int << E1000_RTTBCNRC_RF_INT_SHIFT) &
++		               E1000_RTTBCNRC_RF_INT_MASK);
++		bcnrc_val |= (rf_dec & E1000_RTTBCNRC_RF_DEC_MASK);
++	} else
++		bcnrc_val = 0;
++
++	wr32(E1000_RTTDQSEL, vf); /* vf X uses queue X */
++	wr32(E1000_RTTBCNRC, bcnrc_val);
++}
++
++static void igb_check_vf_rate_limit(struct igb_adapter *adapter)
++{
++	int actual_link_speed, i;
++	bool reset_rate = false;
++
++	/* VF TX rate limit was not set or not supported */
++	if ((adapter->vf_rate_link_speed == 0) ||
++	    (adapter->hw.mac.type != e1000_82576))
++		return;
++
++	actual_link_speed = igb_link_mbps(adapter->link_speed);
++	if (actual_link_speed != adapter->vf_rate_link_speed) {
++		reset_rate = true;
++		adapter->vf_rate_link_speed = 0;
++		dev_info(&adapter->pdev->dev,
++		         "Link speed has been changed. VF Transmit "
++		         "rate is disabled\n");
++	}
++
++	for (i = 0; i < adapter->vfs_allocated_count; i++) {
++		if (reset_rate)
++			adapter->vf_data[i].tx_rate = 0;
++
++		igb_set_vf_rate_limit(&adapter->hw, i,
++		                      adapter->vf_data[i].tx_rate,
++		                      actual_link_speed);
++	}
++}
++
+ static int igb_ndo_set_vf_bw(struct net_device *netdev, int vf, int tx_rate)
+ {
+-	return -EOPNOTSUPP;
++	struct igb_adapter *adapter = netdev_priv(netdev);
++	struct e1000_hw *hw = &adapter->hw;
++	int actual_link_speed;
++
++	if (hw->mac.type != e1000_82576)
++		return -EOPNOTSUPP;
++
++	actual_link_speed = igb_link_mbps(adapter->link_speed);
++	if ((vf >= adapter->vfs_allocated_count) ||
++	    (!(rd32(E1000_STATUS) & E1000_STATUS_LU)) ||
++	    (tx_rate < 0) || (tx_rate > actual_link_speed))
++		return -EINVAL;
++
++	adapter->vf_rate_link_speed = actual_link_speed;
++	adapter->vf_data[vf].tx_rate = (u16)tx_rate;
++	igb_set_vf_rate_limit(hw, vf, tx_rate, actual_link_speed);
++
++	if (tx_rate != 0)
++		dev_info(&adapter->pdev->dev,
++		         "Setting Transmit rate of %d Mbps for VF %d\n",
++		         tx_rate, vf);
++	else
++		dev_info(&adapter->pdev->dev,
++		         "Transmit rate limit for VF %d is disabled\n", vf);
++
++	return 0;
+ }
+ 
+ static int igb_ndo_get_vf_config(struct net_device *netdev,
+@@ -6612,7 +6704,7 @@ static int igb_ndo_get_vf_config(struct net_device *netdev,
+ 		return -EINVAL;
+ 	ivi->vf = vf;
+ 	memcpy(&ivi->mac, adapter->vf_data[vf].vf_mac_addresses, ETH_ALEN);
+-	ivi->tx_rate = 0;
++	ivi->tx_rate = adapter->vf_data[vf].tx_rate;
+ 	ivi->vlan = adapter->vf_data[vf].pf_vlan;
+ 	ivi->qos = adapter->vf_data[vf].pf_qos;
+ 	return 0;
 -- 
 1.7.3.5
 
