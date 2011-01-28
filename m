@@ -1,44 +1,90 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH V10 01/15] time: Introduce timekeeping_inject_offset
-Date: Fri, 28 Jan 2011 13:54:00 +0100
-Message-ID: <201101281354.01361.arnd@arndb.de>
-References: <cover.1296124770.git.richard.cochran@omicron.at> <201101281305.37370.arnd@arndb.de> <1296218630.15234.334.camel@laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1296218630.15234.334.camel@laptop>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Julia Lawall <julia@diku.dk>
+Subject: [PATCH 2/2] net/netlabel: Avoid call to genlmsg_cancel
+Date: Fri, 28 Jan 2011 15:17:12 +0100
+Message-ID: <1296224232-8115-2-git-send-email-julia@diku.dk>
+Cc: kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Paul Moore <paul.moore@hp.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday 28 January 2011, Peter Zijlstra wrote:
-> > 
-> > The problem is step 6. The output of git format-patch does not work when
-> > sending with mutt. The easiest solution is to send with git send-email,
-> > which does the same as mutt -H, but gets it right.
-> 
-> I use: formail -s sendmail -t < patches.mbox, but then, I use quilt mail
-> to generate the mbox, not git.
+genlmsg_cancel subtracts some constants from its second argument before
+calling nlmsg_cancel.  nlmsg_cancel then calls nlmsg_trim on the same
+arguments.  nlmsg_trim tests for NULL before doing any computation, but a
+NULL second argument to genlmsg_cancel is no longer NULL due to the initial
+subtraction.  Nothing else happens in this execution, so the call to
+genlmsg_cancel is simply unnecessary in this case.
 
-I think in that case, quilt generates the correct 'From' headers both in
-the actual email headers and in the body, so you can use any standard
-email client to send it out.
+The semantic match that finds this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-	Arnd
+// <smpl>
+@@
+expression data;
+@@
+
+if (data == NULL) { ...
+* genlmsg_cancel(..., data);
+  ...
+  return ...;
+}
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+
+---
+ net/netlabel/netlabel_cipso_v4.c  |    2 +-
+ net/netlabel/netlabel_mgmt.c      |    4 ++--
+ net/netlabel/netlabel_unlabeled.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
+index 5f14c84..0a1f77b 100644
+--- a/net/netlabel/netlabel_cipso_v4.c
++++ b/net/netlabel/netlabel_cipso_v4.c
+@@ -635,7 +635,7 @@ static int netlbl_cipsov4_listall_cb(struct cipso_v4_doi *doi_def, void *arg)
+ 			   cb_arg->seq, &netlbl_cipsov4_gnl_family,
+ 			   NLM_F_MULTI, NLBL_CIPSOV4_C_LISTALL);
+ 	if (data == NULL)
+-		goto listall_cb_failure;
++		return ret_val;
+ 
+ 	ret_val = nla_put_u32(cb_arg->skb, NLBL_CIPSOV4_A_DOI, doi_def->doi);
+ 	if (ret_val != 0)
+diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+index 998e85e..daaa01d 100644
+--- a/net/netlabel/netlabel_mgmt.c
++++ b/net/netlabel/netlabel_mgmt.c
+@@ -452,7 +452,7 @@ static int netlbl_mgmt_listall_cb(struct netlbl_dom_map *entry, void *arg)
+ 			   cb_arg->seq, &netlbl_mgmt_gnl_family,
+ 			   NLM_F_MULTI, NLBL_MGMT_C_LISTALL);
+ 	if (data == NULL)
+-		goto listall_cb_failure;
++		return ret_val;
+ 
+ 	ret_val = netlbl_mgmt_listentry(cb_arg->skb, entry);
+ 	if (ret_val != 0)
+@@ -617,7 +617,7 @@ static int netlbl_mgmt_protocols_cb(struct sk_buff *skb,
+ 			   &netlbl_mgmt_gnl_family, NLM_F_MULTI,
+ 			   NLBL_MGMT_C_PROTOCOLS);
+ 	if (data == NULL)
+-		goto protocols_cb_failure;
++		return ret_val;
+ 
+ 	ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL, protocol);
+ 	if (ret_val != 0)
+diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
+index e2b0a68..b5d3945 100644
+--- a/net/netlabel/netlabel_unlabeled.c
++++ b/net/netlabel/netlabel_unlabeled.c
+@@ -1141,7 +1141,7 @@ static int netlbl_unlabel_staticlist_gen(u32 cmd,
+ 			   cb_arg->seq, &netlbl_unlabel_gnl_family,
+ 			   NLM_F_MULTI, cmd);
+ 	if (data == NULL)
+-		goto list_cb_failure;
++		return ret_val;
+ 
+ 	if (iface->ifindex > 0) {
+ 		dev = dev_get_by_index(&init_net, iface->ifindex);
