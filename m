@@ -1,47 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 0/3][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 28 Jan 2011 04:29:36 -0800
-Message-ID: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
+Subject: [net-next-2.6 1/3] igb: Enable PF side of SR-IOV support for i350 devices
+Date: Fri, 28 Jan 2011 04:29:37 -0800
+Message-ID: <1296217779-30133-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga11.intel.com ([192.55.52.93]:46329 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755140Ab1A1M3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755210Ab1A1M3q (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 28 Jan 2011 07:29:46 -0500
+In-Reply-To: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains the addition of ixgbe ethtool support
-for 100MB FULL and the addition of igb PF support for i350 devices as
-well as VF transmit rate limit using iproute2.
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-The following are changes since commit a4daad6b0923030fbd3b00a01f570e4c3eef446b:
-  net: Pre-COW metrics for TCP.
+This patch adds full support for SR-IOV by enabling the PF side.
+VF side has already been committed.
 
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/igb/e1000_82575.c |   10 ++++++++--
+ drivers/net/igb/e1000_mbx.c   |   38 ++++++++++++++++++--------------------
+ drivers/net/igb/igb_main.c    |    9 +++++++--
+ 3 files changed, 33 insertions(+), 24 deletions(-)
 
-Atita Shirwaikar (1):
-  ixgbe: Adding 100MB FULL support in ethtool
-
-Carolyn Wyborny (1):
-  igb: Enable PF side of SR-IOV support for i350 devices
-
-Lior Levy (1):
-  igb: add support for VF Transmit rate limit using iproute2
-
- drivers/net/igb/e1000_82575.c     |   10 +++-
- drivers/net/igb/e1000_defines.h   |    7 +++
- drivers/net/igb/e1000_mbx.c       |   38 ++++++-------
- drivers/net/igb/e1000_regs.h      |    4 ++
- drivers/net/igb/igb.h             |    2 +
- drivers/net/igb/igb_main.c        |  105 +++++++++++++++++++++++++++++++++++--
- drivers/net/ixgbe/ixgbe_ethtool.c |   34 +++++++++++-
- drivers/net/ixgbe/ixgbe_main.c    |    5 ++-
- 8 files changed, 176 insertions(+), 29 deletions(-)
-
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index c1552b6..65c1833 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -238,9 +238,15 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 		size = 14;
+ 	nvm->word_size = 1 << size;
+ 
+-	/* if 82576 then initialize mailbox parameters */
+-	if (mac->type == e1000_82576)
++	/* if part supports SR-IOV then initialize mailbox parameters */
++	switch (mac->type) {
++	case e1000_82576:
++	case e1000_i350:
+ 		igb_init_mbx_params_pf(hw);
++		break;
++	default:
++		break;
++	}
+ 
+ 	/* setup PHY parameters */
+ 	if (phy->media_type != e1000_media_type_copper) {
+diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
+index c474cdb..78d48c7 100644
+--- a/drivers/net/igb/e1000_mbx.c
++++ b/drivers/net/igb/e1000_mbx.c
+@@ -422,26 +422,24 @@ s32 igb_init_mbx_params_pf(struct e1000_hw *hw)
+ {
+ 	struct e1000_mbx_info *mbx = &hw->mbx;
+ 
+-	if (hw->mac.type == e1000_82576) {
+-		mbx->timeout = 0;
+-		mbx->usec_delay = 0;
+-
+-		mbx->size = E1000_VFMAILBOX_SIZE;
+-
+-		mbx->ops.read = igb_read_mbx_pf;
+-		mbx->ops.write = igb_write_mbx_pf;
+-		mbx->ops.read_posted = igb_read_posted_mbx;
+-		mbx->ops.write_posted = igb_write_posted_mbx;
+-		mbx->ops.check_for_msg = igb_check_for_msg_pf;
+-		mbx->ops.check_for_ack = igb_check_for_ack_pf;
+-		mbx->ops.check_for_rst = igb_check_for_rst_pf;
+-
+-		mbx->stats.msgs_tx = 0;
+-		mbx->stats.msgs_rx = 0;
+-		mbx->stats.reqs = 0;
+-		mbx->stats.acks = 0;
+-		mbx->stats.rsts = 0;
+-	}
++	mbx->timeout = 0;
++	mbx->usec_delay = 0;
++
++	mbx->size = E1000_VFMAILBOX_SIZE;
++
++	mbx->ops.read = igb_read_mbx_pf;
++	mbx->ops.write = igb_write_mbx_pf;
++	mbx->ops.read_posted = igb_read_posted_mbx;
++	mbx->ops.write_posted = igb_write_posted_mbx;
++	mbx->ops.check_for_msg = igb_check_for_msg_pf;
++	mbx->ops.check_for_ack = igb_check_for_ack_pf;
++	mbx->ops.check_for_rst = igb_check_for_rst_pf;
++
++	mbx->stats.msgs_tx = 0;
++	mbx->stats.msgs_rx = 0;
++	mbx->stats.reqs = 0;
++	mbx->stats.acks = 0;
++	mbx->stats.rsts = 0;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 200cc32..cb6bf7b 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2287,9 +2287,14 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
+ 
+ 	spin_lock_init(&adapter->stats64_lock);
+ #ifdef CONFIG_PCI_IOV
+-	if (hw->mac.type == e1000_82576)
++	switch (hw->mac.type) {
++	case e1000_82576:
++	case e1000_i350:
+ 		adapter->vfs_allocated_count = (max_vfs > 7) ? 7 : max_vfs;
+-
++		break;
++	default:
++		break;
++	}
+ #endif /* CONFIG_PCI_IOV */
+ 	adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES, num_online_cpus());
+ 
 -- 
 1.7.3.5
 
