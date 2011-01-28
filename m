@@ -1,63 +1,68 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V10 01/15] time: Introduce timekeeping_inject_offset
-Date: Fri, 28 Jan 2011 08:08:00 +0100
-Message-ID: <20110128070800.GA3225@riccoc20.at.omicron.at>
-References: <cover.1296124770.git.richard.cochran@omicron.at>
- <6aec014551fc1d34924d6a7bcf97769867c15ba9.1296124770.git.richard.cochran@omicron.at>
- <1296154099.2855.162.camel@work-vm>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 3/7] ixgbe: fix for 82599 erratum on Header
+	Splitting.
+Date: Thu, 27 Jan 2011 22:12:19 -0800
+Message-ID: <1296195143-2870-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1296195143-2870-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1296154099.2855.162.camel@work-vm>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, bphilips@novell.com,
+        netdev@kernel.org, stable@kernel.org,
+        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <stable-bounces@linux.kernel.org>
+To: 
+In-Reply-To: <1296195143-2870-1-git-send-email-jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 27, 2011 at 10:48:19AM -0800, John Stultz wrote:
-> While I appreciate you preserving the path author, and the signoffs are
-> right, you really should send the email under your own name.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-Guess I've been reading too much spam. It wore off on me.
+We have found a hardware erratum on 82599 hardware that can lead to
+unpredictable behavior when Header Splitting mode is enabled.  So
+we are no longer enabling this feature on affected hardware.
+
+Please see the 82599 Specification Update for more information.
+
+CC: stable@kernel.org
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 44a1cf0..1495b74 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3176,9 +3176,16 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ 	u32 mhadd, hlreg0;
  
-> The proper style is to keep the mail-header From: the same (ie: Richard
-> Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>), but as the first line of the mail
-> body put:
->    From: Author Name <author-MBgCfJrXA/zQT0dZR+AlfA@public.gmane.org>
-
-Sorry about this. Arnd already explained this to me, and I did catch
-it with V9. This time I forgot.
-
-I would like to get to the bottom of this. Here is what I did:
-
-   1. Saved your patch to disk in mbox format using Mutt.
-   2. git am
-   3. ... rebase, rebase, rebase, ...
-   4. git format-patch [options] 1234..abcd
-   5. Edit cover letter
-   6. for x in 00*; do mutt -H $x; done
-
-Git format-patch places the "From: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>"
-line with the other mail headers, and so I guess mutt just faithfully
-preserves this.
-
-I don't like having to remember to fix this manually. There must be a
-better way...
-
-Sorry,
-Richard
+ 	/* Decide whether to use packet split mode or not */
++	/* On by default */
++	 adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
++
+ 	/* Do not use packet split if we're in SR-IOV Mode */
+-	if (!adapter->num_vfs)
+-		adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
++	if (adapter->num_vfs)
++		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
++
++	/* Disable packet split due to 82599 erratum #45 */
++	if (hw->mac.type == ixgbe_mac_82599EB)
++		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
+ 
+ 	/* Set the RX buffer length according to the mode */
+ 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+-- 
+1.7.3.5
