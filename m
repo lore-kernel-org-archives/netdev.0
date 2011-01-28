@@ -1,55 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 v2 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 28 Jan 2011 04:28:56 -0800
-Message-ID: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
+Subject: [net-2.6 v2 4/7] ixgbe: limit VF access to network traffic
+Date: Fri, 28 Jan 2011 04:29:00 -0800
+Message-ID: <1296217743-30093-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:55113 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754897Ab1A1M3H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jan 2011 07:29:07 -0500
+	id S1754953Ab1A1M3J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jan 2011 07:29:09 -0500
+In-Reply-To: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains the addition of a PHY id for e1000
-and several ixgbe fixes.
+From: Alexander Duyck <alexander.h.duyck@intel.com>
 
-v2- fixed tab/space issue in patch 3 of series
+This change fixes VM pool allocation issues based on MAC address filtering,
+as well as limits the scope of VF access to promiscuous mode.
 
-The following are changes since commit 8f2771f2b85aea4d0f9a0137ad3b63d1173c0962:
-  ipv6: Remove route peer binding assertions.
-
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-2.6 master
-
-Alexander Duyck (1):
-  ixgbe: limit VF access to network traffic
-
-Amir Hanania (1):
-  ixgbe: DDP last buffer size work around
-
-Don Skidmore (3):
-  ixgbe: fix for 82599 erratum on Header Splitting.
-  ixgbe: cleanup variable initialization
-  ixgbe: update version string
-
-Emil Tantilov (1):
-  ixgbe: fix variable set but not used warnings by gcc 4.6
-
-Florian Fainelli (1):
-  e1000: add support for Marvell Alaska M88E1118R PHY
-
- drivers/net/e1000/e1000_hw.c     |    4 +++-
- drivers/net/e1000/e1000_hw.h     |    1 +
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Acked-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
  drivers/net/ixgbe/ixgbe_common.c |    3 +++
- drivers/net/ixgbe/ixgbe_fcoe.c   |   21 ++++++++++++++++++++-
- drivers/net/ixgbe/ixgbe_main.c   |   16 ++++++++++------
  drivers/net/ixgbe/ixgbe_sriov.c  |    2 --
- drivers/net/ixgbe/ixgbe_x540.c   |    6 +++---
- 7 files changed, 40 insertions(+), 13 deletions(-)
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
+index d5ede2d..ebbda7d 100644
+--- a/drivers/net/ixgbe/ixgbe_common.c
++++ b/drivers/net/ixgbe/ixgbe_common.c
+@@ -1370,6 +1370,9 @@ s32 ixgbe_init_rx_addrs_generic(struct ixgbe_hw *hw)
+ 		hw_dbg(hw, " New MAC Addr =%pM\n", hw->mac.addr);
+ 
+ 		hw->mac.ops.set_rar(hw, 0, hw->mac.addr, 0, IXGBE_RAH_AV);
++
++		/*  clear VMDq pool/queue selection for RAR 0 */
++		hw->mac.ops.clear_vmdq(hw, 0, IXGBE_CLEAR_VMDQ_ALL);
+ 	}
+ 	hw->addr_ctrl.overflow_promisc = 0;
+ 
+diff --git a/drivers/net/ixgbe/ixgbe_sriov.c b/drivers/net/ixgbe/ixgbe_sriov.c
+index 47b1573..187b3a1 100644
+--- a/drivers/net/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ixgbe/ixgbe_sriov.c
+@@ -110,12 +110,10 @@ static int ixgbe_set_vf_vlan(struct ixgbe_adapter *adapter, int add, int vid,
+ 	return adapter->hw.mac.ops.set_vfta(&adapter->hw, vid, vf, (bool)add);
+ }
+ 
+-
+ static void ixgbe_set_vmolr(struct ixgbe_hw *hw, u32 vf, bool aupe)
+ {
+ 	u32 vmolr = IXGBE_READ_REG(hw, IXGBE_VMOLR(vf));
+ 	vmolr |= (IXGBE_VMOLR_ROMPE |
+-		  IXGBE_VMOLR_ROPE |
+ 		  IXGBE_VMOLR_BAM);
+ 	if (aupe)
+ 		vmolr |= IXGBE_VMOLR_AUPE;
 -- 
 1.7.3.5
 
