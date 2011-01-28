@@ -1,18 +1,18 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Subject: [net-2.6 3/7] ixgbe: fix for 82599 erratum on Header
 	Splitting.
-Date: Thu, 27 Jan 2011 22:12:19 -0800
-Message-ID: <1296195143-2870-4-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1296195143-2870-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Date: Thu, 27 Jan 2011 22:18:51 -0800
+Message-ID: <1296195535-2990-4-git-send-email-jeffrey.t.kirsher__3689.82048607922$1296200671$gmane$org@intel.com>
+References: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Don Skidmore <donald.c.skidmore@intel.com>, bphilips@novell.com,
-        netdev@kernel.org, stable@kernel.org,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+        netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+        gospo@redhat.com, stable@kernel.org
 Return-path: <stable-bounces@linux.kernel.org>
 To: 
-In-Reply-To: <1296195143-2870-1-git-send-email-jeffrey.t.kirsher@intel.com>
+In-Reply-To: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
 	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
