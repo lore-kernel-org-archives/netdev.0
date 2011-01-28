@@ -1,83 +1,47 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 v2 2/7] ixgbe: fix variable set but not used warnings by gcc 4.6
-Date: Fri, 28 Jan 2011 04:28:58 -0800
-Message-ID: <1296217743-30093-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 28 Jan 2011 04:29:36 -0800
+Message-ID: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:55113 "EHLO mga02.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:46329 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755140Ab1A1M3I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jan 2011 07:29:08 -0500
-In-Reply-To: <1296217743-30093-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1755140Ab1A1M3q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jan 2011 07:29:46 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
+The following series contains the addition of ixgbe ethtool support
+for 100MB FULL and the addition of igb PF support for i350 devices as
+well as VF transmit rate limit using iproute2.
 
-Caught with gcc 4.6 -Wunused-but-set-variable
+The following are changes since commit a4daad6b0923030fbd3b00a01f570e4c3eef446b:
+  net: Pre-COW metrics for TCP.
 
-Remove unused napi_vectors variable.
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
-Fix the use of reset_bit in ixgbe_reset_hw_X540()
+Atita Shirwaikar (1):
+  ixgbe: Adding 100MB FULL support in ethtool
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ixgbe/ixgbe_main.c |    3 ---
- drivers/net/ixgbe/ixgbe_x540.c |    6 +++---
- 2 files changed, 3 insertions(+), 6 deletions(-)
+Carolyn Wyborny (1):
+  igb: Enable PF side of SR-IOV support for i350 devices
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 602078b..44a1cf0 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -4863,16 +4863,13 @@ static int ixgbe_alloc_q_vectors(struct ixgbe_adapter *adapter)
- {
- 	int q_idx, num_q_vectors;
- 	struct ixgbe_q_vector *q_vector;
--	int napi_vectors;
- 	int (*poll)(struct napi_struct *, int);
- 
- 	if (adapter->flags & IXGBE_FLAG_MSIX_ENABLED) {
- 		num_q_vectors = adapter->num_msix_vectors - NON_Q_VECTORS;
--		napi_vectors = adapter->num_rx_queues;
- 		poll = &ixgbe_clean_rxtx_many;
- 	} else {
- 		num_q_vectors = 1;
--		napi_vectors = 1;
- 		poll = &ixgbe_poll;
- 	}
- 
-diff --git a/drivers/net/ixgbe/ixgbe_x540.c b/drivers/net/ixgbe/ixgbe_x540.c
-index 3a89239..f2518b0 100644
---- a/drivers/net/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ixgbe/ixgbe_x540.c
-@@ -133,17 +133,17 @@ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
- 	}
- 
- 	ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL);
--	IXGBE_WRITE_REG(hw, IXGBE_CTRL, (ctrl | IXGBE_CTRL_RST));
-+	IXGBE_WRITE_REG(hw, IXGBE_CTRL, (ctrl | reset_bit));
- 	IXGBE_WRITE_FLUSH(hw);
- 
- 	/* Poll for reset bit to self-clear indicating reset is complete */
- 	for (i = 0; i < 10; i++) {
- 		udelay(1);
- 		ctrl = IXGBE_READ_REG(hw, IXGBE_CTRL);
--		if (!(ctrl & IXGBE_CTRL_RST))
-+		if (!(ctrl & reset_bit))
- 			break;
- 	}
--	if (ctrl & IXGBE_CTRL_RST) {
-+	if (ctrl & reset_bit) {
- 		status = IXGBE_ERR_RESET_FAILED;
- 		hw_dbg(hw, "Reset polling failed to complete.\n");
- 	}
+Lior Levy (1):
+  igb: add support for VF Transmit rate limit using iproute2
+
+ drivers/net/igb/e1000_82575.c     |   10 +++-
+ drivers/net/igb/e1000_defines.h   |    7 +++
+ drivers/net/igb/e1000_mbx.c       |   38 ++++++-------
+ drivers/net/igb/e1000_regs.h      |    4 ++
+ drivers/net/igb/igb.h             |    2 +
+ drivers/net/igb/igb_main.c        |  105 +++++++++++++++++++++++++++++++++++--
+ drivers/net/ixgbe/ixgbe_ethtool.c |   34 +++++++++++-
+ drivers/net/ixgbe/ixgbe_main.c    |    5 ++-
+ 8 files changed, 176 insertions(+), 29 deletions(-)
+
 -- 
 1.7.3.5
 
