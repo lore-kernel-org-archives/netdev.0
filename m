@@ -1,39 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 5/7] ixgbe: DDP last buffer size work around
-Date: Thu, 27 Jan 2011 22:34:32 -0800 (PST)
-Message-ID: <20110127.223432.71105998.davem@davemloft.net>
-References: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1296195535-2990-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amir.hanania@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44407
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753733Ab1A1Gd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jan 2011 01:33:57 -0500
-In-Reply-To: <1296195535-2990-6-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 27 Jan 2011 22:18:53 -0800
+Subject: Re: [net-2.6 3/7] ixgbe: fix for 82599 erratum on Header
+	Splitting.
+Date: Thu, 27 Jan 2011 22:58:02 -0800
+Message-ID: <1296197882.2662.0.camel@jtkirshe-MOBL1>
+References: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1296195535-2990-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	<20110127.223339.226789576.davem@davemloft.net>
+Reply-To: jeffrey.t.kirsher@intel.com
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============7163869196662133175=="
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+        "bphilips@novell.com" <bphilips@novell.com>,
+        "gospo@redhat.com" <gospo@redhat.com>,
+        "stable@kernel.org" <stable@kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-bounces@linux.kernel.org>
+In-Reply-To: <20110127.223339.226789576.davem@davemloft.net>
+List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
+List-Archive: <http://linux.kernel.org/mailman/private/stable/>
+List-Post: <mailto:stable@linux.kernel.org>
+List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
+List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
+	<mailto:stable-request@linux.kernel.org?subject=subscribe>
+Sender: stable-bounces@linux.kernel.org
+Errors-To: stable-bounces@linux.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> From: Amir Hanania <amir.hanania@intel.com>
-> 
-> We found a hardware erratum on 82599 hardware that can lead to buffer
-> overwriting if the last buffer in FCoE DDP is exactly PAGE_SIZE.
-> If this is the case, we will make sure that there is no HW access to
-> this buffer.
-> 
-> Please see the 82599 Specification Update for more information.
-> 
-> Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-> Tested-by: Ross Brattain <ross.b.brattain@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-PAGE_SIZE is variable, I can't see how the hardware BUGs on all
-possible architecutre values of PAGE_SIZE.
+--===============7163869196662133175==
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-2Ypv1ycYuGRnekrXKcUq"
+
+
+--=-2Ypv1ycYuGRnekrXKcUq
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2011-01-27 at 22:33 -0800, David Miller wrote:
+> From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> Date: Thu, 27 Jan 2011 22:18:51 -0800
+>=20
+> > diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_m=
+ain.c
+> > index 44a1cf0..1495b74 100644
+> > --- a/drivers/net/ixgbe/ixgbe_main.c
+> > +++ b/drivers/net/ixgbe/ixgbe_main.c
+> > @@ -3176,9 +3176,16 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe=
+_adapter *adapter)
+> >  	u32 mhadd, hlreg0;
+> > =20
+> >  	/* Decide whether to use packet split mode or not */
+> > +	/* On by default */
+> > +	 adapter->flags |=3D IXGBE_FLAG_RX_PS_ENABLED;
+> > +
+>=20
+> Please fix this indentation, it's a TAB then a SPACE character.
+
+Grrr, sorry I did not catch it.  Fixing it up now.
+
+--=-2Ypv1ycYuGRnekrXKcUq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAABAgAGBQJNQmjwAAoJECTsCADr/EWU+rEH/RDJ+8R5X7J+LmYnrL4f8hoV
+DeQHDvAbJU7nUiywpeWm1cTG3QPPPJf1qRA2pwuLBMdytd71t1jIzv/JNDoZdH+q
+LziAHc67/QCtgzoBk/e/FT4bOu2odyZZ5SEi7e+HviYUW1/p70Fhc1nI1jPKNnTL
+Ib05NymH4b2QeaGLUDXueP0IiF7DULGTwIieKnzNQYVHMU1oU08XEvumD6roz5a9
+gY8MmPfIpmBk2qSUbp2LA9H2LnNLmDtIeN6yudpQo+ui00fO3pzO+h5l+QWvbvez
+sdc8EfxroTgZ7lLZ+4XyErBNwUAGlKAtj0mHOFASRFt+vrJRChS5EmTn8LK/a/E=
+=JV4w
+-----END PGP SIGNATURE-----
+
+--=-2Ypv1ycYuGRnekrXKcUq--
+
+
+--===============7163869196662133175==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+stable mailing list
+stable@linux.kernel.org
+http://linux.kernel.org/mailman/listinfo/stable
+
+--===============7163869196662133175==--
