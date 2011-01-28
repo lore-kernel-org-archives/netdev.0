@@ -1,11 +1,13 @@
 From: Julia Lawall <julia@diku.dk>
-Subject: [PATCH 2/2] net/netlabel: Avoid call to genlmsg_cancel
-Date: Fri, 28 Jan 2011 15:17:12 +0100
-Message-ID: <1296224232-8115-2-git-send-email-julia@diku.dk>
+Subject: [PATCH 1/2] net/wireless/nl80211.c: Avoid call to genlmsg_cancel
+Date: Fri, 28 Jan 2011 15:17:11 +0100
+Message-ID: <1296224232-8115-1-git-send-email-julia@diku.dk>
 Cc: kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Paul Moore <paul.moore@hp.com>
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
@@ -35,56 +37,44 @@ if (data == NULL) { ...
 Signed-off-by: Julia Lawall <julia@diku.dk>
 
 ---
- net/netlabel/netlabel_cipso_v4.c  |    2 +-
- net/netlabel/netlabel_mgmt.c      |    4 ++--
- net/netlabel/netlabel_unlabeled.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ net/wireless/nl80211.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/netlabel/netlabel_cipso_v4.c b/net/netlabel/netlabel_cipso_v4.c
-index 5f14c84..0a1f77b 100644
---- a/net/netlabel/netlabel_cipso_v4.c
-+++ b/net/netlabel/netlabel_cipso_v4.c
-@@ -635,7 +635,7 @@ static int netlbl_cipsov4_listall_cb(struct cipso_v4_doi *doi_def, void *arg)
- 			   cb_arg->seq, &netlbl_cipsov4_gnl_family,
- 			   NLM_F_MULTI, NLBL_CIPSOV4_C_LISTALL);
- 	if (data == NULL)
--		goto listall_cb_failure;
-+		return ret_val;
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 9b62710..864ddfb 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -2718,7 +2718,7 @@ static int nl80211_get_mesh_config(struct sk_buff *skb,
+ 	hdr = nl80211hdr_put(msg, info->snd_pid, info->snd_seq, 0,
+ 			     NL80211_CMD_GET_MESH_CONFIG);
+ 	if (!hdr)
+-		goto nla_put_failure;
++		goto out;
+ 	pinfoattr = nla_nest_start(msg, NL80211_ATTR_MESH_CONFIG);
+ 	if (!pinfoattr)
+ 		goto nla_put_failure;
+@@ -2759,6 +2759,7 @@ static int nl80211_get_mesh_config(struct sk_buff *skb,
  
- 	ret_val = nla_put_u32(cb_arg->skb, NLBL_CIPSOV4_A_DOI, doi_def->doi);
- 	if (ret_val != 0)
-diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
-index 998e85e..daaa01d 100644
---- a/net/netlabel/netlabel_mgmt.c
-+++ b/net/netlabel/netlabel_mgmt.c
-@@ -452,7 +452,7 @@ static int netlbl_mgmt_listall_cb(struct netlbl_dom_map *entry, void *arg)
- 			   cb_arg->seq, &netlbl_mgmt_gnl_family,
- 			   NLM_F_MULTI, NLBL_MGMT_C_LISTALL);
- 	if (data == NULL)
--		goto listall_cb_failure;
-+		return ret_val;
+  nla_put_failure:
+ 	genlmsg_cancel(msg, hdr);
++ out:
+ 	nlmsg_free(msg);
+ 	return -ENOBUFS;
+ }
+@@ -2954,7 +2955,7 @@ static int nl80211_get_reg(struct sk_buff *skb, struct genl_info *info)
+ 	hdr = nl80211hdr_put(msg, info->snd_pid, info->snd_seq, 0,
+ 			     NL80211_CMD_GET_REG);
+ 	if (!hdr)
+-		goto nla_put_failure;
++		goto put_failure;
  
- 	ret_val = netlbl_mgmt_listentry(cb_arg->skb, entry);
- 	if (ret_val != 0)
-@@ -617,7 +617,7 @@ static int netlbl_mgmt_protocols_cb(struct sk_buff *skb,
- 			   &netlbl_mgmt_gnl_family, NLM_F_MULTI,
- 			   NLBL_MGMT_C_PROTOCOLS);
- 	if (data == NULL)
--		goto protocols_cb_failure;
-+		return ret_val;
+ 	NLA_PUT_STRING(msg, NL80211_ATTR_REG_ALPHA2,
+ 		cfg80211_regdomain->alpha2);
+@@ -3001,6 +3002,7 @@ static int nl80211_get_reg(struct sk_buff *skb, struct genl_info *info)
  
- 	ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL, protocol);
- 	if (ret_val != 0)
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index e2b0a68..b5d3945 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -1141,7 +1141,7 @@ static int netlbl_unlabel_staticlist_gen(u32 cmd,
- 			   cb_arg->seq, &netlbl_unlabel_gnl_family,
- 			   NLM_F_MULTI, cmd);
- 	if (data == NULL)
--		goto list_cb_failure;
-+		return ret_val;
- 
- 	if (iface->ifindex > 0) {
- 		dev = dev_get_by_index(&init_net, iface->ifindex);
+ nla_put_failure:
+ 	genlmsg_cancel(msg, hdr);
++put_failure:
+ 	nlmsg_free(msg);
+ 	err = -EMSGSIZE;
+ out:
