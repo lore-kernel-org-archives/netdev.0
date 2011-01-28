@@ -1,46 +1,71 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 6/7] ixgbe: cleanup variable initialization
-Date: Thu, 27 Jan 2011 22:18:54 -0800
-Message-ID: <1296195535-2990-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 1/7] e1000: add support for Marvell Alaska M88E1118R PHY
+Date: Thu, 27 Jan 2011 22:18:49 -0800
+Message-ID: <1296195535-2990-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+Cc: Florian Fainelli <ffainelli@freebox.fr>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
+	Dirk Brandewie <dirk.j.brandewie@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:34293 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:56196 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753721Ab1A1GS7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jan 2011 01:18:59 -0500
+	id S1753456Ab1A1GS5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jan 2011 01:18:57 -0500
 In-Reply-To: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Florian Fainelli <ffainelli@freebox.fr>
 
-The ixgbe_fcoe_ddp_get function wasn't initializing one of its variables
-and this was producing compiler warnings.  This patch cleans that up.
+This patch adds support for Marvell Alask M88E188R PHY chips. Support for
+other M88* PHYs is already there, so there is nothing more to add than its
+PHY id.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+CC: Dirk Brandewie <dirk.j.brandewie@intel.com>
+Signed-off-by: Florian Fainelli <ffainelli@freebox.fr>
+Acked-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_fcoe.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/e1000/e1000_hw.c |    4 +++-
+ drivers/net/e1000/e1000_hw.h |    1 +
+ 2 files changed, 4 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_fcoe.c b/drivers/net/ixgbe/ixgbe_fcoe.c
-index ffac3f6..24d74ca 100644
---- a/drivers/net/ixgbe/ixgbe_fcoe.c
-+++ b/drivers/net/ixgbe/ixgbe_fcoe.c
-@@ -165,7 +165,7 @@ int ixgbe_fcoe_ddp_get(struct net_device *netdev, u16 xid,
- 	unsigned int thisoff = 0;
- 	unsigned int thislen = 0;
- 	u32 fcbuff, fcdmarw, fcfltrw;
--	dma_addr_t addr;
-+	dma_addr_t addr = 0;
+diff --git a/drivers/net/e1000/e1000_hw.c b/drivers/net/e1000/e1000_hw.c
+index aed223b..7501d97 100644
+--- a/drivers/net/e1000/e1000_hw.c
++++ b/drivers/net/e1000/e1000_hw.c
+@@ -124,6 +124,7 @@ static s32 e1000_set_phy_type(struct e1000_hw *hw)
+ 	case M88E1000_I_PHY_ID:
+ 	case M88E1011_I_PHY_ID:
+ 	case M88E1111_I_PHY_ID:
++	case M88E1118_E_PHY_ID:
+ 		hw->phy_type = e1000_phy_m88;
+ 		break;
+ 	case IGP01E1000_I_PHY_ID:
+@@ -3222,7 +3223,8 @@ static s32 e1000_detect_gig_phy(struct e1000_hw *hw)
+ 		break;
+ 	case e1000_ce4100:
+ 		if ((hw->phy_id == RTL8211B_PHY_ID) ||
+-		    (hw->phy_id == RTL8201N_PHY_ID))
++		    (hw->phy_id == RTL8201N_PHY_ID) ||
++		    (hw->phy_id == M88E1118_E_PHY_ID))
+ 			match = true;
+ 		break;
+ 	case e1000_82541:
+diff --git a/drivers/net/e1000/e1000_hw.h b/drivers/net/e1000/e1000_hw.h
+index 196eeda..c70b23d 100644
+--- a/drivers/net/e1000/e1000_hw.h
++++ b/drivers/net/e1000/e1000_hw.h
+@@ -2917,6 +2917,7 @@ struct e1000_host_command_info {
+ #define M88E1000_14_PHY_ID M88E1000_E_PHY_ID
+ #define M88E1011_I_REV_4   0x04
+ #define M88E1111_I_PHY_ID  0x01410CC0
++#define M88E1118_E_PHY_ID  0x01410E40
+ #define L1LXT971A_PHY_ID   0x001378E0
  
- 	if (!netdev || !sgl)
- 		return 0;
+ #define RTL8211B_PHY_ID    0x001CC910
 -- 
 1.7.3.5
 
