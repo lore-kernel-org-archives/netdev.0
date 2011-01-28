@@ -1,53 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 27 Jan 2011 22:18:48 -0800
-Message-ID: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
+Subject: [net-2.6 3/7] ixgbe: fix for 82599 erratum on Header Splitting.
+Date: Thu, 27 Jan 2011 22:18:51 -0800
+Message-ID: <1296195535-2990-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, stable@kernel.org,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56196 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:34293 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752885Ab1A1GS4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jan 2011 01:18:56 -0500
+	id S1753135Ab1A1GS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 28 Jan 2011 01:18:58 -0500
+In-Reply-To: <1296195535-2990-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains the addition of a PHY id for e1000
-and several ixgbe fixes.
+From: Don Skidmore <donald.c.skidmore@intel.com>
 
-The following are changes since commit 4bb9ebc78097376b3734c6d3001a96aecac0f7bb:
-  bnx2: Eliminate AER error messages on systems not supporting it
+We have found a hardware erratum on 82599 hardware that can lead to
+unpredictable behavior when Header Splitting mode is enabled.  So
+we are no longer enabling this feature on affected hardware.
 
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-2.6 master
+Please see the 82599 Specification Update for more information.
 
-Alexander Duyck (1):
-  ixgbe: limit VF access to network traffic
+CC: stable@kernel.org
+Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
+Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ixgbe/ixgbe_main.c |   11 +++++++++--
+ 1 files changed, 9 insertions(+), 2 deletions(-)
 
-Amir Hanania (1):
-  ixgbe: DDP last buffer size work around
-
-Don Skidmore (3):
-  ixgbe: fix for 82599 erratum on Header Splitting.
-  ixgbe: cleanup variable initialization
-  ixgbe: update version string
-
-Emil Tantilov (1):
-  ixgbe: fix variable set but not used warnings by gcc 4.6
-
-Florian Fainelli (1):
-  e1000: add support for Marvell Alaska M88E1118R PHY
-
- drivers/net/e1000/e1000_hw.c     |    4 +++-
- drivers/net/e1000/e1000_hw.h     |    1 +
- drivers/net/ixgbe/ixgbe_common.c |    3 +++
- drivers/net/ixgbe/ixgbe_fcoe.c   |   21 ++++++++++++++++++++-
- drivers/net/ixgbe/ixgbe_main.c   |   16 ++++++++++------
- drivers/net/ixgbe/ixgbe_sriov.c  |    2 --
- drivers/net/ixgbe/ixgbe_x540.c   |    6 +++---
- 7 files changed, 40 insertions(+), 13 deletions(-)
-
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 44a1cf0..1495b74 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -3176,9 +3176,16 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
+ 	u32 mhadd, hlreg0;
+ 
+ 	/* Decide whether to use packet split mode or not */
++	/* On by default */
++	 adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
++
+ 	/* Do not use packet split if we're in SR-IOV Mode */
+-	if (!adapter->num_vfs)
+-		adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
++	if (adapter->num_vfs)
++		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
++
++	/* Disable packet split due to 82599 erratum #45 */
++	if (hw->mac.type == ixgbe_mac_82599EB)
++		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
+ 
+ 	/* Set the RX buffer length according to the mode */
+ 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
 -- 
 1.7.3.5
 
