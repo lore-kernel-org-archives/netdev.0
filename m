@@ -1,90 +1,93 @@
-From: Steve Dobbelstein <steved@us.ibm.com>
-Subject: Re: Network performance with small packets
-Date: Fri, 28 Jan 2011 16:51:59 -0600
-Message-ID: <OF410A9B21.0EA0CDB8-ON86257826.007CBE3F-86257826.007D9C47@us.ibm.com>
-References: <OFD293DCD2.7F0260F0-ON86257823.0061DC39-86257823.00743BB3@us.ibm.com>	 <20110126151700.GA14113@redhat.com>
-	 <1296153874.1640.27.camel@localhost.localdomain>	 <20110127190031.GC5228@redhat.com>
-	 <1296155340.1640.34.camel@localhost.localdomain>	 <20110127193131.GD5228@redhat.com>
-	 <1296157547.1640.45.camel@localhost.localdomain>	 <20110127200548.GE5228@redhat.com> <1296159305.1640.50.camel@localhost.localdomain> <OF381CCA86.B82857CC-ON86257826.00629F88-86257826.006596F5@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Bugme-new] [Bug 27742] New: PPP over SSH tunnel triggers OOPS
+Date: Fri, 28 Jan 2011 14:55:38 -0800 (PST)
+Message-ID: <20110128.145538.179934184.davem@davemloft.net>
+References: <bug-27742-10286@https.bugzilla.kernel.org/>
+	<20110128143238.446e1821.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: kvm@vger.kernel.org, kvm-owner@vger.kernel.org,
-	mashirle@linux.vnet.ibm.com, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org
-To: Steve Dobbelstein <steved@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, ktk@bigfoot.com, paulus@samba.org
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:47346 "EHLO e3.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752272Ab1A1WwG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 28 Jan 2011 17:52:06 -0500
-In-Reply-To: <OF381CCA86.B82857CC-ON86257826.00629F88-86257826.006596F5@us.ibm.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45671
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752101Ab1A1WzE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jan 2011 17:55:04 -0500
+In-Reply-To: <20110128143238.446e1821.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-steved@us.ibm.com wrote on 01/28/2011 12:29:37 PM:
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Fri, 28 Jan 2011 14:32:38 -0800
 
-> > On Thu, 2011-01-27 at 22:05 +0200, Michael S. Tsirkin wrote:
-> > > One simple theory is that guest net stack became faster
-> > > and so the host can't keep up.
-> >
-> > Yes, that's what I think here. Some qdisc code has been changed
-> > recently.
->
-> I ran a test with txqueuelen set to 128, instead of the default of 1000,
-in
-> the guest in an attempt to slow down the guest transmits.  The change had
-> no effect on the throughput nor on the CPU usage.
->
-> On the other hand, I ran some tests with different CPU pinnings and
-> with/without hyperthreading enabled.  Here is a summary of the results.
->
-> Pinning configuration 1:  pin the VCPUs and pin the vhost thread to one
-of
-> the VCPU CPUs
-> Pinning configuration 2:  pin the VCPUs and pin the vhost thread to a
-> separate CPU on the same socket
-> Pinning configuration 3:  pin the VCPUs and pin the vhost thread to a
-> separate CPU a different socket
->
-> HT   Pinning   Throughput  CPU
-> Yes  config 1  - 40%       - 40%
-> Yes  config 2  - 37%       - 35%
-> Yes  config 3  - 37%       - 36%
-> No   none         0%       -  5%
-> No   config 1  - 41%       - 43%
-> No   config 2  + 32%       -  4%
-> No   config 3  + 34%       +  9%
->
-> Pinning the vhost thread to the same CPU as a guest VCPU hurts
-performance.
-> Turning off hyperthreading and pinning the VPUS and vhost thread to
-> separate CPUs significantly improves performance, getting it into the
-> competitive range with other hypervisors.
->
-> Steve D.
+>> skb_over_panic: text:c12a354f len:847 put:847 head:f57e8c00 data:f57e8c00 tail:0xf57e8f4f end:0xf57e8e80 dev:<NULL>
+>> kernel BUG at net/core/skbuff.c:127!
+...
+>> Pid: 0, comm: swapper Not tainted 2.6.37 #1 0KH290/OptiPlex GX620
+>> EIP: 0060:[<c1330110>] EFLAGS: 00010282 CPU: 0
+>> EIP is at skb_put+0x82/0x84
+...
+>> Call Trace:
+>>  [<c12a354f>] ? ppp_xmit_process+0x45a/0x4e6
+>>  [<c12a354f>] ? ppp_xmit_process+0x45a/0x4e6
+>>  [<c1390a0a>] ? tcp_manip_pkt+0xad/0xcb
+>>  [<c12a36d4>] ? ppp_start_xmit+0xf9/0x175
 
-Those results for configs 2 and 3 with hyperthreading off are a little
-strange.  Digging into the cause I found that my automation script for
-pinning the vhost thread failed and pinned it to CPU 1, the same as config
-1, giving results similar to config 1.  I reran the tests making sure the
-pinning script did the right thing.  The results are more consistent.
+I took a quick look at this, I can surmise that we have a packet we
+are trying to compress (that's the only way I see in the
+ppp_xmit_process() code paths that we can get an skb_put() call so
+large).
 
-HT   Pinning   Throughput  CPU
-Yes  config 1  - 40%       - 40%
-Yes  config 2  + 33%       -  8%
-Yes  config 3  + 34%       +  9%
-No   none         0%       -  5%
-No   config 1  - 41%       - 43%
-No   config 2  + 32%       -  4%
-No   config 3  + 34%       +  9%
+And we can see from the skb_over_panic message that we have an SKB
+which was allocated with 640 bytes of space, but we are trying to
+"put" 847 bytes into it which is too large and overflows.
 
-It appears that we have a scheduling problem.  If the processes are pinned
-we can get good performance.
+Can you run with the following debugging patch and see what it prints
+out when this happens?
 
-We also se that hyperthreading makes little difference.
-
-Sorry for the initial misleading data.
-
-Steve D.
-
-
+diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
+index 9f6d670..06c6ea7 100644
+--- a/drivers/net/ppp_generic.c
++++ b/drivers/net/ppp_generic.c
+@@ -1093,6 +1093,15 @@ pad_compress_skb(struct ppp *ppp, struct sk_buff *skb)
+ 	if (len > 0 && (ppp->flags & SC_CCP_UP)) {
+ 		kfree_skb(skb);
+ 		skb = new_skb;
++#if 1
++		if (len > (skb->end - skb->tail)) {
++			printk(KERN_ERR "pad_compress_skb: Compression overflow ["
++			       "new_skb_size(%d) compressor_skb_size(%d) "
++			       "hard_header_len(%d) len(%d)]\n",
++			       new_skb_size, compressor_skb_size,
++			       ppp->dev->hard_header_len, len);
++		}
++#endif
+ 		skb_put(skb, len);
+ 		skb_pull(skb, 2);	/* pull off A/C bytes */
+ 	} else if (len == 0) {
+@@ -1179,6 +1188,9 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 			/* didn't compress */
+ 			kfree_skb(new_skb);
+ 		} else {
++#if 1
++			unsigned int orig_skb_len = skb->len;
++#endif
+ 			if (cp[0] & SL_TYPE_COMPRESSED_TCP) {
+ 				proto = PPP_VJC_COMP;
+ 				cp[0] &= ~SL_TYPE_COMPRESSED_TCP;
+@@ -1188,6 +1200,13 @@ ppp_send_frame(struct ppp *ppp, struct sk_buff *skb)
+ 			}
+ 			kfree_skb(skb);
+ 			skb = new_skb;
++#if 1
++			if (len > (skb->end - skb->tail)) {
++				printk(KERN_ERR "slhc_compress_skb: Compression overflow ["
++				       "skb->len(%u) hard_header_len(%d) len(%d)]\n",
++				       orig_skb_len, ppp->dev->hard_header_len, len);
++			}
++#endif
+ 			cp = skb_put(skb, len + 2);
+ 			cp[0] = 0;
+ 			cp[1] = proto;
