@@ -1,158 +1,102 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Bonding on bond
-Date: Fri, 28 Jan 2011 16:38:48 -0800
-Message-ID: <15526.1296261528@death>
-References: <4D374A8F.2020303@gmail.com> <20110120153110.GA3931@midget.suse.cz> <4D385F0B.1010000@gmail.com> <4202.1295553193@death> <4D3B60D2.30309@gmail.com>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for single TCP session balancing
+Date: Fri, 28 Jan 2011 18:28:33 -0800
+Message-ID: <19551.1296268113@death>
+References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru> <4D3745AF.5040808@gmail.com> <4D399062.3060004@yandex-team.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Bohac <jbohac@suse.cz>,
-	"bonding-devel@lists.sourceforge.net"
-	<bonding-devel@lists.sourceforge.net>,
+Cc: =?us-ascii?Q?=3D=3FUTF-8=3FB=3FTmljb2xhcyBkZSBQZXNsb8O8YW4=3D=3F=3D?=
+	<nicolas.2p.debian@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: =?us-ascii?Q?=3D=3FUTF-8=3FB=3FTmljb2xhcyBkZSBQZXNsb8O8YW4=3D=3F=3D?=
-	<nicolas.2p.debian@gmail.com>
+To: "Oleg V. Ukhno" <olegu@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:38688 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754369Ab1A2Aiy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jan 2011 19:38:54 -0500
-Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
-	by e38.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p0T0Oc6h029797
-	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 17:24:38 -0700
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0T0coJo103982
-	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 17:38:51 -0700
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0T0co0K026710
-	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 17:38:50 -0700
-In-reply-to: <4D3B60D2.30309@gmail.com>
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:46424 "EHLO e1.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753168Ab1A2C2h convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jan 2011 21:28:37 -0500
+Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
+	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p0T2JTpK025584
+	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 21:19:29 -0500
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 35C6E4DE8041
+	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 21:28:10 -0500 (EST)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p0T2SZO32388150
+	for <netdev@vger.kernel.org>; Fri, 28 Jan 2011 21:28:35 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p0T2SZhu024788
+	for <netdev@vger.kernel.org>; Sat, 29 Jan 2011 00:28:35 -0200
+In-reply-to: <4D399062.3060004@yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nicolas de Peslo=C3=BCan <nicolas.2p.debian@gmail.com> wrote:
+Oleg V. Ukhno <olegu@yandex-team.ru> wrote:
 
->Le 20/01/2011 20:53, Jay Vosburgh a =C3=A9crit :
->> 	I'm in agreement that, by and large, nesting of bonds is
->> pointless.  However, I suspect that there are users out in the world=
- who
->> are happily doing so, and this patch may shut them down.
+>On 01/19/2011 11:12 PM, Nicolas de Peslo=C3=BCan wrote:
 >
->Hi Jay,
->
->I tested the following nested bonding configuration:
->
->bond1 : eth1 + eth3, in balance-rr mode.
->bond2 : eth0 + eth2, in balance-rr mode.
->bond0 : bond1 + bond2, in active-backup mode.
->
->The egress path apparently works not so bad, even if I didn't take tim=
+>> If you have time for that, then yes, please, do the same test using
+>> balance-rr+vlan to segregate path. With those results, we whould hav=
 e
->yet to check proper load balancing nor fail over.
->
->However, the ingress path doesn't work at all. bond0 is unable to rece=
-ive any packets (ARP or IP).
+>> the opportunity to enhance the documentation with some well tested c=
+ases
+>> of TCP load balancing on a LAN, not limited to 802.3ad automatic set=
+up.
+>> Both setups make sense, and assuming the results would be similar is
+>> probably true, but not reliable enough to assert it into the documen=
+tation.
+>>
+>> Thanks,
+>>
+>> Nicolas.
+>>
+>Nicolas,
+>I've ran similar tests for VLAN tunneling scenario. Results are identi=
+cal,
+>as I expected. The only significat difference is link failure
+>handling. 802.3ad mode allows almost painless load reditribution,
+>balance-rr causes packet loss.
+>The only question for me now is if my patch could be applied to upstre=
+am
+>version - fixing issues with adaptftion to net-next code aren't the
+>problem, if nobody objects
 
-	In light of this, I don't see a problem with disallowing nesting
-of bonds.  It should be documented in bonding.txt.
+	I've thought about this whole thing, and here's what I view as
+the proper way to do this.
 
->It doesn't sound surprising to me, having a look at the current code i=
-n __netif_receive_skb() :
->
->>         /*
->>          * bonding note: skbs received on inactive slaves should onl=
+	In my mind, this proposal is two separate pieces:
+
+	First, a piece to make round-robin a selectable hash for
+xmit_hash_policy.  The documentation for this should follow the pattern
+of the "layer3+4" hash policy, in particular noting that the new
+algorithm violates the 802.3ad standard in exciting ways, will result i=
+n
+out of order delivery, and that other 802.3ad implementations may or ma=
 y
->>          * be delivered to pkt handlers that are exact matches.  Als=
-o
->>          * the deliver_no_wcard flag will be set.  If packet handler=
-s
->>          * are sensitive to duplicate packets these skbs will need t=
-o
->>          * be dropped at the handler.
->>          */
->>         null_or_orig =3D NULL;
->>         orig_dev =3D skb->dev;
->>         master =3D ACCESS_ONCE(orig_dev->master);
->>         if (skb->deliver_no_wcard)
->>                 null_or_orig =3D orig_dev;
->>         else if (master) {
->>                 if (skb_bond_should_drop(skb, master)) {
->>                         skb->deliver_no_wcard =3D 1;
->>                         null_or_orig =3D orig_dev; /* deliver only e=
-xact match */
->>                 } else
->>                         skb->dev =3D master;
->>         }
->
->The skb_bond_should_drop() and skb->dev =3D master logic is only appli=
-ed at a single level.
->
->After this code, skb->dev is the master dev of the receiving dev, but
->skb->dev->master can be !=3D NULL, if another level of bonding
->exists. Nothing obvious would cause the packet to be delivered to this
->possible higher level bonding interface (skb->dev->master).
->
->Is something else expected to call __netif_receive_skb() again, with t=
-he
->current skb, to cause another level of bonding to be reachable? For as=
- far
->as I understand, nothing will, but I might have missed something.
->
->> 	I've not tested with nesting in a while; I know it used to work
->> (at least for limited cases, typically an active-backup bond with a =
-pair
->> of balance-xor or balance-rr or sometimes 802.3ad enslaved to it), b=
-ut
->> has never really been a deliberate feature.  Is nesting now utterly
->> broken, as suggested by the list of problems above?
->
->I don't know whether someone really use nested bonding, but I can hard=
-ly
->imagine how one can have it works with current kernel, except for a pu=
-re
->egress application, without any feedback from the network. And such ve=
-ry
->specific application wouldn't even be able to receive an ARP reply...
->
->> 	If nesting really doesn't work and is going to be disabled, then
->> at a minimum it should also have an update to the documentation
->> explaining this.
->
->At least, we should explain that nesting bonding interfaces is known t=
-o be
->mostly broken and unsupported.
->
->That being said, we still miss a way to achieve a simple configuration
->with several links doing load balancing to a switch and one or several
->links doing fail over to another switch, both switches *not* being 802=
-=2E3ad
->capable.
+not tolerate this.
 
-	This is a harder problem, but it's something that doesn't work
-today (and I suspect hasn't for a long time, so if somebody was using
-this, I think there would have been some discussion).
-
->Should we arrange for bonding to be allowed to nest, for this purpose,=
- or
->should we find a way to setup this configuration with a single level o=
-f
->bonding ? I would prefer the second, but...
-
-	I'm not sure that either is necessary; 802.3ad will do this
-today, and few current production switches lack 802.3ad support.
-
-	Adding support for etherchannel (i.e., not 802.3ad) gang
-failover is nontrivial, because the multiple etherchannel port groups
-will have to be managed separately, and most likely assigned manually.
-Sure, it'd be nice to have, but I'm not sure if it's a benefit worth th=
+	Second, a piece to make certain transmitted packets use the
+source MAC of the sending slave instead of the bond's MAC.  This should
+be a separate option from the round-robin hash policy.  I'd call it
+something like "mac_select" with two values: "default" (what we do now)
+and "slave_src_mac" to use the slave's real MAC for certain types of
+traffic (I'm open to better names; that's just what I came up with whil=
 e
-effort.
+writing this).  I believe that "certain types" means "everything but
+ARP," but might be "only IP and IPv6."  Structuring the option in this
+manner leaves the option open for additional selections in the future,
+which a simple "on/off" option wouldn't.  This option should probably
+only affect a subset of modes; I'm thinking anything except balance-tlb
+or -alb (because they do funky MAC things already) and active-backup (i=
+t
+doesn't balance traffic, and already uses fail_over_mac to control
+this).  I think this option also needs a whole new section down in the
+bottom explaining how to exploit it (the "pick special MACs on slaves t=
+o
+trick switch hash" business).
 
-	Either way, for now, since I recall you mentioned in another
-email that you'd crashed the system from nesting bonds, I don't see a
-problem with disallowing nesting and updating the documentation with a
-bit of this discussion (e.g., "nesting doesn't work, you're probably
-trying to do gang failover, which 802.3ad already does for you").
+	Comments?
 
 	-J
 
