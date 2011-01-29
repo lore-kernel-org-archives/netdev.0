@@ -1,197 +1,139 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v3 4/5] net: introduce NETIF_F_RXCSUM
-Date: Sat, 29 Jan 2011 19:39:08 +0100 (CET)
-Message-ID: <6ca4686615452830809f496a494c7b8ae6d9f082.1296325509.git.mirq-linux@rere.qmqm.pl>
-References: <cover.1296325509.git.mirq-linux@rere.qmqm.pl>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: pull request: batman-adv 2011-01-29
+Date: Sat, 29 Jan 2011 22:47:27 +0100
+Message-ID: <1296337660-12376-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:60412 "EHLO rere.qmqm.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754838Ab1A2SjN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 29 Jan 2011 13:39:13 -0500
-In-Reply-To: <cover.1296325509.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Introduce NETIF_F_RXCSUM to replace device-private flags for RX checksu=
-m
-offload. Integrate it with ndo_fix_features.
+Hi,
 
-ethtool_op_get_rx_csum() is removed altogether as nothing in-tree uses =
-it.
+I would like to propose following changes for net-2.6.git/2.6.38 which fi=
+xes
+some bugs in the fragmentation and vis code. There are also some minor cl=
+eanup
+patches available. If you don't want to merge those cleanup patches then =
+please
+look bellow the first diffstat for an alternative way to get only the bug=
+fixes.
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- include/linux/ethtool.h   |    1 -
- include/linux/netdevice.h |    5 ++++-
- net/core/ethtool.c        |   36 ++++++++++++------------------------
- 3 files changed, 16 insertions(+), 26 deletions(-)
+thanks,
+	Sven
 
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index b832083..70c2402 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -626,7 +626,6 @@ struct net_device;
-=20
- /* Some generic methods drivers may use in their ethtool_ops */
- u32 ethtool_op_get_link(struct net_device *dev);
--u32 ethtool_op_get_rx_csum(struct net_device *dev);
- u32 ethtool_op_get_tx_csum(struct net_device *dev);
- int ethtool_op_set_tx_csum(struct net_device *dev, u32 data);
- int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 6490860..97cd4d6 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -963,6 +963,7 @@ struct net_device {
- #define NETIF_F_FCOE_MTU	(1 << 26) /* Supports max FCoE MTU, 2158 byte=
-s*/
- #define NETIF_F_NTUPLE		(1 << 27) /* N-tuple filters supported */
- #define NETIF_F_RXHASH		(1 << 28) /* Receive hashing offload */
-+#define NETIF_F_RXCSUM		(1 << 29) /* Receive checksumming offload */
-=20
- 	/* Segmentation offload features */
- #define NETIF_F_GSO_SHIFT	16
-@@ -978,7 +979,7 @@ struct net_device {
- 	/* =3D all defined minus driver/device-class-related */
- #define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
- 				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
--#define NETIF_F_ETHTOOL_BITS	(0x1f3fffff & ~NETIF_F_NEVER_CHANGE)
-+#define NETIF_F_ETHTOOL_BITS	(0x3f3fffff & ~NETIF_F_NEVER_CHANGE)
-=20
- 	/* List of features with software fallbacks. */
- #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
-@@ -2500,6 +2501,8 @@ static inline int dev_ethtool_get_settings(struct=
- net_device *dev,
-=20
- static inline u32 dev_ethtool_get_rx_csum(struct net_device *dev)
- {
-+	if (dev->hw_features & NETIF_F_RXCSUM)
-+		return !!(dev->features & NETIF_F_RXCSUM);
- 	if (!dev->ethtool_ops || !dev->ethtool_ops->get_rx_csum)
- 		return 0;
- 	return dev->ethtool_ops->get_rx_csum(dev);
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 17a689f4..08129f3 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -34,12 +34,6 @@ u32 ethtool_op_get_link(struct net_device *dev)
- }
- EXPORT_SYMBOL(ethtool_op_get_link);
-=20
--u32 ethtool_op_get_rx_csum(struct net_device *dev)
--{
--	return (dev->features & NETIF_F_ALL_CSUM) !=3D 0;
--}
--EXPORT_SYMBOL(ethtool_op_get_rx_csum);
+The following changes since commit aa0adb1a85e159cf57f0e11282bc6c9e3606a5=
+f3:
+
+  batman-adv: Use "__attribute__" shortcut macros (2011-01-16 03:25:19 +0=
+100)
+
+are available in the git repository at:
+  git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/merge
+
+Linus L=C3=BCssing (1):
+      batman-adv: Fix kernel panic when fetching vis data on a vis server
+
+Simon Wunderlich (1):
+      batman-adv: remove unused parameters
+
+Sven Eckelmann (11):
+      batman-adv: Create roughly equal sized fragments
+      batman-adv: Calculate correct size for merged packets
+      batman-adv: Remove vis info on hashing errors
+      batman-adv: Remove vis info element in free_info
+      batman-adv: Make vis info stack traversal threadsafe
+      batman-adv: Remove dangling declaration of hash_remove_element
+      batman-adv: Remove unused definitions
+      batman-adv: Remove declaration of batman_skb_recv
+      batman-adv: Remove unused variables
+      batman-adv: Update copyright years
+      batman-adv: Merge README of v2011.0.0 release
+
+ Documentation/networking/batman-adv.txt |   16 ++++++++--------
+ net/batman-adv/Makefile                 |    2 +-
+ net/batman-adv/aggregation.c            |    2 +-
+ net/batman-adv/aggregation.h            |    2 +-
+ net/batman-adv/bat_debugfs.c            |    6 ++----
+ net/batman-adv/bat_debugfs.h            |    2 +-
+ net/batman-adv/bat_sysfs.c              |    2 +-
+ net/batman-adv/bat_sysfs.h              |    2 +-
+ net/batman-adv/bitarray.c               |    2 +-
+ net/batman-adv/bitarray.h               |    2 +-
+ net/batman-adv/gateway_client.c         |    2 +-
+ net/batman-adv/gateway_client.h         |    2 +-
+ net/batman-adv/gateway_common.c         |    2 +-
+ net/batman-adv/gateway_common.h         |    2 +-
+ net/batman-adv/hard-interface.c         |   13 ++++++++++---
+ net/batman-adv/hard-interface.h         |    6 +-----
+ net/batman-adv/hash.c                   |    2 +-
+ net/batman-adv/hash.h                   |    7 +------
+ net/batman-adv/icmp_socket.c            |    2 +-
+ net/batman-adv/icmp_socket.h            |    2 +-
+ net/batman-adv/main.c                   |    2 +-
+ net/batman-adv/main.h                   |   17 +----------------
+ net/batman-adv/originator.c             |    4 ++--
+ net/batman-adv/originator.h             |    2 +-
+ net/batman-adv/packet.h                 |    3 ++-
+ net/batman-adv/ring_buffer.c            |    2 +-
+ net/batman-adv/ring_buffer.h            |    2 +-
+ net/batman-adv/routing.c                |   26 ++++++++-----------------=
 -
- u32 ethtool_op_get_tx_csum(struct net_device *dev)
- {
- 	return (dev->features & NETIF_F_ALL_CSUM) !=3D 0;
-@@ -267,6 +261,9 @@ static u32 ethtool_get_feature_mask(u32 eth_cmd)
- 	case ETHTOOL_GTXCSUM:
- 	case ETHTOOL_STXCSUM:
- 		return NETIF_F_ALL_CSUM | NETIF_F_SCTP_CSUM;
-+	case ETHTOOL_GRXCSUM:
-+	case ETHTOOL_SRXCSUM:
-+		return NETIF_F_RXCSUM;
- 	case ETHTOOL_GSG:
- 	case ETHTOOL_SSG:
- 		return NETIF_F_SG;
-@@ -301,6 +298,7 @@ static int ethtool_get_one_feature(struct net_devic=
-e *dev, char __user *useraddr
- }
-=20
- static int __ethtool_set_tx_csum(struct net_device *dev, u32 data);
-+static int __ethtool_set_rx_csum(struct net_device *dev, u32 data);
- static int __ethtool_set_sg(struct net_device *dev, u32 data);
- static int __ethtool_set_tso(struct net_device *dev, u32 data);
- static int __ethtool_set_ufo(struct net_device *dev, u32 data);
-@@ -338,6 +336,8 @@ static int ethtool_set_one_feature(struct net_devic=
-e *dev,
- 	switch (ethcmd) {
- 	case ETHTOOL_STXCSUM:
- 		return __ethtool_set_tx_csum(dev, edata.data);
-+	case ETHTOOL_SRXCSUM:
-+		return __ethtool_set_rx_csum(dev, edata.data);
- 	case ETHTOOL_SSG:
- 		return __ethtool_set_sg(dev, edata.data);
- 	case ETHTOOL_STSO:
-@@ -382,7 +382,7 @@ static const char netdev_features_strings[ETHTOOL_D=
-EV_FEATURE_WORDS * 32][ETH_GS
- 	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
- 	/* NETIF_F_NTUPLE */          "ntuple-filter",
- 	/* NETIF_F_RXHASH */          "rx-hashing-offload",
--	"",
-+	/* NETIF_F_RXCSUM */          "rx-checksum-offload",
- 	"",
- 	"",
- };
-@@ -1360,20 +1360,15 @@ static int __ethtool_set_tx_csum(struct net_dev=
-ice *dev, u32 data)
- 	return dev->ethtool_ops->set_tx_csum(dev, data);
- }
-=20
--static int ethtool_set_rx_csum(struct net_device *dev, char __user *us=
-eraddr)
-+static int __ethtool_set_rx_csum(struct net_device *dev, u32 data)
- {
--	struct ethtool_value edata;
--
- 	if (!dev->ethtool_ops->set_rx_csum)
- 		return -EOPNOTSUPP;
-=20
--	if (copy_from_user(&edata, useraddr, sizeof(edata)))
--		return -EFAULT;
--
--	if (!edata.data && dev->ethtool_ops->set_sg)
-+	if (!data)
- 		dev->features &=3D ~NETIF_F_GRO;
-=20
--	return dev->ethtool_ops->set_rx_csum(dev, edata.data);
-+	return dev->ethtool_ops->set_rx_csum(dev, data);
- }
-=20
- static int __ethtool_set_tso(struct net_device *dev, u32 data)
-@@ -1721,15 +1716,6 @@ int dev_ethtool(struct net *net, struct ifreq *i=
-fr)
- 	case ETHTOOL_SPAUSEPARAM:
- 		rc =3D ethtool_set_pauseparam(dev, useraddr);
- 		break;
--	case ETHTOOL_GRXCSUM:
--		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
--				       (dev->ethtool_ops->get_rx_csum ?
--					dev->ethtool_ops->get_rx_csum :
--					ethtool_op_get_rx_csum));
--		break;
--	case ETHTOOL_SRXCSUM:
--		rc =3D ethtool_set_rx_csum(dev, useraddr);
--		break;
- 	case ETHTOOL_TEST:
- 		rc =3D ethtool_self_test(dev, useraddr);
- 		break;
-@@ -1802,6 +1788,7 @@ int dev_ethtool(struct net *net, struct ifreq *if=
-r)
- 		rc =3D ethtool_set_features(dev, useraddr);
- 		break;
- 	case ETHTOOL_GTXCSUM:
-+	case ETHTOOL_GRXCSUM:
- 	case ETHTOOL_GSG:
- 	case ETHTOOL_GTSO:
- 	case ETHTOOL_GUFO:
-@@ -1810,6 +1797,7 @@ int dev_ethtool(struct net *net, struct ifreq *if=
-r)
- 		rc =3D ethtool_get_one_feature(dev, useraddr, ethcmd);
- 		break;
- 	case ETHTOOL_STXCSUM:
-+	case ETHTOOL_SRXCSUM:
- 	case ETHTOOL_SSG:
- 	case ETHTOOL_STSO:
- 	case ETHTOOL_SUFO:
---=20
-1.7.2.3
+ net/batman-adv/routing.h                |    5 ++---
+ net/batman-adv/send.c                   |    6 +++---
+ net/batman-adv/send.h                   |    2 +-
+ net/batman-adv/soft-interface.c         |    2 +-
+ net/batman-adv/soft-interface.h         |    2 +-
+ net/batman-adv/translation-table.c      |    2 +-
+ net/batman-adv/translation-table.h      |    2 +-
+ net/batman-adv/types.h                  |    2 +-
+ net/batman-adv/unicast.c                |   15 ++++++++++-----
+ net/batman-adv/unicast.h                |   25 ++++++++++++++++++++++++-
+ net/batman-adv/vis.c                    |   16 +++++++++-------
+ net/batman-adv/vis.h                    |    2 +-
+ 40 files changed, 109 insertions(+), 108 deletions(-)
 
+
+
+If you don't want to merge those cleanup patches, please merge only the
+bugfixes. They can be found in the branch batman-adv/merge-bugfixonly.
+
+The following changes since commit aa0adb1a85e159cf57f0e11282bc6c9e3606a5=
+f3:
+
+  batman-adv: Use "__attribute__" shortcut macros (2011-01-16 03:25:19 +0=
+100)
+
+are available in the git repository at:
+  git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/merge-bugfixonl=
+y
+
+Linus L=C3=BCssing (1):
+      batman-adv: Fix kernel panic when fetching vis data on a vis server
+
+Sven Eckelmann (5):
+      batman-adv: Create roughly equal sized fragments
+      batman-adv: Calculate correct size for merged packets
+      batman-adv: Remove vis info on hashing errors
+      batman-adv: Remove vis info element in free_info
+      batman-adv: Make vis info stack traversal threadsafe
+
+ net/batman-adv/packet.h  |    1 +
+ net/batman-adv/routing.c |    2 +-
+ net/batman-adv/unicast.c |   13 +++++++++----
+ net/batman-adv/unicast.h |   23 +++++++++++++++++++++++
+ net/batman-adv/vis.c     |   14 ++++++++------
+ 5 files changed, 42 insertions(+), 11 deletions(-)
