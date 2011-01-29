@@ -1,8 +1,8 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 04/13] batman-adv: Remove vis info on hashing
-	errors
-Date: Sat, 29 Jan 2011 22:47:31 +0100
-Message-ID: <1296337660-12376-5-git-send-email-sven@narfation.org>
+Subject: [PATCH 05/13] batman-adv: Remove vis info element in
+	free_info
+Date: Sat, 29 Jan 2011 22:47:32 +0100
+Message-ID: <1296337660-12376-6-git-send-email-sven@narfation.org>
 References: <1296337660-12376-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -21,27 +21,27 @@ Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-A newly created vis info object must be removed when it couldn't be
-added to the hash. The old_info which has to be replaced was already
-removed and isn't related to the hash anymore.
+The free_info function will be called when no reference to the info
+object exists anymore. It must be ensured that the allocated memory
+gets freed and not only the elements which are managed by the info
+object.
 
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 ---
- net/batman-adv/vis.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/batman-adv/vis.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
-index f69a374..0be55be 100644
+index 0be55be..988296c 100644
 --- a/net/batman-adv/vis.c
 +++ b/net/batman-adv/vis.c
-@@ -444,7 +444,7 @@ static struct vis_info *add_packet(struct bat_priv *bat_priv,
- 			      info);
- 	if (hash_added < 0) {
- 		/* did not work (for some reason) */
--		kref_put(&old_info->refcount, free_info);
-+		kref_put(&info->refcount, free_info);
- 		info = NULL;
- 	}
+@@ -64,6 +64,7 @@ static void free_info(struct kref *ref)
  
+ 	spin_unlock_bh(&bat_priv->vis_list_lock);
+ 	kfree_skb(info->skb_packet);
++	kfree(info);
+ }
+ 
+ /* Compare two vis packets, used by the hashing algorithm */
 -- 
 1.7.2.3
