@@ -1,34 +1,44 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: jme driver loses connection after resuming from suspend
-Date: Fri, 28 Jan 2011 16:33:15 -0800
-Message-ID: <20110128163315.1e4e8346.akpm@linux-foundation.org>
-References: <AANLkTikrKEY7Zt5HvxQcJLk9eGne0BGD82NFEiWO4smt@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 2/3] igb: add support for VF Transmit rate limit
+ using iproute2
+Date: Fri, 28 Jan 2011 16:38:17 -0800 (PST)
+Message-ID: <20110128.163817.193721063.davem@davemloft.net>
+References: <1296217779-30133-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1296217779-30133-3-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	Guo-Fu Tseng <cooldavid@cooldavid.org>, netdev@vger.kernel.org
-To: "Leonardo  L. P. da Mata" <barroca@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikrKEY7Zt5HvxQcJLk9eGne0BGD82NFEiWO4smt@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: lior.levy@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
+	bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44170
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754087Ab1A2Ahm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 28 Jan 2011 19:37:42 -0500
+In-Reply-To: <1296217779-30133-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-(cc's added)
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 28 Jan 2011 04:29:38 -0800
 
-On Fri, 28 Jan 2011 16:03:11 -0200
-"Leonardo  L. P. da Mata" <barroca@gmail.com> wrote:
+> +	if (tx_rate != 0)
+> +		dev_info(&adapter->pdev->dev,
+> +		         "Setting Transmit rate of %d Mbps for VF %d\n",
+> +		         tx_rate, vf);
+> +	else
+> +		dev_info(&adapter->pdev->dev,
+> +		         "Transmit rate limit for VF %d is disabled\n", vf);
 
-> Hello, i'm testing the kernel 2.6.37 on my hardware, Once connect on
-> wired network, i call the suspend with:
-> echo "mem" >/sys/power/state
-> 
-> The system goes on suspend. After resuming from suspend, the network card
-> cannot be used anymore.
-> 
-> 
-> The bug is reported here:
->  https://bugzilla.kernel.org/show_bug.cgi?id=27692
-> 
-> Can you please point me to similar problems on other network cards so
-> i can get possible solutions on this.
+If you're going to print this, use netdev_info(netdev, ...).
+
+But I think you shouldn't be logging anything at all.
+
+No other ethtool operation logs what it did except in extremely
+exceptional error conditions.  And there is nothing special
+about this VF rate limiting ethtool operation to justify these
+extraneous logging messages.
+
+If people want to know if the VF is rate limited, and by how much,
+then can query the configuration using ethtool.
