@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] ethtool: implement G/SFEATURES calls
+Subject: [PATCH v3 1/5] net: Introduce new feature setting ops
 Date: Sat, 29 Jan 2011 19:39:08 +0100 (CET)
-Message-ID: <4d4fee145908eb232f2766b7d8cbfebaeeffc5e5.1296325736.git.mirq-linux@rere.qmqm.pl>
+Message-ID: <0d740ad53dd1e096b2b5d27662ca393ce12c7cf7.1296325509.git.mirq-linux@rere.qmqm.pl>
 References: <cover.1296325509.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,25 +9,43 @@ Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Ben Hutchings <bhutchings@solarflare.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:60406 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:60407 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754607Ab1A2SjM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754851Ab1A2SjM (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 29 Jan 2011 13:39:12 -0500
 In-Reply-To: <cover.1296325509.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This introduces a new framework to handle device features setting.
+It consists of:
+  - new fields in struct net_device:
+	+ hw_features - features that hw/driver supports toggling
+	+ wanted_features - features that user wants enabled, when possible
+  - new netdev_ops:
+	+ feat =3D ndo_fix_features(dev, feat) - API checking constraints for
+		enabling features or their combinations
+	+ ndo_set_features(dev) - API updating hardware state to match
+		changed dev->features
+  - new ethtool commands:
+	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_features
+		and trigger device reconfiguration if resulting dev->features
+		changed
+	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (meaning)
+
 Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
 ---
- ethtool-copy.h |   90 +++++++++++++++++++++++-
- ethtool.c      |  218 ++++++++++++++++++++++++++++++++++++++++++++++++=
-+++++---
- 2 files changed, 298 insertions(+), 10 deletions(-)
+ include/linux/ethtool.h   |   86 +++++++++++++++++++++++++
+ include/linux/netdevice.h |   44 ++++++++++++-
+ net/core/dev.c            |   47 ++++++++++++--
+ net/core/ethtool.c        |  154 +++++++++++++++++++++++++++++++++++++=
+++++----
+ 4 files changed, 312 insertions(+), 19 deletions(-)
 
-diff --git a/ethtool-copy.h b/ethtool-copy.h
-index 75c3ae7..c6fe38d 100644
---- a/ethtool-copy.h
-+++ b/ethtool-copy.h
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 1908929..b832083 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
 @@ -251,6 +251,7 @@ enum ethtool_stringset {
  	ETH_SS_STATS,
  	ETH_SS_PRIV_FLAGS,
@@ -140,22 +158,10 @@ s to least
 +#define ETHTOOL_F_UNSUPPORTED   (1 << ETHTOOL_F_UNSUPPORTED__BIT)
 +#define ETHTOOL_F_WISH          (1 << ETHTOOL_F_WISH__BIT)
 +
+ #ifdef __KERNEL__
 =20
- /* CMDs currently supported */
- #define ETHTOOL_GSET		0x00000001 /* Get settings. */
-@@ -534,7 +617,9 @@ struct ethtool_flash {
- #define ETHTOOL_GMSGLVL		0x00000007 /* Get driver message level */
- #define ETHTOOL_SMSGLVL		0x00000008 /* Set driver msg level. */
- #define ETHTOOL_NWAY_RST	0x00000009 /* Restart autonegotiation. */
--#define ETHTOOL_GLINK		0x0000000a /* Get link status (ethtool_value) *=
-/
-+/* Get link status for host, i.e. whether the interface *and* the
-+ * physical port (if there is one) are up (ethtool_value). */
-+#define ETHTOOL_GLINK		0x0000000a
- #define ETHTOOL_GEEPROM		0x0000000b /* Get EEPROM data */
- #define ETHTOOL_SEEPROM		0x0000000c /* Set EEPROM data. */
- #define ETHTOOL_GCOALESCE	0x0000000e /* Get coalesce config */
-@@ -585,6 +670,9 @@ struct ethtool_flash {
+ #include <linux/rculist.h>
+@@ -744,6 +827,9 @@ struct ethtool_ops {
  #define ETHTOOL_GRXFHINDIR	0x00000038 /* Get RX flow hash indir'n tabl=
 e */
  #define ETHTOOL_SRXFHINDIR	0x00000039 /* Set RX flow hash indir'n tabl=
@@ -168,324 +174,434 @@ e */
  /* compatibility with older code */
  #define SPARC_ETH_GSET		ETHTOOL_GSET
  #define SPARC_ETH_SSET		ETHTOOL_SSET
-diff --git a/ethtool.c b/ethtool.c
-index 1afdfe4..7ac8823 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -39,6 +39,7 @@
- #include <limits.h>
- #include <ctype.h>
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c7d7074..6490860 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -783,6 +783,16 @@ struct netdev_tc_txq {
+  *	Set hardware filter for RFS.  rxq_index is the target queue index;
+  *	flow_id is a flow ID to be passed to rps_may_expire_flow() later.
+  *	Return the filter ID on success, or a negative error code.
++ *
++ * u32 (*ndo_fix_features)(struct net_device *dev, u32 features);
++ *	Modifies features supported by device depending on device-specific
++ *	constraints. Should not modify hardware state.
++ *
++ * int (*ndo_set_features)(struct net_device *dev, u32 features);
++ *	Called to update hardware configuration to new features. Selected
++ *	features might be less than what was returned by ndo_fix_features()=
+).
++ *	Must return >0 if it changed dev->features itself.
++ *
+  */
+ #define HAVE_NET_DEVICE_OPS
+ struct net_device_ops {
+@@ -862,6 +872,10 @@ struct net_device_ops {
+ 						     u16 rxq_index,
+ 						     u32 flow_id);
+ #endif
++	u32			(*ndo_fix_features)(struct net_device *dev,
++						    u32 features);
++	int			(*ndo_set_features)(struct net_device *dev,
++						    u32 features);
+ };
 =20
-+#include <unistd.h>
- #include <sys/socket.h>
- #include <netinet/in.h>
- #include <arpa/inet.h>
-@@ -97,6 +98,9 @@ static int do_gcoalesce(int fd, struct ifreq *ifr);
- static int do_scoalesce(int fd, struct ifreq *ifr);
- static int do_goffload(int fd, struct ifreq *ifr);
- static int do_soffload(int fd, struct ifreq *ifr);
-+static void parse_sfeatures_args(int argc, char **argp, int argi);
-+static int do_gfeatures(int fd, struct ifreq *ifr);
-+static int do_sfeatures(int fd, struct ifreq *ifr);
- static int do_gstats(int fd, struct ifreq *ifr);
- static int rxflow_str_to_type(const char *str);
- static int parse_rxfhashopts(char *optstr, u32 *data);
-@@ -133,6 +137,8 @@ static enum {
- 	MODE_SRING,
- 	MODE_GOFFLOAD,
- 	MODE_SOFFLOAD,
-+	MODE_GFEATURES,
-+	MODE_SFEATURES,
- 	MODE_GSTATS,
- 	MODE_GNFC,
- 	MODE_SNFC,
-@@ -196,8 +202,8 @@ static struct option {
- 		"		[ rx-mini N ]\n"
- 		"		[ rx-jumbo N ]\n"
- 	        "		[ tx N ]\n" },
--    { "-k", "--show-offload", MODE_GOFFLOAD, "Get protocol offload inf=
-ormation" },
--    { "-K", "--offload", MODE_SOFFLOAD, "Set protocol offload",
-+    { "-k", "--show-offload", MODE_GOFFLOAD, "Get protocol offload inf=
-ormation (deprecated)" },
-+    { "-K", "--offload", MODE_SOFFLOAD, "Set protocol offload (depreca=
-ted)",
- 		"		[ rx on|off ]\n"
- 		"		[ tx on|off ]\n"
- 		"		[ sg on|off ]\n"
-@@ -211,6 +217,10 @@ static struct option {
- 		"		[ ntuple on|off ]\n"
- 		"		[ rxhash on|off ]\n"
-     },
-+    { "-w", "--show-features", MODE_GFEATURES, "Get offload status" },
-+    { "-W", "--request-features", MODE_SFEATURES, "Set requested offlo=
-ad",
-+		"		[ feature-name on|off [...] ]\n"
-+		"		see --show-features output for feature-name strings\n" },
-     { "-i", "--driver", MODE_GDRV, "Show driver information" },
-     { "-d", "--register-dump", MODE_GREGS, "Do a register dump",
- 		"		[ raw on|off ]\n"
-@@ -743,8 +753,10 @@ static void parse_generic_cmdline(int argc, char *=
-*argp,
- 				break;
- 			}
- 		}
--		if( !found)
-+		if( !found) {
-+			fprintf(stdout, "bad param: %s\n", argp[i]);
- 			show_usage(1);
-+		}
+ /*
+@@ -913,12 +927,18 @@ struct net_device {
+ 	struct list_head	napi_list;
+ 	struct list_head	unreg_list;
+=20
+-	/* Net device features */
++	/* currently active device features */
+ 	u32			features;
+-
++	/* user-changeable features */
++	u32			hw_features;
++	/* user-requested features */
++	u32			wanted_features;
+ 	/* VLAN feature mask */
+ 	u32			vlan_features;
+=20
++	/* Net device feature bits; if you change something,
++	 * also update netdev_features_strings[] in ethtool.c */
++
+ #define NETIF_F_SG		1	/* Scatter/gather IO. */
+ #define NETIF_F_IP_CSUM		2	/* Can checksum TCP/UDP over IPv4. */
+ #define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack.=
+ */
+@@ -954,6 +974,12 @@ struct net_device {
+ #define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
+ #define NETIF_F_FSO		(SKB_GSO_FCOE << NETIF_F_GSO_SHIFT)
+=20
++	/* Features valid for ethtool to change */
++	/* =3D all defined minus driver/device-class-related */
++#define NETIF_F_NEVER_CHANGE	(NETIF_F_VLAN_CHALLENGED | \
++				  NETIF_F_LLTX | NETIF_F_NETNS_LOCAL)
++#define NETIF_F_ETHTOOL_BITS	(0x1f3fffff & ~NETIF_F_NEVER_CHANGE)
++
+ 	/* List of features with software fallbacks. */
+ #define NETIF_F_GSO_SOFTWARE	(NETIF_F_TSO | NETIF_F_TSO_ECN | \
+ 				 NETIF_F_TSO6 | NETIF_F_UFO)
+@@ -964,6 +990,12 @@ struct net_device {
+ #define NETIF_F_V6_CSUM		(NETIF_F_GEN_CSUM | NETIF_F_IPV6_CSUM)
+ #define NETIF_F_ALL_CSUM	(NETIF_F_V4_CSUM | NETIF_F_V6_CSUM)
+=20
++#define NETIF_F_ALL_TSO 	(NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_TSO_ECN=
+)
++
++#define NETIF_F_ALL_TX_OFFLOADS	(NETIF_F_ALL_CSUM | NETIF_F_SG | \
++				 NETIF_F_FRAGLIST | NETIF_F_ALL_TSO | \
++				 NETIF_F_SCTP_CSUM | NETIF_F_FCOE_CRC)
++
+ 	/*
+ 	 * If one device supports one of these features, then enable them
+ 	 * for all in netdev_increment_features.
+@@ -972,6 +1004,9 @@ struct net_device {
+ 				 NETIF_F_SG | NETIF_F_HIGHDMA |		\
+ 				 NETIF_F_FRAGLIST)
+=20
++	/* changeable features with no special hardware requirements */
++#define NETIF_F_SOFT_FEATURES	(NETIF_F_GSO | NETIF_F_GRO)
++
+ 	/* Interface index. Unique device identifier	*/
+ 	int			ifindex;
+ 	int			iflink;
+@@ -2405,8 +2440,13 @@ extern char *netdev_drivername(const struct net_=
+device *dev, char *buffer, int l
+=20
+ extern void linkwatch_run_queue(void);
+=20
++static inline u32 netdev_get_wanted_features(struct net_device *dev)
++{
++	return (dev->features & ~dev->hw_features) | dev->wanted_features;
++}
+ u32 netdev_increment_features(u32 all, u32 one, u32 mask);
+ u32 netdev_fix_features(struct net_device *dev, u32 features);
++void netdev_update_features(struct net_device *dev);
+=20
+ void netif_stacked_transfer_operstate(const struct net_device *rootdev=
+,
+ 					struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index ddd5df2..0ccbee6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5245,6 +5245,12 @@ u32 netdev_fix_features(struct net_device *dev, =
+u32 features)
+ 		features &=3D ~NETIF_F_TSO;
  	}
- }
 =20
-@@ -829,6 +841,8 @@ static void parse_cmdline(int argc, char **argp)
- 			    (mode =3D=3D MODE_SRING) ||
- 			    (mode =3D=3D MODE_GOFFLOAD) ||
- 			    (mode =3D=3D MODE_SOFFLOAD) ||
-+			    (mode =3D=3D MODE_GFEATURES) ||
-+			    (mode =3D=3D MODE_SFEATURES) ||
- 			    (mode =3D=3D MODE_GSTATS) ||
- 			    (mode =3D=3D MODE_GNFC) ||
- 			    (mode =3D=3D MODE_SNFC) ||
-@@ -919,6 +933,11 @@ static void parse_cmdline(int argc, char **argp)
- 				i =3D argc;
- 				break;
- 			}
-+			if (mode =3D=3D MODE_SFEATURES) {
-+				parse_sfeatures_args(argc, argp, i);
-+				i =3D argc;
-+				break;
-+			}
- 			if (mode =3D=3D MODE_SNTUPLE) {
- 				if (!strcmp(argp[i], "flow-type")) {
- 					i +=3D 1;
-@@ -1947,21 +1966,30 @@ static int dump_rxfhash(int fhash, u64 val)
++	/* Software GSO depends on SG. */
++	if ((features & NETIF_F_GSO) && !(features & NETIF_F_SG)) {
++		netdev_info(dev, "Dropping NETIF_F_GSO since no SG feature.\n");
++		features &=3D ~NETIF_F_GSO;
++	}
++
+ 	/* UFO needs SG and checksumming */
+ 	if (features & NETIF_F_UFO) {
+ 		/* maybe split UFO into V4 and V6? */
+@@ -5267,6 +5273,35 @@ u32 netdev_fix_features(struct net_device *dev, =
+u32 features)
+ }
+ EXPORT_SYMBOL(netdev_fix_features);
+=20
++void netdev_update_features(struct net_device *dev)
++{
++	u32 features;
++	int err =3D 0;
++
++	features =3D netdev_get_wanted_features(dev);
++
++	if (dev->netdev_ops->ndo_fix_features)
++		features =3D dev->netdev_ops->ndo_fix_features(dev, features);
++
++	/* driver might be less strict about feature dependencies */
++	features =3D netdev_fix_features(dev, features);
++
++	if (dev->features =3D=3D features)
++		return;
++
++	netdev_info(dev, "Features changed: 0x%08x -> 0x%08x\n",
++		dev->features, features);
++
++	if (dev->netdev_ops->ndo_set_features)
++		err =3D dev->netdev_ops->ndo_set_features(dev, features);
++
++	if (!err)
++		dev->features =3D features;
++	else if (err < 0)
++		netdev_err(dev, "set_features() failed (%d)\n", err);
++}
++EXPORT_SYMBOL(netdev_update_features);
++
+ /**
+  *	netif_stacked_transfer_operstate -	transfer operstate
+  *	@rootdev: the root or lower level device to transfer state from
+@@ -5401,11 +5436,13 @@ int register_netdevice(struct net_device *dev)
+ 	if (dev->iflink =3D=3D -1)
+ 		dev->iflink =3D dev->ifindex;
+=20
+-	dev->features =3D netdev_fix_features(dev, dev->features);
+-
+-	/* Enable software GSO if SG is supported. */
+-	if (dev->features & NETIF_F_SG)
+-		dev->features |=3D NETIF_F_GSO;
++	/* Transfer changeable features to wanted_features and enable
++	 * software offloads (GSO and GRO).
++	 */
++	dev->hw_features |=3D NETIF_F_SOFT_FEATURES;
++	dev->wanted_features =3D (dev->features & dev->hw_features)
++		| NETIF_F_SOFT_FEATURES;
++	netdev_update_features(dev);
+=20
+ 	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
+ 	 * vlan_dev_init() will do the dev->features check, so these features
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 5984ee0..1420edd 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -55,6 +55,7 @@ int ethtool_op_set_tx_csum(struct net_device *dev, u3=
+2 data)
+=20
  	return 0;
  }
++EXPORT_SYMBOL(ethtool_op_set_tx_csum);
 =20
--static int doit(void)
-+static int get_control_socket(struct ifreq *ifr)
+ int ethtool_op_set_tx_hw_csum(struct net_device *dev, u32 data)
  {
--	struct ifreq ifr;
- 	int fd;
+@@ -171,6 +172,136 @@ EXPORT_SYMBOL(ethtool_ntuple_flush);
 =20
- 	/* Setup our control structures. */
--	memset(&ifr, 0, sizeof(ifr));
--	strcpy(ifr.ifr_name, devname);
-+	memset(ifr, 0, sizeof(*ifr));
-+	strcpy(ifr->ifr_name, devname);
+ /* Handlers for each ethtool command */
 =20
- 	/* Open control socket. */
- 	fd =3D socket(AF_INET, SOCK_DGRAM, 0);
--	if (fd < 0) {
-+	if (fd < 0)
- 		perror("Cannot get control socket");
++#define ETHTOOL_DEV_FEATURE_WORDS	1
 +
-+	return fd;
++static int ethtool_get_features(struct net_device *dev, void __user *u=
+seraddr)
++{
++	struct ethtool_gfeatures cmd =3D {
++		.cmd =3D ETHTOOL_GFEATURES,
++		.size =3D ETHTOOL_DEV_FEATURE_WORDS,
++	};
++	struct ethtool_get_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
+ =3D {
++		{
++			.available =3D dev->hw_features,
++			.requested =3D dev->wanted_features,
++			.active =3D dev->features,
++			.never_changed =3D NETIF_F_NEVER_CHANGE,
++		},
++	};
++	u32 __user *sizeaddr;
++	u32 in_size;
++
++	sizeaddr =3D useraddr + offsetof(struct ethtool_gfeatures, size);
++	if (get_user(in_size, sizeaddr))
++		return -EFAULT;
++
++	if (in_size < ETHTOOL_DEV_FEATURE_WORDS)
++		return -EINVAL;
++
++	if (copy_to_user(useraddr, &cmd, sizeof(cmd)))
++		return -EFAULT;
++	useraddr +=3D sizeof(cmd);
++	if (copy_to_user(useraddr, features, sizeof(features)))
++		return -EFAULT;
++	return 0;
 +}
 +
-+static int doit(void)
++static int ethtool_set_features(struct net_device *dev, void __user *u=
+seraddr)
 +{
-+	struct ifreq ifr;
-+	int fd;
++	struct ethtool_sfeatures cmd;
++	struct ethtool_set_features_block features[ETHTOOL_DEV_FEATURE_WORDS]=
+;
++	int ret =3D 0;
 +
-+	fd =3D get_control_socket(&ifr);
-+	if (fd < 0)
- 		return 70;
--	}
++	if (copy_from_user(&cmd, useraddr, sizeof(cmd)))
++		return -EFAULT;
++	useraddr +=3D sizeof(cmd);
++
++	if (cmd.size !=3D ETHTOOL_DEV_FEATURE_WORDS)
++		return -EINVAL;
++
++	if (copy_from_user(features, useraddr, sizeof(features)))
++		return -EFAULT;
++
++	if (features[0].valid & ~NETIF_F_ETHTOOL_BITS)
++		return -EINVAL;
++
++	if (features[0].valid & ~dev->hw_features) {
++		features[0].valid &=3D dev->hw_features;
++		ret |=3D ETHTOOL_F_UNSUPPORTED;
++	}
++
++	dev->wanted_features &=3D ~features[0].valid;
++	dev->wanted_features |=3D features[0].valid & features[0].requested;
++	netdev_update_features(dev);
++
++	if ((dev->wanted_features ^ dev->features) & features[0].valid)
++		ret |=3D ETHTOOL_F_WISH;
++
++	return ret;
++}
++
++static const char netdev_features_strings[ETHTOOL_DEV_FEATURE_WORDS * =
+32][ETH_GSTRING_LEN] =3D {
++	/* NETIF_F_SG */              "scatter-gather",
++	/* NETIF_F_IP_CSUM */         "tx-checksum-hw-ipv4",
++	/* NETIF_F_NO_CSUM */         "tx-checksum-local",
++	/* NETIF_F_HW_CSUM */         "tx-checksum-hw-ip-generic",
++	/* NETIF_F_IPV6_CSUM */       "tx_checksum-hw-ipv6",
++	/* NETIF_F_HIGHDMA */         "highdma",
++	/* NETIF_F_FRAGLIST */        "scatter-gather-fraglist",
++	/* NETIF_F_HW_VLAN_TX */      "tx-vlan-hw",
++
++	/* NETIF_F_HW_VLAN_RX */      "rx-vlan-hw",
++	/* NETIF_F_HW_VLAN_FILTER */  "rx-vlan-filter",
++	/* NETIF_F_VLAN_CHALLENGED */ "*vlan-challenged",
++	/* NETIF_F_GSO */             "generic-segmentation-offload",
++	/* NETIF_F_LLTX */            "*lockless-tx",
++	/* NETIF_F_NETNS_LOCAL */     "*netns-local",
++	/* NETIF_F_GRO */             "generic-receive-offload",
++	/* NETIF_F_LRO */             "large-receive-offload",
++
++	/* NETIF_F_TSO */             "tcp-segmentation-offload",
++	/* NETIF_F_UFO */             "udp-fragmentation-offload",
++	/* NETIF_F_GSO_ROBUST */      "gso-robust",
++	/* NETIF_F_TSO_ECN */         "tcp-ecn-segmentation-offload",
++	/* NETIF_F_TSO6 */            "ipv6-tcp-segmentation-offload",
++	/* NETIF_F_FSO */             "fcoe-segmentation-offload",
++	"",
++	"",
++
++	/* NETIF_F_FCOE_CRC */        "tx-checksum-fcoe-crc",
++	/* NETIF_F_SCTP_CSUM */       "tx-checksum-sctp",
++	/* NETIF_F_FCOE_MTU */        "fcoe-mtu",
++	/* NETIF_F_NTUPLE */          "ntuple-filter",
++	/* NETIF_F_RXHASH */          "rx-hashing-offload",
++	"",
++	"",
++	"",
++};
++
++static int __ethtool_get_sset_count(struct net_device *dev, int sset)
++{
++	const struct ethtool_ops *ops =3D dev->ethtool_ops;
++
++	if (sset =3D=3D ETH_SS_FEATURES)
++		return ARRAY_SIZE(netdev_features_strings);
++	else if (ops && ops->get_sset_count)
++		return ops->get_sset_count(dev, sset);
++	else
++		return -EINVAL;
++}
++
++static void __ethtool_get_strings(struct net_device *dev,
++	u32 stringset, u8 *data)
++{
++	const struct ethtool_ops *ops =3D dev->ethtool_ops;
++
++	if (stringset =3D=3D ETH_SS_FEATURES)
++		memcpy(data, netdev_features_strings,
++			sizeof(netdev_features_strings));
++	else if (ops && ops->get_strings)
++		ops->get_strings(dev, stringset, data);
++}
++
+ static int ethtool_get_settings(struct net_device *dev, void __user *u=
+seraddr)
+ {
+ 	struct ethtool_cmd cmd =3D { .cmd =3D ETHTOOL_GSET };
+@@ -251,14 +382,10 @@ static noinline_for_stack int ethtool_get_sset_in=
+fo(struct net_device *dev,
+ 						    void __user *useraddr)
+ {
+ 	struct ethtool_sset_info info;
+-	const struct ethtool_ops *ops =3D dev->ethtool_ops;
+ 	u64 sset_mask;
+ 	int i, idx =3D 0, n_bits =3D 0, ret, rc;
+ 	u32 *info_buf =3D NULL;
 =20
- 	/* all of these are expected to populate ifr->ifr_data as needed */
- 	if (mode =3D=3D MODE_GDRV) {
-@@ -1998,6 +2026,10 @@ static int doit(void)
- 		return do_goffload(fd, &ifr);
- 	} else if (mode =3D=3D MODE_SOFFLOAD) {
- 		return do_soffload(fd, &ifr);
-+	} else if (mode =3D=3D MODE_GFEATURES) {
-+		return do_gfeatures(fd, &ifr);
-+	} else if (mode =3D=3D MODE_SFEATURES) {
-+		return do_sfeatures(fd, &ifr);
- 	} else if (mode =3D=3D MODE_GSTATS) {
- 		return do_gstats(fd, &ifr);
- 	} else if (mode =3D=3D MODE_GNFC) {
-@@ -2435,6 +2467,174 @@ static int do_soffload(int fd, struct ifreq *if=
+-	if (!ops->get_sset_count)
+-		return -EOPNOTSUPP;
+-
+ 	if (copy_from_user(&info, useraddr, sizeof(info)))
+ 		return -EFAULT;
+=20
+@@ -285,7 +412,7 @@ static noinline_for_stack int ethtool_get_sset_info=
+(struct net_device *dev,
+ 		if (!(sset_mask & (1ULL << i)))
+ 			continue;
+=20
+-		rc =3D ops->get_sset_count(dev, i);
++		rc =3D __ethtool_get_sset_count(dev, i);
+ 		if (rc >=3D 0) {
+ 			info.sset_mask |=3D (1ULL << i);
+ 			info_buf[idx++] =3D rc;
+@@ -1287,17 +1414,13 @@ static int ethtool_self_test(struct net_device =
+*dev, char __user *useraddr)
+ static int ethtool_get_strings(struct net_device *dev, void __user *us=
+eraddr)
+ {
+ 	struct ethtool_gstrings gstrings;
+-	const struct ethtool_ops *ops =3D dev->ethtool_ops;
+ 	u8 *data;
+ 	int ret;
+=20
+-	if (!ops->get_strings || !ops->get_sset_count)
+-		return -EOPNOTSUPP;
+-
+ 	if (copy_from_user(&gstrings, useraddr, sizeof(gstrings)))
+ 		return -EFAULT;
+=20
+-	ret =3D ops->get_sset_count(dev, gstrings.string_set);
++	ret =3D __ethtool_get_sset_count(dev, gstrings.string_set);
+ 	if (ret < 0)
+ 		return ret;
+=20
+@@ -1307,7 +1430,7 @@ static int ethtool_get_strings(struct net_device =
+*dev, void __user *useraddr)
+ 	if (!data)
+ 		return -ENOMEM;
+=20
+-	ops->get_strings(dev, gstrings.string_set, data);
++	__ethtool_get_strings(dev, gstrings.string_set, data);
+=20
+ 	ret =3D -EFAULT;
+ 	if (copy_to_user(useraddr, &gstrings, sizeof(gstrings)))
+@@ -1317,7 +1440,7 @@ static int ethtool_get_strings(struct net_device =
+*dev, void __user *useraddr)
+ 		goto out;
+ 	ret =3D 0;
+=20
+- out:
++out:
+ 	kfree(data);
+ 	return ret;
+ }
+@@ -1500,6 +1623,7 @@ int dev_ethtool(struct net *net, struct ifreq *if=
 r)
- 	return 0;
- }
-=20
-+static int get_feature_strings(int fd, struct ifreq *ifr,
-+	struct ethtool_gstrings **strs)
-+{
-+	struct ethtool_sset_info *sset_info;
-+	struct ethtool_gstrings *strings;
-+	int sz_str, n_strings, err;
-+
-+	sset_info =3D malloc(sizeof(struct ethtool_sset_info) + sizeof(u32));
-+	sset_info->cmd =3D ETHTOOL_GSSET_INFO;
-+	sset_info->sset_mask =3D (1ULL << ETH_SS_FEATURES);
-+	ifr->ifr_data =3D (caddr_t)sset_info;
-+	err =3D send_ioctl(fd, ifr);
-+
-+	if ((err < 0) ||
-+	    (!(sset_info->sset_mask & (1ULL << ETH_SS_FEATURES)))) {
-+		perror("Cannot get driver strings info");
-+		return -100;
-+	}
-+
-+	n_strings =3D sset_info->data[0];
-+	free(sset_info);
-+	sz_str =3D n_strings * ETH_GSTRING_LEN;
-+
-+	strings =3D calloc(1, sz_str + sizeof(struct ethtool_gstrings));
-+	if (!strings) {
-+		fprintf(stderr, "no memory available\n");
-+		return -95;
-+	}
-+
-+	strings->cmd =3D ETHTOOL_GSTRINGS;
-+	strings->string_set =3D ETH_SS_FEATURES;
-+	strings->len =3D n_strings;
-+	ifr->ifr_data =3D (caddr_t) strings;
-+	err =3D send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Cannot get feature strings information");
-+		free(strings);
-+		return -96;
-+	}
-+
-+	*strs =3D strings;
-+	return n_strings;
-+}
-+
-+struct ethtool_sfeatures *features_req;
-+
-+static void parse_sfeatures_args(int argc, char **argp, int argi)
-+{
-+	struct cmdline_info *cmdline_desc, *cp;
-+	struct ethtool_gstrings *strings;
-+	struct ifreq ifr;
-+	int n_strings, sz_features, i;
-+	int fd, changed =3D 0;
-+
-+	fd =3D get_control_socket(&ifr);
-+	if (fd < 0)
-+		exit(100);
-+
-+	n_strings =3D get_feature_strings(fd, &ifr, &strings);
-+	if (n_strings < 0)
-+		exit(-n_strings);
-+
-+	sz_features =3D sizeof(*features_req->features) * ((n_strings + 31) /=
- 32);
-+
-+	cp =3D cmdline_desc =3D calloc(n_strings, sizeof(*cmdline_desc));
-+	features_req =3D calloc(1, sizeof(*features_req) + sz_features);
-+	if (!cmdline_desc || !features_req) {
-+		fprintf(stderr, "no memory available\n");
-+		exit(95);
-+	}
-+
-+	features_req->size =3D (n_strings + 31) / 32;
-+
-+	for (i =3D 0; i < n_strings; ++i) {
-+		char c =3D strings->data[i*ETH_GSTRING_LEN];
-+		if (!c || c =3D=3D '*')
-+			continue;
-+
-+		strings->data[i*ETH_GSTRING_LEN + ETH_GSTRING_LEN-1] =3D 0;
-+		cp->name =3D (const char *)strings->data + i * ETH_GSTRING_LEN;
-+		cp->type =3D CMDL_FLAG;
-+		cp->flag_val =3D 1 << (i % 32);
-+		cp->wanted_val =3D &features_req->features[i / 32].requested;
-+		cp->seen_val =3D &features_req->features[i / 32].valid;
-+		++cp;
-+	}
-+
-+	parse_generic_cmdline(argc, argp, argi, &changed,
-+		cmdline_desc, cp - cmdline_desc);
-+
-+	free(cmdline_desc);
-+	free(strings);
-+	close(fd);
-+
-+	if (!changed) {
-+		free(features_req);
-+		features_req =3D NULL;
-+	}
-+}
-+
-+static int do_gfeatures(int fd, struct ifreq *ifr)
-+{
-+	struct ethtool_gstrings *strings;
-+	struct ethtool_gfeatures *features;
-+	int n_strings, sz_features, err, i;
-+
-+	n_strings =3D get_feature_strings(fd, ifr, &strings);
-+	if (n_strings < 0)
-+		return -n_strings;
-+
-+	sz_features =3D sizeof(*features->features) * ((n_strings + 31) / 32)=
-;
-+	features =3D calloc(1, sz_features + sizeof(*features));
-+	if (!features) {
-+		fprintf(stderr, "no memory available\n");
-+		return 95;
-+	}
-+
-+	features->cmd =3D ETHTOOL_GFEATURES;
-+	features->size =3D (n_strings + 31) / 32;
-+	ifr->ifr_data =3D (caddr_t) features;
-+	err =3D send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Cannot get feature status");
-+		free(strings);
-+		free(features);
-+		return 97;
-+	}
-+
-+	fprintf(stdout, "Offload state:  (name: enabled,wanted,changable)\n")=
-;
-+	for (i =3D 0; i < n_strings; i++) {
-+		if (!strings->data[i * ETH_GSTRING_LEN])
-+			continue;	/* empty */
-+#define P_FLAG(f) \
-+	(features->features[i / 32].f & (1 << (i % 32))) ? "yes" : " no"
-+		fprintf(stdout, "     %-*.*s %s,%s,%s\n",
-+			ETH_GSTRING_LEN, ETH_GSTRING_LEN,
-+			&strings->data[i * ETH_GSTRING_LEN],
-+			P_FLAG(active), P_FLAG(requested), P_FLAG(available));
-+#undef P_FLAG
-+	}
-+	free(strings);
-+	free(features);
-+
-+	return 0;
-+}
-+
-+static int do_sfeatures(int fd, struct ifreq *ifr)
-+{
-+	int err;
-+
-+	if (!features_req) {
-+		fprintf(stderr, "no features changed\n");
-+		return 97;
-+	}
-+
-+	features_req->cmd =3D ETHTOOL_SFEATURES;
-+	ifr->ifr_data =3D (caddr_t) features_req;
-+	err =3D send_ioctl(fd, ifr);
-+	if (err < 0) {
-+		perror("Cannot change features");
-+		free(features_req);
-+		return 97;
-+	}
-+
-+	return 0;
-+}
-+
-+
- static int do_gset(int fd, struct ifreq *ifr)
- {
- 	int err;
+ 	case ETHTOOL_GRXCLSRLCNT:
+ 	case ETHTOOL_GRXCLSRULE:
+ 	case ETHTOOL_GRXCLSRLALL:
++	case ETHTOOL_GFEATURES:
+ 		break;
+ 	default:
+ 		if (!capable(CAP_NET_ADMIN))
+@@ -1693,6 +1817,12 @@ int dev_ethtool(struct net *net, struct ifreq *i=
+fr)
+ 	case ETHTOOL_SRXFHINDIR:
+ 		rc =3D ethtool_set_rxfh_indir(dev, useraddr);
+ 		break;
++	case ETHTOOL_GFEATURES:
++		rc =3D ethtool_get_features(dev, useraddr);
++		break;
++	case ETHTOOL_SFEATURES:
++		rc =3D ethtool_set_features(dev, useraddr);
++		break;
+ 	default:
+ 		rc =3D -EOPNOTSUPP;
+ 	}
 --=20
 1.7.2.3
 
