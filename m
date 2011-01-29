@@ -1,21 +1,25 @@
 From: Balaji Venkatachalam <balaji.v@thotakaa.com>
-Subject: [PATCH]netdev: add driver for enc424j600 ethernet chip on SPI bus
-Date: Sat, 29 Jan 2011 13:33:38 +0530
-Message-ID: <AANLkTikSNjq7Ncp4=hLp7-_cayyMad0uQzuHehPr1kSf@mail.gmail.com>
+Subject: Re: [PATCH]netdev: add driver for enc424j600 ethernet chip on SPI bus
+Date: Sat, 29 Jan 2011 13:54:18 +0530
+Message-ID: <AANLkTiksJpnx3M=D=WPF1wGej4POEQG4No-S3efb_gNM@mail.gmail.com>
+References: <AANLkTinosxXKgfkqGKqCLGi8tWeP4xnT1P3kMRu51CvS@mail.gmail.com>
+	<AANLkTi=WQ-o+D0NicpGBd_qcfivLYaix_CUGWi2Rd_Zv@mail.gmail.com>
+	<AANLkTi=F7n3fXr1EopYgoXTWkX7Wtx7dCs0x-t36871J@mail.gmail.com>
+	<20110124.150450.48527021.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: mohan@thotakaa.com, blue.cube@seznam.cz,
-	lanconelli.claudio@eptar.com,
-	Sriram Subramanian <sriram@thotakaa.com>,
-	"vbalaji.acs" <vbalaji.acs@gmail.com>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, mirqus@gmail.com, mohan@thotakaa.com,
+	blue.cube@seznam.cz, lanconelli.claudio@eptar.com,
+	sriram@thotakaa.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:59858 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752398Ab1A2IDl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jan 2011 03:03:41 -0500
-Received: by wyb28 with SMTP id 28so3969815wyb.19
-        for <netdev@vger.kernel.org>; Sat, 29 Jan 2011 00:03:39 -0800 (PST)
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:41880 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753768Ab1A2IYU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jan 2011 03:24:20 -0500
+Received: by wwa36 with SMTP id 36so4186321wwa.1
+        for <netdev@vger.kernel.org>; Sat, 29 Jan 2011 00:24:18 -0800 (PST)
+In-Reply-To: <20110124.150450.48527021.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
