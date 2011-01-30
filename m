@@ -1,55 +1,62 @@
-From: Stefan Weil <weil@mail.berlios.de>
-Subject: [PATCH] isdn: icn: Fix potentially wrong string handling
-Date: Sun, 30 Jan 2011 21:31:26 +0100
-Message-ID: <1296419486-5482-1-git-send-email-weil@mail.berlios.de>
-Cc: Stefan Weil <weil@mail.berlios.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>, Tejun Heo <tj@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+Subject: [PATCH  kernel 2.6.38rc2-git7] axnet_cs: reduce delay time at
+ ei_rx_overrun
+Date: Mon, 31 Jan 2011 06:16:16 +0900
+Message-ID: <20110131061616.05b2fa6f.ken_kawasaki@spring.nifty.jp>
+References: <20090405094907.5f6a5fea.ken_kawasaki@spring.nifty.jp>
+	<20090419084444.4ee7ddee.ken_kawasaki@spring.nifty.jp>
+	<20090426162929.3d036f26.ken_kawasaki@spring.nifty.jp>
+	<20090913172257.6c1976ec.ken_kawasaki@spring.nifty.jp>
+	<20091004073257.52a6624b.ken_kawasaki@spring.nifty.jp>
+	<20091221205849.dae4e929.ken_kawasaki@spring.nifty.jp>
+	<20091223171004.77316fa5.ken_kawasaki@spring.nifty.jp>
+	<20100123065625.db751a12.ken_kawasaki@spring.nifty.jp>
+	<20100228083420.9ca8e285.ken_kawasaki@spring.nifty.jp>
+	<20100612191728.2d272cc1.ken_kawasaki@spring.nifty.jp>
+	<20100620102427.77d2c7d3.ken_kawasaki@spring.nifty.jp>
+	<20100706202243.95319ab4.ken_kawasaki@spring.nifty.jp>
+	<20100710201813.a3e5c79c.ken_kawasaki@spring.nifty.jp>
+	<20100829074501.946ebcb8.ken_kawasaki@spring.nifty.jp>
+	<20101030071751.63611ede.ken_kawasaki@spring.nifty.jp>
+	<20110111205558.98fcab01.ken_kawasaki@spring.nifty.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userg507.nifty.com ([202.248.238.87]:58924 "EHLO
+	userg507.nifty.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752075Ab1A3VQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 16:16:31 -0500
+Received: from localhost.localdomain (eaoska084016.adsl.ppp.infoweb.ne.jp [218.217.191.16])by userg507.nifty.com with SMTP id p0ULGMhp018727
+	for <netdev@vger.kernel.org>; Mon, 31 Jan 2011 06:16:22 +0900
+In-Reply-To: <20110111205558.98fcab01.ken_kawasaki@spring.nifty.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This warning was reported by cppcheck:
-drivers/isdn/icn/icn.c:1641: error: Dangerous usage of 'rev' (strncpy doesn't always 0-terminate it)
 
-If strncpy copied 20 bytes, the destination string rev was not terminated.
-The patch adds one more byte to rev and makes sure that this byte is
-always 0.
+axnet_cs:
+    mdelay of 10ms is too long at ei_rx_overrun.
+    It should be reduced to 2ms.
 
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Stefan Weil <weil@mail.berlios.de>
+Signed-off-by: Ken Kawasaki <ken_kawasaki@spring.nifty.jp>
+
 ---
- drivers/isdn/icn/icn.c |   15 ++++++++-------
- 1 files changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/isdn/icn/icn.c b/drivers/isdn/icn/icn.c
-index f2b5bab..540c181 100644
---- a/drivers/isdn/icn/icn.c
-+++ b/drivers/isdn/icn/icn.c
-@@ -1627,7 +1627,7 @@ __setup("icn=", icn_setup);
- static int __init icn_init(void)
- {
- 	char *p;
--	char rev[20];
-+	char rev[21];
+--- linux-2.6.38-rc2-git7/drivers/net/pcmcia/axnet_cs.c.orig	2011-01-29 19:56:56.261560045 +0900
++++ linux-2.6.38-rc2-git7/drivers/net/pcmcia/axnet_cs.c	2011-01-30 11:00:12.500397574 +0900
+@@ -1488,12 +1488,10 @@ static void ei_rx_overrun(struct net_dev
+     
+ 	/* 
+ 	 * Wait a full Tx time (1.2ms) + some guard time, NS says 1.6ms total.
+-	 * Early datasheets said to poll the reset bit, but now they say that
+-	 * it "is not a reliable indicator and subsequently should be ignored."
+-	 * We wait at least 10ms.
++	 * We wait at least 2ms.
+ 	 */
  
- 	memset(&dev, 0, sizeof(icn_dev));
- 	dev.memaddr = (membase & 0x0ffc000);
-@@ -1638,6 +1638,7 @@ static int __init icn_init(void)
+-	mdelay(10);
++	mdelay(2);
  
- 	if ((p = strchr(revision, ':'))) {
- 		strncpy(rev, p + 1, 20);
-+		rev[20] = '\0';
- 		p = strchr(rev, '$');
- 		if (p)
- 			*p = 0;
--- 
-1.7.2.3
+ 	/*
+ 	 * Reset RBCR[01] back to zero as per magic incantation.
