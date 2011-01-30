@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix ip link add netns oops
-Date: Sun, 30 Jan 2011 01:15:25 -0800 (PST)
-Message-ID: <20110130.011525.39175277.davem@davemloft.net>
-References: <m1fwsbus25.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH] caif: bugfix - add caif headers for userspace usage.
+Date: Sun, 30 Jan 2011 01:15:32 -0800 (PST)
+Message-ID: <20110130.011532.59673751.davem@davemloft.net>
+References: <1296342637-7039-1-git-send-email-sjur.brandeland@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eswierk@bigswitch.com, stable@kernel.org
-To: ebiederm@xmission.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: sjur.brandeland@stericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37255
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37260
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751776Ab1A3JOu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 04:14:50 -0500
-In-Reply-To: <m1fwsbus25.fsf@fess.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1752503Ab1A3JO5 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 30 Jan 2011 04:14:57 -0500
+In-Reply-To: <1296342637-7039-1-git-send-email-sjur.brandeland@stericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 29 Jan 2011 16:57:22 -0800
+=46rom: Sjur Br=E6ndeland <sjur.brandeland@stericsson.com>
+Date: Sun, 30 Jan 2011 00:10:37 +0100
 
-> 
-> Ed Swierk <eswierk@bigswitch.com> writes:
->> On 2.6.35.7
->>  ip link add link eth0 netns 9999 type macvlan
->> where 9999 is a nonexistent PID triggers an oops and causes all network functions to hang:
->> [10663.821898] BUG: unable to handle kernel NULL pointer dereference at 000000000000006d
->>  [10663.821917] IP: [<ffffffff8149c2fa>] __dev_alloc_name+0x9a/0x170
- ...
-> This bug was introduced in:
-> commit 81adee47dfb608df3ad0b91d230fb3cef75f0060
-> Author: Eric W. Biederman <ebiederm@aristanetworks.com>
-> Date:   Sun Nov 8 00:53:51 2009 -0800
-> 
->     net: Support specifying the network namespace upon device creation.
-...
-> Where apparently I forgot to add error handling to the path where we create
-> a new network device in a new network namespace, and pass in an invalid pid.
-> 
-> Cc: stable@kernel.org
-> Reported-by: Ed Swierk <eswierk@bigswitch.com>
-> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+> Add caif_socket.h and if_caif.h to the kernel header files
+> exported for use by userspace.
+>=20
+> Signed-off-by: Sjur Braendeland <sjur.brandeland@stericsson.com>
 
-Applied, thanks Eric.
+Applied to net-2.6
