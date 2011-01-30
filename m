@@ -1,39 +1,63 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Blog coverage of Consistent Network Device Naming
-Date: Sun, 30 Jan 2011 08:23:38 -0600
-Message-ID: <20110130142338.GA17114@auslistsprd01.us.dell.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH] net: Add compat ioctl support for the ipv4 multicast ioctl SIOCGETSGCNT
+Date: Sun, 30 Jan 2011 10:15:40 -0800
+Message-ID: <m18vy2tfzn.fsf@fess.ebiederm.org>
+References: <m18vy3uof7.fsf@fess.ebiederm.org>
+	<201101301326.14390.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-hotplug-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out02.mta.xmission.com ([166.70.13.232]:49107 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752385Ab1A3SPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 13:15:52 -0500
+In-Reply-To: <201101301326.14390.arnd@arndb.de> (Arnd Bergmann's message of
+	"Sun, 30 Jan 2011 13:26:14 +0100")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There has been a good bit of blog coverage over the Consistent Network
-Device Naming (biosdevname) feature this past week.  If you're curious:
+Arnd Bergmann <arnd@arndb.de> writes:
 
-A Lesson In Persistency by Rahul Sundaram
-http://fedoranext.wordpress.com/2010/12/07/a-lesson-in-persistency
+> On Sunday 30 January 2011 03:15:56 Eric W. Biederman wrote:
+>> A trivial compact ioctl implementation would conflict with:
+>> SIOCAX25ADDUID
+>> SIOCAIPXPRISLT
+>> SIOCGETSGCNT_IN6
+>> SIOCGETSGCNT
+>> SIOCRSSCAUSE
+>> SIOCX25SSUBSCRIP
+>> SIOCX25SDTEFACILITIES
+>
+> Since you have compiled the list, did you see if these are all handled
+> compatible, or would it make sense to create patches for the other
+> protocols as well, to handle them individually?
 
+I didn't look.  I had a specific pre-existing application that didn't
+work, and those ioctls meant the existing solutions for network compat
+ioctls wouldn't work and the infrastructure needed fixing.
 
-NetworkWorld 2011-01-24 by Joe Brockmeier
-http://www.networkworld.com/community/fedora-15-changes-network-device-naming
+>> +#ifdef CONFIG_COMPAT
+>> +static int compat_raw_ioctl(struct sock *sk, unsigned int cmd, unsigned long arg)
+>> +{
+>> +	switch (cmd) {
+>> +	case SIOCOUTQ:
+>> +	case SIOCINQ:
+>> +		return -ENOIOCTLCMD;
+>
+> I would have suggested doing
+>
+> 	return raw_ioctl(sk, cmd, (unsigned long)compat_ptr(arg));
+>
+> here, but returning -ENOIOCTLCMD is equivalent and correct. Your solution
+> is slightly more compact, the other one would be slightly faster.
 
-Matt Domsch's blog and repost on dell.com
-http://domsch.com/blog/?p=455  2011-01-23
-http://en.community.dell.com/dell-blogs/enterprise/b/tech-center/archive/2011/01/24/consistent-network-device-naming-coming-to-fedora-15.aspx
+Correct and maintainable is fine by me.
 
-LWN.net
-http://lwn.net/Articles/424859/#Comments
+Right now my network stack performance problems are almost all rtnl_lock
+hold time problems.
 
-Slashdot
-http://linux.slashdot.org/story/11/01/26/0252220/Fedora-15-Changes-Network-Device-Naming-Scheme
-
-Digitizor
-http://digitizor.com/2011/01/25/fedora-15-network-device-naming/ Digitizor 2011-01-25
-
--- 
-Matt Domsch
-Technology Strategist
-Dell | Office of the CTO
+Eric
