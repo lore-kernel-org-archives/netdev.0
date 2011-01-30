@@ -1,133 +1,240 @@
 From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: [PATCH] net: Fix ip link add netns oops
-Date: Sat, 29 Jan 2011 16:57:22 -0800
-Message-ID: <m1fwsbus25.fsf@fess.ebiederm.org>
+Subject: [PATCH] net: Add compat ioctl support for the ipv4 multicast ioctl SIOCGETSGCNT
+Date: Sat, 29 Jan 2011 18:15:56 -0800
+Message-ID: <m18vy3uof7.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>,
-	Ed Swierk <eswierk@bigswitch.com>, stable@kernel.org
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Patrick McHardy <kaber@trash.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:60684 "EHLO
+Received: from out01.mta.xmission.com ([166.70.13.231]:57952 "EHLO
 	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925Ab1A3A5b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jan 2011 19:57:31 -0500
+	with ESMTP id S1751772Ab1A3CQH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jan 2011 21:16:07 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Ed Swierk <eswierk@bigswitch.com> writes:
-> On 2.6.35.7
->  ip link add link eth0 netns 9999 type macvlan
-> where 9999 is a nonexistent PID triggers an oops and causes all network functions to hang:
-> [10663.821898] BUG: unable to handle kernel NULL pointer dereference at 000000000000006d
->  [10663.821917] IP: [<ffffffff8149c2fa>] __dev_alloc_name+0x9a/0x170
->  [10663.821933] PGD 1d3927067 PUD 22f5c5067 PMD 0
->  [10663.821944] Oops: 0000 [#1] SMP
->  [10663.821953] last sysfs file: /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
->  [10663.821959] CPU 3
->  [10663.821963] Modules linked in: macvlan ip6table_filter ip6_tables rfcomm ipt_MASQUERADE binfmt_misc iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack sco ipt_REJECT bnep l2cap xt_tcpudp iptable_filter ip_tables x_tables bridge stp vboxnetadp vboxnetflt vboxdrv kvm_intel kvm parport_pc ppdev snd_hda_codec_intelhdmi snd_hda_codec_conexant arc4 iwlagn iwlcore mac80211 snd_hda_intel snd_hda_codec snd_hwdep snd_pcm snd_seq_midi snd_rawmidi i915 snd_seq_midi_event snd_seq thinkpad_acpi drm_kms_helper btusb tpm_tis nvram uvcvideo snd_timer snd_seq_device bluetooth videodev v4l1_compat v4l2_compat_ioctl32 tpm drm tpm_bios snd cfg80211 psmouse serio_raw intel_ips soundcore snd_page_alloc intel_agp i2c_algo_bit video output netconsole configfs lp parport usbhid hid e100
- 0e sdhci_pci ahci libahci sdhci led_class
->  [10663.822155]
->  [10663.822161] Pid: 6000, comm: ip Not tainted 2.6.35-23-generic #41-Ubuntu 2901CTO/2901CTO
->  [10663.822167] RIP: 0010:[<ffffffff8149c2fa>] [<ffffffff8149c2fa>] __dev_alloc_name+0x9a/0x170
->  [10663.822177] RSP: 0018:ffff88014aebf7b8 EFLAGS: 00010286
->  [10663.822182] RAX: 00000000fffffff4 RBX: ffff8801ad900800 RCX: 0000000000000000
->  [10663.822187] RDX: ffff880000000000 RSI: 0000000000000000 RDI: ffff88014ad63000
->  [10663.822191] RBP: ffff88014aebf808 R08: 0000000000000041 R09: 0000000000000041
->  [10663.822196] R10: 0000000000000000 R11: dead000000200200 R12: ffff88014aebf818
->  [10663.822201] R13: fffffffffffffffd R14: ffff88014aebf918 R15: ffff88014ad62000
->  [10663.822207] FS: 00007f00c487f700(0000) GS:ffff880001f80000(0000) knlGS:0000000000000000
->  [10663.822212] CS: 0010 DS: 0000 ES: 0000 CR0: 0000000080050033
->  [10663.822216] CR2: 000000000000006d CR3: 0000000231f19000 CR4: 00000000000026e0
->  [10663.822221] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
->  [10663.822226] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
->  [10663.822231] Process ip (pid: 6000, threadinfo ffff88014aebe000, task ffff88014afb16e0)
->  [10663.822236] Stack:
->  [10663.822240] ffff88014aebf808 ffffffff814a2bb5 ffff88014aebf7e8 00000000a00ee8d6
->  [10663.822251] <0> 0000000000000000 ffffffffa00ef940 ffff8801ad900800 ffff88014aebf818
->  [10663.822265] <0> ffff88014aebf918 ffff8801ad900800 ffff88014aebf858 ffffffff8149c413
->  [10663.822281] Call Trace:
->  [10663.822290] [<ffffffff814a2bb5>] ? dev_addr_init+0x75/0xb0
->  [10663.822298] [<ffffffff8149c413>] dev_alloc_name+0x43/0x90
->  [10663.822307] [<ffffffff814a85ee>] rtnl_create_link+0xbe/0x1b0
->  [10663.822314] [<ffffffff814ab2aa>] rtnl_newlink+0x48a/0x570
->  [10663.822321] [<ffffffff814aafcc>] ? rtnl_newlink+0x1ac/0x570
->  [10663.822332] [<ffffffff81030064>] ? native_x2apic_icr_read+0x4/0x20
->  [10663.822339] [<ffffffff814a8c17>] rtnetlink_rcv_msg+0x177/0x290
->  [10663.822346] [<ffffffff814a8aa0>] ? rtnetlink_rcv_msg+0x0/0x290
->  [10663.822354] [<ffffffff814c25d9>] netlink_rcv_skb+0xa9/0xd0
->  [10663.822360] [<ffffffff814a8a85>] rtnetlink_rcv+0x25/0x40
->  [10663.822367] [<ffffffff814c223e>] netlink_unicast+0x2de/0x2f0
->  [10663.822374] [<ffffffff814c303e>] netlink_sendmsg+0x1fe/0x2e0
->  [10663.822383] [<ffffffff81488533>] sock_sendmsg+0xf3/0x120
->  [10663.822391] [<ffffffff815899fe>] ? _raw_spin_lock+0xe/0x20
->  [10663.822400] [<ffffffff81168656>] ? __d_lookup+0x136/0x150
->  [10663.822406] [<ffffffff815899fe>] ? _raw_spin_lock+0xe/0x20
->  [10663.822414] [<ffffffff812b7a0d>] ? _atomic_dec_and_lock+0x4d/0x80
->  [10663.822422] [<ffffffff8116ea90>] ? mntput_no_expire+0x30/0x110
->  [10663.822429] [<ffffffff81486ff5>] ? move_addr_to_kernel+0x65/0x70
->  [10663.822435] [<ffffffff81493308>] ? verify_iovec+0x88/0xe0
->  [10663.822442] [<ffffffff81489020>] sys_sendmsg+0x240/0x3a0
-> [10663.822450] [<ffffffff8111e2a9>] ? __do_fault+0x479/0x560
->  [10663.822457] [<ffffffff815899fe>] ? _raw_spin_lock+0xe/0x20
->  [10663.822465] [<ffffffff8116cf4a>] ? alloc_fd+0x10a/0x150
->  [10663.822473] [<ffffffff8158d76e>] ? do_page_fault+0x15e/0x350
->  [10663.822482] [<ffffffff8100a0f2>] system_call_fastpath+0x16/0x1b
->  [10663.822487] Code: 90 48 8d 78 02 be 25 00 00 00 e8 92 1d e2 ff 48 85 c0 75 cf bf 20 00 00 00 e8 c3 b1 c6 ff 49 89 c7 b8 f4 ff ff ff 4d 85 ff 74 bd <4d> 8b 75 70 49 8d 45 70 48 89 45 b8 49 83 ee 58 eb 28 48 8d 55
->  [10663.822618] RIP [<ffffffff8149c2fa>] __dev_alloc_name+0x9a/0x170
->  [10663.822627] RSP <ffff88014aebf7b8>
->  [10663.822631] CR2: 000000000000006d
->  [10663.822636] ---[ end trace 3dfd6c3ad5327ca7 ]---
+SIOCGETSGCNT is not a unique ioctl value as it it maps tio SIOCPROTOPRIVATE +1,
+which unfortunately means the existing infrastructure for compat networking
+ioctls is insufficient.  A trivial compact ioctl implementation would conflict
+with:
 
-This bug was introduced in:
-commit 81adee47dfb608df3ad0b91d230fb3cef75f0060
-Author: Eric W. Biederman <ebiederm@aristanetworks.com>
-Date:   Sun Nov 8 00:53:51 2009 -0800
+SIOCAX25ADDUID
+SIOCAIPXPRISLT
+SIOCGETSGCNT_IN6
+SIOCGETSGCNT
+SIOCRSSCAUSE
+SIOCX25SSUBSCRIP
+SIOCX25SDTEFACILITIES
 
-    net: Support specifying the network namespace upon device creation.
+To make this work I have updated the compat_ioctl decode path to mirror the
+the normal ioctl decode path.  I have added an ipv4 inet_compat_ioctl function
+so that I can have ipv4 specific compat ioctls.   I have added a compat_ioctl
+function into struct proto so I can break out ioctls by which kind of ip socket
+I am using.  I have added a compat_raw_ioctl function because SIOCGETSGCNT only
+works on raw sockets.  I have added a ipmr_compat_ioctl that mirrors the normal
+ipmr_ioctl.
 
-    There is no good reason to not support userspace specifying the
-    network namespace during device creation, and it makes it easier
-    to create a network device and pass it to a child network namespace
-    with a well known name.
+This was necessary because unfortunately the struct layout for the SIOCGETSGCNT
+has unsigned longs in it so changes between 32bit and 64bit kernels.
 
-    We have to be careful to ensure that the target network namespace
-    for the new device exists through the life of the call.  To keep
-    that logic clear I have factored out the network namespace grabbing
-    logic into rtnl_link_get_net.
+This change was sufficient to run a 32bit ip multicast routing daemon on a
+64bit kernel.
 
-    In addtion we need to continue to pass the source network namespace
-    to the rtnl_link_ops.newlink method so that we can find the base
-    device source network namespace.
-
-    Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
-    Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-Where apparently I forgot to add error handling to the path where we create
-a new network device in a new network namespace, and pass in an invalid pid.
-
-Cc: stable@kernel.org
-Reported-by: Ed Swierk <eswierk@bigswitch.com>
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Reported-by: Bill Fenner <fenner@aristanetworks.com>
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 ---
- net/core/rtnetlink.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
+ include/linux/mroute.h |    1 +
+ include/net/sock.h     |    2 ++
+ net/ipv4/af_inet.c     |   16 ++++++++++++++++
+ net/ipv4/ipmr.c        |   46 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/raw.c         |   19 +++++++++++++++++++
+ 5 files changed, 84 insertions(+), 0 deletions(-)
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index b2a718d..d84fef4 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1517,6 +1517,9 @@ replay:
- 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
+diff --git a/include/linux/mroute.h b/include/linux/mroute.h
+index 0fa7a3a..b21d567 100644
+--- a/include/linux/mroute.h
++++ b/include/linux/mroute.h
+@@ -150,6 +150,7 @@ static inline int ip_mroute_opt(int opt)
+ extern int ip_mroute_setsockopt(struct sock *, int, char __user *, unsigned int);
+ extern int ip_mroute_getsockopt(struct sock *, int, char __user *, int __user *);
+ extern int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg);
++extern int ipmr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
+ extern int ip_mr_init(void);
+ #else
+ static inline
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 73a4f97..221212e 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -734,6 +734,8 @@ struct proto {
+ 					int level,
+ 					int optname, char __user *optval,
+ 					int __user *option);
++	int			(*compat_ioctl)(struct sock *sk,
++					unsigned int cmd, unsigned long arg);
+ #endif
+ 	int			(*sendmsg)(struct kiocb *iocb, struct sock *sk,
+ 					   struct msghdr *msg, size_t len);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index f581f77..8bda7c9 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -880,6 +880,19 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ }
+ EXPORT_SYMBOL(inet_ioctl);
  
- 		dest_net = rtnl_link_get_net(net, tb);
-+		if (IS_ERR(dest_net))
-+			return PTR_ERR(dest_net);
++#ifdef CONFIG_COMPAT
++int inet_compat_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
++{
++	struct sock *sk = sock->sk;
++	int err = -ENOIOCTLCMD;
 +
- 		dev = rtnl_create_link(net, dest_net, ifname, ops, tb);
++	if (sk->sk_prot->compat_ioctl)
++		err = sk->sk_prot->compat_ioctl(sk, cmd, arg);
++
++	return err;
++}
++#endif
++
+ const struct proto_ops inet_stream_ops = {
+ 	.family		   = PF_INET,
+ 	.owner		   = THIS_MODULE,
+@@ -903,6 +916,7 @@ const struct proto_ops inet_stream_ops = {
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
++	.compat_ioctl	   = inet_compat_ioctl,
+ #endif
+ };
+ EXPORT_SYMBOL(inet_stream_ops);
+@@ -929,6 +943,7 @@ const struct proto_ops inet_dgram_ops = {
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
++	.compat_ioctl	   = inet_compat_ioctl,
+ #endif
+ };
+ EXPORT_SYMBOL(inet_dgram_ops);
+@@ -959,6 +974,7 @@ static const struct proto_ops inet_sockraw_ops = {
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
++	.compat_ioctl	   = inet_compat_ioctl,
+ #endif
+ };
  
- 		if (IS_ERR(dev))
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 86dd569..b294da7 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -60,6 +60,7 @@
+ #include <linux/notifier.h>
+ #include <linux/if_arp.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/compat.h>
+ #include <net/ipip.h>
+ #include <net/checksum.h>
+ #include <net/netlink.h>
+@@ -1434,6 +1435,51 @@ int ipmr_ioctl(struct sock *sk, int cmd, void __user *arg)
+ 	}
+ }
+ 
++#ifdef CONFIG_COMPAT
++struct compat_sioc_sg_req {
++	struct in_addr src;
++	struct in_addr grp;
++	compat_ulong_t pktcnt;
++	compat_ulong_t bytecnt;
++	compat_ulong_t wrong_if;
++};
++
++int ipmr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg)
++{
++	struct sioc_sg_req sr;
++	struct mfc_cache *c;
++	struct net *net = sock_net(sk);
++	struct mr_table *mrt;
++
++	mrt = ipmr_get_table(net, raw_sk(sk)->ipmr_table ? : RT_TABLE_DEFAULT);
++	if (mrt == NULL)
++		return -ENOENT;
++
++	switch (cmd) {
++	case SIOCGETSGCNT:
++		if (copy_from_user(&sr, arg, sizeof(sr)))
++			return -EFAULT;
++
++		rcu_read_lock();
++		c = ipmr_cache_find(mrt, sr.src.s_addr, sr.grp.s_addr);
++		if (c) {
++			sr.pktcnt = c->mfc_un.res.pkt;
++			sr.bytecnt = c->mfc_un.res.bytes;
++			sr.wrong_if = c->mfc_un.res.wrong_if;
++			rcu_read_unlock();
++
++			if (copy_to_user(arg, &sr, sizeof(sr)))
++				return -EFAULT;
++			return 0;
++		}
++		rcu_read_unlock();
++		return -EADDRNOTAVAIL;
++	default:
++		return -ENOIOCTLCMD;
++	}
++}
++#endif
++
+ 
+ static int ipmr_device_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 1f85ef2..f5967b0 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -76,6 +76,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/netfilter.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/compat.h>
+ 
+ static struct raw_hashinfo raw_v4_hashinfo = {
+ 	.lock = __RW_LOCK_UNLOCKED(raw_v4_hashinfo.lock),
+@@ -839,6 +840,23 @@ static int raw_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 	}
+ }
+ 
++#ifdef CONFIG_COMPAT
++static int compat_raw_ioctl(struct sock *sk, unsigned int cmd, unsigned long arg)
++{
++	switch (cmd) {
++	case SIOCOUTQ:
++	case SIOCINQ:
++		return -ENOIOCTLCMD;
++	default:
++#ifdef CONFIG_IP_MROUTE
++		return ipmr_compat_ioctl(sk, cmd, compat_ptr(arg));
++#else
++		return -ENOIOCTLCMD;
++#endif	
++	}
++}
++#endif
++
+ struct proto raw_prot = {
+ 	.name		   = "RAW",
+ 	.owner		   = THIS_MODULE,
+@@ -861,6 +879,7 @@ struct proto raw_prot = {
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_raw_setsockopt,
+ 	.compat_getsockopt = compat_raw_getsockopt,
++	.compat_ioctl	   = compat_raw_ioctl,
+ #endif
+ };
+ 
 -- 
 1.6.5.2.143.g8cc62
 
