@@ -1,50 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-01-29
-Date: Sun, 30 Jan 2011 03:56:56 -0800 (PST)
-Message-ID: <20110130.035656.115941353.davem@davemloft.net>
-References: <1296337660-12376-1-git-send-email-sven@narfation.org>
-	<20110129.190815.226768755.davem@davemloft.net>
-	<201101301036.57928.sven@narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH]netdev: add driver for enc424j600 ethernet chip on SPI bus
+Date: Sun, 30 Jan 2011 12:55:16 +0100
+Message-ID: <20110130115516.GA8392@electric-eye.fr.zoreil.com>
+References: <AANLkTinosxXKgfkqGKqCLGi8tWeP4xnT1P3kMRu51CvS@mail.gmail.com> <AANLkTi=WQ-o+D0NicpGBd_qcfivLYaix_CUGWi2Rd_Zv@mail.gmail.com> <AANLkTi=F7n3fXr1EopYgoXTWkX7Wtx7dCs0x-t36871J@mail.gmail.com> <20110124.150450.48527021.davem@davemloft.net> <AANLkTiksJpnx3M=D=WPF1wGej4POEQG4No-S3efb_gNM@mail.gmail.com> <AANLkTi=h52CMtS_05XW8JgWQOSf8pnezH6R6_VVS5DtQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <201101301036.57928.sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mirqus@gmail.com, mohan@thotakaa.com,
+	blue.cube@seznam.cz, lanconelli.claudio@eptar.com,
+	sriram@thotakaa.com, David Miller <davem@davemloft.net>,
+	"vbalaji.acs" <vbalaji.acs@gmail.com>
+To: Balaji Venkatachalam <balaji.v@thotakaa.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:44982 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753341Ab1A3L5T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 06:57:19 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=h52CMtS_05XW8JgWQOSf8pnezH6R6_VVS5DtQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Sun, 30 Jan 2011 10:36:54 +0100
-
-> On Sunday 30 January 2011 04:08:15 David Miller wrote:
->> I'm not taking 13 patches in one big bunch at this point post-merge-window,
->> now matter what they are.
+Balaji Venkatachalam <balaji.v@thotakaa.com> :
+> From: Balaji Venkatachalam <balaji.v@thotakaa.com>
+> Updated patch [V1.29] for Microchip enc424j600 ethernet chip controlled via SPI.
 > 
-> Thats why I tried to provide the 6 bug fixes only version without polishing - 
-> I could also try to reduce it to a 4 critical version (oops/memleak patches 
-> only without protocol implementation failures).
-> 
-> Or is the problem that I tried to get them in as pull request?
+> I tested it on my custom board with ARM9 (Freescale i.MX233) with
+> Kernel 2.6.31.14.
+[...]
+> 4. mapped enc424j600_dump_regs to eth_ops get_regs
 
-Please make a new patch series posting and pull request with only the most
-important fixes included.
+There is some kind of misunderstanding.
 
-Once I accept those, you can send me a second patch series and pull
-request with the cleanups done on top.  Just mention explicitly in
-this second pull request that there is a dependency upon the initial
-bug fixes.  In this way I will know to pull net-2.6 into net-next-2.6
-first, and then pull from your tree into net-next-2.6
+See include/linux/ethtool.h
+[...]
+struct ethtool_ops {
+        int     (*get_settings)(struct net_device *, struct ethtool_cmd *);
+        int     (*set_settings)(struct net_device *, struct ethtool_cmd *);
+        void    (*get_drvinfo)(struct net_device *, struct ethtool_drvinfo *);
+        int     (*get_regs_len)(struct net_device *);
+        void    (*get_regs)(struct net_device *, struct ethtool_regs *, void *);
 
-Thanks.
+It should not even compile.
+
+-- 
+Ueimor
