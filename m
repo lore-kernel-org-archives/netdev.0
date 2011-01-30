@@ -1,37 +1,52 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2011-01-29
-Date: Sat, 29 Jan 2011 19:08:15 -0800 (PST)
-Message-ID: <20110129.190815.226768755.davem@davemloft.net>
-References: <1296337660-12376-1-git-send-email-sven@narfation.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
-	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: gro: Reset dev pointer on reuse
+Date: Sun, 30 Jan 2011 15:10:47 +1100
+Message-ID: <20110130041047.GA6290@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1296337660-12376-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
-	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:59560 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252Ab1A3EKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 29 Jan 2011 23:10:51 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Date: Sat, 29 Jan 2011 22:47:27 +0100
+Hi:
 
-> Hi,
-> 
-> I would like to propose following changes for net-2.6.git/2.6.38 which fixes
-> some bugs in the fragmentation and vis code. There are also some minor cleanup
-> patches available. If you don't want to merge those cleanup patches then please
-> look bellow the first diffstat for an alternative way to get only the bugfixes.
+gro: Reset dev pointer on reuse
 
-I'm not taking 13 patches in one big bunch at this point post-merge-window,
-now matter what they are.
+On older kernels the VLAN code may zero skb->dev before dropping
+it and causing it to be reused by GRO.
+
+Unfortunately we didn't reset skb->dev in that case which causes
+the next GRO user to get a bogus skb->dev pointer.
+
+This particular problem no longer happens with the current upstream
+kernel due to changes in VLAN processing.
+
+However, for correctness we should still reset the skb->dev pointer
+in the GRO reuse function in case a future user does the same thing.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 24ea2d7..93e44db 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3424,6 +3424,7 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
+ 	__skb_pull(skb, skb_headlen(skb));
+ 	skb_reserve(skb, NET_IP_ALIGN - skb_headroom(skb));
+ 	skb->vlan_tci = 0;
++	skb->dev = napi->dev;
+ 
+ 	napi->skb = skb;
+ }
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
