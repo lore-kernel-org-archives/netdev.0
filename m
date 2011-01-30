@@ -1,55 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Add compat ioctl support for the ipv4 multicast
- ioctl SIOCGETSGCNT
-Date: Sun, 30 Jan 2011 01:14:58 -0800 (PST)
-Message-ID: <20110130.011458.183048917.davem@davemloft.net>
-References: <m18vy3uof7.fsf@fess.ebiederm.org>
+Subject: Re: [PATCH] net: Fix ip link add netns oops
+Date: Sun, 30 Jan 2011 01:15:25 -0800 (PST)
+Message-ID: <20110130.011525.39175277.davem@davemloft.net>
+References: <m1fwsbus25.fsf@fess.ebiederm.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, kaber@trash.net
+Cc: netdev@vger.kernel.org, eswierk@bigswitch.com, stable@kernel.org
 To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37250
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37255
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751776Ab1A3JOX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 04:14:23 -0500
-In-Reply-To: <m18vy3uof7.fsf@fess.ebiederm.org>
+	by vger.kernel.org with ESMTP id S1751776Ab1A3JOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 04:14:50 -0500
+In-Reply-To: <m1fwsbus25.fsf@fess.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Sat, 29 Jan 2011 18:15:56 -0800
+Date: Sat, 29 Jan 2011 16:57:22 -0800
 
 > 
-> SIOCGETSGCNT is not a unique ioctl value as it it maps tio SIOCPROTOPRIVATE +1,
-> which unfortunately means the existing infrastructure for compat networking
-> ioctls is insufficient.  A trivial compact ioctl implementation would conflict
-> with:
+> Ed Swierk <eswierk@bigswitch.com> writes:
+>> On 2.6.35.7
+>>  ip link add link eth0 netns 9999 type macvlan
+>> where 9999 is a nonexistent PID triggers an oops and causes all network functions to hang:
+>> [10663.821898] BUG: unable to handle kernel NULL pointer dereference at 000000000000006d
+>>  [10663.821917] IP: [<ffffffff8149c2fa>] __dev_alloc_name+0x9a/0x170
+ ...
+> This bug was introduced in:
+> commit 81adee47dfb608df3ad0b91d230fb3cef75f0060
+> Author: Eric W. Biederman <ebiederm@aristanetworks.com>
+> Date:   Sun Nov 8 00:53:51 2009 -0800
 > 
-> SIOCAX25ADDUID
-> SIOCAIPXPRISLT
-> SIOCGETSGCNT_IN6
-> SIOCGETSGCNT
-> SIOCRSSCAUSE
-> SIOCX25SSUBSCRIP
-> SIOCX25SDTEFACILITIES
+>     net: Support specifying the network namespace upon device creation.
+...
+> Where apparently I forgot to add error handling to the path where we create
+> a new network device in a new network namespace, and pass in an invalid pid.
 > 
-> To make this work I have updated the compat_ioctl decode path to mirror the
-> the normal ioctl decode path.  I have added an ipv4 inet_compat_ioctl function
-> so that I can have ipv4 specific compat ioctls.   I have added a compat_ioctl
-> function into struct proto so I can break out ioctls by which kind of ip socket
-> I am using.  I have added a compat_raw_ioctl function because SIOCGETSGCNT only
-> works on raw sockets.  I have added a ipmr_compat_ioctl that mirrors the normal
-> ipmr_ioctl.
-> 
-> This was necessary because unfortunately the struct layout for the SIOCGETSGCNT
-> has unsigned longs in it so changes between 32bit and 64bit kernels.
-> 
-> This change was sufficient to run a 32bit ip multicast routing daemon on a
-> 64bit kernel.
-> 
-> Reported-by: Bill Fenner <fenner@aristanetworks.com>
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+> Cc: stable@kernel.org
+> Reported-by: Ed Swierk <eswierk@bigswitch.com>
+> Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Thanks a lot for doing this work Eric, applied to net-2.6.
+Applied, thanks Eric.
