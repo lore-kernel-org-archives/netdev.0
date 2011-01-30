@@ -1,65 +1,30 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: Add compat ioctl support for the ipv4 multicast ioctl SIOCGETSGCNT
-Date: Sun, 30 Jan 2011 13:26:14 +0100
-Message-ID: <201101301326.14390.arnd@arndb.de>
-References: <m18vy3uof7.fsf@fess.ebiederm.org>
+From: Balaji Venkatachalam <balaji.v@thotakaa.com>
+Subject: Re: [PATCH]netdev: add driver for enc424j600 ethernet chip on SPI bus
+Date: Sun, 30 Jan 2011 18:04:50 +0530
+Message-ID: <AANLkTint85CE2NtHW=Znj0tAoF9TCePQCdTEJJtFY6Q8@mail.gmail.com>
+References: <AANLkTiksJpnx3M=D=WPF1wGej4POEQG4No-S3efb_gNM@mail.gmail.com>
+	<AANLkTi=h52CMtS_05XW8JgWQOSf8pnezH6R6_VVS5DtQ@mail.gmail.com>
+	<20110130115516.GA8392@electric-eye.fr.zoreil.com>
+	<20110130.040100.48496301.davem@davemloft.net>
+	<AANLkTimC3bsvT24cz4A+iJfjgL3LxBWxKzb182ocqbiL@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Patrick McHardy <kaber@trash.net>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org, mirqus@gmail.com,
+	mohan@thotakaa.com, blue.cube@seznam.cz,
+	lanconelli.claudio@eptar.com, sriram@thotakaa.com,
+	vbalaji.acs@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:62488 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753591Ab1A3M0e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 07:26:34 -0500
-In-Reply-To: <m18vy3uof7.fsf@fess.ebiederm.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:52471 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753427Ab1A3Mev (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 30 Jan 2011 07:34:51 -0500
+Received: by wyb28 with SMTP id 28so4652551wyb.19
+        for <netdev@vger.kernel.org>; Sun, 30 Jan 2011 04:34:50 -0800 (PST)
+In-Reply-To: <AANLkTimC3bsvT24cz4A+iJfjgL3LxBWxKzb182ocqbiL@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 30 January 2011 03:15:56 Eric W. Biederman wrote:
-> A trivial compact ioctl implementation would conflict with:
-> SIOCAX25ADDUID
-> SIOCAIPXPRISLT
-> SIOCGETSGCNT_IN6
-> SIOCGETSGCNT
-> SIOCRSSCAUSE
-> SIOCX25SSUBSCRIP
-> SIOCX25SDTEFACILITIES
-
-Since you have compiled the list, did you see if these are all handled
-compatible, or would it make sense to create patches for the other
-protocols as well, to handle them individually?
-
-> This was necessary because unfortunately the struct layout for the SIOCGETSGCNT
-> has unsigned longs in it so changes between 32bit and 64bit kernels.
-> 
-> This change was sufficient to run a 32bit ip multicast routing daemon on a
-> 64bit kernel.
-> 
-> Reported-by: Bill Fenner <fenner@aristanetworks.com>
-> Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-
-Looks good,
-
-Reviewed-by: Arnd Bergmann <arnd@arndb.de>
-
-> +#ifdef CONFIG_COMPAT
-> +static int compat_raw_ioctl(struct sock *sk, unsigned int cmd, unsigned long arg)
-> +{
-> +	switch (cmd) {
-> +	case SIOCOUTQ:
-> +	case SIOCINQ:
-> +		return -ENOIOCTLCMD;
-
-I would have suggested doing
-
-	return raw_ioctl(sk, cmd, (unsigned long)compat_ptr(arg));
-
-here, but returning -ENOIOCTLCMD is equivalent and correct. Your solution
-is slightly more compact, the other one would be slightly faster.
-
-	Arnd
+I am extremely sorry, for having overlooked the details. It is not my
+intent to rush through the review process. I hold the reviewers time
+and feedback valuable and will ensure that this will not repeat again.
