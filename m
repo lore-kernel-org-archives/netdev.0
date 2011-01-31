@@ -1,45 +1,52 @@
 From: kaber@trash.net
-Subject: [PATCH 4/7] netfilter: ipvs: fix compiler warnings
-Date: Mon, 31 Jan 2011 21:10:17 +0100
-Message-ID: <1296504620-820-5-git-send-email-kaber@trash.net>
+Subject: [PATCH 2/7] IPVS: Change sock_create_kernel() to __sock_create()
+Date: Mon, 31 Jan 2011 21:10:15 +0100
+Message-ID: <1296504620-820-3-git-send-email-kaber@trash.net>
 References: <1296504620-820-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59944 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755451Ab1AaUKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 15:10:34 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1296504620-820-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Simon Horman <horms@verge.net.au>
 
-Fix compiler warnings when IP_VS_DBG() isn't defined.
+The recent netns changes omitted to change
+sock_create_kernel() to __sock_create() in ip_vs_sync.c
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Acked-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+The effect of this is that the interface will be selected in the
+root-namespace, from my point of view it's a major bug.
+
+Reported-by: Hans Schillstrom <hans@schillstrom.com>
+Acked-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/ipvs/ip_vs_core.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/netfilter/ipvs/ip_vs_sync.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index f36a84f..d889f4f 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1894,9 +1894,7 @@ static int __net_init __ip_vs_init(struct net *net)
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index d1adf98..d5a6e64 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1305,7 +1305,7 @@ static struct socket *make_send_sock(struct net *net)
+ 	int result;
  
- static void __net_exit __ip_vs_cleanup(struct net *net)
- {
--	struct netns_ipvs *ipvs = net_ipvs(net);
--
--	IP_VS_DBG(10, "ipvs netns %d released\n", ipvs->gen);
-+	IP_VS_DBG(10, "ipvs netns %d released\n", net_ipvs(net)->gen);
- }
+ 	/* First create a socket */
+-	result = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	result = __sock_create(net, PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock, 1);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
+@@ -1351,7 +1351,7 @@ static struct socket *make_receive_sock(struct net *net)
+ 	int result;
  
- static struct pernet_operations ipvs_core_ops = {
+ 	/* First create a socket */
+-	result = sock_create_kern(PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	result = __sock_create(net, PF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock, 1);
+ 	if (result < 0) {
+ 		pr_err("Error during creation of socket; terminating\n");
+ 		return ERR_PTR(result);
 -- 
 1.7.2.3
 
