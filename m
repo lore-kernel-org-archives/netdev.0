@@ -1,57 +1,48 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: [net-2.6 PATCH 3/3] net: dcb: application priority is per net_device
-Date: Mon, 31 Jan 2011 14:00:59 -0800
-Message-ID: <20110131220059.29758.17857.stgit@jf-dev1-dcblab>
-References: <20110131220048.29758.22379.stgit@jf-dev1-dcblab>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v2 16/16] skge: convert to hw_features
+Date: Mon, 31 Jan 2011 23:40:32 +0100
+Message-ID: <20110131224032.GA23032@rere.qmqm.pl>
+References: <cover.1295734270.git.mirq-linux@rere.qmqm.pl> <34b51af1d2b880439d2d210837fc87a89c0b9ec4.1295734271.git.mirq-linux@rere.qmqm.pl> <20110131084502.7be146e7@nehalam> <20110131215343.GA19379@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42692 "EHLO mga09.intel.com"
+Received: from rere.qmqm.pl ([89.167.52.164]:49480 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756237Ab1AaWFw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 17:05:52 -0500
-In-Reply-To: <20110131220048.29758.22379.stgit@jf-dev1-dcblab>
+	id S1754113Ab1AaWkd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jan 2011 17:40:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20110131215343.GA19379@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The app_data priority may not be the same for all net devices.
-In order for stacks with application notifiers to identify the
-specific net device dcb_app_type should be passed in the ptr.
+On Mon, Jan 31, 2011 at 10:53:43PM +0100, Micha=B3 Miros=B3aw wrote:
+> On Mon, Jan 31, 2011 at 08:45:02AM -0800, Stephen Hemminger wrote:
+> > On Sat, 22 Jan 2011 23:14:14 +0100 (CET)
+> > Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl> wrote:
+> > > The hardware might do full HW_CSUM, not just IP_CSUM, but it's no=
+t tested
+> > > and so not changed here.
+> > > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> > The skge hardware does not do full HW_CSUM. It looks at the IP head=
+er.
+> Driver code suggests otherwise. Please look at skge_xmit_frame() and =
+TX
+> descriptor format.
+>=20
+> Besides, I'm locally using a patch that makes skge advertise HW_CSUM =
+- TCP
+> over IPv6 is correctly checksummed in hardware (haven't tried VLANs y=
+et).
 
-This allows handlers to use dev_get_by_name() to pin priority
-to net devices.
+IPv4 UDP inside VLAN-tagged packet is also checksummed properly by hard=
+ware.
+I don't have time now to make a proper HW_CSUM test (with arbitrary hea=
+der
+prepended). If someone has one (or patches?), I'd be glad to use it, th=
+ough.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
-
- net/dcb/dcbnl.c |    6 +++++-
- 1 files changed, 5 insertions(+), 1 deletions(-)
-
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index e3399d6..249bcec 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -1613,6 +1613,10 @@ EXPORT_SYMBOL(dcb_getapp);
- u8 dcb_setapp(struct net_device *dev, struct dcb_app *new)
- {
- 	struct dcb_app_type *itr, *tmp;
-+	struct dcb_app_type event;
-+
-+	memcpy(&event.name, dev->name, sizeof(event.name));
-+	memcpy(&event.app, new, sizeof(event.app));
- 
- 	spin_lock(&dcb_lock);
- 	/* Search for existing match and replace */
-@@ -1644,7 +1648,7 @@ u8 dcb_setapp(struct net_device *dev, struct dcb_app *new)
- 	}
- out:
- 	spin_unlock(&dcb_lock);
--	call_dcbevent_notifiers(DCB_APP_EVENT, new);
-+	call_dcbevent_notifiers(DCB_APP_EVENT, &event);
- 	return 0;
- }
- EXPORT_SYMBOL(dcb_setapp);
-
+Best Regards,
+Micha=B3 Miros=B3aw
