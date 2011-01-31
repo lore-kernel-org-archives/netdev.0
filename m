@@ -1,40 +1,39 @@
 From: kaber@trash.net
-Subject: [PATCH 6/7] netfilter: xt_iprange: typo in IPv4 match debug print code
-Date: Mon, 31 Jan 2011 21:10:19 +0100
-Message-ID: <1296504620-820-7-git-send-email-kaber@trash.net>
+Subject: [PATCH 3/7] IPVS netns BUG, register sysctl for root ns
+Date: Mon, 31 Jan 2011 21:10:16 +0100
+Message-ID: <1296504620-820-4-git-send-email-kaber@trash.net>
 References: <1296504620-820-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59946 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755976Ab1AaUKf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 15:10:35 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1296504620-820-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Jacob <jacob@internet24.de>
+From: Hans Schillstrom <hans.schillstrom@ericsson.com>
 
-Signed-off-by: Thomas Jacob <jacob@internet24.de>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+The newly created table was not used when register sysctl for a new namespace.
+I.e. sysctl doesn't work for other than root namespace (init_net)
+
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/xt_iprange.c |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
  1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
-index 88f7c35..77b9ebc 100644
---- a/net/netfilter/xt_iprange.c
-+++ b/net/netfilter/xt_iprange.c
-@@ -31,7 +31,7 @@ iprange_mt4(const struct sk_buff *skb, struct xt_action_param *par)
- 			pr_debug("src IP %pI4 NOT in range %s%pI4-%pI4\n",
- 			         &iph->saddr,
- 			         (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
--			         &info->src_max.ip,
-+			         &info->src_min.ip,
- 			         &info->src_max.ip);
- 			return false;
- 		}
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 68b8033..98df59a 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3556,7 +3556,7 @@ int __net_init __ip_vs_control_init(struct net *net)
+ 
+ 
+ 	ipvs->sysctl_hdr = register_net_sysctl_table(net, net_vs_ctl_path,
+-						  vs_vars);
++						     tbl);
+ 	if (ipvs->sysctl_hdr == NULL)
+ 		goto err_reg;
+ 	ip_vs_new_estimator(net, ipvs->tot_stats);
 -- 
 1.7.2.3
 
