@@ -1,78 +1,57 @@
 From: kaber@trash.net
-Subject: [PATCH 1/7] netfilter: ipvs: fix compiler warnings
-Date: Mon, 31 Jan 2011 21:10:14 +0100
-Message-ID: <1296504620-820-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 7/7] netfilter: xt_iprange: add IPv6 match debug print code
+Date: Mon, 31 Jan 2011 21:10:20 +0100
+Message-ID: <1296504620-820-8-git-send-email-kaber@trash.net>
 References: <1296504620-820-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:59939 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753327Ab1AaUKe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 15:10:34 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1296504620-820-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Thomas Jacob <jacob@internet24.de>
 
-Fix compiler warnings when no transport protocol load balancing support
-is configured.
-
-[horms@verge.net.au: removed suprious __ip_vs_cleanup() clean-up hunk]
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Thomas Jacob <jacob@internet24.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c   |    4 ++++
- net/netfilter/ipvs/ip_vs_proto.c |    4 ++++
- 2 files changed, 8 insertions(+), 0 deletions(-)
+ net/netfilter/xt_iprange.c |   16 ++++++++++++++--
+ 1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 09ca2ce..68b8033 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2062,7 +2062,9 @@ static const struct file_operations ip_vs_stats_percpu_fops = {
-  */
- static int ip_vs_set_timeout(struct net *net, struct ip_vs_timeout_user *u)
- {
-+#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP)
- 	struct ip_vs_proto_data *pd;
-+#endif
- 
- 	IP_VS_DBG(2, "Setting timeout tcp:%d tcpfin:%d udp:%d\n",
- 		  u->tcp_timeout,
-@@ -2405,7 +2407,9 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
- static inline void
- __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
- {
-+#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP)
- 	struct ip_vs_proto_data *pd;
-+#endif
- 
- #ifdef CONFIG_IP_VS_PROTO_TCP
- 	pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
-diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
-index 6ac986c..17484a4 100644
---- a/net/netfilter/ipvs/ip_vs_proto.c
-+++ b/net/netfilter/ipvs/ip_vs_proto.c
-@@ -60,6 +60,9 @@ static int __used __init register_ip_vs_protocol(struct ip_vs_protocol *pp)
- 	return 0;
+diff --git a/net/netfilter/xt_iprange.c b/net/netfilter/xt_iprange.c
+index 77b9ebc..d3eb5ed 100644
+--- a/net/netfilter/xt_iprange.c
++++ b/net/netfilter/xt_iprange.c
+@@ -78,15 +78,27 @@ iprange_mt6(const struct sk_buff *skb, struct xt_action_param *par)
+ 		m  = iprange_ipv6_sub(&iph->saddr, &info->src_min.in6) < 0;
+ 		m |= iprange_ipv6_sub(&iph->saddr, &info->src_max.in6) > 0;
+ 		m ^= !!(info->flags & IPRANGE_SRC_INV);
+-		if (m)
++		if (m) {
++			pr_debug("src IP %pI6 NOT in range %s%pI6-%pI6\n",
++				 &iph->saddr,
++				 (info->flags & IPRANGE_SRC_INV) ? "(INV) " : "",
++				 &info->src_min.in6,
++				 &info->src_max.in6);
+ 			return false;
++		}
+ 	}
+ 	if (info->flags & IPRANGE_DST) {
+ 		m  = iprange_ipv6_sub(&iph->daddr, &info->dst_min.in6) < 0;
+ 		m |= iprange_ipv6_sub(&iph->daddr, &info->dst_max.in6) > 0;
+ 		m ^= !!(info->flags & IPRANGE_DST_INV);
+-		if (m)
++		if (m) {
++			pr_debug("dst IP %pI6 NOT in range %s%pI6-%pI6\n",
++				 &iph->daddr,
++				 (info->flags & IPRANGE_DST_INV) ? "(INV) " : "",
++				 &info->dst_min.in6,
++				 &info->dst_max.in6);
+ 			return false;
++		}
+ 	}
+ 	return true;
  }
- 
-+#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP) || \
-+    defined(CONFIG_IP_VS_PROTO_SCTP) || defined(CONFIG_IP_VS_PROTO_AH) || \
-+    defined(CONFIG_IP_VS_PROTO_ESP)
- /*
-  *	register an ipvs protocols netns related data
-  */
-@@ -85,6 +88,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
- 
- 	return 0;
- }
-+#endif
- 
- /*
-  *	unregister an ipvs protocol
 -- 
 1.7.2.3
 
