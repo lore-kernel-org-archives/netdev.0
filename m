@@ -1,86 +1,73 @@
-From: "Yaniv Rosner" <yanivr@broadcom.com>
-Subject: [PATCH net-next 08/10] bnx2x: Add CMS functionality for 848x3
-Date: Mon, 31 Jan 2011 16:22:46 +0200
-Message-ID: <1296483766.17181.118.camel@lb-tlvb-dmitry>
+From: Jouni Malinen <j@w1.fi>
+Subject: r8169 and unicast RX failing after suspend/resume
+Date: Mon, 31 Jan 2011 16:16:32 +0200
+Message-ID: <20110131141632.GA3981@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eilong@broadcom.com
-To: davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3424 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755837Ab1AaOZm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 09:25:42 -0500
+Received: from w1.fi ([128.177.27.249]:36585 "EHLO
+	jmalinen.user.openhosting.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755858Ab1AaOZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 09:25:53 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add CMS(Common Mode Sense) functionality for 848x3 as this reduces power consumption and allows a better 10G link stability
+It looks like r8169 is not resetting its own MAC address properly in
+suspend/resume with some hardware models. At least on my HP Pavilion dv5
+laptop, the ethernet connection is lost every time after suspend/resume
+sequence. I used to work around this by setting the card in promiscuous
+mode in the past, but I finally got frustrated enough with that to take
+a closer look at what is happening.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_hsi.h  |    6 ++++++
- drivers/net/bnx2x/bnx2x_link.c |   17 ++++++++++++++++-
- 2 files changed, 22 insertions(+), 1 deletions(-)
+It looks like the card comes up otherwise just fine apart from unicast
+RX not working. In other words, it has no problems sending out frames or
+receiving broadcast frames. However, no unicast frames are received.
+There are no clear error messages anywhere in the kernel debug log.
 
-diff --git a/drivers/net/bnx2x/bnx2x_hsi.h b/drivers/net/bnx2x/bnx2x_hsi.h
-index 7c35f4e..51d69db 100644
---- a/drivers/net/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/bnx2x/bnx2x_hsi.h
-@@ -330,6 +330,12 @@ struct port_hw_cfg {			    /* port 0: 0x12c  port 1: 0x2bc */
- #define PORT_HW_CFG_ENABLE_BAM_ON_KR_DISABLED		      0x00000000
- #define PORT_HW_CFG_ENABLE_BAM_ON_KR_ENABLED		      0x00100000
+This started to look like a some kind of issue in configuring MAC
+address based RX filter in the hardware and indeed, I was able to
+recover from this state by just re-configuring the MAC address with
+"ifconfig eth0 hw ether <own addr>" after suspend (this is without the
+promiscuous mode workaround I used before). That seems to update
+something in the hardware that fixes unicast RX and that needs to be
+repeated after each suspend/resume cycle. The correct MAC address is
+still maintained in the driver (e.g., ifconfig eth0 shows it after
+resume), so this looks like just some reconfiguration of hardware is
+missing from the resume path.
+
+The card I have is identified in this way:
+
+09:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd.
+RTL8111/8168B PCI Express Gigabit Ethernet controller (rev 02)
+(10ec:8168)
+
+r8169 Gigabit Ethernet driver 2 .3LK-NAPI loaded
+eth0: RTL81 68c/8111c at 0xffffc90000060000, 00:1e:68:99:b9:3e, XID 1c4000c0 IRQ 45
+
+
+The kernel is the current wireless-testing.git head (2.6.38-rc2-wl+) and
+this issue has existed since I've got that laptop, so it does not look
+like a regression.
+
+Is this a known issue or is there some additional information that would
+be needed to get this fixed? As far as I can tell, just running
+set_mac_address after resume would be enough to fix the problem. I'm not
+sure whether this is the best way of fixing this, but the patch below
+seems to work at least with my laptop:
+
+--- wireless-testing.orig/drivers/net/r8169.c	2011-01-31 16:09:41.000000000 +0200
++++ wireless-testing/drivers/net/r8169.c	2011-01-31 16:10:59.000000000 +0200
+@@ -4901,6 +4901,7 @@ static int rtl8169_resume(struct device
+ 	struct rtl8169_private *tp = netdev_priv(dev);
  
-+	/*  Enable Common Mode Sense */
-+#define PORT_HW_CFG_ENABLE_CMS_MASK			      0x00200000
-+#define PORT_HW_CFG_ENABLE_CMS_SHIFT			      21
-+#define PORT_HW_CFG_ENABLE_CMS_DISABLED			      0x00000000
-+#define PORT_HW_CFG_ENABLE_CMS_ENABLED			      0x00200000
-+
- 	u32 speed_capability_mask2;			    /* 0x28C */
- #define PORT_HW_CFG_SPEED_CAPABILITY2_D3_MASK		      0x0000FFFF
- #define PORT_HW_CFG_SPEED_CAPABILITY2_D3_SHIFT		      0
-diff --git a/drivers/net/bnx2x/bnx2x_link.c b/drivers/net/bnx2x/bnx2x_link.c
-index aeaeea1..9ef15ce 100644
---- a/drivers/net/bnx2x/bnx2x_link.c
-+++ b/drivers/net/bnx2x/bnx2x_link.c
-@@ -6301,7 +6301,7 @@ static u8 bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 	u8 port, initialize = 1;
- 	u16 val, adj;
- 	u16 temp;
--	u32 actual_phy_selection;
-+	u32 actual_phy_selection, cms_enable;
- 	u8 rc = 0;
+ 	rtl8169_init_phy(dev, tp);
++	rtl_rar_set(tp, dev->dev_addr);
  
- 	/* This is just for MDIO_CTL_REG_84823_MEDIA register. */
-@@ -6373,6 +6373,21 @@ static u8 bnx2x_848x3_config_init(struct bnx2x_phy *phy,
- 		rc = bnx2x_848xx_cmn_config_init(phy, params, vars);
- 	else
- 		bnx2x_save_848xx_spirom_version(phy, params);
-+	cms_enable = REG_RD(bp, params->shmem_base +
-+			offsetof(struct shmem_region,
-+			dev_info.port_hw_config[params->port].default_cfg)) &
-+			PORT_HW_CFG_ENABLE_CMS_MASK;
-+
-+	bnx2x_cl45_read(bp, phy, MDIO_CTL_DEVAD,
-+		MDIO_CTL_REG_84823_USER_CTRL_REG, &val);
-+	if (cms_enable)
-+		val |= MDIO_CTL_REG_84823_USER_CTRL_CMS;
-+	else
-+		val &= ~MDIO_CTL_REG_84823_USER_CTRL_CMS;
-+	bnx2x_cl45_write(bp, phy, MDIO_CTL_DEVAD,
-+		MDIO_CTL_REG_84823_USER_CTRL_REG, val);
-+
-+
- 	return rc;
- }
- 
+ 	if (netif_running(dev))
+ 		__rtl8169_resume(dev);
+
 -- 
-1.7.1
-
-
-
-
-
+Jouni Malinen                                            PGP id EFC895FA
