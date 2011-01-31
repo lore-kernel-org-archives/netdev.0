@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: patch "appletalk: move to staging" added to staging tree
-Date: Mon, 31 Jan 2011 14:05:36 -0800 (PST)
-Message-ID: <20110131.140536.245399102.davem@davemloft.net>
-References: <12965099622238@site>
-	<201101312255.39981.arnd@arndb.de>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: [net-2.6 PATCH 1/3] net: dcb: match dcb_app protocol field with
+	802.1Qaz spec
+Date: Mon, 31 Jan 2011 14:00:49 -0800
+Message-ID: <20110131220048.29758.22379.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@suse.de, acme@ghostprotocols.net, netdev@vger.kernel.org
-To: arnd@arndb.de
+Cc: john.r.fastabend@intel.com, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36342
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754276Ab1AaWFB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 17:05:01 -0500
-In-Reply-To: <201101312255.39981.arnd@arndb.de>
+Received: from mga11.intel.com ([192.55.52.93]:31637 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756286Ab1AaWFl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jan 2011 17:05:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Mon, 31 Jan 2011 22:55:39 +0100
+The dcb_app protocol field is a __u32 however the 802.1Qaz
+specification defines it as a 16 bit field. This patch brings
+the structure inline with the spec making it a __u16.
 
-> On Monday 31 January 2011, gregkh@suse.de wrote:
->> 
->> This is a note to let you know that I've just added the patch titled
->> 
->>     appletalk: move to staging
->> 
->> to my staging git tree which can be found at
->>     git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging-2.6.git
->> in the staging-next branch.
-> 
-> Actually, David Miller objected to this patch for good reasons, please
-> revert it. One of the other patches removes the BKL in appletalk, so
-> we should find a way to keep it.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
 
-Right.
+ include/linux/dcbnl.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+index 68cd248..bdc7ef4 100644
+--- a/include/linux/dcbnl.h
++++ b/include/linux/dcbnl.h
+@@ -101,7 +101,7 @@ struct ieee_pfc {
+  */
+ struct dcb_app {
+ 	__u8	selector;
+-	__u32	protocol;
++	__u16	protocol;
+ 	__u8	priority;
+ };
+ 
+
