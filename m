@@ -1,30 +1,47 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: Oops with ipsec vpn on latest 2.6.38-rc2+ kernel
-Date: Mon, 31 Jan 2011 00:42:36 -0800
-Message-ID: <AANLkTiknwEmgg+32=VNu8+bRbUP6aC8at6eJtLeUSRFg@mail.gmail.com>
-References: <AANLkTi=OTfax3CFzD9xBHbjV0RRB7aNEpHD0p9nm1cOB@mail.gmail.com>
+From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
+Subject: Re: [PATCH V10 00/15] ptp: IEEE 1588 hardware clock support
+Date: Mon, 31 Jan 2011 10:29:45 +0100 (CET)
+Message-ID: <alpine.LFD.2.00.1101311026010.31804@localhost6.localdomain6>
+References: <cover.1296124770.git.richard.cochran@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog109.obsmtp.com ([74.125.245.86]:33453 "HELO
-	na3sys010aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754190Ab1AaIui (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 03:50:38 -0500
-Received: by ywk9 with SMTP id 9so2137781ywk.17
-        for <netdev@vger.kernel.org>; Mon, 31 Jan 2011 00:50:36 -0800 (PST)
-In-Reply-To: <AANLkTi=OTfax3CFzD9xBHbjV0RRB7aNEpHD0p9nm1cOB@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <cover.1296124770.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> With an up-to-date kernel (head is 1f0324caefd3), I'm seeing the following oops
-> when I try to send traffic (I think it's my first name server query)
-> through an ipsec VPN (set up with the shrew client
+On Thu, 27 Jan 2011, Richard Cochran wrote:
 
-So I bisected this down to d33e455337ea ("net: Abstract default MTU metric
-calculation behind an accessor.") and indeed I verified that the call to
-dst_mtu() in ip_append_data() is calling a NULL dst->ops->default_mtu
+> Here is version 10 of the PHC patch series. We missed the boat for
+> 2.6.38, but I hope this can be merged for the next one.
+> 
+> Reviewers: I think its done. How can I get this merged?
 
-Haven't debugged which dst this is or why it's missing that method yet...
+Looks pretty good. I go through the patches again and I'd like to have
+a ack/reviewed by from John. The whole thing can go through
+tip/timers.
+ 
+> Arch maintainers (arm, blackfin, powerpc, x86): I have added you on
+> CC in the hope of getting your acks for the new syscall.
 
- - R.
+I'll take the x86 one right away. For the other archs we can apply
+those patches via the arch trees even during the merge window.
+
+Thanks,
+
+	tglx
