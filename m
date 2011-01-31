@@ -1,44 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Add default_mtu() methods to blackhole dst_ops
-Date: Mon, 31 Jan 2011 13:15:18 -0800 (PST)
-Message-ID: <20110131.131518.39181100.davem@davemloft.net>
-References: <87fws8zsit.fsf@shaolin.home.digitalvampire.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: linux-next: Tree for January 31 (ip_vs)
+Date: Tue, 1 Feb 2011 08:18:47 +1100
+Message-ID: <20110131211846.GH2389@verge.net.au>
+References: <20110131174113.8199f901.sfr@canb.auug.org.au>
+ <20110131101829.b842da44.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roland@digitalvampire.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43601
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756002Ab1AaVOn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 16:14:43 -0500
-In-Reply-To: <87fws8zsit.fsf@shaolin.home.digitalvampire.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110131101829.b842da44.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Roland Dreier <roland@digitalvampire.org>
-Date: Mon, 31 Jan 2011 13:12:58 -0800
+On Mon, Jan 31, 2011 at 10:18:29AM -0800, Randy Dunlap wrote:
+> On Mon, 31 Jan 2011 17:41:13 +1100 Stephen Rothwell wrote:
+> 
+> > Hi all,
+> > 
+> > Changes since 20110121:
+> > 
+> > The net tree lost its build failure.
+> 
+> 
+> When CONFIG_SYSCTL is not enabled:
+> 
+> net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
+> ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
+> ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
 
-> From: Roland Dreier <roland@purestorage.com>
-> 
-> When an IPSEC SA is still being set up, __xfrm_lookup() will return
-> -EREMOTE and so ip_route_output_flow() will return a blackhole route.
-> This can happen in a sndmsg call, and after d33e455337ea ("net: Abstract
-> default MTU metric calculation behind an accessor.") this leads to a
-> crash in ip_append_data() because the blackhole dst_ops have no
-> default_mtu() method and so dst_mtu() calls a NULL pointer.
-> 
-> Fix this by adding default_mtu() methods (that simply return 0, matching
-> the old behavior) to the blackhole dst_ops.
-> 
-> The IPv4 part of this patch fixes a crash that I saw when using an IPSEC
-> VPN; the IPv6 part is untested because I don't have an IPv6 VPN, but it
-> looks to be needed as well.
-> 
-> Signed-off-by: Roland Dreier <roland@purestorage.com>
-
-Thanks so much for tracking this down and fixing it.  I was going to look
-at your traces and report later today.
-
-I'll apply this, thanks again Roland.
+Thanks, I'm looking into it.
