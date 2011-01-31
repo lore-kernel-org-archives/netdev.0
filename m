@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Make INET_LHTABLE_SIZE a compile-time tunable
-Date: Mon, 31 Jan 2011 14:05:03 -0800 (PST)
-Message-ID: <20110131.140503.179938794.davem@davemloft.net>
-References: <1295041688-16550-1-git-send-email-wsommerfeld@google.com>
-	<AANLkTi=5ncH6aRY5ifA0TONB7L5RDdHkriMY1p=aDxs6@mail.gmail.com>
+Subject: Re: patch "appletalk: move to staging" added to staging tree
+Date: Mon, 31 Jan 2011 14:05:36 -0800 (PST)
+Message-ID: <20110131.140536.245399102.davem@davemloft.net>
+References: <12965099622238@site>
+	<201101312255.39981.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: wsommerfeld@google.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@suse.de, acme@ghostprotocols.net, netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36337
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36342
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756573Ab1AaWE2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 17:04:28 -0500
-In-Reply-To: <AANLkTi=5ncH6aRY5ifA0TONB7L5RDdHkriMY1p=aDxs6@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754276Ab1AaWFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 17:05:01 -0500
+In-Reply-To: <201101312255.39981.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bill Sommerfeld <wsommerfeld@google.com>
-Date: Mon, 31 Jan 2011 13:52:03 -0800
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 31 Jan 2011 22:55:39 +0100
 
-> On Fri, Jan 14, 2011 at 13:48, I wrote:
->> INET_LHTABLE_SIZE has been fixed at 32 for a long time. =A0It should=
- be
->> tunable as larger systems may be running many more than 32 listeners=
-=2E
->=20
-> I haven't seen any responses to this patch submission.  Can someone
-> take a look?  Thanks.
+> On Monday 31 January 2011, gregkh@suse.de wrote:
+>> 
+>> This is a note to let you know that I've just added the patch titled
+>> 
+>>     appletalk: move to staging
+>> 
+>> to my staging git tree which can be found at
+>>     git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging-2.6.git
+>> in the staging-next branch.
+> 
+> Actually, David Miller objected to this patch for good reasons, please
+> revert it. One of the other patches removes the BKL in appletalk, so
+> we should find a way to keep it.
 
-It should be dynamically sized.  Compile time configuration knobs
-generally stick.
+Right.
