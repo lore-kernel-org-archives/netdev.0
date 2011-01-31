@@ -1,106 +1,78 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH 1/1] compat-wireless: Fix ath9k debug log issue.
-Date: Mon, 31 Jan 2011 10:58:16 -0800
-Message-ID: <1296500296.4131.175.camel@Joe-Laptop>
-References: <1296473865-18529-1-git-send-email-senthilkumar@atheros.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: luis.rodriguez-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org, mcgrof-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Senthil Balasubramanian <senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1296473865-18529-1-git-send-email-senthilkumar-DlyHzToyqoxBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: kaber@trash.net
+Subject: [PATCH 1/7] netfilter: ipvs: fix compiler warnings
+Date: Mon, 31 Jan 2011 21:10:14 +0100
+Message-ID: <1296504620-820-2-git-send-email-kaber@trash.net>
+References: <1296504620-820-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:59939 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753327Ab1AaUKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 15:10:34 -0500
+In-Reply-To: <1296504620-820-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-01-31 at 17:07 +0530, Senthil Balasubramanian wrote:
-> ath9k debug logs are not shown as we are using recursive vsnprintf
-> which are supported in kernel 2.6.36 and above. use vprintk for older
-> kernels.
+From: Changli Gao <xiaosuo@gmail.com>
 
-#ifdefs spread around the tree for this sort of
-change are not very nice.
+Fix compiler warnings when no transport protocol load balancing support
+is configured.
 
-Perhaps wireless-compat should not be an impediment to
-mainline progress and these sorts of changes should be
-minimized.
+[horms@verge.net.au: removed suprious __ip_vs_cleanup() clean-up hunk]
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c   |    4 ++++
+ net/netfilter/ipvs/ip_vs_proto.c |    4 ++++
+ 2 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 09ca2ce..68b8033 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2062,7 +2062,9 @@ static const struct file_operations ip_vs_stats_percpu_fops = {
+  */
+ static int ip_vs_set_timeout(struct net *net, struct ip_vs_timeout_user *u)
+ {
++#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP)
+ 	struct ip_vs_proto_data *pd;
++#endif
  
-If this is really necessary for backward compatibility,
-I think the %pV could just be removed.
+ 	IP_VS_DBG(2, "Setting timeout tcp:%d tcpfin:%d udp:%d\n",
+ 		  u->tcp_timeout,
+@@ -2405,7 +2407,9 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
+ static inline void
+ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
+ {
++#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP)
+ 	struct ip_vs_proto_data *pd;
++#endif
+ 
+ #ifdef CONFIG_IP_VS_PROTO_TCP
+ 	pd = ip_vs_proto_data_get(net, IPPROTO_TCP);
+diff --git a/net/netfilter/ipvs/ip_vs_proto.c b/net/netfilter/ipvs/ip_vs_proto.c
+index 6ac986c..17484a4 100644
+--- a/net/netfilter/ipvs/ip_vs_proto.c
++++ b/net/netfilter/ipvs/ip_vs_proto.c
+@@ -60,6 +60,9 @@ static int __used __init register_ip_vs_protocol(struct ip_vs_protocol *pp)
+ 	return 0;
+ }
+ 
++#if defined(CONFIG_IP_VS_PROTO_TCP) || defined(CONFIG_IP_VS_PROTO_UDP) || \
++    defined(CONFIG_IP_VS_PROTO_SCTP) || defined(CONFIG_IP_VS_PROTO_AH) || \
++    defined(CONFIG_IP_VS_PROTO_ESP)
+ /*
+  *	register an ipvs protocols netns related data
+  */
+@@ -85,6 +88,7 @@ register_ip_vs_proto_netns(struct net *net, struct ip_vs_protocol *pp)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ /*
+  *	unregister an ipvs protocol
+-- 
+1.7.2.3
 
-If not, because this style would be used in several
-places, perhaps another macro could be used to hide the
-use of %pV.
-
-Maybe something like:
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
-#define PRINTK_VA_LIST(level, prefix, fmt, __va_list)	\
-({							\
- 	struct va_format vaf;				\
- 							\
- 	vaf.fmt = fmt;					\
- 	vaf.va = &__va_list;				\
-							\
-	printk("%s" prefix "%pV", level, &vaf);		\
-})
-#else
-#define PRINTK_VA_LIST(level, prefix, fmt, __va_list)	\
-({							\
-	printk("%s" prefix, level);			\
-	vprintk(fmt, __va_list);			\
-})
-#endif
-
-> +diff --git a/drivers/net/wireless/ath/main.c b/drivers/net/wireless/ath/main.c
-> +index c325202..e3e60d4 100644
-> +--- a/drivers/net/wireless/ath/main.c
-> ++++ b/drivers/net/wireless/ath/main.c
-> +@@ -60,16 +60,23 @@ EXPORT_SYMBOL(ath_rxbuf_alloc);
-> + int ath_printk(const char *level, struct ath_common *common,
-> + 	       const char *fmt, ...)
-> + {
-> ++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
-> + 	struct va_format vaf;
-> ++#endif
-> + 	va_list args;
-> + 	int rtn;
-> + 
-> + 	va_start(args, fmt);
-> + 
-> ++#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,36))
-> + 	vaf.fmt = fmt;
-> + 	vaf.va = &args;
-> + 
-> + 	rtn = printk("%sath: %pV", level, &vaf);
-> ++#else
-> ++	printk("%sath: ", level);
-> ++	rtn = vprintk(fmt, args);
-> ++#endif
-> + 
-> + 	va_end(args);
-> + 
-
-So this would become something like:
-
-int ath_printk(const char *level, struct ath_common *common,
-	       const char *fmt, ...)
-{
-	va_list args;
-	int rtn;
-
-	va_start(args, fmt);
-
-	rtn = PRINTK_VA_LIST(level, "ath: ", fmt, args);
-
-	va_end(args);
-
-	return rtn;
-}
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
