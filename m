@@ -1,136 +1,76 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 3/9] batman-adv: remove unused parameters
-Date: Mon, 31 Jan 2011 16:20:45 +0100
-Message-ID: <1296487251-12552-4-git-send-email-sven@narfation.org>
+Subject: [PATCH 5/9] batman-adv: Remove unused definitions
+Date: Mon, 31 Jan 2011 16:20:47 +0100
+Message-ID: <1296487251-12552-6-git-send-email-sven@narfation.org>
 References: <1296487251-12552-1-git-send-email-sven@narfation.org>
-Cc: netdev@vger.kernel.org, Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	Sven Eckelmann <sven@narfation.org>
+Cc: netdev@vger.kernel.org, Sven Eckelmann <sven@narfation.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:42652 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:42656 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755997Ab1AaPVN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 10:21:13 -0500
+	id S1755997Ab1AaPVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jan 2011 10:21:19 -0500
 In-Reply-To: <1296487251-12552-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-
-Some function parameters are obsolete now and can be removed.
-
-Reported-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
 ---
- net/batman-adv/originator.c |    2 +-
- net/batman-adv/routing.c    |   15 ++++++---------
- net/batman-adv/routing.h    |    3 +--
- net/batman-adv/send.c       |    4 ++--
- 4 files changed, 10 insertions(+), 14 deletions(-)
+ net/batman-adv/main.h |   15 ---------------
+ 1 files changed, 0 insertions(+), 15 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 6b7fb6b..3c5c889 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -247,7 +247,7 @@ static bool purge_orig_node(struct bat_priv *bat_priv,
- 				      orig_node->hna_buff_len);
- 			/* update bonding candidates, we could have lost
- 			 * some candidates. */
--			update_bonding_candidates(bat_priv, orig_node);
-+			update_bonding_candidates(orig_node);
- 		}
- 	}
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 65106fb..c1ace85 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -22,9 +22,6 @@
+ #ifndef _NET_BATMAN_ADV_MAIN_H_
+ #define _NET_BATMAN_ADV_MAIN_H_
  
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index a8cd389..e946dc9 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -433,8 +433,7 @@ static char count_real_packets(struct ethhdr *ethhdr,
+-/* Kernel Programming */
+-#define LINUX
+-
+ #define DRIVER_AUTHOR "Marek Lindner <lindner_marek@yahoo.de>, " \
+ 		      "Simon Wunderlich <siwu@hrz.tu-chemnitz.de>"
+ #define DRIVER_DESC   "B.A.T.M.A.N. advanced"
+@@ -54,7 +51,6 @@
+ 
+ #define NUM_WORDS (TQ_LOCAL_WINDOW_SIZE / WORD_BIT_SIZE)
+ 
+-#define PACKBUFF_SIZE 2000
+ #define LOG_BUF_LEN 8192	  /* has to be a power of 2 */
+ 
+ #define VIS_INTERVAL 5000	/* 5 seconds */
+@@ -96,15 +92,11 @@
+ #define DBG_ROUTES 2	/* route or hna added / changed / deleted */
+ #define DBG_ALL 3
+ 
+-#define LOG_BUF_LEN 8192          /* has to be a power of 2 */
+-
+ 
+ /*
+  *  Vis
+  */
+ 
+-/* #define VIS_SUBCLUSTERS_DISABLED */
+-
+ /*
+  * Kernel headers
+  */
+@@ -158,13 +150,6 @@ static inline void bat_dbg(char type __always_unused,
  }
+ #endif
  
- /* copy primary address for bonding */
--static void mark_bonding_address(struct bat_priv *bat_priv,
--				 struct orig_node *orig_node,
-+static void mark_bonding_address(struct orig_node *orig_node,
- 				 struct orig_node *orig_neigh_node,
- 				 struct batman_packet *batman_packet)
- 
-@@ -447,8 +446,7 @@ static void mark_bonding_address(struct bat_priv *bat_priv,
- }
- 
- /* mark possible bond.candidates in the neighbor list */
--void update_bonding_candidates(struct bat_priv *bat_priv,
--			       struct orig_node *orig_node)
-+void update_bonding_candidates(struct orig_node *orig_node)
- {
- 	int candidates;
- 	int interference_candidate;
-@@ -730,9 +728,8 @@ void receive_bat_packet(struct ethhdr *ethhdr,
- 		update_orig(bat_priv, orig_node, ethhdr, batman_packet,
- 			    if_incoming, hna_buff, hna_buff_len, is_duplicate);
- 
--	mark_bonding_address(bat_priv, orig_node,
--			     orig_neigh_node, batman_packet);
--	update_bonding_candidates(bat_priv, orig_node);
-+	mark_bonding_address(orig_node, orig_neigh_node, batman_packet);
-+	update_bonding_candidates(orig_node);
- 
- 	/* is single hop (direct) neighbor */
- 	if (is_single_hop_neigh) {
-@@ -866,7 +863,7 @@ static int recv_my_icmp_packet(struct bat_priv *bat_priv,
- }
- 
- static int recv_icmp_ttl_exceeded(struct bat_priv *bat_priv,
--				  struct sk_buff *skb, size_t icmp_len)
-+				  struct sk_buff *skb)
- {
- 	struct orig_node *orig_node;
- 	struct icmp_packet *icmp_packet;
-@@ -978,7 +975,7 @@ int recv_icmp_packet(struct sk_buff *skb, struct batman_if *recv_if)
- 
- 	/* TTL exceeded */
- 	if (icmp_packet->ttl < 2)
--		return recv_icmp_ttl_exceeded(bat_priv, skb, hdr_size);
-+		return recv_icmp_ttl_exceeded(bat_priv, skb);
- 
- 	ret = NET_RX_DROP;
- 
-diff --git a/net/batman-adv/routing.h b/net/batman-adv/routing.h
-index f108f23..725cc38 100644
---- a/net/batman-adv/routing.h
-+++ b/net/batman-adv/routing.h
-@@ -42,7 +42,6 @@ int recv_vis_packet(struct sk_buff *skb, struct batman_if *recv_if);
- int recv_bat_packet(struct sk_buff *skb, struct batman_if *recv_if);
- struct neigh_node *find_router(struct bat_priv *bat_priv,
- 		struct orig_node *orig_node, struct batman_if *recv_if);
--void update_bonding_candidates(struct bat_priv *bat_priv,
--			       struct orig_node *orig_node);
-+void update_bonding_candidates(struct orig_node *orig_node);
- 
- #endif /* _NET_BATMAN_ADV_ROUTING_H_ */
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index b89b9f7..77f8297 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -49,7 +49,7 @@ static unsigned long own_send_time(struct bat_priv *bat_priv)
- }
- 
- /* when do we schedule a forwarded packet to be sent */
--static unsigned long forward_send_time(struct bat_priv *bat_priv)
-+static unsigned long forward_send_time(void)
- {
- 	return jiffies + msecs_to_jiffies(random32() % (JITTER/2));
- }
-@@ -356,7 +356,7 @@ void schedule_forward_packet(struct orig_node *orig_node,
- 	else
- 		batman_packet->flags &= ~DIRECTLINK;
- 
--	send_time = forward_send_time(bat_priv);
-+	send_time = forward_send_time();
- 	add_bat_packet_to_list(bat_priv,
- 			       (unsigned char *)batman_packet,
- 			       sizeof(struct batman_packet) + hna_buff_len,
+-#define bat_warning(net_dev, fmt, arg...)				\
+-	do {								\
+-		struct net_device *_netdev = (net_dev);                 \
+-		struct bat_priv *_batpriv = netdev_priv(_netdev);       \
+-		bat_dbg(DBG_ALL, _batpriv, fmt, ## arg);		\
+-		pr_warning("%s: " fmt, _netdev->name, ## arg);		\
+-	} while (0)
+ #define bat_info(net_dev, fmt, arg...)					\
+ 	do {								\
+ 		struct net_device *_netdev = (net_dev);                 \
 -- 
 1.7.2.3
 
