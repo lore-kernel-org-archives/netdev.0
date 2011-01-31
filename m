@@ -1,108 +1,44 @@
-From: Andy Whitcroft <apw@canonical.com>
-Subject: x25: possible skb leak on bad facilities
-Date: Mon, 31 Jan 2011 13:08:26 +0000
-Message-ID: <20110131130826.GC16804@shadowen.org>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: Realtek r8168C / r8169 driver VLAN TAG stripping
+Date: Mon, 31 Jan 2011 14:14:58 +0100
+Message-ID: <1296479698.8750.55.camel@ceranb.intra.cera.cz>
+References: <AANLkTimqkJ3DGBX5iREEcx6sgAM+2CZHNWMU+noNSitp@mail.gmail.com>
+	 <20110116192017.GA3569@electric-eye.fr.zoreil.com>
+	 <AANLkTi=uNKMj_gs_bKRQ1tQa0TMwdnyrtVcR5JPNpmJv@mail.gmail.com>
+	 <AANLkTikoXfgHrJyMbe6A_HmvXT_QRo55w76st5Wo0hSv@mail.gmail.com>
+	 <20110118012146.GA3704@electric-eye.fr.zoreil.com>
+	 <AANLkTimA1C=trH+WGpBdPU=vBf-cN+xB4Br3+vJb-Qum@mail.gmail.com>
+	 <20110127150744.GA7925@electric-eye.fr.zoreil.com>
+	 <AANLkTi=OwsMO8x9AOy=MmohU4SSQcv+o=TvwNs0NNsQR@mail.gmail.com>
+	 <20110127165031.GA7966@electric-eye.fr.zoreil.com>
+	 <AANLkTin17BgJDdTbSMork8XEw4PVz_KrVBZvHdQwTRNH@mail.gmail.com>
+	 <20110128120624.GA8100@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: John Hughes <john@calva.com>, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tim Gardner <tim.gardner@canonical.com>
-To: Andrew Hendry <andrew.hendry@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Anand Raj Manickam <anandrm@gmail.com>, netdev@vger.kernel.org,
+	Hayes <hayeswang@realtek.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2880 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755300Ab1AaNPO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jan 2011 08:15:14 -0500
+In-Reply-To: <20110128120624.GA8100@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Looking at the changes introduced in the commit below, we seem to
-introduce an skb leak when a packet with bad facilities are present:
+On Fri, 2011-01-28 at 13:06 +0100, Francois Romieu wrote:
+> Added Ivan to the Cc:. He has got a 8168c with XID 1c4000c0 and may
+> tell if
+> hardware VLAN works for him or not.
+> 
+Unfortunately I have no local access (it's placed in China) or remote
+serial console to the system with this 8168c. The second problem is that
+the system is connected to the switch that does not pass the packets
+with VLAN tags -> it seems that at least Tx packets have the VLAN tag.
 
-    commit a6331d6f9a4298173b413cf99a40cc86a9d92c37
-    Author: andrew hendry <andrew.hendry@gmail.com>
-    Date:   Wed Nov 3 12:54:53 2010 +0000
+I'm sorry I'm not able to help more.
 
-        memory corruption in X.25 facilities parsing
+Ivan
 
-If I am understanding things correctly then we trigger a -1 return to
-the main packet dispatch loop, this being non-zero implies that we have
-requeued the skb and it should not be freed.  As it was not requeued,
-I believe the skb is no longer referenced and then is leaked.
-
-Perhaps someone better aquainted with this code could review my analysis
-in the patch leader below.  If accurate I believe we need the patch below
-to resolve this.  If it is not then I suspect a comment is required on
-the -1 return.
-
-Thoughts?
-
--apw
-
->From 5728c05fb669e8ee1e6d20fb7a71916362039411 Mon Sep 17 00:00:00 2001
-From: Andy Whitcroft <apw@canonical.com>
-Date: Mon, 31 Jan 2011 10:37:36 +0000
-Subject: [PATCH] x25: drop packet on invalid facility headers
-
-The commit below introduced additional checks for invalid facilities,
-and a new return path when these were detected:
-
-    commit a6331d6f9a4298173b413cf99a40cc86a9d92c37
-    Author: andrew hendry <andrew.hendry@gmail.com>
-    Date:   Wed Nov 3 12:54:53 2010 +0000
-
-	memory corruption in X.25 facilities parsing
-
-This new return path short circuits packet handling, the new return -1
-below:
-
-    static int x25_state1_machine(struct sock *sk, struct sk_buff *skb,
-							    int frametype)
-    {
-    [...]
-                        len = x25_parse_facilities(skb, &x25->facilities,
-                                                &x25->dte_facilities,
-                                                &x25->vc_facil_mask);
-                        if (len > 0)
-                                skb_pull(skb, len);
-                        else
-                                return -1;
-    [...]
-
-This return code is passed back up the chain (via x25_process_rx_frame)
-and is interpreted as below by the caller:
-
-    int x25_backlog_rcv(struct sock *sk, struct sk_buff *skb)
-    {
-        int queued = x25_process_rx_frame(sk, skb);
-
-        if (!queued)
-                kfree_skb(skb);
-
-        return 0;
-    }
-
-Here we interpret the non-zero status as indicating the skb has been
-requeued and should be preserved.  As we have not actually done so it
-will be leaked.
-
-Fix this up by indicating that the packet should be dropped.
-
-Signed-off-by: Andy Whitcroft <apw@canonical.com>
----
- net/x25/x25_in.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/x25/x25_in.c b/net/x25/x25_in.c
-index f729f02..213b93a 100644
---- a/net/x25/x25_in.c
-+++ b/net/x25/x25_in.c
-@@ -120,7 +120,7 @@ static int x25_state1_machine(struct sock *sk, struct sk_buff *skb, int frametyp
- 			if (len > 0)
- 				skb_pull(skb, len);
- 			else
--				return -1;
-+				return 0;
- 			/*
- 			 *	Copy any Call User Data.
- 			 */
--- 
-1.7.1
