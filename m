@@ -1,87 +1,67 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: pull request: batman-adv 2011-01-31
-Date: Mon, 31 Jan 2011 16:20:42 +0100
-Message-ID: <1296487251-12552-1-git-send-email-sven@narfation.org>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH 1/9] batman-adv: Create roughly equal sized fragments
+Date: Mon, 31 Jan 2011 16:20:43 +0100
+Message-ID: <1296487251-12552-2-git-send-email-sven@narfation.org>
+References: <1296487251-12552-1-git-send-email-sven@narfation.org>
+Cc: netdev@vger.kernel.org, Sven Eckelmann <sven@narfation.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:42645 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:42648 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752746Ab1AaPVF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 10:21:05 -0500
+	id S1752746Ab1AaPVG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jan 2011 10:21:06 -0500
+In-Reply-To: <1296487251-12552-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The routing algorithm must know how large two fragments are to be able to
+decide that it is safe to merge them or if it should resubmit without waiting
+for the second part. When these two fragments have a too different size, it is
+not possible to guess right in every situation.
 
-I would like to propose some changes for net-next-2.6.git. These include two
-bugfixes for the fragmentation handling which were not accepted in net-2.6. The
-last seven changes are only cleanups and non-functionality changes.
+The user could easily configure the MTU of the attached cards so that one
+fragment is forwarded and the other one is added to the fragments table to wait
+for the missing part.
 
-No included change has any hard dependencies to the oops fixes which were
-pulled by you into net-2.6 yesterday.
+For even sized packets, it is possible to split it so that the resulting
+packages are equal sized by ignoring the old non-fragment header at the
+beginning of the original packet.
 
-thanks,
-	Sven
+This still creates different sized fragments for uneven sized packets.
 
-The following changes since commit 1bae4ce27c9c90344f23c65ea6966c50ffeae2f5:
+Reported-by: Russell Senior <russell@personaltelco.net>
+Reported-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+---
+ net/batman-adv/unicast.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-  Linux 2.6.38-rc2 (2011-01-21 19:01:34 -0800)
+diff --git a/net/batman-adv/unicast.c b/net/batman-adv/unicast.c
+index ee41fef..811f7fc 100644
+--- a/net/batman-adv/unicast.c
++++ b/net/batman-adv/unicast.c
+@@ -224,7 +224,7 @@ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
+ 	struct unicast_frag_packet *frag1, *frag2;
+ 	int uc_hdr_len = sizeof(struct unicast_packet);
+ 	int ucf_hdr_len = sizeof(struct unicast_frag_packet);
+-	int data_len = skb->len;
++	int data_len = skb->len - uc_hdr_len;
+ 
+ 	if (!bat_priv->primary_if)
+ 		goto dropped;
+@@ -232,10 +232,11 @@ int frag_send_skb(struct sk_buff *skb, struct bat_priv *bat_priv,
+ 	frag_skb = dev_alloc_skb(data_len - (data_len / 2) + ucf_hdr_len);
+ 	if (!frag_skb)
+ 		goto dropped;
++	skb_reserve(frag_skb, ucf_hdr_len);
+ 
+ 	unicast_packet = (struct unicast_packet *) skb->data;
+ 	memcpy(&tmp_uc, unicast_packet, uc_hdr_len);
+-	skb_split(skb, frag_skb, data_len / 2);
++	skb_split(skb, frag_skb, data_len / 2 + uc_hdr_len);
+ 
+ 	if (my_skb_head_push(skb, ucf_hdr_len - uc_hdr_len) < 0 ||
+ 	    my_skb_head_push(frag_skb, ucf_hdr_len) < 0)
+-- 
+1.7.2.3
 
-are available in the git repository at:
-  git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
-
-Simon Wunderlich (1):
-      batman-adv: remove unused parameters
-
-Sven Eckelmann (8):
-      batman-adv: Create roughly equal sized fragments
-      batman-adv: Calculate correct size for merged packets
-      batman-adv: Remove dangling declaration of hash_remove_element
-      batman-adv: Remove unused definitions
-      batman-adv: Remove declaration of batman_skb_recv
-      batman-adv: Remove unused variables
-      batman-adv: Update copyright years
-      batman-adv: Merge README of v2011.0.0 release
-
- Documentation/networking/batman-adv.txt |   16 ++++++++--------
- net/batman-adv/Makefile                 |    2 +-
- net/batman-adv/aggregation.c            |    2 +-
- net/batman-adv/aggregation.h            |    2 +-
- net/batman-adv/bat_debugfs.c            |    6 ++----
- net/batman-adv/bat_debugfs.h            |    2 +-
- net/batman-adv/bat_sysfs.c              |    2 +-
- net/batman-adv/bat_sysfs.h              |    2 +-
- net/batman-adv/bitarray.c               |    2 +-
- net/batman-adv/bitarray.h               |    2 +-
- net/batman-adv/gateway_client.c         |    2 +-
- net/batman-adv/gateway_client.h         |    2 +-
- net/batman-adv/gateway_common.c         |    2 +-
- net/batman-adv/gateway_common.h         |    2 +-
- net/batman-adv/hard-interface.c         |   13 ++++++++++---
- net/batman-adv/hard-interface.h         |    6 +-----
- net/batman-adv/hash.c                   |    2 +-
- net/batman-adv/hash.h                   |    7 +------
- net/batman-adv/icmp_socket.c            |    2 +-
- net/batman-adv/icmp_socket.h            |    2 +-
- net/batman-adv/main.c                   |    2 +-
- net/batman-adv/main.h                   |   17 +----------------
- net/batman-adv/originator.c             |    4 ++--
- net/batman-adv/originator.h             |    2 +-
- net/batman-adv/packet.h                 |    3 ++-
- net/batman-adv/ring_buffer.c            |    2 +-
- net/batman-adv/ring_buffer.h            |    2 +-
- net/batman-adv/routing.c                |   26 ++++++++------------------
- net/batman-adv/routing.h                |    5 ++---
- net/batman-adv/send.c                   |    6 +++---
- net/batman-adv/send.h                   |    2 +-
- net/batman-adv/soft-interface.c         |    2 +-
- net/batman-adv/soft-interface.h         |    2 +-
- net/batman-adv/translation-table.c      |    2 +-
- net/batman-adv/translation-table.h      |    2 +-
- net/batman-adv/types.h                  |    2 +-
- net/batman-adv/unicast.c                |   15 ++++++++++-----
- net/batman-adv/unicast.h                |   25 ++++++++++++++++++++++++-
- net/batman-adv/vis.c                    |    2 +-
- net/batman-adv/vis.h                    |    2 +-
- 40 files changed, 101 insertions(+), 102 deletions(-)
