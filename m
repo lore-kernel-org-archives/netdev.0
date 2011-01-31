@@ -1,39 +1,35 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: patch "appletalk: move to staging" added to staging tree
-Date: Mon, 31 Jan 2011 14:02:40 -0800
-Message-ID: <20110131220240.GA32600@suse.de>
-References: <12965099622238@site>
- <201101312255.39981.arnd@arndb.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Make INET_LHTABLE_SIZE a compile-time tunable
+Date: Mon, 31 Jan 2011 14:05:03 -0800 (PST)
+Message-ID: <20110131.140503.179938794.davem@davemloft.net>
+References: <1295041688-16550-1-git-send-email-wsommerfeld@google.com>
+	<AANLkTi=5ncH6aRY5ifA0TONB7L5RDdHkriMY1p=aDxs6@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@ghostprotocols.net, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, therbert@google.com
+To: wsommerfeld@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:51341 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754179Ab1AaWEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 17:04:25 -0500
-Content-Disposition: inline
-In-Reply-To: <201101312255.39981.arnd@arndb.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36337
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756573Ab1AaWE2 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 31 Jan 2011 17:04:28 -0500
+In-Reply-To: <AANLkTi=5ncH6aRY5ifA0TONB7L5RDdHkriMY1p=aDxs6@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 31, 2011 at 10:55:39PM +0100, Arnd Bergmann wrote:
-> On Monday 31 January 2011, gregkh@suse.de wrote:
-> > 
-> > This is a note to let you know that I've just added the patch titled
-> > 
-> >     appletalk: move to staging
-> > 
-> > to my staging git tree which can be found at
-> >     git://git.kernel.org/pub/scm/linux/kernel/git/gregkh/staging-2.6.git
-> > in the staging-next branch.
-> 
-> Actually, David Miller objected to this patch for good reasons, please
-> revert it. One of the other patches removes the BKL in appletalk, so
-> we should find a way to keep it.
+=46rom: Bill Sommerfeld <wsommerfeld@google.com>
+Date: Mon, 31 Jan 2011 13:52:03 -0800
 
-Oops, sorry about that, I'll go revert it.
+> On Fri, Jan 14, 2011 at 13:48, I wrote:
+>> INET_LHTABLE_SIZE has been fixed at 32 for a long time. =A0It should=
+ be
+>> tunable as larger systems may be running many more than 32 listeners=
+=2E
+>=20
+> I haven't seen any responses to this patch submission.  Can someone
+> take a look?  Thanks.
 
-greg k-h
+It should be dynamically sized.  Compile time configuration knobs
+generally stick.
