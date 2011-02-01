@@ -1,147 +1,107 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Rename fib_hash_* locals in fib_semantics.c
-Date: Tue, 01 Feb 2011 15:38:09 -0800 (PST)
-Message-ID: <20110201.153809.28806748.davem@davemloft.net>
+Subject: [PATCH] ipv4: Update some fib_hash centric interface names.
+Date: Tue, 01 Feb 2011 15:38:08 -0800 (PST)
+Message-ID: <20110201.153808.246526487.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52914
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52911
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751942Ab1BAXhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 18:37:34 -0500
+	by vger.kernel.org with ESMTP id S1751503Ab1BAXhd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 18:37:33 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 0A4B924C087
-	for <netdev@vger.kernel.org>; Tue,  1 Feb 2011 15:38:10 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id B2A1624C087
+	for <netdev@vger.kernel.org>; Tue,  1 Feb 2011 15:38:08 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-To avoid confusion with the recently deleted fib_hash.c
-code, use "fib_info_hash_*" instead of plain "fib_hash_*".
+fib_hash_init() --> fib_trie_init()
+fib_hash_table() --> fib_trie_table()
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/fib_semantics.c |   40 ++++++++++++++++++++--------------------
- 1 files changed, 20 insertions(+), 20 deletions(-)
+ include/net/ip_fib.h    |    6 +++---
+ net/ipv4/fib_frontend.c |    8 ++++----
+ net/ipv4/fib_trie.c     |    5 ++---
+ 3 files changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index b15857d..146bd82 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -49,7 +49,7 @@
- static DEFINE_SPINLOCK(fib_info_lock);
- static struct hlist_head *fib_info_hash;
- static struct hlist_head *fib_info_laddrhash;
--static unsigned int fib_hash_size;
-+static unsigned int fib_info_hash_size;
- static unsigned int fib_info_cnt;
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 819d61c..08b46b8 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -228,9 +228,9 @@ extern int fib_sync_up(struct net_device *dev);
+ extern __be32  __fib_res_prefsrc(struct fib_result *res);
+ extern void fib_select_multipath(const struct flowi *flp, struct fib_result *res);
  
- #define DEVINDEX_HASHBITS 8
-@@ -223,7 +223,7 @@ static inline unsigned int fib_devindex_hashfn(unsigned int val)
+-/* Exported by fib_{hash|trie}.c */
+-extern void fib_hash_init(void);
+-extern struct fib_table *fib_hash_table(u32 id);
++/* Exported by fib_trie.c */
++extern void fib_trie_init(void);
++extern struct fib_table *fib_trie_table(u32 id);
  
- static inline unsigned int fib_info_hashfn(const struct fib_info *fi)
+ static inline void fib_combine_itag(u32 *itag, struct fib_result *res)
  {
--	unsigned int mask = (fib_hash_size - 1);
-+	unsigned int mask = (fib_info_hash_size - 1);
- 	unsigned int val = fi->fib_nhs;
- 
- 	val ^= fi->fib_protocol;
-@@ -615,14 +615,14 @@ out:
- 
- static inline unsigned int fib_laddr_hashfn(__be32 val)
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 930768b..2a49c06 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -51,11 +51,11 @@ static int __net_init fib4_rules_init(struct net *net)
  {
--	unsigned int mask = (fib_hash_size - 1);
-+	unsigned int mask = (fib_info_hash_size - 1);
+ 	struct fib_table *local_table, *main_table;
  
- 	return ((__force u32)val ^
- 		((__force u32)val >> 7) ^
- 		((__force u32)val >> 14)) & mask;
+-	local_table = fib_hash_table(RT_TABLE_LOCAL);
++	local_table = fib_trie_table(RT_TABLE_LOCAL);
+ 	if (local_table == NULL)
+ 		return -ENOMEM;
+ 
+-	main_table  = fib_hash_table(RT_TABLE_MAIN);
++	main_table  = fib_trie_table(RT_TABLE_MAIN);
+ 	if (main_table == NULL)
+ 		goto fail;
+ 
+@@ -82,7 +82,7 @@ struct fib_table *fib_new_table(struct net *net, u32 id)
+ 	if (tb)
+ 		return tb;
+ 
+-	tb = fib_hash_table(id);
++	tb = fib_trie_table(id);
+ 	if (!tb)
+ 		return NULL;
+ 	h = id & (FIB_TABLE_HASHSZ - 1);
+@@ -1086,5 +1086,5 @@ void __init ip_fib_init(void)
+ 	register_netdevice_notifier(&fib_netdev_notifier);
+ 	register_inetaddr_notifier(&fib_inetaddr_notifier);
+ 
+-	fib_hash_init();
++	fib_trie_init();
+ }
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 16d589c..73cb984 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1916,7 +1916,7 @@ int fib_table_dump(struct fib_table *tb, struct sk_buff *skb,
+ 	return skb->len;
  }
  
--static struct hlist_head *fib_hash_alloc(int bytes)
-+static struct hlist_head *fib_info_hash_alloc(int bytes)
+-void __init fib_hash_init(void)
++void __init fib_trie_init(void)
  {
- 	if (bytes <= PAGE_SIZE)
- 		return kzalloc(bytes, GFP_KERNEL);
-@@ -632,7 +632,7 @@ static struct hlist_head *fib_hash_alloc(int bytes)
- 					 get_order(bytes));
+ 	fn_alias_kmem = kmem_cache_create("ip_fib_alias",
+ 					  sizeof(struct fib_alias),
+@@ -1929,8 +1929,7 @@ void __init fib_hash_init(void)
  }
  
--static void fib_hash_free(struct hlist_head *hash, int bytes)
-+static void fib_info_hash_free(struct hlist_head *hash, int bytes)
+ 
+-/* Fix more generic FIB names for init later */
+-struct fib_table *fib_hash_table(u32 id)
++struct fib_table *fib_trie_table(u32 id)
  {
- 	if (!hash)
- 		return;
-@@ -643,18 +643,18 @@ static void fib_hash_free(struct hlist_head *hash, int bytes)
- 		free_pages((unsigned long) hash, get_order(bytes));
- }
- 
--static void fib_hash_move(struct hlist_head *new_info_hash,
--			  struct hlist_head *new_laddrhash,
--			  unsigned int new_size)
-+static void fib_info_hash_move(struct hlist_head *new_info_hash,
-+			       struct hlist_head *new_laddrhash,
-+			       unsigned int new_size)
- {
- 	struct hlist_head *old_info_hash, *old_laddrhash;
--	unsigned int old_size = fib_hash_size;
-+	unsigned int old_size = fib_info_hash_size;
- 	unsigned int i, bytes;
- 
- 	spin_lock_bh(&fib_info_lock);
- 	old_info_hash = fib_info_hash;
- 	old_laddrhash = fib_info_laddrhash;
--	fib_hash_size = new_size;
-+	fib_info_hash_size = new_size;
- 
- 	for (i = 0; i < old_size; i++) {
- 		struct hlist_head *head = &fib_info_hash[i];
-@@ -695,8 +695,8 @@ static void fib_hash_move(struct hlist_head *new_info_hash,
- 	spin_unlock_bh(&fib_info_lock);
- 
- 	bytes = old_size * sizeof(struct hlist_head *);
--	fib_hash_free(old_info_hash, bytes);
--	fib_hash_free(old_laddrhash, bytes);
-+	fib_info_hash_free(old_info_hash, bytes);
-+	fib_info_hash_free(old_laddrhash, bytes);
- }
- 
- struct fib_info *fib_create_info(struct fib_config *cfg)
-@@ -720,8 +720,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- #endif
- 
- 	err = -ENOBUFS;
--	if (fib_info_cnt >= fib_hash_size) {
--		unsigned int new_size = fib_hash_size << 1;
-+	if (fib_info_cnt >= fib_info_hash_size) {
-+		unsigned int new_size = fib_info_hash_size << 1;
- 		struct hlist_head *new_info_hash;
- 		struct hlist_head *new_laddrhash;
- 		unsigned int bytes;
-@@ -729,15 +729,15 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 		if (!new_size)
- 			new_size = 1;
- 		bytes = new_size * sizeof(struct hlist_head *);
--		new_info_hash = fib_hash_alloc(bytes);
--		new_laddrhash = fib_hash_alloc(bytes);
-+		new_info_hash = fib_info_hash_alloc(bytes);
-+		new_laddrhash = fib_info_hash_alloc(bytes);
- 		if (!new_info_hash || !new_laddrhash) {
--			fib_hash_free(new_info_hash, bytes);
--			fib_hash_free(new_laddrhash, bytes);
-+			fib_info_hash_free(new_info_hash, bytes);
-+			fib_info_hash_free(new_laddrhash, bytes);
- 		} else
--			fib_hash_move(new_info_hash, new_laddrhash, new_size);
-+			fib_info_hash_move(new_info_hash, new_laddrhash, new_size);
- 
--		if (!fib_hash_size)
-+		if (!fib_info_hash_size)
- 			goto failure;
- 	}
- 
+ 	struct fib_table *tb;
+ 	struct trie *t;
 -- 
 1.7.4
 
