@@ -1,28 +1,76 @@
-From: "Young Chang" <chang25@lajt.hu>
-Subject: Re:....
-Date: Tue, 1 Feb 2011 10:01:06 -0000
-Message-ID: <20110201090110.7B96C5F004A@mailout1.go2.pl>
-Reply-To: <young.chang001@yahoo.com.hk>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-next-2.6] IPVS build fixes and clean-ups
+Date: Tue, 1 Feb 2011 21:04:21 +1100
+Message-ID: <20110201100421.GA13325@verge.net.au>
+References: <1296519255-10602-1-git-send-email-horms@verge.net.au>
+ <20110131165009.66999952.randy.dunlap@oracle.com>
+ <20110201040634.GA2351@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tur.go2.pl ([193.17.41.50]:33624 "EHLO tur.go2.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751553Ab1BAJB6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Feb 2011 04:01:58 -0500
-Received: from mailout1.go2.pl (mailout1.go2.pl [193.17.41.11])
-	by tur.go2.pl (o2.pl Mailer 2.0.1) with ESMTP id 9EA1723371F
-	for <netdev@vger.kernel.org>; Tue,  1 Feb 2011 10:01:55 +0100 (CET)
-Received: from mailout1.go2.pl (unknown [10.0.0.105])
-	by mailout1.go2.pl (Postfix) with ESMTP id 7B96C5F004A
-	for <netdev@vger.kernel.org>; Tue,  1 Feb 2011 10:01:10 +0100 (CET)
-Received: from unknown (unknown [10.0.0.74])
-	by mailout1.go2.pl (Postfix) with SMTP
-	for <netdev@vger.kernel.org>; Tue,  1 Feb 2011 10:01:10 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110201040634.GA2351@verge.net.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-May I ask if you would be eligible to pursue a Business Proposal of $19.7m with me if you dont mind? Let me know if you are interested.
+On Tue, Feb 01, 2011 at 03:06:37PM +1100, Simon Horman wrote:
+> On Mon, Jan 31, 2011 at 04:50:09PM -0800, Randy Dunlap wrote:
+> > On Tue,  1 Feb 2011 11:14:11 +1100 Simon Horman wrote:
+> > 
+> > > Hi,
+> > > 
+> > > This short patch series addresses two linux-next build problems
+> > > raised by Randy Dunlap:
+> > > 
+> > > * net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
+> > > * ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko]
+> > >   ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
+> > > 
+> > > The remainder of the changset is cleanups that I noticed along the way.
+> > 
+> > These 4 patches build successfully for me.
+> > However, I do see these warnings (sorry I missed them earlier):
+> > 
+> > WARNING: net/netfilter/ipvs/ip_vs.o(.init.text+0x161): Section mismatch in reference from the function init_module() to the function .exit.text:ip_vs_sync_cleanup()
+> > WARNING: net/netfilter/ipvs/ip_vs.o(.init.text+0x161): Section mismatch in reference from the function init_module() to the function .exit.text:ip_vs_sync_cleanup()
+> 
+> Thanks, I'll look into that. I will be travelling for a good portion of the
+> next day and a bit so I apologise in advance if that delays my next patch.
+
+Hi,
+
+I the following patch seems to be the right fix for this to me.
+I will send an amended pull request.
+
+IPVS: Remove ip_vs_sync_cleanup from section __exit
+
+ip_vs_sync_cleanup() may be called from ip_vs_init() on error
+and thus needs to be accesible from section __init
+
+Reporte-by: Randy Dunlap <randy.dunlap@oracle.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index d5a6e64..2a2a836 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1686,7 +1686,7 @@ int __init ip_vs_sync_init(void)
+ 	return register_pernet_subsys(&ipvs_sync_ops);
+ }
+ 
+-void __exit ip_vs_sync_cleanup(void)
++void ip_vs_sync_cleanup(void)
+ {
+ 	unregister_pernet_subsys(&ipvs_sync_ops);
+ }
+-- 
+1.7.2.3
