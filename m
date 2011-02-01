@@ -1,101 +1,78 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2 dontapply] vhost-net tx tuning
-Date: Tue, 1 Feb 2011 17:52:53 +0200
-Message-ID: <20110201155253.GA22959@redhat.com>
-References: <OFD293DCD2.7F0260F0-ON86257823.0061DC39-86257823.00743BB3@us.ibm.com>
- <20110126151700.GA14113@redhat.com>
- <1296153874.1640.27.camel@localhost.localdomain>
- <20110127190031.GC5228@redhat.com>
- <1296155340.1640.34.camel@localhost.localdomain>
- <20110127193131.GD5228@redhat.com>
- <1296157547.1640.45.camel@localhost.localdomain>
- <20110127200548.GE5228@redhat.com>
- <1296159305.1640.50.camel@localhost.localdomain>
- <OF381CCA86.B82857CC-ON86257826.00629F88-86257826.006596F5@us.ibm.com>
+From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
+ single TCP session balancing
+Date: Tue, 01 Feb 2011 19:25:14 +0300
+Message-ID: <4D4833EA.50407@yandex-team.ru>
+References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru> <4D3745AF.5040808@gmail.com> <4D399062.3060004@yandex-team.ru> <19551.1296268113@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mashirle@linux.vnet.ibm.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Steve Dobbelstein <steved@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OF381CCA86.B82857CC-ON86257826.00629F88-86257826.006596F5@us.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mammoth.yandex.ru ([93.158.136.51]:48906 "EHLO
+	mammoth.yandex.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380Ab1BAQZ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 11:25:28 -0500
+In-Reply-To: <19551.1296268113@death>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-OK, so thinking about it more, maybe the issue is this:
-tx becomes full. We process one request and interrupt the guest,
-then it adds one request and the queue is full again.
+On 01/29/2011 05:28 AM, Jay Vosburgh wrote:
+> Oleg V. Ukhno<olegu@yandex-team.ru>  wrote:
+>
+> 	I've thought about this whole thing, and here's what I view as
+> the proper way to do this.
+>
+> 	In my mind, this proposal is two separate pieces:
+>
+> 	First, a piece to make round-robin a selectable hash for
+> xmit_hash_policy.  The documentation for this should follow the pattern
+> of the "layer3+4" hash policy, in particular noting that the new
+> algorithm violates the 802.3ad standard in exciting ways, will result in
+> out of order delivery, and that other 802.3ad implementations may or may
+> not tolerate this.
+>
+> 	Second, a piece to make certain transmitted packets use the
+> source MAC of the sending slave instead of the bond's MAC.  This should
+> be a separate option from the round-robin hash policy.  I'd call it
+> something like "mac_select" with two values: "default" (what we do now)
+> and "slave_src_mac" to use the slave's real MAC for certain types of
+> traffic (I'm open to better names; that's just what I came up with while
+> writing this).  I believe that "certain types" means "everything but
+> ARP," but might be "only IP and IPv6."  Structuring the option in this
+> manner leaves the option open for additional selections in the future,
+> which a simple "on/off" option wouldn't.  This option should probably
+> only affect a subset of modes; I'm thinking anything except balance-tlb
+> or -alb (because they do funky MAC things already) and active-backup (it
+> doesn't balance traffic, and already uses fail_over_mac to control
+> this).  I think this option also needs a whole new section down in the
+> bottom explaining how to exploit it (the "pick special MACs on slaves to
+> trick switch hash" business).
+>
+> 	Comments?
+>
+> 	-J
+>
+Jay,
+As for me splitting my initial proposal into two logically diffent 
+pieces is ok, this will provide more flexible configuration.
+Do I understand correctly, that after I rewrite  patch in splitted form, 
+as you described above, and enhance documentation it will be /can be 
+applied to kernel?
+Then what should I do: rewrite patch and resubmit it as a new one?
 
-Maybe the following will help it stabilize?  By default with it we will
-only interrupt when we see an empty ring.
-Which is liklely too much: pls try other values
-in the middle: e.g. make bufs half the ring,
-or bytes some small value like half ring * 200, or packets some
-small value etc.
+Oleg.
 
-Set any one parameter to 0 to get current
-behaviour (interrupt immediately when enabled).
+> ---
+> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
 
-Warning: completely untested.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+-- 
+Best regards,
+Oleg Ukhno.
 
----
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index aac05bc..6769cdc 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -32,6 +32,13 @@
-  * Using this limit prevents one virtqueue from starving others. */
- #define VHOST_NET_WEIGHT 0x80000
- 
-+int tx_bytes_coalesce = 1000000000;
-+module_param(tx_bytes_coalesce, int, 0644);
-+int tx_bufs_coalesce = 1000000000;
-+module_param(tx_bufs_coalesce, int, 0644);
-+int tx_packets_coalesce = 1000000000;
-+module_param(tx_packets_coalesce, int, 0644);
-+
- enum {
- 	VHOST_NET_VQ_RX = 0,
- 	VHOST_NET_VQ_TX = 1,
-@@ -127,6 +134,9 @@ static void handle_tx(struct vhost_net *net)
- 	int err, wmem;
- 	size_t hdr_size;
- 	struct socket *sock;
-+	int bytes_coalesced = 0;
-+	int bufs_coalesced = 0;
-+	int packets_coalesced = 0;
- 
- 	/* TODO: check that we are running from vhost_worker? */
- 	sock = rcu_dereference_check(vq->private_data, 1);
-@@ -196,14 +206,26 @@ static void handle_tx(struct vhost_net *net)
- 		if (err != len)
- 			pr_debug("Truncated TX packet: "
- 				 " len %d != %zd\n", err, len);
--		vhost_add_used_and_signal(&net->dev, vq, head, 0);
- 		total_len += len;
-+		packets_coalesced += 1;
-+		bytes_coalesced += len;
-+		bufs_coalesced += out;
-+		if (unlikely(packets_coalesced > tx_packets_coalesce ||
-+			     bytes_coalesced > tx_bytes_coalesce ||
-+			     bufs_coalesced > tx_bufs_coalesce))
-+			vhost_add_used_and_signal(&net->dev, vq, head, 0);
-+		else
-+			vhost_add_used(vq, head, 0);
- 		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
- 			vhost_poll_queue(&vq->poll);
- 			break;
- 		}
- 	}
- 
-+	if (likely(packets_coalesced &&
-+		   bytes_coalesced &&
-+		   bufs_coalesced))
-+		vhost_signal(&net->dev, vq);
- 	mutex_unlock(&vq->mutex);
- }
- 
