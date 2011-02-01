@@ -1,41 +1,59 @@
-From: Eliot Blennerhassett <linux@audioscience.com>
-Subject: AVB support (IEEE802.1 audio/video bridging)
-Date: Wed, 02 Feb 2011 11:47:55 +1300
-Message-ID: <4D488D9B.5080409@audioscience.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] include/net/genetlink.h: Allow genlmsg_cancel to
+ accept a NULL argument
+Date: Tue, 01 Feb 2011 14:54:10 -0800 (PST)
+Message-ID: <20110201.145410.115936566.davem@davemloft.net>
+References: <Pine.LNX.4.64.1101281642080.8546@pc-004.diku.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5.clear.net.nz ([203.97.33.68]:59696 "EHLO
-	smtp5.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751600Ab1BAWr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 17:47:57 -0500
-Received: from [192.168.36.2]
- (121-72-250-62.cable.telstraclear.net [121.72.250.62])
- by smtp5.clear.net.nz (CLEAR Net Mail)
- with ESMTP id <0LFY005PGNBWTA70@smtp5.clear.net.nz> for
- netdev@vger.kernel.org; Wed, 02 Feb 2011 11:47:56 +1300 (NZDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paul.moore@hp.com, kernel-janitors@vger.kernel.org
+To: julia@diku.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.64.1101281642080.8546@pc-004.diku.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Grettings,
+From: Julia Lawall <julia@diku.dk>
+Date: Fri, 28 Jan 2011 16:43:40 +0100 (CET)
 
-before I go into any details, please tell me if this is the right place
-to enquire/discuss if/how linux network stacks can support the various
-protocols required by AVB
+> nlmsg_cancel can accept NULL as its second argument, so for similarity,
+> this patch extends genlmsg_cancel to be able to accept a NULL second
+> argument as well.
+> 
+> Signed-off-by: Julia Lawall <julia@diku.dk>
 
-To quote the introduction from wikipedia [1]
-"Audio Video Bridging (AVB) is a common name for the set of standards in
-development by the IEEE 802.1 Audio Video Bridging Task Group. The
-charter of this organization is to "provide the specifications that will
-allow time-synchronized low latency streaming services through IEEE 802
-networks"."
+I did a scan of all of the cases where this interface is used, and
+I cannot find a situation where this capability would even be useful.
 
-regards
+The use pattern is always:
 
--- 
-Eliot Blennerhassett
-AudioScience Inc.
+	hdr = genlmsg_put(skb, ...);
+	if (!hdr)
+		goto out;
 
-[1] http://en.wikipedia.org/wiki/Audio_Video_Bridging
+	NLA_PUT_*();
+	NLA_PUT_*();
+	....
+
+	return genlmsg_end(skb, hdr);
+
+nla_put_failure:
+	genlmsg_cancel(skb, hdr);
+out:
+	return -EWHATEVER;
+
+Always, hdr will be non-NULL.
+
+We have to allocate the header first, then put the netlink
+attributes.
+
+Looking over users of nlmsg_cancel(), the situation seems to
+match identically.
+
+Therefore, it seems to me that it makes more sense to remove
+the NULL check from nlmsg_cancel() than to add the NULL check
+to genlmsg_cancel().
+
+Thanks.
