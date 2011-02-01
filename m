@@ -1,40 +1,79 @@
-From: Bill Sommerfeld <wsommerfeld@google.com>
-Subject: Re: [PATCH] Make INET_LHTABLE_SIZE a compile-time tunable
-Date: Mon, 31 Jan 2011 18:04:30 -0800
-Message-ID: <AANLkTinSF1p7=n+KKZzCJX+Q8OcxgA=R0g2QrMF1eR0a@mail.gmail.com>
-References: <1295041688-16550-1-git-send-email-wsommerfeld@google.com>
-	<AANLkTi=5ncH6aRY5ifA0TONB7L5RDdHkriMY1p=aDxs6@mail.gmail.com>
-	<20110131.140503.179938794.davem@davemloft.net>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Tue, 1 Feb 2011 11:56:16 +0800
+Message-ID: <AANLkTikgDsM15DO7u2SP15xx=Y_pg6JdCLrie8ACobJP@mail.gmail.com>
+References: <1295537418-2057-1-git-send-email-ratbert.chuang@gmail.com>
+ <1295596533-1748-1-git-send-email-ratbert.chuang@gmail.com>
+ <AANLkTikpu05V92T+YvuHW+jcTH-Bu2t6=HoQn5OR3ZhX@mail.gmail.com>
+ <AANLkTinsWVHj6qdSS-_ztztcNPHAkwZQnimPbjzvcHb2@mail.gmail.com>
+ <AANLkTimWuBfeYPOsOFpTiAGS5uHysevAHiOg0svBQ4zW@mail.gmail.com> <AANLkTimz7gx7BAQG8RBswDCxnTuVtt3u+YoBZk8+RgEz@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, eric.dumazet@gmail.com, joe@perches.com,
+	dilinger@queued.net, Po-Yu Chuang <ratbert@faraday-tech.com>
+To: =?UTF-8?B?TWljaGHFgiBNaXJvc8WCYXc=?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:23284 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754092Ab1BACEk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 21:04:40 -0500
-Received: from kpbe14.cbf.corp.google.com (kpbe14.cbf.corp.google.com [172.25.105.78])
-	by smtp-out.google.com with ESMTP id p1124dcC024707
-	for <netdev@vger.kernel.org>; Mon, 31 Jan 2011 18:04:39 -0800
-Received: from yib17 (yib17.prod.google.com [10.243.65.81])
-	by kpbe14.cbf.corp.google.com with ESMTP id p1124WSp029873
-	(version=TLSv1/SSLv3 cipher=RC4-MD5 bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 31 Jan 2011 18:04:37 -0800
-Received: by yib17 with SMTP id 17so2604003yib.12
-        for <netdev@vger.kernel.org>; Mon, 31 Jan 2011 18:04:31 -0800 (PST)
-In-Reply-To: <20110131.140503.179938794.davem@davemloft.net>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:62828 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751789Ab1BAD4i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 22:56:38 -0500
+In-Reply-To: <AANLkTimz7gx7BAQG8RBswDCxnTuVtt3u+YoBZk8+RgEz@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jan 31, 2011 at 14:05, David Miller <davem@davemloft.net> wrote=
-:
-> From: Bill Sommerfeld <wsommerfeld@google.com>
->> I haven't seen any responses to this patch submission. =A0Can someon=
-e
->> take a look? =A0Thanks.
-> It should be dynamically sized. =A0Compile time configuration knobs
-> generally stick.
+Dear Micha=C5=82
 
-I'll work on that.  Consider this patch withdrawn until then.
+2011/1/25 Po-Yu Chuang <ratbert.chuang@gmail.com>:
+> 2011/1/25 Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>:
+>>
+>> Ah, I blindly assumed that you're just appending the buffers to the
+>> skb (using skb_fill_page_desc() and friends). Since you have to mark
+>> descriptors for the device anyway, it might be faster to allocate ne=
+w
+>> skbs and map those as rx buffers (changing the descriptor's buffer
+>> address after every RX) instead of keeping static buffer and copying
+>> every time. (For small packets it wastes lot of memory, though - so
+>> the right choice depends on the expected workload.)
+>
+> The reason I chose to use memcpy rx buffer to skb is that I didn't kn=
+ow
+> how to deal with multi-segment packets if I preallocated skb for each
+> rx descriptor. This function seems to be what I need.
+> Let me rework this. Thanks.
+
+After looking at some drivers using skb_fill_page_desc(), I am still
+confused.
+
+It seems that this function is mainly for jumbo packet and the
+beginning of data of received packet should still be in skb->data.
+
+Scheme 1)
+If I simply allocate a page for each rx ring entry, I still need to all=
+ocate
+an skb and copy at least packet header in first page to skb->data. Then
+add the page of rest of payload to skb by skb_fill_page_desc().
+
+Scheme 2)
+If I simply allocate an skb for each rx ring entry, zero copy can be ea=
+sily
+achieved if the packet contains only one segment (one rx ring entry).
+However, if the received packet has more than one segment, I guess I
+might need to allocate a bigger skb and copy data of all segments
+(skb->data) to the new skb?
+
+
+The problem is, in most cases, the received packets are one-segment onl=
+y.
+(TBH, I don't know when will multi-segment packets appear.)
+
+If all packets are one-segment, I can just allocate an skb for each rx =
+ring
+enry and achieve zero-copy. However, since there might be multi-segment
+packets, I need to deal with them.
+
+How can I do?
+
+best regards,
+Po-Yu Chuang
