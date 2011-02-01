@@ -1,42 +1,45 @@
-From: Julien Aube <j.aube@laposte.net>
-Subject: Re: [PATCH] IPv6 configurable default value for the privacy
- extension flag
-Date: Tue, 1 Feb 2011 13:57:10 +0100
-Message-ID: <20110201135710.0d7c5a54@baileys.at.home>
-References: <20110131164945.3370cbcd@baileys.at.home>
-	<4D478655.6040706@linux-ipv6.org>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re: [GIT PULL nf-next-2.6 v2] IPVS build fixes and clean-ups
+Date: Tue, 1 Feb 2011 14:36:59 +0100 (CET)
+Message-ID: <7j2t3lt.0ab80c5ea7f72ca6b614a185210e9698@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1.laposte.net ([193.251.214.118]:13340 "EHLO
-	out2.laposte.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753453Ab1BANfD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 08:35:03 -0500
-Received: from out1.laposte.net (unknown [10.98.49.225])
-	by mwinf8210.laposte.net (SMTP Server) with ESMTP id 23FC41C00654
-	for <netdev@vger.kernel.org>; Tue,  1 Feb 2011 14:00:00 +0100 (CET)
-In-Reply-To: <4D478655.6040706@linux-ipv6.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	"Randy Dunlap" <randy.dunlap@oracle.com>,
+	"Stephen Rothwell" <sfr@canb.auug.org.au>,
+	"Patrick McHardy" <kaber@trash.net>
+To: "Simon Horman" <horms@verge.net.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+>---- Original Message ----
+>From: Simon Horman <horms@verge.net.au>
+>To: netdev@vger.kernel.org, linux-next@vger.kernel.org, linux-kernel@vger.kernel.org, lvs-devel@vger.kernel.org
+>Cc: "Randy Dunlap" <randy.dunlap@oracle.com>, "Stephen Rothwell" <sfr@canb.auug.org.au>, "Hans Schillstrom" <hans@schillstrom.com>, "Patrick McHardy" <kaber@trash.net>
+>Sent: Tue, Feb 1, 2011, 11:11 AM
+>Subject: [GIT PULL nf-next-2.6 v2] IPVS build fixes and clean-ups
+>
+>This short patch series addresses two linux-next build problems
+>raised by Randy Dunlap:
+>
+>* net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
+>* ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko]
+>  ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
+>* WARNING: net/netfilter/ipvs/ip_vs.o(.init.text+0x161): Section mismatch in reference from the function init_module() to the function .exit.text:ip_vs_sync_cleanup()
+>
+>The remainder of the changsets are cleanups that I noticed along the way.
+>
+>The changes are available at
+>git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+>
+>They are currently compile-tested only.
+>
 
-LS0tLS1CRUdJTiBQR1AgU0lHTkVEIE1FU1NBR0UtLS0tLQ0KSGFzaDogU0hBMQ0KDQpMZSBUdWUs
-IDAxIEZlYiAyMDExIDEzOjA0OjM3ICswOTAwLA0KWU9TSElGVUpJIEhpZGVha2kgPHlvc2hmdWpp
-QGxpbnV4LWlwdjYub3JnPiBhIOljcml0IDoNCg0KPiBIZWxsby4NCj4gDQo+ICgyMDExLzAyLzAx
-IDA6NDkpLCBKdWxpZW4gQXViZSB3cm90ZToNCj4gDQo+ID4rCX0gZWxzZSB7DQo+ID4rCQlwcmlu
-dGsoS0VSTl9XQVJOSU5HICJJUHY2IFByaXZhY3kgRXh0ZW5zaW9uICINCj4gPisJImlzIGRpc2Fi
-bGVkIGJ5IGRlZmF1bHQgKGludmFsaWQgdmFsdWUgJWQpXG4iLCBpcHY2X2RlZmF1bHRfcHJpdmFj
-eSk7DQo+ID4rCX0NCj4gDQo+IEkgdGhpbmsgV0FSTklORyBpcyB0b28gaGlnaC4NCg0KSSBkaWQg
-cHV0IEtFUk5fV0FSTklORyBiZWNhdXNlIHRoaXMgY29kZSBpcyB1c2VkIHdoZW4gc29tZW9uZSBl
-eHBsaWNpdGx5IHNldCANCmFuIGludmFsaWQgdmFsdWUsIGUuZy4NCiBpcHY2LnByaXZhY3lfZGVm
-YXVsdD0tMQ0KDQpCdXQgeW91J3JlIHJpZ2h0LCBJJ2xsIHNldCBLRVJOX05PVElDRSBpbnN0ZWFk
-Lg0KDQpXaGF0IGRvIHlvdSB0aGluayBvZiB0aGUgaWRlYSBieSBpdHNlbGYgYW55aG93ID8NCg0K
-VGhhbmtzIGZvciB0aGUgZmVlZGJhY2suDQoNCkp1bGllbg0KLS0tLS1CRUdJTiBQR1AgU0lHTkFU
-VVJFLS0tLS0NClZlcnNpb246IEdudVBHIHYxLjQuMTAgKEdOVS9MaW51eCkNCg0KaUVZRUFSRUNB
-QVlGQWsxSUF5WUFDZ2tRSGl6MW1EMnNVOGczOVFDZzZGWThMRkNCd3lYMzEwY0FaWWR5VkhKQQ0K
-YTR3QW9PU0RYQlpHZ2F5UmV1WjV3dnpFN2laUmlIWnINCj03aTVCDQotLS0tLUVORCBQR1AgU0lH
-TkFUVVJFLS0tLS0NCg==
+I will try to test this today
 
+Regards
+Hans Schillstrom <hans@schillstrom.com>
