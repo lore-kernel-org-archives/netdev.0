@@ -1,52 +1,53 @@
-From: Ramkrishna Vepa <Ramkrishna.Vepa@exar.com>
-Subject: RE: [PATCH] vxge: Fix wrong boolean operator {nodisc}
-Date: Mon, 31 Jan 2011 23:26:40 -0800
-Message-ID: <FCA91A92EE52B041906A0358FC28FCC38EFBE64996@FRE1EXCH02.hq.exar.com>
-References: <1296253817-7668-1-git-send-email-weil@mail.berlios.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Sivakumar Subramani <Sivakumar.Subramani@exar.com>,
-	Sreenivasa Honnur <Sreenivasa.Honnur@exar.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jon Mason <Jon.Mason@exar.com>
-To: Stefan Weil <weil@mail.berlios.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1296253817-7668-1-git-send-email-weil@mail.berlios.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 4/7] [PATCH] qeth: allow HiperSockets framesize change in suspend
+Date: Tue, 01 Feb 2011 09:16:51 +0100
+Message-ID: <20110201081723.717261632@de.ibm.com>
+References: <20110201081647.173934635@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:40475 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751328Ab1BAIR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 03:17:27 -0500
+Content-Disposition: inline; filename=607-qeth-chparm-change.diff
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> This error is reported by cppcheck:
-> drivers/net/vxge/vxge-config.c:3693: warning: Mutual exclusion over ||
-> always evaluates to true. Did you intend to use && instead?
-> 
-> It looks like cppcheck is correct, so fix this. No test was run.
-> 
-> Signed-off-by: Stefan Weil <weil@mail.berlios.de>
-> ---
->  drivers/net/vxge/vxge-config.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/vxge/vxge-config.c b/drivers/net/vxge/vxge-
-> config.c
-> index 01c05f5..228d4f7 100644
-> --- a/drivers/net/vxge/vxge-config.c
-> +++ b/drivers/net/vxge/vxge-config.c
-> @@ -3690,7 +3690,7 @@ __vxge_hw_vpath_rts_table_get(struct
-> __vxge_hw_vpath_handle *vp,
->  	if (status != VXGE_HW_OK)
->  		goto exit;
-> 
-> -	if ((rts_table != VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA)
-> ||
-> +	if ((rts_table != VXGE_HW_RTS_ACCESS_STEER_CTRL_DATA_STRUCT_SEL_DA)
-> &&
->  	    (rts_table !=
->  	     VXGE_HW_RTS_ACS_STEER_CTRL_DATA_STRUCT_SEL_RTH_MULTI_IT))
->  		*data1 = 0;
-> --
-Fix looks good. Thanks!
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-Acked-by: Ram Vepa <ram.vepa@exar.com>
+For HiperSockets the framesize-definition determines the selected
+mtu-size and the size of the allocated qdio buffers.
+A framesize-change may occur while a Linux system with probed
+HiperSockets device is in suspend state. This patch enables proper
+resuming of a HiperSockets device in this case.
+
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+---
+
+
+ drivers/s390/net/qeth_core_main.c |   10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -1887,8 +1887,16 @@ static int qeth_ulp_enable_cb(struct qet
+ 			QETH_DBF_TEXT_(SETUP, 2, "  rc%d", iob->rc);
+ 			return 0;
+ 		}
+-		card->info.max_mtu = mtu;
++		if (card->info.initial_mtu && (card->info.initial_mtu != mtu)) {
++			/* frame size has changed */
++			if (card->dev &&
++			    ((card->dev->mtu == card->info.initial_mtu) ||
++			     (card->dev->mtu > mtu)))
++				card->dev->mtu = mtu;
++			qeth_free_qdio_buffers(card);
++		}
+ 		card->info.initial_mtu = mtu;
++		card->info.max_mtu = mtu;
+ 		card->qdio.in_buf_size = mtu + 2 * PAGE_SIZE;
+ 	} else {
+ 		card->info.initial_mtu = qeth_get_initial_mtu_for_card(card);
+
