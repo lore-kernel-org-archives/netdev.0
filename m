@@ -1,51 +1,45 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 1/7] [PATCH] qeth: show new mac-address if its setting fails
-Date: Tue, 01 Feb 2011 09:16:48 +0100
-Message-ID: <20110201081723.256273806@de.ibm.com>
+Subject: [patch 7/7] [PATCH] s390: Fix possibly wrong size in strncmp (smsgiucv)
+Date: Tue, 01 Feb 2011 09:16:54 +0100
+Message-ID: <20110201081724.199388307@de.ibm.com>
 References: <20110201081647.173934635@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
+	Stefan Weil <weil@mail.berlios.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:51884 "EHLO
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:51880 "EHLO
 	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752463Ab1BAIRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 03:17:38 -0500
-Content-Disposition: inline; filename=604-qeth-mac-address.diff
+	with ESMTP id S1752540Ab1BAIRg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 03:17:36 -0500
+Content-Disposition: inline; filename=610-smsgiucv-strncmp-size.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Stefan Weil <weil@mail.berlios.de>
 
-Setting of a MAC-address may fail because an already used MAC-address
-is to bet set or because of authorization problems. In those cases
-qeth issues a message, but the mentioned MAC-address is not the
-new MAC-address to be set, but the actual MAC-address. This patch
-chooses now the new MAC-address to be set for the error messages.
+This error was reported by cppcheck:
+drivers/s390/net/smsgiucv.c:63: error: Using sizeof for array given as
+function argument returns the size of pointer.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Although there is no runtime problem as long as sizeof(u8 *) == 8,
+this misleading code should get fixed.
+
+Signed-off-by: Stefan Weil <weil@mail.berlios.de>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
 
- drivers/s390/net/qeth_l2_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -573,13 +573,13 @@ static int qeth_l2_send_setmac_cb(struct
- 		case IPA_RC_L2_DUP_LAYER3_MAC:
- 			dev_warn(&card->gdev->dev,
- 				"MAC address %pM already exists\n",
--				card->dev->dev_addr);
-+				cmd->data.setdelmac.mac);
- 			break;
- 		case IPA_RC_L2_MAC_NOT_AUTH_BY_HYP:
- 		case IPA_RC_L2_MAC_NOT_AUTH_BY_ADP:
- 			dev_warn(&card->gdev->dev,
- 				"MAC address %pM is not authorized\n",
--				card->dev->dev_addr);
-+				cmd->data.setdelmac.mac);
- 			break;
- 		default:
- 			break;
+ drivers/s390/net/smsgiucv.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+--- a/drivers/s390/net/smsgiucv.c
++++ b/drivers/s390/net/smsgiucv.c
+@@ -60,7 +60,7 @@ static struct iucv_handler smsg_handler
+ static int smsg_path_pending(struct iucv_path *path, u8 ipvmid[8],
+ 			     u8 ipuser[16])
+ {
+-	if (strncmp(ipvmid, "*MSG    ", sizeof(ipvmid)) != 0)
++	if (strncmp(ipvmid, "*MSG    ", 8) != 0)
+ 		return -EINVAL;
+ 	/* Path pending from *MSG. */
+ 	return iucv_path_accept(path, &smsg_handler, "SMSGIUCV        ", NULL);
 
