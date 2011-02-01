@@ -1,43 +1,48 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCHv2 dontapply] vhost-net tx tuning
-Date: Tue, 01 Feb 2011 15:27:25 -0800
-Message-ID: <1296602845.26937.834.camel@localhost.localdomain>
-References: <OFD293DCD2.7F0260F0-ON86257823.0061DC39-86257823.00743BB3@us.ibm.com>
-	 <20110126151700.GA14113@redhat.com>
-	 <1296153874.1640.27.camel@localhost.localdomain>
-	 <20110127190031.GC5228@redhat.com>
-	 <1296155340.1640.34.camel@localhost.localdomain>
-	 <20110127193131.GD5228@redhat.com>
-	 <1296157547.1640.45.camel@localhost.localdomain>
-	 <20110127200548.GE5228@redhat.com>
-	 <1296159305.1640.50.camel@localhost.localdomain>
-	 <OF381CCA86.B82857CC-ON86257826.00629F88-86257826.006596F5@us.ibm.com>
-	 <20110201155253.GA22959@redhat.com>
-	 <1296601658.30191.46.camel@sridhar.beaverton.ibm.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] ipv4: Remove fib_hash.
+Date: Tue, 1 Feb 2011 15:33:32 -0800
+Message-ID: <20110201153332.46a38ad8@nehalam>
+References: <20110201.151941.48509941.davem@davemloft.net>
+	<20110201152603.3ce5bd26@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Steve Dobbelstein <steved@us.ibm.com>,
-	mashirle@linux.vnet.ibm.com, kvm@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:35944 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751396Ab1BAX1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 18:27:30 -0500
-In-Reply-To: <1296601658.30191.46.camel@sridhar.beaverton.ibm.com>
+Received: from mail.vyatta.com ([76.74.103.46]:51501 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751774Ab1BAXde (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Feb 2011 18:33:34 -0500
+In-Reply-To: <20110201152603.3ce5bd26@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-02-01 at 15:07 -0800, Sridhar Samudrala wrote:
-> I think the counters that exceed the limits need to be reset to 0
-> here.
-> Otherwise we keep signaling for every buffer once we hit this
-> condition. 
+On Tue, 1 Feb 2011 15:26:03 -0800
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-I will modify the patch to rerun the test to see the difference.
+> On Tue, 01 Feb 2011 15:19:41 -0800 (PST)
+> David Miller <davem@davemloft.net> wrote:
+> 
+> > 
+> > The time has finally come to remove the hash based routing table
+> > implementation in ipv4.
+> > 
+> > FIB Trie is mature, well tested, and I've done an audit of it's code
+> > to confirm that it implements insert, delete, and lookup with the same
+> > identical semantics as fib_hash did.
+> > 
+> > If there are any semantic differences found in fib_trie, we should
+> > simply fix them.
+> > 
+> > I've placed the trie statistic config option under advanced router
+> > configuration.
+> > 
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> Vyatta has been shipping FIB TRIE for over 3 years with reported
+> bugs.
 
-Shirley
+NO reported bugs!!
 
+-- 
