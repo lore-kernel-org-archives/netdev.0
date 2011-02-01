@@ -1,80 +1,71 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH] usb:smsc: preserve MAC address when resetting device
-Date: Tue, 1 Feb 2011 12:24:25 +0100
-Message-ID: <20110201112425.GA3407894@jupiter.n2.diac24.net>
-References: <1296556457-4969-1-git-send-email-sakib@meta.ua>
+From: Antonio Ospite <ospite@studenti.unina.it>
+Subject: Re: [PATCH v5 0/4] Adding HID Feature Report Support to hidraw
+Date: Tue, 1 Feb 2011 12:47:30 +0100
+Message-ID: <20110201124730.ac1faf74.ospite@studenti.unina.it>
+References: <1295337880-12452-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="BOKacYhQ+x31HxR3"
-Cc: Steve Glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Sergiy Kibrik <sakib@meta.ua>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:55590 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753113Ab1BALwF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Feb 2011 06:52:05 -0500
-Content-Disposition: inline
-In-Reply-To: <1296556457-4969-1-git-send-email-sakib@meta.ua>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA1";
+ boundary="Signature=_Tue__1_Feb_2011_12_47_30_+0100_SyiR/gWZILtkceNC"
+Cc: Jiri Kosina <jkosina@suse.cz>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	"Gustavo F. Padovan" <padovan@profusion.mobi>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michael Poole <mdpoole@troilus.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-input@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org, Bastien Nocera <hadess@hadess.net>
+To: Alan Ott <alan@signal11.us>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <1295337880-12452-1-git-send-email-alan@signal11.us>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
---BOKacYhQ+x31HxR3
-Content-Type: text/plain; charset=us-ascii
+--Signature=_Tue__1_Feb_2011_12_47_30_+0100_SyiR/gWZILtkceNC
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Feb 01, 2011 at 12:34:17PM +0200, Sergiy Kibrik wrote:
-> Initialize MAC address only once, when device opened first time
-> to avoid generation random addresses when failed to read one from ROM.
+On Tue, 18 Jan 2011 03:04:36 -0500
+Alan Ott <alan@signal11.us> wrote:
+
+> This patch adds Feature Report support for USB and Bluetooth HID devices
+> through hidraw.
 >=20
-> Some hardware hasn't hw address in ROM, e.g. Pandaboard  (http://pandaboa=
-rd.org),
-> so every time device is up, its address is regenerated again.
-> It makeis impossible to set custom hw address and also makes DHCP servers=
- and switches crazy.
-[snip]
-> +++ b/drivers/net/usb/smsc75xx.c
-> @@ -77,6 +77,7 @@ struct usb_context {
->  };
-> =20
->  static int turbo_mode =3D true;
-> +static int first_reset =3D true;
->  module_param(turbo_mode, bool, 0644);
->  MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction"=
-);
-> =20
-> @@ -836,7 +837,10 @@ static int smsc75xx_reset(struct usbnet *dev)
-> =20
->  	netif_dbg(dev, ifup, dev->net, "PHY reset complete");
-> =20
-> -	smsc75xx_init_mac_address(dev);
-> +	if (first_reset){
-> +		smsc75xx_init_mac_address(dev);
-> +		first_reset =3D false;
-> +	}
-[snip]
+> The first two patches prepare the bluetooth side for the change.
+> 	a. Make sure the hidp_session() thread is started before
+> 	   device's probe() functions are called.
+> 	b. Wait for ACK/NAK on sent reports, and return proper
+> 	   error codes.
+> The third patch is the hidraw core and USB changes.
 
-You cannot do that. Imagine if I plug in two devices. Only the first one
-will get a MAC properly. Or imagine if i plug a device, unplug it and
-plug it back. It will have an uninitialized mac address.
+In particular, this third patch is a prerequisite for the bluez
+sixaxis-cable plugin, originally written by Bastien Nocera (added to
+CC) which I plan to submit when these changes are merged in mainline
+linux.
 
-You need to move the init_mac_address call to happen on device plug-in.
+[...]
 
+--=20
+Antonio Ospite
+http://ao2.it
 
--David
+PGP public key ID: 0x4553B001
 
+A: Because it messes up the order in which people normally read text.
+   See http://en.wikipedia.org/wiki/Posting_style
+Q: Why is top-posting such a bad thing?
 
---BOKacYhQ+x31HxR3
+--Signature=_Tue__1_Feb_2011_12_47_30_+0100_SyiR/gWZILtkceNC
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
+Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEARECAAYFAk1H7WkACgkQpfBGV6DCGYa0UQCgh8lCBT7/yQ6NLR3kRmsXgjH8
-kV0An0BJI7GvVdf6H7tk88OCEm8AG5p1
-=5MxR
+iEYEARECAAYFAk1H8tIACgkQ5xr2akVTsAHjwACeOTUYIzHZTiJUum+6V7FtMEvN
+C+sAnjeBZ1nBbI+A7/ZZo6fGluN39I68
+=aGvS
 -----END PGP SIGNATURE-----
 
---BOKacYhQ+x31HxR3--
+--Signature=_Tue__1_Feb_2011_12_47_30_+0100_SyiR/gWZILtkceNC--
