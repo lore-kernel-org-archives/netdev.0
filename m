@@ -1,55 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 3/7] [PATCH] net,s390: provide architecture specific
- NET_SKB_PAD
-Date: Tue, 01 Feb 2011 14:17:04 -0800 (PST)
-Message-ID: <20110201.141704.39181377.davem@davemloft.net>
-References: <20110201081647.173934635@de.ibm.com>
-	<20110201081723.562745244@de.ibm.com>
+Subject: Re: [PATCH] isdn: icn: Fix potentially wrong string handling
+Date: Tue, 01 Feb 2011 14:18:23 -0800 (PST)
+Message-ID: <20110201.141823.59678888.davem@davemloft.net>
+References: <1296419486-5482-1-git-send-email-weil@mail.berlios.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	horsth@linux.vnet.ibm.com
-To: frank.blaschka@de.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52632
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751703Ab1BAWQ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 17:16:29 -0500
-In-Reply-To: <20110201081723.562745244@de.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: isdn@linux-pingi.de, tj@kernel.org, rostedt@goodmis.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: weil@mail.berlios.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1296419486-5482-1-git-send-email-weil@mail.berlios.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: frank.blaschka@de.ibm.com
-Date: Tue, 01 Feb 2011 09:16:50 +0100
+From: Stefan Weil <weil@mail.berlios.de>
+Date: Sun, 30 Jan 2011 21:31:26 +0100
 
-> From: Horst Hartmann <horsth@linux.vnet.ibm.com>
+> This warning was reported by cppcheck:
+> drivers/isdn/icn/icn.c:1641: error: Dangerous usage of 'rev' (strncpy doesn't always 0-terminate it)
 > 
-> NET_SKB_PAD has been increased from 32 to 64 and later to max(32, L1_CACHE_BYTES). 
-> This led to a 25% throughput decrease for streaming workloads accompanied by a                                                               
-> 37% CPU cost increase on s390.
-> In order to fix this provide an architecture specific NET_SKB_PAD config symbol.
+> If strncpy copied 20 bytes, the destination string rev was not terminated.
+> The patch adds one more byte to rev and makes sure that this byte is
+> always 0.
 > 
-> Signed-off-by: Horst Hartmann <horsth@linux.vnet.ibm.com>
-> Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
+> Cc: Karsten Keil <isdn@linux-pingi.de>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Tejun Heo <tj@kernel.org>
+> Cc: Steven Rostedt <rostedt@goodmis.org>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Signed-off-by: Stefan Weil <weil@mail.berlios.de>
 
-Define it in your arch specific header file like it is designed to
-be overridden.
-
-Also, even if this Kconfig thing was the right thing to do, you would
-need to put a default for it generically in init/Kconfig or
-lib/Kconfig or similar.  As this is where the central documentation
-for the knob would be placed.
-
-Lastly, you failed in your commit message to describe why you wanted
-to use this whacky Kconfig mechanism to override instead of using
-a straight CPP define in the s390 headers.
-
-You're modifying generic code, so you better explain what you're doing
-and exactly why.
-
-I'm not applying this series until you fix up this change, resubmit
-the entire series when you have this stuff fixed up.
-
-Thanks.
-
+Applied, thanks.
