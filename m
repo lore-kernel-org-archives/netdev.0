@@ -1,55 +1,55 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Kernel wiki for Linux networking
-Date: Mon, 31 Jan 2011 15:31:01 -0800
-Message-ID: <20110131153101.27a3cbf7@nehalam>
-References: <AANLkTikEhrZmOM3+2jCFXKJh1szd5zKcPxC5HT8NEorQ@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: linux-next: Tree for January 31 (ip_vs)
+Date: Tue, 1 Feb 2011 11:03:07 +1100
+Message-ID: <20110201000302.GA9482@verge.net.au>
+References: <20110131101829.b842da44.randy.dunlap@oracle.com>
+ <20110131211846.GH2389@verge.net.au>
+ <20110131225727.GA23992@verge.net.au>
+ <20110131.150031.70194609.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Etan.Cohen@atheros.com,
-	Hai.Shalom@atheros.com, "zhen.xie" <zhen.xie@atheros.com>
-To: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43165 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753147Ab1AaXbF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 18:31:05 -0500
-In-Reply-To: <AANLkTikEhrZmOM3+2jCFXKJh1szd5zKcPxC5HT8NEorQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-next-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110131.150031.70194609.davem@davemloft.net>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jan 2011 15:29:25 -0800
-"Luis R. Rodriguez" <mcgrof@gmail.com> wrote:
+On Mon, Jan 31, 2011 at 03:00:31PM -0800, David Miller wrote:
+> From: Simon Horman <horms@verge.net.au>
+> Date: Tue, 1 Feb 2011 09:57:28 +1100
+> 
+> > On Tue, Feb 01, 2011 at 08:18:47AM +1100, Simon Horman wrote:
+> >> On Mon, Jan 31, 2011 at 10:18:29AM -0800, Randy Dunlap wrote:
+> >> > On Mon, 31 Jan 2011 17:41:13 +1100 Stephen Rothwell wrote:
+> >> > 
+> >> > > Hi all,
+> >> > > 
+> >> > > Changes since 20110121:
+> >> > > 
+> >> > > The net tree lost its build failure.
+> >> > 
+> >> > 
+> >> > When CONFIG_SYSCTL is not enabled:
+> >> > 
+> >> > net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
+> >> > ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
+> >> > ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
+> >> 
+> >> Thanks, I'm looking into it.
+> > 
+> > On a related note, does IPVS need to handle the case
+> > where CONFIG_PROC_FS is not enabled?
+> 
+> Yes.
 
-> https://wiki.kernel.org/
-> 
-> We lack a general networking wiki. Can we get a subdomain to start
-> one? The Documentation/ directory serves its purpose but wikis can
-> allow for easier updates and allow for more content to be added and
-> categorized. We have some pages with some content already like:
-> 
-> http://www.linuxfoundation.org/collaborate/workgroups/networking/
-> http://www.linuxfoundation.org/collaborate/workgroups/networking/bridge
-> 
-> This is obviously outdated:
-> 
-> http://www.linuxfoundation.org/collaborate/workgroups/networking/802.11
-> 
-> And should just point to wireless.kernel.org, but I don't get the
-> sense that the LF networking site is a home body for any doc updates.
-> 
-> I have found the 802.11 wiki to write proposals [1], summarize
-> standards [2], and even provide a home body for userspace [3]. I think
-> something like this can benefit networking in general. Thoughts?
-> 
-> [1] http://wireless.kernel.org/en/developers/DFS
-> [2] http://wireless.kernel.org/en/developers/Documentation/ieee80211/802.11n
-> [3] http://wireless.kernel.org/en/users/Documentation
-> 
->   Luis
+Thanks.
 
-The LF is willing to host it, but if you want just put a link to where
-you want.
+I checked and it does seem to compile without CONFIG_PROC_FS
+and now also without CONFIG_SYSCTL, I'll send a patch for that right
+after I finish this email.
 
--- 
+I think that in both cases there is dead code, I'll clean that up next.
