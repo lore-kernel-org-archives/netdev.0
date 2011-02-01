@@ -1,178 +1,51 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 5/7] [PATCH] qeth: allow OSA CHPARM change in suspend state
-Date: Tue, 01 Feb 2011 09:16:52 +0100
-Message-ID: <20110201081723.877971273@de.ibm.com>
+Subject: [patch 1/7] [PATCH] qeth: show new mac-address if its setting fails
+Date: Tue, 01 Feb 2011 09:16:48 +0100
+Message-ID: <20110201081723.256273806@de.ibm.com>
 References: <20110201081647.173934635@de.ibm.com>
 Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula braun <ursula.braun@de.ibm.com>
+	Ursula Braun <ursula.braun@de.ibm.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate5.uk.ibm.com ([194.196.100.165]:56584 "EHLO
-	mtagate5.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386Ab1BAIR2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 03:17:28 -0500
-Content-Disposition: inline; filename=608-qeth-osa-chparm-change.diff
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:51884 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752463Ab1BAIRi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 03:17:38 -0500
+Content-Disposition: inline; filename=604-qeth-mac-address.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ursula Braun <ursula.braun@de.ibm.com>
 
-For OSA the CHPARM-definition determines the number of available
-outbound queues.
-A CHPARM-change may occur while a Linux system with probed
-OSA device is in suspend state. This patch enables proper
-resuming of an OSA device in this case.
+Setting of a MAC-address may fail because an already used MAC-address
+is to bet set or because of authorization problems. In those cases
+qeth issues a message, but the mentioned MAC-address is not the
+new MAC-address to be set, but the actual MAC-address. This patch
+chooses now the new MAC-address to be set for the error messages.
 
-Signed-off-by: Ursula braun <ursula.braun@de.ibm.com>
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
 
- drivers/s390/net/qeth_core_main.c |  104 +++++++++++++++++++++++---------------
- 1 file changed, 63 insertions(+), 41 deletions(-)
---- a/drivers/s390/net/qeth_core_main.c
-+++ b/drivers/s390/net/qeth_core_main.c
-@@ -988,16 +988,30 @@ static void qeth_get_channel_path_desc(s
- 	chp_dsc = (struct channelPath_dsc *)ccw_device_get_chp_desc(ccwdev, 0);
- 	if (chp_dsc != NULL) {
- 		/* CHPP field bit 6 == 1 -> single queue */
--		if ((chp_dsc->chpp & 0x02) == 0x02)
-+		if ((chp_dsc->chpp & 0x02) == 0x02) {
-+			if ((atomic_read(&card->qdio.state) !=
-+				QETH_QDIO_UNINITIALIZED) &&
-+			    (card->qdio.no_out_queues == 4))
-+				/* change from 4 to 1 outbound queues */
-+				qeth_free_qdio_buffers(card);
- 			card->qdio.no_out_queues = 1;
-+			if (card->qdio.default_out_queue != 0)
-+				dev_info(&card->gdev->dev,
-+					"Priority Queueing not supported\n");
-+			card->qdio.default_out_queue = 0;
-+		} else {
-+			if ((atomic_read(&card->qdio.state) !=
-+				QETH_QDIO_UNINITIALIZED) &&
-+			    (card->qdio.no_out_queues == 1)) {
-+				/* change from 1 to 4 outbound queues */
-+				qeth_free_qdio_buffers(card);
-+				card->qdio.default_out_queue = 2;
-+			}
-+			card->qdio.no_out_queues = 4;
-+		}
- 		card->info.func_level = 0x4100 + chp_dsc->desc;
- 		kfree(chp_dsc);
- 	}
--	if (card->qdio.no_out_queues == 1) {
--		card->qdio.default_out_queue = 0;
--		dev_info(&card->gdev->dev,
--			"Priority Queueing not supported\n");
--	}
- 	QETH_DBF_TEXT_(SETUP, 2, "nr:%x", card->qdio.no_out_queues);
- 	QETH_DBF_TEXT_(SETUP, 2, "lvl:%02x", card->info.func_level);
- 	return;
-@@ -3756,6 +3770,47 @@ static inline int qeth_get_qdio_q_format
- 	}
- }
- 
-+static void qeth_determine_capabilities(struct qeth_card *card)
-+{
-+	int rc;
-+	int length;
-+	char *prcd;
-+	struct ccw_device *ddev;
-+	int ddev_offline = 0;
-+
-+	QETH_DBF_TEXT(SETUP, 2, "detcapab");
-+	ddev = CARD_DDEV(card);
-+	if (!ddev->online) {
-+		ddev_offline = 1;
-+		rc = ccw_device_set_online(ddev);
-+		if (rc) {
-+			QETH_DBF_TEXT_(SETUP, 2, "3err%d", rc);
-+			goto out;
-+		}
-+	}
-+
-+	rc = qeth_read_conf_data(card, (void **) &prcd, &length);
-+	if (rc) {
-+		QETH_DBF_MESSAGE(2, "%s qeth_read_conf_data returned %i\n",
-+			dev_name(&card->gdev->dev), rc);
-+		QETH_DBF_TEXT_(SETUP, 2, "5err%d", rc);
-+		goto out_offline;
-+	}
-+	qeth_configure_unitaddr(card, prcd);
-+	qeth_configure_blkt_default(card, prcd);
-+	kfree(prcd);
-+
-+	rc = qdio_get_ssqd_desc(ddev, &card->ssqd);
-+	if (rc)
-+		QETH_DBF_TEXT_(SETUP, 2, "6err%d", rc);
-+
-+out_offline:
-+	if (ddev_offline == 1)
-+		ccw_device_set_offline(ddev);
-+out:
-+	return;
-+}
-+
- static int qeth_qdio_establish(struct qeth_card *card)
- {
- 	struct qdio_initialize init_data;
-@@ -3886,6 +3941,7 @@ int qeth_core_hardsetup_card(struct qeth
- 
- 	QETH_DBF_TEXT(SETUP, 2, "hrdsetup");
- 	atomic_set(&card->force_alloc_skb, 0);
-+	qeth_get_channel_path_desc(card);
- retry:
- 	if (retries)
- 		QETH_DBF_MESSAGE(2, "%s Retrying to do IDX activates.\n",
-@@ -3914,6 +3970,7 @@ retriable:
- 		else
- 			goto retry;
- 	}
-+	qeth_determine_capabilities(card);
- 	qeth_init_tokens(card);
- 	qeth_init_func_level(card);
- 	rc = qeth_idx_activate_channel(&card->read, qeth_idx_read_cb);
-@@ -4183,41 +4240,6 @@ void qeth_core_free_discipline(struct qe
- 	card->discipline.ccwgdriver = NULL;
- }
- 
--static void qeth_determine_capabilities(struct qeth_card *card)
--{
--	int rc;
--	int length;
--	char *prcd;
--
--	QETH_DBF_TEXT(SETUP, 2, "detcapab");
--	rc = ccw_device_set_online(CARD_DDEV(card));
--	if (rc) {
--		QETH_DBF_TEXT_(SETUP, 2, "3err%d", rc);
--		goto out;
--	}
--
--
--	rc = qeth_read_conf_data(card, (void **) &prcd, &length);
--	if (rc) {
--		QETH_DBF_MESSAGE(2, "%s qeth_read_conf_data returned %i\n",
--			dev_name(&card->gdev->dev), rc);
--		QETH_DBF_TEXT_(SETUP, 2, "5err%d", rc);
--		goto out_offline;
--	}
--	qeth_configure_unitaddr(card, prcd);
--	qeth_configure_blkt_default(card, prcd);
--	kfree(prcd);
--
--	rc = qdio_get_ssqd_desc(CARD_DDEV(card), &card->ssqd);
--	if (rc)
--		QETH_DBF_TEXT_(SETUP, 2, "6err%d", rc);
--
--out_offline:
--	ccw_device_set_offline(CARD_DDEV(card));
--out:
--	return;
--}
--
- static int qeth_core_probe_device(struct ccwgroup_device *gdev)
- {
- 	struct qeth_card *card;
+ drivers/s390/net/qeth_l2_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -573,13 +573,13 @@ static int qeth_l2_send_setmac_cb(struct
+ 		case IPA_RC_L2_DUP_LAYER3_MAC:
+ 			dev_warn(&card->gdev->dev,
+ 				"MAC address %pM already exists\n",
+-				card->dev->dev_addr);
++				cmd->data.setdelmac.mac);
+ 			break;
+ 		case IPA_RC_L2_MAC_NOT_AUTH_BY_HYP:
+ 		case IPA_RC_L2_MAC_NOT_AUTH_BY_ADP:
+ 			dev_warn(&card->gdev->dev,
+ 				"MAC address %pM is not authorized\n",
+-				card->dev->dev_addr);
++				cmd->data.setdelmac.mac);
+ 			break;
+ 		default:
+ 			break;
 
