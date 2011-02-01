@@ -1,107 +1,149 @@
-From: Steve Dobbelstein <steved@us.ibm.com>
-Subject: Re: Network performance with small packets
-Date: Mon, 31 Jan 2011 18:24:34 -0600
-Message-ID: <OF05820FED.7465B77B-ON8625782A.0001B247-8625782A.00023FA7@us.ibm.com>
-References: <20110127193131.GD5228@redhat.com> <1296157547.1640.45.camel@localhost.localdomain> <20110127200548.GE5228@redhat.com> <20110127.130240.104065182.davem@davemloft.net> <1296163838.1640.53.camel@localhost.localdomain> <20110128121616.GA8374@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 1/2] ipv4: Remember FIB alias list head and table in lookup
+ results.
+Date: Mon, 31 Jan 2011 16:25:48 -0800 (PST)
+Message-ID: <20110131.162548.35037920.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e6.ny.us.ibm.com ([32.97.182.146]:58371 "EHLO e6.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752920Ab1BAAYi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 31 Jan 2011 19:24:38 -0500
-In-Reply-To: <20110128121616.GA8374@redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43028
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754297Ab1BAAZN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 19:25:13 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id D930024C087
+	for <netdev@vger.kernel.org>; Mon, 31 Jan 2011 16:25:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 01/28/2011 06:16:16 AM:
 
-> OK, so thinking about it more, maybe the issue is this:
-> tx becomes full. We process one request and interrupt the guest,
-> then it adds one request and the queue is full again.
->
-> Maybe the following will help it stabilize?
-> By itself it does nothing, but if you set
-> all the parameters to a huge value we will
-> only interrupt when we see an empty ring.
-> Which might be too much: pls try other values
-> in the middle: e.g. make bufs half the ring,
-> or bytes some small value, or packets some
-> small value etc.
->
-> Warning: completely untested.
->
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index aac05bc..6769cdc 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -32,6 +32,13 @@
->   * Using this limit prevents one virtqueue from starving others. */
->  #define VHOST_NET_WEIGHT 0x80000
->
-> +int tx_bytes_coalesce = 0;
-> +module_param(tx_bytes_coalesce, int, 0644);
-> +int tx_bufs_coalesce = 0;
-> +module_param(tx_bufs_coalesce, int, 0644);
-> +int tx_packets_coalesce = 0;
-> +module_param(tx_packets_coalesce, int, 0644);
-> +
->  enum {
->     VHOST_NET_VQ_RX = 0,
->     VHOST_NET_VQ_TX = 1,
-> @@ -127,6 +134,9 @@ static void handle_tx(struct vhost_net *net)
->     int err, wmem;
->     size_t hdr_size;
->     struct socket *sock;
-> +   int bytes_coalesced = 0;
-> +   int bufs_coalesced = 0;
-> +   int packets_coalesced = 0;
->
->     /* TODO: check that we are running from vhost_worker? */
->     sock = rcu_dereference_check(vq->private_data, 1);
-> @@ -196,14 +206,26 @@ static void handle_tx(struct vhost_net *net)
->        if (err != len)
->           pr_debug("Truncated TX packet: "
->               " len %d != %zd\n", err, len);
-> -      vhost_add_used_and_signal(&net->dev, vq, head, 0);
->        total_len += len;
-> +      packets_coalesced += 1;
-> +      bytes_coalesced += len;
-> +      bufs_coalesced += in;
+This will be used later to implement fib_select_default() in a
+completely generic manner, instead of the current situation where the
+default route is re-looked up in the TRIE/HASH table and then the
+available aliases are analyzed.
 
-Should this instead be:
-      bufs_coalesced += out;
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip_fib.h     |    3 +++
+ net/ipv4/fib_hash.c      |    2 +-
+ net/ipv4/fib_lookup.h    |    2 +-
+ net/ipv4/fib_semantics.c |    7 +++++--
+ net/ipv4/fib_trie.c      |    8 ++++----
+ 5 files changed, 14 insertions(+), 8 deletions(-)
 
-Perusing the code I see that earlier there is a check to see if "in" is not
-zero, and, if so, error out of the loop.  After the check, "in" is not
-touched until it is added to bufs_coalesced, effectively not changing
-bufs_coalesced, meaning bufs_coalesced will never trigger the conditions
-below.
-
-Or am I missing something?
-
-> +      if (unlikely(packets_coalesced > tx_packets_coalesce ||
-> +              bytes_coalesced > tx_bytes_coalesce ||
-> +              bufs_coalesced > tx_bufs_coalesce))
-> +         vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> +      else
-> +         vhost_add_used(vq, head, 0);
->        if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
->           vhost_poll_queue(&vq->poll);
->           break;
->        }
->     }
->
-> +   if (likely(packets_coalesced > tx_packets_coalesce ||
-> +         bytes_coalesced > tx_bytes_coalesce ||
-> +         bufs_coalesced > tx_bufs_coalesce))
-> +      vhost_signal(&net->dev, vq);
->     mutex_unlock(&vq->mutex);
->  }
->
-
-Steve D.
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 2c0508a..f5199b0 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -96,12 +96,15 @@ struct fib_info {
+ struct fib_rule;
+ #endif
+ 
++struct fib_table;
+ struct fib_result {
+ 	unsigned char	prefixlen;
+ 	unsigned char	nh_sel;
+ 	unsigned char	type;
+ 	unsigned char	scope;
+ 	struct fib_info *fi;
++	struct fib_table *table;
++	struct list_head *fa_head;
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
+ 	struct fib_rule	*r;
+ #endif
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index b3acb04..0a88866 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -288,7 +288,7 @@ int fib_table_lookup(struct fib_table *tb,
+ 				if (f->fn_key != k)
+ 					continue;
+ 
+-				err = fib_semantic_match(&f->fn_alias,
++				err = fib_semantic_match(tb, &f->fn_alias,
+ 						 flp, res,
+ 						 fz->fz_order, fib_flags);
+ 				if (err <= 0)
+diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
+index c079cc0..d5c40d8 100644
+--- a/net/ipv4/fib_lookup.h
++++ b/net/ipv4/fib_lookup.h
+@@ -25,7 +25,7 @@ static inline void fib_alias_accessed(struct fib_alias *fa)
+ }
+ 
+ /* Exported by fib_semantics.c */
+-extern int fib_semantic_match(struct list_head *head,
++extern int fib_semantic_match(struct fib_table *tb, struct list_head *head,
+ 			      const struct flowi *flp,
+ 			      struct fib_result *res, int prefixlen, int fib_flags);
+ extern void fib_release_info(struct fib_info *);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index 48e93a5..1bf6fb9 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -889,8 +889,9 @@ failure:
+ }
+ 
+ /* Note! fib_semantic_match intentionally uses  RCU list functions. */
+-int fib_semantic_match(struct list_head *head, const struct flowi *flp,
+-		       struct fib_result *res, int prefixlen, int fib_flags)
++int fib_semantic_match(struct fib_table *tb, struct list_head *head,
++		       const struct flowi *flp, struct fib_result *res,
++		       int prefixlen, int fib_flags)
+ {
+ 	struct fib_alias *fa;
+ 	int nh_sel = 0;
+@@ -954,6 +955,8 @@ out_fill_res:
+ 	res->type = fa->fa_type;
+ 	res->scope = fa->fa_scope;
+ 	res->fi = fa->fa_info;
++	res->table = tb;
++	res->fa_head = head;
+ 	if (!(fib_flags & FIB_LOOKUP_NOREF))
+ 		atomic_inc(&res->fi->fib_clntref);
+ 	return 0;
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index 0f28034..8cee5c8 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1340,7 +1340,7 @@ err:
+ }
+ 
+ /* should be called with rcu_read_lock */
+-static int check_leaf(struct trie *t, struct leaf *l,
++static int check_leaf(struct fib_table *tb, struct trie *t, struct leaf *l,
+ 		      t_key key,  const struct flowi *flp,
+ 		      struct fib_result *res, int fib_flags)
+ {
+@@ -1356,7 +1356,7 @@ static int check_leaf(struct trie *t, struct leaf *l,
+ 		if (l->key != (key & ntohl(mask)))
+ 			continue;
+ 
+-		err = fib_semantic_match(&li->falh, flp, res, plen, fib_flags);
++		err = fib_semantic_match(tb, &li->falh, flp, res, plen, fib_flags);
+ 
+ #ifdef CONFIG_IP_FIB_TRIE_STATS
+ 		if (err <= 0)
+@@ -1398,7 +1398,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi *flp,
+ 
+ 	/* Just a leaf? */
+ 	if (IS_LEAF(n)) {
+-		ret = check_leaf(t, (struct leaf *)n, key, flp, res, fib_flags);
++		ret = check_leaf(tb, t, (struct leaf *)n, key, flp, res, fib_flags);
+ 		goto found;
+ 	}
+ 
+@@ -1423,7 +1423,7 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi *flp,
+ 		}
+ 
+ 		if (IS_LEAF(n)) {
+-			ret = check_leaf(t, (struct leaf *)n, key, flp, res, fib_flags);
++			ret = check_leaf(tb, t, (struct leaf *)n, key, flp, res, fib_flags);
+ 			if (ret > 0)
+ 				goto backtrace;
+ 			goto found;
+-- 
+1.7.4
 
