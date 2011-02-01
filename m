@@ -1,89 +1,62 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [GIT PULL nf-next-2.6] IPVS build fixes and clean-ups
-Date: Tue, 01 Feb 2011 09:05:50 -0800
-Message-ID: <4D483D6E.5070007@oracle.com>
-References: <1296519255-10602-1-git-send-email-horms@verge.net.au> <20110131165009.66999952.randy.dunlap@oracle.com> <20110201040634.GA2351@verge.net.au> <20110201100421.GA13325@verge.net.au>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re: [PATCH 2/5] IPVS: remove duplicate initialisation or
+	rs_table
+Date: Tue, 1 Feb 2011 18:06:42 +0100 (CET)
+Message-ID: <7j2t3lt.4903adc7917a92d71d2d5a0cc8fed87a@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
 Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
 	linux-kernel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Simon Horman <horms@verge.net.au>
+	"Randy Dunlap" <randy.dunlap@oracle.com>,
+	"Stephen Rothwell" <sfr@canb.auug.org.au>,
+	"Patrick McHardy" <kaber@trash.net>
+To: "Simon Horman" <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:39828 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754855Ab1BARGZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 12:06:25 -0500
-In-Reply-To: <20110201100421.GA13325@verge.net.au>
+Received: from smtp-gw21.han.skanova.net ([81.236.55.21]:43573 "EHLO
+	smtp-gw21.han.skanova.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751477Ab1BARGt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 12:06:49 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/01/11 02:04, Simon Horman wrote:
-> On Tue, Feb 01, 2011 at 03:06:37PM +1100, Simon Horman wrote:
->> On Mon, Jan 31, 2011 at 04:50:09PM -0800, Randy Dunlap wrote:
->>> On Tue,  1 Feb 2011 11:14:11 +1100 Simon Horman wrote:
->>>
->>>> Hi,
->>>>
->>>> This short patch series addresses two linux-next build problems
->>>> raised by Randy Dunlap:
->>>>
->>>> * net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
->>>> * ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko]
->>>>   ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
->>>>
->>>> The remainder of the changset is cleanups that I noticed along the way.
->>>
->>> These 4 patches build successfully for me.
->>> However, I do see these warnings (sorry I missed them earlier):
->>>
->>> WARNING: net/netfilter/ipvs/ip_vs.o(.init.text+0x161): Section mismatch in reference from the function init_module() to the function .exit.text:ip_vs_sync_cleanup()
->>> WARNING: net/netfilter/ipvs/ip_vs.o(.init.text+0x161): Section mismatch in reference from the function init_module() to the function .exit.text:ip_vs_sync_cleanup()
->>
->> Thanks, I'll look into that. I will be travelling for a good portion of the
->> next day and a bit so I apologise in advance if that delays my next patch.
-> 
-> Hi,
-> 
-> I the following patch seems to be the right fix for this to me.
-> I will send an amended pull request.
-> 
-> IPVS: Remove ip_vs_sync_cleanup from section __exit
-> 
-> ip_vs_sync_cleanup() may be called from ip_vs_init() on error
-> and thus needs to be accesible from section __init
-> 
-> Reporte-by: Randy Dunlap <randy.dunlap@oracle.com>
-  Reported-by:
+>---- Original Message ----
+>From: Simon Horman <horms@verge.net.au>
+>To: netdev@vger.kernel.org, linux-next@vger.kernel.org, linux-kernel@vger.kernel.org, lvs-devel@vger.kernel.org
+>Cc: "Randy Dunlap" <randy.dunlap@oracle.com>, "Stephen Rothwell" <sfr@canb.auug.org.au>, "Hans Schillstrom" <hans@schillstrom.com>, "Patrick McHardy" <kaber@trash.net>, "Simon Horman" <horms@verge.net.au>
+>Sent: Tue, Feb 1, 2011, 11:11 AM
+>Subject: [PATCH 2/5] IPVS: remove duplicate initialisation or rs_table
+>
+>Cc: Hans Schillstrom <hans@schillstrom.com>
+>Signed-off-by: Simon Horman <horms@verge.net.au>
 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+Tested-by: Hans Schillstrom <hans@schillstrom.com>
 
-Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
-
-Thanks.
-
-> ---
->  net/netfilter/ipvs/ip_vs_sync.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
+>---
+> net/netfilter/ipvs/ip_vs_ctl.c |    3 ---
+> 1 files changed, 0 insertions(+), 3 deletions(-)
+>
+>diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+>index 98df59a..d7c2fa8 100644
+>--- a/net/netfilter/ipvs/ip_vs_ctl.c
+>+++ b/net/netfilter/ipvs/ip_vs_ctl.c
+>@@ -3515,9 +3515,6 @@ int __net_init __ip_vs_control_init(struct net *net)
+> 	}
+> 	spin_lock_init(&ipvs->tot_stats->lock);
 > 
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index d5a6e64..2a2a836 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -1686,7 +1686,7 @@ int __init ip_vs_sync_init(void)
->  	return register_pernet_subsys(&ipvs_sync_ops);
->  }
->  
-> -void __exit ip_vs_sync_cleanup(void)
-> +void ip_vs_sync_cleanup(void)
->  {
->  	unregister_pernet_subsys(&ipvs_sync_ops);
->  }
+>-	for (idx = 0; idx < IP_VS_RTAB_SIZE; idx++)
+>-		INIT_LIST_HEAD(&ipvs->rs_table[idx]);
+>-
+> 	proc_net_fops_create(net, "ip_vs", 0, &ip_vs_info_fops);
+> 	proc_net_fops_create(net, "ip_vs_stats", 0, &ip_vs_stats_fops);
+> 	proc_net_fops_create(net, "ip_vs_stats_percpu", 0,
+>-- 
+>1.7.2.3
+>
+>--
+>To unsubscribe from this list: send the line "unsubscribe lvs-devel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-
--- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
