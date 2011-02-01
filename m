@@ -1,69 +1,128 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: How To Temporarily Suspend Network Traffic
-Date: Tue, 01 Feb 2011 12:03:31 -0800
-Message-ID: <4D486713.70200@hp.com>
-References: <87d3nbakwx.fsf@alamut.ozu.edu.tr> <4D4843B0.1090803@hp.com> <87ipx335e1.fsf@alamut.ozu.edu.tr>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Tue, 01 Feb 2011 12:25:08 -0800
+Message-ID: <1296591908.26937.809.camel@localhost.localdomain>
+References: <20110127193131.GD5228@redhat.com>
+	 <1296157547.1640.45.camel@localhost.localdomain>
+	 <20110127200548.GE5228@redhat.com>
+	 <20110127.130240.104065182.davem@davemloft.net>
+	 <1296163838.1640.53.camel@localhost.localdomain>
+	 <20110201172346.GA24392@redhat.com>
+	 <1296590943.26937.797.camel@localhost.localdomain>
+	 <20110201201715.GA30050@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Volkan YAZICI <volkan.yazici@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0029.austin.hp.com ([15.216.28.36]:11912 "EHLO
-	g1t0029.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751432Ab1BAUDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 15:03:36 -0500
-In-Reply-To: <87ipx335e1.fsf@alamut.ozu.edu.tr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, steved@us.ibm.com,
+	netdev@vger.kernel.org, kvm@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110201201715.GA30050@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Volkan YAZICI wrote:
-> On Tue, 01 Feb 2011 09:32:32 -0800, Rick Jones writes:
+On Tue, 2011-02-01 at 22:17 +0200, Michael S. Tsirkin wrote:
+> On Tue, Feb 01, 2011 at 12:09:03PM -0800, Shirley Ma wrote:
+> > On Tue, 2011-02-01 at 19:23 +0200, Michael S. Tsirkin wrote:
+> > > On Thu, Jan 27, 2011 at 01:30:38PM -0800, Shirley Ma wrote:
+> > > > On Thu, 2011-01-27 at 13:02 -0800, David Miller wrote:
+> > > > > > Interesting. Could this is be a variant of the now famuous
+> > > > > bufferbloat then?
+> > > > > 
+> > > > > Sigh, bufferbloat is the new global warming... :-/ 
+> > > > 
+> > > > Yep, some places become colder, some other places become warmer;
+> > > Same as
+> > > > BW results, sometimes faster, sometimes slower. :)
+> > > > 
+> > > > Shirley
+> > > 
+> > > Sent a tuning patch (v2) that might help.
+> > > Could you try it and play with the module parameters please? 
+> > 
+> > Hello Michael,
+> > 
+> > Sure I will play with this patch to see how it could help. 
+> > 
+> > I am looking at guest side as well, I found a couple issues on guest
+> > side:
+> > 
+> > 1. free_old_xmit_skbs() should return the number of skbs instead of
+> the
+> > total of sgs since we are using ring size to stop/start netif queue.
+> > static unsigned int free_old_xmit_skbs(struct virtnet_info *vi)
+> > {
+> >         struct sk_buff *skb;
+> >         unsigned int len, tot_sgs = 0;
+> > 
+> >         while ((skb = virtqueue_get_buf(vi->svq, &len)) != NULL) {
+> >                 pr_debug("Sent skb %p\n", skb);
+> >                 vi->dev->stats.tx_bytes += skb->len;
+> >                 vi->dev->stats.tx_packets++;
+> >                 tot_sgs += skb_vnet_hdr(skb)->num_sg;
+> >                 dev_kfree_skb_any(skb);
+> >         }
+> >         return tot_sgs; <---- should return numbers of skbs to track
+> > ring usage here, I think;
+> > }
+> > 
+> > Did the old guest use number of buffers to track ring usage before?
+> > 
+> > 2. In start_xmit, I think we should move capacity +=
+> free_old_xmit_skbs
+> > before netif_stop_queue(); so we avoid unnecessary netif queue
+> > stop/start. This condition is heavily hit for small message size.
+> > 
+> > Also we capacity checking condition should change to something like
+> half
+> > of the vring.num size, instead of comparing 2+MAX_SKB_FRAGS?
+> > 
+> >        if (capacity < 2+MAX_SKB_FRAGS) {
+> >                 netif_stop_queue(dev);
+> >                 if (unlikely(!virtqueue_enable_cb(vi->svq))) {
+> >                         /* More just got used, free them then
+> recheck.
+> > */
+> >                         capacity += free_old_xmit_skbs(vi);
+> >                         if (capacity >= 2+MAX_SKB_FRAGS) {
+> >                                 netif_start_queue(dev);
+> >                                 virtqueue_disable_cb(vi->svq);
+> >                         }
+> >                 }
+> >         }
+> > 
+> > 3. Looks like the xmit callback is only used to wake the queue when
+> the
+> > queue has stopped, right? Should we put a condition check here?
+> > static void skb_xmit_done(struct virtqueue *svq)
+> > {
+> >         struct virtnet_info *vi = svq->vdev->priv;
+> > 
+> >         /* Suppress further interrupts. */
+> >         virtqueue_disable_cb(svq);
+> > 
+> >         /* We were probably waiting for more output buffers. */
+> > --->   if (netif_queue_stopped(vi->dev))
+> >         netif_wake_queue(vi->dev);
+> > }
+> > 
+> > 
+> > Shirley
 > 
->>Out of not quite idle curiousity, what are you trying to accomplish?
-> 
-> I'm trying to implement a coarse-grained soft-TDMA (Time Division
-> Multiple Access) among devices in a Wi-Fi network. (Coarse-grained, that
-> is, compared to a hardware implementation.) Assuming that device clocks
-> are in sync via NTP, I will figure out the granularity I can achieve
-> with soft-TDMA.
+> Well the return value is used to calculate capacity and that counts
+> the # of s/g. No?
 
-As in Fred gets to transmit from 0 to N, Ethel gets to transmit from N+1 to 2N 
-and so on, based on absolute time?
+Nope, the current guest kernel uses descriptors not number of sgs. I am
+not sure the old guest.
 
-Getting small number of microsecond synchronization between multiple systems via 
-NTP (particularly if they are synchronized via a wireless network) may prove 
-challenging.  At least that is my take as a member of the peanut gallery reading 
-over the shoulders of the discussions that take place in comp.protocols.time.ntp
+> From cache utilization POV it might be better to read from the skb and
+> not peek at virtio header though...
+> Pls Cc the lists on any discussions in the future.
+> 
+> -- 
+> MST
 
->>Instead of using tc to set a zero rate, you could perhaps try using tc
->>to set a delay? If it doesn't offer microseconds of delay, pehaps
->>setting a delay and then eliminating it after your own pause will do
->>what you want - depends of course on what it is you really want.
-> 
-> Thanks for the advice. I'll check this out and see what I can do.
-> 
->>Your saying you wanted microsecond granularity suggests you don't want
->>to suspend traffic for very long?
-> 
-> I want to figure out the smallest delay that I can achieve in a periodic
-> manner. (E.g., freeze the traffic for 200us, continue without
-> interruption for 800us, and freeze the traffic again for another 200us,
-> etc.) Pay attention that, an undeterministic delay somewhere in between
-> 1000us is not something I prefer, I must be able to determine the point
-> in time where delay will appear -- ofcourse, with some error margin.
+Sorry I missed reply all. :(
 
-Sounds, well, challenging :)  The determining the point in time part in 
-particular.  One thing I've learned is that the cell towers in a cell network 
-sync their time directly to GPS with some kit that is non-trivially expensive.
-
-rick jones
-
-> 
-> 
-> Regards.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Shirley
 
