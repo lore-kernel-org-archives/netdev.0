@@ -1,55 +1,36 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: linux-next: Tree for January 31 (ip_vs)
-Date: Tue, 1 Feb 2011 11:03:07 +1100
-Message-ID: <20110201000302.GA9482@verge.net.au>
-References: <20110131101829.b842da44.randy.dunlap@oracle.com>
- <20110131211846.GH2389@verge.net.au>
- <20110131225727.GA23992@verge.net.au>
- <20110131.150031.70194609.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: randy.dunlap@oracle.com, sfr@canb.auug.org.au,
-	netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110131.150031.70194609.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Subject: [GIT PULL nf-next-2.6] IPVS build fixes and clean-ups
+Date: Tue,  1 Feb 2011 11:14:11 +1100
+Message-ID: <1296519255-10602-1-git-send-email-horms@verge.net.au>
+Cc: Randy Dunlap <randy.dunlap@oracle.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Patrick McHardy <kaber@trash.net>
+To: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 31, 2011 at 03:00:31PM -0800, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Tue, 1 Feb 2011 09:57:28 +1100
-> 
-> > On Tue, Feb 01, 2011 at 08:18:47AM +1100, Simon Horman wrote:
-> >> On Mon, Jan 31, 2011 at 10:18:29AM -0800, Randy Dunlap wrote:
-> >> > On Mon, 31 Jan 2011 17:41:13 +1100 Stephen Rothwell wrote:
-> >> > 
-> >> > > Hi all,
-> >> > > 
-> >> > > Changes since 20110121:
-> >> > > 
-> >> > > The net tree lost its build failure.
-> >> > 
-> >> > 
-> >> > When CONFIG_SYSCTL is not enabled:
-> >> > 
-> >> > net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
-> >> > ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
-> >> > ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
-> >> 
-> >> Thanks, I'm looking into it.
-> > 
-> > On a related note, does IPVS need to handle the case
-> > where CONFIG_PROC_FS is not enabled?
-> 
-> Yes.
+Hi,
 
-Thanks.
+This short patch series addresses two linux-next build problems
+raised by Randy Dunlap:
 
-I checked and it does seem to compile without CONFIG_PROC_FS
-and now also without CONFIG_SYSCTL, I'll send a patch for that right
-after I finish this email.
+* net/netfilter/ipvs/ip_vs_core.c:1891: warning: format '%lu' expects type 'long unsigned int', but argument 2 has type 'unsigned int'
+* ERROR: "unregister_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko]
+  ERROR: "register_net_sysctl_table" [net/netfilter/ipvs/ip_vs.ko] undefined!
 
-I think that in both cases there is dead code, I'll clean that up next.
+The remainder of the changset is cleanups that I noticed along the way.
+
+The changes are available at
+git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+
+They are currently compile-tested only.
+
+ include/net/ip_vs.h              |    2 --
+ net/netfilter/ipvs/ip_vs_core.c  |    2 +-
+ net/netfilter/ipvs/ip_vs_ctl.c   |   17 +++++++++--------
+ net/netfilter/ipvs/ip_vs_lblc.c  |   20 ++++++++++----------
+ net/netfilter/ipvs/ip_vs_lblcr.c |   20 ++++++++++----------
+ 5 files changed, 30 insertions(+), 31 deletions(-)
