@@ -1,157 +1,139 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Network performance with small packets
-Date: Tue, 1 Feb 2011 07:56:27 +0200
-Message-ID: <20110201055627.GG9124@redhat.com>
-References: <20110127193131.GD5228@redhat.com>
- <1296157547.1640.45.camel@localhost.localdomain>
- <20110127200548.GE5228@redhat.com>
- <20110127.130240.104065182.davem@davemloft.net>
- <1296163838.1640.53.camel@localhost.localdomain>
- <20110128121616.GA8374@redhat.com>
- <OF05820FED.7465B77B-ON8625782A.0001B247-8625782A.00023FA7@us.ibm.com>
- <1296523838.30191.39.camel@sridhar.beaverton.ibm.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v5 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Tue, 01 Feb 2011 08:23:04 +0100
+Message-ID: <4D47B4D8.1010304@grandegger.com>
+References: <1295515238-481-1-git-send-email-bhupesh.sharma@st.com>	<4D3B2F66.8090603@grandegger.com>	<D5ECB3C7A6F99444980976A8C6D896384DEE082650@EAPEX1MAIL1.st.com>	<4D3E8118.10904@grandegger.com>
+	<D5ECB3C7A6F99444980976A8C6D896384DEE0832F8@EAPEX1MAIL1.st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Dobbelstein <steved@us.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1296523838.30191.39.camel@sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEE0832F8-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jan 31, 2011 at 05:30:38PM -0800, Sridhar Samudrala wrote:
-> On Mon, 2011-01-31 at 18:24 -0600, Steve Dobbelstein wrote:
-> > "Michael S. Tsirkin" <mst@redhat.com> wrote on 01/28/2011 06:16:16 AM:
-> > 
-> > > OK, so thinking about it more, maybe the issue is this:
-> > > tx becomes full. We process one request and interrupt the guest,
-> > > then it adds one request and the queue is full again.
-> > >
-> > > Maybe the following will help it stabilize?
-> > > By itself it does nothing, but if you set
-> > > all the parameters to a huge value we will
-> > > only interrupt when we see an empty ring.
-> > > Which might be too much: pls try other values
-> > > in the middle: e.g. make bufs half the ring,
-> > > or bytes some small value, or packets some
-> > > small value etc.
-> > >
-> > > Warning: completely untested.
-> > >
-> > > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > > index aac05bc..6769cdc 100644
-> > > --- a/drivers/vhost/net.c
-> > > +++ b/drivers/vhost/net.c
-> > > @@ -32,6 +32,13 @@
-> > >   * Using this limit prevents one virtqueue from starving others. */
-> > >  #define VHOST_NET_WEIGHT 0x80000
-> > >
-> > > +int tx_bytes_coalesce = 0;
-> > > +module_param(tx_bytes_coalesce, int, 0644);
-> > > +int tx_bufs_coalesce = 0;
-> > > +module_param(tx_bufs_coalesce, int, 0644);
-> > > +int tx_packets_coalesce = 0;
-> > > +module_param(tx_packets_coalesce, int, 0644);
-> > > +
-> > >  enum {
-> > >     VHOST_NET_VQ_RX = 0,
-> > >     VHOST_NET_VQ_TX = 1,
-> > > @@ -127,6 +134,9 @@ static void handle_tx(struct vhost_net *net)
-> > >     int err, wmem;
-> > >     size_t hdr_size;
-> > >     struct socket *sock;
-> > > +   int bytes_coalesced = 0;
-> > > +   int bufs_coalesced = 0;
-> > > +   int packets_coalesced = 0;
-> > >
-> > >     /* TODO: check that we are running from vhost_worker? */
-> > >     sock = rcu_dereference_check(vq->private_data, 1);
-> > > @@ -196,14 +206,26 @@ static void handle_tx(struct vhost_net *net)
-> > >        if (err != len)
-> > >           pr_debug("Truncated TX packet: "
-> > >               " len %d != %zd\n", err, len);
-> > > -      vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> > >        total_len += len;
-> > > +      packets_coalesced += 1;
-> > > +      bytes_coalesced += len;
-> > > +      bufs_coalesced += in;
-> > 
-> > Should this instead be:
-> >       bufs_coalesced += out;
-> > 
-> > Perusing the code I see that earlier there is a check to see if "in" is not
-> > zero, and, if so, error out of the loop.  After the check, "in" is not
-> > touched until it is added to bufs_coalesced, effectively not changing
-> > bufs_coalesced, meaning bufs_coalesced will never trigger the conditions
-> > below.
-> 
-> Yes. It definitely should be 'out'. 'in' should be 0 in the tx path.
-> 
-> I tried a simpler version of this patch without any tunables by
-> delaying the signaling until we come out of the for loop.
-> It definitely reduced the number of vmexits significantly for small message
-> guest to host stream test and the throughput went up a little.
-> 
-> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> index 9b3ca10..5f9fae9 100644
-> --- a/drivers/vhost/net.c
-> +++ b/drivers/vhost/net.c
-> @@ -197,7 +197,7 @@ static void handle_tx(struct vhost_net *net)
->  		if (err != len)
->  			pr_debug("Truncated TX packet: "
->  				 " len %d != %zd\n", err, len);
-> -		vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> +		vhost_add_used(vq, head, 0);
->  		total_len += len;
->  		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
->  			vhost_poll_queue(&vq->poll);
-> @@ -205,6 +205,8 @@ static void handle_tx(struct vhost_net *net)
->  		}
->  	}
->  
-> +	if (total_len > 0)
-> +		vhost_signal(&net->dev, vq);
->  	mutex_unlock(&vq->mutex);
->  }
->  
-> 
-> > 
-> > Or am I missing something?
-> > 
-> > > +      if (unlikely(packets_coalesced > tx_packets_coalesce ||
-> > > +              bytes_coalesced > tx_bytes_coalesce ||
-> > > +              bufs_coalesced > tx_bufs_coalesce))
-> > > +         vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> > > +      else
-> > > +         vhost_add_used(vq, head, 0);
-> > >        if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-> > >           vhost_poll_queue(&vq->poll);
-> > >           break;
-> > >        }
-> > >     }
-> > >
-> > > +   if (likely(packets_coalesced > tx_packets_coalesce ||
-> > > +         bytes_coalesced > tx_bytes_coalesce ||
-> > > +         bufs_coalesced > tx_bufs_coalesce))
-> > > +      vhost_signal(&net->dev, vq);
-> > >     mutex_unlock(&vq->mutex);
-> > >  }
-> 
-> It is possible that we can miss signaling the guest even after
-> processing a few pkts, if we don't hit any of these conditions.
+Hi Bhupesh,
 
-Yes. It really should be
-   if (likely(packets_coalesced && bytes_coalesced && bufs_coalesced))
-      vhost_signal(&net->dev, vq);
+On 02/01/2011 05:29 AM, Bhupesh SHARMA wrote:
+> Hello Wolfgang,
+> 
+>> ...
+>>>>> +		/* handle error on the bus */
+>>>>> +		lec_type = c_can_has_and_handle_berr(priv);
+>>>>> +		if (lec_type && (error_type != C_CAN_NO_ERROR))
+>>>>> +			work_done += c_can_err(dev, error_type, lec_type);
+>>>>
+>>>> State changes are only reported if berr_reporting is enabled and a
+>> bus
+>>>> error occured. This needs to be fixed.
+>>>
+>>> As I mentioned earlier in a response to a review comment, the Bus
+>> Error
+>>> reporting for C_CAN seems different from sja1000 and flexcan
+>> approaches.
+>>> Do you think it will be useful to drop CAN_CTRLMODE_BERR_REPORTING
+>> from
+>>> priv->can.ctrlmode_supported as done by *pch* driver? Or do you have
+>>> a better idea..
+>>
+>> You bus error reporting is OK. The problem is that it does not only
+>> affect bus errors but also state changes. State change messages should
+>> alway be send independent of priv->can.ctrlmode. It's just a matter of
+>> moving code to the right location. E.g. the code snippet above inside
+>> c_can_err() before you check for bus errors.
+>>
+>>>> Feel free to send the output of "candump any,0:0,#FFFFFFFF" when
+>>>> sending
+>>>> messages without cable connected and with a bus error provocuted.
+>>>
+>>> OK. I will try to cross-compile candump for my arm-v7 architecture
+>>> and will send the output.
+>>
+> 
+> I did some changes to the code to ensure that the state change and lec
+> handling are handled separately and properly.
 
-> > >
-> > 
-> > Steve D.
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Great.
+
+> Please find the candump any,0:0,#FFFFFFFF output below:
+> 
+> 1. With No-Cable connected, I keep getting:
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+>   can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
+
+The SJA1000 reports:
+
+---- Error-active -> error-warning -> error-passive
+---- cable disconnected
+-bash-3.2# ./candump -t d any,0:0,#FFFFFFFF
+
+ (0.000000)  can0  20000004  [8] 00 08 00 00 00 00 60 00   ERROR-WARNING
+ (0.002588)  can0  20000004  [8] 00 20 00 00 00 00 80 00   ERROR-PASSIVE
+
+I wonder why you get data[1]=28 immediately. Also it's nice to have the
+txerr and rxerr in data[6..7].
+
+> 2. With Tx and Rx shorted to simulate bus-error, I get:
+>   can0  20000044  [8] 00 20 00 00 00 00 00 00   ERRORFRAME
+
+Also here, you should see:
+
+---- Error-active -> error-warning -> error-passive -> bus-off
+
+-bash-3.2# ./candump -t d any,0:0,#FFFFFFFF
+ (0.000000)  can0  20000004  [8] 00 08 00 00 00 00 88 00   ERROR-WARNING
+ (0.001362)  can0  20000004  [8] 00 20 00 00 00 00 88 00   ERROR-PASSIVE
+ (0.001560)  can0  20000044  [8] 00 00 00 00 00 00 7F 00   BUS-OFF
+
+> In case 2, when I enable debug messages I get the correct state change sequence:
+> entered error warning state
+> entered error passive state
+> entered bus off state
+
+As the log confirms.
+
+> Does this result seem fine to you?
+
+Not yet. Also the output with "berr-reporting on" should be checked. And
+the output when you recover from bus-off manually (using "ip link set
+type can restart")
+
+Thanks,
+
+Wolfgang.
