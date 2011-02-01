@@ -1,108 +1,35 @@
-From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Subject: RE: [PATCH net-next-2.6 v5 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Tue, 1 Feb 2011 12:29:35 +0800
-Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE0832F8@EAPEX1MAIL1.st.com>
-References: <1295515238-481-1-git-send-email-bhupesh.sharma@st.com>
-	<4D3B2F66.8090603@grandegger.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEE082650@EAPEX1MAIL1.st.com>
-	<4D3E8118.10904@grandegger.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Mon, 31 Jan 2011 20:35:56 -0800 (PST)
+Message-ID: <20110131.203556.193730771.davem@davemloft.net>
+References: <AANLkTimWuBfeYPOsOFpTiAGS5uHysevAHiOg0svBQ4zW@mail.gmail.com>
+	<AANLkTimz7gx7BAQG8RBswDCxnTuVtt3u+YoBZk8+RgEz@mail.gmail.com>
+	<AANLkTikgDsM15DO7u2SP15xx=Y_pg6JdCLrie8ACobJP@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D3E8118.10904-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: mirqus@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com, joe@perches.com, dilinger@queued.net,
+	ratbert@faraday-tech.com
+To: ratbert.chuang@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53938
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753719Ab1BAEfV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 31 Jan 2011 23:35:21 -0500
+In-Reply-To: <AANLkTikgDsM15DO7u2SP15xx=Y_pg6JdCLrie8ACobJP@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Wolfgang,
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Date: Tue, 1 Feb 2011 11:56:16 +0800
 
-> ...
-> >>> +		/* handle error on the bus */
-> >>> +		lec_type = c_can_has_and_handle_berr(priv);
-> >>> +		if (lec_type && (error_type != C_CAN_NO_ERROR))
-> >>> +			work_done += c_can_err(dev, error_type, lec_type);
-> >>
-> >> State changes are only reported if berr_reporting is enabled and a
-> bus
-> >> error occured. This needs to be fixed.
-> >
-> > As I mentioned earlier in a response to a review comment, the Bus
-> Error
-> > reporting for C_CAN seems different from sja1000 and flexcan
-> approaches.
-> > Do you think it will be useful to drop CAN_CTRLMODE_BERR_REPORTING
-> from
-> > priv->can.ctrlmode_supported as done by *pch* driver? Or do you have
-> > a better idea..
-> 
-> You bus error reporting is OK. The problem is that it does not only
-> affect bus errors but also state changes. State change messages should
-> alway be send independent of priv->can.ctrlmode. It's just a matter of
-> moving code to the right location. E.g. the code snippet above inside
-> c_can_err() before you check for bus errors.
-> 
-> >> Feel free to send the output of "candump any,0:0,#FFFFFFFF" when
-> >> sending
-> >> messages without cable connected and with a bus error provocuted.
-> >
-> > OK. I will try to cross-compile candump for my arm-v7 architecture
-> > and will send the output.
-> 
+> If I simply allocate a page for each rx ring entry, I still need to allocate
+> an skb and copy at least packet header in first page to skb->data. Then
+> add the page of rest of payload to skb by skb_fill_page_desc().
 
-I did some changes to the code to ensure that the state change and lec
-handling are handled separately and properly.
-Please find the candump any,0:0,#FFFFFFFF output below:
+You should attach the pages, the use __pskb_pull_tail() to bring in the
+headers to the linear skb->data area.
 
-1. With No-Cable connected, I keep getting:
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-  can0  20000004  [8] 00 28 00 00 00 00 00 00   ERRORFRAME
-
-2. With Tx and Rx shorted to simulate bus-error, I get:
-  can0  20000044  [8] 00 20 00 00 00 00 00 00   ERRORFRAME
-
-In case 2, when I enable debug messages I get the correct state change sequence:
-entered error warning state
-entered error passive state
-entered bus off state
-
-Does this result seem fine to you?
-
-Regards,
-Bhupesh
+See drivers/net/niu.c:niu_process_rx_pkt().
