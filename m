@@ -1,56 +1,80 @@
-From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-2.6] bnx2x: multicasts in NPAR mode
-Date: Tue, 1 Feb 2011 12:57:10 +0200
-Message-ID: <201102011257.11610.vladz@broadcom.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH] usb:smsc: preserve MAC address when resetting device
+Date: Tue, 1 Feb 2011 12:24:25 +0100
+Message-ID: <20110201112425.GA3407894@jupiter.n2.diac24.net>
+References: <1296556457-4969-1-git-send-email-sakib@meta.ua>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="BOKacYhQ+x31HxR3"
+Cc: Steve Glendinning <steve.glendinning@smsc.com>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Sergiy Kibrik <sakib@meta.ua>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3270 "EHLO mms2.broadcom.com"
+Received: from spaceboyz.net ([87.106.131.203]:55590 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751132Ab1BAK52 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Feb 2011 05:57:28 -0500
+	id S1753113Ab1BALwF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Feb 2011 06:52:05 -0500
+Content-Disposition: inline
+In-Reply-To: <1296556457-4969-1-git-send-email-sakib@meta.ua>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The chip was erroneously configured to accept all multicast frames
-in a normal (none-promisc) rx mode both on the RSS and on the FCoE L2 rings
-when in an NPAR mode. This caused packet duplication for every received multicast
-frame in this mode.
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_main.c |    9 ++-------
- 1 files changed, 2 insertions(+), 7 deletions(-)
+--BOKacYhQ+x31HxR3
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index 404d93e..f40740e 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -2301,15 +2301,10 @@ static void bnx2x_rxq_set_mac_filters(struct bnx2x *bp, u16 cl_id, u32 filters)
- 		/* accept matched ucast */
- 		drop_all_ucast = 0;
- 	}
--	if (filters & BNX2X_ACCEPT_MULTICAST) {
-+	if (filters & BNX2X_ACCEPT_MULTICAST)
- 		/* accept matched mcast */
- 		drop_all_mcast = 0;
--		if (IS_MF_SI(bp))
--			/* since mcast addresses won't arrive with ovlan,
--			 * fw needs to accept all of them in
--			 * switch-independent mode */
--			accp_all_mcast = 1;
--	}
-+
- 	if (filters & BNX2X_ACCEPT_ALL_UNICAST) {
- 		/* accept all mcast */
- 		drop_all_ucast = 0;
--- 
-1.7.0.4
+On Tue, Feb 01, 2011 at 12:34:17PM +0200, Sergiy Kibrik wrote:
+> Initialize MAC address only once, when device opened first time
+> to avoid generation random addresses when failed to read one from ROM.
+>=20
+> Some hardware hasn't hw address in ROM, e.g. Pandaboard  (http://pandaboa=
+rd.org),
+> so every time device is up, its address is regenerated again.
+> It makeis impossible to set custom hw address and also makes DHCP servers=
+ and switches crazy.
+[snip]
+> +++ b/drivers/net/usb/smsc75xx.c
+> @@ -77,6 +77,7 @@ struct usb_context {
+>  };
+> =20
+>  static int turbo_mode =3D true;
+> +static int first_reset =3D true;
+>  module_param(turbo_mode, bool, 0644);
+>  MODULE_PARM_DESC(turbo_mode, "Enable multiple frames per Rx transaction"=
+);
+> =20
+> @@ -836,7 +837,10 @@ static int smsc75xx_reset(struct usbnet *dev)
+> =20
+>  	netif_dbg(dev, ifup, dev->net, "PHY reset complete");
+> =20
+> -	smsc75xx_init_mac_address(dev);
+> +	if (first_reset){
+> +		smsc75xx_init_mac_address(dev);
+> +		first_reset =3D false;
+> +	}
+[snip]
+
+You cannot do that. Imagine if I plug in two devices. Only the first one
+will get a MAC properly. Or imagine if i plug a device, unplug it and
+plug it back. It will have an uninitialized mac address.
+
+You need to move the init_mac_address call to happen on device plug-in.
 
 
+-David
+
+
+--BOKacYhQ+x31HxR3
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iEYEARECAAYFAk1H7WkACgkQpfBGV6DCGYa0UQCgh8lCBT7/yQ6NLR3kRmsXgjH8
+kV0An0BJI7GvVdf6H7tk88OCEm8AG5p1
+=5MxR
+-----END PGP SIGNATURE-----
+
+--BOKacYhQ+x31HxR3--
