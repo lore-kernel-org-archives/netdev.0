@@ -1,67 +1,31 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Network performance with small packets
-Date: Tue, 1 Feb 2011 23:56:03 +0200
-Message-ID: <20110201215603.GA31348@redhat.com>
-References: <20110127.130240.104065182.davem@davemloft.net>
- <1296163838.1640.53.camel@localhost.localdomain>
- <20110128121616.GA8374@redhat.com>
- <OF05820FED.7465B77B-ON8625782A.0001B247-8625782A.00023FA7@us.ibm.com>
- <1296523838.30191.39.camel@sridhar.beaverton.ibm.com>
- <1296594585.26937.817.camel@localhost.localdomain>
- <20110201212411.GD30770@redhat.com>
- <1296595955.26937.822.camel@localhost.localdomain>
- <20110201214211.GB31105@redhat.com>
- <1296597185.26937.829.camel@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] bnx2x: multicasts in NPAR mode
+Date: Tue, 01 Feb 2011 14:05:44 -0800 (PST)
+Message-ID: <20110201.140544.183041487.davem@davemloft.net>
+References: <201102011257.11610.vladz@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Steve Dobbelstein <steved@us.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1296597185.26937.829.camel@localhost.localdomain>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eilong@broadcom.com
+To: vladz@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753227Ab1BAWFJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 17:05:09 -0500
+In-Reply-To: <201102011257.11610.vladz@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 01, 2011 at 01:53:05PM -0800, Shirley Ma wrote:
-> On Tue, 2011-02-01 at 23:42 +0200, Michael S. Tsirkin wrote:
-> > On Tue, Feb 01, 2011 at 01:32:35PM -0800, Shirley Ma wrote:
-> > > On Tue, 2011-02-01 at 23:24 +0200, Michael S. Tsirkin wrote:
-> > > > My theory is that the issue is not signalling.
-> > > > Rather, our queue fills up, then host handles
-> > > > one packet and sends an interrupt, and we
-> > > > immediately wake the queue. So the vq
-> > > > once it gets full, stays full.
-> > > 
-> > > >From the printk debugging output, it might not be exactly the case.
-> > The
-> > > ring gets full, run a bit, then gets full, then run a bit, then
-> > full...
-> > 
-> > Yes, but does it get even half empty in between?
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Date: Tue, 1 Feb 2011 12:57:10 +0200
+
+> The chip was erroneously configured to accept all multicast frames
+> in a normal (none-promisc) rx mode both on the RSS and on the FCoE L2 rings
+> when in an NPAR mode. This caused packet duplication for every received multicast
+> frame in this mode.
 > 
-> Sometimes, most of them not half of empty in between. But printk slow
-> down the traffics, so it's not accurate. I think your patch will improve
-> the performance if it signals guest when half of the ring size is
-> empty. 
-> 
-> But you manage signal by using TX bytes,
+> Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-There are flags for bytes, buffers and packets.
-Try playing with any one of them :)
-Just be sure to use v2.
-
-
->I would like to change it to
-> half of the ring size instead for signaling. Is that OK?
-> 
-> Shirley
-> 
-> 
-
-Sure that is why I made it a parameter so you can experiment.
-
--- 
-MST
+Applied, thanks Vlad.
