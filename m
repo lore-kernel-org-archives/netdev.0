@@ -1,35 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] isdn: icn: Fix potentially wrong string handling
-Date: Tue, 01 Feb 2011 14:18:23 -0800 (PST)
-Message-ID: <20110201.141823.59678888.davem@davemloft.net>
-References: <1296419486-5482-1-git-send-email-weil@mail.berlios.de>
+From: Eliot Blennerhassett <linux@audioscience.com>
+Subject: AVB support (IEEE802.1 audio/video bridging)
+Date: Wed, 02 Feb 2011 11:47:55 +1300
+Message-ID: <4D488D9B.5080409@audioscience.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, tj@kernel.org, rostedt@goodmis.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: weil@mail.berlios.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1296419486-5482-1-git-send-email-weil@mail.berlios.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp5.clear.net.nz ([203.97.33.68]:59696 "EHLO
+	smtp5.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751600Ab1BAWr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 17:47:57 -0500
+Received: from [192.168.36.2]
+ (121-72-250-62.cable.telstraclear.net [121.72.250.62])
+ by smtp5.clear.net.nz (CLEAR Net Mail)
+ with ESMTP id <0LFY005PGNBWTA70@smtp5.clear.net.nz> for
+ netdev@vger.kernel.org; Wed, 02 Feb 2011 11:47:56 +1300 (NZDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Weil <weil@mail.berlios.de>
-Date: Sun, 30 Jan 2011 21:31:26 +0100
+Grettings,
 
-> This warning was reported by cppcheck:
-> drivers/isdn/icn/icn.c:1641: error: Dangerous usage of 'rev' (strncpy doesn't always 0-terminate it)
-> 
-> If strncpy copied 20 bytes, the destination string rev was not terminated.
-> The patch adds one more byte to rev and makes sure that this byte is
-> always 0.
-> 
-> Cc: Karsten Keil <isdn@linux-pingi.de>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Tejun Heo <tj@kernel.org>
-> Cc: Steven Rostedt <rostedt@goodmis.org>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Signed-off-by: Stefan Weil <weil@mail.berlios.de>
+before I go into any details, please tell me if this is the right place
+to enquire/discuss if/how linux network stacks can support the various
+protocols required by AVB
 
-Applied, thanks.
+To quote the introduction from wikipedia [1]
+"Audio Video Bridging (AVB) is a common name for the set of standards in
+development by the IEEE 802.1 Audio Video Bridging Task Group. The
+charter of this organization is to "provide the specifications that will
+allow time-synchronized low latency streaming services through IEEE 802
+networks"."
+
+regards
+
+-- 
+Eliot Blennerhassett
+AudioScience Inc.
+
+[1] http://en.wikipedia.org/wiki/Audio_Video_Bridging
