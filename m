@@ -1,59 +1,68 @@
-From: Sergiy Kibrik <sakib@meta.ua>
-Subject: Re: [PATCH] usb:smsc: preserve MAC address when resetting device
-Date: Tue, 1 Feb 2011 22:58:42 +0200
-Message-ID: <201102012258.49375.sakib@meta.ua>
-References: <1296556457-4969-1-git-send-email-sakib@meta.ua> <20110201112425.GA3407894@jupiter.n2.diac24.net>
-Reply-To: sakib@meta.ua
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Tue, 01 Feb 2011 13:09:45 -0800
+Message-ID: <1296594585.26937.817.camel@localhost.localdomain>
+References: <20110127193131.GD5228@redhat.com>
+	 <1296157547.1640.45.camel@localhost.localdomain>
+	 <20110127200548.GE5228@redhat.com>
+	 <20110127.130240.104065182.davem@davemloft.net>
+	 <1296163838.1640.53.camel@localhost.localdomain>
+	 <20110128121616.GA8374@redhat.com>
+	 <OF05820FED.7465B77B-ON8625782A.0001B247-8625782A.00023FA7@us.ibm.com>
+	 <1296523838.30191.39.camel@sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1476530.OujcjSqB84";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Steve Glendinning <steve.glendinning@smsc.com>,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.meta.ua ([194.0.131.41]:48983 "EHLO smtp.meta.ua"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752496Ab1BAU7D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Feb 2011 15:59:03 -0500
-In-Reply-To: <20110201112425.GA3407894@jupiter.n2.diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steve Dobbelstein <steved@us.ibm.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org
+To: Sridhar Samudrala <sri@us.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1296523838.30191.39.camel@sridhar.beaverton.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---nextPart1476530.OujcjSqB84
-Content-Type: Text/Plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Mon, 2011-01-31 at 17:30 -0800, Sridhar Samudrala wrote:
+> Yes. It definitely should be 'out'. 'in' should be 0 in the tx path.
+> 
+> I tried a simpler version of this patch without any tunables by
+> delaying the signaling until we come out of the for loop.
+> It definitely reduced the number of vmexits significantly for small
+> message
+> guest to host stream test and the throughput went up a little.
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 9b3ca10..5f9fae9 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -197,7 +197,7 @@ static void handle_tx(struct vhost_net *net)
+>                 if (err != len)
+>                         pr_debug("Truncated TX packet: "
+>                                  " len %d != %zd\n", err, len);
+> -               vhost_add_used_and_signal(&net->dev, vq, head, 0);
+> +               vhost_add_used(vq, head, 0);
+>                 total_len += len;
+>                 if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
+>                         vhost_poll_queue(&vq->poll);
+> @@ -205,6 +205,8 @@ static void handle_tx(struct vhost_net *net)
+>                 }
+>         }
+> 
+> +       if (total_len > 0)
+> +               vhost_signal(&net->dev, vq);
+>         mutex_unlock(&vq->mutex);
+>  }
 
-On Tuesday 01 February 2011 13:24:25 David Lamparter wrote:
-> You cannot do that. Imagine if I plug in two devices. Only the first one
-> will get a MAC properly. Or imagine if i plug a device, unplug it and
-> plug it back. It will have an uninitialized mac address.
->=20
-> You need to move the init_mac_address call to happen on device plug-in.
->=20
->=20
-> -David
+Reducing the signaling will reduce the CPU utilization by reducing VM
+exits. 
 
-Sorry, didn't take into account such case. Will resubmit
+The small message BW is a problem we have seen faster guest/slow vhost,
+even I increased VHOST_NET_WEIGHT times, it didn't help that much for
+BW. For large message size, vhost is able to process all packets on
+time. I played around with guest/host codes, I only see huge BW
+improvement by dropping packets on guest side so far.
 
-=2Dregards,
-Sergey
+Thanks
+Shirley
 
---nextPart1476530.OujcjSqB84
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iJwEAAECAAYFAk1IdAkACgkQDcLhAeYaZvhPdAP8DII4D0Guqv6nCiTIlg2MLBal
-x5hBkBW1m4TweqFd+NUh8APxY2IvADJm4r5NeY77pn5Zujbjo5GFKW/yeGAultL+
-VDzzn3WUDkVWfkZrC3LlJjIGDiPr1VR011fOogdyZZQ6smihgNc+C6uPgEBziFEZ
-JrXWlGEiLGL8nPvqtiI=
-=MtBO
------END PGP SIGNATURE-----
-
---nextPart1476530.OujcjSqB84--
