@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] gro: reset skb_iif on reuse
-Date: Wed, 02 Feb 2011 14:53:44 -0800 (PST)
-Message-ID: <20110202.145344.59664804.davem@davemloft.net>
-References: <1296682047-15885-1-git-send-email-andy@greyhouse.net>
+Subject: Re: [PATCH] be2net: use device model DMA API
+Date: Wed, 02 Feb 2011 14:57:17 -0800 (PST)
+Message-ID: <20110202.145717.115924988.davem@davemloft.net>
+References: <1296669912-26563-1-git-send-email-ivecera@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: andy@greyhouse.net
+Cc: netdev@vger.kernel.org, sathyap@serverengines.com,
+	subbus@serverengines.com, sarveshwarb@serverengines.com,
+	ajitk@serverengines.com
+To: ivecera@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56663
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56667
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754474Ab1BBWxJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 17:53:09 -0500
-In-Reply-To: <1296682047-15885-1-git-send-email-andy@greyhouse.net>
+	by vger.kernel.org with ESMTP id S1755268Ab1BBW4l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 17:56:41 -0500
+In-Reply-To: <1296669912-26563-1-git-send-email-ivecera@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: andy@greyhouse.net
-Date: Wed,  2 Feb 2011 16:27:27 -0500
+From: Ivan Vecera <ivecera@redhat.com>
+Date: Wed,  2 Feb 2011 19:05:12 +0100
 
-> Like Herbert's change from a few days ago:
+> Use DMA API as PCI equivalents will be deprecated.
 > 
-> 66c46d741e2e60f0e8b625b80edb0ab820c46d7a gro: Reset dev pointer on reuse
-> 
-> this may not be necessary at this point, but we should still clean up
-> the skb->skb_iif.  If not we may end up with an invalid valid for
-> skb->skb_iif when the skb is reused and the check is done in
-> __netif_receive_skb.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 
-Applied, thanks Andy.
+Looks good to me, can I get some review from the be2net maintainers?
