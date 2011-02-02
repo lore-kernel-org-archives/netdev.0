@@ -1,124 +1,177 @@
 From: Joy Latten <jml@austin.ibm.com>
-Subject: [iproute2 PATCH 1/3]: xfrm security context support
-Date: Wed, 02 Feb 2011 17:31:39 -0600
-Message-ID: <201102022331.p12NVdgp029376@faith.austin.ibm.com>
+Subject: [iproute2 PATCH 2/3]: xfrm security context support
+Date: Wed, 02 Feb 2011 17:32:18 -0600
+Message-ID: <201102022332.p12NWI6o029385@faith.austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: shemminger@osdl.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e8.ny.us.ibm.com ([32.97.182.138]:53963 "EHLO e8.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751278Ab1BBX6n (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Feb 2011 18:58:43 -0500
-Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
-	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p12Jenbx026740
-	for <netdev@vger.kernel.org>; Wed, 2 Feb 2011 14:40:49 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 737764DE8026
-	for <netdev@vger.kernel.org>; Wed,  2 Feb 2011 18:58:04 -0500 (EST)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p12NwdSq475190
-	for <netdev@vger.kernel.org>; Wed, 2 Feb 2011 18:58:40 -0500
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p12Nwd7U026429
-	for <netdev@vger.kernel.org>; Wed, 2 Feb 2011 16:58:39 -0700
+Received: from e32.co.us.ibm.com ([32.97.110.150]:33201 "EHLO
+	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754475Ab1BBX7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 18:59:18 -0500
+Received: from d03relay01.boulder.ibm.com (d03relay01.boulder.ibm.com [9.17.195.226])
+	by e32.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p12Nn7Fv018632
+	for <netdev@vger.kernel.org>; Wed, 2 Feb 2011 16:49:07 -0700
+Received: from d03av05.boulder.ibm.com (d03av05.boulder.ibm.com [9.17.195.85])
+	by d03relay01.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p12NxIqJ179876
+	for <netdev@vger.kernel.org>; Wed, 2 Feb 2011 16:59:18 -0700
+Received: from d03av05.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av05.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p12NxHjl028315
+	for <netdev@vger.kernel.org>; Wed, 2 Feb 2011 16:59:18 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the Linux kernel, ipsec policy and SAs can include a
-security context to support MAC networking. This feature
-is often referred to as "labeled ipsec".
+Adds security context support to ip xfrm policy.
 
-This patchset adds security context support into ip xfrm 
-such that a security context can be included when 
-add/delete/display SAs and policies with the ip command.
-The user provides the security context when adding 
-SAs and policies. If a policy or SA contains a security
-context, the changes allow the security context to be displayed.
-
-For example, 
-ip xfrm state
-src 10.1.1.6 dst 10.1.1.2
-	proto esp spi 0x00000301 reqid 0 mode transport
-	replay-window 0 
-	auth hmac(digest_null) 0x3078
-	enc cbc(des3_ede) 0x6970763672656164796c6f676f33646573636263696e3031
-	security context root:system_r:unconfined_t:s0 
-
-
-Please  let me know if all is ok with the patchset.
-Thanks!!
-
-regards,
-Joy
-
-
-Signed-off-by:  Joy Latten <latten@austin.ibm.com>
+Signed-off-by: Joy Latten <latten@austin.ibm.com>
 ---
- ip/ipxfrm.c |   28 ++++++++++++++++++++++++++++
- ip/xfrm.h   |    3 ++-
- 2 files changed, 30 insertions(+), 1 deletions(-)
+ ip/xfrm_policy.c |   62 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 60 insertions(+), 2 deletions(-)
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 9753822..cc4dc80 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -850,6 +850,20 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
- 		xfrm_lifetime_print(&xsinfo->lft, &xsinfo->curlft, fp, buf);
- 		xfrm_stats_print(&xsinfo->stats, fp, buf);
- 	}
-+
-+	if (tb[XFRMA_SEC_CTX]) {
-+		struct xfrm_user_sec_ctx *sctx;
-+
-+		fprintf(fp, "\tsecurity context ");
-+
-+		if (RTA_PAYLOAD(tb[XFRMA_SEC_CTX]) < sizeof(*sctx))
-+			fprintf(fp, "(ERROR truncated)");
-+
-+		sctx = (struct xfrm_user_sec_ctx *)RTA_DATA(tb[XFRMA_SEC_CTX]);
-+
-+		fprintf(fp, "%s %s", (char *)(sctx + 1), _SL_);
-+	}
-+
+diff --git a/ip/xfrm_policy.c b/ip/xfrm_policy.c
+index dcb3da4..9ef5c09 100644
+--- a/ip/xfrm_policy.c
++++ b/ip/xfrm_policy.c
+@@ -48,14 +48,15 @@
+ #define NLMSG_BUF_SIZE 4096
+ #define RTA_BUF_SIZE 2048
+ #define XFRM_TMPLS_BUF_SIZE 1024
++#define CTX_BUF_SIZE 256
+ 
+ static void usage(void) __attribute__((noreturn));
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: ip xfrm policy { add | update } dir DIR SELECTOR [ index INDEX ] [ ptype PTYPE ]\n");
++	fprintf(stderr, "Usage: ip xfrm policy { add | update } dir DIR SELECTOR [ ctx SEC_CTX ][ index INDEX ] [ ptype PTYPE ]\n");
+ 	fprintf(stderr, "        [ action ACTION ] [ priority PRIORITY ] [ flag FLAG-LIST ] [ LIMIT-LIST ] [ TMPL-LIST ] [mark MARK [mask MASK]]\n");
+-	fprintf(stderr, "Usage: ip xfrm policy { delete | get } dir DIR [ SELECTOR | index INDEX ] [ ptype PTYPE ] [mark MARK [mask MASK]]\n");
++	fprintf(stderr, "Usage: ip xfrm policy { delete | get } dir DIR [ SELECTOR | index INDEX ] [ ctx SEC_CTX ][ ptype PTYPE ] [mark MARK [mask MASK]]\n");
+ 	fprintf(stderr, "Usage: ip xfrm policy { deleteall | list } [ dir DIR ] [ SELECTOR ]\n");
+ 	fprintf(stderr, "        [ index INDEX ] [ action ACTION ] [ priority PRIORITY ]  [ flag FLAG-LIST ]\n");
+ 	fprintf(stderr, "Usage: ip xfrm policy flush [ ptype PTYPE ]\n");
+@@ -222,6 +223,23 @@ static int xfrm_tmpl_parse(struct xfrm_user_tmpl *tmpl,
+ 	return 0;
  }
  
- void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
-@@ -862,6 +876,20 @@ void xfrm_policy_info_print(struct xfrm_userpolicy_info *xpinfo,
++int xfrm_sctx_parse(char *ctxstr, char *s,
++			   struct xfrm_user_sec_ctx *sctx)
++{
++	int slen;
++
++	slen = strlen(s) + 1;
++
++	sctx->exttype = XFRMA_SEC_CTX;
++	sctx->ctx_doi = 1;
++	sctx->ctx_alg = 1;
++	sctx->ctx_len = slen;
++	sctx->len = sizeof(struct xfrm_user_sec_ctx) + slen;
++	memcpy(ctxstr, s, slen);
++
++	return 0;
++}
++
+ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
+ {
+ 	struct rtnl_handle rth;
+@@ -233,14 +251,20 @@ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
+ 	char *dirp = NULL;
+ 	char *selp = NULL;
+ 	char *ptypep = NULL;
++	char *sctxp = NULL;
+ 	struct xfrm_userpolicy_type upt;
+ 	char tmpls_buf[XFRM_TMPLS_BUF_SIZE];
+ 	int tmpls_len = 0;
+ 	struct xfrm_mark mark = {0, 0};
++	struct {
++		struct xfrm_user_sec_ctx sctx;
++		char	str[CTX_BUF_SIZE];
++	} ctx;
  
- 	xfrm_selector_print(&xpinfo->sel, preferred_family, fp, title);
+ 	memset(&req, 0, sizeof(req));
+ 	memset(&upt, 0, sizeof(upt));
+ 	memset(&tmpls_buf, 0, sizeof(tmpls_buf));
++	memset(&ctx, 0, sizeof(ctx));
  
-+	if (tb[XFRMA_SEC_CTX]) {
-+		struct xfrm_user_sec_ctx *sctx;
+ 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.xpinfo));
+ 	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
+@@ -260,6 +284,15 @@ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
+ 
+ 			NEXT_ARG();
+ 			xfrm_policy_dir_parse(&req.xpinfo.dir, &argc, &argv);
++		} else if (strcmp(*argv, "ctx") == 0) {
++			char *context;
 +
-+		fprintf(fp, "\tsecurity context ");
++			if (sctxp)
++				duparg("ctx", *argv);
++			sctxp = *argv;
++			NEXT_ARG();
++			context = *argv;
++			xfrm_sctx_parse((char *)&ctx.str, context, &ctx.sctx);
+ 		} else if (strcmp(*argv, "mark") == 0) {
+ 			xfrm_parse_mark(&mark, &argc, &argv);
+ 		} else if (strcmp(*argv, "index") == 0) {
+@@ -347,6 +380,10 @@ static int xfrm_policy_modify(int cmd, unsigned flags, int argc, char **argv)
+ 		}
+ 	}
+ 
++	if (sctxp) {
++		addattr_l(&req.n, sizeof(req), XFRMA_SEC_CTX,
++			  (void *)&ctx, ctx.sctx.len);
++	}
+ 
+ 	if (rtnl_open_byproto(&rth, 0, NETLINK_XFRM) < 0)
+ 		exit(1);
+@@ -528,11 +565,18 @@ static int xfrm_policy_get_or_delete(int argc, char **argv, int delete,
+ 	char *selp = NULL;
+ 	char *indexp = NULL;
+ 	char *ptypep = NULL;
++	char *sctxp = NULL;
+ 	struct xfrm_userpolicy_type upt;
+ 	struct xfrm_mark mark = {0, 0};
++	struct {
++		struct xfrm_user_sec_ctx sctx;
++		char    str[CTX_BUF_SIZE];
++	} ctx;
 +
-+		if (RTA_PAYLOAD(tb[XFRMA_SEC_CTX]) < sizeof(*sctx))
-+			fprintf(fp, "(ERROR truncated)");
+ 
+ 	memset(&req, 0, sizeof(req));
+ 	memset(&upt, 0, sizeof(upt));
++	memset(&ctx, 0, sizeof(ctx));
+ 
+ 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(req.xpid));
+ 	req.n.nlmsg_flags = NLM_F_REQUEST;
+@@ -547,6 +591,15 @@ static int xfrm_policy_get_or_delete(int argc, char **argv, int delete,
+ 			NEXT_ARG();
+ 			xfrm_policy_dir_parse(&req.xpid.dir, &argc, &argv);
+ 
++		} else if (strcmp(*argv, "ctx") == 0) {
++			char *context;
 +
-+		sctx = (struct xfrm_user_sec_ctx *)RTA_DATA(tb[XFRMA_SEC_CTX]);
-+
-+		fprintf(fp, "%s ", (char *)(sctx + 1));
-+		fprintf(fp, "%s", _SL_);
++			if (sctxp)
++				duparg("ctx", *argv);
++			sctxp = *argv;
++			NEXT_ARG();
++			context = *argv;
++			xfrm_sctx_parse((char *)&ctx.str, context, &ctx.sctx);
+ 		} else if (strcmp(*argv, "mark") == 0) {
+ 			xfrm_parse_mark(&mark, &argc, &argv);
+ 		} else if (strcmp(*argv, "index") == 0) {
+@@ -610,6 +663,11 @@ static int xfrm_policy_get_or_delete(int argc, char **argv, int delete,
+ 		}
+ 	}
+ 
++	if (sctxp) {
++		addattr_l(&req.n, sizeof(req), XFRMA_SEC_CTX,
++			  (void *)&ctx, ctx.sctx.len);
 +	}
 +
- 	if (prefix)
- 		STRBUF_CAT(buf, prefix);
- 	STRBUF_CAT(buf, "\t");
-diff --git a/ip/xfrm.h b/ip/xfrm.h
-index d3ca5c5..784a201 100644
---- a/ip/xfrm.h
-+++ b/ip/xfrm.h
-@@ -154,5 +154,6 @@ int xfrm_reqid_parse(__u32 *reqid, int *argcp, char ***argvp);
- int xfrm_selector_parse(struct xfrm_selector *sel, int *argcp, char ***argvp);
- int xfrm_lifetime_cfg_parse(struct xfrm_lifetime_cfg *lft,
- 			    int *argcp, char ***argvp);
--
-+int xfrm_sctx_parse(char *ctxstr, char *context,
-+		    struct xfrm_user_sec_ctx *sctx);
- #endif
+ 	if (rtnl_talk(&rth, &req.n, 0, 0, res_nlbuf, NULL, NULL) < 0)
+ 		exit(2);
+ 
 -- 
 1.5.5.6
 
