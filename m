@@ -1,66 +1,105 @@
-From: Vlad Dogaru <ddvlad@rosedu.org>
-Subject: Re: [PATCH v3 1/3] iproute2: add support for setting device groups
-Date: Wed, 2 Feb 2011 11:56:58 +0200
-Message-ID: <20110202095658.GK2494@cormyr>
-References: <1296060086-18777-1-git-send-email-ddvlad@rosedu.org>
- <1296060086-18777-2-git-send-email-ddvlad@rosedu.org>
- <4D491C3C.2010805@trash.net>
- <20110202091315.GJ2494@cormyr>
- <4D492289.8090708@trash.net>
+From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: Bonding on bond
+Date: Wed, 02 Feb 2011 11:19:45 +0100
+Message-ID: <4D492FC1.2030203@gmail.com>
+References: <4D374A8F.2020303@gmail.com> <20110120153110.GA3931@midget.suse.cz> <4D385F0B.1010000@gmail.com> <4202.1295553193@death> <4D3B60D2.30309@gmail.com> <15526.1296261528@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "bonding-devel@lists.sourceforge.net"
+	<bonding-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>, Jiri Bohac <jbohac@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [141.85.37.41] ([141.85.37.41]:40160 "EHLO swarm.cs.pub.ro"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751706Ab1BBJ5F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Feb 2011 04:57:05 -0500
-Content-Disposition: inline
-In-Reply-To: <4D492289.8090708@trash.net>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:36575 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751677Ab1BBKTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 05:19:48 -0500
+Received: by fxm20 with SMTP id 20so7838884fxm.19
+        for <netdev@vger.kernel.org>; Wed, 02 Feb 2011 02:19:47 -0800 (PST)
+In-Reply-To: <15526.1296261528@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 02, 2011 at 10:23:21AM +0100, Patrick McHardy wrote:
-> On 02.02.2011 10:13, Vlad Dogaru wrote:
-> > On Wed, Feb 02, 2011 at 09:56:28AM +0100, Patrick McHardy wrote:
-> >> On 26.01.2011 17:41, Vlad Dogaru wrote:
-> >>> Use the group keyword to specify what group the device should belong to.
-> >>> Since the kernel uses numbers internally, mapping of group names to
-> >>> numbers is defined in /etc/iproute2/group_map. Example usage:
-> >>>
-> >>>   ip link set dev eth0 group default
-> >>>
-> >>> @@ -297,6 +299,13 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
-> >>>  			if (get_integer(&mtu, *argv, 0))
-> >>>  				invarg("Invalid \"mtu\" value\n", *argv);
-> >>>  			addattr_l(&req->n, sizeof(*req), IFLA_MTU, &mtu, 4);
-> >>> +		} else if (strcmp(*argv, "group") == 0) {
-> >>> +			NEXT_ARG();
-> >>> +			if (group != -1)
-> >>> +				duparg("group", *argv);
-> >>> +			if (lookup_map_id(*argv, &group, GROUP_MAP))
-> >>> +				invarg("Invalid \"group\" value\n", *argv);
-> >>> +			addattr_l(&req->n, sizeof(*req), IFLA_GROUP, &group, 4);
-> >>
-> >> I think it would be preferrable to use a function similar to
-> >> rt_realm_n2a() that can also handle plain numerical values.
-> > 
-> > The a2n() functions are rather complex for this case: they employ
-> > caching and store a table. I suppose this is because multiple calls to
-> > them are possible in a single run and the correspondence has to be made
-> > in both ways (a2n and n2a).
-> > 
-> > A network group is only converted to a number at most once for each ip
-> > process spawned, so storing a table is not really helpful. What could,
-> > however, help is using get_integer before lookup_map_id. Only if
-> > get_integer fails would we lookup the symbolic group name.
-> 
-> Actually that's not entirely correct, the caches are (also) maintained
-> to speed up batch mode, in which case there could also be multiple name
-> to group mappings.
+Le 29/01/2011 01:38, Jay Vosburgh a =C3=A9crit :
+> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
 
-Both comments noted. I will respin the patches dropping the devgroup
-keyword and implementing caching for groups.
+[snip]
 
-Thanks for the feedback.
+>> However, the ingress path doesn't work at all. bond0 is unable to re=
+ceive any packets (ARP or IP).
+>
+> 	In light of this, I don't see a problem with disallowing nesting
+> of bonds.  It should be documented in bonding.txt.
+
+Ok, I will do that.
+
+Jiri, any trouble with me stealing your patch (code) and adding the doc=
+umentation update part? Or do=20
+you prefer to do it yourself?
+
+[snip]
+
+>> That being said, we still miss a way to achieve a simple configurati=
+on
+>> with several links doing load balancing to a switch and one or sever=
+al
+>> links doing fail over to another switch, both switches *not* being 8=
+02.3ad
+>> capable.
+>
+> 	This is a harder problem, but it's something that doesn't work
+> today (and I suspect hasn't for a long time, so if somebody was using
+> this, I think there would have been some discussion).
+
+In the mean time, I will state in the documentation that:
+
+- nesting is not allowed.
+- only the above particular setup would possibly require nesting.
+- this can be achieve using 802.3ad mode, connected to 802.3ad capable =
+switches.
+
+>> Should we arrange for bonding to be allowed to nest, for this purpos=
+e, or
+>> should we find a way to setup this configuration with a single level=
+ of
+>> bonding ? I would prefer the second, but...
+>
+> 	I'm not sure that either is necessary; 802.3ad will do this
+> today, and few current production switches lack 802.3ad support.
+>
+> 	Adding support for etherchannel (i.e., not 802.3ad) gang
+> failover is nontrivial, because the multiple etherchannel port groups
+> will have to be managed separately, and most likely assigned manually=
+=2E
+> Sure, it'd be nice to have, but I'm not sure if it's a benefit worth =
+the
+> effort.
+
+I'm far from a 802.3ad (802.1AX) specialist, but... wouldn't it be poss=
+ible to force the aggregator=20
+by hand, for every slaves, to achieve the same effect as receiving LACP=
+DU, when connected to non=20
+802.3ad capable switches?
+
+echo 802.3ad > /sys/class/net/bond0/bonding/mode
+echo +eth0 > /sys/class/net/bond0/bonding/slaves
+echo +eth1 > /sys/class/net/bond0/bonding/slaves
+echo +eth2 > /sys/class/net/bond0/bonding/slaves
+echo 1 > /sys/class/net/bond0/bonding/ad_aggregator_eth0 # those sysfs =
+entries to be created...
+echo 1 > /sys/class/net/bond0/bonding/ad_aggregator_eth1
+echo 2 > /sys/class/net/bond0/bonding/ad_aggregator_eth2
+
+> 	Either way, for now, since I recall you mentioned in another
+> email that you'd crashed the system from nesting bonds, I don't see a
+> problem with disallowing nesting and updating the documentation with =
+a
+> bit of this discussion (e.g., "nesting doesn't work, you're probably
+> trying to do gang failover, which 802.3ad already does for you").
+
+Thanks.
+
+	Nicolas.
