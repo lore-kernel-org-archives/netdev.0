@@ -1,32 +1,29 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v4 0/2] iproute2: support for device groups
-Date: Thu, 03 Feb 2011 00:01:38 +0100
-Message-ID: <4D49E252.1080006@trash.net>
-References: <1296671021-24421-1-git-send-email-ddvlad@rosedu.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch] atl1c: Add missing PCI device ID
+Date: Wed, 02 Feb 2011 15:02:34 -0800 (PST)
+Message-ID: <20110202.150234.260102540.davem@davemloft.net>
+References: <20110202105902.3c0d2f9e@katamari>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Stephen Hemminger <shemminger@vyatta.com>
-To: Vlad Dogaru <ddvlad@rosedu.org>
+Cc: netdev@vger.kernel.org, Jie.Yang@atheros.com
+To: cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:44561 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755268Ab1BBXBj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 18:01:39 -0500
-In-Reply-To: <1296671021-24421-1-git-send-email-ddvlad@rosedu.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49876
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755268Ab1BBXB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 18:01:58 -0500
+In-Reply-To: <20110202105902.3c0d2f9e@katamari>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 02.02.2011 19:23, schrieb Vlad Dogaru:
-> This patch series adds userspace support for network device groups.
-> There is support for setting device groups, listing only interfaces of a
-> specific group, and setting basic device parameters for all interfaces
-> in a group.
-> 
-> Changes since version 3:
->  * drop devgroup keyword. There is a single keyword for specifying
->    groups now.
->  * store group names internally as a hash, similar to routing table
->    names. This is more efficient for batch mode operations
+From: Chuck Ebbert <cebbert@redhat.com>
+Date: Wed, 2 Feb 2011 10:59:02 -0500
 
-Looks good to me, thanks.
+> 
+> Commit 8f574b35f22fbb9b5e5f1d11ad6b55b6f35f4533 added support for a new
+> adapter but failed to add it to the PCI device table.
+> 
+> Signed-Off-By: Chuck Ebbert <cebbert@redhat.com>
+
+Applied, thanks Chuck.
