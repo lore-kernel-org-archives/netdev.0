@@ -1,28 +1,66 @@
-From: "young chang" <youngprivate31@lajt.hu>
-Subject: Re:,,,,,
-Date: Wed, 2 Feb 2011 05:47:56 -0800
-Message-ID: <20110202044901.AF402370183@moh2-ve3.go2.pl>
-Reply-To: <young_mevasbnk993@yahoo.com.hk>
+From: Julia Lawall <julia@diku.dk>
+Subject: Re: [PATCH] include/net/genetlink.h: Allow genlmsg_cancel to accept
+ a NULL argument
+Date: Wed, 2 Feb 2011 06:51:55 +0100 (CET)
+Message-ID: <Pine.LNX.4.64.1102020650280.9302@ask.diku.dk>
+References: <Pine.LNX.4.64.1101281642080.8546@pc-004.diku.dk>
+ <20110201.145410.115936566.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tur.go2.pl ([193.17.41.50]:56062 "EHLO tur.go2.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750771Ab1BBEuK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Feb 2011 23:50:10 -0500
-Received: from moh2-ve3.go2.pl (moh2-ve3.go2.pl [193.17.41.208])
-	by tur.go2.pl (o2.pl Mailer 2.0.1) with ESMTP id E905E232B8C
-	for <netdev@vger.kernel.org>; Wed,  2 Feb 2011 05:50:09 +0100 (CET)
-Received: from moh2-ve3.go2.pl (unknown [10.0.0.208])
-	by moh2-ve3.go2.pl (Postfix) with ESMTP id AF402370183
-	for <netdev@vger.kernel.org>; Wed,  2 Feb 2011 05:49:01 +0100 (CET)
-Received: from unknown (unknown [10.0.0.42])
-	by moh2-ve3.go2.pl (Postfix) with SMTP
-	for <netdev@vger.kernel.org>; Wed,  2 Feb 2011 05:49:01 +0100 (CET)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	paul.moore@hp.com, kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110201.145410.115936566.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-May I ask if you would be eligible to pursue a Business Proposal of $19.7m with me if you dont mind? Let me know if you are interested.
+On Tue, 1 Feb 2011, David Miller wrote:
+
+> From: Julia Lawall <julia@diku.dk>
+> Date: Fri, 28 Jan 2011 16:43:40 +0100 (CET)
+> 
+> > nlmsg_cancel can accept NULL as its second argument, so for similarity,
+> > this patch extends genlmsg_cancel to be able to accept a NULL second
+> > argument as well.
+> > 
+> > Signed-off-by: Julia Lawall <julia@diku.dk>
+> 
+> I did a scan of all of the cases where this interface is used, and
+> I cannot find a situation where this capability would even be useful.
+> 
+> The use pattern is always:
+> 
+> 	hdr = genlmsg_put(skb, ...);
+> 	if (!hdr)
+> 		goto out;
+> 
+> 	NLA_PUT_*();
+> 	NLA_PUT_*();
+> 	....
+> 
+> 	return genlmsg_end(skb, hdr);
+> 
+> nla_put_failure:
+> 	genlmsg_cancel(skb, hdr);
+> out:
+> 	return -EWHATEVER;
+> 
+> Always, hdr will be non-NULL.
+> 
+> We have to allocate the header first, then put the netlink
+> attributes.
+> 
+> Looking over users of nlmsg_cancel(), the situation seems to
+> match identically.
+> 
+> Therefore, it seems to me that it makes more sense to remove
+> the NULL check from nlmsg_cancel() than to add the NULL check
+> to genlmsg_cancel().
+
+I saw lots of cases that could be done like this, but were not; they had 
+goto nla_put_failure instead.
+
+I will double check.
+
+julia
