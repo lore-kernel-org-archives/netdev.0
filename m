@@ -1,49 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: kernel 2.6.37 : oops in cleanup_once
-Date: Wed, 02 Feb 2011 16:08:56 +0100
-Message-ID: <1296659336.20445.22.camel@edumazet-laptop>
-References: <4D491B8D.1000107@univ-nantes.fr>
-	 <1296643972.20445.9.camel@edumazet-laptop>
-	 <1296645887.20445.11.camel@edumazet-laptop>
-	 <4D495765.4090806@univ-nantes.fr>
-	 <1296658407.20445.19.camel@edumazet-laptop>
-	 <4D49726C.6020103@univ-nantes.fr>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Wed, 02 Feb 2011 07:39:45 -0800
+Message-ID: <1296661185.25430.10.camel@localhost.localdomain>
+References: <20110201212411.GD30770@redhat.com>
+	 <1296595955.26937.822.camel@localhost.localdomain>
+	 <20110201214211.GB31105@redhat.com>
+	 <1296597185.26937.829.camel@localhost.localdomain>
+	 <20110201215603.GA31348@redhat.com>
+	 <1296601197.26937.833.camel@localhost.localdomain>
+	 <20110202044002.GB3818@redhat.com>
+	 <1296626748.26937.852.camel@localhost.localdomain>
+	 <1296627549.26937.856.camel@localhost.localdomain>
+	 <OFF5778D3C.84F46700-ON6525782B.00230A94-6525782B.00240890@in.ibm.com>
+	 <20110202104832.GA8505@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Yann Dupont <Yann.Dupont@univ-nantes.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D49726C.6020103@univ-nantes.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Steve Dobbelstein <steved@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110202104832.GA8505@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mercredi 02 f=C3=A9vrier 2011 =C3=A0 16:04 +0100, Yann Dupont a =C3=A9=
-crit :
-> >
-> Ok, will do it at 18:30 CET (to minimize impact)
-> It the suspected bug SLUB related ?
->=20
+On Wed, 2011-02-02 at 12:48 +0200, Michael S. Tsirkin wrote:
+> Yes, I think doing this in the host is much simpler,
+> just send an interrupt after there's a decent amount
+> of space in the queue.
+> 
+> Having said that the simple heuristic that I coded
+> might be a bit too simple.
 
-no : It can be a corruption from another part of kernel.
+>From the debugging out what I have seen so far (a single small message
+TCP_STEAM test), I think the right approach is to patch both guest and
+vhost. The problem I have found is a regression for single  small
+message TCP_STEAM test. Old kernel works well for TCP_STREAM, only new
+kernel has problem.
 
-> The 2.6.34.2 kernel previously used on that server used SLAB.
->=20
->=20
-> 2 questions :
-> -How can I be sure slub_nomerge is active ? Boot message ?
+For Steven's problem, it's multiple stream TCP_RR issues, the old guest
+doesn't perform well, so does new guest kernel. We tested reducing vhost
+signaling patch before, it didn't help the performance at all.
 
+Thanks
+Shirley
 
-# ls -l /sys/kernel/slab/
-
-If you have symlinks : merge is on (default)
-
-If you dont have symlinks : nomerge is in action
-
-> -Is there a very severe impact on performance ?
->=20
-
-not at all
-
-> Regards,
->=20
