@@ -1,38 +1,45 @@
-From: john stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH V10 15/15] ptp: Added a clock driver for the National
- Semiconductor PHYTER.
-Date: Tue, 01 Feb 2011 18:11:52 -0800
-Message-ID: <1296612712.3336.214.camel@work-vm>
-References: <cover.1296124770.git.richard.cochran@omicron.at>
-	 <9a8c774950f1a78259a49681ee2fe7977ace44d6.1296124770.git.richard.cochran@omicron.at>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Remove fib_hash.
+Date: Tue, 01 Feb 2011 18:15:42 -0800 (PST)
+Message-ID: <20110201.181542.193701016.davem@davemloft.net>
+References: <20110201.151941.48509941.davem@davemloft.net>
+	<1296607693.2607.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>, Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <9a8c774950f1a78259a49681ee2fe7977ace44d6.1296124770.git.richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:35847
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752177Ab1BBCPH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 21:15:07 -0500
+In-Reply-To: <1296607693.2607.7.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-01-27 at 12:00 +0100, Richard Cochran wrote:
-> This patch adds support for the PTP clock found on the DP83640.
-> The basic clock operations and one external time stamp have
-> been implemented.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 Feb 2011 01:48:13 +0100
+
+> Hmm... I know having to maintain two implementations is time consuming,
+> but I know fib_trie is bigger :
 > 
-> Signed-off-by: Richard Cochran <richard.cochran-3mrvs1K0uXizZXS1Dc/lvw@public.gmane.org>
+> # size net/ipv4/fib_*.o
+>    text	   data	    bss	    dec	    hex	filename
+>    7252	    120	      0	   7372	   1ccc	net/ipv4/fib_frontend.o
+>    7279	     16	      4	   7299	   1c83	net/ipv4/fib_hash.o
+>    1479	      0	      0	   1479	    5c7	net/ipv4/fib_rules.o
+>    7885	      0	   2080	   9965	   26ed	net/ipv4/fib_semantics.o
+>   16222	     16	     16	  16254	   3f7e	net/ipv4/fib_trie.o
+> 
+> In my tests, I know that fib_trie is more expensive for typical routing
+> tables for hosts (no more than a dozen or entries), in latencies
+> results, mostly because of icache misses, but also dcache ones.
 
-Acked-by: John Stultz <johnstul-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+It's mostly the rebalancing code that takes up the space.
+
+The lookup path is on the same order of magnitude as the fib hash
+stuff was.
+
+In any event, we have several months to hash out any regressions and I
+think if I didn't do this removal nobody would work on it so... :-)
