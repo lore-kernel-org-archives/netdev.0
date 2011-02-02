@@ -1,53 +1,95 @@
 From: frank.blaschka@de.ibm.com
-Subject: [patch 3/6] [PATCH] qeth: allow HiperSockets framesize change in suspend
-Date: Wed, 02 Feb 2011 17:04:33 +0100
-Message-ID: <20110202160530.388560193@de.ibm.com>
+Subject: [patch 2/6] [PATCH] qeth: add more strict MTU checking
+Date: Wed, 02 Feb 2011 17:04:32 +0100
+Message-ID: <20110202160530.239947582@de.ibm.com>
 References: <20110202160430.554090958@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate4.uk.ibm.com ([194.196.100.164]:35094 "EHLO
-	mtagate4.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754478Ab1BBQFd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 11:05:33 -0500
-Content-Disposition: inline; filename=607-qeth-chparm-change.diff
+Received: from mtagate7.uk.ibm.com ([194.196.100.167]:52501 "EHLO
+	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754397Ab1BBQFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 11:05:32 -0500
+Content-Disposition: inline; filename=605-qeth-mtu-checking.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+From: Frank Blaschka <frank.blaschka@de.ibm.com>
 
-For HiperSockets the framesize-definition determines the selected
-mtu-size and the size of the allocated qdio buffers.
-A framesize-change may occur while a Linux system with probed
-HiperSockets device is in suspend state. This patch enables proper
-resuming of a HiperSockets device in this case.
+HiperSockets and OSA hardware report a maximum MTU size. Add checking
+to reject larger MTUs than allowed by hardware.
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
 Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
 ---
 
 
- drivers/s390/net/qeth_core_main.c |   10 +++++++++-
- 1 file changed, 9 insertions(+), 1 deletion(-)
+ drivers/s390/net/qeth_core_main.c |   35 ++++-------------------------------
+ 1 file changed, 4 insertions(+), 31 deletions(-)
 --- a/drivers/s390/net/qeth_core_main.c
 +++ b/drivers/s390/net/qeth_core_main.c
-@@ -1887,8 +1887,16 @@ static int qeth_ulp_enable_cb(struct qet
- 			QETH_DBF_TEXT_(SETUP, 2, "  rc%d", iob->rc);
- 			return 0;
- 		}
--		card->info.max_mtu = mtu;
-+		if (card->info.initial_mtu && (card->info.initial_mtu != mtu)) {
-+			/* frame size has changed */
-+			if (card->dev &&
-+			    ((card->dev->mtu == card->info.initial_mtu) ||
-+			     (card->dev->mtu > mtu)))
-+				card->dev->mtu = mtu;
-+			qeth_free_qdio_buffers(card);
-+		}
- 		card->info.initial_mtu = mtu;
-+		card->info.max_mtu = mtu;
+@@ -1832,33 +1832,6 @@ static inline int qeth_get_initial_mtu_f
+ 	}
+ }
+ 
+-static inline int qeth_get_max_mtu_for_card(int cardtype)
+-{
+-	switch (cardtype) {
+-
+-	case QETH_CARD_TYPE_UNKNOWN:
+-	case QETH_CARD_TYPE_OSD:
+-	case QETH_CARD_TYPE_OSN:
+-	case QETH_CARD_TYPE_OSM:
+-	case QETH_CARD_TYPE_OSX:
+-		return 61440;
+-	case QETH_CARD_TYPE_IQD:
+-		return 57344;
+-	default:
+-		return 1500;
+-	}
+-}
+-
+-static inline int qeth_get_mtu_out_of_mpc(int cardtype)
+-{
+-	switch (cardtype) {
+-	case QETH_CARD_TYPE_IQD:
+-		return 1;
+-	default:
+-		return 0;
+-	}
+-}
+-
+ static inline int qeth_get_mtu_outof_framesize(int framesize)
+ {
+ 	switch (framesize) {
+@@ -1881,10 +1854,9 @@ static inline int qeth_mtu_is_valid(stru
+ 	case QETH_CARD_TYPE_OSD:
+ 	case QETH_CARD_TYPE_OSM:
+ 	case QETH_CARD_TYPE_OSX:
+-		return ((mtu >= 576) && (mtu <= 61440));
+ 	case QETH_CARD_TYPE_IQD:
+ 		return ((mtu >= 576) &&
+-			(mtu <= card->info.max_mtu + 4096 - 32));
++			(mtu <= card->info.max_mtu));
+ 	case QETH_CARD_TYPE_OSN:
+ 	case QETH_CARD_TYPE_UNKNOWN:
+ 	default:
+@@ -1907,7 +1879,7 @@ static int qeth_ulp_enable_cb(struct qet
+ 	memcpy(&card->token.ulp_filter_r,
+ 	       QETH_ULP_ENABLE_RESP_FILTER_TOKEN(iob->data),
+ 	       QETH_MPC_TOKEN_LENGTH);
+-	if (qeth_get_mtu_out_of_mpc(card->info.type)) {
++	if (card->info.type == QETH_CARD_TYPE_IQD) {
+ 		memcpy(&framesize, QETH_ULP_ENABLE_RESP_MAX_MTU(iob->data), 2);
+ 		mtu = qeth_get_mtu_outof_framesize(framesize);
+ 		if (!mtu) {
+@@ -1920,7 +1892,8 @@ static int qeth_ulp_enable_cb(struct qet
  		card->qdio.in_buf_size = mtu + 2 * PAGE_SIZE;
  	} else {
  		card->info.initial_mtu = qeth_get_initial_mtu_for_card(card);
+-		card->info.max_mtu = qeth_get_max_mtu_for_card(card->info.type);
++		card->info.max_mtu = *(__u16 *)QETH_ULP_ENABLE_RESP_MAX_MTU(
++			iob->data);
+ 		card->qdio.in_buf_size = QETH_IN_BUF_SIZE_DEFAULT;
+ 	}
+ 
 
