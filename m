@@ -1,105 +1,71 @@
-From: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: Bonding on bond
-Date: Wed, 02 Feb 2011 11:19:45 +0100
-Message-ID: <4D492FC1.2030203@gmail.com>
-References: <4D374A8F.2020303@gmail.com> <20110120153110.GA3931@midget.suse.cz> <4D385F0B.1010000@gmail.com> <4202.1295553193@death> <4D3B60D2.30309@gmail.com> <15526.1296261528@death>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Network performance with small packets
+Date: Wed, 2 Feb 2011 12:48:33 +0200
+Message-ID: <20110202104832.GA8505@redhat.com>
+References: <20110201212411.GD30770@redhat.com>
+ <1296595955.26937.822.camel@localhost.localdomain>
+ <20110201214211.GB31105@redhat.com>
+ <1296597185.26937.829.camel@localhost.localdomain>
+ <20110201215603.GA31348@redhat.com>
+ <1296601197.26937.833.camel@localhost.localdomain>
+ <20110202044002.GB3818@redhat.com>
+ <1296626748.26937.852.camel@localhost.localdomain>
+ <1296627549.26937.856.camel@localhost.localdomain>
+ <OFF5778D3C.84F46700-ON6525782B.00230A94-6525782B.00240890@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "bonding-devel@lists.sourceforge.net"
-	<bonding-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>, Jiri Bohac <jbohac@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36575 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751677Ab1BBKTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 05:19:48 -0500
-Received: by fxm20 with SMTP id 20so7838884fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Feb 2011 02:19:47 -0800 (PST)
-In-Reply-To: <15526.1296261528@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shirley Ma <mashirle@us.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Steve Dobbelstein <steved@us.ibm.com>
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <OFF5778D3C.84F46700-ON6525782B.00230A94-6525782B.00240890@in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 29/01/2011 01:38, Jay Vosburgh a =C3=A9crit :
-> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
+On Wed, Feb 02, 2011 at 12:04:37PM +0530, Krishna Kumar2 wrote:
+> > On Tue, 2011-02-01 at 22:05 -0800, Shirley Ma wrote:
+> > >
+> > > The way I am changing is only when netif queue has stopped, then we
+> > > start to count num_free descriptors to send the signal to wake netif
+> > > queue.
+> >
+> > I forgot to mention, the code change I am making is in guest kernel, in
+> > xmit call back only wake up the queue when it's stopped && num_free >=
+> > 1/2 *vq->num, I add a new API in virtio_ring.
+> 
+> FYI :)
+> 
+> I have tried this before. There are a couple of issues:
+> 
+> 1. the free count will not reduce until you run free_old_xmit_skbs,
+>    which will not run anymore since the tx queue is stopped.
+> 2. You cannot call free_old_xmit_skbs directly as it races with a
+>    queue that was just awakened (current cb was due to the delay
+>    in disabling cb's).
+> 
+> You have to call free_old_xmit_skbs() under netif_queue_stopped()
+> check to avoid the race.
+> 
+> I got a small improvement in my testing upto some number of threads
+> (32 or 48?), but beyond that I was getting a regression.
+> 
+> Thanks,
+> 
+> - KK
+> 
+> > However vhost signaling reduction is needed as well. The patch I
+> > submitted a while ago showed both CPUs and BW improvement.
 
-[snip]
+Yes, I think doing this in the host is much simpler,
+just send an interrupt after there's a decent amount
+of space in the queue.
 
->> However, the ingress path doesn't work at all. bond0 is unable to re=
-ceive any packets (ARP or IP).
->
-> 	In light of this, I don't see a problem with disallowing nesting
-> of bonds.  It should be documented in bonding.txt.
+Having said that the simple heuristic that I coded
+might be a bit too simple.
 
-Ok, I will do that.
-
-Jiri, any trouble with me stealing your patch (code) and adding the doc=
-umentation update part? Or do=20
-you prefer to do it yourself?
-
-[snip]
-
->> That being said, we still miss a way to achieve a simple configurati=
-on
->> with several links doing load balancing to a switch and one or sever=
-al
->> links doing fail over to another switch, both switches *not* being 8=
-02.3ad
->> capable.
->
-> 	This is a harder problem, but it's something that doesn't work
-> today (and I suspect hasn't for a long time, so if somebody was using
-> this, I think there would have been some discussion).
-
-In the mean time, I will state in the documentation that:
-
-- nesting is not allowed.
-- only the above particular setup would possibly require nesting.
-- this can be achieve using 802.3ad mode, connected to 802.3ad capable =
-switches.
-
->> Should we arrange for bonding to be allowed to nest, for this purpos=
-e, or
->> should we find a way to setup this configuration with a single level=
- of
->> bonding ? I would prefer the second, but...
->
-> 	I'm not sure that either is necessary; 802.3ad will do this
-> today, and few current production switches lack 802.3ad support.
->
-> 	Adding support for etherchannel (i.e., not 802.3ad) gang
-> failover is nontrivial, because the multiple etherchannel port groups
-> will have to be managed separately, and most likely assigned manually=
-=2E
-> Sure, it'd be nice to have, but I'm not sure if it's a benefit worth =
-the
-> effort.
-
-I'm far from a 802.3ad (802.1AX) specialist, but... wouldn't it be poss=
-ible to force the aggregator=20
-by hand, for every slaves, to achieve the same effect as receiving LACP=
-DU, when connected to non=20
-802.3ad capable switches?
-
-echo 802.3ad > /sys/class/net/bond0/bonding/mode
-echo +eth0 > /sys/class/net/bond0/bonding/slaves
-echo +eth1 > /sys/class/net/bond0/bonding/slaves
-echo +eth2 > /sys/class/net/bond0/bonding/slaves
-echo 1 > /sys/class/net/bond0/bonding/ad_aggregator_eth0 # those sysfs =
-entries to be created...
-echo 1 > /sys/class/net/bond0/bonding/ad_aggregator_eth1
-echo 2 > /sys/class/net/bond0/bonding/ad_aggregator_eth2
-
-> 	Either way, for now, since I recall you mentioned in another
-> email that you'd crashed the system from nesting bonds, I don't see a
-> problem with disallowing nesting and updating the documentation with =
-a
-> bit of this discussion (e.g., "nesting doesn't work, you're probably
-> trying to do gang failover, which 802.3ad already does for you").
-
-Thanks.
-
-	Nicolas.
+-- 
+MST
