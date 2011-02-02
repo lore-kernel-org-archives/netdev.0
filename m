@@ -1,54 +1,71 @@
 From: kaber@trash.net
-Subject: [PATCH 1/4] netfilter: ctnetlink: fix missing refcount increment during dumps
-Date: Thu,  3 Feb 2011 00:45:27 +0100
-Message-ID: <1296690330-9887-2-git-send-email-kaber@trash.net>
+Subject: [PATCH 4/4] netfilter: ecache: always set events bits, filter them later
+Date: Thu,  3 Feb 2011 00:45:30 +0100
+Message-ID: <1296690330-9887-5-git-send-email-kaber@trash.net>
 References: <1296690330-9887-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:45198 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755392Ab1BBXpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 18:45:47 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1296690330-9887-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-In 13ee6ac netfilter: fix race in conntrack between dump_table and
-destroy, we recovered spinlocks to protect the dump of the conntrack
-table according to reports from Stephen and acknowledgments on the
-issue from Eric.
+For the following rule:
 
-In that patch, the refcount bump that allows to keep a reference
-to the current ct object was removed. However, we still decrement
-the refcount for that object in the output path of
-ctnetlink_dump_table():
+iptables -I PREROUTING -t raw -j CT --ctevents assured
 
-        if (last)
-                nf_ct_put(last)
+The event delivered looks like the following:
 
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>
+ [UPDATE] tcp      6 src=192.168.0.2 dst=192.168.1.2 sport=37041 dport=80 src=192.168.1.2 dst=192.168.1.100 sport=80 dport=37041 [ASSURED]
+
+Note that the TCP protocol state is not included. For that reason
+the CT event filtering is not very useful for conntrackd.
+
+To resolve this issue, instead of conditionally setting the CT events
+bits based on the ctmask, we always set them and perform the filtering
+in the late stage, just before the delivery.
+
+Thus, the event delivered looks like the following:
+
+ [UPDATE] tcp      6 432000 ESTABLISHED src=192.168.0.2 dst=192.168.1.2 sport=37041 dport=80 src=192.168.1.2 dst=192.168.1.100 sport=80 dport=37041 [ASSURED]
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/nf_conntrack_netlink.c |    1 +
- 1 files changed, 1 insertions(+), 0 deletions(-)
+ include/net/netfilter/nf_conntrack_ecache.h |    3 ---
+ net/netfilter/nf_conntrack_ecache.c         |    3 +++
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index 93297aa..eead9db 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -667,6 +667,7 @@ restart:
- 			if (ctnetlink_fill_info(skb, NETLINK_CB(cb->skb).pid,
- 						cb->nlh->nlmsg_seq,
- 						IPCTNL_MSG_CT_NEW, ct) < 0) {
-+				nf_conntrack_get(&ct->ct_general);
- 				cb->args[1] = (unsigned long)ct;
- 				goto out;
- 			}
+diff --git a/include/net/netfilter/nf_conntrack_ecache.h b/include/net/netfilter/nf_conntrack_ecache.h
+index 96ba5f7..349cefe 100644
+--- a/include/net/netfilter/nf_conntrack_ecache.h
++++ b/include/net/netfilter/nf_conntrack_ecache.h
+@@ -77,9 +77,6 @@ nf_conntrack_event_cache(enum ip_conntrack_events event, struct nf_conn *ct)
+ 	if (e == NULL)
+ 		return;
+ 
+-	if (!(e->ctmask & (1 << event)))
+-		return;
+-
+ 	set_bit(event, &e->cache);
+ }
+ 
+diff --git a/net/netfilter/nf_conntrack_ecache.c b/net/netfilter/nf_conntrack_ecache.c
+index 5702de3..63a1b91 100644
+--- a/net/netfilter/nf_conntrack_ecache.c
++++ b/net/netfilter/nf_conntrack_ecache.c
+@@ -63,6 +63,9 @@ void nf_ct_deliver_cached_events(struct nf_conn *ct)
+ 		 * this does not harm and it happens very rarely. */
+ 		unsigned long missed = e->missed;
+ 
++		if (!((events | missed) & e->ctmask))
++			goto out_unlock;
++
+ 		ret = notify->fcn(events | missed, &item);
+ 		if (unlikely(ret < 0 || missed)) {
+ 			spin_lock_bh(&ct->lock);
 -- 
 1.7.2.3
 
