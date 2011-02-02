@@ -1,117 +1,102 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH] iproute2: allow to specify truncation bits on auth algo
-Date: Wed, 02 Feb 2011 17:34:35 +0100
-Message-ID: <4D49879B.4060108@6wind.com>
-References: <20110128045108.GA8351@gondor.apana.org.au>	<4D42839C.3050401@6wind.com> <20110128.114610.193716130.davem@davemloft.net> <4D498693.6020909@6wind.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Wed, 02 Feb 2011 09:10:35 -0800
+Message-ID: <1296666635.25430.35.camel@localhost.localdomain>
+References: <20110201214211.GB31105@redhat.com>
+	 <1296597185.26937.829.camel@localhost.localdomain>
+	 <20110201215603.GA31348@redhat.com>
+	 <1296601197.26937.833.camel@localhost.localdomain>
+	 <20110202044002.GB3818@redhat.com>
+	 <1296626748.26937.852.camel@localhost.localdomain>
+	 <1296627549.26937.856.camel@localhost.localdomain>
+	 <OFF5778D3C.84F46700-ON6525782B.00230A94-6525782B.00240890@in.ibm.com>
+	 <20110202104832.GA8505@redhat.com>
+	 <1296661185.25430.10.camel@localhost.localdomain>
+	 <20110202154706.GA12738@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050902000403040903010303"
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, christophe.gouault@6wind.com
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42377 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754345Ab1BBQej (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 11:34:39 -0500
-Received: by fxm20 with SMTP id 20so152919fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Feb 2011 08:34:38 -0800 (PST)
-In-Reply-To: <4D498693.6020909@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is a multi-part message in MIME format.
---------------050902000403040903010303
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Steve Dobbelstein <steved@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110202154706.GA12738@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/02/2011 17:30, Nicolas Dichtel wrote:
-> On 28/01/2011 20:46, David Miller wrote:
->> From: Nicolas Dichtel<nicolas.dichtel@6wind.com>
->> Date: Fri, 28 Jan 2011 09:51:40 +0100
->>
->>> On 28/01/2011 05:51, Herbert Xu wrote:
->>>> So perhaps an SA configuration flag is needed?
->>> I agree. If David is ok, I will update the patch.
->>
->> Sounds good to me.
-> And the patch for iproute2.
-Sorry, two patches were mixed :(
+On Wed, 2011-02-02 at 17:47 +0200, Michael S. Tsirkin wrote:
+> On Wed, Feb 02, 2011 at 07:39:45AM -0800, Shirley Ma wrote:
+> > On Wed, 2011-02-02 at 12:48 +0200, Michael S. Tsirkin wrote:
+> > > Yes, I think doing this in the host is much simpler,
+> > > just send an interrupt after there's a decent amount
+> > > of space in the queue.
+> > > 
+> > > Having said that the simple heuristic that I coded
+> > > might be a bit too simple.
+> > 
+> > >From the debugging out what I have seen so far (a single small
+> message
+> > TCP_STEAM test), I think the right approach is to patch both guest
+> and
+> > vhost.
+> 
+> One problem is slowing down the guest helps here.
+> So there's a chance that just by adding complexity
+> in guest driver we get a small improvement :(
+> 
+> We can't rely on a patched guest anyway, so
+> I think it is best to test guest and host changes separately.
+> 
+> And I do agree something needs to be done in guest too,
+> for example when vqs share an interrupt, we
+> might invoke a callback when we see vq is not empty
+> even though it's not requested. Probably should
+> check interrupts enabled here?
 
-Here is the right one.
+Yes, I modified xmit callback something like below:
 
+static void skb_xmit_done(struct virtqueue *svq)
+{
+        struct virtnet_info *vi = svq->vdev->priv;
 
-Regards,
-Nicolas
+        /* Suppress further interrupts. */
+        virtqueue_disable_cb(svq);
 
---------------050902000403040903010303
-Content-Type: text/x-patch;
- name="0001-iproute2-add-support-of-flag-XFRM_STATE_ALIGN4.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-iproute2-add-support-of-flag-XFRM_STATE_ALIGN4.patch"
+        /* We were probably waiting for more output buffers. */
+        if (netif_queue_stopped(vi->dev)) {
+                free_old_xmit_skbs(vi);
+                if (virtqueue_free_size(svq)  <= svq->vring.num / 2) {
+                        virtqueue_enable_cb(svq);
+			return;
+		}
+        }
+	netif_wake_queue(vi->dev);
+}
 
->From fe61b9c3564b2f9504bca652cdea80ff3b5a2743 Mon Sep 17 00:00:00 2001
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 1 Feb 2011 07:29:54 -0500
-Subject: [PATCH] iproute2: add support of flag XFRM_STATE_ALIGN4
+> > The problem I have found is a regression for single  small
+> > message TCP_STEAM test. Old kernel works well for TCP_STREAM, only
+> new
+> > kernel has problem.
+> 
+> Likely new kernel is faster :)
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/linux/xfrm.h |    1 +
- ip/ipxfrm.c          |    1 +
- ip/xfrm_state.c      |    4 +++-
- 3 files changed, 5 insertions(+), 1 deletions(-)
+> > For Steven's problem, it's multiple stream TCP_RR issues, the old
+> guest
+> > doesn't perform well, so does new guest kernel. We tested reducing
+> vhost
+> > signaling patch before, it didn't help the performance at all.
+> > 
+> > Thanks
+> > Shirley
+> 
+> Yes, it seems unrelated to tx interrupts. 
 
-diff --git a/include/linux/xfrm.h b/include/linux/xfrm.h
-index 07f2b63..8b2d220 100644
---- a/include/linux/xfrm.h
-+++ b/include/linux/xfrm.h
-@@ -349,6 +349,7 @@ struct xfrm_usersa_info {
- #define XFRM_STATE_WILDRECV	8
- #define XFRM_STATE_ICMP		16
- #define XFRM_STATE_AF_UNSPEC	32
-+#define XFRM_STATE_ALIGN4	64
- };
- 
- struct xfrm_usersa_id {
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 9753822..ba7360f 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -828,6 +828,7 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_WILDRECV, "wildrecv");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ICMP, "icmp");
- 		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_AF_UNSPEC, "af-unspec");
-+		XFRM_FLAG_PRINT(fp, flags, XFRM_STATE_ALIGN4, "align4");
- 		if (flags)
- 			fprintf(fp, "%x", flags);
- 	}
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 38d4039..e8c7c96 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -83,7 +83,7 @@ static void usage(void)
-  	//fprintf(stderr, "REQID - number(default=0)\n");
- 
- 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
--	fprintf(stderr, "FLAG := [ noecn | decap-dscp | nopmtudisc | wildrecv | icmp | af-unspec ]\n");
-+	fprintf(stderr, "FLAG := [ noecn | decap-dscp | nopmtudisc | wildrecv | icmp | af-unspec | align4 ]\n");
- 
-         fprintf(stderr, "ENCAP := ENCAP-TYPE SPORT DPORT OADDR\n");
-         fprintf(stderr, "ENCAP-TYPE := espinudp | espinudp-nonike\n");
-@@ -214,6 +214,8 @@ static int xfrm_state_flag_parse(__u8 *flags, int *argcp, char ***argvp)
- 				*flags |= XFRM_STATE_ICMP;
- 			else if (strcmp(*argv, "af-unspec") == 0)
- 				*flags |= XFRM_STATE_AF_UNSPEC;
-+			else if (strcmp(*argv, "align4") == 0)
-+				*flags |= XFRM_STATE_ALIGN4;
- 			else {
- 				PREV_ARG(); /* back track */
- 				break;
--- 
-1.5.6.5
+The issue is more likely related to latency. Do you have anything in
+mind on how to reduce vhost latency?
 
+Thanks
+Shirley
 
---------------050902000403040903010303--
