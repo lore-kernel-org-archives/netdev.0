@@ -1,67 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: linux-next: Tree for February 1 (ip_vs)
-Date: Thu, 3 Feb 2011 07:31:59 +0900
-Message-ID: <20110202223159.GB2248@verge.net.au>
-References: <20110201153403.b3a251a3.sfr@canb.auug.org.au>
- <20110201091620.64536300.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-2.6] gro: reset skb_iif on reuse
+Date: Wed, 02 Feb 2011 14:53:44 -0800 (PST)
+Message-ID: <20110202.145344.59664804.davem@davemloft.net>
+References: <1296682047-15885-1-git-send-email-andy@greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110201091620.64536300.randy.dunlap@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: andy@greyhouse.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56663
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754474Ab1BBWxJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 17:53:09 -0500
+In-Reply-To: <1296682047-15885-1-git-send-email-andy@greyhouse.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 01, 2011 at 09:16:20AM -0800, Randy Dunlap wrote:
-> On Tue, 1 Feb 2011 15:34:03 +1100 Stephen Rothwell wrote:
+From: andy@greyhouse.net
+Date: Wed,  2 Feb 2011 16:27:27 -0500
+
+> Like Herbert's change from a few days ago:
 > 
-> > Hi all,
-> > 
-> > Changes since 20110131:
+> 66c46d741e2e60f0e8b625b80edb0ab820c46d7a gro: Reset dev pointer on reuse
 > 
+> this may not be necessary at this point, but we should still clean up
+> the skb->skb_iif.  If not we may end up with an invalid valid for
+> skb->skb_iif when the skb is reused and the check is done in
+> __netif_receive_skb.
 > 
-> When CONFIG_IP_VS_PROTO_TCP is not set:
-> 
-> net/netfilter/ipvs/ip_vs_proto_sctp.c:1104: error: 'struct netns_ipvs' has no member named 'tcp_app_lock'
-> net/netfilter/ipvs/ip_vs_proto_sctp.c:1104: error: 'struct netns_ipvs' has no member named 'tcp_app_lock'
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Thanks, the following patch should resolve this problem.
-Hans, could you verify this change?
-
-The change is available at
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
-
-
-From: Simon Horman <horms@verge.net.au>
-
-IPVS: Use correct lock in SCTP module
-
-Use sctp_app_lock instead of tcp_app_lock in the SCTP protocol module.
-
-This appears to be a typo introduced by the netns changes.
-
-Cc: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_proto_sctp.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_proto_sctp.c b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-index fb2d04a..b027ccc 100644
---- a/net/netfilter/ipvs/ip_vs_proto_sctp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_sctp.c
-@@ -1101,7 +1101,7 @@ static void __ip_vs_sctp_init(struct net *net, struct ip_vs_proto_data *pd)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_init_hash_table(ipvs->sctp_apps, SCTP_APP_TAB_SIZE);
--	spin_lock_init(&ipvs->tcp_app_lock);
-+	spin_lock_init(&ipvs->sctp_app_lock);
- 	pd->timeout_table = ip_vs_create_timeout_table((int *)sctp_timeouts,
- 							sizeof(sctp_timeouts));
- }
--- 
-1.7.2.3
+Applied, thanks Andy.
