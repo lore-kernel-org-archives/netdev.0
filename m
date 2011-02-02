@@ -1,74 +1,258 @@
-From: Yann Dupont <Yann.Dupont@univ-nantes.fr>
-Subject: Re: possible issue between bridge igmp/multicast  handling & bnx2x
- on kernel 2.6.34 and >
-Date: Wed, 02 Feb 2011 14:29:29 +0100
-Message-ID: <4D495C39.6020002@univ-nantes.fr>
-References: <4D23234E.30709@univ-nantes.fr>	 <4D26EDA4.7060502@univ-nantes.fr> <1294399705.3306.8.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: [PATCH] bna: use device model DMA API
+Date: Wed,  2 Feb 2011 15:37:02 +0100
+Message-ID: <1296657422-13537-1-git-send-email-ivecera@redhat.com>
+Cc: rmody@brocade.com, ddutt@brocade.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-tls1.univ-nantes.fr ([193.52.101.145]:36679 "EHLO
-	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754038Ab1BBN3b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 08:29:31 -0500
-In-Reply-To: <1294399705.3306.8.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:12854 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753285Ab1BBOhI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Feb 2011 09:37:08 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Le vendredi 07 janvier 2011 =C3=A0 11:40 +0100, Yann Dupont a =C3=A9c=
-rit :
->> Le 04/01/2011 14:40, Yann Dupont a =C3=A9crit :
->> ...
->>> We just added BCM57711 10G cards (bnx2x driver) on our blade server=
-s
->>> (connected to 10G Power Connect M8024).
->>> Since then, we are experiencing random lost of packets.
->>>
->>> Symptom : packets are lost on some vlans for a few seconds, then
->>> things go back to normal (and stops again a few minutes later)
->>>
->> As I didn't had answer so far , I digged a little more and captured =
-more
->> packets.
->> I just noticed that an event trigger that problem : IPv6 neighbor
->> discovery packet .
->>
->> This is , of course, a multicast packet.
->>
->> Just saw that 2.6.36.3 should include this fix :
->>
-Just a little update, the problem doesn't seem to be what we thought at=
-=20
-first.
+Use DMA API as PCI equivalents will be deprecated.
 
-It may not be related to the bnx2x driver after all.
-We noticed that we had the same symptoms on target machine using bnx2=20
-drivers  (we missed that at first since the outages are way briefer).
+Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+---
+ drivers/net/bna/bnad.c |  108 +++++++++++++++++++++++++-----------------------
+ drivers/net/bna/bnad.h |    2 +-
+ 2 files changed, 57 insertions(+), 53 deletions(-)
 
-We're now rather suspecting our own firewall (also a linux in a kvm=20
-machine) since without it we don't get any more problem and the packet=20
-drops occurs on _THIS_ network, when packets are routed by _THIS_ firew=
-all.
-
-Anyway, all of that is very puzzling, we have made a lot of network=20
-dumps and we have really no clue of what's happening there.
-We don't understand why, if the problem is really on our firewall=20
-machine, setting CONFIG_BRIDGE_IGMP_SNOOPING to 'n' on the target=20
-machine efficiently fix the problem, Especially since it doesn't seem=20
-related at all with our setup and we don't see anything in our network=20
-dumps that could explain this.
-
-It's probably not a single problem, but a sum of different problems.
-We continue to search.
-Sorry for the noise.
-
-Regards,
-
---=20
-Yann Dupont - Service IRTS, DSI Universit=C3=A9 de Nantes
-Tel : 02.53.48.49.20 - Mail/Jabber : Yann.Dupont@univ-nantes.fr
+diff --git a/drivers/net/bna/bnad.c b/drivers/net/bna/bnad.c
+index fad9126..9f356d5 100644
+--- a/drivers/net/bna/bnad.c
++++ b/drivers/net/bna/bnad.c
+@@ -126,22 +126,22 @@ bnad_free_all_txbufs(struct bnad *bnad,
+ 		}
+ 		unmap_array[unmap_cons].skb = NULL;
+ 
+-		pci_unmap_single(bnad->pcidev,
+-				 pci_unmap_addr(&unmap_array[unmap_cons],
++		dma_unmap_single(&bnad->pcidev->dev,
++				 dma_unmap_addr(&unmap_array[unmap_cons],
+ 						dma_addr), skb_headlen(skb),
+-						PCI_DMA_TODEVICE);
++						DMA_TO_DEVICE);
+ 
+-		pci_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
++		dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
+ 		if (++unmap_cons >= unmap_q->q_depth)
+ 			break;
+ 
+ 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+-			pci_unmap_page(bnad->pcidev,
+-				       pci_unmap_addr(&unmap_array[unmap_cons],
++			dma_unmap_page(&bnad->pcidev->dev,
++				       dma_unmap_addr(&unmap_array[unmap_cons],
+ 						      dma_addr),
+ 				       skb_shinfo(skb)->frags[i].size,
+-				       PCI_DMA_TODEVICE);
+-			pci_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
++				       DMA_TO_DEVICE);
++			dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
+ 					   0);
+ 			if (++unmap_cons >= unmap_q->q_depth)
+ 				break;
+@@ -199,23 +199,23 @@ bnad_free_txbufs(struct bnad *bnad,
+ 		sent_bytes += skb->len;
+ 		wis -= BNA_TXQ_WI_NEEDED(1 + skb_shinfo(skb)->nr_frags);
+ 
+-		pci_unmap_single(bnad->pcidev,
+-				 pci_unmap_addr(&unmap_array[unmap_cons],
++		dma_unmap_single(&bnad->pcidev->dev,
++				 dma_unmap_addr(&unmap_array[unmap_cons],
+ 						dma_addr), skb_headlen(skb),
+-				 PCI_DMA_TODEVICE);
+-		pci_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
++				 DMA_TO_DEVICE);
++		dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr, 0);
+ 		BNA_QE_INDX_ADD(unmap_cons, 1, unmap_q->q_depth);
+ 
+ 		prefetch(&unmap_array[unmap_cons + 1]);
+ 		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 			prefetch(&unmap_array[unmap_cons + 1]);
+ 
+-			pci_unmap_page(bnad->pcidev,
+-				       pci_unmap_addr(&unmap_array[unmap_cons],
++			dma_unmap_page(&bnad->pcidev->dev,
++				       dma_unmap_addr(&unmap_array[unmap_cons],
+ 						      dma_addr),
+ 				       skb_shinfo(skb)->frags[i].size,
+-				       PCI_DMA_TODEVICE);
+-			pci_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
++				       DMA_TO_DEVICE);
++			dma_unmap_addr_set(&unmap_array[unmap_cons], dma_addr,
+ 					   0);
+ 			BNA_QE_INDX_ADD(unmap_cons, 1, unmap_q->q_depth);
+ 		}
+@@ -340,19 +340,22 @@ static void
+ bnad_free_all_rxbufs(struct bnad *bnad, struct bna_rcb *rcb)
+ {
+ 	struct bnad_unmap_q *unmap_q;
++	struct bnad_skb_unmap *unmap_array;
+ 	struct sk_buff *skb;
+ 	int unmap_cons;
+ 
+ 	unmap_q = rcb->unmap_q;
++	unmap_array = unmap_q->unmap_array;
+ 	for (unmap_cons = 0; unmap_cons < unmap_q->q_depth; unmap_cons++) {
+-		skb = unmap_q->unmap_array[unmap_cons].skb;
++		skb = unmap_array[unmap_cons].skb;
+ 		if (!skb)
+ 			continue;
+-		unmap_q->unmap_array[unmap_cons].skb = NULL;
+-		pci_unmap_single(bnad->pcidev, pci_unmap_addr(&unmap_q->
+-					unmap_array[unmap_cons],
+-					dma_addr), rcb->rxq->buffer_size,
+-					PCI_DMA_FROMDEVICE);
++		unmap_array[unmap_cons].skb = NULL;
++		dma_unmap_single(&bnad->pcidev->dev,
++				 dma_unmap_addr(&unmap_array[unmap_cons],
++						dma_addr),
++				 rcb->rxq->buffer_size,
++				 DMA_FROM_DEVICE);
+ 		dev_kfree_skb(skb);
+ 	}
+ 	bnad_reset_rcb(bnad, rcb);
+@@ -391,9 +394,10 @@ bnad_alloc_n_post_rxbufs(struct bnad *bnad, struct bna_rcb *rcb)
+ 		skb->dev = bnad->netdev;
+ 		skb_reserve(skb, NET_IP_ALIGN);
+ 		unmap_array[unmap_prod].skb = skb;
+-		dma_addr = pci_map_single(bnad->pcidev, skb->data,
+-			rcb->rxq->buffer_size, PCI_DMA_FROMDEVICE);
+-		pci_unmap_addr_set(&unmap_array[unmap_prod], dma_addr,
++		dma_addr = dma_map_single(&bnad->pcidev->dev, skb->data,
++					  rcb->rxq->buffer_size,
++					  DMA_FROM_DEVICE);
++		dma_unmap_addr_set(&unmap_array[unmap_prod], dma_addr,
+ 				   dma_addr);
+ 		BNA_SET_DMA_ADDR(dma_addr, &rxent->host_addr);
+ 		BNA_QE_INDX_ADD(unmap_prod, 1, unmap_q->q_depth);
+@@ -434,8 +438,9 @@ bnad_poll_cq(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 	struct bna_rcb *rcb = NULL;
+ 	unsigned int wi_range, packets = 0, wis = 0;
+ 	struct bnad_unmap_q *unmap_q;
++	struct bnad_skb_unmap *unmap_array;
+ 	struct sk_buff *skb;
+-	u32 flags;
++	u32 flags, unmap_cons;
+ 	u32 qid0 = ccb->rcb[0]->rxq->rxq_id;
+ 	struct bna_pkt_rate *pkt_rt = &ccb->pkt_rate;
+ 
+@@ -456,17 +461,17 @@ bnad_poll_cq(struct bnad *bnad, struct bna_ccb *ccb, int budget)
+ 			rcb = ccb->rcb[1];
+ 
+ 		unmap_q = rcb->unmap_q;
++		unmap_array = unmap_q->unmap_array;
++		unmap_cons = unmap_q->consumer_index;
+ 
+-		skb = unmap_q->unmap_array[unmap_q->consumer_index].skb;
++		skb = unmap_array[unmap_cons].skb;
+ 		BUG_ON(!(skb));
+-		unmap_q->unmap_array[unmap_q->consumer_index].skb = NULL;
+-		pci_unmap_single(bnad->pcidev,
+-				 pci_unmap_addr(&unmap_q->
+-						unmap_array[unmap_q->
+-							    consumer_index],
++		unmap_array[unmap_cons].skb = NULL;
++		dma_unmap_single(&bnad->pcidev->dev,
++				 dma_unmap_addr(&unmap_array[unmap_cons],
+ 						dma_addr),
+-						rcb->rxq->buffer_size,
+-						PCI_DMA_FROMDEVICE);
++				 rcb->rxq->buffer_size,
++				 DMA_FROM_DEVICE);
+ 		BNA_QE_INDX_ADD(unmap_q->consumer_index, 1, unmap_q->q_depth);
+ 
+ 		/* Should be more efficient ? Performance ? */
+@@ -1015,9 +1020,9 @@ bnad_mem_free(struct bnad *bnad,
+ 			if (mem_info->mem_type == BNA_MEM_T_DMA) {
+ 				BNA_GET_DMA_ADDR(&(mem_info->mdl[i].dma),
+ 						dma_pa);
+-				pci_free_consistent(bnad->pcidev,
+-						mem_info->mdl[i].len,
+-						mem_info->mdl[i].kva, dma_pa);
++				dma_free_coherent(&bnad->pcidev->dev,
++						  mem_info->mdl[i].len,
++						  mem_info->mdl[i].kva, dma_pa);
+ 			} else
+ 				kfree(mem_info->mdl[i].kva);
+ 		}
+@@ -1047,8 +1052,9 @@ bnad_mem_alloc(struct bnad *bnad,
+ 		for (i = 0; i < mem_info->num; i++) {
+ 			mem_info->mdl[i].len = mem_info->len;
+ 			mem_info->mdl[i].kva =
+-				pci_alloc_consistent(bnad->pcidev,
+-						mem_info->len, &dma_pa);
++				dma_alloc_coherent(&bnad->pcidev->dev,
++						mem_info->len, &dma_pa,
++						GFP_KERNEL);
+ 
+ 			if (mem_info->mdl[i].kva == NULL)
+ 				goto err_return;
+@@ -2600,9 +2606,9 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 	unmap_q->unmap_array[unmap_prod].skb = skb;
+ 	BUG_ON(!(skb_headlen(skb) <= BFI_TX_MAX_DATA_PER_VECTOR));
+ 	txqent->vector[vect_id].length = htons(skb_headlen(skb));
+-	dma_addr = pci_map_single(bnad->pcidev, skb->data, skb_headlen(skb),
+-		PCI_DMA_TODEVICE);
+-	pci_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
++	dma_addr = dma_map_single(&bnad->pcidev->dev, skb->data,
++				  skb_headlen(skb), DMA_TO_DEVICE);
++	dma_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
+ 			   dma_addr);
+ 
+ 	BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
+@@ -2630,11 +2636,9 @@ bnad_start_xmit(struct sk_buff *skb, struct net_device *netdev)
+ 
+ 		BUG_ON(!(size <= BFI_TX_MAX_DATA_PER_VECTOR));
+ 		txqent->vector[vect_id].length = htons(size);
+-		dma_addr =
+-			pci_map_page(bnad->pcidev, frag->page,
+-				     frag->page_offset, size,
+-				     PCI_DMA_TODEVICE);
+-		pci_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
++		dma_addr = dma_map_page(&bnad->pcidev->dev, frag->page,
++					frag->page_offset, size, DMA_TO_DEVICE);
++		dma_unmap_addr_set(&unmap_q->unmap_array[unmap_prod], dma_addr,
+ 				   dma_addr);
+ 		BNA_SET_DMA_ADDR(dma_addr, &txqent->vector[vect_id].host_addr);
+ 		BNA_QE_INDX_ADD(unmap_prod, 1, unmap_q->q_depth);
+@@ -3022,14 +3026,14 @@ bnad_pci_init(struct bnad *bnad,
+ 	err = pci_request_regions(pdev, BNAD_NAME);
+ 	if (err)
+ 		goto disable_device;
+-	if (!pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) &&
+-	    !pci_set_consistent_dma_mask(pdev, DMA_BIT_MASK(64))) {
++	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64)) &&
++	    !dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+ 		*using_dac = 1;
+ 	} else {
+-		err = pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
++		err = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
+ 		if (err) {
+-			err = pci_set_consistent_dma_mask(pdev,
+-						DMA_BIT_MASK(32));
++			err = dma_set_coherent_mask(&pdev->dev,
++						    DMA_BIT_MASK(32));
+ 			if (err)
+ 				goto release_regions;
+ 		}
+diff --git a/drivers/net/bna/bnad.h b/drivers/net/bna/bnad.h
+index 8b1d515..a89117f 100644
+--- a/drivers/net/bna/bnad.h
++++ b/drivers/net/bna/bnad.h
+@@ -181,7 +181,7 @@ struct bnad_rx_info {
+ /* Unmap queues for Tx / Rx cleanup */
+ struct bnad_skb_unmap {
+ 	struct sk_buff		*skb;
+-	DECLARE_PCI_UNMAP_ADDR(dma_addr)
++	DEFINE_DMA_UNMAP_ADDR(dma_addr);
+ };
+ 
+ struct bnad_unmap_q {
+-- 
+1.7.3.4
 
