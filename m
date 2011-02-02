@@ -1,492 +1,528 @@
 From: kaber@trash.net
-Subject: [PATCH 13/26] netfilter: xtables: "set" match and "SET" target support
-Date: Thu,  3 Feb 2011 00:11:51 +0100
-Message-ID: <1296688324-7830-14-git-send-email-kaber@trash.net>
+Subject: [PATCH 10/26] netfilter: ipset: hash:net set type support
+Date: Thu,  3 Feb 2011 00:11:48 +0100
+Message-ID: <1296688324-7830-11-git-send-email-kaber@trash.net>
 References: <1296688324-7830-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:44724 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755387Ab1BBXMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 18:12:32 -0500
 In-Reply-To: <1296688324-7830-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-The patch adds the combined module of the "SET" target and "set" match
-to netfilter. Both the previous and the current revisions are supported.
+The module implements the hash:net type support in four flavours:
+for IPv4 and IPv6, both without and with timeout support. The elements
+are one dimensional: IPv4/IPv6 network address/prefixes.
 
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/xt_set.h |   55 ++++++
- net/netfilter/Kconfig            |   12 ++
- net/netfilter/Makefile           |    1 +
- net/netfilter/xt_set.c           |  359 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 427 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/netfilter/xt_set.h
- create mode 100644 net/netfilter/xt_set.c
+ net/netfilter/ipset/Kconfig           |    9 +
+ net/netfilter/ipset/Makefile          |    1 +
+ net/netfilter/ipset/ip_set_hash_net.c |  461 +++++++++++++++++++++++++++++++++
+ 3 files changed, 471 insertions(+), 0 deletions(-)
+ create mode 100644 net/netfilter/ipset/ip_set_hash_net.c
 
-diff --git a/include/linux/netfilter/xt_set.h b/include/linux/netfilter/xt_set.h
-new file mode 100644
-index 0000000..69b2bd1
---- /dev/null
-+++ b/include/linux/netfilter/xt_set.h
-@@ -0,0 +1,55 @@
-+#ifndef _XT_SET_H
-+#define _XT_SET_H
-+
-+#include <linux/netfilter/ipset/ip_set.h>
-+
-+/* Revision 0 interface: backward compatible with netfilter/iptables */
-+
-+/*
-+ * Option flags for kernel operations (xt_set_info_v0)
-+ */
-+#define IPSET_SRC		0x01	/* Source match/add */
-+#define IPSET_DST		0x02	/* Destination match/add */
-+#define IPSET_MATCH_INV		0x04	/* Inverse matching */
-+
-+struct xt_set_info_v0 {
-+	ip_set_id_t index;
-+	union {
-+		__u32 flags[IPSET_DIM_MAX + 1];
-+		struct {
-+			__u32 __flags[IPSET_DIM_MAX];
-+			__u8 dim;
-+			__u8 flags;
-+		} compat;
-+	} u;
-+};
-+
-+/* match and target infos */
-+struct xt_set_info_match_v0 {
-+	struct xt_set_info_v0 match_set;
-+};
-+
-+struct xt_set_info_target_v0 {
-+	struct xt_set_info_v0 add_set;
-+	struct xt_set_info_v0 del_set;
-+};
-+
-+/* Revision 1: current interface to netfilter/iptables */
-+
-+struct xt_set_info {
-+	ip_set_id_t index;
-+	__u8 dim;
-+	__u8 flags;
-+};
-+
-+/* match and target infos */
-+struct xt_set_info_match {
-+	struct xt_set_info match_set;
-+};
-+
-+struct xt_set_info_target {
-+	struct xt_set_info add_set;
-+	struct xt_set_info del_set;
-+};
-+
-+#endif /*_XT_SET_H*/
-diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 351abf8..06fa9e4 100644
---- a/net/netfilter/Kconfig
-+++ b/net/netfilter/Kconfig
-@@ -352,6 +352,18 @@ config NETFILTER_XT_CONNMARK
- 	ctmark), similarly to the packet mark (nfmark). Using this
- 	target and match, you can set and match on this mark.
+diff --git a/net/netfilter/ipset/Kconfig b/net/netfilter/ipset/Kconfig
+index e2fbaa9..8d85de0 100644
+--- a/net/netfilter/ipset/Kconfig
++++ b/net/netfilter/ipset/Kconfig
+@@ -89,4 +89,13 @@ config IP_SET_HASH_IPPORTNET
  
-+config NETFILTER_XT_SET
-+	tristate 'set target and match support'
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
++config IP_SET_HASH_NET
++	tristate "hash:net set support"
 +	depends on IP_SET
-+	depends on NETFILTER_ADVANCED
 +	help
-+	  This option adds the "SET" target and "set" match.
-+
-+	  Using this target and match, you can add/delete and match
-+	  elements in the sets created by ipset(8).
++	  This option adds the hash:net set type support, by which
++	  one can store IPv4/IPv6 network address/prefix elements in a set.
 +
 +	  To compile it as a module, choose M here.  If unsure, say N.
 +
- # alphabetically ordered list of targets
- 
- comment "Xtables targets"
-diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 510b586..1148643 100644
---- a/net/netfilter/Makefile
-+++ b/net/netfilter/Makefile
-@@ -46,6 +46,7 @@ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
- # combos
- obj-$(CONFIG_NETFILTER_XT_MARK) += xt_mark.o
- obj-$(CONFIG_NETFILTER_XT_CONNMARK) += xt_connmark.o
-+obj-$(CONFIG_NETFILTER_XT_SET) += xt_set.o
- 
- # targets
- obj-$(CONFIG_NETFILTER_XT_TARGET_AUDIT) += xt_AUDIT.o
-diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
+ endif # IP_SET
+diff --git a/net/netfilter/ipset/Makefile b/net/netfilter/ipset/Makefile
+index 9c5d857..fd5eeb6 100644
+--- a/net/netfilter/ipset/Makefile
++++ b/net/netfilter/ipset/Makefile
+@@ -17,3 +17,4 @@ obj-$(CONFIG_IP_SET_HASH_IP) += ip_set_hash_ip.o
+ obj-$(CONFIG_IP_SET_HASH_IPPORT) += ip_set_hash_ipport.o
+ obj-$(CONFIG_IP_SET_HASH_IPPORTIP) += ip_set_hash_ipportip.o
+ obj-$(CONFIG_IP_SET_HASH_IPPORTNET) += ip_set_hash_ipportnet.o
++obj-$(CONFIG_IP_SET_HASH_NET) += ip_set_hash_net.o
+diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
 new file mode 100644
-index 0000000..061d48c
+index 0000000..fb0e6a6
 --- /dev/null
-+++ b/net/netfilter/xt_set.c
-@@ -0,0 +1,359 @@
-+/* Copyright (C) 2000-2002 Joakim Axelsson <gozem@linux.nu>
-+ *                         Patrick Schaaf <bof@bof.de>
-+ *                         Martin Josefsson <gandalf@wlug.westbo.se>
-+ * Copyright (C) 2003-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
++++ b/net/netfilter/ipset/ip_set_hash_net.c
+@@ -0,0 +1,461 @@
++/* Copyright (C) 2003-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
 + * published by the Free Software Foundation.
 + */
 +
-+/* Kernel module which implements the set match and SET target
-+ * for netfilter/iptables. */
++/* Kernel module implementing an IP set type: the hash:net type */
 +
++#include <linux/jhash.h>
 +#include <linux/module.h>
++#include <linux/ip.h>
 +#include <linux/skbuff.h>
-+#include <linux/version.h>
++#include <linux/errno.h>
++#include <linux/uaccess.h>
++#include <linux/bitops.h>
++#include <linux/spinlock.h>
++#include <linux/random.h>
++#include <net/ip.h>
++#include <net/ipv6.h>
++#include <net/netlink.h>
 +
-+#include <linux/netfilter/x_tables.h>
-+#include <linux/netfilter/xt_set.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter/ipset/pfxlen.h>
++#include <linux/netfilter/ipset/ip_set.h>
++#include <linux/netfilter/ipset/ip_set_timeout.h>
++#include <linux/netfilter/ipset/ip_set_hash.h>
 +
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
-+MODULE_DESCRIPTION("Xtables: IP set match and target module");
-+MODULE_ALIAS("xt_SET");
-+MODULE_ALIAS("ipt_set");
-+MODULE_ALIAS("ip6t_set");
-+MODULE_ALIAS("ipt_SET");
-+MODULE_ALIAS("ip6t_SET");
++MODULE_DESCRIPTION("hash:net type of IP sets");
++MODULE_ALIAS("ip_set_hash:net");
 +
-+static inline int
-+match_set(ip_set_id_t index, const struct sk_buff *skb,
-+	  u8 pf, u8 dim, u8 flags, int inv)
-+{
-+	if (ip_set_test(index, skb, pf, dim, flags))
-+		inv = !inv;
-+	return inv;
-+}
-+
-+/* Revision 0 interface: backward compatible with netfilter/iptables */
++/* Type specific function prefix */
++#define TYPE		hash_net
 +
 +static bool
-+set_match_v0(const struct sk_buff *skb, struct xt_action_param *par)
-+{
-+	const struct xt_set_info_match_v0 *info = par->matchinfo;
++hash_net_same_set(const struct ip_set *a, const struct ip_set *b);
 +
-+	return match_set(info->match_set.index, skb, par->family,
-+			 info->match_set.u.compat.dim,
-+			 info->match_set.u.compat.flags,
-+			 info->match_set.u.compat.flags & IPSET_INV_MATCH);
++#define hash_net4_same_set	hash_net_same_set
++#define hash_net6_same_set	hash_net_same_set
++
++/* The type variant functions: IPv4 */
++
++/* Member elements without timeout */
++struct hash_net4_elem {
++	__be32 ip;
++	u16 padding0;
++	u8 padding1;
++	u8 cidr;
++};
++
++/* Member elements with timeout support */
++struct hash_net4_telem {
++	__be32 ip;
++	u16 padding0;
++	u8 padding1;
++	u8 cidr;
++	unsigned long timeout;
++};
++
++static inline bool
++hash_net4_data_equal(const struct hash_net4_elem *ip1,
++		    const struct hash_net4_elem *ip2)
++{
++	return ip1->ip == ip2->ip && ip1->cidr == ip2->cidr;
 +}
 +
-+static void
-+compat_flags(struct xt_set_info_v0 *info)
++static inline bool
++hash_net4_data_isnull(const struct hash_net4_elem *elem)
 +{
-+	u_int8_t i;
-+
-+	/* Fill out compatibility data according to enum ip_set_kopt */
-+	info->u.compat.dim = IPSET_DIM_ZERO;
-+	if (info->u.flags[0] & IPSET_MATCH_INV)
-+		info->u.compat.flags |= IPSET_INV_MATCH;
-+	for (i = 0; i < IPSET_DIM_MAX-1 && info->u.flags[i]; i++) {
-+		info->u.compat.dim++;
-+		if (info->u.flags[i] & IPSET_SRC)
-+			info->u.compat.flags |= (1<<info->u.compat.dim);
-+	}
++	return elem->cidr == 0;
 +}
 +
-+static int
-+set_match_v0_checkentry(const struct xt_mtchk_param *par)
++static inline void
++hash_net4_data_copy(struct hash_net4_elem *dst,
++		    const struct hash_net4_elem *src)
 +{
-+	struct xt_set_info_match_v0 *info = par->matchinfo;
-+	ip_set_id_t index;
-+
-+	index = ip_set_nfnl_get_byindex(info->match_set.index);
-+
-+	if (index == IPSET_INVALID_ID) {
-+		pr_warning("Cannot find set indentified by id %u to match\n",
-+			   info->match_set.index);
-+		return -ENOENT;
-+	}
-+	if (info->match_set.u.flags[IPSET_DIM_MAX-1] != 0) {
-+		pr_warning("Protocol error: set match dimension "
-+			   "is over the limit!\n");
-+		return -ERANGE;
-+	}
-+
-+	/* Fill out compatibility data */
-+	compat_flags(&info->match_set);
-+
-+	return 0;
++	dst->ip = src->ip;
++	dst->cidr = src->cidr;
 +}
 +
-+static void
-+set_match_v0_destroy(const struct xt_mtdtor_param *par)
++static inline void
++hash_net4_data_netmask(struct hash_net4_elem *elem, u8 cidr)
 +{
-+	struct xt_set_info_match_v0 *info = par->matchinfo;
-+
-+	ip_set_nfnl_put(info->match_set.index);
++	elem->ip &= ip_set_netmask(cidr);
++	elem->cidr = cidr;
 +}
 +
-+static unsigned int
-+set_target_v0(struct sk_buff *skb, const struct xt_action_param *par)
++/* Zero CIDR values cannot be stored */
++static inline void
++hash_net4_data_zero_out(struct hash_net4_elem *elem)
 +{
-+	const struct xt_set_info_target_v0 *info = par->targinfo;
-+
-+	if (info->add_set.index != IPSET_INVALID_ID)
-+		ip_set_add(info->add_set.index, skb, par->family,
-+			   info->add_set.u.compat.dim,
-+			   info->add_set.u.compat.flags);
-+	if (info->del_set.index != IPSET_INVALID_ID)
-+		ip_set_del(info->del_set.index, skb, par->family,
-+			   info->del_set.u.compat.dim,
-+			   info->del_set.u.compat.flags);
-+
-+	return XT_CONTINUE;
++	elem->cidr = 0;
 +}
-+
-+static int
-+set_target_v0_checkentry(const struct xt_tgchk_param *par)
-+{
-+	struct xt_set_info_target_v0 *info = par->targinfo;
-+	ip_set_id_t index;
-+
-+	if (info->add_set.index != IPSET_INVALID_ID) {
-+		index = ip_set_nfnl_get_byindex(info->add_set.index);
-+		if (index == IPSET_INVALID_ID) {
-+			pr_warning("Cannot find add_set index %u as target\n",
-+				   info->add_set.index);
-+			return -ENOENT;
-+		}
-+	}
-+
-+	if (info->del_set.index != IPSET_INVALID_ID) {
-+		index = ip_set_nfnl_get_byindex(info->del_set.index);
-+		if (index == IPSET_INVALID_ID) {
-+			pr_warning("Cannot find del_set index %u as target\n",
-+				   info->del_set.index);
-+			return -ENOENT;
-+		}
-+	}
-+	if (info->add_set.u.flags[IPSET_DIM_MAX-1] != 0 ||
-+	    info->del_set.u.flags[IPSET_DIM_MAX-1] != 0) {
-+		pr_warning("Protocol error: SET target dimension "
-+			   "is over the limit!\n");
-+		return -ERANGE;
-+	}
-+
-+	/* Fill out compatibility data */
-+	compat_flags(&info->add_set);
-+	compat_flags(&info->del_set);
-+
-+	return 0;
-+}
-+
-+static void
-+set_target_v0_destroy(const struct xt_tgdtor_param *par)
-+{
-+	const struct xt_set_info_target_v0 *info = par->targinfo;
-+
-+	if (info->add_set.index != IPSET_INVALID_ID)
-+		ip_set_nfnl_put(info->add_set.index);
-+	if (info->del_set.index != IPSET_INVALID_ID)
-+		ip_set_nfnl_put(info->del_set.index);
-+}
-+
-+/* Revision 1: current interface to netfilter/iptables */
 +
 +static bool
-+set_match(const struct sk_buff *skb, struct xt_action_param *par)
++hash_net4_data_list(struct sk_buff *skb, const struct hash_net4_elem *data)
 +{
-+	const struct xt_set_info_match *info = par->matchinfo;
++	NLA_PUT_IPADDR4(skb, IPSET_ATTR_IP, data->ip);
++	NLA_PUT_U8(skb, IPSET_ATTR_CIDR, data->cidr);
++	return 0;
 +
-+	return match_set(info->match_set.index, skb, par->family,
-+			 info->match_set.dim,
-+			 info->match_set.flags,
-+			 info->match_set.flags & IPSET_INV_MATCH);
++nla_put_failure:
++	return 1;
++}
++
++static bool
++hash_net4_data_tlist(struct sk_buff *skb, const struct hash_net4_elem *data)
++{
++	const struct hash_net4_telem *tdata =
++		(const struct hash_net4_telem *)data;
++
++	NLA_PUT_IPADDR4(skb, IPSET_ATTR_IP, tdata->ip);
++	NLA_PUT_U8(skb, IPSET_ATTR_CIDR, tdata->cidr);
++	NLA_PUT_NET32(skb, IPSET_ATTR_TIMEOUT,
++		      htonl(ip_set_timeout_get(tdata->timeout)));
++
++	return 0;
++
++nla_put_failure:
++	return 1;
++}
++
++#define IP_SET_HASH_WITH_NETS
++
++#define PF		4
++#define HOST_MASK	32
++#include <linux/netfilter/ipset/ip_set_ahash.h>
++
++static int
++hash_net4_kadt(struct ip_set *set, const struct sk_buff *skb,
++	       enum ipset_adt adt, u8 pf, u8 dim, u8 flags)
++{
++	const struct ip_set_hash *h = set->data;
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_net4_elem data = { .cidr = h->nets[0].cidr || HOST_MASK };
++
++	if (data.cidr == 0)
++		return -EINVAL;
++	if (adt == IPSET_TEST)
++		data.cidr = HOST_MASK;
++
++	ip4addrptr(skb, flags & IPSET_DIM_ONE_SRC, &data.ip);
++	data.ip &= ip_set_netmask(data.cidr);
++
++	return adtfn(set, &data, h->timeout);
 +}
 +
 +static int
-+set_match_checkentry(const struct xt_mtchk_param *par)
++hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
++	       enum ipset_adt adt, u32 *lineno, u32 flags)
 +{
-+	struct xt_set_info_match *info = par->matchinfo;
-+	ip_set_id_t index;
++	const struct ip_set_hash *h = set->data;
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_net4_elem data = { .cidr = HOST_MASK };
++	u32 timeout = h->timeout;
++	int ret;
 +
-+	index = ip_set_nfnl_get_byindex(info->match_set.index);
++	if (unlikely(!tb[IPSET_ATTR_IP] ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
++		return -IPSET_ERR_PROTOCOL;
 +
-+	if (index == IPSET_INVALID_ID) {
-+		pr_warning("Cannot find set indentified by id %u to match\n",
-+			   info->match_set.index);
-+		return -ENOENT;
++	if (tb[IPSET_ATTR_LINENO])
++		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
++
++	ret = ip_set_get_ipaddr4(tb[IPSET_ATTR_IP], &data.ip);
++	if (ret)
++		return ret;
++
++	if (tb[IPSET_ATTR_CIDR])
++		data.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++
++	if (!data.cidr)
++		return -IPSET_ERR_INVALID_CIDR;
++
++	data.ip &= ip_set_netmask(data.cidr);
++
++	if (tb[IPSET_ATTR_TIMEOUT]) {
++		if (!with_timeout(h->timeout))
++			return -IPSET_ERR_TIMEOUT;
++		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
 +	}
-+	if (info->match_set.dim > IPSET_DIM_MAX) {
-+		pr_warning("Protocol error: set match dimension "
-+			   "is over the limit!\n");
-+		return -ERANGE;
++
++	ret = adtfn(set, &data, timeout);
++
++	return ip_set_eexist(ret, flags) ? 0 : ret;
++}
++
++static bool
++hash_net_same_set(const struct ip_set *a, const struct ip_set *b)
++{
++	const struct ip_set_hash *x = a->data;
++	const struct ip_set_hash *y = b->data;
++
++	/* Resizing changes htable_bits, so we ignore it */
++	return x->maxelem == y->maxelem &&
++	       x->timeout == y->timeout;
++}
++
++/* The type variant functions: IPv6 */
++
++struct hash_net6_elem {
++	union nf_inet_addr ip;
++	u16 padding0;
++	u8 padding1;
++	u8 cidr;
++};
++
++struct hash_net6_telem {
++	union nf_inet_addr ip;
++	u16 padding0;
++	u8 padding1;
++	u8 cidr;
++	unsigned long timeout;
++};
++
++static inline bool
++hash_net6_data_equal(const struct hash_net6_elem *ip1,
++		     const struct hash_net6_elem *ip2)
++{
++	return ipv6_addr_cmp(&ip1->ip.in6, &ip2->ip.in6) == 0 &&
++	       ip1->cidr == ip2->cidr;
++}
++
++static inline bool
++hash_net6_data_isnull(const struct hash_net6_elem *elem)
++{
++	return elem->cidr == 0;
++}
++
++static inline void
++hash_net6_data_copy(struct hash_net6_elem *dst,
++		    const struct hash_net6_elem *src)
++{
++	ipv6_addr_copy(&dst->ip.in6, &src->ip.in6);
++	dst->cidr = src->cidr;
++}
++
++static inline void
++hash_net6_data_zero_out(struct hash_net6_elem *elem)
++{
++	elem->cidr = 0;
++}
++
++static inline void
++ip6_netmask(union nf_inet_addr *ip, u8 prefix)
++{
++	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
++	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
++	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
++	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
++}
++
++static inline void
++hash_net6_data_netmask(struct hash_net6_elem *elem, u8 cidr)
++{
++	ip6_netmask(&elem->ip, cidr);
++	elem->cidr = cidr;
++}
++
++static bool
++hash_net6_data_list(struct sk_buff *skb, const struct hash_net6_elem *data)
++{
++	NLA_PUT_IPADDR6(skb, IPSET_ATTR_IP, &data->ip);
++	NLA_PUT_U8(skb, IPSET_ATTR_CIDR, data->cidr);
++	return 0;
++
++nla_put_failure:
++	return 1;
++}
++
++static bool
++hash_net6_data_tlist(struct sk_buff *skb, const struct hash_net6_elem *data)
++{
++	const struct hash_net6_telem *e =
++		(const struct hash_net6_telem *)data;
++
++	NLA_PUT_IPADDR6(skb, IPSET_ATTR_IP, &e->ip);
++	NLA_PUT_U8(skb, IPSET_ATTR_CIDR, e->cidr);
++	NLA_PUT_NET32(skb, IPSET_ATTR_TIMEOUT,
++		      htonl(ip_set_timeout_get(e->timeout)));
++	return 0;
++
++nla_put_failure:
++	return 1;
++}
++
++#undef PF
++#undef HOST_MASK
++
++#define PF		6
++#define HOST_MASK	128
++#include <linux/netfilter/ipset/ip_set_ahash.h>
++
++static int
++hash_net6_kadt(struct ip_set *set, const struct sk_buff *skb,
++	       enum ipset_adt adt, u8 pf, u8 dim, u8 flags)
++{
++	const struct ip_set_hash *h = set->data;
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_net6_elem data = { .cidr = h->nets[0].cidr || HOST_MASK };
++
++	if (data.cidr == 0)
++		return -EINVAL;
++	if (adt == IPSET_TEST)
++		data.cidr = HOST_MASK;
++
++	ip6addrptr(skb, flags & IPSET_DIM_ONE_SRC, &data.ip.in6);
++	ip6_netmask(&data.ip, data.cidr);
++
++	return adtfn(set, &data, h->timeout);
++}
++
++static int
++hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
++	       enum ipset_adt adt, u32 *lineno, u32 flags)
++{
++	const struct ip_set_hash *h = set->data;
++	ipset_adtfn adtfn = set->variant->adt[adt];
++	struct hash_net6_elem data = { .cidr = HOST_MASK };
++	u32 timeout = h->timeout;
++	int ret;
++
++	if (unlikely(!tb[IPSET_ATTR_IP] ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
++		return -IPSET_ERR_PROTOCOL;
++
++	if (tb[IPSET_ATTR_LINENO])
++		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
++
++	ret = ip_set_get_ipaddr6(tb[IPSET_ATTR_IP], &data.ip);
++	if (ret)
++		return ret;
++
++	if (tb[IPSET_ATTR_CIDR])
++		data.cidr = nla_get_u8(tb[IPSET_ATTR_CIDR]);
++
++	if (!data.cidr)
++		return -IPSET_ERR_INVALID_CIDR;
++
++	ip6_netmask(&data.ip, data.cidr);
++
++	if (tb[IPSET_ATTR_TIMEOUT]) {
++		if (!with_timeout(h->timeout))
++			return -IPSET_ERR_TIMEOUT;
++		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
 +	}
++
++	ret = adtfn(set, &data, timeout);
++
++	return ip_set_eexist(ret, flags) ? 0 : ret;
++}
++
++/* Create hash:ip type of sets */
++
++static int
++hash_net_create(struct ip_set *set, struct nlattr *tb[], u32 flags)
++{
++	u32 hashsize = IPSET_DEFAULT_HASHSIZE, maxelem = IPSET_DEFAULT_MAXELEM;
++	struct ip_set_hash *h;
++	u8 hbits;
++
++	if (!(set->family == AF_INET || set->family == AF_INET6))
++		return -IPSET_ERR_INVALID_FAMILY;
++
++	if (unlikely(!ip_set_optattr_netorder(tb, IPSET_ATTR_HASHSIZE) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_MAXELEM) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
++		return -IPSET_ERR_PROTOCOL;
++
++	if (tb[IPSET_ATTR_HASHSIZE]) {
++		hashsize = ip_set_get_h32(tb[IPSET_ATTR_HASHSIZE]);
++		if (hashsize < IPSET_MIMINAL_HASHSIZE)
++			hashsize = IPSET_MIMINAL_HASHSIZE;
++	}
++
++	if (tb[IPSET_ATTR_MAXELEM])
++		maxelem = ip_set_get_h32(tb[IPSET_ATTR_MAXELEM]);
++
++	h = kzalloc(sizeof(*h)
++		    + sizeof(struct ip_set_hash_nets)
++		      * (set->family == AF_INET ? 32 : 128), GFP_KERNEL);
++	if (!h)
++		return -ENOMEM;
++
++	h->maxelem = maxelem;
++	get_random_bytes(&h->initval, sizeof(h->initval));
++	h->timeout = IPSET_NO_TIMEOUT;
++
++	hbits = htable_bits(hashsize);
++	h->table = ip_set_alloc(
++			sizeof(struct htable)
++			+ jhash_size(hbits) * sizeof(struct hbucket));
++	if (!h->table) {
++		kfree(h);
++		return -ENOMEM;
++	}
++	h->table->htable_bits = hbits;
++
++	set->data = h;
++
++	if (tb[IPSET_ATTR_TIMEOUT]) {
++		h->timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
++
++		set->variant = set->family == AF_INET
++			? &hash_net4_tvariant : &hash_net6_tvariant;
++
++		if (set->family == AF_INET)
++			hash_net4_gc_init(set);
++		else
++			hash_net6_gc_init(set);
++	} else {
++		set->variant = set->family == AF_INET
++			? &hash_net4_variant : &hash_net6_variant;
++	}
++
++	pr_debug("create %s hashsize %u (%u) maxelem %u: %p(%p)\n",
++		 set->name, jhash_size(h->table->htable_bits),
++		 h->table->htable_bits, h->maxelem, set->data, h->table);
 +
 +	return 0;
 +}
 +
-+static void
-+set_match_destroy(const struct xt_mtdtor_param *par)
-+{
-+	struct xt_set_info_match *info = par->matchinfo;
-+
-+	ip_set_nfnl_put(info->match_set.index);
-+}
-+
-+static unsigned int
-+set_target(struct sk_buff *skb, const struct xt_action_param *par)
-+{
-+	const struct xt_set_info_target *info = par->targinfo;
-+
-+	if (info->add_set.index != IPSET_INVALID_ID)
-+		ip_set_add(info->add_set.index,
-+			   skb, par->family,
-+			   info->add_set.dim,
-+			   info->add_set.flags);
-+	if (info->del_set.index != IPSET_INVALID_ID)
-+		ip_set_del(info->del_set.index,
-+			   skb, par->family,
-+			   info->add_set.dim,
-+			   info->del_set.flags);
-+
-+	return XT_CONTINUE;
-+}
-+
-+static int
-+set_target_checkentry(const struct xt_tgchk_param *par)
-+{
-+	const struct xt_set_info_target *info = par->targinfo;
-+	ip_set_id_t index;
-+
-+	if (info->add_set.index != IPSET_INVALID_ID) {
-+		index = ip_set_nfnl_get_byindex(info->add_set.index);
-+		if (index == IPSET_INVALID_ID) {
-+			pr_warning("Cannot find add_set index %u as target\n",
-+				   info->add_set.index);
-+			return -ENOENT;
-+		}
-+	}
-+
-+	if (info->del_set.index != IPSET_INVALID_ID) {
-+		index = ip_set_nfnl_get_byindex(info->del_set.index);
-+		if (index == IPSET_INVALID_ID) {
-+			pr_warning("Cannot find del_set index %u as target\n",
-+				   info->del_set.index);
-+			return -ENOENT;
-+		}
-+	}
-+	if (info->add_set.dim > IPSET_DIM_MAX ||
-+	    info->del_set.flags > IPSET_DIM_MAX) {
-+		pr_warning("Protocol error: SET target dimension "
-+			   "is over the limit!\n");
-+		return -ERANGE;
-+	}
-+
-+	return 0;
-+}
-+
-+static void
-+set_target_destroy(const struct xt_tgdtor_param *par)
-+{
-+	const struct xt_set_info_target *info = par->targinfo;
-+
-+	if (info->add_set.index != IPSET_INVALID_ID)
-+		ip_set_nfnl_put(info->add_set.index);
-+	if (info->del_set.index != IPSET_INVALID_ID)
-+		ip_set_nfnl_put(info->del_set.index);
-+}
-+
-+static struct xt_match set_matches[] __read_mostly = {
-+	{
-+		.name		= "set",
-+		.family		= NFPROTO_IPV4,
-+		.revision	= 0,
-+		.match		= set_match_v0,
-+		.matchsize	= sizeof(struct xt_set_info_match_v0),
-+		.checkentry	= set_match_v0_checkentry,
-+		.destroy	= set_match_v0_destroy,
-+		.me		= THIS_MODULE
++static struct ip_set_type hash_net_type __read_mostly = {
++	.name		= "hash:net",
++	.protocol	= IPSET_PROTOCOL,
++	.features	= IPSET_TYPE_IP,
++	.dimension	= IPSET_DIM_ONE,
++	.family		= AF_UNSPEC,
++	.revision	= 0,
++	.create		= hash_net_create,
++	.create_policy	= {
++		[IPSET_ATTR_HASHSIZE]	= { .type = NLA_U32 },
++		[IPSET_ATTR_MAXELEM]	= { .type = NLA_U32 },
++		[IPSET_ATTR_PROBES]	= { .type = NLA_U8 },
++		[IPSET_ATTR_RESIZE]	= { .type = NLA_U8  },
++		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
 +	},
-+	{
-+		.name		= "set",
-+		.family		= NFPROTO_IPV4,
-+		.revision	= 1,
-+		.match		= set_match,
-+		.matchsize	= sizeof(struct xt_set_info_match),
-+		.checkentry	= set_match_checkentry,
-+		.destroy	= set_match_destroy,
-+		.me		= THIS_MODULE
++	.adt_policy	= {
++		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
++		[IPSET_ATTR_CIDR]	= { .type = NLA_U8 },
++		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
 +	},
-+	{
-+		.name		= "set",
-+		.family		= NFPROTO_IPV6,
-+		.revision	= 1,
-+		.match		= set_match,
-+		.matchsize	= sizeof(struct xt_set_info_match),
-+		.checkentry	= set_match_checkentry,
-+		.destroy	= set_match_destroy,
-+		.me		= THIS_MODULE
-+	},
++	.me		= THIS_MODULE,
 +};
 +
-+static struct xt_target set_targets[] __read_mostly = {
-+	{
-+		.name		= "SET",
-+		.revision	= 0,
-+		.family		= NFPROTO_IPV4,
-+		.target		= set_target_v0,
-+		.targetsize	= sizeof(struct xt_set_info_target_v0),
-+		.checkentry	= set_target_v0_checkentry,
-+		.destroy	= set_target_v0_destroy,
-+		.me		= THIS_MODULE
-+	},
-+	{
-+		.name		= "SET",
-+		.revision	= 1,
-+		.family		= NFPROTO_IPV4,
-+		.target		= set_target,
-+		.targetsize	= sizeof(struct xt_set_info_target),
-+		.checkentry	= set_target_checkentry,
-+		.destroy	= set_target_destroy,
-+		.me		= THIS_MODULE
-+	},
-+	{
-+		.name		= "SET",
-+		.revision	= 1,
-+		.family		= NFPROTO_IPV6,
-+		.target		= set_target,
-+		.targetsize	= sizeof(struct xt_set_info_target),
-+		.checkentry	= set_target_checkentry,
-+		.destroy	= set_target_destroy,
-+		.me		= THIS_MODULE
-+	},
-+};
-+
-+static int __init xt_set_init(void)
++static int __init
++hash_net_init(void)
 +{
-+	int ret = xt_register_matches(set_matches, ARRAY_SIZE(set_matches));
-+
-+	if (!ret) {
-+		ret = xt_register_targets(set_targets,
-+					  ARRAY_SIZE(set_targets));
-+		if (ret)
-+			xt_unregister_matches(set_matches,
-+					      ARRAY_SIZE(set_matches));
-+	}
-+	return ret;
++	return ip_set_type_register(&hash_net_type);
 +}
 +
-+static void __exit xt_set_fini(void)
++static void __exit
++hash_net_fini(void)
 +{
-+	xt_unregister_matches(set_matches, ARRAY_SIZE(set_matches));
-+	xt_unregister_targets(set_targets, ARRAY_SIZE(set_targets));
++	ip_set_type_unregister(&hash_net_type);
 +}
 +
-+module_init(xt_set_init);
-+module_exit(xt_set_fini);
++module_init(hash_net_init);
++module_exit(hash_net_fini);
 -- 
 1.7.2.3
 
