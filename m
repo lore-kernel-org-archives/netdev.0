@@ -1,93 +1,69 @@
 From: kaber@trash.net
-Subject: [PATCH 24/26] netfilter: ipset: fix linking with CONFIG_IPV6=n
-Date: Thu,  3 Feb 2011 00:12:02 +0100
-Message-ID: <1296688324-7830-25-git-send-email-kaber@trash.net>
+Subject: [PATCH 22/26] netfilter: ipset: install ipset related header files
+Date: Thu,  3 Feb 2011 00:12:00 +0100
+Message-ID: <1296688324-7830-23-git-send-email-kaber@trash.net>
 References: <1296688324-7830-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:44726 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755412Ab1BBXMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 18:12:35 -0500
 In-Reply-To: <1296688324-7830-1-git-send-email-kaber@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Patrick McHardy <kaber@trash.net>
 
-Add a dummy ip_set_get_ip6_port function that unconditionally
-returns false for CONFIG_IPV6=n and convert the real function
-to ipv6_skip_exthdr() to avoid pulling in the ip6_tables module
-when loading ipset.
-
 Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- include/linux/netfilter/ipset/ip_set_getport.h |   10 ++++++++++
- net/netfilter/ipset/ip_set_getport.c           |   15 +++++++++------
- 2 files changed, 19 insertions(+), 6 deletions(-)
+ include/linux/netfilter/Kbuild       |    3 +++
+ include/linux/netfilter/ipset/Kbuild |    4 ++++
+ include/linux/netfilter/xt_set.h     |    1 +
+ 3 files changed, 8 insertions(+), 0 deletions(-)
+ create mode 100644 include/linux/netfilter/ipset/Kbuild
 
-diff --git a/include/linux/netfilter/ipset/ip_set_getport.h b/include/linux/netfilter/ipset/ip_set_getport.h
-index 694c433..3882a81 100644
---- a/include/linux/netfilter/ipset/ip_set_getport.h
-+++ b/include/linux/netfilter/ipset/ip_set_getport.h
-@@ -3,8 +3,18 @@
- 
- extern bool ip_set_get_ip4_port(const struct sk_buff *skb, bool src,
- 				__be16 *port, u8 *proto);
+diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
+index 89c0d1e..ba19544 100644
+--- a/include/linux/netfilter/Kbuild
++++ b/include/linux/netfilter/Kbuild
+@@ -1,3 +1,5 @@
++header-y += ipset/
 +
-+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
- extern bool ip_set_get_ip6_port(const struct sk_buff *skb, bool src,
- 				__be16 *port, u8 *proto);
-+#else
-+static inline bool ip_set_get_ip6_port(const struct sk_buff *skb, bool src,
-+				       __be16 *port, u8 *proto)
-+{
-+	return false;
-+}
-+#endif
-+
- extern bool ip_set_get_ip_port(const struct sk_buff *skb, u8 pf, bool src,
- 				__be16 *port);
+ header-y += nf_conntrack_common.h
+ header-y += nf_conntrack_ftp.h
+ header-y += nf_conntrack_sctp.h
+@@ -55,6 +57,7 @@ header-y += xt_quota.h
+ header-y += xt_rateest.h
+ header-y += xt_realm.h
+ header-y += xt_recent.h
++header-y += xt_set.h
+ header-y += xt_sctp.h
+ header-y += xt_socket.h
+ header-y += xt_state.h
+diff --git a/include/linux/netfilter/ipset/Kbuild b/include/linux/netfilter/ipset/Kbuild
+new file mode 100644
+index 0000000..601fe71
+--- /dev/null
++++ b/include/linux/netfilter/ipset/Kbuild
+@@ -0,0 +1,4 @@
++header-y += ip_set.h
++header-y += ip_set_bitmap.h
++header-y += ip_set_hash.h
++header-y += ip_set_list.h
+diff --git a/include/linux/netfilter/xt_set.h b/include/linux/netfilter/xt_set.h
+index 69b2bd1..081f1de 100644
+--- a/include/linux/netfilter/xt_set.h
++++ b/include/linux/netfilter/xt_set.h
+@@ -1,6 +1,7 @@
+ #ifndef _XT_SET_H
+ #define _XT_SET_H
  
-diff --git a/net/netfilter/ipset/ip_set_getport.c b/net/netfilter/ipset/ip_set_getport.c
-index 4dd2785..8d52272 100644
---- a/net/netfilter/ipset/ip_set_getport.c
-+++ b/net/netfilter/ipset/ip_set_getport.c
-@@ -13,6 +13,7 @@
- #include <linux/icmpv6.h>
- #include <linux/netfilter_ipv6/ip6_tables.h>
- #include <net/ip.h>
-+#include <net/ipv6.h>
++#include <linux/types.h>
+ #include <linux/netfilter/ipset/ip_set.h>
  
- #include <linux/netfilter/ipset/ip_set_getport.h>
- 
-@@ -93,21 +94,23 @@ ip_set_get_ip4_port(const struct sk_buff *skb, bool src,
- }
- EXPORT_SYMBOL_GPL(ip_set_get_ip4_port);
- 
-+#if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
- bool
- ip_set_get_ip6_port(const struct sk_buff *skb, bool src,
- 		    __be16 *port, u8 *proto)
- {
--	unsigned int protooff = 0;
--	int protocol;
--	unsigned short fragoff;
-+	int protoff;
-+	u8 nexthdr;
- 
--	protocol = ipv6_find_hdr(skb, &protooff, -1, &fragoff);
--	if (protocol <= 0 || fragoff)
-+	nexthdr = ipv6_hdr(skb)->nexthdr;
-+	protoff = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr), &nexthdr);
-+	if (protoff < 0)
- 		return false;
- 
--	return get_port(skb, protocol, protooff, src, port, proto);
-+	return get_port(skb, nexthdr, protoff, src, port, proto);
- }
- EXPORT_SYMBOL_GPL(ip_set_get_ip6_port);
-+#endif
- 
- bool
- ip_set_get_ip_port(const struct sk_buff *skb, u8 pf, bool src, __be16 *port)
+ /* Revision 0 interface: backward compatible with netfilter/iptables */
 -- 
 1.7.2.3
 
