@@ -1,35 +1,38 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: non-symmetric Unix dgram sockets and poll
-Date: Wed, 2 Feb 2011 17:36:40 +0000
-Message-ID: <20110202173640.2af412f0@chocolatine.cbg.collabora.co.uk>
+From: Marcus Meissner <meissner@suse.de>
+Subject: af_unix unix_getname: return size for unnamed sockets too small?
+Date: Wed, 2 Feb 2011 18:40:15 +0100
+Message-ID: <20110202174015.GB25515@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.128.226]:44637 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754756Ab1BBRi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 12:38:58 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: davem@davemloft.net, eric.dumazet@gmail.com, ebiederm@xmission.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gorcunov@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hi,
 
-I have 3 Unix dgram sockets (sockA, sockB, sockC):
-- sockA is connected to sockB.
-- sockB is connected to sockC.
-- sockC is not connected.
+In net/unix/af_unix.c::unix_getname() there is a small problem:
 
-SockA cannot send any message to sockB because net/unix/af_unix.c::unix_may_send()
-prevents it. Is there any reason for that restriction?
+        if (!u->addr) {
+                sunaddr->sun_family = AF_UNIX;
+                sunaddr->sun_path[0] = 0;		// not copied out
+                *uaddr_len = sizeof(short);
+        } else {
+                struct unix_address *addr = u->addr;
 
-If it was possible to send that message, unix_dgram_poll() on sockB could be in a
-situation where it needs to add the current process in 2 different wait queues:
-- sk_sleep(sk) for POLLIN (messages coming from sockA)
-- &unix_sk(other)->peer_wait for POLLOUT (to send messages to sockC)
+                *uaddr_len = addr->len;
+                memcpy(sunaddr, addr->name, *uaddr_len);
+        }
 
-Is it correct?
+The if (!u->addr) case will not copy out the \0 in the sun_path, as
+uaddr_len is just the size of sun_family.
 
-Thanks,
-Alban
+(Shown by socat crashing after decoding gethostname return and expected
+sun_path to be a valid string (and not seeing the \0)).
+
+Should it perhaps be *uaddr_len = sizeof(short)+sizeof(char)?
+
+Ciao, Marcus
