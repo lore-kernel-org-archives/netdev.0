@@ -1,67 +1,82 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: Network performance with small packets
-Date: Wed, 2 Feb 2011 06:40:02 +0200
-Message-ID: <20110202044002.GB3818@redhat.com>
-References: <20110128121616.GA8374@redhat.com>
- <OF05820FED.7465B77B-ON8625782A.0001B247-8625782A.00023FA7@us.ibm.com>
- <1296523838.30191.39.camel@sridhar.beaverton.ibm.com>
- <1296594585.26937.817.camel@localhost.localdomain>
- <20110201212411.GD30770@redhat.com>
- <1296595955.26937.822.camel@localhost.localdomain>
- <20110201214211.GB31105@redhat.com>
- <1296597185.26937.829.camel@localhost.localdomain>
- <20110201215603.GA31348@redhat.com>
- <1296601197.26937.833.camel@localhost.localdomain>
+Date: Wed, 2 Feb 2011 06:42:22 +0200
+Message-ID: <20110202044222.GC3818@redhat.com>
+References: <20110127.130240.104065182.davem@davemloft.net>
+ <1296163838.1640.53.camel@localhost.localdomain>
+ <20110201172346.GA24392@redhat.com>
+ <1296590943.26937.797.camel@localhost.localdomain>
+ <20110201201715.GA30050@redhat.com>
+ <1296591908.26937.809.camel@localhost.localdomain>
+ <20110201212110.GC30770@redhat.com>
+ <1296595725.26937.819.camel@localhost.localdomain>
+ <20110201214114.GA31105@redhat.com>
+ <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-	Steve Dobbelstein <steved@us.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	Shirley Ma <mashirle@us.ibm.com>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, steved@us.ibm.com
+To: Krishna Kumar2 <krkumar2@in.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38396 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32619 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751655Ab1BBEkV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Feb 2011 23:40:21 -0500
+	id S1753800Ab1BBEmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Feb 2011 23:42:45 -0500
 Content-Disposition: inline
-In-Reply-To: <1296601197.26937.833.camel@localhost.localdomain>
+In-Reply-To: <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 01, 2011 at 02:59:57PM -0800, Shirley Ma wrote:
-> On Tue, 2011-02-01 at 23:56 +0200, Michael S. Tsirkin wrote:
-> > There are flags for bytes, buffers and packets.
-> > Try playing with any one of them :)
-> > Just be sure to use v2.
-> > 
-> > 
-> > >I would like to change it to
-> > > half of the ring size instead for signaling. Is that OK?
-> > > 
+On Wed, Feb 02, 2011 at 10:09:18AM +0530, Krishna Kumar2 wrote:
+> > "Michael S. Tsirkin" <mst@redhat.com> 02/02/2011 03:11 AM
+> >
+> > On Tue, Feb 01, 2011 at 01:28:45PM -0800, Shirley Ma wrote:
+> > > On Tue, 2011-02-01 at 23:21 +0200, Michael S. Tsirkin wrote:
+> > > > Confused. We compare capacity to skb frags, no?
+> > > > That's sg I think ...
+> > >
+> > > Current guest kernel use indirect buffers, num_free returns how many
+> > > available descriptors not skb frags. So it's wrong here.
+> > >
 > > > Shirley
-> > > 
-> > > 
-> > 
-> > Sure that is why I made it a parameter so you can experiment. 
+> >
+> > I see. Good point. In other words when we complete the buffer
+> > it was indirect, but when we add a new one we
+> > can not allocate indirect so we consume.
+> > And then we start the queue and add will fail.
+> > I guess we need some kind of API to figure out
+> > whether the buf we complete was indirect?
+> >
+> > Another failure mode is when skb_xmit_done
+> > wakes the queue: it might be too early, there
+> > might not be space for the next packet in the vq yet.
 > 
-> The initial test results shows that the CPUs utilization has been
-> reduced some, and BW has increased some with the default parameters,
-> like 1K message size BW goes from 2.5Gb/s about 2.8Gb/s, CPU utilization
-> down from 4x% to 38%, (Similar results from the patch I submitted a
-> while ago to reduce signaling on vhost) but far away from dropping
-> packet results.
+> I am not sure if this is the problem - shouldn't you
+> see these messages:
+> 	if (likely(capacity == -ENOMEM)) {
+> 		dev_warn(&dev->dev,
+> 			"TX queue failure: out of memory\n");
+> 	} else {
+> 		dev->stats.tx_fifo_errors++;
+> 		dev_warn(&dev->dev,
+> 			"Unexpected TX queue failure: %d\n",
+> 			capacity);
+> 	}
+> in next xmit? I am not getting this in my testing.
+
+Yes, I don't think we hit this in our testing,
+simply because we don't stress memory.
+Disable indirect, then you might see this.
+
+> > A solution might be to keep some kind of pool
+> > around for indirect, we wanted to do it for block anyway ...
 > 
-> I am going to change the code to use 1/2 ring size to wake the netif
-> queue.
+> Your vhost patch should fix this automatically. Right?
+
+Reduce the chance of it happening, yes.
+
 > 
-> Shirley
-
-Just tweak the parameters with sysfs, you do not have to edit the code:
-echo 64 > /sys/module/vhost_net/parameters/tx_bufs_coalesce
-
-Or in a similar way for tx_packets_coalesce (since we use indirect,
-packets will typically use 1 buffer each).
-
--- 
-MST
+> Thanks,
+> 
+> - KK
