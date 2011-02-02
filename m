@@ -1,116 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCHv2 dontapply] vhost-net tx tuning
-Date: Wed, 2 Feb 2011 06:36:28 +0200
-Message-ID: <20110202043627.GA3818@redhat.com>
-References: <1296153874.1640.27.camel@localhost.localdomain>
- <20110127190031.GC5228@redhat.com>
- <1296155340.1640.34.camel@localhost.localdomain>
- <20110127193131.GD5228@redhat.com>
- <1296157547.1640.45.camel@localhost.localdomain>
- <20110127200548.GE5228@redhat.com>
- <1296159305.1640.50.camel@localhost.localdomain>
- <OF381CCA86.B82857CC-ON86257826.00629F88-86257826.006596F5@us.ibm.com>
- <20110201155253.GA22959@redhat.com>
- <1296601658.30191.46.camel@sridhar.beaverton.ibm.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Wed, 2 Feb 2011 10:09:18 +0530
+Message-ID: <OF5CFD7B6A.4CBE4E3B-ON6525782B.0014DC5B-6525782B.001979CB@in.ibm.com>
+References: <1296157547.1640.45.camel@localhost.localdomain> <20110127200548.GE5228@redhat.com> <20110127.130240.104065182.davem@davemloft.net> <1296163838.1640.53.camel@localhost.localdomain> <20110201172346.GA24392@redhat.com> <1296590943.26937.797.camel@localhost.localdomain> <20110201201715.GA30050@redhat.com> <1296591908.26937.809.camel@localhost.localdomain> <20110201212110.GC30770@redhat.com> <1296595725.26937.819.camel@localhost.localdomain> <20110201214114.GA31105@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Steve Dobbelstein <steved@us.ibm.com>, mashirle@linux.vnet.ibm.com,
-	kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Sridhar Samudrala <sri@us.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1296601658.30191.46.camel@sridhar.beaverton.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	Shirley Ma <mashirle@us.ibm.com>, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au, steved@us.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e28smtp03.in.ibm.com ([122.248.162.3]:33873 "EHLO
+	e28smtp03.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751754Ab1BBEiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Feb 2011 23:38:22 -0500
+In-Reply-To: <20110201214114.GA31105@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 01, 2011 at 03:07:38PM -0800, Sridhar Samudrala wrote:
-> On Tue, 2011-02-01 at 17:52 +0200, Michael S. Tsirkin wrote:
-> > OK, so thinking about it more, maybe the issue is this:
-> > tx becomes full. We process one request and interrupt the guest,
-> > then it adds one request and the queue is full again.
-> > 
-> > Maybe the following will help it stabilize?  By default with it we will
-> > only interrupt when we see an empty ring.
-> > Which is liklely too much: pls try other values
-> > in the middle: e.g. make bufs half the ring,
-> > or bytes some small value like half ring * 200, or packets some
-> > small value etc.
-> > 
-> > Set any one parameter to 0 to get current
-> > behaviour (interrupt immediately when enabled).
-> > 
-> > Warning: completely untested.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > 
-> > ---
-> > 
-> > diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-> > index aac05bc..6769cdc 100644
-> > --- a/drivers/vhost/net.c
-> > +++ b/drivers/vhost/net.c
-> > @@ -32,6 +32,13 @@
-> >   * Using this limit prevents one virtqueue from starving others. */
-> >  #define VHOST_NET_WEIGHT 0x80000
-> > 
-> > +int tx_bytes_coalesce = 1000000000;
-> > +module_param(tx_bytes_coalesce, int, 0644);
-> > +int tx_bufs_coalesce = 1000000000;
-> > +module_param(tx_bufs_coalesce, int, 0644);
-> > +int tx_packets_coalesce = 1000000000;
-> > +module_param(tx_packets_coalesce, int, 0644);
-> > +
-> >  enum {
-> >  	VHOST_NET_VQ_RX = 0,
-> >  	VHOST_NET_VQ_TX = 1,
-> > @@ -127,6 +134,9 @@ static void handle_tx(struct vhost_net *net)
-> >  	int err, wmem;
-> >  	size_t hdr_size;
-> >  	struct socket *sock;
-> > +	int bytes_coalesced = 0;
-> > +	int bufs_coalesced = 0;
-> > +	int packets_coalesced = 0;
-> > 
-> >  	/* TODO: check that we are running from vhost_worker? */
-> >  	sock = rcu_dereference_check(vq->private_data, 1);
-> > @@ -196,14 +206,26 @@ static void handle_tx(struct vhost_net *net)
-> >  		if (err != len)
-> >  			pr_debug("Truncated TX packet: "
-> >  				 " len %d != %zd\n", err, len);
-> > -		vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> >  		total_len += len;
-> > +		packets_coalesced += 1;
-> > +		bytes_coalesced += len;
-> > +		bufs_coalesced += out;
-> > +		if (unlikely(packets_coalesced > tx_packets_coalesce ||
-> > +			     bytes_coalesced > tx_bytes_coalesce ||
-> > +			     bufs_coalesced > tx_bufs_coalesce))
-> > +			vhost_add_used_and_signal(&net->dev, vq, head, 0);
-> 
-> I think the counters that exceed the limits need to be reset to 0 here.
-> Otherwise we keep signaling for every buffer once we hit this condition.
-> 
-> Thanks
-> Sridhar
+> "Michael S. Tsirkin" <mst@redhat.com> 02/02/2011 03:11 AM
+>
+> On Tue, Feb 01, 2011 at 01:28:45PM -0800, Shirley Ma wrote:
+> > On Tue, 2011-02-01 at 23:21 +0200, Michael S. Tsirkin wrote:
+> > > Confused. We compare capacity to skb frags, no?
+> > > That's sg I think ...
+> >
+> > Current guest kernel use indirect buffers, num_free returns how many
+> > available descriptors not skb frags. So it's wrong here.
+> >
+> > Shirley
+>
+> I see. Good point. In other words when we complete the buffer
+> it was indirect, but when we add a new one we
+> can not allocate indirect so we consume.
+> And then we start the queue and add will fail.
+> I guess we need some kind of API to figure out
+> whether the buf we complete was indirect?
+>
+> Another failure mode is when skb_xmit_done
+> wakes the queue: it might be too early, there
+> might not be space for the next packet in the vq yet.
 
-Correct, good catch.
+I am not sure if this is the problem - shouldn't you
+see these messages:
+	if (likely(capacity == -ENOMEM)) {
+		dev_warn(&dev->dev,
+			"TX queue failure: out of memory\n");
+	} else {
+		dev->stats.tx_fifo_errors++;
+		dev_warn(&dev->dev,
+			"Unexpected TX queue failure: %d\n",
+			capacity);
+	}
+in next xmit? I am not getting this in my testing.
 
-> > +		else
-> > +			vhost_add_used(vq, head, 0);
-> >  		if (unlikely(total_len >= VHOST_NET_WEIGHT)) {
-> >  			vhost_poll_queue(&vq->poll);
-> >  			break;
-> >  		}
-> >  	}
-> > 
-> > +	if (likely(packets_coalesced &&
-> > +		   bytes_coalesced &&
-> > +		   bufs_coalesced))
-> > +		vhost_signal(&net->dev, vq);
-> >  	mutex_unlock(&vq->mutex);
-> >  }
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> A solution might be to keep some kind of pool
+> around for indirect, we wanted to do it for block anyway ...
+
+Your vhost patch should fix this automatically. Right?
+
+Thanks,
+
+- KK
+
