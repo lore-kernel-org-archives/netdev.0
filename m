@@ -1,54 +1,73 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH 0/3] r8169 driver fixes
-Date: Thu, 03 Feb 2011 20:01:03 +0100
-Message-ID: <1296759663.8737.2.camel@ceranb.intra.cera.cz>
-References: <20110203172557.GA9024@electric-eye.fr.zoreil.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
+Date: Thu, 3 Feb 2011 20:09:16 +0100
+Message-ID: <201102032009.17100.rjw@sisk.pl>
+References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera> <AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com> <s5haaid3xos.wl%tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12754 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756316Ab1BCTBV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Feb 2011 14:01:21 -0500
-In-Reply-To: <20110203172557.GA9024@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	"Carlos R. Mafra" <crmafra2@gmail.com>,
+	Keith Packard <keithp@keithp.com>,
+	Dave Airlie <airlied@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <s5haaid3xos.wl%tiwai@suse.de>
+Sender: linux-acpi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-02-03 at 18:26 +0100, Francois Romieu wrote:
-> The following series includes Ivan Rx fifo overflow fix and similar
-> changes I did after testing with various 8168 chipsets.
+On Thursday, February 03, 2011, Takashi Iwai wrote:
+> At Thu, 3 Feb 2011 07:42:05 -0800,
+> Linus Torvalds wrote:
+> > 
+> > On Thu, Feb 3, 2011 at 3:23 AM, Carlos R. Mafra <crmafra2@gmail.com> wrote:
+> > > On Thu  3.Feb'11 at  1:03:41 +0100, Rafael J. Wysocki wrote:
+> > >>
+> > >> If you know of any other unresolved post-2.6.36 regressions, please let us know
+> > >> either and we'll add them to the list.  Also, please let us know if any
+> > >> of the entries below are invalid.
+> > >
+> > > I'm sorry if I'm overlooking something, but as far as I can see the regression
+> > > reported here:
+> > >
+> > > https://lkml.org/lkml/2011/1/24/457
+> > >
+> > > is not in the list (update on that report: reverting that commit on top of
+> > > 2.6.37 fixes the issue).
+> > 
+> > Ok, added Keith and Dave to the cc, since they are the signers of that commit.
+> > 
+> > > After some time, I also ended up finding an earlier report in the kernel bugzilla
+> > > which I think is the same regression (it was bisected to the same commit):
+> > >
+> > > https://bugzilla.kernel.org/show_bug.cgi?id=24982
+> > >
+> > > but I do not see it in the list either, even though it's marked as a
+> > > regression in the bugzilla.
+> > >
+> > > The issue was also present in 2.6.38-rc2 last time I tested.
+> > 
+> > Just to confirm, can you also check -rc3? I'm pretty sure nothing has
+> > changed, but there were a few drm patches after -rc2, so it's alsways
+> > good to double-check.
 > 
-> The series is available as
-> git://git.kernel.org/pub/scm/linux/kernel/git/romieu/netdev-2.6.git r8169-davem
-> 
-> Distance from 'master' (2ba451421b23636c45fabfa522858c5c124b3673)
-> -----------------------------------------------------------------
-> 
-> 0331b3b022b9724019e4c42fded4a01eaa6946f5
-> 407786ae1960eef585f97bfa7625a36512925de0
-> e4b6fa3d3d3db4fac32904ae12efe199de8efed0
-> 
-> Diffstat
-> --------
-> 
->  drivers/net/r8169.c |   41 ++++++++++++++++++++++++++++++++---------
->  1 files changed, 32 insertions(+), 9 deletions(-)
-> 
-> Shortlog
-> --------
-> 
-> Francois Romieu (2):
->       r8169: RxFIFO overflow oddities with 8168 chipsets
->       r8169: prevent RxFIFO induced loops in the irq handler.
-> 
-> Ivan Vecera (1):
->       r8169: use RxFIFO overflow workaround for 8168c chipset
-> 
-Looks good.
+> The problem I reported in the bugzilla above is still present in
+> 2.6.38-rc3.  I'm pretty sure that's the same issue as Carlos' case.
 
-Ivan
+I added https://bugzilla.kernel.org/show_bug.cgi?id=24982 to the list of
+post-2.6.36 regressions for further tracking.
 
+Thanks,
+Rafael
