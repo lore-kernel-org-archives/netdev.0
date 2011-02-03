@@ -1,58 +1,73 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] NETFILTER module xt_hmark new target for HASH MARK
-Date: Thu, 03 Feb 2011 16:42:03 +0100
-Message-ID: <4D4ACCCB.8030902@netfilter.org>
-References: <1296740050-6311-1-git-send-email-hans.schillstrom@ericsson.com>	 <1296740050-6311-2-git-send-email-hans.schillstrom@ericsson.com>	 <4D4AB2D6.7070302@netfilter.org> <1296742995.6662.57.camel@seasc0214>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
+Date: Thu, 3 Feb 2011 07:42:05 -0800
+Message-ID: <AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com>
+References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera>
+	<20110203112316.GA3718@linux-yscl.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"jengelh@medozas.de" <jengelh@medozas.de>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"hans@schillstrom.com" <hans@schillstrom.com>
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1296742995.6662.57.camel@seasc0214>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>
+To: "Carlos R. Mafra" <crmafra2@gmail.com>, Keith Packard <keithp@keithp.com>,
+	Dave Airlie <airlied@redhat.com>
+Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
+In-Reply-To: <20110203112316.GA3718@linux-yscl.site>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
 List-Id: netdev.vger.kernel.org
 
-On 03/02/11 15:23, Hans Schillstrom wrote:
-> On Thu, 2011-02-03 at 14:51 +0100, Pablo Neira Ayuso wrote:
->> On 03/02/11 14:34, Hans Schillstrom wrote:
->> this assumption is not valid in NAT handlings.
-> 
-> That's true, because I want to avoid conntrack
-> 
->> If you want consistent hashing with NAT handlings you'll have to make
->> this stateful and use the conntrack source and reply directions of the
->> original tuples (thus making it stateful). That may be a problem because
->> some people may want to use this without enabling connection tracking.
-> 
-> What about a compilation switch or a sysctl ?
+On Thu, Feb 3, 2011 at 3:23 AM, Carlos R. Mafra <crmafra2@gmail.com> wrote:
+> On Thu =A03.Feb'11 at =A01:03:41 +0100, Rafael J. Wysocki wrote:
+>>
+>> If you know of any other unresolved post-2.6.36 regressions, please let =
+us know
+>> either and we'll add them to the list. =A0Also, please let us know if any
+>> of the entries below are invalid.
+>
+> I'm sorry if I'm overlooking something, but as far as I can see the regre=
+ssion
+> reported here:
+>
+> https://lkml.org/lkml/2011/1/24/457
+>
+> is not in the list (update on that report: reverting that commit on top of
+> 2.6.37 fixes the issue).
 
-or better some option for iptables.
+Ok, added Keith and Dave to the cc, since they are the signers of that comm=
+it.
 
->> Are you using this for (uplink) load balancing?
-> 
-> Actually in both ways 
->  - in front of a bunch of ipvs
->  - and in the payloads for outgoing traffic.
-> 
->> Could you also include one realistic example in the patch description on
->> how this is used?
-> Sure, I guess you mean some nice ascii graphics,  
-> iptables and ip route commands
+> After some time, I also ended up finding an earlier report in the kernel =
+bugzilla
+> which I think is the same regression (it was bisected to the same commit):
+>
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D24982
+>
+> but I do not see it in the list either, even though it's marked as a
+> regression in the bugzilla.
+>
+> The issue was also present in 2.6.38-rc2 last time I tested.
 
-That would be great, for the record.
+Just to confirm, can you also check -rc3? I'm pretty sure nothing has
+changed, but there were a few drm patches after -rc2, so it's alsways
+good to double-check.
 
->> If this is accepted, I think this has to be merge with the (already
->> overloaded) MARK target.
-> 
-> I have no opinion about that, others might have.
+Keithp?
 
-Better put it in the MARK target with a new revision. I think that
-Patrick is going to ask you this.
-
-I don't know why I had the impression that MARK is overload, it's
-actually fine at a first glance to the code.
+                        Linus
