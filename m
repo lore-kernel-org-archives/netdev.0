@@ -1,47 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] niu: fix SMP race protecting rx_rings and tx_rings
-Date: Thu, 03 Feb 2011 14:21:45 -0800 (PST)
-Message-ID: <20110203.142145.183054407.davem@davemloft.net>
-References: <1296758717-18406-1-git-send-email-fleitner@redhat.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: sending IP pkgs form user space on a specific interface?
+Date: Thu, 03 Feb 2011 14:41:07 -0800
+Message-ID: <4D4B2F03.60806@candelatech.com>
+References: <OFAEE2A3EA.1C3F2C8A-ONC125782C.0077F327-C125782C.007872C6@transmode.se> <4D4B2649.40404@candelatech.com> <OF72446498.F31B6A78-ONC125782C.00794F9B-C125782C.007A2D64@transmode.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: fleitner@redhat.com
+To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52650
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754440Ab1BCWVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:21:10 -0500
-In-Reply-To: <1296758717-18406-1-git-send-email-fleitner@redhat.com>
+Received: from mail.candelatech.com ([208.74.158.172]:46759 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750920Ab1BCWlL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:41:11 -0500
+In-Reply-To: <OF72446498.F31B6A78-ONC125782C.00794F9B-C125782C.007A2D64@transmode.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fleitner@redhat.com>
-Date: Thu,  3 Feb 2011 16:45:17 -0200
+On 02/03/2011 02:14 PM, Joakim Tjernlund wrote:
+> Ben Greear<greearb@candelatech.com>  wrote on 2011/02/03 23:03:53:
+>> From: Ben Greear<greearb@candelatech.com>
+>> To: Joakim Tjernlund<joakim.tjernlund@transmode.se>
+>> Cc: netdev@vger.kernel.org
+>> Date: 2011/02/03 23:03
+>> Subject: Re: sending IP pkgs form user space on a specific interface?
+>>
+>> On 02/03/2011 01:55 PM, Joakim Tjernlund wrote:
+>>>
+>>> Is there a way to specify what I/F a IP pkg should be sent
+>>> out on?
+>>>
+>>> I have multiple ppp I/Fs with the same local and remote address
+>>> and I need to specify what interface to send OSPF protocol
+>>> messages to.
+>>
+>> Check out SO_BINDTODEVICE.
+>
+> Thanks, can do setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, ..) for
+> each I/Fs I need tx pkgs over?
+> How do I unbind to any I/F?
+>
+> If possible, I would like to specify the I/F in the pkg overhead.
 
-> It's possible to trigger a crash if one CPU is opening
-> the device while another CPU gets its statistics.
-> 
-> It happens because niu_alloc_channels() called from
-> niu_open() sets num_tx/rx_rings before allocating the
-> ring, so the other thread crashes when accessing
-> np->tx_rings[i].tx_packets at niu_get_tx_stats().
-> 
-> Signed-off-by: Flavio Leitner <fleitner@redhat.com>
- ...
-> Compile tested only because I don't have the hardware.
+Man-pages and google should find those answers.
+You could put my name in your search as well, if you want..I know I've
+posted sample code in the past to some mailing list or another.
 
-I'll apply this and give it a quick test, thanks.
+Thanks,
+Ben
 
-Can you have the person who reported this crash to you test the patch
-out at least?  That's how you learned about this problem, right,
-someone else hit the crash?
+>
+>     Jocke
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-In such cases I'd really appreciate it if you got positive testing
-feedback from the reporter before posting the patch.
 
-Longer term a better way to fix this is to RCU free the ring data
-structures, and use a quick NULL test at the top of the get stats
-implementation.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
