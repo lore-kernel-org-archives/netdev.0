@@ -1,55 +1,52 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: Network performance with small packets
-Date: Thu, 03 Feb 2011 07:58:00 -0800
-Message-ID: <1296748680.25430.169.camel@localhost.localdomain>
-References: <20110202154706.GA12738@redhat.com>
-	 <1296666635.25430.35.camel@localhost.localdomain>
-	 <20110202173213.GA13907@redhat.com>
-	 <1296670311.25430.49.camel@localhost.localdomain>
-	 <20110202182720.GB14257@redhat.com>
-	 <1296674975.25430.59.camel@localhost.localdomain>
-	 <20110202201731.GB15150@redhat.com>
-	 <1296680585.25430.98.camel@localhost.localdomain>
-	 <20110202212047.GD15150@redhat.com>
-	 <1296709556.25430.140.camel@localhost.localdomain>
-	 <20110203061326.GC22230@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] NETFILTER module xt_hmark new target for HASH MARK
+Date: Thu, 03 Feb 2011 17:01:27 +0100
+Message-ID: <4D4AD157.50707@netfilter.org>
+References: <1296740050-6311-1-git-send-email-hans.schillstrom@ericsson.com>	 <1296740050-6311-2-git-send-email-hans.schillstrom@ericsson.com>	 <4D4AB2D6.7070302@netfilter.org> <1296742995.6662.57.camel@seasc0214> <4D4ACCCB.8030902@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
-	Steve Dobbelstein <steved@us.ibm.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <20110203061326.GC22230@redhat.com>
-Sender: kvm-owner@vger.kernel.org
+Cc: "kaber@trash.net" <kaber@trash.net>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Hans Schillstrom <hans.schillstrom@ericsson.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D4ACCCB.8030902@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-02-03 at 08:13 +0200, Michael S. Tsirkin wrote:
-> > Initial TCP_STREAM performance results I got for guest to local
-> host 
-> > 4.2Gb/s for 1K message size, (vs. 2.5Gb/s)
-> > 6.2Gb/s for 2K message size, and (vs. 3.8Gb/s)
-> > 9.8Gb/s for 4K message size. (vs.5.xGb/s)
+On 03/02/11 16:42, Pablo Neira Ayuso wrote:
+> On 03/02/11 15:23, Hans Schillstrom wrote:
+>> On Thu, 2011-02-03 at 14:51 +0100, Pablo Neira Ayuso wrote:
+>>> On 03/02/11 14:34, Hans Schillstrom wrote:
+>>> this assumption is not valid in NAT handlings.
+>>
+>> That's true, because I want to avoid conntrack
+>>
+>>> If you want consistent hashing with NAT handlings you'll have to make
+>>> this stateful and use the conntrack source and reply directions of the
+>>> original tuples (thus making it stateful). That may be a problem because
+>>> some people may want to use this without enabling connection tracking.
+>>
+>> What about a compilation switch or a sysctl ?
 > 
-> What is the average packet size, # bytes per ack, and the # of
-> interrupts
-> per packet? It could be that just slowing down trahsmission
-> makes GSO work better. 
+> or better some option for iptables.
 
-There is no TX interrupts with dropping packet.
+Hm, this is actually not straight forward to implement, you'll have to
+use hook functions to avoid the module dependencies with conntrack and
+that's pretty annoying.
 
-GSO/TSO is the key for small message performance, w/o GSO/TSO, the
-performance is limited to about 2Gb/s no matter how big the message size
-it is. I think any work we try here will increase large packet size
-rate. BTW for dropping packet, TCP increased fast retrans, not slow
-start. 
+I don't come up with a good solution for this.
 
-I will collect tcpdump, netstart before and after data to compare packet
-size/rate w/o w/i the patch.
+>>> Are you using this for (uplink) load balancing?
+>>
+>> Actually in both ways 
+>>  - in front of a bunch of ipvs
 
-Thanks
-Shirley
+to make some preliminary load-sharing between the load balancers?
 
+>>  - and in the payloads for outgoing traffic.
+
+and then to select the uplink, right?
