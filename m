@@ -1,81 +1,92 @@
-From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy for
- single TCP session balancing
-Date: Thu, 03 Feb 2011 17:54:38 +0300
-Message-ID: <4D4AC1AE.70809@yandex-team.ru>
-References: <20110114190714.GA11655@yandex-team.ru> <17405.1295036019@death> <4D30D37B.6090908@yandex-team.ru> <26330.1295049912@death> <4D35060D.5080004@intel.com> <4D358A47.4020009@yandex-team.ru> <4D35A9B4.7030701@gmail.com> <4D35B1B0.2090905@yandex-team.ru> <4D35BED5.7040301@gmail.com> <28837.1295382268@death> <4D370DC7.6000500@yandex-team.ru> <4D3745AF.5040808@gmail.com> <4D399062.3060004@yandex-team.ru> <19551.1296268113@death> <4D4929BB.2000403@gmail.com> <32505.1296669453@death>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: ipv6 doesn't chose correct source address
+Date: Thu, 03 Feb 2011 10:10:43 -0500
+Message-ID: <4D4AC573.6010506@earthlink.net>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?Tmljb2xhcyBkZSBQZXNsb8O8YW4=?=
-	<nicolas.2p.debian@gmail.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from archeopterix.yandex.ru ([93.158.136.52]:58193 "EHLO
-	archeopterix.yandex.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755844Ab1BCOyk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 09:54:40 -0500
-In-Reply-To: <32505.1296669453@death>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:49462 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755806Ab1BCPKo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 10:10:44 -0500
+Received: from [69.22.83.66] (helo=joker.seclark.com)
+	by elasmtp-banded.atl.sa.earthlink.net with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.67)
+	(envelope-from <sclark46@earthlink.net>)
+	id 1Pl0pY-0006ZX-1u
+	for netdev@vger.kernel.org; Thu, 03 Feb 2011 10:10:44 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/02/2011 08:57 PM, Jay Vosburgh wrote:
-> Nicolas de Peslo=C3=BCan<nicolas.2p.debian@gmail.com>  wrote:
+Hello,
 
->> I just propose the following option and option values : "src_mac_sel=
-ect"
->> (instead of mac_select), with "default" and "slave_mac" (instead of
->> slave_src_mac) as possible values. In the future, we might need a
->> "dst_mac_select" option... :-)
->
-> 	I originally thought of using the nomenclature you propose; my
-> thinking for doing it the way I ended up with is to minimize the numb=
-er
-> of tunable knobs that bonding has (so, the dst_mac would be a setting
-> for mac_select).  That works as long as there aren't a lot of setting=
-s
-> that would be turned on simultaneously, since each combination would
-> have to be a separate option, or the options parser would have to han=
-dle
-> multiple settings (e.g., mac_select=3Dsrc+dst or something like that)=
-=2E
->
-> 	Anyway, after thinking about it some more, in the long run it's
-> probably safer to separate these two, so, Oleg, use the above naming
-> ("src_mac_select" with "default" and "slave_mac").
->
->> Also, are there any risks that this kind of session load-balancing w=
-on't
->> properly cooperate with multiqueue (as explained in "Overriding
->> Configuration for Special Cases" in Documentation/networking/bonding=
-=2Etxt)?
->> I think it is important to ensure we keep the ability to fine tune t=
-he
->> egress path selection
->
-> 	I think the logic for the mac_select (or src_mac_select or
-> whatever) just has to be done last, after the slave selection is done=
- by
-> the multiqueue stuff.  That's probably a good tidbit to put in the
-> documentation as well.
->
-> 	-J
->
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-Thank everyone for comments,
-I'll resubmit modified patch after it is ready and tested, in about a=20
-week or two  I think.
+I have a Linux 2.6.32.26-175.fc12 box with
+two possible ipv6 default gateways. So I was trying
+to have two different ipv6 addresses on my eth0 interface.
+Then by simply changing my default ipv6 gateway have packets
+routed appropriately.
 
-Oleg
+But when I do this the source address in the packet always is the
+first ipv6 address and not the one that should be associated with
+the corresponding default route.
 
->
+ip -6 addr sh
+4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qlen 1000
+     inet6 2001:470:34::129:91/48 scope global
+        valid_lft forever preferred_lft forever
+     inet6 2001:4830:28::129:91/48 scope global
+        valid_lft forever preferred_lft forever
+     inet6 fe80::21c:c0ff:fe94:3a12/64 scope link
+        valid_lft forever preferred_lft forever
+
+ip -6 rout sh
+default via 2001:4830:28::1 dev eth0  metric 1024  mtu 1500 advmss 1440 
+hoplimit 0
+
+so I would expect to have packet going out the default address use the 
+source address
+of 2001:4830:28::129:91
+
+but:
+09:50:28.887483 IP6 2001:470:34::129:91 > 2001:558:1002:5:68:87:64:48: 
+ICMP6, echo request, seq 1, length 64
+
+I would have expected the source address to be: 2001:4830:28::129:91
+
+This works correctly with ipv4.
+ip addr sh eth0
+4: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast 
+state UP qlen 1000
+     link/ether 00:1c:c0:94:3a:12 brd ff:ff:ff:ff:ff:ff
+     inet 10.0.129.91/17 brd 10.0.255.255 scope global eth0
+     inet 192.168.198.48/24 scope global eth0
+     inet 10.254.150.91/24 scope global eth0
+     inet 10.0.1.91/24 scope global eth0
+     inet 192.168.3.6/24 scope global eth0
+     inet 192.168.198.91/24 scope global secondary eth0
+
+default via 192.168.198.252 dev eth0
+
+09:52:06.968934 IP 192.168.198.48 > 68.87.64.48: ICMP echo request, id 
+34402, seq 1, length 64
 
 
---=20
-Best regards,
-Oleg Ukhno
+
+Is this broken or a feature of ipv6 or a misconfiguration on my part?
+
+Thanks,
+Steve
+
+-- 
+
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
+
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
+
+
 
