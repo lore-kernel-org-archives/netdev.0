@@ -1,44 +1,54 @@
-From: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-Subject: Re: sending IP pkgs form user space on a specific interface?
-Date: Thu, 3 Feb 2011 23:14:30 +0100
-Message-ID: <OF72446498.F31B6A78-ONC125782C.00794F9B-C125782C.007A2D64@transmode.se>
-References: <OFAEE2A3EA.1C3F2C8A-ONC125782C.0077F327-C125782C.007872C6@transmode.se> <4D4B2649.40404@candelatech.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
+Date: Thu, 3 Feb 2011 14:19:31 -0800
+Message-ID: <AANLkTin=YcecPX1AOpihPVJO3UOfrcjf0MFTu55dpEUy@mail.gmail.com>
+References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera> <AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com>
+ <s5haaid3xos.wl%tiwai@suse.de> <201102032009.17100.rjw@sisk.pl>
+ <AANLkTi=suS1VDL=6EtT0D2=0c1DWwxdwZBBv=-BySNX-@mail.gmail.com> <AANLkTi=7EOih=fY5FCvhQbewSc=3a49cYVaKJRWM+-3d@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>, Takashi Iwai <tiwai@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Carlos Mafra <crmafra2@gmail.com>,
+	Keith Packard <keithp@keithp.com>,
+	Dave Airlie <airlied@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw1.transmode.se ([213.115.205.20]:52526 "EHLO gw1.transmode.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753561Ab1BCWOc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Feb 2011 17:14:32 -0500
-In-Reply-To: <4D4B2649.40404@candelatech.com>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:39151 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751561Ab1BCWUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:20:24 -0500
+In-Reply-To: <AANLkTi=7EOih=fY5FCvhQbewSc=3a49cYVaKJRWM+-3d@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ben Greear <greearb@candelatech.com> wrote on 2011/02/03 23:03:53:
-> From: Ben Greear <greearb@candelatech.com>
-> To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
-> Cc: netdev@vger.kernel.org
-> Date: 2011/02/03 23:03
-> Subject: Re: sending IP pkgs form user space on a specific interface?
+On Thu, Feb 3, 2011 at 2:10 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
 >
-> On 02/03/2011 01:55 PM, Joakim Tjernlund wrote:
-> >
-> > Is there a way to specify what I/F a IP pkg should be sent
-> > out on?
-> >
-> > I have multiple ppp I/Fs with the same local and remote address
-> > and I need to specify what interface to send OSPF protocol
-> > messages to.
+> Maybe the right thing to do is to set it to 'unknown', something like this.
 >
-> Check out SO_BINDTODEVICE.
+> TOTALLY UNTESTED!
 
-Thanks, can do setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, ..) for
-each I/Fs I need tx pkgs over?
-How do I unbind to any I/F?
+Doing some grepping and "git blame", I found this: commit 032d2a0d068
+("drm/i915: Prevent double dpms on") which took a very similar
+approach, except it just uses "-1" directly instead of introducing
+that DRM_MODE_DPMS_UNKNOWN concept.
 
-If possible, I would like to specify the I/F in the pkg overhead.
+So I suspect that my patch is going in the right direction, and
+judging by the comments in that commit, we probably should do this
+correctly at the dri level rather than have drivers see those stupid
+"let's set dpms to the state that it was already in". But that very
+much does require that kind of "UNKNOWN" state option.
 
-   Jocke
+So maybe we can get that patch tested (and acked if it works)? Carlos, Takashi?
 
+                         Linus
