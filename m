@@ -1,40 +1,97 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v4 0/2] iproute2: support for device groups
-Date: Wed, 2 Feb 2011 16:14:17 -0800
-Message-ID: <20110202161417.2a3d10a4@nehalam>
-References: <1296671021-24421-1-git-send-email-ddvlad@rosedu.org>
-	<4D49E252.1080006@trash.net>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] tcp: Increase the initial congestion window to 10.
+Date: Wed, 02 Feb 2011 17:07:50 -0800 (PST)
+Message-ID: <20110202.170750.229739784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Vlad Dogaru <ddvlad@rosedu.org>, netdev@vger.kernel.org
-To: Patrick McHardy <kaber@trash.net>
+Cc: dccp@vger.kernel.org, therbert@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:60731 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755388Ab1BCAOT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Feb 2011 19:14:19 -0500
-In-Reply-To: <4D49E252.1080006@trash.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38041
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751015Ab1BCBHP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 20:07:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 03 Feb 2011 00:01:38 +0100
-Patrick McHardy <kaber@trash.net> wrote:
 
-> Am 02.02.2011 19:23, schrieb Vlad Dogaru:
-> > This patch series adds userspace support for network device groups.
-> > There is support for setting device groups, listing only interfaces of a
-> > specific group, and setting basic device parameters for all interfaces
-> > in a group.
-> > 
-> > Changes since version 3:
-> >  * drop devgroup keyword. There is a single keyword for specifying
-> >    groups now.
-> >  * store group names internally as a hash, similar to routing table
-> >    names. This is more efficient for batch mode operations
-> 
-> Looks good to me, thanks.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
 
-Will apply after 2.6.38 is released.
+I've left the DCCP code to keep using RFC3390 logic, if they
+wish to adopt this change in their code they can do so by
+simply deleting the rfc33390_bytes_to_packets() function and
+using TCP_INIT_CWND in their assignment.
 
+ include/net/tcp.h      |   12 +++---------
+ net/dccp/ccids/ccid2.c |    9 +++++++++
+ net/ipv4/tcp_input.c   |    2 +-
+ 3 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 9179111..7118668 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -196,6 +196,9 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
+ /* TCP thin-stream limits */
+ #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do exp. backoff */
+ 
++/* TCP initial congestion window */
++#define TCP_INIT_CWND		10
++
+ extern struct inet_timewait_death_row tcp_death_row;
+ 
+ /* sysctl variables for tcp */
+@@ -799,15 +802,6 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
+ /* Use define here intentionally to get WARN_ON location shown at the caller */
+ #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
+ 
+-/*
+- * Convert RFC 3390 larger initial window into an equivalent number of packets.
+- * This is based on the numbers specified in RFC 5681, 3.1.
+- */
+-static inline u32 rfc3390_bytes_to_packets(const u32 smss)
+-{
+-	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
+-}
+-
+ extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+ extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
+ 
+diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
+index e96d5e8..fadecd2 100644
+--- a/net/dccp/ccids/ccid2.c
++++ b/net/dccp/ccids/ccid2.c
+@@ -583,6 +583,15 @@ done:
+ 	dccp_ackvec_parsed_cleanup(&hc->tx_av_chunks);
+ }
+ 
++/*
++ * Convert RFC 3390 larger initial window into an equivalent number of packets.
++ * This is based on the numbers specified in RFC 5681, 3.1.
++ */
++static inline u32 rfc3390_bytes_to_packets(const u32 smss)
++{
++	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
++}
++
+ static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
+ {
+ 	struct ccid2_hc_tx_sock *hc = ccid_priv(ccid);
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index eb7f82e..2f692ce 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -817,7 +817,7 @@ __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
+ 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
+ 
+ 	if (!cwnd)
+-		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
++		cwnd = TCP_INIT_CWND;
+ 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
+ }
+ 
 -- 
+1.7.4
+
