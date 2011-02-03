@@ -1,97 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] tcp: Increase the initial congestion window to 10.
-Date: Wed, 02 Feb 2011 17:07:50 -0800 (PST)
-Message-ID: <20110202.170750.229739784.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: [PATCH] sfq: deadlock in error path
+Date: Wed, 2 Feb 2011 17:19:51 -0800
+Message-ID: <20110202171951.09b89d92@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dccp@vger.kernel.org, therbert@google.com
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Eric Dumazet <dada1@cosmosbay.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38041
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751015Ab1BCBHP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 20:07:15 -0500
+Received: from mail.vyatta.com ([76.74.103.46]:50739 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753174Ab1BCBTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Feb 2011 20:19:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The change to allow divisor to be a parameter (in 2.6.38-rc1)
+ commit 817fb15dfd988d8dda916ee04fa506f0c466b9d6
+introduced a possible deadlock caught by sparse.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
+The scheduler tree lock was left locked in the case of an incorrect
+divisor value. Simplest fix is to move test outside of lock
+which also solves problem of partial update.
 
-I've left the DCCP code to keep using RFC3390 logic, if they
-wish to adopt this change in their code they can do so by
-simply deleting the rfc33390_bytes_to_packets() function and
-using TCP_INIT_CWND in their assignment.
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
- include/net/tcp.h      |   12 +++---------
- net/dccp/ccids/ccid2.c |    9 +++++++++
- net/ipv4/tcp_input.c   |    2 +-
- 3 files changed, 13 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 9179111..7118668 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -196,6 +196,9 @@ extern void tcp_time_wait(struct sock *sk, int state, int timeo);
- /* TCP thin-stream limits */
- #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do exp. backoff */
+--- a/net/sched/sch_sfq.c	2011-02-02 17:12:06.338204106 -0800
++++ b/net/sched/sch_sfq.c	2011-02-02 17:13:39.127205019 -0800
+@@ -491,17 +491,18 @@ static int sfq_change(struct Qdisc *sch,
+ 	if (opt->nla_len < nla_attr_size(sizeof(*ctl)))
+ 		return -EINVAL;
  
-+/* TCP initial congestion window */
-+#define TCP_INIT_CWND		10
++	if (ctl->divisor &&
++	    (!is_power_of_2(ctl->divisor) || ctl->divisor > 65536))
++		return -EINVAL;
 +
- extern struct inet_timewait_death_row tcp_death_row;
- 
- /* sysctl variables for tcp */
-@@ -799,15 +802,6 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
- /* Use define here intentionally to get WARN_ON location shown at the caller */
- #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > tp->packets_out)
- 
--/*
-- * Convert RFC 3390 larger initial window into an equivalent number of packets.
-- * This is based on the numbers specified in RFC 5681, 3.1.
-- */
--static inline u32 rfc3390_bytes_to_packets(const u32 smss)
--{
--	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
--}
--
- extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
- extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst);
- 
-diff --git a/net/dccp/ccids/ccid2.c b/net/dccp/ccids/ccid2.c
-index e96d5e8..fadecd2 100644
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -583,6 +583,15 @@ done:
- 	dccp_ackvec_parsed_cleanup(&hc->tx_av_chunks);
- }
- 
-+/*
-+ * Convert RFC 3390 larger initial window into an equivalent number of packets.
-+ * This is based on the numbers specified in RFC 5681, 3.1.
-+ */
-+static inline u32 rfc3390_bytes_to_packets(const u32 smss)
-+{
-+	return smss <= 1095 ? 4 : (smss > 2190 ? 2 : 3);
-+}
-+
- static int ccid2_hc_tx_init(struct ccid *ccid, struct sock *sk)
- {
- 	struct ccid2_hc_tx_sock *hc = ccid_priv(ccid);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index eb7f82e..2f692ce 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -817,7 +817,7 @@ __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry *dst)
- 	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
- 
- 	if (!cwnd)
--		cwnd = rfc3390_bytes_to_packets(tp->mss_cache);
-+		cwnd = TCP_INIT_CWND;
- 	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
- }
- 
--- 
-1.7.4
-
+ 	sch_tree_lock(sch);
+ 	q->quantum = ctl->quantum ? : psched_mtu(qdisc_dev(sch));
+ 	q->scaled_quantum = SFQ_ALLOT_SIZE(q->quantum);
+ 	q->perturb_period = ctl->perturb_period * HZ;
+ 	if (ctl->limit)
+ 		q->limit = min_t(u32, ctl->limit, SFQ_DEPTH - 1);
+-	if (ctl->divisor) {
+-		if (!is_power_of_2(ctl->divisor) || ctl->divisor > 65536)
+-			return -EINVAL;
++	if (ctl->divisor)
+ 		q->divisor = ctl->divisor;
+-	}
+ 	qlen = sch->q.qlen;
+ 	while (sch->q.qlen > q->limit)
+ 		sfq_drop(sch);
