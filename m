@@ -1,55 +1,74 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the final tree (net tree
- related)
-Date: Thu, 3 Feb 2011 15:13:09 +1100
-Message-ID: <20110203151309.d4a6c344.sfr@canb.auug.org.au>
+From: Andres Salomon <dilinger@queued.net>
+Subject: [PATCH 14/19] janz: mfd_cell is now implicitly available to drivers
+Date: Wed, 2 Feb 2011 20:17:53 -0800
+Message-ID: <20110202201753.73300ea3@queued.net>
+References: <20110202195417.228e2656@queued.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__3_Feb_2011_15_13_09_+1100_LSb.QGO8e1oJhIU3"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Mark Brown <broonie@opensource.wolfsonmicro.com>,
+	Wolfgang Grandegger <wg@grandegger.com>,
+	socketcan-core@lists.berlios.de, netdev@vger.kernel.org
+To: Samuel Ortiz <sameo@linux.intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110202195417.228e2656@queued.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__3_Feb_2011_15_13_09_+1100_LSb.QGO8e1oJhIU3
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-Hi all,
+No need to explicitly set the cell's platform_data/data_size.
 
-After merging the final tree, today's linux-next build (sparc32 defconfig)
-failed like this:
+In this case, move the various platform_data pointers
+to driver_data.  All of the clients which make use of it
+are also changed.
 
-net/ipv4/fib_trie.c:98: error: redefinition of 'struct node'
+Signed-off-by: Andres Salomon <dilinger@queued.net>
+---
+ drivers/gpio/janz-ttl.c      |    2 +-
+ drivers/mfd/janz-cmodio.c    |    3 +--
+ drivers/net/can/janz-ican3.c |    2 +-
+ 3 files changed, 3 insertions(+), 4 deletions(-)
 
-Probably exposed by commit 3630b7c050d9c3564f143d595339fc06b888d6f3
-("ipv4: Remove fib_hash").
-
-Naming a struct "node" (in the face of include/linux/node.h) is a bit
-hopeful.  :-)
-
-I have left this broken for now ...
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__3_Feb_2011_15_13_09_+1100_LSb.QGO8e1oJhIU3
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNSitVAAoJEDMEi1NhKgbspPIIAJUnzDVi0BAz2ZecWLyAMELr
-ixkjICdr5ajh0Z4u5KDolq3M2BBowzku+2j49UPxgrkz0D7nMuCCtkAotlk4q3XO
-TJlq4diuSrCCBiqegbUYHnHiHl9pTc9IXRUMWs4D3o1zeiZShL1X8SZIBlBtH3eV
-fDfxYDaNvV0xQEAD1OfHN+WnOhAkO/U3gX2FhFm1hs1vJ4jn+qOJCNEjg/T3JrJ9
-/ZnN2H1ODeGy11qFeRmNUM2kLJi30C3hA6C8y8ACevsNtYPkFpu66Qz+DJ6jbI02
-hmQa/nYcJSAEwDaJJ6xRv2xGP8nkodcFKxjrtMrbsVAGCg10drSRvwgVq/P2Sk4=
-=ASDV
------END PGP SIGNATURE-----
-
---Signature=_Thu__3_Feb_2011_15_13_09_+1100_LSb.QGO8e1oJhIU3--
+diff --git a/drivers/gpio/janz-ttl.c b/drivers/gpio/janz-ttl.c
+index 813ac07..98a3f9d 100644
+--- a/drivers/gpio/janz-ttl.c
++++ b/drivers/gpio/janz-ttl.c
+@@ -149,7 +149,7 @@ static int __devinit ttl_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	int ret;
+ 
+-	pdata = pdev->dev.platform_data;
++	pdata = platform_get_drvdata(pdev);
+ 	if (!pdata) {
+ 		dev_err(dev, "no platform data\n");
+ 		ret = -ENXIO;
+diff --git a/drivers/mfd/janz-cmodio.c b/drivers/mfd/janz-cmodio.c
+index 36a166b..77e3a1f 100644
+--- a/drivers/mfd/janz-cmodio.c
++++ b/drivers/mfd/janz-cmodio.c
+@@ -86,8 +86,7 @@ static int __devinit cmodio_setup_subdevice(struct cmodio_device *priv,
+ 
+ 	/* Add platform data */
+ 	pdata->modno = modno;
+-	cell->platform_data = pdata;
+-	cell->data_size = sizeof(*pdata);
++	cell->driver_data = pdata;
+ 
+ 	/* MODULbus registers -- PCI BAR3 is big-endian MODULbus access */
+ 	res->flags = IORESOURCE_MEM;
+diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
+index b9a6d7a..7d282c3 100644
+--- a/drivers/net/can/janz-ican3.c
++++ b/drivers/net/can/janz-ican3.c
+@@ -1643,7 +1643,7 @@ static int __devinit ican3_probe(struct platform_device *pdev)
+ 	struct device *dev;
+ 	int ret;
+ 
+-	pdata = pdev->dev.platform_data;
++	pdata = platform_get_drvdata(pdev);
+ 	if (!pdata)
+ 		return -ENXIO;
+ 
+-- 
+1.7.2.3
