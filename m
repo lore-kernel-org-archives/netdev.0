@@ -1,31 +1,39 @@
-From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
-Date: Fri, 4 Feb 2011 00:43:05 +0200 (EET)
-Message-ID: <alpine.DEB.2.00.1102040027060.25125@melkinpaasi.cs.helsinki.fi>
+Date: Thu, 3 Feb 2011 23:55:54 +0100
+Message-ID: <20110203225554.GA3227@nuttenaction>
 References: <20110202.170750.229739784.davem@davemloft.net>
+ <47859e9273bb0c1b2c32fc1adfa450ee@localhost>
+ <AANLkTimWHAz0SX_u42guHp2KNyQESsH6ysNwRoe7ZVJ=@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>, therbert@google.com,
-	"H.K. Jerry Chu" <hkjerry.chu@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	dccp@vger.kernel.org, therbert@google.com
+To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from courier.cs.helsinki.fi ([128.214.9.1]:43663 "EHLO
-	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051Ab1BCWnI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:43:08 -0500
-In-Reply-To: <20110202.170750.229739784.davem@davemloft.net>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:45320 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751200Ab1BCWz5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:55:57 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTimWHAz0SX_u42guHp2KNyQESsH6ysNwRoe7ZVJ=@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It would perhaps be useful to change receiver advertized window to include 
-some extra segs initially. It should be >= IW + peer's dupThresh-1 as 
-otherwise limited transmit won't work for the initial window because we 
-won't open more receiver window with dupacks (IIRC, I suppose Jerry might 
-be able to correct me right away if I'm wrong and we open window with 
-dupacks too?).  I think initial receiver window code used to have some 
-surplus but it was broken by the rfc3390-func conversion (against my 
-advice on how to do the conversion).
+* H.K. Jerry Chu | 2011-02-03 13:17:19 [-0800]:
 
--- 
- i.
+>> to setup a ns-2 environment but due to lack of time I am a little bit
+>> behind schedule. Anyway, why not make this a tunable per route knob so that
+>> it is easier to fix things, e.g. set IW back to 3.
+>
+>You've seemed to get this backwards. Shouldn't we set the default for the normal
+>cases and leave the corner cases to the initcwnd and initrwnd knobs to cover?
+
+Yes Jerry, I phrase this a little bit abstruse. Apply David patch and use per
+route options to reduce the IW if some curious behavior appear.
+
+It seems the time is come to increase the IW. ;-)
+
+Hagen
+
+
