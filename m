@@ -1,48 +1,78 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
-Date: Thu, 3 Feb 2011 09:17:14 -0500
-Message-ID: <AANLkTinEXYXeZs1=wVQRAPDQ53YY0ne9NgCZN3x1hbaA@mail.gmail.com>
-References: <20110202.170750.229739784.davem@davemloft.net>
-	<47859e9273bb0c1b2c32fc1adfa450ee@localhost>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v4 3/5] net: use ndo_fix_features for ethtool_ops->set_flags
+Date: Thu,  3 Feb 2011 15:21:21 +0100 (CET)
+Message-ID: <bbe7e5742ffe44fb2938b7b6c2c656395fc361ac.1296741562.git.mirq-linux@rere.qmqm.pl>
+References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dccp@vger.kernel.org, therbert@google.com
-To: Hagen Paul Pfeifer <hagen@jauu.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:43237 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932156Ab1BCORQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 09:17:16 -0500
-In-Reply-To: <47859e9273bb0c1b2c32fc1adfa450ee@localhost>
+Received: from rere.qmqm.pl ([89.167.52.164]:34558 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932209Ab1BCOVY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Feb 2011 09:21:24 -0500
+In-Reply-To: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 3, 2011 at 9:00 AM, Hagen Paul Pfeifer <hagen@jauu.net> wro=
-te:
->
-> On Wed, 02 Feb 2011 17:07:50 -0800 (PST), David Miller wrote:
->
->> +/* TCP initial congestion window */
->> +#define TCP_INIT_CWND =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A010
->> +
->
-> Davem, there is _no_ research how this huge IW will behave in environ=
-ments
-> with a small BDP. Belief it or not, but there are networks out there =
-with a
-> BDP similar to ~1980. Why for heaven's sake should this work in these
-> environments? There are only _two_ extensive analysis one from Cherry=
- and
-> and one from Ilpo. Both analysis focus on current mainstream BDP. I s=
-tarted
-> to setup a ns-2 environment but due to lack of time I am a little bit
-> behind schedule. Anyway, why not make this a tunable per route knob s=
-o that
-> it is easier to fix things, e.g. set IW back to 3.
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/ethtool.c |   31 +++++++++++++++++++++++++++++--
+ 1 files changed, 29 insertions(+), 2 deletions(-)
 
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index 555accf..6e7c6f2 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -240,6 +240,34 @@ static int ethtool_set_features(struct net_device =
+*dev, void __user *useraddr)
+ 	return ret;
+ }
+=20
++static int __ethtool_set_flags(struct net_device *dev, u32 data)
++{
++	u32 changed;
++
++	if (data & ~flags_dup_features)
++		return -EINVAL;
++
++	/* legacy set_flags() op */
++	if (dev->ethtool_ops->set_flags) {
++		if (unlikely(dev->hw_features & flags_dup_features))
++			netdev_warn(dev,
++				"driver BUG: mixed hw_features and set_flags()\n");
++		return dev->ethtool_ops->set_flags(dev, data);
++	}
++
++	/* allow changing only bits set in hw_features */
++	changed =3D (data ^ dev->wanted_features) & flags_dup_features;
++	if (changed & ~dev->hw_features)
++		return -EOPNOTSUPP;
++
++	dev->wanted_features =3D
++		(dev->wanted_features & ~changed) | data;
++
++	netdev_update_features(dev);
++
++	return 0;
++}
++
+ static u32 ethtool_get_feature_mask(u32 eth_cmd)
+ {
+ 	/* feature masks of legacy discrete ethtool ops */
+@@ -1733,8 +1761,7 @@ int dev_ethtool(struct net *net, struct ifreq *if=
+r)
+ 					ethtool_op_get_flags));
+ 		break;
+ 	case ETHTOOL_SFLAGS:
+-		rc =3D ethtool_set_value(dev, useraddr,
+-				       dev->ethtool_ops->set_flags);
++		rc =3D ethtool_set_value(dev, useraddr, __ethtool_set_flags);
+ 		break;
+ 	case ETHTOOL_GPFLAGS:
+ 		rc =3D ethtool_get_value(dev, useraddr, ethcmd,
+--=20
+1.7.2.3
 
-There's already a per-route tunable, right (RTAX_INITCWND)?
-
-  -John
