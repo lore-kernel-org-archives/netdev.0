@@ -1,73 +1,55 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
-Date: Thu, 3 Feb 2011 07:42:05 -0800
-Message-ID: <AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com>
-References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera>
-	<20110203112316.GA3718@linux-yscl.site>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Thu, 03 Feb 2011 07:58:00 -0800
+Message-ID: <1296748680.25430.169.camel@localhost.localdomain>
+References: <20110202154706.GA12738@redhat.com>
+	 <1296666635.25430.35.camel@localhost.localdomain>
+	 <20110202173213.GA13907@redhat.com>
+	 <1296670311.25430.49.camel@localhost.localdomain>
+	 <20110202182720.GB14257@redhat.com>
+	 <1296674975.25430.59.camel@localhost.localdomain>
+	 <20110202201731.GB15150@redhat.com>
+	 <1296680585.25430.98.camel@localhost.localdomain>
+	 <20110202212047.GD15150@redhat.com>
+	 <1296709556.25430.140.camel@localhost.localdomain>
+	 <20110203061326.GC22230@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux SCSI List <linux-scsi@vger.kernel.org>,
-	Linux ACPI <linux-acpi@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	DRI <dri-devel@lists.freedesktop.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Florian Mickler <florian@mickler.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kernel Testers List <kernel-testers@vger.kernel.org>,
-	Linux PM List <linux-pm@lists.linux-foundation.org>,
-	Maciej Rutecki <maciej.rutecki@gmail.com>
-To: "Carlos R. Mafra" <crmafra2@gmail.com>, Keith Packard <keithp@keithp.com>,
-	Dave Airlie <airlied@redhat.com>
-Return-path: <dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org>
-In-Reply-To: <20110203112316.GA3718@linux-yscl.site>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
-	<mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Sender: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
-Errors-To: dri-devel-bounces+sf-dri-devel=m.gmane.org@lists.freedesktop.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Steve Dobbelstein <steved@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110203061326.GC22230@redhat.com>
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 3, 2011 at 3:23 AM, Carlos R. Mafra <crmafra2@gmail.com> wrote:
-> On Thu =A03.Feb'11 at =A01:03:41 +0100, Rafael J. Wysocki wrote:
->>
->> If you know of any other unresolved post-2.6.36 regressions, please let =
-us know
->> either and we'll add them to the list. =A0Also, please let us know if any
->> of the entries below are invalid.
->
-> I'm sorry if I'm overlooking something, but as far as I can see the regre=
-ssion
-> reported here:
->
-> https://lkml.org/lkml/2011/1/24/457
->
-> is not in the list (update on that report: reverting that commit on top of
-> 2.6.37 fixes the issue).
+On Thu, 2011-02-03 at 08:13 +0200, Michael S. Tsirkin wrote:
+> > Initial TCP_STREAM performance results I got for guest to local
+> host 
+> > 4.2Gb/s for 1K message size, (vs. 2.5Gb/s)
+> > 6.2Gb/s for 2K message size, and (vs. 3.8Gb/s)
+> > 9.8Gb/s for 4K message size. (vs.5.xGb/s)
+> 
+> What is the average packet size, # bytes per ack, and the # of
+> interrupts
+> per packet? It could be that just slowing down trahsmission
+> makes GSO work better. 
 
-Ok, added Keith and Dave to the cc, since they are the signers of that comm=
-it.
+There is no TX interrupts with dropping packet.
 
-> After some time, I also ended up finding an earlier report in the kernel =
-bugzilla
-> which I think is the same regression (it was bisected to the same commit):
->
-> https://bugzilla.kernel.org/show_bug.cgi?id=3D24982
->
-> but I do not see it in the list either, even though it's marked as a
-> regression in the bugzilla.
->
-> The issue was also present in 2.6.38-rc2 last time I tested.
+GSO/TSO is the key for small message performance, w/o GSO/TSO, the
+performance is limited to about 2Gb/s no matter how big the message size
+it is. I think any work we try here will increase large packet size
+rate. BTW for dropping packet, TCP increased fast retrans, not slow
+start. 
 
-Just to confirm, can you also check -rc3? I'm pretty sure nothing has
-changed, but there were a few drm patches after -rc2, so it's alsways
-good to double-check.
+I will collect tcpdump, netstart before and after data to compare packet
+size/rate w/o w/i the patch.
 
-Keithp?
+Thanks
+Shirley
 
-                        Linus
