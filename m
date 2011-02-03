@@ -1,68 +1,126 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] CHOKe flow scheduler (0.11)
-Date: Wed, 02 Feb 2011 20:53:03 -0800 (PST)
-Message-ID: <20110202.205303.104058817.davem@davemloft.net>
-References: <1295563611.2613.41.camel@edumazet-laptop>
-	<20110202172110.7ea96e19@nehalam>
-	<1296698352.4434.4.camel@edumazet-laptop>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: Network performance with small packets
+Date: Wed, 02 Feb 2011 21:05:56 -0800
+Message-ID: <1296709556.25430.140.camel@localhost.localdomain>
+References: <20110202104832.GA8505@redhat.com>
+	 <1296661185.25430.10.camel@localhost.localdomain>
+	 <20110202154706.GA12738@redhat.com>
+	 <1296666635.25430.35.camel@localhost.localdomain>
+	 <20110202173213.GA13907@redhat.com>
+	 <1296670311.25430.49.camel@localhost.localdomain>
+	 <20110202182720.GB14257@redhat.com>
+	 <1296674975.25430.59.camel@localhost.localdomain>
+	 <20110202201731.GB15150@redhat.com>
+	 <1296680585.25430.98.camel@localhost.localdomain>
+	 <20110202212047.GD15150@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shemminger@vyatta.com, kaber@trash.net, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44744
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755367Ab1BCEw2 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Feb 2011 23:52:28 -0500
-In-Reply-To: <1296698352.4434.4.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Steve Dobbelstein <steved@us.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110202212047.GD15150@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Feb 2011 02:59:12 +0100
+On Wed, 2011-02-02 at 23:20 +0200, Michael S. Tsirkin wrote:
+> > I think I need to define the test matrix to collect data for TX xmit
+> > from guest to host here for different tests.
+> > 
+> > Data to be collected:
+> > ---------------------
+> > 1. kvm_stat for VM, I/O exits
+> > 2. cpu utilization for both guest and host
+> > 3. cat /proc/interrupts on guest
+> > 4. packets rate from vhost handle_tx per loop
+> > 5. guest netif queue stop rate
+> > 6. how many packets are waiting for free between vhost signaling and
+> > guest callback
+> > 7. performance results
+> > 
+> > Test
+> > ----
+> > 1. TCP_STREAM single stream test for 1K to 4K message size
+> > 2. TCP_RR (64 instance test): 128 - 1K request/response size
+> > 
+> > Different hacks
+> > ---------------
+> > 1. Base line data ( with the patch to fix capacity check first,
+> > free_old_xmit_skbs returns number of skbs)
+> > 
+> > 2. Drop packet data (will put some debugging in generic networking
+> code)
 
-> Le mercredi 02 f=E9vrier 2011 =E0 17:21 -0800, Stephen Hemminger a =E9=
-crit :
->> Subject: sched: CHOKe flow scheduler
->>=20
->> CHOKe ("CHOose and Kill" or "CHOose and Keep") is an alternative
->> packet scheduler based on the Random Exponential Drop (RED) algorith=
-m.
->>=20
->> The core idea is:
->>   For every packet arrival:
->>   	Calculate Qave
->> 	if (Qave < minth)=20
->> 	     Queue the new packet
->> 	else=20
->> 	     Select randomly a packet from the queue=20
->> 	     if (both packets from same flow)
->> 	     then Drop both the packets
->> 	     else if (Qave > maxth)
->> 	          Drop packet
->> 	     else
->> 	       	  Admit packet with proability p (same as RED)
->>=20
->> See also:
->>   Rong Pan, Balaji Prabhakar, Konstantinos Psounis, "CHOKe: a statel=
-ess active
->>    queue management scheme for approximating fair bandwidth allocati=
-on",=20
->>   Proceeding of INFOCOM'2000, March 2000.
->>=20
->> Help from:
->>      Eric Dumazet <eric.dumazet@gmail.com>
->>      Patrick McHardy <kaber@trash.net>
->>=20
->> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->>=20
->> ---
->> 0.11 - incorporates Eric's change to use rxhash
->>=20
->> =20
->=20
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Since I found that the netif queue stop/wake up is so expensive, I
+created a dropping packets patch on guest side so I don't need to debug
+generic networking code.
 
-Also applied, thanks guys!
+guest start_xmit()
+	capacity = free_old_xmit_skb() + virtqueue_get_num_freed()
+	if (capacity == 0)
+		drop this packet;
+		return;
+
+In the patch, both guest TX interrupts and callback have been omitted.
+Host vhost_signal in handle_tx can totally be removed as well. (A new
+virtio_ring API is needed for exporting total of num_free descriptors
+here -- virtioqueue_get_num_freed)
+
+Initial TCP_STREAM performance results I got for guest to local host 
+4.2Gb/s for 1K message size, (vs. 2.5Gb/s)
+6.2Gb/s for 2K message size, and (vs. 3.8Gb/s)
+9.8Gb/s for 4K message size. (vs.5.xGb/s)
+
+Since large message size (64K) doesn't hit (capacity == 0) case, so the
+performance only has a little better. (from 13.xGb/s to 14.x Gb/s)
+
+kvm_stat output shows significant exits reduction for both VM and I/O,
+no guest TX interrupts.
+
+With dropping packets, TCP retrans has been increased here, so I can see
+performance numbers are various.
+
+This might be not a good solution, but it gave us some ideas on
+expensive netif queue stop/wake up between guest and host notification.
+
+I couldn't find a better solution on how to reduce netif queue stop/wake
+up rate for small message size. But I think once we can address this,
+the guest TX performance will burst for small message size.
+
+I also compared this with return TX_BUSY approach when (capacity == 0),
+it is not as good as dropping packets.
+
+> > 3. Delay guest netif queue wake up until certain descriptors (1/2
+> ring
+> > size, 1/4 ring size...) are available once the queue has stopped.
+> > 
+> > 4. Accumulate more packets per vhost signal in handle_tx?
+> > 
+> > 5. 3 & 4 combinations
+> > 
+> > 6. Accumulate more packets per guest kick() (TCP_RR) by adding a
+> timer? 
+> > 
+> > 7. Accumulate more packets per vhost handle_tx() by adding some
+> delay?
+> > 
+> > > Haven't noticed that part, how does your patch make it
+> > handle more packets?
+> > 
+> > Added a delay in handle_tx().
+> > 
+> > What else?
+> > 
+> > It would take sometimes to do this.
+> > 
+> > Shirley
+> 
+> 
+> Need to think about this.
+> 
+> 
+
