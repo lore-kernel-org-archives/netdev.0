@@ -1,44 +1,62 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] ServerEngines, benet: Avoid potential null deref in
- be_cmd_get_seeprom_data()
-Date: Thu, 3 Feb 2011 22:27:09 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1102032224110.1369@swampdragon.chaosbits.net>
+From: Carlos Mafra <crmafra2@gmail.com>
+Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
+Date: Thu, 3 Feb 2011 22:56:29 +0100
+Message-ID: <AANLkTi=suS1VDL=6EtT0D2=0c1DWwxdwZBBv=-BySNX-@mail.gmail.com>
+References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera>
+	<AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com>
+	<s5haaid3xos.wl%tiwai@suse.de>
+	<201102032009.17100.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-drivers@serverengines.com, linux-kernel@vger.kernel.org,
-	Ajit Khaparde <ajitk@serverengines.com>,
-	Sarveshwar Bandi <sarveshwarb@serverengines.com>,
-	Subbu Seetharaman <subbus@serverengines.com>,
-	Sathya Perla <sathyap@serverengines.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Takashi Iwai <tiwai@suse.de>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Keith Packard <keithp@keithp.com>,
+	Dave Airlie <airlied@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <linux-acpi-owner@vger.kernel.org>
+In-Reply-To: <201102032009.17100.rjw@sisk.pl>
+Sender: linux-acpi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-wrb_from_mccq() may return null, so we may crash on a null deref in 
-be_cmd_get_seeprom_data().
-This avoids that potential crash.
+On Thu, Feb 3, 2011 at 8:09 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+> On Thursday, February 03, 2011, Takashi Iwai wrote:
+>> At Thu, 3 Feb 2011 07:42:05 -0800,
+>> Linus Torvalds wrote:
+>> >
+>> > On Thu, Feb 3, 2011 at 3:23 AM, Carlos R. Mafra <crmafra2@gmail.co=
+m> wrote:
+>> > > On Thu =A03.Feb'11 at =A01:03:41 +0100, Rafael J. Wysocki wrote:
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- be_cmds.c |    2 ++
- 1 file changed, 2 insertions(+)
+>> > Just to confirm, can you also check -rc3? I'm pretty sure nothing =
+has
+>> > changed, but there were a few drm patches after -rc2, so it's alsw=
+ays
+>> > good to double-check.
+>>
+>> The problem I reported in the bugzilla above is still present in
+>> 2.6.38-rc3. =A0I'm pretty sure that's the same issue as Carlos' case=
+=2E
+>
+> I added https://bugzilla.kernel.org/show_bug.cgi?id=3D24982 to the li=
+st of
+> post-2.6.36 regressions for further tracking.
 
-diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
-index 0c7811f..ec4a21d 100644
---- a/drivers/net/benet/be_cmds.c
-+++ b/drivers/net/benet/be_cmds.c
-@@ -1786,6 +1786,8 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
- 	spin_lock_bh(&adapter->mcc_lock);
- 
- 	wrb = wrb_from_mccq(adapter);
-+	if (!wrb)
-+		return -EBUSY;
- 	req = nonemb_cmd->va;
- 	sge = nonembedded_sgl(wrb);
- 
-
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
+I also tested on 2.6.38-rc3+ now and the issue is not solved,
+just like Takashi expected.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-acpi" i=
+n
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
