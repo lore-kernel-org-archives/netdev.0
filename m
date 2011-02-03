@@ -1,64 +1,31 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: sending IP pkgs form user space on a specific interface?
-Date: Thu, 03 Feb 2011 14:41:07 -0800
-Message-ID: <4D4B2F03.60806@candelatech.com>
-References: <OFAEE2A3EA.1C3F2C8A-ONC125782C.0077F327-C125782C.007872C6@transmode.se> <4D4B2649.40404@candelatech.com> <OF72446498.F31B6A78-ONC125782C.00794F9B-C125782C.007A2D64@transmode.se>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
+Date: Fri, 4 Feb 2011 00:43:05 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1102040027060.25125@melkinpaasi.cs.helsinki.fi>
+References: <20110202.170750.229739784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Joakim Tjernlund <joakim.tjernlund@transmode.se>
+Cc: Netdev <netdev@vger.kernel.org>, therbert@google.com,
+	"H.K. Jerry Chu" <hkjerry.chu@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:46759 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920Ab1BCWlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:41:11 -0500
-In-Reply-To: <OF72446498.F31B6A78-ONC125782C.00794F9B-C125782C.007A2D64@transmode.se>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:43663 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051Ab1BCWnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 17:43:08 -0500
+In-Reply-To: <20110202.170750.229739784.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/03/2011 02:14 PM, Joakim Tjernlund wrote:
-> Ben Greear<greearb@candelatech.com>  wrote on 2011/02/03 23:03:53:
->> From: Ben Greear<greearb@candelatech.com>
->> To: Joakim Tjernlund<joakim.tjernlund@transmode.se>
->> Cc: netdev@vger.kernel.org
->> Date: 2011/02/03 23:03
->> Subject: Re: sending IP pkgs form user space on a specific interface?
->>
->> On 02/03/2011 01:55 PM, Joakim Tjernlund wrote:
->>>
->>> Is there a way to specify what I/F a IP pkg should be sent
->>> out on?
->>>
->>> I have multiple ppp I/Fs with the same local and remote address
->>> and I need to specify what interface to send OSPF protocol
->>> messages to.
->>
->> Check out SO_BINDTODEVICE.
->
-> Thanks, can do setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE, ..) for
-> each I/Fs I need tx pkgs over?
-> How do I unbind to any I/F?
->
-> If possible, I would like to specify the I/F in the pkg overhead.
-
-Man-pages and google should find those answers.
-You could put my name in your search as well, if you want..I know I've
-posted sample code in the past to some mailing list or another.
-
-Thanks,
-Ben
-
->
->     Jocke
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+It would perhaps be useful to change receiver advertized window to include 
+some extra segs initially. It should be >= IW + peer's dupThresh-1 as 
+otherwise limited transmit won't work for the initial window because we 
+won't open more receiver window with dupacks (IIRC, I suppose Jerry might 
+be able to correct me right away if I'm wrong and we open window with 
+dupacks too?).  I think initial receiver window code used to have some 
+surplus but it was broken by the rfc3390-func conversion (against my 
+advice on how to do the conversion).
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+ i.
