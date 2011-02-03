@@ -1,44 +1,53 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] NETFILTER module xt_hmark new target for HASH MARK
-Date: Thu, 03 Feb 2011 14:51:18 +0100
-Message-ID: <4D4AB2D6.7070302@netfilter.org>
-References: <1296740050-6311-1-git-send-email-hans.schillstrom@ericsson.com> <1296740050-6311-2-git-send-email-hans.schillstrom@ericsson.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
+Date: Thu, 03 Feb 2011 15:00:28 +0100
+Message-ID: <47859e9273bb0c1b2c32fc1adfa450ee@localhost>
+References: <20110202.170750.229739784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain;
+ charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, jengelh@medozas.de,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	hans@schillstrom.com
-To: Hans Schillstrom <hans.schillstrom@ericsson.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1296740050-6311-2-git-send-email-hans.schillstrom@ericsson.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <dccp@vger.kernel.org>,
+	<therbert@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:56605 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756363Ab1BCOAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 09:00:30 -0500
+In-Reply-To: <20110202.170750.229739784.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/02/11 14:34, Hans Schillstrom wrote:
-> +/*
-> + * Calc hash value, special casre is taken on icmp and fragmented messages
-> + * i.e. fragmented messages don't use ports.
-> + */
-> +static __u32 get_hash(struct sk_buff *skb, struct xt_hmark_info *info)
-> +{
-[...]
-> +	ip_proto &= info->prmask;
-> +	/* get a consistent hash (same value on both flow directions) */
-> +	if (addr2 < addr1)
-> +		swap(addr1, addr2);
 
-this assumption is not valid in NAT handlings.
+On Wed, 02 Feb 2011 17:07:50 -0800 (PST), David Miller wrote:
 
-If you want consistent hashing with NAT handlings you'll have to make
-this stateful and use the conntrack source and reply directions of the
-original tuples (thus making it stateful). That may be a problem because
-some people may want to use this without enabling connection tracking.
 
-Are you using this for (uplink) load balancing?
 
-Could you also include one realistic example in the patch description on
-how this is used?
+> +/* TCP initial congestion window */
 
-If this is accepted, I think this has to be merge with the (already
-overloaded) MARK target.
+> +#define TCP_INIT_CWND		10
+
+> +
+
+
+
+Davem, there is _no_ research how this huge IW will behave in environments
+
+with a small BDP. Belief it or not, but there are networks out there with a
+
+BDP similar to ~1980. Why for heaven's sake should this work in these
+
+environments? There are only _two_ extensive analysis one from Cherry and
+
+and one from Ilpo. Both analysis focus on current mainstream BDP. I started
+
+to setup a ns-2 environment but due to lack of time I am a little bit
+
+behind schedule. Anyway, why not make this a tunable per route knob so that
+
+it is easier to fix things, e.g. set IW back to 3.
+
+
+
+HGN
