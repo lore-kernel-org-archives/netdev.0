@@ -1,39 +1,31 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: potential null pointer dereference in drivers/isdn/hisax/isdnl2.c
-Date: Thu, 3 Feb 2011 21:27:56 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1102032121180.15101@swampdragon.chaosbits.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2011-02-02
+Date: Thu, 03 Feb 2011 13:07:41 -0800 (PST)
+Message-ID: <20110203.130741.193714291.davem@davemloft.net>
+References: <20110202215322.GD2500@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, Tejun Heo <tj@kernel.org>,
-	Karsten Keil <isdn@linux-pingi.de>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from swampdragon.chaosbits.net ([90.184.90.115]:11076 "EHLO
-	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751831Ab1BCU2y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 15:28:54 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110202215322.GD2500-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Wed, 2 Feb 2011 16:53:22 -0500
 
-In drivers/isdn/hisax/isdnl2.c:l2_pull_iqueue() we have this:
+> Here we have another big batch of updates destined for 2.6.39.
+> 
+> A highlight is AP mode support for the wl12xx driver.  There are
+> also the usual updates to ath5k, ath9k, iwlwifi, rt2x00, and others.
+> Also included are some wireless-2.6 pulls to correct for some build breakage.
+> 
+> Please let me know if there are problems!
 
-	...
-		skb = alloc_skb(oskb->len + i, GFP_ATOMIC);
-		memcpy(skb_put(skb, i), header, i);
-	...
-
-If alloc_skb() fails and returns NULL then the second line will cause a 
-NULL pointer dereference - skb_put() gives the pointer to 
-skb_tail_pointer() which dereferences it.
-
-I'm not quite sure how this should be dealt with, so I'll just report it 
-rather than submit a patch. Happy bug fixing :-)
-
-
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
-Plain text mails only, please.
-
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
