@@ -1,57 +1,49 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [E1000-devel] [PATCH] fixing hw timestamping in igb
-Date: Thu, 03 Feb 2011 15:23:27 -0800
-Message-ID: <1296775407.2698.10.camel@jtkirshe-MOBL1>
-References: <9D02360A-8016-4BCB-B14A-DAFE22EF558E@halon.se>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: Re: [PATCH] niu: fix SMP race protecting rx_rings and tx_rings
+Date: Thu, 3 Feb 2011 21:47:48 -0200
+Message-ID: <20110203234748.GB3710@redhat.com>
+References: <1296758717-18406-1-git-send-email-fleitner@redhat.com>
+ <20110203.142145.183054407.davem@davemloft.net>
+ <20110203231805.GA3710@redhat.com>
+ <20110203.152214.59684545.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-w2UnNZ22eDVmaxbVecgl"
-Cc: "Ronciak, John" <john.ronciak@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Ohly, Patrick" <patrick.ohly@intel.com>
-To: Anders Berggren <anders@halon.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:8279 "EHLO mga03.intel.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36710 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752244Ab1BCXXU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Feb 2011 18:23:20 -0500
-In-Reply-To: <9D02360A-8016-4BCB-B14A-DAFE22EF558E@halon.se>
+	id S1751221Ab1BCXr4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Feb 2011 18:47:56 -0500
+Content-Disposition: inline
+In-Reply-To: <20110203.152214.59684545.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 03, 2011 at 03:22:14PM -0800, David Miller wrote:
+> From: Flavio Leitner <fleitner@redhat.com>
+> Date: Thu, 3 Feb 2011 21:18:05 -0200
+> 
+> > Ok, I can write a new version using RCU if you like.
+> 
+> Don't worry, I'll take care of it, I actually have the
+> hardware to test on :-)
 
---=-w2UnNZ22eDVmaxbVecgl
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Ok. Having the hardware around indeed helps :)
 
-On Thu, 2011-02-03 at 02:39 -0800, Anders Berggren wrote:
-> Hardware timestamping for Intel 82580 didn't work in either 2.6.36 or 2.6=
-.37. Comparing it to Intel's igb-2.4.12 I found that the timecounter_init c=
-lock/counter initialization was done too early.=20
->=20
-> Anders Berggren
-> Halon Security
+> > I've chose rwsem because I think those operations aren't
+> > frequent. The RCU leaves an operation to run later during
+> > a safe context, so I thought the cost doesn't worth it.
+> 
+> One thing I'm worried about with your patch is that the statistics
+> method can be called in basically any context, therefore a sleeping
+> lock like the rw_semaphore is probably not usable.
+> 
+> In fact I'm going to revert your patch for now because of this issue.
 
-Thanks Anders, I will add this patch to my queue of igb patches.
+Oops, I didn't see it there.  I thought all calls there were process
+context.  Anyway, RCU then...
 
-
---=-w2UnNZ22eDVmaxbVecgl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEbBAABAgAGBQJNSzjuAAoJECTsCADr/EWU9V4H+LTMfuXf86pjLGGjD8BTBlAe
-NRiUWubWQsD2DburCuGZ7GsLcsMSmSOffulpGmtGySKRIQ5SMYBkizG1fbYnaxrL
-ZHLmeVURqIDul2ExXdNrvGV9PcbqPkpBjriJ5/VmWiJTs5MhopTrsEkBeXRXY8Am
-aVn56bNi3GqDnpnCvaAYKd7r3ee01w4jxBI6Ac38ju9PBvIQKe0d0YJdThVaPgQh
-WcrLLRXlZziRY2GEpsyJMxxZh6q8Y3jNTHl5aMb6MD7L2xhfqLjJ1Mol6xhbY5/T
-CLg7mOecDz2dagsYaHhguhhcpY2nD6bvo3An+wiC0kGCiNJ5D2ukMcqQvsWgDw==
-=u2PP
------END PGP SIGNATURE-----
-
---=-w2UnNZ22eDVmaxbVecgl--
-
+thanks for reviewing it,
+-- 
+Flavio
