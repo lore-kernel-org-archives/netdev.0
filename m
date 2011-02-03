@@ -1,51 +1,36 @@
-From: frank.blaschka@de.ibm.com
-Subject: [patch 1/6] [PATCH] qeth: show new mac-address if its setting fails
-Date: Wed, 02 Feb 2011 17:04:31 +0100
-Message-ID: <20110202160530.090862534@de.ibm.com>
-References: <20110202160430.554090958@de.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	Ursula Braun <ursula.braun@de.ibm.com>
-To: davem@davemloft.net
+From: steve lindsey <jerzy.drazkiewicz@neostrada.pl>
+Subject: LOAN
+Date: Thu, 03 Feb 2011 00:19:40 -0800
+Message-ID: <0LFZ003BMZZZU830@mta6.hosting.tp.pl>
+Reply-To: stevelindsey112@kkwl.ac.th
+Mime-Version: 1.0
+Content-Type: text/plain; charset=Windows-1251
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtagate7.uk.ibm.com ([194.196.100.167]:52497 "EHLO
-	mtagate7.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754360Ab1BBQFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 11:05:32 -0500
-Content-Disposition: inline; filename=604-qeth-mac-address.diff
+Received: from outgoing.hosting.tp.pl ([193.110.120.20]:19084 "EHLO
+	mta6.hosting.tp.pl" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754396Ab1BBQTp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Feb 2011 11:19:45 -0500
+Received: from User ([60.54.46.121]) by mta6.hosting.tp.pl (m6)
+ with ESMTPA id <0LFZ003BHZZXU830@mta6.hosting.tp.pl> for
+ netdev@vger.kernel.org; Wed, 02 Feb 2011 17:19:44 +0100 (CET)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ursula Braun <ursula.braun@de.ibm.com>
+Are you in need of financial help?, you need a loan for your business or to solve
+other monetary issues.We offer loans with a fixed interest rate of 2% within
+minimum range of $5,000.00 to maximum of $200,000,000.00. Interested applicants 
+should submit their request via email (stevelindsey112@kkwl.ac.th) for immediate 
+processing with the information listed below:
 
-Setting of a MAC-address may fail because an already used MAC-address
-is to bet set or because of authorization problems. In those cases
-qeth issues a message, but the mentioned MAC-address is not the
-new MAC-address to be set, but the actual MAC-address. This patch
-chooses now the new MAC-address to be set for the error messages.
+Names in full:
+Address:
+Gender:
+Phone Number:
+Amount Required:
+Loan Duration:
+Country:
 
-Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
-Signed-off-by: Frank Blaschka <frank.blaschka@de.ibm.com>
----
-
-
- drivers/s390/net/qeth_l2_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
---- a/drivers/s390/net/qeth_l2_main.c
-+++ b/drivers/s390/net/qeth_l2_main.c
-@@ -573,13 +573,13 @@ static int qeth_l2_send_setmac_cb(struct
- 		case IPA_RC_L2_DUP_LAYER3_MAC:
- 			dev_warn(&card->gdev->dev,
- 				"MAC address %pM already exists\n",
--				card->dev->dev_addr);
-+				cmd->data.setdelmac.mac);
- 			break;
- 		case IPA_RC_L2_MAC_NOT_AUTH_BY_HYP:
- 		case IPA_RC_L2_MAC_NOT_AUTH_BY_ADP:
- 			dev_warn(&card->gdev->dev,
- 				"MAC address %pM is not authorized\n",
--				card->dev->dev_addr);
-+				cmd->data.setdelmac.mac);
- 			break;
- 		default:
- 			break;
-
+Best Regard:Steve lindsey
+Email:stevelindsey112@kkwl.ac.th
