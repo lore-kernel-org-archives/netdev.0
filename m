@@ -1,58 +1,89 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: linux-next: build failure after merge of the final tree (net
- tree related)
-Date: Thu, 3 Feb 2011 16:14:48 +1100
-Message-ID: <20110203161448.ce197f0b.sfr@canb.auug.org.au>
-References: <20110203151309.d4a6c344.sfr@canb.auug.org.au>
-	<20110202.204606.226770967.davem@davemloft.net>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Network performance with small packets
+Date: Thu, 3 Feb 2011 07:59:26 +0200
+Message-ID: <20110203055926.GB22230@redhat.com>
+References: <20110202154706.GA12738@redhat.com>
+ <1296666635.25430.35.camel@localhost.localdomain>
+ <20110202173213.GA13907@redhat.com>
+ <1296670311.25430.49.camel@localhost.localdomain>
+ <20110202182720.GB14257@redhat.com>
+ <1296674975.25430.59.camel@localhost.localdomain>
+ <20110202201731.GB15150@redhat.com>
+ <1296680585.25430.98.camel@localhost.localdomain>
+ <20110202212047.GD15150@redhat.com>
+ <1296682893.25430.112.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Thu__3_Feb_2011_16_14_48_+1100_4MD5415/1E8fWo/+"
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20110202.204606.226770967.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
---Signature=_Thu__3_Feb_2011_16_14_48_+1100_4MD5415/1E8fWo/+
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	mashirle@linux.vnet.ibm.com, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org, Sridhar Samudrala <sri@us.ibm.com>,
+	Steve Dobbelstein <steved@us.ibm.com>
+To: Shirley Ma <mashirle@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52748 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751611Ab1BCF7q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Feb 2011 00:59:46 -0500
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <1296682893.25430.112.camel@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+On Wed, Feb 02, 2011 at 01:41:33PM -0800, Shirley Ma wrote:
+> On Wed, 2011-02-02 at 23:20 +0200, Michael S. Tsirkin wrote:
+> > > On Wed, 2011-02-02 at 22:17 +0200, Michael S. Tsirkin wrote:
+> > > > Well, this is also the only case where the queue is stopped, no?
+> > > Yes. I got some debugging data, I saw that sometimes there were so
+> > many
+> > > packets were waiting for free in guest between vhost_signal & guest
+> > xmit
+> > > callback.
+> > 
+> > What does this mean?
+> 
+> Let's look at the sequence here:
+> 
+> guest start_xmit()
+> 	xmit_skb()
+> 	if ring is full,
+> 		enable_cb()
+> 
+> guest skb_xmit_done()
+> 	disable_cb,
+>         printk free_old_xmit_skbs <-- it was between more than 1/2 to
+> full ring size
+> 	printk vq->num_free 
+> 
+> vhost handle_tx()
+> 	if (guest interrupt is enabled)
+> 		signal guest to free xmit buffers
+> 
+> So between guest queue full/stopped queue/enable call back to guest
+> receives the callback from host to free_old_xmit_skbs, there were about
+> 1/2 to full ring size descriptors available. I thought there were only a
+> few. (I disabled your vhost patch for this test.)
 
-On Wed, 02 Feb 2011 20:46:06 -0800 (PST) David Miller <davem@davemloft.net>=
- wrote:
->
-> This problem has existed forever, you just have only been testing
-> the build with fib_hash enabled instead of fib_trie.
 
-All I have been doing (in this case) is a sparc32 defconfig ...
+The expected number is vq->num - max skb frags - 2.
 
-> I'll fix it up, thanks for the report.
-
-no worries
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Thu__3_Feb_2011_16_14_48_+1100_4MD5415/1E8fWo/+
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNSjnIAAoJEDMEi1NhKgbshwUH/A8QXOusQP7JPZOhbNI7VeZj
-tsf9UK9aXdr2/aw+nihp3ve2PYp4Rzi13gCufCZVS0pwigRerjVCWmFaSb96gLwK
-mJhBrj7MQX8Y676b0iWX0nfiiTiQv2d7Lb1KnqoR8E0fxMXCYAhUDSl6YNeWZmI/
-vHDbTzlrVgMXwXeKY4U3c1EcA+7UUzxjarM5eZeS9JzOcMDj6LfLwSGcxA9WKDpr
-lWpVVVXZlIbE8kmx+bURcdY0SxB0Gk0N+LU8ODAKRhdcs3XH86xl673wwrv2yb0j
-7C6+KGQ6mJSsfuS2QkLVOMU8UZOXAXERarhmqRs2MI2fXKLblxkbJfqxzZpzbwI=
-=Ujbm
------END PGP SIGNATURE-----
-
---Signature=_Thu__3_Feb_2011_16_14_48_+1100_4MD5415/1E8fWo/+--
+> 
+> > > Looks like the time spent too long from vhost_signal to guest
+> > > xmit callback?
+> > 
+> > 
+> > 
+> > > > > I tried to accumulate multiple guest to host notifications for
+> > TX
+> > > > xmits,
+> > > > > it did help multiple streams TCP_RR results;
+> > > > I don't see a point to delay used idx update, do you?
+> > > 
+> > > It might cause per vhost handle_tx processed more packets.
+> > 
+> > I don't understand. It's a couple of writes - what is the issue?
+> 
+> Oh, handle_tx could process more packets per loop for multiple streams
+> TCP_RR case. I need to print out the data rate per loop to confirm this.
+> 
+> Shirley
