@@ -1,56 +1,102 @@
-From: "Carlos R. Mafra" <crmafra2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
-Date: Fri, 4 Feb 2011 08:05:46 +0100
-Message-ID: <20110204070546.GA12621@linux-yscl.site>
-References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera>
- <AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com>
- <s5haaid3xos.wl%tiwai@suse.de>
- <201102032009.17100.rjw@sisk.pl>
- <AANLkTi=suS1VDL=6EtT0D2=0c1DWwxdwZBBv=-BySNX-@mail.gmail.com>
- <AANLkTi=7EOih=fY5FCvhQbewSc=3a49cYVaKJRWM+-3d@mail.gmail.com>
- <AANLkTin7kBur95H=UBcYEcjYsUkrdG8znX-7PFZ4rrHf@mail.gmail.com>
- <AANLkTimQPPDyBwkN0HWM2+bPcbzVd8YHZvn2iR8MVzfL@mail.gmail.com>
- <yund3n88v7x.fsf@aiko.keithp.com>
- <AANLkTin-9a5Z3qq4t8UakRvgB1G3_CT2RLKMVaHXvnLr@mail.gmail.com>
+From: Alexander Zimmermann <alexander.zimmermann@comsys.rwth-aachen.de>
+Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
+Date: Fri, 04 Feb 2011 09:38:34 +0100
+Message-ID: <C9A0E70E-D1DB-45CF-ABB1-8CF9A9D03144@comsys.rwth-aachen.de>
+References: <20110202.170750.229739784.davem@davemloft.net>
 Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg=pgp-sha1; boundary=Apple-Mail-9-673935302
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org, therbert@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta-2.ms.rz.RWTH-Aachen.DE ([134.130.7.73]:61816 "EHLO
+	mta-2.ms.rz.rwth-aachen.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753411Ab1BDJIi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 04:08:38 -0500
+In-reply-to: <20110202.170750.229739784.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--Apple-Mail-9-673935302
+Content-Transfer-Encoding: quoted-printable
 Content-Type: text/plain; charset=us-ascii
-Cc: Keith Packard <keithp-aN4HjG94KOLQT0dZR+AlfA@public.gmane.org>, Dave Airlie <airlied-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Dave Airlie <airlied-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>, Takashi Iwai <tiwai-l3A5Bk7waGM@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Maciej Rutecki <maciej.rutecki-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Florian Mickler <florian-sVu6HhrpSfRAfugRpC6u6w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kernel Testers List <kernel-testers-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux ACPI <linux-acpi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux PM List <linux-pm-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Linux SCSI List <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	DRI <dri-devel-PD4FTy7X32lNgt0PjOBp9y5qC8QIuHrW@public.gmane.org>
-To: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTin-9a5Z3qq4t8UakRvgB1G3_CT2RLKMVaHXvnLr-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: kernel-testers-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
 
-On Thu  3.Feb'11 at 17:11:14 -0800, Linus Torvalds wrote:
-> On Thu, Feb 3, 2011 at 5:05 PM, Keith Packard <keithp-aN4HjG94KOLQT0dZR+AlfA@public.gmane.org> wrote:
-> >
-> > The goal is to make it so that when you *do* set a mode, DPMS gets set
-> > to ON (as the monitor will actually be "on" at that point). Here's a
-> > patch which does the DPMS_ON precisely when setting a mode.
-> 
-> Ok, patch looks sane, but it does leave me with the "what about the
-> 'fb_changed' case?" question. Is that case basically guaranteed to not
-> change any existing dpms state?
-> 
-> > (note, this patch compiles, but is otherwise only lightly tested).
-> 
-> Carlos? Takashi? Ignore my crazy patch, try this one instead. Does it
-> fix things for you?
+Hi David,
 
-Yes! (tested on top of 2.6.38-rc3+).
+Am 03.02.2011 um 02:07 schrieb David Miller:
 
-Thanks to everyone involved!
+>=20
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>=20
+> I've left the DCCP code to keep using RFC3390 logic, if they
+> wish to adopt this change in their code they can do so by
+> simply deleting the rfc33390_bytes_to_packets() function and
+> using TCP_INIT_CWND in their assignment.
+>=20
+> include/net/tcp.h      |   12 +++---------
+> net/dccp/ccids/ccid2.c |    9 +++++++++
+> net/ipv4/tcp_input.c   |    2 +-
+> 3 files changed, 13 insertions(+), 10 deletions(-)
+>=20
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index 9179111..7118668 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -196,6 +196,9 @@ extern void tcp_time_wait(struct sock *sk, int =
+state, int timeo);
+> /* TCP thin-stream limits */
+> #define TCP_THIN_LINEAR_RETRIES 6       /* After 6 linear retries, do =
+exp. backoff */
+>=20
+
+Could you add a reference to draft?
+
+> +/* TCP initial congestion window */
+> +#define TCP_INIT_CWND		10
+> +
+> extern struct inet_timewait_death_row tcp_death_row;
+>=20
+> /* sysctl variables for tcp */
+> @@ -799,15 +802,6 @@ static inline __u32 tcp_current_ssthresh(const =
+struct sock *sk)
+> /* Use define here intentionally to get WARN_ON location shown at the =
+caller */
+> #define tcp_verify_left_out(tp)	WARN_ON(tcp_left_out(tp) > =
+tp->packets_out)
+>=20
+> -/*
+> - * Convert RFC 3390 larger initial window into an equivalent number =
+of packets.
+> - * This is based on the numbers specified in RFC 5681, 3.1.
+> - */
+> -static inline u32 rfc3390_bytes_to_packets(const u32 smss)
+> -{
+> -	return smss <=3D 1095 ? 4 : (smss > 2190 ? 2 : 3);
+> -}
+> -
+> extern void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+> extern __u32 tcp_init_cwnd(struct tcp_sock *tp, struct dst_entry =
+*dst);
+>=20
+
+
+
+--Apple-Mail-9-673935302
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: Signierter Teil der Nachricht
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (Darwin)
+
+iEYEARECAAYFAk1LuwsACgkQdyiq39b9uS57SQCfUU149QrgiJaqGMuPmtBHFk9j
+0ukAoJQvAvChRj/W9qLSc0GCifwnxr2b
+=TdpG
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-9-673935302--
