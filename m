@@ -1,58 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] include/net/genetlink.h: Allow genlmsg_cancel to
- accept a NULL argument
-Date: Thu, 03 Feb 2011 20:43:41 -0800 (PST)
-Message-ID: <20110203.204341.193732974.davem@davemloft.net>
-References: <Pine.LNX.4.64.1101281642080.8546@pc-004.diku.dk>
-	<20110201.145410.115936566.davem@davemloft.net>
-	<Pine.LNX.4.64.1102020659520.9302@ask.diku.dk>
+Subject: Re: [PATCH] be2net: use device model DMA API
+Date: Thu, 03 Feb 2011 20:49:55 -0800 (PST)
+Message-ID: <20110203.204955.226760498.davem@davemloft.net>
+References: <c6e8a0f7-efdf-498e-9647-b544bc4adf34@exht1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paul.moore@hp.com, kernel-janitors@vger.kernel.org
-To: julia@diku.dk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.64.1102020659520.9302@ask.diku.dk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ivecera@redhat.com, netdev@vger.kernel.org,
+	sathya.perla@emulex.com, subramanian.seetharaman@emulex.com
+To: ajit.khaparde@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59134
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751498Ab1BDEtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 23:49:20 -0500
+In-Reply-To: <c6e8a0f7-efdf-498e-9647-b544bc4adf34@exht1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia@diku.dk>
-Date: Wed, 2 Feb 2011 07:17:29 +0100 (CET)
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Date: Thu, 3 Feb 2011 22:39:25 -0600
 
-> This pattern occurred in eg:
+> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net] 
+>> Sent: Wednesday, February 02, 2011 4:57 PM
+>> To: ivecera@redhat.com
+>> Cc: netdev@vger.kernel.org; Perla, Sathya; Seetharaman, Subramanian; Bandi, Sarveshwar; Khaparde, Ajit
+>> Subject: Re: [PATCH] be2net: use device model DMA API
 > 
-> net/netlabel/netlabel_unlabeled.c
+>> From: Ivan Vecera <ivecera@redhat.com>
+>> Date: Wed,  2 Feb 2011 19:05:12 +0100
 > 
-> in the function netlbl_unlabel_staticlist_gen and in other netlabel code, 
-> as well as in net/wireless/nl80211.c, but with the function nl80211hdr_put 
-> instead of genlmsg_put.  I submitted patches for all of these cases, so 
-> that is perhaps why you don't see them.  But someone suggested to change 
-> genlmsg_cancel as well, to be as permissive as nlmsg_cancel.
+>> > Use DMA API as PCI equivalents will be deprecated.
+>> > 
+>> > Signed-off-by: Ivan Vecera <ivecera@redhat.com>
 > 
-> For nlmsg_cancel, there are two occurrences in 
-> net/netfilter/nf_conntrack_netlink.c where nlmsg_cancel is reachable with 
-> the second argument NULL.
+>> Looks good to me, can I get some review from the be2net maintainers?
 > 
-> For nlmsg_cancel the ability to accept NULL as a second argument comes 
-> from the fact that it only calls nlmsg_trim, which does nothing if NULL is 
-> the second argument.  nlmsg_trim is also called by nla_nest_cancel.  There 
-> are many calls to nla_nest_cancel with NULL as the second argument in the 
-> directory net/sched, for example in the function gred_dump in 
-> net/sched/sch_gred.c.  net/sched also contains a call to nlmsg_trim with 
-> NULL as the second argument, in the function flow_dump, in 
-> net/sched/cls_flow.c.
+> Looks good. Thanks.
 > 
-> The whole thing seems somewhat sloppy.  I'm sure that all of the 
-> above-cited occurrences could be rewritten as outlined above to skip over 
-> the cancel/trim function.
+> Acked-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 
-Thanks for the analysis Julia.
-
-I think the only safe thing to do in net-2.6 and -stable is to add
-the NULL check to genlmsg_cancel() as your patch did.
-
-I we later want to move things such that, consistently, we never
-call *nlmsg_cancel() with a NULL second arg, that's fine.
-
-I'll apply your genlmsg_cancel() patch, thanks Julia.
+Applied, thanks.
