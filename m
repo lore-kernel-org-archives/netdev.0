@@ -1,49 +1,64 @@
-From: Nik Trevallyn-Jones <nik777@users.sf.net>
-Subject: Submitting new device driver
-Date: Fri, 04 Feb 2011 14:05:14 +1100
-Message-ID: <4D4B6CEA.5060900@users.sf.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from babel.homelinux.net ([61.29.36.94]:41499 "EHLO mail.internal"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752925Ab1BDDhe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Feb 2011 22:37:34 -0500
-Received: from hplaptop.babel.homelinux.net (unknown [192.168.0.20])
-	by mail.internal (Postfix) with ESMTP id CB06CD226C
-	for <netdev@vger.kernel.org>; Fri,  4 Feb 2011 14:06:43 +1100 (EST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [PATCH 0/5] net: sysctl: share ipv4/ipv6 sysctl tables
+Date: Fri,  4 Feb 2011 06:37:03 +0200
+Message-ID: <cover.1296793770.git.lucian.grijincu@gmail.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Oct
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear network kernel maintainers,
 
-I maintain a device driver for a family of wireless broadband devices 
-for the iBurst (TM) system.
+Each network device gets the same 25/24 sysctl entries for ipv4/ipv6
+in /proc/sys/net/ipv4/conf/DEVNAME and /proc/sys/net/ipv6/conf/DEVNAME
 
-I am being asked by the community when (or possibly if) the driver will 
-be incorporated into the mainline kernel so users no longer need to 
-download and build the driver themselves.
+Unfortunately, space is wasted holding very much similar data.
+Fortunately, with some tricks these entries can be shared between all
+network devices.
 
-To that end, I've been reading the various documents on requirements for 
-submitting a driver, and am now trying to contact the appropriate 
-maintainers.
 
-The drivers include support for PCMCIA and USB hardware, and are 
-currently available from here:
+The single entry in 'struct ctl_table' that was modified at runtime
+for leaf ctl_table nodes and prevented sharing was 'parent'. This
+field was first introduces for selinux and then was used to implement
+sysctl_check_table. Selinux recently removed the need for this field:
+* http://thread.gmane.org/gmane.linux.kernel.lsm/12623
+* LKML-Reference: 1296519474-15714-1-git-send-email-lucian.grijincu@gmail.com
 
-http://sourceforge.net/projects/ibdriver/
 
-I have recently made changes to support the 2.6.36 kernel, and will 
-shortly review all the code to ensure compliance with the various 
-guidelines regarding mainline drivers.
+Remove the need for 'parent' in sysctl_check_table and remove the
+'parent' field:
 
-Could you please either let me know who I should direct my 
-request/submission to, or point me to the appropriate document that 
-tells me?
+  [PATCH 1/5] sysctl: faster reimplementation of sysctl_check_table
+  [PATCH 2/5] sysctl: remove useless ctl_table->parent field
 
-Many thanks for any and all responses,
 
-Cheers!
-Nik
+Pave the way for sharing of ipv4/6 tables: allow data to be stored in
+the nodes above the leafs that will be shared:
+
+  [PATCH 3/5] sysctl: write ctl_table->extra2 to entries created from ctl_path
+
+
+Finally share the leaf sysctl tables for ipv4/ipv6:
+
+  [PATCH 4/5] ipv4: share sysctl net/ipv4/conf/DEVNAME/ tables
+  [PATCH 5/5] ipv6: share sysctl net/ipv6/conf/DEVNAME/ tables
+
+
+ fs/proc/proc_sysctl.c       |   16 +++-
+ include/linux/inetdevice.h  |   12 +++-
+ include/linux/ipv6.h        |   15 +++-
+ include/linux/sysctl.h      |    3 +-
+ include/net/net_namespace.h |    2 +
+ kernel/sysctl.c             |   18 +---
+ kernel/sysctl_check.c       |  125 +++++++++++++--------------
+ net/ipv4/devinet.c          |  203 ++++++++++++++++++++++++++++--------------
+ net/ipv6/addrconf.c         |  192 +++++++++++++++++++++++++++-------------
+ net/sysctl_net.c            |   20 +++--
+ 10 files changed, 387 insertions(+), 219 deletions(-)
+
+-- 
+1.7.4.rc1.7.g2cf08.dirty
