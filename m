@@ -1,94 +1,69 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: [PATCH 0/5] net: sysctl: share ipv4/ipv6 sysctl tables
-Date: Fri, 4 Feb 2011 17:59:24 +0200
-Message-ID: <AANLkTik=a3NmibvYM6NxvqCiSiaE0oUFNtRaqn4+g_+D@mail.gmail.com>
-References: <cover.1296793770.git.lucian.grijincu@gmail.com> <AANLkTi=3kKhWRzM7S_f18YJ=jx1P7bN9zVo9yGC7zwN_@mail.gmail.com>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: Re: [PATCH] niu: Fix races between up/down and get_stats.
+Date: Fri, 4 Feb 2011 14:26:46 -0200
+Message-ID: <20110204162646.GC3710@redhat.com>
+References: <20110203.162529.260086668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=3kKhWRzM7S_f18YJ=jx1P7bN9zVo9yGC7zwN_@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9149 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751539Ab1BDQ0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Feb 2011 11:26:54 -0500
+Content-Disposition: inline
+In-Reply-To: <20110203.162529.260086668.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 4, 2011 at 12:49 PM, Alexey Dobriyan <adobriyan@gmail.com> =
-wrote:
->> Finally share the leaf sysctl tables for ipv4/ipv6:
->>
->> =C2=A0[PATCH 4/5] ipv4: share sysctl net/ipv4/conf/DEVNAME/ tables
->> =C2=A0[PATCH 5/5] ipv6: share sysctl net/ipv6/conf/DEVNAME/ tables
->
-> Meh.
->
-> First you remove ->parent, then heroically pass "struct file *"
-> to sysctl handlers which duplicates all information already passed
-> and brings dcache into picture.
->
-> Binary sysctl rewrite confused you into thinking that d_name.name
-> is the way, but it isn't.
-> For binary sysctl(2) you wouldn't get d_name.name.
+On Thu, Feb 03, 2011 at 04:25:29PM -0800, David Miller wrote:
+> 
+> As reported by Flavio Leitner, there is no synchronization to protect
+> NIU's get_stats method from seeing a NULL pointer in either
+> np->rx_rings or np->tx_rings.  In fact, as far as ->ndo_get_stats
+> is concerned, these values are set completely asynchronously.
+> 
+> Flavio attempted to fix this using a RW semaphore, which in fact
+> works most of the time.  However, dev_get_stats() can be invoked
+> from non-sleepable contexts in some cases, so this fix doesn't
+> work in all cases.
+> 
+> So instead, control the visibility of the np->{rx,tx}_ring pointers
+> when the device is being brough up, and use properties of the device
+> down sequence to our advantage.
+> 
+> In niu_get_stats(), return immediately if netif_running() is false.
+> The device shutdown sequence first marks the device as not running (by
+> clearing the __LINK_STATE_START bit), then it performans a
+> synchronize_rcu() (in dev_deactive_many()), and then finally it
+> invokes the driver ->ndo_stop() method.
+> 
+> This guarentees that all invocations of niu_get_stats() either see
+> netif_running() as false, or they see the channel pointers before
+> ->ndo_stop() clears them out.
+> 
+> If netif_running() is true, protect against startup races by loading
+> the np->{rx,tx}_rings pointer into a local variable, and punting if
+> it is NULL.  Use ACCESS_ONCE to prevent the compiler from reloading
+> the pointer on us.
+> 
+> Also, during open, control the order in which the pointers and the
+> ring counts become visible globally using SMP write memory barriers.
+> We make sure the np->num_{rx,tx}_rings value is stable and visible
+> before np->{rx,tx}_rings is.
+> 
+> Such visibility control is not necessary on the niu_free_channels()
+> side because of the RCU sequencing that happens during device down as
+> described above.  We are always guarenteed that all niu_get_stats
+> calls are finished, or will see netif_running() false, by the time
+> ->ndo_stop is invoked.
+> 
+> Reported-by: Flavio Leitner <fleitner@redhat.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-
-Are you really sure?
-
-I ran this code on a machine with and without these patches. It seems
-to work fine.
-
-It reads the value from /proc/sys/net/ipv4/conf/default/tag and writes =
-42 back.
-
-I'm not sure what I have to do to pass the name of a device (e.g.
-"eth0") instead of "default" but at least "default" and "all" work and
-have valid dentries.
-
-
-#define _GNU_SOURCE
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <linux/sysctl.h>
-
-
-int main(void)
-{
-	struct __sysctl_args args;
-	int oldtag, newtag;
-	size_t oldtaglen, newtaglen;
-
-	int name[] =3D { CTL_NET, NET_IPV4, NET_IPV4_CONF,
-NET_PROTO_CONF_DEFAULT, NET_IPV4_CONF_TAG };
-
-	memset(&args, 0, sizeof(struct __sysctl_args));
-	args.name =3D name;
-	args.nlen =3D sizeof(name)/sizeof(name[0]);
-
-	oldtag =3D -1;
-	oldtaglen =3D sizeof(oldtag);
-	args.oldval =3D &oldtag;
-	args.oldlenp =3D &oldtaglen;
-
-	newtag =3D 42;
-	newtaglen =3D sizeof(newtag);
-	args.newval =3D &newtag;
-	args.newlen =3D newtaglen;
-
-	if (syscall(SYS__sysctl, &args) =3D=3D -1) {
-		perror("_sysctl");
-		exit(EXIT_FAILURE);
-	}
-	printf("Old tag was %d, new tag is %d\n", oldtag, newtag);
-	exit(EXIT_SUCCESS);
-}
-
-
---=20
-=C2=A0.
-=2E.: Lucian
+nice patch, clever
+I got positive feedback on my patch. I'll ask for this patch as well.
+thanks,
+-- 
+Flavio
