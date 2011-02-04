@@ -1,252 +1,105 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [PATCH 1/6] sysctl: faster reimplementation of sysctl_check_table
-Date: Fri,  4 Feb 2011 22:31:25 +0200
-Message-ID: <1296851485-6730-1-git-send-email-lucian.grijincu@gmail.com>
-References: <m1oc6rio5u.fsf@fess.ebiederm.org>
-Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Oct
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1oc6rio5u.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Chuck Ebbert <cebbert@redhat.com>
+Subject: Oops in tcp_output.c, kernel 2.6.38-rc3
+Date: Fri, 4 Feb 2011 15:32:54 -0500
+Message-ID: <20110204153254.5c37c6f2@katamari>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Ilpo =?UTF-8?B?SsOkcnZpbmVu?= <ilpo.jarvinen@helsinki.fi>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52248 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752180Ab1BDUfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Feb 2011 15:35:50 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Determining the parent of a node at depth d
-- previous implementation: O(d)
-- current  implementation: O(1)
+Analysis is below. (From https://bugzilla.redhat.com/show_bug.cgi?id=674622)
 
-Printing the path to a node at depth d
-- previous implementation: O(d^2)
-- current  implementation: O(d)
+ BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+ IP: [<ffffffff81407b16>] tcp_write_xmit+0x694/0x7af
+ PGD 0 
+ Oops: 0002 [#1] SMP 
+ last sysfs file: /sys/devices/system/cpu/cpu1/cache/index2/shared_cpu_map
+ CPU 0 
+ Modules linked in: nls_utf8 hfsplus hfs vfat fat ext2 usb_storage uas cpufreq_ondemand acpi_cpufreq freq_table mperf snd_hda_codec_hdmi snd_hda_codec_realtek snd_hda_intel e1000e btusb i2c_i801 snd_hda_codec serio_raw snd_hwdep atl1e snd_seq snd_seq_device snd_pcm iTCO_wdt iTCO_vendor_support snd_timer asus_atk0110 bluetooth rfkill snd microcode soundcore snd_page_alloc ipv6 firewire_ohci firewire_core crc_itu_t radeon ttm drm_kms_helper drm i2c_algo_bit i2c_core [last unloaded: scsi_wait_scan]
+ Pid: 1411, comm: ssh Not tainted 2.6.38-0.rc3.git0.1.fc15.x86_64 #1 P5Q-PRO/P5Q-PRO
+ RIP: 0010:[<ffffffff81407b16>]  [<ffffffff81407b16>] tcp_write_xmit+0x694/0x7af
+ RSP: 0018:ffff88022373db88  EFLAGS: 00010202
+ RAX: ffff88022644aa00 RBX: ffff880224178d00 RCX: 0000000000000001
+ RDX: 0000000000000000 RSI: ffff88022644aa00 RDI: ffff88022644aa00
+ RBP: ffff88022373dc08 R08: 0000000000000140 R09: ffff880223129000
+ R10: 0000000000001c48 R11: 0000000000000005 R12: ffff88022644aa00
+ R13: 0000000000000b50 R14: 00000000000005a8 R15: 0000000000000000
+ FS:  00007fc81ed797e0(0000) GS:ffff8800cfc00000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: 0000000000000008 CR3: 0000000223093000 CR4: 00000000000406f0
+ DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+ DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+ Process ssh (pid: 1411, threadinfo ffff88022373c000, task ffff8802237f4560)
+ Stack:
+  ffff880200003a00 0000000200000c90 0000000000000140 ffff88022644aa00
+  0000000000000001 0000000100000140 000000202373dc08 ffffffff813b5197
+  ffff880200000000 ffff880224178e08 ffff88022373dbe8 ffff880224178d00
+ Call Trace:
+  [<ffffffff813b5197>] ? __alloc_skb+0x8d/0x133
+  [<ffffffff81407c88>] __tcp_push_pending_frames+0x23/0x51
+  [<ffffffff813faa61>] tcp_push+0x8c/0x8e
+  [<ffffffff813fcb30>] tcp_sendmsg+0x732/0x826
+  [<ffffffff81418969>] inet_sendmsg+0x66/0x6f
+  [<ffffffff813af53b>] __sock_sendmsg+0x69/0x76
+  [<ffffffff813af601>] sock_aio_write+0xb9/0xc9
+  [<ffffffff8112f627>] ? set_fd_set+0x3c/0x46
+  [<ffffffff81120c57>] do_sync_write+0xbf/0xff
+  [<ffffffff811e7967>] ? security_file_permission+0x2e/0x33
+  [<ffffffff81121042>] ? rw_verify_area+0xb0/0xcd
+  [<ffffffff811212d4>] vfs_write+0xb3/0xf3
+  [<ffffffff811214bc>] sys_write+0x4a/0x6e
+  [<ffffffff81009bc2>] system_call_fastpath+0x16/0x1b
+ Code: f2 48 89 df 48 89 c6 e8 83 e4 ff ff 48 8b 45 98 48 89 c7 e8 df e5 ff ff 49 8b 14 24 48 8b 45 98 48 89 10 4c 89 60 08 49 89 04 24 <48> 89 42 08 ff 83 18 01 00 00 48 8b 05 59 9d 73 00 8b 4d b4 ba 
+ RIP  [<ffffffff81407b16>] tcp_write_xmit+0x694/0x7af
+  RSP <ffff88022373db88>
+  CR2: 0000000000000008
 
-This comes to a cost: we use an array ('parents') holding as many
-pointers as there can be sysctl levels (currently CTL_MAXNAME=10).
 
-The 'parents' array of pointers holds the same values as the
-ctl_table->parents field because the function that updates ->parents
-(sysctl_set_parent) is called with either NULL (for root nodes) or
-with sysctl_set_parent(table, table->child).
+OOPS is at include/linux/skbuff.h:895:
+static inline void __skb_insert(struct sk_buff *newsk,
+                                struct sk_buff *prev, struct sk_buff *next,
+                                struct sk_buff_head *list)
+{
+        newsk->next = next;
+        newsk->prev = prev;
+==>     next->prev  = prev->next = newsk;
+        list->qlen++;
+}
 
-Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
----
- kernel/sysctl_check.c |  130 +++++++++++++++++++++++++-----------------------
- 1 files changed, 68 insertions(+), 62 deletions(-)
+  next is NULL here
 
-diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
-index 10b90d8..d23b085 100644
---- a/kernel/sysctl_check.c
-+++ b/kernel/sysctl_check.c
-@@ -6,58 +6,34 @@
- #include <net/ip_vs.h>
- 
- 
--static int sysctl_depth(struct ctl_table *table)
--{
--	struct ctl_table *tmp;
--	int depth;
--
--	depth = 0;
--	for (tmp = table; tmp->parent; tmp = tmp->parent)
--		depth++;
--
--	return depth;
--}
--
--static struct ctl_table *sysctl_parent(struct ctl_table *table, int n)
-+static void sysctl_print_path(struct ctl_table *table,
-+			      struct ctl_table **parents, int depth)
- {
-+	struct ctl_table *p;
- 	int i;
--
--	for (i = 0; table && i < n; i++)
--		table = table->parent;
--
--	return table;
--}
--
--
--static void sysctl_print_path(struct ctl_table *table)
--{
--	struct ctl_table *tmp;
--	int depth, i;
--	depth = sysctl_depth(table);
- 	if (table->procname) {
--		for (i = depth; i >= 0; i--) {
--			tmp = sysctl_parent(table, i);
--			printk("/%s", tmp->procname?tmp->procname:"");
-+		for (i = 0; i < depth; i++) {
-+			p = parents[i];
-+			printk("/%s", p->procname ? p->procname : "");
- 		}
-+		printk("/%s", table->procname);
- 	}
- 	printk(" ");
- }
- 
- static struct ctl_table *sysctl_check_lookup(struct nsproxy *namespaces,
--						struct ctl_table *table)
-+	     struct ctl_table *table, struct ctl_table **parents, int depth)
- {
- 	struct ctl_table_header *head;
- 	struct ctl_table *ref, *test;
--	int depth, cur_depth;
--
--	depth = sysctl_depth(table);
-+	int cur_depth;
- 
- 	for (head = __sysctl_head_next(namespaces, NULL); head;
- 	     head = __sysctl_head_next(namespaces, head)) {
- 		cur_depth = depth;
- 		ref = head->ctl_table;
- repeat:
--		test = sysctl_parent(table, cur_depth);
-+		test = parents[depth - cur_depth];
- 		for (; ref->procname; ref++) {
- 			int match = 0;
- 			if (cur_depth && !ref->child)
-@@ -83,11 +59,12 @@ out:
- 	return ref;
- }
- 
--static void set_fail(const char **fail, struct ctl_table *table, const char *str)
-+static void set_fail(const char **fail, struct ctl_table *table,
-+	     const char *str, struct ctl_table **parents, int depth)
- {
- 	if (*fail) {
- 		printk(KERN_ERR "sysctl table check failed: ");
--		sysctl_print_path(table);
-+		sysctl_print_path(table, parents, depth);
- 		printk(" %s\n", *fail);
- 		dump_stack();
- 	}
-@@ -95,40 +72,55 @@ static void set_fail(const char **fail, struct ctl_table *table, const char *str
- }
- 
- static void sysctl_check_leaf(struct nsproxy *namespaces,
--				struct ctl_table *table, const char **fail)
-+			      struct ctl_table *table, const char **fail,
-+			      struct ctl_table **parents, int depth)
- {
- 	struct ctl_table *ref;
- 
--	ref = sysctl_check_lookup(namespaces, table);
--	if (ref && (ref != table))
--		set_fail(fail, table, "Sysctl already exists");
-+	ref = sysctl_check_lookup(namespaces, table, parents, depth);
-+	if (ref && (ref != table)) {
-+		printk(KERN_ALERT "sysctl_check_leaf ref[%s], table[%s]\n", ref->procname, table->procname);
-+		set_fail(fail, table, "Sysctl already exists", parents, depth);
-+	}
- }
- 
--int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
-+
-+
-+#define SET_FAIL(str) set_fail(&fail, table, str, parents, depth)
-+
-+static int __sysctl_check_table(struct nsproxy *namespaces,
-+	struct ctl_table *table, struct ctl_table **parents, int depth)
- {
-+	const char *fail = NULL;
- 	int error = 0;
-+
-+	if (depth >= CTL_MAXNAME) {
-+		SET_FAIL("Sysctl tree too deep");
-+		return -EINVAL;
-+	}
-+
- 	for (; table->procname; table++) {
--		const char *fail = NULL;
-+		fail = NULL;
- 
- 		if (table->parent) {
- 			if (table->procname && !table->parent->procname)
--				set_fail(&fail, table, "Parent without procname");
-+				SET_FAIL("Parent without procname");
- 		}
- 		if (!table->procname)
--			set_fail(&fail, table, "No procname");
-+			SET_FAIL("No procname");
- 		if (table->child) {
- 			if (table->data)
--				set_fail(&fail, table, "Directory with data?");
-+				SET_FAIL("Directory with data?");
- 			if (table->maxlen)
--				set_fail(&fail, table, "Directory with maxlen?");
-+				SET_FAIL("Directory with maxlen?");
- 			if ((table->mode & (S_IRUGO|S_IXUGO)) != table->mode)
--				set_fail(&fail, table, "Writable sysctl directory");
-+				SET_FAIL("Writable sysctl directory");
- 			if (table->proc_handler)
--				set_fail(&fail, table, "Directory with proc_handler");
-+				SET_FAIL("Directory with proc_handler");
- 			if (table->extra1)
--				set_fail(&fail, table, "Directory with extra1");
-+				SET_FAIL("Directory with extra1");
- 			if (table->extra2)
--				set_fail(&fail, table, "Directory with extra2");
-+				SET_FAIL("Directory with extra2");
- 		} else {
- 			if ((table->proc_handler == proc_dostring) ||
- 			    (table->proc_handler == proc_dointvec) ||
-@@ -139,28 +131,42 @@ int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
- 			    (table->proc_handler == proc_doulongvec_minmax) ||
- 			    (table->proc_handler == proc_doulongvec_ms_jiffies_minmax)) {
- 				if (!table->data)
--					set_fail(&fail, table, "No data");
-+					SET_FAIL("No data");
- 				if (!table->maxlen)
--					set_fail(&fail, table, "No maxlen");
-+					SET_FAIL("No maxlen");
- 			}
- #ifdef CONFIG_PROC_SYSCTL
- 			if (table->procname && !table->proc_handler)
--				set_fail(&fail, table, "No proc_handler");
--#endif
--#if 0
--			if (!table->procname && table->proc_handler)
--				set_fail(&fail, table, "proc_handler without procname");
-+				SET_FAIL("No proc_handler");
- #endif
--			sysctl_check_leaf(namespaces, table, &fail);
-+			parents[depth] = table;
-+			sysctl_check_leaf(namespaces, table, &fail,
-+					  parents, depth);
- 		}
- 		if (table->mode > 0777)
--			set_fail(&fail, table, "bogus .mode");
-+			SET_FAIL("bogus .mode");
- 		if (fail) {
--			set_fail(&fail, table, NULL);
-+			SET_FAIL(NULL);
- 			error = -EINVAL;
- 		}
--		if (table->child)
--			error |= sysctl_check_table(namespaces, table->child);
-+		if (table->child) {
-+			parents[depth] = table;
-+			error |= __sysctl_check_table(namespaces, table->child,
-+						      parents, depth + 1);
-+		}
- 	}
- 	return error;
- }
-+
-+
-+int sysctl_check_table(struct nsproxy *namespaces, struct ctl_table *table)
-+{
-+	struct ctl_table *parents[CTL_MAXNAME];
-+	/* Keep track of parents as we go down into the tree.
-+	 *
-+	 * parents[i-1] will be the parent for parents[i].
-+	 * The node at depth 'd' will have the parent at parents[d-1].
-+	 * The root node (depth=0) has no parent in this array.
-+	 */
-+	return __sysctl_check_table(namespaces, table, parents, 0);
-+}
--- 
-1.7.4.rc1.7.g2cf08.dirty
+
+Called from include/linux/skbuff.h:991:
+static inline void __skb_queue_after(struct sk_buff_head *list,
+                                     struct sk_buff *prev,
+                                     struct sk_buff *newsk)
+{
+        __skb_insert(newsk, prev, prev->next, list);
+}
+
+Called from include/net/tcp.h:1294:
+static inline void tcp_insert_write_queue_after(struct sk_buff *skb,
+                                                struct sk_buff *buff,
+                                                struct sock *sk)
+{
+        __skb_queue_after(&sk->sk_write_queue, skb, buff);
+}
+
+Called from net/ipv4/tcp_output.c:tso_fragment:1515:
+        /* Link BUFF into the send queue. */
+        skb_header_release(buff);
+==>     tcp_insert_write_queue_after(skb, buff, sk);
+
+
+Called from net/ipv4/tcp_output.c:tcp_write_xmit:1784:
+                if (skb->len > limit &&
+==>                 unlikely(tso_fragment(sk, skb, limit, mss_now, gfp)))
+                        break;
