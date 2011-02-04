@@ -1,41 +1,85 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: [PATCH 1/6] sysctl: faster reimplementation of sysctl_check_table
-Date: Fri, 4 Feb 2011 23:34:14 +0200
-Message-ID: <AANLkTinALtUX=uBGtCiVjyEMQJZ0O_Fc39nu3d1zSKkB@mail.gmail.com>
-References: <m1oc6rio5u.fsf@fess.ebiederm.org> <1296851485-6730-1-git-send-email-lucian.grijincu@gmail.com>
- <m1vd0zh5eh.fsf@fess.ebiederm.org>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Don't miss existing cached metrics in new routes.
+Date: Fri, 04 Feb 2011 14:40:10 -0800 (PST)
+Message-ID: <20110204.144010.39169602.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: base64
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <m1vd0zh5eh.fsf@fess.ebiederm.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60173
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751911Ab1BDWjf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 17:39:35 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 078A224C087
+	for <netdev@vger.kernel.org>; Fri,  4 Feb 2011 14:40:11 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBGZWIgNCwgMjAxMSBhdCAxMToxMSBQTSwgRXJpYyBXLiBCaWVkZXJtYW4KPGViaWVk
-ZXJtQHhtaXNzaW9uLmNvbT4gd3JvdGU6Cj4+ICtzdGF0aWMgaW50IF9fc3lzY3RsX2NoZWNrX3Rh
-YmxlKHN0cnVjdCBuc3Byb3h5ICpuYW1lc3BhY2VzLAo+PiArIMKgIMKgIHN0cnVjdCBjdGxfdGFi
-bGUgKnRhYmxlLCBzdHJ1Y3QgY3RsX3RhYmxlICoqcGFyZW50cywgaW50IGRlcHRoKQo+PiDCoHsK
-Pj4gKyDCoCDCoCBjb25zdCBjaGFyICpmYWlsID0gTlVMTDsKPj4gwqAgwqAgwqAgaW50IGVycm9y
-ID0gMDsKPj4gKwo+PiArIMKgIMKgIGlmIChkZXB0aCA+PSBDVExfTUFYTkFNRSkgewo+Cj4gVGhp
-cyBzaG91bGQgYmUgZGVwdGggPiBDVExfTUFYTkFNRS4gwqBCZWNhdXNlIHRoZXJlIGFyZSBvbmx5
-IENUTF9NQVhOQU1FCj4gZW50cmllcyBpbiB0aGUgYXJyYXkuCgoKQSBiaXQgbG93ZXIgaW4gdGhl
-IGFycmF5IHdlIGFjY2VzcyAncGFyZW50c1tkZXB0aF0nLgpTbyB0aGUgY29ycmVjdCBjaGVjayBz
-aG91bGQgYmUgKGRlcHRoID49IENUTF9NQVhOQU1FKSA9PiBlcnJvci4KCgo+PiAtIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgIMKgIHN5c2N0bF9jaGVja19sZWFmKG5hbWVzcGFjZXMsIHRhYmxl
-LCAmZmFpbCk7Cj4+ICsgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcGFyZW50c1tkZXB0
-aF0gPSB0YWJsZTsKPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBzeXNjdGxfY2hl
-Y2tfbGVhZihuYW1lc3BhY2VzLCB0YWJsZSwgJmZhaWwsCj4+ICsgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgcGFyZW50cywgZGVwdGgpOwo+
-PiDCoCDCoCDCoCDCoCDCoCDCoCDCoCB9Cgo+PiArIMKgIMKgIMKgIMKgIMKgIMKgIGlmICh0YWJs
-ZS0+Y2hpbGQpIHsKPj4gKyDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCBwYXJlbnRzW2Rl
-cHRoXSA9IHRhYmxlOwo+PiArIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIGVycm9yIHw9
-IF9fc3lzY3RsX2NoZWNrX3RhYmxlKG5hbWVzcGFjZXMsIHRhYmxlLT5jaGlsZCwKPj4gKyDCoCDC
-oCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCBwYXJlbnRzLCBkZXB0aCArIDEpOwo+PiArIMKgIMKgIMKgIMKgIMKgIMKg
-IH0KCgoKLS0gCsKgLgouLjogTHVjaWFuCg==
+
+Always lookup to see if we have an existing inetpeer entry for
+a route.  Let FLOWI_FLAG_PRECOW_METRICS merely influence the
+"create" argument to rt_bind_peer().
+
+Also, call rt_bind_peer() unconditionally since it is not
+possible for rt->peer to be non-NULL at this point.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+Committed to net-next-2.6
+
+ net/ipv4/route.c |   31 +++++++++++++++++--------------
+ 1 files changed, 17 insertions(+), 14 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index e4c8165..0ba6a38 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1859,25 +1859,28 @@ static unsigned int ipv4_default_mtu(const struct dst_entry *dst)
+ 
+ static void rt_init_metrics(struct rtable *rt, struct fib_info *fi)
+ {
+-	if (!(rt->fl.flags & FLOWI_FLAG_PRECOW_METRICS)) {
+-	no_cow:
+-		if (fi->fib_metrics != (u32 *) dst_default_metrics) {
+-			rt->fi = fi;
+-			atomic_inc(&fi->fib_clntref);
+-		}
+-		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+-	} else {
+-		struct inet_peer *peer;
++	struct inet_peer *peer;
++	int create = 0;
+ 
+-		if (!rt->peer)
+-			rt_bind_peer(rt, 1);
+-		peer = rt->peer;
+-		if (!peer)
+-			goto no_cow;
++	/* If a peer entry exists for this destination, we must hook
++	 * it up in order to get at cached metrics.
++	 */
++	if (rt->fl.flags & FLOWI_FLAG_PRECOW_METRICS)
++		create = 1;
++
++	rt_bind_peer(rt, create);
++	peer = rt->peer;
++	if (peer) {
+ 		if (inet_metrics_new(peer))
+ 			memcpy(peer->metrics, fi->fib_metrics,
+ 			       sizeof(u32) * RTAX_MAX);
+ 		dst_init_metrics(&rt->dst, peer->metrics, false);
++	} else {
++		if (fi->fib_metrics != (u32 *) dst_default_metrics) {
++			rt->fi = fi;
++			atomic_inc(&fi->fib_clntref);
++		}
++		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+ 	}
+ }
+ 
+-- 
+1.7.4
+
