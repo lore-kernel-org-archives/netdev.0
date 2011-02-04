@@ -1,26 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] MAINTAINERS: update email ids of the be2net driver
- maintainers.
-Date: Fri, 04 Feb 2011 13:05:08 -0800 (PST)
-Message-ID: <20110204.130508.104048101.davem@davemloft.net>
-References: <d49842f2-5ee8-4e17-b95c-f3d2108399f1@exht1.ad.emulex.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 13/20] net: can: janz-ican3: world-writable sysfs
+	termination file
+Date: Fri, 04 Feb 2011 13:06:41 -0800 (PST)
+Message-ID: <20110204.130641.189714870.davem@davemloft.net>
+References: <cover.1296818921.git.segoon@openwall.com>
+	<6b49b9521416fbd50214485d3e14e5f254ada4f7.1296818921.git.segoon@openwall.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ajit.khaparde@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47705
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752180Ab1BDVEd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 16:04:33 -0500
-In-Reply-To: <d49842f2-5ee8-4e17-b95c-f3d2108399f1@exht1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <6b49b9521416fbd50214485d3e14e5f254ada4f7.1296818921.git.segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Date: Fri, 4 Feb 2011 09:31:29 -0600
+From: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+Date: Fri,  4 Feb 2011 15:23:53 +0300
 
-> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+> Don't allow everybody to set terminator via sysfs.
+> 
+> Signed-off-by: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
 
-Applied, thanks.
+Applied.
