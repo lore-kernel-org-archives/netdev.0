@@ -1,201 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] niu: Fix races between up/down and get_stats.
-Date: Thu, 03 Feb 2011 16:25:29 -0800 (PST)
-Message-ID: <20110203.162529.260086668.davem@davemloft.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: 2.6.38-rc3-git1: Reported regressions 2.6.36 -> 2.6.37
+Date: Thu, 3 Feb 2011 16:30:56 -0800
+Message-ID: <AANLkTimQPPDyBwkN0HWM2+bPcbzVd8YHZvn2iR8MVzfL@mail.gmail.com>
+References: <e9vOd5LzdBK.A.dyD.h6eSNB@chimera> <AANLkTikELiGS+fM5WguZS=Fo-sSXmej1UnKWqCFmnE0k@mail.gmail.com>
+ <s5haaid3xos.wl%tiwai@suse.de> <201102032009.17100.rjw@sisk.pl>
+ <AANLkTi=suS1VDL=6EtT0D2=0c1DWwxdwZBBv=-BySNX-@mail.gmail.com>
+ <AANLkTi=7EOih=fY5FCvhQbewSc=3a49cYVaKJRWM+-3d@mail.gmail.com> <AANLkTin7kBur95H=UBcYEcjYsUkrdG8znX-7PFZ4rrHf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fleitner@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Carlos Mafra <crmafra2@gmail.com>,
+	Keith Packard <keithp@keithp.com>,
+	Dave Airlie <airlied@redhat.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Takashi Iwai <tiwai@suse.de>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Maciej Rutecki <maciej.rutecki@gmail.com>,
+	Florian Mickler <florian@mickler.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kernel Testers List <kernel-testers@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux ACPI <linux-acpi@vger.kernel.org>,
+	Linux PM List <linux-pm@lists.linux-foundation.org>,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	DRI <dri-devel@lists.freedesktop.org>
+To: Dave Airlie <airlied@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39529
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754714Ab1BDAYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 19:24:54 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50465 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753490Ab1BDAbT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 19:31:19 -0500
+In-Reply-To: <AANLkTin7kBur95H=UBcYEcjYsUkrdG8znX-7PFZ4rrHf@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 3, 2011 at 4:06 PM, Dave Airlie <airlied@gmail.com> wrote:
+>
+> If we are setting a mode on a connector it automatically will end up
+> in a DPMS on state,
+> so this seemed correct from what I can see.
 
-As reported by Flavio Leitner, there is no synchronization to protect
-NIU's get_stats method from seeing a NULL pointer in either
-np->rx_rings or np->tx_rings.  In fact, as far as ->ndo_get_stats
-is concerned, these values are set completely asynchronously.
+The more I look at that function, the more I disagree with you and
+with that patch.
 
-Flavio attempted to fix this using a RW semaphore, which in fact
-works most of the time.  However, dev_get_stats() can be invoked
-from non-sleepable contexts in some cases, so this fix doesn't
-work in all cases.
+The code is just crazy.
 
-So instead, control the visibility of the np->{rx,tx}_ring pointers
-when the device is being brough up, and use properties of the device
-down sequence to our advantage.
+First off, it isn't even necessarily setting a mode to begin with,
+because as far as I can tell. If the mode doesn't change, neither
+mode_changed nor fb_changed will be true, afaik. There seems to be a
+fair amount of code there explicitly to avoid changing modes if not
+necessary.
 
-In niu_get_stats(), return immediately if netif_running() is false.
-The device shutdown sequence first marks the device as not running (by
-clearing the __LINK_STATE_START bit), then it performans a
-synchronize_rcu() (in dev_deactive_many()), and then finally it
-invokes the driver ->ndo_stop() method.
+But even _if_ we are setting a mode, if I read the code correctly, the
+mode may be set to NULL - which seems to mean "turn it off". In which
+case it looks to me that drm_helper_disable_unused_functions() will
+actually do a
 
-This guarentees that all invocations of niu_get_stats() either see
-netif_running() as false, or they see the channel pointers before
-->ndo_stop() clears them out.
+   (*crtc_funcs->dpms)(crtc, DRM_MODE_DPMS_OFF);
 
-If netif_running() is true, protect against startup races by loading
-the np->{rx,tx}_rings pointer into a local variable, and punting if
-it is NULL.  Use ACCESS_ONCE to prevent the compiler from reloading
-the pointer on us.
+call on the crtc in question. So then blindly just saying "it's mode
+DRM_MODE_DPMS_ON" afterwards looks rather bogus to me.
 
-Also, during open, control the order in which the pointers and the
-ring counts become visible globally using SMP write memory barriers.
-We make sure the np->num_{rx,tx}_rings value is stable and visible
-before np->{rx,tx}_rings is.
+_Maybe_ it would work if it was done before that whole
+"disable_unused" logic. Or maybe it should just be done in
+drm_crtc_helper_set_mode(), which is what actually sets the mode (but
+there's the 'fb_changed' case too)
 
-Such visibility control is not necessary on the niu_free_channels()
-side because of the RCU sequencing that happens during device down as
-described above.  We are always guarenteed that all niu_get_stats
-calls are finished, or will see netif_running() false, by the time
-->ndo_stop is invoked.
+> A future mode set shouldn't ever not turn the connector on, since
+> modesetting is an implicit
+> DPMS,
+>
+> It sounds like something more subtle than that, though I'm happy to
+> revert this for now, and let Keith
+> think about it a bit more.
 
-Reported-by: Flavio Leitner <fleitner@redhat.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/niu.c |   61 +++++++++++++++++++++++++++++++++++++++--------------
- 1 files changed, 45 insertions(+), 16 deletions(-)
+So I haven't heard anything from Keith. Keith? Just revert it? Or do
+you have a patch for people to try?
 
-diff --git a/drivers/net/niu.c b/drivers/net/niu.c
-index 2541321..9fb59d3 100644
---- a/drivers/net/niu.c
-+++ b/drivers/net/niu.c
-@@ -4489,6 +4489,9 @@ static int niu_alloc_channels(struct niu *np)
- {
- 	struct niu_parent *parent = np->parent;
- 	int first_rx_channel, first_tx_channel;
-+	int num_rx_rings, num_tx_rings;
-+	struct rx_ring_info *rx_rings;
-+	struct tx_ring_info *tx_rings;
- 	int i, port, err;
- 
- 	port = np->port;
-@@ -4498,18 +4501,21 @@ static int niu_alloc_channels(struct niu *np)
- 		first_tx_channel += parent->txchan_per_port[i];
- 	}
- 
--	np->num_rx_rings = parent->rxchan_per_port[port];
--	np->num_tx_rings = parent->txchan_per_port[port];
-+	num_rx_rings = parent->rxchan_per_port[port];
-+	num_tx_rings = parent->txchan_per_port[port];
- 
--	netif_set_real_num_rx_queues(np->dev, np->num_rx_rings);
--	netif_set_real_num_tx_queues(np->dev, np->num_tx_rings);
--
--	np->rx_rings = kcalloc(np->num_rx_rings, sizeof(struct rx_ring_info),
--			       GFP_KERNEL);
-+	rx_rings = kcalloc(num_rx_rings, sizeof(struct rx_ring_info),
-+			   GFP_KERNEL);
- 	err = -ENOMEM;
--	if (!np->rx_rings)
-+	if (!rx_rings)
- 		goto out_err;
- 
-+	np->num_rx_rings = num_rx_rings;
-+	smp_wmb();
-+	np->rx_rings = rx_rings;
-+
-+	netif_set_real_num_rx_queues(np->dev, num_rx_rings);
-+
- 	for (i = 0; i < np->num_rx_rings; i++) {
- 		struct rx_ring_info *rp = &np->rx_rings[i];
- 
-@@ -4538,12 +4544,18 @@ static int niu_alloc_channels(struct niu *np)
- 			return err;
- 	}
- 
--	np->tx_rings = kcalloc(np->num_tx_rings, sizeof(struct tx_ring_info),
--			       GFP_KERNEL);
-+	tx_rings = kcalloc(num_tx_rings, sizeof(struct tx_ring_info),
-+			   GFP_KERNEL);
- 	err = -ENOMEM;
--	if (!np->tx_rings)
-+	if (!tx_rings)
- 		goto out_err;
- 
-+	np->num_tx_rings = num_tx_rings;
-+	smp_wmb();
-+	np->tx_rings = tx_rings;
-+
-+	netif_set_real_num_tx_queues(np->dev, num_tx_rings);
-+
- 	for (i = 0; i < np->num_tx_rings; i++) {
- 		struct tx_ring_info *rp = &np->tx_rings[i];
- 
-@@ -6246,11 +6258,17 @@ static void niu_sync_mac_stats(struct niu *np)
- static void niu_get_rx_stats(struct niu *np)
- {
- 	unsigned long pkts, dropped, errors, bytes;
-+	struct rx_ring_info *rx_rings;
- 	int i;
- 
- 	pkts = dropped = errors = bytes = 0;
-+
-+	rx_rings = ACCESS_ONCE(np->rx_rings);
-+	if (!rx_rings)
-+		goto no_rings;
-+
- 	for (i = 0; i < np->num_rx_rings; i++) {
--		struct rx_ring_info *rp = &np->rx_rings[i];
-+		struct rx_ring_info *rp = &rx_rings[i];
- 
- 		niu_sync_rx_discard_stats(np, rp, 0);
- 
-@@ -6259,6 +6277,8 @@ static void niu_get_rx_stats(struct niu *np)
- 		dropped += rp->rx_dropped;
- 		errors += rp->rx_errors;
- 	}
-+
-+no_rings:
- 	np->dev->stats.rx_packets = pkts;
- 	np->dev->stats.rx_bytes = bytes;
- 	np->dev->stats.rx_dropped = dropped;
-@@ -6268,16 +6288,24 @@ static void niu_get_rx_stats(struct niu *np)
- static void niu_get_tx_stats(struct niu *np)
- {
- 	unsigned long pkts, errors, bytes;
-+	struct tx_ring_info *tx_rings;
- 	int i;
- 
- 	pkts = errors = bytes = 0;
-+
-+	tx_rings = ACCESS_ONCE(np->tx_rings);
-+	if (!tx_rings)
-+		goto no_rings;
-+
- 	for (i = 0; i < np->num_tx_rings; i++) {
--		struct tx_ring_info *rp = &np->tx_rings[i];
-+		struct tx_ring_info *rp = &tx_rings[i];
- 
- 		pkts += rp->tx_packets;
- 		bytes += rp->tx_bytes;
- 		errors += rp->tx_errors;
- 	}
-+
-+no_rings:
- 	np->dev->stats.tx_packets = pkts;
- 	np->dev->stats.tx_bytes = bytes;
- 	np->dev->stats.tx_errors = errors;
-@@ -6287,9 +6315,10 @@ static struct net_device_stats *niu_get_stats(struct net_device *dev)
- {
- 	struct niu *np = netdev_priv(dev);
- 
--	niu_get_rx_stats(np);
--	niu_get_tx_stats(np);
--
-+	if (netif_running(dev)) {
-+		niu_get_rx_stats(np);
-+		niu_get_tx_stats(np);
-+	}
- 	return &dev->stats;
- }
- 
--- 
-1.7.4
-
+                               Linus
