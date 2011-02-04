@@ -1,99 +1,64 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH 2/5] sysctl: remove useless ctl_table->parent field
-Date: Fri, 04 Feb 2011 11:41:24 -0800
-Message-ID: <m1fws3io4b.fsf@fess.ebiederm.org>
-References: <cover.1296793770.git.lucian.grijincu@gmail.com>
-	<cover.1296793770.git.lucian.grijincu@gmail.com>
-	<9a1977a6526ca9e0b03ba1df767f842aea62b5f4.1296793770.git.lucian.grijincu@gmail.com>
+From: "=?ISO-8859-15?Q?Ilpo_J=E4rvinen?=" <ilpo.jarvinen@helsinki.fi>
+Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
+Date: Fri, 4 Feb 2011 21:43:14 +0200 (EET)
+Message-ID: <alpine.DEB.2.00.1102042126440.28937@melkinpaasi.cs.helsinki.fi>
+References: <20110202.170750.229739784.davem@davemloft.net> <alpine.DEB.2.00.1102040027060.25125@melkinpaasi.cs.helsinki.fi> <AANLkTinkwzts5ysW26fHqX4u89Q=kW2kSOArqL=o6RLM@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Octavian Purdila <opurdila@ixiacom.com>
-To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <9a1977a6526ca9e0b03ba1df767f842aea62b5f4.1296793770.git.lucian.grijincu@gmail.com>
-	(Lucian Adrian Grijincu's message of "Fri, 4 Feb 2011 06:37:05 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323329-1589942756-1296848594=:28937"
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, therbert@google.com,
+	Jerry Chu <hkchu@google.com>
+To: "H.K. Jerry Chu" <hkjerry.chu@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from courier.cs.helsinki.fi ([128.214.9.1]:33735 "EHLO
+	mail.cs.helsinki.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751873Ab1BDTnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 14:43:15 -0500
+In-Reply-To: <AANLkTinkwzts5ysW26fHqX4u89Q=kW2kSOArqL=o6RLM@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Lucian Adrian Grijincu <lucian.grijincu@gmail.com> writes:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-> The 'parent' field was added for selinux in:
->     commit d912b0cc1a617d7c590d57b7ea971d50c7f02503
->     [PATCH] sysctl: add a parent entry to ctl_table and set the parent entry
->
-> and then was used for sysctl_check_table.
->
-> Both of the users have found other implementations.
+--8323329-1589942756-1296848594=:28937
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: 8BIT
 
-This seems reasonable but we need to be careful in how we merge this so
-the individual trees are correct.
+On Thu, 3 Feb 2011, H.K. Jerry Chu wrote:
 
-> CC: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-> ---
->  include/linux/sysctl.h |    1 -
->  kernel/sysctl.c        |   11 -----------
->  kernel/sysctl_check.c  |    4 ++--
->  3 files changed, 2 insertions(+), 14 deletions(-)
->
-> diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
-> index 7bb5cb6..1f1da4b 100644
-> --- a/include/linux/sysctl.h
-> +++ b/include/linux/sysctl.h
-> @@ -1018,7 +1018,6 @@ struct ctl_table
->  	int maxlen;
->  	mode_t mode;
->  	struct ctl_table *child;
-> -	struct ctl_table *parent;	/* Automatically set */
->  	proc_handler *proc_handler;	/* Callback for text formatting */
->  	void *extra1;
->  	void *extra2;
-> diff --git a/kernel/sysctl.c b/kernel/sysctl.c
-> index 56f6fc1..42025ec 100644
-> --- a/kernel/sysctl.c
-> +++ b/kernel/sysctl.c
-> @@ -1695,18 +1695,8 @@ int sysctl_perm(struct ctl_table_root *root, struct ctl_table *table, int op)
->  	return test_perm(mode, op);
->  }
->  
-> -static void sysctl_set_parent(struct ctl_table *parent, struct ctl_table *table)
-> -{
-> -	for (; table->procname; table++) {
-> -		table->parent = parent;
-> -		if (table->child)
-> -			sysctl_set_parent(table, table->child);
-> -	}
-> -}
-> -
->  static __init int sysctl_init(void)
->  {
-> -	sysctl_set_parent(NULL, root_table);
->  #ifdef CONFIG_SYSCTL_SYSCALL_CHECK
->  	sysctl_check_table(current->nsproxy, root_table);
->  #endif
-> @@ -1864,7 +1854,6 @@ struct ctl_table_header *__register_sysctl_paths(
->  	header->used = 0;
->  	header->unregistering = NULL;
->  	header->root = root;
-> -	sysctl_set_parent(NULL, header->ctl_table);
->  	header->count = 1;
->  #ifdef CONFIG_SYSCTL_SYSCALL_CHECK
->  	if (sysctl_check_table(namespaces, header->ctl_table)) {
-> diff --git a/kernel/sysctl_check.c b/kernel/sysctl_check.c
-> index 9b4fecd..b7d9c66 100644
-> --- a/kernel/sysctl_check.c
-> +++ b/kernel/sysctl_check.c
-> @@ -95,8 +95,8 @@ static int __sysctl_check_table(struct nsproxy *namespaces,
->  	for (; table->procname; table++) {
->  		const char *fail = NULL;
->  
-> -		if (table->parent) {
-> -			if (table->procname && !table->parent->procname)
-> +		if (depth != 0) { /* has parent */
-> +			if (table->procname && !parents[depth - 1]->procname)
->  				SET_FAIL("Parent without procname");
->  		}
->  		if (!table->procname)
+> On Thu, Feb 3, 2011 at 2:43 PM, Ilpo Järvinen <ilpo.jarvinen@helsinki.fi> wrote:
+> > It would perhaps be useful to change receiver advertized window to include
+> > some extra segs initially. It should be >= IW + peer's dupThresh-1 as
+> > otherwise limited transmit won't work for the initial window because we
+> > won't open more receiver window with dupacks (IIRC, I suppose Jerry might
+> > be able to correct me right away if I'm wrong and we open window with
+> > dupacks too?).
+> 
+> Sorry I don't know how the receive window is updated in Linux,
+> autotuning or not.
+> But I just wonder why would it have to do with dupacks, i.e., why would 
+> it not slide forward as long as the left edge of the window slides 
+> forward, regardless of OOO pkt arrival?
+
+?? DupACK by defination does not slide the left edge?!? :-) ...It
+certainly makes a difference whether the ACK is cumulative or not. 
+Anyway, I tcpdumped it now and confirmed that advertized window is not 
+advanced if OOO packet arrives.
+
+> I am of the opinion that rwnd is for flow control purpose only thus should be
+> fully decoupled from the cwnd of the other (sender) side. Therefore
+> initrwnd should
+> normally be based on projected BDP and local memory pressure, e.g., 64KB, not
+> bearing any relation with IW of the other side. Only under special
+> circumstances should it be used to constrain the sender, e.g., for
+> devices behind slow links with
+> very small buffer.
+
+I also think along the lines that the advertized window autotuning code 
+is just unnecessarily preventive (besides the IW change, also Quickstart 
+couldn't be used that efficiently because of it).
+
+-- 
+ i.
+--8323329-1589942756-1296848594=:28937--
