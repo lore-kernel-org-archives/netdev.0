@@ -1,74 +1,67 @@
-From: Stuart Longland <redhatter@gentoo.org>
-Subject: Configuring IPsec within a user application?
-Date: Fri, 04 Feb 2011 19:58:07 +1000
-Message-ID: <4D4BCDAF.6000705@gentoo.org>
+From: Alexey Dobriyan <adobriyan@gmail.com>
+Subject: Re: [PATCH 0/5] net: sysctl: share ipv4/ipv6 sysctl tables
+Date: Fri, 4 Feb 2011 12:49:41 +0200
+Message-ID: <AANLkTi=3kKhWRzM7S_f18YJ=jx1P7bN9zVo9yGC7zwN_@mail.gmail.com>
+References: <cover.1296793770.git.lucian.grijincu@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ossa.mas.viperplatform.net.au ([202.147.75.25]:47115 "EHLO
-	ossa.mas.viperplatform.net.au" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752996Ab1BDKZn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 05:25:43 -0500
-Received: from mail by ossa.mas.viperplatform.net.au with spam-scanned (Exim 4.43)
-	id 1PlIR2-0003ds-LL
-	for netdev@vger.kernel.org; Fri, 04 Feb 2011 20:58:36 +1100
-Received: from eryx.mas.viperplatform.net.au ([172.16.5.11])
-	by ossa.mas.viperplatform.net.au with esmtp (Exim 4.43)
-	id 1PlIR2-0003dp-K5
-	for netdev@vger.kernel.org; Fri, 04 Feb 2011 20:58:36 +1100
-Received: from mail by eryx.mas.viperplatform.net.au with spam-scanned (Exim 4.43)
-	id 1PlIR2-0006Xo-4X
-	for netdev@vger.kernel.org; Fri, 04 Feb 2011 20:58:36 +1100
-Received: from [172.16.100.13] (helo=helicon.mas.viperplatform.net.au)
-	by eryx.mas.viperplatform.net.au with esmtp (Exim 4.43)
-	id 1PlIR2-0006Xl-3a
-	for netdev@vger.kernel.org; Fri, 04 Feb 2011 20:58:36 +1100
-Received: from [203.94.56.252] (helo=atomos.dmz.longlandclan.yi.org)
-	by helicon.mas.viperplatform.net.au with esmtp (Exim 4.43)
-	id 1PlIR0-0005hk-HM
-	for netdev@vger.kernel.org; Fri, 04 Feb 2011 20:58:36 +1100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Octavian Purdila <opurdila@ixiacom.com>
+To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1296793770.git.lucian.grijincu@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Fri, Feb 4, 2011 at 6:37 AM, Lucian Adrian Grijincu
+<lucian.grijincu@gmail.com> wrote:
+> Each network device gets the same 25/24 sysctl entries for ipv4/ipv6
+> in /proc/sys/net/ipv4/conf/DEVNAME and /proc/sys/net/ipv6/conf/DEVNAM=
+E
+>
+> Unfortunately, space is wasted holding very much similar data.
+> Fortunately, with some tricks these entries can be shared between all
+> network devices.
+>
+>
+> The single entry in 'struct ctl_table' that was modified at runtime
+> for leaf ctl_table nodes and prevented sharing was 'parent'. This
+> field was first introduces for selinux and then was used to implement
+> sysctl_check_table. Selinux recently removed the need for this field:
+> * http://thread.gmane.org/gmane.linux.kernel.lsm/12623
+> * LKML-Reference: 1296519474-15714-1-git-send-email-lucian.grijincu@g=
+mail.com
+>
+>
+> Remove the need for 'parent' in sysctl_check_table and remove the
+> 'parent' field:
+>
+> =A0[PATCH 1/5] sysctl: faster reimplementation of sysctl_check_table
+> =A0[PATCH 2/5] sysctl: remove useless ctl_table->parent field
+>
+>
+> Pave the way for sharing of ipv4/6 tables: allow data to be stored in
+> the nodes above the leafs that will be shared:
+>
+> =A0[PATCH 3/5] sysctl: write ctl_table->extra2 to entries created fro=
+m ctl_path
+>
+>
+> Finally share the leaf sysctl tables for ipv4/ipv6:
+>
+> =A0[PATCH 4/5] ipv4: share sysctl net/ipv4/conf/DEVNAME/ tables
+> =A0[PATCH 5/5] ipv6: share sysctl net/ipv6/conf/DEVNAME/ tables
 
-I'm not sure if this is the right list or not, if not I'd appreciate a
-referral to a more appropriate list.
+Meh.
 
-I've been toying with the idea of a small multicast VoIP/digital comms
-protocol=C2=B9 for use over wireless radio links.  The typical use case=
- might
-be to replace UHF FM radio transceivers with modern smart phones, using
-multicast IPv6 networking over 802.11b.  (It will have other modes too,
-transmission over amateur radio bands for instance.)
+=46irst you remove ->parent, then heroically pass "struct file *"
+to sysctl handlers which duplicates all information already passed
+and brings dcache into picture.
 
-In some commercial settings, or over the Internet, it'd be great for
-traffic to be authenticated using HMAC-SHA1 or even encrypted.  Looking
-at IPsec, I see it provides exactly this.  My thought, why re-invent th=
-e
-wheel when a solution may already exist?
-
-The question though:  Is it possible for a userspace application
-(non-privileged) to request that the UDP packets it generates/receives
-from/to a particular address be encrypted or hashed against a specified=
- key?
-
-i.e. if I decide to communicate with someone on the same wireless link,
-and by means of asymmetric crypto at higher layers we establish a share=
-d
-AES key, can I configure the stack for traffic between these two hosts
-on-the-fly and without root privileges?
-
-Regards,
---=20
-Stuart Longland (aka Redhatter, VK4MSL)      .'''.
-Gentoo Linux/MIPS Cobalt and Docs Developer  '.'` :
-=2E . . . . . . . . . . . . . . . . . . . . .   .'.'
-http://dev.gentoo.org/~redhatter             :.'
-
-I haven't lost my mind...
-  ...it's backed up on a tape somewhere.
-
-1. http://wongi.longlandclan.yi.org
+Binary sysctl rewrite confused you into thinking that d_name.name
+is the way, but it isn't.
+=46or binary sysctl(2) you wouldn't get d_name.name.
