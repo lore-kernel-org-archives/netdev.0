@@ -1,28 +1,49 @@
-From: "Azizi  Raman" <azizramanasta6@att.net>
-Subject: GOODDAY:
-Date: Fri, 4 Feb 2011 11:35:01 +0800
-Message-ID: <20110204033415.0718B7000087@msfrf2118.sfr.fr>
-Reply-To: <azizramanastar6@att.net>
+From: Nik Trevallyn-Jones <nik777@users.sf.net>
+Subject: Submitting new device driver
+Date: Fri, 04 Feb 2011 14:05:14 +1100
+Message-ID: <4D4B6CEA.5060900@users.sf.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1251"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: obc@sfr.fr
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp21.services.sfr.fr ([93.17.128.1]:4812 "EHLO
-	smtp21.services.sfr.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755527Ab1BDDfL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Feb 2011 22:35:11 -0500
+Received: from babel.homelinux.net ([61.29.36.94]:41499 "EHLO mail.internal"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752925Ab1BDDhe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Feb 2011 22:37:34 -0500
+Received: from hplaptop.babel.homelinux.net (unknown [192.168.0.20])
+	by mail.internal (Postfix) with ESMTP id CB06CD226C
+	for <netdev@vger.kernel.org>; Fri,  4 Feb 2011 14:06:43 +1100 (EST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My name is  Aziz  R Stars a senior advocate with  A. Stars & Associates.
+Dear network kernel maintainers,
 
-I found your contact/profile some where over the Internet and it gave me the greatest joy that you are the one I have been looking for. Whom I strongly believe could
-execute this business with me $18 Million . Kindly get back to me for more Detail.
+I maintain a device driver for a family of wireless broadband devices 
+for the iBurst (TM) system.
 
-Best regards,
-Mr   Aziz  R Sstars  (Esq.)
- 
-VXFFTKMBKNYHIESMRCHISVMEHBKJCCXXTIYSJJ
+I am being asked by the community when (or possibly if) the driver will 
+be incorporated into the mainline kernel so users no longer need to 
+download and build the driver themselves.
 
+To that end, I've been reading the various documents on requirements for 
+submitting a driver, and am now trying to contact the appropriate 
+maintainers.
+
+The drivers include support for PCMCIA and USB hardware, and are 
+currently available from here:
+
+http://sourceforge.net/projects/ibdriver/
+
+I have recently made changes to support the 2.6.36 kernel, and will 
+shortly review all the code to ensure compliance with the various 
+guidelines regarding mainline drivers.
+
+Could you please either let me know who I should direct my 
+request/submission to, or point me to the appropriate document that 
+tells me?
+
+Many thanks for any and all responses,
+
+Cheers!
+Nik
