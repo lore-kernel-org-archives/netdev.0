@@ -1,85 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Don't miss existing cached metrics in new routes.
-Date: Fri, 04 Feb 2011 14:40:10 -0800 (PST)
-Message-ID: <20110204.144010.39169602.davem@davemloft.net>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Decouple mac address registration and
+	deregistration from port profile set operation
+Date: Fri, 04 Feb 2011 14:57:16 -0800
+Message-ID: <20110204225716.6497.20918.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60173
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751911Ab1BDWjf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 17:39:35 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 078A224C087
-	for <netdev@vger.kernel.org>; Fri,  4 Feb 2011 14:40:11 -0800 (PST)
+Received: from sj-iport-1.cisco.com ([171.71.176.70]:1778 "EHLO
+	sj-iport-1.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752112Ab1BDW5R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 17:57:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Roopa Prabhu <roprabhu@cisco.com>
 
-Always lookup to see if we have an existing inetpeer entry for
-a route.  Let FLOWI_FLAG_PRECOW_METRICS merely influence the
-"create" argument to rt_bind_peer().
+This patch removes VM mac address registration and deregistration code during
+port profile set operation. We can delay mac address registration until
+enic_open.
 
-Also, call rt_bind_peer() unconditionally since it is not
-possible for rt->peer to be non-NULL at this point.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
 ---
+ drivers/net/enic/enic.h      |    2 +-
+ drivers/net/enic/enic_main.c |    6 ------
+ 2 files changed, 1 insertions(+), 7 deletions(-)
 
-Committed to net-next-2.6
 
- net/ipv4/route.c |   31 +++++++++++++++++--------------
- 1 files changed, 17 insertions(+), 14 deletions(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index e4c8165..0ba6a38 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -1859,25 +1859,28 @@ static unsigned int ipv4_default_mtu(const struct dst_entry *dst)
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index ca3be4f..44865bb 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
  
- static void rt_init_metrics(struct rtable *rt, struct fib_info *fi)
- {
--	if (!(rt->fl.flags & FLOWI_FLAG_PRECOW_METRICS)) {
--	no_cow:
--		if (fi->fib_metrics != (u32 *) dst_default_metrics) {
--			rt->fi = fi;
--			atomic_inc(&fi->fib_clntref);
--		}
--		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
--	} else {
--		struct inet_peer *peer;
-+	struct inet_peer *peer;
-+	int create = 0;
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.2"
++#define DRV_VERSION		"2.1.1.2a"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
  
--		if (!rt->peer)
--			rt_bind_peer(rt, 1);
--		peer = rt->peer;
--		if (!peer)
--			goto no_cow;
-+	/* If a peer entry exists for this destination, we must hook
-+	 * it up in order to get at cached metrics.
-+	 */
-+	if (rt->fl.flags & FLOWI_FLAG_PRECOW_METRICS)
-+		create = 1;
-+
-+	rt_bind_peer(rt, create);
-+	peer = rt->peer;
-+	if (peer) {
- 		if (inet_metrics_new(peer))
- 			memcpy(peer->metrics, fi->fib_metrics,
- 			       sizeof(u32) * RTAX_MAX);
- 		dst_init_metrics(&rt->dst, peer->metrics, false);
-+	} else {
-+		if (fi->fib_metrics != (u32 *) dst_default_metrics) {
-+			rt->fi = fi;
-+			atomic_inc(&fi->fib_clntref);
-+		}
-+		dst_init_metrics(&rt->dst, fi->fib_metrics, true);
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 89664c6..37f907b 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -1381,9 +1381,6 @@ static int enic_set_vf_port(struct net_device *netdev, int vf,
+ 
+ 		if (is_zero_ether_addr(netdev->dev_addr))
+ 			random_ether_addr(netdev->dev_addr);
+-	} else if (new_pp.request == PORT_REQUEST_DISASSOCIATE) {
+-		if (!is_zero_ether_addr(enic->pp.mac_addr))
+-			enic_dev_del_addr(enic, enic->pp.mac_addr);
  	}
- }
  
--- 
-1.7.4
+ 	memcpy(&enic->pp, &new_pp, sizeof(struct enic_port_profile));
+@@ -1392,9 +1389,6 @@ static int enic_set_vf_port(struct net_device *netdev, int vf,
+ 	if (err)
+ 		goto set_port_profile_cleanup;
+ 
+-	if (!is_zero_ether_addr(enic->pp.mac_addr))
+-		enic_dev_add_addr(enic, enic->pp.mac_addr);
+-
+ set_port_profile_cleanup:
+ 	memset(enic->pp.vf_mac, 0, ETH_ALEN);
+ 
 
