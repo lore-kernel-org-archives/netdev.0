@@ -1,49 +1,48 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH] MAINTAINERS: update email ids of the be2net driver
- maintainers.
-Date: Fri, 4 Feb 2011 09:31:29 -0600
-Message-ID: <d49842f2-5ee8-4e17-b95c-f3d2108399f1@exht1.ad.emulex.com>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] bridge: Don't put partly initialized fdb into hash
+Date: Fri, 04 Feb 2011 18:58:08 +0300
+Message-ID: <4D4C2210.8010705@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, <ajit.khaparde@emulex.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: bridge@lists.linux-foundation.org,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:5287 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751539Ab1BDPb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 10:31:56 -0500
-Content-Disposition: inline
+Received: from mailhub.sw.ru ([195.214.232.25]:46903 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104Ab1BDP6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Feb 2011 10:58:24 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The fdb_create() puts a new fdb into hash with only addr set. This is
+not good, since there are callers, that search the hash w/o the lock
+and access all the other its fields.
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+Applies to current netdev tree.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+
 ---
- MAINTAINERS |    9 ++++-----
- 1 files changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 9591841..190c2a4 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5543,12 +5543,11 @@ S:	Supported
- F:	drivers/scsi/be2iscsi/
- 
- SERVER ENGINES 10Gbps NIC - BladeEngine 2 DRIVER
--M:	Sathya Perla <sathyap@serverengines.com>
--M:	Subbu Seetharaman <subbus@serverengines.com>
--M:	Sarveshwar Bandi <sarveshwarb@serverengines.com>
--M:	Ajit Khaparde <ajitk@serverengines.com>
-+M:	Sathya Perla <sathya.perla@emulex.com>
-+M:	Subbu Seetharaman <subbu.seetharaman@emulex.com>
-+M:	Ajit Khaparde <ajit.khaparde@emulex.com>
- L:	netdev@vger.kernel.org
--W:	http://www.serverengines.com
-+W:	http://www.emulex.com
- S:	Supported
- F:	drivers/net/benet/
- 
--- 
-1.7.1
-
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 2872393..88485cc 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -328,12 +328,12 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ 	fdb = kmem_cache_alloc(br_fdb_cache, GFP_ATOMIC);
+ 	if (fdb) {
+ 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
+-		hlist_add_head_rcu(&fdb->hlist, head);
+-
+ 		fdb->dst = source;
+ 		fdb->is_local = is_local;
+ 		fdb->is_static = is_local;
+ 		fdb->ageing_timer = jiffies;
++
++		hlist_add_head_rcu(&fdb->hlist, head);
+ 	}
+ 	return fdb;
+ }
