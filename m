@@ -1,60 +1,44 @@
-From: Linus Walleij <linus.walleij@stericsson.com>
-Subject: Re: [rtc-linux] [PATCH 00/20] world-writable files in sysfs and
-	debugfs
-Date: Fri, 4 Feb 2011 14:11:36 +0100
-Message-ID: <AANLkTik9FkP==O7athEugN4gLrnh7qyg_pPRR3MZ0La7@mail.gmail.com>
-References: <cover.1296818921.git.segoon@openwall.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] NETFILTER module xt_hmark new target for HASH MARK
+Date: Fri, 04 Feb 2011 14:17:28 +0100
+Message-ID: <4D4BFC68.2070306@trash.net>
+References: <1296740050-6311-1-git-send-email-hans.schillstrom@ericsson.com>	 <1296740050-6311-2-git-send-email-hans.schillstrom@ericsson.com>	 <4D4AB2D6.7070302@netfilter.org> <1296742995.6662.57.camel@seasc0214> <4D4ACCCB.8030902@netfilter.org> <4D4AD157.50707@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: Mike Christie <michaelc@cs.wisc.edu>,
-	Srinidhi Kasagar <srinidhi.kasagar@stericsson.com>,
-	Tony Lindgren <tony@atomide.com>, platform-driver-x86@vger.kernel.org,
-	socketcan-core@lists.berlios.de, Corentin Chary <corentincj@iksaif.net>,
-	"James E.J. Bottomley" <James.Bottomley@suse.de>,
-	Julia Lawall <julia@diku.dk>, Russell King <linux@arm.linux.org.uk>,
-	Samuel Ortiz <sameo@linux.intel.com>, linux-scsi@vger.kernel.org,
-	Karol Kozimor <sziwan@users.sourceforge.net>,
-	Kevin Hilman <khilman@deeprootsystems.com>,
-	Luca Risolia <luca.risolia@studio.unibo.it>, open-iscsi@googlegroups.com,
-	Wolfgang Grandegger <wg@grandegger.com>, Matthew Garrett <mjg@redhat.com>,
-	acpi4asus-user@lists.sourceforge.net,
-	Carlos Corbacho <carlos@strangeworlds.co.uk>,
-	Mauro Carvalho Chehab <mchehab@infradead.org>,
-	linux-omap@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	Alessandro Zummo <a.zummo@
-To: rtc-linux@googlegroups.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1296818921.git.segoon@openwall.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Hans Schillstrom <hans.schillstrom@ericsson.com>,
+	"jengelh@medozas.de" <jengelh@medozas.de>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"hans@schillstrom.com" <hans@schillstrom.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D4AD157.50707@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2011/2/4 Vasiliy Kulikov <segoon@openwall.com>:
+On 03.02.2011 17:01, Pablo Neira Ayuso wrote:
+> On 03/02/11 16:42, Pablo Neira Ayuso wrote:
+>> On 03/02/11 15:23, Hans Schillstrom wrote:
+>>> On Thu, 2011-02-03 at 14:51 +0100, Pablo Neira Ayuso wrote:
+>>>> On 03/02/11 14:34, Hans Schillstrom wrote:
+>>>> this assumption is not valid in NAT handlings.
+>>>
+>>> That's true, because I want to avoid conntrack
+>>>
+>>>> If you want consistent hashing with NAT handlings you'll have to make
+>>>> this stateful and use the conntrack source and reply directions of the
+>>>> original tuples (thus making it stateful). That may be a problem because
+>>>> some people may want to use this without enabling connection tracking.
+>>>
+>>> What about a compilation switch or a sysctl ?
+>>
+>> or better some option for iptables.
+> 
+> Hm, this is actually not straight forward to implement, you'll have to
+> use hook functions to avoid the module dependencies with conntrack and
+> that's pretty annoying.
 
-> The search was made with trivial shell commands:
->
-> find | xargs grep S_IWUGO
-> find | xargs grep S_IWOTH
-
-We only use our debugfs entries as root so it shouldn't matter much, this
-is way better, thanks for fixing.
-
-> =A0mach-ux500: mbox-db5500: world-writable sysfs fifo file
-> =A0mfd: ab3100: world-writable debugfs *_priv files
-> =A0mfd: ab3500: world-writable debugfs register-* files
-> =A0mfd: ab8500: world-writable debugfs register-* files
-
-Acked-by: Linus Walleij <linus.walleij@stericsson.com>
-
-For these.
-
-Yours,
-Linus Walleij
+Actually it should be pretty simple since nf_ct_get() doesn't have any
+module dependencies. If it succeeds, use the addresses from the tuples,
+otherwise fall back to getting them directly from the packet.
