@@ -1,32 +1,38 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [net-2.6 PATCH 2/3] net: dcb: use _safe() version of list iterators
-Date: Sat, 05 Feb 2011 11:40:35 -0800
-Message-ID: <4D4DA7B3.4030208@intel.com>
-References: <20110131220048.29758.22379.stgit@jf-dev1-dcblab>	<20110131220054.29758.20521.stgit@jf-dev1-dcblab> <20110131.204214.71133534.davem@davemloft.net>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] sis900: Fix mem leak in sis900_rx error path
+Date: Sat, 5 Feb 2011 21:41:53 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1102052139150.12305@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5589 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753688Ab1BETkg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Feb 2011 14:40:36 -0500
-In-Reply-To: <20110131.204214.71133534.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Daniele Venzano <venza@brownhat.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 1/31/2011 8:42 PM, David Miller wrote:
-> From: John Fastabend <john.r.fastabend@intel.com>
-> Date: Mon, 31 Jan 2011 14:00:54 -0800
-> 
->> Use _safe() version of list iterator macros in dcb_setapp().
->>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-> Why?  It's unnecessary overhead, since we always branch to "out", and
-> therefore out of the list traversal loop, any time we list_del()
-> something on the list.
+Fix memory leak in error path of sis900_rx(). If we don't do this we'll 
+leak the skb we dev_alloc_skb()'ed just a few lines above when the 
+variable goes out of scope.
 
-Of course you are right there is no reason for this. Thanks.
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ sis900.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/sis900.c b/drivers/net/sis900.c
+index 5976d1d..640e368 100644
+--- a/drivers/net/sis900.c
++++ b/drivers/net/sis900.c
+@@ -1777,6 +1777,7 @@ static int sis900_rx(struct net_device *net_dev)
+ 					      "cur_rx:%4.4d, dirty_rx:%4.4d\n",
+ 					      net_dev->name, sis_priv->cur_rx,
+ 					      sis_priv->dirty_rx);
++				dev_kfree_skb(skb);
+ 				break;
+ 			}
+ 
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+Plain text mails only, please.
