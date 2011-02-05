@@ -1,93 +1,67 @@
-From: Vasanthy Kolluri <vkolluri@cisco.com>
-Subject: [net-next-2.6 PATCH 2/5] enic: Bug Fix: Fix return values of
-	enic_add/del_station_addr routines
-Date: Fri, 04 Feb 2011 18:17:10 -0800
-Message-ID: <20110205021710.8510.44761.stgit@savbu-pc100.cisco.com>
-References: <20110205021618.8510.34816.stgit@savbu-pc100.cisco.com>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: Re: [PATCH] ServerEngines, benet: Avoid potential null deref in
+ be_cmd_get_seeprom_data()
+Date: Fri, 4 Feb 2011 21:18:28 -0600
+Message-ID: <20110205031828.GA12772@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sj-iport-5.cisco.com ([171.68.10.87]:31097 "EHLO
-	sj-iport-5.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752902Ab1BECRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Feb 2011 21:17:11 -0500
-In-Reply-To: <20110205021618.8510.34816.stgit@savbu-pc100.cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-kernel@vger.kernel.org>
+To: <netdev@vger.kernel.org>, <jj@chaosbits.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vasanthy Kolluri <vkolluri@cisco.com>
+> From: Jesper Juhl [jj@chaosbits.net]
+> ent: Thursday, February 03, 2011 3:27 PM
+> To: netdev@vger.kernel.org
+> Cc: linux-drivers; linux-kernel@vger.kernel.org; Khaparde, Ajit; Bandi, Sarveshwar; Seetharaman, Subramanian; Perla, Sathya
+> Subject: [PATCH] ServerEngines, benet: Avoid potential null deref in be_cmd_get_seeprom_data()
 
-Fix enic_add/del_station_addr routines to return appropriate error code when an invalid address is added or deleted.
+> wrb_from_mccq() may return null, so we may crash on a null deref in
+> be_cmd_get_seeprom_data().
+> This avoids that potential crash.
 
-Signed-off-by: Christian Benvenuti <benve@cisco.com>
-Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
-Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
-Signed-off-by: David Wang <dwang2@cisco.com>
+> Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+
+Thanks Jesper.
+But because we have acquired a lock, we need to release it.
+I would suggest considering the following patch.
+ 
 ---
- drivers/net/enic/enic.h     |    2 +-
- drivers/net/enic/enic_dev.c |   26 ++++++++++++++------------
- 2 files changed, 15 insertions(+), 13 deletions(-)
 
+[PATCH] ServerEngines, benet: Avoid potential null deref in be_cmd_get_seeprom_data()
 
-diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
-index 1385a60..f38ad63 100644
---- a/drivers/net/enic/enic.h
-+++ b/drivers/net/enic/enic.h
-@@ -32,7 +32,7 @@
+Found by: Jesper Juhl <jj@chaosbits.net>
+
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/benet/be_cmds.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index 0c7811f..a179cc6 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1786,6 +1786,10 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
+ 	spin_lock_bh(&adapter->mcc_lock);
  
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.1.1.3"
-+#define DRV_VERSION		"2.1.1.4"
- #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 	wrb = wrb_from_mccq(adapter);
++	if (!wrb) {
++		status = -EBUSY;
++		goto err;
++	}
+ 	req = nonemb_cmd->va;
+ 	sge = nonembedded_sgl(wrb);
  
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/enic/enic_dev.c b/drivers/net/enic/enic_dev.c
-index a52dbd2..3826266 100644
---- a/drivers/net/enic/enic_dev.c
-+++ b/drivers/net/enic/enic_dev.c
-@@ -49,26 +49,28 @@ int enic_dev_stats_dump(struct enic *enic, struct vnic_stats **vstats)
+@@ -1801,6 +1805,7 @@ int be_cmd_get_seeprom_data(struct be_adapter *adapter,
  
- int enic_dev_add_station_addr(struct enic *enic)
- {
--	int err = 0;
-+	int err;
-+
-+	if (!is_valid_ether_addr(enic->netdev->dev_addr))
-+		return -EADDRNOTAVAIL;
+ 	status = be_mcc_notify_wait(adapter);
  
--	if (is_valid_ether_addr(enic->netdev->dev_addr)) {
--		spin_lock(&enic->devcmd_lock);
--		err = vnic_dev_add_addr(enic->vdev, enic->netdev->dev_addr);
--		spin_unlock(&enic->devcmd_lock);
--	}
-+	spin_lock(&enic->devcmd_lock);
-+	err = vnic_dev_add_addr(enic->vdev, enic->netdev->dev_addr);
-+	spin_unlock(&enic->devcmd_lock);
- 
- 	return err;
++err:
+ 	spin_unlock_bh(&adapter->mcc_lock);
+ 	return status;
  }
- 
- int enic_dev_del_station_addr(struct enic *enic)
- {
--	int err = 0;
-+	int err;
-+
-+	if (!is_valid_ether_addr(enic->netdev->dev_addr))
-+		return -EADDRNOTAVAIL;
- 
--	if (is_valid_ether_addr(enic->netdev->dev_addr)) {
--		spin_lock(&enic->devcmd_lock);
--		err = vnic_dev_del_addr(enic->vdev, enic->netdev->dev_addr);
--		spin_unlock(&enic->devcmd_lock);
--	}
-+	spin_lock(&enic->devcmd_lock);
-+	err = vnic_dev_del_addr(enic->vdev, enic->netdev->dev_addr);
-+	spin_unlock(&enic->devcmd_lock);
- 
- 	return err;
- }
-
+-- 
+1.7.1
