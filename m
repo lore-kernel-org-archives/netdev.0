@@ -1,36 +1,33 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v5] Gemini: Gigabit ethernet driver
-Date: Sat, 5 Feb 2011 14:19:01 +0100
-Message-ID: <20110205131901.GA14145@rere.qmqm.pl>
-References: <20101230083905.5A8EB13909@rere.qmqm.pl> <20110126232419.4794513909@rere.qmqm.pl> <20110128.143159.48506419.davem@davemloft.net> <20110202171814.GA10458@rere.qmqm.pl>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: Re: [PATCH] tcp: Increase the initial congestion window to 10.
+Date: Sat, 5 Feb 2011 14:57:10 +0100
+Message-ID: <20110205135710.GA4752@gerrit.erg.abdn.ac.uk>
+References: <20110202.170750.229739784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, dccp@vger.kernel.org, therbert@google.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:64816 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751564Ab1BEN53 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Feb 2011 08:57:29 -0500
 Content-Disposition: inline
-In-Reply-To: <20110202171814.GA10458@rere.qmqm.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110202.170750.229739784.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 02, 2011 at 06:18:14PM +0100, Micha=B3 Miros=B3aw wrote:
-> If I make it buildable (NOT working) on other archs is it enough I ad=
-d
-> Kconfig dependency on (ARCH_GEMINI || BROKEN) to allow it to be
-> build-tested there?
+| I've left the DCCP code to keep using RFC3390 logic, if they
+| wish to adopt this change in their code they can do so by
+| simply deleting the rfc33390_bytes_to_packets() function and
+| using TCP_INIT_CWND in their assignment.
+| 
+|  include/net/tcp.h      |   12 +++---------
+|  net/dccp/ccids/ccid2.c |    9 +++++++++
+Thank you for keeping the compatility, this seems an excellent way forward.
 
-Hmm. CONFIG_BROKEN is not easily selectable anymore, so it's unlikely
-that many people will even know about it. What's the correct way to
-make a driver be built but not installed by default? I can use:
+The change only affects CCID-2, TCP-like congestion control. This still has
+some unresolved issues (related to cwnd) in its implementation.
 
-default m if ARCH_GEMINI
-default n
-
-But that will make it get installed on x86 allmodconfig even if it
-won't ever work there - so will pollute modules for other arches
-unless distribution managers remember that not every driver built
-needs to be included.
-
-Best Regards,
-Micha=B3 Miros=B3aw
+Once these have been resolved, we can return to tracking the state of the 
+art in TCP, for the moment your patch works best.
