@@ -1,55 +1,45 @@
-From: chriss <mail_to_chriss@gmx.net>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
-Date: Sat, 5 Feb 2011 15:34:33 +0000 (UTC)
-Message-ID: <loom.20110205T163216-459@post.gmane.org>
-References: <4D32FC1C.3010905@simon.arlott.org.uk> <201101231845.20505.maciej.rutecki@gmail.com> <AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com> <201101241625.45367.maciej.rutecki@gmail.com>
+From: John Fastabend <john.r.fastabend@intel.com>
+Subject: Re: [net-2.6 PATCH 1/3] net: dcb: match dcb_app protocol field with
+ 802.1Qaz spec
+Date: Sat, 05 Feb 2011 11:39:12 -0800
+Message-ID: <4D4DA760.6090204@intel.com>
+References: <20110131220048.29758.22379.stgit@jf-dev1-dcblab> <20110131.204104.226756946.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:46327 "EHLO lo.gmane.org"
+Received: from mga11.intel.com ([192.55.52.93]:20150 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751657Ab1BEPkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Feb 2011 10:40:07 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1PlkF3-00087f-Rt
-	for netdev@vger.kernel.org; Sat, 05 Feb 2011 16:40:05 +0100
-Received: from HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de ([109.193.65.201])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 05 Feb 2011 16:40:05 +0100
-Received: from mail_to_chriss by HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 05 Feb 2011 16:40:05 +0100
+	id S1753563Ab1BETjN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Feb 2011 14:39:13 -0500
+In-Reply-To: <20110131.204104.226756946.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Maciej Rutecki <maciej.rutecki <at> gmail.com> writes:
-
+On 1/31/2011 8:41 PM, David Miller wrote:
+> From: John Fastabend <john.r.fastabend@intel.com>
+> Date: Mon, 31 Jan 2011 14:00:49 -0800
 > 
-> On niedziela, 23 stycznia 2011 o 22:29:02 Jesse Gross wrote:
-> > On Sun, Jan 23, 2011 at 9:45 AM, Maciej Rutecki
-> > 
-> > <maciej.rutecki <at> gmail.com> wrote:
-> > > I created a Bugzilla entry at
-> > > https://bugzilla.kernel.org/show_bug.cgi?id=27432
-> > > for your bug report, please add your address to the CC list in there,
-> > > thanks!
-> > 
-> > This isn't a bug - the change resolved behavior that varied depending
-> > on what NIC was in use.
+>> The dcb_app protocol field is a __u32 however the 802.1Qaz
+>> specification defines it as a 16 bit field. This patch brings
+>> the structure inline with the spec making it a __u16.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>  ...
+>> @@ -101,7 +101,7 @@ struct ieee_pfc {
+>>   */
+>>  struct dcb_app {
+>>  	__u8	selector;
+>> -	__u32	protocol;
+>> +	__u16	protocol;
+>>  	__u8	priority;
+>>  };
+>>  
 > 
-> Thanks for the update. Closing.
-> 
-> Regards
+> If we're going to do this, please fix this wasteful structure
+> layout.  Put the "protocol" either first, or last, so that the
+> structure size is 4 bytes, rather than something like 8.
 
-
-Hi
-
-How am i supposed to put my eth to a bridge and have a seprate vlan besides that
-bridge?
-
-regards
-
+OK I will fix this. Thanks
