@@ -1,258 +1,377 @@
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Subject: [PATCH net-next] bnx2x: MTU for FCoE L2 ring
-Date: Sun, 6 Feb 2011 14:49:22 +0200
-Message-ID: <1296996562.16759.9.camel@lb-tlvb-vladz>
+From: Milan Jurik <milan.jurik@xylab.cz>
+Subject: Re: [Aranym-dev] [PATCH 4/4] m68k/atari: ARAnyM - Add support for
+ network access
+Date: Sun, 06 Feb 2011 13:52:48 +0100
+Message-ID: <1296996768.7349.5.camel@xylabone>
+References: <1296989469-7844-1-git-send-email-geert@linux-m68k.org>
+	 <1296989469-7844-5-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "netdev list" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Dave Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4182 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752304Ab1BFMta (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 6 Feb 2011 07:49:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
+	cz-bobek-lists-aranym@lists.bobek.cz,
+	Milan Jurik <M.Jurik@sh.cvut.cz>,
+	Michael Schmitz <schmitz@opal.biophys.uni-duesseldorf.de>,
+	netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
+To: aranym@lists.bobek.cz
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1296989469-7844-5-git-send-email-geert@linux-m68k.org>
+Sender: linux-m68k-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Always configure an FCoE L2 ring with a mini-jumbo MTU size (2500).
-To do that we had to move the rx_buf_size parameter from per
-function level to a per ring level.
+Hi,
 
-Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x.h         |    7 ++++-
- drivers/net/bnx2x/bnx2x_cmn.c     |   53 +++++++++++++++++++++++++++----------
- drivers/net/bnx2x/bnx2x_cmn.h     |    6 ++--
- drivers/net/bnx2x/bnx2x_ethtool.c |    2 +-
- drivers/net/bnx2x/bnx2x_main.c    |   10 +++++-
- 5 files changed, 57 insertions(+), 21 deletions(-)
+Signed-off-by: Milan Jurik <milan.jurik@xylab.cz>
 
-diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
-index ff87ec3..c29b37e 100644
---- a/drivers/net/bnx2x/bnx2x.h
-+++ b/drivers/net/bnx2x/bnx2x.h
-@@ -341,6 +341,8 @@ struct bnx2x_fastpath {
- 	/* chip independed shortcut into rx_prods_offset memory */
- 	u32			ustorm_rx_prods_offset;
+The original e-mail address is dead for some time.
 
-+	u32			rx_buf_size;
-+
- 	dma_addr_t		status_blk_mapping;
+Best regards,
 
- 	struct sw_tx_bd		*tx_buf_ring;
-@@ -428,6 +430,10 @@ struct bnx2x_fastpath {
- };
+Milan
 
- #define bnx2x_fp(bp, nr, var)		(bp->fp[nr].var)
-+
-+/* Use 2500 as a mini-jumbo MTU for FCoE */
-+#define BNX2X_FCOE_MINI_JUMBO_MTU	2500
-+
- #ifdef BCM_CNIC
- /* FCoE L2 `fastpath' is right after the eth entries */
- #define FCOE_IDX			BNX2X_NUM_ETH_QUEUES(bp)
-@@ -911,7 +917,6 @@ struct bnx2x {
- 	int			tx_ring_size;
-
- 	u32			rx_csum;
--	u32			rx_buf_size;
- /* L2 header size + 2*VLANs (8 bytes) + LLC SNAP (8 bytes) */
- #define ETH_OVREHEAD		(ETH_HLEN + 8 + 8)
- #define ETH_MIN_PACKET_SIZE		60
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 710ce5d..844afce 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -232,7 +232,7 @@ static void bnx2x_tpa_start(struct bnx2x_fastpath *fp, u16 queue,
- 	/* move empty skb from pool to prod and map it */
- 	prod_rx_buf->skb = fp->tpa_pool[queue].skb;
- 	mapping = dma_map_single(&bp->pdev->dev, fp->tpa_pool[queue].skb->data,
--				 bp->rx_buf_size, DMA_FROM_DEVICE);
-+				 fp->rx_buf_size, DMA_FROM_DEVICE);
- 	dma_unmap_addr_set(prod_rx_buf, mapping, mapping);
-
- 	/* move partial skb from cons to pool (don't unmap yet) */
-@@ -333,13 +333,13 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 	struct sw_rx_bd *rx_buf = &fp->tpa_pool[queue];
- 	struct sk_buff *skb = rx_buf->skb;
- 	/* alloc new skb */
--	struct sk_buff *new_skb = netdev_alloc_skb(bp->dev, bp->rx_buf_size);
-+	struct sk_buff *new_skb = netdev_alloc_skb(bp->dev, fp->rx_buf_size);
-
- 	/* Unmap skb in the pool anyway, as we are going to change
- 	   pool entry status to BNX2X_TPA_STOP even if new skb allocation
- 	   fails. */
- 	dma_unmap_single(&bp->pdev->dev, dma_unmap_addr(rx_buf, mapping),
--			 bp->rx_buf_size, DMA_FROM_DEVICE);
-+			 fp->rx_buf_size, DMA_FROM_DEVICE);
-
- 	if (likely(new_skb)) {
- 		/* fix ip xsum and give it to the stack */
-@@ -349,10 +349,10 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
- 		prefetch(((char *)(skb)) + L1_CACHE_BYTES);
-
- #ifdef BNX2X_STOP_ON_ERROR
--		if (pad + len > bp->rx_buf_size) {
-+		if (pad + len > fp->rx_buf_size) {
- 			BNX2X_ERR("skb_put is about to fail...  "
- 				  "pad %d  len %d  rx_buf_size %d\n",
--				  pad, len, bp->rx_buf_size);
-+				  pad, len, fp->rx_buf_size);
- 			bnx2x_panic();
- 			return;
- 		}
-@@ -582,7 +582,7 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
- 			if (likely(bnx2x_alloc_rx_skb(bp, fp, bd_prod) == 0)) {
- 				dma_unmap_single(&bp->pdev->dev,
- 					dma_unmap_addr(rx_buf, mapping),
--						 bp->rx_buf_size,
-+						 fp->rx_buf_size,
- 						 DMA_FROM_DEVICE);
- 				skb_reserve(skb, pad);
- 				skb_put(skb, len);
-@@ -821,19 +821,16 @@ void bnx2x_init_rx_rings(struct bnx2x *bp)
- 	u16 ring_prod;
- 	int i, j;
-
--	bp->rx_buf_size = bp->dev->mtu + ETH_OVREHEAD + BNX2X_RX_ALIGN +
--		IP_HEADER_ALIGNMENT_PADDING;
--
--	DP(NETIF_MSG_IFUP,
--	   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, bp->rx_buf_size);
--
- 	for_each_rx_queue(bp, j) {
- 		struct bnx2x_fastpath *fp = &bp->fp[j];
-
-+		DP(NETIF_MSG_IFUP,
-+		   "mtu %d  rx_buf_size %d\n", bp->dev->mtu, fp->rx_buf_size);
-+
- 		if (!fp->disable_tpa) {
- 			for (i = 0; i < max_agg_queues; i++) {
- 				fp->tpa_pool[i].skb =
--				   netdev_alloc_skb(bp->dev, bp->rx_buf_size);
-+				   netdev_alloc_skb(bp->dev, fp->rx_buf_size);
- 				if (!fp->tpa_pool[i].skb) {
- 					BNX2X_ERR("Failed to allocate TPA "
- 						  "skb pool for queue[%d] - "
-@@ -941,7 +938,7 @@ static void bnx2x_free_rx_skbs(struct bnx2x *bp)
-
- 			dma_unmap_single(&bp->pdev->dev,
- 					 dma_unmap_addr(rx_buf, mapping),
--					 bp->rx_buf_size, DMA_FROM_DEVICE);
-+					 fp->rx_buf_size, DMA_FROM_DEVICE);
-
- 			rx_buf->skb = NULL;
- 			dev_kfree_skb(skb);
-@@ -1249,6 +1246,31 @@ static inline int bnx2x_set_real_num_queues(struct bnx2x *bp)
- 	return rc;
- }
-
-+static inline void bnx2x_set_rx_buf_size(struct bnx2x *bp)
-+{
-+	int i;
-+
-+	for_each_queue(bp, i) {
-+		struct bnx2x_fastpath *fp = &bp->fp[i];
-+
-+		/* Always use a mini-jumbo MTU for the FCoE L2 ring */
-+		if (IS_FCOE_IDX(i))
-+			/*
-+			 * Although there are no IP frames expected to arrive to
-+			 * this ring we still want to add an
-+			 * IP_HEADER_ALIGNMENT_PADDING to prevent a buffer
-+			 * overrun attack.
-+			 */
-+			fp->rx_buf_size =
-+				BNX2X_FCOE_MINI_JUMBO_MTU + ETH_OVREHEAD +
-+				BNX2X_RX_ALIGN + IP_HEADER_ALIGNMENT_PADDING;
-+		else
-+			fp->rx_buf_size =
-+				bp->dev->mtu + ETH_OVREHEAD + BNX2X_RX_ALIGN +
-+				IP_HEADER_ALIGNMENT_PADDING;
-+	}
-+}
-+
- /* must be called with rtnl_lock */
- int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- {
-@@ -1272,6 +1294,9 @@ int bnx2x_nic_load(struct bnx2x *bp, int load_mode)
- 	/* must be called before memory allocation and HW init */
- 	bnx2x_ilt_set_info(bp);
-
-+	/* Set the receive queues buffer size */
-+	bnx2x_set_rx_buf_size(bp);
-+
- 	if (bnx2x_alloc_mem(bp))
- 		return -ENOMEM;
-
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
-index 03eb4d6..f062d5d 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/bnx2x/bnx2x_cmn.h
-@@ -822,11 +822,11 @@ static inline int bnx2x_alloc_rx_skb(struct bnx2x *bp,
- 	struct eth_rx_bd *rx_bd = &fp->rx_desc_ring[index];
- 	dma_addr_t mapping;
-
--	skb = netdev_alloc_skb(bp->dev, bp->rx_buf_size);
-+	skb = netdev_alloc_skb(bp->dev, fp->rx_buf_size);
- 	if (unlikely(skb == NULL))
- 		return -ENOMEM;
-
--	mapping = dma_map_single(&bp->pdev->dev, skb->data, bp->rx_buf_size,
-+	mapping = dma_map_single(&bp->pdev->dev, skb->data, fp->rx_buf_size,
- 				 DMA_FROM_DEVICE);
- 	if (unlikely(dma_mapping_error(&bp->pdev->dev, mapping))) {
- 		dev_kfree_skb(skb);
-@@ -892,7 +892,7 @@ static inline void bnx2x_free_tpa_pool(struct bnx2x *bp,
- 		if (fp->tpa_state[i] == BNX2X_TPA_START)
- 			dma_unmap_single(&bp->pdev->dev,
- 					 dma_unmap_addr(rx_buf, mapping),
--					 bp->rx_buf_size, DMA_FROM_DEVICE);
-+					 fp->rx_buf_size, DMA_FROM_DEVICE);
-
- 		dev_kfree_skb(skb);
- 		rx_buf->skb = NULL;
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 5b44a8b..816fef6 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -1618,7 +1618,7 @@ static int bnx2x_run_loopback(struct bnx2x *bp, int loopback_mode, u8 link_up)
- 	/* prepare the loopback packet */
- 	pkt_size = (((bp->dev->mtu < ETH_MAX_PACKET_SIZE) ?
- 		     bp->dev->mtu : ETH_MAX_PACKET_SIZE) + ETH_HLEN);
--	skb = netdev_alloc_skb(bp->dev, bp->rx_buf_size);
-+	skb = netdev_alloc_skb(bp->dev, fp_rx->rx_buf_size);
- 	if (!skb) {
- 		rc = -ENOMEM;
- 		goto test_loopback_exit;
-diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index ae8d20a..4b2cc1f 100644
---- a/drivers/net/bnx2x/bnx2x_main.c
-+++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -2478,8 +2478,14 @@ static void bnx2x_pf_rx_cl_prep(struct bnx2x *bp,
- 	rxq_init->sge_map = fp->rx_sge_mapping;
- 	rxq_init->rcq_map = fp->rx_comp_mapping;
- 	rxq_init->rcq_np_map = fp->rx_comp_mapping + BCM_PAGE_SIZE;
--	rxq_init->mtu = bp->dev->mtu;
--	rxq_init->buf_sz = bp->rx_buf_size;
-+
-+	/* Always use mini-jumbo MTU for FCoE L2 ring */
-+	if (IS_FCOE_FP(fp))
-+		rxq_init->mtu = BNX2X_FCOE_MINI_JUMBO_MTU;
-+	else
-+		rxq_init->mtu = bp->dev->mtu;
-+
-+	rxq_init->buf_sz = fp->rx_buf_size;
- 	rxq_init->cl_qzone_id = fp->cl_qzone_id;
- 	rxq_init->cl_id = fp->cl_id;
- 	rxq_init->spcl_id = fp->cl_id;
---
-1.7.0.4
-
-
-
-
+Geert Uytterhoeven p=C3=AD=C5=A1e v ne 06. 02. 2011 v 11:51 +0100:
+> From: Michael Schmitz <schmitz@opal.biophys.uni-duesseldorf.de>
+>=20
+> Should be signed off by Milan and Petr, really.
+>=20
+> [geert] Cleanups and updates
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Cc: Petr Stehlik <pstehlik@sophics.cz>
+> Cc: Milan Jurik <M.Jurik@sh.cvut.cz>
+> Cc: netdev@vger.kernel.org
+>=20
+> ---
+> Changelog:
+>   - Convert to net_device_ops,
+>   - nfeth doesn't need obsolete <net/ieee80211.h>,
+>   - Convert print_mac to %pM,
+>   - Break too long lines,
+>   - Make needlessly global functions static,
+>   - Make version[] const,
+>   - Use pr_*(),
+>   - Use net_device_stats from struct net_device instead of our own,
+>   - Propagate error code from request_irq(),
+>   - Remove unused variable "handled".
+> ---
+>  arch/m68k/Kconfig      |    8 ++
+>  arch/m68k/emu/Makefile |    1 +
+>  arch/m68k/emu/nfeth.c  |  272 ++++++++++++++++++++++++++++++++++++++=
+++++++++++
+>  3 files changed, 281 insertions(+), 0 deletions(-)
+>  create mode 100644 arch/m68k/emu/nfeth.c
+>=20
+> diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
+> index 6719c56..80df6ee 100644
+> --- a/arch/m68k/Kconfig
+> +++ b/arch/m68k/Kconfig
+> @@ -263,6 +263,14 @@ config NFCON
+>  	  which allows the console output to be redirected to the stderr
+>  	  output of ARAnyM.
+> =20
+> +config NFETH
+> +	tristate "NatFeat Ethernet support"
+> +	depends on NET_ETHERNET && NATFEAT
+> +	help
+> +	  Say Y to include support for the ARAnyM NatFeat network device
+> +	  which will emulate a regular ethernet device while presenting an
+> +	  ethertap device to the host system.
+> +
+>  comment "Processor type"
+> =20
+>  config M68020
+> diff --git a/arch/m68k/emu/Makefile b/arch/m68k/emu/Makefile
+> index a83ef1e..7dc2010 100644
+> --- a/arch/m68k/emu/Makefile
+> +++ b/arch/m68k/emu/Makefile
+> @@ -6,3 +6,4 @@ obj-y			+=3D natfeat.o
+> =20
+>  obj-$(CONFIG_NFBLOCK)	+=3D nfblock.o
+>  obj-$(CONFIG_NFCON)	+=3D nfcon.o
+> +obj-$(CONFIG_NFETH)	+=3D nfeth.o
+> diff --git a/arch/m68k/emu/nfeth.c b/arch/m68k/emu/nfeth.c
+> new file mode 100644
+> index 0000000..5b2a33d
+> --- /dev/null
+> +++ b/arch/m68k/emu/nfeth.c
+> @@ -0,0 +1,272 @@
+> +/*
+> + * atari_nfeth.c - ARAnyM ethernet card driver for GNU/Linux
+> + *
+> + * Copyright (c) 2005 Milan Jurik, Petr Stehlik of ARAnyM dev team
+> + *
+> + * Based on ARAnyM driver for FreeMiNT written by Standa Opichal
+> + *
+> + * This software may be used and distributed according to the terms =
+of
+> + * the GNU General Public License (GPL), incorporated herein by refe=
+rence.
+> + */
+> +
+> +#include <linux/netdevice.h>
+> +#include <linux/etherdevice.h>
+> +#include <linux/module.h>
+> +#include <asm/natfeat.h>
+> +#include <asm/virtconvert.h>
+> +
+> +enum {
+> +	GET_VERSION =3D 0,/* no parameters, return NFAPI_VERSION in d0 */
+> +	XIF_INTLEVEL,	/* no parameters, return Interrupt Level in d0 */
+> +	XIF_IRQ,	/* acknowledge interrupt from host */
+> +	XIF_START,	/* (ethX), called on 'ifup', start receiver thread */
+> +	XIF_STOP,	/* (ethX), called on 'ifdown', stop the thread */
+> +	XIF_READLENGTH,	/* (ethX), return size of network data block to rea=
+d */
+> +	XIF_READBLOCK,	/* (ethX, buffer, size), read block of network data =
+*/
+> +	XIF_WRITEBLOCK,	/* (ethX, buffer, size), write block of network dat=
+a */
+> +	XIF_GET_MAC,	/* (ethX, buffer, size), return MAC HW addr in buffer =
+*/
+> +	XIF_GET_IPHOST,	/* (ethX, buffer, size), return IP address of host =
+*/
+> +	XIF_GET_IPATARI,/* (ethX, buffer, size), return IP address of atari=
+ */
+> +	XIF_GET_NETMASK	/* (ethX, buffer, size), return IP netmask */
+> +};
+> +
+> +#define DRV_NAME	"nfeth"
+> +#define DRV_VERSION	"0.3"
+> +#define DRV_RELDATE	"10/12/2005"
+> +
+> +#define MAX_UNIT	8
+> +
+> +/* These identify the driver base version and may not be removed. */
+> +static const char version[] __devinitdata =3D
+> +	KERN_INFO DRV_NAME ".c:v" DRV_VERSION " " DRV_RELDATE
+> +	" S.Opichal, M.Jurik, P.Stehlik\n"
+> +	KERN_INFO " http://aranym.atari.org/\n";
+> +
+> +MODULE_AUTHOR("Milan Jurik");
+> +MODULE_DESCRIPTION("Atari NFeth driver");
+> +MODULE_LICENSE("GPL");
+> +/*
+> +MODULE_PARM(nfeth_debug, "i");
+> +MODULE_PARM_DESC(nfeth_debug, "nfeth_debug level (1-2)");
+> +*/
+> +
+> +
+> +static long nfEtherID;
+> +static int nfEtherIRQ;
+> +
+> +struct nfeth_private {
+> +	int ethX;
+> +};
+> +
+> +static struct net_device *nfeth_dev[MAX_UNIT];
+> +
+> +static int nfeth_open(struct net_device *dev)
+> +{
+> +	struct nfeth_private *priv =3D netdev_priv(dev);
+> +	int res;
+> +
+> +	res =3D nf_call(nfEtherID + XIF_START, priv->ethX);
+> +
+> +	pr_debug(DRV_NAME ": open %d\n", res);
+> +
+> +	/* Ready for data */
+> +	netif_start_queue(dev);
+> +
+> +	return 0;
+> +}
+> +
+> +static int nfeth_stop(struct net_device *dev)
+> +{
+> +	struct nfeth_private *priv =3D netdev_priv(dev);
+> +
+> +	/* No more data */
+> +	netif_stop_queue(dev);
+> +
+> +	nf_call(nfEtherID + XIF_STOP, priv->ethX);
+> +
+> +	return 0;
+> +}
+> +
+> +/*
+> + * Read a packet out of the adapter and pass it to the upper layers
+> + */
+> +static inline void recv_packet(struct net_device *dev)
+> +{
+> +	struct nfeth_private *priv =3D netdev_priv(dev);
+> +	unsigned short pktlen;
+> +	struct sk_buff *skb;
+> +
+> +	/* read packet length (excluding 32 bit crc) */
+> +	pktlen =3D nf_call(nfEtherID + XIF_READLENGTH, priv->ethX);
+> +
+> +	pr_debug(DRV_NAME ": recv_packet: %i\n", pktlen);
+> +
+> +	if (!pktlen) {
+> +		pr_debug(DRV_NAME ": recv_packet: pktlen =3D=3D 0\n");
+> +		dev->stats.rx_errors++;
+> +		return;
+> +	}
+> +
+> +	skb =3D dev_alloc_skb(pktlen + 2);
+> +	if (!skb) {
+> +		pr_debug(DRV_NAME
+> +			 ": recv_packet: out of mem (buf_alloc failed)\n");
+> +		dev->stats.rx_dropped++;
+> +		return;
+> +	}
+> +
+> +	skb->dev =3D dev;
+> +	skb_reserve(skb, 2);		/* 16 Byte align  */
+> +	skb_put(skb, pktlen);		/* make room */
+> +	nf_call(nfEtherID + XIF_READBLOCK, priv->ethX, virt_to_phys(skb->da=
+ta),
+> +		pktlen);
+> +
+> +	skb->protocol =3D eth_type_trans(skb, dev);
+> +	netif_rx(skb);
+> +	dev->last_rx =3D jiffies;
+> +	dev->stats.rx_packets++;
+> +	dev->stats.rx_bytes +=3D pktlen;
+> +
+> +	/* and enqueue packet */
+> +	return;
+> +}
+> +
+> +static irqreturn_t nfeth_interrupt(int irq, void *dev_id)
+> +{
+> +	int i, m, mask;
+> +
+> +	mask =3D nf_call(nfEtherID + XIF_IRQ, 0);
+> +	for (i =3D 0, m =3D 1; i < MAX_UNIT; m <<=3D 1, i++) {
+> +		if (mask & m && nfeth_dev[i]) {
+> +			recv_packet(nfeth_dev[i]);
+> +			nf_call(nfEtherID + XIF_IRQ, m);
+> +		}
+> +	}
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static int nfeth_xmit(struct sk_buff *skb, struct net_device *dev)
+> +{
+> +	int len;
+> +	char *data, shortpkt[ETH_ZLEN];
+> +	struct nfeth_private *priv =3D netdev_priv(dev);
+> +
+> +	data =3D skb->data;
+> +	len =3D skb->len;
+> +	if (len < ETH_ZLEN) {
+> +		memset(shortpkt, 0, ETH_ZLEN);
+> +		memcpy(shortpkt, data, len);
+> +		data =3D shortpkt;
+> +		len =3D ETH_ZLEN;
+> +	}
+> +
+> +	dev->trans_start =3D jiffies;
+> +
+> +	pr_debug(DRV_NAME ": send %d bytes\n", len);
+> +	nf_call(nfEtherID + XIF_WRITEBLOCK, priv->ethX, virt_to_phys(data),
+> +		len);
+> +
+> +	dev->stats.tx_packets++;
+> +	dev->stats.tx_bytes +=3D len;
+> +
+> +	dev_kfree_skb(skb);
+> +	return 0;
+> +}
+> +
+> +static void nfeth_tx_timeout(struct net_device *dev)
+> +{
+> +	dev->stats.tx_errors++;
+> +	netif_wake_queue(dev);
+> +}
+> +
+> +static const struct net_device_ops nfeth_netdev_ops =3D {
+> +	.ndo_open		=3D nfeth_open,
+> +	.ndo_stop		=3D nfeth_stop,
+> +	.ndo_start_xmit		=3D nfeth_xmit,
+> +	.ndo_tx_timeout		=3D nfeth_tx_timeout,
+> +	.ndo_validate_addr	=3D eth_validate_addr,
+> +	.ndo_change_mtu		=3D eth_change_mtu,
+> +	.ndo_set_mac_address	=3D eth_mac_addr,
+> +};
+> +
+> +static struct net_device * __init nfeth_probe(int unit)
+> +{
+> +	struct net_device *dev;
+> +	struct nfeth_private *priv;
+> +	char mac[ETH_ALEN], host_ip[32], local_ip[32];
+> +	int err;
+> +
+> +	if (!nf_call(nfEtherID + XIF_GET_MAC, unit, mac, ETH_ALEN))
+> +		return NULL;
+> +
+> +	dev =3D alloc_etherdev(sizeof(struct nfeth_private));
+> +	if (!dev)
+> +		return NULL;
+> +
+> +	dev->irq =3D nfEtherIRQ;
+> +	dev->netdev_ops =3D &nfeth_netdev_ops;
+> +
+> +	dev->flags |=3D NETIF_F_NO_CSUM;
+> +	memcpy(dev->dev_addr, mac, ETH_ALEN);
+> +
+> +	priv =3D netdev_priv(dev);
+> +	priv->ethX =3D unit;
+> +
+> +	err =3D register_netdev(dev);
+> +	if (err) {
+> +		free_netdev(dev);
+> +		return NULL;
+> +	}
+> +
+> +	nf_call(nfEtherID + XIF_GET_IPHOST, unit,
+> +		host_ip, sizeof(host_ip));
+> +	nf_call(nfEtherID + XIF_GET_IPATARI, unit,
+> +		local_ip, sizeof(local_ip));
+> +
+> +	pr_info("%s: nfeth addr:%s (%s) HWaddr:%pM\n", dev->name, host_ip,
+> +		local_ip, mac);
+> +
+> +	return dev;
+> +}
+> +
+> +static int __init nfeth_init(void)
+> +{
+> +	long ver;
+> +	int error, i;
+> +
+> +	nfEtherID =3D nf_get_id("ETHERNET");
+> +	if (!nfEtherID)
+> +		return -ENODEV;
+> +
+> +	ver =3D nf_call(nfEtherID + GET_VERSION);
+> +	pr_info("nfeth API %lu\n", ver);
+> +
+> +	nfEtherIRQ =3D nf_call(nfEtherID + XIF_INTLEVEL);
+> +	error =3D request_irq(nfEtherIRQ, nfeth_interrupt, IRQF_SHARED,
+> +			    "eth emu", nfeth_interrupt);
+> +	if (error) {
+> +		pr_err("nfeth: request for irq %d failed", nfEtherIRQ);
+> +		return error;
+> +	}
+> +
+> +	for (i =3D 0; i < MAX_UNIT; i++)
+> +		nfeth_dev[i] =3D nfeth_probe(i);
+> +
+> +	return 0;
+> +}
+> +
+> +static void __exit nfeth_cleanup(void)
+> +{
+> +	int i;
+> +
+> +	for (i =3D 0; i < MAX_UNIT; i++) {
+> +		if (nfeth_dev[i]) {
+> +			unregister_netdev(nfeth_dev[0]);
+> +			free_netdev(nfeth_dev[0]);
+> +		}
+> +	}
+> +	free_irq(nfEtherIRQ, nfeth_interrupt);
+> +}
+> +
+> +module_init(nfeth_init);
+> +module_exit(nfeth_cleanup);
