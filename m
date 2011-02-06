@@ -1,23 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 4/5] enic: Clean up: Remove support for an older
- version of hardware
-Date: Sat, 05 Feb 2011 17:57:02 -0800 (PST)
-Message-ID: <20110205.175702.226777511.davem@davemloft.net>
+Subject: Re: [PATCH] ServerEngines, benet: Avoid potential null deref in
+ be_cmd_get_seeprom_data()
+Date: Sat, 05 Feb 2011 17:58:35 -0800 (PST)
+Message-ID: <20110205.175835.71108338.davem@davemloft.net>
+References: <20110205031828.GA12772@akhaparde-VBox>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: vkolluri@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36821
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751640Ab1BFB41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Feb 2011 20:56:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, jj@chaosbits.net,
+	linux-kernel@vger.kernel.org
+To: ajit.khaparde@emulex.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110205031828.GA12772@akhaparde-VBox>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Date: Fri, 4 Feb 2011 21:18:28 -0600
 
-If this hardware ever shipped to any customers, you cannot
-simply remove support for it.
+> [PATCH] ServerEngines, benet: Avoid potential null deref in be_cmd_get_seeprom_data()
+> 
+> Found by: Jesper Juhl <jj@chaosbits.net>
+> 
+> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 
-Such code must be retained.
+Applied, thanks.
