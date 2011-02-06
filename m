@@ -1,34 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6] bnx2x: Duplication in promisc mode
-Date: Sun, 06 Feb 2011 11:21:56 -0800 (PST)
-Message-ID: <20110206.112156.115927987.davem@davemloft.net>
-References: <1296998053.16759.25.camel@lb-tlvb-vladz>
+Subject: Re: [PATCH net-next] bnx2x: Proper netdev->ndo_set_rx_mode()
+ implementation.
+Date: Sun, 06 Feb 2011 11:25:59 -0800 (PST)
+Message-ID: <20110206.112559.48508425.davem@davemloft.net>
+References: <201102061850.40458.vladz@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, eilong@broadcom.com
 To: vladz@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53079
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46088
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753536Ab1BFTVV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Feb 2011 14:21:21 -0500
-In-Reply-To: <1296998053.16759.25.camel@lb-tlvb-vladz>
+	by vger.kernel.org with ESMTP id S1753851Ab1BFTZY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Feb 2011 14:25:24 -0500
+In-Reply-To: <201102061850.40458.vladz@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Vladislav Zolotarov" <vladz@broadcom.com>
-Date: Sun, 6 Feb 2011 15:14:13 +0200
+From: "Vlad Zolotarov" <vladz@broadcom.com>
+Date: Sun, 6 Feb 2011 18:50:40 +0200
 
-> Prevent packets duplication for frames targeting FCoE L2 ring:
-> packets were arriving to stack from both L2 RSS and from FCoE
-> L2 in a promiscuous mode.
-> 
-> Configure FCoE L2 ring to DROP_ALL rx mode, when interface is
-> configured to PROMISC, and to accept only unicast frames, when
-> interface is configured to ALL_MULTI.
+> Completed the bnx2x_set_rx_mode() to a proper netdev->ndo_set_rx_mode 
+> implementation: 
+>  - Added a missing configuration of a unicast MAC addresses list.
+>  - Changed bp->dma_lock from being a mutex to a spinlock as long as it's taken
+> under netdev->addr_list_lock now.
 > 
 > Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
 > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Applied.
+Applied, thanks.
