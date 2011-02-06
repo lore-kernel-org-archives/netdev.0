@@ -1,377 +1,95 @@
-From: Milan Jurik <milan.jurik@xylab.cz>
-Subject: Re: [Aranym-dev] [PATCH 4/4] m68k/atari: ARAnyM - Add support for
- network access
-Date: Sun, 06 Feb 2011 13:52:48 +0100
-Message-ID: <1296996768.7349.5.camel@xylabone>
-References: <1296989469-7844-1-git-send-email-geert@linux-m68k.org>
-	 <1296989469-7844-5-git-send-email-geert@linux-m68k.org>
+From: "Vladislav Zolotarov" <vladz@broadcom.com>
+Subject: [PATCH net-2.6] bnx2x: Duplication in promisc mode
+Date: Sun, 6 Feb 2011 15:14:13 +0200
+Message-ID: <1296998053.16759.25.camel@lb-tlvb-vladz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	cz-bobek-lists-aranym@lists.bobek.cz,
-	Milan Jurik <M.Jurik@sh.cvut.cz>,
-	Michael Schmitz <schmitz@opal.biophys.uni-duesseldorf.de>,
-	netdev@vger.kernel.org, Geert Uytterhoeven <geert@linux-m68k.org>
-To: aranym@lists.bobek.cz
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <1296989469-7844-5-git-send-email-geert@linux-m68k.org>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "netdev list" <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Dave Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:1233 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752397Ab1BFNOY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Feb 2011 08:14:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Prevent packets duplication for frames targeting FCoE L2 ring:
+packets were arriving to stack from both L2 RSS and from FCoE
+L2 in a promiscuous mode.
 
-Signed-off-by: Milan Jurik <milan.jurik@xylab.cz>
+Configure FCoE L2 ring to DROP_ALL rx mode, when interface is
+configured to PROMISC, and to accept only unicast frames, when
+interface is configured to ALL_MULTI.
 
-The original e-mail address is dead for some time.
+Signed-off-by: Vladislav Zolotarov <vladz@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/bnx2x/bnx2x_main.c |   32 +++++++++++++++++++++++---------
+ 1 files changed, 23 insertions(+), 9 deletions(-)
 
-Best regards,
+diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
+index ae8d20a..84608c8 100644
+--- a/drivers/net/bnx2x/bnx2x_main.c
++++ b/drivers/net/bnx2x/bnx2x_main.c
+@@ -4281,9 +4281,12 @@ void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
+ 		def_q_filters |= BNX2X_ACCEPT_UNICAST | BNX2X_ACCEPT_BROADCAST |
+ 				BNX2X_ACCEPT_MULTICAST;
+ #ifdef BCM_CNIC
+-		cl_id = bnx2x_fcoe(bp, cl_id);
+-		bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_UNICAST |
+-					  BNX2X_ACCEPT_MULTICAST);
++		if (!NO_FCOE(bp)) {
++			cl_id = bnx2x_fcoe(bp, cl_id);
++			bnx2x_rxq_set_mac_filters(bp, cl_id,
++						  BNX2X_ACCEPT_UNICAST |
++						  BNX2X_ACCEPT_MULTICAST);
++		}
+ #endif
+ 		break;
+ 
+@@ -4291,18 +4294,29 @@ void bnx2x_set_storm_rx_mode(struct bnx2x *bp)
+ 		def_q_filters |= BNX2X_ACCEPT_UNICAST | BNX2X_ACCEPT_BROADCAST |
+ 				BNX2X_ACCEPT_ALL_MULTICAST;
+ #ifdef BCM_CNIC
+-		cl_id = bnx2x_fcoe(bp, cl_id);
+-		bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_UNICAST |
+-					  BNX2X_ACCEPT_MULTICAST);
++		/*
++		 *  Prevent duplication of multicast packets by configuring FCoE
++		 *  L2 Client to receive only matched unicast frames.
++		 */
++		if (!NO_FCOE(bp)) {
++			cl_id = bnx2x_fcoe(bp, cl_id);
++			bnx2x_rxq_set_mac_filters(bp, cl_id,
++						  BNX2X_ACCEPT_UNICAST);
++		}
+ #endif
+ 		break;
+ 
+ 	case BNX2X_RX_MODE_PROMISC:
+ 		def_q_filters |= BNX2X_PROMISCUOUS_MODE;
+ #ifdef BCM_CNIC
+-		cl_id = bnx2x_fcoe(bp, cl_id);
+-		bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_UNICAST |
+-					  BNX2X_ACCEPT_MULTICAST);
++		/*
++		 *  Prevent packets duplication by configuring DROP_ALL for FCoE
++		 *  L2 Client.
++		 */
++		if (!NO_FCOE(bp)) {
++			cl_id = bnx2x_fcoe(bp, cl_id);
++			bnx2x_rxq_set_mac_filters(bp, cl_id, BNX2X_ACCEPT_NONE);
++		}
+ #endif
+ 		/* pass management unicast packets as well */
+ 		llh_mask |= NIG_LLH0_BRB1_DRV_MASK_REG_LLH0_BRB1_DRV_MASK_UNCST;
+-- 
+1.7.0.4
 
-Milan
 
-Geert Uytterhoeven p=C3=AD=C5=A1e v ne 06. 02. 2011 v 11:51 +0100:
-> From: Michael Schmitz <schmitz@opal.biophys.uni-duesseldorf.de>
->=20
-> Should be signed off by Milan and Petr, really.
->=20
-> [geert] Cleanups and updates
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Petr Stehlik <pstehlik@sophics.cz>
-> Cc: Milan Jurik <M.Jurik@sh.cvut.cz>
-> Cc: netdev@vger.kernel.org
->=20
-> ---
-> Changelog:
->   - Convert to net_device_ops,
->   - nfeth doesn't need obsolete <net/ieee80211.h>,
->   - Convert print_mac to %pM,
->   - Break too long lines,
->   - Make needlessly global functions static,
->   - Make version[] const,
->   - Use pr_*(),
->   - Use net_device_stats from struct net_device instead of our own,
->   - Propagate error code from request_irq(),
->   - Remove unused variable "handled".
-> ---
->  arch/m68k/Kconfig      |    8 ++
->  arch/m68k/emu/Makefile |    1 +
->  arch/m68k/emu/nfeth.c  |  272 ++++++++++++++++++++++++++++++++++++++=
-++++++++++
->  3 files changed, 281 insertions(+), 0 deletions(-)
->  create mode 100644 arch/m68k/emu/nfeth.c
->=20
-> diff --git a/arch/m68k/Kconfig b/arch/m68k/Kconfig
-> index 6719c56..80df6ee 100644
-> --- a/arch/m68k/Kconfig
-> +++ b/arch/m68k/Kconfig
-> @@ -263,6 +263,14 @@ config NFCON
->  	  which allows the console output to be redirected to the stderr
->  	  output of ARAnyM.
-> =20
-> +config NFETH
-> +	tristate "NatFeat Ethernet support"
-> +	depends on NET_ETHERNET && NATFEAT
-> +	help
-> +	  Say Y to include support for the ARAnyM NatFeat network device
-> +	  which will emulate a regular ethernet device while presenting an
-> +	  ethertap device to the host system.
-> +
->  comment "Processor type"
-> =20
->  config M68020
-> diff --git a/arch/m68k/emu/Makefile b/arch/m68k/emu/Makefile
-> index a83ef1e..7dc2010 100644
-> --- a/arch/m68k/emu/Makefile
-> +++ b/arch/m68k/emu/Makefile
-> @@ -6,3 +6,4 @@ obj-y			+=3D natfeat.o
-> =20
->  obj-$(CONFIG_NFBLOCK)	+=3D nfblock.o
->  obj-$(CONFIG_NFCON)	+=3D nfcon.o
-> +obj-$(CONFIG_NFETH)	+=3D nfeth.o
-> diff --git a/arch/m68k/emu/nfeth.c b/arch/m68k/emu/nfeth.c
-> new file mode 100644
-> index 0000000..5b2a33d
-> --- /dev/null
-> +++ b/arch/m68k/emu/nfeth.c
-> @@ -0,0 +1,272 @@
-> +/*
-> + * atari_nfeth.c - ARAnyM ethernet card driver for GNU/Linux
-> + *
-> + * Copyright (c) 2005 Milan Jurik, Petr Stehlik of ARAnyM dev team
-> + *
-> + * Based on ARAnyM driver for FreeMiNT written by Standa Opichal
-> + *
-> + * This software may be used and distributed according to the terms =
-of
-> + * the GNU General Public License (GPL), incorporated herein by refe=
-rence.
-> + */
-> +
-> +#include <linux/netdevice.h>
-> +#include <linux/etherdevice.h>
-> +#include <linux/module.h>
-> +#include <asm/natfeat.h>
-> +#include <asm/virtconvert.h>
-> +
-> +enum {
-> +	GET_VERSION =3D 0,/* no parameters, return NFAPI_VERSION in d0 */
-> +	XIF_INTLEVEL,	/* no parameters, return Interrupt Level in d0 */
-> +	XIF_IRQ,	/* acknowledge interrupt from host */
-> +	XIF_START,	/* (ethX), called on 'ifup', start receiver thread */
-> +	XIF_STOP,	/* (ethX), called on 'ifdown', stop the thread */
-> +	XIF_READLENGTH,	/* (ethX), return size of network data block to rea=
-d */
-> +	XIF_READBLOCK,	/* (ethX, buffer, size), read block of network data =
-*/
-> +	XIF_WRITEBLOCK,	/* (ethX, buffer, size), write block of network dat=
-a */
-> +	XIF_GET_MAC,	/* (ethX, buffer, size), return MAC HW addr in buffer =
-*/
-> +	XIF_GET_IPHOST,	/* (ethX, buffer, size), return IP address of host =
-*/
-> +	XIF_GET_IPATARI,/* (ethX, buffer, size), return IP address of atari=
- */
-> +	XIF_GET_NETMASK	/* (ethX, buffer, size), return IP netmask */
-> +};
-> +
-> +#define DRV_NAME	"nfeth"
-> +#define DRV_VERSION	"0.3"
-> +#define DRV_RELDATE	"10/12/2005"
-> +
-> +#define MAX_UNIT	8
-> +
-> +/* These identify the driver base version and may not be removed. */
-> +static const char version[] __devinitdata =3D
-> +	KERN_INFO DRV_NAME ".c:v" DRV_VERSION " " DRV_RELDATE
-> +	" S.Opichal, M.Jurik, P.Stehlik\n"
-> +	KERN_INFO " http://aranym.atari.org/\n";
-> +
-> +MODULE_AUTHOR("Milan Jurik");
-> +MODULE_DESCRIPTION("Atari NFeth driver");
-> +MODULE_LICENSE("GPL");
-> +/*
-> +MODULE_PARM(nfeth_debug, "i");
-> +MODULE_PARM_DESC(nfeth_debug, "nfeth_debug level (1-2)");
-> +*/
-> +
-> +
-> +static long nfEtherID;
-> +static int nfEtherIRQ;
-> +
-> +struct nfeth_private {
-> +	int ethX;
-> +};
-> +
-> +static struct net_device *nfeth_dev[MAX_UNIT];
-> +
-> +static int nfeth_open(struct net_device *dev)
-> +{
-> +	struct nfeth_private *priv =3D netdev_priv(dev);
-> +	int res;
-> +
-> +	res =3D nf_call(nfEtherID + XIF_START, priv->ethX);
-> +
-> +	pr_debug(DRV_NAME ": open %d\n", res);
-> +
-> +	/* Ready for data */
-> +	netif_start_queue(dev);
-> +
-> +	return 0;
-> +}
-> +
-> +static int nfeth_stop(struct net_device *dev)
-> +{
-> +	struct nfeth_private *priv =3D netdev_priv(dev);
-> +
-> +	/* No more data */
-> +	netif_stop_queue(dev);
-> +
-> +	nf_call(nfEtherID + XIF_STOP, priv->ethX);
-> +
-> +	return 0;
-> +}
-> +
-> +/*
-> + * Read a packet out of the adapter and pass it to the upper layers
-> + */
-> +static inline void recv_packet(struct net_device *dev)
-> +{
-> +	struct nfeth_private *priv =3D netdev_priv(dev);
-> +	unsigned short pktlen;
-> +	struct sk_buff *skb;
-> +
-> +	/* read packet length (excluding 32 bit crc) */
-> +	pktlen =3D nf_call(nfEtherID + XIF_READLENGTH, priv->ethX);
-> +
-> +	pr_debug(DRV_NAME ": recv_packet: %i\n", pktlen);
-> +
-> +	if (!pktlen) {
-> +		pr_debug(DRV_NAME ": recv_packet: pktlen =3D=3D 0\n");
-> +		dev->stats.rx_errors++;
-> +		return;
-> +	}
-> +
-> +	skb =3D dev_alloc_skb(pktlen + 2);
-> +	if (!skb) {
-> +		pr_debug(DRV_NAME
-> +			 ": recv_packet: out of mem (buf_alloc failed)\n");
-> +		dev->stats.rx_dropped++;
-> +		return;
-> +	}
-> +
-> +	skb->dev =3D dev;
-> +	skb_reserve(skb, 2);		/* 16 Byte align  */
-> +	skb_put(skb, pktlen);		/* make room */
-> +	nf_call(nfEtherID + XIF_READBLOCK, priv->ethX, virt_to_phys(skb->da=
-ta),
-> +		pktlen);
-> +
-> +	skb->protocol =3D eth_type_trans(skb, dev);
-> +	netif_rx(skb);
-> +	dev->last_rx =3D jiffies;
-> +	dev->stats.rx_packets++;
-> +	dev->stats.rx_bytes +=3D pktlen;
-> +
-> +	/* and enqueue packet */
-> +	return;
-> +}
-> +
-> +static irqreturn_t nfeth_interrupt(int irq, void *dev_id)
-> +{
-> +	int i, m, mask;
-> +
-> +	mask =3D nf_call(nfEtherID + XIF_IRQ, 0);
-> +	for (i =3D 0, m =3D 1; i < MAX_UNIT; m <<=3D 1, i++) {
-> +		if (mask & m && nfeth_dev[i]) {
-> +			recv_packet(nfeth_dev[i]);
-> +			nf_call(nfEtherID + XIF_IRQ, m);
-> +		}
-> +	}
-> +	return IRQ_HANDLED;
-> +}
-> +
-> +static int nfeth_xmit(struct sk_buff *skb, struct net_device *dev)
-> +{
-> +	int len;
-> +	char *data, shortpkt[ETH_ZLEN];
-> +	struct nfeth_private *priv =3D netdev_priv(dev);
-> +
-> +	data =3D skb->data;
-> +	len =3D skb->len;
-> +	if (len < ETH_ZLEN) {
-> +		memset(shortpkt, 0, ETH_ZLEN);
-> +		memcpy(shortpkt, data, len);
-> +		data =3D shortpkt;
-> +		len =3D ETH_ZLEN;
-> +	}
-> +
-> +	dev->trans_start =3D jiffies;
-> +
-> +	pr_debug(DRV_NAME ": send %d bytes\n", len);
-> +	nf_call(nfEtherID + XIF_WRITEBLOCK, priv->ethX, virt_to_phys(data),
-> +		len);
-> +
-> +	dev->stats.tx_packets++;
-> +	dev->stats.tx_bytes +=3D len;
-> +
-> +	dev_kfree_skb(skb);
-> +	return 0;
-> +}
-> +
-> +static void nfeth_tx_timeout(struct net_device *dev)
-> +{
-> +	dev->stats.tx_errors++;
-> +	netif_wake_queue(dev);
-> +}
-> +
-> +static const struct net_device_ops nfeth_netdev_ops =3D {
-> +	.ndo_open		=3D nfeth_open,
-> +	.ndo_stop		=3D nfeth_stop,
-> +	.ndo_start_xmit		=3D nfeth_xmit,
-> +	.ndo_tx_timeout		=3D nfeth_tx_timeout,
-> +	.ndo_validate_addr	=3D eth_validate_addr,
-> +	.ndo_change_mtu		=3D eth_change_mtu,
-> +	.ndo_set_mac_address	=3D eth_mac_addr,
-> +};
-> +
-> +static struct net_device * __init nfeth_probe(int unit)
-> +{
-> +	struct net_device *dev;
-> +	struct nfeth_private *priv;
-> +	char mac[ETH_ALEN], host_ip[32], local_ip[32];
-> +	int err;
-> +
-> +	if (!nf_call(nfEtherID + XIF_GET_MAC, unit, mac, ETH_ALEN))
-> +		return NULL;
-> +
-> +	dev =3D alloc_etherdev(sizeof(struct nfeth_private));
-> +	if (!dev)
-> +		return NULL;
-> +
-> +	dev->irq =3D nfEtherIRQ;
-> +	dev->netdev_ops =3D &nfeth_netdev_ops;
-> +
-> +	dev->flags |=3D NETIF_F_NO_CSUM;
-> +	memcpy(dev->dev_addr, mac, ETH_ALEN);
-> +
-> +	priv =3D netdev_priv(dev);
-> +	priv->ethX =3D unit;
-> +
-> +	err =3D register_netdev(dev);
-> +	if (err) {
-> +		free_netdev(dev);
-> +		return NULL;
-> +	}
-> +
-> +	nf_call(nfEtherID + XIF_GET_IPHOST, unit,
-> +		host_ip, sizeof(host_ip));
-> +	nf_call(nfEtherID + XIF_GET_IPATARI, unit,
-> +		local_ip, sizeof(local_ip));
-> +
-> +	pr_info("%s: nfeth addr:%s (%s) HWaddr:%pM\n", dev->name, host_ip,
-> +		local_ip, mac);
-> +
-> +	return dev;
-> +}
-> +
-> +static int __init nfeth_init(void)
-> +{
-> +	long ver;
-> +	int error, i;
-> +
-> +	nfEtherID =3D nf_get_id("ETHERNET");
-> +	if (!nfEtherID)
-> +		return -ENODEV;
-> +
-> +	ver =3D nf_call(nfEtherID + GET_VERSION);
-> +	pr_info("nfeth API %lu\n", ver);
-> +
-> +	nfEtherIRQ =3D nf_call(nfEtherID + XIF_INTLEVEL);
-> +	error =3D request_irq(nfEtherIRQ, nfeth_interrupt, IRQF_SHARED,
-> +			    "eth emu", nfeth_interrupt);
-> +	if (error) {
-> +		pr_err("nfeth: request for irq %d failed", nfEtherIRQ);
-> +		return error;
-> +	}
-> +
-> +	for (i =3D 0; i < MAX_UNIT; i++)
-> +		nfeth_dev[i] =3D nfeth_probe(i);
-> +
-> +	return 0;
-> +}
-> +
-> +static void __exit nfeth_cleanup(void)
-> +{
-> +	int i;
-> +
-> +	for (i =3D 0; i < MAX_UNIT; i++) {
-> +		if (nfeth_dev[i]) {
-> +			unregister_netdev(nfeth_dev[0]);
-> +			free_netdev(nfeth_dev[0]);
-> +		}
-> +	}
-> +	free_irq(nfEtherIRQ, nfeth_interrupt);
-> +}
-> +
-> +module_init(nfeth_init);
-> +module_exit(nfeth_cleanup);
+
+
