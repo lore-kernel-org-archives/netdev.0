@@ -1,59 +1,68 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: BUG?  behaviour mismatch between ipv4 and ipv6 in UDP rx path
-Date: Mon, 07 Feb 2011 12:29:10 -0600
-Message-ID: <4D5039F6.8000408@genband.com>
+From: Stephen Clark <sclark46@earthlink.net>
+Subject: Trouble Shooting ipsec
+Date: Mon, 07 Feb 2011 14:17:55 -0500
+Message-ID: <4D504563.5010802@earthlink.net>
+Reply-To: sclark46@earthlink.net
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	pekkas@netcore.fi, davem@davemloft.net, yoshfuji@linux-ipv6.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Linux Kernel Network Developers <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from elasmtp-banded.atl.sa.earthlink.net ([209.86.89.70]:35051 "EHLO
+	elasmtp-banded.atl.sa.earthlink.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754559Ab1BGTR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 14:17:57 -0500
+Received: from [69.22.83.66] (helo=joker.seclark.com)
+	by elasmtp-banded.atl.sa.earthlink.net with esmtpsa (TLSv1:AES256-SHA:256)
+	(Exim 4.67)
+	(envelope-from <sclark46@earthlink.net>)
+	id 1PmWay-0002W0-Tx
+	for netdev@vger.kernel.org; Mon, 07 Feb 2011 14:17:56 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
-Hi,
+How do I find out what is happening to my packets thru my ipsec tunnel.
+They just seem to disappear on the remote side.
 
-One of our guys is seeing occasional dropped ipv4 packets coming in on
-an ipv6 udp socket obtained via socket(AF_INET6,  SOCK_DGRAM, IPPROTO_UDP).
+I have successfully got the pings thru
+when everything has an ipv6 address, but am not successful when trying
+to connect two ipv4 lans across an ipv6 ipsec tunnel. All fw chains both 
+4 and 6
+are set to ACCEPT. NAT is turned off.
 
-Here's what he says:
+      eth0               eth1                                         
+eth1                 eth0
+10.1.254.254/17  2001:xxxx:1628::254 <----ipv6 internet -----> 
+2001:xxxx:e334::254  10.0.254.254/17
 
+12:00:02.296972 IP6 2001:xxxx:1628::254 > 2001:xxxx:e334::254: 
+ESP(spi=0x07454bc3,seq=0x28b), length 132
+12:00:03.308751 IP6 2001:xxxx:1628::254 > 2001:xxxx:e334::254: 
+ESP(spi=0x07454bc3,seq=0x28c), length 132
+12:00:04.296857 IP6 2001:xxxx:1628::254 > 2001:xxxx:e334::254: 
+ESP(spi=0x07454bc3,seq=0x28d), length 132
+12:00:05.293748 IP6 2001:xxxx:1628::254 > 2001:xxxx:e334::254: 
+ESP(spi=0x07454bc3,seq=0x28e), length 132
+12:00:06.296623 IP6 2001:xxxx:1628::254 > 2001:xxxx:e334::254: 
+ESP(spi=0x07454bc3,seq=0x28f), length 132
 
-"The problem happens when release_sock() goes down an interesting code
-path.  If (sk->sk_backlog.tail) is non-NULL then release_sock() invokes
-__release_sock() which loops over all queue packets and invokes the
-socket's backlog receive function for each previously queued packet.
-
-Now for the interesting part.  The UDPv6 backlog receive function (in
-net/ipv6/udp.c, udpv6_queue_rcv_skb()) invokes xfrm6_policy_check() to
-confirm that the packet is allowed, but the problem is that it calls
-this function regardless of whether the packet is IPv4 or IPv6.  The
-xfrm6_policy_check() function then assumes that it is an IPv6 packet and
-tries to match a policy based on its packet header... but that clearly
-won't work because the addresses that it finds when it decodes the skb
-are completely bogus."
-
-
-Looking at the ipv4 code, git commit 9382177 split __udp_queue_rcv_skb()
-out of udp_queue_rcv_skb().  It was done for locking purposes, but it
-also means that backlog_rcv is bound to __udp_queue_rcv_skb(), which
-doesn't call xfrm4_policy_check().
-
-
-Should a new function __udpv6_queue_rcv_skb() be split out from
-udpv6_queue_rcv_skb() and bound to backlog_rcv to resolve the xfrm
-issue?  What about the locking that was the reason for the split in the
-ipv4 case--is there a similar problem with ipv6?
+I have posted to the ipsec-devel list and haven't gotten any responses. 
+Also I have spent 2 days googling with
+no results about the above setup. Is it even possible to tunnel ipv4 
+packet thru an ipv6 ipsec tunnel?
 
 Thanks,
-Chris
-
+Steve
 
 -- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
+
+"They that give up essential liberty to obtain temporary safety,
+deserve neither liberty nor safety."  (Ben Franklin)
+
+"The course of history shows that as a government grows, liberty
+decreases."  (Thomas Jefferson)
+
+
+
