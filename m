@@ -1,44 +1,44 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] IPVS: precedence bug in ip_vs_sync_switch_mode()
-Date: Mon,  7 Feb 2011 18:19:41 +0900
-Message-ID: <1297070381-24377-2-git-send-email-horms@verge.net.au>
-References: <1297070381-24377-1-git-send-email-horms@verge.net.au>
-Cc: Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Dan Carpenter <error27@gmail.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Simon Horman <horms@verge.net.au>
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, lvs-devel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1297070381-24377-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+From: John Hughes <john@Calva.COM>
+Subject: Re: x25: possible skb leak on bad facilities
+Date: Mon, 07 Feb 2011 10:25:29 +0100
+Message-ID: <4D4FBA89.606@Calva.COM>
+References: <20110131130826.GC16804@shadowen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Hendry <andrew.hendry@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tim Gardner <tim.gardner@canonical.com>
+To: Andy Whitcroft <apw@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110131130826.GC16804@shadowen.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <error27@gmail.com>
+On 31/01/11 14:08, Andy Whitcroft wrote:
+> Looking at the changes introduced in the commit below, we seem to
+> introduce an skb leak when a packet with bad facilities are present:
+>
+>      commit a6331d6f9a4298173b413cf99a40cc86a9d92c37
+>      Author: andrew hendry<andrew.hendry@gmail.com>
+>      Date:   Wed Nov 3 12:54:53 2010 +0000
+>
+>          memory corruption in X.25 facilities parsing
+>
+> If I am understanding things correctly then we trigger a -1 return to
+> the main packet dispatch loop, this being non-zero implies that we have
+> requeued the skb and it should not be freed.  As it was not requeued,
+> I believe the skb is no longer referenced and then is leaked.
+>
+> Perhaps someone better aquainted with this code could review my analysis
+> in the patch leader below.  If accurate I believe we need the patch below
+> to resolve this.  If it is not then I suspect a comment is required on
+> the -1 return.
+>
+> Thoughts?
+>    
+Sadly, after nearly 30 years (1982-2010) we've just closed our last X.25 
+line so I can no longer test this.
 
-'!' has higher precedence than '&'.  IP_VS_STATE_MASTER is 0x1 so
-the original code is equivelent to if (!ipvs->sync_state) ...
-
-Signed-off-by: Dan Carpenter <error27@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_sync.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 2a2a836..d1b7298 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -392,7 +392,7 @@ void ip_vs_sync_switch_mode(struct net *net, int mode)
- {
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
--	if (!ipvs->sync_state & IP_VS_STATE_MASTER)
-+	if (!(ipvs->sync_state & IP_VS_STATE_MASTER))
- 		return;
- 	if (mode == ipvs->sysctl_sync_ver || !ipvs->sync_buff)
- 		return;
--- 
-1.7.2.3
-
+Sorry.
