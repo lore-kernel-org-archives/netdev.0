@@ -1,44 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 2/5] net: ethtool: use ndo_fix_features for offload
- setting
-Date: Mon, 07 Feb 2011 13:01:24 -0800 (PST)
-Message-ID: <20110207.130124.189688858.davem@davemloft.net>
-References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
-	<ca3bcc3bec8779b67b476d5d7325ea9fbbf54308.1296741561.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: Oops in tcp_output.c, kernel 2.6.38-rc3
+Date: Mon, 07 Feb 2011 13:02:34 -0800 (PST)
+Message-ID: <20110207.130234.112590109.davem@davemloft.net>
+References: <20110204153254.5c37c6f2@katamari>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mirq-linux@rere.qmqm.pl
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: cebbert@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38107
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38111
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754036Ab1BGVAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 16:00:49 -0500
-In-Reply-To: <ca3bcc3bec8779b67b476d5d7325ea9fbbf54308.1296741561.git.mirq-linux@rere.qmqm.pl>
+	by vger.kernel.org with ESMTP id S1754524Ab1BGVB6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 16:01:58 -0500
+In-Reply-To: <20110204153254.5c37c6f2@katamari>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Thu,  3 Feb 2011 15:21:21 +0100 (CET)
+From: Chuck Ebbert <cebbert@redhat.com>
+Date: Fri, 4 Feb 2011 15:32:54 -0500
 
-> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>               =
-                                    =20
+> Analysis is below. (From https://bugzilla.redhat.com/show_bug.cgi?id=674622)
+> 
+>  BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+>  IP: [<ffffffff81407b16>] tcp_write_xmit+0x694/0x7af
 
-Applied, and now I see why the tree "built" successfully for
-you.
-
-You remove the duplicate EXPORT_SYMBOL() in this patch.
-
-You absolutely cannot test your patch sets like this, only
-build testing at the end.
-
-Every single individual change must not introduce any functional
-or build regressions, therefore you must make sure the build works
-fine after each and every patch in your series, not just after they
-are all applied.
-
-What disturbs me even more, is that really this problem was introduced
-because you mixed functional and cleanup changes in the first patch.
-Something you should also never do.
+I bet this is some kind of bug in the driver or similar, what device
+and also what kind of network config (netfilter, packet scheduler,
+interface, routes, etc.) is this?
