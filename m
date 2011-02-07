@@ -1,44 +1,54 @@
-From: John Hughes <john@Calva.COM>
-Subject: Re: x25: possible skb leak on bad facilities
-Date: Mon, 07 Feb 2011 10:25:29 +0100
-Message-ID: <4D4FBA89.606@Calva.COM>
-References: <20110131130826.GC16804@shadowen.org>
+From: "Hans Schillstrom" <hans@schillstrom.com>
+Subject: Re: [patch] IPVS: precedence bug in ip_vs_sync_switch_mode()
+Date: Mon, 7 Feb 2011 10:34:46 +0100 (CET)
+Message-ID: <div5b80.5723d88b3447e2cae7eaaffaea275f79@obelix.schillstrom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Hendry <andrew.hendry@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tim Gardner <tim.gardner@canonical.com>
-To: Andy Whitcroft <apw@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110131130826.GC16804@shadowen.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: 8BIT
+Cc: "Wensong Zhang" <wensong@linux-vs.org>,
+	"Simon Horman" <horms@verge.net.au>,
+	"Julian Anastasov" <ja@ssi.bg>, hans.schillstrom@ericsson.com,
+	"Patrick McHardy" <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "Dan Carpenter" <error27@gmail.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 31/01/11 14:08, Andy Whitcroft wrote:
-> Looking at the changes introduced in the commit below, we seem to
-> introduce an skb leak when a packet with bad facilities are present:
+>---- Original Message ----
+>From: Dan Carpenter <error27@gmail.com>
+>To: "Wensong Zhang" <wensong@linux-vs.org>
+>Cc: "Simon Horman" <horms@verge.net.au>, "Julian Anastasov" <ja@ssi.bg>, hans.schillstrom@ericsson.com, "Patrick McHardy" <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org, lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org, kernel-janitors@vger.kernel.org
+>Sent: Mon, Feb 7, 2011, 9:39 AM
+>Subject: [patch] IPVS: precedence bug in ip_vs_sync_switch_mode()
 >
->      commit a6331d6f9a4298173b413cf99a40cc86a9d92c37
->      Author: andrew hendry<andrew.hendry@gmail.com>
->      Date:   Wed Nov 3 12:54:53 2010 +0000
+>'!' has higher precedence than '&'.  IP_VS_STATE_MASTER is 0x1 so
+>the original code is equivelent to if (!ipvs->sync_state) ...
 >
->          memory corruption in X.25 facilities parsing
->
-> If I am understanding things correctly then we trigger a -1 return to
-> the main packet dispatch loop, this being non-zero implies that we have
-> requeued the skb and it should not be freed.  As it was not requeued,
-> I believe the skb is no longer referenced and then is leaked.
->
-> Perhaps someone better aquainted with this code could review my analysis
-> in the patch leader below.  If accurate I believe we need the patch below
-> to resolve this.  If it is not then I suspect a comment is required on
-> the -1 return.
->
-> Thoughts?
->    
-Sadly, after nearly 30 years (1982-2010) we've just closed our last X.25 
-line so I can no longer test this.
+Oops,
+Thanks
+Hans
 
-Sorry.
+>Signed-off-by: Dan Carpenter <error27@gmail.com>
+Signed-off-by: Hans Schillstrom <hans.schillstrom@ericsson.com>
+
+>
+>diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+>index 2a2a836..d1b7298 100644
+>--- a/net/netfilter/ipvs/ip_vs_sync.c
+>+++ b/net/netfilter/ipvs/ip_vs_sync.c
+>@@ -392,7 +392,7 @@ void ip_vs_sync_switch_mode(struct net *net, int mode)
+> {
+> 	struct netns_ipvs *ipvs = net_ipvs(net);
+> 
+>-	if (!ipvs->sync_state & IP_VS_STATE_MASTER)
+>+	if (!(ipvs->sync_state & IP_VS_STATE_MASTER))
+> 		return;
+> 	if (mode == ipvs->sysctl_sync_ver || !ipvs->sync_buff)
+> 		return;
+>--
+
+
