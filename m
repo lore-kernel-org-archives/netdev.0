@@ -1,70 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 0/5] net: Unified offload configuration
-Date: Mon, 07 Feb 2011 13:37:21 -0800 (PST)
-Message-ID: <20110207.133721.48496023.davem@davemloft.net>
-References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: x25: possible skb leak on bad facilities
+Date: Mon, 07 Feb 2011 13:42:40 -0800 (PST)
+Message-ID: <20110207.134240.260080815.davem@davemloft.net>
+References: <20110206.202824.260090071.davem@davemloft.net>
+	<AANLkTik8hg5G2FYDCoRgh72v-_euGWKix9Fxm89UdXie@mail.gmail.com>
+	<1297073295.9577.13.camel@jaunty>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47715
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753313Ab1BGVgq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 16:36:46 -0500
-In-Reply-To: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: apw@canonical.com, john@calva.com, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	tim.gardner@canonical.com
+To: andrew.hendry@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1297073295.9577.13.camel@jaunty>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Thu,  3 Feb 2011 15:21:21 +0100 (CET)
+From: Andrew Hendry <andrew.hendry@gmail.com>
+Date: Mon, 07 Feb 2011 21:08:15 +1100
 
-> Here's a v4 of the ethtool unification patch series.
->=20
-> What's in it?
->  1:
-> 	the patch - implement unified ethtool setting ops
->  2..3:
-> 	implement interoperation between old and new ethtool ops
->  4:
-> 	include RX checksum in features and plug it into new framework
->  5:
-> 	convert loopback device to new framework
+> 
+> Originally x25_parse_facilities returned
+> -1 for an error
+>  0 meaning 0 length facilities
+>>0 the length of the facilities parsed.
+> 
+> 5ef41308f94dc introduced more error checking in x25_parse_facilities
+> however used 0 to indicate bad parsing
+> a6331d6f9a429 followed this further for DTE facilities, again using 0 for bad parsing.
+> 
+> The meaning of 0 got confused in the callers.
+> If the facilities are messed up we can't determine where the data starts.
+> So patch makes all parsing errors return -1 and ensures callers close and don't use the skb further.
+> 
+> Reported-by: Andy Whitcroft <apw@canonical.com>
+> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
 
-After these changes the ethtool output is now inaccurate for
-RX checksumming.
+Please reference the commit header line text when referring to SHA1
+IDs, because when backporting to other GIT trees the SHA1 IDs might be
+different.
 
-Before:
-
-davem@maramba:~$ /usr/sbin/ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: on
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: on
-large receive offload: off
-davem@maramba:~$=20
-
-After:
-
-davem@maramba:~$ /usr/sbin/ethtool -k eth0
-Offload parameters for eth0:
-rx-checksumming: off
-tx-checksumming: on
-scatter-gather: on
-tcp segmentation offload: off
-udp fragmentation offload: off
-generic segmentation offload: on
-large receive offload: off
-
-If the issue is that you require driver or ethtool utility changes in
-order for things to keep working properly, then that is not
-acceptable.
-
-I'm reverting all of these changes, resubmit them when you have them
-in a state such that no regressions will be introduced.
-
-Thanks.
+I took care of this when applying your patch, thanks.
