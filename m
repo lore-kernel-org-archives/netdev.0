@@ -1,31 +1,70 @@
-From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 1/2] CDC NCM errata updates for cdc.h
-Date: Mon, 7 Feb 2011 14:03:34 -0800
-Message-ID: <20110207220334.GA19531@kroah.com>
-References: <1297107910-18263-1-git-send-email-alexey.orishko@stericsson.com>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v4 0/5] net: Unified offload configuration
+Date: Mon, 7 Feb 2011 23:49:37 +0100
+Message-ID: <20110207224937.GA32549@rere.qmqm.pl>
+References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl> <20110207.133721.48496023.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org,
-	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:51394 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755129Ab1BGWtj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Feb 2011 17:49:39 -0500
 Content-Disposition: inline
-In-Reply-To: <1297107910-18263-1-git-send-email-alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110207.133721.48496023.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 07, 2011 at 08:45:09PM +0100, Alexey Orishko wrote:
-> Changes are based on the following documents:
-> - CDC NCM errata:
-> http://www.usb.org/developers/devclass_docs/NCM10_012011.zip
-> - CDC and WMC errata link:
-> http://www.usb.org/developers/devclass_docs/CDC1.2_WMC1.1_012011.zip
-> 
-> Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+On Mon, Feb 07, 2011 at 01:37:21PM -0800, David Miller wrote:
+> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Date: Thu,  3 Feb 2011 15:21:21 +0100 (CET)
+> > Here's a v4 of the ethtool unification patch series.
+[cut list]
+> After these changes the ethtool output is now inaccurate for
+> RX checksumming.
+>=20
+> Before:
+>=20
+> davem@maramba:~$ /usr/sbin/ethtool -k eth0
+> Offload parameters for eth0:
+> rx-checksumming: on
+> tx-checksumming: on
+[...]
+=20
+> After:
+>=20
+> davem@maramba:~$ /usr/sbin/ethtool -k eth0
+> Offload parameters for eth0:
+> rx-checksumming: off
+> tx-checksumming: on
+[...]
+>=20
+> If the issue is that you require driver or ethtool utility changes in
+> order for things to keep working properly, then that is not
+> acceptable.
 
-Acked-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> I'm reverting all of these changes, resubmit them when you have them
+> in a state such that no regressions will be introduced.
+
+What driver did you get this output from?  All drivers that implement
+set_rx_csum also implement their own get_rx_csum and so should not be
+affected by patch #4. For others that don't implement get_rx_csum
+rx-checksumming status is unreliable. Looking at random drivers:
+ - via-rhine: will advertise rx-checksumming when it doesn't support
+	it (as a side effect of hardware workaround - checksum in driver)
+ - sunhme: has no way to disable rx- and tx-checksumming so was
+	correctly showing rx-checksumming enabled
+ - 8139too: will show rx-checksumming enabled but doesn't support it
+	(side effect of hardware workaround - checksumming in driver)
+
+I wouldn't be suprised if there was a driver which doesn't advertise
+RX checksumming but use it anyway.
+
+So yes - this patchset uncovers bugs in drivers. I'll see how can I
+make the RXCSUM patch retain the previous behaviour for this case.
+
+Best Regards,
+Micha=B3 Miros=B3aw
