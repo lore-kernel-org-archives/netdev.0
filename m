@@ -1,77 +1,101 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan
- interface RX
-Date: Mon, 07 Feb 2011 13:09:36 +0100
-Message-ID: <4D4FE100.5090808@gmail.com>
-References: <4D32FC1C.3010905@simon.arlott.org.uk> <201101231845.20505.maciej.rutecki@gmail.com> <AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com> <201101241625.45367.maciej.rutecki@gmail.com> <loom.20110205T163216-459@post.gmane.org> <AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com> <loom.20110206T203347-475@post.gmane.org>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: About bittiming calculation result
+Date: Mon, 07 Feb 2011 16:52:53 +0100
+Message-ID: <4D501555.5000905@grandegger.com>
+References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>	<20110204.130649.112613896.davem@davemloft.net>	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
+	<4D4FDEF9.2030305@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Simon Arlott <simon@fire.lp0.eu>
-To: chriss <mail_to_chriss@gmx.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:57644 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753628Ab1BGMJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 07:09:40 -0500
-Received: by wwa36 with SMTP id 36so4702769wwa.1
-        for <netdev@vger.kernel.org>; Mon, 07 Feb 2011 04:09:39 -0800 (PST)
-In-Reply-To: <loom.20110206T203347-475@post.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D4FDEF9.2030305-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 06/02/2011 20:37, chriss a =E9crit :
-> Jesse Gross<jesse<at>  nicira.com>  writes:
->
+On 02/07/2011 01:00 PM, Wolfgang Grandegger wrote:
+> Hi Tomoya,
+> 
+> On 02/07/2011 12:38 PM, Tomoya MORINAGA wrote:
+>> Hi,
 >>
->> You should either attached a bridge to a vlan device or stack a vlan
->> device on the bridge port depending on what you are trying to achiev=
-e.
+>> I have a question for bittiming-value calculated by Can-core.
 >>
->> The bridge handler takes all packets of the device that it is attach=
-ed
->> to, so having a vlan also attached to the same device will not work.
->> You may get different results on older kernels depending on what NIC
->> you were using but that was a bug.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo<at>  vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> In case setting like below,
+>>  - ip link set can0 type can bitrate 800000
+>>  - clock=50MHz
+>>  - Use pch_can
 >>
+>> Can-core calculates like below
+>> brp=21
+>> seg1=1
+>> seg2=1
+>> sjw=1
+>> prop_seg=0
 >>
->
->
-> Hi and thanks for your reply
->
-> I tried that.
->
-> I had under 2.6.36.3 following combination:
->
-> eth1 in br0 ->  all traffic without vlan id
-> eth1.3 ->  traffic with vlan 3
->
-> with 2.6.37 i should do the following
-> eth1 in br0 ->  traffic w/o vlans
-> and br0.3 ->  traffic with vlan id 3
->
-> But still there is no rx for vlan 3.
-> Any suggestions? Or am i missing something?
+>> Is "prop_seg=0" true ?
+> 
+> Well, only prop_seg+phase_seg=tseg1 is relevant and the pch_can driver
+> sets the allowed minimum "tseg1_min1" currently to 1:
+> 
+> static struct can_bittiming_const pch_can_bittiming_const = {
+>         .name = KBUILD_MODNAME,
+>         .tseg1_min = 1,
+>         .tseg1_max = 16,
+>         .tseg2_min = 1,
+>         .tseg2_max = 8,
+>         .sjw_max = 4,
+>         .brp_min = 1,
+>         .brp_max = 1024, /* 6bit + extended 4bit */
+>         .brp_inc = 1,
+> };
+> 
+>> seg1/seg2/sjw/prop_seg must be more than 1 ?
+> 
+> Then "tseg1_min" should be set to *2*.
+> 
+>> Also I can see the following kernel error log.
+>> bitrate error 0.7%
+> 
+> A clock frequency of 50 MHz is sub-optimal for CAN and some
+> bit-rates cannot be reproduced properly. Here is the output of
+> the can-utils program "can-calc-bit-timing" (with an entry for
+> the pch-can added):
+> 
+> $ ./can-calc-bit-timing pch-can
+> Bit timing parameters for pch-can with 50.000000 MHz ref clock
+> nominal                                 real Bitrt   nom  real SampP
+> Bitrate TQ[ns] PrS PhS1 PhS2 SJW BRP Bitrate Error SampP SampP Error CNF1 CNF2 CNF3
+> 1000000    100   3    3    3   1   5 1000000  0.0% 75.0% 70.0%  6.7% 0x05 0x92 0x02
+>  800000    420   0    1    1   1  21  793650  0.8% 80.0% 66.6% 16.8% 0x15 0xff 0x00
+>  500000    100   8    8    3   1   5  500000  0.0% 87.5% 85.0%  2.9% 0x05 0xbf 0x02
+>  250000    500   3    3    1   1  25  250000  0.0% 87.5% 87.5%  0.0% 0x19 0x92 0x00
+>  125000    500   6    7    2   1  25  125000  0.0% 87.5% 87.5%  0.0% 0x19 0xb5 0x01
+>  100000    500   8    8    3   1  25  100000  0.0% 87.5% 85.0%  2.9% 0x19 0xbf 0x02
+>   50000   2500   3    3    1   1 125   50000  0.0% 87.5% 87.5%  0.0% 0x7d 0x92 0x00
+>   20000   2500   8    8    3   1 125   20000  0.0% 87.5% 85.0%  2.9% 0x7d 0xbf 0x02
+>   10000  12500   3    3    1   1 625   10000  0.0% 87.5% 87.5%  0.0% 0x71 0x92 0x00
+> 
+> As you can see, especially 800000 gives rather bad results.
 
-I think you should have a look at ebtables command, in particular, the =
-BROUTING chain of broute=20
-table. If this chain ask the packet to be dropped, then bridge will ign=
-ore it and give a chance to=20
-the upper layer to use it. Upper layer might be IP, or in your particul=
-ar setup, VLAN.
+BTW, it's always possible to specify optimized bit-timing parameters
+directly, e.g. the following seem better:
 
-HTH,
+   800000     60  12    4    4   4   3  793650  0.8% 80.0% 81.0%  1.2%
 
-	Nicolas.
+You could set these with:
 
+  $ ip link set can0 type can \
+    tq 60 prop-seg 12 phase-seg1 4 phase-seg2 4 sjw 4
 
-
-In order for eth1.3 to receive the traffic with VLANID=3D3, while havin=
-g the bridge get everything=20
-else, you should add an entry to the
+Wolfgang.
