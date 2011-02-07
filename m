@@ -1,41 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] bonding/vlan: Avoid mangled NAs on slaves
- without VLAN tag insertion
-Date: Mon, 07 Feb 2011 13:17:54 -0800 (PST)
-Message-ID: <20110207.131754.59684095.davem@davemloft.net>
-References: <1297106455.4077.7.camel@bwh-desktop>
+Subject: Re: [PATCH v4 5/5] loopback: convert to hw_features
+Date: Mon, 07 Feb 2011 13:18:30 -0800 (PST)
+Message-ID: <20110207.131830.115935788.davem@davemloft.net>
+References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
+	<38aaa7ba1c3fa19ec27536ccdf44c7368d1b21ac.1296741562.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, stable@kernel.org,
-        bonding-devel@lists.sourceforge.net
-To: bhutchings@solarflare.com
-Return-path: <stable-bounces@linux.kernel.org>
-In-Reply-To: <1297106455.4077.7.camel@bwh-desktop>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: mirq-linux@rere.qmqm.pl
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48389
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753949Ab1BGVRz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 16:17:55 -0500
+In-Reply-To: <38aaa7ba1c3fa19ec27536ccdf44c7368d1b21ac.1296741562.git.mirq-linux@rere.qmqm.pl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 07 Feb 2011 19:20:55 +0000
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Thu,  3 Feb 2011 15:21:22 +0100 (CET)
 
-> This is related to commit f88a4a9b65a6f3422b81be995535d0e69df11bb8
-> upstream, but the bug cannot be properly fixed without the other
-> changes to VLAN tagging in 2.6.37.
-> 
-> bond_na_send() attempts to insert a VLAN tag in between building and
-> sending packets of the respective formats.  If the slave does not
-> implement hardware VLAN tag insertion then vlan_put_tag() will mangle
-> the network-layer header because the Ethernet header is not present at
-> this point (unlike in bond_arp_send()).
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> This also enables TSOv6, TSO-ECN, and UFO as loopback clearly can han=
+dle them.
+>=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied.
