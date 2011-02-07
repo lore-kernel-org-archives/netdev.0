@@ -1,69 +1,49 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] GRO: fix merging a paged skb after non-paged skbs
-Date: Mon, 07 Feb 2011 20:39:20 +0000
-Message-ID: <1297111160.4077.14.camel@bwh-desktop>
-References: <20110124184752.1d0947dd@delilah>
-	 <1295918675.4105.5.camel@localhost>
+Subject: Re: [PATCH net-next-2.6 1/5] genirq: Add IRQ affinity notifiers
+Date: Mon, 07 Feb 2011 20:44:48 +0000
+Message-ID: <1297111488.4077.16.camel@bwh-desktop>
+References: <alpine.LFD.2.00.1101192214350.3211@localhost6.localdomain6>
+	 <20110119.132730.57462002.davem@davemloft.net>
+	 <alpine.LFD.2.00.1101192229500.3211@localhost6.localdomain6>
+	 <20110119.134812.123988295.davem@davemloft.net>
+	 <alpine.LFD.2.00.1101221735080.31804@localhost6.localdomain6>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	linux-net-drivers@solarflare.com
-To: Michal Schmidt <mschmidt@redhat.com>
+	linux-net-drivers@solarflare.com, therbert@google.com
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:24717 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:25020 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752038Ab1BGUjX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 15:39:23 -0500
-In-Reply-To: <1295918675.4105.5.camel@localhost>
+	with ESMTP id S1752555Ab1BGUow (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 15:44:52 -0500
+In-Reply-To: <alpine.LFD.2.00.1101221735080.31804@localhost6.localdomain6>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-01-25 at 11:24 +1000, Ben Hutchings wrote:
-> On Mon, 2011-01-24 at 18:47 +0100, Michal Schmidt wrote:
-> > Suppose that several linear skbs of the same flow were received by GRO. They
-> > were thus merged into one skb with a frag_list. Then a new skb of the same flow
-> > arrives, but it is a paged skb with data starting in its frags[].
-> > 
-> > Before adding the skb to the frag_list skb_gro_receive() will of course adjust
-> > the skb to throw away the headers. It correctly modifies the page_offset and
-> > size of the frag, but it leaves incorrect information in the skb:
-> >  ->data_len is not decreased at all.
-> >  ->len is decreased only by headlen, as if no change were done to the frag.
-> > Later in a receiving process this causes skb_copy_datagram_iovec() to return
-> > -EFAULT and this is seen in userspace as the result of the recv() syscall.
-> > 
-> > In practice the bug can be reproduced with the sfc driver. By default the
-> > driver uses an adaptive scheme when it switches between using
-> > napi_gro_receive() (with skbs) and napi_gro_frags() (with pages). The bug is
-> > reproduced when under rx load with enough successful GRO merging the driver
-> > decides to switch from the former to the latter.
-> [...]
+On Sat, 2011-01-22 at 17:38 +0100, Thomas Gleixner wrote:
+> B1;2401;0cOn Wed, 19 Jan 2011, David Miller wrote:
+> > You said you had stuff before Ben's patches, and that's why you needed
+> > to provide me with an -rc1 relative version of his commits.
 > 
-> This is odd because I thought we made sure to flush before making such a
-> change.  Perhaps that got lost during the conversion from inet_lro to
-> GRO?
+> I hope a rc2 relative version works as well :)
+>  
+> > If that's not the case, then yes it would work just fine.
+> > 
+> > Just give me the URL to pull from, thanks!
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/tip/linux-2.6-tip.git irq/numa
+> 
+> @Ben: Your patch was pretty white space damaged. Please be more
+> careful next time.
 
-That is indeed the case; commit da3bc07171dff957906cbe2ad5abb443eccf57c4
-made the following deletions:
+Oh, I see that struct irq_affinity_notify members were indented with
+spaces; is that what you mean?  Sorry, I've no idea how that happened.
 
--       /* Both our generic-LRO and SFC-SSR support skb and page based
--        * allocation, but neither support switching from one to the
--        * other on the fly. If we spot that the allocation mode has
--        * changed, then flush the LRO state.
--        */
--       if (unlikely(channel->rx_alloc_pop_pages != (rx_buf->page != NULL))) {
--               efx_flush_lro(channel);
--               channel->rx_alloc_pop_pages = (rx_buf->page != NULL);
--       }
+Anyway, thanks for applying this.
 
 Ben.
-
-> Anyway, thanks very much for fixing this.
-> 
-> Ben.
-> 
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
