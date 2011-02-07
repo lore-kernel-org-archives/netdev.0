@@ -1,44 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: x25: possible skb leak on bad facilities
-Date: Mon, 07 Feb 2011 13:42:40 -0800 (PST)
-Message-ID: <20110207.134240.260080815.davem@davemloft.net>
-References: <20110206.202824.260090071.davem@davemloft.net>
-	<AANLkTik8hg5G2FYDCoRgh72v-_euGWKix9Fxm89UdXie@mail.gmail.com>
-	<1297073295.9577.13.camel@jaunty>
+From: Greg KH <greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/2] CDC NCM errata updates for cdc.h
+Date: Mon, 7 Feb 2011 14:03:34 -0800
+Message-ID: <20110207220334.GA19531@kroah.com>
+References: <1297107910-18263-1-git-send-email-alexey.orishko@stericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: apw@canonical.com, john@calva.com, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tim.gardner@canonical.com
-To: andrew.hendry@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1297073295.9577.13.camel@jaunty>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org, yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1297107910-18263-1-git-send-email-alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Date: Mon, 07 Feb 2011 21:08:15 +1100
+On Mon, Feb 07, 2011 at 08:45:09PM +0100, Alexey Orishko wrote:
+> Changes are based on the following documents:
+> - CDC NCM errata:
+> http://www.usb.org/developers/devclass_docs/NCM10_012011.zip
+> - CDC and WMC errata link:
+> http://www.usb.org/developers/devclass_docs/CDC1.2_WMC1.1_012011.zip
+> 
+> Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
 
-> 
-> Originally x25_parse_facilities returned
-> -1 for an error
->  0 meaning 0 length facilities
->>0 the length of the facilities parsed.
-> 
-> 5ef41308f94dc introduced more error checking in x25_parse_facilities
-> however used 0 to indicate bad parsing
-> a6331d6f9a429 followed this further for DTE facilities, again using 0 for bad parsing.
-> 
-> The meaning of 0 got confused in the callers.
-> If the facilities are messed up we can't determine where the data starts.
-> So patch makes all parsing errors return -1 and ensures callers close and don't use the skb further.
-> 
-> Reported-by: Andy Whitcroft <apw@canonical.com>
-> Signed-off-by: Andrew Hendry <andrew.hendry@gmail.com>
-
-Please reference the commit header line text when referring to SHA1
-IDs, because when backporting to other GIT trees the SHA1 IDs might be
-different.
-
-I took care of this when applying your patch, thanks.
+Acked-by: Greg Kroah-Hartman <gregkh-l3A5Bk7waGM@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
