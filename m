@@ -1,49 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
-Date: Sat, 19 Feb 2011 09:37:55 +0100
-Message-ID: <1298104675.8559.22.camel@edumazet-laptop>
-References: <1298039252.6201.66.camel@edumazet-laptop>
-	 <4D5E8655.5070304@trash.net> <20110218145850.GF2939@psychotron.redhat.com>
-	 <20110218.120656.104048936.davem@davemloft.net>
-	 <20110218205832.GE2602@psychotron.redhat.com> <21593.1298070371@death>
-	 <20110219080523.GB2782@psychotron.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4 4/5] net: introduce NETIF_F_RXCSUM
+Date: Mon, 07 Feb 2011 13:12:55 -0800 (PST)
+Message-ID: <20110207.131255.39187458.davem@davemloft.net>
+References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
+	<629a5e9cc87a171997e611b8227d58cfe4fbe6ff.1296741562.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=euc-kr
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	netdev@vger.kernel.org, shemminger@linux-foundation.org,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: mirq-linux@rere.qmqm.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:42773 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751067Ab1BSIiB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Feb 2011 03:38:01 -0500
-Received: by bwz15 with SMTP id 15so1423394bwz.19
-        for <netdev@vger.kernel.org>; Sat, 19 Feb 2011 00:38:00 -0800 (PST)
-In-Reply-To: <20110219080523.GB2782@psychotron.redhat.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48151
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753949Ab1BGVMU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 16:12:20 -0500
+In-Reply-To: <629a5e9cc87a171997e611b8227d58cfe4fbe6ff.1296741562.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le samedi 19 f=C3=A9vrier 2011 =C3=A0 09:05 +0100, Jiri Pirko a =C3=A9c=
-rit :
-> This patch converts bonding to use rx_handler. Results in cleaner
-> __netif_receive_skb() with much less exceptions needed. Also
-> bond-specific work is moved into bond code.
+=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+Date: Thu,  3 Feb 2011 15:21:22 +0100 (CET)
+
+> Introduce NETIF_F_RXCSUM to replace device-private flags for RX check=
+sum
+> offload. Integrate it with ndo_fix_features.
 >=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> ethtool_op_get_rx_csum() is removed altogether as nothing in-tree use=
+s it.
 >=20
-> v1->v2:
->         using skb_iif instead of new input_dev to remember original
-> 	device
-> v2->v3:
-> 	set orig_dev =3D skb->dev if skb_iif is set
->=20
+> Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
+> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>               =
+                                    =20
 
-Seems much better ;)
-
-Do you have some performance numbers ?
-
-
-
+Applied.
