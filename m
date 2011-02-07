@@ -1,47 +1,113 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4 1/5] net: Introduce new feature setting ops
-Date: Mon, 07 Feb 2011 19:39:57 +0000
-Message-ID: <1297107597.4077.8.camel@bwh-desktop>
-References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
-	 <9327efbf43fadeadd7017926962c65c95288d50e.1296741561.git.mirq-linux@rere.qmqm.pl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:20321 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754526Ab1BGTj7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 14:39:59 -0500
-In-Reply-To: <9327efbf43fadeadd7017926962c65c95288d50e.1296741561.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexey Orishko <alexey.orishko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 1/2] CDC NCM errata updates for cdc.h
+Date: Mon,  7 Feb 2011 20:45:09 +0100
+Message-ID: <1297107910-18263-1-git-send-email-alexey.orishko@stericsson.com>
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
+	yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org,
+	Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-02-03 at 15:21 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> This introduces a new framework to handle device features setting.
-> It consists of:
->   - new fields in struct net_device:
-> 	+ hw_features - features that hw/driver supports toggling
-> 	+ wanted_features - features that user wants enabled, when possible
->   - new netdev_ops:
-> 	+ feat =3D ndo_fix_features(dev, feat) - API checking constraints fo=
-r
-> 		enabling features or their combinations
-> 	+ ndo_set_features(dev) - API updating hardware state to match
-> 		changed dev->features
->   - new ethtool commands:
-> 	+ ETHTOOL_GFEATURES/ETHTOOL_SFEATURES: get/set dev->wanted_features
-> 		and trigger device reconfiguration if resulting dev->features
-> 		changed
-> 	+ ETHTOOL_GSTRINGS(ETH_SS_FEATURES): get feature bits names (meaning=
-)
->=20
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Changes are based on the following documents:
+- CDC NCM errata:
+http://www.usb.org/developers/devclass_docs/NCM10_012011.zip
+- CDC and WMC errata link:
+http://www.usb.org/developers/devclass_docs/CDC1.2_WMC1.1_012011.zip
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Alexey Orishko <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
+---
+ include/linux/usb/cdc.h |   23 ++++++++++++++++++-----
+ 1 files changed, 18 insertions(+), 5 deletions(-)
 
+diff --git a/include/linux/usb/cdc.h b/include/linux/usb/cdc.h
+index 5e86dc7..81a9279 100644
+--- a/include/linux/usb/cdc.h
++++ b/include/linux/usb/cdc.h
+@@ -89,7 +89,7 @@ struct usb_cdc_acm_descriptor {
+ 
+ #define USB_CDC_COMM_FEATURE	0x01
+ #define USB_CDC_CAP_LINE	0x02
+-#define USB_CDC_CAP_BRK	0x04
++#define USB_CDC_CAP_BRK		0x04
+ #define USB_CDC_CAP_NOTIFY	0x08
+ 
+ /* "Union Functional Descriptor" from CDC spec 5.2.3.8 */
+@@ -271,6 +271,11 @@ struct usb_cdc_notification {
+ 	__le16	wLength;
+ } __attribute__ ((packed));
+ 
++struct usb_cdc_speed_change {
++	__le32	DLBitRRate;	/* contains the downlink bit rate (IN pipe) */
++	__le32	ULBitRate;	/* contains the uplink bit rate (OUT pipe) */
++} __attribute__ ((packed));
++
+ /*-------------------------------------------------------------------------*/
+ 
+ /*
+@@ -292,7 +297,7 @@ struct usb_cdc_ncm_ntb_parameters {
+ 	__le16	wNdpOutDivisor;
+ 	__le16	wNdpOutPayloadRemainder;
+ 	__le16	wNdpOutAlignment;
+-	__le16	wPadding2;
++	__le16	wNtbOutMaxDatagrams;
+ } __attribute__ ((packed));
+ 
+ /*
+@@ -307,7 +312,7 @@ struct usb_cdc_ncm_nth16 {
+ 	__le16	wHeaderLength;
+ 	__le16	wSequence;
+ 	__le16	wBlockLength;
+-	__le16	wFpIndex;
++	__le16	wNdpIndex;
+ } __attribute__ ((packed));
+ 
+ struct usb_cdc_ncm_nth32 {
+@@ -315,7 +320,7 @@ struct usb_cdc_ncm_nth32 {
+ 	__le16	wHeaderLength;
+ 	__le16	wSequence;
+ 	__le32	dwBlockLength;
+-	__le32	dwFpIndex;
++	__le32	dwNdpIndex;
+ } __attribute__ ((packed));
+ 
+ /*
+@@ -337,7 +342,7 @@ struct usb_cdc_ncm_dpe16 {
+ struct usb_cdc_ncm_ndp16 {
+ 	__le32	dwSignature;
+ 	__le16	wLength;
+-	__le16	wNextFpIndex;
++	__le16	wNextNdpIndex;
+ 	struct	usb_cdc_ncm_dpe16 dpe16[0];
+ } __attribute__ ((packed));
+ 
+@@ -375,6 +380,7 @@ struct usb_cdc_ncm_ndp32 {
+ #define USB_CDC_NCM_NCAP_ENCAP_COMMAND			(1 << 2)
+ #define USB_CDC_NCM_NCAP_MAX_DATAGRAM_SIZE		(1 << 3)
+ #define USB_CDC_NCM_NCAP_CRC_MODE			(1 << 4)
++#define	USB_CDC_NCM_NCAP_NTB_INPUT_SIZE			(1 << 5)
+ 
+ /* CDC NCM subclass Table 6-3: NTB Parameter Structure */
+ #define USB_CDC_NCM_NTB16_SUPPORTED			(1 << 0)
+@@ -392,6 +398,13 @@ struct usb_cdc_ncm_ndp32 {
+ #define USB_CDC_NCM_NTB_MIN_IN_SIZE			2048
+ #define USB_CDC_NCM_NTB_MIN_OUT_SIZE			2048
+ 
++/* NTB Input Size Structure */
++struct usb_cdc_ncm_ndp_input_size {
++	__le32	dwNtbInMaxSize;
++	__le16	wNtbInMaxDatagrams;
++	__le16	wReserved;
++} __attribute__ ((packed));
++
+ /* CDC NCM subclass 6.2.11 SetCrcMode */
+ #define USB_CDC_NCM_CRC_NOT_APPENDED			0x00
+ #define USB_CDC_NCM_CRC_APPENDED			0x01
+-- 
+1.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
