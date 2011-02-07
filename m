@@ -1,66 +1,71 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4 3/5] net: use ndo_fix_features for
- ethtool_ops->set_flags
-Date: Mon, 07 Feb 2011 19:46:12 +0000
-Message-ID: <1297107972.4077.11.camel@bwh-desktop>
-References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl>
-	 <bbe7e5742ffe44fb2938b7b6c2c656395fc361ac.1296741562.git.mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] GRO: fix merging a paged skb after non-paged skbs
+Date: Mon, 07 Feb 2011 20:39:20 +0000
+Message-ID: <1297111160.4077.14.camel@bwh-desktop>
+References: <20110124184752.1d0947dd@delilah>
+	 <1295918675.4105.5.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	linux-net-drivers@solarflare.com
+To: Michal Schmidt <mschmidt@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:20919 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:24717 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752451Ab1BGTqO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 14:46:14 -0500
-In-Reply-To: <bbe7e5742ffe44fb2938b7b6c2c656395fc361ac.1296741562.git.mirq-linux@rere.qmqm.pl>
+	with ESMTP id S1752038Ab1BGUjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 15:39:23 -0500
+In-Reply-To: <1295918675.4105.5.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-02-03 at 15:21 +0100, Micha=C5=82 Miros=C5=82aw wrote:
-> Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
-> ---
->  net/core/ethtool.c |   31 +++++++++++++++++++++++++++++--
->  1 files changed, 29 insertions(+), 2 deletions(-)
->=20
-> diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-> index 555accf..6e7c6f2 100644
-> --- a/net/core/ethtool.c
-> +++ b/net/core/ethtool.c
-> @@ -240,6 +240,34 @@ static int ethtool_set_features(struct net_devic=
-e *dev, void __user *useraddr)
->  	return ret;
->  }
-> =20
-> +static int __ethtool_set_flags(struct net_device *dev, u32 data)
-> +{
-> +	u32 changed;
-> +
-> +	if (data & ~flags_dup_features)
-> +		return -EINVAL;
-> +
-> +	/* legacy set_flags() op */
-> +	if (dev->ethtool_ops->set_flags) {
-> +		if (unlikely(dev->hw_features & flags_dup_features))
-> +			netdev_warn(dev,
-> +				"driver BUG: mixed hw_features and set_flags()\n");
-> +		return dev->ethtool_ops->set_flags(dev, data);
-> +	}
-> +
-> +	/* allow changing only bits set in hw_features */
-> +	changed =3D (data ^ dev->wanted_features) & flags_dup_features;
-> +	if (changed & ~dev->hw_features)
-> +		return -EOPNOTSUPP;
-[...]
+On Tue, 2011-01-25 at 11:24 +1000, Ben Hutchings wrote:
+> On Mon, 2011-01-24 at 18:47 +0100, Michal Schmidt wrote:
+> > Suppose that several linear skbs of the same flow were received by GRO. They
+> > were thus merged into one skb with a frag_list. Then a new skb of the same flow
+> > arrives, but it is a paged skb with data starting in its frags[].
+> > 
+> > Before adding the skb to the frag_list skb_gro_receive() will of course adjust
+> > the skb to throw away the headers. It correctly modifies the page_offset and
+> > size of the frag, but it leaves incorrect information in the skb:
+> >  ->data_len is not decreased at all.
+> >  ->len is decreased only by headlen, as if no change were done to the frag.
+> > Later in a receiving process this causes skb_copy_datagram_iovec() to return
+> > -EFAULT and this is seen in userspace as the result of the recv() syscall.
+> > 
+> > In practice the bug can be reproduced with the sfc driver. By default the
+> > driver uses an adaptive scheme when it switches between using
+> > napi_gro_receive() (with skbs) and napi_gro_frags() (with pages). The bug is
+> > reproduced when under rx load with enough successful GRO merging the driver
+> > decides to switch from the former to the latter.
+> [...]
+> 
+> This is odd because I thought we made sure to flush before making such a
+> change.  Perhaps that got lost during the conversion from inet_lro to
+> GRO?
 
-The error code should only be EOPNOTSUPP if (dev->hw_features &
-flags_dup_features) =3D=3D 0.  Otherwise it should be EINVAL.
+That is indeed the case; commit da3bc07171dff957906cbe2ad5abb443eccf57c4
+made the following deletions:
+
+-       /* Both our generic-LRO and SFC-SSR support skb and page based
+-        * allocation, but neither support switching from one to the
+-        * other on the fly. If we spot that the allocation mode has
+-        * changed, then flush the LRO state.
+-        */
+-       if (unlikely(channel->rx_alloc_pop_pages != (rx_buf->page != NULL))) {
+-               efx_flush_lro(channel);
+-               channel->rx_alloc_pop_pages = (rx_buf->page != NULL);
+-       }
 
 Ben.
 
---=20
+> Anyway, thanks very much for fixing this.
+> 
+> Ben.
+> 
+
+-- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
