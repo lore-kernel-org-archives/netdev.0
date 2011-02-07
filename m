@@ -1,36 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: x25: possible skb leak on bad facilities
-Date: Sun, 06 Feb 2011 20:28:24 -0800 (PST)
-Message-ID: <20110206.202824.260090071.davem@davemloft.net>
-References: <20110131130826.GC16804@shadowen.org>
-	<AANLkTik-ywwtNg2AxAXtsKYJviDp=1zCZ-43JXp9i3g6@mail.gmail.com>
+From: Matthias Urlichs <matthias@urlichs.de>
+Subject: Re: 6to4 NAT ?
+Date: Mon, 7 Feb 2011 14:55:14 +0100
+Message-ID: <20110207135512.GA3731@deee.intern.smurf.noris.de>
+References: <4D4FC906.3030901@fox-it.com>
+ <20110207124138.GW3731@deee.intern.smurf.noris.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: apw@canonical.com, john@calva.com, linux-x25@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tim.gardner@canonical.com
-To: andrew.hendry@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jasper Spaans <spaans@fox-it.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43515
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751652Ab1BGE1s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Feb 2011 23:27:48 -0500
-In-Reply-To: <AANLkTik-ywwtNg2AxAXtsKYJviDp=1zCZ-43JXp9i3g6@mail.gmail.com>
+Received: from netz.smurf.noris.de ([213.95.21.43]:37469 "EHLO
+	netz.smurf.noris.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753172Ab1BGOMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 09:12:13 -0500
+Content-Disposition: inline
+In-Reply-To: <20110207124138.GW3731@deee.intern.smurf.noris.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Hendry <andrew.hendry@gmail.com>
-Date: Tue, 1 Feb 2011 22:55:13 +1100
+Hello,
 
-> There are two callers, when I was crashing it I don't remember it
-> using the backlog path.
-> x25_process_rx_frame is called from both x25_backlog_rcv and also
-> x25_receive_data (via x25_lapb_receive_frame)
-> 
-> But reviewing that second path now it looks like it will also leak, -1
-> would make it skip the kfree_skb there as well.
-> So patch looks good to me, when I have some time I'll run it through
-> the environment I had setup originally to confirm.
+> Sounds to me like you're looking for nat64. No built in support is
+> available afaik, but http://ecdysis.viagenie.ca/ provides a netfilter
+> module.
 
-Andrew, have you had a chance to do this yet?
+Alternately, there seems to be a stateless program which does the same
+thing via a TUN interface:
+
+http://www.litech.org/tayga/
+
+This solutions seems superior to the ecdysis kernel module because
+* stateless
+* no out-of-tree kernel code with concurrency issues
+* while it's userland code, I don't expect to have much traffic
+* it can support multiple IPv4 networks on one system
+  (we have customers with overlapping RFC1912 address ranges)
+* more flexible deployment
+
+-- 
+-- Matthias Urlichs
