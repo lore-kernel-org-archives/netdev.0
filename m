@@ -1,131 +1,42 @@
-From: Jasper Spaans <spaans@fox-it.com>
-Subject: Re: 6to4 NAT ?
-Date: Mon, 7 Feb 2011 11:27:18 +0100
-Message-ID: <4D4FC906.3030901@fox-it.com>
-References: <iiofpe$1j4$1@dough.gmane.org>
+From: "Tomoya MORINAGA" <tomoya-linux@dsn.okisemi.com>
+Subject: About bittiming calculation result
+Date: Mon, 7 Feb 2011 20:38:29 +0900
+Message-ID: <5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
+References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org> <20110204.130649.112613896.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms060108030003040901030308"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Matthias Urlichs <matthias@urlichs.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns2.fox-it.com ([82.94.91.210]:30771 "EHLO ns2.fox-it.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751120Ab1BGKfr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Feb 2011 05:35:47 -0500
-In-Reply-To: <iiofpe$1j4$1@dough.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <wg@grandegger.com>, <socketcan-core@lists.berlios.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110204.130649.112613896.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---------------ms060108030003040901030308
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-On 07/02/11 10:59, Matthias Urlichs wrote:
-> The problem: I have a 10.*/8 ipv4 network which I want to reach via ipv=
-6.
-> I.e., what I need is some sort of 6to4 NAT so that traffic from [wheree=
-ver]
-> to e.g. fec0:dead:beef:1234::10.1.2.3 ends up as coming from e.g. 10.0.=
-0.1
-> on the IPv4 side.
+I have a question for bittiming-value calculated by Can-core.
 
-Sounds to me like you're looking for nat64. No built in support is
-available afaik, but http://ecdysis.viagenie.ca/ provides a netfilter
-module.
+In case setting like below,
+ - ip link set can0 type can bitrate 800000
+ - clock=50MHz
+ - Use pch_can
 
-Cheers,
-Jasper
+Can-core calculates like below
+brp=21
+seg1=1
+seg2=1
+sjw=1
+prop_seg=0
 
---=20
-Ir. Jasper Spaans
-Fox-IT Experts in IT Security!
-T: +31 (0) 15 284 79 99
-KvK Haaglanden 27301624
+Is "prop_seg=0" true ?
+seg1/seg2/sjw/prop_seg must be more than 1 ?
 
+Also I can see the following kernel error log.
+bitrate error 0.7%
 
-
---------------ms060108030003040901030308
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIILRDCC
-BZ4wggSGoAMCAQICAgDtMA0GCSqGSIb3DQEBBQUAMHsxEjAQBgNVBAMTCUZveC1JVCBDQTEd
-MBsGCSqGSIb3DQEJARYOc29jQGZveC1pdC5jb20xDzANBgNVBAoTBkZveC1JVDERMA8GA1UE
-BxMIUmlqc3dpamsxFTATBgNVBAgTDFp1aWQtSG9sbGFuZDELMAkGA1UEBhMCTkwwHhcNMTAx
-MjAyMTIzOTEzWhcNMTMxMTE0MTUwMzUxWjBHMRYwFAYDVQQDEw1KYXNwZXIgU3BhYW5zMSAw
-HgYJKoZIhvcNAQkBFhFzcGFhbnNAZm94LWl0LmNvbTELMAkGA1UEBhMCTkwwggIiMA0GCSqG
-SIb3DQEBAQUAA4ICDwAwggIKAoICAQCV2jL4fYLEWizsk30IbwV7Uc3ESK3ctlcbSDBpBFH8
-4dsL3+f6kKS6q+DJVbUhg1qZXNQzLP1O50Og2Ry2j9DThgYCBz0cmw8s7WR/F89DZ5NEg4UW
-P1pPgRXtqnSJ7GQI4LVXtEe9NLlArgXMbNczt2Q2H89tPSVUmbp6ZxMMXZwBPTyUjC9u2u41
-xyQVE6lhL0nvjU8yt3oJjYIhUuh6kXp6dkmQzVn/3zlVr3UBOmQXOx44MTBYXE1y9YEECODt
-XzFgtvcWlW+kc3P6xUHA+QAsa7NugpYgUWQ6UTWcEQ6fBVROYhhUZyWjVibL7LD4Q85u+sEc
-h6Khpt0A+ycg0jiXD5CqnLjpro8EysMQHwO8Z12qSo8DQY3AxeVPHGUvHTetDYhp3DavJrHp
-ryx/LDT57NzZsR7l+dDBDZlK7N+dFwlcgCCsWqRvudkbS3FvE2Uoxx2u0hVOyFv04vuStkGA
-lY/sHkrKT0IZnaQqPAcs3YsvRdUfKFFdSLLa1SIOfczwH3wMo1wju0jbp5iLY4vG6hL+OSY9
-QSufl7Uia9ALDJsrL8MuznKlhrgW2IMLaGHC02zqJTELwShasv2cPC/F+8twSRlLNyQOA3G9
-9FeUQbAn2FEXlqxCfzCoBq9YmVz5lJOQ/SPBAnrhwauZDTTHwSqnc4RgtOd0eAyi8QIDAQAB
-o4IBXjCCAVowgaUGA1UdIwSBnTCBmoAUITvNG/EBZgl32Y7HpBKzbyMpCOmhf6R9MHsxEjAQ
-BgNVBAMTCUZveC1JVCBDQTEdMBsGCSqGSIb3DQEJARYOc29jQGZveC1pdC5jb20xDzANBgNV
-BAoTBkZveC1JVDERMA8GA1UEBxMIUmlqc3dpamsxFTATBgNVBAgTDFp1aWQtSG9sbGFuZDEL
-MAkGA1UEBhMCTkyCAQAwDAYDVR0TAQH/BAIwADA6BgNVHR8EMzAxMC+gLaArhilodHRwOi8v
-d3d3LnNlYy1pZC5uZXQvY2dpLWJpbi9jcmwucGw/MTAwNDAZBgNVHRIEEjAQgQ5zb2NAZm94
-LWl0LmNvbTAOBgNVHQ8BAf8EBAMCA/gwHAYDVR0RBBUwE4ERc3BhYW5zQGZveC1pdC5jb20w
-HQYDVR0OBBYEFD39p3bQ8VbZ+kA05vBzbBD6E7CaMA0GCSqGSIb3DQEBBQUAA4IBAQBM1SWd
-bXz2dIqjaO2esYO49wkWh4XkrRDJtxusA1ZWE6jxb+3Pl59tC426BPa++MV1lUkGMyaUUOdo
-frTu8rBipoiXcEEOajNdnnuqQefUErh4bBnLj7zsKzdOxJur6YYSA/HqG7zeyhCXybrCCyhs
-RjNqpiJBxiu7SBUM75wRyz7m4HAlOwpCtQq3cxn11txaiA14qlPOLC1B9M3b9dTj/MyRkw0x
-Xpdluwlj+jUSM8W2ofWnQ4IZ1IjsXHeoVExy15Lq7rUlTmVhu8JsGbPIiJU0T6h+4iVWVtpk
-hngn8nM+Ggyz0IVmslL/i/SBECrHUsPDCol0BVechszjlbHUMIIFnjCCBIagAwIBAgICAO0w
-DQYJKoZIhvcNAQEFBQAwezESMBAGA1UEAxMJRm94LUlUIENBMR0wGwYJKoZIhvcNAQkBFg5z
-b2NAZm94LWl0LmNvbTEPMA0GA1UEChMGRm94LUlUMREwDwYDVQQHEwhSaWpzd2lqazEVMBMG
-A1UECBMMWnVpZC1Ib2xsYW5kMQswCQYDVQQGEwJOTDAeFw0xMDEyMDIxMjM5MTNaFw0xMzEx
-MTQxNTAzNTFaMEcxFjAUBgNVBAMTDUphc3BlciBTcGFhbnMxIDAeBgkqhkiG9w0BCQEWEXNw
-YWFuc0Bmb3gtaXQuY29tMQswCQYDVQQGEwJOTDCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCC
-AgoCggIBAJXaMvh9gsRaLOyTfQhvBXtRzcRIrdy2VxtIMGkEUfzh2wvf5/qQpLqr4MlVtSGD
-Wplc1DMs/U7nQ6DZHLaP0NOGBgIHPRybDyztZH8Xz0Nnk0SDhRY/Wk+BFe2qdInsZAjgtVe0
-R700uUCuBcxs1zO3ZDYfz209JVSZunpnEwxdnAE9PJSML27a7jXHJBUTqWEvSe+NTzK3egmN
-giFS6HqRenp2SZDNWf/fOVWvdQE6ZBc7HjgxMFhcTXL1gQQI4O1fMWC29xaVb6Rzc/rFQcD5
-ACxrs26CliBRZDpRNZwRDp8FVE5iGFRnJaNWJsvssPhDzm76wRyHoqGm3QD7JyDSOJcPkKqc
-uOmujwTKwxAfA7xnXapKjwNBjcDF5U8cZS8dN60NiGncNq8msemvLH8sNPns3NmxHuX50MEN
-mUrs350XCVyAIKxapG+52RtLcW8TZSjHHa7SFU7IW/Ti+5K2QYCVj+weSspPQhmdpCo8Byzd
-iy9F1R8oUV1IstrVIg59zPAffAyjXCO7SNunmItji8bqEv45Jj1BK5+XtSJr0AsMmysvwy7O
-cqWGuBbYgwtoYcLTbOolMQvBKFqy/Zw8L8X7y3BJGUs3JA4Dcb30V5RBsCfYUReWrEJ/MKgG
-r1iZXPmUk5D9I8ECeuHBq5kNNMfBKqdzhGC053R4DKLxAgMBAAGjggFeMIIBWjCBpQYDVR0j
-BIGdMIGagBQhO80b8QFmCXfZjsekErNvIykI6aF/pH0wezESMBAGA1UEAxMJRm94LUlUIENB
-MR0wGwYJKoZIhvcNAQkBFg5zb2NAZm94LWl0LmNvbTEPMA0GA1UEChMGRm94LUlUMREwDwYD
-VQQHEwhSaWpzd2lqazEVMBMGA1UECBMMWnVpZC1Ib2xsYW5kMQswCQYDVQQGEwJOTIIBADAM
-BgNVHRMBAf8EAjAAMDoGA1UdHwQzMDEwL6AtoCuGKWh0dHA6Ly93d3cuc2VjLWlkLm5ldC9j
-Z2ktYmluL2NybC5wbD8xMDA0MBkGA1UdEgQSMBCBDnNvY0Bmb3gtaXQuY29tMA4GA1UdDwEB
-/wQEAwID+DAcBgNVHREEFTATgRFzcGFhbnNAZm94LWl0LmNvbTAdBgNVHQ4EFgQUPf2ndtDx
-Vtn6QDTm8HNsEPoTsJowDQYJKoZIhvcNAQEFBQADggEBAEzVJZ1tfPZ0iqNo7Z6xg7j3CRaH
-heStEMm3G6wDVlYTqPFv7c+Xn20LjboE9r74xXWVSQYzJpRQ52h+tO7ysGKmiJdwQQ5qM12e
-e6pB59QSuHhsGcuPvOwrN07Em6vphhID8eobvN7KEJfJusILKGxGM2qmIkHGK7tIFQzvnBHL
-PubgcCU7CkK1CrdzGfXW3FqIDXiqU84sLUH0zdv11OP8zJGTDTFel2W7CWP6NRIzxbah9adD
-ghnUiOxcd6hUTHLXkurutSVOZWG7wmwZs8iIlTRPqH7iJVZW2mSGeCfycz4aDLPQhWayUv+L
-9IEQKsdSw8MKiXQFV5yGzOOVsdQxggSXMIIEkwIBATCBgTB7MRIwEAYDVQQDEwlGb3gtSVQg
-Q0ExHTAbBgkqhkiG9w0BCQEWDnNvY0Bmb3gtaXQuY29tMQ8wDQYDVQQKEwZGb3gtSVQxETAP
-BgNVBAcTCFJpanN3aWprMRUwEwYDVQQIEwxadWlkLUhvbGxhbmQxCzAJBgNVBAYTAk5MAgIA
-7TAJBgUrDgMCGgUAoIIB6jAYBgkqhkiG9w0BCQMxCwYJKoZIhvcNAQcBMBwGCSqGSIb3DQEJ
-BTEPFw0xMTAyMDcxMDI3MThaMCMGCSqGSIb3DQEJBDEWBBSZ4Fgp9JwoffWP+cfwLc1tUcj7
-ojBfBgkqhkiG9w0BCQ8xUjBQMAsGCWCGSAFlAwQBAjAKBggqhkiG9w0DBzAOBggqhkiG9w0D
-AgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcwDQYIKoZIhvcNAwICASgwgZIGCSsGAQQB
-gjcQBDGBhDCBgTB7MRIwEAYDVQQDEwlGb3gtSVQgQ0ExHTAbBgkqhkiG9w0BCQEWDnNvY0Bm
-b3gtaXQuY29tMQ8wDQYDVQQKEwZGb3gtSVQxETAPBgNVBAcTCFJpanN3aWprMRUwEwYDVQQI
-EwxadWlkLUhvbGxhbmQxCzAJBgNVBAYTAk5MAgIA7TCBlAYLKoZIhvcNAQkQAgsxgYSggYEw
-ezESMBAGA1UEAxMJRm94LUlUIENBMR0wGwYJKoZIhvcNAQkBFg5zb2NAZm94LWl0LmNvbTEP
-MA0GA1UEChMGRm94LUlUMREwDwYDVQQHEwhSaWpzd2lqazEVMBMGA1UECBMMWnVpZC1Ib2xs
-YW5kMQswCQYDVQQGEwJOTAICAO0wDQYJKoZIhvcNAQEBBQAEggIAE52uYE3U4dh3xIrbnviA
-mRy5EeLp4FbLLuLgA86rjoadsJJRvlOoJm9Y7HQMED3nAsBTDUXYlkAuf6A4GNDfb5WHOV5I
-dPz6LlmRqyYmI7CMbtjxzhNvVarhQG+52n5QfT/IuneUH1/Poe1+9m4s8V5E1B8dk5xiwcc+
-QEMU87uQ+yPnvKrmJ/MDQaKtDjYUttPf0zw3DIy7iTRLSWONwk0zqv1/ZdF/10YtFeBhITBe
-myWx9iJlcSyhZBmUjUTJPHuSp54FTK6FogT7ui3BHKR0HG3Daf6SxAvnHD1Q8JwkCVQJGCUT
-jCgnlSN5P9dJpxml+tpkJHhk2rUE6xkXzHUeUUGjBK6D8dO8gDrq7ykO49Hb/HVYDb4J00mV
-VGexGgZBmod1W/h1jciGIs1jB85rOezUFqE/P2Flkc4NV1MZmS7Je1F+dWWlTach0jr61ZHU
-hfK5IIkviPLEpGgPvJE6VmYzJXnELsYqpoh4u67MKok4ovDQ3DDji6Tm40ljRah4V5SX6oOT
-6T+xj4zRXLXZ0jqqDUK3EEv/f1YpLOI9t08iyLvMKgOMumxHFv1SNIma5czvNOSd0heP4aW2
-LkcKHjRMX3qNthEJ5HHOUF1vhOjscg25HzoTARQFHU8Xk5qq6M0m1x0Jp4oYfCFwAmIl+RTb
-MK5Pg0nFTewTB7UAAAAAAAA=
---------------ms060108030003040901030308--
+Thanks,
+-----------------------------------------
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
