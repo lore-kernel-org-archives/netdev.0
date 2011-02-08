@@ -1,163 +1,47 @@
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Subject: [PATCH] pch_gbe: Fix the issue that the receiving data is not normal.
-Date: Tue, 08 Feb 2011 17:24:10 +0900
-Message-ID: <4D50FDAA.1060506@dsn.okisemi.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] GRO: fix merging a paged skb after non-paged skbs
+Date: Tue, 8 Feb 2011 19:49:28 +1100
+Message-ID: <20110208084928.GA27505@gondor.apana.org.au>
+References: <20110124184752.1d0947dd@delilah> <1295918675.4105.5.camel@localhost> <1297111160.4077.14.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Wang, Qi" <qi.wang@intel.com>,
-	"Wang, Yong Y" <yong.y.wang@intel.com>,
-	Andrew <andrew.chih.howe.khor@intel.com>,
-	Intel OTC <joel.clark@intel.com>,
-	"Ewe, Kok Howg" <kok.howg.ewe@intel.com>,
-	Tomoya Morinaga <tomoya-linux@dsn.okisemi.com>
-To: ML netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Schmidt <mschmidt@redhat.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-net-drivers@solarflare.com
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:56401 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752438Ab1BHIth (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 03:49:37 -0500
+Content-Disposition: inline
+In-Reply-To: <1297111160.4077.14.camel@bwh-desktop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Devid
+On Mon, Feb 07, 2011 at 08:39:20PM +0000, Ben Hutchings wrote:
+> 
+> That is indeed the case; commit da3bc07171dff957906cbe2ad5abb443eccf57c4
+> made the following deletions:
+> 
+> -       /* Both our generic-LRO and SFC-SSR support skb and page based
+> -        * allocation, but neither support switching from one to the
+> -        * other on the fly. If we spot that the allocation mode has
+> -        * changed, then flush the LRO state.
+> -        */
+> -       if (unlikely(channel->rx_alloc_pop_pages != (rx_buf->page != NULL))) {
+> -               efx_flush_lro(channel);
+> -               channel->rx_alloc_pop_pages = (rx_buf->page != NULL);
+> -       }
 
-I resubmit this patch modified.
-Please check them.
+Oops, sorry about that.
 
-Best regards
-Toshiharu Okada(OKI semiconductor)
----
+How about changing skb_gro_receive to detect such switches and
+simply return an error, which should have the same effect as
+flushing that flow?
 
-This PCH_GBE driver had an issue that the receiving data is not normal.
-This driver had not removed correctly the padding data 
-which the DMA include in receiving data. 
-
-This patch fixed this issue.
-
-Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
----
- drivers/net/pch_gbe/pch_gbe_main.c |   77 +++++++++++++++++++++--------------
- 1 files changed, 46 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
-index 03a1d28..3248313 100644
---- a/drivers/net/pch_gbe/pch_gbe_main.c
-+++ b/drivers/net/pch_gbe/pch_gbe_main.c
-@@ -29,6 +29,7 @@ const char pch_driver_version[] = DRV_VERSION;
- #define PCH_GBE_SHORT_PKT		64
- #define DSC_INIT16			0xC000
- #define PCH_GBE_DMA_ALIGN		0
-+#define PCH_GBE_DMA_PADDING		2
- #define PCH_GBE_WATCHDOG_PERIOD		(1 * HZ)	/* watchdog time */
- #define PCH_GBE_COPYBREAK_DEFAULT	256
- #define PCH_GBE_PCI_BAR			1
-@@ -1373,7 +1374,7 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
- 	unsigned int i;
- 	unsigned int cleaned_count = 0;
- 	bool cleaned = false;
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *new_skb;
- 	u8 dma_status;
- 	u16 gbec_status;
- 	u32 tcp_ip_status;
-@@ -1422,55 +1423,69 @@ pch_gbe_clean_rx(struct pch_gbe_adapter *adapter,
- 			pr_err("Receive CRC Error\n");
- 		} else {
- 			/* get receive length */
--			/* length convert[-3], padding[-2] */
--			length = (rx_desc->rx_words_eob) - 3 - 2;
-+			/* length convert[-3] */
-+			length = (rx_desc->rx_words_eob) - 3;
- 
- 			/* Decide the data conversion method */
- 			if (!adapter->rx_csum) {
- 				/* [Header:14][payload] */
- 				skb_padding_flag = 0;
--				skb_copy_flag = 1;
-+				if (NET_IP_ALIGN)
-+					/* [NET_IP_ALIGN][Header:14][payload] */
-+					skb_copy_flag = 1;
-+				else
-+					skb_copy_flag = 0;
- 			} else {
- 				/* [Header:14][padding:2][payload] */
- 				skb_padding_flag = 1;
-+				/* The length includes padding length */
-+				length = length - PCH_GBE_DMA_PADDING;
- 				if (length < copybreak)
- 					skb_copy_flag = 1;
--				else
--					skb_copy_flag = 0;
-+				else {
-+					/* [Header:14][padding:2][payload]
-+					 *   Chenge to the following
-+					 * [NET_IP_ALIGN][Header:14][payload] */
-+					if (NET_IP_ALIGN == PCH_GBE_DMA_PADDING)
-+						skb_copy_flag = 0;
-+					else
-+						skb_copy_flag = 1;
-+				}
- 			}
--
- 			/* Data conversion */
--			if (skb_copy_flag) {	/* recycle  skb */
--				struct sk_buff *new_skb;
--				new_skb =
--				    netdev_alloc_skb(netdev,
--						     length + NET_IP_ALIGN);
--				if (new_skb) {
--					if (!skb_padding_flag) {
--						skb_reserve(new_skb,
--								NET_IP_ALIGN);
--					}
--					memcpy(new_skb->data, skb->data,
--						length);
--					/* save the skb
--					 * in buffer_info as good */
--					skb = new_skb;
--				} else if (!skb_padding_flag) {
-+			if (skb_copy_flag) {
-+				new_skb = netdev_alloc_skb(netdev,
-+							 length + NET_IP_ALIGN);
-+				if (!new_skb) {
- 					/* dorrop error */
- 					pr_err("New skb allocation Error\n");
- 					goto dorrop;
- 				}
-+				skb_reserve(new_skb, NET_IP_ALIGN);
-+				if (skb_padding_flag) {
-+					memcpy(new_skb->data, skb->data,
-+					       ETH_HLEN);
-+					memcpy(&new_skb->data[ETH_HLEN],
-+					       &skb->data[ETH_HLEN +
-+					       PCH_GBE_DMA_PADDING],
-+					       length - ETH_HLEN);
-+				} else {
-+					memcpy(new_skb->data, skb->data,
-+					       length);
-+				}
-+				skb = new_skb;
- 			} else {
-+				if (skb_padding_flag) {
-+					memcpy(&tmp_packet[0], &skb->data[0],
-+					       ETH_HLEN);
-+					memcpy(&skb->data[PCH_GBE_DMA_PADDING],
-+					       &tmp_packet[0], ETH_HLEN);
-+					skb_reserve(skb, PCH_GBE_DMA_PADDING);
-+				}
- 				buffer_info->skb = NULL;
- 			}
--			if (skb_padding_flag) {
--				memcpy(&tmp_packet[0], &skb->data[0], ETH_HLEN);
--				memcpy(&skb->data[NET_IP_ALIGN], &tmp_packet[0],
--					ETH_HLEN);
--				skb_reserve(skb, NET_IP_ALIGN);
--
--			}
--
-+			/* The length includes FCS length */
-+			length = length - ETH_FCS_LEN;
- 			/* update status of driver */
- 			adapter->stats.rx_bytes += length;
- 			adapter->stats.rx_packets++;
+Cheers,
 -- 
-1.6.2.5
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
