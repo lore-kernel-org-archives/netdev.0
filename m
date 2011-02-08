@@ -1,47 +1,92 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] GRO: fix merging a paged skb after non-paged skbs
-Date: Tue, 8 Feb 2011 19:49:28 +1100
-Message-ID: <20110208084928.GA27505@gondor.apana.org.au>
-References: <20110124184752.1d0947dd@delilah> <1295918675.4105.5.camel@localhost> <1297111160.4077.14.camel@bwh-desktop>
+From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH net-next-2.6 v5 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Tue, 8 Feb 2011 17:04:41 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE2BE326@EAPEX1MAIL1.st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michal Schmidt <mschmidt@redhat.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:56401 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752438Ab1BHIth (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 03:49:37 -0500
-Content-Disposition: inline
-In-Reply-To: <1297111160.4077.14.camel@bwh-desktop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: 'Wolfgang Grandegger' <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 07, 2011 at 08:39:20PM +0000, Ben Hutchings wrote:
-> 
-> That is indeed the case; commit da3bc07171dff957906cbe2ad5abb443eccf57c4
-> made the following deletions:
-> 
-> -       /* Both our generic-LRO and SFC-SSR support skb and page based
-> -        * allocation, but neither support switching from one to the
-> -        * other on the fly. If we spot that the allocation mode has
-> -        * changed, then flush the LRO state.
-> -        */
-> -       if (unlikely(channel->rx_alloc_pop_pages != (rx_buf->page != NULL))) {
-> -               efx_flush_lro(channel);
-> -               channel->rx_alloc_pop_pages = (rx_buf->page != NULL);
-> -       }
+Hi Wolfgang,
 
-Oops, sorry about that.
+>> + stats->rx_errors++; 
+>> + cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR; 
+>> + cf->data[2] |= CAN_ERR_PROT_UNSPEC; 
+>> + 
+>> + switch (lec_type) { 
+>> + case LEC_STUFF_ERROR: 
+>> + netdev_dbg(dev, "stuff error\n"); 
+>> + cf->data[2] |= CAN_ERR_PROT_STUFF; 
+>> + break; 
+>> + 
+>> + case LEC_FORM_ERROR: 
+>> + netdev_dbg(dev, "form error\n"); 
+>> + cf->data[2] |= CAN_ERR_PROT_FORM; 
+>> + break; 
+>> + 
+>> + case LEC_ACK_ERROR: 
+>> + netdev_dbg(dev, "ack error\n"); 
+>> + cf->data[2] |= (CAN_ERR_PROT_LOC_ACK | 
+>> + CAN_ERR_PROT_LOC_ACK_DEL); 
+>> + break; 
+>> + 
+>> + case LEC_BIT1_ERROR: 
+>> + netdev_dbg(dev, "bit1 error\n"); 
+>> + cf->data[2] |= CAN_ERR_PROT_BIT1; 
+>> + break; 
+>> + 
+>> + case LEC_BIT0_ERROR: 
+>> + netdev_dbg(dev, "bit0 error\n"); 
+>> + cf->data[2] |= CAN_ERR_PROT_BIT0; 
+>> + break; 
+>> + 
+>> + case LEC_CRC_ERROR: 
+>> + netdev_dbg(dev, "CRC error\n"); 
+>> + cf->data[2] |= (CAN_ERR_PROT_LOC_CRC_SEQ | 
+>> + CAN_ERR_PROT_LOC_CRC_DEL); 
+>> + break; 
+>> + } 
 
-How about changing skb_gro_receive to detect such switches and
-simply return an error, which should have the same effect as
-flushing that flow?
+>From the C_CAN manual: 
+>
+>"The LEC field holds a code which indicates the type of the last error 
+>to occur on the CAN bus. This field will be cleared to '0' when a 
+>message has been transferred (reception or transmission) without error. 
+>The unused code '7' may be written by the CPU to check for updates." 
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>Not sure if it's necessary to reset the lec at init and after an error 
+>to 0x7 and check it. More below...
+
+I worked on your suggestion and instead found that the follow algo must be used
+for reading updated `lec` values:
+a. Init lec by 0x07 at start.
+b. In function `c_can_err` check if lec is 0x7 (no bus error since this value was
+written by CPU on status register) or 0x0 (no error). If so, return without
+sending an error frame on stack. Else, check for the lec error type and
+submit error frame on stack accordingly.
+c. In case a lec error is found and served in `c_can_err` routine, write
+lec value to 0x07 again in status reg to check for updated lec later.
+
+This is my understanding after reading the specs time and again and
+implementing/testing the logic.
+
+Do you think this is fine or do you have any better approach?
+
+Regards,
+Bhupesh
