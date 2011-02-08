@@ -1,7 +1,7 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH 2/3] pch_can: fix rmmod issue
-Date: Tue,  8 Feb 2011 18:29:02 +0900
-Message-ID: <1297157343-3213-2-git-send-email-tomoya-linux@dsn.okisemi.com>
+Subject: [PATCH 3/3] pch_can: fix module reload issue with MSI
+Date: Tue,  8 Feb 2011 18:29:03 +0900
+Message-ID: <1297157343-3213-3-git-send-email-tomoya-linux@dsn.okisemi.com>
 References: <1297157343-3213-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,33 +24,28 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently, when rmmod pch_can, kernel failure occurs.
-The cause is pci_iounmap executed before pch_can_reset.
-Thus pci_iounmap moves after pch_can_reset.
+Currently, in case reload pch_can,
+pch_can not to be able to catch interrupt.
+
+The cause is bus-master is not set in pch_can.
+Thus, add enabling bus-master processing.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
- drivers/net/can/pch_can.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/can/pch_can.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index 9b171d1..342d514 100644
+index 342d514..7d8bc12 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -959,13 +959,13 @@ static void __devexit pch_can_remove(struct pci_dev *pdev)
- 	struct pch_can_priv *priv = netdev_priv(ndev);
- 
- 	unregister_candev(priv->ndev);
--	pci_iounmap(pdev, priv->regs);
- 	if (priv->use_msi)
- 		pci_disable_msi(priv->dev);
- 	pci_release_regions(pdev);
- 	pci_disable_device(pdev);
- 	pci_set_drvdata(pdev, NULL);
- 	pch_can_reset(priv);
-+	pci_iounmap(pdev, priv->regs);
- 	free_candev(priv->ndev);
- }
+@@ -1238,6 +1238,7 @@ static int __devinit pch_can_probe(struct pci_dev *pdev,
+ 		priv->use_msi = 0;
+ 	} else {
+ 		netdev_err(ndev, "PCH CAN opened with MSI\n");
++		pci_set_master(pdev);
+ 		priv->use_msi = 1;
+ 	}
  
 -- 
 1.7.3.4
