@@ -1,42 +1,47 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: RE: About bittiming calculation result
-Date: Tue, 8 Feb 2011 13:11:44 +0900
-Message-ID: <B50CC78E66FD4D1FA262EDC22C21C0D0@hacdom.okisemi.com>
-References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org><20110204.130649.112613896.davem@davemloft.net><5009516791F146C49C73FAC57C437313@hacdom.okisemi.com><4D4FDEF9.2030305@grandegger.com>
-	<E2BAACFF191C4175854E6B2EB9135BE5@hacdom.okisemi.com>
-	<D5ECB3C7A6F99444980976A8C6D896384DEE2BE1A7@EAPEX1MAIL1.st.com>
+From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont"
+	<remi.denis-courmont@nokia.com>
+Subject: Re: [PATCH] usb: gadget: nokia: disallow compilation with HIGHMEM
+Date: Tue, 8 Feb 2011 09:39:11 +0200
+Message-ID: <201102080939.12122.remi.denis-courmont@nokia.com>
+References: <1297150245-31696-1-git-send-email-ext-eero.nurkkala@nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "'Bhupesh SHARMA'" <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>,
-	"'Wolfgang Grandegger'" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <D5ECB3C7A6F99444980976A8C6D896384DEE2BE1A7-8vAmw3ZAcdzhJTuQ9jeba9BPR1lH4CV8@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
+	netdev@vger.kernel.org
+To: ext-eero.nurkkala@nokia.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.nokia.com ([147.243.128.24]:40901 "EHLO mgw-da01.nokia.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751876Ab1BHHjG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 02:39:06 -0500
+In-Reply-To: <1297150245-31696-1-git-send-email-ext-eero.nurkkala@nokia.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi  Bhupesh,
+On Tuesday 08 February 2011 09:30:45 ext-eero.nurkkala@nokia.com, you w=
+rote:
+> From: Eero Nurkkala <ext-eero.nurkkala@nokia.com>
+>=20
+> With HIGHMEM, g_phonet oopses with the following path:
+> pn_rx_complete() -> pskb_pull() -> ... kmap_skb_frag() and
+> oops with BUG_ON(in_irq()). Thus, if the gadget is enabled,
+> it'd better conflict with the HIGHMEM.
+>=20
+> Signed-off-by: Eero Nurkkala <ext-eero.nurkkala@nokia.com>
 
-On Tuesday, February 08, 2011 12:30 PM, Bhupesh SHARMA wrote:
-> AFAIK pch uses the Bosch C_CAN core internally.
-> As per Bosch C_CAN user manual tseg1= prop_seg + phase_seg1 
-> So, ideally tseg1_min should be 2. My version of Bosch C_CAN 
-> driver Uses the value 2.
+Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 
-Thank you for your suggestions.
-I will submit the patch.
 
-With Best Regards,
------------------------------------------
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+In the long run, we should probably kludge the skb code like we did in
+cdc-phonet.c.
+
+Or better yet, fix kmap_skb_frag() to be less pessimistic. Thing is, th=
+e BUG_ON=20
+is really bogus here. The way we allocated the skb, the fragment really=
+ cannot=20
+be in HIGHMEM...
+
+--=20
+R=E9mi Denis-Courmont
+Nokia Devices R&D, Maemo Software, Helsinki
