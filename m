@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 10/16] ixgbe: DCB, do not reset on CEE pg changes
-Date: Tue,  8 Feb 2011 04:29:21 -0800
-Message-ID: <1297168167-15755-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 07/16] ixgbe: DCB, remove round robin mode on 82598 devices
+Date: Tue,  8 Feb 2011 04:29:18 -0800
+Message-ID: <1297168167-15755-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: John Fastabend <john.r.fastabend@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
@@ -10,142 +10,69 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:30096 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544Ab1BHM3i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Feb 2011 07:29:38 -0500
+	id S1751544Ab1BHM3g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Feb 2011 07:29:36 -0500
 In-Reply-To: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: John Fastabend <john.r.fastabend@intel.com>
 
-The 82599 and 82598 devices do not require hardware resets to
-configure CEE pg settings. This patch changes DCB configuration
-to set the CEE pg values directly from the dcbnl ops routine.
+Remove round robin configuration code for 82598 parts it
+is not settable and is always false.
 
-This reduces the number of resets seen on the wire and allows
-LLDP to reach a steady state faster.
+If we need/want this in the future we can add it back properly.
 
 Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_dcb.h    |    4 +++
- drivers/net/ixgbe/ixgbe_dcb_nl.c |   48 +++++++++++++++++++++++++++----------
- 2 files changed, 39 insertions(+), 13 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb.h       |    1 -
+ drivers/net/ixgbe/ixgbe_dcb_82598.c |    6 ++----
+ drivers/net/ixgbe/ixgbe_main.c      |    1 -
+ 3 files changed, 2 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ixgbe/ixgbe_dcb.h b/drivers/net/ixgbe/ixgbe_dcb.h
-index 4e4a641..e593511 100644
+index 1cfe38e..d0b2450 100644
 --- a/drivers/net/ixgbe/ixgbe_dcb.h
 +++ b/drivers/net/ixgbe/ixgbe_dcb.h
-@@ -148,6 +148,10 @@ struct ixgbe_dcb_config {
+@@ -139,7 +139,6 @@ struct ixgbe_dcb_config {
+ 	struct tc_configuration tc_config[MAX_TRAFFIC_CLASS];
+ 	u8     bw_percentage[2][MAX_BW_GROUP]; /* One each for Tx/Rx */
+ 	bool   pfc_mode_enable;
+-	bool   round_robin_enable;
  
- /* DCB driver APIs */
- void ixgbe_dcb_unpack_pfc(struct ixgbe_dcb_config *cfg, u8 *pfc_en);
-+void ixgbe_dcb_unpack_refill(struct ixgbe_dcb_config *, int, u16 *);
-+void ixgbe_dcb_unpack_max(struct ixgbe_dcb_config *, u16 *);
-+void ixgbe_dcb_unpack_bwgid(struct ixgbe_dcb_config *, int, u8 *);
-+void ixgbe_dcb_unpack_prio(struct ixgbe_dcb_config *, int, u8 *);
+ 	enum dcb_rx_pba_cfg rx_pba_cfg;
  
- /* DCB credits calculation */
- s32 ixgbe_ieee_credits(__u8 *bw, __u16 *refill, __u16 *max, int max_frame);
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index e75a3c9..b3a8d24 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -225,10 +225,8 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_tx(struct net_device *netdev, int tc,
- 	    (adapter->temp_dcb_cfg.tc_config[tc].path[0].bwg_percent !=
- 	     adapter->dcb_cfg.tc_config[tc].path[0].bwg_percent) ||
- 	    (adapter->temp_dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap !=
--	     adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap)) {
-+	     adapter->dcb_cfg.tc_config[tc].path[0].up_to_tc_bitmap))
- 		adapter->dcb_set_bitmap |= BIT_PG_TX;
--		adapter->dcb_set_bitmap |= BIT_RESETLINK;
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_82598.c b/drivers/net/ixgbe/ixgbe_dcb_82598.c
+index 9a5e89c..19aa806 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_82598.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_82598.c
+@@ -146,10 +146,8 @@ static s32 ixgbe_dcb_config_tx_desc_arbiter_82598(struct ixgbe_hw *hw,
+ 
+ 	/* Enable arbiter */
+ 	reg &= ~IXGBE_DPMCS_ARBDIS;
+-	if (!(dcb_config->round_robin_enable)) {
+-		/* Enable DFP and Recycle mode */
+-		reg |= (IXGBE_DPMCS_TDPAC | IXGBE_DPMCS_TRM);
 -	}
- }
- 
- static void ixgbe_dcbnl_set_pg_bwg_cfg_tx(struct net_device *netdev, int bwg_id,
-@@ -239,10 +237,8 @@ static void ixgbe_dcbnl_set_pg_bwg_cfg_tx(struct net_device *netdev, int bwg_id,
- 	adapter->temp_dcb_cfg.bw_percentage[0][bwg_id] = bw_pct;
- 
- 	if (adapter->temp_dcb_cfg.bw_percentage[0][bwg_id] !=
--	    adapter->dcb_cfg.bw_percentage[0][bwg_id]) {
-+	    adapter->dcb_cfg.bw_percentage[0][bwg_id])
- 		adapter->dcb_set_bitmap |= BIT_PG_TX;
--		adapter->dcb_set_bitmap |= BIT_RESETLINK;
--	}
- }
- 
- static void ixgbe_dcbnl_set_pg_tc_cfg_rx(struct net_device *netdev, int tc,
-@@ -269,10 +265,8 @@ static void ixgbe_dcbnl_set_pg_tc_cfg_rx(struct net_device *netdev, int tc,
- 	    (adapter->temp_dcb_cfg.tc_config[tc].path[1].bwg_percent !=
- 	     adapter->dcb_cfg.tc_config[tc].path[1].bwg_percent) ||
- 	    (adapter->temp_dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap !=
--	     adapter->dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap)) {
-+	     adapter->dcb_cfg.tc_config[tc].path[1].up_to_tc_bitmap))
- 		adapter->dcb_set_bitmap |= BIT_PG_RX;
--		adapter->dcb_set_bitmap |= BIT_RESETLINK;
--	}
- }
- 
- static void ixgbe_dcbnl_set_pg_bwg_cfg_rx(struct net_device *netdev, int bwg_id,
-@@ -283,10 +277,8 @@ static void ixgbe_dcbnl_set_pg_bwg_cfg_rx(struct net_device *netdev, int bwg_id,
- 	adapter->temp_dcb_cfg.bw_percentage[1][bwg_id] = bw_pct;
- 
- 	if (adapter->temp_dcb_cfg.bw_percentage[1][bwg_id] !=
--	    adapter->dcb_cfg.bw_percentage[1][bwg_id]) {
-+	    adapter->dcb_cfg.bw_percentage[1][bwg_id])
- 		adapter->dcb_set_bitmap |= BIT_PG_RX;
--		adapter->dcb_set_bitmap |= BIT_RESETLINK;
--	}
- }
- 
- static void ixgbe_dcbnl_get_pg_tc_cfg_tx(struct net_device *netdev, int tc,
-@@ -421,7 +413,9 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 				ixgbe_up(adapter);
- 		}
- 		ret = DCB_HW_CHG_RST;
--	} else if (adapter->dcb_set_bitmap & BIT_PFC) {
-+	}
-+
-+	if (adapter->dcb_set_bitmap & BIT_PFC) {
- 		u8 pfc_en;
- 		ixgbe_dcb_unpack_pfc(&adapter->dcb_cfg, &pfc_en);
- 
-@@ -431,6 +425,34 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 			ixgbe_dcb_config_pfc_82599(&adapter->hw, pfc_en);
- 		ret = DCB_HW_CHG;
- 	}
-+
-+	if (adapter->dcb_set_bitmap & (BIT_PG_TX|BIT_PG_RX)) {
-+		u16 refill[MAX_TRAFFIC_CLASS], max[MAX_TRAFFIC_CLASS];
-+		u8 bwg_id[MAX_TRAFFIC_CLASS], prio_type[MAX_TRAFFIC_CLASS];
-+		int max_frame = adapter->netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
-+
-+#ifdef CONFIG_FCOE
-+		if (adapter->netdev->features & NETIF_F_FCOE_MTU)
-+			max_frame = max(max_frame, IXGBE_FCOE_JUMBO_FRAME_SIZE);
-+#endif
-+
-+		ixgbe_dcb_calculate_tc_credits(&adapter->hw, &adapter->dcb_cfg,
-+					       max_frame, DCB_TX_CONFIG);
-+		ixgbe_dcb_calculate_tc_credits(&adapter->hw, &adapter->dcb_cfg,
-+					       max_frame, DCB_RX_CONFIG);
-+
-+		ixgbe_dcb_unpack_refill(&adapter->dcb_cfg,
-+					DCB_TX_CONFIG, refill);
-+		ixgbe_dcb_unpack_max(&adapter->dcb_cfg, max);
-+		ixgbe_dcb_unpack_bwgid(&adapter->dcb_cfg,
-+				       DCB_TX_CONFIG, bwg_id);
-+		ixgbe_dcb_unpack_prio(&adapter->dcb_cfg,
-+				      DCB_TX_CONFIG, prio_type);
-+
-+		ixgbe_dcb_hw_ets_config(&adapter->hw, refill, max,
-+					bwg_id, prio_type);
-+	}
-+
- 	if (adapter->dcb_cfg.pfc_mode_enable)
- 		adapter->hw.fc.current_mode = ixgbe_fc_pfc;
- 
++	/* Enable DFP and Recycle mode */
++	reg |= (IXGBE_DPMCS_TDPAC | IXGBE_DPMCS_TRM);
+ 	reg |= IXGBE_DPMCS_TSOEF;
+ 	/* Configure Max TSO packet size 34KB including payload and headers */
+ 	reg |= (0x4 << IXGBE_DPMCS_MTSOS_SHIFT);
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 602078b..ef4a517 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -5169,7 +5169,6 @@ static int __devinit ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	adapter->dcb_cfg.bw_percentage[DCB_RX_CONFIG][0] = 100;
+ 	adapter->dcb_cfg.rx_pba_cfg = pba_equal;
+ 	adapter->dcb_cfg.pfc_mode_enable = false;
+-	adapter->dcb_cfg.round_robin_enable = false;
+ 	adapter->dcb_set_bitmap = 0x00;
+ 	ixgbe_copy_dcb_cfg(&adapter->dcb_cfg, &adapter->temp_dcb_cfg,
+ 			   adapter->ring_feature[RING_F_DCB].indices);
 -- 
 1.7.4
 
