@@ -1,7 +1,8 @@
 From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: [PATCH 1/3] pch_can: fix 800k comms issue
-Date: Tue,  8 Feb 2011 18:29:01 +0900
-Message-ID: <1297157343-3213-1-git-send-email-tomoya-linux@dsn.okisemi.com>
+Subject: [PATCH 2/3] pch_can: fix rmmod issue
+Date: Tue,  8 Feb 2011 18:29:02 +0900
+Message-ID: <1297157343-3213-2-git-send-email-tomoya-linux@dsn.okisemi.com>
+References: <1297157343-3213-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -11,6 +12,7 @@ Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2J
 To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1297157343-3213-1-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -22,9 +24,9 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Currently, 800k comms fails since prop_seg set zero.
-(EG20T PCH CAN register of prop_seg must be set more than 1)
-To prevent prop_seg set to zero, change tseg2_min 1 to 2.
+Currently, when rmmod pch_can, kernel failure occurs.
+The cause is pci_iounmap executed before pch_can_reset.
+Thus pci_iounmap moves after pch_can_reset.
 
 Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 ---
@@ -32,17 +34,23 @@ Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
-index c42e972..9b171d1 100644
+index 9b171d1..342d514 100644
 --- a/drivers/net/can/pch_can.c
 +++ b/drivers/net/can/pch_can.c
-@@ -187,7 +187,7 @@ static struct can_bittiming_const pch_can_bittiming_const = {
- 	.name = KBUILD_MODNAME,
- 	.tseg1_min = 1,
- 	.tseg1_max = 16,
--	.tseg2_min = 1,
-+	.tseg2_min = 2,
- 	.tseg2_max = 8,
- 	.sjw_max = 4,
- 	.brp_min = 1,
+@@ -959,13 +959,13 @@ static void __devexit pch_can_remove(struct pci_dev *pdev)
+ 	struct pch_can_priv *priv = netdev_priv(ndev);
+ 
+ 	unregister_candev(priv->ndev);
+-	pci_iounmap(pdev, priv->regs);
+ 	if (priv->use_msi)
+ 		pci_disable_msi(priv->dev);
+ 	pci_release_regions(pdev);
+ 	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+ 	pch_can_reset(priv);
++	pci_iounmap(pdev, priv->regs);
+ 	free_candev(priv->ndev);
+ }
+ 
 -- 
 1.7.3.4
