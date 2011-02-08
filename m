@@ -1,60 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 4/7] ixgbe: fix for 82599 erratum on Header Splitting
-Date: Tue,  8 Feb 2011 01:44:36 -0800
-Message-ID: <1297158279-20277-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-2.6 1/7] e1000e: tx_timeout should not increment for non-hang events
+Date: Tue,  8 Feb 2011 01:44:33 -0800
+Message-ID: <1297158279-20277-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1297158279-20277-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com, stable@kernel.org,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:21440 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:25861 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752160Ab1BHJoq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Feb 2011 04:44:46 -0500
+	id S1752307Ab1BHJoo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Feb 2011 04:44:44 -0500
 In-Reply-To: <1297158279-20277-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-We have found a hardware erratum on 82599 hardware that can lead to
-unpredictable behavior when Header Splitting mode is enabled.  So
-we are no longer enabling this feature on affected hardware.
+Currently the driver increments the tx_timeout counter (an error counter)
+when simply resetting the part with outstanding transmit work pending.
+This is an unnecessary count of an error, when all we should be doing is
+just resetting the part and discarding the transmits.  With this change the
+only increment of tx_timeout is when the stack calls the watchdog reset
+function due to a true Tx timeout.
 
-Please see the 82599 Specification Update for more information.
-
-CC: stable@kernel.org
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_main.c |   11 +++++++++--
- 1 files changed, 9 insertions(+), 2 deletions(-)
+ drivers/net/e1000e/netdev.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index 44a1cf0..d6c21a3 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -3176,9 +3176,16 @@ static void ixgbe_set_rx_buffer_len(struct ixgbe_adapter *adapter)
- 	u32 mhadd, hlreg0;
- 
- 	/* Decide whether to use packet split mode or not */
-+	/* On by default */
-+	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
-+
- 	/* Do not use packet split if we're in SR-IOV Mode */
--	if (!adapter->num_vfs)
--		adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
-+	if (adapter->num_vfs)
-+		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
-+
-+	/* Disable packet split due to 82599 erratum #45 */
-+	if (hw->mac.type == ixgbe_mac_82599EB)
-+		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
- 
- 	/* Set the RX buffer length according to the mode */
- 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 1c18f26..3065870 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -4309,7 +4309,6 @@ link_up:
+ 			 * to get done, so reset controller to flush Tx.
+ 			 * (Do the reset outside of interrupt context).
+ 			 */
+-			adapter->tx_timeout_count++;
+ 			schedule_work(&adapter->reset_task);
+ 			/* return immediately since reset is imminent */
+ 			return;
 -- 
 1.7.4
 
