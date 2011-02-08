@@ -1,17 +1,16 @@
-From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v5 1/1] can: c_can: Added support for Bosch
-	C_CAN controller
-Date: Tue, 8 Feb 2011 17:04:41 +0800
-Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE2BE326@EAPEX1MAIL1.st.com>
+From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: [PATCH 1/3] pch_can: fix 800k comms issue
+Date: Tue,  8 Feb 2011 18:29:01 +0900
+Message-ID: <1297157343-3213-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: 'Wolfgang Grandegger' <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	toshiharu-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org, kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org, socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-Content-Language: en-US
 List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
 	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
 List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
@@ -23,70 +22,27 @@ Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Wolfgang,
+Currently, 800k comms fails since prop_seg set zero.
+(EG20T PCH CAN register of prop_seg must be set more than 1)
+To prevent prop_seg set to zero, change tseg2_min 1 to 2.
 
->> + stats->rx_errors++; 
->> + cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR; 
->> + cf->data[2] |= CAN_ERR_PROT_UNSPEC; 
->> + 
->> + switch (lec_type) { 
->> + case LEC_STUFF_ERROR: 
->> + netdev_dbg(dev, "stuff error\n"); 
->> + cf->data[2] |= CAN_ERR_PROT_STUFF; 
->> + break; 
->> + 
->> + case LEC_FORM_ERROR: 
->> + netdev_dbg(dev, "form error\n"); 
->> + cf->data[2] |= CAN_ERR_PROT_FORM; 
->> + break; 
->> + 
->> + case LEC_ACK_ERROR: 
->> + netdev_dbg(dev, "ack error\n"); 
->> + cf->data[2] |= (CAN_ERR_PROT_LOC_ACK | 
->> + CAN_ERR_PROT_LOC_ACK_DEL); 
->> + break; 
->> + 
->> + case LEC_BIT1_ERROR: 
->> + netdev_dbg(dev, "bit1 error\n"); 
->> + cf->data[2] |= CAN_ERR_PROT_BIT1; 
->> + break; 
->> + 
->> + case LEC_BIT0_ERROR: 
->> + netdev_dbg(dev, "bit0 error\n"); 
->> + cf->data[2] |= CAN_ERR_PROT_BIT0; 
->> + break; 
->> + 
->> + case LEC_CRC_ERROR: 
->> + netdev_dbg(dev, "CRC error\n"); 
->> + cf->data[2] |= (CAN_ERR_PROT_LOC_CRC_SEQ | 
->> + CAN_ERR_PROT_LOC_CRC_DEL); 
->> + break; 
->> + } 
+Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+---
+ drivers/net/can/pch_can.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
->From the C_CAN manual: 
->
->"The LEC field holds a code which indicates the type of the last error 
->to occur on the CAN bus. This field will be cleared to '0' when a 
->message has been transferred (reception or transmission) without error. 
->The unused code '7' may be written by the CPU to check for updates." 
-
->Not sure if it's necessary to reset the lec at init and after an error 
->to 0x7 and check it. More below...
-
-I worked on your suggestion and instead found that the follow algo must be used
-for reading updated `lec` values:
-a. Init lec by 0x07 at start.
-b. In function `c_can_err` check if lec is 0x7 (no bus error since this value was
-written by CPU on status register) or 0x0 (no error). If so, return without
-sending an error frame on stack. Else, check for the lec error type and
-submit error frame on stack accordingly.
-c. In case a lec error is found and served in `c_can_err` routine, write
-lec value to 0x07 again in status reg to check for updated lec later.
-
-This is my understanding after reading the specs time and again and
-implementing/testing the logic.
-
-Do you think this is fine or do you have any better approach?
-
-Regards,
-Bhupesh
+diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+index c42e972..9b171d1 100644
+--- a/drivers/net/can/pch_can.c
++++ b/drivers/net/can/pch_can.c
+@@ -187,7 +187,7 @@ static struct can_bittiming_const pch_can_bittiming_const = {
+ 	.name = KBUILD_MODNAME,
+ 	.tseg1_min = 1,
+ 	.tseg1_max = 16,
+-	.tseg2_min = 1,
++	.tseg2_min = 2,
+ 	.tseg2_max = 8,
+ 	.sjw_max = 4,
+ 	.brp_min = 1,
+-- 
+1.7.3.4
