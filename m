@@ -1,68 +1,76 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan
- interface RX
-Date: Mon, 7 Feb 2011 18:24:45 -0800
-Message-ID: <AANLkTinJ3ga46FfvPJCnxSH129mSC2TCdPRSXwu+iiJo@mail.gmail.com>
-References: <4D32FC1C.3010905@simon.arlott.org.uk>
-	<201101231845.20505.maciej.rutecki@gmail.com>
-	<AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com>
-	<201101241625.45367.maciej.rutecki@gmail.com>
-	<loom.20110205T163216-459@post.gmane.org>
-	<AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com>
-	<loom.20110206T203347-475@post.gmane.org>
+From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Subject: RE: About bittiming calculation result
+Date: Tue, 8 Feb 2011 11:29:59 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE2BE1A7@EAPEX1MAIL1.st.com>
+References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>
+	<20110204.130649.112613896.davem@davemloft.net>
+	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
+	<4D4FDEF9.2030305@grandegger.com>
+	<E2BAACFF191C4175854E6B2EB9135BE5@hacdom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: chriss <mail_to_chriss@gmx.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:64758 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752779Ab1BHCYq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 21:24:46 -0500
-Received: by iyj8 with SMTP id 8so2821368iyj.19
-        for <netdev@vger.kernel.org>; Mon, 07 Feb 2011 18:24:45 -0800 (PST)
-In-Reply-To: <loom.20110206T203347-475@post.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
+	'Wolfgang Grandegger' <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <E2BAACFF191C4175854E6B2EB9135BE5-c0cKtqp5df7I9507bXv2FdBPR1lH4CV8@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 6, 2011 at 11:37 AM, chriss <mail_to_chriss@gmx.net> wrote:
-> Jesse Gross <jesse <at> nicira.com> writes:
->
->>
->> You should either attached a bridge to a vlan device or stack a vlan
->> device on the bridge port depending on what you are trying to achiev=
-e.
->>
->> The bridge handler takes all packets of the device that it is attach=
-ed
->> to, so having a vlan also attached to the same device will not work.
->> You may get different results on older kernels depending on what NIC
->> you were using but that was a bug.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo <at> vger.kernel.org
->> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->>
->>
->
->
-> Hi and thanks for your reply
->
-> I tried that.
->
-> I had under 2.6.36.3 following combination:
->
-> eth1 in br0 -> all traffic without vlan id
-> eth1.3 -> traffic with vlan 3
->
-> with 2.6.37 i should do the following
-> eth1 in br0 -> traffic w/o vlans
-> and br0.3 -> traffic with vlan id 3
->
-> But still there is no rx for vlan 3.
-> Any suggestions? Or am i missing something?
+Hi Tomoya,
 
-That configuration should work (and I've tested it in the past).  I
-would try running tcpdump on the various interfaces in the path (eth1,
-br0, br0.3) to see where traffic is flowing or not.
+> -----Original Message-----
+> From: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org [mailto:socketcan-core-
+> bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org] On Behalf Of Tomoya MORINAGA
+> Sent: Tuesday, February 08, 2011 6:40 AM
+> To: 'Wolfgang Grandegger'
+> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: RE: About bittiming calculation result
+> 
+> On Monday, February 07, 2011 9:01 PM, Wolfgang Grandegger wrote
+> >
+> > Well, only prop_seg+phase_seg=tseg1 is relevant and the
+> > pch_can driver sets the allowed minimum "tseg1_min1" currently to 1:
+> >
+> > static struct can_bittiming_const pch_can_bittiming_const = {
+> >         .name = KBUILD_MODNAME,
+> >         .tseg1_min = 1,
+> >         .tseg1_max = 16,
+> >         .tseg2_min = 1,
+> >         .tseg2_max = 8,
+> >         .sjw_max = 4,
+> >         .brp_min = 1,
+> >         .brp_max = 1024, /* 6bit + extended 4bit */
+> >         .brp_inc = 1,
+> > };
+> >
+> > > seg1/seg2/sjw/prop_seg must be more than 1 ?
+> >
+> > Then "tseg1_min" should be set to *2*.
+> 
+> Though some drivers accepted by upstream have parameter "tseg1_min" as
+> 1,
+> Sould we release the patch like below ?
+>  -         .tseg1_min = 1,
+> +         .tseg1_min = 2,
+> 
+AFAIK pch uses the Bosch C_CAN core internally.
+As per Bosch C_CAN user manual tseg1= prop_seg + phase_seg1
+So, ideally tseg1_min should be 2. My version of Bosch C_CAN driver
+Uses the value 2.
+
+Regards,
+Bhupesh
