@@ -1,44 +1,45 @@
-From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-Subject: Re: Oops in tcp_output.c, kernel 2.6.38-rc3
-Date: Tue, 8 Feb 2011 14:07:24 -0800 (Pacific Standard Time)
-Message-ID: <alpine.WNT.2.00.1102081401480.5424@JBRANDEB-DESK2.amr.corp.intel.com>
-References: <20110204153254.5c37c6f2@katamari> <20110207.130234.112590109.davem@davemloft.net>
+From: Hadmut Danisch <hadmut@danisch.de>
+Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration
+ off
+Date: Tue, 08 Feb 2011 23:12:30 +0100
+Message-ID: <4D51BFCE.2070405@msgid.danisch.de>
+References: <bug-28282-10286@https.bugzilla.kernel.org/>	<20110208133408.7d447e6a.akpm@linux-foundation.org> <20110208.134421.39185637.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "cebbert@redhat.com" <cebbert@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
-	bruce.w.allan@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:44544 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753293Ab1BHWHp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Feb 2011 17:07:45 -0500
-In-Reply-To: <20110207.130234.112590109.davem@davemloft.net>
+Received: from sklave3.rackland.de ([212.86.200.186]:59025 "EHLO
+	sklave3.rackland.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754574Ab1BHWTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 17:19:38 -0500
+In-Reply-To: <20110208.134421.39185637.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 08.02.2011 22:44, David Miller wrote:
+>
+> This is a case where we're probably just following what the RFC documents
+> state we should do, which means unless you can provide clear reference to
+> a specification that states we should behave otherwise this isn't changing.
+
+Could you cite where exactly this is stated in the RFC documents? (Would
+save me the time to dig through all the RFCs to find that particular
+statement and help avoid misunderstanding.)
 
 
-On Mon, 7 Feb 2011, David Miller wrote:
+It appears to me to be a contradiction in terms. IPv6 interfaces must be
+able to have several IP addresses, and IPv6 does not have a default
+route (or 0::0/0). IPv6 interfaces are designed to participate in
+multiple independend logical networks (and several address ranges have
+been reserved for future extensions and uses). It therefore does not
+make sense if autoconfiguration for one network and routing for another
+are mutually exclusive. I'd like to check this (and maybe file a bug in
+the RFC).
 
-> From: Chuck Ebbert <cebbert@redhat.com>
-> Date: Fri, 4 Feb 2011 15:32:54 -0500
-> 
-> > Analysis is below. (From https://bugzilla.redhat.com/show_bug.cgi?id=674622)
-> > 
-> >  BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
-> >  IP: [<ffffffff81407b16>] tcp_write_xmit+0x694/0x7af
-> 
-> I bet this is some kind of bug in the driver or similar, what device
-> and also what kind of network config (netfilter, packet scheduler,
-> interface, routes, etc.) is this?
-
-glaring at the bug dump shows e1000e as the only network driver that i can 
-see, hardware seems to be the ICH10 chipset.  Copied bruce in case he's 
-seen or heard anything.
-
-appears to be this system:
-http://www.asus.com/Product.aspx?P_ID=qH6ZSEJ8EPY6HoNU&content=specifications
+regards
+Hadmut
 
