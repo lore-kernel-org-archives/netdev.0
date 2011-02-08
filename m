@@ -1,56 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 01/16] e1000e: replace unbounded sprintf with snprintf
-Date: Tue,  8 Feb 2011 04:29:12 -0800
-Message-ID: <1297168167-15755-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 12/16] ixgbe: dcb, use hardware independent routines
+Date: Tue,  8 Feb 2011 04:29:23 -0800
+Message-ID: <1297168167-15755-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58635 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:30096 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751544Ab1BHM3d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Feb 2011 07:29:33 -0500
+	id S1753999Ab1BHM3i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Feb 2011 07:29:38 -0500
 In-Reply-To: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
+This consolidates hardware specifics to ixgbe_dcb.c this simplifies
+code that was previously branching based on hardware type.
+
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/e1000e/netdev.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 5b916b0..80614c9 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -1843,7 +1843,9 @@ static int e1000_request_msix(struct e1000_adapter *adapter)
- 	int err = 0, vector = 0;
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index c94adec..a977df3 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -405,11 +405,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 	if (adapter->dcb_set_bitmap & BIT_PFC) {
+ 		u8 pfc_en;
+ 		ixgbe_dcb_unpack_pfc(&adapter->dcb_cfg, &pfc_en);
+-
+-		if (adapter->hw.mac.type == ixgbe_mac_82598EB)
+-			ixgbe_dcb_config_pfc_82598(&adapter->hw, pfc_en);
+-		else if (adapter->hw.mac.type == ixgbe_mac_82599EB)
+-			ixgbe_dcb_config_pfc_82599(&adapter->hw, pfc_en);
++		ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc_en);
+ 		ret = DCB_HW_CHG;
+ 	}
  
- 	if (strlen(netdev->name) < (IFNAMSIZ - 5))
--		sprintf(adapter->rx_ring->name, "%s-rx-0", netdev->name);
-+		snprintf(adapter->rx_ring->name,
-+			 sizeof(adapter->rx_ring->name) - 1,
-+			 "%s-rx-0", netdev->name);
- 	else
- 		memcpy(adapter->rx_ring->name, netdev->name, IFNAMSIZ);
- 	err = request_irq(adapter->msix_entries[vector].vector,
-@@ -1856,7 +1858,9 @@ static int e1000_request_msix(struct e1000_adapter *adapter)
- 	vector++;
- 
- 	if (strlen(netdev->name) < (IFNAMSIZ - 5))
--		sprintf(adapter->tx_ring->name, "%s-tx-0", netdev->name);
-+		snprintf(adapter->tx_ring->name,
-+			 sizeof(adapter->tx_ring->name) - 1,
-+			 "%s-tx-0", netdev->name);
- 	else
- 		memcpy(adapter->tx_ring->name, netdev->name, IFNAMSIZ);
- 	err = request_irq(adapter->msix_entries[vector].vector,
 -- 
 1.7.4
 
