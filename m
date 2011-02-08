@@ -1,42 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration off
-Date: Wed, 9 Feb 2011 00:49:37 +0100
-Message-ID: <20110208234937.GA9710@electric-eye.fr.zoreil.com>
-References: <20110208133408.7d447e6a.akpm@linux-foundation.org> <20110208.134421.39185637.davem@davemloft.net> <4D51BFCE.2070405@msgid.danisch.de> <20110208.143046.246534138.davem@davemloft.net> <20110208224411.GA9674@electric-eye.fr.zoreil.com> <4D51CAE8.6070706@msgid.danisch.de>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v4 0/5] net: Unified offload configuration
+Date: Wed, 9 Feb 2011 00:55:43 +0100
+Message-ID: <20110208235543.GA14251@rere.qmqm.pl>
+References: <cover.1296741561.git.mirq-linux@rere.qmqm.pl> <20110207.133721.48496023.davem@davemloft.net> <20110208.114018.71120939.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Hadmut Danisch <hadmut@danisch.de>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:57945 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755804Ab1BHXwq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 18:52:46 -0500
+Received: from rere.qmqm.pl ([89.167.52.164]:35440 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755915Ab1BHXzq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Feb 2011 18:55:46 -0500
 Content-Disposition: inline
-In-Reply-To: <4D51CAE8.6070706@msgid.danisch.de>
+In-Reply-To: <20110208.114018.71120939.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hadmut Danisch <hadmut@danisch.de> :
-[...]
-> Since Linux machines can - in contrast to Windows desktops and cisco
-> routers - can be a host and a router at the same time, even on the same
-> interface (i.e. use a autoconf IPv6 address as a host and an fe80::
-> address as a router address).
-> 
-> So I'd consider this in a different way. From my point of view the
-> decision between host and router must be done per assigned IPv6 address
-> (or address range) and not per IPv6 interface.
+On Tue, Feb 08, 2011 at 11:40:18AM -0800, David Miller wrote:
+> BTW, none of your patch postings from today made it to the mailing
+> lists because there were syntax errors in your email headers.
+>=20
+> Therefore, you'll need to resend them.
 
-o^O
+Hmm, that's weird. My mailer said:
 
-Afaik networking does not operate this way in the kernel. Really.
+mail.info: Feb  8 15:23:59 postfix/smtp[6076]: 7138813909: to=3D<netdev=
+@vger.kernel.org>, relay=3Dvger.kernel.org[209.132.180.67]:25, delay=3D=
+3, delays=3D0.09/0.08/2.2/0.7, dsn=3D2.7.0, status=3Dsent (250 2.7.0 no=
+thing apparently wrong in the message. BF:<H 0>; S1754489Ab1BHOX7)
+mail.info: Feb  8 15:23:59 postfix/smtp[6110]: BA99413A5F: to=3D<netdev=
+@vger.kernel.org>, relay=3Dvger.kernel.org[209.132.180.67]:25, delay=3D=
+3, delays=3D0.2/0.45/1.5/0.84, dsn=3D2.7.1, status=3Dsent (250 2.7.1 Lo=
+oks like Linux source DIFF email.. BF:<H 0>; S1754575Ab1BHOX7)
+[same for other patches in series]
 
-May I suggest you to have some sleep and see how your (dhcpv6 enabled ?)
-DSL router can be convinced to collaborate with the existing tools under
-Linux _without_ modifications ?
+And I got no bounces. What were the errors?
 
--- 
-Ueimor
+Best Regards,
+Micha=B3 Miros=B3aw
