@@ -1,38 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipsec: allow to align IPv4 AH on 32 bits
-Date: Tue, 08 Feb 2011 14:00:56 -0800 (PST)
-Message-ID: <20110208.140056.260090698.davem@davemloft.net>
-References: <4D42839C.3050401@6wind.com>
-	<20110128.114610.193716130.davem@davemloft.net>
-	<4D49864E.8020002@6wind.com>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: Oops in tcp_output.c, kernel 2.6.38-rc3
+Date: Tue, 8 Feb 2011 14:07:24 -0800 (Pacific Standard Time)
+Message-ID: <alpine.WNT.2.00.1102081401480.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+References: <20110204153254.5c37c6f2@katamari> <20110207.130234.112590109.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
-	christophe.gouault@6wind.com
-To: nicolas.dichtel@6wind.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "cebbert@redhat.com" <cebbert@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>,
+	bruce.w.allan@intel.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57781
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751082Ab1BHWAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 17:00:21 -0500
-In-Reply-To: <4D49864E.8020002@6wind.com>
+Received: from mga02.intel.com ([134.134.136.20]:44544 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753293Ab1BHWHp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Feb 2011 17:07:45 -0500
+In-Reply-To: <20110207.130234.112590109.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Wed, 02 Feb 2011 17:29:02 +0100
 
-> On 28/01/2011 20:46, David Miller wrote:
->> From: Nicolas Dichtel<nicolas.dichtel@6wind.com>
->> Date: Fri, 28 Jan 2011 09:51:40 +0100
->>
->>> On 28/01/2011 05:51, Herbert Xu wrote:
->>>> So perhaps an SA configuration flag is needed?
->>> I agree. If David is ok, I will update the patch.
->>
->> Sounds good to me.
+
+On Mon, 7 Feb 2011, David Miller wrote:
+
+> From: Chuck Ebbert <cebbert@redhat.com>
+> Date: Fri, 4 Feb 2011 15:32:54 -0500
 > 
-> Here is the new patch.
+> > Analysis is below. (From https://bugzilla.redhat.com/show_bug.cgi?id=674622)
+> > 
+> >  BUG: unable to handle kernel NULL pointer dereference at 0000000000000008
+> >  IP: [<ffffffff81407b16>] tcp_write_xmit+0x694/0x7af
+> 
+> I bet this is some kind of bug in the driver or similar, what device
+> and also what kind of network config (netfilter, packet scheduler,
+> interface, routes, etc.) is this?
 
-I've applied this to net-next-2.6, thanks.
+glaring at the bug dump shows e1000e as the only network driver that i can 
+see, hardware seems to be the ICH10 chipset.  Copied bruce in case he's 
+seen or heard anything.
+
+appears to be this system:
+http://www.asus.com/Product.aspx?P_ID=qH6ZSEJ8EPY6HoNU&content=specifications
+
