@@ -1,47 +1,58 @@
-From: "=?iso-8859-15?q?R=E9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: Re: [PATCH] usb: gadget: nokia: disallow compilation with HIGHMEM
-Date: Tue, 8 Feb 2011 09:39:11 +0200
-Message-ID: <201102080939.12122.remi.denis-courmont@nokia.com>
-References: <1297150245-31696-1-git-send-email-ext-eero.nurkkala@nokia.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: About bittiming calculation result
+Date: Tue, 08 Feb 2011 08:57:14 +0100
+Message-ID: <4D50F75A.5040700@grandegger.com>
+References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>	<20110204.130649.112613896.davem@davemloft.net>	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>	<4D4FDEF9.2030305@grandegger.com>
+	<4D501555.5000905@grandegger.com>
+	<93C12206407640199DCDD3A89A333F13@hacdom.okisemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-usb@vger.kernel.org, dbrownell@users.sourceforge.net,
-	netdev@vger.kernel.org
-To: ext-eero.nurkkala@nokia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.24]:40901 "EHLO mgw-da01.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751876Ab1BHHjG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 02:39:06 -0500
-In-Reply-To: <1297150245-31696-1-git-send-email-ext-eero.nurkkala@nokia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <93C12206407640199DCDD3A89A333F13-c0cKtqp5df7I9507bXv2FdBPR1lH4CV8@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 08 February 2011 09:30:45 ext-eero.nurkkala@nokia.com, you w=
-rote:
-> From: Eero Nurkkala <ext-eero.nurkkala@nokia.com>
->=20
-> With HIGHMEM, g_phonet oopses with the following path:
-> pn_rx_complete() -> pskb_pull() -> ... kmap_skb_frag() and
-> oops with BUG_ON(in_irq()). Thus, if the gadget is enabled,
-> it'd better conflict with the HIGHMEM.
->=20
-> Signed-off-by: Eero Nurkkala <ext-eero.nurkkala@nokia.com>
+Hi Tomoya,
 
-Acked-by: R=E9mi Denis-Courmont <remi.denis-courmont@nokia.com>
+On 02/08/2011 02:27 AM, Tomoya MORINAGA wrote:
+> On Tuesday, February 08, 2011 12:53 AM,  Wolfgang Grandegger wrote:
+> 
+>> BTW, it's always possible to specify optimized bit-timing 
+>> parameters directly, e.g. the following seem better:
+>>
+>>    800000     60  12    4    4   4   3  793650  0.8% 80.0% 81.0%  1.2%
+>>
+>> You could set these with:
+>>
+>>   $ ip link set can0 type can \
+>>     tq 60 prop-seg 12 phase-seg1 4 phase-seg2 4 sjw 4
+> 
+> I can confirm 800K comms works well using the above.
 
+Cool, I got these magic values from a CAN hardware expert.
 
-In the long run, we should probably kludge the skb code like we did in
-cdc-phonet.c.
+> I wish Can-core could calculate like above.
 
-Or better yet, fix kmap_skb_frag() to be less pessimistic. Thing is, th=
-e BUG_ON=20
-is really bogus here. The way we allocated the skb, the fragment really=
- cannot=20
-be in HIGHMEM...
+Me too! I also got some indication on how to improve our algorithm in
+case the bit-rate does not match. Hope to find some time soon to work
+on this issue.
 
---=20
-R=E9mi Denis-Courmont
-Nokia Devices R&D, Maemo Software, Helsinki
+>>> seg1/seg2/sjw/prop_seg must be more than 1 ?
+> BTW, according to EG20T PCH data sheet, 
+> CAN bit-timing parameters(BRP, Prop_Seg, Phase_Seg1, Phase_Seg2, SJW) must not be set 0.
+
+OK, then please provide a patch setting tseg1_min to 2.
+
+Wolfgang.
