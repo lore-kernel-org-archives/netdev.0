@@ -1,65 +1,68 @@
-From: Andreas Mohr <andi-5+Cda9B46AM@public.gmane.org>
-Subject: Re: [Bugme-new] [Bug 28532] New: Link state change detection problem
- on Moschip MCS7832 [mcs7830]
-Date: Tue, 8 Feb 2011 21:52:47 +0100
-Message-ID: <20110208205247.GA4617@rhlx01.hs-esslingen.de>
-References: <bug-28532-10286@https.bugzilla.kernel.org/>
- <20110207151401.d1db088a.akpm@linux-foundation.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration
+ off
+Date: Tue, 8 Feb 2011 13:34:08 -0800
+Message-ID: <20110208133408.7d447e6a.akpm@linux-foundation.org>
+References: <bug-28282-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org,
-	bugme-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org, myxal.mxl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Andreas Mohr <andi-5+Cda9B46AM@public.gmane.org>
-To: Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110207151401.d1db088a.akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, hadmut@danisch.de
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:35101 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751945Ab1BHVef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 16:34:35 -0500
+In-Reply-To: <bug-28282-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-> > I have a network adapter which uses the aforementioned driver and while
-> > checking for the link state via ethtool reports the correct state, many
-> > networking userspace utilities seem to have no clue about it (NM 0.8.1 starts
-> > dhclient BEFORE any cable is plugged) - and more importantly, don't notice when
-> > the cable is (dis)connected. Since there's not even a kernel message when
-> > (dis)connecting the cable, I suspect the driver does not implement Link state
-> > change detection at all. Is this accurate?
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-Ah, perhaps that is why as long as network-mangler is running, my
-.resume_reset() handler improvements (managing to keep an active interface
-even directly after resume) actually do _not_ work (since it seems it simply
-down:s the iface and that's it).
-I know that there is link info functionality in other drivers yet not
-as much in mcs7830.
+On Sat, 5 Feb 2011 18:06:31 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-Note that the mcs7830 driver still has a rather stubby appearance
-(many more "advanced" features are either weak or not available at all).
+> https://bugzilla.kernel.org/show_bug.cgi?id=28282
+> 
+>            Summary: forwarding turns autoconfiguration off
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.35
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: hadmut@danisch.de
+>         Regression: No
+> 
+> 
+> Hi,
+> 
+> Linux ethernet interfaces do not use autoconfiguration and do ignore router
+> advertisings if the packet forwarding is turned on in the configuration (i.e. 
+> /proc/sys/net/ipv6/conf/eth0/forwarding set to 1)
+> 
+> 
+> This might be wrong.
+> 
+> IPv6 network devices can have multiple IPv6 addresses and server several
+> purposes at the same time. A machine can have a statically assigned local IPv6
+> address and act as a router (e.g. to a virtual machine or a VPN tunnel) and
+> thus needs to turn forwarding on, while at the same time it needs to listen to
+> router advertisements and autoconfigure, e.g. because a network is connected to
+> the internet through a DSL router with dynamically assigned network adresses,
+> either through direct IPv6 assignment or a 6to4 tunnel. 
+> 
+> So there are cases where you need to have autoconfiguration of an IP address
+> and forwarding on the same interface at the same time. Therefore, it might be
+> technically wrong to have this mutually exclusive. 
+> 
 
-I've got a patch series sitting here to improve several parts
-(and waiting to cook a bit more), but I hadn't even identified the link issue.
-It appears that this would need fixing, presto.
-
-> > LSCD works in Windows, where it's apparently implemented through periodic
-> > polling (judging by virtualbox's blinking USB icon).
-> > How is this situation normally handled? Is it kernel's job to do the polling?
-> > Or are userspace utilities expected to do this?
-
-I'm afraid a painful solution would be to activate the .status callback
-for periodic USB status descriptor polling. I've got a
-half-implementation of that, however it's very painful in terms of
-obscene amounts of CPU wakeups.
-There _has_ to be a better solution...
-
-Thank you for your (the OP's) report (and for my extra notification!),
-this seems very helpful!
-(I am determined to post related useful patches soon,
-especially since this card is in active use here)
-
-Andreas Mohr
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
