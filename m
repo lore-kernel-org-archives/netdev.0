@@ -1,61 +1,147 @@
-From: "Luis R. Rodriguez" <mcgrof@gmail.com>
-Subject: compat-wireless for 2.6.38-rc3 - third release
-Date: Mon, 7 Feb 2011 17:10:49 -0800
-Message-ID: <AANLkTineqSLDLg84Ah7Djd1R=K-xTfQDUd==K+eaJFES@mail.gmail.com>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: RE: About bittiming calculation result
+Date: Tue, 8 Feb 2011 10:27:11 +0900
+Message-ID: <93C12206407640199DCDD3A89A333F13@hacdom.okisemi.com>
+References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>	<20110204.130649.112613896.davem@davemloft.net>	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
+	<4D4FDEF9.2030305@grandegger.com> <4D501555.5000905@grandegger.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-kernel@vger.kernel.org
-To: linux-wireless <linux-wireless@vger.kernel.org>,
-	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
-	netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "'Wolfgang Grandegger'" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D501555.5000905-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-I updated compat-wireless for 2.6.38-rc3, this is the third update, it
-should now include the proper compat.git branch and also adds some new
-patches from Hauke to minimize deltas and fix compilation. While at it
-I took the time to suck in new pending-stable patches for an "-s"
-release, I haven't cherry picked any patches yet as I cannot think of
-anything immediately important, if you do send me a patch.
+On Tuesday, February 08, 2011 12:53 AM,  Wolfgang Grandegger wrote:
 
-Code metrics for the vanilla release:
+> BTW, it's always possible to specify optimized bit-timing 
+> parameters directly, e.g. the following seem better:
+> 
+>    800000     60  12    4    4   4   3  793650  0.8% 80.0% 81.0%  1.2%
+> 
+> You could set these with:
+> 
+>   $ ip link set can0 type can \
+>     tq 60 prop-seg 12 phase-seg1 4 phase-seg2 4 sjw 4
 
-    782535 - Total upstream lines of code being pulled
-      2108 - backport code changes
-      1847 - backport code additions
-       261 - backport code deletions
-      7292 - backport from compat module
-      9400 - total backport code
-    1.2012 - % of code consists of backport work
+I can confirm 800K comms works well using the above.
 
-Base tree: linux-2.6-allstable.git
-Base tree version: v2.6.38-rc3
-compat-wireless release: compat-wireless-v2.6.38-rc3-3
+I wish Can-core could calculate like above.
 
-Code metrics for the "-s" release:
+>> seg1/seg2/sjw/prop_seg must be more than 1 ?
+BTW, according to EG20T PCH data sheet, 
+CAN bit-timing parameters(BRP, Prop_Seg, Phase_Seg1, Phase_Seg2, SJW) must not be set 0.
 
-    782535 - Total upstream lines of code being pulled
-      2108 - backport code changes
-      1847 - backport code additions
-       261 - backport code deletions
-      7292 - backport from compat module
-      9400 - total backport code
-    1.2012 - % of code consists of backport work
-       115 - Code changes brought in from pending-stable
-        57 - Code additions brought in from pending-stable
-        58 - Code deletions brought in from pending-stable
-    0.0147 - % of code being cherry picked from pending-stable
+Thanks,
+-----------------------------------------
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
 
-Base tree: linux-2.6-allstable.git
-Base tree version: v2.6.38-rc3
-compat-wireless release: compat-wireless-v2.6.38-rc3-3-s
 
-Relevant URLs:
-
-http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.38/compat-wireless-2.6.38-rc3-3.tar.bz2
-http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.38/compat-wireless-2.6.38-rc3-3-s.tar.bz2
-http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.38/ChangeLog-2.6.38-wireless
-http://wireless.kernel.org/en/users/Download/stable
-
-  Luis
+> -----Original Message-----
+> From: Wolfgang Grandegger [mailto:wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org] 
+> Sent: Tuesday, February 08, 2011 12:53 AM
+> To: Tomoya MORINAGA
+> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; 
+> linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Subject: Re: About bittiming calculation result
+> 
+> On 02/07/2011 01:00 PM, Wolfgang Grandegger wrote:
+> > Hi Tomoya,
+> > 
+> > On 02/07/2011 12:38 PM, Tomoya MORINAGA wrote:
+> >> Hi,
+> >>
+> >> I have a question for bittiming-value calculated by Can-core.
+> >>
+> >> In case setting like below,
+> >>  - ip link set can0 type can bitrate 800000
+> >>  - clock=50MHz
+> >>  - Use pch_can
+> >>
+> >> Can-core calculates like below
+> >> brp=21
+> >> seg1=1
+> >> seg2=1
+> >> sjw=1
+> >> prop_seg=0
+> >>
+> >> Is "prop_seg=0" true ?
+> > 
+> > Well, only prop_seg+phase_seg=tseg1 is relevant and the 
+> pch_can driver 
+> > sets the allowed minimum "tseg1_min1" currently to 1:
+> > 
+> > static struct can_bittiming_const pch_can_bittiming_const = {
+> >         .name = KBUILD_MODNAME,
+> >         .tseg1_min = 1,
+> >         .tseg1_max = 16,
+> >         .tseg2_min = 1,
+> >         .tseg2_max = 8,
+> >         .sjw_max = 4,
+> >         .brp_min = 1,
+> >         .brp_max = 1024, /* 6bit + extended 4bit */
+> >         .brp_inc = 1,
+> > };
+> > 
+> >> seg1/seg2/sjw/prop_seg must be more than 1 ?
+> > 
+> > Then "tseg1_min" should be set to *2*.
+> > 
+> >> Also I can see the following kernel error log.
+> >> bitrate error 0.7%
+> > 
+> > A clock frequency of 50 MHz is sub-optimal for CAN and some 
+> bit-rates 
+> > cannot be reproduced properly. Here is the output of the can-utils 
+> > program "can-calc-bit-timing" (with an entry for the pch-can added):
+> > 
+> > $ ./can-calc-bit-timing pch-can
+> > Bit timing parameters for pch-can with 50.000000 MHz ref clock
+> > nominal                                 real Bitrt   nom  real SampP
+> > Bitrate TQ[ns] PrS PhS1 PhS2 SJW BRP Bitrate Error SampP 
+> SampP Error CNF1 CNF2 CNF3
+> > 1000000    100   3    3    3   1   5 1000000  0.0% 75.0% 
+> 70.0%  6.7% 0x05 0x92 0x02
+> >  800000    420   0    1    1   1  21  793650  0.8% 80.0% 
+> 66.6% 16.8% 0x15 0xff 0x00
+> >  500000    100   8    8    3   1   5  500000  0.0% 87.5% 
+> 85.0%  2.9% 0x05 0xbf 0x02
+> >  250000    500   3    3    1   1  25  250000  0.0% 87.5% 
+> 87.5%  0.0% 0x19 0x92 0x00
+> >  125000    500   6    7    2   1  25  125000  0.0% 87.5% 
+> 87.5%  0.0% 0x19 0xb5 0x01
+> >  100000    500   8    8    3   1  25  100000  0.0% 87.5% 
+> 85.0%  2.9% 0x19 0xbf 0x02
+> >   50000   2500   3    3    1   1 125   50000  0.0% 87.5% 
+> 87.5%  0.0% 0x7d 0x92 0x00
+> >   20000   2500   8    8    3   1 125   20000  0.0% 87.5% 
+> 85.0%  2.9% 0x7d 0xbf 0x02
+> >   10000  12500   3    3    1   1 625   10000  0.0% 87.5% 
+> 87.5%  0.0% 0x71 0x92 0x00
+> > 
+> > As you can see, especially 800000 gives rather bad results.
+> 
+> BTW, it's always possible to specify optimized bit-timing 
+> parameters directly, e.g. the following seem better:
+> 
+>    800000     60  12    4    4   4   3  793650  0.8% 80.0% 81.0%  1.2%
+> 
+> You could set these with:
+> 
+>   $ ip link set can0 type can \
+>     tq 60 prop-seg 12 phase-seg1 4 phase-seg2 4 sjw 4
+> 
+> Wolfgang.
+> 
