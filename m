@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-02-08
-Date: Tue, 08 Feb 2011 12:14:56 -0800 (PST)
-Message-ID: <20110208.121456.189701516.davem@davemloft.net>
-References: <20110208195530.GB6244@tuxdriver.com>
+Subject: Re: [net-2.6 0/7][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 08 Feb 2011 12:17:29 -0800 (PST)
+Message-ID: <20110208.121729.112610869.davem@davemloft.net>
+References: <1297158279-20277-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110208195530.GB6244@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44214
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753539Ab1BHUQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 15:16:54 -0500
+In-Reply-To: <1297158279-20277-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 8 Feb 2011 14:55:30 -0500
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue,  8 Feb 2011 01:44:32 -0800
 
-> Here is the latest round of wireless fixes intended for 2.6.38.
-> Included is a carl9170 fix (described as a typo) for receiving buffered
-> broadcasts, an iwlagn fix to properly monitor the rfkill switch when
-> the interface is down, a mac80211 fix to correctly check for cloned
-> skbs when resizing, a null pointer fix for wl1251 if it fails to get
-> a beacon, a mac80211 fix related to off-channel tx, an ssb fix for
-> using the wrong pointer for getting invariance for pcmcia devices,
-> an ath9k double-free fix, and a one-line iwlagn fix to correctly
-> describe an antenna configuration.
+> The following series contains the addition of a PHY id for e1000,
+> fix for e1000e, and several ixgbe fixes.
+> 
+> We are currently still working on the patch:
+>   ixgbe: DDP last buffer size work around
+> which was in the previous pull request, and has been removed from this
+> pull request.
+> 
+> The following are changes since commit 429a01a70f301baf0c8fc780f891a18c296d5e24:
+>   Merge branch 'batman-adv/merge' of git://git.open-mesh.org/ecsv/linux-merge
+> 
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-2.6 master
 
-Pulled, thanks John.
+Pulled, thanks a lot Jeff.
