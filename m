@@ -1,78 +1,57 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [Bugme-new] [Bug 28542] New: 3c59x.c: Regression since 2.6.36
- (incl.), for e. g., TCP stalls on receive
-Date: Tue, 08 Feb 2011 00:39:10 +0000
-Message-ID: <1297125550.2876.21.camel@localhost>
-References: <bug-28542-10286@https.bugzilla.kernel.org/>
-	 <20110207150919.cd253b97.akpm@linux-foundation.org>
+From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Subject: RE: About bittiming calculation result
+Date: Tue, 8 Feb 2011 10:09:48 +0900
+Message-ID: <E2BAACFF191C4175854E6B2EB9135BE5@hacdom.okisemi.com>
+References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>
+	<20110204.130649.112613896.davem@davemloft.net>
+	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
+	<4D4FDEF9.2030305@grandegger.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-M5118eWFLJubnpQAwyPW"
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Jan Beulich <jbeulich@novell.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
-	Andrew Morton <akpm@linux-foundation.org>
-To: for.poige+bugzilla.kernel.org@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33902 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755396Ab1BHAjU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 19:39:20 -0500
-In-Reply-To: <20110207150919.cd253b97.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: "'Wolfgang Grandegger'" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D4FDEF9.2030305-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On Monday, February 07, 2011 9:01 PM, Wolfgang Grandegger wrote
+> 
+> Well, only prop_seg+phase_seg=tseg1 is relevant and the 
+> pch_can driver sets the allowed minimum "tseg1_min1" currently to 1:
+> 
+> static struct can_bittiming_const pch_can_bittiming_const = {
+>         .name = KBUILD_MODNAME,
+>         .tseg1_min = 1,
+>         .tseg1_max = 16,
+>         .tseg2_min = 1,
+>         .tseg2_max = 8,
+>         .sjw_max = 4,
+>         .brp_min = 1,
+>         .brp_max = 1024, /* 6bit + extended 4bit */
+>         .brp_inc = 1,
+> };
+> 
+> > seg1/seg2/sjw/prop_seg must be more than 1 ?
+> 
+> Then "tseg1_min" should be set to *2*.
 
---=-M5118eWFLJubnpQAwyPW
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Though some drivers accepted by upstream have parameter "tseg1_min" as 1,
+Sould we release the patch like below ?
+ -         .tseg1_min = 1,
++         .tseg1_min = 2,
 
-On Mon, 2011-02-07 at 15:09 -0800, Andrew Morton wrote:
-> On Mon, 7 Feb 2011 18:55:29 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-[...]
-> > Dump of kernel source bz2 download being stalled:
-> > http://poige.livejournal.com/475372.html#cutid1 (see the bunch of ACKs
-> > #5555523).
-
-That's not a stall, that's selective-ACKing (see the ranges listed on
-the right of each ACK line).
-
-> > As a workaround I've just replaced drivers/net/3c59x.c with its former
-> > (2.6.35.11) version, the connectivity problems are gone now.
-
-This could just be a coincidence.  But it could be that packet loss is
-now more likely for some reason.  Does the rx_fifo_errors statistic
-increase quickly with the later version of the driver?  (This seems to
-be the only receive error type reported.)
-
-Ben.
-
---=20
-Ben Hutchings
-Once a job is fouled up, anything done to improve it makes it worse.
-
---=-M5118eWFLJubnpQAwyPW
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-
-iQIVAwUATVCQqOe/yOyVhhEJAQLmlQ//Vq2btEFtEKKAJnbFuVX+v23ol1QMKJs0
-OB97D6LUz3JjcJZCYwmyTm3bafICf5FI6szEttoGHjit0ghRAwi3fsIkBfStCMcG
-QHyoAbCjcytejr7R/8hgv6Z+6S+fxNAfdRJXVarwo3AheKDVyEw+9mOr6LUnze5o
-F3zuHPcvrzdO3RQ3qdpOu0KXc3iJb1plxa+3JCqaqp4ZZiaF1Tzxn5gqT6cWIhMB
-AR6lGmg6ri25p2l38KKwLradBJxNo8joY7ADkpvRLhIdsWw82ZF+KQwD/H7T/mnF
-6+V9OwZkYFlNggQVv7Bh0hLY0UgTf4PcmJKIdLHWSa3Cioj6UF/v08rojFhMvRvi
-YjG74nOyzv5PH6+IQEkYr26HU602KuBkkiwTAj7QfXsh8RIRBve7konR/fzkCQuL
-9TmAEbVdVwDmPk8OnoLf3macgr97bB5/po7BqD6Wn6rJBevCf+EiAuZCInsH/nEK
-sNFXbCHXOtjduhfV78nshcM+nbIEdScR3nwHwdhkfbtW+ExnbOx42xjlo3b9L5DD
-KejpwttxBAOe9+9/0nnbq6/cTvWD0cc5ltH1n3CSmwXpyjorYNALQ4cX0LNi1sRw
-QHDsQaJKszRlIwMzM7AhMmvKyKW1Euqf8v6/v4tS5FlKcJLzxS1qDV8UeRUR72xB
-sI87+ZDiRk0=
-=fk+g
------END PGP SIGNATURE-----
-
---=-M5118eWFLJubnpQAwyPW--
+Thanks,
+-----------------------------------------
+Tomoya MORINAGA
+OKI SEMICONDUCTOR CO., LTD.
