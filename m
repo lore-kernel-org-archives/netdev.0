@@ -1,42 +1,53 @@
-From: "Allan, Bruce W" <bruce.w.allan@intel.com>
-Subject: RE: Oops in tcp_output.c, kernel 2.6.38-rc3
-Date: Tue, 8 Feb 2011 14:46:01 -0800
-Message-ID: <8DD2590731AB5D4C9DBF71A877482A90017BADD17C@orsmsx509.amr.corp.intel.com>
-References: <20110204153254.5c37c6f2@katamari>
- <20110207.130234.112590109.davem@davemloft.net>
- <alpine.WNT.2.00.1102081401480.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration off
+Date: Tue, 8 Feb 2011 23:44:11 +0100
+Message-ID: <20110208224411.GA9674@electric-eye.fr.zoreil.com>
+References: <20110208133408.7d447e6a.akpm@linux-foundation.org> <20110208.134421.39185637.davem@davemloft.net> <4D51BFCE.2070405@msgid.danisch.de> <20110208.143046.246534138.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "cebbert@redhat.com" <cebbert@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ilpo.jarvinen@helsinki.fi" <ilpo.jarvinen@helsinki.fi>
-To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadmut@danisch.de, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:60523 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753310Ab1BHWqD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 17:46:03 -0500
-In-Reply-To: <alpine.WNT.2.00.1102081401480.5424@JBRANDEB-DESK2.amr.corp.intel.com>
-Content-Language: en-US
+Received: from violet.fr.zoreil.com ([92.243.8.30]:58879 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753954Ab1BHWrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 17:47:51 -0500
+Content-Disposition: inline
+In-Reply-To: <20110208.143046.246534138.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Brandeburg, Jesse
->Sent: Tuesday, February 08, 2011 2:07 PM
->To: David Miller
->Cc: cebbert@redhat.com; netdev@vger.kernel.org; ilpo.jarvinen@helsinki.fi;
->Allan, Bruce W
->Subject: Re: Oops in tcp_output.c, kernel 2.6.38-rc3
->
->glaring at the bug dump shows e1000e as the only network driver that i can
->see, hardware seems to be the ICH10 chipset.  Copied bruce in case he's
->seen or heard anything.
->
->appears to be this system:
->http://www.asus.com/Product.aspx?P_ID=qH6ZSEJ8EPY6HoNU&content=specifications
+David Miller <davem@davemloft.net> :
+> From: Hadmut Danisch <hadmut@danisch.de>
+> Date: Tue, 08 Feb 2011 23:12:30 +0100
+> 
+> > On 08.02.2011 22:44, David Miller wrote:
+> >>
+> >> This is a case where we're probably just following what the RFC documents
+> >> state we should do, which means unless you can provide clear reference to
+> >> a specification that states we should behave otherwise this isn't changing.
+> > 
+> > Could you cite where exactly this is stated in the RFC documents?
+> 
+> I'm working on other bugs at the moment, so I am personally unable to
+> help you with this at this time.  Perhaps someone else can.
 
-Sorry, no, this is new to me.  BTW, it's the ICH10R chipset which is
-different from other ICH10* chipsets, just FYI.
+This one MAY^W may be relevant (see http://www.ietf.org/rfc/rfc4862.txt) :
+
+Thomson, et al.             Standards Track                     [Page 3]
+
+RFC 4862        IPv6 Stateless Address Autoconfiguration  September 2007
+[...]
+   The autoconfiguration process specified in this document applies only
+   to hosts and not routers.  Since host autoconfiguration uses
+   information advertised by routers, routers will need to be configured
+   by some other means.  However, it is expected that routers will
+   generate link-local addresses using the mechanism described in this
+   document.  In addition, routers are expected to successfully pass the
+   Duplicate Address Detection procedure described in this document on
+   all addresses prior to assigning them to an interface.
+
+--
+Ueimor
