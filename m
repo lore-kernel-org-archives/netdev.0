@@ -1,32 +1,38 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/2] CDC NCM errata updates
-Date: Tue, 08 Feb 2011 13:53:42 -0800 (PST)
-Message-ID: <20110208.135342.48505046.davem@davemloft.net>
-References: <2AC7D4AD8BA1C640B4C60C61C8E520153BB643596B@EXDCVYMBSTM006.EQ1STM.local>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipsec: allow to align IPv4 AH on 32 bits
+Date: Tue, 08 Feb 2011 14:00:56 -0800 (PST)
+Message-ID: <20110208.140056.260090698.davem@davemloft.net>
+References: <4D42839C.3050401@6wind.com>
+	<20110128.114610.193716130.davem@davemloft.net>
+	<4D49864E.8020002@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gregkh-l3A5Bk7waGM@public.gmane.org,
-	yauheni.kaliuta-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org
-To: alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <2AC7D4AD8BA1C640B4C60C61C8E520153BB643596B-8ZTw5gFVCTjVH5byLeRTJxkTb7+GphCuwzqs5ZKRSiY@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org,
+	christophe.gouault@6wind.com
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57781
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751082Ab1BHWAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 17:00:21 -0500
+In-Reply-To: <4D49864E.8020002@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Date: Tue, 8 Feb 2011 18:44:13 +0100
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Wed, 02 Feb 2011 17:29:02 +0100
 
-> Both patches can be applied to net-2.6 and net-next.
-> [PATCH 1/2] CDC NCM errata updates for cdc.h 
-> [PATCH 2/2] USB CDC NCM errata updates for cdc_ncm host driver
+> On 28/01/2011 20:46, David Miller wrote:
+>> From: Nicolas Dichtel<nicolas.dichtel@6wind.com>
+>> Date: Fri, 28 Jan 2011 09:51:40 +0100
+>>
+>>> On 28/01/2011 05:51, Herbert Xu wrote:
+>>>> So perhaps an SA configuration flag is needed?
+>>> I agree. If David is ok, I will update the patch.
+>>
+>> Sounds good to me.
 > 
-> I don't know if the merge window is closed or not, but it would be
-> *really* good to get this patches merged to 2.6.38-rc branch due to
-> bug fixes included.
+> Here is the new patch.
 
-I'll apply them to net-2.6, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've applied this to net-next-2.6, thanks.
