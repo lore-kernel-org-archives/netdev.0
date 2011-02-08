@@ -1,76 +1,33 @@
-From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Subject: RE: About bittiming calculation result
-Date: Tue, 8 Feb 2011 11:29:59 +0800
-Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE2BE1A7@EAPEX1MAIL1.st.com>
-References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>
-	<20110204.130649.112613896.davem@davemloft.net>
-	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
-	<4D4FDEF9.2030305@grandegger.com>
-	<E2BAACFF191C4175854E6B2EB9135BE5@hacdom.okisemi.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2011-02-08
+Date: Mon, 07 Feb 2011 19:55:13 -0800 (PST)
+Message-ID: <20110207.195513.71105035.davem@davemloft.net>
+References: <1297123161-25612-1-git-send-email-sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>,
-	'Wolfgang Grandegger' <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <E2BAACFF191C4175854E6B2EB9135BE5-c0cKtqp5df7I9507bXv2FdBPR1lH4CV8@public.gmane.org>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sven@narfation.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60724
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752303Ab1BHDyi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Feb 2011 22:54:38 -0500
+In-Reply-To: <1297123161-25612-1-git-send-email-sven@narfation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Tomoya,
+From: Sven Eckelmann <sven@narfation.org>
+Date: Tue,  8 Feb 2011 00:59:20 +0100
 
-> -----Original Message-----
-> From: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org [mailto:socketcan-core-
-> bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org] On Behalf Of Tomoya MORINAGA
-> Sent: Tuesday, February 08, 2011 6:40 AM
-> To: 'Wolfgang Grandegger'
-> Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
-> kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Subject: RE: About bittiming calculation result
+> I would like to propose following patch for net-2.6.git/2.6.38 which fixes a
+> possible kernel oops in the unicast fragmentation code.
+...
+> The following changes since commit 1181e1daace88018b2ff66592aa10a4791d705ff:
 > 
-> On Monday, February 07, 2011 9:01 PM, Wolfgang Grandegger wrote
-> >
-> > Well, only prop_seg+phase_seg=tseg1 is relevant and the
-> > pch_can driver sets the allowed minimum "tseg1_min1" currently to 1:
-> >
-> > static struct can_bittiming_const pch_can_bittiming_const = {
-> >         .name = KBUILD_MODNAME,
-> >         .tseg1_min = 1,
-> >         .tseg1_max = 16,
-> >         .tseg2_min = 1,
-> >         .tseg2_max = 8,
-> >         .sjw_max = 4,
-> >         .brp_min = 1,
-> >         .brp_max = 1024, /* 6bit + extended 4bit */
-> >         .brp_inc = 1,
-> > };
-> >
-> > > seg1/seg2/sjw/prop_seg must be more than 1 ?
-> >
-> > Then "tseg1_min" should be set to *2*.
+>   batman-adv: Make vis info stack traversal threadsafe (2011-01-30 10:32:08 +0100)
 > 
-> Though some drivers accepted by upstream have parameter "tseg1_min" as
-> 1,
-> Sould we release the patch like below ?
->  -         .tseg1_min = 1,
-> +         .tseg1_min = 2,
-> 
-AFAIK pch uses the Bosch C_CAN core internally.
-As per Bosch C_CAN user manual tseg1= prop_seg + phase_seg1
-So, ideally tseg1_min should be 2. My version of Bosch C_CAN driver
-Uses the value 2.
+> are available in the git repository at:
+>   git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/merge
 
-Regards,
-Bhupesh
+Pulled, thanks.
