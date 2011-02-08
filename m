@@ -1,57 +1,61 @@
-From: "Tomoya MORINAGA" <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
-Subject: RE: About bittiming calculation result
-Date: Tue, 8 Feb 2011 10:09:48 +0900
-Message-ID: <E2BAACFF191C4175854E6B2EB9135BE5@hacdom.okisemi.com>
-References: <cover.1296818921.git.segoon@openwall.com><a6800dc8b0daed78256f98f52844cbbb48f4a76d.1296818921.git.segoon@openwall.com><20110204124233.GB334@e-circ.dyndns.org>
-	<20110204.130649.112613896.davem@davemloft.net>
-	<5009516791F146C49C73FAC57C437313@hacdom.okisemi.com>
-	<4D4FDEF9.2030305@grandegger.com>
+From: "Luis R. Rodriguez" <mcgrof@gmail.com>
+Subject: compat-wireless for 2.6.38-rc3 - third release
+Date: Mon, 7 Feb 2011 17:10:49 -0800
+Message-ID: <AANLkTineqSLDLg84Ah7Djd1R=K-xTfQDUd==K+eaJFES@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: "'Wolfgang Grandegger'" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D4FDEF9.2030305-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-kernel@vger.kernel.org
+To: linux-wireless <linux-wireless@vger.kernel.org>,
+	linux-bluetooth <linux-bluetooth@vger.kernel.org>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday, February 07, 2011 9:01 PM, Wolfgang Grandegger wrote
-> 
-> Well, only prop_seg+phase_seg=tseg1 is relevant and the 
-> pch_can driver sets the allowed minimum "tseg1_min1" currently to 1:
-> 
-> static struct can_bittiming_const pch_can_bittiming_const = {
->         .name = KBUILD_MODNAME,
->         .tseg1_min = 1,
->         .tseg1_max = 16,
->         .tseg2_min = 1,
->         .tseg2_max = 8,
->         .sjw_max = 4,
->         .brp_min = 1,
->         .brp_max = 1024, /* 6bit + extended 4bit */
->         .brp_inc = 1,
-> };
-> 
-> > seg1/seg2/sjw/prop_seg must be more than 1 ?
-> 
-> Then "tseg1_min" should be set to *2*.
+I updated compat-wireless for 2.6.38-rc3, this is the third update, it
+should now include the proper compat.git branch and also adds some new
+patches from Hauke to minimize deltas and fix compilation. While at it
+I took the time to suck in new pending-stable patches for an "-s"
+release, I haven't cherry picked any patches yet as I cannot think of
+anything immediately important, if you do send me a patch.
 
-Though some drivers accepted by upstream have parameter "tseg1_min" as 1,
-Sould we release the patch like below ?
- -         .tseg1_min = 1,
-+         .tseg1_min = 2,
+Code metrics for the vanilla release:
 
-Thanks,
------------------------------------------
-Tomoya MORINAGA
-OKI SEMICONDUCTOR CO., LTD.
+    782535 - Total upstream lines of code being pulled
+      2108 - backport code changes
+      1847 - backport code additions
+       261 - backport code deletions
+      7292 - backport from compat module
+      9400 - total backport code
+    1.2012 - % of code consists of backport work
+
+Base tree: linux-2.6-allstable.git
+Base tree version: v2.6.38-rc3
+compat-wireless release: compat-wireless-v2.6.38-rc3-3
+
+Code metrics for the "-s" release:
+
+    782535 - Total upstream lines of code being pulled
+      2108 - backport code changes
+      1847 - backport code additions
+       261 - backport code deletions
+      7292 - backport from compat module
+      9400 - total backport code
+    1.2012 - % of code consists of backport work
+       115 - Code changes brought in from pending-stable
+        57 - Code additions brought in from pending-stable
+        58 - Code deletions brought in from pending-stable
+    0.0147 - % of code being cherry picked from pending-stable
+
+Base tree: linux-2.6-allstable.git
+Base tree version: v2.6.38-rc3
+compat-wireless release: compat-wireless-v2.6.38-rc3-3-s
+
+Relevant URLs:
+
+http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.38/compat-wireless-2.6.38-rc3-3.tar.bz2
+http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.38/compat-wireless-2.6.38-rc3-3-s.tar.bz2
+http://www.orbit-lab.org/kernel/compat-wireless-2.6-stable/v2.6.38/ChangeLog-2.6.38-wireless
+http://wireless.kernel.org/en/users/Download/stable
+
+  Luis
