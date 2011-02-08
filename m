@@ -1,56 +1,47 @@
-From: Hadmut Danisch <hadmut@danisch.de>
-Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration
- off
-Date: Tue, 08 Feb 2011 23:59:52 +0100
-Message-ID: <4D51CAE8.6070706@msgid.danisch.de>
-References: <20110208133408.7d447e6a.akpm@linux-foundation.org> <20110208.134421.39185637.davem@davemloft.net> <4D51BFCE.2070405@msgid.danisch.de> <20110208.143046.246534138.davem@davemloft.net> <20110208224411.GA9674@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] net: Remove bogus barrier() in dst_allfrag().
+Date: Tue, 08 Feb 2011 15:34:16 -0800 (PST)
+Message-ID: <20110208.153416.179933668.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sklave3.rackland.de ([212.86.200.186]:52505 "EHLO
-	sklave3.rackland.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753802Ab1BHW7z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 17:59:55 -0500
-In-Reply-To: <20110208224411.GA9674@electric-eye.fr.zoreil.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52947
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755786Ab1BHXdl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 18:33:41 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id D22BD24C088
+	for <netdev@vger.kernel.org>; Tue,  8 Feb 2011 15:34:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08.02.2011 23:44, Francois Romieu wrote:
->
-> RFC 4862        IPv6 Stateless Address Autoconfiguration  September 2007
-> [...]
->    The autoconfiguration process specified in this document applies only
->    to hosts and not routers.  Since host autoconfiguration uses
->    information advertised by routers, routers will need to be configured
->    by some other means.  However, it is expected that routers will
->    generate link-local addresses using the mechanism described in this
->    document.  In addition, routers are expected to successfully pass the
->    Duplicate Address Detection procedure described in this document on
->    all addresses prior to assigning them to an interface.
 
-Thanks for the citation.
+I simply missed this one when modifying the other dst
+metric interfaces earlier.
 
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
 
-Since Linux machines can - in contrast to Windows desktops and cisco
-routers - can be a host and a router at the same time, even on the same
-interface (i.e. use a autoconf IPv6 address as a host and an fe80::
-address as a router address).
+Committed to net-next-2.6
 
-So I'd consider this in a different way. From my point of view the
-decision between host and router must be done per assigned IPv6 address
-(or address range) and not per IPv6 interface.
+ include/net/dst.h |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-(Maybe it would be a more correct implementation to assign a special IP
-address pattern like  xxxx::.../64 to tell the interface to accept
-autoconfiguration for a particular network range, probably  for 2::/3 in
-most cases.)
-
-regards
-Hadmut
-
+diff --git a/include/net/dst.h b/include/net/dst.h
+index e550195..e01855d 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -220,8 +220,6 @@ static inline u32
+ dst_allfrag(const struct dst_entry *dst)
+ {
+ 	int ret = dst_feature(dst,  RTAX_FEATURE_ALLFRAG);
+-	/* Yes, _exactly_. This is paranoia. */
+-	barrier();
+ 	return ret;
+ }
+ 
+-- 
+1.7.4
 
