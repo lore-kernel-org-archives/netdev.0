@@ -1,47 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns
- autoconfiguration off
-Date: Tue, 08 Feb 2011 13:44:21 -0800 (PST)
-Message-ID: <20110208.134421.39185637.davem@davemloft.net>
-References: <bug-28282-10286@https.bugzilla.kernel.org/>
-	<20110208133408.7d447e6a.akpm@linux-foundation.org>
+Subject: Re: [net-2.6][2.6.38-rc2] panic during stress testing
+Date: Tue, 08 Feb 2011 13:51:13 -0800 (PST)
+Message-ID: <20110208.135113.59683468.davem@davemloft.net>
+References: <1297189925.4087.8.camel@jbrandeb-mobl2>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, hadmut@danisch.de
-To: akpm@linux-foundation.org
+Cc: netdev@vger.kernel.org, jeffrey.e.pieper@intel.com
+To: jesse.brandeburg@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48435
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:42188
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751831Ab1BHVnr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 16:43:47 -0500
-In-Reply-To: <20110208133408.7d447e6a.akpm@linux-foundation.org>
+	by vger.kernel.org with ESMTP id S1751082Ab1BHVuh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Feb 2011 16:50:37 -0500
+In-Reply-To: <1297189925.4087.8.camel@jbrandeb-mobl2>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Tue, 8 Feb 2011 13:34:08 -0800
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date: Tue, 08 Feb 2011 10:32:05 -0800
 
->> Linux ethernet interfaces do not use autoconfiguration and do ignore router
->> advertisings if the packet forwarding is turned on in the configuration (i.e. 
->> /proc/sys/net/ipv6/conf/eth0/forwarding set to 1)
->> 
->> 
->> This might be wrong.
->> 
->> IPv6 network devices can have multiple IPv6 addresses and server several
->> purposes at the same time. A machine can have a statically assigned local IPv6
->> address and act as a router (e.g. to a virtual machine or a VPN tunnel) and
->> thus needs to turn forwarding on, while at the same time it needs to listen to
->> router advertisements and autoconfigure, e.g. because a network is connected to
->> the internet through a DSL router with dynamically assigned network adresses,
->> either through direct IPv6 assignment or a 6to4 tunnel. 
->> 
->> So there are cases where you need to have autoconfiguration of an IP address
->> and forwarding on the same interface at the same time. Therefore, it might be
->> technically wrong to have this mutually exclusive. 
+> We are currently testing patches and ran into this panic, doesn't
+> immediately seem related to the driver.
+> 
+> During TCP/UDP ipv4/6 stress testing on 82574L, 2.6.38-rc2 x86_64
+> (net-2.6 with e1000e patches under test) gets numerous OOM killer
+> messages, followed by a bug/Oops and panic. could not reproduce the
+> bug/panic on 2.6.37, but the OOM killer messages are still seen.
+> 
+> Could well be related somehow to testing with DEBUG_PAGEALLOC enabled.
+> 
+> panic dump and .config follows:
+> 
+> BUG: unable to handle kernel paging request at ffffffff81089738
+> IP: [<ffffffff812e2139>] dst_destroy+0x4b/0xf3
+> PGD 1695067 PUD 1699063 PMD 10001e1 
+> Oops: 0003 [#1] PREEMPT SMP DEBUG_PAGEALLOC
+> last sysfs file: /sys/devices/system/cpu/cpu3/cache/index2/shared_cpu_map
+> CPU 1 
+> Modules linked in: nfsd exportfs lockd sunrpc dca e1000e [last unloaded: igb]
 
-This is a case where we're probably just following what the RFC documents
-state we should do, which means unless you can provide clear reference to
-a specification that states we should behave otherwise this isn't changing.
+So some piece of freed memory is being referenced in dst_destroy(), can you
+match dst_destroy+0x4b to a line in that function for your build?
+
+You should always do this when submitting a trace like this.
+
+Thanks.
