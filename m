@@ -1,57 +1,64 @@
-From: Celejar <celejar@gmail.com>
-Subject: bleeding edge kernels misidentify my Broadcom BCM4401-B0
-Date: Wed, 9 Feb 2011 15:58:41 -0500
-Message-ID: <20110209155841.7a8c6892.celejar@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:61504 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752287Ab1BIU6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 15:58:44 -0500
-Received: by vws16 with SMTP id 16so384372vws.19
-        for <netdev@vger.kernel.org>; Wed, 09 Feb 2011 12:58:43 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: STMMAC driver: NFS Problem on 2.6.37
+Date: Wed, 9 Feb 2011 16:26:16 -0500
+Message-ID: <5CC01953-376D-46FC-99DA-C282332FA40F@oracle.com>
+References: <4D2EC133.7010607@st.com> <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com> <4D2F4453.4040400@st.com> <4D301DD1.9070104@st.com> <593F2676-CA62-4D77-90AD-41F2FAF13EB6@oracle.com> <4D3EBA54.4020308@st.com> <EFFBD485-8B7E-44D1-A8D2-61E73BF42DF9@oracle.com> <20110209200129.GA6402@glaurung.lavos.net> <D031EAC4-68E9-4E56-8DB3-208B34C8DFD7@oracle.com> <20110209205855.GB6402@glaurung.lavos.net>
+Mime-Version: 1.0 (Apple Message framework v1082)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: deepaksi <deepak.sikri-qxv4g6HH51o@public.gmane.org>,
+	Armando VISCONTI <armando.visconti-qxv4g6HH51o@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Shiraz HASHIM <shiraz.hashim-qxv4g6HH51o@public.gmane.org>,
+	Viresh KUMAR <viresh.kumar-qxv4g6HH51o@public.gmane.org>,
+	Peppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+	amitgoel <amit.goel-qxv4g6HH51o@public.gmane.org>
+To: Brian Downing <bdowning-oU/tDdhfGLReoWH0uzbU5w@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110209205855.GB6402-QEOkiq82tQWoLK6CJbI5/KxOck334EZe@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Recently, while using bleeding edge kernels (built from git pulls of
-vanillas sources from kernel.org), my Broadcom BCM4401-B0 Ethernet
-card, normally driven by the b44 driver, has stopped working.  Poking
-around, I discovered that the card is no longer correctly identified;
-it now shows up (with 'lspci -v' as root) as this bizarre device:
+On Feb 9, 2011, at 3:58 PM, Brian Downing wrote:
 
-06:01.0 Network and computing encryption device: Broadcom Corporation Device 0010 (rev 02) (prog-if 10)
-        Subsystem: Allied Telesis, Inc Device 0010
-        Flags: fast devsel, IRQ 10
-        Memory at d0000000 (32-bit, non-prefetchable) [disabled] [size=8K]
-        Capabilities: [40] Power Management version 2
+> On Wed, Feb 09, 2011 at 03:12:22PM -0500, Chuck Lever wrote:
+>> Based on your console logs, I see that the working case uses UDP to
+>> contact the server's mountd, but the failing case uses TCP.  You can
+>> try explicitly specifying "proto=udp" to force the use of UDP, to test
+>> this theory.
+> 
+> This does indeed make it work again for me, thanks!
+> 
+>> Meanwhile, the patch description explicitly states that the default
+>> mount option settings have changed.  Does it make sense to change the
+>> default behavior of NFSROOT mounts to use UDP again?  I don't see
+>> another way to make this process more reliable across NIC
+>> initialization.  If this is considered a regression, we can make a
+>> patch for 2.6.38-rc and 2.6.37.
+> 
+> I only use nfsroot for development, so I don't have a terribly strong
+> opinion.  I would point out though that the default u-boot parameters
+> for nfsrooting a lot of boards will no longer work at this point, so if
+> it's not patched to work again without specifying nfs options I think
+> there should at least be a note in the documentation and possibly a
+> "maybe try proto=udp?" console message on failure.
+> 
+> I assume it's not feasable to either wait until the chosen interface's
+> link is ready before trying to mount nfsroot, or retrying TCP-based
+> connections a little bit more aggressively/at all?
 
-Using a stock Debian kernel (2.6.32-5-686), it shows up (and works)
-correctly:
+Our goal is to use the same mount logic for both normal user space mounts and for NFSROOT (that was the purpose of the patch series this particular patch comes from).  It's exceptionally difficult to add a special case for retrying TCP connections here, as that would change the behavior of user space mounts, which often want to fail quickly, and don't need to worry about NIC initialization.
 
-06:01.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX (rev 02)
-        Subsystem: Acer Incorporated [ALI] Device 0090
-        Flags: bus master, fast devsel, latency 64, IRQ 21
-        Memory at d0000000 (32-bit, non-prefetchable) [size=8K]
-        Capabilities: [40] Power Management version 2
-        Kernel driver in use: b44
+Sounds like the right thing to do is restore the default UDP behavior.  I'll cook up a patch.
 
-What on earth is this all about?
-
-I tried another kernel I had lying around,
-2.6.37-rc6-lizzie-00132-g55ec86f (built from kernel.org vanilla
-sources), and it also works fine.  I can do a bisection if necessary,
-but I figured I'd check here first.
-
-[Please cc. me on replies.]
-
-Celejar
 -- 
-foffl.sourceforge.net - Feeds OFFLine, an offline RSS/Atom aggregator
-mailmin.sourceforge.net - remote access via secure (OpenPGP) email
-ssuds.sourceforge.net - A Simple Sudoku Solver and Generator
+Chuck Lever
+chuck[dot]lever[at]oracle[dot]com
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
