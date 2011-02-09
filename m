@@ -1,60 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pch_gbe: Fix the issue which a driver locks when rx
- offload is set by ethtool
-Date: Tue, 08 Feb 2011 23:04:04 -0800 (PST)
-Message-ID: <20110208.230404.189683472.davem@davemloft.net>
-References: <20110208.164030.242137610.davem@davemloft.net>
-	<3F7E1C17407A45E3834BF70553CB294C@hacdom.okisemi.com>
-	<20110208.225702.104076116.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT PULL nf-next-2.6] IPVS
+Date: Wed, 09 Feb 2011 08:06:09 +0100
+Message-ID: <4D523CE1.2090009@trash.net>
+References: <1297070381-24377-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tomoya-linux@dsn.okisemi.com,
-	qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, linux-kernel@vger.kernel.org
-To: toshiharu-linux@dsn.okisemi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110208.225702.104076116.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, lvs-devel@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Dan Carpenter <error27@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1297070381-24377-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 08 Feb 2011 22:57:02 -0800 (PST)
-
-> From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
-> Date: Wed, 9 Feb 2011 11:04:11 +0900
+Am 07.02.2011 10:19, schrieb Simon Horman:
+> Hi Patrick,
 > 
->> From: David Miller <davem@davemloft.net>
->> Date: Tue, 08 Feb 2011 16:40:30 -0800 (PST)
->> 
->>>> @@ -531,12 +533,8 @@ void pch_gbe_reinit_locked(struct pch_gbe_adapter 
->>>> *adapter)
->>>>  {
->>>>  struct net_device *netdev = adapter->netdev;
->>>>
->>>> - rtnl_lock();
->>>> - if (netif_running(netdev)) {
->>>> - pch_gbe_down(adapter);
->>>> - pch_gbe_up(adapter);
->>>> - }
->>>> - rtnl_unlock();
->>>> + pch_gbe_down(adapter);
->>>> + pch_gbe_up(adapter);
->>>
->>>Are you sure you can just blindly delete the netif_running() check here?
->> 
->> Yes, sure.
->> pch_gbe_reinit_locked() is called after confirming of netif_running() except 
->> for pch_gbe_reset_task() function.
->> This netif_running() was redundant.
+> please consider pulling 
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+> to get a precedence bug fix from Dan Carpenter.
 > 
-> Thanks for explaining, applied, thank you.
+>  net/netfilter/ipvs/ip_vs_sync.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 
-Actually, I had to revert, this patch introduces an obvious compiler warning:
+Pulled, thanks Simon.
 
-drivers/net/pch_gbe/pch_gbe_main.c: In function 'pch_gbe_reinit_locked':
-drivers/net/pch_gbe/pch_gbe_main.c:533:21: warning: unused variable 'netdev'
-
-Sloppy build issues like this reflects very poorly upon the patch
-submitter.
