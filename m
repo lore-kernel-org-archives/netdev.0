@@ -1,67 +1,93 @@
-From: Xiaotian feng <dfeng@redhat.com>
-Subject: [RFC PATCH net-next] net: rename group sysfs entry to netdev_group
-Date: Wed,  9 Feb 2011 18:52:49 +0800
-Message-ID: <1297248769-28530-1-git-send-email-dfeng@redhat.com>
-Cc: Xiaotian Feng <dfeng@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Vlad Dogaru <ddvlad@rosedu.org>
-To: netdev@vger.kernel.org
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: [PATCH 1/2] atmel/macb: fix device name when SOFT/HARD_IRQ enabled
+Date: Wed,  9 Feb 2011 13:43:36 +0100
+Message-ID: <1297255416-6920-1-git-send-email-plagnioj@jcrosoft.com>
+Cc: netdev@vger.kernel.org, Paul Chavent <paul.chavent@fnac.net>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40703 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751663Ab1BIK5P (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Feb 2011 05:57:15 -0500
+Received: from 26.mail-out.ovh.net ([91.121.27.225]:40196 "HELO
+	26.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752835Ab1BIMql (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 07:46:41 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xiaotian Feng <dfeng@redhat.com>
+From: Paul Chavent <paul.chavent@fnac.net>
 
-commit a512b92 adds sysfs entry for net device group, but
-before this commit, tun also uses group sysfs, so after this
-commit checkin, kernel warns like this:
-    sysfs: cannot create duplicate filename '/devices/virtual/net/vnet0/group'
+When listing processes on a system with SOFT/HARD_IRQ enabled,
+the name of the ethernet device is [irq/eth%d] (instead of [irq/eth0] for example).
 
-Since tun has used this for years, rename sysfs under tun might
-break existing userspace, so rename group sysfs entry for net device
-group is a better choice.
+This patch call the request_irq function after having initialized the name of the device.
 
-Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: Stephen Hemminger <shemminger@vyatta.com>
-Cc: Vlad Dogaru <ddvlad@rosedu.org>
+Signed-off-by: Paul Chavent <paul.chavent@fnac.net>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 ---
- net/core/net-sysfs.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/macb.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 2e4a393..eb4b5e0 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -295,7 +295,7 @@ static ssize_t show_ifalias(struct device *dev,
- 	return ret;
- }
+diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+index f69e73e..d642e08 100644
+--- a/drivers/net/macb.c
++++ b/drivers/net/macb.c
+@@ -1170,16 +1170,6 @@ static int __init macb_probe(struct platform_device *pdev)
+ 		goto err_out_disable_clocks;
+ 	}
  
--NETDEVICE_SHOW(group, fmt_dec);
-+NETDEVICE_SHOW(netdev_group, fmt_dec);
+-	dev->irq = platform_get_irq(pdev, 0);
+-	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
+-			  dev->name, dev);
+-	if (err) {
+-		printk(KERN_ERR
+-		       "%s: Unable to request IRQ %d (error %d)\n",
+-		       dev->name, dev->irq, err);
+-		goto err_out_iounmap;
+-	}
+-
+ 	dev->netdev_ops = &macb_netdev_ops;
+ 	netif_napi_add(dev, &bp->napi, macb_poll, 64);
+ 	dev->ethtool_ops = &macb_ethtool_ops;
+@@ -1219,13 +1209,23 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	err = register_netdev(dev);
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
+-		goto err_out_free_irq;
++		goto err_out_iounmap;
+ 	}
  
- static int change_group(struct net_device *net, unsigned long new_group)
- {
-@@ -330,7 +330,7 @@ static struct device_attribute net_class_attributes[] = {
- 	__ATTR(flags, S_IRUGO | S_IWUSR, show_flags, store_flags),
- 	__ATTR(tx_queue_len, S_IRUGO | S_IWUSR, show_tx_queue_len,
- 	       store_tx_queue_len),
--	__ATTR(group, S_IRUGO | S_IWUSR, show_group, store_group),
-+	__ATTR(netdev_group, S_IRUGO | S_IWUSR, show_group, store_group),
- 	{}
- };
+-	if (macb_mii_init(bp) != 0) {
++	dev->irq = platform_get_irq(pdev, 0);
++	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
++			  dev->name, dev);
++	if (err) {
++		printk(KERN_ERR
++		       "%s: Unable to request IRQ %d (error %d)\n",
++		       dev->name, dev->irq, err);
+ 		goto err_out_unregister_netdev;
+ 	}
  
++	if (macb_mii_init(bp) != 0) {
++		goto err_out_free_irq;
++	}
++
+ 	platform_set_drvdata(pdev, dev);
+ 
+ 	printk(KERN_INFO "%s: Atmel MACB at 0x%08lx irq %d (%pM)\n",
+@@ -1238,10 +1238,10 @@ static int __init macb_probe(struct platform_device *pdev)
+ 
+ 	return 0;
+ 
+-err_out_unregister_netdev:
+-	unregister_netdev(dev);
+ err_out_free_irq:
+ 	free_irq(dev->irq, dev);
++err_out_unregister_netdev:
++	unregister_netdev(dev);
+ err_out_iounmap:
+ 	iounmap(bp->regs);
+ err_out_disable_clocks:
 -- 
-1.7.1
+1.7.2.3
 
