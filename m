@@ -1,109 +1,47 @@
-From: Stefan Hajnoczi <stefanha@gmail.com>
-Subject: Re: Network performance with small packets
-Date: Wed, 9 Feb 2011 07:43:45 +0000
-Message-ID: <AANLkTinmqRLyGUtyfkCnrgkBsh2frQ3oO8hd6uE2O0he@mail.gmail.com>
-References: <20110127.130240.104065182.davem@davemloft.net>
-	<201102091107.20270.rusty@rustcorp.com.au>
-	<20110209005345.GA12055@redhat.com>
-	<201102091209.36546.rusty@rustcorp.com.au>
-	<20110209015506.GA13289@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration off
+Date: Wed, 9 Feb 2011 08:42:21 +0100
+Message-ID: <20110209074221.GA9790@electric-eye.fr.zoreil.com>
+References: <20110208133408.7d447e6a.akpm@linux-foundation.org> <20110208.134421.39185637.davem@davemloft.net> <4D51BFCE.2070405@msgid.danisch.de> <20110208.143046.246534138.davem@davemloft.net> <20110208224411.GA9674@electric-eye.fr.zoreil.com> <20110208234753.48abd902.billfink@mindspring.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	Shirley Ma <mashirle@us.ibm.com>, netdev@vger.kernel.org,
-	steved@us.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, hadmut@danisch.de,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org
+To: Bill Fink <billfink@mindspring.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:33462 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752128Ab1BIHnq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 02:43:46 -0500
-In-Reply-To: <20110209015506.GA13289@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49631 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197Ab1BIHpd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 02:45:33 -0500
+Content-Disposition: inline
+In-Reply-To: <20110208234753.48abd902.billfink@mindspring.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 9, 2011 at 1:55 AM, Michael S. Tsirkin <mst@redhat.com> wro=
-te:
-> On Wed, Feb 09, 2011 at 12:09:35PM +1030, Rusty Russell wrote:
->> On Wed, 9 Feb 2011 11:23:45 am Michael S. Tsirkin wrote:
->> > On Wed, Feb 09, 2011 at 11:07:20AM +1030, Rusty Russell wrote:
->> > > On Wed, 2 Feb 2011 03:12:22 pm Michael S. Tsirkin wrote:
->> > > > On Wed, Feb 02, 2011 at 10:09:18AM +0530, Krishna Kumar2 wrote=
-:
->> > > > > > "Michael S. Tsirkin" <mst@redhat.com> 02/02/2011 03:11 AM
->> > > > > >
->> > > > > > On Tue, Feb 01, 2011 at 01:28:45PM -0800, Shirley Ma wrote=
-:
->> > > > > > > On Tue, 2011-02-01 at 23:21 +0200, Michael S. Tsirkin wr=
-ote:
->> > > > > > > > Confused. We compare capacity to skb frags, no?
->> > > > > > > > That's sg I think ...
->> > > > > > >
->> > > > > > > Current guest kernel use indirect buffers, num_free retu=
-rns how many
->> > > > > > > available descriptors not skb frags. So it's wrong here.
->> > > > > > >
->> > > > > > > Shirley
->> > > > > >
->> > > > > > I see. Good point. In other words when we complete the buf=
-fer
->> > > > > > it was indirect, but when we add a new one we
->> > > > > > can not allocate indirect so we consume.
->> > > > > > And then we start the queue and add will fail.
->> > > > > > I guess we need some kind of API to figure out
->> > > > > > whether the buf we complete was indirect?
->> > >
->> > > I've finally read this thread... I think we need to get more ser=
-ious
->> > > with our stats gathering to diagnose these kind of performance i=
-ssues.
->> > >
->> > > This is a start; it should tell us what is actually happening to=
- the
->> > > virtio ring(s) without significant performance impact...
->> > >
->> > > Subject: virtio: CONFIG_VIRTIO_STATS
->> > >
->> > > For performance problems we'd like to know exactly what the ring=
- looks
->> > > like. =A0This patch adds stats indexed by how-full-ring-is; we c=
-ould extend
->> > > it to also record them by how-used-ring-is if we need.
->> > >
->> > > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
->> >
->> > Not sure whether the intent is to merge this. If yes -
->> > would it make sense to use tracing for this instead?
->> > That's what kvm does.
->>
->> Intent wasn't; I've not used tracepoints before, but maybe we should
->> consider a longer-term monitoring solution?
->>
->> Patch welcome!
->>
->> Cheers,
->> Rusty.
->
-> Sure, I'll look into this.
+Bill Fink <billfink@mindspring.com> :
+[...]
+> I believe there is a difference between being a router and merely
+> being capable of forwarding IP packets.  To me, a router participates
+> in a routing protocol and/or advertises routes/prefixes.  So perhaps
+> Hadmut has a valid point that autoconfiguration should not depend
+> on ip_forward being off, although I'm not sure what the appropriate
+> alternate test for not being a router should be.
 
-There are several virtio trace events already in QEMU today (see the
-trace-events file):
-virtqueue_fill(void *vq, const void *elem, unsigned int len, unsigned
-int idx) "vq %p elem %p len %u idx %u"
-virtqueue_flush(void *vq, unsigned int count) "vq %p count %u"
-virtqueue_pop(void *vq, void *elem, unsigned int in_num, unsigned int
-out_num) "vq %p elem %p in_num %u out_num %u"
-virtio_queue_notify(void *vdev, int n, void *vq) "vdev %p n %d vq %p"
-virtio_irq(void *vq) "vq %p"
-virtio_notify(void *vdev, void *vq) "vdev %p vq %p"
+It is here (same document, same page):
+[...]
+2.  Terminology
 
-These can be used by building QEMU with a suitable tracing backend
-like SystemTap (see docs/tracing.txt).
+   IP -  Internet Protocol Version 6.  The terms IPv4 and IPv6 are used
+      only in contexts where necessary to avoid ambiguity.
 
-Inside the guest I've used dynamic ftrace in the past, although static
-tracepoints would be nice.
+   node -  a device that implements IP.
 
-Stefan
+   router -  a node that forwards IP packets not explicitly addressed to
+      itself.
+
+Why should we put our brains at pain ? Is there really a problem ?
+
+-- 
+Ueimor
