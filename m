@@ -1,64 +1,42 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH 1/2] atmel/macb: fix device name when SOFT/HARD_IRQ
- enabled
-Date: Wed, 9 Feb 2011 15:44:11 +0100
-Message-ID: <20110209144411.GB11255@game.jcrosoft.org>
-References: <1297255416-6920-1-git-send-email-plagnioj@jcrosoft.com>
- <4D529992.7050502@ru.mvista.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: linux-next: Tree for February 3 (netfilter)
+Date: Wed, 09 Feb 2011 07:51:44 -0800
+Message-ID: <4D52B810.403@oracle.com>
+References: <20110203160034.44ae3247.sfr@canb.auug.org.au> <20110204111511.1f4d6706.randy.dunlap@oracle.com> <4D524079.1000908@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Paul Chavent <paul.chavent@fnac.net>
-To: Sergei Shtylyov <sshtylyov@mvista.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 26.mail-out.ovh.net ([91.121.27.225]:49456 "HELO
-	26.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752123Ab1BIOrG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 09:47:06 -0500
-Content-Disposition: inline
-In-Reply-To: <4D529992.7050502@ru.mvista.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-next@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D524079.1000908@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16:41 Wed 09 Feb     , Sergei Shtylyov wrote:
-> Hello.
+On 02/08/11 23:21, Patrick McHardy wrote:
+> Am 04.02.2011 20:15, schrieb Randy Dunlap:
+>> On Thu, 3 Feb 2011 16:00:34 +1100 Stephen Rothwell wrote:
+>>
+>>> Hi all,
+>>>
+>>> Changes since 20110202:
+>>
+>> When SYSCTL and PROC_FS and NETFILTER_NETLINK are not enabled:
+>>
+>> net/built-in.o: In function `try_to_load_type':
+>> ip_set_core.c:(.text+0x3ab49): undefined reference to `nfnl_unlock'
+>> ip_set_core.c:(.text+0x3ab4e): undefined reference to `nfnl_lock'
 > 
-> On 09-02-2011 15:43, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> 
-> >From: Paul Chavent<paul.chavent@fnac.net>
-> 
-> >When listing processes on a system with SOFT/HARD_IRQ enabled,
-> >the name of the ethernet device is [irq/eth%d] (instead of [irq/eth0] for example).
-> 
-> >This patch call the request_irq function after having initialized the name of the device.
-> 
-> >Signed-off-by: Paul Chavent<paul.chavent@fnac.net>
-> >Signed-off-by: Nicolas Ferre<nicolas.ferre@atmel.com>
-> >Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD<plagnioj@jcrosoft.com>
-> [...]
-> 
-> >diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-> >index f69e73e..d642e08 100644
-> >--- a/drivers/net/macb.c
-> >+++ b/drivers/net/macb.c
-> [...]
-> >@@ -1219,13 +1209,23 @@ static int __init macb_probe(struct platform_device *pdev)
-> >  	err = register_netdev(dev);
-> >  	if (err) {
-> >  		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-> >-		goto err_out_free_irq;
-> >+		goto err_out_iounmap;
-> >  	}
-> >
-> >-	if (macb_mii_init(bp) != 0) {
-> >+	dev->irq = platform_get_irq(pdev, 0);
-> 
->    platform_get_irq() can fail...
-request_irq will fail too so do we really need to check it?
-> 
-> >+	err = request_irq(dev->irq, macb_interrupt, IRQF_SAMPLE_RANDOM,
-> >+			  dev->name, dev);
+> Does this patch fix the problem?
 
-Best Regards,
-J.
+Yes, it does.  Thanks.
+
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+
+-- 
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
