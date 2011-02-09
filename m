@@ -1,33 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] pch_gbe: Fix the issue that the receiving data is not
- normal.
-Date: Tue, 08 Feb 2011 16:35:22 -0800 (PST)
-Message-ID: <20110208.163522.232741523.davem@davemloft.net>
-References: <4D50FDAA.1060506@dsn.okisemi.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/3] pch_can: fix 800k comms issue
+Date: Tue, 08 Feb 2011 16:37:29 -0800 (PST)
+Message-ID: <20110208.163729.229749594.davem@davemloft.net>
+References: <1297157343-3213-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	qi.wang@intel.com, yong.y.wang@intel.com,
-	andrew.chih.howe.khor@intel.com, joel.clark@intel.com,
-	kok.howg.ewe@intel.com, tomoya-linux@dsn.okisemi.com
-To: toshiharu-linux@dsn.okisemi.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D50FDAA.1060506@dsn.okisemi.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, toshiharu-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org
+To: tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1297157343-3213-1-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
-Date: Tue, 08 Feb 2011 17:24:10 +0900
+From: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Date: Tue,  8 Feb 2011 18:29:01 +0900
 
-> Hi Devid
+> Currently, 800k comms fails since prop_seg set zero.
+> (EG20T PCH CAN register of prop_seg must be set more than 1)
+> To prevent prop_seg set to zero, change tseg2_min 1 to 2.
 > 
-> I resubmit this patch modified.
-> Please check them.
+> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
 
-Your memcpy+memcpy sequences are equivalent to memmove(), please
-use that instead.
-
-I have to say this function is insanely complicated.  There seems
-to be 16 different ways RX packets are processed.  I can't believe
-that is needs to be like this.
+Applied.
