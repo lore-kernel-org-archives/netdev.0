@@ -1,33 +1,40 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: Linux 2.6.38-rc4 (hysdn: BUG)
-Date: Wed, 9 Feb 2011 14:00:48 -0800
-Message-ID: <AANLkTikyPaFi96zrEbszFZzeB8UA-NWkjWFu2d_7X=EF@mail.gmail.com>
-References: <20110209092419.2b335697.randy.dunlap@oracle.com>
- <AANLkTimUg8Dm9mZotubcgPHz8_at=_hnbeWUo-LfSALp@mail.gmail.com>
- <20110209132529.76927f5f.randy.dunlap@oracle.com> <20110209.135751.112605587.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC PATCH net-next] net: rename group sysfs entry to
+ netdev_group
+Date: Wed, 09 Feb 2011 14:03:23 -0800 (PST)
+Message-ID: <20110209.140323.39178091.davem@davemloft.net>
+References: <1297248769-28530-1-git-send-email-dfeng@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: randy.dunlap@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, isdn@linux-pingi.de
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110209.135751.112605587.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	therbert@google.com, ebiederm@xmission.com, shemminger@vyatta.com,
+	ddvlad@rosedu.org
+To: dfeng@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39841
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753392Ab1BIWCr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 17:02:47 -0500
+In-Reply-To: <1297248769-28530-1-git-send-email-dfeng@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 9, 2011 at 1:57 PM, David Miller <davem@davemloft.net> wrote:
->
-> I propose we just kill this stuff off completely.
->
-> I note that there is code in other places of this driver that copy
-> the read-only revision string into a local string buffer then pass
-> it into the hysdn_getrev() function, it just doesn't happen in this
-> one spot.
->
-> Anyways, I think I'll fix this like so:
+From: Xiaotian feng <dfeng@redhat.com>
+Date: Wed,  9 Feb 2011 18:52:49 +0800
 
-Ack from me. Removing terminally buggy and pointless code is certainly
-better than trying to fix it up. No amount of lipstick will make that
-pig look good.
+> From: Xiaotian Feng <dfeng@redhat.com>
+> 
+> commit a512b92 adds sysfs entry for net device group, but
+> before this commit, tun also uses group sysfs, so after this
+> commit checkin, kernel warns like this:
+>     sysfs: cannot create duplicate filename '/devices/virtual/net/vnet0/group'
+> 
+> Since tun has used this for years, rename sysfs under tun might
+> break existing userspace, so rename group sysfs entry for net device
+> group is a better choice.
+> 
+> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
 
-                      Linus
+I don't think we have much choice in this matter, so I have applied
+this patch, thanks!
