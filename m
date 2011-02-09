@@ -1,53 +1,69 @@
-From: Hadmut Danisch <hadmut@danisch.de>
-Subject: Re: [Bugme-new] [Bug 28282] New: forwarding turns autoconfiguration
- off
-Date: Wed, 09 Feb 2011 08:56:58 +0100
-Message-ID: <4D5248CA.8090605@danisch.de>
-References: <20110208133408.7d447e6a.akpm@linux-foundation.org> <20110208.134421.39185637.davem@davemloft.net> <4D51BFCE.2070405@msgid.danisch.de> <20110208.143046.246534138.davem@davemloft.net> <20110208224411.GA9674@electric-eye.fr.zoreil.com> <20110208234753.48abd902.billfink@mindspring.com> <20110209074221.GA9790@electric-eye.fr.zoreil.com>
+From: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+Subject: [PATCH v2] pch_gbe: Fix the issue which a driver locks when rx offload
+ is set by ethtool
+Date: Wed, 09 Feb 2011 17:12:47 +0900
+Message-ID: <4D524C7F.1000700@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: Bill Fink <billfink@mindspring.com>,
-	David Miller <davem@davemloft.net>, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sklave3.rackland.de ([212.86.200.186]:52517 "EHLO
-	sklave3.rackland.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752563Ab1BIH5C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 02:57:02 -0500
-In-Reply-To: <20110209074221.GA9790@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	"Wang, Qi" <qi.wang@intel.com>,
+	"Wang, Yong Y" <yong.y.wang@intel.com>,
+	Andrew <andrew.chih.howe.khor@intel.com>,
+	Intel OTC <joel.clark@intel.com>,
+	"Ewe, Kok Howg" <kok.howg.ewe@intel.com>,
+	Tomoya Morinaga <tomoya-linux@dsn.okisemi.com>
+To: ML netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Am 09.02.2011 08:42, schrieb Francois Romieu:
->
-> Why should we put our brains at pain ? Is there really a problem ?
->
+Hi Devid
 
-Yep. It does not work.
+I resubmit this patch that removed compiler warning.
 
+Best regards
+Toshiharu Okada(OKI semiconductor)
+---
+This driver will be in a deadlock, When the rx offload is set by ethtool.
+The pch_gbe_reinit_locked function was modified.
 
-I have a regular internet connection at home, as usual with dynamically
-assigned IPv4 addresses. My router automatically creates an IPv6 tunnel,
-so the IPv6 addresses are dynamic as well. German Internet providers
-will offer IPv6 soon, and due to the german privacy requirements, they
-will most probably offer dynamic IPv6 assignments as well. So a Linux
-machine at home must accept autoconfiguration, if you do not want to
-change your address manually at least once a day.
+Signed-off-by: Toshiharu Okada <toshiharu-linux@dsn.okisemi.com>
+---
+ drivers/net/pch_gbe/pch_gbe_main.c |   12 ++++--------
+ 1 files changed, 4 insertions(+), 8 deletions(-)
 
-On the other hand, a regular Linux machine can have routing tasks. E.g.
-when using a VPN, when dealing with virtual machines, for testing, for
-TUN/TAP devices, and so on.
-
-Although there is no good technical reason for not having both at the
-same time, Linux does not allow this.
-
-The machine's admin should at least have the choice to turn routing and
-autoconf on and off independently.
-
-
-regards
-Hadmut
-
+diff --git a/drivers/net/pch_gbe/pch_gbe_main.c b/drivers/net/pch_gbe/pch_gbe_main.c
+index 76a31b0..8ec48ad 100644
+--- a/drivers/net/pch_gbe/pch_gbe_main.c
++++ b/drivers/net/pch_gbe/pch_gbe_main.c
+@@ -520,7 +520,9 @@ static void pch_gbe_reset_task(struct work_struct *work)
+ 	struct pch_gbe_adapter *adapter;
+ 	adapter = container_of(work, struct pch_gbe_adapter, reset_task);
+ 
++	rtnl_lock();
+ 	pch_gbe_reinit_locked(adapter);
++	rtnl_unlock();
+ }
+ 
+ /**
+@@ -529,14 +531,8 @@ static void pch_gbe_reset_task(struct work_struct *work)
+  */
+ void pch_gbe_reinit_locked(struct pch_gbe_adapter *adapter)
+ {
+-	struct net_device *netdev = adapter->netdev;
+-
+-	rtnl_lock();
+-	if (netif_running(netdev)) {
+-		pch_gbe_down(adapter);
+-		pch_gbe_up(adapter);
+-	}
+-	rtnl_unlock();
++	pch_gbe_down(adapter);
++	pch_gbe_up(adapter);
+ }
+ 
+ /**
+-- 
+1.6.2.5
