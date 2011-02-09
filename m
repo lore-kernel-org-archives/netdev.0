@@ -1,280 +1,121 @@
-From: Niranjana Vishwanathapura <nvishwan@codeaurora.org>
-Subject: [PATCH v2] msm: rmnet: msm rmnet smd virtual network driver
-Date: Wed,  9 Feb 2011 11:32:41 -0800
-Message-ID: <1297279961-22386-1-git-send-email-nvishwan@codeaurora.org>
-Cc: linux-arm-msm@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, swetland@google.com,
-	dima@android.com,
-	Niranjana Vishwanathapura <nvishwan@codeaurora.org>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: Linux 2.6.38-rc4 (hysdn: BUG)
+Date: Wed, 9 Feb 2011 11:44:00 -0800
+Message-ID: <AANLkTimUg8Dm9mZotubcgPHz8_at=_hnbeWUo-LfSALp@mail.gmail.com>
+References: <AANLkTimmb26UiBSukdNnVdxLJpCGd=QqpCw8vQoHALh-@mail.gmail.com> <20110209092419.2b335697.randy.dunlap@oracle.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary=000325576096f762a8049bdeb0b8
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110209092419.2b335697.randy.dunlap@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Virtual network interface for MSM RMNET SMD transport.
-This driver creates network devices which use underlying
-SMD ports as transport.  This driver enables sending and
-receving IP packets to baseband processor in MSM chipsets.
+--000325576096f762a8049bdeb0b8
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Cc: Brian Swetland <swetland@google.com>
-Signed-off-by: Niranjana Vishwanathapura <nvishwan@codeaurora.org>
----
- drivers/net/Kconfig         |   10 ++
- drivers/net/Makefile        |    1 +
- drivers/net/msm_rmnet_smd.c |  213 +++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 224 insertions(+), 0 deletions(-)
- create mode 100644 drivers/net/msm_rmnet_smd.c
+On Wed, Feb 9, 2011 at 9:24 AM, Randy Dunlap <randy.dunlap@oracle.com> wrot=
+e:
+>
+> on x86_64. =A0no HYSDN hardware found (correct).
+> Nearly allmodconfig.
+>
+>
+> [ =A0 65.397577] HYSDN: module Rev: 1.6.6.6 loaded
+> [ =A0 65.397584] HYSDN: network interface Rev: 1.8.6.4
+> [ =A0 65.398057] HYSDN: 0 card(s) found.
+> [ =A0 65.398121] BUG: unable to handle kernel paging request at ffffffffa=
+06c99f0
+> [ =A0 65.398269] IP: [<ffffffffa06c68ba>] hysdn_getrev+0x2e/0x50 [hysdn]
+> [ =A0 65.398379] PGD 1a14067 PUD 1a18063 PMD 6f6c1067 PTE 800000006ce8c16=
+1
+> [ =A0 65.398613] Oops: 0003 [#1] SMP DEBUG_PAGEALLOC
+> [ =A0 65.400030]
+> [ =A0 65.400030] Pid: 2497, comm: modprobe Not tainted 2.6.38-rc4 #1 0TY5=
+65/OptiPlex 745
+> [ =A0 65.400030] RIP: 0010:[<ffffffffa06c68ba>] =A0[<ffffffffa06c68ba>] h=
+ysdn_getrev+0x2e/0x50 [hysdn]
+> [ =A0 65.400030] RSP: 0018:ffff88006eec1e68 =A0EFLAGS: 00010206
+> [ =A0 65.400030] RAX: ffffffffa06c99f1 RBX: ffffffffa06c99e9 RCX: ffff880=
+07c4159a0
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 0382332..b4f39bb 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -3422,4 +3422,14 @@ config VMXNET3
- 	  To compile this driver as a module, choose M here: the
- 	  module will be called vmxnet3.
- 
-+config MSM_RMNET_SMD
-+	bool "MSM RMNET Virtual Network Device over SMD transport"
-+	depends on MSM_SMD
-+	default n
-+	help
-+	  Virtual network interface for MSM RMNET SMD transport.
-+	  This driver creates network devices which use underlying
-+	  SMD ports as transport.  This driver enables sending and
-+	  receving IP packets to baseband processor in MSM chipsets.
-+
- endif # NETDEVICES
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index b90738d..2bb4025 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -302,3 +302,4 @@ obj-$(CONFIG_CAIF) += caif/
- obj-$(CONFIG_OCTEON_MGMT_ETHERNET) += octeon/
- obj-$(CONFIG_PCH_GBE) += pch_gbe/
- obj-$(CONFIG_TILE_NET) += tile/
-+obj-$(CONFIG_MSM_RMNET_SMD) += msm_rmnet_smd.o
-diff --git a/drivers/net/msm_rmnet_smd.c b/drivers/net/msm_rmnet_smd.c
-new file mode 100644
-index 0000000..03a0d14
---- /dev/null
-+++ b/drivers/net/msm_rmnet_smd.c
-@@ -0,0 +1,213 @@
-+/* drivers/net/msm_rmnet_smd.c
-+ *
-+ * Virtual Ethernet Interface for MSM7K Networking
-+ *
-+ * Copyright (C) 2007 Google, Inc.
-+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
-+ * Author: Brian Swetland <swetland@google.com>
-+ *
-+ * This software is licensed under the terms of the GNU General Public
-+ * License version 2, as published by the Free Software Foundation, and
-+ * may be copied, distributed, and modified under those terms.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ */
-+
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/string.h>
-+#include <linux/delay.h>
-+#include <linux/errno.h>
-+#include <linux/interrupt.h>
-+#include <linux/init.h>
-+#include <linux/netdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+
-+#include <mach/msm_smd.h>
-+
-+struct rmnet_private {
-+	smd_channel_t *ch;
-+	const char *chname;
-+};
-+
-+static int count_this_packet(void *_hdr, int len)
-+{
-+	struct ethhdr *hdr = _hdr;
-+
-+	if (len >= ETH_HLEN && hdr->h_proto == htons(ETH_P_ARP))
-+		return 0;
-+
-+	return 1;
-+}
-+
-+/* Called in soft-irq context */
-+static void smd_net_data_handler(unsigned long arg)
-+{
-+	struct net_device *dev = (struct net_device *) arg;
-+	struct rmnet_private *p = netdev_priv(dev);
-+	struct sk_buff *skb;
-+	void *ptr = 0;
-+	int sz;
-+
-+	for (;;) {
-+		sz = smd_cur_packet_size(p->ch);
-+		if (sz == 0)
-+			break;
-+		if (smd_read_avail(p->ch) < sz)
-+			break;
-+
-+		if (sz > 1514) {
-+			pr_err("rmnet_recv() discarding %d len\n", sz);
-+			ptr = 0;
-+		} else {
-+			skb = dev_alloc_skb(sz + NET_IP_ALIGN);
-+			if (skb == NULL) {
-+				pr_err("rmnet_recv() cannot allocate skb\n");
-+			} else {
-+				skb->dev = dev;
-+				skb_reserve(skb, NET_IP_ALIGN);
-+				ptr = skb_put(skb, sz);
-+				if (smd_read(p->ch, ptr, sz) != sz) {
-+					pr_err("rmnet_recv() smd read fail\n");
-+					ptr = 0;
-+					dev_kfree_skb_irq(skb);
-+				} else {
-+					skb->protocol = eth_type_trans(skb,
-+								       dev);
-+					if (count_this_packet(ptr, skb->len)) {
-+						dev->stats.rx_packets++;
-+						dev->stats.rx_bytes += skb->len;
-+					}
-+					netif_receive_skb(skb);
-+				}
-+				continue;
-+			}
-+		}
-+		if (smd_read(p->ch, ptr, sz) != sz)
-+			pr_err("rmnet_recv() smd lied about avail?!");
-+	}
-+}
-+
-+static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
-+
-+static void smd_net_notify(void *_dev, unsigned event)
-+{
-+	if (event != SMD_EVENT_DATA)
-+		return;
-+
-+	smd_net_data_tasklet.data = (unsigned long) _dev;
-+
-+	tasklet_schedule(&smd_net_data_tasklet);
-+}
-+
-+static int rmnet_open(struct net_device *dev)
-+{
-+	int r;
-+	struct rmnet_private *p = netdev_priv(dev);
-+
-+	pr_info("rmnet_open()\n");
-+	if (!p->ch) {
-+		r = smd_open(p->chname, &p->ch, dev, smd_net_notify);
-+
-+		if (r < 0)
-+			return -ENODEV;
-+	}
-+
-+	netif_start_queue(dev);
-+	return 0;
-+}
-+
-+static int rmnet_stop(struct net_device *dev)
-+{
-+	pr_info("rmnet_stop()\n");
-+	netif_stop_queue(dev);
-+	return 0;
-+}
-+
-+static int rmnet_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct rmnet_private *p = netdev_priv(dev);
-+	smd_channel_t *ch = p->ch;
-+
-+	if (smd_write_atomic(ch, skb->data, skb->len) != skb->len) {
-+		pr_err("rmnet fifo full, dropping packet\n");
-+	} else {
-+		if (count_this_packet(skb->data, skb->len)) {
-+			dev->stats.tx_packets++;
-+			dev->stats.tx_bytes += skb->len;
-+		}
-+	}
-+
-+	dev_kfree_skb_irq(skb);
-+	return 0;
-+}
-+
-+static void rmnet_set_multicast_list(struct net_device *dev)
-+{
-+}
-+
-+static void rmnet_tx_timeout(struct net_device *dev)
-+{
-+	pr_info("rmnet_tx_timeout()\n");
-+}
-+
-+static struct net_device_ops rmnet_ops = {
-+	.ndo_open = rmnet_open,
-+	.ndo_stop = rmnet_stop,
-+	.ndo_start_xmit = rmnet_xmit,
-+	.ndo_set_multicast_list = rmnet_set_multicast_list,
-+	.ndo_tx_timeout = rmnet_tx_timeout,
-+};
-+
-+static void __init rmnet_setup(struct net_device *dev)
-+{
-+	dev->netdev_ops = &rmnet_ops;
-+
-+	dev->watchdog_timeo = 20;
-+
-+	ether_setup(dev);
-+
-+	random_ether_addr(dev->dev_addr);
-+}
-+
-+
-+static const char *ch_name[3] = {
-+	"SMD_DATA5",
-+	"SMD_DATA6",
-+	"SMD_DATA7",
-+};
-+
-+static int __init rmnet_init(void)
-+{
-+	int ret;
-+	struct device *d;
-+	struct net_device *dev;
-+	struct rmnet_private *p;
-+	unsigned n;
-+
-+	for (n = 0; n < 3; n++) {
-+		dev = alloc_netdev(sizeof(struct rmnet_private),
-+				   "rmnet%d", rmnet_setup);
-+
-+		if (!dev)
-+			return -ENOMEM;
-+
-+		d = &(dev->dev);
-+		p = netdev_priv(dev);
-+		p->chname = ch_name[n];
-+
-+		ret = register_netdev(dev);
-+		if (ret) {
-+			free_netdev(dev);
-+			return ret;
-+		}
-+	}
-+	return 0;
-+}
-+
-+module_init(rmnet_init);
--- 
-1.5.6.3
+The instruction sequence decodes to
 
-Sent by an employee of the Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora Forum.
+  1e:	be 24 00 00 00       	mov    $0x24,%esi
+  23:	48 89 df             	mov    %rbx,%rdi
+  26:	e8 5b 39 c0 e0       	callq  0xffffffffe0c03986
+  2b:*	c6 40 ff 00          	movb   $0x0,-0x1(%rax)     <-- trapping instru=
+ction
 
+which seems to be this
+
+                p =3D strchr(rev, '$');
+                *--p =3D 0;
+
+code. And yes, it's total crap, because while "p" and "rev" are "char
+*", the string that is passed in is actually of type "const char *",
+so that function is seriously broken. It's also seriously broken to
+not test that "p" is non-NULL - the function would just break if there
+is a colon in the string but not a '$'.
+
+And hysdn_procconf_init() passes in a constant string to the thing:
+
+    static char *hysdn_procconf_revision =3D "$Revision: 1.8.6.4 $";
+
+What happens is that it breaks when we mark the constant section as
+read-only, because you have CONFIG_DEBUG_RODATA enabled.
+
+So the fix seems to be to
+ - fix the prototype for hysdn_getrev() to not have "const".
+ - fix hysdn_procconf_init() to not pass in a constant string to it
+
+The minimal patch would appear to be something like the appended. UNTESTED!
+
+Btw, all of this code seems to go back to before the git history even
+started, so it doesn't seem to be new. I assume you haven't tried
+booting these all-module kernels before? Or is it just the
+DEBUG_RODATA thing that is new for you?
+
+                    Linus
+
+--000325576096f762a8049bdeb0b8
+Content-Type: text/x-patch; charset=US-ASCII; name="patch.diff"
+Content-Disposition: attachment; filename="patch.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_gjynaju80
+
+IGRyaXZlcnMvaXNkbi9oeXNkbi9oeXNkbl9kZWZzLmggICAgIHwgICAgMiArLQogZHJpdmVycy9p
+c2RuL2h5c2RuL2h5c2RuX2luaXQuYyAgICAgfCAgICAyICstCiBkcml2ZXJzL2lzZG4vaHlzZG4v
+aHlzZG5fcHJvY2NvbmYuYyB8ICAgIDIgKy0KIDMgZmlsZXMgY2hhbmdlZCwgMyBpbnNlcnRpb25z
+KCspLCAzIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvaXNkbi9oeXNkbi9oeXNk
+bl9kZWZzLmggYi9kcml2ZXJzL2lzZG4vaHlzZG4vaHlzZG5fZGVmcy5oCmluZGV4IDcyOWRmNDAu
+LmQyMWI0YTAgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvaXNkbi9oeXNkbi9oeXNkbl9kZWZzLmgKKysr
+IGIvZHJpdmVycy9pc2RuL2h5c2RuL2h5c2RuX2RlZnMuaApAQCAtMjI3LDcgKzIyNyw3IEBAIGV4
+dGVybiBoeXNkbl9jYXJkICpjYXJkX3Jvb3Q7CS8qIHBvaW50ZXIgdG8gZmlyc3QgY2FyZCAqLwog
+LyoqKioqKioqKioqKioqKioqKioqKioqKiovCiAvKiBpbS9leHBvcnRlZCBmdW5jdGlvbnMgKi8K
+IC8qKioqKioqKioqKioqKioqKioqKioqKioqLwotZXh0ZXJuIGNoYXIgKmh5c2RuX2dldHJldihj
+b25zdCBjaGFyICopOworZXh0ZXJuIGNoYXIgKmh5c2RuX2dldHJldihjaGFyICopOwogCiAvKiBo
+eXNkbl9wcm9jY29uZi5jICovCiBleHRlcm4gaW50IGh5c2RuX3Byb2Njb25mX2luaXQodm9pZCk7
+CS8qIGluaXQgcHJvYyBjb25maWcgZmlsZXN5cyAqLwpkaWZmIC0tZ2l0IGEvZHJpdmVycy9pc2Ru
+L2h5c2RuL2h5c2RuX2luaXQuYyBiL2RyaXZlcnMvaXNkbi9oeXNkbi9oeXNkbl9pbml0LmMKaW5k
+ZXggYjdjYzVjMi4uNGJhMjEyMyAxMDA2NDQKLS0tIGEvZHJpdmVycy9pc2RuL2h5c2RuL2h5c2Ru
+X2luaXQuYworKysgYi9kcml2ZXJzL2lzZG4vaHlzZG4vaHlzZG5faW5pdC5jCkBAIC01Myw3ICs1
+Myw3IEBAIHN0YXRpYyBoeXNkbl9jYXJkICpjYXJkX2xhc3QgPSBOVUxMOwkvKiBwb2ludGVyIHRv
+IGZpcnN0IGNhcmQgKi8KIC8qIGV4dHJhY3QgcmV2aXNpb24gbnVtYmVyIGZyb20gc3RyaW5nIGZv
+ciBsb2cgb3V0cHV0ICovCiAvKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKioq
+KioqKioqKioqKioqKioqLwogY2hhciAqCi1oeXNkbl9nZXRyZXYoY29uc3QgY2hhciAqcmV2aXNp
+b24pCitoeXNkbl9nZXRyZXYoY2hhciAqcmV2aXNpb24pCiB7CiAJY2hhciAqcmV2OwogCWNoYXIg
+KnA7CmRpZmYgLS1naXQgYS9kcml2ZXJzL2lzZG4vaHlzZG4vaHlzZG5fcHJvY2NvbmYuYyBiL2Ry
+aXZlcnMvaXNkbi9oeXNkbi9oeXNkbl9wcm9jY29uZi5jCmluZGV4IDk2YjNlMzkuLjFjMzk2ZTEg
+MTAwNjQ0Ci0tLSBhL2RyaXZlcnMvaXNkbi9oeXNkbi9oeXNkbl9wcm9jY29uZi5jCisrKyBiL2Ry
+aXZlcnMvaXNkbi9oeXNkbi9oeXNkbl9wcm9jY29uZi5jCkBAIC0yMyw3ICsyMyw3IEBACiAjaW5j
+bHVkZSAiaHlzZG5fZGVmcy5oIgogCiBzdGF0aWMgREVGSU5FX01VVEVYKGh5c2RuX2NvbmZfbXV0
+ZXgpOwotc3RhdGljIGNoYXIgKmh5c2RuX3Byb2Njb25mX3JldmlzaW9uID0gIiRSZXZpc2lvbjog
+MS44LjYuNCAkIjsKK3N0YXRpYyBjaGFyIGh5c2RuX3Byb2Njb25mX3JldmlzaW9uW10gPSAiJFJl
+dmlzaW9uOiAxLjguNi40ICQiOwogCiAjZGVmaW5lIElORk9fT1VUX0xFTiA4MAkJLyogbGVuZ3Ro
+IG9mIGluZm8gbGluZSBpbmNsdWRpbmcgbGYgKi8KIAo=
+--000325576096f762a8049bdeb0b8--
