@@ -1,64 +1,103 @@
-From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: STMMAC driver: NFS Problem on 2.6.37
-Date: Wed, 9 Feb 2011 16:26:16 -0500
-Message-ID: <5CC01953-376D-46FC-99DA-C282332FA40F@oracle.com>
-References: <4D2EC133.7010607@st.com> <2D04CF75-CA68-4BDC-99A3-FA1DD6113602@oracle.com> <4D2F4453.4040400@st.com> <4D301DD1.9070104@st.com> <593F2676-CA62-4D77-90AD-41F2FAF13EB6@oracle.com> <4D3EBA54.4020308@st.com> <EFFBD485-8B7E-44D1-A8D2-61E73BF42DF9@oracle.com> <20110209200129.GA6402@glaurung.lavos.net> <D031EAC4-68E9-4E56-8DB3-208B34C8DFD7@oracle.com> <20110209205855.GB6402@glaurung.lavos.net>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: deepaksi <deepak.sikri-qxv4g6HH51o@public.gmane.org>,
-	Armando VISCONTI <armando.visconti-qxv4g6HH51o@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Shiraz HASHIM <shiraz.hashim-qxv4g6HH51o@public.gmane.org>,
-	Viresh KUMAR <viresh.kumar-qxv4g6HH51o@public.gmane.org>,
-	Peppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
-	amitgoel <amit.goel-qxv4g6HH51o@public.gmane.org>
-To: Brian Downing <bdowning-oU/tDdhfGLReoWH0uzbU5w@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20110209205855.GB6402-QEOkiq82tQWoLK6CJbI5/KxOck334EZe@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: Linux 2.6.38-rc4 (hysdn: BUG)
+Date: Wed, 9 Feb 2011 13:25:29 -0800
+Message-ID: <20110209132529.76927f5f.randy.dunlap@oracle.com>
+References: <AANLkTimmb26UiBSukdNnVdxLJpCGd=QqpCw8vQoHALh-@mail.gmail.com>
+	<20110209092419.2b335697.randy.dunlap@oracle.com>
+	<AANLkTimUg8Dm9mZotubcgPHz8_at=_hnbeWUo-LfSALp@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Karsten Keil <isdn@linux-pingi.de>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTimUg8Dm9mZotubcgPHz8_at=_hnbeWUo-LfSALp@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, 9 Feb 2011 11:44:00 -0800 Linus Torvalds wrote:
 
-On Feb 9, 2011, at 3:58 PM, Brian Downing wrote:
+> On Wed, Feb 9, 2011 at 9:24 AM, Randy Dunlap <randy.dunlap@oracle.com=
+> wrote:
+> >
+> > on x86_64. =A0no HYSDN hardware found (correct).
+> > Nearly allmodconfig.
+> >
+> >
+> > [ =A0 65.397577] HYSDN: module Rev: 1.6.6.6 loaded
+> > [ =A0 65.397584] HYSDN: network interface Rev: 1.8.6.4
+> > [ =A0 65.398057] HYSDN: 0 card(s) found.
+> > [ =A0 65.398121] BUG: unable to handle kernel paging request at fff=
+fffffa06c99f0
+> > [ =A0 65.398269] IP: [<ffffffffa06c68ba>] hysdn_getrev+0x2e/0x50 [h=
+ysdn]
+> > [ =A0 65.398379] PGD 1a14067 PUD 1a18063 PMD 6f6c1067 PTE 800000006=
+ce8c161
+> > [ =A0 65.398613] Oops: 0003 [#1] SMP DEBUG_PAGEALLOC
+> > [ =A0 65.400030]
+> > [ =A0 65.400030] Pid: 2497, comm: modprobe Not tainted 2.6.38-rc4 #=
+1 0TY565/OptiPlex 745
+> > [ =A0 65.400030] RIP: 0010:[<ffffffffa06c68ba>] =A0[<ffffffffa06c68=
+ba>] hysdn_getrev+0x2e/0x50 [hysdn]
+> > [ =A0 65.400030] RSP: 0018:ffff88006eec1e68 =A0EFLAGS: 00010206
+> > [ =A0 65.400030] RAX: ffffffffa06c99f1 RBX: ffffffffa06c99e9 RCX: f=
+fff88007c4159a0
+>=20
+> The instruction sequence decodes to
+>=20
+>   1e:	be 24 00 00 00       	mov    $0x24,%esi
+>   23:	48 89 df             	mov    %rbx,%rdi
+>   26:	e8 5b 39 c0 e0       	callq  0xffffffffe0c03986
+>   2b:*	c6 40 ff 00          	movb   $0x0,-0x1(%rax)     <-- trapping =
+instruction
+>=20
+> which seems to be this
+>=20
+>                 p =3D strchr(rev, '$');
+>                 *--p =3D 0;
+>=20
+> code. And yes, it's total crap, because while "p" and "rev" are "char
+> *", the string that is passed in is actually of type "const char *",
+> so that function is seriously broken. It's also seriously broken to
+> not test that "p" is non-NULL - the function would just break if ther=
+e
+> is a colon in the string but not a '$'.
+>=20
+> And hysdn_procconf_init() passes in a constant string to the thing:
+>=20
+>     static char *hysdn_procconf_revision =3D "$Revision: 1.8.6.4 $";
+>=20
+> What happens is that it breaks when we mark the constant section as
+> read-only, because you have CONFIG_DEBUG_RODATA enabled.
+>=20
+> So the fix seems to be to
+>  - fix the prototype for hysdn_getrev() to not have "const".
+>  - fix hysdn_procconf_init() to not pass in a constant string to it
+>=20
+> The minimal patch would appear to be something like the appended. UNT=
+ESTED!
 
-> On Wed, Feb 09, 2011 at 03:12:22PM -0500, Chuck Lever wrote:
->> Based on your console logs, I see that the working case uses UDP to
->> contact the server's mountd, but the failing case uses TCP.  You can
->> try explicitly specifying "proto=udp" to force the use of UDP, to test
->> this theory.
-> 
-> This does indeed make it work again for me, thanks!
-> 
->> Meanwhile, the patch description explicitly states that the default
->> mount option settings have changed.  Does it make sense to change the
->> default behavior of NFSROOT mounts to use UDP again?  I don't see
->> another way to make this process more reliable across NIC
->> initialization.  If this is considered a regression, we can make a
->> patch for 2.6.38-rc and 2.6.37.
-> 
-> I only use nfsroot for development, so I don't have a terribly strong
-> opinion.  I would point out though that the default u-boot parameters
-> for nfsrooting a lot of boards will no longer work at this point, so if
-> it's not patched to work again without specifying nfs options I think
-> there should at least be a note in the documentation and possibly a
-> "maybe try proto=udp?" console message on failure.
-> 
-> I assume it's not feasable to either wait until the chosen interface's
-> link is ready before trying to mount nfsroot, or retrying TCP-based
-> connections a little bit more aggressively/at all?
+for your patch:
 
-Our goal is to use the same mount logic for both normal user space mounts and for NFSROOT (that was the purpose of the patch series this particular patch comes from).  It's exceptionally difficult to add a special case for retrying TCP connections here, as that would change the behavior of user space mounts, which often want to fail quickly, and don't need to worry about NIC initialization.
+Tested-and-acked-by: Randy Dunlap <randy.dunlap@oracle.com>
 
-Sounds like the right thing to do is restore the default UDP behavior.  I'll cook up a patch.
+> Btw, all of this code seems to go back to before the git history even
+> started, so it doesn't seem to be new. I assume you haven't tried
+> booting these all-module kernels before? Or is it just the
+> DEBUG_RODATA thing that is new for you?
 
--- 
-Chuck Lever
-chuck[dot]lever[at]oracle[dot]com
+Neither is new.  I tested and reported many-modules on 2.6.37-rc1 and
+reported these 2 bugs:
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://bugzilla.kernel.org/show_bug.cgi?id=3D22912
+https://bugzilla.kernel.org/show_bug.cgi?id=3D22882
+
+and that was with CONFIG_DEBUG_RODATA=3Dy.
+I don't know how hysdn was missed at that time.
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your cod=
+e ***
