@@ -1,39 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH -next] can: softing_cs needs slab.h
-Date: Wed, 09 Feb 2011 12:43:53 -0800 (PST)
-Message-ID: <20110209.124353.104047600.davem@davemloft.net>
-References: <20110209170225.94eae681.sfr@canb.auug.org.au>
-	<20110209084456.802370fa.randy.dunlap@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-2.6][2.6.38-rc2] panic during stress testing
+Date: Wed, 09 Feb 2011 12:46:36 -0800 (PST)
+Message-ID: <20110209.124636.189706471.davem@davemloft.net>
+References: <1297189925.4087.8.camel@jbrandeb-mobl2>
+	<20110208.135113.59683468.davem@davemloft.net>
+	<alpine.WNT.2.00.1102081611130.5424@JBRANDEB-DESK2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org,
-	linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: randy.dunlap-veTT2BtV2gBXrIkS9f7CXA@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <20110209084456.802370fa.randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jeffrey.e.pieper@intel.com
+To: jesse.brandeburg@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43959
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753357Ab1BIUqA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 15:46:00 -0500
+In-Reply-To: <alpine.WNT.2.00.1102081611130.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Randy Dunlap <randy.dunlap-veTT2BtV2gBXrIkS9f7CXA@public.gmane.org>
-Date: Wed, 9 Feb 2011 08:44:56 -0800
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Date: Wed, 9 Feb 2011 10:12:03 -0800 (Pacific Standard Time)
 
-> From: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> neigh appears to be zero? since the check just above in dst_destroy was 
+> checking it against NULL already, maybe we have a race, with some other 
+> free of neigh (assigned from dst->neighbor)
 > 
-> softing_cs.c uses kzalloc & kfree, so it needs to include linux/slab.h.
-> 
-> drivers/net/can/softing/softing_cs.c:234: error: implicit declaration of function 'kfree'
-> drivers/net/can/softing/softing_cs.c:271: error: implicit declaration of function 'kzalloc'
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> This is quickly getting beyond me, I tried to check for some changes 
+> around dst->neighbor but didn't see anything recent.
 
-Applied, thanks Randy.
+"neigh" is non-zero, however it is freed memory and thus unmapped by
+the "use after free" debugging code.
+
+That's why it OOPS's.
