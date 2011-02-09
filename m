@@ -1,44 +1,67 @@
-From: Alexey ORISHKO <alexey.orishko-0IS4wlFg1OjSUeElwK9/Pw@public.gmane.org>
-Subject: RE: [PATCH 2/2] USB CDC NCM errata updates for cdc_ncm host driver
-Date: Wed, 9 Feb 2011 10:02:30 +0100
-Message-ID: <2AC7D4AD8BA1C640B4C60C61C8E520153BB6435C3C@EXDCVYMBSTM006.EQ1STM.local>
-References: <1297107910-18263-1-git-send-email-alexey.orishko@stericsson.com>
- <1297107910-18263-2-git-send-email-alexey.orishko@stericsson.com>
- <AANLkTimRLLiYRRD1+zx0wxO2iy3G8e-kL6KcNigJF6wj@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+From: Anders Berggren <anders@halon.se>
+Subject: Re: [E1000-devel] [PATCH] fixing hw timestamping in igb
+Date: Wed, 9 Feb 2011 10:27:39 +0100
+Message-ID: <A6CC06B1-6D91-41FE-8D6A-AF12A8A9BBF3@halon.se>
+References: <9D02360A-8016-4BCB-B14A-DAFE22EF558E@halon.se> <1296775407.2698.10.camel@jtkirshe-MOBL1> <331E9D4A-6738-405A-8457-14858D1072DA@halon.se> <DDC57477F5D6F845A0DDCB99D3C4812D0D36DA5C59@orsmsx510.amr.corp.intel.com> <98900162-6C81-4B10-87DD-F43B04DC3F71@halon.se> <1297241801.17359.169.camel@Joe-Laptop>
+Mime-Version: 1.0 (Apple Message framework v1082)
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Greg Lee <glee-list-wgPCUUL1U4vQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AANLkTimRLLiYRRD1+zx0wxO2iy3G8e-kL6KcNigJF6wj-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vsp.halon.se ([212.37.18.222]:57593 "EHLO vsp.halon.se"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751512Ab1BIJ1p convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 04:27:45 -0500
+In-Reply-To: <1297241801.17359.169.camel@Joe-Laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Feb 9, 2011, at 9:56 AM, Joe Perches wrote:
 
-> Alexey (and others), are you aware of any commercially available
-> devices that implement NCM that we can test with?
+> On Wed, 2011-02-09 at 09:24 +0100, Anders Berggren wrote:
+>> Our hardware ping, using Intel 82580 NICs,
+>> have an accuracy of 8 nanoseconds.
 > 
-> Greg
+> Perhaps you mean 8 nanosecond resolution?
+> Is documentation available for this claim?
 
-Ericsson has announced F5521gw mini PCIe module:
-http://www.ericsson.com/solutions/mobile_broadband_modules/docs/F5521gw-screen.pdf
-http://www.ericsson.com/ourportfolio/products/mobile-broadband-modules
+Well, both. 8 ns is the accuracy when performing RTT (round-trip time) measurements using our hardware ping tool. We tested it by connecting a 10 m (European meters ;) CAT6 copper and measuring the jitter. The RTT is always 1240 ns or 1248 ns, hence the accuracy of 8 ns.
 
-ST-Ericsson M700 (LTE) reference design:
-http://www.stericsson.com/sales_marketing_resources/M700FL4.pdf
-http://www.stericsson.com/press/LTE%20platform_highres.jpg
+$ sudo ./probed -c 10.10.10.3 -i eth2 -p 666
+SLA-NG probed 0.1
+probed: Binding port 666
+probed: Using hardware timestamps
+probed: client: ::ffff:10.10.10.3: Connecting to port 666
+probed: client: ::ffff:10.10.10.3: Connected
+Response    1 from 0 in 1240 ns
+Response    2 from 0 in 1248 ns
+Response    3 from 0 in 1248 ns
+Response    4 from 0 in 1248 ns
+^C
+4 ok, 0 ts err, 0 lost pong, 0 timeout, 0 dup, 0.000000% loss
+max: 1248 ns, avg: 1246 ns, min: 1240 ns
 
-M570, M5730 (HSPA+)
-http://www.stericsson.com/sales_marketing_resources/M5730FL.pdf
-http://www.stericsson.com/press/M5730.jpg
+This is our tool: 
 
-Alexey
+$ ./probed 
+SLA-NG probed 0.1
+usage: probed [-saqd] [-c addr] [-t type] [-i iface] [-p port] [-f file]
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	          MODES OF OPERATION
+	-c addr   Client mode: PING 'addr', fetch UDP timestamps
+	-s        Server mode: respond to PING, send UDP timestamps
+	-d        Daemon mode: both server and client, output to pipe
+
+	          OPTIONS
+	-k        Create timestamps in kernel driver instead of hardware
+	-u        Create timestamps in userland instead of hardware
+	-i iface  Network interface used for hardware timestamping
+	-p port   UDP port, both source and destination
+	-w usecs  Client mode wait time between PINGs, in microseconds
+	-v        Output more debugging
+	-q        Be quiet, log error to syslog only
+	-f file   Path to configuration file
+
