@@ -1,31 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: manual merge of the net tree with the net-current
- tree
-Date: Tue, 08 Feb 2011 17:06:47 -0800 (PST)
-Message-ID: <20110208.170647.116377212.davem@davemloft.net>
-References: <20110209115609.79932942.sfr@canb.auug.org.au>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Network performance with small packets
+Date: Wed, 9 Feb 2011 12:09:35 +1030
+Message-ID: <201102091209.36546.rusty@rustcorp.com.au>
+References: <20110127.130240.104065182.davem@davemloft.net> <201102091107.20270.rusty@rustcorp.com.au> <20110209005345.GA12055@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
-	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com
-To: sfr@canb.auug.org.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110209115609.79932942.sfr@canb.auug.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	Shirley Ma <mashirle@us.ibm.com>, netdev@vger.kernel.org,
+	steved@us.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:44602 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755205Ab1BIBjs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Feb 2011 20:39:48 -0500
+In-Reply-To: <20110209005345.GA12055@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 9 Feb 2011 11:56:09 +1100
-
-> Today's linux-next merge of the net tree got a conflict in
-> drivers/net/e1000e/netdev.c between commit
-> 463342741222c79469303cdab8ce99c8bc2d80e8 ("e1000e: tx_timeout should not
-> increment for non-hang events") from the net-current tree and commit
-> 90da06692532541a38f9857972e1fd6b1cdfb45a ("e1000e: reduce scope of some
-> variables, remove unnecessary ones") from the net tree.
+On Wed, 9 Feb 2011 11:23:45 am Michael S. Tsirkin wrote:
+> On Wed, Feb 09, 2011 at 11:07:20AM +1030, Rusty Russell wrote:
+> > On Wed, 2 Feb 2011 03:12:22 pm Michael S. Tsirkin wrote:
+> > > On Wed, Feb 02, 2011 at 10:09:18AM +0530, Krishna Kumar2 wrote:
+> > > > > "Michael S. Tsirkin" <mst@redhat.com> 02/02/2011 03:11 AM
+> > > > >
+> > > > > On Tue, Feb 01, 2011 at 01:28:45PM -0800, Shirley Ma wrote:
+> > > > > > On Tue, 2011-02-01 at 23:21 +0200, Michael S. Tsirkin wrote:
+> > > > > > > Confused. We compare capacity to skb frags, no?
+> > > > > > > That's sg I think ...
+> > > > > >
+> > > > > > Current guest kernel use indirect buffers, num_free returns how many
+> > > > > > available descriptors not skb frags. So it's wrong here.
+> > > > > >
+> > > > > > Shirley
+> > > > >
+> > > > > I see. Good point. In other words when we complete the buffer
+> > > > > it was indirect, but when we add a new one we
+> > > > > can not allocate indirect so we consume.
+> > > > > And then we start the queue and add will fail.
+> > > > > I guess we need some kind of API to figure out
+> > > > > whether the buf we complete was indirect?
+> > 
+> > I've finally read this thread... I think we need to get more serious
+> > with our stats gathering to diagnose these kind of performance issues.
+> > 
+> > This is a start; it should tell us what is actually happening to the
+> > virtio ring(s) without significant performance impact...
+> > 
+> > Subject: virtio: CONFIG_VIRTIO_STATS
+> > 
+> > For performance problems we'd like to know exactly what the ring looks
+> > like.  This patch adds stats indexed by how-full-ring-is; we could extend
+> > it to also record them by how-used-ring-is if we need.
+> > 
+> > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 > 
-> I fixed it up (see below) and can carry the fix as necessary.
+> Not sure whether the intent is to merge this. If yes -
+> would it make sense to use tracing for this instead?
+> That's what kvm does.
 
-I'll do a merge to clear this up, thanks Stephen.
+Intent wasn't; I've not used tracepoints before, but maybe we should
+consider a longer-term monitoring solution?
+
+Patch welcome!
+
+Cheers,
+Rusty.
