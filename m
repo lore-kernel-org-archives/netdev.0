@@ -1,75 +1,44 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Network performance with small packets
-Date: Wed, 9 Feb 2011 03:55:06 +0200
-Message-ID: <20110209015506.GA13289@redhat.com>
-References: <20110127.130240.104065182.davem@davemloft.net>
- <201102091107.20270.rusty@rustcorp.com.au>
- <20110209005345.GA12055@redhat.com>
- <201102091209.36546.rusty@rustcorp.com.au>
+From: "Toshiharu Okada" <toshiharu-linux@dsn.okisemi.com>
+Subject: Re: [PATCH] pch_gbe: Fix the issue which a driver locks when rx offload is set by ethtool
+Date: Wed, 9 Feb 2011 11:04:11 +0900
+Message-ID: <3F7E1C17407A45E3834BF70553CB294C@hacdom.okisemi.com>
+References: <4D512A27.2030406@dsn.okisemi.com> <20110208.164030.242137610.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>,
-	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	Shirley Ma <mashirle@us.ibm.com>, netdev@vger.kernel.org,
-	steved@us.ibm.com
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201102091209.36546.rusty@rustcorp.com.au>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <tomoya-linux@dsn.okisemi.com>,
+	<qi.wang@intel.com>, <yong.y.wang@intel.com>,
+	<andrew.chih.howe.khor@intel.com>, <joel.clark@intel.com>,
+	<kok.howg.ewe@intel.com>, <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 09, 2011 at 12:09:35PM +1030, Rusty Russell wrote:
-> On Wed, 9 Feb 2011 11:23:45 am Michael S. Tsirkin wrote:
-> > On Wed, Feb 09, 2011 at 11:07:20AM +1030, Rusty Russell wrote:
-> > > On Wed, 2 Feb 2011 03:12:22 pm Michael S. Tsirkin wrote:
-> > > > On Wed, Feb 02, 2011 at 10:09:18AM +0530, Krishna Kumar2 wrote:
-> > > > > > "Michael S. Tsirkin" <mst@redhat.com> 02/02/2011 03:11 AM
-> > > > > >
-> > > > > > On Tue, Feb 01, 2011 at 01:28:45PM -0800, Shirley Ma wrote:
-> > > > > > > On Tue, 2011-02-01 at 23:21 +0200, Michael S. Tsirkin wrote:
-> > > > > > > > Confused. We compare capacity to skb frags, no?
-> > > > > > > > That's sg I think ...
-> > > > > > >
-> > > > > > > Current guest kernel use indirect buffers, num_free returns how many
-> > > > > > > available descriptors not skb frags. So it's wrong here.
-> > > > > > >
-> > > > > > > Shirley
-> > > > > >
-> > > > > > I see. Good point. In other words when we complete the buffer
-> > > > > > it was indirect, but when we add a new one we
-> > > > > > can not allocate indirect so we consume.
-> > > > > > And then we start the queue and add will fail.
-> > > > > > I guess we need some kind of API to figure out
-> > > > > > whether the buf we complete was indirect?
-> > > 
-> > > I've finally read this thread... I think we need to get more serious
-> > > with our stats gathering to diagnose these kind of performance issues.
-> > > 
-> > > This is a start; it should tell us what is actually happening to the
-> > > virtio ring(s) without significant performance impact...
-> > > 
-> > > Subject: virtio: CONFIG_VIRTIO_STATS
-> > > 
-> > > For performance problems we'd like to know exactly what the ring looks
-> > > like.  This patch adds stats indexed by how-full-ring-is; we could extend
-> > > it to also record them by how-used-ring-is if we need.
-> > > 
-> > > Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> > 
-> > Not sure whether the intent is to merge this. If yes -
-> > would it make sense to use tracing for this instead?
-> > That's what kvm does.
-> 
-> Intent wasn't; I've not used tracepoints before, but maybe we should
-> consider a longer-term monitoring solution?
-> 
-> Patch welcome!
-> 
-> Cheers,
-> Rusty.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 08 Feb 2011 16:40:30 -0800 (PST)
 
-Sure, I'll look into this.
+>> @@ -531,12 +533,8 @@ void pch_gbe_reinit_locked(struct pch_gbe_adapter 
+>> *adapter)
+>>  {
+>>  struct net_device *netdev = adapter->netdev;
+>>
+>> - rtnl_lock();
+>> - if (netif_running(netdev)) {
+>> - pch_gbe_down(adapter);
+>> - pch_gbe_up(adapter);
+>> - }
+>> - rtnl_unlock();
+>> + pch_gbe_down(adapter);
+>> + pch_gbe_up(adapter);
+>
+>Are you sure you can just blindly delete the netif_running() check here?
 
--- 
-MST
+Yes, sure.
+pch_gbe_reinit_locked() is called after confirming of netif_running() except 
+for pch_gbe_reset_task() function.
+This netif_running() was redundant.
+
+Best regards
+Toshiharu Okada(OKI semiconductor) 
