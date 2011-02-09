@@ -1,45 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] net: rename group sysfs entry to
- netdev_group
-Date: Wed, 09 Feb 2011 14:05:58 -0800 (PST)
-Message-ID: <20110209.140558.59676278.davem@davemloft.net>
-References: <1297248769-28530-1-git-send-email-dfeng@redhat.com>
-	<20110209.140323.39178091.davem@davemloft.net>
+From: "Vasanthy Kolluri (vkolluri)" <vkolluri@cisco.com>
+Subject: RE: [net-next-2.6 PATCH 0/5] enic: updates to version 2.1.1.6
+Date: Wed, 9 Feb 2011 15:19:08 -0800
+Message-ID: <212AA327A3557741A058E787E06188730552B40D@xmb-sjc-219.amer.cisco.com>
+References: <20110205021618.8510.34816.stgit@savbu-pc100.cisco.com><20110206.111856.39183676.davem@davemloft.net><212AA327A3557741A058E787E06188730549170E@xmb-sjc-219.amer.cisco.com> <20110207.113932.226768580.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	therbert@google.com, ebiederm@xmission.com, shemminger@vyatta.com,
-	ddvlad@rosedu.org
-To: dfeng@redhat.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53485
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755964Ab1BIWFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 17:05:22 -0500
-In-Reply-To: <20110209.140323.39178091.davem@davemloft.net>
+Received: from sj-iport-3.cisco.com ([171.71.176.72]:62473 "EHLO
+	sj-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754245Ab1BIXTM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 18:19:12 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20110207.113932.226768580.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAwOSBG
-ZWIgMjAxMSAxNDowMzoyMyAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IFhpYW90aWFuIGZlbmcgPGRm
-ZW5nQHJlZGhhdC5jb20+DQo+IERhdGU6IFdlZCwgIDkgRmViIDIwMTEgMTg6NTI6NDkgKzA4MDAN
-Cj4gDQo+PiBGcm9tOiBYaWFvdGlhbiBGZW5nIDxkZmVuZ0ByZWRoYXQuY29tPg0KPj4gDQo+PiBj
-b21taXQgYTUxMmI5MiBhZGRzIHN5c2ZzIGVudHJ5IGZvciBuZXQgZGV2aWNlIGdyb3VwLCBidXQN
-Cj4+IGJlZm9yZSB0aGlzIGNvbW1pdCwgdHVuIGFsc28gdXNlcyBncm91cCBzeXNmcywgc28gYWZ0
-ZXIgdGhpcw0KPj4gY29tbWl0IGNoZWNraW4sIGtlcm5lbCB3YXJucyBsaWtlIHRoaXM6DQo+PiAg
-ICAgc3lzZnM6IGNhbm5vdCBjcmVhdGUgZHVwbGljYXRlIGZpbGVuYW1lICcvZGV2aWNlcy92aXJ0
-dWFsL25ldC92bmV0MC9ncm91cCcNCj4+IA0KPj4gU2luY2UgdHVuIGhhcyB1c2VkIHRoaXMgZm9y
-IHllYXJzLCByZW5hbWUgc3lzZnMgdW5kZXIgdHVuIG1pZ2h0DQo+PiBicmVhayBleGlzdGluZyB1
-c2Vyc3BhY2UsIHNvIHJlbmFtZSBncm91cCBzeXNmcyBlbnRyeSBmb3IgbmV0IGRldmljZQ0KPj4g
-Z3JvdXAgaXMgYSBiZXR0ZXIgY2hvaWNlLg0KPj4gDQo+PiBTaWduZWQtb2ZmLWJ5OiBYaWFvdGlh
-biBGZW5nIDxkZmVuZ0ByZWRoYXQuY29tPg0KPiANCj4gSSBkb24ndCB0aGluayB3ZSBoYXZlIG11
-Y2ggY2hvaWNlIGluIHRoaXMgbWF0dGVyLCBzbyBJIGhhdmUgYXBwbGllZA0KPiB0aGlzIHBhdGNo
-LCB0aGFua3MhDQoNCldhaXQsIHlvdSBkaWRuJ3QgZXZlbiBidWlsZCB0ZXN0IHRoaXMgcGF0Y2g/
-IT8hPyE/IQ0KDQpuZXQvY29yZS9uZXQtc3lzZnMuYzogSW4gZnVuY3Rpb24goWZvcm1hdF9uZXRk
-ZXZfZ3JvdXCiOg0KbmV0L2NvcmUvbmV0LXN5c2ZzLmM6Mjk4OiBlcnJvcjogoWNvbnN0IHN0cnVj
-dCBuZXRfZGV2aWNloiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFuZXRkZXZfZ3JvdXCiDQpuZXQvY29y
-ZS9uZXQtc3lzZnMuYzogQXQgdG9wIGxldmVsOg0KbmV0L2NvcmUvbmV0LXN5c2ZzLmM6MzMzOiBl
-cnJvcjogoXNob3dfZ3JvdXCiIHVuZGVjbGFyZWQgaGVyZSAobm90IGluIGEgZnVuY3Rpb24pDQoN
-CiJSRkMiIGRvZXNuJ3QgcHJlY2x1ZGUgeW91IGZyb20gYXQgbGVhc3QgYnVpbGQgdGVzdGluZyBw
-YXRjaGVzIHlvdQ0KcG9zdC4NCg0KU2lnaC4uLg0KDQoNCg0K
+Hi Dave,
+
+Sorry for the trouble. Will handle such cases better next time.
+Thanks for taking care of it this time.
+
+Thanks
+Vasanthy
+
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Monday, February 07, 2011 11:40 AM
+To: Vasanthy Kolluri (vkolluri)
+Cc: netdev@vger.kernel.org
+Subject: Re: [net-next-2.6 PATCH 0/5] enic: updates to version 2.1.1.6
+
+From: "Vasanthy Kolluri (vkolluri)" <vkolluri@cisco.com>
+Date: Mon, 7 Feb 2011 11:32:08 -0800
+
+> Hi David,
+> 
+> The below patch series should apply clean on top of another enic patch
+> "enic: Decouple mac address registration and deregistration from port
+> profile set operation" submitted earlier by roprabhu@cisco.com. Just
+> want to ensure that it's not missed.
+> 
+> Please let me know if there is still a need to re-spin.
+
+How in the world was I supposed to know about this dependency?
+
+Tell me.
