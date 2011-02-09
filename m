@@ -1,59 +1,58 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: mac addresses of local interfaces do not obey setageing 0
-Date: Wed, 9 Feb 2011 19:17:52 +0100
-Message-ID: <20110209181752.GA2042@darkmag.usersys.redhat.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH 1/3] pch_can: fix 800k comms issue
+Date: Wed, 09 Feb 2011 20:21:49 +0100
+Message-ID: <4D52E94D.8030400@grandegger.com>
+References: <1297157343-3213-1-git-send-email-tomoya-linux@dsn.okisemi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	bridge@lists.linux-foundation.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30879 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755044Ab1BISS6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Feb 2011 13:18:58 -0500
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: andrew.chih.howe.khor-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, qi.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	yong.y.wang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, toshiharu-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org,
+	kok.howg.ewe-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, joel.clark-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <1297157343-3213-1-git-send-email-tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Hi Tomoya,
 
-I have a host and a VM inside this host bridged. I've set ageing_time and
-forward_delay to 0 and trying to capture all the traffic that goes through that
-bridge from my VM, but it fails to capture the traffic that has dst ether
-address the same as the hosts address (i.e. I can't capture the traffic to the
-host).
+On 02/08/2011 10:29 AM, Tomoya MORINAGA wrote:
+> Currently, 800k comms fails since prop_seg set zero.
+> (EG20T PCH CAN register of prop_seg must be set more than 1)
+> To prevent prop_seg set to zero, change tseg2_min 1 to 2.
+> 
+> Signed-off-by: Tomoya MORINAGA <tomoya-linux-ECg8zkTtlr0C6LszWs/t0g@public.gmane.org>
+> ---
+>  drivers/net/can/pch_can.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/can/pch_can.c b/drivers/net/can/pch_can.c
+> index c42e972..9b171d1 100644
+> --- a/drivers/net/can/pch_can.c
+> +++ b/drivers/net/can/pch_can.c
+> @@ -187,7 +187,7 @@ static struct can_bittiming_const pch_can_bittiming_const = {
+>  	.name = KBUILD_MODNAME,
+>  	.tseg1_min = 1,
+>  	.tseg1_max = 16,
+> -	.tseg2_min = 1,
+> +	.tseg2_min = 2,
+>  	.tseg2_max = 8,
+>  	.sjw_max = 4,
+>  	.brp_min = 1,
 
->From the code, I see that br->ageing_time doesn't really work with local mac
-addresses - has_expired() function never says that a local interface mac address
-is expired, because it verifies if fdb->is_static is set and returns right away.
+I just realized that this fix is wrong. You wanted to set tseg1_min to 2
+(and not tseg2_min). Could you please send a patch?
 
-Is this the desired behaviour? If so, is there a way to capture packets with
-destination to a local interface from another interface?
+Thanks,
 
-I've also done a small patch and it seems to fix the situation, but I am not
-sure if it's the right way to do it.
-
-
-Regards,
-Veaceslav
-
----
- net/bridge/br_fdb.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 88485cc..3d380c2 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -61,8 +61,8 @@ static inline unsigned long hold_time(const struct net_bridge *br)
- static inline int has_expired(const struct net_bridge *br,
- 				  const struct net_bridge_fdb_entry *fdb)
- {
--	return !fdb->is_static &&
--		time_before_eq(fdb->ageing_timer + hold_time(br), jiffies);
-+	return (br->ageing_time == 0) || (!fdb->is_static &&
-+		time_before_eq(fdb->ageing_timer + hold_time(br), jiffies));
- }
- 
- static inline int br_mac_hash(const unsigned char *mac)
+Wolfgang.
