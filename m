@@ -1,54 +1,95 @@
 From: greearb@candelatech.com
-Subject: [PATCH 1/2] igb: Allow extra 4 bytes on RX for vlan tags.
-Date: Thu, 10 Feb 2011 13:59:08 -0800
-Message-ID: <1297375149-18458-1-git-send-email-greearb@candelatech.com>
+Subject: [PATCH 2/2] network: Allow af_packet to transmit +4 bytes for VLAN packets.
+Date: Thu, 10 Feb 2011 13:59:09 -0800
+Message-ID: <1297375149-18458-2-git-send-email-greearb@candelatech.com>
+References: <1297375149-18458-1-git-send-email-greearb@candelatech.com>
 Cc: Ben Greear <greearb@candelatech.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53503 "EHLO
+Received: from mail.candelatech.com ([208.74.158.172]:53506 "EHLO
 	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756870Ab1BJV7O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 16:59:14 -0500
+	with ESMTP id S1757161Ab1BJV7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 16:59:32 -0500
+In-Reply-To: <1297375149-18458-1-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ben Greear <greearb@candelatech.com>
 
-This allows the NIC to receive 1518 byte (not counting
-FCS) packets when MTU is 1500, thus allowing 1500 MTU
-VLAN frames to be received.  Please note that no VLANs
-were actually configured on the NIC...it was just acting
-as pass-through device.
+This allows user-space to send a '1500' MTU VLAN packet on a
+1500 MTU ethernet frame.  The extra 4 bytes of a VLAN header is
+not usually charged against the MTU when other parts of the
+network stack is transmitting vlans...
 
 Signed-off-by: Ben Greear <greearb@candelatech.com>
 ---
-:100644 100644 58c665b... 30c9cc6... M	drivers/net/igb/igb_main.c
- drivers/net/igb/igb_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+:100644 100644 91cb1d7... ef7f378... M	net/packet/af_packet.c
+ net/packet/af_packet.c |   31 +++++++++++++++++++++++++++++--
+ 1 files changed, 29 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 58c665b..30c9cc6 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2281,7 +2281,8 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 	adapter->rx_itr_setting = IGB_DEFAULT_ITR;
- 	adapter->tx_itr_setting = IGB_DEFAULT_ITR;
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 91cb1d7..ef7f378 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -466,7 +466,7 @@ retry:
+ 	 */
  
--	adapter->max_frame_size = netdev->mtu + ETH_HLEN + ETH_FCS_LEN;
-+	adapter->max_frame_size = (netdev->mtu + ETH_HLEN + ETH_FCS_LEN
-+				   + VLAN_HLEN);
- 	adapter->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
+ 	err = -EMSGSIZE;
+-	if (len > dev->mtu + dev->hard_header_len)
++	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN)
+ 		goto out_unlock;
  
- 	spin_lock_init(&adapter->stats64_lock);
-@@ -4303,7 +4304,7 @@ static int igb_change_mtu(struct net_device *netdev, int new_mtu)
- {
- 	struct igb_adapter *adapter = netdev_priv(netdev);
- 	struct pci_dev *pdev = adapter->pdev;
--	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN;
-+	int max_frame = new_mtu + ETH_HLEN + ETH_FCS_LEN + VLAN_HLEN;
- 	u32 rx_buffer_len, i;
+ 	if (!skb) {
+@@ -497,6 +497,19 @@ retry:
+ 		goto retry;
+ 	}
  
- 	if ((new_mtu < 68) || (max_frame > MAX_JUMBO_FRAME_SIZE)) {
++	if (len > (dev->mtu + dev->hard_header_len)) {
++		/* Earlier code assumed this would be a VLAN pkt,
++		 * double-check this now that we have the actual
++		 * packet in hand.
++		 */
++		struct ethhdr *ehdr;
++		skb_reset_mac_header(skb);
++		ehdr = eth_hdr(skb);
++		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
++			err = -EMSGSIZE;
++			goto out_unlock;
++		}
++	}
+ 
+ 	skb->protocol = proto;
+ 	skb->dev = dev;
+@@ -1200,7 +1213,7 @@ static int packet_snd(struct socket *sock,
+ 	}
+ 
+ 	err = -EMSGSIZE;
+-	if (!gso_type && (len > dev->mtu+reserve))
++	if (!gso_type && (len > dev->mtu + reserve + ETH_HLEN))
+ 		goto out_unlock;
+ 
+ 	err = -ENOBUFS;
+@@ -1225,6 +1238,20 @@ static int packet_snd(struct socket *sock,
+ 	if (err < 0)
+ 		goto out_free;
+ 
++	if (!gso_type && (len > dev->mtu + reserve)) {
++		/* Earlier code assumed this would be a VLAN pkt,
++		 * double-check this now that we have the actual
++		 * packet in hand.
++		 */
++		struct ethhdr *ehdr;
++		skb_reset_mac_header(skb);
++		ehdr = eth_hdr(skb);
++		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
++			err = -EMSGSIZE;
++			goto out_free;
++		}
++	}
++
+ 	skb->protocol = proto;
+ 	skb->dev = dev;
+ 	skb->priority = sk->sk_priority;
 -- 
 1.7.2.3
 
