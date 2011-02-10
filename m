@@ -1,51 +1,32 @@
-From: Ian Molton <ian.molton@collabora.co.uk>
-Subject: Re: [PATCH] Add JMEMCMP to Berkeley Packet Filters
-Date: Thu, 10 Feb 2011 13:35:58 +0000
-Message-ID: <4D53E9BE.4030500@collabora.co.uk>
-References: <1297341067-12264-1-git-send-email-ian.molton@collabora.co.uk>	 <1297341067-12264-2-git-send-email-ian.molton@collabora.co.uk> <1297344292.2493.3.camel@edumazet-laptop>
+From: "George" <george@yahoo.com>
+Subject: Mutual Aid  (Stash of Fortune)
+Date: Thu, 10 Feb 2011 12:55:44 -0000 (GMT)
+Message-ID: <53886.220.101.190.178.1297342544.squirrel@220.101.190.178>
+Reply-To: mrglennbradley@w.cn
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rdunlap@xenotime.net, isdn@linux-pingi.de,
-	paulus@samba.org, arnd@arndb.de, davem@davemloft.net,
-	herbert@gondor.apana.org.au, ebiederm@xmission.com,
-	alban.crequy@collabora.co.uk
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.128.226]:35632 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751110Ab1BJNgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 08:36:01 -0500
-In-Reply-To: <1297344292.2493.3.camel@edumazet-laptop>
+Received: from mail.avellaneda-ba.gov.ar ([200.71.230.2]:49716 "EHLO
+	ns2.avellaneda-ba.gov.ar" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756095Ab1BJNnp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 08:43:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10/02/11 13:24, Eric Dumazet wrote:
+Mutual Aid  (Stash of Fortune)
 
-Hi!
+Hi
+I would hold back certain information for security reasons for now until
+you have found time to visit the BBC website stated below to enable you
+have an insight into what I intend sharing with you.
 
-Thanks for reviewing! :)
+http://news.bbc.co.uk/2/hi/middle_east/2988455.stm
 
->> * Can sk_run_filter() be called in a context where kmalloc(GFP_KERNEL) is
->>    not allowed (I think not)
->
-> You cannot use GFP_KERNEL in sk_run_filter() : We run in {soft}irq mode,
-> in input path.
+Get back to me having visited the above website with this email:
+mrglenn_bradley@w.cn
 
-Ok, that can be sorted.
+Best Regards
+A former member of the  3rd Infantry Division
 
->> * Data section allocated with second call to sock_kmalloc().
->> * Should the patch be broken into two - one to add the data uploading,
->>    one to add the JMEMCMP insn. ?
->
-> May I ask why it is needed at all ?
-
-So we can match strings in packet filters... I don't think I understand 
-the question...
-
-> Then, why only one JMEMCMP would be allowed in a filter ?
-
-I dont think I'm restricting the filter to only have one JMEMCMP? Am I 
-misunderstanding you?
-
--Ian
