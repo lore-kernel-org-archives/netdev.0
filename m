@@ -1,98 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio_net: Add schedule check to napi_enable call
-Date: Thu, 10 Feb 2011 19:57:26 +0200
-Message-ID: <20110210175725.GA9674@redhat.com>
-References: <201102101232.50526.rusty@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.hengli.com.au>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	virtualization@lists.linux-foundation.org,
-	Ken Stailey <kstailey@yahoo.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24708 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751450Ab1BJR6D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Feb 2011 12:58:03 -0500
-Content-Disposition: inline
-In-Reply-To: <201102101232.50526.rusty@rustcorp.com.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+Subject: [PATCH] bluetooth: l2cap: fix 1 byte infoleak to userspace
+Date: Thu, 10 Feb 2011 20:59:42 +0300
+Message-ID: <1297360783-21452-1-git-send-email-segoon@openwall.com>
+Cc: security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	"Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Feb 10, 2011 at 12:32:50PM +1030, Rusty Russell wrote:
-> From: "Bruce Rogers" <brogers@novell.com>
-> 
-> Under harsh testing conditions, including low memory, the guest would
-> stop receiving packets. With this patch applied we no longer see any
-> problems in the driver while performing these tests for extended periods
-> of time.
-> 
-> Make sure napi is scheduled subsequent to each napi_enable.
-> 
-> Signed-off-by: Bruce Rogers <brogers@novell.com>
-> Signed-off-by: Olaf Kirch <okir@suse.de>
-> Cc: stable@kernel.org
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Structure l2cap_options has one padding byte between max_tx and
+txwin_size fields.  This byte in "opts" is copied to userspace
+uninitialized.
 
-Rusty, so this is 2.6.38 material - you'll send this to Linus? Or DaveM?
+Signed-off-by: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
+---
+ Compile tested only.
 
-> ---
->  drivers/net/virtio_net.c |   27 ++++++++++++++++-----------
->  1 file changed, 16 insertions(+), 11 deletions(-)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -446,6 +446,20 @@ static void skb_recv_done(struct virtque
->  	}
->  }
->  
-> +static void virtnet_napi_enable(struct virtnet_info *vi)
-> +{
-> +	napi_enable(&vi->napi);
-> +
-> +	/* If all buffers were filled by other side before we napi_enabled, we
-> +	 * won't get another interrupt, so process any outstanding packets
-> +	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
-> +	 * We synchronize against interrupts via NAPI_STATE_SCHED */
-> +	if (napi_schedule_prep(&vi->napi)) {
-> +		virtqueue_disable_cb(vi->rvq);
-> +		__napi_schedule(&vi->napi);
-> +	}
-> +}
-> +
->  static void refill_work(struct work_struct *work)
->  {
->  	struct virtnet_info *vi;
-> @@ -454,7 +468,7 @@ static void refill_work(struct work_stru
->  	vi = container_of(work, struct virtnet_info, refill.work);
->  	napi_disable(&vi->napi);
->  	still_empty = !try_fill_recv(vi, GFP_KERNEL);
-> -	napi_enable(&vi->napi);
-> +	virtnet_napi_enable(vi);
->  
->  	/* In theory, this can happen: if we don't get any buffers in
->  	 * we will *never* try to fill again. */
-> @@ -638,16 +652,7 @@ static int virtnet_open(struct net_devic
->  {
->  	struct virtnet_info *vi = netdev_priv(dev);
->  
-> -	napi_enable(&vi->napi);
-> -
-> -	/* If all buffers were filled by other side before we napi_enabled, we
-> -	 * won't get another interrupt, so process any outstanding packets
-> -	 * now.  virtnet_poll wants re-enable the queue, so we disable here.
-> -	 * We synchronize against interrupts via NAPI_STATE_SCHED */
-> -	if (napi_schedule_prep(&vi->napi)) {
-> -		virtqueue_disable_cb(vi->rvq);
-> -		__napi_schedule(&vi->napi);
-> -	}
-> +	virtnet_napi_enable(vi);
->  	return 0;
->  }
->  
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ net/bluetooth/l2cap_sock.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+index adf4169..21f5385 100644
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@ -392,6 +392,7 @@ static int l2cap_sock_getsockopt_old(struct socket *sock, int optname, char __us
+ 
+ 	switch (optname) {
+ 	case L2CAP_OPTIONS:
++		memset(&opts, 0, sizeof(opts));
+ 		opts.imtu     = l2cap_pi(sk)->imtu;
+ 		opts.omtu     = l2cap_pi(sk)->omtu;
+ 		opts.flush_to = l2cap_pi(sk)->flush_to;
+-- 
+1.7.0.4
