@@ -1,84 +1,188 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [Bugme-new] [Bug 28532] New: Link state change detection
- problem on Moschip MCS7832 [mcs7830]
-Date: Thu, 10 Feb 2011 13:58:05 -0600
-Message-ID: <1297367886.17161.24.camel@dcbw.foobar.com>
-References: <bug-28532-10286@https.bugzilla.kernel.org/>
-	 <20110207151401.d1db088a.akpm@linux-foundation.org>
-	 <20110208205247.GA4617@rhlx01.hs-esslingen.de>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: undo_retrans counter fixes
+Date: Thu, 10 Feb 2011 11:59:32 -0800
+Message-ID: <AANLkTikN9C6XV3JHUoypmVQ0H0cChmmvUU3zSWa8Fva8@mail.gmail.com>
+References: <1297119424-19956-1-git-send-email-ycheng@google.com>
+ <20110207.150522.28821840.davem@davemloft.net> <alpine.DEB.2.00.1102080112450.29228@melkinpaasi.cs.helsinki.fi>
+ <AANLkTikh4YXzJGgTWsTjpz6BczrfSGYD_qSg3WWmKrs9@mail.gmail.com> <alpine.DEB.2.00.1102081110050.26191@melkinpaasi.cs.helsinki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, myxal.mxl@gmail.com
-To: Andreas Mohr <andi@lisas.de>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, Netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Ilpo_J=E4rvinen?= <ilpo.jarvinen@helsinki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:41248 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750917Ab1BJT5z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Feb 2011 14:57:55 -0500
-In-Reply-To: <20110208205247.GA4617@rhlx01.hs-esslingen.de>
+Received: from smtp-out.google.com ([74.125.121.67]:53799 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751099Ab1BJT75 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 14:59:57 -0500
+Received: from kpbe20.cbf.corp.google.com (kpbe20.cbf.corp.google.com [172.25.105.84])
+	by smtp-out.google.com with ESMTP id p1AJxsft017151
+	for <netdev@vger.kernel.org>; Thu, 10 Feb 2011 11:59:54 -0800
+Received: from vws13 (vws13.prod.google.com [10.241.21.141])
+	by kpbe20.cbf.corp.google.com with ESMTP id p1AJvTau031487
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 10 Feb 2011 11:59:53 -0800
+Received: by vws13 with SMTP id 13so1131807vws.39
+        for <netdev@vger.kernel.org>; Thu, 10 Feb 2011 11:59:53 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1102081110050.26191@melkinpaasi.cs.helsinki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-02-08 at 21:52 +0100, Andreas Mohr wrote:
-> Hi,
-> 
-> > > I have a network adapter which uses the aforementioned driver and while
-> > > checking for the link state via ethtool reports the correct state, many
-> > > networking userspace utilities seem to have no clue about it (NM 0.8.1 starts
-> > > dhclient BEFORE any cable is plugged) - and more importantly, don't notice when
-> > > the cable is (dis)connected. Since there's not even a kernel message when
-> > > (dis)connecting the cable, I suspect the driver does not implement Link state
-> > > change detection at all. Is this accurate?
-> 
-> Ah, perhaps that is why as long as network-mangler is running, my
+On Tue, Feb 8, 2011 at 1:54 AM, Ilpo J=E4rvinen <ilpo.jarvinen@helsinki=
+=2Efi> wrote:
+>
+> On Mon, 7 Feb 2011, Yuchung Cheng wrote:
+>
+> > On Mon, Feb 7, 2011 at 3:36 PM, Ilpo J=E4rvinen <ilpo.jarvinen@hels=
+inki.fi> wrote:
+> > >
+> > > On Mon, 7 Feb 2011, David Miller wrote:
+> > >
+> > > > From: Yuchung Cheng <ycheng@google.com>
+> > > > Date: Mon, =A07 Feb 2011 14:57:04 -0800
+> > > >
+> > > > > Fix a bug that undo_retrans is incorrectly decremented when u=
+ndo_marker is
+> > > > > not set or undo_retrans is already 0. This happens when sende=
+r receives
+> > > > > more DSACK ACKs than packets retransmitted during the current
+> > > > > undo phase. This may also happen when sender receives DSACK a=
+fter
+> > > > > the undo operation is completed or cancelled.
+> > > > >
+> > > > > Fix another bug that undo_retrans is incorrectly incremented =
+when
+> > > > > sender retransmits an skb and tcp_skb_pcount(skb) > 1 (TSO). =
+This case
+> > > > > is rare but not impossible.
+> > > > >
+> > > > > Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> > >
+> > > Neither is harmful to "fix" but I think they're partially also ch=
+ecking
+> > > for things which shouldn't cause problems... E.g., undo_retrans i=
+s only
+> > > used after checking undo_marker's validity first so I don't think
+> > > undo_marker check is exactly necessary there (but on the other ha=
+nd it
+> > > does no harm)...
+> >
+> > logically we should check the validity of undo_marker/undo_retrans
+> > before we use them? The current code has no problem if
+> > tcp_fastretrans_alert() always call tcp_try_undo_* =A0functions whe=
+never
+> > undo_marker !=3D 0 and undo_retrans =3D=3D 0. I don't think that's =
+always
+> > true.
+>
+> We certainly should be letting the undo_retrans to underflow that in =
+this
+> your patch has merit (the added tp->undo_retrans check).
+>
+> However, the only users are:
+>
+> static inline int tcp_may_undo(struct tcp_sock *tp)
+> {
+> =A0 =A0 =A0 =A0 return tp->undo_marker && (!tp->undo_retrans ...)
+>
+> and:
+>
+> static void tcp_try_undo_dsack(struct sock *sk)
+> {
+> =A0 =A0 =A0 =A0struct tcp_sock *tp =3D tcp_sk(sk);
+>
+> =A0 =A0 =A0 =A0if (tp->undo_marker && !tp->undo_retrans) {
+>
+>
+> ...which check that undo_retrans is valid.
+But that does not make this bug go away.
+The sender does not always call these functions in tcp_fastretrans_aler=
+t().
 
-If the driver does not support link detection, NM can only assume that
-the device always has a carrier.  NM actually just uses the 'carrier'
-flag from netlink, and since drivers that don't support link detection
-never set the carrier flag to 0, carrier is always 1 as seen by NM.  If
-the device says it has a carrier, that means stuff that listens for that
-(ie, NM, ifplugd, whatever) will try to configure IP on the device.
+A common example is that the sender receives a DUPACK with DSACK option
+during CA_Recovery and undo_retrans goes to 0. Since it's not a partial=
+ ACK,
+no undo function is called (another bug?) while processing the DUPACK. =
+If the
+sender receives another DSACK, undo_retrans underflows and the undo
+chance is missed forever.
 
-Drivers should really, really support link detection.
+I think that's another potential bug in handling this situation but I
+want to fix in
+this boundary checks first.
 
-Dan
+HTH
 
-> .resume_reset() handler improvements (managing to keep an active interface
-> even directly after resume) actually do _not_ work (since it seems it simply
-> down:s the iface and that's it).
-> I know that there is link info functionality in other drivers yet not
-> as much in mcs7830.
-> 
-> Note that the mcs7830 driver still has a rather stubby appearance
-> (many more "advanced" features are either weak or not available at all).
-> 
-> I've got a patch series sitting here to improve several parts
-> (and waiting to cook a bit more), but I hadn't even identified the link issue.
-> It appears that this would need fixing, presto.
-> 
-> > > LSCD works in Windows, where it's apparently implemented through periodic
-> > > polling (judging by virtualbox's blinking USB icon).
-> > > How is this situation normally handled? Is it kernel's job to do the polling?
-> > > Or are userspace utilities expected to do this?
-> 
-> I'm afraid a painful solution would be to activate the .status callback
-> for periodic USB status descriptor polling. I've got a
-> half-implementation of that, however it's very painful in terms of
-> obscene amounts of CPU wakeups.
-> There _has_ to be a better solution...
-> 
-> Thank you for your (the OP's) report (and for my extra notification!),
-> this seems very helpful!
-> (I am determined to post related useful patches soon,
-> especially since this card is in active use here)
-> 
-> Andreas Mohr
+>
+> > > The tcp_retransmit_skb problem I don't understand at all as we sh=
+ould be
+> > > fragmenting or resetting pcount to 1 (the latter is true only if =
+all
+> > > bugfixes were included to the kernel where >1 pcount for a rexmit=
+ted skb
+> > > was seen). If pcount is indeed >1 we might have other issues too =
+somewhere
+> >
+> > We found that sometimes pcount > 1 on real servers. This change kee=
+ps
+> > the retrans_out/undo_retrans counters consistent.
+>
+> There's still some bug then I guess... It might be related to the iss=
+ues
+> seen by those other guys who were complaining about small segments wi=
+th
+> >1 pcount breaking their hardware (few months ago). For the record, t=
+he
+> last fix is from 2.6.31 or so.
+>
+> Like I said, I don't oppose this change anyway:
+>
+> > > but I fail to remember immediately what they would be. That chang=
+e is not
+> > > bad though since using +/-1 is something we should be getting rid=
+ of
+> > > anyway and on long term it would be nice to make tcp_retransmit_s=
+kb to be
+> > > able to take advantage of TSO anyway whenever possible.
+>
+> ...it certainly won't hurt to be on the safe side here if/when someth=
+ing
+> else is wrong.
+>
+> > > I also noticed that the undo_retrans code in sacktag side is stil=
+l doing
+> > > undo_retrans-- ops which could certainly cause real miscounts, th=
+ough
+> > > it is extremely unlikely due to the fact that DSACK should be sen=
+t
+> > > immediately for a single segment at a time (so the sender would n=
+eed to
+> > > split+recollapse in between).
+> >
+> > I have the same doubt but our servers never hit this condition (pco=
+unt
+> > 1). So I keep this part intact.
+>
+> I could think of some scenario you cannot even reproduce in a large s=
+cale
+> tests, unlikely indeed :-). ...Or too stable connectivity on the send=
+er
+> side. But I've changed my mind... the -1 operation is the correct one=
+ as
+> we could otherwise overestimate due to pcount=3D1->2 split after the
+> retransmission that triggered the DSACK (now that I remember this, I =
+think
+> I've once thought this line through already earlier... I'll try to wr=
+ite a
+> comment one day there).
+>
+> For -rc/next purposes I don't see any big enough reasons to withhold:
+>
+> Acked-by: Ilpo J=E4rvinen <ilpo.jarvinen@helsinki.fi>
+>
+> ...but if you want this to stables too I don't think it's minimal w.r=
+=2Et.
+> undo_marker check.
+>
 > --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
+> =A0i.
