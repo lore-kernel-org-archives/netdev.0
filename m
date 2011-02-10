@@ -1,71 +1,46 @@
-From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: Re: jme driver loses connection after resuming from suspend
-Date: Fri, 11 Feb 2011 07:26:58 +0800
-Message-ID: <20110210232658.M45636@cooldavid.org>
-References: <AANLkTikrKEY7Zt5HvxQcJLk9eGne0BGD82NFEiWO4smt@mail.gmail.com> <20110128163315.1e4e8346.akpm@linux-foundation.org> <AANLkTikV9Ncy3Jki1G20SrzA_HMiAk_hF3qY8U+vpZ1D@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: GRO/GSO hiding PMTU?
+Date: Fri, 11 Feb 2011 10:50:22 +1100
+Message-ID: <20110210235022.GA25293@gondor.apana.org.au>
+References: <20110210.145555.39165146.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Leonardo  L. P. da Mata" <barroca@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikV9Ncy3Jki1G20SrzA_HMiAk_hF3qY8U+vpZ1D@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:37853 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757449Ab1BJXuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 18:50:25 -0500
+Content-Disposition: inline
+In-Reply-To: <20110210.145555.39165146.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Leonardo  L. P. da Mata:
-The value of register which holds receive Unicast MAC Address somehow
-get messed-up after resume!
-
-Would you see if this source fix the issue:
-http://bbs.cooldavid.org/git/?p=jme.git;a=snapshot;h=refs/heads/resumefix;sf=tbz2
-
-The shortlog is here:
-http://bbs.cooldavid.org/git/?p=jme.git;a=shortlog;h=refs/heads/resumefix
-
-
-On Thu, 10 Feb 2011 19:07:31 -0200, Leonardo  L. P. da Mata wrote
-> Updated information on the bug, Guo-Fu Tseng says that might not be a
-> bug on the driver, but i've tested other network cards and they don't
-> share the same issue.
+On Thu, Feb 10, 2011 at 02:55:55PM -0800, David Miller wrote:
+>
+> I suspect that the packet arrives on eth1, accumulates into GRO, and
+> thus marked as GSO as well, then GSO/TSO on output to eth0 is
+> re-segmenting things transparently, and we're not getting the ICMP
+> frag-needed message and the packet drop because of the skb_is_gso()
+> check in ip_forward().
 > 
-> Also, on interesting update that people may consider is that after
-> running tcpdump on the device, the network starts working again.
-> Information are updated in the bug.
+> 	if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
+> 		     (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
+> 		IP_INC_STATS(dev_net(rt->dst.dev), IPSTATS_MIB_FRAGFAILS);
+> 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+> 			  htonl(dst_mtu(&rt->dst)));
+> 		goto drop;
+> 	}
 > 
-> On Fri, Jan 28, 2011 at 10:33 PM, Andrew Morton
-> <akpm@linux-foundation.org> wrote:
-> > (cc's added)
-> >
-> > On Fri, 28 Jan 2011 16:03:11 -0200
-> > "Leonardo &#160;L. P. da Mata" <barroca@gmail.com> wrote:
-> >
-> >> Hello, i'm testing the kernel 2.6.37 on my hardware, Once connect on
-> >> wired network, i call the suspend with:
-> >> echo "mem" >/sys/power/state
-> >>
-> >> The system goes on suspend. After resuming from suspend, the network card
-> >> cannot be used anymore.
-> >>
-> >>
-> >> The bug is reported here:
-> >> &#160;https://bugzilla.kernel.org/show_bug.cgi?id=27692
-> >>
-> >> Can you please point me to similar problems on other network cards so
-> >> i can get possible solutions on this.
-> >
-> >
-> 
-> -- 
-> Leonardo Luiz Padovani da Mata
-> barroca@gmail.com
-> 
-> "May the force be with you, always"
-> "Nerd Pride... eu tenho. Voce tem?"
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> So if that's what is happening, that's cute, but I think we need to
+> fix this :-)
 
+Yes this is a known problem and we do need to fix this, even if
+it doesn't appear to be the cause of your immediate issue :)
 
-Guo-Fu Tseng
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
