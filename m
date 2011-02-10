@@ -1,10 +1,9 @@
 From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH 2/3] atl1c: Do not call device_init_wakeup() in atl1c_probe()
-Date: Thu, 10 Feb 2011 17:54:04 +0100
-Message-ID: <201102101754.04974.rjw@sisk.pl>
-References: <201102101751.56508.rjw@sisk.pl>
+Subject: [PATCH 0/3] Net driver fixes related to power management
+Date: Thu, 10 Feb 2011 17:51:56 +0100
+Message-ID: <201102101751.56508.rjw@sisk.pl>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
+Content-Type: text/plain;
   charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
@@ -17,36 +16,24 @@ Cc: David Miller <davem@davemloft.net>,
 	Jie Yang <jie.yang@atheros.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:33485 "EHLO ogre.sisk.pl"
+Received: from ogre.sisk.pl ([217.79.144.158]:33487 "EHLO ogre.sisk.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750820Ab1BJQ4w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Feb 2011 11:56:52 -0500
-In-Reply-To: <201102101751.56508.rjw@sisk.pl>
+	id S1756602Ab1BJQ4y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Feb 2011 11:56:54 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rafael J. Wysocki <rjw@sisk.pl>
+Hi,
 
-The atl1c driver shouldn't call device_init_wakeup() in its probe
-routine with the second argument equal to 1, because for PCI devices
-the wakeup capability setting is initialized as appropriate by the
-PCI subsystem.  Remove the potentially harmful call.
+The following series of patches fix minor issues related to power management
+in the tg3, alt1 and atl1c drivers.
 
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
----
- drivers/net/atl1c/atl1c_main.c |    1 -
- 1 file changed, 1 deletion(-)
+[1/3] - tg3: Don't use device_init_wakeup() (PCI does that)
+[2/3] - atl1c: Don't use device_init_wakeup() (ditto)
+[3/3] - atl1: Don't use legacy PCI power management.
 
-Index: linux-2.6/drivers/net/atl1c/atl1c_main.c
-===================================================================
---- linux-2.6.orig/drivers/net/atl1c/atl1c_main.c
-+++ linux-2.6/drivers/net/atl1c/atl1c_main.c
-@@ -2718,7 +2718,6 @@ static int __devinit atl1c_probe(struct
- 		goto err_reset;
- 	}
- 
--	device_init_wakeup(&pdev->dev, 1);
- 	/* reset the controller to
- 	 * put the device in a known good starting state */
- 	err = atl1c_phy_init(&adapter->hw);
+Please consider for applying.
+
+Thanks,
+Rafael
 
