@@ -1,62 +1,38 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH 4/4] m68k/atari: ARAnyM - Add support for network access
-Date: Thu, 10 Feb 2011 09:37:41 +0100
-Message-ID: <AANLkTi=j7X0LShJs6EVt0c_uE3vUvZ9EdGLwv7i43vx+@mail.gmail.com>
-References: <1296989469-7844-1-git-send-email-geert@linux-m68k.org>
-	<1296989469-7844-5-git-send-email-geert@linux-m68k.org>
-	<20110206.111705.183051866.davem@davemloft.net>
+From: Vlad Dogaru <ddvlad@rosedu.org>
+Subject: Re: [RFC PATCH net-next] net: rename group sysfs entry to
+ netdev_group
+Date: Thu, 10 Feb 2011 11:11:35 +0200
+Message-ID: <20110210091135.GA24889@cormyr>
+References: <1297248769-28530-1-git-send-email-dfeng@redhat.com>
+ <20110209.140323.39178091.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-m68k@vger.kernel.org, linux-kernel@vger.kernel.org,
-	aranym@lists.bobek.cz, schmitz@opal.biophys.uni-duesseldorf.de,
-	pstehlik@sophics.cz, milan.jurik@xylab.cz, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: dfeng@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	therbert@google.com, ebiederm@xmission.com, shemminger@vyatta.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-m68k-owner@vger.kernel.org>
-In-Reply-To: <20110206.111705.183051866.davem@davemloft.net>
-Sender: linux-m68k-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [141.85.37.41] ([141.85.37.41]:32885 "EHLO swarm.cs.pub.ro"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1753306Ab1BJJME (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Feb 2011 04:12:04 -0500
+Content-Disposition: inline
+In-Reply-To: <20110209.140323.39178091.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 6, 2011 at 20:17, David Miller <davem@davemloft.net> wrote:
-> From: Geert Uytterhoeven <geert@linux-m68k.org>
-> Date: Sun, =C2=A06 Feb 2011 11:51:09 +0100
->
->> + =C2=A0 =C2=A0 dev->trans_start =3D jiffies;
->
-> Device drivers no longer make this operation, the generic code
-> does it (see net/core/dev.c:dev_hard_start_xmit() and how it
-> invokes txq_trans_update() on ->ndo_start_xmit() success).
->
-> Therefore, please remove this line.
+On Wed, Feb 09, 2011 at 02:03:23PM -0800, David Miller wrote:
+> From: Xiaotian feng <dfeng@redhat.com>
+> Date: Wed,  9 Feb 2011 18:52:49 +0800
+> 
+> > From: Xiaotian Feng <dfeng@redhat.com>
+> > 
+> > commit a512b92 adds sysfs entry for net device group, but
+> > before this commit, tun also uses group sysfs, so after this
+> > commit checkin, kernel warns like this:
+> >     sysfs: cannot create duplicate filename '/devices/virtual/net/vnet0/group'
+> > 
+> > Since tun has used this for years, rename sysfs under tun might
+> > break existing userspace, so rename group sysfs entry for net device
+> > group is a better choice.
 
-Will do.
-
-(180 more to go in drivers/net/?)
-
->> + =C2=A0 =C2=A0 pr_debug(DRV_NAME ": send %d bytes\n", len);
->
-> For consistency with other network drivers, add an appropriate CPP
-> define for "pr_fmt" and use netdev_info(), netdev_debug(), etc.
->
-> In situations where a netdev pointer is not available
-> (ie. pre-register_netdev()), use "dev_*()" instead.
-
-Will fix.
-
-Thanks for reviewing!
-
-Gr{oetje,eeting}s,
-
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+I was not aware of that, sorry for breaking things :)
