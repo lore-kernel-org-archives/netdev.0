@@ -1,217 +1,89 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: [PATCH 3/3] atl1: Do not use legacy PCI power management
-Date: Thu, 10 Feb 2011 17:55:19 +0100
-Message-ID: <201102101755.19464.rjw@sisk.pl>
-References: <201102101751.56508.rjw@sisk.pl>
+From: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH] NFS: NFSROOT should default to "proto=udp"
+Date: Thu, 10 Feb 2011 12:46:44 -0500
+Message-ID: <20110210174644.3073.91582.stgit@ellison.1015granger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="utf-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Matt Carlson <mcarlson@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>,
-	Linux PM mailing list <linux-pm@lists.linux-foundation.org>,
-	Thomas Fjellstrom <thomas@fjellstrom.ca>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jie Yang <jie.yang@atheros.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:33488 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756603Ab1BJQ4z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Feb 2011 11:56:55 -0500
-In-Reply-To: <201102101751.56508.rjw@sisk.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: trond.myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Rafael J. Wysocki <rjw@sisk.pl>
+There have been a number of recent reports that NFSROOT is no longer
+working with default mount options, but fails only with certain NICs.
 
-The atl1 driver uses the legacy PCI power management, so it has to
-do some PCI-specific things in its ->suspend() and ->resume()
-callbacks, which isn't necessary and should better be done by the PCI
-subsystem-level power management code.
+Brian Downing <bdowning-oU/tDdhfGLReoWH0uzbU5w@public.gmane.org> bisected to commit 56463e50 "NFS:
+Use super.c for NFSROOT mount option parsing".  Among other things,
+this commit changes the default mount options for NFSROOT to use TCP
+instead of UDP as the underlying transport.
 
-Convert atl1 to the new PCI power management framework and make it
-let the PCI subsystem take care of all the PCI-specific aspects of
-device handling during system power transitions.
+TCP seems less able to deal with NICs that are slow to initialize.
+The system logs that have accompanied reports of problems all show
+that NFSROOT attempts to establish a TCP connection before the NIC is
+fully initialized, and thus the TCP connection attempt fails.
 
-Tested-by: Thomas Fjellstrom <thomas@fjellstrom.ca>
-Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+Because NFSROOT is used in some environments where it is not possible
+to update the kernel command line to specify "udp", the proper thing
+to do is change NFSROOT to use UDP by default, as it did before commit
+56463e50.
+
+To make it easier to see how to change default mount options for
+NFSROOT and to distinguish default settings from mandatory settings,
+I've adjusted a couple of areas to document the specifics.
+
+Tested-by: Brian Downing <bdowning-oU/tDdhfGLReoWH0uzbU5w@public.gmane.org>
+Signed-off-by: Chuck Lever <chuck.lever-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Cc: <stable-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> # 2.6.37
 ---
- drivers/net/atlx/atl1.c |   77 +++++++++++++++++++-----------------------------
- 1 file changed, 31 insertions(+), 46 deletions(-)
 
-Index: linux-2.6/drivers/net/atlx/atl1.c
-===================================================================
---- linux-2.6.orig/drivers/net/atlx/atl1.c
-+++ linux-2.6/drivers/net/atlx/atl1.c
-@@ -950,6 +950,7 @@ static int __devinit atl1_sw_init(struct
- 	hw->min_frame_size = ETH_ZLEN + ETH_FCS_LEN;
+ fs/nfs/nfsroot.c |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/fs/nfs/nfsroot.c b/fs/nfs/nfsroot.c
+index 903908a..0bc654f 100644
+--- a/fs/nfs/nfsroot.c
++++ b/fs/nfs/nfsroot.c
+@@ -86,11 +86,14 @@
+ /* Default path we try to mount. "%s" gets replaced by our IP address */
+ #define NFS_ROOT		"/tftpboot/%s"
  
- 	adapter->wol = 0;
-+	device_set_wakeup_enable(&adapter->pdev->dev, false);
- 	adapter->rx_buffer_len = (hw->max_frame_size + 7) & ~7;
- 	adapter->ict = 50000;		/* 100ms */
- 	adapter->link_speed = SPEED_0;	/* hardware init */
-@@ -2735,15 +2736,15 @@ static int atl1_close(struct net_device
- }
++/* Default NFSROOT mount options. */
++#define NFS_DEF_OPTIONS		"udp"
++
+ /* Parameters passed from the kernel command line */
+ static char nfs_root_parms[256] __initdata = "";
  
- #ifdef CONFIG_PM
--static int atl1_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int atl1_suspend(struct device *dev)
+ /* Text-based mount options passed to super.c */
+-static char nfs_root_options[256] __initdata = "";
++static char nfs_root_options[256] __initdata = NFS_DEF_OPTIONS;
+ 
+ /* Address of NFS server */
+ static __be32 servaddr __initdata = htonl(INADDR_NONE);
+@@ -217,7 +220,7 @@ static int __init root_nfs_parse_options(char *incoming, char *exppath,
+  */
+ static int __init root_nfs_data(char *cmdline)
  {
-+	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct atl1_adapter *adapter = netdev_priv(netdev);
- 	struct atl1_hw *hw = &adapter->hw;
- 	u32 ctrl = 0;
- 	u32 wufc = adapter->wol;
- 	u32 val;
--	int retval;
- 	u16 speed;
- 	u16 duplex;
- 
-@@ -2751,17 +2752,15 @@ static int atl1_suspend(struct pci_dev *
- 	if (netif_running(netdev))
- 		atl1_down(adapter);
- 
--	retval = pci_save_state(pdev);
--	if (retval)
--		return retval;
--
- 	atl1_read_phy_reg(hw, MII_BMSR, (u16 *) & ctrl);
- 	atl1_read_phy_reg(hw, MII_BMSR, (u16 *) & ctrl);
- 	val = ctrl & BMSR_LSTATUS;
- 	if (val)
- 		wufc &= ~ATLX_WUFC_LNKC;
-+	if (!wufc)
-+		goto disable_wol;
- 
--	if (val && wufc) {
-+	if (val) {
- 		val = atl1_get_speed_and_duplex(hw, &speed, &duplex);
- 		if (val) {
- 			if (netif_msg_ifdown(adapter))
-@@ -2798,23 +2797,18 @@ static int atl1_suspend(struct pci_dev *
- 		ctrl |= PCIE_PHYMISC_FORCE_RCV_DET;
- 		iowrite32(ctrl, hw->hw_addr + REG_PCIE_PHYMISC);
- 		ioread32(hw->hw_addr + REG_PCIE_PHYMISC);
--
--		pci_enable_wake(pdev, pci_choose_state(pdev, state), 1);
--		goto exit;
--	}
--
--	if (!val && wufc) {
-+	} else {
- 		ctrl |= (WOL_LINK_CHG_EN | WOL_LINK_CHG_PME_EN);
- 		iowrite32(ctrl, hw->hw_addr + REG_WOL_CTRL);
- 		ioread32(hw->hw_addr + REG_WOL_CTRL);
- 		iowrite32(0, hw->hw_addr + REG_MAC_CTRL);
- 		ioread32(hw->hw_addr + REG_MAC_CTRL);
- 		hw->phy_configured = false;
--		pci_enable_wake(pdev, pci_choose_state(pdev, state), 1);
--		goto exit;
- 	}
- 
--disable_wol:
-+	return 0;
-+
-+ disable_wol:
- 	iowrite32(0, hw->hw_addr + REG_WOL_CTRL);
- 	ioread32(hw->hw_addr + REG_WOL_CTRL);
- 	ctrl = ioread32(hw->hw_addr + REG_PCIE_PHYMISC);
-@@ -2822,37 +2816,17 @@ disable_wol:
- 	iowrite32(ctrl, hw->hw_addr + REG_PCIE_PHYMISC);
- 	ioread32(hw->hw_addr + REG_PCIE_PHYMISC);
- 	hw->phy_configured = false;
--	pci_enable_wake(pdev, pci_choose_state(pdev, state), 0);
--exit:
--	if (netif_running(netdev))
--		pci_disable_msi(adapter->pdev);
--	pci_disable_device(pdev);
--	pci_set_power_state(pdev, pci_choose_state(pdev, state));
- 
- 	return 0;
- }
- 
--static int atl1_resume(struct pci_dev *pdev)
-+static int atl1_resume(struct device *dev)
- {
-+	struct pci_dev *pdev = to_pci_dev(dev);
- 	struct net_device *netdev = pci_get_drvdata(pdev);
- 	struct atl1_adapter *adapter = netdev_priv(netdev);
--	u32 err;
- 
--	pci_set_power_state(pdev, PCI_D0);
--	pci_restore_state(pdev);
--
--	err = pci_enable_device(pdev);
--	if (err) {
--		if (netif_msg_ifup(adapter))
--			dev_printk(KERN_DEBUG, &pdev->dev,
--				"error enabling pci device\n");
--		return err;
--	}
--
--	pci_set_master(pdev);
- 	iowrite32(0, adapter->hw.hw_addr + REG_WOL_CTRL);
--	pci_enable_wake(pdev, PCI_D3hot, 0);
--	pci_enable_wake(pdev, PCI_D3cold, 0);
- 
- 	atl1_reset_hw(&adapter->hw);
- 
-@@ -2864,16 +2838,25 @@ static int atl1_resume(struct pci_dev *p
- 
- 	return 0;
- }
-+
-+static SIMPLE_DEV_PM_OPS(atl1_pm_ops, atl1_suspend, atl1_resume);
-+#define ATL1_PM_OPS	(&atl1_pm_ops)
-+
- #else
--#define atl1_suspend NULL
--#define atl1_resume NULL
-+
-+static int atl1_suspend(struct device *dev) { return 0; }
-+
-+#define ATL1_PM_OPS	NULL
- #endif
- 
- static void atl1_shutdown(struct pci_dev *pdev)
- {
--#ifdef CONFIG_PM
--	atl1_suspend(pdev, PMSG_SUSPEND);
--#endif
-+	struct net_device *netdev = pci_get_drvdata(pdev);
-+	struct atl1_adapter *adapter = netdev_priv(netdev);
-+
-+	atl1_suspend(&pdev->dev);
-+	pci_wake_from_d3(pdev, adapter->wol);
-+	pci_set_power_state(pdev, PCI_D3hot);
- }
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -3117,9 +3100,8 @@ static struct pci_driver atl1_driver = {
- 	.id_table = atl1_pci_tbl,
- 	.probe = atl1_probe,
- 	.remove = __devexit_p(atl1_remove),
--	.suspend = atl1_suspend,
--	.resume = atl1_resume,
--	.shutdown = atl1_shutdown
-+	.shutdown = atl1_shutdown,
-+	.driver.pm = ATL1_PM_OPS,
- };
- 
- /*
-@@ -3409,6 +3391,9 @@ static int atl1_set_wol(struct net_devic
- 	adapter->wol = 0;
- 	if (wol->wolopts & WAKE_MAGIC)
- 		adapter->wol |= ATLX_WUFC_MAG;
-+
-+	device_set_wakeup_enable(&adapter->pdev->dev, adapter->wol);
-+
- 	return 0;
- }
+-	char addr_option[sizeof("nolock,addr=") + INET_ADDRSTRLEN + 1];
++	char mand_options[sizeof("nolock,addr=") + INET_ADDRSTRLEN + 1];
+ 	int len, retval = -1;
+ 	char *tmp = NULL;
+ 	const size_t tmplen = sizeof(nfs_export_path);
+@@ -244,9 +247,9 @@ static int __init root_nfs_data(char *cmdline)
+ 	 * Append mandatory options for nfsroot so they override
+ 	 * what has come before
+ 	 */
+-	snprintf(addr_option, sizeof(addr_option), "nolock,addr=%pI4",
++	snprintf(mand_options, sizeof(mand_options), "nolock,addr=%pI4",
+ 			&servaddr);
+-	if (root_nfs_cat(nfs_root_options, addr_option,
++	if (root_nfs_cat(nfs_root_options, mand_options,
+ 						sizeof(nfs_root_options)))
+ 		goto out_optionstoolong;
  
 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
