@@ -1,49 +1,58 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] USB Network driver infrastructure: Fix leak when
- usb_autopm_get_interface() returns less than zero in kevent().
-Date: Thu, 10 Feb 2011 21:58:45 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1102102152450.26035@swampdragon.chaosbits.net>
+From: "Leonardo  L. P. da Mata" <barroca@gmail.com>
+Subject: Re: jme driver loses connection after resuming from suspend
+Date: Thu, 10 Feb 2011 19:07:31 -0200
+Message-ID: <AANLkTikV9Ncy3Jki1G20SrzA_HMiAk_hF3qY8U+vpZ1D@mail.gmail.com>
+References: <AANLkTikrKEY7Zt5HvxQcJLk9eGne0BGD82NFEiWO4smt@mail.gmail.com>
+	<20110128163315.1e4e8346.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	David Brownell <dbrownell@users.sourceforge.net>,
-	David Hollis <dhollis@davehollis.com>
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	Guo-Fu Tseng <cooldavid@cooldavid.org>, netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110128163315.1e4e8346.akpm@linux-foundation.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We'll leak the memory allocated to 'urb' in 
-drivers/net/usb/usbnet.c:kevent() when we 'goto fail_lowmem' and the 'urb' 
-variable goes out of scope while still completely unused.
+Updated information on the bug, Guo-Fu Tseng says that might not be a
+bug on the driver, but i've tested other network cards and they don't
+share the same issue.
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- usbnet.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Also, on interesting update that people may consider is that after
+running tcpdump on the device, the network starts working again.
+Information are updated in the bug.
 
- compile tested only.
+On Fri, Jan 28, 2011 at 10:33 PM, Andrew Morton
+<akpm@linux-foundation.org> wrote:
+> (cc's added)
+>
+> On Fri, 28 Jan 2011 16:03:11 -0200
+> "Leonardo =A0L. P. da Mata" <barroca@gmail.com> wrote:
+>
+>> Hello, i'm testing the kernel 2.6.37 on my hardware, Once connect on
+>> wired network, i call the suspend with:
+>> echo "mem" >/sys/power/state
+>>
+>> The system goes on suspend. After resuming from suspend, the network=
+ card
+>> cannot be used anymore.
+>>
+>>
+>> The bug is reported here:
+>> =A0https://bugzilla.kernel.org/show_bug.cgi?id=3D27692
+>>
+>> Can you please point me to similar problems on other network cards s=
+o
+>> i can get possible solutions on this.
+>
+>
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index ed9a416..95c41d5 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -931,8 +931,10 @@ fail_halt:
- 		if (urb != NULL) {
- 			clear_bit (EVENT_RX_MEMORY, &dev->flags);
- 			status = usb_autopm_get_interface(dev->intf);
--			if (status < 0)
-+			if (status < 0) {
-+				usb_free_urb(urb);
- 				goto fail_lowmem;
-+			}
- 			if (rx_submit (dev, urb, GFP_KERNEL) == -ENOLINK)
- 				resched = 0;
- 			usb_autopm_put_interface(dev->intf);
 
 
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Plain text mails only, please.
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+--=20
+Leonardo Luiz Padovani da Mata
+barroca@gmail.com
+
+"May the force be with you, always"
+"Nerd Pride... eu tenho. Voce tem?"
