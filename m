@@ -1,156 +1,61 @@
-From: Mohammed Shafi <mshajakhan@atheros.com>
-Subject: Re: [RFC] ath9k: Fix ath9k prevents CPU to enter C3 states
-Date: Thu, 10 Feb 2011 19:48:08 +0530
-Message-ID: <4D53F3A0.6050900@atheros.com>
-References: <1297262007-15128-1-git-send-email-mshajakhan@atheros.com> <20110209195815.GB2192@tux>
+From: Octavian Purdila <tavi.purdila@gmail.com>
+Subject: Re: [PATCH] Add JMEMCMP to Berkeley Packet Filters
+Date: Thu, 10 Feb 2011 17:27:15 +0200
+Message-ID: <AANLkTimOzvMx0FUaqxaa2QVV2FzsuhP8gQVX_CFmhiNR@mail.gmail.com>
+References: <1297341067-12264-1-git-send-email-ian.molton@collabora.co.uk>
+	<1297341067-12264-2-git-send-email-ian.molton@collabora.co.uk>
+	<1297344292.2493.3.camel@edumazet-laptop>
+	<4D53E9BE.4030500@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mohammed Shajakhan <Mohammed.Shajakhan@Atheros.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Mark Gross <mgross@linux.intel.com>,
-	Senthilkumar Balasubramanian
-	<Senthilkumar.Balasubramanian@Atheros.com>
-To: Luis Rodriguez <Luis.Rodriguez@Atheros.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110209195815.GB2192@tux>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	rdunlap@xenotime.net, isdn@linux-pingi.de, paulus@samba.org,
+	arnd@arndb.de, davem@davemloft.net, herbert@gondor.apana.org.au,
+	ebiederm@xmission.com, alban.crequy@collabora.co.uk,
+	astanciu@ixiacom.com
+To: Ian Molton <ian.molton@collabora.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:61020 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756274Ab1BJP1Q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 10:27:16 -0500
+Received: by gwj20 with SMTP id 20so624929gwj.19
+        for <netdev@vger.kernel.org>; Thu, 10 Feb 2011 07:27:16 -0800 (PST)
+In-Reply-To: <4D53E9BE.4030500@collabora.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 10 February 2011 01:28 AM, Luis Rodriguez wrote:
-> On Wed, Feb 09, 2011 at 06:33:27AM -0800, Mohammed Shajakhan wrote:
->    
->> From: Mohammed Shafi Shajakhan<mshajakhan@atheros.com>
+On Thu, Feb 10, 2011 at 3:35 PM, Ian Molton <ian.molton@collabora.co.uk=
+> wrote:
+> On 10/02/11 13:24, Eric Dumazet wrote:
+>
+> Hi!
+>
+> Thanks for reviewing! :)
+>
+>>> * Can sk_run_filter() be called in a context where kmalloc(GFP_KERN=
+EL) is
+>>> =A0 not allowed (I think not)
 >>
->> The DMA latency issue is observed only in Intel pinetrail platforms but
->> in the driver we had a default PM-QOS value of 55. This caused
->> unnecessary power consumption and battery drain in other platforms.
->> Address this issue by disabling PM-QOS by default by setting it's value
->> as '0' and making code changes appropriately.This addresses the bug:
->> https://bugzilla.kernel.org/show_bug.cgi?id=27532
->> 	If the user sees some DMA latency issue he can still use the pmqos as a
->> module parameter to trade power for throughput as below:
->> sudo modprobe ath9k pmqos=55
->>      
-> How many times are we going to write some work around for some
-> platform unpatched BIOS bug ?
+>> You cannot use GFP_KERNEL in sk_run_filter() : We run in {soft}irq m=
+ode,
+>> in input path.
 >
-> mcgrof@tux ~/wireless-testing (git::master)$ git grep pm_qos_update_request drivers/
-> drivers/net/e1000e/netdev.c:                    pm_qos_update_request(&adapter->netdev->pm_qos_req, 55);
-> drivers/net/e1000e/netdev.c:                    pm_qos_update_request(&adapter->netdev->pm_qos_req,
-> drivers/net/wireless/ath/ath9k/main.c:  pm_qos_update_request(&sc->pm_qos_req, ath9k_pm_qos_value);
-> drivers/net/wireless/ath/ath9k/main.c:  pm_qos_update_request(&sc->pm_qos_req, PM_QOS_DEFAULT_VALUE);
-> drivers/net/wireless/ipw2x00/ipw2100.c: pm_qos_update_request(&ipw2100_pm_qos_req, 175);
-> drivers/net/wireless/ipw2x00/ipw2100.c: pm_qos_update_request(&ipw2100_pm_qos_req, PM_QOS_DEFAULT_VALUE);
+> Ok, that can be sorted.
 >
-> Can't we punt this crap to userspace?
->    
-Luis thanks for the script and sorry I missed it in the bugzilla. Luis I 
-agree these workarounds are better placed to be in user place and the 
-only thing is those have issues must be aware of the script.
-I am ccing Senthil to have his views.
+>>> * Data section allocated with second call to sock_kmalloc().
+>>> * Should the patch be broken into two - one to add the data uploadi=
+ng,
+>>> =A0 one to add the JMEMCMP insn. ?
+>>
+>> May I ask why it is needed at all ?
+>
+> So we can match strings in packet filters... I don't think I understa=
+nd the
+> question...
+>
 
-thanks,
-shafi
-> http://www.kernel.org/pub/linux/kernel/people/mcgrof/scripts/cpudmalatency.c
->
-> Can distributions just autodetect this issue and call something like this?
->
->    Luis
->
->    
->> Signed-off-by: Mohammed Shafi Shajakhan<mshajakhan@atheros.com>
->> ---
->>   drivers/net/wireless/ath/ath9k/ath9k.h |    4 +++-
->>   drivers/net/wireless/ath/ath9k/init.c  |    9 +++++----
->>   drivers/net/wireless/ath/ath9k/main.c  |    9 +++++----
->>   3 files changed, 13 insertions(+), 9 deletions(-)
->>
->> diff --git a/drivers/net/wireless/ath/ath9k/ath9k.h b/drivers/net/wireless/ath/ath9k/ath9k.h
->> index 9272278..55fcd01 100644
->> --- a/drivers/net/wireless/ath/ath9k/ath9k.h
->> +++ b/drivers/net/wireless/ath/ath9k/ath9k.h
->> @@ -57,7 +57,9 @@ struct ath_node;
->>
->>   #define A_MAX(a, b) ((a)>  (b) ? (a) : (b))
->>
->> -#define ATH9K_PM_QOS_DEFAULT_VALUE	55
->> +/* By default PM QOS is disabled */
->> +#define ATH9K_PM_QOS_DEFAULT_VALUE	0
->> +
->>
->>   #define TSF_TO_TU(_h,_l) \
->>   	((((u32)(_h))<<  22) | (((u32)(_l))>>  10))
->> diff --git a/drivers/net/wireless/ath/ath9k/init.c b/drivers/net/wireless/ath/ath9k/init.c
->> index e5c1eea..658ea02 100644
->> --- a/drivers/net/wireless/ath/ath9k/init.c
->> +++ b/drivers/net/wireless/ath/ath9k/init.c
->> @@ -43,7 +43,7 @@ MODULE_PARM_DESC(btcoex_enable, "Enable wifi-BT coexistence");
->>
->>   int ath9k_pm_qos_value = ATH9K_PM_QOS_DEFAULT_VALUE;
->>   module_param_named(pmqos, ath9k_pm_qos_value, int, S_IRUSR | S_IRGRP | S_IROTH);
->> -MODULE_PARM_DESC(pmqos, "User specified PM-QOS value");
->> +MODULE_PARM_DESC(pmqos, "User specified PM-QOS value, by default disabled");
->>
->>   bool is_ath9k_unloaded;
->>   /* We use the hw_value as an index into our private channel structure */
->> @@ -759,8 +759,8 @@ int ath9k_init_device(u16 devid, struct ath_softc *sc, u16 subsysid,
->>
->>   	ath_init_leds(sc);
->>   	ath_start_rfkill_poll(sc);
->> -
->> -	pm_qos_add_request(&sc->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
->> +	if (ath9k_pm_qos_value)
->> +		pm_qos_add_request(&sc->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
->>   			   PM_QOS_DEFAULT_VALUE);
->>
->>   	return 0;
->> @@ -819,7 +819,8 @@ void ath9k_deinit_device(struct ath_softc *sc)
->>   	ath9k_ps_restore(sc);
->>
->>   	ieee80211_unregister_hw(hw);
->> -	pm_qos_remove_request(&sc->pm_qos_req);
->> +	if (ath9k_pm_qos_value)
->> +		pm_qos_remove_request(&sc->pm_qos_req);
->>   	ath_rx_cleanup(sc);
->>   	ath_tx_cleanup(sc);
->>   	ath9k_deinit_softc(sc);
->> diff --git a/drivers/net/wireless/ath/ath9k/main.c b/drivers/net/wireless/ath/ath9k/main.c
->> index 4ed43b2..3855092 100644
->> --- a/drivers/net/wireless/ath/ath9k/main.c
->> +++ b/drivers/net/wireless/ath/ath9k/main.c
->> @@ -1119,9 +1119,10 @@ static int ath9k_start(struct ieee80211_hw *hw)
->>
->>   	/* User has the option to provide pm-qos value as a module
->>   	 * parameter rather than using the default value of
->> -	 * 'ATH9K_PM_QOS_DEFAULT_VALUE'.
->> +	 * 'ATH9K_PM_QOS_DEFAULT_VALUE' which disables PM QOS.
->>   	 */
->> -	pm_qos_update_request(&sc->pm_qos_req, ath9k_pm_qos_value);
->> +	if (ath9k_pm_qos_value)
->> +		pm_qos_update_request(&sc->pm_qos_req, ath9k_pm_qos_value);
->>
->>   	if (ah->caps.pcie_lcr_extsync_en&&  common->bus_ops->extn_synch_en)
->>   		common->bus_ops->extn_synch_en(common);
->> @@ -1266,8 +1267,8 @@ static void ath9k_stop(struct ieee80211_hw *hw)
->>   	ath_radio_disable(sc, hw);
->>
->>   	sc->sc_flags |= SC_OP_INVALID;
->> -
->> -	pm_qos_update_request(&sc->pm_qos_req, PM_QOS_DEFAULT_VALUE);
->> +	if (ath9k_pm_qos_value)
->> +		pm_qos_update_request(&sc->pm_qos_req, PM_QOS_DEFAULT_VALUE);
->>
->>   	mutex_unlock(&sc->mutex);
->>
->> -- 
->> 1.7.0.4
->>
->>      
-> .
->
->    
+Adding a data section (some sort of persistent memory storage that the
+filter can access) is also useful for creating capture triggers, e.g.
+starting capturing after a marker packet has arrived.
