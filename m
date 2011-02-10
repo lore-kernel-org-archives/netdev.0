@@ -1,31 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH 0/5] Cache PMTU/redirects in inetpeer
-Date: Thu, 10 Feb 2011 15:09:57 -0800 (PST)
-Message-ID: <20110210.150957.115925131.davem@davemloft.net>
-References: <20110209.221249.112596220.davem@davemloft.net>
+From: Young Chang <champika@wnl.lk>
+Subject: Re:...
+Date: Fri, 11 Feb 2011 04:43:09 +0530 (IST)
+Message-ID: <3190050.787.1297379589486.JavaMail.root@postbox.wnl.lk>
+Reply-To: "young.chang003@yahoo.com.hk" <young.chang003@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49331
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757171Ab1BJXJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 18:09:21 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 6052224C088
-	for <netdev@vger.kernel.org>; Thu, 10 Feb 2011 15:09:57 -0800 (PST)
-In-Reply-To: <20110209.221249.112596220.davem@davemloft.net>
+Received: from wnl.lk ([203.143.12.196]:39104 "HELO postbox.wnl.lk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751073Ab1BJXRJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Feb 2011 18:17:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 09 Feb 2011 22:12:49 -0800 (PST)
+***********************
+This message has been scanned by the InterScan for CSC SSM and found to be free of known security risks.
+***********************
 
-> This is what I've been working on for the past several days.
 
-Just FYI I've pushed just the infrastructure bits (patches 1, 2,
-and 3) into net-next-2.6 since those have no side effects.
 
-I won't push the other two until I can do some good testing on
-them.
+May I ask if you would be eligible to pursue a Business Proposal of $19.7m with me if you dont mind? Let me know if you are interested.
+
+The information contained in this email and any attachments is confidential and may be subject to copyright or other intellectual property protection. If you are not the intended recipient, you are not authorized to use or disclose this information, and we request that you notify us by reply mail or telephone and delete the original message from your mail system.
+
+E-mail transmission cannot be guaranteed to be secure or error-free as information could be
+intercepted, corrupted, lost, destroyed, arrive late or incomplete or contain viruses.
+The sender therefore does not accept liability for any errors or omissions in the contents of this message which arise as a result of e-mail transmission.
+
+Wijeya Newspapers Ltd : 2010
+
