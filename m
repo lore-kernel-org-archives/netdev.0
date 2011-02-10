@@ -1,70 +1,43 @@
-From: "Gustavo F. Padovan" <padovan@profusion.mobi>
-Subject: Re: [PATCH v5 0/4] Adding HID Feature Report Support to hidraw
-Date: Thu, 10 Feb 2011 16:14:41 -0200
-Message-ID: <20110210181441.GB2173@joana>
-References: <1295337880-12452-1-git-send-email-alan@signal11.us>
- <alpine.LNX.2.00.1101191316230.26685@pobox.suse.cz>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] virtio_net: Add schedule check to napi_enable call
+Date: Thu, 10 Feb 2011 11:01:19 -0800 (PST)
+Message-ID: <20110210.110119.226784284.davem@davemloft.net>
+References: <201102101232.50526.rusty@rustcorp.com.au>
+	<20110210175725.GA9674@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alan Ott <alan@signal11.us>, Marcel Holtmann <marcel@holtmann.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Michael Poole <mdpoole@troilus.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-input@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-bluetooth@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LNX.2.00.1101191316230.26685@pobox.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, herbert@gondor.hengli.com.au,
+	netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	kstailey@yahoo.com
+To: mst@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51973
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754833Ab1BJTAn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 14:00:43 -0500
+In-Reply-To: <20110210175725.GA9674@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jiri,
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 10 Feb 2011 19:57:26 +0200
 
-* Jiri Kosina <jkosina@suse.cz> [2011-01-19 13:17:00 +0100]:
-
-> On Tue, 18 Jan 2011, Alan Ott wrote:
+> On Thu, Feb 10, 2011 at 12:32:50PM +1030, Rusty Russell wrote:
+>> From: "Bruce Rogers" <brogers@novell.com>
+>> 
+>> Under harsh testing conditions, including low memory, the guest would
+>> stop receiving packets. With this patch applied we no longer see any
+>> problems in the driver while performing these tests for extended periods
+>> of time.
+>> 
+>> Make sure napi is scheduled subsequent to each napi_enable.
+>> 
+>> Signed-off-by: Bruce Rogers <brogers@novell.com>
+>> Signed-off-by: Olaf Kirch <okir@suse.de>
+>> Cc: stable@kernel.org
+>> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
 > 
-> > This patch adds Feature Report support for USB and Bluetooth HID devices
-> > through hidraw.
-> > 
-> > The first two patches prepare the bluetooth side for the change.
-> > 	a. Make sure the hidp_session() thread is started before
-> > 	   device's probe() functions are called.
-> > 	b. Wait for ACK/NAK on sent reports, and return proper
-> > 	   error codes.
-> > The third patch is the hidraw core and USB changes.
-> > The fourth patch is the Bluetooth changes.
-> > 
-> > Thanks to Antonio Ospite and Bill Good for providing testing and feedback.
-> > 
-> > 
-> > Alan Ott (4):
-> >   bt hidp: Move hid_add_device() call to after hidp_session() has
-> >     started.
-> >   bt hidp: Wait for ACK on Sent Reports
-> >   HID: Add Support for Setting and Getting Feature Reports from hidraw
-> >   Bluetooth hidp: Add support for hidraw HIDIOCGFEATURE and
-> >     HIDIOCSFEATURE
-> > 
-> >  drivers/hid/hidraw.c          |  106 +++++++++++++++++++-
-> >  drivers/hid/usbhid/hid-core.c |   35 +++++++
-> >  include/linux/hid.h           |    3 +
-> >  include/linux/hidraw.h        |    3 +
-> >  net/bluetooth/hidp/core.c     |  214 ++++++++++++++++++++++++++++++++++++++---
-> >  net/bluetooth/hidp/hidp.h     |   15 +++
-> 
-> Before proceeding with these patches, I'd really like to have comment 
-> (ideally 'Acked-by') from Marcel on the net/bluetooth/hidp part, 
-> obviously.
+> Rusty, so this is 2.6.38 material - you'll send this to Linus? Or DaveM?
 
-I have tested it and it seems ok to me and to Marcel. For net/bluetooth/
-
-Acked-by: Gustavo F. Padovan <padovan@profusion.mobi>
-
-Regards,
-
--- 
-Gustavo F. Padovan
-http://profusion.mobi
+Don't worry I'll apply this to net-2.6, thanks.
