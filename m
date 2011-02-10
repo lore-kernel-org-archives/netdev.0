@@ -1,58 +1,89 @@
-From: "Leonardo  L. P. da Mata" <barroca@gmail.com>
-Subject: Re: jme driver loses connection after resuming from suspend
-Date: Thu, 10 Feb 2011 19:07:31 -0200
-Message-ID: <AANLkTikV9Ncy3Jki1G20SrzA_HMiAk_hF3qY8U+vpZ1D@mail.gmail.com>
-References: <AANLkTikrKEY7Zt5HvxQcJLk9eGne0BGD82NFEiWO4smt@mail.gmail.com>
-	<20110128163315.1e4e8346.akpm@linux-foundation.org>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH 1/3] tg3: Avoid setting power.can_wakeup for devices that cannot wake up
+Date: Thu, 10 Feb 2011 22:08:42 +0100
+Message-ID: <201102102208.42410.rjw@sisk.pl>
+References: <201102101751.56508.rjw@sisk.pl> <201102101753.09504.rjw@sisk.pl> <20110210204844.GA4158@mcarlson.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Guo-Fu Tseng <cooldavid@cooldavid.org>, netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110128163315.1e4e8346.akpm@linux-foundation.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David Miller" <davem@davemloft.net>,
+	"Michael Chan" <mchan@broadcom.com>,
+	"Linux PM mailing list" <linux-pm@lists.linux-foundation.org>,
+	"Thomas Fjellstrom" <thomas@fjellstrom.ca>,
+	"Jay Cliburn" <jcliburn@gmail.com>,
+	"Chris Snook" <chris.snook@gmail.com>,
+	"Jie Yang" <jie.yang@atheros.com>
+To: "Matt Carlson" <mcarlson@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ogre.sisk.pl ([217.79.144.158]:34202 "EHLO ogre.sisk.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755660Ab1BJVJE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Feb 2011 16:09:04 -0500
+In-Reply-To: <20110210204844.GA4158@mcarlson.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Updated information on the bug, Guo-Fu Tseng says that might not be a
-bug on the driver, but i've tested other network cards and they don't
-share the same issue.
+On Thursday, February 10, 2011, Matt Carlson wrote:
+> On Thu, Feb 10, 2011 at 08:53:09AM -0800, Rafael J. Wysocki wrote:
+> > From: Rafael J. Wysocki <rjw@sisk.pl>
+> > 
+> > The tg3 driver uses device_init_wakeup() in such a way that the
+> > device's power.can_wakeup flag may be set even though the PCI
+> > subsystem cleared it before, in which case the device cannot wake
+> > up the system from sleep states.  Modify the driver to only change
+> > the power.can_wakeup flag if the device is not capable of generating
+> > wakeup signals.
+> > 
+> > Signed-off-by: Rafael J. Wysocki <rjw@sisk.pl>
+> > ---
+> >  drivers/net/tg3.c |    6 ++++--
+> >  1 file changed, 4 insertions(+), 2 deletions(-)
+> > 
+> > Index: linux-2.6/drivers/net/tg3.c
+> > ===================================================================
+> > --- linux-2.6.orig/drivers/net/tg3.c
+> > +++ linux-2.6/drivers/net/tg3.c
+> > @@ -12403,9 +12403,11 @@ static void __devinit tg3_get_eeprom_hw_
+> >  			tp->tg3_flags3 |= TG3_FLG3_RGMII_EXT_IBND_TX_EN;
+> >  	}
+> >  done:
+> > -	device_init_wakeup(&tp->pdev->dev, tp->tg3_flags & TG3_FLAG_WOL_CAP);
+> > -	device_set_wakeup_enable(&tp->pdev->dev,
+> > +	if (tp->tg3_flags & TG3_FLAG_WOL_CAP)
+> > +		device_set_wakeup_enable(&tp->pdev->dev,
+> >  				 tp->tg3_flags & TG3_FLAG_WOL_ENABLE);
+> > +	else
+> > +		device_set_wakeup_capable(&tp->pdev->dev, false);
+> 
+> I did this because I couldn't see where 'can_wakeup' gets set.  I don't
+> see a call to device_init_wakeup() that would be relevant to tg3
+> devices.  I do see a couple calls to device_set_wakeup_capable() in
+> acpi/glue.c and acpi/scan.c.  Is that the place?
 
-Also, on interesting update that people may consider is that after
-running tcpdump on the device, the network starts working again.
-Information are updated in the bug.
+No, it's pci_pm_init() or platform_pci_wakeup_init() and they both use
+device_set_wakeup_capable() rather tha device_init_wakeup(), which is just a
+combination of device_set_wakeup_capable() and device_set_wakeup_enable()
+anyway.
 
-On Fri, Jan 28, 2011 at 10:33 PM, Andrew Morton
-<akpm@linux-foundation.org> wrote:
-> (cc's added)
->
-> On Fri, 28 Jan 2011 16:03:11 -0200
-> "Leonardo =A0L. P. da Mata" <barroca@gmail.com> wrote:
->
->> Hello, i'm testing the kernel 2.6.37 on my hardware, Once connect on
->> wired network, i call the suspend with:
->> echo "mem" >/sys/power/state
->>
->> The system goes on suspend. After resuming from suspend, the network=
- card
->> cannot be used anymore.
->>
->>
->> The bug is reported here:
->> =A0https://bugzilla.kernel.org/show_bug.cgi?id=3D27692
->>
->> Can you please point me to similar problems on other network cards s=
-o
->> i can get possible solutions on this.
->
->
+And there's no why reason PCI drivers should use device_pm_init() at all.
 
+> >  }
+> >  
+> >  static int __devinit tg3_issue_otp_command(struct tg3 *tp, u32 cmd)
+> 
+> This is something I was always curious about too.  The TG3_FLAG_WOL_CAP
+> tracks whether or not the device can handle WOL.  Is it safe to do away
+> with this flag and lean on the 'can_wakeup' flag instead?
 
+I don't think so.  power.can_wakeup only tracks the capability to generate
+wakeup signals from the PCI perspective and it is set by PCI if the device
+appears to be able to generate wakeup signals.
 
---=20
-Leonardo Luiz Padovani da Mata
-barroca@gmail.com
+So, I think the driver should work as in the $subject patch - reset the
+power.can_wakeup flag if TG3_FLAG_WOL_CAP is unset and don't touch it
+otherwise.
 
-"May the force be with you, always"
-"Nerd Pride... eu tenho. Voce tem?"
+Thanks,
+Rafael
