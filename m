@@ -1,37 +1,69 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: [PATCH] bluetooth: l2cap: fix 1 byte infoleak to userspace
-Date: Thu, 10 Feb 2011 16:11:33 -0200
-Message-ID: <20110210181133.GA2173@joana>
-References: <1297360783-21452-1-git-send-email-segoon@openwall.com>
+From: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Subject: Re: [PATCH v5 0/4] Adding HID Feature Report Support to hidraw
+Date: Thu, 10 Feb 2011 16:14:41 -0200
+Message-ID: <20110210181441.GB2173@joana>
+References: <1295337880-12452-1-git-send-email-alan@signal11.us>
+ <alpine.LNX.2.00.1101191316230.26685@pobox.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, security-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Alan Ott <alan@signal11.us>, Marcel Holtmann <marcel@holtmann.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michael Poole <mdpoole@troilus.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-input@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jiri Kosina <jkosina@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1297360783-21452-1-git-send-email-segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <alpine.LNX.2.00.1101191316230.26685@pobox.suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Vasiliy,
+Hi Jiri,
 
-* Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org> [2011-02-10 20:59:42 +0300]:
+* Jiri Kosina <jkosina@suse.cz> [2011-01-19 13:17:00 +0100]:
 
-> Structure l2cap_options has one padding byte between max_tx and
-> txwin_size fields.  This byte in "opts" is copied to userspace
-> uninitialized.
+> On Tue, 18 Jan 2011, Alan Ott wrote:
 > 
-> Signed-off-by: Vasiliy Kulikov <segoon-cxoSlKxDwOJWk0Htik3J/w@public.gmane.org>
-> ---
->  Compile tested only.
+> > This patch adds Feature Report support for USB and Bluetooth HID devices
+> > through hidraw.
+> > 
+> > The first two patches prepare the bluetooth side for the change.
+> > 	a. Make sure the hidp_session() thread is started before
+> > 	   device's probe() functions are called.
+> > 	b. Wait for ACK/NAK on sent reports, and return proper
+> > 	   error codes.
+> > The third patch is the hidraw core and USB changes.
+> > The fourth patch is the Bluetooth changes.
+> > 
+> > Thanks to Antonio Ospite and Bill Good for providing testing and feedback.
+> > 
+> > 
+> > Alan Ott (4):
+> >   bt hidp: Move hid_add_device() call to after hidp_session() has
+> >     started.
+> >   bt hidp: Wait for ACK on Sent Reports
+> >   HID: Add Support for Setting and Getting Feature Reports from hidraw
+> >   Bluetooth hidp: Add support for hidraw HIDIOCGFEATURE and
+> >     HIDIOCSFEATURE
+> > 
+> >  drivers/hid/hidraw.c          |  106 +++++++++++++++++++-
+> >  drivers/hid/usbhid/hid-core.c |   35 +++++++
+> >  include/linux/hid.h           |    3 +
+> >  include/linux/hidraw.h        |    3 +
+> >  net/bluetooth/hidp/core.c     |  214 ++++++++++++++++++++++++++++++++++++++---
+> >  net/bluetooth/hidp/hidp.h     |   15 +++
 > 
->  net/bluetooth/l2cap_sock.c |    1 +
->  1 files changed, 1 insertions(+), 0 deletions(-)
+> Before proceeding with these patches, I'd really like to have comment 
+> (ideally 'Acked-by') from Marcel on the net/bluetooth/hidp part, 
+> obviously.
 
-Patch has been applied, thanks.
+I have tested it and it seems ok to me and to Marcel. For net/bluetooth/
+
+Acked-by: Gustavo F. Padovan <padovan@profusion.mobi>
+
+Regards,
 
 -- 
 Gustavo F. Padovan
