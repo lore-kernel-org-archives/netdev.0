@@ -1,41 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH net-next] net: rename group sysfs entry to
- netdev_group
-Date: Wed, 09 Feb 2011 19:16:44 -0800 (PST)
-Message-ID: <20110209.191644.193705109.davem@davemloft.net>
-References: <20110209.140323.39178091.davem@davemloft.net>
-	<20110209.140558.59676278.davem@davemloft.net>
-	<4D53536B.2010505@redhat.com>
+Subject: [RFC PATCH 0/5] Cache PMTU/redirects in inetpeer
+Date: Wed, 09 Feb 2011 22:12:49 -0800 (PST)
+Message-ID: <20110209.221249.112596220.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	therbert@google.com, ebiederm@xmission.com, shemminger@vyatta.com,
-	ddvlad@rosedu.org
-To: dfeng@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47301
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33134
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750946Ab1BJDQJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Feb 2011 22:16:09 -0500
-In-Reply-To: <4D53536B.2010505@redhat.com>
+	by vger.kernel.org with ESMTP id S1750840Ab1BJGMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 01:12:13 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id BC3DE24C08A
+	for <netdev@vger.kernel.org>; Wed,  9 Feb 2011 22:12:49 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Xiaotian Feng <dfeng@redhat.com>
-Date: Thu, 10 Feb 2011 10:54:35 +0800
 
-> Subject: [PATCH net-next v2] net: rename group sysfs entry to netdev_group
-> 
-> commit a512b92 adds sysfs entry for net device group, but
-> before this commit, tun also uses group sysfs, so after this
-> commit checkin, kernel warns like this:
->     sysfs: cannot create duplicate filename '/devices/virtual/net/vnet0/group'
-> 
-> Since tun has used this for years, rename sysfs under tun might
-> break existing userspace, so rename group sysfs entry for net device
-> group is a better choice.
-> 
-> Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
+This is what I've been working on for the past several days.
 
-Applied.
+Right now if the routing cache is turned off (by setting
+rt_cache_rebuild_count to "0") several things stop working.
+
+We never make use of any PMTU or redirect information we learn
+via ICMP packets.  This is because when the routing cache is
+off, we can't "find" the existing cached routes that match
+the ICMP because we don't add them to the hash table.
+
+This functionality loss is also a blocker for eliminating the
+routing cache entirely.
+
+Solve this by remembering this state in the inetpeer entries.
+
+PMTU information now self-expires.  It gets validated when
+cached routes are sanity checked via dst_ops->check().  At
+expiration, the original RTAX_MTU metric value is restored.
+So we don't have to invalidate the entire cached route just
+because it's PMTU learned value has expired.
+
+Similarly, we store redirect information in inetpeer too.
+Except that currently my patches don't remember the "original"
+gateway the route had, so we have to kill the route off when
+we get a dst_ops->negative_advice() call on a redirected route.
+
+Avoid this is easy to fix and I might do that soon.
+
+These patches implement the PMTU/redirect bits in ipv4 only at the
+moment, but I do have ipv6 patches I'm in the process of finishing
+up.  I just wanted people to see this as soon as possible so that
+I can start getting feedback.
+
+And hey if people can test this stuff out that'd be awesome!  If
+you've used these changes in an environment where you did hit PMTU
+and redirects, please do let me know.
