@@ -1,45 +1,46 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 07/15] be2net: For the VF MAC, use the OUI from
- current MAC address
-Date: Fri, 11 Feb 2011 17:36:18 -0600
-Message-ID: <20110211233618.GA18389@akhaparde-VBox>
+Subject: [PATCH net-next 09/15] be2net: Allow VFs to call
+ be_cmd_reset_function.
+Date: Fri, 11 Feb 2011 17:36:57 -0600
+Message-ID: <20110211233657.GA18423@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:51193 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:51225 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757324Ab1BKXgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 18:36:40 -0500
+	with ESMTP id S1757767Ab1BKXhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 18:37:19 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently we are always using the Emulex OUI for a VF MAC address
-while generating MAC for a VF.  Use OUI from current MAC instead.
 
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/benet/be.h |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
+ drivers/net/benet/be_main.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/benet/be.h b/drivers/net/benet/be.h
-index add0b93..3a800e2 100644
---- a/drivers/net/benet/be.h
-+++ b/drivers/net/benet/be.h
-@@ -450,9 +450,8 @@ static inline void be_vf_eth_addr_generate(struct be_adapter *adapter, u8 *mac)
- 	mac[5] = (u8)(addr & 0xFF);
- 	mac[4] = (u8)((addr >> 8) & 0xFF);
- 	mac[3] = (u8)((addr >> 16) & 0xFF);
--	mac[2] = 0xC9;
--	mac[1] = 0x00;
--	mac[0] = 0x00;
-+	/* Use the OUI from the current MAC address */
-+	memcpy(mac, adapter->netdev->dev_addr, 3);
- }
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index f2d2036..8975340 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -2959,11 +2959,9 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 	if (status)
+ 		goto ctrl_clean;
  
- extern void be_cq_notify(struct be_adapter *adapter, u16 qid, bool arm,
+-	if (be_physfn(adapter)) {
+-		status = be_cmd_reset_function(adapter);
+-		if (status)
+-			goto ctrl_clean;
+-	}
++	status = be_cmd_reset_function(adapter);
++	if (status)
++		goto ctrl_clean;
+ 
+ 	status = be_stats_init(adapter);
+ 	if (status)
 -- 
 1.7.1
 
