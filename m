@@ -1,68 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: bridge: Fix mglist corruption that leads to memory corruption
-Date: Sat, 12 Feb 2011 09:36:55 +1100
-Message-ID: <20110211223655.GA5585@gondor.apana.org.au>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-2.6] ixgbe: fix panic due to uninitialied pointer
+Date: Fri, 11 Feb 2011 14:41:21 -0800
+Message-ID: <1297464081.3544.72.camel@jtkirshe-MOBL1>
+References: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ihands@redhat.com, jbacik@redhat.com
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-29we2B1ygSOEuB1d+tJa"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:41265 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758264Ab1BKWg7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 17:36:59 -0500
-Content-Disposition: inline
+Received: from mga11.intel.com ([192.55.52.93]:15184 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758270Ab1BKWlV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 17:41:21 -0500
+In-Reply-To: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi:
 
-This patch fixes a nasty memory corruption issue.
+--=-29we2B1ygSOEuB1d+tJa
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-bridge: Fix mglist corruption that leads to memory corruption
+On Fri, 2011-02-11 at 13:45 -0800, Andy Gospodarek wrote:
+> Systems containing an 82599EB and running a backported driver from
+> upstream were panicing on boot.  It turns out hw->mac.ops.setup_sfp is
+> only set for 82599, so one should check to be sure that pointer is set
+> before continuing in ixgbe_sfp_config_module_task.  I verified by
+> inspection that the upstream driver has the same issue and also added
+> a
+> check before the call in ixgbe_sfp_link_config.
+>=20
+> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+> ---
+>  drivers/net/ixgbe/ixgbe_main.c |    6 ++++--
+>  1 files changed, 4 insertions(+), 2 deletions(-)=20
 
-The list mp->mglist is used to indicate whether a multicast group
-is active on the bridge interface itself as opposed to one of the
-constituent interfaces in the bridge.
+Thanks Andy!  Have added the patch (with fixed subject) to my ixgbe
+queue of patches.
 
-Unfortunately the operation that adds the mp->mglist node to the
-list neglected to check whether it has already been added.  This
-leads to list corruption in the form of nodes pointing to itself.
+--=-29we2B1ygSOEuB1d+tJa
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-Normally this would be quite obvious as it would cause an infinite
-loop when walking the list.  However, as this list is never actually
-walked (which means that we don't really need it, I'll get rid of
-it in a subsequent patch), this instead is hidden until we perform
-a delete operation on the affected nodes.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-As the same node may now be pointed to by more than one node, the
-delete operations can then cause modification of freed memory.
+iQEcBAABAgAGBQJNVbsRAAoJECTsCADr/EWUd9EH/Aysk4zW9fRGdOZRWFaUwzQx
+kZCc/biqd7zbtOdIWp6CWreThysIRe5vk/V3MSi2P3CIp1uJlHruNpn0d0x6rqCr
+DV15s/tNw25dG4fF2sYt9jPOnNZlv+knMPPpmB/f7Ci/+w7tUCyAS3IvgY98lgBS
+zLFyaFqvDCDp8g3FU6uhKDH6/DIrQ4kXU6CZRNcawp8CW4XVaDwLB64b9H1omTpl
+I9/m7NwB/Nan/BxuJ3r+KfeoDXBuKt1JwzeV+n4N5cwOXy901YjYJihXjbYbuqgz
+SMlZO60nM9W2iy5a6HhmeS/5ErsQHuLHH6T7lxLilHrgSItcMK2nGc/hTxgEfBo=
+=9D0A
+-----END PGP SIGNATURE-----
 
-This was observed in practice to cause corruption in 512-byte slabs,
-most commonly leading to crashes in jbd2.
+--=-29we2B1ygSOEuB1d+tJa--
 
-Thanks to Josef Bacik for pointing me in the right direction.
-
-Reported-by: Ian Page Hands <ihands@redhat.com>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index f701a21..802d3f8 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -719,7 +719,8 @@ static int br_multicast_add_group(struct net_bridge *br,
- 		goto err;
- 
- 	if (!port) {
--		hlist_add_head(&mp->mglist, &br->mglist);
-+		if (hlist_unhashed(&mp->mglist))
-+			hlist_add_head(&mp->mglist, &br->mglist);
- 		mod_timer(&mp->timer, now + br->multicast_membership_interval);
- 		goto out;
- 	}
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
