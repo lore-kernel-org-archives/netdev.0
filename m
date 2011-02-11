@@ -1,126 +1,95 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 v2 04/15] igb: Enable PF side of SR-IOV support for i350 devices
-Date: Fri, 11 Feb 2011 09:20:51 -0800
-Message-ID: <1297444862-32091-5-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1297444862-32091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH 2/2] network: Allow af_packet to transmit +4 bytes for
+ VLAN packets.
+Date: Fri, 11 Feb 2011 09:38:26 -0800
+Message-ID: <4D557412.7000209@candelatech.com>
+References: <1297375149-18458-1-git-send-email-greearb@candelatech.com>	 <1297375149-18458-2-git-send-email-greearb@candelatech.com> <1297407446.2493.5.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:11125 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757840Ab1BKRVT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 12:21:19 -0500
-In-Reply-To: <1297444862-32091-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail.candelatech.com ([208.74.158.172]:49174 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756811Ab1BKRid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 12:38:33 -0500
+In-Reply-To: <1297407446.2493.5.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+On 02/10/2011 10:57 PM, Eric Dumazet wrote:
+> Le jeudi 10 f=C3=A9vrier 2011 =C3=A0 13:59 -0800, greearb@candelatech=
+=2Ecom a
+> =C3=A9crit :
+>> From: Ben Greear<greearb@candelatech.com>
+>>
+>> This allows user-space to send a '1500' MTU VLAN packet on a
+>> 1500 MTU ethernet frame.  The extra 4 bytes of a VLAN header is
+>> not usually charged against the MTU when other parts of the
+>> network stack is transmitting vlans...
+>>
+>> Signed-off-by: Ben Greear<greearb@candelatech.com>
+>> ---
+>> :100644 100644 91cb1d7... ef7f378... M	net/packet/af_packet.c
+>>   net/packet/af_packet.c |   31 +++++++++++++++++++++++++++++--
+>>   1 files changed, 29 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+>> index 91cb1d7..ef7f378 100644
+>> --- a/net/packet/af_packet.c
+>> +++ b/net/packet/af_packet.c
+>> @@ -466,7 +466,7 @@ retry:
+>>   	 */
+>>
+>>   	err =3D -EMSGSIZE;
+>> -	if (len>  dev->mtu + dev->hard_header_len)
+>> +	if (len>  dev->mtu + dev->hard_header_len + VLAN_HLEN)
+>>   		goto out_unlock;
+>>
+>>   	if (!skb) {
+>> @@ -497,6 +497,19 @@ retry:
+>>   		goto retry;
+>>   	}
+>>
+>> +	if (len>  (dev->mtu + dev->hard_header_len)) {
+>> +		/* Earlier code assumed this would be a VLAN pkt,
+>> +		 * double-check this now that we have the actual
+>> +		 * packet in hand.
+>> +		 */
+>> +		struct ethhdr *ehdr;
+>> +		skb_reset_mac_header(skb);
+>> +		ehdr =3D eth_hdr(skb);
+>> +		if (ehdr->h_proto !=3D htons(ETH_P_8021Q)) {
+>> +			err =3D -EMSGSIZE;
+>> +			goto out_unlock;
+>
+> This would leak skb.
+>
+>> +		}
+>> +	}
+>>
+>>   	skb->protocol =3D proto;
+>>   	skb->dev =3D dev;
 
-This patch adds full support for SR-IOV by enabling the PF side.
-VF side has already been committed.
+Can you double-check that?  Seems to me that in that method the out_unl=
+ock
+falls through to the out_free case.  The other method is the opposite, =
+funny
+enough...
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/igb/e1000_82575.c |   10 ++++++++--
- drivers/net/igb/e1000_mbx.c   |   38 ++++++++++++++++++--------------------
- drivers/net/igb/igb_main.c    |    9 +++++++--
- 3 files changed, 33 insertions(+), 24 deletions(-)
+Thanks,
+Ben
 
-diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
-index c1552b6..65c1833 100644
---- a/drivers/net/igb/e1000_82575.c
-+++ b/drivers/net/igb/e1000_82575.c
-@@ -238,9 +238,15 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
- 		size = 14;
- 	nvm->word_size = 1 << size;
- 
--	/* if 82576 then initialize mailbox parameters */
--	if (mac->type == e1000_82576)
-+	/* if part supports SR-IOV then initialize mailbox parameters */
-+	switch (mac->type) {
-+	case e1000_82576:
-+	case e1000_i350:
- 		igb_init_mbx_params_pf(hw);
-+		break;
-+	default:
-+		break;
-+	}
- 
- 	/* setup PHY parameters */
- 	if (phy->media_type != e1000_media_type_copper) {
-diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
-index c474cdb..78d48c7 100644
---- a/drivers/net/igb/e1000_mbx.c
-+++ b/drivers/net/igb/e1000_mbx.c
-@@ -422,26 +422,24 @@ s32 igb_init_mbx_params_pf(struct e1000_hw *hw)
- {
- 	struct e1000_mbx_info *mbx = &hw->mbx;
- 
--	if (hw->mac.type == e1000_82576) {
--		mbx->timeout = 0;
--		mbx->usec_delay = 0;
--
--		mbx->size = E1000_VFMAILBOX_SIZE;
--
--		mbx->ops.read = igb_read_mbx_pf;
--		mbx->ops.write = igb_write_mbx_pf;
--		mbx->ops.read_posted = igb_read_posted_mbx;
--		mbx->ops.write_posted = igb_write_posted_mbx;
--		mbx->ops.check_for_msg = igb_check_for_msg_pf;
--		mbx->ops.check_for_ack = igb_check_for_ack_pf;
--		mbx->ops.check_for_rst = igb_check_for_rst_pf;
--
--		mbx->stats.msgs_tx = 0;
--		mbx->stats.msgs_rx = 0;
--		mbx->stats.reqs = 0;
--		mbx->stats.acks = 0;
--		mbx->stats.rsts = 0;
--	}
-+	mbx->timeout = 0;
-+	mbx->usec_delay = 0;
-+
-+	mbx->size = E1000_VFMAILBOX_SIZE;
-+
-+	mbx->ops.read = igb_read_mbx_pf;
-+	mbx->ops.write = igb_write_mbx_pf;
-+	mbx->ops.read_posted = igb_read_posted_mbx;
-+	mbx->ops.write_posted = igb_write_posted_mbx;
-+	mbx->ops.check_for_msg = igb_check_for_msg_pf;
-+	mbx->ops.check_for_ack = igb_check_for_ack_pf;
-+	mbx->ops.check_for_rst = igb_check_for_rst_pf;
-+
-+	mbx->stats.msgs_tx = 0;
-+	mbx->stats.msgs_rx = 0;
-+	mbx->stats.reqs = 0;
-+	mbx->stats.acks = 0;
-+	mbx->stats.rsts = 0;
- 
- 	return 0;
- }
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 200cc32..cb6bf7b 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2287,9 +2287,14 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 
- 	spin_lock_init(&adapter->stats64_lock);
- #ifdef CONFIG_PCI_IOV
--	if (hw->mac.type == e1000_82576)
-+	switch (hw->mac.type) {
-+	case e1000_82576:
-+	case e1000_i350:
- 		adapter->vfs_allocated_count = (max_vfs > 7) ? 7 : max_vfs;
--
-+		break;
-+	default:
-+		break;
-+	}
- #endif /* CONFIG_PCI_IOV */
- 	adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES, num_online_cpus());
- 
--- 
-1.7.4
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--=20
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
 
