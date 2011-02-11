@@ -1,43 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: GRO/GSO hiding PMTU?
-Date: Thu, 10 Feb 2011 23:07:12 -0800 (PST)
-Message-ID: <20110210.230712.183040908.davem@davemloft.net>
-References: <20110210235022.GA25293@gondor.apana.org.au>
-	<20110210.222216.104050992.davem@davemloft.net>
-	<20110211063753.GA29940@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6] xfrm: avoid possible oopse in xfrm_alloc_dst
+Date: Thu, 10 Feb 2011 23:08:56 -0800 (PST)
+Message-ID: <20110210.230856.39171624.davem@davemloft.net>
+References: <1297406495.18018.76.camel@vega>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: herbert@gondor.apana.org.au
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110211063753.GA29940@gondor.apana.org.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, timo.teras@iki.fi,
+	herbert@gondor.apana.org.au
+To: shimoda.hiroaki@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53760
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753939Ab1BKHIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 02:08:20 -0500
+In-Reply-To: <1297406495.18018.76.camel@vega>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Fri, 11 Feb 2011 17:37:53 +1100
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Date: Fri, 11 Feb 2011 15:41:35 +0900
 
-> What I wanted to do if I ever get enough time to work on this is
-> to record the transport header length in a gso_hlen field so we
-> can fix this properly.
+> Commit 80c802f3073e84 (xfrm: cache bundles instead of policies for
+> outgoing flows) introduced possible oopse when dst_alloc returns NULL.
 > 
-> We currently have a useless gso_segs field that only has one or
-> two users that don't even need it.  We could easily get rid of it
-> and use that space for gso_hlen instead.
-> 
-> The gso_hlen field only needs to be filled in at the few spots
-> that generate GSO packets, i.e.,
-> 
-> 1) TCP
-> 2) Virt backends like tun.c
-> 3) GRO
+> Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
 
-Yep, that's good idea.
-
-And even if we needed to add one more u32 to skb_shared_info()
-that's still sort-of "free" because of SLAB slack space.
-
-I'll look into doing this.
-
-Thanks!
+Good catch, applied.
