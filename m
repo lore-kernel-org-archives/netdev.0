@@ -1,53 +1,41 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH] stmmac: enable wol via magic frame by default.
-Date: Fri, 11 Feb 2011 09:51:46 +0100
-Message-ID: <1297414306-11271-1-git-send-email-peppe.cavallaro@st.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH] ip_gre: Add IPPROTO_GRE to flowi in ipgre_tunnel_xmit
+Date: Fri, 11 Feb 2011 10:30:40 +0100
+Message-ID: <20110211093040.GB29583@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Peppe CAVALLARO <peppe.cavallaro@st.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Changli Gao <xiaosuo@gmail.com>, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:40260 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753119Ab1BKIv5 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 03:51:57 -0500
-Received: from zeta.dmz-eu.st.com (ns2.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id CC93D179
-	for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 08:51:55 +0000 (GMT)
-Received: from Webmail-eu.st.com (safex1hubcas6.st.com [10.75.90.73])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 897D42786
-	for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 08:51:55 +0000 (GMT)
+Received: from a.mx.secunet.com ([195.81.216.161]:50203 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751934Ab1BKJuT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 04:50:19 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables it by default when the driver starts.
-This has been required by many people and seems to actually be
-useful on STB.
-At any rate, the WoL modes can be selected and turned-on/off
-by using the ethtool at run-time by users.
+Commit 5811662b15db018c740c57d037523683fd3e6123 accidentally
+removed the setting of IPPROTO_GRE from the struct flowi
+in ipgre_tunnel_xmit. This patch restores it.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
- drivers/net/stmmac/stmmac_main.c |    4 +++-
- 1 files changed, 3 insertions(+), 1 deletions(-)
+ net/ipv4/ip_gre.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
-index 34a0af3..0e5f031 100644
---- a/drivers/net/stmmac/stmmac_main.c
-+++ b/drivers/net/stmmac/stmmac_main.c
-@@ -1560,8 +1560,10 @@ static int stmmac_mac_device_setup(struct net_device *dev)
- 
- 	priv->hw = device;
- 
--	if (device_can_wakeup(priv->device))
-+	if (device_can_wakeup(priv->device)) {
- 		priv->wolopts = WAKE_MAGIC; /* Magic Frame as default */
-+		enable_irq_wake(dev->irq);
-+	}
- 
- 	return 0;
- }
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index eb68a0e..6613edf 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -775,6 +775,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+ 			.fl4_dst = dst,
+ 			.fl4_src = tiph->saddr,
+ 			.fl4_tos = RT_TOS(tos),
++			.proto = IPPROTO_GRE,
+ 			.fl_gre_key = tunnel->parms.o_key
+ 		};
+ 		if (ip_route_output_key(dev_net(dev), &rt, &fl)) {
 -- 
-1.7.4
+1.7.0.4
+
