@@ -1,76 +1,157 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH net-2.6] ixgbe: fix panic due to uninitialied pointer
-Date: Fri, 11 Feb 2011 14:47:25 -0800
-Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01D2D70082@orsmsx509.amr.corp.intel.com>
-References: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: bridge: Fix mglist corruption that leads to memory corruption
+Date: Sat, 12 Feb 2011 09:55:59 +1100
+Message-ID: <20110211225559.GA5922@gondor.apana.org.au>
+References: <20110211223655.GA5585@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: Andy Gospodarek <andy@greyhouse.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: ihands@redhat.com, jbacik@redhat.com
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:11490 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758373Ab1BKWr2 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 17:47:28 -0500
-In-Reply-To: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
-Content-Language: en-US
+Received: from helcar.apana.org.au ([209.40.204.226]:45055 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758377Ab1BKW4D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 17:56:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20110211223655.GA5585@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Andy Gospodarek [mailto:andy@greyhouse.net]
->Sent: Friday, February 11, 2011 1:46 PM
->To: netdev@vger.kernel.org
->Cc: Skidmore, Donald C; Duyck, Alexander H; Kirsher, Jeffrey T; Rose,
->Gregory V
->Subject: [PATCH net-2.6] ixgbe: fix panic due to uninitialied pointer
->
->Systems containing an 82599EB and running a backported driver from
->upstream were panicing on boot.  It turns out hw->mac.ops.setup_sfp is
->only set for 82599, so one should check to be sure that pointer is set
->before continuing in ixgbe_sfp_config_module_task.  I verified by
->inspection that the upstream driver has the same issue and also added a
->check before the call in ixgbe_sfp_link_config.
->
->Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
->---
-> drivers/net/ixgbe/ixgbe_main.c |    6 ++++--
-> 1 files changed, 4 insertions(+), 2 deletions(-)
->
->diff --git a/drivers/net/ixgbe/ixgbe_main.c
->b/drivers/net/ixgbe/ixgbe_main.c
->index fbae703..30f9ccf 100644
->--- a/drivers/net/ixgbe/ixgbe_main.c
->+++ b/drivers/net/ixgbe/ixgbe_main.c
->@@ -3728,7 +3728,8 @@ static void ixgbe_sfp_link_config(struct
->ixgbe_adapter *adapter)
-> 			 * We need to try and force an autonegotiation
-> 			 * session, then bring up link.
-> 			 */
->-			hw->mac.ops.setup_sfp(hw);
->+			if (hw->mac.ops.setup_sfp)
->+				hw->mac.ops.setup_sfp(hw);
-> 			if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
-> 				schedule_work(&adapter->multispeed_fiber_task);
-> 		} else {
->@@ -5968,7 +5969,8 @@ static void ixgbe_sfp_config_module_task(struct
->work_struct *work)
-> 		unregister_netdev(adapter->netdev);
-> 		return;
-> 	}
->-	hw->mac.ops.setup_sfp(hw);
->+	if (hw->mac.ops.setup_sfp)
->+		hw->mac.ops.setup_sfp(hw);
->
-> 	if (!(adapter->flags & IXGBE_FLAG_IN_SFP_LINK_TASK))
-> 		/* This will also work for DA Twinax connections */
->--
->1.7.4
+On Sat, Feb 12, 2011 at 09:36:55AM +1100, Herbert Xu wrote:
+> 
+> Normally this would be quite obvious as it would cause an infinite
+> loop when walking the list.  However, as this list is never actually
+> walked (which means that we don't really need it, I'll get rid of
+> it in a subsequent patch), this instead is hidden until we perform
+> a delete operation on the affected nodes.
 
-Thanks for the patch.  Jeff will pull it into our tree and we will give it some testing but it looks good to me.
+Here is the patch that replaces the mglist hlist with just a bool.
 
--Don Skidmore <donald.c.skidmore@intel.com> 
+bridge: Replace mp->mglist hlist with a bool
+
+As it turns out we never need to walk through the list of multicast
+groups subscribed by the bridge interface itself (the only time we'd
+want to do that is when we shut down the bridge, in which case we
+simply walk through all multicast groups), we don't really need to
+keep an hlist for mp->mglist.
+
+This means that we can replace it with just a single bit to indicate
+whether the bridge interface is subscribed to a group.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 6f6d8e1..88e4aa9 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -80,7 +80,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	if (is_multicast_ether_addr(dest)) {
+ 		mdst = br_mdb_get(br, skb);
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
+-			if ((mdst && !hlist_unhashed(&mdst->mglist)) ||
++			if ((mdst && mdst->mglist) ||
+ 			    br_multicast_is_router(br))
+ 				skb2 = skb;
+ 			br_multicast_forward(mdst, skb, skb2);
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index c558274..30e3a08 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -232,8 +232,7 @@ static void br_multicast_group_expired(unsigned long data)
+ 	if (!netif_running(br->dev) || timer_pending(&mp->timer))
+ 		goto out;
+ 
+-	if (!hlist_unhashed(&mp->mglist))
+-		hlist_del_init(&mp->mglist);
++	mp->mglist = 0;
+ 
+ 	if (mp->ports)
+ 		goto out;
+@@ -276,7 +275,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
+ 		del_timer(&p->query_timer);
+ 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 
+-		if (!mp->ports && hlist_unhashed(&mp->mglist) &&
++		if (!mp->ports && !mp->mglist &&
+ 		    netif_running(br->dev))
+ 			mod_timer(&mp->timer, jiffies);
+ 
+@@ -528,7 +527,7 @@ static void br_multicast_group_query_expired(unsigned long data)
+ 	struct net_bridge *br = mp->br;
+ 
+ 	spin_lock(&br->multicast_lock);
+-	if (!netif_running(br->dev) || hlist_unhashed(&mp->mglist) ||
++	if (!netif_running(br->dev) || !mp->mglist ||
+ 	    mp->queries_sent >= br->multicast_last_member_count)
+ 		goto out;
+ 
+@@ -719,8 +718,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 		goto err;
+ 
+ 	if (!port) {
+-		if (hlist_unhashed(&mp->mglist))
+-			hlist_add_head(&mp->mglist, &br->mglist);
++		mp->mglist = 1;
+ 		mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 		goto out;
+ 	}
+@@ -1166,7 +1164,7 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 
+ 	max_delay *= br->multicast_last_member_count;
+ 
+-	if (!hlist_unhashed(&mp->mglist) &&
++	if (mp->mglist &&
+ 	    (timer_pending(&mp->timer) ?
+ 	     time_after(mp->timer.expires, now + max_delay) :
+ 	     try_to_del_timer_sync(&mp->timer) >= 0))
+@@ -1237,7 +1235,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 		goto out;
+ 
+ 	max_delay *= br->multicast_last_member_count;
+-	if (!hlist_unhashed(&mp->mglist) &&
++	if (mp->mglist &&
+ 	    (timer_pending(&mp->timer) ?
+ 	     time_after(mp->timer.expires, now + max_delay) :
+ 	     try_to_del_timer_sync(&mp->timer) >= 0))
+@@ -1284,7 +1282,7 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 		     br->multicast_last_member_interval;
+ 
+ 	if (!port) {
+-		if (!hlist_unhashed(&mp->mglist) &&
++		if (mp->mglist &&
+ 		    (timer_pending(&mp->timer) ?
+ 		     time_after(mp->timer.expires, time) :
+ 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 84aac77..4e1b620 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -84,13 +84,13 @@ struct net_bridge_port_group {
+ struct net_bridge_mdb_entry
+ {
+ 	struct hlist_node		hlist[2];
+-	struct hlist_node		mglist;
+ 	struct net_bridge		*br;
+ 	struct net_bridge_port_group __rcu *ports;
+ 	struct rcu_head			rcu;
+ 	struct timer_list		timer;
+ 	struct timer_list		query_timer;
+ 	struct br_ip			addr;
++	bool				mglist;
+ 	u32				queries_sent;
+ };
+ 
+@@ -238,7 +238,6 @@ struct net_bridge
+ 	spinlock_t			multicast_lock;
+ 	struct net_bridge_mdb_htable __rcu *mdb;
+ 	struct hlist_head		router_list;
+-	struct hlist_head		mglist;
+ 
+ 	struct timer_list		multicast_router_timer;
+ 	struct timer_list		multicast_querier_timer;
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
