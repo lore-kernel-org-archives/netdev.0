@@ -1,68 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 v2 14/15] ixgbe: cleanup ixgbe_init_mbx_params_pf namespace issue
-Date: Fri, 11 Feb 2011 09:21:01 -0800
-Message-ID: <1297444862-32091-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 v2 11/15] ixgbe: DCB, use hardware independent routines
+Date: Fri, 11 Feb 2011 09:20:58 -0800
+Message-ID: <1297444862-32091-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1297444862-32091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga14.intel.com ([143.182.124.37]:26609 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757888Ab1BKRV0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 12:21:26 -0500
+	id S1757883Ab1BKRVZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 12:21:25 -0500
 In-Reply-To: <1297444862-32091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: John Fastabend <john.r.fastabend@intel.com>
 
-The function ixgbe_init_mbx_params_pf isn't used unless CONFIG_PCI_IOV
-is defined.  This is causing namespace warnings.  So I wrapped its
-definition in CONFIG_PCI_IOV too.
+This consolidates hardware specifics to ixgbe_dcb.c this simplifies
+code that was previously branching based on hardware type.
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Tested-by: Ross Brattain <ross.b.brattain@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_mbx.c |    2 ++
- drivers/net/ixgbe/ixgbe_mbx.h |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/net/ixgbe/ixgbe_dcb_nl.c |    6 +-----
+ 1 files changed, 1 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_mbx.c b/drivers/net/ixgbe/ixgbe_mbx.c
-index ea82c5a..f215c4c 100644
---- a/drivers/net/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ixgbe/ixgbe_mbx.c
-@@ -437,6 +437,7 @@ out_no_read:
- 	return ret_val;
- }
- 
-+#ifdef CONFIG_PCI_IOV
- /**
-  *  ixgbe_init_mbx_params_pf - set initial values for pf mailbox
-  *  @hw: pointer to the HW structure
-@@ -465,6 +466,7 @@ void ixgbe_init_mbx_params_pf(struct ixgbe_hw *hw)
- 		break;
+diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+index c94adec..a977df3 100644
+--- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
+@@ -405,11 +405,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+ 	if (adapter->dcb_set_bitmap & BIT_PFC) {
+ 		u8 pfc_en;
+ 		ixgbe_dcb_unpack_pfc(&adapter->dcb_cfg, &pfc_en);
+-
+-		if (adapter->hw.mac.type == ixgbe_mac_82598EB)
+-			ixgbe_dcb_config_pfc_82598(&adapter->hw, pfc_en);
+-		else if (adapter->hw.mac.type == ixgbe_mac_82599EB)
+-			ixgbe_dcb_config_pfc_82599(&adapter->hw, pfc_en);
++		ixgbe_dcb_hw_pfc_config(&adapter->hw, pfc_en);
+ 		ret = DCB_HW_CHG;
  	}
- }
-+#endif /* CONFIG_PCI_IOV */
- 
- struct ixgbe_mbx_operations mbx_ops_generic = {
- 	.read                   = ixgbe_read_mbx_pf,
-diff --git a/drivers/net/ixgbe/ixgbe_mbx.h b/drivers/net/ixgbe/ixgbe_mbx.h
-index 3df9b15..ada0ce3 100644
---- a/drivers/net/ixgbe/ixgbe_mbx.h
-+++ b/drivers/net/ixgbe/ixgbe_mbx.h
-@@ -86,7 +86,9 @@ s32 ixgbe_write_mbx(struct ixgbe_hw *, u32 *, u16, u16);
- s32 ixgbe_check_for_msg(struct ixgbe_hw *, u16);
- s32 ixgbe_check_for_ack(struct ixgbe_hw *, u16);
- s32 ixgbe_check_for_rst(struct ixgbe_hw *, u16);
-+#ifdef CONFIG_PCI_IOV
- void ixgbe_init_mbx_params_pf(struct ixgbe_hw *);
-+#endif /* CONFIG_PCI_IOV */
- 
- extern struct ixgbe_mbx_operations mbx_ops_generic;
  
 -- 
 1.7.4
