@@ -1,33 +1,43 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-2.6] ixgbe: fix panic due to uninitialized pointer
-Date: Fri, 11 Feb 2011 16:56:45 -0500
-Message-ID: <20110211215645.GA11864@gospo.rdu.redhat.com>
-References: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
+From: Steven Kath <steven.kath@vyatta.com>
+Subject: Re: any way to reset all marked connections when using CONNMARK?
+Date: Fri, 11 Feb 2011 14:11:56 -0800 (PST)
+Message-ID: <426866445.661.1297462316364.JavaMail.root@tahiti.vyatta.com>
+References: <256863566.648.1297461959805.JavaMail.root@tahiti.vyatta.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Don Skidmore <donald.c.skidmore@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org
+To: Chris Friesen <chris.friesen@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57626 "EHLO mx1.redhat.com"
+Received: from mail.vyatta.com ([76.74.103.46]:42147 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756843Ab1BKV4q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 16:56:46 -0500
-Content-Disposition: inline
-In-Reply-To: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
+	id S1757072Ab1BKWL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 17:11:57 -0500
+In-Reply-To: <256863566.648.1297461959805.JavaMail.root@tahiti.vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 11, 2011 at 04:45:47PM -0500, Andy Gospodarek wrote:
-> Systems containing an 82599EB and running a backported driver from
-> upstream were panicing on boot.  It turns out hw->mac.ops.setup_sfp is
-> only set for 82599, so one should check to be sure that pointer is set
-> before continuing in ixgbe_sfp_config_module_task.  I verified by
-> inspection that the upstream driver has the same issue and also added a
-> check before the call in ixgbe_sfp_link_config.
-> 
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
 
-Corrected spelling error in Subject.
+
+----- "Chris Friesen" <chris.friesen@genband.com> wrote: -----
+> We've got a scenario where we want to use CONNMARK to mark connections
+> that have passed a large number of rules in order to allow packets
+> from those connections to skip rules in the future (for performance
+> reasons).
+> 
+> However, when we add new rules we want to ensure that all the
+> connections need to pass the new rules as well.
+> 
+> It has been proposed to add a custom patch to clear the mark for all
+> marked connections--is there a better way of doing this?
+> 
+> I thought maybe we could use the CONNMARK as a generation count and
+> bumping it up each time a rule is added. This would require updating
+> the bypass rule each time we modify the other rules though. If there
+> are better options I'd like to hear them.
+
+Using conntrack-tools might help:
+
+conntrack --update --mark 0
+
