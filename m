@@ -1,7 +1,8 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 06/15] be2net: Cleanup the VF interface handles
-Date: Fri, 11 Feb 2011 17:35:56 -0600
-Message-ID: <20110211233556.GA18372@akhaparde-VBox>
+Subject: [PATCH net-next 05/15] be2net: call be_vf_eth_addr_config() after
+ register_netdev
+Date: Fri, 11 Feb 2011 17:35:41 -0600
+Message-ID: <20110211233540.GA18355@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,46 +10,64 @@ To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from exht1.emulex.com ([138.239.113.183]:51184 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757312Ab1BKXgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 18:36:04 -0500
+	with ESMTP id S1757118Ab1BKXgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 18:36:03 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PF needs to cleanup all the interface handles that it created for the VFs.
+This is to avoid the completion processing for be_vf_eth_addr_config
+to consume the link status notification before netdev_register.
+Otherwise this causes the PF miss its first link status update.
 
 Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
 ---
- drivers/net/benet/be_main.c |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+ drivers/net/benet/be_main.c |   17 ++++++++---------
+ 1 files changed, 8 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
-index 48eef9e..fc119d1 100644
+index c8075c1..48eef9e 100644
 --- a/drivers/net/benet/be_main.c
 +++ b/drivers/net/benet/be_main.c
-@@ -2340,6 +2340,8 @@ do_none:
+@@ -2317,19 +2317,10 @@ static int be_setup(struct be_adapter *adapter)
+ 	if (status != 0)
+ 		goto rx_qs_destroy;
  
- static int be_clear(struct be_adapter *adapter)
- {
-+	int vf;
-+
- 	if (be_physfn(adapter) && adapter->sriov_enabled)
- 		be_vf_eth_addr_rem(adapter);
+-	if (be_physfn(adapter) && adapter->sriov_enabled) {
+-		status = be_vf_eth_addr_config(adapter);
+-		if (status)
+-			goto mcc_q_destroy;
+-	}
+-
+ 	adapter->link_speed = -1;
  
-@@ -2347,6 +2349,13 @@ static int be_clear(struct be_adapter *adapter)
+ 	return 0;
+ 
+-mcc_q_destroy:
+-	if (be_physfn(adapter))
+-		be_vf_eth_addr_rem(adapter);
+ 	be_mcc_queues_destroy(adapter);
+ rx_qs_destroy:
  	be_rx_queues_destroy(adapter);
- 	be_tx_queues_destroy(adapter);
+@@ -2985,10 +2976,18 @@ static int __devinit be_probe(struct pci_dev *pdev,
+ 		goto unsetup;
+ 	netif_carrier_off(netdev);
  
-+	if (be_physfn(adapter) && adapter->sriov_enabled)
-+		for (vf = 0; vf < num_vfs; vf++)
-+			if (adapter->vf_cfg[vf].vf_if_handle)
-+				be_cmd_if_destroy(adapter,
-+					adapter->vf_cfg[vf].vf_if_handle,
-+					vf + 1);
++	if (be_physfn(adapter) && adapter->sriov_enabled) {
++		status = be_vf_eth_addr_config(adapter);
++		if (status)
++			goto unreg_netdev;
++	}
 +
- 	be_cmd_if_destroy(adapter, adapter->if_handle,  0);
+ 	dev_info(&pdev->dev, "%s port %d\n", nic_name(pdev), adapter->port_num);
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(100));
+ 	return 0;
  
- 	/* tell fw we're done with firing cmds */
++unreg_netdev:
++	unregister_netdev(netdev);
+ unsetup:
+ 	be_clear(adapter);
+ msix_disable:
 -- 
 1.7.1
 
