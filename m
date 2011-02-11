@@ -1,39 +1,41 @@
 From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net-next 00/15] be2net: patch series
-Date: Fri, 11 Feb 2011 17:32:15 -0600
-Message-ID: <20110211233215.GA18258@akhaparde-VBox>
+Subject: [PATCH net-next 02/15] be2net: endianness fix in be_cmd_set_qos().
+Date: Fri, 11 Feb 2011 17:33:02 -0600
+Message-ID: <20110211233302.GA18296@akhaparde-VBox>
 Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 To: <netdev@vger.kernel.org>, <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:51104 "EHLO
+Received: from exht1.emulex.com ([138.239.113.183]:51117 "EHLO
 	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756321Ab1BKXci (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 18:32:38 -0500
+	with ESMTP id S1757231Ab1BKXdZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 18:33:25 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patch series for the be2net driver.
 
-[01/15]: While configuring QOS for VF, pass proper domain id
-[02/15]: endianness fix in be_cmd_set_qos().
-[03/15]: Use domain id when be_cmd_if_destroy is called.
-[04/15]: Initialize and cleanup sriov resources only if pci_enable_sriov has succeeded.
-[05/15]: call be_vf_eth_addr_config() after register_netdev
-[06/15]: Cleanup the VF interface handles
-[07/15]: For the VF MAC, use the OUI from current MAC address
-[08/15]: pass domain numbers for pmac_add/del functions
-[09/15]: Allow VFs to call be_cmd_reset_function.
-[10/15]: Fix broken priority setting when vlan tagging is enabled.
-[11/15]: pass proper hdr_size while flashing redboot.
-[12/15]: fix be_suspend/resume/shutdown
-[13/15]: gracefully handle situations when UE is detected
-[14/15]: detect a UE even when a interface is down.
-[15/15]: restrict WOL to PFs only.
+Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+---
+ drivers/net/benet/be_cmds.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Please Apply.
+diff --git a/drivers/net/benet/be_cmds.c b/drivers/net/benet/be_cmds.c
+index a179cc6..d3b671d 100644
+--- a/drivers/net/benet/be_cmds.c
++++ b/drivers/net/benet/be_cmds.c
+@@ -1868,8 +1868,8 @@ int be_cmd_set_qos(struct be_adapter *adapter, u32 bps, u32 domain)
+ 			OPCODE_COMMON_SET_QOS, sizeof(*req));
+ 
+ 	req->hdr.domain = domain;
+-	req->valid_bits = BE_QOS_BITS_NIC;
+-	req->max_bps_nic = bps;
++	req->valid_bits = cpu_to_le32(BE_QOS_BITS_NIC);
++	req->max_bps_nic = cpu_to_le32(bps);
+ 
+ 	status = be_mcc_notify_wait(adapter);
+ 
+-- 
+1.7.1
 
-Thanks
--Ajit
