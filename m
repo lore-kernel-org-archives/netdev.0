@@ -1,157 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: bridge: Fix mglist corruption that leads to memory corruption
-Date: Sat, 12 Feb 2011 09:55:59 +1100
-Message-ID: <20110211225559.GA5922@gondor.apana.org.au>
-References: <20110211223655.GA5585@gondor.apana.org.au>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: pull request: batman-adv 2011-02-12
+Date: Sat, 12 Feb 2011 00:21:39 +0100
+Message-ID: <1297466503-13246-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ihands@redhat.com, jbacik@redhat.com
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:45055 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758377Ab1BKW4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 17:56:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20110211223655.GA5585@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 12, 2011 at 09:36:55AM +1100, Herbert Xu wrote:
-> 
-> Normally this would be quite obvious as it would cause an infinite
-> loop when walking the list.  However, as this list is never actually
-> walked (which means that we don't really need it, I'll get rid of
-> it in a subsequent patch), this instead is hidden until we perform
-> a delete operation on the affected nodes.
+Hi,
 
-Here is the patch that replaces the mglist hlist with just a bool.
+I would like propose following changes for net-next-2.6.git. Two of them =
+are
+minor code style changes and the other two change minor issues in the
+routing/fragmentation code.
 
-bridge: Replace mp->mglist hlist with a bool
+thanks,
+	Sven
 
-As it turns out we never need to walk through the list of multicast
-groups subscribed by the bridge interface itself (the only time we'd
-want to do that is when we shut down the bridge, in which case we
-simply walk through all multicast groups), we don't really need to
-keep an hlist for mp->mglist.
+The following changes since commit 091b948306d2628320e77977eb7ae4a757b121=
+80:
 
-This means that we can replace it with just a single bit to indicate
-whether the bridge interface is subscribed to a group.
+  batman-adv: Merge README of v2011.0.0 release (2011-01-31 14:57:13 +010=
+0)
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+are available in the git repository at:
+  git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 6f6d8e1..88e4aa9 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -80,7 +80,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 	if (is_multicast_ether_addr(dest)) {
- 		mdst = br_mdb_get(br, skb);
- 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
--			if ((mdst && !hlist_unhashed(&mdst->mglist)) ||
-+			if ((mdst && mdst->mglist) ||
- 			    br_multicast_is_router(br))
- 				skb2 = skb;
- 			br_multicast_forward(mdst, skb, skb2);
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index c558274..30e3a08 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -232,8 +232,7 @@ static void br_multicast_group_expired(unsigned long data)
- 	if (!netif_running(br->dev) || timer_pending(&mp->timer))
- 		goto out;
- 
--	if (!hlist_unhashed(&mp->mglist))
--		hlist_del_init(&mp->mglist);
-+	mp->mglist = 0;
- 
- 	if (mp->ports)
- 		goto out;
-@@ -276,7 +275,7 @@ static void br_multicast_del_pg(struct net_bridge *br,
- 		del_timer(&p->query_timer);
- 		call_rcu_bh(&p->rcu, br_multicast_free_pg);
- 
--		if (!mp->ports && hlist_unhashed(&mp->mglist) &&
-+		if (!mp->ports && !mp->mglist &&
- 		    netif_running(br->dev))
- 			mod_timer(&mp->timer, jiffies);
- 
-@@ -528,7 +527,7 @@ static void br_multicast_group_query_expired(unsigned long data)
- 	struct net_bridge *br = mp->br;
- 
- 	spin_lock(&br->multicast_lock);
--	if (!netif_running(br->dev) || hlist_unhashed(&mp->mglist) ||
-+	if (!netif_running(br->dev) || !mp->mglist ||
- 	    mp->queries_sent >= br->multicast_last_member_count)
- 		goto out;
- 
-@@ -719,8 +718,7 @@ static int br_multicast_add_group(struct net_bridge *br,
- 		goto err;
- 
- 	if (!port) {
--		if (hlist_unhashed(&mp->mglist))
--			hlist_add_head(&mp->mglist, &br->mglist);
-+		mp->mglist = 1;
- 		mod_timer(&mp->timer, now + br->multicast_membership_interval);
- 		goto out;
- 	}
-@@ -1166,7 +1164,7 @@ static int br_ip4_multicast_query(struct net_bridge *br,
- 
- 	max_delay *= br->multicast_last_member_count;
- 
--	if (!hlist_unhashed(&mp->mglist) &&
-+	if (mp->mglist &&
- 	    (timer_pending(&mp->timer) ?
- 	     time_after(mp->timer.expires, now + max_delay) :
- 	     try_to_del_timer_sync(&mp->timer) >= 0))
-@@ -1237,7 +1235,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
- 		goto out;
- 
- 	max_delay *= br->multicast_last_member_count;
--	if (!hlist_unhashed(&mp->mglist) &&
-+	if (mp->mglist &&
- 	    (timer_pending(&mp->timer) ?
- 	     time_after(mp->timer.expires, now + max_delay) :
- 	     try_to_del_timer_sync(&mp->timer) >= 0))
-@@ -1284,7 +1282,7 @@ static void br_multicast_leave_group(struct net_bridge *br,
- 		     br->multicast_last_member_interval;
- 
- 	if (!port) {
--		if (!hlist_unhashed(&mp->mglist) &&
-+		if (mp->mglist &&
- 		    (timer_pending(&mp->timer) ?
- 		     time_after(mp->timer.expires, time) :
- 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
-diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 84aac77..4e1b620 100644
---- a/net/bridge/br_private.h
-+++ b/net/bridge/br_private.h
-@@ -84,13 +84,13 @@ struct net_bridge_port_group {
- struct net_bridge_mdb_entry
- {
- 	struct hlist_node		hlist[2];
--	struct hlist_node		mglist;
- 	struct net_bridge		*br;
- 	struct net_bridge_port_group __rcu *ports;
- 	struct rcu_head			rcu;
- 	struct timer_list		timer;
- 	struct timer_list		query_timer;
- 	struct br_ip			addr;
-+	bool				mglist;
- 	u32				queries_sent;
- };
- 
-@@ -238,7 +238,6 @@ struct net_bridge
- 	spinlock_t			multicast_lock;
- 	struct net_bridge_mdb_htable __rcu *mdb;
- 	struct hlist_head		router_list;
--	struct hlist_head		mglist;
- 
- 	struct timer_list		multicast_router_timer;
- 	struct timer_list		multicast_querier_timer;
+Linus L=C3=BCssing (2):
+      batman-adv: Remove duplicate types.h inclusions
+      batman-adv: Disallow originator addressing within mesh layer
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Marek Lindner (1):
+      batman-adv: Split combined variable declarations
+
+Sven Eckelmann (1):
+      batman-adv: Use successive sequence numbers for fragments
+
+ net/batman-adv/icmp_socket.c       |    1 -
+ net/batman-adv/icmp_socket.h       |    2 --
+ net/batman-adv/main.c              |    1 -
+ net/batman-adv/routing.c           |    1 -
+ net/batman-adv/routing.h           |    2 --
+ net/batman-adv/send.c              |    1 -
+ net/batman-adv/send.h              |    2 --
+ net/batman-adv/soft-interface.c    |    1 -
+ net/batman-adv/translation-table.c |    1 -
+ net/batman-adv/translation-table.h |    2 --
+ net/batman-adv/unicast.c           |   19 +++++++------------
+ 11 files changed, 7 insertions(+), 26 deletions(-)
