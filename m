@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] niu: Fix races between up/down and get_stats.
-Date: Fri, 11 Feb 2011 11:33:45 -0800 (PST)
-Message-ID: <20110211.113345.260097421.davem@davemloft.net>
-References: <20110203.162529.260086668.davem@davemloft.net>
-	<20110204162646.GC3710@redhat.com>
-	<20110211172952.GA3112@redhat.com>
+Subject: Re: [PATCH net-2.6] tg3: Expand 5719 workaround
+Date: Fri, 11 Feb 2011 11:35:45 -0800 (PST)
+Message-ID: <20110211.113545.246522442.davem@davemloft.net>
+References: <1297450480-5998-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: fleitner@redhat.com
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57515
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57521
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757513Ab1BKTdJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 14:33:09 -0500
-In-Reply-To: <20110211172952.GA3112@redhat.com>
+	by vger.kernel.org with ESMTP id S1757513Ab1BKTfJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 14:35:09 -0500
+In-Reply-To: <1297450480-5998-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fleitner@redhat.com>
-Date: Fri, 11 Feb 2011 15:29:52 -0200
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Fri, 11 Feb 2011 10:54:40 -0800
 
-> Got a feedback that your patch works out too.
+> The previous patch applied cleanly for me, but here it is for net-2.6.
 
-Thanks a lot Flavio.
+I'm not making it up, this one fails too:
+
+davem@sunset:~/src/GIT/net-2.6$ git apply --check --whitespace=error-all diff
+error: patch failed: drivers/net/tg3.c:13318
+error: drivers/net/tg3.c: patch does not apply
+
+GIT wants the line numbers to match up exactly, no fuzz is allowed.
