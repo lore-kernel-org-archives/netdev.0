@@ -1,50 +1,49 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: GRO/GSO hiding PMTU?
-Date: Fri, 11 Feb 2011 17:37:53 +1100
-Message-ID: <20110211063753.GA29940@gondor.apana.org.au>
-References: <20110210.145555.39165146.davem@davemloft.net> <20110210235022.GA25293@gondor.apana.org.au> <20110210.222216.104050992.davem@davemloft.net>
+From: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+Subject: [PATCH net-2.6] xfrm: avoid possible oopse in xfrm_alloc_dst
+Date: Fri, 11 Feb 2011 15:41:35 +0900
+Message-ID: <1297406495.18018.76.camel@vega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110210.222216.104050992.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, timo.teras@iki.fi,
+	herbert@gondor.apana.org.au
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw0-f46.google.com ([74.125.83.46]:42767 "EHLO
+	mail-gw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751430Ab1BKGlg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 01:41:36 -0500
+Received: by gwj20 with SMTP id 20so943592gwj.19
+        for <netdev@vger.kernel.org>; Thu, 10 Feb 2011 22:41:36 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 10, 2011 at 10:22:16PM -0800, David Miller wrote:
->
-> I gave it a shot but it isn't easy.  We can figure out the length of
-> the IP headers just fine, but the rest of the value we need to add
-> to the MSS (the TCP header length) is transport specific which kind
-> of implies a transport dependent gso proto op of some sort.
+Commit 80c802f3073e84 (xfrm: cache bundles instead of policies for
+outgoing flows) introduced possible oopse when dst_alloc returns NULL.
 
-That's pretty much where I gave up :)
+Signed-off-by: Hiroaki SHIMODA <shimoda.hiroaki@gmail.com>
+---
+ net/xfrm/xfrm_policy.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
-> Or we just hack it, admit that only TCP creates GSO packets, and
-> directly check for TCP protcol and then inspect the TCP header
-> length :-)
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 8b3ef40..6459588 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -1340,10 +1340,13 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
+ 	default:
+ 		BUG();
+ 	}
+-	xdst = dst_alloc(dst_ops) ?: ERR_PTR(-ENOBUFS);
++	xdst = dst_alloc(dst_ops);
+ 	xfrm_policy_put_afinfo(afinfo);
+ 
+-	xdst->flo.ops = &xfrm_bundle_fc_ops;
++	if (likely(xdst))
++		xdst->flo.ops = &xfrm_bundle_fc_ops;
++	else
++		xdst = ERR_PTR(-ENOBUFS);
+ 
+ 	return xdst;
+ }
 
-Sure we can do that for now.
-
-What I wanted to do if I ever get enough time to work on this is
-to record the transport header length in a gso_hlen field so we
-can fix this properly.
-
-We currently have a useless gso_segs field that only has one or
-two users that don't even need it.  We could easily get rid of it
-and use that space for gso_hlen instead.
-
-The gso_hlen field only needs to be filled in at the few spots
-that generate GSO packets, i.e.,
-
-1) TCP
-2) Virt backends like tun.c
-3) GRO
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
