@@ -1,41 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 2/2] network: Allow af_packet to transmit +4 bytes for
- VLAN packets.
-Date: Fri, 11 Feb 2011 19:18:56 +0100
-Message-ID: <1297448336.2510.9.camel@edumazet-laptop>
-References: <1297375149-18458-1-git-send-email-greearb@candelatech.com>
-	 <1297375149-18458-2-git-send-email-greearb@candelatech.com>
-	 <1297407446.2493.5.camel@edumazet-laptop>
-	 <4D557412.7000209@candelatech.com>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: Re: [PATCH] niu: Fix races between up/down and get_stats.
+Date: Fri, 11 Feb 2011 15:29:52 -0200
+Message-ID: <20110211172952.GA3112@redhat.com>
+References: <20110203.162529.260086668.davem@davemloft.net>
+ <20110204162646.GC3710@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
-To: Ben Greear <greearb@candelatech.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:33531 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757470Ab1BKSTB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 13:19:01 -0500
-Received: by bwz15 with SMTP id 15so3468454bwz.19
-        for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 10:19:00 -0800 (PST)
-In-Reply-To: <4D557412.7000209@candelatech.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34824 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756209Ab1BKS1G (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 13:27:06 -0500
+Content-Disposition: inline
+In-Reply-To: <20110204162646.GC3710@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 11 f=C3=A9vrier 2011 =C3=A0 09:38 -0800, Ben Greear a =C3=A9=
-crit :
+On Fri, Feb 04, 2011 at 02:26:46PM -0200, Flavio Leitner wrote:
+> On Thu, Feb 03, 2011 at 04:25:29PM -0800, David Miller wrote:
+> > 
+> > As reported by Flavio Leitner, there is no synchronization to protect
+> > NIU's get_stats method from seeing a NULL pointer in either
+> > np->rx_rings or np->tx_rings.  In fact, as far as ->ndo_get_stats
+> > is concerned, these values are set completely asynchronously.
+> > 
+> > Flavio attempted to fix this using a RW semaphore, which in fact
+> > works most of the time.  However, dev_get_stats() can be invoked
+> > from non-sleepable contexts in some cases, so this fix doesn't
+> > work in all cases.
+> > 
+> > So instead, control the visibility of the np->{rx,tx}_ring pointers
+> > when the device is being brough up, and use properties of the device
+> > down sequence to our advantage.
+> > 
+> > In niu_get_stats(), return immediately if netif_running() is false.
+> > The device shutdown sequence first marks the device as not running (by
+> > clearing the __LINK_STATE_START bit), then it performans a
+> > synchronize_rcu() (in dev_deactive_many()), and then finally it
+> > invokes the driver ->ndo_stop() method.
+> > 
+> > This guarentees that all invocations of niu_get_stats() either see
+> > netif_running() as false, or they see the channel pointers before
+> > ->ndo_stop() clears them out.
+> > 
+> > If netif_running() is true, protect against startup races by loading
+> > the np->{rx,tx}_rings pointer into a local variable, and punting if
+> > it is NULL.  Use ACCESS_ONCE to prevent the compiler from reloading
+> > the pointer on us.
+> > 
+> > Also, during open, control the order in which the pointers and the
+> > ring counts become visible globally using SMP write memory barriers.
+> > We make sure the np->num_{rx,tx}_rings value is stable and visible
+> > before np->{rx,tx}_rings is.
+> > 
+> > Such visibility control is not necessary on the niu_free_channels()
+> > side because of the RCU sequencing that happens during device down as
+> > described above.  We are always guarenteed that all niu_get_stats
+> > calls are finished, or will see netif_running() false, by the time
+> > ->ndo_stop is invoked.
+> > 
+> > Reported-by: Flavio Leitner <fleitner@redhat.com>
+> > Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
+> nice patch, clever
+> I got positive feedback on my patch. I'll ask for this patch as well.
 
-> Can you double-check that?  Seems to me that in that method the out_u=
-nlock
-> falls through to the out_free case.  The other method is the opposite=
-, funny
-> enough...
-
-Oops you're right, sorry.
-
-Reading again your patch, I see you used one ETH_HLEN instead of
-VLAN_HLEN in packet_snd()
-
-
-
+Got a feedback that your patch works out too.
+thanks,
+-- 
+Flavio
