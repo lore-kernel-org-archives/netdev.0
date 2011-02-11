@@ -1,32 +1,43 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH] ip_gre: Add IPPROTO_GRE to flowi in ipgre_tunnel_xmit
-Date: Fri, 11 Feb 2011 18:44:55 +0800
-Message-ID: <AANLkTi=AZny3AprR1MnOnnyCu6aemauQTPzL6psNtfoZ@mail.gmail.com>
-References: <20110211093040.GB29583@secunet.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
+ in error path and remove
+Date: Fri, 11 Feb 2011 12:03:39 +0100
+Message-ID: <20110211110339.GH27982@pengutronix.de>
+References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
+ <1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Shawn Guo <shawn.guo@freescale.com>, kernel@pengutronix.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:65199 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750848Ab1BKKpQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 05:45:16 -0500
-Received: by fxm20 with SMTP id 20so2532882fxm.19
-        for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 02:45:15 -0800 (PST)
-In-Reply-To: <20110211093040.GB29583@secunet.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:44806 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755261Ab1BKLDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 06:03:42 -0500
+Content-Disposition: inline
+In-Reply-To: <1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 11, 2011 at 5:30 PM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> Commit 5811662b15db018c740c57d037523683fd3e6123 accidentally
-> removed the setting of IPPROTO_GRE from the struct flowi
-> in ipgre_tunnel_xmit. This patch restores it.
->
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-Acked-by: Changli Gao <xiaosuo@gmail.com>
+Hello,
 
--- 
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+On Fri, Feb 11, 2011 at 11:32:10AM +0100, Uwe Kleine-K=F6nig wrote:
+> Noticed-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+I changed that to Reported-by: in this and the other patches.
+(this was Reported-by: Wolfram Sang via irc).  The updated patches can
+be found at
+
+	git://git.pengutronix.de/git/ukl/linux-2.6.git fec
+
+=2E
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
