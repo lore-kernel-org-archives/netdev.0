@@ -1,129 +1,126 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 v2 05/15] ixgbe: DCB, only reprogram HW if the FCoE priority is changed
-Date: Fri, 11 Feb 2011 09:20:52 -0800
-Message-ID: <1297444862-32091-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 v2 04/15] igb: Enable PF side of SR-IOV support for i350 devices
+Date: Fri, 11 Feb 2011 09:20:51 -0800
+Message-ID: <1297444862-32091-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1297444862-32091-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:2017 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([143.182.124.37]:11125 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757864Ab1BKRVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 12:21:20 -0500
+	id S1757840Ab1BKRVT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 12:21:19 -0500
 In-Reply-To: <1297444862-32091-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-If the FCoE priority is not changing do not set the RESET and
-APP_UPCHG bits. This causes unneeded HW resets and which can
-cause unneeded LLDP frames and negotiations.
+This patch adds full support for SR-IOV by enabling the PF side.
+VF side has already been committed.
 
-The current check is not sufficient because the FCoE priority
-can change twice during a negotiation which results in the
-bits being set. This occurs when the switch changes the
-priority or when the link is reset with switches that do not
-include the APP priority until after PFC has been negotiated.
-
-This results in set_app being called with the local APP
-priority. Then the negotiation completes and set_app
-is called again with the peer APP priority. The check
-fails so the device is reset and the above occurs again
-resulting in an endless loop of resets.
-
-By only resetting the device if the APP priority has really
-changed we short circuit the loop.
-
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-Tested-by: Ross Brattain <ross.b.brattain@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_dcb_nl.c |   38 ++++++++++++++++++++++++++------------
- 1 files changed, 26 insertions(+), 12 deletions(-)
+ drivers/net/igb/e1000_82575.c |   10 ++++++++--
+ drivers/net/igb/e1000_mbx.c   |   38 ++++++++++++++++++--------------------
+ drivers/net/igb/igb_main.c    |    9 +++++++--
+ 3 files changed, 33 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-index bf566e8..4805835 100644
---- a/drivers/net/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ixgbe/ixgbe_dcb_nl.c
-@@ -353,6 +353,7 @@ static void ixgbe_dcbnl_get_pfc_cfg(struct net_device *netdev, int priority,
- static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
+diff --git a/drivers/net/igb/e1000_82575.c b/drivers/net/igb/e1000_82575.c
+index c1552b6..65c1833 100644
+--- a/drivers/net/igb/e1000_82575.c
++++ b/drivers/net/igb/e1000_82575.c
+@@ -238,9 +238,15 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 		size = 14;
+ 	nvm->word_size = 1 << size;
+ 
+-	/* if 82576 then initialize mailbox parameters */
+-	if (mac->type == e1000_82576)
++	/* if part supports SR-IOV then initialize mailbox parameters */
++	switch (mac->type) {
++	case e1000_82576:
++	case e1000_i350:
+ 		igb_init_mbx_params_pf(hw);
++		break;
++	default:
++		break;
++	}
+ 
+ 	/* setup PHY parameters */
+ 	if (phy->media_type != e1000_media_type_copper) {
+diff --git a/drivers/net/igb/e1000_mbx.c b/drivers/net/igb/e1000_mbx.c
+index c474cdb..78d48c7 100644
+--- a/drivers/net/igb/e1000_mbx.c
++++ b/drivers/net/igb/e1000_mbx.c
+@@ -422,26 +422,24 @@ s32 igb_init_mbx_params_pf(struct e1000_hw *hw)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
-+	bool do_reset;
- 	int ret;
+ 	struct e1000_mbx_info *mbx = &hw->mbx;
  
- 	if (!adapter->dcb_set_bitmap)
-@@ -368,7 +369,9 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	 * Only take down the adapter if the configuration change
- 	 * requires a reset.
- 	 */
--	if (adapter->dcb_set_bitmap & BIT_RESETLINK) {
-+	do_reset = adapter->dcb_set_bitmap & (BIT_RESETLINK | BIT_APP_UPCHG);
+-	if (hw->mac.type == e1000_82576) {
+-		mbx->timeout = 0;
+-		mbx->usec_delay = 0;
+-
+-		mbx->size = E1000_VFMAILBOX_SIZE;
+-
+-		mbx->ops.read = igb_read_mbx_pf;
+-		mbx->ops.write = igb_write_mbx_pf;
+-		mbx->ops.read_posted = igb_read_posted_mbx;
+-		mbx->ops.write_posted = igb_write_posted_mbx;
+-		mbx->ops.check_for_msg = igb_check_for_msg_pf;
+-		mbx->ops.check_for_ack = igb_check_for_ack_pf;
+-		mbx->ops.check_for_rst = igb_check_for_rst_pf;
+-
+-		mbx->stats.msgs_tx = 0;
+-		mbx->stats.msgs_rx = 0;
+-		mbx->stats.reqs = 0;
+-		mbx->stats.acks = 0;
+-		mbx->stats.rsts = 0;
+-	}
++	mbx->timeout = 0;
++	mbx->usec_delay = 0;
 +
-+	if (do_reset) {
- 		while (test_and_set_bit(__IXGBE_RESETTING, &adapter->state))
- 			msleep(1);
- 
-@@ -408,7 +411,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 		}
- 	}
- 
--	if (adapter->dcb_set_bitmap & BIT_RESETLINK) {
-+	if (do_reset) {
- 		if (adapter->dcb_set_bitmap & BIT_APP_UPCHG) {
- 			ixgbe_init_interrupt_scheme(adapter);
- 			if (netif_running(netdev))
-@@ -430,7 +433,7 @@ static u8 ixgbe_dcbnl_set_all(struct net_device *netdev)
- 	if (adapter->dcb_cfg.pfc_mode_enable)
- 		adapter->hw.fc.current_mode = ixgbe_fc_pfc;
- 
--	if (adapter->dcb_set_bitmap & BIT_RESETLINK)
-+	if (do_reset)
- 		clear_bit(__IXGBE_RESETTING, &adapter->state);
- 	adapter->dcb_set_bitmap = 0x00;
- 	return ret;
-@@ -568,18 +571,29 @@ static u8 ixgbe_dcbnl_setapp(struct net_device *netdev,
- 	case DCB_APP_IDTYPE_ETHTYPE:
- #ifdef IXGBE_FCOE
- 		if (id == ETH_P_FCOE) {
--			u8 tc;
--			struct ixgbe_adapter *adapter;
-+			u8 old_tc;
-+			struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 
--			adapter = netdev_priv(netdev);
--			tc = adapter->fcoe.tc;
-+			/* Get current programmed tc */
-+			old_tc = adapter->fcoe.tc;
- 			rval = ixgbe_fcoe_setapp(adapter, up);
--			if ((!rval) && (tc != adapter->fcoe.tc) &&
--			    (adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
--			    (adapter->flags & IXGBE_FLAG_FCOE_ENABLED)) {
++	mbx->size = E1000_VFMAILBOX_SIZE;
 +
-+			if (rval ||
-+			   !(adapter->flags & IXGBE_FLAG_DCB_ENABLED) ||
-+			   !(adapter->flags & IXGBE_FLAG_FCOE_ENABLED))
-+				break;
++	mbx->ops.read = igb_read_mbx_pf;
++	mbx->ops.write = igb_write_mbx_pf;
++	mbx->ops.read_posted = igb_read_posted_mbx;
++	mbx->ops.write_posted = igb_write_posted_mbx;
++	mbx->ops.check_for_msg = igb_check_for_msg_pf;
++	mbx->ops.check_for_ack = igb_check_for_ack_pf;
++	mbx->ops.check_for_rst = igb_check_for_rst_pf;
 +
-+			/* The FCoE application priority may be changed multiple
-+			 * times in quick sucession with switches that build up
-+			 * TLVs. To avoid creating uneeded device resets this
-+			 * checks the actual HW configuration and clears
-+			 * BIT_APP_UPCHG if a HW configuration change is not
-+			 * need
-+			 */
-+			if (old_tc == adapter->fcoe.tc)
-+				adapter->dcb_set_bitmap &= ~BIT_APP_UPCHG;
-+			else
- 				adapter->dcb_set_bitmap |= BIT_APP_UPCHG;
--				adapter->dcb_set_bitmap |= BIT_RESETLINK;
--			}
- 		}
- #endif
- 		break;
++	mbx->stats.msgs_tx = 0;
++	mbx->stats.msgs_rx = 0;
++	mbx->stats.reqs = 0;
++	mbx->stats.acks = 0;
++	mbx->stats.rsts = 0;
+ 
+ 	return 0;
+ }
+diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
+index 200cc32..cb6bf7b 100644
+--- a/drivers/net/igb/igb_main.c
++++ b/drivers/net/igb/igb_main.c
+@@ -2287,9 +2287,14 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
+ 
+ 	spin_lock_init(&adapter->stats64_lock);
+ #ifdef CONFIG_PCI_IOV
+-	if (hw->mac.type == e1000_82576)
++	switch (hw->mac.type) {
++	case e1000_82576:
++	case e1000_i350:
+ 		adapter->vfs_allocated_count = (max_vfs > 7) ? 7 : max_vfs;
+-
++		break;
++	default:
++		break;
++	}
+ #endif /* CONFIG_PCI_IOV */
+ 	adapter->rss_queues = min_t(u32, IGB_MAX_RX_QUEUES, num_online_cpus());
+ 
 -- 
 1.7.4
 
