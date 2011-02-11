@@ -1,96 +1,34 @@
-From: greearb@candelatech.com
-Subject: [PATCH 2/2 v2] network: Allow af_packet to transmit +4 bytes for VLAN packets.
-Date: Fri, 11 Feb 2011 11:35:18 -0800
-Message-ID: <1297452918-16993-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/3] Net driver fixes related to power management
+Date: Fri, 11 Feb 2011 11:39:04 -0800 (PST)
+Message-ID: <20110211.113904.28807180.davem@davemloft.net>
+References: <201102101751.56508.rjw@sisk.pl>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, mchan@broadcom.com,
+	linux-pm@lists.linux-foundation.org, thomas@fjellstrom.ca,
+	jcliburn@gmail.com, chris.snook@gmail.com, jie.yang@atheros.com
+To: rjw@sisk.pl
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:53880 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758016Ab1BKTf0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 14:35:26 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55990
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758036Ab1BKTi2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 14:38:28 -0500
+In-Reply-To: <201102101751.56508.rjw@sisk.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Date: Thu, 10 Feb 2011 17:51:56 +0100
 
-This allows user-space to send a '1500' MTU VLAN packet on a
-1500 MTU ethernet frame.  The extra 4 bytes of a VLAN header is
-not usually charged against the MTU when other parts of the
-network stack is transmitting vlans...
+> The following series of patches fix minor issues related to power management
+> in the tg3, alt1 and atl1c drivers.
+> 
+> [1/3] - tg3: Don't use device_init_wakeup() (PCI does that)
+> [2/3] - atl1c: Don't use device_init_wakeup() (ditto)
+> [3/3] - atl1: Don't use legacy PCI power management.
+> 
+> Please consider for applying.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
-
-v2:  Fix ETH_HLEN to be VLAN_HLEN
-
-:100644 100644 91cb1d7... eb39d70... M	net/packet/af_packet.c
- net/packet/af_packet.c |   31 +++++++++++++++++++++++++++++--
- 1 files changed, 29 insertions(+), 2 deletions(-)
-
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 91cb1d7..eb39d70 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -466,7 +466,7 @@ retry:
- 	 */
- 
- 	err = -EMSGSIZE;
--	if (len > dev->mtu + dev->hard_header_len)
-+	if (len > dev->mtu + dev->hard_header_len + VLAN_HLEN)
- 		goto out_unlock;
- 
- 	if (!skb) {
-@@ -497,6 +497,19 @@ retry:
- 		goto retry;
- 	}
- 
-+	if (len > (dev->mtu + dev->hard_header_len)) {
-+		/* Earlier code assumed this would be a VLAN pkt,
-+		 * double-check this now that we have the actual
-+		 * packet in hand.
-+		 */
-+		struct ethhdr *ehdr;
-+		skb_reset_mac_header(skb);
-+		ehdr = eth_hdr(skb);
-+		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
-+			err = -EMSGSIZE;
-+			goto out_unlock;
-+		}
-+	}
- 
- 	skb->protocol = proto;
- 	skb->dev = dev;
-@@ -1200,7 +1213,7 @@ static int packet_snd(struct socket *sock,
- 	}
- 
- 	err = -EMSGSIZE;
--	if (!gso_type && (len > dev->mtu+reserve))
-+	if (!gso_type && (len > dev->mtu + reserve + VLAN_HLEN))
- 		goto out_unlock;
- 
- 	err = -ENOBUFS;
-@@ -1225,6 +1238,20 @@ static int packet_snd(struct socket *sock,
- 	if (err < 0)
- 		goto out_free;
- 
-+	if (!gso_type && (len > dev->mtu + reserve)) {
-+		/* Earlier code assumed this would be a VLAN pkt,
-+		 * double-check this now that we have the actual
-+		 * packet in hand.
-+		 */
-+		struct ethhdr *ehdr;
-+		skb_reset_mac_header(skb);
-+		ehdr = eth_hdr(skb);
-+		if (ehdr->h_proto != htons(ETH_P_8021Q)) {
-+			err = -EMSGSIZE;
-+			goto out_free;
-+		}
-+	}
-+
- 	skb->protocol = proto;
- 	skb->dev = dev;
- 	skb->priority = sk->sk_priority;
--- 
-1.7.2.3
-
+All applied to net-next-2.6, thank you.
