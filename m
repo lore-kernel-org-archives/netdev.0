@@ -1,111 +1,114 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next-2.6 00/16][pull request] Intel Wired LAN Driver Updates
-Date: Fri, 11 Feb 2011 07:55:35 -0800
-Message-ID: <AANLkTimo1itFgO2K76VvKso=SrVjF9FEpO8twmFrq1pZ@mail.gmail.com>
-References: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
-To: davem@davemloft.net
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [patch net-next-2.6 3/4] bond: implement slave management operations
+Date: Fri, 11 Feb 2011 09:19:50 -0800
+Message-ID: <22104.1297444790@death>
+References: <20110211152125.GA2763@psychotron.brq.redhat.com> <20110211152257.GC2763@psychotron.brq.redhat.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iw0-f174.google.com ([209.85.214.174]:52183 "EHLO
-	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756889Ab1BKPzf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 10:55:35 -0500
-Received: by iwn9 with SMTP id 9so2538418iwn.19
-        for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 07:55:35 -0800 (PST)
-In-Reply-To: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from e8.ny.us.ibm.com ([32.97.182.138]:33249 "EHLO e8.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757852Ab1BKRT4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 12:19:56 -0500
+Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
+	by e8.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p1BD0DIg026817
+	for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 08:01:44 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id D374972805B
+	for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 12:19:54 -0500 (EST)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p1BHJsCK383608
+	for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 12:19:54 -0500
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p1BHJrLp028658
+	for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 15:19:54 -0200
+In-reply-to: <20110211152257.GC2763@psychotron.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Feb 8, 2011 at 04:29, Jeff Kirsher <jeffrey.t.kirsher@intel.com=
-> wrote:
-> The following series contains e1000e cleanup patches, the addition of=
- igb
-> PF support for i350 devices and several ixgbe cleanup patches.
->
-> The following are changes since commit 2360d2e8f01043632d6b651672bec6=
-6c49892f94:
-> =C2=A0enic: Update MAINTAINERS
->
-> and are available in the git repository at:
-> =C2=A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2=
-=2E6 master
->
-> Atita Shirwaikar (1):
-> =C2=A0ixgbe: Adding 100MB FULL support in ethtool
->
-> Bruce Allan (4):
-> =C2=A0e1000e: replace unbounded sprintf with snprintf
-> =C2=A0e1000e: use correct pointer when memcpy'ing a 2-dimensional arr=
-ay
-> =C2=A0e1000e: do not wakeup Tx queue until ready
-> =C2=A0e1000e: return appropriate errors for 'ethtool -r'
->
-> Carolyn Wyborny (1):
-> =C2=A0igb: Enable PF side of SR-IOV support for i350 devices
->
-> Don Skidmore (3):
-> =C2=A0ixgbe: fix namespace issue with ixgbe_dcb_txq_to_tc
-> =C2=A0ixgbe: cleanup namespace complaint by removing little used func=
-tion
-> =C2=A0ixgbe: cleanup ixgbe_init_mbx_params_pf namespace issue
->
-> John Fastabend (7):
-> =C2=A0ixgbe: DCB, only reprogram HW if the FCoE priority is changed
-> =C2=A0ixgbe: DCB, remove round robin mode on 82598 devices
-> =C2=A0ixgbe: DCB, abstract out dcb_config from DCB hardware configura=
-tion
-> =C2=A0ixgbe: DCB, implement 802.1Qaz routines
-> =C2=A0ixgbe: DCB, do not reset on CEE pg changes
-> =C2=A0ixgbe: DCB, remove RESET bit it is no longer needed
-> =C2=A0ixgbe: dcb, use hardware independent routines
->
-> =C2=A0drivers/net/e1000e/ethtool.c =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
- 13 ++-
-> =C2=A0drivers/net/e1000e/netdev.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
- 13 +-
-> =C2=A0drivers/net/igb/e1000_82575.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 10 =
-++-
-> =C2=A0drivers/net/igb/e1000_mbx.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
- 38 +++----
-> =C2=A0drivers/net/igb/igb_main.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =
-=C2=A0 =C2=A09 +-
-> =C2=A0drivers/net/ixgbe/ixgbe.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =
-=C2=A0 =C2=A05 +-
-> =C2=A0drivers/net/ixgbe/ixgbe_common.h =C2=A0 =C2=A0| =C2=A0 =C2=A04 =
-+-
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0176 =
-+++++++++++++++++++++++++++++-
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb.h =C2=A0 =C2=A0 =C2=A0 | =C2=A0 10 =
-++-
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82598.c | =C2=A0 94 ++++++++-------=
--
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82598.h | =C2=A0 23 ++++-
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82599.c | =C2=A0115 +++++++++++----=
-----
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82599.h | =C2=A0 24 ++++-
-> =C2=A0drivers/net/ixgbe/ixgbe_dcb_nl.c =C2=A0 =C2=A0| =C2=A0211 +++++=
-+++++++++++++++++++++--------
-> =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c =C2=A0 | =C2=A0 34 ++++++-
-> =C2=A0drivers/net/ixgbe/ixgbe_main.c =C2=A0 =C2=A0 =C2=A0| =C2=A0 18 =
-+--
-> =C2=A0drivers/net/ixgbe/ixgbe_mbx.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=
-=A02 +
-> =C2=A0drivers/net/ixgbe/ixgbe_mbx.h =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=
-=A02 +
-> =C2=A0include/linux/dcbnl.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 | =C2=A0 =C2=A05 +
-> =C2=A019 files changed, 601 insertions(+), 205 deletions(-)
->
-> --
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-I will drop patch 3 (e1000e: do not wakeup Tx queue until ready) while
-Bruce takes a second look at the patch.  I will be re-posting a pull
-request once I have updated my net-next tree without that patch.
+>Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>---
+> drivers/net/bonding/bond_main.c |   38 ++++++++++++++++++++++++++++++++++++++
+> 1 files changed, 38 insertions(+), 0 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 1df9f0e..f8e59f9 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
 
---=20
-Cheers,
-Jeff
+	I think this would be better served by a new bond_netlink.c
+file instead of cramming this into (the already huge) bond_main.c.  In
+the long run, there will be a lot more netlink related code in bonding,
+so I think it makes sense to give it a file of its own from the
+beginning.
+
+>@@ -4285,6 +4285,40 @@ unwind:
+> 	return res;
+> }
+>
+>+static int bond_add_slave(struct net_device *bond_dev,
+>+			  struct net_device *slave_dev)
+>+{
+>+	return bond_enslave(bond_dev, slave_dev);
+>+}
+>+
+>+static int bond_del_slave(struct net_device *bond_dev,
+>+			  struct net_device *slave_dev)
+>+{
+>+	return bond_release(bond_dev, slave_dev);
+>+}
+>+
+>+static int bond_get_slave_count(const struct net_device *bond_dev)
+>+{
+>+	struct bonding *bond = netdev_priv(bond_dev);
+>+
+>+	return bond->slave_cnt;
+>+}
+>+
+>+static struct net_device *bond_get_slave(const struct net_device *bond_dev,
+>+					 int slave_index)
+>+{
+>+	struct bonding *bond = netdev_priv(bond_dev);
+>+	struct slave *slave;
+>+	int i;
+>+
+>+	/* no need to hold bond->lock here, protected against writers by rtnl */
+>+	bond_for_each_slave(bond, slave, i) {
+>+		if (slave_index == i)
+>+			return slave->dev;
+>+	}
+>+	return NULL;
+
+	I think using the name "slave_index" for this variable is
+confusing, since it isn't the ifindex of the slave.  This "index" is
+used to iterate through the list of slaves, so perhaps "slave_num" or
+"slave_position" is clearer.  The same comment applies to the equivalent
+code for bridge.
+
+	-J
+
+>+}
+>+
+> static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
+> {
+> 	struct bonding *bond = netdev_priv(bond_dev);
+>@@ -4657,6 +4691,10 @@ static const struct net_device_ops bond_netdev_ops = {
+> 	.ndo_netpoll_cleanup	= bond_netpoll_cleanup,
+> 	.ndo_poll_controller	= bond_poll_controller,
+> #endif
+>+	.ndo_add_slave		= bond_add_slave,
+>+	.ndo_del_slave		= bond_del_slave,
+>+	.ndo_get_slave_count	= bond_get_slave_count,
+>+	.ndo_get_slave		= bond_get_slave,
+> };
+>
+> static void bond_destructor(struct net_device *bond_dev)
+>-- 
+>1.7.3.4
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
