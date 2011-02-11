@@ -1,63 +1,111 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch net-next-2.6 1/4] net: extend netlink interface to handle
- generic slave management
-Date: Fri, 11 Feb 2011 16:48:19 +0100
-Message-ID: <4D555A43.5000005@trash.net>
-References: <20110211152125.GA2763@psychotron.brq.redhat.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [net-next-2.6 00/16][pull request] Intel Wired LAN Driver Updates
+Date: Fri, 11 Feb 2011 07:55:35 -0800
+Message-ID: <AANLkTimo1itFgO2K76VvKso=SrVjF9FEpO8twmFrq1pZ@mail.gmail.com>
+References: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, fubar@us.ibm.com
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:63746 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757380Ab1BKPsn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 10:48:43 -0500
-In-Reply-To: <20110211152125.GA2763@psychotron.brq.redhat.com>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:52183 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756889Ab1BKPzf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 10:55:35 -0500
+Received: by iwn9 with SMTP id 9so2538418iwn.19
+        for <netdev@vger.kernel.org>; Fri, 11 Feb 2011 07:55:35 -0800 (PST)
+In-Reply-To: <1297168167-15755-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11.02.2011 16:21, Jiri Pirko wrote:
-> Drivers like bridge and bonding uses their own way to manipulate with
-> underlink devices. This is an attempt to introduce common interface using
-> netlink.
+On Tue, Feb 8, 2011 at 04:29, Jeff Kirsher <jeffrey.t.kirsher@intel.com=
+> wrote:
+> The following series contains e1000e cleanup patches, the addition of=
+ igb
+> PF support for i350 devices and several ixgbe cleanup patches.
+>
+> The following are changes since commit 2360d2e8f01043632d6b651672bec6=
+6c49892f94:
+> =C2=A0enic: Update MAINTAINERS
+>
+> and are available in the git repository at:
+> =C2=A0master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2=
+=2E6 master
+>
+> Atita Shirwaikar (1):
+> =C2=A0ixgbe: Adding 100MB FULL support in ethtool
+>
+> Bruce Allan (4):
+> =C2=A0e1000e: replace unbounded sprintf with snprintf
+> =C2=A0e1000e: use correct pointer when memcpy'ing a 2-dimensional arr=
+ay
+> =C2=A0e1000e: do not wakeup Tx queue until ready
+> =C2=A0e1000e: return appropriate errors for 'ethtool -r'
+>
+> Carolyn Wyborny (1):
+> =C2=A0igb: Enable PF side of SR-IOV support for i350 devices
+>
+> Don Skidmore (3):
+> =C2=A0ixgbe: fix namespace issue with ixgbe_dcb_txq_to_tc
+> =C2=A0ixgbe: cleanup namespace complaint by removing little used func=
+tion
+> =C2=A0ixgbe: cleanup ixgbe_init_mbx_params_pf namespace issue
+>
+> John Fastabend (7):
+> =C2=A0ixgbe: DCB, only reprogram HW if the FCoE priority is changed
+> =C2=A0ixgbe: DCB, remove round robin mode on 82598 devices
+> =C2=A0ixgbe: DCB, abstract out dcb_config from DCB hardware configura=
+tion
+> =C2=A0ixgbe: DCB, implement 802.1Qaz routines
+> =C2=A0ixgbe: DCB, do not reset on CEE pg changes
+> =C2=A0ixgbe: DCB, remove RESET bit it is no longer needed
+> =C2=A0ixgbe: dcb, use hardware independent routines
+>
+> =C2=A0drivers/net/e1000e/ethtool.c =C2=A0 =C2=A0 =C2=A0 =C2=A0| =C2=A0=
+ 13 ++-
+> =C2=A0drivers/net/e1000e/netdev.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ 13 +-
+> =C2=A0drivers/net/igb/e1000_82575.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 10 =
+++-
+> =C2=A0drivers/net/igb/e1000_mbx.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =C2=A0=
+ 38 +++----
+> =C2=A0drivers/net/igb/igb_main.c =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0| =
+=C2=A0 =C2=A09 +-
+> =C2=A0drivers/net/ixgbe/ixgbe.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 | =
+=C2=A0 =C2=A05 +-
+> =C2=A0drivers/net/ixgbe/ixgbe_common.h =C2=A0 =C2=A0| =C2=A0 =C2=A04 =
++-
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0176 =
++++++++++++++++++++++++++++++-
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb.h =C2=A0 =C2=A0 =C2=A0 | =C2=A0 10 =
+++-
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82598.c | =C2=A0 94 ++++++++-------=
+-
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82598.h | =C2=A0 23 ++++-
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82599.c | =C2=A0115 +++++++++++----=
+----
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb_82599.h | =C2=A0 24 ++++-
+> =C2=A0drivers/net/ixgbe/ixgbe_dcb_nl.c =C2=A0 =C2=A0| =C2=A0211 +++++=
++++++++++++++++++++++--------
+> =C2=A0drivers/net/ixgbe/ixgbe_ethtool.c =C2=A0 | =C2=A0 34 ++++++-
+> =C2=A0drivers/net/ixgbe/ixgbe_main.c =C2=A0 =C2=A0 =C2=A0| =C2=A0 18 =
++--
+> =C2=A0drivers/net/ixgbe/ixgbe_mbx.c =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=
+=A02 +
+> =C2=A0drivers/net/ixgbe/ixgbe_mbx.h =C2=A0 =C2=A0 =C2=A0 | =C2=A0 =C2=
+=A02 +
+> =C2=A0include/linux/dcbnl.h =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 | =C2=A0 =C2=A05 +
+> =C2=A019 files changed, 601 insertions(+), 205 deletions(-)
+>
+> --
 
-Thanks for working on this, this has been on my TODO list for a
-long time.
+I will drop patch 3 (e1000e: do not wakeup Tx queue until ready) while
+Bruce takes a second look at the patch.  I will be re-posting a pull
+request once I have updated my net-next tree without that patch.
 
-> --- a/include/linux/if_link.h
-> +++ b/include/linux/if_link.h
-> @@ -136,6 +136,9 @@ enum {
->  	IFLA_PORT_SELF,
->  	IFLA_AF_SPEC,
->  	IFLA_GROUP,		/* Group the device belongs to */
-> +	IFLA_SLAVE_LIST,
-> +	IFLA_SLAVE_ADD,
-> +	IFLA_SLAVE_DEL,
-
-I don't like this very much though, the attributes usually contain
-data, not commands. We already have NEWLINK, DELLINK etc. on the
-top level, the combinations of NEWLINK/NLM_F_CREAT and SLAVE_DEL
-or DELLINK and SLAVE_ADD and so on simply don't make sense.
-
-We usually also try to keep the interface symetrical in both
-directions (a NEWLINK message from the kernel is identical to a
-NEWLINK message from userspace, a DELLINK message as well besides
-containing additional information), so using different attributes
-for dumping slaves than for adding them seems wrong. If we can
-dump all slaves in one message, it should also be possible to
-enslave multiple devices using the same message.
-
-What I originally had planned to support enslaving devices is to
-make use of the IFLA_MASTER attribute. The IFLA_MASTER attribute
-would contain the bond or bridge ifindex and the IFLA_IFNAME
-attribute or ifindex would specify the slave device. All operations
-would be performed on the slave device as usual, if the IFLA_MASTER
-attribute is present we'd additionally call a master specific
-callback for enslaving or releasing slave devices. Besides allowing
-to keep messages symetrical, an additional benefit is that it would
-be possible to create and enslave a device in a single step.
-
-
+--=20
+Cheers,
+Jeff
