@@ -1,62 +1,63 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-2.6] ixgbe: fix panic due to uninitialied pointer
-Date: Fri, 11 Feb 2011 14:41:21 -0800
-Message-ID: <1297464081.3544.72.camel@jtkirshe-MOBL1>
-References: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: bridge: Fix mglist corruption that leads to memory corruption
+Date: Sat, 12 Feb 2011 09:42:07 +1100
+Message-ID: <20110211224207.GA5715@gondor.apana.org.au>
+References: <20110211223655.GA5585@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-29we2B1ygSOEuB1d+tJa"
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: ihands@redhat.com, jbacik@redhat.com
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:15184 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758270Ab1BKWlV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 17:41:21 -0500
-In-Reply-To: <1297460747-31896-1-git-send-email-andy@greyhouse.net>
+Received: from helcar.apana.org.au ([209.40.204.226]:60414 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758305Ab1BKWmJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 17:42:09 -0500
+Content-Disposition: inline
+In-Reply-To: <20110211223655.GA5585@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi:
 
---=-29we2B1ygSOEuB1d+tJa
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+This patch fixes a typo that is not too serious.
 
-On Fri, 2011-02-11 at 13:45 -0800, Andy Gospodarek wrote:
-> Systems containing an 82599EB and running a backported driver from
-> upstream were panicing on boot.  It turns out hw->mac.ops.setup_sfp is
-> only set for 82599, so one should check to be sure that pointer is set
-> before continuing in ixgbe_sfp_config_module_task.  I verified by
-> inspection that the upstream driver has the same issue and also added
-> a
-> check before the call in ixgbe_sfp_link_config.
->=20
-> Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-> ---
->  drivers/net/ixgbe/ixgbe_main.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)=20
+bridge: Fix timer typo that may render snooping less effective
 
-Thanks Andy!  Have added the patch (with fixed subject) to my ixgbe
-queue of patches.
+In a couple of spots where we are supposed to modify the port
+group timer (p->timer) we instead modify the bridge interface
+group timer (mp->timer).
 
---=-29we2B1ygSOEuB1d+tJa
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
+The effect of this is mostly harmless.  However, it can cause
+port subscriptions to be longer than they should be, thus making
+snooping less effective.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-iQEcBAABAgAGBQJNVbsRAAoJECTsCADr/EWUd9EH/Aysk4zW9fRGdOZRWFaUwzQx
-kZCc/biqd7zbtOdIWp6CWreThysIRe5vk/V3MSi2P3CIp1uJlHruNpn0d0x6rqCr
-DV15s/tNw25dG4fF2sYt9jPOnNZlv+knMPPpmB/f7Ci/+w7tUCyAS3IvgY98lgBS
-zLFyaFqvDCDp8g3FU6uhKDH6/DIrQ4kXU6CZRNcawp8CW4XVaDwLB64b9H1omTpl
-I9/m7NwB/Nan/BxuJ3r+KfeoDXBuKt1JwzeV+n4N5cwOXy901YjYJihXjbYbuqgz
-SMlZO60nM9W2iy5a6HhmeS/5ErsQHuLHH6T7lxLilHrgSItcMK2nGc/hTxgEfBo=
-=9D0A
------END PGP SIGNATURE-----
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index f701a21..802d3f8 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1177,7 +1178,7 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 		if (timer_pending(&p->timer) ?
+ 		    time_after(p->timer.expires, now + max_delay) :
+ 		    try_to_del_timer_sync(&p->timer) >= 0)
+-			mod_timer(&mp->timer, now + max_delay);
++			mod_timer(&p->timer, now + max_delay);
+ 	}
+ 
+ out:
+@@ -1248,7 +1249,7 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 		if (timer_pending(&p->timer) ?
+ 		    time_after(p->timer.expires, now + max_delay) :
+ 		    try_to_del_timer_sync(&p->timer) >= 0)
+-			mod_timer(&mp->timer, now + max_delay);
++			mod_timer(&p->timer, now + max_delay);
+ 	}
+ 
+ out:
 
---=-29we2B1ygSOEuB1d+tJa--
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
