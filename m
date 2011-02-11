@@ -1,7 +1,8 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 3/4] bond: implement slave management operations
-Date: Fri, 11 Feb 2011 16:22:58 +0100
-Message-ID: <20110211152257.GC2763@psychotron.brq.redhat.com>
+Subject: [patch net-next-2.6 4/4] bridge: implement slave management
+ operations
+Date: Fri, 11 Feb 2011 16:23:47 +0100
+Message-ID: <20110211152346.GD2763@psychotron.brq.redhat.com>
 References: <20110211152125.GA2763@psychotron.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -9,10 +10,10 @@ Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	kaber@trash.net, fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14363 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22075 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756671Ab1BKPXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 10:23:04 -0500
+	id S1756711Ab1BKPXx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 10:23:53 -0500
 Content-Disposition: inline
 In-Reply-To: <20110211152125.GA2763@psychotron.brq.redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -21,65 +22,71 @@ List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |   38 ++++++++++++++++++++++++++++++++++++++
- 1 files changed, 38 insertions(+), 0 deletions(-)
+ net/bridge/br_device.c |   44 ++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 44 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 1df9f0e..f8e59f9 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4285,6 +4285,40 @@ unwind:
- 	return res;
- }
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 5564435..5648002 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -297,6 +297,46 @@ void br_netpoll_disable(struct net_bridge_port *p)
  
-+static int bond_add_slave(struct net_device *bond_dev,
-+			  struct net_device *slave_dev)
+ #endif
+ 
++static int br_add_slave(struct net_device *dev, struct net_device *slave_dev)
 +{
-+	return bond_enslave(bond_dev, slave_dev);
++	struct net_bridge *br = netdev_priv(dev);
++
++	return br_add_if(br, slave_dev);
 +}
 +
-+static int bond_del_slave(struct net_device *bond_dev,
-+			  struct net_device *slave_dev)
++static int br_del_slave(struct net_device *dev, struct net_device *slave_dev)
 +{
-+	return bond_release(bond_dev, slave_dev);
++	struct net_bridge *br = netdev_priv(dev);
++
++	return br_del_if(br, slave_dev);
 +}
 +
-+static int bond_get_slave_count(const struct net_device *bond_dev)
++static int br_get_slave_count(const struct net_device *dev)
 +{
-+	struct bonding *bond = netdev_priv(bond_dev);
++	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_port *p;
++	int i = 0;
 +
-+	return bond->slave_cnt;
++	list_for_each_entry(p, &br->port_list, list) {
++		i++;
++	}
++	return i;
 +}
 +
-+static struct net_device *bond_get_slave(const struct net_device *bond_dev,
-+					 int slave_index)
++static struct net_device *br_get_slave(const struct net_device *dev,
++				       int slave_index)
 +{
-+	struct bonding *bond = netdev_priv(bond_dev);
-+	struct slave *slave;
-+	int i;
++	struct net_bridge *br = netdev_priv(dev);
++	struct net_bridge_port *p;
++	int i = 0;
 +
-+	/* no need to hold bond->lock here, protected against writers by rtnl */
-+	bond_for_each_slave(bond, slave, i) {
-+		if (slave_index == i)
-+			return slave->dev;
++	list_for_each_entry(p, &br->port_list, list) {
++		if (slave_index == i++)
++			return p->dev;
 +	}
 +	return NULL;
 +}
 +
- static int bond_xmit_roundrobin(struct sk_buff *skb, struct net_device *bond_dev)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
-@@ -4657,6 +4691,10 @@ static const struct net_device_ops bond_netdev_ops = {
- 	.ndo_netpoll_cleanup	= bond_netpoll_cleanup,
- 	.ndo_poll_controller	= bond_poll_controller,
+ static const struct ethtool_ops br_ethtool_ops = {
+ 	.get_drvinfo    = br_getinfo,
+ 	.get_link	= ethtool_op_get_link,
+@@ -326,6 +366,10 @@ static const struct net_device_ops br_netdev_ops = {
+ 	.ndo_netpoll_cleanup	 = br_netpoll_cleanup,
+ 	.ndo_poll_controller	 = br_poll_controller,
  #endif
-+	.ndo_add_slave		= bond_add_slave,
-+	.ndo_del_slave		= bond_del_slave,
-+	.ndo_get_slave_count	= bond_get_slave_count,
-+	.ndo_get_slave		= bond_get_slave,
++	.ndo_add_slave		 = br_add_slave,
++	.ndo_del_slave		 = br_del_slave,
++	.ndo_get_slave_count	 = br_get_slave_count,
++	.ndo_get_slave		 = br_get_slave,
  };
  
- static void bond_destructor(struct net_device *bond_dev)
+ static void br_dev_free(struct net_device *dev)
 -- 
 1.7.3.4
 
