@@ -1,73 +1,69 @@
-From: Flavio Leitner <fleitner@redhat.com>
-Subject: Re: [PATCH] niu: Fix races between up/down and get_stats.
-Date: Fri, 11 Feb 2011 15:29:52 -0200
-Message-ID: <20110211172952.GA3112@redhat.com>
-References: <20110203.162529.260086668.davem@davemloft.net>
- <20110204162646.GC3710@redhat.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 1/4] net: extend netlink interface to handle
+ generic slave management
+Date: Fri, 11 Feb 2011 18:40:43 +0100
+Message-ID: <20110211174042.GA2578@psychotron.redhat.com>
+References: <20110211152125.GA2763@psychotron.brq.redhat.com>
+ <4D555A43.5000005@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, fubar@us.ibm.com
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34824 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26301 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756209Ab1BKS1G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 13:27:06 -0500
+	id S1757918Ab1BKS12 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 13:27:28 -0500
 Content-Disposition: inline
-In-Reply-To: <20110204162646.GC3710@redhat.com>
+In-Reply-To: <4D555A43.5000005@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 04, 2011 at 02:26:46PM -0200, Flavio Leitner wrote:
-> On Thu, Feb 03, 2011 at 04:25:29PM -0800, David Miller wrote:
-> > 
-> > As reported by Flavio Leitner, there is no synchronization to protect
-> > NIU's get_stats method from seeing a NULL pointer in either
-> > np->rx_rings or np->tx_rings.  In fact, as far as ->ndo_get_stats
-> > is concerned, these values are set completely asynchronously.
-> > 
-> > Flavio attempted to fix this using a RW semaphore, which in fact
-> > works most of the time.  However, dev_get_stats() can be invoked
-> > from non-sleepable contexts in some cases, so this fix doesn't
-> > work in all cases.
-> > 
-> > So instead, control the visibility of the np->{rx,tx}_ring pointers
-> > when the device is being brough up, and use properties of the device
-> > down sequence to our advantage.
-> > 
-> > In niu_get_stats(), return immediately if netif_running() is false.
-> > The device shutdown sequence first marks the device as not running (by
-> > clearing the __LINK_STATE_START bit), then it performans a
-> > synchronize_rcu() (in dev_deactive_many()), and then finally it
-> > invokes the driver ->ndo_stop() method.
-> > 
-> > This guarentees that all invocations of niu_get_stats() either see
-> > netif_running() as false, or they see the channel pointers before
-> > ->ndo_stop() clears them out.
-> > 
-> > If netif_running() is true, protect against startup races by loading
-> > the np->{rx,tx}_rings pointer into a local variable, and punting if
-> > it is NULL.  Use ACCESS_ONCE to prevent the compiler from reloading
-> > the pointer on us.
-> > 
-> > Also, during open, control the order in which the pointers and the
-> > ring counts become visible globally using SMP write memory barriers.
-> > We make sure the np->num_{rx,tx}_rings value is stable and visible
-> > before np->{rx,tx}_rings is.
-> > 
-> > Such visibility control is not necessary on the niu_free_channels()
-> > side because of the RCU sequencing that happens during device down as
-> > described above.  We are always guarenteed that all niu_get_stats
-> > calls are finished, or will see netif_running() false, by the time
-> > ->ndo_stop is invoked.
-> > 
-> > Reported-by: Flavio Leitner <fleitner@redhat.com>
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> nice patch, clever
-> I got positive feedback on my patch. I'll ask for this patch as well.
+Fri, Feb 11, 2011 at 04:48:19PM CET, kaber@trash.net wrote:
+>On 11.02.2011 16:21, Jiri Pirko wrote:
+>> Drivers like bridge and bonding uses their own way to manipulate with
+>> underlink devices. This is an attempt to introduce common interface using
+>> netlink.
+>
+>Thanks for working on this, this has been on my TODO list for a
+>long time.
+>
+>> --- a/include/linux/if_link.h
+>> +++ b/include/linux/if_link.h
+>> @@ -136,6 +136,9 @@ enum {
+>>  	IFLA_PORT_SELF,
+>>  	IFLA_AF_SPEC,
+>>  	IFLA_GROUP,		/* Group the device belongs to */
+>> +	IFLA_SLAVE_LIST,
+>> +	IFLA_SLAVE_ADD,
+>> +	IFLA_SLAVE_DEL,
+>
+>I don't like this very much though, the attributes usually contain
+>data, not commands. We already have NEWLINK, DELLINK etc. on the
+>top level, the combinations of NEWLINK/NLM_F_CREAT and SLAVE_DEL
+>or DELLINK and SLAVE_ADD and so on simply don't make sense.
+>
+>We usually also try to keep the interface symetrical in both
+>directions (a NEWLINK message from the kernel is identical to a
+>NEWLINK message from userspace, a DELLINK message as well besides
+>containing additional information), so using different attributes
+>for dumping slaves than for adding them seems wrong. If we can
+>dump all slaves in one message, it should also be possible to
+>enslave multiple devices using the same message.
+>
+>What I originally had planned to support enslaving devices is to
+>make use of the IFLA_MASTER attribute. The IFLA_MASTER attribute
+>would contain the bond or bridge ifindex and the IFLA_IFNAME
+>attribute or ifindex would specify the slave device. All operations
+>would be performed on the slave device as usual, if the IFLA_MASTER
+>attribute is present we'd additionally call a master specific
+>callback for enslaving or releasing slave devices. Besides allowing
+>to keep messages symetrical, an additional benefit is that it would
+>be possible to create and enslave a device in a single step.
+>
 
-Got a feedback that your patch works out too.
-thanks,
--- 
-Flavio
+Yes, that makes sense. I'm going to respin the patchset soon.
+
+Jirka
+>
