@@ -1,43 +1,66 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
- in error path and remove
-Date: Fri, 11 Feb 2011 12:03:39 +0100
-Message-ID: <20110211110339.GH27982@pengutronix.de>
-References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: [PATCH v5 0/4] Adding HID Feature Report Support to hidraw
+Date: Fri, 11 Feb 2011 15:02:45 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1102111501580.2160@pobox.suse.cz>
+References: <1295337880-12452-1-git-send-email-alan@signal11.us> <alpine.LNX.2.00.1101191316230.26685@pobox.suse.cz> <20110210181441.GB2173@joana>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Shawn Guo <shawn.guo@freescale.com>, kernel@pengutronix.de
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:44806 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755261Ab1BKLDm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 06:03:42 -0500
-Content-Disposition: inline
-In-Reply-To: <1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alan Ott <alan@signal11.us>, Marcel Holtmann <marcel@holtmann.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Michael Poole <mdpoole@troilus.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-input@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Gustavo F. Padovan" <padovan@profusion.mobi>
+Return-path: <linux-input-owner@vger.kernel.org>
+In-Reply-To: <20110210181441.GB2173@joana>
+Sender: linux-input-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+On Thu, 10 Feb 2011, Gustavo F. Padovan wrote:
 
-On Fri, Feb 11, 2011 at 11:32:10AM +0100, Uwe Kleine-K=F6nig wrote:
-> Noticed-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
-I changed that to Reported-by: in this and the other patches.
-(this was Reported-by: Wolfram Sang via irc).  The updated patches can
-be found at
+> > > This patch adds Feature Report support for USB and Bluetooth HID devices
+> > > through hidraw.
+> > > 
+> > > The first two patches prepare the bluetooth side for the change.
+> > > 	a. Make sure the hidp_session() thread is started before
+> > > 	   device's probe() functions are called.
+> > > 	b. Wait for ACK/NAK on sent reports, and return proper
+> > > 	   error codes.
+> > > The third patch is the hidraw core and USB changes.
+> > > The fourth patch is the Bluetooth changes.
+> > > 
+> > > Thanks to Antonio Ospite and Bill Good for providing testing and feedback.
+> > > 
+> > > 
+> > > Alan Ott (4):
+> > >   bt hidp: Move hid_add_device() call to after hidp_session() has
+> > >     started.
+> > >   bt hidp: Wait for ACK on Sent Reports
+> > >   HID: Add Support for Setting and Getting Feature Reports from hidraw
+> > >   Bluetooth hidp: Add support for hidraw HIDIOCGFEATURE and
+> > >     HIDIOCSFEATURE
+> > > 
+> > >  drivers/hid/hidraw.c          |  106 +++++++++++++++++++-
+> > >  drivers/hid/usbhid/hid-core.c |   35 +++++++
+> > >  include/linux/hid.h           |    3 +
+> > >  include/linux/hidraw.h        |    3 +
+> > >  net/bluetooth/hidp/core.c     |  214 ++++++++++++++++++++++++++++++++++++++---
+> > >  net/bluetooth/hidp/hidp.h     |   15 +++
+> > 
+> > Before proceeding with these patches, I'd really like to have comment 
+> > (ideally 'Acked-by') from Marcel on the net/bluetooth/hidp part, 
+> > obviously.
+> 
+> I have tested it and it seems ok to me and to Marcel. For net/bluetooth/
+> 
+> Acked-by: Gustavo F. Padovan <padovan@profusion.mobi>
 
-	git://git.pengutronix.de/git/ukl/linux-2.6.git fec
+Awesome, thanks a lot everyone for having this sorted out finally!
 
-=2E
+I will be taking the patchset through my tree.
 
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+-- 
+Jiri Kosina
+SUSE Labs, Novell Inc.
