@@ -1,52 +1,66 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH] tg3: Expand 5719 workaround
-Date: Thu, 10 Feb 2011 17:57:27 -0800
-Message-ID: <1297389447-5324-1-git-send-email-mcarlson@broadcom.com>
+From: Ian Molton <ian.molton@collabora.co.uk>
+Subject: Re: [PATCH] Add JMEMCMP to Berkeley Packet Filters
+Date: Fri, 11 Feb 2011 02:02:11 +0000
+Message-ID: <4D5498A3.5070602@collabora.co.uk>
+References: <1297341067-12264-1-git-send-email-ian.molton@collabora.co.uk>	<1297341067-12264-2-git-send-email-ian.molton@collabora.co.uk>	<1297344292.2493.3.camel@edumazet-laptop>	<4D53E9BE.4030500@collabora.co.uk> <AANLkTimOzvMx0FUaqxaa2QVV2FzsuhP8gQVX_CFmhiNR@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com
-To: davem@davemloft.net
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	rdunlap@xenotime.net, isdn@linux-pingi.de, paulus@samba.org,
+	arnd@arndb.de, davem@davemloft.net, herbert@gondor.apana.org.au,
+	ebiederm@xmission.com, alban.crequy@collabora.co.uk,
+	astanciu@ixiacom.com
+To: Octavian Purdila <tavi.purdila@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2230 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754457Ab1BKB5g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Feb 2011 20:57:36 -0500
+Received: from bhuna.collabora.co.uk ([93.93.128.226]:49681 "EHLO
+	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757643Ab1BKCCO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 21:02:14 -0500
+In-Reply-To: <AANLkTimOzvMx0FUaqxaa2QVV2FzsuhP8gQVX_CFmhiNR@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As a precautionary measure, expand the fix submitted in commit
-4d163b75e979833979cc401ae433cb1d7743d57e entitled "tg3: Fix 5719 A0 tx
-completion bug" to apply to all 5719 revisions.
+On 10/02/11 15:27, Octavian Purdila wrote:
+> On Thu, Feb 10, 2011 at 3:35 PM, Ian Molton<ian.molton@collabora.co.uk>  wrote:
+>> On 10/02/11 13:24, Eric Dumazet wrote:
+>>
+>> Hi!
+>>
+>> Thanks for reviewing! :)
+>>
+>>>> * Can sk_run_filter() be called in a context where kmalloc(GFP_KERNEL) is
+>>>>    not allowed (I think not)
+>>>
+>>> You cannot use GFP_KERNEL in sk_run_filter() : We run in {soft}irq mode,
+>>> in input path.
+>>
+>> Ok, that can be sorted.
+>>
+>>>> * Data section allocated with second call to sock_kmalloc().
+>>>> * Should the patch be broken into two - one to add the data uploading,
+>>>>    one to add the JMEMCMP insn. ?
+>>>
+>>> May I ask why it is needed at all ?
+>>
+>> So we can match strings in packet filters... I don't think I understand the
+>> question...
+>>
+>
+> Adding a data section (some sort of persistent memory storage that the
+> filter can access) is also useful for creating capture triggers, e.g.
+> starting capturing after a marker packet has arrived.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
----
- drivers/net/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+Nice to see that people are thinking of more use-cases.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index cc06952..ecb3eb0 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -13318,7 +13318,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	}
- 
- 	/* Determine TSO capabilities */
--	if (tp->pci_chip_rev_id == CHIPREV_ID_5719_A0)
-+	if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5719)
- 		; /* Do nothing. HW bug. */
- 	else if (tp->tg3_flags3 & TG3_FLG3_5717_PLUS)
- 		tp->tg3_flags2 |= TG3_FLG2_HW_TSO_3;
-@@ -13372,7 +13372,7 @@ static int __devinit tg3_get_invariants(struct tg3 *tp)
- 	}
- 
- 	if ((tp->tg3_flags3 & TG3_FLG3_5717_PLUS) &&
--	    tp->pci_chip_rev_id != CHIPREV_ID_5719_A0)
-+	    GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5719)
- 		tp->tg3_flags3 |= TG3_FLG3_USE_JUMBO_BDFLAG;
- 
- 	if (!(tp->tg3_flags2 & TG3_FLG2_5705_PLUS) ||
--- 
-1.7.3.4
+Eric, I think I understand what you meant now...
 
+Our use case is experimental for now, so I wanted to see if other people 
+would find this useful, as adding an experimental feature that is never 
+used seems pointless.
 
+In our case, we need to match strings in d-bus packets. if the packet is 
+not intended for the recipient, it gets dropped, thus avoiding a 
+pointless context switch.
+
+-Ian
