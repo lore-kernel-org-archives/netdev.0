@@ -1,50 +1,40 @@
-From: "COCA COLA NOTIFICATION" <info@win.net>
-Subject: (unknown)
-Date: Fri, 11 Feb 2011 05:50:27 +0530
-Message-ID: <20110211002027.OQRO18728.viefep12-int.chello.at@edge05.upcmail.net>
-Reply-To: <drawsupdate105@hotmail.co.uk>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: [PATCH] net: fix ifenslave build flags
+Date: Thu, 10 Feb 2011 16:27:25 -0800
+Message-ID: <4D54826D.3060406@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="koi8-u"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: Alexey Salmin <alexey.salmin@gmail.com>
+To: Netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fep31.mx.upcmail.net ([62.179.121.49]:34728 "EHLO
-	fep31.mx.upcmail.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756808Ab1BKA1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 19:27:24 -0500
-Subject: 
+Received: from rcsinet10.oracle.com ([148.87.113.121]:59715 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757171Ab1BKA2R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Feb 2011 19:28:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DEPT COCA-COLA AVENUE
-STAMFORD BRIDGE LONDON.
-SW1V 3DW UNITED KINGDOM
+From: Randy Dunlap <randy.dunlap@oracle.com>
 
-Attention Winner
+-I (include path) should be specified for host builds.
+This one was overlooked somehow.  Fixes
+https://bugzilla.kernel.org/show_bug.cgi?id=25902
 
-This email is to notify you that your email address was
-randomly selected and entered into our free Third Category
-draws.You have subsequently emerged a winner and therefore
-entitled to a substantial amount of 1,000,000.00 Great British
-Pounds.kindly confirm receipt of this email, by forwarding
-Your Details to the claims department.
+Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+Reported-by: Alexey Salmin <alexey.salmin@gmail.com>
+---
+ Documentation/networking/Makefile |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Name: Tommy Roger
-Email:drawsupdate105@hotmail.co.uk
-
-IMPORTANT FILL OUT THIS WINNERS VERIFICATION FORM BELOW:
-
-FULL NAMES----------
-DATE OF BIRTH---------
-SEX.----------------
-CONTACT ADDRESS----------
-COUNTRY--------------------
-MOBILE NUMBER--------------
-OCCUPATION----------
-E-MAIL ID--------------
-
-Congratulations once again.
-Online Co-coordinator
-
-The Coca-Cola Company. Copy Right 2010 All Right Reserve
+--- lnx-2638-rc4.orig/Documentation/networking/Makefile
++++ lnx-2638-rc4/Documentation/networking/Makefile
+@@ -4,6 +4,8 @@ obj- := dummy.o
+ # List of programs to build
+ hostprogs-y := ifenslave
+ 
++HOSTCFLAGS_ifenslave.o += -I$(objtree)/usr/include
++
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+ 
