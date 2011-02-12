@@ -1,74 +1,35 @@
-From: Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>
-Subject: [PATCH 15/17] janz: mfd_cell is now implicitly available to drivers
-Date: Fri, 11 Feb 2011 18:17:33 -0800
-Message-ID: <20110211181733.38a49ad8@queued.net>
+From: Paul Mackerras <paulus@samba.org>
+Subject: Re: [RFD][PATCH] Add JMEMCMP to Berkeley Packet Filters
+Date: Sat, 12 Feb 2011 13:14:41 +1100
+Message-ID: <20110212021441.GA3035@sammy.paulus.ozlabs.org>
+References: <1297340087-10963-1-git-send-email-ian.molton@collabora.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, rdunlap@xenotime.net, isdn@linux-pingi.de,
+	arnd@arndb.de, davem@davemloft.net, herbert@gondor.apana.org.au,
+	ebiederm@xmission.com
+To: Ian Molton <ian.molton@collabora.co.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:52075 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758202Ab1BLDMO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Feb 2011 22:12:14 -0500
+Content-Disposition: inline
+In-Reply-To: <1297340087-10963-1-git-send-email-ian.molton@collabora.co.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 10, 2011 at 12:14:46PM +0000, Ian Molton wrote:
 
-The cell's platform_data is now accessed with a helper function;
-change clients to use that, and remove the now-unused data_size.
+> This patch implements an extension for BPF to allow filter programs to use a
+> data section, along with a MEMCMP instruction.
+> 
+> There are a few issues noted in the patch itself, which can easily be
+> addressed, and I would like to check wether sk_run_filter is ever expected to
+> be called from a context that cannot sleep (I dont think it is).
 
-Signed-off-by: Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>
----
- drivers/gpio/janz-ttl.c      |    2 +-
- drivers/mfd/janz-cmodio.c    |    1 -
- drivers/net/can/janz-ican3.c |    2 +-
- 3 files changed, 2 insertions(+), 3 deletions(-)
+The ppp driver (ppp_generic.c) calls sk_run_filter inside a region
+protected by spin_lock_bh, so we can't sleep there.  Having sk_run_filter
+potentially sleep would make it useless for ppp.
 
-diff --git a/drivers/gpio/janz-ttl.c b/drivers/gpio/janz-ttl.c
-index 813ac07..ef399ee 100644
---- a/drivers/gpio/janz-ttl.c
-+++ b/drivers/gpio/janz-ttl.c
-@@ -149,7 +149,7 @@ static int __devinit ttl_probe(struct platform_device *pdev)
- 	struct resource *res;
- 	int ret;
- 
--	pdata = pdev->dev.platform_data;
-+	pdata = mfd_get_data(pdev);
- 	if (!pdata) {
- 		dev_err(dev, "no platform data\n");
- 		ret = -ENXIO;
-diff --git a/drivers/mfd/janz-cmodio.c b/drivers/mfd/janz-cmodio.c
-index 36a166b..58de1e2 100644
---- a/drivers/mfd/janz-cmodio.c
-+++ b/drivers/mfd/janz-cmodio.c
-@@ -87,7 +87,6 @@ static int __devinit cmodio_setup_subdevice(struct cmodio_device *priv,
- 	/* Add platform data */
- 	pdata->modno = modno;
- 	cell->platform_data = pdata;
--	cell->data_size = sizeof(*pdata);
- 
- 	/* MODULbus registers -- PCI BAR3 is big-endian MODULbus access */
- 	res->flags = IORESOURCE_MEM;
-diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-index 366f5cc..bc2b15b 100644
---- a/drivers/net/can/janz-ican3.c
-+++ b/drivers/net/can/janz-ican3.c
-@@ -1643,7 +1643,7 @@ static int __devinit ican3_probe(struct platform_device *pdev)
- 	struct device *dev;
- 	int ret;
- 
--	pdata = pdev->dev.platform_data;
-+	pdata = mfd_get_data(pdev);
- 	if (!pdata)
- 		return -ENXIO;
- 
--- 
-1.7.2.3
+Paul.
