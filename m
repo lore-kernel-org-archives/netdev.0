@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: batman-adv 2011-02-12
-Date: Fri, 11 Feb 2011 21:21:35 -0800 (PST)
-Message-ID: <20110211.212135.232757143.davem@davemloft.net>
-References: <1297466503-13246-1-git-send-email-sven@narfation.org>
+Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
+ in error path and remove
+Date: Fri, 11 Feb 2011 21:25:32 -0800 (PST)
+Message-ID: <20110211.212532.229740768.davem@davemloft.net>
+References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
+	<20110211110339.GH27982@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: sven@narfation.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shawn.guo@freescale.com,
+	kernel@pengutronix.de
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45171
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41511
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751129Ab1BLFVA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 00:21:00 -0500
-In-Reply-To: <1297466503-13246-1-git-send-email-sven@narfation.org>
+	by vger.kernel.org with ESMTP id S1751129Ab1BLFY4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Feb 2011 00:24:56 -0500
+In-Reply-To: <20110211110339.GH27982@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sven Eckelmann <sven@narfation.org>
-Date: Sat, 12 Feb 2011 00:21:39 +0100
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Fri, 11 Feb 2011 12:03:39 +0100
 
-> Hi,
-> 
-> I would like propose following changes for net-next-2.6.git. Two of them are
-> minor code style changes and the other two change minor issues in the
-> routing/fragmentation code.
-> 
-> thanks,
-> 	Sven
-> 
-> The following changes since commit 091b948306d2628320e77977eb7ae4a757b12180:
-> 
->   batman-adv: Merge README of v2011.0.0 release (2011-01-31 14:57:13 +0100)
-> 
-> are available in the git repository at:
->   git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
+> Hello,
+>=20
+> On Fri, Feb 11, 2011 at 11:32:10AM +0100, Uwe Kleine-K=F6nig wrote:
+>> Noticed-by: Lothar Wa=DFmann <LW@KARO-electronics.de>
+> I changed that to Reported-by: in this and the other patches.
+> (this was Reported-by: Wolfram Sang via irc).  The updated patches ca=
+n
+> be found at
+>=20
+> 	git://git.pengutronix.de/git/ukl/linux-2.6.git fec
 
-Pulled, thanks Sven.
+I can't pull from that tree because it is _NOT_ based upon net-next-2.6
+and therefore brings in all kinds of commits not related to your work.
