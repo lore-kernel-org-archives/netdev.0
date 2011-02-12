@@ -1,40 +1,30 @@
-From: Kurt Van Dijck <kurt.van.dijck@eia.be>
-Subject: Re: [PATCH -next/mmotm] net/can: fix softing build errors
-Date: Sat, 12 Feb 2011 12:15:04 +0100
-Message-ID: <20110212111344.GA328@e-circ.dyndns.org>
-References: <201102110100.p1B10sDx029244@imap1.linux-foundation.org>
- <20110211223312.be571303.randy.dunlap@oracle.com>
+From: Andrew Beverley <andy@andybev.com>
+Subject: Re: any way to reset all marked connections when using CONNMARK?
+Date: Sat, 12 Feb 2011 11:42:15 +0000
+Message-ID: <1297510935.1770.38.camel@andybev>
+References: <4D55A927.7060703@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110211223312.be571303.randy.dunlap@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter <netfilter@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <netfilter-owner@vger.kernel.org>
+In-Reply-To: <4D55A927.7060703@genband.com>
+Sender: netfilter-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 11, 2011 at 10:33:12PM -0800, Randy Dunlap wrote:
-> 
-> warning: (CAN_SOFTING_CS) selects CAN_SOFTING which has unmet direct dependencies (NET && CAN && CAN_DEV && HAS_IOMEM)
-> 
-> with this partial config:
-> 
-> CONFIG_CAN=m
-> # CONFIG_CAN_RAW is not set
-> # CONFIG_CAN_BCM is not set
-> # CAN Device Drivers
-> # CONFIG_CAN_VCAN is not set
-> CONFIG_CAN_SLCAN=m
-> # CONFIG_CAN_DEV is not set
-> CONFIG_CAN_SOFTING=m
-> CONFIG_CAN_SOFTING_CS=m
-> # CONFIG_CAN_DEBUG_DEVICES is not set
-I understand the output, but I don't understand the cause well enough.
-CAN_SOFTING=m has a 'depends on CAN_DEV'
-Is it then possible to have CAN_SOFTING=m _and not_ CAN_DEV ?
+On Fri, 2011-02-11 at 15:24 -0600, Chris Friesen wrote:
+> It has been proposed to add a custom patch to clear the mark for all
+> marked connections--is there a better way of doing this?
 > 
 
-regards,
-Kurt
+How about using the conntrack userspace command-line interface?
+
+conntrack -U -m 0
+
+looks like it should do what you want.
+
+Andy
+
+
