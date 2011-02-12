@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-26 1/5] cxgb4vf: Virtual Interfaces are always up
- ...
-Date: Fri, 11 Feb 2011 21:19:39 -0800 (PST)
-Message-ID: <20110211.211939.70197667.davem@davemloft.net>
-References: <1297472423-15672-1-git-send-email-leedom@chelsio.com>
-	<1297472423-15672-2-git-send-email-leedom@chelsio.com>
+Subject: Re: pull request: batman-adv 2011-02-12
+Date: Fri, 11 Feb 2011 21:21:35 -0800 (PST)
+Message-ID: <20110211.212135.232757143.davem@davemloft.net>
+References: <1297466503-13246-1-git-send-email-sven@narfation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: leedom@chelsio.com
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: sven@narfation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45166
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45171
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751129Ab1BLFTE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 00:19:04 -0500
-In-Reply-To: <1297472423-15672-2-git-send-email-leedom@chelsio.com>
+	by vger.kernel.org with ESMTP id S1751129Ab1BLFVA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 00:21:00 -0500
+In-Reply-To: <1297466503-13246-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Casey Leedom <leedom@chelsio.com>
-Date: Fri, 11 Feb 2011 17:00:19 -0800
+From: Sven Eckelmann <sven@narfation.org>
+Date: Sat, 12 Feb 2011 00:21:39 +0100
 
-> Implement new default mode of always reporting the Virtual Interface link as
-> being "up".  This allows different Virtual Interfaces on the same port to
-> continue to communicate with each other even when the physical port link is
-> down.  This new behavior is controlled via the module parameter
-> force_link_up (default 1).  The old behavior can be achieved by setting
-> force_link_up=0.
+> Hi,
 > 
-> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> I would like propose following changes for net-next-2.6.git. Two of them are
+> minor code style changes and the other two change minor issues in the
+> routing/fragmentation code.
+> 
+> thanks,
+> 	Sven
+> 
+> The following changes since commit 091b948306d2628320e77977eb7ae4a757b12180:
+> 
+>   batman-adv: Merge README of v2011.0.0 release (2011-01-31 14:57:13 +0100)
+> 
+> are available in the git repository at:
+>   git://git.open-mesh.org/ecsv/linux-merge.git batman-adv/next
 
-No driver specific module parameters!  Add something generic and common
-so other drivers can use it too.
-
-Otherwise every user has to learn a different way to control this
-attribute, depending upon the device type, which is rediculious.
-
-How many times do we have to tell driver authors this?
+Pulled, thanks Sven.
