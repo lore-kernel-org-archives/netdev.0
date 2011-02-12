@@ -1,35 +1,47 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [RFD][PATCH] Add JMEMCMP to Berkeley Packet Filters
-Date: Sat, 12 Feb 2011 13:14:41 +1100
-Message-ID: <20110212021441.GA3035@sammy.paulus.ozlabs.org>
-References: <1297340087-10963-1-git-send-email-ian.molton@collabora.co.uk>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: Re: [PATCH 1/2] net: Add RX queue weights
+Date: Fri, 11 Feb 2011 19:49:36 -0800
+Message-ID: <4D560350.5080002@chelsio.com>
+References: <alpine.DEB.2.00.1102111552090.2793@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, rdunlap@xenotime.net, isdn@linux-pingi.de,
-	arnd@arndb.de, davem@davemloft.net, herbert@gondor.apana.org.au,
-	ebiederm@xmission.com
-To: Ian Molton <ian.molton@collabora.co.uk>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:52075 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758202Ab1BLDMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Feb 2011 22:12:14 -0500
-Content-Disposition: inline
-In-Reply-To: <1297340087-10963-1-git-send-email-ian.molton@collabora.co.uk>
+Received: from stargate.chelsio.com ([67.207.112.58]:12281 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758054Ab1BLDto (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 22:49:44 -0500
+In-Reply-To: <alpine.DEB.2.00.1102111552090.2793@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 10, 2011 at 12:14:46PM +0000, Ian Molton wrote:
-
-> This patch implements an extension for BPF to allow filter programs to use a
-> data section, along with a MEMCMP instruction.
+Tom Herbert wrote:
+> This patch adds a weight attribute to the netdev RX queues.  This allows
+> control over the relative receive packet load for each queue.  These
+> values are set in sysfs variable 'weight' in the rxq directory for
+> a device.  When a weight is set, a new netdev operation is called to
+> inform the driver of the changed weight.  The driver is expected to
+> apply the queue weights in a logical manner to the RSS indirection table
+> of the device to achieve the desired weighting.  The driver
+> implementation for this is unspecified.
 > 
-> There are a few issues noted in the patch itself, which can easily be
-> addressed, and I would like to check wether sk_run_filter is ever expected to
-> be called from a context that cannot sleep (I dont think it is).
+> If a weight for a queue is zero, this effectively disables that queue
+> for RSS (but possibly still usable by accelerated RFS, etc.), except
+> in the case that all queue weights are zero, then all queues are
+> considered equally weighted (the default).
+> 
+> Example configuration:
+> echo 1 > /sys/class/net/eth4/queues/rx-0/weight
+> echo 1 > /sys/class/net/eth4/queues/rx-1/weight
+> echo 5 > /sys/class/net/eth4/queues/rx-2/weight
+> echo 0 > /sys/class/net/eth4/queues/rx-3/weight
+> 
+> So rx queue 0 and 1 have equal weight, queue 2 is 5X in weight and
+> queue 3 is disabled for RSS.
 
-The ppp driver (ppp_generic.c) calls sk_run_filter inside a region
-protected by spin_lock_bh, so we can't sleep there.  Having sk_run_filter
-potentially sleep would make it useless for ppp.
+Doesn't ethtool -X already do this?  With the added benefit that ethtool 
+doesn't need each driver to provide its own weight handling arithmetic.
 
-Paul.
+
