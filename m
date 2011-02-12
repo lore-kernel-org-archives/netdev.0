@@ -1,47 +1,43 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH 1/2] net: Add RX queue weights
-Date: Fri, 11 Feb 2011 19:49:36 -0800
-Message-ID: <4D560350.5080002@chelsio.com>
-References: <alpine.DEB.2.00.1102111552090.2793@pokey.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/15] be2net: patch series
+Date: Fri, 11 Feb 2011 21:15:37 -0800 (PST)
+Message-ID: <20110211.211537.179947855.davem@davemloft.net>
+References: <20110211233215.GA18258@akhaparde-VBox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: netdev@vger.kernel.org
+To: ajit.khaparde@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:12281 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758054Ab1BLDto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Feb 2011 22:49:44 -0500
-In-Reply-To: <alpine.DEB.2.00.1102111552090.2793@pokey.mtv.corp.google.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51565
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751097Ab1BLFPB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 00:15:01 -0500
+In-Reply-To: <20110211233215.GA18258@akhaparde-VBox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tom Herbert wrote:
-> This patch adds a weight attribute to the netdev RX queues.  This allows
-> control over the relative receive packet load for each queue.  These
-> values are set in sysfs variable 'weight' in the rxq directory for
-> a device.  When a weight is set, a new netdev operation is called to
-> inform the driver of the changed weight.  The driver is expected to
-> apply the queue weights in a logical manner to the RSS indirection table
-> of the device to achieve the desired weighting.  The driver
-> implementation for this is unspecified.
-> 
-> If a weight for a queue is zero, this effectively disables that queue
-> for RSS (but possibly still usable by accelerated RFS, etc.), except
-> in the case that all queue weights are zero, then all queues are
-> considered equally weighted (the default).
-> 
-> Example configuration:
-> echo 1 > /sys/class/net/eth4/queues/rx-0/weight
-> echo 1 > /sys/class/net/eth4/queues/rx-1/weight
-> echo 5 > /sys/class/net/eth4/queues/rx-2/weight
-> echo 0 > /sys/class/net/eth4/queues/rx-3/weight
-> 
-> So rx queue 0 and 1 have equal weight, queue 2 is 5X in weight and
-> queue 3 is disabled for RSS.
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Date: Fri, 11 Feb 2011 17:32:15 -0600
 
-Doesn't ethtool -X already do this?  With the added benefit that ethtool 
-doesn't need each driver to provide its own weight handling arithmetic.
+> Patch series for the be2net driver.
+> 
+> [01/15]: While configuring QOS for VF, pass proper domain id
+> [02/15]: endianness fix in be_cmd_set_qos().
+> [03/15]: Use domain id when be_cmd_if_destroy is called.
+> [04/15]: Initialize and cleanup sriov resources only if pci_enable_sriov has succeeded.
+> [05/15]: call be_vf_eth_addr_config() after register_netdev
+> [06/15]: Cleanup the VF interface handles
+> [07/15]: For the VF MAC, use the OUI from current MAC address
+> [08/15]: pass domain numbers for pmac_add/del functions
+> [09/15]: Allow VFs to call be_cmd_reset_function.
+> [10/15]: Fix broken priority setting when vlan tagging is enabled.
+> [11/15]: pass proper hdr_size while flashing redboot.
+> [12/15]: fix be_suspend/resume/shutdown
+> [13/15]: gracefully handle situations when UE is detected
+> [14/15]: detect a UE even when a interface is down.
+> [15/15]: restrict WOL to PFs only.
+> 
+> Please Apply.
 
-
+All applied, thanks.
