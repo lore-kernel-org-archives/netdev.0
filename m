@@ -1,34 +1,82 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: bridge: Fix mglist corruption that leads to memory corruption
-Date: Sat, 12 Feb 2011 01:06:26 -0800 (PST)
-Message-ID: <20110212.010626.200383948.davem@davemloft.net>
-References: <20110211225559.GA5922@gondor.apana.org.au>
-	<20110211.215804.15260765.davem@davemloft.net>
-	<20110212060538.GA911@gondor.apana.org.au>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] net: remove the unnecessary dance around
+ skb_bond_should_drop
+Date: Sat, 12 Feb 2011 11:46:06 +0100
+Message-ID: <20110212104605.GA2786@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ihands@redhat.com, jbacik@redhat.com
-To: herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49136
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751699Ab1BLJFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 04:05:51 -0500
-In-Reply-To: <20110212060538.GA911@gondor.apana.org.au>
+Received: from mx1.redhat.com ([209.132.183.28]:54033 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752447Ab1BLKqJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Feb 2011 05:46:09 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Date: Sat, 12 Feb 2011 17:05:38 +1100
+No need to check (master) twice and to drive in and out the header file.
 
-> On Fri, Feb 11, 2011 at 09:58:04PM -0800, David Miller wrote:
->>
->> Well if it's a bool, please use "true" and "false" instead of "1" and
->> "0" :-)
-> 
-> Serves me right for trying to be green :)
-> 
-> bridge: Replace mp->mglist hlist with a bool
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ include/linux/netdevice.h |   11 -----------
+ net/core/dev.c            |    6 +++---
+ 2 files changed, 3 insertions(+), 14 deletions(-)
 
-:-)  Applied.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index c7d7074..5a5baea 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2437,17 +2437,6 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
+ 	dev->gso_max_size = size;
+ }
+ 
+-extern int __skb_bond_should_drop(struct sk_buff *skb,
+-				  struct net_device *master);
+-
+-static inline int skb_bond_should_drop(struct sk_buff *skb,
+-				       struct net_device *master)
+-{
+-	if (master)
+-		return __skb_bond_should_drop(skb, master);
+-	return 0;
+-}
+-
+ extern struct pernet_operations __net_initdata loopback_net_ops;
+ 
+ static inline int dev_ethtool_get_settings(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6392ea0..d874fd1 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3105,7 +3105,8 @@ static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
+  * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
+  * ARP on active-backup slaves with arp_validate enabled.
+  */
+-int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
++static int __skb_bond_should_drop(struct sk_buff *skb,
++				  struct net_device *master)
+ {
+ 	struct net_device *dev = skb->dev;
+ 
+@@ -3139,7 +3140,6 @@ int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
+ 	}
+ 	return 0;
+ }
+-EXPORT_SYMBOL(__skb_bond_should_drop);
+ 
+ static int __netif_receive_skb(struct sk_buff *skb)
+ {
+@@ -3177,7 +3177,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (skb->deliver_no_wcard)
+ 		null_or_orig = orig_dev;
+ 	else if (master) {
+-		if (skb_bond_should_drop(skb, master)) {
++		if (__skb_bond_should_drop(skb, master)) {
+ 			skb->deliver_no_wcard = 1;
+ 			null_or_orig = orig_dev; /* deliver only exact match */
+ 		} else
+-- 
+1.7.3.4
+
