@@ -1,58 +1,74 @@
-From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v7 1/1] can: c_can: Added support for Bosch
-	C_CAN	controller
-Date: Sat, 12 Feb 2011 15:24:42 +0100
-Message-ID: <4D56982A.5010302@grandegger.com>
-References: <1297419478-27667-1-git-send-email-bhupesh.sharma@st.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH 1/2] atmel/macb: fix device name when SOFT/HARD_IRQ enabled
+Date: Sat, 12 Feb 2011 15:30:00 +0100
+Message-ID: <20110212143000.GH11255@game.jcrosoft.org>
+References: <1297255416-6920-1-git-send-email-plagnioj@jcrosoft.com>
+	<4D529992.7050502@ru.mvista.com>
+	<20110209144411.GB11255@game.jcrosoft.org>
+	<4D53EEFA.3030801@ru.mvista.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <1297419478-27667-1-git-send-email-bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
+	linux-arm-kernel@lists.infradead.org, Paul Chavent <paul.chavent@fnac.net>
+To: Sergei Shtylyov <sshtylyov@mvista.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <4D53EEFA.3030801@ru.mvista.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: linux-arm-kernel-bounces@lists.infradead.org
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On 02/11/2011 11:17 AM, Bhupesh Sharma wrote:
-> Bosch C_CAN controller is a full-CAN implementation which is compliant
-> to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can be
-> obtained from:
-> http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/
-> c_can/users_manual_c_can.pdf
+On 16:58 Thu 10 Feb     , Sergei Shtylyov wrote:
+> Hello.
 > 
-> This patch adds the support for this controller.
-> The following are the design choices made while writing the controller
-> driver:
-> 1. Interface Register set IF1 has be used only in the current design.
-> 2. Out of the 32 Message objects available, 16 are kept aside for RX
->    purposes and the rest for TX purposes.
-> 3. NAPI implementation is such that both the TX and RX paths function
->    in polling mode.
+> On 09-02-2011 17:44, Jean-Christophe PLAGNIOL-VILLARD wrote:
 > 
-> Signed-off-by: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
-> ---
-> Changes since V6:
-> 1. Added check for calling netif_stop_queue() in case next TX object
->    is busy.
-> 2. Added logic *not* to copy data to rx'ed RTR frames.
-> 3. Moved enums, defines and structs present in c_can.h file to the respective
->    c-file where they are actually used.
-> 4. Corrected message object busy status routine by using a better name
->    and design approach.
-> 5. Moved *set_bittiming* call to the *c_can_chip_config* function.
+> >>>From: Paul Chavent<paul.chavent@fnac.net>
+> 
+> >>>When listing processes on a system with SOFT/HARD_IRQ enabled,
+> >>>the name of the ethernet device is [irq/eth%d] (instead of [irq/eth0] for example).
+> 
+> >>>This patch call the request_irq function after having initialized the name of the device.
+> 
+> >>>Signed-off-by: Paul Chavent<paul.chavent@fnac.net>
+> >>>Signed-off-by: Nicolas Ferre<nicolas.ferre@atmel.com>
+> >>>Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD<plagnioj@jcrosoft.com>
+> >>[...]
+> 
+> >>>diff --git a/drivers/net/macb.c b/drivers/net/macb.c
+> >>>index f69e73e..d642e08 100644
+> >>>--- a/drivers/net/macb.c
+> >>>+++ b/drivers/net/macb.c
+> >>[...]
+> >>>@@ -1219,13 +1209,23 @@ static int __init macb_probe(struct platform_device *pdev)
+> >>>  	err = register_netdev(dev);
+> >>>  	if (err) {
+> >>>  		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
+> >>>-		goto err_out_free_irq;
+> >>>+		goto err_out_iounmap;
+> >>>  	}
+> >>>
+> >>>-	if (macb_mii_init(bp) != 0) {
+> >>>+	dev->irq = platform_get_irq(pdev, 0);
+> 
+> >>    platform_get_irq() can fail...
+> 
+> >request_irq will fail too so do we really need to check it?
+> 
+>    You then will get the following printed:
+> 
+> macb: Unable to request IRQ -6 (error -22)
+> 
+>    If this is acceptable, then platfrom_get_irq()'s result can be ignored indeed.
+yes it's
 
-Acked-by: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-
-Thanks for your contribution. As soon as the patch is accepted, I will
-send a patch for the PCH CAN.
-
-Wolfgang.
+Best Regards,
+J.
