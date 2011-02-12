@@ -1,61 +1,246 @@
-From: Randy Dunlap <randy.dunlap@oracle.com>
-Subject: Re: [PATCH -next/mmotm] net/can: fix softing build errors
-Date: Sat, 12 Feb 2011 08:02:42 -0800
-Message-ID: <4D56AF22.4070803@oracle.com>
-References: <201102110100.p1B10sDx029244@imap1.linux-foundation.org> <20110211223312.be571303.randy.dunlap@oracle.com> <20110212111344.GA328@e-circ.dyndns.org>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] net: make dev->master general
+Date: Sat, 12 Feb 2011 17:48:36 +0100
+Message-ID: <20110212164836.GB12156@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net
-To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	nicolas.2p.debian@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rcsinet10.oracle.com ([148.87.113.121]:34572 "EHLO
-	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751027Ab1BLQED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 11:04:03 -0500
-In-Reply-To: <20110212111344.GA328@e-circ.dyndns.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8385 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751063Ab1BLQtR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Feb 2011 11:49:17 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/12/11 03:15, Kurt Van Dijck wrote:
-> On Fri, Feb 11, 2011 at 10:33:12PM -0800, Randy Dunlap wrote:
->>
->> warning: (CAN_SOFTING_CS) selects CAN_SOFTING which has unmet direct dependencies (NET && CAN && CAN_DEV && HAS_IOMEM)
->>
->> with this partial config:
->>
->> CONFIG_CAN=m
->> # CONFIG_CAN_RAW is not set
->> # CONFIG_CAN_BCM is not set
->> # CAN Device Drivers
->> # CONFIG_CAN_VCAN is not set
->> CONFIG_CAN_SLCAN=m
->> # CONFIG_CAN_DEV is not set
->> CONFIG_CAN_SOFTING=m
->> CONFIG_CAN_SOFTING_CS=m
->> # CONFIG_CAN_DEBUG_DEVICES is not set
-> I understand the output, but I don't understand the cause well enough.
-> CAN_SOFTING=m has a 'depends on CAN_DEV'
-> Is it then possible to have CAN_SOFTING=m _and not_ CAN_DEV ?
+dev->master is now tightly connected to bonding driver. This patch makes
+this pointer more general and ready to be used by others.
 
-Yes.  From Documentation/kbuild/kconfig-language.txt:
+ - netdev_set_master() - bond specifics moved to new function
+   netdev_set_bond_master()
+ - introduced netif_is_bond_slave() to check if device is a bonding slave
 
-  Note:
-	select should be used with care. select will force
-	a symbol to a value without visiting the dependencies.
-	By abusing select you are able to select a symbol FOO even
-	if FOO depends on BAR that is not set.
-	In general use select only for non-visible symbols
-	(no prompts anywhere) and for symbols with no dependencies.
-	That will limit the usefulness but on the other hand avoid
-	the illegal configurations all over.
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/infiniband/hw/nes/nes.c    |    3 +-
+ drivers/infiniband/hw/nes/nes_cm.c |    2 +-
+ drivers/net/bonding/bond_main.c    |   10 +++---
+ drivers/net/cxgb3/cxgb3_offload.c  |    3 +-
+ include/linux/netdevice.h          |    7 +++++
+ net/core/dev.c                     |   49 +++++++++++++++++++++++++++---------
+ 6 files changed, 54 insertions(+), 20 deletions(-)
 
-
-CAN_SOFTING_CS does not depend on CAN_DEV. but it selects CAN_SOFTING,
-which does depend on CAN_DEV, ... but CAN_DEV is not enabled.
-
-
+diff --git a/drivers/infiniband/hw/nes/nes.c b/drivers/infiniband/hw/nes/nes.c
+index 3b4ec32..3d7f366 100644
+--- a/drivers/infiniband/hw/nes/nes.c
++++ b/drivers/infiniband/hw/nes/nes.c
+@@ -153,7 +153,8 @@ static int nes_inetaddr_event(struct notifier_block *notifier,
+ 				nesdev, nesdev->netdev[0]->name);
+ 		netdev = nesdev->netdev[0];
+ 		nesvnic = netdev_priv(netdev);
+-		is_bonded = (netdev->master == event_netdev);
++		is_bonded = netif_is_bond_slave(netdev) &&
++			    (netdev->master == event_netdev);
+ 		if ((netdev == event_netdev) || is_bonded) {
+ 			if (nesvnic->rdma_enabled == 0) {
+ 				nes_debug(NES_DBG_NETDEV, "Returning without processing event for %s since"
+diff --git a/drivers/infiniband/hw/nes/nes_cm.c b/drivers/infiniband/hw/nes/nes_cm.c
+index 009ec81..ec3aa11 100644
+--- a/drivers/infiniband/hw/nes/nes_cm.c
++++ b/drivers/infiniband/hw/nes/nes_cm.c
+@@ -1118,7 +1118,7 @@ static int nes_addr_resolve_neigh(struct nes_vnic *nesvnic, u32 dst_ip, int arpi
+ 		return rc;
+ 	}
+ 
+-	if (nesvnic->netdev->master)
++	if (netif_is_bond_slave(netdev))
+ 		netdev = nesvnic->netdev->master;
+ 	else
+ 		netdev = nesvnic->netdev;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1df9f0e..9f87787 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1594,9 +1594,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		}
+ 	}
+ 
+-	res = netdev_set_master(slave_dev, bond_dev);
++	res = netdev_set_bond_master(slave_dev, bond_dev);
+ 	if (res) {
+-		pr_debug("Error %d calling netdev_set_master\n", res);
++		pr_debug("Error %d calling netdev_set_bond_master\n", res);
+ 		goto err_restore_mac;
+ 	}
+ 	/* open the slave since the application closed it */
+@@ -1812,7 +1812,7 @@ err_close:
+ 	dev_close(slave_dev);
+ 
+ err_unset_master:
+-	netdev_set_master(slave_dev, NULL);
++	netdev_set_bond_master(slave_dev, NULL);
+ 
+ err_restore_mac:
+ 	if (!bond->params.fail_over_mac) {
+@@ -1992,7 +1992,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		netif_addr_unlock_bh(bond_dev);
+ 	}
+ 
+-	netdev_set_master(slave_dev, NULL);
++	netdev_set_bond_master(slave_dev, NULL);
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	read_lock_bh(&bond->lock);
+@@ -2114,7 +2114,7 @@ static int bond_release_all(struct net_device *bond_dev)
+ 			netif_addr_unlock_bh(bond_dev);
+ 		}
+ 
+-		netdev_set_master(slave_dev, NULL);
++		netdev_set_bond_master(slave_dev, NULL);
+ 
+ 		/* close slave before restoring its mac address */
+ 		dev_close(slave_dev);
+diff --git a/drivers/net/cxgb3/cxgb3_offload.c b/drivers/net/cxgb3/cxgb3_offload.c
+index 7ea94b5..862804f 100644
+--- a/drivers/net/cxgb3/cxgb3_offload.c
++++ b/drivers/net/cxgb3/cxgb3_offload.c
+@@ -186,9 +186,10 @@ static struct net_device *get_iff_from_mac(struct adapter *adapter,
+ 				dev = NULL;
+ 				if (grp)
+ 					dev = vlan_group_get_device(grp, vlan);
+-			} else
++			} else if (netif_is_bond_slave(dev)) {
+ 				while (dev->master)
+ 					dev = dev->master;
++			}
+ 			return dev;
+ 		}
+ 	}
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 5a5baea..5a42b10 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2377,6 +2377,8 @@ extern int		netdev_max_backlog;
+ extern int		netdev_tstamp_prequeue;
+ extern int		weight_p;
+ extern int		netdev_set_master(struct net_device *dev, struct net_device *master);
++extern int netdev_set_bond_master(struct net_device *dev,
++				  struct net_device *master);
+ extern int skb_checksum_help(struct sk_buff *skb);
+ extern struct sk_buff *skb_gso_segment(struct sk_buff *skb, u32 features);
+ #ifdef CONFIG_BUG
+@@ -2437,6 +2439,11 @@ static inline void netif_set_gso_max_size(struct net_device *dev,
+ 	dev->gso_max_size = size;
+ }
+ 
++static inline int netif_is_bond_slave(struct net_device *dev)
++{
++	return dev->flags & IFF_SLAVE && dev->priv_flags & IFF_BONDING;
++}
++
+ extern struct pernet_operations __net_initdata loopback_net_ops;
+ 
+ static inline int dev_ethtool_get_settings(struct net_device *dev,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index d874fd1..a413276 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3146,7 +3146,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	struct packet_type *ptype, *pt_prev;
+ 	rx_handler_func_t *rx_handler;
+ 	struct net_device *orig_dev;
+-	struct net_device *master;
+ 	struct net_device *null_or_orig;
+ 	struct net_device *orig_or_bond;
+ 	int ret = NET_RX_DROP;
+@@ -3173,15 +3172,19 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	 */
+ 	null_or_orig = NULL;
+ 	orig_dev = skb->dev;
+-	master = ACCESS_ONCE(orig_dev->master);
+ 	if (skb->deliver_no_wcard)
+ 		null_or_orig = orig_dev;
+-	else if (master) {
+-		if (__skb_bond_should_drop(skb, master)) {
+-			skb->deliver_no_wcard = 1;
+-			null_or_orig = orig_dev; /* deliver only exact match */
+-		} else
+-			skb->dev = master;
++	else if (netif_is_bond_slave(orig_dev)) {
++		struct net_device *bond_master = ACCESS_ONCE(orig_dev->master);
++
++		if (likely(bond_master)) {
++			if (__skb_bond_should_drop(skb, bond_master)) {
++				skb->deliver_no_wcard = 1;
++				/* deliver only exact match */
++				null_or_orig = orig_dev;
++			} else
++				skb->dev = bond_master;
++		}
+ 	}
+ 
+ 	__this_cpu_inc(softnet_data.processed);
+@@ -4346,15 +4349,14 @@ static int __init dev_proc_init(void)
+ 
+ 
+ /**
+- *	netdev_set_master	-	set up master/slave pair
++ *	netdev_set_master	-	set up master pointer
+  *	@slave: slave device
+  *	@master: new master device
+  *
+  *	Changes the master device of the slave. Pass %NULL to break the
+  *	bonding. The caller must hold the RTNL semaphore. On a failure
+  *	a negative errno code is returned. On success the reference counts
+- *	are adjusted, %RTM_NEWLINK is sent to the routing socket and the
+- *	function returns zero.
++ *	are adjusted and the function returns zero.
+  */
+ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ {
+@@ -4374,6 +4376,29 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ 		synchronize_net();
+ 		dev_put(old);
+ 	}
++	return 0;
++}
++EXPORT_SYMBOL(netdev_set_master);
++
++/**
++ *	netdev_set_bond_master	-	set up bonding master/slave pair
++ *	@slave: slave device
++ *	@master: new master device
++ *
++ *	Changes the master device of the slave. Pass %NULL to break the
++ *	bonding. The caller must hold the RTNL semaphore. On a failure
++ *	a negative errno code is returned. On success %RTM_NEWLINK is sent
++ *	to the routing socket and the function returns zero.
++ */
++int netdev_set_bond_master(struct net_device *slave, struct net_device *master)
++{
++	int err;
++
++	ASSERT_RTNL();
++
++	err = netdev_set_master(slave, master);
++	if (err)
++		return err;
+ 	if (master)
+ 		slave->flags |= IFF_SLAVE;
+ 	else
+@@ -4382,7 +4407,7 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ 	rtmsg_ifinfo(RTM_NEWLINK, slave, IFF_SLAVE);
+ 	return 0;
+ }
+-EXPORT_SYMBOL(netdev_set_master);
++EXPORT_SYMBOL(netdev_set_bond_master);
+ 
+ static void dev_change_rx_flags(struct net_device *dev, int flags)
+ {
 -- 
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+1.7.3.4
+
