@@ -1,74 +1,61 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH 1/2] atmel/macb: fix device name when SOFT/HARD_IRQ enabled
-Date: Sat, 12 Feb 2011 15:30:00 +0100
-Message-ID: <20110212143000.GH11255@game.jcrosoft.org>
-References: <1297255416-6920-1-git-send-email-plagnioj@jcrosoft.com>
-	<4D529992.7050502@ru.mvista.com>
-	<20110209144411.GB11255@game.jcrosoft.org>
-	<4D53EEFA.3030801@ru.mvista.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH -next/mmotm] net/can: fix softing build errors
+Date: Sat, 12 Feb 2011 08:02:42 -0800
+Message-ID: <4D56AF22.4070803@oracle.com>
+References: <201102110100.p1B10sDx029244@imap1.linux-foundation.org> <20110211223312.be571303.randy.dunlap@oracle.com> <20110212111344.GA328@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
-	linux-arm-kernel@lists.infradead.org, Paul Chavent <paul.chavent@fnac.net>
-To: Sergei Shtylyov <sshtylyov@mvista.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <4D53EEFA.3030801@ru.mvista.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
-	<mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: linux-arm-kernel-bounces@lists.infradead.org
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: akpm@linux-foundation.org, netdev <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Kurt Van Dijck <kurt.van.dijck@eia.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rcsinet10.oracle.com ([148.87.113.121]:34572 "EHLO
+	rcsinet10.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751027Ab1BLQED (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Feb 2011 11:04:03 -0500
+In-Reply-To: <20110212111344.GA328@e-circ.dyndns.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16:58 Thu 10 Feb     , Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 09-02-2011 17:44, Jean-Christophe PLAGNIOL-VILLARD wrote:
-> 
-> >>>From: Paul Chavent<paul.chavent@fnac.net>
-> 
-> >>>When listing processes on a system with SOFT/HARD_IRQ enabled,
-> >>>the name of the ethernet device is [irq/eth%d] (instead of [irq/eth0] for example).
-> 
-> >>>This patch call the request_irq function after having initialized the name of the device.
-> 
-> >>>Signed-off-by: Paul Chavent<paul.chavent@fnac.net>
-> >>>Signed-off-by: Nicolas Ferre<nicolas.ferre@atmel.com>
-> >>>Signed-off-by: Jean-Christophe PLAGNIOL-VILLARD<plagnioj@jcrosoft.com>
-> >>[...]
-> 
-> >>>diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-> >>>index f69e73e..d642e08 100644
-> >>>--- a/drivers/net/macb.c
-> >>>+++ b/drivers/net/macb.c
-> >>[...]
-> >>>@@ -1219,13 +1209,23 @@ static int __init macb_probe(struct platform_device *pdev)
-> >>>  	err = register_netdev(dev);
-> >>>  	if (err) {
-> >>>  		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
-> >>>-		goto err_out_free_irq;
-> >>>+		goto err_out_iounmap;
-> >>>  	}
-> >>>
-> >>>-	if (macb_mii_init(bp) != 0) {
-> >>>+	dev->irq = platform_get_irq(pdev, 0);
-> 
-> >>    platform_get_irq() can fail...
-> 
-> >request_irq will fail too so do we really need to check it?
-> 
->    You then will get the following printed:
-> 
-> macb: Unable to request IRQ -6 (error -22)
-> 
->    If this is acceptable, then platfrom_get_irq()'s result can be ignored indeed.
-yes it's
+On 02/12/11 03:15, Kurt Van Dijck wrote:
+> On Fri, Feb 11, 2011 at 10:33:12PM -0800, Randy Dunlap wrote:
+>>
+>> warning: (CAN_SOFTING_CS) selects CAN_SOFTING which has unmet direct dependencies (NET && CAN && CAN_DEV && HAS_IOMEM)
+>>
+>> with this partial config:
+>>
+>> CONFIG_CAN=m
+>> # CONFIG_CAN_RAW is not set
+>> # CONFIG_CAN_BCM is not set
+>> # CAN Device Drivers
+>> # CONFIG_CAN_VCAN is not set
+>> CONFIG_CAN_SLCAN=m
+>> # CONFIG_CAN_DEV is not set
+>> CONFIG_CAN_SOFTING=m
+>> CONFIG_CAN_SOFTING_CS=m
+>> # CONFIG_CAN_DEBUG_DEVICES is not set
+> I understand the output, but I don't understand the cause well enough.
+> CAN_SOFTING=m has a 'depends on CAN_DEV'
+> Is it then possible to have CAN_SOFTING=m _and not_ CAN_DEV ?
 
-Best Regards,
-J.
+Yes.  From Documentation/kbuild/kconfig-language.txt:
+
+  Note:
+	select should be used with care. select will force
+	a symbol to a value without visiting the dependencies.
+	By abusing select you are able to select a symbol FOO even
+	if FOO depends on BAR that is not set.
+	In general use select only for non-visible symbols
+	(no prompts anywhere) and for symbols with no dependencies.
+	That will limit the usefulness but on the other hand avoid
+	the illegal configurations all over.
+
+
+CAN_SOFTING_CS does not depend on CAN_DEV. but it selects CAN_SOFTING,
+which does depend on CAN_DEV, ... but CAN_DEV is not enabled.
+
+
+-- 
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
