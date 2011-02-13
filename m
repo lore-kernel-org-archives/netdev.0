@@ -1,52 +1,51 @@
-From: Jesper Juhl <jj@chaosbits.net>
-Subject: [PATCH] ATM, Solos PCI ADSL2+: Don't deref NULL pointer if
- net_ratelimit() and alloc_skb() interact badly.
-Date: Sun, 13 Feb 2011 21:49:32 +0100 (CET)
-Message-ID: <alpine.LNX.2.00.1102132142460.18930@swampdragon.chaosbits.net>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
+ in error path and remove
+Date: Sun, 13 Feb 2011 22:07:09 +0100
+Message-ID: <20110213210709.GA13279@pengutronix.de>
+References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
+ <1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
+ <20110211110339.GH27982@pengutronix.de>
+ <20110211.212532.229740768.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	Nathan Williams <nathan@traverse.com.au>,
-	David Woodhouse <dwmw2@infradead.org>,
-	Treker Chen <treker@xrio.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, shawn.guo@freescale.com,
+	kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:42740 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754744Ab1BMVHO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 16:07:14 -0500
+Content-Disposition: inline
+In-Reply-To: <20110211.212532.229740768.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If alloc_skb() fails to allocate memory and returns NULL then we want to 
-return -ENOMEM from drivers/atm/solos-pci.c::popen() regardless of the 
-value of net_ratelimit(). The way the code is today, we may not return if 
-net_ratelimit() returns 0, then we'll proceed to pass a NULL pointer to 
-skb_put() which will blow up in our face.
-This patch ensures that we always return -ENOMEM on alloc_skb() failure 
-and only let the dev_warn() be controlled by the value of net_ratelimit().
+Hi David,
 
-Signed-off-by: Jesper Juhl <jj@chaosbits.net>
----
- solos-pci.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+On Fri, Feb 11, 2011 at 09:25:32PM -0800, David Miller wrote:
+> I can't pull from that tree because it is _NOT_ based upon net-next-2=
+=2E6
+> and therefore brings in all kinds of commits not related to your work=
+=2E
+Sorry, I'm not used to the customs on netdev.  I can rebase, but still =
+I
+wonder about the reason you cannot pull for.  The only reason I can
+imagine is that you fear unrelated breakage when taking these patches
+that are already in Linus' tree.  But if it's that, wouldn't it be grea=
+t
+the realize this breakage already now and not only during the next merg=
+e
+window?
 
-diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-index 73fb1c4..25ef1a4 100644
---- a/drivers/atm/solos-pci.c
-+++ b/drivers/atm/solos-pci.c
-@@ -866,8 +866,9 @@ static int popen(struct atm_vcc *vcc)
- 	}
- 
- 	skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
--	if (!skb && net_ratelimit()) {
--		dev_warn(&card->dev->dev, "Failed to allocate sk_buff in popen()\n");
-+	if (!skb) {
-+		if (net_ratelimit())
-+			dev_warn(&card->dev->dev, "Failed to allocate sk_buff in popen()\n");
- 		return -ENOMEM;
- 	}
- 	header = (void *)skb_put(skb, sizeof(*header));
+Best regards
+Uwe
 
-
--- 
-Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
-Plain text mails only, please.
-Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
