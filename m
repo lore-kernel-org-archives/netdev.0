@@ -1,44 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
-Date: Sun, 13 Feb 2011 21:34:17 +0100
-Message-ID: <20110213203417.GA11442@electric-eye.fr.zoreil.com>
-References: <AANLkTin7GBSTcfZgr_9sNZ8CPMkW7Vstni+fs2v1-ink@mail.gmail.com> <1297581470.2510.18.camel@edumazet-laptop> <20110213135600.GA11382@electric-eye.fr.zoreil.com> <AANLkTikTw71-mv9WsPT8PxC1a1nwEJ=x0UNDhVQGP1A6@mail.gmail.com> <AANLkTikLOJ-XcwfdbWS19DKzh2s91tn5pQjJe0+CeAN-@mail.gmail.com>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] ATM, Solos PCI ADSL2+: Don't deref NULL pointer if
+ net_ratelimit() and alloc_skb() interact badly.
+Date: Sun, 13 Feb 2011 21:49:32 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1102132142460.18930@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Ivan Vecera <ivecera@redhat.com>
-To: Seblu <seblu@seblu.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chas Williams <chas@cmf.nrl.navy.mil>,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	Nathan Williams <nathan@traverse.com.au>,
+	David Woodhouse <dwmw2@infradead.org>,
+	Treker Chen <treker@xrio.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTikLOJ-XcwfdbWS19DKzh2s91tn5pQjJe0+CeAN-@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Seblu <seblu@seblu.net> :
-[...]
-> > NIC seems to be reset frequently but host stop rebooting. \o//
-> ok after about 1 hour of iperf, host reboot.
+If alloc_skb() fails to allocate memory and returns NULL then we want to 
+return -ENOMEM from drivers/atm/solos-pci.c::popen() regardless of the 
+value of net_ratelimit(). The way the code is today, we may not return if 
+net_ratelimit() returns 0, then we'll proceed to pass a NULL pointer to 
+skb_put() which will blow up in our face.
+This patch ensures that we always return -ENOMEM on alloc_skb() failure 
+and only let the dev_warn() be controlled by the value of net_ratelimit().
 
-Can you apply the patch below on top of 2.6.38-rc4 ?
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ solos-pci.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 59ccf0c..5d64b80 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -4645,6 +4645,7 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 			switch (tp->mac_version) {
- 			/* Work around for rx fifo overflow */
- 			case RTL_GIGA_MAC_VER_11:
-+			case RTL_GIGA_MAC_VER_20:
- 			case RTL_GIGA_MAC_VER_22:
- 			case RTL_GIGA_MAC_VER_26:
- 				netif_stop_queue(dev);
-@@ -4653,7 +4654,6 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 			/* Testers needed. */
- 			case RTL_GIGA_MAC_VER_17:
- 			case RTL_GIGA_MAC_VER_19:
--			case RTL_GIGA_MAC_VER_20:
- 			case RTL_GIGA_MAC_VER_21:
- 			case RTL_GIGA_MAC_VER_23:
- 			case RTL_GIGA_MAC_VER_24:
+diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+index 73fb1c4..25ef1a4 100644
+--- a/drivers/atm/solos-pci.c
++++ b/drivers/atm/solos-pci.c
+@@ -866,8 +866,9 @@ static int popen(struct atm_vcc *vcc)
+ 	}
+ 
+ 	skb = alloc_skb(sizeof(*header), GFP_ATOMIC);
+-	if (!skb && net_ratelimit()) {
+-		dev_warn(&card->dev->dev, "Failed to allocate sk_buff in popen()\n");
++	if (!skb) {
++		if (net_ratelimit())
++			dev_warn(&card->dev->dev, "Failed to allocate sk_buff in popen()\n");
+ 		return -ENOMEM;
+ 	}
+ 	header = (void *)skb_put(skb, sizeof(*header));
+
+
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Plain text mails only, please.
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
