@@ -1,54 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
- in error path and remove
-Date: Sun, 13 Feb 2011 13:15:31 -0800 (PST)
-Message-ID: <20110213.131531.57465973.davem@davemloft.net>
-References: <20110211110339.GH27982@pengutronix.de>
-	<20110211.212532.229740768.davem@davemloft.net>
-	<20110213210709.GA13279@pengutronix.de>
+From: Jesper Juhl <jj@chaosbits.net>
+Subject: [PATCH] Net, USB, Option, hso: Do not dereference NULL pointer
+Date: Sun, 13 Feb 2011 22:15:35 +0100 (CET)
+Message-ID: <alpine.LNX.2.00.1102132206390.18930@swampdragon.chaosbits.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shawn.guo@freescale.com,
-	kernel@pengutronix.de
-To: u.kleine-koenig@pengutronix.de
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Greg Kroah-Hartman <gregkh@suse.de>,
+	Jan Dumon <j.dumon@option.com>, Filip Aben <f.aben@option.com>,
+	Denis Joseph Barrow <d.barow@option.com>,
+	Andrew Bird <ajb@spheresystems.co.uk>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47669
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754744Ab1BMVOz convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Feb 2011 16:14:55 -0500
-In-Reply-To: <20110213210709.GA13279@pengutronix.de>
+Received: from swampdragon.chaosbits.net ([90.184.90.115]:10884 "EHLO
+	swampdragon.chaosbits.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754922Ab1BMVQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 16:16:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Sun, 13 Feb 2011 22:07:09 +0100
+In drivers/net/usb/hso.c::hso_create_bulk_serial_device() we have this 
+code:
+...
+	serial = kzalloc(sizeof(*serial), GFP_KERNEL);
+	if (!serial)
+		goto exit;
+...
+exit:
+	hso_free_tiomget(serial);
+...
+hso_free_tiomget() directly dereferences its argument, which in the 
+example above is a NULL pointer, ouch.
+I could just add a 'if (serial)' test at the 'exit' label, but since most 
+freeing functions in the kernel accept NULL pointers (and it seems like 
+this was also assumed here) I opted to instead change 'hso_free_tiomget()' 
+so that it is safe to call it with a NULL argument. I also modified the 
+function to get rid of a pointles conditional before the call to 
+'usb_free_urb()' since that function already tests for NULL itself - 
+besides fixing the NULL deref this change also buys us a few bytes in 
+size.
+Before:
+$ size drivers/net/usb/hso.o
+   text    data     bss     dec     hex filename
+  32200     592    9960   42752    a700 drivers/net/usb/hso.o
+After:
+$ size drivers/net/usb/hso.o
+   text    data     bss     dec     hex filename
+  32196     592    9960   42748    a6fc drivers/net/usb/hso.o
 
-> Hi David,
->=20
-> On Fri, Feb 11, 2011 at 09:25:32PM -0800, David Miller wrote:
->> I can't pull from that tree because it is _NOT_ based upon net-next-=
-2.6
->> and therefore brings in all kinds of commits not related to your wor=
-k.
-> Sorry, I'm not used to the customs on netdev.  I can rebase, but stil=
-l I
-> wonder about the reason you cannot pull for.  The only reason I can
-> imagine is that you fear unrelated breakage when taking these patches
-> that are already in Linus' tree.  But if it's that, wouldn't it be gr=
-eat
-> the realize this breakage already now and not only during the next me=
-rge
-> window?
+Signed-off-by: Jesper Juhl <jj@chaosbits.net>
+---
+ hso.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-My trees only merge in Linus's tree when absolutely necessary,
-to resolve conflicts or similar.
+diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
+index bed8fce..6d83812 100644
+--- a/drivers/net/usb/hso.c
++++ b/drivers/net/usb/hso.c
+@@ -2628,15 +2628,15 @@ exit:
+ 
+ static void hso_free_tiomget(struct hso_serial *serial)
+ {
+-	struct hso_tiocmget *tiocmget = serial->tiocmget;
++	struct hso_tiocmget *tiocmget;
++	if (!serial)
++		return;
++	tiocmget = serial->tiocmget;
+ 	if (tiocmget) {
+-		if (tiocmget->urb) {
+-			usb_free_urb(tiocmget->urb);
+-			tiocmget->urb = NULL;
+-		}
++		usb_free_urb(tiocmget->urb);
++		tiocmget->urb = NULL;
+ 		serial->tiocmget = NULL;
+ 		kfree(tiocmget);
+-
+ 	}
+ }
+ 
 
-We don't bring in unrelated changes into my tree, just for the
-sake of doing so.
 
-Otherwise Linus gets all of these ugly merge commits when he
-pulls from me, which are entirely unnecessary.
-
+-- 
+Jesper Juhl <jj@chaosbits.net>            http://www.chaosbits.net/
+Plain text mails only, please.
+Don't top-post http://www.catb.org/~esr/jargon/html/T/top-post.html
 
