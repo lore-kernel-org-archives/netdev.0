@@ -1,8 +1,7 @@
 From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH v5 RESEND 6/9] net: ethtool: use ndo_fix_features for offload setting
-Date: Sun, 13 Feb 2011 12:11:45 +0100 (CET)
-Message-ID: <7fa77be53413ba76e26c92691bd2c7ca6f45005c.1297594674.git.mirq-linux@rere.qmqm.pl>
-References: <cover.1297594674.git.mirq-linux@rere.qmqm.pl>
+Subject: [PATCH v5 RESEND 0/9] net: Unified offload configuration
+Date: Sun, 13 Feb 2011 12:11:43 +0100 (CET)
+Message-ID: <cover.1297594674.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -10,98 +9,90 @@ Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:50511 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:50506 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754146Ab1BMLLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Feb 2011 06:11:49 -0500
-In-Reply-To: <cover.1297594674.git.mirq-linux@rere.qmqm.pl>
+	id S1754088Ab1BMLLr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Feb 2011 06:11:47 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Here's a v5 of the ethtool unification patch series.
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- net/core/ethtool.c |   45 ++++++++++++++++++++++++++++++++------------=
--
- 1 files changed, 32 insertions(+), 13 deletions(-)
+What's in it?
+ 1..4:
+	cleanups for the core patches
+ 5:
+	the patch - implement unified ethtool setting ops
+ 6..7:
+	implement interoperation between old and new ethtool ops
+ 8:
+	include RX checksum in features and plug it into new framework
+ 9:
+	convert loopback device to new framework
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 9577396..6599997 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -357,15 +357,21 @@ static void *__ethtool_get_one_feature_actor(stru=
-ct net_device *dev, u32 ethcmd)
- static int ethtool_get_one_feature(struct net_device *dev,
- 	char __user *useraddr, u32 ethcmd)
- {
-+	u32 mask =3D ethtool_get_feature_mask(ethcmd);
- 	struct ethtool_value edata =3D {
- 		.cmd =3D ethcmd,
--		.data =3D !!(dev->features & ethtool_get_feature_mask(ethcmd)),
-+		.data =3D !!(dev->features & mask),
- 	};
--	u32 (*actor)(struct net_device *);
-=20
--	actor =3D __ethtool_get_one_feature_actor(dev, ethcmd);
--	if (actor)
--		edata.data =3D actor(dev);
-+	/* compatibility with discrete get_ ops */
-+	if (!(dev->hw_features & mask)) {
-+		u32 (*actor)(struct net_device *);
-+
-+		actor =3D __ethtool_get_one_feature_actor(dev, ethcmd);
-+
-+		if (actor)
-+			edata.data =3D actor(dev);
-+	}
-=20
- 	if (copy_to_user(useraddr, &edata, sizeof(edata)))
- 		return -EFAULT;
-@@ -386,6 +392,27 @@ static int ethtool_set_one_feature(struct net_devi=
-ce *dev,
- 	if (copy_from_user(&edata, useraddr, sizeof(edata)))
- 		return -EFAULT;
-=20
-+	mask =3D ethtool_get_feature_mask(ethcmd);
-+	mask &=3D dev->hw_features;
-+	if (mask) {
-+		if (edata.data)
-+			dev->wanted_features |=3D mask;
-+		else
-+			dev->wanted_features &=3D ~mask;
-+
-+		netdev_update_features(dev);
-+		return 0;
-+	}
-+
-+	/* Driver is not converted to ndo_fix_features or does not
-+	 * support changing this offload. In the latter case it won't
-+	 * have corresponding ethtool_ops field set.
-+	 *
-+	 * Following part is to be removed after all drivers advertise
-+	 * their changeable features in netdev->hw_features and stop
-+	 * using discrete offload setting ops.
-+	 */
-+
- 	switch (ethcmd) {
- 	case ETHTOOL_STXCSUM:
- 		return __ethtool_set_tx_csum(dev, edata.data);
-@@ -395,14 +422,6 @@ static int ethtool_set_one_feature(struct net_devi=
-ce *dev,
- 		return __ethtool_set_tso(dev, edata.data);
- 	case ETHTOOL_SUFO:
- 		return __ethtool_set_ufo(dev, edata.data);
--	case ETHTOOL_SGSO:
--	case ETHTOOL_SGRO:
--		mask =3D ethtool_get_feature_mask(ethcmd);
--		if (edata.data)
--			dev->features |=3D mask;
--		else
--			dev->features &=3D ~mask;
--		return 0;
- 	default:
- 		return -EOPNOTSUPP;
- 	}
+What is it good for?
+ - unifies driver behaviour wrt hardware offloads
+ - removes a lot of boilerplate code from drivers
+ - allows better fine-grained control over used offloads
+
+This version is not tested in any way, yet. I hope I've split all clean=
+ups
+from the core patches now.
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
+
+[This is a resend because of broken headers in previous submission. Sor=
+ry
+for the delay - I got disconnected from my dev machine for a while.]
+
+v1: http://marc.info/?l=3Dlinux-netdev&m=3D129245188832643&w=3D3
+
+Changes from v4:
+ - more split cleanups
+ - fix error return for ETHTOOL_SFLAGS
+ - fix ETHTOOL_G* compatibility for not converted drivers
+
+Changes from v3:
+ - fixed kernel-doc and other comments
+ - added HIGHDMA to never-changeable features
+ - changed GFEATURES .size interpretation
+ - changed feature strings
+ - change __ethtool_set_flags() to reject invalid changes
+
+Changes from v2:
+ - rebase to net-next after merging v2 leading patches
+ - fix missing comma in feature name table
+ - force NETIF_F_SOFT_FEATURES in hw_features for simpler code
+   (fixes a bug that disallowed changing GSO and GRO state)
+
+Changes from v1:
+ - split structures for GFEATURES/SFEATURES
+ - naming of feature bits using GSTRINGS ETH_SS_FEATURES
+ - strict checking of bits used in SFEATURES call
+ - more comments and kernel-doc
+ - rebased to net-next after 2.6.37
+
+
+Micha=C5=82 Miros=C5=82aw (9):
+  ethtool: move EXPORT_SYMBOL(ethtool_op_set_tx_csum) to correct place
+  ethtool: enable GSO and GRO by default
+  ethtool: factorize ethtool_get_strings() and ethtool_get_sset_count()
+  ethtool: factorize get/set_one_feature
+  net: Introduce new feature setting ops
+  net: ethtool: use ndo_fix_features for offload setting
+  net: use ndo_fix_features for ethtool_ops->set_flags
+  net: introduce NETIF_F_RXCSUM
+  loopback: convert to hw_features
+
+ drivers/net/loopback.c    |    9 +-
+ include/linux/ethtool.h   |   86 ++++++++-
+ include/linux/netdevice.h |   48 ++++-
+ net/core/dev.c            |   49 ++++-
+ net/core/ethtool.c        |  527 +++++++++++++++++++++++++++++--------=
+-------
+ 5 files changed, 526 insertions(+), 193 deletions(-)
+
 --=20
 1.7.2.3
 
