@@ -1,46 +1,53 @@
-From: Seblu <seblu@seblu.net>
-Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
-Date: Sun, 13 Feb 2011 19:02:38 +0100
-Message-ID: <AANLkTikLOJ-XcwfdbWS19DKzh2s91tn5pQjJe0+CeAN-@mail.gmail.com>
-References: <AANLkTin7GBSTcfZgr_9sNZ8CPMkW7Vstni+fs2v1-ink@mail.gmail.com>
- <1297581470.2510.18.camel@edumazet-laptop> <20110213135600.GA11382@electric-eye.fr.zoreil.com>
- <AANLkTikTw71-mv9WsPT8PxC1a1nwEJ=x0UNDhVQGP1A6@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next/mmotm] net/can: fix softing build errors
+Date: Sun, 13 Feb 2011 10:38:45 -0800 (PST)
+Message-ID: <20110213.103845.02286551.davem@davemloft.net>
+References: <4D56AF22.4070803@oracle.com>
+	<20110213133717.GA508@e-circ.dyndns.org>
+	<4D58004A.3060407@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Ivan Vecera <ivecera@redhat.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qy0-f181.google.com ([209.85.216.181]:45024 "EHLO
-	mail-qy0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754663Ab1BMSDB convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 13:03:01 -0500
-In-Reply-To: <AANLkTikTw71-mv9WsPT8PxC1a1nwEJ=x0UNDhVQGP1A6@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kurt.van.dijck@eia.be, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: randy.dunlap@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D58004A.3060407@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 13, 2011 at 6:27 PM, Seblu <seblu@seblu.net> wrote:
-> On Sun, Feb 13, 2011 at 2:56 PM, Francois Romieu <romieu@fr.zoreil.co=
-m> wrote:
->> Eric Dumazet <eric.dumazet@gmail.com> :
->> If it still does not perform better, please include the XID line of
->> the r8169 driver from dmesg.
->>
-> I've tryed on archlinux i686 distro with 2.6.37 and host reboot like
-> under debian.
->
-> After this, i tryed =A0wiith a 2.6.38-rc4 (amd64), which include your
-> recent patchs.
->
-> # dmesg|grep -i xid
-> r8169 0000:04:00.0: eth0: RTL8168b/8111b at 0xffffc90005260000,
-> 1c:6f:65:56:d9:17, XID 0c200000 IRQ 47
->
-> NIC seems to be reset frequently but host stop rebooting. \o//
-ok after about 1 hour of iperf, host reboot.
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Sun, 13 Feb 2011 08:01:14 -0800
 
---=20
-S=E9bastien Luttringer
-www.seblu.net
+> On 02/13/11 05:37, Kurt Van Dijck wrote:
+>> The 'select CAN_SOFTING' was introduced because it makes no sense to
+>> have CAN_SOFTING_CS alone 'for a normal user', although there is no
+>> real dependency.
+>> Is a 'select' then still a good option, since it feels like repeating
+>> all dependencies from CAN_SOFTING in CAN_SOFTING_CS?
+>> What about this?
+>> 
+>> diff --git a/drivers/net/can/softing/Kconfig b/drivers/net/can/softing/Kconfig
+>> index 92bd6bd..55dd3e4 100644
+>> --- a/drivers/net/can/softing/Kconfig
+>> +++ b/drivers/net/can/softing/Kconfig
+>> @@ -18,7 +18,7 @@ config CAN_SOFTING
+>>  config CAN_SOFTING_CS
+>>  	tristate "Softing Gmbh CAN pcmcia cards"
+>>  	depends on PCMCIA
+>> -	select CAN_SOFTING
+>> +	depends on CAN_SOFTING
+>>  	---help---
+>>  	  Support for PCMCIA cards from Softing Gmbh & some cards
+>>  	  from Vector Gmbh.
+>> ---
+>> It will present the Softing stuff in Kconfig as if CAN_SOFTING_CS really
+>> depends on CAN_SOFTING, which is acceptible from a users perspective.
+> 
+> That's fine.
+> Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+
+Kurt, please formally re-submit this with a proper commit message,
+a signoff for you, and Randy's ACK.
+
+Thanks.
