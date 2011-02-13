@@ -1,51 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next-2.6 v7 1/1] can: c_can: Added support for
-	Bosch C_CAN controller
-Date: Sun, 13 Feb 2011 10:52:16 -0800 (PST)
-Message-ID: <20110213.105216.27797609.davem@davemloft.net>
-References: <1297419478-27667-1-git-send-email-bhupesh.sharma@st.com>
-	<4D56C0ED.1040201@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] tlan: Fix bugs introduced by the last tlan cleanup
+ patch
+Date: Sun, 13 Feb 2011 10:55:34 -0800 (PST)
+Message-ID: <20110213.105534.191390756.davem@davemloft.net>
+References: <4D52F80E.9030307@iki.fi>
+	<1297283106-10035-1-git-send-email-sakari.ailus@iki.fi>
+	<4D56C08D.7060007@computer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D56C0ED.1040201-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sakari.ailus@iki.fi, netdev@vger.kernel.org, error27@gmail.com
+To: jan.ceuleers@computer.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60414
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754663Ab1BMSy6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 13:54:58 -0500
+In-Reply-To: <4D56C08D.7060007@computer.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Date: Sat, 12 Feb 2011 18:18:37 +0100
+From: Jan Ceuleers <jan.ceuleers@computer.org>
+Date: Sat, 12 Feb 2011 18:17:01 +0100
 
-> On 02/11/2011 11:17 AM, Bhupesh Sharma wrote:
->> Bosch C_CAN controller is a full-CAN implementation which is compliant
->> to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can be
->> obtained from:
->> http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/
->> c_can/users_manual_c_can.pdf
->> 
->> This patch adds the support for this controller.
->> The following are the design choices made while writing the controller
->> driver:
->> 1. Interface Register set IF1 has be used only in the current design.
->> 2. Out of the 32 Message objects available, 16 are kept aside for RX
->>    purposes and the rest for TX purposes.
->> 3. NAPI implementation is such that both the TX and RX paths function
->>    in polling mode.
->> 
->> Signed-off-by: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+> On 09/02/11 21:25, Sakari Ailus wrote:
+>> Fix two bugs introduced by the patch "tlan: Code cleanup:
+>> checkpatch.pl is
+>> relatively happy now." In that patch, TLAN_CSTAT_READY was considered
+>> as a
+>> bit mask containing a single bit set while it was actually had two set
+>> instead.
 > 
-> Good work!
-> 
-> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Commit ID of the referenced patch in net-net is
+> c659c38b2796578638548b77ef626d93609ec8ac
 
-Applied.
+I add this information to the commit message, applied, thanks.
