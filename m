@@ -1,8 +1,8 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 1/4] rtnetlink: implement setting of master
- device
-Date: Sun, 13 Feb 2011 20:31:06 +0100
-Message-ID: <20110213193105.GD2740@psychotron.redhat.com>
+Subject: [patch iproute2 2/4] iplink: implement setting of master device
+Date: Sun, 13 Feb 2011 20:32:09 +0100
+Message-ID: <20110213193208.GE2740@psychotron.redhat.com>
+References: <20110213193105.GD2740@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
@@ -10,121 +10,89 @@ Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	nicolas.2p.debian@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50205 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37521 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754818Ab1BMTbd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Feb 2011 14:31:33 -0500
+	id S1754762Ab1BMTcQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Feb 2011 14:32:16 -0500
 Content-Disposition: inline
+In-Reply-To: <20110213193105.GD2740@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch allows userspace to enslave/release slave devices via netlink
-interface using IFLA_MASTER. This introduces generic way to add/remove
-underling devices.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- include/linux/netdevice.h |   12 ++++++++++++
- net/core/rtnetlink.c      |   42 ++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 54 insertions(+), 0 deletions(-)
+ ip/iplink.c   |   16 ++++++++++++++++
+ man/man8/ip.8 |   15 ++++++++++++++-
+ 2 files changed, 30 insertions(+), 1 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 5a42b10..d08ef65 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -783,6 +783,14 @@ struct netdev_tc_txq {
-  *	Set hardware filter for RFS.  rxq_index is the target queue index;
-  *	flow_id is a flow ID to be passed to rps_may_expire_flow() later.
-  *	Return the filter ID on success, or a negative error code.
-+ *
-+ *	Slave management functions (for bridge, bonding, etc). User should
-+ *	call netdev_set_master() to set dev->master properly.
-+ * int (*ndo_add_slave)(struct net_device *dev, struct net_device *slave_dev);
-+ *	Called to make another netdev an underling.
-+ *
-+ * int (*ndo_del_slave)(struct net_device *dev, struct net_device *slave_dev);
-+ *	Called to release previously enslaved netdev.
-  */
- #define HAVE_NET_DEVICE_OPS
- struct net_device_ops {
-@@ -862,6 +870,10 @@ struct net_device_ops {
- 						     u16 rxq_index,
- 						     u32 flow_id);
- #endif
-+	int			(*ndo_add_slave)(struct net_device *dev,
-+						 struct net_device *slave_dev);
-+	int			(*ndo_del_slave)(struct net_device *dev,
-+						 struct net_device *slave_dev);
- };
+diff --git a/ip/iplink.c b/ip/iplink.c
+index cb2c4f5..7a1722c 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -71,6 +71,8 @@ void iplink_usage(void)
+ 	fprintf(stderr, "	                  [ vf NUM [ mac LLADDR ]\n");
+ 	fprintf(stderr, "				   [ vlan VLANID [ qos VLAN-QOS ] ]\n");
+ 	fprintf(stderr, "				   [ rate TXRATE ] ] \n");
++	fprintf(stderr, "			  [ master DEVICE ]\n");
++	fprintf(stderr, "			  [ nomaster ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE ]\n");
  
- /*
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index da0fe45..20d067a 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1036,6 +1036,7 @@ const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_MAP]		= { .len = sizeof(struct rtnl_link_ifmap) },
- 	[IFLA_MTU]		= { .type = NLA_U32 },
- 	[IFLA_LINK]		= { .type = NLA_U32 },
-+	[IFLA_MASTER]		= { .type = NLA_U32 },
- 	[IFLA_TXQLEN]		= { .type = NLA_U32 },
- 	[IFLA_WEIGHT]		= { .type = NLA_U32 },
- 	[IFLA_OPERSTATE]	= { .type = NLA_U8 },
-@@ -1178,6 +1179,41 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr *attr)
- 	return err;
- }
+ 	if (iplink_have_newlink()) {
+@@ -361,6 +363,20 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 			if (len < 0)
+ 				return -1;
+ 			addattr_nest_end(&req->n, vflist);
++#ifdef IFLA_MASTER
++		} else if (matches(*argv, "master") == 0) {
++			int ifindex;
++			NEXT_ARG();
++			ifindex = ll_name_to_index(*argv);
++			if (!ifindex)
++				invarg("Device does not exist\n", *argv);
++			addattr_l(&req->n, sizeof(*req), IFLA_MASTER,
++				  &ifindex, 4);
++		} else if (matches(*argv, "nomaster") == 0) {
++			int ifindex = 0;
++			addattr_l(&req->n, sizeof(*req), IFLA_MASTER,
++				  &ifindex, 4);
++#endif
+ #ifdef IFF_DYNAMIC
+ 		} else if (matches(*argv, "dynamic") == 0) {
+ 			NEXT_ARG();
+diff --git a/man/man8/ip.8 b/man/man8/ip.8
+index 8d55fa9..a473868 100644
+--- a/man/man8/ip.8
++++ b/man/man8/ip.8
+@@ -95,7 +95,12 @@ ip \- show / manipulate routing, devices, policy routing and tunnels
+ .B qos
+ .IR VLAN-QOS " ] ] ["
+ .B rate
+-.IR TXRATE " ]"
++.IR TXRATE " ] |"
++.br
++.B master
++.IR DEVICE
++.br
++.B nomaster
  
-+static int do_set_master(struct net_device *dev, int ifindex)
-+{
-+	struct net_device *master_dev;
-+	const struct net_device_ops *ops;
-+	int err;
-+
-+	if (dev->master) {
-+		if (dev->master->ifindex == ifindex)
-+			return 0;
-+		ops = dev->master->netdev_ops;
-+		if (ops->ndo_del_slave) {
-+			err = ops->ndo_del_slave(dev->master, dev);
-+			if (err)
-+				return err;
-+		} else {
-+			return -EOPNOTSUPP;
-+		}
-+	}
-+
-+	if (ifindex) {
-+		master_dev = __dev_get_by_index(dev_net(dev), ifindex);
-+		if (!master_dev)
-+			return -EINVAL;
-+		ops = master_dev->netdev_ops;
-+		if (ops->ndo_add_slave) {
-+			err = ops->ndo_add_slave(master_dev, dev);
-+			if (err)
-+				return err;
-+		} else {
-+			return -EOPNOTSUPP;
-+		}
-+	}
-+	return 0;
-+}
-+
- static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 		      struct nlattr **tb, char *ifname, int modified)
- {
-@@ -1301,6 +1337,12 @@ static int do_setlink(struct net_device *dev, struct ifinfomsg *ifm,
- 			goto errout;
- 	}
+ .ti -8
+ .B ip link show
+@@ -1038,6 +1043,14 @@ Setting this parameter to 0 disables rate limiting. The
+ parameter must be specified.
+ .in -8
  
-+	if (tb[IFLA_MASTER]) {
-+		err = do_set_master(dev, nla_get_u32(tb[IFLA_MASTER]));
-+		if (err)
-+			goto errout;
-+	}
++.TP
++.BI master " DEVICE"
++set master device of the device (enslave device).
 +
- 	if (tb[IFLA_TXQLEN])
- 		dev->tx_queue_len = nla_get_u32(tb[IFLA_TXQLEN]);
- 
++.TP
++.BI nomaster
++unset master device of the device (release device).
++
+ .PP
+ .B Warning:
+ If multiple parameter changes are requested,
 -- 
 1.7.3.4
 
