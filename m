@@ -1,51 +1,54 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
  in error path and remove
-Date: Sun, 13 Feb 2011 22:07:09 +0100
-Message-ID: <20110213210709.GA13279@pengutronix.de>
-References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
- <1297420342-17739-2-git-send-email-u.kleine-koenig@pengutronix.de>
- <20110211110339.GH27982@pengutronix.de>
- <20110211.212532.229740768.davem@davemloft.net>
+Date: Sun, 13 Feb 2011 13:15:31 -0800 (PST)
+Message-ID: <20110213.131531.57465973.davem@davemloft.net>
+References: <20110211110339.GH27982@pengutronix.de>
+	<20110211.212532.229740768.davem@davemloft.net>
+	<20110213210709.GA13279@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, shawn.guo@freescale.com,
 	kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:42740 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754744Ab1BMVHO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 16:07:14 -0500
-Content-Disposition: inline
-In-Reply-To: <20110211.212532.229740768.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:47669
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754744Ab1BMVOz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Feb 2011 16:14:55 -0500
+In-Reply-To: <20110213210709.GA13279@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Sun, 13 Feb 2011 22:07:09 +0100
 
-On Fri, Feb 11, 2011 at 09:25:32PM -0800, David Miller wrote:
-> I can't pull from that tree because it is _NOT_ based upon net-next-2=
-=2E6
-> and therefore brings in all kinds of commits not related to your work=
-=2E
-Sorry, I'm not used to the customs on netdev.  I can rebase, but still =
-I
-wonder about the reason you cannot pull for.  The only reason I can
-imagine is that you fear unrelated breakage when taking these patches
-that are already in Linus' tree.  But if it's that, wouldn't it be grea=
-t
-the realize this breakage already now and not only during the next merg=
-e
-window?
+> Hi David,
+>=20
+> On Fri, Feb 11, 2011 at 09:25:32PM -0800, David Miller wrote:
+>> I can't pull from that tree because it is _NOT_ based upon net-next-=
+2.6
+>> and therefore brings in all kinds of commits not related to your wor=
+k.
+> Sorry, I'm not used to the customs on netdev.  I can rebase, but stil=
+l I
+> wonder about the reason you cannot pull for.  The only reason I can
+> imagine is that you fear unrelated breakage when taking these patches
+> that are already in Linus' tree.  But if it's that, wouldn't it be gr=
+eat
+> the realize this breakage already now and not only during the next me=
+rge
+> window?
 
-Best regards
-Uwe
+My trees only merge in Linus's tree when absolutely necessary,
+to resolve conflicts or similar.
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+We don't bring in unrelated changes into my tree, just for the
+sake of doing so.
+
+Otherwise Linus gets all of these ugly merge commits when he
+pulls from me, which are entirely unnecessary.
+
+
