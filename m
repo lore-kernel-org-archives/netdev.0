@@ -1,35 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: undo_retrans counter fixes
-Date: Sun, 13 Feb 2011 11:07:45 -0800 (PST)
-Message-ID: <20110213.110745.241447405.davem@davemloft.net>
-References: <AANLkTikh4YXzJGgTWsTjpz6BczrfSGYD_qSg3WWmKrs9@mail.gmail.com>
-	<alpine.DEB.2.00.1102081110050.26191@melkinpaasi.cs.helsinki.fi>
-	<AANLkTiktBOC_26Aox8LVjPCTh33Gztd7RvA-kQVdih=h@mail.gmail.com>
+Subject: Re: [patch net-next-2.6] net: remove the unnecessary dance around
+ skb_bond_should_drop
+Date: Sun, 13 Feb 2011 11:07:58 -0800 (PST)
+Message-ID: <20110213.110758.52186282.davem@davemloft.net>
+References: <20110212104605.GA2786@psychotron.redhat.com>
+	<4D568251.7000305@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
-To: ycheng@google.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jpirko@redhat.com, netdev@vger.kernel.org
+To: nicolas.2p.debian@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46761
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46764
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754738Ab1BMTHJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 14:07:09 -0500
-In-Reply-To: <AANLkTiktBOC_26Aox8LVjPCTh33Gztd7RvA-kQVdih=h@mail.gmail.com>
+	by vger.kernel.org with ESMTP id S1754738Ab1BMTHW convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Feb 2011 14:07:22 -0500
+In-Reply-To: <4D568251.7000305@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Fri, 11 Feb 2011 16:10:50 -0800
+=46rom: Nicolas de Peslo=FCan <nicolas.2p.debian@gmail.com>
+Date: Sat, 12 Feb 2011 13:51:29 +0100
 
-> Dave/Ilpo: can this patch get applied or it needs more
-> clarification/justification? Thanks.
+> Le 12/02/2011 11:46, Jiri Pirko a =E9crit :
+>> No need to check (master) twice and to drive in and out the header
+>> file.
+>>
+>> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+>=20
+> Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
-Ilpo and you are still discussing the merits of doing the
-checks in one place or another, and whether this is the best
-place to handle this issue.
-
-I also see no rush in applying a patch for an obscure hard to
-trigger issue that has been present for such a long time.
-
-It's in the patchwork queue, so don't worry it won't get lost ;)
+Applied.
