@@ -1,58 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6 v7 1/1] can: c_can: Added support for
- Bosch C_CAN controller
-Date: Sun, 13 Feb 2011 11:05:30 -0800 (PST)
-Message-ID: <20110213.110530.98884040.davem@davemloft.net>
-References: <1297419478-27667-1-git-send-email-bhupesh.sharma@st.com>
-	<4D56C0ED.1040201@pengutronix.de>
-	<20110213.105216.27797609.davem@davemloft.net>
+Subject: Re: [PATCH] tcp: undo_retrans counter fixes
+Date: Sun, 13 Feb 2011 11:07:45 -0800 (PST)
+Message-ID: <20110213.110745.241447405.davem@davemloft.net>
+References: <AANLkTikh4YXzJGgTWsTjpz6BczrfSGYD_qSg3WWmKrs9@mail.gmail.com>
+	<alpine.DEB.2.00.1102081110050.26191@melkinpaasi.cs.helsinki.fi>
+	<AANLkTiktBOC_26Aox8LVjPCTh33Gztd7RvA-kQVdih=h@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhupesh.sharma@st.com, netdev@vger.kernel.org,
-	Socketcan-core@lists.berlios.de
-To: mkl@pengutronix.de
+Cc: netdev@vger.kernel.org, ilpo.jarvinen@helsinki.fi
+To: ycheng@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46756
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46761
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754738Ab1BMTEz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 14:04:55 -0500
-In-Reply-To: <20110213.105216.27797609.davem@davemloft.net>
+	by vger.kernel.org with ESMTP id S1754738Ab1BMTHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 14:07:09 -0500
+In-Reply-To: <AANLkTiktBOC_26Aox8LVjPCTh33Gztd7RvA-kQVdih=h@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Sun, 13 Feb 2011 10:52:16 -0800 (PST)
+From: Yuchung Cheng <ycheng@google.com>
+Date: Fri, 11 Feb 2011 16:10:50 -0800
 
-> From: Marc Kleine-Budde <mkl@pengutronix.de>
-> Date: Sat, 12 Feb 2011 18:18:37 +0100
-> 
->> On 02/11/2011 11:17 AM, Bhupesh Sharma wrote:
->>> Bosch C_CAN controller is a full-CAN implementation which is compliant
->>> to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual can be
->>> obtained from:
->>> http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/
->>> c_can/users_manual_c_can.pdf
->>> 
->>> This patch adds the support for this controller.
->>> The following are the design choices made while writing the controller
->>> driver:
->>> 1. Interface Register set IF1 has be used only in the current design.
->>> 2. Out of the 32 Message objects available, 16 are kept aside for RX
->>>    purposes and the rest for TX purposes.
->>> 3. NAPI implementation is such that both the TX and RX paths function
->>>    in polling mode.
->>> 
->>> Signed-off-by: Bhupesh Sharma <bhupesh.sharma@st.com>
->> 
->> Good work!
->> 
->> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> 
-> Applied.
+> Dave/Ilpo: can this patch get applied or it needs more
+> clarification/justification? Thanks.
 
-Actually, I'm reverting because this causes build regressions:
+Ilpo and you are still discussing the merits of doing the
+checks in one place or another, and whether this is the best
+place to handle this issue.
 
-ERROR: "clk_get_rate" [drivers/net/can/c_can/c_can_platform.ko] undefined!
-ERROR: "clk_get" [drivers/net/can/c_can/c_can_platform.ko] undefined!
-ERROR: "clk_put" [drivers/net/can/c_can/c_can_platform.ko] undefined!
+I also see no rush in applying a patch for an obscure hard to
+trigger issue that has been present for such a long time.
+
+It's in the patchwork queue, so don't worry it won't get lost ;)
