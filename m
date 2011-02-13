@@ -1,37 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] tlan: Fix bugs introduced by the last tlan cleanup
- patch
-Date: Sun, 13 Feb 2011 10:55:34 -0800 (PST)
-Message-ID: <20110213.105534.191390756.davem@davemloft.net>
-References: <4D52F80E.9030307@iki.fi>
-	<1297283106-10035-1-git-send-email-sakari.ailus@iki.fi>
-	<4D56C08D.7060007@computer.org>
+Subject: Re: [net-2.6 PATCH 3/3] net: dcb: application priority is per
+ net_device
+Date: Sun, 13 Feb 2011 11:03:11 -0800 (PST)
+Message-ID: <20110213.110311.241916087.davem@davemloft.net>
+References: <20110131220048.29758.22379.stgit@jf-dev1-dcblab>
+	<20110131220059.29758.17857.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sakari.ailus@iki.fi, netdev@vger.kernel.org, error27@gmail.com
-To: jan.ceuleers@computer.org
+Cc: netdev@vger.kernel.org
+To: john.r.fastabend@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60414
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:41239
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754663Ab1BMSy6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 13:54:58 -0500
-In-Reply-To: <4D56C08D.7060007@computer.org>
+	by vger.kernel.org with ESMTP id S1754780Ab1BMTCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 14:02:35 -0500
+In-Reply-To: <20110131220059.29758.17857.stgit@jf-dev1-dcblab>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Date: Sat, 12 Feb 2011 18:17:01 +0100
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Mon, 31 Jan 2011 14:00:59 -0800
 
-> On 09/02/11 21:25, Sakari Ailus wrote:
->> Fix two bugs introduced by the patch "tlan: Code cleanup:
->> checkpatch.pl is
->> relatively happy now." In that patch, TLAN_CSTAT_READY was considered
->> as a
->> bit mask containing a single bit set while it was actually had two set
->> instead.
+> The app_data priority may not be the same for all net devices.
+> In order for stacks with application notifiers to identify the
+> specific net device dcb_app_type should be passed in the ptr.
 > 
-> Commit ID of the referenced patch in net-net is
-> c659c38b2796578638548b77ef626d93609ec8ac
+> This allows handlers to use dev_get_by_name() to pin priority
+> to net devices.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-I add this information to the commit message, applied, thanks.
+Applied.
