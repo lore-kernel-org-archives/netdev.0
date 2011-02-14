@@ -1,35 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-02-14
-Date: Mon, 14 Feb 2011 13:28:05 -0800 (PST)
-Message-ID: <20110214.132805.48509966.davem@davemloft.net>
-References: <20110214.125148.59672184.davem@davemloft.net>
-	<20110214.130056.115934219.davem@davemloft.net>
-	<1297717942.3953.9.camel@jlt3.sipsolutions.net>
+Subject: Re: [PATCH] [ROSE] packet routing improvement
+Date: Mon, 14 Feb 2011 13:33:08 -0800 (PST)
+Message-ID: <20110214.133308.246523629.davem@davemloft.net>
+References: <4D596B25.9080309@free.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org, f6bvp@free.fr
+To: bpidoux@free.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38331
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45553
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750844Ab1BNV13 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 16:27:29 -0500
-In-Reply-To: <1297717942.3953.9.camel@jlt3.sipsolutions.net>
+	by vger.kernel.org with ESMTP id S1751093Ab1BNVcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 16:32:32 -0500
+In-Reply-To: <4D596B25.9080309@free.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 14 Feb 2011 22:12:22 +0100
+From: Bernard Pidoux <bpidoux@free.fr>
+Date: Mon, 14 Feb 2011 18:49:25 +0100
 
-> On Mon, 2011-02-14 at 13:00 -0800, David Miller wrote:
+> [PATCH] [ROSE] rose AX25 packet routing improvement
 > 
->> Please address this newly introduced warning in a future pull request,
->> thanks:
->> 
->> drivers/net/wireless/iwlwifi/iwl-3945.c:411:13: warning: 'iwl3945_good_plcp_health' defined but not used
+> FPAC AX25 packet application is using Linux kernel ROSE
+> routing skills in order to connect or send packets to remote stations
+> knowing their ROSE address via a network of interconnected nodes.
 > 
-> The function can simply be deleted.
+> Each FPAC node has a ROSE routing table that Linux ROSE module is
+> looking at each time a ROSE frame is relayed by the node or when
+> a connect request to a neighbor node is received.
+> 
+> A previous patch improved the system time response by looking at
+> already established routes each time the system was looking for a
+> route to relay a frame. If a neighbor node routing the destination
+> address was already connected, then the frame would be sent
+> through him. If not, a connection request would be issued.
+> 
+> The present patch extends the same routing capability to a connect
+> request asked by a user locally connected into an FPAC node.
+> Without this patch, a connect request was not well handled unless it
+> was directed to an immediate connected neighbor of the local node.
+> 
+> Implemented at a number of ROSE FPAC node stations, the present patch
+> improved dramatically FPAC ROSE routing time response and efficiency.
+> 
+> Signed-off-by: Bernard Pidoux <f6bvp@free.fr>
 
-Done.
+Applied to net-next-2.6
+
