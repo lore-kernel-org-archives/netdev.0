@@ -1,55 +1,46 @@
-From: Sakari Ailus <sakari.ailus@iki.fi>
-Subject: Re: [PATCH -next] PCI: fix tlan build when CONFIG_PCI is not enabled
-Date: Tue, 15 Feb 2011 00:02:59 +0200
-Message-ID: <4D59A693.2080106@iki.fi>
-References: <20110214181137.ee8d4c08.sfr@canb.auug.org.au> <20110214122750.e1e03bc8.randy.dunlap@oracle.com> <4D599F60.4010800@iki.fi>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-26 1/5] cxgb4vf: Virtual Interfaces are always up ...
+Date: Mon, 14 Feb 2011 14:31:32 -0800
+Message-ID: <201102141431.32535.leedom@chelsio.com>
+References: <1297472423-15672-1-git-send-email-leedom@chelsio.com> <20110211.211939.70197667.davem@davemloft.net> <201102141113.58068.leedom@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	davem@davemloft.net, Jesse Barnes <jbarnes@virtuousgeek.org>
-To: Randy Dunlap <randy.dunlap@oracle.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-68.nebula.fi ([83.145.220.68]:60600 "EHLO
-	smtp-68.nebula.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752046Ab1BNWCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 17:02:36 -0500
-In-Reply-To: <4D599F60.4010800@iki.fi>
+Received: from stargate.chelsio.com ([67.207.112.58]:7907 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750948Ab1BNWbe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 17:31:34 -0500
+In-Reply-To: <201102141113.58068.leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sakari Ailus wrote:
-> Randy Dunlap wrote:
->> From: Randy Dunlap<randy.dunlap@oracle.com>
->>
->> When CONFIG_PCI is not enabled, tlan.c has a build error:
->> drivers/net/tlan.c:503: error: implicit declaration of function 'pci_wake_from_d3'
->>
->> so add an inline function stub for this function to pci.h when
->> PCI is not enabled, similar to other stubbed PCI functions.
->>
->> Signed-off-by: Randy Dunlap<randy.dunlap@oracle.com>
->> Cc: Sakari Ailus<sakari.ailus@iki.fi>
->
-> Hi Randy,
->
-> I think this issue in tlan driver was caused by my recent patch which
-> added the suspend/resume support to tlan:
->
-> <URL:http://marc.info/?l=linux-netdev&m=129564436110754&w=3>
->
-> There apparently are tlan cards which are EISA (not PCI) which I forgot
-> when writing the patch. The suspend/resume has been only tested with PCI
-> as I have no EISA bus (let alone EISA tlan card!).
+| From: Casey Leedom <leedom@chelsio.com>
+| Date: Monday, February 14, 2011 11:13 am
+| 
+| | No driver specific module parameters!  Add something generic and common
+| | so other drivers can use it too.
+| | 
+| | Otherwise every user has to learn a different way to control this
+| | attribute, depending upon the device type, which is rediculious.
+| | 
+| | How many times do we have to tell driver authors this?
+| 
+|   Sorry.  I wasn't aware of this rule.  My bad.  Is this writeen down
+| somewhere under Documentation?  I'm not being snarky.  I really would like
+| to know so I can read through the general ground rules and avoid making
+| more mistakes in the future.
+| 
+|   As for a generic mechanism, what's the preferred way of doing this?  A
+| new ethtool flag?  Sorry for being a doofus here, I'm happy to follow
+| whatever the accepted standard is.  Thanks for your time and patience.
 
-Right; so I suppose there's no PM support in EISA anyway. Other pci 
-functions appear to be no-ops when CONFIG_PCI isn't defined so this 
-patch seems right to me --- and no changes are needed in the tlan driver.
+  Also, I assume then the the entire patch series is now rejected, right?  And 
+that I should resubmit the patch series without the unacceptable module 
+parameter, right?  I'm just trying to figure out what I need to do next.  
+Thanks.
 
-Acked-by: Sakari Ailus <sakari.ailus@iki.fi>
-
--- 
-Sakari Ailus
-sakari.ailus@iki.fi
+Casey
