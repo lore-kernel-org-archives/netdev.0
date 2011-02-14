@@ -1,57 +1,114 @@
-From: chriss <mail_to_chriss@gmx.net>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
-Date: Mon, 14 Feb 2011 13:22:55 +0000 (UTC)
-Message-ID: <loom.20110214T141934-88@post.gmane.org>
-References: <4D32FC1C.3010905@simon.arlott.org.uk> <201101231845.20505.maciej.rutecki@gmail.com> <AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com> <201101241625.45367.maciej.rutecki@gmail.com> <loom.20110205T163216-459@post.gmane.org> <AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com> <loom.20110206T203347-475@post.gmane.org> <4D4FE100.5090808@gmail.com>
+From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
+Date: Mon, 14 Feb 2011 14:33:17 +0100
+Message-ID: <4D592F1D.8010600@pengutronix.de>
+References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>
+	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>
+	<20110211150602.GB373@e-circ.dyndns.org>
+	<C1C4300CE90A406FBDA2388D5491FAD5@subhasishg>
+	<4D58D854.5090503@grandegger.com>
+	<1F33D30F9B2D47ECA80CEC807A6C0727@subhasishg>
+	<4D58F77B.9080005@pengutronix.de>
+	<8CB9F2C8F75C4041B9F0691D209DDAFD@subhasishg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:52392 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754364Ab1BNNXH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Feb 2011 08:23:07 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1PoyOQ-0001I3-OB
-	for netdev@vger.kernel.org; Mon, 14 Feb 2011 14:23:06 +0100
-Received: from hlle-4db8bf43.pool.mediaWays.net ([77.184.191.67])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 14 Feb 2011 14:23:06 +0100
-Received: from mail_to_chriss by hlle-4db8bf43.pool.mediaWays.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 14 Feb 2011 14:23:06 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============3572979932771043864=="
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	CAN NETWORK DRIVERS <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, m-watkins-l0cyMroinI0@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <8CB9F2C8F75C4041B9F0691D209DDAFD@subhasishg>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Nicolas de Peslo=C3=BCan <nicolas.2p.debian <at> gmail.com> writes:
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--===============3572979932771043864==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enig2046FF26DD12E62AC5A72A40"
 
-> I think you should have a look at ebtables command, in particular, th=
-e
-BROUTING chain of broute=20
-> table. If this chain ask the packet to be dropped, then bridge will i=
-gnore it
-and give a chance to=20
-> the upper layer to use it. Upper layer might be IP, or in your partic=
-ular
-setup, VLAN.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig2046FF26DD12E62AC5A72A40
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 02/14/2011 02:15 PM, Subhasish Ghosh wrote:
+> Hello,
 >=20
-> HTH,
->=20
-> 	Nicolas.
+> The problem with the "all" implementation is that it hogs the ARM/DSP
+> heavily and that's the reason why we specifically avoided this in our
+> firmware design.
+> Hence, implementing this condition spoils the whole purpose of the PRU!=
+!
 
-Thank you very much for the ebtables hint.
+What about implementing the standard id/mask approach?
 
-I also tried to add the vlan to my bridge device but only droping the v=
-lan
-tagged paket with ebtables got it working.
+if (canid & mask =3D=3D id & mask)
+	aceept();
+else
+	discard();
 
-I'm not sure if this is the wanted behavior for bridging vlan actions.
-=2E.or my network setup is just to ..f%%%'ed up?!
+To keep the hot-path as small as possible, the id & mask operation is
+done during setup, only one. This is probably just an additional "and"
+operation (the "& mask"). This opens the way to act like a normal can
+controller.
 
-Thanks nicolas
+As long as we don't have any support for hardware filters in socketcan,
+it's a good choice to use sysfs to configure your filters.
 
-regards//chriss
+Have a look at [1] and [2] for how to use sysfs files.
 
+cheers, Marc
+
+[1]
+http://git.kernel.org/linus/3a5655a5b545e9647c3437473ee3d815fe1b9050
+
+[2]
+http://git.kernel.org/linus/fef52b0171dfd7dd9b85c9cc201bd433b42a8ded
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enig2046FF26DD12E62AC5A72A40
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk1ZLyEACgkQjTAFq1RaXHNkigCfcM+gy4Z69Tk0dOfVUekPjard
+y2sAniiFyF+GZcFtuJQ2ShzdYCnW3mZf
+=HPax
+-----END PGP SIGNATURE-----
+
+--------------enig2046FF26DD12E62AC5A72A40--
+
+--===============3572979932771043864==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Socketcan-core mailing list
+Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+https://lists.berlios.de/mailman/listinfo/socketcan-core
+
+--===============3572979932771043864==--
