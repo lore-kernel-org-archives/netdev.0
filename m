@@ -1,32 +1,68 @@
-From: Jan Engelhardt <jengelh@medozas.de>
-Subject: Re: Possible netfilter-related memory corruption in 2.6.37
-Date: Mon, 14 Feb 2011 16:18:15 +0100 (CET)
-Message-ID: <alpine.LNX.2.01.1102141617330.12050@obet.zrqbmnf.qr>
-References: <4D594313.4050009@redhat.com> <1297696283.2996.33.camel@edumazet-laptop>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: [PATCH v2] core: dev: don't call BUG() on bad input
+Date: Mon, 14 Feb 2011 18:23:10 +0300
+Message-ID: <20110214152310.GA24429@albatros>
+References: <1297694579-23611-1-git-send-email-segoon@openwall.com>
+ <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Avi Kivity <avi@redhat.com>, netfilter-devel@vger.kernel.org,
-	Marcelo Tosatti <mtosatti@redhat.com>,
-	nicolas prochazka <prochazka.nicolas@gmail.com>,
-	KVM list <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <1297696283.2996.33.camel@edumazet-laptop>
-Sender: kvm-owner@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
+To: Alexey Dobriyan <adobriyan@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Monday 2011-02-14 16:11, Eric Dumazet wrote:
+Alexey,
 
->Le lundi 14 f=C3=A9vrier 2011 =C3=A0 16:58 +0200, Avi Kivity a =C3=A9c=
-rit :
->> We see severe memory corruption in kvm while used in conjunction wit=
-h=20
->> bridge/netfilter.  Enabling slab debugging points the finger at a=20
->> netfilter chain invoked from the bridge code.
->>=20
->> Can someone take a look?
->>=20
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D27052
+On Mon, Feb 14, 2011 at 17:16 +0200, Alexey Dobriyan wrote:
+> On Mon, Feb 14, 2011 at 4:42 PM, Vasiliy Kulikov <segoon@openwall.com=
+> wrote:
+> > alloc_netdev() may be called with too long name (more that IFNAMSIZ=
+ bytes).
+> > Currently this leads to BUG(). =A0Other insane inputs (bad txqs, rx=
+qs) and
+> > even OOM don't lead to BUG(). =A0Made alloc_netdev() return NULL, l=
+ike on
+> > other errors.
+>=20
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -5761,7 +5761,10 @@ struct net_device *alloc_netdev_mqs(int size=
+of_priv, const char *name,
+> > =A0 =A0 =A0 =A0size_t alloc_size;
+> > =A0 =A0 =A0 =A0struct net_device *p;
+> >
+> > - =A0 =A0 =A0 BUG_ON(strlen(name) >=3D sizeof(dev->name));
+> > + =A0 =A0 =A0 if (strnlen(name, sizeof(dev->name)) >=3D sizeof(dev-=
+>name)) {
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_err("alloc_netdev: Too long device=
+ name\n");
+> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+> > + =A0 =A0 =A0 }
+>=20
+> Netdevice name isn't some random junk you get from userspace, so BUG =
+is fine.
 
-Maybe looks familiar to https://lkml.org/lkml/2011/2/3/147
+It IS for bluetooth, see net/bluetooth/bnep/core.c: bnep_add_connection=
+() and
+net/bluetooth/bnep/sock.c: bnep_sock_ioctl().=20
+
+And txqs, txqs?  Then why do not BUG() on bad txqs too?  Why so
+insonsistent?  BUG() should be called in some critical situation, net
+device creation is probably not such a thing.
+
+
+Thanks,
+
+--=20
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environ=
+ments
