@@ -1,17 +1,17 @@
 From: robertjet.fellow@gmail.com
 Subject: (unknown)
-Date: Mon, 14 Feb 2011 19:45:06 +0800
-Message-ID: <201102141145.p1EBj6Om000746__7551.89007982171$1297688642$gmane$org@ccmail.ncut.edu.tw>
+Date: Mon, 14 Feb 2011 19:49:28 +0800
+Message-ID: <201102141149.p1EBnS2N001973__29738.5558988482$1297688968$gmane$org@ccmail.ncut.edu.tw>
 Reply-To: robertjet.fellow@gmail.com
 Content-Type: text/plain;
 	charset="big5"
 Content-Transfer-Encoding: base64
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spamap2.ncut.edu.tw ([140.128.71.221]:19027 "EHLO
-	spamap2.ncut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753415Ab1BNNDy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:03:54 -0500
+Received: from spamap1.ncut.edu.tw ([140.128.71.196]:8265 "EHLO
+	spamap1.ncut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751079Ab1BNNJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:09:07 -0500
 Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
