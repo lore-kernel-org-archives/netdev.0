@@ -1,44 +1,33 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH v2] core: dev: don't call BUG() on bad input
-Date: Mon, 14 Feb 2011 16:41:03 +0100
-Message-ID: <4D594D0F.4090601@trash.net>
-References: <1297694579-23611-1-git-send-email-segoon@openwall.com> <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
+Subject: Re: [PATCH] bridge: netfilter: fix information leak
+Date: Mon, 14 Feb 2011 16:50:31 +0100
+Message-ID: <4D594F47.8070500@trash.net>
+References: <1297680875-11663-1-git-send-email-segoon@openwall.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: Vasiliy Kulikov <segoon@openwall.com>,
-	linux-kernel@vger.kernel.org,
+Cc: linux-kernel@vger.kernel.org, security@kernel.org,
+	Bart De Schuymer <bart.de.schuymer@pandora.be>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
-To: Alexey Dobriyan <adobriyan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	ebtables-user@lists.sourceforge.net,
+	ebtables-devel@lists.sourceforge.net,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	netdev@vger.kernel.org
+To: Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1297680875-11663-1-git-send-email-segoon@openwall.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 14.02.2011 16:16, schrieb Alexey Dobriyan:
-> On Mon, Feb 14, 2011 at 4:42 PM, Vasiliy Kulikov <segoon@openwall.com> wrote:
->> alloc_netdev() may be called with too long name (more that IFNAMSIZ bytes).
->> Currently this leads to BUG().  Other insane inputs (bad txqs, rxqs) and
->> even OOM don't lead to BUG().  Made alloc_netdev() return NULL, like on
->> other errors.
+Am 14.02.2011 11:54, schrieb Vasiliy Kulikov:
+> Struct tmp is copied from userspace.  It is not checked whether the "name"
+> field is NULL terminated.  This may lead to buffer overflow and passing
+> contents of kernel stack as a module name to try_then_request_module() and,
+> consequently, to modprobe commandline.  It would be seen by all userspace
+> processes.
 > 
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -5761,7 +5761,10 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
->>        size_t alloc_size;
->>        struct net_device *p;
->>
->> -       BUG_ON(strlen(name) >= sizeof(dev->name));
->> +       if (strnlen(name, sizeof(dev->name)) >= sizeof(dev->name)) {
->> +               pr_err("alloc_netdev: Too long device name\n");
->> +               return NULL;
->> +       }
-> 
-> Netdevice name isn't some random junk you get from userspace, so BUG is fine.
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 
-I agree, misuse of kernel APIs is not something we need to catch
-verbosely.
+Applied, thanks Vasiliy.
