@@ -1,66 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 02/14] net/fec: release mem_region requested in probe
- in error path and remove
-Date: Mon, 14 Feb 2011 11:05:49 -0800 (PST)
-Message-ID: <20110214.110549.193710827.davem@davemloft.net>
-References: <20110213210709.GA13279@pengutronix.de>
-	<20110213.131531.57465973.davem@davemloft.net>
-	<20110214082525.GD13279@pengutronix.de>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-26 1/5] cxgb4vf: Virtual Interfaces are always up ...
+Date: Mon, 14 Feb 2011 11:13:57 -0800
+Message-ID: <201102141113.58068.leedom@chelsio.com>
+References: <1297472423-15672-1-git-send-email-leedom@chelsio.com> <1297472423-15672-2-git-send-email-leedom@chelsio.com> <20110211.211939.70197667.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, shawn.guo@freescale.com,
-	kernel@pengutronix.de
-To: u.kleine-koenig@pengutronix.de
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34030
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751226Ab1BNTFN convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Feb 2011 14:05:13 -0500
-In-Reply-To: <20110214082525.GD13279@pengutronix.de>
+Received: from stargate.chelsio.com ([67.207.112.58]:26363 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750800Ab1BNTN7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 14:13:59 -0500
+In-Reply-To: <20110211.211939.70197667.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Mon, 14 Feb 2011 09:25:25 +0100
+| From: David Miller <davem@davemloft.net>
+| Date: Friday, February 11, 2011 09:19 pm
+| 
+| From: Casey Leedom <leedom@chelsio.com>
+| Date: Fri, 11 Feb 2011 17:00:19 -0800
+| 
+| > Implement new default mode of always reporting the Virtual Interface link
+| > as being "up".  This allows different Virtual Interfaces on the same
+| > port to continue to communicate with each other even when the physical
+| > port link is down.  This new behavior is controlled via the module
+| > parameter
+| > force_link_up (default 1).  The old behavior can be achieved by setting
+| > force_link_up=0.
+| > 
+| > Signed-off-by: Casey Leedom <leedom@chelsio.com>
+| 
+| No driver specific module parameters!  Add something generic and common
+| so other drivers can use it too.
+| 
+| Otherwise every user has to learn a different way to control this
+| attribute, depending upon the device type, which is rediculious.
+| 
+| How many times do we have to tell driver authors this?
 
-> Hi David,
->=20
-> On Sun, Feb 13, 2011 at 01:15:31PM -0800, David Miller wrote:
->> From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
->> Date: Sun, 13 Feb 2011 22:07:09 +0100
->> > On Fri, Feb 11, 2011 at 09:25:32PM -0800, David Miller wrote:
->> >> I can't pull from that tree because it is _NOT_ based upon net-ne=
-xt-2.6
->> >> and therefore brings in all kinds of commits not related to your =
-work.
->> > Sorry, I'm not used to the customs on netdev.  I can rebase, but s=
-till I
->> > wonder about the reason you cannot pull for.  The only reason I ca=
-n
->> > imagine is that you fear unrelated breakage when taking these patc=
-hes
->> > that are already in Linus' tree.  But if it's that, wouldn't it be=
- great
->> > the realize this breakage already now and not only during the next=
- merge
->> > window?
->>=20
->> My trees only merge in Linus's tree when absolutely necessary,
->> to resolve conflicts or similar.
-> You don't merge Linus' tree, you merge mine that just happen to be ba=
-sed
-> on a newer version of Linus' tree. I'm sure Linus won't yell on you f=
-or
-> that. He only objects to merge directly from his tree, because the
-> result for him is an "empty" merge.
+  Sorry.  I wasn't aware of this rule.  My bad.  Is this writeen down somewhere 
+under Documentation?  I'm not being snarky.  I really would like to know so I 
+can read through the general ground rules and avoid making more mistakes in the 
+future.
 
-You don't get it.
+  As for a generic mechanism, what's the preferred way of doing this?  A new 
+ethtool flag?  Sorry for being a doofus here, I'm happy to follow whatever the 
+accepted standard is.  Thanks for your time and patience.
 
-These merge commits look ugly and Linus wants them minimized.
-
-Either you follow the rules and my expectations, which is that when you
-give me a GIT tree to pull from it's based upon one of my trees, or
-I don't pull from you.
-
+Casey
