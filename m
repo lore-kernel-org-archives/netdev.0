@@ -1,96 +1,93 @@
 From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH net-26 2/4] cxgb4vf: Behave properly when CONFIG_DEBUG_FS isn't defined ...
-Date: Mon, 14 Feb 2011 14:56:23 -0800
-Message-ID: <1297724185-27452-3-git-send-email-leedom@chelsio.com>
+Subject: [PATCH net-26 3/4] cxgb4vf: Quiesce Virtual Interfaces on shutdown ...
+Date: Mon, 14 Feb 2011 14:56:24 -0800
+Message-ID: <1297724185-27452-4-git-send-email-leedom@chelsio.com>
 References: <1297724185-27452-1-git-send-email-leedom@chelsio.com>
 Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:26850 "EHLO
+Received: from stargate.chelsio.com ([67.207.112.58]:2691 "EHLO
 	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752105Ab1BNW43 (ORCPT
+	with ESMTP id S1751197Ab1BNW43 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 17:56:29 -0500
 In-Reply-To: <1297724185-27452-1-git-send-email-leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_DEBUG_FS we get "ERR_PTR()"s back from the debugfs routines
-instead of NULL.  Use the right predicates to check for this.
+When a Virtual Machine is rebooted, KVM currently fails to issue a Function
+Level Reset against any "Attached PCI Devices" (AKA "PCI Passthrough").  In
+addition to leaving the attached device in a random state in the next booted
+kernel (which sort of violates the entire idea of a reboot reseting hardware
+state), this leaves our peer thinking that the link is still up.  (Note that
+a bug has been filed with the KVM folks, #25332, but there's been no
+response on that as of yet.)  So, we add a "->shutdown()" method for the
+Virtual Function PCI Device to handle administrative shutdowns like a
+reboot.
 
 Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/net/cxgb4vf/cxgb4vf_main.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/cxgb4vf/cxgb4vf_main.c |   41 ++++++++++++++++++++++++++++++++++++
+ 1 files changed, 41 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
-index 072b64e..2be1088 100644
+index 2be1088..6aad64d 100644
 --- a/drivers/net/cxgb4vf/cxgb4vf_main.c
 +++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
-@@ -2040,7 +2040,7 @@ static int __devinit setup_debugfs(struct adapter *adapter)
- {
- 	int i;
- 
--	BUG_ON(adapter->debugfs_root == NULL);
-+	BUG_ON(IS_ERR_OR_NULL(adapter->debugfs_root));
- 
- 	/*
- 	 * Debugfs support is best effort.
-@@ -2061,7 +2061,7 @@ static int __devinit setup_debugfs(struct adapter *adapter)
-  */
- static void cleanup_debugfs(struct adapter *adapter)
- {
--	BUG_ON(adapter->debugfs_root == NULL);
-+	BUG_ON(IS_ERR_OR_NULL(adapter->debugfs_root));
- 
- 	/*
- 	 * Unlike our sister routine cleanup_proc(), we don't need to remove
-@@ -2700,11 +2700,11 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
- 	/*
- 	 * Set up our debugfs entries.
- 	 */
--	if (cxgb4vf_debugfs_root) {
-+	if (!IS_ERR_OR_NULL(cxgb4vf_debugfs_root)) {
- 		adapter->debugfs_root =
- 			debugfs_create_dir(pci_name(pdev),
- 					   cxgb4vf_debugfs_root);
--		if (adapter->debugfs_root == NULL)
-+		if (IS_ERR_OR_NULL(adapter->debugfs_root))
- 			dev_warn(&pdev->dev, "could not create debugfs"
- 				 " directory");
- 		else
-@@ -2759,7 +2759,7 @@ static int __devinit cxgb4vf_pci_probe(struct pci_dev *pdev,
- 	 */
- 
- err_free_debugfs:
--	if (adapter->debugfs_root) {
-+	if (!IS_ERR_OR_NULL(adapter->debugfs_root)) {
- 		cleanup_debugfs(adapter);
- 		debugfs_remove_recursive(adapter->debugfs_root);
- 	}
-@@ -2828,7 +2828,7 @@ static void __devexit cxgb4vf_pci_remove(struct pci_dev *pdev)
- 		/*
- 		 * Tear down our debugfs entries.
- 		 */
--		if (adapter->debugfs_root) {
-+		if (!IS_ERR_OR_NULL(adapter->debugfs_root)) {
- 			cleanup_debugfs(adapter);
- 			debugfs_remove_recursive(adapter->debugfs_root);
- 		}
-@@ -2916,12 +2916,12 @@ static int __init cxgb4vf_module_init(void)
- 
- 	/* Debugfs support is optional, just warn if this fails */
- 	cxgb4vf_debugfs_root = debugfs_create_dir(KBUILD_MODNAME, NULL);
--	if (!cxgb4vf_debugfs_root)
-+	if (IS_ERR_OR_NULL(cxgb4vf_debugfs_root))
- 		printk(KERN_WARNING KBUILD_MODNAME ": could not create"
- 		       " debugfs entry, continuing\n");
- 
- 	ret = pci_register_driver(&cxgb4vf_driver);
--	if (ret < 0)
-+	if (ret < 0 && !IS_ERR_OR_NULL(cxgb4vf_debugfs_root))
- 		debugfs_remove(cxgb4vf_debugfs_root);
- 	return ret;
+@@ -2862,6 +2862,46 @@ static void __devexit cxgb4vf_pci_remove(struct pci_dev *pdev)
  }
+ 
+ /*
++ * "Shutdown" quiesce the device, stopping Ingress Packet and Interrupt
++ * delivery.
++ */
++static void __devexit cxgb4vf_pci_shutdown(struct pci_dev *pdev)
++{
++	struct adapter *adapter;
++	int pidx;
++
++	adapter = pci_get_drvdata(pdev);
++	if (!adapter)
++		return;
++
++	/*
++	 * Disable all Virtual Interfaces.  This will shut down the
++	 * delivery of all ingress packets into the chip for these
++	 * Virtual Interfaces.
++	 */
++	for_each_port(adapter, pidx) {
++		struct net_device *netdev;
++		struct port_info *pi;
++
++		if (!test_bit(pidx, &adapter->registered_device_map))
++			continue;
++
++		netdev = adapter->port[pidx];
++		if (!netdev)
++			continue;
++
++		pi = netdev_priv(netdev);
++		t4vf_enable_vi(adapter, pi->viid, false, false);
++	}
++
++	/*
++	 * Free up all Queues which will prevent further DMA and
++	 * Interrupts allowing various internal pathways to drain.
++	 */
++	t4vf_free_sge_resources(adapter);
++}
++
++/*
+  * PCI Device registration data structures.
+  */
+ #define CH_DEVICE(devid, idx) \
+@@ -2894,6 +2934,7 @@ static struct pci_driver cxgb4vf_driver = {
+ 	.id_table	= cxgb4vf_pci_tbl,
+ 	.probe		= cxgb4vf_pci_probe,
+ 	.remove		= __devexit_p(cxgb4vf_pci_remove),
++	.shutdown	= __devexit_p(cxgb4vf_pci_shutdown),
+ };
+ 
+ /*
 -- 
 1.7.0.4
 
