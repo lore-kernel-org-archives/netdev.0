@@ -1,13 +1,13 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
+From: Patrick McHardy <kaber@trash.net>
 Subject: Re: [PATCH v2] core: dev: don't call BUG() on bad input
-Date: Mon, 14 Feb 2011 18:23:10 +0300
-Message-ID: <20110214152310.GA24429@albatros>
-References: <1297694579-23611-1-git-send-email-segoon@openwall.com>
- <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
+Date: Mon, 14 Feb 2011 16:41:03 +0100
+Message-ID: <4D594D0F.4090601@trash.net>
+References: <1297694579-23611-1-git-send-email-segoon@openwall.com> <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Vasiliy Kulikov <segoon@openwall.com>,
+	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
 	Tom Herbert <therbert@google.com>,
@@ -15,54 +15,30 @@ Cc: linux-kernel@vger.kernel.org,
 	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
 To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Alexey,
+Am 14.02.2011 16:16, schrieb Alexey Dobriyan:
+> On Mon, Feb 14, 2011 at 4:42 PM, Vasiliy Kulikov <segoon@openwall.com> wrote:
+>> alloc_netdev() may be called with too long name (more that IFNAMSIZ bytes).
+>> Currently this leads to BUG().  Other insane inputs (bad txqs, rxqs) and
+>> even OOM don't lead to BUG().  Made alloc_netdev() return NULL, like on
+>> other errors.
+> 
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -5761,7 +5761,10 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+>>        size_t alloc_size;
+>>        struct net_device *p;
+>>
+>> -       BUG_ON(strlen(name) >= sizeof(dev->name));
+>> +       if (strnlen(name, sizeof(dev->name)) >= sizeof(dev->name)) {
+>> +               pr_err("alloc_netdev: Too long device name\n");
+>> +               return NULL;
+>> +       }
+> 
+> Netdevice name isn't some random junk you get from userspace, so BUG is fine.
 
-On Mon, Feb 14, 2011 at 17:16 +0200, Alexey Dobriyan wrote:
-> On Mon, Feb 14, 2011 at 4:42 PM, Vasiliy Kulikov <segoon@openwall.com=
-> wrote:
-> > alloc_netdev() may be called with too long name (more that IFNAMSIZ=
- bytes).
-> > Currently this leads to BUG(). =A0Other insane inputs (bad txqs, rx=
-qs) and
-> > even OOM don't lead to BUG(). =A0Made alloc_netdev() return NULL, l=
-ike on
-> > other errors.
->=20
-> > --- a/net/core/dev.c
-> > +++ b/net/core/dev.c
-> > @@ -5761,7 +5761,10 @@ struct net_device *alloc_netdev_mqs(int size=
-of_priv, const char *name,
-> > =A0 =A0 =A0 =A0size_t alloc_size;
-> > =A0 =A0 =A0 =A0struct net_device *p;
-> >
-> > - =A0 =A0 =A0 BUG_ON(strlen(name) >=3D sizeof(dev->name));
-> > + =A0 =A0 =A0 if (strnlen(name, sizeof(dev->name)) >=3D sizeof(dev-=
->name)) {
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_err("alloc_netdev: Too long device=
- name\n");
-> > + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
-> > + =A0 =A0 =A0 }
->=20
-> Netdevice name isn't some random junk you get from userspace, so BUG =
-is fine.
-
-It IS for bluetooth, see net/bluetooth/bnep/core.c: bnep_add_connection=
-() and
-net/bluetooth/bnep/sock.c: bnep_sock_ioctl().=20
-
-And txqs, txqs?  Then why do not BUG() on bad txqs too?  Why so
-insonsistent?  BUG() should be called in some critical situation, net
-device creation is probably not such a thing.
-
-
-Thanks,
-
---=20
-Vasiliy Kulikov
-http://www.openwall.com - bringing security into open computing environ=
-ments
+I agree, misuse of kernel APIs is not something we need to catch
+verbosely.
