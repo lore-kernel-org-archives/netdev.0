@@ -1,69 +1,56 @@
-From: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
-Date: Mon, 14 Feb 2011 18:45:17 +0530
-Message-ID: <8CB9F2C8F75C4041B9F0691D209DDAFD@subhasishg>
-References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>
-	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>
-	<20110211150602.GB373@e-circ.dyndns.org>
-	<C1C4300CE90A406FBDA2388D5491FAD5@subhasishg>
-	<4D58D854.5090503@grandegger.com>
-	<1F33D30F9B2D47ECA80CEC807A6C0727@subhasishg>
-	<4D58F77B.9080005@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	"open list:CAN NETWORK DRIVERS" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	nsekhar-l0cyMroinI0@public.gmane.org, open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"open list:CAN NETWORK DRIVERS" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, m-watkins-l0cyMroinI0@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D58F77B.9080005-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: robertjet.fellow@gmail.com
+Subject: (unknown)
+Date: Mon, 14 Feb 2011 19:53:40 +0800
+Message-ID: <201102141153.p1EBre46003035__8238.06551420621$1297689591$gmane$org@ccmail.ncut.edu.tw>
+Reply-To: robertjet.fellow@gmail.com
+Content-Type: text/plain;
+	charset="big5"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spamap2.ncut.edu.tw ([140.128.71.221]:58963 "EHLO
+	spamap2.ncut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755184Ab1BNNTh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:19:37 -0500
+Subject: 
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+TXkgbmFtZSBpcyBNci4gUi4gSmV0IEZlbGxvd3MuIEFtIGEgY2l0aXplbiBvZiB0aGUgdW5pdGVk
+IHN0YXRlcyBwcmVzZW50bHkgaW4gSG9uZyBLb25nIHdoZXJlIGkgaGF2ZSBiZWVuIGRpYWdub3Nl
+ZCB3aXRoIEVzb3BoYWdlYWwgY2FuY2VyIGFuZCBpdCBoYXMgZGVmaWVkIGFsbCBmb3JtcyBvZiBt
+ZWRpY2FsIHRyZWF0bWVudCwgYW5kIHJpZ2h0IG5vdyBJIGhhdmUgb25seSBhYm91dCBhIGZldyBt
+b250aHMgdG8gbGl2ZSBhY2NvcmRpbmcgdG8gdGhlIG1lZGljYWwgZXhwZXJ0cy4NCg0KVGhvdWdo
+IGFtIHZlcnkgcmljaCwgaSBuZXZlciB0aG91Z2h0IG9mIHJhaXNpbmcgbXkgb3duIGZhbWlseSwg
+SSBvbmx5IGZvY3VzZWQgb24gbXkgYnVzaW5lc3NlcyBhcyB0aGF0IHdhcyB0aGUgb25seSB0aGlu
+ZyBJIGNhcmVkIGZvci4gQnV0IG5vdyBJIHJlZ3JldCBhbGwgdGhpcyBhcyBJIG5vdyBrbm93IHRo
+YXQgdGhlcmUgaXMgbW9yZSB0byBsaWZlIHRoYW4ganVzdCB3YW50aW5nIHRvIGhhdmUgb3IgbWFr
+ZSBhbGwgdGhlIG1vbmV5IGluIHRoZSB3b3JsZC4gVGhlIHRyZWF0bWVudCBvZiB0aGlzIGRpc2Vh
+c2UgaGFzIHNvIGZhciBzcXVhc2hlZCBhIGhhbmRzb21lIGFtb3VudCBvZiBteSBtb25leSBpbiBz
+YXZpbmdzLg0KTm93IHRoYXQgbXkgaGVhbHRoIGhhcyBkZXRlcmlvcmF0ZWQgc28gYmFkbHkgYW5k
+IGl0IGhhcyBiZWVuIGNvbmZpcm1lZCB0byBtZSBieSB0aGUgZG9jdG9ycyB0aGF0IG15IGFpbG1l
+bnQgd2lsbCBkZWZ5IGFsbCBmb3JtcyBvZiBtZWRpY2FsIHRyZWF0bWVudCwgaSBoYXZlIGRlY2lk
+ZWQgbm90IHRvIHNwZW5kIG1vcmUgbW9uZXkgb24gdGhpcyBhaWxtZW50IGFueW1vcmUuDQoNClRo
+ZSBsYXN0IG9mIG15IG1vbmV5IHdoaWNoIG5vIG9uZSBrbm93cyBvZiBpcyB0aGUgaHVnZSBjYXNo
+IGRlcG9zaXQgb2YgJDIuNm0gVW5pdGVkIFN0YXRlcyBEb2xsYXJzIHRoYXQgSSBoYXZlIHdpdGgg
+YSBGaW5hbmNlIFZhdWx0aW5nIFVuaXQgaW4gdGhlIEV1cm9wZSAuIEkgd2lsbCB3YW50IHlvdSB0
+byBoZWxwIG1lIGNvbGxlY3QgdGhpcyBkZXBvc2l0IGZyb20gdGhlIGNvbXBhbnkgYW5kIGhlbHAg
+bWUgZGlzdHJpYnV0ZSBpdCB0byBjaGFyaXR5IGluIHlvdXIgcmVnaW9uLiBZb3Ugd2lsbCBoYXZl
+IDI1JSBvZiB0aGlzIHRvdGFsIHN1bSBmb3IgeW91ciB0aW1lIGFuZCBlZmZvcnQuIEkgY2Fubm90
+IHRhbGsgd2l0aCB5b3Ugb24gdGhlIHBob25lIGR1ZSB0byBteSBoZWFsdGggc2l0dWF0aW9uLCBh
+bmQgSSBhbSB1c2luZyBteSBMYXB0b3AgQ29tcHV0ZXIgdG8gY29tbXVuaWNhdGUgd2l0aCB5b3Us
+IHNpbmNlIHRoaXMgaXMgbXkgb25seSBtZWFucyBvZiBjb21tdW5pY2F0aW9uLiBPbmUgcGFzc2lv
+bmF0ZSBhcHBlYWwgaSB3aWxsIG1ha2UgdG8geW91IGlzIHRvIGtlZXAgdGhpcyB0cmFuc2FjdGlv
+biBjb25maWRlbnRpYWwgdW50aWwgdGhpcyBtb25leSBnZXRzIHRvIHlvdS4gSWYgeW91IGFyZSBp
+bnRlcmVzdGVkIGluIGNhcnJ5aW5nIG91dCB0aGlzIGFzc2lnbm1lbnQgb24gbXkgYmVoYWxmIGZp
+bGwgdGhpcyBmb3JtIGJlbG93IHdoZW4gd2hlbiB3cml0aW5nIG1lIGJhY2suDQoNCkVtYWlsOiBy
+b2JlcnRqZXQuZmVsbG93QGdtYWlsLmNvbQ0KDQoNCllvdXIgbmFtZXMgLi4uLi4uLg0KWW91ciBy
+ZXNpZGVudCBhZGRyZXNzLiAuLi4uLi4NCllvdXIgY291bnRyeSBuYW1lLi4uLi4uLi4uLg0KWW91
+ciBwcmVzZW50IGxvY2F0aW9uLi4uLi4uLi4NCllvdXIgb2NjdXBhdGlvbi4uLi4uLi4uLi4uLi4u
+Lg0KWW91ciB0ZWwvY2VsbCBudW1iZXIuLi4uLi4uLi4NCllvdXIgYWdlL3NleC4uLi4uLi4uLi4u
+Li4uLi4uLg0KWW91ciBjb21wYW55IG5hbWUgaWYgYW55Li4uLi4uLg0KDQpJIHdpbGwgYmUgd2Fp
+dGluZyB0byBoZWFyIGZyb20geW91IGFzIHNvb24gYXMgeW91IGNhbi4NCg0KU2luY2VyZWx5IHlv
+dXJzLA0KUi4gSmV0IEZlbGxvd3MuCg==
 
-The problem with the "all" implementation is that it hogs the ARM/DSP 
-heavily and that's the reason why we specifically avoided this in our 
-firmware design.
-Hence, implementing this condition spoils the whole purpose of the PRU!!
 
---------------------------------------------------
-From: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sent: Monday, February 14, 2011 3:05 PM
-To: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
-Cc: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; "Kurt Van Dijck" 
-<kurt.van.dijck-/BeEPy95v10@public.gmane.org>; <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>; 
-<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>; <m-watkins-l0cyMroinI0@public.gmane.org>; 
-<nsekhar-l0cyMroinI0@public.gmane.org>; <sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>; "open list:CAN NETWORK 
-DRIVERS" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; "open list:CAN NETWORK DRIVERS" 
-<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "open list" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
 
-Hello,
-
-On 02/14/2011 09:45 AM, Subhasish Ghosh wrote:
-> That is correct, we receive only pre-programmed CAN ids and "all" or
-> "range" implementation is not there in the PRU firmware.
-
-I'd really like to see that you add a "all" implementation to the
-firmware. Or even better use the standard id/mask approach.
-
-cheers, Marc
-
--- 
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   | 
