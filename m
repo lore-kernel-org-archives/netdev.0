@@ -1,7 +1,7 @@
 From: "Guo-Fu Tseng" <cooldavid@cooldavid.org>
-Subject: [PATCH net-next-2.6 7/9] jme: Refill receive unicase MAC addr after resume
-Date: Mon, 14 Feb 2011 12:27:40 +0800
-Message-ID: <1297657662-30289-7-git-send-email-cooldavid@cooldavid.org>
+Subject: [PATCH net-next-2.6 8/9] jme: Don't show UDP Checksum error if HW misjudged
+Date: Mon, 14 Feb 2011 12:27:41 +0800
+Message-ID: <1297657662-30289-8-git-send-email-cooldavid@cooldavid.org>
 References: <1297657662-30289-1-git-send-email-cooldavid@cooldavid.org>
 Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
 	"linux-netdev" <netdev@vger.kernel.org>,
@@ -10,95 +10,77 @@ Cc: Guo-Fu Tseng <cooldavid@cooldavid.org>,
 	"Ethan Hsiao" <ethanhsiao@jmicron.com>
 To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cooldavid.org ([114.33.45.68]:48734 "EHLO cooldavid.org"
+Received: from cooldavid.org ([114.33.45.68]:48737 "EHLO cooldavid.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755481Ab1BNE2j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Feb 2011 23:28:39 -0500
+	id S1755481Ab1BNE2o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 13 Feb 2011 23:28:44 -0500
 In-Reply-To: <1297657662-30289-1-git-send-email-cooldavid@cooldavid.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Guo-Fu Tseng <cooldavid@cooldavid.org>
 
-The value of the register which holds receive Unicast MAC Address
-sometimes get messed-up after resume.
-This patch refill it before enabling the hardware filter.
+Some JMicron Chip treat 0 as error checksum for UDP packets.
+Which should be "No checksum needed".
 
+Reported-by: Adam Swift <Adam.Swift@omnitude.net>
+Confirmed-by: "Aries Lee" <arieslee@jmicron.com>
 Signed-off-by: Guo-Fu Tseng <cooldavid@cooldavid.org>
 ---
- drivers/net/jme.c |   28 ++++++++++++++++++----------
- drivers/net/jme.h |    1 +
- 2 files changed, 19 insertions(+), 10 deletions(-)
+ drivers/net/jme.c |   25 ++++++++++++++++++++++---
+ 1 files changed, 22 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/jme.c b/drivers/net/jme.c
-index dd41324..ed35e17 100644
+index ed35e17..5ced990 100644
 --- a/drivers/net/jme.c
 +++ b/drivers/net/jme.c
-@@ -898,6 +898,7 @@ jme_enable_rx_engine(struct jme_adapter *jme)
- 	/*
- 	 * Setup Unicast Filter
- 	 */
-+	jme_set_unicastaddr(jme->dev);
- 	jme_set_multi(jme->dev);
- 
- 	/*
-@@ -2114,27 +2115,34 @@ jme_start_xmit(struct sk_buff *skb, struct net_device *netdev)
- 	return NETDEV_TX_OK;
+@@ -956,8 +956,27 @@ jme_disable_rx_engine(struct jme_adapter *jme)
+ 	jme_mac_rxclk_off(jme);
  }
  
-+static void
-+jme_set_unicastaddr(struct net_device *netdev)
++static u16
++jme_udpsum(struct sk_buff *skb)
 +{
-+	struct jme_adapter *jme = netdev_priv(netdev);
-+	u32 val;
++	u16 csum = 0xFFFFu;
 +
-+	val = (netdev->dev_addr[3] & 0xff) << 24 |
-+	      (netdev->dev_addr[2] & 0xff) << 16 |
-+	      (netdev->dev_addr[1] & 0xff) <<  8 |
-+	      (netdev->dev_addr[0] & 0xff);
-+	jwrite32(jme, JME_RXUMA_LO, val);
-+	val = (netdev->dev_addr[5] & 0xff) << 8 |
-+	      (netdev->dev_addr[4] & 0xff);
-+	jwrite32(jme, JME_RXUMA_HI, val);
++	if (skb->protocol != htons(ETH_P_IP))
++		return csum;
++	skb_set_network_header(skb, ETH_HLEN);
++	if (ip_hdr(skb)->protocol != IPPROTO_UDP)
++		return csum;
++	skb_set_transport_header(skb,
++			ETH_HLEN + (ip_hdr(skb)->ihl << 2));
++	csum = udp_hdr(skb)->check;
++	skb_reset_transport_header(skb);
++	skb_reset_network_header(skb);
++
++	return csum;
 +}
 +
  static int
- jme_set_macaddr(struct net_device *netdev, void *p)
+-jme_rxsum_ok(struct jme_adapter *jme, u16 flags)
++jme_rxsum_ok(struct jme_adapter *jme, u16 flags, struct sk_buff *skb)
  {
- 	struct jme_adapter *jme = netdev_priv(netdev);
- 	struct sockaddr *addr = p;
--	u32 val;
+ 	if (!(flags & (RXWBFLAG_TCPON | RXWBFLAG_UDPON | RXWBFLAG_IPV4)))
+ 		return false;
+@@ -970,7 +989,7 @@ jme_rxsum_ok(struct jme_adapter *jme, u16 flags)
+ 	}
  
- 	if (netif_running(netdev))
- 		return -EBUSY;
+ 	if (unlikely((flags & (RXWBFLAG_MF | RXWBFLAG_UDPON | RXWBFLAG_UDPCS))
+-			== RXWBFLAG_UDPON)) {
++			== RXWBFLAG_UDPON) && jme_udpsum(skb)) {
+ 		if (flags & RXWBFLAG_IPV4)
+ 			netif_err(jme, rx_err, jme->dev, "UDP Checksum error\n");
+ 		return false;
+@@ -1018,7 +1037,7 @@ jme_alloc_and_feed_skb(struct jme_adapter *jme, int idx)
+ 		skb_put(skb, framesize);
+ 		skb->protocol = eth_type_trans(skb, jme->dev);
  
- 	spin_lock_bh(&jme->macaddr_lock);
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
--
--	val = (addr->sa_data[3] & 0xff) << 24 |
--	      (addr->sa_data[2] & 0xff) << 16 |
--	      (addr->sa_data[1] & 0xff) <<  8 |
--	      (addr->sa_data[0] & 0xff);
--	jwrite32(jme, JME_RXUMA_LO, val);
--	val = (addr->sa_data[5] & 0xff) << 8 |
--	      (addr->sa_data[4] & 0xff);
--	jwrite32(jme, JME_RXUMA_HI, val);
-+	jme_set_unicastaddr(netdev);
- 	spin_unlock_bh(&jme->macaddr_lock);
- 
- 	return 0;
-diff --git a/drivers/net/jme.h b/drivers/net/jme.h
-index 668958c..b7ae0c7 100644
---- a/drivers/net/jme.h
-+++ b/drivers/net/jme.h
-@@ -1258,6 +1258,7 @@ static inline int new_phy_power_ctrl(u8 chip_main_rev)
-  */
- static int jme_set_settings(struct net_device *netdev,
- 				struct ethtool_cmd *ecmd);
-+static void jme_set_unicastaddr(struct net_device *netdev);
- static void jme_set_multi(struct net_device *netdev);
- 
- #endif
+-		if (jme_rxsum_ok(jme, le16_to_cpu(rxdesc->descwb.flags)))
++		if (jme_rxsum_ok(jme, le16_to_cpu(rxdesc->descwb.flags), skb))
+ 			skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 		else
+ 			skb_checksum_none_assert(skb);
 -- 
 1.7.2.2
 
