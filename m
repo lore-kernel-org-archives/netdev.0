@@ -1,46 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] core: dev: don't call BUG() on bad input
-Date: Mon, 14 Feb 2011 11:36:45 -0800 (PST)
-Message-ID: <20110214.113645.189699477.davem@davemloft.net>
-References: <20110214152310.GA24429@albatros>
-	<20110214.112521.104056910.davem@davemloft.net>
-	<AANLkTimK5bW6HCjpttP0dkNnMLAU4msSd_VijAxAUcqO@mail.gmail.com>
+Subject: Re: [Bugme-new] [Bug 27212] New: Warning kmemcheck: Caught 64-bit
+ read from uninitialized memory in netlink_broadcast_filtered
+Date: Mon, 14 Feb 2011 11:43:18 -0800 (PST)
+Message-ID: <20110214.114318.112601812.davem@davemloft.net>
+References: <1295556085.2613.22.camel@edumazet-laptop>
+	<4D393A99.9060104@kernel.org>
+	<1297704922.2996.60.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: segoon@openwall.com, adobriyan@gmail.com,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	xiaosuo@gmail.com, jesse@nicira.com, netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45248
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751026Ab1BNTgJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 14:36:09 -0500
-In-Reply-To: <AANLkTimK5bW6HCjpttP0dkNnMLAU4msSd_VijAxAUcqO@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: penberg@kernel.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, casteyde.christian@free.fr,
+	xiaosuo@gmail.com, vegardno@ifi.uio.no,
+	linux-kernel@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1297704922.2996.60.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 14 Feb 2011 11:33:29 -0800
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 14 Feb 2011 18:35:22 +0100
 
-> On Mon, Feb 14, 2011 at 11:25 AM, David Miller <davem@davemloft.net> wrote:
->> From: Vasiliy Kulikov <segoon@openwall.com>
->> Date: Mon, 14 Feb 2011 18:23:10 +0300
->>
->>> On Mon, Feb 14, 2011 at 17:16 +0200, Alexey Dobriyan wrote:
->>>> Netdevice name isn't some random junk you get from userspace, so BUG is fine.
->>>
->>> It IS for bluetooth, see net/bluetooth/bnep/core.c: bnep_add_connection() and
->>> net/bluetooth/bnep/sock.c: bnep_sock_ioctl().
->>
->> If bluetooth wants to allow something so foolish, then it's bluetooth's
->> responsibility to sanity check the arguments before blinding passing
->> them into kernel APIs which expect sane inputs.
->>
->> I'm not applying this.
->>
-> 
-> Changing to BUG_ON(txqs < 1) and BUG_ON(rxqs < 1) does make sense I think.
+> Le vendredi 21 janvier 2011 =E0 09:49 +0200, Pekka Enberg a =E9crit :
+>=20
+>> It actually looks like a bug in SLUB+kmemcheck. The=20
+>> kmemcheck_slab_alloc() call in slab_post_alloc_hook() should use ksi=
+ze()=20
+>> instead of s->objsize. SLAB seems to do the right thing already. Any=
+one=20
+>> care to send a patch my way?
+>>=20
+>=20
+> Hmm, what do you think of following patch ?
+>=20
+> Thanks, and sorry for the delay.
+>=20
+> [PATCH] slub: fix kmemcheck calls to match ksize() hints
+>=20
+> Recent use of ksize() in network stack (commit ca44ac38 : net: don't
+> reallocate skb->head unless the current one hasn't the needed extra s=
+ize
+> or is shared) triggers kmemcheck warnings, because ksize() can return
+> more space than kmemcheck is aware of.
+>=20
+> Pekka Enberg noticed SLAB+kmemcheck is doing the right thing, while S=
+LUB
+> +kmemcheck doesnt.
+>=20
+> Bugzilla reference #27212
+>=20
+> Reported-by: Christian Casteyde <casteyde.christian@free.fr>
+> Suggested-by: Pekka Enberg <penberg@kernel.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Sure.
+Acked-by: David S. Miller <davem@davemloft.net>
