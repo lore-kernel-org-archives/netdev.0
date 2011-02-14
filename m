@@ -1,58 +1,34 @@
-From: "Wyborny, Carolyn" <carolyn.wyborny@intel.com>
-Subject: RE: bonding + igb TX queue warnings
-Date: Mon, 14 Feb 2011 10:55:52 -0800
-Message-ID: <EDC0E76513226749BFBC9C3FB031318F012FB5EEBC@orsmsx508.amr.corp.intel.com>
-References: <20110202155556.GA5127@linuxace.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH net-26 4/5] cxgb4vf: Quiesce Virtual Interfaces on shutdown ...
+Date: Mon, 14 Feb 2011 11:01:22 -0800
+Message-ID: <201102141101.22326.leedom@chelsio.com>
+References: <1297472423-15672-1-git-send-email-leedom@chelsio.com> <1297472423-15672-5-git-send-email-leedom@chelsio.com> <F12A7E83-6F8D-4558-A7B5-174D9509891C@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Phil Oester <kernel@linuxace.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:56110 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751865Ab1BNSzx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 13:55:53 -0500
-In-Reply-To: <20110202155556.GA5127@linuxace.com>
-Content-Language: en-US
+Received: from stargate.chelsio.com ([67.207.112.58]:22427 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994Ab1BNTB0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 14:01:26 -0500
+In-Reply-To: <F12A7E83-6F8D-4558-A7B5-174D9509891C@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+| From: Anirban Chakraborty <anirban.chakraborty@qlogic.com>
+| Date: Friday, February 11, 2011 11:17 pm
+| 
+| 
+| You could invoke pci_reset_function as an alternative, that would make sure
+| FLR happens.
 
+  I'd love to do that but pci_reset_function() ends up taking the device 
+semaphore in the underlaying routine pci_dev_reset().  I used to call 
+pci_reset_function() in my probe() routine till 2.6.31 where that lock as added 
+... which resulted in an instant self-deadlock ...
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Phil Oester
->Sent: Wednesday, February 02, 2011 7:56 AM
->To: netdev@vger.kernel.org
->Subject: bonding + igb TX queue warnings
->
->Running 2.6.36.3 here, and brought up a bond on 2 igb interfaces.
->Syslog now getting flooded with this:
->
->kernel: bond0 selects TX queue 16, but real number of TX queues is 16
->
->Any way to change which queue bond0 is selecting or otherwise fix
->this?
->
->Phil
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-Hello,
-
-I apologize for the delay in responding.  This looks like a bonding problem where the queue count isn't starting from zero as expected.  This part has 16 queues, but the highest queue selection would be 15, not 16.
-
-Thanks,
-
-Carolyn
-
-Carolyn Wyborny
-Linux Development
-LAN Access Division
-Intel Corporation
-
-
-
+Casey
