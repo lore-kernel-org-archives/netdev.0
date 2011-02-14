@@ -1,57 +1,20 @@
 From: kaber@trash.net
-Subject: [PATCH 01/01] netfilter: nf_iterate: fix incorrect RCU usage
-Date: Mon, 14 Feb 2011 17:49:12 +0100
-Message-ID: <1297702152-509-2-git-send-email-kaber@trash.net>
-References: <1297702152-509-1-git-send-email-kaber@trash.net>
+Subject: [PATCH 00/01] netfilter: netfilter fixes
+Date: Mon, 14 Feb 2011 17:49:11 +0100
+Message-ID: <1297702152-509-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:56470 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755541Ab1BNQtj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 11:49:39 -0500
-In-Reply-To: <1297702152-509-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Patrick McHardy <kaber@trash.net>
+Hi Dave,
 
-As noticed by Eric, nf_iterate doesn't use RCU correctly by
-accessing the prev pointer of a RCU protected list element when
-a verdict of NF_REPEAT is issued.
+following is a single netfilter bugfix for 2.6.38, fixing incorrect
+RCU usage in nf_iterate(). Problem noticed by Eric, patch from myself.
 
-Fix by jumping backwards to the hook invocation directly instead
-of loading the previous list element before continuing the list
-iteration.
+Please apply or pull from:
 
-Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/core.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
 
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 32fcbe2..4aa614b 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -133,6 +133,7 @@ unsigned int nf_iterate(struct list_head *head,
- 
- 		/* Optimization: we don't need to hold module
- 		   reference here, since function can't sleep. --RR */
-+repeat:
- 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
- 		if (verdict != NF_ACCEPT) {
- #ifdef CONFIG_NETFILTER_DEBUG
-@@ -145,7 +146,7 @@ unsigned int nf_iterate(struct list_head *head,
- #endif
- 			if (verdict != NF_REPEAT)
- 				return verdict;
--			*i = (*i)->prev;
-+			goto repeat;
- 		}
- 	}
- 	return NF_ACCEPT;
--- 
-1.7.2.3
-
+Thanks!
