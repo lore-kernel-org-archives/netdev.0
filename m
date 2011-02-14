@@ -1,56 +1,49 @@
-From: panduranga_mallireddy@ti.com
-Subject: [PATCH 1/5] omap: panda: wlan board muxing
-Date: Mon, 14 Feb 2011 02:19:14 -0500
-Message-ID: <1297667958-22377-2-git-send-email-panduranga_mallireddy@ti.com>
-References: <1297667958-22377-1-git-send-email-panduranga_mallireddy@ti.com>
-Cc: ohad@wizery.com, benzyg@ti.com, pradeepgurumath@ti.com,
-	vishalm@ti.com, x-boudet@ti.com, naveen_jain@ti.com,
-	pavan_savoy@ti.com, manjunatha_halli@ti.com, tony@atomide.com,
-	cjb@laptop.org,
-	Panduranga Mallireddy <panduranga_mallireddy@ti.com>
-To: coelho@ti.com, netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	linux-mmc@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1297667958-22377-1-git-send-email-panduranga_mallireddy@ti.com>
-Sender: linux-mmc-owner@vger.kernel.org
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
+Date: Mon, 14 Feb 2011 08:23:00 +0100
+Message-ID: <4D58D854.5090503@grandegger.com>
+References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>
+	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>
+	<20110211150602.GB373@e-circ.dyndns.org>
+	<C1C4300CE90A406FBDA2388D5491FAD5@subhasishg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	CAN NETWORK DRIVERS <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <C1C4300CE90A406FBDA2388D5491FAD5@subhasishg>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
+On 02/14/2011 05:54 AM, Subhasish Ghosh wrote:
+> Hello,
+> 
+> I had a discussion regarding this with Wolfgang:
+> 
+> http://www.mail-archive.com/socketcan-users-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org/msg00324.html
+> 
+> The problem here is that we must configure the mailbox ID's and this
+> support is not available in the socketCan sub-system.
 
-Add board muxing to support the wlan wl1271 chip that is
-hardwired to mmc5 (fifth mmc controller) on the PANDA.
+To understand you correctly. A mailbox (or message object) can *only*
+receive messages with the pre-programmed CAN id? Isn't there a chance to
+receive all or a range of CAN ids? That's a very unusual piece of
+hardware. Anyway, using kernel configuration parameters to define the
+CAN id's would be the less flexible method. The user will not have a
+chance to change them at run-time. Using SysFS files would already be
+much better.
 
-Based on the wlan board muxing for zoom3 by Ohad Ben-Cohen
-<ohadb@ti.com>
-Signed-off-by: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
----
- arch/arm/mach-omap2/board-omap4panda.c |   13 +++++++++++++
- 1 files changed, 13 insertions(+), 0 deletions(-)
-
-diff --git a/arch/arm/mach-omap2/board-omap4panda.c b/arch/arm/mach-omap2/board-omap4panda.c
-index 9218862..cc9df6c 100644
---- a/arch/arm/mach-omap2/board-omap4panda.c
-+++ b/arch/arm/mach-omap2/board-omap4panda.c
-@@ -401,6 +401,19 @@ static int __init omap4_panda_i2c_init(void)
- 
- #ifdef CONFIG_OMAP_MUX
- static struct omap_board_mux board_mux[] __initdata = {
-+	/* WLAN IRQ - GPIO 53 */
-+	OMAP4_MUX(GPMC_NCS3, OMAP_MUX_MODE3 | OMAP_PIN_INPUT_PULLUP),
-+	/* WLAN POWER ENABLE - GPIO 43 */
-+	OMAP4_MUX(GPMC_A19, OMAP_MUX_MODE3 | OMAP_PIN_OUTPUT),
-+	/* WLAN SDIO: MMC5 CMD */
-+	OMAP4_MUX(SDMMC5_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-+	/* WLAN SDIO: MMC5 CLK */
-+	OMAP4_MUX(SDMMC5_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-+	/* WLAN SDIO: MMC5 DAT[0-3] */
-+	OMAP4_MUX(SDMMC5_DAT0, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-+	OMAP4_MUX(SDMMC5_DAT1, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-+	OMAP4_MUX(SDMMC5_DAT2, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
-+	OMAP4_MUX(SDMMC5_DAT3, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
- 	{ .reg_offset = OMAP_MUX_TERMINATOR },
- };
- #else
--- 
-1.5.6.3
-
+Wolfgang.
