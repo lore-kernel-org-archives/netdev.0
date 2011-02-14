@@ -1,93 +1,43 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: [PATCH net-26 3/4] cxgb4vf: Quiesce Virtual Interfaces on shutdown ...
-Date: Mon, 14 Feb 2011 14:56:24 -0800
-Message-ID: <1297724185-27452-4-git-send-email-leedom@chelsio.com>
-References: <1297724185-27452-1-git-send-email-leedom@chelsio.com>
-Cc: davem@davemloft.net, Casey Leedom <leedom@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:2691 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197Ab1BNW43 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 17:56:29 -0500
-In-Reply-To: <1297724185-27452-1-git-send-email-leedom@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [RFC PATCH V2 0/5] macvtap TX zero copy between guest and host
+ kernel
+Date: Mon, 14 Feb 2011 15:06:19 -0800
+Message-ID: <1297724779.14710.3.camel@localhost.localdomain>
+References: <1291974691.2167.24.camel@localhost.localdomain>
+	 <20110214130957.GA3128@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20110214130957.GA3128@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When a Virtual Machine is rebooted, KVM currently fails to issue a Function
-Level Reset against any "Attached PCI Devices" (AKA "PCI Passthrough").  In
-addition to leaving the attached device in a random state in the next booted
-kernel (which sort of violates the entire idea of a reboot reseting hardware
-state), this leaves our peer thinking that the link is still up.  (Note that
-a bug has been filed with the KVM folks, #25332, but there's been no
-response on that as of yet.)  So, we add a "->shutdown()" method for the
-Virtual Function PCI Device to handle administrative shutdowns like a
-reboot.
+On Mon, 2011-02-14 at 15:09 +0200, Michael S. Tsirkin wrote:
+> What's the status here?  Since there are core net changes, we'll need
+> to
+> see the final version soon if it's to appear in 2.6.39.
 
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
----
- drivers/net/cxgb4vf/cxgb4vf_main.c |   41 ++++++++++++++++++++++++++++++++++++
- 1 files changed, 41 insertions(+), 0 deletions(-)
+I am updating the patch and retesting it for the new kernel. I am trying
+to understand why zero copy patch caused small message size guest exits
+doubled.
 
-diff --git a/drivers/net/cxgb4vf/cxgb4vf_main.c b/drivers/net/cxgb4vf/cxgb4vf_main.c
-index 2be1088..6aad64d 100644
---- a/drivers/net/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/cxgb4vf/cxgb4vf_main.c
-@@ -2862,6 +2862,46 @@ static void __devexit cxgb4vf_pci_remove(struct pci_dev *pdev)
- }
- 
- /*
-+ * "Shutdown" quiesce the device, stopping Ingress Packet and Interrupt
-+ * delivery.
-+ */
-+static void __devexit cxgb4vf_pci_shutdown(struct pci_dev *pdev)
-+{
-+	struct adapter *adapter;
-+	int pidx;
-+
-+	adapter = pci_get_drvdata(pdev);
-+	if (!adapter)
-+		return;
-+
-+	/*
-+	 * Disable all Virtual Interfaces.  This will shut down the
-+	 * delivery of all ingress packets into the chip for these
-+	 * Virtual Interfaces.
-+	 */
-+	for_each_port(adapter, pidx) {
-+		struct net_device *netdev;
-+		struct port_info *pi;
-+
-+		if (!test_bit(pidx, &adapter->registered_device_map))
-+			continue;
-+
-+		netdev = adapter->port[pidx];
-+		if (!netdev)
-+			continue;
-+
-+		pi = netdev_priv(netdev);
-+		t4vf_enable_vi(adapter, pi->viid, false, false);
-+	}
-+
-+	/*
-+	 * Free up all Queues which will prevent further DMA and
-+	 * Interrupts allowing various internal pathways to drain.
-+	 */
-+	t4vf_free_sge_resources(adapter);
-+}
-+
-+/*
-  * PCI Device registration data structures.
-  */
- #define CH_DEVICE(devid, idx) \
-@@ -2894,6 +2934,7 @@ static struct pci_driver cxgb4vf_driver = {
- 	.id_table	= cxgb4vf_pci_tbl,
- 	.probe		= cxgb4vf_pci_probe,
- 	.remove		= __devexit_p(cxgb4vf_pci_remove),
-+	.shutdown	= __devexit_p(cxgb4vf_pci_shutdown),
- };
- 
- /*
--- 
-1.7.0.4
+> Could the problem be related to the patch
+>         virtio_net: Add schedule check to napi_enable call
+> ?
+
+Not sure, I will retest w/i this patch.
+
+> Also, I expect there should be driver patches for some
+> devices? Where are they? 
+
+Yes, a NET_F_ZEROCOPY... flag is introduced for the device we we want to
+support zero copy.
+
+Thanks
+Shirley
 
