@@ -1,61 +1,56 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH] core: dev: don't call BUG() on bad input
-Date: Mon, 14 Feb 2011 14:01:44 +0100
-Message-ID: <4D5927B8.2070704@gmail.com>
-References: <1297680967-11893-1-git-send-email-segoon@openwall.com> <4D591D04.4050000@gmail.com> <20110214122313.GA10062@albatros>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
-To: Vasiliy Kulikov <segoon@openwall.com>
+From: robertjet.fellow@gmail.com
+Subject: (unknown)
+Date: Mon, 14 Feb 2011 19:45:06 +0800
+Message-ID: <201102141145.p1EBj6Om000746__7551.89007982171$1297688642$gmane$org@ccmail.ncut.edu.tw>
+Reply-To: robertjet.fellow@gmail.com
+Content-Type: text/plain;
+	charset="big5"
+Content-Transfer-Encoding: base64
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54545 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753647Ab1BNNBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:01:48 -0500
-In-Reply-To: <20110214122313.GA10062@albatros>
+Received: from spamap2.ncut.edu.tw ([140.128.71.221]:19027 "EHLO
+	spamap2.ncut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753415Ab1BNNDy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:03:54 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 14/02/2011 13:23, Vasiliy Kulikov a =E9crit :
-> Hi Nicolas,
+TXkgbmFtZSBpcyBNci4gUi4gSmV0IEZlbGxvd3MuIEFtIGEgY2l0aXplbiBvZiB0aGUgdW5pdGVk
+IHN0YXRlcyBwcmVzZW50bHkgaW4gSG9uZyBLb25nIHdoZXJlIGkgaGF2ZSBiZWVuIGRpYWdub3Nl
+ZCB3aXRoIEVzb3BoYWdlYWwgY2FuY2VyIGFuZCBpdCBoYXMgZGVmaWVkIGFsbCBmb3JtcyBvZiBt
+ZWRpY2FsIHRyZWF0bWVudCwgYW5kIHJpZ2h0IG5vdyBJIGhhdmUgb25seSBhYm91dCBhIGZldyBt
+b250aHMgdG8gbGl2ZSBhY2NvcmRpbmcgdG8gdGhlIG1lZGljYWwgZXhwZXJ0cy4NCg0KVGhvdWdo
+IGFtIHZlcnkgcmljaCwgaSBuZXZlciB0aG91Z2h0IG9mIHJhaXNpbmcgbXkgb3duIGZhbWlseSwg
+SSBvbmx5IGZvY3VzZWQgb24gbXkgYnVzaW5lc3NlcyBhcyB0aGF0IHdhcyB0aGUgb25seSB0aGlu
+ZyBJIGNhcmVkIGZvci4gQnV0IG5vdyBJIHJlZ3JldCBhbGwgdGhpcyBhcyBJIG5vdyBrbm93IHRo
+YXQgdGhlcmUgaXMgbW9yZSB0byBsaWZlIHRoYW4ganVzdCB3YW50aW5nIHRvIGhhdmUgb3IgbWFr
+ZSBhbGwgdGhlIG1vbmV5IGluIHRoZSB3b3JsZC4gVGhlIHRyZWF0bWVudCBvZiB0aGlzIGRpc2Vh
+c2UgaGFzIHNvIGZhciBzcXVhc2hlZCBhIGhhbmRzb21lIGFtb3VudCBvZiBteSBtb25leSBpbiBz
+YXZpbmdzLg0KTm93IHRoYXQgbXkgaGVhbHRoIGhhcyBkZXRlcmlvcmF0ZWQgc28gYmFkbHkgYW5k
+IGl0IGhhcyBiZWVuIGNvbmZpcm1lZCB0byBtZSBieSB0aGUgZG9jdG9ycyB0aGF0IG15IGFpbG1l
+bnQgd2lsbCBkZWZ5IGFsbCBmb3JtcyBvZiBtZWRpY2FsIHRyZWF0bWVudCwgaSBoYXZlIGRlY2lk
+ZWQgbm90IHRvIHNwZW5kIG1vcmUgbW9uZXkgb24gdGhpcyBhaWxtZW50IGFueW1vcmUuDQoNClRo
+ZSBsYXN0IG9mIG15IG1vbmV5IHdoaWNoIG5vIG9uZSBrbm93cyBvZiBpcyB0aGUgaHVnZSBjYXNo
+IGRlcG9zaXQgb2YgJDIuNm0gVW5pdGVkIFN0YXRlcyBEb2xsYXJzIHRoYXQgSSBoYXZlIHdpdGgg
+YSBGaW5hbmNlIFZhdWx0aW5nIFVuaXQgaW4gdGhlIEV1cm9wZSAuIEkgd2lsbCB3YW50IHlvdSB0
+byBoZWxwIG1lIGNvbGxlY3QgdGhpcyBkZXBvc2l0IGZyb20gdGhlIGNvbXBhbnkgYW5kIGhlbHAg
+bWUgZGlzdHJpYnV0ZSBpdCB0byBjaGFyaXR5IGluIHlvdXIgcmVnaW9uLiBZb3Ugd2lsbCBoYXZl
+IDI1JSBvZiB0aGlzIHRvdGFsIHN1bSBmb3IgeW91ciB0aW1lIGFuZCBlZmZvcnQuIEkgY2Fubm90
+IHRhbGsgd2l0aCB5b3Ugb24gdGhlIHBob25lIGR1ZSB0byBteSBoZWFsdGggc2l0dWF0aW9uLCBh
+bmQgSSBhbSB1c2luZyBteSBMYXB0b3AgQ29tcHV0ZXIgdG8gY29tbXVuaWNhdGUgd2l0aCB5b3Us
+IHNpbmNlIHRoaXMgaXMgbXkgb25seSBtZWFucyBvZiBjb21tdW5pY2F0aW9uLiBPbmUgcGFzc2lv
+bmF0ZSBhcHBlYWwgaSB3aWxsIG1ha2UgdG8geW91IGlzIHRvIGtlZXAgdGhpcyB0cmFuc2FjdGlv
+biBjb25maWRlbnRpYWwgdW50aWwgdGhpcyBtb25leSBnZXRzIHRvIHlvdS4gSWYgeW91IGFyZSBp
+bnRlcmVzdGVkIGluIGNhcnJ5aW5nIG91dCB0aGlzIGFzc2lnbm1lbnQgb24gbXkgYmVoYWxmIGZp
+bGwgdGhpcyBmb3JtIGJlbG93IHdoZW4gd2hlbiB3cml0aW5nIG1lIGJhY2suDQoNCkVtYWlsOiBy
+b2JlcnRqZXQuZmVsbG93QGdtYWlsLmNvbQ0KDQoNCllvdXIgbmFtZXMgLi4uLi4uLg0KWW91ciBy
+ZXNpZGVudCBhZGRyZXNzLiAuLi4uLi4NCllvdXIgY291bnRyeSBuYW1lLi4uLi4uLi4uLg0KWW91
+ciBwcmVzZW50IGxvY2F0aW9uLi4uLi4uLi4NCllvdXIgb2NjdXBhdGlvbi4uLi4uLi4uLi4uLi4u
+Lg0KWW91ciB0ZWwvY2VsbCBudW1iZXIuLi4uLi4uLi4NCllvdXIgYWdlL3NleC4uLi4uLi4uLi4u
+Li4uLi4uLg0KWW91ciBjb21wYW55IG5hbWUgaWYgYW55Li4uLi4uLg0KDQpJIHdpbGwgYmUgd2Fp
+dGluZyB0byBoZWFyIGZyb20geW91IGFzIHNvb24gYXMgeW91IGNhbi4NCg0KU2luY2VyZWx5IHlv
+dXJzLA0KUi4gSmV0IEZlbGxvd3MuCg==
 
-Hi Vasiliy,
 
-> On Mon, Feb 14, 2011 at 13:16 +0100, Nicolas de Peslo=FCan wrote:
->>> -	BUG_ON(strlen(name)>=3D sizeof(dev->name));
->>> +	if (strnlen(name, sizeof(dev->name))>=3D sizeof(dev->name)) {
->
-> Ehh...  Space after ")" is needed :)
 
-:-D
-
->> "size_t strnlen(const char *s, size_t maxlen) : The strnlen()
->> function returns strlen(s), if that is less than maxlen, or maxlen
->> if there is no '\0' character among the first maxlen characters
->> pointed to by s."
->>
->> How can strnlen(name, sizeof(dev->name)) be greater than sizeof(dev-=
->name)?
->>
->> Shouldn't it be "if (strnlen(name, sizeof(dev->name)) =3D=3D sizeof(=
-dev->name))" instead?
->
-> Not a big deal, but MO it's better to guard from everything that
-> is not a good input by negating the check.  strnlen()<  sizeof() is O=
-K,
-> strnlen()>=3D sizeof() is bad.  Is "=3D=3D" more preferable for net/ =
-coding style?
-
-Agreed, both cannot cause any troubles. =3D=3D is supposed to be better=
- from the API point of view, but=20
- >=3D is probably more readable.
-
-	Nicolas.
