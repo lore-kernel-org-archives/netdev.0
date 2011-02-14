@@ -1,211 +1,108 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH 1/1] tproxy: do not assign timewait sockets to skb->sk
-Date: Mon, 14 Feb 2011 12:44:34 +0100
-Message-ID: <1297683874-10188-1-git-send-email-fw@strlen.de>
-Cc: netdev@vger.kernel.org, Balazs Scheidler <bazsi@balabit.hu>,
-	KOVACS Krisztian <hidden@balabit.hu>
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Baruch Siach <baruch@tkos.co.il>
+Subject: [PATCH] phy/micrel: add ability to support 50MHz RMII clock on KZS8051RNL
+Date: Mon, 14 Feb 2011 14:05:33 +0200
+Message-ID: <e426eef4b15c4e1c77981094c3c8020012aaca42.1297685030.git.baruch@tkos.co.il>
+Cc: Baruch Siach <baruch@tkos.co.il>,
+	"David J. Choi" <david.choi@micrel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tango.tkos.co.il ([62.219.50.35]:42223 "EHLO tango.tkos.co.il"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752921Ab1BNMGY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Feb 2011 07:06:24 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Assigning a socket in timewait state to skb->sk can trigger
-kernel oops, e.g. in nfnetlink_log, which does:
+Platform code can now set the MICREL_PHY_50MHZ_CLK bit of dev_flags in a fixup
+routine (registered with phy_register_fixup_for_uid()), to make the KZS8051RNL
+PHY work with 50MHz RMII reference clock.
 
-if (skb->sk) {
-        read_lock_bh(&skb->sk->sk_callback_lock);
-        if (skb->sk->sk_socket && skb->sk->sk_socket->file) ...
-
-in the timewait case, accessing sk->sk_callback_lock and sk->sk_socket
-is invalid.
-
-Either all of these spots will need to add a test for sk->sk_state != TCP_TIME_WAIT,
-or xt_TPROXY must not assign a timewait socket to skb->sk.
-
-This does the latter.
-
-If a TW socket is found, assign the tproxy nfmark, but skip the skb->sk assignment,
-thus mimicking behaviour of a '-m socket .. -j MARK/ACCEPT' re-routing rule.
-
-The 'SYN to TW socket' case is left unchanged -- we try to redirect to the
-listener socket.
-
-Cc: Balazs Scheidler <bazsi@balabit.hu>
-Cc: KOVACS Krisztian <hidden@balabit.hu>
-Signed-off-by: Florian Westphal <fwestphal@astaro.com>
+Cc: David J. Choi <david.choi@micrel.com>
+Signed-off-by: Baruch Siach <baruch@tkos.co.il>
 ---
- include/net/netfilter/nf_tproxy_core.h |   12 +-----------
- net/netfilter/nf_tproxy_core.c         |   27 ++++++++++++---------------
- net/netfilter/xt_TPROXY.c              |   22 ++++++++++++++++++++--
- net/netfilter/xt_socket.c              |   13 +++++++++++--
- 4 files changed, 44 insertions(+), 30 deletions(-)
+ drivers/net/phy/micrel.c   |   24 ++++++++++++++++--------
+ include/linux/micrel_phy.h |   16 ++++++++++++++++
+ 2 files changed, 32 insertions(+), 8 deletions(-)
+ create mode 100644 include/linux/micrel_phy.h
 
-diff --git a/include/net/netfilter/nf_tproxy_core.h b/include/net/netfilter/nf_tproxy_core.h
-index cd85b3b..e505358 100644
---- a/include/net/netfilter/nf_tproxy_core.h
-+++ b/include/net/netfilter/nf_tproxy_core.h
-@@ -201,18 +201,8 @@ nf_tproxy_get_sock_v6(struct net *net, const u8 protocol,
- }
- #endif
- 
--static inline void
--nf_tproxy_put_sock(struct sock *sk)
--{
--	/* TIME_WAIT inet sockets have to be handled differently */
--	if ((sk->sk_protocol == IPPROTO_TCP) && (sk->sk_state == TCP_TIME_WAIT))
--		inet_twsk_put(inet_twsk(sk));
--	else
--		sock_put(sk);
--}
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index 8bb7db6..a6c3bf5 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -19,13 +19,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/phy.h>
 -
- /* assign a socket to the skb -- consumes sk */
--int
-+void
- nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk);
+-#define	PHY_ID_KSZ9021			0x00221611
+-#define	PHY_ID_KS8737			0x00221720
+-#define	PHY_ID_KS8041			0x00221510
+-#define	PHY_ID_KS8051			0x00221550
+-/* both for ks8001 Rev. A/B, and for ks8721 Rev 3. */
+-#define	PHY_ID_KS8001			0x0022161A
++#include <linux/micrel_phy.h>
  
- #endif
-diff --git a/net/netfilter/nf_tproxy_core.c b/net/netfilter/nf_tproxy_core.c
-index 4d87bef..474d621 100644
---- a/net/netfilter/nf_tproxy_core.c
-+++ b/net/netfilter/nf_tproxy_core.c
-@@ -28,26 +28,23 @@ nf_tproxy_destructor(struct sk_buff *skb)
- 	skb->destructor = NULL;
+ /* general Interrupt control/status reg in vendor specific block. */
+ #define MII_KSZPHY_INTCS			0x1B
+@@ -46,6 +40,7 @@
+ #define KSZPHY_CTRL_INT_ACTIVE_HIGH		(1 << 9)
+ #define KSZ9021_CTRL_INT_ACTIVE_HIGH		(1 << 14)
+ #define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
++#define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
  
- 	if (sk)
--		nf_tproxy_put_sock(sk);
-+		sock_put(sk);
- }
- 
- /* consumes sk */
--int
-+void
- nf_tproxy_assign_sock(struct sk_buff *skb, struct sock *sk)
+ static int kszphy_ack_interrupt(struct phy_device *phydev)
  {
--	bool transparent = (sk->sk_state == TCP_TIME_WAIT) ?
--				inet_twsk(sk)->tw_transparent :
--				inet_sk(sk)->transparent;
--
--	if (transparent) {
--		skb_orphan(skb);
--		skb->sk = sk;
--		skb->destructor = nf_tproxy_destructor;
--		return 1;
--	} else
--		nf_tproxy_put_sock(sk);
--
--	return 0;
-+	/* assigning tw sockets complicates things; most
-+	 * skb->sk->X checks would have to test sk->sk_state first */
-+	if (sk->sk_state == TCP_TIME_WAIT) {
-+		inet_twsk_put(inet_twsk(sk));
-+		return;
+@@ -106,6 +101,19 @@ static int kszphy_config_init(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
++static int ks8051_config_init(struct phy_device *phydev)
++{
++	int regval;
++
++	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
++		regval = phy_read(phydev, MII_KSZPHY_CTRL);
++		regval |= KSZ8051_RMII_50MHZ_CLK;
++		phy_write(phydev, MII_KSZPHY_CTRL, regval);
 +	}
 +
-+	skb_orphan(skb);
-+	skb->sk = sk;
-+	skb->destructor = nf_tproxy_destructor;
- }
- EXPORT_SYMBOL_GPL(nf_tproxy_assign_sock);
- 
-diff --git a/net/netfilter/xt_TPROXY.c b/net/netfilter/xt_TPROXY.c
-index 640678f..dcfd57e 100644
---- a/net/netfilter/xt_TPROXY.c
-+++ b/net/netfilter/xt_TPROXY.c
-@@ -33,6 +33,20 @@
- #include <net/netfilter/nf_tproxy_core.h>
- #include <linux/netfilter/xt_TPROXY.h>
- 
-+static bool tproxy_sk_is_transparent(struct sock *sk)
-+{
-+	if (sk->sk_state != TCP_TIME_WAIT) {
-+		if (inet_sk(sk)->transparent)
-+			return true;
-+		sock_put(sk);
-+	} else {
-+		if (inet_twsk(sk)->tw_transparent)
-+			return true;
-+		inet_twsk_put(inet_twsk(sk));
-+	}
-+	return false;
++	return 0;
 +}
 +
- static inline __be32
- tproxy_laddr4(struct sk_buff *skb, __be32 user_laddr, __be32 daddr)
- {
-@@ -141,7 +155,7 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport,
- 					   skb->dev, NFT_LOOKUP_LISTENER);
- 
- 	/* NOTE: assign_sock consumes our sk reference */
--	if (sk && nf_tproxy_assign_sock(skb, sk)) {
-+	if (sk && tproxy_sk_is_transparent(sk)) {
- 		/* This should be in a separate target, but we don't do multiple
- 		   targets on the same rule yet */
- 		skb->mark = (skb->mark & ~mark_mask) ^ mark_value;
-@@ -149,6 +163,8 @@ tproxy_tg4(struct sk_buff *skb, __be32 laddr, __be16 lport,
- 		pr_debug("redirecting: proto %hhu %pI4:%hu -> %pI4:%hu, mark: %x\n",
- 			 iph->protocol, &iph->daddr, ntohs(hp->dest),
- 			 &laddr, ntohs(lport), skb->mark);
+ static struct phy_driver ks8737_driver = {
+ 	.phy_id		= PHY_ID_KS8737,
+ 	.phy_id_mask	= 0x00fffff0,
+@@ -142,7 +150,7 @@ static struct phy_driver ks8051_driver = {
+ 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
+ 				| SUPPORTED_Asym_Pause),
+ 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+-	.config_init	= kszphy_config_init,
++	.config_init	= ks8051_config_init,
+ 	.config_aneg	= genphy_config_aneg,
+ 	.read_status	= genphy_read_status,
+ 	.ack_interrupt	= kszphy_ack_interrupt,
+diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
+new file mode 100644
+index 0000000..dd8da34
+--- /dev/null
++++ b/include/linux/micrel_phy.h
+@@ -0,0 +1,16 @@
++#ifndef _MICREL_PHY_H
++#define _MICREL_PHY_H
 +
-+		nf_tproxy_assign_sock(skb, sk);
- 		return NF_ACCEPT;
- 	}
- 
-@@ -306,7 +322,7 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
- 					   par->in, NFT_LOOKUP_LISTENER);
- 
- 	/* NOTE: assign_sock consumes our sk reference */
--	if (sk && nf_tproxy_assign_sock(skb, sk)) {
-+	if (sk && tproxy_sk_is_transparent(sk)) {
- 		/* This should be in a separate target, but we don't do multiple
- 		   targets on the same rule yet */
- 		skb->mark = (skb->mark & ~tgi->mark_mask) ^ tgi->mark_value;
-@@ -314,6 +330,8 @@ tproxy_tg6_v1(struct sk_buff *skb, const struct xt_action_param *par)
- 		pr_debug("redirecting: proto %hhu %pI6:%hu -> %pI6:%hu, mark: %x\n",
- 			 tproto, &iph->saddr, ntohs(hp->source),
- 			 laddr, ntohs(lport), skb->mark);
++#define MICREL_PHY_ID_MASK	0x00fffff0
 +
-+		nf_tproxy_assign_sock(skb, sk);
- 		return NF_ACCEPT;
- 	}
- 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 00d6ae8..6d2226e 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -35,6 +35,15 @@
- #include <net/netfilter/nf_conntrack.h>
- #endif
- 
-+static void
-+xt_socket_put_sk(struct sock *sk)
-+{
-+	if (sk->sk_state == TCP_TIME_WAIT)
-+		inet_twsk_put(inet_twsk(sk));
-+	else
-+		sock_put(sk);
-+}
++#define PHY_ID_KSZ9021		0x00221611
++#define PHY_ID_KS8737		0x00221720
++#define PHY_ID_KS8041		0x00221510
++#define PHY_ID_KS8051		0x00221550
++/* both for ks8001 Rev. A/B, and for ks8721 Rev 3. */
++#define PHY_ID_KS8001		0x0022161A
 +
- static int
- extract_icmp4_fields(const struct sk_buff *skb,
- 		    u8 *protocol,
-@@ -164,7 +173,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 				       (sk->sk_state == TCP_TIME_WAIT &&
- 					inet_twsk(sk)->tw_transparent));
- 
--		nf_tproxy_put_sock(sk);
-+		xt_socket_put_sk(sk);
- 
- 		if (wildcard || !transparent)
- 			sk = NULL;
-@@ -298,7 +307,7 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
- 				       (sk->sk_state == TCP_TIME_WAIT &&
- 					inet_twsk(sk)->tw_transparent));
- 
--		nf_tproxy_put_sock(sk);
-+		xt_socket_put_sk(sk);
- 
- 		if (wildcard || !transparent)
- 			sk = NULL;
++/* struct phy_device dev_flags definitions */
++#define MICREL_PHY_50MHZ_CLK	0x00000001
++
++#endif /* _MICREL_PHY_H */
 -- 
-1.7.2.2
+1.7.2.3
 
