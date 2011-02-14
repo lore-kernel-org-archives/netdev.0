@@ -1,7 +1,11 @@
 From: panduranga_mallireddy@ti.com
-Subject: [PATCH 0/5] Panda: Support for WLAN on WL127x
-Date: Mon, 14 Feb 2011 02:19:13 -0500
-Message-ID: <1297667958-22377-1-git-send-email-panduranga_mallireddy@ti.com>
+Subject: [PATCH 4/5] omap: panda: add mmc5/wl1271 device support
+Date: Mon, 14 Feb 2011 02:19:17 -0500
+Message-ID: <1297667958-22377-5-git-send-email-panduranga_mallireddy@ti.com>
+References: <1297667958-22377-1-git-send-email-panduranga_mallireddy@ti.com>
+ <1297667958-22377-2-git-send-email-panduranga_mallireddy@ti.com>
+ <1297667958-22377-3-git-send-email-panduranga_mallireddy@ti.com>
+ <1297667958-22377-4-git-send-email-panduranga_mallireddy@ti.com>
 Cc: ohad@wizery.com, benzyg@ti.com, pradeepgurumath@ti.com,
 	vishalm@ti.com, x-boudet@ti.com, naveen_jain@ti.com,
 	pavan_savoy@ti.com, manjunatha_halli@ti.com, tony@atomide.com,
@@ -10,42 +14,83 @@ Cc: ohad@wizery.com, benzyg@ti.com, pradeepgurumath@ti.com,
 To: coelho@ti.com, netdev@vger.kernel.org, linux-omap@vger.kernel.org,
 	linux-mmc@vger.kernel.org
 Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <1297667958-22377-4-git-send-email-panduranga_mallireddy@ti.com>
 Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
 
-Adding support for WLAN on Panda board using wl12xx and mac80211 drivers
+Add MMC5 support on PANDA, which has the wl1271 device hardwired to.
 
-Patches were tested on Panda board.
+The wl1271 is a 4-wire, 1.8V, embedded SDIO WLAN device with an
+external IRQ line, and power-controlled by a GPIO-based fixed regulator.
 
-These patches add software control for emulating card detect events,
-add board configurations to support the wl127x device.
+Based on the patch for mmc3/wl1271 device support for zoom by Ohad
+Ben-Cohen <ohad@wizery.com>
+Signed-off-by: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
+---
+ arch/arm/mach-omap2/board-omap4panda.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-These patches are dependent on the patches that enable clock for WLAN on panda.
-Please refer the following links for these patches:
-https://patchwork.kernel.org/patch/546381/
-https://patchwork.kernel.org/patch/546401/
-
-[PATCH 5/5] OMAP: hsmmc: Enable MMC4 and MMC5 on OMAP4 platforms
- is dependent on hwmod adpotation for HSMMC patches series.
-For original patches of adpotation for HSMMC refer:
-http://www.mail-archive.com/linux-omap@vger.kernel.org/msg43464.html
-
-Patches are based on mainline 2.6.38-rc3
-
-Kishore Kadiyala (1):
-  OMAP: hsmmc: Enable MMC4 and MMC5 on OMAP4 platforms
-
-Panduranga Mallireddy (4):
-  omap: panda: wlan board muxing
-  omap: select REGULATOR_FIXED_VOLTAGE by default for panda and sdp4430
-  omap: panda: add fixed regulator device for wlan
-  omap: panda: add mmc5/wl1271 device support
-
- arch/arm/mach-omap2/Kconfig            |    2 +
- arch/arm/mach-omap2/board-omap4panda.c |   67 ++++++++++++++++++++++++++++++++
- arch/arm/mach-omap2/hsmmc.c            |    5 ++
- drivers/mmc/host/omap_hsmmc.c          |   24 +++++++++--
- 4 files changed, 94 insertions(+), 4 deletions(-)
+diff --git a/arch/arm/mach-omap2/board-omap4panda.c b/arch/arm/mach-omap2/board-omap4panda.c
+index cd25255..ef43010 100644
+--- a/arch/arm/mach-omap2/board-omap4panda.c
++++ b/arch/arm/mach-omap2/board-omap4panda.c
+@@ -27,6 +27,7 @@
+ #include <linux/i2c/twl.h>
+ #include <linux/regulator/machine.h>
+ #include <linux/regulator/fixed.h>
++#include <linux/wl12xx.h>
+ 
+ #include <mach/hardware.h>
+ #include <mach/omap4-common.h>
+@@ -47,6 +48,7 @@
+ #define GPIO_HUB_POWER		1
+ #define GPIO_HUB_NRESET		62
+ #define GPIO_WIFI_PMENA		43
++#define GPIO_WIFI_IRQ		53
+ 
+ static struct gpio_led gpio_leds[] = {
+ 	{
+@@ -164,6 +166,15 @@ static struct omap2_hsmmc_info mmc[] = {
+ 		.gpio_wp	= -EINVAL,
+ 		.gpio_cd	= -EINVAL,
+ 	},
++	{
++		.name		= "wl1271",
++		.mmc		= 5,
++		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
++		.gpio_wp	= -EINVAL,
++		.gpio_cd	= -EINVAL,
++		.ocr_mask	= MMC_VDD_165_195,
++		.nonremovable	= true,
++	},
+ 	{}	/* Terminator */
+ };
+ 
+@@ -205,6 +216,12 @@ static struct platform_device omap_vwlan_device = {
+ 	},
+ };
+ 
++struct wl12xx_platform_data omap_panda_wlan_data  __initdata = {
++	.irq = OMAP_GPIO_IRQ(GPIO_WIFI_IRQ),
++	/* PANDA ref clock is 38.4 MHz */
++	.board_ref_clock = 2,
++};
++
+ static int omap4_twl6030_hsmmc_late_init(struct device *dev)
+ {
+ 	int ret = 0;
+@@ -461,6 +478,9 @@ static void __init omap4_panda_init(void)
+ 		package = OMAP_PACKAGE_CBL;
+ 	omap4_mux_init(board_mux, package);
+ 
++	if (wl12xx_set_platform_data(&omap_panda_wlan_data))
++		pr_err("error setting wl12xx data\n");
++
+ 	omap4_panda_i2c_init();
+ 	platform_add_devices(panda_devices, ARRAY_SIZE(panda_devices));
+ 	platform_device_register(&omap_vwlan_device);
+-- 
+1.5.6.3
 
