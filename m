@@ -1,31 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] stmmac: enable wol via magic frame by default.
-Date: Sun, 13 Feb 2011 17:00:14 -0800 (PST)
-Message-ID: <20110213.170014.124073570.davem@davemloft.net>
-References: <1297414306-11271-1-git-send-email-peppe.cavallaro@st.com>
+From: Bhupesh SHARMA <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+Subject: RE: [PATCH net-next-2.6 v7 1/1] can: c_can: Added support for Bosch
+	C_CAN controller
+Date: Mon, 14 Feb 2011 11:54:58 +0800
+Message-ID: <D5ECB3C7A6F99444980976A8C6D896384DEE3666E9@EAPEX1MAIL1.st.com>
+References: <1297419478-27667-1-git-send-email-bhupesh.sharma@st.com>
+	<4D56C0ED.1040201@pengutronix.de>
+	<20110213.105216.27797609.davem@davemloft.net>
+	<20110213.110530.98884040.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: peppe.cavallaro@st.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:58714
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755316Ab1BNA7i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Feb 2011 19:59:38 -0500
-In-Reply-To: <1297414306-11271-1-git-send-email-peppe.cavallaro@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org" <Socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110213.110530.98884040.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Date: Fri, 11 Feb 2011 09:51:46 +0100
+Hi David,
 
-> This patch enables it by default when the driver starts.
-> This has been required by many people and seems to actually be
-> useful on STB.
-> At any rate, the WoL modes can be selected and turned-on/off
-> by using the ethtool at run-time by users.
+> -----Original Message-----
+> From: David Miller [mailto:davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org]
+> Sent: Monday, February 14, 2011 12:36 AM
+> To: mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org
+> Cc: Bhupesh SHARMA; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Socketcan-
+> core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+> Subject: Re: [PATCH net-next-2.6 v7 1/1] can: c_can: Added support for
+> Bosch C_CAN controller
 > 
-> Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Date: Sun, 13 Feb 2011 10:52:16 -0800 (PST)
+> 
+> > From: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> > Date: Sat, 12 Feb 2011 18:18:37 +0100
+> >
+> >> On 02/11/2011 11:17 AM, Bhupesh Sharma wrote:
+> >>> Bosch C_CAN controller is a full-CAN implementation which is
+> compliant
+> >>> to CAN protocol version 2.0 part A and B. Bosch C_CAN user manual
+> can be
+> >>> obtained from:
+> >>> http://www.semiconductors.bosch.de/media/en/pdf/ipmodules_1/
+> >>> c_can/users_manual_c_can.pdf
+> >>>
+> >>> This patch adds the support for this controller.
+> >>> The following are the design choices made while writing the
+> controller
+> >>> driver:
+> >>> 1. Interface Register set IF1 has be used only in the current
+> design.
+> >>> 2. Out of the 32 Message objects available, 16 are kept aside for
+> RX
+> >>>    purposes and the rest for TX purposes.
+> >>> 3. NAPI implementation is such that both the TX and RX paths
+> function
+> >>>    in polling mode.
+> >>>
+> >>> Signed-off-by: Bhupesh Sharma <bhupesh.sharma-qxv4g6HH51o@public.gmane.org>
+> >>
+> >> Good work!
+> >>
+> >> Acked-by: Marc Kleine-Budde <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> >
+> > Applied.
+> 
+> Actually, I'm reverting because this causes build regressions:
+> 
+> ERROR: "clk_get_rate" [drivers/net/can/c_can/c_can_platform.ko]
+> undefined!
+> ERROR: "clk_get" [drivers/net/can/c_can/c_can_platform.ko] undefined!
+> ERROR: "clk_put" [drivers/net/can/c_can/c_can_platform.ko] undefined!
 
-Applied.
+Oops.. I will send a v8 to correct this compilation issue a.s.a.p.
+
+Regards,
+Bhupesh
