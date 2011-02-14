@@ -1,50 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [ROSE] packet routing improvement
-Date: Mon, 14 Feb 2011 13:33:08 -0800 (PST)
-Message-ID: <20110214.133308.246523629.davem@davemloft.net>
-References: <4D596B25.9080309@free.fr>
+From: Sakari Ailus <sakari.ailus@iki.fi>
+Subject: Re: [PATCH -next] PCI: fix tlan build when CONFIG_PCI is not enabled
+Date: Mon, 14 Feb 2011 23:32:16 +0200
+Message-ID: <4D599F60.4010800@iki.fi>
+References: <20110214181137.ee8d4c08.sfr@canb.auug.org.au> <20110214122750.e1e03bc8.randy.dunlap@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org, f6bvp@free.fr
-To: bpidoux@free.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45553
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751093Ab1BNVcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 16:32:32 -0500
-In-Reply-To: <4D596B25.9080309@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
+	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	davem@davemloft.net, Jesse Barnes <jbarnes@virtuousgeek.org>
+To: Randy Dunlap <randy.dunlap@oracle.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110214122750.e1e03bc8.randy.dunlap@oracle.com>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Bernard Pidoux <bpidoux@free.fr>
-Date: Mon, 14 Feb 2011 18:49:25 +0100
+Randy Dunlap wrote:
+> From: Randy Dunlap <randy.dunlap@oracle.com>
+> 
+> When CONFIG_PCI is not enabled, tlan.c has a build error:
+> drivers/net/tlan.c:503: error: implicit declaration of function 'pci_wake_from_d3'
+> 
+> so add an inline function stub for this function to pci.h when
+> PCI is not enabled, similar to other stubbed PCI functions.
+> 
+> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
+> Cc: Sakari Ailus <sakari.ailus@iki.fi>
 
-> [PATCH] [ROSE] rose AX25 packet routing improvement
-> 
-> FPAC AX25 packet application is using Linux kernel ROSE
-> routing skills in order to connect or send packets to remote stations
-> knowing their ROSE address via a network of interconnected nodes.
-> 
-> Each FPAC node has a ROSE routing table that Linux ROSE module is
-> looking at each time a ROSE frame is relayed by the node or when
-> a connect request to a neighbor node is received.
-> 
-> A previous patch improved the system time response by looking at
-> already established routes each time the system was looking for a
-> route to relay a frame. If a neighbor node routing the destination
-> address was already connected, then the frame would be sent
-> through him. If not, a connection request would be issued.
-> 
-> The present patch extends the same routing capability to a connect
-> request asked by a user locally connected into an FPAC node.
-> Without this patch, a connect request was not well handled unless it
-> was directed to an immediate connected neighbor of the local node.
-> 
-> Implemented at a number of ROSE FPAC node stations, the present patch
-> improved dramatically FPAC ROSE routing time response and efficiency.
-> 
-> Signed-off-by: Bernard Pidoux <f6bvp@free.fr>
+Hi Randy,
 
-Applied to net-next-2.6
+I think this issue in tlan driver was caused by my recent patch which
+added the suspend/resume support to tlan:
 
+<URL:http://marc.info/?l=linux-netdev&m=129564436110754&w=3>
+
+There apparently are tlan cards which are EISA (not PCI) which I forgot
+when writing the patch. The suspend/resume has been only tested with PCI
+as I have no EISA bus (let alone EISA tlan card!).
+
+I'm going to send a fix to the tlan driver in any case.
+
+Regards,
+
+-- 
+Sakari Ailus
+sakari.ailus@iki.fi
