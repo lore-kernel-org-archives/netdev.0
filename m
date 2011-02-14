@@ -1,75 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH V2 0/5] macvtap TX zero copy between guest and host
- kernel
-Date: Mon, 14 Feb 2011 15:09:57 +0200
-Message-ID: <20110214130957.GA3128@redhat.com>
-References: <1291974691.2167.24.camel@localhost.localdomain>
+From: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
+Date: Mon, 14 Feb 2011 18:45:17 +0530
+Message-ID: <8CB9F2C8F75C4041B9F0691D209DDAFD@subhasishg>
+References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>
+	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>
+	<20110211150602.GB373@e-circ.dyndns.org>
+	<C1C4300CE90A406FBDA2388D5491FAD5@subhasishg>
+	<4D58D854.5090503@grandegger.com>
+	<1F33D30F9B2D47ECA80CEC807A6C0727@subhasishg>
+	<4D58F77B.9080005@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
-	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Shirley Ma <mashirle@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30847 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754251Ab1BNNKb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Feb 2011 08:10:31 -0500
-Content-Disposition: inline
-In-Reply-To: <1291974691.2167.24.camel@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	"open list:CAN NETWORK DRIVERS" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nsekhar-l0cyMroinI0@public.gmane.org, open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"open list:CAN NETWORK DRIVERS" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>, m-watkins-l0cyMroinI0@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <4D58F77B.9080005-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 10, 2010 at 01:51:31AM -0800, Shirley Ma wrote:
-> This patchset add supports for TX zero-copy between guest and host
-> kernel through vhost. It significantly reduces CPU utilization on the
-> local host on which the guest is located (It reduced 30-50% CPU usage
-> for vhost thread for single stream test). The patchset is based on
-> previous submission and comments from the community regarding when/how
-> to handle guest kernel buffers to be released. This is the simplest
-> approach I can think of after comparing with several other solutions.
-> 
-> This patchset includes:
-> 
-> 1. Induce a new sock zero-copy flag, SOCK_ZEROCOPY;
-> 
-> 2. Induce a new device flag, NETIF_F_ZEROCOPY for device can support
-> zero-copy;
-> 
-> 3. Add a new struct skb_ubuf_info in skb_share_info for userspace
-> buffers release callback when device DMA has done for that skb;
-> 
-> 4. Add vhost zero-copy callback in vhost when skb last refcnt is gone;
->    add vhost_zerocopy_add_used_and_signal to notify guest to release TX
-> skb buffers.
-> 
-> 5. Add macvtap zero-copy in lower device when sending packet is greater
-> than 128 bytes.
-> 
-> The patchset has passed netperf/netserver test on Chelsio, and
-> continuing test on other 10GbE NICs, like Intel ixgbe, Mellanox mlx4...
-> I will provide guest to host, host to guest performance data next week.
-> 
-> However when running stress test, vhost & virtio_net seems out of sync,
-> and virito_net interrupt was disabled somehow, and it stopped to send
-> any packet. This problem has bothered me for a long long time, I will
-> continue to look at this.
-> 
-> Please review this.
-> 
-> Thanks
-> Shirley
+Hello,
 
-What's the status here?  Since there are core net changes, we'll need to
-see the final version soon if it's to appear in 2.6.39.
+The problem with the "all" implementation is that it hogs the ARM/DSP 
+heavily and that's the reason why we specifically avoided this in our 
+firmware design.
+Hence, implementing this condition spoils the whole purpose of the PRU!!
 
-Could the problem be related to the patch
-	virtio_net: Add schedule check to napi_enable call
-?
-Also, I expect there should be driver patches for some
-devices? Where are they?
+--------------------------------------------------
+From: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sent: Monday, February 14, 2011 3:05 PM
+To: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Cc: "Wolfgang Grandegger" <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; "Kurt Van Dijck" 
+<kurt.van.dijck-/BeEPy95v10@public.gmane.org>; <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>; 
+<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>; <m-watkins-l0cyMroinI0@public.gmane.org>; 
+<nsekhar-l0cyMroinI0@public.gmane.org>; <sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>; "open list:CAN NETWORK 
+DRIVERS" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; "open list:CAN NETWORK DRIVERS" 
+<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "open list" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
 
-Thanks,
+Hello,
+
+On 02/14/2011 09:45 AM, Subhasish Ghosh wrote:
+> That is correct, we receive only pre-programmed CAN ids and "all" or
+> "range" implementation is not there in the PRU firmware.
+
+I'd really like to see that you add a "all" implementation to the
+firmware. Or even better use the standard id/mask approach.
+
+cheers, Marc
 
 -- 
-MST
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   | 
