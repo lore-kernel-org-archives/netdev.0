@@ -1,51 +1,40 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Possible netfilter-related memory corruption in 2.6.37
-Date: Mon, 14 Feb 2011 17:52:13 +0100
-Message-ID: <4D595DBD.3090005@trash.net>
-References: <4D594313.4050009@redhat.com>	 <1297696283.2996.33.camel@edumazet-laptop>	 <alpine.LNX.2.01.1102141617330.12050@obet.zrqbmnf.qr>	 <1297698641.2996.38.camel@edumazet-laptop>  <4D595745.7070505@trash.net>	 <1297700955.2996.40.camel@edumazet-laptop>  <4D595A48.9070201@trash.net> <1297702128.2996.41.camel@edumazet-laptop>
+Subject: Re: netfilter is not a filesystem
+Date: Mon, 14 Feb 2011 18:34:10 +0100
+Message-ID: <4D596792.40204@trash.net>
+References: <bug-28862-10286@https.bugzilla.kernel.org/> <20110210141119.56d789fc.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>, Avi Kivity <avi@redhat.com>,
-	netfilter-devel@vger.kernel.org,
-	Marcelo Tosatti <mtosatti@redhat.com>,
-	nicolas prochazka <prochazka.nicolas@gmail.com>,
-	KVM list <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1297702128.2996.41.camel@edumazet-laptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110210141119.56d789fc.akpm@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 14.02.2011 17:48, schrieb Eric Dumazet:
-> Le lundi 14 f=C3=A9vrier 2011 =C3=A0 17:37 +0100, Patrick McHardy a =C3=
-=A9crit :
->> Am 14.02.2011 17:29, schrieb Eric Dumazet:
->>> Le lundi 14 f=C3=A9vrier 2011 =C3=A0 17:24 +0100, Patrick McHardy a=
- =C3=A9crit :
->>>>> Also, I wonder if RCU rules are respected in nf_iterate().
->>>>> For example this line is really suspicious :
->>>>>
->>>>> *i =3D (*i)->prev;
->>>>
->>>> Yeah, that definitely looks wrong. How about this instead?
->>>>
->>>
->>> This patch seems fine to me, thanks !
->>>
->>> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Am 10.02.2011 23:11, schrieb Andrew Morton:
+> On Thu, 10 Feb 2011 21:55:26 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+> 
+>> https://bugzilla.kernel.org/show_bug.cgi?id=28862
 >>
->> THanks Eric, I've queued the patch for 2.6.38.
->=20
-> I am not sure, but I guess nf_reinject() needs a fix too ;)
+>>            Summary: /proc/net/ip_conntrack: no space left on device
+>>                     systematically
+> 
+> This is why I'm forever nagging people to not just grab some errno
+> because its name happens to sound similar to the error you just detected.
+> 
+> Yes, it superficially seems nice and logical for netfilter to use
+> ENOSPC when it runs out of space.  But when that error code propagates
+> up to the user, they see "no space left on device" and will then run
+> "df" and wonder what the hell happened to their computer.
+> 
 
-I agree. That one looks uglier though, I guess we'll have to
-iterate through all hooks to note the previous one.
+In this case this seems to be a simple bug, the seq_file callbacks
+want to indicate that the current buffer is full, using an incorrect
+code. I'm not sure why ENOSPC is used, this probably has never worked
+(and strangely nobody seems to have noticed).
 
-I'll take care of that once Dave has pulled the last fix
-since I already sent out the pull request.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This bug is probably present in more parts of netfilter, I'll do an
+audit and fix up all similar problems.
