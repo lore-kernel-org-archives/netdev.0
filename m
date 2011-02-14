@@ -1,56 +1,57 @@
-From: robertjet.fellow@gmail.com
-Subject: (unknown)
-Date: Mon, 14 Feb 2011 19:53:40 +0800
-Message-ID: <201102141153.p1EBre46003035__8238.06551420621$1297689591$gmane$org@ccmail.ncut.edu.tw>
-Reply-To: robertjet.fellow@gmail.com
-Content-Type: text/plain;
-	charset="big5"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+From: chriss <mail_to_chriss@gmx.net>
+Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
+Date: Mon, 14 Feb 2011 13:22:55 +0000 (UTC)
+Message-ID: <loom.20110214T141934-88@post.gmane.org>
+References: <4D32FC1C.3010905@simon.arlott.org.uk> <201101231845.20505.maciej.rutecki@gmail.com> <AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com> <201101241625.45367.maciej.rutecki@gmail.com> <loom.20110205T163216-459@post.gmane.org> <AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com> <loom.20110206T203347-475@post.gmane.org> <4D4FE100.5090808@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spamap2.ncut.edu.tw ([140.128.71.221]:58963 "EHLO
-	spamap2.ncut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755184Ab1BNNTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:19:37 -0500
-Subject: 
+Received: from lo.gmane.org ([80.91.229.12]:52392 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754364Ab1BNNXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Feb 2011 08:23:07 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1PoyOQ-0001I3-OB
+	for netdev@vger.kernel.org; Mon, 14 Feb 2011 14:23:06 +0100
+Received: from hlle-4db8bf43.pool.mediaWays.net ([77.184.191.67])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 14 Feb 2011 14:23:06 +0100
+Received: from mail_to_chriss by hlle-4db8bf43.pool.mediaWays.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 14 Feb 2011 14:23:06 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TXkgbmFtZSBpcyBNci4gUi4gSmV0IEZlbGxvd3MuIEFtIGEgY2l0aXplbiBvZiB0aGUgdW5pdGVk
-IHN0YXRlcyBwcmVzZW50bHkgaW4gSG9uZyBLb25nIHdoZXJlIGkgaGF2ZSBiZWVuIGRpYWdub3Nl
-ZCB3aXRoIEVzb3BoYWdlYWwgY2FuY2VyIGFuZCBpdCBoYXMgZGVmaWVkIGFsbCBmb3JtcyBvZiBt
-ZWRpY2FsIHRyZWF0bWVudCwgYW5kIHJpZ2h0IG5vdyBJIGhhdmUgb25seSBhYm91dCBhIGZldyBt
-b250aHMgdG8gbGl2ZSBhY2NvcmRpbmcgdG8gdGhlIG1lZGljYWwgZXhwZXJ0cy4NCg0KVGhvdWdo
-IGFtIHZlcnkgcmljaCwgaSBuZXZlciB0aG91Z2h0IG9mIHJhaXNpbmcgbXkgb3duIGZhbWlseSwg
-SSBvbmx5IGZvY3VzZWQgb24gbXkgYnVzaW5lc3NlcyBhcyB0aGF0IHdhcyB0aGUgb25seSB0aGlu
-ZyBJIGNhcmVkIGZvci4gQnV0IG5vdyBJIHJlZ3JldCBhbGwgdGhpcyBhcyBJIG5vdyBrbm93IHRo
-YXQgdGhlcmUgaXMgbW9yZSB0byBsaWZlIHRoYW4ganVzdCB3YW50aW5nIHRvIGhhdmUgb3IgbWFr
-ZSBhbGwgdGhlIG1vbmV5IGluIHRoZSB3b3JsZC4gVGhlIHRyZWF0bWVudCBvZiB0aGlzIGRpc2Vh
-c2UgaGFzIHNvIGZhciBzcXVhc2hlZCBhIGhhbmRzb21lIGFtb3VudCBvZiBteSBtb25leSBpbiBz
-YXZpbmdzLg0KTm93IHRoYXQgbXkgaGVhbHRoIGhhcyBkZXRlcmlvcmF0ZWQgc28gYmFkbHkgYW5k
-IGl0IGhhcyBiZWVuIGNvbmZpcm1lZCB0byBtZSBieSB0aGUgZG9jdG9ycyB0aGF0IG15IGFpbG1l
-bnQgd2lsbCBkZWZ5IGFsbCBmb3JtcyBvZiBtZWRpY2FsIHRyZWF0bWVudCwgaSBoYXZlIGRlY2lk
-ZWQgbm90IHRvIHNwZW5kIG1vcmUgbW9uZXkgb24gdGhpcyBhaWxtZW50IGFueW1vcmUuDQoNClRo
-ZSBsYXN0IG9mIG15IG1vbmV5IHdoaWNoIG5vIG9uZSBrbm93cyBvZiBpcyB0aGUgaHVnZSBjYXNo
-IGRlcG9zaXQgb2YgJDIuNm0gVW5pdGVkIFN0YXRlcyBEb2xsYXJzIHRoYXQgSSBoYXZlIHdpdGgg
-YSBGaW5hbmNlIFZhdWx0aW5nIFVuaXQgaW4gdGhlIEV1cm9wZSAuIEkgd2lsbCB3YW50IHlvdSB0
-byBoZWxwIG1lIGNvbGxlY3QgdGhpcyBkZXBvc2l0IGZyb20gdGhlIGNvbXBhbnkgYW5kIGhlbHAg
-bWUgZGlzdHJpYnV0ZSBpdCB0byBjaGFyaXR5IGluIHlvdXIgcmVnaW9uLiBZb3Ugd2lsbCBoYXZl
-IDI1JSBvZiB0aGlzIHRvdGFsIHN1bSBmb3IgeW91ciB0aW1lIGFuZCBlZmZvcnQuIEkgY2Fubm90
-IHRhbGsgd2l0aCB5b3Ugb24gdGhlIHBob25lIGR1ZSB0byBteSBoZWFsdGggc2l0dWF0aW9uLCBh
-bmQgSSBhbSB1c2luZyBteSBMYXB0b3AgQ29tcHV0ZXIgdG8gY29tbXVuaWNhdGUgd2l0aCB5b3Us
-IHNpbmNlIHRoaXMgaXMgbXkgb25seSBtZWFucyBvZiBjb21tdW5pY2F0aW9uLiBPbmUgcGFzc2lv
-bmF0ZSBhcHBlYWwgaSB3aWxsIG1ha2UgdG8geW91IGlzIHRvIGtlZXAgdGhpcyB0cmFuc2FjdGlv
-biBjb25maWRlbnRpYWwgdW50aWwgdGhpcyBtb25leSBnZXRzIHRvIHlvdS4gSWYgeW91IGFyZSBp
-bnRlcmVzdGVkIGluIGNhcnJ5aW5nIG91dCB0aGlzIGFzc2lnbm1lbnQgb24gbXkgYmVoYWxmIGZp
-bGwgdGhpcyBmb3JtIGJlbG93IHdoZW4gd2hlbiB3cml0aW5nIG1lIGJhY2suDQoNCkVtYWlsOiBy
-b2JlcnRqZXQuZmVsbG93QGdtYWlsLmNvbQ0KDQoNCllvdXIgbmFtZXMgLi4uLi4uLg0KWW91ciBy
-ZXNpZGVudCBhZGRyZXNzLiAuLi4uLi4NCllvdXIgY291bnRyeSBuYW1lLi4uLi4uLi4uLg0KWW91
-ciBwcmVzZW50IGxvY2F0aW9uLi4uLi4uLi4NCllvdXIgb2NjdXBhdGlvbi4uLi4uLi4uLi4uLi4u
-Lg0KWW91ciB0ZWwvY2VsbCBudW1iZXIuLi4uLi4uLi4NCllvdXIgYWdlL3NleC4uLi4uLi4uLi4u
-Li4uLi4uLg0KWW91ciBjb21wYW55IG5hbWUgaWYgYW55Li4uLi4uLg0KDQpJIHdpbGwgYmUgd2Fp
-dGluZyB0byBoZWFyIGZyb20geW91IGFzIHNvb24gYXMgeW91IGNhbi4NCg0KU2luY2VyZWx5IHlv
-dXJzLA0KUi4gSmV0IEZlbGxvd3MuCg==
+Nicolas de Peslo=C3=BCan <nicolas.2p.debian <at> gmail.com> writes:
 
+> I think you should have a look at ebtables command, in particular, th=
+e
+BROUTING chain of broute=20
+> table. If this chain ask the packet to be dropped, then bridge will i=
+gnore it
+and give a chance to=20
+> the upper layer to use it. Upper layer might be IP, or in your partic=
+ular
+setup, VLAN.
+>=20
+> HTH,
+>=20
+> 	Nicolas.
 
+Thank you very much for the ebtables hint.
+
+I also tried to add the vlan to my bridge device but only droping the v=
+lan
+tagged paket with ebtables got it working.
+
+I'm not sure if this is the wanted behavior for bridging vlan actions.
+=2E.or my network setup is just to ..f%%%'ed up?!
+
+Thanks nicolas
+
+regards//chriss
 
