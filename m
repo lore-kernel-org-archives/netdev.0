@@ -1,108 +1,75 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] phy/micrel: add ability to support 50MHz RMII clock on KZS8051RNL
-Date: Mon, 14 Feb 2011 14:05:33 +0200
-Message-ID: <e426eef4b15c4e1c77981094c3c8020012aaca42.1297685030.git.baruch@tkos.co.il>
-Cc: Baruch Siach <baruch@tkos.co.il>,
-	"David J. Choi" <david.choi@micrel.com>
-To: netdev@vger.kernel.org
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH] core: dev: don't call BUG() on bad input
+Date: Mon, 14 Feb 2011 13:16:04 +0100
+Message-ID: <4D591D04.4050000@gmail.com>
+References: <1297680967-11893-1-git-send-email-segoon@openwall.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
+To: Vasiliy Kulikov <segoon@openwall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:42223 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752921Ab1BNMGY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Feb 2011 07:06:24 -0500
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:53692 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753690Ab1BNMQO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 07:16:14 -0500
+In-Reply-To: <1297680967-11893-1-git-send-email-segoon@openwall.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Platform code can now set the MICREL_PHY_50MHZ_CLK bit of dev_flags in a fixup
-routine (registered with phy_register_fixup_for_uid()), to make the KZS8051RNL
-PHY work with 50MHz RMII reference clock.
+Le 14/02/2011 11:56, Vasiliy Kulikov a =E9crit :
+> alloc_netdev() may be called with too long name (more that IFNAMSIZ b=
+ytes).
+> Currently this leads to BUG().  Other insane inputs (bad txqs, rxqs) =
+and
+> even OOM don't lead to BUG().  Made alloc_netdev() return NULL, like =
+on
+> other errors.
+>
+> Signed-off-by: Vasiliy Kulikov<segoon@openwall.com>
+> ---
+>   Compile tested.
+>
+>   net/core/dev.c |    5 ++++-
+>   1 files changed, 4 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 6392ea0..12ef4b0 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -5761,7 +5761,10 @@ struct net_device *alloc_netdev_mqs(int sizeof=
+_priv, const char *name,
+>   	size_t alloc_size;
+>   	struct net_device *p;
+>
+> -	BUG_ON(strlen(name)>=3D sizeof(dev->name));
+> +	if (strnlen(name, sizeof(dev->name))>=3D sizeof(dev->name)) {
 
-Cc: David J. Choi <david.choi@micrel.com>
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- drivers/net/phy/micrel.c   |   24 ++++++++++++++++--------
- include/linux/micrel_phy.h |   16 ++++++++++++++++
- 2 files changed, 32 insertions(+), 8 deletions(-)
- create mode 100644 include/linux/micrel_phy.h
+"size_t strnlen(const char *s, size_t maxlen) : The strnlen() function =
+returns strlen(s), if that is=20
+less than maxlen, or maxlen if there is no '\0' character among the fir=
+st maxlen characters pointed=20
+to by s."
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index 8bb7db6..a6c3bf5 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -19,13 +19,7 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/phy.h>
--
--#define	PHY_ID_KSZ9021			0x00221611
--#define	PHY_ID_KS8737			0x00221720
--#define	PHY_ID_KS8041			0x00221510
--#define	PHY_ID_KS8051			0x00221550
--/* both for ks8001 Rev. A/B, and for ks8721 Rev 3. */
--#define	PHY_ID_KS8001			0x0022161A
-+#include <linux/micrel_phy.h>
- 
- /* general Interrupt control/status reg in vendor specific block. */
- #define MII_KSZPHY_INTCS			0x1B
-@@ -46,6 +40,7 @@
- #define KSZPHY_CTRL_INT_ACTIVE_HIGH		(1 << 9)
- #define KSZ9021_CTRL_INT_ACTIVE_HIGH		(1 << 14)
- #define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
-+#define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
- 
- static int kszphy_ack_interrupt(struct phy_device *phydev)
- {
-@@ -106,6 +101,19 @@ static int kszphy_config_init(struct phy_device *phydev)
- 	return 0;
- }
- 
-+static int ks8051_config_init(struct phy_device *phydev)
-+{
-+	int regval;
-+
-+	if (phydev->dev_flags & MICREL_PHY_50MHZ_CLK) {
-+		regval = phy_read(phydev, MII_KSZPHY_CTRL);
-+		regval |= KSZ8051_RMII_50MHZ_CLK;
-+		phy_write(phydev, MII_KSZPHY_CTRL, regval);
-+	}
-+
-+	return 0;
-+}
-+
- static struct phy_driver ks8737_driver = {
- 	.phy_id		= PHY_ID_KS8737,
- 	.phy_id_mask	= 0x00fffff0,
-@@ -142,7 +150,7 @@ static struct phy_driver ks8051_driver = {
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause
- 				| SUPPORTED_Asym_Pause),
- 	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
--	.config_init	= kszphy_config_init,
-+	.config_init	= ks8051_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.ack_interrupt	= kszphy_ack_interrupt,
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-new file mode 100644
-index 0000000..dd8da34
---- /dev/null
-+++ b/include/linux/micrel_phy.h
-@@ -0,0 +1,16 @@
-+#ifndef _MICREL_PHY_H
-+#define _MICREL_PHY_H
-+
-+#define MICREL_PHY_ID_MASK	0x00fffff0
-+
-+#define PHY_ID_KSZ9021		0x00221611
-+#define PHY_ID_KS8737		0x00221720
-+#define PHY_ID_KS8041		0x00221510
-+#define PHY_ID_KS8051		0x00221550
-+/* both for ks8001 Rev. A/B, and for ks8721 Rev 3. */
-+#define PHY_ID_KS8001		0x0022161A
-+
-+/* struct phy_device dev_flags definitions */
-+#define MICREL_PHY_50MHZ_CLK	0x00000001
-+
-+#endif /* _MICREL_PHY_H */
--- 
-1.7.2.3
+How can strnlen(name, sizeof(dev->name)) be greater than sizeof(dev->na=
+me)?
+
+Shouldn't it be "if (strnlen(name, sizeof(dev->name)) =3D=3D sizeof(dev=
+->name))" instead?
+
+         Nicolas.
+
+> +		pr_err("alloc_netdev: Too long device name \n");
+> +		return NULL;
+> +	}
+>
+>   	if (txqs<  1) {
+>   		pr_err("alloc_netdev: Unable to allocate device "
 
