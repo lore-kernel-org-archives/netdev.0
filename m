@@ -1,47 +1,45 @@
-From: Alexey Dobriyan <adobriyan@gmail.com>
-Subject: Re: [PATCH v2] core: dev: don't call BUG() on bad input
-Date: Mon, 14 Feb 2011 17:16:00 +0200
-Message-ID: <AANLkTimidxVJxw-XKTWwCZh8k_vKHDeqxAwVbY6+aJ6x@mail.gmail.com>
-References: <1297694579-23611-1-git-send-email-segoon@openwall.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Possible netfilter-related memory corruption in 2.6.37
+Date: Mon, 14 Feb 2011 16:11:23 +0100
+Message-ID: <1297696283.2996.33.camel@edumazet-laptop>
+References: <4D594313.4050009@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
-To: Vasiliy Kulikov <segoon@openwall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1297694579-23611-1-git-send-email-segoon@openwall.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org,
+	Marcelo Tosatti <mtosatti@redhat.com>,
+	nicolas prochazka <prochazka.nicolas@gmail.com>,
+	KVM list <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D594313.4050009@redhat.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 14, 2011 at 4:42 PM, Vasiliy Kulikov <segoon@openwall.com> =
-wrote:
-> alloc_netdev() may be called with too long name (more that IFNAMSIZ b=
-ytes).
-> Currently this leads to BUG(). =A0Other insane inputs (bad txqs, rxqs=
-) and
-> even OOM don't lead to BUG(). =A0Made alloc_netdev() return NULL, lik=
-e on
-> other errors.
+Le lundi 14 f=C3=A9vrier 2011 =C3=A0 16:58 +0200, Avi Kivity a =C3=A9cr=
+it :
+> We see severe memory corruption in kvm while used in conjunction with=
+=20
+> bridge/netfilter.  Enabling slab debugging points the finger at a=20
+> netfilter chain invoked from the bridge code.
+>=20
+> Can someone take a look?
+>=20
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D27052
+>=20
 
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5761,7 +5761,10 @@ struct net_device *alloc_netdev_mqs(int sizeof=
-_priv, const char *name,
-> =A0 =A0 =A0 =A0size_t alloc_size;
-> =A0 =A0 =A0 =A0struct net_device *p;
->
-> - =A0 =A0 =A0 BUG_ON(strlen(name) >=3D sizeof(dev->name));
-> + =A0 =A0 =A0 if (strnlen(name, sizeof(dev->name)) >=3D sizeof(dev->n=
-ame)) {
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 pr_err("alloc_netdev: Too long device n=
-ame\n");
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
-> + =A0 =A0 =A0 }
+CC netdev
 
-Netdevice name isn't some random junk you get from userspace, so BUG is=
- fine.
+Does a revert of commit ca44ac386181ba7 help a bit ?
+
+(net: don't reallocate skb->head unless the current one hasn't the
+needed extra size or is shared)
+
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
