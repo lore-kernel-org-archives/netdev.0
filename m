@@ -1,51 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Possible netfilter-related memory corruption in 2.6.37
-Date: Mon, 14 Feb 2011 17:48:48 +0100
-Message-ID: <1297702128.2996.41.camel@edumazet-laptop>
-References: <4D594313.4050009@redhat.com>
-	 <1297696283.2996.33.camel@edumazet-laptop>
-	 <alpine.LNX.2.01.1102141617330.12050@obet.zrqbmnf.qr>
-	 <1297698641.2996.38.camel@edumazet-laptop>  <4D595745.7070505@trash.net>
-	 <1297700955.2996.40.camel@edumazet-laptop>  <4D595A48.9070201@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jan Engelhardt <jengelh@medozas.de>, Avi Kivity <avi@redhat.com>,
-	netfilter-devel@vger.kernel.org,
-	Marcelo Tosatti <mtosatti@redhat.com>,
-	nicolas prochazka <prochazka.nicolas@gmail.com>,
-	KVM list <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D595A48.9070201@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: kaber@trash.net
+Subject: [PATCH 01/01] netfilter: nf_iterate: fix incorrect RCU usage
+Date: Mon, 14 Feb 2011 17:49:12 +0100
+Message-ID: <1297702152-509-2-git-send-email-kaber@trash.net>
+References: <1297702152-509-1-git-send-email-kaber@trash.net>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56470 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755541Ab1BNQtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 11:49:39 -0500
+In-Reply-To: <1297702152-509-1-git-send-email-kaber@trash.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le lundi 14 f=C3=A9vrier 2011 =C3=A0 17:37 +0100, Patrick McHardy a =C3=
-=A9crit :
-> Am 14.02.2011 17:29, schrieb Eric Dumazet:
-> > Le lundi 14 f=C3=A9vrier 2011 =C3=A0 17:24 +0100, Patrick McHardy a=
- =C3=A9crit :
-> >>> Also, I wonder if RCU rules are respected in nf_iterate().
-> >>> For example this line is really suspicious :
-> >>>
-> >>> *i =3D (*i)->prev;
-> >>
-> >> Yeah, that definitely looks wrong. How about this instead?
-> >>
-> >=20
-> > This patch seems fine to me, thanks !
-> >=20
-> > Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> THanks Eric, I've queued the patch for 2.6.38.
+From: Patrick McHardy <kaber@trash.net>
 
-I am not sure, but I guess nf_reinject() needs a fix too ;)
+As noticed by Eric, nf_iterate doesn't use RCU correctly by
+accessing the prev pointer of a RCU protected list element when
+a verdict of NF_REPEAT is issued.
 
+Fix by jumping backwards to the hook invocation directly instead
+of loading the previous list element before continuing the list
+iteration.
 
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/netfilter/core.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 32fcbe2..4aa614b 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -133,6 +133,7 @@ unsigned int nf_iterate(struct list_head *head,
+ 
+ 		/* Optimization: we don't need to hold module
+ 		   reference here, since function can't sleep. --RR */
++repeat:
+ 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
+ 		if (verdict != NF_ACCEPT) {
+ #ifdef CONFIG_NETFILTER_DEBUG
+@@ -145,7 +146,7 @@ unsigned int nf_iterate(struct list_head *head,
+ #endif
+ 			if (verdict != NF_REPEAT)
+ 				return verdict;
+-			*i = (*i)->prev;
++			goto repeat;
+ 		}
+ 	}
+ 	return NF_ACCEPT;
+-- 
+1.7.2.3
+
