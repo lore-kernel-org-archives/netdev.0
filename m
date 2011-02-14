@@ -1,56 +1,75 @@
-From: robertjet.fellow@gmail.com
-Subject: (unknown)
-Date: Mon, 14 Feb 2011 19:49:28 +0800
-Message-ID: <201102141149.p1EBnS2N001973__29738.5558988482$1297688968$gmane$org@ccmail.ncut.edu.tw>
-Reply-To: robertjet.fellow@gmail.com
-Content-Type: text/plain;
-	charset="big5"
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH V2 0/5] macvtap TX zero copy between guest and host
+ kernel
+Date: Mon, 14 Feb 2011 15:09:57 +0200
+Message-ID: <20110214130957.GA3128@redhat.com>
+References: <1291974691.2167.24.camel@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Avi Kivity <avi@redhat.com>, Arnd Bergmann <arnd@arndb.de>,
+	xiaohui.xin@intel.com, netdev@vger.kernel.org, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Shirley Ma <mashirle@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spamap1.ncut.edu.tw ([140.128.71.196]:8265 "EHLO
-	spamap1.ncut.edu.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751079Ab1BNNJH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 08:09:07 -0500
-Subject: 
+Received: from mx1.redhat.com ([209.132.183.28]:30847 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754251Ab1BNNKb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Feb 2011 08:10:31 -0500
+Content-Disposition: inline
+In-Reply-To: <1291974691.2167.24.camel@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TXkgbmFtZSBpcyBNci4gUi4gSmV0IEZlbGxvd3MuIEFtIGEgY2l0aXplbiBvZiB0aGUgdW5pdGVk
-IHN0YXRlcyBwcmVzZW50bHkgaW4gSG9uZyBLb25nIHdoZXJlIGkgaGF2ZSBiZWVuIGRpYWdub3Nl
-ZCB3aXRoIEVzb3BoYWdlYWwgY2FuY2VyIGFuZCBpdCBoYXMgZGVmaWVkIGFsbCBmb3JtcyBvZiBt
-ZWRpY2FsIHRyZWF0bWVudCwgYW5kIHJpZ2h0IG5vdyBJIGhhdmUgb25seSBhYm91dCBhIGZldyBt
-b250aHMgdG8gbGl2ZSBhY2NvcmRpbmcgdG8gdGhlIG1lZGljYWwgZXhwZXJ0cy4NCg0KVGhvdWdo
-IGFtIHZlcnkgcmljaCwgaSBuZXZlciB0aG91Z2h0IG9mIHJhaXNpbmcgbXkgb3duIGZhbWlseSwg
-SSBvbmx5IGZvY3VzZWQgb24gbXkgYnVzaW5lc3NlcyBhcyB0aGF0IHdhcyB0aGUgb25seSB0aGlu
-ZyBJIGNhcmVkIGZvci4gQnV0IG5vdyBJIHJlZ3JldCBhbGwgdGhpcyBhcyBJIG5vdyBrbm93IHRo
-YXQgdGhlcmUgaXMgbW9yZSB0byBsaWZlIHRoYW4ganVzdCB3YW50aW5nIHRvIGhhdmUgb3IgbWFr
-ZSBhbGwgdGhlIG1vbmV5IGluIHRoZSB3b3JsZC4gVGhlIHRyZWF0bWVudCBvZiB0aGlzIGRpc2Vh
-c2UgaGFzIHNvIGZhciBzcXVhc2hlZCBhIGhhbmRzb21lIGFtb3VudCBvZiBteSBtb25leSBpbiBz
-YXZpbmdzLg0KTm93IHRoYXQgbXkgaGVhbHRoIGhhcyBkZXRlcmlvcmF0ZWQgc28gYmFkbHkgYW5k
-IGl0IGhhcyBiZWVuIGNvbmZpcm1lZCB0byBtZSBieSB0aGUgZG9jdG9ycyB0aGF0IG15IGFpbG1l
-bnQgd2lsbCBkZWZ5IGFsbCBmb3JtcyBvZiBtZWRpY2FsIHRyZWF0bWVudCwgaSBoYXZlIGRlY2lk
-ZWQgbm90IHRvIHNwZW5kIG1vcmUgbW9uZXkgb24gdGhpcyBhaWxtZW50IGFueW1vcmUuDQoNClRo
-ZSBsYXN0IG9mIG15IG1vbmV5IHdoaWNoIG5vIG9uZSBrbm93cyBvZiBpcyB0aGUgaHVnZSBjYXNo
-IGRlcG9zaXQgb2YgJDIuNm0gVW5pdGVkIFN0YXRlcyBEb2xsYXJzIHRoYXQgSSBoYXZlIHdpdGgg
-YSBGaW5hbmNlIFZhdWx0aW5nIFVuaXQgaW4gdGhlIEV1cm9wZSAuIEkgd2lsbCB3YW50IHlvdSB0
-byBoZWxwIG1lIGNvbGxlY3QgdGhpcyBkZXBvc2l0IGZyb20gdGhlIGNvbXBhbnkgYW5kIGhlbHAg
-bWUgZGlzdHJpYnV0ZSBpdCB0byBjaGFyaXR5IGluIHlvdXIgcmVnaW9uLiBZb3Ugd2lsbCBoYXZl
-IDI1JSBvZiB0aGlzIHRvdGFsIHN1bSBmb3IgeW91ciB0aW1lIGFuZCBlZmZvcnQuIEkgY2Fubm90
-IHRhbGsgd2l0aCB5b3Ugb24gdGhlIHBob25lIGR1ZSB0byBteSBoZWFsdGggc2l0dWF0aW9uLCBh
-bmQgSSBhbSB1c2luZyBteSBMYXB0b3AgQ29tcHV0ZXIgdG8gY29tbXVuaWNhdGUgd2l0aCB5b3Us
-IHNpbmNlIHRoaXMgaXMgbXkgb25seSBtZWFucyBvZiBjb21tdW5pY2F0aW9uLiBPbmUgcGFzc2lv
-bmF0ZSBhcHBlYWwgaSB3aWxsIG1ha2UgdG8geW91IGlzIHRvIGtlZXAgdGhpcyB0cmFuc2FjdGlv
-biBjb25maWRlbnRpYWwgdW50aWwgdGhpcyBtb25leSBnZXRzIHRvIHlvdS4gSWYgeW91IGFyZSBp
-bnRlcmVzdGVkIGluIGNhcnJ5aW5nIG91dCB0aGlzIGFzc2lnbm1lbnQgb24gbXkgYmVoYWxmIGZp
-bGwgdGhpcyBmb3JtIGJlbG93IHdoZW4gd2hlbiB3cml0aW5nIG1lIGJhY2suDQoNCkVtYWlsOiBy
-b2JlcnRqZXQuZmVsbG93QGdtYWlsLmNvbQ0KDQoNCllvdXIgbmFtZXMgLi4uLi4uLg0KWW91ciBy
-ZXNpZGVudCBhZGRyZXNzLiAuLi4uLi4NCllvdXIgY291bnRyeSBuYW1lLi4uLi4uLi4uLg0KWW91
-ciBwcmVzZW50IGxvY2F0aW9uLi4uLi4uLi4NCllvdXIgb2NjdXBhdGlvbi4uLi4uLi4uLi4uLi4u
-Lg0KWW91ciB0ZWwvY2VsbCBudW1iZXIuLi4uLi4uLi4NCllvdXIgYWdlL3NleC4uLi4uLi4uLi4u
-Li4uLi4uLg0KWW91ciBjb21wYW55IG5hbWUgaWYgYW55Li4uLi4uLg0KDQpJIHdpbGwgYmUgd2Fp
-dGluZyB0byBoZWFyIGZyb20geW91IGFzIHNvb24gYXMgeW91IGNhbi4NCg0KU2luY2VyZWx5IHlv
-dXJzLA0KUi4gSmV0IEZlbGxvd3MuCg==
+On Fri, Dec 10, 2010 at 01:51:31AM -0800, Shirley Ma wrote:
+> This patchset add supports for TX zero-copy between guest and host
+> kernel through vhost. It significantly reduces CPU utilization on the
+> local host on which the guest is located (It reduced 30-50% CPU usage
+> for vhost thread for single stream test). The patchset is based on
+> previous submission and comments from the community regarding when/how
+> to handle guest kernel buffers to be released. This is the simplest
+> approach I can think of after comparing with several other solutions.
+> 
+> This patchset includes:
+> 
+> 1. Induce a new sock zero-copy flag, SOCK_ZEROCOPY;
+> 
+> 2. Induce a new device flag, NETIF_F_ZEROCOPY for device can support
+> zero-copy;
+> 
+> 3. Add a new struct skb_ubuf_info in skb_share_info for userspace
+> buffers release callback when device DMA has done for that skb;
+> 
+> 4. Add vhost zero-copy callback in vhost when skb last refcnt is gone;
+>    add vhost_zerocopy_add_used_and_signal to notify guest to release TX
+> skb buffers.
+> 
+> 5. Add macvtap zero-copy in lower device when sending packet is greater
+> than 128 bytes.
+> 
+> The patchset has passed netperf/netserver test on Chelsio, and
+> continuing test on other 10GbE NICs, like Intel ixgbe, Mellanox mlx4...
+> I will provide guest to host, host to guest performance data next week.
+> 
+> However when running stress test, vhost & virtio_net seems out of sync,
+> and virito_net interrupt was disabled somehow, and it stopped to send
+> any packet. This problem has bothered me for a long long time, I will
+> continue to look at this.
+> 
+> Please review this.
+> 
+> Thanks
+> Shirley
 
+What's the status here?  Since there are core net changes, we'll need to
+see the final version soon if it's to appear in 2.6.39.
 
+Could the problem be related to the patch
+	virtio_net: Add schedule check to napi_enable call
+?
+Also, I expect there should be driver patches for some
+devices? Where are they?
 
+Thanks,
+
+-- 
+MST
