@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy/micrel: add ability to support 50MHz RMII clock on
- KZS8051RNL
-Date: Mon, 14 Feb 2011 17:38:43 -0800 (PST)
-Message-ID: <20110214.173843.59688745.davem@davemloft.net>
-References: <e426eef4b15c4e1c77981094c3c8020012aaca42.1297685030.git.baruch@tkos.co.il>
+Subject: Re: [PATCH] arp_notify: unconditionally send gratuitous ARP for
+ NETDEV_NOTIFY_PEERS.
+Date: Mon, 14 Feb 2011 17:46:54 -0800 (PST)
+Message-ID: <20110214.174654.115944453.davem@davemloft.net>
+References: <1297446256-23917-1-git-send-email-ian.campbell@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, david.choi@micrel.com
-To: baruch@tkos.co.il
+Cc: netdev@vger.kernel.org
+To: ian.campbell@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40441
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:54020
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751420Ab1BOBiH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 20:38:07 -0500
-In-Reply-To: <e426eef4b15c4e1c77981094c3c8020012aaca42.1297685030.git.baruch@tkos.co.il>
+	by vger.kernel.org with ESMTP id S1751408Ab1BOBqS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 20:46:18 -0500
+In-Reply-To: <1297446256-23917-1-git-send-email-ian.campbell@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Baruch Siach <baruch@tkos.co.il>
-Date: Mon, 14 Feb 2011 14:05:33 +0200
+From: Ian Campbell <ian.campbell@citrix.com>
+Date: Fri, 11 Feb 2011 17:44:16 +0000
 
-> Platform code can now set the MICREL_PHY_50MHZ_CLK bit of dev_flags in a fixup
-> routine (registered with phy_register_fixup_for_uid()), to make the KZS8051RNL
-> PHY work with 50MHz RMII reference clock.
+> NETDEV_NOTIFY_PEER is an explicit request by the driver to send a link
+> notification while NETDEV_UP/NETDEV_CHANGEADDR generate link
+> notifications as a sort of side effect.
 > 
-> Cc: David J. Choi <david.choi@micrel.com>
-> Signed-off-by: Baruch Siach <baruch@tkos.co.il>
+> In the later cases the sysctl option is present because link
+> notification events can have undesired effects e.g. if the link is
+> flapping. I don't think this applies in the case of an explicit
+> request from a driver.
+> 
+> This patch makes NETDEV_NOTIFY_PEER unconditional, if preferred we
+> could add a new sysctl for this case which defaults to on.
+> 
+> This change causes Xen post-migration ARP notifications (which cause
+> switches to relearn their MAC tables etc) to be sent by default.
+> 
+> Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
 
-Applied to net-next-2.6, thanks.
+Ok, applied, thanks.
