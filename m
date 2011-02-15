@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
-Subject: [PATCH 1/5] bridge: Fix IPv6 multicast snooping by storing correct protocol type
-Date: Wed, 16 Feb 2011 00:19:17 +0100
-Message-ID: <1297811961-19249-2-git-send-email-linus.luessing@web.de>
+Subject: [PATCH 3/5] bridge: Add missing ntohs()s for MLDv2 report parsing
+Date: Wed, 16 Feb 2011 00:19:19 +0100
+Message-ID: <1297811961-19249-4-git-send-email-linus.luessing@web.de>
 References: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -17,29 +17,33 @@ In-Reply-To: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The protocol type for IPv6 entries in the hash table for multicast
-bridge snooping is falsely set to ETH_P_IP, marking it as an IPv4
-address, instead of setting it to ETH_P_IPV6, which results in negative
-look-ups in the hash table later.
+The nsrcs number is 2 Byte wide, therefore we need to call ntohs()
+before using it.
 
 Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
 ---
- net/bridge/br_multicast.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/bridge/br_multicast.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index f701a21..135d929 100644
+index 45dcf10..e8fdaab 100644
 --- a/net/bridge/br_multicast.c
 +++ b/net/bridge/br_multicast.c
-@@ -785,7 +785,7 @@ static int br_ip6_multicast_add_group(struct net_br=
-idge *br,
- 		return 0;
+@@ -1021,11 +1021,12 @@ static int br_ip6_multicast_mld2_report(struct =
+net_bridge *br,
 =20
- 	ipv6_addr_copy(&br_group.u.ip6, group);
--	br_group.proto =3D htons(ETH_P_IP);
-+	br_group.proto =3D htons(ETH_P_IPV6);
+ 		if (!pskb_may_pull(skb,
+ 				   len + sizeof(*grec) +
+-				   sizeof(struct in6_addr) * (*nsrcs)))
++				   sizeof(struct in6_addr) * ntohs(*nsrcs)))
+ 			return -EINVAL;
 =20
- 	return br_multicast_add_group(br, port, &br_group);
- }
+ 		grec =3D (struct mld2_grec *)(skb->data + len);
+-		len +=3D sizeof(*grec) + sizeof(struct in6_addr) * (*nsrcs);
++		len +=3D sizeof(*grec) +
++		       sizeof(struct in6_addr) * ntohs(*nsrcs);
+=20
+ 		/* We treat these as MLDv1 reports for now. */
+ 		switch (grec->grec_type) {
 --=20
 1.7.2.3
