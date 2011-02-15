@@ -1,34 +1,36 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] core: dev: don't call BUG() on bad input
-Date: Tue, 15 Feb 2011 15:02:18 -0800
-Message-ID: <20110215150218.65f64b3b@nehalam>
-References: <1297680967-11893-1-git-send-email-segoon@openwall.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Multicast snooping fixes and suggestions
+Date: Wed, 16 Feb 2011 00:19:16 +0100
+Message-ID: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Changli Gao <xiaosuo@gmail.com>,
-	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
-To: Vasiliy Kulikov <segoon@openwall.com>
+	bridge@lists.linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1297680967-11893-1-git-send-email-segoon@openwall.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Feb 2011 13:56:06 +0300
-Vasiliy Kulikov <segoon@openwall.com> wrote:
+Hello everyone,
 
-> alloc_netdev() may be called with too long name (more that IFNAMSIZ bytes).
-> Currently this leads to BUG().  Other insane inputs (bad txqs, rxqs) and
-> even OOM don't lead to BUG().  Made alloc_netdev() return NULL, like on
-> other errors.
+While testing the (very awesome!) bridge igmp/mld snooping support I came across
+two issues which are breaking IPv6 multicast snooping and IPv6
+non-link-local multicast on bridges with multicast snooping support enabled
+in general. The first two patches shall fix these issues.
 
-The only way alloc_netdev could be called with a name too long
-was if some driver was incorrectly written. It is not something
-that can be exercised by user space.
+The third one addresses a potential bug on little endian machines which I noticed
+during this little code reviewing. This patch is untested though, feedback welcome.
 
-Please leave the BUG() so the driver will show up in
-kernel oops logs etc.
+The fourth and fifth patch are a suggestion to also permit using the bridge multicast
+snooping feature for link local multimedia multicast traffic. Therefore
+using the transient multicast flag instead of the non-link-local scope criteria
+seems to be a suitable solution at least for IPv6, in my opinion. Let me know what
+you think about it.
+
+Thanks for reviewing these patches.
+
+Cheers,
+Linus
