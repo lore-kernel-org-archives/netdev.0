@@ -1,94 +1,117 @@
 From: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
-Subject: [PATCH v2 4/5] omap: panda: add mmc5/wl1271 device support
-Date: Tue, 15 Feb 2011 03:40:35 -0500
-Message-ID: <1297759236-25323-5-git-send-email-panduranga_mallireddy@ti.com>
+Subject: [PATCH v2 5/5] OMAP: hsmmc: Enable MMC4 and MMC5 on OMAP4 platforms
+Date: Tue, 15 Feb 2011 03:40:36 -0500
+Message-ID: <1297759236-25323-6-git-send-email-panduranga_mallireddy@ti.com>
 References: <1297759236-25323-1-git-send-email-panduranga_mallireddy@ti.com>
  <1297759236-25323-2-git-send-email-panduranga_mallireddy@ti.com>
  <1297759236-25323-3-git-send-email-panduranga_mallireddy@ti.com>
  <1297759236-25323-4-git-send-email-panduranga_mallireddy@ti.com>
+ <1297759236-25323-5-git-send-email-panduranga_mallireddy@ti.com>
 Cc: ohad@wizery.com, benzyg@ti.com, pradeepgurumath@ti.com,
 	vishalm@ti.com, x-boudet@ti.com, naveen_jain@ti.com,
 	pavan_savoy@ti.com, manjunatha_halli@ti.com, tony@atomide.com,
-	cjb@laptop.org,
+	cjb@laptop.org, Kishore Kadiyala <kishore.kadiyala@ti.com>,
 	Panduranga Mallireddy <panduranga_mallireddy@ti.com>
 To: coelho@ti.com, netdev@vger.kernel.org, linux-omap@vger.kernel.org,
 	linux-mmc@vger.kernel.org
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <1297759236-25323-4-git-send-email-panduranga_mallireddy@ti.com>
-Sender: linux-mmc-owner@vger.kernel.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1297759236-25323-5-git-send-email-panduranga_mallireddy@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add MMC5 support on PANDA, which has the wl1271 device hardwired to.
+From: Kishore Kadiyala <kishore.kadiyala@ti.com>
 
-The wl1271 is a 4-wire, 1.8V, embedded SDIO WLAN device with an
-external IRQ line, and power-controlled by a GPIO-based fixed regulator.
+OMAP4 supports up to 5 MMC controllers, but only 3 of these were
+initialized. MMC5 is used by wl12xx chip. So initialize MMC4 and MMC5.
 
-Based on the patch for mmc3/wl1271 device support for zoom by Ohad
-Ben-Cohen <ohad@wizery.com>
+Signed-off-by: Kishore Kadiyala <kishore.kadiyala@ti.com>
 Signed-off-by: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
 ---
- arch/arm/mach-omap2/board-omap4panda.c |   20 ++++++++++++++++++++
- 1 files changed, 20 insertions(+), 0 deletions(-)
+ arch/arm/mach-omap2/hsmmc.c   |    5 +++++
+ drivers/mmc/host/omap_hsmmc.c |   24 ++++++++++++++++++++----
+ 2 files changed, 25 insertions(+), 4 deletions(-)
 
-diff --git a/arch/arm/mach-omap2/board-omap4panda.c b/arch/arm/mach-omap2/board-omap4panda.c
-index cd25255..ef43010 100644
---- a/arch/arm/mach-omap2/board-omap4panda.c
-+++ b/arch/arm/mach-omap2/board-omap4panda.c
-@@ -27,6 +27,7 @@
- #include <linux/i2c/twl.h>
- #include <linux/regulator/machine.h>
- #include <linux/regulator/fixed.h>
-+#include <linux/wl12xx.h>
+diff --git a/arch/arm/mach-omap2/hsmmc.c b/arch/arm/mach-omap2/hsmmc.c
+index 8f1a484..3c0809f 100644
+--- a/arch/arm/mach-omap2/hsmmc.c
++++ b/arch/arm/mach-omap2/hsmmc.c
+@@ -348,6 +348,11 @@ void __init omap2_hsmmc_init(struct omap2_hsmmc_info *controllers)
+ 				mmc->slots[0].after_set_reg = NULL;
+ 			}
+ 			break;
++		case 4:
++		case 5:
++			mmc->slots[0].before_set_reg = NULL;
++			mmc->slots[0].after_set_reg = NULL;
++			break;
+ 		default:
+ 			pr_err("MMC%d configuration not supported!\n", c->mmc);
+ 			kfree(mmc);
+diff --git a/drivers/mmc/host/omap_hsmmc.c b/drivers/mmc/host/omap_hsmmc.c
+index f59f8da..2525071 100644
+--- a/drivers/mmc/host/omap_hsmmc.c
++++ b/drivers/mmc/host/omap_hsmmc.c
+@@ -260,7 +260,7 @@ static int omap_hsmmc_1_set_power(struct device *dev, int slot, int power_on,
+ 	return ret;
+ }
  
- #include <mach/hardware.h>
- #include <mach/omap4-common.h>
-@@ -47,6 +48,7 @@
- #define GPIO_HUB_POWER		1
- #define GPIO_HUB_NRESET		62
- #define GPIO_WIFI_PMENA		43
-+#define GPIO_WIFI_IRQ		53
- 
- static struct gpio_led gpio_leds[] = {
- 	{
-@@ -164,6 +166,15 @@ static struct omap2_hsmmc_info mmc[] = {
- 		.gpio_wp	= -EINVAL,
- 		.gpio_cd	= -EINVAL,
- 	},
-+	{
-+		.name		= "wl1271",
-+		.mmc		= 5,
-+		.caps		= MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
-+		.gpio_wp	= -EINVAL,
-+		.gpio_cd	= -EINVAL,
-+		.ocr_mask	= MMC_VDD_165_195,
-+		.nonremovable	= true,
-+	},
- 	{}	/* Terminator */
- };
- 
-@@ -205,6 +216,12 @@ static struct platform_device omap_vwlan_device = {
- 	},
- };
- 
-+struct wl12xx_platform_data omap_panda_wlan_data  __initdata = {
-+	.irq = OMAP_GPIO_IRQ(GPIO_WIFI_IRQ),
-+	/* PANDA ref clock is 38.4 MHz */
-+	.board_ref_clock = 2,
-+};
-+
- static int omap4_twl6030_hsmmc_late_init(struct device *dev)
+-static int omap_hsmmc_23_set_power(struct device *dev, int slot, int power_on,
++static int omap_hsmmc_235_set_power(struct device *dev, int slot, int power_on,
+ 				   int vdd)
  {
- 	int ret = 0;
-@@ -461,6 +478,9 @@ static void __init omap4_panda_init(void)
- 		package = OMAP_PACKAGE_CBL;
- 	omap4_mux_init(board_mux, package);
+ 	struct omap_hsmmc_host *host =
+@@ -316,6 +316,12 @@ static int omap_hsmmc_23_set_power(struct device *dev, int slot, int power_on,
+ 	return ret;
+ }
  
-+	if (wl12xx_set_platform_data(&omap_panda_wlan_data))
-+		pr_err("error setting wl12xx data\n");
++static int omap_hsmmc_4_set_power(struct device *dev, int slot, int power_on,
++					int vdd)
++{
++	return 0;
++}
 +
- 	omap4_panda_i2c_init();
- 	platform_add_devices(panda_devices, ARRAY_SIZE(panda_devices));
- 	platform_device_register(&omap_vwlan_device);
+ static int omap_hsmmc_1_set_sleep(struct device *dev, int slot, int sleep,
+ 				  int vdd, int cardsleep)
+ {
+@@ -326,7 +332,7 @@ static int omap_hsmmc_1_set_sleep(struct device *dev, int slot, int sleep,
+ 	return regulator_set_mode(host->vcc, mode);
+ }
+ 
+-static int omap_hsmmc_23_set_sleep(struct device *dev, int slot, int sleep,
++static int omap_hsmmc_235_set_sleep(struct device *dev, int slot, int sleep,
+ 				   int vdd, int cardsleep)
+ {
+ 	struct omap_hsmmc_host *host =
+@@ -365,6 +371,12 @@ static int omap_hsmmc_23_set_sleep(struct device *dev, int slot, int sleep,
+ 		return regulator_enable(host->vcc_aux);
+ }
+ 
++static int omap_hsmmc_4_set_sleep(struct device *dev, int slot, int sleep,
++					int vdd, int cardsleep)
++{
++	return 0;
++}
++
+ static int omap_hsmmc_reg_get(struct omap_hsmmc_host *host)
+ {
+ 	struct regulator *reg;
+@@ -379,10 +391,14 @@ static int omap_hsmmc_reg_get(struct omap_hsmmc_host *host)
+ 		break;
+ 	case OMAP_MMC2_DEVID:
+ 	case OMAP_MMC3_DEVID:
++	case OMAP_MMC5_DEVID:
+ 		/* Off-chip level shifting, or none */
+-		mmc_slot(host).set_power = omap_hsmmc_23_set_power;
+-		mmc_slot(host).set_sleep = omap_hsmmc_23_set_sleep;
++		mmc_slot(host).set_power = omap_hsmmc_235_set_power;
++		mmc_slot(host).set_sleep = omap_hsmmc_235_set_sleep;
+ 		break;
++	case OMAP_MMC4_DEVID:
++		mmc_slot(host).set_power = omap_hsmmc_4_set_power;
++		mmc_slot(host).set_sleep = omap_hsmmc_4_set_sleep;
+ 	default:
+ 		pr_err("MMC%d configuration not supported!\n", host->id);
+ 		return -EINVAL;
 -- 
 1.5.6.3
 
