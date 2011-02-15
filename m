@@ -1,54 +1,69 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: pull request: sfc-next-2.6 2011-02-15
-Date: Tue, 15 Feb 2011 20:12:13 +0000
-Message-ID: <1297800733.2584.15.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 1/5] sch_mqprio: Always set num_tc to 0 in
+ mqprio_destroy()
+Date: Tue, 15 Feb 2011 20:14:11 +0000
+Message-ID: <1297800851.2584.16.camel@bwh-desktop>
+References: <1297800733.2584.15.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	sf-linux-drivers <linux-net-drivers@solarflare.com>,
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
 	Tom Herbert <therbert@google.com>,
 	John Fastabend <john.r.fastabend@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:26331 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:26460 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755313Ab1BOUMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 15:12:16 -0500
+	with ESMTP id S1755482Ab1BOUOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 15:14:14 -0500
+In-Reply-To: <1297800733.2584.15.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit 263fb5b1bf9265d0e4ce59ff6ea92f478b5b61ea:
+All the cleanup code in mqprio_destroy() is currently conditional on
+priv->qdiscs being non-null, but that condition should only apply to
+the per-queue qdisc cleanup.  We should always set the number of
+traffic classes back to 0 here.
 
-  Merge branch 'master' of master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6 (2011-02-08 17:19:01 -0800)
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ net/sched/sch_mqprio.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
 
-are available in the git repository at:
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index effd4ee..ace37f9 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -29,18 +29,18 @@ static void mqprio_destroy(struct Qdisc *sch)
+ 	struct mqprio_sched *priv = qdisc_priv(sch);
+ 	unsigned int ntx;
+ 
+-	if (!priv->qdiscs)
+-		return;
+-
+-	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
+-		qdisc_destroy(priv->qdiscs[ntx]);
++	if (priv->qdiscs) {
++		for (ntx = 0;
++		     ntx < dev->num_tx_queues && priv->qdiscs[ntx];
++		     ntx++)
++			qdisc_destroy(priv->qdiscs[ntx]);
++		kfree(priv->qdiscs);
++	}
+ 
+ 	if (priv->hw_owned && dev->netdev_ops->ndo_setup_tc)
+ 		dev->netdev_ops->ndo_setup_tc(dev, 0);
+ 	else
+ 		netdev_set_num_tc(dev, 0);
+-
+-	kfree(priv->qdiscs);
+ }
+ 
+ static int mqprio_parse_opt(struct net_device *dev, struct tc_mqprio_qopt *qopt)
+-- 
+1.7.3.4
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
 
-Multiqueue TX priority support for sfc, and some necessary fixes
-elsewhere.
-
-Ben.
-
-Ben Hutchings (5):
-      sch_mqprio: Always set num_tc to 0 in mqprio_destroy()
-      net: Adjust TX queue kobjects if number of queues changes during unregister
-      sfc: Move TX queue core queue mapping into tx.c
-      sfc: Distinguish queue lookup from test for queue existence
-      sfc: Add TX queues for high-priority traffic
-
- drivers/net/sfc/efx.c        |   31 ++++----------
- drivers/net/sfc/efx.h        |    2 +
- drivers/net/sfc/ethtool.c    |    6 +-
- drivers/net/sfc/net_driver.h |   64 +++++++++++++++++++++++-------
- drivers/net/sfc/nic.c        |   51 ++++++++++++++++++------
- drivers/net/sfc/regs.h       |    6 +++
- drivers/net/sfc/selftest.c   |    2 +-
- drivers/net/sfc/tx.c         |   90 ++++++++++++++++++++++++++++++++++++++++-
- net/core/dev.c               |    3 +-
- net/sched/sch_mqprio.c       |   14 +++---
- 10 files changed, 204 insertions(+), 65 deletions(-)
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
