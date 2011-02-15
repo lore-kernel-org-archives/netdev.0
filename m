@@ -1,50 +1,46 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: Process for subsystem maintainers to get Hyper-V code out of
- staging.
-Date: Tue, 15 Feb 2011 10:33:45 +0000
-Message-ID: <20110215103345.0b121493@lxorguk.ukuu.org.uk>
-References: <8AFC7968D54FB448A30D8F38F259C56233F95737@TK5EX14MBXC114.redmond.corp.microsoft.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] virtio: use __GFP_NOWARN for try_fill_recv in virtnet_poll
+Date: Tue, 15 Feb 2011 21:39:03 +1030
+Message-ID: <201102152139.03451.rusty@rustcorp.com.au>
+References: <20110215093527.GB8341@tiehlicka.suse.cz> <201102152041.29179.rusty@rustcorp.com.au> <20110215102549.GD8341@tiehlicka.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-ide@vger.kernel.org" <linux-ide@vger.kernel.org>,
-	"Jame.Bottomley@HansenPartnership.com"
-	<Jame.Bottomley@HansenPartnership.com>,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Hashir Abdi <habdi@microsoft.com>,
-	Mike Sterling <Mike.Sterling@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"gregkh@suse.de" <gregkh@suse.de>
-To: Hank Janssen <hjanssen@microsoft.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <8AFC7968D54FB448A30D8F38F259C56233F95737@TK5EX14MBXC114.redmond.corp.microsoft.com>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Michal Hocko <mhocko@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([203.10.76.45]:54528 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752090Ab1BOLJH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Feb 2011 06:09:07 -0500
+In-Reply-To: <20110215102549.GD8341@tiehlicka.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> 	1. Most important thing of course, did we contact the correct subsystem 
-> 	    maintainers?
-> 		i. IDE/Blkvsc		David Miller
+On Tue, 15 Feb 2011 08:55:50 pm Michal Hocko wrote:
+> On Tue 15-02-11 20:41:29, Rusty Russell wrote:
+> > On Tue, 15 Feb 2011 08:05:27 pm Michal Hocko wrote:
+> > > Hi,
+> > > we have started seeing a lot of allocator messages complaining about
+> > > failed allocations from virtnet_poll in soft IRQ. Could you consider the
+> > > following patch, please?
+> > 
+> > Do we really want to silence this?  Isn't warning about it kind of the
+> > point?  Your network is probably sucking if this happens...
+> 
+> What can user do about it? Is the low level memory allocator message
+> very much usefull for him?  Maybe we can add a printk_once in the fail
+> path with some more useful and virtio specific message.
 
-Libata - Jeff Garzik & linux-ide@vger.kernel.org
+That's an argument against ever printing any message.
 
-drivers/ide is obsolete and on its way out.
+What we need to know is why does this happen with virtio_net and not other
+cards?  If it happens to them too, and they silently fall back, all good.
 
-drivers/ata replaced it as the old code couldn't really cope with things
-like SATA NCQ or hotplug. The new stuff can which is probably handy in a
-hypervisor.
+I want to make sure we're not papering over a real problem...
 
-> 		ii. SCSI/Storvsc		James Bottomley
-
-Yes & linux-scsi@vger.kernel.org
-
-> 		iii. Network/Netvsc	Stephen Hemminger
-> 	2. What is the process to submit the code for review?
-
-See: Documentation/SubmittingPatches in your kernel tree
-
-That should answer the rest. If not then keep a tag on things that should
-have been in there but weren't and that can also get updated.
+Thanks,
+Rusty.
