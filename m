@@ -1,57 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 RESEND 2/9] ethtool: enable GSO and GRO by default
-Date: Tue, 15 Feb 2011 14:00:43 -0800 (PST)
-Message-ID: <20110215.140043.59699086.davem@davemloft.net>
-References: <66135e57d38599c0dfce347643858558c4f026c4.1297594674.git.mirq-linux@rere.qmqm.pl>
-	<20110213.105023.68138742.davem@davemloft.net>
-	<20110215214649.GA23866@rere.qmqm.pl>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: any way to reset all marked connections when using CONNMARK?
+Date: Tue, 15 Feb 2011 16:06:02 -0600
+Message-ID: <4D5AF8CA.8080908@genband.com>
+References: <4D55A927.7060703@genband.com> <1297510935.1770.38.camel@andybev>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59949
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755465Ab1BOWAH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 17:00:07 -0500
-In-Reply-To: <20110215214649.GA23866@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter <netfilter@vger.kernel.org>
+To: Andrew Beverley <andy@andybev.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1297510935.1770.38.camel@andybev>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Tue, 15 Feb 2011 22:46:49 +0100
+On 02/12/2011 05:42 AM, Andrew Beverley wrote:
+> On Fri, 2011-02-11 at 15:24 -0600, Chris Friesen wrote:
+>> It has been proposed to add a custom patch to clear the mark for all
+>> marked connections--is there a better way of doing this?
+>>
+> 
+> How about using the conntrack userspace command-line interface?
+> 
+> conntrack -U -m 0
+> 
+> looks like it should do what you want.
 
-> On Sun, Feb 13, 2011 at 10:50:23AM -0800, David Miller wrote:
->> From: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
->> Date: Sun, 13 Feb 2011 12:11:45 +0100 (CET)
->> > Signed-off-by: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
->> This is not appropriate.
->>=20
->> Now, every driver that lacks SG support will spit out that warning
->> message in netdev_fix_features().
->>=20
->> That's why the check is there conditionalizing NETIF_F_GSO on
->> NETIF_F_SG in register_netdevice().
->=20
-> I think all those messages should be converted to DEBUG level. Those
-> conditions are constant and can be better described in
-> Documentation/networking/ or ethtool manpage. Preferably along the
-> device-specific conditions when implemented.
->=20
-> Or I could just drop the message for the GSO case as it's something n=
-ew here
-> anyway (I added it to make it consistent with handling of other featu=
-res).
+Oooh, that looks perfect.
 
-The messages exist to let driver authors know they've constructed an
-illegal set of feature bits.
+For some reason the online man pages for conntrack don't seem to be up
+to date...they don't have the -U option.  It's listed in the package
+itself though.
 
-Since you're now adding the GSO bit yourself, you should perform
-due diligence and prevent the illegal combination yourself.
+Thanks,
+Chris
 
-This has no other impact on the other messages and cases, which
-definitely should stay intact.
 
-Your change is just wrong and knowingly introduces useless log
-messages, please just fix it up.
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
