@@ -1,35 +1,36 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: fix timer in get_curr_sync_buff
-Date: Wed, 16 Feb 2011 07:33:38 +0900
-Message-ID: <20110215223338.GQ8703@verge.net.au>
-References: <alpine.LFD.2.00.1102090214460.3494@ja.ssi.bg>
+From: Jan Engelhardt <jengelh@medozas.de>
+Subject: Re: any way to reset all marked connections when using CONNMARK?
+Date: Tue, 15 Feb 2011 23:42:49 +0100 (CET)
+Message-ID: <alpine.LNX.2.01.1102152342380.18599@obet.zrqbmnf.qr>
+References: <4D55A927.7060703@genband.com> <1297510935.1770.38.camel@andybev> <4D5AF8CA.8080908@genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Tinggong Wang <wangtinggong@gmail.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1102090214460.3494@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Beverley <andy@andybev.com>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	netfilter <netfilter@vger.kernel.org>
+To: Chris Friesen <chris.friesen@genband.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D5AF8CA.8080908@genband.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 09, 2011 at 02:21:59AM +0200, Julian Anastasov wrote:
-> 
-> From: Tinggong Wang <wangtinggong@gmail.com>
-> 
-> 	Fix get_curr_sync_buff to keep buffer for 2 seconds
-> as intended, not just for the current jiffie. By this way
-> we will sync more connection structures with single packet.
-> 
-> Signed-off-by: Tinggong Wang <wangtinggong@gmail.com>
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
-> 
-> 	Patch is against lvs-test-2.6 from 09-FEB-2011
-> but should apply cleanly to net-next.
+On Tuesday 2011-02-15 23:06, Chris Friesen wrote:
+>On 02/12/2011 05:42 AM, Andrew Beverley wrote:
+>> On Fri, 2011-02-11 at 15:24 -0600, Chris Friesen wrote:
+>>> It has been proposed to add a custom patch to clear the mark for all
+>>> marked connections--is there a better way of doing this?
+>>>
+>> 
+>> How about using the conntrack userspace command-line interface?
+>> 
+>> conntrack -U -m 0
+>> 
+>> looks like it should do what you want.
+>
+>Oooh, that looks perfect.
+>
+>For some reason the online man pages for conntrack don't seem to be up
+>to date...they don't have the -U option.  It's listed in the package
+>itself though.
 
-Thanks, I have pushed this change into the master branch of lvs-test-2.6.
-I am waiting for one or two more patches to settle down before
-sending my next pull request to Patrick.
-
+What online manpages are you referring to?
