@@ -1,37 +1,49 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: 3x59x WOL and CONFIG_SUSPEND
-Date: Tue, 15 Feb 2011 21:36:16 +0100
-Message-ID: <201102152136.16879.rjw@sisk.pl>
-References: <4D5A85DB.7070309@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-To: Markku Pesonen <tourula@gmail.com>
+From: greearb@candelatech.com
+Subject: [PATCH] mac80211:  Add power to debugfs.
+Date: Tue, 15 Feb 2011 13:04:34 -0800
+Message-ID: <1297803874-9109-1-git-send-email-greearb@candelatech.com>
+Cc: Ben Greear <greearb@candelatech.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ogre.sisk.pl ([217.79.144.158]:48694 "EHLO ogre.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756037Ab1BOUgi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Feb 2011 15:36:38 -0500
-In-Reply-To: <4D5A85DB.7070309@gmail.com>
+Received: from mail.candelatech.com ([208.74.158.172]:35505 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754345Ab1BOVEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 16:04:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, February 15, 2011, Markku Pesonen wrote:
-> Hi,
-> 
-> Since commit 074037ec79bea73edf1b1ec72fef1010e83e3cc5
-> (PM / Wakeup: Introduce wakeup source objects and event statistics (v3)),
-> Wake-On-Lan on my 3c905C has not worked unless I enable CONFIG_SUSPEND.
-> The driver says "0000:00:0b.0: WOL not supported."
-> 
-> Enabling CONFIG_SUSPEND makes Wake-On-Lan work on 2.6.37 while 2.6.36
-> works just fine without it. Is this a regression or intended behavior?
+From: Ben Greear <greearb@candelatech.com>
 
-It is indended.  CONFIG_PM_SLEEP is necessary for wakeup to work (as it should
-have been before).
+Signed-off-by: Ben Greear <greearb@candelatech.com>
+---
+:100644 100644 1f02e59... 51f0d78... M	net/mac80211/debugfs.c
+ net/mac80211/debugfs.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
 
-Thanks,
-Rafael
+diff --git a/net/mac80211/debugfs.c b/net/mac80211/debugfs.c
+index 1f02e59..51f0d78 100644
+--- a/net/mac80211/debugfs.c
++++ b/net/mac80211/debugfs.c
+@@ -60,6 +60,10 @@ static const struct file_operations name## _ops = {			\
+ 	debugfs_create_file(#name, mode, phyd, local, &name## _ops);
+ 
+ 
++DEBUGFS_READONLY_FILE(user_power, "%d",
++		      local->user_power_level);
++DEBUGFS_READONLY_FILE(power, "%d",
++		      local->hw.conf.power_level);
+ DEBUGFS_READONLY_FILE(frequency, "%d",
+ 		      local->hw.conf.channel->center_freq);
+ DEBUGFS_READONLY_FILE(total_ps_buffered, "%d",
+@@ -391,6 +395,8 @@ void debugfs_hw_add(struct ieee80211_local *local)
+ 	DEBUGFS_ADD(uapsd_queues);
+ 	DEBUGFS_ADD(uapsd_max_sp_len);
+ 	DEBUGFS_ADD(channel_type);
++	DEBUGFS_ADD(user_power);
++	DEBUGFS_ADD(power);
+ 
+ 	statsd = debugfs_create_dir("statistics", phyd);
+ 
+-- 
+1.7.2.3
+
