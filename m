@@ -1,72 +1,31 @@
-From: Anders Berggren <anders@halon.se>
-Subject: [PATCH] TX timestamp IPv6 support
-Date: Tue, 15 Feb 2011 14:56:21 +0100
-Message-ID: <41D1D4BB-0CED-4396-B0FA-1DC42296DBCF@halon.se>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: John Ronciak <john.ronciak@intel.com>
+From: Markku Pesonen <tourula@gmail.com>
+Subject: 3x59x WOL and CONFIG_SUSPEND
+Date: Tue, 15 Feb 2011 15:55:39 +0200
+Message-ID: <4D5A85DB.7070309@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsp.halon.se ([212.37.18.222]:61205 "EHLO vsp.halon.se"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751654Ab1BON42 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 08:56:28 -0500
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:47232 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089Ab1BON4t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 08:56:49 -0500
+Received: by eye27 with SMTP id 27so68605eye.19
+        for <netdev@vger.kernel.org>; Tue, 15 Feb 2011 05:56:48 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables UDP IPv6 TX timestamping (using SO_TIMESTAMPING, enabled by CONFIG_NETWORK_PHY_TIMESTAMPING) as Marcus D. Leech suggested in http://kerneltrap.org/mailarchive/linux-netdev/2009/11/10/6260604 and http://kerneltrap.org/mailarchive/linux-netdev/2009/11/11/6260643 
+Hi,
 
-It's mostly copied from net/ipv4/udp.c. I guess it would be better to run sock_tx_timestamp in ipv6/udp.c and pass it to ipv6/ip6_output.c's ip6_append_data somehow, but I didn't find a suitable struct to extend for this purpose. 
+Since commit 074037ec79bea73edf1b1ec72fef1010e83e3cc5
+(PM / Wakeup: Introduce wakeup source objects and event statistics (v3)),
+Wake-On-Lan on my 3c905C has not worked unless I enable CONFIG_SUSPEND.
+The driver says "0000:00:0b.0: WOL not supported."
 
-Anders Berggren
-Halon Security
+Enabling CONFIG_SUSPEND makes Wake-On-Lan work on 2.6.37 while 2.6.36
+works just fine without it. Is this a regression or intended behavior?
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 94b5bf1..74d9343 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1115,6 +1115,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
-        int err;
-        int offset = 0;
-        int csummode = CHECKSUM_NONE;
-+       __u8 tx_flags = 0;
- 
-        if (flags&MSG_PROBE)
-                return 0;
-@@ -1199,6 +1200,13 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
-                }
-        }
- 
-+       /* For UDP, check if TX timestamp is enabled */ 
-+       if (sk->sk_type == SOCK_DGRAM) {
-+               err = sock_tx_timestamp(sk, &tx_flags);
-+               if (err)
-+                       goto error;
-+       }
-+
-        /*
-         * Let's try using as much space as possible.
-         * Use MTU if total length of the message fits into the MTU.
-@@ -1303,6 +1311,10 @@ alloc_new_skb:
-                                                           sk->sk_allocation);
-                                if (unlikely(skb == NULL))
-                                        err = -ENOBUFS;
-+                               else
-+                                       /* only the initial fragment is
-+                                          time stamped */
-+                                       tx_flags = 0;
-                        }
-                        if (skb == NULL)
-                                goto error;
-@@ -1314,6 +1326,9 @@ alloc_new_skb:
-                        /* reserve for fragmentation */
-                        skb_reserve(skb, hh_len+sizeof(struct frag_hdr));
- 
-+                       if (sk->sk_type == SOCK_DGRAM) 
-+                               skb_shinfo(skb)->tx_flags = tx_flags;
-+
-                        /*
-                         *      Find where to start putting bytes
-                         */
 
