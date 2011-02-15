@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
-Subject: [PATCH 2/5] bridge: Fix IPv6 multicast snooping by correcting offset in MLDv2 report
-Date: Wed, 16 Feb 2011 00:19:18 +0100
-Message-ID: <1297811961-19249-3-git-send-email-linus.luessing@web.de>
+Subject: [PATCH 4/5] ipv6: Add IPv6 multicast address flag defines
+Date: Wed, 16 Feb 2011 00:19:20 +0100
+Message-ID: <1297811961-19249-5-git-send-email-linus.luessing@web.de>
 References: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,36 +12,47 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Stephen Hemminger <shemminger@linux-foundation.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	bridge@lists.linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from fmmailgate02.web.de ([217.72.192.227]:42980 "EHLO
+	fmmailgate02.web.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755952Ab1BOXTk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 18:19:40 -0500
 In-Reply-To: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We actually want a pointer to the grec_nsrcr and not the following
-field. Otherwise we can get very high values for *nsrcs as the first tw=
-o
-bytes of the IPv6 multicast address are being used instead, leading to
-a failing pskb_may_pull() which results in MLDv2 reports not being
-parsed.
+This commit adds the missing IPv6 multicast address flag defines to
+complement the already existing multicast address scope defines and to
+be able to check these flags nicely in the future.
 
 Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
 ---
- net/bridge/br_multicast.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/ipv6.h |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 135d929..45dcf10 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1014,7 +1014,7 @@ static int br_ip6_multicast_mld2_report(struct ne=
-t_bridge *br,
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 4a3cd2c..96e50e0 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -89,6 +89,18 @@
+ #define IPV6_ADDR_SCOPE_GLOBAL		0x0e
 =20
- 		nsrcs =3D skb_header_pointer(skb,
- 					   len + offsetof(struct mld2_grec,
--							  grec_mca),
-+							  grec_nsrcs),
- 					   sizeof(_nsrcs), &_nsrcs);
- 		if (!nsrcs)
- 			return -EINVAL;
+ /*
++ *	Addr flags
++ */
++#ifdef __KERNEL__
++#define IPV6_ADDR_MC_FLAG_TRANSIENT(a)	\
++	((a)->s6_addr[1] & 0x10)
++#define IPV6_ADDR_MC_FLAG_PREFIX(a)	\
++	((a)->s6_addr[1] & 0x20)
++#define IPV6_ADDR_MC_FLAG_RENDEZVOUS(a)	\
++	((a)->s6_addr[1] & 0x40)
++#endif
++
++/*
+  *	fragmentation header
+  */
+=20
 --=20
 1.7.2.3
+
