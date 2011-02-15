@@ -1,36 +1,58 @@
 From: Michal Hocko <mhocko@suse.cz>
 Subject: Re: [PATCH] virtio: use __GFP_NOWARN for try_fill_recv in
  virtnet_poll
-Date: Tue, 15 Feb 2011 13:39:36 +0100
-Message-ID: <20110215123936.GE8341@tiehlicka.suse.cz>
+Date: Tue, 15 Feb 2011 13:42:55 +0100
+Message-ID: <20110215124255.GF8341@tiehlicka.suse.cz>
 References: <20110215093527.GB8341@tiehlicka.suse.cz>
+ <201102152041.29179.rusty@rustcorp.com.au>
+ <20110215102549.GD8341@tiehlicka.suse.cz>
+ <201102152139.03451.rusty@rustcorp.com.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "Michael S. Tsirkin" <mst@redhat.com>,
 	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor.suse.de ([195.135.220.2]:36913 "EHLO mx1.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754624Ab1BOMji (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Feb 2011 07:39:38 -0500
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20110215093527.GB8341@tiehlicka.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <201102152139.03451.rusty@rustcorp.com.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue 15-02-11 10:35:27, Michal Hocko wrote:
-[...]
-> [22798.508903] The following is only an harmless informational message.
-> [22798.508909] Unless you get a _continuous_flood_ of these messages it means
-> [22798.508911] everything is working fine. Allocations from irqs cannot be
-> [22798.508913] perfectly reliable and the kernel is designed to handle that.
+On Tue 15-02-11 21:39:03, Rusty Russell wrote:
+> On Tue, 15 Feb 2011 08:55:50 pm Michal Hocko wrote:
+> > On Tue 15-02-11 20:41:29, Rusty Russell wrote:
+> > > On Tue, 15 Feb 2011 08:05:27 pm Michal Hocko wrote:
+> > > > Hi,
+> > > > we have started seeing a lot of allocator messages complaining about
+> > > > failed allocations from virtnet_poll in soft IRQ. Could you consider the
+> > > > following patch, please?
+> > > 
+> > > Do we really want to silence this?  Isn't warning about it kind of the
+> > > point?  Your network is probably sucking if this happens...
+> > 
+> > What can user do about it? Is the low level memory allocator message
+> > very much usefull for him?  Maybe we can add a printk_once in the fail
+> > path with some more useful and virtio specific message.
+> 
+> That's an argument against ever printing any message.
 
-I have just realized that the above text is SLES specific so only the
-line below with stack trace and memory info is printed. Sorry for confusion
+Well, honestly, I do not see much point for this message but it is there
+for ages so it maybe it is valueable for somebody...
 
-> [22798.508917] loop3: page allocation failure. order:0, mode:0x20, alloc_flags:0x30 pflags:0x80208040
+> 
+> What we need to know is why does this happen with virtio_net and not other
+> cards?  
+
+The machine just happened to be short on memory due to a strong memory
+pressure.
+
+> If it happens to them too, and they silently fall back, all good.
+> 
+> I want to make sure we're not papering over a real problem...
+> 
+> Thanks,
+> Rusty.
 
 -- 
 Michal Hocko
