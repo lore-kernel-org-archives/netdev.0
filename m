@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 1/5] sch_mqprio: Always set num_tc to 0 in
- mqprio_destroy()
-Date: Tue, 15 Feb 2011 20:14:11 +0000
-Message-ID: <1297800851.2584.16.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 2/5] net: Adjust TX queue kobjects if number
+ of queues changes during unregister
+Date: Tue, 15 Feb 2011 20:14:21 +0000
+Message-ID: <1297800861.2584.17.camel@bwh-desktop>
 References: <1297800733.2584.15.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -12,54 +12,40 @@ Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
 	John Fastabend <john.r.fastabend@intel.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:26460 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:26486 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755482Ab1BOUOO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 15:14:14 -0500
+	with ESMTP id S1756008Ab1BOUO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 15:14:27 -0500
 In-Reply-To: <1297800733.2584.15.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All the cleanup code in mqprio_destroy() is currently conditional on
-priv->qdiscs being non-null, but that condition should only apply to
-the per-queue qdisc cleanup.  We should always set the number of
-traffic classes back to 0 here.
+If the root qdisc for a net device is mqprio, and the driver's
+ndo_setup_tc() operation dynamically adds and remvoes TX queues,
+netif_set_real_num_tx_queues() will be called during device
+unregistration to remove the extra TX queues when the qdisc is
+destroyed.  Currently this causes the corresponding kobjects
+to be leaked, and the device's reference count never drops to 0.
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- net/sched/sch_mqprio.c |   14 +++++++-------
- 1 files changed, 7 insertions(+), 7 deletions(-)
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
-index effd4ee..ace37f9 100644
---- a/net/sched/sch_mqprio.c
-+++ b/net/sched/sch_mqprio.c
-@@ -29,18 +29,18 @@ static void mqprio_destroy(struct Qdisc *sch)
- 	struct mqprio_sched *priv = qdisc_priv(sch);
- 	unsigned int ntx;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6392ea0..30c71f9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1648,7 +1648,8 @@ int netif_set_real_num_tx_queues(struct net_device *dev, unsigned int txq)
+ 	if (txq < 1 || txq > dev->num_tx_queues)
+ 		return -EINVAL;
  
--	if (!priv->qdiscs)
--		return;
--
--	for (ntx = 0; ntx < dev->num_tx_queues && priv->qdiscs[ntx]; ntx++)
--		qdisc_destroy(priv->qdiscs[ntx]);
-+	if (priv->qdiscs) {
-+		for (ntx = 0;
-+		     ntx < dev->num_tx_queues && priv->qdiscs[ntx];
-+		     ntx++)
-+			qdisc_destroy(priv->qdiscs[ntx]);
-+		kfree(priv->qdiscs);
-+	}
+-	if (dev->reg_state == NETREG_REGISTERED) {
++	if (dev->reg_state == NETREG_REGISTERED ||
++	    dev->reg_state == NETREG_UNREGISTERING) {
+ 		ASSERT_RTNL();
  
- 	if (priv->hw_owned && dev->netdev_ops->ndo_setup_tc)
- 		dev->netdev_ops->ndo_setup_tc(dev, 0);
- 	else
- 		netdev_set_num_tc(dev, 0);
--
--	kfree(priv->qdiscs);
- }
- 
- static int mqprio_parse_opt(struct net_device *dev, struct tc_mqprio_qopt *qopt)
+ 		rc = netdev_queue_update_kobjects(dev, dev->real_num_tx_queues,
 -- 
 1.7.3.4
 
