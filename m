@@ -1,17 +1,17 @@
 From: Western Union Transfer <williams@swift.com.ar>
 Subject: (unknown)
-Date: Tue, 15 Feb 2011 01:23:44 +0000
-Message-ID: <4761.82.128.16.56.1297733024.squirrel@webmail.swift.com.ar>
+Date: Tue, 15 Feb 2011 01:24:22 +0000
+Message-ID: <4795.82.128.16.56.1297733062.squirrel@webmail.swift.com.ar>
 Reply-To: western_uniontransfer09@zbavitu.net
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7BIT
 To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.swift.com.ar ([200.70.34.14]:47763 "EHLO
+Received: from mail3.swift.com.ar ([200.70.34.14]:51106 "EHLO
 	mail2.swift.com.ar" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751406Ab1BOJGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 04:06:37 -0500
+	with ESMTP id S1751592Ab1BOJNr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 04:13:47 -0500
 Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
