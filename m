@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 3/5] sfc: Move TX queue core queue mapping
- into tx.c
-Date: Tue, 15 Feb 2011 20:14:36 +0000
-Message-ID: <1297800876.2584.18.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 4/5] sfc: Distinguish queue lookup from test
+ for queue existence
+Date: Tue, 15 Feb 2011 20:14:51 +0000
+Message-ID: <1297800891.2584.19.camel@bwh-desktop>
 References: <1297800733.2584.15.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -11,73 +11,166 @@ Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
 	Tom Herbert <therbert@google.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:26524 "EHLO
+Received: from exchange.solarflare.com ([216.237.3.220]:26558 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753667Ab1BOUOj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 15:14:39 -0500
+	with ESMTP id S1751726Ab1BOUO5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Feb 2011 15:14:57 -0500
 In-Reply-To: <1297800733.2584.15.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-efx_hard_start_xmit() needs to implement a mapping which is the
-inverse of tx_queue::core_txq.  Move the initialisation of
-tx_queue::core_txq next to efx_hard_start_xmit() to make the
-connection more obvious.
+efx_channel_get_{rx,tx}_queue() currently return NULL if the channel
+isn't used for traffic in that direction.  In most cases this is a
+bug, but some callers rely on it as an existence test.
+
+Add existence test functions efx_channel_has_{rx_queue,tx_queues}()
+and use them as appropriate.
+
+Change efx_channel_get_{rx,tx}_queue() to assert that the requested
+queue exists.
+
+Remove now-redundant initialisation from efx_set_channels().
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/sfc/efx.c |    6 ++----
- drivers/net/sfc/efx.h |    1 +
- drivers/net/sfc/tx.c  |    7 +++++++
- 3 files changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/sfc/efx.c        |   17 ++---------------
+ drivers/net/sfc/ethtool.c    |    6 +++---
+ drivers/net/sfc/net_driver.h |   39 ++++++++++++++++++++++++++++-----------
+ 3 files changed, 33 insertions(+), 29 deletions(-)
 
 diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 002bac7..c559bc3 100644
+index c559bc3..6189d30 100644
 --- a/drivers/net/sfc/efx.c
 +++ b/drivers/net/sfc/efx.c
-@@ -1910,10 +1910,8 @@ static int efx_register_netdev(struct efx_nic *efx)
+@@ -1271,21 +1271,8 @@ static void efx_remove_interrupts(struct efx_nic *efx)
  
- 	efx_for_each_channel(channel, efx) {
- 		struct efx_tx_queue *tx_queue;
--		efx_for_each_channel_tx_queue(tx_queue, channel) {
--			tx_queue->core_txq = netdev_get_tx_queue(
--				efx->net_dev, tx_queue->queue / EFX_TXQ_TYPES);
+ static void efx_set_channels(struct efx_nic *efx)
+ {
+-	struct efx_channel *channel;
+-	struct efx_tx_queue *tx_queue;
+-
+ 	efx->tx_channel_offset =
+ 		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
+-
+-	/* Channel pointers were set in efx_init_struct() but we now
+-	 * need to clear them for TX queues in any RX-only channels. */
+-	efx_for_each_channel(channel, efx) {
+-		if (channel->channel - efx->tx_channel_offset >=
+-		    efx->n_tx_channels) {
+-			efx_for_each_channel_tx_queue(tx_queue, channel)
+-				tx_queue->channel = NULL;
 -		}
-+		efx_for_each_channel_tx_queue(tx_queue, channel)
-+			efx_init_tx_queue_core_txq(tx_queue);
- 	}
- 
- 	/* Always start with carrier off; PHY events will detect the link */
-diff --git a/drivers/net/sfc/efx.h b/drivers/net/sfc/efx.h
-index d43a7e5..1162070 100644
---- a/drivers/net/sfc/efx.h
-+++ b/drivers/net/sfc/efx.h
-@@ -29,6 +29,7 @@
- extern int efx_probe_tx_queue(struct efx_tx_queue *tx_queue);
- extern void efx_remove_tx_queue(struct efx_tx_queue *tx_queue);
- extern void efx_init_tx_queue(struct efx_tx_queue *tx_queue);
-+extern void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue);
- extern void efx_fini_tx_queue(struct efx_tx_queue *tx_queue);
- extern void efx_release_tx_buffers(struct efx_tx_queue *tx_queue);
- extern netdev_tx_t
-diff --git a/drivers/net/sfc/tx.c b/drivers/net/sfc/tx.c
-index 2f5e9da..7e463fb 100644
---- a/drivers/net/sfc/tx.c
-+++ b/drivers/net/sfc/tx.c
-@@ -347,6 +347,13 @@ netdev_tx_t efx_hard_start_xmit(struct sk_buff *skb,
- 	return efx_enqueue_skb(tx_queue, skb);
+-	}
  }
  
-+void efx_init_tx_queue_core_txq(struct efx_tx_queue *tx_queue)
+ static int efx_probe_nic(struct efx_nic *efx)
+@@ -1531,9 +1518,9 @@ void efx_init_irq_moderation(struct efx_nic *efx, int tx_usecs, int rx_usecs,
+ 	efx->irq_rx_adaptive = rx_adaptive;
+ 	efx->irq_rx_moderation = rx_ticks;
+ 	efx_for_each_channel(channel, efx) {
+-		if (efx_channel_get_rx_queue(channel))
++		if (efx_channel_has_rx_queue(channel))
+ 			channel->irq_moderation = rx_ticks;
+-		else if (efx_channel_get_tx_queue(channel, 0))
++		else if (efx_channel_has_tx_queues(channel))
+ 			channel->irq_moderation = tx_ticks;
+ 	}
+ }
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 713969a..272cfe7 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -631,7 +631,7 @@ static int efx_ethtool_get_coalesce(struct net_device *net_dev,
+ 	/* Find lowest IRQ moderation across all used TX queues */
+ 	coalesce->tx_coalesce_usecs_irq = ~((u32) 0);
+ 	efx_for_each_channel(channel, efx) {
+-		if (!efx_channel_get_tx_queue(channel, 0))
++		if (!efx_channel_has_tx_queues(channel))
+ 			continue;
+ 		if (channel->irq_moderation < coalesce->tx_coalesce_usecs_irq) {
+ 			if (channel->channel < efx->n_rx_channels)
+@@ -676,8 +676,8 @@ static int efx_ethtool_set_coalesce(struct net_device *net_dev,
+ 
+ 	/* If the channel is shared only allow RX parameters to be set */
+ 	efx_for_each_channel(channel, efx) {
+-		if (efx_channel_get_rx_queue(channel) &&
+-		    efx_channel_get_tx_queue(channel, 0) &&
++		if (efx_channel_has_rx_queue(channel) &&
++		    efx_channel_has_tx_queues(channel) &&
+ 		    tx_usecs) {
+ 			netif_err(efx, drv, efx->net_dev, "Channel is shared. "
+ 				  "Only RX coalescing may be set\n");
+diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
+index c652702..77b7ce4 100644
+--- a/drivers/net/sfc/net_driver.h
++++ b/drivers/net/sfc/net_driver.h
+@@ -938,19 +938,28 @@ efx_get_tx_queue(struct efx_nic *efx, unsigned index, unsigned type)
+ 	return &efx->channel[efx->tx_channel_offset + index]->tx_queue[type];
+ }
+ 
++static inline bool efx_channel_has_tx_queues(struct efx_channel *channel)
 +{
-+	/* Must be inverse of queue lookup in efx_hard_start_xmit() */
-+	tx_queue->core_txq = netdev_get_tx_queue(
-+		tx_queue->efx->net_dev, tx_queue->queue / EFX_TXQ_TYPES);
++	return channel->channel - channel->efx->tx_channel_offset <
++		channel->efx->n_tx_channels;
 +}
 +
- void efx_xmit_done(struct efx_tx_queue *tx_queue, unsigned int index)
+ static inline struct efx_tx_queue *
+ efx_channel_get_tx_queue(struct efx_channel *channel, unsigned type)
  {
- 	unsigned fill_level;
+-	struct efx_tx_queue *tx_queue = channel->tx_queue;
+-	EFX_BUG_ON_PARANOID(type >= EFX_TXQ_TYPES);
+-	return tx_queue->channel ? tx_queue + type : NULL;
++	EFX_BUG_ON_PARANOID(!efx_channel_has_tx_queues(channel) ||
++			    type >= EFX_TXQ_TYPES);
++	return &channel->tx_queue[type];
+ }
+ 
+ /* Iterate over all TX queues belonging to a channel */
+ #define efx_for_each_channel_tx_queue(_tx_queue, _channel)		\
+-	for (_tx_queue = efx_channel_get_tx_queue(channel, 0);		\
+-	     _tx_queue && _tx_queue < (_channel)->tx_queue + EFX_TXQ_TYPES; \
+-	     _tx_queue++)
++	if (!efx_channel_has_tx_queues(_channel))			\
++		;							\
++	else								\
++		for (_tx_queue = (_channel)->tx_queue;			\
++		     _tx_queue < (_channel)->tx_queue + EFX_TXQ_TYPES;	\
++		     _tx_queue++)
+ 
+ static inline struct efx_rx_queue *
+ efx_get_rx_queue(struct efx_nic *efx, unsigned index)
+@@ -959,18 +968,26 @@ efx_get_rx_queue(struct efx_nic *efx, unsigned index)
+ 	return &efx->channel[index]->rx_queue;
+ }
+ 
++static inline bool efx_channel_has_rx_queue(struct efx_channel *channel)
++{
++	return channel->channel < channel->efx->n_rx_channels;
++}
++
+ static inline struct efx_rx_queue *
+ efx_channel_get_rx_queue(struct efx_channel *channel)
+ {
+-	return channel->channel < channel->efx->n_rx_channels ?
+-		&channel->rx_queue : NULL;
++	EFX_BUG_ON_PARANOID(!efx_channel_has_rx_queue(channel));
++	return &channel->rx_queue;
+ }
+ 
+ /* Iterate over all RX queues belonging to a channel */
+ #define efx_for_each_channel_rx_queue(_rx_queue, _channel)		\
+-	for (_rx_queue = efx_channel_get_rx_queue(channel);		\
+-	     _rx_queue;							\
+-	     _rx_queue = NULL)
++	if (!efx_channel_has_rx_queue(_channel))			\
++		;							\
++	else								\
++		for (_rx_queue = &(_channel)->rx_queue;			\
++		     _rx_queue;						\
++		     _rx_queue = NULL)
+ 
+ static inline struct efx_channel *
+ efx_rx_queue_channel(struct efx_rx_queue *rx_queue)
 -- 
 1.7.3.4
 
