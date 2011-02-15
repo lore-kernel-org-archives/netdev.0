@@ -1,51 +1,29 @@
-From: Western Union Transfer <williams@swift.com.ar>
-Subject: (unknown)
-Date: Mon, 14 Feb 2011 23:21:12 +0000
-Message-ID: <3643.82.128.14.188.1297725672.squirrel__9001.88314631141$1297731173$gmane$org@webmail.swift.com.ar>
-Reply-To: western_uniontransfer09@zbavitu.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-26 0/4] cxgb4vf: minor bug fixes -- revised patch
+ set
+Date: Mon, 14 Feb 2011 17:37:31 -0800 (PST)
+Message-ID: <20110214.173731.39194292.davem@davemloft.net>
+References: <1297724185-27452-1-git-send-email-leedom@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: leedom@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail3.swift.com.ar ([200.70.34.14]:39400 "EHLO
-	mail2.swift.com.ar" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752066Ab1BOAwM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 19:52:12 -0500
-Subject: 
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53846
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753820Ab1BOBg4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Feb 2011 20:36:56 -0500
+In-Reply-To: <1297724185-27452-1-git-send-email-leedom@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Casey Leedom <leedom@chelsio.com>
+Date: Mon, 14 Feb 2011 14:56:21 -0800
 
+> [01/04]: Check driver parameters in the right place ...
+> [02/04]: Behave properly when CONFIG_DEBUG_FS isn't defined ...
+> [03/04]: Quiesce Virtual Interfaces on shutdown ...
+> [04/04]: Use defined Mailbox Timeout
 
-
-We have been trying to reach you since the past few days,
-as my associate has helped me to send your first payment
-of $7,500 USD to you as instructed by Mr. David Cameron
-the United Kingdom prime minister after the last G20
-meeting that was held in United Kingdom, making you one
-of the beneficiaries. Here is the information below.
-
-MONEY TRANSFER CONTROL NUMBER: 3928738492
-SENDER NAME:Solomon Daniel
-AMOUNT: $7,500 USD
-
-I told him to keep sending you $7,500 USD twice a week
-until the FULL payment of ($360.000 United State Dollars)
-is completed.
-
-Note a certificate will be made to change the Receiver Name as
-stated by the British prime minister, send your Full Names
-and your direct phone contact via Email to: Mr Gary Moore
-
-The money will not reflect until the clearance certificate is
-issue to you by the G20 committee.
-
-contact Mr. Gary Moore for your clearance certificate.
-
-Mr Gary Moore
-E-mail:western_uniontransfer09@zbavitu.net
-D/L:+44 7024018331
-
-
-
+All applied, thanks.
