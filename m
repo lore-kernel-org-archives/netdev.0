@@ -1,62 +1,34 @@
-From: "Matt Carlson" <mcarlson@broadcom.com>
-Subject: [PATCH net-2.6/stable] tg3: Restrict phy ioctl access
-Date: Tue, 15 Feb 2011 14:51:10 -0800
-Message-ID: <1297810270-4690-1-git-send-email-mcarlson@broadcom.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] core: dev: don't call BUG() on bad input
+Date: Tue, 15 Feb 2011 15:02:18 -0800
+Message-ID: <20110215150218.65f64b3b@nehalam>
+References: <1297680967-11893-1-git-send-email-segoon@openwall.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mcarlson@broadcom.com, stable@kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1524 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756458Ab1BOWvb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Feb 2011 17:51:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Changli Gao <xiaosuo@gmail.com>,
+	Jesse Gross <jesse@nicira.com>, netdev@vger.kernel.org
+To: Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1297680967-11893-1-git-send-email-segoon@openwall.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If management firmware is present and the device is down, the firmware
-will assume control of the phy.  If a phy access were allowed from the
-host, it will collide with firmware phy accesses, resulting in
-unpredictable behavior.  This patch fixes the problem by disallowing phy
-accesses during the problematic condition.
+On Mon, 14 Feb 2011 13:56:06 +0300
+Vasiliy Kulikov <segoon@openwall.com> wrote:
 
-Upstream commit ID f746a3136a61ae535c5d0b49a9418fa21edc61b5
+> alloc_netdev() may be called with too long name (more that IFNAMSIZ bytes).
+> Currently this leads to BUG().  Other insane inputs (bad txqs, rxqs) and
+> even OOM don't lead to BUG().  Made alloc_netdev() return NULL, like on
+> other errors.
 
-Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
-Reviewed-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- drivers/net/tg3.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+The only way alloc_netdev could be called with a name too long
+was if some driver was incorrectly written. It is not something
+that can be exercised by user space.
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 93b32d3..06c0e503 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -11158,7 +11158,9 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (tp->phy_flags & TG3_PHYFLG_PHY_SERDES)
- 			break;			/* We have no PHY */
- 
--		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
-+		if ((tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) ||
-+		    ((tp->tg3_flags & TG3_FLAG_ENABLE_ASF) &&
-+		     !netif_running(dev)))
- 			return -EAGAIN;
- 
- 		spin_lock_bh(&tp->lock);
-@@ -11174,7 +11176,9 @@ static int tg3_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 		if (tp->phy_flags & TG3_PHYFLG_PHY_SERDES)
- 			break;			/* We have no PHY */
- 
--		if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER)
-+		if ((tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) ||
-+		    ((tp->tg3_flags & TG3_FLAG_ENABLE_ASF) &&
-+		     !netif_running(dev)))
- 			return -EAGAIN;
- 
- 		spin_lock_bh(&tp->lock);
--- 
-1.7.3.4
-
-
+Please leave the BUG() so the driver will show up in
+kernel oops logs etc.
