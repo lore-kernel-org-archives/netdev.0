@@ -1,49 +1,59 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] bonding/vlan: Avoid mangled NAs on slaves
- without VLAN tag insertion
-Date: Wed, 16 Feb 2011 13:58:55 -0800
-Message-ID: <20110216215855.GL5027@kroah.com>
-References: <1297106455.4077.7.camel@bwh-desktop>
-	<20110207.131754.59684095.davem@davemloft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: macb:
+Date: Wed, 16 Feb 2011 23:31:26 +0100
+Message-ID: <4D5C503E.8010203@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-        stable@kernel.org, bonding-devel@lists.sourceforge.net
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-bounces@linux.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110207.131754.59684095.davem@davemloft.net>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigDA99B3B90C01A7ACCAB10AF1"
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+To: Netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43754 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753186Ab1BPWbb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 17:31:31 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 07, 2011 at 01:17:54PM -0800, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Mon, 07 Feb 2011 19:20:55 +0000
-> 
-> > This is related to commit f88a4a9b65a6f3422b81be995535d0e69df11bb8
-> > upstream, but the bug cannot be properly fixed without the other
-> > changes to VLAN tagging in 2.6.37.
-> > 
-> > bond_na_send() attempts to insert a VLAN tag in between building and
-> > sending packets of the respective formats.  If the slave does not
-> > implement hardware VLAN tag insertion then vlan_put_tag() will mangle
-> > the network-layer header because the Ethernet header is not present at
-> > this point (unlike in bond_arp_send()).
-> > 
-> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigDA99B3B90C01A7ACCAB10AF1
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-Great, thanks for the patch, now queued up for the next .32-stable
-release.
+Hello,
 
-greg k-h
+I added type checking[1] to platform_set_drvdata and got the following
+warning:
+
+drivers/net/macb.c: In function 'macb_mii_init':
+drivers/net/macb.c:263: warning: passing argument 1 of 'platform_set_drvd=
+ata' from incompatible pointer type
+
+I'm new to the mii_bus stuff and don't see how to fix it.
+
+regards, Marc
+
+[1] https://lkml.org/lkml/2011/2/16/380
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--------------enigDA99B3B90C01A7ACCAB10AF1
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
+
+iEYEARECAAYFAk1cUEEACgkQjTAFq1RaXHNcjACfZ24CkBSEWluxgU2KwXcwpzPr
+M5gAnA2buq2911k7lyGAKFnJE1ZK5eCf
+=4iw/
+-----END PGP SIGNATURE-----
+
+--------------enigDA99B3B90C01A7ACCAB10AF1--
