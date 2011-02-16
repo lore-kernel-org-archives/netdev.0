@@ -1,41 +1,29 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next-2.6 4/4] bridge: implement [add/del]_slave ops
-Date: Wed, 16 Feb 2011 05:21:54 -0800
-Message-ID: <20110216052154.4e437265@s6510>
-References: <20110213193105.GD2740@psychotron.redhat.com>
-	<20110213193341.GG2740@psychotron.redhat.com>
-	<20110213.165903.184824754.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Off-by-one error in net/8021q/vlan.c
+Date: Wed, 16 Feb 2011 14:22:25 +0100
+Message-ID: <4D5BCF91.1010309@trash.net>
+References: <4D5BADCF.5000804@ka9q.net> <AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: jpirko@redhat.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: Phil Karn <karn@ka9q.net>, netdev@vger.kernel.org
+To: richard -rw- weinberger <richard.weinberger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:44336 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753160Ab1BPNV4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Feb 2011 08:21:56 -0500
-In-Reply-To: <20110213.165903.184824754.davem@davemloft.net>
+Received: from stinky.trash.net ([213.144.137.162]:33040 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754512Ab1BPNW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 08:22:26 -0500
+In-Reply-To: <AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 13 Feb 2011 16:59:03 -0800 (PST)
-David Miller <davem@davemloft.net> wrote:
-
-> From: Jiri Pirko <jpirko@redhat.com>
-> Date: Sun, 13 Feb 2011 20:33:42 +0100
+On 16.02.2011 13:51, richard -rw- weinberger wrote:
+> On Wed, Feb 16, 2011 at 11:58 AM, Phil Karn <karn@ka9q.net> wrote:
+>> The range check on vlan_id in register_vlan_device is off by one, and it
+>> prevents the creation of a vlan interface for vlan ID 4095. (OSX allows
+>> this, I checked.)
 > 
-> > add possibility to addif/delif via rtnetlink
-> > 
-> > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> 
-> Applied.
+> Then OSX should fix their code. 4095 is reserved.
 
-You should follow established protocol and wait until I have
-had time to review code that impacts areas which I maintain.
-The linux-foundation email address is not listed in MAINTAINERS
-file and is mainly a spam catcher that I never read.
+I agree.
 
-Maybe I should just start sending networking patches to Linus.
