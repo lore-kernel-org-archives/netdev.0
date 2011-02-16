@@ -1,54 +1,76 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC !!BONUS!! PATCH 6/5] ipv4: Delete routing cache.
-Date: Wed, 16 Feb 2011 10:09:35 -0800 (PST)
-Message-ID: <20110216.100935.189677289.davem@davemloft.net>
-References: <20110209.223939.246547003.davem@davemloft.net>
-	<20110215.185534.71133854.davem@davemloft.net>
-	<1297842977.3201.7.camel@edumazet-laptop>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: Off-by-one error in net/8021q/vlan.c
+Date: Wed, 16 Feb 2011 19:41:34 +0100
+Message-ID: <AANLkTimrQy6gU8d86m2jM4arMS0rOvEQmn2m-KTE4sx9@mail.gmail.com>
+References: <4D5BADCF.5000804@ka9q.net>
+	<AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
+	<4D5BF411.4020204@ka9q.net>
+	<AANLkTikNrwd31RBj1gc6kSaT=qodS=A=YntM=72PMbDf@mail.gmail.com>
+	<4D5BFB39.8070805@ka9q.net>
+	<1297874372.30541.29.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Phil Karn <karn@ka9q.net>,
+	richard -rw- weinberger <richard.weinberger@gmail.com>,
+	kaber@trash.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59690
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754063Ab1BPSI7 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Feb 2011 13:08:59 -0500
-In-Reply-To: <1297842977.3201.7.camel@edumazet-laptop>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:45847 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752101Ab1BPSlg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 13:41:36 -0500
+Received: by qwa26 with SMTP id 26so1579698qwa.19
+        for <netdev@vger.kernel.org>; Wed, 16 Feb 2011 10:41:35 -0800 (PST)
+In-Reply-To: <1297874372.30541.29.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 16 Feb 2011 08:56:17 +0100
+2011/2/16 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le mercredi 16 f=C3=A9vrier 2011 =C3=A0 08:28 -0800, Phil Karn a =C3=A9=
+crit :
+>> On 2/16/11 8:10 AM, richard -rw- weinberger wrote:
+>> > On Wed, Feb 16, 2011 at 4:58 PM, Phil Karn <karn@ka9q.net> wrote:
+>> >> On 2/16/11 4:51 AM, richard -rw- weinberger wrote:
+>> >>> On Wed, Feb 16, 2011 at 11:58 AM, Phil Karn <karn@ka9q.net> wrot=
+e:
+>> >>>> The range check on vlan_id in register_vlan_device is off by on=
+e, and it
+>> >>>> prevents the creation of a vlan interface for vlan ID 4095. (OS=
+X allows
+>> >>>> this, I checked.)
+>> >>>
+>> >>> Then OSX should fix their code. 4095 is reserved.
+>> >> If it's reserved, then it's up to the user to reserve it.
+>> > No.
+>> > See:
+>> > http://standards.ieee.org/getieee802/download/802.1Q-2005.pdf
+>> Well, then I guess we all know better than the user. That's the Wind=
+ows
+>> Way...no, wait, I thought this is Linux.
+>>
+>> The fact is that I did encounter a misconfigured switch using vlan 4=
+095,
+>> and because of this off-by-one error I was unable to talk to it and =
+fix it.
+>>
+>> I was hoping I wouldn't have to patch every new kernel I install.
+> You can use an OSX gateway ;)
+>
+> If we allow ID 4095, then some users will complain we violate rules.
+>
+> Really you cannot push this patch in official kernel only to ease you=
+r
+> life ;)
 
-> Le mardi 15 f=E9vrier 2011 =E0 18:55 -0800, David Miller a =E9crit :
->> From: David Miller <davem@davemloft.net>
->> Date: Wed, 09 Feb 2011 22:39:39 -0800 (PST)
->>=20
->> >=20
->> > Signed-off-by: David S. Miller <davem@davemloft.net>
->>=20
->> Ok, this patch had one nasty bug:
->>=20
->> > +	if (!err =3D=3D 0)
->>=20
->> Yeah... right.
->>=20
->> I'm actively testing this version at the moment, against net-next-2.=
-6,
->> works fine thus far.
->>=20
->> --------------------
->> ipv4: Delete routing cache.
->>=20
->> Signed-off-by: David S. Miller <davem@davemloft.net>
->> ---
->=20
-> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
->=20
-> I suspect we can zap DST_NOCACHE later ?
+The idea is that you don't have to use ID 4095 and if you don't -
+nothing's broken by just allowing it. The same goes with ID 0 - it's
+defined to be 802.1p packet, but people do use it as normal VLAN
+(especially with hardware that can cope with only small number of
+VLANs at once).
 
-Yes, the number of cleanups we can do after this patch is actually
-quite large.
+Allowing it but with a big fat warning in logs is even better: "You
+want your network broken? Sure, can do, but you have been warned."
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
