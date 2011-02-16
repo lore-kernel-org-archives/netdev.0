@@ -1,56 +1,77 @@
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-Subject: Re: Multicast snooping fixes and suggestions
-Date: Tue, 15 Feb 2011 15:41:28 -0800
-Message-ID: <20110215154128.2a28632c@nehalam>
-References: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
+From: "Mr. James W. Laferriere" <babydr@baby-dragons.com>
+Subject: Re: [kernel] net.ipv6.route.max_size
+Date: Tue, 15 Feb 2011 16:29:20 -0900 (AKST)
+Message-ID: <alpine.LNX.2.01.1102151627260.23788@filesrv1.baby-dragons.com>
+References: <alpine.LFD.2.00.1102142024460.6561@oceanic.wsisiz.edu.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Linus =?ISO-8859-1?B?TPxzc2luZw==?= <linus.luessing@web.de>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:57627 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755188Ab1BOXlr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Feb 2011 18:41:47 -0500
-In-Reply-To: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Linux Kernel Maillist <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Lukasz Trabinski <lukasz@trabinski.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1102142024460.6561@oceanic.wsisiz.edu.pl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Feb 2011 00:19:16 +0100
-Linus L=FCssing <linus.luessing@web.de> wrote:
+ 	Hello Lukasz ,
+ 	Since I have not seen anyone else suggest this or to do so I'll forward 
+this onto the NetDev <netdev@vger.kernel.org> list for their perusal as well .
 
-> Hello everyone,
->=20
-> While testing the (very awesome!) bridge igmp/mld snooping support I =
-came across
-> two issues which are breaking IPv6 multicast snooping and IPv6
-> non-link-local multicast on bridges with multicast snooping support e=
-nabled
-> in general. The first two patches shall fix these issues.
->=20
-> The third one addresses a potential bug on little endian machines whi=
-ch I noticed
-> during this little code reviewing. This patch is untested though, fee=
-dback welcome.
->=20
-> The fourth and fifth patch are a suggestion to also permit using the =
-bridge multicast
-> snooping feature for link local multimedia multicast traffic. Therefo=
-re
-> using the transient multicast flag instead of the non-link-local scop=
-e criteria
-> seems to be a suitable solution at least for IPv6, in my opinion. Let=
- me know what
-> you think about it.
->=20
-> Thanks for reviewing these patches.
->=20
-> Cheers,
-> Linus
+ 		Hth ,  JimL
 
-These look correct. Did you test them with real traffic?
+On Mon, 14 Feb 2011, Lukasz Trabinski wrote:
+> Hello
+>
+> IPv6 route table size is still growing. In stanard linux box configuration
+> with IPv6 BGP session (with ipv6 world table) and BGP application like 
+> Quagga,
+> we have problem like this:
+>
+> 2011/02/12 18:43:52 ZEBRA: netlink-cmd error: Cannot allocate memory,
+> type=RTM_NEWROUTE(24), seq=11124600, pid=0
+>
+> This problem shows us that's all prefixes comes from BGP can't be install 
+> into FIB
+>
+> IN BGP application we can see, that's we recive 4484 prefixes from ipv6 
+> neighbor:
+>
+> cosmos> show bgp summary
+> Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down 
+> State/PfxRcd
+> 2001:1a68:0:c::1
+>                4 24724  431945   70172        0    0    0 2d01h18m     4484
+>
+>
+> I suggest that net->ipv6.sysctl.ip6_rt_max_size should be increase.
+> Below _simple_ patch for this problem. I don't understand why in ipv4/route 
+> we have different method to count ip4_rt_max_size? My value 65536 in near 
+> future will be also wrong. I know also, that we can change it by sysctl, but 
+> I thing that it's not good way to fix it.
+>
+>
+> --- route.c~    2011-02-14 20:26:12.000000000 +0100
+> +++ route.c     2011-02-14 20:30:04.000000000 +0100
+> @@ -2708,7 +2708,7 @@
+> #endif
+>
+>        net->ipv6.sysctl.flush_delay = 0;
+> -       net->ipv6.sysctl.ip6_rt_max_size = 4096;
+> +       net->ipv6.sysctl.ip6_rt_max_size = 65536;
+>        net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
+>        net->ipv6.sysctl.ip6_rt_gc_timeout = 60*HZ;
+>        net->ipv6.sysctl.ip6_rt_gc_interval = 30*HZ;
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
+
+-- 
++------------------------------------------------------------------+
+| James   W.   Laferriere | System    Techniques | Give me VMS     |
+| Network&System Engineer | 3237     Holden Road |  Give me Linux  |
+| babydr@baby-dragons.com | Fairbanks, AK. 99709 |   only  on  AXP |
++------------------------------------------------------------------+
