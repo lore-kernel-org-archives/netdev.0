@@ -1,39 +1,35 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL nf-next-2.6] IPVS
-Date: Wed, 16 Feb 2011 15:04:50 +0900
-Message-ID: <1297836293-5942-1-git-send-email-horms@verge.net.au>
-Cc: Julian Anastasov <ja@ssi.bg>, Patrick Schaaf <netdev@bof.de>,
-	Patrick McHardy <kaber@trash.net>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
-Return-path: <netfilter-owner@vger.kernel.org>
-Sender: netfilter-owner@vger.kernel.org
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: [PATCH 2/3]drivers:net:rrunner.c Fix typo occationally to occasionally
+Date: Tue, 15 Feb 2011 22:55:02 -0800
+Message-ID: <1297839302-3125-1-git-send-email-justinmattock@gmail.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Justin P. Mattock" <justinmattock@gmail.com>
+To: trivial@kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Patrick,
+The below patch fixes a typo occationally to occasionally.
 
-please consider pulling
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
-go get:
+Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
 
-	* Removal of unused ICMP code by Julian
-	* More informative "no destination available" messages
-	  by Patrick Schaaf
-	* Fix to buffering of synchronisation messages
-	  by Tinggong Wang and Julian
+---
+ drivers/net/rrunner.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- include/net/ip_vs.h              |    2 ++
- net/netfilter/ipvs/ip_vs_core.c  |   28 +++-------------------------
- net/netfilter/ipvs/ip_vs_lblc.c  |    2 +-
- net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
- net/netfilter/ipvs/ip_vs_lc.c    |    2 +-
- net/netfilter/ipvs/ip_vs_nq.c    |    2 +-
- net/netfilter/ipvs/ip_vs_rr.c    |    2 +-
- net/netfilter/ipvs/ip_vs_sched.c |   25 +++++++++++++++++++++++++
- net/netfilter/ipvs/ip_vs_sed.c   |    2 +-
- net/netfilter/ipvs/ip_vs_sh.c    |    2 +-
- net/netfilter/ipvs/ip_vs_sync.c  |    4 ++--
- net/netfilter/ipvs/ip_vs_wlc.c   |    2 +-
- net/netfilter/ipvs/ip_vs_wrr.c   |   14 ++++++++------
- 13 files changed, 48 insertions(+), 41 deletions(-)
-
+diff --git a/drivers/net/rrunner.c b/drivers/net/rrunner.c
+index e68c941..6dceeb5 100644
+--- a/drivers/net/rrunner.c
++++ b/drivers/net/rrunner.c
+@@ -1072,7 +1072,7 @@ static irqreturn_t rr_interrupt(int irq, void *dev_id)
+ 	txcon = rrpriv->dirty_tx;
+ 	if (txcsmr != txcon) {
+ 		do {
+-			/* Due to occational firmware TX producer/consumer out
++			/* Due to occasional firmware TX producer/consumer out
+ 			 * of sync. error need to check entry in ring -kbf
+ 			 */
+ 			if(rrpriv->tx_skbuff[txcon]){
+-- 
+1.6.5.2.180.gc5b3e
