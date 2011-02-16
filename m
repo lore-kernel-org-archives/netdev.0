@@ -1,57 +1,49 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH -next] PCI: fix tlan build when CONFIG_PCI is not
- enabled
-Date: Wed, 16 Feb 2011 11:46:19 -0800
-Message-ID: <20110216114619.7fbfb3cf@jbarnes-desktop>
-References: <20110214181137.ee8d4c08.sfr@canb.auug.org.au>
-	<20110214122750.e1e03bc8.randy.dunlap@oracle.com>
+From: Eliot Blennerhassett <linux@audioscience.com>
+Subject: AVB QoS  support (IEEE802.1 Qav and Qat)
+Date: Thu, 17 Feb 2011 08:51:17 +1300
+Message-ID: <4D5C2AB5.8010009@audioscience.com>
+References: <4D488D9B.5080409@audioscience.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	netdev <netdev@vger.kernel.org>, linux-pci@vger.kernel.org,
-	linux-next@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	davem@davemloft.net, Sakari Ailus <sakari.ailus@iki.fi>
-To: Randy Dunlap <randy.dunlap@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110214122750.e1e03bc8.randy.dunlap@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp4.clear.net.nz ([203.97.37.64]:55501 "EHLO
+	smtp4.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751063Ab1BPTvU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 14:51:20 -0500
+Received: from [192.168.36.2]
+ (121-72-250-62.cable.telstraclear.net [121.72.250.62])
+ by smtp4.clear.net.nz (CLEAR Net Mail)
+ with ESMTP id <0LGQ00LXF75I0S50@smtp4.clear.net.nz> for
+ netdev@vger.kernel.org; Thu, 17 Feb 2011 08:51:19 +1300 (NZDT)
+In-reply-to: <4D488D9B.5080409@audioscience.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 14 Feb 2011 12:27:50 -0800
-Randy Dunlap <randy.dunlap@oracle.com> wrote:
+Greetings
 
-> From: Randy Dunlap <randy.dunlap@oracle.com>
-> 
-> When CONFIG_PCI is not enabled, tlan.c has a build error:
-> drivers/net/tlan.c:503: error: implicit declaration of function 'pci_wake_from_d3'
-> 
-> so add an inline function stub for this function to pci.h when
-> PCI is not enabled, similar to other stubbed PCI functions.
-> 
-> Signed-off-by: Randy Dunlap <randy.dunlap@oracle.com>
-> Cc: Sakari Ailus <sakari.ailus@iki.fi>
-> ---
->  include/linux/pci.h |    5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> --- linux-next-20110214.orig/include/linux/pci.h
-> +++ linux-next-20110214/include/linux/pci.h
-> @@ -1191,6 +1191,11 @@ static inline int pci_set_power_state(st
->  	return 0;
->  }
->  
-> +static inline int pci_wake_from_d3(struct pci_dev *dev, bool enable)
-> +{
-> +	return 0;
-> +}
-> +
->  static inline pci_power_t pci_choose_state(struct pci_dev *dev,
->  					   pm_message_t state)
->  {
-> 
+Can linux network stacks can support the various protocols required by AVB?
+It is not clear to me if it already does, and in any case how the setup
+would be accessed?
 
-Applied to linux-next, thanks guys.
+In particular these two standards and the interaction between them
+
+802.1Qat - Stream Reservation Protocol
+802.1Qav - Forwarding and Queuing Enhancements for Time-Sensitive
+Streams (approved on Dec 10th, 2009)
+
+Qav requires traffic shaping to smooth the traffic flow in guaranteed
+stream class. This is afaik based on 1 packet per stream per 125us
+
+Note that in future (maybe already) there will be hardware assist for
+this feature in NIC chips.
 
 -- 
-Jesse Barnes, Intel Open Source Technology Center
+Eliot Blennerhassett
+AudioScience Inc.
+
+
+[1] http://www.ieee802.org/1/pages/avbridges.html
+[2]
+http://en.wikipedia.org/wiki/Audio_Video_Bridging#Traffic_shaping_for_AV_streams
