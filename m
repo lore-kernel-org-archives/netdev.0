@@ -1,40 +1,34 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [patch net-next-2.6 1/4] rtnetlink: implement setting of master
- device
-Date: Wed, 16 Feb 2011 16:25:19 +0100
-Message-ID: <4D5BEC5F.9030803@trash.net>
-References: <20110213193105.GD2740@psychotron.redhat.com> <20110216051844.53f577d5@s6510> <20110216143923.GB5727@psychotron.brq.redhat.com>
+From: Phil Karn <karn@ka9q.net>
+Subject: Re: Off-by-one error in net/8021q/vlan.c
+Date: Wed, 16 Feb 2011 07:58:09 -0800
+Message-ID: <4D5BF411.4020204@ka9q.net>
+References: <4D5BADCF.5000804@ka9q.net> <AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	fubar@us.ibm.com, eric.dumazet@gmail.com,
-	nicolas.2p.debian@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: richard -rw- weinberger <richard.weinberger@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:35348 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751856Ab1BPPZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 10:25:22 -0500
-In-Reply-To: <20110216143923.GB5727@psychotron.brq.redhat.com>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:61337 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751795Ab1BPP6O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 10:58:14 -0500
+Received: by pva4 with SMTP id 4so215142pva.19
+        for <netdev@vger.kernel.org>; Wed, 16 Feb 2011 07:58:14 -0800 (PST)
+In-Reply-To: <AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16.02.2011 15:39, Jiri Pirko wrote:
-> Wed, Feb 16, 2011 at 02:18:44PM CET, shemminger@vyatta.com wrote:
->> On Sun, 13 Feb 2011 20:31:06 +0100
->> Jiri Pirko <jpirko@redhat.com> wrote:
->>
->>> This patch allows userspace to enslave/release slave devices via netlink
->>> interface using IFLA_MASTER. This introduces generic way to add/remove
->>> underling devices.
->>>
->>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>
->> But, setting master means something different for each type of device?
+On 2/16/11 4:51 AM, richard -rw- weinberger wrote:
+> On Wed, Feb 16, 2011 at 11:58 AM, Phil Karn <karn@ka9q.net> wrote:
+>> The range check on vlan_id in register_vlan_device is off by one, and it
+>> prevents the creation of a vlan interface for vlan ID 4095. (OSX allows
+>> this, I checked.)
 > 
-> Why isn't correct to use master also for bridge? It had no meaning there.
+> Then OSX should fix their code. 4095 is reserved.
+> 
 
-In fact the bridge netlink family uses IFLA_MASTER for exactly
-the same purpose.
+If it's reserved, then it's up to the user to reserve it.
+
+I actually had reason to use this to fix a misconfigured host that was
+using vlan 4095. This got in my way.
