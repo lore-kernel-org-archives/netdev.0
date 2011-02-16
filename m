@@ -1,102 +1,88 @@
-From: Trond Myklebust <Trond.Myklebust@netapp.com>
-Subject: Re: NFS on little-endian platform - Microblaze
-Date: Wed, 16 Feb 2011 08:22:53 -0500
-Message-ID: <1297862575.6596.0.camel@heimdal.trondhjem.org>
-References: <4D5BCC74.9010301@monstr.eu>  <4D5BCE43.1090401@monstr.eu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] sfc: lower stack usage in efx_ethtool_self_test
+Date: Wed, 16 Feb 2011 14:48:38 +0100
+Message-ID: <1297864118.3201.354.camel@edumazet-laptop>
+References: <1297800733.2584.15.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	linux-nfs@vger.kernel.org
-To: monstr@monstr.eu
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.netapp.com ([216.240.18.37]:63389 "EHLO mx2.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754006Ab1BPNW6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 08:22:58 -0500
-In-Reply-To: <4D5BCE43.1090401@monstr.eu>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:35739 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754563Ab1BPNso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 08:48:44 -0500
+Received: by fxm20 with SMTP id 20so1390821fxm.19
+        for <netdev@vger.kernel.org>; Wed, 16 Feb 2011 05:48:43 -0800 (PST)
+In-Reply-To: <1297800733.2584.15.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-02-16 at 14:16 +0100, Michal Simek wrote: 
-> Hi again,
-> 
-> I forget to cc linux-nfs mailing list.
-> 
-> Michal
-> 
-> P.S.: Tested on kernels 2.6.38-rc4, 2.6.37 and 2.6.36
-> 
-> Michal Simek wrote:
-> > Hi All,
-> > 
-> > I am trying to understand one problem which we have found.
-> > The problem is that I can't on Microblaze little-endian platform
-> > mount nfs without -o nolock options. (Log below)
-> > Selecting tcp or udp has no effect.
-> > I am using emaclite driver and there is no problem on big endian 
-> > microblaze.
-> > 
-> > ping, telnet, http, ftp, iperf, netperf work well.
-> > 
-> > That's why I have a question if there is any endian specific option for 
-> > NFS?
-> > 
-> > Thanks,
-> > Michal
-> > 
-> > ~ # mount -t nfs 192.168.0.101:/tftpboot/nfs /mnt
-> > svc: failed to register lockdv1 RPC service (errno 13).
-> > lockd_up: makesock failed, error=-13
-> > svc: failed to register lockdv1 RPC service (errno 13).
-> > ~ # mount -t nfs -o nolock 192.168.0.101:/tftpboot/nfs /mnt
-> > ~ # mount
-> > rootfs on / type rootfs (rw)
-> > proc on /proc type proc (rw,relatime)
-> > none on /var type ramfs (rw,relatime)
-> > none on /sys type sysfs (rw,relatime)
-> > none on /etc/config type ramfs (rw,relatime)
-> > none on /dev/pts type devpts (rw,relatime,mode=600)
-> > 192.168.0.101:/tftpboot/nfs on /mnt type nfs 
-> > (rw,relatime,vers=3,rsize=32768,wsize=32768,namlen=255,hard,nolock,proto=udp,port=65535,timeo=7,retrans=3,sec=sys,local_lock=all,addr=192.168.0.101) 
-> > 
-> > ~ #
-> > ~ # ps
-> > PID   USER     TIME   COMMAND
-> >     1 root       0:02 init
-> >     2 root       0:00 [kthreadd]
-> >     3 root       0:00 [ksoftirqd/0]
-> >     4 root       0:00 [kworker/0:0]
-> >     5 root       0:00 [kworker/u:0]
-> >     6 root       0:00 [khelper]
-> >     7 root       0:00 [sync_supers]
-> >     8 root       0:00 [bdi-default]
-> >     9 root       0:00 [kblockd]
-> >    10 root       0:00 [rpciod]
-> >    11 root       0:00 [kworker/0:1]
-> >    12 root       0:00 [kswapd0]
-> >    13 root       0:00 [fsnotify_mark]
-> >    14 root       0:00 [aio]
-> >    15 root       0:00 [nfsiod]
-> >    16 root       0:00 [kworker/u:1]
-> >    58 root       0:00 udhcpc -R -n -p /var/run/udhcpc.eth0.pid -i eth0
-> >    62 1          0:00 /bin/portmap
-> >    64 root       0:00 /bin/inetd /etc/inetd.conf
-> >    65 root       0:01 -sh
-> >    66 root       0:00 /bin/syslogd -n
-> >    67 root       0:00 /bin/flatfsd
-> >    68 root       0:00 [kworker/0:2]
-> >    91 root       0:00 ps
+drivers/net/sfc/ethtool.c: In function =E2=80=98efx_ethtool_self_test=E2=
+=80=99:
+drivers/net/sfc/ethtool.c:613: warning: the frame size of 1200 bytes
+is larger than 1024 bytes
 
-Where is rpc.statd? Without it, the above behaviour is 100% expected.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/sfc/ethtool.c |   22 +++++++++++++---------
+ 1 file changed, 13 insertions(+), 9 deletions(-)
 
-Trond
+diff --git a/drivers/net/sfc/ethtool.c b/drivers/net/sfc/ethtool.c
+index 272cfe7..0836b37 100644
+--- a/drivers/net/sfc/ethtool.c
++++ b/drivers/net/sfc/ethtool.c
+@@ -569,9 +569,14 @@ static void efx_ethtool_self_test(struct net_devic=
+e *net_dev,
+ 				  struct ethtool_test *test, u64 *data)
+ {
+ 	struct efx_nic *efx =3D netdev_priv(net_dev);
+-	struct efx_self_tests efx_tests;
++	struct efx_self_tests *efx_tests;
+ 	int already_up;
+-	int rc;
++	int rc =3D -ENOMEM;
++
++	efx_tests =3D kzalloc(sizeof(*efx_tests), GFP_KERNEL);
++	if (!efx_tests)
++		goto fail;
++
+=20
+ 	ASSERT_RTNL();
+ 	if (efx->state !=3D STATE_RUNNING) {
+@@ -589,13 +594,11 @@ static void efx_ethtool_self_test(struct net_devi=
+ce *net_dev,
+ 		if (rc) {
+ 			netif_err(efx, drv, efx->net_dev,
+ 				  "failed opening device.\n");
+-			goto fail2;
++			goto fail1;
+ 		}
+ 	}
+=20
+-	memset(&efx_tests, 0, sizeof(efx_tests));
+-
+-	rc =3D efx_selftest(efx, &efx_tests, test->flags);
++	rc =3D efx_selftest(efx, efx_tests, test->flags);
+=20
+ 	if (!already_up)
+ 		dev_close(efx->net_dev);
+@@ -604,10 +607,11 @@ static void efx_ethtool_self_test(struct net_devi=
+ce *net_dev,
+ 		   rc =3D=3D 0 ? "passed" : "failed",
+ 		   (test->flags & ETH_TEST_FL_OFFLINE) ? "off" : "on");
+=20
+- fail2:
+- fail1:
++fail1:
+ 	/* Fill ethtool results structures */
+-	efx_ethtool_fill_self_tests(efx, &efx_tests, NULL, data);
++	efx_ethtool_fill_self_tests(efx, efx_tests, NULL, data);
++	kfree(efx_tests);
++fail:
+ 	if (rc)
+ 		test->flags |=3D ETH_TEST_FL_FAILED;
+ }
 
--- 
-Trond Myklebust
-Linux NFS client maintainer
-
-NetApp
-Trond.Myklebust@netapp.com
-www.netapp.com
 
