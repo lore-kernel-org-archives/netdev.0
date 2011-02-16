@@ -1,71 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Off-by-one error in net/8021q/vlan.c
-Date: Wed, 16 Feb 2011 17:39:32 +0100
-Message-ID: <1297874372.30541.29.camel@edumazet-laptop>
-References: <4D5BADCF.5000804@ka9q.net>
-	 <AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
-	 <4D5BF411.4020204@ka9q.net>
-	 <AANLkTikNrwd31RBj1gc6kSaT=qodS=A=YntM=72PMbDf@mail.gmail.com>
-	 <4D5BFB39.8070805@ka9q.net>
+From: Hank Janssen <hjanssen@microsoft.com>
+Subject: RE: Process for subsystem maintainers to get Hyper-V code out of
+ staging. - CORRECTED RECIPIENTS
+Date: Wed, 16 Feb 2011 17:43:34 +0000
+Message-ID: <8AFC7968D54FB448A30D8F38F259C56233F98FDA@TK5EX14MBXC114.redmond.corp.microsoft.com>
+References: <8AFC7968D54FB448A30D8F38F259C56233F957D3@TK5EX14MBXC114.redmond.corp.microsoft.com>
+ <4D59CCAD.90503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richard -rw- weinberger <richard.weinberger@gmail.com>,
-	kaber@trash.net, netdev@vger.kernel.org
-To: Phil Karn <karn@ka9q.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:48094 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753117Ab1BPQkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 11:40:31 -0500
-Received: by bwz15 with SMTP id 15so794319bwz.19
-        for <netdev@vger.kernel.org>; Wed, 16 Feb 2011 08:40:30 -0800 (PST)
-In-Reply-To: <4D5BFB39.8070805@ka9q.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Le mercredi 16 f=C3=A9vrier 2011 =C3=A0 08:28 -0800, Phil Karn a =C3=A9=
-crit :
-> On 2/16/11 8:10 AM, richard -rw- weinberger wrote:
-> > On Wed, Feb 16, 2011 at 4:58 PM, Phil Karn <karn@ka9q.net> wrote:
-> >> On 2/16/11 4:51 AM, richard -rw- weinberger wrote:
-> >>> On Wed, Feb 16, 2011 at 11:58 AM, Phil Karn <karn@ka9q.net> wrote=
-:
-> >>>> The range check on vlan_id in register_vlan_device is off by one=
-, and it
-> >>>> prevents the creation of a vlan interface for vlan ID 4095. (OSX=
- allows
-> >>>> this, I checked.)
-> >>>
-> >>> Then OSX should fix their code. 4095 is reserved.
-> >>>
-> >>
-> >> If it's reserved, then it's up to the user to reserve it.
-> >=20
-> > No.
-> >=20
-> > See:
-> > http://standards.ieee.org/getieee802/download/802.1Q-2005.pdf
-> >=20
->=20
-> Well, then I guess we all know better than the user. That's the Windo=
-ws
-> Way...no, wait, I thought this is Linux.
->=20
-> The fact is that I did encounter a misconfigured switch using vlan 40=
-95,
-> and because of this off-by-one error I was unable to talk to it and f=
-ix it.
->=20
-> I was hoping I wouldn't have to patch every new kernel I install.
->=20
-
-You can use an OSX gateway ;)
-
-If we allow ID 4095, then some users will complain we violate rules.
-
-Really you cannot push this patch in official kernel only to ease your
-life ;)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	ide <linux-ide@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	Hashir Abdi <habdi@microsoft.com>,
+	Mike Sterling <Mike.Sterling@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"gregkh@suse.de\" \"" <gregkh@suse.de>
+To: Robert Hancock <hancockrwd@gmail.com>
+Return-path: <linux-ide-owner@vger.kernel.org>
+In-Reply-To: <4D59CCAD.90503@gmail.com>
+Content-Language: en-US
+Sender: linux-ide-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+> From: Robert Hancock [mailto:hancockrwd@gmail.com]
+> Sent: Monday, February 14, 2011 4:46 PM
+> On 02/14/2011 05:42 PM, Hank Janssen wrote:
+> >
+> > MY APOLOGIES-I made a typo on James email address. I corrected it and
+> resend.
+> > Sorry for the double email.
+> >
+> >
+> > Stephen/James/David,
+> >
+> > Greetings to you all. As you might be aware, we submitted Hyper-V
+> drivers to the kernel 2009.
+> > We have been extending these drivers with additional functionality
+> and our primary focus now
+> > is doing the work needed to exit the staging area.
+> >
+> > To give you some background, the following are Hyper-V specific Linux
+> drivers:
+> >
+> >                  hv_vmbus           The vmbus driver that is the
+> bridge between guest and the
+> > 			host
+> >                  hv_storvsc          The SCSI device driver
+> >                  hv_blkvsc            The IDE driver
+> 
+> Given that the IDE subsystem (drivers/ide) is currently in
+> maintenance-only mode, and isn't used by modern distributions, you
+> likely want to make this a libata driver instead.
+> 
+> Though, from what's in current git, it's not clear to me what the HV
+> IDE
+> (and SCSI) drivers are attempting to do. Is it really something that
+> looks like an IDE controller from the guest OS point of view? If not,
+> then having it as an IDE driver would be the wrong thing to do, it
+> should be more of a generic block driver. In that case, then, why are
+> there both SCSI and IDE drivers in the first place?
+> 
+
+Robert,
+
+Thank you very much for your responses, today Hyper-V host only supports 
+IDE and SCSI, and the code was initially written against 2.6.9 kernel.
+
+Hyper-V still treats them a separate interface and is designed to emulate
+A pretty old BIOS.
+
+What my approach will be is to dig into libsata (something I have not
+Much knowledge of) and see if we can use it and find a way to more sanely
+Merge the behavior of Hyper-V's IDE and SCSI.
+
+Hank.
 
