@@ -1,77 +1,73 @@
-From: "Mr. James W. Laferriere" <babydr@baby-dragons.com>
-Subject: Re: [kernel] net.ipv6.route.max_size
-Date: Tue, 15 Feb 2011 16:29:20 -0900 (AKST)
-Message-ID: <alpine.LNX.2.01.1102151627260.23788@filesrv1.baby-dragons.com>
-References: <alpine.LFD.2.00.1102142024460.6561@oceanic.wsisiz.edu.pl>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH v5 RESEND 2/9] ethtool: enable GSO and GRO by default
+Date: Wed, 16 Feb 2011 03:42:37 +0100
+Message-ID: <20110216024237.GA6434@rere.qmqm.pl>
+References: <66135e57d38599c0dfce347643858558c4f026c4.1297594674.git.mirq-linux@rere.qmqm.pl> <20110213.105023.68138742.davem@davemloft.net> <20110215214649.GA23866@rere.qmqm.pl> <20110215.140043.59699086.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Kernel Maillist <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Lukasz Trabinski <lukasz@trabinski.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.00.1102142024460.6561@oceanic.wsisiz.edu.pl>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rere.qmqm.pl ([89.167.52.164]:32789 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752596Ab1BPCmj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Feb 2011 21:42:39 -0500
+Content-Disposition: inline
+In-Reply-To: <20110215.140043.59699086.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
- 	Hello Lukasz ,
- 	Since I have not seen anyone else suggest this or to do so I'll forward 
-this onto the NetDev <netdev@vger.kernel.org> list for their perusal as well .
+On Tue, Feb 15, 2011 at 02:00:43PM -0800, David Miller wrote:
+> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> Date: Tue, 15 Feb 2011 22:46:49 +0100
+> > On Sun, Feb 13, 2011 at 10:50:23AM -0800, David Miller wrote:
+> >> From: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> >> Date: Sun, 13 Feb 2011 12:11:45 +0100 (CET)
+> >> > Signed-off-by: Micha=B3 Miros=B3aw <mirq-linux@rere.qmqm.pl>
+> >> This is not appropriate.
+> >>=20
+> >> Now, every driver that lacks SG support will spit out that warning
+> >> message in netdev_fix_features().
+> >>=20
+> >> That's why the check is there conditionalizing NETIF_F_GSO on
+> >> NETIF_F_SG in register_netdevice().
+> > I think all those messages should be converted to DEBUG level. Thos=
+e
+> > conditions are constant and can be better described in
+> > Documentation/networking/ or ethtool manpage. Preferably along the
+> > device-specific conditions when implemented.
+> >=20
+> > Or I could just drop the message for the GSO case as it's something=
+ new here
+> > anyway (I added it to make it consistent with handling of other fea=
+tures).
+> The messages exist to let driver authors know they've constructed an
+> illegal set of feature bits.
 
- 		Hth ,  JimL
+Only multiple checksum flags are actual driver bugs - those are handled
+in register_netdevice(). netdev_fix_features() represents limitations o=
+f core
+networking code . Hardware might as well handle TSO without SG or SG wi=
+thout
+checksumming. What's the point in duplicating those restrictions in dri=
+vers?
 
-On Mon, 14 Feb 2011, Lukasz Trabinski wrote:
-> Hello
+> Since you're now adding the GSO bit yourself, you should perform
+> due diligence and prevent the illegal combination yourself.
 >
-> IPv6 route table size is still growing. In stanard linux box configuration
-> with IPv6 BGP session (with ipv6 world table) and BGP application like 
-> Quagga,
-> we have problem like this:
->
-> 2011/02/12 18:43:52 ZEBRA: netlink-cmd error: Cannot allocate memory,
-> type=RTM_NEWROUTE(24), seq=11124600, pid=0
->
-> This problem shows us that's all prefixes comes from BGP can't be install 
-> into FIB
->
-> IN BGP application we can see, that's we recive 4484 prefixes from ipv6 
-> neighbor:
->
-> cosmos> show bgp summary
-> Neighbor        V    AS MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down 
-> State/PfxRcd
-> 2001:1a68:0:c::1
->                4 24724  431945   70172        0    0    0 2d01h18m     4484
->
->
-> I suggest that net->ipv6.sysctl.ip6_rt_max_size should be increase.
-> Below _simple_ patch for this problem. I don't understand why in ipv4/route 
-> we have different method to count ip4_rt_max_size? My value 65536 in near 
-> future will be also wrong. I know also, that we can change it by sysctl, but 
-> I thing that it's not good way to fix it.
->
->
-> --- route.c~    2011-02-14 20:26:12.000000000 +0100
-> +++ route.c     2011-02-14 20:30:04.000000000 +0100
-> @@ -2708,7 +2708,7 @@
-> #endif
->
->        net->ipv6.sysctl.flush_delay = 0;
-> -       net->ipv6.sysctl.ip6_rt_max_size = 4096;
-> +       net->ipv6.sysctl.ip6_rt_max_size = 65536;
->        net->ipv6.sysctl.ip6_rt_gc_min_interval = HZ / 2;
->        net->ipv6.sysctl.ip6_rt_gc_timeout = 60*HZ;
->        net->ipv6.sysctl.ip6_rt_gc_interval = 30*HZ;
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+> This has no other impact on the other messages and cases, which
+> definitely should stay intact.
+>=20
+> Your change is just wrong and knowingly introduces useless log
+> messages, please just fix it up.
 
--- 
-+------------------------------------------------------------------+
-| James   W.   Laferriere | System    Techniques | Give me VMS     |
-| Network&System Engineer | 3237     Holden Road |  Give me Linux  |
-| babydr@baby-dragons.com | Fairbanks, AK. 99709 |   only  on  AXP |
-+------------------------------------------------------------------+
+The messages from netdev_fix_features() will also be triggered by user
+disabling required feature (ie. HW checksum for most of TX offloads)
+for a device or its slave or sometimes on MTU changes (ie. for jme and
+possibly others).  Even after I fix triggering of "GSO needs SG"
+message in register_netdevice(), this and other messages will show up
+more often because of the way the new scheme works.
+
+Best Regards,
+Micha=B3 Miros=B3aw
