@@ -1,52 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC !!BONUS!! PATCH 6/5] ipv4: Delete routing cache.
-Date: Wed, 16 Feb 2011 08:56:17 +0100
-Message-ID: <1297842977.3201.7.camel@edumazet-laptop>
-References: <20110209.223939.246547003.davem@davemloft.net>
-	 <20110215.185534.71133854.davem@davemloft.net>
+From: KOVACS Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH 1/1] tproxy: do not assign timewait sockets to skb->sk
+Date: Wed, 16 Feb 2011 09:54:31 +0100
+Message-ID: <4D5B90C7.5040603@balabit.hu>
+References: <1297683874-10188-1-git-send-email-fw@strlen.de> <4D594F9E.2090100@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:48764 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751532Ab1BPH4Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 02:56:25 -0500
-Received: by bwz15 with SMTP id 15so361599bwz.19
-        for <netdev@vger.kernel.org>; Tue, 15 Feb 2011 23:56:23 -0800 (PST)
-In-Reply-To: <20110215.185534.71133854.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org, Balazs Scheidler <bazsi@balabit.hu>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <4D594F9E.2090100@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 15 f=C3=A9vrier 2011 =C3=A0 18:55 -0800, David Miller a =C3=A9=
-crit :
-> From: David Miller <davem@davemloft.net>
-> Date: Wed, 09 Feb 2011 22:39:39 -0800 (PST)
->=20
-> >=20
-> > Signed-off-by: David S. Miller <davem@davemloft.net>
->=20
-> Ok, this patch had one nasty bug:
->=20
-> > +	if (!err =3D=3D 0)
->=20
-> Yeah... right.
->=20
-> I'm actively testing this version at the moment, against net-next-2.6=
-,
-> works fine thus far.
->=20
-> --------------------
-> ipv4: Delete routing cache.
->=20
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
+Hi,
 
-Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+On 02/14/2011 04:51 PM, Patrick McHardy wrote:
+> Am 14.02.2011 12:44, schrieb Florian Westphal:
+>> Assigning a socket in timewait state to skb->sk can trigger
+>> kernel oops, e.g. in nfnetlink_log, which does:
+>>
+>> if (skb->sk) {
+>>          read_lock_bh(&skb->sk->sk_callback_lock);
+>>          if (skb->sk->sk_socket&&  skb->sk->sk_socket->file) ...
+>>
+>> in the timewait case, accessing sk->sk_callback_lock and sk->sk_socket
+>> is invalid.
+>>
+>> Either all of these spots will need to add a test for sk->sk_state != TCP_TIME_WAIT,
+>> or xt_TPROXY must not assign a timewait socket to skb->sk.
+>>
+>> This does the latter.
+>>
+>> If a TW socket is found, assign the tproxy nfmark, but skip the skb->sk assignment,
+>> thus mimicking behaviour of a '-m socket .. -j MARK/ACCEPT' re-routing rule.
+>>
+>> The 'SYN to TW socket' case is left unchanged -- we try to redirect to the
+>> listener socket.
+>>
+>> Cc: Balazs Scheidler<bazsi@balabit.hu>
+>> Cc: KOVACS Krisztian<hidden@balabit.hu>
+>> Signed-off-by: Florian Westphal<fwestphal@astaro.com>
+>
+> Looks fine to me. Balazs. Krisztian, any objections?
 
-I suspect we can zap DST_NOCACHE later ?
+Seems to be OK, as far as I can see.
 
+Florian, did you make sure the tests still run after applying this patch?
 
+http://git.balabit.hu/?p=bazsi/tproxy-test.git;a=summary
 
+-- 
+KOVACS Krisztian
