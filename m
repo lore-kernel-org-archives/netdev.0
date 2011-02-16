@@ -1,40 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [patch net-next-2.6 1/4] rtnetlink: implement setting of master
- device
-Date: Wed, 16 Feb 2011 05:18:44 -0800
-Message-ID: <20110216051844.53f577d5@s6510>
-References: <20110213193105.GD2740@psychotron.redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT PULL nf-next-2.6] IPVS
+Date: Wed, 16 Feb 2011 14:19:58 +0100
+Message-ID: <4D5BCEFE.80106@trash.net>
+References: <1297836293-5942-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:47344 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751067Ab1BPNSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Feb 2011 08:18:49 -0500
-In-Reply-To: <20110213193105.GD2740@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Julian Anastasov <ja@ssi.bg>, Patrick Schaaf <netdev@bof.de>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1297836293-5942-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 13 Feb 2011 20:31:06 +0100
-Jiri Pirko <jpirko@redhat.com> wrote:
-
-> This patch allows userspace to enslave/release slave devices via netlink
-> interface using IFLA_MASTER. This introduces generic way to add/remove
-> underling devices.
+On 16.02.2011 07:04, Simon Horman wrote:
+> Hi Patrick,
 > 
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+> please consider pulling
+> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
+> go get:
+> 
+> 	* Removal of unused ICMP code by Julian
+> 	* More informative "no destination available" messages
+> 	  by Patrick Schaaf
+> 	* Fix to buffering of synchronisation messages
+> 	  by Tinggong Wang and Julian
+> 
 
-But, setting master means something different for each type of device?
-What happens if you move eth0 from br0 to bond0?
-
-The name "master" is only used in the bonding spec. It is not used in
-description of bridges in the 802.1 spec. There are also some companies
-that have very "politically correct" HR departments that think that any
-reference to master or slave is racist.
-
-
+Pulled, thanks Simon.
