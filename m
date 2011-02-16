@@ -1,55 +1,39 @@
-From: KOVACS Krisztian <hidden@balabit.hu>
-Subject: Re: [PATCH 1/1] tproxy: do not assign timewait sockets to skb->sk
-Date: Wed, 16 Feb 2011 09:54:31 +0100
-Message-ID: <4D5B90C7.5040603@balabit.hu>
-References: <1297683874-10188-1-git-send-email-fw@strlen.de> <4D594F9E.2090100@trash.net>
+From: Timo Juhani Lindfors <timo.lindfors@iki.fi>
+Subject: Re: [PATCH] ip: reuse ip_summed of first fragment for all subsequent fragments
+Date: Wed, 16 Feb 2011 11:10:56 +0200
+Message-ID: <844o844a5b.fsf@sauna.l.org>
+References: <1292841525-15572-1-git-send-email-timo.lindfors@iki.fi>
+	<20101228.134905.183040321.davem@davemloft.net>
+	<84mxn7czz4.fsf@sauna.l.org>
+	<20110112.184220.250810179.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, Balazs Scheidler <bazsi@balabit.hu>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D594F9E.2090100@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp11.academica.fi ([194.29.197.65]:60868 "EHLO
+	smtp11.academica.fi" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758757Ab1BPJRW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 04:17:22 -0500
+In-Reply-To: <20110112.184220.250810179.davem@davemloft.net> (David Miller's
+	message of "Wed, 12 Jan 2011 18:42:20 -0800 (PST)")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+David Miller <davem@davemloft.net> writes:
+> You're now not handling the code block above this one, guarded
+> by the "if (len <= 0)" check.
 
-On 02/14/2011 04:51 PM, Patrick McHardy wrote:
-> Am 14.02.2011 12:44, schrieb Florian Westphal:
->> Assigning a socket in timewait state to skb->sk can trigger
->> kernel oops, e.g. in nfnetlink_log, which does:
->>
->> if (skb->sk) {
->>          read_lock_bh(&skb->sk->sk_callback_lock);
->>          if (skb->sk->sk_socket&&  skb->sk->sk_socket->file) ...
->>
->> in the timewait case, accessing sk->sk_callback_lock and sk->sk_socket
->> is invalid.
->>
->> Either all of these spots will need to add a test for sk->sk_state != TCP_TIME_WAIT,
->> or xt_TPROXY must not assign a timewait socket to skb->sk.
->>
->> This does the latter.
->>
->> If a TW socket is found, assign the tproxy nfmark, but skip the skb->sk assignment,
->> thus mimicking behaviour of a '-m socket .. -j MARK/ACCEPT' re-routing rule.
->>
->> The 'SYN to TW socket' case is left unchanged -- we try to redirect to the
->> listener socket.
->>
->> Cc: Balazs Scheidler<bazsi@balabit.hu>
->> Cc: KOVACS Krisztian<hidden@balabit.hu>
->> Signed-off-by: Florian Westphal<fwestphal@astaro.com>
->
-> Looks fine to me. Balazs. Krisztian, any objections?
+Yes that's true. Should we use skb_copy_bits() when sk->sk_no_check ==
+UDP_CSUM_NOXMIT?
 
-Seems to be OK, as far as I can see.
+> You seem to just be peppering checks all over the place rather
+> than coming up with a coherent, complete, fix for this problem.
 
-Florian, did you make sure the tests still run after applying this patch?
+I can understand that but I'm afraid that I lack the expertise to do
+that. I might be able to fix the above problem but I can't be sure that
+it is the only one. The bug report will remain at
 
-http://git.balabit.hu/?p=bazsi/tproxy-test.git;a=summary
+https://bugzilla.kernel.org/show_bug.cgi?id=24832
 
--- 
-KOVACS Krisztian
+in case somebody wants to continue from here.
