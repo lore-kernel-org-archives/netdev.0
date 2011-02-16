@@ -1,54 +1,47 @@
-From: "Vlad Zolotarov" <vladz@broadcom.com>
-Subject: Re: [PATCH] bnx2x: Support for managing RX indirection table
-Date: Wed, 16 Feb 2011 07:53:38 +0200
-Message-ID: <201102160753.38598.vladz@broadcom.com>
-References: <alpine.DEB.2.00.1102150815060.27695@pokey.mtv.corp.google.com>
- <1297788529.2584.12.camel@bwh-desktop>
- <AANLkTi=VT7BMpJZeE_gKOceNw+=Db40p3znmyt=Jc2Un@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Tom Herbert" <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2835 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751330Ab1BPFxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Feb 2011 00:53:53 -0500
-In-Reply-To: <AANLkTi=VT7BMpJZeE_gKOceNw+=Db40p3znmyt=Jc2Un@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 1/3] ipvs: fix timer in get_curr_sync_buff
+Date: Wed, 16 Feb 2011 15:04:51 +0900
+Message-ID: <1297836293-5942-2-git-send-email-horms@verge.net.au>
+References: <1297836293-5942-1-git-send-email-horms@verge.net.au>
+Cc: Julian Anastasov <ja@ssi.bg>, Patrick Schaaf <netdev@bof.de>,
+	Patrick McHardy <kaber@trash.net>,
+	Tinggong Wang <wangtinggong@gmail.com>,
+	Simon Horman <horms@verge.net.au>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1297836293-5942-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 16 February 2011 00:50:18 Tom Herbert wrote:
-> >> +     u32                     rx_indir_table[128];
-> >
-> > Shouldn't the dimension be TSTORM_INDIRECTION_TABLE_SIZE?
-> >
-> 
-> It's not a defined constant, so the alternative would be to malloc it
-> which seems like overkill to me.
-> 
-> Broadcom guys: are there any adapters or configuration of bnx2x where
-> the indirection table would be greater than 128?
+From: Tinggong Wang <wangtinggong@gmail.com>
 
-Although for all currently supported adapters the actual value of the indirection 
-table size is 128 I agree with Ben and would like to ask u to use the above macro (which
-is a rename for an entry in a per-adapter array of constants) to keep the code 
-scalable and clean. I don't think that a malloc would be too much of a price for it... ;)
+ 	Fix get_curr_sync_buff to keep buffer for 2 seconds
+as intended, not just for the current jiffie. By this way
+we will sync more connection structures with single packet.
 
-thanks,
-vlad
+Signed-off-by: Tinggong Wang <wangtinggong@gmail.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-> 
-> Tom
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index d1b7298..fecf24d 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -374,8 +374,8 @@ get_curr_sync_buff(struct netns_ipvs *ipvs, unsigned long time)
+ 	struct ip_vs_sync_buff *sb;
+ 
+ 	spin_lock_bh(&ipvs->sync_buff_lock);
+-	if (ipvs->sync_buff && (time == 0 ||
+-	    time_before(jiffies - ipvs->sync_buff->firstuse, time))) {
++	if (ipvs->sync_buff &&
++	    time_after_eq(jiffies - ipvs->sync_buff->firstuse, time)) {
+ 		sb = ipvs->sync_buff;
+ 		ipvs->sync_buff = NULL;
+ 	} else
+-- 
+1.7.2.3
 
