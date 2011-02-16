@@ -1,58 +1,107 @@
-From: richard -rw- weinberger <richard.weinberger@gmail.com>
-Subject: Re: Off-by-one error in net/8021q/vlan.c
-Date: Wed, 16 Feb 2011 13:51:33 +0100
-Message-ID: <AANLkTinBOk8ZNQvRpMqZQE_vOu63QVzDZ4ceRRUDvJD_@mail.gmail.com>
-References: <4D5BADCF.5000804@ka9q.net>
+From: Michal Simek <monstr@monstr.eu>
+Subject: NFS on little-endian platform - Microblaze
+Date: Wed, 16 Feb 2011 14:09:08 +0100
+Message-ID: <4D5BCC74.9010301@monstr.eu>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, netdev@vger.kernel.org
-To: Phil Karn <karn@ka9q.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ey0-f174.google.com ([209.85.215.174]:48018 "EHLO
-	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754941Ab1BPMvf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 07:51:35 -0500
-Received: by eye27 with SMTP id 27so728569eye.19
-        for <netdev@vger.kernel.org>; Wed, 16 Feb 2011 04:51:34 -0800 (PST)
-In-Reply-To: <4D5BADCF.5000804@ka9q.net>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:61389 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268Ab1BPNMk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 08:12:40 -0500
+Received: by bwz15 with SMTP id 15so587530bwz.19
+        for <netdev@vger.kernel.org>; Wed, 16 Feb 2011 05:12:38 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 16, 2011 at 11:58 AM, Phil Karn <karn@ka9q.net> wrote:
-> The range check on vlan_id in register_vlan_device is off by one, and=
- it
-> prevents the creation of a vlan interface for vlan ID 4095. (OSX allo=
-ws
-> this, I checked.)
+Hi All,
 
-Then OSX should fix their code. 4095 is reserved.
+I am trying to understand one problem which we have found.
+The problem is that I can't on Microblaze little-endian platform
+mount nfs without -o nolock options. (Log below)
+Selecting tcp or udp has no effect.
+I am using emaclite driver and there is no problem on big endian microblaze.
 
-//richard
+ping, telnet, http, ftp, iperf, netperf work well.
 
-> Here's the trivial patch:
->
-> --- linux-2.6.37/net/8021q/vlan.c~ =A0 =A0 =A02011-01-04 16:50:19.000=
-000000 -0800
-> +++ linux-2.6.37/net/8021q/vlan.c =A0 =A0 =A0 2011-02-16 02:43:13.988=
-812958 -0800
-> @@ -239,7 +239,7 @@
-> =A0 =A0 =A0 =A0char name[IFNAMSIZ];
-> =A0 =A0 =A0 =A0int err;
->
-> - =A0 =A0 =A0 if (vlan_id >=3D VLAN_VID_MASK)
-> + =A0 =A0 =A0 if (vlan_id > VLAN_VID_MASK)
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0return -ERANGE;
->
-> =A0 =A0 =A0 =A0err =3D vlan_check_real_dev(real_dev, vlan_id);
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+That's why I have a question if there is any endian specific option for NFS?
 
-
-
---=20
 Thanks,
-//richard
+Michal
+
+~ # mount -t nfs 192.168.0.101:/tftpboot/nfs /mnt
+svc: failed to register lockdv1 RPC service (errno 13).
+lockd_up: makesock failed, error=-13
+svc: failed to register lockdv1 RPC service (errno 13).
+~ # mount -t nfs -o nolock 192.168.0.101:/tftpboot/nfs /mnt
+~ # mount
+rootfs on / type rootfs (rw)
+proc on /proc type proc (rw,relatime)
+none on /var type ramfs (rw,relatime)
+none on /sys type sysfs (rw,relatime)
+none on /etc/config type ramfs (rw,relatime)
+none on /dev/pts type devpts (rw,relatime,mode=600)
+192.168.0.101:/tftpboot/nfs on /mnt type nfs 
+(rw,relatime,vers=3,rsize=32768,wsize=32768,namlen=255,hard,nolock,proto=udp,port=65535,timeo=7,retrans=3,sec=sys,local_lock=all,addr=192.168.0.101)
+~ #
+~ # ps
+PID   USER     TIME   COMMAND
+     1 root       0:02 init
+     2 root       0:00 [kthreadd]
+     3 root       0:00 [ksoftirqd/0]
+     4 root       0:00 [kworker/0:0]
+     5 root       0:00 [kworker/u:0]
+     6 root       0:00 [khelper]
+     7 root       0:00 [sync_supers]
+     8 root       0:00 [bdi-default]
+     9 root       0:00 [kblockd]
+    10 root       0:00 [rpciod]
+    11 root       0:00 [kworker/0:1]
+    12 root       0:00 [kswapd0]
+    13 root       0:00 [fsnotify_mark]
+    14 root       0:00 [aio]
+    15 root       0:00 [nfsiod]
+    16 root       0:00 [kworker/u:1]
+    58 root       0:00 udhcpc -R -n -p /var/run/udhcpc.eth0.pid -i eth0
+    62 1          0:00 /bin/portmap
+    64 root       0:00 /bin/inetd /etc/inetd.conf
+    65 root       0:01 -sh
+    66 root       0:00 /bin/syslogd -n
+    67 root       0:00 /bin/flatfsd
+    68 root       0:00 [kworker/0:2]
+    91 root       0:00 ps
+~ # cat /proc/cpuinfo
+CPU-Family:     MicroBlaze
+FPGA-Arch:      spartan6
+CPU-Ver:        8.00.a, little endian
+CPU-MHz:        50.00
+BogoMips:       24.06
+HW:
+  Shift:         yes
+  MSR:           yes
+  PCMP:          yes
+  DIV:           yes
+  MMU:           3
+  MUL:           v2
+  FPU:           no
+  Exc:           op0x0 unal ill iopb dopb zero
+Icache:         16kB    line length:    32B
+Dcache:         16kB    line length:    16B
+                 write-through
+HW-Debug:       yes
+PVR-USR1:       00
+PVR-USR2:       00000000
+Page size:      4096
+~ #
+
+
+
+-- 
+Michal Simek, Ing. (M.Eng)
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel 2.6 Microblaze Linux - http://www.monstr.eu/fdt/
+Microblaze U-BOOT custodian
