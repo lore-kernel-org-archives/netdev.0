@@ -1,49 +1,62 @@
-From: Eliot Blennerhassett <linux@audioscience.com>
-Subject: AVB QoS  support (IEEE802.1 Qav and Qat)
-Date: Thu, 17 Feb 2011 08:51:17 +1300
-Message-ID: <4D5C2AB5.8010009@audioscience.com>
-References: <4D488D9B.5080409@audioscience.com>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: [BUG]  behaviour mismatch between ipv4 and ipv6 in UDP rx path
+Date: Wed, 16 Feb 2011 14:18:48 -0600
+Message-ID: <4D5C3128.4080101@genband.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.clear.net.nz ([203.97.37.64]:55501 "EHLO
-	smtp4.clear.net.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751063Ab1BPTvU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 14:51:20 -0500
-Received: from [192.168.36.2]
- (121-72-250-62.cable.telstraclear.net [121.72.250.62])
- by smtp4.clear.net.nz (CLEAR Net Mail)
- with ESMTP id <0LGQ00LXF75I0S50@smtp4.clear.net.nz> for
- netdev@vger.kernel.org; Thu, 17 Feb 2011 08:51:19 +1300 (NZDT)
-In-reply-to: <4D488D9B.5080409@audioscience.com>
+Received: from exprod7og116.obsmtp.com ([64.18.2.219]:58674 "EHLO
+	exprod7og116.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751123Ab1BPUVK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Feb 2011 15:21:10 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greetings
+Hi,
 
-Can linux network stacks can support the various protocols required by AVB?
-It is not clear to me if it already does, and in any case how the setup
-would be accessed?
+I sent this out a week ago but didn't see a reply, so I'm sending it out
+again.
 
-In particular these two standards and the interaction between them
+One of our guys is seeing occasional dropped ipv4 packets coming in on
+an ipv6 udp socket obtained via socket(AF_INET6,  SOCK_DGRAM, IPPROTO_UDP).
 
-802.1Qat - Stream Reservation Protocol
-802.1Qav - Forwarding and Queuing Enhancements for Time-Sensitive
-Streams (approved on Dec 10th, 2009)
+Here's what he says:
 
-Qav requires traffic shaping to smooth the traffic flow in guaranteed
-stream class. This is afaik based on 1 packet per stream per 125us
 
-Note that in future (maybe already) there will be hardware assist for
-this feature in NIC chips.
+"The problem happens when release_sock() goes down an interesting code
+path.  If (sk->sk_backlog.tail) is non-NULL then release_sock() invokes
+__release_sock() which loops over all queue packets and invokes the
+socket's backlog receive function for each previously queued packet.
+
+Now for the interesting part.  The UDPv6 backlog receive function (in
+net/ipv6/udp.c, udpv6_queue_rcv_skb()) invokes xfrm6_policy_check() to
+confirm that the packet is allowed, but the problem is that it calls
+this function regardless of whether the packet is IPv4 or IPv6.  The
+xfrm6_policy_check() function then assumes that it is an IPv6 packet and
+tries to match a policy based on its packet header... but that clearly
+won't work because the addresses that it finds when it decodes the skb
+are completely bogus."
+
+
+Looking at the ipv4 code, git commit 9382177 split __udp_queue_rcv_skb()
+out of udp_queue_rcv_skb().  It was done for locking purposes, but it
+also means that backlog_rcv is bound to __udp_queue_rcv_skb(), which
+doesn't call xfrm4_policy_check().
+
+
+Should a new function __udpv6_queue_rcv_skb() be split out from
+udpv6_queue_rcv_skb() and bound to backlog_rcv to resolve the xfrm
+issue?  What about the locking that was the reason for the split in the
+ipv4 case--is there a similar problem with ipv6?
+
+Thanks,
+Chris
 
 -- 
-Eliot Blennerhassett
-AudioScience Inc.
-
-
-[1] http://www.ieee802.org/1/pages/avbridges.html
-[2]
-http://en.wikipedia.org/wiki/Audio_Video_Bridging#Traffic_shaping_for_AV_streams
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
