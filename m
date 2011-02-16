@@ -1,80 +1,54 @@
-From: Hank Janssen <hjanssen@microsoft.com>
-Subject: RE: Process for subsystem maintainers to get Hyper-V code out of
- staging. - CORRECTED RECIPIENTS
-Date: Wed, 16 Feb 2011 17:43:34 +0000
-Message-ID: <8AFC7968D54FB448A30D8F38F259C56233F98FDA@TK5EX14MBXC114.redmond.corp.microsoft.com>
-References: <8AFC7968D54FB448A30D8F38F259C56233F957D3@TK5EX14MBXC114.redmond.corp.microsoft.com>
- <4D59CCAD.90503@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [RFC !!BONUS!! PATCH 6/5] ipv4: Delete routing cache.
+Date: Wed, 16 Feb 2011 10:09:35 -0800 (PST)
+Message-ID: <20110216.100935.189677289.davem@davemloft.net>
+References: <20110209.223939.246547003.davem@davemloft.net>
+	<20110215.185534.71133854.davem@davemloft.net>
+	<1297842977.3201.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shemminger@linux-foundation.org" <shemminger@linux-foundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	ide <linux-ide@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	Hashir Abdi <habdi@microsoft.com>,
-	Mike Sterling <Mike.Sterling@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"gregkh@suse.de\" \"" <gregkh@suse.de>
-To: Robert Hancock <hancockrwd@gmail.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <4D59CCAD.90503@gmail.com>
-Content-Language: en-US
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59690
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754063Ab1BPSI7 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Feb 2011 13:08:59 -0500
+In-Reply-To: <1297842977.3201.7.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 16 Feb 2011 08:56:17 +0100
 
-> From: Robert Hancock [mailto:hancockrwd@gmail.com]
-> Sent: Monday, February 14, 2011 4:46 PM
-> On 02/14/2011 05:42 PM, Hank Janssen wrote:
-> >
-> > MY APOLOGIES-I made a typo on James email address. I corrected it and
-> resend.
-> > Sorry for the double email.
-> >
-> >
-> > Stephen/James/David,
-> >
-> > Greetings to you all. As you might be aware, we submitted Hyper-V
-> drivers to the kernel 2009.
-> > We have been extending these drivers with additional functionality
-> and our primary focus now
-> > is doing the work needed to exit the staging area.
-> >
-> > To give you some background, the following are Hyper-V specific Linux
-> drivers:
-> >
-> >                  hv_vmbus           The vmbus driver that is the
-> bridge between guest and the
-> > 			host
-> >                  hv_storvsc          The SCSI device driver
-> >                  hv_blkvsc            The IDE driver
-> 
-> Given that the IDE subsystem (drivers/ide) is currently in
-> maintenance-only mode, and isn't used by modern distributions, you
-> likely want to make this a libata driver instead.
-> 
-> Though, from what's in current git, it's not clear to me what the HV
-> IDE
-> (and SCSI) drivers are attempting to do. Is it really something that
-> looks like an IDE controller from the guest OS point of view? If not,
-> then having it as an IDE driver would be the wrong thing to do, it
-> should be more of a generic block driver. In that case, then, why are
-> there both SCSI and IDE drivers in the first place?
-> 
+> Le mardi 15 f=E9vrier 2011 =E0 18:55 -0800, David Miller a =E9crit :
+>> From: David Miller <davem@davemloft.net>
+>> Date: Wed, 09 Feb 2011 22:39:39 -0800 (PST)
+>>=20
+>> >=20
+>> > Signed-off-by: David S. Miller <davem@davemloft.net>
+>>=20
+>> Ok, this patch had one nasty bug:
+>>=20
+>> > +	if (!err =3D=3D 0)
+>>=20
+>> Yeah... right.
+>>=20
+>> I'm actively testing this version at the moment, against net-next-2.=
+6,
+>> works fine thus far.
+>>=20
+>> --------------------
+>> ipv4: Delete routing cache.
+>>=20
+>> Signed-off-by: David S. Miller <davem@davemloft.net>
+>> ---
+>=20
+> Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> I suspect we can zap DST_NOCACHE later ?
 
-Robert,
-
-Thank you very much for your responses, today Hyper-V host only supports 
-IDE and SCSI, and the code was initially written against 2.6.9 kernel.
-
-Hyper-V still treats them a separate interface and is designed to emulate
-A pretty old BIOS.
-
-What my approach will be is to dig into libsata (something I have not
-Much knowledge of) and see if we can use it and find a way to more sanely
-Merge the behavior of Hyper-V's IDE and SCSI.
-
-Hank.
-
+Yes, the number of cleanups we can do after this patch is actually
+quite large.
