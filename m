@@ -1,50 +1,70 @@
-From: Chris Metcalf <cmetcalf@tilera.com>
-Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
-Date: Thu, 17 Feb 2011 18:18:29 -0500
-Message-ID: <4D5DACC5.60105@tilera.com>
-References: <4D5DA60A.8080201@tilera.com>	<20110217.145333.232751283.davem@davemloft.net>	<4D5DA96D.5060200@tilera.com> <20110217.151147.35033921.davem@davemloft.net>
+From: Vasanthy Kolluri <vkolluri@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Always use single transmit and single
+	receive hardware queues per device
+Date: Thu, 17 Feb 2011 15:57:19 -0800
+Message-ID: <20110217235719.6978.78272.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: <xiyou.wangcong@gmail.com>, <cypher.w@gmail.com>,
-	<linux-kernel@vger.kernel.org>, <eric.dumazet@gmail.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110217.151147.35033921.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from sj-iport-4.cisco.com ([171.68.10.86]:35362 "EHLO
+	sj-iport-4.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754960Ab1BQX5U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 18:57:20 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2/17/2011 6:11 PM, David Miller wrote:
-> From: Chris Metcalf <cmetcalf@tilera.com>
-> Date: Thu, 17 Feb 2011 18:04:13 -0500
->
->> On 2/17/2011 5:53 PM, David Miller wrote:
->>> From: Chris Metcalf <cmetcalf@tilera.com>
->>> Date: Thu, 17 Feb 2011 17:49:46 -0500
->>>
->>>> The fix is to disable interrupts for the arch_read_lock family of methods. 
->>> How does that help handle the race when it happens between different
->>> cpus, instead of between IRQ and non-IRQ context on the same CPU?
->> There's no race in that case, since the lock code properly backs off and
->> retries until the other cpu frees it.  The distinction here is that the
->> non-IRQ context is "wedged" by the IRQ context.
->>
->>> Why don't you just use the generic spinlock based rwlock code on Tile,
->>> since that is all that your atomic instructions can handle
->>> sufficiently?
->> The tile-specific code encodes reader/writer information in the same 32-bit
->> word that the test-and-set instruction manipulates, so it's more efficient
->> both in space and time.  This may not really matter for rwlocks, since no
->> one cares much about them any more, but that was the motivation.
-> Ok, but IRQ disabling is going to be very expensive.
+From: Vasanthy Kolluri <vkolluri@cisco.com>
 
-The interrupt architecture on Tile allows a write to a special-purpose
-register to put you into a "critical section" where no interrupts or faults
-are delivered.  So we just need to bracket the read_lock operations with
-two SPR writes; each takes six machine cycles, so we're only adding 12
-cycles to the total cost of taking or releasing a read lock on an rwlock.
+We believe that our earlier patch for supporting multiple hardware receive queues per enic device requires more internal testing. At this point, we think that it's best to disable the use of multiple receive queues. The current patch provides an effective means for the same.
 
--- 
-Chris Metcalf, Tilera Corp.
-http://www.tilera.com
+Also, we continue to disallow multiple hardware transmit queues per device. But change the way we enforce this in order to maintain consistency with the way receive queues are handled.
+
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
+Signed-off-by: Danny Guo <dannguo@cisco.com>
+Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+---
+ drivers/net/enic/enic.h      |    6 +++---
+ drivers/net/enic/enic_main.c |    2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index 2ac891b..aee5256 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,13 +32,13 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.8"
++#define DRV_VERSION		"2.1.1.9"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+ 
+-#define ENIC_WQ_MAX		8
+-#define ENIC_RQ_MAX		8
++#define ENIC_WQ_MAX		1
++#define ENIC_RQ_MAX		1
+ #define ENIC_CQ_MAX		(ENIC_WQ_MAX + ENIC_RQ_MAX)
+ #define ENIC_INTR_MAX		(ENIC_CQ_MAX + 2)
+ 
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index d1aa807..4f1710e 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -2080,7 +2080,7 @@ static void enic_reset(struct work_struct *work)
+ static int enic_set_intr_mode(struct enic *enic)
+ {
+ 	unsigned int n = min_t(unsigned int, enic->rq_count, ENIC_RQ_MAX);
+-	unsigned int m = 1;
++	unsigned int m = min_t(unsigned int, enic->wq_count, ENIC_WQ_MAX);
+ 	unsigned int i;
+ 
+ 	/* Set interrupt mode (INTx, MSI, MSI-X) depending
+
