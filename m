@@ -1,114 +1,122 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/2] r8169: Support RTL8105E
-Date: Thu, 17 Feb 2011 14:39:51 +0100
-Message-ID: <20110217133951.GA11996@electric-eye.fr.zoreil.com>
-References: <1297942668-23274-1-git-send-email-hayeswang@realtek.com> <1297942668-23274-2-git-send-email-hayeswang@realtek.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [RFC patch net-next-2.6] net: convert bonding to use rx_handler
+Date: Thu, 17 Feb 2011 14:49:18 +0100
+Message-ID: <20110217134918.GA11679@psychotron.redhat.com>
+References: <20110217125221.GA10436@psychotron.redhat.com>
+ <1297948835.2604.50.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29728 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756373Ab1BQNti (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Feb 2011 08:49:38 -0500
 Content-Disposition: inline
-In-Reply-To: <1297942668-23274-2-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1297948835.2604.50.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hayes Wang <hayeswang@realtek.com> :
-[...]
-> @@ -227,6 +232,10 @@ enum rtl_registers {
->  	MultiIntr	= 0x5c,
->  	PHYAR		= 0x60,
->  	PHYstatus	= 0x6c,
-> +	DLLPR		= 0xd0,
-> +	DbgReg		= 0xd1,
-> +	TWSI		= 0xd2,
-> +	MCU		= 0xd3,
+Thu, Feb 17, 2011 at 02:20:35PM CET, eric.dumazet@gmail.com wrote:
+>Le jeudi 17 f=E9vrier 2011 =E0 13:52 +0100, Jiri Pirko a =E9crit :
+>> Hello.
+>>=20
+>> This is an attempt to convert bonding to use rx_handler. Result shou=
+ld be
+>> cleaner __netif_receive_skb() with much less exceptions needed. I th=
+ink I
+>> covered all aspects, not sure though. I gave this quick smoke test o=
+n my
+>> testing env. Please comment, test.
+>>=20
+>> Thanks!
+>>=20
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> ---
+>>  drivers/net/bonding/bond_main.c |   75 ++++++++++++++++++++-
+>>  include/linux/skbuff.h          |    1 +
+>>  net/core/dev.c                  |  144 +++++++++++-----------------=
+----------
+>>  3 files changed, 117 insertions(+), 103 deletions(-)
+>>=20
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+>
+>
+>> +
+>> +static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+>> +{
+>> +	struct net_device *slave_dev;
+>> +	struct net_device *bond_dev;
+>> +
+>> +	skb =3D skb_share_check(skb, GFP_ATOMIC);
+>> +	if (unlikely(!skb))
+>> +		return NULL;
+>> +	slave_dev =3D skb->dev;
+>> +	bond_dev =3D slave_dev->master;
+>
+>I suggest being 10%% safe here :
+>
+>	bond_dev =3D ACCESS_ONCE(slave_dev->master);
 
-You can probably fill some of those in 'enum rtl8168_8101_registers'
-(DbgReg is already there).
+Right, will change this.
 
->  	RxMaxSize	= 0xda,
->  	CPlusCmd	= 0xe0,
->  	IntrMitigate	= 0xe2,
-> @@ -427,6 +436,13 @@ enum rtl_register_content {
->  
->  	/* DumpCounterCommand */
->  	CounterDump	= 0x8,
-> +
-> +	/* MCU */
-> +	EnNDP		= (1 << 3),
-> +	EnOOBReset		= (1 << 2),
-                  ^^^^ -> extraneous tab
-> +
-> +	/* DLLPR */
-> +	PmSwitch	= (1 << 6),
+>
+>> +	if (unlikely(!bond_dev))
+>> +		return skb;
+>> +
+>> +	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
+>> +		slave_dev->last_rx =3D jiffies;
+>> +
+>> +	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
+>> +		skb->deliver_no_wcard =3D 1;
+>> +		return skb;
+>> +	}
+>> +
+>> +	skb->dev =3D bond_dev;
+>> +
+>> +	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
+>> +	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
+>> +	    skb->pkt_type =3D=3D PACKET_HOST) {
+>> +		u16 *dest =3D (u16 *) eth_hdr(skb)->h_dest;
+>> +
+>> +		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
+>> +	}
+>> +
+>> +	netif_rx(skb);
+>> +	return NULL;
+>> +}
+>> +
+>
+>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 31f02d0..15b54ea 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -325,6 +325,7 @@ struct sk_buff {
+>> =20
+>>  	struct sock		*sk;
+>>  	struct net_device	*dev;
+>> +	struct net_device	*orig_dev;
+>> =20
+>>  	/*
+>>  	 * This is the control buffer. It is free to use for every
+>
+>Thats a problem. lifetime of this field is so small, I wonder if you
+>cant find a solution to handle this differently. Maybe a percpu
+>variable, or in cb[] ?
 
-They are a bit old-fashioned.
+Yes, I was not feeling absolutely comfortable puting this here.
+You mean global percpu variable living in net/core/dev.c? I must say I
+would probably like skb->orig_dev more than that.
 
-See rtl8168_8101_registers / DBG_REG / FIX_NAK_{1, 2}.
+As for cb - I do not like that much. Also I think there might be
+collision e.g. with bridge code.
 
-[...]
-> @@ -2435,6 +2457,57 @@ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
->  	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
->  }
->  
-> +static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
-> +{
-> +	void __iomem *ioaddr = tp->mmio_addr;
-> +	static const struct phy_reg phy_reg_init[] = {
-> +		{ 0x1f, 0x0001},
-> +		{ 0x15, 0x7701},
-> +		{ 0x1f, 0x0000}
-> +	};
-> +
-> +	rtl_writephy(tp, 0x1f, 0x0000);
-> +	rtl_writephy(tp, 0x18, 0x0310);
-> +	msleep(100);
-> +
-> +	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
-> +		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-> +
-> +	if(RTL_R8(0xef) & 0x08) {
-         ^^ -> missing space.
-
-Add a symbol for the 0xef register ?
-
-> +		static const struct phy_reg phy_reg_init1[] = {
-> +			{ 0x1f, 0x0005},
-> +			{ 0x1a, 0x0004},
-> +			{ 0x1f, 0x0000}
-> +		};
-> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
-> +	} else {
-> +		static const struct phy_reg phy_reg_init1[] = {
-> +			{ 0x1f, 0x0005},
-> +			{ 0x1a, 0x0000},
-> +			{ 0x1f, 0x0000}
-> +		};
-> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
-> +	}
-> +
-> +	if(RTL_R8(0xef) & 0x010) {
-         ^^ -> missing space.
-
-> +		static const struct phy_reg phy_reg_init1[] = {
-> +			{ 0x1f, 0x0004},
-> +			{ 0x1c, 0x0000},
-> +			{ 0x1f, 0x0000}
-> +		};
-> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
-> +	} else {
-> +		static const struct phy_reg phy_reg_init1[] = {
-> +			{ 0x1f, 0x0004},
-> +			{ 0x1c, 0x0200},
-> +			{ 0x1f, 0x0000}
-> +		};
-> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
-> +	}
-
-Nit: I would rather use an array of array and remove some code duplication.
-
-Otherwise ok.
-
--- 
-Ueimor
+>
+>
+>
