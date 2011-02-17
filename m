@@ -1,56 +1,64 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Question about tg3 and bnx2 driver suppliers
-Date: Thu, 17 Feb 2011 15:17:35 +0100
-Message-ID: <1297952255.2604.115.camel@edumazet-laptop>
-References: <3BA51C2C-B28F-4FED-BF5D-B9BF46EAF3F7@highwire.stanford.edu>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Subject: biosdevname v0.3.7
+Date: Thu, 17 Feb 2011 10:15:40 -0600
+Message-ID: <20110217161540.GA29554@auslistsprd01.us.dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Michael Durket <durket@highwire.stanford.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:47319 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753995Ab1BQORm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 09:17:42 -0500
-Received: by fxm20 with SMTP id 20so2639628fxm.19
-        for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 06:17:40 -0800 (PST)
-In-Reply-To: <3BA51C2C-B28F-4FED-BF5D-B9BF46EAF3F7@highwire.stanford.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: linux-hotplug@vger.kernel.org, netdev@vger.kernel.org,
+	"K, Narendra" <Narendra_K@Dell.com>,
+	"Hargrave, Jordan" <Jordan_Hargrave@Dell.com>,
+	"Rose, Charles" <Charles_Rose@Dell.com>,
+	Co
+Return-path: <linux-hotplug-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-hotplug-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 17 f=C3=A9vrier 2011 =C3=A0 05:24 -0800, Michael Durket a =C3=A9=
-crit :
-> I'm trying to fix a problem with packet drops and frame errors (reall=
-y
-> rxbds_empty and rx_discards (or rx_fw_discards depending on whether o=
-r
-> not its a tg3 supported chip or a bnx2 chip)). We have this happening
-> on pretty much all the RedHat 5.x systems we're running these drivers
-> on. In investigating what remedies to employ to fix this, I'm trying
-> to determine if new versions of this driver are supplied by Broadcom,
-> or by people within the Linux community so=20
-> I can find the right place to ask questions about it. I'm pretty sure
-> this isn't the right list for these types of questions, but if someon=
-e
-> could tell me whether I should be contacting Broadcom directly, or th=
-e
-> name of some other Linux mailing list or forum that might help, I'd
-> appreciate it.
->=20
+biosdevname, now version 0.3.7.
 
-It _is_ the right place, dont worry ;)
+Major visible changes include no longer using '#' in device names (by
+popular demand), no longer suggesting new names if running inside a VM
+guest (tested with KVM, SLES 10 Xen, XenServer, VMware ESX, but it
+uses the generic cpuid test, so should work on most virt platforms),
+and a new kernel command line option 'biosdevname={0|1}' which udev
+honors, to force enabling or disabling of invoking biosdevname.
 
-One possible cause of packet drops is when softirqs are disabled for to=
-o
-long periods, even if NIC has a big RX ring (check ethtool -g eth0)
-
-We fixed one big offender some weeks ago : iptables -L
-
-=46ix is in commit 83723d60717f8da0f53f
-
-http://git2.kernel.org/?p=3Dlinux/kernel/git/torvalds/linux-2.6.git;a=3D=
-commitdiff;h=3D83723d60717f8da0f53f91cf42a845ed56c09662
+Still to come: NPAR partition->port mapping support (initially
+Dell-specific, but if NIC vendors have other ways to expose this,
+please let me know).
 
 
+Grab it here:
+http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.7.tar.gz
+http://linux.dell.com/files/biosdevname/permalink/biosdevname-0.3.7.tar.gz.sign
+git://linux.dell.com/biosdevname.git
 
+I built this today for Fedora rawhide and F15, and I encourage
+other distributions to pick it up as well.
+
+shortlog:
+
+Andrew Cooper (3):
+      Fix segfault when BIOS advertises zero sized PIRQ Routing Table
+      Add 'bonding' and 'openvswitch' to the virtual devices list
+      Typo fixes
+
+Harald Hoyer (1):
+      Add kernel command line parameter "biosdevname={0|1}" to turn off/on
+
+Matt Domsch (7):
+      don't build or package dump_pirq, use biosdecode from dmidecode instead
+      don't use '#' in names, use 'p' instead, by popular demand
+      properly look for SMBIOS, then $PIR, then recurse
+      update changelog
+      Fix test for PIRQ table version
+      fail PIRQ lookups if device domain is not 0
+      exit(4) if running a virtual machine
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Technology Strategist
+Dell | Office of the CTO
