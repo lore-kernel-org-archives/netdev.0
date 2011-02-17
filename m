@@ -1,51 +1,89 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH] drivers/net: Call netif_carrier_off at the end of the
- probe
-Date: Thu, 17 Feb 2011 09:24:20 +0100
-Message-ID: <1297931060.9613.2.camel@ceranb.intra.cera.cz>
-References: <483985247.35721.1297792863958.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] bnx2x: Support for managing RX indirection table
+Date: Thu, 17 Feb 2011 10:09:24 +0100
+Message-ID: <1297933764.2670.20.camel@edumazet-laptop>
+References: <alpine.DEB.2.00.1102161210190.31937@pokey.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, aabdulla@nvidia.com,
-	Ben Hutchings <ben@decadent.org.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, eilong@broadcom.com, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17083 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751832Ab1BQIYm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Feb 2011 03:24:42 -0500
-In-Reply-To: <483985247.35721.1297792863958.JavaMail.root@zmail07.collab.prod.int.phx2.redhat.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63835 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753887Ab1BQJJ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 04:09:29 -0500
+Received: by bwz15 with SMTP id 15so1468845bwz.19
+        for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 01:09:28 -0800 (PST)
+In-Reply-To: <alpine.DEB.2.00.1102161210190.31937@pokey.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-02-15 at 13:01 -0500, Ivan Vecera wrote:
-> ----- Original Message -----
-> > On Tue, 2011-02-15 at 16:22 +0100, Francois Romieu wrote:
-> > > Stated this way it sounds like a core dev layer issue.
-> > 
-> > ...
-> > > I am not completely sure after reading some history. Namely:
-> > > - (37e8273cd30592d3a82bcb70cbb1bdc4eaeb6b71 ?)
-> > > - c276e098d3ee33059b4a1c747354226cec58487c
-> > > - 22604c866889c4b2e12b73cbf1683bda1b72a313
-> > > - b47300168e770b60ab96c8924854c3b0eb4260eb
-> > >
-> > > I am confused.
-> > 
-> > Drivers that can report carrier state should do so initially some time
-> > between registering a device and bringing it up (either in the bus
-> > probe
-> > function or the ndo_open function). It generally seems to be safe to
-> > assume that the link is down initially, and then to rely on
-> > notifications from the hardware. However, that does depend on the
-> > behaviour of the hardware.
-> > 
-> Yes,that's true... forcedeth and r8169 are the drivers that detect link
-> state when device is opened and call netif_carrier_on(off) appropriately.
-> 
-> Ivan
-Dave, Francois, is it acceptable?
+Le mercredi 16 f=C3=A9vrier 2011 =C3=A0 12:27 -0800, Tom Herbert a =C3=A9=
+crit :
+> Support fetching and retrieving RX indirection table via ethtool.
+>=20
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  drivers/net/bnx2x/bnx2x.h         |    2 +
+>  drivers/net/bnx2x/bnx2x_ethtool.c |   56 +++++++++++++++++++++++++++=
+++++++++++
+>  drivers/net/bnx2x/bnx2x_main.c    |   22 +++++++++++---
+>  3 files changed, 75 insertions(+), 5 deletions(-)
 
-Ivan
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+
+As this is a bit unusual stuff (ethtool -X), I guess some hints can be
+useful to testers and admins :
+
+I tested this patch on my dev machine
+
+Broadcom Corporation NetXtreme II BCM57711E 10Gigabit PCIe
+(Hewlett-Packard Company NC532i Dual Port 10GbE Multifunction BL-C
+Adapter)
+
+
+# ethtool -X eth1 weight 0 1 0 2 0 4 0 8 0 16 0 32
+# ethtool -x eth1=20
+RX flow hash indirection table for eth1 with 16 RX ring(s):
+    0:      1     1     3     3     3     3     5     5
+    8:      5     5     5     5     5     5     7     7
+   16:      7     7     7     7     7     7     7     7
+   24:      7     7     7     7     7     7     9     9
+   32:      9     9     9     9     9     9     9     9
+   40:      9     9     9     9     9     9     9     9
+   48:      9     9     9     9     9     9     9     9
+   56:      9     9     9     9     9     9    11    11
+   64:     11    11    11    11    11    11    11    11
+   72:     11    11    11    11    11    11    11    11
+   80:     11    11    11    11    11    11    11    11
+   88:     11    11    11    11    11    11    11    11
+   96:     11    11    11    11    11    11    11    11
+  104:     11    11    11    11    11    11    11    11
+  112:     11    11    11    11    11    11    11    11
+  120:     11    11    11    11    11    11    11    11
+
+
+After some (distributed) trafic on eth1 I get :
+
+[root@svivoipvnx021 ~]# ethtool -S eth1|grep rx_ucast_packets
+     [0]: rx_ucast_packets: 62
+     [1]: rx_ucast_packets: 15870
+     [2]: rx_ucast_packets: 9
+     [3]: rx_ucast_packets: 31507
+     [4]: rx_ucast_packets: 0
+     [5]: rx_ucast_packets: 63106
+     [6]: rx_ucast_packets: 0
+     [7]: rx_ucast_packets: 122051
+     [8]: rx_ucast_packets: 1
+     [9]: rx_ucast_packets: 248071
+     [10]: rx_ucast_packets: 0
+     [11]: rx_ucast_packets: 519864
+     [12]: rx_ucast_packets: 0
+     [13]: rx_ucast_packets: 0
+     [14]: rx_ucast_packets: 0
+     [15]: rx_ucast_packets: 0
+     rx_ucast_packets: 1000541
+
 
