@@ -1,31 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 0/4][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 17 Feb 2011 12:44:39 -0800 (PST)
-Message-ID: <20110217.124439.193687222.davem@davemloft.net>
-References: <1297935310-23510-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH v2] bnx2x: Support for managing RX indirection table
+Date: Thu, 17 Feb 2011 12:49:56 -0800 (PST)
+Message-ID: <20110217.124956.226782810.davem@davemloft.net>
+References: <alpine.DEB.2.00.1102161210190.31937@pokey.mtv.corp.google.com>
+	<1297933764.2670.20.camel@edumazet-laptop>
+	<1297947524.4722.2.camel@lb-tlvb-eilong.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, therbert@google.com, netdev@vger.kernel.org
+To: eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34120
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:53591
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751781Ab1BQUoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 15:44:04 -0500
-In-Reply-To: <1297935310-23510-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	by vger.kernel.org with ESMTP id S1757962Ab1BQUtU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Feb 2011 15:49:20 -0500
+In-Reply-To: <1297947524.4722.2.camel@lb-tlvb-eilong.il.broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 17 Feb 2011 01:35:06 -0800
+=46rom: "Eilon Greenstein" <eilong@broadcom.com>
+Date: Thu, 17 Feb 2011 14:58:44 +0200
 
-> The following series contains two fixes for e1000e and ixgbe.
-> 
-> The following are changes since commit 6d90e8f45697c633f522269368297d7416fd8783:
->   isdn: hisax: Use l2headersize() instead of dup (and buggy) func.
-> 
-> and are available in the git repository at:
->   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-2.6 master
+> On Thu, 2011-02-17 at 01:09 -0800, Eric Dumazet wrote:
+>> Le mercredi 16 f=E9vrier 2011 =E0 12:27 -0800, Tom Herbert a =E9crit=
+ :
+>> > Support fetching and retrieving RX indirection table via ethtool.
+>> >=20
+>> > Signed-off-by: Tom Herbert <therbert@google.com>
+>> > ---
+>> >  drivers/net/bnx2x/bnx2x.h         |    2 +
+>> >  drivers/net/bnx2x/bnx2x_ethtool.c |   56 ++++++++++++++++++++++++=
++++++++++++++
+>> >  drivers/net/bnx2x/bnx2x_main.c    |   22 +++++++++++---
+>> >  3 files changed, 75 insertions(+), 5 deletions(-)
+>>=20
+>> Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+>=20
+> Acked-by: Eilon Greenstein <eilong@broadcom.com>
+>=20
+> Thanks everyone!=20
 
-Pulled, thanks Jeff.
+Applied to net-next-2.6, thanks!
