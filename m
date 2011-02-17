@@ -1,40 +1,64 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/1] tproxy: do not assign timewait sockets to skb->sk
-Date: Thu, 17 Feb 2011 11:40:13 +0100
-Message-ID: <4D5CFB0D.9050704@trash.net>
-References: <1297683874-10188-1-git-send-email-fw@strlen.de> <4D594F9E.2090100@trash.net> <4D5B90C7.5040603@balabit.hu> <20110216113040.GE8821@Chamillionaire.breakpoint.cc>
+From: Jan-Philip gehrcke <jgehrcke@googlemail.com>
+Subject: Read sent/received bytes -- without opening a file in /sys or /proc
+Date: Thu, 17 Feb 2011 11:57:29 +0100
+Message-ID: <4D5CFF19.6050400@googlemail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: KOVACS Krisztian <hidden@balabit.hu>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Balazs Scheidler <bazsi@balabit.hu>
-To: Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:53086 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337Ab1BQKkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 05:40:16 -0500
-In-Reply-To: <20110216113040.GE8821@Chamillionaire.breakpoint.cc>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:65115 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020Ab1BQK5c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 05:57:32 -0500
+Received: by fxm20 with SMTP id 20so2449033fxm.19
+        for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 02:57:31 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 16.02.2011 12:30, schrieb Florian Westphal:
-> KOVACS Krisztian <hidden@balabit.hu> wrote:
->> On 02/14/2011 04:51 PM, Patrick McHardy wrote:
->>> Looks fine to me. Balazs. Krisztian, any objections?
->>
->> Seems to be OK, as far as I can see.
->>
->> Florian, did you make sure the tests still run after applying this patch?
->>
->> http://git.balabit.hu/?p=bazsi/tproxy-test.git;a=summary
-> 
-> Thanks for the hint, I cloned this and ran it on my test setup:
-> ./tproxy-test.py
-> [..]
-> PASS: ('192.168.10.8', 50080), we got a connection as we deserved
-> PASS: everything is fine
+Dear list,
 
-Applied, thanks everyone.
+I'm about to write a small C program for measurements of the bandwidth
+on some network interface of my home router (uname -a: Linux
+fritz.fonwlan.box 2.6.19.2 #2 Thu Nov 18 16:35:17 CET 2010 mips
+GNU/Linux). I would like to accomplish very *precise* results, while
+keeping the absolute measurement time low.
 
+In general, this problem requires the knowledge of time and byte
+differences. Therefore, two time measurements and two byte counter
+measurements for each, received and sent bytes, are required. Currently,
+I am measuring time via
+
+    clock_gettime(CLOCK_MONOTONIC, ...)
+
+and reading the byte counters by reading files in sysfs, e.g.
+
+     /sys/class/net/${interface}/statistics/rx_bytes.
+
+This is very easy and works well, but reading these files four times
+takes some (varying) time* on my device, which introduces an error to my
+calculation.
+
+Hence, I am wondering, if there is a way to receive this kind of data
+directly and much faster, via "kernel API". My question is related to
+this unanswered one from 2005:
+http://linux.derkeiler.com/Mailing-Lists/RedHat/2005-02/0557.html
+
+*On my device, reading such a file and interpreting the result as
+integer takes 1-10 ms, measured via:
+
+    clock_gettime(CLOCK_MONOTONIC, &t_start);
+    rx_bytes = read_int_from_file("/sys/class/net/wan/statistics/rx_bytes");
+    clock_gettime(CLOCK_MONOTONIC, &t_end);
+
+read_int_from_file() basically consists of fopen(), fgets(), and sscanf().
+
+
+Please note that I don't have kernel/driver programming experience so far.
+
+Thank you for help and any suggestions!
+
+    Jan-Philip Gehrcke
+
+--
+http://gehrcke.de
