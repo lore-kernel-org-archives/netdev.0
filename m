@@ -1,33 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: Call netif_carrier_off at the end of the
- probe
-Date: Thu, 17 Feb 2011 14:10:11 -0800 (PST)
-Message-ID: <20110217.141011.59671324.davem@davemloft.net>
-References: <1297771719-14202-1-git-send-email-ivecera@redhat.com>
+Subject: Re: [PATCH net-2.6/stable] tg3: Restrict phy ioctl access
+Date: Thu, 17 Feb 2011 14:11:34 -0800 (PST)
+Message-ID: <20110217.141134.115921673.davem@davemloft.net>
+References: <1297810270-4690-1-git-send-email-mcarlson@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com, aabdulla@nvidia.com
-To: ivecera@redhat.com
+Cc: netdev@vger.kernel.org, stable@kernel.org
+To: mcarlson@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45838
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45843
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751550Ab1BQWJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 17:09:35 -0500
-In-Reply-To: <1297771719-14202-1-git-send-email-ivecera@redhat.com>
+	by vger.kernel.org with ESMTP id S1751728Ab1BQWK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 17:10:58 -0500
+In-Reply-To: <1297810270-4690-1-git-send-email-mcarlson@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ivan Vecera <ivecera@redhat.com>
-Date: Tue, 15 Feb 2011 13:08:39 +0100
+From: "Matt Carlson" <mcarlson@broadcom.com>
+Date: Tue, 15 Feb 2011 14:51:10 -0800
 
-> Without calling of netif_carrier_off at the end of the probe the operstate
-> is unknown when the device is initially opened. By default the carrier is
-> on so when the device is opened and netif_carrier_on is called the link
-> watch event is not fired and operstate remains zero (unknown).
+> If management firmware is present and the device is down, the firmware
+> will assume control of the phy.  If a phy access were allowed from the
+> host, it will collide with firmware phy accesses, resulting in
+> unpredictable behavior.  This patch fixes the problem by disallowing phy
+> accesses during the problematic condition.
 > 
-> This patch fixes this behavior in forcedeth and r8169.
-> 
-> Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+> Signed-off-by: Matt Carlson <mcarlson@broadcom.com>
+> Reviewed-by: Michael Chan <mchan@broadcom.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-Applied, thanks Ivan.
+Applied.
