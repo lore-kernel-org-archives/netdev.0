@@ -1,122 +1,22 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [RFC patch net-next-2.6] net: convert bonding to use rx_handler
-Date: Thu, 17 Feb 2011 14:49:18 +0100
-Message-ID: <20110217134918.GA11679@psychotron.redhat.com>
-References: <20110217125221.GA10436@psychotron.redhat.com>
- <1297948835.2604.50.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Michael Durket <durket@highwire.stanford.edu>
+Subject: Question about tg3 and bnx2 driver suppliers
+Date: Thu, 17 Feb 2011 05:24:13 -0800
+Message-ID: <3BA51C2C-B28F-4FED-BF5D-B9BF46EAF3F7@highwire.stanford.edu>
+Mime-Version: 1.0 (Apple Message framework v1082)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29728 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756373Ab1BQNti (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Feb 2011 08:49:38 -0500
-Content-Disposition: inline
-In-Reply-To: <1297948835.2604.50.camel@edumazet-laptop>
+Received: from highwire.Stanford.EDU ([171.66.121.166]:65046 "EHLO
+	highwire.stanford.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756518Ab1BQNvI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 08:51:08 -0500
+Received: from [192.168.45.74] (eniac.stanford.edu [171.66.122.117])
+	by highwire.stanford.edu (Postfix) with ESMTP id D438A8D45
+	for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 05:24:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thu, Feb 17, 2011 at 02:20:35PM CET, eric.dumazet@gmail.com wrote:
->Le jeudi 17 f=E9vrier 2011 =E0 13:52 +0100, Jiri Pirko a =E9crit :
->> Hello.
->>=20
->> This is an attempt to convert bonding to use rx_handler. Result shou=
-ld be
->> cleaner __netif_receive_skb() with much less exceptions needed. I th=
-ink I
->> covered all aspects, not sure though. I gave this quick smoke test o=
-n my
->> testing env. Please comment, test.
->>=20
->> Thanks!
->>=20
->> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> ---
->>  drivers/net/bonding/bond_main.c |   75 ++++++++++++++++++++-
->>  include/linux/skbuff.h          |    1 +
->>  net/core/dev.c                  |  144 +++++++++++-----------------=
-----------
->>  3 files changed, 117 insertions(+), 103 deletions(-)
->>=20
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
-ond_main.c
->
->
->> +
->> +static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
->> +{
->> +	struct net_device *slave_dev;
->> +	struct net_device *bond_dev;
->> +
->> +	skb =3D skb_share_check(skb, GFP_ATOMIC);
->> +	if (unlikely(!skb))
->> +		return NULL;
->> +	slave_dev =3D skb->dev;
->> +	bond_dev =3D slave_dev->master;
->
->I suggest being 10%% safe here :
->
->	bond_dev =3D ACCESS_ONCE(slave_dev->master);
+I'm trying to fix a problem with packet drops and frame errors (really rxbds_empty and rx_discards (or rx_fw_discards depending on whether or not its a tg3 supported chip or a bnx2 chip)). We have this happening on pretty much all the RedHat 5.x systems we're running these drivers on. In investigating what remedies to employ to fix this, I'm trying to determine if new versions of this driver are supplied by Broadcom, or by people within the Linux community so 
+I can find the right place to ask questions about it. I'm pretty sure this isn't the right list for these types of questions, but if someone could tell me whether I should be contacting Broadcom directly, or the name of some other Linux mailing list or forum that might help, I'd appreciate it.
 
-Right, will change this.
-
->
->> +	if (unlikely(!bond_dev))
->> +		return skb;
->> +
->> +	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
->> +		slave_dev->last_rx =3D jiffies;
->> +
->> +	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
->> +		skb->deliver_no_wcard =3D 1;
->> +		return skb;
->> +	}
->> +
->> +	skb->dev =3D bond_dev;
->> +
->> +	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
->> +	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
->> +	    skb->pkt_type =3D=3D PACKET_HOST) {
->> +		u16 *dest =3D (u16 *) eth_hdr(skb)->h_dest;
->> +
->> +		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
->> +	}
->> +
->> +	netif_rx(skb);
->> +	return NULL;
->> +}
->> +
->
->
->> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
->> index 31f02d0..15b54ea 100644
->> --- a/include/linux/skbuff.h
->> +++ b/include/linux/skbuff.h
->> @@ -325,6 +325,7 @@ struct sk_buff {
->> =20
->>  	struct sock		*sk;
->>  	struct net_device	*dev;
->> +	struct net_device	*orig_dev;
->> =20
->>  	/*
->>  	 * This is the control buffer. It is free to use for every
->
->Thats a problem. lifetime of this field is so small, I wonder if you
->cant find a solution to handle this differently. Maybe a percpu
->variable, or in cb[] ?
-
-Yes, I was not feeling absolutely comfortable puting this here.
-You mean global percpu variable living in net/core/dev.c? I must say I
-would probably like skb->orig_dev more than that.
-
-As for cb - I do not like that much. Also I think there might be
-collision e.g. with bridge code.
-
->
->
->
