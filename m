@@ -1,47 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 0/9] net: Unified offload configuration
-Date: Thu, 17 Feb 2011 14:56:11 -0800 (PST)
-Message-ID: <20110217.145611.229745070.davem@davemloft.net>
-References: <cover.1297824704.git.mirq-linux@rere.qmqm.pl>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
+Date: Thu, 17 Feb 2011 18:04:13 -0500
+Message-ID: <4D5DA96D.5060200@tilera.com>
+References: <20110217054237.GB2653@cr0.nay.redhat.com>	<20110216.214625.189707123.davem@davemloft.net>	<4D5DA60A.8080201@tilera.com> <20110217.145333.232751283.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: mirq-linux@rere.qmqm.pl
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51386
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751665Ab1BQWze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 17:55:34 -0500
-In-Reply-To: <cover.1297824704.git.mirq-linux@rere.qmqm.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <xiyou.wangcong@gmail.com>, <cypher.w@gmail.com>,
+	<linux-kernel@vger.kernel.org>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110217.145333.232751283.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Micha=A9=A9 Miros=A9=A9aw <mirq-linux@rere.qmqm.pl>
-Date: Wed, 16 Feb 2011 03:59:16 +0100 (CET)
+On 2/17/2011 5:53 PM, David Miller wrote:
+> From: Chris Metcalf <cmetcalf@tilera.com>
+> Date: Thu, 17 Feb 2011 17:49:46 -0500
+>
+>> The fix is to disable interrupts for the arch_read_lock family of methods. 
+> How does that help handle the race when it happens between different
+> cpus, instead of between IRQ and non-IRQ context on the same CPU?
 
-> Here's a v6 of the ethtool unification patch series.
->=20
-> What's in it?
->  1..4:
-> 	cleanups for the core patches
->  5:
-> 	the patch - implement unified ethtool setting ops
->  6..7:
-> 	implement interoperation between old and new ethtool ops
->  8:
-> 	include RX checksum in features and plug it into new framework
->  9:
-> 	convert loopback device to new framework
->=20
-> What is it good for?
->  - unifies driver behaviour wrt hardware offloads
->  - removes a lot of boilerplate code from drivers
->  - allows better fine-grained control over used offloads
+There's no race in that case, since the lock code properly backs off and
+retries until the other cpu frees it.  The distinction here is that the
+non-IRQ context is "wedged" by the IRQ context.
 
-Applied to net-next-2.6, please send any bug fixes relative to this.
+> Why don't you just use the generic spinlock based rwlock code on Tile,
+> since that is all that your atomic instructions can handle
+> sufficiently?
 
-Please get rid of that annoying message spit out by netif_features_chan=
-ge(),
-it's just spam.  If we want notifications for stuff like this, use a
-non-unicast netlink message so those who want to hear it can do so.
+The tile-specific code encodes reader/writer information in the same 32-bit
+word that the test-and-set instruction manipulates, so it's more efficient
+both in space and time.  This may not really matter for rwlocks, since no
+one cares much about them any more, but that was the motivation.
+
+-- 
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
