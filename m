@@ -1,64 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
-Date: Thu, 17 Feb 2011 07:39:08 +0100
-Message-ID: <1297924748.2645.25.camel@edumazet-laptop>
-References: <20110217044917.GA2653@cr0.nay.redhat.com>
-	 <AANLkTikkro-_9pv5uJ4+SqYh9Fr480_96Wh1Pv6Pvtez@mail.gmail.com>
-	 <20110217054237.GB2653@cr0.nay.redhat.com>
-	 <20110216.214625.189707123.davem@davemloft.net>
+From: Cypher Wu <cypher.w@gmail.com>
+Subject: Re: Fwd: IGMP and rwlock: Dead ocurred again on TILEPro
+Date: Thu, 17 Feb 2011 14:42:35 +0800
+Message-ID: <AANLkTi=Z6=5v3vKwu1HZsB1CBQ_acdmjbVG4PZbfM_OC@mail.gmail.com>
+References: <AANLkTimj+_8cBz0gcEyF1889xK2HdF4SQDSK8DiY-4Gs@mail.gmail.com>
+	<20110217044917.GA2653@cr0.nay.redhat.com>
+	<AANLkTikkro-_9pv5uJ4+SqYh9Fr480_96Wh1Pv6Pvtez@mail.gmail.com>
+	<20110217054237.GB2653@cr0.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiyou.wangcong@gmail.com, cypher.w@gmail.com,
-	linux-kernel@vger.kernel.org, cmetcalf@tilera.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110216.214625.189707123.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-kernel@vger.kernel.org, Chris Metcalf <cmetcalf@tilera.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Am=E9rico_Wang?= <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qw0-f46.google.com ([209.85.216.46]:42009 "EHLO
+	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751855Ab1BQGmh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 01:42:37 -0500
+In-Reply-To: <20110217054237.GB2653@cr0.nay.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 16 f=C3=A9vrier 2011 =C3=A0 21:46 -0800, David Miller a =C3=
-=A9crit :
-> From: Am=C3=A9rico Wang <xiyou.wangcong@gmail.com>
-> Date: Thu, 17 Feb 2011 13:42:37 +0800
->=20
-> > On Thu, Feb 17, 2011 at 01:04:14PM +0800, Cypher Wu wrote:
-> >>>
-> >>> Have you turned CONFIG_LOCKDEP on?
-> >>>
-> >>> I think Eric already converted that rwlock into RCU lock, thus
-> >>> this problem should disappear. Could you try a new kernel?
-> >>>
-> >>> Thanks.
-> >>>
-> >>
-> >>I haven't turned CONFIG_LOCKDEP on for test since I didn't get too
-> >>much information when we tried to figured out the former deadlock.
-> >>
-> >>IGMP used read_lock() instead of read_lock_bh() since usually
-> >>read_lock() can be called recursively, and today I've read the
-> >>implementation of MIPS, it's should also works fine in that situati=
-on.
-> >>The implementation of TILEPro cause problem since after it use TNS =
-set
-> >>the lock-val to 1 and hold the original value and before it re-set
-> >>lock-val a new value, it a race condition window.
-> >>
-> >=20
-> > I see no reason why you can't call read_lock_bh() recursively,
-> > read_lock_bh() is roughly equalent to local_bh_disable() + read_loc=
-k(),
-> > both can be recursive.
-> >=20
-> > But I may miss something here. :-/
->=20
-> IGMP is doing this so that taking the read lock does not stop packet
-> processing.
->=20
-> TILEPro's rwlock implementation is simply buggy and needs to be fixed=
+On Thu, Feb 17, 2011 at 1:42 PM, Am=E9rico Wang <xiyou.wangcong@gmail.c=
+om> wrote:
+> On Thu, Feb 17, 2011 at 01:04:14PM +0800, Cypher Wu wrote:
+>>>
+>>> Have you turned CONFIG_LOCKDEP on?
+>>>
+>>> I think Eric already converted that rwlock into RCU lock, thus
+>>> this problem should disappear. Could you try a new kernel?
+>>>
+>>> Thanks.
+>>>
+>>
+>>I haven't turned CONFIG_LOCKDEP on for test since I didn't get too
+>>much information when we tried to figured out the former deadlock.
+>>
+>>IGMP used read_lock() instead of read_lock_bh() since usually
+>>read_lock() can be called recursively, and today I've read the
+>>implementation of MIPS, it's should also works fine in that situation=
 =2E
+>>The implementation of TILEPro cause problem since after it use TNS se=
+t
+>>the lock-val to 1 and hold the original value and before it re-set
+>>lock-val a new value, it a race condition window.
+>>
+>
+> I see no reason why you can't call read_lock_bh() recursively,
+> read_lock_bh() is roughly equalent to local_bh_disable() + read_lock(=
+),
+> both can be recursive.
+>
+> But I may miss something here. :-/
+>
 
-Yep. Finding all recursive readlocks in kernel and convert them to
-another locking model is probably more expensive than fixing TILEPro
-rwlock implementation.
+Of course read_lock_bh() can be called recursively, but read_lock() is
+already enough for IGMP, the only reason for that deadlock is because
+using TNS instruction set the value to 1 cause another race condition.
+
+--=20
+Cyberman Wu
