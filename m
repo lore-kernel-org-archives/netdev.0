@@ -1,59 +1,57 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH 15/14] net/fec: remove unused driver data
-Date: Thu, 17 Feb 2011 23:32:25 +0100
-Message-ID: <1297981945-28501-1-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: "Vasanthy Kolluri (vkolluri)" <vkolluri@cisco.com>
+Subject: RE: [net-next-2.6 PATCH 3/3] enic: Always use single transmit and single receive hardware queues per device
+Date: Thu, 17 Feb 2011 14:45:56 -0800
+Message-ID: <212AA327A3557741A058E787E06188730564B99A@xmb-sjc-219.amer.cisco.com>
+References: <20110217185245.2476.60944.stgit@savbu-pc100.cisco.com><20110217185322.2476.10728.stgit@savbu-pc100.cisco.com> <20110217.141235.48514315.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>, kernel@pengutronix.de
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33946 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752927Ab1BQWcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 17:32:33 -0500
-In-Reply-To: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from sj-iport-6.cisco.com ([171.71.176.117]:7801 "EHLO
+	sj-iport-6.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656Ab1BQWp6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 17:45:58 -0500
+Content-class: urn:content-classes:message
+In-Reply-To: <20110217.141235.48514315.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Apart from not being used the first argument isn't even a struct
-platform_device *.
+Hi Dave,
 
-Reported-by: Marc Kleine-Budde <mkl@pengutronix.de>
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
-Hello,
+Sorry for the short description.
 
-this patch is available at
+We believe that our earlier patch for supporting multiple hardware
+receive queues per enic device requires more internal testing. At this
+point, we think that it's best to disable the use of multiple receive
+queues. We believe that the current patch will provide an effective
+means for the same.
 
-	git://git.pengutronix.de/git/ukl/linux-2.6.git fec
+Thanks
+Vasanthy
 
-based on the patches already merged into net-next.
+-----Original Message-----
+From: David Miller [mailto:davem@davemloft.net] 
+Sent: Thursday, February 17, 2011 2:13 PM
+To: Vasanthy Kolluri (vkolluri)
+Cc: netdev@vger.kernel.org
+Subject: Re: [net-next-2.6 PATCH 3/3] enic: Always use single transmit
+and single receive hardware queues per device
 
-Use whatever is easier for you.
+From: Vasanthy Kolluri <vkolluri@cisco.com>
+Date: Thu, 17 Feb 2011 10:53:22 -0800
 
-Best regards
-Uwe
+> From: Vasanthy Kolluri <vkolluri@cisco.com>
+> 
+> 
+> 
+> Signed-off-by: Christian Benvenuti <benve@cisco.com>
+> Signed-off-by: Danny Guo <dannguo@cisco.com>
+> Signed-off-by: Vasanthy Kolluri <vkolluri@cisco.com>
+> Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+> Signed-off-by: David Wang <dwang2@cisco.com>
 
- drivers/net/fec.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 74798be..634c0da 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -983,8 +983,6 @@ static int fec_enet_mii_init(struct platform_device=
- *pdev)
- 	for (i =3D 0; i < PHY_MAX_ADDR; i++)
- 		fep->mii_bus->irq[i] =3D PHY_POLL;
-=20
--	platform_set_drvdata(ndev, fep->mii_bus);
--
- 	if (mdiobus_register(fep->mii_bus))
- 		goto err_out_free_mdio_irq;
-=20
---=20
-1.7.2.3
-
+You can't make a very serious change like this with such a terse commit
+message, you have to explain exactly why this change is being made.
