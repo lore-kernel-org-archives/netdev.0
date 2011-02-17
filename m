@@ -1,111 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC patch net-next-2.6] net: convert bonding to use rx_handler
-Date: Thu, 17 Feb 2011 14:20:35 +0100
-Message-ID: <1297948835.2604.50.camel@edumazet-laptop>
-References: <20110217125221.GA10436@psychotron.redhat.com>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: [PATCH] cxgb{3,4}: streamline Kconfig options
+Date: Thu, 17 Feb 2011 13:29:30 +0000
+Message-ID: <4D5D30CA020000780003263A@vpn.id2.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:59865 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753975Ab1BQNUm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 08:20:42 -0500
-Received: by fxm20 with SMTP id 20so2580019fxm.19
-        for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 05:20:41 -0800 (PST)
-In-Reply-To: <20110217125221.GA10436@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-kbuild@vger.kernel.org>, <netdev@vger.kernel.org>
+To: <divy@chelsio.com>, <dm@chelsio.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le jeudi 17 f=C3=A9vrier 2011 =C3=A0 13:52 +0100, Jiri Pirko a =C3=A9cr=
-it :
-> Hello.
->=20
-> This is an attempt to convert bonding to use rx_handler. Result shoul=
-d be
-> cleaner __netif_receive_skb() with much less exceptions needed. I thi=
-nk I
-> covered all aspects, not sure though. I gave this quick smoke test on=
- my
-> testing env. Please comment, test.
->=20
-> Thanks!
->=20
-> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> ---
->  drivers/net/bonding/bond_main.c |   75 ++++++++++++++++++++-
->  include/linux/skbuff.h          |    1 +
->  net/core/dev.c                  |  144 +++++++++++------------------=
----------
->  3 files changed, 117 insertions(+), 103 deletions(-)
->=20
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
-nd_main.c
+The CHELSIO_T{3,4}_DEPENDS options are really awkward, and can be
+easily dropped if the reverse dependencies of SCSI_CXGB{3,4}_ISCSI on
+the former get converted to normal (forward) ones referring to
+CHELSIO_T{3,4}.
 
+Signed-off-by: Jan Beulich <jbeulich@novell.com>
 
-> +
-> +static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
-> +{
-> +	struct net_device *slave_dev;
-> +	struct net_device *bond_dev;
-> +
-> +	skb =3D skb_share_check(skb, GFP_ATOMIC);
-> +	if (unlikely(!skb))
-> +		return NULL;
-> +	slave_dev =3D skb->dev;
-> +	bond_dev =3D slave_dev->master;
+---
+ drivers/net/Kconfig               |   14 ++------------
+ drivers/scsi/cxgbi/cxgb3i/Kconfig |    3 +--
+ drivers/scsi/cxgbi/cxgb4i/Kconfig |    3 +--
+ 3 files changed, 4 insertions(+), 16 deletions(-)
 
-I suggest being 10%% safe here :
-
-	bond_dev =3D ACCESS_ONCE(slave_dev->master);
-
-> +	if (unlikely(!bond_dev))
-> +		return skb;
-> +
-> +	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
-> +		slave_dev->last_rx =3D jiffies;
-> +
-> +	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
-> +		skb->deliver_no_wcard =3D 1;
-> +		return skb;
-> +	}
-> +
-> +	skb->dev =3D bond_dev;
-> +
-> +	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
-> +	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
-> +	    skb->pkt_type =3D=3D PACKET_HOST) {
-> +		u16 *dest =3D (u16 *) eth_hdr(skb)->h_dest;
-> +
-> +		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
-> +	}
-> +
-> +	netif_rx(skb);
-> +	return NULL;
-> +}
-> +
-
-
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 31f02d0..15b54ea 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -325,6 +325,7 @@ struct sk_buff {
-> =20
->  	struct sock		*sk;
->  	struct net_device	*dev;
-> +	struct net_device	*orig_dev;
-> =20
->  	/*
->  	 * This is the control buffer. It is free to use for every
-
-Thats a problem. lifetime of this field is so small, I wonder if you
-cant find a solution to handle this differently. Maybe a percpu
-variable, or in cb[] ?
+--- 2.6.38-rc5/drivers/net/Kconfig
++++ 2.6.38-rc5-kconfig-chelsio/drivers/net/Kconfig
+@@ -2594,14 +2594,9 @@ config CHELSIO_T1_1G
+ 	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
+ 	  are using only 10G cards say 'N' here.
+ 
+-config CHELSIO_T3_DEPENDS
+-	tristate
+-	depends on PCI && INET
+-	default y
+-
+ config CHELSIO_T3
+ 	tristate "Chelsio Communications T3 10Gb Ethernet support"
+-	depends on CHELSIO_T3_DEPENDS
++	depends on PCI && INET
+ 	select FW_LOADER
+ 	select MDIO
+ 	help
+@@ -2619,14 +2614,9 @@ config CHELSIO_T3
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called cxgb3.
+ 
+-config CHELSIO_T4_DEPENDS
+-	tristate
+-	depends on PCI && INET
+-	default y
+-
+ config CHELSIO_T4
+ 	tristate "Chelsio Communications T4 Ethernet support"
+-	depends on CHELSIO_T4_DEPENDS
++	depends on PCI && INET
+ 	select FW_LOADER
+ 	select MDIO
+ 	help
+--- 2.6.38-rc5/drivers/scsi/cxgbi/cxgb3i/Kconfig
++++ 2.6.38-rc5-kconfig-chelsio/drivers/scsi/cxgbi/cxgb3i/Kconfig
+@@ -1,7 +1,6 @@
+ config SCSI_CXGB3_ISCSI
+ 	tristate "Chelsio T3 iSCSI support"
+-	depends on CHELSIO_T3_DEPENDS
+-	select CHELSIO_T3
++	depends on CHELSIO_T3
+ 	select SCSI_ISCSI_ATTRS
+ 	---help---
+ 	  This driver supports iSCSI offload for the Chelsio T3 devices.
+--- 2.6.38-rc5/drivers/scsi/cxgbi/cxgb4i/Kconfig
++++ 2.6.38-rc5-kconfig-chelsio/drivers/scsi/cxgbi/cxgb4i/Kconfig
+@@ -1,7 +1,6 @@
+ config SCSI_CXGB4_ISCSI
+ 	tristate "Chelsio T4 iSCSI support"
+-	depends on CHELSIO_T4_DEPENDS
+-	select CHELSIO_T4
++	depends on CHELSIO_T4
+ 	select SCSI_ISCSI_ATTRS
+ 	---help---
+ 	  This driver supports iSCSI offload for the Chelsio T4 devices.
 
 
 
