@@ -1,44 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: state of rtcache removal...
-Date: Wed, 16 Feb 2011 22:39:32 -0800 (PST)
-Message-ID: <20110216.223932.112610567.davem@davemloft.net>
-References: <20110216.160838.39164069.davem@davemloft.net>
-	<1297923915.2645.24.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:43745
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751245Ab1BQGi4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 01:38:56 -0500
-In-Reply-To: <1297923915.2645.24.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 17 Feb 2011 07:25:15 +0100
+Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
+Date: Thu, 17 Feb 2011 07:39:08 +0100
+Message-ID: <1297924748.2645.25.camel@edumazet-laptop>
+References: <20110217044917.GA2653@cr0.nay.redhat.com>
+	 <AANLkTikkro-_9pv5uJ4+SqYh9Fr480_96Wh1Pv6Pvtez@mail.gmail.com>
+	 <20110217054237.GB2653@cr0.nay.redhat.com>
+	 <20110216.214625.189707123.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiyou.wangcong@gmail.com, cypher.w@gmail.com,
+	linux-kernel@vger.kernel.org, cmetcalf@tilera.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110216.214625.189707123.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Thanks David for this work in progress.
+Le mercredi 16 f=C3=A9vrier 2011 =C3=A0 21:46 -0800, David Miller a =C3=
+=A9crit :
+> From: Am=C3=A9rico Wang <xiyou.wangcong@gmail.com>
+> Date: Thu, 17 Feb 2011 13:42:37 +0800
+>=20
+> > On Thu, Feb 17, 2011 at 01:04:14PM +0800, Cypher Wu wrote:
+> >>>
+> >>> Have you turned CONFIG_LOCKDEP on?
+> >>>
+> >>> I think Eric already converted that rwlock into RCU lock, thus
+> >>> this problem should disappear. Could you try a new kernel?
+> >>>
+> >>> Thanks.
+> >>>
+> >>
+> >>I haven't turned CONFIG_LOCKDEP on for test since I didn't get too
+> >>much information when we tried to figured out the former deadlock.
+> >>
+> >>IGMP used read_lock() instead of read_lock_bh() since usually
+> >>read_lock() can be called recursively, and today I've read the
+> >>implementation of MIPS, it's should also works fine in that situati=
+on.
+> >>The implementation of TILEPro cause problem since after it use TNS =
+set
+> >>the lock-val to 1 and hold the original value and before it re-set
+> >>lock-val a new value, it a race condition window.
+> >>
+> >=20
+> > I see no reason why you can't call read_lock_bh() recursively,
+> > read_lock_bh() is roughly equalent to local_bh_disable() + read_loc=
+k(),
+> > both can be recursive.
+> >=20
+> > But I may miss something here. :-/
+>=20
+> IGMP is doing this so that taking the read lock does not stop packet
+> processing.
+>=20
+> TILEPro's rwlock implementation is simply buggy and needs to be fixed=
+=2E
 
-It was my pleasure :-)
-
-> If I remember my works in last October/November, I also know fib_hash
-> was a bit faster than fib_trie (around 20%)...
-
-Right, if table is small hash can be faster.
-
-I just wrote a hack that puts fib_lookup() results into the the
-flow cache, and hooked it only into the one fib_lookup() call
-that happens in ip_route_output_slow().
-
-This pointed out another costly thing we do when resolving output
-routes.  If the flow key's source is not INADDR_ANY, we validate the
-source address is our's by doing a fib table lookup in the local
-table, with the address in the flow key's destination field.
-
-So even on output we were doing 3 fib lookups :-/
-
-Therefore, the flow cache hack gets rid of 2 of those 3.
+Yep. Finding all recursive readlocks in kernel and convert them to
+another locking model is probably more expensive than fixing TILEPro
+rwlock implementation.
