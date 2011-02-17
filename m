@@ -1,89 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] bnx2x: Support for managing RX indirection table
-Date: Thu, 17 Feb 2011 10:09:24 +0100
-Message-ID: <1297933764.2670.20.camel@edumazet-laptop>
-References: <alpine.DEB.2.00.1102161210190.31937@pokey.mtv.corp.google.com>
+From: Andreas Fenkart <afenkart@gmail.com>
+Subject: Re: [PATCH 1/1] ARC VMAC ethernet driver.
+Date: Thu, 17 Feb 2011 09:26:50 +0000
+Message-ID: <AANLkTi=5XOmzzO=Bov4Rse_rhw_0uPnjPNN1DN9CLSXX@mail.gmail.com>
+References: <20101208.090040.39174008.davem@davemloft.net>
+	<1297762288-9263-1-git-send-email-afenkart@gmail.com>
+	<1297764149.3201.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eilong@broadcom.com, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:63835 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753887Ab1BQJJ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 04:09:29 -0500
-Received: by bwz15 with SMTP id 15so1468845bwz.19
-        for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 01:09:28 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1102161210190.31937@pokey.mtv.corp.google.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62120 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753867Ab1BQJ0w convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 04:26:52 -0500
+Received: by fxm20 with SMTP id 20so2377023fxm.19
+        for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 01:26:51 -0800 (PST)
+In-Reply-To: <1297764149.3201.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mercredi 16 f=C3=A9vrier 2011 =C3=A0 12:27 -0800, Tom Herbert a =C3=A9=
-crit :
-> Support fetching and retrieving RX indirection table via ethtool.
->=20
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  drivers/net/bnx2x/bnx2x.h         |    2 +
->  drivers/net/bnx2x/bnx2x_ethtool.c |   56 +++++++++++++++++++++++++++=
-++++++++++
->  drivers/net/bnx2x/bnx2x_main.c    |   22 +++++++++++---
->  3 files changed, 75 insertions(+), 5 deletions(-)
+fixed, pls find new version in reply to this mail.
 
-Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
-
-
-As this is a bit unusual stuff (ethtool -X), I guess some hints can be
-useful to testers and admins :
-
-I tested this patch on my dev machine
-
-Broadcom Corporation NetXtreme II BCM57711E 10Gigabit PCIe
-(Hewlett-Packard Company NC532i Dual Port 10GbE Multifunction BL-C
-Adapter)
-
-
-# ethtool -X eth1 weight 0 1 0 2 0 4 0 8 0 16 0 32
-# ethtool -x eth1=20
-RX flow hash indirection table for eth1 with 16 RX ring(s):
-    0:      1     1     3     3     3     3     5     5
-    8:      5     5     5     5     5     5     7     7
-   16:      7     7     7     7     7     7     7     7
-   24:      7     7     7     7     7     7     9     9
-   32:      9     9     9     9     9     9     9     9
-   40:      9     9     9     9     9     9     9     9
-   48:      9     9     9     9     9     9     9     9
-   56:      9     9     9     9     9     9    11    11
-   64:     11    11    11    11    11    11    11    11
-   72:     11    11    11    11    11    11    11    11
-   80:     11    11    11    11    11    11    11    11
-   88:     11    11    11    11    11    11    11    11
-   96:     11    11    11    11    11    11    11    11
-  104:     11    11    11    11    11    11    11    11
-  112:     11    11    11    11    11    11    11    11
-  120:     11    11    11    11    11    11    11    11
-
-
-After some (distributed) trafic on eth1 I get :
-
-[root@svivoipvnx021 ~]# ethtool -S eth1|grep rx_ucast_packets
-     [0]: rx_ucast_packets: 62
-     [1]: rx_ucast_packets: 15870
-     [2]: rx_ucast_packets: 9
-     [3]: rx_ucast_packets: 31507
-     [4]: rx_ucast_packets: 0
-     [5]: rx_ucast_packets: 63106
-     [6]: rx_ucast_packets: 0
-     [7]: rx_ucast_packets: 122051
-     [8]: rx_ucast_packets: 1
-     [9]: rx_ucast_packets: 248071
-     [10]: rx_ucast_packets: 0
-     [11]: rx_ucast_packets: 519864
-     [12]: rx_ucast_packets: 0
-     [13]: rx_ucast_packets: 0
-     [14]: rx_ucast_packets: 0
-     [15]: rx_ucast_packets: 0
-     rx_ucast_packets: 1000541
-
-
+2011/2/15 Eric Dumazet <eric.dumazet@gmail.com>:
+> Le mardi 15 f=E9vrier 2011 =E0 10:31 +0100, Andreas Fenkart a =E9crit=
+ :
+>> Signed-off-by: Andreas Fenkart <afenkart@gmail.com>
+>
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 processed++;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 skb->dev =3D dev;
+> =A0 =A0 =A0 =A0eth_type_trans() already sets "skb->dev =3D dev;"
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 skb->protocol =3D eth_type_trans(skb, dev)=
+;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 ap->stats.rx_packets++;
+> Hmm, why dont you use dev->stats internal structure ? No need to
+> maintain a shadow in ap->stats.
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 ap->stats.rx_bytes +=3D skb->len;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 dev->last_rx =3D jiffies;
+> =A0 =A0 =A0 =A0/* last_rx =3D jiffies; not needed anymore =A0*/
+>
+>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 netif_rx(skb);
+>
+> A NAPI driver should use netif_receive_skb(), not netif_rx()
+>
+>
+>
+>
