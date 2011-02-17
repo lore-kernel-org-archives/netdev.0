@@ -1,98 +1,89 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 2/4] e1000e: flush all writebacks before unload
-Date: Thu, 17 Feb 2011 01:35:08 -0800
-Message-ID: <1297935310-23510-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1297935310-23510-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: mac addresses of local interfaces do not obey setageing 0
+Date: Thu, 17 Feb 2011 10:56:07 +0100
+Message-ID: <20110217095607.GA1739639@jupiter.n2.diac24.net>
+References: <20110209181752.GA2042@darkmag.usersys.redhat.com>
+ <20110215102538.5f24d62a@nehalam>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="1yeeQ81UyVL57Vl7"
+Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:45687 "EHLO mga02.intel.com"
+Received: from spaceboyz.net ([87.106.131.203]:38790 "EHLO spaceboyz.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754273Ab1BQJfR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Feb 2011 04:35:17 -0500
-In-Reply-To: <1297935310-23510-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1752784Ab1BQJ42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Feb 2011 04:56:28 -0500
+Content-Disposition: inline
+In-Reply-To: <20110215102538.5f24d62a@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-The driver was not flushing all writebacks before unloading, possibly
-causing memory to be written by the hardware after the driver had
-reinitialized the rings.
+--1yeeQ81UyVL57Vl7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This adds missing functionality to flush any pending writebacks and is
-called in all spots where descriptors should be completed before the driver
-begins processing.
+On Tue, Feb 15, 2011 at 10:25:38AM -0800, Stephen Hemminger wrote:
+> On Wed, 9 Feb 2011 19:17:52 +0100
+> Veaceslav Falico <vfalico@redhat.com> wrote:
+>=20
+> > Hello,
+> >=20
+> > I have a host and a VM inside this host bridged. I've set ageing_time a=
+nd
+> > forward_delay to 0 and trying to capture all the traffic that goes thro=
+ugh that
+> > bridge from my VM, but it fails to capture the traffic that has dst eth=
+er
+> > address the same as the hosts address (i.e. I can't capture the traffic=
+ to the
+> > host).
+> >=20
+> > From the code, I see that br->ageing_time doesn't really work with loca=
+l mac
+> > addresses - has_expired() function never says that a local interface ma=
+c address
+> > is expired, because it verifies if fdb->is_static is set and returns ri=
+ght away.
+> >=20
+> > Is this the desired behaviour? If so, is there a way to capture packets=
+ with
+> > destination to a local interface from another interface?
+> >=20
+> > I've also done a small patch and it seems to fix the situation, but I a=
+m not
+> > sure if it's the right way to do it.
+>=20
+> No.
+> Local addresses should never age.
+>=20
+> The proper way to capture packet is to us AF_PACKET or tc actions.
 
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Reviewed-by: Bruce Allan <bruce.w.allan@intel.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/e1000e/netdev.c |   31 +++++++++++++++++++++----------
- 1 files changed, 21 insertions(+), 10 deletions(-)
+If you really want to use a bridge for this kind of traffic capturing,
+you can attach one side of a veth pair as third interface to the bridge,
+clear off all the mac addresses (and have no higher-layer addresses on
+the bridge either) and use the other side of the veth pair for your
+host. Since the "far" side of the veth is not on the bridge, the bridge
+will not treat its address any special.
 
-diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
-index 174633c..3fa110d 100644
---- a/drivers/net/e1000e/netdev.c
-+++ b/drivers/net/e1000e/netdev.c
-@@ -3344,6 +3344,21 @@ int e1000e_up(struct e1000_adapter *adapter)
- 	return 0;
- }
- 
-+static void e1000e_flush_descriptors(struct e1000_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+
-+	if (!(adapter->flags2 & FLAG2_DMA_BURST))
-+		return;
-+
-+	/* flush pending descriptor writebacks to memory */
-+	ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
-+	ew32(RDTR, adapter->rx_int_delay | E1000_RDTR_FPD);
-+
-+	/* execute the writes immediately */
-+	e1e_flush();
-+}
-+
- void e1000e_down(struct e1000_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -3383,6 +3398,9 @@ void e1000e_down(struct e1000_adapter *adapter)
- 
- 	if (!pci_channel_offline(adapter->pdev))
- 		e1000e_reset(adapter);
-+
-+	e1000e_flush_descriptors(adapter);
-+
- 	e1000_clean_tx_ring(adapter);
- 	e1000_clean_rx_ring(adapter);
- 
-@@ -4354,19 +4372,12 @@ link_up:
- 	else
- 		ew32(ICS, E1000_ICS_RXDMT0);
- 
-+	/* flush pending descriptors to memory before detecting Tx hang */
-+	e1000e_flush_descriptors(adapter);
-+
- 	/* Force detection of hung controller every watchdog period */
- 	adapter->detect_tx_hung = 1;
- 
--	/* flush partial descriptors to memory before detecting Tx hang */
--	if (adapter->flags2 & FLAG2_DMA_BURST) {
--		ew32(TIDV, adapter->tx_int_delay | E1000_TIDV_FPD);
--		ew32(RDTR, adapter->rx_int_delay | E1000_RDTR_FPD);
--		/*
--		 * no need to flush the writes because the timeout code does
--		 * an er32 first thing
--		 */
--	}
--
- 	/*
- 	 * With 82571 controllers, LAA may be overwritten due to controller
- 	 * reset from the other port. Set the appropriate LAA in RAR[0]
--- 
-1.7.4
+(This is somewhat of a funny hack though. Use AF_PACKET really...)
 
+
+-David
+
+
+--1yeeQ81UyVL57Vl7
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.17 (GNU/Linux)
+
+iEYEARECAAYFAk1c8LcACgkQpfBGV6DCGYbD8gCfdPou+1n+noRNtwDGaevH7ita
+M1sAnAnrbzQo6/mxc/4G64BCq0RCxcJX
+=e4D+
+-----END PGP SIGNATURE-----
+
+--1yeeQ81UyVL57Vl7--
