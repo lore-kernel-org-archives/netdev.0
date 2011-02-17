@@ -1,84 +1,58 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Read sent/received bytes -- without opening a file in /sys or
- /proc
-Date: Thu, 17 Feb 2011 09:32:55 -0800
-Message-ID: <4D5D5BC7.50802@candelatech.com>
-References: <4D5CFF19.6050400@googlemail.com>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: Multicast snooping fixes and suggestions
+Date: Thu, 17 Feb 2011 19:17:50 +0100
+Message-ID: <1297966672-3457-1-git-send-email-linus.luessing@web.de>
+References: <20110215154128.2a28632c@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Jan-Philip gehrcke <jgehrcke@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:36364 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751599Ab1BQRc7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 12:32:59 -0500
-In-Reply-To: <4D5CFF19.6050400@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110215154128.2a28632c@nehalam>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 02/17/2011 02:57 AM, Jan-Philip gehrcke wrote:
-> Dear list,
->
-> I'm about to write a small C program for measurements of the bandwidth
-> on some network interface of my home router (uname -a: Linux
-> fritz.fonwlan.box 2.6.19.2 #2 Thu Nov 18 16:35:17 CET 2010 mips
-> GNU/Linux). I would like to accomplish very *precise* results, while
-> keeping the absolute measurement time low.
->
-> In general, this problem requires the knowledge of time and byte
-> differences. Therefore, two time measurements and two byte counter
-> measurements for each, received and sent bytes, are required. Currently,
-> I am measuring time via
->
->      clock_gettime(CLOCK_MONOTONIC, ...)
->
-> and reading the byte counters by reading files in sysfs, e.g.
->
->       /sys/class/net/${interface}/statistics/rx_bytes.
->
-> This is very easy and works well, but reading these files four times
-> takes some (varying) time* on my device, which introduces an error to my
-> calculation.
->
-> Hence, I am wondering, if there is a way to receive this kind of data
-> directly and much faster, via "kernel API". My question is related to
-> this unanswered one from 2005:
-> http://linux.derkeiler.com/Mailing-Lists/RedHat/2005-02/0557.html
->
-> *On my device, reading such a file and interpreting the result as
-> integer takes 1-10 ms, measured via:
->
->      clock_gettime(CLOCK_MONOTONIC,&t_start);
->      rx_bytes = read_int_from_file("/sys/class/net/wan/statistics/rx_bytes");
->      clock_gettime(CLOCK_MONOTONIC,&t_end);
->
-> read_int_from_file() basically consists of fopen(), fgets(), and sscanf().
->
->
-> Please note that I don't have kernel/driver programming experience so far.
->
-> Thank you for help and any suggestions!
->
->      Jan-Philip Gehrcke
+> These look correct. Did you test them with real traffic?
 
-The netlink API can get stats for you, but I don't know if it would
-be any more accurate time-wise.  It's not exactly trivial to
-implement this API, but you can look at the 'ip' program to get
-an idea:
+Yes, I did. With these patches the hashlist and linked lists per port
+are being filled correctly for IPv6 - initially. Verified that with
+both some printk()s for the per port mglists as well as with vlc. With
+patch 5/5 this also worked fine with transient link local addresses,
+verified that with 'vlc -vvv "udp://@[ff12::123%eth1]"' on a device
+connected to the other one with the bridge and could stream
+a video as expected with no multicast traffic on any other bridge port.
 
-git clone git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+However, the MLD queries are/were still broken, the queries initiated
+by the bridge device do not get a response from the multicast listeners.
+The following additional, attached patches fix this issue.
 
 
-There is also /proc/net/dev, but that may be worse than using sysfs
-as far as performance and time accuracy goes.
+Last but not least, there are still a couple of bugs I could observe:
+- I have attached a laptop with two interfaces with a multicast listener
+  each to another PC playing with the bridge device. With the fixes
+  below, the laptop sends a multicast listener report to the other PC
+  on each interface, however these reports' IPv6 header's source addresses
+  seem to be a random one from any of the laptop's two interfaces'
+  link local addresses (which has to be a bug in the IPv6 code, as
+  this one is generating the reports and not the bridge code) as long
+  as it matches the selected multicast address (which was ff12::123 in
+  this case).
+- If there is no multicast listener present, then the multicast packets
+  get flooded on all bridge ports.
 
-Thanks,
-Ben
+And two issues with a little lower priority, I suppose:
+- Packets do not get delivered to the bridge interface itself when
+  a multicast listener has been started on this bridge interface
+  (might be related to http://www.spinics.net/lists/linux-net/msg17556.html,
+  so possibly a bug in the IPv6 code again).
+~ Quitting of a multicast listener with a MLDv2 message is interpreted as
+  a join, resulting in relatively long timeouts - but this MLDv1
+  interpretation of MLDv2 messages seems to be intended so far due to its
+  simplicity according to the comment in the code.
 
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
-
+Cheers, Linus
