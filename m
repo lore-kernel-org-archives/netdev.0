@@ -1,45 +1,59 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 1/1] tproxy: do not assign timewait sockets to skb->sk
-Date: Thu, 17 Feb 2011 22:27:17 +0100
-Message-ID: <20110217212717.GG8821@Chamillionaire.breakpoint.cc>
-References: <1297683874-10188-1-git-send-email-fw@strlen.de>
- <1297972902.2253.51.camel@Nokia-N900-51-1>
- <20110217205249.GF8821@Chamillionaire.breakpoint.cc>
- <1297976642.3789.5.camel@Nokia-N900-51-1>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: ixgbe: 82599 and Westmere with HT
+Date: Thu, 17 Feb 2011 14:06:05 -0800
+Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01D2F2FE80@orsmsx509.amr.corp.intel.com>
+References: <AANLkTi=1d8aJoFU7gsNy-sYjJomGp-Xz4K+ddKSOk-ir@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org, KOVACS Krisztian <hidden@balabit.hu>
-To: Balazs Scheidler <bazsi@balabit.hu>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Andrew Dickinson <andrew@whydna.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([85.10.199.196]:43491 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752519Ab1BQV1S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 16:27:18 -0500
-Content-Disposition: inline
-In-Reply-To: <1297976642.3789.5.camel@Nokia-N900-51-1>
+Received: from mga09.intel.com ([134.134.136.24]:35951 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751728Ab1BQWGH convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 17:06:07 -0500
+In-Reply-To: <AANLkTi=1d8aJoFU7gsNy-sYjJomGp-Xz4K+ddKSOk-ir@mail.gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Balazs Scheidler <bazsi@balabit.hu> wrote:
-> the destination port in the packet can be different in the two lookups. --on-port tproxy option.
 
-Hrm...  The initial lookup uses the header ip addresses:
-        sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), iph->protocol,
-                                   iph->saddr, iph->daddr,
-                                   hp->source, hp->dest,
-                                   skb->dev, NFT_LOOKUP_ESTABLISHED);
+Hey Andrew,
 
-3 possible cases:
-- no socket -- try to find listener. This case is not changed by my patch.
-- sk is normal socket. set nfmark and skb->sk. Also not changed.
-- sk is in TW state. This is not changed either:
-	tproxy_handle_time_wait4() will check if this is a SYN. If it is, a new
-	listener lookup is made, and TW socket is kicked out.
+Sorry about the slow reply I'm a bit backed up right now. :)
 
-If the packet is not a SYN, then tproxy_handle_time_wait4() won't do anything.
-Previously, the timewait sk would now be assigned to skb->sk, which my patch
-prevents.  But I don't see where the '--on-port' port number is involved in the
-TW socket lookup?
+It sounds like you could be using using RSS hashing?  It's limited to 16 indices.  If you are using Flow Director hashing then maybe your flows aren't varying enough, although from your description it sounds as if they should be.  What if you try something like 'netperf -t TCP_CRR'.
 
-Thanks for reviwing the patch!
+Let me know if any of my assumptions are incorrect.
+
+Thanks,
+-Don Skidmore <donald.c.skidmore@intel.com>
+
+
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of Andrew Dickinson
+>Sent: Wednesday, February 16, 2011 5:22 PM
+>To: netdev@vger.kernel.org
+>Subject: ixgbe: 82599 and Westmere with HT
+>
+>Hi,
+>
+>I've got a dual Westmere board (X5675) with an X520 card with dual
+>10G.  I see 24-cores exposed to me and the ixgbe driver exposes 24 tx
+>and 24 rx interrupts per NIC.  I then pin the interrupts to cores for
+>each NIC (each interrupt gets its own core, standard stuff).
+>
+>Anyway.... I'm only seeing RX interrupts on 16 of the 24 cores (random
+>src/dest pairs across a /16 each, so I should be getting good flow
+>hashing).  Did I miss some magic somewhere?
+>
+>I'm running 2.6.32.4, perhaps this has been fixed upstream.  If not,
+>any thoughts on how to make this work?
+>
+>-A
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
