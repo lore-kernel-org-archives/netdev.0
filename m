@@ -1,86 +1,114 @@
-From: "Jan Beulich" <JBeulich@novell.com>
-Subject: [PATCH] cxgb{3,4}: streamline Kconfig options
-Date: Thu, 17 Feb 2011 13:29:30 +0000
-Message-ID: <4D5D30CA020000780003263A@vpn.id2.novell.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2/2] r8169: Support RTL8105E
+Date: Thu, 17 Feb 2011 14:39:51 +0100
+Message-ID: <20110217133951.GA11996@electric-eye.fr.zoreil.com>
+References: <1297942668-23274-1-git-send-email-hayeswang@realtek.com> <1297942668-23274-2-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-kbuild@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <divy@chelsio.com>, <dm@chelsio.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kbuild-owner@vger.kernel.org
+In-Reply-To: <1297942668-23274-2-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The CHELSIO_T{3,4}_DEPENDS options are really awkward, and can be
-easily dropped if the reverse dependencies of SCSI_CXGB{3,4}_ISCSI on
-the former get converted to normal (forward) ones referring to
-CHELSIO_T{3,4}.
+Hayes Wang <hayeswang@realtek.com> :
+[...]
+> @@ -227,6 +232,10 @@ enum rtl_registers {
+>  	MultiIntr	= 0x5c,
+>  	PHYAR		= 0x60,
+>  	PHYstatus	= 0x6c,
+> +	DLLPR		= 0xd0,
+> +	DbgReg		= 0xd1,
+> +	TWSI		= 0xd2,
+> +	MCU		= 0xd3,
 
-Signed-off-by: Jan Beulich <jbeulich@novell.com>
+You can probably fill some of those in 'enum rtl8168_8101_registers'
+(DbgReg is already there).
 
----
- drivers/net/Kconfig               |   14 ++------------
- drivers/scsi/cxgbi/cxgb3i/Kconfig |    3 +--
- drivers/scsi/cxgbi/cxgb4i/Kconfig |    3 +--
- 3 files changed, 4 insertions(+), 16 deletions(-)
+>  	RxMaxSize	= 0xda,
+>  	CPlusCmd	= 0xe0,
+>  	IntrMitigate	= 0xe2,
+> @@ -427,6 +436,13 @@ enum rtl_register_content {
+>  
+>  	/* DumpCounterCommand */
+>  	CounterDump	= 0x8,
+> +
+> +	/* MCU */
+> +	EnNDP		= (1 << 3),
+> +	EnOOBReset		= (1 << 2),
+                  ^^^^ -> extraneous tab
+> +
+> +	/* DLLPR */
+> +	PmSwitch	= (1 << 6),
 
---- 2.6.38-rc5/drivers/net/Kconfig
-+++ 2.6.38-rc5-kconfig-chelsio/drivers/net/Kconfig
-@@ -2594,14 +2594,9 @@ config CHELSIO_T1_1G
- 	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
- 	  are using only 10G cards say 'N' here.
- 
--config CHELSIO_T3_DEPENDS
--	tristate
--	depends on PCI && INET
--	default y
--
- config CHELSIO_T3
- 	tristate "Chelsio Communications T3 10Gb Ethernet support"
--	depends on CHELSIO_T3_DEPENDS
-+	depends on PCI && INET
- 	select FW_LOADER
- 	select MDIO
- 	help
-@@ -2619,14 +2614,9 @@ config CHELSIO_T3
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called cxgb3.
- 
--config CHELSIO_T4_DEPENDS
--	tristate
--	depends on PCI && INET
--	default y
--
- config CHELSIO_T4
- 	tristate "Chelsio Communications T4 Ethernet support"
--	depends on CHELSIO_T4_DEPENDS
-+	depends on PCI && INET
- 	select FW_LOADER
- 	select MDIO
- 	help
---- 2.6.38-rc5/drivers/scsi/cxgbi/cxgb3i/Kconfig
-+++ 2.6.38-rc5-kconfig-chelsio/drivers/scsi/cxgbi/cxgb3i/Kconfig
-@@ -1,7 +1,6 @@
- config SCSI_CXGB3_ISCSI
- 	tristate "Chelsio T3 iSCSI support"
--	depends on CHELSIO_T3_DEPENDS
--	select CHELSIO_T3
-+	depends on CHELSIO_T3
- 	select SCSI_ISCSI_ATTRS
- 	---help---
- 	  This driver supports iSCSI offload for the Chelsio T3 devices.
---- 2.6.38-rc5/drivers/scsi/cxgbi/cxgb4i/Kconfig
-+++ 2.6.38-rc5-kconfig-chelsio/drivers/scsi/cxgbi/cxgb4i/Kconfig
-@@ -1,7 +1,6 @@
- config SCSI_CXGB4_ISCSI
- 	tristate "Chelsio T4 iSCSI support"
--	depends on CHELSIO_T4_DEPENDS
--	select CHELSIO_T4
-+	depends on CHELSIO_T4
- 	select SCSI_ISCSI_ATTRS
- 	---help---
- 	  This driver supports iSCSI offload for the Chelsio T4 devices.
+They are a bit old-fashioned.
 
+See rtl8168_8101_registers / DBG_REG / FIX_NAK_{1, 2}.
 
+[...]
+> @@ -2435,6 +2457,57 @@ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
+>  	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
+>  }
+>  
+> +static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
+> +{
+> +	void __iomem *ioaddr = tp->mmio_addr;
+> +	static const struct phy_reg phy_reg_init[] = {
+> +		{ 0x1f, 0x0001},
+> +		{ 0x15, 0x7701},
+> +		{ 0x1f, 0x0000}
+> +	};
+> +
+> +	rtl_writephy(tp, 0x1f, 0x0000);
+> +	rtl_writephy(tp, 0x18, 0x0310);
+> +	msleep(100);
+> +
+> +	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
+> +		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
+> +
+> +	if(RTL_R8(0xef) & 0x08) {
+         ^^ -> missing space.
 
+Add a symbol for the 0xef register ?
+
+> +		static const struct phy_reg phy_reg_init1[] = {
+> +			{ 0x1f, 0x0005},
+> +			{ 0x1a, 0x0004},
+> +			{ 0x1f, 0x0000}
+> +		};
+> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
+> +	} else {
+> +		static const struct phy_reg phy_reg_init1[] = {
+> +			{ 0x1f, 0x0005},
+> +			{ 0x1a, 0x0000},
+> +			{ 0x1f, 0x0000}
+> +		};
+> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
+> +	}
+> +
+> +	if(RTL_R8(0xef) & 0x010) {
+         ^^ -> missing space.
+
+> +		static const struct phy_reg phy_reg_init1[] = {
+> +			{ 0x1f, 0x0004},
+> +			{ 0x1c, 0x0000},
+> +			{ 0x1f, 0x0000}
+> +		};
+> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
+> +	} else {
+> +		static const struct phy_reg phy_reg_init1[] = {
+> +			{ 0x1f, 0x0004},
+> +			{ 0x1c, 0x0200},
+> +			{ 0x1f, 0x0000}
+> +		};
+> +		rtl_writephy_batch(tp, phy_reg_init1, ARRAY_SIZE(phy_reg_init1));
+> +	}
+
+Nit: I would rather use an array of array and remove some code duplication.
+
+Otherwise ok.
+
+-- 
+Ueimor
