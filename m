@@ -1,74 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/7] ipv4: Avoid use of signed integers in fib_trie code.
-Date: Thu, 17 Feb 2011 16:12:07 -0800 (PST)
-Message-ID: <20110217.161207.241915777.davem@davemloft.net>
+Subject: [PATCH 6/7] ipv4: Mark fib_combine_itag()'s 'res' arg as const.
+Date: Thu, 17 Feb 2011 16:12:09 -0800 (PST)
+Message-ID: <20110217.161209.98876001.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57127
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57130
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754960Ab1BRALb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 19:11:31 -0500
+	by vger.kernel.org with ESMTP id S1756087Ab1BRALd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 19:11:33 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 3417024C087
-	for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 16:12:07 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id 8E7AC24C087
+	for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 16:12:09 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-GCC emits all kinds of crazy zero extensions when we go from signed
-int, to unsigned short, etc. etc.
-
-This transformation has to be legal because:
-
-1) In tkey_extract_bits() in mask_pfx(), the values are used to
-   perform shifts, on which negative values are undefined by C.
-
-2) In fib_table_lookup() we perform comparisons with unsigned
-   values, constants, and additions.  None of which should
-   encounter negative values.
-
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/fib_trie.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ include/net/ip_fib.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index 1eae90b..edf3b09 100644
---- a/net/ipv4/fib_trie.c
-+++ b/net/ipv4/fib_trie.c
-@@ -217,12 +217,12 @@ static inline int tnode_child_length(const struct tnode *tn)
- 	return 1 << tn->bits;
- }
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 08b46b8..b3019d8 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -232,7 +232,7 @@ extern void fib_select_multipath(const struct flowi *flp, struct fib_result *res
+ extern void fib_trie_init(void);
+ extern struct fib_table *fib_trie_table(u32 id);
  
--static inline t_key mask_pfx(t_key k, unsigned short l)
-+static inline t_key mask_pfx(t_key k, unsigned int l)
+-static inline void fib_combine_itag(u32 *itag, struct fib_result *res)
++static inline void fib_combine_itag(u32 *itag, const struct fib_result *res)
  {
- 	return (l == 0) ? 0 : k >> (KEYLENGTH-l) << (KEYLENGTH-l);
- }
- 
--static inline t_key tkey_extract_bits(t_key a, int offset, int bits)
-+static inline t_key tkey_extract_bits(t_key a, unsigned int offset, unsigned int bits)
- {
- 	if (offset < KEYLENGTH)
- 		return ((t_key)(a << offset)) >> (KEYLENGTH - bits);
-@@ -1378,11 +1378,11 @@ int fib_table_lookup(struct fib_table *tb, const struct flowi *flp,
- 	int ret;
- 	struct rt_trie_node *n;
- 	struct tnode *pn;
--	int pos, bits;
-+	unsigned int pos, bits;
- 	t_key key = ntohl(flp->fl4_dst);
--	int chopped_off;
-+	unsigned int chopped_off;
- 	t_key cindex = 0;
--	int current_prefix_length = KEYLENGTH;
-+	unsigned int current_prefix_length = KEYLENGTH;
- 	struct tnode *cn;
- 	t_key pref_mismatch;
- 
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+ #ifdef CONFIG_IP_MULTIPLE_TABLES
 -- 
 1.7.4.1
 
