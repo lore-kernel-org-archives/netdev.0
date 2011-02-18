@@ -1,147 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC PATCH net-next-2.6 2/2] sfc: Add CPU queue mapping for XPS
-Date: Fri, 18 Feb 2011 16:15:42 +0000
-Message-ID: <1298045742.2570.19.camel@bwh-desktop>
-References: <1298045607.2570.17.camel@bwh-desktop>
+From: Dan Langlois <daniel.langlois@siemens.com>
+Subject: IGMPMSG_WRONGVIF only happens when true VIF is an OIF of correct
+ IIF?
+Date: Fri, 18 Feb 2011 16:46:56 +0100
+Message-ID: <1298044016.2898.12.camel@thor>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: Tom Herbert <therbert@google.com>
+Content-Transfer-Encoding: 8BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:40117 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757507Ab1BRQPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:15:44 -0500
-In-Reply-To: <1298045607.2570.17.camel@bwh-desktop>
+Received: from taad0e1a.siemens.dk ([94.101.220.112]:3517 "EHLO
+	taad0e1a.siemens.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751758Ab1BRQTX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:19:23 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/efx.c |   59 ++++++++++++++++++++++++++++++++++---------------
- 1 files changed, 41 insertions(+), 18 deletions(-)
+Hi, I have a question about the IGMPMSG_WRONGVIF message.
+I have MRT_ASSERT enabled but do not receive notifications.
+However, if I enable MRT_PIM, I do get them.  I'm curious
+why MRT_ASSERT alone isn't sufficient.
 
-diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
-index 35b7bc5..6d698c3 100644
---- a/drivers/net/sfc/efx.c
-+++ b/drivers/net/sfc/efx.c
-@@ -1179,9 +1179,11 @@ static int efx_wanted_channels(void)
- }
- 
- static int
--efx_init_rx_cpu_rmap(struct efx_nic *efx, struct msix_entry *xentries)
-+efx_init_cpu_rmaps(struct efx_nic *efx, struct msix_entry *xentries)
- {
--#ifdef CONFIG_RFS_ACCEL
-+#ifndef CONFIG_NET_IRQ_CPU_RMAP
-+	return 0;
-+#else
- 	int i, rc;
- 
- 	efx->net_dev->rx_cpu_rmap = alloc_irq_cpu_rmap(efx->n_rx_channels);
-@@ -1190,14 +1192,38 @@ efx_init_rx_cpu_rmap(struct efx_nic *efx, struct msix_entry *xentries)
- 	for (i = 0; i < efx->n_rx_channels; i++) {
- 		rc = irq_cpu_rmap_add(efx->net_dev->rx_cpu_rmap,
- 				      xentries[i].vector);
--		if (rc) {
--			free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
--			efx->net_dev->rx_cpu_rmap = NULL;
--			return rc;
-+		if (rc)
-+			goto fail_rx;
-+	}
-+
-+	if (efx->tx_channel_offset == 0) {
-+		efx->net_dev->tx_cpu_rmap = efx->net_dev->rx_cpu_rmap;
-+	} else {
-+		efx->net_dev->tx_cpu_rmap =
-+			alloc_irq_cpu_rmap(efx->n_tx_channels);
-+		if (!efx->net_dev->tx_cpu_rmap) {
-+			rc = -ENOMEM;
-+			goto fail_rx;
-+		}
-+		for (i = 0; i < efx->n_tx_channels; i++) {
-+			rc = irq_cpu_rmap_add(
-+				efx->net_dev->tx_cpu_rmap,
-+				xentries[efx->tx_channel_offset + i].vector);
-+			if (rc)
-+				goto fail_tx;
- 		}
- 	}
--#endif
-+
- 	return 0;
-+
-+fail_tx:
-+	free_irq_cpu_rmap(efx->net_dev->tx_cpu_rmap);
-+	efx->net_dev->tx_cpu_rmap = NULL;
-+fail_rx:
-+	free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
-+	efx->net_dev->rx_cpu_rmap = NULL;
-+	return rc;
-+#endif
- }
- 
- /* Probe the number and type of interrupts we are able to obtain, and
-@@ -1238,14 +1264,15 @@ static int efx_probe_interrupts(struct efx_nic *efx)
- 			if (separate_tx_channels) {
- 				efx->n_tx_channels =
- 					max(efx->n_channels / 2, 1U);
-+				efx->tx_channel_offset =
-+					efx->n_channels - efx->n_tx_channels;
- 				efx->n_rx_channels =
--					max(efx->n_channels -
--					    efx->n_tx_channels, 1U);
-+					max(efx->tx_channel_offset, 1U);
- 			} else {
- 				efx->n_tx_channels = efx->n_channels;
- 				efx->n_rx_channels = efx->n_channels;
- 			}
--			rc = efx_init_rx_cpu_rmap(efx, xentries);
-+			rc = efx_init_cpu_rmaps(efx, xentries);
- 			if (rc) {
- 				pci_disable_msix(efx->pci_dev);
- 				return rc;
-@@ -1301,12 +1328,6 @@ static void efx_remove_interrupts(struct efx_nic *efx)
- 	efx->legacy_irq = 0;
- }
- 
--static void efx_set_channels(struct efx_nic *efx)
--{
--	efx->tx_channel_offset =
--		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
--}
--
- static int efx_probe_nic(struct efx_nic *efx)
- {
- 	size_t i;
-@@ -1330,7 +1351,6 @@ static int efx_probe_nic(struct efx_nic *efx)
- 	for (i = 0; i < ARRAY_SIZE(efx->rx_indir_table); i++)
- 		efx->rx_indir_table[i] = i % efx->n_rx_channels;
- 
--	efx_set_channels(efx);
- 	netif_set_real_num_tx_queues(efx->net_dev, efx->n_tx_channels);
- 	netif_set_real_num_rx_queues(efx->net_dev, efx->n_rx_channels);
- 
-@@ -2315,7 +2335,10 @@ static void efx_fini_struct(struct efx_nic *efx)
-  */
- static void efx_pci_remove_main(struct efx_nic *efx)
- {
--#ifdef CONFIG_RFS_ACCEL
-+#ifdef CONFIG_NET_IRQ_CPU_RMAP
-+	if (efx->net_dev->tx_cpu_rmap != efx->net_dev->rx_cpu_rmap)
-+		free_irq_cpu_rmap(efx->net_dev->tx_cpu_rmap);
-+	efx->net_dev->tx_cpu_rmap = NULL;
- 	free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
- 	efx->net_dev->rx_cpu_rmap = NULL;
- #endif
--- 
-1.7.3.4
+This if-statement appears in ip_mr_forward() in net/ipv4/ipmr.c
+
+       if (true_vifi >= 0 && net->ipv4.mroute_do_assert &&
+            /* pimsm uses asserts, when switching from RPT to SPT, 
+               so that we cannot check that packet arrived on an oif. 
+               It is bad, but otherwise we would need to move pretty
+               large chunk of pimd to kernel. Ough... --ANK
+             */      
+            (net->ipv4.mroute_do_pim ||
+             cache->mfc_un.res.ttls[true_vifi] < 255) && 
+            time_after(jiffies,
+                       cache->mfc_un.res.last_assert +
+MFC_ASSERT_THRESH)) {
+                cache->mfc_un.res.last_assert = jiffies;
+                ipmr_cache_report(net, skb, true_vifi,
+IGMPMSG_WRONGVIF);
+        }       
 
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+By the time this statement is reached, it is known that the packet
+did not arrive on the expected incoming interface (IIF) and thus a
+"WRONGVIF" condition.  This if-statement decides whether a PIM-assert
+notification needs to be sent to the multicast routing daemon.
+
+The part of this if-statement I'm questioning is:
+    (net->ipv4.mroute_do_pim ||
+     cache->mfc_un.res.ttls[true_vifi] < 255) &&
+
+I read this as:
+"send WRONGVIF if PIM is enabled -OR-
+the packet arrived on an outgoing interface OIF of the correct IIF"
+
+So this statement is always true when PIM is enabled.
+However, if only ASSERT is enabled, this statement is only true when
+a packet is reflected back on an OIF.
+
+Why not always send the assert for any WRONGVIF condition regardless
+of the interface it came in on?  I mean, isn't that the point of
+enabling MRT_ASSERT in the first place?  If the assertions weren't
+wanted, just don't enable that feature, right?
+
+In our system, multicast streams may get rerouted through a different
+VIF than what was first installed in the MFC cache.  I would very much
+like to get these WRONGVIF assertions in this case, which is NOT the
+case that a packet is seen on an OIF.
+
+Of course I can simply enable MRT_PIM to get the messages, but in that
+case I don't understand the reason for having two separate toggles
+(MRT_ASSERT versus MRT_PIM).
+
+Could someone please explain the reasoning here, as I don't understand
+the comment, and I'm tempted to patch out this part of the if-statement.
+
+cheers,
+Dan
 
