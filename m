@@ -1,28 +1,32 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [PATCH v2 0/5] Panda: Support for WLAN on WL127x
-Date: Thu, 17 Feb 2011 16:03:54 -0800
-Message-ID: <20110218000353.GO20795@atomide.com>
-References: <1297759236-25323-1-git-send-email-panduranga_mallireddy@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 0/7] IPV4 routing path simplifications
+Date: Thu, 17 Feb 2011 16:11:53 -0800 (PST)
+Message-ID: <20110217.161153.233687974.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: coelho@ti.com, netdev@vger.kernel.org, linux-omap@vger.kernel.org,
-	linux-mmc@vger.kernel.org, ohad@wizery.com, benzyg@ti.com,
-	pradeepgurumath@ti.com, vishalm@ti.com, x-boudet@ti.com,
-	naveen_jain@ti.com, pavan_savoy@ti.com, manjunatha_halli@ti.com,
-	cjb@laptop.org
-To: Panduranga Mallireddy <panduranga_mallireddy@ti.com>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1297759236-25323-1-git-send-email-panduranga_mallireddy@ti.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57112
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752117Ab1BRALR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 19:11:17 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id 283C224C087
+	for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 16:11:54 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Panduranga Mallireddy <panduranga_mallireddy@ti.com> [110215 00:13]:
-> Fixes from V1:
-> 1. Removing the pull up of WLAN IRQ line, since it is always held up by wl127x device.
-> 
-> Adding support for WLAN on Panda board using wl12xx and mac80211 drivers
 
-Thanks, adding these to devel-board for the upcoming merge window.
+These cleanups and simplifications are based upon work I have been
+doing over the past day analyzing why slow path route resolution
+has so much overhead.
 
-Tony
+They are close to trivial and certainly not controversial so I've
+added them to net-next-2.6
+
+I know a new spin of the routing cache deletion patch is necessary so
+that it applies cleanly relative to this stuff, and I'll post that in
+a little bit.
+
+Thanks.
