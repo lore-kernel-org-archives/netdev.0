@@ -1,330 +1,76 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 V2] net: convert bonding to use rx_handler
-Date: Fri, 18 Feb 2011 21:58:33 +0100
-Message-ID: <20110218205832.GE2602@psychotron.redhat.com>
-References: <1298039252.6201.66.camel@edumazet-laptop>
- <4D5E8655.5070304@trash.net>
- <20110218145850.GF2939@psychotron.redhat.com>
- <20110218.120656.104048936.davem@davemloft.net>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
+Date: Fri, 18 Feb 2011 16:51:37 -0500
+Message-ID: <4D5EE9E9.2000407@tilera.com>
+References: <4D5DA60A.8080201@tilera.com>	<20110217.145333.232751283.davem@davemloft.net>	<4D5DA96D.5060200@tilera.com>	<20110217.151147.35033921.davem@davemloft.net>	<4D5DACC5.60105@tilera.com> <AANLkTim1F679mmnbHnYkvi6ZDojxD-tPGer4F+61C+di@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15542 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753517Ab1BRU7Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Feb 2011 15:59:24 -0500
-Content-Disposition: inline
-In-Reply-To: <20110218.120656.104048936.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <xiyou.wangcong@gmail.com>,
+	<linux-kernel@vger.kernel.org>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>
+To: Cypher Wu <cypher.w@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTim1F679mmnbHnYkvi6ZDojxD-tPGer4F+61C+di@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch converts bonding to use rx_handler. Results in cleaner
-__netif_receive_skb() with much less exceptions needed. Also bond-specific
-work is moved into bond code.
+On 2/17/2011 10:16 PM, Cypher Wu wrote:
+> On Fri, Feb 18, 2011 at 7:18 AM, Chris Metcalf <cmetcalf@tilera.com> wrote:
+>> The interrupt architecture on Tile allows a write to a special-purpose
+>> register to put you into a "critical section" where no interrupts or faults
+>> are delivered.  So we just need to bracket the read_lock operations with
+>> two SPR writes; each takes six machine cycles, so we're only adding 12
+>> cycles to the total cost of taking or releasing a read lock on an rwlock
+> I agree that just lock interrupt for read operations should be enough,
+> but read_unlock() is also the place we should lock interrupt, right?
+> If interrupt occurred when it hold lock-val after TNS deadlock still
+> can occur.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+Correct; that's what I meant by "read_lock operations".  This include lock,
+trylock, and unlock.
 
-v1->v2:
-	using skb_iif instead of new input_dev to remember original device
+> When will you release out that patch? Since time is tight, so maybe
+> I've to fix-up it myself.
 
----
- drivers/net/bonding/bond_main.c |   75 ++++++++++++++++++++++++++-
- net/core/dev.c                  |  111 ++++++++-------------------------------
- 2 files changed, 97 insertions(+), 89 deletions(-)
+I heard from one of our support folks that you were asking through that
+channel, so I asked him to go ahead and give you the spinlock sources
+directly.  I will be spending time next week syncing up our internal tree
+with the public git repository so you'll see it on LKML at that time.
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 77e3c6a..a856a11 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1423,6 +1423,68 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
- 	bond->setup_by_slave = 1;
- }
- 
-+/* On bonding slaves other than the currently active slave, suppress
-+ * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
-+ * ARP on active-backup slaves with arp_validate enabled.
-+ */
-+static bool bond_should_deliver_exact_match(struct sk_buff *skb,
-+					    struct net_device *slave_dev,
-+					    struct net_device *bond_dev)
-+{
-+	if (slave_dev->priv_flags & IFF_SLAVE_INACTIVE) {
-+		if (slave_dev->priv_flags & IFF_SLAVE_NEEDARP &&
-+		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
-+			return false;
-+
-+		if (bond_dev->priv_flags & IFF_MASTER_ALB &&
-+		    skb->pkt_type != PACKET_BROADCAST &&
-+		    skb->pkt_type != PACKET_MULTICAST)
-+				return false;
-+
-+		if (bond_dev->priv_flags & IFF_MASTER_8023AD &&
-+		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
-+			return false;
-+
-+		return true;
-+	}
-+	return false;
-+}
-+
-+static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
-+{
-+	struct net_device *slave_dev;
-+	struct net_device *bond_dev;
-+
-+	skb = skb_share_check(skb, GFP_ATOMIC);
-+	if (unlikely(!skb))
-+		return NULL;
-+	slave_dev = skb->dev;
-+	bond_dev = ACCESS_ONCE(slave_dev->master);
-+	if (unlikely(!bond_dev))
-+		return skb;
-+
-+	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
-+		slave_dev->last_rx = jiffies;
-+
-+	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
-+		skb->deliver_no_wcard = 1;
-+		return skb;
-+	}
-+
-+	skb->dev = bond_dev;
-+
-+	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
-+	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
-+	    skb->pkt_type == PACKET_HOST) {
-+		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
-+
-+		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
-+	}
-+
-+	netif_rx(skb);
-+	return NULL;
-+}
-+
- /* enslave device <slave> to bond device <master> */
- int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- {
-@@ -1599,11 +1661,17 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		pr_debug("Error %d calling netdev_set_bond_master\n", res);
- 		goto err_restore_mac;
- 	}
-+	res = netdev_rx_handler_register(slave_dev, bond_handle_frame, NULL);
-+	if (res) {
-+		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
-+		goto err_unset_master;
-+	}
-+
- 	/* open the slave since the application closed it */
- 	res = dev_open(slave_dev);
- 	if (res) {
- 		pr_debug("Opening slave %s failed\n", slave_dev->name);
--		goto err_unset_master;
-+		goto err_unreg_rxhandler;
- 	}
- 
- 	new_slave->dev = slave_dev;
-@@ -1811,6 +1879,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- err_close:
- 	dev_close(slave_dev);
- 
-+err_unreg_rxhandler:
-+	netdev_rx_handler_unregister(slave_dev);
-+
- err_unset_master:
- 	netdev_set_bond_master(slave_dev, NULL);
- 
-@@ -1992,6 +2063,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 		netif_addr_unlock_bh(bond_dev);
- 	}
- 
-+	netdev_rx_handler_unregister(slave_dev);
- 	netdev_set_bond_master(slave_dev, NULL);
- 
- #ifdef CONFIG_NET_POLL_CONTROLLER
-@@ -2114,6 +2186,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 			netif_addr_unlock_bh(bond_dev);
- 		}
- 
-+		netdev_rx_handler_unregister(slave_dev);
- 		netdev_set_bond_master(slave_dev, NULL);
- 
- 		/* close slave before restoring its mac address */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4f69439..580cff1 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3092,63 +3092,31 @@ void netdev_rx_handler_unregister(struct net_device *dev)
- }
- EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
- 
--static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
--					      struct net_device *master)
-+static void vlan_on_bond_hook(struct sk_buff *skb)
- {
--	if (skb->pkt_type == PACKET_HOST) {
--		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
--
--		memcpy(dest, master->dev_addr, ETH_ALEN);
--	}
--}
--
--/* On bonding slaves other than the currently active slave, suppress
-- * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
-- * ARP on active-backup slaves with arp_validate enabled.
-- */
--static int __skb_bond_should_drop(struct sk_buff *skb,
--				  struct net_device *master)
--{
--	struct net_device *dev = skb->dev;
--
--	if (master->priv_flags & IFF_MASTER_ARPMON)
--		dev->last_rx = jiffies;
--
--	if ((master->priv_flags & IFF_MASTER_ALB) &&
--	    (master->priv_flags & IFF_BRIDGE_PORT)) {
--		/* Do address unmangle. The local destination address
--		 * will be always the one master has. Provides the right
--		 * functionality in a bridge.
--		 */
--		skb_bond_set_mac_by_master(skb, master);
--	}
--
--	if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
--		if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
--		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
--			return 0;
--
--		if (master->priv_flags & IFF_MASTER_ALB) {
--			if (skb->pkt_type != PACKET_BROADCAST &&
--			    skb->pkt_type != PACKET_MULTICAST)
--				return 0;
--		}
--		if (master->priv_flags & IFF_MASTER_8023AD &&
--		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
--			return 0;
-+	/*
-+	 * Make sure ARP frames received on VLAN interfaces stacked on
-+	 * bonding interfaces still make their way to any base bonding
-+	 * device that may have registered for a specific ptype.
-+	 */
-+	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
-+	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
-+	    skb->protocol == htons(ETH_P_ARP)) {
-+		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
- 
--		return 1;
-+		if (!skb2)
-+			return;
-+		skb2->dev = vlan_dev_real_dev(skb->dev);
-+		netif_rx(skb2);
- 	}
--	return 0;
- }
- 
- static int __netif_receive_skb(struct sk_buff *skb)
- {
- 	struct packet_type *ptype, *pt_prev;
- 	rx_handler_func_t *rx_handler;
-+	struct net_device *null_or_dev;
- 	struct net_device *orig_dev;
--	struct net_device *null_or_orig;
--	struct net_device *orig_or_bond;
- 	int ret = NET_RX_DROP;
- 	__be16 type;
- 
-@@ -3164,30 +3132,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
- 	if (!skb->skb_iif)
- 		skb->skb_iif = skb->dev->ifindex;
- 
--	/*
--	 * bonding note: skbs received on inactive slaves should only
--	 * be delivered to pkt handlers that are exact matches.  Also
--	 * the deliver_no_wcard flag will be set.  If packet handlers
--	 * are sensitive to duplicate packets these skbs will need to
--	 * be dropped at the handler.
--	 */
--	null_or_orig = NULL;
--	orig_dev = skb->dev;
--	if (skb->deliver_no_wcard)
--		null_or_orig = orig_dev;
--	else if (netif_is_bond_slave(orig_dev)) {
--		struct net_device *bond_master = ACCESS_ONCE(orig_dev->master);
--
--		if (likely(bond_master)) {
--			if (__skb_bond_should_drop(skb, bond_master)) {
--				skb->deliver_no_wcard = 1;
--				/* deliver only exact match */
--				null_or_orig = orig_dev;
--			} else
--				skb->dev = bond_master;
--		}
--	}
--
- 	__this_cpu_inc(softnet_data.processed);
- 	skb_reset_network_header(skb);
- 	skb_reset_transport_header(skb);
-@@ -3196,6 +3140,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
- 	pt_prev = NULL;
- 
- 	rcu_read_lock();
-+	orig_dev = dev_get_by_index_rcu(dev_net(skb->dev), skb->skb_iif);
- 
- #ifdef CONFIG_NET_CLS_ACT
- 	if (skb->tc_verd & TC_NCLS) {
-@@ -3205,8 +3150,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
- #endif
- 
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
--		if (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
--		    ptype->dev == orig_dev) {
-+		if (!ptype->dev || ptype->dev == skb->dev) {
- 			if (pt_prev)
- 				ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = ptype;
-@@ -3220,7 +3164,6 @@ static int __netif_receive_skb(struct sk_buff *skb)
- ncls:
- #endif
- 
--	/* Handle special case of bridge or macvlan */
- 	rx_handler = rcu_dereference(skb->dev->rx_handler);
- 	if (rx_handler) {
- 		if (pt_prev) {
-@@ -3244,24 +3187,16 @@ ncls:
- 			goto out;
- 	}
- 
--	/*
--	 * Make sure frames received on VLAN interfaces stacked on
--	 * bonding interfaces still make their way to any base bonding
--	 * device that may have registered for a specific ptype.  The
--	 * handler may have to adjust skb->dev and orig_dev.
--	 */
--	orig_or_bond = orig_dev;
--	if ((skb->dev->priv_flags & IFF_802_1Q_VLAN) &&
--	    (vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING)) {
--		orig_or_bond = vlan_dev_real_dev(skb->dev);
--	}
-+	vlan_on_bond_hook(skb);
-+
-+	/* deliver only exact match when indicated */
-+	null_or_dev = skb->deliver_no_wcard ? skb->dev : NULL;
- 
- 	type = skb->protocol;
- 	list_for_each_entry_rcu(ptype,
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
--		if (ptype->type == type && (ptype->dev == null_or_orig ||
--		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
--		     ptype->dev == orig_or_bond)) {
-+		if (ptype->type == type &&
-+		    (ptype->dev == null_or_dev || ptype->dev == skb->dev)) {
- 			if (pt_prev)
- 				ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = ptype;
+> 1. If we use SPR_INTERRUPT_CRITICAL_SECTION it will disable all the
+> interrupt which claimed 'CM', is that right? Should we have to same
+> its original value and restore it later?
+
+We don't need to save and restore, since INTERRUPT_CRITICAL_SECTION is
+almost always zero except in very specific situations.
+
+> 2. Should we lock interrupt for the whole operation of
+> read_lock()/read_unlock(), or we should leave interrupt critical
+> section if it run into  __raw_read_lock_slow() and before have to
+> delay_backoff() some time, and re-enter interrupt critical section
+> again before TNS?
+
+Correct, the fix only holds the critical section around the tns and the
+write-back, not during the delay_backoff().
+
+> Bye the way, other RISC platforms, say ARM and MIPS, use store
+> conditional rather that TNS a temp value for lock-val, does Fx have
+> similar instructions?
+
+TILEPro does not have anything more than test-and-set; TILE-Gx (the 64-bit
+processor) has a full array of atomic instructions.
+
+> Adding that to SPR writes should be fine, but it may cause interrupt
+> delay a little more that other platform's read_lock()?
+
+A little, but I think it's in the noise relative to the basic cost of
+read_lock in the absence of full-fledged atomic instructions.
+
+> Another question: What NMI in the former mail means?
+
+Non-maskable interrupt, such as performance counter interrupts.
+
 -- 
-1.7.3.4
-
+Chris Metcalf, Tilera Corp.
+http://www.tilera.com
