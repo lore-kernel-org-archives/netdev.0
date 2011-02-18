@@ -1,52 +1,45 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] net: convert bonding to use rx_handler
-Date: Fri, 18 Feb 2011 21:13:15 +0100
-Message-ID: <20110218201314.GD2602@psychotron.redhat.com>
-References: <1298039252.6201.66.camel@edumazet-laptop>
- <4D5E8655.5070304@trash.net>
- <20110218145850.GF2939@psychotron.redhat.com>
- <20110218.120656.104048936.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: deinit automatic LIST_HEAD
+Date: Fri, 18 Feb 2011 12:14:31 -0800 (PST)
+Message-ID: <20110218.121431.183035903.davem@davemloft.net>
+References: <AANLkTimzP0UNRXutkt1zJ+OGhmeg6ga87HFyMuZQmpMj@mail.gmail.com>
+	<m17hcx7wca.fsf@fess.ebiederm.org>
+	<1298019559.2595.92.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62699 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757673Ab1BRUNb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Feb 2011 15:13:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20110218.120656.104048936.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, ebiederm@xmission.com, mingo@elte.hu,
+ opurdila@ixiacom.com, linux-kernel@vger.kernel.org, linux-mm@kvack.org,
+ mhocko@suse.cz, netdev@vger.kernel.org, stable@kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1298019559.2595.92.camel@edumazet-laptop>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-=46ri, Feb 18, 2011 at 09:06:56PM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jpirko@redhat.com>
->Date: Fri, 18 Feb 2011 15:58:51 +0100
->
->> Fri, Feb 18, 2011 at 03:46:45PM CET, kaber@trash.net wrote:
->>>Am 18.02.2011 15:27, schrieb Eric Dumazet:
->>>> Le vendredi 18 f=E9vrier 2011 =E0 15:14 +0100, Jiri Pirko a =E9cri=
-t :
->>>>=20
->>>>> Do not know how to do it better. As for percpu variable, not only
->>>>> origdev would have to be remembered but also probably skb pointer=
- to
->>>>> know if it's the first run on the skb or not. Can't really figure=
- out a
->>>>> better solution. Can you?
->>>>=20
->>>> I'll try and let you know.
->>>
->>>Why not simply do a lookup on skb->iif?
->>=20
->> Well I was trying to avoid iterating over list of devices for each
->> incoming frame.
->
->It is not list, it is hash :-)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 18 Feb 2011 09:59:19 +0100
 
-Even if, Do you think that this would be ok?
+> commit 9b5e383c11b08784 (net: Introduce
+> unregister_netdevice_many()) left an active LIST_HEAD() in
+> rollback_registered(), with possible memory corruption.
+> 
+> Even if device is freed without touching its unreg_list (and therefore
+> touching the previous memory location holding LISTE_HEAD(single), better
+> close the bug for good, since its really subtle.
+> 
+> (Same fix for default_device_exit_batch() for completeness)
+> 
+> Reported-by: Michal Hocko <mhocko@suse.cz>
+> Reported-by: Eric W. Biderman <ebiderman@xmission.com>
+> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
+Applied.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
