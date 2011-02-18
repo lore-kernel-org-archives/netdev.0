@@ -1,87 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] net: provide default_advmss() methods to blackhole
- dst_ops
-Date: Fri, 18 Feb 2011 14:44:32 +0100
-Message-ID: <1298036672.6201.65.camel@edumazet-laptop>
-References: <20110218050321.10415.qmail@science.horizon.com>
-	 <1298010735.2642.9.camel@edumazet-laptop>
-	 <1298023023.2595.170.camel@edumazet-laptop>
-	 <AANLkTi=GRPWNWZuORx1zoJJURE-drqEoMdTuKB9LZ8Ux@mail.gmail.com>
-	 <1298035443.6201.51.camel@edumazet-laptop>
-	 <AANLkTi=O1LZzSc8=qMX=R3rJpCVL8eWr1eo6NkiZXS0m@mail.gmail.com>
-	 <1298036005.6201.58.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] net: convert bonding to use rx_handler
+Date: Fri, 18 Feb 2011 15:14:56 +0100
+Message-ID: <20110218141456.GD2939@psychotron.redhat.com>
+References: <20110218132524.GC2939@psychotron.redhat.com>
+ <1298035791.6201.56.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: George Spelvin <linux@horizon.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Roland Dreier <roland@purestorage.com>,
-	Daniel Baluta <dbaluta@ixiacom.com>
-To: Changli Gao <xiaosuo@gmail.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34592 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751707Ab1BRNom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 08:44:42 -0500
-In-Reply-To: <1298036005.6201.58.camel@edumazet-laptop>
+Received: from mx1.redhat.com ([209.132.183.28]:63848 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752955Ab1BROQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Feb 2011 09:16:59 -0500
+Content-Disposition: inline
+In-Reply-To: <1298035791.6201.56.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 18 f=C3=A9vrier 2011 =C3=A0 14:33 +0100, Eric Dumazet a =C3=
-=A9crit :
-
-> I had this exact idea but found we need struct net pointer to get thi=
+=46ri, Feb 18, 2011 at 02:29:51PM CET, eric.dumazet@gmail.com wrote:
+>Le vendredi 18 f=E9vrier 2011 =E0 14:25 +0100, Jiri Pirko a =E9crit :
+>> This patch converts bonding to use rx_handler. Results in cleaner
+>> __netif_receive_skb() with much less exceptions needed. Also bond-sp=
+ecific
+>> work is moved into bond code.
+>>=20
+>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> ---
+>>  drivers/net/bonding/bond_main.c |   75 ++++++++++++++++++++-
+>>  include/linux/skbuff.h          |    2 +
+>>  net/core/dev.c                  |  144 +++++++++++-----------------=
+----------
+>>  net/core/skbuff.c               |    1 +
+>>  4 files changed, 119 insertions(+), 103 deletions(-)
+>>=20
+>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index 31f02d0..9f3af5d 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -267,6 +267,7 @@ typedef unsigned char *sk_buff_data_t;
+>>   *	@sk: Socket we are owned by
+>>   *	@tstamp: Time we arrived
+>>   *	@dev: Device we arrived on/are leaving by
+>> + *	@input_dev: Original device on which we arrived
+>>   *	@transport_header: Transport layer header
+>>   *	@network_header: Network layer header
+>>   *	@mac_header: Link layer header
+>> @@ -325,6 +326,7 @@ struct sk_buff {
+>> =20
+>>  	struct sock		*sk;
+>>  	struct net_device	*dev;
+>> +	struct net_device	*input_dev;
+>> =20
+>
+>Your patch looks fine, but adding 8 bytes to sk_buff for a "cleanup" i=
 s
-> value, not provided in parameters, so I falled back to the 256 value.
->=20
->=20
+>really a show stopper for me.
 
-Hmm, reading again this stuff, maybe we can just use
-ipv4_default_advmss() instead of a custom one.
+Do not know how to do it better. As for percpu variable, not only
+origdev would have to be remembered but also probably skb pointer to
+know if it's the first run on the skb or not. Can't really figure out a
+better solution. Can you?
 
-dst->dev should be available
+Thanks.
 
-[PATCH] net: provide default_advmss() methods to blackhole dst_ops
-
-Commit 0dbaee3b37e118a (net: Abstract default ADVMSS behind an
-accessor.) introduced a possible crash in tcp_connect_init(), when
-dst->default_advmss() is called from dst_metric_advmss()
-
-Reported-by: George Spelvin <linux@horizon.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Roland Dreier <roland@purestorage.com>
-CC: Changli Gao <xiaosuo@gmail.com>
-CC: Daniel Baluta <dbaluta@ixiacom.com>
----
- net/ipv4/route.c |    1 +
- net/ipv6/route.c |    1 +
- 2 files changed, 2 insertions(+)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 788a3e7..6ed6603 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -2722,6 +2722,7 @@ static struct dst_ops ipv4_dst_blackhole_ops =3D =
-{
- 	.destroy		=3D	ipv4_dst_destroy,
- 	.check			=3D	ipv4_blackhole_dst_check,
- 	.default_mtu		=3D	ipv4_blackhole_default_mtu,
-+	.default_advmss		=3D	ipv4_default_advmss,
- 	.update_pmtu		=3D	ipv4_rt_blackhole_update_pmtu,
- };
-=20
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 1c29f95..a998db6 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -128,6 +128,7 @@ static struct dst_ops ip6_dst_blackhole_ops =3D {
- 	.destroy		=3D	ip6_dst_destroy,
- 	.check			=3D	ip6_dst_check,
- 	.default_mtu		=3D	ip6_blackhole_default_mtu,
-+	.default_advmss		=3D	ip6_default_advmss,
- 	.update_pmtu		=3D	ip6_rt_blackhole_update_pmtu,
- };
-=20
-
-
+Jirka
+>
+>
+>
