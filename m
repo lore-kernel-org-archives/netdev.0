@@ -1,92 +1,247 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 2.6.38-rc5 tcp_connect oops: EIP = 0x0
-Date: Fri, 18 Feb 2011 07:32:15 +0100
-Message-ID: <1298010735.2642.9.camel@edumazet-laptop>
-References: <20110218050321.10415.qmail@science.horizon.com>
+From: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
+Date: Fri, 18 Feb 2011 12:37:31 +0530
+Message-ID: <32A5399EB727427C98185089E5DBFA65@subhasishg>
+References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>
+	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>
+	<20110211152026.GC373@e-circ.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: George Spelvin <linux@horizon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110218050321.10415.qmail@science.horizon.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	"open list:CAN NETWORK DRIVERS" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	nsekhar-l0cyMroinI0@public.gmane.org, open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"open list:CAN NETWORK DRIVERS" <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, m-watkins-l0cyMroinI0@public.gmane.org,
+	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+To: "Kurt Van Dijck" <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <20110211152026.GC373-MxZ6Iy/zr/UdbCeoMzGj59i2O/JbrIOy@public.gmane.org>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 18 f=C3=A9vrier 2011 =C3=A0 00:03 -0500, George Spelvin a =C3=
-=A9crit :
-> But wonder of wonders, kernel mode switching worked so I got to see t=
-he
-> oops on the text-mode console.  It happened just as I tried to ssh ou=
-t.
->=20
+--------------------------------------------------
+From: "Kurt Van Dijck" <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+Sent: Friday, February 11, 2011 8:50 PM
+To: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>; 
+<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>; <m-watkins-l0cyMroinI0@public.gmane.org>; 
+<nsekhar-l0cyMroinI0@public.gmane.org>; <sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>; "Wolfgang Grandegger" 
+<wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>; "open list:CAN NETWORK DRIVERS" 
+<socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>; "open list:CAN NETWORK DRIVERS" 
+<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>; "open list" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
 
-CC netdev (removed linux-netdev)
+> Hi,
+>
+> I looked a bit at the TX path:
+>
+> On Fri, Feb 11, 2011 at 08:21:28PM +0530, Subhasish Ghosh wrote:
+>> +static int omapl_pru_can_set_bittiming(struct net_device *ndev)
+>> +{
+>> + struct omapl_pru_can_priv *priv = netdev_priv(ndev);
+>> + struct can_bittiming *bt = &priv->can.bittiming;
+>> + long bit_error = 0;
+>> +
+>> + if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES) {
+>> + dev_warn(priv->dev, "WARN: Triple"
+>> + "sampling not set due to h/w limitations");
+> You should not have enabled CAN_CTRLMODE_3_SAMPLES in the first place?
 
-I'll take a look this morning, thanks for the report.
+SG - Ok Will remove.
+>> + }
+>> + if (pru_can_calc_timing(priv->dev, priv->can.clock.freq,
+>> + bt->bitrate) != 0)
+>> + return -EINVAL;
+>> + bit_error =
+>> +     (((priv->timer_freq / (priv->timer_freq / bt->bitrate)) -
+>> +       bt->bitrate) * 1000) / bt->bitrate;
+>> + if (bit_error) {
+>> + bit_error =
+>> +     (((priv->timer_freq / (priv->timer_freq / bt->bitrate)) -
+>> +       bt->bitrate) * 1000000) / bt->bitrate;
+>> + printk(KERN_INFO "\nBitrate error %ld.%ld%%\n",
+>> + bit_error / 10000, bit_error % 1000);
+>> + } else
+>> + printk(KERN_INFO "\nBitrate error 0.0%%\n");
+>> +
+>> + return 0;
+>> +}
+> I wonder how much of this code is duplicated from drivers/net/can/dev.c ?
+SG - Well, I just followed ti_hecc.c :-)
 
-> It's a Core 2 duo laptop (Dell E1405), 2 GB RAM, running a 32-bit ker=
-nel.
-> It's worth noting that I was using wired internet (b44 driver) and
-> not wireless.
->=20
-> I've been having a lot of weird lockups with 2.6.38-rcX, quite a chan=
-ge
-> from the very stable 2.6.36, but this is the first time I booted -rc5=
-=2E
-> Also, the symptoms are very different; before the lockup did not seen
-> correlated with any particular activity, but the "lockup" was more li=
-ke
-> something getting wedged in the kernel that more and more tasks would
-> get stuck on until everything stopped responding.
->=20
-> I should mention that this is transcribed by hand from the screen.
-> Oh, and also, it is far from the first time I ran ssh this boot.
-> (I re-tested it ater rebooting, just to be sure.  Not a consistent
-> crash.)
->=20
-> Anyway, jumping to address 0 looks "interesting", so it seems worth r=
-eporting.
->=20
-> BUG: unable to handle kernel NULL pointer dereference at   (null)
-> IP: [<  (null)>]   (null)
-> *pde =3D 00000000
-> Oops: 0000 [#1] SMP
-> last sysfs file: /sys/devices/pci0000:00/0000:00:1f.2/host0/target0:0=
-:0/0:0:0:0/block/sda/uevent
-> Modules linked in: rfcomm btusb sco l2cap crc16 bluetooth b43 mac8021=
-1 cfg80211 [last unloaded: sha256_generic]
->=20
-> Pid: 12178, comm: ssh Not tainted 2.6.38-rc5 #227 Dell Inc. MXC061   =
-                       /0MG532
-> EIP: 0060:[<00000000>] EFLAGS: 0021246 CPU: 0
-> EIP is at 0x0
-> EAX: f5947e00 EBX: f5982f80 ECX: 00000024 EDX: c148fe00
-> ESI: f5947e00 EDI: ebf29e54 EBP: ebf29ee0 ESP: ebf29dd0
->  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> Process ssh (pid: 12178, ti=3Debf28000 task=3Debefc6c0 task.ti =3D eb=
-ef28000)
-> Stack:
->  c12c83ea 07e2427d 02000000 7b018f79 c117b827 0b996609 7b018f79 5f5f6=
-644
->  f5982f80 00000000 ebf29e58 ebf29ee0 c12cc0e0 00001600 00000000 00000=
-001
->  03641600 00000000 00000000 00000000 00000000 036423c0 3e6423c0 00000=
-000
-> Call Trace:
->  [<c12c83ea>] ? tcp_connect+0xdd/0x3fd
->  [<c117b827>] ? secure_tcp_sequence_number+0x4f/0x65
->  [<c12cc0e0>] ? tcp_v4_connect+0x3c1/0x417
->  [<c12d6726>] ? inet_stream_connect+0x88/0x1fc
->  [<c1110705>] ? _copy_from_user+0x2b/0x10e
->  [<c129307d>] ? sys_connect+0x70/0x98
->  [<c108df0f>] ? get_empty_filp+0x9f/0x121
->  [<c108dfa0>] ? alloc_file+0xf/0x85
->  [<c1293287>] ? sock_alloc_file+0x97/0xeb
->  [<c108b758>] ? fd_install+0x1b/0x38
->  [<c12932f6>] ? sock_map_fd+0x1b/0x20
->  [<c1293bdf>] ? sys_socketcall+0x9d/0x291
->  [<c1002750>] ? sysenter_do_call+0x12/0x26
-> Code:  Bad EIP value
-> EIP: [<00000000>] 0x0 SS:ESP 0068:ebf29dd0
-> CR2: 0000000000000000
+>
+>> +static netdev_tx_t omapl_pru_can_start_xmit(struct sk_buff *skb,
+>> +     struct net_device *ndev)
+>> +{
+>> + struct omapl_pru_can_priv *priv = netdev_priv(ndev);
+>> + struct can_frame *cf = (struct can_frame *)skb->data;
+>> + int count;
+>> + u8 *data = cf->data;
+>> + u8 dlc = cf->can_dlc;
+>> + u8 *ptr8data = NULL;
+>> +
+> most drivers start with:
+> if (can_dropped_invalid_skb(dev, skb))
+> return NETDEV_TX_OK;
+
+SG - Will do.
+>
+>> + netif_stop_queue(ndev);
+> why would you stop when you just resumed the queue?
+
+SG - I do not want more than one transmit request at one time. Hence, on 
+entering the transmit
+I am using netif_stop_queue to disable tx.
+
+>> + if (cf->can_id & CAN_EFF_FLAG) /* Extended frame format */
+>> + *((u32 *) &priv->can_tx_hndl.strcanmailbox) =
+>> +     (cf->can_id & CAN_EFF_MASK) | PRU_CANMID_IDE;
+>> + else /* Standard frame format */
+>> + *((u32 *) &priv->can_tx_hndl.strcanmailbox) =
+>> +     (cf->can_id & CAN_SFF_MASK) << 18;
+>> +
+>> + if (cf->can_id & CAN_RTR_FLAG) /* Remote transmission request */
+>> + *((u32 *) &priv->can_tx_hndl.strcanmailbox) |= CAN_RTR_FLAG;
+>> +
+>> + ptr8data = &priv->can_tx_hndl.strcanmailbox.u8data7 + (dlc - 1);
+>> + for (count = 0; count < (u8) dlc; count++) {
+>> + *ptr8data-- = *data++;
+>> + }
+>> + *((u32 *) &priv->can_tx_hndl.strcanmailbox.u16datalength) = (u32) dlc;
+>> +/*
+>> + * search for the next available mbx
+>> + * if the next mbx is busy, then try the next + 1
+>> + * do this until the head is reached.
+>> + * if still unable to tx, stop accepting any packets
+>> + * if able to tx and the head is reached, then reset next to tail, i.e 
+>> mbx0
+>> + * if head is not reached, then just point to the next mbx
+>> + */
+>> + for (; priv->tx_next <= priv->tx_head; priv->tx_next++) {
+>> + priv->can_tx_hndl.ecanmailboxnumber =
+>> +     (can_mailbox_number) priv->tx_next;
+>> + if (-1 == pru_can_write_data_to_mailbox(priv->dev,
+>> + &priv->can_tx_hndl)) {
+>> + if (priv->tx_next == priv->tx_head) {
+>> + priv->tx_next = priv->tx_tail;
+>> + if (!netif_queue_stopped(ndev))
+> If you get here, the queue is not stopped. This test is therefore useless.
+
+SG -Ok, will remove
+>> + netif_stop_queue(ndev); /* IF stalled */
+>> + dev_err(priv->dev,
+>> + "%s: no tx mbx available", __func__);
+>> + return NETDEV_TX_BUSY;
+>> + } else
+>> + continue;
+>> + } else {
+>> + /* set transmit request */
+>> + pru_can_tx(priv->dev, priv->tx_next, CAN_TX_PRU_1);
+>> + pru_can_tx_mode_set(priv->dev, false, ecanreceive);
+>> + pru_can_tx_mode_set(priv->dev, true, ecantransmit);
+>> + pru_can_start_abort_tx(priv->dev, PRU_CAN_START);
+>> + priv->tx_next++;
+>> + can_put_echo_skb(skb, ndev, 0);
+>> + break;
+>> + }
+>> + }
+>> + if (priv->tx_next > priv->tx_head) {
+>> + priv->tx_next = priv->tx_tail;
+>> + }
+>> + return NETDEV_TX_OK;
+>> +}
+>> +
+>> +
+>
+>> +irqreturn_t omapl_tx_can_intr(int irq, void *dev_id)
+>> +{
+>> + struct net_device *ndev = dev_id;
+>> + struct omapl_pru_can_priv *priv = netdev_priv(ndev);
+>> + struct net_device_stats *stats = &ndev->stats;
+>> + u32 bit_set, mbxno;
+>> +
+>> + pru_can_get_intr_status(priv->dev, &priv->can_tx_hndl);
+>> + if ((PRU_CAN_ISR_BIT_CCI & priv->can_tx_hndl.u32interruptstatus)
+>> +     || (PRU_CAN_ISR_BIT_SRDI & priv->can_tx_hndl.u32interruptstatus)) {
+>> + __can_debug("tx_int_status = 0x%X\n",
+>> +     priv->can_tx_hndl.u32interruptstatus);
+>> + can_free_echo_skb(ndev, 0);
+>> + } else {
+>> + for (bit_set = 0; ((priv->can_tx_hndl.u32interruptstatus & 0xFF)
+>> + >> bit_set != 0); bit_set++)
+>> + ;
+>> + if (0 == bit_set) {
+>> + __can_err("%s: invalid mailbox number\n", __func__);
+>> + can_free_echo_skb(ndev, 0);
+>> + } else {
+>> + mbxno = bit_set - 1; /* mail box numbering starts from 0 */
+>> + if (PRU_CAN_ISR_BIT_ESI & priv->can_tx_hndl.
+>> +     u32interruptstatus) {
+>> + /* read gsr and ack pru */
+>> + pru_can_get_global_status(priv->dev, &priv->can_tx_hndl);
+>> + omapl_pru_can_err(ndev,
+>> +   priv->can_tx_hndl.
+>> +   u32interruptstatus,
+>> +   priv->can_tx_hndl.
+>> +   u32globalstatus);
+>> + } else {
+>> + stats->tx_packets++;
+>> + /* stats->tx_bytes += dlc; */
+>> + /*can_get_echo_skb(ndev, 0);*/
+>> + }
+>> + }
+>> + }
+>> + if (netif_queue_stopped(ndev))
+> you can call netif_wake_queue(ndev) multiple times, so there is no need
+> for netif_queue_stopped()
+
+SG -Ok, will remove
+
+>> + netif_wake_queue(ndev);
+>> +
+>> + can_get_echo_skb(ndev, 0);
+>> + pru_can_tx_mode_set(priv->dev, true, ecanreceive);
+>> + return IRQ_HANDLED;
+>> +}
+>> +
+>> +static int omapl_pru_can_open(struct net_device *ndev)
+>> +{
+>> + struct omapl_pru_can_priv *priv = netdev_priv(ndev);
+>> + int err;
+>> +
+>> + /* register interrupt handler */
+>> + err = request_irq(priv->trx_irq, &omapl_rx_can_intr, IRQF_SHARED,
+>> +   "pru_can_irq", ndev);
+> you're doing a lot of work _in_ the irq handler. Maybe threaded irq?
+>
+SG -Ok, will do
+
+>> +static int omapl_pru_can_close(struct net_device *ndev)
+>> +{
+>> + struct omapl_pru_can_priv *priv = netdev_priv(ndev);
+>> +
+>> + if (!netif_queue_stopped(ndev))
+> check is not needed.
+
+SG -Ok, will remove
+
+>> + netif_stop_queue(ndev);
+>> +
+>> + close_candev(ndev);
+>> +
+>> + free_irq(priv->trx_irq, ndev);
+>> + return 0;
+>> +}
+>> +
+>
+> Regards,
+> Kurt 
