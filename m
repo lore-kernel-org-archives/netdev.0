@@ -1,72 +1,43 @@
-From: Cypher Wu <cypher.w@gmail.com>
-Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
-Date: Fri, 18 Feb 2011 15:08:31 +0800
-Message-ID: <AANLkTim1F679mmnbHnYkvi6ZDojxD-tPGer4F+61C+di@mail.gmail.com>
-References: <4D5DA60A.8080201@tilera.com>
-	<20110217.145333.232751283.davem@davemloft.net>
-	<4D5DA96D.5060200@tilera.com>
-	<20110217.151147.35033921.davem@davemloft.net>
-	<4D5DACC5.60105@tilera.com>
+From: Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
+Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
+Date: Fri, 18 Feb 2011 08:53:20 +0100
+Message-ID: <4D5E2570.10108@grandegger.com>
+References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>	<20110211152026.GC373@e-circ.dyndns.org>
+	<32A5399EB727427C98185089E5DBFA65@subhasishg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
-	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: Chris Metcalf <cmetcalf@tilera.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qw0-f46.google.com ([209.85.216.46]:58187 "EHLO
-	mail-qw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181Ab1BRHId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 02:08:33 -0500
-In-Reply-To: <4D5DACC5.60105@tilera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
+	CAN NETWORK DRIVERS <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
+	m-watkins-l0cyMroinI0@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Subhasish Ghosh <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
+Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+In-Reply-To: <32A5399EB727427C98185089E5DBFA65@subhasishg>
+List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
+List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
+List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
+	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
+Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 18, 2011 at 7:18 AM, Chris Metcalf <cmetcalf@tilera.com> wrote:
-> On 2/17/2011 6:11 PM, David Miller wrote:
->> From: Chris Metcalf <cmetcalf@tilera.com>
->> Date: Thu, 17 Feb 2011 18:04:13 -0500
+On 02/18/2011 08:07 AM, Subhasish Ghosh wrote:
+> --------------------------------------------------
+> From: "Kurt Van Dijck" <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
+
+...
+>>> + /* register interrupt handler */
+>>> + err = request_irq(priv->trx_irq, &omapl_rx_can_intr, IRQF_SHARED,
+>>> +   "pru_can_irq", ndev);
+>> you're doing a lot of work _in_ the irq handler. Maybe threaded irq?
 >>
->>> On 2/17/2011 5:53 PM, David Miller wrote:
->>>> From: Chris Metcalf <cmetcalf@tilera.com>
->>>> Date: Thu, 17 Feb 2011 17:49:46 -0500
->>>>
->>>>> The fix is to disable interrupts for the arch_read_lock family of methods.
->>>> How does that help handle the race when it happens between different
->>>> cpus, instead of between IRQ and non-IRQ context on the same CPU?
->>> There's no race in that case, since the lock code properly backs off and
->>> retries until the other cpu frees it.  The distinction here is that the
->>> non-IRQ context is "wedged" by the IRQ context.
->>>
->>>> Why don't you just use the generic spinlock based rwlock code on Tile,
->>>> since that is all that your atomic instructions can handle
->>>> sufficiently?
->>> The tile-specific code encodes reader/writer information in the same 32-bit
->>> word that the test-and-set instruction manipulates, so it's more efficient
->>> both in space and time.  This may not really matter for rwlocks, since no
->>> one cares much about them any more, but that was the motivation.
->> Ok, but IRQ disabling is going to be very expensive.
->
-> The interrupt architecture on Tile allows a write to a special-purpose
-> register to put you into a "critical section" where no interrupts or faults
-> are delivered.  So we just need to bracket the read_lock operations with
-> two SPR writes; each takes six machine cycles, so we're only adding 12
-> cycles to the total cost of taking or releasing a read lock on an rwlock.
->
-> --
-> Chris Metcalf, Tilera Corp.
-> http://www.tilera.com
->
->
+> SG -Ok, will do
 
-Adding that to SPR writes should be fine, but it may cause interrupt
-delay a little more that other platform's read_lock()?
+No, please use NAPI instead.
 
-Another question: What NMI in the former mail means?
-
-Looking forward to your patch.
-
-Regards
-
--- 
-Cyberman Wu
+Wolfgang
