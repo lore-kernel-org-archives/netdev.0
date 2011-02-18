@@ -1,452 +1,97 @@
-From: Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>
-Subject: [PATCH 08/29] timberdale: mfd_cell is now implicitly available to
-	drivers (v2)
-Date: Thu, 17 Feb 2011 19:07:15 -0800
-Message-ID: <1297998456-7615-9-git-send-email-dilinger@queued.net>
-References: <1297998456-7615-1-git-send-email-dilinger@queued.net>
+From: Cypher Wu <cypher.w@gmail.com>
+Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
+Date: Fri, 18 Feb 2011 11:16:20 +0800
+Message-ID: <AANLkTimDeFYuw5-_e9bHAq8QR5O2eYBTon5OjBGvrKEn@mail.gmail.com>
+References: <4D5DA60A.8080201@tilera.com>
+	<20110217.145333.232751283.davem@davemloft.net>
+	<4D5DA96D.5060200@tilera.com>
+	<20110217.151147.35033921.davem@davemloft.net>
+	<4D5DACC5.60105@tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: David Brownell <dbrownell-Rn4VEauK+AKRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
-	richard.rojfors-gfIc91nka+FZroRs9YW3xA@public.gmane.org,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mark Brown <broonie-yzvPICuk2AATkU/dhu1WVueM+bqZidxxQQ4Iyu8u01E@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Mauro Carvalho Chehab <mchehab-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>, linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Ben Dooks \(embedded platforms\)" <ben-linux-elnMNo+KYs3YtjvyW6yDsg@public.gmane.org>,
-	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	"Jean Delvare \(PC drivers, core\)" <khali-PUYAD+kWke1g9hUCZPvPmw@public.gmane.org>,
-	Peter Korsgaard <jacmet-OfajU3CKLf1/SzgSGea1oA@public.gmane.org>,
-	Dan Williams <dan.j.williams-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>, linux-media-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Return-path: <spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1297998456-7615-1-git-send-email-dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=spi-devel-general>
-List-Post: <mailto:spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/spi-devel-general>,
-	<mailto:spi-devel-general-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: spi-devel-general-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>, xiyou.wangcong@gmail.com,
+	linux-kernel@vger.kernel.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: Chris Metcalf <cmetcalf@tilera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D5DACC5.60105@tilera.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cell's platform_data is now accessed with a helper function;
-change clients to use that, and remove the now-unused data_size.
+On Fri, Feb 18, 2011 at 7:18 AM, Chris Metcalf <cmetcalf@tilera.com> wrote:
+> On 2/17/2011 6:11 PM, David Miller wrote:
+>> From: Chris Metcalf <cmetcalf@tilera.com>
+>> Date: Thu, 17 Feb 2011 18:04:13 -0500
+>>
+>>> On 2/17/2011 5:53 PM, David Miller wrote:
+>>>> From: Chris Metcalf <cmetcalf@tilera.com>
+>>>> Date: Thu, 17 Feb 2011 17:49:46 -0500
+>>>>
+>>>>> The fix is to disable interrupts for the arch_read_lock family of methods.
+>>>> How does that help handle the race when it happens between different
+>>>> cpus, instead of between IRQ and non-IRQ context on the same CPU?
+>>> There's no race in that case, since the lock code properly backs off and
+>>> retries until the other cpu frees it.  The distinction here is that the
+>>> non-IRQ context is "wedged" by the IRQ context.
+>>>
+>>>> Why don't you just use the generic spinlock based rwlock code on Tile,
+>>>> since that is all that your atomic instructions can handle
+>>>> sufficiently?
+>>> The tile-specific code encodes reader/writer information in the same 32-bit
+>>> word that the test-and-set instruction manipulates, so it's more efficient
+>>> both in space and time.  This may not really matter for rwlocks, since no
+>>> one cares much about them any more, but that was the motivation.
+>> Ok, but IRQ disabling is going to be very expensive.
+>
+> The interrupt architecture on Tile allows a write to a special-purpose
+> register to put you into a "critical section" where no interrupts or faults
+> are delivered.  So we just need to bracket the read_lock operations with
+> two SPR writes; each takes six machine cycles, so we're only adding 12
+> cycles to the total cost of taking or releasing a read lock on an rwlock.
+>
+> --
+> Chris Metcalf, Tilera Corp.
+> http://www.tilera.com
+>
+>
 
-Note that the mfd's platform_data is marked __devinitdata.  This
-is still correct in all cases except for the timbgpio driver, whose
-remove hook has been changed to no longer reference the pdata.
+I agree that just lock interrupt for read operations should be enough,
+but read_unlock() is also the place we should lock interrupt, right?
+If interrupt occurred when it hold lock-val after TNS deadlock still
+can occur.
 
-v2: add some missing mfd/core.h includes.
+When will you release out that patch? Since time is tight, so maybe
+I've to fix-up it myself. Though the problem is clearly now, I still
+have two questions to confirm:
 
-Signed-off-by: Andres Salomon <dilinger-pFFUokh25LWsTnJN9+BGXg@public.gmane.org>
----
- drivers/dma/timb_dma.c           |    3 ++-
- drivers/gpio/timbgpio.c          |    6 +++---
- drivers/i2c/busses/i2c-ocores.c  |    3 ++-
- drivers/i2c/busses/i2c-xiic.c    |    3 ++-
- drivers/media/radio/radio-timb.c |    3 ++-
- drivers/media/video/timblogiw.c  |    3 ++-
- drivers/mfd/timberdale.c         |   27 ---------------------------
- drivers/net/ks8842.c             |    3 ++-
- drivers/spi/xilinx_spi.c         |    3 ++-
- 9 files changed, 17 insertions(+), 37 deletions(-)
+1. If we use SPR_INTERRUPT_CRITICAL_SECTION it will disable all the
+interrupt which claimed 'CM', is that right? Should we have to same
+its original value and restore it later?
+There is some code in Linux:
+int __tns_atomic_acquire(atomic_t *lock)
+{
+	int ret;
+	u32 iterations = 0;
 
-diff --git a/drivers/dma/timb_dma.c b/drivers/dma/timb_dma.c
-index 3b88a4e..ea8705b 100644
---- a/drivers/dma/timb_dma.c
-+++ b/drivers/dma/timb_dma.c
-@@ -27,6 +27,7 @@
- #include <linux/io.h>
- #include <linux/module.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/slab.h>
- 
- #include <linux/timb_dma.h>
-@@ -684,7 +685,7 @@ static irqreturn_t td_irq(int irq, void *devid)
- 
- static int __devinit td_probe(struct platform_device *pdev)
- {
--	struct timb_dma_platform_data *pdata = pdev->dev.platform_data;
-+	struct timb_dma_platform_data *pdata = mfd_get_data(pdev);
- 	struct timb_dma *td;
- 	struct resource *iomem;
- 	int irq;
-diff --git a/drivers/gpio/timbgpio.c b/drivers/gpio/timbgpio.c
-index 58c8f30..ffcd815 100644
---- a/drivers/gpio/timbgpio.c
-+++ b/drivers/gpio/timbgpio.c
-@@ -23,6 +23,7 @@
- #include <linux/module.h>
- #include <linux/gpio.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/irq.h>
- #include <linux/io.h>
- #include <linux/timb_gpio.h>
-@@ -228,7 +229,7 @@ static int __devinit timbgpio_probe(struct platform_device *pdev)
- 	struct gpio_chip *gc;
- 	struct timbgpio *tgpio;
- 	struct resource *iomem;
--	struct timbgpio_platform_data *pdata = pdev->dev.platform_data;
-+	struct timbgpio_platform_data *pdata = mfd_get_data(pdev);
- 	int irq = platform_get_irq(pdev, 0);
- 
- 	if (!pdata || pdata->nr_pins > 32) {
-@@ -319,14 +320,13 @@ err_mem:
- static int __devexit timbgpio_remove(struct platform_device *pdev)
- {
- 	int err;
--	struct timbgpio_platform_data *pdata = pdev->dev.platform_data;
- 	struct timbgpio *tgpio = platform_get_drvdata(pdev);
- 	struct resource *iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	int irq = platform_get_irq(pdev, 0);
- 
- 	if (irq >= 0 && tgpio->irq_base > 0) {
- 		int i;
--		for (i = 0; i < pdata->nr_pins; i++) {
-+		for (i = 0; i < tgpio->gpio.ngpio; i++) {
- 			set_irq_chip(tgpio->irq_base + i, NULL);
- 			set_irq_chip_data(tgpio->irq_base + i, NULL);
- 		}
-diff --git a/drivers/i2c/busses/i2c-ocores.c b/drivers/i2c/busses/i2c-ocores.c
-index ef3bcb1..a3f4799 100644
---- a/drivers/i2c/busses/i2c-ocores.c
-+++ b/drivers/i2c/busses/i2c-ocores.c
-@@ -49,6 +49,7 @@
- #include <linux/init.h>
- #include <linux/errno.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/i2c.h>
- #include <linux/interrupt.h>
- #include <linux/wait.h>
-@@ -305,7 +306,7 @@ static int __devinit ocores_i2c_probe(struct platform_device *pdev)
- 		return -EIO;
- 	}
- 
--	pdata = pdev->dev.platform_data;
-+	pdata = mfd_get_data(pdev);
- 	if (pdata) {
- 		i2c->regstep = pdata->regstep;
- 		i2c->clock_khz = pdata->clock_khz;
-diff --git a/drivers/i2c/busses/i2c-xiic.c b/drivers/i2c/busses/i2c-xiic.c
-index a9c419e..9fbd7e6 100644
---- a/drivers/i2c/busses/i2c-xiic.c
-+++ b/drivers/i2c/busses/i2c-xiic.c
-@@ -34,6 +34,7 @@
- #include <linux/errno.h>
- #include <linux/delay.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/i2c.h>
- #include <linux/interrupt.h>
- #include <linux/wait.h>
-@@ -704,7 +705,7 @@ static int __devinit xiic_i2c_probe(struct platform_device *pdev)
- 	if (irq < 0)
- 		goto resource_missing;
- 
--	pdata = (struct xiic_i2c_platform_data *) pdev->dev.platform_data;
-+	pdata = mfd_get_data(pdev);
- 	if (!pdata)
- 		return -EINVAL;
- 
-diff --git a/drivers/media/radio/radio-timb.c b/drivers/media/radio/radio-timb.c
-index a185610..1e3a8dd 100644
---- a/drivers/media/radio/radio-timb.c
-+++ b/drivers/media/radio/radio-timb.c
-@@ -21,6 +21,7 @@
- #include <media/v4l2-ioctl.h>
- #include <media/v4l2-device.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/interrupt.h>
- #include <linux/slab.h>
- #include <linux/i2c.h>
-@@ -148,7 +149,7 @@ static const struct v4l2_file_operations timbradio_fops = {
- 
- static int __devinit timbradio_probe(struct platform_device *pdev)
- {
--	struct timb_radio_platform_data *pdata = pdev->dev.platform_data;
-+	struct timb_radio_platform_data *pdata = mfd_get_data(pdev);
- 	struct timbradio *tr;
- 	int err;
- 
-diff --git a/drivers/media/video/timblogiw.c b/drivers/media/video/timblogiw.c
-index fc611eb..84d4c7c 100644
---- a/drivers/media/video/timblogiw.c
-+++ b/drivers/media/video/timblogiw.c
-@@ -24,6 +24,7 @@
- #include <linux/platform_device.h>
- #include <linux/slab.h>
- #include <linux/dmaengine.h>
-+#include <linux/mfd/core.h>
- #include <linux/scatterlist.h>
- #include <linux/interrupt.h>
- #include <linux/list.h>
-@@ -790,7 +791,7 @@ static int __devinit timblogiw_probe(struct platform_device *pdev)
- {
- 	int err;
- 	struct timblogiw *lw = NULL;
--	struct timb_video_platform_data *pdata = pdev->dev.platform_data;
-+	struct timb_video_platform_data *pdata = mfd_get_data(pdev);
- 
- 	if (!pdata) {
- 		dev_err(&pdev->dev, "No platform data\n");
-diff --git a/drivers/mfd/timberdale.c b/drivers/mfd/timberdale.c
-index 6ad8a7f..6353921 100644
---- a/drivers/mfd/timberdale.c
-+++ b/drivers/mfd/timberdale.c
-@@ -385,7 +385,6 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg0[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_dma_resources),
- 		.resources = timberdale_dma_resources,
- 		.platform_data = &timb_dma_platform_data,
--		.data_size = sizeof(timb_dma_platform_data),
- 	},
- 	{
- 		.name = "timb-uart",
-@@ -397,42 +396,36 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg0[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_xiic_resources),
- 		.resources = timberdale_xiic_resources,
- 		.platform_data = &timberdale_xiic_platform_data,
--		.data_size = sizeof(timberdale_xiic_platform_data),
- 	},
- 	{
- 		.name = "timb-gpio",
- 		.num_resources = ARRAY_SIZE(timberdale_gpio_resources),
- 		.resources = timberdale_gpio_resources,
- 		.platform_data = &timberdale_gpio_platform_data,
--		.data_size = sizeof(timberdale_gpio_platform_data),
- 	},
- 	{
- 		.name = "timb-video",
- 		.num_resources = ARRAY_SIZE(timberdale_video_resources),
- 		.resources = timberdale_video_resources,
- 		.platform_data = &timberdale_video_platform_data,
--		.data_size = sizeof(timberdale_video_platform_data),
- 	},
- 	{
- 		.name = "timb-radio",
- 		.num_resources = ARRAY_SIZE(timberdale_radio_resources),
- 		.resources = timberdale_radio_resources,
- 		.platform_data = &timberdale_radio_platform_data,
--		.data_size = sizeof(timberdale_radio_platform_data),
- 	},
- 	{
- 		.name = "xilinx_spi",
- 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
- 		.resources = timberdale_spi_resources,
- 		.platform_data = &timberdale_xspi_platform_data,
--		.data_size = sizeof(timberdale_xspi_platform_data),
- 	},
- 	{
- 		.name = "ks8842",
- 		.num_resources = ARRAY_SIZE(timberdale_eth_resources),
- 		.resources = timberdale_eth_resources,
- 		.platform_data = &timberdale_ks8842_platform_data,
--		.data_size = sizeof(timberdale_ks8842_platform_data)
- 	},
- };
- 
-@@ -442,7 +435,6 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg1[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_dma_resources),
- 		.resources = timberdale_dma_resources,
- 		.platform_data = &timb_dma_platform_data,
--		.data_size = sizeof(timb_dma_platform_data),
- 	},
- 	{
- 		.name = "timb-uart",
-@@ -459,14 +451,12 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg1[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_xiic_resources),
- 		.resources = timberdale_xiic_resources,
- 		.platform_data = &timberdale_xiic_platform_data,
--		.data_size = sizeof(timberdale_xiic_platform_data),
- 	},
- 	{
- 		.name = "timb-gpio",
- 		.num_resources = ARRAY_SIZE(timberdale_gpio_resources),
- 		.resources = timberdale_gpio_resources,
- 		.platform_data = &timberdale_gpio_platform_data,
--		.data_size = sizeof(timberdale_gpio_platform_data),
- 	},
- 	{
- 		.name = "timb-mlogicore",
-@@ -478,28 +468,24 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg1[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_video_resources),
- 		.resources = timberdale_video_resources,
- 		.platform_data = &timberdale_video_platform_data,
--		.data_size = sizeof(timberdale_video_platform_data),
- 	},
- 	{
- 		.name = "timb-radio",
- 		.num_resources = ARRAY_SIZE(timberdale_radio_resources),
- 		.resources = timberdale_radio_resources,
- 		.platform_data = &timberdale_radio_platform_data,
--		.data_size = sizeof(timberdale_radio_platform_data),
- 	},
- 	{
- 		.name = "xilinx_spi",
- 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
- 		.resources = timberdale_spi_resources,
- 		.platform_data = &timberdale_xspi_platform_data,
--		.data_size = sizeof(timberdale_xspi_platform_data),
- 	},
- 	{
- 		.name = "ks8842",
- 		.num_resources = ARRAY_SIZE(timberdale_eth_resources),
- 		.resources = timberdale_eth_resources,
- 		.platform_data = &timberdale_ks8842_platform_data,
--		.data_size = sizeof(timberdale_ks8842_platform_data)
- 	},
- };
- 
-@@ -509,7 +495,6 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg2[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_dma_resources),
- 		.resources = timberdale_dma_resources,
- 		.platform_data = &timb_dma_platform_data,
--		.data_size = sizeof(timb_dma_platform_data),
- 	},
- 	{
- 		.name = "timb-uart",
-@@ -521,35 +506,30 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg2[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_xiic_resources),
- 		.resources = timberdale_xiic_resources,
- 		.platform_data = &timberdale_xiic_platform_data,
--		.data_size = sizeof(timberdale_xiic_platform_data),
- 	},
- 	{
- 		.name = "timb-gpio",
- 		.num_resources = ARRAY_SIZE(timberdale_gpio_resources),
- 		.resources = timberdale_gpio_resources,
- 		.platform_data = &timberdale_gpio_platform_data,
--		.data_size = sizeof(timberdale_gpio_platform_data),
- 	},
- 	{
- 		.name = "timb-video",
- 		.num_resources = ARRAY_SIZE(timberdale_video_resources),
- 		.resources = timberdale_video_resources,
- 		.platform_data = &timberdale_video_platform_data,
--		.data_size = sizeof(timberdale_video_platform_data),
- 	},
- 	{
- 		.name = "timb-radio",
- 		.num_resources = ARRAY_SIZE(timberdale_radio_resources),
- 		.resources = timberdale_radio_resources,
- 		.platform_data = &timberdale_radio_platform_data,
--		.data_size = sizeof(timberdale_radio_platform_data),
- 	},
- 	{
- 		.name = "xilinx_spi",
- 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
- 		.resources = timberdale_spi_resources,
- 		.platform_data = &timberdale_xspi_platform_data,
--		.data_size = sizeof(timberdale_xspi_platform_data),
- 	},
- };
- 
-@@ -559,7 +539,6 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg3[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_dma_resources),
- 		.resources = timberdale_dma_resources,
- 		.platform_data = &timb_dma_platform_data,
--		.data_size = sizeof(timb_dma_platform_data),
- 	},
- 	{
- 		.name = "timb-uart",
-@@ -571,42 +550,36 @@ static __devinitdata struct mfd_cell timberdale_cells_bar0_cfg3[] = {
- 		.num_resources = ARRAY_SIZE(timberdale_ocores_resources),
- 		.resources = timberdale_ocores_resources,
- 		.platform_data = &timberdale_ocores_platform_data,
--		.data_size = sizeof(timberdale_ocores_platform_data),
- 	},
- 	{
- 		.name = "timb-gpio",
- 		.num_resources = ARRAY_SIZE(timberdale_gpio_resources),
- 		.resources = timberdale_gpio_resources,
- 		.platform_data = &timberdale_gpio_platform_data,
--		.data_size = sizeof(timberdale_gpio_platform_data),
- 	},
- 	{
- 		.name = "timb-video",
- 		.num_resources = ARRAY_SIZE(timberdale_video_resources),
- 		.resources = timberdale_video_resources,
- 		.platform_data = &timberdale_video_platform_data,
--		.data_size = sizeof(timberdale_video_platform_data),
- 	},
- 	{
- 		.name = "timb-radio",
- 		.num_resources = ARRAY_SIZE(timberdale_radio_resources),
- 		.resources = timberdale_radio_resources,
- 		.platform_data = &timberdale_radio_platform_data,
--		.data_size = sizeof(timberdale_radio_platform_data),
- 	},
- 	{
- 		.name = "xilinx_spi",
- 		.num_resources = ARRAY_SIZE(timberdale_spi_resources),
- 		.resources = timberdale_spi_resources,
- 		.platform_data = &timberdale_xspi_platform_data,
--		.data_size = sizeof(timberdale_xspi_platform_data),
- 	},
- 	{
- 		.name = "ks8842",
- 		.num_resources = ARRAY_SIZE(timberdale_eth_resources),
- 		.resources = timberdale_eth_resources,
- 		.platform_data = &timberdale_ks8842_platform_data,
--		.data_size = sizeof(timberdale_ks8842_platform_data)
- 	},
- };
- 
-diff --git a/drivers/net/ks8842.c b/drivers/net/ks8842.c
-index 928b2b8..efd44af 100644
---- a/drivers/net/ks8842.c
-+++ b/drivers/net/ks8842.c
-@@ -26,6 +26,7 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/ethtool.h>
-@@ -1145,7 +1146,7 @@ static int __devinit ks8842_probe(struct platform_device *pdev)
- 	struct resource *iomem;
- 	struct net_device *netdev;
- 	struct ks8842_adapter *adapter;
--	struct ks8842_platform_data *pdata = pdev->dev.platform_data;
-+	struct ks8842_platform_data *pdata = mfd_get_data(pdev);
- 	u16 id;
- 	unsigned i;
- 
-diff --git a/drivers/spi/xilinx_spi.c b/drivers/spi/xilinx_spi.c
-index 7adaef6..c9bf074 100644
---- a/drivers/spi/xilinx_spi.c
-+++ b/drivers/spi/xilinx_spi.c
-@@ -18,6 +18,7 @@
- #include <linux/interrupt.h>
- #include <linux/of.h>
- #include <linux/platform_device.h>
-+#include <linux/mfd/core.h>
- #include <linux/spi/spi.h>
- #include <linux/spi/spi_bitbang.h>
- #include <linux/spi/xilinx_spi.h>
-@@ -474,7 +475,7 @@ static int __devinit xilinx_spi_probe(struct platform_device *dev)
- 	struct spi_master *master;
- 	u8 i;
- 
--	pdata = dev->dev.platform_data;
-+	pdata = mfd_get_data(dev);
- 	if (pdata) {
- 		num_cs = pdata->num_chipselect;
- 		little_endian = pdata->little_endian;
+	BUG_ON(__insn_mfspr(SPR_INTERRUPT_CRITICAL_SECTION));
+	__insn_mtspr(SPR_INTERRUPT_CRITICAL_SECTION, 1);
+
+	while((ret = __insn_tns(&lock->counter)) == 1)
+		delay_backoff(iterations++);
+	return ret;
+}
+It just use BUG_ON to check SPR_INTERRUPT_CRITICAL_SECTION have to be
+0, is that means that SPR is only used in special situations like
+that?
+
+2. Should we lock interrupt for the whole operation of
+read_lock()/read_unlock(), or we should leave interrupt critical
+section if it run into  __raw_read_lock_slow() and before have to
+delay_backoff() some time, and re-enter interrupt critical section
+again before TNS?
+
+
+
+
 -- 
-1.7.2.3
-
-
-------------------------------------------------------------------------------
-The ultimate all-in-one performance toolkit: Intel(R) Parallel Studio XE:
-Pinpoint memory and threading errors before they happen.
-Find and fix more than 250 security defects in the development cycle.
-Locate bottlenecks in serial and parallel code that limit performance.
-http://p.sf.net/sfu/intel-dev2devfeb
+Cyberman Wu
