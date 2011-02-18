@@ -1,59 +1,137 @@
-From: "Subhasish Ghosh" <subhasish-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org>
-Subject: Re: [PATCH v2 09/13] can: pruss CAN driver.
-Date: Fri, 18 Feb 2011 14:39:15 +0530
-Message-ID: <CAA7B3D71228413B9F7F3C0F5A011119@subhasishg>
-References: <1297435892-28278-1-git-send-email-subhasish@mistralsolutions.com>	<1297435892-28278-10-git-send-email-subhasish@mistralsolutions.com>	<20110211152026.GC373@e-circ.dyndns.org>	<32A5399EB727427C98185089E5DBFA65@subhasishg>	<4D5E2570.10108@grandegger.com>
-	<184FA07B783D4F5FAAC09D5C11737A3F@subhasishg>
-	<4D5E2F86.1020400@pengutronix.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
+Date: Fri, 18 Feb 2011 10:30:00 +0100
+Message-ID: <20110218093000.GA12106@electric-eye.fr.zoreil.com>
+References: <AANLkTin7GBSTcfZgr_9sNZ8CPMkW7Vstni+fs2v1-ink@mail.gmail.com> <1297581470.2510.18.camel@edumazet-laptop> <20110213135600.GA11382@electric-eye.fr.zoreil.com> <AANLkTikTw71-mv9WsPT8PxC1a1nwEJ=x0UNDhVQGP1A6@mail.gmail.com> <AANLkTikLOJ-XcwfdbWS19DKzh2s91tn5pQjJe0+CeAN-@mail.gmail.com> <20110213203417.GA11442@electric-eye.fr.zoreil.com> <AANLkTi=PrOXMD54hSbEwUtmzXiwsSwiSijE3AJ9n=WDe@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: sachi-EvXpCiN+lbve9wHmmfpqLFaTQe2KTcn/@public.gmane.org, davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org,
-	CAN NETWORK DRIVERS <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, nsekhar-l0cyMroinI0@public.gmane.org,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	CAN NETWORK DRIVERS <socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, m-watkins-l0cyMroinI0@public.gmane.org,
-	Wolfgang Grandegger <wg-5Yr1BZd7O62+XT7JhA+gdA@public.gmane.org>
-To: "Marc Kleine-Budde" <mkl-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Return-path: <socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-In-Reply-To: <4D5E2F86.1020400-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-List-Unsubscribe: <https://lists.berlios.de/mailman/options/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.berlios.de/pipermail/socketcan-core>
-List-Post: <mailto:socketcan-core-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org>
-List-Help: <mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.berlios.de/mailman/listinfo/socketcan-core>,
-	<mailto:socketcan-core-request-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org?subject=subscribe>
-Sender: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
-Errors-To: socketcan-core-bounces-0fE9KPoRgkgATYTw5x5z8w@public.gmane.org
+Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Ivan Vecera <ivecera@redhat.com>
+To: Seblu <seblu@seblu.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTi=PrOXMD54hSbEwUtmzXiwsSwiSijE3AJ9n=WDe@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Ok, will do NAPI
 
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On 02/18/2011 09:15 AM, Subhasish Ghosh wrote:
->> On 02/18/2011 08:07 AM, Subhasish Ghosh wrote:
->>> --------------------------------------------------
->>> From: "Kurt Van Dijck" <kurt.van.dijck-/BeEPy95v10@public.gmane.org>
->>
->> ...
->>>>> + /* register interrupt handler */
->>>>> + err = request_irq(priv->trx_irq, &omapl_rx_can_intr, IRQF_SHARED,
->>>>> +   "pru_can_irq", ndev);
->>>> you're doing a lot of work _in_ the irq handler. Maybe threaded irq?
->>>>
->>> SG -Ok, will do
->>
->> No, please use NAPI instead.
-> 
-> We are using h/w filters, so the number of interrupts coming into the
-> processor are not hogging it.
-> I feel that we may not require an interrupt mitigation.
+Seblu <seblu@seblu.net> :
+[...]
+> I've applyed your patch on 2.6.38-rc5. Host have rebooted 2mn after udp start.
+> After this reboot, host is still on after 2 hour under a 1Gbit/s udp flow.
 
-As davem stated the other day, all new drivers should use NAPI.
+Thanks for testing.
 
-regards, Marc
+> I attached a dmesg output before reboot. Do you need anything else?
+
+Mostly :
+1. .config
+2. the size of the udp packets and the mtu
+
+As an option :
+3. a few seconds of 'vmstat 1' from the host under test
+4. an 'ethtool -s eth0' from the host under test
+5. /proc/interrupts from the host under test
+6. lspci -tv 
+
+Can you apply the two attached patches on top of the previous ones and
+give it a try ? The debug should not be too verbose if things are stationary
+enough.
+
+Do you have a serial cable and a second computer at hand by chance (don't
+go for netconsole with the r8169 driver) ?
+
 -- 
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 | 
+Ueimor
+
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="0001-r8169-TX-stop-queue-race-fix.patch"
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 59ccf0c..712231f 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4361,13 +4361,13 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 
+ 	tp->cur_tx += frags + 1;
+ 
+-	wmb();
+-
+ 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
+ 
++	mmiowb();
++
+ 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
+ 		netif_stop_queue(dev);
+-		smp_rmb();
++		smp_mb();
+ 		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
+ 			netif_wake_queue(dev);
+ 	}
+@@ -4468,10 +4468,14 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
+ 
+ 	if (tp->dirty_tx != dirty_tx) {
+ 		tp->dirty_tx = dirty_tx;
+-		smp_wmb();
+-		if (netif_queue_stopped(dev) &&
+-		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
+-			netif_wake_queue(dev);
++		smp_mb();
++		if (unlikely(netif_queue_stopped(dev) &&
++		    (TX_BUFFS_AVAIL(tp) >= (NUM_TX_DESC / 4)))) {
++			netif_tx_lock(dev);
++			if (netif_queue_stopped(dev) &&
++			    (TX_BUFFS_AVAIL(tp) >= (NUM_TX_DESC / 4)))
++				netif_wake_queue(dev);
++			netif_tx_unlock(dev);
+ 		}
+ 		/*
+ 		 * 8168 hack: TxPoll requests are lost when the Tx packets are
+-- 
+1.7.3.4
+
+
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="0002-r8169-debuginator.patch"
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 712231f..5eaccbb 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -4622,6 +4622,11 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 	return count;
+ }
+ 
++static struct {
++	u16 status[4];
++	u16 idx;
++} x = { { 0 }, 0 };
++
+ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ {
+ 	struct net_device *dev = dev_instance;
+@@ -4637,6 +4642,12 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ 	while (status && status != 0xffff) {
+ 		handled = 1;
+ 
++		x.status[x.idx++ % 4] = status;
++		if (net_ratelimit()) {
++			printk(KERN_INFO "%04x %04x %04x %04x\n",
++				x.status[0], x.status[1],
++				x.status[2], x.status[3]);
++		}
+ 		/* Handle all of the error cases first. These will reset
+ 		 * the chip, so just exit the loop.
+ 		 */
+-- 
+1.7.3.4
+
+
+--YZ5djTAD1cGYuMQK--
