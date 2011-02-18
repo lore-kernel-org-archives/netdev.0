@@ -1,137 +1,323 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
-Date: Fri, 18 Feb 2011 10:30:00 +0100
-Message-ID: <20110218093000.GA12106@electric-eye.fr.zoreil.com>
-References: <AANLkTin7GBSTcfZgr_9sNZ8CPMkW7Vstni+fs2v1-ink@mail.gmail.com> <1297581470.2510.18.camel@edumazet-laptop> <20110213135600.GA11382@electric-eye.fr.zoreil.com> <AANLkTikTw71-mv9WsPT8PxC1a1nwEJ=x0UNDhVQGP1A6@mail.gmail.com> <AANLkTikLOJ-XcwfdbWS19DKzh2s91tn5pQjJe0+CeAN-@mail.gmail.com> <20110213203417.GA11442@electric-eye.fr.zoreil.com> <AANLkTi=PrOXMD54hSbEwUtmzXiwsSwiSijE3AJ9n=WDe@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Ivan Vecera <ivecera@redhat.com>
-To: Seblu <seblu@seblu.net>
+From: Amerigo Wang <amwang@redhat.com>
+Subject: [V4 PATCH 1/3] bonding: sync netpoll code with bridge
+Date: Fri, 18 Feb 2011 17:43:32 +0800
+Message-ID: <1298022215-21059-1-git-send-email-amwang@redhat.com>
+Cc: Neil Horman <nhorman@redhat.com>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Amerigo Wang <amwang@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTi=PrOXMD54hSbEwUtmzXiwsSwiSijE3AJ9n=WDe@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+V4: rebase to net-next-2.6
+V3: remove an useless #ifdef.
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+This patch unifies the netpoll code in bonding with netpoll code in bridge,
+thanks to Herbert that code is much cleaner now.
 
-Seblu <seblu@seblu.net> :
-[...]
-> I've applyed your patch on 2.6.38-rc5. Host have rebooted 2mn after udp start.
-> After this reboot, host is still on after 2 hour under a 1Gbit/s udp flow.
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Cc: Neil Horman <nhorman@redhat.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
 
-Thanks for testing.
 
-> I attached a dmesg output before reboot. Do you need anything else?
+---
+ drivers/net/bonding/bond_main.c |  155 ++++++++++++++++++++++++--------------
+ drivers/net/bonding/bonding.h   |   20 +++++
+ 2 files changed, 118 insertions(+), 57 deletions(-)
 
-Mostly :
-1. .config
-2. the size of the udp packets and the mtu
-
-As an option :
-3. a few seconds of 'vmstat 1' from the host under test
-4. an 'ethtool -s eth0' from the host under test
-5. /proc/interrupts from the host under test
-6. lspci -tv 
-
-Can you apply the two attached patches on top of the previous ones and
-give it a try ? The debug should not be too verbose if things are stationary
-enough.
-
-Do you have a serial cable and a second computer at hand by chance (don't
-go for netconsole with the r8169 driver) ?
-
--- 
-Ueimor
-
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0001-r8169-TX-stop-queue-race-fix.patch"
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 59ccf0c..712231f 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -4361,13 +4361,13 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 77e3c6a..2ed6624 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -59,7 +59,6 @@
+ #include <linux/uaccess.h>
+ #include <linux/errno.h>
+ #include <linux/netdevice.h>
+-#include <linux/netpoll.h>
+ #include <linux/inetdevice.h>
+ #include <linux/igmp.h>
+ #include <linux/etherdevice.h>
+@@ -424,15 +423,11 @@ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb,
+ {
+ 	skb->dev = slave_dev;
+ 	skb->priority = 1;
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	if (unlikely(bond->dev->priv_flags & IFF_IN_NETPOLL)) {
+-		struct netpoll *np = bond->dev->npinfo->netpoll;
+-		slave_dev->npinfo = bond->dev->npinfo;
++	if (unlikely(netpoll_tx_running(slave_dev))) {
+ 		slave_dev->priv_flags |= IFF_IN_NETPOLL;
+-		netpoll_send_skb_on_dev(np, skb, slave_dev);
++		bond_netpoll_send_skb(bond_get_slave_by_dev(bond, slave_dev), skb);
+ 		slave_dev->priv_flags &= ~IFF_IN_NETPOLL;
+ 	} else
+-#endif
+ 		dev_queue_xmit(skb);
  
- 	tp->cur_tx += frags + 1;
- 
--	wmb();
--
- 	RTL_W8(TxPoll, NPQ);	/* set polling bit */
- 
-+	mmiowb();
-+
- 	if (TX_BUFFS_AVAIL(tp) < MAX_SKB_FRAGS) {
- 		netif_stop_queue(dev);
--		smp_rmb();
-+		smp_mb();
- 		if (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)
- 			netif_wake_queue(dev);
- 	}
-@@ -4468,10 +4468,14 @@ static void rtl8169_tx_interrupt(struct net_device *dev,
- 
- 	if (tp->dirty_tx != dirty_tx) {
- 		tp->dirty_tx = dirty_tx;
--		smp_wmb();
--		if (netif_queue_stopped(dev) &&
--		    (TX_BUFFS_AVAIL(tp) >= MAX_SKB_FRAGS)) {
--			netif_wake_queue(dev);
-+		smp_mb();
-+		if (unlikely(netif_queue_stopped(dev) &&
-+		    (TX_BUFFS_AVAIL(tp) >= (NUM_TX_DESC / 4)))) {
-+			netif_tx_lock(dev);
-+			if (netif_queue_stopped(dev) &&
-+			    (TX_BUFFS_AVAIL(tp) >= (NUM_TX_DESC / 4)))
-+				netif_wake_queue(dev);
-+			netif_tx_unlock(dev);
- 		}
- 		/*
- 		 * 8168 hack: TxPoll requests are lost when the Tx packets are
--- 
-1.7.3.4
-
-
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="0002-r8169-debuginator.patch"
-
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 712231f..5eaccbb 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -4622,6 +4622,11 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
- 	return count;
+ 	return 0;
+@@ -1288,63 +1283,113 @@ static void bond_detach_slave(struct bonding *bond, struct slave *slave)
  }
  
-+static struct {
-+	u16 status[4];
-+	u16 idx;
-+} x = { { 0 }, 0 };
-+
- static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-/*
+- * You must hold read lock on bond->lock before calling this.
+- */
+-static bool slaves_support_netpoll(struct net_device *bond_dev)
++static inline int slave_enable_netpoll(struct slave *slave)
  {
- 	struct net_device *dev = dev_instance;
-@@ -4637,6 +4642,12 @@ static irqreturn_t rtl8169_interrupt(int irq, void *dev_instance)
- 	while (status && status != 0xffff) {
- 		handled = 1;
+-	struct bonding *bond = netdev_priv(bond_dev);
+-	struct slave *slave;
+-	int i = 0;
+-	bool ret = true;
++	struct netpoll *np;
++	int err = 0;
  
-+		x.status[x.idx++ % 4] = status;
-+		if (net_ratelimit()) {
-+			printk(KERN_INFO "%04x %04x %04x %04x\n",
-+				x.status[0], x.status[1],
-+				x.status[2], x.status[3]);
+-	bond_for_each_slave(bond, slave, i) {
+-		if ((slave->dev->priv_flags & IFF_DISABLE_NETPOLL) ||
+-		    !slave->dev->netdev_ops->ndo_poll_controller)
+-			ret = false;
++	np = kzalloc(sizeof(*np), GFP_KERNEL);
++	err = -ENOMEM;
++	if (!np)
++		goto out;
++
++	np->dev = slave->dev;
++	err = __netpoll_setup(np);
++	if (err) {
++		kfree(np);
++		goto out;
+ 	}
+-	return i != 0 && ret;
++	slave->np = np;
++out:
++	return err;
++}
++static inline void slave_disable_netpoll(struct slave *slave)
++{
++	struct netpoll *np = slave->np;
++
++	if (!np)
++		return;
++
++	slave->np = NULL;
++	synchronize_rcu_bh();
++	__netpoll_cleanup(np);
++	kfree(np);
++}
++static inline bool slave_dev_support_netpoll(struct net_device *slave_dev)
++{
++	if (slave_dev->priv_flags & IFF_DISABLE_NETPOLL)
++		return false;
++	if (!slave_dev->netdev_ops->ndo_poll_controller)
++		return false;
++	return true;
+ }
+ 
+ static void bond_poll_controller(struct net_device *bond_dev)
+ {
+-	struct bonding *bond = netdev_priv(bond_dev);
++}
++
++static void __bond_netpoll_cleanup(struct bonding *bond)
++{
+ 	struct slave *slave;
+ 	int i;
+ 
+-	bond_for_each_slave(bond, slave, i) {
+-		if (slave->dev && IS_UP(slave->dev))
+-			netpoll_poll_dev(slave->dev);
+-	}
++	bond_for_each_slave(bond, slave, i)
++		if (IS_UP(slave->dev))
++			slave_disable_netpoll(slave);
+ }
+-
+ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
++
++	read_lock(&bond->lock);
++	__bond_netpoll_cleanup(bond);
++	read_unlock(&bond->lock);
++}
++
++static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
++{
++	struct bonding *bond = netdev_priv(dev);
+ 	struct slave *slave;
+-	const struct net_device_ops *ops;
+-	int i;
++	int i, err = 0;
+ 
+ 	read_lock(&bond->lock);
+-	bond_dev->npinfo = NULL;
+ 	bond_for_each_slave(bond, slave, i) {
+-		if (slave->dev) {
+-			ops = slave->dev->netdev_ops;
+-			if (ops->ndo_netpoll_cleanup)
+-				ops->ndo_netpoll_cleanup(slave->dev);
+-			else
+-				slave->dev->npinfo = NULL;
++		if (!IS_UP(slave->dev))
++			continue;
++		err = slave_enable_netpoll(slave);
++		if (err) {
++			__bond_netpoll_cleanup(bond);
++			break;
+ 		}
+ 	}
+ 	read_unlock(&bond->lock);
++	return err;
+ }
+ 
+-#else
++static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
++{
++	return bond->dev->npinfo;
++}
+ 
++#else
++static inline int slave_enable_netpoll(struct slave *slave)
++{
++	return 0;
++}
++static inline void slave_disable_netpoll(struct slave *slave)
++{
++}
+ static void bond_netpoll_cleanup(struct net_device *bond_dev)
+ {
+ }
+-
++static int bond_netpoll_setup(struct net_device *dev, struct netpoll_info *ni)
++{
++	return 0;
++}
++static struct netpoll_info *bond_netpoll_info(struct bonding *bond)
++{
++	return NULL;
++}
+ #endif
+ 
+ /*---------------------------------- IOCTL ----------------------------------*/
+@@ -1782,17 +1827,19 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	bond_set_carrier(bond);
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-	if (slaves_support_netpoll(bond_dev)) {
+-		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
+-		if (bond_dev->npinfo)
+-			slave_dev->npinfo = bond_dev->npinfo;
+-	} else if (!(bond_dev->priv_flags & IFF_DISABLE_NETPOLL)) {
+-		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
+-		pr_info("New slave device %s does not support netpoll\n",
+-			slave_dev->name);
+-		pr_info("Disabling netpoll support for %s\n", bond_dev->name);
++	slave_dev->npinfo = bond_netpoll_info(bond);
++	if (slave_dev->npinfo) {
++		if (slave_enable_netpoll(new_slave)) {
++			read_unlock(&bond->lock);
++			pr_info("Error, %s: master_dev is using netpoll, "
++				 "but new slave device does not support netpoll.\n",
++				 bond_dev->name);
++			res = -EBUSY;
++			goto err_close;
 +		}
- 		/* Handle all of the error cases first. These will reset
- 		 * the chip, so just exit the loop.
- 		 */
+ 	}
+ #endif
++
+ 	read_unlock(&bond->lock);
+ 
+ 	res = bond_create_slave_symlinks(bond_dev, slave_dev);
+@@ -1994,17 +2041,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 
+ 	netdev_set_bond_master(slave_dev, NULL);
+ 
+-#ifdef CONFIG_NET_POLL_CONTROLLER
+-	read_lock_bh(&bond->lock);
+-
+-	if (slaves_support_netpoll(bond_dev))
+-		bond_dev->priv_flags &= ~IFF_DISABLE_NETPOLL;
+-	read_unlock_bh(&bond->lock);
+-	if (slave_dev->netdev_ops->ndo_netpoll_cleanup)
+-		slave_dev->netdev_ops->ndo_netpoll_cleanup(slave_dev);
+-	else
+-		slave_dev->npinfo = NULL;
+-#endif
++	slave_disable_netpoll(slave);
+ 
+ 	/* close slave before restoring its mac address */
+ 	dev_close(slave_dev);
+@@ -2039,6 +2076,7 @@ static int  bond_release_and_destroy(struct net_device *bond_dev,
+ 
+ 	ret = bond_release(bond_dev, slave_dev);
+ 	if ((ret == 0) && (bond->slave_cnt == 0)) {
++		bond_dev->priv_flags |= IFF_DISABLE_NETPOLL;
+ 		pr_info("%s: destroying bond %s.\n",
+ 			bond_dev->name, bond_dev->name);
+ 		unregister_netdevice(bond_dev);
+@@ -2116,6 +2154,8 @@ static int bond_release_all(struct net_device *bond_dev)
+ 
+ 		netdev_set_bond_master(slave_dev, NULL);
+ 
++		slave_disable_netpoll(slave);
++
+ 		/* close slave before restoring its mac address */
+ 		dev_close(slave_dev);
+ 
+@@ -4654,6 +4694,7 @@ static const struct net_device_ops bond_netdev_ops = {
+ 	.ndo_vlan_rx_add_vid 	= bond_vlan_rx_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= bond_vlan_rx_kill_vid,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_netpoll_setup	= bond_netpoll_setup,
+ 	.ndo_netpoll_cleanup	= bond_netpoll_cleanup,
+ 	.ndo_poll_controller	= bond_poll_controller,
+ #endif
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 31fe980..0a3e00b 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -20,6 +20,7 @@
+ #include <linux/if_bonding.h>
+ #include <linux/cpumask.h>
+ #include <linux/in6.h>
++#include <linux/netpoll.h>
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+ 
+@@ -198,6 +199,9 @@ struct slave {
+ 	u16    queue_id;
+ 	struct ad_slave_info ad_info; /* HUGE - better to dynamically alloc */
+ 	struct tlb_slave_info tlb_info;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	struct netpoll *np;
++#endif
+ };
+ 
+ /*
+@@ -323,6 +327,22 @@ static inline unsigned long slave_last_rx(struct bonding *bond,
+ 	return slave->dev->last_rx;
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static inline void bond_netpoll_send_skb(const struct slave *slave,
++					 struct sk_buff *skb)
++{
++	struct netpoll *np = slave->np;
++
++	if (np)
++		netpoll_send_skb(np, skb);
++}
++#else
++static inline void bond_netpoll_send_skb(const struct slave *slave,
++					 struct sk_buff *skb)
++{
++}
++#endif
++
+ static inline void bond_set_slave_inactive_flags(struct slave *slave)
+ {
+ 	struct bonding *bond = netdev_priv(slave->dev->master);
 -- 
-1.7.3.4
-
-
---YZ5djTAD1cGYuMQK--
+1.7.1
