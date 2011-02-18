@@ -1,34 +1,63 @@
-From: "Mr.David Gurupatham" <attorney_chamber@att.net>
-Subject: Re: KIND
-Date: Fri, 18 Feb 2011 09:20:37 +0800
-Message-ID: <USERPCaf4fe5674a2b42fda842e3d5a5cd2948@userPC>
-Reply-To: davidgurupatham@hotmail.my
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] bonding: bond_select_queue off by one
+Date: Fri, 18 Feb 2011 03:46:31 +0000
+Message-ID: <1298000791.6865.2.camel@localhost>
+References: <20110218020713.GA9696@linuxace.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gb2312
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Phil Oester <kernel@linuxace.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nm5.bullet.mail.ac4.yahoo.com ([98.139.52.202]:24710 "HELO
-	nm5.bullet.mail.ac4.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751104Ab1BRDic convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Feb 2011 22:38:32 -0500
+Received: from exchange.solarflare.com ([216.237.3.220]:2950 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755525Ab1BRDqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 22:46:38 -0500
+In-Reply-To: <20110218020713.GA9696@linuxace.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-My name is David Gurupatham a legal practitioner with David Gurupatham  & Associates
+On Thu, 2011-02-17 at 18:07 -0800, Phil Oester wrote:
+> The bonding driver's bond_select_queue function simply returns
+> skb->queue_mapping.  However queue_mapping could be == 16
+> for queue #16.  This causes the following message to be flooded
+> to syslog:
+> 
+> kernel: bondx selects TX queue 16, but real number of TX queues is 16
+> 
+> ndo_select_queue wants a zero-based number, so bonding driver needs
+> to subtract one to return the proper queue number.  Also fix grammar in
+> a comment while in the vicinity.
+> 
+> Phil Oester
+> 
+> Signed-off-by: Phil Oester <kernel@linuxace.com>
 
-in Kuala Lumpur Msia.
+> --- linux-2.6/drivers/net/bonding/bond_main.c.orig      2011-01-30 09:15:09.813843817 -0800
+> +++ linux-2.6/drivers/net/bonding/bond_main.c   2011-02-17 18:02:46.919050909 -0800
+> @@ -4537,11 +4537,11 @@
+>  {
+>         /*
+>          * This helper function exists to help dev_pick_tx get the correct
+> -        * destination queue.  Using a helper function skips the a call to
+> +        * destination queue.  Using a helper function skips a call to
+>          * skb_tx_hash and will put the skbs in the queue we expect on their
+>          * way down to the bonding driver.
+>          */
+> -       return skb->queue_mapping;
+> +       return skb->queue_mapping ? skb->queue_mapping - 1 : 0;
+>  }
+>  
+>  static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev) 
 
-I found your contact/profile some where over the Internet and it gave me the
+This looks basically correct, but it should use the proper functions:
 
-greatest joy, that you are the one I have been looking for. Whom I strongly believe could
+	skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
 
-execute this project with me. Kindly get back to me for more information
+Ben.
 
-
-
-Best regards,
-
-Mr David Gurupatham{Esq}
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
