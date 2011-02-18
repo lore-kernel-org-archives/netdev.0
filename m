@@ -1,39 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch net-next-2.6] net: convert bonding to use rx_handler
-Date: Fri, 18 Feb 2011 15:27:32 +0100
-Message-ID: <1298039252.6201.66.camel@edumazet-laptop>
-References: <20110218132524.GC2939@psychotron.redhat.com>
-	 <1298035791.6201.56.camel@edumazet-laptop>
-	 <20110218141456.GD2939@psychotron.redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v6 0/9] net: Unified offload configuration
+Date: Fri, 18 Feb 2011 14:29:31 +0000
+Message-ID: <1298039371.2211.9.camel@localhost>
+References: <cover.1297824704.git.mirq-linux@rere.qmqm.pl>
+	 <20110217.145611.229745070.davem@davemloft.net>
+	 <20110218142238.GA18099@rere.qmqm.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36652 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757686Ab1BRO1u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 09:27:50 -0500
-Received: by fxm20 with SMTP id 20so3832665fxm.19
-        for <netdev@vger.kernel.org>; Fri, 18 Feb 2011 06:27:49 -0800 (PST)
-In-Reply-To: <20110218141456.GD2939@psychotron.redhat.com>
+Received: from mail.solarflare.com ([216.237.3.220]:32265 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758229Ab1BRO3f convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 09:29:35 -0500
+In-Reply-To: <20110218142238.GA18099@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 18 f=C3=A9vrier 2011 =C3=A0 15:14 +0100, Jiri Pirko a =C3=A9=
-crit :
+On Fri, 2011-02-18 at 15:22 +0100, Micha=C5=82 Miros=C5=82aw wrote:
+> On Thu, Feb 17, 2011 at 02:56:11PM -0800, David Miller wrote:
+[...]
+> > Please get rid of that annoying message spit out by netif_features_=
+change(),
+> > it's just spam.  If we want notifications for stuff like this, use =
+a
+> > non-unicast netlink message so those who want to hear it can do so.
+>=20
+> You mean netdev_update_features() "Features changed" message? Is it o=
+k
+> to just demote it to DEBUG level or you want to remove it altogether?
+> What about netdev_fix_features() messages?
 
-> Do not know how to do it better. As for percpu variable, not only
-> origdev would have to be remembered but also probably skb pointer to
-> know if it's the first run on the skb or not. Can't really figure out=
- a
-> better solution. Can you?
+I think you need to emit these messages at 'error' severity when fixing
+up features for a newly-added device, but at 'debug' later on.
 
-I'll try and let you know.
+Ben.
 
-Thanks
-
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
 
