@@ -1,48 +1,105 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: dont leave active on stack LIST_HEAD
-Date: Fri, 18 Feb 2011 12:14:24 -0800 (PST)
-Message-ID: <20110218.121424.112608933.davem@davemloft.net>
-References: <1298010320.2642.7.camel@edumazet-laptop>
-	<1298014191.2642.11.camel@edumazet-laptop>
-	<1298019278.2595.83.camel@edumazet-laptop>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: BUG: Bad page map in process udevd (anon_vma: (null)) in 2.6.38-rc4
+Date: Fri, 18 Feb 2011 12:38:49 -0800
+Message-ID: <m1sjvl2i3q.fsf@fess.ebiederm.org>
+References: <AANLkTikPKpNHxDQAYBd3fiQsmVozLtCVDsNn=+eF_q2r@mail.gmail.com>
+	<20110217163531.GF14168@elte.hu> <m1pqqqfpzh.fsf@fess.ebiederm.org>
+	<AANLkTinB=EgDGNv-v-qD-MvHVAmstfP_CyyLNhhotkZx@mail.gmail.com>
+	<20110218122938.GB26779@tiehlicka.suse.cz>
+	<20110218162623.GD4862@tiehlicka.suse.cz>
+	<AANLkTimO=M5xG_mnDBSxPKwSOTrp3JhHVBa8=wHsiVHY@mail.gmail.com>
+	<m17hcx43m3.fsf@fess.ebiederm.org>
+	<AANLkTikh4oaR6CBK3NBazer7yjhE0VndsUB5FCDRsbJc@mail.gmail.com>
+	<20110218190128.GF13211@ghostprotocols.net>
+	<20110218191146.GG13211@ghostprotocols.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, ebiederm@xmission.com,
- opurdila@ixiacom.com, mingo@elte.hu, mhocko@suse.cz, linux-mm@kvack.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+        Michal Hocko <mhocko@suse.cz>, Ingo Molnar <mingo@elte.hu>,
+        linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>,
+        David Miller <davem@davemloft.net>,
+        Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+        Pavel Emelyanov <xemul@openvz.org>,
+        Daniel Lezcano <daniel.lezcano@free.fr>
+To: Arnaldo Carvalho de Melo <acme@redhat.com>
 Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1298019278.2595.83.camel@edumazet-laptop>
+In-Reply-To: <20110218191146.GG13211@ghostprotocols.net> (Arnaldo Carvalho de
+	Melo's message of "Fri, 18 Feb 2011 17:11:46 -0200")
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 18 Feb 2011 09:54:38 +0100
+Arnaldo Carvalho de Melo <acme@redhat.com> writes:
 
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> 
-> Eric W. Biderman and Michal Hocko reported various memory corruptions
-> that we suspected to be related to a LIST head located on stack, that
-> was manipulated after thread left function frame (and eventually exited,
-> so its stack was freed and reused).
-> 
-> Eric Dumazet suggested the problem was probably coming from commit
-> 443457242beb (net: factorize
-> sync-rcu call in unregister_netdevice_many)
-> 
-> This patch fixes __dev_close() and dev_close() to properly deinit their
-> respective LIST_HEAD(single) before exiting.
-> 
-> References: https://lkml.org/lkml/2011/2/16/304
-> References: https://lkml.org/lkml/2011/2/14/223
-> 
-> Reported-by: Michal Hocko <mhocko@suse.cz>
-> Reported-by: Eric W. Biderman <ebiderman@xmission.com>
-> Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Em Fri, Feb 18, 2011 at 05:01:28PM -0200, Arnaldo Carvalho de Melo escrev=
+eu:
+>> Em Fri, Feb 18, 2011 at 10:48:18AM -0800, Linus Torvalds escreveu:
+>> > This seems to be a fairly straightforward bug.
+>> >=20
+>> > In net/ipv4/inet_timewait_sock.c we have this:
+>> >=20
+>> >   /* These are always called from BH context.  See callers in
+>> >    * tcp_input.c to verify this.
+>> >    */
+>> >=20
+>> >   /* This is for handling early-kills of TIME_WAIT sockets. */
+>> >   void inet_twsk_deschedule(struct inet_timewait_sock *tw,
+>> >                             struct inet_timewait_death_row *twdr)
+>> >   {
+>> >           spin_lock(&twdr->death_lock);
+>> >           ..
+>> >=20
+>> > and the intention is clearly that that spin_lock is BH-safe because
+>> > it's called from BH context.
+>> >=20
+>> > Except that clearly isn't true. It's called from a worker thread:
+>> >=20
+>> > > stack backtrace:
+>> > > Pid: 10833, comm: kworker/u:1 Not tainted 2.6.38-rc4-359399.2010Aror=
+aKernelBeta.fc14.x86_64 #1
+>> > > Call Trace:
+>> > > =C2=A0[<ffffffff81460e69>] ? inet_twsk_deschedule+0x29/0xa0
+>> > > =C2=A0[<ffffffff81460fd6>] ? inet_twsk_purge+0xf6/0x180
+>> > > =C2=A0[<ffffffff81460f10>] ? inet_twsk_purge+0x30/0x180
+>> > > =C2=A0[<ffffffff814760fc>] ? tcp_sk_exit_batch+0x1c/0x20
+>> > > =C2=A0[<ffffffff8141c1d3>] ? ops_exit_list.clone.0+0x53/0x60
+>> > > =C2=A0[<ffffffff8141c520>] ? cleanup_net+0x100/0x1b0
+>> > > =C2=A0[<ffffffff81068c47>] ? process_one_work+0x187/0x4b0
+>> > > =C2=A0[<ffffffff81068be1>] ? process_one_work+0x121/0x4b0
+>> > > =C2=A0[<ffffffff8141c420>] ? cleanup_net+0x0/0x1b0
+>> > > =C2=A0[<ffffffff8106a65c>] ? worker_thread+0x15c/0x330
+>> >=20
+>> > so it can deadlock with a BH happening at the same time, afaik.
+>> >=20
+>> > The code (and comment) is all from 2005, it looks like the BH->worker
+>> > thread has broken the code. But somebody who knows that code better
+>> > should take a deeper look at it.
+>> >=20
+>> > Added acme to the cc, since the code is attributed to him back in 2005
+>> > ;). Although I don't know how active he's been in networking lately
+>> > (seems to be all perf-related). Whatever, it can't hurt.
+>>=20
+>> Original code is ANK's, I just made it possible to use with DCCP, and
+>> yeah, the smiley is appropriate, something 6 years old and the world
+>> around it changing continually... well, thanks for the git blame ;-)
+>
+> But yeah, your analisys seems correct, with the bug being introduced by
+> one of these world around it changing continually issues, networking
+> namespaces broke the rules of the game on its cleanup_net() routine,
+> adding Pavel to the CC list since it doesn't hurt ;-)
 
-Applied.
+Which probably gets the bug back around to me.
+
+I guess this must be one of those ipv4 cases that where the cleanup
+simply did not exist in the rmmod sense that we had to invent.
+
+I think that was Daniel who did the time wait sockets.  I do remember
+they were a real pain.
+
+Would a bh_disable be sufficient?  I guess I should stop remembering and
+look at the code now.
+
+Eric
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
