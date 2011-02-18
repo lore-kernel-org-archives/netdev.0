@@ -1,127 +1,200 @@
-From: David Miller <davem@davemloft.net>
-Subject: [v2 PATCH 2/2] ipv4: Implement __ip_dev_find using new interface
- address hash.
-Date: Fri, 18 Feb 2011 14:49:57 -0800 (PST)
-Message-ID: <20110218.144957.28799577.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH] bonding: bond_select_queue off by one
+Date: Fri, 18 Feb 2011 17:49:58 -0500
+Message-ID: <20110218224958.GC11864@gospo.rdu.redhat.com>
+References: <20110218020713.GA9696@linuxace.com> <22094.1298004108@death>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andy Gospodarek <andy@greyhouse.net>,
+	Phil Oester <kernel@linuxace.com>, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:55808
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750891Ab1BRWtV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 17:49:21 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 0754424C087
-	for <netdev@vger.kernel.org>; Fri, 18 Feb 2011 14:49:58 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:32258 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753687Ab1BRWuN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Feb 2011 17:50:13 -0500
+Content-Disposition: inline
+In-Reply-To: <22094.1298004108@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, Feb 17, 2011 at 08:41:48PM -0800, Jay Vosburgh wrote:
+> Phil Oester <kernel@linuxace.com> wrote:
+> 
+> >The bonding driver's bond_select_queue function simply returns
+> >skb->queue_mapping.  However queue_mapping could be == 16
+> >for queue #16.  This causes the following message to be flooded
+> >to syslog:
+> >
+> >kernel: bondx selects TX queue 16, but real number of TX queues is 16
+> >
+> >ndo_select_queue wants a zero-based number, so bonding driver needs
+> >to subtract one to return the proper queue number.  Also fix grammar in
+> >a comment while in the vicinity.
+> 
+> 	Andy, can you comment on this?
+> 
+> 	If memory serves, the omission of queue ID zero was on purpose;
+> is this patch going to break any of the functionality added by:
+> 
+> commit bb1d912323d5dd50e1079e389f4e964be14f0ae3
+> Author: Andy Gospodarek <andy@greyhouse.net>
+> Date:   Wed Jun 2 08:40:18 2010 +0000
+> 
+>     bonding: allow user-controlled output slave selection
+> 
 
-Much quicker than going through the FIB tables.
+My original intent was that a queue_mapping == 0 would indicate that the
+mode's default transmit routine would be used.  We could still operate
+under this assumption, however.  I think the patch below will work.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
+> Ben Hutchings <bhutchings@solarflare.com> wrote:
+> 
+> >This looks basically correct, but it should use the proper functions:
+> >
+> >	skb_rx_queue_recorded(skb) ? skb_get_rx_queue(skb) : 0;
+> 
+> 	As Ben points out, skb_rx_queue_recorded, skb_record_rx_queue,
+> et al, do the offset by one internally, but the bond_slave_override
+> function is comparing the slave's queue_id to the skb->queue_mapping.
+> 
+> 	That makes me wonder if this patch is going to mess things up,
+> and if bond_slave_override should also use the skb_rx_queue_recorded, et
+> al, functions.
+> 
+
+They could be use them, but I really dislike using functions with 'rx'
+in the name for options that are clearly for transmit.  I would rather
+get rid of access to queue_id or queue_mapping in the code in question.
+
+How about something like this?  I have not fully tested this, but will
+and would appreciate feedback from Phil or anyone else.
+
+Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
+
 ---
- net/ipv4/devinet.c      |   33 +++++++++++++++++++++++++++++++++
- net/ipv4/fib_frontend.c |   40 ----------------------------------------
- 2 files changed, 33 insertions(+), 40 deletions(-)
+ drivers/net/bonding/bond_main.c  |   11 ++++++-----
+ drivers/net/bonding/bond_sysfs.c |    2 +-
+ drivers/net/bonding/bonding.h    |   16 ++++++++++++++++
+ include/linux/skbuff.h           |   15 +++++++++++++++
+ net/core/dev.c                   |    4 ++--
+ 5 files changed, 40 insertions(+), 8 deletions(-)
 
-diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
-index 2fe5076..ee144a4 100644
---- a/net/ipv4/devinet.c
-+++ b/net/ipv4/devinet.c
-@@ -125,6 +125,39 @@ static void inet_hash_remove(struct in_ifaddr *ifa)
- 	spin_unlock(&inet_addr_hash_lock);
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 77e3c6a..02d8161 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4511,20 +4511,21 @@ static inline int bond_slave_override(struct bonding *bond,
+ 
+ 	read_lock(&bond->lock);
+ 
+-	if (!BOND_IS_OK(bond) || !skb->queue_mapping)
++	if (!BOND_IS_OK(bond) || !skb_tx_queue_recorded(skb))
+ 		goto out;
+ 
+ 	/* Find out if any slaves have the same mapping as this skb. */
+ 	bond_for_each_slave(bond, check_slave, i) {
+-		if (check_slave->queue_id == skb->queue_mapping) {
++		if (slave_tx_queue_recorded(check_slave) &&
++		    slave_get_tx_queue(check_slave) == skb_get_tx_queue(skb)) {
+ 			slave = check_slave;
+ 			break;
+ 		}
+ 	}
+ 
+ 	/* If the slave isn't UP, use default transmit policy. */
+-	if (slave && slave->queue_id && IS_UP(slave->dev) &&
+-	    (slave->link == BOND_LINK_UP)) {
++	if (slave && slave_tx_queue_recorded(slave) &&
++	    IS_UP(slave->dev) && (slave->link == BOND_LINK_UP)) {
+ 		res = bond_dev_queue_xmit(bond, skb, slave->dev);
+ 	}
+ 
+@@ -4541,7 +4542,7 @@ static u16 bond_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	 * skb_tx_hash and will put the skbs in the queue we expect on their
+ 	 * way down to the bonding driver.
+ 	 */
+-	return skb->queue_mapping;
++	return skb_tx_queue_recorded(skb) ? skb_get_tx_queue(skb) : 0;
  }
  
-+/**
-+ * __ip_dev_find - find the first device with a given source address.
-+ * @net: the net namespace
-+ * @addr: the source address
-+ * @devref: if true, take a reference on the found device
-+ *
-+ * If a caller uses devref=false, it should be protected by RCU, or RTNL
-+ */
-+struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+ static netdev_tx_t bond_start_xmit(struct sk_buff *skb, struct net_device *dev)
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 72bb0f6..b3bc092 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -1499,7 +1499,7 @@ static ssize_t bonding_store_queue_id(struct device *d,
+ 	/* Check buffer length, valid ifname and queue id */
+ 	if (strlen(buffer) > IFNAMSIZ ||
+ 	    !dev_valid_name(buffer) ||
+-	    qid > bond->params.tx_queues)
++	    qid >= bond->params.tx_queues)
+ 		goto err_no_cmd;
+ 
+ 	/* Get the pointer to that interface if it exists */
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index 31fe980..75b5798 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -422,4 +422,20 @@ static inline void bond_unregister_ipv6_notifier(void)
+ }
+ #endif
+ 
++static inline void slave_record_tx_queue(struct slave *slave, u16 tx_queue)
 +{
-+	unsigned int hash = inet_addr_hash(net, addr);
-+	struct net_device *result = NULL;
-+	struct in_ifaddr *ifa;
-+	struct hlist_node *node;
-+
-+	rcu_read_lock();
-+	hlist_for_each_entry_rcu(ifa, node, &inet_addr_lst[hash], hash) {
-+		struct net_device *dev = ifa->ifa_dev->dev;
-+
-+		if (!net_eq(dev_net(dev), net))
-+			continue;
-+		if (ifa->ifa_address == addr) {
-+			result = dev;
-+			break;
-+		}
-+	}
-+	if (result && devref)
-+		dev_hold(result);
-+	rcu_read_unlock();
-+	return result;
++	slave->queue_id = tx_queue + 1;
 +}
-+EXPORT_SYMBOL(__ip_dev_find);
 +
- static void rtmsg_ifa(int event, struct in_ifaddr *, struct nlmsghdr *, u32);
- 
- static BLOCKING_NOTIFIER_HEAD(inetaddr_chain);
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index 2a49c06..ad0778a 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -132,46 +132,6 @@ static void fib_flush(struct net *net)
- 		rt_cache_flush(net, -1);
++static inline u16 slave_get_tx_queue(const struct slave *slave)
++{
++	return slave->queue_id - 1;
++}
++
++static inline bool slave_tx_queue_recorded(const struct slave *slave)
++{
++	return slave->queue_id != 0;
++}
++
++
+ #endif /* _LINUX_BONDING_H */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 31f02d0..49d101c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2194,6 +2194,21 @@ static inline bool skb_rx_queue_recorded(const struct sk_buff *skb)
+ 	return skb->queue_mapping != 0;
  }
  
--/**
-- * __ip_dev_find - find the first device with a given source address.
-- * @net: the net namespace
-- * @addr: the source address
-- * @devref: if true, take a reference on the found device
-- *
-- * If a caller uses devref=false, it should be protected by RCU, or RTNL
-- */
--struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
--{
--	struct flowi fl = {
--		.fl4_dst = addr,
--	};
--	struct fib_result res = { 0 };
--	struct net_device *dev = NULL;
--	struct fib_table *local_table;
--
--#ifdef CONFIG_IP_MULTIPLE_TABLES
--	res.r = NULL;
--#endif
--
--	rcu_read_lock();
--	local_table = fib_get_table(net, RT_TABLE_LOCAL);
--	if (!local_table ||
--	    fib_table_lookup(local_table, &fl, &res, FIB_LOOKUP_NOREF)) {
--		rcu_read_unlock();
--		return NULL;
--	}
--	if (res.type != RTN_LOCAL)
--		goto out;
--	dev = FIB_RES_DEV(res);
--
--	if (dev && devref)
--		dev_hold(dev);
--out:
--	rcu_read_unlock();
--	return dev;
--}
--EXPORT_SYMBOL(__ip_dev_find);
--
- /*
-  * Find address type as if only "dev" was present in the system. If
-  * on_dev is NULL then all interfaces are taken into consideration.
--- 
-1.7.4.1
-
++static inline void skb_record_tx_queue(struct sk_buff *skb, u16 tx_queue)
++{
++	skb->queue_mapping = tx_queue + 1;
++}
++
++static inline u16 skb_get_tx_queue(const struct sk_buff *skb)
++{
++	return skb->queue_mapping - 1;
++}
++
++static inline bool skb_tx_queue_recorded(const struct sk_buff *skb)
++{
++	return skb->queue_mapping != 0;
++}
++
+ extern u16 __skb_tx_hash(const struct net_device *dev,
+ 			 const struct sk_buff *skb,
+ 			 unsigned int num_tx_queues);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a413276..50aa490 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2211,8 +2211,8 @@ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
+ 	u16 qoffset = 0;
+ 	u16 qcount = num_tx_queues;
+ 
+-	if (skb_rx_queue_recorded(skb)) {
+-		hash = skb_get_rx_queue(skb);
++	if (skb_tx_queue_recorded(skb)) {
++		hash = skb_get_tx_queue(skb);
+ 		while (unlikely(hash >= num_tx_queues))
+ 			hash -= num_tx_queues;
+ 		return hash;
