@@ -1,318 +1,438 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next-2.6] net: add __rcu annotations to sk_wq and wq
-Date: Fri, 18 Feb 2011 14:26:36 +0100
-Message-ID: <1298035596.6201.54.camel@edumazet-laptop>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6] net: convert bonding to use rx_handler
+Date: Fri, 18 Feb 2011 14:25:24 +0100
+Message-ID: <20110218132524.GC2939@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:38966 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752874Ab1BRN0l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 08:26:41 -0500
-Received: by fxm20 with SMTP id 20so3764353fxm.19
-        for <netdev@vger.kernel.org>; Fri, 18 Feb 2011 05:26:40 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:20766 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752874Ab1BRN07 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Feb 2011 08:26:59 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add proper RCU annotations/verbs to sk_wq and wq members
+This patch converts bonding to use rx_handler. Results in cleaner
+__netif_receive_skb() with much less exceptions needed. Also bond-specific
+work is moved into bond code.
 
-Fix __sctp_write_space() sk_sleep() abuse (and sock->wq access)
-
-Fix sunrpc sk_sleep() abuse too
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- include/linux/net.h  |    3 ++-
- include/net/sock.h   |    7 ++++---
- net/sctp/socket.c    |    9 +++++----
- net/socket.c         |   23 ++++++++++++++---------
- net/sunrpc/svcsock.c |   32 ++++++++++++++++++++------------
- net/unix/af_unix.c   |    2 +-
- 6 files changed, 46 insertions(+), 30 deletions(-)
+ drivers/net/bonding/bond_main.c |   75 ++++++++++++++++++++-
+ include/linux/skbuff.h          |    2 +
+ net/core/dev.c                  |  144 +++++++++++---------------------------
+ net/core/skbuff.c               |    1 +
+ 4 files changed, 119 insertions(+), 103 deletions(-)
 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 16faa13..94de83c 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -118,6 +118,7 @@ enum sock_shutdown_cmd {
- };
- 
- struct socket_wq {
-+	/* Note: wait MUST be first field of socket_wq */
- 	wait_queue_head_t	wait;
- 	struct fasync_struct	*fasync_list;
- 	struct rcu_head		rcu;
-@@ -142,7 +143,7 @@ struct socket {
- 
- 	unsigned long		flags;
- 
--	struct socket_wq	*wq;
-+	struct socket_wq __rcu	*wq;
- 
- 	struct file		*file;
- 	struct sock		*sk;
-diff --git a/include/net/sock.h b/include/net/sock.h
-index e3893a2..da0534d 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -281,7 +281,7 @@ struct sock {
- 	int			sk_rcvbuf;
- 
- 	struct sk_filter __rcu	*sk_filter;
--	struct socket_wq	*sk_wq;
-+	struct socket_wq __rcu	*sk_wq;
- 
- #ifdef CONFIG_NET_DMA
- 	struct sk_buff_head	sk_async_wait_queue;
-@@ -1266,7 +1266,8 @@ static inline void sk_set_socket(struct sock *sk, struct socket *sock)
- 
- static inline wait_queue_head_t *sk_sleep(struct sock *sk)
- {
--	return &sk->sk_wq->wait;
-+	BUILD_BUG_ON(offsetof(struct socket_wq, wait) != 0);
-+	return &rcu_dereference_raw(sk->sk_wq)->wait;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 77e3c6a..a856a11 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1423,6 +1423,68 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
+ 	bond->setup_by_slave = 1;
  }
- /* Detach socket from process context.
-  * Announce socket dead, detach it from wait queue and inode.
-@@ -1287,7 +1288,7 @@ static inline void sock_orphan(struct sock *sk)
- static inline void sock_graft(struct sock *sk, struct socket *parent)
- {
- 	write_lock_bh(&sk->sk_callback_lock);
--	rcu_assign_pointer(sk->sk_wq, parent->wq);
-+	sk->sk_wq = parent->wq;
- 	parent->sk = sk;
- 	sk_set_socket(sk, parent);
- 	security_sock_graft(sk, parent);
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 8e02550..b53b2eb 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -6102,15 +6102,16 @@ static void __sctp_write_space(struct sctp_association *asoc)
- 			wake_up_interruptible(&asoc->wait);
  
- 		if (sctp_writeable(sk)) {
--			if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk)))
--				wake_up_interruptible(sk_sleep(sk));
-+			wait_queue_head_t *wq = sk_sleep(sk);
++/* On bonding slaves other than the currently active slave, suppress
++ * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
++ * ARP on active-backup slaves with arp_validate enabled.
++ */
++static bool bond_should_deliver_exact_match(struct sk_buff *skb,
++					    struct net_device *slave_dev,
++					    struct net_device *bond_dev)
++{
++	if (slave_dev->priv_flags & IFF_SLAVE_INACTIVE) {
++		if (slave_dev->priv_flags & IFF_SLAVE_NEEDARP &&
++		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
++			return false;
 +
-+			if (wq && waitqueue_active(wq))
-+				wake_up_interruptible(wq);
++		if (bond_dev->priv_flags & IFF_MASTER_ALB &&
++		    skb->pkt_type != PACKET_BROADCAST &&
++		    skb->pkt_type != PACKET_MULTICAST)
++				return false;
++
++		if (bond_dev->priv_flags & IFF_MASTER_8023AD &&
++		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
++			return false;
++
++		return true;
++	}
++	return false;
++}
++
++static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
++{
++	struct net_device *slave_dev;
++	struct net_device *bond_dev;
++
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (unlikely(!skb))
++		return NULL;
++	slave_dev = skb->dev;
++	bond_dev = ACCESS_ONCE(slave_dev->master);
++	if (unlikely(!bond_dev))
++		return skb;
++
++	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
++		slave_dev->last_rx = jiffies;
++
++	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
++		skb->deliver_no_wcard = 1;
++		return skb;
++	}
++
++	skb->dev = bond_dev;
++
++	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
++	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
++	    skb->pkt_type == PACKET_HOST) {
++		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
++
++		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
++	}
++
++	netif_rx(skb);
++	return NULL;
++}
++
+ /* enslave device <slave> to bond device <master> */
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ {
+@@ -1599,11 +1661,17 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		pr_debug("Error %d calling netdev_set_bond_master\n", res);
+ 		goto err_restore_mac;
+ 	}
++	res = netdev_rx_handler_register(slave_dev, bond_handle_frame, NULL);
++	if (res) {
++		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
++		goto err_unset_master;
++	}
++
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+ 		pr_debug("Opening slave %s failed\n", slave_dev->name);
+-		goto err_unset_master;
++		goto err_unreg_rxhandler;
+ 	}
  
- 			/* Note that we try to include the Async I/O support
- 			 * here by modeling from the current TCP/UDP code.
- 			 * We have not tested with it yet.
- 			 */
--			if (sock->wq->fasync_list &&
--			    !(sk->sk_shutdown & SEND_SHUTDOWN))
-+			if (!(sk->sk_shutdown & SEND_SHUTDOWN))
- 				sock_wake_async(sock,
- 						SOCK_WAKE_SPACE, POLL_OUT);
+ 	new_slave->dev = slave_dev;
+@@ -1811,6 +1879,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ err_close:
+ 	dev_close(slave_dev);
+ 
++err_unreg_rxhandler:
++	netdev_rx_handler_unregister(slave_dev);
++
+ err_unset_master:
+ 	netdev_set_bond_master(slave_dev, NULL);
+ 
+@@ -1992,6 +2063,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		netif_addr_unlock_bh(bond_dev);
+ 	}
+ 
++	netdev_rx_handler_unregister(slave_dev);
+ 	netdev_set_bond_master(slave_dev, NULL);
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -2114,6 +2186,7 @@ static int bond_release_all(struct net_device *bond_dev)
+ 			netif_addr_unlock_bh(bond_dev);
  		}
-diff --git a/net/socket.c b/net/socket.c
-index ac2219f..9fa1e3b 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -240,17 +240,19 @@ static struct kmem_cache *sock_inode_cachep __read_mostly;
- static struct inode *sock_alloc_inode(struct super_block *sb)
+ 
++		netdev_rx_handler_unregister(slave_dev);
+ 		netdev_set_bond_master(slave_dev, NULL);
+ 
+ 		/* close slave before restoring its mac address */
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 31f02d0..9f3af5d 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -267,6 +267,7 @@ typedef unsigned char *sk_buff_data_t;
+  *	@sk: Socket we are owned by
+  *	@tstamp: Time we arrived
+  *	@dev: Device we arrived on/are leaving by
++ *	@input_dev: Original device on which we arrived
+  *	@transport_header: Transport layer header
+  *	@network_header: Network layer header
+  *	@mac_header: Link layer header
+@@ -325,6 +326,7 @@ struct sk_buff {
+ 
+ 	struct sock		*sk;
+ 	struct net_device	*dev;
++	struct net_device	*input_dev;
+ 
+ 	/*
+ 	 * This is the control buffer. It is free to use for every
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4f69439..9d2f485 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1530,12 +1530,17 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL_GPL(dev_forward_skb);
+ 
++static inline int __deliver_skb(struct sk_buff *skb,
++				struct packet_type *pt_prev)
++{
++	return pt_prev->func(skb, skb->dev, pt_prev, skb->input_dev);
++}
++
+ static inline int deliver_skb(struct sk_buff *skb,
+-			      struct packet_type *pt_prev,
+-			      struct net_device *orig_dev)
++			      struct packet_type *pt_prev)
  {
- 	struct socket_alloc *ei;
-+	struct socket_wq *wq;
- 
- 	ei = kmem_cache_alloc(sock_inode_cachep, GFP_KERNEL);
- 	if (!ei)
- 		return NULL;
--	ei->socket.wq = kmalloc(sizeof(struct socket_wq), GFP_KERNEL);
--	if (!ei->socket.wq) {
-+	wq = kmalloc(sizeof(*wq), GFP_KERNEL);
-+	if (!wq) {
- 		kmem_cache_free(sock_inode_cachep, ei);
- 		return NULL;
- 	}
--	init_waitqueue_head(&ei->socket.wq->wait);
--	ei->socket.wq->fasync_list = NULL;
-+	init_waitqueue_head(&wq->wait);
-+	wq->fasync_list = NULL;
-+	RCU_INIT_POINTER(ei->socket.wq, wq);
- 
- 	ei->socket.state = SS_UNCONNECTED;
- 	ei->socket.flags = 0;
-@@ -273,9 +275,11 @@ static void wq_free_rcu(struct rcu_head *head)
- static void sock_destroy_inode(struct inode *inode)
- {
- 	struct socket_alloc *ei;
-+	struct socket_wq *wq;
- 
- 	ei = container_of(inode, struct socket_alloc, vfs_inode);
--	call_rcu(&ei->socket.wq->rcu, wq_free_rcu);
-+	wq = rcu_dereference_protected(ei->socket.wq, 1);
-+	call_rcu(&wq->rcu, wq_free_rcu);
- 	kmem_cache_free(sock_inode_cachep, ei);
+ 	atomic_inc(&skb->users);
+-	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++	return __deliver_skb(skb, pt_prev);
  }
  
-@@ -524,7 +528,7 @@ void sock_release(struct socket *sock)
- 		module_put(owner);
+ /*
+@@ -1558,7 +1563,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		    (ptype->af_packet_priv == NULL ||
+ 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
+ 			if (pt_prev) {
+-				deliver_skb(skb2, pt_prev, skb->dev);
++				deliver_skb(skb2, pt_prev);
+ 				pt_prev = ptype;
+ 				continue;
+ 			}
+@@ -1591,7 +1596,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
+ 		}
+ 	}
+ 	if (pt_prev)
+-		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
++		__deliver_skb(skb2, pt_prev);
+ 	rcu_read_unlock();
+ }
+ 
+@@ -3021,8 +3026,7 @@ static int ing_filter(struct sk_buff *skb, struct netdev_queue *rxq)
+ }
+ 
+ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+-					 struct packet_type **pt_prev,
+-					 int *ret, struct net_device *orig_dev)
++					 struct packet_type **pt_prev, int *ret)
+ {
+ 	struct netdev_queue *rxq = rcu_dereference(skb->dev->ingress_queue);
+ 
+@@ -3030,7 +3034,7 @@ static inline struct sk_buff *handle_ing(struct sk_buff *skb,
+ 		goto out;
+ 
+ 	if (*pt_prev) {
+-		*ret = deliver_skb(skb, *pt_prev, orig_dev);
++		*ret = deliver_skb(skb, *pt_prev);
+ 		*pt_prev = NULL;
  	}
  
--	if (sock->wq->fasync_list)
-+	if (rcu_dereference_protected(sock->wq, 1)->fasync_list)
- 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
+@@ -3092,63 +3096,30 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+ }
+ EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
  
- 	percpu_sub(sockets_in_use, 1);
-@@ -1108,15 +1112,16 @@ static int sock_fasync(int fd, struct file *filp, int on)
- {
- 	struct socket *sock = filp->private_data;
- 	struct sock *sk = sock->sk;
-+	struct socket_wq *wq;
- 
- 	if (sk == NULL)
- 		return -EINVAL;
- 
- 	lock_sock(sk);
-+	wq = rcu_dereference_protected(sock->wq, sock_owned_by_user(sk));
-+	fasync_helper(fd, filp, on, &wq->fasync_list);
- 
--	fasync_helper(fd, filp, on, &sock->wq->fasync_list);
+-static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
+-					      struct net_device *master)
+-{
+-	if (skb->pkt_type == PACKET_HOST) {
+-		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
 -
--	if (!sock->wq->fasync_list)
-+	if (!wq->fasync_list)
- 		sock_reset_flag(sk, SOCK_FASYNC);
- 	else
- 		sock_set_flag(sk, SOCK_FASYNC);
-diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 7bd3bbb..76425d2 100644
---- a/net/sunrpc/svcsock.c
-+++ b/net/sunrpc/svcsock.c
-@@ -420,6 +420,7 @@ static void svc_sock_setbufsize(struct socket *sock, unsigned int snd,
- static void svc_udp_data_ready(struct sock *sk, int count)
+-		memcpy(dest, master->dev_addr, ETH_ALEN);
+-	}
+-}
+-
+-/* On bonding slaves other than the currently active slave, suppress
+- * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
+- * ARP on active-backup slaves with arp_validate enabled.
+- */
+-static int __skb_bond_should_drop(struct sk_buff *skb,
+-				  struct net_device *master)
++static void vlan_on_bond_hook(struct sk_buff *skb)
  {
- 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
-+	wait_queue_head_t *wq = sk_sleep(sk);
+-	struct net_device *dev = skb->dev;
+-
+-	if (master->priv_flags & IFF_MASTER_ARPMON)
+-		dev->last_rx = jiffies;
+-
+-	if ((master->priv_flags & IFF_MASTER_ALB) &&
+-	    (master->priv_flags & IFF_BRIDGE_PORT)) {
+-		/* Do address unmangle. The local destination address
+-		 * will be always the one master has. Provides the right
+-		 * functionality in a bridge.
+-		 */
+-		skb_bond_set_mac_by_master(skb, master);
+-	}
+-
+-	if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+-		if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+-		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
+-			return 0;
+-
+-		if (master->priv_flags & IFF_MASTER_ALB) {
+-			if (skb->pkt_type != PACKET_BROADCAST &&
+-			    skb->pkt_type != PACKET_MULTICAST)
+-				return 0;
+-		}
+-		if (master->priv_flags & IFF_MASTER_8023AD &&
+-		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
+-			return 0;
++	/*
++	 * Make sure ARP frames received on VLAN interfaces stacked on
++	 * bonding interfaces still make their way to any base bonding
++	 * device that may have registered for a specific ptype.
++	 */
++	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
++	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
++	    skb->protocol == htons(ETH_P_ARP)) {
++		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
  
- 	if (svsk) {
- 		dprintk("svc: socket %p(inet %p), count=%d, busy=%d\n",
-@@ -428,8 +429,8 @@ static void svc_udp_data_ready(struct sock *sk, int count)
- 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
+-		return 1;
++		if (!skb2)
++			return;
++		skb2->dev = vlan_dev_real_dev(skb->dev);
++		netif_rx(skb2);
  	}
--	if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk)))
--		wake_up_interruptible(sk_sleep(sk));
-+	if (wq && waitqueue_active(wq))
-+		wake_up_interruptible(wq);
+-	return 0;
  }
  
- /*
-@@ -438,6 +439,7 @@ static void svc_udp_data_ready(struct sock *sk, int count)
- static void svc_write_space(struct sock *sk)
+ static int __netif_receive_skb(struct sk_buff *skb)
  {
- 	struct svc_sock	*svsk = (struct svc_sock *)(sk->sk_user_data);
-+	wait_queue_head_t *wq = sk_sleep(sk);
+ 	struct packet_type *ptype, *pt_prev;
+ 	rx_handler_func_t *rx_handler;
+-	struct net_device *orig_dev;
+-	struct net_device *null_or_orig;
+-	struct net_device *orig_or_bond;
++	struct net_device *null_or_dev;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
  
- 	if (svsk) {
- 		dprintk("svc: socket %p(inet %p), write_space busy=%d\n",
-@@ -445,10 +447,10 @@ static void svc_write_space(struct sock *sk)
- 		svc_xprt_enqueue(&svsk->sk_xprt);
+@@ -3164,29 +3135,8 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 	if (!skb->skb_iif)
+ 		skb->skb_iif = skb->dev->ifindex;
+ 
+-	/*
+-	 * bonding note: skbs received on inactive slaves should only
+-	 * be delivered to pkt handlers that are exact matches.  Also
+-	 * the deliver_no_wcard flag will be set.  If packet handlers
+-	 * are sensitive to duplicate packets these skbs will need to
+-	 * be dropped at the handler.
+-	 */
+-	null_or_orig = NULL;
+-	orig_dev = skb->dev;
+-	if (skb->deliver_no_wcard)
+-		null_or_orig = orig_dev;
+-	else if (netif_is_bond_slave(orig_dev)) {
+-		struct net_device *bond_master = ACCESS_ONCE(orig_dev->master);
+-
+-		if (likely(bond_master)) {
+-			if (__skb_bond_should_drop(skb, bond_master)) {
+-				skb->deliver_no_wcard = 1;
+-				/* deliver only exact match */
+-				null_or_orig = orig_dev;
+-			} else
+-				skb->dev = bond_master;
+-		}
+-	}
++	if (!skb->input_dev)
++		skb->input_dev = skb->dev;
+ 
+ 	__this_cpu_inc(softnet_data.processed);
+ 	skb_reset_network_header(skb);
+@@ -3205,26 +3155,24 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ #endif
+ 
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+-		if (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+-		    ptype->dev == orig_dev) {
++		if (!ptype->dev || ptype->dev == skb->dev) {
+ 			if (pt_prev)
+-				ret = deliver_skb(skb, pt_prev, orig_dev);
++				ret = deliver_skb(skb, pt_prev);
+ 			pt_prev = ptype;
+ 		}
  	}
  
--	if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk))) {
-+	if (wq && waitqueue_active(wq)) {
- 		dprintk("RPC svc_write_space: someone sleeping on %p\n",
- 		       svsk);
--		wake_up_interruptible(sk_sleep(sk));
-+		wake_up_interruptible(wq);
+ #ifdef CONFIG_NET_CLS_ACT
+-	skb = handle_ing(skb, &pt_prev, &ret, orig_dev);
++	skb = handle_ing(skb, &pt_prev, &ret);
+ 	if (!skb)
+ 		goto out;
+ ncls:
+ #endif
+ 
+-	/* Handle special case of bridge or macvlan */
+ 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+ 	if (rx_handler) {
+ 		if (pt_prev) {
+-			ret = deliver_skb(skb, pt_prev, orig_dev);
++			ret = deliver_skb(skb, pt_prev);
+ 			pt_prev = NULL;
+ 		}
+ 		skb = rx_handler(skb);
+@@ -3234,7 +3182,7 @@ ncls:
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+ 		if (pt_prev) {
+-			ret = deliver_skb(skb, pt_prev, orig_dev);
++			ret = deliver_skb(skb, pt_prev);
+ 			pt_prev = NULL;
+ 		}
+ 		if (vlan_hwaccel_do_receive(&skb)) {
+@@ -3244,32 +3192,24 @@ ncls:
+ 			goto out;
  	}
- }
  
-@@ -739,6 +741,7 @@ static void svc_udp_init(struct svc_sock *svsk, struct svc_serv *serv)
- static void svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
- {
- 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
-+	wait_queue_head_t *wq;
+-	/*
+-	 * Make sure frames received on VLAN interfaces stacked on
+-	 * bonding interfaces still make their way to any base bonding
+-	 * device that may have registered for a specific ptype.  The
+-	 * handler may have to adjust skb->dev and orig_dev.
+-	 */
+-	orig_or_bond = orig_dev;
+-	if ((skb->dev->priv_flags & IFF_802_1Q_VLAN) &&
+-	    (vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING)) {
+-		orig_or_bond = vlan_dev_real_dev(skb->dev);
+-	}
++	vlan_on_bond_hook(skb);
++
++	/* deliver only exact match when indicated */
++	null_or_dev = skb->deliver_no_wcard ? skb->dev : NULL;
  
- 	dprintk("svc: socket %p TCP (listen) state change %d\n",
- 		sk, sk->sk_state);
-@@ -761,8 +764,9 @@ static void svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
- 			printk("svc: socket %p: no user data\n", sk);
+ 	type = skb->protocol;
+ 	list_for_each_entry_rcu(ptype,
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+-		if (ptype->type == type && (ptype->dev == null_or_orig ||
+-		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
+-		     ptype->dev == orig_or_bond)) {
++		if (ptype->type == type &&
++		    (ptype->dev == null_or_dev || ptype->dev == skb->dev)) {
+ 			if (pt_prev)
+-				ret = deliver_skb(skb, pt_prev, orig_dev);
++				ret = deliver_skb(skb, pt_prev);
+ 			pt_prev = ptype;
+ 		}
  	}
  
--	if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk)))
--		wake_up_interruptible_all(sk_sleep(sk));
-+	wq = sk_sleep(sk);
-+	if (wq && waitqueue_active(wq))
-+		wake_up_interruptible_all(wq);
- }
- 
- /*
-@@ -771,6 +775,7 @@ static void svc_tcp_listen_data_ready(struct sock *sk, int count_unused)
- static void svc_tcp_state_change(struct sock *sk)
+ 	if (pt_prev) {
+-		ret = pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++		ret = __deliver_skb(skb, pt_prev);
+ 	} else {
+ 		atomic_long_inc(&skb->dev->rx_dropped);
+ 		kfree_skb(skb);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 14cf560..e19eabe 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -508,6 +508,7 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
  {
- 	struct svc_sock	*svsk = (struct svc_sock *)sk->sk_user_data;
-+	wait_queue_head_t *wq = sk_sleep(sk);
- 
- 	dprintk("svc: socket %p TCP (connected) state change %d (svsk %p)\n",
- 		sk, sk->sk_state, sk->sk_user_data);
-@@ -781,13 +786,14 @@ static void svc_tcp_state_change(struct sock *sk)
- 		set_bit(XPT_CLOSE, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
--	if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk)))
--		wake_up_interruptible_all(sk_sleep(sk));
-+	if (wq && waitqueue_active(wq))
-+		wake_up_interruptible_all(wq);
- }
- 
- static void svc_tcp_data_ready(struct sock *sk, int count)
- {
- 	struct svc_sock *svsk = (struct svc_sock *)sk->sk_user_data;
-+	wait_queue_head_t *wq = sk_sleep(sk);
- 
- 	dprintk("svc: socket %p TCP data ready (svsk %p)\n",
- 		sk, sk->sk_user_data);
-@@ -795,8 +801,8 @@ static void svc_tcp_data_ready(struct sock *sk, int count)
- 		set_bit(XPT_DATA, &svsk->sk_xprt.xpt_flags);
- 		svc_xprt_enqueue(&svsk->sk_xprt);
- 	}
--	if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk)))
--		wake_up_interruptible(sk_sleep(sk));
-+	if (wq && waitqueue_active(wq))
-+		wake_up_interruptible(wq);
- }
- 
- /*
-@@ -1531,6 +1537,7 @@ static void svc_sock_detach(struct svc_xprt *xprt)
- {
- 	struct svc_sock *svsk = container_of(xprt, struct svc_sock, sk_xprt);
- 	struct sock *sk = svsk->sk_sk;
-+	wait_queue_head_t *wq;
- 
- 	dprintk("svc: svc_sock_detach(%p)\n", svsk);
- 
-@@ -1539,8 +1546,9 @@ static void svc_sock_detach(struct svc_xprt *xprt)
- 	sk->sk_data_ready = svsk->sk_odata;
- 	sk->sk_write_space = svsk->sk_owspace;
- 
--	if (sk_sleep(sk) && waitqueue_active(sk_sleep(sk)))
--		wake_up_interruptible(sk_sleep(sk));
-+	wq = sk_sleep(sk);
-+	if (wq && waitqueue_active(wq))
-+		wake_up_interruptible(wq);
- }
- 
- /*
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index d8d98d5..217fb7f 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -1171,7 +1171,7 @@ restart:
- 	newsk->sk_type		= sk->sk_type;
- 	init_peercred(newsk);
- 	newu = unix_sk(newsk);
--	newsk->sk_wq		= &newu->peer_wq;
-+	RCU_INIT_POINTER(newsk->sk_wq, &newu->peer_wq);
- 	otheru = unix_sk(other);
- 
- 	/* copy address information from listening to new sock*/
-
+ 	new->tstamp		= old->tstamp;
+ 	new->dev		= old->dev;
++	new->input_dev		= old->input_dev;
+ 	new->transport_header	= old->transport_header;
+ 	new->network_header	= old->network_header;
+ 	new->mac_header		= old->mac_header;
+-- 
+1.7.3.4
 
