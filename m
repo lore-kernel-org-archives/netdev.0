@@ -1,63 +1,99 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Possible netfilter-related memory corruption in 2.6.37
-Date: Fri, 18 Feb 2011 19:37:33 +0100
-Message-ID: <4D5EBC6D.6070200@trash.net>
-References: <4D594313.4050009@redhat.com>	 <1297696283.2996.33.camel@edumazet-laptop>	 <alpine.LNX.2.01.1102141617330.12050@obet.zrqbmnf.qr>	 <1297698641.2996.38.camel@edumazet-laptop>  <4D595745.7070505@trash.net>	 <1297700955.2996.40.camel@edumazet-laptop>  <4D595A48.9070201@trash.net> <1297702128.2996.41.camel@edumazet-laptop> <4D595DBD.3090005@trash.net>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] net: convert bonding to use rx_handler
+Date: Fri, 18 Feb 2011 19:47:26 +0100
+Message-ID: <20110218184725.GA2602@psychotron.redhat.com>
+References: <20110218132524.GC2939@psychotron.redhat.com>
+ <1298035791.6201.56.camel@edumazet-laptop>
+ <20110218141456.GD2939@psychotron.redhat.com>
+ <1298039252.6201.66.camel@edumazet-laptop>
+ <4D5E8655.5070304@trash.net>
+ <20110218145850.GF2939@psychotron.redhat.com>
+ <4D5E953F.6010606@trash.net>
+ <1298045670.6201.73.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060608050108090802020104"
-Cc: Jan Engelhardt <jengelh@medozas.de>, Avi Kivity <avi@redhat.com>,
-	netfilter-devel@vger.kernel.org,
-	Marcelo Tosatti <mtosatti@redhat.com>,
-	nicolas prochazka <prochazka.nicolas@gmail.com>,
-	KVM list <kvm@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, shemminger@linux-foundation.org,
+	fubar@us.ibm.com, nicolas.2p.debian@gmail.com, andy@greyhouse.net
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D595DBD.3090005@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52629 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757076Ab1BRSsS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Feb 2011 13:48:18 -0500
+Content-Disposition: inline
+In-Reply-To: <1298045670.6201.73.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------060608050108090802020104
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+=46ri, Feb 18, 2011 at 05:14:30PM CET, eric.dumazet@gmail.com wrote:
+>Le vendredi 18 f=E9vrier 2011 =E0 16:50 +0100, Patrick McHardy a =E9cr=
+it :
+>> On 18.02.2011 15:58, Jiri Pirko wrote:
+>> > Fri, Feb 18, 2011 at 03:46:45PM CET, kaber@trash.net wrote:
+>> >> Am 18.02.2011 15:27, schrieb Eric Dumazet:
+>> >>> Le vendredi 18 f=E9vrier 2011 =E0 15:14 +0100, Jiri Pirko a =E9c=
+rit :
+>> >>>
+>> >>>> Do not know how to do it better. As for percpu variable, not on=
+ly
+>> >>>> origdev would have to be remembered but also probably skb point=
+er to
+>> >>>> know if it's the first run on the skb or not. Can't really figu=
+re out a
+>> >>>> better solution. Can you?
+>> >>>
+>> >>> I'll try and let you know.
+>> >>
+>> >> Why not simply do a lookup on skb->iif?
+>> >=20
+>> > Well I was trying to avoid iterating over list of devices for each
+>> > incoming frame.
+>> >=20
+>>=20
+>> Well, there are a couple of holes on 64 bit, perhaps you can rearran=
+ge
+>> things and eliminate either iif or input_dev without increasing size
+>> since they appear to be redundant.
+>
+>Jiri
+>
+>I dont understand why netif_rx() is needed in your patch.
 
-Am 14.02.2011 17:52, schrieb Patrick McHardy:
-> Am 14.02.2011 17:48, schrieb Eric Dumazet:
->> I am not sure, but I guess nf_reinject() needs a fix too ;)
-> 
-> I agree. That one looks uglier though, I guess we'll have to
-> iterate through all hooks to note the previous one.
+I used netif_rx() because bridge and macvlan does that too. I did not s=
+ee
+a reason to not to do the same.
 
-How about this? Unfortunately I don't think we can avoid
-iterating through all hooks without violating RCU rules.
+>
+>Can we stack 10 bond devices or so ???
+>
+>If we avoid this stage and call the real thing (netif_receive_skb()),
+>then we dont need adding a field in each skb, since it can be carried =
+by
+>a global variable (per cpu of course)
+>
+I'm probably missing something. How do netif_receive_skb() and
+netif_rx() differ in this point of view, since both are calling:
+"ret =3D enqueue_to_backlog(skb, cpu, &rflow->last_qtail);"
+?
+
+Still I see a problem with the percpu global variable. We would have to
+store skb pointer there as well and in each __netif_receive_skb() call =
+it
+would have to be checked if it's different from the current one.
+In that case store new skb and orig_Dev.
+
+Leaving aside that global variables are evil in general, I still think
+this is not nicer solution then to add skb->input_dev (although I
+understand your arguments).
 
 
-
---------------060608050108090802020104
-Content-Type: text/plain;
- name="x.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="x.diff"
-
-ZGlmZiAtLWdpdCBhL25ldC9uZXRmaWx0ZXIvbmZfcXVldWUuYyBiL25ldC9uZXRmaWx0ZXIv
-bmZfcXVldWUuYwppbmRleCA3NGFlYmVkLi44MzRiYjA3IDEwMDY0NAotLS0gYS9uZXQvbmV0
-ZmlsdGVyL25mX3F1ZXVlLmMKKysrIGIvbmV0L25ldGZpbHRlci9uZl9xdWV1ZS5jCkBAIC0y
-MzUsNiArMjM1LDcgQEAgaW50IG5mX3F1ZXVlKHN0cnVjdCBza19idWZmICpza2IsCiB2b2lk
-IG5mX3JlaW5qZWN0KHN0cnVjdCBuZl9xdWV1ZV9lbnRyeSAqZW50cnksIHVuc2lnbmVkIGlu
-dCB2ZXJkaWN0KQogewogCXN0cnVjdCBza19idWZmICpza2IgPSBlbnRyeS0+c2tiOworCXN0
-cnVjdCBuZl9ob29rX29wcyAqaSwgKnByZXY7CiAJc3RydWN0IGxpc3RfaGVhZCAqZWxlbSA9
-ICZlbnRyeS0+ZWxlbS0+bGlzdDsKIAljb25zdCBzdHJ1Y3QgbmZfYWZpbmZvICphZmluZm87
-CiAKQEAgLTI0NCw4ICsyNDUsMjEgQEAgdm9pZCBuZl9yZWluamVjdChzdHJ1Y3QgbmZfcXVl
-dWVfZW50cnkgKmVudHJ5LCB1bnNpZ25lZCBpbnQgdmVyZGljdCkKIAogCS8qIENvbnRpbnVl
-IHRyYXZlcnNhbCBpZmYgdXNlcnNwYWNlIHNhaWQgb2suLi4gKi8KIAlpZiAodmVyZGljdCA9
-PSBORl9SRVBFQVQpIHsKLQkJZWxlbSA9IGVsZW0tPnByZXY7Ci0JCXZlcmRpY3QgPSBORl9B
-Q0NFUFQ7CisJCXByZXYgPSBOVUxMOworCQlsaXN0X2Zvcl9lYWNoX2VudHJ5X3JjdShpLCAm
-bmZfaG9va3NbZW50cnktPnBmXVtlbnRyeS0+aG9va10sCisJCQkJCWxpc3QpIHsKKwkJCWlm
-ICgmaS0+bGlzdCA9PSBlbGVtKQorCQkJCWJyZWFrOworCQkJcHJldiA9IGk7CisJCX0KKwor
-CQlpZiAocHJldiA9PSBOVUxMIHx8CisJCSAgICAmaS0+bGlzdCA9PSAmbmZfaG9va3NbZW50
-cnktPnBmXVtlbnRyeS0+aG9va10pCisJCQl2ZXJkaWN0ID0gTkZfRFJPUDsKKwkJZWxzZSB7
-CisJCQllbGVtID0gJnByZXYtPmxpc3Q7CisJCQl2ZXJkaWN0ID0gTkZfQUNDRVBUOworCQl9
-CiAJfQogCiAJaWYgKHZlcmRpY3QgPT0gTkZfQUNDRVBUKSB7Cg==
---------------060608050108090802020104--
+>bond_handle_frame() being called from __netif_receive_skb() I believe =
+it
+>can use netif_receive_skb() instead of netif_rx().
+>
+>Same remark for vlan_on_bond_hook()
+>
+>
+>
