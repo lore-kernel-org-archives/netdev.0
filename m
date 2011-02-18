@@ -1,7 +1,7 @@
 From: Cypher Wu <cypher.w@gmail.com>
 Subject: Re: IGMP and rwlock: Dead ocurred again on TILEPro
-Date: Fri, 18 Feb 2011 11:16:20 +0800
-Message-ID: <AANLkTimDeFYuw5-_e9bHAq8QR5O2eYBTon5OjBGvrKEn@mail.gmail.com>
+Date: Fri, 18 Feb 2011 11:19:03 +0800
+Message-ID: <AANLkTimNq0NSiB8SS7KCG2NRLKv9f=XfEKRM4-pQ0v7o@mail.gmail.com>
 References: <4D5DA60A.8080201@tilera.com>
 	<20110217.145333.232751283.davem@davemloft.net>
 	<4D5DA96D.5060200@tilera.com>
@@ -55,42 +55,10 @@ On Fri, Feb 18, 2011 at 7:18 AM, Chris Metcalf <cmetcalf@tilera.com> wrote:
 >
 >
 
-I agree that just lock interrupt for read operations should be enough,
-but read_unlock() is also the place we should lock interrupt, right?
-If interrupt occurred when it hold lock-val after TNS deadlock still
-can occur.
 
-When will you release out that patch? Since time is tight, so maybe
-I've to fix-up it myself. Though the problem is clearly now, I still
-have two questions to confirm:
-
-1. If we use SPR_INTERRUPT_CRITICAL_SECTION it will disable all the
-interrupt which claimed 'CM', is that right? Should we have to same
-its original value and restore it later?
-There is some code in Linux:
-int __tns_atomic_acquire(atomic_t *lock)
-{
-	int ret;
-	u32 iterations = 0;
-
-	BUG_ON(__insn_mfspr(SPR_INTERRUPT_CRITICAL_SECTION));
-	__insn_mtspr(SPR_INTERRUPT_CRITICAL_SECTION, 1);
-
-	while((ret = __insn_tns(&lock->counter)) == 1)
-		delay_backoff(iterations++);
-	return ret;
-}
-It just use BUG_ON to check SPR_INTERRUPT_CRITICAL_SECTION have to be
-0, is that means that SPR is only used in special situations like
-that?
-
-2. Should we lock interrupt for the whole operation of
-read_lock()/read_unlock(), or we should leave interrupt critical
-section if it run into  __raw_read_lock_slow() and before have to
-delay_backoff() some time, and re-enter interrupt critical section
-again before TNS?
-
-
+Bye the way, other RISC platforms, say ARM and MIPS, use store
+conditional rather that TNS a temp value for lock-val, does Fx have
+similar instructions?
 
 
 -- 
