@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [RFC PATCH net-next-2.6 1/2] net: XPS: Allow driver to provide a
- default mapping of CPUs to TX queues
-Date: Fri, 18 Feb 2011 16:15:02 +0000
-Message-ID: <1298045702.2570.18.camel@bwh-desktop>
+Subject: [RFC PATCH net-next-2.6 2/2] sfc: Add CPU queue mapping for XPS
+Date: Fri, 18 Feb 2011 16:15:42 +0000
+Message-ID: <1298045742.2570.19.camel@bwh-desktop>
 References: <1298045607.2570.17.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,157 +9,135 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:40044 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:40117 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757214Ab1BRQPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:15:05 -0500
+	with ESMTP id S1757507Ab1BRQPo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:15:44 -0500
 In-Reply-To: <1298045607.2570.17.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As with RFS acceleration, drivers may use the irq_cpu_rmap facility to
-provide a mapping from each CPU to the 'nearest' TX queue.
-
-Define CONFIG_PACKET_STEERING and CONFIG_NET_IRQ_CPU_RMAP so that
-drivers can make all cpu_rmap initialisation conditional on the
-latter.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/netdevice.h |   10 +++++++---
- net/Kconfig               |   17 ++++++++++++-----
- net/core/dev.c            |   41 +++++++++++++++++++++++------------------
- 3 files changed, 42 insertions(+), 26 deletions(-)
+ drivers/net/sfc/efx.c |   59 ++++++++++++++++++++++++++++++++++---------------
+ 1 files changed, 41 insertions(+), 18 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index c7d7074..c5cba16 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1080,14 +1080,13 @@ struct net_device {
+diff --git a/drivers/net/sfc/efx.c b/drivers/net/sfc/efx.c
+index 35b7bc5..6d698c3 100644
+--- a/drivers/net/sfc/efx.c
++++ b/drivers/net/sfc/efx.c
+@@ -1179,9 +1179,11 @@ static int efx_wanted_channels(void)
+ }
  
- 	/* Number of RX queues currently active in device */
- 	unsigned int		real_num_rx_queues;
--
+ static int
+-efx_init_rx_cpu_rmap(struct efx_nic *efx, struct msix_entry *xentries)
++efx_init_cpu_rmaps(struct efx_nic *efx, struct msix_entry *xentries)
+ {
 -#ifdef CONFIG_RFS_ACCEL
-+#endif
-+#ifdef CONFIG_NET_IRQ_CPU_RMAP
- 	/* CPU reverse-mapping for RX completion interrupts, indexed
- 	 * by RX queue number.  Assigned by driver.  This must only be
- 	 * set if the ndo_rx_flow_steer operation is defined. */
- 	struct cpu_rmap		*rx_cpu_rmap;
- #endif
--#endif
++#ifndef CONFIG_NET_IRQ_CPU_RMAP
++	return 0;
++#else
+ 	int i, rc;
  
- 	rx_handler_func_t __rcu	*rx_handler;
- 	void __rcu		*rx_handler_data;
-@@ -1114,6 +1113,11 @@ struct net_device {
- #ifdef CONFIG_XPS
- 	struct xps_dev_maps __rcu *xps_maps;
- #endif
-+#ifdef CONFIG_NET_IRQ_CPU_RMAP
-+	/* CPU reverse-mapping for TX completion interrupts.  Assigned
-+	 * by driver. */
-+	struct cpu_rmap		*tx_cpu_rmap;
-+#endif
- 
- 	/* These may be needed for future network-power-down code. */
- 
-diff --git a/net/Kconfig b/net/Kconfig
-index 79cabf1..fa0a093 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -216,21 +216,28 @@ source "net/dcb/Kconfig"
- source "net/dns_resolver/Kconfig"
- source "net/batman-adv/Kconfig"
- 
--config RPS
-+config PACKET_STEERING
- 	boolean
- 	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
-+	select RPS
-+	select XPS
- 	default y
- 
--config RFS_ACCEL
-+config NET_IRQ_CPU_RMAP
- 	boolean
--	depends on RPS && GENERIC_HARDIRQS
-+	depends on PACKET_STEERING && GENERIC_HARDIRQS
- 	select CPU_RMAP
-+	select RFS_ACCEL
- 	default y
- 
-+config RPS
-+	boolean
-+
-+config RFS_ACCEL
-+	boolean
-+
- config XPS
- 	boolean
--	depends on SMP && SYSFS && USE_GENERIC_SMP_HELPERS
--	default y
- 
- menu "Network testing"
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 54aaca6..dd38b88 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2257,27 +2257,32 @@ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- 
- 	rcu_read_lock();
- 	dev_maps = rcu_dereference(dev->xps_maps);
--	if (dev_maps) {
-+	if (dev_maps)
- 		map = rcu_dereference(
--		    dev_maps->cpu_map[raw_smp_processor_id()]);
--		if (map) {
--			if (map->len == 1)
--				queue_index = map->queues[0];
--			else {
--				u32 hash;
--				if (skb->sk && skb->sk->sk_hash)
--					hash = skb->sk->sk_hash;
--				else
--					hash = (__force u16) skb->protocol ^
--					    skb->rxhash;
--				hash = jhash_1word(hash, hashrnd);
--				queue_index = map->queues[
--				    ((u64)hash * map->len) >> 32];
--			}
--			if (unlikely(queue_index >= dev->real_num_tx_queues))
--				queue_index = -1;
-+			dev_maps->cpu_map[raw_smp_processor_id()]);
-+	if (map) {
-+		if (map->len == 1)
-+			queue_index = map->queues[0];
-+		else {
-+			u32 hash;
-+			if (skb->sk && skb->sk->sk_hash)
-+				hash = skb->sk->sk_hash;
-+			else
-+				hash = (__force u16) skb->protocol ^
-+					skb->rxhash;
-+			hash = jhash_1word(hash, hashrnd);
-+			queue_index = map->queues[
-+				((u64)hash * map->len) >> 32];
- 		}
-+		if (unlikely(queue_index >= dev->real_num_tx_queues))
-+			queue_index = -1;
+ 	efx->net_dev->rx_cpu_rmap = alloc_irq_cpu_rmap(efx->n_rx_channels);
+@@ -1190,14 +1192,38 @@ efx_init_rx_cpu_rmap(struct efx_nic *efx, struct msix_entry *xentries)
+ 	for (i = 0; i < efx->n_rx_channels; i++) {
+ 		rc = irq_cpu_rmap_add(efx->net_dev->rx_cpu_rmap,
+ 				      xentries[i].vector);
+-		if (rc) {
+-			free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
+-			efx->net_dev->rx_cpu_rmap = NULL;
+-			return rc;
++		if (rc)
++			goto fail_rx;
 +	}
-+#ifdef CONFIG_PACKET_STEERING_CPU_RMAP
-+	else if (dev->tx_cpu_rmap) {
-+		queue_index = cpu_rmap_lookup_index(dev->tx_cpu_rmap,
-+						    raw_smp_processor_id());
++
++	if (efx->tx_channel_offset == 0) {
++		efx->net_dev->tx_cpu_rmap = efx->net_dev->rx_cpu_rmap;
++	} else {
++		efx->net_dev->tx_cpu_rmap =
++			alloc_irq_cpu_rmap(efx->n_tx_channels);
++		if (!efx->net_dev->tx_cpu_rmap) {
++			rc = -ENOMEM;
++			goto fail_rx;
++		}
++		for (i = 0; i < efx->n_tx_channels; i++) {
++			rc = irq_cpu_rmap_add(
++				efx->net_dev->tx_cpu_rmap,
++				xentries[efx->tx_channel_offset + i].vector);
++			if (rc)
++				goto fail_tx;
+ 		}
  	}
+-#endif
++
+ 	return 0;
++
++fail_tx:
++	free_irq_cpu_rmap(efx->net_dev->tx_cpu_rmap);
++	efx->net_dev->tx_cpu_rmap = NULL;
++fail_rx:
++	free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
++	efx->net_dev->rx_cpu_rmap = NULL;
++	return rc;
 +#endif
- 	rcu_read_unlock();
+ }
  
- 	return queue_index;
+ /* Probe the number and type of interrupts we are able to obtain, and
+@@ -1238,14 +1264,15 @@ static int efx_probe_interrupts(struct efx_nic *efx)
+ 			if (separate_tx_channels) {
+ 				efx->n_tx_channels =
+ 					max(efx->n_channels / 2, 1U);
++				efx->tx_channel_offset =
++					efx->n_channels - efx->n_tx_channels;
+ 				efx->n_rx_channels =
+-					max(efx->n_channels -
+-					    efx->n_tx_channels, 1U);
++					max(efx->tx_channel_offset, 1U);
+ 			} else {
+ 				efx->n_tx_channels = efx->n_channels;
+ 				efx->n_rx_channels = efx->n_channels;
+ 			}
+-			rc = efx_init_rx_cpu_rmap(efx, xentries);
++			rc = efx_init_cpu_rmaps(efx, xentries);
+ 			if (rc) {
+ 				pci_disable_msix(efx->pci_dev);
+ 				return rc;
+@@ -1301,12 +1328,6 @@ static void efx_remove_interrupts(struct efx_nic *efx)
+ 	efx->legacy_irq = 0;
+ }
+ 
+-static void efx_set_channels(struct efx_nic *efx)
+-{
+-	efx->tx_channel_offset =
+-		separate_tx_channels ? efx->n_channels - efx->n_tx_channels : 0;
+-}
+-
+ static int efx_probe_nic(struct efx_nic *efx)
+ {
+ 	size_t i;
+@@ -1330,7 +1351,6 @@ static int efx_probe_nic(struct efx_nic *efx)
+ 	for (i = 0; i < ARRAY_SIZE(efx->rx_indir_table); i++)
+ 		efx->rx_indir_table[i] = i % efx->n_rx_channels;
+ 
+-	efx_set_channels(efx);
+ 	netif_set_real_num_tx_queues(efx->net_dev, efx->n_tx_channels);
+ 	netif_set_real_num_rx_queues(efx->net_dev, efx->n_rx_channels);
+ 
+@@ -2315,7 +2335,10 @@ static void efx_fini_struct(struct efx_nic *efx)
+  */
+ static void efx_pci_remove_main(struct efx_nic *efx)
+ {
+-#ifdef CONFIG_RFS_ACCEL
++#ifdef CONFIG_NET_IRQ_CPU_RMAP
++	if (efx->net_dev->tx_cpu_rmap != efx->net_dev->rx_cpu_rmap)
++		free_irq_cpu_rmap(efx->net_dev->tx_cpu_rmap);
++	efx->net_dev->tx_cpu_rmap = NULL;
+ 	free_irq_cpu_rmap(efx->net_dev->rx_cpu_rmap);
+ 	efx->net_dev->rx_cpu_rmap = NULL;
+ #endif
 -- 
 1.7.3.4
-
 
 
 -- 
