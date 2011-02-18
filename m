@@ -1,143 +1,46 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH ethtool] ethtool: Warn if we cannot set the advertising
- mask for specified speed/duplex
-Date: Fri, 18 Feb 2011 15:56:38 +0000
-Message-ID: <1298044598.2570.4.camel@bwh-desktop>
-References: <1297969576.2637.33.camel@bwh-desktop>
+Subject: pull request: sfc-next-2.6 2011-02-18
+Date: Fri, 18 Feb 2011 16:00:39 +0000
+Message-ID: <1298044839.2570.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-net-drivers@solarflare.com,
-	Naveen Chouksey <nchouksey@solarflare.com>
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	sf-linux-drivers <linux-net-drivers@solarflare.com>,
+	Tom Herbert <therbert@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:38238 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:38770 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753327Ab1BRP4l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 10:56:41 -0500
-In-Reply-To: <1297969576.2637.33.camel@bwh-desktop>
+	with ESMTP id S1752856Ab1BRQAm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:00:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-02-17 at 19:06 +0000, Ben Hutchings wrote:
-> When autonegotiation is enabled, drivers must determine link speed and
-> duplex through the autonegotiation process and will generally ignore
-> the speed and duplex specified in struct ethtool_cmd.  If the user
-> specifies a recognised combination of speed and duplex, we set the
-> advertising mask to include only the matching mode.  Otherwise, we
-> advertise all supported modes.  We should really limit the advertised
-> modes separately by speed and duplex, but for now we just warn.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> This is a longstanding bug in ethtool which people keep getting bitten
-> by.  Naveen was just the latest to report it.  I have been working on
-> some changes to improve link advertising and reporting, but until those
-> are ready I'm adding this warning.
+The following changes since commit f878b995b0f746f5726af9e66940f3bf373dae91:
 
-That patch fixes an additional bug: we will now update the advertising
-mask based on speed/duplex when autoneg is already on.  Unfortunately it
-introduces a bug: we will update advertising even if none of autoneg,
-speed or duplex are specified!
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6 (2011-02-15 12:25:19 -0800)
 
-Here's a second version which I think will do the right thing in all
-cases, though I haven't tested it yet.  I'll include this in ethtool
-2.6.38 if no-one can spot a flaw.
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
+
+Add support for RFS acceleration in the sfc driver, and allow it to be
+enabled and disabled dynamically using ethtool.
 
 Ben.
 
----
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Thu, 17 Feb 2011 18:51:15 +0000
-Subject: [PATCH ethtool] ethtool: Don't silently ignore speed/duplex when autoneg is on
+Ben Hutchings (3):
+      net: RPS: Make hardware-accelerated RFS conditional on NETIF_F_NTUPLE
+      sfc: Limit filter search depth further for performance hints (i.e. RFS)
+      sfc: Implement hardware acceleration of RFS
 
-When autonegotiation is enabled, drivers must determine link speed and
-duplex through the autonegotiation process and will generally ignore
-the speed and duplex specified in struct ethtool_cmd.  Currently, if
-the user specifies autoneg on but does not specify the advertising
-mask then:
-
-- If the user specifies a recognised combination of speed and duplex,
-  we set the advertising mask to the flag for that mode.  (Currently
-  only one mode is recognised per combination of speed and duplex.)
-- Otherwise, we advertise all recognised and supported modes.
-
-But we should also set the advertising mask if autoneg is *already*
-on.  Also, we should be able to limit the advertised modes separately
-by speed and duplex.  For now, we just warn if we fail to do that.
-
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ethtool.c |   45 +++++++++++++++++++++++++++++++--------------
- 1 files changed, 31 insertions(+), 14 deletions(-)
-
-diff --git a/ethtool.c b/ethtool.c
-index 1afdfe4..2f4b6ee 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -1126,7 +1126,7 @@ static void parse_cmdline(int argc, char **argp)
- 		}
- 	}
- 
--	if ((autoneg_wanted == AUTONEG_ENABLE) && (advertising_wanted < 0)) {
-+	if (advertising_wanted < 0) {
- 		if (speed_wanted == SPEED_10 && duplex_wanted == DUPLEX_HALF)
- 			advertising_wanted = ADVERTISED_10baseT_Half;
- 		else if (speed_wanted == SPEED_10 &&
-@@ -2528,19 +2528,36 @@ static int do_sset(int fd, struct ifreq *ifr)
- 				ecmd.phy_address = phyad_wanted;
- 			if (xcvr_wanted != -1)
- 				ecmd.transceiver = xcvr_wanted;
--			if (advertising_wanted != -1) {
--				if (advertising_wanted == 0)
--					ecmd.advertising = ecmd.supported &
--						(ADVERTISED_10baseT_Half |
--						 ADVERTISED_10baseT_Full |
--						 ADVERTISED_100baseT_Half |
--						 ADVERTISED_100baseT_Full |
--						 ADVERTISED_1000baseT_Half |
--						 ADVERTISED_1000baseT_Full |
--						 ADVERTISED_2500baseX_Full |
--						 ADVERTISED_10000baseT_Full);
--				else
--					ecmd.advertising = advertising_wanted;
-+			/* XXX If the user specified speed or duplex
-+			 * then we should mask the advertised modes
-+			 * accordingly.  For now, warn that we aren't
-+			 * doing that.
-+			 */
-+			if ((speed_wanted != -1 || duplex_wanted != -1) &&
-+			    ecmd.autoneg && advertising_wanted == 0) {
-+				fprintf(stderr, "Cannot advertise");
-+				if (speed_wanted >= 0)
-+					fprintf(stderr, " speed %d",
-+						speed_wanted);
-+				if (duplex_wanted >= 0)
-+					fprintf(stderr, " duplex %s",
-+						duplex_wanted ? 
-+						"full" : "half");
-+				fprintf(stderr,	"\n");
-+			}
-+			if (autoneg_wanted == AUTONEG_ENABLE &&
-+			    advertising_wanted == 0) {
-+				ecmd.advertising = ecmd.supported &
-+					(ADVERTISED_10baseT_Half |
-+					 ADVERTISED_10baseT_Full |
-+					 ADVERTISED_100baseT_Half |
-+					 ADVERTISED_100baseT_Full |
-+					 ADVERTISED_1000baseT_Half |
-+					 ADVERTISED_1000baseT_Full |
-+					 ADVERTISED_2500baseX_Full |
-+					 ADVERTISED_10000baseT_Full);
-+			} else if (advertising_wanted != -1) {
-+				ecmd.advertising = advertising_wanted;
- 			}
- 
- 			/* Try to perform the update. */
--- 
-1.7.3.4
-
-
+ drivers/net/sfc/efx.c        |   49 +++++++++++++++++-
+ drivers/net/sfc/efx.h        |   15 +++++
+ drivers/net/sfc/filter.c     |  117 ++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/sfc/net_driver.h |    3 +
+ net/core/dev.c               |    3 +-
+ 5 files changed, 180 insertions(+), 7 deletions(-)
 
 -- 
 Ben Hutchings, Senior Software Engineer, Solarflare Communications
