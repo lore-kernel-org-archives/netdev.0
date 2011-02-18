@@ -1,41 +1,177 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 6/7] ipv4: Mark fib_combine_itag()'s 'res' arg as const.
-Date: Thu, 17 Feb 2011 16:12:09 -0800 (PST)
-Message-ID: <20110217.161209.98876001.davem@davemloft.net>
+Subject: [PATCH 7/7] ipv4: Use const'ify fib_result deep in the route call
+ chains.
+Date: Thu, 17 Feb 2011 16:12:14 -0800 (PST)
+Message-ID: <20110217.161214.241455167.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57130
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57133
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756087Ab1BRALd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 19:11:33 -0500
+	by vger.kernel.org with ESMTP id S1756188Ab1BRALh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Feb 2011 19:11:37 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 8E7AC24C087
-	for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 16:12:09 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id 6579E24C087
+	for <netdev@vger.kernel.org>; Thu, 17 Feb 2011 16:12:14 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+The only troublesome bit here is __mkroute_output which wants
+to override res->fi and res->type, compute those in local
+variables instead.
+
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
  include/net/ip_fib.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv4/fib_rules.c |    2 +-
+ net/ipv4/route.c     |   32 +++++++++++++++++---------------
+ 3 files changed, 19 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 08b46b8..b3019d8 100644
+index b3019d8..523a170 100644
 --- a/include/net/ip_fib.h
 +++ b/include/net/ip_fib.h
-@@ -232,7 +232,7 @@ extern void fib_select_multipath(const struct flowi *flp, struct fib_result *res
- extern void fib_trie_init(void);
- extern struct fib_table *fib_trie_table(u32 id);
+@@ -202,7 +202,7 @@ extern int __net_init fib4_rules_init(struct net *net);
+ extern void __net_exit fib4_rules_exit(struct net *net);
  
--static inline void fib_combine_itag(u32 *itag, struct fib_result *res)
-+static inline void fib_combine_itag(u32 *itag, const struct fib_result *res)
- {
  #ifdef CONFIG_IP_ROUTE_CLASSID
- #ifdef CONFIG_IP_MULTIPLE_TABLES
+-extern u32 fib_rules_tclass(struct fib_result *res);
++extern u32 fib_rules_tclass(const struct fib_result *res);
+ #endif
+ 
+ extern int fib_lookup(struct net *n, struct flowi *flp, struct fib_result *res);
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 9cefe72..3018efb 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -47,7 +47,7 @@ struct fib4_rule {
+ };
+ 
+ #ifdef CONFIG_IP_ROUTE_CLASSID
+-u32 fib_rules_tclass(struct fib_result *res)
++u32 fib_rules_tclass(const struct fib_result *res)
+ {
+ 	return res->r ? ((struct fib4_rule *) res->r)->tclassid : 0;
+ }
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 9841543..2facde0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -1787,10 +1787,10 @@ static void rt_init_metrics(struct rtable *rt, struct fib_info *fi)
+ 	}
+ }
+ 
+-static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
++static void rt_set_nexthop(struct rtable *rt, const struct fib_result *res,
++			   struct fib_info *fi, u16 type, u32 itag)
+ {
+ 	struct dst_entry *dst = &rt->dst;
+-	struct fib_info *fi = res->fi;
+ 
+ 	if (fi) {
+ 		if (FIB_RES_GW(*res) &&
+@@ -1813,7 +1813,7 @@ static void rt_set_nexthop(struct rtable *rt, struct fib_result *res, u32 itag)
+ #endif
+ 	set_class_tag(rt, itag);
+ #endif
+-	rt->rt_type = res->type;
++	rt->rt_type = type;
+ }
+ 
+ static struct rtable *rt_dst_alloc(bool nopolicy, bool noxfrm)
+@@ -1939,7 +1939,7 @@ static void ip_handle_martian_source(struct net_device *dev,
+ 
+ /* called in rcu_read_lock() section */
+ static int __mkroute_input(struct sk_buff *skb,
+-			   struct fib_result *res,
++			   const struct fib_result *res,
+ 			   struct in_device *in_dev,
+ 			   __be32 daddr, __be32 saddr, u32 tos,
+ 			   struct rtable **result)
+@@ -2018,7 +2018,7 @@ static int __mkroute_input(struct sk_buff *skb,
+ 	rth->dst.output = ip_output;
+ 	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
+ 
+-	rt_set_nexthop(rth, res, itag);
++	rt_set_nexthop(rth, res, res->fi, res->type, itag);
+ 
+ 	rth->rt_flags = flags;
+ 
+@@ -2319,23 +2319,25 @@ skip_cache:
+ EXPORT_SYMBOL(ip_route_input_common);
+ 
+ /* called with rcu_read_lock() */
+-static struct rtable *__mkroute_output(struct fib_result *res,
++static struct rtable *__mkroute_output(const struct fib_result *res,
+ 				       const struct flowi *fl,
+ 				       const struct flowi *oldflp,
+ 				       struct net_device *dev_out,
+ 				       unsigned int flags)
+ {
++	struct fib_info *fi = res->fi;
+ 	u32 tos = RT_FL_TOS(oldflp);
+ 	struct in_device *in_dev;
++	u16 type = res->type;
+ 	struct rtable *rth;
+ 
+ 	if (ipv4_is_loopback(fl->fl4_src) && !(dev_out->flags & IFF_LOOPBACK))
+ 		return ERR_PTR(-EINVAL);
+ 
+ 	if (ipv4_is_lbcast(fl->fl4_dst))
+-		res->type = RTN_BROADCAST;
++		type = RTN_BROADCAST;
+ 	else if (ipv4_is_multicast(fl->fl4_dst))
+-		res->type = RTN_MULTICAST;
++		type = RTN_MULTICAST;
+ 	else if (ipv4_is_zeronet(fl->fl4_dst))
+ 		return ERR_PTR(-EINVAL);
+ 
+@@ -2346,10 +2348,10 @@ static struct rtable *__mkroute_output(struct fib_result *res,
+ 	if (!in_dev)
+ 		return ERR_PTR(-EINVAL);
+ 
+-	if (res->type == RTN_BROADCAST) {
++	if (type == RTN_BROADCAST) {
+ 		flags |= RTCF_BROADCAST | RTCF_LOCAL;
+-		res->fi = NULL;
+-	} else if (res->type == RTN_MULTICAST) {
++		fi = NULL;
++	} else if (type == RTN_MULTICAST) {
+ 		flags |= RTCF_MULTICAST | RTCF_LOCAL;
+ 		if (!ip_check_mc(in_dev, oldflp->fl4_dst, oldflp->fl4_src,
+ 				 oldflp->proto))
+@@ -2358,8 +2360,8 @@ static struct rtable *__mkroute_output(struct fib_result *res,
+ 		 * default one, but do not gateway in this case.
+ 		 * Yes, it is hack.
+ 		 */
+-		if (res->fi && res->prefixlen < 4)
+-			res->fi = NULL;
++		if (fi && res->prefixlen < 4)
++			fi = NULL;
+ 	}
+ 
+ 	rth = rt_dst_alloc(IN_DEV_CONF_GET(in_dev, NOPOLICY),
+@@ -2399,7 +2401,7 @@ static struct rtable *__mkroute_output(struct fib_result *res,
+ 			RT_CACHE_STAT_INC(out_slow_mc);
+ 		}
+ #ifdef CONFIG_IP_MROUTE
+-		if (res->type == RTN_MULTICAST) {
++		if (type == RTN_MULTICAST) {
+ 			if (IN_DEV_MFORWARD(in_dev) &&
+ 			    !ipv4_is_local_multicast(oldflp->fl4_dst)) {
+ 				rth->dst.input = ip_mr_input;
+@@ -2409,7 +2411,7 @@ static struct rtable *__mkroute_output(struct fib_result *res,
+ #endif
+ 	}
+ 
+-	rt_set_nexthop(rth, res, 0);
++	rt_set_nexthop(rth, res, fi, type, 0);
+ 
+ 	rth->rt_flags = flags;
+ 	return rth;
 -- 
 1.7.4.1
 
