@@ -1,8 +1,8 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 1/3] net: RPS: Make hardware-accelerated RFS
- conditional on NETIF_F_NTUPLE
-Date: Fri, 18 Feb 2011 16:03:30 +0000
-Message-ID: <1298045010.2570.8.camel@bwh-desktop>
+Subject: [PATCH net-next-2.6 2/3] sfc: Limit filter search depth further
+ for performance hints (i.e. RFS)
+Date: Fri, 18 Feb 2011 16:03:49 +0000
+Message-ID: <1298045029.2570.9.camel@bwh-desktop>
 References: <1298044839.2570.7.camel@bwh-desktop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,38 +10,63 @@ Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:39082 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:39140 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756831Ab1BRQDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:03:33 -0500
+	with ESMTP id S1757123Ab1BRQDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 11:03:52 -0500
 In-Reply-To: <1298044839.2570.7.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For testing and debugging purposes it is useful to be able to disable
-hardware acceleration of RFS without disabling RFS altogether.  Since
-this is a similar feature to 'n-tuple' flow steering through the
-ethtool API, test the same feature flag that controls that.
-
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/sfc/filter.c |   13 +++++++++----
+ 1 files changed, 9 insertions(+), 4 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 30c71f9..54aaca6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2607,7 +2607,8 @@ set_rps_cpu(struct net_device *dev, struct sk_buff *skb,
- 		int rc;
+diff --git a/drivers/net/sfc/filter.c b/drivers/net/sfc/filter.c
+index d4722c4..47a1b79 100644
+--- a/drivers/net/sfc/filter.c
++++ b/drivers/net/sfc/filter.c
+@@ -27,6 +27,10 @@
+  */
+ #define FILTER_CTL_SRCH_MAX 200
  
- 		/* Should we steer this flow to a different hardware queue? */
--		if (!skb_rx_queue_recorded(skb) || !dev->rx_cpu_rmap)
-+		if (!skb_rx_queue_recorded(skb) || !dev->rx_cpu_rmap ||
-+		    !(dev->features & NETIF_F_NTUPLE))
- 			goto out;
- 		rxq_index = cpu_rmap_lookup_index(dev->rx_cpu_rmap, next_cpu);
- 		if (rxq_index == skb_get_rx_queue(skb))
++/* Don't try very hard to find space for performance hints, as this is
++ * counter-productive. */
++#define FILTER_CTL_SRCH_HINT_MAX 5
++
+ enum efx_filter_table_id {
+ 	EFX_FILTER_TABLE_RX_IP = 0,
+ 	EFX_FILTER_TABLE_RX_MAC,
+@@ -325,15 +329,16 @@ static int efx_filter_search(struct efx_filter_table *table,
+ 			     struct efx_filter_spec *spec, u32 key,
+ 			     bool for_insert, int *depth_required)
+ {
+-	unsigned hash, incr, filter_idx, depth;
++	unsigned hash, incr, filter_idx, depth, depth_max;
+ 	struct efx_filter_spec *cmp;
+ 
+ 	hash = efx_filter_hash(key);
+ 	incr = efx_filter_increment(key);
++	depth_max = (spec->priority <= EFX_FILTER_PRI_HINT ?
++		     FILTER_CTL_SRCH_HINT_MAX : FILTER_CTL_SRCH_MAX);
+ 
+ 	for (depth = 1, filter_idx = hash & (table->size - 1);
+-	     depth <= FILTER_CTL_SRCH_MAX &&
+-		     test_bit(filter_idx, table->used_bitmap);
++	     depth <= depth_max && test_bit(filter_idx, table->used_bitmap);
+ 	     ++depth) {
+ 		cmp = &table->spec[filter_idx];
+ 		if (efx_filter_equal(spec, cmp))
+@@ -342,7 +347,7 @@ static int efx_filter_search(struct efx_filter_table *table,
+ 	}
+ 	if (!for_insert)
+ 		return -ENOENT;
+-	if (depth > FILTER_CTL_SRCH_MAX)
++	if (depth > depth_max)
+ 		return -EBUSY;
+ found:
+ 	*depth_required = depth;
 -- 
 1.7.3.4
 
