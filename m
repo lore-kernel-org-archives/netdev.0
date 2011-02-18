@@ -1,49 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 0/9] net: Unified offload configuration
-Date: Fri, 18 Feb 2011 12:06:17 -0800 (PST)
-Message-ID: <20110218.120617.71104636.davem@davemloft.net>
-References: <20110217.145611.229745070.davem@davemloft.net>
-	<20110218142238.GA18099@rere.qmqm.pl>
-	<1298039371.2211.9.camel@localhost>
+Subject: Re: [patch net-next-2.6] net: convert bonding to use rx_handler
+Date: Fri, 18 Feb 2011 12:06:56 -0800 (PST)
+Message-ID: <20110218.120656.104048936.davem@davemloft.net>
+References: <1298039252.6201.66.camel@edumazet-laptop>
+	<4D5E8655.5070304@trash.net>
+	<20110218145850.GF2939@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=euc-kr
+Content-Type: Text/Plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mirq-linux@rere.qmqm.pl, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, fubar@us.ibm.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: jpirko@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57548
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57554
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758470Ab1BRUFk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Feb 2011 15:05:40 -0500
-In-Reply-To: <1298039371.2211.9.camel@localhost>
+	by vger.kernel.org with ESMTP id S1751732Ab1BRUGU convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Feb 2011 15:06:20 -0500
+In-Reply-To: <20110218145850.GF2939@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 18 Feb 2011 14:29:31 +0000
+=46rom: Jiri Pirko <jpirko@redhat.com>
+Date: Fri, 18 Feb 2011 15:58:51 +0100
 
-> On Fri, 2011-02-18 at 15:22 +0100, Micha=A9=A9 Miros=A9=A9aw wrote:
->> On Thu, Feb 17, 2011 at 02:56:11PM -0800, David Miller wrote:
-> [...]
->> > Please get rid of that annoying message spit out by netif_features=
-_change(),
->> > it's just spam.  If we want notifications for stuff like this, use=
- a
->> > non-unicast netlink message so those who want to hear it can do so=
-=2E
->>=20
->> You mean netdev_update_features() "Features changed" message? Is it =
-ok
->> to just demote it to DEBUG level or you want to remove it altogether=
-?
->> What about netdev_fix_features() messages?
+> Fri, Feb 18, 2011 at 03:46:45PM CET, kaber@trash.net wrote:
+>>Am 18.02.2011 15:27, schrieb Eric Dumazet:
+>>> Le vendredi 18 f=E9vrier 2011 =E0 15:14 +0100, Jiri Pirko a =E9crit=
+ :
+>>>=20
+>>>> Do not know how to do it better. As for percpu variable, not only
+>>>> origdev would have to be remembered but also probably skb pointer =
+to
+>>>> know if it's the first run on the skb or not. Can't really figure =
+out a
+>>>> better solution. Can you?
+>>>=20
+>>> I'll try and let you know.
+>>
+>>Why not simply do a lookup on skb->iif?
 >=20
-> I think you need to emit these messages at 'error' severity when fixi=
-ng
-> up features for a newly-added device, but at 'debug' later on.
+> Well I was trying to avoid iterating over list of devices for each
+> incoming frame.
 
-I get one several minutes after every boot for a completely
-unregistered device for some reason:
-
-[119704.730965] (unregistered net_device): Features changed: 0x00011065=
- -> 0x00015065
+It is not list, it is hash :-)
