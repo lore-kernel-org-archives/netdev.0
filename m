@@ -1,33 +1,34 @@
-From: "WED MAIL HELP DESK" <msovo@cyril.k12.ok.us>
-Subject: You have reached the limit of your email quota.
-Date: Fri, 18 Feb 2011 05:52:35 -0600
-Message-ID: <201102180552.AA49283152@cyril.k12.ok.us>
-Reply-To: <msovo@cyril.k12.ok.us>
+From: "Mr.David Gurupatham" <attorney_chamber@att.net>
+Subject: Re: KIND
+Date: Fri, 18 Feb 2011 17:07:46 +0800
+Message-ID: <USERPC7e46f67fff934471882291b6f6cd0d24@userPC>
+Reply-To: davidgurupatham@hotmail.my
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: 111@localhost
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [164.58.213.152] ([164.58.213.152]:4799 "EHLO cyril.k12.ok.us"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1753573Ab1BRMHu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Feb 2011 07:07:50 -0500
+Received: from nm2-vm0.bullet.mail.sp2.yahoo.com ([98.139.91.248]:27281 "HELO
+	nm2-vm0.bullet.mail.sp2.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754567Ab1BRMfS convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Feb 2011 07:35:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You have reached the limit of your email quota.
-You will not be able to send or receive new mail until you boost 
-your mailbox size.
+My name is David Gurupatham a legal practitioner with David Gurupatham  & Associates
 
-Click the below link and fill the form to upgrade your account.
-http://www.psanthony.com/contact/use/accountupgrading/form1.html
+in Kuala Lumpur Msia.
 
-Technical Support
-192.168.0.1 
+I found your contact/profile some where over the Internet and it gave me the
 
- 
-______________ ______________ ______________ ______________
-Sent via the KillerWebMail system at cyril.k12.ok.us
+greatest joy, that you are the one I have been looking for. Whom I strongly believe could
+
+execute this project with me. Kindly get back to me for more information
 
 
- 
-                   
+
+Best regards,
+
+Mr David Gurupatham{Esq}
+
