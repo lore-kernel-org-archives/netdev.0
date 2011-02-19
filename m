@@ -1,40 +1,45 @@
 From: Mike Frysinger <vapier@gentoo.org>
-Subject: [PATCH 3/3] tracepath: fix typo in -l error message
-Date: Sat, 19 Feb 2011 12:51:29 -0500
-Message-ID: <1298137889-23969-3-git-send-email-vapier@gentoo.org>
-References: <1298137889-23969-1-git-send-email-vapier@gentoo.org>
-Cc: netdev@vger.kernel.org, Jeroen Roovers <jer@gentoo.org>
+Subject: [PATCH] ping: fix building on older systems
+Date: Sat, 19 Feb 2011 12:56:37 -0500
+Message-ID: <1298138197-27262-1-git-send-email-vapier@gentoo.org>
+Cc: netdev@vger.kernel.org
 To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:38677 "EHLO smtp.gentoo.org"
+Received: from smtp.gentoo.org ([140.211.166.183]:33864 "EHLO smtp.gentoo.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754231Ab1BSRvd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Feb 2011 12:51:33 -0500
-In-Reply-To: <1298137889-23969-1-git-send-email-vapier@gentoo.org>
+	id S1754406Ab1BSR4j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Feb 2011 12:56:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeroen Roovers <jer@gentoo.org>
+The SO_MARK define is somewhat recent (linux-2.6.25), so check for its
+existence before we try to use it.
 
-Signed-off-by: Jeroen Roovers <jer@gentoo.org>
 Signed-off-by: Mike Frysinger <vapier@gentoo.org>
 ---
- tracepath.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ ping_common.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
-diff --git a/tracepath.c b/tracepath.c
-index 0a14b1b..90e1b28 100644
---- a/tracepath.c
-+++ b/tracepath.c
-@@ -306,7 +306,7 @@ main(int argc, char **argv)
- 			break;
- 		case 'l':
- 			if ((mtu = atoi(optarg)) <= overhead) {
--				fprintf(stderr, "Error: length must be >= %d\n", overhead);
-+				fprintf(stderr, "Error: length must be > %d\n", overhead);
- 				exit(1);
- 			}
- 			break;
+diff --git a/ping_common.c b/ping_common.c
+index 82320b1..b4b26b2 100644
+--- a/ping_common.c
++++ b/ping_common.c
+@@ -475,6 +475,7 @@ void setup(int icmp_sock)
+ 			fprintf(stderr, "Warning: no SO_TIMESTAMP support, falling back to SIOCGSTAMP\n");
+ 	}
+ #endif
++#ifdef SO_MARK
+ 	if (options & F_MARK) {
+ 		if (setsockopt(icmp_sock, SOL_SOCKET, SO_MARK,
+ 				&mark, sizeof(mark)) == -1) {
+@@ -484,6 +485,7 @@ void setup(int icmp_sock)
+ 			fprintf(stderr, "Warning: Failed to set mark %d\n", mark);
+ 		}
+ 	}
++#endif
+ 
+ 	/* Set some SNDTIMEO to prevent blocking forever
+ 	 * on sends, when device is too slow or stalls. Just put limit
 -- 
 1.7.4.1
 
