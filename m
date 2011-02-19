@@ -1,168 +1,49 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: fix inet_twsk_deschedule()
-Date: Sat, 19 Feb 2011 09:35:56 +0100
-Message-ID: <1298104556.8559.21.camel@edumazet-laptop>
-References: <AANLkTikPKpNHxDQAYBd3fiQsmVozLtCVDsNn=+eF_q2r@mail.gmail.com>
-	 <20110217163531.GF14168@elte.hu> <m1pqqqfpzh.fsf@fess.ebiederm.org>
-	 <AANLkTinB=EgDGNv-v-qD-MvHVAmstfP_CyyLNhhotkZx@mail.gmail.com>
-	 <20110218122938.GB26779@tiehlicka.suse.cz>
-	 <20110218162623.GD4862@tiehlicka.suse.cz>
-	 <AANLkTimO=M5xG_mnDBSxPKwSOTrp3JhHVBa8=wHsiVHY@mail.gmail.com>
-	 <m17hcx43m3.fsf@fess.ebiederm.org>
-	 <AANLkTikh4oaR6CBK3NBazer7yjhE0VndsUB5FCDRsbJc@mail.gmail.com>
-	 <20110218190128.GF13211@ghostprotocols.net>
-	 <20110218191146.GG13211@ghostprotocols.net>
-	 <m1sjvl2i3q.fsf@fess.ebiederm.org>
+Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
+Date: Sat, 19 Feb 2011 09:37:55 +0100
+Message-ID: <1298104675.8559.22.camel@edumazet-laptop>
+References: <1298039252.6201.66.camel@edumazet-laptop>
+	 <4D5E8655.5070304@trash.net> <20110218145850.GF2939@psychotron.redhat.com>
+	 <20110218.120656.104048936.davem@davemloft.net>
+	 <20110218205832.GE2602@psychotron.redhat.com> <21593.1298070371@death>
+	 <20110219080523.GB2782@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnaldo Carvalho de Melo <acme@redhat.com>, Linus Torvalds
- <torvalds@linux-foundation.org>, Michal Hocko <mhocko@suse.cz>, Ingo Molnar
- <mingo@elte.hu>, linux-mm@kvack.org, LKML <linux-kernel@vger.kernel.org>,
- netdev@vger.kernel.org, Pavel Emelyanov <xemul@openvz.org>, Daniel Lezcano
- <daniel.lezcano@free.fr>
-To: "Eric W. Biederman" <ebiederm@xmission.com>, David Miller
- <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <m1sjvl2i3q.fsf@fess.ebiederm.org>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:42773 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751067Ab1BSIiB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Feb 2011 03:38:01 -0500
+Received: by bwz15 with SMTP id 15so1423394bwz.19
+        for <netdev@vger.kernel.org>; Sat, 19 Feb 2011 00:38:00 -0800 (PST)
+In-Reply-To: <20110219080523.GB2782@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 18 f=C3=A9vrier 2011 =C3=A0 12:38 -0800, Eric W. Biederman a =
-=C3=A9crit :
-> Arnaldo Carvalho de Melo <acme@redhat.com> writes:
+Le samedi 19 f=C3=A9vrier 2011 =C3=A0 09:05 +0100, Jiri Pirko a =C3=A9c=
+rit :
+> This patch converts bonding to use rx_handler. Results in cleaner
+> __netif_receive_skb() with much less exceptions needed. Also
+> bond-specific work is moved into bond code.
 >=20
-> > Em Fri, Feb 18, 2011 at 05:01:28PM -0200, Arnaldo Carvalho de Melo es=
-creveu:
-> >> Em Fri, Feb 18, 2011 at 10:48:18AM -0800, Linus Torvalds escreveu:
-> >> > This seems to be a fairly straightforward bug.
-> >> >=20
-> >> > In net/ipv4/inet_timewait_sock.c we have this:
-> >> >=20
-> >> >   /* These are always called from BH context.  See callers in
-> >> >    * tcp_input.c to verify this.
-> >> >    */
-> >> >=20
-> >> >   /* This is for handling early-kills of TIME_WAIT sockets. */
-> >> >   void inet_twsk_deschedule(struct inet_timewait_sock *tw,
-> >> >                             struct inet_timewait_death_row *twdr)
-> >> >   {
-> >> >           spin_lock(&twdr->death_lock);
-> >> >           ..
-> >> >=20
-> >> > and the intention is clearly that that spin_lock is BH-safe becaus=
-e
-> >> > it's called from BH context.
-> >> >=20
-> >> > Except that clearly isn't true. It's called from a worker thread:
-> >> >=20
-> >> > > stack backtrace:
-> >> > > Pid: 10833, comm: kworker/u:1 Not tainted 2.6.38-rc4-359399.2010=
-AroraKernelBeta.fc14.x86_64 #1
-> >> > > Call Trace:
-> >> > >  [<ffffffff81460e69>] ? inet_twsk_deschedule+0x29/0xa0
-> >> > >  [<ffffffff81460fd6>] ? inet_twsk_purge+0xf6/0x180
-> >> > >  [<ffffffff81460f10>] ? inet_twsk_purge+0x30/0x180
-> >> > >  [<ffffffff814760fc>] ? tcp_sk_exit_batch+0x1c/0x20
-> >> > >  [<ffffffff8141c1d3>] ? ops_exit_list.clone.0+0x53/0x60
-> >> > >  [<ffffffff8141c520>] ? cleanup_net+0x100/0x1b0
-> >> > >  [<ffffffff81068c47>] ? process_one_work+0x187/0x4b0
-> >> > >  [<ffffffff81068be1>] ? process_one_work+0x121/0x4b0
-> >> > >  [<ffffffff8141c420>] ? cleanup_net+0x0/0x1b0
-> >> > >  [<ffffffff8106a65c>] ? worker_thread+0x15c/0x330
-> >> >=20
-> >> > so it can deadlock with a BH happening at the same time, afaik.
-> >> >=20
-> >> > The code (and comment) is all from 2005, it looks like the BH->wor=
-ker
-> >> > thread has broken the code. But somebody who knows that code bette=
-r
-> >> > should take a deeper look at it.
-> >> >=20
-> >> > Added acme to the cc, since the code is attributed to him back in =
-2005
-> >> > ;). Although I don't know how active he's been in networking latel=
-y
-> >> > (seems to be all perf-related). Whatever, it can't hurt.
-> >>=20
-> >> Original code is ANK's, I just made it possible to use with DCCP, an=
-d
-> >> yeah, the smiley is appropriate, something 6 years old and the world
-> >> around it changing continually... well, thanks for the git blame ;-)
-> >
-> > But yeah, your analisys seems correct, with the bug being introduced =
-by
-> > one of these world around it changing continually issues, networking
-> > namespaces broke the rules of the game on its cleanup_net() routine,
-> > adding Pavel to the CC list since it doesn't hurt ;-)
+> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 >=20
-> Which probably gets the bug back around to me.
->=20
-> I guess this must be one of those ipv4 cases that where the cleanup
-> simply did not exist in the rmmod sense that we had to invent.
->=20
-> I think that was Daniel who did the time wait sockets.  I do remember
-> they were a real pain.
->=20
-> Would a bh_disable be sufficient?  I guess I should stop remembering an=
-d
-> look at the code now.
+> v1->v2:
+>         using skb_iif instead of new input_dev to remember original
+> 	device
+> v2->v3:
+> 	set orig_dev =3D skb->dev if skb_iif is set
 >=20
 
-Here is the patch to fix the problem
+Seems much better ;)
 
-Daniel commit (d315492b1a6ba29d (netns : fix kernel panic in timewait
-socket destruction) was OK (it did use local_bh_disable())
-
-Problem comes from commit 575f4cd5a5b6394577
-(net: Use rcu lookups in inet_twsk_purge.) added in 2.6.33
-
-Thanks !
-
-[PATCH] tcp: fix inet_twsk_deschedule()
-
-Eric W. Biederman reported a lockdep splat in inet_twsk_deschedule()
-
-This is caused by inet_twsk_purge(), run from process context,
-and commit 575f4cd5a5b6394577 (net: Use rcu lookups in inet_twsk_purge.)
-removed the BH disabling that was necessary.
-
-Add the BH disabling but fine grained, right before calling
-inet_twsk_deschedule(), instead of whole function.
-
-With help from Linus Torvalds and Eric W. Biederman
-
-Reported-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-CC: Daniel Lezcano <daniel.lezcano@free.fr>
-CC: Pavel Emelyanov <xemul@openvz.org>
-CC: Arnaldo Carvalho de Melo <acme@redhat.com>
-CC: stable <stable@kernel.org> (# 2.6.33+)
----
- net/ipv4/inet_timewait_sock.c |    2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.=
-c
-index c5af909..3c8dfa1 100644
---- a/net/ipv4/inet_timewait_sock.c
-+++ b/net/ipv4/inet_timewait_sock.c
-@@ -505,7 +505,9 @@ restart:
- 			}
-=20
- 			rcu_read_unlock();
-+			local_bh_disable();
- 			inet_twsk_deschedule(tw, twdr);
-+			local_bh_enable();
- 			inet_twsk_put(tw);
- 			goto restart_rcu;
- 		}
+Do you have some performance numbers ?
 
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+
