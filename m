@@ -1,54 +1,55 @@
-From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
-Subject: Re: [PATCH v6 0/9] net: Unified offload configuration
-Date: Sat, 19 Feb 2011 13:28:04 +0100
-Message-ID: <20110219122804.GA28326@rere.qmqm.pl>
-References: <20110217.145611.229745070.davem@davemloft.net> <20110218142238.GA18099@rere.qmqm.pl> <1298039371.2211.9.camel@localhost> <20110218.120617.71104636.davem@davemloft.net>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH 1/1] Fix "(unregistered net_device): Features changed" message
+Date: Sat, 19 Feb 2011 13:46:55 +0100 (CET)
+Message-ID: <91ead4b02ecea15feee7f5fd904a3394a9f3a07b.1298119509.git.mirq-linux@rere.qmqm.pl>
+References: <20110219122804.GA28326@rere.qmqm.pl> <20110218.120617.71104636.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:47046 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:54638 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750908Ab1BSM2G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Feb 2011 07:28:06 -0500
-Content-Disposition: inline
-In-Reply-To: <20110218.120617.71104636.davem@davemloft.net>
+	id S1751376Ab1BSMq4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 19 Feb 2011 07:46:56 -0500
+In-Reply-To: <20110219122804.GA28326@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 18, 2011 at 12:06:17PM -0800, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Fri, 18 Feb 2011 14:29:31 +0000
->=20
-> > On Fri, 2011-02-18 at 15:22 +0100, Micha=B3 Miros=B3aw wrote:
-> >> On Thu, Feb 17, 2011 at 02:56:11PM -0800, David Miller wrote:
-> > [...]
-> >> > Please get rid of that annoying message spit out by netif_featur=
-es_change(),
-> >> > it's just spam.  If we want notifications for stuff like this, u=
-se a
-> >> > non-unicast netlink message so those who want to hear it can do =
-so.
-> >> You mean netdev_update_features() "Features changed" message? Is i=
-t ok
-> >> to just demote it to DEBUG level or you want to remove it altogeth=
-er?
-> >> What about netdev_fix_features() messages?
-> > I think you need to emit these messages at 'error' severity when fi=
-xing
-> > up features for a newly-added device, but at 'debug' later on.
-> I get one several minutes after every boot for a completely
-> unregistered device for some reason:
->=20
-> [119704.730965] (unregistered net_device): Features changed: 0x000110=
-65 -> 0x00015065
+=46ix netdev_update_features() messages on register time by moving
+the call further in register_netdevice(). When
+netdev->reg_state !=3D NETREG_REGISTERED, netdev_name() returns
+"(unregistered netdevice)" even if the dev's name is already filled.
 
-Hmm. That's because netdev_update_features() get's called before changi=
-ng
-netdev->reg_state. I wonder if moving the feature update just after
-"dev->reg_state =3D NETREG_REGISTERED;" will be correct fix.
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/dev.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Best Regards,
-Micha=B3 Miros=B3aw
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 4f69439..5d8e13e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5478,8 +5478,6 @@ int register_netdevice(struct net_device *dev)
+ 	if (!(dev->wanted_features & NETIF_F_SG))
+ 		dev->wanted_features &=3D ~NETIF_F_GSO;
+=20
+-	netdev_update_features(dev);
+-
+ 	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
+ 	 * vlan_dev_init() will do the dev->features check, so these features
+ 	 * are enabled only if supported by underlying device.
+@@ -5496,6 +5494,8 @@ int register_netdevice(struct net_device *dev)
+ 		goto err_uninit;
+ 	dev->reg_state =3D NETREG_REGISTERED;
+=20
++	netdev_update_features(dev);
++
+ 	/*
+ 	 *	Default initial state at registry is that the
+ 	 *	device is present.
+--=20
+1.7.2.3
+
