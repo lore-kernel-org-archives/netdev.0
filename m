@@ -1,31 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix unreg list corruption in dev_deactivate()
-Date: Sun, 20 Feb 2011 11:50:35 -0800 (PST)
-Message-ID: <20110220.115035.39167926.davem@davemloft.net>
-References: <20110220113429.GA27047@localhost.localdomain>
-	<1298203890.8559.54.camel@edumazet-laptop>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: Question about tg3 and bnx2 driver suppliers
+Date: Sun, 20 Feb 2011 12:41:15 -0800
+Message-ID: <20110220124115.730eca80@nehalam>
+References: <3BA51C2C-B28F-4FED-BF5D-B9BF46EAF3F7@highwire.stanford.edu>
+	<1297952255.2604.115.camel@edumazet-laptop>
+	<4D615B2D.5080804@neli.hopto.org>
+	<1298229420.8559.59.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stf_xl@wp.pl, netdev@vger.kernel.org, opurdila@ixiacom.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Micha Nelissen <micha@neli.hopto.org>,
+	Michael Durket <durket@highwire.stanford.edu>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49117
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750958Ab1BTTt6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 14:49:58 -0500
-In-Reply-To: <1298203890.8559.54.camel@edumazet-laptop>
+Received: from mail.vyatta.com ([76.74.103.46]:51816 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753075Ab1BTUlU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 15:41:20 -0500
+In-Reply-To: <1298229420.8559.59.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sun, 20 Feb 2011 13:11:30 +0100
+On Sun, 20 Feb 2011 20:17:00 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> Hmm, you should read Eric B patch, he already addressed this problem a
-> few hours ago.
-> 
-> A full audit _is_ needed.
-> 
-> https://lkml.org/lkml/2011/2/20/4
+> Le dimanche 20 f=E9vrier 2011 =E0 19:19 +0100, Micha Nelissen a =E9cr=
+it :
+> > Eric Dumazet wrote:
+> > > One possible cause of packet drops is when softirqs are disabled =
+for too
+> > > long periods, even if NIC has a big RX ring (check ethtool -g eth=
+0)
+> >=20
+> > Why aren't the softirqs converted to workqueues? Wouldn't that cut=20
+> > dependencies to other softirq users and improve latency?
+> >=20
+>=20
+> Because it was done like that in the old days.
+>=20
+> Its a bit less important these days, now typical machines have 8+ cpu=
+s.
+> Each device interrupt can be handled by its own cpu :)
 
-I'll apply Eric B.'s patch to net-2.6
+The latency to schedule a work queue is still much higher
+than the latency to do a softirq. Last time I played around with it,
+things like loopback performance dropped 10% if using work queue.
