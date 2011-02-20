@@ -1,31 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH v2] net: dcb: match dcb_app protocol field with
- 802.1Qaz spec
-Date: Sat, 19 Feb 2011 19:00:59 -0800 (PST)
-Message-ID: <20110219.190059.226793529.davem@davemloft.net>
-References: <20110218233017.7419.32447.stgit@jf-dev1-dcblab>
+Subject: Re: [PATCH 0/2] netfilter: netfilter fixes for 2.6.38
+Date: Sat, 19 Feb 2011 19:01:28 -0800 (PST)
+Message-ID: <20110219.190128.71096194.davem@davemloft.net>
+References: <1298130065-14205-1-git-send-email-kaber@trash.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shmulikr@broadcom.com, netdev@vger.kernel.org
-To: john.r.fastabend@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34996
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754892Ab1BTDAX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Feb 2011 22:00:23 -0500
-In-Reply-To: <20110218233017.7419.32447.stgit@jf-dev1-dcblab>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: kaber@trash.net
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1298130065-14205-1-git-send-email-kaber@trash.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Fri, 18 Feb 2011 15:30:17 -0800
+From: kaber@trash.net
+Date: Sat, 19 Feb 2011 16:41:03 +0100
 
-> The dcb_app protocol field is a __u32 however the 802.1Qaz
-> specification defines it as a 16 bit field. This patch brings
-> the structure inline with the spec making it a __u16.
+> the following patches for two netfilter bugs:
 > 
-> CC: Shmulik Ravid <shmulikr@broadcom.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> - an oops in nfnetlink_log in combination with TPROXY when a socket
+>   in TIME-WAIT state is assigned to skb->sk, patch from Florian Westphal
+> 
+> - incorrect printing of the MAC header in the ip6t_LOG target,
+>   from Joerg Marx
+> 
+> Please apply or pull from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/kaber/nf-2.6.git master
 
-Applied.
+Pulled, thanks Patrick.
