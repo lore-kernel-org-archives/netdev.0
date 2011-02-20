@@ -1,422 +1,62 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
-Date: Sun, 20 Feb 2011 11:36:10 +0100
-Message-ID: <20110220103609.GA2750@psychotron.redhat.com>
-References: <20110218.120656.104048936.davem@davemloft.net>
- <20110218205832.GE2602@psychotron.redhat.com>
- <21593.1298070371@death>
- <20110219080523.GB2782@psychotron.redhat.com>
- <4D5FA1D7.4050801@gmail.com>
- <20110219110830.GD2782@psychotron.redhat.com>
- <20110219112842.GE2782@psychotron.redhat.com>
- <4D5FC308.9020507@gmail.com>
- <20110219134645.GF2782@psychotron.redhat.com>
- <4D6027B9.6050108@gmail.com>
+From: Stanislaw Gruszka <stf_xl@wp.pl>
+Subject: [PATCH] net: fix unreg list corruption in dev_deactivate()
+Date: Sun, 20 Feb 2011 12:34:29 +0100
+Message-ID: <20110220113429.GA27047@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, andy@greyhouse.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Octavian Purdila <opurdila@ixiacom.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10274 "EHLO mx1.redhat.com"
+Received: from mx3.wp.pl ([212.77.101.7]:48070 "EHLO mx3.wp.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752858Ab1BTKgj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Feb 2011 05:36:39 -0500
+	id S1751528Ab1BTLfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Feb 2011 06:35:09 -0500
+Received: from ip-78-102-112-198.net.upcbroadband.cz (HELO localhost) (stf_xl@wp.pl@[78.102.112.198])
+          (envelope-sender <stf_xl@wp.pl>)
+          by smtp.wp.pl (WP-SMTPD) with AES128-SHA encrypted SMTP
+          for <netdev@vger.kernel.org>; 20 Feb 2011 12:35:05 +0100
 Content-Disposition: inline
-In-Reply-To: <4D6027B9.6050108@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Feb 19, 2011 at 09:27:37PM CET, nicolas.2p.debian@gmail.com wrote:
->Le 19/02/2011 14:46, Jiri Pirko a =E9crit :
->>Sat, Feb 19, 2011 at 02:18:00PM CET, nicolas.2p.debian@gmail.com wrot=
-e:
->>>Le 19/02/2011 12:28, Jiri Pirko a =E9crit :
->>>>Sat, Feb 19, 2011 at 12:08:31PM CET, jpirko@redhat.com wrote:
->>>>>Sat, Feb 19, 2011 at 11:56:23AM CET, nicolas.2p.debian@gmail.com w=
-rote:
->>>>>>Le 19/02/2011 09:05, Jiri Pirko a =E9crit :
->>>>>>>This patch converts bonding to use rx_handler. Results in cleane=
-r
->>>>>>>__netif_receive_skb() with much less exceptions needed. Also
->>>>>>>bond-specific work is moved into bond code.
->>>>>>>
->>>>>>>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->>>>>>>
->>>>>>>v1->v2:
->>>>>>>         using skb_iif instead of new input_dev to remember orig=
-inal
->>>>>>>	device
->>>>>>>v2->v3:
->>>>>>>	set orig_dev =3D skb->dev if skb_iif is set
->>>>>>>
->>>>>>
->>>>>>Why do we need to let the rx_handlers call netif_rx() or __netif_=
-receive_skb()?
->>>>>>
->>>>>>Bonding used to be handled with very few overhead, simply replaci=
-ng
->>>>>>skb->dev with skb->dev->master. Time has passed and we eventually
->>>>>>added many special processing for bonding into __netif_receive_sk=
-b(),
->>>>>>but the overhead remained very light.
->>>>>>
->>>>>>Calling netif_rx() (or __netif_receive_skb()) to allow nesting wo=
-uld probably lead to some overhead.
->>>>>>
->>>>>>Can't we, instead, loop inside __netif_receive_skb(), and deliver
->>>>>>whatever need to be delivered, to whoever need, inside the loop ?
->>>>>>
->>>>>>rx_handler =3D rcu_dereference(skb->dev->rx_handler);
->>>>>>while (rx_handler) {
->>>>>>	/* ...  */
->>>>>>	orig_dev =3D skb->dev;
->>>>>>	skb =3D rx_handler(skb);
->>>>>>	/* ... */
->>>>>>	rx_handler =3D (skb->dev !=3D orig_dev) ? rcu_dereference(skb->d=
-ev->rx_handler) : NULL;
->>>>>>}
->>>>>>
->>>>>>This would reduce the overhead, while still allowing nesting: vla=
-n on
->>>>>>top on bonding, bridge on top on bonding, ...
->>>>>
->>>>>I see your point. Makes sense to me. But the loop would have to in=
-clude
->>>>>at least processing of ptype_all too. I'm going to cook a follow-u=
-p
->>>>>patch.
->>>>>
->>>>
->>>>DRAFT (doesn't modify rx_handlers):
->>>>
->>>>diff --git a/net/core/dev.c b/net/core/dev.c
->>>>index 4ebf7fe..e5dba47 100644
->>>>--- a/net/core/dev.c
->>>>+++ b/net/core/dev.c
->>>>@@ -3115,6 +3115,7 @@ static int __netif_receive_skb(struct sk_buff=
- *skb)
->>>>  {
->>>>  	struct packet_type *ptype, *pt_prev;
->>>>  	rx_handler_func_t *rx_handler;
->>>>+	struct net_device *dev;
->>>>  	struct net_device *orig_dev;
->>>>  	struct net_device *null_or_dev;
->>>>  	int ret =3D NET_RX_DROP;
->>>>@@ -3129,7 +3130,9 @@ static int __netif_receive_skb(struct sk_buff=
- *skb)
->>>>  	if (netpoll_receive_skb(skb))
->>>>  		return NET_RX_DROP;
->>>>
->>>>-	__this_cpu_inc(softnet_data.processed);
->>>>+	skb->skb_iif =3D skb->dev->ifindex;
->>>>+	orig_dev =3D skb->dev;
->>>
->>>orig_dev should be set inside the loop, to reflect "previously
->>>crossed device", while following the path:
->>>
->>>eth0 ->  bond0 ->  br0.
->>>
->>>First step inside loop:
->>>
->>>orig_dev =3D eth0
->>>skb->dev =3D bond0 (at the end of the loop).
->>>
->>>Second step inside loop:
->>>
->>>orig_dev =3D bond0
->>>skb->dev =3D br0 (et the end of the loop).
->>>
->>>This would allow for exact match delivery to bond0 if someone bind t=
-here.
->>>
->>>>+
->>>>  	skb_reset_network_header(skb);
->>>>  	skb_reset_transport_header(skb);
->>>>  	skb->mac_len =3D skb->network_header - skb->mac_header;
->>>>@@ -3138,12 +3141,9 @@ static int __netif_receive_skb(struct sk_buf=
-f *skb)
->>>>
->>>>  	rcu_read_lock();
->>>>
->>>>-	if (!skb->skb_iif) {
->>>>-		skb->skb_iif =3D skb->dev->ifindex;
->>>>-		orig_dev =3D skb->dev;
->>>>-	} else {
->>>>-		orig_dev =3D dev_get_by_index_rcu(dev_net(skb->dev), skb->skb_ii=
-f);
->>>>-	}
->>>
->>>I like the fact that it removes the above part.
->>>
->>>>+another_round:
->>>>+	__this_cpu_inc(softnet_data.processed);
->>>>+	dev =3D skb->dev;
->>>>
->>>>  #ifdef CONFIG_NET_CLS_ACT
->>>>  	if (skb->tc_verd&   TC_NCLS) {
->>>>@@ -3153,7 +3153,7 @@ static int __netif_receive_skb(struct sk_buff=
- *skb)
->>>>  #endif
->>>>
->>>>  	list_for_each_entry_rcu(ptype,&ptype_all, list) {
->>>>-		if (!ptype->dev || ptype->dev =3D=3D skb->dev) {
->>>>+		if (!ptype->dev || ptype->dev =3D=3D dev) {
->>>>  			if (pt_prev)
->>>>  				ret =3D deliver_skb(skb, pt_prev, orig_dev);
->>>>  			pt_prev =3D ptype;
->>>
->>>Inside the loop, we should only do exact match delivery, for
->>>&ptype_all and for&ptype_base[ntohs(type)&  PTYPE_HASH_MASK]:
->>>
->>>        list_for_each_entry_rcu(ptype,&ptype_all, list) {
->>>-               if (!ptype->dev || ptype->dev =3D=3D dev) {
->>>+               if (ptype->dev =3D=3D dev) {
->>>                        if (pt_prev)
->>>                                ret =3D deliver_skb(skb, pt_prev, or=
-ig_dev);
->>>                        pt_prev =3D ptype;
->>>                }
->>>        }
->>>
->>>
->>>        list_for_each_entry_rcu(ptype,
->>>                        &ptype_base[ntohs(type)&  PTYPE_HASH_MASK], =
-list) {
->>>                if (ptype->type =3D=3D type&&
->>>-                   (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=
-=3D skb->dev)) {
->>>+                   (ptype->dev =3D=3D skb->dev)) {
->>>                        if (pt_prev)
->>>                                ret =3D deliver_skb(skb, pt_prev, or=
-ig_dev);
->>>                        pt_prev =3D ptype;
->>>                }
->>>        }
->>>
->>>After leaving the loop, we can do wilcard delivery, if skb is not NU=
-LL.
->>>
->>>        list_for_each_entry_rcu(ptype,&ptype_all, list) {
->>>-               if (!ptype->dev || ptype->dev =3D=3D dev) {
->>>+               if (!ptype->dev) {
->>>                        if (pt_prev)
->>>                                ret =3D deliver_skb(skb, pt_prev, or=
-ig_dev);
->>>                        pt_prev =3D ptype;
->>>               }
->>>        }
->>>
->>>
->>>        list_for_each_entry_rcu(ptype,
->>>                        &ptype_base[ntohs(type)&  PTYPE_HASH_MASK], =
-list) {
->>>-               if (ptype->type =3D=3D type&&
->>>-                   (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=
-=3D skb->dev)) {
->>>+		if (ptype->type =3D=3D type&&  !ptype->dev) {
->>>                        if (pt_prev)
->>>                                ret =3D deliver_skb(skb, pt_prev, or=
-ig_dev);
->>>                        pt_prev =3D ptype;
->>>                }
->>>        }
->>>
->>>This would reduce the number of tests inside the
->>>list_for_each_entry_rcu() loops. And because we match only ptype->de=
-v
->>>=3D=3D dev inside the loop and !ptype->dev outside the loop, this sh=
-ould
->>>avoid duplicate delivery.
->>
->>Would you care to put this into patch so I can see the whole picture?
->>Thanks.
->
->Here is what I have in mind. It is based on your previous DRAFT patch,=
- and don't modify rx_handlers yet.
->
->Only compile tested !!
->
->I don't know if every pieces are at the right place. I wonder what to
->do with CONFIG_NET_CLS_ACT part, that currently is between ptype_all
->and ptype_base processing.
->
->Anyway, the general idea is there.
->
->	Nicolas.
->
-> net/core/dev.c |   70 +++++++++++++++++++++++++++++++++++++++++++++++=
-+--------
-> 1 files changed, 60 insertions(+), 10 deletions(-)
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index e5dba47..7e007a9 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -3117,7 +3117,6 @@ static int __netif_receive_skb(struct sk_buff *s=
-kb)
-> 	rx_handler_func_t *rx_handler;
-> 	struct net_device *dev;
-> 	struct net_device *orig_dev;
->-	struct net_device *null_or_dev;
-> 	int ret =3D NET_RX_DROP;
-> 	__be16 type;
->
->@@ -3130,9 +3129,6 @@ static int __netif_receive_skb(struct sk_buff *s=
-kb)
-> 	if (netpoll_receive_skb(skb))
-> 		return NET_RX_DROP;
->
->-	skb->skb_iif =3D skb->dev->ifindex;
->-	orig_dev =3D skb->dev;
->-
-> 	skb_reset_network_header(skb);
-> 	skb_reset_transport_header(skb);
-> 	skb->mac_len =3D skb->network_header - skb->mac_header;
->@@ -3143,6 +3139,8 @@ static int __netif_receive_skb(struct sk_buff *s=
-kb)
->
-> another_round:
-> 	__this_cpu_inc(softnet_data.processed);
->+	skb->skb_iif =3D skb->dev->ifindex;
->+	orig_dev =3D skb->dev;
-orig_dev should be set at the end of the loop. Now you are going to hav=
-e
-it always the same as dev and skb->dev.
+Patch fix issue introduced by 443457242beb6716b43db4d62fe148eab5515505 
+"net: factorize sync-rcu call in unregister_netdevice_many". It manifest
+on my system by following warning when removing usb wireless device.
 
-> 	dev =3D skb->dev;
->
-> #ifdef CONFIG_NET_CLS_ACT
->@@ -3152,8 +3150,13 @@ another_round:
-> 	}
-> #endif
->
->+	/*
->+	 * Deliver to ptype_all protocol handlers that match current dev.
->+	 * This happens before rx_handler is given a chance to change skb->d=
-ev.
->+	 */
->+
-> 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
->-		if (!ptype->dev || ptype->dev =3D=3D dev) {
->+		if (ptype->dev =3D=3D dev) {
-> 			if (pt_prev)
-> 				ret =3D deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev =3D ptype;
->@@ -3167,6 +3170,31 @@ another_round:
-> ncls:
-> #endif
->
->+	/*
->+	 * Deliver to ptype_base protocol handlers that match current dev.
->+	 * This happens before rx_handler is given a chance to change skb->d=
-ev.
->+	 */
->+
->+	type =3D skb->protocol;
->+	list_for_each_entry_rcu(ptype,
->+			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
->+		if (ptype->type =3D=3D type && ptype->dev =3D=3D skb->dev) {
->+			if (pt_prev)
->+				ret =3D deliver_skb(skb, pt_prev, orig_dev);
->+			pt_prev =3D ptype;
->+		}
->+	}
+[ 3539.368139] WARNING: at lib/list_debug.c:53 __list_del_entry+0x62/0x71()
+[ 3539.368149] list_del corruption. prev->next should be f035e05c, but was f1ce670c
+[ 3539.368242] Call Trace:
+[ 3539.368254]  [<c04393d7>] ? warn_slowpath_common+0x6a/0x7f
+[ 3539.368262]  [<c05bd062>] ? __list_del_entry+0x62/0x71
+[ 3539.368269]  [<c043945f>] ? warn_slowpath_fmt+0x2b/0x2f
+[ 3539.368276]  [<c05bd062>] ? __list_del_entry+0x62/0x71
+[ 3539.368286]  [<c06f6d06>] ? unregister_netdevice_queue+0x41/0x6e
+[ 3539.368322]  [<fa1ee998>] ? ieee80211_remove_interfaces+0x7b/0x9a [mac80211]
+[ 3539.368348]  [<fa1e208a>] ? ieee80211_unregister_hw+0x48/0xf9 [mac80211]
+[ 3539.368363]  [<fa223903>] ? rt2x00lib_remove_dev+0x76/0xd1 [rt2x00lib]
+[ 3539.368372]  [<fa2770b1>] ? rt2x00usb_disconnect+0x29/0x8c [rt2x00usb]
+[ 3539.368382]  [<c069ef8c>] ? usb_unbind_interface+0x48/0xfd
 
-I'm not sure it is ok to deliver ptype_base here. See comment above
-ptype_head() (I'm not sure I understand that correctly)
+I'm no longer seeing warning with patch applied.
 
->+
->+	/*
->+	 * Call rx_handler for current device.
->+	 * If rx_handler return NULL, skip wilcard protocol handler delivery=
-=2E
->+	 * Else, if skb->dev changed, restart the whole delivery process, to
->+	 * allow for device nesting.
->+	 *
->+	 * Warning:
->+	 * rx_handlers must kfree_skb(skb) if they return NULL.
-Well this is not true. They can return NULL and call netif_rx as they
-have before. No changes necessary I believe.
+Signed-off-by: Stanislaw Gruszka <stf_xl@wp.pl>
+---
+I did not try review related code. I think someone who understand it,
+should audit it carefully to exclude similar issues. Adding
+dev->unreg_list to various local list, when device will not gonna be
+destroyed looks really fishy.
 
->+	 */
->+
-> 	rx_handler =3D rcu_dereference(dev->rx_handler);
-> 	if (rx_handler) {
-> 		if (pt_prev) {
->@@ -3176,10 +3204,15 @@ ncls:
-> 		skb =3D rx_handler(skb);
-> 		if (!skb)
-> 			goto out;
->-		if (dev !=3D skb->dev)
->+		if (skb->dev !=3D dev)
-> 			goto another_round;
-> 	}
->
->+	/*
->+	 * FIXME: The part below should use rx_handler instead of being hard
->+	 * coded here.
-I'm not sure it is doable atm. For bridge and bond it should not be a
-problem, but for macvlan, there is possible to have macvlans and vlans
-on the same dev. This possibility should persist.
-/me scratches head on the idea to have multiple rx_handlers although it
-was his original idea....
-
-
->+	 */
->+
-> 	if (vlan_tx_tag_present(skb)) {
-> 		if (pt_prev) {
-> 			ret =3D deliver_skb(skb, pt_prev, orig_dev);
->@@ -3192,16 +3225,33 @@ ncls:
-> 			goto out;
-> 	}
->
->+	/*
->+	 * FIXME: Can't this be moved into the rx_handler for bonding,
->+	 * or into a futur rx_handler for vlan?
-This hook is something I do not like at all :/ But anyway if should be =
-in vlan
-part I think.
-
->+	 */
->+
-> 	vlan_on_bond_hook(skb);
->
->-	/* deliver only exact match when indicated */
->-	null_or_dev =3D skb->deliver_no_wcard ? skb->dev : NULL;
->+	/*
->+	 * Deliver to wildcard ptype_all protocol handlers.
->+	 */
->+
->+	list_for_each_entry_rcu(ptype, &ptype_all, list) {
->+		if (!ptype->dev) {
->+			if (pt_prev)
->+				ret =3D deliver_skb(skb, pt_prev, orig_dev);
->+			pt_prev =3D ptype;
->+		}
->+	}
->+
->+	/*
->+	 * Deliver to wildcard ptype_all protocol handlers.
->+	 */
->
-> 	type =3D skb->protocol;
-> 	list_for_each_entry_rcu(ptype,
-> 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
->-		if (ptype->type =3D=3D type &&
->-		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev)) =
-{
->+		if (ptype->type =3D=3D type && !ptype->dev) {
-> 			if (pt_prev)
-> 				ret =3D deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev =3D ptype;
->--=20
->1.7.2.3
->
->
->
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index 34dc598..1bc6980 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -839,6 +839,7 @@ void dev_deactivate(struct net_device *dev)
+ 
+ 	list_add(&dev->unreg_list, &single);
+ 	dev_deactivate_many(&single);
++	list_del(&single);
+ }
+ 
+ static void dev_init_scheduler_queue(struct net_device *dev,
