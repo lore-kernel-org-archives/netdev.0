@@ -1,67 +1,194 @@
 From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH]tcp: document tcp_max_ssthresh (Limited Slow-Start)
-Date: Sun, 20 Feb 2011 15:52:41 +0800
-Message-ID: <4D60C849.40905@cn.fujitsu.com>
+Subject: [PATCH] tcp: Remove debug macro of TCP_CHECK_TIMER
+Date: Sun, 20 Feb 2011 15:55:45 +0800
+Message-ID: <4D60C901.8050307@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: =?UTF-8?B?SWxwbyBKw6RydmluZW4=?= <ilpo.jarvinen@helsinki.fi>,
-	David Miller <davem@davemloft.net>,
-	Network-Maillist <netdev@vger.kernel.org>, jheffner@psc.edu
+Content-Transfer-Encoding: 7bit
+To: David Miller <davem@davemloft.net>,
+	Network-Maillist <netdev@vger.kernel.org>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org,
+	Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:54574 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:52690 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751702Ab1BTHze convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 02:55:34 -0500
+	id S1751731Ab1BTH6R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Feb 2011 02:58:17 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
 
-Base on Ilpo's patch about documenting tcp_max_ssthresh.
-(see http://marc.info/?l=3Dlinux-netdev&m=3D117950581307310&w=3D2)
+Now, TCP_CHECK_TIMER is not used for debuging, it does nothing.
+And, it has been there for several years, maybe 6 years.
 
-According to errata of RFC3742, fix the number of segments increased=20
-during RTT time.=20
+Remove it to keep code clearer.
 
-Just to state the occasion to use this parameter, But
-about how to set parameter value, maybe some others can do it.=20
-
-
-Signed-off-by: Ilpo J=C3=A4rvinen <ilpo.jarvinen@helsinki.fi>
 Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
 ---
- Documentation/networking/ip-sysctl.txt |   11 +++++++++++
- 1 files changed, 11 insertions(+), 0 deletions(-)
+ include/net/tcp.h    |    2 --
+ net/ipv4/tcp.c       |    9 ---------
+ net/ipv4/tcp_ipv4.c  |    5 -----
+ net/ipv4/tcp_timer.c |    3 ---
+ net/ipv6/tcp_ipv6.c  |    4 ----
+ 5 files changed, 0 insertions(+), 23 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/net=
-working/ip-sysctl.txt
-index ac3b4a7..ea78aac 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -280,6 +280,17 @@ tcp_max_orphans - INTEGER
- 	more aggressively. Let me to remind again: each orphan eats
- 	up to ~64K of unswappable memory.
-=20
-+tcp_max_ssthresh - INTEGER
-+	Limited Slow-Start for TCP with large congestion windows (cwnd) defin=
-ed in
-+	RFC3742. Limited slow-start is a mechanism to limit growth of the cwn=
-d
-+	on the region where cwnd is larger than tcp_max_ssthresh. TCP increas=
-es cwnd
-+	by at most tcp_max_ssthresh segments, and by at least tcp_max_ssthres=
-h/2
-+	segments per RTT when the cwnd is above tcp_max_ssthresh.
-+	If TCP connection increased cwnd to thousands (or tens of thousands) =
-segments,
-+	and thousands of packets were being dropped during slow-start, you ca=
-n set
-+	tcp_max_ssthresh to improve performance for new TCP connection.
-+	Default: 0 (off)
-+
- tcp_max_syn_backlog - INTEGER
- 	Maximal number of remembered connection requests, which are
- 	still did not receive an acknowledgment from connecting client.
---=20
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index adfe6db..cda30ea 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -1068,8 +1068,6 @@ static inline int tcp_paws_reject(const struct tcp_options_received *rx_opt,
+ 	return 1;
+ }
+ 
+-#define TCP_CHECK_TIMER(sk) do { } while (0)
+-
+ static inline void tcp_mib_init(struct net *net)
+ {
+ 	/* See RFC 2012 */
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f9867d2..a17a5a7 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -873,9 +873,7 @@ int tcp_sendpage(struct sock *sk, struct page *page, int offset,
+ 					flags);
+ 
+ 	lock_sock(sk);
+-	TCP_CHECK_TIMER(sk);
+ 	res = do_tcp_sendpages(sk, &page, offset, size, flags);
+-	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
+ 	return res;
+ }
+@@ -916,7 +914,6 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	long timeo;
+ 
+ 	lock_sock(sk);
+-	TCP_CHECK_TIMER(sk);
+ 
+ 	flags = msg->msg_flags;
+ 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
+@@ -1104,7 +1101,6 @@ wait_for_memory:
+ out:
+ 	if (copied)
+ 		tcp_push(sk, flags, mss_now, tp->nonagle);
+-	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
+ 	return copied;
+ 
+@@ -1123,7 +1119,6 @@ do_error:
+ 		goto out;
+ out_err:
+ 	err = sk_stream_error(sk, flags, err);
+-	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
+ 	return err;
+ }
+@@ -1415,8 +1410,6 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 
+ 	lock_sock(sk);
+ 
+-	TCP_CHECK_TIMER(sk);
+-
+ 	err = -ENOTCONN;
+ 	if (sk->sk_state == TCP_LISTEN)
+ 		goto out;
+@@ -1767,12 +1760,10 @@ skip_copy:
+ 	/* Clean up data we have read: This will do ACK frames. */
+ 	tcp_cleanup_rbuf(sk, copied);
+ 
+-	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
+ 	return copied;
+ 
+ out:
+-	TCP_CHECK_TIMER(sk);
+ 	release_sock(sk);
+ 	return err;
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index e2b9be2..ef5a90b 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1556,12 +1556,10 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
+ 		sock_rps_save_rxhash(sk, skb->rxhash);
+-		TCP_CHECK_TIMER(sk);
+ 		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len)) {
+ 			rsk = sk;
+ 			goto reset;
+ 		}
+-		TCP_CHECK_TIMER(sk);
+ 		return 0;
+ 	}
+ 
+@@ -1583,13 +1581,10 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 	} else
+ 		sock_rps_save_rxhash(sk, skb->rxhash);
+ 
+-
+-	TCP_CHECK_TIMER(sk);
+ 	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len)) {
+ 		rsk = sk;
+ 		goto reset;
+ 	}
+-	TCP_CHECK_TIMER(sk);
+ 	return 0;
+ 
+ reset:
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 74a6aa0..ecd44b0 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -259,7 +259,6 @@ static void tcp_delack_timer(unsigned long data)
+ 		tcp_send_ack(sk);
+ 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_DELAYEDACKS);
+ 	}
+-	TCP_CHECK_TIMER(sk);
+ 
+ out:
+ 	if (tcp_memory_pressure)
+@@ -481,7 +480,6 @@ static void tcp_write_timer(unsigned long data)
+ 		tcp_probe_timer(sk);
+ 		break;
+ 	}
+-	TCP_CHECK_TIMER(sk);
+ 
+ out:
+ 	sk_mem_reclaim(sk);
+@@ -589,7 +587,6 @@ static void tcp_keepalive_timer (unsigned long data)
+ 		elapsed = keepalive_time_when(tp) - elapsed;
+ 	}
+ 
+-	TCP_CHECK_TIMER(sk);
+ 	sk_mem_reclaim(sk);
+ 
+ resched:
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index d6954e3..1d0ab55 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1636,10 +1636,8 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 		opt_skb = skb_clone(skb, GFP_ATOMIC);
+ 
+ 	if (sk->sk_state == TCP_ESTABLISHED) { /* Fast path */
+-		TCP_CHECK_TIMER(sk);
+ 		if (tcp_rcv_established(sk, skb, tcp_hdr(skb), skb->len))
+ 			goto reset;
+-		TCP_CHECK_TIMER(sk);
+ 		if (opt_skb)
+ 			goto ipv6_pktoptions;
+ 		return 0;
+@@ -1667,10 +1665,8 @@ static int tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	TCP_CHECK_TIMER(sk);
+ 	if (tcp_rcv_state_process(sk, skb, tcp_hdr(skb), skb->len))
+ 		goto reset;
+-	TCP_CHECK_TIMER(sk);
+ 	if (opt_skb)
+ 		goto ipv6_pktoptions;
+ 	return 0;
+-- 
 1.6.3.3
