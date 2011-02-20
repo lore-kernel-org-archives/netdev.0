@@ -1,58 +1,113 @@
-From: Henry Nestler <henry.nestler@gmail.com>
-Subject: [PATCH 2/2] DM9000B: Fix PHY power for network down/up
-Date: Sun, 20 Feb 2011 22:45:01 +0100
-Message-ID: <4D618B5D.5040001@henry.nestler.mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] route_bench: Filter out all responses.
+Date: Sun, 20 Feb 2011 14:04:50 -0800 (PST)
+Message-ID: <20110220.140450.48516784.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, tori@unhappy.mine.nu,
-	linux-arm-kernel@lists.infradead.org
+Cc: pablo@netfilter.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:36093 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755038Ab1BTVpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 16:45:04 -0500
-Received: by fxm17 with SMTP id 17so910905fxm.19
-        for <netdev@vger.kernel.org>; Sun, 20 Feb 2011 13:45:03 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56859
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755211Ab1BTWEN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 17:04:13 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DM9000 revision B needs 1 ms delay after PHY power on (see spec), and PHY
-power must on in register DM9000_GPR before all other settings will change.
-Remember, that register DM9000_GPR was not changed by reset sequence.
 
-Without these fix the FIFO goes out of sync and sends wrong data after
-sequence of "ifconfig ethX down ; sleep 3 ; ifconfig ethX up".
+Install a socket filter to reduce the pure netlink overhead.
+
+Unfortunately the libmnl library does not provide a way to
+set socket options that are of level other than SOL_NETLINK.
+
+So we hack it by knowing some things about libmnl internals.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
-Kernel version 2.6.38-rc5
 
- drivers/net/dm9000.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+The knowledge of libmnl internals is unfortunate, but there
+is currently no other way to do this.
 
-diff --git a/drivers/net/dm9000.c b/drivers/net/dm9000.c
-index 2d4c4fc..5925569 100644
---- a/drivers/net/dm9000.c
-+++ b/drivers/net/dm9000.c
-@@ -802,10 +802,7 @@ dm9000_init_dm9000(struct net_device *dev)
- 	/* Checksum mode */
- 	dm9000_set_rx_csum_unlocked(dev, db->rx_csum);
- 
--	/* GPIO0 on pre-activate PHY */
--	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
- 	iow(db, DM9000_GPCR, GPCR_GEP_CNTL);	/* Let GPIO0 output */
--	iow(db, DM9000_GPR, 0);	/* Enable PHY */
- 
- 	ncr = (db->flags & DM9000_PLATF_EXT_PHY) ? NCR_EXT_PHY : 0;
- 
-@@ -1194,6 +1191,10 @@ dm9000_open(struct net_device *dev)
- 	if (request_irq(dev->irq, dm9000_interrupt, irqflags, dev->name, dev))
- 		return -EAGAIN;
- 
-+	/* GPIO0 on pre-activate PHY, Reg 1F is not set by reset */
-+	iow(db, DM9000_GPR, 0);	/* REG_1F bit0 activate phyxcer */
-+	udelay(1000); /* delay needs by DM9000B */
+ route_bench.c |   33 +++++++++++++++++++++++++--------
+ 1 files changed, 25 insertions(+), 8 deletions(-)
+
+diff --git a/route_bench.c b/route_bench.c
+index c75ea45..6c6b525 100644
+--- a/route_bench.c
++++ b/route_bench.c
+@@ -22,6 +22,17 @@
+ #include <linux/if.h>
+ #include <linux/if_link.h>
+ #include <linux/rtnetlink.h>
++#include <linux/filter.h>
 +
- 	/* Initialize DM9000 board */
- 	dm9000_reset(db);
- 	dm9000_init_dm9000(dev);
++/* XXX Ugly knowledge of internals, but there is currently no way
++ * XXX provided by the libmnl library to set socket options that are
++ * XXX of level other than SOL_NETLINK.   And we need to set one of
++ * XXX level SOL_SOCKET to install the socket filter.
++ */
++struct mnl_socket {
++	int 			fd;
++	struct sockaddr_nl	addr;
++};
+ 
+ static int usage(void)
+ {
+@@ -139,8 +150,10 @@ static int do_bench(int count, in_addr_t src_addr, in_addr_t dst_addr,
+ 		    unsigned int mark, unsigned int iif)
+ {
+ 	char send_buf[MNL_SOCKET_BUFFER_SIZE];
+-	char recv_buf[MNL_SOCKET_BUFFER_SIZE];
+ 	unsigned int min, sec, frac, tmp;
++	struct sock_filter insns = { .code = BPF_RET | BPF_K,
++				     .k = 0 };
++	struct sock_fprog filter = { .len = 1, .filter = &insns, };
+ 	struct bench_state *s = &state;
+ 	struct timeval start_time;
+ 	struct timeval end_time;
+@@ -148,7 +161,7 @@ static int do_bench(int count, in_addr_t src_addr, in_addr_t dst_addr,
+ 	struct nlmsghdr *nlh;
+ 	unsigned int portid;
+ 	struct rtmsg *rtm;
+-	int i;
++	int i, err;
+ 
+ 	init_bench_state(s);
+ 
+@@ -165,10 +178,15 @@ static int do_bench(int count, in_addr_t src_addr, in_addr_t dst_addr,
+ 
+ 	portid = mnl_socket_get_portid(nl);
+ 
++	err = setsockopt(nl->fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
++	if (err) {
++		perror("setsockopt");
++		return -1;
++	}
++
+ 	gettimeofday(&start_time, NULL);
+ 	for (i = 0; i < count; i++) {
+ 		unsigned int seq;
+-		int ret;
+ 
+ 		nlh = mnl_nlmsg_put_header(send_buf);
+ 		nlh->nlmsg_type = RTM_GETROUTE;
+@@ -197,11 +215,10 @@ static int do_bench(int count, in_addr_t src_addr, in_addr_t dst_addr,
+ 			perror("mnl_socket_sendto");
+ 			return -1;
+ 		}
+-		ret = mnl_socket_recvfrom(nl, recv_buf, sizeof(recv_buf));
+-		if (ret < 0) {
+-			perror("mnl_sock_recvfrom");
+-			return -1;
+-		}
++
++		/* No need to do a receive, as the socket filter rejects
++		 * all packets.
++		 */
+ 
+ 		advance_bench_state(s);
+ 	}
+-- 
+1.7.4.1
+
