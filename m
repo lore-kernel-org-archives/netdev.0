@@ -1,51 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: fix inet_twsk_deschedule()
-Date: Sat, 19 Feb 2011 18:59:46 -0800 (PST)
-Message-ID: <20110219.185946.193690650.davem@davemloft.net>
-References: <20110218191146.GG13211@ghostprotocols.net>
-	<m1sjvl2i3q.fsf@fess.ebiederm.org>
-	<1298104556.8559.21.camel@edumazet-laptop>
+Subject: Re: [net-2.6 PATCH v2] net: dcb: match dcb_app protocol field with
+ 802.1Qaz spec
+Date: Sat, 19 Feb 2011 19:00:59 -0800 (PST)
+Message-ID: <20110219.190059.226793529.davem@davemloft.net>
+References: <20110218233017.7419.32447.stgit@jf-dev1-dcblab>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, acme@redhat.com, torvalds@linux-foundation.org,
- mhocko@suse.cz, mingo@elte.hu, linux-mm@kvack.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org, xemul@openvz.org,
- daniel.lezcano@free.fr
-To: eric.dumazet@gmail.com
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1298104556.8559.21.camel@edumazet-laptop>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Cc: shmulikr@broadcom.com, netdev@vger.kernel.org
+To: john.r.fastabend@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:34996
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754892Ab1BTDAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Feb 2011 22:00:23 -0500
+In-Reply-To: <20110218233017.7419.32447.stgit@jf-dev1-dcblab>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 19 Feb 2011 09:35:56 +0100
+From: John Fastabend <john.r.fastabend@intel.com>
+Date: Fri, 18 Feb 2011 15:30:17 -0800
 
-> [PATCH] tcp: fix inet_twsk_deschedule()
+> The dcb_app protocol field is a __u32 however the 802.1Qaz
+> specification defines it as a 16 bit field. This patch brings
+> the structure inline with the spec making it a __u16.
 > 
-> Eric W. Biederman reported a lockdep splat in inet_twsk_deschedule()
-> 
-> This is caused by inet_twsk_purge(), run from process context,
-> and commit 575f4cd5a5b6394577 (net: Use rcu lookups in inet_twsk_purge.)
-> removed the BH disabling that was necessary.
-> 
-> Add the BH disabling but fine grained, right before calling
-> inet_twsk_deschedule(), instead of whole function.
-> 
-> With help from Linus Torvalds and Eric W. Biederman
-> 
-> Reported-by: Eric W. Biederman <ebiederm@xmission.com>
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> CC: Daniel Lezcano <daniel.lezcano@free.fr>
-> CC: Pavel Emelyanov <xemul@openvz.org>
-> CC: Arnaldo Carvalho de Melo <acme@redhat.com>
-> CC: stable <stable@kernel.org> (# 2.6.33+)
+> CC: Shmulik Ravid <shmulikr@broadcom.com>
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
 
-Applied, thanks Eric.
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Applied.
