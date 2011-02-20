@@ -1,62 +1,44 @@
-From: arnd@arndb.de
-Subject: Re: Advice on network driver design
-Date: Sun, 20 Feb 2011 20:13:34 +0100
-Message-ID: <201102202013.34994.arnd@arndb.de>
-References: <4D5FC7A7.5050704@embedded-sol.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Question about tg3 and bnx2 driver suppliers
+Date: Sun, 20 Feb 2011 20:17:00 +0100
+Message-ID: <1298229420.8559.59.camel@edumazet-laptop>
+References: <3BA51C2C-B28F-4FED-BF5D-B9BF46EAF3F7@highwire.stanford.edu>
+	 <1297952255.2604.115.camel@edumazet-laptop>
+	 <4D615B2D.5080804@neli.hopto.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Felix Radensky <felix@embedded-sol.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Michael Durket <durket@highwire.stanford.edu>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Micha Nelissen <micha@neli.hopto.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:55603 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752991Ab1BTTNq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 14:13:46 -0500
-In-Reply-To: <4D5FC7A7.5050704@embedded-sol.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:59861 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754256Ab1BTTRJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 14:17:09 -0500
+Received: by fxm17 with SMTP id 17so844893fxm.19
+        for <netdev@vger.kernel.org>; Sun, 20 Feb 2011 11:17:07 -0800 (PST)
+In-Reply-To: <4D615B2D.5080804@neli.hopto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 19 February 2011 14:37:43 Felix Radensky wrote:
-> Hi,
-> 
-> I'm in the process of designing a network driver for a custom
-> hardware and would like to get some advice from linux network
-> gurus.
-> 
-> The host platform is Freescale P2020. The custom hardware is
-> FPGA with several TX FIFOs, single RX FIFO and a set of registers.
-> FPGA is connected to CPU via PCI-E. Host CPU DMA controller is used
-> to get packets to/from FIFOs. Each FIFO has its set of events, 
-> generating interrupts, which can be enabled and disabled. Status 
-> register reflects the current state of events, the bit in status 
-> register is cleared by FPGA when event is handled. Reads or writes to 
-> status register have no impact on its contents.
-> 
-> The device driver should support 80Mbit/sec of traffic in each direction.
-> 
-> So far I have TX side working. I'm using Linux dmaengine APIs to
-> transfer packets to FIFOs. The DMA completion interrupt is handled
-> by per-fifo work queue.
-> 
-> My question is about RX. Would such design benefit from NAPI ?
-> If my understanding of NAPI is correct, it runs in softirq context,
-> so I cannot do any DMA work in dev->poll(). If I were to use NAPI,
-> I should probably disable RX interrupts, do all DMA work in some
-> work queue, keep RX packets in a list and only then call dev->poll().
-> Is that correct ?
-> 
-> Any other advice and how to write an efficient driver for this 
-> hardware is most welcome. I can influence FPGA design to some degree, 
-> so if you think FPGA should be changed to improve things, please let 
-> me know.
+Le dimanche 20 f=C3=A9vrier 2011 =C3=A0 19:19 +0100, Micha Nelissen a =C3=
+=A9crit :
+> Eric Dumazet wrote:
+> > One possible cause of packet drops is when softirqs are disabled fo=
+r too
+> > long periods, even if NIC has a big RX ring (check ethtool -g eth0)
+>=20
+> Why aren't the softirqs converted to workqueues? Wouldn't that cut=20
+> dependencies to other softirq users and improve latency?
+>=20
 
-There are currently discussions ongoing about using virtio for this
-kind of connection. See http://www.mail-archive.com/linuxppc-dev@lists.ozlabs.org/msg49294.html
-for an archive.
+Because it was done like that in the old days.
 
-When you use virtio as the base, you can use the regular virtio-net
-driver or any other virtio high-level driver on top.
+Its a bit less important these days, now typical machines have 8+ cpus.
+Each device interrupt can be handled by its own cpu :)
 
-	Arnd
+
+
+
+
