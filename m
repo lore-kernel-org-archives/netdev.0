@@ -1,48 +1,32 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: Question about tg3 and bnx2 driver suppliers
-Date: Sun, 20 Feb 2011 12:41:15 -0800
-Message-ID: <20110220124115.730eca80@nehalam>
-References: <3BA51C2C-B28F-4FED-BF5D-B9BF46EAF3F7@highwire.stanford.edu>
-	<1297952255.2604.115.camel@edumazet-laptop>
-	<4D615B2D.5080804@neli.hopto.org>
-	<1298229420.8559.59.camel@edumazet-laptop>
+From: Felix Radensky <felix@embedded-sol.com>
+Subject: Re: Advice on network driver design
+Date: Sun, 20 Feb 2011 23:01:32 +0200
+Message-ID: <4D61812C.2000003@embedded-sol.com>
+References: <4D5FC7A7.5050704@embedded-sol.com> <4D615A1E.5070002@neli.hopto.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Micha Nelissen <micha@neli.hopto.org>,
-	Michael Durket <durket@highwire.stanford.edu>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Micha Nelissen <micha@neli.hopto.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51816 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753075Ab1BTUlU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 15:41:20 -0500
-In-Reply-To: <1298229420.8559.59.camel@edumazet-laptop>
+Received: from sh78.surpasshosting.com ([72.29.64.142]:42540 "EHLO
+	sh78.surpasshosting.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753548Ab1BTVBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Feb 2011 16:01:23 -0500
+In-Reply-To: <4D615A1E.5070002@neli.hopto.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 20 Feb 2011 20:17:00 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi Micha
 
-> Le dimanche 20 f=E9vrier 2011 =E0 19:19 +0100, Micha Nelissen a =E9cr=
-it :
-> > Eric Dumazet wrote:
-> > > One possible cause of packet drops is when softirqs are disabled =
-for too
-> > > long periods, even if NIC has a big RX ring (check ethtool -g eth=
-0)
-> >=20
-> > Why aren't the softirqs converted to workqueues? Wouldn't that cut=20
-> > dependencies to other softirq users and improve latency?
-> >=20
->=20
-> Because it was done like that in the old days.
->=20
-> Its a bit less important these days, now typical machines have 8+ cpu=
-s.
-> Each device interrupt can be handled by its own cpu :)
+On 02/20/2011 08:14 PM, Micha Nelissen wrote:
+> Felix Radensky wrote:
+>> The host platform is Freescale P2020. The custom hardware is
+>> FPGA with several TX FIFOs, single RX FIFO and a set of registers.
+>
+> Wasn't it easier to use the in-SOC ethernet controllers?
 
-The latency to schedule a work queue is still much higher
-than the latency to do a softirq. Last time I played around with it,
-things like loopback performance dropped 10% if using work queue.
+FPGA talks some satellite protocol to the outside world, so the
+target box is essentially a ethernet to satellite router.
+
+Felix.
