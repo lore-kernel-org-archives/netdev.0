@@ -1,62 +1,50 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the driver-core tree
-Date: Mon, 21 Feb 2011 17:02:26 +1100
-Message-ID: <20110221170226.c43175f7.sfr@canb.auug.org.au>
+From: Philip Prindeville <philipp_subx@redfish-solutions.com>
+Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
+Date: Sun, 20 Feb 2011 22:01:00 -0800
+Message-ID: <4D61FF9C.3080208@redfish-solutions.com>
+References: <4B4CE2B8.1040702@redfish-solutions.com>	<20100112.130355.144803575.davem@davemloft.net>	<4B9943A4.8040606@redfish-solutions.com>	<20100311.112941.177105216.davem@davemloft.net> <m3tyslyej6.fsf@ursa.amorsen.dk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Mon__21_Feb_2011_17_02_26_+1100_zuUUFtN+lJFISuP."
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Ilya Yanok <yanok@emcraft.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Greg KH <greg@kroah.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
+To: Benny Amorsen <benny+usenet@amorsen.dk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chilli.pcug.org.au ([203.10.76.44]:53441 "EHLO smtps.tip.net.au"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751528Ab1BUGCg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Feb 2011 01:02:36 -0500
+Received: from mail.redfish-solutions.com ([66.232.79.143]:46760 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754210Ab1BUGUt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 01:20:49 -0500
+In-Reply-To: <m3tyslyej6.fsf@ursa.amorsen.dk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Signature=_Mon__21_Feb_2011_17_02_26_+1100_zuUUFtN+lJFISuP.
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On 3/12/10 3:18 AM, Benny Amorsen wrote:
+> David Miller<davem@davemloft.net>  writes:
+>
+>> Look, this doesn't work.  QoS handling and policy belongs in the
+>> egress point to the network, it's the only way to control this
+>> properly and prevent abuse.
+> First, QoS is important even within the network. Modern switches come
+> pre-configured with sane defaults which ensure that e.g. EF marked
+> packets get priority over non-EF-marked packets. Cisco, HP, and
+> Linksys-Cisco at least provide a decent out-of-the-box configuration.
+>
+> This can obviously be abused, but the solution there is the same as in
+> network abuses: Either apply the LART or change the configuration of the
+> switches to be less trusting. We haven't, so far, had a customer where
+> the LART was necessary, much less had to reconfigure a switch.
+>
+> So why not let Linux provide the same out-of-the-box experience as the
+> switches do? If the trust is abused Linux provides lots of tools to make
+> it less trusting or even to punish the abusers.
+>
+>
+> /Benny
 
-Hi Greg,
+For those who want to use DiffServ as the out-of-the-box default configuration, and trust the marking on their traffic, I don't understand why certain folks are so adamant about not supporting this.
 
-After merging the driver-core tree, today's linux-next build (x86_64
-allmodconfig) produced this warning:
+Torsten's patch to allow rt_tos2priority() to use IPTOS_PRECEDENCE() instead seemed reasonable.
 
-drivers/net/dnet.c: In function 'dnet_mii_init':
-drivers/net/dnet.c:340: warning: passing argument 1 of 'platform_set_drvdat=
-a' from incompatible pointer type
-include/linux/platform_device.h:138: note: expected 'struct platform_device=
- *' but argument is of type 'struct net_device *'
+Especially in a network using 802.1p or 802.1q encapsulation.
 
-Revealed by commit 71d642908d4e8e7a2a4a6e0490432e719ff466d5 ("Driver
-core: convert platform_{get,set}_drvdata to static inline functions").
-Introduced by commit 4796417417a62e2ae83d92cb92e1ecf9ec67b5f5 ("dnet:
-Dave DNET ethernet controller driver (updated)").
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
 
---Signature=_Mon__21_Feb_2011_17_02_26_+1100_zuUUFtN+lJFISuP.
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNYf/yAAoJEDMEi1NhKgbszosH/3TrbJUsYqDikPQFxnk1FuAm
-AfB7gonSdoDfT0kF1Q0c0V3h3sRKiHA175kkV3Hq9olbjsqKgYLbfB6JHznV8iTL
-l/Nd4RXlTTHiUPu2q2x3cI/fNMPE20dAaipuBYHa72qH6rNZ3JFjyqlqToPG4/IX
-Vd5x5hWZ5nyuxZ0vV8ARz4kHpgNZv4cbaLRq3E/t2zqFKEGcrp5rtqkoxhHYP5Ow
-+rPg7zLVPXB2r0xegwDvDr2v8VtPJ36h80bveUA1b9xNZh43oqufEZvt5djDlh27
-c4krt+iD9bJbEfsgnc943Q3yYlRD8OPbBqeWoNZxWH1mIJgvrYCSMRdbTmRoGR0=
-=ebad
------END PGP SIGNATURE-----
-
---Signature=_Mon__21_Feb_2011_17_02_26_+1100_zuUUFtN+lJFISuP.--
