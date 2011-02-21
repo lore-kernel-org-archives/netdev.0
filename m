@@ -1,50 +1,40 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Re: [PATCH] ipv4: add DiffServ priority based routing
-Date: Sun, 20 Feb 2011 22:01:00 -0800
-Message-ID: <4D61FF9C.3080208@redfish-solutions.com>
-References: <4B4CE2B8.1040702@redfish-solutions.com>	<20100112.130355.144803575.davem@davemloft.net>	<4B9943A4.8040606@redfish-solutions.com>	<20100311.112941.177105216.davem@davemloft.net> <m3tyslyej6.fsf@ursa.amorsen.dk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	torsten.schmidt@s2006.tu-chemnitz.de, netdev@vger.kernel.org
-To: Benny Amorsen <benny+usenet@amorsen.dk>
+From: "Justin P. Mattock" <justinmattock@gmail.com>
+Subject: [PATCH]drivers:isdn:istream.c Fix typo pice to piece
+Date: Sun, 20 Feb 2011 22:31:21 -0800
+Message-ID: <1298269881-2754-1-git-send-email-justinmattock@gmail.com>
+Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	"Justin P. Mattock" <justinmattock@gmail.com>
+To: trivial@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:46760 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754210Ab1BUGUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 01:20:49 -0500
-In-Reply-To: <m3tyslyej6.fsf@ursa.amorsen.dk>
+Received: from mail-pv0-f174.google.com ([74.125.83.174]:35501 "EHLO
+	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778Ab1BUGbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 01:31:39 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 3/12/10 3:18 AM, Benny Amorsen wrote:
-> David Miller<davem@davemloft.net>  writes:
->
->> Look, this doesn't work.  QoS handling and policy belongs in the
->> egress point to the network, it's the only way to control this
->> properly and prevent abuse.
-> First, QoS is important even within the network. Modern switches come
-> pre-configured with sane defaults which ensure that e.g. EF marked
-> packets get priority over non-EF-marked packets. Cisco, HP, and
-> Linksys-Cisco at least provide a decent out-of-the-box configuration.
->
-> This can obviously be abused, but the solution there is the same as in
-> network abuses: Either apply the LART or change the configuration of the
-> switches to be less trusting. We haven't, so far, had a customer where
-> the LART was necessary, much less had to reconfigure a switch.
->
-> So why not let Linux provide the same out-of-the-box experience as the
-> switches do? If the trust is abused Linux provides lots of tools to make
-> it less trusting or even to punish the abusers.
->
->
-> /Benny
+The below patch changes a typo "pice" to "piece"
 
-For those who want to use DiffServ as the out-of-the-box default configuration, and trust the marking on their traffic, I don't understand why certain folks are so adamant about not supporting this.
+Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
 
-Torsten's patch to allow rt_tos2priority() to use IPTOS_PRECEDENCE() instead seemed reasonable.
+---
+ drivers/isdn/hardware/eicon/istream.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Especially in a network using 802.1p or 802.1q encapsulation.
-
+diff --git a/drivers/isdn/hardware/eicon/istream.c b/drivers/isdn/hardware/eicon/istream.c
+index 18f8798..7bd5baa 100644
+--- a/drivers/isdn/hardware/eicon/istream.c
++++ b/drivers/isdn/hardware/eicon/istream.c
+@@ -62,7 +62,7 @@ void diva_xdi_provide_istream_info (ADAPTER* a,
+   stream interface.
+   If synchronous service was requested, then function
+   does return amount of data written to stream.
+-  'final' does indicate that pice of data to be written is
++  'final' does indicate that piece of data to be written is
+   final part of frame (necessary only by structured datatransfer)
+   return  0 if zero lengh packet was written
+   return -1 if stream is full
+-- 
+1.6.5.2.180.gc5b3e
 
