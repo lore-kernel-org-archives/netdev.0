@@ -1,18 +1,18 @@
 From: Amit Kumar Salecha <amit.salecha@qlogic.com>
-Subject: [PATCH NEXT 2/2] qlcnic: Remove validation for max tx and max rx queues
-Date: Mon, 21 Feb 2011 03:58:34 -0800
-Message-ID: <1298289514-15671-3-git-send-email-amit.salecha@qlogic.com>
-References: <1298289514-15671-1-git-send-email-amit.salecha@qlogic.com>
+Subject: [PATCH 2/2] qlcnic: Remove validation for max tx and max rx queues
+Date: Mon, 21 Feb 2011 03:49:14 -0800
+Message-ID: <1298288954-15539-3-git-send-email-amit.salecha@qlogic.com>
+References: <1298288954-15539-2-git-send-email-amit.salecha@qlogic.com>
 Cc: netdev@vger.kernel.org, ameen.rahman@qlogic.com,
 	anirban.chakraborty@qlogic.com,
 	Rajesh Borundia <rajesh.borundia@qlogic.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mvnat01.qlogic.com ([198.186.3.73]:44028 "EHLO unm84.unminc.com"
+Received: from mvnat01.qlogic.com ([198.186.3.73]:44279 "EHLO unm84.unminc.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755474Ab1BUL6i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Feb 2011 06:58:38 -0500
-In-Reply-To: <1298289514-15671-1-git-send-email-amit.salecha@qlogic.com>
+	id S1755474Ab1BUMCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Feb 2011 07:02:24 -0500
+In-Reply-To: <1298288954-15539-2-git-send-email-amit.salecha@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
