@@ -1,194 +1,209 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 5/9] ax88796: use netdev_<LEVEL> instead of dev_<LEVEL> and pr_<LEVEL>
-Date: Mon, 21 Feb 2011 14:03:16 +0100
-Message-ID: <1298293400-21570-6-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 8/9] ax88796: clean up probe and remove function
+Date: Mon, 21 Feb 2011 14:03:19 +0100
+Message-ID: <1298293400-21570-9-git-send-email-mkl@pengutronix.de>
 References: <1298293400-21570-1-git-send-email-mkl@pengutronix.de>
 Cc: Ben Dooks <ben@fluff.org>, Daniel Mack <daniel@caiaq.de>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:35852 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:35859 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932074Ab1BUNDa (ORCPT
+	with ESMTP id S932080Ab1BUNDa (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 08:03:30 -0500
 In-Reply-To: <1298293400-21570-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This way we can remove the struct resource pointers from the private data.
+
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/ax88796.c |   46 ++++++++++++++++++++--------------------------
- 1 files changed, 20 insertions(+), 26 deletions(-)
+ drivers/net/ax88796.c |   75 ++++++++++++++++++++----------------------------
+ 1 files changed, 31 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
-index eac5b10..1370cac 100644
+index fd289e5..e62d0ba 100644
 --- a/drivers/net/ax88796.c
 +++ b/drivers/net/ax88796.c
-@@ -143,12 +143,11 @@ static int ax_initial_check(struct net_device *dev)
- static void ax_reset_8390(struct net_device *dev)
+@@ -87,8 +87,6 @@ struct ax_device {
+ 
+ 	u32 msg_enable;
+ 	void __iomem *map2;
+-	struct resource *mem;
+-	struct resource *mem2;
+ 	const struct ax_plat_data *plat;
+ 
+ 	unsigned char running;
+@@ -794,25 +792,24 @@ static int ax_init_dev(struct net_device *dev)
+ 	return ret;
+ }
+ 
+-static int ax_remove(struct platform_device *_dev)
++static int ax_remove(struct platform_device *pdev)
  {
+-	struct net_device *dev = platform_get_drvdata(_dev);
++	struct net_device *dev = platform_get_drvdata(pdev);
  	struct ei_device *ei_local = netdev_priv(dev);
--	struct ax_device *ax = to_ax_dev(dev);
- 	unsigned long reset_start_time = jiffies;
- 	void __iomem *addr = (void __iomem *)dev->base_addr;
- 
- 	if (ei_debug > 1)
--		dev_dbg(&ax->dev->dev, "resetting the 8390 t=%ld\n", jiffies);
-+		netdev_dbg(dev, "resetting the 8390 t=%ld\n", jiffies);
- 
- 	ei_outb(ei_inb(addr + NE_RESET), addr + NE_RESET);
- 
-@@ -158,8 +157,7 @@ static void ax_reset_8390(struct net_device *dev)
- 	/* This check _should_not_ be necessary, omit eventually. */
- 	while ((ei_inb(addr + EN0_ISR) & ENISR_RESET) == 0) {
- 		if (jiffies - reset_start_time > 2 * HZ / 100) {
--			dev_warn(&ax->dev->dev, "%s: %s did not complete.\n",
--			       __func__, dev->name);
-+			netdev_warn(dev, "%s: did not complete.\n", __func__);
- 			break;
- 		}
- 	}
-@@ -172,14 +170,13 @@ static void ax_get_8390_hdr(struct net_device *dev, struct e8390_pkt_hdr *hdr,
- 			    int ring_page)
- {
- 	struct ei_device *ei_local = netdev_priv(dev);
--	struct ax_device *ax = to_ax_dev(dev);
- 	void __iomem *nic_base = ei_local->mem;
- 
- 	/* This *shouldn't* happen. If it does, it's the last thing you'll see */
- 	if (ei_local->dmaing) {
--		dev_err(&ax->dev->dev, "%s: DMAing conflict in %s "
-+		netdev_err(dev, "DMAing conflict in %s "
- 			"[DMAstat:%d][irqlock:%d].\n",
--			dev->name, __func__,
-+			__func__,
- 			ei_local->dmaing, ei_local->irqlock);
- 		return;
- 	}
-@@ -217,15 +214,14 @@ static void ax_block_input(struct net_device *dev, int count,
- 			   struct sk_buff *skb, int ring_offset)
- {
- 	struct ei_device *ei_local = netdev_priv(dev);
--	struct ax_device *ax = to_ax_dev(dev);
- 	void __iomem *nic_base = ei_local->mem;
- 	char *buf = skb->data;
- 
- 	if (ei_local->dmaing) {
--		dev_err(&ax->dev->dev,
--			"%s: DMAing conflict in %s "
-+		netdev_err(dev,
-+			"DMAing conflict in %s "
- 			"[DMAstat:%d][irqlock:%d].\n",
--			dev->name, __func__,
-+			__func__,
- 			ei_local->dmaing, ei_local->irqlock);
- 		return;
- 	}
-@@ -255,7 +251,6 @@ static void ax_block_output(struct net_device *dev, int count,
- 			    const unsigned char *buf, const int start_page)
- {
- 	struct ei_device *ei_local = netdev_priv(dev);
--	struct ax_device *ax = to_ax_dev(dev);
- 	void __iomem *nic_base = ei_local->mem;
- 	unsigned long dma_start;
- 
-@@ -269,9 +264,9 @@ static void ax_block_output(struct net_device *dev, int count,
- 
- 	/* This *shouldn't* happen. If it does, it's the last thing you'll see */
- 	if (ei_local->dmaing) {
--		dev_err(&ax->dev->dev, "%s: DMAing conflict in %s."
-+		netdev_err(dev, "DMAing conflict in %s."
- 			"[DMAstat:%d][irqlock:%d]\n",
--			dev->name, __func__,
-+			__func__,
- 		       ei_local->dmaing, ei_local->irqlock);
- 		return;
- 	}
-@@ -298,8 +293,7 @@ static void ax_block_output(struct net_device *dev, int count,
- 
- 	while ((ei_inb(nic_base + EN0_ISR) & ENISR_RDC) == 0) {
- 		if (jiffies - dma_start > 2 * HZ / 100) {		/* 20ms */
--			dev_warn(&ax->dev->dev,
--				 "%s: timeout waiting for Tx RDC.\n", dev->name);
-+			netdev_warn(dev, "timeout waiting for Tx RDC.\n");
- 			ax_reset_8390(dev);
- 			ax_NS8390_init(dev, 1);
- 			break;
-@@ -404,7 +398,7 @@ static void
- ax_phy_issueaddr(struct net_device *dev, int phy_addr, int reg, int opc)
- {
- 	if (phy_debug)
--		pr_debug("%s: dev %p, %04x, %04x, %d\n",
-+		netdev_dbg(dev, "%s: dev %p, %04x, %04x, %d\n",
- 			__func__, dev, phy_addr, reg, opc);
- 
- 	ax_mii_ei_outbits(dev, 0x3f, 6);	/* pre-amble */
-@@ -431,7 +425,7 @@ ax_phy_read(struct net_device *dev, int phy_addr, int reg)
- 	spin_unlock_irqrestore(&ei_local->page_lock, flags);
- 
- 	if (phy_debug)
--		pr_debug("%s: %04x.%04x => read %04x\n", __func__,
-+		netdev_dbg(dev, "%s: %04x.%04x => read %04x\n", __func__,
- 			 phy_addr, reg, result);
- 
- 	return result;
-@@ -441,10 +435,9 @@ static void
- ax_phy_write(struct net_device *dev, int phy_addr, int reg, int value)
- {
- 	struct ei_device *ei = netdev_priv(dev);
--	struct ax_device *ax = to_ax_dev(dev);
- 	unsigned long flags;
- 
--	dev_dbg(&ax->dev->dev, "%s: %p, %04x, %04x %04x\n",
-+	netdev_dbg(dev, "%s: %p, %04x, %04x %04x\n",
- 		__func__, dev, phy_addr, reg, value);
- 
- 	spin_lock_irqsave(&ei->page_lock, flags);
-@@ -478,7 +471,7 @@ static int ax_open(struct net_device *dev)
- 	struct ei_device *ei_local = netdev_priv(dev);
- 	int ret;
- 
--	dev_dbg(&ax->dev->dev, "%s: open\n", dev->name);
-+	netdev_dbg(dev, "open\n");
- 
- 	ret = request_irq(dev->irq, ax_ei_interrupt, ax->irqflags,
- 			  dev->name, dev);
-@@ -514,7 +507,7 @@ static int ax_close(struct net_device *dev)
- 	struct ax_device *ax = to_ax_dev(dev);
- 	struct ei_device *ei_local = netdev_priv(dev);
- 
--	dev_dbg(&ax->dev->dev, "%s: close\n", dev->name);
-+	netdev_dbg(dev, "close\n");
- 
- 	/* turn the phy off */
- 
-@@ -785,14 +778,14 @@ static int ax_init_dev(struct net_device *dev)
- 
- 	ax_NS8390_init(dev, 0);
- 
--	dev_info(&ax->dev->dev, "%dbit, irq %d, %lx, MAC: %pM\n",
--		 ei_local->word16 ? 16 : 8, dev->irq, dev->base_addr,
--		 dev->dev_addr);
+-	struct ax_device *ax;
 -
- 	ret = register_netdev(dev);
- 	if (ret)
- 		goto out_irq;
+-	ax = to_ax_dev(dev);
++	struct ax_device *ax = to_ax_dev(dev);
++	struct resource *mem;
  
-+	netdev_info(dev, "%dbit, irq %d, %lx, MAC: %pM\n",
-+		    ei_local->word16 ? 16 : 8, dev->irq, dev->base_addr,
-+		    dev->dev_addr);
-+
- 	return 0;
+ 	unregister_netdev(dev);
+ 	free_irq(dev->irq, dev);
  
-  out_irq:
-@@ -849,6 +842,7 @@ static int ax_probe(struct platform_device *pdev)
- 		return -ENOMEM;
+ 	iounmap(ei_local->mem);
+-	release_resource(ax->mem);
+-	kfree(ax->mem);
++	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	release_mem_region(mem->start, resource_size(mem));
  
- 	/* ok, let's setup our device */
-+	SET_NETDEV_DEV(dev, &pdev->dev);
- 	ei_local = netdev_priv(dev);
- 	ax = to_ax_dev(dev);
+ 	if (ax->map2) {
+ 		iounmap(ax->map2);
+-		release_resource(ax->mem2);
+-		kfree(ax->mem2);
++		mem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++		release_mem_region(mem->start, resource_size(mem));
+ 	}
  
+ 	free_netdev(dev);
+@@ -832,8 +829,8 @@ static int ax_probe(struct platform_device *pdev)
+ 	struct net_device *dev;
+ 	struct ei_device *ei_local;
+ 	struct ax_device *ax;
+-	struct resource *res;
+-	size_t size;
++	struct resource *irq, *mem, *mem2;
++	resource_size_t mem_size, mem2_size = 0;
+ 	int ret = 0;
+ 
+ 	dev = ax__alloc_ei_netdev(sizeof(struct ax_device));
+@@ -853,24 +850,24 @@ static int ax_probe(struct platform_device *pdev)
+ 	ei_local->rxcr_base = ax->plat->rcr_val;
+ 
+ 	/* find the platform resources */
+-	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+-	if (res == NULL) {
++	irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
++	if (!irq) {
+ 		dev_err(&pdev->dev, "no IRQ specified\n");
+ 		ret = -ENXIO;
+ 		goto exit_mem;
+ 	}
+ 
+-	dev->irq = res->start;
+-	ax->irqflags = res->flags & IRQF_TRIGGER_MASK;
++	dev->irq = irq->start;
++	ax->irqflags = irq->flags & IRQF_TRIGGER_MASK;
+ 
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (res == NULL) {
++	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	if (!mem) {
+ 		dev_err(&pdev->dev, "no MEM specified\n");
+ 		ret = -ENXIO;
+ 		goto exit_mem;
+ 	}
+ 
+-	size = (res->end - res->start) + 1;
++	mem_size = resource_size(mem);
+ 
+ 	/*
+ 	 * setup the register offsets from either the platform data or
+@@ -881,50 +878,43 @@ static int ax_probe(struct platform_device *pdev)
+ 	else {
+ 		ei_local->reg_offset = ax->reg_offsets;
+ 		for (ret = 0; ret < 0x18; ret++)
+-			ax->reg_offsets[ret] = (size / 0x18) * ret;
++			ax->reg_offsets[ret] = (mem_size / 0x18) * ret;
+ 	}
+ 
+-	ax->mem = request_mem_region(res->start, size, pdev->name);
+-	if (ax->mem == NULL) {
++	if (!request_mem_region(mem->start, mem_size, pdev->name)) {
+ 		dev_err(&pdev->dev, "cannot reserve registers\n");
+ 		ret = -ENXIO;
+ 		goto exit_mem;
+ 	}
+ 
+-	ei_local->mem = ioremap(res->start, size);
++	ei_local->mem = ioremap(mem->start, mem_size);
+ 	dev->base_addr = (unsigned long)ei_local->mem;
+ 
+ 	if (ei_local->mem == NULL) {
+-		dev_err(&pdev->dev, "Cannot ioremap area (%08llx,%08llx)\n",
+-			(unsigned long long)res->start,
+-			(unsigned long long)res->end);
++		dev_err(&pdev->dev, "Cannot ioremap area %pR\n", mem);
+ 
+ 		ret = -ENXIO;
+ 		goto exit_req;
+ 	}
+ 
+ 	/* look for reset area */
+-
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-	if (res == NULL) {
++	mem2 = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	if (!mem2) {
+ 		if (!ax->plat->reg_offsets) {
+ 			for (ret = 0; ret < 0x20; ret++)
+-				ax->reg_offsets[ret] = (size / 0x20) * ret;
++				ax->reg_offsets[ret] = (mem_size / 0x20) * ret;
+ 		}
+-
+-		ax->map2 = NULL;
+ 	} else {
+-		size = (res->end - res->start) + 1;
++		mem2_size = resource_size(mem2);
+ 
+-		ax->mem2 = request_mem_region(res->start, size, pdev->name);
+-		if (ax->mem2 == NULL) {
++		if (!request_mem_region(mem2->start, mem2_size, pdev->name)) {
+ 			dev_err(&pdev->dev, "cannot reserve registers\n");
+ 			ret = -ENXIO;
+ 			goto exit_mem1;
+ 		}
+ 
+-		ax->map2 = ioremap(res->start, size);
+-		if (ax->map2 == NULL) {
++		ax->map2 = ioremap(mem2->start, mem2_size);
++		if (!ax->map2) {
+ 			dev_err(&pdev->dev, "cannot map reset register\n");
+ 			ret = -ENXIO;
+ 			goto exit_mem2;
+@@ -934,26 +924,23 @@ static int ax_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	/* got resources, now initialise and register device */
+-
+ 	ret = ax_init_dev(dev);
+ 	if (!ret)
+ 		return 0;
+ 
+-	if (ax->map2 == NULL)
++	if (!ax->map2)
+ 		goto exit_mem1;
+ 
+ 	iounmap(ax->map2);
+ 
+  exit_mem2:
+-	release_resource(ax->mem2);
+-	kfree(ax->mem2);
++	release_mem_region(mem2->start, mem2_size);
+ 
+  exit_mem1:
+ 	iounmap(ei_local->mem);
+ 
+  exit_req:
+-	release_resource(ax->mem);
+-	kfree(ax->mem);
++	release_mem_region(mem->start, mem_size);
+ 
+  exit_mem:
+ 	free_netdev(dev);
 -- 
 1.7.2.3
 
