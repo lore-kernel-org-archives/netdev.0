@@ -1,40 +1,38 @@
-From: "Justin P. Mattock" <justinmattock@gmail.com>
-Subject: [PATCH]drivers:isdn:istream.c Fix typo pice to piece
-Date: Sun, 20 Feb 2011 22:31:21 -0800
-Message-ID: <1298269881-2754-1-git-send-email-justinmattock@gmail.com>
-Cc: mac@melware.de, isdn@linux-pingi.de, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"Justin P. Mattock" <justinmattock@gmail.com>
-To: trivial@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pv0-f174.google.com ([74.125.83.174]:35501 "EHLO
-	mail-pv0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750778Ab1BUGbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 01:31:39 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Greg KH <greg@kroah.com>
+Subject: Re: linux-next: build warning after merge of the driver-core tree
+Date: Sun, 20 Feb 2011 22:32:28 -0800
+Message-ID: <20110221063228.GB30091@kroah.com>
+References: <20110221170226.c43175f7.sfr@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Marc Kleine-Budde <mkl@pengutronix.de>,
+	Ilya Yanok <yanok@emcraft.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110221170226.c43175f7.sfr@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The below patch changes a typo "pice" to "piece"
+On Mon, Feb 21, 2011 at 05:02:26PM +1100, Stephen Rothwell wrote:
+> Hi Greg,
+> 
+> After merging the driver-core tree, today's linux-next build (x86_64
+> allmodconfig) produced this warning:
+> 
+> drivers/net/dnet.c: In function 'dnet_mii_init':
+> drivers/net/dnet.c:340: warning: passing argument 1 of 'platform_set_drvdata' from incompatible pointer type
+> include/linux/platform_device.h:138: note: expected 'struct platform_device *' but argument is of type 'struct net_device *'
+> 
+> Revealed by commit 71d642908d4e8e7a2a4a6e0490432e719ff466d5 ("Driver
+> core: convert platform_{get,set}_drvdata to static inline functions").
+> Introduced by commit 4796417417a62e2ae83d92cb92e1ecf9ec67b5f5 ("dnet:
+> Dave DNET ethernet controller driver (updated)").
 
-Signed-off-by: Justin P. Mattock <justinmattock@gmail.com>
+It sounds like the driver is wrong here :(
 
----
- drivers/isdn/hardware/eicon/istream.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+thanks,
 
-diff --git a/drivers/isdn/hardware/eicon/istream.c b/drivers/isdn/hardware/eicon/istream.c
-index 18f8798..7bd5baa 100644
---- a/drivers/isdn/hardware/eicon/istream.c
-+++ b/drivers/isdn/hardware/eicon/istream.c
-@@ -62,7 +62,7 @@ void diva_xdi_provide_istream_info (ADAPTER* a,
-   stream interface.
-   If synchronous service was requested, then function
-   does return amount of data written to stream.
--  'final' does indicate that pice of data to be written is
-+  'final' does indicate that piece of data to be written is
-   final part of frame (necessary only by structured datatransfer)
-   return  0 if zero lengh packet was written
-   return -1 if stream is full
--- 
-1.6.5.2.180.gc5b3e
-
+greg k-h
