@@ -1,93 +1,119 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] netlink: handle errors from netlink_dump()
-Date: Mon, 21 Feb 2011 15:40:47 +0300
-Message-ID: <1298292047-25025-1-git-send-email-avagin@openvz.org>
-Cc: netdev@vger.kernel.org, avagin@openvz.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: [PATCH 4/9] ax88796: remove first_init parameter from ax_init_dev()
+Date: Mon, 21 Feb 2011 14:03:15 +0100
+Message-ID: <1298293400-21570-5-git-send-email-mkl@pengutronix.de>
+References: <1298293400-21570-1-git-send-email-mkl@pengutronix.de>
+Cc: Ben Dooks <ben@fluff.org>, Daniel Mack <daniel@caiaq.de>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:19044 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752427Ab1BUMk5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Feb 2011 07:40:57 -0500
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:35849 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932067Ab1BUND3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 08:03:29 -0500
+In-Reply-To: <1298293400-21570-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netlink_dump() may failed, but nobody handle its error.
-It generates output data, when a previous portion has been returned to
-user space. This mechanism works when all data isn't go in skb. If we
-enter in netlink_recvmsg() and skb is absent in the recv queue, the
-netlink_dump() will not been executed. So if netlink_dump() is failed
-one time, the new data never appear and the reader will sleep forever.
+ax_init_dev() is always called with first_init=1.
 
-netlink_dump() is called from two places:
-
-1. from netlink_sendmsg->...->netlink_dump_start().
-   In this place we can report error directly and it will be returned
-   by sendmsg().
-
-2. from netlink_recvmsg
-   There we can't report error directly, because we have a portion of
-   valid output data and call netlink_dump() for prepare the next portion.
-   If netlink_dump() is failed, the socket will be mark as error and the
-   next recvmsg will be failed.
-
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- net/netlink/af_netlink.c |   18 ++++++++++++++----
- 1 files changed, 14 insertions(+), 4 deletions(-)
+ drivers/net/ax88796.c |   44 +++++++++++++++++++-------------------------
+ 1 files changed, 19 insertions(+), 25 deletions(-)
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 478181d..1f92459 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1407,7 +1407,7 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
- 	int noblock = flags&MSG_DONTWAIT;
- 	size_t copied;
- 	struct sk_buff *skb, *data_skb;
--	int err;
-+	int err, ret;
+diff --git a/drivers/net/ax88796.c b/drivers/net/ax88796.c
+index 885f04e..eac5b10 100644
+--- a/drivers/net/ax88796.c
++++ b/drivers/net/ax88796.c
+@@ -675,7 +675,7 @@ static void ax_initial_setup(struct net_device *dev, struct ei_device *ei_local)
+  * the device is ready to be used by lib8390.c and registerd with
+  * the network layer.
+  */
+-static int ax_init_dev(struct net_device *dev, int first_init)
++static int ax_init_dev(struct net_device *dev)
+ {
+ 	struct ei_device *ei_local = netdev_priv(dev);
+ 	struct ax_device *ax = to_ax_dev(dev);
+@@ -695,7 +695,7 @@ static int ax_init_dev(struct net_device *dev, int first_init)
  
- 	if (flags&MSG_OOB)
- 		return -EOPNOTSUPP;
-@@ -1470,8 +1470,13 @@ static int netlink_recvmsg(struct kiocb *kiocb, struct socket *sock,
+ 	/* read the mac from the card prom if we need it */
  
- 	skb_free_datagram(sk, skb);
+-	if (first_init && ax->plat->flags & AXFLG_HAS_EEPROM) {
++	if (ax->plat->flags & AXFLG_HAS_EEPROM) {
+ 		unsigned char SA_prom[32];
  
--	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf / 2)
--		netlink_dump(sk);
-+	if (nlk->cb && atomic_read(&sk->sk_rmem_alloc) <= sk->sk_rcvbuf / 2) {
-+		ret = netlink_dump(sk);
-+		if (ret) {
-+			sk->sk_err = ret;
-+			sk->sk_error_report(sk);
-+		}
-+	}
+ 		for (i = 0; i < sizeof(SA_prom); i += 2) {
+@@ -711,7 +711,7 @@ static int ax_init_dev(struct net_device *dev, int first_init)
+ 	}
  
- 	scm_recv(sock, msg, siocb->scm, flags);
- out:
-@@ -1736,6 +1741,7 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 	struct netlink_callback *cb;
- 	struct sock *sk;
- 	struct netlink_sock *nlk;
-+	int ret;
+ #ifdef CONFIG_AX88796_93CX6
+-	if (first_init && ax->plat->flags & AXFLG_HAS_93CX6) {
++	if (ax->plat->flags & AXFLG_HAS_93CX6) {
+ 		unsigned char mac_addr[6];
+ 		struct eeprom_93cx6 eeprom;
  
- 	cb = kzalloc(sizeof(*cb), GFP_KERNEL);
- 	if (cb == NULL)
-@@ -1764,9 +1770,13 @@ int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
- 	nlk->cb = cb;
- 	mutex_unlock(nlk->cb_mutex);
+@@ -737,25 +737,20 @@ static int ax_init_dev(struct net_device *dev, int first_init)
+ 		stop_page = NE1SM_STOP_PG;
+ 	}
  
--	netlink_dump(sk);
-+	ret = netlink_dump(sk);
+-	/*
+-	 * load the mac-address from the device if this is the first
+-	 * time we've initialised
+-	 */
+-	if (first_init) {
+-		if (ax->plat->flags & AXFLG_MAC_FROMDEV) {
+-			ei_outb(E8390_NODMA + E8390_PAGE1 + E8390_STOP,
+-				ei_local->mem + E8390_CMD); /* 0x61 */
+-			for (i = 0; i < ETHER_ADDR_LEN; i++)
+-				dev->dev_addr[i] =
+-					ei_inb(ioaddr + EN1_PHYS_SHIFT(i));
+-		}
+-
+-		if ((ax->plat->flags & AXFLG_MAC_FROMPLATFORM) &&
+-		     ax->plat->mac_addr)
+-			memcpy(dev->dev_addr, ax->plat->mac_addr,
+-				ETHER_ADDR_LEN);
++	/* load the mac-address from the device */
++	if (ax->plat->flags & AXFLG_MAC_FROMDEV) {
++		ei_outb(E8390_NODMA + E8390_PAGE1 + E8390_STOP,
++			ei_local->mem + E8390_CMD); /* 0x61 */
++		for (i = 0; i < ETHER_ADDR_LEN; i++)
++			dev->dev_addr[i] =
++				ei_inb(ioaddr + EN1_PHYS_SHIFT(i));
+ 	}
+ 
++	if ((ax->plat->flags & AXFLG_MAC_FROMPLATFORM) &&
++	    ax->plat->mac_addr)
++		memcpy(dev->dev_addr, ax->plat->mac_addr,
++		       ETHER_ADDR_LEN);
 +
- 	sock_put(sk);
+ 	ax_reset_8390(dev);
  
-+	if (ret)
-+		return ret;
-+
- 	/* We successfully started a dump, by returning -EINTR we
- 	 * signal not to send ACK even if it was requested.
- 	 */
+ 	ei_local->name = "AX88796";
+@@ -790,10 +785,9 @@ static int ax_init_dev(struct net_device *dev, int first_init)
+ 
+ 	ax_NS8390_init(dev, 0);
+ 
+-	if (first_init)
+-		dev_info(&ax->dev->dev, "%dbit, irq %d, %lx, MAC: %pM\n",
+-			 ei_local->word16 ? 16 : 8, dev->irq, dev->base_addr,
+-			 dev->dev_addr);
++	dev_info(&ax->dev->dev, "%dbit, irq %d, %lx, MAC: %pM\n",
++		 ei_local->word16 ? 16 : 8, dev->irq, dev->base_addr,
++		 dev->dev_addr);
+ 
+ 	ret = register_netdev(dev);
+ 	if (ret)
+@@ -949,7 +943,7 @@ static int ax_probe(struct platform_device *pdev)
+ 
+ 	/* got resources, now initialise and register device */
+ 
+-	ret = ax_init_dev(dev, 1);
++	ret = ax_init_dev(dev);
+ 	if (!ret)
+ 		return 0;
+ 
 -- 
-1.7.2.1
+1.7.2.3
 
