@@ -1,56 +1,36 @@
-From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
-Subject: [PATCH] net: avoid initial "Features changed" message
-Date: Tue, 22 Feb 2011 15:42:06 +0100 (CET)
-Message-ID: <864ebe4e8085d1782e90137e146bb95e38e4c718.1298385559.git.mirq-linux@rere.qmqm.pl>
-References: <20110218.120617.71104636.davem@davemloft.net>
+From: =?iso-8859-2?Q?Micha=B3_Miros=B3aw?= <mirq-linux@rere.qmqm.pl>
+Subject: Re: [PATCH] net: avoid initial "Features changed" message
+Date: Tue, 22 Feb 2011 15:43:37 +0100
+Message-ID: <20110222144337.GA25132@rere.qmqm.pl>
+References: <20110218.120617.71104636.davem@davemloft.net> <864ebe4e8085d1782e90137e146bb95e38e4c718.1298385559.git.mirq-linux@rere.qmqm.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=iso-8859-2
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: Ben Hutchings <bhutchings@solarflare.com>,
 	David Miller <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rere.qmqm.pl ([89.167.52.164]:60734 "EHLO rere.qmqm.pl"
+Received: from rere.qmqm.pl ([89.167.52.164]:33170 "EHLO rere.qmqm.pl"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753404Ab1BVOmI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Feb 2011 09:42:08 -0500
-In-Reply-To: <20110218.120617.71104636.davem@davemloft.net>
+	id S1753816Ab1BVOni (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Feb 2011 09:43:38 -0500
+Content-Disposition: inline
+In-Reply-To: <864ebe4e8085d1782e90137e146bb95e38e4c718.1298385559.git.mirq-linux@rere.qmqm.pl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid "Features changed" message and ndo_set_features call on device
-registration caused by automatic enabling of GSO and GRO. Driver should
-have already enabled hardware offloads it set in features, so the
-ndo_set_features() is not needed at registration time unless features
-change because of other dependencies.
+On Tue, Feb 22, 2011 at 03:42:06PM +0100, Micha=B3 Miros=B3aw wrote:
+> Avoid "Features changed" message and ndo_set_features call on device
+> registration caused by automatic enabling of GSO and GRO. Driver shou=
+ld
+> have already enabled hardware offloads it set in features, so the
+> ndo_set_features() is not needed at registration time unless features
+> change because of other dependencies.
+[cut patch]
 
-Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
----
- net/core/dev.c |    8 +++++---
- 1 files changed, 5 insertions(+), 3 deletions(-)
+Ah. This depends on 'Fix "(unregistered net_device): Features changed" =
+message'
+patch I sent couple days ago.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 33f4318..039a9a6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5475,12 +5475,14 @@ int register_netdevice(struct net_device *dev)
- 	 * software offloads (GSO and GRO).
- 	 */
- 	dev->hw_features |=3D NETIF_F_SOFT_FEATURES;
--	dev->wanted_features =3D (dev->features & dev->hw_features)
--		| NETIF_F_SOFT_FEATURES;
-+	dev->features |=3D NETIF_F_SOFT_FEATURES;
-+	dev->wanted_features =3D dev->features & dev->hw_features;
-=20
- 	/* Avoid warning from netdev_fix_features() for GSO without SG */
--	if (!(dev->wanted_features & NETIF_F_SG))
-+	if (!(dev->wanted_features & NETIF_F_SG)) {
- 		dev->wanted_features &=3D ~NETIF_F_GSO;
-+		dev->features &=3D ~NETIF_F_GSO;
-+	}
-=20
- 	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
- 	 * vlan_dev_init() will do the dev->features check, so these features
---=20
-1.7.2.3
-
+Best Regards,
+Micha=B3 Miros=B3aw
