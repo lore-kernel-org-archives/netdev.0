@@ -1,33 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] USB 10/100 RJ45 Ethernet Network Adapter
-Date: Tue, 22 Feb 2011 11:24:03 -0800 (PST)
-Message-ID: <20110222.112403.179931392.davem@davemloft.net>
-References: <20110222140705.GA6055@redhat.com>
-	<4D640C0F.3050703@ru.mvista.com>
+From: Ivo Van Doorn <ivdoorn@gmail.com>
+Subject: Re: [PATCH] rt2x00: Use ops name instead of device name
+Date: Tue, 22 Feb 2011 20:33:45 +0100
+Message-ID: <AANLkTinNUnq7JQDpTzCv24A7T7fMn9iPFisQEBZGkELr@mail.gmail.com>
+References: <1298380368.6140.1193.camel@gandalf.stny.rr.com>
+	<1298381695.2211.486.camel@localhost>
+	<1298382263.6140.1196.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: shaharh@redhat.com, linux-usb@vger.kernel.org,
-	linux-kernel@vger.kernel.org, jacmet@sunsite.dk, gregkh@suse.de,
-	netdev@vger.kernel.org
-To: sshtylyov@mvista.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Felix Fietkau <nbd@openwrt.org>,
+	"John W. Linville" <linville@tuxdriver.com>, abogani@texware.it
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D640C0F.3050703@ru.mvista.com>
+In-Reply-To: <1298382263.6140.1196.camel@gandalf.stny.rr.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sshtylyov@mvista.com>
-Date: Tue, 22 Feb 2011 22:18:39 +0300
+Hi,
 
-> Hello.
-> 
-> Shahar Havivi wrote:
-> 
->> The device is very similar to (0x0fe6, 0x8101),
->> And works well with dm9601 driver.
-> 
->   You should sign off your patch in order for it to be merged.
+On Tue, Feb 22, 2011 at 2:44 PM, Steven Rostedt <rostedt@goodmis.org> w=
+rote:
+> On Tue, 2011-02-22 at 13:34 +0000, Ben Hutchings wrote:
+>
+>> > 19: =A0 73474106 =A0 =A0 =A0 =A0 =A00 =A0 IO-APIC-fasteoi =A0 ata_=
+piix, uhci_hcd:usb6, 0000:05:01.0
+>
+>> > =A0 =A0 rt2x00dev->irq =3D pci_dev->irq;
+>> > - =A0 rt2x00dev->name =3D pci_name(pci_dev);
+>> > + =A0 rt2x00dev->name =3D ops->name;
+>
+>
+>> But then how can users distinguish the IRQs for multiple devices han=
+dled
+>> by the same driver? =A0(Probably unusual for WLAN devices, but still
+>> possible.)
+>>
+>> I assume you can't use a net device name as there may be multiple ne=
+t
+>> devices per bus device?
+>
+> Honestly, I do not know this code well enough, but this patch seemed =
+to
+> solve the problem at hand. Hence I sent it out to the experts hoping
+> they either take this patch or come up with a proper solution ;)
+>
+> In any case, just posting the pci address is not a pretty answer.
 
-He did, see the follow-up patch with subject
+I just checked the other wireless drivers, and they all seem to use
+the modulename. So I guess your patch is correct. You can add my:
 
-[PATCH-v2] Added support for usb ethernet (0x0fe6, 0x9700)
+Acked-by: Ivo van Doorn <IvDoorn@gmail.com>
