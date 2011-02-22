@@ -1,46 +1,60 @@
-From: denys@visp.net.lb
-Subject: iproute, setting manually rtt
-Date: Tue, 22 Feb 2011 17:42:49 +0200
-Message-ID: <97d8915d050c34fb9499617f78305786@visp.net.lb>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: [PATCH net-next-2.6] bonding: fix user-controlled queuing issues
+Date: Tue, 22 Feb 2011 07:55:18 -0800
+Message-ID: <20110222155518.GA14991@linuxace.com>
+References: <1298328783-10073-1-git-send-email-andy@greyhouse.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- format=flowed
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hosting.visp.net.lb ([194.146.153.11]:58129 "EHLO
-	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753789Ab1BVPm7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 10:42:59 -0500
-Received: from webmail.visp.net.lb (localhost [127.0.0.1])
-	(Authenticated sender: denys@visp.net.lb)
-	by hosting.visp.net.lb (Postfix) with ESMTPA id C3EF7368652
-	for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 17:42:49 +0200 (EET)
+Received: from mail-yx0-f174.google.com ([209.85.213.174]:58303 "EHLO
+	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753458Ab1BVPzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 10:55:25 -0500
+Received: by yxs7 with SMTP id 7so824149yxs.19
+        for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 07:55:24 -0800 (PST)
+Content-Disposition: inline
+In-Reply-To: <1298328783-10073-1-git-send-email-andy@greyhouse.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- I try to set some time values in iproute, and confused by results. Here 
- is example:
+On Mon, Feb 21, 2011 at 05:53:03PM -0500, Andy Gospodarek wrote:
+> Users noticed the following messages were filling their logs when using
+> queue 16 for user-mode bonding:
+> 
+> kernel: bond0 selects TX queue 16, but real number of TX queues is 16
+> 
+> ---
+> 
+> My tests all seem to work well, but more testing/feedback is obviously
+> appreciated.
 
- bytecruncher ~ # ip route del 1.1.1.1;ip route add 1.1.1.1 via 
- 217.151.224.113 rtt 10ms                                                 
-                                                     bytecruncher ~ # ip 
- route
- 1.1.1.1 via 217.151.224.113 dev eth0  rtt 3363235ms
+Sorry, this patch does not fix the issue:
 
- bytecruncher ~ # ip route del 1.1.1.1;ip route add 1.1.1.1 via 
- 217.151.224.113 rtt 10ms rto_min 10ms
- bytecruncher ~ # ip route
- 1.1.1.1 via 217.151.224.113 dev eth0  rtt 3363235ms rto_min lock 
- 14100654ms
+Feb 22 10:46:50 foo kernel: bond0 selects TX queue 16, but real number of TX queues is 16
 
- Details about system:
- bytecruncher ~ # uname -a
- Linux bytecruncher 2.6.37.1-insat #4 SMP Tue Feb 22 15:16:53 EET 2011 
- x86_64 Intel(R) Xeon(R) CPU X5680 @ 3.33GHz GenuineIntel GNU/Linux
- bytecruncher ~ # ip -V
- ip utility, iproute2-ss110107
+Adding the below debugging patch confirms:
 
- I guess there is something really wrong. Not sure if in iproute or 
- kernel side.
+--- a/net/core/dev.c.orig       2011-02-17 11:42:09.110280300 -0500
++++ b/net/core/dev.c    2011-02-17 11:40:42.110280300 -0500
+@@ -2060,6 +2060,11 @@
+        int queue_index;
+        const struct net_device_ops *ops = dev->netdev_ops;
+ 
++                if (net_ratelimit()) {
++                        pr_warning("dev_pick_tx: %s queue_mapping=%d, real_num=%d\n",
++                                dev->name, skb->queue_mapping, dev->real_num_tx_queues);
++                }
++
+        if (ops->ndo_select_queue) {
+                queue_index = ops->ndo_select_queue(dev, skb);
+                queue_index = dev_cap_txqueue(dev, queue_index);
+
+
+Produces a number of these in the logs:
+
+Feb 22 10:46:50 foo kernel: dev_pick_tx: bond0 queue_mapping=16, real_num=16
+
+Phil
