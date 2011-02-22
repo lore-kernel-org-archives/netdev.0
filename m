@@ -1,50 +1,56 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH] USB 10/100 RJ45 Ethernet Network Adapter
-Date: Tue, 22 Feb 2011 15:21:00 +0100
-Message-ID: <87lj18qhf7.fsf@macbook.be.48ers.dk>
-References: <20110222140705.GA6055@redhat.com>
+From: =?UTF-8?q?Micha=C5=82=20Miros=C5=82aw?= <mirq-linux@rere.qmqm.pl>
+Subject: [PATCH] net: avoid initial "Features changed" message
+Date: Tue, 22 Feb 2011 15:42:06 +0100 (CET)
+Message-ID: <864ebe4e8085d1782e90137e146bb95e38e4c718.1298385559.git.mirq-linux@rere.qmqm.pl>
+References: <20110218.120617.71104636.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org
-To: Shahar Havivi <shaharh@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61671 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753276Ab1BVOVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 09:21:10 -0500
-In-Reply-To: <20110222140705.GA6055@redhat.com> (Shahar Havivi's message of
-	"Tue, 22 Feb 2011 16:07:10 +0200")
+Received: from rere.qmqm.pl ([89.167.52.164]:60734 "EHLO rere.qmqm.pl"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753404Ab1BVOmI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Feb 2011 09:42:08 -0500
+In-Reply-To: <20110218.120617.71104636.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>>>> "Shahar" == Shahar Havivi <shaharh@redhat.com> writes:
+Avoid "Features changed" message and ndo_set_features call on device
+registration caused by automatic enabling of GSO and GRO. Driver should
+have already enabled hardware offloads it set in features, so the
+ndo_set_features() is not needed at registration time unless features
+change because of other dependencies.
 
- Shahar> The device is very similar to (0x0fe6, 0x8101),
- Shahar> And works well with dm9601 driver.
- Shahar> ---
- Shahar>  drivers/net/usb/dm9601.c |    5 +++++
- Shahar>  1 files changed, 5 insertions(+), 0 deletions(-)
+Signed-off-by: Micha=C5=82 Miros=C5=82aw <mirq-linux@rere.qmqm.pl>
+---
+ net/core/dev.c |    8 +++++---
+ 1 files changed, 5 insertions(+), 3 deletions(-)
 
- Shahar> diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
- Shahar> index 02b622e..2d1c8ae 100644
- Shahar> --- a/drivers/net/usb/dm9601.c
- Shahar> +++ b/drivers/net/usb/dm9601.c
- Shahar> @@ -654,6 +654,11 @@ static const struct usb_device_id products[] = {
- Shahar>  	 USB_DEVICE(0x0a46, 0x9000),	/* DM9000E */
- Shahar>  	 .driver_info = (unsigned long)&dm9601_info,
- Shahar>  	 },
- Shahar> +	{
- Shahar> +	 USB_DEVICE(0x0fe6, 0x9700),	/* DM9601 USB to Fast Ethernet Adapter */
- Shahar> +
- Shahar> +	 .driver_info = (unsigned long)&dm9601_info,
- Shahar> +	 },
- Shahar>  	{},			// END
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 33f4318..039a9a6 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5475,12 +5475,14 @@ int register_netdevice(struct net_device *dev)
+ 	 * software offloads (GSO and GRO).
+ 	 */
+ 	dev->hw_features |=3D NETIF_F_SOFT_FEATURES;
+-	dev->wanted_features =3D (dev->features & dev->hw_features)
+-		| NETIF_F_SOFT_FEATURES;
++	dev->features |=3D NETIF_F_SOFT_FEATURES;
++	dev->wanted_features =3D dev->features & dev->hw_features;
+=20
+ 	/* Avoid warning from netdev_fix_features() for GSO without SG */
+-	if (!(dev->wanted_features & NETIF_F_SG))
++	if (!(dev->wanted_features & NETIF_F_SG)) {
+ 		dev->wanted_features &=3D ~NETIF_F_GSO;
++		dev->features &=3D ~NETIF_F_GSO;
++	}
+=20
+ 	/* Enable GRO and NETIF_F_HIGHDMA for vlans by default,
+ 	 * vlan_dev_init() will do the dev->features check, so these features
+--=20
+1.7.2.3
 
-Please put it after the 0x8100 device and get rid of the empty line
-before .driver_info - Otherwise it looks good.
-
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
-
--- 
-Bye, Peter Korsgaard
