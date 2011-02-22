@@ -1,64 +1,60 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] llc: avoid skb_clone() if there is only one handler
-Date: Tue, 22 Feb 2011 19:55:18 +0800
-Message-ID: <1298375718-5052-1-git-send-email-xiaosuo@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH] r8169: disable ASPM
+Date: Tue, 22 Feb 2011 13:00:11 +0100
+Message-ID: <20110222120001.GA24961@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>, stable@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pz0-f46.google.com ([209.85.210.46]:59625 "EHLO
-	mail-pz0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754050Ab1BVL4L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 06:56:11 -0500
-Received: by pzk35 with SMTP id 35so247519pzk.19
-        for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 03:56:10 -0800 (PST)
+Received: from mx1.redhat.com ([209.132.183.28]:46158 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754053Ab1BVMAR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Feb 2011 07:00:17 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+r8169: disable ASPM
+
+For some time is known that ASPM is causing troubles on r8169, i.e. make
+device randomly stop working without any errors in dmesg.
+
+Currently Tomi Leppikangas reports that system with r8169 device hangs
+with MCE errors when ASPM is enabled:
+https://bugzilla.redhat.com/show_bug.cgi?id=642861#c4
+
+Lets disable ASPM for r8169 devices at all, to avoid problems with
+r8169 PCIe devices at least for some users.
+
+Reported-by: Tomi Leppikangas <tomi.leppikangas@gmail.com>
+Cc: stable@kernel.org
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 ---
- net/llc/llc_input.c |   25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
-diff --git a/net/llc/llc_input.c b/net/llc/llc_input.c
-index f996874..058f1e9 100644
---- a/net/llc/llc_input.c
-+++ b/net/llc/llc_input.c
-@@ -181,25 +181,26 @@ int llc_rcv(struct sk_buff *skb, struct net_device *dev,
- 	 * LLC functionality
- 	 */
- 	rcv = rcu_dereference(sap->rcv_func);
--	if (rcv) {
--		struct sk_buff *cskb = skb_clone(skb, GFP_ATOMIC);
--		if (cskb)
--			rcv(cskb, dev, pt, orig_dev);
--	}
- 	dest = llc_pdu_type(skb);
--	if (unlikely(!dest || !llc_type_handlers[dest - 1]))
--		goto drop_put;
--	llc_type_handlers[dest - 1](sap, skb);
--out_put:
-+	if (unlikely(!dest || !llc_type_handlers[dest - 1])) {
-+		if (rcv)
-+			rcv(skb, dev, pt, orig_dev);
-+		else
-+			kfree_skb(skb);
-+	} else {
-+		if (rcv) {
-+			struct sk_buff *cskb = skb_clone(skb, GFP_ATOMIC);
-+			if (cskb)
-+				rcv(cskb, dev, pt, orig_dev);
-+		}
-+		llc_type_handlers[dest - 1](sap, skb);
-+	}
- 	llc_sap_put(sap);
- out:
- 	return 0;
- drop:
- 	kfree_skb(skb);
- 	goto out;
--drop_put:
--	kfree_skb(skb);
--	goto out_put;
- handle_station:
- 	if (!llc_station_handler)
- 		goto drop;
+I have to add (with shame on us) that we selfishly carry this patch
+in RHEL6 for some time now.
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 469ab0b..ae40c0e 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -25,6 +25,7 @@
+ #include <linux/dma-mapping.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/firmware.h>
++#include <linux/pci-aspm.h>
+ 
+ #include <asm/system.h>
+ #include <asm/io.h>
+@@ -3009,6 +3010,11 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	mii->reg_num_mask = 0x1f;
+ 	mii->supports_gmii = !!(cfg->features & RTL_FEATURE_GMII);
+ 
++	/* disable ASPM completely as that cause random device stop working
++	 * problems as well as full system hangs for some PCIe devices users */
++	pci_disable_link_state(pdev, PCIE_LINK_STATE_L0S | PCIE_LINK_STATE_L1 |
++				     PCIE_LINK_STATE_CLKPM);
++
+ 	/* enable device (incl. PCI PM wakeup and hotplug setup) */
+ 	rc = pci_enable_device(pdev);
+ 	if (rc < 0) {
