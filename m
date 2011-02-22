@@ -1,80 +1,104 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH 4/5] r8169: adjust the code of RTL8168DP
-Date: Tue, 22 Feb 2011 14:41:56 +0800
-Message-ID: <1298356917-486-4-git-send-email-hayeswang@realtek.com>
-References: <1298356917-486-1-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH 1/5] r8169: Correct settings of rtl8102e
+Date: Tue, 22 Feb 2011 14:41:53 +0800
+Message-ID: <1298356917-486-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	Hayes Wang <hayeswang@realtek.com>
 To: <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1298356917-486-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adjust the code of power up and down functions for RTL8168DP.
-Skip these functions when DASH is enable.
+Adjust and remove certain settings of RTL8102E which are for previous chips.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/r8169.c |   17 ++++++++++++++---
- 1 files changed, 14 insertions(+), 3 deletions(-)
+ drivers/net/r8169.c |   20 ++++++--------------
+ 1 files changed, 6 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index ff66aa6..9e7e3b3 100644
+index 469ab0b..3630dd7 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -2917,8 +2917,11 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+@@ -3042,7 +3042,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_mwi_2;
+ 	}
+ 
+-	tp->cp_cmd = PCIMulRW | RxChkSum;
++	tp->cp_cmd = RxChkSum;
+ 
+ 	if ((sizeof(dma_addr_t) > 4) &&
+ 	    !pci_set_dma_mask(pdev, DMA_BIT_MASK(64)) && use_dac) {
+@@ -3847,8 +3847,7 @@ static void rtl_hw_start_8168(struct net_device *dev)
+ 	Cxpl_dbg_sel | \
+ 	ASF | \
+ 	PktCntrDisable | \
+-	PCIDAC | \
+-	PCIMulRW)
++	Mac_dbgo_sel)
+ 
+ static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
  {
- 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -3878,8 +3877,6 @@ static void rtl_hw_start_8102e_1(void __iomem *ioaddr, struct pci_dev *pdev)
+ 	if ((cfg1 & LEDS0) && (cfg1 & LEDS1))
+ 		RTL_W8(Config1, cfg1 & ~LEDS0);
  
--	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
-+	if (((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
-+	     (tp->mac_version == RTL_GIGA_MAC_VER_28)) &&
-+	    (ocp_read(tp, 0x0f, 0x0010) & 0x00008000)) {
- 		return;
-+	}
+-	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
+-
+ 	rtl_ephy_init(ioaddr, e_info_8102e_1, ARRAY_SIZE(e_info_8102e_1));
+ }
  
- 	if (((tp->mac_version == RTL_GIGA_MAC_VER_23) ||
- 	     (tp->mac_version == RTL_GIGA_MAC_VER_24)) &&
-@@ -2940,6 +2943,8 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+@@ -3891,8 +3888,6 @@ static void rtl_hw_start_8102e_2(void __iomem *ioaddr, struct pci_dev *pdev)
+ 
+ 	RTL_W8(Config1, MEMMAP | IOMAP | VPD | PMEnable);
+ 	RTL_W8(Config3, RTL_R8(Config3) & ~Beacon_en);
+-
+-	RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) & ~R810X_CPCMD_QUIRK_MASK);
+ }
+ 
+ static void rtl_hw_start_8102e_3(void __iomem *ioaddr, struct pci_dev *pdev)
+@@ -3918,6 +3913,8 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 		}
+ 	}
+ 
++	RTL_W8(Cfg9346, Cfg9346_Unlock);
++
  	switch (tp->mac_version) {
- 	case RTL_GIGA_MAC_VER_25:
- 	case RTL_GIGA_MAC_VER_26:
-+	case RTL_GIGA_MAC_VER_27:
-+	case RTL_GIGA_MAC_VER_28:
- 		RTL_W8(PMCH, RTL_R8(PMCH) & ~0x80);
+ 	case RTL_GIGA_MAC_VER_07:
+ 		rtl_hw_start_8102e_1(ioaddr, pdev);
+@@ -3932,14 +3929,13 @@ static void rtl_hw_start_8101(struct net_device *dev)
  		break;
  	}
-@@ -2949,12 +2954,17 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
- {
- 	void __iomem *ioaddr = tp->mmio_addr;
  
--	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
-+	if (((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
-+	     (tp->mac_version == RTL_GIGA_MAC_VER_28)) &&
-+	    (ocp_read(tp, 0x0f, 0x0010) & 0x00008000)) {
- 		return;
-+	}
+-	RTL_W8(Cfg9346, Cfg9346_Unlock);
++	RTL_W8(Cfg9346, Cfg9346_Lock);
  
- 	switch (tp->mac_version) {
- 	case RTL_GIGA_MAC_VER_25:
- 	case RTL_GIGA_MAC_VER_26:
-+	case RTL_GIGA_MAC_VER_27:
-+	case RTL_GIGA_MAC_VER_28:
- 		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
- 		break;
- 	}
-@@ -3369,7 +3379,8 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
- 	/* Disable interrupts */
- 	rtl8169_irq_mask_and_ack(ioaddr);
+ 	RTL_W8(MaxTxPacketSize, TxPacketMax);
  
--	if (tp->mac_version == RTL_GIGA_MAC_VER_28) {
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
-+	    tp->mac_version == RTL_GIGA_MAC_VER_28) {
- 		while (RTL_R8(TxPoll) & NPQ)
- 			udelay(20);
+ 	rtl_set_rx_max_size(ioaddr, rx_buf_sz);
  
+-	tp->cp_cmd |= rtl_rw_cpluscmd(ioaddr) | PCIMulRW;
+-
++	tp->cp_cmd &= ~R810X_CPCMD_QUIRK_MASK;
+ 	RTL_W16(CPlusCmd, tp->cp_cmd);
+ 
+ 	RTL_W16(IntrMitigate, 0x0000);
+@@ -3949,14 +3945,10 @@ static void rtl_hw_start_8101(struct net_device *dev)
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 	rtl_set_rx_tx_config_registers(tp);
+ 
+-	RTL_W8(Cfg9346, Cfg9346_Lock);
+-
+ 	RTL_R8(IntrMask);
+ 
+ 	rtl_set_rx_mode(dev);
+ 
+-	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+-
+ 	RTL_W16(MultiIntr, RTL_R16(MultiIntr) & 0xf000);
+ 
+ 	RTL_W16(IntrMask, tp->intr_event);
 -- 
 1.7.3.2
