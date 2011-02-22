@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH 5/5] r8169: adjust rtl8169_set_speed_xmii function
-Date: Tue, 22 Feb 2011 14:41:57 +0800
-Message-ID: <1298356917-486-5-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH 4/5] r8169: adjust the code of RTL8168DP
+Date: Tue, 22 Feb 2011 14:41:56 +0800
+Message-ID: <1298356917-486-4-git-send-email-hayeswang@realtek.com>
 References: <1298356917-486-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,54 +13,68 @@ In-Reply-To: <1298356917-486-1-git-send-email-hayeswang@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adjust code of rtl8169_set_speed_xmii function and remove part
-codes which have done in rtl_pll_power_up function.
+Adjust the code of power up and down functions for RTL8168DP.
+Skip these functions when DASH is enable.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/r8169.c |   16 ++--------------
- 1 files changed, 2 insertions(+), 14 deletions(-)
+ drivers/net/r8169.c |   17 ++++++++++++++---
+ 1 files changed, 14 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 9e7e3b3..8c85545 100644
+index ff66aa6..9e7e3b3 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -1137,6 +1137,8 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	int giga_ctrl, bmcr;
+@@ -2917,8 +2917,11 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
  
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
- 	if (autoneg == AUTONEG_ENABLE) {
- 		int auto_nego;
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
++	if (((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
++	     (tp->mac_version == RTL_GIGA_MAC_VER_28)) &&
++	    (ocp_read(tp, 0x0f, 0x0010) & 0x00008000)) {
+ 		return;
++	}
  
-@@ -1167,18 +1169,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 
- 		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
- 
--		if ((tp->mac_version == RTL_GIGA_MAC_VER_11) ||
--		    (tp->mac_version == RTL_GIGA_MAC_VER_12) ||
--		    (tp->mac_version >= RTL_GIGA_MAC_VER_17)) {
--			/*
--			 * Wake up the PHY.
--			 * Vendor specific (0x1f) and reserved (0x0e) MII
--			 * registers.
--			 */
--			rtl_writephy(tp, 0x1f, 0x0000);
--			rtl_writephy(tp, 0x0e, 0x0000);
--		}
--
- 		rtl_writephy(tp, MII_ADVERTISE, auto_nego);
- 		rtl_writephy(tp, MII_CTRL1000, giga_ctrl);
- 	} else {
-@@ -1193,8 +1183,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 
- 		if (duplex == DUPLEX_FULL)
- 			bmcr |= BMCR_FULLDPLX;
--
--		rtl_writephy(tp, 0x1f, 0x0000);
+ 	if (((tp->mac_version == RTL_GIGA_MAC_VER_23) ||
+ 	     (tp->mac_version == RTL_GIGA_MAC_VER_24)) &&
+@@ -2940,6 +2943,8 @@ static void r8168_pll_power_down(struct rtl8169_private *tp)
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_25:
+ 	case RTL_GIGA_MAC_VER_26:
++	case RTL_GIGA_MAC_VER_27:
++	case RTL_GIGA_MAC_VER_28:
+ 		RTL_W8(PMCH, RTL_R8(PMCH) & ~0x80);
+ 		break;
  	}
+@@ -2949,12 +2954,17 @@ static void r8168_pll_power_up(struct rtl8169_private *tp)
+ {
+ 	void __iomem *ioaddr = tp->mmio_addr;
  
- 	tp->phy_1000_ctrl_reg = giga_ctrl;
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_27)
++	if (((tp->mac_version == RTL_GIGA_MAC_VER_27) ||
++	     (tp->mac_version == RTL_GIGA_MAC_VER_28)) &&
++	    (ocp_read(tp, 0x0f, 0x0010) & 0x00008000)) {
+ 		return;
++	}
+ 
+ 	switch (tp->mac_version) {
+ 	case RTL_GIGA_MAC_VER_25:
+ 	case RTL_GIGA_MAC_VER_26:
++	case RTL_GIGA_MAC_VER_27:
++	case RTL_GIGA_MAC_VER_28:
+ 		RTL_W8(PMCH, RTL_R8(PMCH) | 0x80);
+ 		break;
+ 	}
+@@ -3369,7 +3379,8 @@ static void rtl8169_hw_reset(struct rtl8169_private *tp)
+ 	/* Disable interrupts */
+ 	rtl8169_irq_mask_and_ack(ioaddr);
+ 
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_28) {
++	if (tp->mac_version == RTL_GIGA_MAC_VER_27 ||
++	    tp->mac_version == RTL_GIGA_MAC_VER_28) {
+ 		while (RTL_R8(TxPoll) & NPQ)
+ 			udelay(20);
+ 
 -- 
 1.7.3.2
