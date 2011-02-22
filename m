@@ -1,35 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-2.6 2011-02-22
-Date: Tue, 22 Feb 2011 11:55:28 -0800 (PST)
-Message-ID: <20110222.115528.245390295.davem@davemloft.net>
-References: <20110222193757.GF12153@tuxdriver.com>
+From: Henry Nestler <henry.nestler@gmail.com>
+Subject: Re: [PATCH 2/2] DM9000B: Fix PHY power for network down/up
+Date: Tue, 22 Feb 2011 20:58:20 +0100
+Message-ID: <4D64155C.9050407@henry.nestler.mail.gmail.com>
+References: <4D618B5D.5040001@henry.nestler.mail.gmail.com> <4D62491F.4050602@ru.mvista.com> <4D62D323.7010403@henry.nestler.mail.gmail.com> <20110222.102410.260079835.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110222193757.GF12153@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sshtylyov@mvista.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Sergei Shtylyov <sshtylyov@mvista.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:59469 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890Ab1BVT6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 14:58:48 -0500
+Received: by fxm17 with SMTP id 17so3127790fxm.19
+        for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 11:58:46 -0800 (PST)
+In-Reply-To: <20110222.102410.260079835.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 22 Feb 2011 14:37:57 -0500
+Hello David,
 
-> Here is the latest round of wireless fixes intended for 2.6.38.
-> Included are a DMA API fix for p54, an ath5k channel setting fix
-> for AR2317 hardware, a WARNING fix related to conn_mon_timer, a lock
-> order fix in cfg80211_wext_siwfreq, a bluetooth locking fix, and a
-> few simple hardware-enablement patches.
+On 22.02.2011 19:24, David Miller wrote:
+> From: Henry Nestler <henry.nestler@gmail.com>
+> Date: Mon, 21 Feb 2011 22:03:31 +0100
 > 
-> There are a couple of other notables.  There is an ath9k patch that
-> reverts some earlier patches that cause a regression in power usage.
-> Also, there is a fairly large ath5k patch to address a regression
-> related to fast channel switching.  The patch seems bigger than it
-> really is because it moves some code around.  Both of these cite the
-> related bugzilla entry.
+>> On 21.02.2011 12:14, Sergei Shtylyov wrote:
+>>> On 21-02-2011 0:45, Henry Nestler wrote:
+>>>> +	udelay(1000); /* delay needs by DM9000B */
+>>>
+>>>     Why not mdelay(1)?
+>>
+>> Because udelay is the base of mdelay.
+>> See include/linux/delay.h:31
+>>
+>> #define mdelay(n) ... udelay((n)*1000)
 > 
-> Please let me know if there are problems!
+> He is telling you to use mdelay(1) because it's clearer.  Please do
+> so.
 
-Pulled, thanks a lot John.
+Thanks, that text explains it better. No problem. I will resend this patch.
+
+-- 
+Henry N.
