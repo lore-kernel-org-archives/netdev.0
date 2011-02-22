@@ -1,52 +1,59 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: why all packets have same queue no when rps enabled?
-Date: Tue, 22 Feb 2011 14:01:58 +0100
-Message-ID: <1298379718.2861.3.camel@edumazet-laptop>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6D0C@MILEXCH2.ds.jdsu.net>
-	 <1298378756.2211.478.camel@localhost>
+Subject: Re: [PATCH ethtool 5/5] ethtool: Add --version option
+Date: Tue, 22 Feb 2011 14:05:45 +0100
+Message-ID: <1298379945.2861.7.camel@edumazet-laptop>
+References: <1561212236.5138.1298355384916.JavaMail.root@tahiti.vyatta.com>
+	 <1298378228.2211.472.camel@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jon Zhou <Jon.Zhou@jdsu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
 To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:47282 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:41616 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750736Ab1BVNC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 08:02:28 -0500
-Received: by fxm17 with SMTP id 17so2714073fxm.19
-        for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 05:02:27 -0800 (PST)
-In-Reply-To: <1298378756.2211.478.camel@localhost>
+	with ESMTP id S1751170Ab1BVNFy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 08:05:54 -0500
+Received: by fxm17 with SMTP id 17so2717956fxm.19
+        for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 05:05:53 -0800 (PST)
+In-Reply-To: <1298378228.2211.472.camel@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le mardi 22 f=C3=A9vrier 2011 =C3=A0 12:45 +0000, Ben Hutchings a =C3=A9=
+Le mardi 22 f=C3=A9vrier 2011 =C3=A0 12:37 +0000, Ben Hutchings a =C3=A9=
 crit :
-
-> The queue number identifies a hardware queue.  RPS therefore does not
-> update this number when queueing packets for processing on other CPUs=
-=2E
+> On Mon, 2011-02-21 at 22:16 -0800, Stephen Hemminger wrote:
+> [...]
+> > The standard convention is to use -V for short form of version opti=
+on.
 >=20
-> If the hardware/driver provides a receive hash (probably Toeplitz) th=
-en
-> this is used for RPS.  Otherwise a much cheaper hash is used.
+> This is not anywhere near standard.
+>=20
+> $ cp -V
+> cp: invalid option -- 'V'
+> Try `cp --help' for more information.
+> $ bash -V
+> bash: -V: invalid option
+> [...]
+> $ emacs -V
+> [opens window]
+> $ vim -V
+> chdir(/usr/share/vim)
+> fchdir() to previous dir
+> sourcing "$VIM/vimrc"
+> [...looks like that meant 'verbose'...]
 
-The default is/should be : rxhash generated in network stack.
+Now try with networking tools, many use -V
 
-ethtool -k eth0 | grep hash
-receive-hashing: off
+(As a matter of fact, ethtool -h already is used to display help)
 
-To use the device/harwdare provided rxhash, you need to ask for it.
-
-ethtool -K eth0 rxhash on
-
-
-
-BTW, I am not sure what you mean by "much cheaper hash is used"...
-
-I presume hardware provided hash is less expensive (for our cpu) than
-computing our rxhash...
+# ping -V
+ping utility, iputils-sss20071127
+# tc -V
+tc utility, iproute2-ss100823
+# ssh -V
+OpenSSH_5.1p1 Debian-5, OpenSSL 0.9.8g 19 Oct 2007
 
 
 
