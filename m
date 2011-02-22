@@ -1,71 +1,75 @@
-From: Anders Berggren <anders@halon.se>
-Subject: [PATCH] net: TX timestamps for IPv6 UDP packets
-Date: Tue, 22 Feb 2011 22:43:47 +0100
-Message-ID: <240353FF-7F9F-428C-84C3-3BD9B43213EE@halon.se>
-Mime-Version: 1.0 (Apple Message framework v1082)
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org
-To: John Ronciak <john.ronciak@intel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH ethtool 5/5] ethtool: Add --version option
+Date: Tue, 22 Feb 2011 21:49:12 +0000
+Message-ID: <1298411352.14956.23.camel@bwh-desktop>
+References: <1561212236.5138.1298355384916.JavaMail.root@tahiti.vyatta.com>
+	 <1298378228.2211.472.camel@localhost>
+	 <1298379945.2861.7.camel@edumazet-laptop>  <4D642C14.6020505@garzik.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	netdev@vger.kernel.org
+To: Jeff Garzik <jeff@garzik.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vsp.halon.se ([212.37.18.222]:54548 "EHLO vsp.halon.se"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751749Ab1BVVnx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 16:43:53 -0500
+Received: from mail.solarflare.com ([216.237.3.220]:43936 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750930Ab1BVVtP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 16:49:15 -0500
+In-Reply-To: <4D642C14.6020505@garzik.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enabling TX timestamps (SO_TIMESTAMPING) for IPv6 UDP packets, in 
-the same fashion as for IPv4. Necessary in order for NICs such as
-Intel 82580 to timestamp IPv6 packets.
+On Tue, 2011-02-22 at 16:35 -0500, Jeff Garzik wrote:
+> On 02/22/2011 08:05 AM, Eric Dumazet wrote:
+> > Le mardi 22 f=C3=A9vrier 2011 =C3=A0 12:37 +0000, Ben Hutchings a =C3=
+=A9crit :
+> >> On Mon, 2011-02-21 at 22:16 -0800, Stephen Hemminger wrote:
+> >> [...]
+> >>> The standard convention is to use -V for short form of version op=
+tion.
+> >>
+> >> This is not anywhere near standard.
+> >>
+> >> $ cp -V
+> >> cp: invalid option -- 'V'
+> >> Try `cp --help' for more information.
+> >> $ bash -V
+> >> bash: -V: invalid option
+> >> [...]
+> >> $ emacs -V
+> >> [opens window]
+> >> $ vim -V
+> >> chdir(/usr/share/vim)
+> >> fchdir() to previous dir
+> >> sourcing "$VIM/vimrc"
+> >> [...looks like that meant 'verbose'...]
+> >
+> > Now try with networking tools, many use -V
+> >
+> > (As a matter of fact, ethtool -h already is used to display help)
+> >
+> > # ping -V
+> > ping utility, iputils-sss20071127
+> > # tc -V
+> > tc utility, iproute2-ss100823
+> > # ssh -V
+> > OpenSSH_5.1p1 Debian-5, OpenSSL 0.9.8g 19 Oct 2007
+>=20
+> Stephen is correct, "-V" is a common standard (but by no means=20
+> universal).  The following is what using argp ("info argp") generates=
+=20
+> for any program by default:
+[...]
 
-Signed-off-by: Anders Berggren <anders@halon.se>
----
+Well, it's my bikeshed now. :-)  I don't think it's worth using one of
+the few remaining letters on this.
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 94b5bf1..74d9343 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1115,6 +1115,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 	int err;
- 	int offset = 0;
- 	int csummode = CHECKSUM_NONE;
-+	__u8 tx_flags = 0;
- 
- 	if (flags&MSG_PROBE)
- 		return 0;
-@@ -1199,6 +1200,13 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 		}
- 	}
- 
-+	/* For UDP, check if TX timestamp is enabled */
-+	if (sk->sk_type == SOCK_DGRAM) {
-+		err = sock_tx_timestamp(sk, &tx_flags);
-+		if (err)
-+			goto error;
-+	}
-+
- 	/*
- 	 * Let's try using as much space as possible.
- 	 * Use MTU if total length of the message fits into the MTU.
-@@ -1303,6 +1311,10 @@ alloc_new_skb:
- 							   sk->sk_allocation);
- 				if (unlikely(skb == NULL))
- 					err = -ENOBUFS;
-+				else
-+					/* only the initial fragment is
-+					   time stamped */
-+					tx_flags = 0;
- 			}
- 			if (skb == NULL)
- 				goto error;
-@@ -1314,6 +1326,9 @@ alloc_new_skb:
- 			/* reserve for fragmentation */
- 			skb_reserve(skb, hh_len+sizeof(struct frag_hdr));
- 
-+			if (sk->sk_type == SOCK_DGRAM)
-+				skb_shinfo(skb)->tx_flags = tx_flags;
-+
- 			/*
- 			 *	Find where to start putting bytes
- 			 */
+Ben.
+
+--=20
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
