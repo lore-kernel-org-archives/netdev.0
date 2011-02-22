@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb{3,4}: streamline Kconfig options
-Date: Tue, 22 Feb 2011 10:14:57 -0800 (PST)
-Message-ID: <20110222.101457.39195901.davem@davemloft.net>
-References: <4D5D30CA020000780003263A@vpn.id2.novell.com>
+Subject: Re: [PATCH 15/14] net/fec: remove unused driver data
+Date: Tue, 22 Feb 2011 10:16:39 -0800 (PST)
+Message-ID: <20110222.101639.59689167.davem@davemloft.net>
+References: <1297420342-17739-1-git-send-email-u.kleine-koenig@pengutronix.de>
+	<1297981945-28501-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: divy@chelsio.com, dm@chelsio.com, linux-kbuild@vger.kernel.org,
-	netdev@vger.kernel.org
-To: JBeulich@novell.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, mkl@pengutronix.de, kernel@pengutronix.de
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46167
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46173
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754642Ab1BVSOV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 13:14:21 -0500
-In-Reply-To: <4D5D30CA020000780003263A@vpn.id2.novell.com>
+	by vger.kernel.org with ESMTP id S1754963Ab1BVSQD convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Feb 2011 13:16:03 -0500
+In-Reply-To: <1297981945-28501-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jan Beulich" <JBeulich@novell.com>
-Date: Thu, 17 Feb 2011 13:29:30 +0000
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Thu, 17 Feb 2011 23:32:25 +0100
 
-> The CHELSIO_T{3,4}_DEPENDS options are really awkward, and can be
-> easily dropped if the reverse dependencies of SCSI_CXGB{3,4}_ISCSI on
-> the former get converted to normal (forward) ones referring to
-> CHELSIO_T{3,4}.
-> 
-> Signed-off-by: Jan Beulich <jbeulich@novell.com>
+> Apart from not being used the first argument isn't even a struct
+> platform_device *.
+>=20
+> Reported-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> ---
+> Hello,
+>=20
+> this patch is available at
+>=20
+> 	git://git.pengutronix.de/git/ukl/linux-2.6.git fec
+>=20
+> based on the patches already merged into net-next.
 
-I think the goal of these strange rules is not to be complicated
-on purpose, but rather to cause the iSCSI drivers to appear without
-the user having to know that he needs to enable the networking
-driver in order for that to happen.
+Pulled, thanks.
