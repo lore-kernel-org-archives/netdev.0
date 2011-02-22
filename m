@@ -1,112 +1,339 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: sysctls below net.ipv[46].conf.all not working as expected
-Date: Tue, 22 Feb 2011 10:34:25 +0100
-Message-ID: <20110222093425.GX22310@pengutronix.de>
-References: <20101229160607.GH14221@pengutronix.de>
- <20101230.123023.226775556.davem@davemloft.net>
- <20101230204319.GE14221@pengutronix.de>
+From: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net-2.6) 3/4] stmmac: switch to use the new generic timer
+ interface
+Date: Tue, 22 Feb 2011 11:17:43 +0100
+Message-ID: <1298369864-24429-4-git-send-email-peppe.cavallaro@st.com>
+References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, Marco d'Itri <md@linux.it>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:37961 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753841Ab1BVKlb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 05:41:31 -0500
-Content-Disposition: inline
-In-Reply-To: <20101230204319.GE14221@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Stuart MENEFY <stuart.menefy@st.com>,
+	Peppe CAVALLARO <peppe.cavallaro@st.com>
+To: "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David,
+The stmmac can use an external timer for mitigating
+the number of interrupts.
+On SH4 platforms based this can be done by using the
+TMU channel 2 interrupt.
+This actually helps many people to save the CPU usage
+on platforms with MAC10/100 and GMAC devices without
+an embedded timer.
 
-On Thu, Dec 30, 2010 at 09:43:19PM +0100, Uwe Kleine-K=F6nig wrote:
-> On Thu, Dec 30, 2010 at 12:30:23PM -0800, David Miller wrote:
-> > From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> > Date: Wed, 29 Dec 2010 17:06:07 +0100
-> >=20
-> > > I did the following:
-> > >=20
-> > > 	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
-> > > 	net.ipv6.conf.all.use_tempaddr =3D 0
-> > >=20
-> > > 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
-> > > 	net.ipv6.conf.eth0.use_tempaddr =3D 0
-> > >=20
-> > > 	cassiopeia:~# sysctl -w net.ipv6.conf.all.use_tempaddr=3D1
-> > > 	net.ipv6.conf.all.use_tempaddr =3D 1
-> > >=20
-> > > 	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
-> > > 	net.ipv6.conf.all.use_tempaddr =3D 1
-> > >=20
-> > > 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
-> > > 	net.ipv6.conf.eth0.use_tempaddr =3D 0
-> > >=20
-> > > Here I would have expected that eth0's use_tempaddr is 1, too.  T=
-he
-> > > problem is not that this entry isn't writeable:
-> >=20
-> > The "all" value is propagated at the first moment that the ipv6 dev=
-ice
-> > private is created, usually that is when the device is first brough=
-t up
-> > which means it can happen as early as the exact moment the device i=
-s
-> > registered.
-> >=20
-> > Therefore, if you want "all" to apply to "eth0", you must make sure
-> > the sysctl is set properly before the device is registered.
-> I thought this is what "default" was used for?!
-I took the time now to dig into the source for ipv4/{all,default}.
+This patch removes the old code (obsoleted and only
+valid for old STM Kernels) and uses the new generic
+timer interface.
 
-Unless I'm mistaken I found:
+Signed-off-by: Stuart Menefy <stuart.menefy@st.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+---
+ drivers/net/stmmac/Kconfig        |    1 -
+ drivers/net/stmmac/stmmac_main.c  |   21 ++++----
+ drivers/net/stmmac/stmmac_timer.c |  101 +++++++++++++++++++++---------------
+ drivers/net/stmmac/stmmac_timer.h |   11 ++---
+ 4 files changed, 74 insertions(+), 60 deletions(-)
 
- - inetdev_init copies dev_net(dev)->ipv4.devconf_dflt to &in_dev->cnf
-   That's called from inetdev_event if there is no in_dev.
-
- - devinet_copy_dflt_conf copies to all devices that have !test_bit(i,
-   in_dev->cnf.state)
-   devinet_copy_dflt_conf is called when /proc/sys/net/ipv4/conf/defaul=
-t
-   is written to.  I didn't found where the in_dev->cnf.state bits are
-   set.
-
- - net->ipv4.devconf_all is never propagated to the devices.
-
- - The data behind /proc/sys/net/ipv4/conf/all is used in registering
-   net->ipv4.forw_hdr and seems only have to do with ip_forward
-
-So I think that it's really "default" that propagates to a new device a=
-s
-I expected and the documentation suggests.
-
-So IMHO a better name for "all" would be "global" ...
-
-> If you are really right, the documentation is (IMHO) misleading.  e.g=
-=2E
-> Documentation/networking/ip-sysctl.txt tells:
->=20
-> 	conf/default/*:
-> 		Change the interface-specific default settings.
->=20
-> 	conf/all/*:
-> 		Change all the interface-specific settings.
-=2E.. and this is misleading.  I wonder if it would be considered OK, t=
-o
-create a new config directory called "global" that acts like "all" now
-and let "all" propagate all changes to all devices, "default" and
-"global".  If not the documentation needs clearification.
-
-I guess for ipv6 it's similar, though I didn't check that.
-
-Best regards
-Uwe
-
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+diff --git a/drivers/net/stmmac/Kconfig b/drivers/net/stmmac/Kconfig
+index 7df7df4..b74e79b 100644
+--- a/drivers/net/stmmac/Kconfig
++++ b/drivers/net/stmmac/Kconfig
+@@ -32,7 +32,6 @@ config STMMAC_DUAL_MAC
+ config STMMAC_TIMER
+ 	bool "STMMAC Timer optimisation"
+ 	default n
+-	depends on RTC_HCTOSYS_DEVICE
+ 	help
+ 	  Use an external timer for mitigating the number of network
+ 	  interrupts. Currently, for SH architectures, it is possible
+diff --git a/drivers/net/stmmac/stmmac_main.c b/drivers/net/stmmac/stmmac_main.c
+index 34a0af3..26714b4 100644
+--- a/drivers/net/stmmac/stmmac_main.c
++++ b/drivers/net/stmmac/stmmac_main.c
+@@ -652,7 +652,7 @@ static inline void stmmac_enable_irq(struct stmmac_priv *priv)
+ {
+ #ifdef CONFIG_STMMAC_TIMER
+ 	if (likely(priv->tm->enable))
+-		priv->tm->timer_start(tmrate);
++		priv->tm->timer_start(priv->tm->timer_callb, tmrate);
+ 	else
+ #endif
+ 		priv->hw->dma->enable_dma_irq(priv->ioaddr);
+@@ -662,7 +662,7 @@ static inline void stmmac_disable_irq(struct stmmac_priv *priv)
+ {
+ #ifdef CONFIG_STMMAC_TIMER
+ 	if (likely(priv->tm->enable))
+-		priv->tm->timer_stop();
++		priv->tm->timer_stop(priv->tm->timer_callb);
+ 	else
+ #endif
+ 		priv->hw->dma->disable_dma_irq(priv->ioaddr);
+@@ -703,11 +703,11 @@ void stmmac_schedule(struct net_device *dev)
+ 	_stmmac_schedule(priv);
+ }
+ 
+-static void stmmac_no_timer_started(unsigned int x)
++static void stmmac_no_timer_started(void *t, unsigned int x)
+ {;
+ };
+ 
+-static void stmmac_no_timer_stopped(void)
++static void stmmac_no_timer_stopped(void *t)
+ {;
+ };
+ #endif
+@@ -720,7 +720,6 @@ static void stmmac_no_timer_stopped(void)
+  */
+ static void stmmac_tx_err(struct stmmac_priv *priv)
+ {
+-
+ 	netif_stop_queue(priv->dev);
+ 
+ 	priv->hw->dma->stop_tx(priv->ioaddr);
+@@ -807,7 +806,8 @@ static int stmmac_open(struct net_device *dev)
+ 	/* Test if the external timer can be actually used.
+ 	 * In case of failure continue without timer. */
+ 	if (unlikely((stmmac_open_ext_timer(dev, priv->tm)) < 0)) {
+-		pr_warning("stmmaceth: cannot attach the external timer.\n");
++		pr_warning("stmmac (%s): cannot attach the external timer.\n",
++			   dev->name);
+ 		priv->tm->freq = 0;
+ 		priv->tm->timer_start = stmmac_no_timer_started;
+ 		priv->tm->timer_stop = stmmac_no_timer_stopped;
+@@ -864,7 +864,8 @@ static int stmmac_open(struct net_device *dev)
+ 	priv->hw->dma->start_rx(priv->ioaddr);
+ 
+ #ifdef CONFIG_STMMAC_TIMER
+-	priv->tm->timer_start(tmrate);
++	if (likely(priv->tm->enable))
++		priv->tm->timer_start(priv->tm->timer_callb, tmrate);
+ #endif
+ 	/* Dump DMA/MAC registers */
+ 	if (netif_msg_hw(priv)) {
+@@ -902,7 +903,7 @@ static int stmmac_release(struct net_device *dev)
+ 
+ #ifdef CONFIG_STMMAC_TIMER
+ 	/* Stop and release the timer */
+-	stmmac_close_ext_timer();
++	stmmac_close_ext_timer(priv->tm->timer_callb);
+ 	if (priv->tm != NULL)
+ 		kfree(priv->tm);
+ #endif
+@@ -1815,7 +1816,7 @@ static int stmmac_suspend(struct device *dev)
+ 		phy_stop(priv->phydev);
+ 
+ #ifdef CONFIG_STMMAC_TIMER
+-	priv->tm->timer_stop();
++	priv->tm->timer_stop(priv->tm->timer_callb);
+ 	if (likely(priv->tm->enable))
+ 		dis_ic = 1;
+ #endif
+@@ -1866,7 +1867,7 @@ static int stmmac_resume(struct device *dev)
+ 
+ #ifdef CONFIG_STMMAC_TIMER
+ 	if (likely(priv->tm->enable))
+-		priv->tm->timer_start(tmrate);
++		priv->tm->timer_start(priv->tm->timer_callb, tmrate);
+ #endif
+ 	napi_enable(&priv->napi);
+ 
+diff --git a/drivers/net/stmmac/stmmac_timer.c b/drivers/net/stmmac/stmmac_timer.c
+index 2a0e1ab..2481daa 100644
+--- a/drivers/net/stmmac/stmmac_timer.c
++++ b/drivers/net/stmmac/stmmac_timer.c
+@@ -33,102 +33,119 @@ static void stmmac_timer_handler(void *data)
+ 	stmmac_schedule(dev);
+ }
+ 
+-#define STMMAC_TIMER_MSG(timer, freq) \
+-printk(KERN_INFO "stmmac_timer: %s Timer ON (freq %dHz)\n", timer, freq);
++#define STMMAC_TIMER_MSG(dev_name, timer, freq) \
++printk(KERN_INFO "stmmac_timer: (%s) %s Timer (freq %dHz)\n", \
++		 dev_name, timer, freq);
+ 
+ #if defined(CONFIG_STMMAC_RTC_TIMER)
+ #include <linux/rtc.h>
+-static struct rtc_device *stmmac_rtc;
+-static rtc_task_t stmmac_task;
+ 
+-static void stmmac_rtc_start(unsigned int new_freq)
++static void stmmac_rtc_start(void *timer, unsigned int new_freq)
+ {
+-	rtc_irq_set_freq(stmmac_rtc, &stmmac_task, new_freq);
+-	rtc_irq_set_state(stmmac_rtc, &stmmac_task, 1);
++	struct rtc_device *rtc = timer;
++
++	rtc_irq_set_freq(rtc, rtc->irq_task, new_freq);
++	rtc_irq_set_state(rtc, rtc->irq_task, 1);
++	return;
+ }
+ 
+-static void stmmac_rtc_stop(void)
++static void stmmac_rtc_stop(void *timer)
+ {
+-	rtc_irq_set_state(stmmac_rtc, &stmmac_task, 0);
++	struct rtc_device *rtc = timer;
++
++	rtc_irq_set_state(rtc, rtc->irq_task, 0);
++	return;
+ }
+ 
+ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+ {
+-	stmmac_task.private_data = dev;
+-	stmmac_task.func = stmmac_timer_handler;
++	struct rtc_device *rtc;
++	rtc_task_t rtc_task;
++
++	rtc_task.private_data = dev;
++	rtc_task.func = stmmac_timer_handler;
+ 
+-	stmmac_rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+-	if (stmmac_rtc == NULL) {
++	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
++	if (rtc == NULL) {
+ 		pr_err("open rtc device failed\n");
+ 		return -ENODEV;
+ 	}
+ 
+-	rtc_irq_register(stmmac_rtc, &stmmac_task);
++	rtc_irq_register(rtc, &rtc_task);
+ 
+ 	/* Periodic mode is not supported */
+-	if ((rtc_irq_set_freq(stmmac_rtc, &stmmac_task, tm->freq) < 0)) {
++	if ((rtc_irq_set_freq(rtc, &rtc_task, tm->freq) < 0)) {
+ 		pr_err("set periodic failed\n");
+-		rtc_irq_unregister(stmmac_rtc, &stmmac_task);
+-		rtc_class_close(stmmac_rtc);
++		rtc_irq_unregister(rtc, &rtc_task);
++		rtc_class_close(rtc);
+ 		return -1;
+ 	}
+ 
+-	STMMAC_TIMER_MSG(CONFIG_RTC_HCTOSYS_DEVICE, tm->freq);
++	STMMAC_TIMER_MSG(dev->name, CONFIG_RTC_HCTOSYS_DEVICE, tm->freq);
+ 
++	rtc->irq_task = &rtc_task;
++	tm->timer_callb = rtc;
+ 	tm->timer_start = stmmac_rtc_start;
+ 	tm->timer_stop = stmmac_rtc_stop;
+ 
+ 	return 0;
+ }
+ 
+-int stmmac_close_ext_timer(void)
++int stmmac_close_ext_timer(void *timer)
+ {
+-	rtc_irq_set_state(stmmac_rtc, &stmmac_task, 0);
+-	rtc_irq_unregister(stmmac_rtc, &stmmac_task);
+-	rtc_class_close(stmmac_rtc);
++	struct rtc_device *rtc = timer;
++
++	rtc_irq_set_state(rtc, rtc->irq_task, 0);
++	rtc_irq_unregister(rtc, rtc->irq_task);
++	rtc_class_close(rtc);
++
+ 	return 0;
+ }
+ 
+ #elif defined(CONFIG_STMMAC_TMU_TIMER)
+-#include <linux/clk.h>
+-#define TMU_CHANNEL "tmu2_clk"
+-static struct clk *timer_clock;
++#include <linux/generictimer.h>
+ 
+-static void stmmac_tmu_start(unsigned int new_freq)
++/* Set rate and start the timer */
++static void stmmac_tmu_set_rate(void *timer_callb, unsigned int new_freq)
+ {
+-	clk_set_rate(timer_clock, new_freq);
+-	clk_enable(timer_clock);
++	struct generic_timer *timer = timer_callb;
++
++	generic_timer_start(timer);
++	generic_timer_set_rate(timer, new_freq);
++	return;
+ }
+ 
+-static void stmmac_tmu_stop(void)
++static void stmmac_tmu_stop(void *timer_callb)
+ {
+-	clk_disable(timer_clock);
++	struct generic_timer *timer = timer_callb;
++
++	generic_timer_stop(timer);
++	return;
+ }
+ 
+ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm)
+ {
+-	timer_clock = clk_get(NULL, TMU_CHANNEL);
++	struct generic_timer *timer;
++	timer = generic_timer_claim(stmmac_timer_handler,  dev);
+ 
+-	if (timer_clock == NULL)
++	if (timer == NULL)
+ 		return -1;
+ 
+-	if (tmu2_register_user(stmmac_timer_handler, (void *)dev) < 0) {
+-		timer_clock = NULL;
+-		return -1;
+-	}
++	STMMAC_TIMER_MSG(dev->name, "sh_tmu", tm->freq);
+ 
+-	STMMAC_TIMER_MSG("TMU2", tm->freq);
+-	tm->timer_start = stmmac_tmu_start;
++	tm->timer_callb = timer;
++	tm->timer_start = stmmac_tmu_set_rate;
+ 	tm->timer_stop = stmmac_tmu_stop;
+ 
+ 	return 0;
+ }
+ 
+-int stmmac_close_ext_timer(void)
++int stmmac_close_ext_timer(void *timer_callb)
+ {
+-	clk_disable(timer_clock);
+-	tmu2_unregister_user();
+-	clk_put(timer_clock);
++	struct generic_timer *timer = timer_callb;
++
++	stmmac_tmu_stop(timer_callb);
++	generic_timer_release(timer);
+ 	return 0;
+ }
+ #endif
+diff --git a/drivers/net/stmmac/stmmac_timer.h b/drivers/net/stmmac/stmmac_timer.h
+index 6863590..250f5cb 100644
+--- a/drivers/net/stmmac/stmmac_timer.h
++++ b/drivers/net/stmmac/stmmac_timer.h
+@@ -23,20 +23,17 @@
+ *******************************************************************************/
+ 
+ struct stmmac_timer {
+-	void (*timer_start) (unsigned int new_freq);
+-	void (*timer_stop) (void);
++	void (*timer_start) (void *timer, unsigned int new_freq);
++	void (*timer_stop) (void *timer);
+ 	unsigned int freq;
+ 	unsigned int enable;
++	void *timer_callb;
+ };
+ 
+ /* Open the HW timer device and return 0 in case of success */
+ int stmmac_open_ext_timer(struct net_device *dev, struct stmmac_timer *tm);
+ /* Stop the timer and release it */
+-int stmmac_close_ext_timer(void);
++int stmmac_close_ext_timer(void *priv);
+ /* Function used for scheduling task within the stmmac */
+ void stmmac_schedule(struct net_device *dev);
+ 
+-#if defined(CONFIG_STMMAC_TMU_TIMER)
+-extern int tmu2_register_user(void *fnt, void *data);
+-extern void tmu2_unregister_user(void);
+-#endif
+-- 
+1.7.4
