@@ -1,63 +1,64 @@
-From: "Hans Schillstrom" <hans@schillstrom.com>
-Subject: Re: [PATCH] ipvs: fix dst_lock locking on dest update
-Date: Tue, 22 Feb 2011 10:11:46 +0100 (CET)
-Message-ID: <1bn469k.97a49f75bfb99096f095e3668978fd0f@obelix.schillstrom.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH 1/2] net/r8169: adjust rtl8169_set_speed_xmii function
+Date: Tue, 22 Feb 2011 17:26:18 +0800
+Message-ID: <1298366782-1508-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, "Simon Horman" <horms@verge.net.au>
-To: "Julian Anastasov" <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->---- Original Message ----
->From: Julian Anastasov <ja@ssi.bg>
->To: "David S. Miller" <davem@davemloft.net>
->Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org, "Simon Horman" <horms@verge.net.au>
->Sent: Tue, Feb 22, 2011, 9:36 AM
->Subject: [PATCH] ipvs: fix dst_lock locking on dest update
->
->Fix dst_lock usage in __ip_vs_update_dest. We need
->_bh locking because destination is updated in user context.
->Can cause lockups on frequent destination updates.
->Problem reported by Simon Kirby. Bug was introduced
->in 2.6.37 from the "ipvs: changes for local real server"
->change.
->
->Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+Adjust code of rtl8169_set_speed_xmii function and remove part
+codes which have done in rtl_pll_power_up function.
 
->---
->
-> 	Dave, please apply to net-2.6.
->Patch is for 2.6.37+ and applies to 2.6.38-rc6. There is
->little fuzz when applying to net-next, let me know if
->I should provide patch for other trees.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/r8169.c |   16 ++--------------
+ 1 files changed, 2 insertions(+), 14 deletions(-)
 
-The patch seems to be OK in 2.6.38 expcept for line number.
-All my thest runs without any problems.
-
->
->--- linux-2.6.37/net/netfilter/ipvs/ip_vs_ctl.c	2011-01-06 00:01:23.600069161 +0200
->+++ linux/net/netfilter/ipvs/ip_vs_ctl.c	2011-02-19 23:14:44.463250743 +0200
->@@ -810,9 +810,9 @@ __ip_vs_update_dest(struct ip_vs_service
->  	dest->u_threshold = udest->u_threshold;
->  	dest->l_threshold = udest->l_threshold;
->
->-	spin_lock(&dest->dst_lock);
->+	spin_lock_bh(&dest->dst_lock);
->  	ip_vs_dst_reset(dest);
->-	spin_unlock(&dest->dst_lock);
->+	spin_unlock_bh(&dest->dst_lock);
->
->  	if (add)
->  		ip_vs_new_estimator(&dest->stats);
->--
-
-
-Hans Schillstrom <hans@schillstrom.com>
-
-
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 469ab0b..de94489 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -1124,6 +1124,8 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	int giga_ctrl, bmcr;
+ 
++	rtl_writephy(tp, 0x1f, 0x0000);
++
+ 	if (autoneg == AUTONEG_ENABLE) {
+ 		int auto_nego;
+ 
+@@ -1152,18 +1154,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 
+ 		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
+ 
+-		if ((tp->mac_version == RTL_GIGA_MAC_VER_11) ||
+-		    (tp->mac_version == RTL_GIGA_MAC_VER_12) ||
+-		    (tp->mac_version >= RTL_GIGA_MAC_VER_17)) {
+-			/*
+-			 * Wake up the PHY.
+-			 * Vendor specific (0x1f) and reserved (0x0e) MII
+-			 * registers.
+-			 */
+-			rtl_writephy(tp, 0x1f, 0x0000);
+-			rtl_writephy(tp, 0x0e, 0x0000);
+-		}
+-
+ 		rtl_writephy(tp, MII_ADVERTISE, auto_nego);
+ 		rtl_writephy(tp, MII_CTRL1000, giga_ctrl);
+ 	} else {
+@@ -1178,8 +1168,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 
+ 		if (duplex == DUPLEX_FULL)
+ 			bmcr |= BMCR_FULLDPLX;
+-
+-		rtl_writephy(tp, 0x1f, 0x0000);
+ 	}
+ 
+ 	tp->phy_1000_ctrl_reg = giga_ctrl;
+-- 
+1.7.3.2
