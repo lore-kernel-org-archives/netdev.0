@@ -1,60 +1,52 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: why all packets have same queue no when rps enabled?
-Date: Tue, 22 Feb 2011 13:09:25 +0000
-Message-ID: <1298380165.2211.481.camel@localhost>
-References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6D0C@MILEXCH2.ds.jdsu.net>
-	 <1298378756.2211.478.camel@localhost>
-	 <1298379718.2861.3.camel@edumazet-laptop>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: [PATCH] rt2x00: Use ops name instead of device name
+Date: Tue, 22 Feb 2011 08:12:48 -0500
+Message-ID: <1298380368.6140.1193.camel@gandalf.stny.rr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jon Zhou <Jon.Zhou@jdsu.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:3049 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751149Ab1BVNJa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 08:09:30 -0500
-In-Reply-To: <1298379718.2861.3.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-15"
+Content-Transfer-Encoding: 7bit
+Cc: Felix Fietkau <nbd@openwrt.org>, Ivo van Doorn <IvDoorn@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>, abogani@texware.it
+To: LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2011-02-22 at 14:01 +0100, Eric Dumazet wrote:
-> Le mardi 22 f=C3=A9vrier 2011 =C3=A0 12:45 +0000, Ben Hutchings a =C3=
-=A9crit :
->=20
-> > The queue number identifies a hardware queue.  RPS therefore does n=
-ot
-> > update this number when queueing packets for processing on other CP=
-Us.
-> >=20
-> > If the hardware/driver provides a receive hash (probably Toeplitz) =
-then
-> > this is used for RPS.  Otherwise a much cheaper hash is used.
->=20
-> The default is/should be : rxhash generated in network stack.
->=20
-> ethtool -k eth0 | grep hash
-> receive-hashing: off
->=20
-> To use the device/harwdare provided rxhash, you need to ask for it.
->=20
-> ethtool -K eth0 rxhash on
+Recently, someone complained that they see the PCI address of a device
+in the interrupts file instead of the device name.
 
-Whether this is enabled by default depends on the driver.
+19:   73474106          0   IO-APIC-fasteoi   ata_piix, uhci_hcd:usb6, 0000:05:01.0
 
-> BTW, I am not sure what you mean by "much cheaper hash is used"...
->=20
-> I presume hardware provided hash is less expensive (for our cpu) than
-> computing our rxhash...
+>From lspci:
 
-I mean the hash function we use is much cheaper than Toeplitz.
+05:01.0 Network controller: RaLink RT2561/RT61 rev B 802.11g
+  Subsystem: D-Link System Inc AirPlus G DWL-G510 Wireless Network Adapter (Rev.C)
+  Flags: bus master, slow devsel, latency 32,
+  IRQ 19  Memory at f9100000 (32-bit, non-prefetchable) [size=32K]
+  Capabilities: <access denied>
+  Kernel driver in use: rt61pci
+  Kernel modules: rt61pci
 
-Ben.
+Investigating this, it seems to be the result of the pci_name() used in
+rt2x00pci_probe().
 
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Since the struct rt2x00_ops records the module name for the device as
+well as the ops, it would make more sense to show that in the interrupt
+output instead.
 
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+
+diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
+index ace0b66..06575dc 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00pci.c
++++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+@@ -284,7 +284,7 @@ int rt2x00pci_probe(struct pci_dev *pci_dev, const struct pci_device_id *id)
+ 	rt2x00dev->ops = ops;
+ 	rt2x00dev->hw = hw;
+ 	rt2x00dev->irq = pci_dev->irq;
+-	rt2x00dev->name = pci_name(pci_dev);
++	rt2x00dev->name = ops->name;
+ 
+ 	if (pci_is_pcie(pci_dev))
+ 		rt2x00_set_chip_intf(rt2x00dev, RT2X00_CHIP_INTF_PCIE);
