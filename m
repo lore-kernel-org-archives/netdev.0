@@ -1,64 +1,54 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH 1/2] net/r8169: adjust rtl8169_set_speed_xmii function
-Date: Tue, 22 Feb 2011 17:26:18 +0800
-Message-ID: <1298366782-1508-1-git-send-email-hayeswang@realtek.com>
+Subject: [PATCH 2/3] net/r8169: fix the wrong parameter of point address
+Date: Tue, 22 Feb 2011 17:26:20 +0800
+Message-ID: <1298366782-1508-3-git-send-email-hayeswang@realtek.com>
+References: <1298366782-1508-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	Hayes Wang <hayeswang@realtek.com>
 To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rtits2.realtek.com ([60.250.210.242]:45198 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753103Ab1BVJ2m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 04:28:42 -0500
+In-Reply-To: <1298366782-1508-1-git-send-email-hayeswang@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adjust code of rtl8169_set_speed_xmii function and remove part
-codes which have done in rtl_pll_power_up function.
+Correct the parameter of rtl8168_oob_notify. It results in the
+wrong point address and influences RTL8168DP.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/r8169.c |   16 ++--------------
- 1 files changed, 2 insertions(+), 14 deletions(-)
+ drivers/net/r8169.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 469ab0b..de94489 100644
+index 3630dd7..336ba94 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -1124,6 +1124,8 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	int giga_ctrl, bmcr;
+@@ -617,8 +617,9 @@ static void ocp_write(struct rtl8169_private *tp, u8 mask, u16 reg, u32 data)
+ 	}
+ }
  
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+
- 	if (autoneg == AUTONEG_ENABLE) {
- 		int auto_nego;
+-static void rtl8168_oob_notify(void __iomem *ioaddr, u8 cmd)
++static void rtl8168_oob_notify(struct rtl8169_private *tp, u8 cmd)
+ {
++	void __iomem *ioaddr = tp->mmio_addr;
+ 	int i;
  
-@@ -1152,18 +1154,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 
- 		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
- 
--		if ((tp->mac_version == RTL_GIGA_MAC_VER_11) ||
--		    (tp->mac_version == RTL_GIGA_MAC_VER_12) ||
--		    (tp->mac_version >= RTL_GIGA_MAC_VER_17)) {
--			/*
--			 * Wake up the PHY.
--			 * Vendor specific (0x1f) and reserved (0x0e) MII
--			 * registers.
--			 */
--			rtl_writephy(tp, 0x1f, 0x0000);
--			rtl_writephy(tp, 0x0e, 0x0000);
--		}
--
- 		rtl_writephy(tp, MII_ADVERTISE, auto_nego);
- 		rtl_writephy(tp, MII_CTRL1000, giga_ctrl);
- 	} else {
-@@ -1178,8 +1168,6 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 
- 		if (duplex == DUPLEX_FULL)
- 			bmcr |= BMCR_FULLDPLX;
--
--		rtl_writephy(tp, 0x1f, 0x0000);
+ 	RTL_W8(ERIDR, cmd);
+@@ -630,7 +631,7 @@ static void rtl8168_oob_notify(void __iomem *ioaddr, u8 cmd)
+ 			break;
  	}
  
- 	tp->phy_1000_ctrl_reg = giga_ctrl;
+-	ocp_write(ioaddr, 0x1, 0x30, 0x00000001);
++	ocp_write(tp, 0x1, 0x30, 0x00000001);
+ }
+ 
+ #define OOB_CMD_RESET		0x00
 -- 
 1.7.3.2
+
