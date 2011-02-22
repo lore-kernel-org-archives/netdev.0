@@ -1,43 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCH] ipvs: fix dst_lock locking on dest update
-Date: Tue, 22 Feb 2011 10:40:25 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1102220949510.2388@ja.ssi.bg>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH 3/5] r8169: fix the wrong parameter of point address
+Date: Tue, 22 Feb 2011 16:46:02 +0800
+Message-ID: <F0C0A9D890424ECAAB19523FCC4A2FCC@realtek.com.tw>
+References: <1298356917-486-1-git-send-email-hayeswang@realtek.com> <1298356917-486-3-git-send-email-hayeswang@realtek.com> <20110222080017.GA12453@electric-eye.fr.zoreil.com> <20110222082153.GA12463@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	Simon Horman <horms@verge.net.au>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110222082153.GA12463@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+ 
 
- 	Fix dst_lock usage in __ip_vs_update_dest. We need
-_bh locking because destination is updated in user context.
-Can cause lockups on frequent destination updates.
-Problem reported by Simon Kirby. Bug was introduced
-in 2.6.37 from the "ipvs: changes for local real server"
-change.
+> -----Original Message-----
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+> Sent: Tuesday, February 22, 2011 4:22 PM
+> To: Hayeswang
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH 3/5] r8169: fix the wrong parameter of 
+> point address
+> 
+> Francois Romieu <romieu@fr.zoreil.com> :
+> > Hayes Wang <hayeswang@realtek.com> :
+> > > Correct the parameter of rtl8168_oob_notify. It results 
+> in the wrong 
+> > > point address and influences RTL8168DP.
+> > 
+> > Please send this one separately as a patch against current 
+> kernel tree 
+> > as it is clearly a bugfix. The remaining patches are probably more 
+> > -next material.
+> 
+> Correct me if I am wrong:
+> - #3 and #1 are bugfixes
+> - can you specify if #4 and #5 are either bugfixes, 
+> optimizations or cleanups ?
+> - #2 adds support for a new chipset
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
----
+#1, #3, #4 are bugfixes.
+#2 adds support for a new chipset
+#5 is cleanup.
 
- 	Dave, please apply to net-2.6.
-Patch is for 2.6.37+ and applies to 2.6.38-rc6. There is
-little fuzz when applying to net-next, let me know if
-I should provide patch for other trees.
+I would separate them and send the patches again.
 
---- linux-2.6.37/net/netfilter/ipvs/ip_vs_ctl.c	2011-01-06 00:01:23.600069161 +0200
-+++ linux/net/netfilter/ipvs/ip_vs_ctl.c	2011-02-19 23:14:44.463250743 +0200
-@@ -810,9 +810,9 @@ __ip_vs_update_dest(struct ip_vs_service
-  	dest->u_threshold = udest->u_threshold;
-  	dest->l_threshold = udest->l_threshold;
-
--	spin_lock(&dest->dst_lock);
-+	spin_lock_bh(&dest->dst_lock);
-  	ip_vs_dst_reset(dest);
--	spin_unlock(&dest->dst_lock);
-+	spin_unlock_bh(&dest->dst_lock);
-
-  	if (add)
-  		ip_vs_new_estimator(&dest->stats);
+ 
+Best Regards,
+Hayes
