@@ -1,61 +1,71 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] ax88796: depend on HAS_IOMEM not on individual ARCHs
-Date: Tue, 22 Feb 2011 22:42:30 +0100
-Message-ID: <4D642DC6.2010307@pengutronix.de>
-References: <20110222.111856.102538007.davem@davemloft.net>	<1298405998-6214-1-git-send-email-mkl@pengutronix.de> <20110222.123732.70186533.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig044265E4D3BE49B0179D87E6"
+From: Anders Berggren <anders@halon.se>
+Subject: [PATCH] net: TX timestamps for IPv6 UDP packets
+Date: Tue, 22 Feb 2011 22:43:47 +0100
+Message-ID: <240353FF-7F9F-428C-84C3-3BD9B43213EE@halon.se>
+Mime-Version: 1.0 (Apple Message framework v1082)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: John Ronciak <john.ronciak@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56255 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754320Ab1BVVmf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 16:42:35 -0500
-In-Reply-To: <20110222.123732.70186533.davem@davemloft.net>
+Received: from vsp.halon.se ([212.37.18.222]:54548 "EHLO vsp.halon.se"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751749Ab1BVVnx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 16:43:53 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig044265E4D3BE49B0179D87E6
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Enabling TX timestamps (SO_TIMESTAMPING) for IPv6 UDP packets, in 
+the same fashion as for IPv4. Necessary in order for NICs such as
+Intel 82580 to timestamp IPv6 packets.
 
-On 02/22/2011 09:37 PM, David Miller wrote:
-> I know it's going to cause allmodconfig build errors on sparc64,
-> for example.
+Signed-off-by: Anders Berggren <anders@halon.se>
+---
 
-How to fix?
-> drivers/net/ax88796.c:195: error: implicit declaration of function 'rea=
-dsw'
-> drivers/net/ax88796.c:198: error: implicit declaration of function 'rea=
-dsb'
-
-Use "ioreadX_rep" or add a "!SPARC64" to Kconfig?
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---------------enig044265E4D3BE49B0179D87E6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iEYEARECAAYFAk1kLcoACgkQjTAFq1RaXHP6HwCfSaud4UydVnHsAbNYTnBImvAB
-p8YAn2KRdI9eGML+z5y6vcvpC5ctHNvr
-=Jovd
------END PGP SIGNATURE-----
-
---------------enig044265E4D3BE49B0179D87E6--
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 94b5bf1..74d9343 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1115,6 +1115,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 	int err;
+ 	int offset = 0;
+ 	int csummode = CHECKSUM_NONE;
++	__u8 tx_flags = 0;
+ 
+ 	if (flags&MSG_PROBE)
+ 		return 0;
+@@ -1199,6 +1200,13 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 		}
+ 	}
+ 
++	/* For UDP, check if TX timestamp is enabled */
++	if (sk->sk_type == SOCK_DGRAM) {
++		err = sock_tx_timestamp(sk, &tx_flags);
++		if (err)
++			goto error;
++	}
++
+ 	/*
+ 	 * Let's try using as much space as possible.
+ 	 * Use MTU if total length of the message fits into the MTU.
+@@ -1303,6 +1311,10 @@ alloc_new_skb:
+ 							   sk->sk_allocation);
+ 				if (unlikely(skb == NULL))
+ 					err = -ENOBUFS;
++				else
++					/* only the initial fragment is
++					   time stamped */
++					tx_flags = 0;
+ 			}
+ 			if (skb == NULL)
+ 				goto error;
+@@ -1314,6 +1326,9 @@ alloc_new_skb:
+ 			/* reserve for fragmentation */
+ 			skb_reserve(skb, hh_len+sizeof(struct frag_hdr));
+ 
++			if (sk->sk_type == SOCK_DGRAM)
++				skb_shinfo(skb)->tx_flags = tx_flags;
++
+ 			/*
+ 			 *	Find where to start putting bytes
+ 			 */
