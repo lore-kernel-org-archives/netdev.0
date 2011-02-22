@@ -1,56 +1,46 @@
-From: Peter Korsgaard <jacmet@sunsite.dk>
-Subject: Re: [PATCH-v2] Added support for usb ethernet (0x0fe6, 0x9700)
-Date: Tue, 22 Feb 2011 16:23:44 +0100
-Message-ID: <87hbbwqein.fsf@macbook.be.48ers.dk>
-References: <20110222144110.GG2122@redhat.com>
+From: denys@visp.net.lb
+Subject: iproute, setting manually rtt
+Date: Tue, 22 Feb 2011 17:42:49 +0200
+Message-ID: <97d8915d050c34fb9499617f78305786@visp.net.lb>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@suse.de>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Shahar Havivi <shaharh@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110222144110.GG2122@redhat.com> (Shahar Havivi's message of
-	"Tue, 22 Feb 2011 16:41:11 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:58129 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753789Ab1BVPm7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 10:42:59 -0500
+Received: from webmail.visp.net.lb (localhost [127.0.0.1])
+	(Authenticated sender: denys@visp.net.lb)
+	by hosting.visp.net.lb (Postfix) with ESMTPA id C3EF7368652
+	for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 17:42:49 +0200 (EET)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->>>>> "Shahar" == Shahar Havivi <shaharh@redhat.com> writes:
+ I try to set some time values in iproute, and confused by results. Here 
+ is example:
 
- Shahar> The device is very similar to (0x0fe6, 0x8101),
- Shahar> And works well with dm9601 driver.
+ bytecruncher ~ # ip route del 1.1.1.1;ip route add 1.1.1.1 via 
+ 217.151.224.113 rtt 10ms                                                 
+                                                     bytecruncher ~ # ip 
+ route
+ 1.1.1.1 via 217.151.224.113 dev eth0  rtt 3363235ms
 
- Shahar> Signed-off-by: Shahar Havivi <shaharh@redhat.com>
+ bytecruncher ~ # ip route del 1.1.1.1;ip route add 1.1.1.1 via 
+ 217.151.224.113 rtt 10ms rto_min 10ms
+ bytecruncher ~ # ip route
+ 1.1.1.1 via 217.151.224.113 dev eth0  rtt 3363235ms rto_min lock 
+ 14100654ms
 
-Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
+ Details about system:
+ bytecruncher ~ # uname -a
+ Linux bytecruncher 2.6.37.1-insat #4 SMP Tue Feb 22 15:16:53 EET 2011 
+ x86_64 Intel(R) Xeon(R) CPU X5680 @ 3.33GHz GenuineIntel GNU/Linux
+ bytecruncher ~ # ip -V
+ ip utility, iproute2-ss110107
 
- Shahar> ---
- Shahar> v2:
- Shahar> Fix Peter Korsgaard comments:
- Shahar> got rid of empty line,
- Shahar> move after the 0x8101 device
- Shahar> ---
- Shahar>  drivers/net/usb/dm9601.c |    4 ++++
- Shahar>  1 files changed, 4 insertions(+), 0 deletions(-)
-
- Shahar> diff --git a/drivers/net/usb/dm9601.c b/drivers/net/usb/dm9601.c
- Shahar> index 02b622e..5002f5b 100644
- Shahar> --- a/drivers/net/usb/dm9601.c
- Shahar> +++ b/drivers/net/usb/dm9601.c
- Shahar> @@ -651,6 +651,10 @@ static const struct usb_device_id products[] = {
- Shahar>  	.driver_info = (unsigned long)&dm9601_info,
- Shahar>  	 },
- Shahar>  	{
- Shahar> +	 USB_DEVICE(0x0fe6, 0x9700),	/* DM9601 USB to Fast Ethernet Adapter */
- Shahar> +	 .driver_info = (unsigned long)&dm9601_info,
- Shahar> +	 },
- Shahar> +	{
- Shahar>  	 USB_DEVICE(0x0a46, 0x9000),	/* DM9000E */
- Shahar>  	 .driver_info = (unsigned long)&dm9601_info,
- Shahar>  	 },
- Shahar> -- 
- Shahar> 1.7.4
-
-
--- 
-Bye, Peter Korsgaard
+ I guess there is something really wrong. Not sure if in iproute or 
+ kernel side.
