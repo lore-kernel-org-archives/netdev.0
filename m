@@ -1,48 +1,52 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] ax88796: depend on HAS_IOMEM not on individual ARCHs
-Date: Tue, 22 Feb 2011 21:19:58 +0100
-Message-ID: <1298405998-6214-1-git-send-email-mkl@pengutronix.de>
-References: <20110222.111856.102538007.davem@davemloft.net>
-Cc: davem@davemloft.net, Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+Subject: [PATCH] sis900: use pci_dev->revision
+Date: Tue, 22 Feb 2011 23:29:01 +0300
+Message-ID: <201102222329.02049.sshtylyov@ru.mvista.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org, venza@brownhat.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:46124 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752158Ab1BVUUB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 15:20:01 -0500
-In-Reply-To: <20110222.111856.102538007.davem@davemloft.net>
+Received: from mail.dev.rtsoft.ru ([213.79.90.226]:48550 "HELO
+	mail.dev.rtsoft.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752441Ab1BVUaa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 15:30:30 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reported-by: David Miller <davem@davemloft.net>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+This driver uses PCI_CLASS_REVISION instead of PCI_REVISION_ID, so it wasn't
+converted by commit 44c10138fd4bbc4b6d6bff0873c24902f2a9da65 (PCI: Change all
+drivers to use pci_device->revision).
+
+Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+
 ---
+The patch is against the recent Linus' tree.
 
-Hello David,
+ drivers/net/sis900.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-this patch is available in the git repository at:
-  git://git.pengutronix.de/git/mkl/linux-2.6.git net/ax88796
-
-based on the patches already merged into net-next.
-
-regards, Marc
-
- drivers/net/Kconfig |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f4b3927..5d7d9e7 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -237,7 +237,7 @@ source "drivers/net/arm/Kconfig"
+Index: linux-2.6/drivers/net/sis900.c
+===================================================================
+--- linux-2.6.orig/drivers/net/sis900.c
++++ linux-2.6/drivers/net/sis900.c
+@@ -495,7 +495,7 @@ static int __devinit sis900_probe(struct
+ 	sis_priv->mii_info.reg_num_mask = 0x1f;
  
- config AX88796
- 	tristate "ASIX AX88796 NE2000 clone support"
--	depends on ARM || MIPS || SUPERH
-+	depends on HAS_IOMEM
- 	select PHYLIB
- 	select MDIO_BITBANG
- 	help
--- 
-1.7.2.3
-
+ 	/* Get Mac address according to the chip revision */
+-	pci_read_config_byte(pci_dev, PCI_CLASS_REVISION, &(sis_priv->chipset_rev));
++	sis_priv->chipset_rev = pci_dev->revision;
+ 	if(netif_msg_probe(sis_priv))
+ 		printk(KERN_DEBUG "%s: detected revision %2.2x, "
+ 				"trying to get MAC address...\n",
+@@ -532,7 +532,7 @@ static int __devinit sis900_probe(struct
+ 	/* save our host bridge revision */
+ 	dev = pci_get_device(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_630, NULL);
+ 	if (dev) {
+-		pci_read_config_byte(dev, PCI_CLASS_REVISION, &sis_priv->host_bridge_rev);
++		sis_priv->host_bridge_rev = dev->revision;
+ 		pci_dev_put(dev);
+ 	}
+ 
