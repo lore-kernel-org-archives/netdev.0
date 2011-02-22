@@ -1,101 +1,169 @@
-From: Jon Zhou <Jon.Zhou@jdsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: RE: why all packets have same queue no when rps enabled?
-Date: Mon, 21 Feb 2011 21:56:45 -0800
-Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6D51@MILEXCH2.ds.jdsu.net>
+Date: Tue, 22 Feb 2011 07:13:02 +0100
+Message-ID: <1298355182.3360.9.camel@edumazet-laptop>
 References: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6D0C@MILEXCH2.ds.jdsu.net>
- <1298353270.3360.1.camel@edumazet-laptop>
+	 <1298353270.3360.1.camel@edumazet-laptop>
+	 <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6D51@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Jon Zhou <Jon.Zhou@jdsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og115.obsmtp.com ([64.18.2.217]:58834 "HELO
-	exprod7og115.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1752339Ab1BVF7G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 00:59:06 -0500
-In-Reply-To: <1298353270.3360.1.camel@edumazet-laptop>
-Content-Language: en-US
+Received: from mail-bw0-f51.google.com ([209.85.214.51]:51111 "EHLO
+	mail-bw0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750728Ab1BVGNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 01:13:08 -0500
+Received: by bwz10 with SMTP id 10so2881851bwz.10
+        for <netdev@vger.kernel.org>; Mon, 21 Feb 2011 22:13:06 -0800 (PST)
+In-Reply-To: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6D51@MILEXCH2.ds.jdsu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRXJpYyBEdW1hemV0IFtt
-YWlsdG86ZXJpYy5kdW1hemV0QGdtYWlsLmNvbV0NCj4gU2VudDogVHVlc2RheSwgRmVicnVhcnkg
-MjIsIDIwMTEgMTo0MSBQTQ0KPiBUbzogSm9uIFpob3UNCj4gQ2M6IG5ldGRldkB2Z2VyLmtlcm5l
-bC5vcmcNCj4gU3ViamVjdDogUmU6IHdoeSBhbGwgcGFja2V0cyBoYXZlIHNhbWUgcXVldWUgbm8g
-d2hlbiBycHMgZW5hYmxlZD8NCj4gDQo+IExlIGx1bmRpIDIxIGbDqXZyaWVyIDIwMTEgw6AgMjA6
-MDcgLTA4MDAsIEpvbiBaaG91IGEgw6ljcml0IDoNCj4gPiBIaQ0KPiA+DQo+ID4gSSBleHBlY3Qg
-ZWFjaCBpbmNvbWluZyBwYWNrZXQgd2lsbCBoYXZlIGEgZGlmZmVyZW50IHF1ZXVlIG5vLiB3aGVu
-IEkNCj4gZW5hYmxlZCBSUFMgb24ga2VybmVsIDIuNi4zNi40DQo+ID4NCj4gPiBjYXQgL3N5cy9j
-bGFzcy9uZXQvZXRoNC9xdWV1ZXMvcngtMC9ycHNfY3B1cw0KPiA+IDAwMDAwMDAwLDAwMDAwMGZm
-DQo+ID4NCj4gPiBDUFUwICAgICAgIENQVTEgICAgICAgQ1BVMiAgICAgICBDUFUzICAgICAgIENQ
-VTQgICAgICAgQ1BVNQ0KPiBDUFU2ICAgICAgIENQVTcgICAgICAgQ1BVOCAgICAgICBDUFU5ICAg
-ICAgIENQVTEwICAgICAgQ1BVMTEgICAgICBDUFUxMg0KPiBDUFUxMyAgICAgIENQVTE0ICAgICAg
-Q1BVMTUgICAgICBDUFUxNg0KPiA+ICAgICAgIENQVTE3ICAgICAgQ1BVMTggICAgICBDUFUxOSAg
-ICAgIENQVTIwICAgICAgQ1BVMjEgICAgICBDUFUyMg0KPiBDUFUyMyAgICAgIENQVTI0ICAgICAg
-Q1BVMjUgICAgICBDUFUyNiAgICAgIENQVTI3ICAgICAgQ1BVMjggICAgICBDUFUyOQ0KPiBDUFUz
-MCAgICAgIENQVTMxDQo+ID4gICAgICBISTogICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAg
-IDAgICAgICAgICAgMCAgICAgICAgICAwDQo+IDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
-ICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDANCj4gMCAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwDQo+ID4gICAgICAgICAgMCAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDANCj4gMCAgICAgICAg
-ICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAg
-MA0KPiAwICAgICAgICAgIDANCj4gPiAgICBUSU1FUjogICAgNjAyNzUxMiAgICAgNzEwMTY1ICAg
-IDI2MjMyNDMgICAgIDU0Mjc2OCAgICAgNDI3ODA3DQo+IDIxNzQyNCAgICAgMTkyOTQwICAgICAy
-MTcwNDMgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDANCj4gMCAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDANCj4gPiAgICAgICAgICAw
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMA0K
-PiAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAg
-MCAgICAgICAgICAwDQo+IDAgICAgICAgICAgMA0KPiA+ICAgTkVUX1RYOiAgICAxMzY1NzQxICAg
-ICAgICAgNTkgICAgIDc1MDk1NyAgICAgICAgICAwICAgICAgICAxNzENCj4gMCAgICAgICAgICAz
-ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMA0K
-PiAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDANCj4gPiAgICAg
-ICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAg
-ICAgMA0KPiAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAg
-ICAgICAgMCAgICAgICAgICAwDQo+IDAgICAgICAgICAgMA0KPiA+ICAgTkVUX1JYOiAgIDQwNDY1
-NzUwICAgMTExNDA4MDMgICAgODU0NTg1OSAgIDE0NDE3NzYyICAgIDg5MTM0NzENCj4gMTIyOTg2
-OTEgICAxNDIxNjg0NSAgICAzMzQ4NDMxICAgPCAtLS0tIGluZGVlZCBzcHJlYWQgYWNyb3NzIGNw
-dXMNCj4gPg0KPiA+DQo+ID4gSSBtYW51YWxseSBkaXNhYmxlIFJTUyBvbiB0aGUgaW50ZWwgWDUy
-MCBtdWx0aXF1ZXVlIHN1cHBvcnRlZCBOSUMuDQo+ID4gQ2F0IC9wcm9jL2ludGVycnVwdHMNCj4g
-Pg0KPiA+ICAgODc6ICAgMjEzNDgyOTQgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAg
-ICAgICAgICAgMA0KPiAwICAgICAgICAgIDAgICAgICAgICAgMCAgIFBDSS1NU0ktZWRnZSAgICAg
-IGV0aDQtcngtMA0KPiA+ICAgODg6ICAgICAgMzgzOTQgICAgICAgICAgMCAgICAgICAgICAwICAg
-ICAgICAgIDAgICAgICAgICAgMA0KPiAwICAgICAgICAgIDAgICAgICAgICAgMCAgIFBDSS1NU0kt
-ZWRnZSAgICAgIGV0aDQtdHgtMA0KPiA+DQo+ID4NCj4gPg0KPiA+IFdoZW4gSSB0cmllZCB0aGUg
-YmVsb3cgcHJvZ3JhbSB0byBmaWx0ZXIgcGFja2V0IGJ5IHF1ZXVlIG5vLkkgZ290DQo+IHRoZXNl
-IHJlc3VsdHM6DQo+ID4NCj4gPiBzdHJ1Y3Qgc29ja19maWx0ZXIgQlBGX2NvZGVbXT0gew0KPiA+
-ICAgICB7IDB4MjgsMCwwLFNLRl9BRF9PRkYrU0tGX0FEX1FVRVVFfSwNCj4gPiAgICAgeyAweDE1
-LCAwLCAxLCAweDAwMDAwMDAxIH0sDQo+ID4gICAgIHsgMHg2LCAwLCAwLCAweDAwMDBmZmZmIH0s
-DQo+ID4gICAgIHsgMHg2LCAwLCAwLCAweDAwMDAwMDAwIH0NCj4gPiAgIH07DQo+ID4NCj4gPiAg
-IHN0cnVjdCBzb2NrX2Zwcm9nIEZpbHRlcjsNCj4gPg0KPiA+ICAgRmlsdGVyLmxlbiA9IDQ7Ly8x
-NTsNCj4gPiAgIEZpbHRlci5maWx0ZXIgPSBCUEZfY29kZTsNCj4gPg0KPiA+ICAgaWYgKCAoc29j
-az1zb2NrZXQoUEZfUEFDS0VULCBTT0NLX1JBVywgaHRvbnMoRVRIX1BfSVApKSk8MCkgew0KPiA+
-ICAgICBwZXJyb3IoInNvY2tldCIpOw0KPiA+ICAgICBleGl0KDEpOw0KPiA+ICAgfQ0KPiA+DQo+
-ID4gICAvKiBTZXQgdGhlIG5ldHdvcmsgY2FyZCBpbiBwcm9taXNjdW9zIG1vZGUgKi8NCj4gPiAg
-IHN0cm5jcHkoZXRocmVxLmlmcl9uYW1lLCJldGg0IixJRk5BTVNJWik7DQo+ID4gICBpZiAoaW9j
-dGwoc29jayxTSU9DR0lGRkxBR1MsJmV0aHJlcSk9PS0xKSB7DQo+ID4gICAgIHBlcnJvcigiaW9j
-dGwiKTsNCj4gPiAgICAgY2xvc2Uoc29jayk7DQo+ID4gICAgIGV4aXQoMSk7DQo+ID4gICB9DQo+
-ID4gICBldGhyZXEuaWZyX2ZsYWdzfD1JRkZfUFJPTUlTQzsNCj4gPiAgIGlmIChpb2N0bChzb2Nr
-LFNJT0NTSUZGTEFHUywmZXRocmVxKT09LTEpIHsNCj4gPiAgICAgcGVycm9yKCJpb2N0bCIpOw0K
-PiA+ICAgICBjbG9zZShzb2NrKTsNCj4gPiAgICAgZXhpdCgxKTsNCj4gPiAgIH0NCj4gPg0KPiA+
-ICAgLyogQXR0YWNoIHRoZSBmaWx0ZXIgdG8gdGhlIHNvY2tldCAqLw0KPiA+ICAgaWYoc2V0c29j
-a29wdChzb2NrLCBTT0xfU09DS0VULCBTT19BVFRBQ0hfRklMVEVSLCZGaWx0ZXIsDQo+IHNpemVv
-ZihGaWx0ZXIpKTwwKXsNCj4gPiAgICAgcGVycm9yKCJzZXRzb2Nrb3B0Iik7DQo+ID4gICAgIGNs
-b3NlKHNvY2spOw0KPiA+ICAgICBleGl0KDEpOw0KPiA+ICAgfQ0KPiA+ICAgc3RhdGljIGludCBj
-b3VudCA9IDA7DQo+ID4gICB3aGlsZSAoMSkgew0KPiA+ICAgICBwcmludGYoIiMlZC0tLS0tLS0t
-LS1cbiIsY291bnQrKyk7DQo+ID4gICAgIG4gPSByZWN2ZnJvbShzb2NrLGJ1ZmZlciwyMDQ4LDAs
-TlVMTCxOVUxMKTsNCj4gPiAgICAgcHJpbnRmKCIlZCBieXRlcyByZWFkXG4iLG4pOw0KPiA+IC4u
-Lg0KPiA+IH0NCj4gPg0KPiA+DQo+ID4gTG9va3MgYWxtb3N0IGFsbCBwYWNrZXRzIGZhbGwgYXQg
-c2FtZSBxdWV1ZT8NCj4gPiBXaWxsIFJQUyBhbGxvY2F0ZSBxdWV1ZSBubyBmb3IgZWFjaCBwYWNr
-ZXQ/IGFuZCB3aGF0IGhhc2ggYWxnb3JpdGhtDQo+IHJwcyB1c2VkPyAoaXMgaXQgVG9lcGxpdHog
-aGFzaCBhbGdvcml0aG0/KQ0KPiA+DQo+IA0KPiBJIGJlbGlldmUgeW91IGFyZSBtaXN0YWtlbi4N
-Cj4gDQo+IFJQUyBpcyBub3QgdGhlcmUgdG8gc3ByZWFkIGxvYWQgb24gX2FsbF8gY3B1cywgYnV0
-IHRvIHVzZSBhIGhhc2gNCj4gZnVuY3Rpb24gc28gdGhhdCBhbGwgcGFja2V0cyBvZiBhIGdpdmVu
-IGZsb3cgYXJlIGRpcmVjdGVkIHRvIGEgZ2l2ZW4NCj4gY3B1Lg0KPiANCj4gSWYgeW91IHJlY2Vp
-dmUgMS4wMDAuMDAwIHBhY2tldHMgb2YgdGhlIHNhbWUgZmxvdywgdGhleSBhbGwgYXJlDQo+IGRl
-bGl2ZXJlZCB0byBvbmUgQ1BVLg0KPiANCj4gDQpXaXRoIFJTUyBzdXBwb3J0ZWQgTklDLCBJIHNh
-dyBwYWNrZXQjMCwxLDIsMyx+cGFja2V0Izcgd2lsbCBiZSBkZWxpdmVyZWQgdG8gZGlmZmVyZW50
-IHF1ZXVlLCBidXQgYWZ0ZXIgUlNTIGRpc2FibGVkIGFuZCBSUFMgdHVybiBvbiwgYWxsIHRoZXNl
-IHBhY2tldCB3aWxsIGJlIGFsbG9jYXRlZCBzYW1lIHF1ZXVlIG5vKEkgdXNlZCB0aGUgYWJvdmUg
-ZmlsdGVyIHByb2dyYW0gdG8gZmluZCB0aGF0KQ0KSXMgdGhlcmUgYW55IGZhdWx0IGluIHRoZSBm
-aWx0ZXIgcHJvZ3JhbT8gIA0KDQo=
+Le lundi 21 f=C3=A9vrier 2011 =C3=A0 21:56 -0800, Jon Zhou a =C3=A9crit=
+ :
+>=20
+> > -----Original Message-----
+> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > Sent: Tuesday, February 22, 2011 1:41 PM
+> > To: Jon Zhou
+> > Cc: netdev@vger.kernel.org
+> > Subject: Re: why all packets have same queue no when rps enabled?
+> >=20
+> > Le lundi 21 f=C3=A9vrier 2011 =C3=A0 20:07 -0800, Jon Zhou a =C3=A9=
+crit :
+> > > Hi
+> > >
+> > > I expect each incoming packet will have a different queue no. whe=
+n I
+> > enabled RPS on kernel 2.6.36.4
+> > >
+> > > cat /sys/class/net/eth4/queues/rx-0/rps_cpus
+> > > 00000000,000000ff
+> > >
+> > > CPU0       CPU1       CPU2       CPU3       CPU4       CPU5
+> > CPU6       CPU7       CPU8       CPU9       CPU10      CPU11      C=
+PU12
+> > CPU13      CPU14      CPU15      CPU16
+> > >       CPU17      CPU18      CPU19      CPU20      CPU21      CPU2=
+2
+> > CPU23      CPU24      CPU25      CPU26      CPU27      CPU28      C=
+PU29
+> > CPU30      CPU31
+> > >      HI:          0          0          0          0          0
+> > 0          0          0          0          0          0          0
+> > 0          0          0          0          0
+> > >          0          0          0          0          0          0
+> > 0          0          0          0          0          0          0
+> > 0          0
+> > >    TIMER:    6027512     710165    2623243     542768     427807
+> > 217424     192940     217043          0          0          0
+> > 0          0          0          0          0          0
+> > >          0          0          0          0          0          0
+> > 0          0          0          0          0          0          0
+> > 0          0
+> > >   NET_TX:    1365741         59     750957          0        171
+> > 0          3          0          0          0          0          0
+> > 0          0          0          0          0
+> > >          0          0          0          0          0          0
+> > 0          0          0          0          0          0          0
+> > 0          0
+> > >   NET_RX:   40465750   11140803    8545859   14417762    8913471
+> > 12298691   14216845    3348431   < ---- indeed spread across cpus
+> > >
+> > >
+> > > I manually disable RSS on the intel X520 multiqueue supported NIC=
+=2E
+> > > Cat /proc/interrupts
+> > >
+> > >   87:   21348294          0          0          0          0
+> > 0          0          0   PCI-MSI-edge      eth4-rx-0
+> > >   88:      38394          0          0          0          0
+> > 0          0          0   PCI-MSI-edge      eth4-tx-0
+> > >
+> > >
+> > >
+> > > When I tried the below program to filter packet by queue no.I got
+> > these results:
+> > >
+> > > struct sock_filter BPF_code[]=3D {
+> > >     { 0x28,0,0,SKF_AD_OFF+SKF_AD_QUEUE},
+> > >     { 0x15, 0, 1, 0x00000001 },
+> > >     { 0x6, 0, 0, 0x0000ffff },
+> > >     { 0x6, 0, 0, 0x00000000 }
+> > >   };
+> > >
+> > >   struct sock_fprog Filter;
+> > >
+> > >   Filter.len =3D 4;//15;
+> > >   Filter.filter =3D BPF_code;
+> > >
+> > >   if ( (sock=3Dsocket(PF_PACKET, SOCK_RAW, htons(ETH_P_IP)))<0) {
+> > >     perror("socket");
+> > >     exit(1);
+> > >   }
+> > >
+> > >   /* Set the network card in promiscuos mode */
+> > >   strncpy(ethreq.ifr_name,"eth4",IFNAMSIZ);
+> > >   if (ioctl(sock,SIOCGIFFLAGS,&ethreq)=3D=3D-1) {
+> > >     perror("ioctl");
+> > >     close(sock);
+> > >     exit(1);
+> > >   }
+> > >   ethreq.ifr_flags|=3DIFF_PROMISC;
+> > >   if (ioctl(sock,SIOCSIFFLAGS,&ethreq)=3D=3D-1) {
+> > >     perror("ioctl");
+> > >     close(sock);
+> > >     exit(1);
+> > >   }
+> > >
+> > >   /* Attach the filter to the socket */
+> > >   if(setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER,&Filter,
+> > sizeof(Filter))<0){
+> > >     perror("setsockopt");
+> > >     close(sock);
+> > >     exit(1);
+> > >   }
+> > >   static int count =3D 0;
+> > >   while (1) {
+> > >     printf("#%d----------\n",count++);
+> > >     n =3D recvfrom(sock,buffer,2048,0,NULL,NULL);
+> > >     printf("%d bytes read\n",n);
+> > > ...
+> > > }
+> > >
+> > >
+> > > Looks almost all packets fall at same queue?
+> > > Will RPS allocate queue no for each packet? and what hash algorit=
+hm
+> > rps used? (is it Toeplitz hash algorithm?)
+> > >
+> >=20
+> > I believe you are mistaken.
+> >=20
+> > RPS is not there to spread load on _all_ cpus, but to use a hash
+> > function so that all packets of a given flow are directed to a give=
+n
+> > cpu.
+> >=20
+> > If you receive 1.000.000 packets of the same flow, they all are
+> > delivered to one CPU.
+> >=20
+> >=20
+> With RSS supported NIC, I saw packet#0,1,2,3,~packet#7 will be delive=
+red to different queue, but after RSS disabled and RPS turn on, all the=
+se packet will be allocated same queue no(I used the above filter progr=
+am to find that)
+> Is there any fault in the filter program? =20
+>=20
+
+I dont know...
+
+The easy way to find out is to actually do "cat /proc/net/softnet_stat"
+
+Since the last column is the number of time a cpu was given a packet by
+another cpu (RPS or RFS action)
+
+
+
