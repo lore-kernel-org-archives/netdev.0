@@ -1,135 +1,112 @@
-From: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (sh-2.6) 2/4] sh_timer: add the support to use the generic
- timer
-Date: Tue, 22 Feb 2011 11:17:42 +0100
-Message-ID: <1298369864-24429-3-git-send-email-peppe.cavallaro@st.com>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com>
+From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
+Subject: Re: sysctls below net.ipv[46].conf.all not working as expected
+Date: Tue, 22 Feb 2011 10:34:25 +0100
+Message-ID: <20110222093425.GX22310@pengutronix.de>
+References: <20101229160607.GH14221@pengutronix.de>
+ <20101230.123023.226775556.davem@davemloft.net>
+ <20101230204319.GE14221@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Stuart MENEFY <stuart.menefy@st.com>,
-	Peppe CAVALLARO <peppe.cavallaro@st.com>
-To: "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Marco d'Itri <md@linux.it>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:37961 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753841Ab1BVKlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 05:41:31 -0500
+Content-Disposition: inline
+In-Reply-To: <20101230204319.GE14221@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add the support to register and use a TMU channel as
-generic timer. For example the stmmac network device
-driver, on STM platforms, uses the TMU channel 2 for
-mitigating the number of interrupts.
+Hello David,
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Signed-off-by: Stuart Menefy <stuart.menefy@st.com>
----
- drivers/clocksource/sh_tmu.c |   72 ++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 72 insertions(+), 0 deletions(-)
+On Thu, Dec 30, 2010 at 09:43:19PM +0100, Uwe Kleine-K=F6nig wrote:
+> On Thu, Dec 30, 2010 at 12:30:23PM -0800, David Miller wrote:
+> > From: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> > Date: Wed, 29 Dec 2010 17:06:07 +0100
+> >=20
+> > > I did the following:
+> > >=20
+> > > 	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
+> > > 	net.ipv6.conf.all.use_tempaddr =3D 0
+> > >=20
+> > > 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+> > > 	net.ipv6.conf.eth0.use_tempaddr =3D 0
+> > >=20
+> > > 	cassiopeia:~# sysctl -w net.ipv6.conf.all.use_tempaddr=3D1
+> > > 	net.ipv6.conf.all.use_tempaddr =3D 1
+> > >=20
+> > > 	cassiopeia:~# sysctl net.ipv6.conf.all.use_tempaddr
+> > > 	net.ipv6.conf.all.use_tempaddr =3D 1
+> > >=20
+> > > 	cassiopeia:~# sysctl net.ipv6.conf.eth0.use_tempaddr
+> > > 	net.ipv6.conf.eth0.use_tempaddr =3D 0
+> > >=20
+> > > Here I would have expected that eth0's use_tempaddr is 1, too.  T=
+he
+> > > problem is not that this entry isn't writeable:
+> >=20
+> > The "all" value is propagated at the first moment that the ipv6 dev=
+ice
+> > private is created, usually that is when the device is first brough=
+t up
+> > which means it can happen as early as the exact moment the device i=
+s
+> > registered.
+> >=20
+> > Therefore, if you want "all" to apply to "eth0", you must make sure
+> > the sysctl is set properly before the device is registered.
+> I thought this is what "default" was used for?!
+I took the time now to dig into the source for ipv4/{all,default}.
 
-diff --git a/drivers/clocksource/sh_tmu.c b/drivers/clocksource/sh_tmu.c
-index 36aba99..8199556 100644
---- a/drivers/clocksource/sh_tmu.c
-+++ b/drivers/clocksource/sh_tmu.c
-@@ -29,6 +29,7 @@
- #include <linux/err.h>
- #include <linux/clocksource.h>
- #include <linux/clockchips.h>
-+#include <linux/generictimer.h>
- #include <linux/sh_timer.h>
- #include <linux/slab.h>
- 
-@@ -41,6 +42,7 @@ struct sh_tmu_priv {
- 	unsigned long periodic;
- 	struct clock_event_device ced;
- 	struct clocksource cs;
-+	struct generic_timer gt;
- };
- 
- static DEFINE_SPINLOCK(sh_tmu_lock);
-@@ -184,6 +186,74 @@ static irqreturn_t sh_tmu_interrupt(int irq, void *dev_id)
- 	return IRQ_HANDLED;
- }
- 
-+static struct sh_tmu_priv *gt_to_sh_tmu(struct generic_timer *gt)
-+{
-+	return container_of(gt, struct sh_tmu_priv, gt);
-+}
-+
-+static void sh_tmu_generic_timer_start(struct generic_timer *gt)
-+{
-+	struct sh_tmu_priv *p = gt_to_sh_tmu(gt);
-+
-+	sh_tmu_write(p, TCR, 0x0020);
-+	sh_tmu_start_stop_ch(p, 1);
-+}
-+
-+static void sh_tmu_generic_timer_stop(struct generic_timer *gt)
-+{
-+	struct sh_tmu_priv *p = gt_to_sh_tmu(gt);
-+
-+	sh_tmu_start_stop_ch(p, 0);
-+	sh_tmu_write(p, TCR, 0x0000);
-+}
-+
-+static void sh_tmu_generic_timer_set_rate(struct generic_timer *gt,
-+					  unsigned long rate)
-+{
-+	struct sh_tmu_priv *p = gt_to_sh_tmu(gt);
-+
-+	sh_tmu_enable(p);
-+	p->periodic = p->rate / rate;
-+	sh_tmu_set_next(p, p->periodic, 1);
-+}
-+
-+static irqreturn_t sh_tmu_generic_timer_interrupt(int irq, void *dev_id)
-+{
-+	struct sh_tmu_priv *p = dev_id;
-+
-+	sh_tmu_write(p, TCR, 0x0020);
-+
-+	p->gt.priv_handler(p->gt.data);
-+	return IRQ_HANDLED;
-+}
-+
-+static void sh_tmu_register_generic_timer(struct sh_tmu_priv *p, char *name)
-+{
-+	struct generic_timer *gt = &p->gt;
-+	int ret;
-+
-+	gt->name = name;
-+	gt->timer_start = sh_tmu_generic_timer_start;
-+	gt->timer_stop = sh_tmu_generic_timer_stop;
-+	gt->set_rate = sh_tmu_generic_timer_set_rate;
-+
-+	p->irqaction.handler = sh_tmu_generic_timer_interrupt;
-+
-+	ret = setup_irq(p->irqaction.irq, &p->irqaction);
-+	if (unlikely(ret)) {
-+		dev_err(&p->pdev->dev, "failed to request irq %d\n",
-+			p->irqaction.irq);
-+		return;
-+	}
-+
-+	sh_tmu_generic_timer_stop(gt);
-+	sh_tmu_write(p, TCOR, 0xffffffff);
-+	sh_tmu_write(p, TCNT, 0xffffffff);
-+
-+	dev_info(&p->pdev->dev, "used for generic timer\n");
-+	generic_timer_register_device(gt);
-+}
-+
- static struct sh_tmu_priv *cs_to_sh_tmu(struct clocksource *cs)
- {
- 	return container_of(cs, struct sh_tmu_priv, cs);
-@@ -342,6 +412,8 @@ static int sh_tmu_register(struct sh_tmu_priv *p, char *name,
- 		sh_tmu_register_clockevent(p, name, clockevent_rating);
- 	else if (clocksource_rating)
- 		sh_tmu_register_clocksource(p, name, clocksource_rating);
-+	else
-+		sh_tmu_register_generic_timer(p, name);
- 
- 	return 0;
- }
--- 
-1.7.4
+Unless I'm mistaken I found:
+
+ - inetdev_init copies dev_net(dev)->ipv4.devconf_dflt to &in_dev->cnf
+   That's called from inetdev_event if there is no in_dev.
+
+ - devinet_copy_dflt_conf copies to all devices that have !test_bit(i,
+   in_dev->cnf.state)
+   devinet_copy_dflt_conf is called when /proc/sys/net/ipv4/conf/defaul=
+t
+   is written to.  I didn't found where the in_dev->cnf.state bits are
+   set.
+
+ - net->ipv4.devconf_all is never propagated to the devices.
+
+ - The data behind /proc/sys/net/ipv4/conf/all is used in registering
+   net->ipv4.forw_hdr and seems only have to do with ip_forward
+
+So I think that it's really "default" that propagates to a new device a=
+s
+I expected and the documentation suggests.
+
+So IMHO a better name for "all" would be "global" ...
+
+> If you are really right, the documentation is (IMHO) misleading.  e.g=
+=2E
+> Documentation/networking/ip-sysctl.txt tells:
+>=20
+> 	conf/default/*:
+> 		Change the interface-specific default settings.
+>=20
+> 	conf/all/*:
+> 		Change all the interface-specific settings.
+=2E.. and this is misleading.  I wonder if it would be considered OK, t=
+o
+create a new config directory called "global" that acts like "all" now
+and let "all" propagate all changes to all devices, "default" and
+"global".  If not the documentation needs clearification.
+
+I guess for ipv6 it's similar, though I didn't check that.
+
+Best regards
+Uwe
+
+--=20
+Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
+    |
+Industrial Linux Solutions                 | http://www.pengutronix.de/=
+  |
