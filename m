@@ -1,33 +1,24 @@
-From: Jan Niehusmann <jan@gondor.com>
-Subject: TX VLAN acceleration on bridges broken in 2.6.37?
-Date: Tue, 22 Feb 2011 00:29:02 +0100
-Message-ID: <20110221232902.GA3440@x61s.reliablesolutions.de>
+From: Jon Zhou <Jon.Zhou@jdsu.com>
+Subject: RPS runs with multiqueue NIC
+Date: Mon, 21 Feb 2011 19:07:35 -0800
+Message-ID: <4A6A2125329CFD4D8CC40C9E8ABCAB9F24D3DE6CC5@MILEXCH2.ds.jdsu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod7og105.obsmtp.com ([64.18.2.163]:40447 "HELO
+	exprod7og105.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1753025Ab1BVDHy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Feb 2011 22:07:54 -0500
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-With the following configuration, sending vlan tagged traffic from a
-bridged interface doesn't work in 2.6.37.
-The same configuration does work with 2.6.36:
+Hi
 
-- bridge br0 with physical interface eth0
-- eth0 being an e1000e device (don't know if that's important)
-- vlan interface br0.10
-- (on 2.6.37) tx vlan acceleration active on br0 (default)
+What will happen if RPS runs on kernel 2.6.36.4 machine where a multiqueue NIC intel x520 installed
+Will it decrease or improve performance?
 
-Networking on br0.10 doesn't work, and tcpdump on eth0 shows packets
-sent on br0.10 as untagged, instead of vlan 10 tagged.
+rui
 
-After turning vlan tx offloading off with 'ethtool -K br0 txvlan off',
-everything works as expected, again.
-
-The workaround is made permanent by reverting "bridge: Add support for
-TX vlan offload.", 361ff8a6cf90d62c0071b7e532e37369bfd3ae77, turning
-of the feature on bridges completely.
-
-Jan
