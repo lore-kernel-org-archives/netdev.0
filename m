@@ -1,73 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [v3 RFC PATCH 0/4] Implement multiqueue virtio-net
-Date: Wed, 23 Feb 2011 17:55:34 +0200
-Message-ID: <20110223155534.GB24146@redhat.com>
-References: <20101020085452.15579.76002.sendpatchset@krkumar2.in.ibm.com>
- <20110222074709.GA18880@verge.net.au>
- <OFAAA32513.A5D0FB9F-ON65257840.001ACE50-65257840.001D5B76@in.ibm.com>
- <20110223063915.GA16607@redhat.com>
- <OFA5C641DD.CCB1702C-ON65257840.0024C22E-65257840.002545D9@in.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6 v3] net_sched: SFB flow scheduler
+Date: Wed, 23 Feb 2011 17:13:20 +0100
+Message-ID: <1298477600.3301.367.camel@edumazet-laptop>
+References: <20110221160306.GA9650@tuxdriver.com>
+	 <1298308283.2849.5.camel@edumazet-laptop>
+	 <1298390536.2861.9.camel@edumazet-laptop>
+	 <1298474091.3301.364.camel@edumazet-laptop>
+	 <20110223074305.755c5713@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com,
-	Simon Horman <horms@verge.net.au>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>, Andi Kleen <andi@firstfloor.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59419 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754539Ab1BWP4B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Feb 2011 10:56:01 -0500
-Content-Disposition: inline
-In-Reply-To: <OFA5C641DD.CCB1702C-ON65257840.0024C22E-65257840.002545D9@in.ibm.com>
+Received: from mail-bw0-f51.google.com ([209.85.214.51]:62491 "EHLO
+	mail-bw0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753920Ab1BWQN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 11:13:26 -0500
+Received: by bwz10 with SMTP id 10so270283bwz.10
+        for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 08:13:25 -0800 (PST)
+In-Reply-To: <20110223074305.755c5713@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 23, 2011 at 12:18:36PM +0530, Krishna Kumar2 wrote:
-> > "Michael S. Tsirkin" <mst@redhat.com> wrote on 02/23/2011 12:09:15 PM:
-> 
-> Hi Michael,
-> 
-> > > Yes. Michael Tsirkin had wanted to see how the MQ RX patch
-> > > would look like, so I was in the process of getting the two
-> > > working together. The patch is ready and is being tested.
-> > > Should I send a RFC patch at this time?
-> >
-> > Yes, please do.
-> 
-> Sure, will get a build/test on latest bits and send in 1-2 days.
-> 
-> > > The TX-only patch helped the guest TX path but didn't help
-> > > host->guest much (as tested using TCP_MAERTS from the guest).
-> > > But with the TX+RX patch, both directions are getting
-> > > improvements.
-> >
-> > Also, my hope is that with appropriate queue mapping,
-> > we might be able to do away with heuristics to detect
-> > single stream load that TX only code needs.
-> 
-> Yes, that whole stuff is removed, and the TX/RX path is
-> unchanged with this patch (thankfully :)
+Le mercredi 23 f=C3=A9vrier 2011 =C3=A0 07:43 -0800, Stephen Hemminger =
+a =C3=A9crit :
+> On Wed, 23 Feb 2011 16:14:51 +0100
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>=20
+> > 1) SFB default child qdisc is pfifo_fast. It can be changed by anot=
+her
+> > qdisc but a child qdisc MUST not drop a packet previously queued. T=
+his
+> > is because SFB needs to handle a dequeued packet in order to mainta=
+in
+> > its virtual queue states. pfifo_head_drop or CHOKe should not be us=
+ed.
+>=20
+> Why not add a flag field to Qdisc_ops and to mark qdisc's that
+> are (or not) work conserving?
+>=20
 
-Cool. I was wondering whether in that case, we can
-do without host kernel changes at all,
-and use a separate fd for each TX/RX pair.
-The advantage of that approach is that this way,
-the max fd limit naturally sets an upper bound
-on the amount of resources userspace can use up.
+That was my initial idea, but have no idea how to implement it (outside
+of fast path, I mean...)
 
-Thoughts?
 
-In any case, pls don't let the above delay
-sending an RFC.
 
-> > > Remote testing is still to be done.
-> >
-> > Others might be able to help here once you post the patch.
-> 
-> That's great, will appreciate any help.
-> 
-> Thanks,
-> 
-> - KK
