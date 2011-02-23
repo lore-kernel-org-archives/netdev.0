@@ -1,76 +1,351 @@
-From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
-Subject: Bug#614622: linux-image-2.6.37-1-686: atl2 NIC claims NO CARRIER after suspend/resume; rmmod+insmod fixes the problem
-Date: Tue, 22 Feb 2011 20:34:52 -0500
-Message-ID: <4D64643C.1020001@fifthhorseman.net>
-References: <20110222180821.5217.2375.reportbug@localhost.localdomain> <1298423651.2211.496.camel@localhost> <0FBC7C9C2640634A8B837C2EFFCFF32F01837E4A48@SHEXMB-01.global.atheros.com>
-Reply-To: Daniel Kahn Gillmor <dkg@fifthhorseman.net>, 614622@bugs.debian.org
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: Re: [PATCH v2] ipvs: unify the formula to estimate the overhead of
+ processing connections
+Date: Wed, 23 Feb 2011 09:56:54 +0800
+Message-ID: <AANLkTini6JkOQenO+bzF3AbzePPe1vMtMK_5pqfLifzz@mail.gmail.com>
+References: <1298107948-9224-1-git-send-email-xiaosuo@gmail.com>
+	<20110222055553.GA4192@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="------------enig339CE3D7BD00A13946AE0F80"
-Cc: Ben Hutchings <ben@decadent.org.uk>, Jay Cliburn <jcliburn@gmail.com>,
- Chris Snook <chris.snook@gmail.com>,
- Jie Yang <Jie.Yang@Atheros.com>,
- "614622@bugs.debian.org" <614622@bugs.debian.org>,
- netdev <netdev@vger.kernel.org>
-To: Xiong Huang <Xiong.Huang@Atheros.com>
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.614622.B614622.12984249218363@bugs.debian.org>
-In-Reply-To: <0FBC7C9C2640634A8B837C2EFFCFF32F01837E4A48@SHEXMB-01.global.atheros.com>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Changli Gao <xiaosuo@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
+	Julian Anastasov <ja@ssi.bg>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110222055553.GA4192@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig339CE3D7BD00A13946AE0F80
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Sure, I am ok with this patch. Thanks!
 
-Hi Xiong,
-
-On 02/22/2011 08:22 PM, Xiong Huang wrote:
-> after the onboard NIC claims NO Carrier after resuming from suspend-to-=
-RAM, how about it if unplug then re-plug the cable ?
-
-i've tried that, and it is not sufficient to remove the NO CARRIER flag
-from the output of "ip link".  I've also tried power-cycling the 10/100
-miniswitch on the other end of the ethernet cable, but no luck there eith=
-er.
-
-So far, the only thing i've found that clears the NO CARRIER state is to
-remove and re-insert atl2.ko.
-
-I remain open to other suggestions.  And thanks for the speedy followup!
-
-	--dkg
-
-
---------------enig339CE3D7BD00A13946AE0F80
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-Comment: Using GnuPG with Mozilla - http://enigmail.mozdev.org/
-
-iQJ8BAEBCgBmBQJNZGQ8XxSAAAAAAC4AKGlzc3Vlci1mcHJAbm90YXRpb25zLm9w
-ZW5wZ3AuZmlmdGhob3JzZW1hbi5uZXQwRUU1QkU5NzkyODJEODBCOUY3NTQwRjFD
-Q0QyRUQ5NEQyMTczOUU5AAoJEMzS7ZTSFznpjh0P/1ykSRPTtITsvANxzy8OlJbY
-mIR/GrMBi4v17T4NOe/4W5WSLHzgRdwF5egzmrlW3xLTe1oULMPbZ7lV1LruvDDP
-aloH2hve+mwb5GZ6kdKeHrSPu2qCYrAN01tuAJRxU29/cWQIcyOeLqXseVEb3qK6
-jbmiknGHOBIFXcHH9ZhUnSPq/Ybn8tpCi1FawG9tc/v3YOOPIaQ1AsBz1xi4UWm+
-qVsPtSkxF6MTtlaB/4bQClYdq8KsxqgQDucdYUkY2BDR/3hAXXnJoo9GN7ptOhQZ
-3u7yEAWPB0cZixjUtYI/ZsJJ1sQ2Z0yN4pN+VPn3oafzUwdu4995Cw2Ca/crfCMv
-AKiggo+n7Y9YK61b5GpV6hf7L17nqvHy+oZCkfIGmgt3ichCHsBp0aJe8L9epRDb
-U73wc/sdhsYZTY4wjdg7aK8RvRqdEt6jmNGV2yWuK051dELZQQW9xEW8kAwazbuc
-Mef3KammCxg/ykkT9nwpPa60HBVoe6vrjdJ4fUigS2paHTdXKY8bpzt/58KIpR+n
-GnXIkpk/fvDtgZ/CMHxFiNAKJHkiLSQg/zgKXdiIUrhVTZMhIeGGtKG5NDOvKsvV
-xS0LQg7pdGHZZLvcT//84OcJqfhiugFPHRlnPNU+8br69SDdX1uYv8XBYv6GKYOD
-Q0HqXHrTSoOYK87/DFjJ
-=V/AR
------END PGP SIGNATURE-----
-
---------------enig339CE3D7BD00A13946AE0F80--
+On Tue, Feb 22, 2011 at 1:56 PM, Simon Horman <horms@verge.net.au> wrot=
+e:
+> On Sat, Feb 19, 2011 at 05:32:28PM +0800, Changli Gao wrote:
+>> lc and wlc use the same formula, but lblc and lblcr use another one.=
+ There
+>> is no reason for using two different formulas for the lc variants.
+>>
+>> The formula used by lc is used by all the lc variants in this patch.
+>
+> Wensong, are you ok with this version of the patch?
+>
+>>
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>> ---
+>> v2: use ip_vs_dest_conn_overhead() instead.
+>> =A0include/net/ip_vs.h =A0 =A0 =A0 =A0 =A0 =A0 =A0| =A0 14 +++++++++=
++++++
+>> =A0net/netfilter/ipvs/ip_vs_lblc.c =A0| =A0 13 +++----------
+>> =A0net/netfilter/ipvs/ip_vs_lblcr.c | =A0 25 +++++++----------------=
+--
+>> =A0net/netfilter/ipvs/ip_vs_lc.c =A0 =A0| =A0 18 +-----------------
+>> =A0net/netfilter/ipvs/ip_vs_wlc.c =A0 | =A0 20 ++------------------
+>> =A05 files changed, 27 insertions(+), 63 deletions(-)
+>> diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+>> index 5d75fea..e80ffb7 100644
+>> --- a/include/net/ip_vs.h
+>> +++ b/include/net/ip_vs.h
+>> @@ -1241,6 +1241,20 @@ static inline void ip_vs_conn_drop_conntrack(=
+struct ip_vs_conn *cp)
+>> =A0/* CONFIG_IP_VS_NFCT */
+>> =A0#endif
+>>
+>> +static inline unsigned int
+>> +ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
+>> +{
+>> + =A0 =A0 /*
+>> + =A0 =A0 =A0* We think the overhead of processing active connection=
+s is 256
+>> + =A0 =A0 =A0* times higher than that of inactive connections in ave=
+rage. (This
+>> + =A0 =A0 =A0* 256 times might not be accurate, we will change it la=
+ter) We
+>> + =A0 =A0 =A0* use the following formula to estimate the overhead no=
+w:
+>> + =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dest->activeconns*256 =
++ dest->inactconns
+>> + =A0 =A0 =A0*/
+>> + =A0 =A0 return (atomic_read(&dest->activeconns) << 8) +
+>> + =A0 =A0 =A0 =A0 =A0 =A0 atomic_read(&dest->inactconns);
+>> +}
+>> +
+>> =A0#endif /* __KERNEL__ */
+>>
+>> =A0#endif =A0 =A0 =A0 /* _NET_IP_VS_H */
+>> diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip=
+_vs_lblc.c
+>> index 00b5ffa..58ae403 100644
+>> --- a/net/netfilter/ipvs/ip_vs_lblc.c
+>> +++ b/net/netfilter/ipvs/ip_vs_lblc.c
+>> @@ -389,12 +389,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc=
+)
+>> =A0 =A0 =A0 int loh, doh;
+>>
+>> =A0 =A0 =A0 /*
+>> - =A0 =A0 =A0* We think the overhead of processing active connection=
+s is fifty
+>> - =A0 =A0 =A0* times higher than that of inactive connections in ave=
+rage. (This
+>> - =A0 =A0 =A0* fifty times might not be accurate, we will change it =
+later.) We
+>> - =A0 =A0 =A0* use the following formula to estimate the overhead:
+>> - =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dest->activeconns*50 +=
+ dest->inactconns
+>> - =A0 =A0 =A0* and the load:
+>> + =A0 =A0 =A0* We use the following formula to estimate the load:
+>> =A0 =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(dest overhead) / de=
+st->weight
+>> =A0 =A0 =A0 =A0*
+>> =A0 =A0 =A0 =A0* Remember -- no floats in kernel mode!!!
+>> @@ -410,8 +405,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (atomic_read(&dest->weight) > 0) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D atomic_read(&least=
+->activeconns) * 50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_r=
+ead(&least->inactconns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D ip_vs_dest_conn_ov=
+erhead(least);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nextstage;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 }
+>> @@ -425,8 +419,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 doh =3D atomic_read(&dest->activeconns) * =
+50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_read(&dest->inact=
+conns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_dest_conn_overhead(dest);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (loh * atomic_read(&dest->weight) >
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 doh * atomic_read(&least->weight=
+)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>> diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/i=
+p_vs_lblcr.c
+>> index bfa25f1..2ddefe8 100644
+>> --- a/net/netfilter/ipvs/ip_vs_lblcr.c
+>> +++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+>> @@ -178,8 +178,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_=
+min(struct ip_vs_dest_set *set)
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((atomic_read(&least->weight) > 0)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 && (least->flags & IP_VS_DEST_F_=
+AVAILABLE)) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D atomic_read(&least=
+->activeconns) * 50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_r=
+ead(&least->inactconns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D ip_vs_dest_conn_ov=
+erhead(least);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nextstage;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 }
+>> @@ -192,8 +191,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_=
+min(struct ip_vs_dest_set *set)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 doh =3D atomic_read(&dest->activeconns) * =
+50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_read(&dest->inact=
+conns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_dest_conn_overhead(dest);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((loh * atomic_read(&dest->weight) >
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0doh * atomic_read(&least->wei=
+ght))
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 && (dest->flags & IP_VS_DEST_F_A=
+VAILABLE)) {
+>> @@ -228,8 +226,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_=
+max(struct ip_vs_dest_set *set)
+>> =A0 =A0 =A0 list_for_each_entry(e, &set->list, list) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 most =3D e->dest;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (atomic_read(&most->weight) > 0) {
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 moh =3D atomic_read(&most-=
+>activeconns) * 50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_r=
+ead(&most->inactconns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 moh =3D ip_vs_dest_conn_ov=
+erhead(most);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nextstage;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 }
+>> @@ -239,8 +236,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_=
+max(struct ip_vs_dest_set *set)
+>> =A0 =A0nextstage:
+>> =A0 =A0 =A0 list_for_each_entry(e, &set->list, list) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 dest =3D e->dest;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 doh =3D atomic_read(&dest->activeconns) * =
+50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_read(&dest->inact=
+conns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_dest_conn_overhead(dest);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* moh/mw < doh/dw =3D=3D> moh*dw < doh*=
+mw, where mw,dw>0 */
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((moh * atomic_read(&dest->weight) <
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0doh * atomic_read(&most->weig=
+ht))
+>> @@ -563,12 +559,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *sv=
+c)
+>> =A0 =A0 =A0 int loh, doh;
+>>
+>> =A0 =A0 =A0 /*
+>> - =A0 =A0 =A0* We think the overhead of processing active connection=
+s is fifty
+>> - =A0 =A0 =A0* times higher than that of inactive connections in ave=
+rage. (This
+>> - =A0 =A0 =A0* fifty times might not be accurate, we will change it =
+later.) We
+>> - =A0 =A0 =A0* use the following formula to estimate the overhead:
+>> - =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dest->activeconns*50 +=
+ dest->inactconns
+>> - =A0 =A0 =A0* and the load:
+>> + =A0 =A0 =A0* We use the following formula to estimate the load:
+>> =A0 =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0(dest overhead) / de=
+st->weight
+>> =A0 =A0 =A0 =A0*
+>> =A0 =A0 =A0 =A0* Remember -- no floats in kernel mode!!!
+>> @@ -585,8 +576,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc=
+)
+>>
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (atomic_read(&dest->weight) > 0) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D atomic_read(&least=
+->activeconns) * 50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_r=
+ead(&least->inactconns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D ip_vs_dest_conn_ov=
+erhead(least);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nextstage;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 }
+>> @@ -600,8 +590,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc=
+)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>>
+>> - =A0 =A0 =A0 =A0 =A0 =A0 doh =3D atomic_read(&dest->activeconns) * =
+50
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 + atomic_read(&dest->inact=
+conns);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_dest_conn_overhead(dest);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (loh * atomic_read(&dest->weight) >
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 doh * atomic_read(&least->weight=
+)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>> diff --git a/net/netfilter/ipvs/ip_vs_lc.c b/net/netfilter/ipvs/ip_v=
+s_lc.c
+>> index 4f69db1..160cb80 100644
+>> --- a/net/netfilter/ipvs/ip_vs_lc.c
+>> +++ b/net/netfilter/ipvs/ip_vs_lc.c
+>> @@ -22,22 +22,6 @@
+>>
+>> =A0#include <net/ip_vs.h>
+>>
+>> -
+>> -static inline unsigned int
+>> -ip_vs_lc_dest_overhead(struct ip_vs_dest *dest)
+>> -{
+>> - =A0 =A0 /*
+>> - =A0 =A0 =A0* We think the overhead of processing active connection=
+s is 256
+>> - =A0 =A0 =A0* times higher than that of inactive connections in ave=
+rage. (This
+>> - =A0 =A0 =A0* 256 times might not be accurate, we will change it la=
+ter) We
+>> - =A0 =A0 =A0* use the following formula to estimate the overhead no=
+w:
+>> - =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dest->activeconns*256 =
++ dest->inactconns
+>> - =A0 =A0 =A0*/
+>> - =A0 =A0 return (atomic_read(&dest->activeconns) << 8) +
+>> - =A0 =A0 =A0 =A0 =A0 =A0 atomic_read(&dest->inactconns);
+>> -}
+>> -
+>> -
+>> =A0/*
+>> =A0 * =A0 Least Connection scheduling
+>> =A0 */
+>> @@ -62,7 +46,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const=
+ struct sk_buff *skb)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if ((dest->flags & IP_VS_DEST_F_OVERLOAD=
+) ||
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 atomic_read(&dest->weight) =3D=3D=
+ 0)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_lc_dest_overhead(dest);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_dest_conn_overhead(dest);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!least || doh < loh) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D doh;
+>> diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_=
+vs_wlc.c
+>> index bbddfdb..db751f5 100644
+>> --- a/net/netfilter/ipvs/ip_vs_wlc.c
+>> +++ b/net/netfilter/ipvs/ip_vs_wlc.c
+>> @@ -27,22 +27,6 @@
+>>
+>> =A0#include <net/ip_vs.h>
+>>
+>> -
+>> -static inline unsigned int
+>> -ip_vs_wlc_dest_overhead(struct ip_vs_dest *dest)
+>> -{
+>> - =A0 =A0 /*
+>> - =A0 =A0 =A0* We think the overhead of processing active connection=
+s is 256
+>> - =A0 =A0 =A0* times higher than that of inactive connections in ave=
+rage. (This
+>> - =A0 =A0 =A0* 256 times might not be accurate, we will change it la=
+ter) We
+>> - =A0 =A0 =A0* use the following formula to estimate the overhead no=
+w:
+>> - =A0 =A0 =A0* =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0dest->activeconns*256 =
++ dest->inactconns
+>> - =A0 =A0 =A0*/
+>> - =A0 =A0 return (atomic_read(&dest->activeconns) << 8) +
+>> - =A0 =A0 =A0 =A0 =A0 =A0 atomic_read(&dest->inactconns);
+>> -}
+>> -
+>> -
+>> =A0/*
+>> =A0 * =A0 Weighted Least Connection scheduling
+>> =A0 */
+>> @@ -71,7 +55,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, cons=
+t struct sk_buff *skb)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (!(dest->flags & IP_VS_DEST_F_OVERLOA=
+D) &&
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 atomic_read(&dest->weight) > 0) =
+{
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D ip_vs_wlc_dest_ove=
+rhead(least);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 loh =3D ip_vs_dest_conn_ov=
+erhead(least);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 goto nextstage;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 }
+>> @@ -85,7 +69,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, cons=
+t struct sk_buff *skb)
+>> =A0 =A0 =A0 list_for_each_entry_continue(dest, &svc->destinations, n=
+_list) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 continue;
+>> - =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_wlc_dest_overhead(dest);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 doh =3D ip_vs_dest_conn_overhead(dest);
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (loh * atomic_read(&dest->weight) >
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 doh * atomic_read(&least->weight=
+)) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 least =3D dest;
+>>
+>
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
