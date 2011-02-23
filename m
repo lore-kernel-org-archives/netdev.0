@@ -1,54 +1,55 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 1/5] socket: suppress sparse warnings
-Date: Wed, 23 Feb 2011 11:06:48 -0800
-Message-ID: <20110223190700.877761282@vyatta.com>
+Subject: [PATCH 2/5] atl1[ce]: fix sparse warnings
+Date: Wed, 23 Feb 2011 11:06:49 -0800
+Message-ID: <20110223190700.963792692@vyatta.com>
 References: <20110223190647.482444598@vyatta.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from suva.vyatta.com ([76.74.103.44]:44644 "EHLO suva.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752485Ab1BWTxC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Feb 2011 14:53:02 -0500
-Content-Disposition: inline; filename=socket-sparse
+	id S1751735Ab1BWTxD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Feb 2011 14:53:03 -0500
+Content-Disposition: inline; filename=atl1c-sparse.patch
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use __force to quiet sparse warnings for cases where the code
-is simulating user space pointers.
+The dmaw_block is an enum and max_pay_load is u32. Therefore
+sparse gives warning about comparison of unsigned and signed value.
+Resolve by using min_t to force cast.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
---- a/net/socket.c	2011-02-23 08:26:51.905069267 -0800
-+++ b/net/socket.c	2011-02-23 08:26:59.005160474 -0800
-@@ -2648,7 +2648,8 @@ static int bond_ioctl(struct net *net, u
+--- a/drivers/net/atl1c/atl1c_main.c	2011-02-23 09:58:11.282457630 -0800
++++ b/drivers/net/atl1c/atl1c_main.c	2011-02-23 09:58:42.626823758 -0800
+@@ -1102,10 +1102,10 @@ static void atl1c_configure_tx(struct at
+ 	AT_READ_REG(hw, REG_DEVICE_CTRL, &dev_ctrl_data);
+ 	max_pay_load  = (dev_ctrl_data >> DEVICE_CTRL_MAX_PAYLOAD_SHIFT) &
+ 			DEVICE_CTRL_MAX_PAYLOAD_MASK;
+-	hw->dmaw_block = min(max_pay_load, hw->dmaw_block);
++	hw->dmaw_block = min_t(u32, max_pay_load, hw->dmaw_block);
+ 	max_pay_load  = (dev_ctrl_data >> DEVICE_CTRL_MAX_RREQ_SZ_SHIFT) &
+ 			DEVICE_CTRL_MAX_RREQ_SZ_MASK;
+-	hw->dmar_block = min(max_pay_load, hw->dmar_block);
++	hw->dmar_block = min_t(u32, max_pay_load, hw->dmar_block);
  
- 		old_fs = get_fs();
- 		set_fs(KERNEL_DS);
--		err = dev_ioctl(net, cmd, &kifr);
-+		err = dev_ioctl(net, cmd,
-+				(struct ifreq __user __force *) &kifr);
- 		set_fs(old_fs);
+ 	txq_ctrl_data = (hw->tpd_burst & TXQ_NUM_TPD_BURST_MASK) <<
+ 			TXQ_NUM_TPD_BURST_SHIFT;
+--- a/drivers/net/atl1e/atl1e_main.c	2011-02-23 09:58:52.594940247 -0800
++++ b/drivers/net/atl1e/atl1e_main.c	2011-02-23 09:59:03.859071913 -0800
+@@ -932,11 +932,11 @@ static inline void atl1e_configure_tx(st
+ 	max_pay_load  = ((dev_ctrl_data >> DEVICE_CTRL_MAX_PAYLOAD_SHIFT)) &
+ 			DEVICE_CTRL_MAX_PAYLOAD_MASK;
  
- 		return err;
-@@ -2757,7 +2758,7 @@ static int compat_sioc_ifmap(struct net
+-	hw->dmaw_block = min(max_pay_load, hw->dmaw_block);
++	hw->dmaw_block = min_t(u32, max_pay_load, hw->dmaw_block);
  
- 	old_fs = get_fs();
- 	set_fs(KERNEL_DS);
--	err = dev_ioctl(net, cmd, (void __user *)&ifr);
-+	err = dev_ioctl(net, cmd, (void  __user __force *)&ifr);
- 	set_fs(old_fs);
+ 	max_pay_load  = ((dev_ctrl_data >> DEVICE_CTRL_MAX_RREQ_SZ_SHIFT)) &
+ 			DEVICE_CTRL_MAX_RREQ_SZ_MASK;
+-	hw->dmar_block = min(max_pay_load, hw->dmar_block);
++	hw->dmar_block = min_t(u32, max_pay_load, hw->dmar_block);
  
- 	if (cmd == SIOCGIFMAP && !err) {
-@@ -2862,7 +2863,8 @@ static int routing_ioctl(struct net *net
- 		ret |= __get_user(rtdev, &(ur4->rt_dev));
- 		if (rtdev) {
- 			ret |= copy_from_user(devname, compat_ptr(rtdev), 15);
--			r4.rt_dev = devname; devname[15] = 0;
-+			r4.rt_dev = (char __user __force *)devname;
-+			devname[15] = 0;
- 		} else
- 			r4.rt_dev = NULL;
- 
+ 	if (hw->nic_type != athr_l2e_revB)
+ 		AT_WRITE_REGW(hw, REG_TXQ_CTRL + 2,
 
 
