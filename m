@@ -1,40 +1,40 @@
-From: Axel Lin <axel.lin@gmail.com>
-Subject: [PATCH 2/2] net/fec: fix unterminated platform_device_id table
-Date: Wed, 23 Feb 2011 17:28:46 +0800
-Message-ID: <1298453326.25444.3.camel@mola>
-References: <1298453244.25444.1.camel@mola>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: Re: [PATCH] cxgb{3,4}: streamline Kconfig options
+Date: Wed, 23 Feb 2011 09:46:10 +0000
+Message-ID: <4D64E5720200007800033420@vpn.id2.novell.com>
+References: <4D5D30CA020000780003263A@vpn.id2.novell.com>
+ <20110222.101457.39195901.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Uwe =?ISO-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1298453244.25444.1.camel@mola>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <divy@chelsio.com>, <dm@chelsio.com>,
+	<linux-kbuild@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <20110222.101457.39195901.davem@davemloft.net>
+Content-Disposition: inline
+Sender: linux-kbuild-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The platform_device_id table is supposed to be zero-terminated.
+>>> On 22.02.11 at 19:14, David Miller <davem@davemloft.net> wrote:
+> From: "Jan Beulich" <JBeulich@novell.com>
+> Date: Thu, 17 Feb 2011 13:29:30 +0000
+> 
+>> The CHELSIO_T{3,4}_DEPENDS options are really awkward, and can be
+>> easily dropped if the reverse dependencies of SCSI_CXGB{3,4}_ISCSI on
+>> the former get converted to normal (forward) ones referring to
+>> CHELSIO_T{3,4}.
+>> 
+>> Signed-off-by: Jan Beulich <jbeulich@novell.com>
+> 
+> I think the goal of these strange rules is not to be complicated
+> on purpose, but rather to cause the iSCSI drivers to appear without
+> the user having to know that he needs to enable the networking
+> driver in order for that to happen.
 
-Signed-off-by: Axel Lin <axel.lin@gmail.com>
----
- drivers/net/fec.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+While I realize that this might have been the reason, it's completely
+contrary to how everyone else writes dependencies, and hence I
+think these should be removed.
 
-diff --git a/drivers/net/fec.c b/drivers/net/fec.c
-index 74798be..f8a81ec 100644
---- a/drivers/net/fec.c
-+++ b/drivers/net/fec.c
-@@ -74,7 +74,8 @@ static struct platform_device_id fec_devtype[] = {
- 	}, {
- 		.name = "imx28-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_SWAP_FRAME,
--	}
-+	},
-+	{ }
- };
- 
- static unsigned char macaddr[ETH_ALEN];
--- 
-1.7.2
+Jan
+
