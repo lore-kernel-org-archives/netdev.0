@@ -1,34 +1,53 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: incorrect args to oob notify
-Date: Wed, 23 Feb 2011 21:00:28 +0100
-Message-ID: <20110223200028.GA12784@electric-eye.fr.zoreil.com>
-References: <20110223095237.0ee9c130@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cxgb{3,4}: streamline Kconfig options
+Date: Wed, 23 Feb 2011 12:27:09 -0800 (PST)
+Message-ID: <20110223.122709.193705956.davem@davemloft.net>
+References: <4D5D30CA020000780003263A@vpn.id2.novell.com>
+	<20110222.101457.39195901.davem@davemloft.net>
+	<4D64E5720200007800033420@vpn.id2.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hayes Wang <hayeswang@realtek.com>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:45980 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243Ab1BWUEV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 15:04:21 -0500
-Content-Disposition: inline
-In-Reply-To: <20110223095237.0ee9c130@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: divy@chelsio.com, dm@chelsio.com, linux-kbuild@vger.kernel.org,
+	netdev@vger.kernel.org
+To: JBeulich@novell.com
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <4D64E5720200007800033420@vpn.id2.novell.com>
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@vyatta.com> :
-[...]
-> Sparse detected this bug. The function oob_notify was being
-> passed the private ptr, but expected to get the ioaddr.
-> Compile checked only; not tested on real hardware.
+From: "Jan Beulich" <JBeulich@novell.com>
+Date: Wed, 23 Feb 2011 09:46:10 +0000
+
+>>>> On 22.02.11 at 19:14, David Miller <davem@davemloft.net> wrote:
+>> From: "Jan Beulich" <JBeulich@novell.com>
+>> Date: Thu, 17 Feb 2011 13:29:30 +0000
+>> 
+>>> The CHELSIO_T{3,4}_DEPENDS options are really awkward, and can be
+>>> easily dropped if the reverse dependencies of SCSI_CXGB{3,4}_ISCSI on
+>>> the former get converted to normal (forward) ones referring to
+>>> CHELSIO_T{3,4}.
+>>> 
+>>> Signed-off-by: Jan Beulich <jbeulich@novell.com>
+>> 
+>> I think the goal of these strange rules is not to be complicated
+>> on purpose, but rather to cause the iSCSI drivers to appear without
+>> the user having to know that he needs to enable the networking
+>> driver in order for that to happen.
 > 
-> Patch against net-next-2.6 but should be applied to net-2.6.
-> Bug not present in 2.6.37 and earlier.
+> While I realize that this might have been the reason, it's completely
+> contrary to how everyone else writes dependencies, and hence I
+> think these should be removed.
 
-Hayes has sent this fix and a few others. I am giving them a short
-testing right now.
+If you knew you were changing the behavior of the config option in
+this way, you sure didn't think it was worth mentioning in your commit
+message.
 
--- 
-Ueimor
+I definitely would never expect to have to enable a scsi option to get
+some network driver visible to enable in the config, and therefore I
+could see the opposite being insanely frustrating too.
+
+You can't ignore these issues and just say "that's not the normal way
+so I'm going to change it anyways."
+
+
