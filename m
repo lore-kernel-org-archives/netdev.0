@@ -1,38 +1,34 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH 3/5] afkey: add sparse annotation about rcu
-Date: Wed, 23 Feb 2011 11:06:50 -0800
-Message-ID: <20110223190701.055229602@vyatta.com>
-References: <20110223190647.482444598@vyatta.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169: incorrect args to oob notify
+Date: Wed, 23 Feb 2011 21:00:28 +0100
+Message-ID: <20110223200028.GA12784@electric-eye.fr.zoreil.com>
+References: <20110223095237.0ee9c130@nehalam>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from suva.vyatta.com ([76.74.103.44]:44644 "EHLO suva.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753617Ab1BWTxB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Feb 2011 14:53:01 -0500
-Content-Disposition: inline; filename=afkey-sparse
+Received: from violet.fr.zoreil.com ([92.243.8.30]:45980 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754243Ab1BWUEV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 15:04:21 -0500
+Content-Disposition: inline
+In-Reply-To: <20110223095237.0ee9c130@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Stephen Hemminger <shemminger@vyatta.com> :
+[...]
+> Sparse detected this bug. The function oob_notify was being
+> passed the private ptr, but expected to get the ioaddr.
+> Compile checked only; not tested on real hardware.
+> 
+> Patch against net-next-2.6 but should be applied to net-2.6.
+> Bug not present in 2.6.37 and earlier.
 
---- a/net/key/af_key.c	2011-02-23 10:20:23.181943425 -0800
-+++ b/net/key/af_key.c	2011-02-23 10:20:47.290221581 -0800
-@@ -3655,6 +3655,7 @@ static int pfkey_seq_show(struct seq_fil
- }
- 
- static void *pfkey_seq_start(struct seq_file *f, loff_t *ppos)
-+	__acquires(rcu)
- {
- 	struct net *net = seq_file_net(f);
- 	struct netns_pfkey *net_pfkey = net_generic(net, pfkey_net_id);
-@@ -3672,6 +3673,7 @@ static void *pfkey_seq_next(struct seq_f
- }
- 
- static void pfkey_seq_stop(struct seq_file *f, void *v)
-+	__releases(rcu)
- {
- 	rcu_read_unlock();
- }
+Hayes has sent this fix and a few others. I am giving them a short
+testing right now.
 
-
+-- 
+Ueimor
