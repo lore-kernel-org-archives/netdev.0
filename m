@@ -1,30 +1,31 @@
-From: Ron Mercer <ron.mercer@qlogic.com>
-Subject: Re: [PATCH] qla3xxx: add missing __iomem annotation
-Date: Wed, 23 Feb 2011 13:47:58 -0800
-Message-ID: <20110223214757.GA5763@linux-ox1b.qlogic.org>
-References: <20110223095427.38a67186@nehalam>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH-v2] Added support for usb ethernet (0x0fe6, 0x9700)
+Date: Wed, 23 Feb 2011 14:32:52 -0800 (PST)
+Message-ID: <20110223.143252.28802031.davem@davemloft.net>
+References: <20110222144110.GG2122@redhat.com>
+	<87hbbwqein.fsf@macbook.be.48ers.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cain.qlogic.com ([198.70.193.223]:36556 "EHLO cain.qlc.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753942Ab1BWWcF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Feb 2011 17:32:05 -0500
-Content-Disposition: inline
-In-Reply-To: <20110223095427.38a67186@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shaharh@redhat.com, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gregkh@suse.de,
+	netdev@vger.kernel.org
+To: jacmet@sunsite.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87hbbwqein.fsf@macbook.be.48ers.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 23, 2011 at 09:54:27AM -0800, Stephen Hemminger wrote:
-> Add necessary annotations about pointer to io memory space
-> that is checked by sparse.
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Date: Tue, 22 Feb 2011 16:23:44 +0100
+
+>>>>>> "Shahar" == Shahar Havivi <shaharh@redhat.com> writes:
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
->
+>  Shahar> The device is very similar to (0x0fe6, 0x8101),
+>  Shahar> And works well with dm9601 driver.
+> 
+>  Shahar> Signed-off-by: Shahar Havivi <shaharh@redhat.com>
+> 
+> Acked-by: Peter Korsgaard <jacmet@sunsite.dk>
 
-Thanks Stephen.  Looks good.
-
-Acked-by: Ron Mercer <ron.mercer@qlogic.com>
+Applied.
