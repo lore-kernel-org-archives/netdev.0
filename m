@@ -1,35 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 2/2] DM9000B: Fix PHY power for network down/up
-Date: Wed, 23 Feb 2011 14:30:13 -0800 (PST)
-Message-ID: <20110223.143013.246523171.davem@davemloft.net>
-References: <4D62D323.7010403@henry.nestler.mail.gmail.com>
-	<20110222.102410.260079835.davem@davemloft.net>
-	<4D642AC6.6050101@henry.nestler.mail.gmail.com>
+From: Ron Mercer <ron.mercer@qlogic.com>
+Subject: Re: [PATCH] qla3xxx: add missing __iomem annotation
+Date: Wed, 23 Feb 2011 13:47:58 -0800
+Message-ID: <20110223214757.GA5763@linux-ox1b.qlogic.org>
+References: <20110223095427.38a67186@nehalam>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, akpm@linux-foundation.org,
-	linux-arm-kernel@lists.infradead.org
-To: henry.nestler@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59248
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932682Ab1BWW3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 17:29:37 -0500
-In-Reply-To: <4D642AC6.6050101@henry.nestler.mail.gmail.com>
+Received: from cain.qlogic.com ([198.70.193.223]:36556 "EHLO cain.qlc.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753942Ab1BWWcF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Feb 2011 17:32:05 -0500
+Content-Disposition: inline
+In-Reply-To: <20110223095427.38a67186@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Henry Nestler <henry.nestler@gmail.com>
-Date: Tue, 22 Feb 2011 22:29:42 +0100
-
-> DM9000 revision B needs 1 ms delay after PHY power-on.
-> PHY must be powered on by writing 0 into register DM9000_GPR before
-> all other settings will change (see Davicom spec and example code).
+On Wed, Feb 23, 2011 at 09:54:27AM -0800, Stephen Hemminger wrote:
+> Add necessary annotations about pointer to io memory space
+> that is checked by sparse.
 > 
-> Remember, that register DM9000_GPR was not changed by reset sequence.
-> 
-> Without this fix the FIFO is out of sync and sends wrong data after
-> sequence of "ifconfig ethX down ; ifconfig ethX up".
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+>
 
-I've applied both of your patches, thanks.
+Thanks Stephen.  Looks good.
+
+Acked-by: Ron Mercer <ron.mercer@qlogic.com>
