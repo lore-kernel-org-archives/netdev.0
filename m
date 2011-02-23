@@ -1,53 +1,75 @@
-From: Haim Daniel <Haim.Daniel@expand.com>
-Subject: FW: tproxy + bridge  - possible redundant skb_orphan call ?
-Date: Wed, 23 Feb 2011 12:56:21 +0200
-Message-ID: <8D5E459AD91A394F9610088F8AFFAB481FA547F04C@exchange>
+From: Hans Nieser <hnsr@xs4all.nl>
+Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
+Date: Wed, 23 Feb 2011 13:21:44 +0100
+Message-ID: <1298463704.31256.29.camel@krikkit>
+References: <1298396007.23906.27.camel@krikkit>
+	 <20110223095538.GA12662@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog115.obsmtp.com ([207.126.144.139]:44562 "EHLO
-	eu1sys200aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753744Ab1BWK51 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Feb 2011 05:57:27 -0500
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110223095538.GA12662@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-I use 2.6.34 on a transparent PEP:
+On Wed, 2011-02-23 at 10:55 +0100, Francois Romieu wrote:
+> Hans Nieser <hnsr@xs4all.nl> :
+> [...]
+> > With your patches applied to 2.6.38-rc6, I have gathered some of the
+> > info you requested from Seblu as well, I hope it's helpful:
+> > 
+> > 1: see attachment
+> 
+> Ok.
+> 
+> The chipset requires no trivial last minute regression fix (yet).
+> 
+> > 2: I'm not sure how to check the size of the packets, but I'm just
+> > fetching a (large) file over http/tcp, so I guess they are mostly of the
+> > size of my MTU which is 1500 looking at ifconfig output
+> 
+> Fine.
+> 
+> Your testcases are always based on a real download, whence including some
+> disk activity, as opposed to a pure network test, right ?
 
-A daemon listening to port 50800 on PEP is set.
-The following transparent proxy rule is set for PEP:
-iptables -t mangle -A PREROUTING  -p tcp --dport 666 -j TPROXY --tproxy-mark 0x1/0x1 --on-port 50800
+Yeah, I just had a little script that wgetted a file from a webserver in
+my LAN and saved it to separate (non-root) fs, then removed it - in a
+loop. When testing on the 2.6.35 and 2.6.35.9 kernels it did max out at
+about 107MiB/s, sometimes falling down a little presumably when disk was
+being touched.
 
-In case of bridging: 
-	the mangle PREROUTING is hooked from ebtables _before_ ip_rcv().
-	the skb hits the TPROXY rule.
-	nf_tproxy_assign_sock() sets skb->sk to local listen socket on port 50800.
+> > For the other vmstat/ethtool/interrupts output, I started the following
+> > commands remotely via ssh a second or two before starting the download,
+> > and the machine locked up a few seconds later:
+> 
+> SysRq is enabled (/etc/sysctl.conf::kernel.sysrq = 1), the computer was
+> switched back on a no-X console before the test. Then the keyboard leds
+> ignore keypresses and the sysrq keys don't display anything in the
+> console, right ?
 
-However, ip_rcv() invokes later and orphans the skb. skb->sk is nulled => it prevents the
-skb from reaching the local socket.
+Yep I had X shutdown and switched to VT1, after lock up the LEDs can't
+be toggled anymore and sysrq key combo was nonresponsive (it works if I
+do it before it locks up)
 
-When the call to skb_orphan(skb) in ip_rcv() is removed, the skb reaches the local sk - ok.
+> You may enable PCIEASPM_DEBUG, force 'pcie_aspm=off' and switch from
+> SLUB to SLAB but it's a bit cargo-cultish.
 
-On other cases, when the bridging is not involved, ip_rcv() is called before mangle PREROUTING ,hence skb
-reaches the TPROXY target and being orphaned before skb->sk is set in nf_tproxy_assign_sock().
+I'll give that a try this evening
 
-I don't understand what is the purpose of skb_orphan(skb) call in ip_rcv.
-The comment above it states that it's related to tproxy:
+> A bisection could help. Bisecting 2.6.35 .. 2.6.35.9 may be enough if
+> 2.6.35.9 works well.
 
-/* Must drop socket now because of tproxy. */
-skb_orphan(skb);
+Hmm did you mean bisecting 2.6.36 - 2.6.35.9 ? Since with 2.6.36 and
+above I can get the machine to hang within seconds and performance is
+really bad (10-20MiB/s with wget), while with 2.6.35.9 and 2.6.35
+performance was really good (reaching 107MiB/s most of the time) and
+lock up took 5-10 minutes instead of seconds (I guess I didn't mention
+this in my last e-mail but I managed to get both 2.6.35 and 2.6.35.9 to
+lock up eventually) - but I guess something changed between .35 and .36
+that made the issue easier to trigger.
 
-but since nf_tproxy_assign_sock() orphans the skb, it looks like
-ip_rcv() skb_orphan() is redundant ?
-
-appreciate your response,
-
-best regards,
-
---haim d.
---eyal g.
+I can also try even older kernels to see if there is one that doesn't
+lock up at all
