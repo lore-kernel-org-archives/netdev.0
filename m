@@ -1,51 +1,70 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: [PATCH] r8169: incorrect args to oob notify
-Date: Wed, 23 Feb 2011 09:52:37 -0800
-Message-ID: <20110223095237.0ee9c130@nehalam>
+Subject: [PATCH] qla3xxx: add missing __iomem annotation
+Date: Wed, 23 Feb 2011 09:54:27 -0800
+Message-ID: <20110223095427.38a67186@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
+To: Ron Mercer <ron.mercer@qlogic.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:52953 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:53007 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753380Ab1BWRwj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Feb 2011 12:52:39 -0500
+	id S1753676Ab1BWRy3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Feb 2011 12:54:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-Sparse detected this bug. The function oob_notify was being
-passed the private ptr, but expected to get the ioaddr.
-Compile checked only; not tested on real hardware.
-
-Patch against net-next-2.6 but should be applied to net-2.6.
-Bug not present in 2.6.37 and earlier.
+Add necessary annotations about pointer to io memory space
+that is checked by sparse.
 
 Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-
---- a/drivers/net/r8169.c	2011-02-23 09:46:30.042289776 -0800
-+++ b/drivers/net/r8169.c	2011-02-23 09:48:00.167355773 -0800
-@@ -617,8 +617,9 @@ static void ocp_write(struct rtl8169_pri
- 	}
- }
- 
--static void rtl8168_oob_notify(void __iomem *ioaddr, u8 cmd)
-+static void rtl8168_oob_notify(struct rtl8169_private *tp, u8 cmd)
+--- a/drivers/net/qla3xxx.c	2011-02-23 09:42:44.363626866 -0800
++++ b/drivers/net/qla3xxx.c	2011-02-23 09:43:32.564194771 -0800
+@@ -379,7 +379,7 @@ static void fm93c56a_select(struct ql3_a
  {
-+	void __iomem *ioaddr = tp->mmio_addr;
- 	int i;
+ 	struct ql3xxx_port_registers __iomem *port_regs =
+ 			qdev->mem_map_registers;
+-	u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
++	__iomem u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
  
- 	RTL_W8(ERIDR, cmd);
-@@ -630,7 +631,7 @@ static void rtl8168_oob_notify(void __io
- 			break;
- 	}
+ 	qdev->eeprom_cmd_data = AUBURN_EEPROM_CS_1;
+ 	ql_write_nvram_reg(qdev, spir, ISP_NVRAM_MASK | qdev->eeprom_cmd_data);
+@@ -398,7 +398,7 @@ static void fm93c56a_cmd(struct ql3_adap
+ 	u32 previousBit;
+ 	struct ql3xxx_port_registers __iomem *port_regs =
+ 			qdev->mem_map_registers;
+-	u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
++	__iomem u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
  
--	ocp_write(ioaddr, 0x1, 0x30, 0x00000001);
-+	ocp_write(tp, 0x1, 0x30, 0x00000001);
- }
+ 	/* Clock in a zero, then do the start bit */
+ 	ql_write_nvram_reg(qdev, spir,
+@@ -467,7 +467,7 @@ static void fm93c56a_deselect(struct ql3
+ {
+ 	struct ql3xxx_port_registers __iomem *port_regs =
+ 			qdev->mem_map_registers;
+-	u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
++	__iomem u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
  
- #define OOB_CMD_RESET		0x00
+ 	qdev->eeprom_cmd_data = AUBURN_EEPROM_CS_0;
+ 	ql_write_nvram_reg(qdev, spir, ISP_NVRAM_MASK | qdev->eeprom_cmd_data);
+@@ -483,7 +483,7 @@ static void fm93c56a_datain(struct ql3_a
+ 	u32 dataBit;
+ 	struct ql3xxx_port_registers __iomem *port_regs =
+ 			qdev->mem_map_registers;
+-	u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
++	__iomem u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
+ 
+ 	/* Read the data bits */
+ 	/* The first bit is a dummy.  Clock right over it. */
+@@ -3011,7 +3011,7 @@ static int ql_adapter_initialize(struct
+ 	u32 value;
+ 	struct ql3xxx_port_registers __iomem *port_regs =
+ 		qdev->mem_map_registers;
+-	u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
++	__iomem u32 *spir = &port_regs->CommonRegs.serialPortInterfaceReg;
+ 	struct ql3xxx_host_memory_registers __iomem *hmem_regs =
+ 		(void __iomem *)port_regs;
+ 	u32 delay = 10;
