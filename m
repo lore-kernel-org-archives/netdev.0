@@ -1,86 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 v3] net_sched: SFB flow scheduler
-Date: Wed, 23 Feb 2011 18:16:08 +0100
-Message-ID: <1298481368.3301.390.camel@edumazet-laptop>
-References: <20110221160306.GA9650@tuxdriver.com>
-	 <1298308283.2849.5.camel@edumazet-laptop>
-	 <1298390536.2861.9.camel@edumazet-laptop>
-	 <1298474091.3301.364.camel@edumazet-laptop>  <4D6534C3.1080305@trash.net>
-	 <1298479711.3301.373.camel@edumazet-laptop>  <4D653C9C.8010205@trash.net>
+From: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>
+Subject: Re: [PATCH V11 2/4] ptp: Added a clock that uses the eTSEC found on
+ the MPC85xx.
+Date: Wed, 23 Feb 2011 11:26:12 -0600
+Message-ID: <20110223112612.30071995@schlenkerla>
+References: <cover.1298447722.git.richard.cochran@omicron.at>
+	<be1f5e801e8cd0145dd23aadae7c2055bb3c1d47.1298447722.git.richard.cochran@omicron.at>
+	<20110223165058.GE14597@angua.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Juliusz Chroboczek <Juliusz.Chroboczek@pps.jussieu.fr>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	netdev <netdev@vger.kernel.org>, Andi Kleen <andi@firstfloor.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f51.google.com ([209.85.214.51]:42216 "EHLO
-	mail-bw0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932381Ab1BWRQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 12:16:13 -0500
-Received: by bwz10 with SMTP id 10so344839bwz.10
-        for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 09:16:11 -0800 (PST)
-In-Reply-To: <4D653C9C.8010205@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	<linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	<linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110223165058.GE14597-MrY2KI0G/OVr83L8+7iqerDks+cytr/Z@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 23 f=C3=A9vrier 2011 =C3=A0 17:58 +0100, Patrick McHardy a =
-=C3=A9crit :
-> Am 23.02.2011 17:48, schrieb Eric Dumazet:
-> > Le mercredi 23 f=C3=A9vrier 2011 =C3=A0 17:24 +0100, Patrick McHard=
-y a =C3=A9crit :
-> >=20
-> >> This needs to be a per-skb property, otherwise you could have the
-> >> situation:
-> >>
-> >> - enqueue skb, double_buffering=3D0, increment buffer 0
-> >> - enable double buffering
-> >> - swap buffers
-> >> - dequeue same skb, decrement buffer 1
-> >>
-> >> after which the qlen values of buffer 1 will be incorrect.
-> >>
-> >=20
-> > Normally its OK, because we bzero() the zone, and the "decrement" i=
-s
-> > 0-bounded.
->=20
-> Yeah, but we might decrement buckets of different flows which
-> are non-zero. Probably not too bad, but still not correct.
->=20
-> > I had this idea (of storing two bits per skb), but :
-> >=20
-> > - It means that swap_buffer() should not touch (bzero) the 'old' bi=
-ns
->=20
-> Yes, it means we have to properly decrement the old buffer
-> until all bins reached zero.
->=20
-> > - Since hash perturbator is changed, we have to store the two hash
-> > values per skb (instead of one u32 / classid).
->=20
-> Indeed.
+On Wed, 23 Feb 2011 09:50:58 -0700
+Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org> wrote:
 
-BTQ, I had this idea of storing the double_buffer per skb reading SFB
-paper, because paper says the double buffering is really needed only fo=
-r
-unelastic flows, not for all packets.
+> On Wed, Feb 23, 2011 at 11:38:17AM +0100, Richard Cochran wrote:
+> > +
+> > +* Gianfar PTP clock nodes
+> > +
+> > +General Properties:
+> > +
+> > +  - compatible   Should be "fsl,etsec-ptp"
+> 
+> Should specify an *exact* part; ie: "fsl,mpc8313-etsec-ptp" instead of
+> trying to define a generic catchall.  The reason is that the same
+> marketing name can end up getting applied to a wide range of parts.
+> 
+> Instead, choose one specific device to stand in as the 'common'
+> implementation and get all parts with the same core to claim
+> compatibility with it.  ie: a p2020 might have:
+> 
+> 	compatible = "fsl,mpc2020-etsec-ptp", "fsl,mpc8313-etsec-ptp";
 
-paper quote :
+eTSEC is versioned, that's more reliable than the chip name since chips
+have revisions (rev 2.1 of mpc8313 has eTSEC 1.6, not sure about previous
+revs of mpc8313).  Logic blocks can be and have been uprevved between one
+revision of a chip to the next.  I think "fsl,mpc8313rev2.1-etsec-ptp"
+would be taking things a bit too far (and there could be board-level bugs
+too...).
 
-As one set of bins is being used
-for queue management, a second set of bins using the next set of hash
-functions can be warmed up. In this
-case, any time a flow is classified as non-responsive, it is hashed
-using the second set of hash functions and
-the marking probabilities of the corresponding bins in the warmup set
-are updated.
+If you really need to know the exact SoC you're on, look in SVR (which
+will provide revision info as well).  Isn't the device tree for things that
+can't be probed?
 
-So using two 'hash' values per skb is the way to go, with special 0
-value meanings : skb was not 'inserted' into virtual queues.
+The eTSEC revision is probeable as well, but due the way PTP is described as
+a separate node, the driver doesn't have straightforward access to those
+registers.
 
+Insisting on an explicit chip also encourages people to claim compatibility
+with that chip without ensuring that it really is fully compatible.
 
-
+-Scott
