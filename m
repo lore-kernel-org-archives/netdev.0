@@ -1,53 +1,46 @@
-From: Andrian Nord <nightnord@gmail.com>
-Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
-Date: Wed, 23 Feb 2011 20:13:23 +0300
-Message-ID: <20110223170512.GA10277@nord.niifaq.ru>
-References: <20110221150710.GA5651@nord.niifaq.ru>
- <4D6282DB.2080204@free.fr>
- <20110221153421.GA6602@nord.niifaq.ru>
- <4D628DC3.9000400@free.fr>
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Subject: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
+Date: Wed, 23 Feb 2011 20:07:21 +0300
+Message-ID: <118081298480841@web25.yandex.ru>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="dc+cDN39EJAMEtIO"
-Cc: lxc-users@lists.sourceforge.net, Patrick McHardy <kaber@trash.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:33459 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754716Ab1BWRN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 12:13:57 -0500
-Received: by wyg36 with SMTP id 36so1057343wyg.19
-        for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 09:13:56 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <4D628DC3.9000400@free.fr>
+Received: from forward20.mail.yandex.net ([95.108.253.145]:57609 "EHLO
+	forward20.mail.yandex.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932370Ab1BWRPJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 12:15:09 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello,
 
---dc+cDN39EJAMEtIO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Got this panic yesterday:
+http://www.progtech.ru/~oleg/crash.txt
 
-On Mon, Feb 21, 2011 at 05:07:31PM +0100, Daniel Lezcano wrote:
-> I Cc'ed the netdev mailing list and Patrick in case my analysis is wrong=
-=20
-> or incomplete.
+The offending instruction is:
+cmpb 54(%edx), %cl # <variable>.tuple.dst.protonum,
 
-I'm confirming, that this happens only when macvlan's are onto dummy net
-device. In case of some physical interface under macvlan there is no lost
-packages and no broken checksums.
+and here is the assembler code of net/ipv4/netfilter/nf_nat_core.c:
+http://www.progtech.ru/~oleg/nf_nat_core.s
 
---dc+cDN39EJAMEtIO
-Content-Type: application/pgp-signature
+Quick investigation lead me to conclusion that the problem is in
+return of same_src function:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.17 (GNU/Linux)
+        return (t->dst.protonum == tuple->dst.protonum &&
+                t->src.u3.ip == tuple->src.u3.ip &&
+                t->src.u.all == tuple->src.u.all);
 
-iEYEARECAAYFAk1lQDMACgkQZAqeN5KgLbSMpACePG6xiqgWSYkugv77nVGjbufn
-W8MAoJtSBfSA2C6EUS8PneEwgjjsteo3
-=YLYs
------END PGP SIGNATURE-----
+So either t or tuple pointer is bad, but I don't understand how
+this can be.
 
---dc+cDN39EJAMEtIO--
+Looks like the similar situation described here:
+https://bugzilla.kernel.org/show_bug.cgi?id=21512
+
+Any thoughts on this?
+Thank you!
+
+-- 
+wbr, Oleg.
