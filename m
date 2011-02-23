@@ -1,19 +1,19 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH 5/20] xfrm: Mark flowi arg to xfrm_type->reject() const.
-Date: Tue, 22 Feb 2011 19:54:18 -0800 (PST)
-Message-ID: <20110222.195418.112618852.davem@davemloft.net>
+Subject: [PATCH 4/20] xfrm: Mark flowi arg to ->init_tempsel() const.
+Date: Tue, 22 Feb 2011 19:54:16 -0800 (PST)
+Message-ID: <20110222.195416.189722353.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32827
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:32824
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756150Ab1BWDxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 22:53:42 -0500
+	by vger.kernel.org with ESMTP id S1756147Ab1BWDxj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 22:53:39 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 084E624C088
-	for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 19:54:19 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id 7043424C088
+	for <netdev@vger.kernel.org>; Tue, 22 Feb 2011 19:54:16 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,51 +21,50 @@ List-ID: <netdev.vger.kernel.org>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
  include/net/xfrm.h     |    3 ++-
- net/ipv6/mip6.c        |    3 ++-
- net/xfrm/xfrm_policy.c |    2 +-
- 3 files changed, 5 insertions(+), 3 deletions(-)
+ net/ipv4/xfrm4_state.c |    2 +-
+ net/ipv6/xfrm6_state.c |    2 +-
+ 3 files changed, 4 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 614c296..cbe0003 100644
+index c77407f..614c296 100644
 --- a/include/net/xfrm.h
 +++ b/include/net/xfrm.h
-@@ -334,7 +334,8 @@ struct xfrm_type {
- 	void			(*destructor)(struct xfrm_state *);
- 	int			(*input)(struct xfrm_state *, struct sk_buff *skb);
- 	int			(*output)(struct xfrm_state *, struct sk_buff *pskb);
--	int			(*reject)(struct xfrm_state *, struct sk_buff *, struct flowi *);
-+	int			(*reject)(struct xfrm_state *, struct sk_buff *,
-+					  const struct flowi *);
- 	int			(*hdr_offset)(struct xfrm_state *, struct sk_buff *, u8 **);
- 	/* Estimate maximal size of result of transformation of a dgram */
- 	u32			(*get_mtu)(struct xfrm_state *, int size);
-diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index d6e9599..f3e3ca9 100644
---- a/net/ipv6/mip6.c
-+++ b/net/ipv6/mip6.c
-@@ -203,7 +203,8 @@ static inline int mip6_report_rl_allow(struct timeval *stamp,
- 	return allow;
+@@ -300,7 +300,8 @@ struct xfrm_state_afinfo {
+ 	const struct xfrm_type	*type_map[IPPROTO_MAX];
+ 	struct xfrm_mode	*mode_map[XFRM_MODE_MAX];
+ 	int			(*init_flags)(struct xfrm_state *x);
+-	void			(*init_tempsel)(struct xfrm_selector *sel, struct flowi *fl);
++	void			(*init_tempsel)(struct xfrm_selector *sel,
++						const struct flowi *fl);
+ 	void			(*init_temprop)(struct xfrm_state *x, struct xfrm_tmpl *tmpl,
+ 						xfrm_address_t *daddr, xfrm_address_t *saddr);
+ 	int			(*tmpl_sort)(struct xfrm_tmpl **dst, struct xfrm_tmpl **src, int n);
+diff --git a/net/ipv4/xfrm4_state.c b/net/ipv4/xfrm4_state.c
+index 4794762..19eb560 100644
+--- a/net/ipv4/xfrm4_state.c
++++ b/net/ipv4/xfrm4_state.c
+@@ -21,7 +21,7 @@ static int xfrm4_init_flags(struct xfrm_state *x)
  }
  
--static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb, struct flowi *fl)
-+static int mip6_destopt_reject(struct xfrm_state *x, struct sk_buff *skb,
-+			       const struct flowi *fl)
+ static void
+-__xfrm4_init_tempsel(struct xfrm_selector *sel, struct flowi *fl)
++__xfrm4_init_tempsel(struct xfrm_selector *sel, const struct flowi *fl)
  {
- 	struct net *net = xs_net(x);
- 	struct inet6_skb_parm *opt = (struct inet6_skb_parm *)skb->cb;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index fa0b7f3..ccd47cf 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1907,7 +1907,7 @@ int xfrm_lookup(struct net *net, struct dst_entry **dst_p, struct flowi *fl,
- EXPORT_SYMBOL(xfrm_lookup);
+ 	sel->daddr.a4 = fl->fl4_dst;
+ 	sel->saddr.a4 = fl->fl4_src;
+diff --git a/net/ipv6/xfrm6_state.c b/net/ipv6/xfrm6_state.c
+index a67575d..68a14c0 100644
+--- a/net/ipv6/xfrm6_state.c
++++ b/net/ipv6/xfrm6_state.c
+@@ -20,7 +20,7 @@
+ #include <net/addrconf.h>
  
- static inline int
--xfrm_secpath_reject(int idx, struct sk_buff *skb, struct flowi *fl)
-+xfrm_secpath_reject(int idx, struct sk_buff *skb, const struct flowi *fl)
+ static void
+-__xfrm6_init_tempsel(struct xfrm_selector *sel, struct flowi *fl)
++__xfrm6_init_tempsel(struct xfrm_selector *sel, const struct flowi *fl)
  {
- 	struct xfrm_state *x;
- 
+ 	/* Initialize temporary selector matching only
+ 	 * to current session. */
 -- 
 1.7.4.1
 
