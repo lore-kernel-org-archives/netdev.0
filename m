@@ -1,40 +1,52 @@
-From: "Jan Beulich" <JBeulich@novell.com>
-Subject: Re: [PATCH] cxgb{3,4}: streamline Kconfig options
-Date: Wed, 23 Feb 2011 09:46:10 +0000
-Message-ID: <4D64E5720200007800033420@vpn.id2.novell.com>
-References: <4D5D30CA020000780003263A@vpn.id2.novell.com>
- <20110222.101457.39195901.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
+Date: Wed, 23 Feb 2011 10:55:38 +0100
+Message-ID: <20110223095538.GA12662@electric-eye.fr.zoreil.com>
+References: <1298396007.23906.27.camel@krikkit>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <divy@chelsio.com>, <dm@chelsio.com>,
-	<linux-kbuild@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <20110222.101457.39195901.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hans Nieser <hnsr@xs4all.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: linux-kbuild-owner@vger.kernel.org
+In-Reply-To: <1298396007.23906.27.camel@krikkit>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
->>> On 22.02.11 at 19:14, David Miller <davem@davemloft.net> wrote:
-> From: "Jan Beulich" <JBeulich@novell.com>
-> Date: Thu, 17 Feb 2011 13:29:30 +0000
+Hans Nieser <hnsr@xs4all.nl> :
+[...]
+> With your patches applied to 2.6.38-rc6, I have gathered some of the
+> info you requested from Seblu as well, I hope it's helpful:
 > 
->> The CHELSIO_T{3,4}_DEPENDS options are really awkward, and can be
->> easily dropped if the reverse dependencies of SCSI_CXGB{3,4}_ISCSI on
->> the former get converted to normal (forward) ones referring to
->> CHELSIO_T{3,4}.
->> 
->> Signed-off-by: Jan Beulich <jbeulich@novell.com>
-> 
-> I think the goal of these strange rules is not to be complicated
-> on purpose, but rather to cause the iSCSI drivers to appear without
-> the user having to know that he needs to enable the networking
-> driver in order for that to happen.
+> 1: see attachment
 
-While I realize that this might have been the reason, it's completely
-contrary to how everyone else writes dependencies, and hence I
-think these should be removed.
+Ok.
 
-Jan
+The chipset requires no trivial last minute regression fix (yet).
 
+> 2: I'm not sure how to check the size of the packets, but I'm just
+> fetching a (large) file over http/tcp, so I guess they are mostly of the
+> size of my MTU which is 1500 looking at ifconfig output
+
+Fine.
+
+Your testcases are always based on a real download, whence including some
+disk activity, as opposed to a pure network test, right ?
+
+> For the other vmstat/ethtool/interrupts output, I started the following
+> commands remotely via ssh a second or two before starting the download,
+> and the machine locked up a few seconds later:
+
+SysRq is enabled (/etc/sysctl.conf::kernel.sysrq = 1), the computer was
+switched back on a no-X console before the test. Then the keyboard leds
+ignore keypresses and the sysrq keys don't display anything in the
+console, right ?
+
+You may enable PCIEASPM_DEBUG, force 'pcie_aspm=off' and switch from
+SLUB to SLAB but it's a bit cargo-cultish.
+
+A bisection could help. Bisecting 2.6.35 .. 2.6.35.9 may be enough if
+2.6.35.9 works well.
+
+-- 
+Ueimor
