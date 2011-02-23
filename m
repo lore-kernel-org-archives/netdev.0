@@ -1,318 +1,358 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [ISC-Bugs #22806] [PATCH] lfp: fix AF_INET checksum with csum
- offloading
-Date: Wed, 23 Feb 2011 20:46:10 +0200
-Message-ID: <20110223184610.GA28750@redhat.com>
-References: <20101227171632.GA14920@redhat.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
+Date: Wed, 23 Feb 2011 20:05:42 +0100
+Message-ID: <20110223190541.GB2783@psychotron.redhat.com>
+References: <1298039252.6201.66.camel@edumazet-laptop>
+ <4D5E8655.5070304@trash.net>
+ <20110218145850.GF2939@psychotron.redhat.com>
+ <20110218.120656.104048936.davem@davemloft.net>
+ <20110218205832.GE2602@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, herbert@gondor.hengli.com.au,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: dhcp-bugs@isc.org, dhcp-hackers@isc.org
-Return-path: <kvm-owner@vger.kernel.org>
+Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, fubar@us.ibm.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:1025 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932122Ab1BWTHz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Feb 2011 14:07:55 -0500
 Content-Disposition: inline
-In-Reply-To: <20101227171632.GA14920@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20110218205832.GE2602@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-No answer from isc so far.
-I think it's a problem that the popular dhclient
-has had this bug for so long.
-Anyone knows what else can be done?
+This patch converts bonding to use rx_handler. Results in cleaner
+__netif_receive_skb() with much less exceptions needed. Also
+bond-specific work is moved into bond code.
 
+Did performance test using pktgen and counting incoming packets by
+iptables. No regression noted.
 
-On Mon, Dec 27, 2010 at 07:16:32PM +0200, Michael S. Tsirkin wrote:
-> When an AF_INET socket is used, linux would sometimes
-> return a packet without the checksum.  This happens when a packet
-> originates on the same machine, which is most common with virtual
-> machines but might be possible even without with a software-based dhcp
-> server such as dnsmasq.
-> This appears to be a performance optimization to avoid calculating
-> the checksum and there's no way to disable this. Users are required to
-> detect such packets by passing a msg_control parameter to the recvmsg
-> call. This was added in linux kernel 2.6.21.
-> 
-> dhclient from isc.org as of 4.2.0-P2 fails to do this and
-> concequently discards such packets, so such setups fail to get an IP.
-> This was reported in the past:
-> https://lists.isc.org/mailman/htdig/dhcp-hackers/2010-April/001825.html
-> 
-> The attached patch fixes this by passing msg_control and looking
-> at the tp_status field in the result. If the TP_STATUS_CSUMNOTREADY
-> bit is set, the packet checksum is missing because the packet
-> is local.
-> 
-> The patch below is currently successfully used at least on Fedora and
-> some other Red Hat based distributions. Applying this to the ISC sources
-> would help make the problem go away for everyone.
-> ---
-> 
-> Notes:
-> - The patch is to be applied with -p1.
-> - The patch below applies to dhcp 4.2.0-P2 and 4.1.2 (the last with an offset).
-> - Please Cc me on comments directly, I am not subscribed to the dhcp-hackers list.
-> 
->  common/bpf.c     |    2 +-
->  common/dlpi.c    |    2 +-
->  common/lpf.c     |   81 ++++++++++++++++++++++++++++++++++++++++++------------
->  common/nit.c     |    2 +-
->  common/packet.c  |    4 +-
->  common/upf.c     |    2 +-
->  includes/dhcpd.h |    2 +-
->  7 files changed, 70 insertions(+), 25 deletions(-)
-> 
-> diff --git a/common/bpf.c b/common/bpf.c
-> index b0ef657..8bd5727 100644
-> --- a/common/bpf.c
-> +++ b/common/bpf.c
-> @@ -485,7 +485,7 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
->  		offset = decode_udp_ip_header (interface,
->  					       interface -> rbuf,
->  					       interface -> rbuf_offset,
-> -  					       from, hdr.bh_caplen, &paylen);
-> +  					       from, hdr.bh_caplen, &paylen, 0);
->  
->  		/* If the IP or UDP checksum was bad, skip the packet... */
->  		if (offset < 0) {
-> diff --git a/common/dlpi.c b/common/dlpi.c
-> index eb64342..d4a8bb9 100644
-> --- a/common/dlpi.c
-> +++ b/common/dlpi.c
-> @@ -694,7 +694,7 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
->  	length -= offset;
->  #endif
->  	offset = decode_udp_ip_header (interface, dbuf, bufix,
-> -				       from, length, &paylen);
-> +				       from, length, &paylen, 0);
->  
->  	/*
->  	 * If the IP or UDP checksum was bad, skip the packet...
-> diff --git a/common/lpf.c b/common/lpf.c
-> index f727b7c..4bdb0f1 100644
-> --- a/common/lpf.c
-> +++ b/common/lpf.c
-> @@ -29,18 +29,33 @@
->  #include "dhcpd.h"
->  #if defined (USE_LPF_SEND) || defined (USE_LPF_RECEIVE)
->  #include <sys/ioctl.h>
-> +#include <sys/socket.h>
->  #include <sys/uio.h>
->  #include <errno.h>
->  
->  #include <asm/types.h>
->  #include <linux/filter.h>
->  #include <linux/if_ether.h>
-> +#include <linux/if_packet.h>
->  #include <netinet/in_systm.h>
->  #include "includes/netinet/ip.h"
->  #include "includes/netinet/udp.h"
->  #include "includes/netinet/if_ether.h"
->  #include <net/if.h>
->  
-> +#ifndef PACKET_AUXDATA
-> +#define PACKET_AUXDATA 8
-> +
-> +struct tpacket_auxdata
-> +{
-> +	__u32		tp_status;
-> +	__u32		tp_len;
-> +	__u32		tp_snaplen;
-> +	__u16		tp_mac;
-> +	__u16		tp_net;
-> +};
-> +#endif
-> +
->  /* Reinitializes the specified interface after an address change.   This
->     is not required for packet-filter APIs. */
->  
-> @@ -66,10 +81,14 @@ int if_register_lpf (info)
->  	struct interface_info *info;
->  {
->  	int sock;
-> -	struct sockaddr sa;
-> +	union {
-> +		struct sockaddr_ll ll;
-> +		struct sockaddr common;
-> +	} sa;
-> +	struct ifreq ifr;
->  
->  	/* Make an LPF socket. */
-> -	if ((sock = socket(PF_PACKET, SOCK_PACKET,
-> +	if ((sock = socket(PF_PACKET, SOCK_RAW,
->  			   htons((short)ETH_P_ALL))) < 0) {
->  		if (errno == ENOPROTOOPT || errno == EPROTONOSUPPORT ||
->  		    errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
-> @@ -84,11 +103,16 @@ int if_register_lpf (info)
->  		log_fatal ("Open a socket for LPF: %m");
->  	}
->  
-> +	memset (&ifr, 0, sizeof ifr);
-> +	strncpy (ifr.ifr_name, (const char *)info -> ifp, sizeof ifr.ifr_name);
-> +	if (ioctl (sock, SIOCGIFINDEX, &ifr))
-> +		log_fatal ("Failed to get interface index: %m");
-> +
->  	/* Bind to the interface name */
->  	memset (&sa, 0, sizeof sa);
-> -	sa.sa_family = AF_PACKET;
-> -	strncpy (sa.sa_data, (const char *)info -> ifp, sizeof sa.sa_data);
-> -	if (bind (sock, &sa, sizeof sa)) {
-> +	sa.ll.sll_family = AF_PACKET;
-> +	sa.ll.sll_ifindex = ifr.ifr_ifindex;
-> +	if (bind (sock, &sa.common, sizeof sa)) {
->  		if (errno == ENOPROTOOPT || errno == EPROTONOSUPPORT ||
->  		    errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
->  		    errno == EAFNOSUPPORT || errno == EINVAL) {
-> @@ -170,9 +194,18 @@ static void lpf_gen_filter_setup (struct interface_info *);
->  void if_register_receive (info)
->  	struct interface_info *info;
->  {
-> +	int val;
-> +
->  	/* Open a LPF device and hang it on this interface... */
->  	info -> rfdesc = if_register_lpf (info);
->  
-> +	val = 1;
-> +	if (setsockopt (info -> rfdesc, SOL_PACKET, PACKET_AUXDATA, &val,
-> +			sizeof val) < 0) {
-> +		if (errno != ENOPROTOOPT)
-> +			log_fatal ("Failed to set auxiliary packet data: %m");
-> +	}
-> +
->  #if defined (HAVE_TR_SUPPORT)
->  	if (info -> hw_address.hbuf [0] == HTYPE_IEEE802)
->  		lpf_tr_filter_setup (info);
-> @@ -294,7 +327,6 @@ ssize_t send_packet (interface, packet, raw, len, from, to, hto)
->  	double hh [16];
->  	double ih [1536 / sizeof (double)];
->  	unsigned char *buf = (unsigned char *)ih;
-> -	struct sockaddr sa;
->  	int result;
->  	int fudge;
->  
-> @@ -315,15 +347,7 @@ ssize_t send_packet (interface, packet, raw, len, from, to, hto)
->  				(unsigned char *)raw, len);
->  	memcpy (buf + ibufp, raw, len);
->  
-> -	/* For some reason, SOCK_PACKET sockets can't be connected,
-> -	   so we have to do a sentdo every time. */
-> -	memset (&sa, 0, sizeof sa);
-> -	sa.sa_family = AF_PACKET;
-> -	strncpy (sa.sa_data,
-> -		 (const char *)interface -> ifp, sizeof sa.sa_data);
-> -
-> -	result = sendto (interface -> wfdesc,
-> -			 buf + fudge, ibufp + len - fudge, 0, &sa, sizeof sa);
-> +	result = write (interface -> wfdesc, buf + fudge, ibufp + len - fudge);
->  	if (result < 0)
->  		log_error ("send_packet: %m");
->  	return result;
-> @@ -340,14 +364,35 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
->  {
->  	int length = 0;
->  	int offset = 0;
-> +	int nocsum = 0;
->  	unsigned char ibuf [1536];
->  	unsigned bufix = 0;
->  	unsigned paylen;
-> -
-> -	length = read (interface -> rfdesc, ibuf, sizeof ibuf);
-> +	unsigned char cmsgbuf[CMSG_LEN(sizeof(struct tpacket_auxdata))];
-> +	struct iovec iov = {
-> +		.iov_base = ibuf,
-> +		.iov_len = sizeof ibuf,
-> +	};
-> +	struct msghdr msg = {
-> +		.msg_iov = &iov,
-> +		.msg_iovlen = 1,
-> +		.msg_control = cmsgbuf,
-> +		.msg_controllen = sizeof(cmsgbuf),
-> +	};
-> +	struct cmsghdr *cmsg;
-> +
-> +	length = recvmsg (interface -> rfdesc, &msg, 0);
->  	if (length <= 0)
->  		return length;
->  
-> +	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
-> +		if (cmsg->cmsg_level == SOL_PACKET &&
-> +		    cmsg->cmsg_type == PACKET_AUXDATA) {
-> +			struct tpacket_auxdata *aux = (void *)CMSG_DATA(cmsg);
-> +			nocsum = aux->tp_status & TP_STATUS_CSUMNOTREADY;
-> +		}
-> +	}
-> +
->  	bufix = 0;
->  	/* Decode the physical header... */
->  	offset = decode_hw_header (interface, ibuf, bufix, hfrom);
-> @@ -364,7 +409,7 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
->  
->  	/* Decode the IP and UDP headers... */
->  	offset = decode_udp_ip_header (interface, ibuf, bufix, from,
-> -				       (unsigned)length, &paylen);
-> +				       (unsigned)length, &paylen, nocsum);
->  
->  	/* If the IP or UDP checksum was bad, skip the packet... */
->  	if (offset < 0)
-> diff --git a/common/nit.c b/common/nit.c
-> index 3822206..0da9c36 100644
-> --- a/common/nit.c
-> +++ b/common/nit.c
-> @@ -369,7 +369,7 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
->  
->  	/* Decode the IP and UDP headers... */
->  	offset = decode_udp_ip_header (interface, ibuf, bufix,
-> -				       from, length, &paylen);
-> +				       from, length, &paylen, 0);
->  
->  	/* If the IP or UDP checksum was bad, skip the packet... */
->  	if (offset < 0)
-> diff --git a/common/packet.c b/common/packet.c
-> index 42bca69..fd2d975 100644
-> --- a/common/packet.c
-> +++ b/common/packet.c
-> @@ -211,7 +211,7 @@ ssize_t
->  decode_udp_ip_header(struct interface_info *interface,
->  		     unsigned char *buf, unsigned bufix,
->  		     struct sockaddr_in *from, unsigned buflen,
-> -		     unsigned *rbuflen)
-> +		     unsigned *rbuflen, int nocsum)
->  {
->    unsigned char *data;
->    struct ip ip;
-> @@ -322,7 +322,7 @@ decode_udp_ip_header(struct interface_info *interface,
->  					   8, IPPROTO_UDP + ulen))));
->  
->    udp_packets_seen++;
-> -  if (usum && usum != sum) {
-> +  if (!nocsum && usum && usum != sum) {
->  	  udp_packets_bad_checksum++;
->  	  if (udp_packets_seen > 4 &&
->  	      (udp_packets_seen / udp_packets_bad_checksum) < 2) {
-> diff --git a/common/upf.c b/common/upf.c
-> index feb82a2..fff3949 100644
-> --- a/common/upf.c
-> +++ b/common/upf.c
-> @@ -320,7 +320,7 @@ ssize_t receive_packet (interface, buf, len, from, hfrom)
->  
->  	/* Decode the IP and UDP headers... */
->  	offset = decode_udp_ip_header (interface, ibuf, bufix,
-> -				       from, length, &paylen);
-> +				       from, length, &paylen, 0);
->  
->  	/* If the IP or UDP checksum was bad, skip the packet... */
->  	if (offset < 0)
-> diff --git a/includes/dhcpd.h b/includes/dhcpd.h
-> index cd7d962..0835d98 100644
-> --- a/includes/dhcpd.h
-> +++ b/includes/dhcpd.h
-> @@ -2769,7 +2769,7 @@ ssize_t decode_hw_header PROTO ((struct interface_info *, unsigned char *,
->  				 unsigned, struct hardware *));
->  ssize_t decode_udp_ip_header PROTO ((struct interface_info *, unsigned char *,
->  				     unsigned, struct sockaddr_in *,
-> -				     unsigned, unsigned *));
-> +				     unsigned, unsigned *, int));
->  
->  /* ethernet.c */
->  void assemble_ethernet_header PROTO ((struct interface_info *, unsigned char *,
-> -- 
-> 1.7.3.2.91.g446ac
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+
+v1->v2:
+        using skb_iif instead of new input_dev to remember original
+	device
+
+v2->v3:
+	do another loop in case skb->dev is changed. That way orig_dev
+	core can be left untouched.
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |   74 ++++++++++++++++++++++++-
+ net/core/dev.c                  |  119 ++++++++++-----------------------------
+ 2 files changed, 104 insertions(+), 89 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 77e3c6a..3772b61 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1423,6 +1423,67 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
+ 	bond->setup_by_slave = 1;
+ }
+ 
++/* On bonding slaves other than the currently active slave, suppress
++ * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
++ * ARP on active-backup slaves with arp_validate enabled.
++ */
++static bool bond_should_deliver_exact_match(struct sk_buff *skb,
++					    struct net_device *slave_dev,
++					    struct net_device *bond_dev)
++{
++	if (slave_dev->priv_flags & IFF_SLAVE_INACTIVE) {
++		if (slave_dev->priv_flags & IFF_SLAVE_NEEDARP &&
++		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
++			return false;
++
++		if (bond_dev->priv_flags & IFF_MASTER_ALB &&
++		    skb->pkt_type != PACKET_BROADCAST &&
++		    skb->pkt_type != PACKET_MULTICAST)
++				return false;
++
++		if (bond_dev->priv_flags & IFF_MASTER_8023AD &&
++		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
++			return false;
++
++		return true;
++	}
++	return false;
++}
++
++static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
++{
++	struct net_device *slave_dev;
++	struct net_device *bond_dev;
++
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (unlikely(!skb))
++		return NULL;
++	slave_dev = skb->dev;
++	bond_dev = ACCESS_ONCE(slave_dev->master);
++	if (unlikely(!bond_dev))
++		return skb;
++
++	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
++		slave_dev->last_rx = jiffies;
++
++	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
++		skb->deliver_no_wcard = 1;
++		return skb;
++	}
++
++	skb->dev = bond_dev;
++
++	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
++	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
++	    skb->pkt_type == PACKET_HOST) {
++		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
++
++		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
++	}
++
++	return skb;
++}
++
+ /* enslave device <slave> to bond device <master> */
+ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ {
+@@ -1599,11 +1660,17 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		pr_debug("Error %d calling netdev_set_bond_master\n", res);
+ 		goto err_restore_mac;
+ 	}
++	res = netdev_rx_handler_register(slave_dev, bond_handle_frame, NULL);
++	if (res) {
++		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
++		goto err_unset_master;
++	}
++
+ 	/* open the slave since the application closed it */
+ 	res = dev_open(slave_dev);
+ 	if (res) {
+ 		pr_debug("Opening slave %s failed\n", slave_dev->name);
+-		goto err_unset_master;
++		goto err_unreg_rxhandler;
+ 	}
+ 
+ 	new_slave->dev = slave_dev;
+@@ -1811,6 +1878,9 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ err_close:
+ 	dev_close(slave_dev);
+ 
++err_unreg_rxhandler:
++	netdev_rx_handler_unregister(slave_dev);
++
+ err_unset_master:
+ 	netdev_set_bond_master(slave_dev, NULL);
+ 
+@@ -1992,6 +2062,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		netif_addr_unlock_bh(bond_dev);
+ 	}
+ 
++	netdev_rx_handler_unregister(slave_dev);
+ 	netdev_set_bond_master(slave_dev, NULL);
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -2114,6 +2185,7 @@ static int bond_release_all(struct net_device *bond_dev)
+ 			netif_addr_unlock_bh(bond_dev);
+ 		}
+ 
++		netdev_rx_handler_unregister(slave_dev);
+ 		netdev_set_bond_master(slave_dev, NULL);
+ 
+ 		/* close slave before restoring its mac address */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 578415c..e06a834 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3096,63 +3096,31 @@ void netdev_rx_handler_unregister(struct net_device *dev)
+ }
+ EXPORT_SYMBOL_GPL(netdev_rx_handler_unregister);
+ 
+-static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
+-					      struct net_device *master)
++static void vlan_on_bond_hook(struct sk_buff *skb)
+ {
+-	if (skb->pkt_type == PACKET_HOST) {
+-		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
++	/*
++	 * Make sure ARP frames received on VLAN interfaces stacked on
++	 * bonding interfaces still make their way to any base bonding
++	 * device that may have registered for a specific ptype.
++	 */
++	if (skb->dev->priv_flags & IFF_802_1Q_VLAN &&
++	    vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING &&
++	    skb->protocol == htons(ETH_P_ARP)) {
++		struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
+ 
+-		memcpy(dest, master->dev_addr, ETH_ALEN);
++		if (!skb2)
++			return;
++		skb2->dev = vlan_dev_real_dev(skb->dev);
++		netif_rx(skb2);
+ 	}
+ }
+ 
+-/* On bonding slaves other than the currently active slave, suppress
+- * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, and
+- * ARP on active-backup slaves with arp_validate enabled.
+- */
+-static int __skb_bond_should_drop(struct sk_buff *skb,
+-				  struct net_device *master)
+-{
+-	struct net_device *dev = skb->dev;
+-
+-	if (master->priv_flags & IFF_MASTER_ARPMON)
+-		dev->last_rx = jiffies;
+-
+-	if ((master->priv_flags & IFF_MASTER_ALB) &&
+-	    (master->priv_flags & IFF_BRIDGE_PORT)) {
+-		/* Do address unmangle. The local destination address
+-		 * will be always the one master has. Provides the right
+-		 * functionality in a bridge.
+-		 */
+-		skb_bond_set_mac_by_master(skb, master);
+-	}
+-
+-	if (dev->priv_flags & IFF_SLAVE_INACTIVE) {
+-		if ((dev->priv_flags & IFF_SLAVE_NEEDARP) &&
+-		    skb->protocol == __cpu_to_be16(ETH_P_ARP))
+-			return 0;
+-
+-		if (master->priv_flags & IFF_MASTER_ALB) {
+-			if (skb->pkt_type != PACKET_BROADCAST &&
+-			    skb->pkt_type != PACKET_MULTICAST)
+-				return 0;
+-		}
+-		if (master->priv_flags & IFF_MASTER_8023AD &&
+-		    skb->protocol == __cpu_to_be16(ETH_P_SLOW))
+-			return 0;
+-
+-		return 1;
+-	}
+-	return 0;
+-}
+-
+ static int __netif_receive_skb(struct sk_buff *skb)
+ {
+ 	struct packet_type *ptype, *pt_prev;
+ 	rx_handler_func_t *rx_handler;
+ 	struct net_device *orig_dev;
+-	struct net_device *null_or_orig;
+-	struct net_device *orig_or_bond;
++	struct net_device *null_or_dev;
+ 	int ret = NET_RX_DROP;
+ 	__be16 type;
+ 
+@@ -3167,32 +3135,8 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 
+ 	if (!skb->skb_iif)
+ 		skb->skb_iif = skb->dev->ifindex;
+-
+-	/*
+-	 * bonding note: skbs received on inactive slaves should only
+-	 * be delivered to pkt handlers that are exact matches.  Also
+-	 * the deliver_no_wcard flag will be set.  If packet handlers
+-	 * are sensitive to duplicate packets these skbs will need to
+-	 * be dropped at the handler.
+-	 */
+-	null_or_orig = NULL;
+ 	orig_dev = skb->dev;
+-	if (skb->deliver_no_wcard)
+-		null_or_orig = orig_dev;
+-	else if (netif_is_bond_slave(orig_dev)) {
+-		struct net_device *bond_master = ACCESS_ONCE(orig_dev->master);
+-
+-		if (likely(bond_master)) {
+-			if (__skb_bond_should_drop(skb, bond_master)) {
+-				skb->deliver_no_wcard = 1;
+-				/* deliver only exact match */
+-				null_or_orig = orig_dev;
+-			} else
+-				skb->dev = bond_master;
+-		}
+-	}
+ 
+-	__this_cpu_inc(softnet_data.processed);
+ 	skb_reset_network_header(skb);
+ 	skb_reset_transport_header(skb);
+ 	skb->mac_len = skb->network_header - skb->mac_header;
+@@ -3201,6 +3145,10 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ 
+ 	rcu_read_lock();
+ 
++another_round:
++
++	__this_cpu_inc(softnet_data.processed);
++
+ #ifdef CONFIG_NET_CLS_ACT
+ 	if (skb->tc_verd & TC_NCLS) {
+ 		skb->tc_verd = CLR_TC_NCLS(skb->tc_verd);
+@@ -3209,8 +3157,7 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ #endif
+ 
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+-		if (ptype->dev == null_or_orig || ptype->dev == skb->dev ||
+-		    ptype->dev == orig_dev) {
++		if (!ptype->dev || ptype->dev == skb->dev) {
+ 			if (pt_prev)
+ 				ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = ptype;
+@@ -3224,16 +3171,20 @@ static int __netif_receive_skb(struct sk_buff *skb)
+ ncls:
+ #endif
+ 
+-	/* Handle special case of bridge or macvlan */
+ 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+ 	if (rx_handler) {
++		struct net_device *prev_dev;
++
+ 		if (pt_prev) {
+ 			ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = NULL;
+ 		}
++		prev_dev = skb->dev;
+ 		skb = rx_handler(skb);
+ 		if (!skb)
+ 			goto out;
++		if (skb->dev != prev_dev)
++			goto another_round;
+ 	}
+ 
+ 	if (vlan_tx_tag_present(skb)) {
+@@ -3248,24 +3199,16 @@ ncls:
+ 			goto out;
+ 	}
+ 
+-	/*
+-	 * Make sure frames received on VLAN interfaces stacked on
+-	 * bonding interfaces still make their way to any base bonding
+-	 * device that may have registered for a specific ptype.  The
+-	 * handler may have to adjust skb->dev and orig_dev.
+-	 */
+-	orig_or_bond = orig_dev;
+-	if ((skb->dev->priv_flags & IFF_802_1Q_VLAN) &&
+-	    (vlan_dev_real_dev(skb->dev)->priv_flags & IFF_BONDING)) {
+-		orig_or_bond = vlan_dev_real_dev(skb->dev);
+-	}
++	vlan_on_bond_hook(skb);
++
++	/* deliver only exact match when indicated */
++	null_or_dev = skb->deliver_no_wcard ? skb->dev : NULL;
+ 
+ 	type = skb->protocol;
+ 	list_for_each_entry_rcu(ptype,
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+-		if (ptype->type == type && (ptype->dev == null_or_orig ||
+-		     ptype->dev == skb->dev || ptype->dev == orig_dev ||
+-		     ptype->dev == orig_or_bond)) {
++		if (ptype->type == type &&
++		    (ptype->dev == null_or_dev || ptype->dev == skb->dev)) {
+ 			if (pt_prev)
+ 				ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = ptype;
+-- 
+1.7.3.4
+
