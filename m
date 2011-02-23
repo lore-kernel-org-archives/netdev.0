@@ -1,141 +1,180 @@
-From: prasanna.panchamukhi@riverbed.com
-Subject: [PATCH] e1000: power off PHY after reset when
-	interface is down
-Date: Tue, 22 Feb 2011 17:25:13 -0800
-Message-ID: <1298424313-9840-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+From: Xiong Huang <Xiong.Huang@Atheros.com>
+Subject: RE: Bug#614622: linux-image-2.6.37-1-686: atl2 NIC claims NO
+ CARRIER after suspend/resume; rmmod+insmod fixes the problem
+Date: Wed, 23 Feb 2011 09:22:16 +0800
+Message-ID: <0FBC7C9C2640634A8B837C2EFFCFF32F01837E4A48@SHEXMB-01.global.atheros.com>
+References: <20110222180821.5217.2375.reportbug@localhost.localdomain>
+ <1298423651.2211.496.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	prasanna.panchamukhi@riverbed.com
-To: bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
-	jeffrey.e.pieper@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "614622@bugs.debian.org" <614622@bugs.debian.org>,
+	netdev <netdev@vger.kernel.org>,
+	Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jie Yang <Jie.Yang@Atheros.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shgateway.atheros.com ([203.110.175.210]:13752 "EHLO
+	mail.atheros.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752808Ab1BWB1t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Feb 2011 20:27:49 -0500
+In-Reply-To: <1298423651.2211.496.camel@localhost>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Prasanna S. Panchamukhi <prasanna.panchamukhi@riverbed.com>
-
-Some Phys supported by the e1000 driver do not remain powered off across
-a reset of the device when the interface is down, e.g. on 82546.
-This patch powers down (only when WoL is disabled) the PHY after reset if
-the interface is down and ethtool diagnostics are not currently running.
-
-Similar problem was see on 82571 controller and was fixed in e1000e driver
-by Bruce Allan.
-Please refer commit 31dbe5b4ac6fca72dec946e4d0fa7f0913f1d9b1 for details.
-
-Signed-off-by: Prasanna S. Panchamukhi <prasanna.panchamukhi@riverbed.com>
----
- drivers/net/e1000/e1000_ethtool.c |   27 +++++++++++++++++++--------
- drivers/net/e1000/e1000_main.c    |    7 +++++++
- 2 files changed, 26 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/e1000/e1000_ethtool.c b/drivers/net/e1000/e1000_ethtool.c
-index f4d0922..d3f18f5 100644
---- a/drivers/net/e1000/e1000_ethtool.c
-+++ b/drivers/net/e1000/e1000_ethtool.c
-@@ -1554,6 +1554,15 @@ static void e1000_diag_test(struct net_device *netdev,
- 	bool if_running = netif_running(netdev);
- 
- 	set_bit(__E1000_TESTING, &adapter->flags);
-+
-+	if (!if_running) {
-+		e1000_power_up_phy(adapter);
-+
-+		adapter->hw.wait_autoneg_complete = 1;
-+		e1000_reset(adapter);
-+		adapter->hw.wait_autoneg_complete = 0;
-+	}
-+
- 	if (eth_test->flags == ETH_TEST_FL_OFFLINE) {
- 		/* Offline tests */
- 
-@@ -1572,8 +1581,6 @@ static void e1000_diag_test(struct net_device *netdev,
- 		if (if_running)
- 			/* indicate we're in test mode */
- 			dev_close(netdev);
--		else
--			e1000_reset(adapter);
- 
- 		if (e1000_reg_test(adapter, &data[0]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
-@@ -1587,8 +1594,6 @@ static void e1000_diag_test(struct net_device *netdev,
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
- 		e1000_reset(adapter);
--		/* make sure the phy is powered up */
--		e1000_power_up_phy(adapter);
- 		if (e1000_loopback_test(adapter, &data[3]))
- 			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
-@@ -1602,19 +1607,25 @@ static void e1000_diag_test(struct net_device *netdev,
- 		if (if_running)
- 			dev_open(netdev);
- 	} else {
--		e_info(hw, "online testing starting\n");
- 		/* Online tests */
--		if (e1000_link_test(adapter, &data[4]))
--			eth_test->flags |= ETH_TEST_FL_FAILED;
- 
--		/* Online tests aren't run; pass by default */
-+		e_info(hw, "online testing starting\n");
-+
-+		/* register, eeprom, intr and loopback tests not run online */
- 		data[0] = 0;
- 		data[1] = 0;
- 		data[2] = 0;
- 		data[3] = 0;
- 
-+		if (e1000_link_test(adapter, &data[4]))
-+			eth_test->flags |= ETH_TEST_FL_FAILED;
-+
- 		clear_bit(__E1000_TESTING, &adapter->flags);
- 	}
-+
-+	if (!if_running)
-+		e1000_reset(adapter);
-+
- 	msleep_interruptible(4 * 1000);
- }
- 
-diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
-index bfab140..beec573 100644
---- a/drivers/net/e1000/e1000_main.c
-+++ b/drivers/net/e1000/e1000_main.c
-@@ -704,6 +704,13 @@ void e1000_reset(struct e1000_adapter *adapter)
- 	ew32(VET, ETHERNET_IEEE_VLAN_TYPE);
- 
- 	e1000_reset_adaptive(hw);
-+
-+	if (!netif_running(adapter->netdev) &&
-+	    !test_bit(__E1000_TESTING, &adapter->flags)) {
-+		e1000_power_down_phy(adapter);
-+		return;
-+	}
-+
- 	e1000_phy_get_info(hw, &adapter->phy_info);
- 
- 	e1000_release_manageability(adapter);
--- 
-1.7.0.4
-
-
-------------------------------------------------------------------------------
-Free Software Download: Index, Search & Analyze Logs and other IT data in 
-Real-Time with Splunk. Collect, index and harness all the fast moving IT data 
-generated by your applications, servers and devices whether physical, virtual
-or in the cloud. Deliver compliance at lower cost and gain new business 
-insights. http://p.sf.net/sfu/splunk-dev2dev 
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+YWZ0ZXIgdGhlIG9uYm9hcmQgTklDIGNsYWltcyBOTyBDYXJyaWVyIGFmdGVyIHJlc3VtaW5nIGZy
+b20gc3VzcGVuZC10by1SQU0sIGhvdyBhYm91dCBpdCBpZiB1bnBsdWcgdGhlbiByZS1wbHVnIHRo
+ZSBjYWJsZSA/DQoNCg0KYmVzdCByZWdhcmRzDQpYaW9uZw0KLS0tLS1PcmlnaW5hbCBNZXNzYWdl
+LS0tLS0NCkZyb206IG5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmcgW21haWx0bzpuZXRkZXYt
+b3duZXJAdmdlci5rZXJuZWwub3JnXSBPbiBCZWhhbGYgT2YgQmVuIEh1dGNoaW5ncw0KU2VudDog
+V2VkbmVzZGF5LCBGZWJydWFyeSAyMywgMjAxMSA5OjE0DQpUbzogSmF5IENsaWJ1cm47IENocmlz
+IFNub29rOyBKaWUgWWFuZw0KQ2M6IDYxNDYyMkBidWdzLmRlYmlhbi5vcmc7IG5ldGRldjsgRGFu
+aWVsIEthaG4gR2lsbG1vcg0KU3ViamVjdDogUmU6IEJ1ZyM2MTQ2MjI6IGxpbnV4LWltYWdlLTIu
+Ni4zNy0xLTY4NjogYXRsMiBOSUMgY2xhaW1zIE5PIENBUlJJRVIgYWZ0ZXIgc3VzcGVuZC9yZXN1
+bWU7IHJtbW9kK2luc21vZCBmaXhlcyB0aGUgcHJvYmxlbQ0KDQpUaGlzIGJ1ZyByZXBvcnQgd2Fz
+IG1hZGUgYWdhaW5zdCBEZWJpYW4ncyBwYWNrYWdlIG9mIExpbnV4IDIuNi4zNzoNCg0KT24gVHVl
+LCAyMDExLTAyLTIyIGF0IDEzOjA4IC0wNTAwLCBEYW5pZWwgS2FobiBHaWxsbW9yIHdyb3RlOg0K
+PiBQYWNrYWdlOiBsaW51eC0yLjYNCj4gVmVyc2lvbjogMi42LjM3LTENCj4gU2V2ZXJpdHk6IG5v
+cm1hbA0KPiANCj4gSSByZWNlbnRseSBzd2l0Y2hlZCBmcm9tIDIuNi4zNy10cnVuay02ODYgdG8g
+Mi42LjM3LTEtNjg2Lg0KPiANCj4gYWZ0ZXIgdGhlIHN3aXRjaCwgaSBmaW5kIHRoYXQgc29tZXRp
+bWVzIG15IGF0bDIua28tZHJpdmVuIG9uYm9hcmQgTklDIA0KPiBwZXJzaXN0ZW50bHkgY2xhaW1z
+IE5PIENBUlJJRVIgYWZ0ZXIgcmVzdW1pbmcgZnJvbSBzdXNwZW5kLXRvLVJBTSwgDQo+IGV2ZW4g
+d2hlbiBwbHVnZ2VkIGludG8gYSBsZWdpdGltYXRlIGV0aGVybmV0IHBvcnQuICBUaGlzIGlzIG5v
+dCANCj4gZW50aXJlbHkgcmVsaWFibGUsIGJ1dCBtYXliZSA1MCUgb2YgdGhlIHRpbWUuDQo+IA0K
+PiBpZiBpIHJlbW92ZSBhbmQgcmUtbG9hZCBhdGwyLmtvLCB0aGUgaW50ZXJmYWNlIGNhbiBwcm9w
+ZXJseSBkZXRlY3QgdGhlIA0KPiBldGhlcm5ldC4NCj4gDQo+IGknbSBoYXBweSB0byBoZWxwIGRl
+YnVnIHRoaXMgZnVydGhlciBpZiB0aGVyZSBpcyBhbnkgaW5mb3JtYXRpb24geW91IA0KPiB3YW50
+IG1lIHRvIGdhdGhlciBvbiB0aGlzIGhhcmR3YXJlLiAgUGxlYXNlIGxldCBtZSBrbm93Lg0KDQpJ
+IGRvbid0IHNlZSBhbnkgY2hhbmdlcyB0byB0aGlzIGRyaXZlciBiZXR3ZWVuIDIuNi4zNy1yYzQg
+KHRoZSBmaXJzdCB2ZXJzaW9uIHdlIGJ1aWx0IGFzICcyLjYuMzctdHJ1bmstNjg2JykgYW5kIDIu
+Ni4zNywgc28gSSB0aGluayBEYW5pZWwganVzdCBoYWQgZ29vZCBsdWNrIHdpdGggdGhlIGVhcmxp
+ZXIgdmVyc2lvbnMuDQoNCj4gKiogS2VybmVsIGxvZzoNClsuLi5dDQo+IFs2Nzg4MC4yNzYwMzZd
+IFBNOiBzdXNwZW5kIG9mIGRldmljZXMgY29tcGxldGUgYWZ0ZXIgMTQ3LjU4MyBtc2VjcyANCj4g
+WzY3ODgwLjI5MjI3NF0gUE06IGxhdGUgc3VzcGVuZCBvZiBkZXZpY2VzIGNvbXBsZXRlIGFmdGVy
+IDE2LjIyNyBtc2VjcyANCj4gWzY3ODgwLjI5MjQyNl0gQUNQSTogUHJlcGFyaW5nIHRvIGVudGVy
+IHN5c3RlbSBzbGVlcCBzdGF0ZSBTMyANCj4gWzY3ODgwLjMxNjY0OF0gUE06IFNhdmluZyBwbGF0
+Zm9ybSBOVlMgbWVtb3J5IFs2Nzg4MC4zNTc5MjddIERpc2FibGluZyANCj4gbm9uLWJvb3QgQ1BV
+cyAuLi4NCj4gWzY3ODgwLjM1NzkyN10gQmFjayB0byBDIQ0KPiBbNjc4ODAuMzU3OTI3XSBQTTog
+UmVzdG9yaW5nIHBsYXRmb3JtIE5WUyBtZW1vcnkgWzY3ODgwLjM1NzkyN10gRm9yY2UgDQo+IGVu
+YWJsZWQgSFBFVCBhdCByZXN1bWUgWzY3ODgwLjM1NzkyN10gQUNQSTogV2FraW5nIHVwIGZyb20g
+c3lzdGVtIA0KPiBzbGVlcCBzdGF0ZSBTMyBbNjc4ODAuNDAwODY1XSBIREEgSW50ZWwgMDAwMDow
+MDoxYi4wOiByZXN0b3JpbmcgY29uZmlnIA0KPiBzcGFjZSBhdCBvZmZzZXQgMHgxICh3YXMgMHgx
+MDAwMDYsIHdyaXRpbmcgMHgxMDAwMDIpIFs2Nzg4MC40MDA5MDRdIA0KPiBwY2kgMDAwMDowMDox
+Yy4wOiByZXN0b3JpbmcgY29uZmlnIHNwYWNlIGF0IG9mZnNldCAweDkgKHdhcyAweDFmZmYxLCAN
+Cj4gd3JpdGluZyAweDNmYzEzZmIxKSBbNjc4ODAuNDAwOTEzXSBwY2kgMDAwMDowMDoxYy4wOiBy
+ZXN0b3JpbmcgY29uZmlnIA0KPiBzcGFjZSBhdCBvZmZzZXQgMHg4ICh3YXMgMHhmZmYwLCB3cml0
+aW5nIDB4M2ZhMDNmOTApIFs2Nzg4MC40MDA5MjNdIA0KPiBwY2kgMDAwMDowMDoxYy4wOiByZXN0
+b3JpbmcgY29uZmlnIHNwYWNlIGF0IG9mZnNldCAweDcgKHdhcyAweGYwLCANCj4gd3JpdGluZyAw
+eDEwMTApIFs2Nzg4MC40MDA5MzddIHBjaSAwMDAwOjAwOjFjLjA6IHJlc3RvcmluZyBjb25maWcg
+DQo+IHNwYWNlIGF0IG9mZnNldCAweDEgKHdhcyAweDEwMDEwNCwgd3JpdGluZyAweDEwMDEwNykg
+WzY3ODgwLjQwMDk3Nl0gDQo+IHBjaSAwMDAwOjAwOjFjLjE6IHJlc3RvcmluZyBjb25maWcgc3Bh
+Y2UgYXQgb2Zmc2V0IDB4OSAod2FzIDB4MWZmZjEsIA0KPiB3cml0aW5nIDB4M2ZlMTNmZDEpIFs2
+Nzg4MC40MDA5ODddIHBjaSAwMDAwOjAwOjFjLjE6IHJlc3RvcmluZyBjb25maWcgDQo+IHNwYWNl
+IGF0IG9mZnNldCAweDcgKHdhcyAweGYwLCB3cml0aW5nIDB4MjAyMCkgWzY3ODgwLjQwMTAwMV0g
+cGNpIA0KPiAwMDAwOjAwOjFjLjE6IHJlc3RvcmluZyBjb25maWcgc3BhY2UgYXQgb2Zmc2V0IDB4
+MSAod2FzIDB4MTAwMTA2LCANCj4gd3JpdGluZyAweDEwMDEwNykgWzY3ODgwLjQwMTA0Ml0gcGNp
+IDAwMDA6MDA6MWMuMjogcmVzdG9yaW5nIGNvbmZpZyANCj4gc3BhY2UgYXQgb2Zmc2V0IDB4NyAo
+d2FzIDB4ZjAsIHdyaXRpbmcgMHgzMDMwKSBbNjc4ODAuNDAxMDU2XSBwY2kgDQo+IDAwMDA6MDA6
+MWMuMjogcmVzdG9yaW5nIGNvbmZpZyBzcGFjZSBhdCBvZmZzZXQgMHgxICh3YXMgMHgxMDAxMDYs
+IA0KPiB3cml0aW5nIDB4MTAwMTA3KSBbNjc4ODAuNDAxMDk5XSB1aGNpX2hjZCAwMDAwOjAwOjFk
+LjA6IHJlc3RvcmluZyANCj4gY29uZmlnIHNwYWNlIGF0IG9mZnNldCAweDEgKHdhcyAweDI4MDAw
+MDUsIHdyaXRpbmcgMHgyODAwMDAxKSANCj4gWzY3ODgwLjQwMTEzMl0gdWhjaV9oY2QgMDAwMDow
+MDoxZC4xOiByZXN0b3JpbmcgY29uZmlnIHNwYWNlIGF0IG9mZnNldCANCj4gMHgxICh3YXMgMHgy
+ODAwMDA1LCB3cml0aW5nIDB4MjgwMDAwMSkgWzY3ODgwLjQwMTE2NV0gdWhjaV9oY2QgDQo+IDAw
+MDA6MDA6MWQuMjogcmVzdG9yaW5nIGNvbmZpZyBzcGFjZSBhdCBvZmZzZXQgMHgxICh3YXMgMHgy
+ODAwMDA1LCANCj4gd3JpdGluZyAweDI4MDAwMDEpIFs2Nzg4MC40MDExOTddIHVoY2lfaGNkIDAw
+MDA6MDA6MWQuMzogcmVzdG9yaW5nIA0KPiBjb25maWcgc3BhY2UgYXQgb2Zmc2V0IDB4MSAod2Fz
+IDB4MjgwMDAwNSwgd3JpdGluZyAweDI4MDAwMDEpIA0KPiBbNjc4ODAuNDAxMjM5XSBlaGNpX2hj
+ZCAwMDAwOjAwOjFkLjc6IHJlc3RvcmluZyBjb25maWcgc3BhY2UgYXQgb2Zmc2V0IA0KPiAweDEg
+KHdhcyAweDI5MDAwMDYsIHdyaXRpbmcgMHgyOTAwMDAyKSBbNjc4ODAuNDAxMjY1XSBwY2kgDQo+
+IDAwMDA6MDA6MWUuMDogcmVzdG9yaW5nIGNvbmZpZyBzcGFjZSBhdCBvZmZzZXQgMHhmICh3YXMg
+MHg2MDAwMCwgDQo+IHdyaXRpbmcgMHg2MDBmZikgWzY3ODgwLjQwMTUzOF0gUE06IGVhcmx5IHJl
+c3VtZSBvZiBkZXZpY2VzIGNvbXBsZXRlIA0KPiBhZnRlciAwLjc5NSBtc2VjcyBbNjc4ODAuNDA2
+MDM2XSBIREEgSW50ZWwgMDAwMDowMDoxYi4wOiBQQ0kgSU5UIEEgLT4gDQo+IEdTSSAxNiAobGV2
+ZWwsIGxvdykgLT4gSVJRIDE2IFs2Nzg4MC40MDYwNDhdIEhEQSBJbnRlbCAwMDAwOjAwOjFiLjA6
+IA0KPiBzZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQgWzY3ODgwLjQwNjA5M10gSERBIEludGVs
+IDAwMDA6MDA6MWIuMDogaXJxIA0KPiA0MCBmb3IgTVNJL01TSS1YIFs2Nzg4MC40MDYxMzZdIHBj
+aSAwMDAwOjAwOjFjLjA6IFBDSSBJTlQgQSAtPiBHU0kgMTYgDQo+IChsZXZlbCwgbG93KSAtPiBJ
+UlEgMTYgWzY3ODgwLjQwNjE0M10gcGNpIDAwMDA6MDA6MWMuMDogc2V0dGluZyANCj4gbGF0ZW5j
+eSB0aW1lciB0byA2NCBbNjc4ODAuNDA2MTU2XSBwY2kgMDAwMDowMDoxYy4xOiBQQ0kgSU5UIEIg
+LT4gR1NJIA0KPiAxNyAobGV2ZWwsIGxvdykgLT4gSVJRIDE3IFs2Nzg4MC40MDYxNjNdIHBjaSAw
+MDAwOjAwOjFjLjE6IHNldHRpbmcgDQo+IGxhdGVuY3kgdGltZXIgdG8gNjQgWzY3ODgwLjQwNjE3
+Nl0gcGNpIDAwMDA6MDA6MWMuMjogUENJIElOVCBDIC0+IEdTSSANCj4gMTggKGxldmVsLCBsb3cp
+IC0+IElSUSAxOCBbNjc4ODAuNDA2MTgzXSBwY2kgMDAwMDowMDoxYy4yOiBzZXR0aW5nIA0KPiBs
+YXRlbmN5IHRpbWVyIHRvIDY0IFs2Nzg4MC40MDYxOThdIHVoY2lfaGNkIDAwMDA6MDA6MWQuMDog
+UENJIElOVCBBIC0+IA0KPiBHU0kgMjMgKGxldmVsLCBsb3cpIC0+IElSUSAyMyBbNjc4ODAuNDA2
+MjA4XSB1aGNpX2hjZCAwMDAwOjAwOjFkLjA6IA0KPiBzZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8g
+NjQgWzY3ODgwLjQwNjIzNF0gdXNiIHVzYjI6IHJvb3QgaHViIGxvc3QgDQo+IHBvd2VyIG9yIHdh
+cyByZXNldCBbNjc4ODAuNDA2MjUzXSB1aGNpX2hjZCAwMDAwOjAwOjFkLjE6IFBDSSBJTlQgQiAt
+PiANCj4gR1NJIDE5IChsZXZlbCwgbG93KSAtPiBJUlEgMTkgWzY3ODgwLjQwNjI2Ml0gdWhjaV9o
+Y2QgMDAwMDowMDoxZC4xOiANCj4gc2V0dGluZyBsYXRlbmN5IHRpbWVyIHRvIDY0IFs2Nzg4MC40
+MDYyODddIHVzYiB1c2IzOiByb290IGh1YiBsb3N0IA0KPiBwb3dlciBvciB3YXMgcmVzZXQgWzY3
+ODgwLjQwNjMwM10gdWhjaV9oY2QgMDAwMDowMDoxZC4yOiBQQ0kgSU5UIEMgLT4gDQo+IEdTSSAx
+OCAobGV2ZWwsIGxvdykgLT4gSVJRIDE4IFs2Nzg4MC40MDYzMTNdIHVoY2lfaGNkIDAwMDA6MDA6
+MWQuMjogDQo+IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NCBbNjc4ODAuNDA2MzM3XSB1c2Ig
+dXNiNDogcm9vdCBodWIgbG9zdCANCj4gcG93ZXIgb3Igd2FzIHJlc2V0IFs2Nzg4MC40MDYzNTRd
+IHVoY2lfaGNkIDAwMDA6MDA6MWQuMzogUENJIElOVCBEIC0+IA0KPiBHU0kgMTYgKGxldmVsLCBs
+b3cpIC0+IElSUSAxNiBbNjc4ODAuNDA2MzYzXSB1aGNpX2hjZCAwMDAwOjAwOjFkLjM6IA0KPiBz
+ZXR0aW5nIGxhdGVuY3kgdGltZXIgdG8gNjQgWzY3ODgwLjQwNjM4N10gdXNiIHVzYjU6IHJvb3Qg
+aHViIGxvc3QgDQo+IHBvd2VyIG9yIHdhcyByZXNldCBbNjc4ODAuNDA2NDA1XSBlaGNpX2hjZCAw
+MDAwOjAwOjFkLjc6IFBDSSBJTlQgQSAtPiANCj4gR1NJIDIzIChsZXZlbCwgbG93KSAtPiBJUlEg
+MjMgWzY3ODgwLjQwNjQxNV0gZWhjaV9oY2QgMDAwMDowMDoxZC43OiANCj4gc2V0dGluZyBsYXRl
+bmN5IHRpbWVyIHRvIDY0IFs2Nzg4MC40MDY0ODZdIHBjaSAwMDAwOjAwOjFlLjA6IHNldHRpbmcg
+DQo+IGxhdGVuY3kgdGltZXIgdG8gNjQgWzY3ODgwLjQwNjUwNV0gYXRhX3BpaXggMDAwMDowMDox
+Zi4yOiBQQ0kgSU5UIEIgLT4gDQo+IEdTSSAxOSAobGV2ZWwsIGxvdykgLT4gSVJRIDE5IFs2Nzg4
+MC40MDY1MTNdIGF0YV9waWl4IDAwMDA6MDA6MWYuMjogDQo+IHNldHRpbmcgbGF0ZW5jeSB0aW1l
+ciB0byA2NCBbNjc4ODAuNDA2NTQzXSBhdGwyIDAwMDA6MDM6MDAuMDogUENJIElOVCANCj4gQSAt
+PiBHU0kgMTcgKGxldmVsLCBsb3cpIC0+IElSUSAxNyBbNjc4ODAuNDA2NTUxXSBhdGwyIDAwMDA6
+MDM6MDAuMDogDQo+IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NCBbNjc4ODAuNDExMTc3XSBp
+OTE1IDAwMDA6MDA6MDIuMDogUENJIElOVCANCj4gQSAtPiBHU0kgMTYgKGxldmVsLCBsb3cpIC0+
+IElSUSAxNiBbNjc4ODAuNDExMTg2XSBpOTE1IDAwMDA6MDA6MDIuMDogc2V0dGluZyBsYXRlbmN5
+IHRpbWVyIHRvIDY0IFs2Nzg4MC40MTMxMTBdIHNkIDA6MDowOjA6IFtzZGFdIFN0YXJ0aW5nIGRp
+c2sgWzY3ODgwLjY1MjAzMV0gdXNiIDEtNTogcmVzZXQgaGlnaCBzcGVlZCBVU0IgZGV2aWNlIHVz
+aW5nIGVoY2lfaGNkIGFuZCBhZGRyZXNzIDIgWzY3ODgwLjg5NjAzMV0gdXNiIDEtODogcmVzZXQg
+aGlnaCBzcGVlZCBVU0IgZGV2aWNlIHVzaW5nIGVoY2lfaGNkIGFuZCBhZGRyZXNzIDMgWzY3ODgy
+LjUzMjIwMF0gYXRhMS4wMDogQUNQSSBjbWQgZWYvMDM6NDU6MDA6MDA6MDA6YTAgKFNFVCBGRUFU
+VVJFUykgZmlsdGVyZWQgb3V0IFs2Nzg4Mi41MzIyMDldIGF0YTEuMDA6IEFDUEkgY21kIGVmLzAz
+OjBjOjAwOjAwOjAwOmEwIChTRVQgRkVBVFVSRVMpIGZpbHRlcmVkIG91dCBbNjc4ODIuNTQ4MTkx
+XSBhdGExLjAwOiBjb25maWd1cmVkIGZvciBVRE1BLzEzMyBbNjc4ODIuNTQ4Njk3XSBQTTogcmVz
+dW1lIG9mIGRldmljZXMgY29tcGxldGUgYWZ0ZXIgMjE0Ny4wMzQgbXNlY3MgWzY3ODgyLjU0OTI3
+OF0gUE06IEZpbmlzaGluZyB3YWtldXAuDQo+IFs2Nzg4Mi41NDkyODNdIFJlc3RhcnRpbmcgdGFz
+a3MgLi4uIGRvbmUuDQo+IFs2Nzg4Mi41NDk3NjFdIHZpZGVvIExOWFZJREVPOjAwOiBSZXN0b3Jp
+bmcgYmFja2xpZ2h0IHN0YXRlIA0KPiBbNjc4ODIuOTgwMDgzXSB1c2IgMy0yOiBuZXcgbG93IHNw
+ZWVkIFVTQiBkZXZpY2UgdXNpbmcgdWhjaV9oY2QgYW5kIA0KPiBhZGRyZXNzIDUgWzY3ODgzLjE1
+MDQxNF0gYXRsMiAwMDAwOjAzOjAwLjA6IGlycSA0MSBmb3IgTVNJL01TSS1YIA0KPiBbNjc4ODMu
+MTUxMzY0XSBBRERSQ09ORihORVRERVZfVVApOiBldGgwOiBsaW5rIGlzIG5vdCByZWFkeSANCj4g
+WzY3ODgzLjE1OTE2M10gdXNiIDMtMjogTmV3IFVTQiBkZXZpY2UgZm91bmQsIGlkVmVuZG9yPTA5
+NzMsIA0KPiBpZFByb2R1Y3Q9MDAwMSBbNjc4ODMuMTU5MTc0XSB1c2IgMy0yOiBOZXcgVVNCIGRl
+dmljZSBzdHJpbmdzOiBNZnI9MSwgDQo+IFByb2R1Y3Q9MiwgU2VyaWFsTnVtYmVyPTAgWzY3ODgz
+LjE1OTE4MV0gdXNiIDMtMjogUHJvZHVjdDogDQo+IFNjaGx1bWJlcmdlclNlbWEgQ3J5cHRvZmxl
+eCBlLWdhdGUgWzY3ODgzLjE1OTE4N10gdXNiIDMtMjogDQo+IE1hbnVmYWN0dXJlcjogU2NobHVt
+YmVyZ2VyU2VtYQ0KDQpJIGFzc3VtZSB0aGlzIGlzIHdoZXJlIERhbmllbCByZWxvYWRzIHRoZSBk
+cml2ZXI6DQoNCj4gWzY3OTc3LjM0NDE4MV0gYXRsMiAwMDAwOjAzOjAwLjA6IFBDSSBJTlQgQSBk
+aXNhYmxlZCBbNjc5NzcuMzc5NzkyXSANCj4gQXRoZXJvcyhSKSBMMiBFdGhlcm5ldCBEcml2ZXIg
+LSB2ZXJzaW9uIDIuMi4zIFs2Nzk3Ny4zNzk4MDJdIENvcHlyaWdodCANCj4gKGMpIDIwMDcgQXRo
+ZXJvcyBDb3Jwb3JhdGlvbi4NCj4gWzY3OTc3LjM3OTg3MF0gYXRsMiAwMDAwOjAzOjAwLjA6IFBD
+SSBJTlQgQSAtPiBHU0kgMTcgKGxldmVsLCBsb3cpIC0+IA0KPiBJUlEgMTcgWzY3OTc3LjM3OTg5
+Ml0gYXRsMiAwMDAwOjAzOjAwLjA6IHNldHRpbmcgbGF0ZW5jeSB0aW1lciB0byA2NCANCj4gWzY3
+OTkzLjk0ODcyM10gYXRsMiAwMDAwOjAzOjAwLjA6IGlycSA0MSBmb3IgTVNJL01TSS1YIFs2Nzk5
+My45NDkyNjhdIA0KPiBBRERSQ09ORihORVRERVZfVVApOiBldGgwOiBsaW5rIGlzIG5vdCByZWFk
+eSBbNjc5OTQuMTU0MzI3XSBhdGwyOiBldGgwIA0KPiBOSUMgTGluayBpcyBVcDwxMDAgTWJwcyBG
+dWxsIER1cGxleD4gWzY3OTk0LjE1NDczOV0gDQo+IEFERFJDT05GKE5FVERFVl9DSEFOR0UpOiBl
+dGgwOiBsaW5rIGJlY29tZXMgcmVhZHkNCg0KWy4uLl0NCj4gKiogUENJIGRldmljZXM6DQpbLi4u
+XQ0KPiAwMzowMC4wIEV0aGVybmV0IGNvbnRyb2xsZXIgWzAyMDBdOiBBdGhlcm9zIENvbW11bmlj
+YXRpb25zIEwyIEZhc3QgRXRoZXJuZXQgWzE5Njk6MjA0OF0gKHJldiBhMCkNCj4gICAgICAgICBT
+dWJzeXN0ZW06IEFTVVNUZUsgQ29tcHV0ZXIgSW5jLiBEZXZpY2UgWzEwNDM6ODIzM10NCj4gICAg
+ICAgICBDb250cm9sOiBJL08tIE1lbSsgQnVzTWFzdGVyKyBTcGVjQ3ljbGUtIE1lbVdJTlYtIFZH
+QVNub29wLSBQYXJFcnItIFN0ZXBwaW5nLSBTRVJSLSBGYXN0QjJCLSBEaXNJTlR4Kw0KPiAgICAg
+ICAgIFN0YXR1czogQ2FwKyA2Nk1Iei0gVURGLSBGYXN0QjJCLSBQYXJFcnItIERFVlNFTD1mYXN0
+ID5UQWJvcnQtIDxUQWJvcnQtIDxNQWJvcnQtID5TRVJSLSA8UEVSUi0gSU5UeC0NCj4gICAgICAg
+ICBMYXRlbmN5OiAwLCBDYWNoZSBMaW5lIFNpemU6IDE2IGJ5dGVzDQo+ICAgICAgICAgSW50ZXJy
+dXB0OiBwaW4gQSByb3V0ZWQgdG8gSVJRIDQxDQo+ICAgICAgICAgUmVnaW9uIDA6IE1lbW9yeSBh
+dCBmYmZjMDAwMCAoNjQtYml0LCBub24tcHJlZmV0Y2hhYmxlKSBbc2l6ZT0yNTZLXQ0KPiAgICAg
+ICAgIEV4cGFuc2lvbiBST00gYXQgZmJmYTAwMDAgW2Rpc2FibGVkXSBbc2l6ZT0xMjhLXQ0KPiAg
+ICAgICAgIENhcGFiaWxpdGllczogPGFjY2VzcyBkZW5pZWQ+DQo+ICAgICAgICAgS2VybmVsIGRy
+aXZlciBpbiB1c2U6IGF0bDINClsuLi5dDQoNCkJlbi4NCg0KLS0NCkJlbiBIdXRjaGluZ3MNCk9u
+Y2UgYSBqb2IgaXMgZm91bGVkIHVwLCBhbnl0aGluZyBkb25lIHRvIGltcHJvdmUgaXQgbWFrZXMg
+aXQgd29yc2UuDQo=
