@@ -1,32 +1,65 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: Re: [PATCH] cxgb{3,4}: streamline Kconfig options
-Date: Thu, 24 Feb 2011 11:41:15 -0800
-Message-ID: <4D66B45B.2050604@chelsio.com>
-References: <4D5D30CA020000780003263A@vpn.id2.novell.com> <20110222.101457.39195901.davem@davemloft.net> <4D64E5720200007800033420@vpn.id2.novell.com> <20110223.122709.193705956.davem@davemloft.net> <4D661E2702000078000336B5@vpn.id2.novell.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
+ peer configuration - ieee
+Date: Thu, 24 Feb 2011 19:42:39 +0000
+Message-ID: <1298576559.2613.40.camel@bwh-desktop>
+References: <1298581410.8877.21.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, divy@chelsio.com,
-	linux-kbuild@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Beulich <JBeulich@novell.com>
-Return-path: <linux-kbuild-owner@vger.kernel.org>
-In-Reply-To: <4D661E2702000078000336B5@vpn.id2.novell.com>
-Sender: linux-kbuild-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, John Fastabend <john.r.fastabend@intel.com>,
+	Eilon Greenstein <eilong@broadcom.com>, netdev@vger.kernel.org
+To: Shmulik Ravid <shmulikr@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exchange.solarflare.com ([216.237.3.220]:39400 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755907Ab1BXTmn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 14:42:43 -0500
+In-Reply-To: <1298581410.8877.21.camel@lb-tlvb-shmulik.il.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jan Beulich wrote:
+On Thu, 2011-02-24 at 23:03 +0200, Shmulik Ravid wrote:
+> These 2 patches add the support for retrieving the remote or peer DCBX
+> configuration via dcbnl for embedded DCBX stacks. The peer configuration
+> is part of the DCBX MIB and is useful for debugging and diagnostics of
+> the overall DCB configuration. The first patch add this support for IEEE
+> 802.1Qaz standard the second patch add the same support for the older
+> CEE standard. 
+> 
+> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
+> ---
+>  include/linux/dcbnl.h |   38 ++++++++++++++++++++++++++
+>  include/net/dcbnl.h   |    5 +++
+>  net/dcb/dcbnl.c       |   71 +++++++++++++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 114 insertions(+), 0 deletions(-)
+> 
+> diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+> index 4c5b26e..3102185 100644
+> --- a/include/linux/dcbnl.h
+> +++ b/include/linux/dcbnl.h
+> @@ -110,6 +110,22 @@ struct dcb_app {
+>  	__u16	protocol;
+>  };
+>  
+> +/* This structure contains the APP feature information sent by the peer.
+> + * It is used for both the IEEE 802.1Qaz and the CEE flavors.
+> + *
+> + * @willing: willing bit in the peer APP tlv
+> + * @error: error bit in the peer APP tlv
+> + * @app_count: The number of objects in the peer APP table.
+[...]
 
-> As to that INET vs NET dependency - is it possible that the
-> network drivers really just need NET, but the iSCSI ones need
-> INET? In which case the only common dependency would be
-> PCI - certainly not worth a custom helper option.
+It looks like this was supposed to be a kernel-doc comment, but it's not
+valid as such unless you start with:
 
-I see about a dozen network drivers that depend on INET.  These may be the 
-result of cut&paste from other drivers' Kconfig entries rather than actual 
-dependencies.  Also some of these drivers select or selected in the past 
-INET_LRO and that may have something to do with their INET dependency, not sure.
+    /**
+     * struct dcb_peer_app_info - one-line description here
 
-Reading the commit message that introduced CHELSIO_T3_DEPENDS, it talks of 
-hidden dependencies that select does not see.  I am not sure which exactly 
-but since it's been a few years since that commit I'll try to see what the 
-situation is today without the *_DEPENDS symbols and let you know.
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
