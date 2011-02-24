@@ -1,125 +1,73 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: [PATCH] ipvs: use enum to instead of magic numbers
-Date: Thu, 24 Feb 2011 08:19:57 +0800
-Message-ID: <1298506797-16124-1-git-send-email-xiaosuo@gmail.com>
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Changli Gao <xiaosuo@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 29612] New: skge ipv6 doesn't work after boot
+Date: Wed, 23 Feb 2011 16:21:56 -0800
+Message-ID: <20110223162156.17ab2bc5.akpm@linux-foundation.org>
+References: <bug-29612-10286@https.bugzilla.kernel.org/>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, gbillios@gmail.com,
+	Stephen Hemminger <shemminger@linux-foundation.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:58040 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752126Ab1BXAWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 19:22:51 -0500
+In-Reply-To: <bug-29612-10286@https.bugzilla.kernel.org/>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
----
- net/netfilter/ipvs/ip_vs_xmit.c |   41 ++++++++++++++++++++++++++--------------
- 1 file changed, 27 insertions(+), 14 deletions(-)
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 1f2a4e3..a48239a 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -43,6 +43,13 @@
- 
- #include <net/ip_vs.h>
- 
-+enum {
-+	IP_VS_RT_MODE_LOCAL	= 1, /* Allow local dest */
-+	IP_VS_RT_MODE_NON_LOCAL	= 2, /* Allow non-local dest */
-+	IP_VS_RT_MODE_RDR	= 4, /* Allow redirect from remote daddr to
-+				      * local
-+				      */
-+};
- 
- /*
-  *      Destination cache to speed up outgoing route lookup
-@@ -77,11 +84,7 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
- 	return dst;
- }
- 
--/*
-- * Get route to destination or remote server
-- * rt_mode: flags, &1=Allow local dest, &2=Allow non-local dest,
-- *	    &4=Allow redirect from remote daddr to local
-- */
-+/* Get route to destination or remote server */
- static struct rtable *
- __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 		   __be32 daddr, u32 rtos, int rt_mode)
-@@ -126,15 +129,16 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 	}
- 
- 	local = rt->rt_flags & RTCF_LOCAL;
--	if (!((local ? 1 : 2) & rt_mode)) {
-+	if (!((local ? IP_VS_RT_MODE_LOCAL : IP_VS_RT_MODE_NON_LOCAL) &
-+	      rt_mode)) {
- 		IP_VS_DBG_RL("Stopping traffic to %s address, dest: %pI4\n",
- 			     (rt->rt_flags & RTCF_LOCAL) ?
- 			     "local":"non-local", &rt->rt_dst);
- 		ip_rt_put(rt);
- 		return NULL;
- 	}
--	if (local && !(rt_mode & 4) && !((ort = skb_rtable(skb)) &&
--					 ort->rt_flags & RTCF_LOCAL)) {
-+	if (local && !(rt_mode & IP_VS_RT_MODE_RDR) &&
-+	    !((ort = skb_rtable(skb)) && ort->rt_flags & RTCF_LOCAL)) {
- 		IP_VS_DBG_RL("Redirect from non-local address %pI4 to local "
- 			     "requires NAT method, dest: %pI4\n",
- 			     &ip_hdr(skb)->daddr, &rt->rt_dst);
-@@ -383,8 +387,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	EnterFunction(10);
- 
--	if (!(rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr,
--				      RT_TOS(iph->tos), 2)))
-+	if (!(rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr, RT_TOS(iph->tos),
-+				      IP_VS_RT_MODE_NON_LOCAL)))
- 		goto tx_error_icmp;
- 
- 	/* MTU checking */
-@@ -512,7 +516,10 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	}
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(iph->tos), 1|2|4)))
-+				      RT_TOS(iph->tos),
-+				      IP_VS_RT_MODE_LOCAL |
-+					IP_VS_RT_MODE_NON_LOCAL |
-+					IP_VS_RT_MODE_RDR)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 	/*
-@@ -755,7 +762,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	EnterFunction(10);
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(tos), 1|2)))
-+				      RT_TOS(tos), IP_VS_RT_MODE_LOCAL |
-+						   IP_VS_RT_MODE_NON_LOCAL)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -984,7 +992,9 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	EnterFunction(10);
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(iph->tos), 1|2)))
-+				      RT_TOS(iph->tos),
-+				      IP_VS_RT_MODE_LOCAL |
-+					IP_VS_RT_MODE_NON_LOCAL)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -1128,7 +1138,10 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	 */
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(ip_hdr(skb)->tos), 1|2|4)))
-+				      RT_TOS(ip_hdr(skb)->tos),
-+				      IP_VS_RT_MODE_LOCAL |
-+					IP_VS_RT_MODE_NON_LOCAL |
-+					IP_VS_RT_MODE_RDR)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Mon, 21 Feb 2011 18:42:21 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=29612
+> 
+>            Summary: skge ipv6 doesn't work after boot
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.38-rc4
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: gbillios@gmail.com
+>         Regression: No
+> 
+> 
+> I have noticed that after the initial boot, ipv6 doesn't work until I either
+> reconnect to the network with or do an ifdown/up cycle. 
+> 
+> The adapter has an ipv6 address, ipv6 routing table seems fine but there is no
+> actual connectivity until I do what described above. During my debugging tries
+> I noticed that ipv6 starts working also when I start capturing data with
+> wireshark. If I enable promiscuous mode it starts working, if I start the
+> capture *without* promiscuous mode it does nothing, as if the card needs a
+> 'push' to start working. 
+> 
+> Here is the relevant skge output from dmesg, kernel version doesn't really
+> matter since I have this issue even with earlier kernels. 
+> 
+> skge 0000:07:01.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
+> skge: 1.13 addr 0xf7ffc000 irq 16 chip Yukon-Lite rev 9
+> skge 0000:07:01.0: eth0: addr 00:22:b0:e7:47:71
+> skge 0000:07:01.0: eth0: enabling interface
+> skge 0000:07:01.0: eth0: Link is up at 1000 Mbps, full duplex, flow control
+> both
+> skge 0000:07:01.0: eth0: disabling interface
+> skge 0000:07:01.0: eth0: enabling interface
+> skge 0000:07:01.0: eth0: Link is up at 1000 Mbps, full duplex, flow control
+> both
+> 
+> Just to clarify, the ipv6 network setup is working just fine in general, other
+> PCs on the network don't present this issue at all.
+
