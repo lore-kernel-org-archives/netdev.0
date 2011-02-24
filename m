@@ -1,180 +1,74 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Wed, 23 Feb 2011 15:57:54 -0800 (PST)
-Message-ID: <20110223.155754.232753422.davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] e1000: power off PHY after reset when interface is down
+Date: Wed, 23 Feb 2011 16:02:45 -0800
+Message-ID: <1298505765.25453.17.camel@jtkirshe-linux>
+References: <1298424313-9840-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-Rnz930OUXJjYFXFNO/G2"
+Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "prasanna.panchamukhi@riverbed.com"
+	<prasanna.panchamukhi@riverbed.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:28098 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754535Ab1BXACq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Feb 2011 19:02:46 -0500
+In-Reply-To: <1298424313-9840-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-1) Eric B.'s remaining on-stack list_head fixes.
+--=-Rnz930OUXJjYFXFNO/G2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-2) inet_twsk_deschedule() called in wrong context, from Eric Dumazet.
+On Tue, 2011-02-22 at 17:25 -0800, prasanna.panchamukhi@riverbed.com
+wrote:
+> From: Prasanna S. Panchamukhi <prasanna.panchamukhi@riverbed.com>
+>=20
+> Some Phys supported by the e1000 driver do not remain powered off
+> across
+> a reset of the device when the interface is down, e.g. on 82546.
+> This patch powers down (only when WoL is disabled) the PHY after reset
+> if
+> the interface is down and ethtool diagnostics are not currently
+> running.
+>=20
+> Similar problem was see on 82571 controller and was fixed in e1000e
+> driver
+> by Bruce Allan.
+> Please refer commit 31dbe5b4ac6fca72dec946e4d0fa7f0913f1d9b1 for
+> details.
+>=20
+> Signed-off-by: Prasanna S. Panchamukhi
+> <prasanna.panchamukhi@riverbed.com>
+> ---
+>  drivers/net/e1000/e1000_ethtool.c |   27 +++++++++++++++++++--------
+>  drivers/net/e1000/e1000_main.c    |    7 +++++++
+>  2 files changed, 26 insertions(+), 8 deletions(-)=20
 
-3) sfc ethtool large stack usage exposes uninitialzed kernel data to
-   user sometimes, from Eric Dumazet.
+Thanks Prasanna!  I have added the patch to my queue of e1000 patches.
 
-4) Packet scheduler private data needs to be long aligned, also from
-   Eric Dumazet.
+--=-Rnz930OUXJjYFXFNO/G2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-5) R8169 bug fixes from Hayes Wang via Francois Romieu.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
-6) Timewait socket fix in tproxy from Florian Westphal.
+iQEcBAABAgAGBQJNZaAlAAoJECTsCADr/EWUqpwIAJcJgTTvEa/3vKjBAD+hmQOC
+mklU+yB11zf6kSWmLfegk1Wylrhzti/JiYIgIWrg3NgEwygJ+QNKdE1vEDQGszEy
+wl/yq98X48pqijsjPlTiEvQXFp9D3Z8IOU49wpMaoBXkZZVDYgWSCWi9fMzgIAae
+nQNhLQFNfLXwdQX08QPfGadpT+btIx7aXVaOCwuyUKDXcw3VyCji0wYVH32Spnj2
+el2yvL1JTI8v0Zvhzm/uxLnsbH+iSKo42fqTy2yHuS5o5zg133n04Kkk6Q9saPzI
+zPAbmUhJk6AEjynK+qz1O/OJtL4sjhzcBu35dsb2TX3NbEDKaB2yrgJJcgAugzg=
+=NjuD
+-----END PGP SIGNATURE-----
 
-7) Someone actually tried to use the ipv6 multicast snooping support
-   in bridging and it had lots of bugs.  All fixed by Linus L=FCssing.
-   a) packet header u16 access needs ntohs()
-   b) parsing mldv2 packets at wrong offset
-   c) MAC address creation for ipv6 is wrong
-   d) multicast entries stored in table with ETH_P_IP instead of ETH_P_=
-IPV6
+--=-Rnz930OUXJjYFXFNO/G2--
 
-8) DM9000B locking and PHY power fixes from Henry Nestler.
-
-9) TCP's undo_retrans can go negative, fix from Yuchung Cheng.
-
-10) cfg80211 deadlock fix from Daniel J Blueman
-
-Please pull, thanks a lot.
-
-The following changes since commit 4a508dd259f5995b8d31c576b894263f5947=
-d654:
-
-  Merge branch 'for-2639-rc4/i2c-fixes' of git://git.fluff.org/bjdooks/=
-linux (2011-02-22 17:13:16 -0800)
-
-are available in the git repository at:
-
-  master.kernel.org:/pub/scm/linux/kernel/git/davem/net-2.6.git master
-
-Cho, Yu-Chen (1):
-      Bluetooth: Add Atheros BT AR5BBU12 fw supported
-
-Christian Lamparter (1):
-      p54pci: update receive dma buffers before and after processing
-
-Daniel J Blueman (1):
-      fix cfg80211_wext_siwfreq lock ordering...
-
-David S. Miller (3):
-      Merge branch 'master' of git://git.kernel.org/.../kaber/nf-2.6
-      Merge branch 'master' of git://git.kernel.org/.../linville/wirele=
-ss-2.6
-      Merge branch 'r8169-davem' of git://git.kernel.org/.../romieu/net=
-dev-2.6
-
-Eric Dumazet (3):
-      tcp: fix inet_twsk_deschedule()
-      sfc: lower stack usage in efx_ethtool_self_test
-      net_sched: long word align struct qdisc_skb_cb data
-
-Eric W. Biederman (1):
-      net: Fix more stale on-stack list_head objects.
-
-=46lorian Westphal (1):
-      netfilter: tproxy: do not assign timewait sockets to skb->sk
-
-Gertjan van Wingerde (1):
-      rt2x00: Fix WPA TKIP Michael MIC failures.
-
-Hayes Wang (3):
-      r8169: fix incorrect args to oob notify.
-      r8169: correct settings of rtl8102e.
-      r8169: fix RTL8168DP power off issue.
-
-Henry Nestler (2):
-      DM9000B: Fix reg_save after spin_lock in dm9000_timeout
-      DM9000B: Fix PHY power for network down/up
-
-Jiri Bohac (1):
-      sctp: fix reporting of unknown parameters
-
-Joerg Marx (1):
-      netfilter: ip6t_LOG: fix a flaw in printing the MAC
-
-John Fastabend (1):
-      net: dcb: match dcb_app protocol field with 802.1Qaz spec
-
-John W. Linville (1):
-      Merge branch 'master' of git://git.kernel.org/.../padovan/bluetoo=
-th-2.6
-
-Linus L=FCssing (7):
-      bridge: Fix IPv6 multicast snooping by storing correct protocol t=
-ype
-      bridge: Fix IPv6 multicast snooping by correcting offset in MLDv2=
- report
-      bridge: Add missing ntohs()s for MLDv2 report parsing
-      ipv6: Add IPv6 multicast address flag defines
-      bridge: Allow mcast snooping for transient link local addresses t=
-oo
-      bridge: Fix MLD queries' ethernet source address
-      bridge: Use IPv6 link-local address for multicast listener querie=
-s
-
-Mohammed Shafi Shajakhan (1):
-      ath9k: Fix ath9k prevents CPU to enter C3 states
-
-Nick Kossifidis (1):
-      ath5k: Fix fast channel switching
-
-Nikolay Ledovskikh (1):
-      ath5k: Correct channel setting for AR2317 chip
-
-Oliver Neukum (1):
-      Bluetooth: fix crash with quirky dongles doing sound
-
-Shahar Havivi (1):
-      Added support for usb ethernet (0x0fe6, 0x9700)
-
-Stanislaw Gruszka (1):
-      mac80211: fix conn_mon_timer running after disassociate
-
-Vladislav P (1):
-      Bluetooth: Release BTM while sleeping to avoid deadlock
-
-Xose Vazquez Perez (1):
-      wireless: rt2x00: rt2800pci.c: add two ids
-
-Yuchung Cheng (1):
-      tcp: undo_retrans counter fixes
-
- drivers/bluetooth/ath3k.c               |    3 +
- drivers/bluetooth/btusb.c               |    7 +-
- drivers/net/dm9000.c                    |    9 +-
- drivers/net/r8169.c                     |   42 +++++----
- drivers/net/sfc/ethtool.c               |   22 +++--
- drivers/net/usb/dm9601.c                |    4 +
- drivers/net/wireless/ath/ath5k/phy.c    |  143 +++++++++++++++++++----=
---------
- drivers/net/wireless/ath/ath9k/ath9k.h  |    6 --
- drivers/net/wireless/ath/ath9k/init.c   |    8 --
- drivers/net/wireless/ath/ath9k/main.c   |    8 --
- drivers/net/wireless/p54/p54pci.c       |   14 ++-
- drivers/net/wireless/rt2x00/rt2800pci.c |    8 ++
- drivers/net/wireless/rt2x00/rt2800usb.c |    6 ++
- include/linux/dcbnl.h                   |    2 +-
- include/net/ipv6.h                      |   12 +++
- include/net/netfilter/nf_tproxy_core.h  |   12 +---
- include/net/sch_generic.h               |    2 +-
- net/bluetooth/rfcomm/tty.c              |    2 +
- net/bridge/br_multicast.c               |   23 +++---
- net/ipv4/inet_timewait_sock.c           |    2 +
- net/ipv4/tcp_input.c                    |    5 +-
- net/ipv4/tcp_output.c                   |    2 +-
- net/ipv6/netfilter/ip6t_LOG.c           |    2 +-
- net/mac80211/iface.c                    |    1 +
- net/mac80211/mlme.c                     |    6 ++
- net/netfilter/nf_tproxy_core.c          |   27 +++---
- net/netfilter/xt_TPROXY.c               |   22 +++++-
- net/netfilter/xt_socket.c               |   13 +++-
- net/sched/sch_generic.c                 |    1 +
- net/sctp/sm_make_chunk.c                |   10 +-
- net/wireless/wext-compat.c              |    4 +-
- 31 files changed, 258 insertions(+), 170 deletions(-)
