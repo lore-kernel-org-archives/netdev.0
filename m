@@ -1,82 +1,60 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] skge: don't mark carrier down at start
-Date: Wed, 23 Feb 2011 16:52:43 -0800
-Message-ID: <20110223165243.8a536913.akpm@linux-foundation.org>
-References: <bug-29612-10286@https.bugzilla.kernel.org/>
-	<20110223162156.17ab2bc5.akpm@linux-foundation.org>
-	<20110223164449.2a5206b8@nehalam>
+From: Roopa Prabhu <roprabhu@cisco.com>
+Subject: [net-next-2.6 PATCH] enic: Flush driver cache of registered addr
+	lists during port profile disassociate
+Date: Wed, 23 Feb 2011 17:16:01 -0800
+Message-ID: <20110224011601.16406.36125.stgit@savbu-pc100.cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, gbillios@gmail.com
-To: Stephen Hemminger <shemminger@linux-foundation.org>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:55381 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754205Ab1BXAxi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 19:53:38 -0500
-In-Reply-To: <20110223164449.2a5206b8@nehalam>
+Received: from sj-iport-2.cisco.com ([171.71.176.71]:1200 "EHLO
+	sj-iport-2.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751659Ab1BXBQB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 20:16:01 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 23 Feb 2011 16:44:49 -0800
-Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+From: Roopa Prabhu <roprabhu@cisco.com>
 
-> The API for network devices has changed so that setting carrier
-> off at probe is no longer required. This should fix the IPv6 addrconf
-> issue.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> 
-> 
-> --- a/drivers/net/skge.c	2011-02-23 16:40:36.351045685 -0800
-> +++ b/drivers/net/skge.c	2011-02-23 16:40:48.315136410 -0800
-> @@ -3856,9 +3856,6 @@ static struct net_device *skge_devinit(s
->  	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
->  	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
->  
-> -	/* device is off until link detection */
-> -	netif_carrier_off(dev);
-> -
->  	return dev;
->  }
+During a port profile disassociate all address registrations for the interface
+are blown away from the adapter. This patch resets the driver cache of
+registered address lists to zero after a port profile disassociate.
 
-Thanks, but please don't forget to acknowledge the bug reporter's
-efforts.
-
-Also, quoting the bugzilla URL in the changelog helps when people come
-along to close off open bug reports.
-
-
-From: Stephen Hemminger <shemminger@linux-foundation.org>
-
-The API for network devices has changed so that setting carrier off at
-probe is no longer required.  This should fix the IPv6 addrconf issue.
-
-Addresses https://bugzilla.kernel.org/show_bug.cgi?id=29612
-
-Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-Reported-by: George Billios <gbillios@gmail.com>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Roopa Prabhu <roprabhu@cisco.com>
+Signed-off-by: David Wang <dwang2@cisco.com>
+Signed-off-by: Christian Benvenuti <benve@cisco.com>
 ---
+ drivers/net/enic/enic.h      |    2 +-
+ drivers/net/enic/enic_main.c |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletions(-)
 
- drivers/net/skge.c |    3 ---
- 1 file changed, 3 deletions(-)
 
-diff -puN drivers/net/skge.c~skge-dont-mark-carrier-down-at-start drivers/net/skge.c
---- a/drivers/net/skge.c~skge-dont-mark-carrier-down-at-start
-+++ a/drivers/net/skge.c
-@@ -3856,9 +3856,6 @@ static struct net_device *skge_devinit(s
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
- 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+diff --git a/drivers/net/enic/enic.h b/drivers/net/enic/enic.h
+index aee5256..e816bbb 100644
+--- a/drivers/net/enic/enic.h
++++ b/drivers/net/enic/enic.h
+@@ -32,7 +32,7 @@
  
--	/* device is off until link detection */
--	netif_carrier_off(dev);
--
- 	return dev;
- }
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.9"
++#define DRV_VERSION		"2.1.1.10"
+ #define DRV_COPYRIGHT		"Copyright 2008-2011 Cisco Systems, Inc"
  
-_
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/enic/enic_main.c b/drivers/net/enic/enic_main.c
+index 4f1710e..8b9cad5 100644
+--- a/drivers/net/enic/enic_main.c
++++ b/drivers/net/enic/enic_main.c
+@@ -1126,6 +1126,8 @@ static int enic_set_port_profile(struct enic *enic, u8 *mac)
+ 	if (err)
+ 		return err;
+ 
++	enic_reset_addr_lists(enic);
++
+ 	switch (enic->pp.request) {
+ 
+ 	case PORT_REQUEST_ASSOCIATE:
 
