@@ -1,69 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH 26/26] xfrm: Const'ify xfrm_address_t args to
- xfrm_state_find.
-Date: Wed, 23 Feb 2011 23:17:57 -0800 (PST)
-Message-ID: <20110223.231757.233700907.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6 v4] net_sched: SFB flow scheduler
+Date: Thu, 24 Feb 2011 08:18:19 +0100
+Message-ID: <1298531899.2898.24.camel@edumazet-laptop>
+References: <1298390536.2861.9.camel@edumazet-laptop>
+	 <1298474091.3301.364.camel@edumazet-laptop>
+	 <1298494577.2898.9.camel@edumazet-laptop>
+	 <20110223.140614.112607341.davem@davemloft.net>
+	 <1298526035.2898.20.camel@edumazet-laptop>
+	 <20110223225143.30226902@nehalam>
+	 <1298531670.2898.22.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	Juliusz.Chroboczek@pps.jussieu.fr, linville@tuxdriver.com,
+	kaber@trash.net, netdev@vger.kernel.org, andi@firstfloor.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38753
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932769Ab1BXHRU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 02:17:20 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 9C29224C088
-	for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 23:17:57 -0800 (PST)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:57630 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932559Ab1BXHSd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 02:18:33 -0500
+Received: by bwz15 with SMTP id 15so778209bwz.19
+        for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 23:18:32 -0800 (PST)
+In-Reply-To: <1298531670.2898.22.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Le jeudi 24 f=C3=A9vrier 2011 =C3=A0 08:14 +0100, Eric Dumazet a =C3=A9=
+crit :
+> Le mercredi 23 f=C3=A9vrier 2011 =C3=A0 22:51 -0800, Stephen Hemminge=
+r a =C3=A9crit :
+> > Where is the iproute (q_sfb) piece?
+> >=20
+> >=20
+>=20
+> I'll send it this morning after polishing.
+>=20
+> As a matter of fact, I might add Patrick idea to use nested attribute=
+s,
+> before official SFB release.
+>=20
 
-This required a const'ification in xfrm_init_tempstate() too.
+BTW, one can use old iproute (tc command) for SFB with default params.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/xfrm.h    |    4 ++--
- net/xfrm/xfrm_state.c |    4 ++--
- 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index 3205e5e..44dccfc 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1334,8 +1334,8 @@ extern int xfrm_state_walk(struct net *net, struct xfrm_state_walk *walk,
- 			   int (*func)(struct xfrm_state *, int, void*), void *);
- extern void xfrm_state_walk_done(struct xfrm_state_walk *walk);
- extern struct xfrm_state *xfrm_state_alloc(struct net *net);
--extern struct xfrm_state *xfrm_state_find(xfrm_address_t *daddr,
--					  xfrm_address_t *saddr, 
-+extern struct xfrm_state *xfrm_state_find(const xfrm_address_t *daddr,
-+					  const xfrm_address_t *saddr,
- 					  const struct flowi *fl,
- 					  struct xfrm_tmpl *tmpl,
- 					  struct xfrm_policy *pol, int *err,
-diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
-index 9d9ac7c..8496b3d 100644
---- a/net/xfrm/xfrm_state.c
-+++ b/net/xfrm/xfrm_state.c
-@@ -659,7 +659,7 @@ EXPORT_SYMBOL(xfrm_sad_getinfo);
- static int
- xfrm_init_tempstate(struct xfrm_state *x, const struct flowi *fl,
- 		    const struct xfrm_tmpl *tmpl,
--		    xfrm_address_t *daddr, xfrm_address_t *saddr,
-+		    const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 		    unsigned short family)
- {
- 	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
-@@ -790,7 +790,7 @@ static void xfrm_state_look_at(struct xfrm_policy *pol, struct xfrm_state *x,
- }
- 
- struct xfrm_state *
--xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr,
-+xfrm_state_find(const xfrm_address_t *daddr, const xfrm_address_t *saddr,
- 		const struct flowi *fl, struct xfrm_tmpl *tmpl,
- 		struct xfrm_policy *pol, int *err,
- 		unsigned short family)
--- 
-1.7.4.1
+
 
