@@ -1,38 +1,32 @@
-From: Kfir Lavi <lavi.kfir@gmail.com>
-Subject: tun.c non formal header protocol?
-Date: Thu, 24 Feb 2011 20:37:32 +0200
-Message-ID: <AANLkTikpkgiTRDJe0gxuXosp_uvg0gKM_c7GcvL+hhLm@mail.gmail.com>
-References: <AANLkTin-PJs07ruhhbC5U0DmqFd-rP8Csorethz_1kes@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v4] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Thu, 24 Feb 2011 10:43:13 -0800 (PST)
+Message-ID: <20110224.104313.68122155.davem@davemloft.net>
+References: <AANLkTimorcNAEbSpuE_dUXKuOBZDcDcGSJ2cGefniThc@mail.gmail.com>
+	<20110223.235129.02262510.davem@davemloft.net>
+	<AANLkTikE_OU_qiBUdiDP39js8jQzGqqo1FYW2uHmw3He@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yx0-f174.google.com ([209.85.213.174]:38670 "EHLO
-	mail-yx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754667Ab1BXSiC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 13:38:02 -0500
-Received: by yxs7 with SMTP id 7so399613yxs.19
-        for <netdev@vger.kernel.org>; Thu, 24 Feb 2011 10:38:01 -0800 (PST)
-In-Reply-To: <AANLkTin-PJs07ruhhbC5U0DmqFd-rP8Csorethz_1kes@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mirqus@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bhutchings@solarflare.com,
+	eric.dumazet@gmail.com, joe@perches.com, dilinger@queued.net,
+	ratbert@faraday-tech.com
+To: ratbert.chuang@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikE_OU_qiBUdiDP39js8jQzGqqo1FYW2uHmw3He@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-I would like to use custom protocol over tun/tap device.
-I'm grabbing packets, and changing them, to deliver via tap,
-to a listener that knows this custom protocol.
-The custom protocol is just wrapping the packet with another
-small header.
-Is it possible to move custom packets via tun.c ?
-Is it possible to have a hook, just before the receiver gets
-the packet, and then modify the header of the packet, so
-it will not disturb tun.c ?
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Date: Thu, 24 Feb 2011 16:07:48 +0800
 
-Is there any other options having the power of Linux stack
-and netfilter, and using this custom protocol.
+> On Thu, Feb 24, 2011 at 3:51 PM, David Miller <davem@davemloft.net> wrote:
+>> Just emit garbage bytes into the sub-word alignment padding if the chip
+>> wants to word align it's DMA writes.
+> 
+> Not sure what do you mean. The problem is that HW does not accept a
+> base address of RX buffer which is not 8 bytes aligned.
 
-I'm grabbing the packets to userspace using nfq, and then with
-verdict I'm returning them to the tap device.
-
-Thanks,
-Kfir
+I am saying this is what hardware should do if it has such a
+restriction.
