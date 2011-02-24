@@ -1,149 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] ipv4: Rearrange how ip_route_newports() gets port keys.
-Date: Thu, 24 Feb 2011 13:42:41 -0800 (PST)
-Message-ID: <20110224.134241.71126743.davem@davemloft.net>
+From: "Shmulik Ravid - Rabinovitz" <shmulikr@broadcom.com>
+Subject: RE: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
+ peer configuration - ieee
+Date: Thu, 24 Feb 2011 14:03:11 -0800
+Message-ID: <A31CB8AA22AA1E44B81563BEDB2C187812203E0F8C@SJEXCHCCR01.corp.ad.broadcom.com>
+References: <1298581410.8877.21.camel@lb-tlvb-shmulik.il.broadcom.com>
+ <4D66C186.7040409@intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"Eilon Greenstein" <eilong@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "John Fastabend" <john.r.fastabend@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52335
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751056Ab1BXVmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 16:42:06 -0500
-Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 2EA3924C088
-	for <netdev@vger.kernel.org>; Thu, 24 Feb 2011 13:42:42 -0800 (PST)
+Received: from mms2.broadcom.com ([216.31.210.18]:3499 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752989Ab1BXWD3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 17:03:29 -0500
+In-Reply-To: <4D66C186.7040409@intel.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> -----Original Message-----
+> From: John Fastabend [mailto:john.r.fastabend@intel.com]
+> Sent: Thursday, February 24, 2011 10:37 PM
+> To: Shmulik Ravid - Rabinovitz
+> Cc: davem@davemloft.net; Eilon Greenstein; netdev@vger.kernel.org
+> Subject: Re: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
+> peer configuration - ieee
+> 
+> On 2/24/2011 1:03 PM, Shmulik Ravid wrote:
+> > These 2 patches add the support for retrieving the remote or peer
+> DCBX
+> > configuration via dcbnl for embedded DCBX stacks. The peer
+> configuration
+> > is part of the DCBX MIB and is useful for debugging and diagnostics
+> of
+> > the overall DCB configuration. The first patch add this support for
+> IEEE
+> > 802.1Qaz standard the second patch add the same support for the older
+> > CEE standard.
+> >
+> > Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
+> > ---
+> >  include/linux/dcbnl.h |   38 ++++++++++++++++++++++++++
+> >  include/net/dcbnl.h   |    5 +++
+> >  net/dcb/dcbnl.c       |   71
+> +++++++++++++++++++++++++++++++++++++++++++++++++
+> >  3 files changed, 114 insertions(+), 0 deletions(-)
+> >
+> > diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+> > index 4c5b26e..3102185 100644
+> > --- a/include/linux/dcbnl.h
+> > +++ b/include/linux/dcbnl.h
+> > @@ -110,6 +110,22 @@ struct dcb_app {
+> >  	__u16	protocol;
+> >  };
+> >
+> > +/* This structure contains the APP feature information sent by the
+> peer.
+> > + * It is used for both the IEEE 802.1Qaz and the CEE flavors.
+> > + *
+> > + * @willing: willing bit in the peer APP tlv
+> > + * @error: error bit in the peer APP tlv
+> > + * @app_count: The number of objects in the peer APP table.
+> > + *
+> > + * In addition to this information the full peer APP tlv also
+> contains
+> > + * a table of 'app_count' APP objects defined above.
+> > + */
+> > +struct dcb_peer_app_info {
+> > +	__u8	willing;
+> > +	__u8	error;
+> > +	__u16	app_count;
+> > +};
+> > +
+> 
+> The IEEE 802.1Qaz spec defines the APP TLV as informational
+> so there are no willing or error bits in this case. See
+> section D.2.12 of the 802.1Qaz draft.
+> 
+> Can we drop these fields or do they have some other meaning
+> here?
+> 
+OK, They are part of the CEE APP tlv though. 
+I wanted to share this structure between the 802.1Qaz and CEE so 
+I'll have a single driver handler that retrieve the number of
+peer apps. How about if we keep a single driver handler, but the
+APP info will be exposed to the user only with the CEE flavor.
+That is the PEER_APP attribute will be CEE specific ?
 
-ip_route_newports() is the only place in the entire kernel that
-cares about the port members in the routing cache entry's lookup
-flow key.
-
-Therefore the only reason we store an entire flow inside of the
-struct rtentry is for this one special case.
-
-Rewrite ip_route_newports() such that:
-
-1) The caller passes in the original port values, so we don't need
-   to use the rth->fl.fl_ip_{s,d}port values to remember them.
-
-2) The lookup flow is constructed by hand instead of being copied
-   from the routing cache entry's flow.
-
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- include/net/route.h |   19 +++++++++++--------
- net/dccp/ipv4.c     |   10 +++++++---
- net/ipv4/tcp_ipv4.c |    6 +++++-
- 3 files changed, 23 insertions(+), 12 deletions(-)
-
-diff --git a/include/net/route.h b/include/net/route.h
-index bf790c1..b3f89ad 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -200,16 +200,19 @@ static inline int ip_route_connect(struct rtable **rp, __be32 dst,
- }
- 
- static inline int ip_route_newports(struct rtable **rp, u8 protocol,
-+				    __be16 orig_sport, __be16 orig_dport,
- 				    __be16 sport, __be16 dport, struct sock *sk)
- {
--	if (sport != (*rp)->fl.fl_ip_sport ||
--	    dport != (*rp)->fl.fl_ip_dport) {
--		struct flowi fl;
--
--		memcpy(&fl, &(*rp)->fl, sizeof(fl));
--		fl.fl_ip_sport = sport;
--		fl.fl_ip_dport = dport;
--		fl.proto = protocol;
-+	if (sport != orig_sport || dport != orig_dport) {
-+		struct flowi fl = { .oif = (*rp)->fl.oif,
-+				    .mark = (*rp)->fl.mark,
-+				    .fl4_dst = (*rp)->fl.fl4_dst,
-+				    .fl4_src = (*rp)->fl.fl4_src,
-+				    .fl4_tos = (*rp)->fl.fl4_tos,
-+				    .proto = (*rp)->fl.proto,
-+				    .fl_ip_sport = sport,
-+				    .fl_ip_dport = dport };
-+
- 		if (inet_sk(sk)->transparent)
- 			fl.flags |= FLOWI_FLAG_ANYSRC;
- 		if (protocol == IPPROTO_TCP)
-diff --git a/net/dccp/ipv4.c b/net/dccp/ipv4.c
-index 45a434f..9379891 100644
---- a/net/dccp/ipv4.c
-+++ b/net/dccp/ipv4.c
-@@ -43,6 +43,7 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct dccp_sock *dp = dccp_sk(sk);
- 	const struct sockaddr_in *usin = (struct sockaddr_in *)uaddr;
-+	__be16 orig_sport, orig_dport;
- 	struct rtable *rt;
- 	__be32 daddr, nexthop;
- 	int tmp;
-@@ -63,10 +64,12 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		nexthop = inet->opt->faddr;
- 	}
- 
-+	orig_sport = inet->inet_sport;
-+	orig_dport = usin->sin_port;
- 	tmp = ip_route_connect(&rt, nexthop, inet->inet_saddr,
- 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
- 			       IPPROTO_DCCP,
--			       inet->inet_sport, usin->sin_port, sk, 1);
-+			       orig_sport, orig_dport, sk, 1);
- 	if (tmp < 0)
- 		return tmp;
- 
-@@ -99,8 +102,9 @@ int dccp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	if (err != 0)
- 		goto failure;
- 
--	err = ip_route_newports(&rt, IPPROTO_DCCP, inet->inet_sport,
--				inet->inet_dport, sk);
-+	err = ip_route_newports(&rt, IPPROTO_DCCP,
-+				orig_sport, orig_dport,
-+				inet->inet_sport, inet->inet_dport, sk);
- 	if (err != 0)
- 		goto failure;
- 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index ef5a90b..27a0cc8 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -149,6 +149,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct tcp_sock *tp = tcp_sk(sk);
- 	struct sockaddr_in *usin = (struct sockaddr_in *)uaddr;
-+	__be16 orig_sport, orig_dport;
- 	struct rtable *rt;
- 	__be32 daddr, nexthop;
- 	int tmp;
-@@ -167,10 +168,12 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		nexthop = inet->opt->faddr;
- 	}
- 
-+	orig_sport = inet->inet_sport;
-+	orig_dport = usin->sin_port;
- 	tmp = ip_route_connect(&rt, nexthop, inet->inet_saddr,
- 			       RT_CONN_FLAGS(sk), sk->sk_bound_dev_if,
- 			       IPPROTO_TCP,
--			       inet->inet_sport, usin->sin_port, sk, 1);
-+			       orig_sport, orig_dport, sk, 1);
- 	if (tmp < 0) {
- 		if (tmp == -ENETUNREACH)
- 			IP_INC_STATS_BH(sock_net(sk), IPSTATS_MIB_OUTNOROUTES);
-@@ -234,6 +237,7 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
- 		goto failure;
- 
- 	err = ip_route_newports(&rt, IPPROTO_TCP,
-+				orig_sport, orig_dport,
- 				inet->inet_sport, inet->inet_dport, sk);
- 	if (err)
- 		goto failure;
--- 
-1.7.4.1
+Shmulik 
 
