@@ -1,123 +1,101 @@
-From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH V11 2/4] ptp: Added a clock that uses the eTSEC found
- on the MPC85xx.
-Date: Thu, 24 Feb 2011 18:26:52 +0100
-Message-ID: <20110224172652.GC15234@riccoc20.at.omicron.at>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH V11 2/4] ptp: Added a clock that uses the eTSEC found on
+ the MPC85xx.
+Date: Thu, 24 Feb 2011 11:27:31 -0600
+Message-ID: <20110224112731.2d9bf080@schlenkerla>
 References: <cover.1298447722.git.richard.cochran@omicron.at>
- <be1f5e801e8cd0145dd23aadae7c2055bb3c1d47.1298447722.git.richard.cochran@omicron.at>
- <20110223165058.GE14597@angua.secretlab.ca>
+	<be1f5e801e8cd0145dd23aadae7c2055bb3c1d47.1298447722.git.richard.cochran@omicron.at>
+	<20110223165058.GE14597@angua.secretlab.ca>
+	<20110223112612.30071995@schlenkerla>
+	<20110223175459.GH14597@angua.secretlab.ca>
+	<20110223132444.65dfdda4@schlenkerla>
+	<20110224165004.GB15234@riccoc20.at.omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>,
-	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20110223165058.GE14597-MrY2KI0G/OVr83L8+7iqerDks+cytr/Z@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Rodolfo Giometti <giometti@linux.it>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	<linux-api@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>,
+	<linux-kernel@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>,
+	Paul Mackerras <paulus@samba.org>,
+	John Stultz <john.stultz@linaro.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>, <netdev@vger.kernel.org>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Christoph Lameter <cl@linux.com>,
+	<linuxppc-dev@lists.ozlabs.org>,
+	David Miller <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Krzysztof Halasa <khc@pm.waw.pl>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110224165004.GB15234@riccoc20.at.omicron.at>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 23, 2011 at 09:50:58AM -0700, Grant Likely wrote:
-> On Wed, Feb 23, 2011 at 11:38:17AM +0100, Richard Cochran wrote:
-> > +Clock Properties:
-> > +
-> > +  - tclk-period  Timer reference clock period in nanoseconds.
-> > +  - tmr-prsc     Prescaler, divides the output clock.
-> > +  - tmr-add      Frequency compensation value.
-> > +  - cksel        0= external clock, 1= eTSEC system clock, 3= RTC clock input.
-> > +                 Currently the driver only supports choice "1".
+On Thu, 24 Feb 2011 17:50:04 +0100
+Richard Cochran <richardcochran@gmail.com> wrote:
+
+> On Wed, Feb 23, 2011 at 01:24:44PM -0600, Scott Wood wrote:
+> > Whatever string is used should be written into a binding document.
+> > 
+> > fsl,etsec-v1.6-ptp seems like it would be just as good for that purpose.
+> > 
+> > Even just fsl,etsec-ptp will identify the binding, though it's lacking in
+> > identifying the hardware (in the absence of access to the eTSEC ID
+> > registers).
 > 
-> I'd be hesitant about defining something that isn't actually
-> implemented yet.  You may find the binding to be insufficient at a
-> later date.
-
-Okay, I'll remove it.
-We never got the external VCO working anyhow.
-
-> > +  - tmr-fiper1   Fixed interval period pulse generator.
-> > +  - tmr-fiper2   Fixed interval period pulse generator.
-> > +  - max-adj      Maximum frequency adjustment in parts per billion.
+> I read the conversation, and I don't mind admitting that I do not
+> understand what you both are arguing/discussing about.
 > 
-> These are all custom properties (not part of any shared binding) so
-> they should probably be prefixed with 'fsl,'.
-
-Okay, fine.
-
-> > +  The calculation for tmr_fiper2 is the same as for tmr_fiper1. The
-> > +  driver expects that tmr_fiper1 will be correctly set to produce a 1
-> > +  Pulse Per Second (PPS) signal, since this will be offered to the PPS
-> > +  subsystem to synchronize the Linux clock.
+> How should I set the strings?  Like this?
 > 
-> Good documentation, thanks.  Question though, how many of these values
-> will the end user (or board builder) be likely to want to change.  It
-> is risky encoding the calculation results into the device tree when
-> they aren't the actually parameters that will be manipulated, or at
-> least very user-unfriendly.
-
-The whole thing is pretty opaque, and my explanation is (IMHO) way
-better that Freescale's documentation of how the fipers work.
-
-The board designer / system designer will want to set these carefully,
-but never change them. Basically, for a given input clock, there is
-only one optimal setting.
-
-I think the device tree is the right place for that kind of setting.
-
-The fiper1 signal should always be a 1 PPS.  We could make fiper2 run
-time programmable via PHC ioctls, but I think this can wait.
-
-
-> > +	etsects->irq = irq_of_parse_and_map(node, 0);
+> arch/powerpc/boot/dts/mpc8313erdb.dts:
+> 	ptp_clock@24E00 {
+> 		compatible = "fsl,mpc8313-etsec-ptp";
+> 	}
+> arch/powerpc/boot/dts/mpc8572ds.dts:
+> 	ptp_clock@24E00 {
+> 		compatible = "fsl,mpc8572-etsec-ptp";
+> 	} 
+> arch/powerpc/boot/dts/p2020ds.dts:
+> 	ptp_clock@24E00 {
+> 		compatible = "fsl,p2020ds-etsec-ptp";
+> 	} 
+> arch/powerpc/boot/dts/p2020rdb.dts:
+> 	ptp_clock@24E00 {
+> 		compatible = "fsl,p2020rdb-etsec-ptp";
+> 	} 
 > 
-> Use platform_get_irq().
-
-Okay.
-
-> > +	etsects->regs = of_iomap(node, 0);
+> drivers/net/gianfar_ptp.c:
 > 
-> Use platform_get_resource(), and don't forget to request the
-> resources.
+> static struct of_device_id match_table[] = {
+> 	{ .compatible = "fsl,mpc8313-etsec-ptp" },
+> 	{ .compatible = "fsl,mpc8572-etsec-ptp" },
+> 	{ .compatible = "fsl,p2020ds-etsec-ptp" },
+> 	{ .compatible = "fsl,p2020rdb-etsec-ptp" },
+> 	{},
+> };
 
-Okay, but didn't you tell me before to do this way?
+Those last two are boards, not chips.  I don't think even Grant is asking
+to take things that far.
 
-   http://marc.info/?l=linux-netdev&m=127662247203659&w=4
+My vote, if it goes in a separate node at all, is "fsl,etsec-ptp", and let
+the driver use SVR.  Even encoding an etsec version in the compatible
+string would be difficult, unless fixed up by u-boot, as it appears to
+differ based on chip revision (and the chip manuals seem to often not match
+the hardware regarding the advertised eTSEC revision) and we don't normally
+have separate dts files for different revisions of the same chip.  Plus,
+our docs (at least the public ones) don't seem to be very helpful in
+determining what version of eTSEC implies what.
 
-> > +static struct of_platform_driver gianfar_ptp_driver = {
-> 
-> Use a platform_driver instead.  of_platform_driver is deprecated and
-> being removed.
+If you want to use chip-based compatibles instead, then use the actual name
+of the chip.  You'll need to verify 100% compatibility if you want to claim
+compatibility with another chip; it's probably easier/safer to just list
+every single Freescale chip that has this type of PTP in a huge compatible
+table, like PCI drivers do.
 
-Ja, should have noticed that myself, sorry.
-
-> > +++ b/drivers/net/gianfar_ptp_reg.h
-> 
-> This data is only used by gianfar_ptp.c, so there is no need for a
-> separate include file.  Move the contents of gianfar_ptp_reg.h into
-> gianfar_ptp.c
-
-You are right, of course, since private #defines and declarations
-should simply stay in their .c files. Some people think that all
-#defines and declarations must go into a header file.
-
-I am not one of those people, but in this case, I generated the file
-from a little tool I wrote and so kept it separate.
-
-Still, it is no trouble to combine the header into the driver .c file.
-
-Thanks for your review,
-
-Richard
+-Scott
