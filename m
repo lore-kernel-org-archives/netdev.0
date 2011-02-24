@@ -1,62 +1,160 @@
-From: "Shmulik Ravid - Rabinovitz" <shmulikr@broadcom.com>
-Subject: RE: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
- peer configuration - ieee
-Date: Thu, 24 Feb 2011 14:04:35 -0800
-Message-ID: <A31CB8AA22AA1E44B81563BEDB2C187812203E0F8F@SJEXCHCCR01.corp.ad.broadcom.com>
-References: <1298581410.8877.21.camel@lb-tlvb-shmulik.il.broadcom.com>
- <1298576559.2613.40.camel@bwh-desktop>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 29712] New: Bonding Driver(version : 3.5.0) -
+ Problem with ARP monitoring in active backup mode
+Date: Thu, 24 Feb 2011 14:51:29 -0800
+Message-ID: <20110224145129.f366b59e.akpm@linux-foundation.org>
+References: <bug-29712-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"John Fastabend" <john.r.fastabend@intel.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: harsha.r02@mphasis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4132 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753694Ab1BXWEt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Feb 2011 17:04:49 -0500
-In-Reply-To: <1298576559.2613.40.camel@bwh-desktop>
-Content-Language: en-US
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:40669 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756118Ab1BXWwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 17:52:15 -0500
+In-Reply-To: <bug-29712-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogQmVuIEh1dGNoaW5ncyBb
-bWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBGZWJy
-dWFyeSAyNCwgMjAxMSA5OjQzIFBNDQo+IFRvOiBTaG11bGlrIFJhdmlkIC0gUmFiaW5vdml0eg0K
-PiBDYzogZGF2ZW1AZGF2ZW1sb2Z0Lm5ldDsgSm9obiBGYXN0YWJlbmQ7IEVpbG9uIEdyZWVuc3Rl
-aW47DQo+IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQt
-bmV4dC0yLjYgMS8yXSBkY2JubDogYWRkIHN1cHBvcnQgZm9yIHJldHJpZXZpbmcNCj4gcGVlciBj
-b25maWd1cmF0aW9uIC0gaWVlZQ0KPiANCj4gT24gVGh1LCAyMDExLTAyLTI0IGF0IDIzOjAzICsw
-MjAwLCBTaG11bGlrIFJhdmlkIHdyb3RlOg0KPiA+IFRoZXNlIDIgcGF0Y2hlcyBhZGQgdGhlIHN1
-cHBvcnQgZm9yIHJldHJpZXZpbmcgdGhlIHJlbW90ZSBvciBwZWVyDQo+IERDQlgNCj4gPiBjb25m
-aWd1cmF0aW9uIHZpYSBkY2JubCBmb3IgZW1iZWRkZWQgRENCWCBzdGFja3MuIFRoZSBwZWVyDQo+
-IGNvbmZpZ3VyYXRpb24NCj4gPiBpcyBwYXJ0IG9mIHRoZSBEQ0JYIE1JQiBhbmQgaXMgdXNlZnVs
-IGZvciBkZWJ1Z2dpbmcgYW5kIGRpYWdub3N0aWNzDQo+IG9mDQo+ID4gdGhlIG92ZXJhbGwgRENC
-IGNvbmZpZ3VyYXRpb24uIFRoZSBmaXJzdCBwYXRjaCBhZGQgdGhpcyBzdXBwb3J0IGZvcg0KPiBJ
-RUVFDQo+ID4gODAyLjFRYXogc3RhbmRhcmQgdGhlIHNlY29uZCBwYXRjaCBhZGQgdGhlIHNhbWUg
-c3VwcG9ydCBmb3IgdGhlIG9sZGVyDQo+ID4gQ0VFIHN0YW5kYXJkLg0KPiA+DQo+ID4gU2lnbmVk
-LW9mZi1ieTogU2htdWxpayBSYXZpZCA8c2htdWxpa3JAYnJvYWRjb20uY29tPg0KPiA+IC0tLQ0K
-PiA+ICBpbmNsdWRlL2xpbnV4L2RjYm5sLmggfCAgIDM4ICsrKysrKysrKysrKysrKysrKysrKysr
-KysrDQo+ID4gIGluY2x1ZGUvbmV0L2RjYm5sLmggICB8ICAgIDUgKysrDQo+ID4gIG5ldC9kY2Iv
-ZGNibmwuYyAgICAgICB8ICAgNzENCj4gKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKysrKysrKw0KPiA+ICAzIGZpbGVzIGNoYW5nZWQsIDExNCBpbnNlcnRpb25zKCsp
-LCAwIGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvZGNi
-bmwuaCBiL2luY2x1ZGUvbGludXgvZGNibmwuaA0KPiA+IGluZGV4IDRjNWIyNmUuLjMxMDIxODUg
-MTAwNjQ0DQo+ID4gLS0tIGEvaW5jbHVkZS9saW51eC9kY2JubC5oDQo+ID4gKysrIGIvaW5jbHVk
-ZS9saW51eC9kY2JubC5oDQo+ID4gQEAgLTExMCw2ICsxMTAsMjIgQEAgc3RydWN0IGRjYl9hcHAg
-ew0KPiA+ICAJX191MTYJcHJvdG9jb2w7DQo+ID4gIH07DQo+ID4NCj4gPiArLyogVGhpcyBzdHJ1
-Y3R1cmUgY29udGFpbnMgdGhlIEFQUCBmZWF0dXJlIGluZm9ybWF0aW9uIHNlbnQgYnkgdGhlDQo+
-IHBlZXIuDQo+ID4gKyAqIEl0IGlzIHVzZWQgZm9yIGJvdGggdGhlIElFRUUgODAyLjFRYXogYW5k
-IHRoZSBDRUUgZmxhdm9ycy4NCj4gPiArICoNCj4gPiArICogQHdpbGxpbmc6IHdpbGxpbmcgYml0
-IGluIHRoZSBwZWVyIEFQUCB0bHYNCj4gPiArICogQGVycm9yOiBlcnJvciBiaXQgaW4gdGhlIHBl
-ZXIgQVBQIHRsdg0KPiA+ICsgKiBAYXBwX2NvdW50OiBUaGUgbnVtYmVyIG9mIG9iamVjdHMgaW4g
-dGhlIHBlZXIgQVBQIHRhYmxlLg0KPiBbLi4uXQ0KPiANCj4gSXQgbG9va3MgbGlrZSB0aGlzIHdh
-cyBzdXBwb3NlZCB0byBiZSBhIGtlcm5lbC1kb2MgY29tbWVudCwgYnV0IGl0J3MNCj4gbm90DQo+
-IHZhbGlkIGFzIHN1Y2ggdW5sZXNzIHlvdSBzdGFydCB3aXRoOg0KPiANCj4gICAgIC8qKg0KPiAg
-ICAgICogc3RydWN0IGRjYl9wZWVyX2FwcF9pbmZvIC0gb25lLWxpbmUgZGVzY3JpcHRpb24gaGVy
-ZQ0KPiANCj4gQmVuLg0KPiANCk9LIHRoYW5rcywgSSdsbCBmaXggdGhpcw0KDQpTaG11bGlrDQo=
+
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
+
+On Wed, 23 Feb 2011 10:41:34 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=29712
+> 
+>            Summary: Bonding Driver(version : 3.5.0) - Problem with ARP
+>                     monitoring in active backup mode
+>            Product: Drivers
+>            Version: 2.5
+>     Kernel Version: 2.6.32
+
+That's a paleolithic kernel you have there.  This problem might have
+been fixed already.  Can you test a more recent kernel?
+
+
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Network
+>         AssignedTo: drivers_network@kernel-bugs.osdl.org
+>         ReportedBy: harsha.r02@mphasis.com
+>         Regression: No
+> 
+> 
+> We are facing an issue with arp_monitoring in active_backup mode when
+> two network interfaces of two systems are connected back to back (point
+> to point connected without switch connection) and bond is created on
+> either systems with point-to-point connected interfaces as slaves.
+> 
+> Steps to reproduce :
+> 
+> 1. Initially the bond was created with two interfaces eth2 and eth3, having
+> eth2 as primary
+> 
+>     # modprobe bonding primary=eth2 mode=1 arp_interval=500
+>     arp_ip_target=192.168.4.61
+> 
+>     # ifconfig bond0 192.168.2.63 netmask 255.255.255.0
+> 
+>     # ifenslave bond0 eth2 eth3
+> 
+>     # ifconfig bond0 up
+> 
+>     # cat /proc/net/bonding/bond0
+> 
+>     Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+> 
+>     Bonding Mode: fault-tolerance (active-backup)
+> 
+>     Primary Slave: eth2
+>     Currently Active Slave: eth2
+>     MII Status: up
+>     MII Polling Interval (ms): 0
+>     Up Delay (ms): 0
+>     Down Delay (ms): 0
+>     ARP Polling Interval (ms): 500
+>     ARP IP target/s (n.n.n.n form): 192.168.4.61
+> 
+>     Slave Interface: eth2
+>     MII Status: up
+>     Link Failure Count: 1
+>     Permanent HW addr: 00:26:55:27:88:52
+> 
+>     Slave Interface: eth3
+>     MII Status: down
+>     Link Failure Count: 1
+>     Permanent HW addr: 00:26:55:27:88:54
+> 
+> 2. The primary interface was made down, and fail over happened
+> 
+>     # ifconfig down
+> 
+>     # cat /proc/net/bonding/bond0
+> 
+>     Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+> 
+>     Bonding Mode: fault-tolerance (active-backup)
+>     Primary Slave: eth2
+>     Currently Active Slave: eth3 <-- As expected -->
+>     MII Status: up
+>     MII Polling Interval (ms): 0
+>     Up Delay (ms): 0
+>     Down Delay (ms): 0
+>     ARP Polling Interval (ms): 500
+>     ARP IP target/s (n.n.n.n form): 192.168.4.61
+> 
+>     Slave Interface: eth2
+>     MII Status: down
+>     Link Failure Count: 2
+>     Permanent HW addr: 00:26:55:27:88:52
+> 
+>     Slave Interface: eth3
+>     MII Status: up
+>     Link Failure Count: 1
+>     Permanent HW addr: 00:26:55:27:88:54
+> 
+> 3. The primary interface was brought up again and we did not see failover
+> happening back to primary
+> 
+>     ned1g6:~# ifconfig eth2 up
+> 
+>     ned1g6:~# cat /proc/net/bonding/bond0
+> 
+>     Ethernet Channel Bonding Driver: v3.5.0 (November 4, 2008)
+> 
+>     Bonding Mode: fault-tolerance (active-backup)
+>     Primary Slave: eth2
+>     Currently Active Slave: eth3 <-- Ideally this should have been eth2 -->
+>     MII Status: up
+>     MII Polling Interval (ms): 0
+>     Up Delay (ms): 0
+>     Down Delay (ms): 0
+>     ARP Polling Interval (ms): 500
+>     ARP IP target/s (n.n.n.n form): 192.168.4.61
+> 
+>     Slave Interface: eth2
+>     MII Status: down
+>     Link Failure Count: 2
+>     Permanent HW addr: 00:26:55:27:88:52
+> 
+>     Slave Interface: eth3
+>     MII Status: up
+>     Link Failure Count: 1
+>     Permanent HW addr: 00:26:55:27:88:54
+> 
+> The problem is that when the primary_slave comes up from the down state
+> it won't get selected as the currently active slave for the bond.
+> 
+> Best Regards,
+> Harsha
 
