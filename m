@@ -1,73 +1,40 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [Bugme-new] [Bug 29612] New: skge ipv6 doesn't work after boot
-Date: Wed, 23 Feb 2011 16:21:56 -0800
-Message-ID: <20110223162156.17ab2bc5.akpm@linux-foundation.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: [PATCH] skge: don't mark carrier down at start
+Date: Wed, 23 Feb 2011 16:44:49 -0800
+Message-ID: <20110223164449.2a5206b8@nehalam>
 References: <bug-29612-10286@https.bugzilla.kernel.org/>
+	<20110223162156.17ab2bc5.akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, gbillios@gmail.com,
-	Stephen Hemminger <shemminger@linux-foundation.org>
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, gbillios@gmail.com
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:58040 "EHLO
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:48665 "EHLO
 	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752126Ab1BXAWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 19:22:51 -0500
-In-Reply-To: <bug-29612-10286@https.bugzilla.kernel.org/>
+	by vger.kernel.org with ESMTP id S1751173Ab1BXApr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 19:45:47 -0500
+In-Reply-To: <20110223162156.17ab2bc5.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+The API for network devices has changed so that setting carrier
+off at probe is no longer required. This should fix the IPv6 addrconf
+issue.
 
-(switched to email.  Please respond via emailed reply-to-all, not via the
-bugzilla web interface).
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-On Mon, 21 Feb 2011 18:42:21 GMT
-bugzilla-daemon@bugzilla.kernel.org wrote:
 
-> https://bugzilla.kernel.org/show_bug.cgi?id=29612
-> 
->            Summary: skge ipv6 doesn't work after boot
->            Product: Drivers
->            Version: 2.5
->     Kernel Version: 2.6.38-rc4
->           Platform: All
->         OS/Version: Linux
->               Tree: Mainline
->             Status: NEW
->           Severity: normal
->           Priority: P1
->          Component: Network
->         AssignedTo: drivers_network@kernel-bugs.osdl.org
->         ReportedBy: gbillios@gmail.com
->         Regression: No
-> 
-> 
-> I have noticed that after the initial boot, ipv6 doesn't work until I either
-> reconnect to the network with or do an ifdown/up cycle. 
-> 
-> The adapter has an ipv6 address, ipv6 routing table seems fine but there is no
-> actual connectivity until I do what described above. During my debugging tries
-> I noticed that ipv6 starts working also when I start capturing data with
-> wireshark. If I enable promiscuous mode it starts working, if I start the
-> capture *without* promiscuous mode it does nothing, as if the card needs a
-> 'push' to start working. 
-> 
-> Here is the relevant skge output from dmesg, kernel version doesn't really
-> matter since I have this issue even with earlier kernels. 
-> 
-> skge 0000:07:01.0: PCI INT A -> GSI 16 (level, low) -> IRQ 16
-> skge: 1.13 addr 0xf7ffc000 irq 16 chip Yukon-Lite rev 9
-> skge 0000:07:01.0: eth0: addr 00:22:b0:e7:47:71
-> skge 0000:07:01.0: eth0: enabling interface
-> skge 0000:07:01.0: eth0: Link is up at 1000 Mbps, full duplex, flow control
-> both
-> skge 0000:07:01.0: eth0: disabling interface
-> skge 0000:07:01.0: eth0: enabling interface
-> skge 0000:07:01.0: eth0: Link is up at 1000 Mbps, full duplex, flow control
-> both
-> 
-> Just to clarify, the ipv6 network setup is working just fine in general, other
-> PCs on the network don't present this issue at all.
-
+--- a/drivers/net/skge.c	2011-02-23 16:40:36.351045685 -0800
++++ b/drivers/net/skge.c	2011-02-23 16:40:48.315136410 -0800
+@@ -3856,9 +3856,6 @@ static struct net_device *skge_devinit(s
+ 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
+ 
+-	/* device is off until link detection */
+-	netif_carrier_off(dev);
+-
+ 	return dev;
+ }
+ 
