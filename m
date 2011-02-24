@@ -1,29 +1,23 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH net-next-2.6 v4] net_sched: SFB flow scheduler
-Date: Wed, 23 Feb 2011 22:51:43 -0800
-Message-ID: <20110223225143.30226902@nehalam>
-References: <1298390536.2861.9.camel@edumazet-laptop>
-	<1298474091.3301.364.camel@edumazet-laptop>
-	<1298494577.2898.9.camel@edumazet-laptop>
-	<20110223.140614.112607341.davem@davemloft.net>
-	<1298526035.2898.20.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH 00/26] Tonight's xfrm 'const' pass.
+Date: Wed, 23 Feb 2011 23:12:58 -0800 (PST)
+Message-ID: <20110223.231258.226775119.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Juliusz.Chroboczek@pps.jussieu.fr, linville@tuxdriver.com,
-	kaber@trash.net, netdev@vger.kernel.org, andi@firstfloor.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:49819 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754467Ab1BXGvq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Feb 2011 01:51:46 -0500
-In-Reply-To: <1298526035.2898.20.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:37444
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755779Ab1BXHMW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 02:12:22 -0500
+Received: from localhost (localhost [127.0.0.1])
+	by sunset.davemloft.net (Postfix) with ESMTP id CA25224C088
+	for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 23:12:58 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Where is the iproute (q_sfb) piece?
 
+This time we hit xfrm_address_t, template pointers, etc.
 
--- 
+Most of the remaining work will be in the key managers.
