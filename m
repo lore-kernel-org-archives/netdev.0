@@ -1,57 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next-2.6 v4] net_sched: SFB flow scheduler
-Date: Thu, 24 Feb 2011 06:40:35 +0100
-Message-ID: <1298526035.2898.20.camel@edumazet-laptop>
-References: <1298390536.2861.9.camel@edumazet-laptop>
-	 <1298474091.3301.364.camel@edumazet-laptop>
-	 <1298494577.2898.9.camel@edumazet-laptop>
-	 <20110223.140614.112607341.davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Multicast snooping fixes and suggestions
+Date: Thu, 24 Feb 2011 13:42:32 +0800
+Message-ID: <20110224054232.GA26064@gondor.apana.org.au>
+References: <1297811961-19249-1-git-send-email-linus.luessing@web.de> <4D65CD81.4070203@zytor.com> <20110224040412.GA25488@gondor.apana.org.au> <4D65E2B4.1010501@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Juliusz.Chroboczek@pps.jussieu.fr, linville@tuxdriver.com,
-	shemminger@vyatta.com, kaber@trash.net, netdev@vger.kernel.org,
-	andi@firstfloor.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:48256 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537Ab1BXFkl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 00:40:41 -0500
-Received: by wyg36 with SMTP id 36so192656wyg.19
-        for <netdev@vger.kernel.org>; Wed, 23 Feb 2011 21:40:40 -0800 (PST)
-In-Reply-To: <20110223.140614.112607341.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4D65E2B4.1010501@zytor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 23 f=C3=A9vrier 2011 =C3=A0 14:06 -0800, David Miller a =C3=
-=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 23 Feb 2011 21:56:17 +0100
->=20
-> > This is the Stochastic Fair Blue scheduler, based on work from :
->=20
-> Applied with the 'static' fix, thanks Eric!
+On Wed, Feb 23, 2011 at 08:46:44PM -0800, H. Peter Anvin wrote:
+>
+> I have disabled STP on the bridge; it doesn't change the behavior.
 
-Thanks David !
+Once you have disabled STP, you can set the forward delay to 0
+which should do the trick.
 
-My next step is to expand the idea I had some time ago (with my SFQ
-works in december) :
-
-Add a generic (core) service :
-
-- Timestamp skb when it enters qdisc (might use skb->tstamp ?)
-- At dequeue time, compute the delay.
-
-1) Be able to mark/drop the packet right before giving it to device if
-delay above a threshold, or use an array of thresholds depending on TOS
-
-2) Integrate the delay into one EWMA
-
-3) For SFB : Use the EWMA to eventually replace the non convenient
-penalty_box by auto adaptative mechanism : Allow non elastic flows to
-take part of the bandwidth, using a drop/mark probability depending on
-this EWMA.
-
-
-
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
