@@ -1,40 +1,119 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: via-rhine -- VT6105M and checksum offloading
-Date: Fri, 25 Feb 2011 08:53:03 +0100
-Message-ID: <20110225075303.GA8748@core.hellgate.ch>
-References: <20110224185805.GI30393@kvack.org>
- <20110224.122354.193728354.davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
+Date: Thu, 24 Feb 2011 18:20:55 +0100
+Message-ID: <201102241820.55873.arnd@arndb.de>
+References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <1298369864-24429-2-git-send-email-peppe.cavallaro@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Benjamin LaHaise <bcrl@kvack.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail13.bluewin.ch ([195.186.18.62]:44492 "EHLO
-	mail13.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755504Ab1BYIAL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 03:00:11 -0500
-Content-Disposition: inline
-In-Reply-To: <20110224.122354.193728354.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stuart MENEFY <stuart.menefy@st.com>,
+	John Stultz <johnstul@us.ibm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	linux-kernel@vger.kernel.org
+To: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1298369864-24429-2-git-send-email-peppe.cavallaro@st.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Feb 2011 12:23:54 -0800, David Miller wrote:
-> From: Benjamin LaHaise <bcrl@kvack.org>
-> Date: Thu, 24 Feb 2011 13:58:05 -0500
+On Tuesday 22 February 2011, Peppe CAVALLARO wrote:
+> From: Stuart Menefy <stuart.menefy@st.com>
 > 
-> > Upon investigation, it looks like the VT6105M isn't actually using the 
-> > hardware checksum offloading support of the hardware.  Are there any 
-> > known reasons why this isn't enabled (hardware bugs?)?  I'll test enabling 
+> Many devices targeted at the embedded market provide a number of
+> generic timers which are capable of generating interrupts at a
+> requested rate. These can then be used in the implementation of drivers
+> for other peripherals which require a timer interrupt, without having
+> to provide an additional timer as part of that peripheral.
 > 
-> As far as I can tell it was never attempted.  So it should work.
+> A code provides a simple abstraction layer which allows a timer to be
+> registered, and for a driver to request a timer.
 > 
-> If you do that, while you're here, you can make rhine_rx() take
-> a "napi" arg and make this driver use netif_gso_receive() too.
-> Don't forget to set NETIF_F_GRO or similar in netdev->flags during
-> probe, and also hookup the necessary ethtool hooks.
+> Currently this doesn't provide any of the additional information, such
+> as precision or position in clock framework which might be required
+> for a fully featured driver.
 
-I have a patch to enable hw checksumming (the ethtool hooks are done, but I
-somehow missed the NETIF_F_GRO bit). Care to give it a whirl?
+This code should probably be discussed on a more broader
+platform than the netdev and linux-sh mailing lists,
+as the scope is neither sh nor network specific.
 
-Roger
+You should at least add linux-kernel@vger.kernel.org, possibly
+also linux-arch@vger.kernel.org.
 
+Further, John and Thomas are responsible for the timekeeping
+infrastructure, and they are probably interested in this
+as well.
+
+Why is this code useful to you? In the scenarios I've seen, the
+board can always assign a timer to a specific device in a fixed
+way that can be describe in a board file or device tree.
+
+Also, what is the difference between this and clkdev?
+
+> Signed-off-by: Stuart Menefy <stuart.menefy@st.com>
+> Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+> ---
+>  drivers/clocksource/Makefile       |    1 +
+>  drivers/clocksource/generictimer.c |   60 ++++++++++++++++++++++++++++++++++++
+>  include/linux/generictimer.h       |   41 ++++++++++++++++++++++++
+>  3 files changed, 102 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/clocksource/generictimer.c
+>  create mode 100644 include/linux/generictimer.h
+
+I don't think it fits that well into the drivers/clocksource directory,
+because you don't actually register a struct clock_event_device or
+struct clocksource.
+
+I don't know if this could also be merged with the clocksource infrastructure,
+but your code currently doesn't do that.
+
+> +struct generic_timer *generic_timer_claim(void (*handler) (void *), void *data)
+> +{
+> +	struct generic_timer *gt = NULL;
+> +
+> +	if (!handler) {
+> +		pr_err("%s: invalid handler\n", __func__);
+> +		return NULL;
+> +	}
+> +
+> +	mutex_lock(&gt_mutex);
+> +	if (!list_empty(&gt_list)) {
+> +		struct list_head *list = gt_list.next;
+> +		list_del(list);
+> +		gt = container_of(list, struct generic_timer, list);
+> +	}
+> +	mutex_unlock(&gt_mutex);
+> +
+> +	if (!gt)
+> +		return NULL;
+> +
+> +	/* Prepare the new handler */
+> +	gt->priv_handler = handler;
+> +	gt->data = data;
+> +
+> +	return gt;
+> +}
+
+This does not seem very generic. You put timers into the list and take
+them out again, but don't have any way to deal with timers that match
+specific purposes. It obviously works for your specific use case where
+you register exactly one timer, and use that in exactly one driver.
+
+If more drivers were converted to generic_timer, which is obviously
+the intention, then you might have a situation with very different
+timers (fixed/variable tick, high/low frequencies, accurate/inaccurate),
+or you might have fewer timers than users.
+
+> +static inline void generic_timer_set_rate(struct generic_timer *gt,
+> +		unsigned long rate)
+> +{
+> +	gt->set_rate(gt, rate);
+> +}
+> +
+> +#endif /* __STM_GENERIC_TIMER_H */
+
+Shouldn't this one allow a return code?
+
+	Arnd
