@@ -1,181 +1,251 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 13/17] tipc: Fix port counter handling to correct congestion control
-Date: Wed, 23 Feb 2011 20:26:41 -0500
-Message-ID: <1298510805-20630-14-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 15/17] tipc: Remove support for per-connection message sequence numbering
+Date: Wed, 23 Feb 2011 20:26:43 -0500
+Message-ID: <1298510805-20630-16-git-send-email-paul.gortmaker@windriver.com>
 References: <1298510805-20630-1-git-send-email-paul.gortmaker@windriver.com>
 Cc: allan.stephens@windriver.com, netdev@vger.kernel.org,
 	Allan Stephens <Allan.Stephens@windriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:34529 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:34538 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932111Ab1BXB1P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 20:27:15 -0500
+	with ESMTP id S932141Ab1BXB1R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Feb 2011 20:27:17 -0500
 In-Reply-To: <1298510805-20630-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Allan Stephens <Allan.Stephens@windriver.com>
 
-Modifies TIPC's congestion control between a connected port and its
-peer so that it works as documented. The following changes have been
-made:
-
-1) The counter of the number of messages sent by a port now starts
-   at zero, rather than one. This prevents the port from reporting port
-   congestion one message earlier than it was supposed to.
-
-2) The counter of the number of messages sent by a port is now
-   incremented only if a non-empty message is sent successfully.
-   This prevents the port from becoming permanently congested if
-   too many send attempts are unsuccessful because of congestion
-   (or other reasons). It also removes the risk that empty hand-
-   shaking messages used during connection setup might cause the
-   port to report congestion earlier than it was supposed to.
-
-3) The counter of the number of unacknowledged messages received by
-   a port controlled by an internal TIPC service is now incremented
-   only if the message is non-empty, in order to be consistent with
-   the aforementioned changes.
+Eliminates TIPC's prototype support for message sequence numbering
+on routable connections (i.e. connections requiring more than one hop).
+This capability isn't currently used, and can be removed since TIPC
+only supports systems in which all inter-node communication can be
+achieved in a single hop.
 
 Signed-off-by: Allan Stephens <Allan.Stephens@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/port.c |   53 ++++++++++++++++++++++++++++++++++-------------------
- net/tipc/port.h |    4 ++--
- 2 files changed, 36 insertions(+), 21 deletions(-)
+ net/tipc/msg.c  |    6 +-----
+ net/tipc/msg.h  |   12 +-----------
+ net/tipc/port.c |   29 +----------------------------
+ net/tipc/port.h |    2 --
+ 4 files changed, 3 insertions(+), 46 deletions(-)
 
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index bb6180c..e56b9b8 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -2,7 +2,7 @@
+  * net/tipc/msg.c: TIPC message header routines
+  *
+  * Copyright (c) 2000-2006, Ericsson AB
+- * Copyright (c) 2005, Wind River Systems
++ * Copyright (c) 2005, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -381,14 +381,10 @@ void tipc_msg_dbg(struct print_buf *buf, struct tipc_msg *msg, const char *str)
+ 			tipc_printf(buf, ":OPRT(%u):", msg_origport(msg));
+ 			tipc_printf(buf, ":DPRT(%u):", msg_destport(msg));
+ 		}
+-		if (msg_routed(msg) && !msg_non_seq(msg))
+-			tipc_printf(buf, ":TSEQN(%u)", msg_transp_seqno(msg));
+ 	}
+ 	if (msg_user(msg) == NAME_DISTRIBUTOR) {
+ 		tipc_printf(buf, ":ONOD(%x):", msg_orignode(msg));
+ 		tipc_printf(buf, ":DNOD(%x):", msg_destnode(msg));
+-		if (msg_routed(msg))
+-			tipc_printf(buf, ":CSEQN(%u)", msg_transp_seqno(msg));
+ 	}
+ 
+ 	if (msg_user(msg) ==  LINK_CONFIG) {
+diff --git a/net/tipc/msg.h b/net/tipc/msg.h
+index 92c4c4f..b1438c7 100644
+--- a/net/tipc/msg.h
++++ b/net/tipc/msg.h
+@@ -2,7 +2,7 @@
+  * net/tipc/msg.h: Include file for TIPC message header routines
+  *
+  * Copyright (c) 2000-2007, Ericsson AB
+- * Copyright (c) 2005-2008, Wind River Systems
++ * Copyright (c) 2005-2008, 2010-2011, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -438,11 +438,6 @@ static inline void msg_set_nametype(struct tipc_msg *m, u32 n)
+ 	msg_set_word(m, 8, n);
+ }
+ 
+-static inline u32 msg_transp_seqno(struct tipc_msg *m)
+-{
+-	return msg_word(m, 8);
+-}
+-
+ static inline void msg_set_timestamp(struct tipc_msg *m, u32 n)
+ {
+ 	msg_set_word(m, 8, n);
+@@ -453,11 +448,6 @@ static inline u32 msg_timestamp(struct tipc_msg *m)
+ 	return msg_word(m, 8);
+ }
+ 
+-static inline void msg_set_transp_seqno(struct tipc_msg *m, u32 n)
+-{
+-	msg_set_word(m, 8, n);
+-}
+-
+ static inline u32 msg_nameinst(struct tipc_msg *m)
+ {
+ 	return msg_word(m, 9);
 diff --git a/net/tipc/port.c b/net/tipc/port.c
-index aff5dc0..3e5122c 100644
+index 3e5122c..6ff78f9 100644
 --- a/net/tipc/port.c
 +++ b/net/tipc/port.c
-@@ -234,7 +234,6 @@ struct tipc_port *tipc_createport_raw(void *usr_handle,
+@@ -69,20 +69,6 @@ static u32 port_peerport(struct tipc_port *p_ptr)
+ 	return msg_destport(&p_ptr->phdr);
+ }
+ 
+-static u32 port_out_seqno(struct tipc_port *p_ptr)
+-{
+-	return msg_transp_seqno(&p_ptr->phdr);
+-}
+-
+-static void port_incr_out_seqno(struct tipc_port *p_ptr)
+-{
+-	struct tipc_msg *m = &p_ptr->phdr;
+-
+-	if (likely(!msg_routed(m)))
+-		return;
+-	msg_set_transp_seqno(m, (msg_transp_seqno(m) + 1));
+-}
+-
+ /**
+  * tipc_multicast - send a multicast message to local and remote destinations
+  */
+@@ -233,7 +219,6 @@ struct tipc_port *tipc_createport_raw(void *usr_handle,
+ 	msg = &p_ptr->phdr;
  	tipc_msg_init(msg, importance, TIPC_NAMED_MSG, LONG_H_SIZE, 0);
  	msg_set_origport(msg, ref);
- 	p_ptr->last_in_seqno = 41;
--	p_ptr->sent = 1;
+-	p_ptr->last_in_seqno = 41;
  	INIT_LIST_HEAD(&p_ptr->wait_list);
  	INIT_LIST_HEAD(&p_ptr->subscription.nodesub_list);
  	p_ptr->dispatcher = dispatcher;
-@@ -732,6 +731,7 @@ static void port_dispatcher_sigh(void *dummy)
- 				tipc_conn_msg_event cb = up_ptr->conn_msg_cb;
- 				u32 peer_port = port_peerport(p_ptr);
- 				u32 peer_node = port_peernode(p_ptr);
-+				u32 dsz;
- 
- 				tipc_port_unlock(p_ptr);
- 				if (unlikely(!cb))
-@@ -742,13 +742,14 @@ static void port_dispatcher_sigh(void *dummy)
- 				} else if ((msg_origport(msg) != peer_port) ||
- 					   (msg_orignode(msg) != peer_node))
- 					goto reject;
--				if (unlikely(++p_ptr->conn_unacked >=
--					     TIPC_FLOW_CONTROL_WIN))
-+				dsz = msg_data_sz(msg);
-+				if (unlikely(dsz &&
-+					     (++p_ptr->conn_unacked >=
-+					      TIPC_FLOW_CONTROL_WIN)))
- 					tipc_acknowledge(dref,
- 							 p_ptr->conn_unacked);
- 				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg),
--				   msg_data_sz(msg));
-+				cb(usr_handle, dref, &buf, msg_data(msg), dsz);
- 				break;
- 			}
- 		case TIPC_DIRECT_MSG:{
-@@ -1221,7 +1222,8 @@ int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect)
- 		if (likely(res != -ELINKCONG)) {
- 			port_incr_out_seqno(p_ptr);
- 			p_ptr->congested = 0;
--			p_ptr->sent++;
-+			if (res > 0)
-+				p_ptr->sent++;
- 			return res;
- 		}
+@@ -344,7 +329,7 @@ int tipc_set_portunreturnable(u32 ref, unsigned int isunrejectable)
+ static struct sk_buff *port_build_proto_msg(u32 destport, u32 destnode,
+ 					    u32 origport, u32 orignode,
+ 					    u32 usr, u32 type, u32 err,
+-					    u32 seqno, u32 ack)
++					    u32 ack)
+ {
+ 	struct sk_buff *buf;
+ 	struct tipc_msg *msg;
+@@ -357,7 +342,6 @@ static struct sk_buff *port_build_proto_msg(u32 destport, u32 destnode,
+ 		msg_set_destport(msg, destport);
+ 		msg_set_origport(msg, origport);
+ 		msg_set_orignode(msg, orignode);
+-		msg_set_transp_seqno(msg, seqno);
+ 		msg_set_msgcnt(msg, ack);
  	}
-@@ -1263,13 +1265,17 @@ int tipc_send2name(u32 ref, struct tipc_name const *name, unsigned int domain,
- 	msg_set_destport(msg, destport);
+ 	return buf;
+@@ -467,9 +451,7 @@ static void port_timeout(unsigned long ref)
+ 					   CONN_MANAGER,
+ 					   CONN_PROBE,
+ 					   TIPC_OK,
+-					   port_out_seqno(p_ptr),
+ 					   0);
+-		port_incr_out_seqno(p_ptr);
+ 		p_ptr->probing_state = PROBING;
+ 		k_start_timer(&p_ptr->timer, p_ptr->probing_interval);
+ 	}
+@@ -506,7 +488,6 @@ static struct sk_buff *port_build_self_abort_msg(struct tipc_port *p_ptr, u32 er
+ 				    imp,
+ 				    TIPC_CONN_MSG,
+ 				    err,
+-				    p_ptr->last_in_seqno + 1,
+ 				    0);
+ }
  
- 	if (likely(destport)) {
--		p_ptr->sent++;
- 		if (likely(destnode == tipc_own_addr))
--			return tipc_port_recv_sections(p_ptr, num_sect, msg_sect);
--		res = tipc_link_send_sections_fast(p_ptr, msg_sect, num_sect,
--						   destnode);
--		if (likely(res != -ELINKCONG))
-+			res = tipc_port_recv_sections(p_ptr, num_sect,
-+						      msg_sect);
-+		else
-+			res = tipc_link_send_sections_fast(p_ptr, msg_sect,
-+							   num_sect, destnode);
-+		if (likely(res != -ELINKCONG)) {
-+			if (res > 0)
-+				p_ptr->sent++;
- 			return res;
-+		}
- 		if (port_unreliable(p_ptr)) {
- 			/* Just calculate msg length and return */
- 			return tipc_msg_calc_data_size(msg_sect, num_sect);
-@@ -1302,12 +1308,17 @@ int tipc_send2port(u32 ref, struct tipc_portid const *dest,
- 	msg_set_destnode(msg, dest->node);
- 	msg_set_destport(msg, dest->ref);
- 	msg_set_hdr_sz(msg, DIR_MSG_H_SIZE);
--	p_ptr->sent++;
-+
- 	if (dest->node == tipc_own_addr)
--		return tipc_port_recv_sections(p_ptr, num_sect, msg_sect);
--	res = tipc_link_send_sections_fast(p_ptr, msg_sect, num_sect, dest->node);
--	if (likely(res != -ELINKCONG))
-+		res =  tipc_port_recv_sections(p_ptr, num_sect, msg_sect);
-+	else
-+		res = tipc_link_send_sections_fast(p_ptr, msg_sect, num_sect,
-+						   dest->node);
-+	if (likely(res != -ELINKCONG)) {
-+		if (res > 0)
-+			p_ptr->sent++;
- 		return res;
-+	}
- 	if (port_unreliable(p_ptr)) {
- 		/* Just calculate msg length and return */
- 		return tipc_msg_calc_data_size(msg_sect, num_sect);
-@@ -1343,12 +1354,16 @@ int tipc_send_buf2port(u32 ref, struct tipc_portid const *dest,
+@@ -526,7 +507,6 @@ static struct sk_buff *port_build_peer_abort_msg(struct tipc_port *p_ptr, u32 er
+ 				    imp,
+ 				    TIPC_CONN_MSG,
+ 				    err,
+-				    port_out_seqno(p_ptr),
+ 				    0);
+ }
  
- 	skb_push(buf, DIR_MSG_H_SIZE);
- 	skb_copy_to_linear_data(buf, msg, DIR_MSG_H_SIZE);
--	p_ptr->sent++;
-+
- 	if (dest->node == tipc_own_addr)
--		return tipc_port_recv_msg(buf);
--	res = tipc_send_buf_fast(buf, dest->node);
--	if (likely(res != -ELINKCONG))
-+		res = tipc_port_recv_msg(buf);
-+	else
-+		res = tipc_send_buf_fast(buf, dest->node);
-+	if (likely(res != -ELINKCONG)) {
-+		if (res > 0)
-+			p_ptr->sent++;
- 		return res;
-+	}
- 	if (port_unreliable(p_ptr))
- 		return dsz;
- 	return -ELINKCONG;
+@@ -568,7 +548,6 @@ void tipc_port_recv_proto_msg(struct sk_buff *buf)
+ 					     TIPC_HIGH_IMPORTANCE,
+ 					     TIPC_CONN_MSG,
+ 					     err,
+-					     0,
+ 					     0);
+ 		goto exit;
+ 	}
+@@ -582,11 +561,9 @@ void tipc_port_recv_proto_msg(struct sk_buff *buf)
+ 					     CONN_MANAGER,
+ 					     CONN_PROBE_REPLY,
+ 					     TIPC_OK,
+-					     port_out_seqno(p_ptr),
+ 					     0);
+ 	}
+ 	p_ptr->probing_state = CONFIRMED;
+-	port_incr_out_seqno(p_ptr);
+ exit:
+ 	if (p_ptr)
+ 		tipc_port_unlock(p_ptr);
+@@ -914,7 +891,6 @@ void tipc_acknowledge(u32 ref, u32 ack)
+ 					   CONN_MANAGER,
+ 					   CONN_ACK,
+ 					   TIPC_OK,
+-					   port_out_seqno(p_ptr),
+ 					   ack);
+ 	}
+ 	tipc_port_unlock(p_ptr);
+@@ -1088,7 +1064,6 @@ int tipc_connect2port(u32 ref, struct tipc_portid const *peer)
+ 	msg_set_destport(msg, peer->ref);
+ 	msg_set_orignode(msg, tipc_own_addr);
+ 	msg_set_origport(msg, p_ptr->ref);
+-	msg_set_transp_seqno(msg, 42);
+ 	msg_set_type(msg, TIPC_CONN_MSG);
+ 	msg_set_hdr_sz(msg, SHORT_H_SIZE);
+ 
+@@ -1170,7 +1145,6 @@ int tipc_shutdown(u32 ref)
+ 					   imp,
+ 					   TIPC_CONN_MSG,
+ 					   TIPC_CONN_SHUTDOWN,
+-					   port_out_seqno(p_ptr),
+ 					   0);
+ 	}
+ 	tipc_port_unlock(p_ptr);
+@@ -1220,7 +1194,6 @@ int tipc_send(u32 ref, unsigned int num_sect, struct iovec const *msg_sect)
+ 			res = tipc_port_recv_sections(p_ptr, num_sect, msg_sect);
+ 
+ 		if (likely(res != -ELINKCONG)) {
+-			port_incr_out_seqno(p_ptr);
+ 			p_ptr->congested = 0;
+ 			if (res > 0)
+ 				p_ptr->sent++;
 diff --git a/net/tipc/port.h b/net/tipc/port.h
-index f8722af..34ccb7c 100644
+index 34ccb7c..87b9424 100644
 --- a/net/tipc/port.h
 +++ b/net/tipc/port.h
-@@ -113,8 +113,8 @@ struct user_port {
-  * @user_port: ptr to user port associated with port (if any)
-  * @wait_list: adjacent ports in list of ports waiting on link congestion
-  * @waiting_pkts:
-- * @sent:
-- * @acked:
-+ * @sent: # of non-empty messages sent by port
-+ * @acked: # of non-empty message acknowledgements from connected port's peer
-  * @publications: list of publications for port
+@@ -119,7 +119,6 @@ struct user_port {
   * @pub_count: total # of publications port has made during its lifetime
   * @probing_state:
+  * @probing_interval:
+- * @last_in_seqno:
+  * @timer_ref:
+  * @subscription: "node down" subscription used to terminate failed connections
+  */
+@@ -147,7 +146,6 @@ struct tipc_port {
+ 	u32 pub_count;
+ 	u32 probing_state;
+ 	u32 probing_interval;
+-	u32 last_in_seqno;
+ 	struct timer_list timer;
+ 	struct tipc_node_subscr subscription;
+ };
 -- 
 1.7.3.3
 
