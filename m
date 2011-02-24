@@ -1,38 +1,34 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [GIT PULL nf-next-2.6] IPVS
-Date: Fri, 25 Feb 2011 11:43:29 +0900
-Message-ID: <1298601812-8168-1-git-send-email-horms@verge.net.au>
-Cc: Changli Gao <xiaosuo@gmail.com>,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Patrick McHardy <kaber@trash.net>,
-	Simon Horman <horms@verge.net.au>
-To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+From: "Ian Davies" <iandavies198@gmail.com>
+Subject: Please i wait to hear from you urgently, it very important
+Date: Thu, 24 Feb 2011 11:39:35 -0800
+Message-ID: <20110224203447.E6F2B5E000F@mail.dumlupinar.edu.tr>
+Reply-To: <iandavies822@yahoo.no>
+Mime-Version: 1.0
+Content-Type: text/plain;charset="Windows-1251"
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:45241 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753782Ab1BYCnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 21:43:41 -0500
+Received: from dpusmtpgw.dpu.edu.tr ([194.27.43.31]:58937 "EHLO
+	dpusmtpgw.dumlupinar.edu.tr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754786Ab1BYDPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 22:15:14 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Patrick,
+I am Ian Davies ;an accredited vendor of Alliot Groups, a subsidiary firm of Emirates International Holding (EIH); A private equity funds holding company that focuses on hedge funds.
 
-please consider pulling
-git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git master
-go get the following changes by Changli.
+I have contacted you in the hope that you can be my associate by accepting to stand as the legal recipient to a Fixed-Income deposit, valued at 25MUSD by provind an International Offshore account to clear the funds.
 
-      ipvs: use hlist instead of list
-      ipvs: use enum to instead of magic numbers
-      ipvs: unify the formula to estimate the overhead of processing connections
+Once I file your details as the new recipient to the funds, the fundswill be approved through the AUTOMATED CLEARING HOUSE (ACH) - A facility used by financial institutions to distribute electronic debit and credit entries to bank accounts and therefore settles such entries. Under the automated clearing house system. 
 
- include/net/ip_vs.h              |   16 +++++++++++-
- net/netfilter/ipvs/ip_vs_conn.c  |   52 +++++++++++++++++++++----------------
- net/netfilter/ipvs/ip_vs_lblc.c  |   13 ++-------
- net/netfilter/ipvs/ip_vs_lblcr.c |   25 +++++-------------
- net/netfilter/ipvs/ip_vs_lc.c    |   18 +------------
- net/netfilter/ipvs/ip_vs_wlc.c   |   20 +-------------
- net/netfilter/ipvs/ip_vs_xmit.c  |   41 +++++++++++++++++++----------
- 7 files changed, 84 insertions(+), 101 deletions(-)
+
+upon approval of your details  as the new recipient; a Credit advice will be issued in your favor and the funds will clear in your account within three banking days. I am willing to give you 40% which is 10MUSD as your commission out of the 25MUSD for your assistance in providing an International Offshore account to clear the funds.
+
+
+I am confident you will be honest enough to adhere to our agreed commissions in spite of the 25MUSD coming through your account. I will need you to forward me your legal names address and phone to file your details on the fund as the new recipient in this first Quater of the financial fiscal year 2011.
+
+Looking forward to working with you.
+Ian Davies
+Accredited vendor
+Alliot Groups PS
 
