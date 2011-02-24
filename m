@@ -1,50 +1,27 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont" <remi@remlab.net>
-Subject: Re: tun.c non formal header protocol?
-Date: Thu, 24 Feb 2011 21:04:40 +0200
-Message-ID: <201102242104.40835.remi@remlab.net>
-References: <AANLkTin-PJs07ruhhbC5U0DmqFd-rP8Csorethz_1kes@mail.gmail.com> <AANLkTikpkgiTRDJe0gxuXosp_uvg0gKM_c7GcvL+hhLm@mail.gmail.com>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: via-rhine -- VT6105M and checksum offloading
+Date: Thu, 24 Feb 2011 13:58:05 -0500
+Message-ID: <20110224185805.GI30393@kvack.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Kfir Lavi <lavi.kfir@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from yop.chewa.net ([91.121.105.214]:60312 "EHLO yop.chewa.net"
+Received: from kanga.kvack.org ([205.233.56.17]:33897 "EHLO kanga.kvack.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756107Ab1BXTEo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 14:04:44 -0500
-In-Reply-To: <AANLkTikpkgiTRDJe0gxuXosp_uvg0gKM_c7GcvL+hhLm@mail.gmail.com>
+	id S1752125Ab1BXTPj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Feb 2011 14:15:39 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 24 f=C3=A9vrier 2011 20:37:32 Kfir Lavi, vous avez =C3=A9crit =
-:
-> I would like to use custom protocol over tun/tap device.
+Hi folks,
 
-Over TAP, you can only exchange Ethernet frames. However you can use wh=
-atever=20
-network layer you like (so long as it has an Ethernet type associated).
+I've recently noticed that one of the embedded systems I'm using (the 
+PCEngines ALIXes) is becoming CPU bound under heavy network traffic.  
+Upon investigation, it looks like the VT6105M isn't actually using the 
+hardware checksum offloading support of the hardware.  Are there any 
+known reasons why this isn't enabled (hardware bugs?)?  I'll test enabling 
+it in the driver, but I figured it would be worth asking if this path 
+has been explored already.  Cheers,
 
-Over TUN, you can exchange packets without any link layer header, for a=
-ny=20
-network layer protocol defined in Linux.
-
-In principles, you can probably just use a (Ethernet) type that is not =
-used by=20
-any existing stack in the Linux kernel. But I don't see any point in do=
-ing so,=20
-as the kernel will just drop the packets on the floor afterward.
-
-> I'm grabbing packets, and changing them, to deliver via tap,
-> to a listener that knows this custom protocol.
-> The custom protocol is just wrapping the packet with another
-> small header.
-> Is it possible to move custom packets via tun.c ?
-
-It's difficult to say without a clearer picture what you are trying to =
-do.
-
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.info/
-http://fi.linkedin.com/in/remidenis
+		-ben
