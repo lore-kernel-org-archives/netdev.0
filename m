@@ -1,77 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: module loading with CAP_NET_ADMIN
-Date: Thu, 24 Feb 2011 16:34:25 +0000
-Message-ID: <1298565265.2613.16.camel@bwh-desktop>
-References: <20110224151238.GA16916@albatros>
+From: Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH V11 2/4] ptp: Added a clock that uses the eTSEC found
+ on the MPC85xx.
+Date: Thu, 24 Feb 2011 17:39:44 +0100
+Message-ID: <20110224163944.GA15234@riccoc20.at.omicron.at>
+References: <cover.1298447722.git.richard.cochran@omicron.at>
+ <be1f5e801e8cd0145dd23aadae7c2055bb3c1d47.1298447722.git.richard.cochran@omicron.at>
+ <20110223165058.GE14597@angua.secretlab.ca>
+ <20110223112612.30071995@schlenkerla>
+ <20110223175459.GH14597@angua.secretlab.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Kees Cook <kees.cook@canonical.com>,
-	Eugene Teo <eugene@redhat.com>,
-	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Vasiliy Kulikov <segoon@openwall.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:20197 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754932Ab1BXQe2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 11:34:28 -0500
-In-Reply-To: <20110224151238.GA16916@albatros>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Scott Wood <scottwood-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Rodolfo Giometti <giometti-k2GhghHVRtY@public.gmane.org>,
+	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Alan Cox <alan-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Christoph Lameter <cl-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>,
+	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Krzysztof Halasa <khc-9GfyWEdoJtJmR6Xm/wNWPw@public.gmane.org>
+To: Grant Likely <grant.likely-s3s/WqlpOiPyB63q8FvJNQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110223175459.GH14597-MrY2KI0G/OVr83L8+7iqerDks+cytr/Z@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-02-24 at 18:12 +0300, Vasiliy Kulikov wrote:
-> Hi netdev folks,
+On Wed, Feb 23, 2011 at 10:54:59AM -0700, Grant Likely wrote:
+> On Wed, Feb 23, 2011 at 11:26:12AM -0600, Scott Wood wrote:
+
+> > The eTSEC revision is probeable as well, but due the way PTP is described as
+> > a separate node, the driver doesn't have straightforward access to those
+> > registers.
 > 
-> I'd like to discuss the ability to load any modules from /lib/modules/
-> by a process with CAP_NET_ADMIN.  Since Linux 2.6.32 [1] there is such
-> possibility:
-> 
-> root@albatros:~# grep Cap /proc/$$/status
-> CapInh: 0000000000000000
-> CapPrm: fffffffc00001000
-> CapEff: fffffffc00001000
-> CapBnd: fffffffc00001000
-> root@albatros:~# lsmod | grep xfs
-> root@albatros:~# ifconfig xfs
-> xfs: error fetching interface information: Device not found
-> root@albatros:~# lsmod | grep xfs
-> xfs                   767011  0 
-> exportfs                4226  2 xfs,nfsd
+> Ignorant question: Should the ptp be described as a separate node?
 
-Eek!
+Well, the PTP Hardware Clock function is logically separate from the
+MAC function. PHCs can be implemented in the MAC, in the PHY, or in
+between in an FPGA on MII bus.
 
-> Ability of CAP_NET_ADMIN to load the driver to work with a particular
-> network device is rational;  however, one may load any module not even
-> related to network this way.  Hopefully, this is not equal to
-> CAP_SYS_MODULE since the module set is restricted to /lib/modules
-> (additionally may be disabled with /proc/sys/kernel/modules_disabled),
-> but the idea of non-netdev module loading is weird.
-> 
-> My proposal is changing request_module("%s", name) to something like
-> request_module("netdev-%s", name) inside of dev_load() and adding
-> aliases to related drivers.
+If the PHC is in the MAC, then it might be wise to implement one
+driver that offers both the MAC and the PHC.
 
-AFAIK these interface-name aliases are usually defined by distribution
-configuration files rather than within the modules themselves.  And that
-behaviour is pretty much obsolete now that we have hotplug and udev.
+In the case of gianfar, it is not really necessary to combine the PHC
+into the gianfar driver, since the registers are pretty well
+separated. Also, given the size and complexity (and churn over time)
+of the gianfar driver, I decided to keep the PHC separate.
 
-> This would allow to load only netdev
-> modules via these ioctls.  I'm not sure what modules should be patches -
-> at least real physical netdevices have names different from drivers'
-> names, so they don't need patching.  I suppose the list is not big.
+Right now, the driver correctly handles all the clock revisions in the
+boards that I have (mpc8313, mpc8572, p2020ds, p2020rdb).
 
-The only modules I can see that declare aliases like this are:
+If checking the revision becomes important, then we can always export
+a function from gianfar to provide this.
 
-net/ipv4/ip_gre.c:MODULE_ALIAS("gre0");
-net/ipv4/ipip.c:MODULE_ALIAS("tunl0");
-net/ipv6/sit.c:MODULE_ALIAS("sit0");
+Thanks,
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Richard
