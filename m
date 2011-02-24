@@ -1,36 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: via-rhine -- VT6105M and checksum offloading
-Date: Thu, 24 Feb 2011 12:23:54 -0800 (PST)
-Message-ID: <20110224.122354.193728354.davem@davemloft.net>
-References: <20110224185805.GI30393@kvack.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC] be2net: add rxhash support
+Date: Thu, 24 Feb 2011 21:24:44 +0100
+Message-ID: <1298579084.2659.13.camel@edumazet-laptop>
+References: <20110131232755.GA4691@akhaparde-VBox>
+	 <20110201.154209.179944086.davem@davemloft.net>
+	 <1298560543.2814.4.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: bcrl@kvack.org
+To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48491
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755532Ab1BXUXS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 15:23:18 -0500
-In-Reply-To: <20110224185805.GI30393@kvack.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:41511 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756515Ab1BXUYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 15:24:49 -0500
+Received: by bwz15 with SMTP id 15so1398660bwz.19
+        for <netdev@vger.kernel.org>; Thu, 24 Feb 2011 12:24:48 -0800 (PST)
+In-Reply-To: <1298560543.2814.4.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin LaHaise <bcrl@kvack.org>
-Date: Thu, 24 Feb 2011 13:58:05 -0500
+Ajit, it seems be2net provides RSS hash value in rx compl descriptor ?
 
-> I've recently noticed that one of the embedded systems I'm using (the 
-> PCEngines ALIXes) is becoming CPU bound under heavy network traffic.  
-> Upon investigation, it looks like the VT6105M isn't actually using the 
-> hardware checksum offloading support of the hardware.  Are there any 
-> known reasons why this isn't enabled (hardware bugs?)?  I'll test enabling 
-> it in the driver, but I figured it would be worth asking if this path 
-> has been explored already.  Cheers,
+Could we feed skb->rxhash with it ?
 
-As far as I can tell it was never attempted.  So it should work.
+Thanks !
 
-If you do that, while you're here, you can make rhine_rx() take
-a "napi" arg and make this driver use netif_gso_receive() too.
-Don't forget to set NETIF_F_GRO or similar in netdev->flags during
-probe, and also hookup the necessary ethtool hooks.
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 0bdccb1..f2db5b2 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1038,6 +1038,9 @@ static void be_rx_compl_process(struct be_adapter *adapter,
+ 
+ 	skb->truesize = skb->len + sizeof(struct sk_buff);
+ 	skb->protocol = eth_type_trans(skb, adapter->netdev);
++	if (adapter->netdev->features & NETIF_F_RXHASH)
++		skb->rxhash = AMAP_GET_BITS(struct amap_eth_rx_compl, rsshash, rxcp);
++
+ 
+ 	vlanf = AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
+ 	vtm = AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
+@@ -1099,6 +1102,9 @@ static void be_rx_compl_process_gro(struct be_adapter *adapter,
+ 		return;
+ 	}
+ 
++	if (adapter->netdev->features & NETIF_F_RXHASH)
++		skb->rxhash = AMAP_GET_BITS(struct amap_eth_rx_compl, rsshash, rxcp);
++
+ 	remaining = pkt_size;
+ 	for (i = 0, j = -1; i < num_rcvd; i++) {
+ 		page_info = get_rx_page_info(adapter, rxo, rxq_idx);
+@@ -2618,6 +2624,7 @@ static void be_netdev_init(struct net_device *netdev)
+ 		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_FILTER |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+ 		NETIF_F_GRO | NETIF_F_TSO6;
++	netdev->features |= NETIF_F_RXHASH;
+ 
+ 	netdev->vlan_features |= NETIF_F_SG | NETIF_F_TSO |
+ 		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+
+
