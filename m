@@ -1,96 +1,147 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 3/7] ixgbevf: Fix name of function in function header comment
-Date: Thu, 24 Feb 2011 02:58:25 -0800
-Message-ID: <1298545109-8990-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 4/7] igbvf: remove Tx hang detection
+Date: Thu, 24 Feb 2011 02:58:26 -0800
+Message-ID: <1298545109-8990-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1298545109-8990-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Lior Levy <lior.levy@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:8720 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:49882 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753123Ab1BXK6g (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1756098Ab1BXK6g (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 24 Feb 2011 05:58:36 -0500
 In-Reply-To: <1298545109-8990-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Lior Levy <lior.levy@intel.com>
 
-Some of the function names in function header comments did not match
-actual name of the function.
+Removed Tx hang detection mechanism from igbvf.
+This mechanism has no affect and can cause false alarm message in some cases.
 
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Signed-off-by: Lior Levy <lior.levy@intel.com>
+Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbevf/ixgbevf_main.c |   16 ++++++++--------
- 1 files changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/igbvf/igbvf.h  |    3 --
+ drivers/net/igbvf/netdev.c |   60 --------------------------------------------
+ 2 files changed, 0 insertions(+), 63 deletions(-)
 
-diff --git a/drivers/net/ixgbevf/ixgbevf_main.c b/drivers/net/ixgbevf/ixgbevf_main.c
-index 1f36f8f..43af761 100644
---- a/drivers/net/ixgbevf/ixgbevf_main.c
-+++ b/drivers/net/ixgbevf/ixgbevf_main.c
-@@ -107,7 +107,7 @@ static inline void ixgbevf_release_rx_desc(struct ixgbe_hw *hw,
+diff --git a/drivers/net/igbvf/igbvf.h b/drivers/net/igbvf/igbvf.h
+index 990c329..d5dad5d 100644
+--- a/drivers/net/igbvf/igbvf.h
++++ b/drivers/net/igbvf/igbvf.h
+@@ -201,9 +201,6 @@ struct igbvf_adapter {
+ 	unsigned int restart_queue;
+ 	u32 txd_cmd;
+ 
+-	bool detect_tx_hung;
+-	u8 tx_timeout_factor;
+-
+ 	u32 tx_int_delay;
+ 	u32 tx_abs_int_delay;
+ 
+diff --git a/drivers/net/igbvf/netdev.c b/drivers/net/igbvf/netdev.c
+index 6352c81..42fdf59 100644
+--- a/drivers/net/igbvf/netdev.c
++++ b/drivers/net/igbvf/netdev.c
+@@ -396,35 +396,6 @@ static void igbvf_put_txbuf(struct igbvf_adapter *adapter,
+ 	buffer_info->time_stamp = 0;
  }
  
- /*
-- * ixgbe_set_ivar - set the IVAR registers, mapping interrupt causes to vectors
-+ * ixgbevf_set_ivar - set IVAR registers - maps interrupt causes to vectors
-  * @adapter: pointer to adapter struct
-  * @direction: 0 for Rx, 1 for Tx, -1 for other causes
-  * @queue: queue to map the corresponding interrupt to
-@@ -1017,7 +1017,7 @@ static irqreturn_t ixgbevf_msix_clean_tx(int irq, void *data)
- }
- 
+-static void igbvf_print_tx_hang(struct igbvf_adapter *adapter)
+-{
+-	struct igbvf_ring *tx_ring = adapter->tx_ring;
+-	unsigned int i = tx_ring->next_to_clean;
+-	unsigned int eop = tx_ring->buffer_info[i].next_to_watch;
+-	union e1000_adv_tx_desc *eop_desc = IGBVF_TX_DESC_ADV(*tx_ring, eop);
+-
+-	/* detected Tx unit hang */
+-	dev_err(&adapter->pdev->dev,
+-	        "Detected Tx Unit Hang:\n"
+-	        "  TDH                  <%x>\n"
+-	        "  TDT                  <%x>\n"
+-	        "  next_to_use          <%x>\n"
+-	        "  next_to_clean        <%x>\n"
+-	        "buffer_info[next_to_clean]:\n"
+-	        "  time_stamp           <%lx>\n"
+-	        "  next_to_watch        <%x>\n"
+-	        "  jiffies              <%lx>\n"
+-	        "  next_to_watch.status <%x>\n",
+-	        readl(adapter->hw.hw_addr + tx_ring->head),
+-	        readl(adapter->hw.hw_addr + tx_ring->tail),
+-	        tx_ring->next_to_use,
+-	        tx_ring->next_to_clean,
+-	        tx_ring->buffer_info[eop].time_stamp,
+-	        eop,
+-	        jiffies,
+-	        eop_desc->wb.status);
+-}
+-
  /**
-- * ixgbe_msix_clean_rx - single unshared vector rx clean (all queues)
-+ * ixgbevf_msix_clean_rx - single unshared vector rx clean (all queues)
-  * @irq: unused
-  * @data: pointer to our q_vector struct for this interrupt vector
-  **/
-@@ -1972,7 +1972,7 @@ static void ixgbevf_acquire_msix_vectors(struct ixgbevf_adapter *adapter,
- }
+  * igbvf_setup_tx_resources - allocate Tx resources (Descriptors)
+  * @adapter: board private structure
+@@ -771,7 +742,6 @@ static void igbvf_set_itr(struct igbvf_adapter *adapter)
+ static bool igbvf_clean_tx_irq(struct igbvf_ring *tx_ring)
+ {
+ 	struct igbvf_adapter *adapter = tx_ring->adapter;
+-	struct e1000_hw *hw = &adapter->hw;
+ 	struct net_device *netdev = adapter->netdev;
+ 	struct igbvf_buffer *buffer_info;
+ 	struct sk_buff *skb;
+@@ -832,22 +802,6 @@ static bool igbvf_clean_tx_irq(struct igbvf_ring *tx_ring)
+ 		}
+ 	}
  
- /*
-- * ixgbe_set_num_queues: Allocate queues for device, feature dependant
-+ * ixgbevf_set_num_queues: Allocate queues for device, feature dependant
-  * @adapter: board private structure to initialize
-  *
-  * This is the top level queue allocation routine.  The order here is very
-@@ -3534,9 +3534,9 @@ static struct pci_driver ixgbevf_driver = {
- };
+-	if (adapter->detect_tx_hung) {
+-		/* Detect a transmit hang in hardware, this serializes the
+-		 * check with the clearing of time_stamp and movement of i */
+-		adapter->detect_tx_hung = false;
+-		if (tx_ring->buffer_info[i].time_stamp &&
+-		    time_after(jiffies, tx_ring->buffer_info[i].time_stamp +
+-		               (adapter->tx_timeout_factor * HZ)) &&
+-		    !(er32(STATUS) & E1000_STATUS_TXOFF)) {
+-
+-			tx_desc = IGBVF_TX_DESC_ADV(*tx_ring, i);
+-			/* detected Tx unit hang */
+-			igbvf_print_tx_hang(adapter);
+-
+-			netif_stop_queue(netdev);
+-		}
+-	}
+ 	adapter->net_stats.tx_bytes += total_bytes;
+ 	adapter->net_stats.tx_packets += total_packets;
+ 	return count < tx_ring->count;
+@@ -1863,17 +1817,6 @@ static void igbvf_watchdog_task(struct work_struct *work)
+ 			                          &adapter->link_duplex);
+ 			igbvf_print_link_info(adapter);
  
- /**
-- * ixgbe_init_module - Driver Registration Routine
-+ * ixgbevf_init_module - Driver Registration Routine
-  *
-- * ixgbe_init_module is the first routine called when the driver is
-+ * ixgbevf_init_module is the first routine called when the driver is
-  * loaded. All it does is register with the PCI subsystem.
-  **/
- static int __init ixgbevf_init_module(void)
-@@ -3554,9 +3554,9 @@ static int __init ixgbevf_init_module(void)
- module_init(ixgbevf_init_module);
+-			/* adjust timeout factor according to speed/duplex */
+-			adapter->tx_timeout_factor = 1;
+-			switch (adapter->link_speed) {
+-			case SPEED_10:
+-				adapter->tx_timeout_factor = 16;
+-				break;
+-			case SPEED_100:
+-				/* maybe add some timeout factor ? */
+-				break;
+-			}
+-
+ 			netif_carrier_on(netdev);
+ 			netif_wake_queue(netdev);
+ 		}
+@@ -1907,9 +1850,6 @@ static void igbvf_watchdog_task(struct work_struct *work)
+ 	/* Cause software interrupt to ensure Rx ring is cleaned */
+ 	ew32(EICS, adapter->rx_ring->eims_value);
  
- /**
-- * ixgbe_exit_module - Driver Exit Cleanup Routine
-+ * ixgbevf_exit_module - Driver Exit Cleanup Routine
-  *
-- * ixgbe_exit_module is called just before the driver is removed
-+ * ixgbevf_exit_module is called just before the driver is removed
-  * from memory.
-  **/
- static void __exit ixgbevf_exit_module(void)
-@@ -3566,7 +3566,7 @@ static void __exit ixgbevf_exit_module(void)
- 
- #ifdef DEBUG
- /**
-- * ixgbe_get_hw_dev_name - return device name string
-+ * ixgbevf_get_hw_dev_name - return device name string
-  * used by hardware layer to print debugging information
-  **/
- char *ixgbevf_get_hw_dev_name(struct ixgbe_hw *hw)
+-	/* Force detection of hung controller every watchdog period */
+-	adapter->detect_tx_hung = 1;
+-
+ 	/* Reset the timer */
+ 	if (!test_bit(__IGBVF_DOWN, &adapter->state))
+ 		mod_timer(&adapter->watchdog_timer,
 -- 
 1.7.4
 
