@@ -1,118 +1,87 @@
-From: "Harsha R02" <Harsha.R02@mphasis.com>
-Subject: RE: [Bugme-new] [Bug 29712] New: Bonding Driver(version : 3.5.0) - Problem with ARP monitoring in active backup mode
-Date: Fri, 25 Feb 2011 18:14:32 +0530
-Message-ID: <E351E450E8B9F54684A699D42DC5ADF210062FA2@MPBAGVEX02.corp.mphasis.com>
-References: <bug-29712-10286@https.bugzilla.kernel.org/> <20110224145129.f366b59e.akpm@linux-foundation.org> <4D672525.5080609@hp.com>
+From: Hans Nieser <hnsr@xs4all.nl>
+Subject: Re: Mass udp flow reboot linux with RealTek RTL-8169 Gigabit
+Date: Fri, 25 Feb 2011 14:45:42 +0100
+Message-ID: <1298641542.18103.48.camel@krikkit>
+References: <1298396007.23906.27.camel@krikkit>
+	 <20110223095538.GA12662@electric-eye.fr.zoreil.com>
+	 <1298463704.31256.29.camel@krikkit>  <1298485893.31256.40.camel@krikkit>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----_=_NextPart_001_01CBD4E9.E1D9D260"
-Cc: <bugzilla-daemon@bugzilla.kernel.org>,
-	<bugme-daemon@bugzilla.kernel.org>, <netdev@vger.kernel.org>,
-	"Jay Vosburgh" <fubar@us.ibm.com>
-To: "Brian Haley" <brian.haley@hp.com>,
-	"Andrew Morton" <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vx.mphasis.com ([203.12.223.66]:4059 "EHLO
-	mpbam6ip2.mphasis.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753792Ab1BYNza (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 08:55:30 -0500
-Content-class: urn:content-classes:message
-In-Reply-To: <4D672525.5080609@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1298485893.31256.40.camel@krikkit>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+On Wed, 2011-02-23 at 19:31 +0100, Hans Nieser wrote:
+> On Wed, 2011-02-23 at 13:21 +0100, Hans Nieser wrote:
 
-------_=_NextPart_001_01CBD4E9.E1D9D260
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+> > On Wed, 2011-02-23 at 10:55 +0100, Francois Romieu wrote:
+> > You may enable PCIEASPM_DEBUG, force 'pcie_aspm=off' and switch from
+> > SLUB to SLAB but it's a bit cargo-cultish.
 
-Attached patch resolves the issue. Failover happened back to primary
-when it was up again in both the point to point and switch
-configuration.
+This seemed to have no effect sadly
 
-Please let us know if this change can be included.
+> Ok, I just tried 2.6.34, and after over 5 hours of running my script,
+> the system is still up and running, with only 24 'link up' messages on
+> dmesg, and having transferred 2.1TiB of data (1428042421 rx_packets, 45
+> rx_missed). So I'm going to assume the problem isn't present with this
+> kernel and try a bisect between it and 2.6.35
 
-Thanks,
+After spending the entire day yesterday and this morning bisecting this,
+I haven't gotten anywhere :/ I ended up at an unrelated commit as being
+the first known bad commit (84d4db0e22965334ae8272f324d31fb4657465aa), I
+think I may have marked a bad commit as good.. To properly bisect this
+issue I probably need to test each commit for a several hours across
+multiple reboots, but that is going to be too much time. I've at least
+been able to establish that following v2.6.34, the following commits are
+bad:
 
-- Harsha
+c222fb2efaf1a421f5bf74403df40a9384ccf516
+4a973f2495fba8775d1c408b3ee7f2c19b19f13f
+84d4db0e22965334ae8272f324d31fb4657465aa
+
+After that I've been trying other various things (on 2.6.38-rc6+) and
+made some interesting and confusing discoveries;
+
+- Setting pci=nomsi causes instant reboot when I start my test script
+
+- Enabling only one CPU core in the BIOS seems to solve the whole lock
+  up problem, I have not been able to reproduce it after a few hours of
+  testing (nor on 2.6.35). (Normally on 2.6.38-rc6 it would crash in
+  just a few seconds.)
+
+  Additionally, when I force wget to use IPv4 with only one core
+  enabled, I'm suddenly getting a solid 112MB/s instead of the lousy
+  9-12MB/s I have been getting since 2.6.36 - but only when using one
+  core. With all 4 cores enabled, performance is bad again even when
+  forcing wget to use IPv4..
+
+  Using only one CPU core also reduces the 'link up' messages a lot, I
+  only got a couple instead of hundreds/thousands.
+
+- Enabling Tickless System (NO_HZ) kernel option seems to make lock up
+  occur less frequently (but it still happens), also much less 'link up'
+  messages, but also causes an occasional "NOHZ: local_softirq_pending
+  08" to appear on dmesg.
+
+- Enabling HyperThreading (I disable it by default due to an issue with
+  VirtualBox) in BIOS causes performance to get even worse, just 2-3MB/s
+  instead of 9-12MB/s
 
 
------Original Message-----
-From: Brian Haley [mailto:brian.haley@hp.com]=20
-Sent: Friday, February 25, 2011 9:12 AM
-To: Andrew Morton
-Cc: Harsha R02; bugzilla-daemon@bugzilla.kernel.org;
-bugme-daemon@bugzilla.kernel.org; netdev@vger.kernel.org; Jay Vosburgh
-Subject: Re: [Bugme-new] [Bug 29712] New: Bonding Driver(version :
-3.5.0) - Problem with ARP monitoring in active backup mode
+I've also attempted to bisect the issue I have been having with slow
+transfer speed (I don't know if its related to the hang, but I figure if
+the hang ever gets fixed, this will have to be fixed as well to make
+r8169 usable for me), which started somewhere between v2.6.35 (good) and
+v2.6.36 (bad), unfortunately this too ended up at a seemingly unrelated
+commit:
 
-On 02/24/2011 05:51 PM, Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via
-the
-> bugzilla web interface).
->=20
-> On Wed, 23 Feb 2011 10:41:34 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->=20
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D29712
->>
->>            Summary: Bonding Driver(version : 3.5.0) - Problem with
-ARP
->>                     monitoring in active backup mode
->>            Product: Drivers
->>            Version: 2.5
->>     Kernel Version: 2.6.32
->=20
-> That's a paleolithic kernel you have there.  This problem might have
-> been fixed already.  Can you test a more recent kernel?
+af5ab277ded04bd9bc6b048c5a2f0e7d70ef0867 - clockevents: Remove the per
+cpu tick skew
 
-I can add some more info since I originally looked at the problem.  This
-happens on 2.6.38 as well, and on this 2.6.32 kernel with a backported
-3.7.0 bonding driver (with the primary_reselect option).  Harsha has a
-prototype patch that's being tested, but wanted to log the bug to see
-if one of the bonding maintainers had a better solution.
-
-I'll let him respond as I'm now out of the loop...
-
-Thanks,
-
--Brian
-
-Information transmitted by this e-mail is proprietary to MphasiS, its assoc=
-iated companies and/ or its customers and is intended=20
-for use only by the individual or entity to which it is addressed, and may =
-contain information that is privileged, confidential or=20
-exempt from disclosure under applicable law. If you are not the intended re=
-cipient or it appears that this mail has been forwarded=20
-to you without proper authority, you are notified that any use or dissemina=
-tion of this information in any manner is strictly=20
-prohibited. In such cases, please notify us immediately at mailmaster@mphas=
-is.com and delete this mail from your records.
-
-------_=_NextPart_001_01CBD4E9.E1D9D260
-Content-Type: application/octet-stream;
-	name="bonding.patch"
-Content-Transfer-Encoding: base64
-Content-Description: bonding.patch
-Content-Disposition: attachment;
-	filename="bonding.patch"
-
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2JvbmRpbmcvYm9uZF9tYWluLmMgYi9kcml2ZXJzL25l
-dC9ib25kaW5nL2JvbmRfbWFpbi5jDQppbmRleCA0MGZiNWVlLi4wNDEzOTE3IDEwMDY0NA0KLS0t
-IGEvZHJpdmVycy9uZXQvYm9uZGluZy9ib25kX21haW4uYw0KKysrIGIvZHJpdmVycy9uZXQvYm9u
-ZGluZy9ib25kX21haW4uYw0KQEAgLTMwMjAsMTEgKzMwMjAsMTYgQEAgc3RhdGljIHZvaWQgYm9u
-ZF9hYl9hcnBfcHJvYmUoc3RydWN0IGJvbmRpbmcgKmJvbmQpDQogICAgICAgICAgICAgICAgICAg
-ICAgIGJvbmQtPmN1cnJfYWN0aXZlX3NsYXZlLT5kZXYtPm5hbWUpOw0KDQogICAgICAgIGlmIChi
-b25kLT5jdXJyX2FjdGl2ZV9zbGF2ZSkgew0KKyAgICAgICAgICAgICAgICBpZigoYm9uZC0+Y3Vy
-cl9hY3RpdmVfc2xhdmUgIT0gYm9uZC0+cHJpbWFyeV9zbGF2ZSkgJiYNCisgICAgICAgICAgICAg
-ICAgICAgKElTX1VQKGJvbmQtPnByaW1hcnlfc2xhdmUtPmRldikpKQ0KKyAgICAgICAgICAgICAg
-ICAgICAgICAgIGdvdG8gZmFpbG92ZXI7DQorDQogICAgICAgICAgICAgICAgYm9uZF9hcnBfc2Vu
-ZF9hbGwoYm9uZCwgYm9uZC0+Y3Vycl9hY3RpdmVfc2xhdmUpOw0KICAgICAgICAgICAgICAgIHJl
-YWRfdW5sb2NrKCZib25kLT5jdXJyX3NsYXZlX2xvY2spOw0KICAgICAgICAgICAgICAgIHJldHVy
-bjsNCiAgICAgICAgfQ0KDQorZmFpbG92ZXI6DQogICAgICAgIHJlYWRfdW5sb2NrKCZib25kLT5j
-dXJyX3NsYXZlX2xvY2spOw0KDQogICAgICAgIC8qIGlmIHdlIGRvbid0IGhhdmUgYSBjdXJyX2Fj
-dGl2ZV9zbGF2ZSwgc2VhcmNoIGZvciB0aGUgbmV4dCBhdmFpbGFibGUNCg==
-
-------_=_NextPart_001_01CBD4E9.E1D9D260--
-
+Just for kicks I attempted to revert this change on 2.6.38-rc6+, which
+seemed to reduce the frequency of 'link up' messages, but no other real
+change noticed.
