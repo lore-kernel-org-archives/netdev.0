@@ -1,107 +1,62 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: ANNOUNCE: debloat-testing kernel git tree
-Date: Fri, 25 Feb 2011 17:22:10 -0500
-Message-ID: <20110225222210.GA3618@tuxdriver.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Fri, 25 Feb 2011 15:15:00 -0800
+Message-ID: <1298675700.14113.213.camel@tardy>
+References: <AANLkTimDtaV=WhZUUEivg3_vEUeUk3_WQSs09h7USiUj@mail.gmail.com>
+	 <AANLkTi=j9VdTZjw4iTsczv2eHjTXo59-fNneBMo8rJyp@mail.gmail.com>
+	 <20110225125644.GA9763@canuck.infradead.org>
+	 <1298661495.14113.152.camel@tardy>
+	 <20110225224846.GC9763@canuck.infradead.org>
+Reply-To: rick.jones2@hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, bloat-devel@lists.bufferbloat.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <therbert@google.com>,
+	Bill Sommerfeld <wsommerfeld@google.com>,
+	Daniel Baluta <daniel.baluta@gmail.com>, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:22036 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754523Ab1BYXPF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 18:15:05 -0500
+In-Reply-To: <20110225224846.GC9763@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Announcement
+On Fri, 2011-02-25 at 17:48 -0500, Thomas Graf wrote:
+> On Fri, Feb 25, 2011 at 11:18:15AM -0800, Rick Jones wrote:
+> > I think the idea is goodness, but will ask, was the (first) bottleneck
+> > actually in the kernel, or was it in bind itself?  I've seen
+> > single-instance, single-byte burst-mode netperf TCP_RR do in excess of
+> > 300K transactions per second (with TCP_NODELAY set) on an X5560 core.
+> > 
+> > ftp://ftp.netperf.org/netperf/misc/dl380g6_X5560_rhel54_ad386_cxgb3_1.4.1.2_b2b_to_same_agg_1500mtu_20100513-2.csv
+> > 
+> > and that was with now ancient RHEL5.4 bits...  yes, there is a bit of
+> > apples, oranges and kumquats but still, I am wondering if this didn't
+> > also "work around" some internal BIND scaling issues as well.
+> 
+> Yes it is. We have observed two separate bottlenecks.
+> 
+> The first we have discovered is within BIND. As soon as more than 1
+> worker thread is being used strace showed a ton of futex() system
+> calls to the kernel as soon as the number of queries crossed a magic
+> barrier. This suggested heavy lock contention within BIND.
 
-The bufferbloat project [1] is pleased to announce the availability
-of the debloat-testing Linux kernel git tree:
+The more things change, the more they remain the same, or perhaps "Code
+may come and go, but lock contention is forever:
 
-	git://git.infradead.org/debloat-testing.git
+ftp://ftp.cup.hp.com/dist/networking/briefs/bind9_perf.txt
 
-The purpose of this tree is to provide a reasonably stable base for
-the development and testing of new algorithms, miscellaneous fixes,
-and maybe a few hacks intended to advance the cause of eliminating
-or at least mitigating bufferbloat in the Linux world.
+rick jones
 
-Introduction
+The system ftp.cup.hp.com is probably going away before long, I will
+probably put its collection of ancient writeups somewhere on netperf.org
 
-Bufferbloat is a term coined by Jim Gettys to describe the increasing
-prevalence of large and (particularly) unmanaged network buffers along
-the network links that comprise the Internet [2].  If you are not aware
-of the problems with network latency under load that the Internet is
-already encountering, we encourage you to visit Jim Gettys' blog [3].
-There Jim has begun to fit together enough puzzle pieces to at least
-frame the issue.
+> 
+> This BIND lock contetion was not visible on all systems having scalability
+> issues though. Some machines were not able to deliver enough queries to
+> BIND in order for the lock contention to appear.
 
-Jim has also made available slides and an audio recording (edited
-for time) from a presentation on this topic:
 
-	http://mirrors.bufferbloat.net/Talks/BellLabs01192011/
-
-Kernel Bits
-
-The debloat-testing tree is intended to track full and -rc releases
-from linux-2.6, with interesting patches cherry-picked from net-next
-and various experimental bits added on top.  The current stable of
-such patches includes the following:
-
-Eric Dumazet (based on original work by Juliusz Chroboczek):
-      net_sched: SFB flow scheduler
-
-stephen hemminger:
-      sched: CHOKe flow scheduler
-
-John Fastabend:
-      net: implement mechanism for HW based QOS
-      net_sched: implement a root container qdisc sch_mqprio
-
-John W. Linville:
-      mac80211: implement eBDP algorithm to fight bufferbloat
-
-Nathaniel J. Smith:
-      iwlwifi: Simplify tx queue management
-      iwlwifi: Convert the tx queue high_mark to an atomic_t
-      iwlwifi: Invert the sense of the queue high_mark
-      iwlwifi: auto-tune tx queue size to minimize latency
-      iwlwifi: make current tx queue sizes visible in debugfs
-
-Dave Taht:
-      Bufferbloat reduction for the e1000 driver that started it all
-      Reduce bufferbloated default for e1000e, increase dynamic range
-      Smash bufferbloat in the ath9k driver
-
-Userland Bits
-
-Patches for the userspace tc utility incorporating support for both the
-CHOKe AQM and the Stochastic Fair Blue scheduler (SFB) are available:
-
-	https://github.com/dtaht/iproute2bufferbloat
-
-Contributions
-
-Please send any experimental or research-oriented patches related to
-bufferbloat to the bloat-devel@lists.bufferbloat.net list.  Reminders
-of more mainstream patches that may be relevant and/or interesting
-for cherry-picking into debloat-testing are welcome there as well.
-
-Obviously, patches that are ready for normal merge consideration
-should continue to be sent to netdev, linux-wireless, linux-kernel,
-or whatever other existing list is appropriate for them.
-
-Thanks
-
-Finally, we want to offer a huge thanks to the 130+ new members of
-the bloat mailing list [4] for leaping into the fray, and to David
-Woodhouse for hosting the debloat-testing tree at infradead.
-
-Please help us beat the bloat.  Good luck, and happy debloating!
-
-Notes
-
-[1] http://bufferbloat.net
-[2] http://gettys.wordpress.com/what-is-bufferbloat-anyway/
-[3] http://en.wordpress.com/tag/bufferbloat/
-[4] https://lists.bufferbloat.net
---
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
