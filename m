@@ -1,34 +1,97 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169: disable ASPM
-Date: Fri, 25 Feb 2011 10:34:44 +0100
-Message-ID: <20110225093444.GA12969@electric-eye.fr.zoreil.com>
-References: <20110222120001.GA24961@redhat.com>
-	<20110222161816.GA12518@electric-eye.fr.zoreil.com>
-	<20110222171703.GA3285@redhat.com>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH ref0] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Fri, 25 Feb 2011 17:45:40 +0800
+Message-ID: <AANLkTikmqQfT1s2Z6J+KYmqi0CuCc4+2k67eeb4ydtCM@mail.gmail.com>
+References: <1298535761.2814.1.camel@edumazet-laptop> <1298539762-2242-1-git-send-email-ratbert.chuang@gmail.com>
+ <1298569179.2814.11.camel@edumazet-laptop> <1298569685.2814.16.camel@edumazet-laptop>
+ <AANLkTikXUyQy+fjFSwagB3Uud2JPodsR2yFtt+jiZPSk@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stable@kernel.org, Hayes <hayeswang@realtek.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>
-Return-path: <stable-bounces@linux.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110222171703.GA3285@redhat.com>
-List-Unsubscribe: <http://linux.kernel.org/mailman/options/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=unsubscribe>
-List-Archive: <http://linux.kernel.org/mailman/private/stable/>
-List-Post: <mailto:stable@linux.kernel.org>
-List-Help: <mailto:stable-request@linux.kernel.org?subject=help>
-List-Subscribe: <http://linux.kernel.org/mailman/listinfo/stable>,
-	<mailto:stable-request@linux.kernel.org?subject=subscribe>
-Sender: stable-bounces@linux.kernel.org
-Errors-To: stable-bounces@linux.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
+	mirqus@gmail.com, davem@davemloft.net,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikXUyQy+fjFSwagB3Uud2JPodsR2yFtt+jiZPSk@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Stanislaw Gruszka <sgruszka@redhat.com> :
-[...]
-> Perhaps need to add entry in MAINTAINERS file?
+Hi Eric,
 
-Consider it Acked-by if Hayes wants to add himself.
+On Fri, Feb 25, 2011 at 10:32 AM, Po-Yu Chuang <ratbert.chuang@gmail.co=
+m> wrote:
+> On Fri, Feb 25, 2011 at 1:48 AM, Eric Dumazet <eric.dumazet@gmail.com=
+> wrote:
+>> Le jeudi 24 f=C3=A9vrier 2011 =C3=A0 18:39 +0100, Eric Dumazet a =C3=
+=A9crit :
+>>> Le jeudi 24 f=C3=A9vrier 2011 =C3=A0 17:29 +0800, Po-Yu Chuang a =C3=
+=A9crit :
+>>> > From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>>> > +
+>>> > +static bool ftmac100_rx_packet(struct ftmac100 *priv, int *proce=
+ssed)
+>>> > +{
+>>> > + =C2=A0 struct net_device *netdev =3D priv->netdev;
+>>> > + =C2=A0 struct ftmac100_rxdes *rxdes;
+>>> > + =C2=A0 struct sk_buff *skb;
+>>> > + =C2=A0 struct page *page;
+>>> > + =C2=A0 dma_addr_t map;
+>>> > + =C2=A0 int length;
+>>> > +
+>>> > + =C2=A0 rxdes =3D ftmac100_rx_locate_first_segment(priv);
+>>> > + =C2=A0 if (!rxdes)
+>>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return false;
+>>> > +
+>>> > + =C2=A0 if (unlikely(ftmac100_rx_packet_error(priv, rxdes))) {
+>>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rx_drop_packet(priv=
+);
+>>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return true;
+>>> > + =C2=A0 }
+>>> > +
+>>> > + =C2=A0 /*
+>>> > + =C2=A0 =C2=A0* It is impossible to get multi-segment packets
+>>> > + =C2=A0 =C2=A0* because we always provide big enough receive buf=
+fers.
+>>> > + =C2=A0 =C2=A0*/
+>>> > + =C2=A0 if (unlikely(!ftmac100_rxdes_last_segment(rxdes)))
+>>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 BUG();
+>>> > +
+>>> > + =C2=A0 /* start processing */
+>>> > + =C2=A0 skb =3D netdev_alloc_skb_ip_align(netdev, ETH_HLEN);
+>>>
+>>> Oh I see... You should allocate a bigger head (say... 128 bytes)
+>>>
+>>> And copy in it up to 128 bytes of first part... this to avoid upper
+>>> stack to reallocate skb head (because IP/TCP processing need to get
+>>> their headers in skb head)
+>>
+>> Take a look at drivers/net/niu.c :
+>>
+>> #define RX_SKB_ALLOC_SIZE =C2=A0 128 + NET_IP_ALIGN
+>>
+>> static int niu_process_rx_pkt(...)
+>> {
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0skb =3D netdev_alloc_skb(np->dev, RX_SKB_=
+ALLOC_SIZE);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0while (1) {
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0niu_rx_skb_ap=
+pend(skb, page, off, append_size);
+>> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+>> }
+>
+> Oh I got it.
+>
+> I will try this and redo the benchmarking.
 
--- 
-Ueimor
+It's a little faster than v5 now. Thanks.
+I will submit the current version later.
+
+One more question just curious, why 128 bytes?
+
+best regards,
+Po-Yu Chuang
