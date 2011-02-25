@@ -1,7 +1,7 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: [PATCH 7/9] sysctl: ipv4: share ipv4_net_table between nets
-Date: Fri, 25 Feb 2011 20:52:39 +0200
-Message-ID: <1298659961-23863-8-git-send-email-lucian.grijincu@gmail.com>
+Subject: [PATCH 2/9] sysctl: use ctl_header_cookie in proc_handler
+Date: Fri, 25 Feb 2011 20:52:34 +0200
+Message-ID: <1298659961-23863-3-git-send-email-lucian.grijincu@gmail.com>
 References: <1298659961-23863-1-git-send-email-lucian.grijincu@gmail.com>
 Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>,
@@ -13,127 +13,58 @@ In-Reply-To: <1298659961-23863-1-git-send-email-lucian.grijincu@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+TODO: if this patch series gets a positive feedback this patch will be
+extended with a kernel-wide change of each proc_handler to add a
+'cookie' argument.
+
 Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 ---
- net/ipv4/sysctl_net_ipv4.c |   53 +++++++------------------------------------
- 1 files changed, 9 insertions(+), 44 deletions(-)
+ fs/proc/proc_sysctl.c  |   11 ++++++++++-
+ include/linux/sysctl.h |    3 +++
+ 2 files changed, 13 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
-index 1a45665..6fd3279 100644
---- a/net/ipv4/sysctl_net_ipv4.c
-+++ b/net/ipv4/sysctl_net_ipv4.c
-@@ -636,49 +636,49 @@ static struct ctl_table ipv4_net_table[] = {
- 		.data		= &init_net.ipv4.sysctl_icmp_echo_ignore_all,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec
- 	},
- 	{
- 		.procname	= "icmp_echo_ignore_broadcasts",
- 		.data		= &init_net.ipv4.sysctl_icmp_echo_ignore_broadcasts,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec
- 	},
- 	{
- 		.procname	= "icmp_ignore_bogus_error_responses",
- 		.data		= &init_net.ipv4.sysctl_icmp_ignore_bogus_error_responses,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec
- 	},
- 	{
- 		.procname	= "icmp_errors_use_inbound_ifaddr",
- 		.data		= &init_net.ipv4.sysctl_icmp_errors_use_inbound_ifaddr,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec
- 	},
- 	{
- 		.procname	= "icmp_ratelimit",
- 		.data		= &init_net.ipv4.sysctl_icmp_ratelimit,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec_ms_jiffies,
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec_ms_jiffies,
- 	},
- 	{
- 		.procname	= "icmp_ratemask",
- 		.data		= &init_net.ipv4.sysctl_icmp_ratemask,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec
- 	},
- 	{
- 		.procname	= "rt_cache_rebuild_count",
- 		.data		= &init_net.ipv4.sysctl_rt_cache_rebuild_count,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= (proc_handler *) netns_proc_dointvec
- 	},
- 	{ }
- };
-@@ -692,53 +692,18 @@ EXPORT_SYMBOL_GPL(net_ipv4_ctl_path);
+diff --git a/fs/proc/proc_sysctl.c b/fs/proc/proc_sysctl.c
+index 09a1f92..85b6b75 100644
+--- a/fs/proc/proc_sysctl.c
++++ b/fs/proc/proc_sysctl.c
+@@ -135,6 +135,7 @@ static ssize_t proc_sys_call_handler(struct file *filp, void __user *buf,
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+ 	struct ctl_table_header *head = grab_header(inode);
+ 	struct ctl_table *table = PROC_I(inode)->sysctl_entry;
++	proc_handler_cookie *phc = (proc_handler_cookie *) table->proc_handler;
+ 	ssize_t error;
+ 	size_t res;
  
- static __net_init int ipv4_sysctl_init_net(struct net *net)
- {
--	struct ctl_table *table;
--
--	table = ipv4_net_table;
--	if (!net_eq(net, &init_net)) {
--		table = kmemdup(table, sizeof(ipv4_net_table), GFP_KERNEL);
--		if (table == NULL)
--			goto err_alloc;
--
--		table[0].data =
--			&net->ipv4.sysctl_icmp_echo_ignore_all;
--		table[1].data =
--			&net->ipv4.sysctl_icmp_echo_ignore_broadcasts;
--		table[2].data =
--			&net->ipv4.sysctl_icmp_ignore_bogus_error_responses;
--		table[3].data =
--			&net->ipv4.sysctl_icmp_errors_use_inbound_ifaddr;
--		table[4].data =
--			&net->ipv4.sysctl_icmp_ratelimit;
--		table[5].data =
--			&net->ipv4.sysctl_icmp_ratemask;
--		table[6].data =
--			&net->ipv4.sysctl_rt_cache_rebuild_count;
--	}
--
- 	net->ipv4.sysctl_rt_cache_rebuild_count = 4;
+@@ -156,7 +157,15 @@ static ssize_t proc_sys_call_handler(struct file *filp, void __user *buf,
  
- 	net->ipv4.ipv4_hdr = register_net_sysctl_table(net,
--			net_ipv4_ctl_path, table);
-+			net_ipv4_ctl_path, ipv4_net_table);
- 	if (net->ipv4.ipv4_hdr == NULL)
--		goto err_reg;
--
-+		return -ENOMEM;
- 	return 0;
--
--err_reg:
--	if (!net_eq(net, &init_net))
--		kfree(table);
--err_alloc:
--	return -ENOMEM;
- }
+ 	/* careful: calling conventions are nasty here */
+ 	res = count;
+-	error = table->proc_handler(table, write, buf, &res, ppos);
++	/*XXX Most handlers only use the first 5 arguments (without
++	 *XXX @cookie). Changing all handlers is too much of work,
++	 *XXX as this is only a RFC patch at the moment.
++	 *XXX
++	 *XXX This is just a HACK for now, I did this this way to not
++	 *XXX waste time changing all the handlers, in the final version
++	 *XXX I'll change all the handlers if there's not other solution.
++	 */
++	error = phc(table, write, buf, &res, ppos, head->ctl_header_cookie);
+ 	if (!error)
+ 		error = res;
+ out:
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index 43fed29..3d21832 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -963,6 +963,9 @@ typedef struct ctl_table ctl_table;
  
- static __net_exit void ipv4_sysctl_exit_net(struct net *net)
- {
--	struct ctl_table *table;
--
--	table = net->ipv4.ipv4_hdr->ctl_table_arg;
- 	unregister_net_sysctl_table(net->ipv4.ipv4_hdr);
--	kfree(table);
- }
+ typedef int proc_handler (struct ctl_table *ctl, int write,
+ 			  void __user *buffer, size_t *lenp, loff_t *ppos);
++typedef int proc_handler_cookie(struct ctl_table *ctl, int write,
++				void __user *buffer, size_t *lenp,
++				loff_t *ppos, void *ctl_header_cookie);
  
- static __net_initdata struct pernet_operations ipv4_sysctl_ops = {
+ extern int proc_dostring(struct ctl_table *, int,
+ 			 void __user *, size_t *, loff_t *);
 -- 
 1.7.4.rc1.7.g2cf08.dirty
