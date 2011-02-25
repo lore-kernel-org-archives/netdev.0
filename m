@@ -1,46 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH ref0] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Fri, 25 Feb 2011 19:45:38 +0100
-Message-ID: <1298659538.2659.103.camel@edumazet-laptop>
-References: <AANLkTikXUyQy+fjFSwagB3Uud2JPodsR2yFtt+jiZPSk@mail.gmail.com>
-	 <AANLkTikmqQfT1s2Z6J+KYmqi0CuCc4+2k67eeb4ydtCM@mail.gmail.com>
-	 <1298631127.2659.22.camel@edumazet-laptop>
-	 <20110225.103456.226779149.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
+ modules
+Date: Fri, 25 Feb 2011 10:47:20 -0800 (PST)
+Message-ID: <20110225.104720.71110261.davem@davemloft.net>
+References: <1298565265.2613.16.camel@bwh-desktop>
+	<20110225123023.GA8776@albatros>
+	<20110225151414.GA5211@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ratbert.chuang@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bhutchings@solarflare.com,
-	joe@perches.com, dilinger@queued.net, mirqus@gmail.com,
-	ratbert@faraday-tech.com, Ajit Khaparde <ajit.khaparde@emulex.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
+	therbert@google.com, xiaosuo@gmail.com, jesse@nicira.com
+To: segoon@openwall.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110225.103456.226779149.davem@davemloft.net>
+In-Reply-To: <20110225151414.GA5211@albatros>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 10:34 -0800, David Miller a =C3=
-=A9crit :
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Fri, 25 Feb 2011 11:52:07 +0100
->=20
-> > Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 17:45 +0800, Po-Yu Chuang a=
- =C3=A9crit :
-> >=20
-> >> It's a little faster than v5 now. Thanks.
-> >> I will submit the current version later.
-> >>=20
-> >> One more question just curious, why 128 bytes?
-> >=20
-> > Probably its best for NIU hardware specs
-> >=20
-> > You could try 64, as it should be enough for most IP/TCP/UDP proces=
-sing.
->=20
-> IPV6.
+From: Vasiliy Kulikov <segoon@openwall.com>
+Date: Fri, 25 Feb 2011 18:14:14 +0300
 
-drivers/net/benet/be.h:70:#define BE_HDR_LEN            64
+> Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
+> CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
+> that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are limited
+> to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't allow
+> anybody load any module not related to networking.
 
-Maybe we should have a comment somewhere.
+Why go through this naming change, which does break things, instead of
+simply adding a capability mask tag or similar to modules somehow.  You
+could stick it into a special elf section or similar.
 
-CC Ajit Khaparde <ajit.khaparde@emulex.com>
+Doesn't that make tons more sense than this?
