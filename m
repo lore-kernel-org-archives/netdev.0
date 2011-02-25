@@ -1,99 +1,70 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving peer
- configuration - ieee
-Date: Thu, 24 Feb 2011 20:58:21 -0800
-Message-ID: <4D6736ED.2060003@intel.com>
-References: <1298581410.8877.21.camel@lb-tlvb-shmulik.il.broadcom.com> <4D66C186.7040409@intel.com> <A31CB8AA22AA1E44B81563BEDB2C187812203E0F8C@SJEXCHCCR01.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	Eilon Greenstein <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Shmulik Ravid - Rabinovitz <shmulikr@broadcom.com>
+From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Subject: [PATCH] sysctl: ipv6: use correct net in ipv6_sysctl_rtcache_flush
+Date: Fri, 25 Feb 2011 07:48:03 +0200
+Message-ID: <1298612883-18762-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+	Daniel Lezcano <dlezcano@fr.ibm.com>,
+	Benjamin Thery <benjamin.thery@bull.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:49646 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753033Ab1BYE6W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Feb 2011 23:58:22 -0500
-In-Reply-To: <A31CB8AA22AA1E44B81563BEDB2C187812203E0F8C@SJEXCHCCR01.corp.ad.broadcom.com>
+Received: from mail-ey0-f174.google.com ([209.85.215.174]:52991 "EHLO
+	mail-ey0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431Ab1BYFsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 00:48:25 -0500
+Received: by eyx24 with SMTP id 24so485397eyx.19
+        for <netdev@vger.kernel.org>; Thu, 24 Feb 2011 21:48:24 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2/24/2011 2:03 PM, Shmulik Ravid - Rabinovitz wrote:
->> -----Original Message-----
->> From: John Fastabend [mailto:john.r.fastabend@intel.com]
->> Sent: Thursday, February 24, 2011 10:37 PM
->> To: Shmulik Ravid - Rabinovitz
->> Cc: davem@davemloft.net; Eilon Greenstein; netdev@vger.kernel.org
->> Subject: Re: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
->> peer configuration - ieee
->>
->> On 2/24/2011 1:03 PM, Shmulik Ravid wrote:
->>> These 2 patches add the support for retrieving the remote or peer
->> DCBX
->>> configuration via dcbnl for embedded DCBX stacks. The peer
->> configuration
->>> is part of the DCBX MIB and is useful for debugging and diagnostics
->> of
->>> the overall DCB configuration. The first patch add this support for
->> IEEE
->>> 802.1Qaz standard the second patch add the same support for the older
->>> CEE standard.
->>>
->>> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
->>> ---
->>>  include/linux/dcbnl.h |   38 ++++++++++++++++++++++++++
->>>  include/net/dcbnl.h   |    5 +++
->>>  net/dcb/dcbnl.c       |   71
->> +++++++++++++++++++++++++++++++++++++++++++++++++
->>>  3 files changed, 114 insertions(+), 0 deletions(-)
->>>
->>> diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
->>> index 4c5b26e..3102185 100644
->>> --- a/include/linux/dcbnl.h
->>> +++ b/include/linux/dcbnl.h
->>> @@ -110,6 +110,22 @@ struct dcb_app {
->>>  	__u16	protocol;
->>>  };
->>>
->>> +/* This structure contains the APP feature information sent by the
->> peer.
->>> + * It is used for both the IEEE 802.1Qaz and the CEE flavors.
->>> + *
->>> + * @willing: willing bit in the peer APP tlv
->>> + * @error: error bit in the peer APP tlv
->>> + * @app_count: The number of objects in the peer APP table.
->>> + *
->>> + * In addition to this information the full peer APP tlv also
->> contains
->>> + * a table of 'app_count' APP objects defined above.
->>> + */
->>> +struct dcb_peer_app_info {
->>> +	__u8	willing;
->>> +	__u8	error;
->>> +	__u16	app_count;
->>> +};
->>> +
->>
->> The IEEE 802.1Qaz spec defines the APP TLV as informational
->> so there are no willing or error bits in this case. See
->> section D.2.12 of the 802.1Qaz draft.
->>
->> Can we drop these fields or do they have some other meaning
->> here?
->>
-> OK, They are part of the CEE APP tlv though. 
-> I wanted to share this structure between the 802.1Qaz and CEE so 
-> I'll have a single driver handler that retrieve the number of
-> peer apps. How about if we keep a single driver handler, but the
-> APP info will be exposed to the user only with the CEE flavor.
-> That is the PEER_APP attribute will be CEE specific ?
-> 
-> Shmulik 
-> 
+Before this patch issuing these commands:
 
-That seems fine to me. Either don't expose the struct as you
-suggested or zero the fields while in IEEE mode.
+  fd = open("/proc/sys/net/ipv6/route/flush")
+  unshare(CLONE_NEWNET)
+  write(fd, "stuff")
 
-John.
+would flush the newly created net, not the original one.
+
+The equivalent ipv4 code is correct (stores the net inside ->extra1).
+---
+ net/ipv6/route.c |   17 ++++++++++-------
+ 1 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f786aed..522563e 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2604,14 +2604,16 @@ static
+ int ipv6_sysctl_rtcache_flush(ctl_table *ctl, int write,
+ 			      void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+-	struct net *net = current->nsproxy->net_ns;
+-	int delay = net->ipv6.sysctl.flush_delay;
+-	if (write) {
+-		proc_dointvec(ctl, write, buffer, lenp, ppos);
+-		fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay, net);
+-		return 0;
+-	} else
++	struct net *net;
++	int delay;
++	if (!write)
+ 		return -EINVAL;
++
++	net = (struct net *)ctl->extra1;
++	delay = net->ipv6.sysctl.flush_delay;
++	proc_dointvec(ctl, write, buffer, lenp, ppos);
++	fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay, net);
++	return 0;
+ }
+ 
+ ctl_table ipv6_route_table_template[] = {
+@@ -2698,6 +2700,7 @@ struct ctl_table * __net_init ipv6_route_sysctl_init(struct net *net)
+ 
+ 	if (table) {
+ 		table[0].data = &net->ipv6.sysctl.flush_delay;
++		table[0].extra1 = net;
+ 		table[1].data = &net->ipv6.ip6_dst_ops.gc_thresh;
+ 		table[2].data = &net->ipv6.sysctl.ip6_rt_max_size;
+ 		table[3].data = &net->ipv6.sysctl.ip6_rt_gc_min_interval;
+-- 
+1.7.4.rc1.7.g2cf08.dirty
+
