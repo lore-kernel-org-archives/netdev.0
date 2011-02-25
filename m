@@ -1,34 +1,51 @@
-From: "Ian Davies" <iandavies198@gmail.com>
-Subject: Please i wait to hear from you urgently, it very important
-Date: Thu, 24 Feb 2011 11:39:35 -0800
-Message-ID: <20110224203447.E6F2B5E000F@mail.dumlupinar.edu.tr>
-Reply-To: <iandavies822@yahoo.no>
+From: Brian Haley <brian.haley@hp.com>
+Subject: Re: [Bugme-new] [Bug 29712] New: Bonding Driver(version : 3.5.0)
+ - Problem with ARP monitoring in active backup mode
+Date: Thu, 24 Feb 2011 22:42:29 -0500
+Message-ID: <4D672525.5080609@hp.com>
+References: <bug-29712-10286@https.bugzilla.kernel.org/> <20110224145129.f366b59e.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="Windows-1251"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: harsha.r02@mphasis.com, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
+	Jay Vosburgh <fubar@us.ibm.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dpusmtpgw.dpu.edu.tr ([194.27.43.31]:58937 "EHLO
-	dpusmtpgw.dumlupinar.edu.tr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754786Ab1BYDPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 22:15:14 -0500
+Received: from g1t0027.austin.hp.com ([15.216.28.34]:22315 "EHLO
+	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755927Ab1BYDmd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 22:42:33 -0500
+In-Reply-To: <20110224145129.f366b59e.akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am Ian Davies ;an accredited vendor of Alliot Groups, a subsidiary firm of Emirates International Holding (EIH); A private equity funds holding company that focuses on hedge funds.
+On 02/24/2011 05:51 PM, Andrew Morton wrote:
+> (switched to email.  Please respond via emailed reply-to-all, not via the
+> bugzilla web interface).
+> 
+> On Wed, 23 Feb 2011 10:41:34 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+> 
+>> https://bugzilla.kernel.org/show_bug.cgi?id=29712
+>>
+>>            Summary: Bonding Driver(version : 3.5.0) - Problem with ARP
+>>                     monitoring in active backup mode
+>>            Product: Drivers
+>>            Version: 2.5
+>>     Kernel Version: 2.6.32
+> 
+> That's a paleolithic kernel you have there.  This problem might have
+> been fixed already.  Can you test a more recent kernel?
 
-I have contacted you in the hope that you can be my associate by accepting to stand as the legal recipient to a Fixed-Income deposit, valued at 25MUSD by provind an International Offshore account to clear the funds.
+I can add some more info since I originally looked at the problem.  This
+happens on 2.6.38 as well, and on this 2.6.32 kernel with a backported
+3.7.0 bonding driver (with the primary_reselect option).  Harsha has a
+prototype patch that's being tested, but wanted to log the bug to see
+if one of the bonding maintainers had a better solution.
 
-Once I file your details as the new recipient to the funds, the fundswill be approved through the AUTOMATED CLEARING HOUSE (ACH) - A facility used by financial institutions to distribute electronic debit and credit entries to bank accounts and therefore settles such entries. Under the automated clearing house system. 
+I'll let him respond as I'm now out of the loop...
 
+Thanks,
 
-upon approval of your details  as the new recipient; a Credit advice will be issued in your favor and the funds will clear in your account within three banking days. I am willing to give you 40% which is 10MUSD as your commission out of the 25MUSD for your assistance in providing an International Offshore account to clear the funds.
-
-
-I am confident you will be honest enough to adhere to our agreed commissions in spite of the 25MUSD coming through your account. I will need you to forward me your legal names address and phone to file your details on the fund as the new recipient in this first Quater of the financial fiscal year 2011.
-
-Looking forward to working with you.
-Ian Davies
-Accredited vendor
-Alliot Groups PS
-
+-Brian
