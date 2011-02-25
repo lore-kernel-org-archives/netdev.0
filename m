@@ -1,39 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] skge: don't mark carrier down at start
-Date: Thu, 24 Feb 2011 22:17:18 -0800 (PST)
-Message-ID: <20110224.221718.71124618.davem@davemloft.net>
-References: <20110223162156.17ab2bc5.akpm@linux-foundation.org>
-	<20110223164449.2a5206b8@nehalam>
-	<20110223165243.8a536913.akpm@linux-foundation.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2011-02-22
+Date: Thu, 24 Feb 2011 22:43:44 -0800 (PST)
+Message-ID: <20110224.224344.104068328.davem@davemloft.net>
+References: <20110222215229.GJ12153@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@linux-foundation.org, netdev@vger.kernel.org,
-	bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, gbillios@gmail.com
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57646
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753945Ab1BYGQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 01:16:41 -0500
-In-Reply-To: <20110223165243.8a536913.akpm@linux-foundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110222215229.GJ12153-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Andrew Morton <akpm@linux-foundation.org>
-Date: Wed, 23 Feb 2011 16:52:43 -0800
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Tue, 22 Feb 2011 16:52:30 -0500
 
-> From: Stephen Hemminger <shemminger@linux-foundation.org>
+> Here is the latest batch of wireless bits intended for 2.6.39.  It seems
+> I neglected to send a pull request last week, so this one is a bit big
+> -- I apologize!
 > 
-> The API for network devices has changed so that setting carrier off at
-> probe is no longer required.  This should fix the IPv6 addrconf issue.
+> This includes a rather large batch of bluetooth bits by way of Gustavo.
+> It looks like a variety of bits, including some code refactoring, some
+> protocol support enhancements, some bugfixes, etc. -- nothing too
+> unusual.
 > 
-> Addresses https://bugzilla.kernel.org/show_bug.cgi?id=29612
+> Other items of interest include a new driver from Realtek, some ssb
+> support enhancements, and the usual sort of updates for mac80211 and a
+> variety of drivers.  Also included is a wireless-2.6 pull to resolve
+> some build breakage.
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
-> Reported-by: George Billios <gbillios@gmail.com>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> Please let me know if there are problems!
 
-Applied, thanks.
+Pulled, thanks a lot John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
