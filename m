@@ -1,84 +1,60 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] udp: avoid searching when no ports are available
-Date: Fri, 25 Feb 2011 13:06:15 +0100
-Message-ID: <1298635575.2659.65.camel@edumazet-laptop>
-References: <1298633711-11924-1-git-send-email-dbaluta@ixiacom.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: module loading with CAP_NET_ADMIN
+Date: Fri, 25 Feb 2011 15:30:23 +0300
+Message-ID: <20110225123023.GA8776@albatros>
+References: <20110224151238.GA16916@albatros>
+ <1298565265.2613.16.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Rohan Chitradurga <rohan@ixiacom.com>
-To: Daniel Baluta <dbaluta@ixiacom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:61457 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753158Ab1BYMGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 07:06:23 -0500
-Received: by bwz15 with SMTP id 15so1880080bwz.19
-        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 04:06:21 -0800 (PST)
-In-Reply-To: <1298633711-11924-1-git-send-email-dbaluta@ixiacom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Kees Cook <kees.cook@canonical.com>,
+	Eugene Teo <eugene@redhat.com>,
+	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1298565265.2613.16.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 13:35 +0200, Daniel Baluta a =C3=
-=A9crit :
-> udp_lib_get_port uses a bitmap to mark used ports.
->=20
-> When no ports are available we spend a lot of time, searching
-> for a port while holding hslot lock. Avoid this by checking if
-> bitmap is full.
->=20
->=20
-> Signed-off-by: Rohan Chitradurga <rohan@ixiacom.com>
-> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
-> ---
->  net/ipv4/udp.c |    6 ++++++
->  1 files changed, 6 insertions(+), 0 deletions(-)
->=20
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index d37baaa..3e3592d 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -225,6 +225,12 @@ int udp_lib_get_port(struct sock *sk, unsigned s=
-hort snum,
->  			udp_lib_lport_inuse(net, snum, hslot, bitmap, sk,
->  					    saddr_comp, udptable->log);
-> =20
-> +			/* avoid searching when no ports are available */
-> +			if (bitmap_full(bitmap, PORTS_PER_CHAIN)) {
-> +				spin_unlock_bh(&hslot->lock);
-> +				break;
-> +			}
-> +
->  			snum =3D first;
->  			/*
->  			 * Iterate on all possible values of snum for this hash.
+On Thu, Feb 24, 2011 at 16:34 +0000, Ben Hutchings wrote:
+> On Thu, 2011-02-24 at 18:12 +0300, Vasiliy Kulikov wrote:
+> > My proposal is changing request_module("%s", name) to something like
+> > request_module("netdev-%s", name) inside of dev_load() and adding
+> > aliases to related drivers.
+> 
+> AFAIK these interface-name aliases are usually defined by distribution
+> configuration files rather than within the modules themselves.  And that
+> behaviour is pretty much obsolete now that we have hotplug and udev.
+> 
+> > This would allow to load only netdev
+> > modules via these ioctls.  I'm not sure what modules should be patches -
+> > at least real physical netdevices have names different from drivers'
+> > names, so they don't need patching.  I suppose the list is not big.
+> 
+> The only modules I can see that declare aliases like this are:
+> 
+> net/ipv4/ip_gre.c:MODULE_ALIAS("gre0");
+> net/ipv4/ipip.c:MODULE_ALIAS("tunl0");
+> net/ipv6/sit.c:MODULE_ALIAS("sit0");
 
-Really ? I wonder how you got your performance numbers then.
+Thank you!  These are not handled via udev or anything, it is usefull to
+load it via "ifconfig sit0 up", so they do require patching.
 
-=46irst, PORTS_PER_CHAIN is wrong here, since its value is the max
-possible value (256 bits)
+I didn't find any modules requiring autoloading except these three.
+Good candidate should be "isatap0" as it is seen in ip help, but there
+is no such alias.
 
-#define UDP_HTABLE_SIZE_MIN              (CONFIG_BASE_SMALL ? 128 : 256=
-)
-#define MAX_UDP_PORTS 65536
-#define PORTS_PER_CHAIN (MAX_UDP_PORTS / UDP_HTABLE_SIZE_MIN)   -> 256
-
-As soon as your machine (and most current machines have) has enough
-memory, UDP hash table size is not 256, but 1024 or 2048
-
-dmesg | grep "UDP hash"
-[    1.735203] UDP hash table entries: 2048 (order: 6, 327680 bytes)
-
-So real bitmap size is 64 or 32 bits.
-
-Your call to bitmap_full() always return false.
+$ ip tunnel add help 2>&1 | grep mode
+          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]
 
 
-I dont like this patch. If you have special UDP needs on a small
-machine, just add to kernel boot param "uhash_entries=3D8192", so that =
-the
-bitmap has 8 bits only.
+I'll send the patch for request_module() and three drivers.
 
 
+Thanks,
 
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
