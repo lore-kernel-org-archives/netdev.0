@@ -1,69 +1,127 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
- modules
-Date: Fri, 25 Feb 2011 17:48:14 +0000
-Message-ID: <1298656094.2554.22.camel@bwh-desktop>
-References: <20110224151238.GA16916@albatros>
-	 <1298565265.2613.16.camel@bwh-desktop> <20110225123023.GA8776@albatros>
-	 <20110225151414.GA5211@albatros>  <135187.1298654740@localhost>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: RE: Occasional link flap on Intel 82599 on boot in XAUI mode
+Date: Fri, 25 Feb 2011 10:11:11 -0800
+Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01D30140EF@orsmsx509.amr.corp.intel.com>
+References: <201102251011.42400.bcook@breakingpoint.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Vasiliy Kulikov <segoon@openwall.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>,
-	Changli Gao <xiaosuo@gmail.com>, Jesse Gross <jesse@nicira.com>
-To: Valdis.Kletnieks@vt.edu
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <135187.1298654740@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Brent Cook <bcook@breakingpoint.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:28203 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756224Ab1BYSLN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 13:11:13 -0500
+In-Reply-To: <201102251011.42400.bcook@breakingpoint.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-02-25 at 12:25 -0500, Valdis.Kletnieks@vt.edu wrote:
-> On Fri, 25 Feb 2011 18:14:14 +0300, Vasiliy Kulikov said:
-> > Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
-> > CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
-> > that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are limited
-> > to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't allow
-> > anybody load any module not related to networking.
-> > 
-> > This patch restricts an ability of autoloading modules to netdev modules
-> > with explicit aliases.  Currently there are only three users of the
-> > feature: ipip, ip_gre and sit.
-> 
-> And you stop an attacker from simply recompiling the module with a suitable
-> MODULE_ALIAS line added, how, exactly?  This patch may make sense down the
-> road, but not while it's still trivial for a malicious root user to drop stuff
-> into /lib/modules.
+>-----Original Message-----
+>From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
+>On Behalf Of Brent Cook
+>Sent: Friday, February 25, 2011 8:12 AM
+>To: netdev@vger.kernel.org
+>Subject: Occasional link flap on Intel 82599 on boot in XAUI mode
+>
+>We have a custom system with dual 82599's in XAUI mode. One has its pair
+>of ports connected to a 10G switch, the other has its pair of ports
+>connected to an FPGA.
+>
+>Occasionally, on any of the interfaces, we will see the links flapping
+>up and down when the system initially boots. This happens maybe one in
+>20 boots.
+>
+>Feb 23 14:58:10 mfg kernel: [  594.254977] ixgbe: eth1 NIC Link is Down
+>Feb 23 14:58:12 mfg kernel: [  596.230039] ixgbe: eth1 NIC Link is Up 10
+>Gbps, Flow Control: RX/TX
+>Feb 23 14:58:12 mfg kernel: [  596.256537] ixgbe: eth1 NIC Link is Down
+>Feb 23 14:58:16 mfg kernel: [  600.228096] ixgbe: eth1 NIC Link is Up 10
+>Gbps, Flow Control: RX/TX
+>Feb 23 14:58:16 mfg kernel: [  600.240135] ixgbe: eth1 NIC Link is Down
+>Feb 23 14:58:18 mfg kernel: [  602.227047] ixgbe: eth1 NIC Link is Up 10
+>Gbps, Flow Control: RX/TX
+>
+>Simply forcing a down/up on the interface seems to correct the problem:
+>
+>ip link set eth1 down
+>ip link set eth1 up
+>
+>Is anyone else using XAUI mode and has seen this? Here is the kernel
+>information that we are using currently:
+>
+>Linux sprint.labnet.local 2.6.32.28-bps #1 SMP PREEMPT Mon Jan 31
+>16:05:50 CST 2011 x86_64 GNU/Linux
+>
+>Feb 23 14:48:24 mfg kernel: [    3.488664] Intel(R) PRO/1000 Network
+>Driver - version 7.3.21-k5-NAPI
+>Feb 23 14:48:24 mfg kernel: [    3.495082] Copyright (c) 1999-2006 Intel
+>Corporation.
+>Feb 23 14:48:24 mfg kernel: [    3.500238] e1000e: Intel(R) PRO/1000
+>Network Driver - 1.0.2-k2
+>Feb 23 14:48:24 mfg kernel: [    3.506138] e1000e: Copyright (c) 1999-
+>2008 Intel Corporation.
+>Feb 23 14:48:24 mfg kernel: [    3.511988] Intel(R) Gigabit Ethernet
+>Network Driver - version 1.3.16-k2
+>Feb 23 14:48:24 mfg kernel: [    3.518666] Copyright (c) 2007-2009 Intel
+>Corporation.
+>Feb 23 14:48:24 mfg kernel: [    3.523817] ixgbe: Intel(R) 10 Gigabit
+>PCI Express Network Driver - version 2.0.44-k2
+>Feb 23 14:48:24 mfg kernel: [    3.531622] ixgbe: Copyright (c) 1999-
+>2009 Intel Corporation.
+>Feb 23 14:48:24 mfg kernel: [    3.537365] ixgbe 0000:01:00.0: PCI INT A
+>-> GSI 24 (level, low) -> IRQ 24
+>Feb 23 14:48:24 mfg kernel: [    3.632934] ixgbe: 0000:01:00.0:
+>ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
+>Queue count = 8
+>Feb 23 14:48:24 mfg kernel: [    3.643769] ixgbe 0000:01:00.0: (PCI
+>Express:5.0Gb/s:Width x8) 00:12:34:56:78:67
+>Feb 23 14:48:24 mfg kernel: [    3.651221] ixgbe 0000:01:00.0: MAC: 2,
+>PHY: 0, PBA No: ffffff-0ff
+>Feb 23 14:48:24 mfg kernel: [    3.669390] ixgbe 0000:01:00.0: Intel(R)
+>10 Gigabit Network Connection
+>Feb 23 14:48:24 mfg kernel: [    3.675907] ixgbe 0000:01:00.1: PCI INT B
+>-> GSI 47 (level, low) -> IRQ 47
+>Feb 23 14:48:24 mfg kernel: [    3.771863] ixgbe: 0000:01:00.1:
+>ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
+>Queue count = 8
+>Feb 23 14:48:24 mfg kernel: [    3.782699] ixgbe 0000:01:00.1: (PCI
+>Express:5.0Gb/s:Width x8) 00:12:34:56:78:64
+>Feb 23 14:48:24 mfg kernel: [    3.790151] ixgbe 0000:01:00.1: MAC: 2,
+>PHY: 0, PBA No: ffffff-0ff
+>Feb 23 14:48:24 mfg kernel: [    3.808314] ixgbe 0000:01:00.1: Intel(R)
+>10 Gigabit Network Connection
+>Feb 23 14:48:24 mfg kernel: [    3.814831] ixgbe 0000:02:00.0: PCI INT A
+>-> GSI 35 (level, low) -> IRQ 35
+>Feb 23 14:48:24 mfg kernel: [    3.910802] ixgbe: 0000:02:00.0:
+>ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
+>Queue count = 8
+>Feb 23 14:48:24 mfg kernel: [    3.921636] ixgbe 0000:02:00.0: (PCI
+>Express:5.0Gb/s:Width x8) 00:12:34:56:78:52
+>Feb 23 14:48:24 mfg kernel: [    3.929087] ixgbe 0000:02:00.0: MAC: 2,
+>PHY: 0, PBA No: ffffff-0ff
+>Feb 23 14:48:24 mfg kernel: [    3.947246] ixgbe 0000:02:00.0: Intel(R)
+>10 Gigabit Network Connection
+>Feb 23 14:48:24 mfg kernel: [    3.953761] ixgbe 0000:02:00.1: PCI INT B
+>-> GSI 36 (level, low) -> IRQ 36
+>Feb 23 14:48:24 mfg kernel: [    4.049731] ixgbe: 0000:02:00.1:
+>ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
+>Queue count = 8
+>Feb 23 14:48:24 mfg kernel: [    4.060566] ixgbe 0000:02:00.1: (PCI
+>Express:5.0Gb/s:Width x8) 00:12:34:56:78:53
+>Feb 23 14:48:24 mfg kernel: [    4.068018] ixgbe 0000:02:00.1: MAC: 2,
+>PHY: 0, PBA No: ffffff-0ff
+>Feb 23 14:48:24 mfg kernel: [    4.086179] ixgbe 0000:02:00.1: Intel(R)
+>10 Gigabit Network Connection
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-A process running as root normally has CAP_NET_ADMIN, but not every
-process with CAP_NET_ADMIN will be running as root.
+By any chance have you tried it with a newer driver?  Latest Source Forge is 3.2.9.
 
-> And if you're going the route "but SELinux/SMACK/Tomoyo will prevent a malicious
-> root user from doing that", then the obvious reply is "this should be part of those
-> subsystems rather than something done one-off like this (especially as it has a chance
-> of breaking legitimate setups that use the current scheme).
+Also do you only see this link flap on boot, can you recreate the flap by unload and loading the ixgbe module?
 
-The notional attacker has CAP_NET_ADMIN, perhaps through a vulnerable
-service or a vulnerable set-capability executable.  They do not yet have
-full root access and so cannot install a module, even in the absence of
-an LSM.
-
-So long as the attacker is able to load arbitrary modules, however, they
-could exploit a vulnerability in any installed (not loaded) module.
-Again, LSMs are irrelevant to this as they do not protect against kernel
-bugs.
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks,
+-Don Skidmore <donald.c.skidmore@intel.com>
