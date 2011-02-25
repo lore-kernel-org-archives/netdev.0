@@ -1,69 +1,71 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
- modules
-Date: Fri, 25 Feb 2011 19:07:59 +0000
-Message-ID: <1298660879.2554.23.camel@bwh-desktop>
-References: <20110225151414.GA5211@albatros>
-	 <20110225.104720.71110261.davem@davemloft.net>
-	 <20110225190205.GA4541@albatros>
-	 <20110225.110529.39178636.davem@davemloft.net>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2011-02-22
+Date: Fri, 25 Feb 2011 11:15:00 -0800 (PST)
+Message-ID: <20110225.111500.59674472.davem@davemloft.net>
+References: <20110222215229.GJ12153@tuxdriver.com>
+	<20110224.224344.104068328.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: segoon@openwall.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
-	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
-	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110225.110529.39178636.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20110224.224344.104068328.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2011-02-25 at 11:05 -0800, David Miller wrote:
-> From: Vasiliy Kulikov <segoon@openwall.com>
-> Date: Fri, 25 Feb 2011 22:02:05 +0300
-> 
-> > On Fri, Feb 25, 2011 at 10:47 -0800, David Miller wrote:
-> >> From: Vasiliy Kulikov <segoon@openwall.com>
-> >> Date: Fri, 25 Feb 2011 18:14:14 +0300
-> >> 
-> >> > Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
-> >> > CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
-> >> > that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are limited
-> >> > to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't allow
-> >> > anybody load any module not related to networking.
-> >> 
-> >> Why go through this naming change, which does break things, instead of
-> >> simply adding a capability mask tag or similar to modules somehow.  You
-> >> could stick it into a special elf section or similar.
-> >>
-> >> Doesn't that make tons more sense than this?
-> > 
-> > This is not "simply", adding special section for a single workaround
-> > seems like an overkill for me - this touches the core (modules'
-> > internals), which is not related to the initial CAP_* problem at all.
-> > 
-> > I'd be happy with not breaking anything, but I don't see any acceptable
-> > solution.
-> 
-> I think it's warranted given that it allows us to avoid breaking things.
-> 
-> I don't understand there is resistence in response to the first idea
-> I've seen proprosed that actually allows to fix the problem and not
-> break anything at the same time.
-> 
-> That seems silly.
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Date: Thu, 24 Feb 2011 22:43:44 -0800 (PST)
 
-You realise that module loading doesn't actually run in the context of
-request_module(), right?
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Tue, 22 Feb 2011 16:52:30 -0500
+> 
+>> Here is the latest batch of wireless bits intended for 2.6.39.  It seems
+>> I neglected to send a pull request last week, so this one is a bit big
+>> -- I apologize!
+>> 
+>> This includes a rather large batch of bluetooth bits by way of Gustavo.
+>> It looks like a variety of bits, including some code refactoring, some
+>> protocol support enhancements, some bugfixes, etc. -- nothing too
+>> unusual.
+>> 
+>> Other items of interest include a new driver from Realtek, some ssb
+>> support enhancements, and the usual sort of updates for mac80211 and a
+>> variety of drivers.  Also included is a wireless-2.6 pull to resolve
+>> some build breakage.
+>> 
+>> Please let me know if there are problems!
+> 
+> Pulled, thanks a lot John.
 
-Ben.
+John a few things:
 
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1) I had to add some vmalloc.h includes to fix the build on sparc64,
+   see commit b08cd667c4b6641c4d16a3f87f4550f81a6d69ac in net-next-2.6
+
+2) Something is screwey with the bluetooth config options now.
+
+   I have an allmodconfig tree, and when I run "make oldconfig" after
+   this pull, BT_L2CAP and BT_SCO both prompt me, claiming that they
+   can only be built statically.
+
+   I give it 'y' just to make it happen, for both, and afterways no
+   matter how many times I rerun "make oldconfig" I keep seeing things
+   like this in my build:
+
+scripts/kconfig/conf --silentoldconfig Kconfig
+include/config/auto.conf:986:warning: symbol value 'm' invalid for BT_SCO
+include/config/auto.conf:3156:warning: symbol value 'm' invalid for BT_L2CAP
+
+   First, what the heck is going on here?  Second, why the heck can't these
+   non-trivial pieces of code be built modular any more?
+
+   You can't make something "bool", have it depend on something that
+   might be modular, and then build it into what could in fact be a
+   module.  That's exactly what the bluetooth stuff seems to be doing
+   now.
+
+   I suspect commit 642745184f82688eb3ef0cdfaa4ba632055be9af
+
+Thanks.
