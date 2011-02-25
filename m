@@ -1,65 +1,97 @@
 From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: RFC v1: sysctl: add sysctl header cookie, share tables between nets
-Date: Fri, 25 Feb 2011 20:52:32 +0200
-Message-ID: <1298659961-23863-1-git-send-email-lucian.grijincu@gmail.com>
+Subject: [PATCH 3/9] sysctl: add netns_proc_dointvec and similar handlers
+Date: Fri, 25 Feb 2011 20:52:35 +0200
+Message-ID: <1298659961-23863-4-git-send-email-lucian.grijincu@gmail.com>
+References: <1298659961-23863-1-git-send-email-lucian.grijincu@gmail.com>
+Cc: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
 To: "David S. Miller" <davem@davemloft.net>,
 	Alexey Dobriyan <adobriyan@gmail.com>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Octavian Purdila <tavi@cs.pub.ro>, netdev@vger.kernel.org,
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1298659961-23863-1-git-send-email-lucian.grijincu@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a new approach to the "share sysctl tables" RFC series I
-posted earlier this month.
+Signed-off-by: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+---
+ include/net/net_namespace.h |   26 ++++++++++++++++++++++++++
+ net/sysctl_net.c            |   31 +++++++++++++++++++++++++++++++
+ 2 files changed, 57 insertions(+), 0 deletions(-)
 
-In previous patches I proposed deriving 'struct net*' from the parent
-ctl_entry's ->extra1 field, but that has seen opposition due to mixing
-in information from the dentry cache/fs layers.
-
-In this version, the clt_table_header is extended to hold a cookie at
-creation time and pass it to the handlers. By default every
-ctl_table_header that is netns specific will store the 'struct net*'
-in the cookie.
-
-I could go on with the patch series and share other ctl_tables between
-network namespace in the same manner, but I stopped here to not waste
-time on a solution that you do not consider applying for reasons I
-don't see now.
-
-If you like this, I'll post a full patch series:
-* change proc_handler to accept a cookie
-* change all proc_handler functions in the kernel to accept a cookie
-* apply sysctl table sharing to other tables. Candidates would be:
-  nf_conntrack_acct_init_sysctl, nf_conntrack_standalone_init_sysctl,
-  unix_sysctl_register, but there may be others I'm not seeing now.
-
-This series is against Linus's 2.6.38-rc6 (plus a few other patches).
-
-
- fs/proc/proc_sysctl.c       |   11 +++++++-
- include/linux/sysctl.h      |    8 +++++-
- include/net/ipv6.h          |    6 +---
- include/net/net_namespace.h |   26 ++++++++++++++++++
- kernel/sysctl.c             |   12 +++++---
- net/core/sysctl_net_core.c  |   28 ++-----------------
- net/ipv4/ip_fragment.c      |   34 ++++-------------------
- net/ipv4/route.c            |   36 +++++--------------------
- net/ipv4/sysctl_net_ipv4.c  |   53 ++++++-------------------------------
- net/ipv6/icmp.c             |   17 +----------
- net/ipv6/reassembly.c       |   34 ++++-------------------
- net/ipv6/route.c            |   54 ++++++++++---------------------------
- net/ipv6/sysctl_net_ipv6.c  |   61 +++++-------------------------------------
- net/sysctl_net.c            |   37 ++++++++++++++++++++++++--
- 14 files changed, 143 insertions(+), 274 deletions(-)
-
-
- * [PATCH 1/9] sysctl: add ctl_header_cookie
- * [PATCH 2/9] sysctl: use ctl_header_cookie in proc_handler
- * [PATCH 3/9] sysctl: add netns_proc_dointvec and similar handlers
- * [PATCH 4/9] sysctl: ipv4: ipfrag: share ip4_frags_ns_ctl_table between nets
- * [PATCH 5/9] sysctl: net: share netns_core_table between nets
- * [PATCH 6/9] sysctl: route: share ipv4_route_flush_table between nets
- * [PATCH 7/9] sysctl: ipv4: share ipv4_net_table between nets
- * [PATCH 8/9] sysctl: ipv6: share ip6_frags_ns_ctl_table between nets
- * [PATCH 9/9] sysctl: ipv6: share ip6_ctl_table, ipv6_icmp_table and ipv6_route_table between nets
+diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
+index 1bf812b..0b7d37d 100644
+--- a/include/net/net_namespace.h
++++ b/include/net/net_namespace.h
+@@ -276,4 +276,30 @@ extern struct ctl_table_header *register_net_sysctl_rotable(
+ 	const struct ctl_path *path, struct ctl_table *table);
+ extern void unregister_net_sysctl_table(struct ctl_table_header *header);
+ 
++/* similar to the versions without 'netns', with these remarks:
++ * - these handlers receive as cookie a 'struct net*'
++ * - the data field of ctl_table* must be of the form
++ *    &init_net.member1.member2..memberN
++ * - these handlers will call their equivalent handler with a
++ *   ctl_table with data of the form: net->member1.member2..memberN
++ */
++extern int netns_proc_dostring(struct ctl_table *,
++		int, void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_dointvec(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_dointvec_minmax(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_dointvec_jiffies(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_dointvec_userhz_jiffies(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_dointvec_ms_jiffies(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_doulongvec_minmax(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int,
++		void __user *, size_t *, loff_t *, void *net);
++extern int netns_proc_do_large_bitmap(struct ctl_table *, int,
++		void __user *, size_t *, loff_t *, void *net);
++
+ #endif /* __NET_NET_NAMESPACE_H */
+diff --git a/net/sysctl_net.c b/net/sysctl_net.c
+index 9dadd17..60b36ad 100644
+--- a/net/sysctl_net.c
++++ b/net/sysctl_net.c
+@@ -127,3 +127,34 @@ void unregister_net_sysctl_table(struct ctl_table_header *header)
+ 	unregister_sysctl_table(header);
+ }
+ EXPORT_SYMBOL_GPL(unregister_net_sysctl_table);
++
++
++
++static int netns_proc_wrapper(struct ctl_table *table, int write,
++			      void __user *buffer, size_t *lenp,
++			      loff_t *ppos, void *net, proc_handler proc_handler)
++{
++	struct ctl_table tmp = *table;
++	tmp.data += (char *)net - (char *)&init_net;
++	return ((proc_handler_cookie*) proc_handler)(&tmp, write, buffer, lenp, ppos, NULL);
++}
++
++
++#define NETNS_PROC_WRAP(handler_name)					\
++	int netns_##handler_name(struct ctl_table *table, int write,	\
++				 void __user *buffer, size_t *lenp,	\
++				 loff_t *ppos, void *net)		\
++	{								\
++		return netns_proc_wrapper(table, write, buffer, lenp,	\
++					  ppos, net, handler_name);	\
++	}								\
++	EXPORT_SYMBOL_GPL(netns_##handler_name);
++
++NETNS_PROC_WRAP(proc_dointvec);
++NETNS_PROC_WRAP(proc_dointvec_minmax);
++NETNS_PROC_WRAP(proc_dointvec_jiffies);
++NETNS_PROC_WRAP(proc_dointvec_userhz_jiffies);
++NETNS_PROC_WRAP(proc_dointvec_ms_jiffies);
++NETNS_PROC_WRAP(proc_doulongvec_minmax)
++NETNS_PROC_WRAP(proc_doulongvec_ms_jiffies_minmax);
++NETNS_PROC_WRAP(proc_do_large_bitmap);
+-- 
+1.7.4.rc1.7.g2cf08.dirty
