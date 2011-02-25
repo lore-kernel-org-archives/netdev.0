@@ -1,73 +1,55 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: [PATCH net-2.6] bonding: drop frames received with master's source MAC
-Date: Fri, 25 Feb 2011 16:13:28 -0500
-Message-ID: <1298668408-14849-1-git-send-email-andy@greyhouse.net>
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jpirko@redhat.com>
-To: netdev@vger.kernel.org
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: Re: [RFC] be2net: add rxhash support
+Date: Fri, 25 Feb 2011 15:35:42 -0600
+Message-ID: <20110225213542.GA11773@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26101 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753076Ab1BYVN2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Feb 2011 16:13:28 -0500
+Received: from exht1.emulex.com ([138.239.113.183]:19307 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754597Ab1BYVgH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 16:36:07 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I was looking at my system and wondering why I sometimes saw these
-DAD messages in my logs:
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: Friday, February 25, 2011 1:45 PM
+> To: Khaparde, Ajit
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [RFC] be2net: add rxhash support
+>=20
+> Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 13:36 -0600, Ajit Khaparde a =
+=C3=A9crit :
+> > > -----Original Message-----
+> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> > >
+> > > How is it possible ?
+> > >
+> > > (I have a VLAN config on top of a bonding)
+> > >
+> > I'm looking at this..
+> > There is no switch involved in your test, just back to back?
+> >
+>=20
+> There is a switch.
+>=20
+> Machines are HP ProLiant BL460c G7
+>=20
+> But why do you ask ?
+>=20
 
-bond0: IPv6 duplicate address fe80::21b:21ff:fe38:2ec4 detected!
+I asked that because, if a switch is part a of the configuration,
+the ASIC can receive packets other than the tcp flow.
 
-I traced it back and realized the IPv6 Neighbor Solicitations I was
-sending were also coming back into the stack on the slave(s) that did
-not transmit the frames.  I could not think of a compelling reason to
-notify the user that a NS we sent came back, so I set out to just drop
-the frame silently in ndisc_recv_ns drop.
+And if hashing is enabled for IP packets, we can see this behavior.
+The other values indicate that hashing has been enabled for IPv4 packet=
+s.
 
-That seemed to work well, but when I thought about it I could not
-compelling reason to save any of these frames.  Dropping them as soon as
-we get them seems like a much better idea as it fixes other issues that
-may exist for more than just IPv6 DAD.
-
-I chose to check the incoming frame against the master's MAC address as
-that should be the MAC address used anytime a broadcast frame is sent by
-the bonding driver that had the chance to make its way back into one of
-the other devices.
-
-Signed-off-by: Andy Gospodarek <andy@greyhouse.net>
-Cc: David Miller <davem@davemloft.net>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Jiri Pirko <jpirko@redhat.com>
-
----
-
-I realize this patch comes right in the middle of Jiri Pirko's attempts
-to move this functionality to the bonding driver, but I think this may
-be important enough to include now (possibly in 2.6.38 and to -stable)
-if others agree.
-
----
- net/core/dev.c |    5 +++++
- 1 files changed, 5 insertions(+), 0 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 8ae6631..4a76ccd 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2971,6 +2971,11 @@ static inline void skb_bond_set_mac_by_master(struct sk_buff *skb,
- int __skb_bond_should_drop(struct sk_buff *skb, struct net_device *master)
- {
- 	struct net_device *dev = skb->dev;
-+	struct ethhdr *eth = eth_hdr(skb);
-+
-+	/* Drop all frames with the bond master's source address. */
-+	if (unlikely(!compare_ether_addr(eth->h_source, master->dev_addr)))
-+		return 1;
- 
- 	if (master->priv_flags & IFF_MASTER_ARPMON)
- 		dev->last_rx = jiffies;
--- 
-1.7.4
-
+Thanks
+-Ajit
