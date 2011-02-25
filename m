@@ -1,55 +1,30 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: Re: [RFC] be2net: add rxhash support
-Date: Fri, 25 Feb 2011 15:35:42 -0600
-Message-ID: <20110225213542.GA11773@akhaparde-VBox>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/7] net: handle addr_type of 0 properly
+Date: Fri, 25 Feb 2011 13:59:06 -0800 (PST)
+Message-ID: <20110225.135906.245410645.davem@davemloft.net>
+References: <1298648721-3026-1-git-send-email-hagen@jauu.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fw@strlen.de
+To: hagen@jauu.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exht1.emulex.com ([138.239.113.183]:19307 "EHLO
-	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1754597Ab1BYVgH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 16:36:07 -0500
-Content-Disposition: inline
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46768
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754912Ab1BYV63 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 16:58:29 -0500
+In-Reply-To: <1298648721-3026-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> Sent: Friday, February 25, 2011 1:45 PM
-> To: Khaparde, Ajit
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [RFC] be2net: add rxhash support
->=20
-> Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 13:36 -0600, Ajit Khaparde a =
-=C3=A9crit :
-> > > -----Original Message-----
-> > > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
-> > >
-> > > How is it possible ?
-> > >
-> > > (I have a VLAN config on top of a bonding)
-> > >
-> > I'm looking at this..
-> > There is no switch involved in your test, just back to back?
-> >
->=20
-> There is a switch.
->=20
-> Machines are HP ProLiant BL460c G7
->=20
-> But why do you ask ?
->=20
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Date: Fri, 25 Feb 2011 16:45:15 +0100
 
-I asked that because, if a switch is part a of the configuration,
-the ASIC can receive packets other than the tcp flow.
+> addr_type of 0 means that the type should be adopted from from_dev and
+> not from __hw_addr_del_multiple(). Unfortunately it isn't so and
+> addr_type will always be considered. Fix this by implementing the
+> considered and documented behavior.
+> 
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 
-And if hashing is enabled for IP packets, we can see this behavior.
-The other values indicate that hashing has been enabled for IPv4 packet=
-s.
-
-Thanks
--Ajit
+Applied to net-2.6, thanks.
