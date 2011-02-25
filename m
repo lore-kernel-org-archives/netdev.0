@@ -1,52 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
- modules
-Date: Fri, 25 Feb 2011 11:43:51 -0800 (PST)
-Message-ID: <20110225.114351.28809001.davem@davemloft.net>
-References: <1298660879.2554.23.camel@bwh-desktop>
-	<20110225.111606.115927805.davem@davemloft.net>
-	<1298662216.2554.33.camel@bwh-desktop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] be2net: add rxhash support
+Date: Fri, 25 Feb 2011 20:45:08 +0100
+Message-ID: <1298663108.2659.114.camel@edumazet-laptop>
+References: <20110225193640.GA11411@akhaparde-VBox>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: segoon@openwall.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
-	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
-	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org
-To: bhutchings@solarflare.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1298662216.2554.33.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ajit Khaparde <ajit.khaparde@emulex.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:56014 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932769Ab1BYTpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 14:45:15 -0500
+Received: by bwz15 with SMTP id 15so2245971bwz.19
+        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 11:45:13 -0800 (PST)
+In-Reply-To: <20110225193640.GA11411@akhaparde-VBox>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Fri, 25 Feb 2011 19:30:16 +0000
+Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 13:36 -0600, Ajit Khaparde a =C3=
+=A9crit :
+> > -----Original Message-----
+> > From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> >=20
+> > How is it possible ?
+> >=20
+> > (I have a VLAN config on top of a bonding)
+> >=20
+> I'm looking at this..
+> There is no switch involved in your test, just back to back?
+>=20
 
-> On Fri, 2011-02-25 at 11:16 -0800, David Miller wrote:
->> From: Ben Hutchings <bhutchings@solarflare.com>
->> Date: Fri, 25 Feb 2011 19:07:59 +0000
->> 
->> > You realise that module loading doesn't actually run in the context of
->> > request_module(), right?
->> 
->> Why is that a barrier?  We could simply pass a capability mask into
->> request_module if necessary.
->> 
->> It's an implementation detail, and not a deterrant to my suggested
->> scheme.
-> 
-> It's not an implementation detail.  modprobe currently runs with full
-> capabilities; your proposal requires its capabilities to be limited to
-> those of the capabilities of the process that triggered the
-> request_module() (plus, presumably, CAP_SYS_MODULE).
+There is a switch.
 
-The idea was that the kernel will be the entity that will inspect the
-elf sections and validate the capability bits, not the userspace
-module loader.
+Machines are HP ProLiant BL460c G7
 
-Surely we if we can pass an arbitrary string out to the loading
-process as part of the module loading context, we can pass along
-capability bits as well.
+But why do you ask ?
+
+
