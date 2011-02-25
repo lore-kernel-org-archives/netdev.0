@@ -1,38 +1,27 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH v4 1/2] iproute2: support listing devices by group
-Date: Fri, 25 Feb 2011 12:43:45 -0800
-Message-ID: <20110225124345.0d691789@nehalam>
-References: <1296671021-24421-1-git-send-email-ddvlad@rosedu.org>
-	<1296671021-24421-2-git-send-email-ddvlad@rosedu.org>
+From: Stephen Hemminger <shemminger@linux-foundation.org>
+Subject: Re: [iproute2 PATCH 3/3]: xfrm security context support
+Date: Fri, 25 Feb 2011 12:46:24 -0800
+Message-ID: <20110225124624.4bc1eb5a@nehalam>
+References: <201102022332.p12NWxXP029398@faith.austin.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>
-To: Vlad Dogaru <ddvlad@rosedu.org>
+Cc: netdev@vger.kernel.org
+To: Joy Latten <jml@austin.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:54499 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755925Ab1BYUnr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Feb 2011 15:43:47 -0500
-In-Reply-To: <1296671021-24421-2-git-send-email-ddvlad@rosedu.org>
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:41798 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932578Ab1BYUqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 15:46:36 -0500
+In-Reply-To: <201102022332.p12NWxXP029398@faith.austin.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed,  2 Feb 2011 20:23:40 +0200
-Vlad Dogaru <ddvlad@rosedu.org> wrote:
+On Wed, 02 Feb 2011 17:32:59 -0600
+Joy Latten <jml@austin.ibm.com> wrote:
 
-> User can specify device group to list by using the group keyword:
+> Adds security context support to ip xfrm state.
 > 
-> 	ip link show group test
-> 
-> If no group is specified, 0 (default) is implied.
-> 
-> Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
+> Signed-off-by: Joy Latten <latten@austin.ibm.com>
 
-I applied this to net-next for iproute2
-but INIT_NETDEV_GROUP is in a part of netdevice.h that is not exported 
-(ie inside #ifdef KERNEL).
-
-
-
--- 
+All three applied to iproute2 net-next
