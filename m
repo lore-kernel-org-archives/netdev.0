@@ -1,40 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sysctl: ipv6: use correct net in
- ipv6_sysctl_rtcache_flush
-Date: Fri, 25 Feb 2011 11:02:25 -0800 (PST)
-Message-ID: <20110225.110225.183034283.davem@davemloft.net>
-References: <1298612883-18762-1-git-send-email-lucian.grijincu@gmail.com>
-	<4D67CB11.4020801@free.fr>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
+ modules
+Date: Fri, 25 Feb 2011 22:02:05 +0300
+Message-ID: <20110225190205.GA4541@albatros>
+References: <1298565265.2613.16.camel@bwh-desktop>
+ <20110225123023.GA8776@albatros>
+ <20110225151414.GA5211@albatros>
+ <20110225.104720.71110261.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lucian.grijincu@gmail.com, netdev@vger.kernel.org,
-	benjamin.thery@bull.net
-To: daniel.lezcano@free.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:59414
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751325Ab1BYTBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 14:01:48 -0500
-In-Reply-To: <4D67CB11.4020801@free.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
+	therbert@google.com, xiaosuo@gmail.com, jesse@nicira.com,
+	Kees Cook <kees.cook@canonical.com>,
+	Eugene Teo <eugene@redhat.com>,
+	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110225.104720.71110261.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Date: Fri, 25 Feb 2011 16:30:25 +0100
-
-> On 02/25/2011 06:48 AM, Lucian Adrian Grijincu wrote:
->> Before this patch issuing these commands:
->>
->>    fd = open("/proc/sys/net/ipv6/route/flush")
->>    unshare(CLONE_NEWNET)
->>    write(fd, "stuff")
->>
->> would flush the newly created net, not the original one.
->>
->> The equivalent ipv4 code is correct (stores the net inside ->extra1).
->> ---
+On Fri, Feb 25, 2011 at 10:47 -0800, David Miller wrote:
+> From: Vasiliy Kulikov <segoon@openwall.com>
+> Date: Fri, 25 Feb 2011 18:14:14 +0300
 > 
-> Acked-by: Daniel Lezcano <daniel.lezcano@free.fr>
+> > Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
+> > CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
+> > that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are limited
+> > to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't allow
+> > anybody load any module not related to networking.
+> 
+> Why go through this naming change, which does break things, instead of
+> simply adding a capability mask tag or similar to modules somehow.  You
+> could stick it into a special elf section or similar.
+>
+> Doesn't that make tons more sense than this?
 
-Applied, thanks.
+This is not "simply", adding special section for a single workaround
+seems like an overkill for me - this touches the core (modules'
+internals), which is not related to the initial CAP_* problem at all.
+
+I'd be happy with not breaking anything, but I don't see any acceptable
+solution.
+
+
+Thanks,
+
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
