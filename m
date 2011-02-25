@@ -1,64 +1,111 @@
-From: Brent Cook <bcook@breakingpoint.com>
-Subject: Occasional link flap on Intel 82599 on boot in XAUI mode
-Date: Fri, 25 Feb 2011 10:11:42 -0600
-Message-ID: <201102251011.42400.bcook@breakingpoint.com>
+From: Daniel Baluta <dbaluta@ixiacom.com>
+Subject: Re: [PATCH] udp: avoid searching when no ports are available
+Date: Fri, 25 Feb 2011 18:45:00 +0200
+Message-ID: <AANLkTimodVFC8969md-f7iebS_9WvVahV9fPFFLtup73@mail.gmail.com>
+References: <1298633711-11924-1-git-send-email-dbaluta@ixiacom.com>
+	<1298635575.2659.65.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Rohan Chitradurga <rohan@ixiacom.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.breakingpoint.com ([65.36.7.12]:41925 "EHLO
-	EXCHANGE.securitytestsystems.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932475Ab1BYQL7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 11:11:59 -0500
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:38948 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932511Ab1BYQpD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 11:45:03 -0500
+Received: by wwb22 with SMTP id 22so562460wwb.1
+        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 08:45:02 -0800 (PST)
+In-Reply-To: <1298635575.2659.65.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have a custom system with dual 82599's in XAUI mode. One has its pair of ports connected to a 10G switch, the other has its pair of ports connected to an FPGA.
+On Fri, Feb 25, 2011 at 2:06 PM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le vendredi 25 f=E9vrier 2011 =E0 13:35 +0200, Daniel Baluta a =E9cri=
+t :
+>> udp_lib_get_port uses a bitmap to mark used ports.
+>>
+>> When no ports are available we spend a lot of time, searching
+>> for a port while holding hslot lock. Avoid this by checking if
+>> bitmap is full.
+>>
+>>
+>> Signed-off-by: Rohan Chitradurga <rohan@ixiacom.com>
+>> Signed-off-by: Daniel Baluta <dbaluta@ixiacom.com>
+>> ---
+>> =A0net/ipv4/udp.c | =A0 =A06 ++++++
+>> =A01 files changed, 6 insertions(+), 0 deletions(-)
+>>
+>> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+>> index d37baaa..3e3592d 100644
+>> --- a/net/ipv4/udp.c
+>> +++ b/net/ipv4/udp.c
+>> @@ -225,6 +225,12 @@ int udp_lib_get_port(struct sock *sk, unsigned =
+short snum,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 udp_lib_lport_inuse(net,=
+ snum, hslot, bitmap, sk,
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =
+=A0 =A0 =A0 =A0 saddr_comp, udptable->log);
+>>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /* avoid searching when no=
+ ports are available */
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 if (bitmap_full(bitmap, PO=
+RTS_PER_CHAIN)) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 spin_unloc=
+k_bh(&hslot->lock);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 break;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 }
+>> +
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 snum =3D first;
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 /*
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0* Iterate on all poss=
+ible values of snum for this hash.
+>
+> Really ? I wonder how you got your performance numbers then.
+>
+> First, PORTS_PER_CHAIN is wrong here, since its value is the max
+> possible value (256 bits)
 
-Occasionally, on any of the interfaces, we will see the links flapping up and down when the system initially boots. This happens maybe one in 20 boots.
+You are right. I have been working/testing on 2.6.32 where:
 
-Feb 23 14:58:10 mfg kernel: [  594.254977] ixgbe: eth1 NIC Link is Down
-Feb 23 14:58:12 mfg kernel: [  596.230039] ixgbe: eth1 NIC Link is Up 10 Gbps, Flow Control: RX/TX
-Feb 23 14:58:12 mfg kernel: [  596.256537] ixgbe: eth1 NIC Link is Down
-Feb 23 14:58:16 mfg kernel: [  600.228096] ixgbe: eth1 NIC Link is Up 10 Gbps, Flow Control: RX/TX
-Feb 23 14:58:16 mfg kernel: [  600.240135] ixgbe: eth1 NIC Link is Down
-Feb 23 14:58:18 mfg kernel: [  602.227047] ixgbe: eth1 NIC Link is Up 10 Gbps, Flow Control: RX/TX
+#define PORTS_PER_CHAIN (65536 / UDP_HTABLE_SIZE)
 
-Simply forcing a down/up on the interface seems to correct the problem:
+and I thought that the latest kernel has the same meaning
+for PORTS_PER_CHAIN.
 
-ip link set eth1 down
-ip link set eth1 up
+>
+> #define UDP_HTABLE_SIZE_MIN =A0 =A0 =A0 =A0 =A0 =A0 =A0(CONFIG_BASE_S=
+MALL ? 128 : 256)
+> #define MAX_UDP_PORTS 65536
+> #define PORTS_PER_CHAIN (MAX_UDP_PORTS / UDP_HTABLE_SIZE_MIN) =A0 -> =
+256
+>
+> As soon as your machine (and most current machines have) has enough
+> memory, UDP hash table size is not 256, but 1024 or 2048
+>
+> dmesg | grep "UDP hash"
+> [ =A0 =A01.735203] UDP hash table entries: 2048 (order: 6, 327680 byt=
+es)
+>
+> So real bitmap size is 64 or 32 bits.
+>
+> Your call to bitmap_full() always return false.
 
-Is anyone else using XAUI mode and has seen this? Here is the kernel information that we are using currently:
+I guess now, the correct bitmap size is MAX_UDP_PORTS / (udptable->mask=
+ + 1)
+or  MAX_UDP_PORTS >> udptable->log,  right?
 
-Linux sprint.labnet.local 2.6.32.28-bps #1 SMP PREEMPT Mon Jan 31 16:05:50 CST 2011 x86_64 GNU/Linux
+> I dont like this patch. If you have special UDP needs on a small
+> machine, just add to kernel boot param "uhash_entries=3D8192", so tha=
+t the
+> bitmap has 8 bits only.
 
-Feb 23 14:48:24 mfg kernel: [    3.488664] Intel(R) PRO/1000 Network Driver - version 7.3.21-k5-NAPI
-Feb 23 14:48:24 mfg kernel: [    3.495082] Copyright (c) 1999-2006 Intel Corporation.
-Feb 23 14:48:24 mfg kernel: [    3.500238] e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k2
-Feb 23 14:48:24 mfg kernel: [    3.506138] e1000e: Copyright (c) 1999-2008 Intel Corporation.
-Feb 23 14:48:24 mfg kernel: [    3.511988] Intel(R) Gigabit Ethernet Network Driver - version 1.3.16-k2
-Feb 23 14:48:24 mfg kernel: [    3.518666] Copyright (c) 2007-2009 Intel Corporation.
-Feb 23 14:48:24 mfg kernel: [    3.523817] ixgbe: Intel(R) 10 Gigabit PCI Express Network Driver - version 2.0.44-k2
-Feb 23 14:48:24 mfg kernel: [    3.531622] ixgbe: Copyright (c) 1999-2009 Intel Corporation.
-Feb 23 14:48:24 mfg kernel: [    3.537365] ixgbe 0000:01:00.0: PCI INT A -> GSI 24 (level, low) -> IRQ 24
-Feb 23 14:48:24 mfg kernel: [    3.632934] ixgbe: 0000:01:00.0: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
-Feb 23 14:48:24 mfg kernel: [    3.643769] ixgbe 0000:01:00.0: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:67
-Feb 23 14:48:24 mfg kernel: [    3.651221] ixgbe 0000:01:00.0: MAC: 2, PHY: 0, PBA No: ffffff-0ff
-Feb 23 14:48:24 mfg kernel: [    3.669390] ixgbe 0000:01:00.0: Intel(R) 10 Gigabit Network Connection
-Feb 23 14:48:24 mfg kernel: [    3.675907] ixgbe 0000:01:00.1: PCI INT B -> GSI 47 (level, low) -> IRQ 47
-Feb 23 14:48:24 mfg kernel: [    3.771863] ixgbe: 0000:01:00.1: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
-Feb 23 14:48:24 mfg kernel: [    3.782699] ixgbe 0000:01:00.1: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:64
-Feb 23 14:48:24 mfg kernel: [    3.790151] ixgbe 0000:01:00.1: MAC: 2, PHY: 0, PBA No: ffffff-0ff
-Feb 23 14:48:24 mfg kernel: [    3.808314] ixgbe 0000:01:00.1: Intel(R) 10 Gigabit Network Connection
-Feb 23 14:48:24 mfg kernel: [    3.814831] ixgbe 0000:02:00.0: PCI INT A -> GSI 35 (level, low) -> IRQ 35
-Feb 23 14:48:24 mfg kernel: [    3.910802] ixgbe: 0000:02:00.0: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
-Feb 23 14:48:24 mfg kernel: [    3.921636] ixgbe 0000:02:00.0: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:52
-Feb 23 14:48:24 mfg kernel: [    3.929087] ixgbe 0000:02:00.0: MAC: 2, PHY: 0, PBA No: ffffff-0ff
-Feb 23 14:48:24 mfg kernel: [    3.947246] ixgbe 0000:02:00.0: Intel(R) 10 Gigabit Network Connection
-Feb 23 14:48:24 mfg kernel: [    3.953761] ixgbe 0000:02:00.1: PCI INT B -> GSI 36 (level, low) -> IRQ 36
-Feb 23 14:48:24 mfg kernel: [    4.049731] ixgbe: 0000:02:00.1: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
-Feb 23 14:48:24 mfg kernel: [    4.060566] ixgbe 0000:02:00.1: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:53
-Feb 23 14:48:24 mfg kernel: [    4.068018] ixgbe 0000:02:00.1: MAC: 2, PHY: 0, PBA No: ffffff-0ff
-Feb 23 14:48:24 mfg kernel: [    4.086179] ixgbe 0000:02:00.1: Intel(R) 10 Gigabit Network Connection
+We don't have special needs on a small machine. We just want that when
+when all UDP ports are exhausted, bind calls to fail faster.
+
+I will be back with tests on latest kernel.
+
+thanks,
+Daniel.
