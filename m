@@ -1,206 +1,210 @@
 From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 6/6] Phonet: fix flawed "SYN/ACK" logic
-Date: Fri, 25 Feb 2011 11:15:01 +0200
-Message-ID: <1298625301-13909-6-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 5/6] Phonet: don't bother with transaction IDs (especially for indications)
+Date: Fri, 25 Feb 2011 11:15:00 +0200
+Message-ID: <1298625301-13909-5-git-send-email-remi.denis-courmont@nokia.com>
 References: <201102251113.41620.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.128.24]:30709 "EHLO mgw-da01.nokia.com"
+Received: from smtp.nokia.com ([147.243.128.24]:30678 "EHLO mgw-da01.nokia.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932382Ab1BYJOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Feb 2011 04:14:30 -0500
+	id S932191Ab1BYJO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Feb 2011 04:14:28 -0500
 Received: from leon.remlab.com (helruo-dhcp021243.ntc.nokia.com [172.21.21.243])
-	by mgw-da01.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p1P9EHG5005431
-	for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 11:14:28 +0200
+	by mgw-da01.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p1P9EHG4005431
+	for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 11:14:26 +0200
 In-Reply-To: <201102251113.41620.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- * Do not fail if the peer supports more or less than 3 algorithms.
- * Ignore unknown congestion control algorithms instead of failing.
- * Simplify congestion algorithm negotiation (largest is best).
- * Do not use a static buffer.
- * Fix off-by-two read overflow.
- * Avoid extra memory copy (in addition to skb_copy_bits()).
-
-The previous code really made no sense.
-
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- include/net/phonet/pep.h |    1 +
- net/phonet/pep.c         |  125 +++++++++++++++++---------------------=
+ include/net/phonet/pep.h |   11 ----------
+ net/phonet/pep.c         |   49 +++++++++++++-------------------------=
 -------
- 2 files changed, 48 insertions(+), 78 deletions(-)
+ 2 files changed, 14 insertions(+), 46 deletions(-)
 
 diff --git a/include/net/phonet/pep.h b/include/net/phonet/pep.h
-index 37f23dc..38eed1b 100644
+index 4c48ed8..37f23dc 100644
 --- a/include/net/phonet/pep.h
 +++ b/include/net/phonet/pep.h
-@@ -154,6 +154,7 @@ enum {
- 	PN_LEGACY_FLOW_CONTROL,
- 	PN_ONE_CREDIT_FLOW_CONTROL,
- 	PN_MULTI_CREDIT_FLOW_CONTROL,
-+	PN_MAX_FLOW_CONTROL,
+@@ -165,15 +165,4 @@ enum {
+ 	PEP_IND_READY,
  };
 =20
- #define pn_flow_safe(fc) ((fc) >> 1)
+-#ifdef CONFIG_PHONET_PIPECTRLR
+-#define PNS_PEP_CONNECT_UTID           0x02
+-#define PNS_PIPE_CREATED_IND_UTID      0x04
+-#define PNS_PIPE_ENABLE_UTID           0x0A
+-#define PNS_PIPE_ENABLED_IND_UTID      0x0C
+-#define PNS_PIPE_DISABLE_UTID          0x0F
+-#define PNS_PIPE_DISABLED_IND_UTID     0x11
+-#define PNS_PEP_DISCONNECT_UTID        0x06
+-
+-#endif /* CONFIG_PHONET_PIPECTRLR */
+-
+ #endif
 diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 0ecab59..b8c31fc 100644
+index 15775a7..0ecab59 100644
 --- a/net/phonet/pep.c
 +++ b/net/phonet/pep.c
-@@ -108,70 +108,6 @@ static int pep_reply(struct sock *sk, struct sk_bu=
-ff *oskb,
- #define PAD 0x00
+@@ -172,8 +172,7 @@ static int pipe_get_flow_info(struct sock *sk, stru=
+ct sk_buff *skb,
+ 	return 0;
+ }
 =20
- #ifdef CONFIG_PHONET_PIPECTRLR
--static u8 pipe_negotiate_fc(u8 *host_fc, u8 *remote_fc, int len)
--{
--	int i, j;
--	u8 base_fc, final_fc;
--
--	for (i =3D 0; i < len; i++) {
--		base_fc =3D host_fc[i];
--		for (j =3D 0; j < len; j++) {
--			if (remote_fc[j] =3D=3D base_fc) {
--				final_fc =3D base_fc;
--				goto done;
--			}
--		}
--	}
--	return -EINVAL;
--
--done:
--	return final_fc;
--
--}
--
--static int pipe_get_flow_info(struct sock *sk, struct sk_buff *skb,
--		u8 *pref_rx_fc, u8 *req_tx_fc)
--{
--	struct pnpipehdr *hdr;
--	u8 n_sb;
--
--	if (!pskb_may_pull(skb, sizeof(*hdr) + 4))
--		return -EINVAL;
--
--	hdr =3D pnp_hdr(skb);
--	n_sb =3D hdr->data[4];
--
--	__skb_pull(skb, sizeof(*hdr) + 4);
--	while (n_sb > 0) {
--		u8 type, buf[3], len =3D sizeof(buf);
--		u8 *data =3D pep_get_sb(skb, &type, &len, buf);
--
--		if (data =3D=3D NULL)
--			return -EINVAL;
--
--		switch (type) {
--		case PN_PIPE_SB_REQUIRED_FC_TX:
--			if (len < 3 || (data[2] | data[3] | data[4]) > 3)
--				break;
--			req_tx_fc[0] =3D data[2];
--			req_tx_fc[1] =3D data[3];
--			req_tx_fc[2] =3D data[4];
--			break;
--
--		case PN_PIPE_SB_PREFERRED_FC_RX:
--			if (len < 3 || (data[2] | data[3] | data[4]) > 3)
--				break;
--			pref_rx_fc[0] =3D data[2];
--			pref_rx_fc[1] =3D data[3];
--			pref_rx_fc[2] =3D data[4];
--			break;
--
--		}
--		n_sb--;
--	}
--	return 0;
--}
--
- static int pipe_handler_send_req(struct sock *sk, u8 msg_id, gfp_t pri=
+-static int pipe_handler_send_req(struct sock *sk, u8 utid,
+-		u8 msg_id, gfp_t priority)
++static int pipe_handler_send_req(struct sock *sk, u8 msg_id, gfp_t pri=
 ority)
  {
  	int len;
-@@ -661,28 +597,61 @@ static void pipe_destruct(struct sock *sk)
+ 	struct pnpipehdr *ph;
+@@ -212,7 +211,7 @@ static int pipe_handler_send_req(struct sock *sk, u=
+8 utid,
+ 	__skb_push(skb, sizeof(*ph));
+ 	skb_reset_transport_header(skb);
+ 	ph =3D pnp_hdr(skb);
+-	ph->utid =3D utid;
++	ph->utid =3D msg_id; /* whatever */
+ 	ph->message_id =3D msg_id;
+ 	ph->pipe_handle =3D pn->pipe_handle;
+ 	ph->error_code =3D PN_PIPE_NO_ERROR;
+@@ -220,8 +219,7 @@ static int pipe_handler_send_req(struct sock *sk, u=
+8 utid,
+ 	return pn_skb_send(sk, skb, NULL);
  }
 =20
- #ifdef CONFIG_PHONET_PIPECTRLR
-+static u8 pipe_negotiate_fc(const u8 *fcs, unsigned n)
-+{
-+	unsigned i;
-+	u8 final_fc =3D PN_NO_FLOW_CONTROL;
-+
-+	for (i =3D 0; i < n; i++) {
-+		u8 fc =3D fcs[i];
-+
-+		if (fc > final_fc && fc < PN_MAX_FLOW_CONTROL)
-+			final_fc =3D fc;
-+	}
-+	return final_fc;
-+}
-+
- static int pep_connresp_rcv(struct sock *sk, struct sk_buff *skb)
+-static int pipe_handler_send_created_ind(struct sock *sk,
+-		u8 utid, u8 msg_id)
++static int pipe_handler_send_created_ind(struct sock *sk, u8 msg_id)
  {
- 	struct pep_sock *pn =3D pep_sk(sk);
--	u8 host_pref_rx_fc[3] =3D {3, 2, 1}, host_req_tx_fc[3] =3D {3, 2, 1};
--	u8 remote_pref_rx_fc[3], remote_req_tx_fc[3];
--	u8 negotiated_rx_fc, negotiated_tx_fc;
--
--	pipe_get_flow_info(sk, skb, remote_pref_rx_fc,
--			remote_req_tx_fc);
--	negotiated_tx_fc =3D pipe_negotiate_fc(remote_req_tx_fc,
--			host_pref_rx_fc,
--			sizeof(host_pref_rx_fc));
--	negotiated_rx_fc =3D pipe_negotiate_fc(host_req_tx_fc,
--			remote_pref_rx_fc,
--			sizeof(host_pref_rx_fc));
-+	struct pnpipehdr *hdr;
-+	u8 n_sb;
-+
-+	if (!pskb_pull(skb, sizeof(*hdr) + 4))
-+		return -EINVAL;
-+
-+	hdr =3D pnp_hdr(skb);
-+
-+	/* Parse sub-blocks */
-+	n_sb =3D hdr->data[4];
-+	while (n_sb > 0) {
-+		u8 type, buf[6], len =3D sizeof(buf);
-+		const u8 *data =3D pep_get_sb(skb, &type, &len, buf);
-+
-+		if (data =3D=3D NULL)
-+			return -EINVAL;
-+
-+		switch (type) {
-+		case PN_PIPE_SB_REQUIRED_FC_TX:
-+			if (len < 2 || len < data[0])
-+				break;
-+			pn->tx_fc =3D pipe_negotiate_fc(data + 2, len - 2);
-+			break;
-+
-+		case PN_PIPE_SB_PREFERRED_FC_RX:
-+			if (len < 2 || len < data[0])
-+				break;
-+			pn->rx_fc =3D pipe_negotiate_fc(data + 2, len - 2);
-+			break;
-+
-+		}
-+		n_sb--;
-+	}
+ 	int err_code;
+ 	struct pnpipehdr *ph;
+@@ -254,7 +252,7 @@ static int pipe_handler_send_created_ind(struct soc=
+k *sk,
+ 	__skb_push(skb, sizeof(*ph));
+ 	skb_reset_transport_header(skb);
+ 	ph =3D pnp_hdr(skb);
+-	ph->utid =3D utid;
++	ph->utid =3D 0;
+ 	ph->message_id =3D msg_id;
+ 	ph->pipe_handle =3D pn->pipe_handle;
+ 	ph->error_code =3D err_code;
+@@ -262,7 +260,7 @@ static int pipe_handler_send_created_ind(struct soc=
+k *sk,
+ 	return pn_skb_send(sk, skb, NULL);
+ }
 =20
- 	sk->sk_state =3D TCP_SYN_RECV;
- 	sk->sk_backlog_rcv =3D pipe_do_rcv;
- 	sk->sk_destruct =3D pipe_destruct;
- 	pn->rx_credits =3D 0;
--	pn->rx_fc =3D negotiated_rx_fc;
--	pn->tx_fc =3D negotiated_tx_fc;
+-static int pipe_handler_send_ind(struct sock *sk, u8 utid, u8 msg_id)
++static int pipe_handler_send_ind(struct sock *sk, u8 msg_id)
+ {
+ 	int err_code;
+ 	struct pnpipehdr *ph;
+@@ -287,7 +285,7 @@ static int pipe_handler_send_ind(struct sock *sk, u=
+8 utid, u8 msg_id)
+ 	__skb_push(skb, sizeof(*ph));
+ 	skb_reset_transport_header(skb);
+ 	ph =3D pnp_hdr(skb);
+-	ph->utid =3D utid;
++	ph->utid =3D 0;
+ 	ph->message_id =3D msg_id;
+ 	ph->pipe_handle =3D pn->pipe_handle;
+ 	ph->error_code =3D err_code;
+@@ -297,16 +295,9 @@ static int pipe_handler_send_ind(struct sock *sk, =
+u8 utid, u8 msg_id)
+=20
+ static int pipe_handler_enable_pipe(struct sock *sk, int enable)
+ {
+-	int utid, req;
+-
+-	if (enable) {
+-		utid =3D PNS_PIPE_ENABLE_UTID;
+-		req =3D PNS_PEP_ENABLE_REQ;
+-	} else {
+-		utid =3D PNS_PIPE_DISABLE_UTID;
+-		req =3D PNS_PEP_DISABLE_REQ;
+-	}
+-	return pipe_handler_send_req(sk, utid, req, GFP_ATOMIC);
++	u8 id =3D enable ? PNS_PEP_ENABLE_REQ : PNS_PEP_DISABLE_REQ;
++
++	return pipe_handler_send_req(sk, id, GFP_KERNEL);
+ }
+ #endif
+=20
+@@ -538,8 +529,7 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
+uff *skb)
+=20
+ #ifdef CONFIG_PHONET_PIPECTRLR
+ 	case PNS_PEP_ENABLE_RESP:
+-		pipe_handler_send_ind(sk, PNS_PIPE_ENABLED_IND_UTID,
+-				PNS_PIPE_ENABLED_IND);
++		pipe_handler_send_ind(sk, PNS_PIPE_ENABLED_IND);
+=20
+ 		if (!pn_flow_safe(pn->tx_fc)) {
+ 			atomic_set(&pn->tx_credits, 1);
+@@ -573,8 +563,7 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
+uff *skb)
+ #ifdef CONFIG_PHONET_PIPECTRLR
+ 	case PNS_PEP_DISABLE_RESP:
+ 		atomic_set(&pn->tx_credits, 0);
+-		pipe_handler_send_ind(sk, PNS_PIPE_DISABLED_IND_UTID,
+-				PNS_PIPE_DISABLED_IND);
++		pipe_handler_send_ind(sk, PNS_PIPE_DISABLED_IND);
+ 		sk->sk_state =3D TCP_SYN_RECV;
+ 		pn->rx_credits =3D 0;
+ 		break;
+@@ -678,7 +667,6 @@ static int pep_connresp_rcv(struct sock *sk, struct=
+ sk_buff *skb)
+ 	u8 host_pref_rx_fc[3] =3D {3, 2, 1}, host_req_tx_fc[3] =3D {3, 2, 1};
+ 	u8 remote_pref_rx_fc[3], remote_req_tx_fc[3];
+ 	u8 negotiated_rx_fc, negotiated_tx_fc;
+-	int ret;
+=20
+ 	pipe_get_flow_info(sk, skb, remote_pref_rx_fc,
+ 			remote_req_tx_fc);
+@@ -697,12 +685,7 @@ static int pep_connresp_rcv(struct sock *sk, struc=
+t sk_buff *skb)
+ 	pn->tx_fc =3D negotiated_tx_fc;
  	sk->sk_state_change(sk);
 =20
- 	return pipe_handler_send_created_ind(sk, PNS_PIPE_CREATED_IND);
+-	ret =3D pipe_handler_send_created_ind(sk,
+-			PNS_PIPE_CREATED_IND_UTID,
+-			PNS_PIPE_CREATED_IND
+-			);
+-
+-	return ret;
++	return pipe_handler_send_created_ind(sk, PNS_PIPE_CREATED_IND);
+ }
+ #endif
+=20
+@@ -943,9 +926,7 @@ static void pep_sock_close(struct sock *sk, long ti=
+meout)
+ 		pipe_do_remove(sk);
+ #else
+ 		/* send pep disconnect request */
+-		pipe_handler_send_req(sk,
+-				PNS_PEP_DISCONNECT_UTID, PNS_PEP_DISCONNECT_REQ,
+-				GFP_KERNEL);
++		pipe_handler_send_req(sk, PNS_PEP_DISCONNECT_REQ, GFP_KERNEL);
+ 		sk->sk_state =3D TCP_CLOSE;
+ #endif
+ 	}
+@@ -1034,9 +1015,7 @@ static int pep_sock_connect(struct sock *sk, stru=
+ct sockaddr *addr, int len)
+=20
+ 	pn->pn_sk.dobject =3D pn_sockaddr_get_object(spn);
+ 	pn->pn_sk.resource =3D pn_sockaddr_get_resource(spn);
+-	return pipe_handler_send_req(sk,
+-			PNS_PEP_CONNECT_UTID, PNS_PEP_CONNECT_REQ,
+-			GFP_ATOMIC);
++	return pipe_handler_send_req(sk, PNS_PEP_CONNECT_REQ, GFP_KERNEL);
+ }
+ #endif
+=20
 --=20
 1.7.1
 
