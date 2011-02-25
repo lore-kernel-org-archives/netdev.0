@@ -1,57 +1,58 @@
-From: Phil Oester <kernel@linuxace.com>
-Subject: Re: [PATCH 1/2] bonding: fix incorrect transmit queue offset
-Date: Fri, 25 Feb 2011 14:56:36 -0800
-Message-ID: <20110225225636.GA18792@linuxace.com>
-References: <20110223230844.GA16476@linuxace.com>
- <20110223.151357.245408084.davem@davemloft.net>
- <1298504269.2211.503.camel@localhost>
- <20110223.155451.70202591.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan
+ interface RX
+Date: Fri, 25 Feb 2011 14:57:04 -0800
+Message-ID: <AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com>
+References: <4D32FC1C.3010905@simon.arlott.org.uk>
+	<201101231845.20505.maciej.rutecki@gmail.com>
+	<AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com>
+	<201101241625.45367.maciej.rutecki@gmail.com>
+	<loom.20110205T163216-459@post.gmane.org>
+	<AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com>
+	<loom.20110206T203347-475@post.gmane.org>
+	<4D4FE100.5090808@gmail.com>
+	<loom.20110214T141934-88@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bhutchings@solarflare.com, andy@greyhouse.net,
-	netdev@vger.kernel.org, fubar@us.ibm.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: chriss <mail_to_chriss@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gy0-f174.google.com ([209.85.160.174]:42900 "EHLO
-	mail-gy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932539Ab1BYW4m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 17:56:42 -0500
-Received: by gyh20 with SMTP id 20so895021gyh.19
-        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 14:56:41 -0800 (PST)
-Content-Disposition: inline
-In-Reply-To: <20110223.155451.70202591.davem@davemloft.net>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:47945 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932539Ab1BYW5G convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 17:57:06 -0500
+Received: by vws12 with SMTP id 12so1804785vws.19
+        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 14:57:05 -0800 (PST)
+In-Reply-To: <loom.20110214T141934-88@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Feb 23, 2011 at 03:54:51PM -0800, David Miller wrote:
-> From: Ben Hutchings <bhutchings@solarflare.com>
-> Date: Wed, 23 Feb 2011 23:37:49 +0000
-> 
-> > On Wed, 2011-02-23 at 15:13 -0800, David Miller wrote:
-> >> From: Phil Oester <kernel@linuxace.com>
-> >> Date: Wed, 23 Feb 2011 15:08:44 -0800
-> >> 
-> >> > On Wed, Feb 23, 2011 at 02:42:49PM -0500, Andy Gospodarek wrote:
-> >> >> +     while (txq >= dev->real_num_tx_queues) {
-> >> >> +             /* let the user know if we do not have enough tx queues */
-> >> >> +             if (net_ratelimit())
-> >> >> +                     pr_warning("%s selects invalid tx queue %d.  Consider"
-> >> >> +                                " setting module option tx_queues > %d.",
-> >> >> +                                dev->name, txq, dev->real_num_tx_queues);
-> >> >> +             txq -= dev->real_num_tx_queues;
-> >> >> +     }
-> >> > 
-> >> > Think this would be better as a WARN_ONCE, as otherwise syslog will still
-> >> > get flooded with this - even when ratelimited.  See get_rps_cpu in 
-> >> > net/core/dev.c as an example.o
-> >> 
-> >> Agreed.
-> > 
-> > This shouldn't WARN at all.  It is perfectly valid (though non-optimal)
-> > to have different numbers of queues on two different multiqueue devices.
-> 
-> That's also a good point.
+On Mon, Feb 14, 2011 at 5:22 AM, chriss <mail_to_chriss@gmx.net> wrote:
+> Nicolas de Peslo=FCan <nicolas.2p.debian <at> gmail.com> writes:
+>
+>> I think you should have a look at ebtables command, in particular, t=
+he
+> BROUTING chain of broute
+>> table. If this chain ask the packet to be dropped, then bridge will =
+ignore it
+> and give a chance to
+>> the upper layer to use it. Upper layer might be IP, or in your parti=
+cular
+> setup, VLAN.
+>>
+>> HTH,
+>>
+>> =A0 =A0 =A0 Nicolas.
+>
+> Thank you very much for the ebtables hint.
+>
+> I also tried to add the vlan to my bridge device but only droping the=
+ vlan
+> tagged paket with ebtables got it working.
+>
+> I'm not sure if this is the wanted behavior for bridging vlan actions=
+=2E
+> ..or my network setup is just to ..f%%%'ed up?!
 
-The patch works as expected.  Do we have any agreement on a final version?
-
-Phil
+What driver is in use with the NIC you are seeing this on?
