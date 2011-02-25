@@ -1,41 +1,55 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH 5/7] ipv6: variable next is never used in this function
-Date: Fri, 25 Feb 2011 16:45:19 +0100
-Message-ID: <1298648721-3026-5-git-send-email-hagen@jauu.net>
+Subject: [PATCH 2/7] dccp: newdp is declared/assigned but never be used
+Date: Fri, 25 Feb 2011 16:45:16 +0100
+Message-ID: <1298648721-3026-2-git-send-email-hagen@jauu.net>
 References: <1298648721-3026-1-git-send-email-hagen@jauu.net>
 Cc: fw@strlen.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57595 "EHLO
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57597 "EHLO
 	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755594Ab1BYPxZ (ORCPT
+	by vger.kernel.org with ESMTP id S1755488Ab1BYPxZ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 10:53:25 -0500
 In-Reply-To: <1298648721-3026-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Declaration and assignment of newdp is removed. Usage of dccp_sk()
+exhibit no side effects.
+
 Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- net/ipv6/route.c |    4 +---
- 1 files changed, 1 insertions(+), 3 deletions(-)
+ net/dccp/ipv6.c |    3 ---
+ 1 files changed, 0 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index f786aed..7e9443f 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1075,11 +1075,9 @@ out:
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index dca711d..460d545 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -484,7 +484,6 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 	struct inet6_request_sock *ireq6 = inet6_rsk(req);
+ 	struct ipv6_pinfo *newnp, *np = inet6_sk(sk);
+ 	struct inet_sock *newinet;
+-	struct dccp_sock *newdp;
+ 	struct dccp6_sock *newdp6;
+ 	struct sock *newsk;
+ 	struct ipv6_txoptions *opt;
+@@ -498,7 +497,6 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 			return NULL;
  
- int icmp6_dst_gc(void)
- {
--	struct dst_entry *dst, *next, **pprev;
-+	struct dst_entry *dst, **pprev;
- 	int more = 0;
+ 		newdp6 = (struct dccp6_sock *)newsk;
+-		newdp = dccp_sk(newsk);
+ 		newinet = inet_sk(newsk);
+ 		newinet->pinet6 = &newdp6->inet6;
+ 		newnp = inet6_sk(newsk);
+@@ -578,7 +576,6 @@ static struct sock *dccp_v6_request_recv_sock(struct sock *sk,
+ 	newdp6 = (struct dccp6_sock *)newsk;
+ 	newinet = inet_sk(newsk);
+ 	newinet->pinet6 = &newdp6->inet6;
+-	newdp = dccp_sk(newsk);
+ 	newnp = inet6_sk(newsk);
  
--	next = NULL;
--
- 	spin_lock_bh(&icmp6_dst_lock);
- 	pprev = &icmp6_dst_gc_list;
- 
+ 	memcpy(newnp, np, sizeof(struct ipv6_pinfo));
 -- 
 1.7.2.3
 
