@@ -1,127 +1,128 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: Occasional link flap on Intel 82599 on boot in XAUI mode
-Date: Fri, 25 Feb 2011 10:11:11 -0800
-Message-ID: <29F4ED941D916B48B88B4D2A4F3D1B9C01D30140EF@orsmsx509.amr.corp.intel.com>
-References: <201102251011.42400.bcook@breakingpoint.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC] be2net: add rxhash support
+Date: Fri, 25 Feb 2011 19:21:36 +0100
+Message-ID: <1298658096.2659.101.camel@edumazet-laptop>
+References: <20110225174425.GA11203@akhaparde-VBox>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Brent Cook <bcook@breakingpoint.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:28203 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756224Ab1BYSLN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 13:11:13 -0500
-In-Reply-To: <201102251011.42400.bcook@breakingpoint.com>
-Content-Language: en-US
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63140 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756259Ab1BYSVn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 13:21:43 -0500
+Received: by bwz15 with SMTP id 15so2185147bwz.19
+        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 10:21:42 -0800 (PST)
+In-Reply-To: <20110225174425.GA11203@akhaparde-VBox>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->On Behalf Of Brent Cook
->Sent: Friday, February 25, 2011 8:12 AM
->To: netdev@vger.kernel.org
->Subject: Occasional link flap on Intel 82599 on boot in XAUI mode
->
->We have a custom system with dual 82599's in XAUI mode. One has its pair
->of ports connected to a 10G switch, the other has its pair of ports
->connected to an FPGA.
->
->Occasionally, on any of the interfaces, we will see the links flapping
->up and down when the system initially boots. This happens maybe one in
->20 boots.
->
->Feb 23 14:58:10 mfg kernel: [  594.254977] ixgbe: eth1 NIC Link is Down
->Feb 23 14:58:12 mfg kernel: [  596.230039] ixgbe: eth1 NIC Link is Up 10
->Gbps, Flow Control: RX/TX
->Feb 23 14:58:12 mfg kernel: [  596.256537] ixgbe: eth1 NIC Link is Down
->Feb 23 14:58:16 mfg kernel: [  600.228096] ixgbe: eth1 NIC Link is Up 10
->Gbps, Flow Control: RX/TX
->Feb 23 14:58:16 mfg kernel: [  600.240135] ixgbe: eth1 NIC Link is Down
->Feb 23 14:58:18 mfg kernel: [  602.227047] ixgbe: eth1 NIC Link is Up 10
->Gbps, Flow Control: RX/TX
->
->Simply forcing a down/up on the interface seems to correct the problem:
->
->ip link set eth1 down
->ip link set eth1 up
->
->Is anyone else using XAUI mode and has seen this? Here is the kernel
->information that we are using currently:
->
->Linux sprint.labnet.local 2.6.32.28-bps #1 SMP PREEMPT Mon Jan 31
->16:05:50 CST 2011 x86_64 GNU/Linux
->
->Feb 23 14:48:24 mfg kernel: [    3.488664] Intel(R) PRO/1000 Network
->Driver - version 7.3.21-k5-NAPI
->Feb 23 14:48:24 mfg kernel: [    3.495082] Copyright (c) 1999-2006 Intel
->Corporation.
->Feb 23 14:48:24 mfg kernel: [    3.500238] e1000e: Intel(R) PRO/1000
->Network Driver - 1.0.2-k2
->Feb 23 14:48:24 mfg kernel: [    3.506138] e1000e: Copyright (c) 1999-
->2008 Intel Corporation.
->Feb 23 14:48:24 mfg kernel: [    3.511988] Intel(R) Gigabit Ethernet
->Network Driver - version 1.3.16-k2
->Feb 23 14:48:24 mfg kernel: [    3.518666] Copyright (c) 2007-2009 Intel
->Corporation.
->Feb 23 14:48:24 mfg kernel: [    3.523817] ixgbe: Intel(R) 10 Gigabit
->PCI Express Network Driver - version 2.0.44-k2
->Feb 23 14:48:24 mfg kernel: [    3.531622] ixgbe: Copyright (c) 1999-
->2009 Intel Corporation.
->Feb 23 14:48:24 mfg kernel: [    3.537365] ixgbe 0000:01:00.0: PCI INT A
->-> GSI 24 (level, low) -> IRQ 24
->Feb 23 14:48:24 mfg kernel: [    3.632934] ixgbe: 0000:01:00.0:
->ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
->Queue count = 8
->Feb 23 14:48:24 mfg kernel: [    3.643769] ixgbe 0000:01:00.0: (PCI
->Express:5.0Gb/s:Width x8) 00:12:34:56:78:67
->Feb 23 14:48:24 mfg kernel: [    3.651221] ixgbe 0000:01:00.0: MAC: 2,
->PHY: 0, PBA No: ffffff-0ff
->Feb 23 14:48:24 mfg kernel: [    3.669390] ixgbe 0000:01:00.0: Intel(R)
->10 Gigabit Network Connection
->Feb 23 14:48:24 mfg kernel: [    3.675907] ixgbe 0000:01:00.1: PCI INT B
->-> GSI 47 (level, low) -> IRQ 47
->Feb 23 14:48:24 mfg kernel: [    3.771863] ixgbe: 0000:01:00.1:
->ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
->Queue count = 8
->Feb 23 14:48:24 mfg kernel: [    3.782699] ixgbe 0000:01:00.1: (PCI
->Express:5.0Gb/s:Width x8) 00:12:34:56:78:64
->Feb 23 14:48:24 mfg kernel: [    3.790151] ixgbe 0000:01:00.1: MAC: 2,
->PHY: 0, PBA No: ffffff-0ff
->Feb 23 14:48:24 mfg kernel: [    3.808314] ixgbe 0000:01:00.1: Intel(R)
->10 Gigabit Network Connection
->Feb 23 14:48:24 mfg kernel: [    3.814831] ixgbe 0000:02:00.0: PCI INT A
->-> GSI 35 (level, low) -> IRQ 35
->Feb 23 14:48:24 mfg kernel: [    3.910802] ixgbe: 0000:02:00.0:
->ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
->Queue count = 8
->Feb 23 14:48:24 mfg kernel: [    3.921636] ixgbe 0000:02:00.0: (PCI
->Express:5.0Gb/s:Width x8) 00:12:34:56:78:52
->Feb 23 14:48:24 mfg kernel: [    3.929087] ixgbe 0000:02:00.0: MAC: 2,
->PHY: 0, PBA No: ffffff-0ff
->Feb 23 14:48:24 mfg kernel: [    3.947246] ixgbe 0000:02:00.0: Intel(R)
->10 Gigabit Network Connection
->Feb 23 14:48:24 mfg kernel: [    3.953761] ixgbe 0000:02:00.1: PCI INT B
->-> GSI 36 (level, low) -> IRQ 36
->Feb 23 14:48:24 mfg kernel: [    4.049731] ixgbe: 0000:02:00.1:
->ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx
->Queue count = 8
->Feb 23 14:48:24 mfg kernel: [    4.060566] ixgbe 0000:02:00.1: (PCI
->Express:5.0Gb/s:Width x8) 00:12:34:56:78:53
->Feb 23 14:48:24 mfg kernel: [    4.068018] ixgbe 0000:02:00.1: MAC: 2,
->PHY: 0, PBA No: ffffff-0ff
->Feb 23 14:48:24 mfg kernel: [    4.086179] ixgbe 0000:02:00.1: Intel(R)
->10 Gigabit Network Connection
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 11:44 -0600, Ajit Khaparde a =C3=
+=A9crit :
+> > -----Original Message-----
+> > From: Eric Dumazet <eric.dumazet@gmail.com>
+> > Sent: Thursday, February 24, 2011 2:25 PM
+> > To: Khaparde, Ajit
+> > Cc: netdev@vger.kernel.org
+> > Subject: [RFC] be2net: add rxhash support
+> >=20
+> > Ajit, it seems be2net provides RSS hash value in rx compl descripto=
+r ?
+> >=20
+> > Could we feed skb->rxhash with it ?
+> >=20
+> > Thanks !
+> Thanks Eric. Sure.
+> This is a long pending change which fell through the cracks.
+> But then because hashing is enabled in the device only when
+> Number of Rx Queues is > 1, I would suggest the following patch.
+>=20
+> Unaware of exact conventions, I have added signed-off-by to the patch=
+ already.
+>=20
+> Thanks
+>=20
+> -----
+> [PATCH net-next] be2net: add rxhash support
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
+> ---
+>  drivers/net/benet/be_main.c |   11 +++++++++++
+>  1 files changed, 11 insertions(+), 0 deletions(-)
+>=20
+> diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.=
+c
+> index 26f9c56..8c4b782 100644
+> --- a/drivers/net/benet/be_main.c
+> +++ b/drivers/net/benet/be_main.c
+> @@ -1038,6 +1038,10 @@ static void be_rx_compl_process(struct be_adap=
+ter *adapter,
+> =20
+>  	skb->truesize =3D skb->len + sizeof(struct sk_buff);
+>  	skb->protocol =3D eth_type_trans(skb, adapter->netdev);
+> +	if (adapter->netdev->features & NETIF_F_RXHASH)
+> +		skb->rxhash =3D AMAP_GET_BITS(struct amap_eth_rx_compl,
+> +					rsshash, rxcp);
+> +
+> =20
+>  	vlanf =3D AMAP_GET_BITS(struct amap_eth_rx_compl, vtp, rxcp);
+>  	vtm =3D AMAP_GET_BITS(struct amap_eth_rx_compl, vtm, rxcp);
+> @@ -1099,6 +1103,10 @@ static void be_rx_compl_process_gro(struct be_=
+adapter *adapter,
+>  		return;
+>  	}
+> =20
+> +	if (adapter->netdev->features & NETIF_F_RXHASH)
+> +		skb->rxhash =3D AMAP_GET_BITS(struct amap_eth_rx_compl,
+> +						rsshash, rxcp);
+> +
+>  	remaining =3D pkt_size;
+>  	for (i =3D 0, j =3D -1; i < num_rcvd; i++) {
+>  		page_info =3D get_rx_page_info(adapter, rxo, rxq_idx);
+> @@ -2619,6 +2627,9 @@ static void be_netdev_init(struct net_device *n=
+etdev)
+>  		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+>  		NETIF_F_GRO | NETIF_F_TSO6;
+> =20
+> +	if (be_multi_rxq(adapter))
+> +		netdev->features |=3D NETIF_F_RXHASH;
+> +
+>  	netdev->vlan_features |=3D NETIF_F_SG | NETIF_F_TSO |
+>  		NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+> =20
 
-By any chance have you tried it with a newer driver?  Latest Source Forge is 3.2.9.
 
-Also do you only see this link flap on boot, can you recreate the flap by unload and loading the ixgbe module?
+I added some traces, and I am not sure its OK :
 
-Thanks,
--Don Skidmore <donald.c.skidmore@intel.com>
+With one active tcp flow, I got different rxhash values :
+
+[ 1064.674253] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1064.738104] rxhash=3D37acd31d rsshp=3D1 bank=3D1
+[ 1064.741684] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1064.874283] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1064.940201] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1064.955278] rxhash=3Db668ace2 rsshp=3D1 bank=3D1
+[ 1065.080028] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.153360] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.293164] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.401862] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.460506] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.519980] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.650160] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.717585] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.730909] rxhash=3D37acd31d rsshp=3D1 bank=3D1
+[ 1065.840350] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.900704] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1065.931526] rxhash=3Db668ace2 rsshp=3D1 bank=3D1
+[ 1066.503657] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+[ 1066.570138] rxhash=3Dbbd37952 rsshp=3D1 bank=3D1
+
+How is it possible ?
+
+(I have a VLAN config on top of a bonding)
+
+
+
