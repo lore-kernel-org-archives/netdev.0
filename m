@@ -1,81 +1,64 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Multicast snooping fixes and suggestions
-Date: Wed, 23 Feb 2011 21:57:32 -0800
-Message-ID: <89132767-587d-4186-8eac-9692bed59a44@email.android.com>
-References: <1297811961-19249-1-git-send-email-linus.luessing@web.de>
-	<4D65CD81.4070203@zytor.com>
-	<20110224040412.GA25488@gondor.apana.org.au>
-	<4D65E2B4.1010501@zytor.com>
-	<20110224054232.GA26064@gondor.apana.org.au>
+From: Brent Cook <bcook@breakingpoint.com>
+Subject: Occasional link flap on Intel 82599 on boot in XAUI mode
+Date: Fri, 25 Feb 2011 10:11:42 -0600
+Message-ID: <201102251011.42400.bcook@breakingpoint.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============6501571822268192522=="
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-        linux-kernel@vger.kernel.org,
-        =?ISO-8859-1?Q?Linus_L=FCssing?= <linus.luessing@web.de>,
-        "David S. Miller" <davem@davemloft.net>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20110224054232.GA26064@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linux-foundation.org/pipermail/bridge>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linux-foundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Mime-version: 1.0
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
---===============6501571822268192522==
-Content-Type: multipart/alternative; boundary="----2AY3YV7PJ80115PU715DK692EWXJ9V"
-
-------2AY3YV7PJ80115PU715DK692EWXJ9V
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-Ok, so stupid question... how do hardware switches deal with this? It would seem to me that if everyone behind say a Cisco switch had these kind of issues they would have limited appeal...
--- 
-Sent from my mobile phone. Please pardon any lack of formatting.
-
-Herbert Xu <herbert@gondor.hengli.com.au> wrote:
-
-On Wed, Feb 23, 2011 at 08:46:44PM -0800, H. Peter Anvin wrote: > > I have disabled STP on the bridge; it doesn't change the behavior. Once you have disabled STP, you can set the forward delay to 0 which should do the trick. Cheers, -- Email: Herbert Xu <herbert@gondor.apana.org.au> Home Page: http://gondor.apana.org.au/~herbert/ PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt 
-
-
-------2AY3YV7PJ80115PU715DK692EWXJ9V
-Content-Type: text/html;
- charset=utf-8
-Content-Transfer-Encoding: 8bit
-
-<html><head></head><body>Ok, so stupid question... how do hardware switches deal with this?  It would seem to me that if everyone behind say a Cisco switch had these kind of issues they would have limited appeal...<br>
--- <br>
-Sent from my mobile phone.  Please pardon any lack of formatting.<br><br><div class="gmail_quote">Herbert Xu &lt;herbert@gondor.hengli.com.au&gt; wrote:<blockquote class="gmail_quote" style="margin: 0pt 0pt 0pt 0.8ex; border-left: 1px solid rgb(204, 204, 204); padding-left: 1ex;">
-<div style="white-space: pre-wrap; word-wrap:break-word; ">On Wed, Feb 23, 2011 at 08:46:44PM -0800, H. Peter Anvin wrote:
-&gt;
-&gt; I have disabled STP on the bridge; it doesn't change the behavior.
-
-Once you have disabled STP, you can set the forward delay to 0 which should do the trick.
-
-Cheers,
--- 
-Email: Herbert Xu &lt;herbert@gondor.apana.org.au&gt;
-Home Page: <a href="http://gondor.apana.org.au/~herbert">http://gondor.apana.org.au/~herbert</a>/
-PGP Key: <a href="http://gondor.apana.org.au/~herbert/pubkey.txt">http://gondor.apana.org.au/~herbert/pubkey.txt</a>
-</div></blockquote></div></body></html>
-------2AY3YV7PJ80115PU715DK692EWXJ9V--
-
-
---===============6501571822268192522==
 Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.breakingpoint.com ([65.36.7.12]:41925 "EHLO
+	EXCHANGE.securitytestsystems.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932475Ab1BYQL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 11:11:59 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-Bridge mailing list
-Bridge@lists.linux-foundation.org
-https://lists.linux-foundation.org/mailman/listinfo/bridge
---===============6501571822268192522==--
+We have a custom system with dual 82599's in XAUI mode. One has its pair of ports connected to a 10G switch, the other has its pair of ports connected to an FPGA.
+
+Occasionally, on any of the interfaces, we will see the links flapping up and down when the system initially boots. This happens maybe one in 20 boots.
+
+Feb 23 14:58:10 mfg kernel: [  594.254977] ixgbe: eth1 NIC Link is Down
+Feb 23 14:58:12 mfg kernel: [  596.230039] ixgbe: eth1 NIC Link is Up 10 Gbps, Flow Control: RX/TX
+Feb 23 14:58:12 mfg kernel: [  596.256537] ixgbe: eth1 NIC Link is Down
+Feb 23 14:58:16 mfg kernel: [  600.228096] ixgbe: eth1 NIC Link is Up 10 Gbps, Flow Control: RX/TX
+Feb 23 14:58:16 mfg kernel: [  600.240135] ixgbe: eth1 NIC Link is Down
+Feb 23 14:58:18 mfg kernel: [  602.227047] ixgbe: eth1 NIC Link is Up 10 Gbps, Flow Control: RX/TX
+
+Simply forcing a down/up on the interface seems to correct the problem:
+
+ip link set eth1 down
+ip link set eth1 up
+
+Is anyone else using XAUI mode and has seen this? Here is the kernel information that we are using currently:
+
+Linux sprint.labnet.local 2.6.32.28-bps #1 SMP PREEMPT Mon Jan 31 16:05:50 CST 2011 x86_64 GNU/Linux
+
+Feb 23 14:48:24 mfg kernel: [    3.488664] Intel(R) PRO/1000 Network Driver - version 7.3.21-k5-NAPI
+Feb 23 14:48:24 mfg kernel: [    3.495082] Copyright (c) 1999-2006 Intel Corporation.
+Feb 23 14:48:24 mfg kernel: [    3.500238] e1000e: Intel(R) PRO/1000 Network Driver - 1.0.2-k2
+Feb 23 14:48:24 mfg kernel: [    3.506138] e1000e: Copyright (c) 1999-2008 Intel Corporation.
+Feb 23 14:48:24 mfg kernel: [    3.511988] Intel(R) Gigabit Ethernet Network Driver - version 1.3.16-k2
+Feb 23 14:48:24 mfg kernel: [    3.518666] Copyright (c) 2007-2009 Intel Corporation.
+Feb 23 14:48:24 mfg kernel: [    3.523817] ixgbe: Intel(R) 10 Gigabit PCI Express Network Driver - version 2.0.44-k2
+Feb 23 14:48:24 mfg kernel: [    3.531622] ixgbe: Copyright (c) 1999-2009 Intel Corporation.
+Feb 23 14:48:24 mfg kernel: [    3.537365] ixgbe 0000:01:00.0: PCI INT A -> GSI 24 (level, low) -> IRQ 24
+Feb 23 14:48:24 mfg kernel: [    3.632934] ixgbe: 0000:01:00.0: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
+Feb 23 14:48:24 mfg kernel: [    3.643769] ixgbe 0000:01:00.0: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:67
+Feb 23 14:48:24 mfg kernel: [    3.651221] ixgbe 0000:01:00.0: MAC: 2, PHY: 0, PBA No: ffffff-0ff
+Feb 23 14:48:24 mfg kernel: [    3.669390] ixgbe 0000:01:00.0: Intel(R) 10 Gigabit Network Connection
+Feb 23 14:48:24 mfg kernel: [    3.675907] ixgbe 0000:01:00.1: PCI INT B -> GSI 47 (level, low) -> IRQ 47
+Feb 23 14:48:24 mfg kernel: [    3.771863] ixgbe: 0000:01:00.1: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
+Feb 23 14:48:24 mfg kernel: [    3.782699] ixgbe 0000:01:00.1: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:64
+Feb 23 14:48:24 mfg kernel: [    3.790151] ixgbe 0000:01:00.1: MAC: 2, PHY: 0, PBA No: ffffff-0ff
+Feb 23 14:48:24 mfg kernel: [    3.808314] ixgbe 0000:01:00.1: Intel(R) 10 Gigabit Network Connection
+Feb 23 14:48:24 mfg kernel: [    3.814831] ixgbe 0000:02:00.0: PCI INT A -> GSI 35 (level, low) -> IRQ 35
+Feb 23 14:48:24 mfg kernel: [    3.910802] ixgbe: 0000:02:00.0: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
+Feb 23 14:48:24 mfg kernel: [    3.921636] ixgbe 0000:02:00.0: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:52
+Feb 23 14:48:24 mfg kernel: [    3.929087] ixgbe 0000:02:00.0: MAC: 2, PHY: 0, PBA No: ffffff-0ff
+Feb 23 14:48:24 mfg kernel: [    3.947246] ixgbe 0000:02:00.0: Intel(R) 10 Gigabit Network Connection
+Feb 23 14:48:24 mfg kernel: [    3.953761] ixgbe 0000:02:00.1: PCI INT B -> GSI 36 (level, low) -> IRQ 36
+Feb 23 14:48:24 mfg kernel: [    4.049731] ixgbe: 0000:02:00.1: ixgbe_init_interrupt_scheme: Multiqueue Enabled: Rx Queue count = 8, Tx Queue count = 8
+Feb 23 14:48:24 mfg kernel: [    4.060566] ixgbe 0000:02:00.1: (PCI Express:5.0Gb/s:Width x8) 00:12:34:56:78:53
+Feb 23 14:48:24 mfg kernel: [    4.068018] ixgbe 0000:02:00.1: MAC: 2, PHY: 0, PBA No: ffffff-0ff
+Feb 23 14:48:24 mfg kernel: [    4.086179] ixgbe 0000:02:00.1: Intel(R) 10 Gigabit Network Connection
