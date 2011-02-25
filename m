@@ -1,40 +1,41 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: [PATCH 1/7] net: handle addr_type of 0 properly
-Date: Fri, 25 Feb 2011 16:45:15 +0100
-Message-ID: <1298648721-3026-1-git-send-email-hagen@jauu.net>
+Subject: [PATCH 5/7] ipv6: variable next is never used in this function
+Date: Fri, 25 Feb 2011 16:45:19 +0100
+Message-ID: <1298648721-3026-5-git-send-email-hagen@jauu.net>
+References: <1298648721-3026-1-git-send-email-hagen@jauu.net>
 Cc: fw@strlen.de
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57594 "EHLO
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57595 "EHLO
 	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755494Ab1BYPxZ (ORCPT
+	by vger.kernel.org with ESMTP id S1755594Ab1BYPxZ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 10:53:25 -0500
+In-Reply-To: <1298648721-3026-1-git-send-email-hagen@jauu.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-addr_type of 0 means that the type should be adopted from from_dev and
-not from __hw_addr_del_multiple(). Unfortunately it isn't so and
-addr_type will always be considered. Fix this by implementing the
-considered and documented behavior.
-
 Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
 ---
- net/core/dev_addr_lists.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv6/route.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-index 508f9c1..133fd22 100644
---- a/net/core/dev_addr_lists.c
-+++ b/net/core/dev_addr_lists.c
-@@ -144,7 +144,7 @@ void __hw_addr_del_multiple(struct netdev_hw_addr_list *to_list,
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f786aed..7e9443f 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1075,11 +1075,9 @@ out:
  
- 	list_for_each_entry(ha, &from_list->list, list) {
- 		type = addr_type ? addr_type : ha->type;
--		__hw_addr_del(to_list, ha->addr, addr_len, addr_type);
-+		__hw_addr_del(to_list, ha->addr, addr_len, type);
- 	}
- }
- EXPORT_SYMBOL(__hw_addr_del_multiple);
+ int icmp6_dst_gc(void)
+ {
+-	struct dst_entry *dst, *next, **pprev;
++	struct dst_entry *dst, **pprev;
+ 	int more = 0;
+ 
+-	next = NULL;
+-
+ 	spin_lock_bh(&icmp6_dst_lock);
+ 	pprev = &icmp6_dst_gc_list;
+ 
 -- 
 1.7.2.3
 
