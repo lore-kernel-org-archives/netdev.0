@@ -1,45 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Fri, 25 Feb 2011 12:40:40 +0100
-Message-ID: <1298634040.2659.32.camel@edumazet-laptop>
-References: <1298539762-2242-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1298627845-1583-1-git-send-email-ratbert.chuang@gmail.com>
+From: Sergei Shtylyov <sshtylyov@mvista.com>
+Subject: Re: [PATCH] davinci: da850/omap-l138: Add Carrier Link OK check in
+ Davinci RX Handler
+Date: Fri, 25 Feb 2011 14:55:45 +0300
+Message-ID: <4D6798C1.7090404@mvista.com>
+References: <1298627788-32339-1-git-send-email-vinay.hegde@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
-	mirqus@gmail.com, davem@davemloft.net,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1298627845-1583-1-git-send-email-ratbert.chuang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com,
+	linux-arm-kernel@lists.infradead.org
+To: "Hegde, Vinay" <vinay.hegde@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ew0-f46.google.com ([209.85.215.46]:45697 "EHLO
+	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752999Ab1BYL5G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 06:57:06 -0500
+Received: by ewy6 with SMTP id 6so558581ewy.19
+        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 03:57:05 -0800 (PST)
+In-Reply-To: <1298627788-32339-1-git-send-email-vinay.hegde@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 17:57 +0800, Po-Yu Chuang a =C3=
-=A9crit :
-> From: Po-Yu Chuang <ratbert@faraday-tech.com>
->=20
-> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
-> MII.  This driver has been working on some ARM/NDS32 SoC's including
-> Faraday A320 and Andes AG101.
->=20
-> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+Hello.
 
-It seems fine to me, but I have somes questions=20
+On 25-02-2011 12:56, Hegde, Vinay wrote:
 
-1) On V5, the receive function ftmac100_rx_packet() was able to process
-several segments per skb. On V6 you process one frag only.
+    This is not a patch to arch/arm/mach-davinci/, so the summary prefix 
+should not be "davinci: da850/omap-l138:" but rather "davinci_emac:" as you're 
+patching this driver.
 
-Isnt this NIC able to handle large MTU (say... 9000) ?
+> This patch adds an additional check in the Davinci EMAC RX Handler,
+> which tests the __LINK_STATE_NOCARRIER flag along with the
+> __LINK_STATE_START flag as part EMAC shutting down procedure.
 
-2) ftmac100_alloc_rx_page() is called and allocate a full page for a
-rxdes.
+> This avoids
+> WARNING: at drivers/net/davinci_emac.c:1040 emac_rx_handler+0xf8/0x120()
+> during rtcwake used to suspend the target for a specified duration.
 
-128*4K -> 512 Kbytes of memory for RX ring
+> Signed-off-by: Hegde, Vinay <vinay.hegde@ti.com>
 
-In V5, you were using half pages only, so 256 kbytes of memory.
+> diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+> index 2a628d1..7018bfe 100644
+> --- a/drivers/net/davinci_emac.c
+> +++ b/drivers/net/davinci_emac.c
+> @@ -1008,7 +1008,7 @@ static void emac_rx_handler(void *token, int len, int status)
+>   	int			ret;
+>
+>   	/* free and bail if we are shutting down */
+> -	if (unlikely(!netif_running(ndev))) {
+> +	if (unlikely(!netif_running(ndev) || !netif_carrier_ok(ndev))) {
+>   		dev_kfree_skb_any(skb);
+>   		return;
+>   	}
 
-If you look at other drivers (NIU, BENET), they are able to use exactly
-128*2 kbytes (for a rxring of 128 slots, and 2Kbytes per slot)
+WBR, Sergei
