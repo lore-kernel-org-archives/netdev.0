@@ -1,51 +1,67 @@
-From: Brian Haley <brian.haley@hp.com>
-Subject: Re: [Bugme-new] [Bug 29712] New: Bonding Driver(version : 3.5.0)
- - Problem with ARP monitoring in active backup mode
-Date: Thu, 24 Feb 2011 22:42:29 -0500
-Message-ID: <4D672525.5080609@hp.com>
-References: <bug-29712-10286@https.bugzilla.kernel.org/> <20110224145129.f366b59e.akpm@linux-foundation.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] sch_choke: add choke_skb_cb
+Date: Fri, 25 Feb 2011 04:45:41 +0100
+Message-ID: <1298605541.2659.18.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: harsha.r02@mphasis.com, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org, netdev@vger.kernel.org,
-	Jay Vosburgh <fubar@us.ibm.com>
-To: Andrew Morton <akpm@linux-foundation.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Patrick McHardy <kaber@trash.net>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0027.austin.hp.com ([15.216.28.34]:22315 "EHLO
-	g1t0027.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755927Ab1BYDmd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 22:42:33 -0500
-In-Reply-To: <20110224145129.f366b59e.akpm@linux-foundation.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:35352 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755782Ab1BYDps (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 22:45:48 -0500
+Received: by wwb39 with SMTP id 39so1645634wwb.1
+        for <netdev@vger.kernel.org>; Thu, 24 Feb 2011 19:45:46 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/24/2011 05:51 PM, Andrew Morton wrote:
-> (switched to email.  Please respond via emailed reply-to-all, not via the
-> bugzilla web interface).
-> 
-> On Wed, 23 Feb 2011 10:41:34 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
-> 
->> https://bugzilla.kernel.org/show_bug.cgi?id=29712
->>
->>            Summary: Bonding Driver(version : 3.5.0) - Problem with ARP
->>                     monitoring in active backup mode
->>            Product: Drivers
->>            Version: 2.5
->>     Kernel Version: 2.6.32
-> 
-> That's a paleolithic kernel you have there.  This problem might have
-> been fixed already.  Can you test a more recent kernel?
+Better document choke skb->cb[] use, like we did in netem and sfb
 
-I can add some more info since I originally looked at the problem.  This
-happens on 2.6.38 as well, and on this 2.6.32 kernel with a backported
-3.7.0 bonding driver (with the primary_reselect option).  Harsha has a
-prototype patch that's being tested, but wanted to log the bug to see
-if one of the bonding maintainers had a better solution.
+This adds a compile time check to make sure we dont exhaust skb->cb[]
+space.
 
-I'll let him respond as I'm now out of the loop...
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Stephen Hemminger <shemminger@vyatta.com>
+CC: Patrick McHardy <kaber@trash.net>
+---
+ net/sched/sch_choke.c |   15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-Thanks,
+diff --git a/net/sched/sch_choke.c b/net/sched/sch_choke.c
+index ee1e209..06afbae 100644
+--- a/net/sched/sch_choke.c
++++ b/net/sched/sch_choke.c
+@@ -219,14 +219,25 @@ static bool choke_match_flow(struct sk_buff *skb1,
+ 	return *ports1 == *ports2;
+ }
+ 
++struct choke_skb_cb {
++	u16 classid;
++};
++
++static inline struct choke_skb_cb *choke_skb_cb(const struct sk_buff *skb)
++{
++	BUILD_BUG_ON(sizeof(skb->cb) <
++		sizeof(struct qdisc_skb_cb) + sizeof(struct choke_skb_cb));
++	return (struct choke_skb_cb *)qdisc_skb_cb(skb)->data;
++}
++
+ static inline void choke_set_classid(struct sk_buff *skb, u16 classid)
+ {
+-	*(unsigned int *)(qdisc_skb_cb(skb)->data) = classid;
++	choke_skb_cb(skb)->classid = classid;
+ }
+ 
+ static u16 choke_get_classid(const struct sk_buff *skb)
+ {
+-	return *(unsigned int *)(qdisc_skb_cb(skb)->data);
++	return choke_skb_cb(skb)->classid;
+ }
+ 
+ /*
 
--Brian
+
