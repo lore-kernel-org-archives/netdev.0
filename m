@@ -1,82 +1,66 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: pull request: wireless-next-2.6 2011-02-22
-Date: Fri, 25 Feb 2011 16:36:18 -0300
-Message-ID: <20110225193618.GB2107@joana>
-References: <20110222215229.GJ12153@tuxdriver.com>
- <20110224.224344.104068328.davem@davemloft.net>
- <20110225.111500.59674472.davem@davemloft.net>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: Re: [RFC] be2net: add rxhash support
+Date: Fri, 25 Feb 2011 13:36:40 -0600
+Message-ID: <20110225193640.GA11411@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:18087 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932644Ab1BYThF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 14:37:05 -0500
 Content-Disposition: inline
-In-Reply-To: <20110225.111500.59674472.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: Friday, February 25, 2011 1:33 PM
+> To: Khaparde, Ajit
+> Cc: netdev@vger.kernel.org
+> Subject: Re: [RFC] be2net: add rxhash support
 
-* David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2011-02-25 11:15:00 -0800]:
-
-> From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Date: Thu, 24 Feb 2011 22:43:44 -0800 (PST)
+> I added some traces, and I am not sure its OK :
 > 
-> > From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-> > Date: Tue, 22 Feb 2011 16:52:30 -0500
-> > 
-> >> Here is the latest batch of wireless bits intended for 2.6.39.  It seems
-> >> I neglected to send a pull request last week, so this one is a bit big
-> >> -- I apologize!
-> >> 
-> >> This includes a rather large batch of bluetooth bits by way of Gustavo.
-> >> It looks like a variety of bits, including some code refactoring, some
-> >> protocol support enhancements, some bugfixes, etc. -- nothing too
-> >> unusual.
-> >> 
-> >> Other items of interest include a new driver from Realtek, some ssb
-> >> support enhancements, and the usual sort of updates for mac80211 and a
-> >> variety of drivers.  Also included is a wireless-2.6 pull to resolve
-> >> some build breakage.
-> >> 
-> >> Please let me know if there are problems!
-> > 
-> > Pulled, thanks a lot John.
+> With one active tcp flow, I got different rxhash values :
 > 
-> John a few things:
+> [ 1064.674253] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1064.738104] rxhash=37acd31d rsshp=1 bank=1
+> [ 1064.741684] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1064.874283] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1064.940201] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1064.955278] rxhash=b668ace2 rsshp=1 bank=1
+> [ 1065.080028] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.153360] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.293164] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.401862] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.460506] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.519980] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.650160] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.717585] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.730909] rxhash=37acd31d rsshp=1 bank=1
+> [ 1065.840350] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.900704] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1065.931526] rxhash=b668ace2 rsshp=1 bank=1
+> [ 1066.503657] rxhash=bbd37952 rsshp=1 bank=1
+> [ 1066.570138] rxhash=bbd37952 rsshp=1 bank=1
 > 
-> 1) I had to add some vmalloc.h includes to fix the build on sparc64,
->    see commit b08cd667c4b6641c4d16a3f87f4550f81a6d69ac in net-next-2.6
+> How is it possible ?
 > 
-> 2) Something is screwey with the bluetooth config options now.
+> (I have a VLAN config on top of a bonding)
 > 
->    I have an allmodconfig tree, and when I run "make oldconfig" after
->    this pull, BT_L2CAP and BT_SCO both prompt me, claiming that they
->    can only be built statically.
-> 
->    I give it 'y' just to make it happen, for both, and afterways no
->    matter how many times I rerun "make oldconfig" I keep seeing things
->    like this in my build:
-> 
-> scripts/kconfig/conf --silentoldconfig Kconfig
-> include/config/auto.conf:986:warning: symbol value 'm' invalid for BT_SCO
-> include/config/auto.conf:3156:warning: symbol value 'm' invalid for BT_L2CAP
-> 
->    First, what the heck is going on here?  Second, why the heck can't these
->    non-trivial pieces of code be built modular any more?
-
-We now have L2CAP and SCO built-in in the main bluetooth.ko module.
+I'm looking at this..
+There is no switch involved in your test, just back to back?
 
 > 
->    You can't make something "bool", have it depend on something that
->    might be modular, and then build it into what could in fact be a
->    module.  That's exactly what the bluetooth stuff seems to be doing
->    now.
+> Also, Ajit, we need something to allow ethtool -K rxhash {on|off}
+> 
+> Something like (completely untested)
 
-Seems I did the Kconfig change wrong, I'll fix it ASAP and send it to you
-guys.
+Yes. That is in the works.
 
--- 
-Gustavo F. Padovan
-http://profusion.mobi
+Thanks
+-Ajit
