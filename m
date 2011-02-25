@@ -1,46 +1,40 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] Re: [PATCH v2] xen network backend driver
-Date: Fri, 25 Feb 2011 15:35:53 +0000
-Message-ID: <1298648153.5034.549.camel@zakaz.uk.xensource.com>
-References: <1297160635.9149.21.camel@zakaz.uk.xensource.com>
-	 <20110215213512.GA5587@dumpdata.com>
-	 <1298553792.5034.391.camel@zakaz.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Herbert Xu <herbert@gondor.hengli.com.au>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: [PATCH 1/7] net: handle addr_type of 0 properly
+Date: Fri, 25 Feb 2011 16:45:15 +0100
+Message-ID: <1298648721-3026-1-git-send-email-hagen@jauu.net>
+Cc: fw@strlen.de
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:10919 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752484Ab1BYPgA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 10:36:00 -0500
-In-Reply-To: <1298553792.5034.391.camel@zakaz.uk.xensource.com>
+Received: from alternativer.internetendpunkt.de ([88.198.24.89]:57594 "EHLO
+	geheimer.internetendpunkt.de" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755494Ab1BYPxZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 10:53:25 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-02-24 at 13:23 +0000, Ian Campbell wrote:
-> 
-> > > +
-> > > +     if (HYPERVISOR_grant_table_op(GNTTABOP_map_grant_ref, &op,
-> 1))
-> > > +             BUG();
-> > 
-> > How about something less severe? Say return the error code?
-> 
-> Yes, I folded this into the following check of op.status. 
+addr_type of 0 means that the type should be adopted from from_dev and
+not from __hw_addr_del_multiple(). Unfortunately it isn't so and
+addr_type will always be considered. Fix this by implementing the
+considered and documented behavior.
 
-I revisited this and HYPERVISOR_grant_table_op has multicall like
-semantics and a failure of the hypercall itself is a serious bug in the
-calling kernel, akin to a page fault on kernel memory or similar so I
-think a BUG() is the appropriate response.
+Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+---
+ net/core/dev_addr_lists.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Failures of the type which a guest may cause are the GNTST_* error codes
-found in the op.status field an are handled appropriately gracefully.
-
-Ian.
+diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+index 508f9c1..133fd22 100644
+--- a/net/core/dev_addr_lists.c
++++ b/net/core/dev_addr_lists.c
+@@ -144,7 +144,7 @@ void __hw_addr_del_multiple(struct netdev_hw_addr_list *to_list,
+ 
+ 	list_for_each_entry(ha, &from_list->list, list) {
+ 		type = addr_type ? addr_type : ha->type;
+-		__hw_addr_del(to_list, ha->addr, addr_len, addr_type);
++		__hw_addr_del(to_list, ha->addr, addr_len, type);
+ 	}
+ }
+ EXPORT_SYMBOL(__hw_addr_del_multiple);
+-- 
+1.7.2.3
 
