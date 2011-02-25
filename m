@@ -1,105 +1,107 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's	source
- MAC
-Date: Sat, 26 Feb 2011 00:08:03 +0100
-Message-ID: <4D683653.4050409@gmail.com>
-References: <1298668408-14849-1-git-send-email-andy@greyhouse.net> <4D68276B.90104@gmail.com> <20110225222455.GI11864@gospo.rdu.redhat.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: ANNOUNCE: debloat-testing kernel git tree
+Date: Fri, 25 Feb 2011 17:22:10 -0500
+Message-ID: <20110225222210.GA3618@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jpirko@redhat.com>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:55266 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933023Ab1BYXIH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 18:08:07 -0500
-Received: by wyg36 with SMTP id 36so2097814wyg.19
-        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 15:08:06 -0800 (PST)
-In-Reply-To: <20110225222455.GI11864@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, bloat-devel@lists.bufferbloat.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 25/02/2011 23:24, Andy Gospodarek a =E9crit :
-> On Fri, Feb 25, 2011 at 11:04:27PM +0100, Nicolas de Peslo=FCan wrote=
-:
->> Le 25/02/2011 22:13, Andy Gospodarek a =E9crit :
->>> I was looking at my system and wondering why I sometimes saw these
->>> DAD messages in my logs:
->>>
->>> bond0: IPv6 duplicate address fe80::21b:21ff:fe38:2ec4 detected!
->>>
->>> I traced it back and realized the IPv6 Neighbor Solicitations I was
->>> sending were also coming back into the stack on the slave(s) that d=
-id
->>> not transmit the frames.  I could not think of a compelling reason =
-to
->>> notify the user that a NS we sent came back, so I set out to just d=
-rop
->>> the frame silently in ndisc_recv_ns drop.
->>>
->>> That seemed to work well, but when I thought about it I could not
->>> compelling reason to save any of these frames.  Dropping them as so=
-on as
->>> we get them seems like a much better idea as it fixes other issues =
-that
->>> may exist for more than just IPv6 DAD.
->>>
->>> I chose to check the incoming frame against the master's MAC addres=
-s as
->>> that should be the MAC address used anytime a broadcast frame is se=
-nt by
->>> the bonding driver that had the chance to make its way back into on=
-e of
->>> the other devices.
->>
->> I think this could break the ARP monitoring. ARP monitoring rely on =
-a
->> normal protocol handler, registered in bond_main.c.
->>
->> void bond_register_arp(struct bonding *bond)
->> {
->>          struct packet_type *pt =3D&bond->arp_mon_pt;
->>
->>          if (pt->type)
->>                  return;
->>
->>          pt->type =3D htons(ETH_P_ARP);
->>          pt->dev =3D bond->dev;
->>          pt->func =3D bond_arp_rcv;
->>          dev_add_pack(pt);
->> }
->>
->> For as far as I understand, some variants of arp_validate require th=
-e
->> backup interfaces to receive ARP requests sent from the master, thro=
-ugh
->> the active interface, presumably with the master MAC as the source M=
-AC.
->>
->> As this protocol handler is registered at the master level, the exac=
-t
->> match logic in __netif_receive_skb(), which apply at the slave level=
-,
->> shouldn't deliver this skb to bond_arp_rcv().
->>
->> Can someone confirm ? Jay ?
->>
->> 	Nicolas.
->>
->
-> I confirmed your suspicion, this breaks ARP monitoring.  I would stil=
-l
-> welcome other opinions though as I think it would be nice to fix this=
- as
-> low as possible.
+Announcement
 
-Why do you want to fix it earlier that in ndisc_recv_ns drop? Your orig=
-inal idea of silently=20
-dropping the frame there seems perfect to me.
+The bufferbloat project [1] is pleased to announce the availability
+of the debloat-testing Linux kernel git tree:
 
-	Nicolas.
+	git://git.infradead.org/debloat-testing.git
+
+The purpose of this tree is to provide a reasonably stable base for
+the development and testing of new algorithms, miscellaneous fixes,
+and maybe a few hacks intended to advance the cause of eliminating
+or at least mitigating bufferbloat in the Linux world.
+
+Introduction
+
+Bufferbloat is a term coined by Jim Gettys to describe the increasing
+prevalence of large and (particularly) unmanaged network buffers along
+the network links that comprise the Internet [2].  If you are not aware
+of the problems with network latency under load that the Internet is
+already encountering, we encourage you to visit Jim Gettys' blog [3].
+There Jim has begun to fit together enough puzzle pieces to at least
+frame the issue.
+
+Jim has also made available slides and an audio recording (edited
+for time) from a presentation on this topic:
+
+	http://mirrors.bufferbloat.net/Talks/BellLabs01192011/
+
+Kernel Bits
+
+The debloat-testing tree is intended to track full and -rc releases
+from linux-2.6, with interesting patches cherry-picked from net-next
+and various experimental bits added on top.  The current stable of
+such patches includes the following:
+
+Eric Dumazet (based on original work by Juliusz Chroboczek):
+      net_sched: SFB flow scheduler
+
+stephen hemminger:
+      sched: CHOKe flow scheduler
+
+John Fastabend:
+      net: implement mechanism for HW based QOS
+      net_sched: implement a root container qdisc sch_mqprio
+
+John W. Linville:
+      mac80211: implement eBDP algorithm to fight bufferbloat
+
+Nathaniel J. Smith:
+      iwlwifi: Simplify tx queue management
+      iwlwifi: Convert the tx queue high_mark to an atomic_t
+      iwlwifi: Invert the sense of the queue high_mark
+      iwlwifi: auto-tune tx queue size to minimize latency
+      iwlwifi: make current tx queue sizes visible in debugfs
+
+Dave Taht:
+      Bufferbloat reduction for the e1000 driver that started it all
+      Reduce bufferbloated default for e1000e, increase dynamic range
+      Smash bufferbloat in the ath9k driver
+
+Userland Bits
+
+Patches for the userspace tc utility incorporating support for both the
+CHOKe AQM and the Stochastic Fair Blue scheduler (SFB) are available:
+
+	https://github.com/dtaht/iproute2bufferbloat
+
+Contributions
+
+Please send any experimental or research-oriented patches related to
+bufferbloat to the bloat-devel@lists.bufferbloat.net list.  Reminders
+of more mainstream patches that may be relevant and/or interesting
+for cherry-picking into debloat-testing are welcome there as well.
+
+Obviously, patches that are ready for normal merge consideration
+should continue to be sent to netdev, linux-wireless, linux-kernel,
+or whatever other existing list is appropriate for them.
+
+Thanks
+
+Finally, we want to offer a huge thanks to the 130+ new members of
+the bloat mailing list [4] for leaping into the fray, and to David
+Woodhouse for hosting the debloat-testing tree at infradead.
+
+Please help us beat the bloat.  Good luck, and happy debloating!
+
+Notes
+
+[1] http://bufferbloat.net
+[2] http://gettys.wordpress.com/what-is-bufferbloat-anyway/
+[3] http://en.wordpress.com/tag/bufferbloat/
+[4] https://lists.bufferbloat.net
+--
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
