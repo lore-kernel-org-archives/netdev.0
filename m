@@ -1,33 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 0/7][pull request] Intel Wired LAN Driver Updates
-Date: Thu, 24 Feb 2011 16:29:19 -0800 (PST)
-Message-ID: <20110224.162919.104055388.davem@davemloft.net>
-References: <1298545109-8990-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Po-Yu Chuang <ratbert.chuang@gmail.com>
+Subject: Re: [PATCH ref0] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Fri, 25 Feb 2011 10:32:55 +0800
+Message-ID: <AANLkTikXUyQy+fjFSwagB3Uud2JPodsR2yFtt+jiZPSk@mail.gmail.com>
+References: <1298535761.2814.1.camel@edumazet-laptop> <1298539762-2242-1-git-send-email-ratbert.chuang@gmail.com>
+ <1298569179.2814.11.camel@edumazet-laptop> <1298569685.2814.16.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36725
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751152Ab1BYA2n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Feb 2011 19:28:43 -0500
-In-Reply-To: <1298545109-8990-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
+	mirqus@gmail.com, davem@davemloft.net,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1298569685.2814.16.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 24 Feb 2011 02:58:22 -0800
+Hi Eric,
 
-> The following series contains jumbo frame support for X540 devices,
-> comment cleanup/fixes for ixgbevf & igb, and the addition of Tx rate
-> limiting feature for igb.
-> 
-> The following are changes since commit 55ae22d08fc9b531bc8a88b7306004e7053bb425:
->  Merge branch 'tipc-Feb23-2011' of git://git.kernel.org/pub/scm/linux/kernel/git/paulg/net-next-2.6
-> 
-> and are available in the git repository at:
->  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
+On Fri, Feb 25, 2011 at 1:48 AM, Eric Dumazet <eric.dumazet@gmail.com> =
+wrote:
+> Le jeudi 24 f=C3=A9vrier 2011 =C3=A0 18:39 +0100, Eric Dumazet a =C3=A9=
+crit :
+>> Le jeudi 24 f=C3=A9vrier 2011 =C3=A0 17:29 +0800, Po-Yu Chuang a =C3=
+=A9crit :
+>> > From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>> > +
+>> > +static bool ftmac100_rx_packet(struct ftmac100 *priv, int *proces=
+sed)
+>> > +{
+>> > + =C2=A0 struct net_device *netdev =3D priv->netdev;
+>> > + =C2=A0 struct ftmac100_rxdes *rxdes;
+>> > + =C2=A0 struct sk_buff *skb;
+>> > + =C2=A0 struct page *page;
+>> > + =C2=A0 dma_addr_t map;
+>> > + =C2=A0 int length;
+>> > +
+>> > + =C2=A0 rxdes =3D ftmac100_rx_locate_first_segment(priv);
+>> > + =C2=A0 if (!rxdes)
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return false;
+>> > +
+>> > + =C2=A0 if (unlikely(ftmac100_rx_packet_error(priv, rxdes))) {
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 ftmac100_rx_drop_packet(priv)=
+;
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return true;
+>> > + =C2=A0 }
+>> > +
+>> > + =C2=A0 /*
+>> > + =C2=A0 =C2=A0* It is impossible to get multi-segment packets
+>> > + =C2=A0 =C2=A0* because we always provide big enough receive buff=
+ers.
+>> > + =C2=A0 =C2=A0*/
+>> > + =C2=A0 if (unlikely(!ftmac100_rxdes_last_segment(rxdes)))
+>> > + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 BUG();
+>> > +
+>> > + =C2=A0 /* start processing */
+>> > + =C2=A0 skb =3D netdev_alloc_skb_ip_align(netdev, ETH_HLEN);
+>>
+>> Oh I see... You should allocate a bigger head (say... 128 bytes)
+>>
+>> And copy in it up to 128 bytes of first part... this to avoid upper
+>> stack to reallocate skb head (because IP/TCP processing need to get
+>> their headers in skb head)
+>
+> Take a look at drivers/net/niu.c :
+>
+> #define RX_SKB_ALLOC_SIZE =C2=A0 128 + NET_IP_ALIGN
+>
+> static int niu_process_rx_pkt(...)
+> {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0skb =3D netdev_alloc_skb(np->dev, RX_SKB_A=
+LLOC_SIZE);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0while (1) {
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0...
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0niu_rx_skb_app=
+end(skb, page, off, append_size);
+> =C2=A0 =C2=A0 =C2=A0 =C2=A0}
+> }
 
-Pulled, thanks a lot Jeff.
+Oh I got it.
+
+I will try this and redo the benchmarking.
+
+Thanks,
+Po-Yu Chuang
