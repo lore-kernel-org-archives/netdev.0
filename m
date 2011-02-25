@@ -1,120 +1,45 @@
-From: "Shmulik Ravid - Rabinovitz" <shmulikr@broadcom.com>
-Subject: RE: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
- peer configuration - ieee
-Date: Fri, 25 Feb 2011 01:58:08 -0800
-Message-ID: <A31CB8AA22AA1E44B81563BEDB2C187812203E1118@SJEXCHCCR01.corp.ad.broadcom.com>
-References: <1298581410.8877.21.camel@lb-tlvb-shmulik.il.broadcom.com>
- <4D66C186.7040409@intel.com>
- <A31CB8AA22AA1E44B81563BEDB2C187812203E0F8C@SJEXCHCCR01.corp.ad.broadcom.com>
- <4D6736ED.2060003@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"Eilon Greenstein" <eilong@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "John Fastabend" <john.r.fastabend@intel.com>
+From: "Hegde, Vinay" <vinay.hegde@ti.com>
+Subject: [PATCH] davinci: da850/omap-l138: Add Carrier Link OK check in Davinci RX Handler
+Date: Fri, 25 Feb 2011 15:26:28 +0530
+Message-ID: <1298627788-32339-1-git-send-email-vinay.hegde@ti.com>
+Cc: khilman@ti.com, davinci-linux-open-source@linux.davincidsp.com,
+	linux-arm-kernel@lists.infradead.org,
+	"Hegde, Vinay" <vinay.hegde@ti.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2826 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754271Ab1BYJ6Y convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 04:58:24 -0500
-In-Reply-To: <4D6736ED.2060003@intel.com>
-Content-Language: en-US
+Received: from devils.ext.ti.com ([198.47.26.153]:34615 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932415Ab1BYKAd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 05:00:33 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: John Fastabend [mailto:john.r.fastabend@intel.com]
-> Sent: Friday, February 25, 2011 6:58 AM
-> To: Shmulik Ravid - Rabinovitz
-> Cc: davem@davemloft.net; Eilon Greenstein; netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next-2.6 1/2] dcbnl: add support for retrieving
-> peer configuration - ieee
-> 
-> On 2/24/2011 2:03 PM, Shmulik Ravid - Rabinovitz wrote:
-> >> -----Original Message-----
-> >> From: John Fastabend [mailto:john.r.fastabend@intel.com]
-> >> Sent: Thursday, February 24, 2011 10:37 PM
-> >> To: Shmulik Ravid - Rabinovitz
-> >> Cc: davem@davemloft.net; Eilon Greenstein; netdev@vger.kernel.org
-> >> Subject: Re: [PATCH net-next-2.6 1/2] dcbnl: add support for
-> retrieving
-> >> peer configuration - ieee
-> >>
-> >> On 2/24/2011 1:03 PM, Shmulik Ravid wrote:
-> >>> These 2 patches add the support for retrieving the remote or peer
-> >> DCBX
-> >>> configuration via dcbnl for embedded DCBX stacks. The peer
-> >> configuration
-> >>> is part of the DCBX MIB and is useful for debugging and diagnostics
-> >> of
-> >>> the overall DCB configuration. The first patch add this support for
-> >> IEEE
-> >>> 802.1Qaz standard the second patch add the same support for the
-> older
-> >>> CEE standard.
-> >>>
-> >>> Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
-> >>> ---
-> >>>  include/linux/dcbnl.h |   38 ++++++++++++++++++++++++++
-> >>>  include/net/dcbnl.h   |    5 +++
-> >>>  net/dcb/dcbnl.c       |   71
-> >> +++++++++++++++++++++++++++++++++++++++++++++++++
-> >>>  3 files changed, 114 insertions(+), 0 deletions(-)
-> >>>
-> >>> diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-> >>> index 4c5b26e..3102185 100644
-> >>> --- a/include/linux/dcbnl.h
-> >>> +++ b/include/linux/dcbnl.h
-> >>> @@ -110,6 +110,22 @@ struct dcb_app {
-> >>>  	__u16	protocol;
-> >>>  };
-> >>>
-> >>> +/* This structure contains the APP feature information sent by the
-> >> peer.
-> >>> + * It is used for both the IEEE 802.1Qaz and the CEE flavors.
-> >>> + *
-> >>> + * @willing: willing bit in the peer APP tlv
-> >>> + * @error: error bit in the peer APP tlv
-> >>> + * @app_count: The number of objects in the peer APP table.
-> >>> + *
-> >>> + * In addition to this information the full peer APP tlv also
-> >> contains
-> >>> + * a table of 'app_count' APP objects defined above.
-> >>> + */
-> >>> +struct dcb_peer_app_info {
-> >>> +	__u8	willing;
-> >>> +	__u8	error;
-> >>> +	__u16	app_count;
-> >>> +};
-> >>> +
-> >>
-> >> The IEEE 802.1Qaz spec defines the APP TLV as informational
-> >> so there are no willing or error bits in this case. See
-> >> section D.2.12 of the 802.1Qaz draft.
-> >>
-> >> Can we drop these fields or do they have some other meaning
-> >> here?
-> >>
-> > OK, They are part of the CEE APP tlv though.
-> > I wanted to share this structure between the 802.1Qaz and CEE so
-> > I'll have a single driver handler that retrieve the number of
-> > peer apps. How about if we keep a single driver handler, but the
-> > APP info will be exposed to the user only with the CEE flavor.
-> > That is the PEER_APP attribute will be CEE specific ?
-> >
-> > Shmulik
-> >
-> 
-> That seems fine to me. Either don't expose the struct as you
-> suggested or zero the fields while in IEEE mode.
+This patch adds an additional check in the Davinci EMAC RX Handler,
+which tests the __LINK_STATE_NOCARRIER flag along with the
+__LINK_STATE_START flag as part EMAC shutting down procedure.
 
-I'll repost the patches making the app_info a CEE specific
-attribute, I'll also eliminate the app_count from the user
-interface because actually it's superfluous.
+This avoids
+WARNING: at drivers/net/davinci_emac.c:1040 emac_rx_handler+0xf8/0x120()
+during rtcwake used to suspend the target for a specified duration.
 
-Shmulik
+Signed-off-by: Hegde, Vinay <vinay.hegde@ti.com>
+---
+ drivers/net/davinci_emac.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
+diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
+index 2a628d1..7018bfe 100644
+--- a/drivers/net/davinci_emac.c
++++ b/drivers/net/davinci_emac.c
+@@ -1008,7 +1008,7 @@ static void emac_rx_handler(void *token, int len, int status)
+ 	int			ret;
+ 
+ 	/* free and bail if we are shutting down */
+-	if (unlikely(!netif_running(ndev))) {
++	if (unlikely(!netif_running(ndev) || !netif_carrier_ok(ndev))) {
+ 		dev_kfree_skb_any(skb);
+ 		return;
+ 	}
+-- 
+1.7.1
 
