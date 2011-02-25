@@ -1,55 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] udp: avoid searching when no ports are available
-Date: Fri, 25 Feb 2011 17:55:17 +0100
-Message-ID: <1298652917.2659.95.camel@edumazet-laptop>
-References: <1298633711-11924-1-git-send-email-dbaluta@ixiacom.com>
-	 <1298635575.2659.65.camel@edumazet-laptop>
-	 <AANLkTimodVFC8969md-f7iebS_9WvVahV9fPFFLtup73@mail.gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel modules
+Date: Fri, 25 Feb 2011 12:25:40 -0500
+Message-ID: <135187.1298654740@localhost>
+References: <20110224151238.GA16916@albatros> <1298565265.2613.16.camel@bwh-desktop> <20110225123023.GA8776@albatros>
+            <20110225151414.GA5211@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Rohan Chitradurga <rohan@ixiacom.com>
-To: Daniel Baluta <dbaluta@ixiacom.com>
+Content-Type: multipart/signed; boundary="==_Exmh_1298654740_47234P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>,
+	Changli Gao <xiaosuo@gmail.com>, Jesse Gross <jesse@nicira.com>
+To: Vasiliy Kulikov <segoon@openwall.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:44773 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932422Ab1BYQzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 11:55:25 -0500
-Received: by bwz15 with SMTP id 15so2113011bwz.19
-        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 08:55:23 -0800 (PST)
-In-Reply-To: <AANLkTimodVFC8969md-f7iebS_9WvVahV9fPFFLtup73@mail.gmail.com>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:50642 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932595Ab1BYR2e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 12:28:34 -0500
+In-Reply-To: Your message of "Fri, 25 Feb 2011 18:14:14 +0300."
+             <20110225151414.GA5211@albatros>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 25 f=C3=A9vrier 2011 =C3=A0 18:45 +0200, Daniel Baluta a =C3=
-=A9crit :
-> I guess now, the correct bitmap size is MAX_UDP_PORTS / (udptable->ma=
-sk + 1)
-> or  MAX_UDP_PORTS >> udptable->log,  right?
->=20
+--==_Exmh_1298654740_47234P
+Content-Type: text/plain; charset=us-ascii
 
+On Fri, 25 Feb 2011 18:14:14 +0300, Vasiliy Kulikov said:
+> Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
+> CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
+> that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are limited
+> to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't allow
+> anybody load any module not related to networking.
+> 
+> This patch restricts an ability of autoloading modules to netdev modules
+> with explicit aliases.  Currently there are only three users of the
+> feature: ipip, ip_gre and sit.
 
-Yes, but using bitmap_zero(bitmap, PORTS_PER_CHAIN) is faster.
+And you stop an attacker from simply recompiling the module with a suitable
+MODULE_ALIAS line added, how, exactly?  This patch may make sense down the
+road, but not while it's still trivial for a malicious root user to drop stuff
+into /lib/modules.
 
-It generates 4 machine instructions,
-	movq   $0x0,(%r10)
-	movq   $0x0,0x8(%r10)
-	movq   $0x0,0x10(%r10)
-	movq   $0x0,0x18(%r10)
+And if you're going the route "but SELinux/SMACK/Tomoyo will prevent a malicious
+root user from doing that", then the obvious reply is "this should be part of those
+subsystems rather than something done one-off like this (especially as it has a chance
+of breaking legitimate setups that use the current scheme).
 
-while bitmap_zero(bitmap, some_non_constant_expression) is more
-expensive (it calls an out of line function)
+--==_Exmh_1298654740_47234P
+Content-Type: application/pgp-signature
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
 
-> We don't have special needs on a small machine. We just want that whe=
-n
-> when all UDP ports are exhausted, bind calls to fail faster.
->=20
-> I will be back with tests on latest kernel.
+iD8DBQFNZ+YUcC3lWbTT17ARAqtAAJ0diVCzG6c6fL4tKdbjkHbnAnDZuwCeLuwB
+T7FgP2EiU7jfWM0LUNcn4oU=
+=c8EY
+-----END PGP SIGNATURE-----
 
-Hmm, please always use the latest kernel before sending patches.
-
-Thanks
-
+--==_Exmh_1298654740_47234P--
 
