@@ -1,60 +1,25 @@
-From: Vasiliy Kulikov <segoon@openwall.com>
-Subject: Re: module loading with CAP_NET_ADMIN
-Date: Fri, 25 Feb 2011 15:30:23 +0300
-Message-ID: <20110225123023.GA8776@albatros>
-References: <20110224151238.GA16916@albatros>
- <1298565265.2613.16.camel@bwh-desktop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Kees Cook <kees.cook@canonical.com>,
-	Eugene Teo <eugene@redhat.com>,
-	Dan Rosenberg <dan.j.rosenberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1298565265.2613.16.camel@bwh-desktop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: frank.blaschka@de.ibm.com
+Subject: [patch 0/1] [resend] s390: one more qeth patches for net-next
+Date: Fri, 25 Feb 2011 13:32:08 +0100
+Message-ID: <20110225123208.764828326@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mtagate6.uk.ibm.com ([194.196.100.166]:36692 "EHLO
+	mtagate6.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755426Ab1BYMdr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 07:33:47 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Feb 24, 2011 at 16:34 +0000, Ben Hutchings wrote:
-> On Thu, 2011-02-24 at 18:12 +0300, Vasiliy Kulikov wrote:
-> > My proposal is changing request_module("%s", name) to something like
-> > request_module("netdev-%s", name) inside of dev_load() and adding
-> > aliases to related drivers.
-> 
-> AFAIK these interface-name aliases are usually defined by distribution
-> configuration files rather than within the modules themselves.  And that
-> behaviour is pretty much obsolete now that we have hotplug and udev.
-> 
-> > This would allow to load only netdev
-> > modules via these ioctls.  I'm not sure what modules should be patches -
-> > at least real physical netdevices have names different from drivers'
-> > names, so they don't need patching.  I suppose the list is not big.
-> 
-> The only modules I can see that declare aliases like this are:
-> 
-> net/ipv4/ip_gre.c:MODULE_ALIAS("gre0");
-> net/ipv4/ipip.c:MODULE_ALIAS("tunl0");
-> net/ipv6/sit.c:MODULE_ALIAS("sit0");
+Hi Dave,
 
-Thank you!  These are not handled via udev or anything, it is usefull to
-load it via "ifconfig sit0 up", so they do require patching.
+I did not find this patch in net-next so far
 
-I didn't find any modules requiring autoloading except these three.
-Good candidate should be "isatap0" as it is seen in ip help, but there
-is no such alias.
-
-$ ip tunnel add help 2>&1 | grep mode
-          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]
-
-
-I'll send the patch for request_module() and three drivers.
-
+shortlog:
+Ursula Braun (1)
+qeth: remove needless IPA-commands in offline
 
 Thanks,
+        Frank
 
--- 
-Vasiliy Kulikov
-http://www.openwall.com - bringing security into open computing environments
