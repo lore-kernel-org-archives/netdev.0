@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7] sched: protocol only needed when
- CONFIG_NET_CLS_ACT is enabled
-Date: Fri, 25 Feb 2011 14:01:16 -0800 (PST)
-Message-ID: <20110225.140116.242145884.davem@davemloft.net>
-References: <1298648721-3026-1-git-send-email-hagen@jauu.net>
-	<1298648721-3026-7-git-send-email-hagen@jauu.net>
+Subject: Re: [patch 0/1] [resend] s390: one more qeth patches for net-next
+Date: Fri, 25 Feb 2011 14:04:54 -0800 (PST)
+Message-ID: <20110225.140454.116375279.davem@davemloft.net>
+References: <20110225123208.764828326@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de
-To: hagen@jauu.net
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org
+To: frank.blaschka@de.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:46800
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60730
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932922Ab1BYWAj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 17:00:39 -0500
-In-Reply-To: <1298648721-3026-7-git-send-email-hagen@jauu.net>
+	by vger.kernel.org with ESMTP id S1755481Ab1BYWER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 17:04:17 -0500
+In-Reply-To: <20110225123208.764828326@de.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Date: Fri, 25 Feb 2011 16:45:21 +0100
+From: frank.blaschka@de.ibm.com
+Date: Fri, 25 Feb 2011 13:32:08 +0100
 
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> I did not find this patch in net-next so far
 
-Applied to net-next-2.6
+It's in my backlog, a simply query to active patches in patchwork
+would have shown you this.
+
+	http://patchwork.ozlabs.org/project/netdev/
+
+Please do not resubmit patches which are properly queued up in
+patchwork, as this makes more work for me.
