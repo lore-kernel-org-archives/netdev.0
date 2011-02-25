@@ -1,74 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] Phonet: small pipe protocol fixes
-Date: Fri, 25 Feb 2011 11:24:06 -0800 (PST)
-Message-ID: <20110225.112406.246526410.davem@davemloft.net>
-References: <201102251113.41620.remi.denis-courmont@nokia.com>
-	<20110225.112055.260096987.davem@davemloft.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
+ modules
+Date: Fri, 25 Feb 2011 19:30:16 +0000
+Message-ID: <1298662216.2554.33.camel@bwh-desktop>
+References: <20110225190205.GA4541@albatros>
+	 <20110225.110529.39178636.davem@davemloft.net>
+	 <1298660879.2554.23.camel@bwh-desktop>
+	 <20110225.111606.115927805.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ofono@ofono.org
-To: netdev@vger.kernel.org, remi.denis-courmont@nokia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:51684
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753076Ab1BYTX3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Feb 2011 14:23:29 -0500
-In-Reply-To: <20110225.112055.260096987.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: segoon@openwall.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
+	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
+	eugene@redhat.com, dan.j.rosenberg@gmail.com,
+	akpm@linux-foundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110225.111606.115927805.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: David Miller <davem@davemloft.net>
-Date: Fri, 25 Feb 2011 11:20:55 -0800 (PST)
+On Fri, 2011-02-25 at 11:16 -0800, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Fri, 25 Feb 2011 19:07:59 +0000
+> 
+> > You realise that module loading doesn't actually run in the context of
+> > request_module(), right?
+> 
+> Why is that a barrier?  We could simply pass a capability mask into
+> request_module if necessary.
+> 
+> It's an implementation detail, and not a deterrant to my suggested
+> scheme.
 
-> From: "R=E9mi Denis-Courmont" <remi.denis-courmont@nokia.com>
-> Date: Fri, 25 Feb 2011 11:13:41 +0200
->=20
->> This patch series cleans up and fixes a number of small bits in the
->> Phonet pipe code, especially the experimental pipe controller. Once
->> this small bits are sorted out, I will try to fix the controller
->> protocol implementation proper so that we do not need the
->> compile-time (experimental) flag anymore.
->=20
-> All applied thanks.
->=20
-> If you want to start using GIT to push phonet changes to me, frankly =
-I
-> would welcome that :-)
+It's not an implementation detail.  modprobe currently runs with full
+capabilities; your proposal requires its capabilities to be limited to
+those of the capabilities of the process that triggered the
+request_module() (plus, presumably, CAP_SYS_MODULE).
 
-BTW, I had to add the following patch to fix a build warning:
+Now modprobe doesn't have CAP_DAC_OVERRIDE and can't read modprobe
+configuration files that belong to users other than root.
 
---------------------
-phonet: Protect pipe_do_remove() with appropriate ifdefs.
+It doesn't have CAP_SYS_MKNOD so it can't run hooks that call mknod.
 
-It is only used when CONFIG_PHONET_PIPECTRLR is not set.
+etc.
 
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/phonet/pep.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Ben.
 
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index b8c31fc..875e86c 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -849,6 +849,7 @@ drop:
- 	return err;
- }
-=20
-+#ifndef CONFIG_PHONET_PIPECTRLR
- static int pipe_do_remove(struct sock *sk)
- {
- 	struct pep_sock *pn =3D pep_sk(sk);
-@@ -870,6 +871,7 @@ static int pipe_do_remove(struct sock *sk)
-=20
- 	return pn_skb_send(sk, skb, NULL);
- }
-+#endif
-=20
- /* associated socket ceases to exist */
- static void pep_sock_close(struct sock *sk, long timeout)
---=20
-1.7.4.1
-
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
