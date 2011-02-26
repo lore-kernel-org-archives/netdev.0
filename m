@@ -1,156 +1,66 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next-2.6 PATCH 02/10] ethtool: add ntuple flow specifier
- to network flow classifier
-Date: Sat, 26 Feb 2011 01:00:48 +0000
-Message-ID: <1298682048.3555.18.camel@localhost>
-References: <20110225232357.7920.58559.stgit@gitlad.jf.intel.com>
-	 <20110225233249.7920.70334.stgit@gitlad.jf.intel.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan
+ interface RX
+Date: Fri, 25 Feb 2011 17:08:01 -0800
+Message-ID: <AANLkTikSvs7jF9BZzbsYkLAawpCH2h1Z0r09ft219uaa@mail.gmail.com>
+References: <4D32FC1C.3010905@simon.arlott.org.uk>
+	<201101231845.20505.maciej.rutecki@gmail.com>
+	<AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com>
+	<201101241625.45367.maciej.rutecki@gmail.com>
+	<loom.20110205T163216-459@post.gmane.org>
+	<AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com>
+	<loom.20110206T203347-475@post.gmane.org>
+	<4D4FE100.5090808@gmail.com>
+	<loom.20110214T141934-88@post.gmane.org>
+	<AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com>
+	<loom.20110226T011347-702@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	netdev@vger.kernel.org
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: chriss <mail_to_chriss@gmx.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:31388 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751975Ab1BZBAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 20:00:52 -0500
-In-Reply-To: <20110225233249.7920.70334.stgit@gitlad.jf.intel.com>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:36677 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717Ab1BZBIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 20:08:02 -0500
+Received: by vxi39 with SMTP id 39so1895509vxi.19
+        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 17:08:01 -0800 (PST)
+In-Reply-To: <loom.20110226T011347-702@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-02-25 at 15:32 -0800, Alexander Duyck wrote:
-> This change is meant to add an ntuple define type to the rx network flow
-> classification specifiers.  The idea is to allow ntuple to be displayed and
-> possibly configured via the network flow classification interface.  To do
-> this I added a ntuple_flow_spec_ext to the lsit of supported filters, and
-> added a flow_type_ext value to the structure in an unused hole within the
-> ethtool_rx_flow_spec structure.
-
-There's a hole there on 64-bit architectures.  Unfortunately, on i386
-and other architectures where u64 is not 64-bit-aligned, there isn't.
-We actually need to add compat handling for the commands that use it.
-
-Also, we don't want these flags to be ignored by older kernel versions
-and drivers - they should reject specs that they don't understand.  So
-any extension flags need to be added to flow_type.
-
-> Due to the fact that the flow specifier structures are only 4 byte aligned
-> instead of 8 I had to break the user data field into 2 sections.  In
-> addition I added the vlan ethertype field since this is what ixgbe was
-> using the user-data for currently and it allows for the fields to stay 4
-> byte aligned while occupying space at the end of the flow_spec.
+On Fri, Feb 25, 2011 at 4:16 PM, chriss <mail_to_chriss@gmx.net> wrote:
+> Jesse Gross <jesse <at> nicira.com> writes:
 >
-> In order to guarantee byte ordering I also thought it best to keep all
-> fields in the flow_spec area a big endian value, as such I added vlan, vlan
-> ethertype, and data as big endian values.
+>>
+>> What driver is in use with the NIC you are seeing this on?
+>>
+>
+> He there
+>
+> the device in question is (as lspci told)
+> Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC/8169SC Gigabit
+> Ethernet (rev 10)
+>
+> handled by kernel module r8169.
 
-It's not important that byte order is consistent across architectures.
+I'm guessing that you're hitting the special case in this code in
+r8169.c:rtl8169_vlan_rx_register():
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> ---
-> 
->  include/linux/ethtool.h |   20 ++++++++++++++++++++
->  1 files changed, 20 insertions(+), 0 deletions(-)
-> 
-> diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-> index aac3e2e..3d1f8e0 100644
-> --- a/include/linux/ethtool.h
-> +++ b/include/linux/ethtool.h
-> @@ -378,10 +378,25 @@ struct ethtool_usrip4_spec {
->  };
->  
->  /**
-> + * struct ethtool_ntuple_spec_ext - flow spec extension for ntuple in nfc
-> + * @unused: space unused by extension
-> + * @vlan_etype: EtherType for vlan tagged packet to match
-> + * @vlan_tci: VLAN tag to match
-> + * @data: Driver-dependent data to match
-> + */
-> +struct ethtool_ntuple_spec_ext {
-> +	__be32	unused[15];
-> +	__be16	vlan_etype;
-> +	__be16	vlan_tci;
-> +	__be32	data[2];
-> +};
-[...]
+         /*
+          * Do not disable RxVlan on 8110SCd.
+          */
+         if (tp->vlgrp || (tp->mac_version == RTL_GIGA_MAC_VER_05))
+                 tp->cp_cmd |= RxVlan;
+         else
+                 tp->cp_cmd &= ~RxVlan;
 
-This is a really nasty way to reclaim space in the union.
+Since before you were getting the vlans directly off the device there
+was a vlan group configured.  However, now that the packets are going
+through the bridge, the group is not being configured on the device
+and the tag gets dropped.  Assuming that this is the case, the
+solution is to convert the driver to use the new vlan model, which
+does not require knowledge of the vlan group.
 
-Let's name the union, shrink it and insert the extra fields that way:
-
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -377,27 +377,43 @@ struct ethtool_usrip4_spec {
- 	__u8    proto;
- };
- 
-+union ethtool_flow_union {
-+	struct ethtool_tcpip4_spec		tcp_ip4_spec;
-+	struct ethtool_tcpip4_spec		udp_ip4_spec;
-+	struct ethtool_tcpip4_spec		sctp_ip4_spec;
-+	struct ethtool_ah_espip4_spec		ah_ip4_spec;
-+	struct ethtool_ah_espip4_spec		esp_ip4_spec;
-+	struct ethtool_usrip4_spec		usr_ip4_spec;
-+	struct ethhdr				ether_spec;
-+	__u8					hdata[52];
-+};
-+
-+struct ethtool_flow_ext {
-+	__be16	vlan_etype;
-+	__be16	vlan_tci;
-+	__be32	data[2];
-+	__u32	reserved[2];
-+};
-+
- /**
-  * struct ethtool_rx_flow_spec - specification for RX flow filter
-  * @flow_type: Type of match to perform, e.g. %TCP_V4_FLOW
-  * @h_u: Flow fields to match (dependent on @flow_type)
-+ * @h_ext: Additional fields to match
-  * @m_u: Masks for flow field bits to be ignored
-+ * @m_ext: Masks for additional field bits to be ignored.
-+ *	Note, all additional fields must be ignored unless @flow_type
-+ *	includes the %FLOW_EXT flag.
-  * @ring_cookie: RX ring/queue index to deliver to, or %RX_CLS_FLOW_DISC
-  *	if packets should be discarded
-  * @location: Index of filter in hardware table
-  */
- struct ethtool_rx_flow_spec {
- 	__u32		flow_type;
--	union {
--		struct ethtool_tcpip4_spec		tcp_ip4_spec;
--		struct ethtool_tcpip4_spec		udp_ip4_spec;
--		struct ethtool_tcpip4_spec		sctp_ip4_spec;
--		struct ethtool_ah_espip4_spec		ah_ip4_spec;
--		struct ethtool_ah_espip4_spec		esp_ip4_spec;
--		struct ethtool_usrip4_spec		usr_ip4_spec;
--		struct ethhdr				ether_spec;
--		__u8					hdata[72];
--	} h_u, m_u;
-+	union ethtool_flow_union h_u;
-+	struct ethtool_flow_ext h_ext;
-+	union ethtool_flow_union m_u;
-+	struct ethtool_flow_ext m_ext;
- 	__u64		ring_cookie;
- 	__u32		location;
- };
-@@ -954,6 +970,8 @@ struct ethtool_ops {
- #define	IPV4_FLOW	0x10	/* hash only */
- #define	IPV6_FLOW	0x11	/* hash only */
- #define	ETHER_FLOW	0x12	/* spec only (ether_spec) */
-+/* Flag to enable additional fields in struct ethtool_rx_flow_spec */
-+#define	FLOW_EXT	0x80000000
- 
- /* L3-L4 network traffic flow hash options */
- #define	RXH_L2DA	(1 << 1)
----
-
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Can you confirm this by running tcpdump -eni br0?  I would expect that
+you see the correct packets but without vlan tags.
