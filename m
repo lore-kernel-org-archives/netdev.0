@@ -1,81 +1,98 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: TX VLAN acceleration on bridges broken in 2.6.37?
-Date: Fri, 25 Feb 2011 17:22:15 -0800
-Message-ID: <1298683335.2643.165.camel@jtkirshe-MOBL1>
-References: <20110221232902.GA3440@x61s.reliablesolutions.de>
-	 <AANLkTinoJqWA6ffnUx2KW_83srNbo+k6r24hnNpPTGvW@mail.gmail.com>
-	 <20110226001908.GA10777@x61s.reliablesolutions.de>
-	 <AANLkTikVvjsaG94-gtauvTLjH_RW5fmva8+N7Lk-ryQ0@mail.gmail.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2011-02-22
+Date: Fri, 25 Feb 2011 22:36:39 -0300
+Message-ID: <20110226013639.GA2166@joana>
+References: <20110222215229.GJ12153@tuxdriver.com>
+ <20110224.224344.104068328.davem@davemloft.net>
+ <20110225.111500.59674472.davem@davemloft.net>
+ <20110225193618.GB2107@joana>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-VwjQZngdhntMAAZvhx/w"
-Cc: Jan Niehusmann <jan@gondor.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Tantilov, Emil S" <emil.s.tantilov@intel.com>
-To: Jesse Gross <jesse@nicira.com>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTikVvjsaG94-gtauvTLjH_RW5fmva8+N7Lk-ryQ0@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110225193618.GB2107@joana>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+* Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org> [2011-02-25 16:36:18 -0300]:
 
---=-VwjQZngdhntMAAZvhx/w
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Hi David,
+> 
+> * David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> [2011-02-25 11:15:00 -0800]:
+> 
+> > From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> > Date: Thu, 24 Feb 2011 22:43:44 -0800 (PST)
+> > 
+> > > From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> > > Date: Tue, 22 Feb 2011 16:52:30 -0500
+> > > 
+> > >> Here is the latest batch of wireless bits intended for 2.6.39.  It seems
+> > >> I neglected to send a pull request last week, so this one is a bit big
+> > >> -- I apologize!
+> > >> 
+> > >> This includes a rather large batch of bluetooth bits by way of Gustavo.
+> > >> It looks like a variety of bits, including some code refactoring, some
+> > >> protocol support enhancements, some bugfixes, etc. -- nothing too
+> > >> unusual.
+> > >> 
+> > >> Other items of interest include a new driver from Realtek, some ssb
+> > >> support enhancements, and the usual sort of updates for mac80211 and a
+> > >> variety of drivers.  Also included is a wireless-2.6 pull to resolve
+> > >> some build breakage.
+> > >> 
+> > >> Please let me know if there are problems!
+> > > 
+> > > Pulled, thanks a lot John.
+> > 
+> > John a few things:
+> > 
+> > 1) I had to add some vmalloc.h includes to fix the build on sparc64,
+> >    see commit b08cd667c4b6641c4d16a3f87f4550f81a6d69ac in net-next-2.6
+> > 
+> > 2) Something is screwey with the bluetooth config options now.
+> > 
+> >    I have an allmodconfig tree, and when I run "make oldconfig" after
+> >    this pull, BT_L2CAP and BT_SCO both prompt me, claiming that they
+> >    can only be built statically.
+> > 
+> >    I give it 'y' just to make it happen, for both, and afterways no
+> >    matter how many times I rerun "make oldconfig" I keep seeing things
+> >    like this in my build:
+> > 
+> > scripts/kconfig/conf --silentoldconfig Kconfig
+> > include/config/auto.conf:986:warning: symbol value 'm' invalid for BT_SCO
+> > include/config/auto.conf:3156:warning: symbol value 'm' invalid for BT_L2CAP
+> > 
+> >    First, what the heck is going on here?  Second, why the heck can't these
+> >    non-trivial pieces of code be built modular any more?
+> 
+> We now have L2CAP and SCO built-in in the main bluetooth.ko module.
+> 
+> > 
+> >    You can't make something "bool", have it depend on something that
+> >    might be modular, and then build it into what could in fact be a
+> >    module.  That's exactly what the bluetooth stuff seems to be doing
+> >    now.
+> 
+> Seems I did the Kconfig change wrong, I'll fix it ASAP and send it to you
+> guys.
 
-On Fri, 2011-02-25 at 17:16 -0800, Jesse Gross wrote:
-> On Fri, Feb 25, 2011 at 4:19 PM, Jan Niehusmann <jan@gondor.com> wrote:
-> > On Fri, Feb 25, 2011 at 02:53:21PM -0800, Jesse Gross wrote:
-> >> is specific to the e1000e driver.  I know that some other Intel NICs
-> >> require vlan stripping on receive to be enabled for vlan insertion on
-> >> transmit to work.  Since this driver has not been converted over to
-> >> use the new vlan model yet, it only enables these things if a vlan is
-> >> directly configured on it.  To confirm this can you try a few things:
-> >
-> > My observations confirm your theory:
->=20
-> OK, thanks for confirming.  The right solution is convert the driver
-> over to the new vlan model.  I don't know how soon I might get to
-> this, maybe it's something that the Intel guys can take a look at?
+I Figured the problem. When I first wrote this I based the work in other
+Kconfig in net/ (as it was my very first time doing such kind of changes in a
+Kconfig). For example, net/decnet/ and net/ax25/ do exactly the same as the
+Bluetooth Kconfig. "bool" depending on "tristate" and build both together.
 
-I have made sure that Bruce is aware of the issue.
+But doing another look after your report there is some places where this is
+done a bit different, net/ipv6 and net/mac80211 are examples. Then I changed
+to this new approach to remove the direct dependency from BT_L2CAP and BT_SCO.
+Patch follows this e-mail.
 
-We will see what we can do to get some patches created and under
-testing.
+That point me out that we may have other subsystems doing it wrong and we have
+to fix this.
 
->=20
-> > - indeed, -e is necessary to show the vlan tags. So my prior observatio=
-n
-> >  regarding tag visibility in tcpdump was wrong. The packets are still
-> >  have a vlan tag in the non-working case.
-> >
-> >  (What actually is affected by the txvlan flag is the ability to filter
-> >  for vlan tags with tcpdump.  so 'tcpdump -e -i eth0' shows the packets=
-,
-> >  'tcpdump -e -i eth0 vlan' only shows them with txvlan off. However,
-> >  filtering for the vlan tag also doesn't work with the vlan interface
-> >  on eth0.1, while the tagging actually works, as verified above.)
->=20
-> Good to know, though that's a separate issue.
-
-
-
---=-VwjQZngdhntMAAZvhx/w
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJNaFXHAAoJECTsCADr/EWUOEkIAIS+RHFbLCFJ80V5wQoW6jXs
-h8S8Dx2jsXr83mtY1ZQURubtk6tkyIoVmdRHnTqNFhifqvzpPvuXzlOB3w2oSu3q
-YVAD+KRu49n4tO0+XmIYmSVmVRVdntTeP6BnwRBvcA0vswE6vvqeX7bW+0xJ8ODU
-doh7+qwi11ZoE+D88VuvUcQlZqzATEKck/+XOtQ73uT0LOWBz9YiNAUUIy9dqZ04
-MTQKCpO1vBrBLB9IUC7VfNOVdsm3RHfhnTz9FZEIE96WsjLsoIME5Ej1GRG/zDU0
-9ENE6Jli/zf2yl+L1nBuPqC/vFMF3kqE6s9qz80aRj/rncEuGGaeBgnxI8IOpeo=
-=9bqc
------END PGP SIGNATURE-----
-
---=-VwjQZngdhntMAAZvhx/w--
+-- 
+Gustavo F. Padovan
+http://profusion.mobi
