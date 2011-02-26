@@ -1,66 +1,59 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan
- interface RX
-Date: Fri, 25 Feb 2011 17:08:01 -0800
-Message-ID: <AANLkTikSvs7jF9BZzbsYkLAawpCH2h1Z0r09ft219uaa@mail.gmail.com>
-References: <4D32FC1C.3010905@simon.arlott.org.uk>
-	<201101231845.20505.maciej.rutecki@gmail.com>
-	<AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com>
-	<201101241625.45367.maciej.rutecki@gmail.com>
-	<loom.20110205T163216-459@post.gmane.org>
-	<AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com>
-	<loom.20110206T203347-475@post.gmane.org>
-	<4D4FE100.5090808@gmail.com>
-	<loom.20110214T141934-88@post.gmane.org>
-	<AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com>
-	<loom.20110226T011347-702@post.gmane.org>
+Subject: Re: TX VLAN acceleration on bridges broken in 2.6.37?
+Date: Fri, 25 Feb 2011 17:16:35 -0800
+Message-ID: <AANLkTikVvjsaG94-gtauvTLjH_RW5fmva8+N7Lk-ryQ0@mail.gmail.com>
+References: <20110221232902.GA3440@x61s.reliablesolutions.de>
+	<AANLkTinoJqWA6ffnUx2KW_83srNbo+k6r24hnNpPTGvW@mail.gmail.com>
+	<20110226001908.GA10777@x61s.reliablesolutions.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: chriss <mail_to_chriss@gmx.net>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"Tantilov, Emil S" <emil.s.tantilov@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: Jan Niehusmann <jan@gondor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:36677 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717Ab1BZBIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 20:08:02 -0500
-Received: by vxi39 with SMTP id 39so1895509vxi.19
-        for <netdev@vger.kernel.org>; Fri, 25 Feb 2011 17:08:01 -0800 (PST)
-In-Reply-To: <loom.20110226T011347-702@post.gmane.org>
+Received: from mail-vw0-f46.google.com ([209.85.212.46]:54229 "EHLO
+	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750717Ab1BZBQg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Feb 2011 20:16:36 -0500
+In-Reply-To: <20110226001908.GA10777@x61s.reliablesolutions.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Feb 25, 2011 at 4:16 PM, chriss <mail_to_chriss@gmx.net> wrote:
-> Jesse Gross <jesse <at> nicira.com> writes:
+On Fri, Feb 25, 2011 at 4:19 PM, Jan Niehusmann <jan@gondor.com> wrote:
+> On Fri, Feb 25, 2011 at 02:53:21PM -0800, Jesse Gross wrote:
+>> is specific to the e1000e driver. =A0I know that some other Intel NI=
+Cs
+>> require vlan stripping on receive to be enabled for vlan insertion o=
+n
+>> transmit to work. =A0Since this driver has not been converted over t=
+o
+>> use the new vlan model yet, it only enables these things if a vlan i=
+s
+>> directly configured on it. =A0To confirm this can you try a few thin=
+gs:
 >
->>
->> What driver is in use with the NIC you are seeing this on?
->>
+> My observations confirm your theory:
+
+OK, thanks for confirming.  The right solution is convert the driver
+over to the new vlan model.  I don't know how soon I might get to
+this, maybe it's something that the Intel guys can take a look at?
+
+> - indeed, -e is necessary to show the vlan tags. So my prior observat=
+ion
+> =A0regarding tag visibility in tcpdump was wrong. The packets are sti=
+ll
+> =A0have a vlan tag in the non-working case.
 >
-> He there
->
-> the device in question is (as lspci told)
-> Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC/8169SC Gigabit
-> Ethernet (rev 10)
->
-> handled by kernel module r8169.
+> =A0(What actually is affected by the txvlan flag is the ability to fi=
+lter
+> =A0for vlan tags with tcpdump. =A0so 'tcpdump -e -i eth0' shows the p=
+ackets,
+> =A0'tcpdump -e -i eth0 vlan' only shows them with txvlan off. However=
+,
+> =A0filtering for the vlan tag also doesn't work with the vlan interfa=
+ce
+> =A0on eth0.1, while the tagging actually works, as verified above.)
 
-I'm guessing that you're hitting the special case in this code in
-r8169.c:rtl8169_vlan_rx_register():
-
-         /*
-          * Do not disable RxVlan on 8110SCd.
-          */
-         if (tp->vlgrp || (tp->mac_version == RTL_GIGA_MAC_VER_05))
-                 tp->cp_cmd |= RxVlan;
-         else
-                 tp->cp_cmd &= ~RxVlan;
-
-Since before you were getting the vlans directly off the device there
-was a vlan group configured.  However, now that the packets are going
-through the bridge, the group is not being configured on the device
-and the tag gets dropped.  Assuming that this is the case, the
-solution is to convert the driver to use the new vlan model, which
-does not require knowledge of the vlan group.
-
-Can you confirm this by running tcpdump -eni br0?  I would expect that
-you see the correct packets but without vlan tags.
+Good to know, though that's a separate issue.
