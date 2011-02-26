@@ -1,46 +1,52 @@
-From: chriss <mail_to_chriss@gmx.net>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
-Date: Sat, 26 Feb 2011 00:16:49 +0000 (UTC)
-Message-ID: <loom.20110226T011347-702@post.gmane.org>
-References: <4D32FC1C.3010905@simon.arlott.org.uk> <201101231845.20505.maciej.rutecki@gmail.com> <AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com> <201101241625.45367.maciej.rutecki@gmail.com> <loom.20110205T163216-459@post.gmane.org> <AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com> <loom.20110206T203347-475@post.gmane.org> <4D4FE100.5090808@gmail.com> <loom.20110214T141934-88@post.gmane.org> <AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com>
+From: Jan Niehusmann <jan@gondor.com>
+Subject: Re: TX VLAN acceleration on bridges broken in 2.6.37?
+Date: Sat, 26 Feb 2011 01:19:08 +0100
+Message-ID: <20110226001908.GA10777@x61s.reliablesolutions.de>
+References: <20110221232902.GA3440@x61s.reliablesolutions.de>
+ <AANLkTinoJqWA6ffnUx2KW_83srNbo+k6r24hnNpPTGvW@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:32802 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756553Ab1BZARJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Feb 2011 19:17:09 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Pt7qH-0007xi-K2
-	for netdev@vger.kernel.org; Sat, 26 Feb 2011 01:17:01 +0100
-Received: from HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de ([109.193.65.201])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 26 Feb 2011 01:17:01 +0100
-Received: from mail_to_chriss by HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 26 Feb 2011 01:17:01 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AANLkTinoJqWA6ffnUx2KW_83srNbo+k6r24hnNpPTGvW@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jesse Gross <jesse <at> nicira.com> writes:
+On Fri, Feb 25, 2011 at 02:53:21PM -0800, Jesse Gross wrote:
+> is specific to the e1000e driver.  I know that some other Intel NICs
+> require vlan stripping on receive to be enabled for vlan insertion on
+> transmit to work.  Since this driver has not been converted over to
+> use the new vlan model yet, it only enables these things if a vlan is
+> directly configured on it.  To confirm this can you try a few things:
 
-> 
-> What driver is in use with the NIC you are seeing this on?
->
+My observations confirm your theory:
 
-He there
+> * Directly configure the vlan on the device instead of going through the bridge.
 
-the device in question is (as lspci told)
-Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8110SC/8169SC Gigabit
-Ethernet (rev 10)
+- does work, but only if eth0 is not part of bridge (expected behaviour,
+  afaik)
 
-handled by kernel module r8169.
+> * Use the bridge but also configure an unused vlan device on the
+> physical interface.
 
-I also tried to set up the vlan on the bridge. like br0.3. but that did not work.
+- does work
 
-regards//chriss
+> * Double check that tcpdump with the settings that you are using shows
+> vlan tags in other situations.  In some cases you need to use the 'e'
+> flag with tcpdump in order for it show vlan tags.  If it is the
+> driver/NIC that is dropping the tags, tcpdump should still show them.
 
+- indeed, -e is necessary to show the vlan tags. So my prior observation
+  regarding tag visibility in tcpdump was wrong. The packets are still
+  have a vlan tag in the non-working case. 
+
+  (What actually is affected by the txvlan flag is the ability to filter
+  for vlan tags with tcpdump.  so 'tcpdump -e -i eth0' shows the packets,
+  'tcpdump -e -i eth0 vlan' only shows them with txvlan off. However,
+  filtering for the vlan tag also doesn't work with the vlan interface
+  on eth0.1, while the tagging actually works, as verified above.)
+
+
+Jan
