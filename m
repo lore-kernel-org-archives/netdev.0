@@ -1,77 +1,97 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
-Date: Sun, 27 Feb 2011 21:59:24 +0100
-Message-ID: <4D6ABB2C.4070504@gmail.com>
-References: <1298039252.6201.66.camel@edumazet-laptop> <4D5E8655.5070304@trash.net> <20110218145850.GF2939@psychotron.redhat.com> <20110218.120656.104048936.davem@davemloft.net> <20110218205832.GE2602@psychotron.redhat.com> <20110223190541.GB2783@psychotron.redhat.com> <4D6A5CDD.4020009@gmail.com> <20110227200628.GA2984@psychotron.redhat.com>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Sun, 27 Feb 2011 23:32:28 +0200
+Message-ID: <20110227233228.133610ohbha7chk0@hayate.sektori.org>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
+ <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
+ <1298793252.8726.45.camel@edumazet-laptop>
+ <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+ <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+ <1298837273.8726.128.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
+Content-Type: text/plain; charset=UTF-8;
+	DelSp=Yes	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, fubar@us.ibm.com,
-	andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Cc: Albert Cahalan <acahalan@gmail.com>,
+	Mikael Abrahamsson <swmike@swm.pp.se>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:59969 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab1B0U71 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 15:59:27 -0500
-Received: by fxm17 with SMTP id 17so3176420fxm.19
-        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 12:59:26 -0800 (PST)
-In-Reply-To: <20110227200628.GA2984@psychotron.redhat.com>
+Received: from sinikuusama.dnainternet.net ([83.102.40.134]:50019 "EHLO
+	sinikuusama.dnainternet.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751819Ab1B0Vcm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 16:32:42 -0500
+In-Reply-To: <1298837273.8726.128.camel@edumazet-laptop>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 27/02/2011 21:06, Jiri Pirko a =E9crit :
-> Sun, Feb 27, 2011 at 03:17:01PM CET, nicolas.2p.debian@gmail.com wrot=
-e:
+Quoting Eric Dumazet <eric.dumazet@gmail.com>:
 
->>> +	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
->>> +		skb->deliver_no_wcard =3D 1;
->>> +		return skb;
+> Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 12:55 +0200, Jussi Kivilinna =
+a =C3=A9crit :
+>> Quoting Albert Cahalan <acahalan@gmail.com>:
 >>
->> Shouldn't we return NULL here ?
+>> > On Sun, Feb 27, 2011 at 2:54 AM, Eric Dumazet =20
+>> <eric.dumazet@gmail.com> wrote:
+>> >> Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 08:02 +0100, Mikael Abrah=
+amsson a =C3=A9crit :
+>> >>> On Sun, 27 Feb 2011, Albert Cahalan wrote:
+>> >>>
+>> >>> > Nanoseconds seems fine; it's unlikely you'd ever want
+>> >>> > more than 4.2 seconds (32-bit unsigned) of queue.
+>> > ...
+>> >> Problem is some machines have slow High Resolution timing service=
+s.
+>> >>
+>> >> _If_ we have a time limit, it will probably use the low resolutio=
+n (aka
+>> >> jiffies), unless high resolution services are cheap.
+>> >
+>> > As long as that is totally internal to the kernel and never
+>> > getting exposed by some API for setting the amount, sure.
+>> >
+>> >> I was thinking not having an absolute hard limit, but an EWMA bas=
+ed one.
+>> >
+>> > The whole point is to prevent stale packets, especially to prevent
+>> > them from messing with TCP, so I really don't think so. I suppose
+>> > you do get this to some extent via early drop.
+>>
+>> I made simple hack on sch_fifo with per packet time limits
+>> (attachment) this weekend and have been doing limited testing on
+>> wireless link. I think hardlimit is fine, it's simple and does
+>> somewhat same as what packet(-hard)limited buffer does, drops packet=
+s
+>> when buffer is 'full'. My hack checks for timed out packets on
+>> enqueue, might be wrong approach (on other hand might allow some mor=
+e
+>> burstiness).
+>>
 >
-> No we shouldn't. We need sbk to be delivered to exact match.
-
-So, if I understand properly:
-
-- If skb->dev changed, loop,
-- else, if skb->deliver_no_wcard, do exact match delivery only,
-- Else, if !skb, drop the frame, without ever exact match delivery,
-- Else, do normal delivery.
-
-Right?
-
->> The vlan_on_bond case used to be cost effective. Now, we clone the s=
-kb and call netif_rx...
 >
-> This should not cost too much overhead considering only few packets a=
-re
-> going thru this. This hook shouldn't have exited in the fisrt place. =
-I
-> think introducing this functionality was a big mistake.
+> Qdisc should return to caller a good indication packet is queued or
+> dropped at enqueue() time... not later (aka : never)
 
-What would you have proposed instead?
+Ok, it is ugly hack ;) I got idea of dropping head from pfifo_head_drop=
+=2E
 
-Anyway, I think the feature is broken, because it wouldn't provide the =
-expected effect on the=20
-following configuration:
-
-eth0/eth1 -> bond0 -> br0 -> br0.100.
-
-We probably need a more general way to fix this, after your patch have =
-been accepted.
-
-[snip]
-
->> I would instead consider NULL as meaning exact-match-delivery-only.
->> (The same effect as dev_bond_should_drop() returning true).
 >
-> we can change the behaviour later on.
+> Accepting a packet at t0, and dropping it later at t0+limit without
+> giving any indication to caller is a problem.
 
-Agreed.
+Ok.
 
-	Nicolas.
+>
+> This is why I suggested using an EWMA plus a probabilist drop or
+> congestion indication (NET_XMIT_CN) to caller at enqueue() time.
+>
+> The absolute time limit you are trying to implement should be checked=
+ at
+> dequeue time, to cope with enqueue bursts or pauses on wire.
+>
+
+Ok.
+
+
