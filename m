@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
- modules
-Date: Sun, 27 Feb 2011 15:19:12 -0800 (PST)
-Message-ID: <20110227.151912.28823451.davem@davemloft.net>
-References: <1298660879.2554.23.camel@bwh-desktop>
-	<20110225.111606.115927805.davem@davemloft.net>
-	<20110227114438.GA4317@albatros>
+Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
+Date: Sun, 27 Feb 2011 15:22:08 -0800 (PST)
+Message-ID: <20110227.152208.102543719.davem@davemloft.net>
+References: <4D690D16.8020503@gmail.com>
+	<27369.1298749377@death>
+	<20110227125816.GB2814@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
-	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
-	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org
-To: segoon@openwall.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110227114438.GA4317@albatros>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: fubar@us.ibm.com, nicolas.2p.debian@gmail.com, kaber@trash.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, andy@greyhouse.net,
+	anna.fischer@hp.com
+To: jpirko@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49244
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751852Ab1B0XVc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 18:21:32 -0500
+In-Reply-To: <20110227125816.GB2814@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vasiliy Kulikov <segoon@openwall.com>
-Date: Sun, 27 Feb 2011 14:44:38 +0300
+From: Jiri Pirko <jpirko@redhat.com>
+Date: Sun, 27 Feb 2011 13:58:17 +0100
 
-> Then the things are still broken - a user has to update modprobe
-> together with the kernel, otherwise the updated kernel would call
-> "modprobe" with unsupported argument and even "sit0" wouldn't work.
+> That is very true. And given that af_packet uses orig_dev to obtain
+> ifindex, it can be replaced by skb->skb_iif. That way we can get rid of
+> orig_dev parameter for good.
 
-The capability bits get passed on the modprobe command line.
+I would rather see a complete patch set submitting at a unit, thanks.
 
-The module loading system call in the kernel inspects the command
-line looking for the argument, and uses it to validate the module
-load by comparing the mask with the special ELF section.
+I've already marked your V3 last night as "changes requested" in
+patchwork for this reason.
