@@ -1,103 +1,112 @@
-From: Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+From: d@taht.net (Dave =?utf-8?Q?T=C3=A4ht?=)
 Subject: Re: ANNOUNCE: debloat-testing kernel git tree
-Date: Sun, 27 Feb 2011 17:01:27 +0100
-Message-ID: <AANLkTi=Cp7N4xqPyU6KWF6DOzFytxaA2BeoXhnhsZ6dp@mail.gmail.com>
+Date: Sun, 27 Feb 2011 09:25:56 -0700
+Message-ID: <87tyfph2az.fsf@cruithne.co.teklibre.org>
 References: <20110225222210.GA3618@tuxdriver.com>
 	<AANLkTingkcc-dvs_8Nr0vYXdXvuDHEn6sz14tnHzLp8W@mail.gmail.com>
 	<87fwr9jxya.fsf@cruithne.co.teklibre.org>
 	<AANLkTinpG-xAC-VV-j7EBJB522+BqCyyFd_6N3KEr2Cf@mail.gmail.com>
 	<8739n9ii7z.fsf@cruithne.co.teklibre.org>
-Reply-To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+	<AANLkTi=Cp7N4xqPyU6KWF6DOzFytxaA2BeoXhnhsZ6dp@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
 	bloat-devel-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?UTF-8?Q?Dave_T=C3=A4ht?= <d@taht.net>
+To: sedat.dilek-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
 Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <8739n9ii7z.fsf-dm88P3lIUJl5IOjekqviT21/HaPePypd@public.gmane.org>
+In-Reply-To: <AANLkTi=Cp7N4xqPyU6KWF6DOzFytxaA2BeoXhnhsZ6dp-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+	(Sedat Dilek's message of "Sun, 27 Feb 2011 17:01:27 +0100")
 Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 27, 2011 at 4:56 PM, Dave T=C3=A4ht <d@taht.net> wrote:
-> Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
->
->> On Sun, Feb 27, 2011 at 4:31 PM, Dave T=C3=A4ht <d@taht.net> wrote:
->>>
->>> Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
->>>
->>>> On Fri, Feb 25, 2011 at 11:22 PM, John W. Linville
->>>> <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org> wrote:
->>>>> Announcement
->>>>>
->>>>> The bufferbloat project [1] is pleased to announce the availabili=
-ty
->>>>> of the debloat-testing Linux kernel git tree:
->>>>>
->>>>> =C2=A0 git://git.infradead.org/debloat-testing.git
->>>
->>> ----snip----
->
->>> Excellent. At moment I would recommend building "low latency preemp=
-t
->>> desktop" kernels with a high HZ value (400 or 1000), enabling highr=
-es
->>> timers, and compiling in SFB as a module. (I'd like the default for=
- SFB
->>> to be "m" rather than "n", too)
->>>
->
->> These "debloat guys" are fast :-). =C2=A0I was just preparing my
->> build-system (which I normally use to debianize linux-next kernels).
->> Any other recommendation for kernel-config options? =C2=A0For exampl=
-e:
->> linux-next has already CONFIG_NET_SCH_CHOKE (but I have unset it).
->
-> Enable CHOKe.
->
-> The HZ value change is due to my worry that we've smashed latency so
-> much in the driver/mac layer that it's interacting with the higher
-> layers somewhat badly... So we need to add more hooks to the servo lo=
-ops
-> involved in order to have a normal HZ.
->
->> Which commits are in debloat-testing GIT but not in linux-next tree?
->
-> The current list was in the release announcement. More on the way
-> (mostly embedded drivers at this point) git pull early and often!
->
->> Are you planning debloat feature for 2.6.39?
->
-> Depends on how many testers we get and what the results are.
->
-> I feel the eBDP stuff will not be ready during this release cycle. SF=
-B
-> and CHOKe are in net-next, so, probably. Various driver patches -
-> particularly those that increase the available dynamic range via
-> ethtool, (e.g lowering the bottommost TX queue limit to, like, 4,
-> especially for home gateways) may make it out if people look harder i=
-nto
-> the issue.
->
+Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
+
+> On Sun, Feb 27, 2011 at 4:56 PM, Dave T=C3=A4ht <d@taht.net> wrote:
+>> Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
 >>
->> - Sedat -
+>>> On Sun, Feb 27, 2011 at 4:31 PM, Dave T=C3=A4ht <d@taht.net> wrote:
+>>>>
+>>>> Sedat Dilek <sedat.dilek-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org> writes:
+>>
+>>> Are you planning debloat feature for 2.6.39?
+>>
+>> Depends on how many testers we get and what the results are.
+>>
+>> I feel the eBDP stuff will not be ready during this release cycle. S=
+=46B
+>> and CHOKe are in net-next, so, probably. Various driver patches -
+>> particularly those that increase the available dynamic range via
+>> ethtool, (e.g lowering the bottommost TX queue limit to, like, 4,
+>> especially for home gateways) may make it out if people look harder =
+into
+>> the issue.
 >
-> --
-> Dave Taht
-> http://nex-6.taht.net
+> OK, thanks for the explanations.
 >
+> Concerning "more drivers":
+> What would I have to do to modify ath5k?
+> I looked into the ath9k patch in debloat-testing GIT and it was to mo=
+d
+> some (TX/BUF) values only.
 
-OK, thanks for the explanations.
+Yes, reducing your TX buffer size greatly is the first, best, and
+easiest patch.
 
-Concerning "more drivers":
-What would I have to do to modify ath5k?
-I looked into the ath9k patch in debloat-testing GIT and it was to mod
-some (TX/BUF) values only.
-Not sure if ath9k is/was "well" prepared or only a good choice by the
-testers/committers as they own such a device.
+=46or wireless routers and cable home gateways especially, this researc=
+h
+shows that the total un-managed buffers in your system should be less
+than 32.
 
-- Sedat -
+http://www.cs.clemson.edu/~jmarty/papers/PID1154937.pdf
+
+I found their data convincing, and there are dozens of other papers tha=
+t
+we are sorting out on the bufferbloat.net web site.
+
+(PLEASE Note the key word there is un-managed)
+
+0 would be the best value. :/
+
+In the case of wireless, you also have retries to take into account.
+I'd argue in those cases, that what I say above is that the number
+should be FAR less than 32.
+
+Now, whether there is a good compromise between throughput and latency
+in that range in a DMA TX queue + TXQUEUE, remains to be seen.=20
+
+> Not sure if ath9k is/was "well" prepared or only a good choice by the
+> testers/committers as they own such a device.
+
+My test network is mostly ath9k - the nanostation M5s and the WNDR5700
+router described here:
+
+http://www.bufferbloat.net/projects/bloat/wiki/Experiment_-_Bloated_LAG=
+N_vs_debloated_WNDR5700
+
+There are people looking into the ath6kl, but you're the first to step
+up with the ath5k. :) Maybe the folk over at #ath6kl on irc can help.
+
+The ath9k patch improves latency under load enormously - I can run voip
+over it AND do big transfers and stream audio via samba... Which I
+couldn't before - and DNS, ND, NTP, babel, etc behave much better, but
+the currently hard coded nature of the TX queue limit does put an upper
+limit on packet aggregation that the eBDP folk are trying to resolve
+more generically.
+
+In practice, at "normal" 180Mbit rates, with the new queue depth of 3, =
+I
+get most of the benefits of packet aggregation without the lag.
+
+I do see higher packet loss than I would like, at present.
+
+>
+> - Sedat -
+
+--=20
+Dave Taht
+http://nex-6.taht.net
 --
 To unsubscribe from this list: send the line "unsubscribe linux-wireles=
 s" in
