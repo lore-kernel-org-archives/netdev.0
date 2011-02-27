@@ -1,178 +1,202 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
-Date: Sun, 27 Feb 2011 13:58:17 +0100
-Message-ID: <20110227125816.GB2814@psychotron.redhat.com>
-References: <20110219112842.GE2782@psychotron.redhat.com>
- <4D5FC308.9020507@gmail.com>
- <20110219134645.GF2782@psychotron.redhat.com>
- <4D6027B9.6050108@gmail.com>
- <20110220103609.GA2750@psychotron.redhat.com>
- <4D610511.4050902@gmail.com>
- <20110220150710.GB2750@psychotron.redhat.com>
- <4D62F324.6020301@gmail.com>
- <4D690D16.8020503@gmail.com>
- <27369.1298749377@death>
+From: "Shmulik Ravid" <shmulikr@broadcom.com>
+Subject: [PATCH net-next-2.6 v2 1/2] dcbnl: add support for retrieving
+ peer configuration - ieee
+Date: Sun, 27 Feb 2011 17:04:31 +0200
+Message-ID: <1298819071.4544.9.camel@lb-tlvb-shmulik.il.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nicolas.2p.debian@gmail.com, David Miller <davem@davemloft.net>,
-	kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, andy@greyhouse.net,
-	"Fischer, Anna" <anna.fischer@hp.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "John Fastabend" <john.r.fastabend@intel.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43712 "EHLO mx1.redhat.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1137 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751576Ab1B0NAX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Feb 2011 08:00:23 -0500
-Content-Disposition: inline
-In-Reply-To: <27369.1298749377@death>
+	id S1752053Ab1B0NE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Feb 2011 08:04:29 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Feb 26, 2011 at 08:42:57PM CET, fubar@us.ibm.com wrote:
->Nicolas de Peslo=FCan 	<nicolas.2p.debian@gmail.com> wrote:
->
->>Le 22/02/2011 00:20, Nicolas de Peslo=FCan a =E9crit :
->>
->>> After checking every protocol handlers installed by dev_add_pack(),=
- it
->>> appears that only 4 of them really use the orig_dev parameter given=
- by
->>> __netif_receive_skb():
->>>
->>> - bond_3ad_lacpdu_recv() @ drivers/net/bonding/bond_3ad.c
->>> - bond_arp_recv() @ drivers/net/bonding/bond_main.c
->>> - packet_rcv() @ net/packet/af_packet.c
->>> - tpacket_rcv() @ net/packet/af_packet.c
->>>
->>>  From the bonding point of view, the meaning of orig_dev is obvious=
-ly
->>> "the device one layer below the bonding device, through which the p=
-acket
->>> reached the bonding device". It is used by bond_3ad_lacpdu_recv() a=
-nd
->>> bond_arp_recv(), to find the underlying slave device through which =
-the
->>> LACPDU or ARP was received. (The protocol handler is registered at =
-the
->>> bonding device level).
->>>
->>>  From the af_packet point of view, the meaning is documented (in co=
-mmit
->>> "[AF_PACKET]: Add option to return orig_dev to userspace") as the
->>> "physical device [that] actually received the traffic, instead of h=
-aving
->>> the encapsulating device hide that information."
->>>
->>> When the bonding device is just one level above the physical device=
-, the
->>> two meanings happen to match the same device, by chance.
->>>
->>> So, currently, a bonding device cannot stack properly on top of any=
-thing
->>> but physical devices. It might not be a problem today, but may chan=
-ge in
->>> the future...
->>
->>Hi Jay,
->>
->>Still thinking about this orig_dev stuff, I wonder why the protocol
->>handlers used in bonding (bond_3ad_lacpdu_recv() and bond_arp_rcv()) =
-are
->>registered at the master level instead of at the slave level ?
->>
->>If they were registered at the slave level, they would simply receive
->>skb->dev as the ingress interface and use this value instead of needi=
-ng
->>the orig_dev value given to them when they are registered at the mast=
-er
->>level.
->>
->>As orig_dev is only used by bonding and by af_packet, but they disagr=
-ee on
->>the exact meaning of orig_dev, one way to fix this discrepancy would =
-be to
->>remove one of the usage. As the af_packet usage is exposed to user sp=
-ace,
->>bonding seems the right place to stop using orig_dev, even if orig_de=
-v was
->>introduced for bonding :-)
->>
->>I understand that this would add one entry per slave device to the
->>ptype_base list, but this seems to be the only bad effect of register=
-ing
->>at the slave level. Can you confirm that this was the reason to regis=
-ter
->>at the master level instead?
->
->	My recollection is that it was done the way it is because there
->was no "orig_dev" delivery logic at the time.  A handler registered to=
- a
->slave dev would receive no packets at all because assignment of skb->d=
-ev
->to the master happened first, and the "orig_dev" knowledge was lost.
->
->	When 802.3ad was added, a skb->real_dev field was created, but
->it wasn't used for delivery.  802.3ad used real_dev to figure out whic=
-h
->slave a LACPDU arrived on.  The skb->real_dev was eventually replaced
->with the orig_dev business that's there now.
->
->	Later, I did the arp_validate stuff the same way as 802.3ad
->because it worked and was easier than registering a handler per slave.
->
->>If you think registering at the slave level would cause too much impa=
-ct on
->>ptype_base, then we might have another way to stop using orig_dev for
->>bonding:
->>
->>In __skb_bond_should_drop(), we already test for the two interesting =
-protocols:
->>
->>if ((dev->priv_flags & IFF_SLAVE_NEEDARP) && skb->protocol =3D=3D __c=
-pu_to_be16(ETH_P_ARP))
->>	return 0;
->>
->>if (master->priv_flags & IFF_MASTER_8023AD && skb->protocol =3D=3D __=
-cpu_to_be16(ETH_P_SLOW))
->>	return 0;
->>
->>Would it be possible to call the right handlers directly from inside
->>__skb_bond_should_drop() then let __skb_bond_should_drop() return 1
->>("should drop") after processing the frames that are only of interest=
- for
->>bonding?
->
->	Isn't one purpose of switching to rx_handler that there won't
->need to be any skb_bond_should_drop logic in __netif_receive_skb at al=
-l?
+These 2 patches add the support for retrieving the remote or peer DCBX
+configuration via dcbnl for embedded DCBX stacks. The peer configuration
+is part of the DCBX MIB and is useful for debugging and diagnostics of
+the overall DCB configuration. The first patch add this support for IEEE
+802.1Qaz standard the second patch add the same support for the older
+CEE standard. Diff for v2 - the peer-app-info is CEE specific.
 
-Yes, that (hopefully most)  would be eventually removed.
 
->
->	Still, if you're just trying to simplify __netif_receive_skb
->first, I don't see any reason not to register the packet handlers at t=
-he
->slave level.  Looking at the ptype_base hash, I don't think that the
->protocols bonding is registering (ARP and SLOW) will hash collide with
->IP or IPv6, so I suspect there won't be much impact.
->
->	Once an rx_handler is used, then I suspect there's no need for
->the packet handlers at all, since the rx_handler is within bonding and
->can just deal with the ARP or LACPDU directly.
+Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
+---
+ include/linux/dcbnl.h |   28 ++++++++++++++++++++
+ include/net/dcbnl.h   |    6 ++++
+ net/dcb/dcbnl.c       |   69 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 103 insertions(+), 0 deletions(-)
 
-That is very true. And given that af_packet uses orig_dev to obtain
-ifindex, it can be replaced by skb->skb_iif. That way we can get rid of
-orig_dev parameter for good.
+diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
+index 4c5b26e..2542685 100644
+--- a/include/linux/dcbnl.h
++++ b/include/linux/dcbnl.h
+@@ -110,6 +110,20 @@ struct dcb_app {
+ 	__u16	protocol;
+ };
+ 
++/**
++ * struct dcb_peer_app_info - APP feature information sent by the peer
++ *
++ * @willing: willing bit in the peer APP tlv
++ * @error: error bit in the peer APP tlv
++ *
++ * In addition to this information the full peer APP tlv also contains
++ * a table of 'app_count' APP objects defined above.
++ */
++struct dcb_peer_app_info {
++	__u8	willing;
++	__u8	error;
++};
++
+ struct dcbmsg {
+ 	__u8               dcb_family;
+ 	__u8               cmd;
+@@ -235,11 +249,25 @@ enum dcbnl_attrs {
+ 	DCB_ATTR_MAX = __DCB_ATTR_ENUM_MAX - 1,
+ };
+ 
++/**
++ * enum ieee_attrs - IEEE 802.1Qaz get/set attributes
++ *
++ * @DCB_ATTR_IEEE_UNSPEC: unspecified
++ * @DCB_ATTR_IEEE_ETS: negotiated ETS configuration
++ * @DCB_ATTR_IEEE_PFC: negotiated PFC configuration
++ * @DCB_ATTR_IEEE_APP_TABLE: negotiated APP configuration
++ * @DCB_ATTR_IEEE_PEER_ETS: peer ETS configuration - get only
++ * @DCB_ATTR_IEEE_PEER_PFC: peer PFC configuration - get only
++ * @DCB_ATTR_IEEE_PEER_APP: peer APP tlv - get only
++ */
+ enum ieee_attrs {
+ 	DCB_ATTR_IEEE_UNSPEC,
+ 	DCB_ATTR_IEEE_ETS,
+ 	DCB_ATTR_IEEE_PFC,
+ 	DCB_ATTR_IEEE_APP_TABLE,
++	DCB_ATTR_IEEE_PEER_ETS,
++	DCB_ATTR_IEEE_PEER_PFC,
++	DCB_ATTR_IEEE_PEER_APP,
+ 	__DCB_ATTR_IEEE_MAX
+ };
+ #define DCB_ATTR_IEEE_MAX (__DCB_ATTR_IEEE_MAX - 1)
+diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
+index a8e7852..7b7180e 100644
+--- a/include/net/dcbnl.h
++++ b/include/net/dcbnl.h
+@@ -43,6 +43,8 @@ struct dcbnl_rtnl_ops {
+ 	int (*ieee_setpfc) (struct net_device *, struct ieee_pfc *);
+ 	int (*ieee_getapp) (struct net_device *, struct dcb_app *);
+ 	int (*ieee_setapp) (struct net_device *, struct dcb_app *);
++	int (*ieee_peer_getets) (struct net_device *, struct ieee_ets *);
++	int (*ieee_peer_getpfc) (struct net_device *, struct ieee_pfc *);
+ 
+ 	/* CEE std */
+ 	u8   (*getstate)(struct net_device *);
+@@ -77,6 +79,10 @@ struct dcbnl_rtnl_ops {
+ 	u8   (*getdcbx)(struct net_device *);
+ 	u8   (*setdcbx)(struct net_device *, u8);
+ 
++	/* peer apps */
++	int (*peer_getappinfo)(struct net_device *, struct dcb_peer_app_info *,
++			       u16 *);
++	int (*peer_getapptable)(struct net_device *, struct dcb_app *);
+ 
+ };
+ 
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index d5074a5..2e6dcf2 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1224,6 +1224,54 @@ err:
+ 	return err;
+ }
+ 
++static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb)
++{
++	struct dcb_peer_app_info info;
++	struct dcb_app *table = NULL;
++	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
++	u16 app_count;
++	int err;
++
++
++	/**
++	 * retrieve the peer app configuration form the driver. If the driver
++	 * handlers fail exit without doing anything
++	 */
++	err = ops->peer_getappinfo(netdev, &info, &app_count);
++	if (!err && app_count) {
++		table = kmalloc(sizeof(struct dcb_app) * app_count, GFP_KERNEL);
++		if (!table)
++			return -ENOMEM;
++
++		err = ops->peer_getapptable(netdev, table);
++	}
++
++	if (!err) {
++		u16 i;
++		struct nlattr *app;
++
++		/**
++		 * build the message, from here on the only possible failure
++		 * is due to the skb size
++		 */
++		err = -EMSGSIZE;
++
++		app = nla_nest_start(skb, DCB_ATTR_IEEE_PEER_APP);
++		if (!app)
++			goto nla_put_failure;
++
++		for (i = 0; i < app_count; i++)
++			NLA_PUT(skb, DCB_ATTR_IEEE_APP, sizeof(struct dcb_app),
++				&table[i]);
++
++		nla_nest_end(skb, app);
++	}
++	err = 0;
++
++nla_put_failure:
++	kfree(table);
++	return err;
++}
+ 
+ /* Handle IEEE 802.1Qaz GET commands. */
+ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+@@ -1288,6 +1336,27 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
+ 	spin_unlock(&dcb_lock);
+ 	nla_nest_end(skb, app);
+ 
++	/* get peer info if available */
++	if (ops->ieee_peer_getets) {
++		struct ieee_ets ets;
++		err = ops->ieee_peer_getets(netdev, &ets);
++		if (!err)
++			NLA_PUT(skb, DCB_ATTR_IEEE_PEER_ETS, sizeof(ets), &ets);
++	}
++
++	if (ops->ieee_peer_getpfc) {
++		struct ieee_pfc pfc;
++		err = ops->ieee_peer_getpfc(netdev, &pfc);
++		if (!err)
++			NLA_PUT(skb, DCB_ATTR_IEEE_PEER_PFC, sizeof(pfc), &pfc);
++	}
++
++	if (ops->peer_getappinfo && ops->peer_getapptable) {
++		err = dcbnl_build_peer_app(netdev, skb);
++		if (err)
++			goto nla_put_failure;
++	}
++
+ 	nla_nest_end(skb, ieee);
+ 	nlmsg_end(skb, nlh);
+ 
+-- 
+1.7.3.5
 
-So I suggest to take V3 of my patch now and do multiple follow-on
-patches to get us where we want to get.
 
-Thanks
 
->
->	-J
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
