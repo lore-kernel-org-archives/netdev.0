@@ -1,79 +1,62 @@
-From: Vlad Dogaru <ddvlad@rosedu.org>
-Subject: [PATCH nex-next] netdevice: make initial group visible to userspace
-Date: Sun, 27 Feb 2011 10:39:12 +0200
-Message-ID: <20110227083911.GA29638@cormyr>
-References: <1296671021-24421-1-git-send-email-ddvlad@rosedu.org>
- <1296671021-24421-2-git-send-email-ddvlad@rosedu.org>
- <20110225124345.0d691789@nehalam>
+From: Avi Kivity <avi@redhat.com>
+Subject: Re: EPT: Misconfiguration
+Date: Sun, 27 Feb 2011 12:46:41 +0200
+Message-ID: <4D6A2B91.5020100@redhat.com>
+References: <AANLkTinjt8G=mdEZK1a3qKozHw24uN0dfy2vUckbqwSZ@mail.gmail.com> <20110121132247.GA3097@amt.cnet> <AANLkTi=kMRu+4V6cc3bZtAT-L2P5cUo0QR3wNR3Y4u6B@mail.gmail.com> <4D3F0AD1.9010903@redhat.com> <AANLkTi=RMXSHAAbnN=HykGqbUshOFX_DO4kgYXTZUAdR@mail.gmail.com> <4D3FEEDB.5070407@redhat.com> <AANLkTimhkuMeKuihwRVnphxdCejpGi3rgd3uj9Xc_70v@mail.gmail.com> <AANLkTik76qykBCS_sEDQvBr4n7=BuffiU23bYKjFTRxa@mail.gmail.com> <AANLkTikS2M2pxO09PHN8+5+cBaQ593C9H7KthQHd4tM0@mail.gmail.com> <4D57D6AC.7000608@redhat.com> <20110215171639.GA12842@amt.cnet> <AANLkTimeFf2Smj=bWDYoH0Hf+ftnbW3XjacyS2pu49_o@mail.gmail.com> <AANLkTiknMneQtYqgmX7gvXsMoSO-yiLXr-dwbEej80Uy@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: NetDev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [141.85.37.41] ([141.85.37.41]:52855 "EHLO swarm.cs.pub.ro"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751419Ab1B0ImE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Feb 2011 03:42:04 -0500
-Content-Disposition: inline
-In-Reply-To: <20110225124345.0d691789@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Fri, Feb 25, 2011 at 12:43:45PM -0800, Stephen Hemminger wrote:
-> On Wed,  2 Feb 2011 20:23:40 +0200
-> Vlad Dogaru <ddvlad@rosedu.org> wrote:
-> 
-> > User can specify device group to list by using the group keyword:
-> > 
-> > 	ip link show group test
-> > 
-> > If no group is specified, 0 (default) is implied.
-> > 
-> > Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
-> 
-> I applied this to net-next for iproute2
-> but INIT_NETDEV_GROUP is in a part of netdevice.h that is not exported 
-> (ie inside #ifdef KERNEL).
-
-Sorry, here is a patch for net-next that fixes the issue:
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Marcelo Tosatti <mtosatti@redhat.com>, kvm <kvm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ruben Kerkhof <ruben@rubenkerkhof.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <AANLkTiknMneQtYqgmX7gvXsMoSO-yiLXr-dwbEej80Uy@mail.gmail.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-[PATCH net-next] netdevice: make initial group visible to userspace
+Copying netdev: looks like memory corruption in the networking stack.
 
-INIT_NETDEV_GROUP is needed by userspace, move it outside __KERNEL__
-guards.
+Archive link: http://www.spinics.net/lists/kvm/msg50651.html (for the 
+attachment).
 
-Signed-off-by: Vlad Dogaru <ddvlad@rosedu.org>
----
- include/linux/netdevice.h |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+On 02/24/2011 11:15 PM, Ruben Kerkhof wrote:
+> >
+> >  On Tue, Feb 15, 2011 at 18:16, Marcelo Tosatti<mtosatti@redhat.com>  wrote:
+>
+> >>  This and the others reported. So yes, it looks something is corrupting
+> >>  memory. Ruben, you can try to boot with slub_debug=ZFPU kernel option.
+>
+> Ok, there are now only 6 vms left on this host, and I've booted it
+> with the slub_debug=ZFPU option.
+> After a few hours, I got the following result:
+>
+> 2011-02-24T21:41:30.818496+01:00 phy005 kernel:
+> =============================================================================
+> 2011-02-24T21:41:30.818517+01:00 phy005 kernel: BUG kmalloc-2048 (Not
+> tainted): Object padding overwritten
+> 2011-02-24T21:41:30.818523+01:00 phy005 kernel:
+> -----------------------------------------------------------------------------
+> 2011-02-24T21:41:30.818526+01:00 phy005 kernel:
+> 2011-02-24T21:41:30.818530+01:00 phy005 kernel: INFO:
+> 0xffff8806230752ca-0xffff8806230752cf. First byte 0x0 instead of 0x5a
+> 2011-02-24T21:41:30.818534+01:00 phy005 kernel: INFO: Allocated in
+> __netdev_alloc_skb+0x34/0x51 age=2231 cpu=8 pid=0
+> 2011-02-24T21:41:30.818537+01:00 phy005 kernel: INFO: Freed in
+> skb_release_data+0xc9/0xce age=2368 cpu=8 pid=2159
+> 2011-02-24T21:41:30.818541+01:00 phy005 kernel: INFO: Slab
+> 0xffffea00157a9880 objects=15 used=13 fp=0xffff8806230752d0
+> flags=0x40000000004083
+> 2011-02-24T21:41:30.818545+01:00 phy005 kernel: INFO: Object
+> 0xffff880623074a88 @offset=19080 fp=0xffff8806230752d0
+>
+> The rest of the output is attached since it's quite large.
+>
+> Kind regards,
+>
+> Ruben
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ffe56c1..8be4056 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -75,9 +75,6 @@ struct wireless_dev;
- #define NET_RX_SUCCESS		0	/* keep 'em coming, baby */
- #define NET_RX_DROP		1	/* packet dropped */
- 
--/* Initial net device group. All devices belong to group 0 by default. */
--#define INIT_NETDEV_GROUP	0
--
- /*
-  * Transmit return codes: transmit return codes originate from three different
-  * namespaces:
-@@ -141,6 +138,9 @@ static inline bool dev_xmit_complete(int rc)
- 
- #define MAX_ADDR_LEN	32		/* Largest hardware address length */
- 
-+/* Initial net device group. All devices belong to group 0 by default. */
-+#define INIT_NETDEV_GROUP	0
-+
- #ifdef  __KERNEL__
- /*
-  *	Compute the worst case header length according to the protocols
+
 -- 
-1.7.1
+error compiling committee.c: too many arguments to function
 
