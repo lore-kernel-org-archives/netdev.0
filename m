@@ -1,76 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Sun, 27 Feb 2011 21:07:53 +0100
-Message-ID: <1298837273.8726.128.camel@edumazet-laptop>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
-	 <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
-	 <1298793252.8726.45.camel@edumazet-laptop>
-	 <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
-	 <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+From: Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org>
+Subject: Re: Bad checksums and lost packets with macvlan on dummy
+Date: Sun, 27 Feb 2011 21:35:04 +0100
+Message-ID: <4D6AB578.3010704@free.fr>
+References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr>
+	<20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr>
+	<20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr>
+	<1298836236.8726.109.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Albert Cahalan <acahalan@gmail.com>,
-	Mikael Abrahamsson <swmike@swm.pp.se>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Andrian Nord <nightnord-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	lxc-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <lxc-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1298836236.8726.109.camel@edumazet-laptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/lxc-users>,
+	<mailto:lxc-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=lxc-users>
+List-Post: <mailto:lxc-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:lxc-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/lxc-users>,
+	<mailto:lxc-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: lxc-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 12:55 +0200, Jussi Kivilinna a =
-=C3=A9crit :
-> Quoting Albert Cahalan <acahalan@gmail.com>:
->=20
-> > On Sun, Feb 27, 2011 at 2:54 AM, Eric Dumazet <eric.dumazet@gmail.c=
-om> wrote:
-> >> Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 08:02 +0100, Mikael Abraha=
-msson a =C3=A9crit :
-> >>> On Sun, 27 Feb 2011, Albert Cahalan wrote:
-> >>>
-> >>> > Nanoseconds seems fine; it's unlikely you'd ever want
-> >>> > more than 4.2 seconds (32-bit unsigned) of queue.
-> > ...
-> >> Problem is some machines have slow High Resolution timing services=
-=2E
-> >>
-> >> _If_ we have a time limit, it will probably use the low resolution=
- (aka
-> >> jiffies), unless high resolution services are cheap.
-> >
-> > As long as that is totally internal to the kernel and never
-> > getting exposed by some API for setting the amount, sure.
-> >
-> >> I was thinking not having an absolute hard limit, but an EWMA base=
-d one.
-> >
-> > The whole point is to prevent stale packets, especially to prevent
-> > them from messing with TCP, so I really don't think so. I suppose
-> > you do get this to some extent via early drop.
->=20
-> I made simple hack on sch_fifo with per packet time limits =20
-> (attachment) this weekend and have been doing limited testing on =20
-> wireless link. I think hardlimit is fine, it's simple and does =20
-> somewhat same as what packet(-hard)limited buffer does, drops packets=
- =20
-> when buffer is 'full'. My hack checks for timed out packets on =20
-> enqueue, might be wrong approach (on other hand might allow some more=
- =20
-> burstiness).
->=20
-
-
-Qdisc should return to caller a good indication packet is queued or
-dropped at enqueue() time... not later (aka : never)
-
-Accepting a packet at t0, and dropping it later at t0+limit without
-giving any indication to caller is a problem.
-
-This is why I suggested using an EWMA plus a probabilist drop or
-congestion indication (NET_XMIT_CN) to caller at enqueue() time.
-
-The absolute time limit you are trying to implement should be checked a=
-t
-dequeue time, to cope with enqueue bursts or pauses on wire.
+T24gMDIvMjcvMjAxMSAwODo1MCBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IExlIGRpbWFuY2hl
+IDI3IGbDqXZyaWVyIDIwMTEgw6AgMTY6MTQgKzAxMDAsIERhbmllbCBMZXpjYW5vIGEgw6ljcml0
+IDoKPj4gT24gMDIvMjMvMjAxMSAwNjoxMyBQTSwgQW5kcmlhbiBOb3JkIHdyb3RlOgo+Pj4gT24g
+TW9uLCBGZWIgMjEsIDIwMTEgYXQgMDU6MDc6MzFQTSArMDEwMCwgRGFuaWVsIExlemNhbm8gd3Jv
+dGU6Cj4+Pj4gSSBDYydlZCB0aGUgbmV0ZGV2IG1haWxpbmcgbGlzdCBhbmQgUGF0cmljayBpbiBj
+YXNlIG15IGFuYWx5c2lzIGlzIHdyb25nCj4+Pj4gb3IgaW5jb21wbGV0ZS4KPj4+IEknbSBjb25m
+aXJtaW5nLCB0aGF0IHRoaXMgaGFwcGVucyBvbmx5IHdoZW4gbWFjdmxhbidzIGFyZSBvbnRvIGR1
+bW15IG5ldAo+Pj4gZGV2aWNlLiBJbiBjYXNlIG9mIHNvbWUgcGh5c2ljYWwgaW50ZXJmYWNlIHVu
+ZGVyIG1hY3ZsYW4gdGhlcmUgaXMgbm8gbG9zdAo+Pj4gcGFja2FnZXMgYW5kIG5vIGJyb2tlbiBj
+aGVja3N1bXMuCj4+IEkgZGlkIHNvbWUgdGVzdHMgd2l0aCBhIDIuNi4zNSBrZXJuZWwgdmVyc2lv
+biBhbmQgaXQgc2VlbXMgdGhlIGNoZWNrc3VtCj4+IGVycm9ycyBkbyBub3QgYXBwZWFyLgo+PiBJ
+IG5vdGljZWQgdGhlcmUgYXJlIHNvbWUgY2hhbmdlcyBpbiB0aGUgZHVtbXkgc2V0dXAgZnVuY3Rp
+b246Cj4+Cj4+ICAgICBkZXYtPmZlYXR1cmVzICAgfD0gTkVUSUZfRl9TRyB8IE5FVElGX0ZfRlJB
+R0xJU1QgfCBORVRJRl9GX1RTTzsKPj4gICAgIGRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX05P
+X0NTVU0gfCBORVRJRl9GX0hJR0hETUEgfCBORVRJRl9GX0xMVFg7Cj4+Cj4+Cj4+IE1heSBiZSB0
+aGF0IHdhcyBpbnRyb2R1Y2VkIGJ5IGNvbW1pdDoKPj4KPj4gY29tbWl0IDZkODFmNDFjNThjNjlk
+ZGRlNDk3ZTllNjQwYmE1ODA1YWEyNmU3OGMKPj4gQXV0aG9yOiBFcmljIER1bWF6ZXQ8ZXJpYy5k
+dW1hemV0QGdtYWlsLmNvbT4KPj4gRGF0ZTogICBNb24gU2VwIDI3IDIwOjUwOjMzIDIwMTAgKzAw
+MDAKPj4KPj4gICAgICAgZHVtbXk6IHBlcmNwdSBzdGF0cyBhbmQgbG9ja2xlc3MgeG1pdAo+Pgo+
+PiAgICAgICBDb252ZXJ0cyBkdW1teSBuZXR3b3JrIGRldmljZSBkcml2ZXIgdG8gOgo+Pgo+PiAg
+ICAgICAtIHBlcmNwdSBzdGF0cwo+Pgo+PiAgICAgICAtIDY0Yml0IHN0YXRzCj4+Cj4+ICAgICAg
+IC0gbG9ja2xlc3MgeG1pdCAoTkVUSUZfRl9MTFRYKQo+Pgo+PiAgICAgICAtIHBlcmZvcm1hbmNl
+IGZlYXR1cmVzIGFkZGVkIChORVRJRl9GX1NHIHwgTkVUSUZfRl9GUkFHTElTVCB8Cj4+ICAgICAg
+IE5FVElGX0ZfVFNPIHwgTkVUSUZfRl9OT19DU1VNIHwgTkVUSUZfRl9ISUdIRE1BKQo+Pgo+PiAg
+ICAgICBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQ8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4K
+Pj4gICAgICAgU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyPGRhdmVtQGRhdmVtbG9mdC5u
+ZXQ+Cj4+Cj4+Cj4+IEVyaWMsCj4+Cj4+IEFuZHJpYW4gaXMgb2JzZXJ2aW5nLCB3aXRoIGEgY291
+cGxlIG9mIG1hY3ZsYW4gKGluIGJyaWRnZSBtb2RlKSBvbiB0b3AKPj4gb2YgYSBkdW1teSBpbnRl
+cmZhY2UsIGEgbG90IG9mIGNoZWNrc3VtcyBlcnJvciBhbmQgcGFja2V0cyBkcm9wLgo+PiBFYWNo
+IG1hY3ZsYW4gaXMgaW4gYSBkaWZmZXJlbnQgbmV0d29yayBuYW1lc3BhY2UgYW5kIHRoZSBkdW1t
+eSBpbnRlcmZhY2UKPj4gaXMgaW4gdGhlIGluaXRfbmV0Lgo+Pgo+PiBBbnkgaWRlYXMgPwo+IE5v
+dCBzdXJlIEkgdW5kZXJzdGFuZC4uLiBJIHRob3VnaHQgZHVtbXkgd2FzIGRyb3BwaW5nIGFsbCBm
+cmFtZXMKPiBhbnl3YXkgPwo+Cj4gc3RhdGljIG5ldGRldl90eF90IGR1bW15X3htaXQoc3RydWN0
+IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKPiB7Cj4gICAgICAgICAgc3Ry
+dWN0IHBjcHVfZHN0YXRzICpkc3RhdHMgPSB0aGlzX2NwdV9wdHIoZGV2LT5kc3RhdHMpOwo+Cj4g
+ICAgICAgICAgdTY0X3N0YXRzX3VwZGF0ZV9iZWdpbigmZHN0YXRzLT5zeW5jcCk7Cj4gICAgICAg
+ICAgZHN0YXRzLT50eF9wYWNrZXRzKys7Cj4gICAgICAgICAgZHN0YXRzLT50eF9ieXRlcyArPSBz
+a2ItPmxlbjsKPiAgICAgICAgICB1NjRfc3RhdHNfdXBkYXRlX2VuZCgmZHN0YXRzLT5zeW5jcCk7
+Cj4KPiAgICAgICAgICBkZXZfa2ZyZWVfc2tiKHNrYik7Cj4gICAgICAgICAgcmV0dXJuIE5FVERF
+Vl9UWF9PSzsKPiB9Cj4KPgo+IE1heWJlIHlvdSBjb3VsZCBkZXNjcmliZSB0aGUgc2V0dXAgPwoK
+WWVzLCBpdCBpcyB2ZXJ5IHNpbXBsZS4KClRoZXJlIGFyZSB0d28gbmV0d29yayBuYW1lc3BhY2Vz
+LgoKbWFjdmxhbjEgaXMgaW4gbmV0d29yayBuYW1lc3BhY2UgMQptYWN2bGFuMiBpcyBpbiBuZXR3
+b3JrIG5hbWVzcGFjZSAyCgpCb3RoIGFyZSBpbiAiYnJpZGdlIiBtb2RlLCBzbyB0aGV5IGNhbiBj
+b21tdW5pY2F0ZSB0b2dldGhlci4KVGhlIGxvd2VyIGRldmljZSBpcyBkdW1teTAgaW4gdGhlIGlu
+aXQgbmV0d29yayBuYW1lc3BhY2UuCgpJTU8gdGhlIHByb2JsZW0gaXMgY29taW5nIGZyb20gdGhl
+IG1hY3ZsYW4gZHJpdmVyOgoKZGV2LT5mZWF0dXJlcyAgICAgICAgICAgPSBsb3dlcmRldi0+ZmVh
+dHVyZXMgJiBNQUNWTEFOX0ZFQVRVUkVTCgpBcyBkdW1teTAgaGFzIHRoZSBvZmZsb2FkaW5nIGNh
+cGFiaWxpdGllcyBzZXQgb24sIHRoZSBtYWN2bGFuIGRyaXZlciAKaW5oZXJpdCB0aGVzZSBmZWF0
+dXJlcy4KCkluIHRoZSBub3JtYWwgY2FzZSwgZHVtbXkwIGlzIHN1cHBvc2VkIHRvIGRyb3AgdGhl
+IHBhY2tldHMuIEJ1dCB3aXRoIAptYWN2bGFuIHRoZXNlIHBhY2tldHMgYXJlIGJyb2FkY2FzdGVk
+IHRvIHRoZSBvdGhlciBtYWN2bGFuIHBvcnRzLCBzbyBubyAKY2hlY2tzdW0gaXMgY29tcHV0ZWQg
+d2hlbiB0aGUgcGFja2V0cyBhcmUgdHJhbnNtaXR0ZWQgYmV0d2VlbiBtYWN2bGFuMSAKYW5kIG1h
+Y3ZsYW4yLgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkZyZWUgU29mdHdhcmUgRG93bmxvYWQ6IElu
+ZGV4LCBTZWFyY2ggJiBBbmFseXplIExvZ3MgYW5kIG90aGVyIElUIGRhdGEgaW4gClJlYWwtVGlt
+ZSB3aXRoIFNwbHVuay4gQ29sbGVjdCwgaW5kZXggYW5kIGhhcm5lc3MgYWxsIHRoZSBmYXN0IG1v
+dmluZyBJVCBkYXRhIApnZW5lcmF0ZWQgYnkgeW91ciBhcHBsaWNhdGlvbnMsIHNlcnZlcnMgYW5k
+IGRldmljZXMgd2hldGhlciBwaHlzaWNhbCwgdmlydHVhbApvciBpbiB0aGUgY2xvdWQuIERlbGl2
+ZXIgY29tcGxpYW5jZSBhdCBsb3dlciBjb3N0IGFuZCBnYWluIG5ldyBidXNpbmVzcyAKaW5zaWdo
+dHMuIGh0dHA6Ly9wLnNmLm5ldC9zZnUvc3BsdW5rLWRldjJkZXYgCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkx4Yy11c2VycyBtYWlsaW5nIGxpc3QKTHhj
+LXVzZXJzQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5l
+dC9saXN0cy9saXN0aW5mby9seGMtdXNlcnMK
