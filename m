@@ -1,90 +1,166 @@
-From: Daniel Lezcano <daniel.lezcano-GANU6spQydw@public.gmane.org>
-Subject: Re: Bad checksums and lost packets with macvlan on dummy
-Date: Sun, 27 Feb 2011 21:35:04 +0100
-Message-ID: <4D6AB578.3010704@free.fr>
-References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr>
-	<20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr>
-	<20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr>
-	<1298836236.8726.109.camel@edumazet-laptop>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
+Date: Sun, 27 Feb 2011 21:44:42 +0100
+Message-ID: <4D6AB7BA.6090609@gmail.com>
+References: <20110219112842.GE2782@psychotron.redhat.com> <4D5FC308.9020507@gmail.com> <20110219134645.GF2782@psychotron.redhat.com> <4D6027B9.6050108@gmail.com> <20110220103609.GA2750@psychotron.redhat.com> <4D610511.4050902@gmail.com> <20110220150710.GB2750@psychotron.redhat.com> <4D62F324.6020301@gmail.com> <4D690D16.8020503@gmail.com> <27369.1298749377@death> <20110227125816.GB2814@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Andrian Nord <nightnord-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	lxc-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <lxc-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1298836236.8726.109.camel@edumazet-laptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/lxc-users>,
-	<mailto:lxc-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=lxc-users>
-List-Post: <mailto:lxc-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:lxc-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/lxc-users>,
-	<mailto:lxc-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: lxc-users-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, kaber@trash.net,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, andy@greyhouse.net,
+	"Fischer, Anna" <anna.fischer@hp.com>
+To: Jiri Pirko <jpirko@redhat.com>, Jay Vosburgh <fubar@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:43460 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823Ab1B0Uoq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 15:44:46 -0500
+Received: by bwz15 with SMTP id 15so3220198bwz.19
+        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 12:44:45 -0800 (PST)
+In-Reply-To: <20110227125816.GB2814@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMDIvMjcvMjAxMSAwODo1MCBQTSwgRXJpYyBEdW1hemV0IHdyb3RlOgo+IExlIGRpbWFuY2hl
-IDI3IGbDqXZyaWVyIDIwMTEgw6AgMTY6MTQgKzAxMDAsIERhbmllbCBMZXpjYW5vIGEgw6ljcml0
-IDoKPj4gT24gMDIvMjMvMjAxMSAwNjoxMyBQTSwgQW5kcmlhbiBOb3JkIHdyb3RlOgo+Pj4gT24g
-TW9uLCBGZWIgMjEsIDIwMTEgYXQgMDU6MDc6MzFQTSArMDEwMCwgRGFuaWVsIExlemNhbm8gd3Jv
-dGU6Cj4+Pj4gSSBDYydlZCB0aGUgbmV0ZGV2IG1haWxpbmcgbGlzdCBhbmQgUGF0cmljayBpbiBj
-YXNlIG15IGFuYWx5c2lzIGlzIHdyb25nCj4+Pj4gb3IgaW5jb21wbGV0ZS4KPj4+IEknbSBjb25m
-aXJtaW5nLCB0aGF0IHRoaXMgaGFwcGVucyBvbmx5IHdoZW4gbWFjdmxhbidzIGFyZSBvbnRvIGR1
-bW15IG5ldAo+Pj4gZGV2aWNlLiBJbiBjYXNlIG9mIHNvbWUgcGh5c2ljYWwgaW50ZXJmYWNlIHVu
-ZGVyIG1hY3ZsYW4gdGhlcmUgaXMgbm8gbG9zdAo+Pj4gcGFja2FnZXMgYW5kIG5vIGJyb2tlbiBj
-aGVja3N1bXMuCj4+IEkgZGlkIHNvbWUgdGVzdHMgd2l0aCBhIDIuNi4zNSBrZXJuZWwgdmVyc2lv
-biBhbmQgaXQgc2VlbXMgdGhlIGNoZWNrc3VtCj4+IGVycm9ycyBkbyBub3QgYXBwZWFyLgo+PiBJ
-IG5vdGljZWQgdGhlcmUgYXJlIHNvbWUgY2hhbmdlcyBpbiB0aGUgZHVtbXkgc2V0dXAgZnVuY3Rp
-b246Cj4+Cj4+ICAgICBkZXYtPmZlYXR1cmVzICAgfD0gTkVUSUZfRl9TRyB8IE5FVElGX0ZfRlJB
-R0xJU1QgfCBORVRJRl9GX1RTTzsKPj4gICAgIGRldi0+ZmVhdHVyZXMgICB8PSBORVRJRl9GX05P
-X0NTVU0gfCBORVRJRl9GX0hJR0hETUEgfCBORVRJRl9GX0xMVFg7Cj4+Cj4+Cj4+IE1heSBiZSB0
-aGF0IHdhcyBpbnRyb2R1Y2VkIGJ5IGNvbW1pdDoKPj4KPj4gY29tbWl0IDZkODFmNDFjNThjNjlk
-ZGRlNDk3ZTllNjQwYmE1ODA1YWEyNmU3OGMKPj4gQXV0aG9yOiBFcmljIER1bWF6ZXQ8ZXJpYy5k
-dW1hemV0QGdtYWlsLmNvbT4KPj4gRGF0ZTogICBNb24gU2VwIDI3IDIwOjUwOjMzIDIwMTAgKzAw
-MDAKPj4KPj4gICAgICAgZHVtbXk6IHBlcmNwdSBzdGF0cyBhbmQgbG9ja2xlc3MgeG1pdAo+Pgo+
-PiAgICAgICBDb252ZXJ0cyBkdW1teSBuZXR3b3JrIGRldmljZSBkcml2ZXIgdG8gOgo+Pgo+PiAg
-ICAgICAtIHBlcmNwdSBzdGF0cwo+Pgo+PiAgICAgICAtIDY0Yml0IHN0YXRzCj4+Cj4+ICAgICAg
-IC0gbG9ja2xlc3MgeG1pdCAoTkVUSUZfRl9MTFRYKQo+Pgo+PiAgICAgICAtIHBlcmZvcm1hbmNl
-IGZlYXR1cmVzIGFkZGVkIChORVRJRl9GX1NHIHwgTkVUSUZfRl9GUkFHTElTVCB8Cj4+ICAgICAg
-IE5FVElGX0ZfVFNPIHwgTkVUSUZfRl9OT19DU1VNIHwgTkVUSUZfRl9ISUdIRE1BKQo+Pgo+PiAg
-ICAgICBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQ8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4K
-Pj4gICAgICAgU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyPGRhdmVtQGRhdmVtbG9mdC5u
-ZXQ+Cj4+Cj4+Cj4+IEVyaWMsCj4+Cj4+IEFuZHJpYW4gaXMgb2JzZXJ2aW5nLCB3aXRoIGEgY291
-cGxlIG9mIG1hY3ZsYW4gKGluIGJyaWRnZSBtb2RlKSBvbiB0b3AKPj4gb2YgYSBkdW1teSBpbnRl
-cmZhY2UsIGEgbG90IG9mIGNoZWNrc3VtcyBlcnJvciBhbmQgcGFja2V0cyBkcm9wLgo+PiBFYWNo
-IG1hY3ZsYW4gaXMgaW4gYSBkaWZmZXJlbnQgbmV0d29yayBuYW1lc3BhY2UgYW5kIHRoZSBkdW1t
-eSBpbnRlcmZhY2UKPj4gaXMgaW4gdGhlIGluaXRfbmV0Lgo+Pgo+PiBBbnkgaWRlYXMgPwo+IE5v
-dCBzdXJlIEkgdW5kZXJzdGFuZC4uLiBJIHRob3VnaHQgZHVtbXkgd2FzIGRyb3BwaW5nIGFsbCBm
-cmFtZXMKPiBhbnl3YXkgPwo+Cj4gc3RhdGljIG5ldGRldl90eF90IGR1bW15X3htaXQoc3RydWN0
-IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikKPiB7Cj4gICAgICAgICAgc3Ry
-dWN0IHBjcHVfZHN0YXRzICpkc3RhdHMgPSB0aGlzX2NwdV9wdHIoZGV2LT5kc3RhdHMpOwo+Cj4g
-ICAgICAgICAgdTY0X3N0YXRzX3VwZGF0ZV9iZWdpbigmZHN0YXRzLT5zeW5jcCk7Cj4gICAgICAg
-ICAgZHN0YXRzLT50eF9wYWNrZXRzKys7Cj4gICAgICAgICAgZHN0YXRzLT50eF9ieXRlcyArPSBz
-a2ItPmxlbjsKPiAgICAgICAgICB1NjRfc3RhdHNfdXBkYXRlX2VuZCgmZHN0YXRzLT5zeW5jcCk7
-Cj4KPiAgICAgICAgICBkZXZfa2ZyZWVfc2tiKHNrYik7Cj4gICAgICAgICAgcmV0dXJuIE5FVERF
-Vl9UWF9PSzsKPiB9Cj4KPgo+IE1heWJlIHlvdSBjb3VsZCBkZXNjcmliZSB0aGUgc2V0dXAgPwoK
-WWVzLCBpdCBpcyB2ZXJ5IHNpbXBsZS4KClRoZXJlIGFyZSB0d28gbmV0d29yayBuYW1lc3BhY2Vz
-LgoKbWFjdmxhbjEgaXMgaW4gbmV0d29yayBuYW1lc3BhY2UgMQptYWN2bGFuMiBpcyBpbiBuZXR3
-b3JrIG5hbWVzcGFjZSAyCgpCb3RoIGFyZSBpbiAiYnJpZGdlIiBtb2RlLCBzbyB0aGV5IGNhbiBj
-b21tdW5pY2F0ZSB0b2dldGhlci4KVGhlIGxvd2VyIGRldmljZSBpcyBkdW1teTAgaW4gdGhlIGlu
-aXQgbmV0d29yayBuYW1lc3BhY2UuCgpJTU8gdGhlIHByb2JsZW0gaXMgY29taW5nIGZyb20gdGhl
-IG1hY3ZsYW4gZHJpdmVyOgoKZGV2LT5mZWF0dXJlcyAgICAgICAgICAgPSBsb3dlcmRldi0+ZmVh
-dHVyZXMgJiBNQUNWTEFOX0ZFQVRVUkVTCgpBcyBkdW1teTAgaGFzIHRoZSBvZmZsb2FkaW5nIGNh
-cGFiaWxpdGllcyBzZXQgb24sIHRoZSBtYWN2bGFuIGRyaXZlciAKaW5oZXJpdCB0aGVzZSBmZWF0
-dXJlcy4KCkluIHRoZSBub3JtYWwgY2FzZSwgZHVtbXkwIGlzIHN1cHBvc2VkIHRvIGRyb3AgdGhl
-IHBhY2tldHMuIEJ1dCB3aXRoIAptYWN2bGFuIHRoZXNlIHBhY2tldHMgYXJlIGJyb2FkY2FzdGVk
-IHRvIHRoZSBvdGhlciBtYWN2bGFuIHBvcnRzLCBzbyBubyAKY2hlY2tzdW0gaXMgY29tcHV0ZWQg
-d2hlbiB0aGUgcGFja2V0cyBhcmUgdHJhbnNtaXR0ZWQgYmV0d2VlbiBtYWN2bGFuMSAKYW5kIG1h
-Y3ZsYW4yLgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkZyZWUgU29mdHdhcmUgRG93bmxvYWQ6IElu
-ZGV4LCBTZWFyY2ggJiBBbmFseXplIExvZ3MgYW5kIG90aGVyIElUIGRhdGEgaW4gClJlYWwtVGlt
-ZSB3aXRoIFNwbHVuay4gQ29sbGVjdCwgaW5kZXggYW5kIGhhcm5lc3MgYWxsIHRoZSBmYXN0IG1v
-dmluZyBJVCBkYXRhIApnZW5lcmF0ZWQgYnkgeW91ciBhcHBsaWNhdGlvbnMsIHNlcnZlcnMgYW5k
-IGRldmljZXMgd2hldGhlciBwaHlzaWNhbCwgdmlydHVhbApvciBpbiB0aGUgY2xvdWQuIERlbGl2
-ZXIgY29tcGxpYW5jZSBhdCBsb3dlciBjb3N0IGFuZCBnYWluIG5ldyBidXNpbmVzcyAKaW5zaWdo
-dHMuIGh0dHA6Ly9wLnNmLm5ldC9zZnUvc3BsdW5rLWRldjJkZXYgCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkx4Yy11c2VycyBtYWlsaW5nIGxpc3QKTHhj
-LXVzZXJzQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5l
-dC9saXN0cy9saXN0aW5mby9seGMtdXNlcnMK
+Le 27/02/2011 13:58, Jiri Pirko a =E9crit :
+> Sat, Feb 26, 2011 at 08:42:57PM CET, fubar@us.ibm.com wrote:
+>> Nicolas de Peslo=FCan 	<nicolas.2p.debian@gmail.com>  wrote:
+>>> Hi Jay,
+>>>
+>>> Still thinking about this orig_dev stuff, I wonder why the protocol
+>>> handlers used in bonding (bond_3ad_lacpdu_recv() and bond_arp_rcv()=
+) are
+>>> registered at the master level instead of at the slave level ?
+>>>
+>>> If they were registered at the slave level, they would simply recei=
+ve
+>>> skb->dev as the ingress interface and use this value instead of nee=
+ding
+>>> the orig_dev value given to them when they are registered at the ma=
+ster
+>>> level.
+>>>
+>>> As orig_dev is only used by bonding and by af_packet, but they disa=
+gree on
+>>> the exact meaning of orig_dev, one way to fix this discrepancy woul=
+d be to
+>>> remove one of the usage. As the af_packet usage is exposed to user =
+space,
+>>> bonding seems the right place to stop using orig_dev, even if orig_=
+dev was
+>>> introduced for bonding :-)
+>>>
+>>> I understand that this would add one entry per slave device to the
+>>> ptype_base list, but this seems to be the only bad effect of regist=
+ering
+>>> at the slave level. Can you confirm that this was the reason to reg=
+ister
+>>> at the master level instead?
+>>
+>> 	My recollection is that it was done the way it is because there
+>> was no "orig_dev" delivery logic at the time.  A handler registered =
+to a
+>> slave dev would receive no packets at all because assignment of skb-=
+>dev
+>> to the master happened first, and the "orig_dev" knowledge was lost.
+>>
+>> 	When 802.3ad was added, a skb->real_dev field was created, but
+>> it wasn't used for delivery.  802.3ad used real_dev to figure out wh=
+ich
+>> slave a LACPDU arrived on.  The skb->real_dev was eventually replace=
+d
+>> with the orig_dev business that's there now.
+>>
+>> 	Later, I did the arp_validate stuff the same way as 802.3ad
+>> because it worked and was easier than registering a handler per slav=
+e.
+>>
+>>> If you think registering at the slave level would cause too much im=
+pact on
+>>> ptype_base, then we might have another way to stop using orig_dev f=
+or
+>>> bonding:
+>>>
+>>> In __skb_bond_should_drop(), we already test for the two interestin=
+g protocols:
+>>>
+>>> if ((dev->priv_flags&  IFF_SLAVE_NEEDARP)&&  skb->protocol =3D=3D _=
+_cpu_to_be16(ETH_P_ARP))
+>>> 	return 0;
+>>>
+>>> if (master->priv_flags&  IFF_MASTER_8023AD&&  skb->protocol =3D=3D =
+__cpu_to_be16(ETH_P_SLOW))
+>>> 	return 0;
+>>>
+>>> Would it be possible to call the right handlers directly from insid=
+e
+>>> __skb_bond_should_drop() then let __skb_bond_should_drop() return 1
+>>> ("should drop") after processing the frames that are only of intere=
+st for
+>>> bonding?
+>>
+>> 	Isn't one purpose of switching to rx_handler that there won't
+>> need to be any skb_bond_should_drop logic in __netif_receive_skb at =
+all?
+>
+> Yes, that (hopefully most)  would be eventually removed.
+
+The skb_bond_should_drop logic was simply moved from dev.c to=20
+bond_should_deliver_exact_match@bond_main.c by Jiri's patch.
+
+But the logic remain and is necessary to decide whether we do normal de=
+livery or only exact match=20
+delivery.
+
+>> 	Still, if you're just trying to simplify __netif_receive_skb
+>> first, I don't see any reason not to register the packet handlers at=
+ the
+>> slave level.  Looking at the ptype_base hash, I don't think that the
+>> protocols bonding is registering (ARP and SLOW) will hash collide wi=
+th
+>> IP or IPv6, so I suspect there won't be much impact.
+>>
+>> 	Once an rx_handler is used, then I suspect there's no need for
+>> the packet handlers at all, since the rx_handler is within bonding a=
+nd
+>> can just deal with the ARP or LACPDU directly.
+>
+> That is very true. And given that af_packet uses orig_dev to obtain
+> ifindex, it can be replaced by skb->skb_iif. That way we can get rid =
+of
+> orig_dev parameter for good.
+
+Unfortunately, after doing some more research, I'm afraid we won't be a=
+ble to suppress at least the=20
+ARP packet handler:
+
+In commit 1f3c8804acba841b5573b953f5560d2683d2db0d (bonding: allow arp_=
+ip_targets on separate vlans=20
+to use arp validation), Andy solved the problem of vlan on top of bondi=
+ng, when the arp_ip_target is=20
+on one of the vlans:
+
+eth0/eth1 -> bond0 -> bond0.100
+
+At the time the frame is inspected by bonding, the frame is still tagge=
+d. This is true for the new=20
+rx_handler proposed by Jiri, and is also true for the former __skb_bond=
+_should_drop() handling).
+
+To receive the untagged frame, we would have to wait until the vlan cod=
+e remove the tag. The current=20
+protocol handler seems to be the best way to catch the frame that late.
+
+This is probably specific to ARP. I don't think SLOW frames can be tagg=
+ed.
+
+Anyway, Jay, thanks for you clarification.
+
+> So I suggest to take V3 of my patch now and do multiple follow-on
+> patches to get us where we want to get.
+
+Agreed.
+
+	Nicolas.
