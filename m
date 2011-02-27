@@ -1,8 +1,8 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel
  modules
-Date: Sun, 27 Feb 2011 15:18:10 -0800 (PST)
-Message-ID: <20110227.151810.246542623.davem@davemloft.net>
+Date: Sun, 27 Feb 2011 15:19:12 -0800 (PST)
+Message-ID: <20110227.151912.28823451.davem@davemloft.net>
 References: <1298660879.2554.23.camel@bwh-desktop>
 	<20110225.111606.115927805.davem@davemloft.net>
 	<20110227114438.GA4317@albatros>
@@ -25,12 +25,12 @@ List-Id: netdev.vger.kernel.org
 From: Vasiliy Kulikov <segoon@openwall.com>
 Date: Sun, 27 Feb 2011 14:44:38 +0300
 
->    d) run modprobe with CAP_NET_ADMIN only
+> Then the things are still broken - a user has to update modprobe
+> together with the kernel, otherwise the updated kernel would call
+> "modprobe" with unsupported argument and even "sit0" wouldn't work.
 
-This is not part of my scheme.
+The capability bits get passed on the modprobe command line.
 
-The module loading will run with existing module loading privileges,
-the "allowed capability" bits will be passed along back into the
-kernel at module load time (via modprobe arguments or similar)
-and validated by the kernel as it walks the ELF sections anyways
-to perform relocations and whatnot.
+The module loading system call in the kernel inspects the command
+line looking for the argument, and uses it to validate the module
+load by comparing the mask with the special ELF section.
