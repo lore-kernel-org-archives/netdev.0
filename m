@@ -1,295 +1,140 @@
-From: "Shmulik Ravid" <shmulikr@broadcom.com>
-Subject: [PATCH net-next-2.6 v2 2/2] dcbnl: add support for retrieving
- peer configuration - cee
-Date: Sun, 27 Feb 2011 17:04:38 +0200
-Message-ID: <1298819078.4544.10.camel@lb-tlvb-shmulik.il.broadcom.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
+Date: Sun, 27 Feb 2011 15:17:01 +0100
+Message-ID: <4D6A5CDD.4020009@gmail.com>
+References: <1298039252.6201.66.camel@edumazet-laptop> <4D5E8655.5070304@trash.net> <20110218145850.GF2939@psychotron.redhat.com> <20110218.120656.104048936.davem@davemloft.net> <20110218205832.GE2602@psychotron.redhat.com> <20110223190541.GB2783@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "John Fastabend" <john.r.fastabend@intel.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>, netdev@vger.kernel.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	shemminger@linux-foundation.org, fubar@us.ibm.com,
+	andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4577 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752053Ab1B0NEn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Feb 2011 08:04:43 -0500
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:36641 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845Ab1B0ORG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 09:17:06 -0500
+Received: by fxm17 with SMTP id 17so3011739fxm.19
+        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 06:17:04 -0800 (PST)
+In-Reply-To: <20110223190541.GB2783@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds the support for retrieving the remote or peer DCBX
-configuration via dcbnl for embedded DCBX stacks supporting the CEE DCBX
-standard.
+Le 23/02/2011 20:05, Jiri Pirko a =E9crit :
+> This patch converts bonding to use rx_handler. Results in cleaner
+> __netif_receive_skb() with much less exceptions needed. Also
+> bond-specific work is moved into bond code.
+>
+> Did performance test using pktgen and counting incoming packets by
+> iptables. No regression noted.
+>
+> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+>
+> v1->v2:
+>          using skb_iif instead of new input_dev to remember original
+> 	device
+>
+> v2->v3:
+> 	do another loop in case skb->dev is changed. That way orig_dev
+> 	core can be left untouched.
+>
+> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+> ---
 
-Signed-off-by: Shmulik Ravid <shmulikr@broadcom.com>
----
- include/linux/dcbnl.h |   71 +++++++++++++++++++++++++++++++++++++++++
- include/net/dcbnl.h   |    3 ++
- net/dcb/dcbnl.c       |   85 ++++++++++++++++++++++++++++++++++++++++++++++--
- 3 files changed, 155 insertions(+), 4 deletions(-)
+[snip]
 
-diff --git a/include/linux/dcbnl.h b/include/linux/dcbnl.h
-index 2542685..a3680a1 100644
---- a/include/linux/dcbnl.h
-+++ b/include/linux/dcbnl.h
-@@ -87,6 +87,45 @@ struct ieee_pfc {
- 	__u64	indications[IEEE_8021QAZ_MAX_TCS];
- };
- 
-+/* CEE DCBX std supported values */
-+#define CEE_DCBX_MAX_PGS	8
-+#define CEE_DCBX_MAX_PRIO	8
-+
-+/**
-+ * struct cee_pg - CEE Prioity-Group managed object
-+ *
-+ * @willing: willing bit in the PG tlv
-+ * @error: error bit in the PG tlv
-+ * @pg_en: enable bit of the PG feature
-+ * @tcs_supported: number of traffic classes supported
-+ * @pg_bw: bandwidth percentage for each priority group
-+ * @prio_pg: priority to PG mapping indexed by priority
-+ */
-+struct cee_pg {
-+	__u8    willing;
-+	__u8    error;
-+	__u8    pg_en;
-+	__u8    tcs_supported;
-+	__u8    pg_bw[CEE_DCBX_MAX_PGS];
-+	__u8    prio_pg[CEE_DCBX_MAX_PGS];
-+};
-+
-+/**
-+ * struct cee_pfc - CEE PFC managed object
-+ *
-+ * @willing: willing bit in the PFC tlv
-+ * @error: error bit in the PFC tlv
-+ * @pfc_en: bitmap indicating pfc enabled traffic classes
-+ * @tcs_supported: number of traffic classes supported
-+ */
-+struct cee_pfc {
-+	__u8    willing;
-+	__u8    error;
-+	__u8    pfc_en;
-+	__u8    tcs_supported;
-+};
-+
-+
- /* This structure contains the IEEE 802.1Qaz APP managed object. This
-  * object is also used for the CEE std as well. There is no difference
-  * between the objects.
-@@ -158,6 +197,7 @@ struct dcbmsg {
-  * @DCB_CMD_SDCBX: set DCBX engine configuration
-  * @DCB_CMD_GFEATCFG: get DCBX features flags
-  * @DCB_CMD_SFEATCFG: set DCBX features negotiation flags
-+ * @DCB_CMD_CEE_GET: get CEE aggregated configuration
-  */
- enum dcbnl_commands {
- 	DCB_CMD_UNDEFINED,
-@@ -200,6 +240,8 @@ enum dcbnl_commands {
- 	DCB_CMD_GFEATCFG,
- 	DCB_CMD_SFEATCFG,
- 
-+	DCB_CMD_CEE_GET,
-+
- 	__DCB_CMD_ENUM_MAX,
- 	DCB_CMD_MAX = __DCB_CMD_ENUM_MAX - 1,
- };
-@@ -222,6 +264,7 @@ enum dcbnl_commands {
-  * @DCB_ATTR_IEEE: IEEE 802.1Qaz supported attributes (NLA_NESTED)
-  * @DCB_ATTR_DCBX: DCBX engine configuration in the device (NLA_U8)
-  * @DCB_ATTR_FEATCFG: DCBX features flags (NLA_NESTED)
-+ * @DCB_ATTR_CEE: CEE std supported attributes (NLA_NESTED)
-  */
- enum dcbnl_attrs {
- 	DCB_ATTR_UNDEFINED,
-@@ -245,6 +288,9 @@ enum dcbnl_attrs {
- 	DCB_ATTR_DCBX,
- 	DCB_ATTR_FEATCFG,
- 
-+	/* CEE nested attributes */
-+	DCB_ATTR_CEE,
-+
- 	__DCB_ATTR_ENUM_MAX,
- 	DCB_ATTR_MAX = __DCB_ATTR_ENUM_MAX - 1,
- };
-@@ -280,6 +326,31 @@ enum ieee_attrs_app {
- #define DCB_ATTR_IEEE_APP_MAX (__DCB_ATTR_IEEE_APP_MAX - 1)
- 
- /**
-+ * enum cee_attrs - CEE DCBX get attributes
-+ *
-+ * @DCB_ATTR_CEE_UNSPEC: unspecified
-+ * @DCB_ATTR_CEE_PEER_PG: peer PG configuration - get only
-+ * @DCB_ATTR_CEE_PEER_PFC: peer PFC configuration - get only
-+ * @DCB_ATTR_CEE_PEER_APP: peer APP tlv - get only
-+ */
-+enum cee_attrs {
-+	DCB_ATTR_CEE_UNSPEC,
-+	DCB_ATTR_CEE_PEER_PG,
-+	DCB_ATTR_CEE_PEER_PFC,
-+	DCB_ATTR_CEE_PEER_APP_TABLE,
-+	__DCB_ATTR_CEE_MAX
-+};
-+#define DCB_ATTR_CEE_MAX (__DCB_ATTR_CEE_MAX - 1)
-+
-+enum peer_app_attr {
-+	DCB_ATTR_CEE_PEER_APP_UNSPEC,
-+	DCB_ATTR_CEE_PEER_APP_INFO,
-+	DCB_ATTR_CEE_PEER_APP,
-+	__DCB_ATTR_CEE_PEER_APP_MAX
-+};
-+#define DCB_ATTR_CEE_PEER_APP_MAX (__DCB_ATTR_CEE_PEER_APP_MAX - 1)
-+
-+/**
-  * enum dcbnl_pfc_attrs - DCB Priority Flow Control user priority nested attrs
-  *
-  * @DCB_PFC_UP_ATTR_UNDEFINED: unspecified attribute to catch errors
-diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index 7b7180e..e5983c9 100644
---- a/include/net/dcbnl.h
-+++ b/include/net/dcbnl.h
-@@ -84,6 +84,9 @@ struct dcbnl_rtnl_ops {
- 			       u16 *);
- 	int (*peer_getapptable)(struct net_device *, struct dcb_app *);
- 
-+	/* CEE peer */
-+	int (*cee_peer_getpg) (struct net_device *, struct cee_pg *);
-+	int (*cee_peer_getpfc) (struct net_device *, struct cee_pfc *);
- };
- 
- #endif /* __NET_DCBNL_H__ */
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index 2e6dcf2..d8b4f72 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -1224,7 +1224,9 @@ err:
- 	return err;
- }
- 
--static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb)
-+static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb,
-+				int app_nested_type, int app_info_type,
-+				int app_entry_type)
- {
- 	struct dcb_peer_app_info info;
- 	struct dcb_app *table = NULL;
-@@ -1256,12 +1258,15 @@ static int dcbnl_build_peer_app(struct net_device *netdev, struct sk_buff* skb)
- 		 */
- 		err = -EMSGSIZE;
- 
--		app = nla_nest_start(skb, DCB_ATTR_IEEE_PEER_APP);
-+		app = nla_nest_start(skb, app_nested_type);
- 		if (!app)
- 			goto nla_put_failure;
- 
-+		if (app_info_type)
-+			NLA_PUT(skb, app_info_type, sizeof(info), &info);
-+
- 		for (i = 0; i < app_count; i++)
--			NLA_PUT(skb, DCB_ATTR_IEEE_APP, sizeof(struct dcb_app),
-+			NLA_PUT(skb, app_entry_type, sizeof(struct dcb_app),
- 				&table[i]);
- 
- 		nla_nest_end(skb, app);
-@@ -1352,7 +1357,10 @@ static int dcbnl_ieee_get(struct net_device *netdev, struct nlattr **tb,
- 	}
- 
- 	if (ops->peer_getappinfo && ops->peer_getapptable) {
--		err = dcbnl_build_peer_app(netdev, skb);
-+		err = dcbnl_build_peer_app(netdev, skb,
-+					   DCB_ATTR_IEEE_PEER_APP,
-+					   DCB_ATTR_IEEE_APP_UNSPEC,
-+					   DCB_ATTR_IEEE_APP);
- 		if (err)
- 			goto nla_put_failure;
- 	}
-@@ -1510,6 +1518,71 @@ err:
- 	return ret;
- }
- 
-+/* Handle CEE DCBX GET commands. */
-+static int dcbnl_cee_get(struct net_device *netdev, struct nlattr **tb,
-+			 u32 pid, u32 seq, u16 flags)
-+{
-+	struct sk_buff *skb;
-+	struct nlmsghdr *nlh;
-+	struct dcbmsg *dcb;
-+	struct nlattr *cee;
-+	const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
-+	int err;
-+
-+	if (!ops)
-+		return -EOPNOTSUPP;
-+
-+	skb = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-+	if (!skb)
-+		return -ENOBUFS;
-+
-+	nlh = NLMSG_NEW(skb, pid, seq, RTM_GETDCB, sizeof(*dcb), flags);
-+
-+	dcb = NLMSG_DATA(nlh);
-+	dcb->dcb_family = AF_UNSPEC;
-+	dcb->cmd = DCB_CMD_CEE_GET;
-+
-+	NLA_PUT_STRING(skb, DCB_ATTR_IFNAME, netdev->name);
-+
-+	cee = nla_nest_start(skb, DCB_ATTR_CEE);
-+	if (!cee)
-+		goto nla_put_failure;
-+
-+	/* get peer info if available */
-+	if (ops->cee_peer_getpg) {
-+		struct cee_pg pg;
-+		err = ops->cee_peer_getpg(netdev, &pg);
-+		if (!err)
-+			NLA_PUT(skb, DCB_ATTR_CEE_PEER_PG, sizeof(pg), &pg);
-+	}
-+
-+	if (ops->cee_peer_getpfc) {
-+		struct cee_pfc pfc;
-+		err = ops->cee_peer_getpfc(netdev, &pfc);
-+		if (!err)
-+			NLA_PUT(skb, DCB_ATTR_CEE_PEER_PFC, sizeof(pfc), &pfc);
-+	}
-+
-+	if (ops->peer_getappinfo && ops->peer_getapptable) {
-+		err = dcbnl_build_peer_app(netdev, skb,
-+					   DCB_ATTR_CEE_PEER_APP_TABLE,
-+					   DCB_ATTR_CEE_PEER_APP_INFO,
-+					   DCB_ATTR_CEE_PEER_APP);
-+		if (err)
-+			goto nla_put_failure;
-+	}
-+
-+	nla_nest_end(skb, cee);
-+	nlmsg_end(skb, nlh);
-+
-+	return rtnl_unicast(skb, &init_net, pid);
-+nla_put_failure:
-+	nlmsg_cancel(skb, nlh);
-+nlmsg_failure:
-+	kfree_skb(skb);
-+	return -1;
-+}
-+
- static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -1639,6 +1712,10 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg)
- 		ret = dcbnl_setfeatcfg(netdev, tb, pid, nlh->nlmsg_seq,
- 				       nlh->nlmsg_flags);
- 		goto out;
-+	case DCB_CMD_CEE_GET:
-+		ret = dcbnl_cee_get(netdev, tb, pid, nlh->nlmsg_seq,
-+				    nlh->nlmsg_flags);
-+		goto out;
- 	default:
- 		goto errout;
- 	}
--- 
-1.7.3.5
+> +static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+> +{
+> +	struct net_device *slave_dev;
+> +	struct net_device *bond_dev;
+> +
+> +	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> +	if (unlikely(!skb))
+> +		return NULL;
+> +	slave_dev =3D skb->dev;
+> +	bond_dev =3D ACCESS_ONCE(slave_dev->master);
+> +	if (unlikely(!bond_dev))
+> +		return skb;
+> +
+> +	if (bond_dev->priv_flags&  IFF_MASTER_ARPMON)
+> +		slave_dev->last_rx =3D jiffies;
+> +
+> +	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
+> +		skb->deliver_no_wcard =3D 1;
+> +		return skb;
 
+Shouldn't we return NULL here ?
 
+> +	}
+> +
+> +	skb->dev =3D bond_dev;
+> +
+> +	if (bond_dev->priv_flags&  IFF_MASTER_ALB&&
+> +	    bond_dev->priv_flags&  IFF_BRIDGE_PORT&&
+> +	    skb->pkt_type =3D=3D PACKET_HOST) {
+> +		u16 *dest =3D (u16 *) eth_hdr(skb)->h_dest;
+> +
+> +		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
+> +	}
+> +
+> +	return skb;
+> +}
+> +
 
+[snip]
 
+> +static void vlan_on_bond_hook(struct sk_buff *skb)
+>   {
+> -	if (skb->pkt_type =3D=3D PACKET_HOST) {
+> -		u16 *dest =3D (u16 *) eth_hdr(skb)->h_dest;
+> +	/*
+> +	 * Make sure ARP frames received on VLAN interfaces stacked on
+> +	 * bonding interfaces still make their way to any base bonding
+> +	 * device that may have registered for a specific ptype.
+> +	 */
+> +	if (skb->dev->priv_flags&  IFF_802_1Q_VLAN&&
+> +	    vlan_dev_real_dev(skb->dev)->priv_flags&  IFF_BONDING&&
+> +	    skb->protocol =3D=3D htons(ETH_P_ARP)) {
+
+The vlan_on_bond case used to be cost effective. Now, we clone the skb =
+and call netif_rx...
+
+> +		struct sk_buff *skb2 =3D skb_clone(skb, GFP_ATOMIC);
+>
+> -		memcpy(dest, master->dev_addr, ETH_ALEN);
+> +		if (!skb2)
+> +			return;
+> +		skb2->dev =3D vlan_dev_real_dev(skb->dev);
+> +		netif_rx(skb2);
+>   	}
+>   }
+
+[snip]
+
+>   	if (rx_handler) {
+> +		struct net_device *prev_dev;
+> +
+>   		if (pt_prev) {
+>   			ret =3D deliver_skb(skb, pt_prev, orig_dev);
+>   			pt_prev =3D NULL;
+>   		}
+> +		prev_dev =3D skb->dev;
+>   		skb =3D rx_handler(skb);
+>   		if (!skb)
+>   			goto out;
+
+I would instead consider NULL as meaning exact-match-delivery-only. (Th=
+e same effect as=20
+dev_bond_should_drop() returning true).
+
+> +		if (skb->dev !=3D prev_dev)
+> +			goto another_round;
+>   	}
+
+Anyway, all my comments can't be postponed to follow-up patchs. Thanks =
+Jiri.
+
+Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
