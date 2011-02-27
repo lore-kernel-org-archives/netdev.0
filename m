@@ -1,94 +1,105 @@
-From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-Subject: Re: [PATCH] Bluetooth: Fix BT_L2CAP and BT_SCO in Kconfig
-Date: Sun, 27 Feb 2011 16:19:01 -0300
-Message-ID: <20110227191901.GC2166@joana>
-References: <20110226013639.GA2166@joana>
- <1298684485-3081-1-git-send-email-padovan@profusion.mobi>
- <AANLkTimuyx4ixPq5BexRHozebVpjry2k-2xskqVf79g1@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on
+ dummy
+Date: Sun, 27 Feb 2011 20:50:36 +0100
+Message-ID: <1298836236.8726.109.camel@edumazet-laptop>
+References: <20110221150710.GA5651@nord.niifaq.ru>
+	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>
+	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>
+	 <4D6A6A5F.4030707@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Vitaly Wool <vitalywool-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <AANLkTimuyx4ixPq5BexRHozebVpjry2k-2xskqVf79g1-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Andrian Nord <nightnord@gmail.com>,
+	lxc-users@lists.sourceforge.net, Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:59070 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751555Ab1B0Tuq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 14:50:46 -0500
+Received: by bwz15 with SMTP id 15so3197803bwz.19
+        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 11:50:45 -0800 (PST)
+In-Reply-To: <4D6A6A5F.4030707@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vitaly,
-
-* Vitaly Wool <vitalywool-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> [2011-02-26 18:52:44 +0100]:
-
-> Hi Gustavo,
+Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 16:14 +0100, Daniel Lezcano a =C3=
+=A9crit :
+> On 02/23/2011 06:13 PM, Andrian Nord wrote:
+> > On Mon, Feb 21, 2011 at 05:07:31PM +0100, Daniel Lezcano wrote:
+> >> I Cc'ed the netdev mailing list and Patrick in case my analysis is=
+ wrong
+> >> or incomplete.
+> > I'm confirming, that this happens only when macvlan's are onto dumm=
+y net
+> > device. In case of some physical interface under macvlan there is n=
+o lost
+> > packages and no broken checksums.
 >=20
-> On Sat, Feb 26, 2011 at 2:41 AM, Gustavo F. Padovan
-> <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org> wrote:
-> > If we want something "bool" built-in in something "tristate" it can=
-'t
-> > "depend on" the tristate config option.
-> >
-> > Report by DaveM:
-> >
-> > =A0 I give it 'y' just to make it happen, for both, and afterways n=
-o
-> > =A0 matter how many times I rerun "make oldconfig" I keep seeing th=
-ings
-> > =A0 like this in my build:
-> >
-> > scripts/kconfig/conf --silentoldconfig Kconfig
-> > include/config/auto.conf:986:warning: symbol value 'm' invalid for =
-BT_SCO
-> > include/config/auto.conf:3156:warning: symbol value 'm' invalid for=
- BT_L2CAP
-> >
-> > Reported-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> > Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
-> > ---
-> > =A0net/bluetooth/Kconfig | =A0 =A06 ++++--
-> > =A01 files changed, 4 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
-> > index c6f9c2f..6ae5ec5 100644
-> > --- a/net/bluetooth/Kconfig
-> > +++ b/net/bluetooth/Kconfig
-> > @@ -31,9 +31,10 @@ menuconfig BT
-> > =A0 =A0 =A0 =A0 =A0to Bluetooth kernel modules are provided in the =
-BlueZ packages. =A0For
-> > =A0 =A0 =A0 =A0 =A0more information, see <http://www.bluez.org/>.
-> >
-> > +if BT !=3D n
-> > +
-> > =A0config BT_L2CAP
-> > =A0 =A0 =A0 =A0bool "L2CAP protocol support"
-> > - =A0 =A0 =A0 depends on BT
-> > =A0 =A0 =A0 =A0select CRC16
-> > =A0 =A0 =A0 =A0help
-> > =A0 =A0 =A0 =A0 =A0L2CAP (Logical Link Control and Adaptation Proto=
-col) provides
-> > @@ -42,11 +43,12 @@ config BT_L2CAP
-> >
-> > =A0config BT_SCO
-> > =A0 =A0 =A0 =A0bool "SCO links support"
-> > - =A0 =A0 =A0 depends on BT
-> > =A0 =A0 =A0 =A0help
-> > =A0 =A0 =A0 =A0 =A0SCO link provides voice transport over Bluetooth=
-=2E =A0SCO support is
-> > =A0 =A0 =A0 =A0 =A0required for voice applications like Headset and=
- Audio.
-> >
-> > +endif
-> > +
+> I did some tests with a 2.6.35 kernel version and it seems the checks=
+um=20
+> errors do not appear.
+> I noticed there are some changes in the dummy setup function:
 >=20
-> Ugh, isn't it far cleaner to change initial dependencies to "depends
-> on BT !=3D n" ?
+>    dev->features   |=3D NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_TSO;
+>    dev->features   |=3D NETIF_F_NO_CSUM | NETIF_F_HIGHDMA | NETIF_F_L=
+LTX;
+>=20
+>=20
+> May be that was introduced by commit:
+>=20
+> commit 6d81f41c58c69ddde497e9e640ba5805aa26e78c
+> Author: Eric Dumazet <eric.dumazet@gmail.com>
+> Date:   Mon Sep 27 20:50:33 2010 +0000
+>=20
+>      dummy: percpu stats and lockless xmit
+>=20
+>      Converts dummy network device driver to :
+>=20
+>      - percpu stats
+>=20
+>      - 64bit stats
+>=20
+>      - lockless xmit (NETIF_F_LLTX)
+>=20
+>      - performance features added (NETIF_F_SG | NETIF_F_FRAGLIST |
+>      NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA)
+>=20
+>      Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+>      Signed-off-by: David S. Miller <davem@davemloft.net>
+>=20
+>=20
+> Eric,
+>=20
+> Andrian is observing, with a couple of macvlan (in bridge mode) on to=
+p=20
+> of a dummy interface, a lot of checksums error and packets drop.
+> Each macvlan is in a different network namespace and the dummy interf=
+ace=20
+> is in the init_net.
+>=20
+> Any ideas ?
 
-I just followed the same approach as net/ipv6/Kconfig and
-net/mac80211/Kconfig.=20
+Not sure I understand... I thought dummy was dropping all frames
+anyway ?
 
-Dave, how do you prefer this?
+static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_device *d=
+ev)
+{
+        struct pcpu_dstats *dstats =3D this_cpu_ptr(dev->dstats);
 
---=20
-Gustavo F. Padovan
-http://profusion.mobi
+        u64_stats_update_begin(&dstats->syncp);
+        dstats->tx_packets++;
+        dstats->tx_bytes +=3D skb->len;
+        u64_stats_update_end(&dstats->syncp);
+
+        dev_kfree_skb(skb);
+        return NETDEV_TX_OK;
+}
+
+
+Maybe you could describe the setup ?
+
+
