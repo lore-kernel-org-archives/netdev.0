@@ -1,45 +1,41 @@
-From: Bruno =?UTF-8?B?UHLDqW1vbnQ=?= <bonbons@linux-vserver.org>
-Subject: IPv6 source address selection and privacy extensions
-Date: Sat, 26 Feb 2011 23:16:10 +0100
-Message-ID: <20110226231610.41c07592@neptune.home>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next-2.6 PATCH 02/10] ethtool: add ntuple flow specifier
+ to network flow classifier
+Date: Sat, 26 Feb 2011 16:05:47 -0800 (PST)
+Message-ID: <20110226.160547.193715938.davem@davemloft.net>
+References: <20110225232357.7920.58559.stgit@gitlad.jf.intel.com>
+	<20110225233249.7920.70334.stgit@gitlad.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffrey.t.kirsher@intel.com, bhutchings@solarflare.com,
+	netdev@vger.kernel.org
+To: alexander.h.duyck@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from legolas.restena.lu ([158.64.1.34]:39096 "EHLO
-	legolas.restena.lu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751293Ab1BZWZE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Feb 2011 17:25:04 -0500
-Received: from legolas.restena.lu (localhost [127.0.0.1])
-	by legolas.restena.lu (Postfix) with ESMTP id 984DB9DD06
-	for <netdev@vger.kernel.org>; Sat, 26 Feb 2011 23:17:01 +0100 (CET)
-Received: from neptune.home (unknown [158.64.15.115])
-	by legolas.restena.lu (Postfix) with ESMTP id 747369DD02
-	for <netdev@vger.kernel.org>; Sat, 26 Feb 2011 23:17:01 +0100 (CET)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52389
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750999Ab1B0AFL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Feb 2011 19:05:11 -0500
+In-Reply-To: <20110225233249.7920.70334.stgit@gitlad.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->From Documentation/networking/ip-sysctl.txt:
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Date: Fri, 25 Feb 2011 15:32:49 -0800
 
-use_tempaddr - INTEGER
-        Preference for Privacy Extensions (RFC3041).
-          <= 0 : disable Privacy Extensions
-          == 1 : enable Privacy Extensions, but prefer public
-                 addresses over temporary addresses.
-          >  1 : enable Privacy Extensions and prefer temporary
-                 addresses over public addresses.
-        Default:  0 (for most devices)
-                 -1 (for point-to-point devices and loopback devices)
+> @@ -396,8 +411,10 @@ struct ethtool_rx_flow_spec {
+>  		struct ethtool_ah_espip4_spec		esp_ip4_spec;
+>  		struct ethtool_usrip4_spec		usr_ip4_spec;
+>  		struct ethhdr				ether_spec;
+> +		struct ethtool_ntuple_spec_ext		ntuple_spec;
+>  		__u8					hdata[72];
+>  	} h_u, m_u;
+> +	__u32		flow_type_ext;
+>  	__u64		ring_cookie;
+>  	__u32		location;
+>  };
 
-Is it possible with current kernel to have >1 make temporary addresses
-used by default but have manual or dynamic (e.g. MAC based) address used
-for some destination addresses/subnets?
-If it's possible, how can this be done (adding a hint to ip-sysctl.txt
-would then make it easy for others to find)
+How can you add this flow_type_ext member to this user visible structure
+without utterly breaking userspace?  It changes the offsets of the
+ring_cookie and location members.
 
-With IPv4 this can be done via `ip route add $subnet/$prefix src $addr`
-though the same does not work for IPv6.
-
-Thanks,
-Bruno
