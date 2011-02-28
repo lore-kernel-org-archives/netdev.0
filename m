@@ -1,50 +1,52 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-2.6 3/7] bnx2x: Fix ethtool -t link test for MF
- (non-pmf) devices.
-Date: Mon, 28 Feb 2011 15:37:12 +0200
-Message-ID: <1298900232.28024.119.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-2.6 5/7] bnx2x: perform statistics "action" before
+ state transition.
+Date: Mon, 28 Feb 2011 15:37:10 +0200
+Message-ID: <1298900230.28024.117.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>
+Cc: "Eilon Greenstein" <eilong@broadcom.com>,
+	"Vladislav Zolotarov" <vladz@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4264 "EHLO MMS3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:1936 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753915Ab1B1NjE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 08:39:04 -0500
+	id S1753727Ab1B1Ni4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Feb 2011 08:38:56 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
+From: Vladislav Zolotarov <vladz@broadcom.com>
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_ethtool.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/bnx2x/bnx2x_stats.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 5b0fe7a..ef29199 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -1932,11 +1932,11 @@ static void bnx2x_self_test(struct net_device *dev,
- 		buf[4] = 1;
- 		etest->flags |= ETH_TEST_FL_FAILED;
- 	}
--	if (bp->port.pmf)
--		if (bnx2x_link_test(bp, is_serdes) != 0) {
--			buf[5] = 1;
--			etest->flags |= ETH_TEST_FL_FAILED;
--		}
-+
-+	if (bnx2x_link_test(bp, is_serdes) != 0) {
-+		buf[5] = 1;
-+		etest->flags |= ETH_TEST_FL_FAILED;
-+	}
+diff --git a/drivers/net/bnx2x/bnx2x_stats.c b/drivers/net/bnx2x/bnx2x_stats.c
+index bda60d5..3445ded 100644
+--- a/drivers/net/bnx2x/bnx2x_stats.c
++++ b/drivers/net/bnx2x/bnx2x_stats.c
+@@ -1239,14 +1239,14 @@ void bnx2x_stats_handle(struct bnx2x *bp, enum bnx2x_stats_event event)
+ 	if (unlikely(bp->panic))
+ 		return;
  
- #ifdef BNX2X_EXTRA_DEBUG
- 	bnx2x_panic_dump(bp);
++	bnx2x_stats_stm[bp->stats_state][event].action(bp);
++
+ 	/* Protect a state change flow */
+ 	spin_lock_bh(&bp->stats_lock);
+ 	state = bp->stats_state;
+ 	bp->stats_state = bnx2x_stats_stm[state][event].next_state;
+ 	spin_unlock_bh(&bp->stats_lock);
+ 
+-	bnx2x_stats_stm[state][event].action(bp);
+-
+ 	if ((event != STATS_EVENT_UPDATE) || netif_msg_timer(bp))
+ 		DP(BNX2X_MSG_STATS, "state %d -> event %d -> state %d\n",
+ 		   state, event, bp->stats_state);
 -- 
 1.7.2.2
 
