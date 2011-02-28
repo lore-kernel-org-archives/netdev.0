@@ -1,45 +1,96 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
-Date: Sun, 27 Feb 2011 23:30:13 -0800 (PST)
-Message-ID: <20110227.233013.226766890.davem@davemloft.net>
-References: <20110227125816.GB2814@psychotron.redhat.com>
-	<20110227.152208.102543719.davem@davemloft.net>
-	<20110228070732.GA2793@psychotron.redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 0/3] [RFC] Implement multiqueue (RX & TX) virtio-net
+Date: Mon, 28 Feb 2011 09:35:15 +0200
+Message-ID: <20110228073514.GA28006@redhat.com>
+References: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, nicolas.2p.debian@gmail.com, kaber@trash.net,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	shemminger@linux-foundation.org, andy@greyhouse.net,
-	anna.fischer@hp.com
-To: jpirko@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:39933
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752377Ab1B1H3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 02:29:37 -0500
-In-Reply-To: <20110228070732.GA2793@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: rusty@rustcorp.com.au, davem@davemloft.net, eric.dumazet@gmail.com,
+	arnd@arndb.de, netdev@vger.kernel.org, horms@verge.net.au,
+	avi@redhat.com, anthony@codemonkey.ws, kvm@vger.kernel.org
+To: Krishna Kumar <krkumar2@in.ibm.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jpirko@redhat.com>
-Date: Mon, 28 Feb 2011 08:07:33 +0100
-
-> Mon, Feb 28, 2011 at 12:22:08AM CET, davem@davemloft.net wrote:
->>From: Jiri Pirko <jpirko@redhat.com>
->>Date: Sun, 27 Feb 2011 13:58:17 +0100
->>
->>> That is very true. And given that af_packet uses orig_dev to obtain
->>> ifindex, it can be replaced by skb->skb_iif. That way we can get rid of
->>> orig_dev parameter for good.
->>
->>I would rather see a complete patch set submitting at a unit, thanks.
->>
->>I've already marked your V3 last night as "changes requested" in
->>patchwork for this reason.
+On Mon, Feb 28, 2011 at 12:04:27PM +0530, Krishna Kumar wrote:
+> This patch series is a continuation of an earlier one that
+> implemented guest MQ TX functionality.  This new patchset
+> implements both RX and TX MQ.  Qemu changes are not being
+> included at this time solely to aid in easier review.
+> Compatibility testing with old/new combinations of qemu/guest
+> and vhost was done without any issues.
 > 
-> That's a pity. V3 is complete patch. The changes we talk about in
-> discussion are just taking advantage of changes in patch V3. Would be in
-> my opinion better to apply V3 now and followup with the rest after that.
+> Some early TCP/UDP test results are at the bottom of this
+> post, I plan to submit more test results in the coming days.
+> 
+> Please review and provide feedback on what can improve.
+> 
+> Thanks!
+> 
+> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
 
-Fair enough, I'll aply it now, thanks.
+
+To help testing, could you post the qemu changes separately please?
+
+> ---
+> 
+> 
+> Test configuration:
+>           Host:  8 Intel Xeon, 8 GB memory
+>           Guest: 4 cpus, 2 GB memory
+> 
+> Each test case runs for 60 secs, results below are average over
+> two runs.  Bandwidth numbers are in gbps.  I have used default
+> netperf, and no testing/system tuning other than taskset each
+> vhost to 0xf (cpus 0-3).  Comparison is testing original kernel
+> vs new kernel with #txqs=8 ("#" refers to number of netperf
+> sessions).
+> 
+> _______________________________________________________________________
+>                 TCP: Guest -> Local Host (TCP_STREAM)
+> #    BW1    BW2 (%)         SD1    SD2 (%)       RSD1    RSD2 (%)
+> _______________________________________________________________________
+> 1    7190   7170 (-.2)      0      0 (0)          3       4 (33.3)
+> 2    8774   11235 (28.0)    3      3 (0)          16      14 (-12.5)
+> 4    9753   15195 (55.7)    17     21 (23.5)      65      59 (-9.2)
+> 8    10224  18265 (78.6)    71     115 (61.9)     251     240 (-4.3)
+> 16   10749  18123 (68.6)    277    456 (64.6)     985     925 (-6.0)
+> 32   11133  17351 (55.8)    1132   1947 (71.9)    3935    3831 (-2.6)
+> 64   11223  17115 (52.4)    4682   7836 (67.3)    15949   15373 (-3.6)
+> 128  11269  16986 (50.7)    19783  31505 (59.2)   66799   61759 (-7.5)
+> _______________________________________________________________________
+> Summary:      BW: 37.6      SD: 61.2      RSD: -6.5
+> 
+> 
+> _______________________________________________________________________
+>                  TCP: Local Host -> Guest (TCP_MAERTS)
+> #    BW1    BW2 (%)        SD1    SD2 (%)        RSD1    RSD2 (%)
+> _______________________________________________________________________
+> 1    11490  10870 (-5.3)   0      0 (0)          2       2 (0)
+> 2    10612  10554 (-.5)    2      3 (50.0)       12      12 (0)
+> 4    10047  14320 (42.5)   13     16 (23.0)      53      53 (0)
+> 8    9273   15182 (63.7)   56     84 (50.0)      228     233 (2.1)
+> 16   9291   15853 (70.6)   235    390 (65.9)     934     965 (3.3)
+> 32   9382   15741 (67.7)   969    1823 (88.1)    3868    4037 (4.3)
+> 64   9270   14585 (57.3)   3966   8836 (122.7)   15415   17818 (15.5)
+> 128  8997   14678 (63.1)   17024  36649 (115.2)  64933   72677 (11.9)
+> _______________________________________________________________________
+> SUM:      BW: 24.8      SD: 114.6      RSD: 12.1
+> 
+> ______________________________________________________
+>             UDP: Local Host -> Guest (UDP_STREAM)
+> #      BW1      BW2 (%)        SD1    SD2 (%)
+> ______________________________________________________
+> 1      17236    16585 (-3.7)    1      1 (0)
+> 2      16795    22693 (35.1)    5      6 (20.0)
+> 4      13390    21502 (60.5)    37     36 (-2.7)
+> 8      13261    24361 (83.7)    163    175 (7.3)
+> 16     12772    23796 (86.3)    692    826 (19.3)
+> 32     12832    23880 (86.0)    2812   2871 (2.0)
+> 64     12779    24293 (90.1)    11299  11237 (-.5)
+> 128    13006    24857 (91.1)    44778  43884 (-1.9)
+> ______________________________________________________
+> Summary:      BW: 37.1      SD: -1.2
