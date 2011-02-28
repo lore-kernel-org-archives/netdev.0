@@ -1,62 +1,63 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [V4 PATCH 3/3] bond: service netpoll arp queue on master device
-Date: Mon, 28 Feb 2011 11:32:18 +0800
-Message-ID: <4D6B1742.6030108@redhat.com>
-References: <1298022215-21059-1-git-send-email-amwang@redhat.com>	<1298022215-21059-3-git-send-email-amwang@redhat.com> <20110227.161225.200373200.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Sun, 27 Feb 2011 19:45:55 -0800
+Message-ID: <AANLkTinxv4JC20YepcMvWi8SL_VTX2sXcRMydD62TT6x@mail.gmail.com>
+References: <20110225.112019.48513284.davem@davemloft.net>
+	<20110226005718.GA19889@gondor.apana.org.au>
+	<20110227110205.GE9763@canuck.infradead.org>
+	<20110227110614.GA6246@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000104060508000508040909"
-Cc: linux-kernel@vger.kernel.org, nhorman@redhat.com,
-	herbert@gondor.hengli.com.au, nhorman@tuxdriver.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110227.161225.200373200.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	wsommerfeld@google.com, daniel.baluta@gmail.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out.google.com ([216.239.44.51]:49461 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752367Ab1B1Dp7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 22:45:59 -0500
+Received: from wpaz29.hot.corp.google.com (wpaz29.hot.corp.google.com [172.24.198.93])
+	by smtp-out.google.com with ESMTP id p1S3jwgZ001572
+	for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 19:45:58 -0800
+Received: from pzk5 (pzk5.prod.google.com [10.243.19.133])
+	by wpaz29.hot.corp.google.com with ESMTP id p1S3ju7o027819
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 19:45:57 -0800
+Received: by pzk5 with SMTP id 5so843505pzk.37
+        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 19:45:56 -0800 (PST)
+In-Reply-To: <20110227110614.GA6246@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------000104060508000508040909
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 8bit
-
-于 2011年02月28日 08:12, David Miller 写道:
-> From: Amerigo Wang<amwang@redhat.com>
-> Date: Fri, 18 Feb 2011 17:43:34 +0800
+> I disagree completely.
 >
->> Neil pointed out that we can't send ARP reply on behalf of slaves,
->> we need to move the arp queue to their bond device.
->>
->> Signed-off-by: WANG Cong<amwang@redhat.com>
+> This patch adds a user-space API that we will have to carry
+> with us for perpetuity. =A0I would only support this if we had
+> no other way around the problem.
 >
-> Applied.
+> If this does turn out to be mostly due to sendmsg contention
+> then fixing it is going to be much simpler than making the UDP
+> stack multiqueue capable.
+>
 
-Oops! Just found that this one I sent was not a refreshed patch.
-Please discard this one, and use the one below, that is the
-correct one in my git tree and the one that I tested.
+That sounds promising, but receive side will still have problems.
+There is lock contention on the queue as well as cache line bouncing
+on the sock structures.  Also multiple threads sleeping on same socket
+typically leads to asymmetric load across the threads (and
+degenerative cases where receiving thread is woken up and other
+threads have already processed all the packets).  TCP listener threads
+suffer from these same problems.
 
-Sorry for this.
+Tom
 
-----
 
-Signed-off-by: WANG Cong <amwang@redhat.com>
-
---------------000104060508000508040909
-Content-Type: text/plain;
- name="bond-move-arp-queue-to-master.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
- filename="bond-move-arp-queue-to-master.diff"
-
-ZGlmZiAtLWdpdCBhL25ldC9jb3JlL25ldHBvbGwuYyBiL25ldC9jb3JlL25ldHBvbGwuYwpp
-bmRleCBmNjhlNjk0Li4wNmJlMjQzIDEwMDY0NAotLS0gYS9uZXQvY29yZS9uZXRwb2xsLmMK
-KysrIGIvbmV0L2NvcmUvbmV0cG9sbC5jCkBAIC0xOTMsNiArMTkzLDE3IEBAIHZvaWQgbmV0
-cG9sbF9wb2xsX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCiAJcG9sbF9uYXBpKGRl
-dik7CiAKKwlpZiAoZGV2LT5wcml2X2ZsYWdzICYgSUZGX1NMQVZFKSB7CisJCWlmIChkZXYt
-Pm5waW5mbykgeworCQkJc3RydWN0IG5ldF9kZXZpY2UgKmJvbmRfZGV2ID0gZGV2LT5tYXN0
-ZXI7CisJCQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOworCQkJd2hpbGUgKChza2IgPSBza2JfZGVx
-dWV1ZSgmZGV2LT5ucGluZm8tPmFycF90eCkpKSB7CisJCQkJc2tiLT5kZXYgPSBib25kX2Rl
-djsKKwkJCQlza2JfcXVldWVfdGFpbCgmYm9uZF9kZXYtPm5waW5mby0+YXJwX3R4LCBza2Ip
-OworCQkJfQorCQl9CisJfQorCiAJc2VydmljZV9hcnBfcXVldWUoZGV2LT5ucGluZm8pOwog
-CiAJemFwX2NvbXBsZXRpb25fcXVldWUoKTsK
---------------000104060508000508040909--
+> I'm working on this right now.
+>
+> Cheers,
+> --
+> Email: Herbert Xu <herbert@gondor.apana.org.au>
+> Home Page: http://gondor.apana.org.au/~herbert/
+> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>
