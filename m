@@ -1,76 +1,74 @@
-From: Andrew Morton <akpm@linux-foundation.org>
-Subject: Re: [PATCH] RxRPC: Fix v1 keys
-Date: Mon, 28 Feb 2011 15:01:09 -0800
-Message-ID: <20110228150109.352d0713.akpm@linux-foundation.org>
-References: <20110228132753.30463.24909.stgit@warthog.procyon.org.uk>
+From: Kees Cook <kees.cook@canonical.com>
+Subject: Re: [PATCHv2 net-next-2.6] ethtool: Compat handling for struct
+ ethtool_rxnfc
+Date: Mon, 28 Feb 2011 15:51:57 -0800
+Message-ID: <20110228235157.GG4669@outflux.net>
+References: <1298930141.2569.22.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Anton Blanchard <anton@samba.org>
-To: David Howells <dhowells@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Santwona Behera <santwona.behera@sun.com>,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp1.linux-foundation.org ([140.211.169.13]:45677 "EHLO
-	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753421Ab1B1XBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 18:01:51 -0500
-In-Reply-To: <20110228132753.30463.24909.stgit@warthog.procyon.org.uk>
+Received: from smtp.outflux.net ([198.145.64.163]:36449 "EHLO smtp.outflux.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754861Ab1B1XwE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Feb 2011 18:52:04 -0500
+Content-Disposition: inline
+In-Reply-To: <1298930141.2569.22.camel@bwh-desktop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Feb 2011 13:27:53 +0000
-David Howells <dhowells@redhat.com> wrote:
+Hi Ben,
 
-> From: Anton Blanchard <anton@au1.ibm.com>
-> 
-> commit 339412841d7 (RxRPC: Allow key payloads to be passed in XDR form)
-> broke klog for me. I notice the v1 key struct had a kif_version field
-> added:
-> 
-> -struct rxkad_key {
-> -       u16     security_index;         /* RxRPC header security index */
-> -       u16     ticket_len;             /* length of ticket[] */
-> -       u32     expiry;                 /* time at which expires */
-> -       u32     kvno;                   /* key version number */
-> -       u8      session_key[8];         /* DES session key */
-> -       u8      ticket[0];              /* the encrypted ticket */
-> -};
-> 
-> +struct rxrpc_key_data_v1 {
-> +       u32             kif_version;            /* 1 */
-> +       u16             security_index;
-> +       u16             ticket_length;
-> +       u32             expiry;                 /* time_t */
-> +       u32             kvno;
-> +       u8              session_key[8];
-> +       u8              ticket[0];
-> +};
-> 
-> However the code in rxrpc_instantiate strips it away:
-> 
-> 	data += sizeof(kver);
-> 	datalen -= sizeof(kver);
-> 
-> Removing kif_version fixes my problem.
-> 
-> Signed-off-by: Anton Blanchard <anton@samba.org>
-> Signed-off-by: David Howells <dhowells@redhat.com>
-> ---
-> 
->  include/keys/rxrpc-type.h |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-> index 5cb86c3..fc48754 100644
-> --- a/include/keys/rxrpc-type.h
-> +++ b/include/keys/rxrpc-type.h
-> @@ -99,7 +99,6 @@ struct rxrpc_key_token {
->   * structure of raw payloads passed to add_key() or instantiate key
->   */
->  struct rxrpc_key_data_v1 {
-> -	u32		kif_version;		/* 1 */
->  	u16		security_index;
->  	u16		ticket_length;
->  	u32		expiry;			/* time_t */
+On Mon, Feb 28, 2011 at 09:55:41PM +0000, Ben Hutchings wrote:
+> I'm not sure whether more checks on rule_cnt are required for security
+> or whether compat_alloc_user_space() and copy_in_user() can be relied on
+> to limit any buffer overrun to the user process's own memory.  It looks
+> like this is safe on x86.
 
-Isn't the patch also needed in 2.6.37.x?
+I'm less familiar with the compat world, but it looks sane to me. All the
+copy_in_user() calls are calculated based on structure sizes, right? Except
+for the rule_cnt one, which was already bounds-checked for output. AFAIK,
+reading beyond the end of &rxnfc->rule_locs[0] should be contained to
+userspace memory due to the access_ok() check in copy_in_user().
+
+> +	switch (ethcmd) {
+> +	default:
+> +		break;
+> +	case ETHTOOL_GRXCLSRLALL:
+> +		/* Buffer size is variable */
+> +		if (get_user(rule_cnt, &compat_rxnfc->rule_cnt))
+> +			return -EFAULT;
+> +		if (rule_cnt > KMALLOC_MAX_SIZE / sizeof(u32))
+> +			return -ENOMEM;
+> +		buf_size += rule_cnt * sizeof(u32);
+> +		/* fall through */
+> +	case ETHTOOL_GRXRINGS:
+> +	case ETHTOOL_GRXCLSRLCNT:
+> +	case ETHTOOL_GRXCLSRULE:
+> +		convert_out = true;
+> +		/* fall through */
+> +	case ETHTOOL_SRXCLSRLDEL:
+> +	case ETHTOOL_SRXCLSRLINS:
+> +		buf_size += sizeof(struct ethtool_rxnfc);
+> +		convert_in = true;
+> +		break;
+> +	}
+> ...
+> +	if (convert_out) {
+> ...
+> +		if (ethcmd == ETHTOOL_GRXCLSRLALL) {
+> +			if (get_user(rule_cnt, &compat_rxnfc->rule_cnt) ||
+> +			    copy_in_user(&compat_rxnfc->rule_locs[0],
+> +					 &rxnfc->rule_locs[0],
+> +					 rule_cnt * sizeof(u32)))
+> +				return -EFAULT;
+
+-Kees
+
+-- 
+Kees Cook
+Ubuntu Security Team
