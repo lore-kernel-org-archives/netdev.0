@@ -1,48 +1,110 @@
-From: "Hegde, Vinay" <vinay.hegde@ti.com>
-Subject: [PATCH v2] davinci_emac: Add Carrier Link OK check in Davinci RX Handler
-Date: Mon, 28 Feb 2011 13:45:20 +0530
-Message-ID: <1298880920-22715-1-git-send-email-vinay.hegde@ti.com>
-Cc: khilman@ti.com, davinci-linux-open-source@linux.davincidsp.com,
-	linux-arm-kernel@lists.infradead.org,
-	"Hegde, Vinay" <vinay.hegde@ti.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:55777 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752639Ab1B1ITW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 03:19:22 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: Re: [PATCH] cxgb{3,4}: streamline Kconfig options
+Date: Mon, 28 Feb 2011 08:19:58 +0000
+Message-ID: <4D6B68BE020000780003402E@vpn.id2.novell.com>
+References: <4D5D30CA020000780003263A@vpn.id2.novell.com>
+ <20110222.101457.39195901.davem@davemloft.net>
+ <4D64E5720200007800033420@vpn.id2.novell.com>
+ <20110223.122709.193705956.davem@davemloft.net>
+ <4D661E2702000078000336B5@vpn.id2.novell.com>
+ <4D66B45B.2050604@chelsio.com> <4D680842.6050309@chelsio.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <divy@chelsio.com>, "David Miller" <davem@davemloft.net>,
+	<linux-kbuild@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Dimitris Michailidis" <dm@chelsio.com>
+Return-path: <linux-kbuild-owner@vger.kernel.org>
+In-Reply-To: <4D680842.6050309@chelsio.com>
+Content-Disposition: inline
+Sender: linux-kbuild-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds an additional check in the Davinci EMAC RX Handler,
-which tests the __LINK_STATE_NOCARRIER flag along with the
-__LINK_STATE_START flag as part EMAC shutting down procedure.
+>>> On 25.02.11 at 20:51, Dimitris Michailidis <dm@chelsio.com> wrote:
+> Dimitris Michailidis wrote:
+>> Jan Beulich wrote:
+>> 
+>>> As to that INET vs NET dependency - is it possible that the
+>>> network drivers really just need NET, but the iSCSI ones need
+>>> INET? In which case the only common dependency would be
+>>> PCI - certainly not worth a custom helper option.
+>> 
+>> Reading the commit message that introduced CHELSIO_T3_DEPENDS, it talks 
+>> of hidden dependencies that select does not see.  I am not sure which 
+>> exactly but since it's been a few years since that commit I'll try to 
+>> see what the situation is today without the *_DEPENDS symbols and let 
+>> you know.
+> 
+> I looked into this and found that with the current Kconfig the iSCSI driver 
+> does not appear in the SCSI menu until one first enables NETDEVICES and 
+> NETDEV_10000 in the network driver menu.  It appears that the *_DEPENDS 
+> symbols were added to capture dependencies on such symbols within the 
+> network driver Kconfig, besides the dependencies the driver's entry listed 
+> explicitly.
+> 
+> The patch below removes *T4*_DEPENDS and the network drivers' unnecessary 
+> dependency on INET, and updates the iSCSI driver's entry so it is visible 
+> without requiring any net driver options to be enabled first and has 
+> adequate selects to be able to build the net driver (this part is adapted 
+> from bnx2i's Kconfig entry).  I still need to do the T3 part of this and 
+> check that there isn't a conflict with the current scsi tree.  Just for 
+> review at this time.
 
-This avoids
-WARNING: at drivers/net/davinci_emac.c:1040 emac_rx_handler+0xf8/0x120()
-during rtcwake used to suspend the target for a specified duration.
+Thanks, this looks good to me.
 
-Signed-off-by: Hegde, Vinay <vinay.hegde@ti.com>
-Acked-by: Cyril Chemparathy <cyril@ti.com>
----
-since v1: Changed the subject line
+Jan
 
- drivers/net/davinci_emac.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index 0382332..0d314d5 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2619,14 +2619,9 @@ config CHELSIO_T3
+>   	  To compile this driver as a module, choose M here: the module
+>   	  will be called cxgb3.
+> 
+> -config CHELSIO_T4_DEPENDS
+> -	tristate
+> -	depends on PCI && INET
+> -	default y
+> -
+>   config CHELSIO_T4
+>   	tristate "Chelsio Communications T4 Ethernet support"
+> -	depends on CHELSIO_T4_DEPENDS
+> +	depends on PCI
+>   	select FW_LOADER
+>   	select MDIO
+>   	help
+> @@ -2644,14 +2639,9 @@ config CHELSIO_T4
+>   	  To compile this driver as a module choose M here; the module
+>   	  will be called cxgb4.
+> 
+> -config CHELSIO_T4VF_DEPENDS
+> -	tristate
+> -	depends on PCI && INET
+> -	default y
+> -
+>   config CHELSIO_T4VF
+>   	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
+> -	depends on CHELSIO_T4VF_DEPENDS
+> +	depends on PCI
+>   	help
+>   	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+>   	  adapters with PCI-E SR-IOV Virtual Functions.
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/Kconfig 
+> b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+> index bb94b39..d5302c2 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/Kconfig
+> +++ b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+> @@ -1,6 +1,8 @@
+>   config SCSI_CXGB4_ISCSI
+>   	tristate "Chelsio T4 iSCSI support"
+> -	depends on CHELSIO_T4_DEPENDS
+> +	depends on PCI && INET
+> +	select NETDEVICES
+> +	select NETDEV_10000
+>   	select CHELSIO_T4
+>   	select SCSI_ISCSI_ATTRS
+>   	---help---
 
-diff --git a/drivers/net/davinci_emac.c b/drivers/net/davinci_emac.c
-index 2a628d1..7018bfe 100644
---- a/drivers/net/davinci_emac.c
-+++ b/drivers/net/davinci_emac.c
-@@ -1008,7 +1008,7 @@ static void emac_rx_handler(void *token, int len, int status)
- 	int			ret;
- 
- 	/* free and bail if we are shutting down */
--	if (unlikely(!netif_running(ndev))) {
-+	if (unlikely(!netif_running(ndev) || !netif_carrier_ok(ndev))) {
- 		dev_kfree_skb_any(skb);
- 		return;
- 	}
--- 
-1.7.1
+
 
