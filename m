@@ -1,63 +1,75 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Mon, 28 Feb 2011 11:55:01 -0500
-Message-ID: <20110228165501.GC2515@tuxdriver.com>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
- <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
- <1298793252.8726.45.camel@edumazet-laptop>
- <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
- <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
- <1298837273.8726.128.camel@edumazet-laptop>
- <20110228161115.GB2515@tuxdriver.com>
- <1298911694.2941.639.camel@edumazet-laptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Mon, 28 Feb 2011 18:07:49 +0100
+Message-ID: <1298912869.2941.687.camel@edumazet-laptop>
+References: <20110225.112019.48513284.davem@davemloft.net>
+	 <20110226005718.GA19889@gondor.apana.org.au>
+	 <20110227110205.GE9763@canuck.infradead.org>
+	 <20110227110614.GA6246@gondor.apana.org.au>
+	 <20110228113659.GA20726@gondor.apana.org.au>
+	 <20110228141322.GF9763@canuck.infradead.org>
+	 <1298910174.2941.585.camel@edumazet-laptop>
+	 <20110228163742.GH9763@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Albert Cahalan <acahalan@gmail.com>,
-	Mikael Abrahamsson <swmike@swm.pp.se>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1298911694.2941.639.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:51156 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751690Ab1B1RKV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 12:10:21 -0500
+Received: by fxm17 with SMTP id 17so3940418fxm.19
+        for <netdev@vger.kernel.org>; Mon, 28 Feb 2011 09:10:20 -0800 (PST)
+In-Reply-To: <20110228163742.GH9763@canuck.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 28, 2011 at 05:48:14PM +0100, Eric Dumazet wrote:
-> Le lundi 28 f=E9vrier 2011 =E0 11:11 -0500, John W. Linville a =E9cri=
-t :
-> > On Sun, Feb 27, 2011 at 09:07:53PM +0100, Eric Dumazet wrote:
-> >=20
-> > > Qdisc should return to caller a good indication packet is queued =
-or
-> > > dropped at enqueue() time... not later (aka : never)
-> > >=20
-> > > Accepting a packet at t0, and dropping it later at t0+limit witho=
-ut
-> > > giving any indication to caller is a problem.
-> >=20
-> > Can you elaborate on what problem this causes?  Is it any worse tha=
-n
-> > if the packet is dropped at some later hop?
-> >=20
-> > Is there any API that could report the drop to the sender (at
-> > least a local one) without having to wait for the ack timeout?
-> > Should there be?
-> >=20
+Le lundi 28 f=C3=A9vrier 2011 =C3=A0 11:37 -0500, Thomas Graf a =C3=A9c=
+rit :
+
+> How do you measure the qps? The output of queryperf? That is not alwa=
+ys
+> accurate. I run rdnc stats twice and then calculate the qps based on =
+the
+> counter "queries resulted in successful answer" diff and timestamp di=
+ff.
 >=20
-> Not all protocols have ACKS ;)
+
+I have some custom ethernet/system monitoring package installed, so I
+get packet rates from it.
+
+I appears my two source machines were not fast enough. (One had LOCKDEP
+kernel).
+
+I now reach 320 kqps, even if I force NIC interrupts through one cpu
+only.
+
+> The numbers differ a lot depending on the architecture we test on.
 >=20
-> dev_queue_xmit() returns an error code, some callers use it.
+> F.e. on a 12 core AMD with 2 NUMA nodes:
+>=20
+> 2.6.32   named -n 1: 37.0kqps
+>          named:       3.8kqps (yes, no joke, the socket receive buffe=
+r is
+>                                always full and the kernel drops pkts)
 
-Well, OK -- I agree it is best if you can return the status at
-enqueue time.  The question becomes whether or not a dropped frame
-is worse than living with high latency.  The answer, of course, still
-seems to be a bit subjective.  But, if the admin has determined that
-a link should be low latency...?
+Yes, this old kernel miss commit c377411f2494a93 added in 2.6.35
+(net: sk_add_backlog() take rmem_alloc into account)
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Quoting the change log :
+
+ Under huge stress from a multiqueue/RPS enabled NIC, a single flow udp
+ receiver can now process ~200.000 pps (instead of ~100 pps before the
+ patch) on a 8 core machine.
+
+>=20
+> 2.6.38-rc5+ with Herbert's patches:
+>         named -n 1:  36.9kqps
+>         named:      222.0kqps
+
+
