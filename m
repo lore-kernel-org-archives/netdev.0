@@ -1,58 +1,64 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan
- interface RX
-Date: Mon, 28 Feb 2011 13:37:34 -0800
-Message-ID: <AANLkTimmbG3_GjYhoO7F46hOcRM3Fq_mNifk2PpLstPa@mail.gmail.com>
-References: <4D32FC1C.3010905@simon.arlott.org.uk>
-	<201101231845.20505.maciej.rutecki@gmail.com>
-	<AANLkTimTz=kMmJ=YhyJv28WUrsbN=ygBt9e7dMJ3KGqB@mail.gmail.com>
-	<201101241625.45367.maciej.rutecki@gmail.com>
-	<loom.20110205T163216-459@post.gmane.org>
-	<AANLkTi=-+1dnh5ab6nMwjwMx20jpirYyaASZ=dk4OExp@mail.gmail.com>
-	<loom.20110206T203347-475@post.gmane.org>
-	<4D4FE100.5090808@gmail.com>
-	<loom.20110214T141934-88@post.gmane.org>
-	<AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com>
-	<loom.20110226T011347-702@post.gmane.org>
-	<AANLkTikSvs7jF9BZzbsYkLAawpCH2h1Z0r09ft219uaa@mail.gmail.com>
-	<loom.20110226T120245-774@post.gmane.org>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's	source
+ MAC
+Date: Mon, 28 Feb 2011 22:45:08 +0100
+Message-ID: <4D6C1764.1040008@gmail.com>
+References: <1298668408-14849-1-git-send-email-andy@greyhouse.net> <4D68276B.90104@gmail.com> <20110225222455.GI11864@gospo.rdu.redhat.com> <4D683653.4050409@gmail.com> <20110228163255.GJ11864@gospo.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: chriss <mail_to_chriss@gmx.net>,
-	Francois Romieu <romieu@fr.zoreil.com>
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jpirko@redhat.com>
+To: Andy Gospodarek <andy@greyhouse.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:37616 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490Ab1B1Vl7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 16:41:59 -0500
-Received: by vxi39 with SMTP id 39so3582177vxi.19
-        for <netdev@vger.kernel.org>; Mon, 28 Feb 2011 13:41:58 -0800 (PST)
-In-Reply-To: <loom.20110226T120245-774@post.gmane.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:56827 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252Ab1B1Vpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 16:45:34 -0500
+Received: by bwz15 with SMTP id 15so4086629bwz.19
+        for <netdev@vger.kernel.org>; Mon, 28 Feb 2011 13:45:33 -0800 (PST)
+In-Reply-To: <20110228163255.GJ11864@gospo.rdu.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Feb 26, 2011 at 3:51 AM, chriss <mail_to_chriss@gmx.net> wrote:
-> Jesse Gross <jesse <at> nicira.com> writes:
->
+Le 28/02/2011 17:32, Andy Gospodarek a =E9crit :
+> On Sat, Feb 26, 2011 at 12:08:03AM +0100, Nicolas de Peslo=FCan wrote=
+:
+>> Le 25/02/2011 23:24, Andy Gospodarek a =E9crit :
+> [...]
+>>>
+>>> I confirmed your suspicion, this breaks ARP monitoring.  I would st=
+ill
+>>> welcome other opinions though as I think it would be nice to fix th=
+is as
+>>> low as possible.
 >>
->> Can you confirm this by running tcpdump -eni br0? =A0I would expect =
-that
->> you see the correct packets but without vlan tags.
+>> Why do you want to fix it earlier that in ndisc_recv_ns drop? Your
+>> original idea of silently dropping the frame there seems perfect to =
+me.
 >>
 >
-> Thats correct. i see the packets in br0 without tags and tagged in et=
-h1. thats
-> why i added the brouting rule in ebtables to drop it at eth1 and the =
-it apears
-> in eth1.3 (untagged)...
+> Maybe it's just me, but I cannot understand why we want a bunch of ex=
+tra
+> packets floating up into the stack when they may only create issues f=
+or
+> the recipients of these duplicate frames.
+>
+> Clearly my original patch needs to be refined so ARP monitoring still
+> works, but I would rather fix the issue there than in a higher layer.
 
-Putting a vlan device on eth1 actually affects the behavior of the
-driver, which is why that works.  I suspect that if you put the vlan
-device on both the physical interface and the bridge you would see
-packets with tags on the bridge.
+Jay explained that the current implementation should already trap those=
+ frames, on inactive slaves,=20
+in modes where inactive slaves exist. I agree with him.
 
-Regardless, the solution is to remove the dependency on vlan devices
-by converting over to the new vlan model.  Francois, any chance that
-you might have some time to look at this?
+What mode are you seeing this problem in? If the current "should drop" =
+logic is leaking, then yes,=20
+we should fix it. But we currently don't see where it is leaking.
+
+	Nicolas.
+
+
+
