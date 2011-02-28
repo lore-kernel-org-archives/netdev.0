@@ -1,46 +1,85 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 V3] net: convert bonding to use rx_handler
-Date: Mon, 28 Feb 2011 10:22:24 +0100
-Message-ID: <20110228092222.GA2831@psychotron.brq.redhat.com>
-References: <20110227125816.GB2814@psychotron.redhat.com>
- <20110227.152208.102543719.davem@davemloft.net>
- <20110228070732.GA2793@psychotron.redhat.com>
- <20110227.233013.226766890.davem@davemloft.net>
+From: Michael Tokarev <mjt@tls.msk.ru>
+Subject: Re: [PATCH] don't allow CAP_NET_ADMIN to load non-netdev kernel modules
+Date: Mon, 28 Feb 2011 12:29:11 +0300
+Message-ID: <4D6B6AE7.2050202@msgid.tls.msk.ru>
+References: <1298660879.2554.23.camel@bwh-desktop> <1298666310.2554.47.camel@bwh-desktop> <AANLkTikmtKksP6o1hecf0=ZnRv0j4+_Q326UEG8ss16k@mail.gmail.com> <201102272122.52643.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37047 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752897Ab1B1JW2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 04:22:28 -0500
-Content-Disposition: inline
-In-Reply-To: <20110227.233013.226766890.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, segoon@openwall.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, eric.dumazet@gmail.com,
+	therbert@google.com, xiaosuo@gmail.com, jesse@nicira.com,
+	kees.cook@canonical.com, eugene@redhat.com,
+	dan.j.rosenberg@gmail.com, akpm@linux-foundation.org
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201102272122.52643.arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Feb 28, 2011 at 08:30:13AM CET, davem@davemloft.net wrote:
->From: Jiri Pirko <jpirko@redhat.com>
->Date: Mon, 28 Feb 2011 08:07:33 +0100
->
->> Mon, Feb 28, 2011 at 12:22:08AM CET, davem@davemloft.net wrote:
->>>From: Jiri Pirko <jpirko@redhat.com>
->>>Date: Sun, 27 Feb 2011 13:58:17 +0100
+27.02.2011 23:22, Arnd Bergmann wrote:
+> On Friday 25 February 2011, Micha=B3 Miros=B3aw wrote:
+>>> diff --git a/net/core/dev.c b/net/core/dev.c
+>>> index 54aaca6..0d09baa 100644
+>>> --- a/net/core/dev.c
+>>> +++ b/net/core/dev.c
+>>> @@ -1120,8 +1120,20 @@ void dev_load(struct net *net, const char *n=
+ame)
+>>>        dev =3D dev_get_by_name_rcu(net, name);
+>>>        rcu_read_unlock();
 >>>
->>>> That is very true. And given that af_packet uses orig_dev to obtain
->>>> ifindex, it can be replaced by skb->skb_iif. That way we can get rid of
->>>> orig_dev parameter for good.
+>>> -       if (!dev && capable(CAP_NET_ADMIN))
+>>> -               request_module("%s", name);
+>>> +       if (!dev && capable(CAP_NET_ADMIN)) {
+>>> +               /* Check whether the name looks like one that a net
+>>> +                * driver will generate initially.  If not, require=
+ a
+>>> +                * module alias with a suitable prefix, so that thi=
+s
+>>> +                * can't be used to load arbitrary modules.
+>>> +                */
+>>> +               if ((strncmp(name, "eth", 3) =3D=3D 0 &&
+>>> +                    isdigit((unsigned char)name[3])) ||
+>>> +                   (strncmp(name, "wlan", 4) =3D=3D 0 &&
+>>> +                    isdigit((unsigned char)name[4])))
+>>> +                       request_module("%s", name);
+>>> +               else
+>>> +                       request_module("netdev-%s", name);
+>>> +       }
+>>>  }
+>>>  EXPORT_SYMBOL(dev_load);
 >>>
->>>I would rather see a complete patch set submitting at a unit, thanks.
->>>
->>>I've already marked your V3 last night as "changes requested" in
->>>patchwork for this reason.
->> 
->> That's a pity. V3 is complete patch. The changes we talk about in
->> discussion are just taking advantage of changes in patch V3. Would be in
->> my opinion better to apply V3 now and followup with the rest after that.
->
->Fair enough, I'll aply it now, thanks.
+>>
+>> This might be better as:
+>>
+>> if (request_module("netdev-%s", name))
+>>     ... fallback
+>>
+>> Then after some years the fallback could be removed if announced pro=
+perly.
+>=20
+> The backwards compatibility should mostly be for systems that today d=
+on't
+> use split capabilities, right?
+>=20
+> The fallback could therefore rely on CAP_SYS_MODULE as well:
+>=20
+> 	if (request_module("netdev-%s", name)) {
+> 		if (capable(CAP_SYS_MODULE))
+> 			request_module("%s", name);
+> 	}
+>=20
+> Not 100% solution, but should solve the capability escalation nicely =
+without
+> causing much pain.
 
-Applied incorrectly. net/core/dev.c part is missing
+To me this looks like the best solution so far - trivial and
+compatible.
+
+Thanks!
+
+/mjt
