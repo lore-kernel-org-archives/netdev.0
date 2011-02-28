@@ -1,7 +1,8 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-2.6 1/7] bnx2x: (NPAR mode) Fix FW initialization
-Date: Mon, 28 Feb 2011 15:37:20 +0200
-Message-ID: <1298900240.28024.121.camel@lb-tlvb-dmitry>
+Subject: [PATCH net-2.6 4/7] bnx2x: properly configure coefficients for
+ MinBW algorithm (NPAR mode).
+Date: Mon, 28 Feb 2011 15:37:11 +0200
+Message-ID: <1298900231.28024.118.camel@lb-tlvb-dmitry>
 Mime-Version: 1.0
 Content-Type: text/plain;
  charset=utf-8
@@ -11,154 +12,73 @@ To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mms3.broadcom.com ([216.31.210.19]:4080 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754142Ab1B1NjJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 08:39:09 -0500
+	id S1753727Ab1B1NjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Feb 2011 08:39:04 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
- Fix FW initialization according to max BW stored in percents
- for NPAR mode. Protect HW from being configured to speed 0.
 
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/bnx2x/bnx2x_cmn.c     |   17 +++++++++--------
- drivers/net/bnx2x/bnx2x_cmn.h     |   20 ++++++++++++++++++++
- drivers/net/bnx2x/bnx2x_ethtool.c |   13 +++++++------
- drivers/net/bnx2x/bnx2x_main.c    |   15 ++++++++++++---
- 4 files changed, 48 insertions(+), 17 deletions(-)
+ drivers/net/bnx2x/bnx2x.h      |   26 +++++++++++++++-----------
+ drivers/net/bnx2x/bnx2x_main.c |    3 ++-
+ 2 files changed, 17 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.c b/drivers/net/bnx2x/bnx2x_cmn.c
-index 710ce5d..a58baf3 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/bnx2x/bnx2x_cmn.c
-@@ -703,19 +703,20 @@ u16 bnx2x_get_mf_speed(struct bnx2x *bp)
- {
- 	u16 line_speed = bp->link_vars.line_speed;
- 	if (IS_MF(bp)) {
--		u16 maxCfg = (bp->mf_config[BP_VN(bp)] &
--						FUNC_MF_CFG_MAX_BW_MASK) >>
--						FUNC_MF_CFG_MAX_BW_SHIFT;
--		/* Calculate the current MAX line speed limit for the DCC
--		 * capable devices
-+		u16 maxCfg = bnx2x_extract_max_cfg(bp,
-+						   bp->mf_config[BP_VN(bp)]);
-+
-+		/* Calculate the current MAX line speed limit for the MF
-+		 * devices
- 		 */
--		if (IS_MF_SD(bp)) {
-+		if (IS_MF_SI(bp))
-+			line_speed = (line_speed * maxCfg) / 100;
-+		else { /* SD mode */
- 			u16 vn_max_rate = maxCfg * 100;
+diff --git a/drivers/net/bnx2x/bnx2x.h b/drivers/net/bnx2x/bnx2x.h
+index 653c624..368cfcd 100644
+--- a/drivers/net/bnx2x/bnx2x.h
++++ b/drivers/net/bnx2x/bnx2x.h
+@@ -1613,19 +1613,23 @@ static inline u32 reg_poll(struct bnx2x *bp, u32 reg, u32 expected, int ms,
+ #define BNX2X_BTR			4
+ #define MAX_SPQ_PENDING			8
  
- 			if (vn_max_rate < line_speed)
- 				line_speed = vn_max_rate;
--		} else /* IS_MF_SI(bp)) */
--			line_speed = (line_speed * maxCfg) / 100;
-+		}
- 	}
+-
+-/* CMNG constants
+-   derived from lab experiments, and not from system spec calculations !!! */
+-#define DEF_MIN_RATE			100
++/* CMNG constants, as derived from system spec calculations */
++/* default MIN rate in case VNIC min rate is configured to zero - 100Mbps */
++#define DEF_MIN_RATE					100
+ /* resolution of the rate shaping timer - 100 usec */
+-#define RS_PERIODIC_TIMEOUT_USEC	100
+-/* resolution of fairness algorithm in usecs -
+-   coefficient for calculating the actual t fair */
+-#define T_FAIR_COEF			10000000
++#define RS_PERIODIC_TIMEOUT_USEC			100
+ /* number of bytes in single QM arbitration cycle -
+-   coefficient for calculating the fairness timer */
+-#define QM_ARB_BYTES			40000
+-#define FAIR_MEM			2
++ * coefficient for calculating the fairness timer */
++#define QM_ARB_BYTES					160000
++/* resolution of Min algorithm 1:100 */
++#define MIN_RES						100
++/* how many bytes above threshold for the minimal credit of Min algorithm*/
++#define MIN_ABOVE_THRESH				32768
++/* Fairness algorithm integration time coefficient -
++ * for calculating the actual Tfair */
++#define T_FAIR_COEF	((MIN_ABOVE_THRESH +  QM_ARB_BYTES) * 8 * MIN_RES)
++/* Memory of fairness algorithm . 2 cycles */
++#define FAIR_MEM					2
  
- 	return line_speed;
-diff --git a/drivers/net/bnx2x/bnx2x_cmn.h b/drivers/net/bnx2x/bnx2x_cmn.h
-index 03eb4d6..326ba44 100644
---- a/drivers/net/bnx2x/bnx2x_cmn.h
-+++ b/drivers/net/bnx2x/bnx2x_cmn.h
-@@ -1044,4 +1044,24 @@ static inline void storm_memset_cmng(struct bnx2x *bp,
- void bnx2x_acquire_phy_lock(struct bnx2x *bp);
- void bnx2x_release_phy_lock(struct bnx2x *bp);
  
-+/**
-+ * Extracts MAX BW part from MF configuration.
-+ *
-+ * @param bp
-+ * @param mf_cfg
-+ *
-+ * @return u16
-+ */
-+static inline u16 bnx2x_extract_max_cfg(struct bnx2x *bp, u32 mf_cfg)
-+{
-+	u16 max_cfg = (mf_cfg & FUNC_MF_CFG_MAX_BW_MASK) >>
-+			      FUNC_MF_CFG_MAX_BW_SHIFT;
-+	if (!max_cfg) {
-+		BNX2X_ERR("Illegal configuration detected for Max BW - "
-+			  "using 100 instead\n");
-+		max_cfg = 100;
-+	}
-+	return max_cfg;
-+}
-+
- #endif /* BNX2X_CMN_H */
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index 5b44a8b..b3da295 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -238,7 +238,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	speed |= (cmd->speed_hi << 16);
- 
- 	if (IS_MF_SI(bp)) {
--		u32 param = 0;
-+		u32 param = 0, part;
- 		u32 line_speed = bp->link_vars.line_speed;
- 
- 		/* use 10G if no link detected */
-@@ -251,9 +251,11 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 				       REQ_BC_VER_4_SET_MF_BW);
- 			return -EINVAL;
- 		}
--		if (line_speed < speed) {
--			BNX2X_DEV_INFO("New speed should be less or equal "
--				       "to actual line speed\n");
-+		part = (speed * 100) / line_speed;
-+		if (line_speed < speed || !part) {
-+			BNX2X_DEV_INFO("Speed setting should be in a range "
-+				       "from 1%% to 100%% "
-+				       "of actual line speed\n");
- 			return -EINVAL;
- 		}
- 		/* load old values */
-@@ -263,8 +265,7 @@ static int bnx2x_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 		param &= FUNC_MF_CFG_MIN_BW_MASK;
- 
- 		/* set new MAX value */
--		param |= (((speed * 100) / line_speed)
--				 << FUNC_MF_CFG_MAX_BW_SHIFT)
-+		param |= (part << FUNC_MF_CFG_MAX_BW_SHIFT)
- 				  & FUNC_MF_CFG_MAX_BW_MASK;
- 
- 		bnx2x_fw_command(bp, DRV_MSG_CODE_SET_MF_BW, param);
+ #define ATTN_NIG_FOR_FUNC		(1L << 8)
 diff --git a/drivers/net/bnx2x/bnx2x_main.c b/drivers/net/bnx2x/bnx2x_main.c
-index d584d32..203e9bf 100644
+index 203e9bf..032ae18 100644
 --- a/drivers/net/bnx2x/bnx2x_main.c
 +++ b/drivers/net/bnx2x/bnx2x_main.c
-@@ -1974,13 +1974,22 @@ static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
- 		vn_max_rate = 0;
- 
- 	} else {
-+		u32 maxCfg = bnx2x_extract_max_cfg(bp, vn_cfg);
-+
- 		vn_min_rate = ((vn_cfg & FUNC_MF_CFG_MIN_BW_MASK) >>
- 				FUNC_MF_CFG_MIN_BW_SHIFT) * 100;
--		/* If min rate is zero - set it to 1 */
-+		/* If fairness is enabled (not all min rates are zeroes) and
-+		   if current min rate is zero - set it to 1.
-+		   This is a requirement of the algorithm. */
- 		if (bp->vn_weight_sum && (vn_min_rate == 0))
- 			vn_min_rate = DEF_MIN_RATE;
--		vn_max_rate = ((vn_cfg & FUNC_MF_CFG_MAX_BW_MASK) >>
--				FUNC_MF_CFG_MAX_BW_SHIFT) * 100;
-+
-+		if (IS_MF_SI(bp))
-+			/* maxCfg in percents of linkspeed */
-+			vn_max_rate = (bp->link_vars.line_speed * maxCfg) / 100;
-+		else
-+			/* maxCfg is absolute in 100Mb units */
-+			vn_max_rate = maxCfg * 100;
+@@ -2015,7 +2015,8 @@ static void bnx2x_init_vn_minmax(struct bnx2x *bp, int vn)
+ 		m_fair_vn.vn_credit_delta =
+ 			max_t(u32, (vn_min_rate * (T_FAIR_COEF /
+ 						   (8 * bp->vn_weight_sum))),
+-			      (bp->cmng.fair_vars.fair_threshold * 2));
++			      (bp->cmng.fair_vars.fair_threshold +
++							MIN_ABOVE_THRESH));
+ 		DP(NETIF_MSG_IFUP, "m_fair_vn.vn_credit_delta %d\n",
+ 		   m_fair_vn.vn_credit_delta);
  	}
- 
- 	DP(NETIF_MSG_IFUP,
 -- 
 1.7.2.2
 
