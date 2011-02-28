@@ -1,44 +1,80 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: SO_REUSEPORT - can it be done in kernel?
-Date: Mon, 28 Feb 2011 22:25:39 +0800
-Message-ID: <20110228142539.GA23082@gondor.apana.org.au>
-References: <20110225.112019.48513284.davem@davemloft.net> <20110226005718.GA19889@gondor.apana.org.au> <20110227110205.GE9763@canuck.infradead.org> <20110227110614.GA6246@gondor.apana.org.au> <20110228113659.GA20726@gondor.apana.org.au> <1298899971.2941.281.camel@edumazet-laptop> <20110228141327.GA22851@gondor.apana.org.au> <1298902926.2941.349.camel@edumazet-laptop>
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
+Subject: [PATCH] net: fix multithreaded signal handling in unix recv routines
+Date: Mon, 28 Feb 2011 14:50:55 +0000
+Message-ID: <877hck43hs.fsf@sapphire.mobileactivedefense.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	therbert@google.com, wsommerfeld@google.com,
-	daniel.baluta@gmail.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:55331 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754493Ab1B1OZu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 09:25:50 -0500
-Content-Disposition: inline
-In-Reply-To: <1298902926.2941.349.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 28, 2011 at 03:22:06PM +0100, Eric Dumazet wrote:
->
-> Not sure how you read this ;)
-> 
-> I said that before your patches, a sender was consuming lot of time to
-> transfert frames from backlog to receive queue right before releasing
-> socket lock.
-> 
-> Now, the receive path doesnt slow down the senders, and vice versa.
-> 
-> :)
+From: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 
-I understood what you wrote :)
+The unix_dgram_recvmsg and unix_stream_recvmsg routines in
+net/af_unix.c utilize mutex_lock(&u->readlock) calls in order to
+serialize read operations of multiple threads on a single socket. This
+implies that, if all n threads of a process block in an AF_UNIX recv
+call trying to read data from the same socket, one of these threads
+will be sleeping in state TASK_INTERRUPTIBLE and all others in state
+TASK_UNINTERRUPTIBLE. Provided that a particular signal is supposed to
+be handled by a signal handler defined by the process and that none of
+this threads is blocking the signal, the complete_signal routine in
+kernel/signal.c will select the 'first' such thread it happens to
+encounter when deciding which thread to notify that a signal is
+supposed to be handled and if this is one of the TASK_UNINTERRUPTIBLE
+threads, the signal won't be handled until the one thread not blocking
+on the u->readlock mutex is woken up because some data to process has
+arrived (if this ever happens). The included patch fixes this by
+changing mutex_lock to mutex_lock_interruptible and handling possible
+error returns in the same way interruptions are handled by the actual
+receive-code.
 
-I was just referring to an earlier message where Dave talked about
-the UDP accounting patch making us having to take the lock on every
-packet.
+Signed-off-by: Rainer Weikusat <rweikusat@mobileactivedefense.com>
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+---
+diff -urp net-2.6/net/unix/af_unix.c net-2.6-patched//net/unix/af_unix.c
+--- net-2.6/net/unix/af_unix.c	2011-02-16 22:19:43.338358559 +0000
++++ net-2.6-patched//net/unix/af_unix.c	2011-02-16 22:38:39.483543598 +0000
+@@ -1724,7 +1724,11 @@ static int unix_dgram_recvmsg(struct kio
+ 
+ 	msg->msg_namelen = 0;
+ 
+-	mutex_lock(&u->readlock);
++	err = mutex_lock_interruptible(&u->readlock);
++	if (err) {
++		err = sock_intr_errno(sock_rcvtimeo(sk, noblock));
++		goto out;
++	}
+ 
+ 	skb = skb_recv_datagram(sk, flags, noblock, &err);
+ 	if (!skb) {
+@@ -1864,7 +1868,11 @@ static int unix_stream_recvmsg(struct ki
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
+ 	}
+ 
+-	mutex_lock(&u->readlock);
++	err = mutex_lock_interruptible(&u->readlock);
++	if (err) {
++		err = sock_intr_errno(timeo);
++		goto out;
++	}
+ 
+ 	do {
+ 		int chunk;
+@@ -1895,11 +1903,12 @@ static int unix_stream_recvmsg(struct ki
+ 
+ 			timeo = unix_stream_data_wait(sk, timeo);
+ 
+-			if (signal_pending(current)) {
++			if (signal_pending(current)
++			    ||  mutex_lock_interruptible(&u->readlock)) {
+ 				err = sock_intr_errno(timeo);
+ 				goto out;
+ 			}
+-			mutex_lock(&u->readlock);
++
+ 			continue;
+  unlock:
+ 			unix_state_unlock(sk);
