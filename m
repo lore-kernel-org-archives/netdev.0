@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-2.6 2/2] be2net: remove netif_stop_queue being
- called before register_netdev.
-Date: Sun, 27 Feb 2011 16:07:02 -0800 (PST)
-Message-ID: <20110227.160702.229751524.davem@davemloft.net>
-References: <20110131232755.GA4691@akhaparde-VBox>
-	<20110201.154209.179944086.davem@davemloft.net>
-	<1298560543.2814.4.camel@edumazet-laptop>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy and
+ source mac selection mode
+Date: Sun, 27 Feb 2011 16:08:23 -0800 (PST)
+Message-ID: <20110227.160823.35047612.davem@davemloft.net>
+References: <20110216191341.GA14920@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: ajit.khaparde@emulex.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com
+To: olegu@yandex-team.ru
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40047
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40051
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751833Ab1B1AG0 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Feb 2011 19:06:26 -0500
-In-Reply-To: <1298560543.2814.4.camel@edumazet-laptop>
+	by vger.kernel.org with ESMTP id S1751833Ab1B1AHq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 19:07:46 -0500
+In-Reply-To: <20110216191341.GA14920@yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 24 Feb 2011 16:15:43 +0100
+From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Date: Wed, 16 Feb 2011 22:13:41 +0300
 
-> Le mardi 01 f=E9vrier 2011 =E0 15:42 -0800, David Miller a =E9crit :
->> From: Ajit Khaparde <ajit.khaparde@emulex.com>
->> Date: Mon, 31 Jan 2011 17:27:55 -0600
->>=20
->> > It is illegal to call netif_stop_queue before register_netdev.
->> >=20
->> > Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
->>=20
->> Applied, thanks.
->=20
-> Not sure if this patch is queued for stable, I hit the bug (a Warning
-> actually) on 2.6.37.1
+> Patch introduces two new (related) features to bonding module.
+> First feature is round-robin hashing policy, which is primarily
+> intended for use with 802.3ad mode, and puts every next IPv4 and
+> IPv6 packet into  next availables slave without taling into account
+> which layer3 and above protocol is used.
+> Second feature makes possible choosing which MAC-address will be set
+> in the transmitted packet - when set to src-mac it will force setting
+> slave's interface real MAC address as source MAC address in every
+> packet, sent via this slave interface.
 
-I've added this to my -stable queue, thanks.
+Can we get some feedback on this patch from bonding folks?
+
+I'm not applying it blinding without at least one bonding developer
+saying it at least looks ok.
+
+Thanks.
