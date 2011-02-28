@@ -1,96 +1,140 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 0/3] [RFC] Implement multiqueue (RX & TX) virtio-net
-Date: Mon, 28 Feb 2011 09:35:15 +0200
-Message-ID: <20110228073514.GA28006@redhat.com>
-References: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on
+ dummy
+Date: Mon, 28 Feb 2011 08:45:14 +0100
+Message-ID: <1298879114.8726.131.camel@edumazet-laptop>
+References: <20110221150710.GA5651@nord.niifaq.ru>
+	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>
+	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>
+	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>
+	 <4D6AB578.3010704@free.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: rusty@rustcorp.com.au, davem@davemloft.net, eric.dumazet@gmail.com,
-	arnd@arndb.de, netdev@vger.kernel.org, horms@verge.net.au,
-	avi@redhat.com, anthony@codemonkey.ws, kvm@vger.kernel.org
-To: Krishna Kumar <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andrian Nord <nightnord@gmail.com>,
+	lxc-users@lists.sourceforge.net, Patrick McHardy <kaber@trash.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:63509 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751591Ab1B1HpV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 02:45:21 -0500
+Received: by bwz15 with SMTP id 15so3447148bwz.19
+        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 23:45:20 -0800 (PST)
+In-Reply-To: <4D6AB578.3010704@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 28, 2011 at 12:04:27PM +0530, Krishna Kumar wrote:
-> This patch series is a continuation of an earlier one that
-> implemented guest MQ TX functionality.  This new patchset
-> implements both RX and TX MQ.  Qemu changes are not being
-> included at this time solely to aid in easier review.
-> Compatibility testing with old/new combinations of qemu/guest
-> and vhost was done without any issues.
-> 
-> Some early TCP/UDP test results are at the bottom of this
-> post, I plan to submit more test results in the coming days.
-> 
-> Please review and provide feedback on what can improve.
-> 
-> Thanks!
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
+Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 21:35 +0100, Daniel Lezcano a =C3=
+=A9crit :
+> On 02/27/2011 08:50 PM, Eric Dumazet wrote:
+> > Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 16:14 +0100, Daniel Lezcano=
+ a =C3=A9crit :
+> >> On 02/23/2011 06:13 PM, Andrian Nord wrote:
+> >>> On Mon, Feb 21, 2011 at 05:07:31PM +0100, Daniel Lezcano wrote:
+> >>>> I Cc'ed the netdev mailing list and Patrick in case my analysis =
+is wrong
+> >>>> or incomplete.
+> >>> I'm confirming, that this happens only when macvlan's are onto du=
+mmy net
+> >>> device. In case of some physical interface under macvlan there is=
+ no lost
+> >>> packages and no broken checksums.
+> >> I did some tests with a 2.6.35 kernel version and it seems the che=
+cksum
+> >> errors do not appear.
+> >> I noticed there are some changes in the dummy setup function:
+> >>
+> >>     dev->features   |=3D NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_T=
+SO;
+> >>     dev->features   |=3D NETIF_F_NO_CSUM | NETIF_F_HIGHDMA | NETIF=
+_F_LLTX;
+> >>
+> >>
+> >> May be that was introduced by commit:
+> >>
+> >> commit 6d81f41c58c69ddde497e9e640ba5805aa26e78c
+> >> Author: Eric Dumazet<eric.dumazet@gmail.com>
+> >> Date:   Mon Sep 27 20:50:33 2010 +0000
+> >>
+> >>       dummy: percpu stats and lockless xmit
+> >>
+> >>       Converts dummy network device driver to :
+> >>
+> >>       - percpu stats
+> >>
+> >>       - 64bit stats
+> >>
+> >>       - lockless xmit (NETIF_F_LLTX)
+> >>
+> >>       - performance features added (NETIF_F_SG | NETIF_F_FRAGLIST =
+|
+> >>       NETIF_F_TSO | NETIF_F_NO_CSUM | NETIF_F_HIGHDMA)
+> >>
+> >>       Signed-off-by: Eric Dumazet<eric.dumazet@gmail.com>
+> >>       Signed-off-by: David S. Miller<davem@davemloft.net>
+> >>
+> >>
+> >> Eric,
+> >>
+> >> Andrian is observing, with a couple of macvlan (in bridge mode) on=
+ top
+> >> of a dummy interface, a lot of checksums error and packets drop.
+> >> Each macvlan is in a different network namespace and the dummy int=
+erface
+> >> is in the init_net.
+> >>
+> >> Any ideas ?
+> > Not sure I understand... I thought dummy was dropping all frames
+> > anyway ?
+> >
+> > static netdev_tx_t dummy_xmit(struct sk_buff *skb, struct net_devic=
+e *dev)
+> > {
+> >          struct pcpu_dstats *dstats =3D this_cpu_ptr(dev->dstats);
+> >
+> >          u64_stats_update_begin(&dstats->syncp);
+> >          dstats->tx_packets++;
+> >          dstats->tx_bytes +=3D skb->len;
+> >          u64_stats_update_end(&dstats->syncp);
+> >
+> >          dev_kfree_skb(skb);
+> >          return NETDEV_TX_OK;
+> > }
+> >
+> >
+> > Maybe you could describe the setup ?
+>=20
+> Yes, it is very simple.
+>=20
+> There are two network namespaces.
+>=20
+> macvlan1 is in network namespace 1
+> macvlan2 is in network namespace 2
+>=20
+> Both are in "bridge" mode, so they can communicate together.
+> The lower device is dummy0 in the init network namespace.
+>=20
+> IMO the problem is coming from the macvlan driver:
+>=20
+> dev->features           =3D lowerdev->features & MACVLAN_FEATURES
+>=20
+> As dummy0 has the offloading capabilities set on, the macvlan driver=20
+> inherit these features.
+>=20
+> In the normal case, dummy0 is supposed to drop the packets. But with=20
+> macvlan these packets are broadcasted to the other macvlan ports, so =
+no=20
+> checksum is computed when the packets are transmitted between macvlan=
+1=20
+> and macvlan2.
+
+So where frames get bad checksums ?
+
+In this "bridge" mode, I suspect the broadcast is done _before_ sending
+frame to dummy, so maybe macvlan should not inherit from lowerdev in
+this particular case ?
 
 
-To help testing, could you post the qemu changes separately please?
 
-> ---
-> 
-> 
-> Test configuration:
->           Host:  8 Intel Xeon, 8 GB memory
->           Guest: 4 cpus, 2 GB memory
-> 
-> Each test case runs for 60 secs, results below are average over
-> two runs.  Bandwidth numbers are in gbps.  I have used default
-> netperf, and no testing/system tuning other than taskset each
-> vhost to 0xf (cpus 0-3).  Comparison is testing original kernel
-> vs new kernel with #txqs=8 ("#" refers to number of netperf
-> sessions).
-> 
-> _______________________________________________________________________
->                 TCP: Guest -> Local Host (TCP_STREAM)
-> #    BW1    BW2 (%)         SD1    SD2 (%)       RSD1    RSD2 (%)
-> _______________________________________________________________________
-> 1    7190   7170 (-.2)      0      0 (0)          3       4 (33.3)
-> 2    8774   11235 (28.0)    3      3 (0)          16      14 (-12.5)
-> 4    9753   15195 (55.7)    17     21 (23.5)      65      59 (-9.2)
-> 8    10224  18265 (78.6)    71     115 (61.9)     251     240 (-4.3)
-> 16   10749  18123 (68.6)    277    456 (64.6)     985     925 (-6.0)
-> 32   11133  17351 (55.8)    1132   1947 (71.9)    3935    3831 (-2.6)
-> 64   11223  17115 (52.4)    4682   7836 (67.3)    15949   15373 (-3.6)
-> 128  11269  16986 (50.7)    19783  31505 (59.2)   66799   61759 (-7.5)
-> _______________________________________________________________________
-> Summary:      BW: 37.6      SD: 61.2      RSD: -6.5
-> 
-> 
-> _______________________________________________________________________
->                  TCP: Local Host -> Guest (TCP_MAERTS)
-> #    BW1    BW2 (%)        SD1    SD2 (%)        RSD1    RSD2 (%)
-> _______________________________________________________________________
-> 1    11490  10870 (-5.3)   0      0 (0)          2       2 (0)
-> 2    10612  10554 (-.5)    2      3 (50.0)       12      12 (0)
-> 4    10047  14320 (42.5)   13     16 (23.0)      53      53 (0)
-> 8    9273   15182 (63.7)   56     84 (50.0)      228     233 (2.1)
-> 16   9291   15853 (70.6)   235    390 (65.9)     934     965 (3.3)
-> 32   9382   15741 (67.7)   969    1823 (88.1)    3868    4037 (4.3)
-> 64   9270   14585 (57.3)   3966   8836 (122.7)   15415   17818 (15.5)
-> 128  8997   14678 (63.1)   17024  36649 (115.2)  64933   72677 (11.9)
-> _______________________________________________________________________
-> SUM:      BW: 24.8      SD: 114.6      RSD: 12.1
-> 
-> ______________________________________________________
->             UDP: Local Host -> Guest (UDP_STREAM)
-> #      BW1      BW2 (%)        SD1    SD2 (%)
-> ______________________________________________________
-> 1      17236    16585 (-3.7)    1      1 (0)
-> 2      16795    22693 (35.1)    5      6 (20.0)
-> 4      13390    21502 (60.5)    37     36 (-2.7)
-> 8      13261    24361 (83.7)    163    175 (7.3)
-> 16     12772    23796 (86.3)    692    826 (19.3)
-> 32     12832    23880 (86.0)    2812   2871 (2.0)
-> 64     12779    24293 (90.1)    11299  11237 (-.5)
-> 128    13006    24857 (91.1)    44778  43884 (-1.9)
-> ______________________________________________________
-> Summary:      BW: 37.1      SD: -1.2
