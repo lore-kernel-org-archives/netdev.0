@@ -1,49 +1,83 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's
-	source MAC
-Date: Mon, 28 Feb 2011 11:32:56 -0500
-Message-ID: <20110228163255.GJ11864@gospo.rdu.redhat.com>
-References: <1298668408-14849-1-git-send-email-andy@greyhouse.net> <4D68276B.90104@gmail.com> <20110225222455.GI11864@gospo.rdu.redhat.com> <4D683653.4050409@gmail.com>
+From: Jiri Kosina <jkosina@suse.cz>
+Subject: Re: ICMP reply uses wrong source address as destination
+Date: Mon, 28 Feb 2011 17:33:48 +0100 (CET)
+Message-ID: <alpine.LRH.2.00.1102281733070.4359@twin.jikos.cz>
+References: <AANLkTi=2hEK9rR2h1hzWtud0DdJU5A4d9rBYD6aTLFx-@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jpirko@redhat.com>
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9913 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755070Ab1B1QdO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 11:33:14 -0500
-Content-Disposition: inline
-In-Reply-To: <4D683653.4050409@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Sat, Feb 26, 2011 at 12:08:03AM +0100, Nicolas de Peslo=FCan wrote:
-> Le 25/02/2011 23:24, Andy Gospodarek a =E9crit :
-[...]
->>
->> I confirmed your suspicion, this breaks ARP monitoring.  I would sti=
-ll
->> welcome other opinions though as I think it would be nice to fix thi=
-s as
->> low as possible.
->
-> Why do you want to fix it earlier that in ndisc_recv_ns drop? Your=20
-> original idea of silently dropping the frame there seems perfect to m=
-e.
->
-
-Maybe it's just me, but I cannot understand why we want a bunch of extr=
-a
-packets floating up into the stack when they may only create issues for
-the recipients of these duplicate frames.
-
-Clearly my original patch needs to be refined so ARP monitoring still
-works, but I would rather fix the issue there than in a higher layer.
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Anders Nilsson Plymoth <lml@telhoc.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTi=2hEK9rR2h1hzWtud0DdJU5A4d9rBYD6aTLFx-@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+[ adding netdev@ to CC ]
+
+On Mon, 28 Feb 2011, Anders Nilsson Plymoth wrote:
+
+> Dear linux kernel enthusiasts,
+>=20
+> I came upon an issue where ICMP reply packets were issued towards the
+> IP address of the=A0receiving interface, rather than the source IP
+> address.
+> Looking at the kernel code, I saw that this is caused by the followin=
+g
+> line in net/ipv4/icmp.c function icmp_reply:
+>=20
+> daddr =3D ipc.addr =3D rt->rt_src;
+>=20
+> For most cases the=A0original=A0line of code is ok, but in some situa=
+tions
+> doesn't arrive to the kernel from the network device, but through som=
+e
+> other mechanism such as a userspace application. In these cases the
+> receiving=A0device in the skb appears to be the loopback interface, n=
+ot
+> a physical device. icmp_reply will thus issue the reply to the
+> loopback IP address, rather than the source IP address as it should.
+>=20
+> While googling to see if this issue have been submitted, I found this
+> two threads that address the same problem:
+>=20
+> ([PATCH] 2.6.22.6 NETWORKING [IPV4]: Always use source addr in skb to
+> reply packet) on 17 sep 2007
+> AND
+> ([PATCH RESEND] 2.6.22.6 networking [ipv4]: fix wrong destination whe=
+n
+> reply packetes) on 20 sep 2007).
+>=20
+> Nothing came out of these threads, and some of the questions there ar=
+e
+> easy to answer; such as this doesn't affect DNAT, and if source IP
+> address is not set then you should not issue a reply for echo and
+> timestamp anyway.
+>=20
+> As to the statement:
+> "... which IP address should be used as the source
+> 1. the destination address of the packet that generated the message
+>=20
+> or.
+>=20
+> 2. the IP address that the machine would use by default if the machin=
+e
+> were to generate a new connection to the destination."
+> These may be relevant questions, but the ICMP RFC clearly states the
+> answer is 1. 2. may seem relevant to=A0multi-homing, but its not the
+> role of the ICMP reply to resolve multi-homing issues.
+> The following code will correct the issue.
+> {
+> =A0=A0 struct iphdr *ip =3D ip_hdr(skb);
+> =A0=A0 daddr =3D ipc.addr =3D ip->saddr;
+> }
+> The only functions that use icmp_reply are icmp_echo and
+> icmp_timestamp, and this change do not modify their=A0behavior. After
+> extensive testing, in regular setups and DNATed situations, I can
+> verify this change works as intended.
+> Thanks,
+
+--=20
+Jiri Kosina
+SUSE Labs, Novell Inc.
