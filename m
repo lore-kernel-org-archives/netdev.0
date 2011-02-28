@@ -1,56 +1,47 @@
-From: Jamie Iles <jamie@jamieiles.com>
-Subject: [PATCH] macb: don't use platform_set_drvdata() on a net_device
-Date: Mon, 28 Feb 2011 14:05:25 +0000
-Message-ID: <1298901925-16525-1-git-send-email-jamie@jamieiles.com>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Mon, 28 Feb 2011 09:13:22 -0500
+Message-ID: <20110228141322.GF9763@canuck.infradead.org>
+References: <20110225.112019.48513284.davem@davemloft.net>
+ <20110226005718.GA19889@gondor.apana.org.au>
+ <20110227110205.GE9763@canuck.infradead.org>
+ <20110227110614.GA6246@gondor.apana.org.au>
+ <20110228113659.GA20726@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jamie Iles <jamie@jamieiles.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:65385 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754243Ab1B1OF2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 09:05:28 -0500
-Received: by fxm17 with SMTP id 17so3749211fxm.19
-        for <netdev@vger.kernel.org>; Mon, 28 Feb 2011 06:05:27 -0800 (PST)
+Received: from bombadil.infradead.org ([18.85.46.34]:47249 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754111Ab1B1ONc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 09:13:32 -0500
+Content-Disposition: inline
+In-Reply-To: <20110228113659.GA20726@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 71d6429 (Driver core: convert platform_{get,set}_drvdata to
-static inline functions) now triggers a warning in the macb network
-driver:
+On Mon, Feb 28, 2011 at 07:36:59PM +0800, Herbert Xu wrote:
+> But please do test them heavily, especially if you have an AMD
+> NUMA machine as that's where scalability problems really show
+> up.  Intel tends to be a lot more forgiving.  My last AMD machine
+> blew up years ago :)
 
-  CC      drivers/net/macb.o
-drivers/net/macb.c: In function =E2=80=98macb_mii_init=E2=80=99:
-drivers/net/macb.c:263: warning: passing argument 1 of =E2=80=98platfor=
-m_set_drvdata=E2=80=99 from incompatible pointer type
-include/linux/platform_device.h:138: note: expected =E2=80=98struct pla=
-tform_device *=E2=80=99 but argument is of type =E2=80=98struct net_dev=
-ice *=E2=80=99
+This is just a preliminary test result and not 100% reliable
+because half through the testing the machine reported memory
+issues and disabled a DIMM before booting the tested kernels.
 
-Use dev_set_drvdata() on the device embedded in the net_device instead.
+Nevertheless, bind 9.7.3:
 
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
-Signed-off-by: Jamie Iles <jamie@jamieiles.com>
----
- drivers/net/macb.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+2.6.38-rc5+: 62kqps
+2.6.38-rc5+ w/ Herbert's patch: 442kqps
 
-diff --git a/drivers/net/macb.c b/drivers/net/macb.c
-index f69e73e..79ccb54 100644
---- a/drivers/net/macb.c
-+++ b/drivers/net/macb.c
-@@ -260,7 +260,7 @@ static int macb_mii_init(struct macb *bp)
- 	for (i =3D 0; i < PHY_MAX_ADDR; i++)
- 		bp->mii_bus->irq[i] =3D PHY_POLL;
-=20
--	platform_set_drvdata(bp->dev, bp->mii_bus);
-+	dev_set_drvdata(&bp->dev->dev, bp->mii_bus);
-=20
- 	if (mdiobus_register(bp->mii_bus))
- 		goto err_out_free_mdio_irq;
---=20
-1.7.4
+This is on a 2 NUMA Intel Xeon X5560 @ 2.80GHz with 16 cores
 
+Again, this number is not 100% reliably but clearly shows that
+the concept of the patch is working very well.
+
+Will test Herbert's patch on the machine that did 650kqps with
+SO_REUSEPORT and also on some AMD machines.
