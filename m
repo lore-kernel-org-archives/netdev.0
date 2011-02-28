@@ -1,40 +1,62 @@
-From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
-Subject: Re: net-next: warnings from sysctl_net_exit
-Date: Mon, 28 Feb 2011 03:11:46 +0200
-Message-ID: <AANLkTinL3UhjOtmr3uyEkSiDT5NFJo=FbG5mKm3XaU8R@mail.gmail.com>
-References: <AANLkTi=mhj3Ftq8hFPPzZYJvp8mgOeV89oX_vHZVxwzY@mail.gmail.com> <20110227160852.4f748c1f@nehalam>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [V4 PATCH 3/3] bond: service netpoll arp queue on master device
+Date: Mon, 28 Feb 2011 11:32:18 +0800
+Message-ID: <4D6B1742.6030108@redhat.com>
+References: <1298022215-21059-1-git-send-email-amwang@redhat.com>	<1298022215-21059-3-git-send-email-amwang@redhat.com> <20110227.161225.200373200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-iy0-f174.google.com ([209.85.210.174]:54948 "EHLO
-	mail-iy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752085Ab1B1BMI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 20:12:08 -0500
-Received: by iyb26 with SMTP id 26so2467666iyb.19
-        for <netdev@vger.kernel.org>; Sun, 27 Feb 2011 17:12:07 -0800 (PST)
-In-Reply-To: <20110227160852.4f748c1f@nehalam>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------000104060508000508040909"
+Cc: linux-kernel@vger.kernel.org, nhorman@redhat.com,
+	herbert@gondor.hengli.com.au, nhorman@tuxdriver.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110227.161225.200373200.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 28, 2011 at 2:08 AM, Stephen Hemminger
-<shemminger@vyatta.com> wrote:
->> The check is triggered at network namespace deletion, so a moment
->> before deleting the netns should be fine.
+This is a multi-part message in MIME format.
+--------------000104060508000508040909
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+
+于 2011年02月28日 08:12, David Miller 写道:
+> From: Amerigo Wang<amwang@redhat.com>
+> Date: Fri, 18 Feb 2011 17:43:34 +0800
 >
-> Although the kernel was compiled with netns, I never use net namespac=
-es.
+>> Neil pointed out that we can't send ARP reply on behalf of slaves,
+>> we need to move the arp queue to their bond device.
+>>
+>> Signed-off-by: WANG Cong<amwang@redhat.com>
+>
+> Applied.
 
+Oops! Just found that this one I sent was not a refreshed patch.
+Please discard this one, and use the one below, that is the
+correct one in my git tree and the one that I tested.
 
-This can be triggered at shutdown when the init_net network namespace
-is dismantled.
+Sorry for this.
 
-Are you getting this at shutdown time? If not, is it easily reproducibl=
-e?
-Can you post a .config?
+----
 
---=20
-=C2=A0.
-=2E.: Lucian
+Signed-off-by: WANG Cong <amwang@redhat.com>
+
+--------------000104060508000508040909
+Content-Type: text/plain;
+ name="bond-move-arp-queue-to-master.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="bond-move-arp-queue-to-master.diff"
+
+ZGlmZiAtLWdpdCBhL25ldC9jb3JlL25ldHBvbGwuYyBiL25ldC9jb3JlL25ldHBvbGwuYwpp
+bmRleCBmNjhlNjk0Li4wNmJlMjQzIDEwMDY0NAotLS0gYS9uZXQvY29yZS9uZXRwb2xsLmMK
+KysrIGIvbmV0L2NvcmUvbmV0cG9sbC5jCkBAIC0xOTMsNiArMTkzLDE3IEBAIHZvaWQgbmV0
+cG9sbF9wb2xsX2RldihzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQogCiAJcG9sbF9uYXBpKGRl
+dik7CiAKKwlpZiAoZGV2LT5wcml2X2ZsYWdzICYgSUZGX1NMQVZFKSB7CisJCWlmIChkZXYt
+Pm5waW5mbykgeworCQkJc3RydWN0IG5ldF9kZXZpY2UgKmJvbmRfZGV2ID0gZGV2LT5tYXN0
+ZXI7CisJCQlzdHJ1Y3Qgc2tfYnVmZiAqc2tiOworCQkJd2hpbGUgKChza2IgPSBza2JfZGVx
+dWV1ZSgmZGV2LT5ucGluZm8tPmFycF90eCkpKSB7CisJCQkJc2tiLT5kZXYgPSBib25kX2Rl
+djsKKwkJCQlza2JfcXVldWVfdGFpbCgmYm9uZF9kZXYtPm5waW5mby0+YXJwX3R4LCBza2Ip
+OworCQkJfQorCQl9CisJfQorCiAJc2VydmljZV9hcnBfcXVldWUoZGV2LT5ucGluZm8pOwog
+CiAJemFwX2NvbXBsZXRpb25fcXVldWUoKTsK
+--------------000104060508000508040909--
