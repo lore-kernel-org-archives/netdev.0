@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [V4 PATCH 3/3] bond: service netpoll arp queue on master device
-Date: Sun, 27 Feb 2011 20:12:13 -0800 (PST)
-Message-ID: <20110227.201213.193724028.davem@davemloft.net>
-References: <1298022215-21059-3-git-send-email-amwang@redhat.com>
-	<20110227.161225.200373200.davem@davemloft.net>
-	<4D6B1742.6030108@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Mon, 28 Feb 2011 12:26:20 +0800
+Message-ID: <20110228042620.GA16224@gondor.apana.org.au>
+References: <20110225.112019.48513284.davem@davemloft.net> <20110226005718.GA19889@gondor.apana.org.au> <20110227110205.GE9763@canuck.infradead.org> <20110227110614.GA6246@gondor.apana.org.au> <AANLkTinxv4JC20YepcMvWi8SL_VTX2sXcRMydD62TT6x@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, nhorman@redhat.com,
-	herbert@gondor.hengli.com.au, nhorman@tuxdriver.com,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: amwang@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	wsommerfeld@google.com, daniel.baluta@gmail.com,
+	netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38781
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752168Ab1B1ELg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 23:11:36 -0500
-In-Reply-To: <4D6B1742.6030108@redhat.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:34893 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252Ab1B1E0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Feb 2011 23:26:34 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTinxv4JC20YepcMvWi8SL_VTX2sXcRMydD62TT6x@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Mon, 28 Feb 2011 11:32:18 +0800
+On Sun, Feb 27, 2011 at 07:45:55PM -0800, Tom Herbert wrote:
+> That sounds promising, but receive side will still have problems.
+> There is lock contention on the queue as well as cache line bouncing
+> on the sock structures.  Also multiple threads sleeping on same socket
+> typically leads to asymmetric load across the threads (and
+> degenerative cases where receiving thread is woken up and other
+> threads have already processed all the packets).  TCP listener threads
+> suffer from these same problems.
 
-> 于 2011年02月28日 08:12, David Miller 写道:
->> From: Amerigo Wang<amwang@redhat.com>
->> Date: Fri, 18 Feb 2011 17:43:34 +0800
->>
->>> Neil pointed out that we can't send ARP reply on behalf of slaves,
->>> we need to move the arp queue to their bond device.
->>>
->>> Signed-off-by: WANG Cong<amwang@redhat.com>
->>
->> Applied.
-> 
-> Oops! Just found that this one I sent was not a refreshed patch.
-> Please discard this one, and use the one below, that is the
-> correct one in my git tree and the one that I tested.
+IOW this is something that we have to solve anyway.  I'm just
+being overly cautious here because user-space API changes are
+something that we should not enter into lightly.
 
-Done.
+If this patch was completely internal to the kernel, then I would
+have much less of an objection as we can always revert/change it
+later on.  With a user-space API we don't have that flexibility.
+
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
