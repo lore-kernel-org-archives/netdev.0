@@ -1,43 +1,53 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Mon, 28 Feb 2011 12:45:18 -0500
-Message-ID: <20110228174517.GD2515@tuxdriver.com>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
- <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
- <1298793252.8726.45.camel@edumazet-laptop>
- <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
- <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
- <AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com>
- <cbb9e1113901f1a324359b6ed3f1a611@localhost>
- <AANLkTimh1xWU9V9phOKZZMgOWKOmDDSBYfofnnOjjRh=@mail.gmail.com>
+From: <Rolande.Blondeau@ac-besancon.fr>
+Subject: (unknown)
+Date: Mon, 28 Feb 2011 07:40:13 -0800
+Message-ID: <a2d178f14e7e7f66.4d6b515d@ac-besancon.fr>
+Reply-To: mrallan_davis1@yahoo.co.jp
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Mikael Abrahamsson <swmike@swm.pp.se>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Albert Cahalan <acahalan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from avas1.ac-besancon.fr ([195.221.85.113]:47055 "EHLO
+	avas1.ac-besancon.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754227Ab1B1SFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 13:05:16 -0500
+Content-Language: fr
 Content-Disposition: inline
-In-Reply-To: <AANLkTimh1xWU9V9phOKZZMgOWKOmDDSBYfofnnOjjRh=@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 28, 2011 at 11:37:45AM -0500, Albert Cahalan wrote:
 
-> Keeping the timeout really low is important because it isn't
-> OK to eat up all the latency tolerance in one hop. You have
-> an end-to-end budget of 20 ms for usable GUI rubber banding.
-> The budget for gaming is about 80 and for VoIP is about 150.
 
-Oooh, numbers! :-)
+My working partner in relationship with
+HSBC London has concluded that our working
+partner has helped us to send you first payment of US$5,000 to you as
+instructed by Malaysia government and will
+keep sending you $5000 twice a week until
+the payment of (US$820,000 ) is completed
+within six months and here is the information
 
-Where can I find estimates on average hop counts for internet
-connections?
 
-John
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+MONEY TRANSFER REFERENCE:2116-3297
+
+SENDER'S NAME: Mike Marx
+AMOUNT: US$5000
+To track your funds forward money gram
+Transfer agent Mr Allan Davis
+
+Your Name.__________________________
+Phone .__________________________
+
+Contact Allan Davis for the funds clearance
+certificate neccessary for the realise of your funds
+
+E-mail:mrallan_davis1@yahoo.co.jp
+D/L: Tel:+601-635-44376
+
+Please direct all enquiring to:
+money gram
+Alex Rogers: Please direct all enquiring to:
+dmr.allan@yahoo.com.hk 
+
+Best Regards,
+Mr Allan Davis
