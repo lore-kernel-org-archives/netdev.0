@@ -1,97 +1,50 @@
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Subject: dccp test-tree [RFC] [Patch 1/1] dccp: Only activate NN values
-	after receiving the Confirm option
-Date: Mon, 28 Feb 2011 12:25:11 +0100
-Message-ID: <20110228112511.GE3620@gerrit.erg.abdn.ac.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Mon, 28 Feb 2011 19:36:59 +0800
+Message-ID: <20110228113659.GA20726@gondor.apana.org.au>
+References: <20110225.112019.48513284.davem@davemloft.net> <20110226005718.GA19889@gondor.apana.org.au> <20110227110205.GE9763@canuck.infradead.org> <20110227110614.GA6246@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dccp@vger.kernel.org, netdev@vger.kernel.org
-To: Samuel Jero <sj323707@ohio.edu>
+To: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:61931 "EHLO erg.abdn.ac.uk"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753533Ab1B1LZQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 06:25:16 -0500
+Received: from helcar.apana.org.au ([209.40.204.226]:36729 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753325Ab1B1LhR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 06:37:17 -0500
 Content-Disposition: inline
+In-Reply-To: <20110227110614.GA6246@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am sending this as RFC since I have not yet deeply tested this. It makes
-the exchange of NN options in established state conform to RFC 4340, 6.6.1
-and thus actually is a bug fix.
+On Sun, Feb 27, 2011 at 07:06:14PM +0800, Herbert Xu wrote:
+> I'm working on this right now.
 
->>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-dccp: Only activate NN values after receiving the Confirm option
+OK I think I was definitely on the right track.  With the send
+patch made lockless I now get numbers which are even better than
+those obtained with running named with multiple sockets.  That's
+right, a single socket is now faster than what multiple sockets
+were without the patch (of course, multiple sockets may still
+faster with the patch vs. a single socket for obvious reasons,
+but I couldn't measure any significant difference).
 
-This defers changing local values using exchange of NN options in established
-connection state by only activating the value after receiving the Confirm
-option, as mandated by RFC 4340, 6.6.1.
+Also worthy of note is that prior to the patch all CPUs showed
+idleness (lazy bastards!), with the patch they're all maxed out.
 
-Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
----
- net/dccp/ccids/ccid2.c |    7 ++-----
- net/dccp/feat.c        |   13 ++++---------
- 2 files changed, 6 insertions(+), 14 deletions(-)
+In retrospect, the idleness was simply the result of the socket
+lock scheduling away and was an indication of lock contention.
 
---- a/net/dccp/feat.c
-+++ b/net/dccp/feat.c
-@@ -775,12 +775,7 @@ int dccp_feat_register_sp(struct sock *s
-  * @sk: DCCP socket of an established connection
-  * @feat: NN feature number from %dccp_feature_numbers
-  * @nn_val: the new value to use
-- * This function is used to communicate NN updates out-of-band. The difference
-- * to feature negotiation during connection setup is that values are activated
-- * immediately after validation, i.e. we don't wait for the Confirm: either the
-- * value is accepted by the peer (and then the waiting is futile), or it is not
-- * (Reset or empty Confirm). We don't accept empty Confirms - transmitted values
-- * are validated, and the peer "MUST accept any valid value" (RFC 4340, 6.3.2).
-+ * This function is used to communicate NN updates out-of-band.
-  */
- int dccp_feat_signal_nn_change(struct sock *sk, u8 feat, u64 nn_val)
- {
-@@ -805,9 +800,6 @@ int dccp_feat_signal_nn_change(struct so
- 		dccp_feat_list_pop(entry);
- 	}
- 
--	if (dccp_feat_activate(sk, feat, 1, &fval))
--		return -EADV;
--
- 	inet_csk_schedule_ack(sk);
- 	return dccp_feat_push_change(fn, feat, 1, 0, &fval);
- }
-@@ -1356,6 +1348,9 @@ static u8 dccp_feat_handle_nn_establishe
- 		if (fval.nn != entry->val.nn)
- 			return 0;
- 
-+		/* Only activate after receiving the Confirm option (6.6.1). */
-+		dccp_feat_activate(sk, feat, local, &fval);
-+
- 		/* It has been confirmed - so remove the entry */
- 		dccp_feat_list_pop(entry);
- 
---- a/net/dccp/ccids/ccid2.c
-+++ b/net/dccp/ccids/ccid2.c
-@@ -105,7 +105,6 @@ static void ccid2_change_l_ack_ratio(str
- 		return;
- 
- 	ccid2_pr_debug("changing local ack ratio to %u\n", val);
--	dp->dccps_l_ack_ratio = val;
- 	dccp_feat_signal_nn_change(sk, DCCPF_ACK_RATIO, val);
- }
- 
-@@ -117,11 +116,9 @@ static void ccid2_change_l_seq_window(st
- 		val = DCCPF_SEQ_WMIN;
- 	if (val > DCCPF_SEQ_WMAX)
- 		val = DCCPF_SEQ_WMAX;
--	if (val == dp->dccps_l_seq_win)
--		return;
- 
--	dp->dccps_l_seq_win = val;
--	dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
-+	if (val != dp->dccps_l_seq_win)
-+		dccp_feat_signal_nn_change(sk, DCCPF_SEQUENCE_WINDOW, val);
- }
- 
- static void ccid2_hc_tx_rto_expire(unsigned long data)
+Here are the patches I used.  Please don't them yet as I intend
+to clean them up quite a bit.
 
+But please do test them heavily, especially if you have an AMD
+NUMA machine as that's where scalability problems really show
+up.  Intel tends to be a lot more forgiving.  My last AMD machine
+blew up years ago :)
+
+Thanks!
 -- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
