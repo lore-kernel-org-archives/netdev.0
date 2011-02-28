@@ -1,28 +1,43 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: allow to specify truncation bits on auth algo
-Date: Mon, 28 Feb 2011 07:48:31 -0800
-Message-ID: <20110228074831.05b555c3@nehalam>
-References: <20110128045108.GA8351@gondor.apana.org.au>
-	<4D42839C.3050401@6wind.com>
-	<20110128.114610.193716130.davem@davemloft.net>
-	<4D498693.6020909@6wind.com>
-	<4D49879B.4060108@6wind.com>
-	<4D6BA724.2020504@6wind.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Mon, 28 Feb 2011 11:11:15 -0500
+Message-ID: <20110228161115.GB2515@tuxdriver.com>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
+ <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
+ <1298793252.8726.45.camel@edumazet-laptop>
+ <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+ <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+ <1298837273.8726.128.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org, christophe.gouault@6wind.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:46185 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755034Ab1B1Pse (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 10:48:34 -0500
-In-Reply-To: <4D6BA724.2020504@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Albert Cahalan <acahalan@gmail.com>,
+	Mikael Abrahamsson <swmike@swm.pp.se>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1298837273.8726.128.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is in net-next branch of iproute
+On Sun, Feb 27, 2011 at 09:07:53PM +0100, Eric Dumazet wrote:
 
+> Qdisc should return to caller a good indication packet is queued or
+> dropped at enqueue() time... not later (aka : never)
+> 
+> Accepting a packet at t0, and dropping it later at t0+limit without
+> giving any indication to caller is a problem.
+
+Can you elaborate on what problem this causes?  Is it any worse than
+if the packet is dropped at some later hop?
+
+Is there any API that could report the drop to the sender (at
+least a local one) without having to wait for the ack timeout?
+Should there be?
+
+John
 -- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
