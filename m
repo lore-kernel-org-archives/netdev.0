@@ -1,165 +1,507 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 3/5] inet: Add ip_make_skb and ip_send_skb
-Date: Mon, 28 Feb 2011 19:41:01 +0800
-Message-ID: <E1Pu1TJ-0005Qw-5I@gondolin.me.apana.org.au>
+Subject: [PATCH 2/5] net: Remove explicit write references to sk/inet in ip_append_data
+Date: Mon, 28 Feb 2011 19:41:00 +0800
+Message-ID: <E1Pu1TI-0005Qj-T7@gondolin.me.apana.org.au>
 References: <20110227110614.GA6246@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
 	therbert@google.com, wsommerfeld@google.com,
 	daniel.baluta@gmail.com, netdev@vger.kernel.org,
 	Thomas Graf <tgraf@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:50284 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:50786 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753485Ab1B1LlP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 06:41:15 -0500
+	with ESMTP id S1753632Ab1B1LlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 06:41:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-inet: Add ip_make_skb and ip_send_skb
+net: Remove explicit write references to sk/inet in ip_append_data
 
-This patch adds the helper ip_make_skb which is like ip_append_data
-and ip_push_pending_frames all rolled into one, except that it does
-not send the skb produced.  The sending part is carried out by
-ip_send_skb, which the transport protocol can call after it has
-tweaked the skb.
+In order to allow simultaneous calls to ip_append_data on the same
+socket, it must not modify any shared state in sk or inet (other
+than those that are designed to allow that such as atomic counters).
 
-It is meant to be called in cases where corking is not used should
-have a one-to-one correspondence to sendmsg.
+This patch abstracts out write references to sk and inet_sk in
+ip_append_data and its friends so that we may use the underlying
+code in parallel.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/ip.h     |    8 ++++++
- net/ipv4/ip_output.c |   65 ++++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 59 insertions(+), 14 deletions(-)
+ include/net/inet_sock.h |   23 ++--
+ net/ipv4/ip_output.c    |  238 ++++++++++++++++++++++++++++--------------------
+ 2 files changed, 154 insertions(+), 107 deletions(-)
 
-diff --git a/include/net/ip.h b/include/net/ip.h
-index 67fac78..a96e525 100644
---- a/include/net/ip.h
-+++ b/include/net/ip.h
-@@ -116,8 +116,16 @@ extern int		ip_append_data(struct sock *sk,
- extern int		ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb);
- extern ssize_t		ip_append_page(struct sock *sk, struct page *page,
- 				int offset, size_t size, int flags);
-+extern int		ip_send_skb(struct sk_buff *skb);
- extern int		ip_push_pending_frames(struct sock *sk);
- extern void		ip_flush_pending_frames(struct sock *sk);
-+extern struct sk_buff  *ip_make_skb(struct sock *sk,
-+				    int getfrag(void *from, char *to, int offset, int len,
-+						int odd, struct sk_buff *skb),
-+				    void *from, int length, int transhdrlen,
-+				    struct ipcm_cookie *ipc,
-+				    struct rtable **rtp,
-+				    unsigned int flags);
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 8181498..b3de102 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -86,6 +86,19 @@ static inline struct inet_request_sock *inet_rsk(const struct request_sock *sk)
+ 	return (struct inet_request_sock *)sk;
+ }
  
- /* datagram.c */
- extern int		ip4_datagram_connect(struct sock *sk, 
++struct inet_cork {
++	unsigned int		flags;
++	unsigned int		fragsize;
++	struct ip_options	*opt;
++	struct dst_entry	*dst;
++	int			length; /* Total length of all frames */
++	__be32			addr;
++	struct flowi		fl;
++	struct page		*page;
++	u32			off;
++	u8			tx_flags;
++};
++
+ struct ip_mc_socklist;
+ struct ipv6_pinfo;
+ struct rtable;
+@@ -143,15 +156,7 @@ struct inet_sock {
+ 	int			mc_index;
+ 	__be32			mc_addr;
+ 	struct ip_mc_socklist __rcu	*mc_list;
+-	struct {
+-		unsigned int		flags;
+-		unsigned int		fragsize;
+-		struct ip_options	*opt;
+-		struct dst_entry	*dst;
+-		int			length; /* Total length of all frames */
+-		__be32			addr;
+-		struct flowi		fl;
+-	} cork;
++	struct inet_cork	cork;
+ };
+ 
+ #define IPCORK_OPT	1	/* ip-options has been held in ipcork.opt */
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 1dd5ecc..dba14c6 100644
+index d3a4540..1dd5ecc 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
-@@ -1267,9 +1267,9 @@ static void ip_cork_release(struct inet_cork *cork)
-  *	Combined all pending IP fragments on the socket as one IP datagram
-  *	and push them out.
-  */
--static int __ip_push_pending_frames(struct sock *sk,
--				    struct sk_buff_head *queue,
--				    struct inet_cork *cork)
-+static struct sk_buff *__ip_make_skb(struct sock *sk,
-+				     struct sk_buff_head *queue,
-+				     struct inet_cork *cork)
- {
- 	struct sk_buff *skb, *tmp_skb;
- 	struct sk_buff **tail_skb;
-@@ -1280,7 +1280,6 @@ static int __ip_push_pending_frames(struct sock *sk,
- 	struct iphdr *iph;
- 	__be16 df = 0;
- 	__u8 ttl;
--	int err = 0;
+@@ -733,6 +733,7 @@ csum_page(struct page *page, int offset, int copy)
+ }
  
- 	if ((skb = __skb_dequeue(queue)) == NULL)
- 		goto out;
-@@ -1351,28 +1350,37 @@ static int __ip_push_pending_frames(struct sock *sk,
- 		icmp_out_count(net, ((struct icmphdr *)
- 			skb_transport_header(skb))->type);
- 
--	/* Netfilter gets whole the not fragmented skb. */
-+	ip_cork_release(cork);
-+out:
-+	return skb;
-+}
-+
-+int ip_send_skb(struct sk_buff *skb)
-+{
-+	struct net *net = sock_net(skb->sk);
-+	int err;
-+
- 	err = ip_local_out(skb);
- 	if (err) {
- 		if (err > 0)
- 			err = net_xmit_errno(err);
- 		if (err)
--			goto error;
-+			IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+ static inline int ip_ufo_append_data(struct sock *sk,
++			struct sk_buff_head *queue,
+ 			int getfrag(void *from, char *to, int offset, int len,
+ 			       int odd, struct sk_buff *skb),
+ 			void *from, int length, int hh_len, int fragheaderlen,
+@@ -745,7 +746,7 @@ static inline int ip_ufo_append_data(struct sock *sk,
+ 	 * device, so create one single skb packet containing complete
+ 	 * udp datagram
+ 	 */
+-	if ((skb = skb_peek_tail(&sk->sk_write_queue)) == NULL) {
++	if ((skb = skb_peek_tail(queue)) == NULL) {
+ 		skb = sock_alloc_send_skb(sk,
+ 			hh_len + fragheaderlen + transhdrlen + 20,
+ 			(flags & MSG_DONTWAIT), &err);
+@@ -771,35 +772,24 @@ static inline int ip_ufo_append_data(struct sock *sk,
+ 		/* specify the length of each IP datagram fragment */
+ 		skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+ 		skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+-		__skb_queue_tail(&sk->sk_write_queue, skb);
++		__skb_queue_tail(queue, skb);
  	}
  
--out:
--	ip_cork_release(cork);
- 	return err;
--
--error:
--	IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
--	goto out;
+ 	return skb_append_datato_frags(sk, skb, getfrag, from,
+ 				       (length - transhdrlen));
  }
  
- int ip_push_pending_frames(struct sock *sk)
- {
--	return __ip_push_pending_frames(sk, &sk->sk_write_queue,
--					&inet_sk(sk)->cork);
-+	struct sk_buff *skb;
-+
-+	skb = __ip_make_skb(sk, &sk->sk_write_queue, &inet_sk(sk)->cork);
-+	if (!skb)
-+		return 0;
-+
-+	/* Netfilter gets whole the not fragmented skb. */
-+	return ip_send_skb(skb);
- }
- 
- /*
-@@ -1395,6 +1403,35 @@ void ip_flush_pending_frames(struct sock *sk)
- 	__ip_flush_pending_frames(sk, &sk->sk_write_queue, &inet_sk(sk)->cork);
- }
- 
-+struct sk_buff *ip_make_skb(struct sock *sk,
+-/*
+- *	ip_append_data() and ip_append_page() can make one large IP datagram
+- *	from many pieces of data. Each pieces will be holded on the socket
+- *	until ip_push_pending_frames() is called. Each piece can be a page
+- *	or non-page data.
+- *
+- *	Not only UDP, other transport protocols - e.g. raw sockets - can use
+- *	this interface potentially.
+- *
+- *	LATER: length must be adjusted by pad at tail, when it is required.
+- */
+-int ip_append_data(struct sock *sk,
+-		   int getfrag(void *from, char *to, int offset, int len,
+-			       int odd, struct sk_buff *skb),
+-		   void *from, int length, int transhdrlen,
+-		   struct ipcm_cookie *ipc, struct rtable **rtp,
+-		   unsigned int flags)
++static int __ip_append_data(struct sock *sk, struct sk_buff_head *queue,
++			    struct inet_cork *cork,
 +			    int getfrag(void *from, char *to, int offset,
 +					int len, int odd, struct sk_buff *skb),
 +			    void *from, int length, int transhdrlen,
-+			    struct ipcm_cookie *ipc, struct rtable **rtp,
 +			    unsigned int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct sk_buff *skb;
+ 
+-	struct ip_options *opt = NULL;
++	struct ip_options *opt = inet->cork.opt;
+ 	int hh_len;
+ 	int exthdrlen;
+ 	int mtu;
+@@ -808,58 +798,19 @@ int ip_append_data(struct sock *sk,
+ 	int offset = 0;
+ 	unsigned int maxfraglen, fragheaderlen;
+ 	int csummode = CHECKSUM_NONE;
+-	struct rtable *rt;
+-
+-	if (flags&MSG_PROBE)
+-		return 0;
++	struct rtable *rt = (struct rtable *)cork->dst;
+ 
+-	if (skb_queue_empty(&sk->sk_write_queue)) {
+-		/*
+-		 * setup for corking.
+-		 */
+-		opt = ipc->opt;
+-		if (opt) {
+-			if (inet->cork.opt == NULL) {
+-				inet->cork.opt = kmalloc(sizeof(struct ip_options) + 40, sk->sk_allocation);
+-				if (unlikely(inet->cork.opt == NULL))
+-					return -ENOBUFS;
+-			}
+-			memcpy(inet->cork.opt, opt, sizeof(struct ip_options)+opt->optlen);
+-			inet->cork.flags |= IPCORK_OPT;
+-			inet->cork.addr = ipc->addr;
+-		}
+-		rt = *rtp;
+-		if (unlikely(!rt))
+-			return -EFAULT;
+-		/*
+-		 * We steal reference to this route, caller should not release it
+-		 */
+-		*rtp = NULL;
+-		inet->cork.fragsize = mtu = inet->pmtudisc == IP_PMTUDISC_PROBE ?
+-					    rt->dst.dev->mtu :
+-					    dst_mtu(rt->dst.path);
+-		inet->cork.dst = &rt->dst;
+-		inet->cork.length = 0;
+-		sk->sk_sndmsg_page = NULL;
+-		sk->sk_sndmsg_off = 0;
+-		exthdrlen = rt->dst.header_len;
+-		length += exthdrlen;
+-		transhdrlen += exthdrlen;
+-	} else {
+-		rt = (struct rtable *)inet->cork.dst;
+-		if (inet->cork.flags & IPCORK_OPT)
+-			opt = inet->cork.opt;
++	exthdrlen = transhdrlen ? rt->dst.header_len : 0;
++	length += exthdrlen;
++	transhdrlen += exthdrlen;
++	mtu = inet->cork.fragsize;
+ 
+-		transhdrlen = 0;
+-		exthdrlen = 0;
+-		mtu = inet->cork.fragsize;
+-	}
+ 	hh_len = LL_RESERVED_SPACE(rt->dst.dev);
+ 
+ 	fragheaderlen = sizeof(struct iphdr) + (opt ? opt->optlen : 0);
+ 	maxfraglen = ((mtu - fragheaderlen) & ~7) + fragheaderlen;
+ 
+-	if (inet->cork.length + length > 0xFFFF - fragheaderlen) {
++	if (cork->length + length > 0xFFFF - fragheaderlen) {
+ 		ip_local_error(sk, EMSGSIZE, rt->rt_dst, inet->inet_dport,
+ 			       mtu-exthdrlen);
+ 		return -EMSGSIZE;
+@@ -875,15 +826,15 @@ int ip_append_data(struct sock *sk,
+ 	    !exthdrlen)
+ 		csummode = CHECKSUM_PARTIAL;
+ 
+-	skb = skb_peek_tail(&sk->sk_write_queue);
++	skb = skb_peek_tail(queue);
+ 
+-	inet->cork.length += length;
++	cork->length += length;
+ 	if (((length > mtu) || (skb && skb_is_gso(skb))) &&
+ 	    (sk->sk_protocol == IPPROTO_UDP) &&
+ 	    (rt->dst.dev->features & NETIF_F_UFO)) {
+-		err = ip_ufo_append_data(sk, getfrag, from, length, hh_len,
+-					 fragheaderlen, transhdrlen, mtu,
+-					 flags);
++		err = ip_ufo_append_data(sk, queue, getfrag, from, length,
++					 hh_len, fragheaderlen, transhdrlen,
++					 mtu, flags);
+ 		if (err)
+ 			goto error;
+ 		return 0;
+@@ -960,7 +911,7 @@ alloc_new_skb:
+ 				else
+ 					/* only the initial fragment is
+ 					   time stamped */
+-					ipc->tx_flags = 0;
++					cork->tx_flags = 0;
+ 			}
+ 			if (skb == NULL)
+ 				goto error;
+@@ -971,7 +922,7 @@ alloc_new_skb:
+ 			skb->ip_summed = csummode;
+ 			skb->csum = 0;
+ 			skb_reserve(skb, hh_len);
+-			skb_shinfo(skb)->tx_flags = ipc->tx_flags;
++			skb_shinfo(skb)->tx_flags = cork->tx_flags;
+ 
+ 			/*
+ 			 *	Find where to start putting bytes.
+@@ -1008,7 +959,7 @@ alloc_new_skb:
+ 			/*
+ 			 * Put the packet on the pending queue.
+ 			 */
+-			__skb_queue_tail(&sk->sk_write_queue, skb);
++			__skb_queue_tail(queue, skb);
+ 			continue;
+ 		}
+ 
+@@ -1028,8 +979,8 @@ alloc_new_skb:
+ 		} else {
+ 			int i = skb_shinfo(skb)->nr_frags;
+ 			skb_frag_t *frag = &skb_shinfo(skb)->frags[i-1];
+-			struct page *page = sk->sk_sndmsg_page;
+-			int off = sk->sk_sndmsg_off;
++			struct page *page = cork->page;
++			int off = cork->off;
+ 			unsigned int left;
+ 
+ 			if (page && (left = PAGE_SIZE - off) > 0) {
+@@ -1041,7 +992,7 @@ alloc_new_skb:
+ 						goto error;
+ 					}
+ 					get_page(page);
+-					skb_fill_page_desc(skb, i, page, sk->sk_sndmsg_off, 0);
++					skb_fill_page_desc(skb, i, page, off, 0);
+ 					frag = &skb_shinfo(skb)->frags[i];
+ 				}
+ 			} else if (i < MAX_SKB_FRAGS) {
+@@ -1052,8 +1003,8 @@ alloc_new_skb:
+ 					err = -ENOMEM;
+ 					goto error;
+ 				}
+-				sk->sk_sndmsg_page = page;
+-				sk->sk_sndmsg_off = 0;
++				cork->page = page;
++				cork->off = 0;
+ 
+ 				skb_fill_page_desc(skb, i, page, 0, 0);
+ 				frag = &skb_shinfo(skb)->frags[i];
+@@ -1065,7 +1016,7 @@ alloc_new_skb:
+ 				err = -EFAULT;
+ 				goto error;
+ 			}
+-			sk->sk_sndmsg_off += copy;
++			cork->off += copy;
+ 			frag->size += copy;
+ 			skb->len += copy;
+ 			skb->data_len += copy;
+@@ -1079,11 +1030,87 @@ alloc_new_skb:
+ 	return 0;
+ 
+ error:
+-	inet->cork.length -= length;
++	cork->length -= length;
+ 	IP_INC_STATS(sock_net(sk), IPSTATS_MIB_OUTDISCARDS);
+ 	return err;
+ }
+ 
++static int ip_setup_cork(struct sock *sk, struct inet_cork *cork,
++			 struct ipcm_cookie *ipc, struct rtable **rtp)
 +{
-+	struct inet_cork cork = {};
-+	struct sk_buff_head queue;
++	struct inet_sock *inet = inet_sk(sk);
++	struct ip_options *opt;
++	struct rtable *rt;
++
++	/*
++	 * setup for corking.
++	 */
++	opt = ipc->opt;
++	if (opt) {
++		if (cork->opt == NULL) {
++			cork->opt = kmalloc(sizeof(struct ip_options) + 40,
++					    sk->sk_allocation);
++			if (unlikely(cork->opt == NULL))
++				return -ENOBUFS;
++		}
++		memcpy(cork->opt, opt, sizeof(struct ip_options) + opt->optlen);
++		cork->flags |= IPCORK_OPT;
++		cork->addr = ipc->addr;
++	}
++	rt = *rtp;
++	if (unlikely(!rt))
++		return -EFAULT;
++	/*
++	 * We steal reference to this route, caller should not release it
++	 */
++	*rtp = NULL;
++	cork->fragsize = inet->pmtudisc == IP_PMTUDISC_PROBE ?
++			 rt->dst.dev->mtu : dst_mtu(rt->dst.path);
++	cork->dst = &rt->dst;
++	cork->length = 0;
++	cork->tx_flags = ipc->tx_flags;
++	cork->page = NULL;
++	cork->off = 0;
++
++	return 0;
++}
++
++/*
++ *	ip_append_data() and ip_append_page() can make one large IP datagram
++ *	from many pieces of data. Each pieces will be holded on the socket
++ *	until ip_push_pending_frames() is called. Each piece can be a page
++ *	or non-page data.
++ *
++ *	Not only UDP, other transport protocols - e.g. raw sockets - can use
++ *	this interface potentially.
++ *
++ *	LATER: length must be adjusted by pad at tail, when it is required.
++ */
++int ip_append_data(struct sock *sk,
++		   int getfrag(void *from, char *to, int offset, int len,
++			       int odd, struct sk_buff *skb),
++		   void *from, int length, int transhdrlen,
++		   struct ipcm_cookie *ipc, struct rtable **rtp,
++		   unsigned int flags)
++{
++	struct inet_sock *inet = inet_sk(sk);
 +	int err;
 +
-+	if (flags & MSG_PROBE)
-+		return NULL;
++	if (flags&MSG_PROBE)
++		return 0;
 +
-+	__skb_queue_head_init(&queue);
-+
-+	err = ip_setup_cork(sk, &cork, ipc, rtp);
-+	if (err)
-+		return ERR_PTR(err);
-+
-+	err = __ip_append_data(sk, &queue, &cork, getfrag,
-+			       from, length, transhdrlen, flags);
-+	if (err) {
-+		__ip_flush_pending_frames(sk, &queue, &cork);
-+		return ERR_PTR(err);
++	if (skb_queue_empty(&sk->sk_write_queue)) {
++		err = ip_setup_cork(sk, &inet->cork, ipc, rtp);
++		if (err)
++			return err;
++	} else {
++		transhdrlen = 0;
 +	}
 +
-+	return __ip_make_skb(sk, &queue, &cork);
++	return __ip_append_data(sk, &sk->sk_write_queue, &inet->cork, getfrag,
++				from, length, transhdrlen, flags);
 +}
++
+ ssize_t	ip_append_page(struct sock *sk, struct page *page,
+ 		       int offset, size_t size, int flags)
+ {
+@@ -1227,40 +1254,42 @@ error:
+ 	return err;
+ }
+ 
+-static void ip_cork_release(struct inet_sock *inet)
++static void ip_cork_release(struct inet_cork *cork)
+ {
+-	inet->cork.flags &= ~IPCORK_OPT;
+-	kfree(inet->cork.opt);
+-	inet->cork.opt = NULL;
+-	dst_release(inet->cork.dst);
+-	inet->cork.dst = NULL;
++	cork->flags &= ~IPCORK_OPT;
++	kfree(cork->opt);
++	cork->opt = NULL;
++	dst_release(cork->dst);
++	cork->dst = NULL;
+ }
  
  /*
-  *	Fetch data from kernel space and fill in checksum if needed.
+  *	Combined all pending IP fragments on the socket as one IP datagram
+  *	and push them out.
+  */
+-int ip_push_pending_frames(struct sock *sk)
++static int __ip_push_pending_frames(struct sock *sk,
++				    struct sk_buff_head *queue,
++				    struct inet_cork *cork)
+ {
+ 	struct sk_buff *skb, *tmp_skb;
+ 	struct sk_buff **tail_skb;
+ 	struct inet_sock *inet = inet_sk(sk);
+ 	struct net *net = sock_net(sk);
+ 	struct ip_options *opt = NULL;
+-	struct rtable *rt = (struct rtable *)inet->cork.dst;
++	struct rtable *rt = (struct rtable *)cork->dst;
+ 	struct iphdr *iph;
+ 	__be16 df = 0;
+ 	__u8 ttl;
+ 	int err = 0;
+ 
+-	if ((skb = __skb_dequeue(&sk->sk_write_queue)) == NULL)
++	if ((skb = __skb_dequeue(queue)) == NULL)
+ 		goto out;
+ 	tail_skb = &(skb_shinfo(skb)->frag_list);
+ 
+ 	/* move skb->data to ip header from ext header */
+ 	if (skb->data < skb_network_header(skb))
+ 		__skb_pull(skb, skb_network_offset(skb));
+-	while ((tmp_skb = __skb_dequeue(&sk->sk_write_queue)) != NULL) {
++	while ((tmp_skb = __skb_dequeue(queue)) != NULL) {
+ 		__skb_pull(tmp_skb, skb_network_header_len(skb));
+ 		*tail_skb = tmp_skb;
+ 		tail_skb = &(tmp_skb->next);
+@@ -1286,8 +1315,8 @@ int ip_push_pending_frames(struct sock *sk)
+ 	     ip_dont_fragment(sk, &rt->dst)))
+ 		df = htons(IP_DF);
+ 
+-	if (inet->cork.flags & IPCORK_OPT)
+-		opt = inet->cork.opt;
++	if (cork->flags & IPCORK_OPT)
++		opt = cork->opt;
+ 
+ 	if (rt->rt_type == RTN_MULTICAST)
+ 		ttl = inet->mc_ttl;
+@@ -1299,7 +1328,7 @@ int ip_push_pending_frames(struct sock *sk)
+ 	iph->ihl = 5;
+ 	if (opt) {
+ 		iph->ihl += opt->optlen>>2;
+-		ip_options_build(skb, opt, inet->cork.addr, rt, 0);
++		ip_options_build(skb, opt, cork->addr, rt, 0);
+ 	}
+ 	iph->tos = inet->tos;
+ 	iph->frag_off = df;
+@@ -1315,7 +1344,7 @@ int ip_push_pending_frames(struct sock *sk)
+ 	 * Steal rt from cork.dst to avoid a pair of atomic_inc/atomic_dec
+ 	 * on dst refcount
+ 	 */
+-	inet->cork.dst = NULL;
++	cork->dst = NULL;
+ 	skb_dst_set(skb, &rt->dst);
+ 
+ 	if (iph->protocol == IPPROTO_ICMP)
+@@ -1332,7 +1361,7 @@ int ip_push_pending_frames(struct sock *sk)
+ 	}
+ 
+ out:
+-	ip_cork_release(inet);
++	ip_cork_release(cork);
+ 	return err;
+ 
+ error:
+@@ -1340,17 +1369,30 @@ error:
+ 	goto out;
+ }
+ 
++int ip_push_pending_frames(struct sock *sk)
++{
++	return __ip_push_pending_frames(sk, &sk->sk_write_queue,
++					&inet_sk(sk)->cork);
++}
++
+ /*
+  *	Throw away all pending data on the socket.
+  */
+-void ip_flush_pending_frames(struct sock *sk)
++static void __ip_flush_pending_frames(struct sock *sk,
++				      struct sk_buff_head *queue,
++				      struct inet_cork *cork)
+ {
+ 	struct sk_buff *skb;
+ 
+-	while ((skb = __skb_dequeue_tail(&sk->sk_write_queue)) != NULL)
++	while ((skb = __skb_dequeue_tail(queue)) != NULL)
+ 		kfree_skb(skb);
+ 
+-	ip_cork_release(inet_sk(sk));
++	ip_cork_release(cork);
++}
++
++void ip_flush_pending_frames(struct sock *sk)
++{
++	__ip_flush_pending_frames(sk, &sk->sk_write_queue, &inet_sk(sk)->cork);
+ }
+ 
+ 
