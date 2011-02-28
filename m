@@ -1,233 +1,165 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH 4/5] udp: Add lockless transmit path
+Subject: [PATCH 3/5] inet: Add ip_make_skb and ip_send_skb
 Date: Mon, 28 Feb 2011 19:41:01 +0800
-Message-ID: <E1Pu1TJ-0005RA-DV@gondolin.me.apana.org.au>
+Message-ID: <E1Pu1TJ-0005Qw-5I@gondolin.me.apana.org.au>
 References: <20110227110614.GA6246@gondor.apana.org.au>
 To: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
 	therbert@google.com, wsommerfeld@google.com,
 	daniel.baluta@gmail.com, netdev@vger.kernel.org,
 	Thomas Graf <tgraf@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:57502 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:50284 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753583Ab1B1LlQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 06:41:16 -0500
+	with ESMTP id S1753485Ab1B1LlP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 06:41:15 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-udp: Add lockless transmit path
+inet: Add ip_make_skb and ip_send_skb
 
-The UDP transmit path has been running under the socket lock
-for a long time because of the corking feature.  This means that
-transmitting to the same socket in multiple threads does not
-scale at all.
+This patch adds the helper ip_make_skb which is like ip_append_data
+and ip_push_pending_frames all rolled into one, except that it does
+not send the skb produced.  The sending part is carried out by
+ip_send_skb, which the transport protocol can call after it has
+tweaked the skb.
 
-However, as most users don't actually use corking, the locking
-can be removed in the common case.
-
-This patch creates a lockless fast path where corking is not used.
-
-Please note that this does create a slight inaccuracy in the
-enforcement of socket send buffer limits.  In particular, we
-may exceed the socket limit by up to (number of CPUs) * (packet
-size) because of the way the limit is computed.
-
-As the primary purpose of socket buffers is to indicate congestion,
-this should not be a great problem for now.
+It is meant to be called in cases where corking is not used should
+have a one-to-one correspondence to sendmsg.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 ---
 
- include/net/udp.h     |   11 +++++
- include/net/udplite.h |   12 +++++
- net/ipv4/udp.c        |  104 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 3 files changed, 126 insertions(+), 1 deletion(-)
+ include/net/ip.h     |    8 ++++++
+ net/ipv4/ip_output.c |   65 ++++++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 59 insertions(+), 14 deletions(-)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index bb967dd..b8563ba 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -144,6 +144,17 @@ static inline __wsum udp_csum_outgoing(struct sock *sk, struct sk_buff *skb)
- 	return csum;
- }
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 67fac78..a96e525 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -116,8 +116,16 @@ extern int		ip_append_data(struct sock *sk,
+ extern int		ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb);
+ extern ssize_t		ip_append_page(struct sock *sk, struct page *page,
+ 				int offset, size_t size, int flags);
++extern int		ip_send_skb(struct sk_buff *skb);
+ extern int		ip_push_pending_frames(struct sock *sk);
+ extern void		ip_flush_pending_frames(struct sock *sk);
++extern struct sk_buff  *ip_make_skb(struct sock *sk,
++				    int getfrag(void *from, char *to, int offset, int len,
++						int odd, struct sk_buff *skb),
++				    void *from, int length, int transhdrlen,
++				    struct ipcm_cookie *ipc,
++				    struct rtable **rtp,
++				    unsigned int flags);
  
-+static inline __wsum udp_csum(struct sk_buff *skb)
-+{
-+	__wsum csum = csum_partial(skb_transport_header(skb),
-+				   sizeof(struct udphdr), skb->csum);
-+
-+	for (skb = skb_shinfo(skb)->frag_list; skb; skb = skb->next) {
-+		csum = csum_add(csum, skb->csum);
-+	}
-+	return csum;
-+}
-+
- /* hash routines shared between UDPv4/6 and UDP-Litev4/6 */
- static inline void udp_lib_hash(struct sock *sk)
+ /* datagram.c */
+ extern int		ip4_datagram_connect(struct sock *sk, 
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 1dd5ecc..dba14c6 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -1267,9 +1267,9 @@ static void ip_cork_release(struct inet_cork *cork)
+  *	Combined all pending IP fragments on the socket as one IP datagram
+  *	and push them out.
+  */
+-static int __ip_push_pending_frames(struct sock *sk,
+-				    struct sk_buff_head *queue,
+-				    struct inet_cork *cork)
++static struct sk_buff *__ip_make_skb(struct sock *sk,
++				     struct sk_buff_head *queue,
++				     struct inet_cork *cork)
  {
-diff --git a/include/net/udplite.h b/include/net/udplite.h
-index afdffe6..673a024 100644
---- a/include/net/udplite.h
-+++ b/include/net/udplite.h
-@@ -115,6 +115,18 @@ static inline __wsum udplite_csum_outgoing(struct sock *sk, struct sk_buff *skb)
- 	return csum;
- }
+ 	struct sk_buff *skb, *tmp_skb;
+ 	struct sk_buff **tail_skb;
+@@ -1280,7 +1280,6 @@ static int __ip_push_pending_frames(struct sock *sk,
+ 	struct iphdr *iph;
+ 	__be16 df = 0;
+ 	__u8 ttl;
+-	int err = 0;
  
-+static inline __wsum udplite_csum(struct sk_buff *skb)
-+{
-+	struct sock *sk = skb->sk;
-+	int cscov = udplite_sender_cscov(udp_sk(sk), udp_hdr(skb));
-+	const int off = skb_transport_offset(skb);
-+	const int len = skb->len - off;
-+
-+	skb->ip_summed = CHECKSUM_NONE;     /* no HW support for checksumming */
-+
-+	return skb_checksum(skb, off, min(cscov, len), 0);
+ 	if ((skb = __skb_dequeue(queue)) == NULL)
+ 		goto out;
+@@ -1351,28 +1350,37 @@ static int __ip_push_pending_frames(struct sock *sk,
+ 		icmp_out_count(net, ((struct icmphdr *)
+ 			skb_transport_header(skb))->type);
+ 
+-	/* Netfilter gets whole the not fragmented skb. */
++	ip_cork_release(cork);
++out:
++	return skb;
 +}
 +
- extern void	udplite4_register(void);
- extern int 	udplite_get_port(struct sock *sk, unsigned short snum,
- 			int (*scmp)(const struct sock *, const struct sock *));
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 8157b17..7fd3664 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -769,6 +769,95 @@ out:
++int ip_send_skb(struct sk_buff *skb)
++{
++	struct net *net = sock_net(skb->sk);
++	int err;
++
+ 	err = ip_local_out(skb);
+ 	if (err) {
+ 		if (err > 0)
+ 			err = net_xmit_errno(err);
+ 		if (err)
+-			goto error;
++			IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+ 	}
+ 
+-out:
+-	ip_cork_release(cork);
  	return err;
+-
+-error:
+-	IP_INC_STATS(net, IPSTATS_MIB_OUTDISCARDS);
+-	goto out;
  }
  
-+static void udp4_hwcsum(struct sk_buff *skb, __be32 src, __be32 dst)
-+{
-+	struct udphdr *uh = udp_hdr(skb);
-+	struct sk_buff *frags = skb_shinfo(skb)->frag_list;
-+	int offset = skb_transport_offset(skb);
-+	int len = skb->len - offset;
-+	int hlen = len;
-+	__wsum csum = 0;
-+
-+	if (!frags) {
-+		/*
-+		 * Only one fragment on the socket.
-+		 */
-+		skb->csum_start = skb_transport_header(skb) - skb->head;
-+		skb->csum_offset = offsetof(struct udphdr, check);
-+		uh->check = ~csum_tcpudp_magic(src, dst, len,
-+					       IPPROTO_UDP, 0);
-+	} else {
-+		/*
-+		 * HW-checksum won't work as there are two or more
-+		 * fragments on the socket so that all csums of sk_buffs
-+		 * should be together
-+		 */
-+		do {
-+			csum = csum_add(csum, frags->csum);
-+			hlen -= frags->len;
-+		} while ((frags = frags->next));
-+
-+		csum = skb_checksum(skb, offset, hlen, csum);
-+		skb->ip_summed = CHECKSUM_NONE;
-+
-+		uh->check = csum_tcpudp_magic(src, dst, len, IPPROTO_UDP, csum);
-+		if (uh->check == 0)
-+			uh->check = CSUM_MANGLED_0;
-+	}
-+}
-+
-+static int udp_send_skb(struct sk_buff *skb, __be32 daddr, __be32 dport)
-+{
-+	struct sock *sk = skb->sk;
-+	struct inet_sock *inet = inet_sk(sk);
-+	struct udphdr *uh;
-+	struct rtable *rt = (struct rtable *)skb_dst(skb);
-+	int err = 0;
-+	int is_udplite = IS_UDPLITE(sk);
-+	int offset = skb_transport_offset(skb);
-+	int len = skb->len - offset;
-+	__wsum csum = 0;
-+
-+	/*
-+	 * Create a UDP header
-+	 */
-+	uh = udp_hdr(skb);
-+	uh->source = inet->inet_sport;
-+	uh->dest = dport;
-+	uh->len = htons(len);
-+	uh->check = 0;
-+
-+	if (is_udplite)
-+		csum = udplite_csum(skb);
-+	else if (sk->sk_no_check == UDP_CSUM_NOXMIT) {
-+		skb->ip_summed = CHECKSUM_NONE;
-+		goto send;
-+	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
-+		udp4_hwcsum(skb, rt->rt_src, daddr);
-+		goto send;
-+	} else
-+		csum = udp_csum(skb);
-+
-+	/* add protocol-dependent pseudo-header */
-+	uh->check = csum_tcpudp_magic(rt->rt_src, daddr, len,
-+				      sk->sk_protocol, csum);
-+	if (uh->check == 0)
-+		uh->check = CSUM_MANGLED_0;
-+
-+send:
-+	err = ip_send_skb(skb);
-+	if (err) {
-+		if (err == -ENOBUFS && !inet->recverr) {
-+			UDP_INC_STATS_USER(sock_net(sk),
-+					   UDP_MIB_SNDBUFERRORS, is_udplite);
-+			err = 0;
-+		}
-+	} else
-+		UDP_INC_STATS_USER(sock_net(sk),
-+				   UDP_MIB_OUTDATAGRAMS, is_udplite);
-+	return err;
-+}
-+
- int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		size_t len)
+ int ip_push_pending_frames(struct sock *sk)
  {
-@@ -785,6 +874,7 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	int err, is_udplite = IS_UDPLITE(sk);
- 	int corkreq = up->corkflag || msg->msg_flags&MSG_MORE;
- 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
+-	return __ip_push_pending_frames(sk, &sk->sk_write_queue,
+-					&inet_sk(sk)->cork);
 +	struct sk_buff *skb;
- 
- 	if (len > 0xFFFF)
- 		return -EMSGSIZE;
-@@ -799,6 +889,8 @@ int udp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	ipc.opt = NULL;
- 	ipc.tx_flags = 0;
- 
-+	getfrag = is_udplite ? udplite_getfrag : ip_generic_getfrag;
 +
- 	if (up->pending) {
- 		/*
- 		 * There are pending frames.
-@@ -923,6 +1015,17 @@ back_from_confirm:
- 	if (!ipc.addr)
- 		daddr = ipc.addr = rt->rt_dst;
++	skb = __ip_make_skb(sk, &sk->sk_write_queue, &inet_sk(sk)->cork);
++	if (!skb)
++		return 0;
++
++	/* Netfilter gets whole the not fragmented skb. */
++	return ip_send_skb(skb);
+ }
  
-+	/* Lockless fast path for the non-corking case. */
-+	if (!corkreq) {
-+		skb = ip_make_skb(sk, getfrag, msg->msg_iov, ulen,
-+				  sizeof(struct udphdr), &ipc, &rt,
-+				  msg->msg_flags);
-+		err = PTR_ERR(skb);
-+		if (skb && !IS_ERR(skb))
-+			err = udp_send_skb(skb, daddr, dport);
-+		goto out;
+ /*
+@@ -1395,6 +1403,35 @@ void ip_flush_pending_frames(struct sock *sk)
+ 	__ip_flush_pending_frames(sk, &sk->sk_write_queue, &inet_sk(sk)->cork);
+ }
+ 
++struct sk_buff *ip_make_skb(struct sock *sk,
++			    int getfrag(void *from, char *to, int offset,
++					int len, int odd, struct sk_buff *skb),
++			    void *from, int length, int transhdrlen,
++			    struct ipcm_cookie *ipc, struct rtable **rtp,
++			    unsigned int flags)
++{
++	struct inet_cork cork = {};
++	struct sk_buff_head queue;
++	int err;
++
++	if (flags & MSG_PROBE)
++		return NULL;
++
++	__skb_queue_head_init(&queue);
++
++	err = ip_setup_cork(sk, &cork, ipc, rtp);
++	if (err)
++		return ERR_PTR(err);
++
++	err = __ip_append_data(sk, &queue, &cork, getfrag,
++			       from, length, transhdrlen, flags);
++	if (err) {
++		__ip_flush_pending_frames(sk, &queue, &cork);
++		return ERR_PTR(err);
 +	}
 +
- 	lock_sock(sk);
- 	if (unlikely(up->pending)) {
- 		/* The socket is already corked while preparing it. */
-@@ -944,7 +1047,6 @@ back_from_confirm:
++	return __ip_make_skb(sk, &queue, &cork);
++}
  
- do_append_data:
- 	up->len += ulen;
--	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
- 	err = ip_append_data(sk, getfrag, msg->msg_iov, ulen,
- 			sizeof(struct udphdr), &ipc, &rt,
- 			corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+ /*
+  *	Fetch data from kernel space and fill in checksum if needed.
