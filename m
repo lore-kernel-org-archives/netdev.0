@@ -1,47 +1,35 @@
-From: Thomas Graf <tgraf@infradead.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: SO_REUSEPORT - can it be done in kernel?
-Date: Mon, 28 Feb 2011 09:13:22 -0500
-Message-ID: <20110228141322.GF9763@canuck.infradead.org>
-References: <20110225.112019.48513284.davem@davemloft.net>
- <20110226005718.GA19889@gondor.apana.org.au>
- <20110227110205.GE9763@canuck.infradead.org>
- <20110227110614.GA6246@gondor.apana.org.au>
- <20110228113659.GA20726@gondor.apana.org.au>
+Date: Mon, 28 Feb 2011 22:13:27 +0800
+Message-ID: <20110228141327.GA22851@gondor.apana.org.au>
+References: <20110225.112019.48513284.davem@davemloft.net> <20110226005718.GA19889@gondor.apana.org.au> <20110227110205.GE9763@canuck.infradead.org> <20110227110614.GA6246@gondor.apana.org.au> <20110228113659.GA20726@gondor.apana.org.au> <1298899971.2941.281.camel@edumazet-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
 	therbert@google.com, wsommerfeld@google.com,
 	daniel.baluta@gmail.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:47249 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754111Ab1B1ONc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 09:13:32 -0500
+Received: from helcar.apana.org.au ([209.40.204.226]:37779 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754286Ab1B1ONl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 09:13:41 -0500
 Content-Disposition: inline
-In-Reply-To: <20110228113659.GA20726@gondor.apana.org.au>
+In-Reply-To: <1298899971.2941.281.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 28, 2011 at 07:36:59PM +0800, Herbert Xu wrote:
-> But please do test them heavily, especially if you have an AMD
-> NUMA machine as that's where scalability problems really show
-> up.  Intel tends to be a lot more forgiving.  My last AMD machine
-> blew up years ago :)
+On Mon, Feb 28, 2011 at 02:32:51PM +0100, Eric Dumazet wrote:
+>
+> Now, input path can run without finding socket locked by xmit path, so
+> skb are queued into receive queue, not backlog one.
 
-This is just a preliminary test result and not 100% reliable
-because half through the testing the machine reported memory
-issues and disabled a DIMM before booting the tested kernels.
+Indeed, I think this is what Dave alluded to earlier.  This will
+eventually have to be dealt with but for now the data rate is low
+enough that it isn't killing us.
 
-Nevertheless, bind 9.7.3:
-
-2.6.38-rc5+: 62kqps
-2.6.38-rc5+ w/ Herbert's patch: 442kqps
-
-This is on a 2 NUMA Intel Xeon X5560 @ 2.80GHz with 16 cores
-
-Again, this number is not 100% reliably but clearly shows that
-the concept of the patch is working very well.
-
-Will test Herbert's patch on the machine that did 650kqps with
-SO_REUSEPORT and also on some AMD machines.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
