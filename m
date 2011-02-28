@@ -1,77 +1,225 @@
-From: John Heffner <johnwheffner@gmail.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Mon, 28 Feb 2011 16:51:29 -0500
-Message-ID: <AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
-	<alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
-	<1298793252.8726.45.camel@edumazet-laptop>
-	<AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
-	<20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
-	<AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com>
-	<cbb9e1113901f1a324359b6ed3f1a611@localhost>
-	<AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 net-next-2.6] ethtool: Compat handling for struct
+ ethtool_rxnfc
+Date: Mon, 28 Feb 2011 21:55:41 +0000
+Message-ID: <1298930141.2569.22.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Hagen Paul Pfeifer <hagen@jauu.net>,
-	Albert Cahalan <acahalan@gmail.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Mikael Abrahamsson <swmike@swm.pp.se>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Bill Sommerfeld <wsommerfeld@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Kees Cook <kees.cook@canonical.com>
+To: David Miller <davem@davemloft.net>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Santwona Behera <santwona.behera@sun.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yi0-f46.google.com ([209.85.218.46]:54921 "EHLO
-	mail-yi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752537Ab1B1Vvc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 16:51:32 -0500
-In-Reply-To: <AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com>
+Received: from mail.solarflare.com ([216.237.3.220]:53481 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752338Ab1B1Vzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 16:55:45 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Right... while I generally agree that a fixed-length drop-tail queue
-isn't optimal, isn't this problem what the various AQM schemes try to
-solve?
+This structure was accidentally defined such that its layout can
+differ between 32-bit and 64-bit processes.  Add compat structure
+definitions and an ioctl wrapper function.
 
-  -John
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Again, I have not tested this with a driver that implements the
+ETHTOOL_{G,S}RXCLSRL* operations, and that clearly does need to be
+tested.  However, ETHTOOL_GRINGS and ETHTOOL_GDRVINFO continue to work
+correctly from a 32-bit ethtool.
+
+I'm not sure whether more checks on rule_cnt are required for security
+or whether compat_alloc_user_space() and copy_in_user() can be relied on
+to limit any buffer overrun to the user process's own memory.  It looks
+like this is safe on x86.
+
+Ben.
+
+ include/linux/ethtool.h |   34 ++++++++++++++++
+ net/socket.c            |  101 +++++++++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 128 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index aac3e2e..b297f28 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -13,6 +13,9 @@
+ #ifndef _LINUX_ETHTOOL_H
+ #define _LINUX_ETHTOOL_H
+ 
++#ifdef __KERNEL__
++#include <linux/compat.h>
++#endif
+ #include <linux/types.h>
+ #include <linux/if_ether.h>
+ 
+@@ -450,6 +453,37 @@ struct ethtool_rxnfc {
+ 	__u32				rule_locs[0];
+ };
+ 
++#ifdef __KERNEL__
++#ifdef CONFIG_COMPAT
++
++struct compat_ethtool_rx_flow_spec {
++	u32		flow_type;
++	union {
++		struct ethtool_tcpip4_spec		tcp_ip4_spec;
++		struct ethtool_tcpip4_spec		udp_ip4_spec;
++		struct ethtool_tcpip4_spec		sctp_ip4_spec;
++		struct ethtool_ah_espip4_spec		ah_ip4_spec;
++		struct ethtool_ah_espip4_spec		esp_ip4_spec;
++		struct ethtool_usrip4_spec		usr_ip4_spec;
++		struct ethhdr				ether_spec;
++		u8					hdata[72];
++	} h_u, m_u;
++	compat_u64	ring_cookie;
++	u32		location;
++};
++
++struct compat_ethtool_rxnfc {
++	u32				cmd;
++	u32				flow_type;
++	compat_u64			data;
++	struct compat_ethtool_rx_flow_spec fs;
++	u32				rule_cnt;
++	u32				rule_locs[0];
++};
++
++#endif /* CONFIG_COMPAT */
++#endif /* __KERNEL__ */
++
+ /**
+  * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
+  * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFHINDIR
+diff --git a/net/socket.c b/net/socket.c
+index 937d0fcf..bcc3ad3 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2588,23 +2588,110 @@ static int dev_ifconf(struct net *net, struct compat_ifconf __user *uifc32)
+ 
+ static int ethtool_ioctl(struct net *net, struct compat_ifreq __user *ifr32)
+ {
++	struct compat_ethtool_rxnfc __user *compat_rxnfc;
++	bool convert_in = false, convert_out = false;
++	size_t buf_size = ALIGN(sizeof(struct ifreq), 8);
++	struct ethtool_rxnfc __user *rxnfc;
+ 	struct ifreq __user *ifr;
++	u32 rule_cnt = 0;
++	u32 ethcmd;
+ 	u32 data;
+-	void __user *datap;
++	int ret;
++
++	if (get_user(data, &ifr32->ifr_ifru.ifru_data))
++		return -EFAULT;
+ 
+-	ifr = compat_alloc_user_space(sizeof(*ifr));
++	compat_rxnfc = compat_ptr(data);
+ 
+-	if (copy_in_user(&ifr->ifr_name, &ifr32->ifr_name, IFNAMSIZ))
++	if (get_user(ethcmd, &compat_rxnfc->cmd))
+ 		return -EFAULT;
+ 
+-	if (get_user(data, &ifr32->ifr_ifru.ifru_data))
++	/* Most ethtool structures are defined without padding.
++	 * Unfortunately struct ethtool_rxnfc is an exception.
++	 */
++	switch (ethcmd) {
++	default:
++		break;
++	case ETHTOOL_GRXCLSRLALL:
++		/* Buffer size is variable */
++		if (get_user(rule_cnt, &compat_rxnfc->rule_cnt))
++			return -EFAULT;
++		if (rule_cnt > KMALLOC_MAX_SIZE / sizeof(u32))
++			return -ENOMEM;
++		buf_size += rule_cnt * sizeof(u32);
++		/* fall through */
++	case ETHTOOL_GRXRINGS:
++	case ETHTOOL_GRXCLSRLCNT:
++	case ETHTOOL_GRXCLSRULE:
++		convert_out = true;
++		/* fall through */
++	case ETHTOOL_SRXCLSRLDEL:
++	case ETHTOOL_SRXCLSRLINS:
++		buf_size += sizeof(struct ethtool_rxnfc);
++		convert_in = true;
++		break;
++	}
++
++	ifr = compat_alloc_user_space(buf_size);
++	rxnfc = (void *)ifr + ALIGN(sizeof(struct ifreq), 8);
++
++	if (copy_in_user(&ifr->ifr_name, &ifr32->ifr_name, IFNAMSIZ))
+ 		return -EFAULT;
+ 
+-	datap = compat_ptr(data);
+-	if (put_user(datap, &ifr->ifr_ifru.ifru_data))
++	if (put_user(convert_in ? rxnfc : compat_ptr(data),
++		     &ifr->ifr_ifru.ifru_data))
+ 		return -EFAULT;
+ 
+-	return dev_ioctl(net, SIOCETHTOOL, ifr);
++	if (convert_in) {
++		/* We expect there to be holes between fs.m_u and
++		 * fs.ring_cookie and at the end of fs, but nowhere else.
++		 */
++		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_u) +
++			     sizeof(compat_rxnfc->fs.m_u) !=
++			     offsetof(struct ethtool_rxnfc, fs.m_u) +
++			     sizeof(rxnfc->fs.m_u));
++		BUILD_BUG_ON(
++			offsetof(struct compat_ethtool_rxnfc, fs.location) -
++			offsetof(struct compat_ethtool_rxnfc, fs.ring_cookie) !=
++			offsetof(struct ethtool_rxnfc, fs.location) -
++			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
++
++		if (copy_in_user(rxnfc, compat_rxnfc,
++				 (void *)(&rxnfc->fs.m_u + 1) - (void *)rxnfc)
++		    ||
++		    copy_in_user(&rxnfc->fs.ring_cookie,
++				 &compat_rxnfc->fs.ring_cookie,
++				 (void *)(&rxnfc->fs.location + 1) -
++				 (void *)&rxnfc->fs.ring_cookie))
++			return -EFAULT;
++	}
++
++	ret = dev_ioctl(net, SIOCETHTOOL, ifr);
++	if (ret)
++		return ret;
++
++	if (convert_out) {
++		if (copy_in_user(compat_rxnfc, rxnfc,
++				 (const void *)(&rxnfc->fs.m_u + 1) -
++				 (const void *)rxnfc) ||
++		    copy_in_user(&compat_rxnfc->fs.ring_cookie,
++				 &rxnfc->fs.ring_cookie,
++				 (const void *)(&rxnfc->fs.location + 1) -
++				 (const void *)&rxnfc->fs.ring_cookie) ||
++		    copy_in_user(&compat_rxnfc->rule_cnt, &rxnfc->rule_cnt,
++				 sizeof(rxnfc->rule_cnt)))
++			return -EFAULT;
++
++		if (ethcmd == ETHTOOL_GRXCLSRLALL) {
++			if (get_user(rule_cnt, &compat_rxnfc->rule_cnt) ||
++			    copy_in_user(&compat_rxnfc->rule_locs[0],
++					 &rxnfc->rule_locs[0],
++					 rule_cnt * sizeof(u32)))
++				return -EFAULT;
++		}
++	}
++
++	return 0;
+ }
+ 
+ static int compat_siocwandev(struct net *net, struct compat_ifreq __user *uifr32)
+-- 
+1.7.4
 
 
-On Mon, Feb 28, 2011 at 12:20 PM, Bill Sommerfeld
-<wsommerfeld@google.com> wrote:
-> On Mon, Feb 28, 2011 at 07:38, Hagen Paul Pfeifer <hagen@jauu.net> wr=
-ote:
->> On Sun, 27 Feb 2011 18:33:39 -0500, Albert Cahalan wrote:
->>> I suppose there is a need to allow at least 2 packets despite any
->>> time limits, so that it remains possible to use a traditional modem
->>> even if a huge packet takes several seconds to send.
->>
->> That is a good point! We talk about as we may know every use case of
->> Linux. But this is not true at all. One of my customer for example o=
-perates
->> the Linux network stack functionality on top of a proprietary MAC/Dr=
-iver
->> where the current packet queue characteristic is just fine. The
->> time-drop-approach is unsuitable because the bandwidth can vary in a=
- small
->> amount of time over a great range (0 till max. bandwidth). A suffici=
-ent
->> buffering shows up superior in this environment (only IPv{4,6}/UDP).
->
-> The tension is between the average queue length and the maximum amoun=
-t
-> of buffering needed. =A0Fixed-sized tail-drop queues -- either long, =
-or
-> short -- are not ideal.
->
-> My understanding is that the best practice here is that you need
-> (bandwidth * path delay) buffering to be available to absorb bursts
-> and avoid drops, but you also need to use queue management algorithms
-> with ECN or random drop to keep the *average* queue length short;
-> unfortunately, researchers are still arguing about the details of the
-> second part...
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at =A0http://vger.kernel.org/majordomo-info.html
->
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
