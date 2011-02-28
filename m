@@ -1,269 +1,111 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6] ethtool: Compat handling for struct
- ethtool_rxnfc
-Date: Mon, 28 Feb 2011 18:22:26 +0000
-Message-ID: <1298917347.2569.5.camel@bwh-desktop>
+From: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Mon, 28 Feb 2011 20:31:05 +0200
+Message-ID: <20110228203105.13466xdjy27nr5wk@hayate.sektori.org>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
+ <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
+ <1298793252.8726.45.camel@edumazet-laptop>
+ <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+ <20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+ <1298837273.8726.128.camel@edumazet-laptop>
+ <20110228134338.1241484mkljbz4w0@hayate.sektori.org>
+ <1298898640.2941.256.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Santwona Behera <santwona.behera@sun.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:33519 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752975Ab1B1SWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 13:22:31 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	DelSp=Yes	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Albert Cahalan <acahalan@gmail.com>,
+	Mikael Abrahamsson <swmike@swm.pp.se>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1298898640.2941.256.camel@edumazet-laptop>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This structure was accidentally defined such that its layout can
-differ between 32-bit and 64-bit processes.  Add compat structure
-definitions and functions to copy from/to user-space with the
-necessary adjustments.
+Quoting Eric Dumazet <eric.dumazet@gmail.com>:
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
-I have not tested this with a driver that implements the
-ETHTOOL_{G,S}RXCLSRL* operations.  However I have tested the new
-functions in a simple userland test harness.
+> Le lundi 28 f=C3=A9vrier 2011 =C3=A0 13:43 +0200, Jussi Kivilinna a =C3=
+=A9crit :
+>> Quoting Eric Dumazet <eric.dumazet@gmail.com>:
+>>
+>> > Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 12:55 +0200, Jussi Kivilin=
+na a =C3=A9crit :
+>> >> Quoting Albert Cahalan <acahalan@gmail.com>:
+>> >>
+>> >> > On Sun, Feb 27, 2011 at 2:54 AM, Eric Dumazet
+>> >> <eric.dumazet@gmail.com> wrote:
+>> >> >> Le dimanche 27 f=C3=A9vrier 2011 =C3=A0 08:02 +0100, Mikael Ab=
+rahamsson =20
+>> a =C3=A9crit :
+>> >> >>> On Sun, 27 Feb 2011, Albert Cahalan wrote:
+>> >> >>>
+>> >> >>> > Nanoseconds seems fine; it's unlikely you'd ever want
+>> >> >>> > more than 4.2 seconds (32-bit unsigned) of queue.
+>> >> > ...
+>> >> >> Problem is some machines have slow High Resolution timing serv=
+ices.
+>> >> >>
+>> >> >> _If_ we have a time limit, it will probably use the low =20
+>> resolution (aka
+>> >> >> jiffies), unless high resolution services are cheap.
+>> >> >
+>> >> > As long as that is totally internal to the kernel and never
+>> >> > getting exposed by some API for setting the amount, sure.
+>> >> >
+>> >> >> I was thinking not having an absolute hard limit, but an EWMA =
+=20
+>> based one.
+>> >> >
+>> >> > The whole point is to prevent stale packets, especially to prev=
+ent
+>> >> > them from messing with TCP, so I really don't think so. I suppo=
+se
+>> >> > you do get this to some extent via early drop.
+>> >>
+>> >> I made simple hack on sch_fifo with per packet time limits
+>> >> (attachment) this weekend and have been doing limited testing on
+>> >> wireless link. I think hardlimit is fine, it's simple and does
+>> >> somewhat same as what packet(-hard)limited buffer does, drops pac=
+kets
+>> >> when buffer is 'full'. My hack checks for timed out packets on
+>> >> enqueue, might be wrong approach (on other hand might allow some =
+more
+>> >> burstiness).
+>> >>
+>> >
+>> >
+>> > Qdisc should return to caller a good indication packet is queued o=
+r
+>> > dropped at enqueue() time... not later (aka : never)
+>> >
+>> > Accepting a packet at t0, and dropping it later at t0+limit withou=
+t
+>> > giving any indication to caller is a problem.
+>> >
+>> > This is why I suggested using an EWMA plus a probabilist drop or
+>> > congestion indication (NET_XMIT_CN) to caller at enqueue() time.
+>> >
+>> > The absolute time limit you are trying to implement should be chec=
+ked at
+>> > dequeue time, to cope with enqueue bursts or pauses on wire.
+>> >
+>>
+>> Would it be better to implement this as generic feature instead of
+>> qdisc specific? Have qdisc_enqueue_root do ewma check:
+>
+> Problem is you can have several virtual queues in a qdisc.
+>
+> For example, pfifo_fast has 3 bands. You could have a global ewma wit=
+h
+> high values, but you still want to let a high priority packet going
+> through...
+>
 
-Ben.
+Ok. It would better to have ewma/timelimit at leaf qdisc.
+(Or have in-middle-qdisc handling ewma/timelimit for leaf qdisc, =20
+sch_timelimit)
 
- include/linux/ethtool.h |   34 ++++++++++++
- net/core/ethtool.c      |  131 ++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 134 insertions(+), 31 deletions(-)
-
-diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
-index aac3e2e..b297f28 100644
---- a/include/linux/ethtool.h
-+++ b/include/linux/ethtool.h
-@@ -13,6 +13,9 @@
- #ifndef _LINUX_ETHTOOL_H
- #define _LINUX_ETHTOOL_H
- 
-+#ifdef __KERNEL__
-+#include <linux/compat.h>
-+#endif
- #include <linux/types.h>
- #include <linux/if_ether.h>
- 
-@@ -450,6 +453,37 @@ struct ethtool_rxnfc {
- 	__u32				rule_locs[0];
- };
- 
-+#ifdef __KERNEL__
-+#ifdef CONFIG_COMPAT
-+
-+struct compat_ethtool_rx_flow_spec {
-+	u32		flow_type;
-+	union {
-+		struct ethtool_tcpip4_spec		tcp_ip4_spec;
-+		struct ethtool_tcpip4_spec		udp_ip4_spec;
-+		struct ethtool_tcpip4_spec		sctp_ip4_spec;
-+		struct ethtool_ah_espip4_spec		ah_ip4_spec;
-+		struct ethtool_ah_espip4_spec		esp_ip4_spec;
-+		struct ethtool_usrip4_spec		usr_ip4_spec;
-+		struct ethhdr				ether_spec;
-+		u8					hdata[72];
-+	} h_u, m_u;
-+	compat_u64	ring_cookie;
-+	u32		location;
-+};
-+
-+struct compat_ethtool_rxnfc {
-+	u32				cmd;
-+	u32				flow_type;
-+	compat_u64			data;
-+	struct compat_ethtool_rx_flow_spec fs;
-+	u32				rule_cnt;
-+	u32				rule_locs[0];
-+};
-+
-+#endif /* CONFIG_COMPAT */
-+#endif /* __KERNEL__ */
-+
- /**
-  * struct ethtool_rxfh_indir - command to get or set RX flow hash indirection
-  * @cmd: Specific command number - %ETHTOOL_GRXFHINDIR or %ETHTOOL_SRXFHINDIR
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index c1a71bb..982f252 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -673,24 +673,111 @@ out:
- 	return ret;
- }
- 
-+static unsigned long copy_ethtool_rxnfc_from_user(struct ethtool_rxnfc *info,
-+						  const void __user *useraddr)
-+{
-+	unsigned long ret;
-+
-+	/* struct ethtool_rxnfc was originally defined for
-+	 * ETHTOOL_{G,S}RXFH with only the cmd, flow_type and data
-+	 * members.  User-space might still be using that
-+	 * definition. */
-+	ret = copy_from_user(info, useraddr,
-+			     (void *)(&info->data + 1) - (void *)info);
-+	if (info->cmd == ETHTOOL_GRXFH || info->cmd == ETHTOOL_SRXFH)
-+		return ret;
-+
-+#ifdef CONFIG_COMPAT
-+	if (is_compat_task()) {
-+		const struct compat_ethtool_rxnfc __user *user_info = useraddr;
-+
-+		/* We expect there to be holes between fs.m_u and
-+		 * fs.ring_cookie and at the end of fs, but nowhere
-+		 * else.
-+		 */
-+		BUILD_BUG_ON(offsetof(struct compat_ethtool_rxnfc, fs.m_u) +
-+			     sizeof(user_info->fs.m_u) !=
-+			     offsetof(struct ethtool_rxnfc, fs.m_u) +
-+			     sizeof(info->fs.m_u));
-+		BUILD_BUG_ON(
-+			offsetof(struct compat_ethtool_rxnfc, fs.location) -
-+			offsetof(struct compat_ethtool_rxnfc, fs.ring_cookie) !=
-+			offsetof(struct ethtool_rxnfc, fs.location) -
-+			offsetof(struct ethtool_rxnfc, fs.ring_cookie));
-+
-+		ret += copy_from_user(&info->fs, &user_info->fs,
-+				      (void *)(&info->fs.m_u + 1) -
-+				      (void *)&info->fs);
-+		ret += copy_from_user(&info->fs.ring_cookie,
-+				      &user_info->fs.ring_cookie,
-+				      (void *)(&info->fs.location + 1) -
-+				      (void *)&info->fs.ring_cookie);
-+		ret += copy_from_user(&info->rule_cnt, &user_info->rule_cnt,
-+				      sizeof(info->rule_cnt));
-+	} else
-+#endif
-+	{
-+		const struct ethtool_rxnfc __user *user_info = useraddr;
-+		ret += copy_from_user(&info->fs, &user_info->fs,
-+				      (void *)(info + 1) - (void *)&info->fs);
-+	}
-+
-+	return ret;
-+}
-+
-+static unsigned long
-+copy_ethtool_rxnfc_to_user(void __user *useraddr,
-+			   const struct ethtool_rxnfc *info,
-+			   const u32 *rule_buf)
-+{
-+	u32 __user *user_rule_buf;
-+	unsigned long ret;
-+
-+	ret = copy_to_user(useraddr, info,
-+			   (const void *)(&info->data + 1) -
-+			   (const void *)info);
-+	if (info->cmd == ETHTOOL_GRXFH)
-+		return ret;
-+
-+#ifdef CONFIG_COMPAT
-+	if (is_compat_task()) {
-+		struct compat_ethtool_rxnfc __user *user_info = useraddr;
-+		ret += copy_to_user(&user_info->fs, &info->fs,
-+				    (const void *)(&info->fs.m_u + 1) -
-+				    (const void *)&info->fs);
-+		ret += copy_to_user(&user_info->fs.ring_cookie,
-+				    &info->fs.ring_cookie,
-+				    (const void *)(&info->fs.location + 1) -
-+				    (const void *)&info->fs.ring_cookie);
-+		ret += copy_to_user(&user_info->rule_cnt, &info->rule_cnt,
-+				    sizeof(info->rule_cnt));
-+		user_rule_buf = &user_info->rule_locs[0];
-+	} else
-+#endif
-+	{
-+		struct ethtool_rxnfc __user *user_info = useraddr;
-+		ret += copy_to_user(&user_info->fs, &info->fs,
-+				    (const void *)(info + 1) -
-+				    (const void *)&info->fs);
-+		user_rule_buf = &user_info->rule_locs[0];
-+	}
-+
-+	if (rule_buf)
-+		ret += copy_to_user(user_rule_buf, rule_buf,
-+				    info->rule_cnt * sizeof(u32));
-+
-+	return ret;
-+}
-+
- static noinline_for_stack int ethtool_set_rxnfc(struct net_device *dev,
- 						u32 cmd, void __user *useraddr)
- {
- 	struct ethtool_rxnfc info;
--	size_t info_size = sizeof(info);
- 
- 	if (!dev->ethtool_ops->set_rxnfc)
- 		return -EOPNOTSUPP;
- 
--	/* struct ethtool_rxnfc was originally defined for
--	 * ETHTOOL_{G,S}RXFH with only the cmd, flow_type and data
--	 * members.  User-space might still be using that
--	 * definition. */
--	if (cmd == ETHTOOL_SRXFH)
--		info_size = (offsetof(struct ethtool_rxnfc, data) +
--			     sizeof(info.data));
--
--	if (copy_from_user(&info, useraddr, info_size))
-+	if (copy_ethtool_rxnfc_from_user(&info, useraddr))
- 		return -EFAULT;
- 
- 	return dev->ethtool_ops->set_rxnfc(dev, &info);
-@@ -700,7 +787,6 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
- 						u32 cmd, void __user *useraddr)
- {
- 	struct ethtool_rxnfc info;
--	size_t info_size = sizeof(info);
- 	const struct ethtool_ops *ops = dev->ethtool_ops;
- 	int ret;
- 	void *rule_buf = NULL;
-@@ -708,15 +794,7 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
- 	if (!ops->get_rxnfc)
- 		return -EOPNOTSUPP;
- 
--	/* struct ethtool_rxnfc was originally defined for
--	 * ETHTOOL_{G,S}RXFH with only the cmd, flow_type and data
--	 * members.  User-space might still be using that
--	 * definition. */
--	if (cmd == ETHTOOL_GRXFH)
--		info_size = (offsetof(struct ethtool_rxnfc, data) +
--			     sizeof(info.data));
--
--	if (copy_from_user(&info, useraddr, info_size))
-+	if (copy_ethtool_rxnfc_from_user(&info, useraddr))
- 		return -EFAULT;
- 
- 	if (info.cmd == ETHTOOL_GRXCLSRLALL) {
-@@ -733,17 +811,8 @@ static noinline_for_stack int ethtool_get_rxnfc(struct net_device *dev,
- 	if (ret < 0)
- 		goto err_out;
- 
--	ret = -EFAULT;
--	if (copy_to_user(useraddr, &info, info_size))
--		goto err_out;
--
--	if (rule_buf) {
--		useraddr += offsetof(struct ethtool_rxnfc, rule_locs);
--		if (copy_to_user(useraddr, rule_buf,
--				 info.rule_cnt * sizeof(u32)))
--			goto err_out;
--	}
--	ret = 0;
-+	if (copy_ethtool_rxnfc_to_user(useraddr, &info, rule_buf))
-+		ret = -EFAULT;
- 
- err_out:
- 	kfree(rule_buf);
--- 
-1.7.4
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+-Jussi
