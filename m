@@ -1,47 +1,52 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-2.6 2/7] bnx2x: Fix nvram test for single port
- devices.
-Date: Mon, 28 Feb 2011 15:37:13 +0200
-Message-ID: <1298900233.28024.120.camel@lb-tlvb-dmitry>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] iproute2: allow to specify truncation bits on auth algo
+Date: Mon, 28 Feb 2011 14:46:12 +0100
+Message-ID: <4D6BA724.2020504@6wind.com>
+References: <20110128045108.GA8351@gondor.apana.org.au>	<4D42839C.3050401@6wind.com> <20110128.114610.193716130.davem@davemloft.net> <4D498693.6020909@6wind.com> <4D49879B.4060108@6wind.com>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org, christophe.gouault@6wind.com
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1936 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754138Ab1B1NjG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 08:39:06 -0500
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:56545 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754170Ab1B1NqR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 08:46:17 -0500
+Received: by bwz15 with SMTP id 15so3647969bwz.19
+        for <netdev@vger.kernel.org>; Mon, 28 Feb 2011 05:46:16 -0800 (PST)
+In-Reply-To: <4D49879B.4060108@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hi,
+
+what is the status of this patch? It has been set to 'Superseded' in the 
+patchwork tool (http://patchwork.ozlabs.org/patch/81486/).
+Kernel headers have been updated in iproute2, should I resend the patch?
 
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/bnx2x/bnx2x_ethtool.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Regards,
+Nicolas
 
-diff --git a/drivers/net/bnx2x/bnx2x_ethtool.c b/drivers/net/bnx2x/bnx2x_ethtool.c
-index b3da295..5b0fe7a 100644
---- a/drivers/net/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/bnx2x/bnx2x_ethtool.c
-@@ -1782,9 +1782,7 @@ static int bnx2x_test_nvram(struct bnx2x *bp)
- 		{ 0x100, 0x350 }, /* manuf_info */
- 		{ 0x450,  0xf0 }, /* feature_info */
- 		{ 0x640,  0x64 }, /* upgrade_key_info */
--		{ 0x6a4,  0x64 },
- 		{ 0x708,  0x70 }, /* manuf_key_info */
--		{ 0x778,  0x70 },
- 		{     0,     0 }
- 	};
- 	__be32 buf[0x350 / 4];
--- 
-1.7.2.2
-
-
-
-
+On 02/02/2011 17:34, Nicolas Dichtel wrote:
+> On 02/02/2011 17:30, Nicolas Dichtel wrote:
+>> On 28/01/2011 20:46, David Miller wrote:
+>>> From: Nicolas Dichtel<nicolas.dichtel@6wind.com>
+>>> Date: Fri, 28 Jan 2011 09:51:40 +0100
+>>>
+>>>> On 28/01/2011 05:51, Herbert Xu wrote:
+>>>>> So perhaps an SA configuration flag is needed?
+>>>> I agree. If David is ok, I will update the patch.
+>>>
+>>> Sounds good to me.
+>> And the patch for iproute2.
+> Sorry, two patches were mixed :(
+>
+> Here is the right one.
+>
+>
+> Regards,
+> Nicolas
