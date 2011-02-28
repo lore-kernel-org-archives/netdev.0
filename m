@@ -1,83 +1,61 @@
-From: Jiri Kosina <jkosina@suse.cz>
-Subject: Re: ICMP reply uses wrong source address as destination
-Date: Mon, 28 Feb 2011 17:33:48 +0100 (CET)
-Message-ID: <alpine.LRH.2.00.1102281733070.4359@twin.jikos.cz>
-References: <AANLkTi=2hEK9rR2h1hzWtud0DdJU5A4d9rBYD6aTLFx-@mail.gmail.com>
+From: Albert Cahalan <acahalan@gmail.com>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Mon, 28 Feb 2011 11:37:45 -0500
+Message-ID: <AANLkTimh1xWU9V9phOKZZMgOWKOmDDSBYfofnnOjjRh=@mail.gmail.com>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
+	<alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
+	<1298793252.8726.45.camel@edumazet-laptop>
+	<AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+	<20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+	<AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com>
+	<cbb9e1113901f1a324359b6ed3f1a611@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Anders Nilsson Plymoth <lml@telhoc.se>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Mikael Abrahamsson <swmike@swm.pp.se>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Hagen Paul Pfeifer <hagen@jauu.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=2hEK9rR2h1hzWtud0DdJU5A4d9rBYD6aTLFx-@mail.gmail.com>
+In-Reply-To: <cbb9e1113901f1a324359b6ed3f1a611@localhost>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, Feb 28, 2011 at 10:38 AM, Hagen Paul Pfeifer <hagen@jauu.net> wrote:
+> On Sun, 27 Feb 2011 18:33:39 -0500, Albert Cahalan wrote:
+>
+>> I suppose there is a need to allow at least 2 packets despite any
+>> time limits, so that it remains possible to use a traditional modem
+>> even if a huge packet takes several seconds to send.
+>
+> That is a good point! We talk about as we may know every use case of
+> Linux. But this is not true at all. One of my customer for example operates
+> the Linux network stack functionality on top of a proprietary MAC/Driver
+> where the current packet queue characteristic is just fine. The
+> time-drop-approach is unsuitable because the bandwidth can vary in a small
+> amount of time over a great range (0 till max. bandwidth). A sufficient
+> buffering shows up superior in this environment (only IPv{4,6}/UDP).
 
-[ adding netdev@ to CC ]
+I don't think the current non-time queue is just fine for him.
+I can see that time-based discard-on-enqueue would not be
+fine either. He needs time-based discard-on-dequeue.
+Good for him is probably:
 
-On Mon, 28 Feb 2011, Anders Nilsson Plymoth wrote:
+On dequeue, discard all packets that are too old.
+On enqueue, assume max bandwidth and discard all
+packets that have no hope of surviving the dequeue check.
+(the enqueue check is only to prevent wasting RAM)
+Exception: always keep at least 2 packets.
 
-> Dear linux kernel enthusiasts,
->=20
-> I came upon an issue where ICMP reply packets were issued towards the
-> IP address of the=A0receiving interface, rather than the source IP
-> address.
-> Looking at the kernel code, I saw that this is caused by the followin=
-g
-> line in net/ipv4/icmp.c function icmp_reply:
->=20
-> daddr =3D ipc.addr =3D rt->rt_src;
->=20
-> For most cases the=A0original=A0line of code is ok, but in some situa=
-tions
-> doesn't arrive to the kernel from the network device, but through som=
-e
-> other mechanism such as a userspace application. In these cases the
-> receiving=A0device in the skb appears to be the loopback interface, n=
-ot
-> a physical device. icmp_reply will thus issue the reply to the
-> loopback IP address, rather than the source IP address as it should.
->=20
-> While googling to see if this issue have been submitted, I found this
-> two threads that address the same problem:
->=20
-> ([PATCH] 2.6.22.6 NETWORKING [IPV4]: Always use source addr in skb to
-> reply packet) on 17 sep 2007
-> AND
-> ([PATCH RESEND] 2.6.22.6 networking [ipv4]: fix wrong destination whe=
-n
-> reply packetes) on 20 sep 2007).
->=20
-> Nothing came out of these threads, and some of the questions there ar=
-e
-> easy to answer; such as this doesn't affect DNAT, and if source IP
-> address is not set then you should not issue a reply for echo and
-> timestamp anyway.
->=20
-> As to the statement:
-> "... which IP address should be used as the source
-> 1. the destination address of the packet that generated the message
->=20
-> or.
->=20
-> 2. the IP address that the machine would use by default if the machin=
-e
-> were to generate a new connection to the destination."
-> These may be relevant questions, but the ICMP RFC clearly states the
-> answer is 1. 2. may seem relevant to=A0multi-homing, but its not the
-> role of the ICMP reply to resolve multi-homing issues.
-> The following code will correct the issue.
-> {
-> =A0=A0 struct iphdr *ip =3D ip_hdr(skb);
-> =A0=A0 daddr =3D ipc.addr =3D ip->saddr;
-> }
-> The only functions that use icmp_reply are icmp_echo and
-> icmp_timestamp, and this change do not modify their=A0behavior. After
-> extensive testing, in regular setups and DNATed situations, I can
-> verify this change works as intended.
-> Thanks,
+Better is something that would allow random drop.
+The trouble here is that bandwidth varies greatly.
+Some sort of undelete functionality is needed...?
 
---=20
-Jiri Kosina
-SUSE Labs, Novell Inc.
+Assuming the difficulty with implementing random drop
+is solvable, I think this would work for the rest of us too.
+
+Keeping the timeout really low is important because it isn't
+OK to eat up all the latency tolerance in one hop. You have
+an end-to-end budget of 20 ms for usable GUI rubber banding.
+The budget for gaming is about 80 and for VoIP is about 150.
