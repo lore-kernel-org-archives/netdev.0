@@ -1,65 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH] RxRPC: Fix v1 keys
-Date: Mon, 28 Feb 2011 13:27:53 +0000
-Message-ID: <20110228132753.30463.24909.stgit@warthog.procyon.org.uk>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [PATCH] fcoe: correct checking for bonding
+Date: Mon, 28 Feb 2011 14:32:45 +0100
+Message-ID: <20110228133245.GB7096@psychotron.brq.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Anton Blanchard <anton@samba.org>,
-	David Howells <dhowells@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: devel@open-fcoe.org, robert.w.love@intel.com,
+	James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org
+To: linux-scsi@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Anton Blanchard <anton@au1.ibm.com>
+Check for IFF_BONDING as this flag is set-up for all bonding devices.
 
-commit 339412841d7 (RxRPC: Allow key payloads to be passed in XDR form)
-broke klog for me. I notice the v1 key struct had a kif_version field
-added:
-
--struct rxkad_key {
--       u16     security_index;         /* RxRPC header security index */
--       u16     ticket_len;             /* length of ticket[] */
--       u32     expiry;                 /* time at which expires */
--       u32     kvno;                   /* key version number */
--       u8      session_key[8];         /* DES session key */
--       u8      ticket[0];              /* the encrypted ticket */
--};
-
-+struct rxrpc_key_data_v1 {
-+       u32             kif_version;            /* 1 */
-+       u16             security_index;
-+       u16             ticket_length;
-+       u32             expiry;                 /* time_t */
-+       u32             kvno;
-+       u8              session_key[8];
-+       u8              ticket[0];
-+};
-
-However the code in rxrpc_instantiate strips it away:
-
-	data += sizeof(kver);
-	datalen -= sizeof(kver);
-
-Removing kif_version fixes my problem.
-
-Signed-off-by: Anton Blanchard <anton@samba.org>
-Signed-off-by: David Howells <dhowells@redhat.com>
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
+ drivers/scsi/fcoe/fcoe.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
- include/keys/rxrpc-type.h |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+index 9f9600b..67714a4 100644
+--- a/drivers/scsi/fcoe/fcoe.c
++++ b/drivers/scsi/fcoe/fcoe.c
+@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
+ 	}
+ 
+ 	/* Do not support for bonding device */
+-	if ((netdev->priv_flags & IFF_MASTER_ALB) ||
+-	    (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
+-	    (netdev->priv_flags & IFF_MASTER_8023AD)) {
++	if (netdev->priv_flags & IFF_BONDING) {
+ 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
+ 		return -EOPNOTSUPP;
+ 	}
+-- 
+1.7.3.4
 
-diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-index 5cb86c3..fc48754 100644
---- a/include/keys/rxrpc-type.h
-+++ b/include/keys/rxrpc-type.h
-@@ -99,7 +99,6 @@ struct rxrpc_key_token {
-  * structure of raw payloads passed to add_key() or instantiate key
-  */
- struct rxrpc_key_data_v1 {
--	u32		kif_version;		/* 1 */
- 	u16		security_index;
- 	u16		ticket_length;
- 	u32		expiry;			/* time_t */
