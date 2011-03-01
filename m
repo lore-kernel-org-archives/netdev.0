@@ -1,125 +1,41 @@
-From: "Jan Beulich" <JBeulich@novell.com>
-Subject: Re: [PATCH] cxgb{3,4}*: improve Kconfig dependencies
-Date: Tue, 01 Mar 2011 07:46:32 +0000
-Message-ID: <4D6CB26802000078000343BD@vpn.id2.novell.com>
-References: <1298950455-4497-1-git-send-email-dm@chelsio.com>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: [PATCH 0/4] rcu: don't assume the size of struct rcu_head
+Date: Tue, 01 Mar 2011 16:03:15 +0800
+Message-ID: <4D6CA843.3090103@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
-To: "Dimitris Michailidis" <dm@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1298950455-4497-1-git-send-email-dm@chelsio.com>
-Content-Disposition: inline
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+        Christoph Lameter <cl@linux-foundation.org>,
+        Pekka Enberg <penberg@kernel.org>,
+        Eric Dumazet <eric.dumazet@gmail.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
+        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Ingo Molnar <mingo@elte.hu>
+Return-path: <owner-linux-mm@kvack.org>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
->>> On 01.03.11 at 04:34, Dimitris Michailidis <dm@chelsio.com> wrote:
-> - Remove the dependency of cxgb4 and cxgb4vf on INET.  cxgb3 really
->   depends on INET, keep it but add it directly to the driver's Kconfig
->   entry.
-> - Make the iSCSI drivers cxgb3i and cxgb4i available in the SCSI menu
->   without requiring any options in the net driver menu to be enabled
->   first.  Add needed selects so the iSCSI drivers can build their
->   corresponding net drivers.
-> - Remove CHELSIO_T*_DEPENDS.
-> 
-> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
-> ---
->  drivers/net/Kconfig               |   21 +++------------------
->  drivers/scsi/cxgbi/cxgb3i/Kconfig |    4 +++-
->  drivers/scsi/cxgbi/cxgb4i/Kconfig |    4 +++-
->  3 files changed, 9 insertions(+), 20 deletions(-)
-> 
-> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-> index f4b3927..6e09d5f 100644
-> --- a/drivers/net/Kconfig
-> +++ b/drivers/net/Kconfig
-> @@ -2595,14 +2595,9 @@ config CHELSIO_T1_1G
->  	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
->  	  are using only 10G cards say 'N' here.
->  
-> -config CHELSIO_T3_DEPENDS
-> -	tristate
-> -	depends on PCI && INET
-> -	default y
-> -
->  config CHELSIO_T3
->  	tristate "Chelsio Communications T3 10Gb Ethernet support"
-> -	depends on CHELSIO_T3_DEPENDS
-> +	depends on PCI && INET
 
-Forgot to remove INET here?
+We always keep the struct rcu_head very small, but we may change it in future
+or under some CONFIGs.
 
-Besides that,
-Acked-by: Jan Beulich <jbeulich@novell.com>
+There are some other systems may assume the size of struct rcu_head as 2 * sizeof(long).
+These assumptions obstruct us to add debug information or priority information
+to struct rcu_head. It is time to fix them.
 
->  	select FW_LOADER
->  	select MDIO
->  	help
-> @@ -2620,14 +2615,9 @@ config CHELSIO_T3
->  	  To compile this driver as a module, choose M here: the module
->  	  will be called cxgb3.
->  
-> -config CHELSIO_T4_DEPENDS
-> -	tristate
-> -	depends on PCI && INET
-> -	default y
-> -
->  config CHELSIO_T4
->  	tristate "Chelsio Communications T4 Ethernet support"
-> -	depends on CHELSIO_T4_DEPENDS
-> +	depends on PCI
->  	select FW_LOADER
->  	select MDIO
->  	help
-> @@ -2645,14 +2635,9 @@ config CHELSIO_T4
->  	  To compile this driver as a module choose M here; the module
->  	  will be called cxgb4.
->  
-> -config CHELSIO_T4VF_DEPENDS
-> -	tristate
-> -	depends on PCI && INET
-> -	default y
-> -
->  config CHELSIO_T4VF
->  	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
-> -	depends on CHELSIO_T4VF_DEPENDS
-> +	depends on PCI
->  	help
->  	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
->  	  adapters with PCI-E SR-IOV Virtual Functions.
-> diff --git a/drivers/scsi/cxgbi/cxgb3i/Kconfig 
-> b/drivers/scsi/cxgbi/cxgb3i/Kconfig
-> index 5cf4e98..11dff23 100644
-> --- a/drivers/scsi/cxgbi/cxgb3i/Kconfig
-> +++ b/drivers/scsi/cxgbi/cxgb3i/Kconfig
-> @@ -1,6 +1,8 @@
->  config SCSI_CXGB3_ISCSI
->  	tristate "Chelsio T3 iSCSI support"
-> -	depends on CHELSIO_T3_DEPENDS
-> +	depends on PCI && INET
-> +	select NETDEVICES
-> +	select NETDEV_10000
->  	select CHELSIO_T3
->  	select SCSI_ISCSI_ATTRS
->  	---help---
-> diff --git a/drivers/scsi/cxgbi/cxgb4i/Kconfig 
-> b/drivers/scsi/cxgbi/cxgb4i/Kconfig
-> index bb94b39..d5302c2 100644
-> --- a/drivers/scsi/cxgbi/cxgb4i/Kconfig
-> +++ b/drivers/scsi/cxgbi/cxgb4i/Kconfig
-> @@ -1,6 +1,8 @@
->  config SCSI_CXGB4_ISCSI
->  	tristate "Chelsio T4 iSCSI support"
-> -	depends on CHELSIO_T4_DEPENDS
-> +	depends on PCI && INET
-> +	select NETDEVICES
-> +	select NETDEV_10000
->  	select CHELSIO_T4
->  	select SCSI_ISCSI_ATTRS
->  	---help---
+It is glad that I just find 3 places which need to be fixed. These 4 patches
+are just cleanup patches when the size of struct rcu_head == 2 * sizeof(long).
+NO overhead added and NO behavior changed.
+Even when the size of struct rcu_head becomes larger, only slub is changed a little.
 
+Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+---
 
-
-
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
