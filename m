@@ -1,359 +1,247 @@
-From: Krishna Kumar <krkumar2@in.ibm.com>
-Subject: [PATCH] vhost: Cleanup vhost.c and net.c
-Date: Tue, 01 Mar 2011 17:06:37 +0530
-Message-ID: <20110301113637.4130.38439.sendpatchset@krkumar2.in.ibm.com>
-Cc: netdev@vger.kernel.org, Krishna Kumar <krkumar2@in.ibm.com>
-To: mst@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Tue, 01 Mar 2011 12:45:09 +0100
+Message-ID: <1298979909.3284.28.camel@edumazet-laptop>
+References: <20110227110614.GA6246@gondor.apana.org.au>
+	 <20110228113659.GA20726@gondor.apana.org.au>
+	 <20110228141322.GF9763@canuck.infradead.org>
+	 <1298910174.2941.585.camel@edumazet-laptop>
+	 <20110228163742.GH9763@canuck.infradead.org>
+	 <1298912869.2941.687.camel@edumazet-laptop>
+	 <20110301101955.GI9763@canuck.infradead.org>
+	 <1298975602.3284.13.camel@edumazet-laptop>
+	 <20110301110708.GJ9763@canuck.infradead.org>
+	 <1298977984.3284.15.camel@edumazet-laptop>
+	 <20110301112759.GK9763@canuck.infradead.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Thomas Graf <tgraf@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp08.au.ibm.com ([202.81.31.141]:54058 "EHLO
-	e23smtp08.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756197Ab1CALgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 06:36:43 -0500
-Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [202.81.31.246])
-	by e23smtp08.au.ibm.com (8.14.4/8.13.1) with ESMTP id p21BVWTl012876
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 22:31:32 +1100
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p21BadiL2306080
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 22:36:39 +1100
-Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
-	by d23av03.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p21BadEl003765
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 22:36:39 +1100
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42108 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756232Ab1CALpP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 06:45:15 -0500
+Received: by fxm17 with SMTP id 17so4698481fxm.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 03:45:13 -0800 (PST)
+In-Reply-To: <20110301112759.GK9763@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Minor cleanup of vhost.c and net.c to match coding style.
+Le mardi 01 mars 2011 =C3=A0 06:27 -0500, Thomas Graf a =C3=A9crit :
+> On Tue, Mar 01, 2011 at 12:13:04PM +0100, Eric Dumazet wrote:
+> > Its a bit strange two cpus spend time in softirq, unless you have t=
+wo
+> > queryperf sources, and a multiqueue NIC, or maybe you use two NICS =
+?
+>=20
+> one NIC, 2 clients (12 instances per client)
+>=20
+> [root@hp-bl460cg7-01 ~]# cat /sys/class/net/eth0/queues/rx-0/rps_cpus=
+=20
+> 00000000,00000000,00000000,00000000,00000000,00000000,00000000,000000=
+00
+>=20
+> [root@hp-bl460cg7-01 ~]# netstat -s | grep err
+>     1781377 packet receive errors
+>=20
+> > Mind use "perf top -C 1" and "perf top -C 11" to check what these c=
+pus
+> > do ?
+>=20
 
-Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
----
- drivers/vhost/net.c   |   19 +++++++++-----
- drivers/vhost/vhost.c |   53 +++++++++++++++++++++++++++-------------
- 2 files changed, 49 insertions(+), 23 deletions(-)
+Thanks that's really interesting
 
-diff -ruNp org/drivers/vhost/net.c new/drivers/vhost/net.c
---- org/drivers/vhost/net.c	2011-03-01 13:33:25.000000000 +0530
-+++ new/drivers/vhost/net.c	2011-03-01 13:36:44.000000000 +0530
-@@ -60,6 +60,7 @@ static int move_iovec_hdr(struct iovec *
- {
- 	int seg = 0;
- 	size_t size;
-+
- 	while (len && seg < iov_count) {
- 		size = min(from->iov_len, len);
- 		to->iov_base = from->iov_base;
-@@ -79,6 +80,7 @@ static void copy_iovec_hdr(const struct 
- {
- 	int seg = 0;
- 	size_t size;
-+
- 	while (len && seg < iovcount) {
- 		size = min(from->iov_len, len);
- 		to->iov_base = from->iov_base;
-@@ -296,17 +298,16 @@ static void handle_rx_big(struct vhost_n
- 		.msg_iov = vq->iov,
- 		.msg_flags = MSG_DONTWAIT,
- 	};
--
- 	struct virtio_net_hdr hdr = {
- 		.flags = 0,
- 		.gso_type = VIRTIO_NET_HDR_GSO_NONE
- 	};
--
- 	size_t len, total_len = 0;
- 	int err;
- 	size_t hdr_size;
- 	/* TODO: check that we are running from vhost_worker? */
- 	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
-+
- 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
- 		return;
- 
-@@ -405,18 +406,17 @@ static void handle_rx_mergeable(struct v
- 		.msg_iov = vq->iov,
- 		.msg_flags = MSG_DONTWAIT,
- 	};
--
- 	struct virtio_net_hdr_mrg_rxbuf hdr = {
- 		.hdr.flags = 0,
- 		.hdr.gso_type = VIRTIO_NET_HDR_GSO_NONE
- 	};
--
- 	size_t total_len = 0;
- 	int err, headcount;
- 	size_t vhost_hlen, sock_hlen;
- 	size_t vhost_len, sock_len;
- 	/* TODO: check that we are running from vhost_worker? */
- 	struct socket *sock = rcu_dereference_check(vq->private_data, 1);
-+
- 	if (!sock || skb_queue_empty(&sock->sk->sk_receive_queue))
- 		return;
- 
-@@ -654,6 +654,7 @@ static struct socket *get_raw_socket(int
- 	} uaddr;
- 	int uaddr_len = sizeof uaddr, r;
- 	struct socket *sock = sockfd_lookup(fd, &r);
-+
- 	if (!sock)
- 		return ERR_PTR(-ENOTSOCK);
- 
-@@ -682,6 +683,7 @@ static struct socket *get_tap_socket(int
- {
- 	struct file *file = fget(fd);
- 	struct socket *sock;
-+
- 	if (!file)
- 		return ERR_PTR(-EBADF);
- 	sock = tun_get_socket(file);
-@@ -696,6 +698,7 @@ static struct socket *get_tap_socket(int
- static struct socket *get_socket(int fd)
- {
- 	struct socket *sock;
-+
- 	/* special case to disable backend */
- 	if (fd == -1)
- 		return NULL;
-@@ -741,9 +744,9 @@ static long vhost_net_set_backend(struct
- 	oldsock = rcu_dereference_protected(vq->private_data,
- 					    lockdep_is_held(&vq->mutex));
- 	if (sock != oldsock) {
--                vhost_net_disable_vq(n, vq);
--                rcu_assign_pointer(vq->private_data, sock);
--                vhost_net_enable_vq(n, vq);
-+		vhost_net_disable_vq(n, vq);
-+		rcu_assign_pointer(vq->private_data, sock);
-+		vhost_net_enable_vq(n, vq);
- 	}
- 
- 	mutex_unlock(&vq->mutex);
-@@ -768,6 +771,7 @@ static long vhost_net_reset_owner(struct
- 	struct socket *tx_sock = NULL;
- 	struct socket *rx_sock = NULL;
- 	long err;
-+
- 	mutex_lock(&n->dev.mutex);
- 	err = vhost_dev_check_owner(&n->dev);
- 	if (err)
-@@ -829,6 +833,7 @@ static long vhost_net_ioctl(struct file 
- 	struct vhost_vring_file backend;
- 	u64 features;
- 	int r;
-+
- 	switch (ioctl) {
- 	case VHOST_NET_SET_BACKEND:
- 		if (copy_from_user(&backend, argp, sizeof backend))
-diff -ruNp org/drivers/vhost/vhost.c new/drivers/vhost/vhost.c
---- org/drivers/vhost/vhost.c	2011-01-19 20:01:29.000000000 +0530
-+++ new/drivers/vhost/vhost.c	2011-03-01 13:36:58.000000000 +0530
-@@ -41,8 +41,8 @@ static void vhost_poll_func(struct file 
- 			    poll_table *pt)
- {
- 	struct vhost_poll *poll;
--	poll = container_of(pt, struct vhost_poll, table);
- 
-+	poll = container_of(pt, struct vhost_poll, table);
- 	poll->wqh = wqh;
- 	add_wait_queue(wqh, &poll->wait);
- }
-@@ -85,6 +85,7 @@ void vhost_poll_init(struct vhost_poll *
- void vhost_poll_start(struct vhost_poll *poll, struct file *file)
- {
- 	unsigned long mask;
-+
- 	mask = file->f_op->poll(file, &poll->table);
- 	if (mask)
- 		vhost_poll_wakeup(&poll->wait, 0, 0, (void *)mask);
-@@ -101,6 +102,7 @@ static bool vhost_work_seq_done(struct v
- 				unsigned seq)
- {
- 	int left;
-+
- 	spin_lock_irq(&dev->work_lock);
- 	left = seq - work->done_seq;
- 	spin_unlock_irq(&dev->work_lock);
-@@ -222,6 +224,7 @@ static int vhost_worker(void *data)
- static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
- {
- 	int i;
-+
- 	for (i = 0; i < dev->nvqs; ++i) {
- 		dev->vqs[i].indirect = kmalloc(sizeof *dev->vqs[i].indirect *
- 					       UIO_MAXIOV, GFP_KERNEL);
-@@ -235,6 +238,7 @@ static long vhost_dev_alloc_iovecs(struc
- 			goto err_nomem;
- 	}
- 	return 0;
-+
- err_nomem:
- 	for (; i >= 0; --i) {
- 		kfree(dev->vqs[i].indirect);
-@@ -247,6 +251,7 @@ err_nomem:
- static void vhost_dev_free_iovecs(struct vhost_dev *dev)
- {
- 	int i;
-+
- 	for (i = 0; i < dev->nvqs; ++i) {
- 		kfree(dev->vqs[i].indirect);
- 		dev->vqs[i].indirect = NULL;
-@@ -296,26 +301,28 @@ long vhost_dev_check_owner(struct vhost_
- }
- 
- struct vhost_attach_cgroups_struct {
--        struct vhost_work work;
--        struct task_struct *owner;
--        int ret;
-+	struct vhost_work work;
-+	struct task_struct *owner;
-+	int ret;
- };
- 
- static void vhost_attach_cgroups_work(struct vhost_work *work)
- {
--        struct vhost_attach_cgroups_struct *s;
--        s = container_of(work, struct vhost_attach_cgroups_struct, work);
--        s->ret = cgroup_attach_task_all(s->owner, current);
-+	struct vhost_attach_cgroups_struct *s;
-+
-+	s = container_of(work, struct vhost_attach_cgroups_struct, work);
-+	s->ret = cgroup_attach_task_all(s->owner, current);
- }
- 
- static int vhost_attach_cgroups(struct vhost_dev *dev)
- {
--        struct vhost_attach_cgroups_struct attach;
--        attach.owner = current;
--        vhost_work_init(&attach.work, vhost_attach_cgroups_work);
--        vhost_work_queue(dev, &attach.work);
--        vhost_work_flush(dev, &attach.work);
--        return attach.ret;
-+	struct vhost_attach_cgroups_struct attach;
-+
-+	attach.owner = current;
-+	vhost_work_init(&attach.work, vhost_attach_cgroups_work);
-+	vhost_work_queue(dev, &attach.work);
-+	vhost_work_flush(dev, &attach.work);
-+	return attach.ret;
- }
- 
- /* Caller should have device mutex */
-@@ -323,11 +330,13 @@ static long vhost_dev_set_owner(struct v
- {
- 	struct task_struct *worker;
- 	int err;
-+
- 	/* Is there an owner already? */
- 	if (dev->mm) {
- 		err = -EBUSY;
- 		goto err_mm;
- 	}
-+
- 	/* No owner, become one */
- 	dev->mm = get_task_mm(current);
- 	worker = kthread_create(vhost_worker, dev, "vhost-%d", current->pid);
-@@ -380,6 +389,7 @@ long vhost_dev_reset_owner(struct vhost_
- void vhost_dev_cleanup(struct vhost_dev *dev)
- {
- 	int i;
-+
- 	for (i = 0; i < dev->nvqs; ++i) {
- 		if (dev->vqs[i].kick && dev->vqs[i].handle_kick) {
- 			vhost_poll_stop(&dev->vqs[i].poll);
-@@ -421,6 +431,7 @@ void vhost_dev_cleanup(struct vhost_dev 
- static int log_access_ok(void __user *log_base, u64 addr, unsigned long sz)
- {
- 	u64 a = addr / VHOST_PAGE_SIZE / 8;
-+
- 	/* Make sure 64 bit math will not overflow. */
- 	if (a > ULONG_MAX - (unsigned long)log_base ||
- 	    a + (unsigned long)log_base > ULONG_MAX)
-@@ -461,6 +472,7 @@ static int memory_access_ok(struct vhost
- 			    int log_all)
- {
- 	int i;
-+
- 	for (i = 0; i < d->nvqs; ++i) {
- 		int ok;
- 		mutex_lock(&d->vqs[i].mutex);
-@@ -527,6 +539,7 @@ static long vhost_set_memory(struct vhos
- {
- 	struct vhost_memory mem, *newmem, *oldmem;
- 	unsigned long size = offsetof(struct vhost_memory, regions);
-+
- 	if (copy_from_user(&mem, m, size))
- 		return -EFAULT;
- 	if (mem.padding)
-@@ -544,7 +557,8 @@ static long vhost_set_memory(struct vhos
- 		return -EFAULT;
- 	}
- 
--	if (!memory_access_ok(d, newmem, vhost_has_feature(d, VHOST_F_LOG_ALL))) {
-+	if (!memory_access_ok(d, newmem,
-+			      vhost_has_feature(d, VHOST_F_LOG_ALL))) {
- 		kfree(newmem);
- 		return -EFAULT;
- 	}
-@@ -560,6 +574,7 @@ static int init_used(struct vhost_virtqu
- 		     struct vring_used __user *used)
- {
- 	int r = put_user(vq->used_flags, &used->flags);
-+
- 	if (r)
- 		return r;
- 	return get_user(vq->last_used_idx, &used->idx);
-@@ -849,6 +864,7 @@ static const struct vhost_memory_region 
- {
- 	struct vhost_memory_region *reg;
- 	int i;
-+
- 	/* linear search is not brilliant, but we really have on the order of 6
- 	 * regions in practice */
- 	for (i = 0; i < mem->nregions; ++i) {
-@@ -871,6 +887,7 @@ static int set_bit_to_user(int nr, void 
- 	void *base;
- 	int bit = nr + (log % PAGE_SIZE) * 8;
- 	int r;
-+
- 	r = get_user_pages_fast(log, 1, 1, &page);
- 	if (r < 0)
- 		return r;
-@@ -888,6 +905,7 @@ static int log_write(void __user *log_ba
- {
- 	u64 write_page = write_address / VHOST_PAGE_SIZE;
- 	int r;
-+
- 	if (!write_length)
- 		return 0;
- 	write_length += write_address % VHOST_PAGE_SIZE;
-@@ -1037,8 +1055,8 @@ static int get_indirect(struct vhost_dev
- 			       i, count);
- 			return -EINVAL;
- 		}
--		if (unlikely(memcpy_fromiovec((unsigned char *)&desc, vq->indirect,
--					      sizeof desc))) {
-+		if (unlikely(memcpy_fromiovec((unsigned char *)&desc,
-+					      vq->indirect, sizeof desc))) {
- 			vq_err(vq, "Failed indirect descriptor: idx %d, %zx\n",
- 			       i, (size_t)indirect->addr + i * sizeof desc);
- 			return -EINVAL;
-@@ -1317,6 +1335,7 @@ int vhost_add_used_n(struct vhost_virtqu
- void vhost_signal(struct vhost_dev *dev, struct vhost_virtqueue *vq)
- {
- 	__u16 flags;
-+
- 	/* Flush out used index updates. This is paired
- 	 * with the barrier that the Guest executes when enabling
- 	 * interrupts. */
-@@ -1361,6 +1380,7 @@ bool vhost_enable_notify(struct vhost_vi
- {
- 	u16 avail_idx;
- 	int r;
-+
- 	if (!(vq->used_flags & VRING_USED_F_NO_NOTIFY))
- 		return false;
- 	vq->used_flags &= ~VRING_USED_F_NO_NOTIFY;
-@@ -1387,6 +1407,7 @@ bool vhost_enable_notify(struct vhost_vi
- void vhost_disable_notify(struct vhost_virtqueue *vq)
- {
- 	int r;
-+
- 	if (vq->used_flags & VRING_USED_F_NO_NOTIFY)
- 		return;
- 	vq->used_flags |= VRING_USED_F_NO_NOTIFY;
+> ---------------------------------------------------------------------=
+-----------------------------------------------
+>    PerfTop:   16198 irqs/sec  kernel:99.1%  exact:  0.0% [1000Hz cpu-=
+clock-msecs],  (all, CPU: 1)
+> ---------------------------------------------------------------------=
+-----------------------------------------------
+>=20
+>              samples  pcnt function                    DSO
+>              _______ _____ ___________________________ ______________=
+_____________________________________________
+>=20
+
+CPU 1 handles receives from your BENET NIC
+
+(Its a bit strange, given this NIC should provide 4 rx queues). Load
+could be split to two cpus in your case (two sources)
+
+Try :
+
+ethtool -S eth0 | grep rx_pk
+     rxq0: rx_pkts: ??
+     rxq1: rx_pkts: ??
+     rxq2: rx_pkts: ??
+     rxq3: rx_pkts: ??
+     rxq4: rx_pkts: ??
+
+
+Its BE_HDR_LEN being 64, small UDP frames are too big to fit in skb
+head.
+
+
+
+
+>             51675.00 33.2% _raw_spin_unlock_irqrestore [kernel.kallsy=
+ms]                                         =20
+>             12426.00  8.0% clflush_cache_range         [kernel.kallsy=
+ms]                                         =20
+>              5511.00  3.5% be_poll_rx                  /lib/modules/2=
+=2E6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+>              4567.00  2.9% __udp4_lib_lookup           [kernel.kallsy=
+ms]                                         =20
+>              3981.00  2.6% __kmalloc_node_track_caller [kernel.kallsy=
+ms]                                         =20
+>              3975.00  2.6% get_rx_page_info            /lib/modules/2=
+=2E6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+>              3725.00  2.4% sk_run_filter               [kernel.kallsy=
+ms]                                         =20
+>              3606.00  2.3% get_page_from_freelist      [kernel.kallsy=
+ms]                                         =20
+>              3178.00  2.0% __domain_mapping            [kernel.kallsy=
+ms]                                         =20
+>              3122.00  2.0% kmem_cache_alloc_node       [kernel.kallsy=
+ms]                                         =20
+>              2839.00  1.8% sock_queue_rcv_skb          [kernel.kallsy=
+ms]                                         =20
+>              2246.00  1.4% __netif_receive_skb         [kernel.kallsy=
+ms]                                         =20
+>              2245.00  1.4% nf_iterate                  [kernel.kallsy=
+ms]                                         =20
+>              2081.00  1.3% __udp4_lib_rcv              [kernel.kallsy=
+ms]                                         =20
+>              2042.00  1.3% ipt_do_table                [kernel.kallsy=
+ms]                                         =20
+>              1901.00  1.2% _raw_spin_lock              [kernel.kallsy=
+ms]                                         =20
+>              1856.00  1.2% __alloc_skb                 [kernel.kallsy=
+ms]                                         =20
+>              1645.00  1.1% read_tsc                    [kernel.kallsy=
+ms]                                         =20
+>              1562.00  1.0% nf_ct_tuple_equal           [kernel.kallsy=
+ms]                                         =20
+>              1562.00  1.0% ip_rcv                      [kernel.kallsy=
+ms]                                         =20
+>              1495.00  1.0% __nf_conntrack_find_get     [kernel.kallsy=
+ms]                                         =20
+>              1477.00  0.9% sock_def_readable           [kernel.kallsy=
+ms]                                         =20
+>              1363.00  0.9% find_first_bit              [kernel.kallsy=
+ms]                                         =20
+>              1360.00  0.9% domain_get_iommu            [kernel.kallsy=
+ms]                                         =20
+>              1255.00  0.8% udp_queue_rcv_skb           [kernel.kallsy=
+ms]                                         =20
+>              1174.00  0.8% xfrm4_policy_check.clone.0  [kernel.kallsy=
+ms]                                         =20
+>              1138.00  0.7% hash_conntrack_raw          [kernel.kallsy=
+ms]                                         =20
+>              1000.00  0.6% intel_unmap_page            [kernel.kallsy=
+ms]                                         =20
+>               959.00  0.6% load_pointer                [kernel.kallsy=
+ms]                                         =20
+>               957.00  0.6% sock_flag                   [kernel.kallsy=
+ms]                                         =20
+>               938.00  0.6% nf_conntrack_in             [kernel.kallsy=
+ms]                                         =20
+>               891.00  0.6% _local_bh_enable_ip         [kernel.kallsy=
+ms]                                         =20
+>               884.00  0.6% eth_type_trans              [kernel.kallsy=
+ms]                                         =20
+>               832.00  0.5% be_post_rx_frags            /lib/modules/2=
+=2E6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+>               829.00  0.5% __alloc_pages_nodemask      [kernel.kallsy=
+ms]                                         =20
+>               813.00  0.5% kmem_cache_alloc            [kernel.kallsy=
+ms]                                         =20
+>               802.00  0.5% netif_receive_skb           [kernel.kallsy=
+ms]                                         =20
+>               802.00  0.5% ip_route_input_common       [kernel.kallsy=
+ms]                                         =20
+>               723.00  0.5% nf_ct_get_tuple             [kernel.kallsy=
+ms]                                         =20
+>               720.00  0.5% __intel_map_single          [kernel.kallsy=
+ms]                                         =20
+>               720.00  0.5% udp_error                   [kernel.kallsy=
+ms]                                         =20
+>=20
+> ---------------------------------------------------------------------=
+-----------------------------------------------
+>    PerfTop:   16360 irqs/sec  kernel:72.6%  exact:  0.0% [1000Hz cpu-=
+clock-msecs],  (all, CPU: 11)
+> ---------------------------------------------------------------------=
+-----------------------------------------------
+>=20
+
+CPU 11 handles all TX completions : Its a potential bottleneck.
+
+I might ressurect XPS patch ;)
+
+>              samples  pcnt function                      DSO
+>              _______ _____ _____________________________ ____________=
+_______________________________________________
+>=20
+>             16993.00 32.4% _raw_spin_unlock_irqrestore   [kernel.kall=
+syms]                                         =20
+>              5833.00 11.1% clflush_cache_range           [kernel.kall=
+syms]                                         =20
+>              3315.00  6.3% be_tx_compl_process           /lib/modules=
+/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+>              1818.00  3.5% kmem_cache_free               [kernel.kall=
+syms]                                         =20
+>              1415.00  2.7% isc_rwlock_lock               /usr/lib64/l=
+ibisc.so.62.0.1                               =20
+>              1090.00  2.1% be_poll_tx_mcc                /lib/modules=
+/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+>               811.00  1.5% skb_release_head_state        [kernel.kall=
+syms]                                         =20
+>               772.00  1.5% skb_release_data              [kernel.kall=
+syms]                                         =20
+>               712.00  1.4% dns_rbt_findnode              /usr/lib64/l=
+ibdns.so.69.0.1                               =20
+>               703.00  1.3% isc_rwlock_unlock             /usr/lib64/l=
+ibisc.so.62.0.1                               =20
+>               695.00  1.3% dma_pte_clear_range           [kernel.kall=
+syms]                                         =20
+>               618.00  1.2% kfree_skb                     [kernel.kall=
+syms]                                         =20
+>               597.00  1.1% kfree                         [kernel.kall=
+syms]                                         =20
+>               553.00  1.1% intel_unmap_page              [kernel.kall=
+syms]                                         =20
+>               531.00  1.0% __do_softirq                  [kernel.kall=
+syms]                                         =20
+>               504.00  1.0% isc_stats_increment           /usr/lib64/l=
+ibisc.so.62.0.1                               =20
+>               397.00  0.8% virt_to_head_page             [kernel.kall=
+syms]                                         =20
+>               306.00  0.6% _raw_spin_lock                [kernel.kall=
+syms]                                         =20
+>               270.00  0.5% domain_get_iommu              [kernel.kall=
+syms]                                         =20
+>               256.00  0.5% dns_name_fullcompare          /usr/lib64/l=
+ibdns.so.69.0.1                               =20
+>               233.00  0.4% find_first_bit                [kernel.kall=
+syms]                                         =20
+>               222.00  0.4% dns_name_equal                /usr/lib64/l=
+ibdns.so.69.0.1                               =20
+>               218.00  0.4% __pthread_mutex_lock_internal /lib64/libpt=
+hread-2.12.so                                 =20
+>               207.00  0.4% dns_rbtnodechain_init         /usr/lib64/l=
+ibdns.so.69.0.1                               =20
+>               196.00  0.4% dns_acl_match                 /usr/lib64/l=
+ibdns.so.69.0.1                               =20
+>               194.00  0.4% dma_pte_free_pagetable        [kernel.kall=
+syms]                                         =20
+>               192.00  0.4% dns_name_getlabelsequence     /usr/lib64/l=
+ibdns.so.69.0.1                               =20
+>=20
+
+
