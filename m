@@ -1,78 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
-Date: Tue, 1 Mar 2011 17:43:19 +0100
-Message-ID: <201103011743.19847.arnd@arndb.de>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <201102241820.55873.arnd@arndb.de> <4D6D0EA3.9000504@st.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Tue, 01 Mar 2011 17:43:07 +0100
+Message-ID: <1298997787.3284.123.camel@edumazet-laptop>
+References: <20110225.112019.48513284.davem@davemloft.net>
+	 <20110226005718.GA19889@gondor.apana.org.au>
+	 <20110227110205.GE9763@canuck.infradead.org>
+	 <20110227110614.GA6246@gondor.apana.org.au>
+	 <20110228113659.GA20726@gondor.apana.org.au>
+	 <20110301123519.GA7453@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Russell King - ARM Linux" <linux@arm.linux.org.uk>
-To: Stuart Menefy <stuart.menefy@st.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4D6D0EA3.9000504@st.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:56063 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752397Ab1CAQor (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 11:44:47 -0500
+Received: by fxm17 with SMTP id 17so4987220fxm.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 08:44:45 -0800 (PST)
+In-Reply-To: <20110301123519.GA7453@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 01 March 2011, Stuart Menefy wrote:
-> On 24/02/11 17:20, Arnd Bergmann wrote:
->
-> > Why is this code useful to you? In the scenarios I've seen, the
-> > board can always assign a timer to a specific device in a fixed
-> > way that can be describe in a board file or device tree.
-> 
-> What we were trying to do was separate the code which actually manipulates
-> the timer hardware from the code which wants that timer service. In this
-> case it was a network device driver which is used on multiple SoC devices,
-> while the timer hardware tends to differ from device to device.
+Le mardi 01 mars 2011 =C3=A0 20:35 +0800, Herbert Xu a =C3=A9crit :
+> On Mon, Feb 28, 2011 at 07:36:59PM +0800, Herbert Xu wrote:
+> > Here are the patches I used.  Please don't them yet as I intend
+> > to clean them up quite a bit.
+>=20
+> OK here is the version ready for merging (please retest them
+> though as I have changed things substantially).
+>=20
+> The main change is that the legacy UDP code path is now gone
+> so we use the same UDP header generation whether corking is on
+> or off.
+>=20
+> I will add IPv6 support in a later patch set.
+>=20
+> Thanks!
 
-Right. It certainly makes sense to have an well-defined interface between
-the user and the provider of a timer interrupt.
+=46or the whole patchset :
 
-> The other user of this code which we have is an OProfile driver, which
-> with this change can now be independent of the hardware it is running on,
-> while the previous version manipulated the timer hardware directly.
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-Ok.
+Tests were fine on my dev machine.
 
-> > Also, what is the difference between this and clkdev?
-> 
-> clkdev can be used to find a struct clk, which is fine if you just want to
-> read the time. In this instance we want to get interrupts from the timer
-> hardware, which isn't supported by the clk infrastructure.
+Thanks
 
-(adding Russell to Cc)
 
-Is this something that could sensibly be added to clk/clkdev?
-
-> If anything this duplicates clockevents. The main reason for not using
-> clockevents was that nobody else does! Currently clockevents are
-> used strictly for time keeping within the kernel, and most architectures
-> only register those which are intended to be used for this purpose.
-> We felt a bit nervous about adding code to register all the device's timers
-> as clockevents, and having the network device driver pick up one of those
-> for its own use.
-
-I see. Using a clock_event_device for anything but the system timer tick
-is currently not supported, so it certainly would not be straightforward.
-
-I think you need a bit of both, clkdev and clockevent. I think the
-options you have are:
-
-1. copy the clkdev code to make it possible to associate a device with
-a periodic timer.
-2. extend the clkdev/clk code to handle periodic interrupts and reuse
-the infrastructure there.
-3. extend the clockevent code to make it possible for regular device
-drivers to use a clockevent source.
-
-I have no idea which makes the most sense (or if there are other ideas).
-Maybe Russell, Thomas or John can comment.
-
-	Arnd
