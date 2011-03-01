@@ -1,45 +1,39 @@
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: [PATCH 1/5] tg3: use <linux/io.h> and <linux/uaccess.h> instead <asm/io.h> and <asm/uaccess.h>
-Date: Tue,  1 Mar 2011 18:04:25 +0100
-Message-ID: <1298999069-12740-1-git-send-email-martinez.javier@gmail.com>
-Cc: Michael Chan <mchan@broadcom.com>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	netdev@vger.kernel.org, kernelnewbies@kernelnewbies.org,
-	Javier Martinez Canillas <martinez.javier@gmail.com>
-To: Matt Carlson <mcarlson@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ew0-f46.google.com ([209.85.215.46]:57121 "EHLO
-	mail-ew0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755349Ab1CAREY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 12:04:24 -0500
-Received: by ewy6 with SMTP id 6so1731330ewy.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 09:04:22 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: [net-next PATCH] netdevice: Convert printk to pr_info in
+ netif_tx_stop_queue
+Date: Tue, 01 Mar 2011 09:06:12 -0800
+Message-ID: <1298999172.4367.56.camel@Joe-Laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It is proper style to include linux/foo.h instead asm/foo.h if both exist
+This allows any caller to be prefaced by any specific
+pr_fmt to better identify which device driver is using
+this function inappropriately.
 
-Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
+Add terminating newline.
+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/tg3.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/tg3.c b/drivers/net/tg3.c
-index 6be4185..4410d73 100644
---- a/drivers/net/tg3.c
-+++ b/drivers/net/tg3.c
-@@ -48,9 +48,9 @@
- #include <net/ip.h>
- 
- #include <asm/system.h>
--#include <asm/io.h>
-+#include <linux/io.h>
- #include <asm/byteorder.h>
--#include <asm/uaccess.h>
-+#include <linux/uaccess.h>
- 
- #ifdef CONFIG_SPARC
- #include <asm/idprom.h>
--- 
-1.7.2.3
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ffe56c1..c778992 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1765,8 +1765,7 @@ static inline void netif_tx_wake_all_queues(struct net_device *dev)
+ static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
+ {
+ 	if (WARN_ON(!dev_queue)) {
+-		printk(KERN_INFO "netif_stop_queue() cannot be called before "
+-		       "register_netdev()");
++		pr_info("netif_stop_queue() cannot be called before register_netdev()\n");
+ 		return;
+ 	}
+ 	set_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
