@@ -1,77 +1,227 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: skb->frag_list != NULL in start_xmit for device without NETIF_F_FRAGLIST
-Date: Tue, 1 Mar 2011 15:41:38 -0800
-Message-ID: <AANLkTinDmW1oirOFZCHe7yw8E8TGJfFe+fucAxOPpbjV@mail.gmail.com>
-References: <1298980019.5034.2238.camel@zakaz.uk.xensource.com>
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipv4: Make icmp route lookup code a bit clearer.
+Date: Tue, 01 Mar 2011 15:48:16 -0800 (PST)
+Message-ID: <20110301.154816.212683830.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Paul Durrant <Paul.Durrant@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vx0-f174.google.com ([209.85.220.174]:62752 "EHLO
-	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756799Ab1CAXlj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 18:41:39 -0500
-Received: by vxi39 with SMTP id 39so4725592vxi.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 15:41:38 -0800 (PST)
-In-Reply-To: <1298980019.5034.2238.camel@zakaz.uk.xensource.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:44414
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755155Ab1CAXrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 18:47:40 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 1, 2011 at 3:46 AM, Ian Campbell <Ian.Campbell@citrix.com> wrote:
-> Hi,
->
-> We are seeing cases where Xen netback's start_xmit is being passed an
-> skb which has a ->frag_list, despite the driver not advertising the
-> NETIF_F_FRAGLIST feature.
->
-> Is this indicative of a problem somewhere? Are drivers expected to
-> handle a frag_list? grepping for frag_list in drivers/net it appears not
-> many drivers do anything with the frag_list.
 
-It certainly sounds like a problem to me.  Off the top of my head I
-don't know of any drivers that actually set and handle
-NETIF_F_FRAGLIST (except for pseudo-devices like bridging).
+The route lookup code in icmp_send() is slightly tricky as a result of
+having to handle all of the requirements of RFC 4301 host relookups.
 
->
-> The netback driver is bridged with a tg3 physical device and we think
-> the problematic skb's are originating on the wire.
->
-> The case we are actually seeing is with 2.6.32 + tg3 3.110g so obviously
-> the next step is to reproduce on a more modern kernel and the in-tree
-> driver and then to attempt to determine if the fault is in what the
-> physical interface's driver is passing up the stack or in the stack's
-> handling of those skbs. Any hints on where to look would be much
-> appreciated.
+Pull the route resolution into a seperate function, so that the error
+handling and route reference counting is hopefully easier to see and
+contained wholly within this new routine.
 
-I'd guess that the most likely source of frag_lists generated here are
-from GRO, in skb_gro_receive().  The driver/NIC can definitely
-influence the strategy that GRO uses for reassembly but it seems less
-likely that the driver itself will create frag_lists.
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/icmp.c |  175 ++++++++++++++++++++++++++++++-------------------------
+ 1 files changed, 96 insertions(+), 79 deletions(-)
 
->
-> In particular I'm not sure where the frag_list is supposed to get
-> resolved in the case where dev_hard_start_xmit takes the netif_needs_gso
-> == true path and calls dev_gso_segment rather than taking the
-> __skb_linearize path (the issue appears to occur only when the netback
-> device has NETIF_F_GSO but not NETIF_F_TSO). AFAICT dev_gso_segment goes
-> to tcp_tso_segment and then to skb_segment which does appear to create
-> skbs with a frag_list (although it's not outside the realms of
-> possibility that I'm reading it wrong).
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index ad2bcf1..527ffd1 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -369,6 +369,98 @@ out_unlock:
+ 	icmp_xmit_unlock(sk);
+ }
+ 
++struct rtable *icmp_route_lookup(struct net *net, struct sk_buff *skb_in,
++				 struct iphdr *iph,
++				 __be32 saddr, u8 tos,
++				 int type, int code,
++				 struct icmp_bxm *param)
++{
++	struct flowi fl = {
++		.fl4_dst = (param->replyopts.srr ?
++			    param->replyopts.faddr : iph->saddr),
++		.fl4_src = saddr,
++		.fl4_tos = RT_TOS(tos),
++		.proto = IPPROTO_ICMP,
++		.fl_icmp_type = type,
++		.fl_icmp_code = code,
++	};
++	struct rtable *rt, *rt2;
++	int err;
++
++	security_skb_classify_flow(skb_in, &fl);
++	err = __ip_route_output_key(net, &rt, &fl);
++	if (err)
++		return ERR_PTR(err);
++
++	/* No need to clone since we're just using its address. */
++	rt2 = rt;
++
++	if (!fl.fl4_src)
++		fl.fl4_src = rt->rt_src;
++
++	err = xfrm_lookup(net, (struct dst_entry **)&rt, &fl, NULL, 0);
++	switch (err) {
++	case 0:
++		if (rt != rt2)
++			return rt;
++		break;
++	case -EPERM:
++		rt = NULL;
++		break;
++	default:
++		return ERR_PTR(err);
++	}
++
++	err = xfrm_decode_session_reverse(skb_in, &fl, AF_INET);
++	if (err)
++		goto relookup_failed;
++
++	if (inet_addr_type(net, fl.fl4_src) == RTN_LOCAL) {
++		err = __ip_route_output_key(net, &rt2, &fl);
++	} else {
++		struct flowi fl2 = {};
++		unsigned long orefdst;
++
++		fl2.fl4_dst = fl.fl4_src;
++		err = ip_route_output_key(net, &rt2, &fl2);
++		if (err)
++			goto relookup_failed;
++		/* Ugh! */
++		orefdst = skb_in->_skb_refdst; /* save old refdst */
++		err = ip_route_input(skb_in, fl.fl4_dst, fl.fl4_src,
++				     RT_TOS(tos), rt2->dst.dev);
++
++		dst_release(&rt2->dst);
++		rt2 = skb_rtable(skb_in);
++		skb_in->_skb_refdst = orefdst; /* restore old refdst */
++	}
++
++	if (err)
++		goto relookup_failed;
++
++	err = xfrm_lookup(net, (struct dst_entry **)&rt2, &fl, NULL,
++			  XFRM_LOOKUP_ICMP);
++	switch (err) {
++	case 0:
++		dst_release(&rt->dst);
++		rt = rt2;
++		break;
++	case -EPERM:
++		return ERR_PTR(err);
++	default:
++		if (!rt)
++			return ERR_PTR(err);
++		break;
++	}
++
++
++	return rt;
++
++relookup_failed:
++	if (rt)
++		return rt;
++	return ERR_PTR(err);
++}
+ 
+ /*
+  *	Send an ICMP message in response to a situation
+@@ -506,86 +598,11 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	ipc.opt = &icmp_param.replyopts;
+ 	ipc.tx_flags = 0;
+ 
+-	{
+-		struct flowi fl = {
+-			.fl4_dst = icmp_param.replyopts.srr ?
+-				   icmp_param.replyopts.faddr : iph->saddr,
+-			.fl4_src = saddr,
+-			.fl4_tos = RT_TOS(tos),
+-			.proto = IPPROTO_ICMP,
+-			.fl_icmp_type = type,
+-			.fl_icmp_code = code,
+-		};
+-		int err;
+-		struct rtable *rt2;
+-
+-		security_skb_classify_flow(skb_in, &fl);
+-		if (__ip_route_output_key(net, &rt, &fl))
+-			goto out_unlock;
+-
+-		/* No need to clone since we're just using its address. */
+-		rt2 = rt;
+-
+-		if (!fl.nl_u.ip4_u.saddr)
+-			fl.nl_u.ip4_u.saddr = rt->rt_src;
+-
+-		err = xfrm_lookup(net, (struct dst_entry **)&rt, &fl, NULL, 0);
+-		switch (err) {
+-		case 0:
+-			if (rt != rt2)
+-				goto route_done;
+-			break;
+-		case -EPERM:
+-			rt = NULL;
+-			break;
+-		default:
+-			goto out_unlock;
+-		}
+-
+-		if (xfrm_decode_session_reverse(skb_in, &fl, AF_INET))
+-			goto relookup_failed;
+-
+-		if (inet_addr_type(net, fl.fl4_src) == RTN_LOCAL)
+-			err = __ip_route_output_key(net, &rt2, &fl);
+-		else {
+-			struct flowi fl2 = {};
+-			unsigned long orefdst;
+-
+-			fl2.fl4_dst = fl.fl4_src;
+-			if (ip_route_output_key(net, &rt2, &fl2))
+-				goto relookup_failed;
+-
+-			/* Ugh! */
+-			orefdst = skb_in->_skb_refdst; /* save old refdst */
+-			err = ip_route_input(skb_in, fl.fl4_dst, fl.fl4_src,
+-					     RT_TOS(tos), rt2->dst.dev);
+-
+-			dst_release(&rt2->dst);
+-			rt2 = skb_rtable(skb_in);
+-			skb_in->_skb_refdst = orefdst; /* restore old refdst */
+-		}
+-
+-		if (err)
+-			goto relookup_failed;
+-
+-		err = xfrm_lookup(net, (struct dst_entry **)&rt2, &fl, NULL,
+-				  XFRM_LOOKUP_ICMP);
+-		switch (err) {
+-		case 0:
+-			dst_release(&rt->dst);
+-			rt = rt2;
+-			break;
+-		case -EPERM:
+-			goto ende;
+-		default:
+-relookup_failed:
+-			if (!rt)
+-				goto out_unlock;
+-			break;
+-		}
+-	}
++	rt = icmp_route_lookup(net, skb_in, iph, saddr, tos,
++			       type, code, &icmp_param);
++	if (IS_ERR(rt))
++		goto out_unlock;
+ 
+-route_done:
+ 	if (!icmpv4_xrlim_allow(net, rt, type, code))
+ 		goto ende;
+ 
+-- 
+1.7.4.1
 
-I'm fairly certain that the problem is in skb_segment().  It's not the
-most tolerant of skbs with frag_lists that do not line up with the
-requested mss.  Depending on how the original skb is laid out,
-sometimes this will trigger a BUG_ON and sometimes it creates new
-frag_lists.  Since there are no further checks after GSO, the skb with
-a frag_list will get passed to the driver, even if it is not
-supported.
-
-I believe that not much has changed in this regard between 2.6.32 and net-next.
-
-> I did wonder if perhaps we should just ignore the field, since something
-> higher up the stack walked the list and called start_xmit repeatedly,
-> but if that's the case I can't see where...
-
-That will happen for GSO but those packets shouldn't have a frag_list
-if the driver doesn't support it.
