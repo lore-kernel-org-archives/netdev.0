@@ -1,144 +1,96 @@
-From: Stuart Menefy <stuart.menefy@st.com>
-Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
-Date: Tue, 1 Mar 2011 15:20:03 +0000
-Message-ID: <4D6D0EA3.9000504@st.com>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <1298369864-24429-2-git-send-email-peppe.cavallaro@st.com> <201102241820.55873.arnd@arndb.de>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] benet: use GFP_KERNEL allocations when
+ possible
+Date: Tue, 01 Mar 2011 16:48:12 +0100
+Message-ID: <1298994492.3284.112.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev <netdev@vger.kernel.org>
+To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog109.obsmtp.com ([207.126.144.127]:35144 "EHLO
-	eu1sys200aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756694Ab1CAPqS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 10:46:18 -0500
-In-Reply-To: <201102241820.55873.arnd@arndb.de>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47820 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756774Ab1CAPtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 10:49:11 -0500
+Received: by fxm17 with SMTP id 17so4931008fxm.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 07:49:10 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Arnd
+Extend be_alloc_pages() with a gfp parameter, so that we use GFP_KERNEL
+allocations instead of GFP_ATOMIC when not running in softirq context.
 
-Thanks for the comments.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ drivers/net/benet/be_main.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-On 24/02/11 17:20, Arnd Bergmann wrote:
-> On Tuesday 22 February 2011, Peppe CAVALLARO wrote:
->> From: Stuart Menefy <stuart.menefy@st.com>
->>
->> Many devices targeted at the embedded market provide a number of
->> generic timers which are capable of generating interrupts at a
->> requested rate. These can then be used in the implementation of drivers
->> for other peripherals which require a timer interrupt, without having
->> to provide an additional timer as part of that peripheral.
->>
->> A code provides a simple abstraction layer which allows a timer to be
->> registered, and for a driver to request a timer.
->>
->> Currently this doesn't provide any of the additional information, such
->> as precision or position in clock framework which might be required
->> for a fully featured driver.
-> 
-> This code should probably be discussed on a more broader
-> platform than the netdev and linux-sh mailing lists,
-> as the scope is neither sh nor network specific.
-> 
-> You should at least add linux-kernel@vger.kernel.org, possibly
-> also linux-arch@vger.kernel.org.
-> 
-> Further, John and Thomas are responsible for the timekeeping
-> infrastructure, and they are probably interested in this
-> as well.
-> 
-> Why is this code useful to you? In the scenarios I've seen, the
-> board can always assign a timer to a specific device in a fixed
-> way that can be describe in a board file or device tree.
+diff --git a/drivers/net/benet/be_main.c b/drivers/net/benet/be_main.c
+index 0bdccb1..ef66dc6 100644
+--- a/drivers/net/benet/be_main.c
++++ b/drivers/net/benet/be_main.c
+@@ -1169,20 +1169,20 @@ static inline void be_rx_compl_reset(struct be_eth_rx_compl *rxcp)
+ 	rxcp->dw[offsetof(struct amap_eth_rx_compl, valid) / 32] = 0;
+ }
+ 
+-static inline struct page *be_alloc_pages(u32 size)
++static inline struct page *be_alloc_pages(u32 size, gfp_t gfp)
+ {
+-	gfp_t alloc_flags = GFP_ATOMIC;
+ 	u32 order = get_order(size);
++
+ 	if (order > 0)
+-		alloc_flags |= __GFP_COMP;
+-	return  alloc_pages(alloc_flags, order);
++		gfp |= __GFP_COMP;
++	return  alloc_pages(gfp, order);
+ }
+ 
+ /*
+  * Allocate a page, split it to fragments of size rx_frag_size and post as
+  * receive buffers to BE
+  */
+-static void be_post_rx_frags(struct be_rx_obj *rxo)
++static void be_post_rx_frags(struct be_rx_obj *rxo, gfp_t gfp)
+ {
+ 	struct be_adapter *adapter = rxo->adapter;
+ 	struct be_rx_page_info *page_info_tbl = rxo->page_info_tbl;
+@@ -1196,7 +1196,7 @@ static void be_post_rx_frags(struct be_rx_obj *rxo)
+ 	page_info = &rxo->page_info_tbl[rxq->head];
+ 	for (posted = 0; posted < MAX_RX_POST && !page_info->page; posted++) {
+ 		if (!pagep) {
+-			pagep = be_alloc_pages(adapter->big_page_size);
++			pagep = be_alloc_pages(adapter->big_page_size, gfp);
+ 			if (unlikely(!pagep)) {
+ 				rxo->stats.rx_post_fail++;
+ 				break;
+@@ -1753,7 +1753,7 @@ static int be_poll_rx(struct napi_struct *napi, int budget)
+ 
+ 	/* Refill the queue */
+ 	if (atomic_read(&rxo->q.used) < RX_FRAGS_REFILL_WM)
+-		be_post_rx_frags(rxo);
++		be_post_rx_frags(rxo, GFP_ATOMIC);
+ 
+ 	/* All consumed */
+ 	if (work_done < budget) {
+@@ -1890,7 +1890,7 @@ static void be_worker(struct work_struct *work)
+ 
+ 		if (rxo->rx_post_starved) {
+ 			rxo->rx_post_starved = false;
+-			be_post_rx_frags(rxo);
++			be_post_rx_frags(rxo, GFP_KERNEL);
+ 		}
+ 	}
+ 	if (!adapter->ue_detected && !lancer_chip(adapter))
+@@ -2138,7 +2138,7 @@ static int be_open(struct net_device *netdev)
+ 	u16 link_speed;
+ 
+ 	for_all_rx_queues(adapter, rxo, i) {
+-		be_post_rx_frags(rxo);
++		be_post_rx_frags(rxo, GFP_KERNEL);
+ 		napi_enable(&rxo->rx_eq.napi);
+ 	}
+ 	napi_enable(&tx_eq->napi);
 
-What we were trying to do was separate the code which actually manipulates
-the timer hardware from the code which wants that timer service. In this
-case it was a network device driver which is used on multiple SoC devices,
-while the timer hardware tends to differ from device to device.
 
-The other user of this code which we have is an OProfile driver, which
-with this change can now be independent of the hardware it is running on,
-while the previous version manipulated the timer hardware directly.
-
-> Also, what is the difference between this and clkdev?
-
-clkdev can be used to find a struct clk, which is fine if you just want to
-read the time. In this instance we want to get interrupts from the timer
-hardware, which isn't supported by the clk infrastructure.
-
-If anything this duplicates clockevents. The main reason for not using
-clockevents was that nobody else does! Currently clockevents are
-used strictly for time keeping within the kernel, and most architectures
-only register those which are intended to be used for this purpose.
-We felt a bit nervous about adding code to register all the device's timers
-as clockevents, and having the network device driver pick up one of those
-for its own use.
-
->> Signed-off-by: Stuart Menefy <stuart.menefy@st.com>
->> Hacked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->> ---
->>  drivers/clocksource/Makefile       |    1 +
->>  drivers/clocksource/generictimer.c |   60 ++++++++++++++++++++++++++++++++++++
->>  include/linux/generictimer.h       |   41 ++++++++++++++++++++++++
->>  3 files changed, 102 insertions(+), 0 deletions(-)
->>  create mode 100644 drivers/clocksource/generictimer.c
->>  create mode 100644 include/linux/generictimer.h
-> 
-> I don't think it fits that well into the drivers/clocksource directory,
-> because you don't actually register a struct clock_event_device or
-> struct clocksource.
-
-True. The intent was that this would be a third interface onto timer
-hardware, alongside clocksources and clockevents.
-
-> I don't know if this could also be merged with the clocksource infrastructure,
-> but your code currently doesn't do that.
-
-It would probably be clockevent rather than clocksource, but it could be if
-people felt that was a better way to go.
-
->> +struct generic_timer *generic_timer_claim(void (*handler) (void *), void *data)
->> +{
->> +	struct generic_timer *gt = NULL;
->> +
->> +	if (!handler) {
->> +		pr_err("%s: invalid handler\n", __func__);
->> +		return NULL;
->> +	}
->> +
->> +	mutex_lock(&gt_mutex);
->> +	if (!list_empty(&gt_list)) {
->> +		struct list_head *list = gt_list.next;
->> +		list_del(list);
->> +		gt = container_of(list, struct generic_timer, list);
->> +	}
->> +	mutex_unlock(&gt_mutex);
->> +
->> +	if (!gt)
->> +		return NULL;
->> +
->> +	/* Prepare the new handler */
->> +	gt->priv_handler = handler;
->> +	gt->data = data;
->> +
->> +	return gt;
->> +}
-> 
-> This does not seem very generic. You put timers into the list and take
-> them out again, but don't have any way to deal with timers that match
-> specific purposes. It obviously works for your specific use case where
-> you register exactly one timer, and use that in exactly one driver.
-> 
-> If more drivers were converted to generic_timer, which is obviously
-> the intention, then you might have a situation with very different
-> timers (fixed/variable tick, high/low frequencies, accurate/inaccurate),
-> or you might have fewer timers than users.
-
-Agreed, this was a first 'keep it simple' pass, maybe its too simple.
