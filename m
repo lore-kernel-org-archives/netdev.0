@@ -1,36 +1,68 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: SO_REUSEPORT - can it be done in kernel?
-Date: Tue, 1 Mar 2011 20:19:51 +0800
-Message-ID: <20110301121951.GA7267@gondor.apana.org.au>
-References: <1298910174.2941.585.camel@edumazet-laptop> <20110228163742.GH9763@canuck.infradead.org> <1298912869.2941.687.camel@edumazet-laptop> <20110301101955.GI9763@canuck.infradead.org> <1298975602.3284.13.camel@edumazet-laptop> <20110301110708.GJ9763@canuck.infradead.org> <1298977984.3284.15.camel@edumazet-laptop> <20110301112759.GK9763@canuck.infradead.org> <1298979909.3284.28.camel@edumazet-laptop> <20110301121829.GM9763@canuck.infradead.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [GIT/PATCH v3] xen network backend driver
+Date: Tue, 01 Mar 2011 12:28:46 +0000
+Message-ID: <1298982526.3437.5.camel@localhost>
+References: <1298914061.5034.996.camel@zakaz.uk.xensource.com>
+	 <1298919198.2569.14.camel@bwh-desktop>
+	 <1298974009.5034.2029.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	therbert@google.com, wsommerfeld@google.com,
-	daniel.baluta@gmail.com, netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	xen-devel <xen-devel@lists.xensource.com>,
+	Jeremy Fitzhardinge <jeremy@goop.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: Ian Campbell <Ian.Campbell@eu.citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:39683 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278Ab1CAMUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 07:20:03 -0500
-Content-Disposition: inline
-In-Reply-To: <20110301121829.GM9763@canuck.infradead.org>
+Received: from mail.solarflare.com ([216.237.3.220]:43353 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753181Ab1CAM2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 07:28:53 -0500
+In-Reply-To: <1298974009.5034.2029.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2011 at 07:18:29AM -0500, Thomas Graf wrote:
->
+On Tue, 2011-03-01 at 10:06 +0000, Ian Campbell wrote:
+> On Mon, 2011-02-28 at 18:53 +0000, Ben Hutchings wrote:
+> > On Mon, 2011-02-28 at 17:27 +0000, Ian Campbell wrote:
 > 
-> ... makes it use CPU 5 for rxq2 and the qps goes up from 250kqps to 270kqps
+> > This should be defined as unsigned long (ideally it would be u64, but
+> > that can't be updated atomically on 32-bit systems).
+> [...]
+> > Don't update last_rx; it's only needed on slave devices of a bond, and
+> > the bonding driver takes care of it now.
+> 
+> I made these two changes.
+> 
+> > [...]
+> > > +static int xenvif_change_mtu(struct net_device *dev, int mtu)
+> > > +{
+> > > +	struct xenvif *vif = netdev_priv(dev);
+> > > +	int max = vif->can_sg ? 65535 - ETH_HLEN : ETH_DATA_LEN;
+> > > +	if (mtu > max)
+> > > +		return -EINVAL;
+> > > +	dev->mtu = mtu;
+> > > +	return 0;
+> > > +}
+> > [...]
+> > 
+> > Since any VLAN tag must be inserted inline, shouldn't the MTU limit be
+> > 65535 - VLAN_ETH_HLEN?
+> 
+> In that case shouldn't the other case also be ETH_FRAME_LEN -
+> VLAN_ETH_HLEN?
+[...]
 
-I think the increase here comes from the larger number of packets
-in flight more than anything.
+IEEE 802.3, in its infinite wisdom, says that the maximum frame length
+is 1514, except that when an 802.1q tag is present it is 1518.  So the
+MTU for standard Ethernet remains 1500, regardless of the use of VLANs.
 
-The bottleneck is still the TX queue (both software and hardware).
+Ben.
 
-Cheers,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
