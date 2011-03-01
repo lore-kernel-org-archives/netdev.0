@@ -1,49 +1,79 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next-2.6 8/8] sfc: Bump version to 3.1
-Date: Tue, 01 Mar 2011 01:23:49 +0000
-Message-ID: <1298942629.3069.187.camel@localhost>
-References: <1298942169.3069.179.camel@localhost>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's
+	source MAC
+Date: Mon, 28 Feb 2011 21:35:25 -0500
+Message-ID: <20110301023525.GK11864@gospo.rdu.redhat.com>
+References: <1298668408-14849-1-git-send-email-andy@greyhouse.net> <4D68276B.90104@gmail.com> <20110225222455.GI11864@gospo.rdu.redhat.com> <4D683653.4050409@gmail.com> <20110228163255.GJ11864@gospo.rdu.redhat.com> <4D6C1764.1040008@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, linux-net-drivers@solarflare.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.hengli.com.au>,
+	Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jpirko@redhat.com>
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:12169 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754634Ab1CABX7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 20:23:59 -0500
-In-Reply-To: <1298942169.3069.179.camel@localhost>
+Received: from mx1.redhat.com ([209.132.183.28]:1829 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755495Ab1CACfh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Feb 2011 21:35:37 -0500
+Content-Disposition: inline
+In-Reply-To: <4D6C1764.1040008@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-All features originally planned for version 3.1 (and some that
-weren't) have been implemented.
+On Mon, Feb 28, 2011 at 10:45:08PM +0100, Nicolas de Peslo=FCan wrote:
+> Le 28/02/2011 17:32, Andy Gospodarek a =E9crit :
+>> On Sat, Feb 26, 2011 at 12:08:03AM +0100, Nicolas de Peslo=FCan wrot=
+e:
+>>> Le 25/02/2011 23:24, Andy Gospodarek a =E9crit :
+>> [...]
+>>>>
+>>>> I confirmed your suspicion, this breaks ARP monitoring.  I would s=
+till
+>>>> welcome other opinions though as I think it would be nice to fix t=
+his as
+>>>> low as possible.
+>>>
+>>> Why do you want to fix it earlier that in ndisc_recv_ns drop? Your
+>>> original idea of silently dropping the frame there seems perfect to=
+ me.
+>>>
+>>
+>> Maybe it's just me, but I cannot understand why we want a bunch of e=
+xtra
+>> packets floating up into the stack when they may only create issues =
+for
+>> the recipients of these duplicate frames.
+>>
+>> Clearly my original patch needs to be refined so ARP monitoring stil=
+l
+>> works, but I would rather fix the issue there than in a higher layer=
+=2E
+>
+> Jay explained that the current implementation should already trap tho=
+se=20
+> frames, on inactive slaves, in modes where inactive slaves exist. I a=
+gree=20
+> with him.
+>
+> What mode are you seeing this problem in? If the current "should drop=
+"=20
+> logic is leaking, then yes, we should fix it. But we currently don't =
+see=20
+> where it is leaking.
+>
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/sfc/net_driver.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Use round-robin.  To reproduce just take the interface down and bring i=
+t
+back up.  You should see the messages right away.
 
-diff --git a/drivers/net/sfc/net_driver.h b/drivers/net/sfc/net_driver.h
-index 9ea6cc2..215d5c5 100644
---- a/drivers/net/sfc/net_driver.h
-+++ b/drivers/net/sfc/net_driver.h
-@@ -41,7 +41,7 @@
-  *
-  **************************************************************************/
- 
--#define EFX_DRIVER_VERSION	"3.0"
-+#define EFX_DRIVER_VERSION	"3.1"
- 
- #ifdef EFX_ENABLE_DEBUG
- #define EFX_BUG_ON_PARANOID(x) BUG_ON(x)
--- 
-1.5.4
-
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+I've been doing some more testing on a new patch and should have
+something ready tomorrow.  My latest patch actually replaces the final
+'return 0' with a call to a function that will return true if the sende=
+r
+was the device that received it.  This will hopefully prevent some of
+the failures with the first patch I posted.  I'll know a bit more
+tomorrow if this approach seems reasonable.
 
