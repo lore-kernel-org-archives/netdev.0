@@ -1,136 +1,65 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [ethtool PATCH 2/2] Add RX packet classification interface
-Date: Tue, 01 Mar 2011 00:35:12 +0000
-Message-ID: <1298939712.2569.43.camel@bwh-desktop>
-References: <20110211010806.23554.98333.stgit@gitlad.jf.intel.com>
-	 <20110211011838.23554.3735.stgit@gitlad.jf.intel.com>
-	 <1298302841.2608.35.camel@bwh-desktop>  <4D642222.6050202@intel.com>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Tue, 1 Mar 2011 01:46:51 +0100 (CET)
+Message-ID: <alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com> <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se> <1298793252.8726.45.camel@edumazet-laptop> <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+ <20110227125540.40754c5y78j9u2m8@hayate.sektori.org> <AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com> <cbb9e1113901f1a324359b6ed3f1a611@localhost> <AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com>
+ <AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Santwona Behera <santwona.behera@sun.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Bill Sommerfeld <wsommerfeld@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Albert Cahalan <acahalan@gmail.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: John Heffner <johnwheffner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:8727 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753620Ab1CAAfP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 19:35:15 -0500
-In-Reply-To: <4D642222.6050202@intel.com>
+Received: from swm.pp.se ([212.247.200.143]:47374 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753228Ab1CAAqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Feb 2011 19:46:53 -0500
+In-Reply-To: <AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-02-22 at 12:52 -0800, Alexander Duyck wrote:
-[...]
-> >> @@ -408,6 +425,14 @@ static int msglvl_changed;
-> >>   static u32 msglvl_wanted = 0;
-> >>   static u32 msglvl_mask = 0;
-> >>
-> >> +static int rx_rings_get = 0;
-> >> +static int rx_class_rule_get = -1;
-> >> +static int rx_class_rule_getall = 0;
-> >> +static int rx_class_rule_del = -1;
-> >> +static int rx_class_rule_added = 0;
-> >> +static struct ethtool_rx_flow_spec rx_rule_fs;
-> >> +static u8 rxclass_loc_valid = 0;
-> >> +
-> >>   static enum {
-> >>        ONLINE=0,
-> >>        OFFLINE,
-> > [...]
-> >> @@ -945,6 +974,23 @@ static void parse_cmdline(int argc, char **argp)
-> >>                                                rxflow_str_to_type(argp[i]);
-> >>                                        if (!rx_fhash_get)
-> >>                                                show_usage(1);
-> >> +                             } else if (!strcmp(argp[i], "rx-rings")) {
-> >> +                                     i += 1;
-> >> +                                     rx_rings_get = 1;
-> >
-> > I'm not convinced of the value of a separate rx-rings option/keyword.
-> > However it's probably worth displaying the number of rings/queues when
-> > showing other flow hashing and steering/filtering information (the -x
-> > option does this).
-> 
-> My thought was that it would be useful for determining the number of 
-> rings prior to adding a rule.  Especially if we have any kind of scripts 
-> running on top of ethtool so that we can avoid rules that will fail due 
-> to ring values being greater than the actual number of rings.  I might 
-> try looking into adding it to the display options for the filters.
+On Mon, 28 Feb 2011, John Heffner wrote:
 
-I think it would also be appropriate to add this to the output of the
--g/--show-ring option.
+> Right... while I generally agree that a fixed-length drop-tail queue 
+> isn't optimal, isn't this problem what the various AQM schemes try to 
+> solve?
 
-[...]
-> >>                                } else
-> >>                                        show_usage(1);
-> >>                                break;
-> >
-> > I don't think the same options (-n, -N) should be used both for flow
-> > hashing and n-tuple flow steering/filtering.  This command-line
-> > interface and the structure used in the ethtool API just seem to reflect
-> > the implementation in the niu driver.
-> >
-> > (In fact I would much prefer it if the -u and -U options could be used
-> > for both the rxnfc and rxntuple interfaces.  But I haven't thought about
-> > how the differences in functionality would be exposed to or hidden from
-> > the user.)
-> 
-> I was kind of thinking about merging the two interfaces too, but I was 
-> looking at it more from the perspective of moving away from ntuple more 
-> towards this newer interface.  My main motivation being that the filter 
-> display option is so badly broken for ntuple that it would be easier to 
-> make ntuple a subset of the flow classifier instead of the other way around.
-> 
-> What would you think of using the "flow-type" keyword to indicate legacy 
-> ntuple support, and then adding something like "class-rule-add", and 
-> "class-rule-del" to add support for the network flow classifier calls?
+I am not an expert on exactly how Linux does this, but for Cisco and for 
+instance ATM interfaces, there are two stages of queuing. One is the 
+"hardware queue", which is a FIFO queue going into the ATM framer. If one 
+wants low CPU usage, then this needs to be high so multiple packets can be 
+put there per interrupt. Since AQM is working before this, it also means 
+the low-latency-queue will have a higher latency as it ends up behind 
+larger packets in the hw queue.
 
-I really don't want to introduce different syntax for functionality that
-is common between the two command sets.  The user should not have to
-know that driver A implements interface I and driver B implements
-interface J, except that since version 2.6.y driver A implements
-interface J too.
+So on what level does the AQM work in Linux? Does it work similarily, that 
+txqueuelen is a FIFO queue to the hardware that AQM feeds packets into?
 
-Surely it is possible to try one interface, then the other, when the
-requested filter can be implemented either way?
+Also, when one uses WRED the thinking is generally to keep the average 
+queue len down, but still allow for bursts by dynamically changing the 
+drop probability and where it happens. When there is no queuing, allow for 
+big queue (so it can fill up if needed), but if the queue is large for 
+several seconds, start to apply WRED to bring it down.
 
-[...]
-> >> +     for (i = 2; i<  opt_cnt;) {
-> >> +             if (!strcmp(optstr[i], "tos")) {
-> >> +                     tos = (u_int8_t)strtoul(optstr[i+1], (char **)NULL,
-> >> +                                              0);
-> >> +                     tm = 0xff;
-> >> +                     fsp->h_u.tcp_ip4_spec.tos = tos;
-> >> +
-> >> +                     i += 2;
-> >> +                     if (opt_cnt>  (i+1)) {
-> >> +                             if (!strcmp(optstr[i], "m")) {
-> >> +                                     tm = (u_int8_t)strtoul(optstr[i+1],
-> >> +                                                            (char **)NULL,
-> >> +                                                            16);
-> >> +                                     i += 2;
-> >> +                             }
-> >> +                     }
-> >> +                     fsp->m_u.tcp_ip4_spec.tos = tm;
-> >> +             } else if (!strcmp(optstr[i], "sip")) {
-> > [...]
-> >
-> > These keyword names must be made consistent with those used for the -U
-> > (--config-ntuple) option.
-> >
-> 
-> I will update the names to be consistent with the ntuple options, 
-> however I would prefer to keep the option of short-cutting the mask via 
-> the "m" value.  It will not be hard to make it support both since the 
-> pattern would be to test for either "m" or "%s-mask".
-[...]
+There is generally no need at all to constantly buffer > 50 ms of data, 
+then it's better to just start selectively dropping it. In time of 
+burstyness (perhaps when re-routing traffic) there is need to buffer 
+200-500ms of during perhaps 1-2 seconds before things stabilize.
 
-Agreed, that would be a useful shortcut.
+So one queuing scheme and one queue limit isn't going to solve this, there 
+need to be some dynamic built into the system for it to work well.
 
-Ben.
+AQM needs to feed into a relatively short hw queue and AQM needs to exist 
+on output also when the traffic is sourced from the box itself, no tonly 
+routed. It would also help if the default would be to use let's say 25% of 
+the bandwidth for smaller packets (< 200 bytes or so) which generally are 
+for interactive uses or are ACKs.
 
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Mikael Abrahamsson    email: swmike@swm.pp.se
