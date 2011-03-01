@@ -1,53 +1,87 @@
-From: Robert Love <robert.w.love@intel.com>
-Subject: Re: [question] fcoe: bonding support
-Date: Tue, 01 Mar 2011 16:05:11 -0800
-Message-ID: <1299024311.24189.88.camel@fritz>
-References: <20110228122957.GB4043@psychotron.brq.redhat.com>
+From: "Mr. henry" <henmoralendingfirm1@gmail.com>
+Subject: (unknown)
+Date: Wed, 2 Mar 2011 01:48:11 +0200 (EET)
+Message-ID: <33817.41.204.224.12.1299023291.squirrel@89.238.215.26>
+Reply-To: henmoralendingfirm@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:58188 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751396Ab1CBAFM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 19:05:12 -0500
-In-Reply-To: <20110228122957.GB4043@psychotron.brq.redhat.com>
+Received: from mail.vilaumitel.ro ([89.238.215.26]:36090 "EHLO
+	mail.vilaumitel.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956Ab1CBAJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 19:09:20 -0500
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-02-28 at 04:29 -0800, Jiri Pirko wrote:
-> Hi Robert.
-> 
-Hi Jirka,
+Van sz=FCks=E9ge a hitel b=E1rmilyen c=E9lra? Van egy p=E9nz=FCgyi prob=
+l=E9ma? Nem
+sz=FCks=E9g van a p=E9nz=FCgyi megold=E1s? Mr. Henrik
+ hitelek a megold=E1s toall a p=E9nz=FCgyi probl=E9m=E1kat, mi hitelek =
+k=F6nnyen,
+olcs=F3, =E9s gyors. =CDrjon nek=FCnk ma, hogy a k=F6lcs=F6nt, amire v=E1=
+gytok, akkor
+int=E9zkedik minden olyan k=F6lcs=F6n, hogy megfeleljen a k=F6lts=E9gve=
+t=E9s mind=F6ssze
+3%-os kamat. Ha
+=E9rdekli, l=E9pjen vel=FCnk kapcsolatba immediately.Optional Hitel A v=
+=E9delem
+lehet&#337;v=E9 teszi,
+hogy megfeleljen a hitelt=F6rleszt=E9s, ha nem tud dolgozni, betegs=E9g=
+ miatt,
+baleset vagy
+munkan=E9lk=FClis=E9g. Csak akkor vegye ki az =E9rt=E9kes biztos=EDt=E1=
+st, ha alkalmazni
+az =D6n k=F6lcs=F6nt,
+eml=E9kszem, hogy elmondja nek=FCnk, ha azt szeretn=E9, hogy
+henmoralendingfirm@gmail.com
 
-   I think the other community members have probably answered your
-questions sufficiently, but since you addressed me directly I figured I
-should reply. Let me know if you need any further assistance. I'll also
-be happy to pick up your patch when it's done.
+* HITEL JELENTKEZ=C9SI LAP *
 
-//Rob
+* Teljes n=E9v ............*
 
-> I wonder what's the meaning of the following code in fcoe_interface_setup():
-> 
->         /* Do not support for bonding device */
->         if ((netdev->priv_flags & IFF_MASTER_ALB) ||
->             (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
->             (netdev->priv_flags & IFF_MASTER_8023AD)) {
->                 FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
->                 return -EOPNOTSUPP;
->         }
-> 
-> From this I cannot understand if bonding is not supported at all or
-> only alb and 8023ad modes are not supported (leaving aside completely
-> bogus checking for IFF_SLAVE_INACTIVE).
-> 
-> How about to check IFF_BONDING only (in case bonding should not be
-> supported at all)
-> 
-> Thanks.
-> 
-> Jirka
+* Otthoni c=EDm ....................... ..*
 
+* Sz=FClet=E9si d=E1tum ......................*
+
+* Telefonsz=E1m ...................*
+
+* MOBIL sz=E1m, ha ..............*
+
+* HITEL sz=FCks=E9ges mennyis=E9g .................*
+
+* FAX .................*
+
+* =C1llampolg=E1rs=E1g ..................*
+
+* ORSZ=C1G ........................*
+
+* SZAKMA ....................*
+
+* SEX ..................................*
+
+* F=C9RFI .............................*
+
+* FEMAL .........................*
+
+* V=C1L=C1S HA ......................*
+
+* Legk=F6zelebbi hozz=E1tartoz=F3 .......................*
+
+* N=C9V .......................... ...*
+
+* Sz=FClet=E9si d=E1tum .....................*
+
+* C=C9LJA K=D6LCS=D6NZ=C9S .......................... .......*
+
+* A k=F6lcs=F6n id&#337;tartam=E1t ........................*
+
+* ID .......................*
+
+* A =DCdv=F6zlettel *
+
+
+* Mr. henry *
 
