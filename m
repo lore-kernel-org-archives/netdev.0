@@ -1,113 +1,237 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 0/7] Final BKL removal, take 2
-Date: Wed,  2 Mar 2011 00:13:04 +0100
-Message-ID: <1299021191-17961-1-git-send-email-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Andi Kleen <ak@linux.intel.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
+Subject: [PATCH 7/7] ipx: remove the BKL
+Date: Wed,  2 Mar 2011 00:13:11 +0100
+Message-ID: <1299021191-17961-8-git-send-email-arnd@arndb.de>
+References: <1299021191-17961-1-git-send-email-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
 	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	Greg Kroah-Hartman <gregkh@suse.de>,
-	linux-fsdevel@vger.kernel.org, linux-x25@vger.kernel.org,
-	Mauro Carvalho Chehab <mchehab@redhat.com>,
-	Max Vozeler <max@vozeler.com>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	netdev@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
-	Nick Piggin <npiggin@gmail.com>,
-	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
-	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.8]:53198 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757016Ab1CAXNa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 18:13:30 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1299021191-17961-1-git-send-email-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is the set of patches that remain from
-my previous submission one month ago. I've
-dropped the ones that have either gone into
-linux-next or got a sufficient number of
-Acked-by:s so I put them into my own tree.
+This replaces all instances of lock_kernel in the
+IPX code with lock_sock. As far as I can tell, this
+is safe to do, because there is no global state
+that needs to be locked in IPX, and the code does
+not recursively take the lock or sleep indefinitely
+while holding it.
 
-I've updated the usbip, hpfs, ufs and appletalk
-patches according to the feedback I got.
+Compile-tested only.
 
-If possible, I'd like the three networking patches
-to go through the net-next tree, and the two
-staging patches through the staging tree. I'll
-add the other ones to my own series if I hear
-no objections.
-
-	Arnd
-
-Arnd Bergmann (7):
-  staging/usbip: convert to kthread
-  staging/cx25721: serialize access to devlist
-  hpfs: remove the BKL
-  ufs: remove the BKL
-  x25: remove the BKL
-  appletalk: remove the BKL
-  ipx: remove the BKL
-
- drivers/net/appletalk/Kconfig           |    1 -
- drivers/staging/cx25821/Kconfig         |    1 -
- drivers/staging/cx25821/cx25821-alsa.c  |    2 +
- drivers/staging/cx25821/cx25821-core.c  |   16 ++---
- drivers/staging/cx25821/cx25821-video.c |    9 +--
- drivers/staging/cx25821/cx25821.h       |    3 +-
- drivers/staging/usbip/Kconfig           |    2 +-
- drivers/staging/usbip/stub.h            |    4 +-
- drivers/staging/usbip/stub_dev.c        |   12 ++--
- drivers/staging/usbip/stub_rx.c         |   13 ++---
- drivers/staging/usbip/stub_tx.c         |   17 +++---
- drivers/staging/usbip/usbip_common.c    |  105 -------------------------------
- drivers/staging/usbip/usbip_common.h    |   20 +-----
- drivers/staging/usbip/usbip_event.c     |   38 ++++-------
- drivers/staging/usbip/vhci.h            |    4 +-
- drivers/staging/usbip/vhci_hcd.c        |   10 ++-
- drivers/staging/usbip/vhci_rx.c         |   16 ++---
- drivers/staging/usbip/vhci_sysfs.c      |    9 +--
- drivers/staging/usbip/vhci_tx.c         |   17 +++---
- fs/hpfs/Kconfig                         |    2 +-
- fs/hpfs/dir.c                           |   23 +++----
- fs/hpfs/file.c                          |    9 +--
- fs/hpfs/hpfs_fn.h                       |   22 +++++++
- fs/hpfs/inode.c                         |    9 +--
- fs/hpfs/namei.c                         |   49 +++++++-------
- fs/hpfs/super.c                         |   23 +++----
- fs/ufs/Kconfig                          |    1 -
- fs/ufs/inode.c                          |   78 ++++++-----------------
- fs/ufs/namei.c                          |   35 +++++-----
- fs/ufs/super.c                          |   64 +++++++++++--------
- fs/ufs/truncate.c                       |    5 +-
- fs/ufs/ufs.h                            |    6 ++-
- fs/ufs/util.c                           |    2 +-
- net/appletalk/ddp.c                     |   40 +++++-------
- net/ipx/Kconfig                         |    1 -
- net/ipx/af_ipx.c                        |   52 ++++++---------
- net/x25/Kconfig                         |    1 -
- net/x25/af_x25.c                        |   58 +++++------------
- net/x25/x25_out.c                       |    7 ++-
- 39 files changed, 296 insertions(+), 490 deletions(-)
-
-Cc: Andi Kleen <ak@linux.intel.com>
-Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: David Miller <davem@davemloft.net>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: Evgeniy Dushistov <dushistov@mail.ru>
-Cc: Greg Kroah-Hartman <gregkh@suse.de>
-Cc: linux-fsdevel@vger.kernel.org
-Cc: linux-x25@vger.kernel.org
-Cc: Mauro Carvalho Chehab <mchehab@redhat.com>
-Cc: Max Vozeler <max@vozeler.com>
-Cc: Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>
 Cc: netdev@vger.kernel.org
-Cc: Nick Bowler <nbowler@elliptictech.com>
-Cc: Nick Piggin <npiggin@gmail.com>
-Cc: Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>
-Cc: Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>
+---
+ net/ipx/Kconfig  |    1 -
+ net/ipx/af_ipx.c |   52 ++++++++++++++++++++--------------------------------
+ 2 files changed, 20 insertions(+), 33 deletions(-)
+
+diff --git a/net/ipx/Kconfig b/net/ipx/Kconfig
+index 02549cb..e9ad006 100644
+--- a/net/ipx/Kconfig
++++ b/net/ipx/Kconfig
+@@ -3,7 +3,6 @@
+ #
+ config IPX
+ 	tristate "The IPX protocol"
+-	depends on BKL # should be fixable
+ 	select LLC
+ 	---help---
+ 	  This is support for the Novell networking protocol, IPX, commonly
+diff --git a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+index da3d21c..2731b51 100644
+--- a/net/ipx/af_ipx.c
++++ b/net/ipx/af_ipx.c
+@@ -42,7 +42,6 @@
+ #include <linux/uio.h>
+ #include <linux/slab.h>
+ #include <linux/skbuff.h>
+-#include <linux/smp_lock.h>
+ #include <linux/socket.h>
+ #include <linux/sockios.h>
+ #include <linux/string.h>
+@@ -1299,7 +1298,7 @@ static int ipx_setsockopt(struct socket *sock, int level, int optname,
+ 	int opt;
+ 	int rc = -EINVAL;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (optlen != sizeof(int))
+ 		goto out;
+ 
+@@ -1314,7 +1313,7 @@ static int ipx_setsockopt(struct socket *sock, int level, int optname,
+ 	ipx_sk(sk)->type = opt;
+ 	rc = 0;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1326,7 +1325,7 @@ static int ipx_getsockopt(struct socket *sock, int level, int optname,
+ 	int len;
+ 	int rc = -ENOPROTOOPT;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (!(level == SOL_IPX && optname == IPX_TYPE))
+ 		goto out;
+ 
+@@ -1347,7 +1346,7 @@ static int ipx_getsockopt(struct socket *sock, int level, int optname,
+ 
+ 	rc = 0;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1396,7 +1395,7 @@ static int ipx_release(struct socket *sock)
+ 	if (!sk)
+ 		goto out;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (!sock_flag(sk, SOCK_DEAD))
+ 		sk->sk_state_change(sk);
+ 
+@@ -1404,7 +1403,7 @@ static int ipx_release(struct socket *sock)
+ 	sock->sk = NULL;
+ 	sk_refcnt_debug_release(sk);
+ 	ipx_destroy_socket(sk);
+-	unlock_kernel();
++	release_sock(sk);
+ out:
+ 	return 0;
+ }
+@@ -1530,11 +1529,12 @@ out:
+ 
+ static int ipx_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+ {
++	struct sock *sk = sock->sk;
+ 	int rc;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	rc = __ipx_bind(sock, uaddr, addr_len);
+-	unlock_kernel();
++	release_sock(sk);
+ 
+ 	return rc;
+ }
+@@ -1551,7 +1551,7 @@ static int ipx_connect(struct socket *sock, struct sockaddr *uaddr,
+ 	sk->sk_state	= TCP_CLOSE;
+ 	sock->state 	= SS_UNCONNECTED;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (addr_len != sizeof(*addr))
+ 		goto out;
+ 	addr = (struct sockaddr_ipx *)uaddr;
+@@ -1598,7 +1598,7 @@ static int ipx_connect(struct socket *sock, struct sockaddr *uaddr,
+ 		ipxrtr_put(rt);
+ 	rc = 0;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1614,7 +1614,7 @@ static int ipx_getname(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	*uaddr_len = sizeof(struct sockaddr_ipx);
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	if (peer) {
+ 		rc = -ENOTCONN;
+ 		if (sk->sk_state != TCP_ESTABLISHED)
+@@ -1649,19 +1649,7 @@ static int ipx_getname(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 	rc = 0;
+ out:
+-	unlock_kernel();
+-	return rc;
+-}
+-
+-static unsigned int ipx_datagram_poll(struct file *file, struct socket *sock,
+-			   poll_table *wait)
+-{
+-	int rc;
+-
+-	lock_kernel();
+-	rc = datagram_poll(file, sock, wait);
+-	unlock_kernel();
+-
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1736,7 +1724,7 @@ static int ipx_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	int rc = -EINVAL;
+ 	int flags = msg->msg_flags;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	/* Socket gets bound below anyway */
+ /*	if (sk->sk_zapped)
+ 		return -EIO; */	/* Socket not bound */
+@@ -1788,7 +1776,7 @@ static int ipx_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 	if (rc >= 0)
+ 		rc = len;
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1803,7 +1791,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 	struct sk_buff *skb;
+ 	int copied, rc;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	/* put the autobinding in */
+ 	if (!ipxs->port) {
+ 		struct sockaddr_ipx uaddr;
+@@ -1862,7 +1850,7 @@ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+ out_free:
+ 	skb_free_datagram(sk, skb);
+ out:
+-	unlock_kernel();
++	release_sock(sk);
+ 	return rc;
+ }
+ 
+@@ -1874,7 +1862,7 @@ static int ipx_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 	struct sock *sk = sock->sk;
+ 	void __user *argp = (void __user *)arg;
+ 
+-	lock_kernel();
++	lock_sock(sk);
+ 	switch (cmd) {
+ 	case TIOCOUTQ:
+ 		amount = sk->sk_sndbuf - sk_wmem_alloc_get(sk);
+@@ -1937,7 +1925,7 @@ static int ipx_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 		rc = -ENOIOCTLCMD;
+ 		break;
+ 	}
+-	unlock_kernel();
++	release_sock(sk);
+ 
+ 	return rc;
+ }
+@@ -1984,7 +1972,7 @@ static const struct proto_ops ipx_dgram_ops = {
+ 	.socketpair	= sock_no_socketpair,
+ 	.accept		= sock_no_accept,
+ 	.getname	= ipx_getname,
+-	.poll		= ipx_datagram_poll,
++	.poll		= datagram_poll,
+ 	.ioctl		= ipx_ioctl,
+ #ifdef CONFIG_COMPAT
+ 	.compat_ioctl	= ipx_compat_ioctl,
+-- 
+1.7.1
