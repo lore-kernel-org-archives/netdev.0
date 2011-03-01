@@ -1,263 +1,195 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [GIT/PATCH v3] xen network backend driver
-Date: Tue, 1 Mar 2011 13:38:44 +0000
-Message-ID: <1298986724.17907.135.camel@zakaz.uk.xensource.com>
-References: <1298914061.5034.996.camel@zakaz.uk.xensource.com>
-	 <1298919198.2569.14.camel@bwh-desktop>
-	 <1298974009.5034.2029.camel@zakaz.uk.xensource.com>
-	 <1298982526.3437.5.camel@localhost>
+From: Thomas Graf <tgraf@infradead.org>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Tue, 1 Mar 2011 08:50:53 -0500
+Message-ID: <20110301135053.GA6684@canuck.infradead.org>
+References: <20110228163742.GH9763@canuck.infradead.org>
+ <1298912869.2941.687.camel@edumazet-laptop>
+ <20110301101955.GI9763@canuck.infradead.org>
+ <1298975602.3284.13.camel@edumazet-laptop>
+ <20110301110708.GJ9763@canuck.infradead.org>
+ <1298977984.3284.15.camel@edumazet-laptop>
+ <20110301112759.GK9763@canuck.infradead.org>
+ <1298979909.3284.28.camel@edumazet-laptop>
+ <20110301121829.GM9763@canuck.infradead.org>
+ <20110301121951.GA7267@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:34991 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709Ab1CANis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 08:38:48 -0500
-In-Reply-To: <1298982526.3437.5.camel@localhost>
+Received: from bombadil.infradead.org ([18.85.46.34]:33425 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754051Ab1CANvA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 08:51:00 -0500
+Content-Disposition: inline
+In-Reply-To: <20110301121951.GA7267@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-03-01 at 12:28 +0000, Ben Hutchings wrote:
-> On Tue, 2011-03-01 at 10:06 +0000, Ian Campbell wrote:
-> > On Mon, 2011-02-28 at 18:53 +0000, Ben Hutchings wrote:
-> > > On Mon, 2011-02-28 at 17:27 +0000, Ian Campbell wrote:
+On Tue, Mar 01, 2011 at 08:19:51PM +0800, Herbert Xu wrote:
+> On Tue, Mar 01, 2011 at 07:18:29AM -0500, Thomas Graf wrote:
+> >
 > > 
-> > > This should be defined as unsigned long (ideally it would be u64, but
-> > > that can't be updated atomically on 32-bit systems).
-> > [...]
-> > > Don't update last_rx; it's only needed on slave devices of a bond, and
-> > > the bonding driver takes care of it now.
-> > 
-> > I made these two changes.
-> > 
-> > > [...]
-> > > > +static int xenvif_change_mtu(struct net_device *dev, int mtu)
-> > > > +{
-> > > > +	struct xenvif *vif = netdev_priv(dev);
-> > > > +	int max = vif->can_sg ? 65535 - ETH_HLEN : ETH_DATA_LEN;
-> > > > +	if (mtu > max)
-> > > > +		return -EINVAL;
-> > > > +	dev->mtu = mtu;
-> > > > +	return 0;
-> > > > +}
-> > > [...]
-> > > 
-> > > Since any VLAN tag must be inserted inline, shouldn't the MTU limit be
-> > > 65535 - VLAN_ETH_HLEN?
-> > 
-> > In that case shouldn't the other case also be ETH_FRAME_LEN -
-> > VLAN_ETH_HLEN?
-> [...]
+> > ... makes it use CPU 5 for rxq2 and the qps goes up from 250kqps to 270kqps
 > 
-> IEEE 802.3, in its infinite wisdom, says that the maximum frame length
-> is 1514, except that when an 802.1q tag is present it is 1518.  So the
-> MTU for standard Ethernet remains 1500, regardless of the use of VLANs.
+> I think the increase here comes from the larger number of packets
+> in flight more than anything.
+> 
+> The bottleneck is still the TX queue (both software and hardware).
 
-Super ;-)
+Disabled netfilter and reran test
 
-I've made that change too and repushed the branch with all 3 of your
-suggestions. The incremental patch is below.
+Now does ~316kqps (rx was split over 2 queues)
 
-The following changes since commit 2e820f58f7ad8eaca2f194ccdfea0de63e9c6d78:
-  Ian Campbell (1):
-        xen/irq: implement bind_interdomain_evtchn_to_irqhandler for backend drivers
+----------------------------------------------------------------------------------------------------------------------
+   PerfTop:   30608 irqs/sec  kernel:66.1%  exact:  0.0% [1000Hz cpu-clock-msecs],  (all, CPU: 1)
+----------------------------------------------------------------------------------------------------------------------
 
-are available in the git repository at:
+             samples  pcnt function                      DSO
+             _______ _____ _____________________________ ___________________________________________________________
 
-  git://xenbits.xen.org/people/ianc/linux-2.6.git upstream/dom0/backend/netback
+            19237.00  5.6% _raw_spin_unlock_irqrestore   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+            17170.00  5.0% get_rx_page_info              /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+            11411.00  3.3% be_poll_rx                    /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+            11320.00  3.3% isc_rwlock_lock               /usr/lib64/libisc.so.62.0.1                                
+            10669.00  3.1% __do_softirq                  /lib/modules/2.6.38-rc5+/build/vmlinux                     
+            10655.00  3.1% get_page_from_freelist        /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             9523.00  2.8% intel_idle                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             8677.00  2.5% __udp4_lib_lookup             /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             8379.00  2.4% sock_queue_rcv_skb            /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             8226.00  2.4% sk_run_filter                 /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6724.00  1.9% __netif_receive_skb           /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6553.00  1.9% __alloc_skb                   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6205.00  1.8% udp_queue_rcv_skb             /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6038.00  1.7% _raw_spin_lock                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5868.00  1.7% isc_rwlock_unlock             /usr/lib64/libisc.so.62.0.1                                
+             5696.00  1.6% dns_rbt_findnode              /usr/lib64/libdns.so.69.0.1                                
+             5647.00  1.6% read_tsc                      /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5633.00  1.6% getnstimeofday                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5448.00  1.6% kmem_cache_alloc_node_trace   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5272.00  1.5% finish_task_switch            /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             4719.00  1.4% sock_def_readable             /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             4002.00  1.2% is_swiotlb_buffer             /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             3914.00  1.1% memcpy                        /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             3717.00  1.1% isc_stats_increment           /usr/lib64/libisc.so.62.0.1                                
+             3706.00  1.1% __udp4_lib_rcv                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             3653.00  1.1% ip_rcv                        /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             3598.00  1.0% kmem_cache_alloc_node         /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             3407.00  1.0% ip_route_input_common         /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2683.00  0.8% be_post_rx_frags              /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             2666.00  0.8% __pthread_mutex_lock_internal /lib64/libpthread-2.12.so                                  
+             2331.00  0.7% __phys_addr                   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2230.00  0.6% __alloc_pages_nodemask        /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2023.00  0.6% dns_name_fullcompare          /usr/lib64/libdns.so.69.0.1                                
+             1972.00  0.6% packet_rcv                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1902.00  0.6% eth_type_trans                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1860.00  0.5% __pthread_mutex_unlock        /lib64/libpthread-2.12.so                                  
+             1804.00  0.5% fget_light                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1739.00  0.5% alloc_pages_current           /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1736.00  0.5% dns_rbtnodechain_init         /usr/lib64/libdns.so.69.0.1                            
 
-Bastian Blank (1):
-      xen: netback: Fix null-pointer access in netback_uevent
+----------------------------------------------------------------------------------------------------------------------
+   PerfTop:   29038 irqs/sec  kernel:48.0%  exact:  0.0% [1000Hz cpu-clock-msecs],  (all, CPU: 11)
+----------------------------------------------------------------------------------------------------------------------
 
-Christophe Saout (1):
-      xen: netback: use dev_name() instead of removed ->bus_id.
+             samples  pcnt function                      DSO
+             _______ _____ _____________________________ ___________________________________________________________
 
-Dongxiao Xu (5):
-      xen: netback: Move global/static variables into struct xen_netbk.
-      xen: netback: Introduce a new struct type page_ext.
-      xen: netback: Multiple tasklets support.
-      xen: netback: Use Kernel thread to replace the tasklet.
-      xen: netback: Set allocated memory to zero from vmalloc.
-
-Ian Campbell (61):
-      xen: netback: Initial import of linux-2.6.18-xen.hg netback driver.
-      xen: netback: first cut at porting to upstream and cleaning up
-      xen: netback: add ethtool stat to track copied skbs.
-      xen: netback: make queue length parameter writeable in sysfs
-      xen: netback: parent sysfs device should be set before registering.
-      xen: rename netbk module xen-netback.
-      xen: netback: remove unused xen_network_done code
-      xen: netback: factor disconnect from backend into new function.
-      xen: netback: wait for hotplug scripts to complete before signalling connected to frontend
-      xen: netback: Always pull through PKT_PROT_LEN bytes into the linear part of an skb.
-      xen: netback: Allow setting of large MTU before rings have connected.
-      xen: netback: correctly setup skb->ip_summed on receive
-      xen: netback: handle NET_SKBUFF_DATA_USES_OFFSET correctly
-      xen: netback: drop frag member from struct netbk_rx_meta
-      xen: netback: linearise SKBs as we copy them into guest memory on guest-RX.
-      xen: netback: drop more relics of flipping mode
-      xen: netback: check if foreign pages are actually netback-created foreign pages.
-      xen: netback: do not unleash netback threads until initialisation is complete
-      xen: netback: save interrupt state in add_to_net_schedule_list_tail
-      xen: netback: increase size of rx_meta array.
-      xen: netback: take net_schedule_list_lock when removing entry from net_schedule_list
-      xen: netback: Drop GSO SKBs which do not have csum_blank.
-      xen: netback: completely remove tx_queue_timer
-      Revert "xen: netback: Drop GSO SKBs which do not have csum_blank."
-      xen: netback: handle incoming GSO SKBs which are not CHECKSUM_PARTIAL
-      xen: netback: rationalise types used in count_skb_slots
-      xen: netback: refactor logic for moving to a new receive buffer.
-      xen: netback: refactor code to get next rx buffer into own function.
-      xen: netback: simplify use of netbk_add_frag_responses
-      xen: netback: cleanup coding style
-      xen: netback: drop private ?PRINTK macros in favour of pr_*
-      xen: netback: move under drivers/net/xen-netback/
-      xen: netback: remove queue_length module option
-      xen: netback: correct error return from ethtool hooks.
-      xen: netback: avoid leading _ in function parameter names.
-      xen: netback: drop unused debug interrupt handler.
-      xen: netif: properly namespace the Xen netif protocol header.
-      xen: netif: improve Kconfig help text for front- and backend drivers.
-      xen: netback: drop ethtool drvinfo callback
-      xen: netback: use xen_netbk prefix where appropriate
-      xen: netback: refactor to make all xen_netbk knowledge internal to netback.c
-      xen: netback: use xenvif_ prefix where appropriate
-      xen: netback: add reference from xenvif to xen_netbk
-      xen: netback: refactor to separate network device from worker pools
-      xen: netback: switch to kthread mode and drop tasklet mode
-      xen: netback: handle frames whose head crosses a page boundary
-      xen: netback: return correct values from start_xmit
-      xen: netback: remove useless memset to zero.
-      xen: netback: use register_netdev()
-      xen: netback: simplify unwinding netback_init's work on failure.
-      xen: netback: use core network carrier flag.
-      xen: netback: s/xenvif_queue_full/xenvif_rx_queue_full/
-      xen: netback: add xenvif_rx_schedulable
-      xen: netback: further separate xen_netbk and xenvif
-      xen: netback: use netdev_LEVEL instead of pr_LEVEL
-      xen: netback: drop rx_notify and notify_list array in favour of a normal list
-      xen: netback: Make dependency on PageForeign conditional
-      xen: netback: completely drop foreign page support
-      xen: netback: ethtool stats fields should be unsigned long
-      xen: netback: do not update last_rx on receive.
-      xen: netback: Allow headroom for VLAN header in SG MTU calculation.
-
-James Harper (1):
-      xen: netback: avoid null-pointer access in netback_uevent
-
-Jan Beulich (1):
-      xen: netback: unmap tx ring gref when mapping of rx ring gref failed
-
-Jeremy Fitzhardinge (21):
-      xen: netback: don't include xen/evtchn.h
-      xen: netback: use mod_timer
-      xen: netback: use NET_SKB_PAD rather than "16"
-      xen: netback: completely drop flip support
-      xen: netback: demacro MASK_PEND_IDX
-      xen: netback: convert PEND_RING_IDX into a proper typedef name
-      xen: netback: rename NR_PENDING_REQS to nr_pending_reqs()
-      xen: netback: pre-initialize list and spinlocks; use empty list to indicate not on list
-      xen: netback: remove CONFIG_XEN_NETDEV_PIPELINED_TRANSMITTER
-      xen: netback: make netif_get/put inlines
-      xen: netback: move code around
-      xen: netback: document PKT_PROT_LEN
-      xen: netback: convert to net_device_ops
-      xen: netback: reinstate missing code
-      xen: netback: remove debug noise
-      xen: netback: don't screw around with packet gso state
-      xen: netback: use dev_get/set_drvdata() inteface
-      xen: netback: include linux/sched.h for TASK_* definitions
-      xen: netback: use get_sset_count rather than obsolete get_stats_count
-      xen: netback: minor code formatting fixup
-      xen: netback: only initialize for PV domains
-
-Keir Fraser (1):
-      xen: netback: Fixes for delayed copy of tx network packets.
-
-Konrad Rzeszutek Wilk (1):
-      Fix compile warnings: ignoring return value of 'xenbus_register_backend' ..
-
-Paul Durrant (8):
-      xen: netback: Fix basic indentation issue
-      xen: netback: Add a new style of passing GSO packets to frontends.
-      xen: netback: Make frontend features distinct from netback feature flags.
-      xen: netback: Re-define PKT_PROT_LEN to be bigger.
-      xen: netback: Don't count packets we don't actually receive.
-      xen: netback: Remove the 500ms timeout to restart the netif queue.
-      xen: netback: Add a missing test to tx_work_todo.
-      xen: netback: Re-factor net_tx_action_dealloc() slightly.
-
-Steven Smith (2):
-      xen: netback: make sure that pg->mapping is never NULL for a page mapped from a foreign domain.
-      xen: netback: try to pull a minimum of 72 bytes into the skb data area
-
- drivers/net/Kconfig                 |   38 +-
- drivers/net/Makefile                |    1 +
- drivers/net/xen-netback/Makefile    |    3 +
- drivers/net/xen-netback/common.h    |  162 ++++
- drivers/net/xen-netback/interface.c |  424 +++++++++
- drivers/net/xen-netback/netback.c   | 1745 +++++++++++++++++++++++++++++++++++
- drivers/net/xen-netback/xenbus.c    |  490 ++++++++++
- drivers/net/xen-netfront.c          |   20 +-
- include/xen/interface/io/netif.h    |   80 +-
- 9 files changed, 2909 insertions(+), 54 deletions(-)
- create mode 100644 drivers/net/xen-netback/Makefile
- create mode 100644 drivers/net/xen-netback/common.h
- create mode 100644 drivers/net/xen-netback/interface.c
- create mode 100644 drivers/net/xen-netback/netback.c
- create mode 100644 drivers/net/xen-netback/xenbus.c
-
-Ian.
-
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index 21f4c0c..406fbef 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -99,7 +99,7 @@ struct xenvif {
- 	struct timer_list credit_timeout;
- 
- 	/* Statistics */
--	int rx_gso_checksum_fixup;
-+	unsigned long rx_gso_checksum_fixup;
- 
- 	/* Miscellaneous private stuff. */
- 	struct list_head schedule_list;
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 1614ba5..887e2ce 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/ethtool.h>
- #include <linux/rtnetlink.h>
-+#include <linux/if_vlan.h>
- 
- #include <xen/events.h>
- #include <asm/xen/hypercall.h>
-@@ -107,7 +108,6 @@ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
- void xenvif_receive_skb(struct xenvif *vif, struct sk_buff *skb)
- {
- 	netif_rx_ni(skb);
--	vif->dev->last_rx = jiffies;
- }
- 
- void xenvif_notify_tx_completion(struct xenvif *vif)
-@@ -157,7 +157,7 @@ static int xenvif_close(struct net_device *dev)
- static int xenvif_change_mtu(struct net_device *dev, int mtu)
- {
- 	struct xenvif *vif = netdev_priv(dev);
--	int max = vif->can_sg ? 65535 - ETH_HLEN : ETH_DATA_LEN;
-+	int max = vif->can_sg ? 65535 - VLAN_ETH_HLEN : ETH_DATA_LEN;
- 
- 	if (mtu > max)
- 		return -EINVAL;
+            12833.00  7.5% intel_idle                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+            10771.00  6.3% isc_rwlock_lock               /usr/lib64/libisc.so.62.0.1                                
+             8713.00  5.1% be_tx_compl_process           /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             6452.00  3.8% kfree                         /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5935.00  3.5% skb_release_data              /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5552.00  3.2% kmem_cache_free               /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             5292.00  3.1% isc_rwlock_unlock             /usr/lib64/libisc.so.62.0.1                                
+             4893.00  2.9% dns_rbt_findnode              /usr/lib64/libdns.so.69.0.1                                
+             4413.00  2.6% kfree_skb                     /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             3802.00  2.2% be_poll_tx_mcc                /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             3515.00  2.1% isc_stats_increment           /usr/lib64/libisc.so.62.0.1                                
+             3016.00  1.8% _raw_spin_unlock_irqrestore   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2202.00  1.3% __do_softirq                  /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2027.00  1.2% _raw_spin_lock                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1935.00  1.1% finish_task_switch            /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1906.00  1.1% __pthread_mutex_lock_internal /lib64/libpthread-2.12.so                                  
+             1837.00  1.1% dns_name_fullcompare          /usr/lib64/libdns.so.69.0.1                                
+             1702.00  1.0% dns_rbtnodechain_init         /usr/lib64/libdns.so.69.0.1                                
+             1561.00  0.9% fget_light                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1559.00  0.9% dns_name_getlabelsequence     /usr/lib64/libdns.so.69.0.1                                
+             1491.00  0.9% dns_name_equal                /usr/lib64/libdns.so.69.0.1                                
+             1464.00  0.9% __pthread_mutex_unlock        /lib64/libpthread-2.12.so                                  
+             1454.00  0.9% dns_acl_match                 /usr/lib64/libdns.so.69.0.1                                
+             1293.00  0.8% dns_zone_attach               /usr/lib64/libdns.so.69.0.1                                
+             1245.00  0.7% be_xmit                       /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             1159.00  0.7% dns_message_rendersection     /usr/lib64/libdns.so.69.0.1                                
+             1115.00  0.7% isc___mempool_get             /usr/lib64/libisc.so.62.0.1                                
+             1100.00  0.6% copy_user_generic_string      /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1030.00  0.6% dns_name_fromwire             /usr/lib64/libdns.so.69.0.1                                
+             1015.00  0.6% dns_name_hash                 /usr/lib64/libdns.so.69.0.1                                
+             1013.00  0.6% isc_radix_search              /usr/lib64/libisc.so.62.0.1                                
+              970.00  0.6% __ip_route_output_key         /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              917.00  0.5% fput                          /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              817.00  0.5% dev_queue_xmit                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              812.00  0.5% sk_run_filter                 /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              806.00  0.5% avc_has_perm_noaudit          /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              802.00  0.5% sock_wfree                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              793.00  0.5% dns_name_towire               /usr/lib64/libdns.so.69.0.1                                
+              754.00  0.4% sock_alloc_send_pskb          /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              752.00  0.4% dns_message_parse             /usr/lib64/libdns.so.69.0.1                                
+              749.00  0.4% dns_rdata_towire              /usr/lib64/libdns.so.69.0.1                                
+              728.00  0.4% dns_rdataset_init             /usr/lib64/libdns.so.69.0.1                                
+              709.00  0.4% isc___mempool_put             /usr/lib64/libisc.so.62.0.1                                
+              699.00  0.4% skb_release_head_state        /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              685.00  0.4% _raw_spin_lock_bh             /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              683.00  0.4% dns_name_concatenate          /usr/lib64/libdns.so.69.0.1                                
+              678.00  0.4% __ip_append_data              /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              673.00  0.4% tick_nohz_stop_sched_tick     /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              662.00  0.4% sys_sendmsg                   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+              654.00  0.4% dns_compress_findglobal       /usr/lib64/libdns.so.69.0.1                                
+              654.00  0.4% memcpy                        /lib64/libc-2.12.so                                        
+              637.00  0.4% dns_compress_invalidate       /usr/lib64/libdns.so.69.0.1                                
+              597.00  0.3% isc__buffer_init              /usr/lib64/libisc.so.62.0.1                                
+              595.00  0.3% dns_zone_detach               /usr/lib64/libdns.so.69.0.1                                
+WARNING: failed to keep up with mmap data.
+WARNING: failed to keep up with mmap data.
 
 
+----------------------------------------------------------------------------------------------------------------------
+   PerfTop:   29539 irqs/sec  kernel:47.0%  exact:  0.0% [1000Hz cpu-clock-msecs],  (all, CPU: 11)
+----------------------------------------------------------------------------------------------------------------------
+
+             samples  pcnt function                      DSO
+             _______ _____ _____________________________ ___________________________________________________________
+
+            14478.00  7.5% intel_idle                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+            12279.00  6.3% isc_rwlock_lock               /usr/lib64/libisc.so.62.0.1                                
+             9844.00  5.1% be_tx_compl_process           /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             7368.00  3.8% kfree                         /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6696.00  3.5% skb_release_data              /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6240.00  3.2% kmem_cache_free               /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             6034.00  3.1% isc_rwlock_unlock             /usr/lib64/libisc.so.62.0.1                                
+             5547.00  2.9% dns_rbt_findnode              /usr/lib64/libdns.so.69.0.1                                
+             5012.00  2.6% kfree_skb                     /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             4290.00  2.2% be_poll_tx_mcc                /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             4024.00  2.1% isc_stats_increment           /usr/lib64/libisc.so.62.0.1                                
+             3417.00  1.8% _raw_spin_unlock_irqrestore   /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2470.00  1.3% __do_softirq                  /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2312.00  1.2% _raw_spin_lock                /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2138.00  1.1% finish_task_switch            /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             2136.00  1.1% __pthread_mutex_lock_internal /lib64/libpthread-2.12.so                                  
+             2061.00  1.1% dns_name_fullcompare          /usr/lib64/libdns.so.69.0.1                                
+             1961.00  1.0% dns_rbtnodechain_init         /usr/lib64/libdns.so.69.0.1                                
+             1797.00  0.9% dns_name_getlabelsequence     /usr/lib64/libdns.so.69.0.1                                
+             1743.00  0.9% fget_light                    /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1723.00  0.9% dns_name_equal                /usr/lib64/libdns.so.69.0.1                                
+             1673.00  0.9% __pthread_mutex_unlock        /lib64/libpthread-2.12.so                                  
+             1671.00  0.9% dns_acl_match                 /usr/lib64/libdns.so.69.0.1                                
+             1488.00  0.8% dns_zone_attach               /usr/lib64/libdns.so.69.0.1                                
+             1428.00  0.7% be_xmit                       /lib/modules/2.6.38-rc5+/kernel/drivers/net/benet/be2net.ko
+             1369.00  0.7% dns_message_rendersection     /usr/lib64/libdns.so.69.0.1                                
+             1278.00  0.7% isc___mempool_get             /usr/lib64/libisc.so.62.0.1                                
+             1251.00  0.6% copy_user_generic_string      /lib/modules/2.6.38-rc5+/build/vmlinux                     
+             1193.00  0.6% dns_name_fromwire             /usr/lib64/libdns.so.69.0.1                                
+             1182.00  0.6% isc_radix_search              /usr/lib64/libisc.so.62.0.1                        
