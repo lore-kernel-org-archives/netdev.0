@@ -1,33 +1,51 @@
-From: "Oleg V. Ukhno" <olegu@yandex-team.ru>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy and
- source mac selection mode
-Date: Wed, 02 Mar 2011 01:38:54 +0300
-Message-ID: <4D6D757E.1040503@yandex-team.ru>
-References: <20110216191341.GA14920@yandex-team.ru> <14521.1298921393@death>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from archeopterix.yandex.ru ([93.158.136.52]:53989 "EHLO
-	archeopterix.yandex.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756460Ab1CAWi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 17:38:58 -0500
-In-Reply-To: <14521.1298921393@death>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] ipvs: fix dst_lock locking on dest update
+Date: Wed,  2 Mar 2011 07:59:35 +0900
+Message-ID: <1299020375-11362-2-git-send-email-horms@verge.net.au>
+References: <1299020375-11362-1-git-send-email-horms@verge.net.au>
+Cc: Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Simon Horman <horms@verge.net.au>
+To: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1299020375-11362-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Jay and David.
-I've made all corrections to patch suggested and reposted it as 
-http://patchwork.ozlabs.org/patch/84994/
-Hope everything is ok now and this is the last retry for this patch:)
+From: Julian Anastasov <ja@ssi.bg>
 
+	Fix dst_lock usage in __ip_vs_update_dest. We need
+_bh locking because destination is updated in user context.
+Can cause lockups on frequent destination updates.
+Problem reported by Simon Kirby. Bug was introduced
+in 2.6.37 from the "ipvs: changes for local real server"
+change.
 
-<cut to the end>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 22f7ad5..ba98e13 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -808,9 +808,9 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
+ 	dest->u_threshold = udest->u_threshold;
+ 	dest->l_threshold = udest->l_threshold;
+ 
+-	spin_lock(&dest->dst_lock);
++	spin_lock_bh(&dest->dst_lock);
+ 	ip_vs_dst_reset(dest);
+-	spin_unlock(&dest->dst_lock);
++	spin_unlock_bh(&dest->dst_lock);
+ 
+ 	if (add)
+ 		ip_vs_new_estimator(&dest->stats);
 -- 
-Best regards,
-Oleg Ukhno.
-Yandex LLC.
+1.7.2.3
 
