@@ -1,51 +1,44 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 4/4] bridge: implement slave management
- operations
-Date: Tue, 1 Mar 2011 07:19:14 +0100
-Message-ID: <20110301061913.GA2855@psychotron.redhat.com>
-References: <20110211152125.GA2763@psychotron.brq.redhat.com>
- <20110211152346.GD2763@psychotron.brq.redhat.com>
- <20110228141729.09c3b770@nehalam>
- <20110228144516.0174a9c8@nehalam>
+Subject: [patch net-next-2.6] bonding: remove skb_share_check in handle_frame
+Date: Tue, 1 Mar 2011 07:22:50 +0100
+Message-ID: <20110301062250.GB2855@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
-	fubar@us.ibm.com
-To: Stephen Hemminger <shemminger@vyatta.com>
+Cc: davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37612 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32076 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752148Ab1CAGTX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 01:19:23 -0500
+	id S1755208Ab1CAGWz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2011 01:22:55 -0500
 Content-Disposition: inline
-In-Reply-To: <20110228144516.0174a9c8@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Feb 28, 2011 at 11:45:16PM CET, shemminger@vyatta.com wrote:
->On Mon, 28 Feb 2011 14:17:29 -0800
->Stephen Hemminger <shemminger@linux-foundation.org> wrote:
->
->> On Fri, 11 Feb 2011 16:23:47 +0100
->> Jiri Pirko <jpirko@redhat.com> wrote:
->> 
->> > 
->> > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->> 
->
->Never mind, this is good. I was confusing slave with bridge initialization
->and netdevice ops with ethtool ops.
->
->Ethtool ops seems to be growing like weeds lately...
+No need to do share check here since call to netif_rx was removed and
+skb is passed back.
 
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
-This was replaced by:
-bridge: implement [add/del]_slave ops
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index f3e5d7f..e8c0f95 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1503,10 +1503,6 @@ static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+ 	if (unlikely(!slave))
+ 		return skb;
+ 
+-	skb = skb_share_check(skb, GFP_ATOMIC);
+-	if (unlikely(!skb))
+-		return NULL;
+-
+ 	bond_dev = ACCESS_ONCE(skb->dev->master);
+ 	if (unlikely(!bond_dev))
+ 		return skb;
+-- 
+1.7.3.4
 
-
-never intended to be in ethtool
->
->
->
->-- 
