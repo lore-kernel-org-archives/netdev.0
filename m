@@ -1,110 +1,75 @@
-From: Dimitris Michailidis <dm@chelsio.com>
-Subject: [PATCH] cxgb{3,4}*: improve Kconfig dependencies
-Date: Mon, 28 Feb 2011 19:34:15 -0800
-Message-ID: <1298950455-4497-1-git-send-email-dm@chelsio.com>
-Cc: linux-scsi@vger.kernel.org, JBeulich@novell.com,
-	Dimitris Michailidis <dm@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Albert Cahalan <acahalan@gmail.com>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Mon, 28 Feb 2011 23:11:13 -0500
+Message-ID: <AANLkTinFZu5AgfhO6PoA7C1NTGSfD8HH0KXq_o-mHEJF@mail.gmail.com>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
+	<alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
+	<1298793252.8726.45.camel@edumazet-laptop>
+	<AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+	<20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+	<1298837273.8726.128.camel@edumazet-laptop>
+	<20110228161115.GB2515@tuxdriver.com>
+	<1298911694.2941.639.camel@edumazet-laptop>
+	<20110228165501.GC2515@tuxdriver.com>
+	<AANLkTinj5szpStmA+fZ1xggdyTS+sd8Y9jXaYquDNEjs@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Mikael Abrahamsson <swmike@swm.pp.se>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: John Heffner <johnwheffner@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTinj5szpStmA+fZ1xggdyTS+sd8Y9jXaYquDNEjs@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-- Remove the dependency of cxgb4 and cxgb4vf on INET.  cxgb3 really
-  depends on INET, keep it but add it directly to the driver's Kconfig
-  entry.
-- Make the iSCSI drivers cxgb3i and cxgb4i available in the SCSI menu
-  without requiring any options in the net driver menu to be enabled
-  first.  Add needed selects so the iSCSI drivers can build their
-  corresponding net drivers.
-- Remove CHELSIO_T*_DEPENDS.
+On Mon, Feb 28, 2011 at 4:45 PM, John Heffner <johnwheffner@gmail.com> =
+wrote:
+> On Mon, Feb 28, 2011 at 11:55 AM, John W. Linville
+> <linville@tuxdriver.com> wrote:
+>> On Mon, Feb 28, 2011 at 05:48:14PM +0100, Eric Dumazet wrote:
+>>> Le lundi 28 f=E9vrier 2011 =E0 11:11 -0500, John W. Linville a =E9c=
+rit :
+>>> > On Sun, Feb 27, 2011 at 09:07:53PM +0100, Eric Dumazet wrote:
 
-Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
----
- drivers/net/Kconfig               |   21 +++------------------
- drivers/scsi/cxgbi/cxgb3i/Kconfig |    4 +++-
- drivers/scsi/cxgbi/cxgb4i/Kconfig |    4 +++-
- 3 files changed, 9 insertions(+), 20 deletions(-)
+>>> > > Qdisc should return to caller a good indication packet is queue=
+d or
+>>> > > dropped at enqueue() time... not later (aka : never)
+>>> > >
+>>> > > Accepting a packet at t0, and dropping it later at t0+limit wit=
+hout
+>>> > > giving any indication to caller is a problem.
+>>> >
+>>> > Can you elaborate on what problem this causes? =A0Is it any worse=
+ than
+>>> > if the packet is dropped at some later hop?
+>>> >
+>>> > Is there any API that could report the drop to the sender (at
+>>> > least a local one) without having to wait for the ack timeout?
+>>> > Should there be?
+>>>
+>>> Not all protocols have ACKS ;)
+>>>
+>>> dev_queue_xmit() returns an error code, some callers use it.
+>>
+>> Well, OK -- I agree it is best if you can return the status at
+>> enqueue time. =A0The question becomes whether or not a dropped frame
+>> is worse than living with high latency. =A0The answer, of course, st=
+ill
+>> seems to be a bit subjective. =A0But, if the admin has determined th=
+at
+>> a link should be low latency...?
+>
+> Notably, TCP is one caller that uses the error code. =A0The error cod=
+e
+> is functionally equivalent to ECN, one of whose great advantages is
+> reducing delay jitter. =A0If TCP didn't get the error, that would
+> effectively double the latency for a full window of data, since the
+> dropped segment would not be retransmitted for an RTT.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f4b3927..6e09d5f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2595,14 +2595,9 @@ config CHELSIO_T1_1G
- 	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
- 	  are using only 10G cards say 'N' here.
- 
--config CHELSIO_T3_DEPENDS
--	tristate
--	depends on PCI && INET
--	default y
--
- config CHELSIO_T3
- 	tristate "Chelsio Communications T3 10Gb Ethernet support"
--	depends on CHELSIO_T3_DEPENDS
-+	depends on PCI && INET
- 	select FW_LOADER
- 	select MDIO
- 	help
-@@ -2620,14 +2615,9 @@ config CHELSIO_T3
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called cxgb3.
- 
--config CHELSIO_T4_DEPENDS
--	tristate
--	depends on PCI && INET
--	default y
--
- config CHELSIO_T4
- 	tristate "Chelsio Communications T4 Ethernet support"
--	depends on CHELSIO_T4_DEPENDS
-+	depends on PCI
- 	select FW_LOADER
- 	select MDIO
- 	help
-@@ -2645,14 +2635,9 @@ config CHELSIO_T4
- 	  To compile this driver as a module choose M here; the module
- 	  will be called cxgb4.
- 
--config CHELSIO_T4VF_DEPENDS
--	tristate
--	depends on PCI && INET
--	default y
--
- config CHELSIO_T4VF
- 	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
--	depends on CHELSIO_T4VF_DEPENDS
-+	depends on PCI
- 	help
- 	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
- 	  adapters with PCI-E SR-IOV Virtual Functions.
-diff --git a/drivers/scsi/cxgbi/cxgb3i/Kconfig b/drivers/scsi/cxgbi/cxgb3i/Kconfig
-index 5cf4e98..11dff23 100644
---- a/drivers/scsi/cxgbi/cxgb3i/Kconfig
-+++ b/drivers/scsi/cxgbi/cxgb3i/Kconfig
-@@ -1,6 +1,8 @@
- config SCSI_CXGB3_ISCSI
- 	tristate "Chelsio T3 iSCSI support"
--	depends on CHELSIO_T3_DEPENDS
-+	depends on PCI && INET
-+	select NETDEVICES
-+	select NETDEV_10000
- 	select CHELSIO_T3
- 	select SCSI_ISCSI_ATTRS
- 	---help---
-diff --git a/drivers/scsi/cxgbi/cxgb4i/Kconfig b/drivers/scsi/cxgbi/cxgb4i/Kconfig
-index bb94b39..d5302c2 100644
---- a/drivers/scsi/cxgbi/cxgb4i/Kconfig
-+++ b/drivers/scsi/cxgbi/cxgb4i/Kconfig
-@@ -1,6 +1,8 @@
- config SCSI_CXGB4_ISCSI
- 	tristate "Chelsio T4 iSCSI support"
--	depends on CHELSIO_T4_DEPENDS
-+	depends on PCI && INET
-+	select NETDEVICES
-+	select NETDEV_10000
- 	select CHELSIO_T4
- 	select SCSI_ISCSI_ATTRS
- 	---help---
--- 
-1.7.3.4
-
+It sounds like you need a callback or similar, so that TCP can be
+informed later that the drop has occurred.
