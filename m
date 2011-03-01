@@ -1,68 +1,93 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [GIT/PATCH v3] xen network backend driver
-Date: Tue, 01 Mar 2011 12:28:46 +0000
-Message-ID: <1298982526.3437.5.camel@localhost>
-References: <1298914061.5034.996.camel@zakaz.uk.xensource.com>
-	 <1298919198.2569.14.camel@bwh-desktop>
-	 <1298974009.5034.2029.camel@zakaz.uk.xensource.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Tue, 1 Mar 2011 20:32:50 +0800
+Message-ID: <20110301123250.GA7368@gondor.apana.org.au>
+References: <1298910174.2941.585.camel@edumazet-laptop> <20110228163742.GH9763@canuck.infradead.org> <1298912869.2941.687.camel@edumazet-laptop> <20110301101955.GI9763@canuck.infradead.org> <1298975602.3284.13.camel@edumazet-laptop> <20110301110708.GJ9763@canuck.infradead.org> <1298977984.3284.15.camel@edumazet-laptop> <20110301112759.GK9763@canuck.infradead.org> <1298979909.3284.28.camel@edumazet-laptop> <20110301115305.GA6984@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Ian Campbell <Ian.Campbell@eu.citrix.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@infradead.org>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:43353 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181Ab1CAM2x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 07:28:53 -0500
-In-Reply-To: <1298974009.5034.2029.camel@zakaz.uk.xensource.com>
+Received: from helcar.apana.org.au ([209.40.204.226]:54057 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753863Ab1CAMdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 07:33:07 -0500
+Content-Disposition: inline
+In-Reply-To: <20110301115305.GA6984@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2011-03-01 at 10:06 +0000, Ian Campbell wrote:
-> On Mon, 2011-02-28 at 18:53 +0000, Ben Hutchings wrote:
-> > On Mon, 2011-02-28 at 17:27 +0000, Ian Campbell wrote:
-> 
-> > This should be defined as unsigned long (ideally it would be u64, but
-> > that can't be updated atomically on 32-bit systems).
-> [...]
-> > Don't update last_rx; it's only needed on slave devices of a bond, and
-> > the bonding driver takes care of it now.
-> 
-> I made these two changes.
-> 
-> > [...]
-> > > +static int xenvif_change_mtu(struct net_device *dev, int mtu)
-> > > +{
-> > > +	struct xenvif *vif = netdev_priv(dev);
-> > > +	int max = vif->can_sg ? 65535 - ETH_HLEN : ETH_DATA_LEN;
-> > > +	if (mtu > max)
-> > > +		return -EINVAL;
-> > > +	dev->mtu = mtu;
-> > > +	return 0;
-> > > +}
-> > [...]
+On Tue, Mar 01, 2011 at 07:53:05PM +0800, Herbert Xu wrote:
+> On Tue, Mar 01, 2011 at 12:45:09PM +0100, Eric Dumazet wrote:
+> >
+> > CPU 11 handles all TX completions : Its a potential bottleneck.
 > > 
-> > Since any VLAN tag must be inserted inline, shouldn't the MTU limit be
-> > 65535 - VLAN_ETH_HLEN?
+> > I might ressurect XPS patch ;)
 > 
-> In that case shouldn't the other case also be ETH_FRAME_LEN -
-> VLAN_ETH_HLEN?
-[...]
+> Actually this has been my gripe all along with our TX multiqueue
+> support.  We should not decide the queue based on the socket, but
+> on the current CPU.
+> 
+> We already do the right thing for forwarded packets because there
+> is no socket to latch onto, we just need to fix it for locally
+> generated traffic.
+> 
+> The odd packet reordering each time your scheduler decides to
+> migrate the process isn't a big deal IMHO.  If your scheduler
+> is constantly moving things you've got bigger problems to worry
+> about.
 
-IEEE 802.3, in its infinite wisdom, says that the maximum frame length
-is 1514, except that when an 802.1q tag is present it is 1518.  So the
-MTU for standard Ethernet remains 1500, regardless of the use of VLANs.
+If anybody wants to play here is a patch to do exactly that:
 
-Ben.
+net: Determine TX queue purely by current CPU
 
+Distributing packets generated on one CPU to multiple queues
+makes no sense.  Nor does putting packets from multiple CPUs
+into a single queue.
+
+While this may introduce packet reordering should the scheduler
+decide to migrate a thread, it isn't a big deal because migration
+is meant to be a rare event, and nothing will die as long as the
+ordering doesn't occur all the time.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ae6631..87bd20a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2164,22 +2164,12 @@ static u32 hashrnd __read_mostly;
+ u16 __skb_tx_hash(const struct net_device *dev, const struct sk_buff *skb,
+ 		  unsigned int num_tx_queues)
+ {
+-	u32 hash;
++	u32 hash = raw_smp_processor_id();
+ 
+-	if (skb_rx_queue_recorded(skb)) {
+-		hash = skb_get_rx_queue(skb);
+-		while (unlikely(hash >= num_tx_queues))
+-			hash -= num_tx_queues;
+-		return hash;
+-	}
++	while (unlikely(hash >= num_tx_queues))
++		hash -= num_tx_queues;
+ 
+-	if (skb->sk && skb->sk->sk_hash)
+-		hash = skb->sk->sk_hash;
+-	else
+-		hash = (__force u16) skb->protocol ^ skb->rxhash;
+-	hash = jhash_1word(hash, hashrnd);
+-
+-	return (u16) (((u64) hash * num_tx_queues) >> 32);
++	return hash;
+ }
+ EXPORT_SYMBOL(__skb_tx_hash);
+ 
+Cheers,
 -- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
