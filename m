@@ -1,70 +1,96 @@
-From: Anders Nilsson Plymoth <lml@telhoc.se>
-Subject: ICMP reply uses wrong source address as destinatio
-Date: Tue, 1 Mar 2011 09:49:19 +0100
-Message-ID: <AANLkTinOCp3e6tiWgesPtKYwB7Mj=Ch6Ccm1xeSFLcpD@mail.gmail.com>
+From: Lai Jiangshan <laijs@cn.fujitsu.com>
+Subject: [PATCH 4/4 V2] net,rcu: don't assume the size of struct rcu_head
+Date: Tue, 01 Mar 2011 16:53:40 +0800
+Message-ID: <4D6CB414.8050107@cn.fujitsu.com>
+References: <4D6CA860.3020409@cn.fujitsu.com> <20110301.001638.104075130.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:57423 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755757Ab1CAItU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 03:49:20 -0500
-Received: by fxm17 with SMTP id 17so4577802fxm.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 00:49:19 -0800 (PST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: mingo@elte.hu, paulmck@linux.vnet.ibm.com, cl@linux-foundation.org,
+        penberg@kernel.org, eric.dumazet@gmail.com, mpm@selenic.com,
+        linux-mm@kvack.org, linux-kernel@vger.kernel.org,
+        netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20110301.001638.104075130.davem@davemloft.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-Dear linux kernel enthusiasts,
+On 03/01/2011 04:16 PM, David Miller wrote:
+> From: Lai Jiangshan <laijs@cn.fujitsu.com>
+> Date: Tue, 01 Mar 2011 16:03:44 +0800
+> 
+>>
+>> struct dst_entry assumes the size of struct rcu_head as 2 * sizeof(long)
+>> and manually adds pads for aligning for "__refcnt".
+>>
+>> When the size of struct rcu_head is changed, these manual padding
+>> is wrong. Use __attribute__((aligned (64))) instead.
+>>
+>> Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+> 
+> We don't want to use the align if it's going to waste lots of space.
+> 
+> Instead we want to rearrange the structure so that the alignment comes
+> more cheaply.
 
-I came upon an issue where ICMP reply packets were issued towards the
-IP address of the receiving interface, rather than the source IP
-address.
-Looking at the kernel code, I saw that this is caused by the following
-line in net/ipv4/icmp.c function icmp_reply:
+Subject: [PATCH 4/4 V2] net,rcu: don't assume the size of struct rcu_head
 
-daddr = ipc.addr = rt->rt_src;
+struct dst_entry assumes the size of struct rcu_head as 2 * sizeof(long)
+and manually adds pads for aligning for "__refcnt".
 
-For most cases the original line of code is ok, but in some situations
-doesn't arrive to the kernel from the network device, but through some
-other mechanism such as a userspace application. In these cases the
-receiving device in the skb appears to be the loopback interface, not
-a physical device. icmp_reply will thus issue the reply to the
-loopback IP address, rather than the source IP address as it should.
+When the size of struct rcu_head is changed, these manual padding
+are hardly suit for the changes. So we rearrange the structure,
+and move the seldom access rcu_head to the end of the structure.
 
-While googling to see if this issue have been submitted, I found this
-two posts that address the same problem:
-h**p://www.mail-archive.com/linux-kernel@vger.kernel.org/msg209746.html
-h**p://www.mail-archive.com/linux-kernel@vger.kernel.org/msg208272.html
-Some of the questions there are easy to answer; such as this doesn't
-affect DNAT, and if source address is not set then you can' reply
-anyway.
+Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
+---
 
-As to the statement:
-"... which IP address should be used as the source
+diff --git a/include/net/dst.h b/include/net/dst.h
+index 93b0310..d8c5296 100644
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -37,7 +37,6 @@
+ struct sk_buff;
+ 
+ struct dst_entry {
+-	struct rcu_head		rcu_head;
+ 	struct dst_entry	*child;
+ 	struct net_device       *dev;
+ 	short			error;
+@@ -78,6 +77,13 @@ struct dst_entry {
+ 	__u32			__pad2;
+ #endif
+ 
++	unsigned long		lastuse;
++	union {
++		struct dst_entry	*next;
++		struct rtable __rcu	*rt_next;
++		struct rt6_info		*rt6_next;
++		struct dn_route __rcu	*dn_next;
++	};
+ 
+ 	/*
+ 	 * Align __refcnt to a 64 bytes alignment
+@@ -92,13 +98,7 @@ struct dst_entry {
+ 	 */
+ 	atomic_t		__refcnt;	/* client references	*/
+ 	int			__use;
+-	unsigned long		lastuse;
+-	union {
+-		struct dst_entry	*next;
+-		struct rtable __rcu	*rt_next;
+-		struct rt6_info		*rt6_next;
+-		struct dn_route __rcu	*dn_next;
+-	};
++	struct rcu_head		rcu_head;
+ };
+ 
+ #ifdef __KERNEL__
 
-1. the destination address of the packet that generated the message
-
-or.
-
-2. the IP address that the machine would use by default if the machine
-were to generate a new connection to the destination."
-
-These may be relevant questions, but the ICMP RFC clearly states the
-answer is 1. 2. may seem relevant to multi-homing, but its not the
-role of the ICMP reply to resolve multi-homing issues.
-
-The following code will correct the issue.
-
-{
-   struct iphdr *ip = ip_hdr(skb);
-   daddr = ipc.addr = ip->saddr;
-}
-
-The only functions that use icmp_reply are icmp_echo and
-icmp_timestamp, and this change do not modify their behavior. After
-extensive testing, in regular setups and DNATed situations, I can
-verify this change works as intended.
-
-Thanks,
-Anders
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
