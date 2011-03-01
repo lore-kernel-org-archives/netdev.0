@@ -1,39 +1,125 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: [question] bond_set_slave_inactive_flags
-Date: Tue, 1 Mar 2011 08:43:19 +0100
-Message-ID: <20110301074318.GF2855@psychotron.redhat.com>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: Re: [PATCH] cxgb{3,4}*: improve Kconfig dependencies
+Date: Tue, 01 Mar 2011 07:46:32 +0000
+Message-ID: <4D6CB26802000078000343BD@vpn.id2.novell.com>
+References: <1298950455-4497-1-git-send-email-dm@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: fubar@us.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7461 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755595Ab1CAHnW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 02:43:22 -0500
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Dimitris Michailidis" <dm@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1298950455-4497-1-git-send-email-dm@chelsio.com>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Jay,
+>>> On 01.03.11 at 04:34, Dimitris Michailidis <dm@chelsio.com> wrote:
+> - Remove the dependency of cxgb4 and cxgb4vf on INET.  cxgb3 really
+>   depends on INET, keep it but add it directly to the driver's Kconfig
+>   entry.
+> - Make the iSCSI drivers cxgb3i and cxgb4i available in the SCSI menu
+>   without requiring any options in the net driver menu to be enabled
+>   first.  Add needed selects so the iSCSI drivers can build their
+>   corresponding net drivers.
+> - Remove CHELSIO_T*_DEPENDS.
+> 
+> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+> ---
+>  drivers/net/Kconfig               |   21 +++------------------
+>  drivers/scsi/cxgbi/cxgb3i/Kconfig |    4 +++-
+>  drivers/scsi/cxgbi/cxgb4i/Kconfig |    4 +++-
+>  3 files changed, 9 insertions(+), 20 deletions(-)
+> 
+> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+> index f4b3927..6e09d5f 100644
+> --- a/drivers/net/Kconfig
+> +++ b/drivers/net/Kconfig
+> @@ -2595,14 +2595,9 @@ config CHELSIO_T1_1G
+>  	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
+>  	  are using only 10G cards say 'N' here.
+>  
+> -config CHELSIO_T3_DEPENDS
+> -	tristate
+> -	depends on PCI && INET
+> -	default y
+> -
+>  config CHELSIO_T3
+>  	tristate "Chelsio Communications T3 10Gb Ethernet support"
+> -	depends on CHELSIO_T3_DEPENDS
+> +	depends on PCI && INET
 
-Looking at function bond_set_slave_inactive_flags:
+Forgot to remove INET here?
 
-static inline void bond_set_slave_inactive_flags(struct slave *slave)
-{
-        struct bonding *bond = netdev_priv(slave->dev->master);
-        if (!bond_is_lb(bond))
-                slave->state = BOND_STATE_BACKUP;
-        if (!bond->params.all_slaves_active)
-                slave->dev->priv_flags |= IFF_SLAVE_INACTIVE;
-        if (slave_do_arp_validate(bond, slave))
-                slave->dev->priv_flags |= IFF_SLAVE_NEEDARP;
-}
+Besides that,
+Acked-by: Jan Beulich <jbeulich@novell.com>
 
-Why BOND_STATE_BACKUP is set only for non-lb bonds?
-This was introduced by 8f903c708fcc2b579ebf16542bf6109bad593a1d but
-I do not see why.
+>  	select FW_LOADER
+>  	select MDIO
+>  	help
+> @@ -2620,14 +2615,9 @@ config CHELSIO_T3
+>  	  To compile this driver as a module, choose M here: the module
+>  	  will be called cxgb3.
+>  
+> -config CHELSIO_T4_DEPENDS
+> -	tristate
+> -	depends on PCI && INET
+> -	default y
+> -
+>  config CHELSIO_T4
+>  	tristate "Chelsio Communications T4 Ethernet support"
+> -	depends on CHELSIO_T4_DEPENDS
+> +	depends on PCI
+>  	select FW_LOADER
+>  	select MDIO
+>  	help
+> @@ -2645,14 +2635,9 @@ config CHELSIO_T4
+>  	  To compile this driver as a module choose M here; the module
+>  	  will be called cxgb4.
+>  
+> -config CHELSIO_T4VF_DEPENDS
+> -	tristate
+> -	depends on PCI && INET
+> -	default y
+> -
+>  config CHELSIO_T4VF
+>  	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
+> -	depends on CHELSIO_T4VF_DEPENDS
+> +	depends on PCI
+>  	help
+>  	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+>  	  adapters with PCI-E SR-IOV Virtual Functions.
+> diff --git a/drivers/scsi/cxgbi/cxgb3i/Kconfig 
+> b/drivers/scsi/cxgbi/cxgb3i/Kconfig
+> index 5cf4e98..11dff23 100644
+> --- a/drivers/scsi/cxgbi/cxgb3i/Kconfig
+> +++ b/drivers/scsi/cxgbi/cxgb3i/Kconfig
+> @@ -1,6 +1,8 @@
+>  config SCSI_CXGB3_ISCSI
+>  	tristate "Chelsio T3 iSCSI support"
+> -	depends on CHELSIO_T3_DEPENDS
+> +	depends on PCI && INET
+> +	select NETDEVICES
+> +	select NETDEV_10000
+>  	select CHELSIO_T3
+>  	select SCSI_ISCSI_ATTRS
+>  	---help---
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/Kconfig 
+> b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+> index bb94b39..d5302c2 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/Kconfig
+> +++ b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+> @@ -1,6 +1,8 @@
+>  config SCSI_CXGB4_ISCSI
+>  	tristate "Chelsio T4 iSCSI support"
+> -	depends on CHELSIO_T4_DEPENDS
+> +	depends on PCI && INET
+> +	select NETDEVICES
+> +	select NETDEV_10000
+>  	select CHELSIO_T4
+>  	select SCSI_ISCSI_ATTRS
+>  	---help---
 
-Thanks for reply in advance.
 
-Jirka
+
+
