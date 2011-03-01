@@ -1,57 +1,70 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: net: allow handlers to be processed for orig_dev
-Date: Tue, 01 Mar 2011 09:24:19 +0100
-Message-ID: <4D6CAD33.2090706@gmail.com>
-References: <20110301062631.GC2855@psychotron.redhat.com>
+From: Anders Nilsson Plymoth <lml@telhoc.se>
+Subject: ICMP reply uses wrong source address as destinatio
+Date: Tue, 1 Mar 2011 09:49:19 +0100
+Message-ID: <AANLkTinOCp3e6tiWgesPtKYwB7Mj=Ch6Ccm1xeSFLcpD@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:47264 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:57423 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755519Ab1CAIY0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 03:24:26 -0500
-Received: by fxm17 with SMTP id 17so4561585fxm.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 00:24:24 -0800 (PST)
-In-Reply-To: <20110301062631.GC2855@psychotron.redhat.com>
+	with ESMTP id S1755757Ab1CAItU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 03:49:20 -0500
+Received: by fxm17 with SMTP id 17so4577802fxm.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 00:49:19 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 01/03/2011 07:26, Jiri Pirko a =E9crit :
-> This was there before, I forgot about this. Allows deliveries to
-> ptype_base handlers registered for orig_dev. I presume this is still
-> desired.
+Dear linux kernel enthusiasts,
 
-Yes, it is. Sorry for missing it in my review.
+I came upon an issue where ICMP reply packets were issued towards the
+IP address of the receiving interface, rather than the source IP
+address.
+Looking at the kernel code, I saw that this is caused by the following
+line in net/ipv4/icmp.c function icmp_reply:
 
-> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+daddr = ipc.addr = rt->rt_src;
 
-Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+For most cases the original line of code is ok, but in some situations
+doesn't arrive to the kernel from the network device, but through some
+other mechanism such as a userspace application. In these cases the
+receiving device in the skb appears to be the loopback interface, not
+a physical device. icmp_reply will thus issue the reply to the
+loopback IP address, rather than the source IP address as it should.
 
-> ---
->   net/core/dev.c |    3 ++-
->   1 files changed, 2 insertions(+), 1 deletions(-)
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 30440e7..9f66de9 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -3208,7 +3208,8 @@ ncls:
->   	list_for_each_entry_rcu(ptype,
->   			&ptype_base[ntohs(type)&  PTYPE_HASH_MASK], list) {
->   		if (ptype->type =3D=3D type&&
-> -		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev))=
- {
-> +		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev |=
-|
-> +		     ptype->dev =3D=3D orig_dev)) {
->   			if (pt_prev)
->   				ret =3D deliver_skb(skb, pt_prev, orig_dev);
->   			pt_prev =3D ptype;
+While googling to see if this issue have been submitted, I found this
+two posts that address the same problem:
+h**p://www.mail-archive.com/linux-kernel@vger.kernel.org/msg209746.html
+h**p://www.mail-archive.com/linux-kernel@vger.kernel.org/msg208272.html
+Some of the questions there are easy to answer; such as this doesn't
+affect DNAT, and if source address is not set then you can' reply
+anyway.
 
+As to the statement:
+"... which IP address should be used as the source
+
+1. the destination address of the packet that generated the message
+
+or.
+
+2. the IP address that the machine would use by default if the machine
+were to generate a new connection to the destination."
+
+These may be relevant questions, but the ICMP RFC clearly states the
+answer is 1. 2. may seem relevant to multi-homing, but its not the
+role of the ICMP reply to resolve multi-homing issues.
+
+The following code will correct the issue.
+
+{
+   struct iphdr *ip = ip_hdr(skb);
+   daddr = ipc.addr = ip->saddr;
+}
+
+The only functions that use icmp_reply are icmp_echo and
+icmp_timestamp, and this change do not modify their behavior. After
+extensive testing, in regular setups and DNATed situations, I can
+verify this change works as intended.
+
+Thanks,
+Anders
