@@ -1,123 +1,54 @@
-From: Krishna Kumar2 <krkumar2@in.ibm.com>
-Subject: Re: [PATCH 3/3] [RFC] Changes for MQ vhost
-Date: Tue, 1 Mar 2011 21:34:35 +0530
-Message-ID: <OFF5B60FC2.DE5700BA-ON65257846.00552576-65257846.00582CA0@in.ibm.com>
-References: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com> <20110228063443.24908.38147.sendpatchset@krkumar2.in.ibm.com> <20110228100423.GC28006@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Tue, 01 Mar 2011 17:31:24 +0100
+Message-ID: <1298997084.3284.119.camel@edumazet-laptop>
+References: <20110228163742.GH9763@canuck.infradead.org>
+	 <1298912869.2941.687.camel@edumazet-laptop>
+	 <20110301101955.GI9763@canuck.infradead.org>
+	 <1298975602.3284.13.camel@edumazet-laptop>
+	 <20110301110708.GJ9763@canuck.infradead.org>
+	 <1298977984.3284.15.camel@edumazet-laptop>
+	 <20110301112759.GK9763@canuck.infradead.org>
+	 <1298979909.3284.28.camel@edumazet-laptop>
+	 <20110301115305.GA6984@gondor.apana.org.au>
+	 <1298984609.3284.98.camel@edumazet-laptop>
+	 <20110301131823.GB8028@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, horms@verge.net.au,
-	kvm@vger.kernel.org, netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Graf <tgraf@infradead.org>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp06.in.ibm.com ([122.248.162.6]:38863 "EHLO
-	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756420Ab1CAQDJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 11:03:09 -0500
-In-Reply-To: <20110228100423.GC28006@redhat.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:60395 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756468Ab1CAQfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 11:35:45 -0500
+Received: by fxm17 with SMTP id 17so4978207fxm.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 08:35:43 -0800 (PST)
+In-Reply-To: <20110301131823.GB8028@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 02/28/2011 03:34:23 PM:
+Le mardi 01 mars 2011 =C3=A0 21:18 +0800, Herbert Xu a =C3=A9crit :
+> On Tue, Mar 01, 2011 at 02:03:29PM +0100, Eric Dumazet wrote:
+> >
+> > I believe its now done properly (in net-next-2.6) with commit
+> > 4f57c087de9b46182 (net: implement mechanism for HW based QOS)
+>=20
+> Nope, that has nothing to do with this.
 
-> > The number of vhost threads is <= #txqs.  Threads handle more
-> > than one txq when #txqs is more than MAX_VHOST_THREADS (4).
->
-> It is this sharing that prevents us from just reusing multiple vhost
-> descriptors?
+Right, I was thinking of commit 1d24eb4815d1e0e8 (xps: Transmit Packet
+Steering)
 
-Sorry, I didn't understand this question.
+Now you say all this stuff should be replaced by "use this cpu number
+nly", just because you have a multi threaded process sending UDP frames
+trough one socket...
 
-> 4 seems a bit arbitrary - do you have an explanation
-> on why this is a good number?
+This wont work for tcp streams, you could imagine a multi-threaded
+application using a shared tcp socket as well. Too many OOO packets.
 
-I was not sure what is the best way - a sysctl parameter? Or should the
-maximum depend on number of host cpus? But that results in too many
-threads, e.g. if I have 16 cpus and 16 txqs.
 
-> > +		 struct task_struct *worker; /* worker for this vq */
-> > +		 spinlock_t *work_lock;		 /* points to a dev->work_lock[] entry
-*/
-> > +		 struct list_head *work_list;		 /* points to a dev->work_list[]
-entry */
-> > +		 int qnum;		 /* 0 for RX, 1 -> n-1 for TX */
->
-> Is this right?
-
-Will fix this.
-
-> > @@ -122,12 +128,33 @@ struct vhost_dev {
-> >  		 int nvqs;
-> >  		 struct file *log_file;
-> >  		 struct eventfd_ctx *log_ctx;
-> > -		 spinlock_t work_lock;
-> > -		 struct list_head work_list;
-> > -		 struct task_struct *worker;
-> > +		 spinlock_t *work_lock[MAX_VHOST_THREADS];
-> > +		 struct list_head *work_list[MAX_VHOST_THREADS];
->
-> This looks a bit strange. Won't sticking everything in a single
-> array of structures rather than multiple arrays be better for cache
-> utilization?
-
-Correct. In that context, which is better:
-	struct {
-		spinlock_t *work_lock;
-		struct list_head *work_list;
-	} work[MAX_VHOST_THREADS];
-or, to make sure work_lock/work_list is cache-aligned:
-	struct work_lock_list {
-		spinlock_t work_lock;
-		struct list_head work_list;
-	} ____cacheline_aligned_in_smp;
-and define:
-	struct vhost_dev {
-		...
-		struct work_lock_list work[MAX_VHOST_THREADS];
-	};
-Second method uses a little more space but each vhost needs only
-one (read-only) cache line. I tested with this and can confirm it
-aligns each element on a cache-line. BW improved slightly (upto
-3%), remote SD improves by upto -4% or so.
-
-> > +static inline int get_nvhosts(int nvqs)
->
-> nvhosts -> nthreads?
-
-Yes.
-
-> > +static inline int vhost_get_thread_index(int index, int numtxqs, int
-nvhosts)
-> > +{
-> > +		 return (index % numtxqs) % nvhosts;
-> > +}
-> > +
->
-> As the only caller passes MAX_VHOST_THREADS,
-> just use that?
-
-Yes, nice catch.
-
-> >  struct vhost_net {
-> >  		 struct vhost_dev dev;
-> > -		 struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
-> > -		 struct vhost_poll poll[VHOST_NET_VQ_MAX];
-> > +		 struct vhost_virtqueue *vqs;
-> > +		 struct vhost_poll *poll;
-> > +		 struct socket **socks;
-> >  		 /* Tells us whether we are polling a socket for TX.
-> >  		  * We only do this when socket buffer fills up.
-> >  		  * Protected by tx vq lock. */
-> > -		 enum vhost_net_poll_state tx_poll_state;
-> > +		 enum vhost_net_poll_state *tx_poll_state;
->
-> another array?
-
-Yes... I am also allocating twice the space than what is required
-to make it's usage simple. Please let me know what you feel about
-this.
-
-Thanks,
-
-- KK
 
