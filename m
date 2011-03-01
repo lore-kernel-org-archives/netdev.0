@@ -1,54 +1,78 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: SO_REUSEPORT - can it be done in kernel?
-Date: Tue, 01 Mar 2011 17:31:24 +0100
-Message-ID: <1298997084.3284.119.camel@edumazet-laptop>
-References: <20110228163742.GH9763@canuck.infradead.org>
-	 <1298912869.2941.687.camel@edumazet-laptop>
-	 <20110301101955.GI9763@canuck.infradead.org>
-	 <1298975602.3284.13.camel@edumazet-laptop>
-	 <20110301110708.GJ9763@canuck.infradead.org>
-	 <1298977984.3284.15.camel@edumazet-laptop>
-	 <20110301112759.GK9763@canuck.infradead.org>
-	 <1298979909.3284.28.camel@edumazet-laptop>
-	 <20110301115305.GA6984@gondor.apana.org.au>
-	 <1298984609.3284.98.camel@edumazet-laptop>
-	 <20110301131823.GB8028@gondor.apana.org.au>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
+Date: Tue, 1 Mar 2011 17:43:19 +0100
+Message-ID: <201103011743.19847.arnd@arndb.de>
+References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <201102241820.55873.arnd@arndb.de> <4D6D0EA3.9000504@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Thomas Graf <tgraf@infradead.org>,
-	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	therbert@google.com, wsommerfeld@google.com,
-	daniel.baluta@gmail.com, netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:60395 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756468Ab1CAQfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 11:35:45 -0500
-Received: by fxm17 with SMTP id 17so4978207fxm.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 08:35:43 -0800 (PST)
-In-Reply-To: <20110301131823.GB8028@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Peppe CAVALLARO <peppe.cavallaro@st.com>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	John Stultz <johnstul@us.ibm.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Russell King - ARM Linux" <linux@arm.linux.org.uk>
+To: Stuart Menefy <stuart.menefy@st.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4D6D0EA3.9000504@st.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mardi 01 mars 2011 =C3=A0 21:18 +0800, Herbert Xu a =C3=A9crit :
-> On Tue, Mar 01, 2011 at 02:03:29PM +0100, Eric Dumazet wrote:
-> >
-> > I believe its now done properly (in net-next-2.6) with commit
-> > 4f57c087de9b46182 (net: implement mechanism for HW based QOS)
->=20
-> Nope, that has nothing to do with this.
+On Tuesday 01 March 2011, Stuart Menefy wrote:
+> On 24/02/11 17:20, Arnd Bergmann wrote:
+>
+> > Why is this code useful to you? In the scenarios I've seen, the
+> > board can always assign a timer to a specific device in a fixed
+> > way that can be describe in a board file or device tree.
+> 
+> What we were trying to do was separate the code which actually manipulates
+> the timer hardware from the code which wants that timer service. In this
+> case it was a network device driver which is used on multiple SoC devices,
+> while the timer hardware tends to differ from device to device.
 
-Right, I was thinking of commit 1d24eb4815d1e0e8 (xps: Transmit Packet
-Steering)
+Right. It certainly makes sense to have an well-defined interface between
+the user and the provider of a timer interrupt.
 
-Now you say all this stuff should be replaced by "use this cpu number
-nly", just because you have a multi threaded process sending UDP frames
-trough one socket...
+> The other user of this code which we have is an OProfile driver, which
+> with this change can now be independent of the hardware it is running on,
+> while the previous version manipulated the timer hardware directly.
 
-This wont work for tcp streams, you could imagine a multi-threaded
-application using a shared tcp socket as well. Too many OOO packets.
+Ok.
 
+> > Also, what is the difference between this and clkdev?
+> 
+> clkdev can be used to find a struct clk, which is fine if you just want to
+> read the time. In this instance we want to get interrupts from the timer
+> hardware, which isn't supported by the clk infrastructure.
 
+(adding Russell to Cc)
 
+Is this something that could sensibly be added to clk/clkdev?
+
+> If anything this duplicates clockevents. The main reason for not using
+> clockevents was that nobody else does! Currently clockevents are
+> used strictly for time keeping within the kernel, and most architectures
+> only register those which are intended to be used for this purpose.
+> We felt a bit nervous about adding code to register all the device's timers
+> as clockevents, and having the network device driver pick up one of those
+> for its own use.
+
+I see. Using a clock_event_device for anything but the system timer tick
+is currently not supported, so it certainly would not be straightforward.
+
+I think you need a bit of both, clkdev and clockevent. I think the
+options you have are:
+
+1. copy the clkdev code to make it possible to associate a device with
+a periodic timer.
+2. extend the clkdev/clk code to handle periodic interrupts and reuse
+the infrastructure there.
+3. extend the clockevent code to make it possible for regular device
+drivers to use a clockevent source.
+
+I have no idea which makes the most sense (or if there are other ideas).
+Maybe Russell, Thomas or John can comment.
+
+	Arnd
