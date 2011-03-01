@@ -1,62 +1,77 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy and
- source mac selection mode
-Date: Tue, 1 Mar 2011 15:29:51 -0800
-Message-ID: <20110301152951.646451c6@nehalam>
-References: <20110301223458.GA24403@yandex-team.ru>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: skb->frag_list != NULL in start_xmit for device without NETIF_F_FRAGLIST
+Date: Tue, 1 Mar 2011 15:41:38 -0800
+Message-ID: <AANLkTinDmW1oirOFZCHe7yw8E8TGJfFe+fucAxOPpbjV@mail.gmail.com>
+References: <1298980019.5034.2238.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: "Oleg V. Ukhno" <olegu@yandex-team.ru>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Paul Durrant <Paul.Durrant@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:43949 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757592Ab1CAX3x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 18:29:53 -0500
-In-Reply-To: <20110301223458.GA24403@yandex-team.ru>
+Received: from mail-vx0-f174.google.com ([209.85.220.174]:62752 "EHLO
+	mail-vx0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756799Ab1CAXlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 18:41:39 -0500
+Received: by vxi39 with SMTP id 39so4725592vxi.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 15:41:38 -0800 (PST)
+In-Reply-To: <1298980019.5034.2238.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Mar 2011 01:34:58 +0300
-"Oleg V. Ukhno" <olegu@yandex-team.ru> wrote:
+On Tue, Mar 1, 2011 at 3:46 AM, Ian Campbell <Ian.Campbell@citrix.com> wrote:
+> Hi,
+>
+> We are seeing cases where Xen netback's start_xmit is being passed an
+> skb which has a ->frag_list, despite the driver not advertising the
+> NETIF_F_FRAGLIST feature.
+>
+> Is this indicative of a problem somewhere? Are drivers expected to
+> handle a frag_list? grepping for frag_list in drivers/net it appears not
+> many drivers do anything with the frag_list.
 
-> Patch introduces two new (related) features to bonding module.
-> First feature is round-robin hashing policy, which is primarily
-> intended for use with 802.3ad mode, and puts every next IPv4 and
-> IPv6 packet into  next availables slave without taling into account
-> which layer3 and above protocol is used.
-> Second feature makes possible choosing which MAC-address will be set
-> in the transmitted packet - when set to src-mac it will force setting
-> slave's interface real MAC address as source MAC address in every
-> packet, sent via this slave interface.
-> Main goal of this patch is to make possible single TCP stream
-> equally striped for both transmitted and received packets over all
-> available slaves.
-> This operating mode is not fully 802.3ad compliant, and will cause
-> some packet reordering in TCP stream, to some kernel tuning may be
-> required.
-> For correct working enabling round-robin hashing policy plus using
-> real slave's MAC addresses as source MAC addresses in transmitted
-> packets requires specific switch setting)hashing mode for port-channel
-> ("etherchannel) should be set to src-mac or src-dst-mac to get
-> correct load-striping on the receiving host's etherchannel.
-> General requirements for using bonding in this operating mode are:
-> - even and preferrably equal number of slaves on sending and receiving
-> hosts;
-> - equal RTT between sending and receiving hosts on all slaves;
-> - switch capable of doing etherchannels and using src-mac or src-dst-mac
-> hashing policy for egress load striping
-> 
-> Signed-off-by: Oleg V. Ukhno <olegu@yandex-team.ru>
+It certainly sounds like a problem to me.  Off the top of my head I
+don't know of any drivers that actually set and handle
+NETIF_F_FRAGLIST (except for pseudo-devices like bridging).
 
-It seems to me the whole bonding policy is getting so complex
-that the code is a mess. Perhaps it should be somehow linked into
-existing packet classification or firewall mechanisms.  This would
-increase the flexibility and reduce the amount of policy code
-in the bonding driver itself.
+>
+> The netback driver is bridged with a tg3 physical device and we think
+> the problematic skb's are originating on the wire.
+>
+> The case we are actually seeing is with 2.6.32 + tg3 3.110g so obviously
+> the next step is to reproduce on a more modern kernel and the in-tree
+> driver and then to attempt to determine if the fault is in what the
+> physical interface's driver is passing up the stack or in the stack's
+> handling of those skbs. Any hints on where to look would be much
+> appreciated.
 
+I'd guess that the most likely source of frag_lists generated here are
+from GRO, in skb_gro_receive().  The driver/NIC can definitely
+influence the strategy that GRO uses for reassembly but it seems less
+likely that the driver itself will create frag_lists.
 
+>
+> In particular I'm not sure where the frag_list is supposed to get
+> resolved in the case where dev_hard_start_xmit takes the netif_needs_gso
+> == true path and calls dev_gso_segment rather than taking the
+> __skb_linearize path (the issue appears to occur only when the netback
+> device has NETIF_F_GSO but not NETIF_F_TSO). AFAICT dev_gso_segment goes
+> to tcp_tso_segment and then to skb_segment which does appear to create
+> skbs with a frag_list (although it's not outside the realms of
+> possibility that I'm reading it wrong).
 
--- 
+I'm fairly certain that the problem is in skb_segment().  It's not the
+most tolerant of skbs with frag_lists that do not line up with the
+requested mss.  Depending on how the original skb is laid out,
+sometimes this will trigger a BUG_ON and sometimes it creates new
+frag_lists.  Since there are no further checks after GSO, the skb with
+a frag_list will get passed to the driver, even if it is not
+supported.
+
+I believe that not much has changed in this regard between 2.6.32 and net-next.
+
+> I did wonder if perhaps we should just ignore the field, since something
+> higher up the stack walked the list and called start_xmit repeatedly,
+> but if that's the case I can't see where...
+
+That will happen for GSO but those packets shouldn't have a frag_list
+if the driver doesn't support it.
