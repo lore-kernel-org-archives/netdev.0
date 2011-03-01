@@ -1,68 +1,94 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Tue, 01 Mar 2011 08:26:21 +0100
-Message-ID: <1298964381.2676.58.camel@edumazet-laptop>
-References: <20110228165501.GC2515@tuxdriver.com>
-	 <AANLkTinj5szpStmA+fZ1xggdyTS+sd8Y9jXaYquDNEjs@mail.gmail.com>
-	 <AANLkTinFZu5AgfhO6PoA7C1NTGSfD8HH0KXq_o-mHEJF@mail.gmail.com>
-	 <20110228.201852.193726064.davem@davemloft.net>
-	 <AANLkTi=eDQh9Kvr9N_dTC5Cnbcfb+DbO-6tLxkZiEp9v@mail.gmail.com>
+Subject: Re: [PATCH] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Tue, 01 Mar 2011 08:27:00 +0100
+Message-ID: <1298964420.2676.59.camel@edumazet-laptop>
+References: <1298627845-1583-1-git-send-email-ratbert.chuang@gmail.com>
+	 <1298962129-1605-1-git-send-email-ratbert.chuang@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, johnwheffner@gmail.com,
-	linville@tuxdriver.com, jussi.kivilinna@mbnet.fi, swmike@swm.pp.se,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Albert Cahalan <acahalan@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
+	mirqus@gmail.com, davem@davemloft.net,
+	Po-Yu Chuang <ratbert@faraday-tech.com>
+To: Po-Yu Chuang <ratbert.chuang@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=eDQh9Kvr9N_dTC5Cnbcfb+DbO-6tLxkZiEp9v@mail.gmail.com>
+In-Reply-To: <1298962129-1605-1-git-send-email-ratbert.chuang@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Le mardi 01 mars 2011 =C3=A0 01:54 -0500, Albert Cahalan a =C3=A9crit :
-> On Mon, Feb 28, 2011 at 11:18 PM, David Miller <davem@davemloft.net> =
-wrote:
-> > From: Albert Cahalan <acahalan@gmail.com>
-> > Date: Mon, 28 Feb 2011 23:11:13 -0500
-> >
-> >> It sounds like you need a callback or similar, so that TCP can be
-> >> informed later that the drop has occurred.
-> >
-> > By that point we could have already sent an entire RTT's worth
-> > of data, or more.
-> >
-> > It needs to be synchronous, otherwise performance suffers.
+Le mardi 01 mars 2011 =C3=A0 14:48 +0800, Po-Yu Chuang a =C3=A9crit :
+> From: Po-Yu Chuang <ratbert@faraday-tech.com>
 >=20
-> Ouch. OTOH, the current situation: performance suffers.
+> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
+> MII.  This driver has been working on some ARM/NDS32 SoC's including
+> Faraday A320 and Andes AG101.
 >=20
-> In case it makes you feel any better, consider two cases
-> where synchronous feedback is already impossible.
-> One is when you're routing packets that merely pass through.
-> The other is when some other box is doing that to you.
-> Either way, packets go bye-bye and nobody tells TCP.
+> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+> ---
+> v2:
+> always use NAPI
+> do not use our own net_device_stats structure
+> don't set trans_start and last_rx
+> stats.rx_packets and stats.rx_bytes include dropped packets
+> add missed netif_napi_del()
+> initialize spinlocks in probe function
+> remove rx_lock and hw_lock
+> use netdev_[err/info/dbg] instead of dev_* ones
+> use netdev_alloc_skb_ip_align()
+> remove ftmac100_get_stats()
+> use is_valid_ether_addr() instead of is_zero_ether_addr()
+> add const to ftmac100_ethtool_ops and ftmac100_netdev_ops
+> use net_ratelimit() instead of printk_ratelimit()
+> no explicit inline
+> use %pM to print MAC address
+> add comment before wmb
+> use napi poll() to handle all interrupts
+>=20
+> v3:
+> undo "stats.rx_packets and stats.rx_bytes include dropped packets"
+> ftmac100_mdio_read() returns 0 if error
+> fix comment typos
+> use pr_fmt and pr_info
+> define INT_MASK_ALL_ENABLED
+> define MACCR_ENABLE_ALL
+> do not count length error many times
+> use bool/true/false
+> use cpu_to_le32/le32_to_cpu to access descriptors
+> indent style fix
+>=20
+> v4:
+> should not access skb after netif_receive_skb()
+> use resource_size()
+> better way to use cpu_to_le32/le32_to_cpu
+> use spin_lock() for tx_lock
+> combine all netdev_info() together in ftmac100_poll()
+>=20
+> v5:
+> use dev_kfree_skb() in ftmac100_tx_complete_packet()
+> cpu_to_le32/le32_to_cpu usage fix
+> drop GFP_DMA
+>=20
+> v6:
+> cpu_to_le32/le32_to_cpu usage fix
+> remove "tx queue full" message
+> reduce critical section protected by tx_lock
+> add check of MAX_PKT_SIZE and RX_BUF_SIZE
+> add __exit to ftmac100_remove()
+> simplify ftmac100_rx_packet()
+> zero copy - use skb_fill_page_desc() and __pskb_pull_tail().
+> pull more data to skb head to include tcp/ip header
+>=20
+> v7:
+> allocate 128 bytes skb and pull 64 bytes only
+>=20
+>  drivers/net/Kconfig    |    9 +
+>  drivers/net/Makefile   |    1 +
+>  drivers/net/ftmac100.c | 1196 ++++++++++++++++++++++++++++++++++++++=
+++++++++++
+>  drivers/net/ftmac100.h |  180 ++++++++
+>  4 files changed, 1386 insertions(+), 0 deletions(-)
+>  create mode 100644 drivers/net/ftmac100.c
+>  create mode 100644 drivers/net/ftmac100.h
 
-So in a hurry we decide to drop packets blindly because kernel took the
-cpu to perform an urgent task ?
-
-Bufferbloat is a configuration/tuning problem, not a "everything must b=
-e
-redone" problem. We add new qdiscs (CHOKe, SFB, QFQ, ...) and let admin=
-s
-do their job. Problem is most admins are unaware of the problems, and
-only buy more bandwidth.
-
-And no, there is no "generic" solution, unless you have a lab with two
-machines back to back (private link) and a known workload.
-
-We might need some changes (including new APIs).
-
-ECN is a forward step. Blindly dropping packets before ever sending the=
-m
-is a step backward.
-
-We should allow some trafic spikes, or many applications will stop
-working. Unless all applications are fixed, we are stuck.
-
-Only if the queue stay loaded a long time (yet another parameter) we ca=
-n
-try to drop packets.
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
