@@ -1,83 +1,170 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's	source
- MAC
-Date: Tue, 01 Mar 2011 22:30:52 +0100
-Message-ID: <4D6D658C.90300@gmail.com>
-References: <1298668408-14849-1-git-send-email-andy@greyhouse.net> <4D68276B.90104@gmail.com> <20110225222455.GI11864@gospo.rdu.redhat.com> <4D683653.4050409@gmail.com> <20110228163255.GJ11864@gospo.rdu.redhat.com> <4D6C1764.1040008@gmail.com> <20110301023525.GK11864@gospo.rdu.redhat.com> <9882.1298958366@death> <20110301181624.GM11864@gospo.rdu.redhat.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
+ kernel modules
+Date: Wed, 2 Mar 2011 00:33:13 +0300
+Message-ID: <20110301213313.GA6507@albatros>
+References: <201102272122.52643.arnd@arndb.de>
+ <4D6B6AE7.2050202@msgid.tls.msk.ru>
+ <20110228095133.GA4351@albatros>
+ <20110228.112349.104067277.davem@davemloft.net>
+ <20110301194845.GA3533@albatros>
+ <1299010390.2529.30.camel@bwh-desktop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Andy Gospodarek <andy@greyhouse.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:47347 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996Ab1CAVbc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 16:31:32 -0500
-Received: by fxm17 with SMTP id 17so5272556fxm.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 13:31:31 -0800 (PST)
-In-Reply-To: <20110301181624.GM11864@gospo.rdu.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mjt@tls.msk.ru, arnd@arndb.de, mirqus@gmail.com,
+	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
+	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
+	eugene@redhat.com, dan.j.rosenberg@gmail.com,
+	akpm@linux-foundation.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1299010390.2529.30.camel@bwh-desktop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 01/03/2011 19:16, Andy Gospodarek a =E9crit :
+Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
+CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
+that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are
+limited to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't
+allow anybody load any module not related to networking.
 
-[snip]
+This patch restricts an ability of autoloading modules to netdev modules
+with explicit aliases.  This fixes CVE-2011-1019.
 
-> Knowing that I'm using an unmanaged switch with balance-rr probably
-> helps understand how this is happening.  I'll clarify this however, s=
-o
-> we are all on the same page.
->
-> In my situation, eth2 and eth3 are in bond0.  When bond0 transmits th=
-e
-> NS, let's say it goes out eth3.  Since it is a multicast frame my swi=
-tch
-> will broadcast this to all ports and eth2 will receive the frame with
-> the source MAC address being the same as bond0's MAC address.  This
-> frame is passed up the stack to the ipv6 layer and appears to be a
-> response to the NS from another host and is dropped.
+Arnd Bergmann suggested to leave untouched the old pre-v2.6.32 behavior
+of loading netdev modules by name (without any prefix) for processes
+with CAP_SYS_MODULE to maintain the compatibility with network scripts
+that use autoloading netdev modules by aliases like "eth0", "wlan0".
 
-'sounds perfectly normal.
+Currently there are only three users of the feature in the upstream
+kernel: ipip, ip_gre and sit.
 
-This problem is described in detail in chapter 5.4.3 and appendix A of =
-RFC4862 "IPv6 Stateless=20
-Address Autoconfiguration".
+    root@albatros:~# capsh --drop=$(seq -s, 0 11),$(seq -s, 13 34) --
+    root@albatros:~# grep Cap /proc/$$/status
+    CapInh:	0000000000000000
+    CapPrm:	fffffff800001000
+    CapEff:	fffffff800001000
+    CapBnd:	fffffff800001000
+    root@albatros:~# modprobe xfs
+    FATAL: Error inserting xfs
+    (/lib/modules/2.6.38-rc6-00001-g2bf4ca3/kernel/fs/xfs/xfs.ko): Operation not permitted
+    root@albatros:~# lsmod | grep xfs
+    root@albatros:~# ifconfig xfs
+    xfs: error fetching interface information: Device not found
+    root@albatros:~# lsmod | grep xfs
+    root@albatros:~# lsmod | grep sit
+    root@albatros:~# ifconfig sit
+    sit: error fetching interface information: Device not found
+    root@albatros:~# lsmod | grep sit
+    root@albatros:~# ifconfig sit0
+    sit0      Link encap:IPv6-in-IPv4
+	      NOARP  MTU:1480  Metric:1
 
-As this is clearly IPv6 related, it sounds normal from my point of view=
- to fix it at the=20
-ndisc_recv_ns() level.
+    root@albatros:~# lsmod | grep sit
+    sit                    10457  0
+    tunnel4                 2957  1 sit
 
-Quoting the RFC:
+For CAP_SYS_MODULE module loading is still relaxed:
 
-   "In those cases where the hardware cannot suppress loopbacks, howeve=
-r,
-    one possible software heuristic to filter out unwanted loopbacks is
-    to discard any received packet whose link-layer source address is t=
-he
-    same as the receiving interface's.  There is even a link-layer
-    specification that requires that any such packets be discarded
-    [IEEE802.11].  Unfortunately, use of that criteria also results in
-    the discarding of all packets sent by another node using the same
-    link-layer address.  Duplicate Address Detection will fail on
-    interfaces that filter received packets in this manner:
+    root@albatros:~# grep Cap /proc/$$/status
+    CapInh:	0000000000000000
+    CapPrm:	ffffffffffffffff
+    CapEff:	ffffffffffffffff
+    CapBnd:	ffffffffffffffff
+    root@albatros:~# ifconfig xfs
+    xfs: error fetching interface information: Device not found
+    root@albatros:~# lsmod | grep xfs
+    xfs                   745319  0
 
-    [snip]
+Reference: https://lkml.org/lkml/2011/2/24/203
 
-    Thus, to perform Duplicate Address Detection correctly in the case
-    where two interfaces are using the same link-layer address, an
-    implementation must have a good understanding of the interface's
-    multicast loopback semantics, and the interface cannot discard
-    received packets simply because the source link-layer address is th=
-e
-    same as the interface's."
+Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+---
+ v2 - use pr_err()
+    - don't try to load $name if netdev-$name is loaded
 
-So, simply dropping frames whose source MAC =3D=3D local MAC is apparen=
-tly not the right solution.
+ include/linux/netdevice.h |    3 +++
+ net/core/dev.c            |   12 ++++++++++--
+ net/ipv4/ip_gre.c         |    2 +-
+ net/ipv4/ipip.c           |    2 +-
+ net/ipv6/sit.c            |    2 +-
+ 5 files changed, 16 insertions(+), 5 deletions(-)
 
-	Nicolas.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d971346..71caf7a 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2392,6 +2392,9 @@ extern int netdev_notice(const struct net_device *dev, const char *format, ...)
+ extern int netdev_info(const struct net_device *dev, const char *format, ...)
+ 	__attribute__ ((format (printf, 2, 3)));
+ 
++#define MODULE_ALIAS_NETDEV(device) \
++	MODULE_ALIAS("netdev-" device)
++
+ #if defined(DEBUG)
+ #define netdev_dbg(__dev, format, args...)			\
+ 	netdev_printk(KERN_DEBUG, __dev, format, ##args)
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 8ae6631..6561021 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1114,13 +1114,21 @@ EXPORT_SYMBOL(netdev_bonding_change);
+ void dev_load(struct net *net, const char *name)
+ {
+ 	struct net_device *dev;
++	int no_module;
+ 
+ 	rcu_read_lock();
+ 	dev = dev_get_by_name_rcu(net, name);
+ 	rcu_read_unlock();
+ 
+-	if (!dev && capable(CAP_NET_ADMIN))
+-		request_module("%s", name);
++	no_module = !dev;
++	if (no_module && capable(CAP_NET_ADMIN))
++		no_module = request_module("netdev-%s", name);
++	if (no_module && capable(CAP_SYS_MODULE)) {
++		if (!request_module("%s", name))
++			pr_err("Loading kernel module for a network device "
++"with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s "
++"instead\n", name);
++	}
+ }
+ EXPORT_SYMBOL(dev_load);
+ 
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 6613edf..d1d0e2c 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -1765,4 +1765,4 @@ module_exit(ipgre_fini);
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_RTNL_LINK("gre");
+ MODULE_ALIAS_RTNL_LINK("gretap");
+-MODULE_ALIAS("gre0");
++MODULE_ALIAS_NETDEV("gre0");
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index 988f52f..a5f58e7 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -913,4 +913,4 @@ static void __exit ipip_fini(void)
+ module_init(ipip_init);
+ module_exit(ipip_fini);
+ MODULE_LICENSE("GPL");
+-MODULE_ALIAS("tunl0");
++MODULE_ALIAS_NETDEV("tunl0");
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 8ce38f1..d2c16e1 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1290,4 +1290,4 @@ static int __init sit_init(void)
+ module_init(sit_init);
+ module_exit(sit_cleanup);
+ MODULE_LICENSE("GPL");
+-MODULE_ALIAS("sit0");
++MODULE_ALIAS_NETDEV("sit0");
+-- 
+1.7.0.4
