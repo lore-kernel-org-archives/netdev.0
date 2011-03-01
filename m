@@ -1,62 +1,129 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6] bonding: remove skb_share_check in handle_frame
-Date: Tue, 01 Mar 2011 21:11:29 +0100
-Message-ID: <4D6D52F1.6020407@gmail.com>
-References: <20110301062250.GB2855@psychotron.redhat.com> <20110301092907.GG2855@psychotron.redhat.com> <AANLkTimk_jyTYO8=8LRgY3C1un38qb1q9C-DbKWHirPS@mail.gmail.com>
+From: Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] fcoe: correct checking for bonding
+Date: Tue, 1 Mar 2011 21:12:21 +0100
+Message-ID: <20110301201220.GA2833@psychotron.redhat.com>
+References: <20110228133245.GB7096@psychotron.brq.redhat.com>
+	<8433.1298913321@death> <4D6BE155.7050109@gmail.com>
+	<20110301063710.GD2855@psychotron.redhat.com>
+	<4D6D31BA.3000105@gmail.com> <9554.1299002762@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net
-To: Changli Gao <xiaosuo@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:34813 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756258Ab1CAULx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 15:11:53 -0500
-Received: by fxm17 with SMTP id 17so5193102fxm.19
-        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 12:11:52 -0800 (PST)
-In-Reply-To: <AANLkTimk_jyTYO8=8LRgY3C1un38qb1q9C-DbKWHirPS@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: James.Bottomley-d9PhHud1JfjCXq6kfMZ53/egYHeGw8Jk@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devel-s9riP+hp16TNLxjTenLetw@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jay Vosburgh <fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
+Return-path: <devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <9554.1299002762@death>
+List-Unsubscribe: <https://lists.open-fcoe.org/mailman/options/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.open-fcoe.org/pipermail/devel>
+List-Post: <mailto:devel-s9riP+hp16TNLxjTenLetw@public.gmane.org>
+List-Help: <mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-fcoe.org/mailman/listinfo/devel>,
+	<mailto:devel-request-s9riP+hp16TNLxjTenLetw@public.gmane.org?subject=subscribe>
+Sender: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+Errors-To: devel-bounces-s9riP+hp16TNLxjTenLetw@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 01/03/2011 16:12, Changli Gao a =E9crit :
-> On Tue, Mar 1, 2011 at 5:29 PM, Jiri Pirko<jpirko@redhat.com>  wrote:
->> Unapplicable, sorry (wrong branch :(). Here's corrected patch:
->>
->> Subject: [PATCH net-next-2.6 v2] bonding: remove skb_share_check in =
-handle_frame
->>
->> No need to do share check here.
->>
+Tue, Mar 01, 2011 at 07:06:02PM CET, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org wrote:
+>Joe Eykholt <joe.eykholt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 >
-> I don't think so. Although you avoid netif_rx(), you can't avoid
-> ptype_all handlers. In fact, all the RX handlers should has this
-> check(), if they may modify the skb.
+>>On 2/28/11 10:37 PM, Jiri Pirko wrote:
+>>> Mon, Feb 28, 2011 at 06:54:29PM CET, joe.eykholt-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org wrote:
+>>>> On 2/28/11 9:15 AM, Jay Vosburgh wrote:
+>>>>> Jiri Pirko<jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>   wrote:
+>>>>>
+>>>>>> Check for IFF_BONDING as this flag is set-up for all bonding devices.
+>>>>>>
+>>>>>> Signed-off-by: Jiri Pirko<jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+>>>>>> ---
+>>>>>> drivers/scsi/fcoe/fcoe.c |    4 +---
+>>>>>> 1 files changed, 1 insertions(+), 3 deletions(-)
+>>>>>>
+>>>>>> diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+>>>>>> index 9f9600b..67714a4 100644
+>>>>>> --- a/drivers/scsi/fcoe/fcoe.c
+>>>>>> +++ b/drivers/scsi/fcoe/fcoe.c
+>>>>>> @@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
+>>>>>> 	}
+>>>>>>
+>>>>>> 	/* Do not support for bonding device */
+>>>>>> -	if ((netdev->priv_flags&   IFF_MASTER_ALB) ||
+>>>>>> -	    (netdev->priv_flags&   IFF_SLAVE_INACTIVE) ||
+>>>>>> -	    (netdev->priv_flags&   IFF_MASTER_8023AD)) {
+>>>>>> +	if (netdev->priv_flags&   IFF_BONDING) {
+>>>>>> 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
+>>>>>> 		return -EOPNOTSUPP;
+>>>>>> 	}
+>>>>>
+>>>>> 	Based on past discussions, I believe the intent of the code is
+>>>>> to permit FCOE over bonding only for active-backup mode, and possibly
+>>>>> for -xor/-rr as well.
+>>>>>
+>>>>> 	I'm not sure if the slave or the master is what's being tested
+>>>>> here, so I'm not sure what the right thing to do is.  I suspect it's the
+>>>>> master, as I recall discussion of one configuration involving
+>>>>> active-backup mode balancing FCOE traffic over both the active and
+>>>>> inactive slaves.  FCOE uses the "orig_dev" logic in __netif_receive_skb
+>>>>> to have the packets delivered even on the nominally inactive slave.
+>>>>>
+>>>>> 	-J
+>>>>>
+>>>>> ---
+>>>>> 	-Jay Vosburgh, IBM Linux Technology Center, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
+>>>>
+>>>> Right.  That was the intent.  It should work on the physical dev, but probably
+>>>> not on the master of the bond.
+>>>>
+>>>> If you have a master/slave bond for IPv4 between eth1 and eth2, say,
+>>>> and they are going to two different DCE (FCoE) switches, presumably on
+>>>> different VSANs but with ultimate access to the same disks,
+>>>> then you want to split the FCoE traffic in active/active
+>>>> mode using separate FCoE instances on eth1 and eth2 even though IP
+>>>> is using active/standby on bond0.  This should work.  But, putting fcoe
+>>>> on bond0 isn't going to do what you want.
+>>>>
+>>>> However, it seems like the check above shouldn't be checking
+>>>> IFF_SLAVE_INACTIVE.   I can't test this.
+>>>
+>>> OK. So I guess the right check should be for:
+>>> (netdev->priv_flags&  IFF_BONDING&&  netdev->flags&  IFF_MASTER)
+>>
+>>I think that's OK.  How about just checking for MASTER?
+>>When is MASTER going to be set without BONDING?
+>
+>	One or two other things besides bonding use IFF_MASTER, but
+>IFF_BONDING is only for bonding.
+>
+>>Otherwise I'd add some parens or I might code this as:
+>>
+>>	if ((netdev->priv_flags & (IFF_BONDING | IFF_MASTER)) ==
+>>	    (IFF_BONDING | IFF_MASTER))
+>
+>	This doesn't work because the flags are kept in different
+>places, IFF_MASTER is in flags and IFF_BONDING in priv_flags.
 
-Can you please develop your explanation?
+Exactly - I'm going to send corrected patch very soon.
 
-In current __netif_receive_skb() (after the recent patch from Jiri), we=
- deliver the skb to ptype_all=20
-handlers inside a loop, while possibly changing skb->dev inside this lo=
-op.
+Jirka
 
-Then, at the end of __netif_receive_skb(), we loop on ptype_base, witho=
-ut changing anything in skb.
-
-Should we consider ptype_*->func() to be called in a pure sequential wa=
-y? Should we consider that=20
-when a ptype_*->func() returns, nothing from this handler will use the =
-skb in anyway later, in a=20
-parallel way?
-
-Or should we, instead, consider that special precautions must be taken,=
- because protocol handlers=20
-may run in parallel for the same skb? Which kind of precautions?
-
-Thanks.
-
-	Nicolas.
+>
+>	-J
+>
+>>Which is less clear, I know, but used to generate better code.
+>>The compiler might generate the same code these days.
+>>Not that this is performance-critical or anything.
+>>
+>>> This would disable adding all bond devices (like bond0 etc) and allows
+>>> to use enslaved physdevs.
+>>>
+>>> Note that checking for mode is irrelevant here. Mode could be easily
+>>> changed later without fcoe knowing that.
+>
+>	This is also true.
+>
+>	-J
+>
+>---
+>	-Jay Vosburgh, IBM Linux Technology Center, fubar-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org
