@@ -1,7 +1,7 @@
 From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: [PATCH 4/4] net,rcu: don't assume the size of struct rcu_head
-Date: Tue, 01 Mar 2011 16:03:44 +0800
-Message-ID: <4D6CA860.3020409@cn.fujitsu.com>
+Subject: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
+Date: Tue, 01 Mar 2011 16:03:30 +0800
+Message-ID: <4D6CA852.3060303@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -18,54 +18,75 @@ Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
 
-struct dst_entry assumes the size of struct rcu_head as 2 * sizeof(long)
-and manually adds pads for aligning for "__refcnt".
+The size of struct rcu_head may be changed. When it becomes larger,
+it will pollute the page array.
 
-When the size of struct rcu_head is changed, these manual padding
-is wrong. Use __attribute__((aligned (64))) instead.
+We reserve some some bytes for struct rcu_head when a slab
+is allocated in this situation.
 
 Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
 ---
-diff --git a/include/net/dst.h b/include/net/dst.h
-index 93b0310..4ef6c4a 100644
---- a/include/net/dst.h
-+++ b/include/net/dst.h
-@@ -62,8 +62,6 @@ struct dst_entry {
- 	struct hh_cache		*hh;
- #ifdef CONFIG_XFRM
- 	struct xfrm_state	*xfrm;
--#else
--	void			*__pad1;
- #endif
- 	int			(*input)(struct sk_buff*);
- 	int			(*output)(struct sk_buff*);
-@@ -74,23 +72,18 @@ struct dst_entry {
+ slub.c |   30 +++++++++++++++++++++++++-----
+ 1 file changed, 25 insertions(+), 5 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+index ad545b2..ceb135a 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -1254,21 +1254,38 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
+ 	__free_pages(page, order);
+ }
  
- #ifdef CONFIG_NET_CLS_ROUTE
- 	__u32			tclassid;
--#else
--	__u32			__pad2;
- #endif
++#define need_reserve_slab_rcu						\
++	(sizeof(((struct page *)NULL)->lru) < sizeof(struct rcu_head))
++
+ static void rcu_free_slab(struct rcu_head *h)
+ {
+ 	struct page *page;
  
+-	page = container_of((struct list_head *)h, struct page, lru);
++	if (need_reserve_slab_rcu)
++		page = virt_to_head_page(h);
++	else
++		page = container_of((struct list_head *)h, struct page, lru);
++
+ 	__free_slab(page->slab, page);
+ }
  
- 	/*
- 	 * Align __refcnt to a 64 bytes alignment
- 	 * (L1_CACHE_SIZE would be too much)
--	 */
--#ifdef CONFIG_64BIT
--	long			__pad_to_align_refcnt[1];
--#endif
--	/*
-+	 *
- 	 * __refcnt wants to be on a different cache line from
- 	 * input/output/ops or performance tanks badly
- 	 */
--	atomic_t		__refcnt;	/* client references	*/
-+	atomic_t		__refcnt	/* client references	*/
-+				__attribute__((aligned (64)));
- 	int			__use;
- 	unsigned long		lastuse;
- 	union {
+ static void free_slab(struct kmem_cache *s, struct page *page)
+ {
+ 	if (unlikely(s->flags & SLAB_DESTROY_BY_RCU)) {
+-		/*
+-		 * RCU free overloads the RCU head over the LRU
+-		 */
+-		struct rcu_head *head = (void *)&page->lru;
++		struct rcu_head *head;
++
++		if (need_reserve_slab_rcu) {
++			int order = compound_order(page);
++			int offset = (PAGE_SIZE << order) - s->reserved;
++
++			BUG_ON(s->reserved != sizeof(*head));
++			head = page_address(page) + offset;
++		} else {
++			/*
++			 * RCU free overloads the RCU head over the LRU
++			 */
++			head = (void *)&page->lru;
++		}
+ 
+ 		call_rcu(head, rcu_free_slab);
+ 	} else
+@@ -2356,6 +2373,9 @@ static int kmem_cache_open(struct kmem_cache *s,
+ 	s->flags = kmem_cache_flags(size, flags, name, ctor);
+ 	s->reserved = 0;
+ 
++	if (need_reserve_slab_rcu && (s->flags & SLAB_DESTROY_BY_RCU))
++		s->reserved = sizeof(struct rcu_head);
++
+ 	if (!calculate_sizes(s, -1))
+ 		goto error;
+ 	if (disable_higher_order_debug) {
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
