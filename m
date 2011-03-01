@@ -1,39 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: [net-next PATCH] netdevice: Convert printk to pr_info in
- netif_tx_stop_queue
-Date: Tue, 01 Mar 2011 09:06:12 -0800
-Message-ID: <1298999172.4367.56.camel@Joe-Laptop>
+From: Ajit Khaparde <ajit.khaparde@emulex.com>
+Subject: [PATCH net-next-2.6] benet: use GFP_KERNEL allocations when
+ possible
+Date: Tue, 1 Mar 2011 11:46:12 -0600
+Message-ID: <20110301174612.GA5927@akhaparde-VBox>
+Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exht1.emulex.com ([138.239.113.183]:10373 "EHLO
+	exht1.ad.emulex.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752592Ab1CARqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 12:46:38 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This allows any caller to be prefaced by any specific
-pr_fmt to better identify which device driver is using
-this function inappropriately.
+Thanks Eric.
 
-Add terminating newline.
-
-Signed-off-by: Joe Perches <joe@perches.com>
----
- include/linux/netdevice.h |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ffe56c1..c778992 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1765,8 +1765,7 @@ static inline void netif_tx_wake_all_queues(struct net_device *dev)
- static inline void netif_tx_stop_queue(struct netdev_queue *dev_queue)
- {
- 	if (WARN_ON(!dev_queue)) {
--		printk(KERN_INFO "netif_stop_queue() cannot be called before "
--		       "register_netdev()");
-+		pr_info("netif_stop_queue() cannot be called before register_netdev()\n");
- 		return;
- 	}
- 	set_bit(__QUEUE_STATE_XOFF, &dev_queue->state);
+> -----Original Message-----
+> From: Eric Dumazet [mailto:eric.dumazet@gmail.com]
+> Sent: Tuesday, March 01, 2011 9:48 AM
+> To: Khaparde, Ajit
+> Cc: netdev
+> Subject: [PATCH net-next-2.6] benet: use GFP_KERNEL allocations when
+> possible
+> 
+> Extend be_alloc_pages() with a gfp parameter, so that we use GFP_KERNEL
+> allocations instead of GFP_ATOMIC when not running in softirq context.
+> 
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Ajit Khaparde <ajit.khaparde@emulex.com>
