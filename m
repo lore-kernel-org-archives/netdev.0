@@ -1,48 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 4/4] net,rcu: don't assume the size of struct rcu_head
-Date: Tue, 01 Mar 2011 09:20:55 +0100
-Message-ID: <1298967655.2676.66.camel@edumazet-laptop>
-References: <4D6CA860.3020409@cn.fujitsu.com>
-	 <20110301.001638.104075130.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: net: allow handlers to be processed for orig_dev
+Date: Tue, 01 Mar 2011 09:24:19 +0100
+Message-ID: <4D6CAD33.2090706@gmail.com>
+References: <20110301062631.GC2855@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: laijs@cn.fujitsu.com, mingo@elte.hu, paulmck@linux.vnet.ibm.com,
- cl@linux-foundation.org, penberg@kernel.org, mpm@selenic.com,
- linux-mm@kvack.org,  linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20110301.001638.104075130.davem@davemloft.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:47264 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755519Ab1CAIY0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 03:24:26 -0500
+Received: by fxm17 with SMTP id 17so4561585fxm.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 00:24:24 -0800 (PST)
+In-Reply-To: <20110301062631.GC2855@psychotron.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 01 mars 2011 =C3=A0 00:16 -0800, David Miller a =C3=A9crit :
-> From: Lai Jiangshan <laijs@cn.fujitsu.com>
-> Date: Tue, 01 Mar 2011 16:03:44 +0800
->=20
-> >=20
-> > struct dst_entry assumes the size of struct rcu_head as 2 * sizeof(lo=
-ng)
-> > and manually adds pads for aligning for "__refcnt".
-> >=20
-> > When the size of struct rcu_head is changed, these manual padding
-> > is wrong. Use __attribute__((aligned (64))) instead.
-> >=20
-> > Signed-off-by: Lai Jiangshan <laijs@cn.fujitsu.com>
->=20
-> We don't want to use the align if it's going to waste lots of space.
->=20
-> Instead we want to rearrange the structure so that the alignment comes
-> more cheaply.
+Le 01/03/2011 07:26, Jiri Pirko a =E9crit :
+> This was there before, I forgot about this. Allows deliveries to
+> ptype_base handlers registered for orig_dev. I presume this is still
+> desired.
 
-Oh well, I should have read your answer before sending mine :)
+Yes, it is. Sorry for missing it in my review.
 
+> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
 
+Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter=
-.ca/
-Don't email: <a href=3Dmailto:"dont@kvack.org"> email@kvack.org </a>
+> ---
+>   net/core/dev.c |    3 ++-
+>   1 files changed, 2 insertions(+), 1 deletions(-)
+>
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index 30440e7..9f66de9 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3208,7 +3208,8 @@ ncls:
+>   	list_for_each_entry_rcu(ptype,
+>   			&ptype_base[ntohs(type)&  PTYPE_HASH_MASK], list) {
+>   		if (ptype->type =3D=3D type&&
+> -		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev))=
+ {
+> +		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev |=
+|
+> +		     ptype->dev =3D=3D orig_dev)) {
+>   			if (pt_prev)
+>   				ret =3D deliver_skb(skb, pt_prev, orig_dev);
+>   			pt_prev =3D ptype;
+
