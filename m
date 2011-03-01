@@ -1,75 +1,50 @@
-From: Albert Cahalan <acahalan@gmail.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Mon, 28 Feb 2011 23:11:13 -0500
-Message-ID: <AANLkTinFZu5AgfhO6PoA7C1NTGSfD8HH0KXq_o-mHEJF@mail.gmail.com>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
-	<alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
-	<1298793252.8726.45.camel@edumazet-laptop>
-	<AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
-	<20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
-	<1298837273.8726.128.camel@edumazet-laptop>
-	<20110228161115.GB2515@tuxdriver.com>
-	<1298911694.2941.639.camel@edumazet-laptop>
-	<20110228165501.GC2515@tuxdriver.com>
-	<AANLkTinj5szpStmA+fZ1xggdyTS+sd8Y9jXaYquDNEjs@mail.gmail.com>
+From: WESTERN UNION MONEY TRANSFER <cleonice@meirelesefreitas.com.br>
+Subject: Urgent Payment Information From Western Union!!
+Date: Tue, 1 Mar 2011 01:02:41 -0300 (BRT)
+Message-ID: <11467651.8918.1298952161322.JavaMail.root@correio.meirelesefreitas.com.br>
+Reply-To: WESTERN UNION MONEY TRANSFER <wumt66657@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Mikael Abrahamsson <swmike@swm.pp.se>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTinj5szpStmA+fZ1xggdyTS+sd8Y9jXaYquDNEjs@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.meirelesefreitas.com.br ([187.58.67.228]:53922 "EHLO
+	correio.meirelesefreitas.com.br" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753414Ab1CAEMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 23:12:54 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Feb 28, 2011 at 4:45 PM, John Heffner <johnwheffner@gmail.com> =
-wrote:
-> On Mon, Feb 28, 2011 at 11:55 AM, John W. Linville
-> <linville@tuxdriver.com> wrote:
->> On Mon, Feb 28, 2011 at 05:48:14PM +0100, Eric Dumazet wrote:
->>> Le lundi 28 f=E9vrier 2011 =E0 11:11 -0500, John W. Linville a =E9c=
-rit :
->>> > On Sun, Feb 27, 2011 at 09:07:53PM +0100, Eric Dumazet wrote:
+Good day,
 
->>> > > Qdisc should return to caller a good indication packet is queue=
-d or
->>> > > dropped at enqueue() time... not later (aka : never)
->>> > >
->>> > > Accepting a packet at t0, and dropping it later at t0+limit wit=
-hout
->>> > > giving any indication to caller is a problem.
->>> >
->>> > Can you elaborate on what problem this causes? =A0Is it any worse=
- than
->>> > if the packet is dropped at some later hop?
->>> >
->>> > Is there any API that could report the drop to the sender (at
->>> > least a local one) without having to wait for the ack timeout?
->>> > Should there be?
->>>
->>> Not all protocols have ACKS ;)
->>>
->>> dev_queue_xmit() returns an error code, some callers use it.
->>
->> Well, OK -- I agree it is best if you can return the status at
->> enqueue time. =A0The question becomes whether or not a dropped frame
->> is worse than living with high latency. =A0The answer, of course, st=
-ill
->> seems to be a bit subjective. =A0But, if the admin has determined th=
-at
->> a link should be low latency...?
->
-> Notably, TCP is one caller that uses the error code. =A0The error cod=
-e
-> is functionally equivalent to ECN, one of whose great advantages is
-> reducing delay jitter. =A0If TCP didn't get the error, that would
-> effectively double the latency for a full window of data, since the
-> dropped segment would not be retransmitted for an RTT.
+I write to inform you that we have already sent you $5000.00 USD dollars
+through Western Union as we have been given the mandate to transfer your
+full compensation payment of $2.5Million Dollars via Western Union by the United
+Nations Government.So I decided to email you the MTCN and sender's name
+so you can pick up this $5000.00 USD to enable us send another $5000.00
+USD by tomorrow as you know we will be sending you only $5000.00 USD per
+day. Please pick up this information and run to any Western Union in your
+country to pick up the $5000.00 USD and call me back to send you another
+payment tomorrow. However we have noted you as a customer of western union
+money transfer.
 
-It sounds like you need a callback or similar, so that TCP can be
-informed later that the drop has occurred.
+Manager: Mr Frank Amos.
+Email: wumt66657@yahoo.com.hk
+Tel number:+2347067137893
+
+Call or email me once you picked up this $5,000 USD today. Here is the
+western union information below.
+
+Sender`s First Name:_______Idrus
+Sender's Last Name:________Jemain
+MTCN:______________________115-065-5463
+Amount;=___________________$5,000, USD
+Test Question;= ___________Honest?
+Test Answer;= _____________Trust
+
+Mean while i want you to give me a call if there is any problem
+my telephone number is +2347067137893
+
+Regards,
+Tel number:+2347067137893
+Mr Frank Amos.
