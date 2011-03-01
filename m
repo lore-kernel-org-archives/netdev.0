@@ -1,64 +1,51 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
-Date: Tue, 1 Mar 2011 17:48:33 +0100 (CET)
-Message-ID: <alpine.LFD.2.00.1103011630080.2701@localhost6.localdomain6>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <1298369864-24429-2-git-send-email-peppe.cavallaro@st.com> <201102241820.55873.arnd@arndb.de> <4D6D0EA3.9000504@st.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
+Date: Tue, 01 Mar 2011 17:51:14 +0100
+Message-ID: <4D6D2402.6020705@trash.net>
+References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>	 <4D6AB578.3010704@free.fr> <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Stuart Menefy <stuart.menefy@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D6D0EA3.9000504@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrian Nord <nightnord@gmail.com>,
+	lxc-users@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Daniel Lezcano <daniel.lezcano@free.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:45738 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753733Ab1CAQvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 11:51:13 -0500
+In-Reply-To: <4D6CF4A8.6000205@free.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Mar 2011, Stuart Menefy wrote:
-> On 24/02/11 17:20, Arnd Bergmann wrote:
-> > On Tuesday 22 February 2011, Peppe CAVALLARO wrote:
-> >> From: Stuart Menefy <stuart.menefy@st.com>
-> >>
-> >> Many devices targeted at the embedded market provide a number of
-> >> generic timers which are capable of generating interrupts at a
-> >> requested rate. These can then be used in the implementation of drivers
-> >> for other peripherals which require a timer interrupt, without having
-> >> to provide an additional timer as part of that peripheral.
-
-Why can't you just use an hrtimer and be done with it? Just because
-there is some extra hardware in the chip?
-
-> If anything this duplicates clockevents. The main reason for not using
-> clockevents was that nobody else does! Currently clockevents are
-> used strictly for time keeping within the kernel, and most architectures
-> only register those which are intended to be used for this purpose.
-> We felt a bit nervous about adding code to register all the device's timers
-> as clockevents, and having the network device driver pick up one of those
-> for its own use.
-
-We had this discussion before and there was never an real outcome as
-it turned out that hrtimers provide enough abstraction for this kind
-of problems.
- 
-> True. The intent was that this would be a third interface onto timer
-> hardware, alongside clocksources and clockevents.
+On 01.03.2011 14:29, Daniel Lezcano wrote:
+> On 02/28/2011 08:45 AM, Eric Dumazet wrote:
+>>> In the normal case, dummy0 is supposed to drop the packets. But with
+>>> macvlan these packets are broadcasted to the other macvlan ports, so no
+>>> checksum is computed when the packets are transmitted between macvlan1
+>>> and macvlan2.
+>> So where frames get bad checksums ?
+>>
+>> In this "bridge" mode, I suspect the broadcast is done _before_ sending
+>> frame to dummy, so maybe macvlan should not inherit from lowerdev in
+>> this particular case ?
 > 
-> > I don't know if this could also be merged with the clocksource infrastructure,
-> > but your code currently doesn't do that.
+> Hi Eric,
 > 
-> It would probably be clockevent rather than clocksource, but it could be if
-> people felt that was a better way to go.
+> yes, you are right, the packets are sent before.
+> 
+> In the 'macvlan_queue_xmit', the code checks the dev is in 'bridge'
+> mode. If so, it looks if there is a destination port for the packet and
+> then calls the 'forward' callback which is 'dev_forward_skb'.
+> 
+> I was able to reproduce the same problem with qemu and an emulated
+> 'e1000' card instead of dummy0. The packets are dropped too.
+> 
+> Patrick, do you have any suggestions to fix this ?
 
-If we get some reasonable explanation why an extra timer interrupt is
-solving a specific problem better than hrtimers we can do that, but
-that needs more thought than picking the first available clockevent
-from a list. If we come to the conclusion, that we want/need this kind
-of functionality then I really prefer not to create yet another piece
-of infrastructure which deals with timer devices.
-
-Thanks,
-
-	tglx
+Since the frames are only looped back locally, I suppose the easiest
+fix would be to mark them with CHECKSUM_UNNECESSARY. Alternatively
+we need to complete the checksum manually, similar to what
+dev_hard_start_xmit() does.
