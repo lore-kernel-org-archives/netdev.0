@@ -1,41 +1,42 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Tue, 01 Mar 2011 06:26:44 +0100
-Message-ID: <1298957204.2676.4.camel@edumazet-laptop>
-References: <1298539762-2242-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1298627845-1583-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1298634040.2659.32.camel@edumazet-laptop>
-	 <AANLkTimeDR27Q7fcBmB0ix7Q_pRT_GDpc7S3LO21-fh-@mail.gmail.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
+Date: Tue, 01 Mar 2011 06:28:41 +0100
+Message-ID: <1298957321.2676.6.camel@edumazet-laptop>
+References: <20110228171738.2cc8c9a0@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
-	mirqus@gmail.com, davem@davemloft.net,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTimeDR27Q7fcBmB0ix7Q_pRT_GDpc7S3LO21-fh-@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Fabio Checconi <fabio@gandalf.sssup.it>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64078 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752515Ab1CAF2q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 00:28:46 -0500
+Received: by wyg36 with SMTP id 36so4345918wyg.19
+        for <netdev@vger.kernel.org>; Mon, 28 Feb 2011 21:28:45 -0800 (PST)
+In-Reply-To: <20110228171738.2cc8c9a0@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 01 mars 2011 =C3=A0 13:20 +0800, Po-Yu Chuang a =C3=A9crit :
-> Hi Eric,
+Le lundi 28 f=C3=A9vrier 2011 =C3=A0 17:17 -0800, Stephen Hemminger a =C3=
+=A9crit :
+> This is an implementation of the Quick Fair Queue scheduler developed
+> by Fabio Checconi. The same algorithm is already implemented in ipfw
+> in FreeBSD. Fabio had an earlier version developed on Linux, I just
+> cleaned it up and tested it. All bugs are mine.
 >=20
-> On Fri, Feb 25, 2011 at 7:40 PM, Eric Dumazet <eric.dumazet@gmail.com=
-> wrote:
-
-> Both NIU and BENET refill rx ring after all packets receive work done=
-,
-> but I allocate rx buffer right after a packet is received. I think it
-> is difficult
-> to use a page for two rx buffers in my driver now. Can we just keep i=
-t
-> the way it is? I can study how to achieve that after current driver i=
-s accepted.
+> This version is still experimental, do not use for production.
 >=20
+> Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
 
-No problem, you are the author, I am only a reviewer and ask questions
-after all ;)
+Seems very complex stuff ;)
 
-Thanks !
+Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+
+I'll perform some tests today with QFQ, thanks !
+
+
+
