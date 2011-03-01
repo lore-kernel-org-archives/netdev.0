@@ -1,46 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6] net: add Faraday FTMAC100 10/100 Ethernet driver
-Date: Tue, 01 Mar 2011 06:59:48 +0100
-Message-ID: <1298959188.2676.32.camel@edumazet-laptop>
-References: <1298539762-2242-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1298627845-1583-1-git-send-email-ratbert.chuang@gmail.com>
-	 <1298634040.2659.32.camel@edumazet-laptop>
-	 <AANLkTimeDR27Q7fcBmB0ix7Q_pRT_GDpc7S3LO21-fh-@mail.gmail.com>
-	 <1298958336.2676.21.camel@edumazet-laptop>
-	 <AANLkTi=Sp-mAV1556pZvCvHzQ=MQNHUzjo0ap2DhKwWe@mail.gmail.com>
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 4/4] bridge: implement slave management
+ operations
+Date: Tue, 1 Mar 2011 07:19:14 +0100
+Message-ID: <20110301061913.GA2855@psychotron.redhat.com>
+References: <20110211152125.GA2763@psychotron.brq.redhat.com>
+ <20110211152346.GD2763@psychotron.brq.redhat.com>
+ <20110228141729.09c3b770@nehalam>
+ <20110228144516.0174a9c8@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bhutchings@solarflare.com, joe@perches.com, dilinger@queued.net,
-	mirqus@gmail.com, davem@davemloft.net,
-	Po-Yu Chuang <ratbert@faraday-tech.com>
-To: Po-Yu Chuang <ratbert.chuang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AANLkTi=Sp-mAV1556pZvCvHzQ=MQNHUzjo0ap2DhKwWe@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net,
+	fubar@us.ibm.com
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37612 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752148Ab1CAGTX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2011 01:19:23 -0500
+Content-Disposition: inline
+In-Reply-To: <20110228144516.0174a9c8@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 01 mars 2011 =C3=A0 13:51 +0800, Po-Yu Chuang a =C3=A9crit :
-> On Tue, Mar 1, 2011 at 1:45 PM, Eric Dumazet <eric.dumazet@gmail.com>=
- wrote:
+Mon, Feb 28, 2011 at 11:45:16PM CET, shemminger@vyatta.com wrote:
+>On Mon, 28 Feb 2011 14:17:29 -0800
+>Stephen Hemminger <shemminger@linux-foundation.org> wrote:
+>
+>> On Fri, 11 Feb 2011 16:23:47 +0100
+>> Jiri Pirko <jpirko@redhat.com> wrote:
+>> 
+>> > 
+>> > Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+>> 
+>
+>Never mind, this is good. I was confusing slave with bridge initialization
+>and netdevice ops with ethtool ops.
+>
+>Ethtool ops seems to be growing like weeds lately...
 
-> > I am only wondering then if not using fragments would be faster the=
-n
-> > (eventually doing copybreaks for small frames like tg3)
->=20
-> Although not many circumstances are tested.
-> iperf shows that it is a little faster to use fragments than memcpy, =
-so...
 
-This might be a side effect of skb->truesize being smaller with
-fragments than "regular packets" and socket backlog congestion.
+This was replaced by:
+bridge: implement [add/del]_slave ops
 
-If a full page was really accounted for in skb->truesize, instead of
-used length, performance might be the same or lower :(
 
--	skb->truesize +=3D length;
-+	skb->truesize +=3D PAGE_SIZE;
-
-This has nothing to do with your driver, but a core implementation
-detail.
+never intended to be in ethtool
+>
+>
+>
+>-- 
