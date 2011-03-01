@@ -1,48 +1,76 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
-Date: Tue, 1 Mar 2011 21:41:26 +0100
-Message-ID: <201103012141.26679.arnd@arndb.de>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <201103011743.19847.arnd@arndb.de> <20110301202611.GC27107@n2100.arm.linux.org.uk>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next-2.6] sfc: Reduce size of efx_rx_buffer by
+ unionising skb and page
+Date: Tue, 01 Mar 2011 20:47:04 +0000
+Message-ID: <1299012424.2529.39.camel@bwh-desktop>
+References: <1298942169.3069.179.camel@localhost>
+	 <1298942490.3069.180.camel@localhost>
+	 <20110301.122459.183051942.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stuart Menefy <stuart.menefy@st.com>,
-	Peppe CAVALLARO <peppe.cavallaro@st.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Russell King - ARM Linux" <linux@arm.linux.org.uk>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20110301202611.GC27107@n2100.arm.linux.org.uk>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.solarflare.com ([216.237.3.220]:23863 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757465Ab1CAUrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 15:47:12 -0500
+In-Reply-To: <20110301.122459.183051942.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 01 March 2011 21:26:11 Russell King - ARM Linux wrote:
-> On Tue, Mar 01, 2011 at 05:43:19PM +0100, Arnd Bergmann wrote:
-> > On Tuesday 01 March 2011, Stuart Menefy wrote:
-> > > On 24/02/11 17:20, Arnd Bergmann wrote:
-> > > > Also, what is the difference between this and clkdev?
-> > > 
-> > > clkdev can be used to find a struct clk, which is fine if you just want to
-> > > read the time. In this instance we want to get interrupts from the timer
-> > > hardware, which isn't supported by the clk infrastructure.
-> > 
-> > (adding Russell to Cc)
-> > 
-> > Is this something that could sensibly be added to clk/clkdev?
+On Tue, 2011-03-01 at 12:24 -0800, David Miller wrote:
+> From: Ben Hutchings <bhutchings@solarflare.com>
+> Date: Tue, 01 Mar 2011 01:21:30 +0000
 > 
-> I don't understand - why would anyone want to use clk/clkdev for timers.
-> clk/clkdev is all about those signals on the SoC which wiggle at regular
-> intervals between logic 0 and logic 1.  It's not about things which count,
-> which seems to be an entirely separate problem, and hence why there's
-> nothing to deal with interrupts or setting timeouts etc.
+> > From: Steve Hodgson <shodgson@solarflare.com>
+> > 
+> > [bwh: Forward-ported to net-next-2.6.]
+> > Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> 
+> I'm going to apply this, but you can take this further by making
+> the buffer an "unsigned long" and encode the pointer plus a one-bit
+> binary state there to indicate what it is.
 
-Ok, I see. I had mixed the two concepts. The clkdev infrastructure
-seemed like a nice way to connect a source and a consumer of a timer,
-but you're right that it's an entirely separate thing, and as Thomas
-said, it's probably not needed either.
+We were primarily concerned with reducing the size of the software ring
+for RX queues on 64-bit (DMA address & pointer) systems, where the
+structure layout is:
 
-	Arnd
+Original:
+
+struct efx_rx_buffer {
+       dma_addr_t dma_addr;		// 0
+       struct sk_buff *skb;		// 8
+       struct page *page;		// 16
+       char *data;			// 24
+       unsigned int len;		// 32
+};					// size = 40
+
+Current:
+
+struct efx_rx_buffer {
+       dma_addr_t dma_addr;		// 0
+       union {
+               struct sk_buff *skb;	// 8
+               struct page *page;	// 8
+       } u;
+       unsigned int len;		// 16
+       bool is_page;			// 20
+};					// size = 24
+
+Combining the flag with the pointers wouldn't improve on this:
+
+struct efx_rx_buffer {
+       dma_addr_t dma_addr;		// 0
+       unsigned long magic_pointer;	// 8
+       unsigned int len;		// 16
+};					// size = 24
+
+Ben.
+
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
