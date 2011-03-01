@@ -1,35 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Tue, 01 Mar 2011 21:16:27 +0100
-Message-ID: <1299010587.2930.2.camel@edumazet-laptop>
-References: <20110228165501.GC2515@tuxdriver.com>
-	 <AANLkTinj5szpStmA+fZ1xggdyTS+sd8Y9jXaYquDNEjs@mail.gmail.com>
-	 <AANLkTinFZu5AgfhO6PoA7C1NTGSfD8HH0KXq_o-mHEJF@mail.gmail.com>
-	 <20110228.201852.193726064.davem@davemloft.net>
-	 <AANLkTi=eDQh9Kvr9N_dTC5Cnbcfb+DbO-6tLxkZiEp9v@mail.gmail.com>
-	 <1298964381.2676.58.camel@edumazet-laptop>
-	 <AANLkTimWMZHVQSHEUPuQgFXxNg85dEOesqhZE=e6x8kb@mail.gmail.com>
-	 <1299010479.2930.1.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] sfc: Reduce size of efx_rx_buffer by
+ unionising skb and page
+Date: Tue, 01 Mar 2011 12:24:59 -0800 (PST)
+Message-ID: <20110301.122459.183051942.davem@davemloft.net>
+References: <1298942169.3069.179.camel@localhost>
+	<1298942490.3069.180.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, johnwheffner@gmail.com,
-	linville@tuxdriver.com, jussi.kivilinna@mbnet.fi, swmike@swm.pp.se,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Albert Cahalan <acahalan@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1299010479.2930.1.camel@edumazet-laptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, netdev@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:52506
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757148Ab1CAUYW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 15:24:22 -0500
+In-Reply-To: <1298942490.3069.180.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le mardi 01 mars 2011 =C3=A0 21:14 +0100, Eric Dumazet a =C3=A9crit :
-> Le mardi 01 mars 2011 =C3=A0 14:37 -0500, Albert Cahalan a =C3=A9crit=
- :
-> >=20
-> > We certainly should allow some traffic spikes. 1 to 10 ms of
-> > traffic ought to do nicely. Hundreds or thousands of ms is
-> > getting way beyond "spike".
->=20
-> OK.
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Tue, 01 Mar 2011 01:21:30 +0000
 
-Hmm, user error, hit wrong button, sorry.
+> From: Steve Hodgson <shodgson@solarflare.com>
+> 
+> [bwh: Forward-ported to net-next-2.6.]
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+
+I'm going to apply this, but you can take this further by making
+the buffer an "unsigned long" and encode the pointer plus a one-bit
+binary state there to indicate what it is.
