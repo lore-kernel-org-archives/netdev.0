@@ -1,43 +1,43 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: SO_REUSEPORT - can it be done in kernel?
-Date: Tue, 1 Mar 2011 21:18:23 +0800
-Message-ID: <20110301131823.GB8028@gondor.apana.org.au>
-References: <20110228163742.GH9763@canuck.infradead.org> <1298912869.2941.687.camel@edumazet-laptop> <20110301101955.GI9763@canuck.infradead.org> <1298975602.3284.13.camel@edumazet-laptop> <20110301110708.GJ9763@canuck.infradead.org> <1298977984.3284.15.camel@edumazet-laptop> <20110301112759.GK9763@canuck.infradead.org> <1298979909.3284.28.camel@edumazet-laptop> <20110301115305.GA6984@gondor.apana.org.au> <1298984609.3284.98.camel@edumazet-laptop>
+Date: Tue, 1 Mar 2011 21:27:18 +0800
+Message-ID: <20110301132718.GA8301@gondor.apana.org.au>
+References: <1298910174.2941.585.camel@edumazet-laptop> <20110228163742.GH9763@canuck.infradead.org> <1298912869.2941.687.camel@edumazet-laptop> <20110301101955.GI9763@canuck.infradead.org> <1298975602.3284.13.camel@edumazet-laptop> <20110301110708.GJ9763@canuck.infradead.org> <1298977984.3284.15.camel@edumazet-laptop> <20110301112759.GK9763@canuck.infradead.org> <1298979909.3284.28.camel@edumazet-laptop> <20110301120112.GL9763@canuck.infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@infradead.org>,
+To: Eric Dumazet <eric.dumazet@gmail.com>,
 	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
 	therbert@google.com, wsommerfeld@google.com,
 	daniel.baluta@gmail.com, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:51903 "EHLO
+Received: from helcar.apana.org.au ([209.40.204.226]:45474 "EHLO
 	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753061Ab1CANSp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 08:18:45 -0500
+	with ESMTP id S1752939Ab1CAN13 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 08:27:29 -0500
 Content-Disposition: inline
-In-Reply-To: <1298984609.3284.98.camel@edumazet-laptop>
+In-Reply-To: <20110301120112.GL9763@canuck.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2011 at 02:03:29PM +0100, Eric Dumazet wrote:
->
-> I believe its now done properly (in net-next-2.6) with commit
-> 4f57c087de9b46182 (net: implement mechanism for HW based QOS)
-
-Nope, that has nothing to do with this.
-
-> > The odd packet reordering each time your scheduler decides to
-> > migrate the process isn't a big deal IMHO.  If your scheduler
-> > is constantly moving things you've got bigger problems to worry
-> > about.
+On Tue, Mar 01, 2011 at 07:01:12AM -0500, Thomas Graf wrote:
+> On Tue, Mar 01, 2011 at 12:45:09PM +0100, Eric Dumazet wrote:
 > 
-> Well, BENET has one TX queue anyway...
+> This is how perf top looks like with SO_REUSEPORT
+> 
+> ----------------------------------------------------------------------------------------------------------------------------------
+>    PerfTop:   27498 irqs/sec  kernel:50.5%  exact:  0.0% [1000Hz cpu-clock-msecs],  (all, CPU: 1)
+> ----------------------------------------------------------------------------------------------------------------------------------
+> 
+>              samples  pcnt function                      DSO
+>              _______ _____ _____________________________ __________________
+> 
+>             16464.00  6.0% isc_rwlock_lock               libisc.so.62.0.1
+>             15462.00  5.7% intel_idle                    [kernel.kallsyms]
 
-Interesting.  So I wonder which lock is showing up at the top
-of the profile with a single socket then.  As it's definitely
-going away with multiple sockets, that means it's not the TX
-queue lock.
+So was this a RHEL6 kernel? I wonder if that is what's making it
+perform better.
+
+I guess we'll find out tomorrow.
 
 Cheers,
 -- 
