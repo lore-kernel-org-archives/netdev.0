@@ -1,65 +1,74 @@
-From: Mikael Abrahamsson <swmike@swm.pp.se>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Tue, 1 Mar 2011 01:46:51 +0100 (CET)
-Message-ID: <alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com> <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se> <1298793252.8726.45.camel@edumazet-laptop> <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
- <20110227125540.40754c5y78j9u2m8@hayate.sektori.org> <AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com> <cbb9e1113901f1a324359b6ed3f1a611@localhost> <AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com>
- <AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: pull request: sfc-next-2.6 2011-03-01
+Date: Tue, 01 Mar 2011 01:16:09 +0000
+Message-ID: <1298942169.3069.179.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Bill Sommerfeld <wsommerfeld@google.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Albert Cahalan <acahalan@gmail.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: John Heffner <johnwheffner@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net-drivers@solarflare.com, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from swm.pp.se ([212.247.200.143]:47374 "EHLO uplift.swm.pp.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753228Ab1CAAqx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 19:46:53 -0500
-In-Reply-To: <AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
+Received: from exchange.solarflare.com ([216.237.3.220]:11590 "EHLO
+	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754634Ab1CABQU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Feb 2011 20:16:20 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Feb 2011, John Heffner wrote:
+The following changes since commit 5b2c4dd2ec12cf0e53b2bd2926f0fe2d1fbb4eda:
+  Jiri Pirko (1):
+        net: convert bonding to use rx_handler
 
-> Right... while I generally agree that a fixed-length drop-tail queue 
-> isn't optimal, isn't this problem what the various AQM schemes try to 
-> solve?
+are available in the git repository at:
 
-I am not an expert on exactly how Linux does this, but for Cisco and for 
-instance ATM interfaces, there are two stages of queuing. One is the 
-"hardware queue", which is a FIFO queue going into the ATM framer. If one 
-wants low CPU usage, then this needs to be high so multiple packets can be 
-put there per interrupt. Since AQM is working before this, it also means 
-the low-latency-queue will have a higher latency as it ends up behind 
-larger packets in the hw queue.
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next-2.6.git for-davem
 
-So on what level does the AQM work in Linux? Does it work similarily, that 
-txqueuelen is a FIFO queue to the hardware that AQM feeds packets into?
+Ben Hutchings (6):
+      sfc: Read MC firmware version when requested through ethtool
+      sfc: Do not read STAT1.FAULT in efx_mdio_check_mmd()
+      sfc: Update copyright dates
+      sfc: Expose TX push and TSO counters through ethtool statistics
+      sfc: Remove configurable FIFO thresholds for pause frame generation
+      sfc: Bump version to 3.1
 
-Also, when one uses WRED the thinking is generally to keep the average 
-queue len down, but still allow for bursts by dynamically changing the 
-drop probability and where it happens. When there is no queuing, allow for 
-big queue (so it can fill up if needed), but if the queue is large for 
-several seconds, start to apply WRED to bring it down.
+Steve Hodgson (2):
+      sfc: Reduce size of efx_rx_buffer by unionising skb and page
+      sfc: Reduce size of efx_rx_buffer further by removing data member
 
-There is generally no need at all to constantly buffer > 50 ms of data, 
-then it's better to just start selectively dropping it. In time of 
-burstyness (perhaps when re-routing traffic) there is need to buffer 
-200-500ms of during perhaps 1-2 seconds before things stabilize.
-
-So one queuing scheme and one queue limit isn't going to solve this, there 
-need to be some dynamic built into the system for it to work well.
-
-AQM needs to feed into a relatively short hw queue and AQM needs to exist 
-on output also when the traffic is sourced from the box itself, no tonly 
-routed. It would also help if the default would be to use let's say 25% of 
-the bandwidth for smaller packets (< 200 bytes or so) which generally are 
-for interactive uses or are ACKs.
+ drivers/net/sfc/efx.c           |    2 +-
+ drivers/net/sfc/efx.h           |    2 +-
+ drivers/net/sfc/ethtool.c       |   27 ++++++-
+ drivers/net/sfc/falcon.c        |   22 ++----
+ drivers/net/sfc/falcon_boards.c |    2 +-
+ drivers/net/sfc/falcon_xmac.c   |    2 +-
+ drivers/net/sfc/io.h            |    2 +-
+ drivers/net/sfc/mcdi.c          |   23 ++----
+ drivers/net/sfc/mcdi.h          |    4 +-
+ drivers/net/sfc/mcdi_mac.c      |    2 +-
+ drivers/net/sfc/mcdi_pcol.h     |    2 +-
+ drivers/net/sfc/mcdi_phy.c      |    2 +-
+ drivers/net/sfc/mdio_10g.c      |   34 ++--------
+ drivers/net/sfc/mdio_10g.h      |    5 +-
+ drivers/net/sfc/mtd.c           |    2 +-
+ drivers/net/sfc/net_driver.h    |   14 ++--
+ drivers/net/sfc/nic.c           |   22 +------
+ drivers/net/sfc/nic.h           |    9 +--
+ drivers/net/sfc/phy.h           |    2 +-
+ drivers/net/sfc/qt202x_phy.c    |    2 +-
+ drivers/net/sfc/regs.h          |    2 +-
+ drivers/net/sfc/rx.c            |  144 +++++++++++++++++++-------------------
+ drivers/net/sfc/selftest.c      |    2 +-
+ drivers/net/sfc/selftest.h      |    2 +-
+ drivers/net/sfc/siena.c         |   24 +------
+ drivers/net/sfc/spi.h           |    2 +-
+ drivers/net/sfc/tenxpress.c     |    4 +-
+ drivers/net/sfc/tx.c            |    2 +-
+ drivers/net/sfc/txc43128_phy.c  |    4 +-
+ drivers/net/sfc/workarounds.h   |    2 +-
+ 30 files changed, 150 insertions(+), 220 deletions(-)
 
 -- 
-Mikael Abrahamsson    email: swmike@swm.pp.se
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
+
