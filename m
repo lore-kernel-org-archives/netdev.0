@@ -1,77 +1,64 @@
-From: Ian Campbell <Ian.Campbell@eu.citrix.com>
-Subject: Re: [GIT/PATCH v3] xen network backend driver
-Date: Tue, 1 Mar 2011 09:31:01 +0000
-Message-ID: <1298971861.5034.1951.camel@zakaz.uk.xensource.com>
-References: <1298914061.5034.996.camel@zakaz.uk.xensource.com>
-	 <1298919198.2569.14.camel@bwh-desktop>
+From: "Jan Beulich" <JBeulich@novell.com>
+Subject: Re: [PATCH] cxgb{3,4}*: improve Kconfig dependencies
+Date: Tue, 01 Mar 2011 09:33:05 +0000
+Message-ID: <4D6CCB610200007800034422@vpn.id2.novell.com>
+References: <1298950455-4497-1-git-send-email-dm@chelsio.com>
+ <4D6CB26802000078000343BD@vpn.id2.novell.com>
+ <4D6CB7F2.9020902@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	xen-devel <xen-devel@lists.xensource.com>,
-	Jeremy Fitzhardinge <jeremy@goop.org>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <linux-scsi@vger.kernel.org>, <netdev@vger.kernel.org>
+To: "Dimitris Michailidis" <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:9775 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753517Ab1CAJbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 04:31:06 -0500
-In-Reply-To: <1298919198.2569.14.camel@bwh-desktop>
+In-Reply-To: <4D6CB7F2.9020902@chelsio.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-02-28 at 18:53 +0000, Ben Hutchings wrote:
+>>> On 01.03.11 at 10:10, Dimitris Michailidis <dm@chelsio.com> wrote:
+> Jan Beulich wrote:
+>>>>> On 01.03.11 at 04:34, Dimitris Michailidis <dm@chelsio.com> wrote:
+>>> - Remove the dependency of cxgb4 and cxgb4vf on INET.  cxgb3 really
+>>>   depends on INET, keep it but add it directly to the driver's Kconfig
+>>>   entry.
+>>> - Make the iSCSI drivers cxgb3i and cxgb4i available in the SCSI menu
+>>>   without requiring any options in the net driver menu to be enabled
+>>>   first.  Add needed selects so the iSCSI drivers can build their
+>>>   corresponding net drivers.
+>>> - Remove CHELSIO_T*_DEPENDS.
+>>>
+>>> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+>>> ---
+>>>  drivers/net/Kconfig               |   21 +++------------------
+>>>  drivers/scsi/cxgbi/cxgb3i/Kconfig |    4 +++-
+>>>  drivers/scsi/cxgbi/cxgb4i/Kconfig |    4 +++-
+>>>  3 files changed, 9 insertions(+), 20 deletions(-)
+>>>
+>>> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>>> index f4b3927..6e09d5f 100644
+>>> --- a/drivers/net/Kconfig
+>>> +++ b/drivers/net/Kconfig
+>>> @@ -2595,14 +2595,9 @@ config CHELSIO_T1_1G
+>>>  	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
+>>>  	  are using only 10G cards say 'N' here.
+>>>  
+>>> -config CHELSIO_T3_DEPENDS
+>>> -	tristate
+>>> -	depends on PCI && INET
+>>> -	default y
+>>> -
+>>>  config CHELSIO_T3
+>>>  	tristate "Chelsio Communications T3 10Gb Ethernet support"
+>>> -	depends on CHELSIO_T3_DEPENDS
+>>> +	depends on PCI && INET
+>> 
+>> Forgot to remove INET here?
 > 
-> > --- /dev/null
-> > +++ b/drivers/net/xen-netback/common.h
-> [...]
-> > +     /* Statistics */
-> > +     int rx_gso_checksum_fixup;
-> 
-> This should be defined as unsigned long (ideally it would be u64, but
-> that can't be updated atomically on 32-bit systems). 
+> Didn't forget it, this driver has a real dependency on INET (ARP more 
+> specifically).  I mentioned it also in the commit message.
 
-Thanks, I'll address all your comments in netback shortly but first I
-guess xen-netfront also needs this:
+Oh, sorry, must have read this too quickly.
 
-Ian.
-
-
-8<-----------------------------
-
->From d04fc6794249e26a5e5ba5fabf1456bb0e0309d2 Mon Sep 17 00:00:00 2001
-From: Ian Campbell <ian.campbell@citrix.com>
-Date: Tue, 1 Mar 2011 09:29:45 +0000
-Subject: [PATCH] xen: netfront: ethtool stats fields should be unsigned long
-
-Fixup the rx_gso_checksum_fixup field added in e0ce4af920eb to be
-unsigned long as suggested by Ben Hutchings in
-<1298919198.2569.14.camel@bwh-desktop>
-
-Signed-off-by: Ian Campbell <ian.campbell@citrix.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/xen-netfront.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index a6ab973..df45323 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -122,7 +122,7 @@ struct netfront_info {
- 	struct mmu_update rx_mmu[NET_RX_RING_SIZE];
- 
- 	/* Statistics */
--	int rx_gso_checksum_fixup;
-+	unsigned long rx_gso_checksum_fixup;
- };
- 
- struct netfront_rx_info {
--- 
-1.5.6.5
-
-
+Jan
 
