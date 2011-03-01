@@ -1,44 +1,45 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6] bonding: remove skb_share_check in handle_frame
-Date: Tue, 1 Mar 2011 07:22:50 +0100
-Message-ID: <20110301062250.GB2855@psychotron.redhat.com>
+Subject: net: allow handlers to be processed for orig_dev
+Date: Tue, 1 Mar 2011 07:26:31 +0100
+Message-ID: <20110301062631.GC2855@psychotron.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
 	nicolas.2p.debian@gmail.com, andy@greyhouse.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32076 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:55760 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755208Ab1CAGWz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 01:22:55 -0500
+	id S1754346Ab1CAG1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2011 01:27:07 -0500
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No need to do share check here since call to netif_rx was removed and
-skb is passed back.
+This was there before, I forgot about this. Allows deliveries to
+ptype_base handlers registered for orig_dev. I presume this is still
+desired.
 
 Signed-off-by: Jiri Pirko <jpirko@redhat.com>
 ---
- drivers/net/bonding/bond_main.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+ net/core/dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index f3e5d7f..e8c0f95 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1503,10 +1503,6 @@ static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
- 	if (unlikely(!slave))
- 		return skb;
- 
--	skb = skb_share_check(skb, GFP_ATOMIC);
--	if (unlikely(!skb))
--		return NULL;
--
- 	bond_dev = ACCESS_ONCE(skb->dev->master);
- 	if (unlikely(!bond_dev))
- 		return skb;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 30440e7..9f66de9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3208,7 +3208,8 @@ ncls:
+ 	list_for_each_entry_rcu(ptype,
+ 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
+ 		if (ptype->type == type &&
+-		    (ptype->dev == null_or_dev || ptype->dev == skb->dev)) {
++		    (ptype->dev == null_or_dev || ptype->dev == skb->dev ||
++		     ptype->dev == orig_dev)) {
+ 			if (pt_prev)
+ 				ret = deliver_skb(skb, pt_prev, orig_dev);
+ 			pt_prev = ptype;
 -- 
 1.7.3.4
 
