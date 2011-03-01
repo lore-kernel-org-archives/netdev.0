@@ -1,45 +1,93 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: net: allow handlers to be processed for orig_dev
-Date: Tue, 1 Mar 2011 07:26:31 +0100
-Message-ID: <20110301062631.GC2855@psychotron.redhat.com>
+Subject: Re: [Open-FCoE] [PATCH] fcoe: correct checking for bonding
+Date: Tue, 1 Mar 2011 07:37:11 +0100
+Message-ID: <20110301063710.GD2855@psychotron.redhat.com>
+References: <20110228133245.GB7096@psychotron.brq.redhat.com>
+ <8433.1298913321@death>
+ <4D6BE155.7050109@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: netdev@vger.kernel.org
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	James.Bottomley@HansenPartnership.com, netdev@vger.kernel.org,
+	devel@open-fcoe.org, linux-scsi@vger.kernel.org
+To: Joe Eykholt <joe.eykholt@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55760 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17806 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754346Ab1CAG1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 01:27:07 -0500
+	id S1754346Ab1CAGhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2011 01:37:20 -0500
 Content-Disposition: inline
+In-Reply-To: <4D6BE155.7050109@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This was there before, I forgot about this. Allows deliveries to
-ptype_base handlers registered for orig_dev. I presume this is still
-desired.
+Mon, Feb 28, 2011 at 06:54:29PM CET, joe.eykholt@gmail.com wrote:
+>On 2/28/11 9:15 AM, Jay Vosburgh wrote:
+>>Jiri Pirko<jpirko@redhat.com>  wrote:
+>>
+>>>Check for IFF_BONDING as this flag is set-up for all bonding devices.
+>>>
+>>>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+>>>---
+>>>drivers/scsi/fcoe/fcoe.c |    4 +---
+>>>1 files changed, 1 insertions(+), 3 deletions(-)
+>>>
+>>>diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
+>>>index 9f9600b..67714a4 100644
+>>>--- a/drivers/scsi/fcoe/fcoe.c
+>>>+++ b/drivers/scsi/fcoe/fcoe.c
+>>>@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
+>>>	}
+>>>
+>>>	/* Do not support for bonding device */
+>>>-	if ((netdev->priv_flags&  IFF_MASTER_ALB) ||
+>>>-	    (netdev->priv_flags&  IFF_SLAVE_INACTIVE) ||
+>>>-	    (netdev->priv_flags&  IFF_MASTER_8023AD)) {
+>>>+	if (netdev->priv_flags&  IFF_BONDING) {
+>>>		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
+>>>		return -EOPNOTSUPP;
+>>>	}
+>>
+>>	Based on past discussions, I believe the intent of the code is
+>>to permit FCOE over bonding only for active-backup mode, and possibly
+>>for -xor/-rr as well.
+>>
+>>	I'm not sure if the slave or the master is what's being tested
+>>here, so I'm not sure what the right thing to do is.  I suspect it's the
+>>master, as I recall discussion of one configuration involving
+>>active-backup mode balancing FCOE traffic over both the active and
+>>inactive slaves.  FCOE uses the "orig_dev" logic in __netif_receive_skb
+>>to have the packets delivered even on the nominally inactive slave.
+>>
+>>	-J
+>>
+>>---
+>>	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+>
+>Right.  That was the intent.  It should work on the physical dev, but probably
+>not on the master of the bond.
+>
+>If you have a master/slave bond for IPv4 between eth1 and eth2, say,
+>and they are going to two different DCE (FCoE) switches, presumably on
+>different VSANs but with ultimate access to the same disks,
+>then you want to split the FCoE traffic in active/active
+>mode using separate FCoE instances on eth1 and eth2 even though IP
+>is using active/standby on bond0.  This should work.  But, putting fcoe
+>on bond0 isn't going to do what you want.
+>
+>However, it seems like the check above shouldn't be checking
+>IFF_SLAVE_INACTIVE.   I can't test this.
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- net/core/dev.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+OK. So I guess the right check should be for:
+(netdev->priv_flags & IFF_BONDING && netdev->flags & IFF_MASTER)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 30440e7..9f66de9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3208,7 +3208,8 @@ ncls:
- 	list_for_each_entry_rcu(ptype,
- 			&ptype_base[ntohs(type) & PTYPE_HASH_MASK], list) {
- 		if (ptype->type == type &&
--		    (ptype->dev == null_or_dev || ptype->dev == skb->dev)) {
-+		    (ptype->dev == null_or_dev || ptype->dev == skb->dev ||
-+		     ptype->dev == orig_dev)) {
- 			if (pt_prev)
- 				ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = ptype;
--- 
-1.7.3.4
+This would disable adding all bond devices (like bond0 etc) and allows
+to use enslaved physdevs.
 
+Note that checking for mode is irrelevant here. Mode could be easily
+changed later without fcoe knowing that.
+
+Jirka
+>
+>	Joe
+>
