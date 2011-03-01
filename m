@@ -1,79 +1,110 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's
-	source MAC
-Date: Mon, 28 Feb 2011 21:35:25 -0500
-Message-ID: <20110301023525.GK11864@gospo.rdu.redhat.com>
-References: <1298668408-14849-1-git-send-email-andy@greyhouse.net> <4D68276B.90104@gmail.com> <20110225222455.GI11864@gospo.rdu.redhat.com> <4D683653.4050409@gmail.com> <20110228163255.GJ11864@gospo.rdu.redhat.com> <4D6C1764.1040008@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.hengli.com.au>,
-	Jay Vosburgh <fubar@us.ibm.com>, Jiri Pirko <jpirko@redhat.com>
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1829 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755495Ab1CACfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Feb 2011 21:35:37 -0500
-Content-Disposition: inline
-In-Reply-To: <4D6C1764.1040008@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH] cxgb{3,4}*: improve Kconfig dependencies
+Date: Mon, 28 Feb 2011 19:34:15 -0800
+Message-ID: <1298950455-4497-1-git-send-email-dm@chelsio.com>
+Cc: linux-scsi@vger.kernel.org, JBeulich@novell.com,
+	Dimitris Michailidis <dm@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 28, 2011 at 10:45:08PM +0100, Nicolas de Peslo=FCan wrote:
-> Le 28/02/2011 17:32, Andy Gospodarek a =E9crit :
->> On Sat, Feb 26, 2011 at 12:08:03AM +0100, Nicolas de Peslo=FCan wrot=
-e:
->>> Le 25/02/2011 23:24, Andy Gospodarek a =E9crit :
->> [...]
->>>>
->>>> I confirmed your suspicion, this breaks ARP monitoring.  I would s=
-till
->>>> welcome other opinions though as I think it would be nice to fix t=
-his as
->>>> low as possible.
->>>
->>> Why do you want to fix it earlier that in ndisc_recv_ns drop? Your
->>> original idea of silently dropping the frame there seems perfect to=
- me.
->>>
->>
->> Maybe it's just me, but I cannot understand why we want a bunch of e=
-xtra
->> packets floating up into the stack when they may only create issues =
-for
->> the recipients of these duplicate frames.
->>
->> Clearly my original patch needs to be refined so ARP monitoring stil=
-l
->> works, but I would rather fix the issue there than in a higher layer=
-=2E
->
-> Jay explained that the current implementation should already trap tho=
-se=20
-> frames, on inactive slaves, in modes where inactive slaves exist. I a=
-gree=20
-> with him.
->
-> What mode are you seeing this problem in? If the current "should drop=
-"=20
-> logic is leaking, then yes, we should fix it. But we currently don't =
-see=20
-> where it is leaking.
->
+- Remove the dependency of cxgb4 and cxgb4vf on INET.  cxgb3 really
+  depends on INET, keep it but add it directly to the driver's Kconfig
+  entry.
+- Make the iSCSI drivers cxgb3i and cxgb4i available in the SCSI menu
+  without requiring any options in the net driver menu to be enabled
+  first.  Add needed selects so the iSCSI drivers can build their
+  corresponding net drivers.
+- Remove CHELSIO_T*_DEPENDS.
 
-Use round-robin.  To reproduce just take the interface down and bring i=
-t
-back up.  You should see the messages right away.
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ drivers/net/Kconfig               |   21 +++------------------
+ drivers/scsi/cxgbi/cxgb3i/Kconfig |    4 +++-
+ drivers/scsi/cxgbi/cxgb4i/Kconfig |    4 +++-
+ 3 files changed, 9 insertions(+), 20 deletions(-)
 
-I've been doing some more testing on a new patch and should have
-something ready tomorrow.  My latest patch actually replaces the final
-'return 0' with a call to a function that will return true if the sende=
-r
-was the device that received it.  This will hopefully prevent some of
-the failures with the first patch I posted.  I'll know a bit more
-tomorrow if this approach seems reasonable.
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f4b3927..6e09d5f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2595,14 +2595,9 @@ config CHELSIO_T1_1G
+ 	  Enables support for Chelsio's gigabit Ethernet PCI cards.  If you
+ 	  are using only 10G cards say 'N' here.
+ 
+-config CHELSIO_T3_DEPENDS
+-	tristate
+-	depends on PCI && INET
+-	default y
+-
+ config CHELSIO_T3
+ 	tristate "Chelsio Communications T3 10Gb Ethernet support"
+-	depends on CHELSIO_T3_DEPENDS
++	depends on PCI && INET
+ 	select FW_LOADER
+ 	select MDIO
+ 	help
+@@ -2620,14 +2615,9 @@ config CHELSIO_T3
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called cxgb3.
+ 
+-config CHELSIO_T4_DEPENDS
+-	tristate
+-	depends on PCI && INET
+-	default y
+-
+ config CHELSIO_T4
+ 	tristate "Chelsio Communications T4 Ethernet support"
+-	depends on CHELSIO_T4_DEPENDS
++	depends on PCI
+ 	select FW_LOADER
+ 	select MDIO
+ 	help
+@@ -2645,14 +2635,9 @@ config CHELSIO_T4
+ 	  To compile this driver as a module choose M here; the module
+ 	  will be called cxgb4.
+ 
+-config CHELSIO_T4VF_DEPENDS
+-	tristate
+-	depends on PCI && INET
+-	default y
+-
+ config CHELSIO_T4VF
+ 	tristate "Chelsio Communications T4 Virtual Function Ethernet support"
+-	depends on CHELSIO_T4VF_DEPENDS
++	depends on PCI
+ 	help
+ 	  This driver supports Chelsio T4-based gigabit and 10Gb Ethernet
+ 	  adapters with PCI-E SR-IOV Virtual Functions.
+diff --git a/drivers/scsi/cxgbi/cxgb3i/Kconfig b/drivers/scsi/cxgbi/cxgb3i/Kconfig
+index 5cf4e98..11dff23 100644
+--- a/drivers/scsi/cxgbi/cxgb3i/Kconfig
++++ b/drivers/scsi/cxgbi/cxgb3i/Kconfig
+@@ -1,6 +1,8 @@
+ config SCSI_CXGB3_ISCSI
+ 	tristate "Chelsio T3 iSCSI support"
+-	depends on CHELSIO_T3_DEPENDS
++	depends on PCI && INET
++	select NETDEVICES
++	select NETDEV_10000
+ 	select CHELSIO_T3
+ 	select SCSI_ISCSI_ATTRS
+ 	---help---
+diff --git a/drivers/scsi/cxgbi/cxgb4i/Kconfig b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+index bb94b39..d5302c2 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/Kconfig
++++ b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+@@ -1,6 +1,8 @@
+ config SCSI_CXGB4_ISCSI
+ 	tristate "Chelsio T4 iSCSI support"
+-	depends on CHELSIO_T4_DEPENDS
++	depends on PCI && INET
++	select NETDEVICES
++	select NETDEV_10000
+ 	select CHELSIO_T4
+ 	select SCSI_ISCSI_ATTRS
+ 	---help---
+-- 
+1.7.3.4
 
