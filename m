@@ -1,138 +1,191 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH 3/3] [RFC] Changes for MQ vhost
-Date: Wed, 2 Mar 2011 12:11:47 +0200
-Message-ID: <20110302101147.GC31309@redhat.com>
-References: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
- <20110228063443.24908.38147.sendpatchset@krkumar2.in.ibm.com>
- <20110228100423.GC28006@redhat.com>
- <OFF5B60FC2.DE5700BA-ON65257846.00552576-65257846.00582CA0@in.ibm.com>
+From: denys@visp.net.lb
+Subject: RE: e1000 - rx misses
+Date: Wed, 02 Mar 2011 12:23:54 +0200
+Message-ID: <055d30730914c5695e51aee2cf6399f5@visp.net.lb>
+References: <2DF55ECAAA7FFF478FB4ED007EF478E7656B070D76@NETS.hillside.glowpoint.com>
+ <alpine.WNT.2.00.1102281058040.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+ <2DF55ECAAA7FFF478FB4ED007EF478E7656B100F27@NETS.hillside.glowpoint.com>
+ <alpine.WNT.2.00.1103011658050.5424@JBRANDEB-DESK2.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
-	davem@davemloft.net, eric.dumazet@gmail.com, horms@verge.net.au,
-	kvm@vger.kernel.org, netdev@vger.kernel.org, rusty@rustcorp.com.au
-To: Krishna Kumar2 <krkumar2@in.ibm.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <OFF5B60FC2.DE5700BA-ON65257846.00552576-65257846.00582CA0@in.ibm.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8;
+ format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Bermudez <jbermudez@vnocservice.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	<netdev@vger.kernel.org>, <e1000-devel@lists.sourceforge.net>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from hosting.visp.net.lb ([194.146.153.11]:37201 "EHLO
+	hosting.visp.net.lb" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755939Ab1CBKYL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 05:24:11 -0500
+In-Reply-To: <alpine.WNT.2.00.1103011658050.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Mar 01, 2011 at 09:34:35PM +0530, Krishna Kumar2 wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 02/28/2011 03:34:23 PM:
-> 
-> > > The number of vhost threads is <= #txqs.  Threads handle more
-> > > than one txq when #txqs is more than MAX_VHOST_THREADS (4).
-> >
-> > It is this sharing that prevents us from just reusing multiple vhost
-> > descriptors?
-> 
-> Sorry, I didn't understand this question.
-> 
-> > 4 seems a bit arbitrary - do you have an explanation
-> > on why this is a good number?
-> 
-> I was not sure what is the best way - a sysctl parameter? Or should the
-> maximum depend on number of host cpus? But that results in too many
-> threads, e.g. if I have 16 cpus and 16 txqs.
+ On my experience such things happen because of too long iptables chains 
+ or many "linear" u32 iproute2 filters (also long chains).
+ Sometimes also machines with non-tsc timesource + promisc mode enabled 
+ or ping running.
 
+ On Tue, 1 Mar 2011 17:01:49 -0800 (Pacific Standard Time), Brandeburg, 
+ Jesse wrote:
+> <removed non-relevant users>
+>
+> On Tue, 1 Mar 2011, John Bermudez wrote:
+>
+>> Thanks for your time
+>> Can you tell me the command to lengthen the input fifo rx queue?
+>> is this possible
+>
+> You can try increasing the number of rx buffers via the command
+> # ethtool -G ethX rx 4096
+>
+> and if you were really gung ho, you could increase the amount of fifo
+> allocated to the rx side of the fifo by modifying the source.  That 
+> said,
+> I don't think that will buy you anything because it seems from the 
+> small
+> amount of data provided that you are having exceptionally long 
+> periods of
+> time where the data is coming faster than your machine can process 
+> (for
+> whatever reason) and increasing the fifo only will give you a 
+> marginal
+> (4kB or so) increasing in buffering.
+>
+>
+>
+>>
+>> -----Original Message-----
+>> From: Brandeburg, Jesse [mailto:jesse.brandeburg@intel.com]
+>> Sent: Monday, February 28, 2011 11:05 AM
+>> To: John Bermudez
+>> Cc: cramerj; Ronciak, John; Kirsher, Jeffrey T; Kok, Auke-jan H; 
+>> netdev@vger.kernel.org; e1000-devel@lists.sourceforge.net
+>> Subject: Re: e1000 - rx misses
+>>
+>> added e1000-devel, responses inline...
+>>
+>> On Wed, 23 Feb 2011, John Bermudez wrote:
+>>
+>> > Hello All,
+>> > I got your contact info in a forum.
+>> > maybe you could give me a quick pointer.
+>> >
+>> > I have a device that is experiencing RX misses. I tried 1000/full 
+>> and 100/full
+>> > it occurs at both speeds. I seem to get a burst of loss so I am 
+>> assuming I am overrunning the FIFO RX queue.
+>>
+>> overrunning at 100Mb/s seems pretty unlikely to be our hardware's 
+>> fault,
+>> as your buffer (in time) is increasing by 10x.
+>>
+>> >
+>> > Any known workarounds?
+>> > Configuration modifications?
+>> >
+>> > your time is much appreciated
+>> >
+>> >
+>> >
+>> > /lib/modules/2.4.31-uc0/kernel/drivers/net/e1000
+>> > # ls
+>> > e1000.o
+>>
+>> ow, 2.4.31 kernel is pretty much so old as to not be supportable.
+>>
+>> > # ethtool -S eth1
+>> > NIC statistics:
+>> >      rx_packets: 217454512
+>> >      tx_packets: 266698397
+>> >      rx_bytes: 172995819593
+>> >      tx_bytes: 246744709750
+>> >      rx_broadcast: 0
+>> >      tx_broadcast: 528
+>> <snip>
+>> >      rx_no_buffer_count: 925
+>>
+>> This count above indicates that your cpu is not returning buffers to
+>> hardware fast enough.  Do you have NAPI enabled?
+>>
+>> >      rx_missed_errors: 48206
+>>
+>> This error means that for the length of time the fifo was buffering 
+>> the
+>> adapter was not able to get any data buffers from the OS, filled the 
+>> FIFO
+>> and had to drop this many packets.
+>>
+>> >      tx_aborted_errors: 0
+>> >      tx_carrier_errors: 0
+>> >      tx_fifo_errors: 0
+>> >      tx_heartbeat_errors: 0
+>> >      tx_window_errors: 0
+>> >      tx_abort_late_coll: 0
+>> >      tx_deferred_ok: 0
+>> >      tx_single_coll_ok: 0
+>> >      tx_multi_coll_ok: 0
+>> >      tx_timeout_count: 0
+>> >      tx_restart_queue: 0
+>> >      rx_long_length_errors: 0
+>> >      rx_short_length_errors: 0
+>> >      rx_align_errors: 0
+>> >      tx_tcp_seg_good: 0
+>> >      tx_tcp_seg_failed: 0
+>> >      rx_flow_control_xon: 0
+>> >      rx_flow_control_xoff: 0
+>> >      tx_flow_control_xon: 0
+>> >      tx_flow_control_xoff: 0
+>>
+>> flow control is either not happenning or is disabled, if it is 
+>> disabled
+>> you could try enabling it on both ends to get a little more 
+>> buffering in
+>> your switch.
+>>
+>> >      rx_long_byte_count: 172995819593
+>> >      rx_csum_offload_good: 217406235
+>> >      rx_csum_offload_errors: 17
+>> >      rx_header_split: 0
+>> >      alloc_rx_buff_failed: 0
+>> >      tx_smbus: 0
+>> >      rx_smbus: 5262
+>>
+>> hm, you have IPMI traffic, could these be related to your stalls?
+>>
+>> >      dropped_smbus: 0
+>> > #
+>> >
+>> >
+>> > Thank you and have a nice day,
+>> >
+>> > Mr. John Bermudez
+>> > NOC Level 3 Engineer
+>> >
+>> >
+>>
+>> You didn't include lots of data we need, like hardware type, 
+>> adapter/chip,
+>> ethtool -i output, cat /proc/interrupts, system info, .config, etc.
+>>
+>> I suggest that something is running either in interrupt context on 
+>> your
+>> system for a very long time (keeping us from running our interrupt
+>> handler) or that your cpu is underpowered and unable to keep up with
+>> whatever tasks it is running besides the network driver.
+>>
+>> If you wish to continue troubleshooting please file a bug at 
+>> e1000.sf.net
+>> and attach the requested info there.
+>>
+>> Jesse
+>>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I guess the question is, wouldn't # of threads == # of vqs work best?
-If we process stuff on a single CPU, let's make it pass through
-a single VQ.
-And to do this, we could simply open multiple vhost fds without
-changing vhost at all.
-
-Would this work well?
-
-> > > +		 struct task_struct *worker; /* worker for this vq */
-> > > +		 spinlock_t *work_lock;		 /* points to a dev->work_lock[] entry
-> */
-> > > +		 struct list_head *work_list;		 /* points to a dev->work_list[]
-> entry */
-> > > +		 int qnum;		 /* 0 for RX, 1 -> n-1 for TX */
-> >
-> > Is this right?
-> 
-> Will fix this.
-> 
-> > > @@ -122,12 +128,33 @@ struct vhost_dev {
-> > >  		 int nvqs;
-> > >  		 struct file *log_file;
-> > >  		 struct eventfd_ctx *log_ctx;
-> > > -		 spinlock_t work_lock;
-> > > -		 struct list_head work_list;
-> > > -		 struct task_struct *worker;
-> > > +		 spinlock_t *work_lock[MAX_VHOST_THREADS];
-> > > +		 struct list_head *work_list[MAX_VHOST_THREADS];
-> >
-> > This looks a bit strange. Won't sticking everything in a single
-> > array of structures rather than multiple arrays be better for cache
-> > utilization?
-> 
-> Correct. In that context, which is better:
-> 	struct {
-> 		spinlock_t *work_lock;
-> 		struct list_head *work_list;
-> 	} work[MAX_VHOST_THREADS];
-> or, to make sure work_lock/work_list is cache-aligned:
-> 	struct work_lock_list {
-> 		spinlock_t work_lock;
-> 		struct list_head work_list;
-> 	} ____cacheline_aligned_in_smp;
-> and define:
-> 	struct vhost_dev {
-> 		...
-> 		struct work_lock_list work[MAX_VHOST_THREADS];
-> 	};
-> Second method uses a little more space but each vhost needs only
-> one (read-only) cache line. I tested with this and can confirm it
-> aligns each element on a cache-line. BW improved slightly (upto
-> 3%), remote SD improves by upto -4% or so.
-
-Makes sense, let's align them.
-
-> > > +static inline int get_nvhosts(int nvqs)
-> >
-> > nvhosts -> nthreads?
-> 
-> Yes.
-> 
-> > > +static inline int vhost_get_thread_index(int index, int numtxqs, int
-> nvhosts)
-> > > +{
-> > > +		 return (index % numtxqs) % nvhosts;
-> > > +}
-> > > +
-> >
-> > As the only caller passes MAX_VHOST_THREADS,
-> > just use that?
-> 
-> Yes, nice catch.
-> 
-> > >  struct vhost_net {
-> > >  		 struct vhost_dev dev;
-> > > -		 struct vhost_virtqueue vqs[VHOST_NET_VQ_MAX];
-> > > -		 struct vhost_poll poll[VHOST_NET_VQ_MAX];
-> > > +		 struct vhost_virtqueue *vqs;
-> > > +		 struct vhost_poll *poll;
-> > > +		 struct socket **socks;
-> > >  		 /* Tells us whether we are polling a socket for TX.
-> > >  		  * We only do this when socket buffer fills up.
-> > >  		  * Protected by tx vq lock. */
-> > > -		 enum vhost_net_poll_state tx_poll_state;
-> > > +		 enum vhost_net_poll_state *tx_poll_state;
-> >
-> > another array?
-> 
-> Yes... I am also allocating twice the space than what is required
-> to make it's usage simple.
-
-Where's the allocation? Couldn't find it.
-
-> Please let me know what you feel about
-> this.
-> 
-> Thanks,
-> 
-> - KK
