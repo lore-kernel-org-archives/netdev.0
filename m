@@ -1,81 +1,62 @@
-From: weinholt@csbnet.se (=?utf-8?Q?G=C3=B6ran?= Weinholt)
-Subject: Re: [Bugme-new] [Bug 30092] New: smsc911x.c drops long packets with VLAN tags
-Date: Wed, 02 Mar 2011 15:07:21 +0100
-Message-ID: <lnsjv58vl2.fsf@desktop3.csbnet.se>
-References: <bug-30092-10286@https.bugzilla.kernel.org/>
-	<20110301161547.13480e90.akpm@linux-foundation.org>
+From: Greg KH <gregkh@suse.de>
+Subject: Re: [PATCH 0/7] Final BKL removal, take 2
+Date: Wed, 2 Mar 2011 09:04:28 -0500
+Message-ID: <20110302140428.GA630@suse.de>
+References: <1299021191-17961-1-git-send-email-arnd@arndb.de>
+ <20110302045923.GA28214@suse.de>
+ <4D6E2ABF.5040500@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
-	bugme-daemon@bugzilla.kernel.org,
-	Steve Glendinning <steve.glendinning@smsc.com>
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.csbnet.se ([95.80.0.100]:36811 "EHLO mail2.csbnet.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751138Ab1CBOQa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 09:16:30 -0500
-In-Reply-To: <20110301161547.13480e90.akpm@linux-foundation.org> (Andrew
-	Morton's message of "Tue, 1 Mar 2011 16:15:47 -0800")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
+	Andi Kleen <ak@linux.intel.com>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	linux-fsdevel@vger.kernel.org, linux-x25@vger.kernel.org,
+	Max Vozeler <max@vozeler.com>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	netdev@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
+	Nick Piggin <npiggin@gmail.com>,
+	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
+	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>
+To: Mauro Carvalho Chehab <mchehab@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4D6E2ABF.5040500@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@linux-foundation.org> writes:
+On Wed, Mar 02, 2011 at 08:32:15AM -0300, Mauro Carvalho Chehab wrote:
+> Em 02-03-2011 01:59, Greg KH escreveu:
+> > On Wed, Mar 02, 2011 at 12:13:04AM +0100, Arnd Bergmann wrote:
+> >> This is the set of patches that remain from
+> >> my previous submission one month ago. I've
+> >> dropped the ones that have either gone into
+> >> linux-next or got a sufficient number of
+> >> Acked-by:s so I put them into my own tree.
+> >>
+> >> I've updated the usbip, hpfs, ufs and appletalk
+> >> patches according to the feedback I got.
+> >>
+> >> If possible, I'd like the three networking patches
+> >> to go through the net-next tree, and the two
+> >> staging patches through the staging tree. I'll
+> >> add the other ones to my own series if I hear
+> >> no objections.
+> > 
+> > I'll queue up the staging patches in the staging-next tree in a day or
+> > so, thanks for digging them up.
+> 
+> Greg,
+> 
+> It is probably better to queue the staging/cx25821 patch via my tree, as this is one
+> of those staging files that it is handled via media tree. So, if it is ok
+> for you both, I'll get patch 2/7.
 
-> (switched to email.  Please respond via emailed reply-to-all, not via=
- the
-> bugzilla web interface).
->
-> On Mon, 28 Feb 2011 15:57:14 GMT
-> bugzilla-daemon@bugzilla.kernel.org wrote:
->
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D30092
->>=20
-> Thanks.  Become famous, get more girls: send us a patch as per
-> Documentation/SubmittingPatches :)
+Yes, you are right, please take it through your tree.
 
-There's a register called VLAN1 that wasn't being configured. Setting i=
-t
-to 0x8100 fixes the problem I reported. There's also a VLAN2 register,
-possibly meant for stacked VLANs, but the description in the datasheet
-doesn't make sense to me, and I can't test stacked VLANs, so I'm not
-going to change it.
+thanks,
 
-Subject: [PATCH] net/smsc911x.c: Set the VLAN1 register to fix VLAN MTU=
- problem
-=46rom: G=C3=B6ran Weinholt <weinholt@csbnet.se>
-
-The smsc911x driver would drop frames longer than 1518 bytes, which is =
-a
-problem for networks with VLAN tagging. The VLAN1 tag register is used
-to increase the legal frame size to 1522 when a VLAN tag is identified.
-
-Signed-off-by: G=C3=B6ran Weinholt <weinholt@csbnet.se>
----
-diff -uprN linux-2.6.36.4-vanilla/drivers/net/smsc911x.c linux-2.6.36.4=
-/drivers/net/smsc911x.c
---- linux-2.6.36.4-vanilla/drivers/net/smsc911x.c	2011-02-18 00:14:38.0=
-00000000 +0100
-+++ linux-2.6.36.4/drivers/net/smsc911x.c	2011-03-02 14:29:11.884382251=
- +0100
-@@ -1178,6 +1178,11 @@ static int smsc911x_open(struct net_devi
- 	smsc911x_reg_write(pdata, HW_CFG, 0x00050000);
- 	smsc911x_reg_write(pdata, AFC_CFG, 0x006E3740);
-=20
-+	/* Increase the legal frame size of VLAN tagged frames to 1522 bytes =
-*/
-+	spin_lock_irq(&pdata->mac_lock);
-+	smsc911x_mac_write(pdata, VLAN1, ETH_P_8021Q);
-+	spin_unlock_irq(&pdata->mac_lock);
-+
- 	/* Make sure EEPROM has finished loading before setting GPIO_CFG */
- 	timeout =3D 50;
- 	while ((smsc911x_reg_read(pdata, E2P_CMD) & E2P_CMD_EPC_BUSY_) &&
-
-
-
---=20
-G=C3=B6ran Weinholt
-Network Administrator
-Chalmers Studentbost=C3=A4der (AS48514)
+greg k-h
