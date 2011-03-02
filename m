@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH 18/27] HFI: Map window registers into user process
-Date: Wed,  2 Mar 2011 16:10:04 -0500
-Message-ID: <1299100213-8770-18-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH 17/27] HFI: Set up and call the open window hypercall
+Date: Wed,  2 Mar 2011 16:10:03 -0500
+Message-ID: <1299100213-8770-17-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -13,22 +13,22 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e3.ny.us.ibm.com ([32.97.182.143]:55627 "EHLO e3.ny.us.ibm.com"
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:45827 "EHLO e5.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757563Ab1CBVK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757557Ab1CBVK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Mar 2011 16:10:29 -0500
 Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KoQr4016512
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:50:26 -0500
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id F171138C803D
+	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KjlNp012215
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:45:48 -0500
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 2959B38C8038
 	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:27 -0500 (EST)
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LASTM230978
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LASC1258428
 	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:28 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LARFC032346
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:28 -0500
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LAReD032308
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:27 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
@@ -36,10 +36,6 @@ Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-
-User-space applications send and receive without kernel involvement, once
-the window is open. A page of hardware registers controlling the appropriate
-window is mapped into the user's address space.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -51,227 +47,247 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/Makefile       |    1 +
- drivers/net/hfi/core/hfidd_map.c    |   99 +++++++++++++++++++++++++++++++++++
- drivers/net/hfi/core/hfidd_proto.h  |    4 ++
- drivers/net/hfi/core/hfidd_window.c |   51 ++++++++++++++++++-
- 4 files changed, 154 insertions(+), 1 deletions(-)
- create mode 100644 drivers/net/hfi/core/hfidd_map.c
+ drivers/net/hfi/core/hfidd_window.c |  180 +++++++++++++++++++++++++++++++++++
+ include/linux/hfi/hfidd_hcalls.h    |    2 +
+ 2 files changed, 182 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
-index 8d5558d..3adf07e 100644
---- a/drivers/net/hfi/core/Makefile
-+++ b/drivers/net/hfi/core/Makefile
-@@ -5,5 +5,6 @@ hfi_core-objs:=	hfidd_adpt.o \
- 		hfidd_window.o \
- 		hfidd_init.o \
- 		hfidd_xlat.o \
-+		hfidd_map.o \
- 		hfidd_hcalls.o
- obj-$(CONFIG_HFI) += hfi_core.o
-diff --git a/drivers/net/hfi/core/hfidd_map.c b/drivers/net/hfi/core/hfidd_map.c
-new file mode 100644
-index 0000000..816e7ae
---- /dev/null
-+++ b/drivers/net/hfi/core/hfidd_map.c
-@@ -0,0 +1,99 @@
+diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
+index 6d90af6..3a9fea9 100644
+--- a/drivers/net/hfi/core/hfidd_window.c
++++ b/drivers/net/hfi/core/hfidd_window.c
+@@ -359,6 +359,106 @@ static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
+ 	return 0;
+ }
+ 
 +/*
-+ * hfidd_map.c
-+ *
-+ * HFI device driver for IBM System p
-+ *
-+ *  Authors:
-+ *      Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
-+ *      William S. Cadden <wscadden@linux.vnet.ibm.com>
-+ *      Wen C. Chen <winstonc@linux.vnet.ibm.com>
-+ *      Scot Sakolish <sakolish@linux.vnet.ibm.com>
-+ *      Jian Xiao <jian@linux.vnet.ibm.com>
-+ *      Carol L. Soto <clsoto@linux.vnet.ibm.com>
-+ *      Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
-+ *
-+ *  (C) Copyright IBM Corp. 2010
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
++ * Setup a page for phyp with the window parameters needed for
++ * OPEN WINDOW hcall
 + */
-+
-+#include <linux/io.h>
-+#include <linux/hfi/hfidd_internal.h>
-+
-+int hfidd_mmap(struct hfidd_acs *p_acs, void **eaddr, int size,
-+		unsigned long vm_flag, unsigned long long busaddr,
-+		unsigned long long offset)
++int hfi_build_window_info(struct hfidd_acs *p_acs, struct hfidd_window *win_p)
 +{
-+	struct vm_area_struct	*vma;
-+	unsigned long		vsize;
-+	int			rc;
++	caddr_t		laddr;
 +
-+	down_write(&current->mm->mmap_sem);
-+	*eaddr = (void *)do_mmap(NULL, (unsigned long)*eaddr, size, PROT_WRITE,
-+			MAP_SHARED | MAP_ANONYMOUS,
-+			offset);
-+	up_write(&current->mm->mmap_sem);
-+	if (*eaddr) {
-+		vma = find_vma(current->mm, (u64) *eaddr);
-+		if (!vma) {
-+			dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+				"hfidd_mmap: find_vma failed\n");
-+			return -ENOMEM;
-+		}
-+	} else {
++#define WIN_INFO	(win_p->win_open_info_p)
++#define CLIENT_INFO	(win_p->client_info)
++
++	/* OPEN WINDOW hcall requires a page to pass arguments */
++	win_p->win_open_info_p = (struct win_open_info *)
++			__get_free_pages(GFP_KERNEL, get_order(PAGE_SIZE_4K));
++	if (win_p->win_open_info_p == NULL) {
++
 +		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_mmap: do_mmap failed\n");
++			"hfi_build_window_info: ___get_free_pages failed\n");
 +		return -ENOMEM;
 +	}
++	memset((void *)(win_p->win_open_info_p), 0, PAGE_SIZE_4K);
 +
-+	vsize = vma->vm_end - vma->vm_start;
-+	if (vsize != size) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_mmap: Wrong sizes: vsize = %ld "
-+			"size = %d\n", vsize, size);
-+		return -EINVAL;
-+	}
++	/* Translate virtual adress into logical addres */
++	laddr = (caddr_t)__pa((caddr_t)win_p->win_open_info_p);
 +
-+	if (vm_flag == VM_RESERVED)
-+		vma->vm_page_prot = pgprot_val(vma->vm_page_prot);
-+	else
-+		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-+	vma->vm_flags |= vm_flag;
++	win_p->win_open_info_laddr = laddr;
++	WIN_INFO->job_id = CLIENT_INFO.job_id;
++	WIN_INFO->protection_domain = win_p->job_id;
 +
-+	rc = remap_pfn_range(vma, vma->vm_start, busaddr >> PAGE_SHIFT, size,
-+			vma->vm_page_prot);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_mmap: remap_pfn_range failed\n");
-+		return -ENOMEM;
++	WIN_INFO->sfifo_base_eaddr = CLIENT_INFO.sfifo.eaddr.use.allu;
++	WIN_INFO->sfifo_lkey       = win_p->sfifo_x_tab->l_key;
++	WIN_INFO->sfifo_size       = CLIENT_INFO.sfifo.size;
++	WIN_INFO->sfifo_finish_vec = CLIENT_INFO.sfifo_finish_vec.use.allu;
++
++	WIN_INFO->rfifo_base_eaddr = CLIENT_INFO.rfifo.eaddr.use.allu;
++	WIN_INFO->rfifo_lkey       = win_p->rfifo_x_tab->l_key;
++	WIN_INFO->rfifo_size       = CLIENT_INFO.rfifo.size;
++
++	/* Save IP context */
++	WIN_INFO->is_ip_window = win_p->is_ip;
++	if (win_p->is_ip) {
++		WIN_INFO->multicast_enable	   = HFI_MULTICAST_ENABLE;
++		WIN_INFO->disable_src_isr_id_stamp = 0;
++		WIN_INFO->logical_port_id_valid	   = 0;
++		WIN_INFO->logical_port_id	   = 0;
 +	}
 +
 +	return 0;
 +}
 +
-+int hfidd_unmap(void *addr, int size)
++/* Free the phyp page used at OPEN WINDOW hcall */
++static inline void hfi_destroy_window_info(struct hfidd_acs *p_acs,
++					struct hfidd_window *win_p)
 +{
-+	int rc = 0;
-+	struct mm_struct *mm = current->mm;
++	free_pages((unsigned long)win_p->win_open_info_p,
++			get_order(PAGE_SIZE_4K));
++	win_p->win_open_info_p = NULL;
++	return;
++}
 +
-+	if (mm && (addr != NULL)) {
-+		down_write(&mm->mmap_sem);
-+		rc = do_munmap(mm, (unsigned long)addr, size);
-+		up_write(&mm->mmap_sem);
++/* Call to OPEN WINDOW hcall */
++static int hfi_hcall_to_open_window(struct hfidd_acs *p_acs,
++				struct hfidd_window *win_p)
++{
++	int		rc = 0;
++	long long	hvrc = 0;
++	u64		ummio_regs;
++	u64		pmmio_regs;
++	u64		send_intr;
++	u64		recv_intr;
++
++	hvrc = hfi_open_window(p_acs->dds.hfi_id,
++			win_p->index,
++			H_OPEN,
++			(u64)win_p->win_open_info_laddr,
++			&ummio_regs,
++			&pmmio_regs,
++			&send_intr,
++			&recv_intr);
++
++	if (hvrc != H_SUCCESS) {
++		if (hvrc == H_HARDWARE) {
++			win_p->state = WIN_HERROR;
++			rc = -EIO;
++		} else {
++			rc = -EINVAL;
++		}
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_hcall_to_open_window: OPEN WINDOW failed, "
++			"hvrc=0x%llx\n", hvrc);
++		return rc;
++	}
++
++	/* Copy mmio_regs logical page from OPEN_WINDOW hcall */
++	win_p->mmio_regs = ummio_regs;
++	win_p->send_intr  = (unsigned int)send_intr;
++	win_p->recv_intr  = (unsigned int)recv_intr;
++
++	return 0;
++}
+ 
+ /*
+  * Map the Effective Address pages for Memory Regions.
+@@ -573,6 +673,31 @@ sfifo_err:
+ 	return rc;
+ }
+ 
++/* Free all the window memory regions */
++static int hfi_takedown_window_in_MMU(struct hfidd_acs *p_acs,
++		unsigned int is_userspace, struct hfidd_window *win_p)
++{
++	int	rc = 0;
++
++	rc = hfi_unregister_MMU(p_acs, win_p->rfifo_x_tab);
++	if (rc != 0) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_takedown_window_in_MMU: rfifo mr failed,"
++			"rc = 0x%x\n", rc);
++		return rc;
++	}
++
++	rc = hfi_unregister_MMU(p_acs, win_p->sfifo_x_tab);
++	if (rc != 0) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_takedown_window_in_MMU: sfifo mr failed,"
++			"rc = 0x%x\n", rc);
++		return rc;
 +	}
 +
 +	return rc;
 +}
-diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index c4ed215..1f7fe80 100644
---- a/drivers/net/hfi/core/hfidd_proto.h
-+++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -57,6 +57,10 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- int hfi_register_rpages(struct hfidd_acs *p_acs, unsigned long long mr_handle,
- 		unsigned int submr, struct hfidd_vlxmem *xtab_p,
- 		unsigned int *mapped_pages);
-+int hfidd_mmap(struct hfidd_acs *p_acs, void **eaddr, int size,
-+		unsigned long vm_flag, unsigned long long busaddr,
-+		unsigned long long offset);
-+int hfidd_unmap(void *addr, int size);
- int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page,
- 	caddr_t *laddr, int size);
- void hfidd_release_phyp_page(caddr_t page, int size);
-diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
-index 3a9fea9..4ee96f8 100644
---- a/drivers/net/hfi/core/hfidd_window.c
-+++ b/drivers/net/hfi/core/hfidd_window.c
-@@ -875,6 +875,44 @@ setup_window_parm_err1:
- 	return rc;
++
+ static int hfi_xlate_fifos(struct hfidd_acs *p_acs,
+ 		unsigned int is_userspace,
+ 		struct hfidd_window *win_p,
+@@ -701,6 +826,19 @@ static int hfi_alloc_win_resource(struct hfidd_acs *p_acs,
+ 	return 0;
  }
  
-+/* Map the window mmio registers - only user space window */
-+static int hfi_map_mmio_regs(struct hfidd_acs *p_acs,
++static int hfi_destroy_window_parm(struct hfidd_acs *p_acs,
 +		unsigned int is_userspace,
 +		struct hfidd_window *win_p,
 +		struct hfi_client_info *client_p)
 +{
-+	int			rc = 0;
-+	unsigned long long	offset;
-+	void			*tmp_eaddr;
++	int	rc = 0;
 +
-+	if (!is_userspace) {
-+		/* No translation, just pass back the logical address */
-+		client_p->mmio_regs.use.kptr = (void *)win_p->mmio_regs;
-+		win_p->client_info.mmio_regs.use.kptr =
-+				(void *)win_p->mmio_regs;
-+	} else {
-+		/*
-+		 * Translate mmio_regs from logical to effective address: 1st
-+		 * page
-+		 */
-+		tmp_eaddr = 0;
-+		offset = (client_p->window) << PAGE_SHIFT_64K;
-+		rc = hfidd_mmap(p_acs, &tmp_eaddr, PAGE_SIZE_64K,
-+				VM_RESERVED | VM_IO,
-+				(long long)win_p->mmio_regs, offset);
-+		if (rc) {
-+			dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+				"hfi_map_mmio_regs: hfidd_mmap mmio_regs "
-+				"failed, rc = 0x%x, mmio_regs = 0x%llx\n",
-+				rc, (unsigned long long)win_p->mmio_regs);
-+			return rc;
-+		}
-+		client_p->mmio_regs.use.kptr = tmp_eaddr;
-+		win_p->client_info.mmio_regs.use.kptr = tmp_eaddr;
-+	}
-+	return 0;
++	hfi_destroy_window_info(p_acs, win_p);
++
++	rc = hfi_takedown_window_in_MMU(p_acs, is_userspace, win_p);
++	return rc;
 +}
 +
- /*
-  * Allows an user/kernel window to send/receive network traffic thru HFI
-  * adapter. This function will allocate the system resources needed to open
-@@ -941,6 +979,14 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		goto hfidd_open_window_func_err4;
+ static int hfi_setup_window_parm(struct hfidd_acs *p_acs,
+ 			unsigned int is_userspace,
+ 			struct hfidd_window *win_p,
+@@ -719,8 +857,20 @@ static int hfi_setup_window_parm(struct hfidd_acs *p_acs,
+ 			"failed, rc = 0x%x\n", rc);
+ 		goto setup_window_parm_err1;
  	}
- 
-+	rc = hfi_map_mmio_regs(p_acs, is_userspace, win_p, local_p);
++
++	/* Build window information for OPEN WINDOW hcall */
++	rc = hfi_build_window_info(p_acs, win_p);
 +	if (rc) {
 +		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_open_window_func: hfi_map_mmio_regs "
++			"hfi_setup_window_parm: hfi_build_window_info "
++			"failed, rc = 0x%x\n", rc);
++		goto setup_window_parm_err2;
++	}
++
+ 	return 0;
+ 
++setup_window_parm_err2:
++	hfi_takedown_window_in_MMU(p_acs, is_userspace, win_p);
+ setup_window_parm_err1:
+ 	return rc;
+ }
+@@ -783,9 +933,39 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ 		goto hfidd_open_window_func_err3;
+ 	}
+ 
++	rc = hfi_hcall_to_open_window(p_acs, win_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_open_window_func: hfi_hcall_to_open_window "
 +			"failed, rc = 0x%x\n", rc);
 +		goto hfidd_open_window_func_err4;
 +	}
 +
- 	/* tell user the local ISR id */
- 	local_p->local_isrid = p_acs->isr;
- 	win_p->client_info.local_isrid = p_acs->isr;
-@@ -952,7 +998,7 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
- 		dev_printk(KERN_ERR, p_acs->hfidd_dev,
- 			"hfidd_open_window_func: hfi_copy_to_user "
- 			"failed, rc = 0x%x\n", rc);
--		goto hfidd_open_window_func_err4;
-+		goto hfidd_open_window_func_err5;
- 	}
- 
- 	spin_lock(&(win_p->win_lock));
-@@ -964,6 +1010,9 @@ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
++	/* tell user the local ISR id */
++	local_p->local_isrid = p_acs->isr;
++	win_p->client_info.local_isrid = p_acs->isr;
++
++	/* Copy out the client info back to user */
++	rc = hfi_copy_to_user((void *)out_p, (void *)local_p,
++			is_userspace, sizeof(struct hfi_client_info));
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_open_window_func: hfi_copy_to_user "
++			"failed, rc = 0x%x\n", rc);
++		goto hfidd_open_window_func_err4;
++	}
++
++	spin_lock(&(win_p->win_lock));
++	/* Update the window information */
++	win_p->pid = current->tgid;
++	win_p->state = WIN_OPENED;
++	spin_unlock(&(win_p->win_lock));
++
  	kfree(local_p);
  	return rc;
  
-+hfidd_open_window_func_err5:
-+	if (is_userspace)
-+		hfidd_unmap(local_p->mmio_regs.use.kptr, PAGE_SIZE_64K);
- hfidd_open_window_func_err4:
- 	hfi_destroy_window_parm(p_acs, is_userspace, win_p, local_p);
++hfidd_open_window_func_err4:
++	hfi_destroy_window_parm(p_acs, is_userspace, win_p, local_p);
  hfidd_open_window_func_err3:
+ 	hfi_free_win_resource(p_acs, is_userspace, win_p, local_p);
+ hfidd_open_window_func_err2:
+diff --git a/include/linux/hfi/hfidd_hcalls.h b/include/linux/hfi/hfidd_hcalls.h
+index a97bb5e..1e007c5 100644
+--- a/include/linux/hfi/hfidd_hcalls.h
++++ b/include/linux/hfi/hfidd_hcalls.h
+@@ -70,6 +70,8 @@
+ 
+ #define HFI_ACCESS_CTL_SHIFT	32
+ 
++#define HFI_MULTICAST_ENABLE	1
++
+ struct win_open_info {
+ 	/* Hyp Feedback */
+ 	unsigned long long	hypervisor_capabilities;
 -- 
 1.7.3.1
 
