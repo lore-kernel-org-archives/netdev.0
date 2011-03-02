@@ -1,7 +1,7 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Wed, 02 Mar 2011 16:41:12 +0100
-Message-ID: <1299080472.2920.7.camel@edumazet-laptop>
+Date: Wed, 02 Mar 2011 16:53:32 +0100
+Message-ID: <1299081212.2920.14.camel@edumazet-laptop>
 References: <20110228171738.2cc8c9a0@nehalam>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,45 +11,62 @@ Cc: David Miller <davem@davemloft.net>,
 	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:64041 "EHLO
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:54270 "EHLO
 	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750959Ab1CBPl0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 10:41:26 -0500
-Received: by fxm17 with SMTP id 17so101321fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 07:41:25 -0800 (PST)
+	with ESMTP id S1751384Ab1CBPxh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 10:53:37 -0500
+Received: by fxm17 with SMTP id 17so113843fxm.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 07:53:36 -0800 (PST)
 In-Reply-To: <20110228171738.2cc8c9a0@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Le lundi 28 f=C3=A9vrier 2011 =C3=A0 17:17 -0800, Stephen Hemminger a =C3=
 =A9crit :
+> This is an implementation of the Quick Fair Queue scheduler developed
+> by Fabio Checconi. The same algorithm is already implemented in ipfw
+> in FreeBSD. Fabio had an earlier version developed on Linux, I just
+> cleaned it up and tested it. All bugs are mine.
 
 
-> --- a/include/linux/pkt_sched.h	2011-02-28 13:28:57.763177314 -0800
-> +++ b/include/linux/pkt_sched.h	2011-02-28 13:29:10.466792117 -0800
-> @@ -588,4 +588,18 @@ struct tc_sfb_xstats {
-> =20
->  #define SFB_MAX_PROB 0xFFFF
-> =20
-> +/* QFQ */
-> +enum {
 
-+	TCA_QFQ_UNSPEC,
+Here is my crash analysis :
 
-> +	TCA_QFQ_WEIGHT,
-> +	TCA_QFQ_LMAX,
-> +	__TCA_QFQ_MAX
-> +};
+> +static void qfq_reset_qdisc(struct Qdisc *sch)
+> +{
+> +	struct qfq_sched *q =3D qdisc_priv(sch);
+> +	struct qfq_group *grp;
+> +	struct qfq_class *cl, **pp;
+> +	struct hlist_node *n;
+> +	unsigned int i, j;
 > +
-> +#define TCA_QFQ_MAX	(__TCA_QFQ_MAX - 1)
+> +	for (i =3D 0; i <=3D QFQ_MAX_INDEX; i++) {
+> +		grp =3D &q->groups[i];
+> +		for (j =3D 0; j < QFQ_MAX_SLOTS; j++) {
+> +			for (pp =3D &grp->slots[j]; *pp; pp =3D &(*pp)->next) {
+> +				cl =3D *pp;
+> +				if (cl->qdisc->q.qlen)
+> +					qfq_deactivate_class(q, cl, pp);
+
+Here, if we deactivated last class in chain, *pp is NULL, but
+
+pp =3D &(*pp)->next  put 0x50 (on 64bit arches) in pp, so we crash ...
+
+
+
+
+
+> +			}
+> +		}
+> +	}
 > +
-
-With TCA_QFQ_UNSPEC bit (and mirror the change in iproute2), it seems t=
-o
-work better.
-
-Oh wait, I had a crash in qfq_reset_qdisc() when re-running my setup
-script.
+> +	for (i =3D 0; i < q->clhash.hashsize; i++) {
+> +		hlist_for_each_entry(cl, n, &q->clhash.hash[i], common.hnode)
+> +			qdisc_reset(cl->qdisc);
+> +	}
+> +	sch->q.qlen =3D 0;
+> +}
+> +
 
 
 
