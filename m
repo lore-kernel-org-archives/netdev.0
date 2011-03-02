@@ -1,85 +1,87 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: txqueuelen has wrong units; should be time
-Date: Tue, 1 Mar 2011 22:25:31 -0800
-Message-ID: <20110301222531.24832a93@nehalam>
-References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
-	<alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
-	<1298793252.8726.45.camel@edumazet-laptop>
-	<AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
-	<20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
-	<AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com>
-	<cbb9e1113901f1a324359b6ed3f1a611@localhost>
-	<AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com>
-	<AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
-	<alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se>
+From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+Subject: [Bug-Fix][Patch 1/1] dccp: fix oops on Reset after close
+Date: Wed, 2 Mar 2011 07:34:47 +0100
+Message-ID: <20110302063447.GB4902@gerrit.erg.abdn.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: John Heffner <johnwheffner@gmail.com>,
-	Bill Sommerfeld <wsommerfeld@google.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Albert Cahalan <acahalan@gmail.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Mikael Abrahamsson <swmike@swm.pp.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Johan Hovold <jhovold@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dee.erg.abdn.ac.uk ([139.133.204.82]:53089 "EHLO erg.abdn.ac.uk"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750918Ab1CBGe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 01:34:59 -0500
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Mar 2011 01:46:51 +0100 (CET)
-Mikael Abrahamsson <swmike@swm.pp.se> wrote:
+Dave,
 
-> On Mon, 28 Feb 2011, John Heffner wrote:
-> 
-> > Right... while I generally agree that a fixed-length drop-tail queue 
-> > isn't optimal, isn't this problem what the various AQM schemes try to 
-> > solve?
-> 
-> I am not an expert on exactly how Linux does this, but for Cisco and for 
-> instance ATM interfaces, there are two stages of queuing. One is the 
-> "hardware queue", which is a FIFO queue going into the ATM framer. If one 
-> wants low CPU usage, then this needs to be high so multiple packets can be 
-> put there per interrupt. Since AQM is working before this, it also means 
-> the low-latency-queue will have a higher latency as it ends up behind 
-> larger packets in the hw queue.
-> 
-> So on what level does the AQM work in Linux? Does it work similarily, that 
-> txqueuelen is a FIFO queue to the hardware that AQM feeds packets into?
-> 
-> Also, when one uses WRED the thinking is generally to keep the average 
-> queue len down, but still allow for bursts by dynamically changing the 
-> drop probability and where it happens. When there is no queuing, allow for 
-> big queue (so it can fill up if needed), but if the queue is large for 
-> several seconds, start to apply WRED to bring it down.
-> 
-> There is generally no need at all to constantly buffer > 50 ms of data, 
-> then it's better to just start selectively dropping it. In time of 
-> burstyness (perhaps when re-routing traffic) there is need to buffer 
-> 200-500ms of during perhaps 1-2 seconds before things stabilize.
-> 
-> So one queuing scheme and one queue limit isn't going to solve this, there 
-> need to be some dynamic built into the system for it to work well.
-> 
-> AQM needs to feed into a relatively short hw queue and AQM needs to exist 
-> on output also when the traffic is sourced from the box itself, no tonly 
-> routed. It would also help if the default would be to use let's say 25% of 
-> the bandwidth for smaller packets (< 200 bytes or so) which generally are 
-> for interactive uses or are ACKs.
-> 
+could you please apply the below bug fix for a condition where a simple packet
+reception can trigger oops.
 
-It is possible to build an equivalent to WRED out existing GRED queuing
-discipline but it does require a lot of tc knowledge to get right.
-The inventor of RED (Van Jacobsen) has issues with WRED because of
-the added complexity of queue selection. RED requires some parameters
-which the average user has no idea how to set.
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Patch <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+dccp: fix oops on Reset after close
 
-There are several problems with RED that prevent prevent VJ from
-recommending it in the current form.
+This fixes a bug in the order of dccp_rcv_state_process() that still permitted
+reception even after closing the socket. A Reset after close thus causes a NULL
+pointer dereference by not preventing operations on an already torn-down socket.
 
-  http://gettys.wordpress.com/2010/12/17/red-in-a-different-light/
+ dccp_v4_do_rcv() 
+	|
+	| state other than OPEN
+	v
+ dccp_rcv_state_process()
+	|
+	| DCCP_PKT_RESET
+	v
+ dccp_rcv_reset()
+	|
+	v
+ dccp_time_wait()
 
+ WARNING: at net/ipv4/inet_timewait_sock.c:141 __inet_twsk_hashdance+0x48/0x128()
+ Modules linked in: arc4 ecb carl9170 rt2870sta(C) mac80211 r8712u(C) crc_ccitt ah
+ [<c0038850>] (unwind_backtrace+0x0/0xec) from [<c0055364>] (warn_slowpath_common)
+ [<c0055364>] (warn_slowpath_common+0x4c/0x64) from [<c0055398>] (warn_slowpath_n)
+ [<c0055398>] (warn_slowpath_null+0x1c/0x24) from [<c02b72d0>] (__inet_twsk_hashd)
+ [<c02b72d0>] (__inet_twsk_hashdance+0x48/0x128) from [<c031caa0>] (dccp_time_wai)
+ [<c031caa0>] (dccp_time_wait+0x40/0xc8) from [<c031c15c>] (dccp_rcv_state_proces)
+ [<c031c15c>] (dccp_rcv_state_process+0x120/0x538) from [<c032609c>] (dccp_v4_do_)
+ [<c032609c>] (dccp_v4_do_rcv+0x11c/0x14c) from [<c0286594>] (release_sock+0xac/0)
+ [<c0286594>] (release_sock+0xac/0x110) from [<c031fd34>] (dccp_close+0x28c/0x380)
+ [<c031fd34>] (dccp_close+0x28c/0x380) from [<c02d9a78>] (inet_release+0x64/0x70)
 
--- 
+The fix is by testing the socket state first. Receiving a packet in Closed state
+now also produces the required "No connection" Reset reply of RFC 4340, 8.3.1.
+
+Reported-and-tested-by: Johan Hovold <jhovold@gmail.com>
+Cc: stable@kernel.org
+Signed-off-by: Gerrit Renker <gerrit@erg.abdn.ac.uk>
+---
+ net/dccp/input.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+--- a/net/dccp/input.c
++++ b/net/dccp/input.c
+@@ -614,6 +614,9 @@ int dccp_rcv_state_process(struct sock *
+ 		/* Caller (dccp_v4_do_rcv) will send Reset */
+ 		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
+ 		return 1;
++	} else if (sk->sk_state == DCCP_CLOSED) {
++		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
++		return 1;
+ 	}
+ 
+ 	if (sk->sk_state != DCCP_REQUESTING && sk->sk_state != DCCP_RESPOND) {
+@@ -668,10 +671,6 @@ int dccp_rcv_state_process(struct sock *
+ 	}
+ 
+ 	switch (sk->sk_state) {
+-	case DCCP_CLOSED:
+-		dcb->dccpd_reset_code = DCCP_RESET_CODE_NO_CONNECTION;
+-		return 1;
+-
+ 	case DCCP_REQUESTING:
+ 		queued = dccp_rcv_request_sent_state_process(sk, skb, dh, len);
+ 		if (queued >= 0)
