@@ -1,278 +1,126 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 1/3] tun: Convert logging messages to pr_<level> and tun_debug
-Date: Wed,  2 Mar 2011 09:18:10 -0800
-Message-ID: <7f33dcacd277e127208211d8c3ef11c992408628.1299086044.git.joe@perches.com>
-To: netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
+Date: Wed, 02 Mar 2011 18:31:27 +0100
+Message-ID: <1299087087.2920.27.camel@edumazet-laptop>
+References: <20110228171738.2cc8c9a0@nehalam>
+	 <20110302020610.GD1005@gandalf.sssup.it>
+	 <1299064667.2920.4.camel@edumazet-laptop> <20110302081108.689571d8@nehalam>
+	 <1299082728.2920.18.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Fabio Checconi <fchecconi@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4041 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756166Ab1CBRSN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 12:18:13 -0500
-Received: from Joe-Laptop.home (unknown [192.168.1.162])
-	by mail.perches.com (Postfix) with ESMTP id E946424368
-	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 09:18:03 -0800 (PST)
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:56016 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103Ab1CBRbc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 12:31:32 -0500
+Received: by bwz15 with SMTP id 15so368318bwz.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 09:31:31 -0800 (PST)
+In-Reply-To: <1299082728.2920.18.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the current logging forms with pr_fmt.
-Convert DBG macro to tun_debug, use netdev_printk as well.
-Add printf verification when TUN_DEBUG not defined.
-Miscellaneous comment typo fix.
+Le mercredi 02 mars 2011 =C3=A0 17:18 +0100, Eric Dumazet a =C3=A9crit =
+:
+> Le mercredi 02 mars 2011 =C3=A0 08:11 -0800, Stephen Hemminger a =C3=A9=
+crit :
+>=20
+> > I put the iproute2 code into the repository in the experimental bra=
+nch.
+> >=20
+>=20
+> Thanks
+>=20
+> It seems as soon as packets are dropped, qdisc is frozen (no more
+> packets dequeued)
+>=20
+> Hmm...
+>=20
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/tun.c |   83 ++++++++++++++++++++++++++++++++--------------------
- 1 files changed, 51 insertions(+), 32 deletions(-)
+It seems class deletes are buggy.
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 55786a0..f5e9ac0 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -34,6 +34,8 @@
-  *    Modifications for 2.3.99-pre5 kernel.
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #define DRV_NAME	"tun"
- #define DRV_VERSION	"1.6"
- #define DRV_DESCRIPTION	"Universal TUN/TAP device driver"
-@@ -76,11 +78,27 @@
- #ifdef TUN_DEBUG
- static int debug;
- 
--#define DBG  if(tun->debug)printk
--#define DBG1 if(debug==2)printk
-+#define tun_debug(level, tun, fmt, args...)			\
-+do {								\
-+	if (tun->debug)						\
-+		netdev_printk(level, tun->dev, fmt, ##args);	\
-+} while (0)
-+#define DBG1(level, fmt, args...)				\
-+do {								\
-+	if (debug == 2)						\
-+		printk(level fmt, ##args);			\
-+} while (0)
- #else
--#define DBG( a... )
--#define DBG1( a... )
-+#define tun_debug(level, tun, fmt, args...)			\
-+do {								\
-+	if (0)							\
-+		netdev_printk(level, tun->dev, fmt, ##args);	\
-+} while (0)
-+#define DBG1(level, fmt, args...)				\
-+do {								\
-+	if (0)							\
-+		printk(level fmt, ##args);			\
-+} while (0)
- #endif
- 
- #define FLT_EXACT_COUNT 8
-@@ -205,7 +223,7 @@ static void tun_put(struct tun_struct *tun)
- 		tun_detach(tfile->tun);
- }
- 
--/* TAP filterting */
-+/* TAP filtering */
- static void addr_hash_set(u32 *mask, const u8 *addr)
- {
- 	int n = ether_crc(ETH_ALEN, addr) >> 26;
-@@ -360,7 +378,7 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct tun_struct *tun = netdev_priv(dev);
- 
--	DBG(KERN_INFO "%s: tun_net_xmit %d\n", tun->dev->name, skb->len);
-+	tun_debug(KERN_INFO, tun, "tun_net_xmit %d\n", skb->len);
- 
- 	/* Drop packet if interface is not attached */
- 	if (!tun->tfile)
-@@ -499,7 +517,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table * wait)
- 
- 	sk = tun->socket.sk;
- 
--	DBG(KERN_INFO "%s: tun_chr_poll\n", tun->dev->name);
-+	tun_debug(KERN_INFO, tun, "tun_chr_poll\n");
- 
- 	poll_wait(file, &tun->wq.wait, wait);
- 
-@@ -690,7 +708,7 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
- 	if (!tun)
- 		return -EBADFD;
- 
--	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
-+	tun_debug(KERN_INFO, tun, "tun_chr_write %ld\n", count);
- 
- 	result = tun_get_user(tun, iv, iov_length(iv, count),
- 			      file->f_flags & O_NONBLOCK);
-@@ -739,7 +757,7 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
- 			else if (sinfo->gso_type & SKB_GSO_UDP)
- 				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
- 			else {
--				printk(KERN_ERR "tun: unexpected GSO type: "
-+				pr_err("unexpected GSO type: "
- 				       "0x%x, gso_size %d, hdr_len %d\n",
- 				       sinfo->gso_type, gso.gso_size,
- 				       gso.hdr_len);
-@@ -786,7 +804,7 @@ static ssize_t tun_do_read(struct tun_struct *tun,
- 	struct sk_buff *skb;
- 	ssize_t ret = 0;
- 
--	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
-+	tun_debug(KERN_INFO, tun, "tun_chr_read\n");
- 
- 	add_wait_queue(&tun->wq.wait, &wait);
- 	while (len) {
-@@ -1083,7 +1101,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 		if (device_create_file(&tun->dev->dev, &dev_attr_tun_flags) ||
- 		    device_create_file(&tun->dev->dev, &dev_attr_owner) ||
- 		    device_create_file(&tun->dev->dev, &dev_attr_group))
--			printk(KERN_ERR "Failed to create tun sysfs files\n");
-+			pr_err("Failed to create tun sysfs files\n");
- 
- 		sk->sk_destruct = tun_sock_destruct;
- 
-@@ -1092,7 +1110,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			goto failed;
- 	}
- 
--	DBG(KERN_INFO "%s: tun_set_iff\n", tun->dev->name);
-+	tun_debug(KERN_INFO, tun, "tun_set_iff\n");
- 
- 	if (ifr->ifr_flags & IFF_NO_PI)
- 		tun->flags |= TUN_NO_PI;
-@@ -1129,7 +1147,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- static int tun_get_iff(struct net *net, struct tun_struct *tun,
- 		       struct ifreq *ifr)
- {
--	DBG(KERN_INFO "%s: tun_get_iff\n", tun->dev->name);
-+	tun_debug(KERN_INFO, tun, "tun_get_iff\n");
- 
- 	strcpy(ifr->ifr_name, tun->dev->name);
- 
-@@ -1229,7 +1247,7 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 	if (!tun)
- 		goto unlock;
- 
--	DBG(KERN_INFO "%s: tun_chr_ioctl cmd %d\n", tun->dev->name, cmd);
-+	tun_debug(KERN_INFO, tun, "tun_chr_ioctl cmd %d\n", cmd);
- 
- 	ret = 0;
- 	switch (cmd) {
-@@ -1249,8 +1267,8 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		else
- 			tun->flags &= ~TUN_NOCHECKSUM;
- 
--		DBG(KERN_INFO "%s: checksum %s\n",
--		    tun->dev->name, arg ? "disabled" : "enabled");
-+		tun_debug(KERN_INFO, tun, "checksum %s\n",
-+			  arg ? "disabled" : "enabled");
- 		break;
- 
- 	case TUNSETPERSIST:
-@@ -1260,33 +1278,34 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 		else
- 			tun->flags &= ~TUN_PERSIST;
- 
--		DBG(KERN_INFO "%s: persist %s\n",
--		    tun->dev->name, arg ? "enabled" : "disabled");
-+		tun_debug(KERN_INFO, tun, "persist %s\n",
-+			  arg ? "enabled" : "disabled");
- 		break;
- 
- 	case TUNSETOWNER:
- 		/* Set owner of the device */
- 		tun->owner = (uid_t) arg;
- 
--		DBG(KERN_INFO "%s: owner set to %d\n", tun->dev->name, tun->owner);
-+		tun_debug(KERN_INFO, tun, "owner set to %d\n", tun->owner);
- 		break;
- 
- 	case TUNSETGROUP:
- 		/* Set group of the device */
- 		tun->group= (gid_t) arg;
- 
--		DBG(KERN_INFO "%s: group set to %d\n", tun->dev->name, tun->group);
-+		tun_debug(KERN_INFO, tun, "group set to %d\n", tun->group);
- 		break;
- 
- 	case TUNSETLINK:
- 		/* Only allow setting the type when the interface is down */
- 		if (tun->dev->flags & IFF_UP) {
--			DBG(KERN_INFO "%s: Linktype set failed because interface is up\n",
--				tun->dev->name);
-+			tun_debug(KERN_INFO, tun,
-+				  "Linktype set failed because interface is up\n");
- 			ret = -EBUSY;
- 		} else {
- 			tun->dev->type = (int) arg;
--			DBG(KERN_INFO "%s: linktype set to %d\n", tun->dev->name, tun->dev->type);
-+			tun_debug(KERN_INFO, tun, "linktype set to %d\n",
-+				  tun->dev->type);
- 			ret = 0;
- 		}
- 		break;
-@@ -1318,8 +1337,8 @@ static long __tun_chr_ioctl(struct file *file, unsigned int cmd,
- 
- 	case SIOCSIFHWADDR:
- 		/* Set hw address */
--		DBG(KERN_DEBUG "%s: set hw address: %pM\n",
--			tun->dev->name, ifr.ifr_hwaddr.sa_data);
-+		tun_debug(KERN_DEBUG, tun, "set hw address: %pM\n",
-+			  ifr.ifr_hwaddr.sa_data);
- 
- 		ret = dev_set_mac_address(tun->dev, &ifr.ifr_hwaddr);
- 		break;
-@@ -1433,7 +1452,7 @@ static int tun_chr_fasync(int fd, struct file *file, int on)
- 	if (!tun)
- 		return -EBADFD;
- 
--	DBG(KERN_INFO "%s: tun_chr_fasync %d\n", tun->dev->name, on);
-+	tun_debug(KERN_INFO, tun, "tun_chr_fasync %d\n", on);
- 
- 	if ((ret = fasync_helper(fd, file, on, &tun->fasync)) < 0)
- 		goto out;
-@@ -1455,7 +1474,7 @@ static int tun_chr_open(struct inode *inode, struct file * file)
- {
- 	struct tun_file *tfile;
- 
--	DBG1(KERN_INFO "tunX: tun_chr_open\n");
-+	DBG1(KERN_INFO, "tunX: tun_chr_open\n");
- 
- 	tfile = kmalloc(sizeof(*tfile), GFP_KERNEL);
- 	if (!tfile)
-@@ -1476,7 +1495,7 @@ static int tun_chr_close(struct inode *inode, struct file *file)
- 	if (tun) {
- 		struct net_device *dev = tun->dev;
- 
--		DBG(KERN_INFO "%s: tun_chr_close\n", dev->name);
-+		tun_debug(KERN_INFO, tun, "tun_chr_close\n");
- 
- 		__tun_detach(tun);
- 
-@@ -1607,18 +1626,18 @@ static int __init tun_init(void)
- {
- 	int ret = 0;
- 
--	printk(KERN_INFO "tun: %s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
--	printk(KERN_INFO "tun: %s\n", DRV_COPYRIGHT);
-+	pr_info("%s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
-+	pr_info("%s\n", DRV_COPYRIGHT);
- 
- 	ret = rtnl_link_register(&tun_link_ops);
- 	if (ret) {
--		printk(KERN_ERR "tun: Can't register link_ops\n");
-+		pr_err("Can't register link_ops\n");
- 		goto err_linkops;
- 	}
- 
- 	ret = misc_register(&tun_miscdev);
- 	if (ret) {
--		printk(KERN_ERR "tun: Can't register misc device %d\n", TUN_MINOR);
-+		pr_err("Can't register misc device %d\n", TUN_MINOR);
- 		goto err_misc;
- 	}
- 	return  0;
--- 
-1.7.4.2.g597a6.dirty
+After one "tc class del dev $ETH classid 11:1 ..."
+
+a "tc -s -d qdisc show dev $ETH" triggers an Oops
+
+[  414.517709] general protection fault: 0000 [#1] SMP=20
+[  414.517894] last sysfs file: /sys/devices/virtual/net/gre34/ifindex
+[  414.517956] CPU 3=20
+[  414.517995] Modules linked in: sch_qfq sch_cbq ip_gre gre dummy ipmi=
+_devintf ipmi_si ipmi_msghandler dm_mod video tg3 libphy sg [last unloa=
+ded: ip_tables]
+[  414.518663]=20
+[  414.518717] Pid: 4692, comm: tc Not tainted 2.6.38-rc5-02726-gd486b8=
+c-dirty #554 HP ProLiant BL460c G6
+[  414.518905] RIP: 0010:[<ffffffff8145118e>]  [<ffffffff8145118e>] tc_=
+fill_qdisc+0xbe/0x300
+[  414.519025] RSP: 0018:ffff88011a123878  EFLAGS: 00010283
+[  414.519085] RAX: a00e6660ffffffff RBX: 0000000000000002 RCX: 0000000=
+000000024
+[  414.519149] RDX: ffff880078683334 RSI: 0000000000000000 RDI: ffff880=
+07867b400
+[  414.519212] RBP: ffff88011a123928 R08: ffff880078683000 R09: 0000000=
+000000002
+[  414.519276] R10: 00000000000001f0 R11: 00000000000001e0 R12: ffff880=
+07867b400
+[  414.519340] R13: ffff88011cb1779c R14: ffff880078683324 R15: 0000000=
+000001254
+[  414.519405] FS:  0000000000000000(0000) GS:ffff88007fc40000(0063) kn=
+lGS:00000000f77778e0
+[  414.519486] CS:  0010 DS: 002b ES: 002b CR0: 0000000080050033
+[  414.519553] CR2: 00000000005ffc80 CR3: 0000000078087000 CR4: 0000000=
+0000006e0
+[  414.519616] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000=
+000000000
+[  414.519680] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000=
+000000400
+[  414.519744] Process tc (pid: 4692, threadinfo ffff88011a122000, task=
+ ffff88011a1715d0)
+[  414.519823] Stack:
+[  414.519876]  ffff88011bbfb570 000000004d6e7c8e ffff880078683324 0000=
+000000000000
+[  414.520095]  ffff88011cb1789c ffff88007867b400 ffff8800786832bc 0000=
+000400000003
+[  414.520312]  0000000000000000 0000000000000000 0000000000000000 0000=
+000000000000
+[  414.520531] Call Trace:
+[  414.520602]  [<ffffffff81451469>] tc_dump_qdisc_root+0x99/0x100
+[  414.520666]  [<ffffffff81452680>] tc_dump_qdisc+0x80/0x100
+[  414.520729]  [<ffffffff8146a50b>] netlink_dump+0x6b/0x1e0
+[  414.520791]  [<ffffffff810f5d16>] ? kmem_cache_alloc_trace+0xb6/0x10=
+0
+[  414.520855]  [<ffffffff8146d2ef>] netlink_dump_start+0x16f/0x190
+[  414.520918]  [<ffffffff81452600>] ? tc_dump_qdisc+0x0/0x100
+[  414.520981]  [<ffffffff81443b36>] rtnetlink_rcv_msg+0xb6/0x270
+[  414.521043]  [<ffffffff81443a80>] ? rtnetlink_rcv_msg+0x0/0x270
+[  414.521106]  [<ffffffff8146b609>] netlink_rcv_skb+0x99/0xc0
+[  414.521167]  [<ffffffff81443a65>] rtnetlink_rcv+0x25/0x40
+[  414.521229]  [<ffffffff8146b379>] netlink_unicast+0x2a9/0x2b0
+[  414.521292]  [<ffffffff8142c3e3>] ? memcpy_fromiovec+0x63/0x80
+[  414.521354]  [<ffffffff8146c30d>] netlink_sendmsg+0x24d/0x390
+[  414.521418]  [<ffffffff81421510>] sock_sendmsg+0xc0/0xf0
+[  414.521482]  [<ffffffff810b699a>] ? unlock_page+0x2a/0x40
+[  414.521545]  [<ffffffff81421262>] ? move_addr_to_kernel+0x62/0x70
+[  414.521608]  [<ffffffff8144d59f>] ? verify_compat_iovec+0x8f/0x100
+[  414.521685]  [<ffffffff814222b0>] sys_sendmsg+0x180/0x300
+[  414.521747]  [<ffffffff810d682c>] ? __pte_alloc+0xdc/0x100
+[  414.521809]  [<ffffffff810d6992>] ? handle_mm_fault+0x142/0x1c0
+[  414.521872]  [<ffffffff81569594>] ? do_page_fault+0x274/0x490
+[  414.521935]  [<ffffffff81421f41>] ? sys_getsockname+0xa1/0xb0
+[  414.521997]  [<ffffffff81421909>] ? sys_recvmsg+0x49/0x80
+[  414.522059]  [<ffffffff8144d164>] compat_sys_sendmsg+0x14/0x20
+[  414.522121]  [<ffffffff8144e08d>] compat_sys_socketcall+0x19d/0x1f0
+[  414.522185]  [<ffffffff8102d640>] sysenter_dispatch+0x7/0x2e
+[  414.522246] Code: 06 49 8d 56 10 45 89 7e 0c 66 41 89 46 04 8b 85 58=
+ ff ff ff 41 c6 46 10 00 41 89 46 08 c6 42 01 00 66 c7 42 02 00 00 49 8=
+b 45 68 <48> 8b 00 8b 80 c0 00 00 00 89 42 04 8b 85 5c ff ff ff 89 42 0=
+c=20
+[  414.524636] RIP  [<ffffffff8145118e>] tc_fill_qdisc+0xbe/0x300
+[  414.524734]  RSP <ffff88011a123878>
+[  414.524799] ---[ end trace 513a4307e5c34d00 ]---
+
 
