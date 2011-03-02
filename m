@@ -1,133 +1,270 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Wed, 2 Mar 2011 15:55:58 -0800
-Message-ID: <20110302155558.4ca64da7@s6510>
-References: <20110228171738.2cc8c9a0@nehalam>
-	<20110302020610.GD1005@gandalf.sssup.it>
-	<1299064667.2920.4.camel@edumazet-laptop>
-	<20110302081108.689571d8@nehalam>
-	<1299082728.2920.18.camel@edumazet-laptop>
-	<1299087087.2920.27.camel@edumazet-laptop>
+From: Prasanna Panchamukhi <ppanchamukhi@riverbed.com>
+Subject: Re: [PATCH] e1000: fix race condition while driver
+ unload/reset using kref count
+Date: Wed, 02 Mar 2011 15:56:39 -0800
+Message-ID: <4D6ED937.3010001@riverbed.com>
+References: <1299091597-28409-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+	<alpine.WNT.2.00.1103021337560.8204@JBRANDEB-DESK2.amr.corp.intel.com>
+Reply-To: prasanna.panchamukhi@riverbed.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fabio Checconi <fchecconi@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:35152 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756119Ab1CBX4E convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 18:56:04 -0500
-In-Reply-To: <1299087087.2920.27.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed; boundary="===============6647343601069938479=="
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.WNT.2.00.1103021337560.8204@JBRANDEB-DESK2.amr.corp.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 02 Mar 2011 18:31:27 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+This is a multi-part message in MIME format.
+--===============6647343601069938479==
+Content-Type: multipart/alternative;
+	boundary="------------050008080605070507000700"
 
-> Le mercredi 02 mars 2011 =E0 17:18 +0100, Eric Dumazet a =E9crit :
-> > Le mercredi 02 mars 2011 =E0 08:11 -0800, Stephen Hemminger a =E9cr=
-it :
-> >=20
-> > > I put the iproute2 code into the repository in the experimental b=
-ranch.
-> > >=20
-> >=20
-> > Thanks
-> >=20
-> > It seems as soon as packets are dropped, qdisc is frozen (no more
-> > packets dequeued)
-> >=20
-> > Hmm...
-> >=20
->=20
-> It seems class deletes are buggy.
->=20
-> After one "tc class del dev $ETH classid 11:1 ..."
->=20
-> a "tc -s -d qdisc show dev $ETH" triggers an Oops
->=20
-> [  414.517709] general protection fault: 0000 [#1] SMP=20
-> [  414.517894] last sysfs file: /sys/devices/virtual/net/gre34/ifinde=
-x
-> [  414.517956] CPU 3=20
-> [  414.517995] Modules linked in: sch_qfq sch_cbq ip_gre gre dummy ip=
-mi_devintf ipmi_si ipmi_msghandler dm_mod video tg3 libphy sg [last unl=
-oaded: ip_tables]
-> [  414.518663]=20
-> [  414.518717] Pid: 4692, comm: tc Not tainted 2.6.38-rc5-02726-gd486=
-b8c-dirty #554 HP ProLiant BL460c G6
-> [  414.518905] RIP: 0010:[<ffffffff8145118e>]  [<ffffffff8145118e>] t=
-c_fill_qdisc+0xbe/0x300
-> [  414.519025] RSP: 0018:ffff88011a123878  EFLAGS: 00010283
-> [  414.519085] RAX: a00e6660ffffffff RBX: 0000000000000002 RCX: 00000=
-00000000024
-> [  414.519149] RDX: ffff880078683334 RSI: 0000000000000000 RDI: ffff8=
-8007867b400
-> [  414.519212] RBP: ffff88011a123928 R08: ffff880078683000 R09: 00000=
-00000000002
-> [  414.519276] R10: 00000000000001f0 R11: 00000000000001e0 R12: ffff8=
-8007867b400
-> [  414.519340] R13: ffff88011cb1779c R14: ffff880078683324 R15: 00000=
-00000001254
-> [  414.519405] FS:  0000000000000000(0000) GS:ffff88007fc40000(0063) =
-knlGS:00000000f77778e0
-> [  414.519486] CS:  0010 DS: 002b ES: 002b CR0: 0000000080050033
-> [  414.519553] CR2: 00000000005ffc80 CR3: 0000000078087000 CR4: 00000=
-000000006e0
-> [  414.519616] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 00000=
-00000000000
-> [  414.519680] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 00000=
-00000000400
-> [  414.519744] Process tc (pid: 4692, threadinfo ffff88011a122000, ta=
-sk ffff88011a1715d0)
-> [  414.519823] Stack:
-> [  414.519876]  ffff88011bbfb570 000000004d6e7c8e ffff880078683324 00=
-00000000000000
-> [  414.520095]  ffff88011cb1789c ffff88007867b400 ffff8800786832bc 00=
-00000400000003
-> [  414.520312]  0000000000000000 0000000000000000 0000000000000000 00=
-00000000000000
-> [  414.520531] Call Trace:
-> [  414.520602]  [<ffffffff81451469>] tc_dump_qdisc_root+0x99/0x100
-> [  414.520666]  [<ffffffff81452680>] tc_dump_qdisc+0x80/0x100
-> [  414.520729]  [<ffffffff8146a50b>] netlink_dump+0x6b/0x1e0
-> [  414.520791]  [<ffffffff810f5d16>] ? kmem_cache_alloc_trace+0xb6/0x=
-100
-> [  414.520855]  [<ffffffff8146d2ef>] netlink_dump_start+0x16f/0x190
-> [  414.520918]  [<ffffffff81452600>] ? tc_dump_qdisc+0x0/0x100
-> [  414.520981]  [<ffffffff81443b36>] rtnetlink_rcv_msg+0xb6/0x270
-> [  414.521043]  [<ffffffff81443a80>] ? rtnetlink_rcv_msg+0x0/0x270
-> [  414.521106]  [<ffffffff8146b609>] netlink_rcv_skb+0x99/0xc0
-> [  414.521167]  [<ffffffff81443a65>] rtnetlink_rcv+0x25/0x40
-> [  414.521229]  [<ffffffff8146b379>] netlink_unicast+0x2a9/0x2b0
-> [  414.521292]  [<ffffffff8142c3e3>] ? memcpy_fromiovec+0x63/0x80
-> [  414.521354]  [<ffffffff8146c30d>] netlink_sendmsg+0x24d/0x390
-> [  414.521418]  [<ffffffff81421510>] sock_sendmsg+0xc0/0xf0
-> [  414.521482]  [<ffffffff810b699a>] ? unlock_page+0x2a/0x40
-> [  414.521545]  [<ffffffff81421262>] ? move_addr_to_kernel+0x62/0x70
-> [  414.521608]  [<ffffffff8144d59f>] ? verify_compat_iovec+0x8f/0x100
-> [  414.521685]  [<ffffffff814222b0>] sys_sendmsg+0x180/0x300
-> [  414.521747]  [<ffffffff810d682c>] ? __pte_alloc+0xdc/0x100
-> [  414.521809]  [<ffffffff810d6992>] ? handle_mm_fault+0x142/0x1c0
-> [  414.521872]  [<ffffffff81569594>] ? do_page_fault+0x274/0x490
-> [  414.521935]  [<ffffffff81421f41>] ? sys_getsockname+0xa1/0xb0
-> [  414.521997]  [<ffffffff81421909>] ? sys_recvmsg+0x49/0x80
-> [  414.522059]  [<ffffffff8144d164>] compat_sys_sendmsg+0x14/0x20
-> [  414.522121]  [<ffffffff8144e08d>] compat_sys_socketcall+0x19d/0x1f=
-0
-> [  414.522185]  [<ffffffff8102d640>] sysenter_dispatch+0x7/0x2e
-> [  414.522246] Code: 06 49 8d 56 10 45 89 7e 0c 66 41 89 46 04 8b 85 =
-58 ff ff ff 41 c6 46 10 00 41 89 46 08 c6 42 01 00 66 c7 42 02 00 00 49=
- 8b 45 68 <48> 8b 00 8b 80 c0 00 00 00 89 42 04 8b 85 5c ff ff ff 89 42=
- 0c=20
-> [  414.524636] RIP  [<ffffffff8145118e>] tc_fill_qdisc+0xbe/0x300
-> [  414.524734]  RSP <ffff88011a123878>
-> [  414.524799] ---[ end trace 513a4307e5c34d00 ]---
->=20
->=20
+This is a multi-part message in MIME format.
+--------------050008080605070507000700
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Most of the class code was copied from DRR. Does it have the
-same problem?
+On 03/02/2011 02:50 PM, Brandeburg, Jesse wrote:
+>
+> On Wed, 2 Mar 2011, prasanna.panchamukhi@riverbed.com wrote:
+>
+>> This race conditions occurs with reentrant e1000_down(), which gets
+>> called by multiple threads while driver unload or reset.
+>> This patch fixes the race condition when one thread tries to destroy
+>> the memory allocated for tx buffer_info, while another thread still
+>> happen to access tx buffer_info.
+>> This patch fixes the above race condition using kref count.
+> I'm very interested in any test cases that you might have come up with to
+> reproduce this issue.
+This patch is an alternative approach to the below commit:
+
+commit 338c15e470d818f215d651505dc169d4e92f36a4
+Author: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Date:   Wed Sep 22 18:22:42 2010 +0000
+
+     e1000: fix occasional panic on unload
+
+
+Its a very rare event.
+One of the ways is to tweak the driver to reset more frequently(5 times 
+per second) & do ifconfig up/down in tight loop.
+Another way could be to do a module load/unload or keep rebooting the 
+system in tight loop.
+> The patch itself looks interesting, and probably okay, but we really need
+> a reproduction case.
+Yeah, I understand your point.
+> Also, do we need to adjust the rtnl_lock stuff or do this for rx
+> buffer_info structs?
+kref counting  buffer_info struct is good enough.
+> I'm concerned that maybe we don't understand the full flow of events
+> leading up to this failure.
+
+possible race condition because of e1000_down() being re-entrant. Multiple threads can end up calling
+e1000_down() either during driver unload or reboot/reset.
+
+below is the kernel traces
+Oct 10 11:59:48 localhost kernel: EIP:    0060:[put_page+2/117]    Tainted: PF
+  B VLI
+Oct 10 11:59:48 localhost kernel: EIP:    0060:[<e0148432>]    Tainted: PF   B
+VLI
+Oct 10 11:59:48 localhost kernel: EFLAGS: 00010202   (2.6.9-34.EL-rbt-1784SMP)
+Oct 10 11:59:48 localhost kernel: EIP is at put_page+0x2/0x75
+Oct 10 11:59:48 localhost kernel: eax: 12a051a5   ebx: 00000002   ecx: e04b3300
+   edx: 12a051a5
+Oct 10 11:59:48 localhost kernel: esi: f72e8b80   edi: 00000cb7   ebp: f7d09000
+   esp: e2158ebc
+Oct 10 11:59:48 localhost kernel: ds: 007b   es: 007b   ss: 0068
+Oct 10 11:59:48 localhost kernel: Process events/1 (pid: 7, threadinfo=e2158000
+task=e2182b70)
+Oct 10 11:59:48 localhost kernel: Stack: e03cea9c f72e8b80 f8b6db70 e03ceada
+00000000 e03ceb98 e02d8e80 e2158ee0
+Oct 10 11:59:48 localhost kernel:        f88c0000 00000000 f72e8b80 f7ce2180
+e02c4a88 f7ce2180 f7d092a0 e02c4ab4
+Oct 10 11:59:48 localhost kernel:        f7d092a0 00000000 0103f0f8 f7d09000
+e02c4b5d f88c0000 f7d092a0 e02c2247
+Oct 10 11:59:48 localhost kernel: Call Trace:
+
+Oct 10 11:59:48 localhost kernel:  [skb_release_data+57/111]
+skb_release_data+0x39/0x6f
+Oct 10 11:59:48 localhost kernel:  [<e03cea9c>] skb_release_data+0x39/0x6f
+Oct 10 11:59:48 localhost kernel:  [kfree_skbmem+8/21] kfree_skbmem+0x8/0x15
+Oct 10 11:59:48 localhost kernel:  [<e03ceada>] kfree_skbmem+0x8/0x15
+Oct 10 11:59:48 localhost kernel:  [__kfree_skb+177/343] __kfree_skb+0xb1/0x157
+Oct 10 11:59:48 localhost kernel:  [<e03ceb98>] __kfree_skb+0xb1/0x157
+Oct 10 11:59:48 localhost kernel:  [e1000_get_phy_info_m88+56/281]
+e1000_get_phy_info_m88+0x38/0x119
+Oct 10 11:59:48 localhost kernel:  [<e02d8e80>]
+e1000_get_phy_info_m88+0x38/0x119
+Oct 10 11:59:48 localhost kernel:  [e1000_unmap_and_free_tx_resource+156/165]
+e1000_unmap_and_free_tx_resource+0x9c/0xa5
+Oct 10 11:59:48 localhost kernel:  [<e02c4a88>]
+e1000_unmap_and_free_tx_resource+0x9c/0xa5
+Oct 10 11:59:48 localhost kernel:  [e1000_clean_tx_ring+35/162]
+e1000_clean_tx_ring+0x23/0xa2
+Oct 10 11:59:48 localhost kernel:  [<e02c4ab4>] e1000_clean_tx_ring+0x23/0xa2
+Oct 10 11:59:48 localhost kernel:  [e1000_clean_all_tx_rings+42/56]
+e1000_clean_all_tx_rings+0x2a/0x38
+Oct 10 11:59:48 localhost kernel:  [<e02c4b5d>]
+e1000_clean_all_tx_rings+0x2a/0x38
+Oct 10 11:59:48 localhost kernel:  [e1000_down+356/380] e1000_down+0x164/0x17c
+Oct 10 11:59:48 localhost kernel:  [<e02c2247>] e1000_down+0x164/0x17c
+Oct 10 11:59:48 localhost kernel:  [e1000_reinit_locked+120/146]
+e1000_reinit_locked+0x78/0x92
+Oct 10 11:59:48 localhost kernel:  [<e02c22d7>] e1000_reinit_locked+0x78/0x92
+Oct 10 11:59:48 localhost kernel:  [e1000_reset_task+21/33]
+e1000_reset_task+0x15/0x21
+Oct 10 11:59:48 localhost kernel:  [<e02c74a3>] e1000_reset_task+0x15/0x21
+Oct 10 11:59:48 localhost kernel:  [worker_thread+432/570]
+worker_thread+0x1b0/0x23a
+Oct 10 11:59:48 localhost kernel:  [<e0132f8d>] worker_thread+0x1b0/0x23a
+Oct 10 11:59:48 localhost kernel:  [schedule+808/2803] schedule+0x328/0xaf3
+Oct 10 11:59:48 localhost kernel:  [<e0431e18>] schedule+0x328/0xaf3
+Oct 10 11:59:48 localhost kernel:  [e1000_reset_task+0/33]
+
+Thanks
+Prasanna
+
+
+> Jesse
+>
+>> Signed-off-by: Prasanna S. Panchamukhi<prasanna.panchamukhi@riverbed.com>
+>> ---
+>>   drivers/net/e1000/e1000.h      |    2 +
+>>   drivers/net/e1000/e1000_main.c |   41 +++++++++++++++++++++++++++++++++++++--
+>>   2 files changed, 40 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+>> index a881dd0..36f55b3 100644
+>> --- a/drivers/net/e1000/e1000.h
+>> +++ b/drivers/net/e1000/e1000.h
+>> @@ -168,6 +168,8 @@ struct e1000_tx_ring {
+>>   	unsigned int next_to_clean;
+>>   	/* array of buffer information structs */
+>>   	struct e1000_buffer *buffer_info;
+>> +	spinlock_t bufinfo_lock; /* protect access to buffer_info */
+>> +	struct kref bufinfo_refcount; /* refcount access to buffer info */
+>>
+>>   	u16 tdh;
+>>   	u16 tdt;
+>> diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+>> index beec573..336d3e1 100644
+>> --- a/drivers/net/e1000/e1000_main.c
+>> +++ b/drivers/net/e1000/e1000_main.c
+>> @@ -1531,6 +1531,8 @@ setup_tx_desc_die:
+>>
+>>   	txdr->next_to_use = 0;
+>>   	txdr->next_to_clean = 0;
+>> +	spin_lock_init(&txdr->bufinfo_lock);
+>> +	kref_init(&txdr->bufinfo_refcount);
+>>
+>>   	return 0;
+>>   }
+>> @@ -1880,6 +1882,22 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+>>   	ew32(RCTL, rctl);
+>>   }
+>>
+>> +/*
+>> + * Free tx buffer info resources, only when no other thread is
+>> + * accessing it. Access to buffer_info is refcounted by bufinfo_refcount,
+>> + * hence memory allocated must be destroyed when bufinfo_refcount
+>> + * becomes zero. This routine gets executed when bufinfo_refcount
+>> + * becomes zero.
+>> + */
+>> +static void e1000_free_tx_buffer_info(struct kref *ref)
+>> +{
+>> +	struct e1000_tx_ring *tx_ring =
+>> +		container_of(ref, struct e1000_tx_ring, bufinfo_refcount);
+>> +
+>> +	vfree(tx_ring->buffer_info);
+>> +	tx_ring->buffer_info = NULL;
+>> +}
+>> +
+>>   /**
+>>    * e1000_free_tx_resources - Free Tx Resources per Queue
+>>    * @adapter: board private structure
+>> @@ -1895,8 +1913,9 @@ static void e1000_free_tx_resources(struct e1000_adapter *adapter,
+>>
+>>   	e1000_clean_tx_ring(adapter, tx_ring);
+>>
+>> -	vfree(tx_ring->buffer_info);
+>> -	tx_ring->buffer_info = NULL;
+>> +	spin_lock(&tx_ring->bufinfo_lock);
+>> +	kref_put(&tx_ring->bufinfo_refcount, e1000_free_tx_buffer_info);
+>> +	spin_unlock(&tx_ring->bufinfo_lock);
+>>
+>>   	dma_free_coherent(&pdev->dev, tx_ring->size, tx_ring->desc,
+>>   			  tx_ring->dma);
+>> @@ -1954,8 +1973,20 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
+>>   	unsigned long size;
+>>   	unsigned int i;
+>>
+>> -	/* Free all the Tx ring sk_buffs */
+>> +	spin_lock(&tx_ring->bufinfo_lock);
+>> +	/*
+>> +	 * Check buffer_info is not NULL, and
+>> +	 * increment the refcount to prevent
+>> +	 * the buffer getting freed underneath.
+>> +	 */
+>> +	if (tx_ring->buffer_info == NULL) {
+>> +		spin_unlock(&tx_ring->bufinfo_lock);
+>> +		return;
+>> +	}
+>> +	kref_get(&tx_ring->bufinfo_refcount);
+>> +	spin_unlock(&tx_ring->bufinfo_lock);
+>>
+>> +	/* Free all the Tx ring sk_buffs */
+>>   	for (i = 0; i<  tx_ring->count; i++) {
+>>   		buffer_info =&tx_ring->buffer_info[i];
+>>   		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
+>> @@ -1968,6 +1999,10 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
+>>
+>>   	memset(tx_ring->desc, 0, tx_ring->size);
+>>
+>> +	spin_lock(&tx_ring->bufinfo_lock);
+>> +	kref_put(&tx_ring->bufinfo_refcount, e1000_free_tx_buffer_info);
+>> +	spin_unlock(&tx_ring->bufinfo_lock);
+>> +
+>>   	tx_ring->next_to_use = 0;
+>>   	tx_ring->next_to_clean = 0;
+>>   	tx_ring->last_tx_tso = 0;
+>>
+
+
+--------------050008080605070507000700--
+
+
+--===============6647343601069938479==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Free Software Download: Index, Search & Analyze Logs and other IT data in 
+Real-Time with Splunk. Collect, index and harness all the fast moving IT data 
+generated by your applications, servers and devices whether physical, virtual
+or in the cloud. Deliver compliance at lower cost and gain new business 
+insights. http://p.sf.net/sfu/splunk-dev2dev 
+--===============6647343601069938479==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============6647343601069938479==--
