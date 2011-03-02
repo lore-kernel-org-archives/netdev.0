@@ -1,54 +1,61 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
-Date: Wed, 02 Mar 2011 12:03:15 +0100
-Message-ID: <4D6E23F3.4010402@trash.net>
-References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>	 <4D6AB578.3010704@free.fr> <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr> <4D6D2402.6020705@trash.net> <4D6D515A.8060707@free.fr>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
+Date: Wed, 02 Mar 2011 12:17:47 +0100
+Message-ID: <1299064667.2920.4.camel@edumazet-laptop>
+References: <20110228171738.2cc8c9a0@nehalam>
+	 <20110302020610.GD1005@gandalf.sssup.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrian Nord <nightnord@gmail.com>,
-	lxc-users@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
+To: Fabio Checconi <fchecconi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:64246 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757169Ab1CBLDR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 06:03:17 -0500
-In-Reply-To: <4D6D515A.8060707@free.fr>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:61386 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751989Ab1CBLRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 06:17:53 -0500
+Received: by bwz15 with SMTP id 15so47216bwz.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 03:17:52 -0800 (PST)
+In-Reply-To: <20110302020610.GD1005@gandalf.sssup.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 01.03.2011 21:04, schrieb Daniel Lezcano:
-> On 03/01/2011 05:51 PM, Patrick McHardy wrote:
->>> Patrick, do you have any suggestions to fix this ?
->> Since the frames are only looped back locally, I suppose the easiest
->> fix would be to mark them with CHECKSUM_UNNECESSARY. Alternatively
->> we need to complete the checksum manually, similar to what
->> dev_hard_start_xmit() does.
-> 
-> That sounds very simple to fix, maybe too much simple :)
-> 
-> I did the following change:
-> 
-> --- linux-next.orig/drivers/net/macvlan.c
-> +++ linux-next/drivers/net/macvlan.c
-> @@ -222,6 +222,7 @@ static int macvlan_queue_xmit(struct sk_
-> 
->         if (vlan->mode == MACVLAN_MODE_BRIDGE) {
->                 const struct ethhdr *eth = (void *)skb->data;
-> +               skb->ip_summed = CHECKSUM_UNNECESSARY;
-> 
->                 /* send to other bridge ports directly */
->                 if (is_multicast_ether_addr(eth->h_dest)) {
-> 
-> 
-> and that fixed the problem. Do you think it is acceptable ?
+Le mercredi 02 mars 2011 =C3=A0 03:06 +0100, Fabio Checconi a =C3=A9cri=
+t :
+> Hi,
+>=20
+> > From: Stephen Hemminger <shemminger@vyatta.com>
+> > Date: Mon, Feb 28, 2011 05:17:38PM -0800
+> >
+> > This is an implementation of the Quick Fair Queue scheduler develop=
+ed
+> > by Fabio Checconi. The same algorithm is already implemented in ipf=
+w
+> > in FreeBSD. Fabio had an earlier version developed on Linux, I just
+> > cleaned it up and tested it. All bugs are mine.
+> >=20
+>=20
+>   thanks for posting, I'm pretty sure that bugs are more likely to be
+> ours than yours :)
+>=20
+> During the development of the algorithm we used a simple traffic
+> simulator to verify (informally) the timestamping and the guarantees
+> provided.  I've tested this version of the code with the simulator an=
+d
+> so far it worked fine, so I think that timestamping and guarantees sh=
+ould
+> be OK.
+>=20
+> Please let us know if we can be of any help,
+> fabio
 
-The only problem I see is if the packets are bridged to a
-different networking device (or redirected using the mirred
-action), in this case the checksum will not be completed.
-This would be a very strange setup though and probably wouldn't
-be using dummy as lower device, so I'm not sure we have to
-worry about this case.
+Hmm, I tried to setup QFQ (using iproute2patch
+http://patchwork.ozlabs.org/patch/77902/ ) but failed
+
+Do you have a link to a script/sample ?
+
+Thanks
+
+
