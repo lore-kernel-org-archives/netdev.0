@@ -1,61 +1,85 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: inet: Replace left-over references to inet->cork
-Date: Wed, 2 Mar 2011 14:15:17 +0800
-Message-ID: <20110302061517.GA17891@gondor.apana.org.au>
-References: <20110301123519.GA7453@gondor.apana.org.au> <E1PuOop-0001xh-HK@gondolin.me.apana.org.au>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Tue, 1 Mar 2011 22:25:31 -0800
+Message-ID: <20110301222531.24832a93@nehalam>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com>
+	<alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se>
+	<1298793252.8726.45.camel@edumazet-laptop>
+	<AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+	<20110227125540.40754c5y78j9u2m8@hayate.sektori.org>
+	<AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com>
+	<cbb9e1113901f1a324359b6ed3f1a611@localhost>
+	<AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com>
+	<AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
+	<alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: David Miller <davem@davemloft.net>, rick.jones2@hp.com,
-	therbert@google.com, wsommerfeld@google.com,
-	daniel.baluta@gmail.com, netdev@vger.kernel.org,
-	Thomas Graf <tgraf@infradead.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.apana.org.au ([209.40.204.226]:45373 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757961Ab1CBGPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 01:15:32 -0500
-Content-Disposition: inline
-In-Reply-To: <E1PuOop-0001xh-HK@gondolin.me.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: John Heffner <johnwheffner@gmail.com>,
+	Bill Sommerfeld <wsommerfeld@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Albert Cahalan <acahalan@gmail.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Mikael Abrahamsson <swmike@swm.pp.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 01, 2011 at 08:36:47PM +0800, Herbert Xu wrote:
-> inet: Remove explicit write references to sk/inet in ip_append_data
+On Tue, 1 Mar 2011 01:46:51 +0100 (CET)
+Mikael Abrahamsson <swmike@swm.pp.se> wrote:
 
-Just found a couple of spots where inet->cork was still used
-instead of just cork.
+> On Mon, 28 Feb 2011, John Heffner wrote:
+> 
+> > Right... while I generally agree that a fixed-length drop-tail queue 
+> > isn't optimal, isn't this problem what the various AQM schemes try to 
+> > solve?
+> 
+> I am not an expert on exactly how Linux does this, but for Cisco and for 
+> instance ATM interfaces, there are two stages of queuing. One is the 
+> "hardware queue", which is a FIFO queue going into the ATM framer. If one 
+> wants low CPU usage, then this needs to be high so multiple packets can be 
+> put there per interrupt. Since AQM is working before this, it also means 
+> the low-latency-queue will have a higher latency as it ends up behind 
+> larger packets in the hw queue.
+> 
+> So on what level does the AQM work in Linux? Does it work similarily, that 
+> txqueuelen is a FIFO queue to the hardware that AQM feeds packets into?
+> 
+> Also, when one uses WRED the thinking is generally to keep the average 
+> queue len down, but still allow for bursts by dynamically changing the 
+> drop probability and where it happens. When there is no queuing, allow for 
+> big queue (so it can fill up if needed), but if the queue is large for 
+> several seconds, start to apply WRED to bring it down.
+> 
+> There is generally no need at all to constantly buffer > 50 ms of data, 
+> then it's better to just start selectively dropping it. In time of 
+> burstyness (perhaps when re-routing traffic) there is need to buffer 
+> 200-500ms of during perhaps 1-2 seconds before things stabilize.
+> 
+> So one queuing scheme and one queue limit isn't going to solve this, there 
+> need to be some dynamic built into the system for it to work well.
+> 
+> AQM needs to feed into a relatively short hw queue and AQM needs to exist 
+> on output also when the traffic is sourced from the box itself, no tonly 
+> routed. It would also help if the default would be to use let's say 25% of 
+> the bandwidth for smaller packets (< 200 bytes or so) which generally are 
+> for interactive uses or are ACKs.
+> 
 
-inet: Replace left-over references to inet->cork
+It is possible to build an equivalent to WRED out existing GRED queuing
+discipline but it does require a lot of tc knowledge to get right.
+The inventor of RED (Van Jacobsen) has issues with WRED because of
+the added complexity of queue selection. RED requires some parameters
+which the average user has no idea how to set.
 
-The patch to replace inet->cork with cork left out two spots in
-__ip_append_data that can result in bogus packet construction.
+There are several problems with RED that prevent prevent VJ from
+recommending it in the current form.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+  http://gettys.wordpress.com/2010/12/17/red-in-a-different-light/
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 460308c..3e8637c 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -789,7 +789,7 @@ static int __ip_append_data(struct sock *sk, struct sk_buff_head *queue,
- 	struct inet_sock *inet = inet_sk(sk);
- 	struct sk_buff *skb;
- 
--	struct ip_options *opt = inet->cork.opt;
-+	struct ip_options *opt = cork->opt;
- 	int hh_len;
- 	int exthdrlen;
- 	int mtu;
-@@ -803,7 +803,7 @@ static int __ip_append_data(struct sock *sk, struct sk_buff_head *queue,
- 	exthdrlen = transhdrlen ? rt->dst.header_len : 0;
- 	length += exthdrlen;
- 	transhdrlen += exthdrlen;
--	mtu = inet->cork.fragsize;
-+	mtu = cork->fragsize;
- 
- 	hh_len = LL_RESERVED_SPACE(rt->dst.dev);
 
-Thanks,
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
