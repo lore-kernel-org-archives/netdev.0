@@ -1,38 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf-2.6] IPVS
-Date: Thu, 3 Mar 2011 07:06:37 +0900
-Message-ID: <20110302220637.GD8193@verge.net.au>
-References: <1299020375-11362-1-git-send-email-horms@verge.net.au>
- <4D6E22CA.2020305@trash.net>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [RFC LOL OMG] pfifo_lat: qdisc that limits dequeueing based on
+ estimated link latency
+Date: Wed, 2 Mar 2011 17:08:29 -0500
+Message-ID: <20110302220828.GA3097@tuxdriver.com>
+References: <20110228132341.194975v6ojrudl18@hayate.sektori.org>
+ <1299102850-2883-1-git-send-email-linville@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: bloat-devel@lists.bufferbloat.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:53230 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754516Ab1CBWJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 17:09:20 -0500
 Content-Disposition: inline
-In-Reply-To: <4D6E22CA.2020305@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1299102850-2883-1-git-send-email-linville@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 02, 2011 at 11:58:18AM +0100, Patrick McHardy wrote:
-> Am 01.03.2011 23:59, schrieb Simon Horman:
-> > Hi Patrick,
-> > 
-> > please consider pulling
-> > git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
-> > to get the following change from Julian. Please note that it is an nf-2.6
-> > (that is 2.6.38-rc) change.
-> > 
-> > Julian Anastasov (1):
-> >       ipvs: fix dst_lock locking on dest update
-> 
-> Pulled, thanks Simon.
+On Wed, Mar 02, 2011 at 04:54:10PM -0500, John W. Linville wrote:
+> This is a qdisc based on the existing pfifo_fast code.  The difference
 
-Thanks Patrick.
+Well, it started that way.  This is obviously based on the pfifo
+code instead...
 
-This change is also needed in nf-next-2.6 but I assume that
-will automatically happen when nf-2.6 is merged into nf-next-2.6,
-possibly via a merge of net-2.6 into net-next-2.6.
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
