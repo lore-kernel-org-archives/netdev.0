@@ -1,60 +1,59 @@
-From: Mauro Carvalho Chehab <mchehab@redhat.com>
-Subject: Re: [PATCH 0/7] Final BKL removal, take 2
-Date: Wed, 02 Mar 2011 17:32:37 -0300
-Message-ID: <4D6EA965.9050709@redhat.com>
-References: <1299021191-17961-1-git-send-email-arnd@arndb.de> <20110302045923.GA28214@suse.de> <4D6E2ABF.5040500@redhat.com> <20110302140428.GA630@suse.de>
+From: Jake Edge <jake@lwn.net>
+Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
+ kernel modules
+Date: Wed, 2 Mar 2011 13:38:35 -0700
+Message-ID: <20110302133835.5e267e9e@chukar>
+References: <201102272122.52643.arnd@arndb.de>
+	<4D6B6AE7.2050202@msgid.tls.msk.ru>
+	<20110228095133.GA4351@albatros>
+	<20110228.112349.104067277.davem@davemloft.net>
+	<20110301194845.GA3533@albatros>
+	<1299010390.2529.30.camel@bwh-desktop>
+	<20110301213313.GA6507@albatros>
+	<m34o7ltipi.fsf@lwn.net>
+	<20110302194354.GA31043@albatros>
+	<20110302124936.289a1915@chukar>
+	<20110302201807.GA31965@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-kernel@vger.kernel.org,
-	Andi Kleen <ak@linux.intel.com>,
-	Andrew Hendry <andrew.hendry@gmail.com>,
-	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Evgeniy Dushistov <dushistov@mail.ru>,
-	linux-fsdevel@vger.kernel.org, linux-x25@vger.kernel.org,
-	Max Vozeler <max@vozeler.com>,
-	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
-	netdev@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
-	Nick Piggin <npiggin@gmail.com>,
-	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
-	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>
-To: Greg KH <gregkh@suse.de>
+Cc: linux-kernel@vger.kernel.org, mjt@tls.msk.ru, arnd@arndb.de,
+	mirqus@gmail.com, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
+	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
+	eugene@redhat.com, dan.j.rosenberg@gmail.com,
+	akpm@linux-foundation.org
+To: Vasiliy Kulikov <segoon@openwall.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110302140428.GA630@suse.de>
+In-Reply-To: <20110302201807.GA31965@albatros>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em 02-03-2011 11:04, Greg KH escreveu:
-> On Wed, Mar 02, 2011 at 08:32:15AM -0300, Mauro Carvalho Chehab wrote:
->> Em 02-03-2011 01:59, Greg KH escreveu:
->>> On Wed, Mar 02, 2011 at 12:13:04AM +0100, Arnd Bergmann wrote:
->>>> This is the set of patches that remain from
->>>> my previous submission one month ago. I've
->>>> dropped the ones that have either gone into
->>>> linux-next or got a sufficient number of
->>>> Acked-by:s so I put them into my own tree.
->>>>
->>>> I've updated the usbip, hpfs, ufs and appletalk
->>>> patches according to the feedback I got.
->>>>
->>>> If possible, I'd like the three networking patches
->>>> to go through the net-next tree, and the two
->>>> staging patches through the staging tree. I'll
->>>> add the other ones to my own series if I hear
->>>> no objections.
->>>
->>> I'll queue up the staging patches in the staging-next tree in a day or
->>> so, thanks for digging them up.
->>
->> Greg,
->>
->> It is probably better to queue the staging/cx25821 patch via my tree, as this is one
->> of those staging files that it is handled via media tree. So, if it is ok
->> for you both, I'll get patch 2/7.
-> 
-> Yes, you are right, please take it through your tree.
+On Wed, 2 Mar 2011 23:18:07 +0300 Vasiliy Kulikov wrote:
 
-Patch applied on my tree, thanks!
-Mauro
+> > and on systems that today use CAP_SYS_MODULE
+> 
+> Since Linux 2.6.32 CAP_SYS_MODULE may not load modules via "ifconfig
+> gre0".  It was changed to CAP_NET_ADMIN.  So nothing is broken here.
+> 
+> > (or really the full set of
+> > capabilities cuz they are running as root)?
+> 
+> As root has CAP_NET_ADMIN, the alias netdev-gre0 is tried and it
+> succeeds.
+
+(I feel like I'm beating a dead horse here, sorry if so ...)
+
+If I have a setuid-root program today that loads ip_gre by using the
+alias "gre0", and I run that program on a kernel with this change,
+won't it fail because the "gre0" alias is missing?  That program
+doesn't know to try "netdev-gre0". i.e. won't backward compatibility be
+affected by this change?
+
+jake
+
+-- 
+Jake Edge - LWN - jake@lwn.net - http://lwn.net
