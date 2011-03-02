@@ -1,31 +1,27 @@
-From: Huzaifa Sidhpurwala <huzaifas@redhat.com>
-Subject: Re: [PATCH] Fix possible null pointer dereference in ariadne.c
-Date: Wed, 02 Mar 2011 10:17:13 +0530
-Message-ID: <4D6DCBD1.5030000@redhat.com>
-References: <1298979207-11237-1-git-send-email-huzaifas@redhat.com> <20110301.115300.112595321.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Make icmp route lookup code a bit clearer.
+Date: Tue, 01 Mar 2011 20:53:31 -0800 (PST)
+Message-ID: <20110301.205331.193706254.davem@davemloft.net>
+References: <20110301.154816.212683830.davem@davemloft.net>
+	<20110301.155015.258117084.davem@davemloft.net>
+	<20110302004325.GB15009@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, geert@linux-m68k.org, tj@kernel.org,
-	eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:10586 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757875Ab1CBErZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 23:47:25 -0500
-In-Reply-To: <20110301.115300.112595321.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40746
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754630Ab1CBEwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 23:52:54 -0500
+In-Reply-To: <20110302004325.GB15009@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2011 01:23 AM, David Miller wrote:
-> From: huzaifas@redhat.com
-> Date: Tue,  1 Mar 2011 17:03:27 +0530
-> 
->> +    *lance = (struct Am79C960*)dev->base_addr;
-> 
-> If you had actually compiled this, the compiler would have given
-> you a warning shoing that the leading "*" in "*lance" is not
-> appropriate for this assignment.
-i did build, but looks like something happened after that :(
-Sorry about the mess-up , will repost the patch.
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Date: Wed, 2 Mar 2011 08:43:25 +0800
+
+> Looks good to me.
+
+Thanks for reviewing.
