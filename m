@@ -1,121 +1,126 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
-Date: Wed, 02 Mar 2011 19:33:36 +0100
-Message-ID: <4D6E8D80.3090907@free.fr>
-References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>	 <4D6AB578.3010704@free.fr> <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr> <4D6D2402.6020705@trash.net> <4D6D515A.8060707@free.fr> <4D6E23F3.4010402@trash.net> <4D6E6A55.6000607@free.fr> <4D6E8686.3000109@trash.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrian Nord <nightnord@gmail.com>,
-	lxc-users@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
+From: prasanna.panchamukhi@riverbed.com
+Subject: [PATCH] e1000: fix race condition while driver unload/reset using kref count
+Date: Wed,  2 Mar 2011 10:46:37 -0800
+Message-ID: <1299091597-28409-1-git-send-email-prasanna.panchamukhi@riverbed.com>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	prasanna.panchamukhi@riverbed.com
+To: bruce.w.allan@intel.com, jeffrey.t.kirsher@intel.com,
+	jesse.brandeburg@intel.com, jeffrey.e.pieper@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:44680 "EHLO smtp5-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753633Ab1CBSdr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 13:33:47 -0500
-In-Reply-To: <4D6E8686.3000109@trash.net>
+Received: from smtp1.riverbed.com ([208.70.196.45]:64803 "EHLO
+	smtp1.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754696Ab1CBSrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 13:47:00 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/02/2011 07:03 PM, Patrick McHardy wrote:
-> Am 02.03.2011 17:03, schrieb Daniel Lezcano:
->> On 03/02/2011 12:03 PM, Patrick McHardy wrote:
->>> Am 01.03.2011 21:04, schrieb Daniel Lezcano:
->>>> On 03/01/2011 05:51 PM, Patrick McHardy wrote:
->>>>>> Patrick, do you have any suggestions to fix this ?
->>>>> Since the frames are only looped back locally, I suppose the easiest
->>>>> fix would be to mark them with CHECKSUM_UNNECESSARY. Alternatively
->>>>> we need to complete the checksum manually, similar to what
->>>>> dev_hard_start_xmit() does.
->>>> That sounds very simple to fix, maybe too much simple :)
->>>>
->>>> I did the following change:
->>>>
->>>> --- linux-next.orig/drivers/net/macvlan.c
->>>> +++ linux-next/drivers/net/macvlan.c
->>>> @@ -222,6 +222,7 @@ static int macvlan_queue_xmit(struct sk_
->>>>
->>>>           if (vlan->mode == MACVLAN_MODE_BRIDGE) {
->>>>                   const struct ethhdr *eth = (void *)skb->data;
->>>> +               skb->ip_summed = CHECKSUM_UNNECESSARY;
->>>>
->>>>                   /* send to other bridge ports directly */
->>>>                   if (is_multicast_ether_addr(eth->h_dest)) {
->>>>
->>>>
->>>> and that fixed the problem. Do you think it is acceptable ?
->>> The only problem I see is if the packets are bridged to a
->>> different networking device (or redirected using the mirred
->>> action), in this case the checksum will not be completed.
->>> This would be a very strange setup though and probably wouldn't
->>> be using dummy as lower device, so I'm not sure we have to
->>> worry about this case.
->> I am not sure to get it, do you say the patch is correct ?
-> Its correct with a short-coming that doesn't seem to matter.
->
->> If my understanding is correct, the packet will be flagged
->> CHECKSUM_UNNECESSARY only for the macvlan devices, right ?
-> Only for packets bridged between macvlan devices. A setup like
-> the following would cause problems:
->
->                          br0
->                           |
->                     .----------.
->                     |          |
-> macvlan0	macvlan1    eth0
->     |               |
->      -------.-------
-> 	 dummy0
->
-> In this case packets sent from macvlan0 will show up on
-> eth0 with incorrect setups. However this setup doesn't
-> seem realistic to me, you would simply use eth0 instead
-> of dummy0.
+This race conditions occurs with reentrant e1000_down(), which gets
+called by multiple threads while driver unload or reset.
+This patch fixes the race condition when one thread tries to destroy
+the memory allocated for tx buffer_info, while another thread still
+happen to access tx buffer_info.
+This patch fixes the above race condition using kref count.
 
-Ok, I understand. thanks for the clarification.
-
->> By the way, this problem occurs for any lower device with offloading
->> capabilities with a macvlan port in bridge mode.
-> True. This doesn't affect outgoing packets since their checksum
-> will be completed in dev_hard_start_xmit(), but it affects
-> packets bridged between macvlans.
-
-One last question. In the case of broadcast packets with maclvan in 
-bridge mode.
-We will have the packets going through each macvlan port and also to the 
-lower-device, right ?
-For the latter, don't we have a problem if the packet is flagged 
-CHECKSUM_UNNECESSARY ?
-
-Shouldn't we restore the ip_summed field before sending through 
-dev_queue_xmit ?
-
+Signed-off-by: Prasanna S. Panchamukhi <prasanna.panchamukhi@riverbed.com>
 ---
-  drivers/net/macvlan.c |    3 +++
-  1 file changed, 3 insertions(+)
+ drivers/net/e1000/e1000.h      |    2 +
+ drivers/net/e1000/e1000_main.c |   41 +++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 40 insertions(+), 3 deletions(-)
 
-Index: linux-next/drivers/net/macvlan.c
-===================================================================
---- linux-next.orig/drivers/net/macvlan.c
-+++ linux-next/drivers/net/macvlan.c
-@@ -222,10 +222,13 @@ static int macvlan_queue_xmit(struct sk_
-
-         if (vlan->mode == MACVLAN_MODE_BRIDGE) {
-                 const struct ethhdr *eth = (void *)skb->data;
-+               __u8 ip_summed = skb->ip_summed;
-+               skb->ip_summed; = CHECKSUM_UNNECESSARY;
-
-                 /* send to other bridge ports directly */
-                 if (is_multicast_ether_addr(eth->h_dest)) {
-                         macvlan_broadcast(skb, port, dev, 
-MACVLAN_MODE_BRIDGE);
-+                       skb->ip_summed = ip_summed;
-                         goto xmit_world;
-                 }
-
-
-
+diff --git a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+index a881dd0..36f55b3 100644
+--- a/drivers/net/e1000/e1000.h
++++ b/drivers/net/e1000/e1000.h
+@@ -168,6 +168,8 @@ struct e1000_tx_ring {
+ 	unsigned int next_to_clean;
+ 	/* array of buffer information structs */
+ 	struct e1000_buffer *buffer_info;
++	spinlock_t bufinfo_lock; /* protect access to buffer_info */
++	struct kref bufinfo_refcount; /* refcount access to buffer info */
+ 
+ 	u16 tdh;
+ 	u16 tdt;
+diff --git a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+index beec573..336d3e1 100644
+--- a/drivers/net/e1000/e1000_main.c
++++ b/drivers/net/e1000/e1000_main.c
+@@ -1531,6 +1531,8 @@ setup_tx_desc_die:
+ 
+ 	txdr->next_to_use = 0;
+ 	txdr->next_to_clean = 0;
++	spin_lock_init(&txdr->bufinfo_lock);
++	kref_init(&txdr->bufinfo_refcount);
+ 
+ 	return 0;
+ }
+@@ -1880,6 +1882,22 @@ static void e1000_configure_rx(struct e1000_adapter *adapter)
+ 	ew32(RCTL, rctl);
+ }
+ 
++/*
++ * Free tx buffer info resources, only when no other thread is
++ * accessing it. Access to buffer_info is refcounted by bufinfo_refcount,
++ * hence memory allocated must be destroyed when bufinfo_refcount
++ * becomes zero. This routine gets executed when bufinfo_refcount
++ * becomes zero.
++ */
++static void e1000_free_tx_buffer_info(struct kref *ref)
++{
++	struct e1000_tx_ring *tx_ring =
++		container_of(ref, struct e1000_tx_ring, bufinfo_refcount);
++
++	vfree(tx_ring->buffer_info);
++	tx_ring->buffer_info = NULL;
++}
++
+ /**
+  * e1000_free_tx_resources - Free Tx Resources per Queue
+  * @adapter: board private structure
+@@ -1895,8 +1913,9 @@ static void e1000_free_tx_resources(struct e1000_adapter *adapter,
+ 
+ 	e1000_clean_tx_ring(adapter, tx_ring);
+ 
+-	vfree(tx_ring->buffer_info);
+-	tx_ring->buffer_info = NULL;
++	spin_lock(&tx_ring->bufinfo_lock);
++	kref_put(&tx_ring->bufinfo_refcount, e1000_free_tx_buffer_info);
++	spin_unlock(&tx_ring->bufinfo_lock);
+ 
+ 	dma_free_coherent(&pdev->dev, tx_ring->size, tx_ring->desc,
+ 			  tx_ring->dma);
+@@ -1954,8 +1973,20 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
+ 	unsigned long size;
+ 	unsigned int i;
+ 
+-	/* Free all the Tx ring sk_buffs */
++	spin_lock(&tx_ring->bufinfo_lock);
++	/*
++	 * Check buffer_info is not NULL, and
++	 * increment the refcount to prevent
++	 * the buffer getting freed underneath.
++	 */
++	if (tx_ring->buffer_info == NULL) {
++		spin_unlock(&tx_ring->bufinfo_lock);
++		return;
++	}
++	kref_get(&tx_ring->bufinfo_refcount);
++	spin_unlock(&tx_ring->bufinfo_lock);
+ 
++	/* Free all the Tx ring sk_buffs */
+ 	for (i = 0; i < tx_ring->count; i++) {
+ 		buffer_info = &tx_ring->buffer_info[i];
+ 		e1000_unmap_and_free_tx_resource(adapter, buffer_info);
+@@ -1968,6 +1999,10 @@ static void e1000_clean_tx_ring(struct e1000_adapter *adapter,
+ 
+ 	memset(tx_ring->desc, 0, tx_ring->size);
+ 
++	spin_lock(&tx_ring->bufinfo_lock);
++	kref_put(&tx_ring->bufinfo_refcount, e1000_free_tx_buffer_info);
++	spin_unlock(&tx_ring->bufinfo_lock);
++
+ 	tx_ring->next_to_use = 0;
+ 	tx_ring->next_to_clean = 0;
+ 	tx_ring->last_tx_tso = 0;
+-- 
+1.7.0.4
 
