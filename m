@@ -1,42 +1,40 @@
-From: Michael Tokarev <mjt@tls.msk.ru>
-Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
- kernel modules
-Date: Wed, 02 Mar 2011 10:15:08 +0300
-Message-ID: <4D6DEE7C.6020700@msgid.tls.msk.ru>
-References: <201102272122.52643.arnd@arndb.de> <4D6B6AE7.2050202@msgid.tls.msk.ru> <20110228095133.GA4351@albatros> <20110228.112349.104067277.davem@davemloft.net> <20110301194845.GA3533@albatros> <1299010390.2529.30.camel@bwh-desktop> <20110301213313.GA6507@albatros>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Wed, 2 Mar 2011 15:31:23 +0800
+Message-ID: <20110302073123.GA18443@gondor.apana.org.au>
+References: <20110301112759.GK9763@canuck.infradead.org> <1298979909.3284.28.camel@edumazet-laptop> <20110301115305.GA6984@gondor.apana.org.au> <1298984609.3284.98.camel@edumazet-laptop> <20110301131823.GB8028@gondor.apana.org.au> <1298997084.3284.119.camel@edumazet-laptop> <20110302002353.GA15009@gondor.apana.org.au> <1299031203.2930.26.camel@edumazet-laptop> <20110302023920.GA16072@gondor.apana.org.au> <AANLkTim0+7mTYrQF3mttUW+JqOmvTyMoDXOdeCX_SSdp@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, arnd@arndb.de, mirqus@gmail.com,
-	netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
-	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
-	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
-	eugene@redhat.com, dan.j.rosenberg@gmail.com,
-	akpm@linux-foundation.org
-To: Vasiliy Kulikov <segoon@openwall.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110301213313.GA6507@albatros>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Thomas Graf <tgraf@infradead.org>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	wsommerfeld@google.com, daniel.baluta@gmail.com,
+	netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.apana.org.au ([209.40.204.226]:51209 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751138Ab1CBHbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 02:31:38 -0500
+Content-Disposition: inline
+In-Reply-To: <AANLkTim0+7mTYrQF3mttUW+JqOmvTyMoDXOdeCX_SSdp@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-02.03.2011 00:33, Vasiliy Kulikov wrote:
-> Since a8f80e8ff94ecba629542d9b4b5f5a8ee3eb565c any process with
-> CAP_NET_ADMIN may load any module from /lib/modules/.  This doesn't mean
-> that CAP_NET_ADMIN is a superset of CAP_SYS_MODULE as modules are
-> limited to /lib/modules/**.  However, CAP_NET_ADMIN capability shouldn't
-> allow anybody load any module not related to networking.
-> 
-> This patch restricts an ability of autoloading modules to netdev modules
-> with explicit aliases.  This fixes CVE-2011-1019.
-[]
-> Reference: https://lkml.org/lkml/2011/2/24/203
-> 
-> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
+On Tue, Mar 01, 2011 at 11:12:29PM -0800, Tom Herbert wrote:
+>
+> Probably need to set skb->ooo_okay (for UDP etc.) also so that XPS
+> will change queues.
 
-This looks much saner :)
+Hmm, not quite.  We still want to maintain packet ordering from
+the same CPU.  That is, if I do two sendmsg calls from the same
+CPU, they should go into the same queue in that order.
 
-Signed-off-by: Michael Tokarev <mjt@tls.msk.ru>
+So this shouldn't just be a knob that says whether we can pick
+queues at random.
 
-/mjt
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
