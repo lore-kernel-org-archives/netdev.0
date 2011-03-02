@@ -1,32 +1,36 @@
-From: "Alex G." <mr.nuke.me@gmail.com>
-Subject: Re: [PATCH] via-rhine: do not abort due to invalid MAC address
-Date: Wed, 02 Mar 2011 21:49:07 +0200
-Message-ID: <4D6E9F33.2030001@gmail.com>
-References: <20110302163233.GA14491@core.hellgate.ch> <201103021901.39849.florian@openwrt.org> <4D6E883C.2000800@gmail.com> <20110302.113610.71137356.davem@davemloft.net> <20110302195205.GA15190@core.hellgate.ch>
+From: "\"Oleg A. Arkhangelsky\"" <sysoleg@yandex.ru>
+Subject: Re: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
+Date: Wed, 02 Mar 2011 22:50:25 +0300
+Message-ID: <124481299095426@web67.yandex.ru>
+References: <118081298480841@web25.yandex.ru> <4D6E2BEB.50805@trash.net> <AANLkTikkz23221ZSiat8N5tnE_bkHN=1EUNQTDdnC30L@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, florian@openwrt.org,
-	netdev@vger.kernel.org
-To: Roger Luethi <rl@hellgate.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:34192 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757404Ab1CBTxl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 14:53:41 -0500
-Received: by bwz15 with SMTP id 15so501930bwz.19
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 11:53:40 -0800 (PST)
-In-Reply-To: <20110302195205.GA15190@core.hellgate.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Paul E McKenney <paulmck@linux.vnet.ibm.com>
+To: Changli Gao <xiaosuo@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <AANLkTikkz23221ZSiat8N5tnE_bkHN=1EUNQTDdnC30L@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/02/2011 09:52 PM, Roger Luethi wrote:
-> On Wed, 02 Mar 2011 11:36:10 -0800, David Miller wrote:
->> There is no reason to choose a different strategy for this driver.
-> 
-> Fair enough. I did not know other drivers had already dealt with the same
-> problem. My bad. Alex, can you redo the patch accordingly?
+02.03.2011, 17:37, "Changli Gao" <xiaosuo@gmail.com>:
 
-Yes, no problem.
+> t should be NULL here, as offsetof(struct nf_conn, dst.protonum) == 0x36.
+> We should free the nf_ct_extend with call_rcu(), since nat ext is
+> referenced in the rcu read context.
 
-Alex
+Yes, I think the problem is triggered when nf_conntrack_free() is called by
+different CPU during net->ipv4.nat_bysource hash traversal. Extensions
+framework doesn't have any SLAB_DESTROY_BY_RCU magic.
+
+I'm not sure, but couldn't this problem be introduced by:
+
+ea781f197d6a835cbb93a0bf88ee1696296ed8aa
+netfilter: nf_conntrack: use SLAB_DESTROY_BY_RCU and get rid of call_rcu()
+
+?
+
+-- 
+wbr, Oleg.
