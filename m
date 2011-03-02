@@ -1,26 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Bug-Fix][Patch 1/1] dccp: fix oops on Reset after close
-Date: Tue, 01 Mar 2011 23:02:20 -0800 (PST)
-Message-ID: <20110301.230220.189699042.davem@davemloft.net>
-References: <20110302063447.GB4902@gerrit.erg.abdn.ac.uk>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] ipv6: Make icmp route lookup code a bit clearer.
+Date: Wed, 2 Mar 2011 15:02:51 +0800
+Message-ID: <20110302070251.GA18270@gondor.apana.org.au>
+References: <20110301.221543.226770795.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhovold@gmail.com
-To: gerrit@erg.abdn.ac.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:49913
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753946Ab1CBHBn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 02:01:43 -0500
-In-Reply-To: <20110302063447.GB4902@gerrit.erg.abdn.ac.uk>
+Received: from helcar.apana.org.au ([209.40.204.226]:55516 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853Ab1CBHCx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 02:02:53 -0500
+Content-Disposition: inline
+In-Reply-To: <20110301.221543.226770795.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerrit Renker <gerrit@erg.abdn.ac.uk>
-Date: Wed, 2 Mar 2011 07:34:47 +0100
+On Tue, Mar 01, 2011 at 10:15:43PM -0800, David Miller wrote:
+> 
+> The route lookup code in icmpv6_send() is slightly tricky as a result of
+> having to handle all of the requirements of RFC 4301 host relookups.
+> 
+> Pull the route resolution into a seperate function, so that the error
+> handling and route reference counting is hopefully easier to see and
+> contained wholly within this new routine.
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> could you please apply the below bug fix for a condition where a simple packet
-> reception can trigger oops.
+Looks good to me too.
 
-Applied, thanks Gerrit.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
