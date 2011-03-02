@@ -1,134 +1,79 @@
 From: kaber@trash.net
-Subject: [PATCH 11/13] ipvs: use enum to instead of magic numbers
-Date: Wed,  2 Mar 2011 13:12:51 +0100
-Message-ID: <1299067973-15977-12-git-send-email-kaber@trash.net>
+Subject: [PATCH 13/13] netfilter: nf_ct_tcp: fix out of sync scenario while in SYN_RECV
+Date: Wed,  2 Mar 2011 13:12:53 +0100
+Message-ID: <1299067973-15977-14-git-send-email-kaber@trash.net>
 References: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32946 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:32942 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757286Ab1CBMNC (ORCPT
+	with ESMTP id S1757297Ab1CBMNC (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 07:13:02 -0500
 In-Reply-To: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+This patch fixes the out of sync scenarios while in SYN_RECV state.
+
+Quoting Jozsef, what it happens if we are out of sync if the
+following:
+
+> > b. conntrack entry is outdated, new SYN received
+> >    - (b1) we ignore it but save the initialization data from it
+> >    - (b2) when the reply SYN/ACK receives and it matches the saved data,
+> >      we pick up the new connection
+This is what it should happen if we are in SYN_RECV state. Initially,
+the SYN packet hits b1, thus we save data from it. But the SYN/ACK
+packet is considered a retransmission given that we're in SYN_RECV
+state. Therefore, we never hit b2 and we don't get in sync. To fix
+this, we ignore SYN/ACK if we are in SYN_RECV. If the previous packet
+was a SYN, then we enter the ignore case that get us in sync.
+
+This patch helps a lot to conntrackd in stress scenarios (assumming a
+client that generates lots of small TCP connections). During the failover,
+consider that the new primary has injected one outdated flow in SYN_RECV
+state (this is likely to happen if the conntrack event rate is high
+because the backup will be a bit delayed from the primary). With the
+current code, if the client starts a new fresh connection that matches
+the tuple, the SYN packet will be ignored without updating the state
+tracking, and the SYN+ACK in reply will blocked as it will not pass
+checkings III or IV (since all state tracking in the original direction
+is not initialized because of the SYN packet was ignored and the ignore
+case that get us in sync is not applied).
+
+I posted a couple of patches before this one. Changli Gao spotted
+a simpler way to fix this problem. This patch implements his idea.
+
+Cc: Changli Gao <xiaosuo@gmail.com>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
 ---
- net/netfilter/ipvs/ip_vs_xmit.c |   41 +++++++++++++++++++++++++-------------
- 1 files changed, 27 insertions(+), 14 deletions(-)
+ net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 1f2a4e3..a48239a 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -43,6 +43,13 @@
- 
- #include <net/ip_vs.h>
- 
-+enum {
-+	IP_VS_RT_MODE_LOCAL	= 1, /* Allow local dest */
-+	IP_VS_RT_MODE_NON_LOCAL	= 2, /* Allow non-local dest */
-+	IP_VS_RT_MODE_RDR	= 4, /* Allow redirect from remote daddr to
-+				      * local
-+				      */
-+};
- 
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 6f38d0e..37bf943 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -227,11 +227,11 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
+  *	sCL -> sIV
+  */
+ /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
+-/*synack*/ { sIV, sSR, sSR, sIG, sIG, sIG, sIG, sIG, sIG, sSR },
++/*synack*/ { sIV, sSR, sIG, sIG, sIG, sIG, sIG, sIG, sIG, sSR },
  /*
-  *      Destination cache to speed up outgoing route lookup
-@@ -77,11 +84,7 @@ __ip_vs_dst_check(struct ip_vs_dest *dest, u32 rtos)
- 	return dst;
- }
- 
--/*
-- * Get route to destination or remote server
-- * rt_mode: flags, &1=Allow local dest, &2=Allow non-local dest,
-- *	    &4=Allow redirect from remote daddr to local
-- */
-+/* Get route to destination or remote server */
- static struct rtable *
- __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 		   __be32 daddr, u32 rtos, int rt_mode)
-@@ -126,15 +129,16 @@ __ip_vs_get_out_rt(struct sk_buff *skb, struct ip_vs_dest *dest,
- 	}
- 
- 	local = rt->rt_flags & RTCF_LOCAL;
--	if (!((local ? 1 : 2) & rt_mode)) {
-+	if (!((local ? IP_VS_RT_MODE_LOCAL : IP_VS_RT_MODE_NON_LOCAL) &
-+	      rt_mode)) {
- 		IP_VS_DBG_RL("Stopping traffic to %s address, dest: %pI4\n",
- 			     (rt->rt_flags & RTCF_LOCAL) ?
- 			     "local":"non-local", &rt->rt_dst);
- 		ip_rt_put(rt);
- 		return NULL;
- 	}
--	if (local && !(rt_mode & 4) && !((ort = skb_rtable(skb)) &&
--					 ort->rt_flags & RTCF_LOCAL)) {
-+	if (local && !(rt_mode & IP_VS_RT_MODE_RDR) &&
-+	    !((ort = skb_rtable(skb)) && ort->rt_flags & RTCF_LOCAL)) {
- 		IP_VS_DBG_RL("Redirect from non-local address %pI4 to local "
- 			     "requires NAT method, dest: %pI4\n",
- 			     &ip_hdr(skb)->daddr, &rt->rt_dst);
-@@ -383,8 +387,8 @@ ip_vs_bypass_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 
- 	EnterFunction(10);
- 
--	if (!(rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr,
--				      RT_TOS(iph->tos), 2)))
-+	if (!(rt = __ip_vs_get_out_rt(skb, NULL, iph->daddr, RT_TOS(iph->tos),
-+				      IP_VS_RT_MODE_NON_LOCAL)))
- 		goto tx_error_icmp;
- 
- 	/* MTU checking */
-@@ -512,7 +516,10 @@ ip_vs_nat_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	}
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(iph->tos), 1|2|4)))
-+				      RT_TOS(iph->tos),
-+				      IP_VS_RT_MODE_LOCAL |
-+					IP_VS_RT_MODE_NON_LOCAL |
-+					IP_VS_RT_MODE_RDR)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 	/*
-@@ -755,7 +762,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	EnterFunction(10);
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(tos), 1|2)))
-+				      RT_TOS(tos), IP_VS_RT_MODE_LOCAL |
-+						   IP_VS_RT_MODE_NON_LOCAL)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -984,7 +992,9 @@ ip_vs_dr_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	EnterFunction(10);
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(iph->tos), 1|2)))
-+				      RT_TOS(iph->tos),
-+				      IP_VS_RT_MODE_LOCAL |
-+					IP_VS_RT_MODE_NON_LOCAL)))
- 		goto tx_error_icmp;
- 	if (rt->rt_flags & RTCF_LOCAL) {
- 		ip_rt_put(rt);
-@@ -1128,7 +1138,10 @@ ip_vs_icmp_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	 */
- 
- 	if (!(rt = __ip_vs_get_out_rt(skb, cp->dest, cp->daddr.ip,
--				      RT_TOS(ip_hdr(skb)->tos), 1|2|4)))
-+				      RT_TOS(ip_hdr(skb)->tos),
-+				      IP_VS_RT_MODE_LOCAL |
-+					IP_VS_RT_MODE_NON_LOCAL |
-+					IP_VS_RT_MODE_RDR)))
- 		goto tx_error_icmp;
- 	local = rt->rt_flags & RTCF_LOCAL;
- 
+  *	sSS -> sSR	Standard open.
+  *	sS2 -> sSR	Simultaneous open
+- *	sSR -> sSR	Retransmitted SYN/ACK.
++ *	sSR -> sIG	Retransmitted SYN/ACK, ignore it.
+  *	sES -> sIG	Late retransmitted SYN/ACK?
+  *	sFW -> sIG	Might be SYN/ACK answering ignored SYN
+  *	sCW -> sIG
 -- 
 1.7.4
 
