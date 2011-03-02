@@ -1,42 +1,81 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: skb->frag_list != NULL in start_xmit for device without
- NETIF_F_FRAGLIST
-Date: Wed, 2 Mar 2011 13:14:43 +0000
-Message-ID: <1299071683.17907.1764.camel@zakaz.uk.xensource.com>
-References: <1298980019.5034.2238.camel@zakaz.uk.xensource.com>
-	 <AANLkTinDmW1oirOFZCHe7yw8E8TGJfFe+fucAxOPpbjV@mail.gmail.com>
-	 <1299071546.17907.1755.camel@zakaz.uk.xensource.com>
+From: weinholt@csbnet.se (=?utf-8?Q?G=C3=B6ran?= Weinholt)
+Subject: Re: [Bugme-new] [Bug 30092] New: smsc911x.c drops long packets with VLAN tags
+Date: Wed, 02 Mar 2011 15:07:21 +0100
+Message-ID: <lnsjv58vl2.fsf@desktop3.csbnet.se>
+References: <bug-30092-10286@https.bugzilla.kernel.org/>
+	<20110301161547.13480e90.akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Paul Durrant <Paul.Durrant@citrix.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org,
+	Steve Glendinning <steve.glendinning@smsc.com>
+To: Andrew Morton <akpm@linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16177 "EHLO SMTP.CITRIX.COM"
+Received: from mail2.csbnet.se ([95.80.0.100]:36811 "EHLO mail2.csbnet.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750956Ab1CBNOp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 08:14:45 -0500
-In-Reply-To: <1299071546.17907.1755.camel@zakaz.uk.xensource.com>
+	id S1751138Ab1CBOQa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 09:16:30 -0500
+In-Reply-To: <20110301161547.13480e90.akpm@linux-foundation.org> (Andrew
+	Morton's message of "Tue, 1 Mar 2011 16:15:47 -0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-03-02 at 13:12 +0000, Ian Campbell wrote:
-> 
-> > I believe that not much has changed in this regard between 2.6.32
-> and net-next.
-> 
-> It turns out I cannot reproduce with either 2.6.32 (pvops xen.git) or
-> a more recent ((26.38-rc) kernel. The kernel where we see this is the
-> XCP kernel which is a 2.6.32 based thing derived from SLES11SP1 + XCP
-> specific updates.
+Andrew Morton <akpm@linux-foundation.org> writes:
 
-Paul reminded me that his XCP system where we see this is running
-openvswitch not bridging (all my own tests were with bridging), is this
-something which could be caused by vswitch at all? I don't see any
-interesting ->frag_list usage in openvswitch.git.
+> (switched to email.  Please respond via emailed reply-to-all, not via=
+ the
+> bugzilla web interface).
+>
+> On Mon, 28 Feb 2011 15:57:14 GMT
+> bugzilla-daemon@bugzilla.kernel.org wrote:
+>
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D30092
+>>=20
+> Thanks.  Become famous, get more girls: send us a patch as per
+> Documentation/SubmittingPatches :)
 
-Anyway I'm going to see if I can repro with vswitch.
+There's a register called VLAN1 that wasn't being configured. Setting i=
+t
+to 0x8100 fixes the problem I reported. There's also a VLAN2 register,
+possibly meant for stacked VLANs, but the description in the datasheet
+doesn't make sense to me, and I can't test stacked VLANs, so I'm not
+going to change it.
 
-Ian.
+Subject: [PATCH] net/smsc911x.c: Set the VLAN1 register to fix VLAN MTU=
+ problem
+=46rom: G=C3=B6ran Weinholt <weinholt@csbnet.se>
 
+The smsc911x driver would drop frames longer than 1518 bytes, which is =
+a
+problem for networks with VLAN tagging. The VLAN1 tag register is used
+to increase the legal frame size to 1522 when a VLAN tag is identified.
+
+Signed-off-by: G=C3=B6ran Weinholt <weinholt@csbnet.se>
+---
+diff -uprN linux-2.6.36.4-vanilla/drivers/net/smsc911x.c linux-2.6.36.4=
+/drivers/net/smsc911x.c
+--- linux-2.6.36.4-vanilla/drivers/net/smsc911x.c	2011-02-18 00:14:38.0=
+00000000 +0100
++++ linux-2.6.36.4/drivers/net/smsc911x.c	2011-03-02 14:29:11.884382251=
+ +0100
+@@ -1178,6 +1178,11 @@ static int smsc911x_open(struct net_devi
+ 	smsc911x_reg_write(pdata, HW_CFG, 0x00050000);
+ 	smsc911x_reg_write(pdata, AFC_CFG, 0x006E3740);
+=20
++	/* Increase the legal frame size of VLAN tagged frames to 1522 bytes =
+*/
++	spin_lock_irq(&pdata->mac_lock);
++	smsc911x_mac_write(pdata, VLAN1, ETH_P_8021Q);
++	spin_unlock_irq(&pdata->mac_lock);
++
+ 	/* Make sure EEPROM has finished loading before setting GPIO_CFG */
+ 	timeout =3D 50;
+ 	while ((smsc911x_reg_read(pdata, E2P_CMD) & E2P_CMD_EPC_BUSY_) &&
+
+
+
+--=20
+G=C3=B6ran Weinholt
+Network Administrator
+Chalmers Studentbost=C3=A4der (AS48514)
