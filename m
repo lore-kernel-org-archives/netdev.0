@@ -1,50 +1,37 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [PATCH] via-rhine: do not abort due to invalid MAC address
-Date: Wed, 2 Mar 2011 17:32:33 +0100
-Message-ID: <20110302163233.GA14491@core.hellgate.ch>
+From: Mikael Abrahamsson <swmike@swm.pp.se>
+Subject: Re: txqueuelen has wrong units; should be time
+Date: Wed, 2 Mar 2011 17:41:32 +0100 (CET)
+Message-ID: <alpine.DEB.1.10.1103021739550.7942@uplift.swm.pp.se>
+References: <AANLkTimd5GQwtUFP2fD_An=M8ajBD8DJpzxQJezv8fB8@mail.gmail.com> <alpine.DEB.1.10.1102270758580.11974@uplift.swm.pp.se> <1298793252.8726.45.camel@edumazet-laptop> <AANLkTinyE10wtM_xJsufT_3s3hvti7CN+9nyqScWa6SA@mail.gmail.com>
+ <20110227125540.40754c5y78j9u2m8@hayate.sektori.org> <AANLkTimofhhH5omyk=HhkyaNG+MGqoac4rDf=dPuR7K-@mail.gmail.com> <cbb9e1113901f1a324359b6ed3f1a611@localhost> <AANLkTikje6rvjSfEA3CvUjdgFwzk-SBZDdO5kQvi6LZy@mail.gmail.com> <AANLkTin_jY_J7tJseMLVmrQVVRezOVQTGCgB_6tefgXJ@mail.gmail.com>
+ <alpine.DEB.1.10.1103010137400.7942@uplift.swm.pp.se> <20110301222531.24832a93@nehalam> <alpine.DEB.1.10.1103020736260.7942@uplift.swm.pp.se> <20110301230754.5ef4ab35@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Alex G." <mr.nuke.me@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: John Heffner <johnwheffner@gmail.com>,
+	Bill Sommerfeld <wsommerfeld@google.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Albert Cahalan <acahalan@gmail.com>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail14.bluewin.ch ([195.186.19.62]:20180 "EHLO
-	mail14.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753611Ab1CBQje (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 11:39:34 -0500
-Content-Disposition: inline
+Received: from swm.pp.se ([212.247.200.143]:42862 "EHLO uplift.swm.pp.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754924Ab1CBQld (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 11:41:33 -0500
+In-Reply-To: <20110301230754.5ef4ab35@nehalam>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Alex G." <mr.nuke.me@gmail.com>
+On Tue, 1 Mar 2011, Stephen Hemminger wrote:
 
-via-rhine drops out of the init code if the hardware provides an invalid
-MAC address. I have several reports of Rhine NICs doing just that. The
-hardware still works, though; continuing the init process gives the user a
-chance to fix the MAC address using "ifconfig ethX hw ether" which appears
-to result in a perfectly useable network adapter.
+> Also WRED is not default on faster links because it can't be done fast 
+> enough.
 
-Most recent report and patch provided by Alex G.
+Before this propagates as some kind of truth. Cisco modern core routers 
+have no problems doing WRED at wirespeed, the above statement is not true.
 
-Signed-off-by: "Alex G." <mr.nuke.me@gmail.com>
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
-
-diff --git a/linux-2.6.35.11/drivers/net/via-rhine.c b/via-rhine.c
-index 4930f9d..a1189f4 100644
---- a/linux-2.6.35.11/drivers/net/via-rhine.c
-+++ b/via-rhine.c
-@@ -766,8 +766,12 @@ static int __devinit rhine_init_one(struct pci_dev *pdev,
- 
- 	if (!is_valid_ether_addr(dev->perm_addr)) {
- 		rc = -EIO;
--		printk(KERN_ERR "Invalid MAC address\n");
--		goto err_out_unmap;
-+		printk(KERN_ERR "via-rhine: invalid MAC address: %pM. "
-+				"Use ifconfig to configure valid address.\n",
-+				dev->dev_addr);
-+		/* The device may still be used normally if a valid MAC is configured
-+		 * We do not consider this a fatal error, and continue initialization
-+		 */
- 	}
- 
- 	/* For Rhine-I/II, phy_id is loaded from EEPROM */
+-- 
+Mikael Abrahamsson    email: swmike@swm.pp.se
