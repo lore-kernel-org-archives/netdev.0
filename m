@@ -1,44 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-rhine: do not abort due to invalid MAC address
-Date: Wed, 02 Mar 2011 11:36:10 -0800 (PST)
-Message-ID: <20110302.113610.71137356.davem@davemloft.net>
-References: <20110302163233.GA14491@core.hellgate.ch>
-	<201103021901.39849.florian@openwrt.org>
-	<4D6E883C.2000800@gmail.com>
+From: Vasiliy Kulikov <segoon@openwall.com>
+Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
+ kernel modules
+Date: Wed, 2 Mar 2011 22:43:54 +0300
+Message-ID: <20110302194354.GA31043@albatros>
+References: <201102272122.52643.arnd@arndb.de>
+ <4D6B6AE7.2050202@msgid.tls.msk.ru>
+ <20110228095133.GA4351@albatros>
+ <20110228.112349.104067277.davem@davemloft.net>
+ <20110301194845.GA3533@albatros>
+ <1299010390.2529.30.camel@bwh-desktop>
+ <20110301213313.GA6507@albatros>
+ <m34o7ltipi.fsf@lwn.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: florian@openwrt.org, rl@hellgate.ch, netdev@vger.kernel.org
-To: mr.nuke.me@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56255
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754456Ab1CBTfd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 14:35:33 -0500
-In-Reply-To: <4D6E883C.2000800@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, mjt@tls.msk.ru, arnd@arndb.de,
+	mirqus@gmail.com, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
+	xiaosuo@gmail.com, jesse@nicira.com, kees.cook@canonical.com,
+	eugene@redhat.com, dan.j.rosenberg@gmail.com,
+	akpm@linux-foundation.org
+To: Jake Edge <jake@lwn.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <m34o7ltipi.fsf@lwn.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Alex G." <mr.nuke.me@gmail.com>
-Date: Wed, 02 Mar 2011 20:11:08 +0200
-
-> On 03/02/2011 08:01 PM, Florian Fainelli wrote:
->> 
->> Why not generate a valid random ethernet address using random_ether_addr() 
->> instead?
+On Wed, Mar 02, 2011 at 12:39 -0700, Jake Edge wrote:
+> > @@ -1765,4 +1765,4 @@ module_exit(ipgre_fini);
+> >  MODULE_LICENSE("GPL");
+> >  MODULE_ALIAS_RTNL_LINK("gre");
+> >  MODULE_ALIAS_RTNL_LINK("gretap");
+> > -MODULE_ALIAS("gre0");
+> > +MODULE_ALIAS_NETDEV("gre0");
 > 
-> That would confuse ifcfg-* scripts that specify HWETHER, and probably
-> users as well. It might even stump udev.
+> that is, instead of replacing MODULE_ALIAS("gre0") with the NETDEV
+> version, don't you want both for backward compatibility?
 
-If the ethernet address reported by the card is garbage, every single
-ethernet driver that tried to handle this case uses a random ethernet
-address.
+The networking script will run with CAP_NET_ADMIN, this would request
+netdev-gre0 and load ip_gre.
 
-There is no reason to choose a different strategy for this driver.
-
-Also registering a network device with an invalid ethernet address can
-cause all kinds of serious issues, let's say dhcp brings the device
-up and emits DHCP requests with illegal MAC addresses in the header
-because of this problem.
-
-You therefore simply cannot leave crap in there.
+-- 
+Vasiliy Kulikov
+http://www.openwall.com - bringing security into open computing environments
