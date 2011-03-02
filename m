@@ -1,71 +1,44 @@
-From: Daniel Lezcano <daniel.lezcano@free.fr>
-Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
-Date: Wed, 02 Mar 2011 17:03:33 +0100
-Message-ID: <4D6E6A55.6000607@free.fr>
-References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>	 <4D6AB578.3010704@free.fr> <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr> <4D6D2402.6020705@trash.net> <4D6D515A.8060707@free.fr> <4D6E23F3.4010402@trash.net>
+From: Kees Cook <kees.cook@canonical.com>
+Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
+ kernel modules
+Date: Wed, 2 Mar 2011 08:01:52 -0800
+Message-ID: <20110302160152.GQ4669@outflux.net>
+References: <201102272122.52643.arnd@arndb.de>
+ <4D6B6AE7.2050202@msgid.tls.msk.ru>
+ <20110228095133.GA4351@albatros>
+ <20110228.112349.104067277.davem@davemloft.net>
+ <20110301194845.GA3533@albatros>
+ <1299010390.2529.30.camel@bwh-desktop>
+ <20110301213313.GA6507@albatros>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrian Nord <nightnord@gmail.com>,
-	lxc-users@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp5-g21.free.fr ([212.27.42.5]:59024 "EHLO smtp5-g21.free.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751384Ab1CBQDn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 11:03:43 -0500
-In-Reply-To: <4D6E23F3.4010402@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, mjt@tls.msk.ru, arnd@arndb.de,
+	mirqus@gmail.com, netdev@vger.kernel.org,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	pekkas@netcore.fi, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, eric.dumazet@gmail.com, therbert@google.com,
+	xiaosuo@gmail.com, jesse@nicira.com, eugene@redhat.com,
+	dan.j.rosenberg@gmail.com, akpm@linux-foundation.org
+To: Vasiliy Kulikov <segoon@openwall.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110301213313.GA6507@albatros>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03/02/2011 12:03 PM, Patrick McHardy wrote:
-> Am 01.03.2011 21:04, schrieb Daniel Lezcano:
->> On 03/01/2011 05:51 PM, Patrick McHardy wrote:
->>>> Patrick, do you have any suggestions to fix this ?
->>> Since the frames are only looped back locally, I suppose the easiest
->>> fix would be to mark them with CHECKSUM_UNNECESSARY. Alternatively
->>> we need to complete the checksum manually, similar to what
->>> dev_hard_start_xmit() does.
->> That sounds very simple to fix, maybe too much simple :)
->>
->> I did the following change:
->>
->> --- linux-next.orig/drivers/net/macvlan.c
->> +++ linux-next/drivers/net/macvlan.c
->> @@ -222,6 +222,7 @@ static int macvlan_queue_xmit(struct sk_
->>
->>          if (vlan->mode == MACVLAN_MODE_BRIDGE) {
->>                  const struct ethhdr *eth = (void *)skb->data;
->> +               skb->ip_summed = CHECKSUM_UNNECESSARY;
->>
->>                  /* send to other bridge ports directly */
->>                  if (is_multicast_ether_addr(eth->h_dest)) {
->>
->>
->> and that fixed the problem. Do you think it is acceptable ?
-> The only problem I see is if the packets are bridged to a
-> different networking device (or redirected using the mirred
-> action), in this case the checksum will not be completed.
-> This would be a very strange setup though and probably wouldn't
-> be using dummy as lower device, so I'm not sure we have to
-> worry about this case.
+On Wed, Mar 02, 2011 at 12:33:13AM +0300, Vasiliy Kulikov wrote:
+> This patch restricts an ability of autoloading modules to netdev modules
+> with explicit aliases.  This fixes CVE-2011-1019.
+> ...
+> Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
 
-I am not sure to get it, do you say the patch is correct ?
+Looks good; thanks for sorting this out.
 
-If my understanding is correct, the packet will be flagged 
-CHECKSUM_UNNECESSARY only for the macvlan devices, right ?
+Acked-by: Kees Cook <kees.cook@canonical.com>
 
-By the way, this problem occurs for any lower device with offloading 
-capabilities with a macvlan port in bridge mode.
+-Kees
 
-Thanks
-   -- Daniel
-
-
-
-
-
-
-<javascript:void(0);>
+-- 
+Kees Cook
+Ubuntu Security Team
