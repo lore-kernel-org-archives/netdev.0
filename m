@@ -1,89 +1,66 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy and source mac selection mode
-Date: Tue, 01 Mar 2011 18:56:18 -0800
-Message-ID: <413.1299034578@death>
-References: <20110301223458.GA24403@yandex-team.ru> <20110301152951.646451c6@nehalam>
-Cc: "Oleg V. Ukhno" <olegu@yandex-team.ru>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <shemminger@vyatta.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Wed, 02 Mar 2011 03:56:38 +0100
+Message-ID: <1299034598.2930.47.camel@edumazet-laptop>
+References: <20110301110708.GJ9763@canuck.infradead.org>
+	 <1298977984.3284.15.camel@edumazet-laptop>
+	 <20110301112759.GK9763@canuck.infradead.org>
+	 <1298979909.3284.28.camel@edumazet-laptop>
+	 <20110301115305.GA6984@gondor.apana.org.au>
+	 <1298984609.3284.98.camel@edumazet-laptop>
+	 <20110301131823.GB8028@gondor.apana.org.au>
+	 <1298997084.3284.119.camel@edumazet-laptop>
+	 <20110302002353.GA15009@gondor.apana.org.au>
+	 <1299031203.2930.26.camel@edumazet-laptop>
+	 <20110302023920.GA16072@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Thomas Graf <tgraf@infradead.org>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	therbert@google.com, wsommerfeld@google.com,
+	daniel.baluta@gmail.com, netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:36084 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755435Ab1CBC4W (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Mar 2011 21:56:22 -0500
-Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p222Vhgq007296
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 21:31:43 -0500
-Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id DD8EF38C8038
-	for <netdev@vger.kernel.org>; Tue,  1 Mar 2011 21:56:20 -0500 (EST)
-Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p222uL3x2760816
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 21:56:21 -0500
-Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p222uKOK018718
-	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 21:56:20 -0500
-In-reply-to: <20110301152951.646451c6@nehalam>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:42467 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757031Ab1CBC4n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 21:56:43 -0500
+Received: by wyg36 with SMTP id 36so5360859wyg.19
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 18:56:42 -0800 (PST)
+In-Reply-To: <20110302023920.GA16072@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <shemminger@vyatta.com> wrote:
+Le mercredi 02 mars 2011 =C3=A0 10:39 +0800, Herbert Xu a =C3=A9crit :
 
->On Wed, 2 Mar 2011 01:34:58 +0300
->"Oleg V. Ukhno" <olegu@yandex-team.ru> wrote:
->
->> Patch introduces two new (related) features to bonding module.
->> First feature is round-robin hashing policy, which is primarily
->> intended for use with 802.3ad mode, and puts every next IPv4 and
->> IPv6 packet into  next availables slave without taling into account
->> which layer3 and above protocol is used.
->> Second feature makes possible choosing which MAC-address will be set
->> in the transmitted packet - when set to src-mac it will force setting
->> slave's interface real MAC address as source MAC address in every
->> packet, sent via this slave interface.
->> Main goal of this patch is to make possible single TCP stream
->> equally striped for both transmitted and received packets over all
->> available slaves.
->> This operating mode is not fully 802.3ad compliant, and will cause
->> some packet reordering in TCP stream, to some kernel tuning may be
->> required.
->> For correct working enabling round-robin hashing policy plus using
->> real slave's MAC addresses as source MAC addresses in transmitted
->> packets requires specific switch setting)hashing mode for port-channel
->> ("etherchannel) should be set to src-mac or src-dst-mac to get
->> correct load-striping on the receiving host's etherchannel.
->> General requirements for using bonding in this operating mode are:
->> - even and preferrably equal number of slaves on sending and receiving
->> hosts;
->> - equal RTT between sending and receiving hosts on all slaves;
->> - switch capable of doing etherchannels and using src-mac or src-dst-mac
->> hashing policy for egress load striping
->> 
->> Signed-off-by: Oleg V. Ukhno <olegu@yandex-team.ru>
->
->It seems to me the whole bonding policy is getting so complex
->that the code is a mess. Perhaps it should be somehow linked into
->existing packet classification or firewall mechanisms.  This would
->increase the flexibility and reduce the amount of policy code
->in the bonding driver itself.
+> UDP is a datagram protocol, TCP is not.
+>=20
+> Anyway, here is an alternate proposal.  When a TCP socket transmits
+> for the first time (SYN or SYN-ACK), we pick a queue based on CPU and
+> store it in the socket.  From then on we stick to that selection.
+>=20
 
-	Hmm.
+Many TCP apps I know use one thread to perform listen/accept and a pool
+of threads to handle each new conn.
 
-	Yes, the number of special case knobs in bonding is getting
-rather large, and there are one or two other proposals in the pipe
-besides this one.
+Anyway, the SYN-ACK is generated by softirq, not really user choice.
+CPU depends if NIC is RX multiqueue or RPS is setup.
 
-	It would be handy to be able to do things like run ebtables
-style rules against traffic going in and out of the bond.  Right now
-ebtables is pretty tightly coupled with the bridge, so we'd need to add
-a whole new set of netfilter "bondtables" or something.  Or add hooks
-for ebtables outside of the bridge.
+All this discussion is about letting process scheduler decide TX queue,
+(because user/admin used cpu affinity) or let network stack drive
+scheduler : Please migrate this thread on this cpu.
 
-	For this particular patch, the src-mac business could be handled
-by a netfilter module.  The round-robin hash policy part would probably
-have to stay in bonding.
+Both schems should be allowed/configurable so that best results are
+available.
 
-	-J
+> We would only allow changes if we can ensure that all transmitted
+> packets have left the queue.  Or we just never change it like we
+> do now.
+>=20
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+We do change in case of dst/route change. Each device can have differen=
+t
+number of TX queues.
+
+
