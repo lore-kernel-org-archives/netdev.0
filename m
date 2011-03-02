@@ -1,46 +1,43 @@
 From: kaber@trash.net
-Subject: [PATCH 03/13] bridge: netfilter: fix information leak
-Date: Wed,  2 Mar 2011 13:12:43 +0100
-Message-ID: <1299067973-15977-4-git-send-email-kaber@trash.net>
+Subject: [PATCH 07/13] ipvs: fix timer in get_curr_sync_buff
+Date: Wed,  2 Mar 2011 13:12:47 +0100
+Message-ID: <1299067973-15977-8-git-send-email-kaber@trash.net>
 References: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32936 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755710Ab1CBMM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 07:12:59 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1299067973-15977-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vasiliy Kulikov <segoon@openwall.com>
+From: Tinggong Wang <wangtinggong@gmail.com>
 
-Struct tmp is copied from userspace.  It is not checked whether the "name"
-field is NULL terminated.  This may lead to buffer overflow and passing
-contents of kernel stack as a module name to try_then_request_module() and,
-consequently, to modprobe commandline.  It would be seen by all userspace
-processes.
+ 	Fix get_curr_sync_buff to keep buffer for 2 seconds
+as intended, not just for the current jiffie. By this way
+we will sync more connection structures with single packet.
 
-Signed-off-by: Vasiliy Kulikov <segoon@openwall.com>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Tinggong Wang <wangtinggong@gmail.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/bridge/netfilter/ebtables.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/netfilter/ipvs/ip_vs_sync.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 5f1825d..893669c 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1107,6 +1107,8 @@ static int do_replace(struct net *net, const void __user *user,
- 	if (tmp.num_counters >= INT_MAX / sizeof(struct ebt_counter))
- 		return -ENOMEM;
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index d1b7298..fecf24d 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -374,8 +374,8 @@ get_curr_sync_buff(struct netns_ipvs *ipvs, unsigned long time)
+ 	struct ip_vs_sync_buff *sb;
  
-+	tmp.name[sizeof(tmp.name) - 1] = 0;
-+
- 	countersize = COUNTER_OFFSET(tmp.nentries) * nr_cpu_ids;
- 	newinfo = vmalloc(sizeof(*newinfo) + countersize);
- 	if (!newinfo)
+ 	spin_lock_bh(&ipvs->sync_buff_lock);
+-	if (ipvs->sync_buff && (time == 0 ||
+-	    time_before(jiffies - ipvs->sync_buff->firstuse, time))) {
++	if (ipvs->sync_buff &&
++	    time_after_eq(jiffies - ipvs->sync_buff->firstuse, time)) {
+ 		sb = ipvs->sync_buff;
+ 		ipvs->sync_buff = NULL;
+ 	} else
 -- 
 1.7.4
 
