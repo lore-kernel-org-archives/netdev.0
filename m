@@ -1,65 +1,47 @@
 From: kaber@trash.net
-Subject: [PATCH 2/2] netfilter: nf_log: avoid oops in (un)bind with invalid nfproto values
-Date: Wed,  2 Mar 2011 12:56:21 +0100
-Message-ID: <1299066981-14058-3-git-send-email-kaber@trash.net>
+Subject: [PATCH 1/2] ipvs: fix dst_lock locking on dest update
+Date: Wed,  2 Mar 2011 12:56:20 +0100
+Message-ID: <1299066981-14058-2-git-send-email-kaber@trash.net>
 References: <1299066981-14058-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:65383 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757094Ab1CBL4g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 06:56:36 -0500
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1299066981-14058-1-git-send-email-kaber@trash.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jan Engelhardt <jengelh@medozas.de>
+From: Julian Anastasov <ja@ssi.bg>
 
-Like many other places, we have to check that the array index is
-within allowed limits, or otherwise, a kernel oops and other nastiness
-can ensue when we access memory beyond the end of the array.
+	Fix dst_lock usage in __ip_vs_update_dest. We need
+_bh locking because destination is updated in user context.
+Can cause lockups on frequent destination updates.
+Problem reported by Simon Kirby. Bug was introduced
+in 2.6.37 from the "ipvs: changes for local real server"
+change.
 
-[ 5954.115381] BUG: unable to handle kernel paging request at 0000004000000000
-[ 5954.120014] IP:  __find_logger+0x6f/0xa0
-[ 5954.123979]  nf_log_bind_pf+0x2b/0x70
-[ 5954.123979]  nfulnl_recv_config+0xc0/0x4a0 [nfnetlink_log]
-[ 5954.123979]  nfnetlink_rcv_msg+0x12c/0x1b0 [nfnetlink]
-...
-
-The problem goes back to v2.6.30-rc1~1372~1342~31 where nf_log_bind
-was decoupled from nf_log_register.
-
-Reported-by: Miguel Di Ciurcio Filho <miguel.filho@gmail.com>,
-  via irc.freenode.net/#netfilter
-Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_log.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index b07393e..9181699 100644
---- a/net/netfilter/nf_log.c
-+++ b/net/netfilter/nf_log.c
-@@ -85,6 +85,8 @@ EXPORT_SYMBOL(nf_log_unregister);
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 22f7ad5..ba98e13 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -808,9 +808,9 @@ __ip_vs_update_dest(struct ip_vs_service *svc, struct ip_vs_dest *dest,
+ 	dest->u_threshold = udest->u_threshold;
+ 	dest->l_threshold = udest->l_threshold;
  
- int nf_log_bind_pf(u_int8_t pf, const struct nf_logger *logger)
- {
-+	if (pf >= ARRAY_SIZE(nf_loggers))
-+		return -EINVAL;
- 	mutex_lock(&nf_log_mutex);
- 	if (__find_logger(pf, logger->name) == NULL) {
- 		mutex_unlock(&nf_log_mutex);
-@@ -98,6 +100,8 @@ EXPORT_SYMBOL(nf_log_bind_pf);
+-	spin_lock(&dest->dst_lock);
++	spin_lock_bh(&dest->dst_lock);
+ 	ip_vs_dst_reset(dest);
+-	spin_unlock(&dest->dst_lock);
++	spin_unlock_bh(&dest->dst_lock);
  
- void nf_log_unbind_pf(u_int8_t pf)
- {
-+	if (pf >= ARRAY_SIZE(nf_loggers))
-+		return;
- 	mutex_lock(&nf_log_mutex);
- 	rcu_assign_pointer(nf_loggers[pf], NULL);
- 	mutex_unlock(&nf_log_mutex);
+ 	if (add)
+ 		ip_vs_new_estimator(&dest->stats);
 -- 
 1.7.4
 
