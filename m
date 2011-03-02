@@ -1,67 +1,96 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Wed, 2 Mar 2011 08:11:08 -0800
-Message-ID: <20110302081108.689571d8@nehalam>
-References: <20110228171738.2cc8c9a0@nehalam>
-	<20110302020610.GD1005@gandalf.sssup.it>
-	<1299064667.2920.4.camel@edumazet-laptop>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [patch net-next-2.6] bonding: remove skb_share_check in handle_frame
+Date: Thu, 3 Mar 2011 00:13:23 +0800
+Message-ID: <AANLkTikvJ3n0mSabakpBOiLJZd55ZJUGz7wM2wm0th5C@mail.gmail.com>
+References: <20110301062250.GB2855@psychotron.redhat.com> <20110301092907.GG2855@psychotron.redhat.com>
+ <AANLkTimk_jyTYO8=8LRgY3C1un38qb1q9C-DbKWHirPS@mail.gmail.com> <4D6D52F1.6020407@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fabio Checconi <fchecconi@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	andy@greyhouse.net, Herbert Xu <herbert@gondor.apana.org.au>
+To: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:55708 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752980Ab1CBQLL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 11:11:11 -0500
-In-Reply-To: <1299064667.2920.4.camel@edumazet-laptop>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:42345 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753063Ab1CBQPy convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 11:15:54 -0500
+Received: by fxm17 with SMTP id 17so136608fxm.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 08:15:52 -0800 (PST)
+In-Reply-To: <4D6D52F1.6020407@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 02 Mar 2011 12:17:47 +0100
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, Mar 2, 2011 at 4:11 AM, Nicolas de Peslo=FCan
+<nicolas.2p.debian@gmail.com> wrote:
+> Le 01/03/2011 16:12, Changli Gao a =E9crit :
+>>
+>> On Tue, Mar 1, 2011 at 5:29 PM, Jiri Pirko<jpirko@redhat.com> =A0wro=
+te:
+>>>
+>>> Unapplicable, sorry (wrong branch :(). Here's corrected patch:
+>>>
+>>> Subject: [PATCH net-next-2.6 v2] bonding: remove skb_share_check in
+>>> handle_frame
+>>>
+>>> No need to do share check here.
+>>>
+>>
+>> I don't think so. Although you avoid netif_rx(), you can't avoid
+>> ptype_all handlers. In fact, all the RX handlers should has this
+>> check(), if they may modify the skb.
+>
+> Can you please develop your explanation?
+>
+> In current __netif_receive_skb() (after the recent patch from Jiri), =
+we
+> deliver the skb to ptype_all handlers inside a loop, while possibly c=
+hanging
+> skb->dev inside this loop.
+>
+> Then, at the end of __netif_receive_skb(), we loop on ptype_base, wit=
+hout
+> changing anything in skb.
+>
+> Should we consider ptype_*->func() to be called in a pure sequential =
+way?
+> Should we consider that when a ptype_*->func() returns, nothing from =
+this
+> handler will use the skb in anyway later, in a parallel way?
+>
+> Or should we, instead, consider that special precautions must be take=
+n,
+> because protocol handlers may run in parallel for the same skb? Which=
+ kind
+> of precautions?
+>
 
-> Le mercredi 02 mars 2011 =E0 03:06 +0100, Fabio Checconi a =E9crit :
-> > Hi,
-> >=20
-> > > From: Stephen Hemminger <shemminger@vyatta.com>
-> > > Date: Mon, Feb 28, 2011 05:17:38PM -0800
-> > >
-> > > This is an implementation of the Quick Fair Queue scheduler devel=
-oped
-> > > by Fabio Checconi. The same algorithm is already implemented in i=
-pfw
-> > > in FreeBSD. Fabio had an earlier version developed on Linux, I ju=
-st
-> > > cleaned it up and tested it. All bugs are mine.
-> > >=20
-> >=20
-> >   thanks for posting, I'm pretty sure that bugs are more likely to =
-be
-> > ours than yours :)
-> >=20
-> > During the development of the algorithm we used a simple traffic
-> > simulator to verify (informally) the timestamping and the guarantee=
-s
-> > provided.  I've tested this version of the code with the simulator =
-and
-> > so far it worked fine, so I think that timestamping and guarantees =
-should
-> > be OK.
-> >=20
-> > Please let us know if we can be of any help,
-> > fabio
->=20
-> Hmm, I tried to setup QFQ (using iproute2patch
-> http://patchwork.ozlabs.org/patch/77902/ ) but failed
->=20
-> Do you have a link to a script/sample ?
->=20
-> Thanks
+If the packets gotten by __netif_receive_skb() are unshared, the skb
+gotten by bond should be unshared, as we call prev_pt before calling
+bond. I don't see there is any  relationship with the previous patch
+from Jiri. The bridge is in the same condition with bond here, and it
+checks if the skb is shared or not. Does it imply that dev->rx_handler
+may see shared skbs?
 
-I put the iproute2 code into the repository in the experimental branch.
+BTW: bond may change skb and packet data. But before change the packet
+data, it doesn't check if the packet data is shared or not.
+
+1519         if (bond_dev->priv_flags & IFF_MASTER_ALB &&
+1520             bond_dev->priv_flags & IFF_BRIDGE_PORT &&
+1521             skb->pkt_type =3D=3D PACKET_HOST) {
+1522                 u16 *dest =3D (u16 *) eth_hdr(skb)->h_dest;
+
+skb_cow_head() should be added, otherwise the previous ptype handler
+may get the unexpected dset MAC address.
+
+1523
+1524                 memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
+1525         }
+
+Thanks.
 
 --=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
