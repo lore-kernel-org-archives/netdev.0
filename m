@@ -1,81 +1,70 @@
 From: "Michael Chan" <mchan@broadcom.com>
-Subject: [PATCH net-2.6 2/2] cnic: Fix lost interrupt on bnx2x
-Date: Wed, 2 Mar 2011 15:00:50 -0800
-Message-ID: <1299106850-23645-2-git-send-email-mchan@broadcom.com>
-References: <1299106850-23645-1-git-send-email-mchan@broadcom.com>
+Subject: [PATCH net-2.6 1/2] cnic: Prevent status block race conditions
+ with hardware
+Date: Wed, 2 Mar 2011 15:00:49 -0800
+Message-ID: <1299106850-23645-1-git-send-email-mchan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4693 "EHLO mms1.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:1292 "EHLO MMS3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755955Ab1CBXzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755733Ab1CBXzI (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Mar 2011 18:55:08 -0500
-In-Reply-To: <1299106850-23645-1-git-send-email-mchan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We service 2 queues (kcq1 and kcq2) in cnic_service_bnx2x_bh().  If
-the status block index has changed when servicing the kcq2, we must
-go back and check kcq1.  The latest status block index will be used
-to acknowledge the interrupt, and without looping back to check kcq1,
-we may miss events on kcq1.
+The status block index is used to acknowledge interrupt events and must
+be read before checking for the interrupt events, so we need to add rmb()
+to guarantee that.
 
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 ---
- drivers/net/cnic.c |   25 +++++++++++++++++--------
- 1 files changed, 17 insertions(+), 8 deletions(-)
+ drivers/net/cnic.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/cnic.c b/drivers/net/cnic.c
-index b0d9e4a..302be4a 100644
+index 7ff170c..b0d9e4a 100644
 --- a/drivers/net/cnic.c
 +++ b/drivers/net/cnic.c
-@@ -2914,26 +2914,35 @@ static void cnic_service_bnx2x_bh(unsigned long data)
- {
- 	struct cnic_dev *dev = (struct cnic_dev *) data;
- 	struct cnic_local *cp = dev->cnic_priv;
--	u32 status_idx;
-+	u32 status_idx, new_status_idx;
+@@ -2760,6 +2760,8 @@ static u32 cnic_service_bnx2_queues(struct cnic_dev *dev)
+ 	u32 status_idx = (u16) *cp->kcq1.status_idx_ptr;
+ 	int kcqe_cnt;
  
- 	if (unlikely(!test_bit(CNIC_F_CNIC_UP, &dev->flags)))
- 		return;
++	/* status block index must be read before reading other fields */
++	rmb();
+ 	cp->kwq_con_idx = *cp->kwq_con_idx_ptr;
  
--	status_idx = cnic_service_bnx2x_kcq(dev, &cp->kcq1);
-+	while (1) {
-+		status_idx = cnic_service_bnx2x_kcq(dev, &cp->kcq1);
+ 	while ((kcqe_cnt = cnic_get_kcqes(dev, &cp->kcq1))) {
+@@ -2770,6 +2772,8 @@ static u32 cnic_service_bnx2_queues(struct cnic_dev *dev)
+ 		barrier();
+ 		if (status_idx != *cp->kcq1.status_idx_ptr) {
+ 			status_idx = (u16) *cp->kcq1.status_idx_ptr;
++			/* status block index must be read first */
++			rmb();
+ 			cp->kwq_con_idx = *cp->kwq_con_idx_ptr;
+ 		} else
+ 			break;
+@@ -2888,6 +2892,8 @@ static u32 cnic_service_bnx2x_kcq(struct cnic_dev *dev, struct kcq_info *info)
+ 	u32 last_status = *info->status_idx_ptr;
+ 	int kcqe_cnt;
  
--	CNIC_WR16(dev, cp->kcq1.io_addr, cp->kcq1.sw_prod_idx + MAX_KCQ_IDX);
-+		CNIC_WR16(dev, cp->kcq1.io_addr,
-+			  cp->kcq1.sw_prod_idx + MAX_KCQ_IDX);
++	/* status block index must be read before reading the KCQ */
++	rmb();
+ 	while ((kcqe_cnt = cnic_get_kcqes(dev, info))) {
  
--	if (BNX2X_CHIP_IS_E2(cp->chip_id)) {
--		status_idx = cnic_service_bnx2x_kcq(dev, &cp->kcq2);
-+		if (!BNX2X_CHIP_IS_E2(cp->chip_id)) {
-+			cnic_ack_bnx2x_int(dev, cp->bnx2x_igu_sb_id, USTORM_ID,
-+					   status_idx, IGU_INT_ENABLE, 1);
-+			break;
-+		}
-+
-+		new_status_idx = cnic_service_bnx2x_kcq(dev, &cp->kcq2);
-+
-+		if (new_status_idx != status_idx)
-+			continue;
+ 		service_kcqes(dev, kcqe_cnt);
+@@ -2898,6 +2904,8 @@ static u32 cnic_service_bnx2x_kcq(struct cnic_dev *dev, struct kcq_info *info)
+ 			break;
  
- 		CNIC_WR16(dev, cp->kcq2.io_addr, cp->kcq2.sw_prod_idx +
- 			  MAX_KCQ_IDX);
- 
- 		cnic_ack_igu_sb(dev, cp->bnx2x_igu_sb_id, IGU_SEG_ACCESS_DEF,
- 				status_idx, IGU_INT_ENABLE, 1);
--	} else {
--		cnic_ack_bnx2x_int(dev, cp->bnx2x_igu_sb_id, USTORM_ID,
--				   status_idx, IGU_INT_ENABLE, 1);
-+
-+		break;
+ 		last_status = *info->status_idx_ptr;
++		/* status block index must be read before reading the KCQ */
++		rmb();
  	}
+ 	return last_status;
  }
- 
 -- 
 1.6.4.GIT
 
