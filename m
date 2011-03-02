@@ -1,33 +1,42 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [PATCH] iproute2: add support of flag XFRM_STATE_ALIGN4
-Date: Wed, 2 Mar 2011 11:50:31 -0800
-Message-ID: <20110302115031.30fa8a2d@nehalam>
-References: <4D6E87AF.8090204@6wind.com>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [PATCH] via-rhine: do not abort due to invalid MAC address
+Date: Wed, 2 Mar 2011 20:52:05 +0100
+Message-ID: <20110302195205.GA15190@core.hellgate.ch>
+References: <20110302163233.GA14491@core.hellgate.ch>
+ <201103021901.39849.florian@openwrt.org>
+ <4D6E883C.2000800@gmail.com>
+ <20110302.113610.71137356.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: nicolas.dichtel@6wind.com
+Content-Type: text/plain; charset=us-ascii
+Cc: mr.nuke.me@gmail.com, florian@openwrt.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57905 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757077Ab1CBTuf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 14:50:35 -0500
-In-Reply-To: <4D6E87AF.8090204@6wind.com>
+Received: from mail17.bluewin.ch ([195.186.18.64]:40155 "EHLO
+	mail17.bluewin.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756670Ab1CBTwD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 14:52:03 -0500
+Content-Disposition: inline
+In-Reply-To: <20110302.113610.71137356.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 02 Mar 2011 19:08:47 +0100
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
-
-> Hi,
+On Wed, 02 Mar 2011 11:36:10 -0800, David Miller wrote:
+> From: "Alex G." <mr.nuke.me@gmail.com>
+> Date: Wed, 02 Mar 2011 20:11:08 +0200
 > 
-> please find the patch enclosed.
+> > On 03/02/2011 08:01 PM, Florian Fainelli wrote:
+> >> 
+> >> Why not generate a valid random ethernet address using random_ether_addr() 
+> >> instead?
+> > 
+> > That would confuse ifcfg-* scripts that specify HWETHER, and probably
+> > users as well. It might even stump udev.
 > 
-> 
-> Regards,
-> Nicolas
+> If the ethernet address reported by the card is garbage, every single
+> ethernet driver that tried to handle this case uses a random ethernet
+> address.
+>
+> There is no reason to choose a different strategy for this driver.
 
-applied to net-next branch.
-
--- 
+Fair enough. I did not know other drivers had already dealt with the same
+problem. My bad. Alex, can you redo the patch accordingly?
