@@ -1,45 +1,39 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
-Date: Wed, 02 Mar 2011 12:37:15 +0100
-Message-ID: <4D6E2BEB.50805@trash.net>
-References: <118081298480841@web25.yandex.ru>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 0/7] Final BKL removal, take 2
+Date: Wed, 2 Mar 2011 12:42:12 +0100
+Message-ID: <201103021242.12699.arnd@arndb.de>
+References: <1299021191-17961-1-git-send-email-arnd@arndb.de> <20110302045923.GA28214@suse.de> <4D6E2ABF.5040500@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: "Oleg A. Arkhangelsky" <sysoleg@yandex.ru>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <118081298480841@web25.yandex.ru>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: Greg KH <gregkh@suse.de>, linux-kernel@vger.kernel.org,
+	Andi Kleen <ak@linux.intel.com>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Evgeniy Dushistov <dushistov@mail.ru>,
+	linux-fsdevel@vger.kernel.org, linux-x25@vger.kernel.org,
+	Max Vozeler <max@vozeler.com>,
+	Mikulas Patocka <mikulas@artax.karlin.mff.cuni.cz>,
+	netdev@vger.kernel.org, Nick Bowler <nbowler@elliptictech.com>,
+	Nick Piggin <npiggin@gmail.com>,
+	Palash Bandyopadhyay <palash.bandyopadhyay@conexant.com>,
+	Takahiro Hirofuchi <hirofuchi@users.sourceforge.net>
+To: Mauro Carvalho Chehab <mchehab@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D6E2ABF.5040500@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 23.02.2011 18:07, schrieb "Oleg A. Arkhangelsky":
-> Hello,
-> 
-> Got this panic yesterday:
-> http://www.progtech.ru/~oleg/crash.txt
-> 
-> The offending instruction is:
-> cmpb 54(%edx), %cl # <variable>.tuple.dst.protonum,
-> 
-> and here is the assembler code of net/ipv4/netfilter/nf_nat_core.c:
-> http://www.progtech.ru/~oleg/nf_nat_core.s
-> 
-> Quick investigation lead me to conclusion that the problem is in
-> return of same_src function:
-> 
->         return (t->dst.protonum == tuple->dst.protonum &&
->                 t->src.u3.ip == tuple->src.u3.ip &&
->                 t->src.u.all == tuple->src.u.all);
-> 
-> So either t or tuple pointer is bad, but I don't understand how
-> this can be.
+On Wednesday 02 March 2011, Mauro Carvalho Chehab wrote:
+> It is probably better to queue the staging/cx25821 patch via my tree, as this is one
+> of those staging files that it is handled via media tree. So, if it is ok
+> for you both, I'll get patch 2/7.
 
-I'm not sure myself, I'm guessing it has something to do with
-reallocation of the NAT extension area. Please post your full
-ruleset and any helpers in use.
+Fine with me.
 
-> [2971152.752502] Pid: 0, comm: swapper Not tainted (2.6.32.25-pt #1)
+Thanks,
 
-Also please try whether the problem still happens with the current
-kernel version.
+	Arnd
