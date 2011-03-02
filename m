@@ -1,76 +1,48 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] bonding: remove skb_share_check in
- handle_frame
-Date: Wed, 2 Mar 2011 13:29:58 +0100
-Message-ID: <20110302122957.GC2858@psychotron.brq.redhat.com>
-References: <20110301062250.GB2855@psychotron.redhat.com>
- <20110301092907.GG2855@psychotron.redhat.com>
- <20110301203843.GN11864@gospo.rdu.redhat.com>
- <20110302100354.GB2858@psychotron.brq.redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-2.6] bonding: drop frames received with master's
+	source MAC
+Date: Wed, 2 Mar 2011 20:30:04 +0800
+Message-ID: <20110302123004.GA21002@gondor.apana.org.au>
+References: <4D683653.4050409@gmail.com> <20110228163255.GJ11864@gospo.rdu.redhat.com> <4D6C1764.1040008@gmail.com> <20110301023525.GK11864@gospo.rdu.redhat.com> <9882.1298958366@death> <20110301181624.GM11864@gospo.rdu.redhat.com> <4D6D658C.90300@gmail.com> <20893.1299018331@death> <4D6D7C66.6050205@gmail.com> <AANLkTi=QTDNBf7Jskj55NP64Os8kgEs1WMpFGHMo+K3B@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com
-To: Andy Gospodarek <andy@greyhouse.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Jiri Pirko <jpirko@redhat.com>
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:1296 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755269Ab1CBMaE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 07:30:04 -0500
+Received: from helcar.apana.org.au ([209.40.204.226]:47684 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756435Ab1CBMa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 07:30:27 -0500
 Content-Disposition: inline
-In-Reply-To: <20110302100354.GB2858@psychotron.brq.redhat.com>
+In-Reply-To: <AANLkTi=QTDNBf7Jskj55NP64Os8kgEs1WMpFGHMo+K3B@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 02, 2011 at 11:03:55AM CET, jpirko@redhat.com wrote:
->Tue, Mar 01, 2011 at 09:38:43PM CET, andy@greyhouse.net wrote:
->>On Tue, Mar 01, 2011 at 10:29:07AM +0100, Jiri Pirko wrote:
->>> Unapplicable, sorry (wrong branch :(). Here's corrected patch:
->>> 
->>> Subject: [PATCH net-next-2.6 v2] bonding: remove skb_share_check in handle_frame
->>> 
->>> No need to do share check here.
->>> 
->>> Signed-off-by: Jiri Pirko <jpirko@redhat.com>
->>> ---
->>>  drivers/net/bonding/bond_main.c |    3 ---
->>>  1 files changed, 0 insertions(+), 3 deletions(-)
->>> 
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index 584f97b..367ea60 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -1498,9 +1498,6 @@ static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
->>>  	struct net_device *slave_dev;
->>>  	struct net_device *bond_dev;
->>>  
->>> -	skb = skb_share_check(skb, GFP_ATOMIC);
->>> -	if (unlikely(!skb))
->>> -		return NULL;
->>>  	slave_dev = skb->dev;
->>>  	bond_dev = ACCESS_ONCE(slave_dev->master);
->>>  	if (unlikely(!bond_dev))
->>> -- 
->>> 1.7.3.4
->>> 
->>
->>Why did you decide to get rid of it here rather than the 3 places in the
->>bonding driver where it is currently needed?  I think this can cover
->>those cases since bond_handle_frame will be called after the ptype_all
->>handlers before any of the ptype handlers.
+On Wed, Mar 02, 2011 at 11:10:07AM +0100, Nicolas de Peslo=FCan wrote:
 >
->I have already a patch prepared which converts bond ptype handlers into
->being called from bond_handle_frame. You are propably right that this
->should probably stay here.
->
->So please Dave, drop this patch for now. Thanks.
+> If one decide to configure two interfaces with the same MAC and conne=
+ct them
+> to the same LAN, then we get the exact same situation. Having eth0 an=
+d eth1
+> share a single MAC and a single IP address, connected to a switch in
+> Etherchannel mode is a perfectly valid setup, while suboptimal. And i=
+f the
+> Etherchannel mode happens to be improperly configured, we end up with=
+ the
+> same problem as reported by Andy.
 
-Thinking about this more I'm pretty convinced that skb_share_check is
-not needed here.
+Right.  There's also the case where you have other MAC addresses
+sitting behind the bonding device, e.g., virtualisation.  So basing
+it purely on the bonding device's MAC address is probably not worth
+the trouble.
 
-If I got that correctly, skb_share_check is neede when user acually
-modifies skb for his needs only. On the other hand, the only change
-to skb is setting skb->dev and this change needs to be visible later on.
-And given that skb is returned at the end of the function, changes are
-never local (makes sense).
-
+Cheers,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
