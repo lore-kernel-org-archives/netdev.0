@@ -1,44 +1,65 @@
-From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH 00/27] HFI minimal device driver/network driver
-Date: Wed,  2 Mar 2011 16:19:55 -0500
-Message-ID: <1299100795-9028-1-git-send-email-dykmanj@linux.vnet.ibm.com>
-Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [question] bond_set_slave_inactive_flags
+Date: Wed, 02 Mar 2011 13:41:29 -0800
+Message-ID: <12609.1299102089@death>
+References: <20110301074318.GF2855@psychotron.redhat.com>
+Cc: netdev@vger.kernel.org
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:42652 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755096Ab1CBVUG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 16:20:06 -0500
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22L7LGp011372
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 14:07:21 -0700
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LK5LR122374
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 14:20:05 -0700
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LOlhX000578
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 14:24:47 -0700
+Received: from e3.ny.us.ibm.com ([32.97.182.143]:60852 "EHLO e3.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756922Ab1CBVld (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 16:41:33 -0500
+Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
+	by e3.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22LLUeL022451
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:21:30 -0500
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 057036E8036
+	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:41:33 -0500 (EST)
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LfWjq391714
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:41:32 -0500
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LfWfZ025544
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:41:32 -0500
+In-reply-to: <20110301074318.GF2855@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+Jiri Pirko <jpirko@redhat.com> wrote:
 
-The HFI ("Host Fabric Interface") network interface is the internal cluster 
-fabric of IBM's PERCS supercomputer. The hardware design is under US export 
-control, so we cannot release hardware specs. There is a writeup of 
-publically available information about the system available here:
-http://sourceforge.net/projects/hfidevicedriver/files/docs/hfi_general_desc_v2.1.txt
+>Jay,
+>
+>Looking at function bond_set_slave_inactive_flags:
+>
+>static inline void bond_set_slave_inactive_flags(struct slave *slave)
+>{
+>        struct bonding *bond = netdev_priv(slave->dev->master);
+>        if (!bond_is_lb(bond))
+>                slave->state = BOND_STATE_BACKUP;
+>        if (!bond->params.all_slaves_active)
+>                slave->dev->priv_flags |= IFF_SLAVE_INACTIVE;
+>        if (slave_do_arp_validate(bond, slave))
+>                slave->dev->priv_flags |= IFF_SLAVE_NEEDARP;
+>}
+>
+>Why BOND_STATE_BACKUP is set only for non-lb bonds?
+>This was introduced by 8f903c708fcc2b579ebf16542bf6109bad593a1d but
+>I do not see why.
 
-hfi_core contains the resource management to set up communications paths for
-network traffic. Calls are provided for kernel drivers, and also for setting
-up direct user-space access to HFI windows.
-hf_if contains the kernel network driver.
+	It broke something to have slaves in alb or tlb mode (what
+"bond_is_lb" means) set to state == BACKUP; I'm trying to remember what
+it was.  I know it would mess up some text messages (calling alb/tlb
+slaves "backup", for example), but I think also broke the alb/tlb modes
+themselves because SLAVE_IS_OK returns false if state != ACTIVE.
 
-The driver has been running in the lab for several months. The full patch is
-around 22000 lines, so we've split out a minimal device/network driver that 
-can send and receive through the simplest path.  Once that much gets reviewed 
-we'll start adding on to it.
+	For alb/tlb, there is an "active" slave, and that's the one that
+handles multicast and broadcast.  The others are "inactive," but not
+really; they still send and receive regular traffic, but not bcast /
+mcast.  The IFF_SLAVE_INACTIVE flag is used to exclude the bcast / mcast
+traffic from the "inactive" slaves.
 
-Patches are against net-2.6 (Is that the correct tree for us to use?).
+	-J
 
-Jim Dykman
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
