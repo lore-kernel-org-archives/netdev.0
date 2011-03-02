@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH 03/27] HFI:  Add device_create/device_destroy calls for HFI devices.
-Date: Wed,  2 Mar 2011 16:09:49 -0500
-Message-ID: <1299100213-8770-3-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH 16/27] HFI: Add window open hypervisor call
+Date: Wed,  2 Mar 2011 16:10:02 -0500
+Message-ID: <1299100213-8770-16-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -13,22 +13,22 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e4.ny.us.ibm.com ([32.97.182.144]:42630 "EHLO e4.ny.us.ibm.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:58715 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756919Ab1CBVKY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 16:10:24 -0500
+	id S1757546Ab1CBVK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 16:10:28 -0500
 Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
-	by e4.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KpKu2020660
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:51:20 -0500
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 1C98C6E803E
-	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:24 -0500 (EST)
+	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22L0i75020244
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:00:44 -0500
+Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id C78986E8038
+	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:27 -0500 (EST)
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LANri298556
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:23 -0500
+	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LARBA191474
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:27 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LANk6031941
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:23 -0500
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LARf4032289
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:27 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
@@ -47,106 +47,189 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/hfidd_init.c  |   52 ++++++++++++++++++++++++++++++++++++
- include/linux/hfi/hfidd_internal.h |    1 +
- 2 files changed, 53 insertions(+), 0 deletions(-)
+ drivers/net/hfi/core/hfidd_hcalls.c |   50 +++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_proto.h  |    6 +++
+ include/linux/hfi/hfidd_hcalls.h    |   69 +++++++++++++++++++++++++++++++++++
+ 3 files changed, 125 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/hfi/core/hfidd_init.c b/drivers/net/hfi/core/hfidd_init.c
-index 114b772..68d6e65 100644
---- a/drivers/net/hfi/core/hfidd_init.c
-+++ b/drivers/net/hfi/core/hfidd_init.c
-@@ -47,6 +47,7 @@ MODULE_LICENSE("GPL v2");
- struct hfidd_global hfidd_global;
- EXPORT_SYMBOL_GPL(hfidd_global);
- 
-+struct device  *hfidd_class_dev[MAX_HFIS + 1];
- static dev_t   hfidd_dev;
- 
- #define MAX_HFI_DEVS (MAX_HFIS + 1)
-@@ -71,6 +72,38 @@ static const struct file_operations hfidd_fops = {
- 	.write		= hfidd_cmd_write,
- };
- 
-+/* Create the hfi device */
-+static int hfidd_mkdev(int ai, struct hfidd_acs *p_acs)
-+{
-+	char			dname[128];
-+	int			rc = 0;
-+
-+	sprintf(dname, "%s%d", HFIDD_DEV_NAME, ai);
-+
-+	hfidd_class_dev[ai] = device_create(hfidd_global.class,
-+			NULL, MKDEV(MAJOR(hfidd_dev), ai),
-+			(void *)p_acs, (char *)dname);
-+
-+	if (IS_ERR(hfidd_class_dev[ai])) {
-+		rc = PTR_ERR(hfidd_class_dev[ai]);
-+		printk(KERN_ERR "%s: hfidd_mkdev: device_create for ai=%d fail"
-+				" rc = %d\n", dname, ai, rc);
-+		return rc;
-+	}
-+
-+	if (ai == MAX_HFIS)
-+		return 0;
-+
-+	p_acs->hfidd_dev = hfidd_class_dev[ai];
-+	return rc;
-+}
-+
-+/* delete the hfi device, /dev/hfi* files and sysclass files */
-+static void hfidd_rmdev(int ai)
-+{
-+	device_destroy(hfidd_global.class, MKDEV(MAJOR(hfidd_dev), ai));
-+}
-+
- /* Destroy the HFI class */
- static inline void hfidd_destroy_class(void)
- {
-@@ -124,6 +157,8 @@ static void hfidd_destroy_devices(void)
- {
- 	int i;
- 
-+	for (i = 0; i <= MAX_HFIS; i++)
-+		hfidd_rmdev(i);
- 	for (i = 0; i < MAX_HFIS; i++) {
- 		hfidd_free_adapter(hfidd_global.p_acs[i]);
- 		hfidd_global.p_acs[i] = NULL;
-@@ -156,6 +191,23 @@ static int hfidd_create_devices(void)
- 		}
- 		hfidd_global.acs_cnt++;
- 	}
-+
-+	for (i = 0; i <= MAX_HFIS; i++) {
-+		rc = hfidd_mkdev(i, hfidd_global.p_acs[i]);
-+		if (rc) {
-+			for (j = 0; j < i; j++)
-+				hfidd_rmdev(j);
-+			goto hfidd_create_devices_error0;
-+		}
-+	}
-+	return 0;
-+
-+hfidd_create_devices_error0:
-+	for (i = 0; i < MAX_HFIS; i++) {
-+		hfidd_free_adapter(hfidd_global.p_acs[i]);
-+		hfidd_global.p_acs[i] = NULL;
-+		hfidd_global.acs_cnt--;
-+	}
+diff --git a/drivers/net/hfi/core/hfidd_hcalls.c b/drivers/net/hfi/core/hfidd_hcalls.c
+index aabb2a8..1915336 100644
+--- a/drivers/net/hfi/core/hfidd_hcalls.c
++++ b/drivers/net/hfi/core/hfidd_hcalls.c
+@@ -131,6 +131,28 @@ static inline long long h_hfi_query_interface(int token,
  	return rc;
  }
  
-diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
-index 2c58b56..695d7f4 100644
---- a/include/linux/hfi/hfidd_internal.h
-+++ b/include/linux/hfi/hfidd_internal.h
-@@ -54,6 +54,7 @@ struct hfidd_acs {
- 	unsigned int		index;
- 	unsigned int		acs_cnt;
- 	unsigned int		state;
-+	struct device		*hfidd_dev;
- };
++static inline long long h_hfi_open_window(int token,
++		u64 HFI_chip_ID,
++		u64 win_num,
++		u64 flag,
++		u64 win_info_ptr,
++		u64 *user_mmio,
++		u64 *kernel_mmio,
++		u64 *send_int_num,
++		u64 *recv_int_num)
++{
++	long long rc;
++	u64 hyp_outputs[PLPAR_HCALL_BUFSIZE];
++
++	rc = plpar_hcall(token, (unsigned long *)hyp_outputs, HFI_chip_ID,
++			win_num, flag, win_info_ptr);
++	*user_mmio = hyp_outputs[0];	/* 1st ret value */
++	*kernel_mmio = hyp_outputs[1];	/* 2nd */
++	*send_int_num = hyp_outputs[2];		/* 3rd */
++	*recv_int_num = hyp_outputs[3];		/* 4th */
++	return rc;
++}
++
+ long long hfi_start_nmmu(u64 chip_id, void *nmmu_info)
+ {
+ 	return h_nmmu_start(H_NMMU_START, chip_id, nmmu_info);
+@@ -152,6 +174,34 @@ long long hfi_stop_nmmu(u64 chip_id)
+ 	return hvrc;
+ }
  
- /* DD global */
++long long hfi_open_window(u64 unit_id, u64 win_id, u64 flag,
++		u64 win_info_p,
++		u64 *ummio_addr_p,
++		u64 *pmmio_addr_p,
++		u64 *send_intr,
++		u64 *recv_intr)
++{
++	long long  hvrc;
++	u64 start_time = get_jiffies_64();
++
++	while (1) {
++		hvrc = h_hfi_open_window(H_HFI_OPEN_WINDOW,
++				unit_id,
++				win_id,
++				flag,
++				win_info_p,
++				ummio_addr_p,
++				pmmio_addr_p,
++				send_intr,
++				recv_intr);
++		if (hvrc != H_BUSY)
++			break;
++		if (hfidd_age_hcall(start_time))
++			break;
++	}
++	return hvrc;
++}
++
+ long long hfi_allocate_mr(u64 chip_id, u64 res, u64 addr, u64 mr_size,
+ 		u64 access,
+ 		u64 job_id,
+diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
+index ff39a02..c4ed215 100644
+--- a/drivers/net/hfi/core/hfidd_proto.h
++++ b/drivers/net/hfi/core/hfidd_proto.h
+@@ -67,6 +67,12 @@ int hfidd_start_interface(struct hfidd_acs *p_acs);
+ int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id);
+ long long hfi_start_nmmu(u64 chip_id, void *nmmu_info);
+ long long hfi_stop_nmmu(u64 chip_id);
++long long hfi_open_window(u64 unit_id, u64 win_id, u64 flag,
++		u64 win_info_p,
++		u64 *ummio_addr_p,
++		u64 *pmmio_addr_p,
++		u64 *send_intr,
++		u64 *recv_intr);
+ long long hfi_allocate_mr(u64 chip_id, u64 res, u64 addr,
+ 		u64 mr_size,
+ 		u64 access,
+diff --git a/include/linux/hfi/hfidd_hcalls.h b/include/linux/hfi/hfidd_hcalls.h
+index 3c9f556..a97bb5e 100644
+--- a/include/linux/hfi/hfidd_hcalls.h
++++ b/include/linux/hfi/hfidd_hcalls.h
+@@ -39,12 +39,19 @@
+ #define H_HFI_START_INTERFACE		0xF000
+ #define H_HFI_QUERY_INTERFACE		0xF004
+ #define H_HFI_STOP_INTERFACE		0xF008
++#define H_HFI_OPEN_WINDOW		0xF00C
+ #define H_NMMU_START			0xF028
+ #define H_NMMU_STOP			0xF02C
+ #define H_NMMU_ALLOCATE_RESOURCE	0xF030
+ #define H_NMMU_FREE_RESOURCE		0xF034
+ #define H_NMMU_MODIFY_RESOURCE		0xF03C
+ 
++#define H_OPEN		0x8000000000000000
++#define H_RESUME	0x0000000000000000
++#define H_SUSPEND	0x0000000000000000
++#define H_CLOSE		0x0000000000000001
++#define H_CHECK_CLOSED	0x0000000000000002
++
+ #define NMMU_MR		0
+ 
+ #define NMMU_MAP	1
+@@ -63,6 +70,68 @@
+ 
+ #define HFI_ACCESS_CTL_SHIFT	32
+ 
++struct win_open_info {
++	/* Hyp Feedback */
++	unsigned long long	hypervisor_capabilities;
++	unsigned int		error_offset;
++
++	/* Window Control */
++	unsigned int		job_id;			/* send & recv jobid */
++	unsigned int		protection_domain;
++
++	/* Immediate Send Context */
++	unsigned int		immediate_send_pid;
++	unsigned int		immediate_send_slots;
++	unsigned int		immediate_send_update_freq;
++	unsigned long long	immediate_send_finish_vec;
++
++	/* Send Fifo */
++	unsigned long long	sfifo_base_eaddr;
++	unsigned int		sfifo_lkey;
++	unsigned int		sfifo_size;		/* in bytes */
++	unsigned long long	sfifo_finish_vec;
++
++	/* Full RDMA Send Fifo */
++	unsigned long long	fullrdma_fifo_base_eaddr;
++	unsigned int		fullrdma_fifo_lkey;
++	unsigned int		fullrdma_fifo_size;	/* in bytes */
++	unsigned int		fullrdma_msg_breakup_count;
++	unsigned long long	fullrdma_fifo_finish_vec;
++
++	/* Receive Fifo */
++	unsigned long long	rfifo_base_eaddr;
++	unsigned int		rfifo_lkey;
++	unsigned int		rfifo_size;		/* in bytes */
++
++	/* IP2k Free Space Decriptor Fifo */
++	unsigned long long	ip2kfifo_base_eaddr;
++	unsigned int		ip2kfifo_lkey;
++	unsigned int		ip2kfifo_size;		/* in bytes */
++
++	/* RDMA Pending Fifo */
++	unsigned long long      rdmapending_base_eaddr;
++	unsigned int            rdmapending_lkey;
++	unsigned int            rdmapending_size;       /* in bytes */
++	unsigned int            rdmapending_read_req_thresh;
++
++	/* SendSpecial Fifo */
++	unsigned long long	specialfifo_base_eaddr;
++	unsigned int		specialfifo_lkey;
++	unsigned int		specialfifo_size;	/* in bytes */
++
++	/* IP Context */
++	unsigned int		is_ip_window;
++	unsigned int		multicast_enable;
++	unsigned int		disable_src_isr_id_stamp;
++	unsigned int		logical_port_id_valid;
++	unsigned int		logical_port_id;
++
++	/* RDMA Context */
++	unsigned long long	rcxt_base_eaddr;
++	unsigned int		rcxt_lkey;
++	unsigned int		rdma_payload_lkey;
++};
++
+ #define EEH_QUERY	1
+ #define COMP_QUERY	2
+ 
 -- 
 1.7.3.1
 
