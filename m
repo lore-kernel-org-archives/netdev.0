@@ -1,47 +1,121 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Wed, 02 Mar 2011 19:16:55 +0100
-Message-ID: <4D6E8997.4010001@trash.net>
-References: <20110228171738.2cc8c9a0@nehalam>	 <20110302020610.GD1005@gandalf.sssup.it>	 <1299064667.2920.4.camel@edumazet-laptop> <20110302081108.689571d8@nehalam>	 <1299082728.2920.18.camel@edumazet-laptop> <1299087087.2920.27.camel@edumazet-laptop>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
+Date: Wed, 02 Mar 2011 19:33:36 +0100
+Message-ID: <4D6E8D80.3090907@free.fr>
+References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>	 <4D6AB578.3010704@free.fr> <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr> <4D6D2402.6020705@trash.net> <4D6D515A.8060707@free.fr> <4D6E23F3.4010402@trash.net> <4D6E6A55.6000607@free.fr> <4D6E8686.3000109@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	Fabio Checconi <fchecconi@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrian Nord <nightnord@gmail.com>,
+	lxc-users@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:40045 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab1CBSQ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 13:16:59 -0500
-In-Reply-To: <1299087087.2920.27.camel@edumazet-laptop>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:44680 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753633Ab1CBSdr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 13:33:47 -0500
+In-Reply-To: <4D6E8686.3000109@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 02.03.2011 18:31, schrieb Eric Dumazet:
-> Le mercredi 02 mars 2011 =C3=A0 17:18 +0100, Eric Dumazet a =C3=A9cri=
-t :
->> Le mercredi 02 mars 2011 =C3=A0 08:11 -0800, Stephen Hemminger a =C3=
-=A9crit :
->>
->>> I put the iproute2 code into the repository in the experimental bra=
-nch.
->>>
->>
->> Thanks
->>
->> It seems as soon as packets are dropped, qdisc is frozen (no more
->> packets dequeued)
->>
->> Hmm...
->>
->=20
-> It seems class deletes are buggy.
->=20
-> After one "tc class del dev $ETH classid 11:1 ..."
->=20
-> a "tc -s -d qdisc show dev $ETH" triggers an Oops
+On 03/02/2011 07:03 PM, Patrick McHardy wrote:
+> Am 02.03.2011 17:03, schrieb Daniel Lezcano:
+>> On 03/02/2011 12:03 PM, Patrick McHardy wrote:
+>>> Am 01.03.2011 21:04, schrieb Daniel Lezcano:
+>>>> On 03/01/2011 05:51 PM, Patrick McHardy wrote:
+>>>>>> Patrick, do you have any suggestions to fix this ?
+>>>>> Since the frames are only looped back locally, I suppose the easiest
+>>>>> fix would be to mark them with CHECKSUM_UNNECESSARY. Alternatively
+>>>>> we need to complete the checksum manually, similar to what
+>>>>> dev_hard_start_xmit() does.
+>>>> That sounds very simple to fix, maybe too much simple :)
+>>>>
+>>>> I did the following change:
+>>>>
+>>>> --- linux-next.orig/drivers/net/macvlan.c
+>>>> +++ linux-next/drivers/net/macvlan.c
+>>>> @@ -222,6 +222,7 @@ static int macvlan_queue_xmit(struct sk_
+>>>>
+>>>>           if (vlan->mode == MACVLAN_MODE_BRIDGE) {
+>>>>                   const struct ethhdr *eth = (void *)skb->data;
+>>>> +               skb->ip_summed = CHECKSUM_UNNECESSARY;
+>>>>
+>>>>                   /* send to other bridge ports directly */
+>>>>                   if (is_multicast_ether_addr(eth->h_dest)) {
+>>>>
+>>>>
+>>>> and that fixed the problem. Do you think it is acceptable ?
+>>> The only problem I see is if the packets are bridged to a
+>>> different networking device (or redirected using the mirred
+>>> action), in this case the checksum will not be completed.
+>>> This would be a very strange setup though and probably wouldn't
+>>> be using dummy as lower device, so I'm not sure we have to
+>>> worry about this case.
+>> I am not sure to get it, do you say the patch is correct ?
+> Its correct with a short-coming that doesn't seem to matter.
+>
+>> If my understanding is correct, the packet will be flagged
+>> CHECKSUM_UNNECESSARY only for the macvlan devices, right ?
+> Only for packets bridged between macvlan devices. A setup like
+> the following would cause problems:
+>
+>                          br0
+>                           |
+>                     .----------.
+>                     |          |
+> macvlan0	macvlan1    eth0
+>     |               |
+>      -------.-------
+> 	 dummy0
+>
+> In this case packets sent from macvlan0 will show up on
+> eth0 with incorrect setups. However this setup doesn't
+> seem realistic to me, you would simply use eth0 instead
+> of dummy0.
 
-What classes and filters did you have before issuing that command?
+Ok, I understand. thanks for the clarification.
+
+>> By the way, this problem occurs for any lower device with offloading
+>> capabilities with a macvlan port in bridge mode.
+> True. This doesn't affect outgoing packets since their checksum
+> will be completed in dev_hard_start_xmit(), but it affects
+> packets bridged between macvlans.
+
+One last question. In the case of broadcast packets with maclvan in 
+bridge mode.
+We will have the packets going through each macvlan port and also to the 
+lower-device, right ?
+For the latter, don't we have a problem if the packet is flagged 
+CHECKSUM_UNNECESSARY ?
+
+Shouldn't we restore the ip_summed field before sending through 
+dev_queue_xmit ?
+
+---
+  drivers/net/macvlan.c |    3 +++
+  1 file changed, 3 insertions(+)
+
+Index: linux-next/drivers/net/macvlan.c
+===================================================================
+--- linux-next.orig/drivers/net/macvlan.c
++++ linux-next/drivers/net/macvlan.c
+@@ -222,10 +222,13 @@ static int macvlan_queue_xmit(struct sk_
+
+         if (vlan->mode == MACVLAN_MODE_BRIDGE) {
+                 const struct ethhdr *eth = (void *)skb->data;
++               __u8 ip_summed = skb->ip_summed;
++               skb->ip_summed; = CHECKSUM_UNNECESSARY;
+
+                 /* send to other bridge ports directly */
+                 if (is_multicast_ether_addr(eth->h_dest)) {
+                         macvlan_broadcast(skb, port, dev, 
+MACVLAN_MODE_BRIDGE);
++                       skb->ip_summed = ip_summed;
+                         goto xmit_world;
+                 }
+
+
+
+
