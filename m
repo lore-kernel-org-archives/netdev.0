@@ -1,69 +1,78 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: net-next: warnings from sysctl_net_exit
-Date: Tue, 1 Mar 2011 23:09:54 -0800
-Message-ID: <20110301230954.7f34f1ea@nehalam>
-References: <AANLkTi=mhj3Ftq8hFPPzZYJvp8mgOeV89oX_vHZVxwzY@mail.gmail.com>
-	<20110227160852.4f748c1f@nehalam>
-	<AANLkTinL3UhjOtmr3uyEkSiDT5NFJo=FbG5mKm3XaU8R@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: SO_REUSEPORT - can it be done in kernel?
+Date: Tue, 1 Mar 2011 23:12:29 -0800
+Message-ID: <AANLkTim0+7mTYrQF3mttUW+JqOmvTyMoDXOdeCX_SSdp@mail.gmail.com>
+References: <20110301110708.GJ9763@canuck.infradead.org>
+	<1298977984.3284.15.camel@edumazet-laptop>
+	<20110301112759.GK9763@canuck.infradead.org>
+	<1298979909.3284.28.camel@edumazet-laptop>
+	<20110301115305.GA6984@gondor.apana.org.au>
+	<1298984609.3284.98.camel@edumazet-laptop>
+	<20110301131823.GB8028@gondor.apana.org.au>
+	<1298997084.3284.119.camel@edumazet-laptop>
+	<20110302002353.GA15009@gondor.apana.org.au>
+	<1299031203.2930.26.camel@edumazet-laptop>
+	<20110302023920.GA16072@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Thomas Graf <tgraf@infradead.org>,
+	David Miller <davem@davemloft.net>, rick.jones2@hp.com,
+	wsommerfeld@google.com, daniel.baluta@gmail.com,
+	netdev@vger.kernel.org
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:51220 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751701Ab1CBHJ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 02:09:57 -0500
-In-Reply-To: <AANLkTinL3UhjOtmr3uyEkSiDT5NFJo=FbG5mKm3XaU8R@mail.gmail.com>
+Received: from smtp-out.google.com ([216.239.44.51]:8275 "EHLO
+	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702Ab1CBHMc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 02:12:32 -0500
+Received: from kpbe17.cbf.corp.google.com (kpbe17.cbf.corp.google.com [172.25.105.81])
+	by smtp-out.google.com with ESMTP id p227CVsU006524
+	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 23:12:31 -0800
+Received: from pzk28 (pzk28.prod.google.com [10.243.19.156])
+	by kpbe17.cbf.corp.google.com with ESMTP id p227C3K2022105
+	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
+	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 23:12:30 -0800
+Received: by pzk28 with SMTP id 28so1187071pzk.35
+        for <netdev@vger.kernel.org>; Tue, 01 Mar 2011 23:12:29 -0800 (PST)
+In-Reply-To: <20110302023920.GA16072@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 28 Feb 2011 03:11:46 +0200
-Lucian Adrian Grijincu <lucian.grijincu@gmail.com> wrote:
+On Tue, Mar 1, 2011 at 6:39 PM, Herbert Xu <herbert@gondor.apana.org.au=
+> wrote:
+> On Wed, Mar 02, 2011 at 03:00:03AM +0100, Eric Dumazet wrote:
+>> >
+>> > Think about it, a TCP socket cannot be used by a multi-threaded ap=
+p
+>> > in a scalable way.
+>>
+>> Well...
+>>
+>> If you think about it, SO_REUSEPORT patch has exactly the same goal =
+:
+>
+In a sense.  SO_RESUSEPORT for TCP is intended to provide a scalable
+listener solution.  Sharing an established socket is not very
+efficient, something like a multiplexing socket layer on top of TCP
+might be good.
 
-> On Mon, Feb 28, 2011 at 2:08 AM, Stephen Hemminger
-> <shemminger@vyatta.com> wrote:
-> >> The check is triggered at network namespace deletion, so a moment
-> >> before deleting the netns should be fine.
-> >
-> > Although the kernel was compiled with netns, I never use net namespaces.
-> 
-> 
-> This can be triggered at shutdown when the init_net network namespace
-> is dismantled.
-> 
-> Are you getting this at shutdown time? If not, is it easily reproducible?
-> Can you post a .config?
-> 
+> UDP is a datagram protocol, TCP is not.
+>
+> Anyway, here is an alternate proposal. =A0When a TCP socket transmits
+> for the first time (SYN or SYN-ACK), we pick a queue based on CPU and
+> store it in the socket. =A0From then on we stick to that selection.
+>
+> We would only allow changes if we can ensure that all transmitted
+> packets have left the queue. =A0Or we just never change it like we
+> do now.
+>
+XPS does all this already.
 
-It seems to happen right after ip6tables starts at boot.
-I added more backtrace info to walk the list of remaining entries,
-and got this but it doesn't help much.
+> For datagram protocols we simply use the current CPU.
+>
+Probably need to set skb->ooo_okay (for UDP etc.) also so that XPS
+will change queues.
 
-[   59.700687] ip6_tables: (C) 2000-2006 Netfilter Core Team
-[   60.413111] header=ffff8803239db000 count=1 used=0 unregistering=          (null)
-[   60.413113]   procname=net
-[   60.413115] ------------[ cut here ]------------
-[   60.413119] WARNING: at net/sysctl_net.c:98 sysctl_net_exit+0x94/0x9d()
-[   60.413121] Hardware name: System Product Name
-[   60.413122] Modules linked in: ip6table_filter ip6_tables nfs lockd fscache nfs_acl auth_rpcgss sunrpc binfmt_misc ebtable_nat ebtables ipt_MASQUERADE iptable_nat nf_nat nf_conntrack_ipv4 nf_defrag_ipv4 xt_state nf_conntrack ipt_REJECT xt_tcpudp iptable_filter ip_tables x_tables bridge stp llc kvm_intel kvm snd_hda_codec_analog lm63 radeon snd_hda_intel snd_hda_codec snd_hwdep snd_pcm snd_seq_midi snd_rawmidi snd_seq_midi_event snd_seq ttm psmouse snd_timer drm_kms_helper serio_raw snd_seq_device pl2303 usbserial snd drm soundcore i7core_edac snd_page_alloc edac_core asus_atk0110 i2c_algo_bit hid_belkin usbhid hid pata_marvell ahci sky2 libahci igb e1000e dca floppy btrfs lzo_compress zlib_deflate crc32c libcrc32c
-[   60.413170] Pid: 67, comm: kworker/u:5 Not tainted 2.6.38-rc5-net-next+ #19
-[   60.413171] Call Trace:
-[   60.413176]  [<ffffffff81040dce>] ? warn_slowpath_common+0x85/0x9d
-[   60.413180]  [<ffffffff8136183a>] ? cleanup_net+0x0/0x19a
-[   60.413182]  [<ffffffff81040e00>] ? warn_slowpath_null+0x1a/0x1c
-[   60.413184]  [<ffffffff81414ebb>] ? sysctl_net_exit+0x94/0x9d
-[   60.413187]  [<ffffffff81361492>] ? ops_exit_list+0x2a/0x5b
-[   60.413189]  [<ffffffff81361934>] ? cleanup_net+0xfa/0x19a
-[   60.413193]  [<ffffffff810575bd>] ? process_one_work+0x233/0x3aa
-[   60.413196]  [<ffffffff81057524>] ? process_one_work+0x19a/0x3aa
-[   60.413199]  [<ffffffff810599be>] ? worker_thread+0x13b/0x25a
-[   60.413201]  [<ffffffff81059883>] ? worker_thread+0x0/0x25a
-[   60.413204]  [<ffffffff8105d0f1>] ? kthread+0x9d/0xa5
-[   60.413207]  [<ffffffff8106d614>] ? trace_hardirqs_on_caller+0x10c/0x130
-[   60.413210]  [<ffffffff810030d4>] ? kernel_thread_helper+0x4/0x10
-[   60.413215]  [<ffffffff8142ed40>] ? restore_args+0x0/0x30
-[   60.413217]  [<ffffffff8105d054>] ? kthread+0x0/0xa5
-[   60.413219]  [<ffffffff810030d0>] ? kernel_thread_helper+0x0/0x10
-[   60.413221] ---[ end trace 9b655d61bf30c4f8 ]---
+Tom
