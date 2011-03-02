@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH 07/27] HFI: Add nMMU start/stop hypervisor calls
-Date: Wed,  2 Mar 2011 16:09:53 -0500
-Message-ID: <1299100213-8770-7-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH 04/27] HFI: Find HFI devices in the device tree
+Date: Wed,  2 Mar 2011 16:09:50 -0500
+Message-ID: <1299100213-8770-4-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -13,21 +13,21 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:51890 "EHLO e7.ny.us.ibm.com"
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:51891 "EHLO e7.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756922Ab1CBVKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757077Ab1CBVKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Mar 2011 16:10:25 -0500
 Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KnuHX031591
+	by e7.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KnutY031590
 	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:49:56 -0500
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 41ED138C803D
+Received: from d01relay01.pok.ibm.com (d01relay01.pok.ibm.com [9.56.227.233])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 0EEB138C8038
 	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:23 -0500 (EST)
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LAObj222900
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:24 -0500
+	by d01relay01.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LANQE398326
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:23 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LANQA031985
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LANQ3031949
 	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:23 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
@@ -36,10 +36,6 @@ Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
-
-H_NMMU_START resets/inits state for the nMMU in the hypervisor.
-H_NMMU_STOP cleans up hypervisor nMMU state, called on DD unload after HFIs are
-stopped.
 
 Signed-off-by:  Piyush Chaudhary <piyushc@linux.vnet.ibm.com>
 Signed-off-by:  Jim Dykman <dykmanj@linux.vnet.ibm.com>
@@ -51,216 +47,240 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/core/hfidd_adpt.c   |   36 +++++++++++++++++++++++++++++++++++
- drivers/net/hfi/core/hfidd_hcalls.c |   33 ++++++++++++++++++++++++++++++++
- drivers/net/hfi/core/hfidd_init.c   |   29 +++++++++++++++++++++++++--
- drivers/net/hfi/core/hfidd_proto.h  |    3 ++
- include/linux/hfi/hfidd_hcalls.h    |    2 +
- 5 files changed, 100 insertions(+), 3 deletions(-)
+ drivers/net/hfi/core/hfidd_adpt.c  |   10 +++
+ drivers/net/hfi/core/hfidd_init.c  |  108 ++++++++++++++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_proto.h |    1 +
+ include/linux/hfi/hfidd_adpt.h     |    5 ++
+ include/linux/hfi/hfidd_client.h   |    3 +
+ include/linux/hfi/hfidd_internal.h |   12 ++++
+ 6 files changed, 139 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/net/hfi/core/hfidd_adpt.c b/drivers/net/hfi/core/hfidd_adpt.c
-index bec838a..feb1b59 100644
+index d64fa38..d5065cf 100644
 --- a/drivers/net/hfi/core/hfidd_adpt.c
 +++ b/drivers/net/hfi/core/hfidd_adpt.c
-@@ -164,6 +164,42 @@ query1:
- 	return rc;
+@@ -36,6 +36,7 @@
+ int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t devno, void *uiop)
+ {
+ 
++	int			ret = 0;
+ 	struct hfidd_acs	*p_acs = NULL;
+ 
+ 	p_acs = kzalloc(sizeof(*p_acs), GFP_KERNEL);
+@@ -48,8 +49,17 @@ int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t devno, void *uiop)
+ 	snprintf(p_acs->name, HFI_DEVICE_NAME_MAX - 1,
+ 			"%s%d", HFIDD_DEV_NAME, p_acs->index);
+ 
++	ret = hfidd_init_adapter(p_acs, uiop);
++	if (ret)
++		goto err_exit0;
++
+ 	*adpt = p_acs;
+ 	return 0;
++
++err_exit0:
++	kfree(p_acs);
++	p_acs = NULL;
++	return ret;
  }
  
-+int hfidd_start_nmmu(struct hfidd_acs *p_acs)
+ void hfidd_free_adapter(struct hfidd_acs *p_acs)
+diff --git a/drivers/net/hfi/core/hfidd_init.c b/drivers/net/hfi/core/hfidd_init.c
+index 68d6e65..fcdbd03 100644
+--- a/drivers/net/hfi/core/hfidd_init.c
++++ b/drivers/net/hfi/core/hfidd_init.c
+@@ -34,6 +34,7 @@
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/device.h>
++#include <linux/of.h>
+ 
+ #include <linux/hfi/hfidd_internal.h>
+ #include "hfidd_proto.h"
+@@ -104,6 +105,113 @@ static void hfidd_rmdev(int ai)
+ 	device_destroy(hfidd_global.class, MKDEV(MAJOR(hfidd_dev), ai));
+ }
+ 
++/*
++ * Read the hfi device tree attributes and
++ * fill the hfidd_dds structure to be used by the driver
++ */
++static int hfidd_dds_init(struct hfidd_acs *p_acs, struct hfidd_dds *pdds)
 +{
-+	long long		hvrc;
-+	int			rc = 0;
-+	struct nmmu_info	*nmmu_info;
-+	caddr_t			laddr = NULL;
-+	u64	start_time = get_jiffies_64();
++	struct device_node	*node;
++	struct device_node	*child_node = NULL;
++	unsigned long long	*lp;
++	int			*p;
++	unsigned char		octant;
++	unsigned char		id;
++	int			found = 0;
 +
-+	rc = hfidd_get_phyp_page(p_acs, (caddr_t *)&nmmu_info, &laddr,
-+			PAGE_SIZE_4K);
-+	if (rc) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_start_nmmu: hfidd_get_phyp_page failed\n");
-+		return -ENOMEM;
++	node = of_find_node_by_name(NULL, "hfi-iohub");
++	if (!node) {
++		printk(KERN_ERR "%s: hfidd_dds_init: of_find_node_by_name"
++			" 'hfi-iohub' failed\n", p_acs->name);
++		return -EINVAL;
 +	}
 +
-+	while (1) {
-+		hvrc = hfi_start_nmmu(p_acs->dds.torr_id,
-+				(struct nmmu_info *) laddr);
-+		if (hvrc != H_BUSY)
++	lp = (unsigned long long *)of_get_property(node, "reg", NULL);
++	if (!lp) {
++		printk(KERN_ERR "%s: hfidd_dds_init: of_get_property"
++			" 'hfi-iohub/reg' failed\n", p_acs->name);
++		return -EINVAL;
++	}
++	pdds->torr_id = *lp;
++
++	lp = (unsigned long long *)of_get_property(node,
++				"ibm,fw-ec-level", NULL);
++	if (!lp) {
++		printk(KERN_ERR "%s: hfidd_dds_init: of_get_property"
++			" 'ibm,fw-ec-level' failed\n", p_acs->name);
++		return -EINVAL;
++	}
++	pdds->fw_ec_level = *lp;
++
++	octant = (node->full_name[strlen(node->full_name) - 1] - '0');
++	if (octant > HFI_MAX_OCTANT) {
++		printk(KERN_ERR "%s: hfidd_dds_init: invalid hfi-iohub octant"
++			" '%s'\n", node->full_name, p_acs->name);
++		return -EINVAL;
++	}
++
++	id = ((octant << HFI_SHIFT_OCTANT) | p_acs->index);
++
++	while ((child_node = of_get_next_child(node, child_node))) {
++		p = (int *)of_get_property(child_node, "reg", NULL);
++		if (!p) {
++			printk(KERN_ERR "%s: hfidd_dds_init: of_get_property "
++				"'reg' failed\n", p_acs->name);
++			return -EINVAL;
++		}
++
++		if (id == *p) {
++			pdds->hfi_id = *p;
++			found = 1;
 +			break;
-+		if (hfidd_age_hcall(start_time))
-+			break;
++		}
 +	}
 +
-+	if (hvrc != H_SUCCESS) {
-+		dev_printk(KERN_ERR, p_acs->hfidd_dev,
-+			"hfidd_start_nmmu: HFI_START_NMMU failed "
-+			"hvrc 0x%llx\n", hvrc);
-+		rc = -EPERM;
++	if (found == 0) {
++		printk(KERN_ERR "%s: hfidd_dds_init: can not find child\n",
++			p_acs->name);
++		return -EINVAL;
 +	}
 +
-+	hfidd_release_phyp_page((caddr_t)nmmu_info, PAGE_SIZE_4K);
++	lp = (unsigned long long *)of_get_property(child_node,
++					"ibm,hfi-windows", NULL);
++	if (!lp) {
++		printk(KERN_ERR "%s: hfidd_dds_init: of_get_property"
++			" 'ibm,hfi-windows' failed\n", p_acs->name);
++		return -EINVAL;
++	}
++
++	pdds->window_num   = (int) (*lp >> HFI_WNUM_SHIFT);
++	pdds->window_start = (int) *lp;
++
++	if (pdds->window_num > MAX_WIN_PER_HFI) {
++		printk(KERN_ERR "%s: hfidd_dds_init: Max windows exceeded,"
++			" windows=%d\n", p_acs->name, pdds->window_num);
++		return -EINVAL;
++	}
++
++	lp = (unsigned long long *)of_get_property(child_node,
++				"ibm,hfi-misc-user-base-addr", NULL);
++	if (!lp) {
++		printk(KERN_ERR "%s: hfidd_dds_init: of_get_property"
++			" 'ibm,hfi-misc-user-base-addr' failed\n", p_acs->name);
++		return -EINVAL;
++	}
++	pdds->misc_base_address = *lp;
++
++	return 0;
++}
++
++/* Initialize adapter structure */
++int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop)
++{
++	int rc = 0;
++
++	rc = hfidd_dds_init(p_acs, &(p_acs->dds));
++	p_acs->dds.num_d_windows = HFI_DYN_WINS_DEFAULT;
 +	return rc;
 +}
 +
- int hfidd_start_interface(struct hfidd_acs *p_acs)
+ /* Destroy the HFI class */
+ static inline void hfidd_destroy_class(void)
  {
- 	long long hvrc = 0;
-diff --git a/drivers/net/hfi/core/hfidd_hcalls.c b/drivers/net/hfi/core/hfidd_hcalls.c
-index 84467b3..2ca1c8a 100644
---- a/drivers/net/hfi/core/hfidd_hcalls.c
-+++ b/drivers/net/hfi/core/hfidd_hcalls.c
-@@ -33,6 +33,18 @@
- #include <linux/hfi/hfidd_internal.h>
- #include "hfidd_proto.h"
- 
-+static inline long long h_nmmu_start(int token,
-+		u64 torrent_chip_ID,
-+		void *output_page_ptr)
-+{
-+	return plpar_hcall_norets(token, torrent_chip_ID, output_page_ptr);
-+}
-+
-+static inline long long h_nmmu_stop(int token, u64 torrent_chip_ID)
-+{
-+	return plpar_hcall_norets(token, torrent_chip_ID);
-+}
-+
- static inline long long h_hfi_start_interface(int token,
- 		u64 HFI_chip_ID)
- {
-@@ -61,6 +73,27 @@ static inline long long h_hfi_query_interface(int token,
- 	return rc;
- }
- 
-+long long hfi_start_nmmu(u64 chip_id, void *nmmu_info)
-+{
-+	return h_nmmu_start(H_NMMU_START, chip_id, nmmu_info);
-+}
-+
-+long long hfi_stop_nmmu(u64 chip_id)
-+{
-+	long long hvrc;
-+	u64 start_time = get_jiffies_64();
-+
-+	while (1) {
-+		hvrc = h_nmmu_stop(H_NMMU_STOP,
-+				chip_id);
-+		if (hvrc != H_BUSY)
-+			break;
-+		if (hfidd_age_hcall(start_time))
-+			break;
-+	}
-+	return hvrc;
-+}
-+
- long long hfi_hquery_interface(u64 unit_id, u64 subtype,
- 			       u64 query_p, u64 *state)
- {
-diff --git a/drivers/net/hfi/core/hfidd_init.c b/drivers/net/hfi/core/hfidd_init.c
-index 9dfd2b4..448349d 100644
---- a/drivers/net/hfi/core/hfidd_init.c
-+++ b/drivers/net/hfi/core/hfidd_init.c
-@@ -321,31 +321,44 @@ hfidd_create_devices_error0:
- 
- /*
-  * Disable message passing to each adapter by calling the
-- * Stop Interface hcall.
-+ * Stop Interface hcall and free phyp NMMU tables for this
-+ * lpar by calling STOP NMMU
-  */
- static void hfidd_stop_adapter(void)
- {
- 	int i;
-+	long long hvrc;
- 
- 	for (i = 0; i < MAX_HFIS; i++) {
- 		hfidd_stop_interface(hfidd_global.p_acs[i],
- 			hfidd_global.p_acs[i]->dds.hfi_id);
- 	}
-+	hvrc = hfi_stop_nmmu(hfidd_global.p_acs[0]->dds.torr_id);
-+	if (hvrc != H_SUCCESS)
-+		dev_printk(KERN_ERR, hfidd_global.p_acs[0]->hfidd_dev,
-+			"%s: hfidd_stop_adapter: HFI_STOP_NMMU failed"
-+			" hvrc = 0x%llx\n", HFIDD_DEV_NAME, hvrc);
- 	return;
- }
- 
- /*
-  * Query the interface to check the logical state of HFI.
-- * Enable message passing to each adapter by calling Start
-- * Interface hcall.
-+ * Initialize the phyp NMMU tables for this lpar by calling
-+ * the START NMMU hcall and enable message passing to each
-+ * adapter by calling Start Interface hcall.
-  */
- static int hfidd_start_adapter(void)
- {
-+	long long hvrc;
- 	unsigned long long	hfi_state;
- 	int i, j;
- 	int rc = 0;
- 
- 	for (i = 0; i < MAX_HFIS; i++) {
-+		/* query interface before doing START_NMMU.
-+		 * If we crashed the LPAR a few minutes ago, we never did the
-+		 * stop interface and the stop nmmu.  Do it now.
-+		 */
- 		rc = hfidd_query_interface(hfidd_global.p_acs[i], COMP_QUERY,
- 			hfidd_global.p_acs[i]->dds.hfi_id, &hfi_state);
- 		if (hfi_state != NOT_STARTED) {
-@@ -376,6 +389,15 @@ static int hfidd_start_adapter(void)
- 
- 	}
- 
-+	hfi_stop_nmmu(hfidd_global.p_acs[0]->dds.torr_id);
-+	hvrc = hfidd_start_nmmu(hfidd_global.p_acs[0]);
-+	if (hvrc != H_SUCCESS) {
-+		dev_printk(KERN_ERR, hfidd_global.p_acs[0]->hfidd_dev,
-+			"%s: hfidd_start_adapter: HFI_START_NMMU failed"
-+			" hvrc = 0x%llx\n", HFIDD_DEV_NAME, hvrc);
-+		return -EIO;
-+	}
-+
- 	for (i = 0; i < MAX_HFIS; i++) {
- 		rc = hfidd_start_interface(hfidd_global.p_acs[i]);
- 		if (rc) {
-@@ -404,6 +426,7 @@ hfidd_start_adapter_err:
- 		hfidd_stop_interface(hfidd_global.p_acs[j],
- 			hfidd_global.p_acs[j]->dds.hfi_id);
- 	}
-+	hfi_stop_nmmu(hfidd_global.p_acs[0]->dds.torr_id);
- 	return rc;
- }
- 
 diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
-index 6ec9245..320f41f 100644
+index 01a5ba2..e2ed4c9 100644
 --- a/drivers/net/hfi/core/hfidd_proto.h
 +++ b/drivers/net/hfi/core/hfidd_proto.h
-@@ -42,8 +42,11 @@ int hfidd_get_phyp_page(struct hfidd_acs *p_acs, caddr_t *page,
- void hfidd_release_phyp_page(caddr_t page, int size);
- int hfidd_query_interface(struct hfidd_acs *p_acs, unsigned int subtype,
- 	unsigned int hfi_id, unsigned long long *state);
-+int hfidd_start_nmmu(struct hfidd_acs *p_acs);
- int hfidd_start_interface(struct hfidd_acs *p_acs);
- int hfidd_stop_interface(struct hfidd_acs *p_acs, unsigned int hfi_id);
-+long long hfi_start_nmmu(u64 chip_id, void *nmmu_info);
-+long long hfi_stop_nmmu(u64 chip_id);
- long long hfi_hquery_interface(u64 unit_id, u64 subtype, u64 query_p,
- 		u64 *state);
- long long hfi_start_interface(u64 unit_id);
-diff --git a/include/linux/hfi/hfidd_hcalls.h b/include/linux/hfi/hfidd_hcalls.h
-index 5349e9e..2a374e6 100644
---- a/include/linux/hfi/hfidd_hcalls.h
-+++ b/include/linux/hfi/hfidd_hcalls.h
-@@ -39,6 +39,8 @@
- #define H_HFI_START_INTERFACE		0xF000
- #define H_HFI_QUERY_INTERFACE		0xF004
- #define H_HFI_STOP_INTERFACE		0xF008
-+#define H_NMMU_START			0xF028
-+#define H_NMMU_STOP			0xF02C
+@@ -35,5 +35,6 @@
  
- #define EEH_QUERY	1
- #define COMP_QUERY	2
+ int hfidd_alloc_adapter(struct hfidd_acs **adpt, dev_t, void *uiop);
+ void hfidd_free_adapter(struct hfidd_acs *p_acs);
++int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop);
+ 
+ #endif
+diff --git a/include/linux/hfi/hfidd_adpt.h b/include/linux/hfi/hfidd_adpt.h
+index 6b1432d..e3271e9 100644
+--- a/include/linux/hfi/hfidd_adpt.h
++++ b/include/linux/hfi/hfidd_adpt.h
+@@ -36,6 +36,11 @@
+ #include <linux/hfi/hfidd_client.h>
+ 
+ 
++#define HFI_WNUM_SHIFT		32
++#define HFI_CAUNUM_SHIFT	32
++#define HFI_SHIFT_OCTANT	3
++#define HFI_MAX_OCTANT		7
++
+ /* Adpt state */
+ #define HFI_INVALID		0
+ #define HFI_AVAIL		1
+diff --git a/include/linux/hfi/hfidd_client.h b/include/linux/hfi/hfidd_client.h
+index b738f4b..28f1693 100644
+--- a/include/linux/hfi/hfidd_client.h
++++ b/include/linux/hfi/hfidd_client.h
+@@ -36,5 +36,8 @@
+ #define MAX_TORRENTS            1
+ #define MAX_HFI_PER_TORRENT     2
+ #define MAX_HFIS                (MAX_TORRENTS * MAX_HFI_PER_TORRENT)
++#define MAX_WIN_PER_HFI		256
++
++#define HFI_DYN_WINS_DEFAULT	32
+ 
+ #endif /* _HFIDD_CLIENT_H_ */
+diff --git a/include/linux/hfi/hfidd_internal.h b/include/linux/hfi/hfidd_internal.h
+index 695d7f4..fafca96 100644
+--- a/include/linux/hfi/hfidd_internal.h
++++ b/include/linux/hfi/hfidd_internal.h
+@@ -46,6 +46,17 @@
+ #define HFIDD_DEV_NAME		"hfi"
+ #define HFIDD_CLASS_NAME	"hfi"
+ 
++struct hfidd_dds {
++	unsigned int		version;	/* HFI adapter type */
++	unsigned long long	misc_base_address; /* Misc user base address */
++	int			window_start;	/* window start for this HFI */
++	int			window_num;	/* window count for this HFI */
++	unsigned int		num_d_windows;	/* number of dynamic windows */
++	unsigned long long	torr_id;	/* torrent chip id */
++	unsigned int		hfi_id;		/* HFI Unit Id */
++	unsigned long long	fw_ec_level;	/* Firmware Level */
++};
++
+ #define HFI_DEVICE_NAME_MAX 64
+ /* hfi global */
+ struct hfidd_acs {
+@@ -55,6 +66,7 @@ struct hfidd_acs {
+ 	unsigned int		acs_cnt;
+ 	unsigned int		state;
+ 	struct device		*hfidd_dev;
++	struct hfidd_dds	dds;
+ };
+ 
+ /* DD global */
 -- 
 1.7.3.1
 
