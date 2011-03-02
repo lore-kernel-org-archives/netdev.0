@@ -1,42 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-2.6 0/3][pull request] Intel Wired LAN Driver Updates
-Date: Wed,  2 Mar 2011 03:45:38 -0800
-Message-ID: <1299066341-13820-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com
+Subject: [net-2.6 3/3] e1000e: disable broken PHY wakeup for ICH10 LOMs, use MAC wakeup instead
+Date: Wed,  2 Mar 2011 03:45:41 -0800
+Message-ID: <1299066341-13820-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1299066341-13820-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com, <stable@kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:21428 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:43095 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756749Ab1CBLqo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 06:46:44 -0500
+	id S1756749Ab1CBLqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 06:46:45 -0500
+In-Reply-To: <1299066341-13820-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series contains fixes for sparse warnings for e1000
-and igb, as well as a fix for e1000e.
+From: Bruce Allan <bruce.w.allan@intel.com>
 
-The following are changes since commit e3fa3aff0cb198e7c53d894f52146121d9592872:
-  net: fix nla_policy_len to actually _iterate_ over the policy
+When support for 82577/82578 was added[1] in 2.6.31, PHY wakeup was in-
+advertently enabled (even though it does not function properly) on ICH10
+LOMs.  This patch makes it so that the ICH10 LOMs use MAC wakeup instead
+as was done with the initial support for those devices (i.e. 82567LM-3,
+82567LF-3 and 82567V-4).
 
-and are available in the git repository at:
-  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-2.6 master
+[1] commit a4f58f5455ba0efda36fb33c37074922d1527a10
 
-Bruce Allan (1):
-  e1000e: disable broken PHY wakeup for ICH10 LOMs, use MAC wakeup
-    instead
+Reported-by: Aurelien Jarno <aurelien@aurel32.net>
+Cc: <stable@kernel.org>
+Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/e1000e/netdev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Jeff Kirsher (1):
-  igb: fix sparse warning
-
-Stephen Hemminger (1):
-  e1000: fix sparse warning
-
- drivers/net/e1000/e1000_osdep.h |    3 ++-
- drivers/net/e1000e/netdev.c     |    3 ++-
- drivers/net/igbvf/vf.c          |    2 +-
- 3 files changed, 5 insertions(+), 3 deletions(-)
-
+diff --git a/drivers/net/e1000e/netdev.c b/drivers/net/e1000e/netdev.c
+index 3fa110d..2e50228 100644
+--- a/drivers/net/e1000e/netdev.c
++++ b/drivers/net/e1000e/netdev.c
+@@ -5967,7 +5967,8 @@ static int __devinit e1000_probe(struct pci_dev *pdev,
+ 		/* APME bit in EEPROM is mapped to WUC.APME */
+ 		eeprom_data = er32(WUC);
+ 		eeprom_apme_mask = E1000_WUC_APME;
+-		if (eeprom_data & E1000_WUC_PHY_WAKE)
++		if ((hw->mac.type > e1000_ich10lan) &&
++		    (eeprom_data & E1000_WUC_PHY_WAKE))
+ 			adapter->flags2 |= FLAG2_HAS_PHY_WAKEUP;
+ 	} else if (adapter->flags & FLAG_APME_IN_CTRL3) {
+ 		if (adapter->flags & FLAG_APME_CHECK_PORT_B &&
 -- 
 1.7.4
 
