@@ -1,79 +1,259 @@
 From: kaber@trash.net
-Subject: [PATCH 13/13] netfilter: nf_ct_tcp: fix out of sync scenario while in SYN_RECV
-Date: Wed,  2 Mar 2011 13:12:53 +0100
-Message-ID: <1299067973-15977-14-git-send-email-kaber@trash.net>
+Subject: [PATCH 12/13] ipvs: unify the formula to estimate the overhead of processing connections
+Date: Wed,  2 Mar 2011 13:12:52 +0100
+Message-ID: <1299067973-15977-13-git-send-email-kaber@trash.net>
 References: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32942 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:32949 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757297Ab1CBMNC (ORCPT
+	with ESMTP id S1757289Ab1CBMNC (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 07:13:02 -0500
 In-Reply-To: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Changli Gao <xiaosuo@gmail.com>
 
-This patch fixes the out of sync scenarios while in SYN_RECV state.
+lc and wlc use the same formula, but lblc and lblcr use another one. There
+is no reason for using two different formulas for the lc variants.
 
-Quoting Jozsef, what it happens if we are out of sync if the
-following:
+The formula used by lc is used by all the lc variants in this patch.
 
-> > b. conntrack entry is outdated, new SYN received
-> >    - (b1) we ignore it but save the initialization data from it
-> >    - (b2) when the reply SYN/ACK receives and it matches the saved data,
-> >      we pick up the new connection
-This is what it should happen if we are in SYN_RECV state. Initially,
-the SYN packet hits b1, thus we save data from it. But the SYN/ACK
-packet is considered a retransmission given that we're in SYN_RECV
-state. Therefore, we never hit b2 and we don't get in sync. To fix
-this, we ignore SYN/ACK if we are in SYN_RECV. If the previous packet
-was a SYN, then we enter the ignore case that get us in sync.
-
-This patch helps a lot to conntrackd in stress scenarios (assumming a
-client that generates lots of small TCP connections). During the failover,
-consider that the new primary has injected one outdated flow in SYN_RECV
-state (this is likely to happen if the conntrack event rate is high
-because the backup will be a bit delayed from the primary). With the
-current code, if the client starts a new fresh connection that matches
-the tuple, the SYN packet will be ignored without updating the state
-tracking, and the SYN+ACK in reply will blocked as it will not pass
-checkings III or IV (since all state tracking in the original direction
-is not initialized because of the SYN packet was ignored and the ignore
-case that get us in sync is not applied).
-
-I posted a couple of patches before this one. Changli Gao spotted
-a simpler way to fix this problem. This patch implements his idea.
-
-Cc: Changli Gao <xiaosuo@gmail.com>
-Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+Acked-by: Wensong Zhang <wensong@linux-vs.org>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- net/netfilter/nf_conntrack_proto_tcp.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/ip_vs.h              |   14 ++++++++++++++
+ net/netfilter/ipvs/ip_vs_lblc.c  |   13 +++----------
+ net/netfilter/ipvs/ip_vs_lblcr.c |   25 +++++++------------------
+ net/netfilter/ipvs/ip_vs_lc.c    |   18 +-----------------
+ net/netfilter/ipvs/ip_vs_wlc.c   |   20 ++------------------
+ 5 files changed, 27 insertions(+), 63 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 6f38d0e..37bf943 100644
---- a/net/netfilter/nf_conntrack_proto_tcp.c
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c
-@@ -227,11 +227,11 @@ static const u8 tcp_conntracks[2][6][TCP_CONNTRACK_MAX] = {
-  *	sCL -> sIV
-  */
- /* 	     sNO, sSS, sSR, sES, sFW, sCW, sLA, sTW, sCL, sS2	*/
--/*synack*/ { sIV, sSR, sSR, sIG, sIG, sIG, sIG, sIG, sIG, sSR },
-+/*synack*/ { sIV, sSR, sIG, sIG, sIG, sIG, sIG, sIG, sIG, sSR },
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 17b01b2..e74da41e 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -1243,6 +1243,20 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
+ /* CONFIG_IP_VS_NFCT */
+ #endif
+ 
++static inline unsigned int
++ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
++{
++	/*
++	 * We think the overhead of processing active connections is 256
++	 * times higher than that of inactive connections in average. (This
++	 * 256 times might not be accurate, we will change it later) We
++	 * use the following formula to estimate the overhead now:
++	 *		  dest->activeconns*256 + dest->inactconns
++	 */
++	return (atomic_read(&dest->activeconns) << 8) +
++		atomic_read(&dest->inactconns);
++}
++
+ #endif /* __KERNEL__ */
+ 
+ #endif	/* _NET_IP_VS_H */
+diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
+index 4a9c8cd..6bf7a80 100644
+--- a/net/netfilter/ipvs/ip_vs_lblc.c
++++ b/net/netfilter/ipvs/ip_vs_lblc.c
+@@ -389,12 +389,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 	int loh, doh;
+ 
+ 	/*
+-	 * We think the overhead of processing active connections is fifty
+-	 * times higher than that of inactive connections in average. (This
+-	 * fifty times might not be accurate, we will change it later.) We
+-	 * use the following formula to estimate the overhead:
+-	 *                dest->activeconns*50 + dest->inactconns
+-	 * and the load:
++	 * We use the following formula to estimate the load:
+ 	 *                (dest overhead) / dest->weight
+ 	 *
+ 	 * Remember -- no floats in kernel mode!!!
+@@ -410,8 +405,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 			continue;
+ 		if (atomic_read(&dest->weight) > 0) {
+ 			least = dest;
+-			loh = atomic_read(&least->activeconns) * 50
+-				+ atomic_read(&least->inactconns);
++			loh = ip_vs_dest_conn_overhead(least);
+ 			goto nextstage;
+ 		}
+ 	}
+@@ -425,8 +419,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 
+-		doh = atomic_read(&dest->activeconns) * 50
+-			+ atomic_read(&dest->inactconns);
++		doh = ip_vs_dest_conn_overhead(dest);
+ 		if (loh * atomic_read(&dest->weight) >
+ 		    doh * atomic_read(&least->weight)) {
+ 			least = dest;
+diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
+index bd329b1..0063176 100644
+--- a/net/netfilter/ipvs/ip_vs_lblcr.c
++++ b/net/netfilter/ipvs/ip_vs_lblcr.c
+@@ -178,8 +178,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 
+ 		if ((atomic_read(&least->weight) > 0)
+ 		    && (least->flags & IP_VS_DEST_F_AVAILABLE)) {
+-			loh = atomic_read(&least->activeconns) * 50
+-				+ atomic_read(&least->inactconns);
++			loh = ip_vs_dest_conn_overhead(least);
+ 			goto nextstage;
+ 		}
+ 	}
+@@ -192,8 +191,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 
+-		doh = atomic_read(&dest->activeconns) * 50
+-			+ atomic_read(&dest->inactconns);
++		doh = ip_vs_dest_conn_overhead(dest);
+ 		if ((loh * atomic_read(&dest->weight) >
+ 		     doh * atomic_read(&least->weight))
+ 		    && (dest->flags & IP_VS_DEST_F_AVAILABLE)) {
+@@ -228,8 +226,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+ 	list_for_each_entry(e, &set->list, list) {
+ 		most = e->dest;
+ 		if (atomic_read(&most->weight) > 0) {
+-			moh = atomic_read(&most->activeconns) * 50
+-				+ atomic_read(&most->inactconns);
++			moh = ip_vs_dest_conn_overhead(most);
+ 			goto nextstage;
+ 		}
+ 	}
+@@ -239,8 +236,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
+   nextstage:
+ 	list_for_each_entry(e, &set->list, list) {
+ 		dest = e->dest;
+-		doh = atomic_read(&dest->activeconns) * 50
+-			+ atomic_read(&dest->inactconns);
++		doh = ip_vs_dest_conn_overhead(dest);
+ 		/* moh/mw < doh/dw ==> moh*dw < doh*mw, where mw,dw>0 */
+ 		if ((moh * atomic_read(&dest->weight) <
+ 		     doh * atomic_read(&most->weight))
+@@ -563,12 +559,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
+ 	int loh, doh;
+ 
+ 	/*
+-	 * We think the overhead of processing active connections is fifty
+-	 * times higher than that of inactive connections in average. (This
+-	 * fifty times might not be accurate, we will change it later.) We
+-	 * use the following formula to estimate the overhead:
+-	 *                dest->activeconns*50 + dest->inactconns
+-	 * and the load:
++	 * We use the following formula to estimate the load:
+ 	 *                (dest overhead) / dest->weight
+ 	 *
+ 	 * Remember -- no floats in kernel mode!!!
+@@ -585,8 +576,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
+ 
+ 		if (atomic_read(&dest->weight) > 0) {
+ 			least = dest;
+-			loh = atomic_read(&least->activeconns) * 50
+-				+ atomic_read(&least->inactconns);
++			loh = ip_vs_dest_conn_overhead(least);
+ 			goto nextstage;
+ 		}
+ 	}
+@@ -600,8 +590,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+ 
+-		doh = atomic_read(&dest->activeconns) * 50
+-			+ atomic_read(&dest->inactconns);
++		doh = ip_vs_dest_conn_overhead(dest);
+ 		if (loh * atomic_read(&dest->weight) >
+ 		    doh * atomic_read(&least->weight)) {
+ 			least = dest;
+diff --git a/net/netfilter/ipvs/ip_vs_lc.c b/net/netfilter/ipvs/ip_vs_lc.c
+index 6063800..f391819 100644
+--- a/net/netfilter/ipvs/ip_vs_lc.c
++++ b/net/netfilter/ipvs/ip_vs_lc.c
+@@ -22,22 +22,6 @@
+ 
+ #include <net/ip_vs.h>
+ 
+-
+-static inline unsigned int
+-ip_vs_lc_dest_overhead(struct ip_vs_dest *dest)
+-{
+-	/*
+-	 * We think the overhead of processing active connections is 256
+-	 * times higher than that of inactive connections in average. (This
+-	 * 256 times might not be accurate, we will change it later) We
+-	 * use the following formula to estimate the overhead now:
+-	 *		  dest->activeconns*256 + dest->inactconns
+-	 */
+-	return (atomic_read(&dest->activeconns) << 8) +
+-		atomic_read(&dest->inactconns);
+-}
+-
+-
  /*
-  *	sSS -> sSR	Standard open.
-  *	sS2 -> sSR	Simultaneous open
-- *	sSR -> sSR	Retransmitted SYN/ACK.
-+ *	sSR -> sIG	Retransmitted SYN/ACK, ignore it.
-  *	sES -> sIG	Late retransmitted SYN/ACK?
-  *	sFW -> sIG	Might be SYN/ACK answering ignored SYN
-  *	sCW -> sIG
+  *	Least Connection scheduling
+  */
+@@ -62,7 +46,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		if ((dest->flags & IP_VS_DEST_F_OVERLOAD) ||
+ 		    atomic_read(&dest->weight) == 0)
+ 			continue;
+-		doh = ip_vs_lc_dest_overhead(dest);
++		doh = ip_vs_dest_conn_overhead(dest);
+ 		if (!least || doh < loh) {
+ 			least = dest;
+ 			loh = doh;
+diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
+index fdf0f58..bc1bfc4 100644
+--- a/net/netfilter/ipvs/ip_vs_wlc.c
++++ b/net/netfilter/ipvs/ip_vs_wlc.c
+@@ -27,22 +27,6 @@
+ 
+ #include <net/ip_vs.h>
+ 
+-
+-static inline unsigned int
+-ip_vs_wlc_dest_overhead(struct ip_vs_dest *dest)
+-{
+-	/*
+-	 * We think the overhead of processing active connections is 256
+-	 * times higher than that of inactive connections in average. (This
+-	 * 256 times might not be accurate, we will change it later) We
+-	 * use the following formula to estimate the overhead now:
+-	 *		  dest->activeconns*256 + dest->inactconns
+-	 */
+-	return (atomic_read(&dest->activeconns) << 8) +
+-		atomic_read(&dest->inactconns);
+-}
+-
+-
+ /*
+  *	Weighted Least Connection scheduling
+  */
+@@ -71,7 +55,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
+ 		    atomic_read(&dest->weight) > 0) {
+ 			least = dest;
+-			loh = ip_vs_wlc_dest_overhead(least);
++			loh = ip_vs_dest_conn_overhead(least);
+ 			goto nextstage;
+ 		}
+ 	}
+@@ -85,7 +69,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	list_for_each_entry_continue(dest, &svc->destinations, n_list) {
+ 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+ 			continue;
+-		doh = ip_vs_wlc_dest_overhead(dest);
++		doh = ip_vs_dest_conn_overhead(dest);
+ 		if (loh * atomic_read(&dest->weight) >
+ 		    doh * atomic_read(&least->weight)) {
+ 			least = dest;
 -- 
 1.7.4
 
