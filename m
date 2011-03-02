@@ -1,87 +1,69 @@
-From: "Mr. henry" <henmoralendingfirm1@gmail.com>
-Subject: (unknown)
-Date: Wed, 2 Mar 2011 01:48:11 +0200 (EET)
-Message-ID: <33817.41.204.224.12.1299023291.squirrel@89.238.215.26>
-Reply-To: henmoralendingfirm@gmail.com
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 30082] New: after lxc-stop:
+ unregister_netdevice: waiting for lo to become free. Usage count: 3
+Date: Tue, 1 Mar 2011 16:13:50 -0800
+Message-ID: <20110301161350.108f6c83.akpm@linux-foundation.org>
+References: <bug-30082-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, mjt@tls.msk.ru
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vilaumitel.ro ([89.238.215.26]:36090 "EHLO
-	mail.vilaumitel.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956Ab1CBAJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 19:09:20 -0500
-Subject: 
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:50378 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756799Ab1CBAOQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Mar 2011 19:14:16 -0500
+In-Reply-To: <bug-30082-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Van sz=FCks=E9ge a hitel b=E1rmilyen c=E9lra? Van egy p=E9nz=FCgyi prob=
-l=E9ma? Nem
-sz=FCks=E9g van a p=E9nz=FCgyi megold=E1s? Mr. Henrik
- hitelek a megold=E1s toall a p=E9nz=FCgyi probl=E9m=E1kat, mi hitelek =
-k=F6nnyen,
-olcs=F3, =E9s gyors. =CDrjon nek=FCnk ma, hogy a k=F6lcs=F6nt, amire v=E1=
-gytok, akkor
-int=E9zkedik minden olyan k=F6lcs=F6n, hogy megfeleljen a k=F6lts=E9gve=
-t=E9s mind=F6ssze
-3%-os kamat. Ha
-=E9rdekli, l=E9pjen vel=FCnk kapcsolatba immediately.Optional Hitel A v=
-=E9delem
-lehet&#337;v=E9 teszi,
-hogy megfeleljen a hitelt=F6rleszt=E9s, ha nem tud dolgozni, betegs=E9g=
- miatt,
-baleset vagy
-munkan=E9lk=FClis=E9g. Csak akkor vegye ki az =E9rt=E9kes biztos=EDt=E1=
-st, ha alkalmazni
-az =D6n k=F6lcs=F6nt,
-eml=E9kszem, hogy elmondja nek=FCnk, ha azt szeretn=E9, hogy
-henmoralendingfirm@gmail.com
 
-* HITEL JELENTKEZ=C9SI LAP *
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-* Teljes n=E9v ............*
+On Mon, 28 Feb 2011 14:47:03 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
 
-* Otthoni c=EDm ....................... ..*
-
-* Sz=FClet=E9si d=E1tum ......................*
-
-* Telefonsz=E1m ...................*
-
-* MOBIL sz=E1m, ha ..............*
-
-* HITEL sz=FCks=E9ges mennyis=E9g .................*
-
-* FAX .................*
-
-* =C1llampolg=E1rs=E1g ..................*
-
-* ORSZ=C1G ........................*
-
-* SZAKMA ....................*
-
-* SEX ..................................*
-
-* F=C9RFI .............................*
-
-* FEMAL .........................*
-
-* V=C1L=C1S HA ......................*
-
-* Legk=F6zelebbi hozz=E1tartoz=F3 .......................*
-
-* N=C9V .......................... ...*
-
-* Sz=FClet=E9si d=E1tum .....................*
-
-* C=C9LJA K=D6LCS=D6NZ=C9S .......................... .......*
-
-* A k=F6lcs=F6n id&#337;tartam=E1t ........................*
-
-* ID .......................*
-
-* A =DCdv=F6zlettel *
-
-
-* Mr. henry *
+> https://bugzilla.kernel.org/show_bug.cgi?id=30082
+> 
+>            Summary: after lxc-stop: unregister_netdevice: waiting for lo
+>                     to become free. Usage count: 3
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.36 2.6.37
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: normal
+>           Priority: P1
+>          Component: Other
+>         AssignedTo: acme@ghostprotocols.net
+>         ReportedBy: mjt@tls.msk.ru
+>         Regression: No
+> 
+> 
+> As far as I can tell so far this is triggered by lxc version 0.7.4, at least I
+> haven't seen this before.  I tried 2.6.36[.3] and 2.6.37[.2] kernels so far,
+> both behaves similarly.
+> 
+> The problem is, when I shut down a container which uses bridged veth interface
+> pair using lxc-stop, the container terminates, but host system starts crying
+> about unregister_netdevice like this:
+> 
+> [902885.096462] unregister_netdevice: waiting for lo to become free. Usage
+> count = 3
+> [902895.229785] unregister_netdevice: waiting for lo to become free. Usage
+> count = 3
+> [...]
+> [904247.123002] unregister_netdevice: waiting for lo to become free. Usage
+> count = 3
+> 
+> After some, random, time, this stops - sometimes after just one message,
+> sometimes after several minutes.  Sometimes it does not happen at all.
+> 
+> This looks like a kernel issue triggerable by lxc-0.7.4.
+> 
 
