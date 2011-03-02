@@ -1,34 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-2.6 PATCH] net: dcbnl: check correct ops in
- dcbnl_ieee_set()
-Date: Wed, 02 Mar 2011 15:05:17 -0800 (PST)
-Message-ID: <20110302.150517.70181584.davem@davemloft.net>
-References: <20110302203533.2465.11134.stgit@jf-dev1-dcblab>
+Subject: Re: [net-2.6 0/3][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 02 Mar 2011 15:06:57 -0800 (PST)
+Message-ID: <20110302.150657.232743830.davem@davemloft.net>
+References: <1299066341-13820-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shmulikr@broadcom.com
-To: john.r.fastabend@intel.com
+Cc: netdev@vger.kernel.org, gospo@redhat.com, bphilips@novell.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40941
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40948
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757454Ab1CBXEk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 18:04:40 -0500
-In-Reply-To: <20110302203533.2465.11134.stgit@jf-dev1-dcblab>
+	by vger.kernel.org with ESMTP id S1757895Ab1CBXGU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 18:06:20 -0500
+In-Reply-To: <1299066341-13820-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Fastabend <john.r.fastabend@intel.com>
-Date: Wed, 02 Mar 2011 12:35:33 -0800
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed,  2 Mar 2011 03:45:38 -0800
 
-> The incorrect ops routine was being tested for in
-> DCB_ATTR_IEEE_PFC attributes. This patch corrects
-> it.
+> The following series contains fixes for sparse warnings for e1000
+> and igb, as well as a fix for e1000e.
 > 
-> Currently, every driver implementing ieee_setets also
-> implements ieee_setpfc so this bug is not actualized
-> yet.
+> The following are changes since commit e3fa3aff0cb198e7c53d894f52146121d9592872:
+>   net: fix nla_policy_len to actually _iterate_ over the policy
 > 
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> and are available in the git repository at:
+>   master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-2.6 master
 
-Applied, thanks John.
+Pulled, thanks Jeff.
