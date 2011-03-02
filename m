@@ -1,72 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Wed, 02 Mar 2011 16:53:32 +0100
-Message-ID: <1299081212.2920.14.camel@edumazet-laptop>
-References: <20110228171738.2cc8c9a0@nehalam>
+From: Daniel Lezcano <daniel.lezcano@free.fr>
+Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
+Date: Wed, 02 Mar 2011 17:03:33 +0100
+Message-ID: <4D6E6A55.6000607@free.fr>
+References: <20110221150710.GA5651@nord.niifaq.ru>	 <4D6282DB.2080204@free.fr> <20110221153421.GA6602@nord.niifaq.ru>	 <4D628DC3.9000400@free.fr> <20110223170512.GA10277@nord.niifaq.ru>	 <4D6A6A5F.4030707@free.fr> <1298836236.8726.109.camel@edumazet-laptop>	 <4D6AB578.3010704@free.fr> <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr> <4D6D2402.6020705@trash.net> <4D6D515A.8060707@free.fr> <4D6E23F3.4010402@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Fabio Checconi <fabio@gandalf.sssup.it>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemminger@vyatta.com>
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Andrian Nord <nightnord@gmail.com>,
+	lxc-users@lists.sourceforge.net,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:54270 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751384Ab1CBPxh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 10:53:37 -0500
-Received: by fxm17 with SMTP id 17so113843fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 07:53:36 -0800 (PST)
-In-Reply-To: <20110228171738.2cc8c9a0@nehalam>
+Received: from smtp5-g21.free.fr ([212.27.42.5]:59024 "EHLO smtp5-g21.free.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751384Ab1CBQDn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 11:03:43 -0500
+In-Reply-To: <4D6E23F3.4010402@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le lundi 28 f=C3=A9vrier 2011 =C3=A0 17:17 -0800, Stephen Hemminger a =C3=
-=A9crit :
-> This is an implementation of the Quick Fair Queue scheduler developed
-> by Fabio Checconi. The same algorithm is already implemented in ipfw
-> in FreeBSD. Fabio had an earlier version developed on Linux, I just
-> cleaned it up and tested it. All bugs are mine.
+On 03/02/2011 12:03 PM, Patrick McHardy wrote:
+> Am 01.03.2011 21:04, schrieb Daniel Lezcano:
+>> On 03/01/2011 05:51 PM, Patrick McHardy wrote:
+>>>> Patrick, do you have any suggestions to fix this ?
+>>> Since the frames are only looped back locally, I suppose the easiest
+>>> fix would be to mark them with CHECKSUM_UNNECESSARY. Alternatively
+>>> we need to complete the checksum manually, similar to what
+>>> dev_hard_start_xmit() does.
+>> That sounds very simple to fix, maybe too much simple :)
+>>
+>> I did the following change:
+>>
+>> --- linux-next.orig/drivers/net/macvlan.c
+>> +++ linux-next/drivers/net/macvlan.c
+>> @@ -222,6 +222,7 @@ static int macvlan_queue_xmit(struct sk_
+>>
+>>          if (vlan->mode == MACVLAN_MODE_BRIDGE) {
+>>                  const struct ethhdr *eth = (void *)skb->data;
+>> +               skb->ip_summed = CHECKSUM_UNNECESSARY;
+>>
+>>                  /* send to other bridge ports directly */
+>>                  if (is_multicast_ether_addr(eth->h_dest)) {
+>>
+>>
+>> and that fixed the problem. Do you think it is acceptable ?
+> The only problem I see is if the packets are bridged to a
+> different networking device (or redirected using the mirred
+> action), in this case the checksum will not be completed.
+> This would be a very strange setup though and probably wouldn't
+> be using dummy as lower device, so I'm not sure we have to
+> worry about this case.
+
+I am not sure to get it, do you say the patch is correct ?
+
+If my understanding is correct, the packet will be flagged 
+CHECKSUM_UNNECESSARY only for the macvlan devices, right ?
+
+By the way, this problem occurs for any lower device with offloading 
+capabilities with a macvlan port in bridge mode.
+
+Thanks
+   -- Daniel
 
 
 
-Here is my crash analysis :
-
-> +static void qfq_reset_qdisc(struct Qdisc *sch)
-> +{
-> +	struct qfq_sched *q =3D qdisc_priv(sch);
-> +	struct qfq_group *grp;
-> +	struct qfq_class *cl, **pp;
-> +	struct hlist_node *n;
-> +	unsigned int i, j;
-> +
-> +	for (i =3D 0; i <=3D QFQ_MAX_INDEX; i++) {
-> +		grp =3D &q->groups[i];
-> +		for (j =3D 0; j < QFQ_MAX_SLOTS; j++) {
-> +			for (pp =3D &grp->slots[j]; *pp; pp =3D &(*pp)->next) {
-> +				cl =3D *pp;
-> +				if (cl->qdisc->q.qlen)
-> +					qfq_deactivate_class(q, cl, pp);
-
-Here, if we deactivated last class in chain, *pp is NULL, but
-
-pp =3D &(*pp)->next  put 0x50 (on 64bit arches) in pp, so we crash ...
 
 
 
-
-
-> +			}
-> +		}
-> +	}
-> +
-> +	for (i =3D 0; i < q->clhash.hashsize; i++) {
-> +		hlist_for_each_entry(cl, n, &q->clhash.hash[i], common.hnode)
-> +			qdisc_reset(cl->qdisc);
-> +	}
-> +	sch->q.qlen =3D 0;
-> +}
-> +
-
-
-
+<javascript:void(0);>
