@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH 25/27] HFI: hf fifo transmit paths
-Date: Wed,  2 Mar 2011 16:10:11 -0500
-Message-ID: <1299100213-8770-25-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH 12/27] HFI:  Sanity check send and receive fifo parameters
+Date: Wed,  2 Mar 2011 16:09:58 -0500
+Message-ID: <1299100213-8770-12-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -13,22 +13,22 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:52668 "EHLO e2.ny.us.ibm.com"
+Received: from e1.ny.us.ibm.com ([32.97.182.141]:58717 "EHLO e1.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757398Ab1CBVK1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 16:10:27 -0500
+	id S1757553Ab1CBVK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 16:10:28 -0500
 Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e2.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22Kq9XM003756
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:52:09 -0500
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id C019338C8038
-	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:25 -0500 (EST)
+	by e1.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22L0i7q020249
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:00:44 -0500
+Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id BB7B738C803B
+	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:26 -0500 (EST)
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LAQX2262478
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:26 -0500
+	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LAP4D1347832
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:25 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LAPgu032170
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:26 -0500
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LAORw032141
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:25 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
@@ -47,659 +47,417 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- drivers/net/hfi/ip/hf_if_main.c |  436 ++++++++++++++++++++++++++++++++++++++-
- drivers/net/hfi/ip/hf_proto.h   |    1 +
- include/linux/hfi/hf_if.h       |   73 +++++++-
- 3 files changed, 508 insertions(+), 2 deletions(-)
+ drivers/net/hfi/core/Makefile       |    1 +
+ drivers/net/hfi/core/hfidd_proto.h  |    3 +
+ drivers/net/hfi/core/hfidd_window.c |  177 +++++++++++++++++++++++++++++++++++
+ drivers/net/hfi/core/hfidd_xlat.c   |  131 ++++++++++++++++++++++++++
+ include/linux/hfi/hfidd_adpt.h      |   17 ++++
+ 5 files changed, 329 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/hfi/core/hfidd_xlat.c
 
-diff --git a/drivers/net/hfi/ip/hf_if_main.c b/drivers/net/hfi/ip/hf_if_main.c
-index 329baa1..ea4579e 100644
---- a/drivers/net/hfi/ip/hf_if_main.c
-+++ b/drivers/net/hfi/ip/hf_if_main.c
-@@ -208,6 +208,87 @@ alloc_resource_err0:
+diff --git a/drivers/net/hfi/core/Makefile b/drivers/net/hfi/core/Makefile
+index 0224a57..8d5558d 100644
+--- a/drivers/net/hfi/core/Makefile
++++ b/drivers/net/hfi/core/Makefile
+@@ -4,5 +4,6 @@
+ hfi_core-objs:=	hfidd_adpt.o \
+ 		hfidd_window.o \
+ 		hfidd_init.o \
++		hfidd_xlat.o \
+ 		hfidd_hcalls.o
+ obj-$(CONFIG_HFI) += hfi_core.o
+diff --git a/drivers/net/hfi/core/hfidd_proto.h b/drivers/net/hfi/core/hfidd_proto.h
+index e7f2901..66ea5da 100644
+--- a/drivers/net/hfi/core/hfidd_proto.h
++++ b/drivers/net/hfi/core/hfidd_proto.h
+@@ -39,6 +39,9 @@ int hfidd_alloc_windows(struct hfidd_acs *p_acs);
+ void hfidd_free_windows(struct hfidd_acs *p_acs);
+ int hfidd_init_adapter(struct hfidd_acs *p_acs, void *uiop);
+ int hfidd_age_hcall(u64 time_start);
++int hfidd_get_page_size(struct hfidd_acs *p_acs, void *addr,
++		unsigned int is_userspace, unsigned int length,
++		unsigned long long *page_size);
+ int hfidd_open_window_func(struct hfidd_acs *p_acs, unsigned int is_userspace,
+ 		struct hfi_client_info *user_p,
+ 		struct hfi_client_info *out_p);
+diff --git a/drivers/net/hfi/core/hfidd_window.c b/drivers/net/hfi/core/hfidd_window.c
+index cc775e3..5a4f395 100644
+--- a/drivers/net/hfi/core/hfidd_window.c
++++ b/drivers/net/hfi/core/hfidd_window.c
+@@ -35,6 +35,153 @@
+ #include "hfidd_proto.h"
+ #include <linux/hfi/hfidd_requests.h>
+ 
++#define FINISH_VECTOR_LENGTH 1
++/* Validate send fifo parameters needed for open window */
++static int hfi_check_sfifo_parm(struct hfidd_acs *p_acs,
++		unsigned int is_userspace,
++		struct hfidd_window *win_p,
++		struct hfi_client_info *client_p)
++{
++	int			rc = 0;
++	unsigned long long	page_sz;
++	unsigned long long	fv_page_sz;
++
++	/* Validate the sfifo size */
++	if ((client_p->sfifo.size < HFI_SFIFO_SIZE_MIN) ||
++	    (client_p->sfifo.size > HFI_SFIFO_SIZE_MAX)) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: invalid sfifo "
++			"size = 0x%llx\n",
++			client_p->sfifo.size);
++		return -EINVAL;
++	}
++
++	/*
++	 * Validate the address of sfifo is 4k aligned, and finish vector
++	 * is cache-line aligned
++	 */
++	if ((client_p->sfifo.eaddr.use.allu) & PAGE_MASK_4K) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: not page aligned, "
++			"sfifo_addr = 0x%llx\n",
++			client_p->sfifo.eaddr.use.allu);
++		return -EINVAL;
++	}
++
++	if ((client_p->sfifo_finish_vec.use.allu) & HFI_CACHE_LINE_MASK) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: not cache aligned, "
++			"sfifo_finishvec = 0x%llx\n",
++			client_p->sfifo_finish_vec.use.allu);
++		return -EINVAL;
++	}
++	/*
++	 * Validate the send finish vector are within 4K bytes of end of sfifo
++	 */
++	if (((client_p->sfifo_finish_vec.use.kptr -
++	     (client_p->sfifo.eaddr.use.kptr +
++	      client_p->sfifo.size)) >= PAGE_SIZE_4K)) {
++
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: fv too far away, "
++			"sfifo_addr = 0x%llx\n",
++			client_p->sfifo.eaddr.use.allu);
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: fv too far away, "
++			"sfifo_finishvec = 0x%llx\n",
++			client_p->sfifo_finish_vec.use.allu);
++		return -EINVAL;
++	}
++
++	/* Validate page size of sFifo */
++	rc = hfidd_get_page_size(p_acs, client_p->sfifo.eaddr.use.kptr,
++			is_userspace, client_p->sfifo.size, &page_sz);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: fail in sfifo page size, "
++			"rc=0x%x\n", rc);
++		return rc;
++	}
++
++	/* Find out the page size of send finish vector */
++	rc = hfidd_get_page_size(p_acs, client_p->sfifo_finish_vec.use.kptr,
++			is_userspace, FINISH_VECTOR_LENGTH, &fv_page_sz);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: fail in fv page size, "
++			"rc=0x%x\n", rc);
++		return rc;
++	}
++
++	/* The page size of finish vector must be the same as sfifo */
++	if (page_sz != fv_page_sz) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_sfifo_parm: diff page sz sf=0x%llx, "
++			"fv0=0x%llx\n", page_sz, fv_page_sz);
++		return -EINVAL;
++	}
++	return 0;
++}
++
++static int hfi_check_rfifo_parm(struct hfidd_acs *p_acs,
++		unsigned int is_userspace,
++		struct hfidd_window *win_p,
++		struct hfi_client_info *client_p)
++{
++	int			rc = 0;
++	unsigned long long	page_sz;
++
++	/* Validate the rfifo size */
++	if ((client_p->rfifo.size < HFI_RFIFO_SIZE_MIN) ||
++	    (client_p->rfifo.size > HFI_RFIFO_SIZE_MAX)) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_rfifo_parm: invalid rfifo size = 0x%llx\n",
++			client_p->rfifo.size);
++		return -EINVAL;
++	}
++
++	/* Validate the address of rfifo is 4K aligned */
++	if ((client_p->rfifo.eaddr.use.allu) & PAGE_MASK_4K) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_rfifo_parm: not cache aligned, "
++			"rfifo_addr = 0x%llx\n",
++			client_p->rfifo.eaddr.use.allu);
++		return -EINVAL;
++	}
++
++	/* Validate page size of rFifo */
++	rc = hfidd_get_page_size(p_acs, client_p->rfifo.eaddr.use.kptr,
++			is_userspace, client_p->rfifo.size, &page_sz);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_check_rfifo_parm: fail in rfifo page size, "
++			"rc=0x%x\n", rc);
++		return rc;
++	}
++	return 0;
++}
++
++/* Validate window parameters to setup the fifos and RDMA function */
++static int hfi_validate_window_request(struct hfidd_acs *p_acs,
++	unsigned int is_userspace, struct hfi_client_info *client_p)
++{
++	int			rc = 0;
++	struct hfidd_window	*win_p;
++
++	/* Check every input parameters..... */
++	win_p = hfi_window(p_acs, client_p->window);
++
++	/* Check the request of sFifo */
++	rc = hfi_check_sfifo_parm(p_acs, is_userspace, win_p, client_p);
++	if (rc)
++		return rc;
++	/* Check the request of rFifo */
++	rc = hfi_check_rfifo_parm(p_acs, is_userspace, win_p, client_p);
++	if (rc)
++		return rc;
++	return rc;
++}
++
+ /* Validate the type, state and job id for RESERVED window */
+ static int hfi_validate_reserve_window_id(struct hfidd_acs *p_acs,
+ 		struct hfi_client_info *client_p)
+@@ -164,12 +311,29 @@ static inline int hfi_validate_window_id(struct hfidd_acs *p_acs,
  	return rc;
  }
  
-+static int hf_send_intr_callback(void *parm, u32 win, u32 ext)
++static inline void hfi_restore_window_parm(struct hfidd_acs *p_acs,
++		struct hfidd_window *win_p)
 +{
-+	struct hf_net	*net = (struct hf_net *)parm;
-+	struct hf_if	*net_if = &(net->hfif);
-+	u64		sintr_status;
-+
-+	sintr_status = hf_mmio_regs_read(net_if, HFI_SINTR_STATUS_REG);
-+
-+	netdev_info(net->netdev, "hf_send_intr_callback: "
-+		"sintr_status 0x%016llx", sintr_status);
-+
-+	/* mask off the interrupt */
-+	if (sintr_status & HF_SFIFO_INTR_EVENT)
-+		hf_mmio_regs_write(net_if, HFI_SFIFO_INTR_CNTL, 0);
-+
-+	/* Make sure interrupts are masked */
-+	/* Otherwise after the queue is awaken, it will get stale interrupt */
-+	mb();
-+
-+	netif_wake_queue(net->netdev);
-+
-+	return 0;
++	if (win_p->type != HFIDD_RESERVE_WIN) {
++		win_p->type   = HFIDD_DYNAMIC_WIN;
++		win_p->job_id = 0;
++		if (win_p->state != WIN_HERROR)
++			win_p->state = WIN_AVAILABLE;
++	} else {
++		if (win_p->state != WIN_HERROR)
++			win_p->state = WIN_RESERVED;
++	}
++	win_p->pid   = 0;
++	win_p->is_ip = 0;
 +}
 +
-+struct hf_events_cb hf_events[HF_EVENT_NUM] = {
-+	{HFIDD_SEND,		(void *)hf_send_intr_callback},
-+};
-+
-+static int hf_register_ip_events(struct hf_net *net,
-+				 struct hfidd_acs *p_acs,
-+				 int flag)
-+{
-+	struct hf_if		*net_if = &(net->hfif);
-+	int			rc = 0, i, j;
-+	struct hfi_reg_events	events[HF_EVENT_NUM];
-+	int			(*reg_func)(struct hfidd_acs *,
-+				struct hfi_reg_events *);
-+
-+	if (flag == HFIDD_REQ_EVENT_REGISTER)
-+		reg_func = hfidd_callback_register;
-+	else
-+		reg_func = hfidd_callback_unregister;
-+
-+	for (i = 0; i < HF_EVENT_NUM; i++) {
-+		events[i].window = net_if->client.window;
-+		events[i].type = FUNCTIONS_FOR_EVENTS;
-+		events[i].info.func.index = hf_events[i].type;
-+		events[i].info.func.function_p.use.kptr = hf_events[i].func;
-+		events[i].info.func.parameter.use.kptr = (void *)(net);
-+
-+		events[i].hdr.req = flag;
-+		events[i].hdr.req_len = sizeof(struct hfi_reg_events);
-+		events[i].hdr.result.use.kptr = &(events[i]);
-+
-+		rc = reg_func(p_acs, &(events[i]));
-+		if (rc) {
-+			netdev_err(net->netdev, "hf_register_ip_events: "
-+				"fail event 0x%x, flag=0x%x rc=0x%x\n",
-+				hf_events[i].type, flag, rc);
-+
-+			if (flag == HFIDD_REQ_EVENT_REGISTER)
-+				goto err_out;
-+		}
-+	}
-+
-+	return rc;
-+
-+err_out:
-+	for (j = 0; j < i; j++) {
-+		events[j].hdr.req = HFIDD_REQ_EVENT_UNREGISTER;
-+		rc = hfidd_callback_unregister(p_acs, &(events[i]));
-+		if (rc) {
-+			netdev_err(net->netdev, "hf_register_ip_events: failed "
-+				"to unregister callback event 0x%x, rc=0x%x\n",
-+				events[i].info.func.index, rc);
-+		}
-+	}
-+
-+	return rc;
-+}
-+
- static int hf_close_ip_window(struct hf_if *net_if, struct hfidd_acs *p_acs)
+ /* Validate window number and type for open window request */
+ static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
+ 		unsigned int is_userspace,
+ 		struct hfi_client_info *client_p)
  {
- 	int		rc;
-@@ -295,6 +376,16 @@ static int hf_set_mac_addr(struct net_device *netdev, void *p)
+ 	int			rc = 0;
++	struct hfidd_window	*win_p;
+ 
+ 	/* Validate the window number */
+ 	rc = hfi_validate_window_id(p_acs, client_p, is_userspace);
+@@ -179,6 +343,19 @@ static int hfi_validate_window_parm(struct hfidd_acs *p_acs,
+ 			"failed, rc = 0x%x\n", rc);
+ 		return rc;
+ 	}
++
++	rc = hfi_validate_window_request(p_acs, is_userspace, client_p);
++	if (rc) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfi_validate_window_parm: "
++			"hfi_validate_window_request failed, rc = 0x%x\n", rc);
++		win_p = hfi_window(p_acs, client_p->window);
++		spin_lock(&(win_p->win_lock));
++		hfi_restore_window_parm(p_acs, win_p);
++		spin_unlock(&(win_p->win_lock));
++		return rc;
++	}
++
  	return 0;
  }
  
-+static void hf_init_hw_regs(struct hf_if *net_if)
+diff --git a/drivers/net/hfi/core/hfidd_xlat.c b/drivers/net/hfi/core/hfidd_xlat.c
+new file mode 100644
+index 0000000..23236cc
+--- /dev/null
++++ b/drivers/net/hfi/core/hfidd_xlat.c
+@@ -0,0 +1,131 @@
++/*
++ * hfidd_xlat.c
++ *
++ * HFI device driver for IBM System p
++ *
++ *  Authors:
++ *      Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
++ *      William S. Cadden <wscadden@linux.vnet.ibm.com>
++ *      Wen C. Chen <winstonc@linux.vnet.ibm.com>
++ *      Scot Sakolish <sakolish@linux.vnet.ibm.com>
++ *      Jian Xiao <jian@linux.vnet.ibm.com>
++ *      Carol L. Soto <clsoto@linux.vnet.ibm.com>
++ *      Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
++ *
++ *  (C) Copyright IBM Corp. 2010
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
++ *
++ */
++
++#include <linux/pagemap.h>
++#include <linux/hugetlb.h>
++#include <asm/page.h>
++
++#include <linux/hfi/hfidd_internal.h>
++#include "hfidd_proto.h"
++
++int hfidd_get_page_size(struct hfidd_acs *p_acs, void *addr,
++	unsigned int is_userspace,
++	unsigned int length,
++	unsigned long long *page_size)
 +{
-+	/* setup IP with payload threshold in cache line size */
-+	hf_mmio_regs_write(net_if, HFI_IP_RECV_SIZE,
-+		(HF_PAYLOAD_RX_THRESHOLD << HF_PAYLOAD_RX_THRESH_SHIFT));
++	int			rc = 0;
++	int			i;
++	int			num_pages;
++	struct page		**page_list;
++	struct vm_area_struct	**vma_list;
++	unsigned long long	offset;
 +
-+	/* initialize SEND INTR STATUS */
-+	hf_mmio_regs_write(net_if, HFI_SINTR_STATUS_REG, 0);
-+}
++	if (!is_userspace) {
++		*page_size = PAGE_SIZE;
++		return 0;
++	}
 +
- static int hf_net_delayed_open(void *parm, u16 win, u16 ext)
- {
- 	struct net_device	*netdev = (struct net_device *)parm;
-@@ -320,13 +411,25 @@ static int hf_net_delayed_open(void *parm, u16 win, u16 ext)
- 	if (rc)
- 		goto delayed_open_err1;
- 
-+	rc = hf_register_ip_events(net, p_acs, HFIDD_REQ_EVENT_REGISTER);
-+	if (rc)
-+		goto delayed_open_err2;
++	offset = (unsigned long long)addr & ~PAGE_MASK;
++	num_pages = PAGE_ALIGN(length + offset) >> PAGE_SHIFT;
 +
- 	hf_set_mac_addr(netdev, NULL);
- 
-+	hf_init_hw_regs(net_if);
++	page_list = kzalloc(num_pages * sizeof(struct page *),
++			GFP_KERNEL);
++	if (page_list == NULL) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_page_size: kzalloc failed for page_list\n");
++		return -ENOMEM;
++	}
 +
- 	net_if->state = HF_NET_OPEN;
- 	spin_unlock(&(net_if->lock));
- 
-+	netif_carrier_on(netdev);
-+	netif_start_queue(netdev);
++	vma_list = kzalloc(num_pages * sizeof(struct vm_area_struct **),
++			GFP_KERNEL);
++	if (vma_list == NULL) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_page_size: kzalloc failed for vma_list\n");
++		rc = -ENOMEM;
++		goto out1;
++	}
 +
- 	return 0;
- 
-+delayed_open_err2:
-+	hf_close_ip_window(net_if, p_acs);
++	down_read(&current->mm->mmap_sem);
++	rc = get_user_pages(current, current->mm,
++			(unsigned long long)addr,
++			num_pages, 1, 0,	/* yes write, no force */
++			page_list, vma_list);
++	up_read(&current->mm->mmap_sem);
 +
- delayed_open_err1:
- 	hf_free_resource(net_if);
- 
-@@ -408,6 +511,11 @@ static int hf_net_close(struct net_device *netdev)
- 
- 	spin_lock(&(net_if->lock));
- 	if (net_if->state == HF_NET_OPEN) {
-+		netif_stop_queue(netdev);
-+		netif_carrier_off(netdev);
++	if (rc < num_pages) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_page_size: get_user_pages failed rc = %d "
++			"and numpages %d\n", rc, num_pages);
++		if (rc < 0)
++			goto out2;
++		num_pages = rc;
++		rc = -ENOMEM;
++		goto out3;
++	}
 +
-+		hf_register_ip_events(net, p_acs, HFIDD_REQ_EVENT_UNREGISTER);
-+
- 		hf_close_ip_window(net_if, p_acs);
- 
- 		hf_free_resource(net_if);
-@@ -422,6 +530,328 @@ static int hf_net_close(struct net_device *netdev)
- 	return 0;
- }
- 
-+static void hf_tx_recycle(struct hf_if *net_if)
-+{
-+	u32		head, head_idx, slots_per_blk;
-+	u32		*fv;
-+	int		i;
-+	u32		fv_bit;
-+	u8		nr;
-+
-+	head = net_if->tx_fifo.head;
-+
-+	slots_per_blk = net_if->sfifo_slots_per_blk;
-+
-+	head_idx = head / slots_per_blk;
-+
-+	fv = (u32 *)(net_if->sfifo_finishvec);
-+
-+	while (1) {
-+		nr = HF_FV_BIT_MAX - head_idx;
-+		fv_bit = BIT(nr) & (ACCESS_ONCE(*fv));
-+		fv_bit = fv_bit >> nr;
-+
-+		if ((fv_bit ^ (net_if->sfifo_fv_polarity)) == 0)
++	rc = 0;
++	*page_size = PAGE_SIZE;
++	for (i = 0; i < num_pages; i++) {
++		/* check for huge pages */
++		if (is_vm_hugetlb_page(vma_list[i])) {
++			/* Find huge page size */
++			*page_size = huge_page_size(hstate_vma(vma_list[i]));
 +			break;
++		}
++	}
 +
-+		for (i = 0; i < slots_per_blk; i++) {
-+			struct sk_buff		*skb;
-+
-+			skb = net_if->tx_skb[head + i];
-+			if (skb != NULL) {
-+				dev_kfree_skb_any(skb);
-+				net_if->tx_skb[head + i] = NULL;
++	/* If memory has huge page size, check if all pages are huge pages */
++	if (*page_size != PAGE_SIZE) {
++		for (i = 0; i < num_pages; i++) {
++			/* if not huge page, set to PAGE_SIZE */
++			if (!is_vm_hugetlb_page(vma_list[i])) {
++				*page_size = PAGE_SIZE;
++				break;
 +			}
 +		}
-+
-+		head = (head + slots_per_blk) & (net_if->tx_fifo.emax);
-+
-+		atomic_add(slots_per_blk, &(net_if->tx_fifo.avail));
-+
-+		if (++head_idx == HF_FV_BIT_CNT) {
-+			head_idx = 0;
-+			net_if->sfifo_fv_polarity ^= 1;
-+		}
++	}
++	if (*page_size == PAGE_SIZE_16G) {
++		dev_printk(KERN_ERR, p_acs->hfidd_dev,
++			"hfidd_get_page_size: Large page size "
++			"0x%llx use 4G\n", *page_size);
++		*page_size = PAGE_SIZE_4G;
 +	}
 +
-+	net_if->tx_fifo.head = head;
-+
-+	return;
++out3:
++	for (i = 0; i < num_pages; i++)
++		page_cache_release(page_list[i]);
++out2:
++	kfree(vma_list);
++out1:
++	kfree(page_list);
++	return rc;
 +}
-+
-+int hf_tx_check_avail(struct hf_net *net, u32 xmit_cls)
-+{
-+	struct net_device	*netdev = net->netdev;
-+	struct hf_if		*net_if = &(net->hfif);
-+
-+	if (atomic_read(&net_if->tx_fifo.avail) < xmit_cls) {
-+
-+		hf_tx_recycle(net_if);
-+
-+		if (atomic_read(&net_if->tx_fifo.avail) < xmit_cls) {
-+			u32		intr_cntl;
-+			u64		intr_thresh;
-+
-+			netif_stop_queue(netdev);
-+
-+			/* turn on transmit interrupt */
-+			intr_thresh = (net_if->sfifo_packets -
-+			HF_SFIFO_INTR_WATERMARK) & HF_SFIFO_INTR_MASK;
-+
-+			intr_cntl = HF_SFIFO_INTR_ENABLE |
-+			(intr_thresh << HF_SFIFO_INTR_CNT_SHIFT);
-+
-+			hf_mmio_regs_write_then_read(net_if,
-+					HFI_SFIFO_INTR_CNTL, intr_cntl);
-+
-+			return -EBUSY;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+static inline void hf_fill_route(u16 dst_isr, struct base_hdr *base_hdr_p)
-+{
-+	base_hdr_p->route_control = HFI_HW_DIRECT_ROUTE;
-+}
-+
-+static int hf_copy_skb_to_fifo(struct hf_if *net_if,
-+				struct sk_buff *skb,
-+				char *dst,
-+				u32 len,
-+				u32 offset)
-+{
-+	u64		fifo_end;
-+	u32		tail_room;
-+	int		rc;
-+
-+	fifo_end = (u64)(net_if->tx_fifo.addr) + net_if->tx_fifo.size;
-+
-+	tail_room = fifo_end - (u64)dst;
-+	if (tail_room >= len) {
-+		rc = skb_copy_bits(skb, offset, dst, len);
-+		if (rc) {
-+			printk(KERN_ERR "hf_copy_skb_to_fifo: skb_copy_bits"
-+				"fail1 offset=0x%x, len=0x%x, rc=0x%x\n",
-+				offset, len, rc);
-+			return rc;
-+		}
-+	} else {
-+		rc = skb_copy_bits(skb, offset, dst, tail_room);
-+		if (rc) {
-+			printk(KERN_ERR "hf_copy_skb_to_fifo: skb_copy_bits"
-+				"fail2 offset=0x%x, len=0x%x, rc=0x%x\n",
-+				offset, tail_room, rc);
-+
-+			return rc;
-+		}
-+		rc = skb_copy_bits(skb, offset + tail_room,
-+				net_if->tx_fifo.addr, len - tail_room);
-+		if (rc) {
-+			printk(KERN_ERR "hf_copy_skb_to_fifo: skb_copy_bits"
-+				"fail3 offset=0x%x, len=0x%x, rc=0x%x\n",
-+				offset + tail_room, len - tail_room, rc);
-+
-+			return rc;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
-+/* Build base_hdr and proto_hdr for payload pkt.
-+   Return pointer to the end of proto_hdr */
-+static char *hf_build_payload_hdr(struct hf_net *net,
-+				  struct sk_buff *skb,
-+				  u32 msg_len,
-+				  u32 xmit_cls,
-+				  u32 is_bcast)
-+{
-+	struct hf_if			*net_if = &(net->hfif);
-+	struct hf_if_proto_hdr		*proto_hdr_p;
-+	struct hfi_ip_with_payload_pkt	*hdr_p;
-+	char				*dst;
-+	u8				msg_type, msg_flag;
-+	struct hf_hwhdr			*hwhdr_p;
-+
-+	hwhdr_p = (struct hf_hwhdr *)(skb->data);
-+
-+	if (hwhdr_p->h_proto == htons(ETH_P_IP))
-+		msg_type = HF_IF_FIFO;
-+	else if (hwhdr_p->h_proto == htons(ETH_P_ARP))
-+		msg_type = HF_IF_ARP;
-+	else {
-+		netdev_err(net->netdev, "hf_build_payload_hdr: h_proto = 0x%x "
-+			" not supported\n", hwhdr_p->h_proto);
-+
-+		dev_kfree_skb_any(skb);
-+		return NULL;
-+	}
-+
-+	dst = net_if->tx_fifo.addr +
-+		(net_if->tx_fifo.tail << HFI_CACHE_LINE_SHIFT);
-+
-+	/* fill in base_hdr + ip_extended_hdr */
-+	hdr_p = (struct hfi_ip_with_payload_pkt *)dst;
-+
-+	/* Do not memset over one cacheline since it might wrap */
-+	memset(hdr_p, 0, HF_IP_HDR_LEN);
-+
-+	hdr_p->hfi_hdr.type.header_type = HFI_IP_WITH_PAYLOAD;
-+	hdr_p->hfi_hdr.id.job_id = net_if->client.job_id;
-+
-+	if (is_bcast) {
-+		hdr_p->hfi_hdr.base_hdr.dst_isr = HFIDD_DST_BCST_ISR;
-+		hdr_p->hfi_hdr.base_hdr.dst_win = HFIDD_DST_BCST_WIN;
-+		hdr_p->hfi_hdr.type.header_type = HFI_IP_MULTICAST_WITH_PAYLOAD;
-+
-+		msg_flag = HF_IF_BCAST;
-+	} else {
-+		u16	dst_isr, dst_win;
-+
-+		hf_get_dst_info(hwhdr_p, &dst_isr, &dst_win);
-+		hdr_p->hfi_hdr.base_hdr.dst_isr = dst_isr;
-+		hdr_p->hfi_hdr.base_hdr.dst_win = dst_win;
-+
-+		hf_fill_route(dst_isr, &(hdr_p->hfi_hdr.base_hdr));
-+
-+		msg_flag = HF_IF_UCAST;
-+	}
-+
-+	netdev_dbg(net->netdev, "hf_build_payload_hdr: dst_isr = 0x%x, "
-+			"dst_win = 0x%x, xmit_cls = 0x%x\n",
-+			hdr_p->hfi_hdr.base_hdr.dst_isr,
-+			hdr_p->hfi_hdr.base_hdr.dst_win, xmit_cls);
-+
-+	hdr_p->hfi_hdr.base_hdr.pkt_len = hfi_cachelines_to_pktlen(xmit_cls);
-+
-+	dst += HF_IP_HDR_LEN;
-+	proto_hdr_p = (struct hf_if_proto_hdr *)dst;
-+
-+	proto_hdr_p->version = HF_PROTO_HDR_VERSION;
-+	proto_hdr_p->msg_len = msg_len;
-+	proto_hdr_p->msg_id = net_if->msg_id;
-+	proto_hdr_p->msg_type = msg_type;
-+	proto_hdr_p->msg_flag = msg_flag;
-+
-+	dst += HF_PROTO_LEN;
-+
-+	return dst;
-+}
-+
-+static int hf_payload_tx(struct sk_buff *skb, struct hf_net *net, u32 is_bcast)
-+{
-+	struct hf_if		*net_if = &(net->hfif);
-+	u32			msg_len, len;
-+	u32			xmit_cls;
-+	char			*dst;
-+	int			rc = 0;
-+
-+	msg_len = skb->len - HF_HLEN + HF_PROTO_LEN;
-+	xmit_cls = hfi_bytes_to_cacheline(msg_len + HF_IP_HDR_LEN);
-+
-+	if (is_bcast) {
-+		if (xmit_cls <= HF_BCAST_CACHE_LINE_2)
-+			xmit_cls = HF_BCAST_CACHE_LINE_2;
-+		else
-+			xmit_cls = HF_BCAST_CACHE_LINE_16;
-+	}
-+
-+	rc = hf_tx_check_avail(net, xmit_cls);
-+	if (rc) {
-+		netdev_err(net->netdev, "hf_payload_tx: hf_tx_check_avail find "
-+				"no avail slot\n");
-+		return rc;
-+	}
-+
-+	dst = hf_build_payload_hdr(net, skb, msg_len, xmit_cls, is_bcast);
-+	if (!dst)
-+		return 0;
-+
-+	/* copy skb data, skipping hwhdr */
-+	len = skb->len - HF_HLEN;
-+
-+	rc = hf_copy_skb_to_fifo(net_if, skb, dst, len, HF_HLEN);
-+	if (rc)
-+		return rc;
-+
-+	net_if->tx_fifo.tail =
-+		(net_if->tx_fifo.tail + xmit_cls) & (net_if->tx_fifo.emax);
-+	atomic_sub(xmit_cls, &(net_if->tx_fifo.avail));
-+
-+	net_if->sfifo_packets++;
-+	net_if->net_stats.tx_packets++;
-+	net_if->net_stats.tx_bytes += msg_len;
-+
-+	netdev_dbg(net->netdev, "hf_payload_tx: exit, tx_fifo tail = 0x%x, "
-+		"avail = 0x%x, skb->len = 0x%x\n", net_if->tx_fifo.tail,
-+		atomic_read(&(net_if->tx_fifo.avail)), skb->len);
-+
-+	dev_kfree_skb_any(skb);
-+	return 0;
-+
-+}
-+
-+static int hf_start_xmit(struct sk_buff *skb, struct net_device *netdev)
-+{
-+	struct hf_net	*net = netdev_priv(netdev);
-+	struct hf_if	*net_if = &(net->hfif);
-+	u32		len, is_bcast;
-+	u32		send_cnt = 1;
-+
-+	is_bcast = !memcmp(((struct hf_hwhdr *)(skb->data))->h_dest,
-+				netdev->broadcast,
-+				netdev->addr_len);
-+
-+	if (unlikely(skb->len <= 0)) {
-+		netdev_err(netdev, "hf_start_xmit: invalid skb->len 0x%x\n",
-+						skb->len);
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	/* total len to transfer */
-+	len = skb->len - HF_HLEN;
-+
-+	if (len <= HF_PAYLOAD_MAX) {
-+		/* send ip with payload */
-+		if (hf_payload_tx(skb, net, is_bcast) < 0) {
-+			netdev_err(netdev, "hf_start_xmit: "
-+				"hf_payload_tx fail 1\n");
-+
-+			return NETDEV_TX_BUSY;
-+		}
-+	} else {
-+		netdev_err(netdev, "hf_start_xmit: skb->len 0x%x "
-+			"greater than max 0x%x\n",
-+			skb->len, (u32)HF_PAYLOAD_MAX);
-+
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	/* Make sure all fields are written before ringing hw doorbell */
-+	wmb();
-+
-+	/* ring doorbell */
-+	hf_mmio_regs_write(net_if, HFI_SFIFO_DB_REG, send_cnt);
-+
-+	if (atomic_read(&net_if->tx_fifo.avail) < HF_TX_LOW_WATERMARK)
-+		hf_tx_check_avail(net, HF_TX_LOW_WATERMARK);
-+
-+	net_if->msg_id++;
-+	netdev->trans_start = jiffies;
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static void hf_tx_timeout(struct net_device *netdev)
-+{
-+	netdev_warn(netdev, "hf_tx_timeout: queue_stopped is %d\n",
-+			netif_queue_stopped(netdev));
-+}
-+
- struct net_device_stats *hf_get_stats(struct net_device *netdev)
- {
- 	struct hf_net	*net = netdev_priv(netdev);
-@@ -480,6 +910,8 @@ static const struct net_device_ops hf_netdev_ops = {
- 	.ndo_open		= hf_net_open,
- 	.ndo_stop		= hf_net_close,
- 	.ndo_change_mtu		= hf_change_mtu,
-+	.ndo_start_xmit		= hf_start_xmit,
-+	.ndo_tx_timeout		= hf_tx_timeout,
- 	.ndo_set_mac_address	= NULL,
- 	.ndo_get_stats		= hf_get_stats,
- };
-@@ -497,6 +929,7 @@ static void hf_if_setup(struct net_device *netdev)
- 	netdev->header_ops	= &hf_header_ops;
- 	netdev->netdev_ops	= &hf_netdev_ops;
- 
-+	netdev->watchdog_timeo	= HF_TX_TIMEOUT;
- 	netdev->features       |= NETIF_F_SG;
- 
- 	memcpy(netdev->broadcast, hfi_bcast_addr, HF_ALEN);
-@@ -534,7 +967,7 @@ static struct hf_net *hf_init_netdev(int idx, int ai)
- 	if (rc) {
- 		printk(KERN_ERR "hf_init_netdev: "
- 				"failed to register netdev=hfi%d:hf%d, "
--				"rc 0x%x\n", ai, idx, rc);
-+				"rc = 0x%x\n", ai, idx, rc);
- 		free_netdev(netdev);
- 		return (struct hf_net *) -ENODEV;
- 	}
-@@ -601,6 +1034,7 @@ static void __exit hf_cleanup_module(void)
- 	unregister_inetaddr_notifier(&hf_inet_notifier);
- 	for (idx = 0; idx < MAX_HF_PER_HFI; idx++) {
- 		for (ai = 0; ai < MAX_HFIS; ai++) {
-+
- 			net = hf_ginfo.net[idx][ai];
- 			if (net != NULL) {
- 				hf_del_netdev(net);
-diff --git a/drivers/net/hfi/ip/hf_proto.h b/drivers/net/hfi/ip/hf_proto.h
-index f2b159e..b7c6d3c 100644
---- a/drivers/net/hfi/ip/hf_proto.h
-+++ b/drivers/net/hfi/ip/hf_proto.h
-@@ -33,6 +33,7 @@
- #ifndef _HF_PROTO_H_
- #define _HF_PROTO_H_
- 
-+int hf_tx_check_avail(struct hf_net *net, u32 xmit_cls);
- extern int hfidd_open_window_func(struct hfidd_acs *p_acs,
- 		u32 is_userspace,
- 		struct hfi_client_info *user_p,
-diff --git a/include/linux/hfi/hf_if.h b/include/linux/hfi/hf_if.h
-index d13c6ab..90b6331 100644
---- a/include/linux/hfi/hf_if.h
-+++ b/include/linux/hfi/hf_if.h
-@@ -43,6 +43,7 @@
- #include <linux/hfi/hfidd_internal.h>
+diff --git a/include/linux/hfi/hfidd_adpt.h b/include/linux/hfi/hfidd_adpt.h
+index babdb14..a41825f 100644
+--- a/include/linux/hfi/hfidd_adpt.h
++++ b/include/linux/hfi/hfidd_adpt.h
+@@ -36,6 +36,16 @@
  #include <linux/hfi/hfidd_client.h>
- #include <linux/hfi/hfidd_requests.h>
-+#include <linux/hfi/hfidd_regs.h>
- #include <linux/hfi/hfidd_pkt_formats.h>
  
- #define HF_DRV_VERSION			"1.0"
-@@ -51,15 +52,31 @@
  
- #define MAX_HF_PER_HFI			2
- #define	HF_IP_JOBID			0xFFFFFFF0
-+#define HF_TX_TIMEOUT			(500 * HZ)
- #define HF_MAX_NAME_LEN			64
++#define HFI_SFIFO_SIZE_MIN	0x10000		/* min =  64K software limit */
++#define HFI_SFIFO_SIZE_MAX	0x800000	/* max =  8M */
++
++#define HFI_RFIFO_SIZE_MIN	0x1000		/* min =  4K */
++#define HFI_RFIFO_SIZE_MAX	0x8000000	/* max =  128M */
++
++#define HFI_CACHE_LINE_SIZE	0x80
++#define HFI_CACHE_LINE_MASK	(HFI_CACHE_LINE_SIZE - 1)
++#define HFI_CACHE_LINE_SHIFT	7
++
+ #define HFI_WNUM_SHIFT		32
+ #define HFI_CAUNUM_SHIFT	32
+ #define HFI_SHIFT_OCTANT	3
+@@ -57,4 +67,11 @@
+ #define WIN_PENDING		6
+ #define WIN_FAIL_CLOSE		7
  
-+/* sfifo intr: bit 39-55 is threshold */
-+/*             bit 34 enable, bit 35 unmask */
-+#define HF_SFIFO_INTR_ENABLE		(0x3 << (63 - 35))
-+#define HF_SFIFO_INTR_MASK		0x1FFFF		/* 17 bits */
-+#define HF_SFIFO_INTR_CNT_SHIFT		(63 - 55)
-+#define HF_SFIFO_INTR_EVENT		0x00000040 /* bit 57 */
-+#define HF_SFIFO_INTR_WATERMARK		(HF_SFIFO_SLOTS - (HF_SFIFO_SLOTS >> 3))
++#define PAGE_MASK_4K		(PAGE_SIZE_4K - 1)
++#define PAGE_MASK_64K		(PAGE_SIZE_64K - 1)
++#define PAGE_MASK_1M		(PAGE_SIZE_1M - 1)
++#define PAGE_MASK_16M		(PAGE_SIZE_16M - 1)
++#define PAGE_MASK_4G		(PAGE_SIZE_4G - 1)
++#define PAGE_MASK_16G		(PAGE_SIZE_16G - 1)
 +
- #define HF_SFIFO_SIZE			0x40000	/* 256K */
- #define HF_SFIFO_SLOTS			(HF_SFIFO_SIZE >> HFI_CACHE_LINE_SHIFT)
- #define HF_RFIFO_SIZE			0x1000000	/* 16M */
- #define HF_RFIFO_SLOTS			(HF_RFIFO_SIZE >> HFI_CACHE_LINE_SHIFT)
-+#define HF_TX_LOW_WATERMARK		(HF_SFIFO_SLOTS >> 4)
- 
- #define HF_FV_BIT_CNT			32
--#define HF_NET_MTU			(2048 - HF_IP_HDR_LEN - HF_PROTO_LEN)
-+#define HF_FV_BIT_MAX			31
-+#define HF_SEND_ONE			1
-+
-+#define HF_PAYLOAD_MAX			(2048 - HF_IP_HDR_LEN - HF_PROTO_LEN)
-+#define HF_NET_MTU			HF_PAYLOAD_MAX
-+#define HF_PAYLOAD_RX_THRESHOLD		0x10ULL
-+#define HF_PAYLOAD_RX_THRESH_SHIFT	59
- 
- struct hfi_ip_extended_hdr {            /* 16B */
- 	u32		immediate_len:7;/* In bytes */
-@@ -91,6 +108,15 @@ struct hf_hwhdr {
- #define HF_HLEN				sizeof(struct hf_hwhdr)
- #define HF_ALIGN_PAD			2
- 
-+#define HF_PROTO_HDR_VERSION		0x1
-+/* HFI protocol message type */
-+#define	HF_IF_ARP			0xA0
-+#define	HF_IF_FIFO			0xA1
-+
-+/* HFI protocol message flag */
-+#define	HF_IF_UCAST			0xB0
-+#define	HF_IF_BCAST			0xB1
-+
- struct hf_if_proto_hdr {
- 	u16			version;
- 	u8			msg_type;
-@@ -100,6 +126,8 @@ struct hf_if_proto_hdr {
- };
- 
- #define HF_PROTO_LEN		sizeof(struct hf_if_proto_hdr)
-+#define HF_BCAST_CACHE_LINE_16	16
-+#define HF_BCAST_CACHE_LINE_2	2
- 
- struct hf_fifo {
- 	void			*addr;
-@@ -126,6 +154,7 @@ struct hf_if {
- 	u32			sfifo_fv_polarity;
- 	u32			sfifo_slots_per_blk;
- 	u32			sfifo_packets;
-+	u32			msg_id;
- 	void __iomem		*doorbell;		/* mapped mmio_regs */
- 	struct hf_fifo		tx_fifo;
- 	struct hf_fifo		rx_fifo;
-@@ -152,5 +181,47 @@ struct hf_global_info {
- 
- extern struct hf_global_info	hf_ginfo;
- 
-+#define HF_EVENT_NUM		1
-+
-+struct hf_events_cb {
-+	enum hfi_event_type	type;
-+	void			*func;
-+};
-+
- #define HF_MAC_HFI_SHIFT	12
-+#define HF_HDR_HFI_SHIFT	8
-+
-+static inline u32 hf_get_win(u16 id)
-+{
-+	return ((id >> HF_MAC_HFI_SHIFT) << HF_HDR_HFI_SHIFT) | (id & 0xFF);
-+}
-+
-+static inline void hf_get_dst_info(struct hf_hwhdr *hwhdr_p,
-+				   u16 *d_isr,
-+				   u16 *d_win)
-+{
-+	*d_isr = (*(u16 *)(&(hwhdr_p->h_dest[2]))) & 0xFFF;
-+	*d_win = hf_get_win(*(u16 *)(&(hwhdr_p->h_dest[4])));
-+}
-+
-+static inline void hf_mmio_regs_write_then_read(struct hf_if *net_if,
-+				int off,
-+				u64 data)
-+{
-+	__raw_writeq(data, net_if->doorbell + off);
-+	isync();
-+	__raw_readq(net_if->doorbell + off);
-+	/* Make sure all received pkt shows up in rfifo */
-+	mb();
-+}
-+
-+static inline u64 hf_mmio_regs_read(struct hf_if *net_if, int off)
-+{
-+	return __raw_readq(net_if->doorbell + off);
-+}
-+
-+static inline void hf_mmio_regs_write(struct hf_if *net_if, int off, u64 data)
-+{
-+	__raw_writeq(data, net_if->doorbell + off);
-+}
- #endif
+ #endif /* _HFIDD_ADPT_H_ */
 -- 
 1.7.3.1
 
