@@ -1,59 +1,50 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 0/8] mostly bonding rx path changes
-Date: Sat, 5 Mar 2011 10:35:00 +0100
-Message-ID: <20110305093459.GH5071@psychotron.redhat.com>
-References: <1299313794-5218-1-git-send-email-jpirko@redhat.com>
- <1299316329.2758.75.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9526 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751076Ab1CEJfl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 04:35:41 -0500
-Content-Disposition: inline
-In-Reply-To: <1299316329.2758.75.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: bookjovi@gmail.com
+Subject: [PATCH] net: mac80211: fix compilation warning
+Date: Wed,  2 Mar 2011 18:32:33 -0500
+Message-ID: <1299108754-5492-1-git-send-email-bookjovi@gmail.com>
+Cc: "John W. Linville" <linville@tuxdriver.com> (maintainer:NETWORKING
+	[WIREL...),
+	Johannes Berg <johannes@sipsolutions.net> (maintainer:MAC80211),
+	"David S. Miller" <davem@davemloft.net> (maintainer:NETWORKING
+	[GENERAL]),
+	linux-wireless@vger.kernel.org (open list:NETWORKING [WIREL...),
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+	linux-kernel@vger.kernel.org (open list)
+To: bookjovi@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Mar 05, 2011 at 10:12:09AM CET, eric.dumazet@gmail.com wrote:
->Le samedi 05 mars 2011 =E0 09:29 +0100, Jiri Pirko a =E9crit :
->> This patchset focuses mainly bonding rx path changes.
->>=20
->> Depends on "fcoe: correct checking for bonding"
->>=20
->> Jiri Pirko (8):
->>   af_packet: use skb->skb_iif instead of orig_dev->ifindex
->>   bonding: register slave pointer for rx_handler
->>   net: get rid of multiple bond-related netdevice->priv_flags
->>   bonding: wrap slave state work
->>   bonding: get rid of IFF_SLAVE_INACTIVE netdev->priv_flag
->>   bonding: move processing of recv handlers into handle_frame()
->>   net: introduce rx_handler results and logic around that
->>   net: get rid of orig_dev parameter of packet handlers
->>=20
->
->Jiri, I do believe your changelogs are not very helpful ...
->
->Oh wait, maybe you forgot to _include_ them ?
+From: Jovi Zhang <bookjovi@gmail.com>
 
-Well, I tried to explain that in subject. I think that most of patches
-are very local so additional description would be redundant. Truth is
-that I could comment "net: introduce rx_handler results and logic aroun=
-d
-that" or perhaps "bonding: move processing of recv handlers into
-handle_frame()" more.
+this commit fix compilation warning as following:
+net/mac80211/tx.c:1753: warning: unused variable mppath
 
-/me thinks that he needs to learn how to write novels...
+Signed-off-by: Jovi Zhang <bookjovi@gmail.com>
+---
+ net/mac80211/tx.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
-Anyway. I can repost with some more text if you like.
-
->
->;)
->
->
+diff --git a/net/mac80211/tx.c b/net/mac80211/tx.c
+index b0beaa5..e87b07f 100644
+--- a/net/mac80211/tx.c
++++ b/net/mac80211/tx.c
+@@ -1750,7 +1750,6 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 	__le16 fc;
+ 	struct ieee80211_hdr hdr;
+ 	struct ieee80211s_hdr mesh_hdr __maybe_unused;
+-	struct mesh_path *mppath = NULL;
+ 	const u8 *encaps_data;
+ 	int encaps_len, skip_header_bytes;
+ 	int nh_pos, h_pos;
+@@ -1805,6 +1804,8 @@ netdev_tx_t ieee80211_subif_start_xmit(struct sk_buff *skb,
+ 		break;
+ #ifdef CONFIG_MAC80211_MESH
+ 	case NL80211_IFTYPE_MESH_POINT:
++		struct mesh_path *mppath = NULL;
++
+ 		if (!sdata->u.mesh.mshcfg.dot11MeshTTL) {
+ 			/* Do not send frames with mesh_ttl == 0 */
+ 			sdata->u.mesh.mshstats.dropped_frames_ttl++;
+-- 
+1.7.2.3
