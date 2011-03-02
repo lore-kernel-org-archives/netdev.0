@@ -1,51 +1,89 @@
-From: Lai Jiangshan <laijs@cn.fujitsu.com>
-Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
-Date: Wed, 02 Mar 2011 10:55:57 +0800
-Message-ID: <4D6DB1BD.60003@cn.fujitsu.com>
-References: <4D6CA852.3060303@cn.fujitsu.com> <AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com> <alpine.DEB.2.00.1103010909320.6253@router.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Pekka Enberg <penberg@kernel.org>, Ingo Molnar <mingo@elte.hu>,
-        "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-        Eric Dumazet <eric.dumazet@gmail.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
-        linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <alpine.DEB.2.00.1103010909320.6253@router.home>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] bonding: added 802.3ad round-robin hashing policy and source mac selection mode
+Date: Tue, 01 Mar 2011 18:56:18 -0800
+Message-ID: <413.1299034578@death>
+References: <20110301223458.GA24403@yandex-team.ru> <20110301152951.646451c6@nehalam>
+Cc: "Oleg V. Ukhno" <olegu@yandex-team.ru>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e5.ny.us.ibm.com ([32.97.182.145]:36084 "EHLO e5.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755435Ab1CBC4W (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Mar 2011 21:56:22 -0500
+Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
+	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p222Vhgq007296
+	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 21:31:43 -0500
+Received: from d01relay07.pok.ibm.com (d01relay07.pok.ibm.com [9.56.227.147])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id DD8EF38C8038
+	for <netdev@vger.kernel.org>; Tue,  1 Mar 2011 21:56:20 -0500 (EST)
+Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
+	by d01relay07.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p222uL3x2760816
+	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 21:56:21 -0500
+Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p222uKOK018718
+	for <netdev@vger.kernel.org>; Tue, 1 Mar 2011 21:56:20 -0500
+In-reply-to: <20110301152951.646451c6@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/01/2011 11:11 PM, Christoph Lameter wrote:
-> On Tue, 1 Mar 2011, Pekka Enberg wrote:
-> 
->> The SLAB and SLUB patches are fine by me if there are going to be real
->> users for this. Christoph, Paul?
-> 
-> The solution is a bit overkill. It would be much simpler to add a union to
-> struct page that has lru and the rcu in there similar things can be done
-> for SLAB and the network layer. A similar issue already exists for the
-> spinlock in struct page. Lets follow the existing way of handling this.
+Stephen Hemminger <shemminger@vyatta.com> wrote:
 
-I don't want to impact the whole system too much to
-touch struct page. The solution changes existed things little,
-and the reversed data may just make use of the pad data.
+>On Wed, 2 Mar 2011 01:34:58 +0300
+>"Oleg V. Ukhno" <olegu@yandex-team.ru> wrote:
+>
+>> Patch introduces two new (related) features to bonding module.
+>> First feature is round-robin hashing policy, which is primarily
+>> intended for use with 802.3ad mode, and puts every next IPv4 and
+>> IPv6 packet into  next availables slave without taling into account
+>> which layer3 and above protocol is used.
+>> Second feature makes possible choosing which MAC-address will be set
+>> in the transmitted packet - when set to src-mac it will force setting
+>> slave's interface real MAC address as source MAC address in every
+>> packet, sent via this slave interface.
+>> Main goal of this patch is to make possible single TCP stream
+>> equally striped for both transmitted and received packets over all
+>> available slaves.
+>> This operating mode is not fully 802.3ad compliant, and will cause
+>> some packet reordering in TCP stream, to some kernel tuning may be
+>> required.
+>> For correct working enabling round-robin hashing policy plus using
+>> real slave's MAC addresses as source MAC addresses in transmitted
+>> packets requires specific switch setting)hashing mode for port-channel
+>> ("etherchannel) should be set to src-mac or src-dst-mac to get
+>> correct load-striping on the receiving host's etherchannel.
+>> General requirements for using bonding in this operating mode are:
+>> - even and preferrably equal number of slaves on sending and receiving
+>> hosts;
+>> - equal RTT between sending and receiving hosts on all slaves;
+>> - switch capable of doing etherchannels and using src-mac or src-dst-mac
+>> hashing policy for egress load striping
+>> 
+>> Signed-off-by: Oleg V. Ukhno <olegu@yandex-team.ru>
+>
+>It seems to me the whole bonding policy is getting so complex
+>that the code is a mess. Perhaps it should be somehow linked into
+>existing packet classification or firewall mechanisms.  This would
+>increase the flexibility and reduce the amount of policy code
+>in the bonding driver itself.
 
-> 
-> Struct page may be larger for debugging purposes already because of the
-> need for extended spinlock data.
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-> 
+	Hmm.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Fight unfair telecom internet charges in Canada: sign http://stopthemeter.ca/
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+	Yes, the number of special case knobs in bonding is getting
+rather large, and there are one or two other proposals in the pipe
+besides this one.
+
+	It would be handy to be able to do things like run ebtables
+style rules against traffic going in and out of the bond.  Right now
+ebtables is pretty tightly coupled with the bridge, so we'd need to add
+a whole new set of netfilter "bondtables" or something.  Or add hooks
+for ebtables outside of the bridge.
+
+	For this particular patch, the src-mac business could be handled
+by a netfilter module.  The round-robin hash policy part would probably
+have to stay in bonding.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
