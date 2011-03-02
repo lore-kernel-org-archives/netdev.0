@@ -1,110 +1,44 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6] bonding: remove skb_share_check in
- handle_frame
-Date: Wed, 2 Mar 2011 22:12:38 +0100
-Message-ID: <20110302211238.GC3360@psychotron.redhat.com>
-References: <20110301062250.GB2855@psychotron.redhat.com>
- <20110301092907.GG2855@psychotron.redhat.com>
- <20110301203843.GN11864@gospo.rdu.redhat.com>
- <20110302100354.GB2858@psychotron.brq.redhat.com>
- <4D6EACF6.2040005@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+From: dykmanj@linux.vnet.ibm.com
+Subject: [PATCH 00/27] HFI minimal device driver/network driver
+Date: Wed,  2 Mar 2011 16:19:55 -0500
+Message-ID: <1299100795-9028-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33450 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753067Ab1CBVMo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 16:12:44 -0500
-Content-Disposition: inline
-In-Reply-To: <4D6EACF6.2040005@gmail.com>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:42652 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755096Ab1CBVUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 16:20:06 -0500
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by e39.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22L7LGp011372
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 14:07:21 -0700
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LK5LR122374
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 14:20:05 -0700
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LOlhX000578
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 14:24:47 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Mar 02, 2011 at 09:47:50PM CET, nicolas.2p.debian@gmail.com wrote:
->Le 02/03/2011 11:03, Jiri Pirko a =E9crit :
->>Tue, Mar 01, 2011 at 09:38:43PM CET, andy@greyhouse.net wrote:
->>>On Tue, Mar 01, 2011 at 10:29:07AM +0100, Jiri Pirko wrote:
->>>>Unapplicable, sorry (wrong branch :(). Here's corrected patch:
->>>>
->>>>Subject: [PATCH net-next-2.6 v2] bonding: remove skb_share_check in=
- handle_frame
->>>>
->>>>No need to do share check here.
->>>>
->>>>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->>>>---
->>>>  drivers/net/bonding/bond_main.c |    3 ---
->>>>  1 files changed, 0 insertions(+), 3 deletions(-)
->>>>
->>>>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
-bond_main.c
->>>>index 584f97b..367ea60 100644
->>>>--- a/drivers/net/bonding/bond_main.c
->>>>+++ b/drivers/net/bonding/bond_main.c
->>>>@@ -1498,9 +1498,6 @@ static struct sk_buff *bond_handle_frame(stru=
-ct sk_buff *skb)
->>>>  	struct net_device *slave_dev;
->>>>  	struct net_device *bond_dev;
->>>>
->>>>-	skb =3D skb_share_check(skb, GFP_ATOMIC);
->>>>-	if (unlikely(!skb))
->>>>-		return NULL;
->>>>  	slave_dev =3D skb->dev;
->>>>  	bond_dev =3D ACCESS_ONCE(slave_dev->master);
->>>>  	if (unlikely(!bond_dev))
->>>>--
->>>>1.7.3.4
->>>>
->>>
->>>Why did you decide to get rid of it here rather than the 3 places in=
- the
->>>bonding driver where it is currently needed?  I think this can cover
->>>those cases since bond_handle_frame will be called after the ptype_a=
-ll
->>>handlers before any of the ptype handlers.
->>
->>I have already a patch prepared which converts bond ptype handlers in=
-to
->>being called from bond_handle_frame. You are propably right that this
->>should probably stay here.
->
->Hi Jiri,
->
->Do you plan to call the bonding ARP handler from inside bond_handle_fr=
-ame()?
+From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
 
-I do - it's part of patchset I've cooked (going to test that tomorrow).
+The HFI ("Host Fabric Interface") network interface is the internal cluster 
+fabric of IBM's PERCS supercomputer. The hardware design is under US export 
+control, so we cannot release hardware specs. There is a writeup of 
+publically available information about the system available here:
+http://sourceforge.net/projects/hfidevicedriver/files/docs/hfi_general_desc_v2.1.txt
 
->
->A few days ago
->(http://marc.info/?l=3Dlinux-netdev&m=3D129883949022340&w=3D2), I noti=
-ced
->that it is not possible to call the bonding ARP handler from inside
->the bonding rx_handler, because some frame processing may be required
->after the bonding rx_handler call, to put the frame in a suitable
->state for the bonding ARP handler.
+hfi_core contains the resource management to set up communications paths for
+network traffic. Calls are provided for kernel drivers, and also for setting
+up direct user-space access to HFI windows.
+hf_if contains the kernel network driver.
 
-Do you see another scenario besides the next one?
+The driver has been running in the lab for several months. The full patch is
+around 22000 lines, so we've split out a minimal device/network driver that 
+can send and receive through the simplest path.  Once that much gets reviewed 
+we'll start adding on to it.
 
->
->This is at least true with the following setup, eth0 -> bond0 ->
->bond0.100, where the ARP frames are VLAN tagged at the time the
->bonding rx_handler process them.
+Patches are against net-2.6 (Is that the correct tree for us to use?).
 
-Isn't this scenario resolved by vlan_on_bond_hook ?
-
-eth0
-  ->rx_handler -> another round
-bond0
-  ->vlan_hwaccel_do_receive -> __netif_receive_skb
-bond0.100
-  ->vlan_on_bond_hook -> reinject to bond0
-
-
->
->	Nicolas.
+Jim Dykman
