@@ -1,8 +1,8 @@
 From: Jake Edge <jake@lwn.net>
 Subject: Re: [PATCH v2] net: don't allow CAP_NET_ADMIN to load non-netdev
  kernel modules
-Date: Wed, 2 Mar 2011 13:38:35 -0700
-Message-ID: <20110302133835.5e267e9e@chukar>
+Date: Wed, 2 Mar 2011 13:40:06 -0700
+Message-ID: <20110302134006.2a2e7c61@chukar>
 References: <201102272122.52643.arnd@arndb.de>
 	<4D6B6AE7.2050202@msgid.tls.msk.ru>
 	<20110228095133.GA4351@albatros>
@@ -34,24 +34,11 @@ List-Id: netdev.vger.kernel.org
 
 On Wed, 2 Mar 2011 23:18:07 +0300 Vasiliy Kulikov wrote:
 
-> > and on systems that today use CAP_SYS_MODULE
-> 
-> Since Linux 2.6.32 CAP_SYS_MODULE may not load modules via "ifconfig
-> gre0".  It was changed to CAP_NET_ADMIN.  So nothing is broken here.
-> 
-> > (or really the full set of
-> > capabilities cuz they are running as root)?
-> 
 > As root has CAP_NET_ADMIN, the alias netdev-gre0 is tried and it
 > succeeds.
 
-(I feel like I'm beating a dead horse here, sorry if so ...)
-
-If I have a setuid-root program today that loads ip_gre by using the
-alias "gre0", and I run that program on a kernel with this change,
-won't it fail because the "gre0" alias is missing?  That program
-doesn't know to try "netdev-gre0". i.e. won't backward compatibility be
-affected by this change?
+Never mind, my apologies for the noise ... one always reads replies
+most carefully just *after* hitting send ...
 
 jake
 
