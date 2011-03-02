@@ -1,7 +1,7 @@
 From: dykmanj@linux.vnet.ibm.com
-Subject: [PATCH 23/27] HFI: Define packet header formats and window register offsets
-Date: Wed,  2 Mar 2011 16:10:09 -0500
-Message-ID: <1299100213-8770-23-git-send-email-dykmanj@linux.vnet.ibm.com>
+Subject: [PATCH 26/27] HFI: hf fifo receive path
+Date: Wed,  2 Mar 2011 16:10:12 -0500
+Message-ID: <1299100213-8770-26-git-send-email-dykmanj@linux.vnet.ibm.com>
 References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
@@ -13,21 +13,21 @@ Cc: Jim Dykman <dykmanj@linux.vnet.ibm.com>,
 	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
 	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e2.ny.us.ibm.com ([32.97.182.142]:52674 "EHLO e2.ny.us.ibm.com"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:37321 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757538Ab1CBVK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757516Ab1CBVK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 2 Mar 2011 16:10:28 -0500
 Received: from d01dlp02.pok.ibm.com (d01dlp02.pok.ibm.com [9.56.224.85])
-	by e2.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KqAfR003781
-	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:52:10 -0500
-Received: from d01relay06.pok.ibm.com (d01relay06.pok.ibm.com [9.56.227.116])
-	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id 92CD36E8038
-	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:27 -0500 (EST)
+	by e9.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p22KiMZP008762
+	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 15:44:22 -0500
+Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id F163F6E8038
+	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 16:10:26 -0500 (EST)
 Received: from d01av04.pok.ibm.com (d01av04.pok.ibm.com [9.56.224.64])
-	by d01relay06.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LAQuI2474012
+	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p22LAQ4D300714
 	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:26 -0500
 Received: from d01av04.pok.ibm.com (loopback [127.0.0.1])
-	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LAOTi032148
+	by d01av04.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p22LAPap032197
 	for <netdev@vger.kernel.org>; Wed, 2 Mar 2011 16:10:26 -0500
 To: netdev@vger.kernel.org
 In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
@@ -47,574 +47,525 @@ Signed-off-by:  Jian Xiao <jian@linux.vnet.ibm.com>
 Signed-off-by:  Carol L. Soto <clsoto@linux.vnet.ibm.com>
 Signed-off-by:  Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
 ---
- include/linux/hfi/hfidd_pkt_formats.h |  338 +++++++++++++++++++++++++++++++++
- include/linux/hfi/hfidd_regs.h        |  212 +++++++++++++++++++++
- 2 files changed, 550 insertions(+), 0 deletions(-)
- create mode 100644 include/linux/hfi/hfidd_pkt_formats.h
- create mode 100644 include/linux/hfi/hfidd_regs.h
+ drivers/net/hfi/ip/hf_if_main.c |  328 ++++++++++++++++++++++++++++++++++++++-
+ drivers/net/hfi/ip/hf_proto.h   |    2 +
+ include/linux/hfi/hf_if.h       |   25 +++-
+ 3 files changed, 352 insertions(+), 3 deletions(-)
 
-diff --git a/include/linux/hfi/hfidd_pkt_formats.h b/include/linux/hfi/hfidd_pkt_formats.h
-new file mode 100644
-index 0000000..ee8d385
---- /dev/null
-+++ b/include/linux/hfi/hfidd_pkt_formats.h
-@@ -0,0 +1,338 @@
-+/*
-+ * hfidd_pkt_formats.h
-+ *
-+ * HFI device driver for IBM System p
-+ *
-+ *  Authors:
-+ *      Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
-+ *      William S. Cadden <wscadden@linux.vnet.ibm.com>
-+ *      Wen C. Chen <winstonc@linux.vnet.ibm.com>
-+ *      Scot Sakolish <sakolish@linux.vnet.ibm.com>
-+ *      Jian Xiao <jian@linux.vnet.ibm.com>
-+ *      Carol L. Soto <clsoto@linux.vnet.ibm.com>
-+ *      Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
-+ *
-+ *  (C) Copyright IBM Corp. 2010
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
+diff --git a/drivers/net/hfi/ip/hf_if_main.c b/drivers/net/hfi/ip/hf_if_main.c
+index ea4579e..10dc1da 100644
+--- a/drivers/net/hfi/ip/hf_if_main.c
++++ b/drivers/net/hfi/ip/hf_if_main.c
+@@ -177,6 +177,9 @@ static int hf_alloc_rx_resource(struct hf_if *net_if)
+ 
+ 	memset(net_if->rx_fifo.addr, 0, net_if->rx_fifo.size);
+ 
++	net_if->rx_fslot_debt = 0;
++	net_if->rx_pkt_valid = 1;
 +
-+#ifndef _HFI_PKT_FORMATS_H
-+#define _HFI_PKT_FORMATS_H
-+
-+#define HFI_HW_DIRECT_ROUTE		0
-+#define HFI_SW_INDIRECT_ROUTE		1
-+#define HW_DIRECT_STRIPING_ROUTE	2
-+#define HW_INDIRECT_STRIPING_ROUTE	3
-+
-+/* HFI packet header format */
-+
-+struct immediate_send_hdr {
-+	unsigned int	reserved1:8;
-+	unsigned int	cop_type:8;	/* HFI coprocessor type is 0x3A */
-+	unsigned int	reserved2:7;
-+	unsigned int	src_win:9;	/* Hi bit is hfi# */
-+} __packed;
-+
-+struct packet_type_hdr {
-+	unsigned int	header_type:7;	/* See hfi_packet_type for types */
-+	unsigned int	send_origin:1;	/*  0: from Send/RDMA FIFO */
-+					/*  1: from Immediate Send */
-+} __packed;
-+
-+struct base_hdr {
-+	unsigned int	reserve1:1;
-+	unsigned int	dst_isr:14;	/* destination ISR */
-+	unsigned int	dst_win:9;	/* destination window.
-+					   Hi bit is hfi num */
-+	unsigned int	reserve2:1;
-+
-+	unsigned int	src_isr:14;	/* src ISR, Set by hardware */
-+	unsigned int	src_win:9;	/* src window, Set by hardware.
-+					   Hi bit is hfi num */
-+	unsigned int	src_cau:1;
-+	unsigned int	dst_cau:1;
-+	unsigned int	reserve3:2;
-+
-+	unsigned int	pkt_len:4;	/* In cache lines. 0 means 16 */
-+	unsigned int	reserve4:8;
-+	unsigned int	trc_enable:1;	/* Request ISR trace info
-+					   send/recv, IP packest only */
-+	unsigned int	ctr_incr:1;	/* Request send and receive
-+					   counter increments */
-+	unsigned int	sii:1;		/* Source Side Immediate Int */
-+	unsigned int	dii:1;		/* Dest Side Immediate Int */
-+	unsigned int	reserve5:3;
-+	unsigned int	pkt_valid:1;	/* Set by hardware
-+					   Toggles when rFIFO wraps */
-+	unsigned int	status:5;	/* Set by hardware completion status */
-+	unsigned int	route_control:2;/* ISR use only	*/
-+	unsigned int	ind_node:9;	/* ISR use only	*/
-+} __packed;
-+
-+struct hfi_rdma_extended_hdr {			/* 48B */
-+	unsigned long long	source_ea;	/* Full RDMA only, byte
-+						   boundary */
-+	unsigned long long	dest_ea;	/* byte boundary, independent of
-+						   source data boundary	*/
-+	unsigned int	pkt_len:4;		/* In cache lines, with
-+						   exceptions */
-+	unsigned int	reserved1:3;
-+	unsigned int	msg_len:25;		/* In bytes.
-+						   FullRDMA: Max 32MB
-+						   (encoded as 0)
-+						   HalfRDMA: Max 2kB
-+						   SmallRDMA: Max 16B */
-+	unsigned int	reserved2:5;
-+	unsigned int	rcxt_offset:20;		/* into window's rcxt area */
-+	unsigned int	reserved3:1;
-+	unsigned int	breakup:6;		/* Message Breakup count */
-+	unsigned int	epoch:32;
-+	unsigned int	seq_num:14;
-+	unsigned int	pkt_cnt:18;		/* FullRDMA only */
-+	unsigned int	reserved4:3;
-+	unsigned int	rcxt_index:5;		/* 1-31 allowed */
-+	unsigned int	read_indicator:1;	/* 1 for FULL RDMA reads */
-+	unsigned int	src_completion:1;
-+	unsigned int	src_completion_notify:1;
-+	unsigned int	dst_completion_notify:1;
-+	unsigned int	status:5;		/* Notification packet only. */
-+	unsigned int	reserved6:3;
-+	unsigned int	fetch:1;		/* SmallRDMA only. */
-+	unsigned int	opcode:3;
-+	unsigned int	reserved7:8;
-+	unsigned int	reserved8:32;
-+	unsigned long long	cookie;		/* Protocol cookie */
-+} __packed;
-+
-+struct gups_rdma_element {			/* 32B. Used without Base
-+						   header */
-+	unsigned int	job_id:32;
-+	unsigned int	header_type:7;		/* Use GUPS types only */
-+	unsigned int	reserved1:2;
-+	unsigned int	dst_isr:14;		/* destination ISR */
-+	unsigned int	dst_win:9;		/* destination window.
-+						   Hi bit is hfi# */
-+	unsigned int	reserved2:15;
-+	unsigned int	ctr_incr:1;		/* Request send and receive
-+						   counter increments */
-+	unsigned int	isr_route_hdr:16;	/* ISR use only	*/
-+	unsigned int	reserved3:32;
-+
-+	union {
-+		unsigned long long	addr;
-+		struct {
-+			unsigned int	dest_ea_hi:32;
-+			unsigned int	dest_ea_lo:29;	/* 8-byte align */
-+			unsigned int	opcode:3;	/* Use HFI_OPCODE* */
-+		} bits;
-+	} dest_ea;
-+
-+	unsigned long long     payload;
-+} __packed;
-+
-+struct hfi_cau_extended_hdr {		/* 32B */
-+	unsigned int		group_id:27;
-+	unsigned int		dst_sub_id:9;
-+	unsigned int		src_sub_id:9;
-+	unsigned int		reserved1:3;
-+	unsigned int		op_attr_unsigned:1;	/* 0->Signed */
-+	unsigned int		op_attr_64bit:1;	/* 0->32 bit */
-+	unsigned int		op_attr_float:1;	/* 0->Fixed  */
-+	unsigned int		function:5;
-+	unsigned int		payload_cnt:8;		/* bitmask */
-+	unsigned int		seq_num:32;
-+	unsigned int		reserved2:6;
-+	unsigned int		entry:1;		/* 0->A, 1->B */
-+	unsigned int		reserved3:25;
-+	unsigned long long	cookie_left;		/* Protocol Cookie */
-+	unsigned long long	cookie_right;
-+} __packed;
-+
-+struct hfi_hdr {
-+	union {
-+		struct immediate_send_hdr immediate_hdr;
-+		unsigned int		job_id;
-+	} id;
-+
-+	struct packet_type_hdr		type;
-+	struct base_hdr			base_hdr;
-+} __packed;
-+
-+struct hfi_rdma_hdr {
-+	struct hfi_hdr		hfi_hdr;
-+	struct hfi_rdma_extended_hdr rdma_ext;
-+	/*
-+	 * Pad enough for the payload to be aligned with the dest address.
-+	 * SmallRDMA: no padding FullRDMA: packets 2-N pad 64 bytes
-+	 */
-+} __packed;
-+
-+
-+struct hfi_rdma_pkt {
-+	struct hfi_hdr		hfi_hdr;
-+	struct hfi_rdma_extended_hdr rdma_ext;
-+	/*
-+	 * Pad enough for the payload to be aligned with the dest address.
-+	 * SmallRDMA: no padding FullRDMA: packets 2-N pad 64 bytes
-+	 */
-+	char			padding_slash_payload[1984];
-+} __packed;
-+
-+
-+#define CACHE_LINE_SIZE 0x80
-+#define CACHE_LINE_SHIFT 0x7
-+/*
-+ * Encode/Decode macros/inlines for bit fields
-+ */
-+static inline unsigned int hfi_bytes_to_cacheline(unsigned int bytes)
+ 	return 0;
+ }
+ 
+@@ -232,8 +235,18 @@ static int hf_send_intr_callback(void *parm, u32 win, u32 ext)
+ 	return 0;
+ }
+ 
++static int hf_recv_intr_callback(void *parm, u32 win, u32 ext)
 +{
-+	return (bytes + (CACHE_LINE_SIZE - 1)) >> CACHE_LINE_SHIFT;
++	struct hf_net	*net = (struct hf_net *)parm;
++
++	napi_schedule(&(net->napi));
++
++	return 0;
 +}
 +
-+static inline unsigned int HFI_CACHELINES_TO_BYTES(unsigned int cache_lines)
+ struct hf_events_cb hf_events[HF_EVENT_NUM] = {
+ 	{HFIDD_SEND,		(void *)hf_send_intr_callback},
++	{HFIDD_RECV,		(void *)hf_recv_intr_callback},
+ };
+ 
+ static int hf_register_ip_events(struct hf_net *net,
+@@ -376,14 +389,50 @@ static int hf_set_mac_addr(struct net_device *netdev, void *p)
+ 	return 0;
+ }
+ 
++static void hf_set_recv_intr(struct hf_if *net_if)
 +{
-+	return cache_lines << CACHE_LINE_SHIFT;
++	int			offset;
++	struct hfi_hdr		*rx_pkt;
++
++	/* enable recv intr and set threshold to next packet */
++	offset = net_if->rx_fifo.head;
++
++	hf_mmio_regs_write_then_read(net_if, HFI_RFIFO_INTR_REG,
++		(HF_ENA_RECV_INTR + (offset << HF_RECV_INTR_MATCH_SHIFT)));
++
++	/* check if there is packet received in the mean time */
++	rx_pkt = net_if->rx_fifo.addr + (offset << HFI_CACHE_LINE_SHIFT);
++
++	if ((rx_pkt->id.job_id == HF_IP_JOBID) &&
++		(rx_pkt->base_hdr.pkt_valid == net_if->rx_pkt_valid)) {
++
++		/* force an immediate recv intr */
++		hf_mmio_regs_write(net_if, HFI_RFIFO_INTR_REG,
++		(HF_IMM_RECV_INTR + (offset << HF_RECV_INTR_MATCH_SHIFT)));
++	}
 +}
 +
-+static inline unsigned int hfi_cachelines_to_pktlen(unsigned int cachelines)
+ static void hf_init_hw_regs(struct hf_if *net_if)
+ {
+ 	/* setup IP with payload threshold in cache line size */
+ 	hf_mmio_regs_write(net_if, HFI_IP_RECV_SIZE,
+ 		(HF_PAYLOAD_RX_THRESHOLD << HF_PAYLOAD_RX_THRESH_SHIFT));
+ 
++	/* setup recv fifo out of order intr control to disable */
++	hf_mmio_regs_write(net_if, HFI_RFIFO_OUT_EVENT_REG,
++			HF_RFIFO_OUT_CNTL_REARM);
++
++	/* setup recv fifo out of order threshold */
++	hf_mmio_regs_write(net_if, HFI_RFIFO_OUT_TH_REG, HF_RFIFO_OUT_THRESH);
++
+ 	/* initialize SEND INTR STATUS */
+ 	hf_mmio_regs_write(net_if, HFI_SINTR_STATUS_REG, 0);
++
++	hf_mmio_regs_write(net_if, HFI_RFIFO_INJ_TH_REG,
++			(HF_RFIFO_CACHE_INJ_TH << HF_RFIFO_CACHE_INJ_TH_SHIFT));
++
++	/* enable and set receive intr */
++	hf_set_recv_intr(net_if);
+ }
+ 
+ static int hf_net_delayed_open(void *parm, u16 win, u16 ext)
+@@ -422,6 +471,7 @@ static int hf_net_delayed_open(void *parm, u16 win, u16 ext)
+ 	net_if->state = HF_NET_OPEN;
+ 	spin_unlock(&(net_if->lock));
+ 
++	napi_enable(&net->napi);
+ 	netif_carrier_on(netdev);
+ 	netif_start_queue(netdev);
+ 
+@@ -511,6 +561,7 @@ static int hf_net_close(struct net_device *netdev)
+ 
+ 	spin_lock(&(net_if->lock));
+ 	if (net_if->state == HF_NET_OPEN) {
++		napi_disable(&net->napi);
+ 		netif_stop_queue(netdev);
+ 		netif_carrier_off(netdev);
+ 
+@@ -530,6 +581,247 @@ static int hf_net_close(struct net_device *netdev)
+ 	return 0;
+ }
+ 
++/* Invalidate the jobid field of each cache line before advancing head.
++ * The first cache line is protected by the valid bit, so we skip it. */
++static inline void hf_advance_rx_head(struct hf_if *net_if, u32 len)
 +{
-+	return cachelines & 0xf;  /* No overflow checking */
++	int		i, h;
++	u32		*cache_p;
++
++	h = (net_if->rx_fifo.head + 1) & (net_if->rx_fifo.emax);
++
++	for (i = 1; i < len; i++) {
++		cache_p = (u32 *)((char *)(net_if->rx_fifo.addr) +
++				(h << HFI_CACHE_LINE_SHIFT));
++		if (*cache_p == HF_IP_JOBID)
++			*cache_p = 0;
++		h = (h + 1) & (net_if->rx_fifo.emax);
++	}
++
++	if (net_if->rx_fifo.head > h)
++		net_if->rx_pkt_valid ^= 0x1;
++
++	net_if->rx_fifo.head = h;
 +}
 +
-+static inline unsigned int hfi_pktlen_to_cachelines(unsigned int pktlen)
++void hf_construct_hwhdr(struct hf_if *net_if,
++			struct sk_buff *skb,
++			struct base_hdr *b_hdr)
 +{
-+	return pktlen ? pktlen : 16;	/* 0 pktlen == 16 cache lines */
++	struct hf_hwhdr		*hwhdr_p;
++
++	hwhdr_p = (struct hf_hwhdr *)(skb->data);
++
++	/* MAC byte 1, bits6 = 1, locally admin MAC */
++	hwhdr_p->h_dest[0] = 0x2;
++	/* MAC byte 2, bits2-7 = cluster id */
++	hwhdr_p->h_dest[1] = 0x0;
++	*(u16 *)(&(hwhdr_p->h_dest[2])) = (u16)(b_hdr->dst_isr);
++	*(u16 *)(&(hwhdr_p->h_dest[4])) =
++			(u16)hf_get_mac(b_hdr->dst_win);
++
++	hwhdr_p->h_source[0] = 0x2;
++	hwhdr_p->h_source[1] = 0x0;
++	*(u16 *)(&(hwhdr_p->h_source[2])) = (u16)(b_hdr->src_isr);
++	*(u16 *)(&(hwhdr_p->h_source[4])) =
++				(u16)hf_get_mac(b_hdr->src_win);
++
++	hwhdr_p->h_proto = skb->protocol;
 +}
 +
-+struct hfi_gups_rdma_pkt {
-+	struct gups_rdma_element element[4];
-+} __packed;
++static inline int hf_check_hdr_version(struct hf_if *net_if,
++				struct hf_if_proto_hdr *hf_hdr)
++{
++	if (hf_hdr->version != HF_PROTO_HDR_VERSION) {
++		printk(KERN_ERR
++			"%s: hf_check_hdr_version: hdr version 0x%x "
++			"does not match 0x%x\n",
++			net_if->name, hf_hdr->version, HF_PROTO_HDR_VERSION);
++		net_if->net_stats.rx_dropped++;
 +
-+struct hfi_collective_pkt {
-+	struct hfi_hdr		hfi_hdr;
-+	struct hfi_cau_extended_hdr cau_ext;
-+	char			payload[64];
-+	char			pad[16];
-+} __packed;
++		return -EINVAL;
++	}
++	return 0;
++}
 +
-+/*
-+ * Opcodes for RDMA Extended Headers and GUPS-RDMA Elements
-+ */
-+#define HFI_OPCODE_ADD			0x0
-+#define HFI_OPCODE_AND			0x1
-+#define HFI_OPCODE_OR			0x2
-+#define HFI_OPCODE_XOR			0x3
-+#define HFI_OPCODE_RESERVED		0x4
-+#define HFI_OPCODE_CMP_SWAP_NOT_EQUAL	0x5
-+#define HFI_OPCODE_CMP_SWAP_EQUAL	0x6
-+#define HFI_OPCODE_SWAP			0x7
-+/* Fetch can be OR'd with any of the above Opcodes (SmallRDMA only) */
-+#define HFI_OPCODE_FETCH		0x8
++static void hf_recv_ip_with_payload(struct hf_net *net,
++				    struct hfi_ip_with_payload_pkt *pkt,
++				    u32 pkt_len)
++{
++	u32			len, resid;
++	struct hf_if		*net_if = &(net->hfif);
++	struct hf_if_proto_hdr	*hf_hdr;
++	struct sk_buff		*skb;
++	void			*src, *dst;
++	u32			cache_ln_num = 0;
++	u16			proto;
 +
-+enum hfi_cau_type {
-+	HFI_CAU_TYPE_FLOAT			= 0x01,
-+	HFI_CAU_TYPE_64BIT			= 0x02,
-+	HFI_CAU_TYPE_UNSIGNED			= 0x04
-+};
++	/* retrieve the protocol header pointer */
++	hf_hdr = (struct hf_if_proto_hdr *)(pkt->payload);
 +
-+enum hfi_cau_function {
-+	HFI_CAU_FUNCTION_NOP			= 0x00,
-+	HFI_CAU_FUNCTION_SUM			= 0x01,
-+	HFI_CAU_FUNCTION_MIN			= 0x02,
-+	HFI_CAU_FUNCTION_MAX			= 0x03,
-+	HFI_CAU_FUNCTION_AND			= 0x11,
-+	HFI_CAU_FUNCTION_XOR			= 0x16,
-+	HFI_CAU_FUNCTION_OR			= 0x17
-+};
++	if (hf_check_hdr_version(net_if, hf_hdr) != 0)
++		return;
 +
-+enum hfi_pkt_status {
-+	HFI_PKT_STATUS_GOOD			= 0x0,
-+	HFI_PKT_STATUS_DESCRIPTOR_FAILURE	= 0x1,
-+	HFI_PKT_STATUS_PACKET_KILLED		= 0x2,
-+	HFI_PKT_STATUS_UNEXPECTED_LAST_FLIT	= 0x4,
-+	HFI_PKT_STATUS_POWERBUS_MASTER		= 0x8,
-+	HFI_PKT_STATUS_TRANSLATION_FAULT	= 0x10
++	switch (hf_hdr->msg_type) {
++	case HF_IF_ARP:
++		proto = htons(ETH_P_ARP);
++		break;
 +
-+};
++	case HF_IF_FIFO:
++		proto = htons(ETH_P_IP);
++		break;
 +
-+enum hfi_rdma_pkt_status {
-+	HFI_RDMA_PKT_STATUS_GOOD		= 0x0,
-+	HFI_RDMA_PKT_STATUS_MIGRATION_CONFLICT	= 0x1,
-+	HFI_RDMA_PKT_STATUS_PACKET_KILLED	= 0x4,
-+	HFI_RDMA_PKT_STATUS_POWERBUS_MASTER	= 0x8,
-+	HFI_RDMA_PKT_STATUS_TRANSLATION_FAULT	= 0x10
++	default:
++		netdev_err(net->netdev,
++			"hf_recv_ip_with_payload: unknown msg_type 0x%x\n",
++			hf_hdr->msg_type);
++		net_if->net_stats.rx_dropped++;
++		return;
++	}
 +
-+};
++	len = hf_hdr->msg_len - HF_PROTO_LEN;
 +
-+enum hfi_packet_type {
-+	HFI_SEND_RECEIVE			= 0x00,	/* send FIFO -> receive
-+							   FIFO */
++	skb = netdev_alloc_skb_ip_align(net->netdev,
++				len + HF_HLEN + HF_ALIGN_PAD);
++	if (!skb) {
++		netdev_err(net->netdev, "hf_recv_ip_with_payload: "
++				"netdev_alloc_skb_ip_align fail\n");
++		net_if->net_stats.rx_dropped++;
++		BUG();
++		return;
++	}
 +
-+	HFI_IP_WITH_PAYLOAD			= 0x08,	/* send FIFO -> receive
-+							   FIFO for IP */
-+	HFI_IP_MULTICAST_WITH_PAYLOAD		= 0x09,	/* ISR use only */
-+	HFI_IP_WITH_DESCRIPTORS			= 0x0C,	/* IP send/recv with
-+							   indirection */
-+	HFI_IP_MULTICAST_WITH_DESCRIPTORS	= 0x0D,	/* IP send/recv with
-+							   indirection */
++	skb_reserve(skb, HF_ALIGN_PAD);
++	skb->protocol = proto;
 +
-+	HFI_FULL_RDMA_WRITE			= 0x10,
-+	HFI_FULL_RDMA_READ			= 0x11,
-+	HFI_FULL_RDMA_COMPLETION		= 0x12,	/* Completion
-+							   notification */
-+	HFI_FULL_RDMA_PREFENCE			= 0x13,	/* Guarantee RDMA FIFO
-+							   processing is
-+							   complete */
-+	HFI_FULL_RDMA_FENCE			= 0x14,	/* Guarantee RDMA FIFO
-+							   processing is
-+							   complete */
-+	HFI_FULL_RMDA_WRITE_ALIAS		= 0x15,	/* HW use only */
++	skb_put(skb, len + HF_HLEN);
 +
-+	HFI_HALF_RDMA_WRITE			= 0x18,	/* send FIFO to target
-+							   EA */
-+	HFI_HALF_RDMA_READ			= 0x19,	/* target EA to receive
-+							   FIFO */
-+	HFI_HALF_RDMA_COMPLETION		= 0x1A,	/* Completion
-+							   notification */
-+	HFI_HALF_RDMA_READ_ALIAS		= 0x1D,	/* HW use only */
++	/* construct hf_hwhdr from base hdr */
++	hf_construct_hwhdr(net_if, skb, &(pkt->hfi_hdr.base_hdr));
 +
-+	HFI_SMALL_RDMA_WRITE			= 0x20,	/* Remote atomic
-+							   operations */
-+	HFI_SMALL_RDMA_COMPLETION		= 0x22,	/* Completion
-+							   notification */
-+	HFI_SMALL_RDMA_COMPLETION_WITH_FETCH	= 0x23,	/* Completion
-+							   notification */
++	skb_reset_mac_header(skb);
 +
-+	HFI_GUPS_RDMA_1ELEMENT			= 0x28,	/* GUPS-RDMA, 1
-+							   element */
-+	HFI_GUPS_RDMA_2ELEMENT			= 0x29,	/* GUPS-RDMA,
-+							   2 element */
-+	HFI_GUPS_RDMA_3ELEMENT			= 0x2A,	/* GUPS-RDMA, 3
-+							   element */
-+	HFI_GUPS_RDMA_4ELEMENT			= 0x2B,	/* GUPS-RDMA, 4
-+							   element */
++	skb_pull(skb, HF_HLEN);
 +
-+	HFI_CAU_REDUCE				= 0x30,	/* Collective Reduce */
-+	HFI_CAU_MULTICAST			= 0x31,	/* Collective
-+							   Multicast */
-+	HFI_CAU_ACK				= 0x32,	/* Collective Ack */
-+	HFI_CAU_RETRANS_REQ			= 0x33,	/* Collective
-+							   Retransmit Req */
-+	HFI_LAST_HEADER
-+};
++	src = (void *)(hf_hdr + 1);
++	dst = (void *)skb->data;
 +
-+#endif /* _HFI_PKT_FORMATS_H */
-diff --git a/include/linux/hfi/hfidd_regs.h b/include/linux/hfi/hfidd_regs.h
-new file mode 100644
-index 0000000..864e0e6
---- /dev/null
-+++ b/include/linux/hfi/hfidd_regs.h
-@@ -0,0 +1,212 @@
-+/*
-+ * hfidd_regs.h
-+ *
-+ * HFI device driver for IBM System p
-+ *
-+ *  Authors:
-+ *      Fu-Chung Chang <fcchang@linux.vnet.ibm.com>
-+ *      William S. Cadden <wscadden@linux.vnet.ibm.com>
-+ *      Wen C. Chen <winstonc@linux.vnet.ibm.com>
-+ *      Scot Sakolish <sakolish@linux.vnet.ibm.com>
-+ *      Jian Xiao <jian@linux.vnet.ibm.com>
-+ *      Carol L. Soto <clsoto@linux.vnet.ibm.com>
-+ *      Sarah J. Sheppard <sjsheppa@linux.vnet.ibm.com>
-+ *
-+ *  (C) Copyright IBM Corp. 2010
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ */
++	/* check if the payload wrapped the rx_fifo */
++	if ((net_if->rx_fifo.head + (pkt_len - 1)) > net_if->rx_fifo.emax) {
++		/* Wrapped */
++		cache_ln_num = net_if->rx_fifo.emax - net_if->rx_fifo.head + 1;
++		resid  = cache_ln_num << HFI_CACHE_LINE_SHIFT;
++		resid -= (HF_IP_HDR_LEN + HF_PROTO_LEN);
 +
-+#ifndef HFIDD_REGS_H
-+#define HFIDD_REGS_H
++		/* For netboot, pkt_len maybe larger than len */
++		if (resid > len)
++			resid = len;
 +
-+/* MMIO Registers */
-+/* These are the registers with User Privilege Level */
++		memcpy(dst, src, resid);
 +
-+/* Window Control */
-+#define HFI_JOB_ID_SEND		0x0000	/* 32: Send Side Job ID */
-+#define HFI_JOB_ID_RECV		0x0008	/* 32: Send Side Job ID */
-+#define HFI_WINDOW_STATE	0x0010	/*  1: 0=closed, 1=active */
-+#define HFI_SEND_BUSY		0x0020	/* Send Window Busy */
-+#define HFI_RECV_BUSY		0x0028	/* Rcv Window Busy */
++		src = (void *)net_if->rx_fifo.addr;
++		dst = (void *)skb->data + resid;
++		len -= resid;
++	}
 +
-+/* Addr Translation */
-+#define HFI_LPAR_ID		0x0040	/* 10: Partition ID */
-+#define HFI_PROTECTION_DOMAIN	0x0048	/* 32: used for addr xlat */
-+#define HFI_XLAT_BYPASS		0x0050	/*  1:			  */
++	/* copy the rest of payload */
++	if (len > 0)
++		memcpy(dst, src, len);
 +
-+/* Imm Send */
-+#define HFI_IMM_SEND_BUF_ATTRBS	0x0080	/* 40: Immed Send Buffer Attributes */
-+#define HFI_IMM_BUF_INUSE	0x0090	/* Immed Send Buffers In Use */
-+#define HFI_IMM_FINI_COUNT	0x00A0	/* Immed Send Buffer Finished Count */
-+#define HFI_IMM_FINI_FREQUENCY	0x00A8	/* Immed Send Finished Frequency */
++	skb->ip_summed = CHECKSUM_NONE;
 +
-+/* Send Fifo */
-+#define HFI_SFIFO_DB_REG	0x0110	/* 16: Send Fifo Doorbell */
-+#define HFI_SFIFO_BASE_ADDR	0x0120	/* 64: Send Fifo Effective Addr */
-+#define HFI_SFIFO_LKEY		0x0128	/* 32: Send Fifo Local Key */
-+#define HFI_SFIFO_PULL_OFF	0x0140	/* 64: Send Fifo Pull Offset */
-+#define HFI_SFIFO_SIZE		0x0148	/*  4: size from 4K to 8M   */
-+#define HFI_SFIFO_PEND_COUNT	0x0150	/* 16: Send Fifo Pending Count */
-+#define HFI_SFIFO_FINI_POLARITY	0x0158	/*  1: Send Fifo Finish Polarity Bit */
-+#define HFI_SFIFO_FINI_ADDR	0x0180	/* 64: Send Fifo Finish Effective
-+					   Addr */
-+#define HFI_IMM_FINI_ADDR	0x0188	/* Immed Send Finished Address */
-+#define HFI_SFIFO_INTR_CNTL	0x01C8	/* xx: Send Fifo Interrupt Control */
++	net_if->net_stats.rx_packets++;
++	net_if->net_stats.rx_bytes += skb->len;
 +
-+/* Full-RDMA Send Fifo */
-+#define HFI_FRDMA_DB_REG	0x0210	/* Full-RDMA Send Fifo Doorbell */
-+#define HFI_FRDMA_BASE_ADDR	0x0220	/* Full-RDMA Send Fifo Effective
-+					   Address */
-+#define HFI_FRDMA_LKEY		0x0228	/* Full-RDMA Send Fifo Local Key */
-+#define HFI_FRDMA_PULL_REG	0x0240	/* Full-RDMA Send Fifo Pull Offset */
-+#define HFI_FRDMA_SIZE		0x0248	/* Full-RDMA Send Size */
-+#define HFI_FRDMA_PEND_REG	0x0250	/* Full-RDMA Send Fifo Pending Count */
-+#define HFI_FRDMA_FINI_POLARITY	0x0248	/* Full-RDMA Send Fifo Finished
-+					   Polarity */
-+#define HFI_FRDMA_BREAKUP_REG	0x0260	/* Full-RDMA Send Fifo Breakup Count */
-+#define HFI_FRDMA_FINI_ADDR	0x0280	/* Full-RDMA Send Fifo Finished
-+					   Address */
-+#define HFI_FRDMA_INTR_REG	0x02C8	/* Full-RDMA Send Fifo Interrupt
-+					   Control */
-+#define HFI_FRDMA_FENCE_CNT	0x0578	/* Full-RDMA Send Fifo Fence Count */
++	netif_receive_skb(skb);
++}
 +
-+/* Send Interrupts */
-+#define HFI_SINTR_CONTROL_REG	0x02E0	/* Send Force Interrupt Control */
-+#define HFI_SINTR_STATUS_REG	0x02E8	/* Send Intr Status */
++static void hf_recv_ip_good(struct hf_net *net,
++			    struct hfi_hdr *rx_curr,
++			    u32 pkt_len)
++{
++	struct hf_if	*net_if = &(net->hfif);
 +
-+/* Receive Fifo */
-+#define HFI_RFIFO_INC_FSLOT_REG	0x0310	/* Receive Fifo Inc Free Slot Count */
-+#define HFI_RFIFO_BASE_ADDR	0x0320	/* Receive Fifo Effective Address */
-+#define HFI_RFIFO_LKEY		0x0328	/* Receive Fifo Local Key */
-+#define HFI_RFIFO_PUSH_REG	0x0340	/* Receive Fifo Push Offset */
-+#define HFI_RFIFO_SIZE		0x0348	/*  4: range from 4K to 8M   */
-+#define HFI_RFIFO_FSLOT_CNT_REG	0x0350	/* Receive Fifo Free Slot Count */
-+#define	HFI_RFIFO_FINI_POLARITY	0x0358	/* Receive Fifo Finished Polarity */
-+#define HFI_RFIFO_INJ_TH_REG	0x0360	/* Receive Fifo Cache Injection
-+					   Threshold */
-+#define HFI_RFIFO_OUT_TH_REG	0x0368	/* Receive Fifo Out-of-Order
-+					   Threshold */
-+#define HFI_RFIFO_OUT_EVENT_REG	0x03C0	/* Receive Fifo Out-of-Order Event
-+					   Control */
-+#define HFI_RFIFO_INTR_REG	0x03C8	/* Receive Fifo Intr Control */
++	switch (rx_curr->type.header_type) {
 +
-+/* Receive Interrupts */
-+#define HFI_RINTR_CONTROL_REG	0x03E0	/* Receive Force Intr Control */
-+#define HFI_RINTR_STATUS_REG	0x03E8	/* Receivce Intr Status */
++	case  HFI_IP_WITH_PAYLOAD:
++	case  HFI_IP_MULTICAST_WITH_PAYLOAD:
++		hf_recv_ip_with_payload(net,
++			(struct hfi_ip_with_payload_pkt *)rx_curr, pkt_len);
++		break;
 +
-+/* IP 2K Free Space Descriptor Fifo */
-+#define HFI_IP2K_INC_AVAIL_REG	0x0410	/* IP 2k FSD Fifo Inc Avail Slot
-+					   Count */
-+#define HFI_IP2K_BASE_ADDR	0x0420	/* IP 2k FSD Fifo Effective Address */
-+#define HFI_IP2K_LKEY		0x0428	/* IP 2k FSD Fifo Local Key */
-+#define HFI_IP2K_PULL_REG	0x0440	/* IP 2k FSD Fifo Pull Offset */
-+#define HFI_IP2K_SIZE		0x0448	/* IP 2k FSD Fifo Size */
-+#define HFI_IP2K_ASLOT_CNT_REG	0x0450	/* IP 2k FSD Fifo Avail Slot Count */
++	default:
++		netdev_err(net->netdev, "hf_rx: receive unknown "
++			"headerType = 0x%x, pkt_len = 0x%x\n",
++			rx_curr->type.header_type, pkt_len);
 +
-+/* RDMA Pending Fifo */
-+#define HFI_RDMAP_BASE_ADDR	0x0520	/* RDMA Pending Fifo Efective Address */
-+#define HFI_RDMAP_LKEY		0x0528	/* RDMA Pending Fifo Local Key */
-+#define HFI_RDMAP_PULL_REG	0x0540	/* RDMA Pending Fifo Pull Offset */
-+#define HFI_RDMAP_SIZE		0x0548	/* RDMA Pending Fifo Size */
-+#define HFI_RDMAP_READ_TH_REG	0x0568	/* RDMA Pending Fifo Read Request
-+					   Threshold */
-+#define HFI_RDMAP_PUSH_REG	0x0570	/* RDMA Pending Fifo Push Offset */
-+#define HFI_RDMAP_PEND_REG	0x0550	/* RDMA Pending Fifo Pending Count */
++		/* unknown packet, drop it */
++		net_if->net_stats.rx_dropped++;
++		break;
++	}
++}
 +
-+/* Send Special Fifo */
-+#define HFI_SSFIFO_BASE_ADDR	0x0620	/* Send Special Fifo Effective
-+					   Address */
-+#define HFI_SSFIFO_LKEY		0x0628	/* Send Special Fifo Local Key */
-+#define HFI_SSFIFO_PULL_REG	0x0640	/* Send Special Fifo Pull Offset */
-+#define HFI_SSFIFO_SIZE		0x0648	/* Send Special Fifo Size */
-+#define HFI_SSFIFO_PUSH_REG	0x0670	/* Send Special Fifo Push Offset */
-+#define HFI_SSFIFO_PENG_REG	0x0650	/* Send Special Fifo Pending Count */
++static int hf_rx(struct hf_net *net, int budget)
++{
++	int		num = 0;
++	struct hf_if	*net_if = &(net->hfif);
++	u32		pkt_len, status;
++	struct hfi_hdr	*rx_curr;
++	u32		job_id, pkt_valid;
 +
-+/* IP Context */
-+#define HFI_IP_MCAST_ENABLE_REG	0x0820	/* IP Send - Multi-cast Enable */
-+#define HFI_IP_DISABLE_ISR_REG	0x0828	/* IP Send - Disable Src_ISR_ID
-+					   Stamp */
-+#define HFI_IP_PORT_VALID_REG	0x0830	/* IP Logical Port ID Valid */
-+#define	HFI_IP_PORT_REG		0x0838	/* IP Logical Port ID */
-+#define HFI_IP_RECV_SIZE	0x0860	/* IP Recv with Payload Max Size */
-+#define HFI_IP_RCV_IMM_REG	0x0868	/* IP RCV-Immediate Max Size */
++	rx_curr = (struct hfi_hdr *) (net_if->rx_fifo.addr +
++			(net_if->rx_fifo.head << HFI_CACHE_LINE_SHIFT));
 +
-+/* RDMA Context */
-+#define HFI_RDMA_RCXT_BASE_ADDR	0x0920	/* RDMA Rcv RCxt Effective Address */
-+#define HFI_RDMA_RCXT_LKEY	0x0928	/* RDMA RCxt Local Key */
-+#define	HFI_RDMA_RCXT_PAY_LKEY	0x0058	/* RDMA Payload Local Key
-+					   (no-sequential) */
-+#define HFI_RDMA_RCXT_EPOCH	0x0980	/* RCxt Update Epoch */
-+#define HFI_RDMA_RCXT_CACHE	0x0990	/* RCxt Cache Entry Flush Request */
++	while (budget != 0) {
++		job_id = rx_curr->id.job_id;
++		pkt_valid = rx_curr->base_hdr.pkt_valid;
 +
-+/* Counters */
-+#define HFI_PACKETS_SENT_REG	0x0C00	/* Packets Sent */
-+#define HFI_PSENT_DROP_REG	0x0C08	/* Packets Dropped from Sending */
-+#define HFI_PIND_SENT_CNT_REG	0x0C10	/* Packet-Indicated Send Count */
-+#define HFI_IMM_SEND_CNT_REG	0x0C18	/* Immed Send Packet Count */
-+#define HFI_PACKETS_RCV_REG	0x0C40	/* Packets Received */
-+#define HFI_PRCV_DROP_REG	0x0C48	/* Packets Dropped from Receiving */
-+#define HFI_PIND_RCV_CNT_REG	0x0C50	/* Packet-Indicated Receive Count */
-+#define HFI_SBIT_EEC_CNT_REG	0x0C60	/* Single-Bit ECC Count */
-+#define HFI_SBIT_EEC_TH_REG	0x0C68	/* Single-Bit ECC Threshold for Error */
-+#define HFI_ADDR_XLAT_CNT_REG	0x0C80	/* Addr Xlat Wait Count */
++		isync();
++		if ((job_id != HF_IP_JOBID) ||
++		    (pkt_valid != net_if->rx_pkt_valid))
++			break;
 +
-+/* Misc Non-Window Registers */
-+#define	HFI_NUM_WINDOWS_REG	0x0000	/* Number of Windows */
-+#define HFI_AGGR_PSENT_CNT_REG	0x0100	/* Aggregate Packet Sent Count */
-+#define HFI_AGGR_PSENT_DROP_REG	0x0108	/* Aggregate Packet Dropped from
-+					   Sending Count */
-+#define HFI_AGGR_PRCV_CNT_REG	0x0110	/* Aggregate Packet Receive Count */
-+#define HFI_AGGR_PRCV_DROP_REG	0x0118	/* Aggregate Packet Dropped from
-+					   Receive Count */
-+#define HFI_AGGR_ISEND_CNT_REG	0x0120	/* Aggregate Immediate Send Packet
-+					   Sent Count */
-+#define HFI_AGGR_SR_CNT_REG	0x0128	/* Aggregate Send/Rcv Packet Send
-+					   Count */
-+#define HFI_AGGR_FRDMA_CNT_REG	0x0130	/* Aggregate Full-RDMA Packet Sent
-+					   Count */
-+#define HFI_AGGR_HRDMA_CNT_REG	0x0138	/* Aggregate Half-RDMA Packet Sent
-+					   Count */
-+#define HFI_AGGR_SRDMA_CNT_REG	0x0140	/* Aggregate Small-RDMA Packet Sent
-+					   Count */
-+#define HFI_AGGR_IP_CNT_REG	0x0148	/* Aggregate IP Packet Sent Count */
-+#define HFI_AGGR_CAU_CNT_REG	0x0150	/* Aggregate CAU Packet Sent Count */
-+#define HFI_AGGR_GUPS_CNT_REG	0x0158	/* Aggregate GUPS Packet Sent Count */
-+#define HFI_AGGR_NOTIFS_CNT_REG 0x0170  /* Aggregate Notifications Packet Sent
-+						Count*/
++		pkt_len = hfi_pktlen_to_cachelines(rx_curr->base_hdr.pkt_len);
 +
-+#define HFI_RCXT_FLUSH_REG	0x0600	/* RCxt Cache Window Flush Request */
-+#define HFI_PG_MIGR1_REG	0x0708	/* Page Migration Register 1 */
-+#define HFI_PG_MIGR2_REG	0x0710	/* Page Migration Register 2 */
-+#define HFI_PG_MIGR3_REG	0x0718	/* Page Migration Register 3 */
-+#define HFI_PG_MIGR4_REG	0x0720	/* Page Migration Register 4 */
-+#define HFI_PG_MIGR5_REG	0x0728	/* Page Migration Register 5 */
-+#define HFI_PG_MIGR6_REG	0x0730	/* Page Migration Register 6 */
-+#define HFI_PG_MIGR7_REG	0x0738	/* Page Migration Register 7 */
-+#define HFI_PG_MIGR1_RESV_REG	0x0808	/* Page Migration Reservation 1 */
-+#define HFI_PG_MIGR2_RESV_REG	0x0810	/* Page Migration Reservation 2 */
-+#define HFI_PG_MIGR3_RESV_REG	0x0818	/* Page Migration Reservation 3 */
-+#define HFI_PG_MIGR4_RESV_REG	0x0820	/* Page Migration Reservation 4 */
-+#define HFI_PG_MIGR5_RESV_REG	0x0828	/* Page Migration Reservation 5 */
-+#define HFI_PG_MIGR6_RESV_REG	0x0830	/* Page Migration Reservation 6 */
-+#define HFI_PG_MIGR7_RESV_REG	0x0838	/* Page Migration Reservation 7 */
-+#define HFI_ADDR_XLAT_WCNT_REG	0x0A20	/* Addr Xlat Wait Count */
++		status = rx_curr->base_hdr.status;
++		if (status == HFI_PKT_STATUS_GOOD) {
++			hf_recv_ip_good(net, rx_curr, pkt_len);
++		} else {
++			/* bad packet */
++			netdev_err(net->netdev, "hf_rx: receive bad "
++				"status = 0x%x, pkt_len = 0x%x\n",
++				status, pkt_len);
 +
-+#define MASK_56_BITS	0x00ffffffffffffff
-+#define MASK_40_BITS	0x000000ffffffffff
++			net_if->net_stats.rx_dropped++;
++		}
 +
-+#endif /* HFIDD_REGS_H */
++		net->netdev->last_rx = jiffies;
++
++		hf_advance_rx_head(net_if, pkt_len);
++
++		/* Make sure the jobid is invalidated before posting to hw */
++		wmb();
++
++		net_if->rx_fslot_debt += pkt_len;
++		if (net_if->rx_fslot_debt >= HF_INC_FSLOT_WATERMARK) {
++			hf_mmio_regs_write(net_if, HFI_RFIFO_INC_FSLOT_REG,
++					net_if->rx_fslot_debt);
++			net_if->rx_fslot_debt = 0;
++		}
++
++		budget--;
++		num++;
++		rx_curr = net_if->rx_fifo.addr +
++			(net_if->rx_fifo.head << HFI_CACHE_LINE_SHIFT);
++
++	}
++
++	netdev_dbg(net->netdev, "hf_rx: exit, head = 0x%x, recv 0x%x pkts\n",
++			net_if->rx_fifo.head, num);
++
++	return num;
++}
++
+ static void hf_tx_recycle(struct hf_if *net_if)
+ {
+ 	u32		head, head_idx, slots_per_blk;
+@@ -935,6 +1227,30 @@ static void hf_if_setup(struct net_device *netdev)
+ 	memcpy(netdev->broadcast, hfi_bcast_addr, HF_ALEN);
+ }
+ 
++static int hf_poll(struct napi_struct *napi, int budget)
++{
++	int			work_done;
++	struct net_device	*netdev;
++	struct hf_net		*net;
++	struct hf_if		*net_if;
++
++	net	= container_of(napi, struct hf_net, napi);
++	net_if	= &(net->hfif);
++	netdev	= net->netdev;
++
++	work_done = hf_rx(net, budget);
++
++	/* Always assume we have received all available packets */
++	/*  and set recv intr for next packet */
++	if (work_done < budget) {
++		napi_complete(napi);
++		isync();
++		hf_set_recv_intr(net_if);
++	}
++
++	return work_done;
++}
++
+ static struct hf_net *hf_init_netdev(int idx, int ai)
+ {
+ 	struct net_device	*netdev;
+@@ -953,6 +1269,7 @@ static struct hf_net *hf_init_netdev(int idx, int ai)
+ 	}
+ 
+ 	net = netdev_priv(netdev);
++	netif_napi_add(netdev, &(net->napi), hf_poll, HF_NAPI_WEIGHT);
+ 	net->netdev = netdev;
+ 
+ 	memset(&(net->hfif), 0, sizeof(struct hf_if));
+@@ -968,11 +1285,16 @@ static struct hf_net *hf_init_netdev(int idx, int ai)
+ 		printk(KERN_ERR "hf_init_netdev: "
+ 				"failed to register netdev=hfi%d:hf%d, "
+ 				"rc = 0x%x\n", ai, idx, rc);
+-		free_netdev(netdev);
+-		return (struct hf_net *) -ENODEV;
++		goto err_out1;
+ 	}
+ 
+ 	return net;
++
++err_out1:
++	netif_napi_del(&(net->napi));
++	free_netdev(netdev);
++
++	return (struct hf_net *) -ENODEV;
+ }
+ 
+ static void hf_del_netdev(struct hf_net *net)
+@@ -981,6 +1303,8 @@ static void hf_del_netdev(struct hf_net *net)
+ 
+ 	unregister_netdev(netdev);
+ 
++	netif_napi_del(&(net->napi));
++
+ 	free_netdev(netdev);
+ }
+ 
+diff --git a/drivers/net/hfi/ip/hf_proto.h b/drivers/net/hfi/ip/hf_proto.h
+index b7c6d3c..b70ecdd 100644
+--- a/drivers/net/hfi/ip/hf_proto.h
++++ b/drivers/net/hfi/ip/hf_proto.h
+@@ -34,6 +34,8 @@
+ #define _HF_PROTO_H_
+ 
+ int hf_tx_check_avail(struct hf_net *net, u32 xmit_cls);
++void hf_construct_hwhdr(struct hf_if *net_if, struct sk_buff *skb,
++			struct base_hdr *b_hdr);
+ extern int hfidd_open_window_func(struct hfidd_acs *p_acs,
+ 		u32 is_userspace,
+ 		struct hfi_client_info *user_p,
+diff --git a/include/linux/hfi/hf_if.h b/include/linux/hfi/hf_if.h
+index 90b6331..39bcdae 100644
+--- a/include/linux/hfi/hf_if.h
++++ b/include/linux/hfi/hf_if.h
+@@ -53,8 +53,15 @@
+ #define MAX_HF_PER_HFI			2
+ #define	HF_IP_JOBID			0xFFFFFFF0
+ #define HF_TX_TIMEOUT			(500 * HZ)
++#define HF_NAPI_WEIGHT			256
+ #define HF_MAX_NAME_LEN			64
+ 
++/* rfifo intr */
++#define HF_RFIFO_OUT_CNTL_REARM		0	/* 0 to disable interrupt */
++#define HF_IMM_RECV_INTR		0xf0000000	/* bit 32-35 on */
++#define HF_ENA_RECV_INTR		0xc0000000	/* bit 32-33 on */
++#define HF_RECV_INTR_MATCH_SHIFT	7	/* bit 37-56 */
++
+ /* sfifo intr: bit 39-55 is threshold */
+ /*             bit 34 enable, bit 35 unmask */
+ #define HF_SFIFO_INTR_ENABLE		(0x3 << (63 - 35))
+@@ -73,11 +80,17 @@
+ #define HF_FV_BIT_MAX			31
+ #define HF_SEND_ONE			1
+ 
++#define HF_RFIFO_CACHE_INJ_TH		7ULL
++#define HF_RFIFO_CACHE_INJ_TH_SHIFT	61
++#define HF_RFIFO_OUT_THRESH		0
++
+ #define HF_PAYLOAD_MAX			(2048 - HF_IP_HDR_LEN - HF_PROTO_LEN)
+ #define HF_NET_MTU			HF_PAYLOAD_MAX
+ #define HF_PAYLOAD_RX_THRESHOLD		0x10ULL
+ #define HF_PAYLOAD_RX_THRESH_SHIFT	59
+ 
++#define HF_INC_FSLOT_WATERMARK		(HF_RFIFO_SLOTS >> 3)
++
+ struct hfi_ip_extended_hdr {            /* 16B */
+ 	u32		immediate_len:7;/* In bytes */
+ 	u32		num_desc:3;     /* number of descriptors */
+@@ -98,6 +111,7 @@ struct hfi_ip_with_payload_pkt {
+ 
+ #define HF_IP_HDR_LEN			((sizeof(struct hfi_hdr) + \
+ 				sizeof(struct hfi_ip_extended_hdr)))
++
+ #define HF_ALEN				6
+ struct hf_hwhdr {
+ 	u8				h_dest[HF_ALEN];
+@@ -154,7 +168,10 @@ struct hf_if {
+ 	u32			sfifo_fv_polarity;
+ 	u32			sfifo_slots_per_blk;
+ 	u32			sfifo_packets;
++	u32			rx_pkt_valid;		/* Polarity of recv
++							   packet valid bit */
+ 	u32			msg_id;
++	u32			rx_fslot_debt;
+ 	void __iomem		*doorbell;		/* mapped mmio_regs */
+ 	struct hf_fifo		tx_fifo;
+ 	struct hf_fifo		rx_fifo;
+@@ -168,6 +185,7 @@ struct hf_if {
+ /* Private structure for HF inetrface */
+ struct hf_net {
+ 	struct net_device	*netdev;
++	struct napi_struct	napi;
+ 	struct hf_if		hfif;
+ };
+ 
+@@ -181,7 +199,7 @@ struct hf_global_info {
+ 
+ extern struct hf_global_info	hf_ginfo;
+ 
+-#define HF_EVENT_NUM		1
++#define HF_EVENT_NUM		2
+ 
+ struct hf_events_cb {
+ 	enum hfi_event_type	type;
+@@ -191,6 +209,11 @@ struct hf_events_cb {
+ #define HF_MAC_HFI_SHIFT	12
+ #define HF_HDR_HFI_SHIFT	8
+ 
++static inline u32 hf_get_mac(u32 w)
++{
++	return ((w >> HF_HDR_HFI_SHIFT) << HF_MAC_HFI_SHIFT) | (w & 0xFF);
++}
++
+ static inline u32 hf_get_win(u16 id)
+ {
+ 	return ((id >> HF_MAC_HFI_SHIFT) << HF_HDR_HFI_SHIFT) | (id & 0xFF);
 -- 
 1.7.3.1
 
