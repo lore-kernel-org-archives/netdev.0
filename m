@@ -1,73 +1,55 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: Kernel panic nf_nat_setup_info+0x5b3/0x6e0
-Date: Wed, 2 Mar 2011 22:37:11 +0800
-Message-ID: <AANLkTikkz23221ZSiat8N5tnE_bkHN=1EUNQTDdnC30L@mail.gmail.com>
-References: <118081298480841@web25.yandex.ru> <4D6E2BEB.50805@trash.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
+Date: Wed, 02 Mar 2011 16:41:12 +0100
+Message-ID: <1299080472.2920.7.camel@edumazet-laptop>
+References: <20110228171738.2cc8c9a0@nehalam>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Oleg A. Arkhangelsky" <sysoleg@yandex.ru>,
-	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Paul E McKenney <paulmck@linux.vnet.ibm.com>
-To: Patrick McHardy <kaber@trash.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <4D6E2BEB.50805@trash.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Fabio Checconi <fabio@gandalf.sssup.it>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:64041 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750959Ab1CBPl0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 10:41:26 -0500
+Received: by fxm17 with SMTP id 17so101321fxm.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 07:41:25 -0800 (PST)
+In-Reply-To: <20110228171738.2cc8c9a0@nehalam>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 2, 2011 at 7:37 PM, Patrick McHardy <kaber@trash.net> wrote=
-:
-> Am 23.02.2011 18:07, schrieb "Oleg A. Arkhangelsky":
->> Hello,
->>
->> Got this panic yesterday:
->> http://www.progtech.ru/~oleg/crash.txt
->>
->> The offending instruction is:
->> cmpb 54(%edx), %cl # <variable>.tuple.dst.protonum,
->>
->> and here is the assembler code of net/ipv4/netfilter/nf_nat_core.c:
->> http://www.progtech.ru/~oleg/nf_nat_core.s
->>
->> Quick investigation lead me to conclusion that the problem is in
->> return of same_src function:
->>
->> =A0 =A0 =A0 =A0 return (t->dst.protonum =3D=3D tuple->dst.protonum &=
-&
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 t->src.u3.ip =3D=3D tuple->src.u3.ip=
- &&
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 t->src.u.all =3D=3D tuple->src.u.all=
-);
->>
->> So either t or tuple pointer is bad, but I don't understand how
->> this can be.
->
+Le lundi 28 f=C3=A9vrier 2011 =C3=A0 17:17 -0800, Stephen Hemminger a =C3=
+=A9crit :
 
-t should be NULL here, as offsetof(struct nf_conn, dst.protonum) =3D=3D=
- 0x36.
-We should free the nf_ct_extend with call_rcu(), since nat ext is
-referenced in the rcu read context.
 
- 717 void nf_conntrack_free(struct nf_conn *ct)
- 718 {
- 719         struct net *net =3D nf_ct_net(ct);
- 720
- 721         nf_ct_ext_destroy(ct);
- 722         atomic_dec(&net->ct.count);
- 723         nf_ct_ext_free(ct);
+> --- a/include/linux/pkt_sched.h	2011-02-28 13:28:57.763177314 -0800
+> +++ b/include/linux/pkt_sched.h	2011-02-28 13:29:10.466792117 -0800
+> @@ -588,4 +588,18 @@ struct tc_sfb_xstats {
+> =20
+>  #define SFB_MAX_PROB 0xFFFF
+> =20
+> +/* QFQ */
+> +enum {
 
-if (ct->ext)
-   call_rcu(&ct->ext->rcu, __nf_ct_ext_free_rcu);
++	TCA_QFQ_UNSPEC,
 
- 724         kmem_cache_free(net->ct.nf_conntrack_cachep, ct);
- 725 }
- 726 EXPORT_SYMBOL_GPL(nf_conntrack_free);
+> +	TCA_QFQ_WEIGHT,
+> +	TCA_QFQ_LMAX,
+> +	__TCA_QFQ_MAX
+> +};
+> +
+> +#define TCA_QFQ_MAX	(__TCA_QFQ_MAX - 1)
+> +
 
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+With TCA_QFQ_UNSPEC bit (and mirror the change in iproute2), it seems t=
+o
+work better.
+
+Oh wait, I had a crash in qfq_reset_qdisc() when re-running my setup
+script.
+
+
+
