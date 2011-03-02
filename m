@@ -1,259 +1,257 @@
 From: kaber@trash.net
-Subject: [PATCH 12/13] ipvs: unify the formula to estimate the overhead of processing connections
-Date: Wed,  2 Mar 2011 13:12:52 +0100
-Message-ID: <1299067973-15977-13-git-send-email-kaber@trash.net>
+Subject: [PATCH 09/13] ipvs: make "no destination available" message more informative
+Date: Wed,  2 Mar 2011 13:12:49 +0100
+Message-ID: <1299067973-15977-10-git-send-email-kaber@trash.net>
 References: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:32949 "EHLO
+Received: from stinky.trash.net ([213.144.137.162]:32942 "EHLO
 	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757289Ab1CBMNC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 07:13:02 -0500
+	with ESMTP id S1755710Ab1CBMNB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 07:13:01 -0500
 In-Reply-To: <1299067973-15977-1-git-send-email-kaber@trash.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
+From: Patrick Schaaf <netdev@bof.de>
 
-lc and wlc use the same formula, but lblc and lblcr use another one. There
-is no reason for using two different formulas for the lc variants.
+When IP_VS schedulers do not find a destination, they output a terse
+"WLC: no destination available" message through kernel syslog, which I
+can not only make sense of because syslog puts them in a logfile
+together with keepalived checker results.
 
-The formula used by lc is used by all the lc variants in this patch.
+This patch makes the output a bit more informative, by telling you which
+virtual service failed to find a destination.
 
-Signed-off-by: Changli Gao <xiaosuo@gmail.com>
-Acked-by: Wensong Zhang <wensong@linux-vs.org>
+Example output:
+
+kernel: [1539214.552233] IPVS: wlc: TCP 192.168.8.30:22 - no destination available
+kernel: [1539299.674418] IPVS: wlc: FWM 22 0x00000016 - no destination available
+
+I have tested the code for IPv4 and FWM services, as you can see from
+the example; I do not have an IPv6 setup to test the third code path
+with.
+
+To avoid code duplication, I put a new function ip_vs_scheduler_err()
+into ip_vs_sched.c, and use that from the schedulers instead of calling
+IP_VS_ERR_RL directly.
+
+Signed-off-by: Patrick Schaaf <netdev@bof.de>
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/ip_vs.h              |   14 ++++++++++++++
- net/netfilter/ipvs/ip_vs_lblc.c  |   13 +++----------
- net/netfilter/ipvs/ip_vs_lblcr.c |   25 +++++++------------------
- net/netfilter/ipvs/ip_vs_lc.c    |   18 +-----------------
- net/netfilter/ipvs/ip_vs_wlc.c   |   20 ++------------------
- 5 files changed, 27 insertions(+), 63 deletions(-)
+ include/net/ip_vs.h              |    2 ++
+ net/netfilter/ipvs/ip_vs_lblc.c  |    2 +-
+ net/netfilter/ipvs/ip_vs_lblcr.c |    2 +-
+ net/netfilter/ipvs/ip_vs_lc.c    |    2 +-
+ net/netfilter/ipvs/ip_vs_nq.c    |    2 +-
+ net/netfilter/ipvs/ip_vs_rr.c    |    2 +-
+ net/netfilter/ipvs/ip_vs_sched.c |   25 +++++++++++++++++++++++++
+ net/netfilter/ipvs/ip_vs_sed.c   |    2 +-
+ net/netfilter/ipvs/ip_vs_sh.c    |    2 +-
+ net/netfilter/ipvs/ip_vs_wlc.c   |    2 +-
+ net/netfilter/ipvs/ip_vs_wrr.c   |   14 ++++++++------
+ 11 files changed, 43 insertions(+), 14 deletions(-)
 
 diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 17b01b2..e74da41e 100644
+index 5d75fea..9399549 100644
 --- a/include/net/ip_vs.h
 +++ b/include/net/ip_vs.h
-@@ -1243,6 +1243,20 @@ static inline void ip_vs_conn_drop_conntrack(struct ip_vs_conn *cp)
- /* CONFIG_IP_VS_NFCT */
- #endif
+@@ -1019,6 +1019,8 @@ ip_vs_schedule(struct ip_vs_service *svc, struct sk_buff *skb,
+ extern int ip_vs_leave(struct ip_vs_service *svc, struct sk_buff *skb,
+ 			struct ip_vs_proto_data *pd);
  
-+static inline unsigned int
-+ip_vs_dest_conn_overhead(struct ip_vs_dest *dest)
-+{
-+	/*
-+	 * We think the overhead of processing active connections is 256
-+	 * times higher than that of inactive connections in average. (This
-+	 * 256 times might not be accurate, we will change it later) We
-+	 * use the following formula to estimate the overhead now:
-+	 *		  dest->activeconns*256 + dest->inactconns
-+	 */
-+	return (atomic_read(&dest->activeconns) << 8) +
-+		atomic_read(&dest->inactconns);
-+}
++extern void ip_vs_scheduler_err(struct ip_vs_service *svc, const char *msg);
 +
- #endif /* __KERNEL__ */
  
- #endif	/* _NET_IP_VS_H */
+ /*
+  *      IPVS control data and functions (from ip_vs_ctl.c)
 diff --git a/net/netfilter/ipvs/ip_vs_lblc.c b/net/netfilter/ipvs/ip_vs_lblc.c
-index 4a9c8cd..6bf7a80 100644
+index 00b5ffa..4a9c8cd 100644
 --- a/net/netfilter/ipvs/ip_vs_lblc.c
 +++ b/net/netfilter/ipvs/ip_vs_lblc.c
-@@ -389,12 +389,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
- 	int loh, doh;
- 
- 	/*
--	 * We think the overhead of processing active connections is fifty
--	 * times higher than that of inactive connections in average. (This
--	 * fifty times might not be accurate, we will change it later.) We
--	 * use the following formula to estimate the overhead:
--	 *                dest->activeconns*50 + dest->inactconns
--	 * and the load:
-+	 * We use the following formula to estimate the load:
- 	 *                (dest overhead) / dest->weight
- 	 *
- 	 * Remember -- no floats in kernel mode!!!
-@@ -410,8 +405,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
- 			continue;
- 		if (atomic_read(&dest->weight) > 0) {
- 			least = dest;
--			loh = atomic_read(&least->activeconns) * 50
--				+ atomic_read(&least->inactconns);
-+			loh = ip_vs_dest_conn_overhead(least);
- 			goto nextstage;
- 		}
+@@ -510,7 +510,7 @@ ip_vs_lblc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	/* No cache entry or it is invalid, time to schedule */
+ 	dest = __ip_vs_lblc_schedule(svc);
+ 	if (!dest) {
+-		IP_VS_ERR_RL("LBLC: no destination available\n");
++		ip_vs_scheduler_err(svc, "no destination available");
+ 		return NULL;
  	}
-@@ -425,8 +419,7 @@ __ip_vs_lblc_schedule(struct ip_vs_service *svc)
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
  
--		doh = atomic_read(&dest->activeconns) * 50
--			+ atomic_read(&dest->inactconns);
-+		doh = ip_vs_dest_conn_overhead(dest);
- 		if (loh * atomic_read(&dest->weight) >
- 		    doh * atomic_read(&least->weight)) {
- 			least = dest;
 diff --git a/net/netfilter/ipvs/ip_vs_lblcr.c b/net/netfilter/ipvs/ip_vs_lblcr.c
-index bd329b1..0063176 100644
+index bfa25f1..bd329b1 100644
 --- a/net/netfilter/ipvs/ip_vs_lblcr.c
 +++ b/net/netfilter/ipvs/ip_vs_lblcr.c
-@@ -178,8 +178,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- 
- 		if ((atomic_read(&least->weight) > 0)
- 		    && (least->flags & IP_VS_DEST_F_AVAILABLE)) {
--			loh = atomic_read(&least->activeconns) * 50
--				+ atomic_read(&least->inactconns);
-+			loh = ip_vs_dest_conn_overhead(least);
- 			goto nextstage;
+@@ -692,7 +692,7 @@ ip_vs_lblcr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		/* The cache entry is invalid, time to schedule */
+ 		dest = __ip_vs_lblcr_schedule(svc);
+ 		if (!dest) {
+-			IP_VS_ERR_RL("LBLCR: no destination available\n");
++			ip_vs_scheduler_err(svc, "no destination available");
+ 			read_unlock(&svc->sched_lock);
+ 			return NULL;
  		}
- 	}
-@@ -192,8 +191,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 
--		doh = atomic_read(&dest->activeconns) * 50
--			+ atomic_read(&dest->inactconns);
-+		doh = ip_vs_dest_conn_overhead(dest);
- 		if ((loh * atomic_read(&dest->weight) >
- 		     doh * atomic_read(&least->weight))
- 		    && (dest->flags & IP_VS_DEST_F_AVAILABLE)) {
-@@ -228,8 +226,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- 	list_for_each_entry(e, &set->list, list) {
- 		most = e->dest;
- 		if (atomic_read(&most->weight) > 0) {
--			moh = atomic_read(&most->activeconns) * 50
--				+ atomic_read(&most->inactconns);
-+			moh = ip_vs_dest_conn_overhead(most);
- 			goto nextstage;
- 		}
- 	}
-@@ -239,8 +236,7 @@ static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
-   nextstage:
- 	list_for_each_entry(e, &set->list, list) {
- 		dest = e->dest;
--		doh = atomic_read(&dest->activeconns) * 50
--			+ atomic_read(&dest->inactconns);
-+		doh = ip_vs_dest_conn_overhead(dest);
- 		/* moh/mw < doh/dw ==> moh*dw < doh*mw, where mw,dw>0 */
- 		if ((moh * atomic_read(&dest->weight) <
- 		     doh * atomic_read(&most->weight))
-@@ -563,12 +559,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
- 	int loh, doh;
- 
- 	/*
--	 * We think the overhead of processing active connections is fifty
--	 * times higher than that of inactive connections in average. (This
--	 * fifty times might not be accurate, we will change it later.) We
--	 * use the following formula to estimate the overhead:
--	 *                dest->activeconns*50 + dest->inactconns
--	 * and the load:
-+	 * We use the following formula to estimate the load:
- 	 *                (dest overhead) / dest->weight
- 	 *
- 	 * Remember -- no floats in kernel mode!!!
-@@ -585,8 +576,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
- 
- 		if (atomic_read(&dest->weight) > 0) {
- 			least = dest;
--			loh = atomic_read(&least->activeconns) * 50
--				+ atomic_read(&least->inactconns);
-+			loh = ip_vs_dest_conn_overhead(least);
- 			goto nextstage;
- 		}
- 	}
-@@ -600,8 +590,7 @@ __ip_vs_lblcr_schedule(struct ip_vs_service *svc)
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
- 
--		doh = atomic_read(&dest->activeconns) * 50
--			+ atomic_read(&dest->inactconns);
-+		doh = ip_vs_dest_conn_overhead(dest);
- 		if (loh * atomic_read(&dest->weight) >
- 		    doh * atomic_read(&least->weight)) {
- 			least = dest;
 diff --git a/net/netfilter/ipvs/ip_vs_lc.c b/net/netfilter/ipvs/ip_vs_lc.c
-index 6063800..f391819 100644
+index 4f69db1..6063800 100644
 --- a/net/netfilter/ipvs/ip_vs_lc.c
 +++ b/net/netfilter/ipvs/ip_vs_lc.c
-@@ -22,22 +22,6 @@
+@@ -70,7 +70,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	}
+ 
+ 	if (!least)
+-		IP_VS_ERR_RL("LC: no destination available\n");
++		ip_vs_scheduler_err(svc, "no destination available");
+ 	else
+ 		IP_VS_DBG_BUF(6, "LC: server %s:%u activeconns %d "
+ 			      "inactconns %d\n",
+diff --git a/net/netfilter/ipvs/ip_vs_nq.c b/net/netfilter/ipvs/ip_vs_nq.c
+index c413e18..984d9c1 100644
+--- a/net/netfilter/ipvs/ip_vs_nq.c
++++ b/net/netfilter/ipvs/ip_vs_nq.c
+@@ -99,7 +99,7 @@ ip_vs_nq_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	}
+ 
+ 	if (!least) {
+-		IP_VS_ERR_RL("NQ: no destination available\n");
++		ip_vs_scheduler_err(svc, "no destination available");
+ 		return NULL;
+ 	}
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_rr.c b/net/netfilter/ipvs/ip_vs_rr.c
+index e210f37..c49b388 100644
+--- a/net/netfilter/ipvs/ip_vs_rr.c
++++ b/net/netfilter/ipvs/ip_vs_rr.c
+@@ -72,7 +72,7 @@ ip_vs_rr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 		q = q->next;
+ 	} while (q != p);
+ 	write_unlock(&svc->sched_lock);
+-	IP_VS_ERR_RL("RR: no destination available\n");
++	ip_vs_scheduler_err(svc, "no destination available");
+ 	return NULL;
+ 
+   out:
+diff --git a/net/netfilter/ipvs/ip_vs_sched.c b/net/netfilter/ipvs/ip_vs_sched.c
+index 076ebe0..08dbdd5 100644
+--- a/net/netfilter/ipvs/ip_vs_sched.c
++++ b/net/netfilter/ipvs/ip_vs_sched.c
+@@ -29,6 +29,7 @@
  
  #include <net/ip_vs.h>
  
--
--static inline unsigned int
--ip_vs_lc_dest_overhead(struct ip_vs_dest *dest)
--{
--	/*
--	 * We think the overhead of processing active connections is 256
--	 * times higher than that of inactive connections in average. (This
--	 * 256 times might not be accurate, we will change it later) We
--	 * use the following formula to estimate the overhead now:
--	 *		  dest->activeconns*256 + dest->inactconns
--	 */
--	return (atomic_read(&dest->activeconns) << 8) +
--		atomic_read(&dest->inactconns);
--}
--
--
++EXPORT_SYMBOL(ip_vs_scheduler_err);
  /*
-  *	Least Connection scheduling
+  *  IPVS scheduler list
   */
-@@ -62,7 +46,7 @@ ip_vs_lc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		if ((dest->flags & IP_VS_DEST_F_OVERLOAD) ||
- 		    atomic_read(&dest->weight) == 0)
- 			continue;
--		doh = ip_vs_lc_dest_overhead(dest);
-+		doh = ip_vs_dest_conn_overhead(dest);
- 		if (!least || doh < loh) {
- 			least = dest;
- 			loh = doh;
-diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
-index fdf0f58..bc1bfc4 100644
---- a/net/netfilter/ipvs/ip_vs_wlc.c
-+++ b/net/netfilter/ipvs/ip_vs_wlc.c
-@@ -27,22 +27,6 @@
+@@ -146,6 +147,30 @@ void ip_vs_scheduler_put(struct ip_vs_scheduler *scheduler)
+ 		module_put(scheduler->module);
+ }
  
- #include <net/ip_vs.h>
++/*
++ * Common error output helper for schedulers
++ */
++
++void ip_vs_scheduler_err(struct ip_vs_service *svc, const char *msg)
++{
++	if (svc->fwmark) {
++		IP_VS_ERR_RL("%s: FWM %u 0x%08X - %s\n",
++			     svc->scheduler->name, svc->fwmark,
++			     svc->fwmark, msg);
++#ifdef CONFIG_IP_VS_IPV6
++	} else if (svc->af == AF_INET6) {
++		IP_VS_ERR_RL("%s: %s [%pI6]:%d - %s\n",
++			     svc->scheduler->name,
++			     ip_vs_proto_name(svc->protocol),
++			     &svc->addr.in6, ntohs(svc->port), msg);
++#endif
++	} else {
++		IP_VS_ERR_RL("%s: %s %pI4:%d - %s\n",
++			     svc->scheduler->name,
++			     ip_vs_proto_name(svc->protocol),
++			     &svc->addr.ip, ntohs(svc->port), msg);
++	}
++}
  
--
--static inline unsigned int
--ip_vs_wlc_dest_overhead(struct ip_vs_dest *dest)
--{
--	/*
--	 * We think the overhead of processing active connections is 256
--	 * times higher than that of inactive connections in average. (This
--	 * 256 times might not be accurate, we will change it later) We
--	 * use the following formula to estimate the overhead now:
--	 *		  dest->activeconns*256 + dest->inactconns
--	 */
--	return (atomic_read(&dest->activeconns) << 8) +
--		atomic_read(&dest->inactconns);
--}
--
--
  /*
-  *	Weighted Least Connection scheduling
-  */
-@@ -71,7 +55,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
- 		    atomic_read(&dest->weight) > 0) {
- 			least = dest;
--			loh = ip_vs_wlc_dest_overhead(least);
-+			loh = ip_vs_dest_conn_overhead(least);
+  *  Register a scheduler in the scheduler list
+diff --git a/net/netfilter/ipvs/ip_vs_sed.c b/net/netfilter/ipvs/ip_vs_sed.c
+index 1ab75a9..89ead24 100644
+--- a/net/netfilter/ipvs/ip_vs_sed.c
++++ b/net/netfilter/ipvs/ip_vs_sed.c
+@@ -87,7 +87,7 @@ ip_vs_sed_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
  			goto nextstage;
  		}
  	}
-@@ -85,7 +69,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
- 	list_for_each_entry_continue(dest, &svc->destinations, n_list) {
- 		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
- 			continue;
--		doh = ip_vs_wlc_dest_overhead(dest);
-+		doh = ip_vs_dest_conn_overhead(dest);
- 		if (loh * atomic_read(&dest->weight) >
- 		    doh * atomic_read(&least->weight)) {
- 			least = dest;
+-	IP_VS_ERR_RL("SED: no destination available\n");
++	ip_vs_scheduler_err(svc, "no destination available");
+ 	return NULL;
+ 
+ 	/*
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index e6cc174..b5e2556 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -223,7 +223,7 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
+ 	    || atomic_read(&dest->weight) <= 0
+ 	    || is_overloaded(dest)) {
+-		IP_VS_ERR_RL("SH: no destination available\n");
++		ip_vs_scheduler_err(svc, "no destination available");
+ 		return NULL;
+ 	}
+ 
+diff --git a/net/netfilter/ipvs/ip_vs_wlc.c b/net/netfilter/ipvs/ip_vs_wlc.c
+index bbddfdb..fdf0f58 100644
+--- a/net/netfilter/ipvs/ip_vs_wlc.c
++++ b/net/netfilter/ipvs/ip_vs_wlc.c
+@@ -75,7 +75,7 @@ ip_vs_wlc_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 			goto nextstage;
+ 		}
+ 	}
+-	IP_VS_ERR_RL("WLC: no destination available\n");
++	ip_vs_scheduler_err(svc, "no destination available");
+ 	return NULL;
+ 
+ 	/*
+diff --git a/net/netfilter/ipvs/ip_vs_wrr.c b/net/netfilter/ipvs/ip_vs_wrr.c
+index 30db633..1ef41f5 100644
+--- a/net/netfilter/ipvs/ip_vs_wrr.c
++++ b/net/netfilter/ipvs/ip_vs_wrr.c
+@@ -147,8 +147,9 @@ ip_vs_wrr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 
+ 			if (mark->cl == mark->cl->next) {
+ 				/* no dest entry */
+-				IP_VS_ERR_RL("WRR: no destination available: "
+-					     "no destinations present\n");
++				ip_vs_scheduler_err(svc,
++					"no destination available: "
++					"no destinations present");
+ 				dest = NULL;
+ 				goto out;
+ 			}
+@@ -162,8 +163,8 @@ ip_vs_wrr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 				 */
+ 				if (mark->cw == 0) {
+ 					mark->cl = &svc->destinations;
+-					IP_VS_ERR_RL("WRR: no destination "
+-						     "available\n");
++					ip_vs_scheduler_err(svc,
++						"no destination available");
+ 					dest = NULL;
+ 					goto out;
+ 				}
+@@ -185,8 +186,9 @@ ip_vs_wrr_schedule(struct ip_vs_service *svc, const struct sk_buff *skb)
+ 			/* back to the start, and no dest is found.
+ 			   It is only possible when all dests are OVERLOADED */
+ 			dest = NULL;
+-			IP_VS_ERR_RL("WRR: no destination available: "
+-				     "all destinations are overloaded\n");
++			ip_vs_scheduler_err(svc,
++				"no destination available: "
++				"all destinations are overloaded");
+ 			goto out;
+ 		}
+ 	}
 -- 
 1.7.4
 
