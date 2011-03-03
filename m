@@ -1,40 +1,45 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [Drbd-dev] [PATCH 2/2 v2] netlink: kill eff_cap from struct
- netlink_skb_parms
-Date: Thu, 3 Mar 2011 15:53:05 -0800
-Message-ID: <20110303235305.GY4988@sequoia.sous-sol.org>
-References: <4D6F6180.5030903@trash.net>
- <20110303173230.GP4988@sequoia.sous-sol.org>
- <20110303.105655.189705829.davem@davemloft.net>
- <20110303201522.GT4988@sequoia.sous-sol.org>
- <20110303223746.GI25069@barkeeper1-xen.linbit>
+From: Chris Friesen <chris.friesen@genband.com>
+Subject: Re: Network link detection
+Date: Thu, 03 Mar 2011 17:54:12 -0600
+Message-ID: <4D702A24.70805@genband.com>
+References: <20110303193006.GA29129@svh.nico22.de>	<4D700A5B.2000807@genband.com> <20110303.140106.191399853.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Chris Wright <chrisw@sous-sol.org>,
-	David Miller <davem@davemloft.net>,
-	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, dm-devel@redhat.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20110303223746.GI25069@barkeeper1-xen.linbit>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: dev@nico22.de, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110303.140106.191399853.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Lars Ellenberg (lars.ellenberg@linbit.com) wrote:
-> Last time I checked, current() for connector based netlink message
-> consumers was the work queue that is used for connector.
+On 03/03/2011 04:01 PM, David Miller wrote:
+> From: Chris Friesen <chris.friesen@genband.com>
+> Date: Thu, 03 Mar 2011 15:38:35 -0600
 > 
-> So unless that changed, or my understanding is wrong, current_cap()
-> inside cn_queue_wrapper(), respectively the d->callback()
-> will not be the userland sender process' capabilities, but the work
-> queue capabilities.
-
-Yes, you're right.
-
-> If so, then this change introduces the possibility for normal users to
-> send privileged commands to connector based subsystems, even if they
-> may not be able to bind() to suitable sockets to receive any replies.
+>> You might look at whether you could write a kernel module to register
+>> for NETDEV_CHANGE notifications and pass that back to userspace.
 > 
-> Am I missing something?
+> This is the kind of responses you get when you ask networking specific
+> questions and don't CC: netdev :-/
 
-No, thanks for review.  This puts back the async issue.
+My apologies for misleading the original poster.  I can only claim a
+brain fart since I've actually used rtnetlink for other things.
+
+> There is this thing called netlink, you can listen for arbitrary
+> network state change events on a socket, and get the link state
+> notifications you are looking for.  It's in use by many real
+> applications like NetworkManager and co.
+
+For future reference then, to listen for link state notifications you'd
+use NETLINK_ROUTE with nl_groups set to RTMGRP_LINK, and the link state
+will be signaled in the if_flags field of received messages?
+
+Chris
+
+-- 
+Chris Friesen
+Software Developer
+GENBAND
+chris.friesen@genband.com
+www.genband.com
