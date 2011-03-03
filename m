@@ -1,38 +1,36 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: Re: [PATCH 2/2] netlink: kill eff_cap from struct netlink_skb_parms
-Date: Thu, 3 Mar 2011 12:17:26 -0800
-Message-ID: <20110303201726.GU4988@sequoia.sous-sol.org>
-References: <4D6F6180.5030903@trash.net>
- <20110303173230.GP4988@sequoia.sous-sol.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: add Faraday FTMAC100 10/100 Ethernet driver
+Date: Thu, 03 Mar 2011 12:19:30 -0800 (PST)
+Message-ID: <20110303.121930.102558466.davem@davemloft.net>
+References: <1298627845-1583-1-git-send-email-ratbert.chuang@gmail.com>
+	<1298962129-1605-1-git-send-email-ratbert.chuang@gmail.com>
+	<1298964420.2676.59.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, NetDev <netdev@vger.kernel.org>,
-	dm-devel@redhat.com, "David S. Miller" <davem@davemloft.net>,
-	"linux-security-module@vger.kernel.org"
-	<linux-security-module@vger.kernel.org>, drbd-dev@lists.linbit.com
-To: Chris Wright <chrisw@sous-sol.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:45480 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752372Ab1CCURq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 15:17:46 -0500
-Content-Disposition: inline
-In-Reply-To: <20110303173230.GP4988@sequoia.sous-sol.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: ratbert.chuang@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bhutchings@solarflare.com,
+	joe@perches.com, dilinger@queued.net, mirqus@gmail.com,
+	ratbert@faraday-tech.com
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1298964420.2676.59.camel@edumazet-laptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-* Chris Wright (chrisw@sous-sol.org) wrote:
-> Ideally, we'd consolidate those into a variant of security_netlink_recv().
-> However the issue is with types.  Inside connector callback we only have
-> netlink_skb_params (seems inapproriate to cast back out to skb).
-> 
-> We could change the lsm hook to only pass nsp, but SELinux actually
-> cares about the netlink type.  Any ideas?
+=46rom: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 01 Mar 2011 08:27:00 +0100
 
-Actually I misremembered, it only cares on the send path.
+> Le mardi 01 mars 2011 =E0 14:48 +0800, Po-Yu Chuang a =E9crit :
+>> From: Po-Yu Chuang <ratbert@faraday-tech.com>
+>>=20
+>> FTMAC100 Ethernet Media Access Controller supports 10/100 Mbps and
+>> MII.  This driver has been working on some ARM/NDS32 SoC's including
+>> Faraday A320 and Andes AG101.
+>>=20
+>> Signed-off-by: Po-Yu Chuang <ratbert@faraday-tech.com>
+ ...
+>=20
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-We could completely drop skb from recv lsm hook, will send an RFC
-momentarily with example.
-
-thanks,
--chris
+Applied to net-next-2.6, thanks.
