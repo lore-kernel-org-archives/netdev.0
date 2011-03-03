@@ -1,41 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Thu, 03 Mar 2011 10:07:58 +0100
-Message-ID: <1299143278.2983.1.camel@edumazet-laptop>
-References: <20110228171738.2cc8c9a0@nehalam>
-	 <20110302020610.GD1005@gandalf.sssup.it>
-	 <1299064667.2920.4.camel@edumazet-laptop> <20110302081108.689571d8@nehalam>
-	 <1299082728.2920.18.camel@edumazet-laptop>
-	 <1299087087.2920.27.camel@edumazet-laptop>
-	 <20110303081940.GA29685@gandalf.sssup.it>
+From: Wei Yongjun <yjwei@cn.fujitsu.com>
+Subject: [PATCH] sctp: fix the fast retransmit limit
+Date: Thu, 03 Mar 2011 17:29:39 +0800
+Message-ID: <4D6F5F83.705@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org,
-	Paolo Valente <paolo.valente@unimore.it>
-To: Fabio Checconi <fchecconi@gmail.com>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: Mingyuan Zhu <liyha.zhu@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vladislav.yasevich@hp.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lksctp <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:56339 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755465Ab1CCJID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 04:08:03 -0500
-Received: by fxm17 with SMTP id 17so882782fxm.19
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 01:08:02 -0800 (PST)
-In-Reply-To: <20110303081940.GA29685@gandalf.sssup.it>
+Received: from cn.fujitsu.com ([222.73.24.84]:50412 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751945Ab1CCJ31 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 04:29:27 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 03 mars 2011 =C3=A0 09:19 +0100, Fabio Checconi a =C3=A9crit :
+If chunk is still lost after fast retransmit, SCTP stack will
+never allow the second fast retransmit of this chunk, even if
+the peer need we do this. This chunk will be retransmit until
+the rtx timeout. This limit is introduce by the following patch:
+  sctp: reduce memory footprint of sctp_chunk structure
+  (c226ef9b83694311327f3ab0036c6de9c22e9daf)
 
-> The same bug you identified in qfq_reset_qdisc() is present also in
-> qfq_drop(), both loops need to be corrected...
+This patch revert this limit and removed useless SCTP_DONT_FRTX.
 
-I dont think so, because in qfq_drop() we exit from qfq_drop() right
-after call to qfq_deactivate_class()
+Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+---
+ include/net/sctp/structs.h |    1 -
+ net/sctp/outqueue.c        |    4 ++--
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
-But I agree code should be same ;)
-
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index cc9185c..82a0f84 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -751,7 +751,6 @@ struct sctp_chunk {
+ 
+ #define SCTP_CAN_FRTX 0x0
+ #define SCTP_NEED_FRTX 0x1
+-#define SCTP_DONT_FRTX 0x2
+ 	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
+ 		has_tsn:1,		/* Does this chunk have a TSN yet? */
+ 		has_ssn:1,		/* Does this chunk have a SSN yet? */
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 8c6d379..7ed5862 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -657,7 +657,7 @@ redo:
+ 			 * after it is retransmitted.
+ 			 */
+ 			if (chunk->fast_retransmit == SCTP_NEED_FRTX)
+-				chunk->fast_retransmit = SCTP_DONT_FRTX;
++				chunk->fast_retransmit = SCTP_CAN_FRTX;
+ 
+ 			q->empty = 0;
+ 			break;
+@@ -679,7 +679,7 @@ redo:
+ 	if (rtx_timeout || fast_rtx) {
+ 		list_for_each_entry(chunk1, lqueue, transmitted_list) {
+ 			if (chunk1->fast_retransmit == SCTP_NEED_FRTX)
+-				chunk1->fast_retransmit = SCTP_DONT_FRTX;
++				chunk1->fast_retransmit = SCTP_CAN_FRTX;
+ 		}
+ 	}
+ 
+-- 
+1.6.5.2
 
 
