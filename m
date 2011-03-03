@@ -1,32 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mv643xx_eth: Use netdev_<level> and pr_<level>
-Date: Thu, 03 Mar 2011 12:28:35 -0800 (PST)
-Message-ID: <20110303.122835.35031433.davem@davemloft.net>
-References: <1299124235.4208.129.camel@Joe-Laptop>
-	<20110303131834.GL16649@mail.wantstofly.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 2/3] mii: Convert printks to netdev_info
+Date: Thu, 03 Mar 2011 12:29:41 -0800
+Message-ID: <1299184181.4338.152.camel@Joe-Laptop>
+References: <7f33dcacd277e127208211d8c3ef11c992408628.1299086044.git.joe@perches.com>
+	 <1b384ead46d062ba189b64649710a5625b7f6a2b.1299086044.git.joe@perches.com>
+	 <20110303.122148.245410126.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: joe@perches.com, netdev@vger.kernel.org
-To: buytenh@wantstofly.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36117
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752594Ab1CCU16 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 15:27:58 -0500
-In-Reply-To: <20110303131834.GL16649@mail.wantstofly.org>
+Received: from mail.perches.com ([173.55.12.10]:4080 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752594Ab1CCU3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 15:29:42 -0500
+In-Reply-To: <20110303.122148.245410126.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Thu, 3 Mar 2011 14:18:34 +0100
+On Thu, 2011-03-03 at 12:21 -0800, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> > Add a bit more data to the output.
+> > Convert string speeds to integer.
+> > Object size reduced a tiny bit.
+> > $ size drivers/net/mii.o*
+> >    text	   data	    bss	    dec	    hex	filename
+> >    4155	     56	   1000	   5211	   145b	drivers/net/mii.o.new
+> >    4184	     56	   1000	   5240	   1478	drivers/net/mii.o.old
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> Applied.
 
-> On Wed, Mar 02, 2011 at 07:50:35PM -0800, Joe Perches wrote:
-> 
->> Use the current logging styles.
->> 
->> Signed-off-by: Joe Perches <joe@perches.com>
-> 
-> Acked-by: Lennert Buytenhek <buytenh@wantstofly.org>
+David, please don't push this yet.
 
-Applied, thanks.
+This change is stuffed up somehow, it's
+a reversion of the tun.c change.
+
+Let me send you a new/correct patch right now.
+
