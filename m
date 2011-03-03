@@ -1,63 +1,91 @@
-From: "=?utf-8?q?R=C3=A9mi?= Denis-Courmont"
-	<remi.denis-courmont@nokia.com>
-Subject: net-next-2.6: Phonet pull request
-Date: Thu, 3 Mar 2011 13:22:37 +0200
-Message-ID: <201103031322.37184.remi.denis-courmont@nokia.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: r8169 disable ASPM patch
+Date: Thu, 3 Mar 2011 19:35:11 +0800
+Message-ID: <A671CA7371854B808BAB6DA0BA7B050B@realtek.com.tw>
+References: <20110302.215255.183067695.davem@davemloft.net> <20110303094518.GA13491@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <sgruszka@redhat.com>
+To: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	'David Miller' <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.1.47]:45933 "EHLO mgw-sa01.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753781Ab1CCLVs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 06:21:48 -0500
-Received: from leon.remlab.net ([172.21.24.67])
-	by mgw-sa01.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p23BLk1U029968
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 13:21:46 +0200
+Received: from rtits2.realtek.com ([60.250.210.242]:54563 "EHLO
+	rtits2.realtek.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751919Ab1CCLfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 06:35:33 -0500
+In-Reply-To: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	Hello,
+Sorry for my late response. 
 
-As "promised", here is the cleaned up and unified Phonet pipe code.
-The same kernel can now support both old (e.g. Nokia N900) and new
-(e.g. ST-Ericsson U8500 SoC) modems.
+> -----Original Message-----
+> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
+> Sent: Thursday, March 03, 2011 5:45 PM
+> To: David Miller
+> Cc: netdev@vger.kernel.org; Hayeswang; sgruszka@redhat.com
+> Subject: Re: r8169 disable ASPM patch
+> 
+> (Hayes added to the Cc:)
+> 
+> David Miller <davem@davemloft.net> :
+> [...]
+> > What is the status of Stanislaw Gruszka's "disable ASPM" 
+> r8169 patch?
+> > 
+> > 	http://patchwork.ozlabs.org/patch/83961/
+> > 
+> > Is it waiting for your testing ?
+> 
+> No.
+> 
+> I can test it against regression but I do not have the technical 
+> knowledge to tell if it is right or not.
+> 
+> I have read (again) the PR as well as its sibling and there is little 
+> evidence for me that the patch is 1) needed 2) better than the global 
+> pcie_aspm switch. Either Realtek's in-house knowledge helps making a 
+> technical decision or it is a policy-guided choice.
+> 
+> > Is it waiting for feedback from Hayes?
+> 
+> Yes.
+> 
 
-Due to lack of hardware, I only tested the ST-E support in software.
-But the earlier code was horribly broken anyway.
+Our hardware engineer says that it has an issue indeed for 8111B (that is, rev
+01) when the aspm is enabled. For the other chips, the aspm would affect the
+performance. We suggest to disable for stablity.
 
-The following changes since commit dc6ed1df5a5f84e45e77e2acb6fd99b99541=
-4956:
+> Something like :
+> [ ] Ack. So far there is no way to handle ASPM reliably on the 816x [ 
+> ]  Not optimal but it is ok as an interim fix. For instance :
+>     - if some 816x (8168 ? 810{2, 3} ?) are known broken while others 
+> are not
+>     - it can be mitigated but the fix is not available yet
+>     - needs more tester / vendor work
+>     - etc.
+> [ ] Nak. The adequate fix is ...
+> 
+> > Is there going to be a MAINTAINERS patch that adds Hayes?  
+> If so what
+> > is stalling that?
 
-  dcbnl: add support for retrieving peer configuration - cee (2011-03-0=
-2 21:58:55 -0800)
+Realtek would continue handling the kernel. However, the person may be different
+for different period. Therefore, I think keeping the current mode is better.
 
-are available in the git repository at:
-  git://git.remlab.net/linux-phonet.git master
+> 
+> Realtek nic team asked me privately (end 2010) in rather 
+> general terms if they could maintain the r8169 kernel driver. 
+> I have given some relevant pointers for kernel code 
+> maintenance. Realtek did its housework.
+> 
+> I have stated publicly that I'll ack such a patch if Hayes 
+> wants to add himself. Hayes was Cced. Either Hayes sends a 
+> patch or a plain "please do it".
+> 
 
-R=C3=A9mi Denis-Courmont (8):
-      Phonet: fix NULL-deref in previous patch series
-      Phonet: return an error when TX fails
-      Phonet: fix backlog callback return value
-      Phonet: factor common code to send control messages
-      Phonet: allocate sock from accept syscall rather than soft IRQ
-      Phonet: provide pipe socket option to retrieve the pipe identifie=
-r
-      Phonet: support active connection without pipe controller on mode=
-m
-      Phonet: kill the ST-Ericsson pipe controller Kconfig
+ 
+Best Regards,
+Hayes
 
- Documentation/networking/phonet.txt |   67 ++---
- include/linux/phonet.h              |    4 +-
- include/net/phonet/pep.h            |    1 -
- net/phonet/Kconfig                  |   12 -
- net/phonet/af_phonet.c              |   13 +-
- net/phonet/pep.c                    |  682 ++++++++++++++-------------=
---------
- net/phonet/socket.c                 |  112 +++----
- 7 files changed, 352 insertions(+), 539 deletions(-)
-
---=20
-R=C3=A9mi Denis-Courmont
-http://www.remlab.net/
