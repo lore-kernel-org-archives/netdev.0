@@ -1,308 +1,237 @@
 From: David Miller <davem@davemloft.net>
-Subject: [v3 RFC PATCH 7/8] net: Use non-zero allocations in dst_alloc().
-Date: Wed, 02 Mar 2011 17:02:11 -0800 (PST)
-Message-ID: <20110302.170211.241436657.davem@davemloft.net>
+Subject: [v3 RFC PATCH 8/8] ipv4: Kill rt_key_{src,dst} from struct rtable.
+Date: Wed, 02 Mar 2011 17:02:13 -0800 (PST)
+Message-ID: <20110302.170213.52199524.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48869
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48872
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755395Ab1CCBBe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 20:01:34 -0500
+	by vger.kernel.org with ESMTP id S1755395Ab1CCBBg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 20:01:36 -0500
 Received: from localhost (localhost [127.0.0.1])
-	by sunset.davemloft.net (Postfix) with ESMTP id 540FB24C087
-	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 17:02:11 -0800 (PST)
+	by sunset.davemloft.net (Postfix) with ESMTP id 6EF1224C087
+	for <netdev@vger.kernel.org>; Wed,  2 Mar 2011 17:02:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-Make dst_alloc() and it's users explicitly initialize the entire
-entry.
-
-The zero'ing done by kmem_cache_zalloc() was almost entirely
-redundant.
+They are always used in contexts where they can be reconstituted,
+or where the finally resolved rt->rt_{src,dst} is semantically
+equivalent.
 
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/core/dst.c         |   20 ++++++++++--
- net/decnet/dn_route.c  |    2 +
- net/ipv4/route.c       |   82 +++++++++++++++++++++++++++--------------------
- net/ipv6/route.c       |    8 ++++-
- net/xfrm/xfrm_policy.c |    1 +
- 5 files changed, 74 insertions(+), 39 deletions(-)
+ include/net/route.h     |    8 ++------
+ net/ipv4/ipmr.c         |   33 ++++++++++++++++++---------------
+ net/ipv4/route.c        |   24 +++++++-----------------
+ net/ipv4/xfrm4_policy.c |    2 --
+ 4 files changed, 27 insertions(+), 40 deletions(-)
 
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 9505778..30f0093 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -175,22 +175,36 @@ void *dst_alloc(struct dst_ops *ops, struct net_device *dev,
- 		if (ops->gc(ops))
- 			return NULL;
- 	}
--	dst = kmem_cache_zalloc(ops->kmem_cachep, GFP_ATOMIC);
-+	dst = kmem_cache_alloc(ops->kmem_cachep, GFP_ATOMIC);
- 	if (!dst)
- 		return NULL;
--	dst->ops = ops;
-+	dst->child = NULL;
- 	dst->dev = dev;
- 	if (dev)
- 		dev_hold(dev);
-+	dst->ops = ops;
- 	dst_init_metrics(dst, dst_default_metrics, true);
-+	dst->expires = 0UL;
- 	dst->path = dst;
-+	dst->neighbour = NULL;
-+	dst->hh = NULL;
-+#ifdef CONFIG_XFRM
-+	dst->xfrm = NULL;
-+#endif
- 	dst->input = dst_discard;
- 	dst->output = dst_discard;
+diff --git a/include/net/route.h b/include/net/route.h
+index ebf50a9..7e9d428 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -53,10 +53,6 @@ struct fib_info;
+ struct rtable {
+ 	struct dst_entry	dst;
+ 
+-	/* Lookup key. */
+-	__be32			rt_key_dst;
+-	__be32			rt_key_src;
 -
-+	dst->error = 0;
- 	dst->obsolete = initial_obsolete;
-+	dst->header_len = 0;
-+	dst->trailer_len = 0;
-+#ifdef CONFIG_IP_ROUTE_CLASSID
-+	dst->tclassid = 0;
-+#endif
- 	atomic_set(&dst->__refcnt, initial_ref);
-+	dst->__use = 0;
- 	dst->lastuse = jiffies;
- 	dst->flags = flags;
-+	dst->next = NULL;
- #if RT_CACHE_DEBUG >= 2
- 	atomic_inc(&dst_total);
- #endif
-diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
-index a3d2c3f..12dc7e4 100644
---- a/net/decnet/dn_route.c
-+++ b/net/decnet/dn_route.c
-@@ -1126,6 +1126,7 @@ make_route:
- 	if (rt == NULL)
- 		goto e_nobufs;
+ 	int			rt_genid;
+ 	unsigned		rt_flags;
+ 	__u16			rt_type;
+@@ -205,8 +201,8 @@ static inline struct rtable *ip_route_newports(struct rtable *rt,
+ 	if (sport != orig_sport || dport != orig_dport) {
+ 		struct flowi fl = { .oif = rt->rt_oif,
+ 				    .mark = rt->rt_mark,
+-				    .fl4_dst = rt->rt_key_dst,
+-				    .fl4_src = rt->rt_key_src,
++				    .fl4_dst = rt->rt_dst,
++				    .fl4_src = rt->rt_src,
+ 				    .fl4_tos = rt->rt_tos,
+ 				    .proto = protocol,
+ 				    .fl_ip_sport = sport,
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 9d5f634..c8dd0b6 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1815,13 +1815,14 @@ int ip_mr_input(struct sk_buff *skb)
  
-+	memset(&rt->fl, 0, sizeof(rt->fl));
- 	rt->fl.fld_src    = oldflp->fld_src;
- 	rt->fl.fld_dst    = oldflp->fld_dst;
- 	rt->fl.oif        = oldflp->oif;
-@@ -1391,6 +1392,7 @@ make_route:
- 	if (rt == NULL)
- 		goto e_nobufs;
+ 	{
+ 		struct rtable *rt = skb_rtable(skb);
++		struct iphdr *iph = ip_hdr(skb);
+ 		struct flowi fl = {
+-			.fl4_dst = rt->rt_key_dst,
+-			.fl4_src = rt->rt_key_src,
+-			.fl4_tos = rt->rt_tos,
++			.fl4_dst = iph->daddr,
++			.fl4_src = iph->saddr,
++			.fl4_tos = iph->tos,
+ 			.oif = rt->rt_oif,
+-			.iif = rt->rt_iif,
+-			.mark = rt->rt_mark,
++			.iif = skb->dev->ifindex,
++			.mark = skb->mark,
+ 		};
+ 		err = ipmr_fib_lookup(net, &fl, &mrt);
+ 		if (err < 0) {
+@@ -1958,13 +1959,14 @@ int pim_rcv_v1(struct sk_buff *skb)
  
-+	memset(&rt->fl, 0, sizeof(rt->fl));
- 	rt->rt_saddr      = fl.fld_src;
- 	rt->rt_daddr      = fl.fld_dst;
- 	rt->rt_gateway    = fl.fld_dst;
+ 	{
+ 		struct rtable *rt = skb_rtable(skb);
++		struct iphdr *iph = ip_hdr(skb);
+ 		struct flowi fl = {
+-			.fl4_dst = rt->rt_key_dst,
+-			.fl4_src = rt->rt_key_src,
+-			.fl4_tos = rt->rt_tos,
++			.fl4_dst = iph->daddr,
++			.fl4_src = iph->saddr,
++			.fl4_tos = iph->tos,
+ 			.oif = rt->rt_oif,
+-			.iif = rt->rt_iif,
+-			.mark = rt->rt_mark,
++			.iif = skb->dev->ifindex,
++			.mark = skb->mark,
+ 		};
+ 		if (ipmr_fib_lookup(net, &fl, &mrt) < 0)
+ 			goto drop;
+@@ -2000,13 +2002,14 @@ static int pim_rcv(struct sk_buff *skb)
+ 
+ 	{
+ 		struct rtable *rt = skb_rtable(skb);
++		struct iphdr *iph = ip_hdr(skb);
+ 		struct flowi fl = {
+-			.fl4_dst = rt->rt_key_dst,
+-			.fl4_src = rt->rt_key_src,
+-			.fl4_tos = rt->rt_tos,
++			.fl4_dst = iph->daddr,
++			.fl4_src = iph->saddr,
++			.fl4_tos = iph->tos,
+ 			.oif = rt->rt_oif,
+-			.iif = rt->rt_iif,
+-			.mark = rt->rt_mark,
++			.iif = skb->dev->ifindex,
++			.mark = skb->mark,
+ 		};
+ 		if (ipmr_fib_lookup(net, &fl, &mrt) < 0)
+ 			goto drop;
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 9fcf8ce..4f3ac67 100644
+index 4f3ac67..04b8954 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
-@@ -1100,7 +1100,6 @@ static void rt_set_nexthop(struct rtable *rt, const struct flowi *oldflp,
+@@ -978,8 +978,8 @@ void ip_rt_get_source(u8 *addr, struct rtable *rt)
+ 		src = rt->rt_src;
+ 	else {
+ 		struct flowi fl = {
+-			.fl4_dst = rt->rt_key_dst,
+-			.fl4_src = rt->rt_key_src,
++			.fl4_dst = rt->rt_dst,
++			.fl4_src = rt->rt_src,
+ 			.fl4_tos = rt->rt_tos,
+ 			.oif = rt->rt_oif,
+ 			.iif = rt->rt_iif,
+@@ -1154,8 +1154,6 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
  #endif
- 	set_class_tag(rt, itag);
- #endif
--	rt->rt_type = type;
- }
- 
- static struct rtable *rt_dst_alloc(struct net_device *dev,
-@@ -1150,24 +1149,27 @@ static int ip_route_input_mc(struct sk_buff *skb, __be32 daddr, __be32 saddr,
- 	if (!rth)
- 		goto e_nobufs;
- 
-+#ifdef CONFIG_IP_ROUTE_CLASSID
-+	rth->dst.tclassid = itag;
-+#endif
  	rth->dst.output = ip_rt_bug;
  
- 	rth->rt_key_dst	= daddr;
--	rth->rt_dst	= daddr;
--	rth->rt_tos	= tos;
--	rth->rt_mark    = skb->mark;
- 	rth->rt_key_src	= saddr;
-+	rth->rt_genid	= rt_genid(dev_net(dev));
-+	rth->rt_flags	= RTCF_MULTICAST;
-+	rth->rt_type	= RTN_MULTICAST;
-+	rth->rt_tos	= tos;
-+	rth->rt_dst	= daddr;
- 	rth->rt_src	= saddr;
--#ifdef CONFIG_IP_ROUTE_CLASSID
--	rth->dst.tclassid = itag;
--#endif
- 	rth->rt_iif	= dev->ifindex;
- 	rth->rt_oif	= 0;
-+	rth->rt_mark    = skb->mark;
- 	rth->rt_gateway	= daddr;
- 	rth->rt_spec_dst= spec_dst;
--	rth->rt_genid	= rt_genid(dev_net(dev));
--	rth->rt_flags	= RTCF_MULTICAST;
--	rth->rt_type	= RTN_MULTICAST;
-+	rth->rt_peer_genid = 0;
-+	rth->peer = NULL;
-+	rth->fi = NULL;
- 	if (our) {
- 		rth->dst.input= ip_local_deliver;
- 		rth->rt_flags |= RTCF_LOCAL;
-@@ -1288,24 +1290,27 @@ static int __mkroute_input(struct sk_buff *skb,
+-	rth->rt_key_dst	= daddr;
+-	rth->rt_key_src	= saddr;
+ 	rth->rt_genid	= rt_genid(dev_net(dev));
+ 	rth->rt_flags	= RTCF_MULTICAST;
+ 	rth->rt_type	= RTN_MULTICAST;
+@@ -1289,8 +1287,6 @@ static int __mkroute_input(struct sk_buff *skb,
+ 		goto cleanup;
  	}
  
- 	rth->rt_key_dst	= daddr;
--	rth->rt_dst	= daddr;
--	rth->rt_tos	= tos;
--	rth->rt_mark    = skb->mark;
- 	rth->rt_key_src	= saddr;
-+	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
-+	rth->rt_flags = flags;
-+	rth->rt_type = res->type;
-+	rth->rt_tos	= tos;
-+	rth->rt_dst	= daddr;
- 	rth->rt_src	= saddr;
--	rth->rt_gateway	= daddr;
- 	rth->rt_iif 	= in_dev->dev->ifindex;
- 	rth->rt_oif 	= 0;
-+	rth->rt_mark    = skb->mark;
-+	rth->rt_gateway	= daddr;
- 	rth->rt_spec_dst= spec_dst;
-+	rth->rt_peer_genid = 0;
-+	rth->peer = NULL;
-+	rth->fi = NULL;
+-	rth->rt_key_dst	= daddr;
+-	rth->rt_key_src	= saddr;
+ 	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
+ 	rth->rt_flags = flags;
+ 	rth->rt_type = res->type;
+@@ -1461,8 +1457,6 @@ local_input:
+ 	rth->dst.tclassid = itag;
+ #endif
  
- 	rth->dst.input = ip_forward;
+-	rth->rt_key_dst	= daddr;
+-	rth->rt_key_src	= saddr;
+ 	rth->rt_genid = rt_genid(net);
+ 	rth->rt_flags 	= flags|RTCF_LOCAL;
+ 	rth->rt_type	= res.type;
+@@ -1626,8 +1620,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
+ 
  	rth->dst.output = ip_output;
--	rth->rt_genid = rt_genid(dev_net(rth->dst.dev));
  
- 	rt_set_nexthop(rth, NULL, res, res->fi, res->type, itag);
+-	rth->rt_key_dst	= oldflp->fl4_dst;
+-	rth->rt_key_src	= oldflp->fl4_src;
+ 	rth->rt_genid = rt_genid(dev_net(dev_out));
+ 	rth->rt_flags	= flags;
+ 	rth->rt_type	= type;
+@@ -1897,8 +1889,6 @@ struct dst_entry *ipv4_blackhole_route(struct net *net, struct dst_entry *dst_or
+ 		if (new->dev)
+ 			dev_hold(new->dev);
  
--	rth->rt_flags = flags;
--
- 	*result = rth;
- 	err = 0;
-  cleanup:
-@@ -1450,29 +1455,33 @@ local_input:
- 	if (!rth)
- 		goto e_nobufs;
- 
-+	rth->dst.input= ip_local_deliver;
- 	rth->dst.output= ip_rt_bug;
--	rth->rt_genid = rt_genid(net);
-+#ifdef CONFIG_IP_ROUTE_CLASSID
-+	rth->dst.tclassid = itag;
-+#endif
- 
- 	rth->rt_key_dst	= daddr;
--	rth->rt_dst	= daddr;
--	rth->rt_tos	= tos;
--	rth->rt_mark    = skb->mark;
- 	rth->rt_key_src	= saddr;
-+	rth->rt_genid = rt_genid(net);
-+	rth->rt_flags 	= flags|RTCF_LOCAL;
-+	rth->rt_type	= res.type;
-+	rth->rt_tos	= tos;
-+	rth->rt_dst	= daddr;
- 	rth->rt_src	= saddr;
--#ifdef CONFIG_IP_ROUTE_CLASSID
--	rth->dst.tclassid = itag;
--#endif
- 	rth->rt_iif	= dev->ifindex;
-+	rth->rt_oif	= 0;
-+	rth->rt_mark    = skb->mark;
- 	rth->rt_gateway	= daddr;
- 	rth->rt_spec_dst= spec_dst;
--	rth->dst.input= ip_local_deliver;
--	rth->rt_flags 	= flags|RTCF_LOCAL;
-+	rth->rt_peer_genid = 0;
-+	rth->peer = NULL;
-+	rth->fi = NULL;
- 	if (res.type == RTN_UNREACHABLE) {
- 		rth->dst.input= ip_error;
- 		rth->dst.error= -err;
- 		rth->rt_flags 	&= ~RTCF_LOCAL;
- 	}
--	rth->rt_type	= res.type;
- 	rth = rt_finalize(rth, skb);
- 	err = 0;
- 	if (IS_ERR(rth))
-@@ -1615,19 +1624,24 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	if (!rth)
- 		return ERR_PTR(-ENOBUFS);
- 
-+	rth->dst.output = ip_output;
-+
- 	rth->rt_key_dst	= oldflp->fl4_dst;
--	rth->rt_tos	= tos;
- 	rth->rt_key_src	= oldflp->fl4_src;
--	rth->rt_oif	= oldflp->oif;
--	rth->rt_mark    = oldflp->mark;
-+	rth->rt_genid = rt_genid(dev_net(dev_out));
-+	rth->rt_flags	= flags;
-+	rth->rt_type	= type;
-+	rth->rt_tos	= tos;
- 	rth->rt_dst	= fl->fl4_dst;
- 	rth->rt_src	= fl->fl4_src;
- 	rth->rt_iif	= oldflp->oif ? : dev_out->ifindex;
-+	rth->rt_oif	= oldflp->oif;
-+	rth->rt_mark    = oldflp->mark;
- 	rth->rt_gateway = fl->fl4_dst;
- 	rth->rt_spec_dst= fl->fl4_src;
--
--	rth->dst.output=ip_output;
--	rth->rt_genid = rt_genid(dev_net(dev_out));
-+	rth->rt_peer_genid = 0;
-+	rth->peer = NULL;
-+	rth->fi = NULL;
- 
- 	RT_CACHE_STAT_INC(out_slow_tot);
- 
-@@ -1654,8 +1668,6 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	}
- 
- 	rt_set_nexthop(rth, oldflp, res, fi, type, 0);
--
--	rth->rt_flags = flags;
- 	return rth;
+-		rt->rt_key_dst = ort->rt_key_dst;
+-		rt->rt_key_src = ort->rt_key_src;
+ 		rt->rt_tos = ort->rt_tos;
+ 		rt->rt_iif = ort->rt_iif;
+ 		rt->rt_oif = ort->rt_oif;
+@@ -1947,7 +1937,7 @@ struct rtable *ip_route_output_flow(struct net *net, struct flowi *flp,
  }
+ EXPORT_SYMBOL_GPL(ip_route_output_flow);
  
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 9a685f5..13f717d 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -223,7 +223,11 @@ static struct rt6_info ip6_blk_hole_entry_template = {
- static inline struct rt6_info *ip6_dst_alloc(struct dst_ops *ops,
- 					     struct net_device *dev)
+-static int rt_fill_info(struct net *net,
++static int rt_fill_info(struct net *net,  __be32 src,
+ 			struct sk_buff *skb, u32 pid, u32 seq, int event,
+ 			int nowait, unsigned int flags)
  {
--	return (struct rt6_info *)dst_alloc(ops, dev, 0, 0, 0);
-+	struct rt6_info *rt = dst_alloc(ops, dev, 0, 0, 0);
-+
-+	memset(&rt->rt6i_table, 0, sizeof(*rt) - sizeof(struct dst_entry));
-+
-+	return rt;
- }
+@@ -1977,9 +1967,9 @@ static int rt_fill_info(struct net *net,
  
- static void ip6_dst_destroy(struct dst_entry *dst)
-@@ -878,6 +882,8 @@ struct dst_entry *ip6_blackhole_route(struct net *net, struct dst_entry *dst_ori
+ 	NLA_PUT_BE32(skb, RTA_DST, rt->rt_dst);
  
- 	rt = dst_alloc(&ip6_dst_blackhole_ops, ort->dst.dev, 1, 0, 0);
- 	if (rt) {
-+		memset(&rt->rt6i_table, 0, sizeof(*rt) - sizeof(struct dst_entry));
-+
- 		new = &rt->dst;
- 
- 		new->__use = 1;
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index f9bb423..86dcc94 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -1346,6 +1346,7 @@ static inline struct xfrm_dst *xfrm_alloc_dst(struct net *net, int family)
- 		BUG();
+-	if (rt->rt_key_src) {
++	if (src) {
+ 		r->rtm_src_len = 32;
+-		NLA_PUT_BE32(skb, RTA_SRC, rt->rt_key_src);
++		NLA_PUT_BE32(skb, RTA_SRC, src);
  	}
- 	xdst = dst_alloc(dst_ops, NULL, 0, 0, 0);
-+	memset(&xdst->u.rt6.rt6i_table, 0, sizeof(*xdst) - sizeof(struct dst_entry));
- 	xfrm_policy_put_afinfo(afinfo);
+ 	if (rt->dst.dev)
+ 		NLA_PUT_U32(skb, RTA_OIF, rt->dst.dev->ifindex);
+@@ -1989,7 +1979,7 @@ static int rt_fill_info(struct net *net,
+ #endif
+ 	if (rt_is_input_route(rt))
+ 		NLA_PUT_BE32(skb, RTA_PREFSRC, rt->rt_spec_dst);
+-	else if (rt->rt_src != rt->rt_key_src)
++	else if (rt->rt_src != src)
+ 		NLA_PUT_BE32(skb, RTA_PREFSRC, rt->rt_src);
  
- 	if (likely(xdst))
+ 	if (rt->rt_dst != rt->rt_gateway)
+@@ -2131,7 +2121,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr* nlh, void
+ 	if (rtm->rtm_flags & RTM_F_NOTIFY)
+ 		rt->rt_flags |= RTCF_NOTIFY;
+ 
+-	err = rt_fill_info(net, skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
++	err = rt_fill_info(net, src, skb, NETLINK_CB(in_skb).pid, nlh->nlmsg_seq,
+ 			   RTM_NEWROUTE, 0, 0);
+ 	if (err <= 0)
+ 		goto errout_free;
+diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+index c70c42e..f0bc2c8 100644
+--- a/net/ipv4/xfrm4_policy.c
++++ b/net/ipv4/xfrm4_policy.c
+@@ -70,8 +70,6 @@ static int xfrm4_fill_dst(struct xfrm_dst *xdst, struct net_device *dev,
+ {
+ 	struct rtable *rt = (struct rtable *)xdst->route;
+ 
+-	rt->rt_key_dst = fl->fl4_dst;
+-	rt->rt_key_src = fl->fl4_src;
+ 	rt->rt_tos = fl->fl4_tos;
+ 	rt->rt_iif = fl->iif;
+ 	rt->rt_oif = fl->oif;
 -- 
 1.7.4.1
 
