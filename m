@@ -1,40 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next-2.6] udp: udp_sendmsg() fix
-Date: Thu, 03 Mar 2011 10:42:26 -0800 (PST)
-Message-ID: <20110303.104226.71110201.davem@davemloft.net>
-References: <1299169686.2983.129.camel@edumazet-laptop>
-	<1299172043.2983.142.camel@edumazet-laptop>
+Subject: Re: [PATCH 2/2] netlink: kill eff_cap from struct netlink_skb_parms
+Date: Thu, 03 Mar 2011 10:56:55 -0800 (PST)
+Message-ID: <20110303.105655.189705829.davem@davemloft.net>
+References: <4D6F6180.5030903@trash.net>
+	<20110303173230.GP4988@sequoia.sous-sol.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:57059
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752435Ab1CCSlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 13:41:49 -0500
-In-Reply-To: <1299172043.2983.142.camel@edumazet-laptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, netdev@vger.kernel.org, dm-devel@redhat.com,
+	linux-security-module@vger.kernel.org, drbd-dev@lists.linbit.com
+To: chrisw@sous-sol.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20110303173230.GP4988@sequoia.sous-sol.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 03 Mar 2011 18:07:23 +0100
+From: Chris Wright <chrisw@sous-sol.org>
+Date: Thu, 3 Mar 2011 09:32:30 -0800
 
-> [PATCH net-next-2.6] udp: udp_sendmsg() fix
+> * Patrick McHardy (kaber@trash.net) wrote:
 > 
-> commit b23dd4fe42b455af (ipv4: Make output route lookup return rtable
-> directly) introduced a regression in udp_sendmsg()
+>> commit 8ff259625f0ab295fa085b0718eed13093813fbc
+>> Author: Patrick McHardy <kaber@trash.net>
+>> Date:   Thu Mar 3 10:17:31 2011 +0100
+>> 
+>>     netlink: kill eff_cap from struct netlink_skb_parms
+>>     
+>>     Netlink message processing in the kernel is synchronous these days,
+>>     capabilities can be checked directly in security_netlink_recv() from
+>>     the current process.
+>>     
+>>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 > 
-> If IP route lookup fails, we should not try to release an non existent
-> route.
+> Thanks for doing that Patrick.  I looked at this earlier and thought
+> there was still an async path, but I guess that's just to another
+> userspace process.
 > 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+> BTW, I think you missed a couple connector based callers:
+> 
+> drivers/staging/pohmelfs/config.c:      if (!cap_raised(nsp->eff_cap, CAP_SYS_AD
+> drivers/video/uvesafb.c:        if (!cap_raised(nsp->eff_cap, CAP_SYS_ADMIN))
+> 
+> Fix those and:
+> 
+> Acked-by: Chris Wright <chrisw@sous-sol.org>
 
-Ok, this works too.
+Patrick, I'll apply your first patch, please respin this second patch with
+the changes mentioned here.
 
-My version NULL's out rt, so that if we had any changes in code paths
-here it would be unlikely we'd reintroduce this bug.
-
-I'm fine either way, although my version is in net-next-2.6 at the
-moment :-)
+Thanks!
