@@ -1,49 +1,84 @@
-From: Markus Feldmann <feldmann_markus@gmx.de>
-Subject: Jetway JAD3RTLANG, Daughter Board, 3x GigaBit LAN does not work correctly
-Date: Thu, 03 Mar 2011 22:02:40 +0100
-Message-ID: <ikovkn$bn8$1@dough.gmane.org>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 3/3 v2] eql: Convert printks to pr_<level> and
+ netdev_<level>
+Date: Thu, 03 Mar 2011 13:08:12 -0800
+Message-ID: <1299186492.4338.166.camel@Joe-Laptop>
+References: <7f33dcacd277e127208211d8c3ef11c992408628.1299086044.git.joe@perches.com>
+	 <90c4322fefc5e2d4778862abd051e6eb12c0284b.1299086044.git.joe@perches.com>
+	 <20110303.122153.70207563.davem@davemloft.net>
+	 <20110303.125951.200370524.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:32876 "EHLO lo.gmane.org"
+Received: from mail.perches.com ([173.55.12.10]:4084 "EHLO mail.perches.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756708Ab1CCVC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 16:02:27 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1PvFfG-0005hU-52
-	for netdev@vger.kernel.org; Thu, 03 Mar 2011 22:02:26 +0100
-Received: from dslb-188-096-092-238.pools.arcor-ip.net ([188.96.92.238])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 22:02:26 +0100
-Received: from feldmann_markus by dslb-188-096-092-238.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 22:02:26 +0100
+	id S1758618Ab1CCVIN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 16:08:13 -0500
+In-Reply-To: <20110303.125951.200370524.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+Add pr_fmt.
 
-i have a mini-ITX server with the mainboard "Jetway JNF92-270-LF" with 
-the daughterboard "Jetway JAD3RTLANG, 3x GigaBit LAN".
+Removed trailing "\n" from version,
+add back via pr_info("%s\n", version);
 
-My current kernel is 2.6.36.4 and i can only connect over one of the 
-network interfaces of my daughterboard at the time.
+Signed-off-by: Joe Perches <joe@perches.com>
 
-My loaded modules:
-http://pastebin.com/raw.php?i=C9u78SML
+---
 
-And a list of pci devices:
-http://pastebin.com/raw.php?i=f00tTdEJ
+> Something is busted with this change, although I can't quite figure it
+> out myself:
 
-I am using a bridge br0 to bind all three interfaces eth1, eth2 and eth3 
-together:
-http://pastebin.com/raw.php?i=deUT7iVS
+Joined of a fixed string with an __initconst string.
 
-Do i have to configure anything in my kernel to fit this daughterboard?
+ drivers/net/eql.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
 
-regards Markus
+diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+index 0cb1cf9..a59cf96 100644
+--- a/drivers/net/eql.c
++++ b/drivers/net/eql.c
+@@ -111,6 +111,8 @@
+  * Sorry, I had to rewrite most of this for 2.5.x -DaveM
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <linux/capability.h>
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+@@ -162,7 +164,7 @@ static void eql_timer(unsigned long param)
+ }
+ 
+ static const char version[] __initconst =
+-	"Equalizer2002: Simon Janes (simon@ncm.com) and David S. Miller (davem@redhat.com)\n";
++	"Equalizer2002: Simon Janes (simon@ncm.com) and David S. Miller (davem@redhat.com)";
+ 
+ static const struct net_device_ops eql_netdev_ops = {
+ 	.ndo_open	= eql_open,
+@@ -204,8 +206,8 @@ static int eql_open(struct net_device *dev)
+ 	equalizer_t *eql = netdev_priv(dev);
+ 
+ 	/* XXX We should force this off automatically for the user. */
+-	printk(KERN_INFO "%s: remember to turn off Van-Jacobson compression on "
+-	       "your slave devices.\n", dev->name);
++	netdev_info(dev,
++		    "remember to turn off Van-Jacobson compression on your slave devices\n");
+ 
+ 	BUG_ON(!list_empty(&eql->queue.all_slaves));
+ 
+@@ -591,7 +593,7 @@ static int __init eql_init_module(void)
+ {
+ 	int err;
+ 
+-	printk(version);
++	pr_info("%s\n", version);
+ 
+ 	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql", eql_setup);
+ 	if (!dev_eql)
+
 
