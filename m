@@ -1,52 +1,92 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 01/24] igb: warn if max_vfs limit is exceeded
-Date: Thu,  3 Mar 2011 05:03:26 -0800
-Message-ID: <1299157429-15878-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Stefan Assmann <sassmann@redhat.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 00/24][pull request] Intel Wired LAN Driver Updates
+Date: Thu,  3 Mar 2011 05:03:25 -0800
+Message-ID: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, bphilips@novell.com
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:51571 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758112Ab1CCNET (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 08:04:19 -0500
-In-Reply-To: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	id S1757104Ab1CCNES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 08:04:18 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stefan Assmann <sassmann@redhat.com>
+The following series contains cleanups and fixes for igb, ixgbevf
+and mainly ixgbe.
 
-Currently there's no warning printed when max_vfs > 7 is specified with
-igb and the maximum of 7 is silently enforced. This patch prints a
-warning and informs the user of the actions taken.
+The following are changes since commit dc6ed1df5a5f84e45e77e2acb6fd99b995414956:
+  dcbnl: add support for retrieving peer configuration - cee
 
-Signed-off-by: Stefan Assmann <sassmann@redhat.com>
-Tested-by: Jeff Pieper <jeffrey.e.pieper@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/igb/igb_main.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+and are available in the git repository at:
+  master.kernel.org:/pub/scm/linux/kernel/git/jkirsher/net-next-2.6 master
 
-diff --git a/drivers/net/igb/igb_main.c b/drivers/net/igb/igb_main.c
-index 579dbba..eef380a 100644
---- a/drivers/net/igb/igb_main.c
-+++ b/drivers/net/igb/igb_main.c
-@@ -2291,7 +2291,12 @@ static int __devinit igb_sw_init(struct igb_adapter *adapter)
- 	switch (hw->mac.type) {
- 	case e1000_82576:
- 	case e1000_i350:
--		adapter->vfs_allocated_count = (max_vfs > 7) ? 7 : max_vfs;
-+		if (max_vfs > 7) {
-+			dev_warn(&pdev->dev,
-+				 "Maximum of 7 VFs per PF, using max\n");
-+			adapter->vfs_allocated_count = 7;
-+		} else
-+			adapter->vfs_allocated_count = max_vfs;
- 		break;
- 	default:
- 		break;
+Alexander Duyck (1):
+  ixgbe: balance free_irq calls with request_irq calls
+
+Carolyn Wyborny (2):
+  igb: Fix reg pattern test in ethtool for i350 devices
+  igb: Fix strncpy calls to be safe per source code review tools
+
+Don Skidmore (3):
+  ixgbe: cleanup X540 PHY reset function pointer
+  ixgbe: add function pointer for semaphore function
+  ixgbe: cleanup copyright string for 2011
+
+Emil Tantilov (15):
+  ixgbe: cleanup wake on LAN defines
+  ixgbe: cleanup logic related to HW semaphores
+  ixgbe: set media type for 82599 T3 LOM
+  ixgbe: Add ability to double reset on failure to clear master enable
+  ixgbe: cleanup code in ixgbe_identify_sfp_module_generic
+  ixgbe: Check link wants report current link state
+  ixgbe: add polling test to end of PHY reset
+  ixgbe: Fill out PCIe speed and width enums with values
+  ixgbe: Bounds checking for set_rar, clear_rar, set_vmdq, clear_vmdq
+  ixgbe: rework ixgbe MTA handling to not drop packets
+  ixgbe: Drop unused code for setting up unicast addresses
+  ixgbe: Specific check for 100 Full link speed
+  ixgbe: Numerous whitespace / formatting cleanups
+  ixgbe: store permanent address before initializing Rx addresses
+  ixgbe: cleanup handling of I2C interface to PHY
+
+Greg Rose (2):
+  ixgbevf: Fix Compiler Warnings
+  ixgbe: X540 Cleanup
+
+Stefan Assmann (1):
+  igb: warn if max_vfs limit is exceeded
+
+ drivers/net/igb/igb_ethtool.c       |   13 +-
+ drivers/net/igb/igb_main.c          |    7 +-
+ drivers/net/ixgbe/ixgbe.h           |    2 +-
+ drivers/net/ixgbe/ixgbe_82598.c     |   63 ++++--
+ drivers/net/ixgbe/ixgbe_82599.c     |  104 ++++++---
+ drivers/net/ixgbe/ixgbe_common.c    |  438 ++++++++++++++---------------------
+ drivers/net/ixgbe/ixgbe_common.h    |    4 +-
+ drivers/net/ixgbe/ixgbe_dcb.c       |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb.h       |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb_82598.c |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb_82598.h |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb_82599.c |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb_82599.h |    2 +-
+ drivers/net/ixgbe/ixgbe_dcb_nl.c    |    2 +-
+ drivers/net/ixgbe/ixgbe_ethtool.c   |    2 +-
+ drivers/net/ixgbe/ixgbe_fcoe.c      |    2 +-
+ drivers/net/ixgbe/ixgbe_fcoe.h      |    2 +-
+ drivers/net/ixgbe/ixgbe_main.c      |   12 +-
+ drivers/net/ixgbe/ixgbe_mbx.c       |    2 +-
+ drivers/net/ixgbe/ixgbe_mbx.h       |    2 +-
+ drivers/net/ixgbe/ixgbe_phy.c       |  238 ++++++++++++++-----
+ drivers/net/ixgbe/ixgbe_phy.h       |    2 +-
+ drivers/net/ixgbe/ixgbe_sriov.c     |    2 +-
+ drivers/net/ixgbe/ixgbe_sriov.h     |    2 +-
+ drivers/net/ixgbe/ixgbe_type.h      |   40 ++--
+ drivers/net/ixgbe/ixgbe_x540.c      |   34 ++-
+ drivers/net/ixgbevf/ixgbevf_main.c  |    9 +-
+ 27 files changed, 547 insertions(+), 447 deletions(-)
+
 -- 
 1.7.4
 
