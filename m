@@ -1,56 +1,48 @@
-From: Vladislav Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: do not mark chunk abandoned if peer has no PRSCTP
- capable
-Date: Thu, 03 Mar 2011 09:14:50 -0500
-Message-ID: <4D6FA25A.6030401@hp.com>
-References: <4D6F1723.5030909@cn.fujitsu.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] Bluetooth: Fix BT_L2CAP and BT_SCO in Kconfig
+Date: Thu, 3 Mar 2011 09:05:12 -0500
+Message-ID: <20110303140512.GB8969@tuxdriver.com>
+References: <20110226013639.GA2166@joana>
+ <1298684485-3081-1-git-send-email-padovan@profusion.mobi>
+ <20110302.215433.39198854.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lksctp <linux-sctp@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g1t0028.austin.hp.com ([15.216.28.35]:36891 "EHLO
-	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750909Ab1CCOO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 09:14:56 -0500
-In-Reply-To: <4D6F1723.5030909@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org, linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20110302.215433.39198854.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 03/02/2011 11:20 PM, Wei Yongjun wrote:
-> Chunk is marked abandoned if the chunk is expires, and it not be
-> retransmited even if the peer has no PRSCTP capable, but the peer
-> will still wait for retransmit it to update CTSN.
-> This patch disable mark chunk abandoned if peer has no PRSCTP
-> capable.
+On Wed, Mar 02, 2011 at 09:54:33PM -0800, David Miller wrote:
+> From: "Gustavo F. Padovan" <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
+> Date: Fri, 25 Feb 2011 22:41:25 -0300
 > 
-> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> ---
->  net/sctp/chunk.c |    3 +++
->  1 files changed, 3 insertions(+), 0 deletions(-)
+> > If we want something "bool" built-in in something "tristate" it can't
+> > "depend on" the tristate config option.
+> > 
+> > Report by DaveM:
+> > 
+> >    I give it 'y' just to make it happen, for both, and afterways no
+> >    matter how many times I rerun "make oldconfig" I keep seeing things
+> >    like this in my build:
+> > 
+> > scripts/kconfig/conf --silentoldconfig Kconfig
+> > include/config/auto.conf:986:warning: symbol value 'm' invalid for BT_SCO
+> > include/config/auto.conf:3156:warning: symbol value 'm' invalid for BT_L2CAP
+> > 
+> > Reported-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> > Signed-off-by: Gustavo F. Padovan <padovan-Y3ZbgMPKUGA34EUeqzHoZw@public.gmane.org>
 > 
-> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-> index 6c85564..0d4832d 100644
-> --- a/net/sctp/chunk.c
-> +++ b/net/sctp/chunk.c
-> @@ -347,6 +347,9 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
->  {
->  	struct sctp_datamsg *msg = chunk->msg;
->  
-> +	if (!chunk->asoc->peer.prsctp_capable)
-> +		return 0;
-> +
->  	if (!msg->can_abandon)
->  		return 0;
->  
+> I think this approach is fine since it mirrors what we use in other similar
+> situations.
+> 
+> I am assuming this patch will propagate via bluetooth --> wireless --> me.
 
-The trouble is that timetolive can be set on a message independent of Partial Reliability.
-The difference in behavior is that when PR can't be used, a chunk can only be abandoned
-if it has not yet been transmitted.  With PR enabled, the chunk can be abandoned at any time.
+Yes, I have it queued.
 
-So, you can't blindly disallow abandonment. 
-
--vlad
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
