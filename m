@@ -1,41 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: inetpeer with create==0
-Date: Thu, 03 Mar 2011 08:39:37 +0100
-Message-ID: <1299137977.2456.15.camel@edumazet-laptop>
-References: <AANLkTimwaUaC7Xu2djSNR9k98sYbSM0V88sCAc34R6Ac@mail.gmail.com>
-	 <20110302.213634.189680857.davem@davemloft.net>
-	 <AANLkTi=Ty+C3b9U+151dUMpgGiwG3AE4dMmc3djWmp6v@mail.gmail.com>
-	 <20110302.224220.179921025.davem@davemloft.net>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf-2.6] IPVS
+Date: Thu, 3 Mar 2011 16:47:34 +0900
+Message-ID: <20110303074731.GA8025@verge.net.au>
+References: <1299020375-11362-1-git-send-email-horms@verge.net.au>
+ <4D6E22CA.2020305@trash.net>
+ <20110302220637.GD8193@verge.net.au>
+ <4D6F3AD2.30502@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:58852 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756715Ab1CCHjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 02:39:41 -0500
-Received: by fxm17 with SMTP id 17so827473fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 23:39:40 -0800 (PST)
-In-Reply-To: <20110302.224220.179921025.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4D6F3AD2.30502@trash.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 02 mars 2011 =C3=A0 22:42 -0800, David Miller a =C3=A9crit =
-:
-> Actually, back to the original topic, I wonder how bad it is to simpl=
-y
-> elide the recheck in the create=3D=3D0 case anyways.  Except for the =
-ipv4
-> fragmentation wraparound protection values, perfect inetpeer finding
-> is not necessary for correctness.  And IPv4 fragmentation always call=
-s
-> inetpeer with create!=3D0.
->=20
+On Thu, Mar 03, 2011 at 07:53:06AM +0100, Patrick McHardy wrote:
+> On 02.03.2011 23:06, Simon Horman wrote:
+> > On Wed, Mar 02, 2011 at 11:58:18AM +0100, Patrick McHardy wrote:
+> >> Am 01.03.2011 23:59, schrieb Simon Horman:
+> >>> Hi Patrick,
+> >>>
+> >>> please consider pulling
+> >>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
+> >>> to get the following change from Julian. Please note that it is an nf-2.6
+> >>> (that is 2.6.38-rc) change.
+> >>>
+> >>> Julian Anastasov (1):
+> >>>       ipvs: fix dst_lock locking on dest update
+> >>
+> >> Pulled, thanks Simon.
+> > 
+> > Thanks Patrick.
+> > 
+> > This change is also needed in nf-next-2.6 but I assume that
+> > will automatically happen when nf-2.6 is merged into nf-next-2.6,
+> > possibly via a merge of net-2.6 into net-next-2.6.
+> 
+> Yes. If you need it as base for further work, the fastest way
+> is to ask Dave to pull net-2.6 into net-next-2.6, I can then
+> pull it into nf-next.
 
-We could use a seqlock, to detect that a writer might have changed
-things while we did our RCU lookup ?
-
-
+There is no rush at this time.
 
