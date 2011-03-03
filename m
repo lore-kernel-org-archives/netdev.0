@@ -1,117 +1,95 @@
-From: Paul Stewart <pstew@chromium.org>
-Subject: [RFC] Keep track of interrupt URB status and resubmit in bh if necessary
-Date: Wed, 2 Mar 2011 21:45:15 -0800
-Message-ID: <20110303055828.073E520218@glenhelen.mtv.corp.google.com>
-Cc: dbrownell@users.sourceforge.org, Indrek.Peri@Ericsson.com
-To: netdev@vger.kernel.org
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6] bonding: remove skb_share_check in
+ handle_frame
+Date: Thu, 3 Mar 2011 07:14:34 +0100
+Message-ID: <20110303061433.GA2835@psychotron.redhat.com>
+References: <20110301062250.GB2855@psychotron.redhat.com>
+ <20110301092907.GG2855@psychotron.redhat.com>
+ <20110301203843.GN11864@gospo.rdu.redhat.com>
+ <20110302100354.GB2858@psychotron.brq.redhat.com>
+ <4D6EACF6.2040005@gmail.com>
+ <20110302211238.GC3360@psychotron.redhat.com>
+ <4D6EBC7B.8040502@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([74.125.121.67]:13070 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754805Ab1CCF6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 00:58:31 -0500
+Received: from mx1.redhat.com ([209.132.183.28]:58252 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750695Ab1CCGOp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 01:14:45 -0500
+Content-Disposition: inline
+In-Reply-To: <4D6EBC7B.8040502@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It appears that a patch from Indrek Peri similar to the one below
-without resolution.  I'm new to this problem (suspend-resume causing
-interrupt URBs to stop delivering) and am curious about what the correct
-solution would should like.  Before becoming aware of this thread, I
-just added a "usb_submit_urb" of "dev->interrupt" into "usbnet_resume()"
-and that worked to solve the issue I was having.  Apparently this isn't
-the correct solution though, from David's response to Indrek.  So, I'm
-curious about what the right code should be.
+Wed, Mar 02, 2011 at 10:54:03PM CET, nicolas.2p.debian@gmail.com wrote:
+>Le 02/03/2011 22:12, Jiri Pirko a =E9crit :
+>>Wed, Mar 02, 2011 at 09:47:50PM CET, nicolas.2p.debian@gmail.com wrot=
+e:
+>>>Hi Jiri,
+>>>
+>>>Do you plan to call the bonding ARP handler from inside bond_handle_=
+frame()?
+>>
+>>I do - it's part of patchset I've cooked (going to test that tomorrow=
+).
+>>
+>>>A few days ago
+>>>(http://marc.info/?l=3Dlinux-netdev&m=3D129883949022340&w=3D2), I no=
+ticed
+>>>that it is not possible to call the bonding ARP handler from inside
+>>>the bonding rx_handler, because some frame processing may be require=
+d
+>>>after the bonding rx_handler call, to put the frame in a suitable
+>>>state for the bonding ARP handler.
+>>
+>>Do you see another scenario besides the next one?
+>
+>None that currently work, but eth0 -> bond0 -> br0 -> br0.100 should w=
+ork too.
+>
+>>>This is at least true with the following setup, eth0 ->  bond0 ->
+>>>bond0.100, where the ARP frames are VLAN tagged at the time the
+>>>bonding rx_handler process them.
+>>
+>>Isn't this scenario resolved by vlan_on_bond_hook ?
+>>
+>>eth0
+>>   ->rx_handler ->  another round
+>>bond0
+>>   ->vlan_hwaccel_do_receive ->  __netif_receive_skb
+>>bond0.100
+>>   ->vlan_on_bond_hook ->  reinject to bond0
+>
+>Yes, it is, but this hack does not solve the eth0 -> bond0 -> br0 -> b=
+r0.100 configuration.
+>
+>All those handlers that call netif_rx() or __netif_receive_skb()
+>sound horrible to me. Can you imagine the global overhead of the
+>above receive path?
+>
+>The reason why I suggested you introduce the goto another_round is
+>because most - if not all - stacking configurations could/should be
+>handled simply by returning the right skb from the rx_handler and let
+>__netif_receive_skb() loop. And by having the right orig_dev logic
+>inside __netif_receive_skb(), it could be possible to remove the
+>current vlan_on_bond_hook hack.
 
-I'll note is that submitting the interrupt URB seems fairly benign.  If
-we are in a situation where we should not have sent an URB (e.g, the
-netif wasn't running) intr_complete correctly handles this case and does
-not re-submit the URB, so at most we get one "rogue" interrupt URB after
-resume-from-suspend.  The only nasty thing is that this URB should
-probably not be submitted from interrupt, which the resume function
-almost certainly is.  I'm guessing this is part of why David NAKed
-Indrek's patch.  Am I correct?
+Well that wouldn't solve the problem. if we just got anorther_round the
+packed would not be delivered to bond0.100 but only to bond0. That's
+also unwanted. Well, this think shouldn't have been added here in the
+first place :(
 
-Does something like the patch below seem like a resonable solution?
-
-Cc: David Brownell <dbrownell@users.sourceforge.org>
-Cc: Indrek Peri <Indrek.Peri@Ericsson.com>
-Signed-off-by: Paul Stewart <pstew@google.com>
----
- drivers/net/usb/usbnet.c   |   21 +++++++++++++++++++--
- include/linux/usb/usbnet.h |    1 +
- 2 files changed, 20 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 02d25c7..bc6a8e0 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -471,6 +471,8 @@ static void intr_complete (struct urb *urb)
- 	struct usbnet	*dev = urb->context;
- 	int		status = urb->status;
- 
-+	dev->interrupt_urb_running = 0;
-+
- 	switch (status) {
- 	/* success */
- 	case 0:
-@@ -497,7 +499,9 @@ static void intr_complete (struct urb *urb)
- 
- 	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
- 	status = usb_submit_urb (urb, GFP_ATOMIC);
--	if (status != 0 && netif_msg_timer (dev))
-+	if (status == 0)
-+		dev->interrupt_urb_running = 1;
-+	else if (netif_msg_timer (dev))
- 		deverr(dev, "intr resubmit --> %d", status);
- }
- 
-@@ -580,6 +584,7 @@ static int usbnet_stop (struct net_device *net)
- 	remove_wait_queue (&unlink_wakeup, &wait);
- 
- 	usb_kill_urb(dev->interrupt);
-+	dev->interrupt_urb_running = 0;
- 
- 	/* deferred work (task, timer, softirq) must also stop.
- 	 * can't flush_scheduled_work() until we drop rtnl (later),
-@@ -640,7 +645,8 @@ static int usbnet_open (struct net_device *net)
- 			if (netif_msg_ifup (dev))
- 				deverr (dev, "intr submit %d", retval);
- 			goto done;
--		}
-+		} else
-+			dev->interrupt_urb_running = 1;
- 	}
- 
- 	netif_start_queue (net);
-@@ -1065,6 +1071,17 @@ static void usbnet_bh (unsigned long param)
- 		if (dev->txq.qlen < TX_QLEN (dev))
- 			netif_wake_queue (dev->net);
- 	}
-+
-+	// Do we need to re-enable interrupt URBs?
-+	if (netif_running (dev->net) &&
-+	    netif_device_present (dev->net) &&
-+	    dev->interrupt_urb_running == 0) {
-+		usb_submit_urb (dev->interrupt, GFP_KERNEL);
-+
-+		/* Unconditionally mark as running so we don't retry */
-+		dev->interrupt_urb_running = 1;
-+	}
-+
- }
- 
- 
-diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
-index ba09fe8..1b8ed8a 100644
---- a/include/linux/usb/usbnet.h
-+++ b/include/linux/usb/usbnet.h
-@@ -49,6 +49,7 @@ struct usbnet {
- 	u32			hard_mtu;	/* count any extra framing */
- 	size_t			rx_urb_size;	/* size for rx urbs */
- 	struct mii_if_info	mii;
-+	int			interrupt_urb_running;
- 
- 	/* various kinds of pending driver work */
- 	struct sk_buff_head	rxq;
--- 
-1.7.3.1
-
+>
+>My question about whether the skb is shared between the protocol
+>handlers (in another thread) also target at this idea.
+>
+>You will probably told me I'm free to propose patchs for all that,
+>and you are right. Just missing the time to do so.
+>
+>	Nicolas.
