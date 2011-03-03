@@ -1,98 +1,49 @@
-From: Fabio Checconi <fchecconi@gmail.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Thu, 3 Mar 2011 09:19:40 +0100
-Message-ID: <20110303081940.GA29685@gandalf.sssup.it>
-References: <20110228171738.2cc8c9a0@nehalam>
- <20110302020610.GD1005@gandalf.sssup.it>
- <1299064667.2920.4.camel@edumazet-laptop>
- <20110302081108.689571d8@nehalam>
- <1299082728.2920.18.camel@edumazet-laptop>
- <1299087087.2920.27.camel@edumazet-laptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: inetpeer with create==0
+Date: Thu, 03 Mar 2011 00:30:39 -0800 (PST)
+Message-ID: <20110303.003039.70182283.davem@davemloft.net>
+References: <20110302.204545.193730647.davem@davemloft.net>
+	<1299135107.2456.7.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org,
-	Paolo Valente <paolo.valente@unimore.it>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ms01.sssup.it ([193.205.80.99]:60842 "EHLO sssup.it"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754587Ab1CCIR6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 03:17:58 -0500
-Content-Disposition: inline
-In-Reply-To: <1299087087.2920.27.camel@edumazet-laptop>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:60928
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751649Ab1CCIaD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 03:30:03 -0500
+In-Reply-To: <1299135107.2456.7.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 03 Mar 2011 07:51:47 +0100
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, Mar 02, 2011 06:31:27PM +0100
->
-> Le mercredi 02 mars 2011 =E0 17:18 +0100, Eric Dumazet a =E9crit :
-> > Le mercredi 02 mars 2011 =E0 08:11 -0800, Stephen Hemminger a =E9cr=
-it :
-> >=20
-> > > I put the iproute2 code into the repository in the experimental b=
-ranch.
-> > >=20
-> >=20
-> > Thanks
-> >=20
-> > It seems as soon as packets are dropped, qdisc is frozen (no more
-> > packets dequeued)
+> Hmm... I'm curious you send this hack to me ;)
 
-  I've been able to reproduce this problem using netem, and it seems to
-be due to this check:
+Ok, it's so simple :-)
 
-> +	/* If the new skb is not the head of queue, then done here. */
-> +	if (skb !=3D qdisc_peek_head(cl->qdisc))
-> +		return err;
-
-changing it to:
-
-	if (cl->qdisc->q.qlen !=3D 1)
-		return err;
-
-seems to make things work.  I think this is because qdisc_peek_head()
-looks at the wrong list, as the skb is not queued directly in q, but
-ends up in the child qdisc attached to cl->qdisc.
-
-
-> >=20
-> > Hmm...
-> >=20
->=20
-> It seems class deletes are buggy.
->=20
-> After one "tc class del dev $ETH classid 11:1 ..."
->=20
-> a "tc -s -d qdisc show dev $ETH" triggers an Oops
->=20
-
-This seems to be due to:
-
-> +static void qfq_destroy_class(struct Qdisc *sch, struct qfq_class *c=
-l)
-> +{
-> +	struct qfq_sched *q =3D (struct qfq_sched *)sch;
-
-it should be:
-
-	struct qfq_sched *q =3D sched_priv(sch);
-
-The same bug you identified in qfq_reset_qdisc() is present also in
-qfq_drop(), both loops need to be corrected...
-
-It should also be noted that this scheduler (like HFSC, IIRC) depends
-on the child qdisc not to reorder packets for the guarantees to be met,
-as the timestamps need to be in sync with the length of the packet at t=
-he
-head of the queue.  If this can't be guaranteed, to preserve the formal
-correctness it should be changed to always use the maximum packet size
-to calculate the timestamps.
-
-@Stephen: not that I'm proud of that, but all the bugs found so far are=
- mine...
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 48f8d45..a194e91 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -492,6 +492,8 @@ struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
+ 		unlink_from_unused(p);
+ 		return p;
+ 	}
++	if (!create)
++		return NULL;
+ 
+ 	/* retry an exact lookup, taking the lock before.
+ 	 * At least, nodes should be hot in our cache.
+@@ -505,7 +507,7 @@ struct inet_peer *inet_getpeer(struct inetpeer_addr *daddr, int create)
+ 		unlink_from_unused(p);
+ 		return p;
+ 	}
+-	p = create ? kmem_cache_alloc(peer_cachep, GFP_ATOMIC) : NULL;
++	p = kmem_cache_alloc(peer_cachep, GFP_ATOMIC);
+ 	if (p) {
+ 		p->daddr = *daddr;
+ 		atomic_set(&p->refcnt, 1);
