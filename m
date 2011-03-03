@@ -1,69 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: inetpeer with create==0
-Date: Thu, 03 Mar 2011 07:51:47 +0100
-Message-ID: <1299135107.2456.7.camel@edumazet-laptop>
-References: <20110302.204545.193730647.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [GIT PULL nf-2.6] IPVS
+Date: Thu, 03 Mar 2011 07:53:06 +0100
+Message-ID: <4D6F3AD2.30502@trash.net>
+References: <1299020375-11362-1-git-send-email-horms@verge.net.au> <4D6E22CA.2020305@trash.net> <20110302220637.GD8193@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:42715 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753055Ab1CCGvw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 01:51:52 -0500
-Received: by fxm17 with SMTP id 17so803513fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 22:51:51 -0800 (PST)
-In-Reply-To: <20110302.204545.193730647.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20110302220637.GD8193@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le mercredi 02 mars 2011 =C3=A0 20:45 -0800, David Miller a =C3=A9crit =
-:
-> Eric, I was profiling the non-routing-cache case and something that s=
-tuck
-> out is the case of calling inet_getpeer() with create=3D=3D0.
->=20
-> If an entry is not found, we have to redo the lookup under a spinlock
-> to make certain that a concurrent writer rebalancing the tree does
-> not "hide" an existing entry from us.
->=20
-> This makes the case of a create=3D=3D0 lookup for a not-present entry
-> really expensive.  It is on the order of 600 cpu cycles on my
-> Niagara2.
->=20
+On 02.03.2011 23:06, Simon Horman wrote:
+> On Wed, Mar 02, 2011 at 11:58:18AM +0100, Patrick McHardy wrote:
+>> Am 01.03.2011 23:59, schrieb Simon Horman:
+>>> Hi Patrick,
+>>>
+>>> please consider pulling
+>>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
+>>> to get the following change from Julian. Please note that it is an nf-2.6
+>>> (that is 2.6.38-rc) change.
+>>>
+>>> Julian Anastasov (1):
+>>>       ipvs: fix dst_lock locking on dest update
+>>
+>> Pulled, thanks Simon.
+> 
+> Thanks Patrick.
+> 
+> This change is also needed in nf-next-2.6 but I assume that
+> will automatically happen when nf-2.6 is merged into nf-next-2.6,
+> possibly via a merge of net-2.6 into net-next-2.6.
 
-Well, your test assumes all data is already on cpu caches ?
-
-I'll take a look, but my reasoning was that the real cost in DDOS
-situation is to bring data into caches. With a 20 depth, cache misses
-costs are the problem.
-
-The second lookup was basically free.
-
-> I added a hack to not do the relookup under the lock when create=3D=3D=
-0
-> and it now costs less than 300 cycles.
->=20
-
-Hmm... I'm curious you send this hack to me ;)
-
-> This is now a pretty common operation with the way we handle COW'd
-> metrics, so I think it's definitely worth optimizing.
->=20
-> I looked at the generic radix tree implementation, and it supports
-> full RCU lookups in parallel with insert/delete.  It handles the race
-> case without the relookup under lock because it creates fixed paths
-> to "slots" where nodes live using shifts and masks.  So if a path
-> to a slot ever existed, it will always exist.
->=20
-> Take a look at lib/radix-tree.c and include/linux/radix-tree.h if
-> you are curious.
->=20
-> I think we should do something similar for inetpeer.  Currently we
-> cannot just use the existing generic radix-tree code because it only
-> supports indexes as large as "unsigned long" and we need to handle
-> 128-bit ipv6 addresses.
-
+Yes. If you need it as base for further work, the fastest way
+is to ask Dave to pull net-2.6 into net-next-2.6, I can then
+pull it into nf-next.
 
