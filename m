@@ -1,89 +1,48 @@
-From: Chris Wright <chrisw@sous-sol.org>
-Subject: [RFC PATCH 4/2] connector: update callbacks to use
- security_netlink_recv()
-Date: Thu, 3 Mar 2011 12:30:12 -0800
-Message-ID: <20110303203012.GW4988@sequoia.sous-sol.org>
-References: <20110303202626.GV4988@sequoia.sous-sol.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 2/3] mii: Convert printks to netdev_info
+Date: Thu, 03 Mar 2011 12:32:25 -0800 (PST)
+Message-ID: <20110303.123225.242141985.davem@davemloft.net>
+References: <1b384ead46d062ba189b64649710a5625b7f6a2b.1299086044.git.joe@perches.com>
+	<20110303.122148.245410126.davem@davemloft.net>
+	<1299184181.4338.152.camel@Joe-Laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Chris Wright <chrisw@sous-sol.org>, netdev@vger.kernel.org,
-	dm-devel@redhat.com, linux-security-module@vger.kernel.org,
-	drbd-dev@lists.linbit.com, Evgeniy Polyakov <zbr@ioremap.net>,
-	linux-fbdev@vger.kernel.org
-To: James Morris <jmorris@namei.org>, kaber@trash.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sous-sol.org ([216.99.217.87]:36297 "EHLO sequoia.sous-sol.org"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752594Ab1CCUaf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 15:30:35 -0500
-Content-Disposition: inline
-In-Reply-To: <20110303202626.GV4988@sequoia.sous-sol.org>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36130
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752372Ab1CCUbr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 15:31:47 -0500
+In-Reply-To: <1299184181.4338.152.camel@Joe-Laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This moves callbacks from a raw capabiliity hook to the generic lsm hook
-when receiving request from userspace.
+From: Joe Perches <joe@perches.com>
+Date: Thu, 03 Mar 2011 12:29:41 -0800
 
-Signed-off-by: Chris Wright <chrisw@sous-sol.org>
----
- drivers/block/drbd/drbd_nl.c           |    2 +-
- drivers/md/dm-log-userspace-transfer.c |    2 +-
- drivers/staging/pohmelfs/config.c      |    2 +-
- drivers/video/uvesafb.c                |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+> On Thu, 2011-03-03 at 12:21 -0800, David Miller wrote:
+>> From: Joe Perches <joe@perches.com>
+>> > Add a bit more data to the output.
+>> > Convert string speeds to integer.
+>> > Object size reduced a tiny bit.
+>> > $ size drivers/net/mii.o*
+>> >    text	   data	    bss	    dec	    hex	filename
+>> >    4155	     56	   1000	   5211	   145b	drivers/net/mii.o.new
+>> >    4184	     56	   1000	   5240	   1478	drivers/net/mii.o.old
+>> > Signed-off-by: Joe Perches <joe@perches.com>
+>> Applied.
+> 
+> David, please don't push this yet.
 
-diff --git a/drivers/block/drbd/drbd_nl.c b/drivers/block/drbd/drbd_nl.c
-index fe81c85..8b3301b 100644
---- a/drivers/block/drbd/drbd_nl.c
-+++ b/drivers/block/drbd/drbd_nl.c
-@@ -2177,7 +2177,7 @@ static void drbd_connector_callback(struct cn_msg *req, struct netlink_skb_parms
- 		return;
- 	}
- 
--	if (!cap_raised(current_cap(), CAP_SYS_ADMIN)) {
-+	if (security_netlink_recv(CAP_SYS_ADMIN)) {
- 		retcode = ERR_PERM;
- 		goto fail;
- 	}
-diff --git a/drivers/md/dm-log-userspace-transfer.c b/drivers/md/dm-log-userspace-transfer.c
-index 1f23e04..db34a3a 100644
---- a/drivers/md/dm-log-userspace-transfer.c
-+++ b/drivers/md/dm-log-userspace-transfer.c
-@@ -134,7 +134,7 @@ static void cn_ulog_callback(struct cn_msg *msg, struct netlink_skb_parms *nsp)
- {
- 	struct dm_ulog_request *tfr = (struct dm_ulog_request *)(msg + 1);
- 
--	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
-+	if (security_netlink_recv(CAP_SYS_ADMIN))
- 		return;
- 
- 	spin_lock(&receiving_list_lock);
-diff --git a/drivers/staging/pohmelfs/config.c b/drivers/staging/pohmelfs/config.c
-index 39413b7..123295a 100644
---- a/drivers/staging/pohmelfs/config.c
-+++ b/drivers/staging/pohmelfs/config.c
-@@ -525,7 +525,7 @@ static void pohmelfs_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *n
- {
- 	int err;
- 
--	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
-+	if (security_netlink_recv(CAP_SYS_ADMIN))
- 		return;
- 
- 	switch (msg->flags) {
-diff --git a/drivers/video/uvesafb.c b/drivers/video/uvesafb.c
-index 5180a21..081463a 100644
---- a/drivers/video/uvesafb.c
-+++ b/drivers/video/uvesafb.c
-@@ -73,7 +73,7 @@ static void uvesafb_cn_callback(struct cn_msg *msg, struct netlink_skb_parms *ns
- 	struct uvesafb_task *utask;
- 	struct uvesafb_ktask *task;
- 
--	if (!cap_raised(current_cap(), CAP_SYS_ADMIN))
-+	if (security_netlink_recv(CAP_SYS_ADMIN))
- 		return;
- 
- 	if (msg->seq >= UVESAFB_TASKS_MAX)
--- 
-1.7.1
+Reverted.
+
+> This change is stuffed up somehow, it's
+> a reversion of the tun.c change.
+
+Oops.
+
+> Let me send you a new/correct patch right now.
+
+Ok.
