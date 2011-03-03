@@ -1,74 +1,52 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] sctp: fix the fast retransmit limit
-Date: Thu, 03 Mar 2011 17:29:39 +0800
-Message-ID: <4D6F5F83.705@cn.fujitsu.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: RFC v1: sysctl: add sysctl header cookie, share tables between nets
+Date: Thu, 03 Mar 2011 01:33:43 -0800
+Message-ID: <m1zkpc1rbc.fsf@fess.ebiederm.org>
+References: <1298659961-23863-1-git-send-email-lucian.grijincu@gmail.com>
+	<20110302.170644.58413369.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-Cc: Mingyuan Zhu <liyha.zhu@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lksctp <linux-sctp@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50412 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751945Ab1CCJ31 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 04:29:27 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lucian.grijincu@gmail.com, adobriyan@gmail.com, tavi@cs.pub.ro,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110302.170644.58413369.davem@davemloft.net> (David Miller's
+	message of "Wed, 02 Mar 2011 17:06:44 -0800 (PST)")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If chunk is still lost after fast retransmit, SCTP stack will
-never allow the second fast retransmit of this chunk, even if
-the peer need we do this. This chunk will be retransmit until
-the rtx timeout. This limit is introduce by the following patch:
-  sctp: reduce memory footprint of sctp_chunk structure
-  (c226ef9b83694311327f3ab0036c6de9c22e9daf)
+David Miller <davem@davemloft.net> writes:
 
-This patch revert this limit and removed useless SCTP_DONT_FRTX.
+> From: Lucian Adrian Grijincu <lucian.grijincu@gmail.com>
+> Date: Fri, 25 Feb 2011 20:52:32 +0200
+>
+>> This is a new approach to the "share sysctl tables" RFC series I
+>> posted earlier this month.
+>
+> I do not disagree conceptually with these changes from a networking
+> perspective, but I am not a sysctl layer expert so I don't know if the
+> generic sysctl bits are a good idea or not.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
----
- include/net/sctp/structs.h |    1 -
- net/sctp/outqueue.c        |    4 ++--
- 2 files changed, 2 insertions(+), 3 deletions(-)
+I may be missing something in these patches. I haven't had time to look
+at this most recent batch carefully.  But from a 10,000 foot perspective I
+have a problem with them.  With a handful of network devices the size of
+the data structures is negligible.
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index cc9185c..82a0f84 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -751,7 +751,6 @@ struct sctp_chunk {
- 
- #define SCTP_CAN_FRTX 0x0
- #define SCTP_NEED_FRTX 0x1
--#define SCTP_DONT_FRTX 0x2
- 	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
- 		has_tsn:1,		/* Does this chunk have a TSN yet? */
- 		has_ssn:1,		/* Does this chunk have a SSN yet? */
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 8c6d379..7ed5862 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -657,7 +657,7 @@ redo:
- 			 * after it is retransmitted.
- 			 */
- 			if (chunk->fast_retransmit == SCTP_NEED_FRTX)
--				chunk->fast_retransmit = SCTP_DONT_FRTX;
-+				chunk->fast_retransmit = SCTP_CAN_FRTX;
- 
- 			q->empty = 0;
- 			break;
-@@ -679,7 +679,7 @@ redo:
- 	if (rtx_timeout || fast_rtx) {
- 		list_for_each_entry(chunk1, lqueue, transmitted_list) {
- 			if (chunk1->fast_retransmit == SCTP_NEED_FRTX)
--				chunk1->fast_retransmit = SCTP_DONT_FRTX;
-+				chunk1->fast_retransmit = SCTP_CAN_FRTX;
- 		}
- 	}
- 
--- 
-1.6.5.2
+Where problems show up is when you have a lot of sysctl entries for
+devices and at that point we have much larger problems using the
+sysctl data structures.  Today add/remove are big O(previous entries)
+and I think even readdir suffers from non-scalable data structures.
 
+There are other related issues that the sysctl data structures are not
+optimized for use in /proc, and that sysctl uses so usable but on off
+locking like mechanisms.
 
+Changing things to make the sysctl users more dependent on the current
+implement details of the sysctl data structures seems the exact
+opposite of the direction we need to go to make the sysctl data structures
+scale.
+
+So until I can see a reason why we should save a few bytes at the cost
+of greater future maintenance costs I'm not in favor of this patch set.
+
+Eric
