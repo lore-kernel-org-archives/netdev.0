@@ -1,43 +1,69 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GIT PULL nf-2.6] IPVS
-Date: Thu, 03 Mar 2011 07:53:06 +0100
-Message-ID: <4D6F3AD2.30502@trash.net>
-References: <1299020375-11362-1-git-send-email-horms@verge.net.au> <4D6E22CA.2020305@trash.net> <20110302220637.GD8193@verge.net.au>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: Re: [PATCH 2/2] bonding: COW before overwriting the destination MAC address
+Date: Thu, 3 Mar 2011 14:54:36 +0800
+Message-ID: <AANLkTim3EKe7hqyhpQ97uBn0_8ZFP=ve3RgurQzTpi1b@mail.gmail.com>
+References: <1299126321-9300-1-git-send-email-xiaosuo@gmail.com> <1299134742.2456.1.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Julian Anastasov <ja@ssi.bg>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20110302220637.GD8193@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:37072 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751404Ab1CCGy5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 01:54:57 -0500
+Received: by fxm17 with SMTP id 17so804894fxm.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 22:54:56 -0800 (PST)
+In-Reply-To: <1299134742.2456.1.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 02.03.2011 23:06, Simon Horman wrote:
-> On Wed, Mar 02, 2011 at 11:58:18AM +0100, Patrick McHardy wrote:
->> Am 01.03.2011 23:59, schrieb Simon Horman:
->>> Hi Patrick,
->>>
->>> please consider pulling
->>> git://git.kernel.org/pub/scm/linux/kernel/git/horms/lvs-test-2.6.git for-patrick
->>> to get the following change from Julian. Please note that it is an nf-2.6
->>> (that is 2.6.38-rc) change.
->>>
->>> Julian Anastasov (1):
->>>       ipvs: fix dst_lock locking on dest update
+On Thu, Mar 3, 2011 at 2:45 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
+rote:
+> Le jeudi 03 mars 2011 =E0 12:25 +0800, Changli Gao a =E9crit :
+>> When there is a ptype handler holding a clone of this skb, whose
+>> destination MAC addresse is overwritten, the owner of this handler m=
+ay
+>> get a corrupted packet.
 >>
->> Pulled, thanks Simon.
-> 
-> Thanks Patrick.
-> 
-> This change is also needed in nf-next-2.6 but I assume that
-> will automatically happen when nf-2.6 is merged into nf-next-2.6,
-> possibly via a merge of net-2.6 into net-next-2.6.
+>> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+>> ---
+>> =A0drivers/net/bonding/bond_main.c | =A0 =A05 +++++
+>> =A01 file changed, 5 insertions(+)
+>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
+ond_main.c
+>> index 912b416..211be52 100644
+>> --- a/drivers/net/bonding/bond_main.c
+>> +++ b/drivers/net/bonding/bond_main.c
+>> @@ -1513,6 +1513,11 @@ static struct sk_buff *bond_handle_frame(stru=
+ct sk_buff *skb)
+>> =A0 =A0 =A0 =A0 =A0 skb->pkt_type =3D=3D PACKET_HOST) {
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 u16 *dest =3D (u16 *) eth_hdr(skb)->h_de=
+st;
+>>
+>> + =A0 =A0 =A0 =A0 =A0 =A0 if (unlikely(skb_cow_head(skb,
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
+ =A0 =A0 skb->data - skb_mac_header(skb)))) {
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(skb);
+>> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
+>> + =A0 =A0 =A0 =A0 =A0 =A0 }
+>> =A0 =A0 =A0 =A0 =A0 =A0 =A0 memcpy(dest, bond_dev->dev_addr, ETH_ALE=
+N);
+>> =A0 =A0 =A0 }
+>>
+>
+> This seems buggy.
+>
+> dest points to old skb head content.
+>
+>
 
-Yes. If you need it as base for further work, the fastest way
-is to ask Dave to pull net-2.6 into net-next-2.6, I can then
-pull it into nf-next.
+Oh, thanks. I'll respin it.
 
+
+
+--=20
+Regards,
+Changli Gao(xiaosuo@gmail.com)
