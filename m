@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 09/24] ixgbe: Add ability to double reset on failure to clear master enable
-Date: Thu,  3 Mar 2011 05:03:34 -0800
-Message-ID: <1299157429-15878-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next-2.6 06/24] ixgbe: cleanup logic related to HW semaphores
+Date: Thu,  3 Mar 2011 05:03:31 -0800
+Message-ID: <1299157429-15878-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, bphilips@novell.com,
@@ -10,264 +10,145 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:24647 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758196Ab1CCNEV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 08:04:21 -0500
+	id S1758190Ab1CCNEU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 08:04:20 -0500
 In-Reply-To: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-Double resets are required for recovery from certain error conditions.
-Between resets, it is necessary to stall to allow time for any pending HW
-events to complete. We use 1usec since that is what is needed for
-ixgbe_disable_pcie_master(). The second reset then clears out any effects
-of those events.
+This change cleans up much of the logic related to the hardware semaphores
+on the adapters. There were a number of issues with timings that needed to
+be addressed.
 
 Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
 Tested-by: Stephen Ko <stephen.s.ko@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ixgbe/ixgbe_82598.c  |   21 ++++++++++++-----
- drivers/net/ixgbe/ixgbe_82599.c  |   20 ++++++++++++----
- drivers/net/ixgbe/ixgbe_common.c |   47 +++++++++++++++++++++++++++++++++-----
- drivers/net/ixgbe/ixgbe_type.h   |    4 +++
- drivers/net/ixgbe/ixgbe_x540.c   |   20 ++++++++++++----
- 5 files changed, 90 insertions(+), 22 deletions(-)
+ drivers/net/ixgbe/ixgbe_common.c |   42 +++++++++++++++++++++----------------
+ 1 files changed, 24 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_82598.c b/drivers/net/ixgbe/ixgbe_82598.c
-index d0f1d9d..291b1e6 100644
---- a/drivers/net/ixgbe/ixgbe_82598.c
-+++ b/drivers/net/ixgbe/ixgbe_82598.c
-@@ -770,7 +770,6 @@ static s32 ixgbe_reset_hw_82598(struct ixgbe_hw *hw)
- 		else if (phy_status == IXGBE_ERR_SFP_NOT_PRESENT)
- 			goto no_phy_reset;
- 
--
- 		hw->phy.ops.reset(hw);
- 	}
- 
-@@ -779,12 +778,9 @@ no_phy_reset:
- 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
- 	 * access and verify no pending requests before reset
- 	 */
--	status = ixgbe_disable_pcie_master(hw);
--	if (status != 0) {
--		status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
--	}
-+	ixgbe_disable_pcie_master(hw);
- 
-+mac_reset_top:
- 	/*
- 	 * Issue global reset to the MAC.  This needs to be a SW reset.
- 	 * If link reset is used, it might reset the MAC when mng is using it
-@@ -805,6 +801,19 @@ no_phy_reset:
- 		hw_dbg(hw, "Reset polling failed to complete.\n");
- 	}
- 
-+	/*
-+	 * Double resets are required for recovery from certain error
-+	 * conditions.  Between resets, it is necessary to stall to allow time
-+	 * for any pending HW events to complete.  We use 1usec since that is
-+	 * what is needed for ixgbe_disable_pcie_master().  The second reset
-+	 * then clears out any effects of those events.
-+	 */
-+	if (hw->mac.flags & IXGBE_FLAGS_DOUBLE_RESET_REQUIRED) {
-+		hw->mac.flags &= ~IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
-+		udelay(1);
-+		goto mac_reset_top;
-+	}
-+
- 	msleep(50);
- 
- 	gheccr = IXGBE_READ_REG(hw, IXGBE_GHECCR);
-diff --git a/drivers/net/ixgbe/ixgbe_82599.c b/drivers/net/ixgbe/ixgbe_82599.c
-index b45a491..126a06f 100644
---- a/drivers/net/ixgbe/ixgbe_82599.c
-+++ b/drivers/net/ixgbe/ixgbe_82599.c
-@@ -904,12 +904,9 @@ static s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
- 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
- 	 * access and verify no pending requests before reset
- 	 */
--	status = ixgbe_disable_pcie_master(hw);
--	if (status != 0) {
--		status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
--	}
-+	ixgbe_disable_pcie_master(hw);
- 
-+mac_reset_top:
- 	/*
- 	 * Issue global reset to the MAC.  This needs to be a SW reset.
- 	 * If link reset is used, it might reset the MAC when mng is using it
-@@ -930,6 +927,19 @@ static s32 ixgbe_reset_hw_82599(struct ixgbe_hw *hw)
- 		hw_dbg(hw, "Reset polling failed to complete.\n");
- 	}
- 
-+	/*
-+	 * Double resets are required for recovery from certain error
-+	 * conditions.  Between resets, it is necessary to stall to allow time
-+	 * for any pending HW events to complete.  We use 1usec since that is
-+	 * what is needed for ixgbe_disable_pcie_master().  The second reset
-+	 * then clears out any effects of those events.
-+	 */
-+	if (hw->mac.flags & IXGBE_FLAGS_DOUBLE_RESET_REQUIRED) {
-+		hw->mac.flags &= ~IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
-+		udelay(1);
-+		goto mac_reset_top;
-+	}
-+
- 	msleep(50);
- 
- 	/*
 diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 345c32e..6d87c74 100644
+index ebbda7d..345c32e 100644
 --- a/drivers/net/ixgbe/ixgbe_common.c
 +++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -454,8 +454,7 @@ s32 ixgbe_stop_adapter_generic(struct ixgbe_hw *hw)
- 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
- 	 * access and verify no pending requests
- 	 */
--	if (ixgbe_disable_pcie_master(hw) != 0)
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
-+	ixgbe_disable_pcie_master(hw);
+@@ -603,7 +603,6 @@ s32 ixgbe_write_eeprom_generic(struct ixgbe_hw *hw, u16 offset, u16 data)
+ 		ixgbe_shift_out_eeprom_bits(hw, data, 16);
+ 		ixgbe_standby_eeprom(hw);
  
- 	return 0;
- }
-@@ -2161,10 +2160,16 @@ out:
-  **/
- s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
- {
-+	struct ixgbe_adapter *adapter = hw->back;
- 	u32 i;
- 	u32 reg_val;
- 	u32 number_of_queues;
--	s32 status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
-+	s32 status = 0;
-+	u16 dev_status = 0;
-+
-+	/* Just jump out if bus mastering is already disabled */
-+	if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
-+		goto out;
- 
- 	/* Disable the receive unit by stopping each queue */
- 	number_of_queues = hw->mac.max_rx_queues;
-@@ -2181,13 +2186,43 @@ s32 ixgbe_disable_pcie_master(struct ixgbe_hw *hw)
- 	IXGBE_WRITE_REG(hw, IXGBE_CTRL, reg_val);
- 
- 	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
--		if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO)) {
--			status = 0;
-+		if (!(IXGBE_READ_REG(hw, IXGBE_STATUS) & IXGBE_STATUS_GIO))
-+			goto check_device_status;
-+		udelay(100);
-+	}
-+
-+	hw_dbg(hw, "GIO Master Disable bit didn't clear - requesting resets\n");
-+	status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
-+
-+	/*
-+	 * Before proceeding, make sure that the PCIe block does not have
-+	 * transactions pending.
-+	 */
-+check_device_status:
-+	for (i = 0; i < IXGBE_PCI_MASTER_DISABLE_TIMEOUT; i++) {
-+		pci_read_config_word(adapter->pdev, IXGBE_PCI_DEVICE_STATUS,
-+							 &dev_status);
-+		if (!(dev_status & IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING))
- 			break;
--		}
- 		udelay(100);
+-		msleep(hw->eeprom.semaphore_delay);
+ 		/* Done with writing - release the EEPROM */
+ 		ixgbe_release_eeprom(hw);
  	}
+@@ -747,7 +746,7 @@ s32 ixgbe_poll_eerd_eewr_done(struct ixgbe_hw *hw, u32 ee_reg)
+ static s32 ixgbe_acquire_eeprom(struct ixgbe_hw *hw)
+ {
+ 	s32 status = 0;
+-	u32 eec = 0;
++	u32 eec;
+ 	u32 i;
  
-+	if (i == IXGBE_PCI_MASTER_DISABLE_TIMEOUT)
-+		hw_dbg(hw, "PCIe transaction pending bit also did not clear.\n");
-+	else
-+		goto out;
-+
-+	/*
-+	 * Two consecutive resets are required via CTRL.RST per datasheet
-+	 * 5.2.5.3.2 Master Disable.  We set a flag to inform the reset routine
-+	 * of this need.  The first reset prevents new master requests from
-+	 * being issued by our device.  We then must wait 1usec for any
-+	 * remaining completions from the PCIe bus to trickle in, and then reset
-+	 * again to clear out any effects they may have had on our device.
-+	 */
-+	 hw->mac.flags |= IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
-+
-+out:
+ 	if (ixgbe_acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) != 0)
+@@ -776,15 +775,15 @@ static s32 ixgbe_acquire_eeprom(struct ixgbe_hw *hw)
+ 			ixgbe_release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
+ 			status = IXGBE_ERR_EEPROM;
+ 		}
+-	}
+ 
+-	/* Setup EEPROM for Read/Write */
+-	if (status == 0) {
+-		/* Clear CS and SK */
+-		eec &= ~(IXGBE_EEC_CS | IXGBE_EEC_SK);
+-		IXGBE_WRITE_REG(hw, IXGBE_EEC, eec);
+-		IXGBE_WRITE_FLUSH(hw);
+-		udelay(1);
++		/* Setup EEPROM for Read/Write */
++		if (status == 0) {
++			/* Clear CS and SK */
++			eec &= ~(IXGBE_EEC_CS | IXGBE_EEC_SK);
++			IXGBE_WRITE_REG(hw, IXGBE_EEC, eec);
++			IXGBE_WRITE_FLUSH(hw);
++			udelay(1);
++		}
+ 	}
  	return status;
  }
+@@ -798,13 +797,10 @@ static s32 ixgbe_acquire_eeprom(struct ixgbe_hw *hw)
+ static s32 ixgbe_get_eeprom_semaphore(struct ixgbe_hw *hw)
+ {
+ 	s32 status = IXGBE_ERR_EEPROM;
+-	u32 timeout;
++	u32 timeout = 2000;
+ 	u32 i;
+ 	u32 swsm;
  
-diff --git a/drivers/net/ixgbe/ixgbe_type.h b/drivers/net/ixgbe/ixgbe_type.h
-index af5ad40..5ede03c 100644
---- a/drivers/net/ixgbe/ixgbe_type.h
-+++ b/drivers/net/ixgbe/ixgbe_type.h
-@@ -1614,6 +1614,8 @@
- #define IXGBE_ALT_SAN_MAC_ADDR_CAPS_ALTWWN  0x1 /* Alt. WWN base exists */
- 
- /* PCI Bus Info */
-+#define IXGBE_PCI_DEVICE_STATUS   0xAA
-+#define IXGBE_PCI_DEVICE_STATUS_TRANSACTION_PENDING   0x0020
- #define IXGBE_PCI_LINK_STATUS     0xB2
- #define IXGBE_PCI_DEVICE_CONTROL2 0xC8
- #define IXGBE_PCI_LINK_WIDTH      0x3F0
-@@ -2557,6 +2559,7 @@ struct ixgbe_eeprom_info {
- 	u16                             address_bits;
- };
- 
-+#define IXGBE_FLAGS_DOUBLE_RESET_REQUIRED	0x01
- struct ixgbe_mac_info {
- 	struct ixgbe_mac_operations     ops;
- 	enum ixgbe_mac_type             type;
-@@ -2579,6 +2582,7 @@ struct ixgbe_mac_info {
- 	u32                             orig_autoc2;
- 	bool                            orig_link_settings_stored;
- 	bool                            autotry_restart;
-+	u8                              flags;
- };
- 
- struct ixgbe_phy_info {
-diff --git a/drivers/net/ixgbe/ixgbe_x540.c b/drivers/net/ixgbe/ixgbe_x540.c
-index f2518b0..a6f06d5 100644
---- a/drivers/net/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ixgbe/ixgbe_x540.c
-@@ -110,12 +110,9 @@ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
- 	 * Prevent the PCI-E bus from from hanging by disabling PCI-E master
- 	 * access and verify no pending requests before reset
- 	 */
--	status = ixgbe_disable_pcie_master(hw);
--	if (status != 0) {
--		status = IXGBE_ERR_MASTER_REQUESTS_PENDING;
--		hw_dbg(hw, "PCI-E Master disable polling has failed.\n");
--	}
-+	ixgbe_disable_pcie_master(hw);
- 
-+mac_reset_top:
- 	/*
- 	 * Issue global reset to the MAC.  Needs to be SW reset if link is up.
- 	 * If link reset is used when link is up, it might reset the PHY when
-@@ -148,6 +145,19 @@ static s32 ixgbe_reset_hw_X540(struct ixgbe_hw *hw)
- 		hw_dbg(hw, "Reset polling failed to complete.\n");
+-	/* Set timeout value based on size of EEPROM */
+-	timeout = hw->eeprom.word_size + 1;
+-
+ 	/* Get SMBI software semaphore between device drivers first */
+ 	for (i = 0; i < timeout; i++) {
+ 		/*
+@@ -816,7 +812,7 @@ static s32 ixgbe_get_eeprom_semaphore(struct ixgbe_hw *hw)
+ 			status = 0;
+ 			break;
+ 		}
+-		msleep(1);
++		udelay(50);
  	}
  
-+	/*
-+	 * Double resets are required for recovery from certain error
-+	 * conditions.  Between resets, it is necessary to stall to allow time
-+	 * for any pending HW events to complete.  We use 1usec since that is
-+	 * what is needed for ixgbe_disable_pcie_master().  The second reset
-+	 * then clears out any effects of those events.
-+	 */
-+	if (hw->mac.flags & IXGBE_FLAGS_DOUBLE_RESET_REQUIRED) {
-+		hw->mac.flags &= ~IXGBE_FLAGS_DOUBLE_RESET_REQUIRED;
-+		udelay(1);
-+		goto mac_reset_top;
-+	}
+ 	/* Now get the semaphore between SW/FW through the SWESMBI bit */
+@@ -844,11 +840,14 @@ static s32 ixgbe_get_eeprom_semaphore(struct ixgbe_hw *hw)
+ 		 * was not granted because we don't have access to the EEPROM
+ 		 */
+ 		if (i >= timeout) {
+-			hw_dbg(hw, "Driver can't access the Eeprom - Semaphore "
++			hw_dbg(hw, "SWESMBI Software EEPROM semaphore "
+ 			       "not granted.\n");
+ 			ixgbe_release_eeprom_semaphore(hw);
+ 			status = IXGBE_ERR_EEPROM;
+ 		}
++	} else {
++		hw_dbg(hw, "Software semaphore SMBI between device drivers "
++		       "not granted.\n");
+ 	}
+ 
+ 	return status;
+@@ -1081,10 +1080,13 @@ static void ixgbe_release_eeprom(struct ixgbe_hw *hw)
+ 	IXGBE_WRITE_REG(hw, IXGBE_EEC, eec);
+ 
+ 	ixgbe_release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
 +
- 	/* Clear PF Reset Done bit so PF/VF Mail Ops can work */
- 	ctrl_ext = IXGBE_READ_REG(hw, IXGBE_CTRL_EXT);
- 	ctrl_ext |= IXGBE_CTRL_EXT_PFRSTD;
++	/* Delay before attempt to obtain semaphore again to allow FW access */
++	msleep(hw->eeprom.semaphore_delay);
+ }
+ 
+ /**
+- *  ixgbe_calc_eeprom_checksum - Calculates and returns the checksum
++ *  ixgbe_calc_eeprom_checksum_generic - Calculates and returns the checksum
+  *  @hw: pointer to hardware structure
+  **/
+ u16 ixgbe_calc_eeprom_checksum_generic(struct ixgbe_hw *hw)
+@@ -2206,6 +2208,10 @@ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask)
+ 	s32 timeout = 200;
+ 
+ 	while (timeout) {
++		/*
++		 * SW EEPROM semaphore bit is used for access to all
++		 * SW_FW_SYNC/GSSR bits (not just EEPROM)
++		 */
+ 		if (ixgbe_get_eeprom_semaphore(hw))
+ 			return IXGBE_ERR_SWFW_SYNC;
+ 
+@@ -2223,7 +2229,7 @@ s32 ixgbe_acquire_swfw_sync(struct ixgbe_hw *hw, u16 mask)
+ 	}
+ 
+ 	if (!timeout) {
+-		hw_dbg(hw, "Driver can't access resource, GSSR timeout.\n");
++		hw_dbg(hw, "Driver can't access resource, SW_FW_SYNC timeout.\n");
+ 		return IXGBE_ERR_SWFW_SYNC;
+ 	}
+ 
 -- 
 1.7.4
 
