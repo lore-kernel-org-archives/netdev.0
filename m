@@ -1,64 +1,70 @@
-From: Robert Love <robert.w.love@intel.com>
-Subject: Re: fcoe: correct checking for bonding
-Date: Wed, 02 Mar 2011 17:09:18 -0800
-Message-ID: <1299114558.1688.5.camel@fritz>
-References: <20110302060535.GA2829@psychotron.redhat.com>
-	 <20110302095550.GA2858@psychotron.brq.redhat.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [BUG] VPN broken in net-next
+Date: Wed, 2 Mar 2011 17:16:00 -0800
+Message-ID: <20110302171600.577a4548@nehalam>
+References: <20110302164637.6651b34f@nehalam>
+ <20110302.165009.200353108.davem@davemloft.net>
+ <20110302165653.4b854489@nehalam>
+ <20110302.170346.13723622.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"devel@open-fcoe.org" <devel@open-fcoe.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"fubar@us.ibm.com" <fubar@us.ibm.com>,
-	"joe.eykholt@gmail.com" <joe.eykholt@gmail.com>
-To: James.Bottomley@suse.de, Jiri Pirko <jpirko@redhat.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34078 "EHLO mga01.intel.com"
+Received: from mail.vyatta.com ([76.74.103.46]:49512 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752391Ab1CCBJT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 20:09:19 -0500
-In-Reply-To: <20110302095550.GA2858@psychotron.brq.redhat.com>
+	id S1756628Ab1CCBQD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Mar 2011 20:16:03 -0500
+In-Reply-To: <20110302.170346.13723622.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-03-02 at 01:55 -0800, Jiri Pirko wrote:
-> Or perhaps this should be applied to net-next?
+On Wed, 02 Mar 2011 17:03:46 -0800 (PST)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Stephen Hemminger <shemminger@vyatta.com>
+> Date: Wed, 2 Mar 2011 16:56:53 -0800
 > 
-I think this should go through scsi-misc as all the other
-libfc/libfcoe/fcoe patches do.
-
-> Wed, Mar 02, 2011 at 07:05:35AM CET, jpirko@redhat.com wrote:
-> >Check for bonding master and refuse to use that.
-> >
-> >Signed-off-by: Jiri Pirko <jpirko@redhat.com>
-> >---
-> > drivers/scsi/fcoe/fcoe.c |    4 +---
-> > 1 files changed, 1 insertions(+), 3 deletions(-)
-> >
-> >diff --git a/drivers/scsi/fcoe/fcoe.c b/drivers/scsi/fcoe/fcoe.c
-> >index 9f9600b..3becc6a 100644
-> >--- a/drivers/scsi/fcoe/fcoe.c
-> >+++ b/drivers/scsi/fcoe/fcoe.c
-> >@@ -285,9 +285,7 @@ static int fcoe_interface_setup(struct fcoe_interface *fcoe,
-> > 	}
+> > On Wed, 02 Mar 2011 16:50:09 -0800 (PST)
+> > David Miller <davem@davemloft.net> wrote:
 > > 
-> > 	/* Do not support for bonding device */
-> >-	if ((netdev->priv_flags & IFF_MASTER_ALB) ||
-> >-	    (netdev->priv_flags & IFF_SLAVE_INACTIVE) ||
-> >-	    (netdev->priv_flags & IFF_MASTER_8023AD)) {
-> >+	if (netdev->priv_flags & IFF_BONDING && netdev->flags & IFF_MASTER) {
-> > 		FCOE_NETDEV_DBG(netdev, "Bonded interfaces not supported\n");
-> > 		return -EOPNOTSUPP;
-> > 	}
-> >-- 
-> >1.7.3.4
-> >
+> >> From: Stephen Hemminger <shemminger@vyatta.com>
+> >> Date: Wed, 2 Mar 2011 16:46:37 -0800
+> >> 
+> >> > The addresses (that matter) when VPN is up are:
+> >> 
+> >> I really need to know what addresses interfaces have the time of the
+> >> __ip_dev_find() call which, if I'm not mistaken, is before the VPN is
+> >> up.
+> > 
+> > 
+> >     inet 127.0.0.1/8 scope host lo
+> >     inet 192.168.1.11/24 brd 192.168.1.255 scope global eth0
+> >     inet 192.168.100.1/24 brd 192.168.100.255 scope global virbr0
+> >     inet 192.168.99.1/24 brd 192.168.99.255 scope global virbr1
+> 
+> I see nothing providing 10.0.whatever that __ip_dev_find() is being
+> asked to resolve.
+> 
+> I think we were allowing the route lookup pptp is trying to do at
+> connect time erroneously, and it should elide the explicit source
+> address specification in the flow.
+> 
 
-James, feel free to pick up this patch. I don't have anything in my fcoe
-tree right now that it would conflict with. I'll also put it in my tree
-and resend if you don't put it into scsi-misc directly.
+The VPN connection comes up the problem is that no packets pass over
+it successfully.  The 10.X address is the other side of the VPN.
 
-Acked-by: Robert Love <robert.w.love@intel.com>
+ I tried this, but it didn't work.
+
+--- a/drivers/net/pptp.c	2011-03-02 17:01:55.353313682 -0800
++++ b/drivers/net/pptp.c	2011-03-02 17:02:05.381146980 -0800
+@@ -473,7 +473,6 @@ static int pptp_connect(struct socket *s
+ 			.nl_u = {
+ 				.ip4_u = {
+ 					.daddr = opt->dst_addr.sin_addr.s_addr,
+-					.saddr = opt->src_addr.sin_addr.s_addr,
+ 					.tos = RT_CONN_FLAGS(sk) } },
+ 			.proto = IPPROTO_GRE };
+ 		security_sk_classify_flow(sk, &fl);
 
