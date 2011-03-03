@@ -1,208 +1,252 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH] bonding 802.3ad: Fix the state machine locking
-Date: Thu, 03 Mar 2011 12:07:36 -0800
-Message-ID: <11685.1299182856@death>
-References: <1299143159-9754-1-git-send-email-nils.carlson@ericsson.com>
-Cc: bonding-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Nils Carlson <nils.carlson@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:34290 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932130Ab1CCUHn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 15:07:43 -0500
-Received: from d01dlp01.pok.ibm.com (d01dlp01.pok.ibm.com [9.56.224.56])
-	by e5.ny.us.ibm.com (8.14.4/8.13.1) with ESMTP id p23JgqEt026099
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 14:43:00 -0500
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id E41B938C803F
-	for <netdev@vger.kernel.org>; Thu,  3 Mar 2011 15:07:40 -0500 (EST)
-Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p23K7fa9475636
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 15:07:41 -0500
-Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p23K7dDt024330
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 13:07:41 -0700
-In-reply-to: <1299143159-9754-1-git-send-email-nils.carlson@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Bermudez <jbermudez@vnocservice.com>
+Subject: Re: e1000 - rx misses
+Date: Thu, 3 Mar 2011 15:00:42 -0500
+Message-ID: <2DF55ECAAA7FFF478FB4ED007EF478E7656B1010BB@NETS.hillside.glowpoint.com>
+References: <2DF55ECAAA7FFF478FB4ED007EF478E7656B070D76@NETS.hillside.glowpoint.com>
+	<alpine.WNT.2.00.1102281058040.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+	<2DF55ECAAA7FFF478FB4ED007EF478E7656B100F27@NETS.hillside.glowpoint.com>
+	<alpine.WNT.2.00.1103011658050.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============2290582381218899351=="
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Ronciak,
+	John" <john.ronciak@intel.com>
+To: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <alpine.WNT.2.00.1103011658050.5424@JBRANDEB-DESK2.amr.corp.intel.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Nils Carlson <nils.carlson@ericsson.com> wrote:
+--===============2290582381218899351==
+Content-Language: en-US
+Content-Type: multipart/alternative;
+	boundary="_000_2DF55ECAAA7FFF478FB4ED007EF478E7656B1010BBNETShillsideg_"
 
->The current implementation only locked around the rx state machine,
->but the rx state machine reads data touched by other state machines
->as well, so in a very ugly scenario we would see the rx state machine
->reading bad values as data was being overwritten by other state
->machines. This patch moves the bond_3ad locking to protect all the
->state machines from concurrency issues.
+--_000_2DF55ECAAA7FFF478FB4ED007EF478E7656B1010BBNETShillsideg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-	This looks pretty obvious on inspection; I'm surprised it hasn't
-come up before.  I haven't tested it, but it seems clear that at least
-the port->sm_vars field needs protection.
+Jesse,
 
-	I have one suggestion for a comment change, which is below, to
-make it cleared what data needs mutexing.  I'd also add the following
-into the description somewhere:
+Thanks for your time.
+your answers have pointed me in the right direction
+which has let me do hours of positive research
 
-	The ad_rx_machine, ad_periodic_machine and
-ad_port_selection_logic functions all inspect and alter common fields
-within the port structure.  Previous to this patch, only the
-ad_rx_machines were mutexed, and the periodic and port_selection could
-run unmutexed against an rx_machine trigged by an arriving LACPDU.
 
-	I'm a little torn on the change of nomenclature of "rx" to
-"state" lock, mostly because it makes the functional change harder to
-follow in the patch.  Could you split this into two patches, one to fix
-the locking problem, and one to change the name?
+so this leads me to one final question ( I hope ;) )
 
->Signed-off-by: Nils Carlson <nils.carlson@ericsson.com>
->---
-> drivers/net/bonding/bond_3ad.c |   32 +++++++++++++++++++-------------
-> drivers/net/bonding/bond_3ad.h |    2 +-
-> 2 files changed, 20 insertions(+), 14 deletions(-)
+lspci -v shows that the latency for the Ethernet device(s)
+is 0
+
+Is this the default value populated by the e1000 driver??
+or who's responsibility is it to populate this value
+
+i.e.
+
+04:00.1 Ethernet controller: Intel Corporation: Unknown device 105e (rev 06=
+)
+        Subsystem: Intel Corporation: Unknown device 346e
+        Flags: bus master, fast devsel, latency 0, IRQ 18
+        Memory at b8920000 (32-bit, non-prefetchable) [size=3D128K]
+        Memory at b8900000 (32-bit, non-prefetchable) [size=3D128K]
+        I/O ports at 3000 [size=3D32]
+        Expansion ROM at fffe0000 [disabled] [size=3D128K]
+        Capabilities: [c8] Power Management version 2
+        Capabilities: [d0] Message Signalled Interrupts: 64bit+ Queue=3D0/0=
+ Enable-
+        Capabilities: [e0] #10 [0001]
+
+
+
+Thank you and have a nice day,
+
+Mr. John Bermudez
+NOC Level 3 Engineer
+
+
+-----Original Message-----
+From: Brandeburg, Jesse [mailto:jesse.brandeburg@intel.com]
+Sent: Tuesday, March 01, 2011 5:02 PM
+To: John Bermudez
+Cc: Ronciak, John; Kirsher, Jeffrey T; netdev@vger.kernel.org; e1000-devel@=
+lists.sourceforge.net
+Subject: RE: e1000 - rx misses
+
+<removed non-relevant users>
+
+On Tue, 1 Mar 2011, John Bermudez wrote:
+
+> Thanks for your time
+> Can you tell me the command to lengthen the input fifo rx queue?
+> is this possible
+
+You can try increasing the number of rx buffers via the command
+# ethtool -G ethX rx 4096
+
+and if you were really gung ho, you could increase the amount of fifo
+allocated to the rx side of the fifo by modifying the source.  That said,
+I don't think that will buy you anything because it seems from the small
+amount of data provided that you are having exceptionally long periods of
+time where the data is coming faster than your machine can process (for
+whatever reason) and increasing the fifo only will give you a marginal
+(4kB or so) increasing in buffering.
+
+
+
 >
->diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
->index 1024ae1..bbc473b 100644
->--- a/drivers/net/bonding/bond_3ad.c
->+++ b/drivers/net/bonding/bond_3ad.c
->@@ -281,23 +281,23 @@ static inline int __check_agg_selection_timer(struct port *port)
-> }
+> -----Original Message-----
+> From: Brandeburg, Jesse [mailto:jesse.brandeburg@intel.com]
+> Sent: Monday, February 28, 2011 11:05 AM
+> To: John Bermudez
+> Cc: cramerj; Ronciak, John; Kirsher, Jeffrey T; Kok, Auke-jan H; netdev@v=
+ger.kernel.org; e1000-devel@lists.sourceforge.net
+> Subject: Re: e1000 - rx misses
 >
-> /**
->- * __get_rx_machine_lock - lock the port's RX machine
->+ * __get_state_machine_lock - lock the port's state machine
->  * @port: the port we're looking at
->  *
->  */
->-static inline void __get_rx_machine_lock(struct port *port)
->+static inline void __get_state_machine_lock(struct port *port)
-> {
->-	spin_lock_bh(&(SLAVE_AD_INFO(port->slave).rx_machine_lock));
->+	spin_lock_bh(&(SLAVE_AD_INFO(port->slave).state_machine_lock));
-> }
+> added e1000-devel, responses inline...
 >
-> /**
->- * __release_rx_machine_lock - unlock the port's RX machine
->+ * __release_state_machine_lock - unlock the port's state machine
->  * @port: the port we're looking at
->  *
->  */
->-static inline void __release_rx_machine_lock(struct port *port)
->+static inline void __release_state_machine_lock(struct port *port)
-> {
->-	spin_unlock_bh(&(SLAVE_AD_INFO(port->slave).rx_machine_lock));
->+	spin_unlock_bh(&(SLAVE_AD_INFO(port->slave).state_machine_lock));
-> }
+> On Wed, 23 Feb 2011, John Bermudez wrote:
 >
-> /**
->@@ -388,14 +388,14 @@ static u8 __get_duplex(struct port *port)
-> }
+> > Hello All,
+> > I got your contact info in a forum.
+> > maybe you could give me a quick pointer.
+> >
+> > I have a device that is experiencing RX misses. I tried 1000/full and 1=
+00/full
+> > it occurs at both speeds. I seem to get a burst of loss so I am assumin=
+g I am overrunning the FIFO RX queue.
 >
-> /**
->- * __initialize_port_locks - initialize a port's RX machine spinlock
->+ * __initialize_port_locks - initialize a port's state machine spinlock
->  * @port: the port we're looking at
->  *
->  */
-> static inline void __initialize_port_locks(struct port *port)
-> {
-> 	// make sure it isn't called twice
->-	spin_lock_init(&(SLAVE_AD_INFO(port->slave).rx_machine_lock));
->+	spin_lock_init(&(SLAVE_AD_INFO(port->slave).state_machine_lock));
-> }
+> overrunning at 100Mb/s seems pretty unlikely to be our hardware's fault,
+> as your buffer (in time) is increasing by 10x.
 >
-> //conversions
->@@ -1025,9 +1025,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
-> {
-> 	rx_states_t last_state;
+> >
+> > Any known workarounds?
+> > Configuration modifications?
+> >
+> > your time is much appreciated
+> >
+> >
+> >
+> > /lib/modules/2.4.31-uc0/kernel/drivers/net/e1000
+> > # ls
+> > e1000.o
 >
->-	// Lock to prevent 2 instances of this function to run simultaneously(rx interrupt and periodic machine callback)
->-	__get_rx_machine_lock(port);
->-
-> 	// keep current State Machine state to compare later if it was changed
-> 	last_state = port->sm_rx_state;
+> ow, 2.4.31 kernel is pretty much so old as to not be supportable.
 >
->@@ -1133,7 +1130,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
-> 				pr_err("%s: An illegal loopback occurred on adapter (%s).\n"
-> 				       "Check the configuration to verify that all adapters are connected to 802.3ad compliant switch ports\n",
-> 				       port->slave->dev->master->name, port->slave->dev->name);
->-				__release_rx_machine_lock(port);
-> 				return;
-> 			}
-> 			__update_selected(lacpdu, port);
->@@ -1153,7 +1149,6 @@ static void ad_rx_machine(struct lacpdu *lacpdu, struct port *port)
-> 			break;
-> 		}
-> 	}
->-	__release_rx_machine_lock(port);
-> }
+> > # ethtool -S eth1
+> > NIC statistics:
+> >      rx_packets: 217454512
+> >      tx_packets: 266698397
+> >      rx_bytes: 172995819593
+> >      tx_bytes: 246744709750
+> >      rx_broadcast: 0
+> >      tx_broadcast: 528
+> <snip>
+> >      rx_no_buffer_count: 925
 >
-> /**
->@@ -2155,6 +2150,12 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
-> 			goto re_arm;
-> 		}
+> This count above indicates that your cpu is not returning buffers to
+> hardware fast enough.  Do you have NAPI enabled?
 >
->+		/* Lock around all the state machines to protect data that may
->+		 * be accessed also from the ad_rx_machine running in the
->+		 * interrupt handler.
-
-	The reference to interrupt handler confused me initially; I think
-this comment would be better stated as:
-
-		/* Lock around state machines to protect data accessed
-		 * by all (e.g., port->sm_vars).  ad_rx_machine may run
-		 * concurrently due to incoming LACPDU.
-		 */
-
-
-
->+		 */
->+		__get_state_machine_lock(port);
->+
-> 		ad_rx_machine(NULL, port);
-> 		ad_periodic_machine(port);
-> 		ad_port_selection_logic(port);
->@@ -2164,6 +2165,8 @@ void bond_3ad_state_machine_handler(struct work_struct *work)
-> 		// turn off the BEGIN bit, since we already handled it
-> 		if (port->sm_vars & AD_PORT_BEGIN)
-> 			port->sm_vars &= ~AD_PORT_BEGIN;
->+
->+		__release_state_machine_lock(port);
-> 	}
+> >      rx_missed_errors: 48206
 >
-> re_arm:
->@@ -2200,7 +2203,10 @@ static void bond_3ad_rx_indication(struct lacpdu *lacpdu, struct slave *slave, u
-> 		case AD_TYPE_LACPDU:
-> 			pr_debug("Received LACPDU on port %d\n",
-> 				 port->actor_port_number);
->+			/* Protect against concurrent state machines */
->+			__get_state_machine_lock(port);
-> 			ad_rx_machine(lacpdu, port);
->+			__release_state_machine_lock(port);
-> 			break;
+> This error means that for the length of time the fifo was buffering the
+> adapter was not able to get any data buffers from the OS, filled the FIFO
+> and had to drop this many packets.
 >
-> 		case AD_TYPE_MARKER:
->diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bond_3ad.h
->index 2c46a15..9182506 100644
->--- a/drivers/net/bonding/bond_3ad.h
->+++ b/drivers/net/bonding/bond_3ad.h
->@@ -264,7 +264,7 @@ struct ad_bond_info {
-> struct ad_slave_info {
-> 	struct aggregator aggregator;	    // 802.3ad aggregator structure
-> 	struct port port;		    // 802.3ad port structure
->-	spinlock_t rx_machine_lock; // To avoid race condition between callback and receive interrupt
->+	spinlock_t state_machine_lock; // To avoid race condition between callback and receive interrupt
-
-	Perhaps change this comment, also, to "mutex state machine
-vs. LACPDU".
-
-	-J
-
-> 	u16 id;
-> };
+> >      tx_aborted_errors: 0
+> >      tx_carrier_errors: 0
+> >      tx_fifo_errors: 0
+> >      tx_heartbeat_errors: 0
+> >      tx_window_errors: 0
+> >      tx_abort_late_coll: 0
+> >      tx_deferred_ok: 0
+> >      tx_single_coll_ok: 0
+> >      tx_multi_coll_ok: 0
+> >      tx_timeout_count: 0
+> >      tx_restart_queue: 0
+> >      rx_long_length_errors: 0
+> >      rx_short_length_errors: 0
+> >      rx_align_errors: 0
+> >      tx_tcp_seg_good: 0
+> >      tx_tcp_seg_failed: 0
+> >      rx_flow_control_xon: 0
+> >      rx_flow_control_xoff: 0
+> >      tx_flow_control_xon: 0
+> >      tx_flow_control_xoff: 0
 >
->-- 
->1.7.1
+> flow control is either not happenning or is disabled, if it is disabled
+> you could try enabling it on both ends to get a little more buffering in
+> your switch.
+>
+> >      rx_long_byte_count: 172995819593
+> >      rx_csum_offload_good: 217406235
+> >      rx_csum_offload_errors: 17
+> >      rx_header_split: 0
+> >      alloc_rx_buff_failed: 0
+> >      tx_smbus: 0
+> >      rx_smbus: 5262
+>
+> hm, you have IPMI traffic, could these be related to your stalls?
+>
+> >      dropped_smbus: 0
+> > #
+> >
+> >
+> > Thank you and have a nice day,
+> >
+> > Mr. John Bermudez
+> > NOC Level 3 Engineer
+> >
+> >
+>
+> You didn't include lots of data we need, like hardware type, adapter/chip=
+,
+> ethtool -i output, cat /proc/interrupts, system info, .config, etc.
+>
+> I suggest that something is running either in interrupt context on your
+> system for a very long time (keeping us from running our interrupt
+> handler) or that your cpu is underpowered and unable to keep up with
+> whatever tasks it is running besides the network driver.
+>
+> If you wish to continue troubleshooting please file a bug at e1000.sf.net
+> and attach the requested info there.
+>
+> Jesse
 >
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+--_000_2DF55ECAAA7FFF478FB4ED007EF478E7656B1010BBNETShillsideg_--
+
+
+--===============2290582381218899351==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Free Software Download: Index, Search & Analyze Logs and other IT data in 
+Real-Time with Splunk. Collect, index and harness all the fast moving IT data 
+generated by your applications, servers and devices whether physical, virtual
+or in the cloud. Deliver compliance at lower cost and gain new business 
+insights. http://p.sf.net/sfu/splunk-dev2dev 
+--===============2290582381218899351==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============2290582381218899351==--
