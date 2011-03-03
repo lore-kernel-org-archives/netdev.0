@@ -1,30 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch] bonding: move procfs into bond_procfs.c
-Date: Wed, 02 Mar 2011 22:17:07 -0800 (PST)
-Message-ID: <20110302.221707.260068518.davem@davemloft.net>
-References: <1298896204-6521-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH] AF_RXRPC: Handle receiving ACKALL packets
+Date: Wed, 02 Mar 2011 22:19:44 -0800 (PST)
+Message-ID: <20110302.221944.246546883.davem@davemloft.net>
+References: <20110228132743.30463.33897.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, fubar@us.ibm.com,
-	netdev@vger.kernel.org
-To: amwang@redhat.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1298896204-6521-1-git-send-email-amwang@redhat.com>
+In-Reply-To: <20110228132743.30463.33897.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Amerigo Wang <amwang@redhat.com>
-Date: Mon, 28 Feb 2011 20:30:04 +0800
+From: David Howells <dhowells@redhat.com>
+Date: Mon, 28 Feb 2011 13:27:43 +0000
 
-> bond_main.c is bloating, separate the procfs code out,
-> move them to bond_procfs.c
+> The OpenAFS server is now sending ACKALL packets, so we need to handle them.
+> Otherwise we report a protocol error and abort.
 > 
-> Signed-off-by: WANG Cong <amwang@redhat.com>
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-Please use Makefile rules to conditionally compile the new bond_procfs.o
-file, instead of wrapping almost the entire file with an ifdef.
-
-Put the dummy no-PROC_FS function stubs, as inlines, in bonding.h
-
-Thanks!
+Applied.
