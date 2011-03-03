@@ -1,53 +1,52 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next-2.6 18/24] ixgbe: Specific check for 100 Full link speed
-Date: Thu,  3 Mar 2011 05:03:43 -0800
-Message-ID: <1299157429-15878-19-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Emil Tantilov <emil.s.tantilov@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, bphilips@novell.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [BUG] VPN broken in net-next
+Date: Thu, 3 Mar 2011 15:09:22 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg>
+References: <20110302.164333.116393112.davem@davemloft.net> <20110302164637.6651b34f@nehalam> <20110302.165009.200353108.davem@davemloft.net> <20110302.165421.258093056.davem@davemloft.net> <alpine.LFD.2.00.1103031414240.1677@ja.ssi.bg>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34597 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758212Ab1CCNEZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 08:04:25 -0500
-In-Reply-To: <1299157429-15878-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from ja.ssi.bg ([178.16.129.10]:53171 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758267Ab1CCNFG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 08:05:06 -0500
+In-Reply-To: <alpine.LFD.2.00.1103031414240.1677@ja.ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Emil Tantilov <emil.s.tantilov@intel.com>
 
-This patch specifically checks for 100 Full link speed instead of
-assuming we are linked at 100 if not linked at 10G and 1G.
+ 	Hello,
 
-Signed-off-by: Emil Tantilov <emil.s.tantilov@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ixgbe/ixgbe_common.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+On Thu, 3 Mar 2011, Julian Anastasov wrote:
 
-diff --git a/drivers/net/ixgbe/ixgbe_common.c b/drivers/net/ixgbe/ixgbe_common.c
-index 4fa195e..a12f7c7 100644
---- a/drivers/net/ixgbe/ixgbe_common.c
-+++ b/drivers/net/ixgbe/ixgbe_common.c
-@@ -2658,10 +2658,13 @@ s32 ixgbe_check_mac_link_generic(struct ixgbe_hw *hw, ixgbe_link_speed *speed,
- 	    IXGBE_LINKS_SPEED_10G_82599)
- 		*speed = IXGBE_LINK_SPEED_10GB_FULL;
- 	else if ((links_reg & IXGBE_LINKS_SPEED_82599) ==
--	         IXGBE_LINKS_SPEED_1G_82599)
-+		 IXGBE_LINKS_SPEED_1G_82599)
- 		*speed = IXGBE_LINK_SPEED_1GB_FULL;
--	else
-+	else if ((links_reg & IXGBE_LINKS_SPEED_82599) ==
-+		 IXGBE_LINKS_SPEED_100_82599)
- 		*speed = IXGBE_LINK_SPEED_100_FULL;
-+	else
-+		*speed = IXGBE_LINK_SPEED_UNKNOWN;
- 
- 	/* if link is down, zero out the current_mode */
- 	if (*link_up == false) {
--- 
-1.7.4
+> 	May be the problem is in inet_hash_insert(), it should
+> hash ifa_local, not ifa_address. May be they are equal for
 
+ 	... and of course the new __ip_dev_find should use
+ifa_local too.
+
+> the common case but not for peer addresses. In devinet_ioctl()
+> we can see they are equal initially:
+>
+> ifa->ifa_address = ifa->ifa_local = sin->sin_addr.s_addr;
+>
+> 	but later SIOCSIFDSTADDR can change ifa_address which
+> is destination address from the same prefix:
+>
+> ifa->ifa_address = sin->sin_addr.s_addr;
+
+ 	While checking for ifa_address usage I see other
+two places that look suspicious:
+
+- inet_gifconf() exposes address from ifa_local but then
+devinet_ioctl() matches by ifa_address in the
+'if (tryaddrmatch)' block. I think, we should use ifa_local.
+
+- IN_DEV_ARP_NOTIFY: announces ifa_address instead of ifa_local.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
