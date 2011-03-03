@@ -1,30 +1,37 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: bonding...
-Date: Thu, 03 Mar 2011 13:46:31 +0000
-Message-ID: <1299159991.4277.45.camel@localhost>
-References: <20110302.214910.112578818.davem@davemloft.net>
+Subject: RE: r8169 disable ASPM patch
+Date: Thu, 03 Mar 2011 13:48:12 +0000
+Message-ID: <1299160092.4277.46.camel@localhost>
+References: <20110302.215255.183067695.davem@davemloft.net>
+	 <20110303094518.GA13491@electric-eye.fr.zoreil.com>
+	 <A671CA7371854B808BAB6DA0BA7B050B@realtek.com.tw>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: fubar@us.ibm.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: 'Francois Romieu' <romieu@fr.zoreil.com>,
+	'David Miller' <davem@davemloft.net>, netdev@vger.kernel.org,
+	sgruszka@redhat.com
+To: hayeswang <hayeswang@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exchange.solarflare.com ([216.237.3.220]:58139 "EHLO
+Received: from mail.solarflare.com ([216.237.3.220]:58204 "EHLO
 	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756155Ab1CCNqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 08:46:34 -0500
-In-Reply-To: <20110302.214910.112578818.davem@davemloft.net>
+	with ESMTP id S1758228Ab1CCNsQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 08:48:16 -0500
+In-Reply-To: <A671CA7371854B808BAB6DA0BA7B050B@realtek.com.tw>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2011-03-02 at 21:49 -0800, David Miller wrote:
+On Thu, 2011-03-03 at 19:35 +0800, hayeswang wrote:
 [...]
-> This is unacceptable, people are submitting multiple bonding patches
-> every single day now.  It needs a clueful bonding person looking at
-> these submissions on a constant basis.
+> > > Is there going to be a MAINTAINERS patch that adds Hayes?  If so what
+> > > is stalling that?
+> 
+> Realtek would continue handling the kernel. However, the person may be different
+> for different period. Therefore, I think keeping the current mode is better.
 [...]
 
-And preferably saying 'no' to most new features...
+Perhaps you could add a contact alias address, like our
+linux-net-drivers@solarflare.com.
 
 Ben.
 
