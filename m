@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: inetpeer with create==0
-Date: Thu, 03 Mar 2011 00:34:17 -0800 (PST)
-Message-ID: <20110303.003417.35058314.davem@davemloft.net>
-References: <AANLkTi=Ty+C3b9U+151dUMpgGiwG3AE4dMmc3djWmp6v@mail.gmail.com>
-	<20110302.224220.179921025.davem@davemloft.net>
-	<AANLkTinz4ppTi=580K9O=RZ6zbuBrTtjBDhEEnWM3Txg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 2/2 v2] bonding: COW before overwriting the destination
+ MAC address
+Date: Thu, 03 Mar 2011 09:35:02 +0100
+Message-ID: <1299141302.2456.42.camel@edumazet-laptop>
+References: <1299136034-5549-1-git-send-email-xiaosuo@gmail.com>
+	 <1299138901.2456.32.camel@edumazet-laptop>
+	 <AANLkTimNb-ZPFuhhdsSroFzaHKFauR3pTBXL3HMmnECf@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: xiaosuo@gmail.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Changli Gao <xiaosuo@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40318
-	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754261Ab1CCIdk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 03:33:40 -0500
-In-Reply-To: <AANLkTinz4ppTi=580K9O=RZ6zbuBrTtjBDhEEnWM3Txg@mail.gmail.com>
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:62850 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756809Ab1CCIfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 03:35:08 -0500
+Received: by fxm17 with SMTP id 17so861074fxm.19
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 00:35:07 -0800 (PST)
+In-Reply-To: <AANLkTimNb-ZPFuhhdsSroFzaHKFauR3pTBXL3HMmnECf@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Changli Gao <xiaosuo@gmail.com>
-Date: Thu, 3 Mar 2011 16:07:32 +0800
+Le jeudi 03 mars 2011 =C3=A0 16:21 +0800, Changli Gao a =C3=A9crit :
+> On Thu, Mar 3, 2011 at 3:55 PM, Eric Dumazet <eric.dumazet@gmail.com>=
+ wrote:
+> >
+> >
+> >
+> > Thats minor, but using :
+> >
+> > u16 *dest =3D eth_hdr(skb)->h_dest;
+> >
+> > memcpy(dest, ptr, ETH_ALEN);
+> >
+> > Is better because compiler knows both destination and source are at
+> > least aligned on shorts.
+> >
+> > On some arches, it helps to not using 6 bytes copy, but 3 shorts.
+> >
+> >
+>=20
+> Is it still true if ptr isn't aligned on shorts? And
+> net_device.dev_addr is an unsigned char *pointer. Thanks.
+>=20
 
-> After routing cache is removed totally, Linux is still unsuitable for
-> use as a router on the core internet. Because it isn't a realtime OS,
-> and the forwarding delay isn't bounded. With routing cache, the memory
-> cost isn't bounded too. :)
+dev_addr[] was aligned to word boundaries (because of natural structure
+alignment), but the recent changes made it a char *pointer, so gcc is
+not able to make this true anymore.
 
-With many cores, pipe can be filled no problem, because with multi-core
-machine routing lookup proceeds just like Cisco router makes in hardware.
+This could change if dev_addr was a pointer to struct netdev_hw_addr
 
-I wrote about this in my blog a few years ago.
+
 
