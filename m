@@ -1,69 +1,47 @@
 From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [PATCH 2/2] bonding: COW before overwriting the destination MAC address
-Date: Thu, 3 Mar 2011 14:54:36 +0800
-Message-ID: <AANLkTim3EKe7hqyhpQ97uBn0_8ZFP=ve3RgurQzTpi1b@mail.gmail.com>
-References: <1299126321-9300-1-git-send-email-xiaosuo@gmail.com> <1299134742.2456.1.camel@edumazet-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH 2/2 v2] bonding: COW before overwriting the destination MAC address
+Date: Thu,  3 Mar 2011 15:07:14 +0800
+Message-ID: <1299136034-5549-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:37072 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751404Ab1CCGy5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 01:54:57 -0500
-Received: by fxm17 with SMTP id 17so804894fxm.19
-        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 22:54:56 -0800 (PST)
-In-Reply-To: <1299134742.2456.1.camel@edumazet-laptop>
+Received: from mail-iw0-f174.google.com ([209.85.214.174]:43957 "EHLO
+	mail-iw0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923Ab1CCHIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 02:08:14 -0500
+Received: by iwn34 with SMTP id 34so685306iwn.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 23:08:13 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 3, 2011 at 2:45 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> Le jeudi 03 mars 2011 =E0 12:25 +0800, Changli Gao a =E9crit :
->> When there is a ptype handler holding a clone of this skb, whose
->> destination MAC addresse is overwritten, the owner of this handler m=
-ay
->> get a corrupted packet.
->>
->> Signed-off-by: Changli Gao <xiaosuo@gmail.com>
->> ---
->> =A0drivers/net/bonding/bond_main.c | =A0 =A05 +++++
->> =A01 file changed, 5 insertions(+)
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/b=
-ond_main.c
->> index 912b416..211be52 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -1513,6 +1513,11 @@ static struct sk_buff *bond_handle_frame(stru=
-ct sk_buff *skb)
->> =A0 =A0 =A0 =A0 =A0 skb->pkt_type =3D=3D PACKET_HOST) {
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 u16 *dest =3D (u16 *) eth_hdr(skb)->h_de=
-st;
->>
->> + =A0 =A0 =A0 =A0 =A0 =A0 if (unlikely(skb_cow_head(skb,
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0=
- =A0 =A0 skb->data - skb_mac_header(skb)))) {
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 kfree_skb(skb);
->> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0 return NULL;
->> + =A0 =A0 =A0 =A0 =A0 =A0 }
->> =A0 =A0 =A0 =A0 =A0 =A0 =A0 memcpy(dest, bond_dev->dev_addr, ETH_ALE=
-N);
->> =A0 =A0 =A0 }
->>
->
-> This seems buggy.
->
-> dest points to old skb head content.
->
->
+When there is a ptype handler holding a clone of this skb, whose
+destination MAC addresse is overwritten, the owner of this handler may
+get a corrupted packet.
 
-Oh, thanks. I'll respin it.
-
-
-
---=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
+---
+v2: fix the bug in the previous one. Thank him.
+ drivers/net/bonding/bond_main.c |    8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 912b416..7b7ca97 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1511,9 +1511,13 @@ static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+ 	if (bond_dev->priv_flags & IFF_MASTER_ALB &&
+ 	    bond_dev->priv_flags & IFF_BRIDGE_PORT &&
+ 	    skb->pkt_type == PACKET_HOST) {
+-		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
+ 
+-		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
++		if (unlikely(skb_cow_head(skb,
++					  skb->data - skb_mac_header(skb)))) {
++			kfree_skb(skb);
++			return NULL;
++		}
++		memcpy(eth_hdr(skb)->h_dest, bond_dev->dev_addr, ETH_ALEN);
+ 	}
+ 
+ 	return skb;
