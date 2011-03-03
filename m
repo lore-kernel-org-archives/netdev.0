@@ -1,74 +1,52 @@
-From: Stephen Hemminger <shemminger@vyatta.com>
-Subject: Re: [BUG] VPN broken in net-next
-Date: Thu, 3 Mar 2011 09:32:15 -0800
-Message-ID: <20110303093215.40164b8c@nehalam>
-References: <20110302.164333.116393112.davem@davemloft.net>
-	<20110302164637.6651b34f@nehalam>
-	<20110302.165009.200353108.davem@davemloft.net>
-	<20110302.165421.258093056.davem@davemloft.net>
-	<alpine.LFD.2.00.1103031414240.1677@ja.ssi.bg>
-	<alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH 2/2] netlink: kill eff_cap from struct netlink_skb_parms
+Date: Thu, 3 Mar 2011 09:32:30 -0800
+Message-ID: <20110303173230.GP4988@sequoia.sous-sol.org>
+References: <4D6F6180.5030903@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:41171 "EHLO mail.vyatta.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751471Ab1CCRcS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 12:32:18 -0500
-In-Reply-To: <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: NetDev <netdev@vger.kernel.org>, dm-devel@redhat.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Chris Wright <chrisw@sous-sol.org>,
+	"linux-security-module@vger.kernel.org"
+	<linux-security-module@vger.kernel.org>, drbd-dev@lists.linbit.com
+To: Patrick McHardy <kaber@trash.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <4D6F6180.5030903@trash.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->  	Hello,
+* Patrick McHardy (kaber@trash.net) wrote:
+
+> commit 8ff259625f0ab295fa085b0718eed13093813fbc
+> Author: Patrick McHardy <kaber@trash.net>
+> Date:   Thu Mar 3 10:17:31 2011 +0100
 > 
-> On Thu, 3 Mar 2011, Julian Anastasov wrote:
-> 
-> > 	May be the problem is in inet_hash_insert(), it should
-> > hash ifa_local, not ifa_address. May be they are equal for  
-> 
->  	... and of course the new __ip_dev_find should use
-> ifa_local too.
-> 
-> > the common case but not for peer addresses. In devinet_ioctl()
-> > we can see they are equal initially:
-> >
-> > ifa->ifa_address = ifa->ifa_local = sin->sin_addr.s_addr;
-> >
-> > 	but later SIOCSIFDSTADDR can change ifa_address which
-> > is destination address from the same prefix:
-> >
-> > ifa->ifa_address = sin->sin_addr.s_addr;  
-> 
->  	While checking for ifa_address usage I see other
-> two places that look suspicious:
-> 
-> - inet_gifconf() exposes address from ifa_local but then
-> devinet_ioctl() matches by ifa_address in the
-> 'if (tryaddrmatch)' block. I think, we should use ifa_local.
-> 
-> - IN_DEV_ARP_NOTIFY: announces ifa_address instead of ifa_local.
+>     netlink: kill eff_cap from struct netlink_skb_parms
+>     
+>     Netlink message processing in the kernel is synchronous these days,
+>     capabilities can be checked directly in security_netlink_recv() from
+>     the current process.
+>     
+>     Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Julian you are on the right track with the ifa_local being the issue.
+Thanks for doing that Patrick.  I looked at this earlier and thought
+there was still an async path, but I guess that's just to another
+userspace process.
 
-1. Bring up VPN 
-   (no errors)
+BTW, I think you missed a couple connector based callers:
 
-2. Ping one address gets connect error
+drivers/staging/pohmelfs/config.c:      if (!cap_raised(nsp->eff_cap, CAP_SYS_AD
+drivers/video/uvesafb.c:        if (!cap_raised(nsp->eff_cap, CAP_SYS_ADMIN))
 
-3. Instrumentation triggers. I added code so if __ip_dev_find failed,
-   it walked the hash table.
+Fix those and:
 
-net=ffffffff81a12d80
+Acked-by: Chris Wright <chrisw@sous-sol.org>
 
-[  393.224228] __ip_dev_find(ffffffff81a12d80, 10.250.0.104) hash=108 failed
-[  393.224232] 138: ffffffff81a12d80 ifa_addr=127.0.0.1 ifa_local=127.0.0.1
-[  393.224236] 150: ffffffff81a12d80 ifa_addr=192.168.1.11 ifa_local=192.168.1.11
-[  393.224239] 249: ffffffff81a12d80 ifa_addr=192.168.100.1 ifa_local=192.168.100.1
-[  393.224242] 254: ffffffff81a12d80 ifa_addr=192.168.99.1 ifa_local=192.168.99.1
-[  393.224245] 255: ffffffff81a12d80 ifa_addr=10.255.254.0 ifa_local=10.250.0.10
+Ideally, we'd consolidate those into a variant of security_netlink_recv().
+However the issue is with types.  Inside connector callback we only have
+netlink_skb_params (seems inapproriate to cast back out to skb).
 
-
-
+We could change the lsm hook to only pass nsp, but SELinux actually
+cares about the netlink type.  Any ideas?
