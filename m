@@ -1,43 +1,59 @@
-From: Li Yu <raise.sail@gmail.com>
-Subject: A misbehavior of handling TCP out of band data ?
-Date: Thu, 3 Mar 2011 15:24:07 +0000
-Message-ID: <AANLkTinEBm1WuS9nRv3UcyoL4MJwBsqbukXUcUjHZQgU@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
+Date: Thu, 03 Mar 2011 16:25:40 +0100
+Message-ID: <1299165940.2983.111.camel@edumazet-laptop>
+References: <20110228171738.2cc8c9a0@nehalam>
+	 <20110302020610.GD1005@gandalf.sssup.it>
+	 <1299064667.2920.4.camel@edumazet-laptop> <20110302081108.689571d8@nehalam>
+	 <1299082728.2920.18.camel@edumazet-laptop>
+	 <1299087087.2920.27.camel@edumazet-laptop>
+	 <20110303081940.GA29685@gandalf.sssup.it>
+	 <1299140868.2456.35.camel@edumazet-laptop>
+	 <1299148820.2983.56.camel@edumazet-laptop>
+	 <20110303150744.GB29685@gandalf.sssup.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <shemminger@vyatta.com>,
+	David Miller <davem@davemloft.net>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org,
+	Paolo Valente <paolo.valente@unimore.it>
+To: Fabio Checconi <fchecconi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw0-f51.google.com ([74.125.83.51]:52160 "EHLO
-	mail-gw0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758305Ab1CCPYI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 10:24:08 -0500
-Received: by gwb15 with SMTP id 15so621608gwb.10
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 07:24:07 -0800 (PST)
+Received: from mail-fx0-f46.google.com ([209.85.161.46]:45578 "EHLO
+	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758254Ab1CCPZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 10:25:46 -0500
+Received: by fxm17 with SMTP id 17so1194441fxm.19
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 07:25:45 -0800 (PST)
+In-Reply-To: <20110303150744.GB29685@gandalf.sssup.it>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Le jeudi 03 mars 2011 =C3=A0 16:07 +0100, Fabio Checconi a =C3=A9crit :
 
-        In my words, if we did not turn on SO_OOBINLINE at receiver,
-any OOB bytes do not have to be read from regular TCP byte stream.
+> A question on the data below:
+>=20
+> > After a stress (and no more trafic) I still have some packets in
+> > backlog:
+> >=20
+> > (8 packets here)
+> >=20
+> ...
+> > class qfq 11:10 root weight 1600 maxpkt 2048=20
+> >  Sent 200 bytes 1 pkt (dropped 18181, overlimits 0 requeues 0)=20
+> >  rate 0bit 0pps backlog 200b 0p requeues 0=20
+>=20
+> Any other reason, apart from a bug in QFQ, why there could be 200b an=
+d
+> 0p of backlog?  A packet count out of sync could explain also why you
+> were experiencing problems with pfifo in presence of drops...
 
-        But in below extreme case: the sender process have a loop to
-send 1 OOB byte 'O' and 1 byte normal data 'D', the receiver ignore
-all OOB data, so if OOB feature works well, the receiver should
-receive 'D' only, However, in fact, the receiver still can see OOB
-bytes by recv() syscall without MSG_OOB flag.
+My packets are all 200 bytes (from my packet generator)
 
-        I found that we may send "ODODODODODOD...." in a tcp segment,
-and tcp_sendmsg() has no special code to avoid this.
+qfq_dump_class_stats() probably miss one line :
 
-        Well, I know that it seem that above case is too extreme to
-use in actual environment, but above is simplified from our actual
-scenario.
+scl->bstats.qlen =3D cl->qdisc->q.qlen;
 
-        Anyway, I think that overwriting or skip previous OOB bytes is
-acceptable, but leave them in regular TCP byte stream likely is a bug.
-En, probably, the disabled SO_OOBINLINE just is a feature of receiver
-side, sender do not need to have to guarantee it?
 
-        Thanks.
 
-Yu
