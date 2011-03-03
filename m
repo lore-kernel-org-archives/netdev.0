@@ -1,34 +1,56 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 01/27] HFI: skeleton driver
-Date: Thu, 3 Mar 2011 09:07:57 -0500
-Message-ID: <20110303140757.GA16191@infradead.org>
-References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+From: Vladislav Yasevich <vladislav.yasevich@hp.com>
+Subject: Re: [PATCH] sctp: do not mark chunk abandoned if peer has no PRSCTP
+ capable
+Date: Thu, 03 Mar 2011 09:14:50 -0500
+Message-ID: <4D6FA25A.6030401@hp.com>
+References: <4D6F1723.5030909@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
-	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
-	" William S. Cadden" <wscadden@linux.vnet.ibm.com>,
-	" Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
-	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
-	Jian Xiao <jian@linux.vnet.ibm.com>,
-	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
-	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
-To: dykmanj@linux.vnet.ibm.com
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	lksctp <linux-sctp@vger.kernel.org>,
+	David Miller <davem@davemloft.net>
+To: Wei Yongjun <yjwei@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([18.85.46.34]:49880 "EHLO
-	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751612Ab1CCOH7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 09:07:59 -0500
-Content-Disposition: inline
-In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+Received: from g1t0028.austin.hp.com ([15.216.28.35]:36891 "EHLO
+	g1t0028.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750909Ab1CCOO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 09:14:56 -0500
+In-Reply-To: <4D6F1723.5030909@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 02, 2011 at 04:09:47PM -0500, dykmanj@linux.vnet.ibm.com wrote:
-> From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+On 03/02/2011 11:20 PM, Wei Yongjun wrote:
+> Chunk is marked abandoned if the chunk is expires, and it not be
+> retransmited even if the peer has no PRSCTP capable, but the peer
+> will still wait for retransmit it to update CTSN.
+> This patch disable mark chunk abandoned if peer has no PRSCTP
+> capable.
 > 
-> Device driver Makefile & Kconfig plumbing plus simple mod_init and mod_exit
+> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+> ---
+>  net/sctp/chunk.c |    3 +++
+>  1 files changed, 3 insertions(+), 0 deletions(-)
+> 
+> diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
+> index 6c85564..0d4832d 100644
+> --- a/net/sctp/chunk.c
+> +++ b/net/sctp/chunk.c
+> @@ -347,6 +347,9 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
+>  {
+>  	struct sctp_datamsg *msg = chunk->msg;
+>  
+> +	if (!chunk->asoc->peer.prsctp_capable)
+> +		return 0;
+> +
+>  	if (!msg->can_abandon)
+>  		return 0;
+>  
 
-It would help a lot if you could explain what the heck HFI is.
+The trouble is that timetolive can be set on a message independent of Partial Reliability.
+The difference in behavior is that when PR can't be used, a chunk can only be abandoned
+if it has not yet been transmitted.  With PR enabled, the chunk can be abandoned at any time.
 
+So, you can't blindly disallow abandonment. 
+
+-vlad
