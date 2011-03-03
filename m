@@ -1,59 +1,102 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: bonding...
-Date: Thu, 03 Mar 2011 12:43:10 -0800
-Message-ID: <13010.1299184990@death>
-References: <20110303114539.GB5146@hmsreliant.think-freely.org> <20110303160404.GO11864@gospo.rdu.redhat.com> <6286.1299173065@death> <20110303.123032.15242274.davem@davemloft.net>
-Cc: andy@greyhouse.net, nhorman@tuxdriver.com, netdev@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 2/3 v2] mii: Convert printks to netdev_info
+Date: Thu, 03 Mar 2011 12:46:30 -0800
+Message-ID: <1299185190.4338.163.camel@Joe-Laptop>
+References: <1b384ead46d062ba189b64649710a5625b7f6a2b.1299086044.git.joe@perches.com>
+	 <20110303.122148.245410126.davem@davemloft.net>
+	 <1299184181.4338.152.camel@Joe-Laptop>
+	 <20110303.123225.242141985.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:58047 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756708Ab1CCUnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 15:43:14 -0500
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by e37.co.us.ibm.com (8.14.4/8.13.1) with ESMTP id p23KedIn022778
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 13:40:39 -0700
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id p23KhDKj126360
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 13:43:13 -0700
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id p23Kemg5015647
-	for <netdev@vger.kernel.org>; Thu, 3 Mar 2011 13:40:49 -0700
-In-reply-to: <20110303.123032.15242274.davem@davemloft.net>
+Received: from mail.perches.com ([173.55.12.10]:4082 "EHLO mail.perches.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758472Ab1CCUqb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 15:46:31 -0500
+In-Reply-To: <20110303.123225.242141985.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+Add a bit more data to the output.
+Convert string speeds to integer.
+Object size reduced a tiny bit.
+$ size drivers/net/mii.o*
+   text	   data	    bss	    dec	    hex	filename
+   4155	     56	   1000	   5211	   145b	drivers/net/mii.o.new
+   4184	     56	   1000	   5240	   1478	drivers/net/mii.o.old
 
->From: Jay Vosburgh <fubar@us.ibm.com>
->Date: Thu, 03 Mar 2011 09:24:25 -0800
->
->> 	My main problem keeping up at the moment is another demand on my
->> time that should run its course in a couple of weeks.  My time for
->> community activity is somewhat limited until then.
->
->Someone needs to exist who can keep things going when you are too
->busy.  Unless you're like me and never take a day off, you need
->at least one co-maintainer if your subsystem has lots of daily
->activity as bonding now does.
-
-	Agreed.  If Andy is amenable, we can make it official:
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 0d83e58..6402703 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1467,6 +1467,7 @@ F:	include/net/bluetooth/
- 
- BONDING DRIVER
- M:	Jay Vosburgh <fubar@us.ibm.com>
-+M:	Andy Gospodarek <andy@greyhouse.net>
- L:	netdev@vger.kernel.org
- W:	http://sourceforge.net/projects/bonding/
- S:	Supported
-
-
-	-J
+Signed-off-by: Joe Perches <joe@perches.com>
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+On Thu, 2011-03-03 at 12:32 -0800, David Miller wrote:
+> > This change is stuffed up somehow, it's
+> > a reversion of the tun.c change.
+> Oops.
+> > Let me send you a new/correct patch right now.
+> Ok.
+
+Sorry about that.  Here's the appropriate patch.
+
+It seems apparent I don't know how to use git properly.
+
+I commited the change, then thought I should see
+what the size difference was and add that to the
+changelog.
+
+I believe I did this:
+
+<edits drivers/net/mii.c>
+make drivers/net/mii.o
+git commit -s drivers/net/mii.c
+mv drivers/net/mii.o drivers/net/mii.o.new
+git checkout master -- drivers/net/mii.c
+make drivers/net/mii.o
+mv drivers/net/mii.o drivers/net/mii.i.old
+git checkout <branch> -- drivers/net/mii.c
+size drivers/net/mii.o.*
+ etc...
+git commit --amend drivers/net/mii.c (add etc...)
+
+tun revert?  No mii change?  huh?
+
+ drivers/net/mii.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/mii.c b/drivers/net/mii.c
+index 210b2b1..0a6c6a2 100644
+--- a/drivers/net/mii.c
++++ b/drivers/net/mii.c
+@@ -354,7 +354,7 @@ unsigned int mii_check_media (struct mii_if_info *mii,
+ 	if (!new_carrier) {
+ 		netif_carrier_off(mii->dev);
+ 		if (ok_to_print)
+-			printk(KERN_INFO "%s: link down\n", mii->dev->name);
++			netdev_info(mii->dev, "link down\n");
+ 		return 0; /* duplex did not change */
+ 	}
+ 
+@@ -381,12 +381,12 @@ unsigned int mii_check_media (struct mii_if_info *mii,
+ 		duplex = 1;
+ 
+ 	if (ok_to_print)
+-		printk(KERN_INFO "%s: link up, %sMbps, %s-duplex, lpa 0x%04X\n",
+-		       mii->dev->name,
+-		       lpa2 & (LPA_1000FULL | LPA_1000HALF) ? "1000" :
+-		       media & (ADVERTISE_100FULL | ADVERTISE_100HALF) ? "100" : "10",
+-		       duplex ? "full" : "half",
+-		       lpa);
++		netdev_info(mii->dev, "link up, %uMbps, %s-duplex, lpa 0x%04X\n",
++			    lpa2 & (LPA_1000FULL | LPA_1000HALF) ? 1000 :
++			    media & (ADVERTISE_100FULL | ADVERTISE_100HALF) ?
++			    100 : 10,
++			    duplex ? "full" : "half",
++			    lpa);
+ 
+ 	if ((init_media) || (mii->full_duplex != duplex)) {
+ 		mii->full_duplex = duplex;
+
+
