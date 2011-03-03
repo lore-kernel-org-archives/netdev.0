@@ -1,69 +1,35 @@
-From: Andrew Theurer <habanero@linux.vnet.ibm.com>
-Subject: Re: [PATCH 0/3] [RFC] Implement multiqueue (RX & TX) virtio-net
-Date: Thu, 03 Mar 2011 13:01:24 -0600
-Message-ID: <1299178884.13202.50.camel@localhost.localdomain>
-References: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
-Reply-To: habanero@linux.vnet.ibm.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next-2.6] udp: udp_sendmsg() fix
+Date: Thu, 03 Mar 2011 20:02:04 +0100
+Message-ID: <1299178924.2547.0.camel@edumazet-laptop>
+References: <1299169686.2983.129.camel@edumazet-laptop>
+	 <1299172043.2983.142.camel@edumazet-laptop>
+	 <20110303.104226.71110201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, davem@davemloft.net, mst@redhat.com,
-	eric.dumazet@gmail.com, arnd@arndb.de, netdev@vger.kernel.org,
-	horms@verge.net.au, avi@redhat.com, anthony@codemonkey.ws,
-	kvm@vger.kernel.org
-To: Krishna Kumar <krkumar2@in.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e5.ny.us.ibm.com ([32.97.182.145]:45252 "EHLO e5.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752418Ab1CCTBb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 14:01:31 -0500
-In-Reply-To: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:52371 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758207Ab1CCTCJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 14:02:09 -0500
+Received: by bwz15 with SMTP id 15so1442619bwz.19
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 11:02:08 -0800 (PST)
+In-Reply-To: <20110303.104226.71110201.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2011-02-28 at 12:04 +0530, Krishna Kumar wrote:
-> This patch series is a continuation of an earlier one that
-> implemented guest MQ TX functionality.  This new patchset
-> implements both RX and TX MQ.  Qemu changes are not being
-> included at this time solely to aid in easier review.
-> Compatibility testing with old/new combinations of qemu/guest
-> and vhost was done without any issues.
-> 
-> Some early TCP/UDP test results are at the bottom of this
-> post, I plan to submit more test results in the coming days.
-> 
-> Please review and provide feedback on what can improve.
-> 
-> Thanks!
-> 
-> Signed-off-by: Krishna Kumar <krkumar2@in.ibm.com>
-> ---
-> 
-> 
-> Test configuration:
->           Host:  8 Intel Xeon, 8 GB memory
->           Guest: 4 cpus, 2 GB memory
-> 
-> Each test case runs for 60 secs, results below are average over
-> two runs.  Bandwidth numbers are in gbps.  I have used default
-> netperf, and no testing/system tuning other than taskset each
-> vhost to 0xf (cpus 0-3).  Comparison is testing original kernel
-> vs new kernel with #txqs=8 ("#" refers to number of netperf
-> sessions).
+Le jeudi 03 mars 2011 =C3=A0 10:42 -0800, David Miller a =C3=A9crit :
 
-> 
-> _______________________________________________________________________
->                 TCP: Guest -> Local Host (TCP_STREAM)
->                  TCP: Local Host -> Guest (TCP_MAERTS)
->             UDP: Local Host -> Guest (UDP_STREAM)
+> My version NULL's out rt, so that if we had any changes in code paths
+> here it would be unlikely we'd reintroduce this bug.
+>=20
+> I'm fine either way, although my version is in net-next-2.6 at the
+> moment :-)
 
+No problem, your version pleases me as well ;)
 
-Any reason why the tests don't include a guest-to-guest on same host, or
-on different hosts?  Seems like those would be a lot more common that
-guest-to/from-localhost.
-
-Thanks,
-
--Andrew
 
 
