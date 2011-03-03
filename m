@@ -1,71 +1,91 @@
-From: Changli Gao <xiaosuo@gmail.com>
-Subject: Re: [Lxc-users] Bad checksums and lost packets with macvlan on dummy
-Date: Thu, 3 Mar 2011 22:30:08 +0800
-Message-ID: <AANLkTimCEgMwUeQ_BBLHDij=t9_uHovgkg3TN1kjYOkb@mail.gmail.com>
-References: <20110221150710.GA5651@nord.niifaq.ru> <4D6282DB.2080204@free.fr>
- <20110221153421.GA6602@nord.niifaq.ru> <4D628DC3.9000400@free.fr>
- <20110223170512.GA10277@nord.niifaq.ru> <4D6A6A5F.4030707@free.fr>
- <1298836236.8726.109.camel@edumazet-laptop> <4D6AB578.3010704@free.fr>
- <1298879114.8726.131.camel@edumazet-laptop> <4D6CF4A8.6000205@free.fr>
- <4D6D2402.6020705@trash.net> <4D6D515A.8060707@free.fr> <4D6E23F3.4010402@trash.net>
- <4D6E6A55.6000607@free.fr> <4D6E8686.3000109@trash.net> <4D6E8D80.3090907@free.fr>
+From: Lucas Nussbaum <lucas.nussbaum@loria.fr>
+Subject: Bad performance when CUBIC HyStart enabled
+Date: Thu, 3 Mar 2011 15:22:29 +0100
+Message-ID: <20110303142229.GA9262@xanadu.blop.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andrian Nord <nightnord@gmail.com>,
-	lxc-users@lists.sourceforge.net,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Daniel Lezcano <daniel.lezcano@free.fr>
+Cc: Sangtae Ha <sha2@ncsu.edu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:39486 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887Ab1CCOam convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 09:30:42 -0500
-Received: by fxm17 with SMTP id 17so1139820fxm.19
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 06:30:40 -0800 (PST)
-In-Reply-To: <4D6E8D80.3090907@free.fr>
+Received: from xanadu.blop.info ([178.79.145.134]:33692 "EHLO xanadu.blop.info"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758234Ab1CCOqU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 09:46:20 -0500
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 3, 2011 at 2:33 AM, Daniel Lezcano <daniel.lezcano@free.fr>=
- wrote:
->
-> One last question. In the case of broadcast packets with maclvan in b=
-ridge
-> mode.
-> We will have the packets going through each macvlan port and also to =
-the
-> lower-device, right ?
-> For the latter, don't we have a problem if the packet is flagged
-> CHECKSUM_UNNECESSARY ?
->
-> Shouldn't we restore the ip_summed field before sending through
-> dev_queue_xmit ?
->
-> ---
-> =A0drivers/net/macvlan.c | =A0 =A03 +++
-> =A01 file changed, 3 insertions(+)
->
-> Index: linux-next/drivers/net/macvlan.c
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-> --- linux-next.orig/drivers/net/macvlan.c
-> +++ linux-next/drivers/net/macvlan.c
-> @@ -222,10 +222,13 @@ static int macvlan_queue_xmit(struct sk_
->
-> =A0 =A0 =A0 =A0if (vlan->mode =3D=3D MACVLAN_MODE_BRIDGE) {
-> =A0 =A0 =A0 =A0 =A0 =A0 =A0 =A0const struct ethhdr *eth =3D (void *)s=
-kb->data;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 __u8 ip_summed =3D skb->ip_summed;
-> + =A0 =A0 =A0 =A0 =A0 =A0 =A0 skb->ip_summed; =3D CHECKSUM_UNNECESSAR=
-Y;
+Hi,
 
-You added a additional ";".
+I'm experiencing bad performance transferring data over a large BDP
+network with CUBIC when HyStart is enabled. Disabling HyStart fixes the
+problem.
 
+Test setup:
+I'm transfering a 2-GB file between two machines using netcat. On both
+machines, /dev/shm is used to store the data.
+On the sending side, I use:
+/dev/shm# while true; do dd if=3Dfoo bs=3D10M | nc -l -p 2222 -q 0; don=
+e
+On the receiving side, I use:
+/dev/shm# /usr/bin/time nc 131.254.203.6 2222 > foo
+Both machines are on Gigabit ethernet networks, and the RTT between the=
+m
+is 11.3ms.
+The default sysctl values are used.
+I use nload -i 1000000 -o 1000000 -u m eth0 to visualize the transfer
+rate.
 
+With a 2.6.26 kernel, everything is fine. The bandwidth quickly gets to
+~940 Mbps, and I get the following in nload:
+      ..................................
+     .##################################
+     ###################################
+     ###################################
+     ###################################
+     ####################################
+     ####################################
+     ####################################
+     ####################################
+     ####################################
+     ####################################
+     ####################################
+     ####################################
+     ####################################
+The transfer time is 18.2s, which is reasonable for a 2-GB file.
+
+With a 2.6.32 kernel (Debian's) or with a 2.6.37 kernel (on the sending
+side only), with the default HyStart parameters, I get the following:
+                           ..........................
+                          |##########################.
+                         |############################
+                        |#############################
+                       |##############################
+                      |###############################
+                    .#################################
+                   |##################################|=20
+                 |#####################################=20
+            ..||#######################################=20
+    ....|##############################################=20
+ .#####################################################=20
+The transfer time is 26.8s. (There's one character every 0.5s on the
+graph above)
+
+Disabling hystart on the sending machine with:
+echo 0 > /sys/module/tcp_cubic/parameters/hystart
+=46ixes the problem.
+
+It seems that waiting for some time (or rebooting) fixes the problem fo=
+r
+some time, so I'm suspecting that the problem is caused by a cache of
+some sort. However, doing:
+echo 1 > /proc/sys/net/ipv4/route/flush
+doesn't fix the problem.
+
+Ideas? I could arrange to give access to the testbed if needed.
+(https://www.grid5000.fr/)
 --=20
-Regards,
-Changli Gao(xiaosuo@gmail.com)
+| Lucas Nussbaum             MCF Universit=E9 Nancy 2 |
+| lucas.nussbaum@loria.fr         LORIA / AlGorille |
+| http://www.loria.fr/~lnussbau/  +33 3 54 95 86 19 |
