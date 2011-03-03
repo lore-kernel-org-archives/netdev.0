@@ -1,48 +1,41 @@
-From: Wei Yongjun <yjwei@cn.fujitsu.com>
-Subject: [PATCH] sctp: do not mark chunk abandoned if peer has no PRSCTP capable
-Date: Thu, 03 Mar 2011 12:20:51 +0800
-Message-ID: <4D6F1723.5030909@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lksctp <linux-sctp@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vlad Yasevich <vladislav.yasevich@hp.com>
+From: Changli Gao <xiaosuo@gmail.com>
+Subject: [PATCH 2/2] bonding: COW before overwriting the destination MAC address
+Date: Thu,  3 Mar 2011 12:25:21 +0800
+Message-ID: <1299126321-9300-1-git-send-email-xiaosuo@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Changli Gao <xiaosuo@gmail.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:59093 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1757807Ab1CCEUl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Mar 2011 23:20:41 -0500
+Received: from mail-pw0-f46.google.com ([209.85.160.46]:40804 "EHLO
+	mail-pw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756041Ab1CCE0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Mar 2011 23:26:06 -0500
+Received: by pwi15 with SMTP id 15so140621pwi.19
+        for <netdev@vger.kernel.org>; Wed, 02 Mar 2011 20:26:05 -0800 (PST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Chunk is marked abandoned if the chunk is expires, and it not be
-retransmited even if the peer has no PRSCTP capable, but the peer
-will still wait for retransmit it to update CTSN.
-This patch disable mark chunk abandoned if peer has no PRSCTP
-capable.
+When there is a ptype handler holding a clone of this skb, whose
+destination MAC addresse is overwritten, the owner of this handler may
+get a corrupted packet.
 
-Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
+Signed-off-by: Changli Gao <xiaosuo@gmail.com>
 ---
- net/sctp/chunk.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
-
-diff --git a/net/sctp/chunk.c b/net/sctp/chunk.c
-index 6c85564..0d4832d 100644
---- a/net/sctp/chunk.c
-+++ b/net/sctp/chunk.c
-@@ -347,6 +347,9 @@ int sctp_chunk_abandoned(struct sctp_chunk *chunk)
- {
- 	struct sctp_datamsg *msg = chunk->msg;
+ drivers/net/bonding/bond_main.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 912b416..211be52 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1513,6 +1513,11 @@ static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+ 	    skb->pkt_type == PACKET_HOST) {
+ 		u16 *dest = (u16 *) eth_hdr(skb)->h_dest;
  
-+	if (!chunk->asoc->peer.prsctp_capable)
-+		return 0;
-+
- 	if (!msg->can_abandon)
- 		return 0;
++		if (unlikely(skb_cow_head(skb,
++					  skb->data - skb_mac_header(skb)))) {
++			kfree_skb(skb);
++			return NULL;
++		}
+ 		memcpy(dest, bond_dev->dev_addr, ETH_ALEN);
+ 	}
  
--- 
-1.6.5.2
-
-
