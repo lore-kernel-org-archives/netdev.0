@@ -1,9 +1,9 @@
 From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: Re: [PATCH 3/5] tg3: Enclose macro with complex values in parenthesis
-Date: Thu, 3 Mar 2011 12:54:52 +0100
-Message-ID: <AANLkTinjaRMUgr_N4v_63ExrqJsU_i47Q3_xwQQN9CiA@mail.gmail.com>
+Subject: Re: [PATCH 1/5] tg3: use usleep_range not msleep for small sleeps
+Date: Thu, 3 Mar 2011 13:14:34 +0100
+Message-ID: <AANLkTi=2SdwC6BbsPVTwXQ7M3zif=P-oO0UcHdHM5S=c@mail.gmail.com>
 References: <1298999069-12740-1-git-send-email-martinez.javier@gmail.com>
- <1298999069-12740-3-git-send-email-martinez.javier@gmail.com> <20110302.205601.71129255.davem@davemloft.net>
+ <1298999069-12740-2-git-send-email-martinez.javier@gmail.com> <20110302.205536.226759949.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -12,27 +12,36 @@ Cc: mcarlson@broadcom.com, mchan@broadcom.com,
 	kernelnewbies@kernelnewbies.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:47069 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:38400 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753724Ab1CCLzI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 06:55:08 -0500
-Received: by wyg36 with SMTP id 36so950323wyg.19
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 03:55:07 -0800 (PST)
-In-Reply-To: <20110302.205601.71129255.davem@davemloft.net>
+	with ESMTP id S1754676Ab1CCMOu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 07:14:50 -0500
+Received: by wyg36 with SMTP id 36so965842wyg.19
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 04:14:49 -0800 (PST)
+In-Reply-To: <20110302.205536.226759949.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 >
-> This seems unnecessary, what problem do the current macro definitions
-> create?
+>>
+>> Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
+>
+> Why?
 >
 
-Probably the change is unnecessary, the only value is that it silences
-a checkpatch error:
+As I understand msleep() will stop for a minimum of two jiffies and
+that resolution is too low in systems with small HZ values (big
+jiffies).
+Using msleep() (with small values) in this systems will sleep for more
+time than the caller expects.
 
-ERROR: Macros with complex values should be enclosed in parenthesis
+I used usleep_range() because it is a finer precision implementations o=
+f msleep.
 
-Sorry for the noise.
+Sorry if I'm wrong or the sleep precision is not a concern in this
+driver and the change doesn't add any value.
+
+Thanks a lot.
 
 --=20
 -----------------------------------------
