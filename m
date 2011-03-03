@@ -1,53 +1,56 @@
-From: Javier Martinez Canillas <martinez.javier@gmail.com>
-Subject: Re: [PATCH 1/5] tg3: use usleep_range not msleep for small sleeps
-Date: Thu, 3 Mar 2011 13:14:34 +0100
-Message-ID: <AANLkTi=2SdwC6BbsPVTwXQ7M3zif=P-oO0UcHdHM5S=c@mail.gmail.com>
-References: <1298999069-12740-1-git-send-email-martinez.javier@gmail.com>
- <1298999069-12740-2-git-send-email-martinez.javier@gmail.com> <20110302.205536.226759949.davem@davemloft.net>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [BUG] VPN broken in net-next
+Date: Thu, 3 Mar 2011 14:41:55 +0200 (EET)
+Message-ID: <alpine.LFD.2.00.1103031414240.1677@ja.ssi.bg>
+References: <20110302.164333.116393112.davem@davemloft.net> <20110302164637.6651b34f@nehalam> <20110302.165009.200353108.davem@davemloft.net> <20110302.165421.258093056.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: mcarlson@broadcom.com, mchan@broadcom.com,
-	grant.likely@secretlab.ca, netdev@vger.kernel.org,
-	kernelnewbies@kernelnewbies.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38400 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754676Ab1CCMOu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 07:14:50 -0500
-Received: by wyg36 with SMTP id 36so965842wyg.19
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 04:14:49 -0800 (PST)
-In-Reply-To: <20110302.205536.226759949.davem@davemloft.net>
+Received: from ja.ssi.bg ([178.16.129.10]:39778 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751753Ab1CCMhl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 07:37:41 -0500
+In-Reply-To: <20110302.165421.258093056.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+
+ 	Hello,
+
+On Wed, 2 Mar 2011, David Miller wrote:
+
+>> I really need to know what addresses interfaces have the time of the
+>> __ip_dev_find() call which, if I'm not mistaken, is before the VPN is
+>> up.
 >
->>
->> Signed-off-by: Javier Martinez Canillas <martinez.javier@gmail.com>
+> Looking at pptp_connect(), it seems to be trying to do a route lookup
+> using the source address, before it registers the PPP channel and that
+> even gets brought up.
 >
-> Why?
->
+> I suspect that was working by luck previously, and it was getting the
+> default route out perhaps another interface.  If that is the case,
+> removing the explicit "fl4_src" source address specification in the lookup
+> flow pptp_connect() uses should fix the problem.
 
-As I understand msleep() will stop for a minimum of two jiffies and
-that resolution is too low in systems with small HZ values (big
-jiffies).
-Using msleep() (with small values) in this systems will sleep for more
-time than the caller expects.
+ 	May be the problem is in inet_hash_insert(), it should
+hash ifa_local, not ifa_address. May be they are equal for
+the common case but not for peer addresses. In devinet_ioctl()
+we can see they are equal initially:
 
-I used usleep_range() because it is a finer precision implementations o=
-f msleep.
+ifa->ifa_address = ifa->ifa_local = sin->sin_addr.s_addr;
 
-Sorry if I'm wrong or the sleep precision is not a concern in this
-driver and the change doesn't add any value.
+ 	but later SIOCSIFDSTADDR can change ifa_address which
+is destination address from the same prefix:
 
-Thanks a lot.
+ifa->ifa_address = sin->sin_addr.s_addr;
 
---=20
------------------------------------------
-Javier Mart=C3=ADnez Canillas
-(+34) 682 39 81 69
-PhD Student in High Performance Computing
-Computer Architecture and Operating System Department (CAOS)
-Universitat Aut=C3=B2noma de Barcelona
-Barcelona, Spain
+ 	fib_add_ifaddr() does more things but not for this
+case with /32 mask, so the problem should be in using
+ifa_address instead of ifa_local.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
