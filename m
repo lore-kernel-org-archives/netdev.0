@@ -1,84 +1,54 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH 3/3 v2] eql: Convert printks to pr_<level> and
- netdev_<level>
-Date: Thu, 03 Mar 2011 13:08:12 -0800
-Message-ID: <1299186492.4338.166.camel@Joe-Laptop>
-References: <7f33dcacd277e127208211d8c3ef11c992408628.1299086044.git.joe@perches.com>
-	 <90c4322fefc5e2d4778862abd051e6eb12c0284b.1299086044.git.joe@perches.com>
-	 <20110303.122153.70207563.davem@davemloft.net>
-	 <20110303.125951.200370524.davem@davemloft.net>
+From: Andy Gospodarek <andy@greyhouse.net>
+Subject: Re: bonding...
+Date: Thu, 3 Mar 2011 16:12:50 -0500
+Message-ID: <20110303211250.GQ11864@gospo.rdu.redhat.com>
+References: <20110303114539.GB5146@hmsreliant.think-freely.org> <20110303160404.GO11864@gospo.rdu.redhat.com> <6286.1299173065@death> <20110303.123032.15242274.davem@davemloft.net> <13010.1299184990@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, andy@greyhouse.net,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4084 "EHLO mail.perches.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61385 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758618Ab1CCVIN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 16:08:13 -0500
-In-Reply-To: <20110303.125951.200370524.davem@davemloft.net>
+	id S1751805Ab1CCVM7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 16:12:59 -0500
+Content-Disposition: inline
+In-Reply-To: <13010.1299184990@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add pr_fmt.
+On Thu, Mar 03, 2011 at 12:43:10PM -0800, Jay Vosburgh wrote:
+> David Miller <davem@davemloft.net> wrote:
+> 
+> >From: Jay Vosburgh <fubar@us.ibm.com>
+> >Date: Thu, 03 Mar 2011 09:24:25 -0800
+> >
+> >> 	My main problem keeping up at the moment is another demand on my
+> >> time that should run its course in a couple of weeks.  My time for
+> >> community activity is somewhat limited until then.
+> >
+> >Someone needs to exist who can keep things going when you are too
+> >busy.  Unless you're like me and never take a day off, you need
+> >at least one co-maintainer if your subsystem has lots of daily
+> >activity as bonding now does.
+> 
+> 	Agreed.  If Andy is amenable, we can make it official:
+> 
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index 0d83e58..6402703 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1467,6 +1467,7 @@ F:	include/net/bluetooth/
+>  
+>  BONDING DRIVER
+>  M:	Jay Vosburgh <fubar@us.ibm.com>
+> +M:	Andy Gospodarek <andy@greyhouse.net>
+>  L:	netdev@vger.kernel.org
+>  W:	http://sourceforge.net/projects/bonding/
+>  S:	Supported
+> 
+> 
 
-Removed trailing "\n" from version,
-add back via pr_info("%s\n", version);
-
-Signed-off-by: Joe Perches <joe@perches.com>
-
----
-
-> Something is busted with this change, although I can't quite figure it
-> out myself:
-
-Joined of a fixed string with an __initconst string.
-
- drivers/net/eql.c |   10 ++++++----
- 1 files changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/eql.c b/drivers/net/eql.c
-index 0cb1cf9..a59cf96 100644
---- a/drivers/net/eql.c
-+++ b/drivers/net/eql.c
-@@ -111,6 +111,8 @@
-  * Sorry, I had to rewrite most of this for 2.5.x -DaveM
-  */
- 
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <linux/capability.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
-@@ -162,7 +164,7 @@ static void eql_timer(unsigned long param)
- }
- 
- static const char version[] __initconst =
--	"Equalizer2002: Simon Janes (simon@ncm.com) and David S. Miller (davem@redhat.com)\n";
-+	"Equalizer2002: Simon Janes (simon@ncm.com) and David S. Miller (davem@redhat.com)";
- 
- static const struct net_device_ops eql_netdev_ops = {
- 	.ndo_open	= eql_open,
-@@ -204,8 +206,8 @@ static int eql_open(struct net_device *dev)
- 	equalizer_t *eql = netdev_priv(dev);
- 
- 	/* XXX We should force this off automatically for the user. */
--	printk(KERN_INFO "%s: remember to turn off Van-Jacobson compression on "
--	       "your slave devices.\n", dev->name);
-+	netdev_info(dev,
-+		    "remember to turn off Van-Jacobson compression on your slave devices\n");
- 
- 	BUG_ON(!list_empty(&eql->queue.all_slaves));
- 
-@@ -591,7 +593,7 @@ static int __init eql_init_module(void)
- {
- 	int err;
- 
--	printk(version);
-+	pr_info("%s\n", version);
- 
- 	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql", eql_setup);
- 	if (!dev_eql)
-
+Acked-by: Andy Gospodarek <andy@greyhouse.net>
 
