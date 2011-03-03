@@ -1,74 +1,49 @@
-From: Andy Gospodarek <andy@greyhouse.net>
-Subject: Re: bonding...
-Date: Thu, 3 Mar 2011 15:59:02 -0500
-Message-ID: <20110303205902.GP11864@gospo.rdu.redhat.com>
-References: <20110302.214910.112578818.davem@davemloft.net> <20110303114539.GB5146@hmsreliant.think-freely.org> <20110303160404.GO11864@gospo.rdu.redhat.com> <6286.1299173065@death>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: Jetway JAD3RTLANG, Daughter Board, 3x GigaBit LAN does not work correctly
+Date: Thu, 03 Mar 2011 22:02:40 +0100
+Message-ID: <ikovkn$bn8$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andy Gospodarek <andy@greyhouse.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58386 "EHLO mx1.redhat.com"
+Received: from lo.gmane.org ([80.91.229.12]:32876 "EHLO lo.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932281Ab1CCU7N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 15:59:13 -0500
-Content-Disposition: inline
-In-Reply-To: <6286.1299173065@death>
+	id S1756708Ab1CCVC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 16:02:27 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1PvFfG-0005hU-52
+	for netdev@vger.kernel.org; Thu, 03 Mar 2011 22:02:26 +0100
+Received: from dslb-188-096-092-238.pools.arcor-ip.net ([188.96.92.238])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 22:02:26 +0100
+Received: from feldmann_markus by dslb-188-096-092-238.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 22:02:26 +0100
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Mar 03, 2011 at 09:24:25AM -0800, Jay Vosburgh wrote:
-> Andy Gospodarek <andy@greyhouse.net> wrote:
-> >
-> >I would be willing to do it, but my one of my goals would be to prevent
-> >some of the feature creep we are currently seeing with bonding (as Ben
-> >has suggested).  That doesn't mean I want to stop all new features, but
-> >at this point things are starting to get out of control. I suspect this
-> >is why Jay has struggled to keep up with the patches.
-> 
-> 	My main problem keeping up at the moment is another demand on my
-> time that should run its course in a couple of weeks.  My time for
-> community activity is somewhat limited until then.
-> 
-> 	As far as the features go, yes, I agree that things are getting
-> out of hand.  The two pending patches for special cases related to
-> 802.3ad (Oleg's patch to permit round robining, the other to enable
-> spanning aggregators across switches), for example, are fine
-> functionality, but there really needs to be a better, generic, way to do
-> this sort of niche case activity without adding more knobs.
-> 
-> 	I personally like Stephen's suggestion to hook bonding into a
-> netfilter gadget, similar to ebtables for bridge.  Done properly, such a
-> gadget should handle (or be extended to handle) the niche cases that
-> right now end up as new knobs in the driver.
-> 
-> >I would also want to look at a restructuring of the configuration.  The
-> >lines are starting to blur between some of the modes and output port
-> >selection for other modes and that needs to be cleared up.
-> 
-> 	What did you have in mind here?
-> 
+Hi All,
 
-This is what I've been thinking about for a while, but it's basically
-off the top of my head.  Of couse it seems reasonable to me....
+i have a mini-ITX server with the mainboard "Jetway JNF92-270-LF" with 
+the daughterboard "Jetway JAD3RTLANG, 3x GigaBit LAN".
 
-As more people try to add functionality that exists in one mode to
-another mode it becomes clear that the distinction between some of the
-modes isn't clear anymore.  If we really want round-robin send on
-802.3ad and xor modes, why do we have rr and xor anymore?  For that
-matter, why not just get rid of active-backup too and add an option for
-transmit algorithm to be active-backup.  It can get to be a slippery
-slope when you start to combine them as it seems like you would just be
-changing the language from 'mode' to 'transmit algoritm,' but I still
-think it is worth thinking about.
+My current kernel is 2.6.36.4 and i can only connect over one of the 
+network interfaces of my daughterboard at the time.
 
-Instead of thinking about the 7 modes of bonding that currently exist,
-it makes more sense to me to think of the bond as being dynamic or
-static (with 802.3ad being the only mode that is currently dynamic) and
-then the user can select the transmit algorithm.  Obviously this isn't
-totally flushed out since some transmit algorithms will be able to
-support arp monitoring and some will not, but I suspect you know where
-I'm going.
+My loaded modules:
+http://pastebin.com/raw.php?i=C9u78SML
+
+And a list of pci devices:
+http://pastebin.com/raw.php?i=f00tTdEJ
+
+I am using a bridge br0 to bind all three interfaces eth1, eth2 and eth3 
+together:
+http://pastebin.com/raw.php?i=deUT7iVS
+
+Do i have to configure anything in my kernel to fit this daughterboard?
+
+regards Markus
 
