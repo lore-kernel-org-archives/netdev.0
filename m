@@ -1,40 +1,40 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH 2/3] mii: Convert printks to netdev_info
-Date: Thu, 03 Mar 2011 12:29:41 -0800
-Message-ID: <1299184181.4338.152.camel@Joe-Laptop>
-References: <7f33dcacd277e127208211d8c3ef11c992408628.1299086044.git.joe@perches.com>
-	 <1b384ead46d062ba189b64649710a5625b7f6a2b.1299086044.git.joe@perches.com>
-	 <20110303.122148.245410126.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: bonding...
+Date: Thu, 03 Mar 2011 12:30:32 -0800 (PST)
+Message-ID: <20110303.123032.15242274.davem@davemloft.net>
+References: <20110303114539.GB5146@hmsreliant.think-freely.org>
+	<20110303160404.GO11864@gospo.rdu.redhat.com>
+	<6286.1299173065@death>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: andy@greyhouse.net, nhorman@tuxdriver.com, netdev@vger.kernel.org
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.perches.com ([173.55.12.10]:4080 "EHLO mail.perches.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752594Ab1CCU3m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Mar 2011 15:29:42 -0500
-In-Reply-To: <20110303.122148.245410126.davem@davemloft.net>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:36122
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932248Ab1CCU3z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 15:29:55 -0500
+In-Reply-To: <6286.1299173065@death>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2011-03-03 at 12:21 -0800, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> > Add a bit more data to the output.
-> > Convert string speeds to integer.
-> > Object size reduced a tiny bit.
-> > $ size drivers/net/mii.o*
-> >    text	   data	    bss	    dec	    hex	filename
-> >    4155	     56	   1000	   5211	   145b	drivers/net/mii.o.new
-> >    4184	     56	   1000	   5240	   1478	drivers/net/mii.o.old
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> Applied.
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Thu, 03 Mar 2011 09:24:25 -0800
 
-David, please don't push this yet.
+> 	My main problem keeping up at the moment is another demand on my
+> time that should run its course in a couple of weeks.  My time for
+> community activity is somewhat limited until then.
 
-This change is stuffed up somehow, it's
-a reversion of the tun.c change.
+Someone needs to exist who can keep things going when you are too
+busy.  Unless you're like me and never take a day off, you need
+at least one co-maintainer if your subsystem has lots of daily
+activity as bonding now does.
 
-Let me send you a new/correct patch right now.
+> 	I personally like Stephen's suggestion to hook bonding into a
+> netfilter gadget, similar to ebtables for bridge.  Done properly, such a
+> gadget should handle (or be extended to handle) the niche cases that
+> right now end up as new knobs in the driver.
 
+Netfilter has a JIT like matching engine coming soon, that could
+be made generic and plugged into.
