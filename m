@@ -1,46 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] net/core: fix skb handling on netif serves for
- both bridge and vlan
-Date: Thu, 03 Mar 2011 13:53:34 +0000
-Message-ID: <1299160414.4277.49.camel@localhost>
-References: <1299149713-18740-1-git-send-email-dfeng@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
+Date: Thu, 3 Mar 2011 14:55:24 +0100
+Message-ID: <201103031455.25089.arnd@arndb.de>
+References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <201103030945.07486.arnd@arndb.de> <4D6F6C96.1010303@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>
-To: Xiaotian Feng <dfeng@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1299149713-18740-1-git-send-email-dfeng@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Thomas Gleixner <tglx@linutronix.de>,
+	Stuart MENEFY <stuart.menefy@st.com>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	John Stultz <johnstul@us.ibm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>
+To: Peppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <4D6F6C96.1010303@st.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2011-03-03 at 18:55 +0800, Xiaotian Feng wrote:
-> Consider network topology as follows:
-> 
-> eth0  eth1
->  |_____|
->     |
->   bond0 --- br0
->     |
->   vlan0 --- br1
-> 
-> bond0 serves for both br0 and vlan0, if a vlan tagged packet was sent
-> to br1 through bond0, bridge handling code is seeing the packet on bond0
-> and handing it off to my "legacy" bridge before vlan_tx_tag_present
-> and vlan_hwaccel_do_receive even haven't a chance to look at it.
-[...]
+On Thursday 03 March 2011, Peppe CAVALLARO wrote:
+> This logic is already in the driver, indeed.
+> What I've seen on our embedded systems is that the
+> cost of RX interrupts is very hight and NAPI partially helps.
+> Typically, in an IP-STB, I receive a burst of UDP pkt
+> and this  means that many interrupts occur (~99% of CPU
+> usage on slow platforms).
+> With the ext timer I was able to reduce the CPU usage in
+> these kind of scenarios to ~50%.
 
-This used to work if the underlying device (bond0 in your example)
-implemented VLAN tag extraction, because the VLAN group would be checked
-before the bridge.  But it never worked for devices without VLAN tag
-extraction.  Perhaps we should just prevent this configuration.
+I don't understand. Shouldn't the interrupts be stopped as long
+as the system is busy? This sounds like a bug in your NAPI
+handling, or maybe you just need to use a lower NAPI_WEIGHT
+so you stay in polling mode longer.
 
-Ben.
-
--- 
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+	Arnd
