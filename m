@@ -1,38 +1,34 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH (sh-2.6) 1/4] clksource: Generic timer infrastructure
-Date: Thu, 3 Mar 2011 14:55:24 +0100
-Message-ID: <201103031455.25089.arnd@arndb.de>
-References: <1298369864-24429-1-git-send-email-peppe.cavallaro@st.com> <201103030945.07486.arnd@arndb.de> <4D6F6C96.1010303@st.com>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 01/27] HFI: skeleton driver
+Date: Thu, 3 Mar 2011 09:07:57 -0500
+Message-ID: <20110303140757.GA16191@infradead.org>
+References: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	Stuart MENEFY <stuart.menefy@st.com>,
-	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	John Stultz <johnstul@us.ibm.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux@arm.linux.org.uk" <linux@arm.linux.org.uk>
-To: Peppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <4D6F6C96.1010303@st.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Piyush Chaudhary <piyushc@linux.vnet.ibm.com>,
+	Fu-Chung Chang <fcchang@linux.vnet.ibm.com>,
+	" William S. Cadden" <wscadden@linux.vnet.ibm.com>,
+	" Wen C. Chen" <winstonc@linux.vnet.ibm.com>,
+	Scot Sakolish <sakolish@linux.vnet.ibm.com>,
+	Jian Xiao <jian@linux.vnet.ibm.com>,
+	" Carol L. Soto" <clsoto@linux.vnet.ibm.com>,
+	" Sarah J. Sheppard" <sjsheppa@linux.vnet.ibm.com>
+To: dykmanj@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bombadil.infradead.org ([18.85.46.34]:49880 "EHLO
+	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751612Ab1CCOH7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 09:07:59 -0500
+Content-Disposition: inline
+In-Reply-To: <1299100213-8770-1-git-send-email-dykmanj@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday 03 March 2011, Peppe CAVALLARO wrote:
-> This logic is already in the driver, indeed.
-> What I've seen on our embedded systems is that the
-> cost of RX interrupts is very hight and NAPI partially helps.
-> Typically, in an IP-STB, I receive a burst of UDP pkt
-> and this  means that many interrupts occur (~99% of CPU
-> usage on slow platforms).
-> With the ext timer I was able to reduce the CPU usage in
-> these kind of scenarios to ~50%.
+On Wed, Mar 02, 2011 at 04:09:47PM -0500, dykmanj@linux.vnet.ibm.com wrote:
+> From: Jim Dykman <dykmanj@linux.vnet.ibm.com>
+> 
+> Device driver Makefile & Kconfig plumbing plus simple mod_init and mod_exit
 
-I don't understand. Shouldn't the interrupts be stopped as long
-as the system is busy? This sounds like a bug in your NAPI
-handling, or maybe you just need to use a lower NAPI_WEIGHT
-so you stay in polling mode longer.
+It would help a lot if you could explain what the heck HFI is.
 
-	Arnd
