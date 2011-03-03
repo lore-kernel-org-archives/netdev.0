@@ -1,59 +1,130 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Thu, 03 Mar 2011 16:25:40 +0100
-Message-ID: <1299165940.2983.111.camel@edumazet-laptop>
-References: <20110228171738.2cc8c9a0@nehalam>
-	 <20110302020610.GD1005@gandalf.sssup.it>
-	 <1299064667.2920.4.camel@edumazet-laptop> <20110302081108.689571d8@nehalam>
-	 <1299082728.2920.18.camel@edumazet-laptop>
-	 <1299087087.2920.27.camel@edumazet-laptop>
-	 <20110303081940.GA29685@gandalf.sssup.it>
-	 <1299140868.2456.35.camel@edumazet-laptop>
-	 <1299148820.2983.56.camel@edumazet-laptop>
-	 <20110303150744.GB29685@gandalf.sssup.it>
+From: Jean-Philippe Menil <jean-philippe.menil@univ-nantes.fr>
+Subject: Re: Bug inkvm_set_irq
+Date: Thu, 03 Mar 2011 16:26:11 +0100
+Message-ID: <4D6FB313.1010400@univ-nantes.fr>
+References: <4D67714A.2050100@univ-nantes.fr> <20110227170031.GC17973@redhat.com> <4D6B634E.9090801@univ-nantes.fr> <20110228101139.GD28006@redhat.com> <4D6B7BAB.9070907@univ-nantes.fr> <20110228113939.GH28006@redhat.com> <4D6BBB88.5060709@univ-nantes.fr> <4D6C22E8.2020007@univ-nantes.fr> <20110301070333.GA5972@redhat.com> <4D6D0510.4060300@univ-nantes.fr> <20110303144715.GA12400@redhat.com>
+Reply-To: jean-philippe.menil@univ-nantes.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org,
-	Paolo Valente <paolo.valente@unimore.it>
-To: Fabio Checconi <fchecconi@gmail.com>
+Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:45578 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758254Ab1CCPZq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 10:25:46 -0500
-Received: by fxm17 with SMTP id 17so1194441fxm.19
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 07:25:45 -0800 (PST)
-In-Reply-To: <20110303150744.GB29685@gandalf.sssup.it>
+Received: from smtp-tls1.univ-nantes.fr ([193.52.101.145]:37750 "EHLO
+	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758254Ab1CCP0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 10:26:12 -0500
+In-Reply-To: <20110303144715.GA12400@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 03 mars 2011 =C3=A0 16:07 +0100, Fabio Checconi a =C3=A9crit :
+Le 03/03/2011 15:47, Michael S. Tsirkin a =E9crit :
+> On Tue, Mar 01, 2011 at 03:39:12PM +0100, Jean-Philippe Menil wrote:
+>> so this time the bug is:
+>>
+>> [17882.612303] BUG: unable to handle kernel paging request at
+>> 0000000000002458
+>> [17882.612342] IP: [<ffffffffa03898a0>] kvm_set_irq+0x30/0x140 [kvm]
+>>
+>> markup_oops give me this:
+>>
+>> root@ayrshire:~# cat bug-0103.txt | perl markup_oops.pl -m
+>> /lib/modules/2.6.37.2-dsiun-110105+/kernel/arch/x86/kvm/kvm.ko
+>> /boot/vmlinuz-2.6.37.2-dsiun-110105+
+>> vmaoffset =3D 18446744072102621184 ffffffffa0389871:	48 89 e5   	mov
+>> %rsp,%rbp
+>>   ffffffffa0389874:	41 57                	push   %r15
+>>   ffffffffa0389876:	41 89 cf             	mov    %ecx,%r15d  |  %r15
+>> =3D>  1  %ecx =3D 1
+>>   ffffffffa0389879:	41 56                	push   %r14        |  %r14
+>> =3D>  ffffffffa038aad0
+>>   ffffffffa038987b:	41 55                	push   %r13
+>>   ffffffffa038987d:	49 89 fd             	mov    %rdi,%r13   |  %edi
+>> =3D 0  %r13 =3D>  0
+>>   ffffffffa0389880:	41 54                	push   %r12        |  %r12=
+ =3D>  0
+>>   ffffffffa0389882:	53                   	push   %rbx
+>>   ffffffffa0389883:	89 d3                	mov    %edx,%ebx   |  %ebx=
+ =3D>  1a
+>>   ffffffffa0389885:	48 81 ec a8 00 00 00 	sub    $0xa8,%rsp
+>>   ffffffffa038988c:	8b 15 00 00 00 00    	mov    0x0(%rip),%edx
+>> # ffffffffa0389892<kvm_set_irq+0x22>
+>>   ffffffffa0389892:	89 b5 3c ff ff ff    	mov    %esi,-0xc4(%rbp) |
+>> %esi =3D 0
+>>   ffffffffa0389898:	85 d2                	test   %edx,%edx   |  %edx=
+ =3D>  0
+>>   ffffffffa038989a:	0f 85 d5 00 00 00    	jne    ffffffffa0389975
+>> <kvm_set_irq+0x105>
+>> *ffffffffa03898a0:	49 8b 85 58 24 00 00 	mov    0x2458(%r13),%rax |
+>> %eax =3D 0  %r13 =3D 0<--- faulting instruction
+>>   ffffffffa03898a7:	3b 98 28 01 00 00    	cmp    0x128(%rax),%ebx
+>>   ffffffffa03898ad:	73 61                	jae    ffffffffa0389910
+>> <kvm_set_irq+0xa0>
+>>   ffffffffa03898af:	89 db                	mov    %ebx,%ebx
+>>   ffffffffa03898b1:	48 8b 84 d8 30 01 00 	mov    0x130(%rax,%rbx,8),=
+%rax
+>>   ffffffffa03898b8:	00
+>>   ffffffffa03898b9:	48 85 c0             	test   %rax,%rax
+>>   ffffffffa03898bc:	74 52                	je     ffffffffa0389910
+>> <kvm_set_irq+0xa0>
+>>   ffffffffa03898be:	48 8d 95 40 ff ff ff 	lea    -0xc0(%rbp),%rdx
+>>   ffffffffa03898c5:	31 db                	xor    %ebx,%ebx
+>>   ffffffffa03898c7:	48 8b 08             	mov    (%rax),%rcx
+>>   ffffffffa03898ca:	83 c3 01             	add    $0x1,%ebx
+>>   ffffffffa03898cd:	0f 18 09             	prefetcht0 (%rcx)
+>>   ffffffffa03898d0:	48 8b 48 e0          	mov    -0x20(%rax),%rcx
+>>   ffffffffa03898d4:	48 89 0a             	mov    %rcx,(%rdx)
+>>   ffffffffa03898d7:	48 8b 48 e8          	mov    -0x18(%rax),%rcx
+>>   ffffffffa03898db:	48 89 4a 08          	mov    %rcx,0x8(%rdx)
+>>   ffffffffa03898df:	48 8b 48 f0          	mov    -0x10(%rax),%rcx
+>>   ffffffffa03898e3:	48 89 4a 10          	mov    %rcx,0x10(%rdx)
+>>   ffffffffa03898e7:	48 8b 48 f8          	mov    -0x8(%rax),%rcx
+>>   ffffffffa03898eb:	48 89 4a 18          	mov    %rcx,0x18(%rdx)
+>>
+>> wich correspond to offset 68a0 (from objdump):
+>>
+>> kvm_set_irq():
+>> /usr/src/GIT/linux-2.6-stable/arch/x86/kvm/../../../virt/kvm/irq_com=
+m.c:161
+>>      68a0:       49 8b 85 58 24 00 00    mov    0x2458(%r13),%rax
+>> /usr/src/GIT/linux-2.6-stable/arch/x86/kvm/../../../virt/kvm/irq_com=
+m.c:162
+>>      68a7:       3b 98 28 01 00 00       cmp    0x128(%rax),%ebx
+>>
+>> root@ayrshire:~# addr2line -e
+>> /lib/modules/2.6.37.2-dsiun-110105+/kernel/arch/x86/kvm/kvm.ko
+>> 0x68a0
+>> /usr/src/GIT/linux-2.6-stable/arch/x86/kvm/../../../virt/kvm/irq_com=
+m.c:161
+>>
+>> So here kvm->irq_routing is null.
+>>
+>> How can it be?
+>>
+>> Regards.
+> Not null, this seems to be invalid.
+> I suspect use after free where the kvm pointer is
+> pointing at some random memory. Use after free?
+> Could you please try enabling a slab debugger,
+> recompile and rerun the test?
+>
+Hi,
 
-> A question on the data below:
->=20
-> > After a stress (and no more trafic) I still have some packets in
-> > backlog:
-> >=20
-> > (8 packets here)
-> >=20
-> ...
-> > class qfq 11:10 root weight 1600 maxpkt 2048=20
-> >  Sent 200 bytes 1 pkt (dropped 18181, overlimits 0 requeues 0)=20
-> >  rate 0bit 0pps backlog 200b 0p requeues 0=20
->=20
-> Any other reason, apart from a bug in QFQ, why there could be 200b an=
-d
-> 0p of backlog?  A packet count out of sync could explain also why you
-> were experiencing problems with pfifo in presence of drops...
+I'm not sure to activate the right thing.
+Is that what you want?
 
-My packets are all 200 bytes (from my packet generator)
+CONFIG_SLAB=3Dy
+CONFIG_SLABINFO=3Dy
+CONFIG_DEBUG_SLAB=3Dy
+CONFIG_DEBUG_SLAB_LEAK=3Dy
 
-qfq_dump_class_stats() probably miss one line :
+Regards.
 
-scl->bstats.qlen =3D cl->qdisc->q.qlen;
-
-
+--=20
+Jean-Philippe Menil - P=F4le r=E9seau Service IRTS
+DSI Universit=E9 de Nantes
+jean-philippe.menil@univ-nantes.fr
+Tel : 02.53.48.49.27 - Fax : 02.53.48.49.09
 
