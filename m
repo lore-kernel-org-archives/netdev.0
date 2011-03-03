@@ -1,113 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v2)
-Date: Thu, 03 Mar 2011 09:27:48 +0100
-Message-ID: <1299140868.2456.35.camel@edumazet-laptop>
-References: <20110228171738.2cc8c9a0@nehalam>
-	 <20110302020610.GD1005@gandalf.sssup.it>
-	 <1299064667.2920.4.camel@edumazet-laptop> <20110302081108.689571d8@nehalam>
-	 <1299082728.2920.18.camel@edumazet-laptop>
-	 <1299087087.2920.27.camel@edumazet-laptop>
-	 <20110303081940.GA29685@gandalf.sssup.it>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6] bonding: remove skb_share_check in handle_frame
+Date: Thu, 03 Mar 2011 09:37:58 +0100
+Message-ID: <4D6F5366.7000104@gmail.com>
+References: <20110301062250.GB2855@psychotron.redhat.com> <20110301092907.GG2855@psychotron.redhat.com> <20110301203843.GN11864@gospo.rdu.redhat.com> <20110302100354.GB2858@psychotron.brq.redhat.com> <4D6EACF6.2040005@gmail.com> <20110302211238.GC3360@psychotron.redhat.com> <4D6EBC7B.8040502@gmail.com> <20110303061433.GA2835@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Stephen Hemminger <shemminger@vyatta.com>,
-	David Miller <davem@davemloft.net>,
-	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org,
-	Paolo Valente <paolo.valente@unimore.it>
-To: Fabio Checconi <fchecconi@gmail.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
+	davem@davemloft.net, fubar@us.ibm.com, eric.dumazet@gmail.com
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-fx0-f46.google.com ([209.85.161.46]:44825 "EHLO
-	mail-fx0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754676Ab1CCIhZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 03:37:25 -0500
-Received: by fxm17 with SMTP id 17so862578fxm.19
-        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 00:37:24 -0800 (PST)
-In-Reply-To: <20110303081940.GA29685@gandalf.sssup.it>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:55381 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755545Ab1CCIiC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Mar 2011 03:38:02 -0500
+Received: by wyg36 with SMTP id 36so816858wyg.19
+        for <netdev@vger.kernel.org>; Thu, 03 Mar 2011 00:38:01 -0800 (PST)
+In-Reply-To: <20110303061433.GA2835@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le jeudi 03 mars 2011 =C3=A0 09:19 +0100, Fabio Checconi a =C3=A9crit :
-> Hi,
->=20
-> > From: Eric Dumazet <eric.dumazet@gmail.com>
-> > Date: Wed, Mar 02, 2011 06:31:27PM +0100
-> >
-> > Le mercredi 02 mars 2011 =C3=A0 17:18 +0100, Eric Dumazet a =C3=A9c=
-rit :
-> > > Le mercredi 02 mars 2011 =C3=A0 08:11 -0800, Stephen Hemminger a =
-=C3=A9crit :
-> > >=20
-> > > > I put the iproute2 code into the repository in the experimental=
- branch.
-> > > >=20
-> > >=20
-> > > Thanks
-> > >=20
-> > > It seems as soon as packets are dropped, qdisc is frozen (no more
-> > > packets dequeued)
->=20
->   I've been able to reproduce this problem using netem, and it seems =
-to
-> be due to this check:
->=20
-> > +	/* If the new skb is not the head of queue, then done here. */
-> > +	if (skb !=3D qdisc_peek_head(cl->qdisc))
-> > +		return err;
->=20
-> changing it to:
->=20
-> 	if (cl->qdisc->q.qlen !=3D 1)
-> 		return err;
->=20
-> seems to make things work.  I think this is because qdisc_peek_head()
-> looks at the wrong list, as the skb is not queued directly in q, but
-> ends up in the child qdisc attached to cl->qdisc.
->=20
+Le 03/03/2011 07:14, Jiri Pirko a =E9crit :
+> Wed, Mar 02, 2011 at 10:54:03PM CET, nicolas.2p.debian@gmail.com wrot=
+e:
+[snip]
+>> All those handlers that call netif_rx() or __netif_receive_skb()
+>> sound horrible to me. Can you imagine the global overhead of the
+>> above receive path?
+>>
+>> The reason why I suggested you introduce the goto another_round is
+>> because most - if not all - stacking configurations could/should be
+>> handled simply by returning the right skb from the rx_handler and le=
+t
+>> __netif_receive_skb() loop. And by having the right orig_dev logic
+>> inside __netif_receive_skb(), it could be possible to remove the
+>> current vlan_on_bond_hook hack.
+>
+> Well that wouldn't solve the problem. if we just got anorther_round t=
+he
+> packed would not be delivered to bond0.100 but only to bond0. That's
+> also unwanted. Well, this think shouldn't have been added here in the
+> first place :(
 
-Strange, I used the default qdisc (pfifo) created in qfq classes
+Yes, the packet would be delivered "exact match" to bond0, and this is =
+what the bonding ARP handler=20
+expects, because it registered at this level, then deliver "exact match=
+ or NULL" to bond0.100, if=20
+appropriate, to whatever other protocol handlers.
 
->=20
-> > >=20
-> > > Hmm...
-> > >=20
-> >=20
-> > It seems class deletes are buggy.
-> >=20
-> > After one "tc class del dev $ETH classid 11:1 ..."
-> >=20
-> > a "tc -s -d qdisc show dev $ETH" triggers an Oops
-> >=20
->=20
-> This seems to be due to:
->=20
-> > +static void qfq_destroy_class(struct Qdisc *sch, struct qfq_class =
-*cl)
-> > +{
-> > +	struct qfq_sched *q =3D (struct qfq_sched *)sch;
->=20
-> it should be:
->=20
-> 	struct qfq_sched *q =3D sched_priv(sch);
->=20
-> The same bug you identified in qfq_reset_qdisc() is present also in
-> qfq_drop(), both loops need to be corrected...
->=20
-> It should also be noted that this scheduler (like HFSC, IIRC) depends
-> on the child qdisc not to reorder packets for the guarantees to be me=
-t,
-> as the timestamps need to be in sync with the length of the packet at=
- the
-> head of the queue.  If this can't be guaranteed, to preserve the form=
-al
-> correctness it should be changed to always use the maximum packet siz=
-e
-> to calculate the timestamps.
->=20
-> @Stephen: not that I'm proud of that, but all the bugs found so far a=
-re mine...
+There is a subtile difference between ptype_all and ptype_base delivery=
+:
 
-I am going to test an updated version, thanks for all these hints !
+- The ptype_all handlers will receive the frame between two call to rx_=
+handlers.
+- The ptype_base handlers will receive the frame after all rx_handlers =
+(and hard coded handlers like=20
+vlan) were called.
 
+So a ptype_all handler might receive vlan tagged frame, if it register =
+below the interface that=20
+untag the frame, while a ptype_base handler will always receive the unt=
+agged frame, because=20
+ptype_base delivery is done at the end of __netif_receive_skb().
 
+I don't know whether it is desirable, but it used to be required for th=
+e bonding ARP monitor to work.
 
+May be we should add some extra properties to protocol handler, so they=
+ can tell=20
+__netif_receive_skb() what they expect :
+
+- a property to tell whether the protocol handler want the exact frame =
+that cross the interface they=20
+registered on or the final frame, after all rx_handlers.
+- a property to tell what they expect a the orig_dev value : the lowest=
+ interface known to=20
+__netif_receive_skb() (f_packet) or the interface one level below the i=
+nterface they registered on=20
+(bonding ARP monitor).
+
+Having those properties, I consider we would be in a position to remove=
+ most special hacks we=20
+currently have to handle particular stacking configuration.
+
+	Nicolas.
