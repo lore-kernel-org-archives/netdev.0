@@ -1,45 +1,44 @@
-From: Chris Friesen <chris.friesen@genband.com>
-Subject: Re: Network link detection
-Date: Thu, 03 Mar 2011 17:54:12 -0600
-Message-ID: <4D702A24.70805@genband.com>
-References: <20110303193006.GA29129@svh.nico22.de>	<4D700A5B.2000807@genband.com> <20110303.140106.191399853.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v3)
+Date: Thu, 3 Mar 2011 16:03:43 -0800
+Message-ID: <20110303160343.71c55274@nehalam>
+References: <20110228171738.2cc8c9a0@nehalam>
+	<1299168235.2983.116.camel@edumazet-laptop>
+	<20110303084839.3ae312ed@nehalam>
+	<1299191333.2547.12.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: dev@nico22.de, linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110303.140106.191399853.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Fabio Checconi <fabio@gandalf.sssup.it>,
+	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.vyatta.com ([76.74.103.46]:33716 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758917Ab1CDADr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 3 Mar 2011 19:03:47 -0500
+In-Reply-To: <1299191333.2547.12.camel@edumazet-laptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 03/03/2011 04:01 PM, David Miller wrote:
-> From: Chris Friesen <chris.friesen@genband.com>
-> Date: Thu, 03 Mar 2011 15:38:35 -0600
+On Thu, 03 Mar 2011 23:28:53 +0100
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> Here there is the problem of *pp = cl->next (possibly NULL)
 > 
->> You might look at whether you could write a kernel module to register
->> for NETDEV_CHANGE notifications and pass that back to userspace.
+> 		maybe use
 > 
-> This is the kind of responses you get when you ask networking specific
-> questions and don't CC: netdev :-/
+> 	for (pp = &grp->slots[j]; (cl = *pp) != NULL;) {
+> 		if (cl->qdisc->q.len)
+> 			qfq_deactivate_class(...);
+> 		else
+> 			pp = &cl->next;
+> 	}
+> 
 
-My apologies for misleading the original poster.  I can only claim a
-brain fart since I've actually used rtnetlink for other things.
-
-> There is this thing called netlink, you can listen for arbitrary
-> network state change events on a socket, and get the link state
-> notifications you are looking for.  It's in use by many real
-> applications like NetworkManager and co.
-
-For future reference then, to listen for link state notifications you'd
-use NETLINK_ROUTE with nl_groups set to RTMGRP_LINK, and the link state
-will be signaled in the if_flags field of received messages?
-
-Chris
+I think changing slots from open coded linked list
+to double linked list (list_for_each) would be clearer
+and avoid these kind of bugs. That is what DRR does.
 
 -- 
-Chris Friesen
-Software Developer
-GENBAND
-chris.friesen@genband.com
-www.genband.com
