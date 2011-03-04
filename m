@@ -1,226 +1,146 @@
-From: Steffen Sledz <sledz@dresearch.de>
-Subject: [PATCH v2] tcp: ioctl type SIOCOUTQNSD returns amount of data not sent
-Date: Fri,  4 Mar 2011 11:20:31 +0100
-Message-ID: <1299234031-13937-1-git-send-email-sledz@dresearch.de>
-References: <201103041057.53671.arnd@arndb.de>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Mario Schuknecht <m.schuknecht@dresearch.de>,
-	Steffen Sledz <sledz@dresearch.de>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+From: Indrek Peri <Indrek.Peri@Ericsson.com>
+Subject: Re: [RFC] Keep track of interrupt URB status and resubmit in bh if
+ necessary
+Date: Fri, 4 Mar 2011 12:01:45 +0100
+Message-ID: <4D70C699.8000606@Ericsson.com>
+References: <20110303055828.073E520218@glenhelen.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"dbrownell@users.sourceforge.org" <dbrownell@users.sourceforge.org>
+To: Paul Stewart <pstew@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy.DResearch.DE ([87.193.137.100]:33564 "EHLO
-	mail.dresearch.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1759274Ab1CDKUx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 05:20:53 -0500
-In-Reply-To: <201103041057.53671.arnd@arndb.de>
+Received: from mailgw10.se.ericsson.net ([193.180.251.61]:59085 "EHLO
+	mailgw10.se.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759474Ab1CDLAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 06:00:49 -0500
+In-Reply-To: <20110303055828.073E520218@glenhelen.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mario Schuknecht <m.schuknecht@dresearch.de>
 
-In contrast to SIOCOUTQ which returns the amount of data sent
-but not yet acknowledged plus data not yet sent this patch only
-returns the data not sent.
+To my understanding usbnet has design questions, like EVENT_DEV_ASLEEP,
+device states and events. In struct "flags" member holds an event to
+execute deferred work. Actually, in usbnet_bh, EVENT_DEV_ASLEEP is
+really needed in if-statement. Without that, in selective suspend
+case driver crashes.
 
-For various methods of live streaming bitrate control it may
-be helpful to know how much data are in the tcp outqueue are
-not sent yet.
+Another problem was that "suspend" removed interrupt URB. I tought in
+the same way as Paul, I added insertion of interrupt URB. Paul added
+it in usbnet_bh and I in "resume". I do not see a problem to add
+interrupt URB in "resume". My patch had a typo, in "resume" we
+should use GFP_ATOMIC in usb_submit_urb. Now is the question is
+this good design? My interpretation of David is that driver needs
+"resume driver" transition where RX and INT URBs are activated.
 
-Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
-Signed-off-by: Steffen Sledz <sledz@dresearch.de>
----
- arch/alpha/include/asm/ioctls.h   |    3 ++-
- arch/mips/include/asm/ioctls.h    |    3 ++-
- arch/parisc/include/asm/ioctls.h  |    3 ++-
- arch/powerpc/include/asm/ioctls.h |    3 ++-
- arch/sh/include/asm/ioctls.h      |    3 ++-
- arch/sparc/include/asm/ioctls.h   |    3 ++-
- arch/xtensa/include/asm/ioctls.h  |    3 ++-
- include/asm-generic/ioctls.h      |    3 ++-
- include/linux/sockios.h           |    1 +
- net/ipv4/tcp.c                    |    9 +++++++++
- 10 files changed, 26 insertions(+), 8 deletions(-)
+I guess that usbnet needs a redesign and rewriting. 
+usbnet is used by many USB-Ethernet devices that actually do not
+use selective suspend.
 
-diff --git a/arch/alpha/include/asm/ioctls.h b/arch/alpha/include/asm/ioctls.h
-index 80e1cee..5ceb2de 100644
---- a/arch/alpha/include/asm/ioctls.h
-+++ b/arch/alpha/include/asm/ioctls.h
-@@ -35,12 +35,13 @@
- #define TIOCGWINSZ	_IOR('t', 104, struct winsize)
- #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
- #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
--#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
-+#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
- 
- #define TIOCGLTC	_IOR('t', 116, struct ltchars)
- #define TIOCSLTC	_IOW('t', 117, struct ltchars)
- #define TIOCSPGRP	_IOW('t', 118, int)
- #define TIOCGPGRP	_IOR('t', 119, int)
-+#define TIOCOUTQNSD     _IOR('t', 120, int)     /* output queue size (not send only) */
- 
- #define TIOCEXCL	0x540C
- #define TIOCNXCL	0x540D
-diff --git a/arch/mips/include/asm/ioctls.h b/arch/mips/include/asm/ioctls.h
-index 92403c3..dd8d8c5 100644
---- a/arch/mips/include/asm/ioctls.h
-+++ b/arch/mips/include/asm/ioctls.h
-@@ -27,7 +27,8 @@
- 
- #define TIOCEXCL	0x740d		/* set exclusive use of tty */
- #define TIOCNXCL	0x740e		/* reset exclusive use of tty */
--#define TIOCOUTQ	0x7472		/* output queue size */
-+#define TIOCOUTQ	0x7472		/* output queue size (not send + not acked) */
-+#define TIOCOUTQNSD	0x7473		/* output queue size (not send only) */
- #define TIOCSTI		0x5472		/* simulate terminal input */
- #define TIOCMGET	0x741d		/* get all modem bits */
- #define TIOCMBIS	0x741b		/* bis modem bits */
-diff --git a/arch/parisc/include/asm/ioctls.h b/arch/parisc/include/asm/ioctls.h
-index 054ec06..1cf1681 100644
---- a/arch/parisc/include/asm/ioctls.h
-+++ b/arch/parisc/include/asm/ioctls.h
-@@ -21,7 +21,7 @@
- #define TIOCSCTTY	0x540E
- #define TIOCGPGRP	_IOR('T', 30, int)
- #define TIOCSPGRP	_IOW('T', 29, int)
--#define TIOCOUTQ	0x5411
-+#define TIOCOUTQ	0x5411 /* output queue size (not send + not acked) */
- #define TIOCSTI		0x5412
- #define TIOCGWINSZ	0x5413
- #define TIOCSWINSZ	0x5414
-@@ -55,6 +55,7 @@
- #define TIOCGDEV	_IOR('T',0x32, int)  /* Get primary device node of /dev/console */
- #define TIOCSIG		_IOW('T',0x36, int)  /* Generate signal on Pty slave */
- #define TIOCVHANGUP	0x5437
-+#define TIOCOUTQNSD	0x5438 /* output queue size (not send only) */
- 
- #define FIONCLEX	0x5450  /* these numbers need to be adjusted. */
- #define FIOCLEX		0x5451
-diff --git a/arch/powerpc/include/asm/ioctls.h b/arch/powerpc/include/asm/ioctls.h
-index e9b7887..ae1b21e 100644
---- a/arch/powerpc/include/asm/ioctls.h
-+++ b/arch/powerpc/include/asm/ioctls.h
-@@ -35,12 +35,13 @@
- #define TIOCGWINSZ	_IOR('t', 104, struct winsize)
- #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
- #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
--#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
-+#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
- 
- #define TIOCGLTC	_IOR('t', 116, struct ltchars)
- #define TIOCSLTC	_IOW('t', 117, struct ltchars)
- #define TIOCSPGRP	_IOW('t', 118, int)
- #define TIOCGPGRP	_IOR('t', 119, int)
-+#define TIOCOUTQNSD     _IOR('t', 120, int)     /* output queue size (not send only) */
- 
- #define TIOCEXCL	0x540C
- #define TIOCNXCL	0x540D
-diff --git a/arch/sh/include/asm/ioctls.h b/arch/sh/include/asm/ioctls.h
-index a6769f3..f0bd75a 100644
---- a/arch/sh/include/asm/ioctls.h
-+++ b/arch/sh/include/asm/ioctls.h
-@@ -29,7 +29,8 @@
- #define TIOCGWINSZ	0x80087468	/* _IOR('t', 104, struct winsize) */
- #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
- #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
--#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
-+#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
-+#define TIOCOUTQNSD     _IOR('t', 116, int)     /* output queue size (not send only) */
- 
- #define TIOCSPGRP	_IOW('t', 118, int)
- #define TIOCGPGRP	_IOR('t', 119, int)
-diff --git a/arch/sparc/include/asm/ioctls.h b/arch/sparc/include/asm/ioctls.h
-index 28d0c8b..184acc3 100644
---- a/arch/sparc/include/asm/ioctls.h
-+++ b/arch/sparc/include/asm/ioctls.h
-@@ -60,7 +60,7 @@
- #define TIOCPKT		_IOW('t', 112, int)
- #define TIOCNOTTY	_IO('t', 113)
- #define TIOCSTI		_IOW('t', 114, char)
--#define TIOCOUTQ	_IOR('t', 115, int)
-+#define TIOCOUTQ	_IOR('t', 115, int) /* output queue size (not send + not acked) */
- #define __TIOCGLTC        _IOR('t', 116, struct ltchars) /* SunOS Specific */
- #define __TIOCSLTC        _IOW('t', 117, struct ltchars) /* SunOS Specific */
- /* 118 is the non-posix setpgrp tty ioctl */
-@@ -83,6 +83,7 @@
- #define TIOCGPTN	_IOR('t', 134, unsigned int) /* Get Pty Number */
- #define TIOCSPTLCK	_IOW('t', 135, int) /* Lock/unlock PTY */
- #define TIOCSIG		_IOW('t', 136, int) /* Generate signal on Pty slave */
-+#define TIOCOUTQNSD	_IOW('t', 137, int) /* output queue size (not send only) */
- 
- /* Little f */
- #define FIOCLEX		_IO('f', 1)
-diff --git a/arch/xtensa/include/asm/ioctls.h b/arch/xtensa/include/asm/ioctls.h
-index fd1d136..5222d8c 100644
---- a/arch/xtensa/include/asm/ioctls.h
-+++ b/arch/xtensa/include/asm/ioctls.h
-@@ -41,7 +41,8 @@
- #define TIOCGWINSZ	_IOR('t', 104, struct winsize)
- #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
- #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
--#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
-+#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
-+#define TIOCOUTQNSD     _IOR('t', 116, int)     /* output queue size (not send only) */
- 
- #define TIOCSPGRP	_IOW('t', 118, int)
- #define TIOCGPGRP	_IOR('t', 119, int)
-diff --git a/include/asm-generic/ioctls.h b/include/asm-generic/ioctls.h
-index 199975f..231e492 100644
---- a/include/asm-generic/ioctls.h
-+++ b/include/asm-generic/ioctls.h
-@@ -32,7 +32,7 @@
- #define TIOCSCTTY	0x540E
- #define TIOCGPGRP	0x540F
- #define TIOCSPGRP	0x5410
--#define TIOCOUTQ	0x5411
-+#define TIOCOUTQ	0x5411 /* output queue size (not send + not acked) */
- #define TIOCSTI		0x5412
- #define TIOCGWINSZ	0x5413
- #define TIOCSWINSZ	0x5414
-@@ -74,6 +74,7 @@
- #define TCSETXW		0x5435
- #define TIOCSIG		_IOW('T', 0x36, int)  /* pty: generate signal */
- #define TIOCVHANGUP	0x5437
-+#define TIOCOUTQNSD	0x5438 /* output queue size (not send only) */
- 
- #define FIONCLEX	0x5450
- #define FIOCLEX		0x5451
-diff --git a/include/linux/sockios.h b/include/linux/sockios.h
-index 241f179..4c5ca47 100644
---- a/include/linux/sockios.h
-+++ b/include/linux/sockios.h
-@@ -23,6 +23,7 @@
- /* Linux-specific socket ioctls */
- #define SIOCINQ		FIONREAD
- #define SIOCOUTQ	TIOCOUTQ
-+#define SIOCOUTQNSD	TIOCOUTQNSD
- 
- /* Routing table calls. */
- #define SIOCADDRT	0x890B		/* add routing table entry	*/
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index a17a5a7..b22d450 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -505,6 +505,15 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
- 		else
- 			answ = tp->write_seq - tp->snd_una;
- 		break;
-+	case SIOCOUTQNSD:
-+		if (sk->sk_state == TCP_LISTEN)
-+			return -EINVAL;
-+
-+		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
-+			answ = 0;
-+		else
-+			answ = tp->write_seq - tp->snd_nxt;
-+		break;
- 	default:
- 		return -ENOIOCTLCMD;
- 	}
--- 
-1.7.1
+BR, Indrek
+
+
+
+On 03/03/2011 06:45 AM, Paul Stewart wrote:
+> It appears that a patch from Indrek Peri similar to the one below
+> without resolution.  I'm new to this problem (suspend-resume causing
+> interrupt URBs to stop delivering) and am curious about what the correct
+> solution would should like.  Before becoming aware of this thread, I
+> just added a "usb_submit_urb" of "dev->interrupt" into "usbnet_resume()"
+> and that worked to solve the issue I was having.  Apparently this isn't
+> the correct solution though, from David's response to Indrek.  So, I'm
+> curious about what the right code should be.
+> 
+> I'll note is that submitting the interrupt URB seems fairly benign.  If
+> we are in a situation where we should not have sent an URB (e.g, the
+> netif wasn't running) intr_complete correctly handles this case and does
+> not re-submit the URB, so at most we get one "rogue" interrupt URB after
+> resume-from-suspend.  The only nasty thing is that this URB should
+> probably not be submitted from interrupt, which the resume function
+> almost certainly is.  I'm guessing this is part of why David NAKed
+> Indrek's patch.  Am I correct?
+> 
+> Does something like the patch below seem like a resonable solution?
+> 
+> Cc: David Brownell <dbrownell@users.sourceforge.org>
+> Cc: Indrek Peri <Indrek.Peri@Ericsson.com>
+> Signed-off-by: Paul Stewart <pstew@google.com>
+> ---
+>  drivers/net/usb/usbnet.c   |   21 +++++++++++++++++++--
+>  include/linux/usb/usbnet.h |    1 +
+>  2 files changed, 20 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+> index 02d25c7..bc6a8e0 100644
+> --- a/drivers/net/usb/usbnet.c
+> +++ b/drivers/net/usb/usbnet.c
+> @@ -471,6 +471,8 @@ static void intr_complete (struct urb *urb)
+>  	struct usbnet	*dev = urb->context;
+>  	int		status = urb->status;
+>  
+> +	dev->interrupt_urb_running = 0;
+> +
+>  	switch (status) {
+>  	/* success */
+>  	case 0:
+> @@ -497,7 +499,9 @@ static void intr_complete (struct urb *urb)
+>  
+>  	memset(urb->transfer_buffer, 0, urb->transfer_buffer_length);
+>  	status = usb_submit_urb (urb, GFP_ATOMIC);
+> -	if (status != 0 && netif_msg_timer (dev))
+> +	if (status == 0)
+> +		dev->interrupt_urb_running = 1;
+> +	else if (netif_msg_timer (dev))
+>  		deverr(dev, "intr resubmit --> %d", status);
+>  }
+>  
+> @@ -580,6 +584,7 @@ static int usbnet_stop (struct net_device *net)
+>  	remove_wait_queue (&unlink_wakeup, &wait);
+>  
+>  	usb_kill_urb(dev->interrupt);
+> +	dev->interrupt_urb_running = 0;
+>  
+>  	/* deferred work (task, timer, softirq) must also stop.
+>  	 * can't flush_scheduled_work() until we drop rtnl (later),
+> @@ -640,7 +645,8 @@ static int usbnet_open (struct net_device *net)
+>  			if (netif_msg_ifup (dev))
+>  				deverr (dev, "intr submit %d", retval);
+>  			goto done;
+> -		}
+> +		} else
+> +			dev->interrupt_urb_running = 1;
+>  	}
+>  
+>  	netif_start_queue (net);
+> @@ -1065,6 +1071,17 @@ static void usbnet_bh (unsigned long param)
+>  		if (dev->txq.qlen < TX_QLEN (dev))
+>  			netif_wake_queue (dev->net);
+>  	}
+> +
+> +	// Do we need to re-enable interrupt URBs?
+> +	if (netif_running (dev->net) &&
+> +	    netif_device_present (dev->net) &&
+> +	    dev->interrupt_urb_running == 0) {
+> +		usb_submit_urb (dev->interrupt, GFP_KERNEL);
+> +
+> +		/* Unconditionally mark as running so we don't retry */
+> +		dev->interrupt_urb_running = 1;
+> +	}
+> +
+>  }
+>  
+>  
+> diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+> index ba09fe8..1b8ed8a 100644
+> --- a/include/linux/usb/usbnet.h
+> +++ b/include/linux/usb/usbnet.h
+> @@ -49,6 +49,7 @@ struct usbnet {
+>  	u32			hard_mtu;	/* count any extra framing */
+>  	size_t			rx_urb_size;	/* size for rx urbs */
+>  	struct mii_if_info	mii;
+> +	int			interrupt_urb_running;
+>  
+>  	/* various kinds of pending driver work */
+>  	struct sk_buff_head	rxq;
 
