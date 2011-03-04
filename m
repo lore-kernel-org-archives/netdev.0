@@ -1,95 +1,86 @@
-From: Prasanna Panchamukhi <ppanchamukhi@riverbed.com>
-Subject: Re: [PATCH] e1000: power off PHY after reset when interface is down
-Date: Fri, 04 Mar 2011 14:41:44 -0800
-Message-ID: <4D716AA8.4060508@riverbed.com>
-References: <1298424313-9840-1-git-send-email-prasanna.panchamukhi@riverbed.com>	<1298505765.25453.17.camel@jtkirshe-linux> <AANLkTim-T99r+npYWCLH8ry+hbtCNBOM4WUev8soaoM6@mail.gmail.com> <4D71298F.6090009@riverbed.com>
-Reply-To: prasanna.panchamukhi@riverbed.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next-2.6] inetpeer: seqlock optimization
+Date: Fri, 04 Mar 2011 14:44:48 -0800 (PST)
+Message-ID: <20110304.144448.115945732.davem@davemloft.net>
+References: <20110304.111705.193726268.davem@davemloft.net>
+	<20110304.124534.71142427.davem@davemloft.net>
+	<1299276839.2758.50.camel@edumazet-laptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Allan, Bruce W" <bruce.w.allan@intel.com>,
-	"Pieper, Jeffrey E" <jeffrey.e.pieper@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eng.riverbed.com ([208.70.196.44]:28865 "EHLO
-	smtp2.riverbed.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932520Ab1CDWmG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 17:42:06 -0500
-In-Reply-To: <4D71298F.6090009@riverbed.com>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:40812
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932536Ab1CDWoM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 17:44:12 -0500
+In-Reply-To: <1299276839.2758.50.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 03/04/2011 10:03 AM, Prasanna Panchamukhi wrote:
-> On 03/04/2011 12:19 AM, Jeff Kirsher wrote:
->> On Wed, Feb 23, 2011 at 16:02, Jeff Kirsher<jeffrey.t.kirsher@intel.com>   wrote:
->>> On Tue, 2011-02-22 at 17:25 -0800, prasanna.panchamukhi@riverbed.com
->>> wrote:
->>>> From: Prasanna S. Panchamukhi<prasanna.panchamukhi@riverbed.com>
->>>>
->>>> Some Phys supported by the e1000 driver do not remain powered off
->>>> across
->>>> a reset of the device when the interface is down, e.g. on 82546.
->>>> This patch powers down (only when WoL is disabled) the PHY after reset
->>>> if
->>>> the interface is down and ethtool diagnostics are not currently
->>>> running.
->>>>
->>>> Similar problem was see on 82571 controller and was fixed in e1000e
->>>> driver
->>>> by Bruce Allan.
->>>> Please refer commit 31dbe5b4ac6fca72dec946e4d0fa7f0913f1d9b1 for
->>>> details.
->>>>
->>>> Signed-off-by: Prasanna S. Panchamukhi
->>>> <prasanna.panchamukhi@riverbed.com>
->>>> ---
->>>>    drivers/net/e1000/e1000_ethtool.c |   27 +++++++++++++++++++--------
->>>>    drivers/net/e1000/e1000_main.c    |    7 +++++++
->>>>    2 files changed, 26 insertions(+), 8 deletions(-)
->>> Thanks Prasanna!  I have added the patch to my queue of e1000 patches.
->>>
->> Prasanna-
->> Here is what we found during validating your patch:
->>
->> The behavior of 82546 device(s) seems to be identical with/without this patch
->> applied. 82546GB (LOM), dev_id 1079 powers down (with wol disabled) after
->> ifdown, but powers back up after approx. 10 seconds. 82546EB (NIC), dev_id
->> 1010 powers down (with wol disabled) after ifdown. Both of the above
->> behaviors are the same with and without the patch applied. Also, if this patch
->> DID work as expected, it should print a message after a reset, such as "Cannot
->> restart autonegotiation: Resource temporarily unavailable", which would mirror
->> the behavior of e1000e.
->>
-> Hi Jeff,
->
-> Below is the test case we run verify this fix:
->
-> $ ethtool -s eth0 wol d
-> $ ifconfig eth0 up
-> $ mii-tool eth0
-> eth0: negotiated 100baseTx-FD, link ok
-> $ ifconfig eth0 down
-> $ mii-tool eth0
-> eth0: no link
-> $ ethtool -s eth0 autoneg on  (doesn't really matter what we do here)
-> $ mii-tool eth0
-> eth0: negotiated 100baseTx-FD, link ok (this should be: eth0: no link)
->
-> I will re-run the test&   check if does not fix this.
-Hi Jeff,
-
-I re-verified it & confirm that, this patch fixes the problem.
-Please let me know if you have any issues.
-
-Thanks
-Prasanna
-
-> Thanks
-> Prasanna
->
->
->
-
+RnJvbTogRXJpYyBEdW1hemV0IDxlcmljLmR1bWF6ZXRAZ21haWwuY29tPg0KRGF0ZTogRnJpLCAw
+NCBNYXIgMjAxMSAyMzoxMzo1OSArMDEwMA0KDQo+IExlIHZlbmRyZWRpIDA0IG1hcnMgMjAxMSDD
+oCAxMjo0NSAtMDgwMCwgRGF2aWQgTWlsbGVyIGEgw6ljcml0IDoNCj4+IEZyb206IERhdmlkIE1p
+bGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCj4+IERhdGU6IEZyaSwgMDQgTWFyIDIwMTEgMTE6
+MTc6MDUgLTA4MDAgKFBTVCkNCj4+IA0KPj4gPiBGcm9tOiBFcmljIER1bWF6ZXQgPGVyaWMuZHVt
+YXpldEBnbWFpbC5jb20+DQo+PiA+IERhdGU6IEZyaSwgMDQgTWFyIDIwMTEgMTY6MDk6MDggKzAx
+MDANCj4+ID4gDQo+PiA+PiBIZXJlIGlzIGEgcGF0Y2ggdG8gaW1wbGVtZW50IHRoaXMgaWRlYS4N
+Cj4+ID4gDQo+PiA+IEFwcGxpZWQsIHRoYW5rcyBFcmljIQ0KPj4gDQo+PiBVbmZvcnR1bmF0ZWx5
+LCBJIGhhdmUgdG8gcmV2ZXJ0LCB0aGUgbG9ja2RlcCBhbm5vdGF0aW9ucyBuZWVkcyB0bw0KPj4g
+YmUgdXBkYXRlZDoNCj4+IA0KPj4gbmV0L2lwdjQvaW5ldHBlZXIuYzogSW4gZnVuY3Rpb24g4oCY
+cGVlcl9hdmxfcmViYWxhbmNl4oCZOg0KPj4gbmV0L2lwdjQvaW5ldHBlZXIuYzoyNzQ6MTA6IGVy
+cm9yOiDigJhzZXFsb2NrX3TigJkgaGFzIG5vIG1lbWJlciBuYW1lZCDigJhkZXBfbWFw4oCZDQo+
+IA0KPiBPb3BzIHRoYXRzIHJpZ2h0LCBoZXJlIGlzIGFuIHVwZGF0ZWQgdmVyc2lvbi4NCg0KQXBw
+bGllZCwgdGhhbmtzIEVyaWMhDQoNCldpdGggdGhpcyBhbmQgdGhlIGZvbGxvd2luZyBwYXRjaCBh
+cHBsaWVkIHRvIG15IG5vLXJvdXRpbmctY2FjaGUgdHJlZSwNCm91dHB1dCByb3V0ZSBsb29rdXAg
+b24gbXkgTmlhZ2FyYTIgaXMgZG93biB0byAyOTY2IGN5Y2xlcyEgIEZvciByZWZlcmVuY2UNCndp
+dGgganVzdCB0aGUgcGxhaW4gcm91dGluZyBjYWNoZSByZW1vdmFsLCBpdCB3YXMgYXMgbXVjaCBh
+cyAzODMyIGN5Y2xlcy4NCg0KdWRwZmxvb2QgaXMgYSBsb3QgZmFzdGVyIHRvbywgd2l0aCBwbGFp
+biByb3V0aW5nIGNhY2hlIHJlbW92YWwgaXQgcmFuIGFzOg0KDQpiYXNoJCB0aW1lIC4vYmluL3Vk
+cGZsb29kIC1sIDEwMDAwMDAwIDEwLjIuMi4xMQ0KcmVhbAkJICAgICAzbTkuOTIxcw0KdXNlcgkJ
+ICAgICAwbTkuNTIwcw0Kc3lzCQkgICAgIDNtMC40NDBzDQoNCkJ1dCBub3cgaXQnczoNCg0KYmFz
+aCQgdGltZSAuL2Jpbi91ZHBmbG9vZCAtbCAxMDAwMDAwMCAxMC4yLjIuMTENCnJlYWwJMm00NS45
+MDNzDQp1c2VyCTBtOC42NDBzDQpzeXMJMm0zNy4yODBzDQoNCjotKQ0KDQotLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KaXB2NDogT3B0aW1pemUgZmxvdyBpbml0aWFsaXphdGlvbiBpbiBvdXRwdXQgcm91
+dGUgbG9va3VwLg0KDQpXZSBidXJuIGEgbG90IG9mIHVzZWxlc3MgY3ljbGVzLCBjcHUgc3RvcmUg
+YnVmZmVyIHRyYWZmaWMsIGFuZA0KbWVtb3J5IG9wZXJhdGlvbnMgbWVtc2V0KCknaW5nIHRoZSBv
+bi1zdGFjayBmbG93IHVzZWQgdG8gcGVyZm9ybQ0Kb3V0cHV0IHJvdXRlIGxvb2t1cHMgaW4gX19p
+cF9yb3V0ZV9vdXRwdXRfa2V5KCkuDQoNCk9ubHkgdGhlIGZpcnN0IGhhbGYgb2YgdGhlIGZsb3cg
+b2JqZWN0IG1lbWJlcnMgZXZlbiBtYXR0ZXIgZm9yDQpvdXRwdXQgcm91dGUgbG9va3VwcyBpbiB0
+aGlzIGNvbnRleHQsIHNwZWNpZmljYWxseToNCg0KRklCIHJ1bGVzIG1hdGNoaW5nIGNhcmVzIGFi
+b3V0Og0KDQoJZHN0LCBzcmMsIHRvcywgaWlmLCBvaWYsIG1hcmsNCg0KRklCIHRyaWUgbG9va3Vw
+IGNhcmVzIGFib3V0Og0KDQoJZHN0DQoNCkZJQiBzZW1hbnRpYyBtYXRjaCBjYXJlcyBhYm91dDoN
+Cg0KCXRvcywgc2NvcGUsIG9pZg0KDQpUaGVyZWZvcmUgb25seSBpbml0aWFsaXplIHRoZXNlIHNw
+ZWNpZmljIG1lbWJlcnMgYW5kIGVsaWRlIHRoZQ0KbWVtc2V0IGVudGlyZWx5Lg0KDQpPbiBOaWFn
+YXJhMiB0aGlzIGtpbGxzIGFib3V0IH4zMDAgY3ljbGVzIGZyb20gdGhlIG91dHB1dCByb3V0ZQ0K
+bG9va3VwIHBhdGguDQoNCkxpa2VseSwgd2UgY2FuIHRha2UgdGhpbmdzIGZ1cnRoZXIsIHNpbmNl
+IGFsbCBjYWxsZXJzIG9mIG91dHB1dA0Kcm91dGUgbG9va3VwcyBlc3NlbnRpYWxseSB0aHJvdyBh
+d2F5IHRoZSBvbi1zdGFjayBmbG93IHRoZXkgdXNlLg0KU28gdGhleSBkb24ndCBjYXJlIGlmIHdl
+IHVzZSBpdCBhcyBhIHNjcmF0Y2gtcGFkIHRvIGNvbXB1dGUgdGhlDQpmaW5hbCBmbG93IGtleS4N
+Cg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0K
+LS0tDQogbmV0L2lwdjQvcm91dGUuYyB8ICAgMTggKysrKysrKysrKy0tLS0tLS0tDQogMSBmaWxl
+cyBjaGFuZ2VkLCAxMCBpbnNlcnRpb25zKCspLCA4IGRlbGV0aW9ucygtKQ0KDQpkaWZmIC0tZ2l0
+IGEvbmV0L2lwdjQvcm91dGUuYyBiL25ldC9pcHY0L3JvdXRlLmMNCmluZGV4IDA0Yjg5NTQuLmUz
+YTVhODkgMTAwNjQ0DQotLS0gYS9uZXQvaXB2NC9yb3V0ZS5jDQorKysgYi9uZXQvaXB2NC9yb3V0
+ZS5jDQpAQCAtMTY3MCwxNCArMTY3MCw3IEBAIHN0YXRpYyBzdHJ1Y3QgcnRhYmxlICpfX21rcm91
+dGVfb3V0cHV0KGNvbnN0IHN0cnVjdCBmaWJfcmVzdWx0ICpyZXMsDQogc3RydWN0IHJ0YWJsZSAq
+X19pcF9yb3V0ZV9vdXRwdXRfa2V5KHN0cnVjdCBuZXQgKm5ldCwgY29uc3Qgc3RydWN0IGZsb3dp
+ICpvbGRmbHApDQogew0KIAl1MzIgdG9zCT0gUlRfRkxfVE9TKG9sZGZscCk7DQotCXN0cnVjdCBm
+bG93aSBmbCA9IHsgLmZsNF9kc3QgPSBvbGRmbHAtPmZsNF9kc3QsDQotCQkJICAgIC5mbDRfc3Jj
+ID0gb2xkZmxwLT5mbDRfc3JjLA0KLQkJCSAgICAuZmw0X3RvcyA9IHRvcyAmIElQVE9TX1JUX01B
+U0ssDQotCQkJICAgIC5mbDRfc2NvcGUgPSAoKHRvcyAmIFJUT19PTkxJTkspID8NCi0JCQkJCSAg
+UlRfU0NPUEVfTElOSyA6IFJUX1NDT1BFX1VOSVZFUlNFKSwNCi0JCQkgICAgLm1hcmsgPSBvbGRm
+bHAtPm1hcmssDQotCQkJICAgIC5paWYgPSBuZXQtPmxvb3BiYWNrX2Rldi0+aWZpbmRleCwNCi0J
+CQkgICAgLm9pZiA9IG9sZGZscC0+b2lmIH07DQorCXN0cnVjdCBmbG93aSBmbDsNCiAJc3RydWN0
+IGZpYl9yZXN1bHQgcmVzOw0KIAl1bnNpZ25lZCBpbnQgZmxhZ3MgPSAwOw0KIAlzdHJ1Y3QgbmV0
+X2RldmljZSAqZGV2X291dCA9IE5VTEw7DQpAQCAtMTY4OCw2ICsxNjgxLDE1IEBAIHN0cnVjdCBy
+dGFibGUgKl9faXBfcm91dGVfb3V0cHV0X2tleShzdHJ1Y3QgbmV0ICpuZXQsIGNvbnN0IHN0cnVj
+dCBmbG93aSAqb2xkZmxwDQogCXJlcy5yCQk9IE5VTEw7DQogI2VuZGlmDQogDQorCWZsLm9pZiA9
+IG9sZGZscC0+b2lmOw0KKwlmbC5paWYgPSBuZXQtPmxvb3BiYWNrX2Rldi0+aWZpbmRleDsNCisJ
+ZmwubWFyayA9IG9sZGZscC0+bWFyazsNCisJZmwuZmw0X2RzdCA9IG9sZGZscC0+Zmw0X2RzdDsN
+CisJZmwuZmw0X3NyYyA9IG9sZGZscC0+Zmw0X3NyYzsNCisJZmwuZmw0X3RvcyA9IHRvcyAmIElQ
+VE9TX1JUX01BU0s7DQorCWZsLmZsNF9zY29wZSA9ICgodG9zICYgUlRPX09OTElOSykgPw0KKwkJ
+CVJUX1NDT1BFX0xJTksgOiBSVF9TQ09QRV9VTklWRVJTRSk7DQorDQogCXJjdV9yZWFkX2xvY2so
+KTsNCiAJaWYgKG9sZGZscC0+Zmw0X3NyYykgew0KIAkJcnRoID0gRVJSX1BUUigtRUlOVkFMKTsN
+Ci0tIA0KMS43LjQuMQ0KDQo=
