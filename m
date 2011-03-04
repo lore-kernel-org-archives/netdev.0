@@ -1,43 +1,39 @@
-From: Shan Wei <shanwei@cn.fujitsu.com>
-Subject: [PATCH] s2io: fix uninitialized compile warning
-Date: Fri, 04 Mar 2011 19:23:58 +0800
-Message-ID: <4D70CBCE.4090306@cn.fujitsu.com>
+From: Krishna Kumar2 <krkumar2@in.ibm.com>
+Subject: Re: [PATCH 0/3] [RFC] Implement multiqueue (RX & TX) virtio-net
+Date: Fri, 4 Mar 2011 17:52:47 +0530
+Message-ID: <OFBDB22C28.E6DB22A2-ON65257849.0043B15C-65257849.0043D8B3@in.ibm.com>
+References: <20110228063427.24908.63561.sendpatchset@krkumar2.in.ibm.com> <1299178884.13202.50.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: ramkrishna.vepa@exar.com, sivakumar.subramani@exar.com,
-	sreenivasa.honnur@exar.com, jon.mason@exar.com,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:53138 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751999Ab1CDL0d convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 06:26:33 -0500
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: anthony@codemonkey.ws, arnd@arndb.de, avi@redhat.com,
+	davem@davemloft.net, eric.dumazet@gmail.com, horms@verge.net.au,
+	kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: habanero@linux.vnet.ibm.com
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <1299178884.13202.50.camel@localhost.localdomain>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Andrew Theurer <habanero@linux.vnet.ibm.com> wrote on 03/04/2011 12:31:24
+AM:
 
-drivers/net/s2io.c:7559: warning: =E2=80=98tcp_len=E2=80=99 may be used=
- uninitialized in this function
+Hi Andrew,
 
-Signed-off-by: Shan Wei <shanwei@cn.fujitsu.com>
----
- drivers/net/s2io.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+> > _______________________________________________________________________
+> >                 TCP: Guest -> Local Host (TCP_STREAM)
+> >                  TCP: Local Host -> Guest (TCP_MAERTS)
+> >             UDP: Local Host -> Guest (UDP_STREAM)
+>
+>
+> Any reason why the tests don't include a guest-to-guest on same host, or
+> on different hosts?  Seems like those would be a lot more common that
+> guest-to/from-localhost.
 
-diff --git a/drivers/net/s2io.c b/drivers/net/s2io.c
-index 39c17ce..2ad6364 100644
---- a/drivers/net/s2io.c
-+++ b/drivers/net/s2io.c
-@@ -7556,7 +7556,7 @@ static int rx_osm_handler(struct ring_info *ring_=
-data, struct RxD_t * rxdp)
- 			 */
- 			skb->ip_summed =3D CHECKSUM_UNNECESSARY;
- 			if (ring_data->lro) {
--				u32 tcp_len;
-+				u32 tcp_len =3D 0;
- 				u8 *tcp;
- 				int ret =3D 0;
-=20
---=20
-1.6.3.3
+This was missing in my test plan, but good point. I will run
+these tests also and send the results soon.
+
+Thanks,
+
+- KK
+
