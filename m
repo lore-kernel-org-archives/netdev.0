@@ -1,37 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH resent] tcp: ioctl type SIOCOUTQNSD returns amount of
- data not sent
-Date: Fri, 04 Mar 2011 01:04:28 -0800 (PST)
-Message-ID: <20110304.010428.71127798.davem@davemloft.net>
-References: <1299228497-21246-1-git-send-email-sledz@dresearch.de>
+Subject: Re: tun: Failed to create tun sysfs files
+Date: Fri, 04 Mar 2011 01:06:03 -0800 (PST)
+Message-ID: <20110304.010603.104076956.davem@davemloft.net>
+References: <201103030127.p231ReNl012841@imap1.linux-foundation.org>
+	<4D70A929.4010900@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, m.schuknecht@dresearch.de
-To: sledz@dresearch.de
+Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
+	mm-commits@vger.kernel.org, jirislaby@gmail.com,
+	netdev@vger.kernel.org, maxk@qualcomm.com, vtun@office.satix.net
+To: jslaby@suse.cz
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1299228497-21246-1-git-send-email-sledz@dresearch.de>
+In-Reply-To: <4D70A929.4010900@suse.cz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Steffen Sledz <sledz@dresearch.de>
-Date: Fri,  4 Mar 2011 09:48:17 +0100
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Fri, 04 Mar 2011 09:56:09 +0100
 
-> diff --git a/include/asm-generic/ioctls.h b/include/asm-generic/ioctls.h
-> index 199975f..ef2be0b 100644
-> --- a/include/asm-generic/ioctls.h
-> +++ b/include/asm-generic/ioctls.h
-> @@ -74,6 +74,7 @@
->  #define TCSETXW		0x5435
->  #define TIOCSIG		_IOW('T', 0x36, int)  /* pty: generate signal */
->  #define TIOCVHANGUP	0x5437
-> +#define TIOCOUTQNSD	0x5438
->  
->  #define FIONCLEX	0x5450
->  #define FIOCLEX		0x5451
+> On 03/03/2011 01:52 AM, akpm@linux-foundation.org wrote:
+>> The mm-of-the-moment snapshot 2011-03-02-16-52 has been uploaded to
+> 
+> Hi, I'm seeing this with tun (also with earlier versions):
 
-Hitting only asm-generic/ioctls.h is insufficient, many architectures do
-not make use of this file and the build will fail for them with your patch
-applied.
+The name of the attribute was changed to netdev_group in order to
+fix this problem, in fact quite some time ago.
+
+See the last entry of the net_class_attributes array in
+net/core/net-sysfs.c, if it isn't called "netdev_group"
+something is awry.
