@@ -1,121 +1,127 @@
 From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
 	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 6/8] Phonet: provide pipe socket option to retrieve the pipe identifier
-Date: Fri,  4 Mar 2011 12:00:29 +0200
-Message-ID: <1299232831-3132-6-git-send-email-remi.denis-courmont@nokia.com>
+Subject: [PATCH 3/8] Phonet: fix backlog callback return value
+Date: Fri,  4 Mar 2011 12:00:26 +0200
+Message-ID: <1299232831-3132-3-git-send-email-remi.denis-courmont@nokia.com>
 References: <201103031322.37184.remi.denis-courmont@nokia.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.1.48]:47019 "EHLO mgw-sa02.nokia.com"
+Received: from smtp.nokia.com ([147.243.1.48]:46986 "EHLO mgw-sa02.nokia.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759312Ab1CDJ7m (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2011 04:59:42 -0500
+	id S1759267Ab1CDJ7l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2011 04:59:41 -0500
 Received: from leon.remlab.com ([172.21.24.67])
-	by mgw-sa02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p249xdac012056
+	by mgw-sa02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p249xdaZ012056
 	for <netdev@vger.kernel.org>; Fri, 4 Mar 2011 11:59:40 +0200
 In-Reply-To: <201103031322.37184.remi.denis-courmont@nokia.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-User-space sometimes needs this information.
-
 Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
 ---
- Documentation/networking/phonet.txt |    7 ++++---
- include/linux/phonet.h              |    2 +-
- net/phonet/pep.c                    |   15 +++++++--------
- 3 files changed, 12 insertions(+), 12 deletions(-)
+ net/phonet/pep.c |   25 +++++++++++--------------
+ 1 files changed, 11 insertions(+), 14 deletions(-)
 
-diff --git a/Documentation/networking/phonet.txt b/Documentation/networ=
-king/phonet.txt
-index 24ad2ad..cacac96 100644
---- a/Documentation/networking/phonet.txt
-+++ b/Documentation/networking/phonet.txt
-@@ -181,6 +181,10 @@ The pipe protocol provides two socket options at t=
-he SOL_PNPIPE level:
-     interface index of the network interface created by PNPIPE_ENCAP,
-     or zero if encapsulation is off.
-=20
-+  PNPIPE_HANDLE is a read-only integer value. It contains the underlyi=
-ng
-+    identifier ("pipe handle") of the pipe. This is only defined for
-+    socket descriptors that are already connected or being connected.
-+
-=20
- Phonet Pipe-controller Implementation
- -------------------------------------
-@@ -199,9 +203,6 @@ between itself and a remote pipe-end point (e.g. mo=
-dem).
-=20
- The implementation adds socket options at SOL_PNPIPE level:
-=20
-- PNPIPE_PIPE_HANDLE
--	It accepts an integer argument for setting value of pipe handle.
--
-   PNPIPE_ENABLE accepts one integer value (int). If set to zero, the p=
-ipe
-     is disabled. If the value is non-zero, the pipe is enabled. If the=
- pipe
-     is not (yet) connected, ENOTCONN is error is returned.
-diff --git a/include/linux/phonet.h b/include/linux/phonet.h
-index 26c8df7..32a0965 100644
---- a/include/linux/phonet.h
-+++ b/include/linux/phonet.h
-@@ -36,7 +36,7 @@
- /* Socket options for SOL_PNPIPE level */
- #define PNPIPE_ENCAP		1
- #define PNPIPE_IFINDEX		2
--#define PNPIPE_PIPE_HANDLE	3
-+#define PNPIPE_HANDLE		3
- #define PNPIPE_ENABLE           4
- /* unused slot */
-=20
 diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index c0fab4c..abfb795 100644
+index 875e86c..40952c7 100644
 --- a/net/phonet/pep.c
 +++ b/net/phonet/pep.c
-@@ -853,6 +853,7 @@ static int pep_sock_connect(struct sock *sk, struct=
- sockaddr *addr, int len)
+@@ -522,7 +522,8 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
+uff *skb)
+ 		if (!pn_flow_safe(pn->rx_fc)) {
+ 			err =3D sock_queue_rcv_skb(sk, skb);
+ 			if (!err)
+-				return 0;
++				return NET_RX_SUCCESS;
++			err =3D -ENOBUFS;
+ 			break;
+ 		}
 =20
- 	pn->pn_sk.dobject =3D pn_sockaddr_get_object(spn);
- 	pn->pn_sk.resource =3D pn_sockaddr_get_resource(spn);
-+	pn->pipe_handle =3D 1; /* anything but INVALID_HANDLE */
- 	return pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
- 					PN_PIPE_DISABLE, data, 4);
+@@ -575,7 +576,7 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
+uff *skb)
+ 	}
+ out:
+ 	kfree_skb(skb);
+-	return err;
++	return (err =3D=3D -ENOBUFS) ? NET_RX_DROP : NET_RX_SUCCESS;
+=20
+ queue:
+ 	skb->dev =3D NULL;
+@@ -584,7 +585,7 @@ queue:
+ 	skb_queue_tail(queue, skb);
+ 	if (!sock_flag(sk, SOCK_DEAD))
+ 		sk->sk_data_ready(sk, err);
+-	return 0;
++	return NET_RX_SUCCESS;
  }
-@@ -909,14 +910,6 @@ static int pep_setsockopt(struct sock *sk, int lev=
-el, int optname,
 =20
- 	lock_sock(sk);
- 	switch (optname) {
--#ifdef CONFIG_PHONET_PIPECTRLR
--	case PNPIPE_PIPE_HANDLE:
--		if (val) {
--			pn->pipe_handle =3D val;
--			break;
--		}
--#endif
+ /* Destroy connected sock. */
+@@ -686,11 +687,6 @@ static int pep_connreq_rcv(struct sock *sk, struct=
+ sk_buff *skb)
+ 	}
+ 	peer_type =3D hdr->other_pep_type << 8;
+=20
+-	if (unlikely(sk->sk_state !=3D TCP_LISTEN) || sk_acceptq_is_full(sk))=
+ {
+-		pep_reject_conn(sk, skb, PN_PIPE_ERR_PEP_IN_USE);
+-		return -ENOBUFS;
+-	}
 -
- 	case PNPIPE_ENCAP:
- 		if (val && val !=3D PNPIPE_ENCAP_IP) {
- 			err =3D -EINVAL;
-@@ -982,6 +975,12 @@ static int pep_getsockopt(struct sock *sk, int lev=
-el, int optname,
- 		val =3D pn->ifindex;
+ 	/* Parse sub-blocks (options) */
+ 	n_sb =3D hdr->data[4];
+ 	while (n_sb > 0) {
+@@ -790,7 +786,6 @@ static int pep_do_rcv(struct sock *sk, struct sk_bu=
+ff *skb)
+ 	struct sock *sknode;
+ 	struct pnpipehdr *hdr;
+ 	struct sockaddr_pn dst;
+-	int err =3D NET_RX_SUCCESS;
+ 	u8 pipe_handle;
+=20
+ 	if (!pskb_may_pull(skb, sizeof(*hdr)))
+@@ -814,18 +809,20 @@ static int pep_do_rcv(struct sock *sk, struct sk_=
+buff *skb)
+ 		sock_put(sknode);
+ 		if (net_ratelimit())
+ 			printk(KERN_WARNING"Phonet unconnected PEP ignored");
+-		err =3D NET_RX_DROP;
+ 		goto drop;
+ 	}
+=20
+ 	switch (hdr->message_id) {
+ 	case PNS_PEP_CONNECT_REQ:
+-		err =3D pep_connreq_rcv(sk, skb);
++		if (sk->sk_state =3D=3D TCP_LISTEN && !sk_acceptq_is_full(sk))
++			pep_connreq_rcv(sk, skb);
++		else
++			pep_reject_conn(sk, skb, PN_PIPE_ERR_PEP_IN_USE);
  		break;
 =20
-+	case PNPIPE_HANDLE:
-+		val =3D pn->pipe_handle;
-+		if (val =3D=3D PN_PIPE_INVALID_HANDLE)
-+			return -EINVAL;
-+		break;
-+
  #ifdef CONFIG_PHONET_PIPECTRLR
- 	case PNPIPE_ENABLE:
- 		val =3D sk->sk_state =3D=3D TCP_ESTABLISHED;
+ 	case PNS_PEP_CONNECT_RESP:
+-		err =3D pep_connresp_rcv(sk, skb);
++		pep_connresp_rcv(sk, skb);
+ 		break;
+ #endif
+=20
+@@ -842,11 +839,11 @@ static int pep_do_rcv(struct sock *sk, struct sk_=
+buff *skb)
+ 	case PNS_PEP_DISABLE_REQ:
+ 		/* invalid handle is not even allowed here! */
+ 	default:
+-		err =3D NET_RX_DROP;
++		break;
+ 	}
+ drop:
+ 	kfree_skb(skb);
+-	return err;
++	return NET_RX_SUCCESS;
+ }
+=20
+ #ifndef CONFIG_PHONET_PIPECTRLR
 --=20
 1.7.1
 
