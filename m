@@ -1,34 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next-2.6 2011-03-04
-Date: Fri, 04 Mar 2011 12:25:07 -0800 (PST)
-Message-ID: <20110304.122507.226772696.davem@davemloft.net>
-References: <20110304194018.GD9866@tuxdriver.com>
+Subject: Re: [PATCH net-next-2.6] inetpeer: seqlock optimization
+Date: Fri, 04 Mar 2011 12:45:34 -0800 (PST)
+Message-ID: <20110304.124534.71142427.davem@davemloft.net>
+References: <20110303.003229.229764095.davem@davemloft.net>
+	<1299251348.2676.16.camel@edumazet-laptop>
+	<20110304.111705.193726268.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linville@tuxdriver.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:33280
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:56005
 	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751746Ab1CDUYa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 15:24:30 -0500
-In-Reply-To: <20110304194018.GD9866@tuxdriver.com>
+	by vger.kernel.org with ESMTP id S1760065Ab1CDUo6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 15:44:58 -0500
+In-Reply-To: <20110304.111705.193726268.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Fri, 4 Mar 2011 14:40:18 -0500
-
-> Yet another batch of new wireless bits intended for 2.6.39... :-)
-> 
-> Highlights in this round include AP-mode support for wl12xx, some
-> rtlwifi fixes (many build-related), some more b43 N-phy support
-> advancement, a big batch of ath9k_htc updates, and the refactoring of
-> iwlwifi to separate iwl3945 and iwl4965 support out into a new iwlegacy
-> driver.  Mixed-in, of course, is the usual batch of various driver and
-> mac80211 updates and fixes.
-> 
-> Please let me know if there are problems!
-
-Pulled, thanks John.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAwNCBN
+YXIgMjAxMSAxMToxNzowNSAtMDgwMCAoUFNUKQ0KDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZXJp
+Yy5kdW1hemV0QGdtYWlsLmNvbT4NCj4gRGF0ZTogRnJpLCAwNCBNYXIgMjAxMSAxNjowOTowOCAr
+MDEwMA0KPiANCj4+IEhlcmUgaXMgYSBwYXRjaCB0byBpbXBsZW1lbnQgdGhpcyBpZGVhLg0KPiAN
+Cj4gQXBwbGllZCwgdGhhbmtzIEVyaWMhDQoNClVuZm9ydHVuYXRlbHksIEkgaGF2ZSB0byByZXZl
+cnQsIHRoZSBsb2NrZGVwIGFubm90YXRpb25zIG5lZWRzIHRvDQpiZSB1cGRhdGVkOg0KDQpuZXQv
+aXB2NC9pbmV0cGVlci5jOiBJbiBmdW5jdGlvbiChcGVlcl9hdmxfcmViYWxhbmNlojoNCm5ldC9p
+cHY0L2luZXRwZWVyLmM6Mjc0OjEwOiBlcnJvcjogoXNlcWxvY2tfdKIgaGFzIG5vIG1lbWJlciBu
+YW1lZCChZGVwX21hcKINCm5ldC9pcHY0L2luZXRwZWVyLmM6Mjc2Ojc6IGVycm9yOiChc2VxbG9j
+a190oiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFkZXBfbWFwog0KbmV0L2lwdjQvaW5ldHBlZXIuYzoy
+Nzg6NzogZXJyb3I6IKFzZXFsb2NrX3SiIGhhcyBubyBtZW1iZXIgbmFtZWQgoWRlcF9tYXCiDQpu
+ZXQvaXB2NC9pbmV0cGVlci5jOjI4NTo5OiBlcnJvcjogoXNlcWxvY2tfdKIgaGFzIG5vIG1lbWJl
+ciBuYW1lZCChZGVwX21hcKINCm5ldC9pcHY0L2luZXRwZWVyLmM6Mjg3Ojk6IGVycm9yOiChc2Vx
+bG9ja190oiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFkZXBfbWFwog0KbmV0L2lwdjQvaW5ldHBlZXIu
+YzoyOTk6MTE6IGVycm9yOiChc2VxbG9ja190oiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFkZXBfbWFw
+og0KbmV0L2lwdjQvaW5ldHBlZXIuYzozMDE6MTE6IGVycm9yOiChc2VxbG9ja190oiBoYXMgbm8g
+bWVtYmVyIG5hbWVkIKFkZXBfbWFwog0KbmV0L2lwdjQvaW5ldHBlZXIuYzozMTc6OTogZXJyb3I6
+IKFzZXFsb2NrX3SiIGhhcyBubyBtZW1iZXIgbmFtZWQgoWRlcF9tYXCiDQpuZXQvaXB2NC9pbmV0
+cGVlci5jOjMxOTo5OiBlcnJvcjogoXNlcWxvY2tfdKIgaGFzIG5vIG1lbWJlciBuYW1lZCChZGVw
+X21hcKINCm5ldC9pcHY0L2luZXRwZWVyLmM6MzMxOjExOiBlcnJvcjogoXNlcWxvY2tfdKIgaGFz
+IG5vIG1lbWJlciBuYW1lZCChZGVwX21hcKINCm5ldC9pcHY0L2luZXRwZWVyLmM6MzMzOjExOiBl
+cnJvcjogoXNlcWxvY2tfdKIgaGFzIG5vIG1lbWJlciBuYW1lZCChZGVwX21hcKINCm5ldC9pcHY0
+L2luZXRwZWVyLmM6IEluIGZ1bmN0aW9uIKF1bmxpbmtfZnJvbV9wb29sojoNCm5ldC9pcHY0L2lu
+ZXRwZWVyLmM6Mzg1Ojc6IGVycm9yOiChc2VxbG9ja190oiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFk
+ZXBfbWFwog0KbmV0L2lwdjQvaW5ldHBlZXIuYzozODU6NzogZXJyb3I6IKFzZXFsb2NrX3SiIGhh
+cyBubyBtZW1iZXIgbmFtZWQgoWRlcF9tYXCiDQpuZXQvaXB2NC9pbmV0cGVlci5jOjM5NDo4OiBl
+cnJvcjogoXNlcWxvY2tfdKIgaGFzIG5vIG1lbWJlciBuYW1lZCChZGVwX21hcKINCm5ldC9pcHY0
+L2luZXRwZWVyLmM6Mzk0Ojg6IGVycm9yOiChc2VxbG9ja190oiBoYXMgbm8gbWVtYmVyIG5hbWVk
+IKFkZXBfbWFwog0KbmV0L2lwdjQvaW5ldHBlZXIuYzozOTU6NDogZXJyb3I6IKFzZXFsb2NrX3Si
+IGhhcyBubyBtZW1iZXIgbmFtZWQgoWRlcF9tYXCiDQpuZXQvaXB2NC9pbmV0cGVlci5jOiBJbiBm
+dW5jdGlvbiChaW5ldF9nZXRwZWVyojoNCm5ldC9pcHY0L2luZXRwZWVyLmM6NTA4OjY6IGVycm9y
+OiChc2VxbG9ja190oiBoYXMgbm8gbWVtYmVyIG5hbWVkIKFkZXBfbWFwog0KbmV0L2lwdjQvaW5l
+dHBlZXIuYzo1MDg6NjogZXJyb3I6IKFzZXFsb2NrX3SiIGhhcyBubyBtZW1iZXIgbmFtZWQgoWRl
+cF9tYXCiDQo=
