@@ -1,49 +1,64 @@
-From: Jesse Barnes <jbarnes@virtuousgeek.org>
-Subject: Re: [PATCH V4] Export ACPI _DSM provided firmware instance number
- and string name to sysfs
-Date: Fri, 4 Mar 2011 10:43:14 -0800
-Message-ID: <20110304104314.26265021@jbarnes-desktop>
-References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
-	<20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless-next-2.6 2011-02-22
+Date: Fri, 4 Mar 2011 13:40:50 -0500
+Message-ID: <20110304184050.GC9866@tuxdriver.com>
+References: <20110222215229.GJ12153@tuxdriver.com>
+ <4D706C2E.40307@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <linux-pci@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <mjg@redhat.com>, <Matt_Domsch@Dell.com>,
-	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>,
-	<Shyam_Iyer@Dell.com>, <sfr@canb.auug.org.au>
-To: <Narendra_K@Dell.com>
-Return-path: <linux-hotplug-owner@vger.kernel.org>
-In-Reply-To: <20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
-Sender: linux-hotplug-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Shan Wei <shanwei-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <4D706C2E.40307-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Mar 2011 22:34:17 +0530
-<Narendra_K@Dell.com> wrote:
-
-> On Wed, Feb 23, 2011 at 06:06:42PM +0530, K, Narendra wrote:
-> > Hello,
-> > 
-> > This patch exports ACPI _DSM provided firmware instance number and
-> > string name to sysfs.
-> > 
-> > V1 -> V2:
-> > The attribute 'index' is changed to 'acpi_index' as the semantics of
-> > SMBIOS provided device type instance and ACPI _DSM provided firmware
-> > instance number are different.
-> > 
-> > V2 -> V3:
-> > Matthew Garrett pointed out that 'sysfs_create_groups' does return an
-> > error when there are no ACPI _DSM attributes available and because of
-> > that the fallback to SMBIOS will not happen. As a result SMBIOS provided
-> > attributes are not created. This version of the patch addresses the issue.
-> > 
+On Fri, Mar 04, 2011 at 12:35:58PM +0800, Shan Wei wrote:
+> John W. Linville wrote, at 02/23/2011 05:52 AM:
+> > Please let me know if there are problems!
 > 
-> V3 -> V4:
-> Select NLS if (DMI || ACPI) in drivers/pci/Kconfig to prevent build
-> breakage from an 'allmodconfig'
+> Fail to compile with attached config under net-next tree.
+>  
+> ======Error Begin================================================================
+> drivers/net/wireless/rtlwifi/rtl8192cu/built-in.o: In function `rtl92c_phy_sw_chnl':
+> /data2/net-next-2.6/drivers/net/wireless/rtlwifi/rtl8192cu/../rtl8192c/phy_common.c:803: multiple definition of `rtl92c_phy_sw_chnl'
+> drivers/net/wireless/rtlwifi/rtl8192ce/built-in.o:/data2/net-next-2.6/drivers/net/wireless/rtlwifi/rtl8192ce/../rtl8192c/phy_common.c:803: first defined here
+> drivers/net/wireless/rtlwifi/rtl8192cu/built-in.o: In function `rtl92c_fill_h2c_cmd':
 
-Applied, fingers crossed this time. :)
+This is already fixed in wireless-next-2.6:
 
+commit 1472d3a87586eb7529d1d85f7c888055650b7208
+Author: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Date:   Wed Feb 23 10:24:58 2011 -0600
+
+    rtlwifi: rtl8192ce: rtl8192cu: Fix multiple def errors for allyesconfig buil
+    
+    As noted by Stephan Rothwell, an allyesconfig build fails since rtl8192cu
+    was merged with failures such as:
+    
+    drivers/net/wireless/rtlwifi/rtl8192cu/built-in.o: In function `rtl92c_phy_s
+    (.opd+0xf30): multiple definition of `rtl92c_phy_sw_chnl'
+    drivers/net/wireless/rtlwifi/rtl8192ce/built-in.o:(.opd+0xb70): first define
+    drivers/net/wireless/rtlwifi/rtl8192cu/built-in.o: In function `rtl92c_fill_
+    (.opd+0x288): multiple definition of `rtl92c_fill_h2c_cmd'
+    drivers/net/wireless/rtlwifi/rtl8192ce/built-in.o:(.opd+0x288): first define
+    
+    These are caused because the code shared between rtl8192ce and rtl8192cu
+    is included in both drivers. This has been fixed by creating a new modue tha
+    contains the shared code.
+    
+    Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+    Signed-off-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+
+It will be in my next pull request to Dave.
+
+John
 -- 
-Jesse Barnes, Intel Open Source Technology Center
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
