@@ -1,50 +1,37 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: tun: Failed to create tun sysfs files [was: mmotm 2011-03-02-16-52
- uploaded]
-Date: Fri, 04 Mar 2011 09:56:09 +0100
-Message-ID: <4D70A929.4010900@suse.cz>
-References: <201103030127.p231ReNl012841@imap1.linux-foundation.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH resent] tcp: ioctl type SIOCOUTQNSD returns amount of
+ data not sent
+Date: Fri, 04 Mar 2011 01:04:28 -0800 (PST)
+Message-ID: <20110304.010428.71127798.davem@davemloft.net>
+References: <1299228497-21246-1-git-send-email-sledz@dresearch.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, mm-commits@vger.kernel.org,
-	Jiri Slaby <jirislaby@gmail.com>,
-	ML netdev <netdev@vger.kernel.org>, maxk@qualcomm.com,
-	vtun@office.satix.net
-To: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, pekkas@netcore.fi, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, m.schuknecht@dresearch.de
+To: sledz@dresearch.de
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201103030127.p231ReNl012841@imap1.linux-foundation.org>
+In-Reply-To: <1299228497-21246-1-git-send-email-sledz@dresearch.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 03/03/2011 01:52 AM, akpm@linux-foundation.org wrote:
-> The mm-of-the-moment snapshot 2011-03-02-16-52 has been uploaded to
+From: Steffen Sledz <sledz@dresearch.de>
+Date: Fri,  4 Mar 2011 09:48:17 +0100
 
-Hi, I'm seeing this with tun (also with earlier versions):
-WARNING: at fs/sysfs/dir.c:455 sysfs_add_one+0xb8/0xe0()
-Hardware name: To Be Filled By O.E.M.
-sysfs: cannot create duplicate filename '/devices/virtual/net/tun0/group'
-Modules linked in: microcode dvb_usb_af9015 tda18271 af9013 dvb_usb dvb_core
-Pid: 3840, comm: openvpn Not tainted 2.6.38-rc4-mm1_64+ #1390
-Call Trace:
- [<ffffffff8106d61a>] ? warn_slowpath_common+0x7a/0xb0
- [<ffffffff8106d6f1>] ? warn_slowpath_fmt+0x41/0x50
- [<ffffffff81176638>] ? sysfs_add_one+0xb8/0xe0
- [<ffffffff8117570d>] ? sysfs_add_file_mode+0x5d/0xa0
- [<ffffffff8117575c>] ? sysfs_add_file+0xc/0x10
- [<ffffffff81175841>] ? sysfs_create_file+0x21/0x40
- [<ffffffff813609d4>] ? device_create_file+0x14/0x20
- [<ffffffff813e0256>] ? tun_set_iff+0x3f6/0x4a0
- [<ffffffff813e05fe>] ? __tun_chr_ioctl+0x12e/0x5d0
- [<ffffffff8126c5c2>] ? __strncpy_from_user+0x22/0x60
- [<ffffffff813e0ade>] ? tun_chr_ioctl+0xe/0x10
- [<ffffffff811274ed>] ? do_vfs_ioctl+0x8d/0x300
- [<ffffffff811277aa>] ? sys_ioctl+0x4a/0x80
- [<ffffffff81030dbb>] ? system_call_fastpath+0x16/0x1b
+> diff --git a/include/asm-generic/ioctls.h b/include/asm-generic/ioctls.h
+> index 199975f..ef2be0b 100644
+> --- a/include/asm-generic/ioctls.h
+> +++ b/include/asm-generic/ioctls.h
+> @@ -74,6 +74,7 @@
+>  #define TCSETXW		0x5435
+>  #define TIOCSIG		_IOW('T', 0x36, int)  /* pty: generate signal */
+>  #define TIOCVHANGUP	0x5437
+> +#define TIOCOUTQNSD	0x5438
+>  
+>  #define FIONCLEX	0x5450
+>  #define FIOCLEX		0x5451
 
-It's because these devices already contain 'group' in the sysfs dir.
-
-regards,
--- 
-js
-suse labs
+Hitting only asm-generic/ioctls.h is insufficient, many architectures do
+not make use of this file and the build will fail for them with your patch
+applied.
