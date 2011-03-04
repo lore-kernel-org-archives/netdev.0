@@ -1,122 +1,186 @@
-From: Vlad Yasevich <vladislav.yasevich@hp.com>
-Subject: Re: [PATCH] sctp: fix the fast retransmit limit
-Date: Fri, 04 Mar 2011 09:09:57 -0500
-Message-ID: <1299247797.2581.18.camel@oscar>
-References: <4D6F5F83.705@cn.fujitsu.com> <4D6FA2D3.501@hp.com>
-	 <4D707CB6.8020502@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next-2.6] inetpeer: seqlock optimization
+Date: Fri, 04 Mar 2011 16:09:08 +0100
+Message-ID: <1299251348.2676.16.camel@edumazet-laptop>
+References: <AANLkTi=Ty+C3b9U+151dUMpgGiwG3AE4dMmc3djWmp6v@mail.gmail.com>
+	 <20110302.224220.179921025.davem@davemloft.net>
+	 <1299137977.2456.15.camel@edumazet-laptop>
+	 <20110303.003229.229764095.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lksctp <linux-sctp@vger.kernel.org>,
-	Mingyuan Zhu <liyha.zhu@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: Wei Yongjun <yjwei@cn.fujitsu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiaosuo@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0009.atlanta.hp.com ([15.192.0.46]:43671 "EHLO
-	g5t0009.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753267Ab1CDOKA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 09:10:00 -0500
-In-Reply-To: <4D707CB6.8020502@cn.fujitsu.com>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:44205 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759200Ab1CDPJN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 10:09:13 -0500
+Received: by bwz15 with SMTP id 15so2123733bwz.19
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2011 07:09:12 -0800 (PST)
+In-Reply-To: <20110303.003229.229764095.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2011-03-04 at 13:46 +0800, Wei Yongjun wrote:
-> > On 03/03/2011 04:29 AM, Wei Yongjun wrote:
-> >> If chunk is still lost after fast retransmit, SCTP stack will
-> >> never allow the second fast retransmit of this chunk, even if
-> >> the peer need we do this. This chunk will be retransmit until
-> >> the rtx timeout. This limit is introduce by the following patch:
-> >>   sctp: reduce memory footprint of sctp_chunk structure
-> >>   (c226ef9b83694311327f3ab0036c6de9c22e9daf)
-> >>
-> >> This patch revert this limit and removed useless SCTP_DONT_FRTX.
-> > NACK.  Please read the spec and how fast recovery is specified.
-> 
-> 
-> RFC 7.2.4. Fast Retransmit on Gap Reports said:
-> 5) Mark the DATA chunk(s) as being fast retransmitted and thus
-> ineligible for a subsequent Fast Retransmit. Those TSNs marked
-> for retransmission due to the Fast-Retransmit algorithm that did
-> not fit in the sent datagram carrying K other TSNs are also
-> marked as ineligible for a subsequent Fast Retransmit. However,
-> as they are marked for retransmission they will be retransmitted
-> later on as soon as cwnd allows.
-> 
-> So we can treat this chunk can be Fast Retransmit again if not in
-> fast recovery?
+Le jeudi 03 mars 2011 =C3=A0 00:32 -0800, David Miller a =C3=A9crit :
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Thu, 03 Mar 2011 08:39:37 +0100
+>=20
+> > Le mercredi 02 mars 2011 =C3=A0 22:42 -0800, David Miller a =C3=A9c=
+rit :
+> >> Actually, back to the original topic, I wonder how bad it is to si=
+mply
+> >> elide the recheck in the create=3D=3D0 case anyways.  Except for t=
+he ipv4
+> >> fragmentation wraparound protection values, perfect inetpeer findi=
+ng
+> >> is not necessary for correctness.  And IPv4 fragmentation always c=
+alls
+> >> inetpeer with create!=3D0.
+> >=20
+> > We could use a seqlock, to detect that a writer might have changed
+> > things while we did our RCU lookup ?
+>=20
+> That would certainly work.
 
-Right, but you are in Fast Recovery until Cumulative TSN moves
-past fast recovery exit point.  In other words, you can't exit
-fast recovery until the missing chunk has been acknowledged.
+Here is a patch to implement this idea.
 
-The algorithm states that you can Fast Retransmit a chunk once.
-If the Fast RTX chunk is lost, you revert to time-outs for that chunk.
+Thanks !
 
-Now, there are some improvements to this algorithm that have been
-researched, but not standardized.  One such improvement is to allow
-subsequent FAST-RTXs once the New TSN in SACK reaches the fast recovery
-exit point (meaning, that all in-flight data has been SACKed, but the
-chunk is still missing).  Once that happens, you can start counting
-misses again and FAST-RTX when 3 more misses occur.  This will improve
-the performance of FAST-RTX.
+[PATCH net-next-2.6] inetpeer: seqlock optimization
 
-The reason we don't automatically allow additional miss indications to
-count is because you may have a lot of chunks in flight.  That means
-that you end up doing FAST-RTX too often.  The idea is to allow the
-retransmitted chunk to get there.
+David noticed :
 
--vlad
-> 
-> > -vlad
-> >
-> >> Signed-off-by: Wei Yongjun <yjwei@cn.fujitsu.com>
-> >> ---
-> >>  include/net/sctp/structs.h |    1 -
-> >>  net/sctp/outqueue.c        |    4 ++--
-> >>  2 files changed, 2 insertions(+), 3 deletions(-)
-> >>
-> >> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> >> index cc9185c..82a0f84 100644
-> >> --- a/include/net/sctp/structs.h
-> >> +++ b/include/net/sctp/structs.h
-> >> @@ -751,7 +751,6 @@ struct sctp_chunk {
-> >>  
-> >>  #define SCTP_CAN_FRTX 0x0
-> >>  #define SCTP_NEED_FRTX 0x1
-> >> -#define SCTP_DONT_FRTX 0x2
-> >>  	__u16	rtt_in_progress:1,	/* This chunk used for RTT calc? */
-> >>  		has_tsn:1,		/* Does this chunk have a TSN yet? */
-> >>  		has_ssn:1,		/* Does this chunk have a SSN yet? */
-> >> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> >> index 8c6d379..7ed5862 100644
-> >> --- a/net/sctp/outqueue.c
-> >> +++ b/net/sctp/outqueue.c
-> >> @@ -657,7 +657,7 @@ redo:
-> >>  			 * after it is retransmitted.
-> >>  			 */
-> >>  			if (chunk->fast_retransmit == SCTP_NEED_FRTX)
-> >> -				chunk->fast_retransmit = SCTP_DONT_FRTX;
-> >> +				chunk->fast_retransmit = SCTP_CAN_FRTX;
-> >>  
-> >>  			q->empty = 0;
-> >>  			break;
-> >> @@ -679,7 +679,7 @@ redo:
-> >>  	if (rtx_timeout || fast_rtx) {
-> >>  		list_for_each_entry(chunk1, lqueue, transmitted_list) {
-> >>  			if (chunk1->fast_retransmit == SCTP_NEED_FRTX)
-> >> -				chunk1->fast_retransmit = SCTP_DONT_FRTX;
-> >> +				chunk1->fast_retransmit = SCTP_CAN_FRTX;
-> >>  		}
-> >>  	}
-> >>  
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> 
+------------------
+Eric, I was profiling the non-routing-cache case and something that
+stuck out is the case of calling inet_getpeer() with create=3D=3D0.
 
+If an entry is not found, we have to redo the lookup under a spinlock
+to make certain that a concurrent writer rebalancing the tree does
+not "hide" an existing entry from us.
+
+This makes the case of a create=3D=3D0 lookup for a not-present entry
+really expensive.  It is on the order of 600 cpu cycles on my
+Niagara2.
+
+I added a hack to not do the relookup under the lock when create=3D=3D0
+and it now costs less than 300 cycles.
+
+This is now a pretty common operation with the way we handle COW'd
+metrics, so I think it's definitely worth optimizing.
+-----------------
+
+One solution is to use a seqlock instead of a spinlock to protect struc=
+t
+inet_peer_base.
+
+After a failed avl tree lookup, we can easily detect if a writer did
+some changes during our lookup. Taking the lock and redo the lookup is
+only necessary in this case.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+---
+ net/ipv4/inetpeer.c |   24 ++++++++++++++++--------
+ 1 files changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 48f8d45..7fd9fab 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -81,19 +81,19 @@ static const struct inet_peer peer_fake_node =3D {
+=20
+ struct inet_peer_base {
+ 	struct inet_peer __rcu *root;
+-	spinlock_t	lock;
++	seqlock_t	lock;
+ 	int		total;
+ };
+=20
+ static struct inet_peer_base v4_peers =3D {
+ 	.root		=3D peer_avl_empty_rcu,
+-	.lock		=3D __SPIN_LOCK_UNLOCKED(v4_peers.lock),
++	.lock		=3D __SEQLOCK_UNLOCKED(v4_peers.lock),
+ 	.total		=3D 0,
+ };
+=20
+ static struct inet_peer_base v6_peers =3D {
+ 	.root		=3D peer_avl_empty_rcu,
+-	.lock		=3D __SPIN_LOCK_UNLOCKED(v6_peers.lock),
++	.lock		=3D __SEQLOCK_UNLOCKED(v6_peers.lock),
+ 	.total		=3D 0,
+ };
+=20
+@@ -372,7 +372,7 @@ static void unlink_from_pool(struct inet_peer *p, s=
+truct inet_peer_base *base)
+=20
+ 	do_free =3D 0;
+=20
+-	spin_lock_bh(&base->lock);
++	write_seqlock_bh(&base->lock);
+ 	/* Check the reference counter.  It was artificially incremented by 1
+ 	 * in cleanup() function to prevent sudden disappearing.  If we can
+ 	 * atomically (because of lockless readers) take this last reference,
+@@ -409,7 +409,7 @@ static void unlink_from_pool(struct inet_peer *p, s=
+truct inet_peer_base *base)
+ 		base->total--;
+ 		do_free =3D 1;
+ 	}
+-	spin_unlock_bh(&base->lock);
++	write_sequnlock_bh(&base->lock);
+=20
+ 	if (do_free)
+ 		call_rcu_bh(&p->rcu, inetpeer_free_rcu);
+@@ -477,12 +477,16 @@ struct inet_peer *inet_getpeer(struct inetpeer_ad=
+dr *daddr, int create)
+ 	struct inet_peer __rcu **stack[PEER_MAXDEPTH], ***stackptr;
+ 	struct inet_peer_base *base =3D family_to_base(daddr->family);
+ 	struct inet_peer *p;
++	unsigned int sequence;
++	int invalidated;
+=20
+ 	/* Look up for the address quickly, lockless.
+ 	 * Because of a concurrent writer, we might not find an existing entr=
+y.
+ 	 */
+ 	rcu_read_lock_bh();
++	sequence =3D read_seqbegin(&base->lock);
+ 	p =3D lookup_rcu_bh(daddr, base);
++	invalidated =3D read_seqretry(&base->lock, sequence);
+ 	rcu_read_unlock_bh();
+=20
+ 	if (p) {
+@@ -493,14 +497,18 @@ struct inet_peer *inet_getpeer(struct inetpeer_ad=
+dr *daddr, int create)
+ 		return p;
+ 	}
+=20
++	/* If no writer did a change during our lookup, we can return early. =
+*/
++	if (!create && !invalidated)
++		return NULL;
++
+ 	/* retry an exact lookup, taking the lock before.
+ 	 * At least, nodes should be hot in our cache.
+ 	 */
+-	spin_lock_bh(&base->lock);
++	write_seqlock_bh(&base->lock);
+ 	p =3D lookup(daddr, stack, base);
+ 	if (p !=3D peer_avl_empty) {
+ 		atomic_inc(&p->refcnt);
+-		spin_unlock_bh(&base->lock);
++		write_sequnlock_bh(&base->lock);
+ 		/* Remove the entry from unused list if it was there. */
+ 		unlink_from_unused(p);
+ 		return p;
+@@ -524,7 +532,7 @@ struct inet_peer *inet_getpeer(struct inetpeer_addr=
+ *daddr, int create)
+ 		link_to_pool(p, base);
+ 		base->total++;
+ 	}
+-	spin_unlock_bh(&base->lock);
++	write_sequnlock_bh(&base->lock);
+=20
+ 	if (base->total >=3D inet_peer_threshold)
+ 		/* Remove one less-recently-used entry. */
 
 
