@@ -1,34 +1,33 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: [PATCH v2] tcp: ioctl type SIOCOUTQNSD returns amount of data
- not sent
-Date: Fri, 4 Mar 2011 12:39:50 +0000
-Message-ID: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
-References: <201103041057.53671.arnd@arndb.de>
-	<1299234031-13937-1-git-send-email-sledz@dresearch.de>
-	<4D70DA8D.9070603@dresearch.de>
+From: Markus Feldmann <feldmann_markus@gmx.de>
+Subject: Re: Jetway JAD3RTLANG, Daughter Board, 3x GigaBit LAN does not work
+ correctly
+Date: Fri, 04 Mar 2011 13:43:18 +0100
+Message-ID: <ikqmod$hul$1@dough.gmane.org>
+References: <ikovkn$bn8$1@dough.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Mario Schuknecht <m.schuknecht@dresearch.de>
-To: Steffen Sledz <sledz@dresearch.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D70DA8D.9070603@dresearch.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:53121 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751884Ab1CDMnF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Mar 2011 07:43:05 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1PvULY-0003C4-Rw
+	for netdev@vger.kernel.org; Fri, 04 Mar 2011 13:43:04 +0100
+Received: from dslb-092-076-226-199.pools.arcor-ip.net ([92.76.226.199])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2011 13:43:04 +0100
+Received: from feldmann_markus by dslb-092-076-226-199.pools.arcor-ip.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2011 13:43:04 +0100
+In-Reply-To: <ikovkn$bn8$1@dough.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> > If you plan to add one to Linux then please post the accompanying *tty
-> > layer* patches and reasoning, otherwise if it is socket only please stick
-> > to the socket ioctl.
-> 
-> So we should define the new SIOCOUTQNSD in sockios.h only and not similiar to SIOCOUTQ using TIOCOUTQ. Right?
+Here is the dmesg:
+http://pastebin.com/PVJdq5hE
 
-Right
-
-Alan
