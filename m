@@ -1,57 +1,50 @@
-From: <Narendra_K@Dell.com>
-Subject: Re: [PATCH V4] Export ACPI _DSM provided firmware instance number
- and string name to sysfs
-Date: Fri, 4 Mar 2011 08:28:59 -0800
-Message-ID: <20110304164957.GA2913@fedora14-r610.oslab.blr.amer.dell.com>
-References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
- <20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Subject: Re: [PATCH] net: Enter net/ipv6/ even if CONFIG_IPV6=n
+Date: Fri, 04 Mar 2011 09:01:54 -0800
+Message-ID: <4D711B02.2060200@oracle.com>
+References: <20110210180525.54ec83e9.sfr@canb.auug.org.au> <20110210095210.6fcf3011.randy.dunlap@oracle.com> <4D58DB20.5060401@trash.net> <20110303135414.bfcabb2a.randy.dunlap@oracle.com> <20110304093507.GG10761@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <mjg@redhat.com>, <Matt_Domsch@Dell.com>,
-	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>,
-	<Shyam_Iyer@Dell.com>, <sfr@canb.auug.org.au>
-To: <linux-pci@vger.kernel.org>, <linux-hotplug@vger.kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, Patrick McHardy <kaber@trash.net>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	netdev@vger.kernel.org, linux-next@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20110304093507.GG10761@canuck.infradead.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 02, 2011 at 10:34:17PM +0530, K, Narendra wrote:
-> On Wed, Feb 23, 2011 at 06:06:42PM +0530, K, Narendra wrote:
-> > Hello,
-> >
-> > This patch exports ACPI _DSM provided firmware instance number and
-> > string name to sysfs.
-> >
-> > V1 -> V2:
-> > The attribute 'index' is changed to 'acpi_index' as the semantics of
-> > SMBIOS provided device type instance and ACPI _DSM provided firmware
-> > instance number are different.
-> >
-> > V2 -> V3:
-> > Matthew Garrett pointed out that 'sysfs_create_groups' does return an
-> > error when there are no ACPI _DSM attributes available and because of
-> > that the fallback to SMBIOS will not happen. As a result SMBIOS provided
-> > attributes are not created. This version of the patch addresses the issue.
-> >
+On 03/04/11 01:35, Thomas Graf wrote:
+> exthdrs_core.c and addrconf_core.c in net/ipv6/ contain bits which
+> must be made available even if IPv6 is disabled.
 > 
-> V3 -> V4:
-> Select NLS if (DMI || ACPI) in drivers/pci/Kconfig to prevent build
-> breakage from an 'allmodconfig'
+> net/ipv6/Makefile already correctly includes them if CONFIG_IPV6=n
+> but net/Makefile prevents entering the subdirectory.
 > 
-> Matthew,
-> Thanks for the suggestion.
+> Signed-off-by: Thomas Graf <tgraf@infradead.org>
+
+Acked-by: Randy Dunlap <randy.dunlap@oracle.com>
+
+Thanks.
+
 > 
-> From: Narendra K <narendra_k@dell.com>
-> Subject: [PATCH] Export ACPI _DSM provided firmware instance number and string to sysfs
->
+> diff --git a/net/Makefile b/net/Makefile
+> index a3330eb..a51d946 100644
+> --- a/net/Makefile
+> +++ b/net/Makefile
+> @@ -19,9 +19,7 @@ obj-$(CONFIG_NETFILTER)		+= netfilter/
+>  obj-$(CONFIG_INET)		+= ipv4/
+>  obj-$(CONFIG_XFRM)		+= xfrm/
+>  obj-$(CONFIG_UNIX)		+= unix/
+> -ifneq ($(CONFIG_IPV6),)
+> -obj-y				+= ipv6/
+> -endif
+> +obj-$(CONFIG_NET)		+= ipv6/
+>  obj-$(CONFIG_PACKET)		+= packet/
+>  obj-$(CONFIG_NET_KEY)		+= key/
+>  obj-$(CONFIG_BRIDGE)		+= bridge/
 
-Hi Jesse,
 
-Does Version 4 of the patch look good for inclusion ? Please let us know
-if there are any concerns.
-
-With regards,
-Narendra K 
+-- 
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
