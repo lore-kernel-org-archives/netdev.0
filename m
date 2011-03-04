@@ -1,54 +1,38 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net tree with the i.MX tree
-Date: Fri, 4 Mar 2011 12:31:35 +1100
-Message-ID: <20110304123135.f3389022.sfr@canb.auug.org.au>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [Drbd-dev] [PATCH 2/2 v2] netlink: kill eff_cap from struct
+ netlink_skb_parms
+Date: Fri, 4 Mar 2011 04:29:56 +0300
+Message-ID: <20110304012956.GA13573@ioremap.net>
+References: <4D6F6180.5030903@trash.net>
+ <20110303173230.GP4988@sequoia.sous-sol.org>
+ <20110303.105655.189705829.davem@davemloft.net>
+ <20110303201522.GT4988@sequoia.sous-sol.org>
+ <20110303223746.GI25069@barkeeper1-xen.linbit>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA1";
- boundary="Signature=_Fri__4_Mar_2011_12_31_35_+1100_hSFvZdtrw/e5NjL="
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Zhao <richard.zhao@freescale.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	=?UTF-8?B?IlV3ZSBLbGVpbmUtS8O2bmlnIg==?=
-	<u.kleine-koenig@pengutronix.de>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Chris Wright <chrisw@sous-sol.org>,
+	David Miller <davem@davemloft.net>,
+	linux-fbdev@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, dm-devel@redhat.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20110303223746.GI25069@barkeeper1-xen.linbit>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__4_Mar_2011_12_31_35_+1100_hSFvZdtrw/e5NjL=
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Hi.
 
-Hi all,
+On Thu, Mar 03, 2011 at 11:37:46PM +0100, Lars Ellenberg (lars.ellenberg@linbit.com) wrote:
+> If so, then this change introduces the possibility for normal users to
+> send privileged commands to connector based subsystems, even if they
+> may not be able to bind() to suitable sockets to receive any replies.
+> 
+> Am I missing something?
 
-Today's linux-next merge of the net tree got a conflict in
-drivers/net/Kconfig between commit
-4d2f13be1e370a670c1cae20c194d5ce961e0fa5 ("ARM: imx3x: clean up
-ARCH_MX3X") from the i.MX tree and commit
-085e79ed88351d2f3cbf257ff4fc00394792da18 (net/fec: consolidate all i.MX
-options to CONFIG_ARM"") from the net tree.
+Yup, connector is very async at that place, but I wonder why the hell I
+ever made that decision. I believe we can replace it with pure sync call
+of the registered connector callback, since netlink is synchronous and
+no one has any problem with it.
 
-The latter seems to be a superset of the former, so I used that.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-http://www.canb.auug.org.au/~sfr/
-
---Signature=_Fri__4_Mar_2011_12_31_35_+1100_hSFvZdtrw/e5NjL=
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJNcED3AAoJEDMEi1NhKgbsFAwIAJHWqhRIUGaGnuk0UFZMm1X3
-OJS/js8Hrxe82lyK9N5hQa/m1nehw/ONFaYUy/PIF4WKGiJ+t+kutORiYjo7Be2e
-fA3BYS7mjoF5/usxQz550U9wDLFnuexifIgS0g7fKWjlbiFbogNRZXI4iYIxN1ak
-mGcoyB4MomPWgYWHjPY0IUdN6dPDlQncVwI/5hV3wpRK7XJVD0OQhr2S4hlKlzq1
-oEViuNw+BvLXfbM/hagrHK9LFNt8mSiHiFuDTk2bAfdkhzEgh5rmDkbu8Jcq3+iR
-mhKnMPzVsgdb0GFBHk+PkvdfCWAIyJerAx+A34G0mTRfnMSRjCB+KFIzGd9a5+0=
-=Xi+s
------END PGP SIGNATURE-----
-
---Signature=_Fri__4_Mar_2011_12_31_35_+1100_hSFvZdtrw/e5NjL=--
+-- 
+	Evgeniy Polyakov
