@@ -1,75 +1,63 @@
-From: Randy Dunlap <rdunlap@xenotime.net>
-Subject: Re: [Patch] ariadne: fix possible null dereference
-Date: Fri, 4 Mar 2011 10:31:21 -0800
-Message-ID: <20110304103121.81a2364b.rdunlap@xenotime.net>
-References: <20110304174625.GA31042@asset.uwaterloo.ca>
+From: Jesse Barnes <jbarnes@virtuousgeek.org>
+Subject: Re: [PATCH V4] Export ACPI _DSM provided firmware instance number
+ and string name to sysfs
+Date: Fri, 4 Mar 2011 10:38:52 -0800
+Message-ID: <20110304103852.1bff3753@jbarnes-desktop>
+References: <20110223125741.GA16473@fedora14-r610.blr.amer.dell.com>
+	<20110302172508.GA2794@fedora14-r610.oslab.blr.amer.dell.com>
+	<20110304164957.GA2913@fedora14-r610.oslab.blr.amer.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: j223yang@asset.uwaterloo.ca
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20110304174625.GA31042@asset.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <linux-pci@vger.kernel.org>, <linux-hotplug@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <mjg@redhat.com>, <Matt_Domsch@Dell.com>,
+	<Charles_Rose@Dell.com>, <Jordan_Hargrave@Dell.com>,
+	<Shyam_Iyer@Dell.com>, <sfr@canb.auug.org.au>
+To: <Narendra_K@Dell.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20110304164957.GA2913@fedora14-r610.oslab.blr.amer.dell.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Mar 2011 12:46:26 -0500 j223yang@asset.uwaterloo.ca wrote:
+On Fri, 4 Mar 2011 08:28:59 -0800
+<Narendra_K@Dell.com> wrote:
 
-> This patch fixes bugzilla #13853:
-> https://bugzilla.kernel.org/show_bug.cgi?id=13853
+> On Wed, Mar 02, 2011 at 10:34:17PM +0530, K, Narendra wrote:
+> > On Wed, Feb 23, 2011 at 06:06:42PM +0530, K, Narendra wrote:
+> > > Hello,
+> > >
+> > > This patch exports ACPI _DSM provided firmware instance number and
+> > > string name to sysfs.
+> > >
+> > > V1 -> V2:
+> > > The attribute 'index' is changed to 'acpi_index' as the semantics of
+> > > SMBIOS provided device type instance and ACPI _DSM provided firmware
+> > > instance number are different.
+> > >
+> > > V2 -> V3:
+> > > Matthew Garrett pointed out that 'sysfs_create_groups' does return an
+> > > error when there are no ACPI _DSM attributes available and because of
+> > > that the fallback to SMBIOS will not happen. As a result SMBIOS provided
+> > > attributes are not created. This version of the patch addresses the issue.
+> > >
+> > 
+> > V3 -> V4:
+> > Select NLS if (DMI || ACPI) in drivers/pci/Kconfig to prevent build
+> > breakage from an 'allmodconfig'
+> > 
+> > Matthew,
+> > Thanks for the suggestion.
+> > 
+> > From: Narendra K <narendra_k@dell.com>
+> > Subject: [PATCH] Export ACPI _DSM provided firmware instance number and string to sysfs
+> >
 > 
-> The patch removes dereference of 'dev' after testing for NULL.
-> The source code ariadne.c uses spaces instead of tabs, so the patch
-> uses spaces too.
-
-Sorry for the confusion here, but (while I agree with the fix in this
-patch), this patch still does not apply cleanly.
-
-If a line in the source code file uses spaces, then use spaces.
-If a line in the source code file uses tabs, then use tabs.
-
-You cannot exchange one for the other in your generated patch.
-Using 'diff' creates the patch correctly, so I guess that your patch
-generation tool still needs some work.
-
-Please take your patch and test applying it:
-
-> cd linux-2.6.38-rc7
-> patch -p1 --dry-run < ~/tmp/ariadne.patch
-patching file drivers/net/ariadne.c
-Hunk #2 FAILED at 430.
-1 out of 2 hunks FAILED -- saving rejects to file drivers/net/ariadne.c.rej
-
-
-> Signed-off-by: Jinqiu Yang<crindy646@gmail.com>
-> ---
->  drivers/net/ariadne.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
+> Hi Jesse,
 > 
-> diff --git a/drivers/net/ariadne.c b/drivers/net/ariadne.c
-> --- a/drivers/net/ariadne.c
-> +++ b/drivers/net/ariadne.c
-> @@ -420,7 +420,7 @@ static inline void ariadne_reset(struct
->  static irqreturn_t ariadne_interrupt(int irq, void *data)
->  {
->      struct net_device *dev = (struct net_device *)data;
-> -    volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
-> +    volatile struct Am79C960 *lance;
->      struct ariadne_private *priv;
->      int csr0, boguscnt;
->      int handled = 0;
-> @@ -430,6 +430,7 @@ static irqreturn_t ariadne_interrupt(int
->         return IRQ_NONE;
->      }
-> 
-> +    lance = (struct Am79C960 *)dev->base_addr;
->      lance->RAP = CSR0;                 /* PCnet-ISA Controller Status */
-> 
->      if (!(lance->RDP & INTR))          /* Check if any interrupt has been */
-> 
-> --
+> Does Version 4 of the patch look good for inclusion ? Please let us know
+> if there are any concerns.
 
----
-~Randy
-*** Remember to use Documentation/SubmitChecklist when testing your code ***
+Oh sorry, I was looking in the wrong mailbox, I'll pull this one in now.
+
+-- 
+Jesse Barnes, Intel Open Source Technology Center
