@@ -1,437 +1,226 @@
-From: =?UTF-8?q?R=C3=A9mi=20Denis-Courmont?=
-	<remi.denis-courmont@nokia.com>
-Subject: [PATCH 4/8] Phonet: factor common code to send control messages
-Date: Fri,  4 Mar 2011 12:00:27 +0200
-Message-ID: <1299232831-3132-4-git-send-email-remi.denis-courmont@nokia.com>
-References: <201103031322.37184.remi.denis-courmont@nokia.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+From: Steffen Sledz <sledz@dresearch.de>
+Subject: [PATCH v2] tcp: ioctl type SIOCOUTQNSD returns amount of data not sent
+Date: Fri,  4 Mar 2011 11:20:31 +0100
+Message-ID: <1299234031-13937-1-git-send-email-sledz@dresearch.de>
+References: <201103041057.53671.arnd@arndb.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Mario Schuknecht <m.schuknecht@dresearch.de>,
+	Steffen Sledz <sledz@dresearch.de>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.nokia.com ([147.243.1.48]:46995 "EHLO mgw-sa02.nokia.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759282Ab1CDJ7l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2011 04:59:41 -0500
-Received: from leon.remlab.com ([172.21.24.67])
-	by mgw-sa02.nokia.com (Switch-3.4.3/Switch-3.4.3) with ESMTP id p249xdaa012056
-	for <netdev@vger.kernel.org>; Fri, 4 Mar 2011 11:59:40 +0200
-In-Reply-To: <201103031322.37184.remi.denis-courmont@nokia.com>
+Received: from proxy.DResearch.DE ([87.193.137.100]:33564 "EHLO
+	mail.dresearch.de" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1759274Ab1CDKUx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 05:20:53 -0500
+In-Reply-To: <201103041057.53671.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: R=C3=A9mi Denis-Courmont <remi.denis-courmont@nokia.com>
----
- net/phonet/pep.c |  225 ++++++++++++++++++----------------------------=
---------
- 1 files changed, 73 insertions(+), 152 deletions(-)
+From: Mario Schuknecht <m.schuknecht@dresearch.de>
 
-diff --git a/net/phonet/pep.c b/net/phonet/pep.c
-index 40952c7..610794a 100644
---- a/net/phonet/pep.c
-+++ b/net/phonet/pep.c
-@@ -77,24 +77,34 @@ static unsigned char *pep_get_sb(struct sk_buff *sk=
-b, u8 *ptype, u8 *plen,
- 	return data;
- }
-=20
--static int pep_reply(struct sock *sk, struct sk_buff *oskb,
--			u8 code, const void *data, int len, gfp_t priority)
-+static struct sk_buff *pep_alloc_skb(struct sock *sk, const void *payl=
-oad,
-+					int len, gfp_t priority)
-+{
-+	struct sk_buff *skb =3D alloc_skb(MAX_PNPIPE_HEADER + len, priority);
-+	if (!skb)
-+		return NULL;
-+	skb_set_owner_w(skb, sk);
+In contrast to SIOCOUTQ which returns the amount of data sent
+but not yet acknowledged plus data not yet sent this patch only
+returns the data not sent.
+
+For various methods of live streaming bitrate control it may
+be helpful to know how much data are in the tcp outqueue are
+not sent yet.
+
+Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
+Signed-off-by: Steffen Sledz <sledz@dresearch.de>
+---
+ arch/alpha/include/asm/ioctls.h   |    3 ++-
+ arch/mips/include/asm/ioctls.h    |    3 ++-
+ arch/parisc/include/asm/ioctls.h  |    3 ++-
+ arch/powerpc/include/asm/ioctls.h |    3 ++-
+ arch/sh/include/asm/ioctls.h      |    3 ++-
+ arch/sparc/include/asm/ioctls.h   |    3 ++-
+ arch/xtensa/include/asm/ioctls.h  |    3 ++-
+ include/asm-generic/ioctls.h      |    3 ++-
+ include/linux/sockios.h           |    1 +
+ net/ipv4/tcp.c                    |    9 +++++++++
+ 10 files changed, 26 insertions(+), 8 deletions(-)
+
+diff --git a/arch/alpha/include/asm/ioctls.h b/arch/alpha/include/asm/ioctls.h
+index 80e1cee..5ceb2de 100644
+--- a/arch/alpha/include/asm/ioctls.h
++++ b/arch/alpha/include/asm/ioctls.h
+@@ -35,12 +35,13 @@
+ #define TIOCGWINSZ	_IOR('t', 104, struct winsize)
+ #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
+ #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
+-#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
++#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
+ 
+ #define TIOCGLTC	_IOR('t', 116, struct ltchars)
+ #define TIOCSLTC	_IOW('t', 117, struct ltchars)
+ #define TIOCSPGRP	_IOW('t', 118, int)
+ #define TIOCGPGRP	_IOR('t', 119, int)
++#define TIOCOUTQNSD     _IOR('t', 120, int)     /* output queue size (not send only) */
+ 
+ #define TIOCEXCL	0x540C
+ #define TIOCNXCL	0x540D
+diff --git a/arch/mips/include/asm/ioctls.h b/arch/mips/include/asm/ioctls.h
+index 92403c3..dd8d8c5 100644
+--- a/arch/mips/include/asm/ioctls.h
++++ b/arch/mips/include/asm/ioctls.h
+@@ -27,7 +27,8 @@
+ 
+ #define TIOCEXCL	0x740d		/* set exclusive use of tty */
+ #define TIOCNXCL	0x740e		/* reset exclusive use of tty */
+-#define TIOCOUTQ	0x7472		/* output queue size */
++#define TIOCOUTQ	0x7472		/* output queue size (not send + not acked) */
++#define TIOCOUTQNSD	0x7473		/* output queue size (not send only) */
+ #define TIOCSTI		0x5472		/* simulate terminal input */
+ #define TIOCMGET	0x741d		/* get all modem bits */
+ #define TIOCMBIS	0x741b		/* bis modem bits */
+diff --git a/arch/parisc/include/asm/ioctls.h b/arch/parisc/include/asm/ioctls.h
+index 054ec06..1cf1681 100644
+--- a/arch/parisc/include/asm/ioctls.h
++++ b/arch/parisc/include/asm/ioctls.h
+@@ -21,7 +21,7 @@
+ #define TIOCSCTTY	0x540E
+ #define TIOCGPGRP	_IOR('T', 30, int)
+ #define TIOCSPGRP	_IOW('T', 29, int)
+-#define TIOCOUTQ	0x5411
++#define TIOCOUTQ	0x5411 /* output queue size (not send + not acked) */
+ #define TIOCSTI		0x5412
+ #define TIOCGWINSZ	0x5413
+ #define TIOCSWINSZ	0x5414
+@@ -55,6 +55,7 @@
+ #define TIOCGDEV	_IOR('T',0x32, int)  /* Get primary device node of /dev/console */
+ #define TIOCSIG		_IOW('T',0x36, int)  /* Generate signal on Pty slave */
+ #define TIOCVHANGUP	0x5437
++#define TIOCOUTQNSD	0x5438 /* output queue size (not send only) */
+ 
+ #define FIONCLEX	0x5450  /* these numbers need to be adjusted. */
+ #define FIOCLEX		0x5451
+diff --git a/arch/powerpc/include/asm/ioctls.h b/arch/powerpc/include/asm/ioctls.h
+index e9b7887..ae1b21e 100644
+--- a/arch/powerpc/include/asm/ioctls.h
++++ b/arch/powerpc/include/asm/ioctls.h
+@@ -35,12 +35,13 @@
+ #define TIOCGWINSZ	_IOR('t', 104, struct winsize)
+ #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
+ #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
+-#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
++#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
+ 
+ #define TIOCGLTC	_IOR('t', 116, struct ltchars)
+ #define TIOCSLTC	_IOW('t', 117, struct ltchars)
+ #define TIOCSPGRP	_IOW('t', 118, int)
+ #define TIOCGPGRP	_IOR('t', 119, int)
++#define TIOCOUTQNSD     _IOR('t', 120, int)     /* output queue size (not send only) */
+ 
+ #define TIOCEXCL	0x540C
+ #define TIOCNXCL	0x540D
+diff --git a/arch/sh/include/asm/ioctls.h b/arch/sh/include/asm/ioctls.h
+index a6769f3..f0bd75a 100644
+--- a/arch/sh/include/asm/ioctls.h
++++ b/arch/sh/include/asm/ioctls.h
+@@ -29,7 +29,8 @@
+ #define TIOCGWINSZ	0x80087468	/* _IOR('t', 104, struct winsize) */
+ #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
+ #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
+-#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
++#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
++#define TIOCOUTQNSD     _IOR('t', 116, int)     /* output queue size (not send only) */
+ 
+ #define TIOCSPGRP	_IOW('t', 118, int)
+ #define TIOCGPGRP	_IOR('t', 119, int)
+diff --git a/arch/sparc/include/asm/ioctls.h b/arch/sparc/include/asm/ioctls.h
+index 28d0c8b..184acc3 100644
+--- a/arch/sparc/include/asm/ioctls.h
++++ b/arch/sparc/include/asm/ioctls.h
+@@ -60,7 +60,7 @@
+ #define TIOCPKT		_IOW('t', 112, int)
+ #define TIOCNOTTY	_IO('t', 113)
+ #define TIOCSTI		_IOW('t', 114, char)
+-#define TIOCOUTQ	_IOR('t', 115, int)
++#define TIOCOUTQ	_IOR('t', 115, int) /* output queue size (not send + not acked) */
+ #define __TIOCGLTC        _IOR('t', 116, struct ltchars) /* SunOS Specific */
+ #define __TIOCSLTC        _IOW('t', 117, struct ltchars) /* SunOS Specific */
+ /* 118 is the non-posix setpgrp tty ioctl */
+@@ -83,6 +83,7 @@
+ #define TIOCGPTN	_IOR('t', 134, unsigned int) /* Get Pty Number */
+ #define TIOCSPTLCK	_IOW('t', 135, int) /* Lock/unlock PTY */
+ #define TIOCSIG		_IOW('t', 136, int) /* Generate signal on Pty slave */
++#define TIOCOUTQNSD	_IOW('t', 137, int) /* output queue size (not send only) */
+ 
+ /* Little f */
+ #define FIOCLEX		_IO('f', 1)
+diff --git a/arch/xtensa/include/asm/ioctls.h b/arch/xtensa/include/asm/ioctls.h
+index fd1d136..5222d8c 100644
+--- a/arch/xtensa/include/asm/ioctls.h
++++ b/arch/xtensa/include/asm/ioctls.h
+@@ -41,7 +41,8 @@
+ #define TIOCGWINSZ	_IOR('t', 104, struct winsize)
+ #define	TIOCSTART	_IO('t', 110)		/* start output, like ^Q */
+ #define	TIOCSTOP	_IO('t', 111)		/* stop output, like ^S */
+-#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size */
++#define TIOCOUTQ        _IOR('t', 115, int)     /* output queue size (not send + not acked) */
++#define TIOCOUTQNSD     _IOR('t', 116, int)     /* output queue size (not send only) */
+ 
+ #define TIOCSPGRP	_IOW('t', 118, int)
+ #define TIOCGPGRP	_IOR('t', 119, int)
+diff --git a/include/asm-generic/ioctls.h b/include/asm-generic/ioctls.h
+index 199975f..231e492 100644
+--- a/include/asm-generic/ioctls.h
++++ b/include/asm-generic/ioctls.h
+@@ -32,7 +32,7 @@
+ #define TIOCSCTTY	0x540E
+ #define TIOCGPGRP	0x540F
+ #define TIOCSPGRP	0x5410
+-#define TIOCOUTQ	0x5411
++#define TIOCOUTQ	0x5411 /* output queue size (not send + not acked) */
+ #define TIOCSTI		0x5412
+ #define TIOCGWINSZ	0x5413
+ #define TIOCSWINSZ	0x5414
+@@ -74,6 +74,7 @@
+ #define TCSETXW		0x5435
+ #define TIOCSIG		_IOW('T', 0x36, int)  /* pty: generate signal */
+ #define TIOCVHANGUP	0x5437
++#define TIOCOUTQNSD	0x5438 /* output queue size (not send only) */
+ 
+ #define FIONCLEX	0x5450
+ #define FIOCLEX		0x5451
+diff --git a/include/linux/sockios.h b/include/linux/sockios.h
+index 241f179..4c5ca47 100644
+--- a/include/linux/sockios.h
++++ b/include/linux/sockios.h
+@@ -23,6 +23,7 @@
+ /* Linux-specific socket ioctls */
+ #define SIOCINQ		FIONREAD
+ #define SIOCOUTQ	TIOCOUTQ
++#define SIOCOUTQNSD	TIOCOUTQNSD
+ 
+ /* Routing table calls. */
+ #define SIOCADDRT	0x890B		/* add routing table entry	*/
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a17a5a7..b22d450 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -505,6 +505,15 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 		else
+ 			answ = tp->write_seq - tp->snd_una;
+ 		break;
++	case SIOCOUTQNSD:
++		if (sk->sk_state == TCP_LISTEN)
++			return -EINVAL;
 +
-+	skb_reserve(skb, MAX_PNPIPE_HEADER);
-+	__skb_put(skb, len);
-+	skb_copy_to_linear_data(skb, payload, len);
-+	__skb_push(skb, sizeof(struct pnpipehdr));
-+	skb_reset_transport_header(skb);
-+	return skb;
-+}
-+
-+static int pep_reply(struct sock *sk, struct sk_buff *oskb, u8 code,
-+			const void *data, int len, gfp_t priority)
- {
- 	const struct pnpipehdr *oph =3D pnp_hdr(oskb);
- 	struct pnpipehdr *ph;
- 	struct sk_buff *skb;
- 	struct sockaddr_pn peer;
-=20
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER + len, priority);
-+	skb =3D pep_alloc_skb(sk, data, len, priority);
- 	if (!skb)
- 		return -ENOMEM;
--	skb_set_owner_w(skb, sk);
-=20
--	skb_reserve(skb, MAX_PNPIPE_HEADER);
--	__skb_put(skb, len);
--	skb_copy_to_linear_data(skb, data, len);
--	__skb_push(skb, sizeof(*ph));
--	skb_reset_transport_header(skb);
- 	ph =3D pnp_hdr(skb);
- 	ph->utid =3D oph->utid;
- 	ph->message_id =3D oph->message_id + 1; /* REQ -> RESP */
-@@ -105,135 +115,69 @@ static int pep_reply(struct sock *sk, struct sk_=
-buff *oskb,
- 	return pn_skb_send(sk, skb, &peer);
- }
-=20
--#define PAD 0x00
--
--#ifdef CONFIG_PHONET_PIPECTRLR
--static int pipe_handler_send_req(struct sock *sk, u8 msg_id, gfp_t pri=
-ority)
-+static int pep_indicate(struct sock *sk, u8 id, u8 code,
-+			const void *data, int len, gfp_t priority)
- {
--	int len;
-+	struct pep_sock *pn =3D pep_sk(sk);
- 	struct pnpipehdr *ph;
- 	struct sk_buff *skb;
--	struct pep_sock *pn =3D pep_sk(sk);
--
--	static const u8 data[4] =3D {
--		PAD, PAD, PAD, PAD,
--	};
-=20
--	switch (msg_id) {
--	case PNS_PEP_CONNECT_REQ:
--		len =3D sizeof(data);
--		break;
--
--	case PNS_PEP_DISCONNECT_REQ:
--	case PNS_PEP_ENABLE_REQ:
--	case PNS_PEP_DISABLE_REQ:
--		len =3D 0;
--		break;
--
--	default:
--		return -EINVAL;
--	}
--
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER + len, priority);
-+	skb =3D pep_alloc_skb(sk, data, len, priority);
- 	if (!skb)
- 		return -ENOMEM;
--	skb_set_owner_w(skb, sk);
-=20
--	skb_reserve(skb, MAX_PNPIPE_HEADER);
--	if (len) {
--		__skb_put(skb, len);
--		skb_copy_to_linear_data(skb, data, len);
--	}
--	__skb_push(skb, sizeof(*ph));
--	skb_reset_transport_header(skb);
- 	ph =3D pnp_hdr(skb);
--	ph->utid =3D msg_id; /* whatever */
--	ph->message_id =3D msg_id;
-+	ph->utid =3D 0;
-+	ph->message_id =3D id;
- 	ph->pipe_handle =3D pn->pipe_handle;
--	ph->error_code =3D PN_PIPE_NO_ERROR;
--
-+	ph->data[0] =3D code;
- 	return pn_skb_send(sk, skb, NULL);
- }
-=20
--static int pipe_handler_send_created_ind(struct sock *sk, u8 msg_id)
-+#define PAD 0x00
-+
-+#ifdef CONFIG_PHONET_PIPECTRLR
-+static int pipe_handler_request(struct sock *sk, u8 id, u8 code,
-+				const void *data, int len)
- {
--	int err_code;
-+	struct pep_sock *pn =3D pep_sk(sk);
- 	struct pnpipehdr *ph;
- 	struct sk_buff *skb;
-=20
--	struct pep_sock *pn =3D pep_sk(sk);
--	static u8 data[4] =3D {
--		0x03, 0x04,
--	};
--	data[2] =3D pn->tx_fc;
--	data[3] =3D pn->rx_fc;
--
--	/*
--	 * actually, below is number of sub-blocks and not error code.
--	 * Pipe_created_ind message format does not have any
--	 * error code field. However, the Phonet stack will always send
--	 * an error code as part of pnpipehdr. So, use that err_code to
--	 * specify the number of sub-blocks.
--	 */
--	err_code =3D 0x01;
--
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER + sizeof(data), GFP_ATOMIC);
-+	skb =3D pep_alloc_skb(sk, data, len, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOMEM;
--	skb_set_owner_w(skb, sk);
-=20
--	skb_reserve(skb, MAX_PNPIPE_HEADER);
--	__skb_put(skb, sizeof(data));
--	skb_copy_to_linear_data(skb, data, sizeof(data));
--	__skb_push(skb, sizeof(*ph));
--	skb_reset_transport_header(skb);
- 	ph =3D pnp_hdr(skb);
--	ph->utid =3D 0;
--	ph->message_id =3D msg_id;
-+	ph->utid =3D id; /* whatever */
-+	ph->message_id =3D id;
- 	ph->pipe_handle =3D pn->pipe_handle;
--	ph->error_code =3D err_code;
--
-+	ph->data[0] =3D code;
- 	return pn_skb_send(sk, skb, NULL);
- }
-=20
--static int pipe_handler_send_ind(struct sock *sk, u8 msg_id)
-+static int pipe_handler_send_created_ind(struct sock *sk)
- {
--	int err_code;
--	struct pnpipehdr *ph;
--	struct sk_buff *skb;
- 	struct pep_sock *pn =3D pep_sk(sk);
-+	u8 data[4] =3D {
-+		PN_PIPE_SB_NEGOTIATED_FC, pep_sb_size(2),
-+		pn->tx_fc, pn->rx_fc,
-+	};
-=20
--	/*
--	 * actually, below is a filler.
--	 * Pipe_enabled/disabled_ind message format does not have any
--	 * error code field. However, the Phonet stack will always send
--	 * an error code as part of pnpipehdr. So, use that err_code to
--	 * specify the filler value.
--	 */
--	err_code =3D 0x0;
--
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER, GFP_ATOMIC);
--	if (!skb)
--		return -ENOMEM;
--	skb_set_owner_w(skb, sk);
--
--	skb_reserve(skb, MAX_PNPIPE_HEADER);
--	__skb_push(skb, sizeof(*ph));
--	skb_reset_transport_header(skb);
--	ph =3D pnp_hdr(skb);
--	ph->utid =3D 0;
--	ph->message_id =3D msg_id;
--	ph->pipe_handle =3D pn->pipe_handle;
--	ph->error_code =3D err_code;
-+	return pep_indicate(sk, PNS_PIPE_CREATED_IND, 1 /* sub-blocks */,
-+				data, 4, GFP_ATOMIC);
-+}
-=20
--	return pn_skb_send(sk, skb, NULL);
-+static int pipe_handler_send_ind(struct sock *sk, u8 id)
-+{
-+	return pep_indicate(sk, id, PAD, NULL, 0, GFP_ATOMIC);
- }
-=20
- static int pipe_handler_enable_pipe(struct sock *sk, int enable)
- {
- 	u8 id =3D enable ? PNS_PEP_ENABLE_REQ : PNS_PEP_DISABLE_REQ;
-=20
--	return pipe_handler_send_req(sk, id, GFP_KERNEL);
-+	return pipe_handler_request(sk, id, PAD, NULL, 0);
- }
- #endif
-=20
-@@ -274,23 +218,21 @@ static int pep_ctrlreq_error(struct sock *sk, str=
-uct sk_buff *oskb, u8 code,
- 	struct sk_buff *skb;
- 	struct pnpipehdr *ph;
- 	struct sockaddr_pn dst;
-+	u8 data[4] =3D {
-+		oph->data[0], /* PEP type */
-+		code, /* error code, at an unusual offset */
-+		PAD, PAD,
-+	};
-=20
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER + 4, priority);
-+	skb =3D pep_alloc_skb(sk, data, 4, priority);
- 	if (!skb)
- 		return -ENOMEM;
--	skb_set_owner_w(skb, sk);
--
--	skb_reserve(skb, MAX_PHONET_HEADER);
--	ph =3D (struct pnpipehdr *)skb_put(skb, sizeof(*ph) + 4);
-=20
-+	ph =3D pnp_hdr(skb);
- 	ph->utid =3D oph->utid;
- 	ph->message_id =3D PNS_PEP_CTRL_RESP;
- 	ph->pipe_handle =3D oph->pipe_handle;
- 	ph->data[0] =3D oph->data[1]; /* CTRL id */
--	ph->data[1] =3D oph->data[0]; /* PEP type */
--	ph->data[2] =3D code; /* error code, at an usual offset */
--	ph->data[3] =3D PAD;
--	ph->data[4] =3D PAD;
-=20
- 	pn_skb_get_src_sockaddr(oskb, &dst);
- 	return pn_skb_send(sk, skb, &dst);
-@@ -298,34 +240,15 @@ static int pep_ctrlreq_error(struct sock *sk, str=
-uct sk_buff *oskb, u8 code,
-=20
- static int pipe_snd_status(struct sock *sk, u8 type, u8 status, gfp_t =
-priority)
- {
--	struct pep_sock *pn =3D pep_sk(sk);
--	struct pnpipehdr *ph;
--	struct sk_buff *skb;
-+	u8 data[4] =3D { type, PAD, PAD, status };
-=20
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER + 4, priority);
--	if (!skb)
--		return -ENOMEM;
--	skb_set_owner_w(skb, sk);
--
--	skb_reserve(skb, MAX_PNPIPE_HEADER + 4);
--	__skb_push(skb, sizeof(*ph) + 4);
--	skb_reset_transport_header(skb);
--	ph =3D pnp_hdr(skb);
--	ph->utid =3D 0;
--	ph->message_id =3D PNS_PEP_STATUS_IND;
--	ph->pipe_handle =3D pn->pipe_handle;
--	ph->pep_type =3D PN_PEP_TYPE_COMMON;
--	ph->data[1] =3D type;
--	ph->data[2] =3D PAD;
--	ph->data[3] =3D PAD;
--	ph->data[4] =3D status;
--
--	return pn_skb_send(sk, skb, NULL);
-+	return pep_indicate(sk, PNS_PEP_STATUS_IND, PN_PEP_TYPE_COMMON,
-+				data, 4, priority);
- }
-=20
- /* Send our RX flow control information to the sender.
-  * Socket must be locked. */
--static void pipe_grant_credits(struct sock *sk)
-+static void pipe_grant_credits(struct sock *sk, gfp_t priority)
- {
- 	struct pep_sock *pn =3D pep_sk(sk);
-=20
-@@ -335,16 +258,16 @@ static void pipe_grant_credits(struct sock *sk)
- 	case PN_LEGACY_FLOW_CONTROL: /* TODO */
- 		break;
- 	case PN_ONE_CREDIT_FLOW_CONTROL:
--		pipe_snd_status(sk, PN_PEP_IND_FLOW_CONTROL,
--				PEP_IND_READY, GFP_ATOMIC);
--		pn->rx_credits =3D 1;
-+		if (pipe_snd_status(sk, PN_PEP_IND_FLOW_CONTROL,
-+					PEP_IND_READY, priority) =3D=3D 0)
-+			pn->rx_credits =3D 1;
- 		break;
- 	case PN_MULTI_CREDIT_FLOW_CONTROL:
- 		if ((pn->rx_credits + CREDITS_THR) > CREDITS_MAX)
- 			break;
- 		if (pipe_snd_status(sk, PN_PEP_IND_ID_MCFC_GRANT_CREDITS,
- 					CREDITS_MAX - pn->rx_credits,
--					GFP_ATOMIC) =3D=3D 0)
-+					priority) =3D=3D 0)
- 			pn->rx_credits =3D CREDITS_MAX;
- 		break;
++		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
++			answ = 0;
++		else
++			answ = tp->write_seq - tp->snd_nxt;
++		break;
+ 	default:
+ 		return -ENOIOCTLCMD;
  	}
-@@ -474,7 +397,7 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
-uff *skb)
- 		if (sk->sk_state =3D=3D TCP_ESTABLISHED)
- 			break; /* Nothing to do */
- 		sk->sk_state =3D TCP_ESTABLISHED;
--		pipe_grant_credits(sk);
-+		pipe_grant_credits(sk, GFP_ATOMIC);
- 		break;
- #endif
-=20
-@@ -561,7 +484,7 @@ static int pipe_do_rcv(struct sock *sk, struct sk_b=
-uff *skb)
- 		if (sk->sk_state =3D=3D TCP_ESTABLISHED)
- 			break; /* Nothing to do */
- 		sk->sk_state =3D TCP_ESTABLISHED;
--		pipe_grant_credits(sk);
-+		pipe_grant_credits(sk, GFP_ATOMIC);
- 		break;
-=20
- 	case PNS_PIPE_DISABLED_IND:
-@@ -655,7 +578,7 @@ static int pep_connresp_rcv(struct sock *sk, struct=
- sk_buff *skb)
- 	pn->rx_credits =3D 0;
- 	sk->sk_state_change(sk);
-=20
--	return pipe_handler_send_created_ind(sk, PNS_PIPE_CREATED_IND);
-+	return pipe_handler_send_created_ind(sk);
- }
- #endif
-=20
-@@ -853,19 +776,15 @@ static int pipe_do_remove(struct sock *sk)
- 	struct pnpipehdr *ph;
- 	struct sk_buff *skb;
-=20
--	skb =3D alloc_skb(MAX_PNPIPE_HEADER, GFP_KERNEL);
-+	skb =3D pep_alloc_skb(sk, NULL, 0, GFP_KERNEL);
- 	if (!skb)
- 		return -ENOMEM;
-=20
--	skb_reserve(skb, MAX_PNPIPE_HEADER);
--	__skb_push(skb, sizeof(*ph));
--	skb_reset_transport_header(skb);
- 	ph =3D pnp_hdr(skb);
- 	ph->utid =3D 0;
- 	ph->message_id =3D PNS_PIPE_REMOVE_REQ;
- 	ph->pipe_handle =3D pn->pipe_handle;
- 	ph->data[0] =3D PAD;
--
- 	return pn_skb_send(sk, skb, NULL);
- }
- #endif
-@@ -894,7 +813,7 @@ static void pep_sock_close(struct sock *sk, long ti=
-meout)
- 		pipe_do_remove(sk);
- #else
- 		/* send pep disconnect request */
--		pipe_handler_send_req(sk, PNS_PEP_DISCONNECT_REQ, GFP_KERNEL);
-+		pipe_handler_request(sk, PNS_PEP_DISCONNECT_REQ, PAD, NULL, 0);
- 		sk->sk_state =3D TCP_CLOSE;
- #endif
- 	}
-@@ -980,10 +899,12 @@ static int pep_sock_connect(struct sock *sk, stru=
-ct sockaddr *addr, int len)
- {
- 	struct pep_sock *pn =3D pep_sk(sk);
- 	const struct sockaddr_pn *spn =3D (struct sockaddr_pn *)addr;
-+	u8 data[4] =3D { 0 /* sub-blocks */, PAD, PAD, PAD };
-=20
- 	pn->pn_sk.dobject =3D pn_sockaddr_get_object(spn);
- 	pn->pn_sk.resource =3D pn_sockaddr_get_resource(spn);
--	return pipe_handler_send_req(sk, PNS_PEP_CONNECT_REQ, GFP_KERNEL);
-+	return pipe_handler_request(sk, PNS_PEP_CONNECT_REQ,
-+					PN_PIPE_DISABLE, data, 4);
- }
- #endif
-=20
-@@ -1280,7 +1201,7 @@ struct sk_buff *pep_read(struct sock *sk)
- 	struct sk_buff *skb =3D skb_dequeue(&sk->sk_receive_queue);
-=20
- 	if (sk->sk_state =3D=3D TCP_ESTABLISHED)
--		pipe_grant_credits(sk);
-+		pipe_grant_credits(sk, GFP_ATOMIC);
- 	return skb;
- }
-=20
-@@ -1325,7 +1246,7 @@ static int pep_recvmsg(struct kiocb *iocb, struct=
- sock *sk,
- 	}
-=20
- 	if (sk->sk_state =3D=3D TCP_ESTABLISHED)
--		pipe_grant_credits(sk);
-+		pipe_grant_credits(sk, GFP_KERNEL);
- 	release_sock(sk);
- copy:
- 	msg->msg_flags |=3D MSG_EOR;
---=20
+-- 
 1.7.1
 
