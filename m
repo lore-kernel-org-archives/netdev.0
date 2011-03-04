@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC PATCH v2 11/12] netdev: octeon_mgmt: Convert to use
- device tree.
-Date: Fri, 04 Mar 2011 13:10:39 -0800 (PST)
-Message-ID: <20110304.131039.112585485.davem@davemloft.net>
-References: <1299267744-17278-1-git-send-email-ddaney@caviumnetworks.com>
-	<1299267744-17278-12-git-send-email-ddaney@caviumnetworks.com>
+From: "Esther Leonia Marvis" <elm445marvis@perfect.co.uk>
+Subject: E-mail
+Date: Sat, 5 Mar 2011 02:58:56 +0530
+Message-ID: <20110304212539.M72805__24422.074473887$1299274164$gmane$org@perfect.co.uk>
+Reply-To: barrmorgan6@myway.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	devicetree-discuss@lists.ozlabs.org, grant.likely@secretlab.ca,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: ddaney@caviumnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1299267744-17278-12-git-send-email-ddaney@caviumnetworks.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: info@you.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [210.176.113.209] ([210.176.113.209]:48819 "EHLO
+	mail.perfecto.com.hk" rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1760118Ab1CDV3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 16:29:11 -0500
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <ddaney@caviumnetworks.com>
-Date: Fri,  4 Mar 2011 11:42:23 -0800
+I was told by Mrs Helen Cole to send this mail to you as at last two (2) Months 
+ago, regarding you to contact her Lawyer.
 
-> The device tree will supply the register bank base addresses, make
-> register addressing relative to those.  PHY connection is now
-> described by the device tree.
-> 
-> Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+Below are the details she gave me for you to contact her,
+lawyer.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Name - Barrister Morgan Owen.
+Email - barrmorgan6@myway.com
+
+Please don't be angry for my late mail to you.
+
+Thank you.
+
+Esther Leonia Marvis.
