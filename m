@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@vyatta.com>
 Subject: Re: [PATCH] sched: QFQ - quick fair queue scheduler (v4)
-Date: Fri, 4 Mar 2011 09:17:57 -0800
-Message-ID: <20110304091757.469746e1@nehalam>
+Date: Fri, 4 Mar 2011 09:18:59 -0800
+Message-ID: <20110304091859.395f2752@nehalam>
 References: <20110228171738.2cc8c9a0@nehalam>
 	<1299168235.2983.116.camel@edumazet-laptop>
 	<20110303084839.3ae312ed@nehalam>
@@ -17,10 +17,10 @@ Cc: David Miller <davem@davemloft.net>,
 	Luigi Rizzo <rizzo@iet.unipi.it>, netdev@vger.kernel.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.vyatta.com ([76.74.103.46]:57467 "EHLO mail.vyatta.com"
+Received: from mail.vyatta.com ([76.74.103.46]:57509 "EHLO mail.vyatta.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751723Ab1CDRSD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 12:18:03 -0500
+	id S1751723Ab1CDRTB convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 12:19:01 -0500
 In-Reply-To: <1299221426.2547.47.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -87,140 +87,9 @@ nt
 >=20
 > tc qdisc add dev $DEV root handle 1: cbq avpkt 1000 rate 1000Mbit \
 > 	bandwidth 1000Mbit
-> tc class add dev $DEV parent 1: classid 1:1 \
-> 	est 1sec 8sec cbq allot 10000 mpu 64 \
-> 	rate 1000Mbit prio 1 avpkt 1500 bounded
->=20
-> # output to test nets :  40 Mbit limit
-> tc class add dev $DEV parent 1:1 classid 1:11 \
-> 	est 1sec 8sec cbq $ALLOT mpu 64      \
-> 	$RATE prio 2 avpkt 1400 bounded
->=20
-> tc qdisc add dev $DEV parent 1:11 handle 11:  \
-> 	est 1sec 8sec qfq
->=20
-> tc filter add dev $DEV protocol ip parent 11: handle 3 \
-> 	flow hash keys rxhash divisor 8
->=20
-> for i in `seq 1 8`
-> do
->  classid=3D11:$(printf %x $i)
->  tc class add dev $DEV classid $classid qfq=20
->  tc qdisc add dev $DEV parent $classid pfifo limit 30
-> done
->=20
->=20
-> for privnet in $TNETS
-> do
-> 	tc filter add dev $DEV parent 1: protocol ip prio 100 u32 \
-> 		match ip dst $privnet flowid 1:11
-> done
->=20
-> tc filter add dev $DEV parent 1: protocol ip prio 100 u32 \
-> 	match ip protocol 0 0x00 flowid 1:1
->=20
->=20
-> iperf -u -c 10.2.2.1 -P 32 -l 50
->=20
->=20
-> ---------------------------------------------------------------------=
----------
->=20
-> After a run I get only 5 packets sent, 240 queued in backlog, and all
-> other packets dropped.
->=20
-> # tc -s -d qdisc show dev dummy0
-> qdisc cbq 1: root refcnt 2 rate 1000Mbit cell 8b (bounded,isolated) p=
-rio
-> no-transmit/8 weight 1000Mbit allot 1514b=20
-> level 2 ewma 5 avpkt 1000b maxidle 0us=20
->  Sent 460 bytes 5 pkt (dropped 198800, overlimits 199043 requeues 0)=20
->  backlog 0b 240p requeues 0=20
->   borrowed 0 overactions 0 avgidle 125 undertime 0
-> qdisc qfq 11: parent 1:11=20
->  Sent 460 bytes 5 pkt (dropped 198800, overlimits 0 requeues 0)=20
->  rate 0bit 0pps backlog 0b 240p requeues 0=20
-> qdisc pfifo 8011: parent 11:1 limit 30p
->  Sent 0 bytes 0 pkt (dropped 6178, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8012: parent 11:2 limit 30p
->  Sent 92 bytes 1 pkt (dropped 37048, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8013: parent 11:3 limit 30p
->  Sent 0 bytes 0 pkt (dropped 24856, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8014: parent 11:4 limit 30p
->  Sent 276 bytes 3 pkt (dropped 37358, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8015: parent 11:5 limit 30p
->  Sent 0 bytes 0 pkt (dropped 24934, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8016: parent 11:6 limit 30p
->  Sent 0 bytes 0 pkt (dropped 24882, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8017: parent 11:7 limit 30p
->  Sent 0 bytes 0 pkt (dropped 12328, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> qdisc pfifo 8018: parent 11:8 limit 30p
->  Sent 92 bytes 1 pkt (dropped 31216, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
->=20
->=20
-> and :
->=20
-> # tc -s -d class show dev dummy0
-> class cbq 1:11 parent 1:1 leaf 11: rate 40000Kbit cell 128b mpu 64b
-> (bounded) prio 2/2 weight 40000Kbit allot 20000b=20
-> level 0 ewma 5 avpkt 1400b maxidle 0us=20
->  Sent 460 bytes 5 pkt (dropped 198800, overlimits 15 requeues 0)=20
->  rate 0bit 0pps backlog 0b 240p requeues 0=20
->   borrowed 0 overactions 3 avgidle -225 undertime -6.46702e+07
-> class cbq 1: root rate 1000Mbit cell 8b (bounded,isolated) prio
-> no-transmit/8 weight 1000Mbit allot 1514b=20
-> level 2 ewma 5 avpkt 1000b maxidle 0us=20
->  Sent 460 bytes 5 pkt (dropped 0, overlimits 0 requeues 0)=20
->  backlog 0b 0p requeues 0=20
->   borrowed 0 overactions 0 avgidle 125 undertime 0
-> class cbq 1:1 parent 1: rate 1000Mbit cell 64b mpu 64b (bounded) prio
-> 1/1 weight 1000Mbit allot 10000b=20
-> level 1 ewma 5 avpkt 1500b maxidle 0us=20
->  Sent 460 bytes 5 pkt (dropped 0, overlimits 0 requeues 0)=20
->  rate 0bit 0pps backlog 0b 0p requeues 0=20
->   borrowed 0 overactions 0 avgidle 125 undertime 0
-> class qfq 11:1 root leaf 8011: weight 1 maxpkt 2048=20
->  Sent 2760 bytes 30 pkt (dropped 6178, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:2 root leaf 8012: weight 1 maxpkt 2048=20
->  Sent 2852 bytes 31 pkt (dropped 37048, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:3 root leaf 8013: weight 1 maxpkt 2048=20
->  Sent 2760 bytes 30 pkt (dropped 24856, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:4 root leaf 8014: weight 1 maxpkt 2048=20
->  Sent 3036 bytes 33 pkt (dropped 37358, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:5 root leaf 8015: weight 1 maxpkt 2048=20
->  Sent 2760 bytes 30 pkt (dropped 24934, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:6 root leaf 8016: weight 1 maxpkt 2048=20
->  Sent 2760 bytes 30 pkt (dropped 24882, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:7 root leaf 8017: weight 1 maxpkt 2048=20
->  Sent 2760 bytes 30 pkt (dropped 12328, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
-> class qfq 11:8 root leaf 8018: weight 1 maxpkt 2048=20
->  Sent 2852 bytes 31 pkt (dropped 31216, overlimits 0 requeues 0)=20
->  backlog 2760b 30p requeues 0=20
->=20
->=20
->=20
->=20
-> Then this crashes :
->=20
-> # tc qdisc del dev dummy0 root
 
-hlist_for_each_entry_safe fixes that.
+QFQ is non work conserving, it may choose to send a smaller packet
+ahead of a larger packet in other flow...
 
-Can you reproduce without putting cbq on the root?
 
 --=20
