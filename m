@@ -1,38 +1,81 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [BUG] VPN broken in net-next
-Date: Fri, 4 Mar 2011 10:39:55 +0200 (EET)
-Message-ID: <alpine.LFD.2.00.1103041013360.1452@ja.ssi.bg>
-References: <20110302.165421.258093056.davem@davemloft.net> <alpine.LFD.2.00.1103031414240.1677@ja.ssi.bg> <alpine.LFD.2.00.1103031454060.2113@ja.ssi.bg> <20110303.112328.59677094.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:49532 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751338Ab1CDIfh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Mar 2011 03:35:37 -0500
-In-Reply-To: <20110303.112328.59677094.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steffen Sledz <sledz@dresearch.de>
+Subject: [PATCH resent] tcp: ioctl type SIOCOUTQNSD returns amount of data not sent
+Date: Fri,  4 Mar 2011 09:48:17 +0100
+Message-ID: <1299228497-21246-1-git-send-email-sledz@dresearch.de>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Mario Schuknecht <m.schuknecht@dresearch.de>,
+	Steffen Sledz <sledz@dresearch.de>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Mario Schuknecht <m.schuknecht@dresearch.de>
 
- 	Hello,
+In contrast to SIOCOUTQ which returns the amount of data sent
+but not yet acknowledged plus data not yet sent this patch only
+returns the data not sent.
 
-On Thu, 3 Mar 2011, David Miller wrote:
+For various methods of live streaming bitrate control it may
+be helpful to know how much data are in the tcp outqueue are
+not sent yet.
 
-> I suspect that even if we need to handle prefixes, we can still use
-> the hash for optimistic lookup, and fallback to a local table FIB
-> inspection if that fails.
+Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
+Signed-off-by: Steffen Sledz <sledz@dresearch.de>
+---
+ include/asm-generic/ioctls.h |    1 +
+ include/linux/sockios.h      |    1 +
+ net/ipv4/tcp.c               |    9 +++++++++
+ 3 files changed, 11 insertions(+), 0 deletions(-)
 
- 	Yes, as ip_route_output_slow uses __ip_dev_find for
-fl4_src there should be some kind of fallback to local table,
-so that traffic from 127.0.0.2 to 127.0.0.3 or other local
-subnets on loopback can work. Another option is to use
-inet_addr_onlink but I suspect people can add many addresses
-on loopback: inet_addr_onlink(loopback_indev, addr, 0)
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff --git a/include/asm-generic/ioctls.h b/include/asm-generic/ioctls.h
+index 199975f..ef2be0b 100644
+--- a/include/asm-generic/ioctls.h
++++ b/include/asm-generic/ioctls.h
+@@ -74,6 +74,7 @@
+ #define TCSETXW		0x5435
+ #define TIOCSIG		_IOW('T', 0x36, int)  /* pty: generate signal */
+ #define TIOCVHANGUP	0x5437
++#define TIOCOUTQNSD	0x5438
+ 
+ #define FIONCLEX	0x5450
+ #define FIOCLEX		0x5451
+diff --git a/include/linux/sockios.h b/include/linux/sockios.h
+index 241f179..4c5ca47 100644
+--- a/include/linux/sockios.h
++++ b/include/linux/sockios.h
+@@ -23,6 +23,7 @@
+ /* Linux-specific socket ioctls */
+ #define SIOCINQ		FIONREAD
+ #define SIOCOUTQ	TIOCOUTQ
++#define SIOCOUTQNSD	TIOCOUTQNSD
+ 
+ /* Routing table calls. */
+ #define SIOCADDRT	0x890B		/* add routing table entry	*/
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a17a5a7..b22d450 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -505,6 +505,15 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 		else
+ 			answ = tp->write_seq - tp->snd_una;
+ 		break;
++	case SIOCOUTQNSD:
++		if (sk->sk_state == TCP_LISTEN)
++			return -EINVAL;
++
++		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
++			answ = 0;
++		else
++			answ = tp->write_seq - tp->snd_nxt;
++		break;
+ 	default:
+ 		return -ENOIOCTLCMD;
+ 	}
+-- 
+1.7.1
