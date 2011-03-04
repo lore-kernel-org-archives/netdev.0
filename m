@@ -1,32 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: tun: Failed to create tun sysfs files
-Date: Fri, 04 Mar 2011 01:06:03 -0800 (PST)
-Message-ID: <20110304.010603.104076956.davem@davemloft.net>
-References: <201103030127.p231ReNl012841@imap1.linux-foundation.org>
-	<4D70A929.4010900@suse.cz>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch] bonding: move procfs into bond_procfs.c
+Date: Fri, 04 Mar 2011 17:08:45 +0800
+Message-ID: <4D70AC1D.4080705@redhat.com>
+References: <1298896204-6521-1-git-send-email-amwang@redhat.com> <20110302.221707.260068518.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@linux-foundation.org,
-	mm-commits@vger.kernel.org, jirislaby@gmail.com,
-	netdev@vger.kernel.org, maxk@qualcomm.com, vtun@office.satix.net
-To: jslaby@suse.cz
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, fubar@us.ibm.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4D70A929.4010900@suse.cz>
+In-Reply-To: <20110302.221707.260068518.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Fri, 04 Mar 2011 09:56:09 +0100
+=E4=BA=8E 2011=E5=B9=B403=E6=9C=8803=E6=97=A5 14:17, David Miller =E5=86=
+=99=E9=81=93:
+> From: Amerigo Wang<amwang@redhat.com>
+> Date: Mon, 28 Feb 2011 20:30:04 +0800
+>
+>> bond_main.c is bloating, separate the procfs code out,
+>> move them to bond_procfs.c
+>>
+>> Signed-off-by: WANG Cong<amwang@redhat.com>
+>
+> Please use Makefile rules to conditionally compile the new bond_procf=
+s.o
+> file, instead of wrapping almost the entire file with an ifdef.
+>
+> Put the dummy no-PROC_FS function stubs, as inlines, in bonding.h
+>
 
-> On 03/03/2011 01:52 AM, akpm@linux-foundation.org wrote:
->> The mm-of-the-moment snapshot 2011-03-02-16-52 has been uploaded to
-> 
-> Hi, I'm seeing this with tun (also with earlier versions):
+Ok, will do it in the next update.
 
-The name of the attribute was changed to netdev_group in order to
-fix this problem, in fact quite some time ago.
-
-See the last entry of the net_class_attributes array in
-net/core/net-sysfs.c, if it isn't called "netdev_group"
-something is awry.
+Thanks!
