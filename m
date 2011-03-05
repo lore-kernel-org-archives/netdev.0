@@ -1,73 +1,153 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [patch net-next-2.6 3/8] net: get rid of multiple bond-related
- netdevice->priv_flags
-Date: Sat, 05 Mar 2011 14:37:42 +0000
-Message-ID: <1299335862.4277.99.camel@localhost>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
-	 <1299320969-7951-4-git-send-email-jpirko@redhat.com>
-	 <4D72453F.10909@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net
-To: Nicolas de =?ISO-8859-1?Q?Peslo=FCan?=
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
 	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6 2/8] bonding: register slave pointer for
+ rx_handler
+Date: Sat, 05 Mar 2011 15:38:32 +0100
+Message-ID: <4D724AE8.6050107@gmail.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-3-git-send-email-jpirko@redhat.com> <4D724382.7010705@gmail.com> <20110305142732.GB8573@psychotron.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.solarflare.com ([216.237.3.220]:10636 "EHLO
-	exchange.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460Ab1CEOhr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 09:37:47 -0500
-In-Reply-To: <4D72453F.10909@gmail.com>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:50223 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752460Ab1CEOig (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 09:38:36 -0500
+Received: by wwb22 with SMTP id 22so3647830wwb.1
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 06:38:34 -0800 (PST)
+In-Reply-To: <20110305142732.GB8573@psychotron.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2011-03-05 at 15:14 +0100, Nicolas de Peslo=C3=BCan wrote:
-> Le 05/03/2011 11:29, Jiri Pirko a =C3=A9crit :
-[...]
-> > --- a/include/linux/if.h
-> > +++ b/include/linux/if.h
-> > @@ -60,21 +60,17 @@
-> >   #define IFF_802_1Q_VLAN 0x1             /* 802.1Q VLAN device.   =
-       */
-> >   #define IFF_EBRIDGE	0x2		/* Ethernet bridging device.	*/
-> >   #define IFF_SLAVE_INACTIVE	0x4	/* bonding slave not the curr. act=
-ive */
-> > -#define IFF_MASTER_8023AD	0x8	/* bonding master, 802.3ad. 	*/
-> > -#define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
-> > -#define IFF_BONDING	0x20		/* bonding master or slave	*/
-> > -#define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
-> > -#define IFF_ISATAP	0x80		/* ISATAP interface (RFC4214)	*/
-> > -#define IFF_MASTER_ARPMON 0x100		/* bonding master, ARP mon in use=
- */
-> > -#define IFF_WAN_HDLC	0x200		/* WAN HDLC device		*/
-> > -#define IFF_XMIT_DST_RELEASE 0x400	/* dev_hard_start_xmit() is all=
-owed to
-> > +#define IFF_BONDING	0x8		/* bonding master or slave	*/
-> > +#define IFF_ISATAP	0x10		/* ISATAP interface (RFC4214)	*/
-> > +#define IFF_WAN_HDLC	0x20		/* WAN HDLC device		*/
-> > +#define IFF_XMIT_DST_RELEASE 0x40	/* dev_hard_start_xmit() is allo=
-wed to
-> >   					 * release skb->dst
-> >   					 */
->=20
-> Why did you changed those values? Aren't those exposed to userland? J=
-ust removing the unused one=20
-> sounds good to me.
-[...]
+Le 05/03/2011 15:27, Jiri Pirko a =E9crit :
+> Sat, Mar 05, 2011 at 03:06:58PM CET, nicolas.2p.debian@gmail.com wrot=
+e:
+>> Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
+>>> Register slave pointer as rx_handler data. That would eventually pr=
+event
+>>> need to loop over slave devices to find the right slave.
+>>>
+>>> Use synchronize_net to ensure that bond_handle_frame does not get s=
+lave
+>>> structure freed when working with that.
+>>>
+>>> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+>>> ---
+>>>   drivers/net/bonding/bond_main.c |   17 +++++++++++------
+>>>   drivers/net/bonding/bonding.h   |    3 +++
+>>>   2 files changed, 14 insertions(+), 6 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/=
+bond_main.c
+>>> index 0592e6d..1c19368 100644
+>>> --- a/drivers/net/bonding/bond_main.c
+>>> +++ b/drivers/net/bonding/bond_main.c
+>>> @@ -1495,21 +1495,22 @@ static bool bond_should_deliver_exact_match=
+(struct sk_buff *skb,
+>>>
+>>>   static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+>>>   {
+>>> -	struct net_device *slave_dev;
+>>> +	struct slave *slave;
+>>>   	struct net_device *bond_dev;
+>>>
+>>>   	skb =3D skb_share_check(skb, GFP_ATOMIC);
+>>>   	if (unlikely(!skb))
+>>>   		return NULL;
+>>> -	slave_dev =3D skb->dev;
+>>> -	bond_dev =3D ACCESS_ONCE(slave_dev->master);
+>>> +
+>>> +	slave =3D bond_slave_get_rcu(skb->dev);
+>>> +	bond_dev =3D ACCESS_ONCE(slave->dev->master);
+>>>   	if (unlikely(!bond_dev))
+>>>   		return skb;
+>>>
+>>>   	if (bond_dev->priv_flags&   IFF_MASTER_ARPMON)
+>>> -		slave_dev->last_rx =3D jiffies;
+>>> +		slave->dev->last_rx =3D jiffies;
+>>>
+>>> -	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
+>>> +	if (bond_should_deliver_exact_match(skb, slave->dev, bond_dev)) {
+>>>   		skb->deliver_no_wcard =3D 1;
+>>>   		return skb;
+>>>   	}
+>>
+>> Up to this point, it looks like cleanup, and unrelated to the title =
+and description of the patch.
+>
+> Nope - these are changes connected to the ability to get slave struct
+> via bond_slave_get_rcu. Very related.
 
-Look just one line further up:
+Agreed.
 
-/* Private (from user) interface flags (netdevice->priv_flags). */
-
-Maybe they should have a prefix IFPF_ instead of IFF_ though.
-
-Ben.
-
---=20
-Ben Hutchings, Senior Software Engineer, Solarflare Communications
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>>
+>> Anyway, the cleanup looks good to me. Should just be in a separate p=
+atch.
+>>
+>>> @@ -1703,7 +1704,8 @@ int bond_enslave(struct net_device *bond_dev,=
+ struct net_device *slave_dev)
+>>>   		pr_debug("Error %d calling netdev_set_bond_master\n", res);
+>>>   		goto err_restore_mac;
+>>>   	}
+>>> -	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame, =
+NULL);
+>>> +	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame,
+>>> +					 new_slave);
+>>
+>> And using rx_handler data for this purpose sounds good to me.
+>>
+>> Reviewed-by: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
+>>
+>>>   	if (res) {
+>>>   		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
+>>>   		goto err_unset_master;
+>>> @@ -1925,6 +1927,7 @@ err_close:
+>>>
+>>>   err_unreg_rxhandler:
+>>>   	netdev_rx_handler_unregister(slave_dev);
+>>> +	synchronize_net();
+>>>
+>>>   err_unset_master:
+>>>   	netdev_set_bond_master(slave_dev, NULL);
+>>> @@ -2108,6 +2111,7 @@ int bond_release(struct net_device *bond_dev,=
+ struct net_device *slave_dev)
+>>>   	}
+>>>
+>>>   	netdev_rx_handler_unregister(slave_dev);
+>>> +	synchronize_net();
+>>>   	netdev_set_bond_master(slave_dev, NULL);
+>>>
+>>>   	slave_disable_netpoll(slave);
+>>> @@ -2222,6 +2226,7 @@ static int bond_release_all(struct net_device=
+ *bond_dev)
+>>>   		}
+>>>
+>>>   		netdev_rx_handler_unregister(slave_dev);
+>>> +		synchronize_net();
+>>>   		netdev_set_bond_master(slave_dev, NULL);
+>>>
+>>>   		slave_disable_netpoll(slave);
+>>> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bo=
+nding.h
+>>> index ff4e269..1aac5cd 100644
+>>> --- a/drivers/net/bonding/bonding.h
+>>> +++ b/drivers/net/bonding/bonding.h
+>>> @@ -264,6 +264,9 @@ struct bonding {
+>>>   #endif /* CONFIG_DEBUG_FS */
+>>>   };
+>>>
+>>> +#define bond_slave_get_rcu(dev) \
+>>> +	((struct slave *) rcu_dereference(dev->rx_handler_data))
+>>> +
+>>>   /**
+>>>    * Returns NULL if the net_device does not belong to any of the b=
+ond's slaves
+>>>    *
+>>
+>
 
