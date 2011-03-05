@@ -1,60 +1,61 @@
-From: Greg KH <gregkh@suse.de>
-Subject: Re: [PATCH] ixgbe: fix for 82599 erratum on Header Splitting
-Date: Fri, 4 Mar 2011 23:59:26 -0800
-Message-ID: <20110305075926.GA19706@suse.de>
-References: <1299308767-28735-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <20110305074419.GA19596@suse.de>
- <1299311467.26413.31.camel@jtkirshe-MOBL1>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: tun routing is broken [was: tun: Failed to create tun sysfs files]
+Date: Sat, 05 Mar 2011 09:04:22 +0100
+Message-ID: <4D71EE86.6030309@suse.cz>
+References: <201103030127.p231ReNl012841@imap1.linux-foundation.org>	<4D70A929.4010900@suse.cz> <20110304.010603.104076956.davem@davemloft.net> <4D70B2DC.2000005@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"stable@kernel.org" <stable@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:52034 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751093Ab1CEH6f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 02:58:35 -0500
-Content-Disposition: inline
-In-Reply-To: <1299311467.26413.31.camel@jtkirshe-MOBL1>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jirislaby@gmail.com>, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, mm-commits@vger.kernel.org,
+	netdev@vger.kernel.org, maxk@qualcomm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4D70B2DC.2000005@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 04, 2011 at 11:51:07PM -0800, Jeff Kirsher wrote:
-> On Fri, 2011-03-04 at 23:44 -0800, Greg KH wrote:
-> > On Fri, Mar 04, 2011 at 11:06:07PM -0800, Jeff Kirsher wrote:
-> > > From: Don Skidmore <donald.c.skidmore@intel.com>
-> > > 
-> > > We have found a hardware erratum on 82599 hardware that can lead to
-> > > unpredictable behavior when Header Splitting mode is enabled.  So
-> > > we are no longer enabling this feature on affected hardware.
-> > > 
-> > > Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> > > Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-> > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > ---
-> > >  drivers/net/ixgbe/ixgbe_main.c |    4 ++++
-> > 
-> > I'm confused, why did you just send this patch to me?
-> > 
-> > What am I supposed to do with it?
-> > 
-> > greg k-h
+On 03/04/2011 10:37 AM, Jiri Slaby wrote:
+> On 03/04/2011 10:06 AM, David Miller wrote:
+>> From: Jiri Slaby <jslaby@suse.cz>
+>> Date: Fri, 04 Mar 2011 09:56:09 +0100
+>>
+>>> On 03/03/2011 01:52 AM, akpm@linux-foundation.org wrote:
+>>>> The mm-of-the-moment snapshot 2011-03-02-16-52 has been uploaded to
+>>>
+>>> Hi, I'm seeing this with tun (also with earlier versions):
+>>
+>> The name of the attribute was changed to netdev_group in order to
+>> fix this problem, in fact quite some time ago.
+>>
+>> See the last entry of the net_class_attributes array in
+>> net/core/net-sysfs.c, if it isn't called "netdev_group"
+>> something is awry.
 > 
-> This is the fix for ixgbe (that Ben and others pointed out) which has
-> been accepted into Linus's tree which did not apply to stable-2.6.32
-> tree.  This is the updated patch that apply's to the stable-2.6.32 tree.
+> <idiocy>
+> Aha, sorry for the noise, I booted the old kernel.
+> </idiocy>
 
-How nice, but why didn't you say so in the first place?  Am I really
-supposed to remember the hundreds of stable patches I handle every week?
+Ok, so I booted the new kernel, and tun is broken there completely. If I
+try to ping a vpn peer:
+...
+capget(0x20080522, 0, NULL)             = 0
+capset(0x20080522, 0, {0, 0, 0})        = 0
+socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 4
+connect(4, {sa_family=AF_INET, sin_port=htons(1025),
+sin_addr=inet_addr("10.20.11.1")}, 16) = -1 EINVAL (Invalid argument)
 
-Oh, I need the git commit id of it as well, care to resend this with
-that and the proper "please apply this for the .32 longterm tree"
-message so I can?
+the route is:
+10.20.11.1 dev tun0  proto kernel  scope link  src 10.20.11.33
 
-If so, I'll queue it up for the after-next .32-longterm release.
+When I try to ping a router on eth0 10.0.28.10, it works as expected.
 
-thanks,
+Maybe the changes in ipv4 routing cause this? But my amateur eyes can't
+see any breakage there...
 
-greg k-h
+Now I'm back in mmotm 2011-02-10-16-26 and it works, indeed.
+
+regards,
+-- 
+js
+suse labs
