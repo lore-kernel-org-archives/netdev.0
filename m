@@ -1,67 +1,50 @@
-From: Ruben Kerkhof <ruben@rubenkerkhof.com>
-Subject: Re: EPT: Misconfiguration
-Date: Sat, 5 Mar 2011 19:57:43 +0100
-Message-ID: <AANLkTin=JK1+CG5by+vWxnYP+vYJpn8YHGGMLSzqFNEs@mail.gmail.com>
-References: <AANLkTinjt8G=mdEZK1a3qKozHw24uN0dfy2vUckbqwSZ@mail.gmail.com>
- <20110121132247.GA3097@amt.cnet> <AANLkTi=kMRu+4V6cc3bZtAT-L2P5cUo0QR3wNR3Y4u6B@mail.gmail.com>
- <4D3F0AD1.9010903@redhat.com> <AANLkTi=RMXSHAAbnN=HykGqbUshOFX_DO4kgYXTZUAdR@mail.gmail.com>
- <4D3FEEDB.5070407@redhat.com> <AANLkTimhkuMeKuihwRVnphxdCejpGi3rgd3uj9Xc_70v@mail.gmail.com>
- <AANLkTik76qykBCS_sEDQvBr4n7=BuffiU23bYKjFTRxa@mail.gmail.com>
- <AANLkTikS2M2pxO09PHN8+5+cBaQ593C9H7KthQHd4tM0@mail.gmail.com>
- <4D57D6AC.7000608@redhat.com> <20110215171639.GA12842@amt.cnet>
- <AANLkTimeFf2Smj=bWDYoH0Hf+ftnbW3XjacyS2pu49_o@mail.gmail.com>
- <AANLkTiknMneQtYqgmX7gvXsMoSO-yiLXr-dwbEej80Uy@mail.gmail.com> <4D6A2B91.5020100@redhat.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Possible regression in __netif_receive_skb() between 2.6.38-rc7 and
+ net-next-2.6
+Date: Sat, 05 Mar 2011 22:30:33 +0100
+Message-ID: <4D72AB79.3000605@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Marcelo Tosatti <mtosatti@redhat.com>, kvm <kvm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Avi Kivity <avi@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <4D6A2B91.5020100@redhat.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Pirko <jpirko@redhat.com>, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Patrick Mc Hardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ww0-f44.google.com ([74.125.82.44]:55253 "EHLO
+	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752669Ab1CEVah (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 16:30:37 -0500
+Received: by wwb22 with SMTP id 22so3861439wwb.1
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 13:30:36 -0800 (PST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Feb 27, 2011 at 11:46, Avi Kivity <avi@redhat.com> wrote:
->
-> Copying netdev: looks like memory corruption in the networking stack.
->
-> Archive link: http://www.spinics.net/lists/kvm/msg50651.html (for the
-> attachment).
+Hi,
 
-There's now only a single guest running on this host (Ubuntu Maverick).
-I've also upgraded the host kernel to 2.6.38-rc6, and this just
-happened (after a day or so):
+Comparing __netif_receive_skb() between 2.6.38-rc7 and net-next-2.6, I noticed an important 
+difference: The ptype_base loop used to deliver to orig_dev and this is not true anymore.
 
-2011-03-05T19:41:58.328866+01:00 phy005 kernel: [85271.656862] BUG
-kmalloc-2048 (Not tainted): Object padding overwritten
-2011-03-05T19:41:58.328870+01:00 phy005 kernel: [85271.656864]
------------------------------------------------------------------------------
-2011-03-05T19:41:58.328875+01:00 phy005 kernel: [85271.656866]
-2011-03-05T19:41:58.328885+01:00 phy005 kernel: [85271.656870] INFO:
-0xffff880c0d52a960-0xffff880c0d52a967. First byte 0x0 instead of 0x5a
-2011-03-05T19:41:58.328890+01:00 phy005 kernel: [85271.656880] INFO:
-Allocated in __netdev_alloc_skb+0x1f/0x3b age=16039 cpu=5 pid=0
-2011-03-05T19:41:58.328894+01:00 phy005 kernel: [85271.656886] INFO:
-Freed in skb_release_data+0xa5/0xaa age=0 cpu=5 pid=1766
-2011-03-05T19:41:58.328898+01:00 phy005 kernel: [85271.656890] INFO:
-Slab 0xffffea002a2ea0c0 objects=15 used=13 fp=0xffff880c0d52a120
-flags=0xc00000000040c1
-2011-03-05T19:41:58.328902+01:00 phy005 kernel: [85271.656894] INFO:
-Object 0xffff880c0d52a120 @offset=8480 fp=0xffff880c0d52d2d0
-2011-03-05T19:41:58.328905+01:00 phy005 kernel: [85271.656895]
-2011-03-05T19:41:58.328909+01:00 phy005 kernel: [85271.656897] Bytes
-b4 0xffff880c0d52a110:  14 89 12 05 01 00 00 00 5a 5a 5a 5a 5a 5a 5a
-5a ........ZZZZZZZZ
-2011-03-05T19:41:58.328913+01:00 phy005 kernel: [85271.656909]
-Object 0xffff880c0d52a120:  6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
-6b 6b kkkkkkkkkkkkkkkk
+[Note that this is unrelated to Jiri's today's patch that remove the orig_dev parameter to protocol 
+handler].
 
-We have a quite complex network stack, two interfaces (igb) attached
-to bond0, with on top two bridges and on that two vlans.
-The guest is running a vpn and an IPv6 tunnel.
+Imagine the following simple setup:
 
-Let me know if more info is needed.
+eth0 -> bond0
 
-Kind regards,
+- A packet handler registered on eth0, with ptype->type == NULL will receive the packet, because it 
+will be delivered in the ptype_all loop, which is inside the another_round loop.
+- The same packet handler, registered on eth0, but with ptype->type != NULL won't receive the 
+packet, because the ptype_base loop doesn't deliver to orig_dev anymore.
 
-Ruben
+I think this can lead to a regression for user space: an application using af_packet to listen to 
+eth0 will receive the packet flow if the registered protocol is NULL, but won't receive anything if 
+the registered protocol is not NULL.
+
+Can someone confirm?
+
+	Nicolas.
