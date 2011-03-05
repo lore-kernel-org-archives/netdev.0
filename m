@@ -1,36 +1,33 @@
-From: Eduardo Panisset <eduardo.panisset@gmail.com>
-Subject: Lacking to initialize "IP6CB(skb)->nhoff" for ipv6 transmission ?
-Date: Sat, 5 Mar 2011 00:59:25 -0300
-Message-ID: <AANLkTik2JGLJaYiF0uzM8TvQ44GR=OrdJ2mvz-53nS_6@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: FYI: tftp-hpa breaks when used on secondary ip addresses
+Date: Fri, 04 Mar 2011 20:58:17 -0800 (PST)
+Message-ID: <20110304.205817.193701195.davem@davemloft.net>
+References: <m1sjv2qt68.fsf@fess.ebiederm.org>
+	<4D719254.8000903@zytor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org, jsing@google.com
+To: hpa@zytor.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vw0-f46.google.com ([209.85.212.46]:50896 "EHLO
-	mail-vw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751061Ab1CED70 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 22:59:26 -0500
-Received: by vws12 with SMTP id 12so2559779vws.19
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2011 19:59:25 -0800 (PST)
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:48731
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752444Ab1CEE5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 23:57:41 -0500
+In-Reply-To: <4D719254.8000903@zytor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: "H. Peter Anvin" <hpa@zytor.com>
+Date: Fri, 04 Mar 2011 17:31:00 -0800
 
-Im using iptables for marking outgoing packets and then divert them to
-specific routing tables.
-Whenever a flow matches a rule into mangle table it is marked properly
-and reaches over the function ip6_route_me_harder.
-That function ends up calling xfrm_decode_session and in particular
-_decode_session6 for v6 flows.
-The latter uses "IP6CB(skb)->nhoff" for locating nextheader value but
-on my debugs it was presenting a weird value (96) instead of the
-expected (6), since it was a TCP flow.
-So I made the decision of initializing "IP6CB(skb)->nhoff" (with the
-value offset(struct ipv6hdr, nexthdr) ) in "ip6_xmit" function and
-then the (6) started to be shown and the (96) value did not appeared
-anymore.
-Is this proceeding correct ? (and then that would be a kernel bug ?)
+> If this is done for all local connections (as opposed to the ones that
+> have been configured explicitly by the administrator to behave that
+> way), that's a massive lossage.  Not only does a large number of
+> applications use this trick to determine if an address is local (e.g.
+> allowing bypass) -- it is pretty much the only portable way to do it --
+> but it would cause applications which expect to get a reply back from
+> the same address they sent a request to to completely fall on their face.
 
-Rgds,
-Eduardo Panisset.
+Actually this is what SOL_IP, IP_PKTINFO, was created for.  Even glibc
+uses it.
