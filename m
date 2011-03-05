@@ -1,49 +1,55 @@
-From: chriss <mail_to_chriss@gmx.net>
-Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
-Date: Sat, 5 Mar 2011 10:53:50 +0000 (UTC)
-Message-ID: <loom.20110305T115102-411@post.gmane.org>
-References: <4D4FE100.5090808@gmail.com> <loom.20110214T141934-88@post.gmane.org> <AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com> <loom.20110226T011347-702@post.gmane.org> <AANLkTikSvs7jF9BZzbsYkLAawpCH2h1Z0r09ft219uaa@mail.gmail.com> <loom.20110226T120245-774@post.gmane.org> <AANLkTimmbG3_GjYhoO7F46hOcRM3Fq_mNifk2PpLstPa@mail.gmail.com> <20110301101609.GA13261@electric-eye.fr.zoreil.com> <20110301215252.GA13336@electric-eye.fr.zoreil.com> <loom.20110304T202925-568@post.gmane.org> <20110304224130.GA13718@electric-eye.fr.zoreil.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: tun routing is broken
+Date: Sat, 05 Mar 2011 06:48:03 -0500
+Message-ID: <5118.1299325683@localhost>
+References: <20110304.010603.104076956.davem@davemloft.net> <4D70B2DC.2000005@gmail.com> <4D71EE86.6030309@suse.cz>
+            <20110305.001022.183044112.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; boundary="==_Exmh_1299325683_4963P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lo.gmane.org ([80.91.229.12]:48490 "EHLO lo.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752180Ab1CEKyF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 05:54:05 -0500
-Received: from list by lo.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Pvp7Z-0002ie-3G
-	for netdev@vger.kernel.org; Sat, 05 Mar 2011 11:54:01 +0100
-Received: from HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de ([109.193.65.201])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 11:54:01 +0100
-Received: from mail_to_chriss by HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 11:54:01 +0100
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jslaby@suse.cz, jirislaby@gmail.com, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, mm-commits@vger.kernel.org,
+	netdev@vger.kernel.org, maxk@qualcomm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Sat, 05 Mar 2011 00:10:22 PST."
+             <20110305.001022.183044112.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu <at> fr.zoreil.com> writes:
+--==_Exmh_1299325683_4963P
+Content-Type: text/plain; charset=us-ascii
 
+On Sat, 05 Mar 2011 00:10:22 PST, David Miller said:
+> --------------------
+> ipv4: Fix __ip_dev_find() to use ifa_local instead of ifa_address.
 > 
-> chriss <mail_to_chriss <at> gmx.net> :
-> [...]
-> > I hope i'm doing it right. i checked out the
-> > 'git://git.kernel.org/pub/scm/linux/kernel/git/sfr/linux-next.git'
-> > 
-> > and will try to apply the patch you provided. please correct me if i'm wrong.
-> > I will report back.
+> Reported-by: Stephen Hemminger <shemminger@vyatta.com>
+> Reported-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> ---
+>  net/ipv4/devinet.c |    4 ++--
+>  1 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> I have tested it against davem's -next somewhere along -rc5 but it should be
-> fine as well.
-> 
+> diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> index 9038928..ff53860 100644
+> --- a/net/ipv4/devinet.c
+> +++ b/net/ipv4/devinet.c
 
-My hat gows of to you kindly sir! Everything works as expected. im looking
-forward to see this patch in the stable releases.
+Confirming this fixes the problem I reported with IPv4 over PPP as well, thanks.
 
-thank you very much
-//chriss
 
+--==_Exmh_1299325683_4963P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFNciLzcC3lWbTT17ARAkStAJ9DpYCYNqHJ6pZPvEjqgDwxM4RLOwCgxBgp
+bEf6mJN17oDLNClP+WLBeUk=
+=RDXm
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1299325683_4963P--
