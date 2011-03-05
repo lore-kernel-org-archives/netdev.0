@@ -1,113 +1,95 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6 2/8] bonding: register slave pointer for rx_handler
-Date: Sat,  5 Mar 2011 11:29:23 +0100
-Message-ID: <1299320969-7951-3-git-send-email-jpirko@redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
+Subject: [patch net-next-2.6 0/8] mostly bonding rx path changes
+Date: Sat,  5 Mar 2011 11:29:21 +0100
+Message-ID: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
 Cc: davem@davemloft.net, shemminger@linux-foundation.org,
 	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
 	nicolas.2p.debian@gmail.com, andy@greyhouse.net
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62628 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:1543 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752180Ab1CEK3l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 05:29:41 -0500
-In-Reply-To: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
+	id S1752406Ab1CEK3m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 05:29:42 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Register slave pointer as rx_handler data. That would eventually prevent
-need to loop over slave devices to find the right slave.
+This patchset focuses mainly bonding rx path changes.
 
-Use synchronize_net to ensure that bond_handle_frame does not get slave
-structure freed when working with that.
+Depends on "fcoe: correct checking for bonding"
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- drivers/net/bonding/bond_main.c |   17 +++++++++++------
- drivers/net/bonding/bonding.h   |    3 +++
- 2 files changed, 14 insertions(+), 6 deletions(-)
+Jiri Pirko (8):
+  af_packet: use skb->skb_iif instead of orig_dev->ifindex
+  bonding: register slave pointer for rx_handler
+  net: get rid of multiple bond-related netdevice->priv_flags
+  bonding: wrap slave state work
+  bonding: get rid of IFF_SLAVE_INACTIVE netdev->priv_flag
+  bonding: move processing of recv handlers into handle_frame()
+  net: introduce rx_handler results and logic around that
+  net: get rid of orig_dev parameter of packet handlers
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 0592e6d..1c19368 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1495,21 +1495,22 @@ static bool bond_should_deliver_exact_match(struct sk_buff *skb,
- 
- static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
- {
--	struct net_device *slave_dev;
-+	struct slave *slave;
- 	struct net_device *bond_dev;
- 
- 	skb = skb_share_check(skb, GFP_ATOMIC);
- 	if (unlikely(!skb))
- 		return NULL;
--	slave_dev = skb->dev;
--	bond_dev = ACCESS_ONCE(slave_dev->master);
-+
-+	slave = bond_slave_get_rcu(skb->dev);
-+	bond_dev = ACCESS_ONCE(slave->dev->master);
- 	if (unlikely(!bond_dev))
- 		return skb;
- 
- 	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
--		slave_dev->last_rx = jiffies;
-+		slave->dev->last_rx = jiffies;
- 
--	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
-+	if (bond_should_deliver_exact_match(skb, slave->dev, bond_dev)) {
- 		skb->deliver_no_wcard = 1;
- 		return skb;
- 	}
-@@ -1703,7 +1704,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 		pr_debug("Error %d calling netdev_set_bond_master\n", res);
- 		goto err_restore_mac;
- 	}
--	res = netdev_rx_handler_register(slave_dev, bond_handle_frame, NULL);
-+	res = netdev_rx_handler_register(slave_dev, bond_handle_frame,
-+					 new_slave);
- 	if (res) {
- 		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
- 		goto err_unset_master;
-@@ -1925,6 +1927,7 @@ err_close:
- 
- err_unreg_rxhandler:
- 	netdev_rx_handler_unregister(slave_dev);
-+	synchronize_net();
- 
- err_unset_master:
- 	netdev_set_bond_master(slave_dev, NULL);
-@@ -2108,6 +2111,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
- 	}
- 
- 	netdev_rx_handler_unregister(slave_dev);
-+	synchronize_net();
- 	netdev_set_bond_master(slave_dev, NULL);
- 
- 	slave_disable_netpoll(slave);
-@@ -2222,6 +2226,7 @@ static int bond_release_all(struct net_device *bond_dev)
- 		}
- 
- 		netdev_rx_handler_unregister(slave_dev);
-+		synchronize_net();
- 		netdev_set_bond_master(slave_dev, NULL);
- 
- 		slave_disable_netpoll(slave);
-diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index ff4e269..1aac5cd 100644
---- a/drivers/net/bonding/bonding.h
-+++ b/drivers/net/bonding/bonding.h
-@@ -264,6 +264,9 @@ struct bonding {
- #endif /* CONFIG_DEBUG_FS */
- };
- 
-+#define bond_slave_get_rcu(dev) \
-+	((struct slave *) rcu_dereference(dev->rx_handler_data))
-+
- /**
-  * Returns NULL if the net_device does not belong to any of the bond's slaves
-  *
+ drivers/block/aoe/aoenet.c       |    2 +-
+ drivers/net/bonding/bond_3ad.c   |   31 +-----
+ drivers/net/bonding/bond_3ad.h   |    4 +-
+ drivers/net/bonding/bond_alb.c   |   46 ++------
+ drivers/net/bonding/bond_alb.h   |    1 -
+ drivers/net/bonding/bond_main.c  |  217 ++++++++++++-------------------------
+ drivers/net/bonding/bond_sysfs.c |   20 +---
+ drivers/net/bonding/bonding.h    |   64 ++++++-----
+ drivers/net/hamradio/bpqether.c  |    4 +-
+ drivers/net/macvlan.c            |   11 +-
+ drivers/net/pppoe.c              |    4 +-
+ drivers/net/wan/hdlc.c           |    2 +-
+ drivers/net/wan/lapbether.c      |    2 +-
+ drivers/scsi/fcoe/fcoe.c         |   12 +--
+ include/linux/if.h               |   23 ++---
+ include/linux/netdevice.h        |   12 ++-
+ include/linux/skbuff.h           |    5 +-
+ include/net/ax25.h               |    3 +-
+ include/net/datalink.h           |    2 +-
+ include/net/ip.h                 |    2 +-
+ include/net/ipv6.h               |    3 +-
+ include/net/irda/irda.h          |    3 +-
+ include/net/llc.h                |    8 +-
+ include/net/p8022.h              |    3 +-
+ include/net/psnap.h              |    3 +-
+ include/net/x25.h                |    2 +-
+ net/802/p8022.c                  |    3 +-
+ net/802/psnap.c                  |    7 +-
+ net/802/stp.c                    |    2 +-
+ net/8021q/vlan.h                 |    2 +-
+ net/8021q/vlan_dev.c             |    2 +-
+ net/appletalk/aarp.c             |    2 +-
+ net/appletalk/ddp.c              |    6 +-
+ net/ax25/ax25_in.c               |    2 +-
+ net/batman-adv/hard-interface.c  |    6 +-
+ net/bridge/br_input.c            |   25 +++--
+ net/bridge/br_private.h          |    2 +-
+ net/caif/caif_dev.c              |    2 +-
+ net/can/af_can.c                 |    2 +-
+ net/core/dev.c                   |   45 ++++----
+ net/core/skbuff.c                |    1 -
+ net/decnet/af_decnet.c           |    2 +-
+ net/decnet/dn_route.c            |    2 +-
+ net/dsa/tag_dsa.c                |    2 +-
+ net/dsa/tag_edsa.c               |    2 +-
+ net/dsa/tag_trailer.c            |    2 +-
+ net/econet/af_econet.c           |    2 +-
+ net/ieee802154/af_ieee802154.c   |    2 +-
+ net/ipv4/arp.c                   |    2 +-
+ net/ipv4/ip_input.c              |    2 +-
+ net/ipv4/ipconfig.c              |   13 ++-
+ net/ipv6/ip6_input.c             |    3 +-
+ net/ipx/af_ipx.c                 |    3 +-
+ net/irda/irlap_frame.c           |    2 +-
+ net/llc/llc_core.c               |    3 +-
+ net/llc/llc_input.c              |    8 +-
+ net/packet/af_packet.c           |   10 +-
+ net/phonet/af_phonet.c           |    3 +-
+ net/tipc/eth_media.c             |    2 +-
+ net/x25/x25_dev.c                |    2 +-
+ 60 files changed, 268 insertions(+), 397 deletions(-)
+
 -- 
 1.7.4
 
