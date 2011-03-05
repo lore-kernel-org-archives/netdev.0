@@ -1,56 +1,47 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: [patch net-next-2.6] net: comment rx_handler results
-Date: Sat, 5 Mar 2011 16:13:32 +0100
-Message-ID: <20110305151331.GE8573@psychotron.redhat.com>
+Subject: Re: [patch net-next-2.6 8/8] net: get rid of orig_dev parameter of
+ packet handlers
+Date: Sat, 5 Mar 2011 16:15:09 +0100
+Message-ID: <20110305151509.GF8573@psychotron.redhat.com>
 References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
- <1299320969-7951-8-git-send-email-jpirko@redhat.com>
- <1299329330.4277.97.camel@localhost>
+ <1299320969-7951-9-git-send-email-jpirko@redhat.com>
+ <4D72512C.2060802@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, nicolas.2p.debian@gmail.com,
-	andy@greyhouse.net
-To: Ben Hutchings <bhutchings@solarflare.com>
+	eric.dumazet@gmail.com, andy@greyhouse.net
+To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35624 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:46977 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752460Ab1CEPOL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 10:14:11 -0500
+	id S1751238Ab1CEPPq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 10:15:46 -0500
 Content-Disposition: inline
-In-Reply-To: <1299329330.4277.97.camel@localhost>
+In-Reply-To: <4D72512C.2060802@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Sat, Mar 05, 2011 at 04:05:16PM CET, nicolas.2p.debian@gmail.com wrote:
+>Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
+>>Since orig_dev was used in af_packet (where it was replaced) and by
+>>bonding ptype handlers (which are no longer with us) only, orig_dev
+>>parameter is no longer needed ->  toss it out
+>>
+>>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+>
+>[snip]
+>>-	new->deliver_no_wcard	=3D old->deliver_no_wcard;
+>
+>deliver_no_wcard was removed from sk_buff in your #7 patch. Shouldn't
+>the above line be part of the #7 patch?
 
-Signed-off-by: Jiri Pirko <jpirko@redhat.com>
----
- include/linux/netdevice.h |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 48a9638..26e03f9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -391,10 +391,14 @@ enum gro_result {
- typedef enum gro_result gro_result_t;
- 
- enum rx_handler_result {
--	RX_HANDLER_CONSUMED,
--	RX_HANDLER_ANOTHER,
--	RX_HANDLER_EXACT,
--	RX_HANDLER_PASS,
-+	RX_HANDLER_CONSUMED,	/* skb was consumed by rx_handler,
-+				   do not process it further. */
-+	RX_HANDLER_ANOTHER,	/* Do another round in receive path.
-+				   This is indicated in case skb->dev
-+				   was changed by rx_handler */
-+	RX_HANDLER_EXACT,	/* Force exact delivery, no wildcard */
-+	RX_HANDLER_PASS,	/* Do nothing, pass the skb as if
-+				   no rx_handler was called */
- };
- typedef enum rx_handler_result rx_handler_result_t;
- typedef rx_handler_result_t rx_handler_func_t(struct sk_buff **pskb);
--- 
-1.7.4
-
+Indeed, I wonder how if got here. Will repost to correct this.
+>
+>Except from this point,
+>
+>Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+>
+>	Nicolas.
