@@ -1,43 +1,74 @@
-From: Nicolas Kaiser <nikai@nikai.net>
-Subject: [PATCH] drivers/net/macvtap: fix error check
-Date: Sat, 5 Mar 2011 00:49:41 +0100
-Message-ID: <20110305004941.7b195e9d@absol.kitzblitz>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: [Bugme-new] [Bug 30462] New: High cpu usage when someone sends
+ many ipv6 udp packages
+Date: Fri, 4 Mar 2011 17:15:06 -0800
+Message-ID: <20110304171506.0e27cde1.akpm@linux-foundation.org>
+References: <bug-30462-10286@https.bugzilla.kernel.org/>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+Cc: bugzilla-daemon@bugzilla.kernel.org,
+	bugme-daemon@bugzilla.kernel.org, ernstp@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webhosting01.bon.m2soft.com ([195.38.20.32]:55168 "EHLO
-	webhosting01.bon.m2soft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760398Ab1CEBN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 20:13:56 -0500
+Received: from smtp1.linux-foundation.org ([140.211.169.13]:55978 "EHLO
+	smtp1.linux-foundation.org" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1760343Ab1CEBQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Mar 2011 20:16:21 -0500
+In-Reply-To: <bug-30462-10286@https.bugzilla.kernel.org/>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-'len' is unsigned of type size_t and can't be negative.
 
-Signed-off-by: Nicolas Kaiser <nikai@nikai.net>
----
- drivers/net/macvtap.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+(switched to email.  Please respond via emailed reply-to-all, not via the
+bugzilla web interface).
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 5933621..fc27a99 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -528,8 +528,9 @@ static ssize_t macvtap_get_user(struct macvtap_queue *q,
- 		vnet_hdr_len = q->vnet_hdr_sz;
- 
- 		err = -EINVAL;
--		if ((len -= vnet_hdr_len) < 0)
-+		if (len < vnet_hdr_len)
- 			goto err;
-+		len -= vnet_hdr_len;
- 
- 		err = memcpy_fromiovecend((void *)&vnet_hdr, iv, 0,
- 					   sizeof(vnet_hdr));
--- 
-1.7.3.4
+On Sat, 5 Mar 2011 01:10:53 GMT
+bugzilla-daemon@bugzilla.kernel.org wrote:
+
+> https://bugzilla.kernel.org/show_bug.cgi?id=30462
+> 
+>            Summary: High cpu usage when someone sends many ipv6 udp
+>                     packages
+>            Product: Networking
+>            Version: 2.5
+>     Kernel Version: 2.6.38-rc3
+>           Platform: All
+>         OS/Version: Linux
+>               Tree: Mainline
+>             Status: NEW
+>           Severity: high
+>           Priority: P1
+>          Component: IPV6
+>         AssignedTo: yoshfuji@linux-ipv6.org
+>         ReportedBy: ernstp@gmail.com
+>         Regression: Yes
+> 
+> 
+> Hi,
+> 
+> while testing ipv6 performance on my local network I found the following
+> problem.
+> When sending lots of UDP packages over ipv6 to a machine running kernel
+> 2.6.38-rc3 or later that machines become heavily loaded and X may stop
+> responding for long periods of time for example, sound skips etc.
+> A ksoftirqd and kworker thread each run 100% on my machine.
+> 
+> I'm using this command to trigger this:
+> iperf -c fe80::21f:d0ff:fe54:1ad4%eth0 -b 1000M -u -V
+> You _don't_ have to setup an iperf server on the reciever.
+> 
+> I have a gigabit network with a WNDR3700 with the new V1.0.7.98 firmware that's
+> "IPv6 ready".
+> 
+> I've used the kernels from http://kernel.ubuntu.com/~kernel-ppa/mainline/ to
+> narrow down that this happens with 2.6.38-rc3 and later but not with 2.6.38-rc2
+> and earlier like 2.6.37 and 2.6.35.
+> 
+> The following ipv6 related changes were introduced between -rc2 and -rc3 that I
+> can see. The "Revert 'administrative down' address handling changes." looked
+> big...
+>       ipv6: Always clone offlink routes.
+>       ipv6: Revert 'administrative down' address handling changes.
+> 
+
