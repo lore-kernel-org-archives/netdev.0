@@ -1,166 +1,255 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 3/4] r8169: support control of advertising.
-Date: Sat, 5 Mar 2011 10:40:34 +0100
-Message-ID: <20110305094034.GC13854@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 4/4] r8169: convert to new VLAN model.
+Date: Sat, 5 Mar 2011 10:41:11 +0100
+Message-ID: <20110305094111.GD13854@electric-eye.fr.zoreil.com>
 References: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
-	Oliver Neukum <oneukum@suse.de>,
-	Ben Hutchings <ben@decadent.org.uk>
+	Jesse Gross <jesse@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50187 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50192 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751224Ab1CEJpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 04:45:13 -0500
+	with ESMTP id S1752186Ab1CEJpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 04:45:47 -0500
 Content-Disposition: inline
 In-Reply-To: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows "ethtool advertise" to control the speed and duplex
-features the device offers the switch.
-
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Reviewed-by: Jesse Gross <jesse@nicira.com>
 ---
- drivers/net/r8169.c |   54 ++++++++++++++++++++++++++++++++++----------------
- 1 files changed, 37 insertions(+), 17 deletions(-)
+ drivers/net/Kconfig |    9 ----
+ drivers/net/r8169.c |  110 +++++++++++++++++++++++----------------------------
+ 2 files changed, 49 insertions(+), 70 deletions(-)
 
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index f4b3927..8d0d16f 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -2236,15 +2236,6 @@ config R8169
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called r8169.  This is recommended.
+ 
+-config R8169_VLAN
+-	bool "VLAN support"
+-	depends on R8169 && VLAN_8021Q
+-	---help---
+-	  Say Y here for the r8169 driver to support the functions required
+-	  by the kernel 802.1Q code.
+-
+-	  If in doubt, say Y.
+-
+ config SB1250_MAC
+ 	tristate "SB1250 Gigabit Ethernet support"
+ 	depends on SIBYTE_SB1xxx_SOC
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index 2543edd..d842d00 100644
+index d842d00..52e20d5 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -551,7 +551,7 @@ struct rtl8169_private {
- 		void (*up)(struct rtl8169_private *);
- 	} pll_power_ops;
+@@ -537,9 +537,6 @@ struct rtl8169_private {
+ 	u16 napi_event;
+ 	u16 intr_mask;
+ 	int phy_1000_ctrl_reg;
+-#ifdef CONFIG_R8169_VLAN
+-	struct vlan_group *vlgrp;
+-#endif
  
--	int (*set_speed)(struct net_device *, u8 autoneg, u16 speed, u8 duplex);
-+	int (*set_speed)(struct net_device *, u8 aneg, u16 sp, u8 dpx, u32 adv);
- 	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
- 	void (*phy_reset_enable)(struct rtl8169_private *tp);
- 	void (*hw_start)(struct net_device *);
-@@ -1108,7 +1108,7 @@ static int rtl8169_get_regs_len(struct net_device *dev)
+ 	struct mdio_ops {
+ 		void (*write)(void __iomem *, int, int);
+@@ -1276,8 +1273,6 @@ static int rtl8169_set_rx_csum(struct net_device *dev, u32 data)
+ 	return 0;
  }
  
- static int rtl8169_set_speed_tbi(struct net_device *dev,
--				 u8 autoneg, u16 speed, u8 duplex)
-+				 u8 autoneg, u16 speed, u8 duplex, u32 ignored)
+-#ifdef CONFIG_R8169_VLAN
+-
+ static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
+ 				      struct sk_buff *skb)
+ {
+@@ -1285,64 +1280,37 @@ static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
+ 		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
+ }
+ 
+-static void rtl8169_vlan_rx_register(struct net_device *dev,
+-				     struct vlan_group *grp)
++#define NETIF_F_HW_VLAN_TX_RX	(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX)
++
++static void rtl8169_vlan_mode(struct net_device *dev)
  {
  	struct rtl8169_private *tp = netdev_priv(dev);
  	void __iomem *ioaddr = tp->mmio_addr;
-@@ -1131,10 +1131,11 @@ static int rtl8169_set_speed_tbi(struct net_device *dev,
- }
- 
- static int rtl8169_set_speed_xmii(struct net_device *dev,
--				  u8 autoneg, u16 speed, u8 duplex)
-+				  u8 autoneg, u16 speed, u8 duplex, u32 adv)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	int giga_ctrl, bmcr;
-+	int rc = -EINVAL;
- 
- 	rtl_writephy(tp, 0x1f, 0x0000);
- 
-@@ -1142,8 +1143,18 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		int auto_nego;
- 
- 		auto_nego = rtl_readphy(tp, MII_ADVERTISE);
--		auto_nego |= (ADVERTISE_10HALF | ADVERTISE_10FULL |
--			      ADVERTISE_100HALF | ADVERTISE_100FULL);
-+		auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
-+				ADVERTISE_100HALF | ADVERTISE_100FULL);
-+
-+		if (adv & ADVERTISED_10baseT_Half)
-+			auto_nego |= ADVERTISE_10HALF;
-+		if (adv & ADVERTISED_10baseT_Full)
-+			auto_nego |= ADVERTISE_10FULL;
-+		if (adv & ADVERTISED_100baseT_Half)
-+			auto_nego |= ADVERTISE_100HALF;
-+		if (adv & ADVERTISED_100baseT_Full)
-+			auto_nego |= ADVERTISE_100FULL;
-+
- 		auto_nego |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
- 
- 		giga_ctrl = rtl_readphy(tp, MII_CTRL1000);
-@@ -1160,10 +1171,15 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		    (tp->mac_version != RTL_GIGA_MAC_VER_16) &&
- 		    (tp->mac_version != RTL_GIGA_MAC_VER_29) &&
- 		    (tp->mac_version != RTL_GIGA_MAC_VER_30)) {
--			giga_ctrl |= ADVERTISE_1000FULL | ADVERTISE_1000HALF;
--		} else {
-+			if (adv & ADVERTISED_1000baseT_Half)
-+				giga_ctrl |= ADVERTISE_1000HALF;
-+			if (adv & ADVERTISED_1000baseT_Full)
-+				giga_ctrl |= ADVERTISE_1000FULL;
-+		} else if (adv & (ADVERTISED_1000baseT_Half |
-+				  ADVERTISED_1000baseT_Full)) {
- 			netif_info(tp, link, dev,
- 				   "PHY does not support 1000Mbps\n");
-+			goto out;
- 		}
- 
- 		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
-@@ -1178,7 +1194,7 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		else if (speed == SPEED_100)
- 			bmcr = BMCR_SPEED100;
- 		else
--			return -EINVAL;
-+			goto out;
- 
- 		if (duplex == DUPLEX_FULL)
- 			bmcr |= BMCR_FULLDPLX;
-@@ -1199,16 +1215,18 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		}
- 	}
- 
--	return 0;
-+	rc = 0;
-+out:
-+	return rc;
- }
- 
- static int rtl8169_set_speed(struct net_device *dev,
--			     u8 autoneg, u16 speed, u8 duplex)
-+			     u8 autoneg, u16 speed, u8 duplex, u32 advertising)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	int ret;
- 
--	ret = tp->set_speed(dev, autoneg, speed, duplex);
-+	ret = tp->set_speed(dev, autoneg, speed, duplex, advertising);
- 
- 	if (netif_running(dev) && (tp->phy_1000_ctrl_reg & ADVERTISE_1000FULL))
- 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
-@@ -1223,7 +1241,8 @@ static int rtl8169_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	int ret;
+ 	unsigned long flags;
  
  	spin_lock_irqsave(&tp->lock, flags);
--	ret = rtl8169_set_speed(dev, cmd->autoneg, cmd->speed, cmd->duplex);
-+	ret = rtl8169_set_speed(dev,
-+		cmd->autoneg, cmd->speed, cmd->duplex, cmd->advertising);
+-	tp->vlgrp = grp;
+-	/*
+-	 * Do not disable RxVlan on 8110SCd.
+-	 */
+-	if (tp->vlgrp || (tp->mac_version == RTL_GIGA_MAC_VER_05))
++	if (dev->features & NETIF_F_HW_VLAN_RX)
+ 		tp->cp_cmd |= RxVlan;
+ 	else
+ 		tp->cp_cmd &= ~RxVlan;
+ 	RTL_W16(CPlusCmd, tp->cp_cmd);
++	/* PCI commit */
+ 	RTL_R16(CPlusCmd);
  	spin_unlock_irqrestore(&tp->lock, flags);
++
++	dev->vlan_features = dev->features &~ NETIF_F_HW_VLAN_TX_RX;
+ }
  
- 	return ret;
-@@ -2669,11 +2688,12 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+-static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
+-			       struct sk_buff *skb, int polling)
++static void rtl8169_rx_vlan_tag(struct RxDesc *desc, struct sk_buff *skb)
+ {
+ 	u32 opts2 = le32_to_cpu(desc->opts2);
+-	struct vlan_group *vlgrp = tp->vlgrp;
+-	int ret;
  
- 	rtl8169_phy_reset(dev, tp);
+-	if (vlgrp && (opts2 & RxVlanTag)) {
+-		u16 vtag = swab16(opts2 & 0xffff);
++	if (opts2 & RxVlanTag)
++		__vlan_hwaccel_put_tag(skb, swab16(opts2 & 0xffff));
+ 
+-		if (likely(polling))
+-			vlan_gro_receive(&tp->napi, vlgrp, vtag, skb);
+-		else
+-			__vlan_hwaccel_rx(skb, vlgrp, vtag, polling);
+-		ret = 0;
+-	} else
+-		ret = -1;
+ 	desc->opts2 = 0;
+-	return ret;
+-}
+-
+-#else /* !CONFIG_R8169_VLAN */
+-
+-static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
+-				      struct sk_buff *skb)
+-{
+-	return 0;
+-}
+-
+-static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
+-			       struct sk_buff *skb, int polling)
+-{
+-	return -1;
+ }
+ 
+-#endif
+-
+ static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -1513,6 +1481,28 @@ static void rtl8169_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+ 	}
+ }
+ 
++static int rtl8169_set_flags(struct net_device *dev, u32 data)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++	unsigned long old_feat = dev->features;
++	int rc;
++
++	if ((tp->mac_version == RTL_GIGA_MAC_VER_05) &&
++	    !(data & ETH_FLAG_RXVLAN)) {
++		netif_info(tp, drv, dev, "8110SCd requires hardware Rx VLAN\n");
++		return -EINVAL;
++	}
++
++	rc = ethtool_op_set_flags(dev, data, ETH_FLAG_TXVLAN | ETH_FLAG_RXVLAN);
++	if (rc)
++		return rc;
++
++	if ((old_feat ^ dev->features) & NETIF_F_HW_VLAN_RX)
++		rtl8169_vlan_mode(dev);
++
++	return 0;
++}
++
+ static const struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_drvinfo		= rtl8169_get_drvinfo,
+ 	.get_regs_len		= rtl8169_get_regs_len,
+@@ -1532,6 +1522,8 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
+ 	.get_strings		= rtl8169_get_strings,
+ 	.get_sset_count		= rtl8169_get_sset_count,
+ 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
++	.set_flags		= rtl8169_set_flags,
++	.get_flags		= ethtool_op_get_flags,
+ };
+ 
+ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
+@@ -2849,9 +2841,6 @@ static const struct net_device_ops rtl8169_netdev_ops = {
+ 	.ndo_set_mac_address	= rtl_set_mac_address,
+ 	.ndo_do_ioctl		= rtl8169_ioctl,
+ 	.ndo_set_multicast_list	= rtl_set_rx_mode,
+-#ifdef CONFIG_R8169_VLAN
+-	.ndo_vlan_rx_register	= rtl8169_vlan_rx_register,
+-#endif
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= rtl8169_netpoll,
+ #endif
+@@ -3145,6 +3134,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	/* Identify chip attached to board */
+ 	rtl8169_get_mac_version(tp, ioaddr);
+ 
++	/*
++	 * Pretend we are using VLANs; This bypasses a nasty bug where
++	 * Interrupts stop flowing on high load on 8110SCd controllers.
++	 */
++	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
++		tp->cp_cmd |= RxVlan;
++
+ 	rtl_init_mdio_ops(tp);
+ 	rtl_init_pll_power_ops(tp);
+ 
+@@ -3213,10 +3209,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	netif_napi_add(dev, &tp->napi, rtl8169_poll, R8169_NAPI_WEIGHT);
+ 
+-#ifdef CONFIG_R8169_VLAN
+-	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-#endif
+-	dev->features |= NETIF_F_GRO;
++	dev->features |= NETIF_F_HW_VLAN_TX_RX | NETIF_F_GRO;
+ 
+ 	tp->intr_mask = 0xffff;
+ 	tp->hw_start = cfg->hw_start;
+@@ -3334,12 +3327,7 @@ static int rtl8169_open(struct net_device *dev)
+ 
+ 	rtl8169_init_phy(dev, tp);
  
 -	/*
--	 * rtl8169_set_speed_xmii takes good care of the Fast Ethernet
--	 * only 8101. Don't panic.
+-	 * Pretend we are using VLANs; This bypasses a nasty bug where
+-	 * Interrupts stop flowing on high load on 8110SCd controllers.
 -	 */
--	rtl8169_set_speed(dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL);
-+	rtl8169_set_speed(dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL,
-+		ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
-+		ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
-+		tp->mii.supports_gmii ?
-+			ADVERTISED_1000baseT_Half |
-+			ADVERTISED_1000baseT_Full : 0);
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
+-		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | RxVlan);
++	rtl8169_vlan_mode(dev);
  
- 	if (RTL_R8(PHYstatus) & TBI_Enable)
- 		netif_info(tp, link, dev, "TBI auto-negotiating\n");
+ 	rtl_pll_power_up(tp);
+ 
+@@ -4689,12 +4677,12 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
+ 			skb_put(skb, pkt_size);
+ 			skb->protocol = eth_type_trans(skb, dev);
+ 
+-			if (rtl8169_rx_vlan_skb(tp, desc, skb, polling) < 0) {
+-				if (likely(polling))
+-					napi_gro_receive(&tp->napi, skb);
+-				else
+-					netif_rx(skb);
+-			}
++			rtl8169_rx_vlan_tag(desc, skb);
++
++			if (likely(polling))
++				napi_gro_receive(&tp->napi, skb);
++			else
++				netif_rx(skb);
+ 
+ 			dev->stats.rx_bytes += pkt_size;
+ 			dev->stats.rx_packets++;
 -- 
 1.7.4
 
