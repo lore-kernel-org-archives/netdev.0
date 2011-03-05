@@ -1,313 +1,353 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 17/28] batman-adv: Make bat_priv->curr_gw an rcu protected pointer
-Date: Sat,  5 Mar 2011 13:28:31 +0100
-Message-ID: <1299328122-21468-18-git-send-email-sven@narfation.org>
+Subject: [PATCH 20/28] batman-adv: separate ethernet comparing calls from hash functions
+Date: Sat,  5 Mar 2011 13:28:34 +0100
+Message-ID: <1299328122-21468-21-git-send-email-sven@narfation.org>
 References: <1299328122-21468-1-git-send-email-sven@narfation.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@ascom.ch>,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:36317 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:36334 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753290Ab1CEMaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 07:30:00 -0500
+	id S1753343Ab1CEMaF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 07:30:05 -0500
 In-Reply-To: <1299328122-21468-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Linus L=C3=BCssing <linus.luessing@ascom.ch>
+From: Marek Lindner <lindner_marek@yahoo.de>
 
-The rcu protected macros rcu_dereference() and rcu_assign_pointer()
-for the bat_priv->curr_gw need to be used, as well as spin/rcu locking.
+Note: The function compare_ether_addr() provided by the Linux kernel
+requires aligned memory.
 
-Otherwise we might end up using a curr_gw pointer pointing to already
-freed memory.
-
-Reported-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@ascom.ch>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/gateway_client.c |  100 +++++++++++++++++++++++++++----=
---------
- net/batman-adv/types.h          |    4 +-
- 2 files changed, 72 insertions(+), 32 deletions(-)
+ net/batman-adv/hard-interface.c    |    2 +-
+ net/batman-adv/main.c              |    2 +-
+ net/batman-adv/main.h              |   10 ++++++
+ net/batman-adv/routing.c           |   55 +++++++++++++++++------------------
+ net/batman-adv/send.c              |    2 +-
+ net/batman-adv/soft-interface.c    |    2 +-
+ net/batman-adv/translation-table.c |    2 +-
+ net/batman-adv/vis.c               |   18 ++++++------
+ 8 files changed, 51 insertions(+), 42 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_c=
-lient.c
-index 517e001..a3e842f 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -44,19 +44,29 @@ static void gw_node_free_ref(struct gw_node *gw_nod=
-e)
-=20
- void *gw_get_selected(struct bat_priv *bat_priv)
- {
--	struct gw_node *curr_gateway_tmp =3D bat_priv->curr_gw;
-+	struct gw_node *curr_gateway_tmp;
-+	struct orig_node *orig_node =3D NULL;
-=20
-+	rcu_read_lock();
-+	curr_gateway_tmp =3D rcu_dereference(bat_priv->curr_gw);
- 	if (!curr_gateway_tmp)
--		return NULL;
-+		goto out;
-+
-+	orig_node =3D curr_gateway_tmp->orig_node;
-=20
--	return curr_gateway_tmp->orig_node;
-+out:
-+	rcu_read_unlock();
-+	return orig_node;
- }
-=20
- void gw_deselect(struct bat_priv *bat_priv)
- {
--	struct gw_node *gw_node =3D bat_priv->curr_gw;
-+	struct gw_node *gw_node;
-=20
--	bat_priv->curr_gw =3D NULL;
-+	spin_lock_bh(&bat_priv->gw_list_lock);
-+	gw_node =3D rcu_dereference(bat_priv->curr_gw);
-+	rcu_assign_pointer(bat_priv->curr_gw, NULL);
-+	spin_unlock_bh(&bat_priv->gw_list_lock);
-=20
- 	if (gw_node)
- 		gw_node_free_ref(gw_node);
-@@ -64,12 +74,15 @@ void gw_deselect(struct bat_priv *bat_priv)
-=20
- static void gw_select(struct bat_priv *bat_priv, struct gw_node *new_g=
-w_node)
- {
--	struct gw_node *curr_gw_node =3D bat_priv->curr_gw;
-+	struct gw_node *curr_gw_node;
-=20
- 	if (new_gw_node && !atomic_inc_not_zero(&new_gw_node->refcount))
- 		new_gw_node =3D NULL;
-=20
--	bat_priv->curr_gw =3D new_gw_node;
-+	spin_lock_bh(&bat_priv->gw_list_lock);
-+	curr_gw_node =3D rcu_dereference(bat_priv->curr_gw);
-+	rcu_assign_pointer(bat_priv->curr_gw, new_gw_node);
-+	spin_unlock_bh(&bat_priv->gw_list_lock);
-=20
- 	if (curr_gw_node)
- 		gw_node_free_ref(curr_gw_node);
-@@ -78,7 +91,7 @@ static void gw_select(struct bat_priv *bat_priv, stru=
-ct gw_node *new_gw_node)
- void gw_election(struct bat_priv *bat_priv)
- {
- 	struct hlist_node *node;
--	struct gw_node *gw_node, *curr_gw_tmp =3D NULL;
-+	struct gw_node *gw_node, *curr_gw, *curr_gw_tmp =3D NULL;
- 	uint8_t max_tq =3D 0;
- 	uint32_t max_gw_factor =3D 0, tmp_gw_factor =3D 0;
- 	int down, up;
-@@ -92,19 +105,23 @@ void gw_election(struct bat_priv *bat_priv)
- 	if (atomic_read(&bat_priv->gw_mode) !=3D GW_MODE_CLIENT)
- 		return;
-=20
--	if (bat_priv->curr_gw)
-+	rcu_read_lock();
-+	curr_gw =3D rcu_dereference(bat_priv->curr_gw);
-+	if (curr_gw) {
-+		rcu_read_unlock();
- 		return;
-+	}
-=20
--	rcu_read_lock();
- 	if (hlist_empty(&bat_priv->gw_list)) {
--		rcu_read_unlock();
-=20
--		if (bat_priv->curr_gw) {
-+		if (curr_gw) {
-+			rcu_read_unlock();
- 			bat_dbg(DBG_BATMAN, bat_priv,
- 				"Removing selected gateway - "
- 				"no gateway in range\n");
- 			gw_deselect(bat_priv);
--		}
-+		} else
-+			rcu_read_unlock();
-=20
- 		return;
- 	}
-@@ -153,12 +170,12 @@ void gw_election(struct bat_priv *bat_priv)
- 			max_gw_factor =3D tmp_gw_factor;
- 	}
-=20
--	if (bat_priv->curr_gw !=3D curr_gw_tmp) {
--		if ((bat_priv->curr_gw) && (!curr_gw_tmp))
-+	if (curr_gw !=3D curr_gw_tmp) {
-+		if ((curr_gw) && (!curr_gw_tmp))
- 			bat_dbg(DBG_BATMAN, bat_priv,
- 				"Removing selected gateway - "
- 				"no gateway in range\n");
--		else if ((!bat_priv->curr_gw) && (curr_gw_tmp))
-+		else if ((!curr_gw) && (curr_gw_tmp))
- 			bat_dbg(DBG_BATMAN, bat_priv,
- 				"Adding route to gateway %pM "
- 				"(gw_flags: %i, tq: %i)\n",
-@@ -181,31 +198,35 @@ void gw_election(struct bat_priv *bat_priv)
-=20
- void gw_check_election(struct bat_priv *bat_priv, struct orig_node *or=
-ig_node)
- {
--	struct gw_node *curr_gateway_tmp =3D bat_priv->curr_gw;
-+	struct gw_node *curr_gateway_tmp;
- 	uint8_t gw_tq_avg, orig_tq_avg;
-=20
-+	rcu_read_lock();
-+	curr_gateway_tmp =3D rcu_dereference(bat_priv->curr_gw);
- 	if (!curr_gateway_tmp)
--		return;
-+		goto out_rcu;
-=20
- 	if (!curr_gateway_tmp->orig_node)
--		goto deselect;
-+		goto deselect_rcu;
-=20
- 	if (!curr_gateway_tmp->orig_node->router)
--		goto deselect;
-+		goto deselect_rcu;
-=20
- 	/* this node already is the gateway */
- 	if (curr_gateway_tmp->orig_node =3D=3D orig_node)
--		return;
-+		goto out_rcu;
-=20
- 	if (!orig_node->router)
--		return;
-+		goto out_rcu;
-=20
- 	gw_tq_avg =3D curr_gateway_tmp->orig_node->router->tq_avg;
-+	rcu_read_unlock();
-+
- 	orig_tq_avg =3D orig_node->router->tq_avg;
-=20
- 	/* the TQ value has to be better */
- 	if (orig_tq_avg < gw_tq_avg)
--		return;
-+		goto out;
-=20
- 	/**
- 	 * if the routing class is greater than 3 the value tells us how much
-@@ -213,15 +234,23 @@ void gw_check_election(struct bat_priv *bat_priv,=
- struct orig_node *orig_node)
- 	 **/
- 	if ((atomic_read(&bat_priv->gw_sel_class) > 3) &&
- 	    (orig_tq_avg - gw_tq_avg < atomic_read(&bat_priv->gw_sel_class)))
--		return;
-+		goto out;
-=20
- 	bat_dbg(DBG_BATMAN, bat_priv,
- 		"Restarting gateway selection: better gateway found (tq curr: "
- 		"%i, tq new: %i)\n",
- 		gw_tq_avg, orig_tq_avg);
-+	goto deselect;
-=20
-+out_rcu:
-+	rcu_read_unlock();
-+	goto out;
-+deselect_rcu:
-+	rcu_read_unlock();
- deselect:
- 	gw_deselect(bat_priv);
-+out:
-+	return;
- }
-=20
- static void gw_node_add(struct bat_priv *bat_priv,
-@@ -278,7 +307,7 @@ void gw_node_update(struct bat_priv *bat_priv,
- 				"Gateway %pM removed from gateway list\n",
- 				orig_node->orig);
-=20
--			if (gw_node =3D=3D bat_priv->curr_gw) {
-+			if (gw_node =3D=3D rcu_dereference(bat_priv->curr_gw)) {
- 				rcu_read_unlock();
- 				gw_deselect(bat_priv);
- 				return;
-@@ -316,7 +345,7 @@ void gw_node_purge(struct bat_priv *bat_priv)
- 		    atomic_read(&bat_priv->mesh_state) =3D=3D MESH_ACTIVE)
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index 8982485..de9bd36 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -187,7 +187,7 @@ static void check_known_mac_addr(struct net_device *net_dev)
+ 		if (batman_if->net_dev == net_dev)
  			continue;
-=20
--		if (bat_priv->curr_gw =3D=3D gw_node)
-+		if (rcu_dereference(bat_priv->curr_gw) =3D=3D gw_node)
- 			gw_deselect(bat_priv);
-=20
- 		hlist_del_rcu(&gw_node->list);
-@@ -330,12 +359,16 @@ void gw_node_purge(struct bat_priv *bat_priv)
- static int _write_buffer_text(struct bat_priv *bat_priv,
- 			      struct seq_file *seq, struct gw_node *gw_node)
- {
--	int down, up;
-+	struct gw_node *curr_gw;
-+	int down, up, ret;
-=20
- 	gw_bandwidth_to_kbit(gw_node->orig_node->gw_flags, &down, &up);
-=20
--	return seq_printf(seq, "%s %pM (%3i) %pM [%10s]: %3i - %i%s/%i%s\n",
--		       (bat_priv->curr_gw =3D=3D gw_node ? "=3D>" : "  "),
-+	rcu_read_lock();
-+	curr_gw =3D rcu_dereference(bat_priv->curr_gw);
+ 
+-		if (!compare_orig(batman_if->net_dev->dev_addr,
++		if (!compare_eth(batman_if->net_dev->dev_addr,
+ 				  net_dev->dev_addr))
+ 			continue;
+ 
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 06d956c..3f977ea 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -161,7 +161,7 @@ int is_my_mac(uint8_t *addr)
+ 		if (batman_if->if_status != IF_ACTIVE)
+ 			continue;
+ 
+-		if (compare_orig(batman_if->net_dev->dev_addr, addr)) {
++		if (compare_eth(batman_if->net_dev->dev_addr, addr)) {
+ 			rcu_read_unlock();
+ 			return 1;
+ 		}
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index e235d7b..06b5b99 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -165,4 +165,14 @@ static inline void bat_dbg(char type __always_unused,
+ 		pr_err("%s: " fmt, _netdev->name, ## arg);		\
+ 	} while (0)
+ 
++/**
++ * returns 1 if they are the same ethernet addr
++ *
++ * note: can't use compare_ether_addr() as it requires aligned memory
++ */
++static inline int compare_eth(void *data1, void *data2)
++{
++	return (memcmp(data1, data2, ETH_ALEN) == 0 ? 1 : 0);
++}
 +
-+	ret =3D seq_printf(seq, "%s %pM (%3i) %pM [%10s]: %3i - %i%s/%i%s\n",
-+		       (curr_gw =3D=3D gw_node ? "=3D>" : "  "),
- 		       gw_node->orig_node->orig,
- 		       gw_node->orig_node->router->tq_avg,
- 		       gw_node->orig_node->router->addr,
-@@ -345,6 +378,9 @@ static int _write_buffer_text(struct bat_priv *bat_=
-priv,
- 		       (down > 2048 ? "MBit" : "KBit"),
- 		       (up > 2048 ? up / 1024 : up),
- 		       (up > 2048 ? "MBit" : "KBit"));
-+
-+	rcu_read_unlock();
-+	return ret;
+ #endif /* _NET_BATMAN_ADV_MAIN_H_ */
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index ce68815..b54bf6e 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -163,8 +163,8 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 		hlist_for_each_entry_rcu(tmp_neigh_node, node,
+ 					 &orig_node->neigh_list, list) {
+ 
+-			if (compare_orig(tmp_neigh_node->addr,
+-					 orig_neigh_node->orig) &&
++			if (compare_eth(tmp_neigh_node->addr,
++					orig_neigh_node->orig) &&
+ 			    (tmp_neigh_node->if_incoming == if_incoming))
+ 				neigh_node = tmp_neigh_node;
+ 		}
+@@ -192,8 +192,8 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 		hlist_for_each_entry_rcu(tmp_neigh_node, node,
+ 					 &orig_neigh_node->neigh_list, list) {
+ 
+-			if (compare_orig(tmp_neigh_node->addr,
+-					 orig_neigh_node->orig) &&
++			if (compare_eth(tmp_neigh_node->addr,
++					orig_neigh_node->orig) &&
+ 			    (tmp_neigh_node->if_incoming == if_incoming))
+ 				neigh_node = tmp_neigh_node;
+ 		}
+@@ -304,8 +304,8 @@ static void bonding_candidate_add(struct orig_node *orig_node,
+ 	spin_lock_bh(&orig_node->neigh_list_lock);
+ 
+ 	/* only consider if it has the same primary address ...  */
+-	if (!compare_orig(orig_node->orig,
+-			  neigh_node->orig_node->primary_addr))
++	if (!compare_eth(orig_node->orig,
++			 neigh_node->orig_node->primary_addr))
+ 		goto candidate_del;
+ 
+ 	if (!orig_node->router)
+@@ -334,7 +334,7 @@ static void bonding_candidate_add(struct orig_node *orig_node,
+ 			continue;
+ 
+ 		if ((neigh_node->if_incoming == tmp_neigh_node->if_incoming) ||
+-		    (compare_orig(neigh_node->addr, tmp_neigh_node->addr))) {
++		    (compare_eth(neigh_node->addr, tmp_neigh_node->addr))) {
+ 			interference_candidate = 1;
+ 			break;
+ 		}
+@@ -394,7 +394,7 @@ static void update_orig(struct bat_priv *bat_priv,
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(tmp_neigh_node, node,
+ 				 &orig_node->neigh_list, list) {
+-		if (compare_orig(tmp_neigh_node->addr, ethhdr->h_source) &&
++		if (compare_eth(tmp_neigh_node->addr, ethhdr->h_source) &&
+ 		    (tmp_neigh_node->if_incoming == if_incoming) &&
+ 		     atomic_inc_not_zero(&tmp_neigh_node->refcount)) {
+ 			if (neigh_node)
+@@ -579,7 +579,7 @@ static char count_real_packets(struct ethhdr *ethhdr,
+ 					       orig_node->last_real_seqno,
+ 					       batman_packet->seqno);
+ 
+-		if (compare_orig(tmp_neigh_node->addr, ethhdr->h_source) &&
++		if (compare_eth(tmp_neigh_node->addr, ethhdr->h_source) &&
+ 		    (tmp_neigh_node->if_incoming == if_incoming))
+ 			set_mark = 1;
+ 		else
+@@ -644,8 +644,8 @@ void receive_bat_packet(struct ethhdr *ethhdr,
+ 
+ 	has_directlink_flag = (batman_packet->flags & DIRECTLINK ? 1 : 0);
+ 
+-	is_single_hop_neigh = (compare_orig(ethhdr->h_source,
+-					    batman_packet->orig) ? 1 : 0);
++	is_single_hop_neigh = (compare_eth(ethhdr->h_source,
++					   batman_packet->orig) ? 1 : 0);
+ 
+ 	bat_dbg(DBG_BATMAN, bat_priv,
+ 		"Received BATMAN packet via NB: %pM, IF: %s [%pM] "
+@@ -665,19 +665,19 @@ void receive_bat_packet(struct ethhdr *ethhdr,
+ 		if (batman_if->soft_iface != if_incoming->soft_iface)
+ 			continue;
+ 
+-		if (compare_orig(ethhdr->h_source,
+-				 batman_if->net_dev->dev_addr))
++		if (compare_eth(ethhdr->h_source,
++				batman_if->net_dev->dev_addr))
+ 			is_my_addr = 1;
+ 
+-		if (compare_orig(batman_packet->orig,
+-				 batman_if->net_dev->dev_addr))
++		if (compare_eth(batman_packet->orig,
++				batman_if->net_dev->dev_addr))
+ 			is_my_orig = 1;
+ 
+-		if (compare_orig(batman_packet->prev_sender,
+-				 batman_if->net_dev->dev_addr))
++		if (compare_eth(batman_packet->prev_sender,
++				batman_if->net_dev->dev_addr))
+ 			is_my_oldorig = 1;
+ 
+-		if (compare_orig(ethhdr->h_source, broadcast_addr))
++		if (compare_eth(ethhdr->h_source, broadcast_addr))
+ 			is_broadcast = 1;
+ 	}
+ 	rcu_read_unlock();
+@@ -717,8 +717,8 @@ void receive_bat_packet(struct ethhdr *ethhdr,
+ 		/* if received seqno equals last send seqno save new
+ 		 * seqno for bidirectional check */
+ 		if (has_directlink_flag &&
+-		    compare_orig(if_incoming->net_dev->dev_addr,
+-				 batman_packet->orig) &&
++		    compare_eth(if_incoming->net_dev->dev_addr,
++				batman_packet->orig) &&
+ 		    (batman_packet->seqno - if_incoming_seqno + 2 == 0)) {
+ 			offset = if_incoming->if_num * NUM_WORDS;
+ 
+@@ -765,11 +765,11 @@ void receive_bat_packet(struct ethhdr *ethhdr,
+ 	/* avoid temporary routing loops */
+ 	if ((orig_node->router) &&
+ 	    (orig_node->router->orig_node->router) &&
+-	    (compare_orig(orig_node->router->addr,
+-			  batman_packet->prev_sender)) &&
+-	    !(compare_orig(batman_packet->orig, batman_packet->prev_sender)) &&
+-	    (compare_orig(orig_node->router->addr,
+-			  orig_node->router->orig_node->router->addr))) {
++	    (compare_eth(orig_node->router->addr,
++			 batman_packet->prev_sender)) &&
++	    !(compare_eth(batman_packet->orig, batman_packet->prev_sender)) &&
++	    (compare_eth(orig_node->router->addr,
++			 orig_node->router->orig_node->router->addr))) {
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+ 			"Drop packet: ignoring all rebroadcast packets that "
+ 			"may make me loop (sender: %pM)\n", ethhdr->h_source);
+@@ -1185,14 +1185,13 @@ struct neigh_node *find_router(struct bat_priv *bat_priv,
+ 
+ 	/* if we have something in the primary_addr, we can search
+ 	 * for a potential bonding candidate. */
+-	if (memcmp(router_orig->primary_addr, zero_mac, ETH_ALEN) == 0)
++	if (compare_eth(router_orig->primary_addr, zero_mac))
+ 		goto return_router;
+ 
+ 	/* find the orig_node which has the primary interface. might
+ 	 * even be the same as our router_orig in many cases */
+ 
+-	if (memcmp(router_orig->primary_addr,
+-				router_orig->orig, ETH_ALEN) == 0) {
++	if (compare_eth(router_orig->primary_addr, router_orig->orig)) {
+ 		primary_orig_node = router_orig;
+ 	} else {
+ 		primary_orig_node = hash_find(bat_priv->orig_hash, compare_orig,
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 8314276..f0232ad 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -326,7 +326,7 @@ void schedule_forward_packet(struct orig_node *orig_node,
+ 	if ((orig_node->router) && (orig_node->router->tq_avg != 0)) {
+ 
+ 		/* rebroadcast ogm of best ranking neighbor as is */
+-		if (!compare_orig(orig_node->router->addr, ethhdr->h_source)) {
++		if (!compare_eth(orig_node->router->addr, ethhdr->h_source)) {
+ 			batman_packet->tq = orig_node->router->tq_avg;
+ 
+ 			if (orig_node->router->last_ttl)
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index c30ccd6..bea2dcf 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -132,7 +132,7 @@ static struct softif_neigh *softif_neigh_get(struct bat_priv *bat_priv,
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(softif_neigh, node,
+ 				 &bat_priv->softif_neigh_list, list) {
+-		if (memcmp(softif_neigh->addr, addr, ETH_ALEN) != 0)
++		if (!compare_eth(softif_neigh->addr, addr))
+ 			continue;
+ 
+ 		if (softif_neigh->vid != vid)
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index b25e4b3..77d0ee0 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -101,7 +101,7 @@ void hna_local_add(struct net_device *soft_iface, uint8_t *addr)
+ 	hna_local_entry->last_seen = jiffies;
+ 
+ 	/* the batman interface mac address should never be purged */
+-	if (compare_orig(addr, soft_iface->dev_addr))
++	if (compare_eth(addr, soft_iface->dev_addr))
+ 		hna_local_entry->never_purge = 1;
+ 	else
+ 		hna_local_entry->never_purge = 0;
+diff --git a/net/batman-adv/vis.c b/net/batman-adv/vis.c
+index 9832d8f..fc97329 100644
+--- a/net/batman-adv/vis.c
++++ b/net/batman-adv/vis.c
+@@ -75,7 +75,7 @@ static int vis_info_cmp(void *data1, void *data2)
+ 	d2 = data2;
+ 	p1 = (struct vis_packet *)d1->skb_packet->data;
+ 	p2 = (struct vis_packet *)d2->skb_packet->data;
+-	return compare_orig(p1->vis_orig, p2->vis_orig);
++	return compare_eth(p1->vis_orig, p2->vis_orig);
  }
-=20
- int gw_client_seq_print_text(struct seq_file *seq, void *offset)
-@@ -465,8 +501,12 @@ int gw_is_target(struct bat_priv *bat_priv, struct=
- sk_buff *skb)
- 	if (atomic_read(&bat_priv->gw_mode) =3D=3D GW_MODE_SERVER)
- 		return -1;
-=20
--	if (!bat_priv->curr_gw)
-+	rcu_read_lock();
-+	if (!rcu_dereference(bat_priv->curr_gw)) {
-+		rcu_read_unlock();
- 		return 0;
-+	}
-+	rcu_read_unlock();
-=20
- 	return 1;
- }
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index e1f3e5e..3dd5e77 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -162,7 +162,7 @@ struct bat_priv {
- 	spinlock_t forw_bcast_list_lock; /* protects  */
- 	spinlock_t hna_lhash_lock; /* protects hna_local_hash */
- 	spinlock_t hna_ghash_lock; /* protects hna_global_hash */
--	spinlock_t gw_list_lock; /* protects gw_list */
-+	spinlock_t gw_list_lock; /* protects gw_list and curr_gw */
- 	spinlock_t vis_hash_lock; /* protects vis_hash */
- 	spinlock_t vis_list_lock; /* protects vis_info::recv_list */
- 	spinlock_t softif_neigh_lock; /* protects soft-interface neigh list *=
-/
-@@ -171,7 +171,7 @@ struct bat_priv {
- 	struct delayed_work hna_work;
- 	struct delayed_work orig_work;
- 	struct delayed_work vis_work;
--	struct gw_node *curr_gw;
-+	struct gw_node __rcu *curr_gw;  /* rcu protected pointer */
- 	struct vis_info *my_vis_info;
- };
-=20
---=20
+ 
+ /* hash function to choose an entry in a hash table of given size */
+@@ -113,7 +113,7 @@ static void vis_data_insert_interface(const uint8_t *interface,
+ 	struct hlist_node *pos;
+ 
+ 	hlist_for_each_entry(entry, pos, if_list, list) {
+-		if (compare_orig(entry->addr, (void *)interface))
++		if (compare_eth(entry->addr, (void *)interface))
+ 			return;
+ 	}
+ 
+@@ -165,7 +165,7 @@ static ssize_t vis_data_read_entry(char *buff, struct vis_info_entry *entry,
+ 	/* maximal length: max(4+17+2, 3+17+1+3+2) == 26 */
+ 	if (primary && entry->quality == 0)
+ 		return sprintf(buff, "HNA %pM, ", entry->dest);
+-	else if (compare_orig(entry->src, src))
++	else if (compare_eth(entry->src, src))
+ 		return sprintf(buff, "TQ %pM %d, ", entry->dest,
+ 			       entry->quality);
+ 
+@@ -212,7 +212,7 @@ int vis_seq_print_text(struct seq_file *seq, void *offset)
+ 				if (entries[j].quality == 0)
+ 					continue;
+ 				compare =
+-				 compare_orig(entries[j].src, packet->vis_orig);
++				 compare_eth(entries[j].src, packet->vis_orig);
+ 				vis_data_insert_interface(entries[j].src,
+ 							  &vis_if_list,
+ 							  compare);
+@@ -222,7 +222,7 @@ int vis_seq_print_text(struct seq_file *seq, void *offset)
+ 				buf_size += 18 + 26 * packet->entries;
+ 
+ 				/* add primary/secondary records */
+-				if (compare_orig(entry->addr, packet->vis_orig))
++				if (compare_eth(entry->addr, packet->vis_orig))
+ 					buf_size +=
+ 					  vis_data_count_prim_sec(&vis_if_list);
+ 
+@@ -258,7 +258,7 @@ int vis_seq_print_text(struct seq_file *seq, void *offset)
+ 				if (entries[j].quality == 0)
+ 					continue;
+ 				compare =
+-				 compare_orig(entries[j].src, packet->vis_orig);
++				 compare_eth(entries[j].src, packet->vis_orig);
+ 				vis_data_insert_interface(entries[j].src,
+ 							  &vis_if_list,
+ 							  compare);
+@@ -276,7 +276,7 @@ int vis_seq_print_text(struct seq_file *seq, void *offset)
+ 							entry->primary);
+ 
+ 				/* add primary/secondary records */
+-				if (compare_orig(entry->addr, packet->vis_orig))
++				if (compare_eth(entry->addr, packet->vis_orig))
+ 					buff_pos +=
+ 					 vis_data_read_prim_sec(buff + buff_pos,
+ 								&vis_if_list);
+@@ -344,7 +344,7 @@ static int recv_list_is_in(struct bat_priv *bat_priv,
+ 
+ 	spin_lock_bh(&bat_priv->vis_list_lock);
+ 	list_for_each_entry(entry, recv_list, list) {
+-		if (memcmp(entry->mac, mac, ETH_ALEN) == 0) {
++		if (compare_eth(entry->mac, mac)) {
+ 			spin_unlock_bh(&bat_priv->vis_list_lock);
+ 			return 1;
+ 		}
+@@ -617,7 +617,7 @@ static int generate_vis_packet(struct bat_priv *bat_priv)
+ 			if (!neigh_node)
+ 				continue;
+ 
+-			if (!compare_orig(neigh_node->addr, orig_node->orig))
++			if (!compare_eth(neigh_node->addr, orig_node->orig))
+ 				continue;
+ 
+ 			if (neigh_node->if_incoming->if_status != IF_ACTIVE)
+-- 
 1.7.2.3
 
