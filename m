@@ -1,103 +1,97 @@
 From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 0/8] mostly bonding rx path changes
-Date: Sat, 5 Mar 2011 11:30:24 +0100
-Message-ID: <20110305103024.GA7799@psychotron.redhat.com>
-References: <1299313794-5218-1-git-send-email-jpirko@redhat.com>
+Subject: Re: [RFC PATCH] net/core: fix skb handling on netif serves for both
+ bridge and vlan
+Date: Sat, 5 Mar 2011 11:36:14 +0100
+Message-ID: <20110305103613.GB7799@psychotron.redhat.com>
+References: <1299149713-18740-1-git-send-email-dfeng@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	nicolas.2p.debian@gmail.com, andy@greyhouse.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64960 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752484Ab1CEKad (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 05:30:33 -0500
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>
+To: Xiaotian Feng <dfeng@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1299313794-5218-1-git-send-email-jpirko@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1299149713-18740-1-git-send-email-dfeng@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Resubmitted with more text. Sorry for annoyance :(
+Thu, Mar 03, 2011 at 11:55:13AM CET, dfeng@redhat.com wrote:
+>Consider network topology as follows:
+>
+>eth0  eth1
+> |_____|
+>    |
+>  bond0 --- br0
+>    |
+>  vlan0 --- br1
+>
+>bond0 serves for both br0 and vlan0, if a vlan tagged packet was sent
+>to br1 through bond0, bridge handling code is seeing the packet on bond0
+>and handing it off to my "legacy" bridge before vlan_tx_tag_present
+>and vlan_hwaccel_do_receive even haven't a chance to look at it.
+>
+>Moving the vlan_tx_tag_present before bridge/macvlan handling code could
+>cure this.
 
-Sat, Mar 05, 2011 at 09:29:46AM CET, jpirko@redhat.com wrote:
->This patchset focuses mainly bonding rx path changes.
+Wouldn't this break "eth0 - br0 - br0.5"?
+
 >
->Depends on "fcoe: correct checking for bonding"
+>Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
+>Cc: "David S. Miller" <davem@davemloft.net>
+>Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>Cc: Tom Herbert <therbert@google.com>
+>---
+> net/core/dev.c |   20 ++++++++++----------
+> 1 files changed, 10 insertions(+), 10 deletions(-)
 >
->Jiri Pirko (8):
->  af_packet: use skb->skb_iif instead of orig_dev->ifindex
->  bonding: register slave pointer for rx_handler
->  net: get rid of multiple bond-related netdevice->priv_flags
->  bonding: wrap slave state work
->  bonding: get rid of IFF_SLAVE_INACTIVE netdev->priv_flag
->  bonding: move processing of recv handlers into handle_frame()
->  net: introduce rx_handler results and logic around that
->  net: get rid of orig_dev parameter of packet handlers
->
-> drivers/block/aoe/aoenet.c       |    2 +-
-> drivers/net/bonding/bond_3ad.c   |   31 +-----
-> drivers/net/bonding/bond_3ad.h   |    4 +-
-> drivers/net/bonding/bond_alb.c   |   46 ++------
-> drivers/net/bonding/bond_alb.h   |    1 -
-> drivers/net/bonding/bond_main.c  |  217 ++++++++++++-------------------------
-> drivers/net/bonding/bond_sysfs.c |   20 +---
-> drivers/net/bonding/bonding.h    |   64 ++++++-----
-> drivers/net/hamradio/bpqether.c  |    4 +-
-> drivers/net/macvlan.c            |   11 +-
-> drivers/net/pppoe.c              |    4 +-
-> drivers/net/wan/hdlc.c           |    2 +-
-> drivers/net/wan/lapbether.c      |    2 +-
-> drivers/scsi/fcoe/fcoe.c         |   12 +--
-> include/linux/if.h               |   23 ++---
-> include/linux/netdevice.h        |   12 ++-
-> include/linux/skbuff.h           |    5 +-
-> include/net/ax25.h               |    3 +-
-> include/net/datalink.h           |    2 +-
-> include/net/ip.h                 |    2 +-
-> include/net/ipv6.h               |    3 +-
-> include/net/irda/irda.h          |    3 +-
-> include/net/llc.h                |    8 +-
-> include/net/p8022.h              |    3 +-
-> include/net/psnap.h              |    3 +-
-> include/net/x25.h                |    2 +-
-> net/802/p8022.c                  |    3 +-
-> net/802/psnap.c                  |    7 +-
-> net/802/stp.c                    |    2 +-
-> net/8021q/vlan.h                 |    2 +-
-> net/8021q/vlan_dev.c             |    2 +-
-> net/appletalk/aarp.c             |    2 +-
-> net/appletalk/ddp.c              |    6 +-
-> net/ax25/ax25_in.c               |    2 +-
-> net/batman-adv/hard-interface.c  |    6 +-
-> net/bridge/br_input.c            |   25 +++--
-> net/bridge/br_private.h          |    2 +-
-> net/caif/caif_dev.c              |    2 +-
-> net/can/af_can.c                 |    2 +-
-> net/core/dev.c                   |   45 ++++----
-> net/core/skbuff.c                |    1 -
-> net/decnet/af_decnet.c           |    2 +-
-> net/decnet/dn_route.c            |    2 +-
-> net/dsa/tag_dsa.c                |    2 +-
-> net/dsa/tag_edsa.c               |    2 +-
-> net/dsa/tag_trailer.c            |    2 +-
-> net/econet/af_econet.c           |    2 +-
-> net/ieee802154/af_ieee802154.c   |    2 +-
-> net/ipv4/arp.c                   |    2 +-
-> net/ipv4/ip_input.c              |    2 +-
-> net/ipv4/ipconfig.c              |   13 ++-
-> net/ipv6/ip6_input.c             |    3 +-
-> net/ipx/af_ipx.c                 |    3 +-
-> net/irda/irlap_frame.c           |    2 +-
-> net/llc/llc_core.c               |    3 +-
-> net/llc/llc_input.c              |    8 +-
-> net/packet/af_packet.c           |   10 +-
-> net/phonet/af_phonet.c           |    3 +-
-> net/tipc/eth_media.c             |    2 +-
-> net/x25/x25_dev.c                |    2 +-
-> 60 files changed, 268 insertions(+), 397 deletions(-)
->
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 8ae6631..d2d12c2 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -3079,27 +3079,27 @@ static int __netif_receive_skb(struct sk_buff *skb)
+> ncls:
+> #endif
+> 
+>-	/* Handle special case of bridge or macvlan */
+>-	rx_handler = rcu_dereference(skb->dev->rx_handler);
+>-	if (rx_handler) {
+>+	if (vlan_tx_tag_present(skb)) {
+> 		if (pt_prev) {
+> 			ret = deliver_skb(skb, pt_prev, orig_dev);
+> 			pt_prev = NULL;
+> 		}
+>-		skb = rx_handler(skb);
+>-		if (!skb)
+>+		if (vlan_hwaccel_do_receive(&skb)) {
+>+			ret = __netif_receive_skb(skb);
+>+			goto out;
+>+		} else if (unlikely(!skb))
+> 			goto out;
+> 	}
+> 
+>-	if (vlan_tx_tag_present(skb)) {
+>+	/* Handle special case of bridge or macvlan */
+>+	rx_handler = rcu_dereference(skb->dev->rx_handler);
+>+	if (rx_handler) {
+> 		if (pt_prev) {
+> 			ret = deliver_skb(skb, pt_prev, orig_dev);
+> 			pt_prev = NULL;
+> 		}
+>-		if (vlan_hwaccel_do_receive(&skb)) {
+>-			ret = __netif_receive_skb(skb);
+>-			goto out;
+>-		} else if (unlikely(!skb))
+>+		skb = rx_handler(skb);
+>+		if (!skb)
+> 			goto out;
+> 	}
+> 
 >-- 
->1.7.4
+>1.7.1
 >
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
