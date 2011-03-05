@@ -1,51 +1,47 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: Get peer more cheaply in rt_init_metrics().
-Date: Sat, 05 Mar 2011 07:46:44 +0100
-Message-ID: <1299307604.2758.67.camel@edumazet-laptop>
-References: <20110304.212636.226786422.davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Use passed-in protocol in ip_route_newports().
+Date: Sat, 05 Mar 2011 07:49:09 +0100
+Message-ID: <1299307749.2758.68.camel@edumazet-laptop>
+References: <20110304.213553.71108798.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:49023 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750720Ab1CEGqs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 01:46:48 -0500
-Received: by wwb22 with SMTP id 22so3411937wwb.1
-        for <netdev@vger.kernel.org>; Fri, 04 Mar 2011 22:46:47 -0800 (PST)
-In-Reply-To: <20110304.212636.226786422.davem@davemloft.net>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:63311 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982Ab1CEGtN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 01:49:13 -0500
+Received: by wyg36 with SMTP id 36so2836265wyg.19
+        for <netdev@vger.kernel.org>; Fri, 04 Mar 2011 22:49:11 -0800 (PST)
+In-Reply-To: <20110304.213553.71108798.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le vendredi 04 mars 2011 =C3=A0 21:26 -0800, David Miller  =C3=A9crit :
-> We know this is a new route object, so doing atomics and
-> stuff makes no sense at all.
->=20
+Le vendredi 04 mars 2011 =C3=A0 21:35 -0800, David Miller a =C3=A9crit =
+:
 > Signed-off-by: David S. Miller <davem@davemloft.net>
 > ---
->  net/ipv4/route.c |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
+>  include/net/route.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 >=20
-> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-> index 6c87403..9794a2c 100644
-> --- a/net/ipv4/route.c
-> +++ b/net/ipv4/route.c
-> @@ -1759,9 +1759,9 @@ static void rt_init_metrics(struct rtable *rt, =
-struct fib_info *fi)
->  	if (rt->fl.flags & FLOWI_FLAG_PRECOW_METRICS)
->  		create =3D 1;
+> diff --git a/include/net/route.h b/include/net/route.h
+> index 60daf74..8905d90 100644
+> --- a/include/net/route.h
+> +++ b/include/net/route.h
+> @@ -217,7 +217,7 @@ static inline struct rtable *ip_route_newports(st=
+ruct rtable *rt,
+>  				    .fl4_dst =3D rt->fl.fl4_dst,
+>  				    .fl4_src =3D rt->fl.fl4_src,
+>  				    .fl4_tos =3D rt->fl.fl4_tos,
+> -				    .proto =3D rt->fl.proto,
+> +				    .proto =3D protocol,
+>  				    .fl_ip_sport =3D sport,
+>  				    .fl_ip_dport =3D dport };
 > =20
-> -	rt_bind_peer(rt, create);
-> -	peer =3D rt->peer;
-> +	rt->peer =3D peer =3D inet_getpeer_v4(rt->rt_dst, create);
->  	if (peer) {
-> +		rt->rt_peer_genid =3D rt_peer_genid();
->  		if (inet_metrics_new(peer))
->  			memcpy(peer->metrics, fi->fib_metrics,
->  			       sizeof(u32) * RTAX_MAX);
 
 Reviewed-by: Eric Dumazet <eric.dumazet@gmail.com>
+
 
 
