@@ -1,147 +1,533 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [patch net-next-2.6 2/8] bonding: register slave pointer for
- rx_handler
-Date: Sat, 5 Mar 2011 15:27:33 +0100
-Message-ID: <20110305142732.GB8573@psychotron.redhat.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
- <1299320969-7951-3-git-send-email-jpirko@redhat.com>
- <4D724382.7010705@gmail.com>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [patch net-next-2.6 6/8] bonding: move processing of recv handlers
+ into handle_frame()
+Date: Sat, 05 Mar 2011 15:33:30 +0100
+Message-ID: <4D7249BA.8030401@gmail.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-7-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
 	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Nicolas de =?iso-8859-1?Q?Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14614 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751947Ab1CEO1r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 09:27:47 -0500
-Content-Disposition: inline
-In-Reply-To: <4D724382.7010705@gmail.com>
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:46369 "EHLO
+	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751188Ab1CEOdf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 09:33:35 -0500
+Received: by wyg36 with SMTP id 36so3008136wyg.19
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 06:33:33 -0800 (PST)
+In-Reply-To: <1299320969-7951-7-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sat, Mar 05, 2011 at 03:06:58PM CET, nicolas.2p.debian@gmail.com wrote:
->Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
->>Register slave pointer as rx_handler data. That would eventually prev=
-ent
->>need to loop over slave devices to find the right slave.
->>
->>Use synchronize_net to ensure that bond_handle_frame does not get sla=
-ve
->>structure freed when working with that.
->>
->>Signed-off-by: Jiri Pirko<jpirko@redhat.com>
->>---
->>  drivers/net/bonding/bond_main.c |   17 +++++++++++------
->>  drivers/net/bonding/bonding.h   |    3 +++
->>  2 files changed, 14 insertions(+), 6 deletions(-)
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
+> Since now when bonding uses rx_handler, all traffic going into bond
+> device goes thru bond_handle_frame. So there's no need to go back int=
+o
+> bonding code later via ptype handlers. This patch converts
+> original ptype handlers into "bonding receive probes". These function=
+s
+> are called from bond_handle_frame and they are registered per-mode.
+
+Does this still support having the arp_ip_target on a vlan?
+
+(eth0 -> bond0 -> bond0.100, with arp_ip_target only reachable through =
+bond0.100).
+
+>
+> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+> ---
+>   drivers/net/bonding/bond_3ad.c   |   29 ++--------
+>   drivers/net/bonding/bond_3ad.h   |    4 +-
+>   drivers/net/bonding/bond_alb.c   |   46 ++++-----------
+>   drivers/net/bonding/bond_alb.h   |    1 -
+>   drivers/net/bonding/bond_main.c  |  121 +++++++--------------------=
+----------
+>   drivers/net/bonding/bond_sysfs.c |    6 --
+>   drivers/net/bonding/bonding.h    |    4 +-
+>   7 files changed, 43 insertions(+), 168 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bon=
+d_3ad.c
+> index 047af0b..194aaf7 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -2461,35 +2461,16 @@ out:
+>   	return NETDEV_TX_OK;
+>   }
+>
+> -int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev=
+, struct packet_type* ptype, struct net_device *orig_dev)
+> +void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+> +			  struct slave *slave)
+>   {
+> -	struct bonding *bond =3D netdev_priv(dev);
+> -	struct slave *slave =3D NULL;
+> -	int ret =3D NET_RX_DROP;
+> -
+> -	if (!(dev->flags&  IFF_MASTER))
+> -		goto out;
+> -
+> -	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> -	if (!skb)
+> -		goto out;
+> +	if (skb->protocol !=3D PKT_TYPE_LACPDU)
+> +		return;
+>
+>   	if (!pskb_may_pull(skb, sizeof(struct lacpdu)))
+> -		goto out;
+> +		return;
+>
+>   	read_lock(&bond->lock);
+> -	slave =3D bond_get_slave_by_dev(netdev_priv(dev), orig_dev);
+> -	if (!slave)
+> -		goto out_unlock;
+> -
+>   	bond_3ad_rx_indication((struct lacpdu *) skb->data, slave, skb->le=
+n);
+> -
+> -	ret =3D NET_RX_SUCCESS;
+> -
+> -out_unlock:
+>   	read_unlock(&bond->lock);
+> -out:
+> -	dev_kfree_skb(skb);
+> -
+> -	return ret;
+>   }
+> diff --git a/drivers/net/bonding/bond_3ad.h b/drivers/net/bonding/bon=
+d_3ad.h
+> index 2c46a154..56a88ff 100644
+> --- a/drivers/net/bonding/bond_3ad.h
+> +++ b/drivers/net/bonding/bond_3ad.h
+> @@ -258,7 +258,6 @@ struct ad_bond_info {
+>   				 * requested
+>   				 */
+>   	struct timer_list ad_timer;
+> -	struct packet_type ad_pkt_type;
+>   };
+>
+>   struct ad_slave_info {
+> @@ -279,7 +278,8 @@ void bond_3ad_adapter_duplex_changed(struct slave=
+ *slave);
+>   void bond_3ad_handle_link_change(struct slave *slave, char link);
+>   int  bond_3ad_get_active_agg_info(struct bonding *bond, struct ad_i=
+nfo *ad_info);
+>   int bond_3ad_xmit_xor(struct sk_buff *skb, struct net_device *dev);
+> -int bond_3ad_lacpdu_recv(struct sk_buff *skb, struct net_device *dev=
+, struct packet_type* ptype, struct net_device *orig_dev);
+> +void bond_3ad_lacpdu_recv(struct sk_buff *skb, struct bonding *bond,
+> +			  struct slave *slave);
+>   int bond_3ad_set_carrier(struct bonding *bond);
+>   #endif //__BOND_3AD_H__
+>
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bon=
+d_alb.c
+> index 9bc5de3..96d28f9 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -308,49 +308,33 @@ static void rlb_update_entry_from_arp(struct bo=
+nding *bond, struct arp_pkt *arp)
+>   	_unlock_rx_hashtbl(bond);
+>   }
+>
+> -static int rlb_arp_recv(struct sk_buff *skb, struct net_device *bond=
+_dev, struct packet_type *ptype, struct net_device *orig_dev)
+> +static void rlb_arp_recv(struct sk_buff *skb, struct bonding *bond,
+> +			 struct slave *slave)
+>   {
+> -	struct bonding *bond;
+> -	struct arp_pkt *arp =3D (struct arp_pkt *)skb->data;
+> -	int res =3D NET_RX_DROP;
+> +	struct arp_pkt *arp;
+>
+> -	while (bond_dev->priv_flags&  IFF_802_1Q_VLAN)
+> -		bond_dev =3D vlan_dev_real_dev(bond_dev);
+> -
+> -	if (!(bond_dev->priv_flags&  IFF_BONDING) ||
+> -	    !(bond_dev->flags&  IFF_MASTER))
+> -		goto out;
+> +	if (skb->protocol !=3D cpu_to_be16(ETH_P_ARP))
+> +		return;
+>
+> +	arp =3D (struct arp_pkt *) skb->data;
+>   	if (!arp) {
+>   		pr_debug("Packet has no ARP data\n");
+> -		goto out;
+> +		return;
+>   	}
+>
+> -	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> -	if (!skb)
+> -		goto out;
+> -
+> -	if (!pskb_may_pull(skb, arp_hdr_len(bond_dev)))
+> -		goto out;
+> +	if (!pskb_may_pull(skb, arp_hdr_len(bond->dev)))
+> +		return;
+>
+>   	if (skb->len<  sizeof(struct arp_pkt)) {
+>   		pr_debug("Packet is too small to be an ARP\n");
+> -		goto out;
+> +		return;
+>   	}
+>
+>   	if (arp->op_code =3D=3D htons(ARPOP_REPLY)) {
+>   		/* update rx hash table for this ARP */
+> -		bond =3D netdev_priv(bond_dev);
+>   		rlb_update_entry_from_arp(bond, arp);
+>   		pr_debug("Server received an ARP Reply from client\n");
+>   	}
+> -
+> -	res =3D NET_RX_SUCCESS;
+> -
+> -out:
+> -	dev_kfree_skb(skb);
+> -
+> -	return res;
+>   }
+>
+>   /* Caller must hold bond lock for read */
+> @@ -759,7 +743,6 @@ static void rlb_init_table_entry(struct rlb_clien=
+t_info *entry)
+>   static int rlb_initialize(struct bonding *bond)
+>   {
+>   	struct alb_bond_info *bond_info =3D&(BOND_ALB_INFO(bond));
+> -	struct packet_type *pk_type =3D&(BOND_ALB_INFO(bond).rlb_pkt_type);
+>   	struct rlb_client_info	*new_hashtbl;
+>   	int size =3D RLB_HASH_TABLE_SIZE * sizeof(struct rlb_client_info);
+>   	int i;
+> @@ -784,13 +767,8 @@ static int rlb_initialize(struct bonding *bond)
+>
+>   	_unlock_rx_hashtbl(bond);
+>
+> -	/*initialize packet type*/
+> -	pk_type->type =3D cpu_to_be16(ETH_P_ARP);
+> -	pk_type->dev =3D bond->dev;
+> -	pk_type->func =3D rlb_arp_recv;
+> -
+>   	/* register to receive ARPs */
+> -	dev_add_pack(pk_type);
+> +	bond->recv_probe =3D rlb_arp_recv;
+>
+>   	return 0;
+>   }
+> @@ -799,8 +777,6 @@ static void rlb_deinitialize(struct bonding *bond=
+)
+>   {
+>   	struct alb_bond_info *bond_info =3D&(BOND_ALB_INFO(bond));
+>
+> -	dev_remove_pack(&(bond_info->rlb_pkt_type));
+> -
+>   	_lock_rx_hashtbl(bond);
+>
+>   	kfree(bond_info->rx_hashtbl);
+> diff --git a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bon=
+d_alb.h
+> index 118c28a..6605e9e 100644
+> --- a/drivers/net/bonding/bond_alb.h
+> +++ b/drivers/net/bonding/bond_alb.h
+> @@ -130,7 +130,6 @@ struct alb_bond_info {
+>   	int			lp_counter;
+>   	/* -------- rlb parameters -------- */
+>   	int rlb_enabled;
+> -	struct packet_type	rlb_pkt_type;
+>   	struct rlb_client_info	*rx_hashtbl;	/* Receive hash table */
+>   	spinlock_t		rx_hashtbl_lock;
+>   	u32			rx_hashtbl_head;
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
 nd_main.c
->>index 0592e6d..1c19368 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -1495,21 +1495,22 @@ static bool bond_should_deliver_exact_match(s=
-truct sk_buff *skb,
->>
->>  static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
->>  {
->>-	struct net_device *slave_dev;
->>+	struct slave *slave;
->>  	struct net_device *bond_dev;
->>
->>  	skb =3D skb_share_check(skb, GFP_ATOMIC);
->>  	if (unlikely(!skb))
->>  		return NULL;
->>-	slave_dev =3D skb->dev;
->>-	bond_dev =3D ACCESS_ONCE(slave_dev->master);
->>+
->>+	slave =3D bond_slave_get_rcu(skb->dev);
->>+	bond_dev =3D ACCESS_ONCE(slave->dev->master);
->>  	if (unlikely(!bond_dev))
->>  		return skb;
->>
->>  	if (bond_dev->priv_flags&  IFF_MASTER_ARPMON)
->>-		slave_dev->last_rx =3D jiffies;
->>+		slave->dev->last_rx =3D jiffies;
->>
->>-	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
->>+	if (bond_should_deliver_exact_match(skb, slave->dev, bond_dev)) {
->>  		skb->deliver_no_wcard =3D 1;
->>  		return skb;
->>  	}
+> index dbe182c..8ba7faa 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1467,27 +1467,17 @@ static void bond_setup_by_slave(struct net_de=
+vice *bond_dev,
+>   }
 >
->Up to this point, it looks like cleanup, and unrelated to the title an=
-d description of the patch.
+>   /* On bonding slaves other than the currently active slave, suppres=
+s
+> - * duplicates except for 802.3ad ETH_P_SLOW, alb non-mcast/bcast, an=
+d
+> - * ARP on active-backup slaves with arp_validate enabled.
+> + * duplicates except for alb non-mcast/bcast.
+>    */
+>   static bool bond_should_deliver_exact_match(struct sk_buff *skb,
+>   					    struct slave *slave,
+>   					    struct bonding *bond)
+>   {
+>   	if (bond_is_slave_inactive(slave)) {
+> -		if (slave_do_arp_validate(bond, slave)&&
+> -		    skb->protocol =3D=3D __cpu_to_be16(ETH_P_ARP))
+> -			return false;
+> -
+>   		if (bond->params.mode =3D=3D BOND_MODE_ALB&&
+>   		skb->pkt_type !=3D PACKET_BROADCAST&&
+>   		skb->pkt_type !=3D PACKET_MULTICAST)
+> -				return false;
+> -
+> -		if (bond->params.mode =3D=3D BOND_MODE_8023AD&&
+> -		    skb->protocol =3D=3D __cpu_to_be16(ETH_P_SLOW))
+>   			return false;
+> -
+>   		return true;
+>   	}
+>   	return false;
+> @@ -1513,6 +1503,15 @@ static struct sk_buff *bond_handle_frame(struc=
+t sk_buff *skb)
+>   	if (bond->params.arp_interval)
+>   		slave->dev->last_rx =3D jiffies;
+>
+> +	if (bond->recv_probe) {
+> +		struct sk_buff *nskb =3D skb_clone(skb, GFP_ATOMIC);
+> +
+> +		if (likely(nskb)) {
+> +			bond->recv_probe(nskb, bond, slave);
+> +			dev_kfree_skb(nskb);
+> +		}
+> +	}
+> +
+>   	if (bond_should_deliver_exact_match(skb, slave, bond)) {
+>   		skb->deliver_no_wcard =3D 1;
+>   		return skb;
+> @@ -2813,48 +2812,26 @@ static void bond_validate_arp(struct bonding =
+*bond, struct slave *slave, __be32
+>   	}
+>   }
+>
+> -static int bond_arp_rcv(struct sk_buff *skb, struct net_device *dev,=
+ struct packet_type *pt, struct net_device *orig_dev)
+> +static void bond_arp_rcv(struct sk_buff *skb, struct bonding *bond,
+> +			 struct slave *slave)
+>   {
+>   	struct arphdr *arp;
+> -	struct slave *slave;
+> -	struct bonding *bond;
+>   	unsigned char *arp_ptr;
+>   	__be32 sip, tip;
+>
+> -	if (dev->priv_flags&  IFF_802_1Q_VLAN) {
+> -		/*
+> -		 * When using VLANS and bonding, dev and oriv_dev may be
+> -		 * incorrect if the physical interface supports VLAN
+> -		 * acceleration.  With this change ARP validation now
+> -		 * works for hosts only reachable on the VLAN interface.
+> -		 */
+> -		dev =3D vlan_dev_real_dev(dev);
+> -		orig_dev =3D dev_get_by_index_rcu(dev_net(skb->dev),skb->skb_iif);
+> -	}
+> -
+> -	if (!(dev->priv_flags&  IFF_BONDING) || !(dev->flags&  IFF_MASTER))
+> -		goto out;
+> +	if (skb->protocol !=3D __cpu_to_be16(ETH_P_ARP))
+> +		return;
 
-Nope - these are changes connected to the ability to get slave struct
-via bond_slave_get_rcu. Very related.
+What happens if the skb that hold the ARP request/reply is vlan tagged?=
+ The ARP ptype_base handler=20
+for bonding used to be called after vlan processing.
 
+> -	bond =3D netdev_priv(dev);
+>   	read_lock(&bond->lock);
 >
->Anyway, the cleanup looks good to me. Should just be in a separate pat=
-ch.
+> -	pr_debug("bond_arp_rcv: bond %s skb->dev %s orig_dev %s\n",
+> -		 bond->dev->name, skb->dev ? skb->dev->name : "NULL",
+> -		 orig_dev ? orig_dev->name : "NULL");
+> +	pr_debug("bond_arp_rcv: bond %s skb->dev %s\n",
+> +		 bond->dev->name, skb->dev->name);
 >
->>@@ -1703,7 +1704,8 @@ int bond_enslave(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->>  		pr_debug("Error %d calling netdev_set_bond_master\n", res);
->>  		goto err_restore_mac;
->>  	}
->>-	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame, NU=
-LL);
->>+	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame,
->>+					 new_slave);
+> -	slave =3D bond_get_slave_by_dev(bond, orig_dev);
+> -	if (!slave || !slave_do_arp_validate(bond, slave))
+> -		goto out_unlock;
+> -
+> -	skb =3D skb_share_check(skb, GFP_ATOMIC);
+> -	if (!skb)
+> -		goto out_unlock;
+> -
+> -	if (!pskb_may_pull(skb, arp_hdr_len(dev)))
+> +	if (!pskb_may_pull(skb, arp_hdr_len(bond->dev)))
+>   		goto out_unlock;
 >
->And using rx_handler data for this purpose sounds good to me.
+>   	arp =3D arp_hdr(skb);
+> -	if (arp->ar_hln !=3D dev->addr_len ||
+> +	if (arp->ar_hln !=3D bond->dev->addr_len ||
+>   	    skb->pkt_type =3D=3D PACKET_OTHERHOST ||
+>   	    skb->pkt_type =3D=3D PACKET_LOOPBACK ||
+>   	    arp->ar_hrd !=3D htons(ARPHRD_ETHER) ||
+> @@ -2863,9 +2840,9 @@ static int bond_arp_rcv(struct sk_buff *skb, st=
+ruct net_device *dev, struct pack
+>   		goto out_unlock;
 >
->Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+>   	arp_ptr =3D (unsigned char *)(arp + 1);
+> -	arp_ptr +=3D dev->addr_len;
+> +	arp_ptr +=3D bond->dev->addr_len;
+>   	memcpy(&sip, arp_ptr, 4);
+> -	arp_ptr +=3D 4 + dev->addr_len;
+> +	arp_ptr +=3D 4 + bond->dev->addr_len;
+>   	memcpy(&tip, arp_ptr, 4);
 >
->>  	if (res) {
->>  		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
->>  		goto err_unset_master;
->>@@ -1925,6 +1927,7 @@ err_close:
->>
->>  err_unreg_rxhandler:
->>  	netdev_rx_handler_unregister(slave_dev);
->>+	synchronize_net();
->>
->>  err_unset_master:
->>  	netdev_set_bond_master(slave_dev, NULL);
->>@@ -2108,6 +2111,7 @@ int bond_release(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->>  	}
->>
->>  	netdev_rx_handler_unregister(slave_dev);
->>+	synchronize_net();
->>  	netdev_set_bond_master(slave_dev, NULL);
->>
->>  	slave_disable_netpoll(slave);
->>@@ -2222,6 +2226,7 @@ static int bond_release_all(struct net_device *=
-bond_dev)
->>  		}
->>
->>  		netdev_rx_handler_unregister(slave_dev);
->>+		synchronize_net();
->>  		netdev_set_bond_master(slave_dev, NULL);
->>
->>  		slave_disable_netpoll(slave);
->>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
+>   	pr_debug("bond_arp_rcv: %s %s/%d av %d sv %d sip %pI4 tip %pI4\n",
+> @@ -2888,9 +2865,6 @@ static int bond_arp_rcv(struct sk_buff *skb, st=
+ruct net_device *dev, struct pack
+>
+>   out_unlock:
+>   	read_unlock(&bond->lock);
+> -out:
+> -	dev_kfree_skb(skb);
+> -	return NET_RX_SUCCESS;
+>   }
+>
+>   /*
+> @@ -3782,48 +3756,6 @@ static struct notifier_block bond_inetaddr_not=
+ifier =3D {
+>   	.notifier_call =3D bond_inetaddr_event,
+>   };
+>
+> -/*-------------------------- Packet type handling ------------------=
+---------*/
+> -
+> -/* register to receive lacpdus on a bond */
+> -static void bond_register_lacpdu(struct bonding *bond)
+> -{
+> -	struct packet_type *pk_type =3D&(BOND_AD_INFO(bond).ad_pkt_type);
+> -
+> -	/* initialize packet type */
+> -	pk_type->type =3D PKT_TYPE_LACPDU;
+> -	pk_type->dev =3D bond->dev;
+> -	pk_type->func =3D bond_3ad_lacpdu_recv;
+> -
+> -	dev_add_pack(pk_type);
+> -}
+> -
+> -/* unregister to receive lacpdus on a bond */
+> -static void bond_unregister_lacpdu(struct bonding *bond)
+> -{
+> -	dev_remove_pack(&(BOND_AD_INFO(bond).ad_pkt_type));
+> -}
+> -
+> -void bond_register_arp(struct bonding *bond)
+> -{
+> -	struct packet_type *pt =3D&bond->arp_mon_pt;
+> -
+> -	if (pt->type)
+> -		return;
+> -
+> -	pt->type =3D htons(ETH_P_ARP);
+> -	pt->dev =3D bond->dev;
+> -	pt->func =3D bond_arp_rcv;
+> -	dev_add_pack(pt);
+> -}
+> -
+> -void bond_unregister_arp(struct bonding *bond)
+> -{
+> -	struct packet_type *pt =3D&bond->arp_mon_pt;
+> -
+> -	dev_remove_pack(pt);
+> -	pt->type =3D 0;
+> -}
+> -
+>   /*---------------------------- Hashing Policies -------------------=
+----------*/
+>
+>   /*
+> @@ -3917,14 +3849,14 @@ static int bond_open(struct net_device *bond_=
+dev)
+>
+>   		queue_delayed_work(bond->wq,&bond->arp_work, 0);
+>   		if (bond->params.arp_validate)
+> -			bond_register_arp(bond);
+> +			bond->recv_probe =3D bond_arp_rcv;
+>   	}
+>
+>   	if (bond->params.mode =3D=3D BOND_MODE_8023AD) {
+>   		INIT_DELAYED_WORK(&bond->ad_work, bond_3ad_state_machine_handler)=
+;
+>   		queue_delayed_work(bond->wq,&bond->ad_work, 0);
+>   		/* register to receive LACPDUs */
+> -		bond_register_lacpdu(bond);
+> +		bond->recv_probe =3D bond_3ad_lacpdu_recv;
+>   		bond_3ad_initiate_agg_selection(bond, 1);
+>   	}
+>
+> @@ -3935,14 +3867,6 @@ static int bond_close(struct net_device *bond_=
+dev)
+>   {
+>   	struct bonding *bond =3D netdev_priv(bond_dev);
+>
+> -	if (bond->params.mode =3D=3D BOND_MODE_8023AD) {
+> -		/* Unregister the receive of LACPDUs */
+> -		bond_unregister_lacpdu(bond);
+> -	}
+> -
+> -	if (bond->params.arp_validate)
+> -		bond_unregister_arp(bond);
+> -
+>   	write_lock_bh(&bond->lock);
+>
+>   	bond->send_grat_arp =3D 0;
+> @@ -3982,6 +3906,7 @@ static int bond_close(struct net_device *bond_d=
+ev)
+>   		 */
+>   		bond_alb_deinitialize(bond);
+>   	}
+> +	bond->recv_probe =3D NULL;
+>
+>   	return 0;
+>   }
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/b=
+ond_sysfs.c
+> index 5161183..6804efe 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -419,11 +419,6 @@ static ssize_t bonding_store_arp_validate(struct=
+ device *d,
+>   		bond->dev->name, arp_validate_tbl[new_value].modename,
+>   		new_value);
+>
+> -	if (!bond->params.arp_validate&&  new_value)
+> -		bond_register_arp(bond);
+> -	else if (bond->params.arp_validate&&  !new_value)
+> -		bond_unregister_arp(bond);
+> -
+>   	bond->params.arp_validate =3D new_value;
+>
+>   	return count;
+> @@ -998,7 +993,6 @@ static ssize_t bonding_store_miimon(struct device=
+ *d,
+>   				bond->dev->name);
+>   			bond->params.arp_interval =3D 0;
+>   			if (bond->params.arp_validate) {
+> -				bond_unregister_arp(bond);
+>   				bond->params.arp_validate =3D
+>   					BOND_ARP_VALIDATE_NONE;
+>   			}
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
 ing.h
->>index ff4e269..1aac5cd 100644
->>--- a/drivers/net/bonding/bonding.h
->>+++ b/drivers/net/bonding/bonding.h
->>@@ -264,6 +264,9 @@ struct bonding {
->>  #endif /* CONFIG_DEBUG_FS */
->>  };
->>
->>+#define bond_slave_get_rcu(dev) \
->>+	((struct slave *) rcu_dereference(dev->rx_handler_data))
->>+
->>  /**
->>   * Returns NULL if the net_device does not belong to any of the bon=
-d's slaves
->>   *
->
+> index 8f78166..75a1308 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -228,6 +228,8 @@ struct bonding {
+>   	struct   slave *primary_slave;
+>   	bool     force_primary;
+>   	s32      slave_cnt; /* never change this value outside the attach/=
+detach wrappers */
+> +	void     (*recv_probe)(struct sk_buff *, struct bonding *,
+> +			       struct slave *);
+>   	rwlock_t lock;
+>   	rwlock_t curr_slave_lock;
+>   	s8       kill_timers;
+> @@ -406,8 +408,6 @@ void bond_set_mode_ops(struct bonding *bond, int =
+mode);
+>   int bond_parse_parm(const char *mode_arg, const struct bond_parm_tb=
+l *tbl);
+>   void bond_select_active_slave(struct bonding *bond);
+>   void bond_change_active_slave(struct bonding *bond, struct slave *n=
+ew_active);
+> -void bond_register_arp(struct bonding *);
+> -void bond_unregister_arp(struct bonding *);
+>   void bond_create_debugfs(void);
+>   void bond_destroy_debugfs(void);
+>   void bond_debug_register(struct bonding *bond);
+
