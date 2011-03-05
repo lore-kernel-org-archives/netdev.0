@@ -1,46 +1,27 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [PATCH] ixgbe: fix for 82599 erratum on Header Splitting
-Date: Fri,  4 Mar 2011 23:06:07 -0800
-Message-ID: <1299308767-28735-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, stable@kernel.org,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: gregkh@suse.de
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv4: Remove flowi from struct rtable.
+Date: Fri, 04 Mar 2011 23:09:14 -0800 (PST)
+Message-ID: <20110304.230914.112605809.davem@davemloft.net>
+References: <20110304.221214.189707201.davem@davemloft.net>
+	<1299308388.2758.71.camel@edumazet-laptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:26891 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750752Ab1CEHGL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 02:06:11 -0500
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:45198
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751073Ab1CEHIh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 02:08:37 -0500
+In-Reply-To: <1299308388.2758.71.camel@edumazet-laptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 05 Mar 2011 07:59:48 +0100
 
-We have found a hardware erratum on 82599 hardware that can lead to
-unpredictable behavior when Header Splitting mode is enabled.  So
-we are no longer enabling this feature on affected hardware.
+> Eventually we could have a helper for this, as this is done three times
+> in this file. Or maybe you have further plans for ipmr ?
 
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ixgbe/ixgbe_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index a873c5d..67d1d97 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2131,6 +2131,10 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	/* Decide whether to use packet split mode or not */
- 	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
- 
-+	/* Disable packet split due to 82599 erratum #45 */
-+	if (hw->mac.type == ixgbe_mac_82599EB)
-+		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
-+
- 	/* Set the RX buffer length according to the mode */
- 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
- 		rx_buf_len = IXGBE_RX_HDR_SIZE;
--- 
-1.7.4
-
+No immediate plans, so yes I'll make a helper, good idea.
