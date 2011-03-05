@@ -1,104 +1,70 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] ixgbe: fix for 82599 erratum on Header Splitting
-Date: Sat, 05 Mar 2011 00:06:05 -0800
-Message-ID: <1299312365.26413.35.camel@jtkirshe-MOBL1>
-References: <1299308767-28735-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <20110305074419.GA19596@suse.de> <1299311467.26413.31.camel@jtkirshe-MOBL1>
-	 <20110305075926.GA19706@suse.de>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: tun routing is broken
+Date: Sat, 05 Mar 2011 00:10:22 -0800 (PST)
+Message-ID: <20110305.001022.183044112.davem@davemloft.net>
+References: <20110304.010603.104076956.davem@davemloft.net>
+	<4D70B2DC.2000005@gmail.com>
+	<4D71EE86.6030309@suse.cz>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha1"; protocol="application/pgp-signature"; boundary="=-ZKDWAw7IV0Xh4E+agN+N"
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	"stable@kernel.org" <stable@kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Greg KH <gregkh@suse.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jirislaby@gmail.com, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, mm-commits@vger.kernel.org,
+	netdev@vger.kernel.org, maxk@qualcomm.com
+To: jslaby@suse.cz
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:26185 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751093Ab1CEIIH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 03:08:07 -0500
-In-Reply-To: <20110305075926.GA19706@suse.de>
+Received: from 74-93-104-97-Washington.hfc.comcastbusiness.net ([74.93.104.97]:38059
+	"EHLO sunset.davemloft.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750982Ab1CEIJp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 03:09:45 -0500
+In-Reply-To: <4D71EE86.6030309@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Sat, 05 Mar 2011 09:04:22 +0100
 
---=-ZKDWAw7IV0Xh4E+agN+N
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Ok, so I booted the new kernel, and tun is broken there completely. If I
+> try to ping a vpn peer:
 
-On Fri, 2011-03-04 at 23:59 -0800, Greg KH wrote:
-> On Fri, Mar 04, 2011 at 11:51:07PM -0800, Jeff Kirsher wrote:
-> > On Fri, 2011-03-04 at 23:44 -0800, Greg KH wrote:
-> > > On Fri, Mar 04, 2011 at 11:06:07PM -0800, Jeff Kirsher wrote:
-> > > > From: Don Skidmore <donald.c.skidmore@intel.com>
-> > > >=20
-> > > > We have found a hardware erratum on 82599 hardware that can lead to
-> > > > unpredictable behavior when Header Splitting mode is enabled.  So
-> > > > we are no longer enabling this feature on affected hardware.
-> > > >=20
-> > > > Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-> > > > Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-> > > > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > > > ---
-> > > >  drivers/net/ixgbe/ixgbe_main.c |    4 ++++
-> > >=20
-> > > I'm confused, why did you just send this patch to me?
-> > >=20
-> > > What am I supposed to do with it?
-> > >=20
-> > > greg k-h
-> >=20
-> > This is the fix for ixgbe (that Ben and others pointed out) which has
-> > been accepted into Linus's tree which did not apply to stable-2.6.32
-> > tree.  This is the updated patch that apply's to the stable-2.6.32 tree=
-.
->=20
-> How nice, but why didn't you say so in the first place?  Am I really
-> supposed to remember the hundreds of stable patches I handle every week?
+-mm tree is missing this fix which went in yesterday.  Please if
+you are going to be testing networking a lot, test against net-next-2.6
+instead of Andrew's tree which invariable lags behind:
 
-Sorry, I sent you/stable an email saying that I would send you an
-updated patch that would apply to stable-2.6.32.  I know you deal with a
-number of patches, so I apologize.
+--------------------
+ipv4: Fix __ip_dev_find() to use ifa_local instead of ifa_address.
 
->=20
-> Oh, I need the git commit id of it as well, care to resend this with
-> that and the proper "please apply this for the .32 longterm tree"
-> message so I can?
->=20
+Reported-by: Stephen Hemminger <shemminger@vyatta.com>
+Reported-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/devinet.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-Heres is the commit info:
-commit a124339ad28389093ed15eca990d39c51c5736cc
-Author: Don Skidmore <donald.c.skidmore@intel.com>
-Date:   Tue Jan 18 22:53:47 2011 +0000
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index 9038928..ff53860 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -111,7 +111,7 @@ static inline unsigned int inet_addr_hash(struct net *net, __be32 addr)
+ 
+ static void inet_hash_insert(struct net *net, struct in_ifaddr *ifa)
+ {
+-	unsigned int hash = inet_addr_hash(net, ifa->ifa_address);
++	unsigned int hash = inet_addr_hash(net, ifa->ifa_local);
+ 
+ 	spin_lock(&inet_addr_hash_lock);
+ 	hlist_add_head_rcu(&ifa->hash, &inet_addr_lst[hash]);
+@@ -146,7 +146,7 @@ struct net_device *__ip_dev_find(struct net *net, __be32 addr, bool devref)
+ 
+ 		if (!net_eq(dev_net(dev), net))
+ 			continue;
+-		if (ifa->ifa_address == addr) {
++		if (ifa->ifa_local == addr) {
+ 			result = dev;
+ 			break;
+ 		}
+-- 
+1.7.4.1
 
 
-> If so, I'll queue it up for the after-next .32-longterm release.
->=20
-
-I can resend the entire patch submission again, with the info provided,
-if necessary.
-
-> thanks,
->=20
-> greg k-h
-
-
-
---=-ZKDWAw7IV0Xh4E+agN+N
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAABAgAGBQJNce7tAAoJECTsCADr/EWUIxQH/R9zvu1b5EYpJoMJJrp3h+ZI
-6+TdqNBMLWhYX3BnUpqC++U2gWBqXFnpqTdu9jHSIPwlEJshbajlFEQ26YkdIqxm
-VhCwEiWUehqnVVML1gsenpMfajy5kzcOjm1ASQjIRk/SVuOvEFdM8YlxExzJsTXp
-dUWJ2n1CGxLY9hyu4Cldo66UgwdzgJaQZXE7NWicyo9e9nN1E8JuAYxXkKzICnCU
-Hu5ZVvrCZOUsHUMoKzzimPxTxpCYEzgHeZleOmP/66kmrXIMXPzBeHSjl4tYil5O
-JbjofZWyIUv/rRI/BXKMGOeQEet3P5naVb5aUCPMHgJrDRQkuliES4Mb09RYNC0=
-=Q66W
------END PGP SIGNATURE-----
-
---=-ZKDWAw7IV0Xh4E+agN+N--
 
