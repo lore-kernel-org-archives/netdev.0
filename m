@@ -1,16 +1,16 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 13/28] batman-adv: Correct rcu refcounting for softif_neigh
-Date: Sat,  5 Mar 2011 13:28:27 +0100
-Message-ID: <1299328122-21468-14-git-send-email-sven@narfation.org>
+Subject: [PATCH 14/28] batman-adv: Correct rcu refcounting for batman_if
+Date: Sat,  5 Mar 2011 13:28:28 +0100
+Message-ID: <1299328122-21468-15-git-send-email-sven@narfation.org>
 References: <1299328122-21468-1-git-send-email-sven@narfation.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:36302 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:36306 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753285Ab1CEM3w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 07:29:52 -0500
+	id S1753236Ab1CEM3y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 07:29:54 -0500
 In-Reply-To: <1299328122-21468-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -26,116 +26,283 @@ operations have to be atomic.
 Reported-by: Sven Eckelmann <sven@narfation.org>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/soft-interface.c |   31 +++++++++++++++----------------
+ net/batman-adv/bat_sysfs.c      |   20 ++++++++----------
+ net/batman-adv/hard-interface.c |   40 ++++++++++++++++++--------------------
+ net/batman-adv/hard-interface.h |    9 +++----
  net/batman-adv/types.h          |    2 +-
- 2 files changed, 16 insertions(+), 17 deletions(-)
+ 4 files changed, 33 insertions(+), 38 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index 7e37077..152beaa 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -76,20 +76,18 @@ int my_skb_head_push(struct sk_buff *skb, unsigned int len)
- 	return 0;
+diff --git a/net/batman-adv/bat_sysfs.c b/net/batman-adv/bat_sysfs.c
+index f7b93a0..93ae20a 100644
+--- a/net/batman-adv/bat_sysfs.c
++++ b/net/batman-adv/bat_sysfs.c
+@@ -450,7 +450,7 @@ static ssize_t show_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 	length = sprintf(buff, "%s\n", batman_if->if_status == IF_NOT_IN_USE ?
+ 			 "none" : batman_if->soft_iface->name);
+ 
+-	kref_put(&batman_if->refcount, hardif_free_ref);
++	hardif_free_ref(batman_if);
+ 
+ 	return length;
  }
+@@ -461,7 +461,7 @@ static ssize_t store_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 	struct net_device *net_dev = kobj_to_netdev(kobj);
+ 	struct batman_if *batman_if = get_batman_if_by_netdev(net_dev);
+ 	int status_tmp = -1;
+-	int ret;
++	int ret = count;
  
--static void softif_neigh_free_ref(struct kref *refcount)
-+static void softif_neigh_free_rcu(struct rcu_head *rcu)
- {
- 	struct softif_neigh *softif_neigh;
- 
--	softif_neigh = container_of(refcount, struct softif_neigh, refcount);
-+	softif_neigh = container_of(rcu, struct softif_neigh, rcu);
- 	kfree(softif_neigh);
- }
- 
--static void softif_neigh_free_rcu(struct rcu_head *rcu)
-+static void softif_neigh_free_ref(struct softif_neigh *softif_neigh)
- {
--	struct softif_neigh *softif_neigh;
--
--	softif_neigh = container_of(rcu, struct softif_neigh, rcu);
--	kref_put(&softif_neigh->refcount, softif_neigh_free_ref);
-+	if (atomic_dec_and_test(&softif_neigh->refcount))
-+		call_rcu(&softif_neigh->rcu, softif_neigh_free_rcu);
- }
- 
- void softif_neigh_purge(struct bat_priv *bat_priv)
-@@ -116,11 +114,10 @@ void softif_neigh_purge(struct bat_priv *bat_priv)
- 				 softif_neigh->addr, softif_neigh->vid);
- 			softif_neigh_tmp = bat_priv->softif_neigh;
- 			bat_priv->softif_neigh = NULL;
--			kref_put(&softif_neigh_tmp->refcount,
--				 softif_neigh_free_ref);
-+			softif_neigh_free_ref(softif_neigh_tmp);
- 		}
- 
--		call_rcu(&softif_neigh->rcu, softif_neigh_free_rcu);
-+		softif_neigh_free_ref(softif_neigh);
+ 	if (!batman_if)
+ 		return count;
+@@ -472,7 +472,7 @@ static ssize_t store_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 	if (strlen(buff) >= IFNAMSIZ) {
+ 		pr_err("Invalid parameter for 'mesh_iface' setting received: "
+ 		       "interface name too long '%s'\n", buff);
+-		kref_put(&batman_if->refcount, hardif_free_ref);
++		hardif_free_ref(batman_if);
+ 		return -EINVAL;
  	}
  
- 	spin_unlock_bh(&bat_priv->softif_neigh_lock);
-@@ -141,8 +138,11 @@ static struct softif_neigh *softif_neigh_get(struct bat_priv *bat_priv,
- 		if (softif_neigh->vid != vid)
- 			continue;
+@@ -482,17 +482,14 @@ static ssize_t store_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 		status_tmp = IF_I_WANT_YOU;
  
-+		if (!atomic_inc_not_zero(&softif_neigh->refcount))
-+			continue;
-+
- 		softif_neigh->last_seen = jiffies;
--		goto found;
+ 	if ((batman_if->if_status == status_tmp) || ((batman_if->soft_iface) &&
+-	    (strncmp(batman_if->soft_iface->name, buff, IFNAMSIZ) == 0))) {
+-		kref_put(&batman_if->refcount, hardif_free_ref);
+-		return count;
+-	}
++	    (strncmp(batman_if->soft_iface->name, buff, IFNAMSIZ) == 0)))
++		goto out;
+ 
+ 	if (status_tmp == IF_NOT_IN_USE) {
+ 		rtnl_lock();
+ 		hardif_disable_interface(batman_if);
+ 		rtnl_unlock();
+-		kref_put(&batman_if->refcount, hardif_free_ref);
+-		return count;
 +		goto out;
  	}
  
- 	softif_neigh = kzalloc(sizeof(struct softif_neigh), GFP_ATOMIC);
-@@ -152,15 +152,14 @@ static struct softif_neigh *softif_neigh_get(struct bat_priv *bat_priv,
- 	memcpy(softif_neigh->addr, addr, ETH_ALEN);
- 	softif_neigh->vid = vid;
- 	softif_neigh->last_seen = jiffies;
--	kref_init(&softif_neigh->refcount);
-+	/* initialize with 2 - caller decrements counter by one */
-+	atomic_set(&softif_neigh->refcount, 2);
+ 	/* if the interface already is in use */
+@@ -503,8 +500,9 @@ static ssize_t store_mesh_iface(struct kobject *kobj, struct attribute *attr,
+ 	}
  
- 	INIT_HLIST_NODE(&softif_neigh->list);
- 	spin_lock_bh(&bat_priv->softif_neigh_lock);
- 	hlist_add_head_rcu(&softif_neigh->list, &bat_priv->softif_neigh_list);
- 	spin_unlock_bh(&bat_priv->softif_neigh_lock);
+ 	ret = hardif_enable_interface(batman_if, buff);
+-	kref_put(&batman_if->refcount, hardif_free_ref);
  
--found:
--	kref_get(&softif_neigh->refcount);
++out:
++	hardif_free_ref(batman_if);
+ 	return ret;
+ }
+ 
+@@ -537,7 +535,7 @@ static ssize_t show_iface_status(struct kobject *kobj, struct attribute *attr,
+ 		break;
+ 	}
+ 
+-	kref_put(&batman_if->refcount, hardif_free_ref);
++	hardif_free_ref(batman_if);
+ 
+ 	return length;
+ }
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index e2b001a..8982485 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -40,13 +40,13 @@ static int batman_skb_recv(struct sk_buff *skb,
+ 			   struct packet_type *ptype,
+ 			   struct net_device *orig_dev);
+ 
+-static void hardif_free_rcu(struct rcu_head *rcu)
++void hardif_free_rcu(struct rcu_head *rcu)
+ {
+ 	struct batman_if *batman_if;
+ 
+ 	batman_if = container_of(rcu, struct batman_if, rcu);
+ 	dev_put(batman_if->net_dev);
+-	kref_put(&batman_if->refcount, hardif_free_ref);
++	kfree(batman_if);
+ }
+ 
+ struct batman_if *get_batman_if_by_netdev(struct net_device *net_dev)
+@@ -55,16 +55,14 @@ struct batman_if *get_batman_if_by_netdev(struct net_device *net_dev)
+ 
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(batman_if, &if_list, list) {
+-		if (batman_if->net_dev == net_dev)
++		if (batman_if->net_dev == net_dev &&
++		    atomic_inc_not_zero(&batman_if->refcount))
+ 			goto out;
+ 	}
+ 
+ 	batman_if = NULL;
+ 
  out:
+-	if (batman_if)
+-		kref_get(&batman_if->refcount);
+-
  	rcu_read_unlock();
- 	return softif_neigh;
-@@ -264,7 +263,7 @@ static void softif_batman_recv(struct sk_buff *skb, struct net_device *dev,
- 			 softif_neigh->addr, softif_neigh->vid);
- 		softif_neigh_tmp = bat_priv->softif_neigh;
- 		bat_priv->softif_neigh = softif_neigh;
--		kref_put(&softif_neigh_tmp->refcount, softif_neigh_free_ref);
-+		softif_neigh_free_ref(softif_neigh_tmp);
- 		/* we need to hold the additional reference */
- 		goto err;
- 	}
-@@ -282,7 +281,7 @@ static void softif_batman_recv(struct sk_buff *skb, struct net_device *dev,
+ 	return batman_if;
+ }
+@@ -105,16 +103,14 @@ static struct batman_if *get_active_batman_if(struct net_device *soft_iface)
+ 		if (batman_if->soft_iface != soft_iface)
+ 			continue;
+ 
+-		if (batman_if->if_status == IF_ACTIVE)
++		if (batman_if->if_status == IF_ACTIVE &&
++		    atomic_inc_not_zero(&batman_if->refcount))
+ 			goto out;
  	}
  
+ 	batman_if = NULL;
+ 
  out:
--	kref_put(&softif_neigh->refcount, softif_neigh_free_ref);
-+	softif_neigh_free_ref(softif_neigh);
+-	if (batman_if)
+-		kref_get(&batman_if->refcount);
+-
+ 	rcu_read_unlock();
+ 	return batman_if;
+ }
+@@ -137,14 +133,14 @@ static void set_primary_if(struct bat_priv *bat_priv,
+ 	struct batman_packet *batman_packet;
+ 	struct batman_if *old_if;
+ 
+-	if (batman_if)
+-		kref_get(&batman_if->refcount);
++	if (batman_if && !atomic_inc_not_zero(&batman_if->refcount))
++		batman_if = NULL;
+ 
+ 	old_if = bat_priv->primary_if;
+ 	bat_priv->primary_if = batman_if;
+ 
+ 	if (old_if)
+-		kref_put(&old_if->refcount, hardif_free_ref);
++		hardif_free_ref(old_if);
+ 
+ 	if (!bat_priv->primary_if)
+ 		return;
+@@ -290,6 +286,9 @@ int hardif_enable_interface(struct batman_if *batman_if, char *iface_name)
+ 	if (batman_if->if_status != IF_NOT_IN_USE)
+ 		goto out;
+ 
++	if (!atomic_inc_not_zero(&batman_if->refcount))
++		goto out;
++
+ 	batman_if->soft_iface = dev_get_by_name(&init_net, iface_name);
+ 
+ 	if (!batman_if->soft_iface) {
+@@ -328,7 +327,6 @@ int hardif_enable_interface(struct batman_if *batman_if, char *iface_name)
+ 	batman_if->batman_adv_ptype.type = __constant_htons(ETH_P_BATMAN);
+ 	batman_if->batman_adv_ptype.func = batman_skb_recv;
+ 	batman_if->batman_adv_ptype.dev = batman_if->net_dev;
+-	kref_get(&batman_if->refcount);
+ 	dev_add_pack(&batman_if->batman_adv_ptype);
+ 
+ 	atomic_set(&batman_if->seqno, 1);
+@@ -371,6 +369,7 @@ out:
+ 	return 0;
+ 
  err:
- 	kfree_skb(skb);
- 	return;
++	hardif_free_ref(batman_if);
+ 	return -ENOMEM;
+ }
+ 
+@@ -387,7 +386,6 @@ void hardif_disable_interface(struct batman_if *batman_if)
+ 	bat_info(batman_if->soft_iface, "Removing interface: %s\n",
+ 		 batman_if->net_dev->name);
+ 	dev_remove_pack(&batman_if->batman_adv_ptype);
+-	kref_put(&batman_if->refcount, hardif_free_ref);
+ 
+ 	bat_priv->num_ifaces--;
+ 	orig_hash_del_if(batman_if, bat_priv->num_ifaces);
+@@ -399,7 +397,7 @@ void hardif_disable_interface(struct batman_if *batman_if)
+ 		set_primary_if(bat_priv, new_if);
+ 
+ 		if (new_if)
+-			kref_put(&new_if->refcount, hardif_free_ref);
++			hardif_free_ref(new_if);
+ 	}
+ 
+ 	kfree(batman_if->packet_buff);
+@@ -416,6 +414,7 @@ void hardif_disable_interface(struct batman_if *batman_if)
+ 		softif_destroy(batman_if->soft_iface);
+ 
+ 	batman_if->soft_iface = NULL;
++	hardif_free_ref(batman_if);
+ }
+ 
+ static struct batman_if *hardif_add_interface(struct net_device *net_dev)
+@@ -445,7 +444,8 @@ static struct batman_if *hardif_add_interface(struct net_device *net_dev)
+ 	batman_if->soft_iface = NULL;
+ 	batman_if->if_status = IF_NOT_IN_USE;
+ 	INIT_LIST_HEAD(&batman_if->list);
+-	kref_init(&batman_if->refcount);
++	/* extra reference for return */
++	atomic_set(&batman_if->refcount, 2);
+ 
+ 	check_known_mac_addr(batman_if->net_dev);
+ 
+@@ -453,8 +453,6 @@ static struct batman_if *hardif_add_interface(struct net_device *net_dev)
+ 	list_add_tail_rcu(&batman_if->list, &if_list);
+ 	spin_unlock(&if_list_lock);
+ 
+-	/* extra reference for return */
+-	kref_get(&batman_if->refcount);
+ 	return batman_if;
+ 
+ free_if:
+@@ -476,7 +474,7 @@ static void hardif_remove_interface(struct batman_if *batman_if)
+ 
+ 	batman_if->if_status = IF_TO_BE_REMOVED;
+ 	sysfs_del_hardif(&batman_if->hardif_obj);
+-	call_rcu(&batman_if->rcu, hardif_free_rcu);
++	hardif_free_ref(batman_if);
+ }
+ 
+ void hardif_remove_interfaces(void)
+@@ -548,7 +546,7 @@ static int hard_if_event(struct notifier_block *this,
+ 	};
+ 
+ hardif_put:
+-	kref_put(&batman_if->refcount, hardif_free_ref);
++	hardif_free_ref(batman_if);
+ out:
+ 	return NOTIFY_DONE;
+ }
+diff --git a/net/batman-adv/hard-interface.h b/net/batman-adv/hard-interface.h
+index ad19543..e488b90 100644
+--- a/net/batman-adv/hard-interface.h
++++ b/net/batman-adv/hard-interface.h
+@@ -37,13 +37,12 @@ void hardif_disable_interface(struct batman_if *batman_if);
+ void hardif_remove_interfaces(void);
+ int hardif_min_mtu(struct net_device *soft_iface);
+ void update_min_mtu(struct net_device *soft_iface);
++void hardif_free_rcu(struct rcu_head *rcu);
+ 
+-static inline void hardif_free_ref(struct kref *refcount)
++static inline void hardif_free_ref(struct batman_if *batman_if)
+ {
+-	struct batman_if *batman_if;
+-
+-	batman_if = container_of(refcount, struct batman_if, refcount);
+-	kfree(batman_if);
++	if (atomic_dec_and_test(&batman_if->refcount))
++		call_rcu(&batman_if->rcu, hardif_free_rcu);
+ }
+ 
+ #endif /* _NET_BATMAN_ADV_HARD_INTERFACE_H_ */
 diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index cfbeb45..96f7c22 100644
+index 96f7c22..e0140c6 100644
 --- a/net/batman-adv/types.h
 +++ b/net/batman-adv/types.h
-@@ -268,7 +268,7 @@ struct softif_neigh {
- 	uint8_t addr[ETH_ALEN];
- 	unsigned long last_seen;
- 	short vid;
+@@ -43,7 +43,7 @@ struct batman_if {
+ 	unsigned char *packet_buff;
+ 	int packet_len;
+ 	struct kobject *hardif_obj;
 -	struct kref refcount;
 +	atomic_t refcount;
+ 	struct packet_type batman_adv_ptype;
+ 	struct net_device *soft_iface;
  	struct rcu_head rcu;
- };
- 
 -- 
 1.7.2.3
 
