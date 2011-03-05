@@ -1,67 +1,67 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 8/8 v2] net: get rid of orig_dev parameter
- of packet handlers
-Date: Sat, 05 Mar 2011 17:56:24 +0100
-Message-ID: <4D726B38.4040403@gmail.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-9-git-send-email-jpirko@redhat.com> <20110305153247.GH8573@psychotron.redhat.com>
+From: Ruben Kerkhof <ruben@rubenkerkhof.com>
+Subject: Re: EPT: Misconfiguration
+Date: Sat, 5 Mar 2011 19:57:43 +0100
+Message-ID: <AANLkTin=JK1+CG5by+vWxnYP+vYJpn8YHGGMLSzqFNEs@mail.gmail.com>
+References: <AANLkTinjt8G=mdEZK1a3qKozHw24uN0dfy2vUckbqwSZ@mail.gmail.com>
+ <20110121132247.GA3097@amt.cnet> <AANLkTi=kMRu+4V6cc3bZtAT-L2P5cUo0QR3wNR3Y4u6B@mail.gmail.com>
+ <4D3F0AD1.9010903@redhat.com> <AANLkTi=RMXSHAAbnN=HykGqbUshOFX_DO4kgYXTZUAdR@mail.gmail.com>
+ <4D3FEEDB.5070407@redhat.com> <AANLkTimhkuMeKuihwRVnphxdCejpGi3rgd3uj9Xc_70v@mail.gmail.com>
+ <AANLkTik76qykBCS_sEDQvBr4n7=BuffiU23bYKjFTRxa@mail.gmail.com>
+ <AANLkTikS2M2pxO09PHN8+5+cBaQ593C9H7KthQHd4tM0@mail.gmail.com>
+ <4D57D6AC.7000608@redhat.com> <20110215171639.GA12842@amt.cnet>
+ <AANLkTimeFf2Smj=bWDYoH0Hf+ftnbW3XjacyS2pu49_o@mail.gmail.com>
+ <AANLkTiknMneQtYqgmX7gvXsMoSO-yiLXr-dwbEej80Uy@mail.gmail.com> <4D6A2B91.5020100@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:61016 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248Ab1CEQ42 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 11:56:28 -0500
-Received: by wwb22 with SMTP id 22so3731095wwb.1
-        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 08:56:27 -0800 (PST)
-In-Reply-To: <20110305153247.GH8573@psychotron.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Marcelo Tosatti <mtosatti@redhat.com>, kvm <kvm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Avi Kivity <avi@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <4D6A2B91.5020100@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 05/03/2011 16:32, Jiri Pirko a =E9crit :
-> Since orig_dev was used in af_packet (where it was replaced) and by
-> bonding ptype handlers (which are no longer with us) only, orig_dev
-> parameter is no longer needed ->  toss it out
+On Sun, Feb 27, 2011 at 11:46, Avi Kivity <avi@redhat.com> wrote:
 >
-> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
-> Reviewed-by: Nicolas de Peslo=FCan<nicolas.2p.debian@free.fr>
+> Copying netdev: looks like memory corruption in the networking stack.
 >
-[snip]
+> Archive link: http://www.spinics.net/lists/kvm/msg50651.html (for the
+> attachment).
 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 58daddb..c71bd18 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-[snip]
-> @@ -3216,13 +3214,13 @@ ncls:
->   		    (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D skb->dev =
-||
->   		     ptype->dev =3D=3D orig_dev)) {
->   			if (pt_prev)
-> -				ret =3D deliver_skb(skb, pt_prev, orig_dev);
-> +				ret =3D deliver_skb(skb, pt_prev);
->   			pt_prev =3D ptype;
->   		}
->   	}
->
->   	if (pt_prev) {
-> -		ret =3D pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
-> +		ret =3D pt_prev->func(skb, skb->dev, pt_prev);
->   	} else {
->   		atomic_long_inc(&skb->dev->rx_dropped);
->   		kfree_skb(skb);
+There's now only a single guest running on this host (Ubuntu Maverick).
+I've also upgraded the host kernel to 2.6.38-rc6, and this just
+happened (after a day or so):
 
-This part does not properly apply on top of current net-next-2.6.
+2011-03-05T19:41:58.328866+01:00 phy005 kernel: [85271.656862] BUG
+kmalloc-2048 (Not tainted): Object padding overwritten
+2011-03-05T19:41:58.328870+01:00 phy005 kernel: [85271.656864]
+-----------------------------------------------------------------------------
+2011-03-05T19:41:58.328875+01:00 phy005 kernel: [85271.656866]
+2011-03-05T19:41:58.328885+01:00 phy005 kernel: [85271.656870] INFO:
+0xffff880c0d52a960-0xffff880c0d52a967. First byte 0x0 instead of 0x5a
+2011-03-05T19:41:58.328890+01:00 phy005 kernel: [85271.656880] INFO:
+Allocated in __netdev_alloc_skb+0x1f/0x3b age=16039 cpu=5 pid=0
+2011-03-05T19:41:58.328894+01:00 phy005 kernel: [85271.656886] INFO:
+Freed in skb_release_data+0xa5/0xaa age=0 cpu=5 pid=1766
+2011-03-05T19:41:58.328898+01:00 phy005 kernel: [85271.656890] INFO:
+Slab 0xffffea002a2ea0c0 objects=15 used=13 fp=0xffff880c0d52a120
+flags=0xc00000000040c1
+2011-03-05T19:41:58.328902+01:00 phy005 kernel: [85271.656894] INFO:
+Object 0xffff880c0d52a120 @offset=8480 fp=0xffff880c0d52d2d0
+2011-03-05T19:41:58.328905+01:00 phy005 kernel: [85271.656895]
+2011-03-05T19:41:58.328909+01:00 phy005 kernel: [85271.656897] Bytes
+b4 0xffff880c0d52a110:  14 89 12 05 01 00 00 00 5a 5a 5a 5a 5a 5a 5a
+5a ........ZZZZZZZZ
+2011-03-05T19:41:58.328913+01:00 phy005 kernel: [85271.656909]
+Object 0xffff880c0d52a120:  6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+6b 6b kkkkkkkkkkkkkkkk
 
-Line 3216 is currently
+We have a quite complex network stack, two interfaces (igb) attached
+to bond0, with on top two bridges and on that two vlans.
+The guest is running a vpn and an IPv6 tunnel.
 
-                     (ptype->dev =3D=3D null_or_dev || ptype->dev =3D=3D=
- skb->dev)) {
+Let me know if more info is needed.
 
-	Nicolas.
+Kind regards,
+
+Ruben
