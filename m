@@ -1,256 +1,113 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 4/4] r8169: convert to new VLAN model.
-Date: Sat, 5 Mar 2011 10:41:11 +0100
-Message-ID: <20110305094111.GD13854@electric-eye.fr.zoreil.com>
-References: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
-	Jesse Gross <jesse@nicira.com>
-To: davem@davemloft.net
+From: Jiri Pirko <jpirko@redhat.com>
+Subject: [patch net-next-2.6 2/8] bonding: register slave pointer for rx_handler
+Date: Sat,  5 Mar 2011 11:29:23 +0100
+Message-ID: <1299320969-7951-3-git-send-email-jpirko@redhat.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
+Cc: davem@davemloft.net, shemminger@linux-foundation.org,
+	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
+	nicolas.2p.debian@gmail.com, andy@greyhouse.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50192 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752186Ab1CEJpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 04:45:47 -0500
-Content-Disposition: inline
-In-Reply-To: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
+Received: from mx1.redhat.com ([209.132.183.28]:62628 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752180Ab1CEK3l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 05:29:41 -0500
+In-Reply-To: <1299320969-7951-1-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
-Reviewed-by: Jesse Gross <jesse@nicira.com>
----
- drivers/net/Kconfig |    9 ----
- drivers/net/r8169.c |  110 +++++++++++++++++++++++----------------------------
- 2 files changed, 49 insertions(+), 70 deletions(-)
+Register slave pointer as rx_handler data. That would eventually prevent
+need to loop over slave devices to find the right slave.
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index f4b3927..8d0d16f 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -2236,15 +2236,6 @@ config R8169
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called r8169.  This is recommended.
+Use synchronize_net to ensure that bond_handle_frame does not get slave
+structure freed when working with that.
+
+Signed-off-by: Jiri Pirko <jpirko@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |   17 +++++++++++------
+ drivers/net/bonding/bonding.h   |    3 +++
+ 2 files changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 0592e6d..1c19368 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1495,21 +1495,22 @@ static bool bond_should_deliver_exact_match(struct sk_buff *skb,
  
--config R8169_VLAN
--	bool "VLAN support"
--	depends on R8169 && VLAN_8021Q
--	---help---
--	  Say Y here for the r8169 driver to support the functions required
--	  by the kernel 802.1Q code.
--
--	  If in doubt, say Y.
--
- config SB1250_MAC
- 	tristate "SB1250 Gigabit Ethernet support"
- 	depends on SIBYTE_SB1xxx_SOC
-diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index d842d00..52e20d5 100644
---- a/drivers/net/r8169.c
-+++ b/drivers/net/r8169.c
-@@ -537,9 +537,6 @@ struct rtl8169_private {
- 	u16 napi_event;
- 	u16 intr_mask;
- 	int phy_1000_ctrl_reg;
--#ifdef CONFIG_R8169_VLAN
--	struct vlan_group *vlgrp;
--#endif
- 
- 	struct mdio_ops {
- 		void (*write)(void __iomem *, int, int);
-@@ -1276,8 +1273,6 @@ static int rtl8169_set_rx_csum(struct net_device *dev, u32 data)
- 	return 0;
- }
- 
--#ifdef CONFIG_R8169_VLAN
--
- static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
- 				      struct sk_buff *skb)
+ static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
  {
-@@ -1285,64 +1280,37 @@ static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
- 		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
- }
+-	struct net_device *slave_dev;
++	struct slave *slave;
+ 	struct net_device *bond_dev;
  
--static void rtl8169_vlan_rx_register(struct net_device *dev,
--				     struct vlan_group *grp)
-+#define NETIF_F_HW_VLAN_TX_RX	(NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX)
+ 	skb = skb_share_check(skb, GFP_ATOMIC);
+ 	if (unlikely(!skb))
+ 		return NULL;
+-	slave_dev = skb->dev;
+-	bond_dev = ACCESS_ONCE(slave_dev->master);
 +
-+static void rtl8169_vlan_mode(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	void __iomem *ioaddr = tp->mmio_addr;
- 	unsigned long flags;
++	slave = bond_slave_get_rcu(skb->dev);
++	bond_dev = ACCESS_ONCE(slave->dev->master);
+ 	if (unlikely(!bond_dev))
+ 		return skb;
  
- 	spin_lock_irqsave(&tp->lock, flags);
--	tp->vlgrp = grp;
--	/*
--	 * Do not disable RxVlan on 8110SCd.
--	 */
--	if (tp->vlgrp || (tp->mac_version == RTL_GIGA_MAC_VER_05))
-+	if (dev->features & NETIF_F_HW_VLAN_RX)
- 		tp->cp_cmd |= RxVlan;
- 	else
- 		tp->cp_cmd &= ~RxVlan;
- 	RTL_W16(CPlusCmd, tp->cp_cmd);
-+	/* PCI commit */
- 	RTL_R16(CPlusCmd);
- 	spin_unlock_irqrestore(&tp->lock, flags);
-+
-+	dev->vlan_features = dev->features &~ NETIF_F_HW_VLAN_TX_RX;
- }
+ 	if (bond_dev->priv_flags & IFF_MASTER_ARPMON)
+-		slave_dev->last_rx = jiffies;
++		slave->dev->last_rx = jiffies;
  
--static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
--			       struct sk_buff *skb, int polling)
-+static void rtl8169_rx_vlan_tag(struct RxDesc *desc, struct sk_buff *skb)
- {
- 	u32 opts2 = le32_to_cpu(desc->opts2);
--	struct vlan_group *vlgrp = tp->vlgrp;
--	int ret;
- 
--	if (vlgrp && (opts2 & RxVlanTag)) {
--		u16 vtag = swab16(opts2 & 0xffff);
-+	if (opts2 & RxVlanTag)
-+		__vlan_hwaccel_put_tag(skb, swab16(opts2 & 0xffff));
- 
--		if (likely(polling))
--			vlan_gro_receive(&tp->napi, vlgrp, vtag, skb);
--		else
--			__vlan_hwaccel_rx(skb, vlgrp, vtag, polling);
--		ret = 0;
--	} else
--		ret = -1;
- 	desc->opts2 = 0;
--	return ret;
--}
--
--#else /* !CONFIG_R8169_VLAN */
--
--static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
--				      struct sk_buff *skb)
--{
--	return 0;
--}
--
--static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
--			       struct sk_buff *skb, int polling)
--{
--	return -1;
- }
- 
--#endif
--
- static int rtl8169_gset_tbi(struct net_device *dev, struct ethtool_cmd *cmd)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -1513,6 +1481,28 @@ static void rtl8169_get_strings(struct net_device *dev, u32 stringset, u8 *data)
+-	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
++	if (bond_should_deliver_exact_match(skb, slave->dev, bond_dev)) {
+ 		skb->deliver_no_wcard = 1;
+ 		return skb;
  	}
- }
+@@ -1703,7 +1704,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 		pr_debug("Error %d calling netdev_set_bond_master\n", res);
+ 		goto err_restore_mac;
+ 	}
+-	res = netdev_rx_handler_register(slave_dev, bond_handle_frame, NULL);
++	res = netdev_rx_handler_register(slave_dev, bond_handle_frame,
++					 new_slave);
+ 	if (res) {
+ 		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
+ 		goto err_unset_master;
+@@ -1925,6 +1927,7 @@ err_close:
  
-+static int rtl8169_set_flags(struct net_device *dev, u32 data)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	unsigned long old_feat = dev->features;
-+	int rc;
-+
-+	if ((tp->mac_version == RTL_GIGA_MAC_VER_05) &&
-+	    !(data & ETH_FLAG_RXVLAN)) {
-+		netif_info(tp, drv, dev, "8110SCd requires hardware Rx VLAN\n");
-+		return -EINVAL;
-+	}
-+
-+	rc = ethtool_op_set_flags(dev, data, ETH_FLAG_TXVLAN | ETH_FLAG_RXVLAN);
-+	if (rc)
-+		return rc;
-+
-+	if ((old_feat ^ dev->features) & NETIF_F_HW_VLAN_RX)
-+		rtl8169_vlan_mode(dev);
-+
-+	return 0;
-+}
-+
- static const struct ethtool_ops rtl8169_ethtool_ops = {
- 	.get_drvinfo		= rtl8169_get_drvinfo,
- 	.get_regs_len		= rtl8169_get_regs_len,
-@@ -1532,6 +1522,8 @@ static const struct ethtool_ops rtl8169_ethtool_ops = {
- 	.get_strings		= rtl8169_get_strings,
- 	.get_sset_count		= rtl8169_get_sset_count,
- 	.get_ethtool_stats	= rtl8169_get_ethtool_stats,
-+	.set_flags		= rtl8169_set_flags,
-+	.get_flags		= ethtool_op_get_flags,
+ err_unreg_rxhandler:
+ 	netdev_rx_handler_unregister(slave_dev);
++	synchronize_net();
+ 
+ err_unset_master:
+ 	netdev_set_bond_master(slave_dev, NULL);
+@@ -2108,6 +2111,7 @@ int bond_release(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ 
+ 	netdev_rx_handler_unregister(slave_dev);
++	synchronize_net();
+ 	netdev_set_bond_master(slave_dev, NULL);
+ 
+ 	slave_disable_netpoll(slave);
+@@ -2222,6 +2226,7 @@ static int bond_release_all(struct net_device *bond_dev)
+ 		}
+ 
+ 		netdev_rx_handler_unregister(slave_dev);
++		synchronize_net();
+ 		netdev_set_bond_master(slave_dev, NULL);
+ 
+ 		slave_disable_netpoll(slave);
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index ff4e269..1aac5cd 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -264,6 +264,9 @@ struct bonding {
+ #endif /* CONFIG_DEBUG_FS */
  };
  
- static void rtl8169_get_mac_version(struct rtl8169_private *tp,
-@@ -2849,9 +2841,6 @@ static const struct net_device_ops rtl8169_netdev_ops = {
- 	.ndo_set_mac_address	= rtl_set_mac_address,
- 	.ndo_do_ioctl		= rtl8169_ioctl,
- 	.ndo_set_multicast_list	= rtl_set_rx_mode,
--#ifdef CONFIG_R8169_VLAN
--	.ndo_vlan_rx_register	= rtl8169_vlan_rx_register,
--#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= rtl8169_netpoll,
- #endif
-@@ -3145,6 +3134,13 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* Identify chip attached to board */
- 	rtl8169_get_mac_version(tp, ioaddr);
- 
-+	/*
-+	 * Pretend we are using VLANs; This bypasses a nasty bug where
-+	 * Interrupts stop flowing on high load on 8110SCd controllers.
-+	 */
-+	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
-+		tp->cp_cmd |= RxVlan;
++#define bond_slave_get_rcu(dev) \
++	((struct slave *) rcu_dereference(dev->rx_handler_data))
 +
- 	rtl_init_mdio_ops(tp);
- 	rtl_init_pll_power_ops(tp);
- 
-@@ -3213,10 +3209,7 @@ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	netif_napi_add(dev, &tp->napi, rtl8169_poll, R8169_NAPI_WEIGHT);
- 
--#ifdef CONFIG_R8169_VLAN
--	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--#endif
--	dev->features |= NETIF_F_GRO;
-+	dev->features |= NETIF_F_HW_VLAN_TX_RX | NETIF_F_GRO;
- 
- 	tp->intr_mask = 0xffff;
- 	tp->hw_start = cfg->hw_start;
-@@ -3334,12 +3327,7 @@ static int rtl8169_open(struct net_device *dev)
- 
- 	rtl8169_init_phy(dev, tp);
- 
--	/*
--	 * Pretend we are using VLANs; This bypasses a nasty bug where
--	 * Interrupts stop flowing on high load on 8110SCd controllers.
--	 */
--	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
--		RTL_W16(CPlusCmd, RTL_R16(CPlusCmd) | RxVlan);
-+	rtl8169_vlan_mode(dev);
- 
- 	rtl_pll_power_up(tp);
- 
-@@ -4689,12 +4677,12 @@ static int rtl8169_rx_interrupt(struct net_device *dev,
- 			skb_put(skb, pkt_size);
- 			skb->protocol = eth_type_trans(skb, dev);
- 
--			if (rtl8169_rx_vlan_skb(tp, desc, skb, polling) < 0) {
--				if (likely(polling))
--					napi_gro_receive(&tp->napi, skb);
--				else
--					netif_rx(skb);
--			}
-+			rtl8169_rx_vlan_tag(desc, skb);
-+
-+			if (likely(polling))
-+				napi_gro_receive(&tp->napi, skb);
-+			else
-+				netif_rx(skb);
- 
- 			dev->stats.rx_bytes += pkt_size;
- 			dev->stats.rx_packets++;
+ /**
+  * Returns NULL if the net_device does not belong to any of the bond's slaves
+  *
 -- 
 1.7.4
-
 
