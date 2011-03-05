@@ -1,56 +1,68 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [stable-2.6.32.y] ixgbe: fix for 82599 erratum on Header Splitting
-Date: Sat,  5 Mar 2011 15:14:50 -0800
-Message-ID: <1299366890-10333-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Don Skidmore <donald.c.skidmore@intel.com>, stable@kernel.org,
-	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: gregkh@suse.de
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH 04/18] ipvs: remove unused seqcount stats
+Date: Sun,  6 Mar 2011 08:45:46 +0900
+Message-ID: <1299368760-14271-5-git-send-email-horms@verge.net.au>
+References: <1299368760-14271-1-git-send-email-horms@verge.net.au>
+Cc: Julian Anastasov <ja@ssi.bg>,
+	Hans Schillstrom <hans@schillstrom.com>,
+	Simon Horman <horms@verge.net.au>
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, lvs-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:45169 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751667Ab1CEXQq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 18:16:46 -0500
+Received: from kirsty.vergenet.net ([202.4.237.240]:55479 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753376Ab1CEXqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 18:46:15 -0500
+In-Reply-To: <1299368760-14271-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Don Skidmore <donald.c.skidmore@intel.com>
+From: Julian Anastasov <ja@ssi.bg>
 
-We have found a hardware erratum on 82599 hardware that can lead to
-unpredictable behavior when Header Splitting mode is enabled.  So
-we are no longer enabling this feature on affected hardware.
+ 	Remove ustats_seq, IPVS_STAT_INC and IPVS_STAT_ADD
+because they are not used. They were replaced with u64_stats.
 
-This is an updated version of the following commit which applies to the stable
-linux-2.6.32.y tree:
-  commit a124339ad28389093ed15eca990d39c51c5736cc
-  Author: Don Skidmore <donald.c.skidmore@intel.com>
-  Date:   Tue Jan 18 22:53:47 2011 +0000
-
-    ixgbe: fix for 82599 erratum on Header Splitting
-
-Please aaply this for the .32 longterm tree.
-
-Signed-off-by: Don Skidmore <donald.c.skidmore@intel.com>
-Tested-by: Stephen Ko <stephen.s.ko@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- drivers/net/ixgbe/ixgbe_main.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ include/net/ip_vs.h |   17 -----------------
+ 1 files changed, 0 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
-index a873c5d..67d1d97 100644
---- a/drivers/net/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ixgbe/ixgbe_main.c
-@@ -2131,6 +2131,10 @@ static void ixgbe_configure_rx(struct ixgbe_adapter *adapter)
- 	/* Decide whether to use packet split mode or not */
- 	adapter->flags |= IXGBE_FLAG_RX_PS_ENABLED;
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index f17841d..efd68dc 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -376,22 +376,6 @@ struct ip_vs_stats {
+ 	spinlock_t		lock;		/* spin lock */
+ };
  
-+	/* Disable packet split due to 82599 erratum #45 */
-+	if (hw->mac.type == ixgbe_mac_82599EB)
-+		adapter->flags &= ~IXGBE_FLAG_RX_PS_ENABLED;
-+
- 	/* Set the RX buffer length according to the mode */
- 	if (adapter->flags & IXGBE_FLAG_RX_PS_ENABLED) {
- 		rx_buf_len = IXGBE_RX_HDR_SIZE;
+-/*
+- * Helper Macros for per cpu
+- * ipvs->tot_stats->ustats.count
+- */
+-#define IPVS_STAT_INC(ipvs, count)	\
+-	__this_cpu_inc((ipvs)->ustats->count)
+-
+-#define IPVS_STAT_ADD(ipvs, count, value) \
+-	do {\
+-		write_seqcount_begin(per_cpu_ptr((ipvs)->ustats_seq, \
+-				     raw_smp_processor_id())); \
+-		__this_cpu_add((ipvs)->ustats->count, value); \
+-		write_seqcount_end(per_cpu_ptr((ipvs)->ustats_seq, \
+-				   raw_smp_processor_id())); \
+-	} while (0)
+-
+ struct dst_entry;
+ struct iphdr;
+ struct ip_vs_conn;
+@@ -852,7 +836,6 @@ struct netns_ipvs {
+ 
+ 	/* ip_vs_ctl */
+ 	struct ip_vs_stats		tot_stats;  /* Statistics & est. */
+-	seqcount_t			*ustats_seq; /* u64 read retry */
+ 
+ 	int			num_services;    /* no of virtual services */
+ 	/* 1/rate drop and drop-entry variables */
 -- 
-1.7.4
+1.7.2.3
 
