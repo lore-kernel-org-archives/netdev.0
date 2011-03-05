@@ -1,8 +1,8 @@
 From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Subject: [PATCH 05/28] batman-adv: free neighbors when an
-	interface is deactivated
-Date: Sat,  5 Mar 2011 13:28:19 +0100
-Message-ID: <1299328122-21468-6-git-send-email-sven@narfation.org>
+Subject: [PATCH 06/28] batman-adv: protect neigh_nodes used
+	outside of rcu_locks with refcounting
+Date: Sat,  5 Mar 2011 13:28:20 +0100
+Message-ID: <1299328122-21468-7-git-send-email-sven@narfation.org>
 References: <1299328122-21468-1-git-send-email-sven@narfation.org>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
 	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -24,37 +24,125 @@ List-Id: netdev.vger.kernel.org
 
 From: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 
-hardif_disable_interface() calls purge_orig_ref() to immediately free
-all neighbors associated with the interface that is going down.
-purge_orig_neighbors() checked if the interface status is IF_INACTIVE
-which is set to IF_NOT_IN_USE shortly before calling purge_orig_ref().
-
 Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 ---
- net/batman-adv/originator.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
+ net/batman-adv/routing.c |   40 +++++++++++++++++++++++++++++++---------
+ 1 files changed, 31 insertions(+), 9 deletions(-)
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 6cb9af3..899d494 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -224,10 +224,15 @@ static bool purge_orig_neighbors(struct bat_priv *bat_priv,
- 		if ((time_after(jiffies,
- 			neigh_node->last_valid + PURGE_TIMEOUT * HZ)) ||
- 		    (neigh_node->if_incoming->if_status == IF_INACTIVE) ||
-+		    (neigh_node->if_incoming->if_status == IF_NOT_IN_USE) ||
- 		    (neigh_node->if_incoming->if_status == IF_TO_BE_REMOVED)) {
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 97f3216..c15e6c1 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -151,6 +151,7 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 	struct neigh_node *neigh_node = NULL, *tmp_neigh_node = NULL;
+ 	struct hlist_node *node;
+ 	unsigned char total_count;
++	int ret = 0;
  
--			if (neigh_node->if_incoming->if_status ==
--							IF_TO_BE_REMOVED)
-+			if ((neigh_node->if_incoming->if_status ==
-+								IF_INACTIVE) ||
-+			    (neigh_node->if_incoming->if_status ==
-+							IF_NOT_IN_USE) ||
-+			    (neigh_node->if_incoming->if_status ==
-+							IF_TO_BE_REMOVED))
- 				bat_dbg(DBG_BATMAN, bat_priv,
- 					"neighbor purge: originator %pM, "
- 					"neighbor: %pM, iface: %s\n",
+ 	if (orig_node == orig_neigh_node) {
+ 		rcu_read_lock();
+@@ -162,7 +163,6 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 			    (tmp_neigh_node->if_incoming == if_incoming))
+ 				neigh_node = tmp_neigh_node;
+ 		}
+-		rcu_read_unlock();
+ 
+ 		if (!neigh_node)
+ 			neigh_node = create_neighbor(orig_node,
+@@ -171,7 +171,10 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 						     if_incoming);
+ 		/* create_neighbor failed, return 0 */
+ 		if (!neigh_node)
+-			return 0;
++			goto unlock;
++
++		kref_get(&neigh_node->refcount);
++		rcu_read_unlock();
+ 
+ 		neigh_node->last_valid = jiffies;
+ 	} else {
+@@ -185,7 +188,6 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 			    (tmp_neigh_node->if_incoming == if_incoming))
+ 				neigh_node = tmp_neigh_node;
+ 		}
+-		rcu_read_unlock();
+ 
+ 		if (!neigh_node)
+ 			neigh_node = create_neighbor(orig_neigh_node,
+@@ -194,7 +196,10 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 						     if_incoming);
+ 		/* create_neighbor failed, return 0 */
+ 		if (!neigh_node)
+-			return 0;
++			goto unlock;
++
++		kref_get(&neigh_node->refcount);
++		rcu_read_unlock();
+ 	}
+ 
+ 	orig_node->last_valid = jiffies;
+@@ -250,9 +255,16 @@ static int is_bidirectional_neigh(struct orig_node *orig_node,
+ 	/* if link has the minimum required transmission quality
+ 	 * consider it bidirectional */
+ 	if (batman_packet->tq >= TQ_TOTAL_BIDRECT_LIMIT)
+-		return 1;
++		ret = 1;
+ 
+-	return 0;
++	goto out;
++
++unlock:
++	rcu_read_unlock();
++out:
++	if (neigh_node)
++		kref_put(&neigh_node->refcount, neigh_node_free_ref);
++	return ret;
+ }
+ 
+ static void update_orig(struct bat_priv *bat_priv,
+@@ -287,23 +299,25 @@ static void update_orig(struct bat_priv *bat_priv,
+ 		tmp_neigh_node->tq_avg =
+ 			ring_buffer_avg(tmp_neigh_node->tq_recv);
+ 	}
+-	rcu_read_unlock();
+ 
+ 	if (!neigh_node) {
+ 		struct orig_node *orig_tmp;
+ 
+ 		orig_tmp = get_orig_node(bat_priv, ethhdr->h_source);
+ 		if (!orig_tmp)
+-			return;
++			goto unlock;
+ 
+ 		neigh_node = create_neighbor(orig_node, orig_tmp,
+ 					     ethhdr->h_source, if_incoming);
+ 		if (!neigh_node)
+-			return;
++			goto unlock;
+ 	} else
+ 		bat_dbg(DBG_BATMAN, bat_priv,
+ 			"Updating existing last-hop neighbor of originator\n");
+ 
++	kref_get(&neigh_node->refcount);
++	rcu_read_unlock();
++
+ 	orig_node->flags = batman_packet->flags;
+ 	neigh_node->last_valid = jiffies;
+ 
+@@ -357,6 +371,14 @@ update_gw:
+ 	    (atomic_read(&bat_priv->gw_mode) == GW_MODE_CLIENT) &&
+ 	    (atomic_read(&bat_priv->gw_sel_class) > 2))
+ 		gw_check_election(bat_priv, orig_node);
++
++	goto out;
++
++unlock:
++	rcu_read_unlock();
++out:
++	if (neigh_node)
++		kref_put(&neigh_node->refcount, neigh_node_free_ref);
+ }
+ 
+ /* checks whether the host restarted and is in the protection time.
 -- 
 1.7.2.3
