@@ -1,211 +1,166 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 2/4] r8169: support the new chips for RTL8105E.
-Date: Sat, 5 Mar 2011 10:39:56 +0100
-Message-ID: <20110305093956.GB13854@electric-eye.fr.zoreil.com>
+Subject: [PATCH net-next 3/4] r8169: support control of advertising.
+Date: Sat, 5 Mar 2011 10:40:34 +0100
+Message-ID: <20110305094034.GC13854@electric-eye.fr.zoreil.com>
 References: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>
+Cc: netdev@vger.kernel.org, Hayes Wang <hayeswang@realtek.com>,
+	Oliver Neukum <oneukum@suse.de>,
+	Ben Hutchings <ben@decadent.org.uk>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:50181 "EHLO
+Received: from violet.fr.zoreil.com ([92.243.8.30]:50187 "EHLO
 	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751076Ab1CEJoa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 04:44:30 -0500
+	with ESMTP id S1751224Ab1CEJpN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 04:45:13 -0500
 Content-Disposition: inline
 In-Reply-To: <20110305093716.GA13835@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
+This allows "ethtool advertise" to control the speed and duplex
+features the device offers the switch.
+
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 ---
- drivers/net/r8169.c |   92 +++++++++++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 90 insertions(+), 2 deletions(-)
+ drivers/net/r8169.c |   54 ++++++++++++++++++++++++++++++++++----------------
+ 1 files changed, 37 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
-index de94489..2543edd 100644
+index 2543edd..d842d00 100644
 --- a/drivers/net/r8169.c
 +++ b/drivers/net/r8169.c
-@@ -36,6 +36,7 @@
+@@ -551,7 +551,7 @@ struct rtl8169_private {
+ 		void (*up)(struct rtl8169_private *);
+ 	} pll_power_ops;
  
- #define FIRMWARE_8168D_1	"rtl_nic/rtl8168d-1.fw"
- #define FIRMWARE_8168D_2	"rtl_nic/rtl8168d-2.fw"
-+#define FIRMWARE_8105E_1	"rtl_nic/rtl8105e-1.fw"
+-	int (*set_speed)(struct net_device *, u8 autoneg, u16 speed, u8 duplex);
++	int (*set_speed)(struct net_device *, u8 aneg, u16 sp, u8 dpx, u32 adv);
+ 	int (*get_settings)(struct net_device *, struct ethtool_cmd *);
+ 	void (*phy_reset_enable)(struct rtl8169_private *tp);
+ 	void (*hw_start)(struct net_device *);
+@@ -1108,7 +1108,7 @@ static int rtl8169_get_regs_len(struct net_device *dev)
+ }
  
- #ifdef RTL8169_DEBUG
- #define assert(expr) \
-@@ -123,6 +124,8 @@ enum mac_version {
- 	RTL_GIGA_MAC_VER_26 = 0x1a, // 8168D
- 	RTL_GIGA_MAC_VER_27 = 0x1b, // 8168DP
- 	RTL_GIGA_MAC_VER_28 = 0x1c, // 8168DP
-+	RTL_GIGA_MAC_VER_29 = 0x1d, // 8105E
-+	RTL_GIGA_MAC_VER_30 = 0x1e, // 8105E
- };
+ static int rtl8169_set_speed_tbi(struct net_device *dev,
+-				 u8 autoneg, u16 speed, u8 duplex)
++				 u8 autoneg, u16 speed, u8 duplex, u32 ignored)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	void __iomem *ioaddr = tp->mmio_addr;
+@@ -1131,10 +1131,11 @@ static int rtl8169_set_speed_tbi(struct net_device *dev,
+ }
  
- #define _R(NAME,MAC,MASK) \
-@@ -160,7 +163,9 @@ static const struct {
- 	_R("RTL8168d/8111d",	RTL_GIGA_MAC_VER_25, 0xff7e1880), // PCI-E
- 	_R("RTL8168d/8111d",	RTL_GIGA_MAC_VER_26, 0xff7e1880), // PCI-E
- 	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_27, 0xff7e1880), // PCI-E
--	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_28, 0xff7e1880)  // PCI-E
-+	_R("RTL8168dp/8111dp",	RTL_GIGA_MAC_VER_28, 0xff7e1880), // PCI-E
-+	_R("RTL8105e",		RTL_GIGA_MAC_VER_29, 0xff7e1880), // PCI-E
-+	_R("RTL8105e",		RTL_GIGA_MAC_VER_30, 0xff7e1880)  // PCI-E
- };
- #undef _R
+ static int rtl8169_set_speed_xmii(struct net_device *dev,
+-				  u8 autoneg, u16 speed, u8 duplex)
++				  u8 autoneg, u16 speed, u8 duplex, u32 adv)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	int giga_ctrl, bmcr;
++	int rc = -EINVAL;
  
-@@ -267,9 +272,15 @@ enum rtl8168_8101_registers {
- #define	EPHYAR_REG_MASK			0x1f
- #define	EPHYAR_REG_SHIFT		16
- #define	EPHYAR_DATA_MASK		0xffff
-+	DLLPR			= 0xd0,
-+#define	PM_SWITCH			(1 << 6)
- 	DBG_REG			= 0xd1,
- #define	FIX_NAK_1			(1 << 4)
- #define	FIX_NAK_2			(1 << 3)
-+	TWSI			= 0xd2,
-+	MCU			= 0xd3,
-+#define	EN_NDP				(1 << 3)
-+#define	EN_OOB_RESET			(1 << 2)
- 	EFUSEAR			= 0xdc,
- #define	EFUSEAR_FLAG			0x80000000
- #define	EFUSEAR_WRITE_CMD		0x80000000
-@@ -568,6 +579,7 @@ MODULE_LICENSE("GPL");
- MODULE_VERSION(RTL8169_VERSION);
- MODULE_FIRMWARE(FIRMWARE_8168D_1);
- MODULE_FIRMWARE(FIRMWARE_8168D_2);
-+MODULE_FIRMWARE(FIRMWARE_8105E_1);
+ 	rtl_writephy(tp, 0x1f, 0x0000);
  
- static int rtl8169_open(struct net_device *dev);
- static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
-@@ -1145,7 +1157,9 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
- 		    (tp->mac_version != RTL_GIGA_MAC_VER_13) &&
- 		    (tp->mac_version != RTL_GIGA_MAC_VER_14) &&
- 		    (tp->mac_version != RTL_GIGA_MAC_VER_15) &&
--		    (tp->mac_version != RTL_GIGA_MAC_VER_16)) {
-+		    (tp->mac_version != RTL_GIGA_MAC_VER_16) &&
-+		    (tp->mac_version != RTL_GIGA_MAC_VER_29) &&
-+		    (tp->mac_version != RTL_GIGA_MAC_VER_30)) {
- 			giga_ctrl |= ADVERTISE_1000FULL | ADVERTISE_1000HALF;
- 		} else {
+@@ -1142,8 +1143,18 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		int auto_nego;
+ 
+ 		auto_nego = rtl_readphy(tp, MII_ADVERTISE);
+-		auto_nego |= (ADVERTISE_10HALF | ADVERTISE_10FULL |
+-			      ADVERTISE_100HALF | ADVERTISE_100FULL);
++		auto_nego &= ~(ADVERTISE_10HALF | ADVERTISE_10FULL |
++				ADVERTISE_100HALF | ADVERTISE_100FULL);
++
++		if (adv & ADVERTISED_10baseT_Half)
++			auto_nego |= ADVERTISE_10HALF;
++		if (adv & ADVERTISED_10baseT_Full)
++			auto_nego |= ADVERTISE_10FULL;
++		if (adv & ADVERTISED_100baseT_Half)
++			auto_nego |= ADVERTISE_100HALF;
++		if (adv & ADVERTISED_100baseT_Full)
++			auto_nego |= ADVERTISE_100FULL;
++
+ 		auto_nego |= ADVERTISE_PAUSE_CAP | ADVERTISE_PAUSE_ASYM;
+ 
+ 		giga_ctrl = rtl_readphy(tp, MII_CTRL1000);
+@@ -1160,10 +1171,15 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		    (tp->mac_version != RTL_GIGA_MAC_VER_16) &&
+ 		    (tp->mac_version != RTL_GIGA_MAC_VER_29) &&
+ 		    (tp->mac_version != RTL_GIGA_MAC_VER_30)) {
+-			giga_ctrl |= ADVERTISE_1000FULL | ADVERTISE_1000HALF;
+-		} else {
++			if (adv & ADVERTISED_1000baseT_Half)
++				giga_ctrl |= ADVERTISE_1000HALF;
++			if (adv & ADVERTISED_1000baseT_Full)
++				giga_ctrl |= ADVERTISE_1000FULL;
++		} else if (adv & (ADVERTISED_1000baseT_Half |
++				  ADVERTISED_1000baseT_Full)) {
  			netif_info(tp, link, dev,
-@@ -1547,6 +1561,9 @@ static void rtl8169_get_mac_version(struct rtl8169_private *tp,
- 		{ 0x7c800000, 0x30000000,	RTL_GIGA_MAC_VER_11 },
+ 				   "PHY does not support 1000Mbps\n");
++			goto out;
+ 		}
  
- 		/* 8101 family. */
-+		{ 0x7cf00000, 0x40a00000,	RTL_GIGA_MAC_VER_30 },
-+		{ 0x7cf00000, 0x40900000,	RTL_GIGA_MAC_VER_29 },
-+		{ 0x7c800000, 0x40800000,	RTL_GIGA_MAC_VER_30 },
- 		{ 0x7cf00000, 0x34a00000,	RTL_GIGA_MAC_VER_09 },
- 		{ 0x7cf00000, 0x24a00000,	RTL_GIGA_MAC_VER_09 },
- 		{ 0x7cf00000, 0x34900000,	RTL_GIGA_MAC_VER_08 },
-@@ -2423,6 +2440,33 @@ static void rtl8102e_hw_phy_config(struct rtl8169_private *tp)
- 	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
- }
+ 		bmcr = BMCR_ANENABLE | BMCR_ANRESTART;
+@@ -1178,7 +1194,7 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		else if (speed == SPEED_100)
+ 			bmcr = BMCR_SPEED100;
+ 		else
+-			return -EINVAL;
++			goto out;
  
-+static void rtl8105e_hw_phy_config(struct rtl8169_private *tp)
-+{
-+	static const struct phy_reg phy_reg_init[] = {
-+		{ 0x1f, 0x0005 },
-+		{ 0x1a, 0x0000 },
-+		{ 0x1f, 0x0000 },
-+
-+		{ 0x1f, 0x0004 },
-+		{ 0x1c, 0x0000 },
-+		{ 0x1f, 0x0000 },
-+
-+		{ 0x1f, 0x0001 },
-+		{ 0x15, 0x7701 },
-+		{ 0x1f, 0x0000 }
-+	};
-+
-+	/* Disable ALDPS before ram code */
-+	rtl_writephy(tp, 0x1f, 0x0000);
-+	rtl_writephy(tp, 0x18, 0x0310);
-+	msleep(100);
-+
-+	if (rtl_apply_firmware(tp, FIRMWARE_8105E_1) < 0)
-+		netif_warn(tp, probe, tp->dev, "unable to apply firmware patch\n");
-+
-+	rtl_writephy_batch(tp, phy_reg_init, ARRAY_SIZE(phy_reg_init));
-+}
-+
- static void rtl_hw_phy_config(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -2490,6 +2534,10 @@ static void rtl_hw_phy_config(struct net_device *dev)
- 	case RTL_GIGA_MAC_VER_28:
- 		rtl8168d_4_hw_phy_config(tp);
- 		break;
-+	case RTL_GIGA_MAC_VER_29:
-+	case RTL_GIGA_MAC_VER_30:
-+		rtl8105e_hw_phy_config(tp);
-+		break;
- 
- 	default:
- 		break;
-@@ -2928,6 +2976,8 @@ static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
- 	case RTL_GIGA_MAC_VER_09:
- 	case RTL_GIGA_MAC_VER_10:
- 	case RTL_GIGA_MAC_VER_16:
-+	case RTL_GIGA_MAC_VER_29:
-+	case RTL_GIGA_MAC_VER_30:
- 		ops->down	= r810x_pll_power_down;
- 		ops->up		= r810x_pll_power_up;
- 		break;
-@@ -3890,6 +3940,37 @@ static void rtl_hw_start_8102e_3(void __iomem *ioaddr, struct pci_dev *pdev)
- 	rtl_ephy_write(ioaddr, 0x03, 0xc2f9);
- }
- 
-+static void rtl_hw_start_8105e_1(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	static const struct ephy_info e_info_8105e_1[] = {
-+		{ 0x07,	0, 0x4000 },
-+		{ 0x19,	0, 0x0200 },
-+		{ 0x19,	0, 0x0020 },
-+		{ 0x1e,	0, 0x2000 },
-+		{ 0x03,	0, 0x0001 },
-+		{ 0x19,	0, 0x0100 },
-+		{ 0x19,	0, 0x0004 },
-+		{ 0x0a,	0, 0x0020 }
-+	};
-+
-+	/* Force LAN exit from ASPM if Rx/Tx are not idel */
-+	RTL_W32(FuncEvent, RTL_R32(FuncEvent) | 0x002800);
-+
-+	/* disable Early Tally Counter */
-+	RTL_W32(FuncEvent, RTL_R32(FuncEvent) & ~0x010000);
-+
-+	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
-+	RTL_W8(DLLPR, RTL_R8(DLLPR) | PM_SWITCH);
-+
-+	rtl_ephy_init(ioaddr, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
-+}
-+
-+static void rtl_hw_start_8105e_2(void __iomem *ioaddr, struct pci_dev *pdev)
-+{
-+	rtl_hw_start_8105e_1(ioaddr, pdev);
-+	rtl_ephy_write(ioaddr, 0x1e, rtl_ephy_read(ioaddr, 0x1e) | 0x8000);
-+}
-+
- static void rtl_hw_start_8101(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
-@@ -3918,6 +3999,13 @@ static void rtl_hw_start_8101(struct net_device *dev)
- 	case RTL_GIGA_MAC_VER_09:
- 		rtl_hw_start_8102e_2(ioaddr, pdev);
- 		break;
-+
-+	case RTL_GIGA_MAC_VER_29:
-+		rtl_hw_start_8105e_1(ioaddr, pdev);
-+		break;
-+	case RTL_GIGA_MAC_VER_30:
-+		rtl_hw_start_8105e_2(ioaddr, pdev);
-+		break;
+ 		if (duplex == DUPLEX_FULL)
+ 			bmcr |= BMCR_FULLDPLX;
+@@ -1199,16 +1215,18 @@ static int rtl8169_set_speed_xmii(struct net_device *dev,
+ 		}
  	}
  
- 	RTL_W8(Cfg9346, Cfg9346_Unlock);
+-	return 0;
++	rc = 0;
++out:
++	return rc;
+ }
+ 
+ static int rtl8169_set_speed(struct net_device *dev,
+-			     u8 autoneg, u16 speed, u8 duplex)
++			     u8 autoneg, u16 speed, u8 duplex, u32 advertising)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	int ret;
+ 
+-	ret = tp->set_speed(dev, autoneg, speed, duplex);
++	ret = tp->set_speed(dev, autoneg, speed, duplex, advertising);
+ 
+ 	if (netif_running(dev) && (tp->phy_1000_ctrl_reg & ADVERTISE_1000FULL))
+ 		mod_timer(&tp->timer, jiffies + RTL8169_PHY_TIMEOUT);
+@@ -1223,7 +1241,8 @@ static int rtl8169_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	int ret;
+ 
+ 	spin_lock_irqsave(&tp->lock, flags);
+-	ret = rtl8169_set_speed(dev, cmd->autoneg, cmd->speed, cmd->duplex);
++	ret = rtl8169_set_speed(dev,
++		cmd->autoneg, cmd->speed, cmd->duplex, cmd->advertising);
+ 	spin_unlock_irqrestore(&tp->lock, flags);
+ 
+ 	return ret;
+@@ -2669,11 +2688,12 @@ static void rtl8169_init_phy(struct net_device *dev, struct rtl8169_private *tp)
+ 
+ 	rtl8169_phy_reset(dev, tp);
+ 
+-	/*
+-	 * rtl8169_set_speed_xmii takes good care of the Fast Ethernet
+-	 * only 8101. Don't panic.
+-	 */
+-	rtl8169_set_speed(dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL);
++	rtl8169_set_speed(dev, AUTONEG_ENABLE, SPEED_1000, DUPLEX_FULL,
++		ADVERTISED_10baseT_Half | ADVERTISED_10baseT_Full |
++		ADVERTISED_100baseT_Half | ADVERTISED_100baseT_Full |
++		tp->mii.supports_gmii ?
++			ADVERTISED_1000baseT_Half |
++			ADVERTISED_1000baseT_Full : 0);
+ 
+ 	if (RTL_R8(PHYstatus) & TBI_Enable)
+ 		netif_info(tp, link, dev, "TBI auto-negotiating\n");
 -- 
 1.7.4
 
