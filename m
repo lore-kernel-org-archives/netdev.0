@@ -1,105 +1,102 @@
-From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH 27/28] batman-adv: Remove unused hdr_size variable in route_unicast_packet()
-Date: Sat,  5 Mar 2011 13:28:41 +0100
-Message-ID: <1299328122-21468-28-git-send-email-sven@narfation.org>
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Subject: [PATCH 19/28] batman-adv: Fix possible buffer
+	overflow in softif neigh list output
+Date: Sat,  5 Mar 2011 13:28:33 +0100
+Message-ID: <1299328122-21468-20-git-send-email-sven@narfation.org>
 References: <1299328122-21468-1-git-send-email-sven@narfation.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+	<b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@ascom.ch>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:36363 "EHLO v3-1039.vlinux.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753429Ab1CEMaa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 5 Mar 2011 07:30:30 -0500
-In-Reply-To: <1299328122-21468-1-git-send-email-sven@narfation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+	Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing-8gDhuhu/iIQ@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1299328122-21468-1-git-send-email-sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+	<mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Linus L=C3=BCssing <linus.luessing@ascom.ch>
+From: Linus L=C3=BCssing <linus.luessing-8gDhuhu/iIQ@public.gmane.org>
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@ascom.ch>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+When printing the soft interface table the number of entries in the
+softif neigh list are first being counted and a fitting buffer
+allocated. After that the softif neigh list gets locked again and
+the buffer printed - which has the following two issues:
+
+For one thing, the softif neigh list might have grown when reacquiring
+the rcu lock, which results in writing outside of the allocated buffer.
+Furthermore 31 Bytes are not enough for printing an entry with a vid
+of more than 2 digits.
+
+The manual buffering is unnecessary, we can safely print to the seq
+directly during the rcu_read_lock().
+
+Signed-off-by: Linus L=C3=BCssing <linus.luessing-8gDhuhu/iIQ@public.gmane.org>
+Signed-off-by: Marek Lindner <lindner_marek-LWAfsSFWpa4@public.gmane.org>
 ---
- net/batman-adv/routing.c        |    7 +++----
- net/batman-adv/routing.h        |    3 +--
- net/batman-adv/soft-interface.c |    2 +-
- 3 files changed, 5 insertions(+), 7 deletions(-)
+ net/batman-adv/soft-interface.c |   22 +---------------------
+ 1 files changed, 1 insertions(+), 21 deletions(-)
 
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index 42cb6e2..c172f5d 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -1263,8 +1263,7 @@ static int check_unicast_packet(struct sk_buff *s=
-kb, int hdr_size)
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interf=
+ace.c
+index 152beaa..c30ccd6 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -171,8 +171,6 @@ int softif_neigh_seq_print_text(struct seq_file *seq,=
+ void *offset)
+ 	struct bat_priv *bat_priv =3D netdev_priv(net_dev);
+ 	struct softif_neigh *softif_neigh;
+ 	struct hlist_node *node;
+-	size_t buf_size, pos;
+-	char *buff;
+=20
+ 	if (!bat_priv->primary_if) {
+ 		return seq_printf(seq, "BATMAN mesh %s disabled - "
+@@ -182,33 +180,15 @@ int softif_neigh_seq_print_text(struct seq_file *se=
+q, void *offset)
+=20
+ 	seq_printf(seq, "Softif neighbor list (%s)\n", net_dev->name);
+=20
+-	buf_size =3D 1;
+-	/* Estimate length for: "   xx:xx:xx:xx:xx:xx\n" */
+ 	rcu_read_lock();
+ 	hlist_for_each_entry_rcu(softif_neigh, node,
+ 				 &bat_priv->softif_neigh_list, list)
+-		buf_size +=3D 30;
+-	rcu_read_unlock();
+-
+-	buff =3D kmalloc(buf_size, GFP_ATOMIC);
+-	if (!buff)
+-		return -ENOMEM;
+-
+-	buff[0] =3D '\0';
+-	pos =3D 0;
+-
+-	rcu_read_lock();
+-	hlist_for_each_entry_rcu(softif_neigh, node,
+-				 &bat_priv->softif_neigh_list, list) {
+-		pos +=3D snprintf(buff + pos, 31, "%s %pM (vid: %d)\n",
++		seq_printf(seq, "%s %pM (vid: %d)\n",
+ 				bat_priv->softif_neigh =3D=3D softif_neigh
+ 				? "=3D>" : "  ", softif_neigh->addr,
+ 				softif_neigh->vid);
+-	}
+ 	rcu_read_unlock();
+=20
+-	seq_printf(seq, "%s", buff);
+-	kfree(buff);
  	return 0;
  }
 =20
--int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_=
-if,
--			 int hdr_size)
-+int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_=
-if)
- {
- 	struct bat_priv *bat_priv =3D netdev_priv(recv_if->soft_iface);
- 	struct orig_node *orig_node =3D NULL;
-@@ -1365,7 +1364,7 @@ int recv_unicast_packet(struct sk_buff *skb, stru=
-ct hard_iface *recv_if)
- 		return NET_RX_SUCCESS;
- 	}
-=20
--	return route_unicast_packet(skb, recv_if, hdr_size);
-+	return route_unicast_packet(skb, recv_if);
- }
-=20
- int recv_ucast_frag_packet(struct sk_buff *skb, struct hard_iface *rec=
-v_if)
-@@ -1398,7 +1397,7 @@ int recv_ucast_frag_packet(struct sk_buff *skb, s=
-truct hard_iface *recv_if)
- 		return NET_RX_SUCCESS;
- 	}
-=20
--	return route_unicast_packet(skb, recv_if, hdr_size);
-+	return route_unicast_packet(skb, recv_if);
- }
-=20
-=20
-diff --git a/net/batman-adv/routing.h b/net/batman-adv/routing.h
-index 5efceaf..b5a064c 100644
---- a/net/batman-adv/routing.h
-+++ b/net/batman-adv/routing.h
-@@ -30,8 +30,7 @@ void receive_bat_packet(struct ethhdr *ethhdr,
- void update_routes(struct bat_priv *bat_priv, struct orig_node *orig_n=
-ode,
- 		   struct neigh_node *neigh_node, unsigned char *hna_buff,
- 		   int hna_buff_len);
--int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_=
-if,
--			 int hdr_size);
-+int route_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_=
-if);
- int recv_icmp_packet(struct sk_buff *skb, struct hard_iface *recv_if);
- int recv_unicast_packet(struct sk_buff *skb, struct hard_iface *recv_i=
-f);
- int recv_ucast_frag_packet(struct sk_buff *skb, struct hard_iface *rec=
-v_if);
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
-rface.c
-index 95d1c3f..6b514ec 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -462,7 +462,7 @@ void interface_rx(struct net_device *soft_iface,
-=20
- 		memcpy(unicast_packet->dest,
- 		       bat_priv->softif_neigh->addr, ETH_ALEN);
--		ret =3D route_unicast_packet(skb, recv_if, hdr_size);
-+		ret =3D route_unicast_packet(skb, recv_if);
- 		if (ret =3D=3D NET_RX_DROP)
- 			goto dropped;
-=20
 --=20
 1.7.2.3
-
