@@ -1,10 +1,10 @@
 From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
 	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 1/8] af_packet: use skb->skb_iif instead
- of orig_dev->ifindex
-Date: Sat, 05 Mar 2011 15:03:40 +0100
-Message-ID: <4D7242BC.6070009@gmail.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-2-git-send-email-jpirko@redhat.com>
+Subject: Re: [patch net-next-2.6 2/8] bonding: register slave pointer for
+ rx_handler
+Date: Sat, 05 Mar 2011 15:06:58 +0100
+Message-ID: <4D724382.7010705@gmail.com>
+References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-3-git-send-email-jpirko@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1;
 	format=flowed
@@ -14,55 +14,129 @@ Cc: netdev@vger.kernel.org, davem@davemloft.net,
 	eric.dumazet@gmail.com, andy@greyhouse.net
 To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:38353 "EHLO
+Received: from mail-wy0-f174.google.com ([74.125.82.174]:64430 "EHLO
 	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751769Ab1CEODo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 09:03:44 -0500
-Received: by wyg36 with SMTP id 36so2995477wyg.19
-        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 06:03:43 -0800 (PST)
-In-Reply-To: <1299320969-7951-2-git-send-email-jpirko@redhat.com>
+	with ESMTP id S1751115Ab1CEOHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 09:07:02 -0500
+Received: by wyg36 with SMTP id 36so2996830wyg.19
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 06:07:00 -0800 (PST)
+In-Reply-To: <1299320969-7951-3-git-send-email-jpirko@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
-> Since skb_iif has the desired value (ifindex of physical device actua=
-lly
-> received the traffic) use that instead.
-
-This one cause orig_dev to be useless from the af_packet point of view,=
- which is really good.
-
+> Register slave pointer as rx_handler data. That would eventually prev=
+ent
+> need to loop over slave devices to find the right slave.
+>
+> Use synchronize_net to ensure that bond_handle_frame does not get sla=
+ve
+> structure freed when working with that.
 >
 > Signed-off-by: Jiri Pirko<jpirko@redhat.com>
+> ---
+>   drivers/net/bonding/bond_main.c |   17 +++++++++++------
+>   drivers/net/bonding/bonding.h   |    3 +++
+>   2 files changed, 14 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
+nd_main.c
+> index 0592e6d..1c19368 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1495,21 +1495,22 @@ static bool bond_should_deliver_exact_match(s=
+truct sk_buff *skb,
+>
+>   static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
+>   {
+> -	struct net_device *slave_dev;
+> +	struct slave *slave;
+>   	struct net_device *bond_dev;
+>
+>   	skb =3D skb_share_check(skb, GFP_ATOMIC);
+>   	if (unlikely(!skb))
+>   		return NULL;
+> -	slave_dev =3D skb->dev;
+> -	bond_dev =3D ACCESS_ONCE(slave_dev->master);
+> +
+> +	slave =3D bond_slave_get_rcu(skb->dev);
+> +	bond_dev =3D ACCESS_ONCE(slave->dev->master);
+>   	if (unlikely(!bond_dev))
+>   		return skb;
+>
+>   	if (bond_dev->priv_flags&  IFF_MASTER_ARPMON)
+> -		slave_dev->last_rx =3D jiffies;
+> +		slave->dev->last_rx =3D jiffies;
+>
+> -	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
+> +	if (bond_should_deliver_exact_match(skb, slave->dev, bond_dev)) {
+>   		skb->deliver_no_wcard =3D 1;
+>   		return skb;
+>   	}
+
+Up to this point, it looks like cleanup, and unrelated to the title and=
+ description of the patch.
+
+Anyway, the cleanup looks good to me. Should just be in a separate patc=
+h.
+
+> @@ -1703,7 +1704,8 @@ int bond_enslave(struct net_device *bond_dev, s=
+truct net_device *slave_dev)
+>   		pr_debug("Error %d calling netdev_set_bond_master\n", res);
+>   		goto err_restore_mac;
+>   	}
+> -	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame, NU=
+LL);
+> +	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame,
+> +					 new_slave);
+
+And using rx_handler data for this purpose sounds good to me.
 
 Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
 
-> ---
->   net/packet/af_packet.c |    4 ++--
->   1 files changed, 2 insertions(+), 2 deletions(-)
+>   	if (res) {
+>   		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
+>   		goto err_unset_master;
+> @@ -1925,6 +1927,7 @@ err_close:
 >
-> diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-> index 5efef5b..b34294e 100644
-> --- a/net/packet/af_packet.c
-> +++ b/net/packet/af_packet.c
-> @@ -627,7 +627,7 @@ static int packet_rcv(struct sk_buff *skb, struct=
- net_device *dev,
->   	sll->sll_protocol =3D skb->protocol;
->   	sll->sll_pkttype =3D skb->pkt_type;
->   	if (unlikely(po->origdev))
-> -		sll->sll_ifindex =3D orig_dev->ifindex;
-> +		sll->sll_ifindex =3D skb->skb_iif;
->   	else
->   		sll->sll_ifindex =3D dev->ifindex;
+>   err_unreg_rxhandler:
+>   	netdev_rx_handler_unregister(slave_dev);
+> +	synchronize_net();
 >
-> @@ -812,7 +812,7 @@ static int tpacket_rcv(struct sk_buff *skb, struc=
-t net_device *dev,
->   	sll->sll_protocol =3D skb->protocol;
->   	sll->sll_pkttype =3D skb->pkt_type;
->   	if (unlikely(po->origdev))
-> -		sll->sll_ifindex =3D orig_dev->ifindex;
-> +		sll->sll_ifindex =3D skb->skb_iif;
->   	else
->   		sll->sll_ifindex =3D dev->ifindex;
+>   err_unset_master:
+>   	netdev_set_bond_master(slave_dev, NULL);
+> @@ -2108,6 +2111,7 @@ int bond_release(struct net_device *bond_dev, s=
+truct net_device *slave_dev)
+>   	}
 >
+>   	netdev_rx_handler_unregister(slave_dev);
+> +	synchronize_net();
+>   	netdev_set_bond_master(slave_dev, NULL);
+>
+>   	slave_disable_netpoll(slave);
+> @@ -2222,6 +2226,7 @@ static int bond_release_all(struct net_device *=
+bond_dev)
+>   		}
+>
+>   		netdev_rx_handler_unregister(slave_dev);
+> +		synchronize_net();
+>   		netdev_set_bond_master(slave_dev, NULL);
+>
+>   		slave_disable_netpoll(slave);
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
+ing.h
+> index ff4e269..1aac5cd 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -264,6 +264,9 @@ struct bonding {
+>   #endif /* CONFIG_DEBUG_FS */
+>   };
+>
+> +#define bond_slave_get_rcu(dev) \
+> +	((struct slave *) rcu_dereference(dev->rx_handler_data))
+> +
+>   /**
+>    * Returns NULL if the net_device does not belong to any of the bon=
+d's slaves
+>    *
 
