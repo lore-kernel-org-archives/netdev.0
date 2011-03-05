@@ -1,97 +1,49 @@
-From: Jiri Pirko <jpirko@redhat.com>
-Subject: Re: [RFC PATCH] net/core: fix skb handling on netif serves for both
- bridge and vlan
-Date: Sat, 5 Mar 2011 11:36:14 +0100
-Message-ID: <20110305103613.GB7799@psychotron.redhat.com>
-References: <1299149713-18740-1-git-send-email-dfeng@redhat.com>
+From: chriss <mail_to_chriss@gmx.net>
+Subject: Re: 2.6.37 regression: adding main interface to a bridge breaks vlan interface RX
+Date: Sat, 5 Mar 2011 10:53:50 +0000 (UTC)
+Message-ID: <loom.20110305T115102-411@post.gmane.org>
+References: <4D4FE100.5090808@gmail.com> <loom.20110214T141934-88@post.gmane.org> <AANLkTimFC5drwt44C7Hpn4YJU-Njksr8Zkiv_RXK_oSL@mail.gmail.com> <loom.20110226T011347-702@post.gmane.org> <AANLkTikSvs7jF9BZzbsYkLAawpCH2h1Z0r09ft219uaa@mail.gmail.com> <loom.20110226T120245-774@post.gmane.org> <AANLkTimmbG3_GjYhoO7F46hOcRM3Fq_mNifk2PpLstPa@mail.gmail.com> <20110301101609.GA13261@electric-eye.fr.zoreil.com> <20110301215252.GA13336@electric-eye.fr.zoreil.com> <loom.20110304T202925-568@post.gmane.org> <20110304224130.GA13718@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tom Herbert <therbert@google.com>
-To: Xiaotian Feng <dfeng@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1299149713-18740-1-git-send-email-dfeng@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lo.gmane.org ([80.91.229.12]:48490 "EHLO lo.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752180Ab1CEKyF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 05:54:05 -0500
+Received: from list by lo.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Pvp7Z-0002ie-3G
+	for netdev@vger.kernel.org; Sat, 05 Mar 2011 11:54:01 +0100
+Received: from HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de ([109.193.65.201])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 11:54:01 +0100
+Received: from mail_to_chriss by HSI-KBW-109-193-065-201.hsi7.kabel-badenwuerttemberg.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 11:54:01 +0100
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thu, Mar 03, 2011 at 11:55:13AM CET, dfeng@redhat.com wrote:
->Consider network topology as follows:
->
->eth0  eth1
-> |_____|
->    |
->  bond0 --- br0
->    |
->  vlan0 --- br1
->
->bond0 serves for both br0 and vlan0, if a vlan tagged packet was sent
->to br1 through bond0, bridge handling code is seeing the packet on bond0
->and handing it off to my "legacy" bridge before vlan_tx_tag_present
->and vlan_hwaccel_do_receive even haven't a chance to look at it.
->
->Moving the vlan_tx_tag_present before bridge/macvlan handling code could
->cure this.
+Francois Romieu <romieu <at> fr.zoreil.com> writes:
 
-Wouldn't this break "eth0 - br0 - br0.5"?
+> 
+> chriss <mail_to_chriss <at> gmx.net> :
+> [...]
+> > I hope i'm doing it right. i checked out the
+> > 'git://git.kernel.org/pub/scm/linux/kernel/git/sfr/linux-next.git'
+> > 
+> > and will try to apply the patch you provided. please correct me if i'm wrong.
+> > I will report back.
+> 
+> I have tested it against davem's -next somewhere along -rc5 but it should be
+> fine as well.
+> 
 
->
->Signed-off-by: Xiaotian Feng <dfeng@redhat.com>
->Cc: "David S. Miller" <davem@davemloft.net>
->Cc: Eric Dumazet <eric.dumazet@gmail.com>
->Cc: Tom Herbert <therbert@google.com>
->---
-> net/core/dev.c |   20 ++++++++++----------
-> 1 files changed, 10 insertions(+), 10 deletions(-)
->
->diff --git a/net/core/dev.c b/net/core/dev.c
->index 8ae6631..d2d12c2 100644
->--- a/net/core/dev.c
->+++ b/net/core/dev.c
->@@ -3079,27 +3079,27 @@ static int __netif_receive_skb(struct sk_buff *skb)
-> ncls:
-> #endif
-> 
->-	/* Handle special case of bridge or macvlan */
->-	rx_handler = rcu_dereference(skb->dev->rx_handler);
->-	if (rx_handler) {
->+	if (vlan_tx_tag_present(skb)) {
-> 		if (pt_prev) {
-> 			ret = deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev = NULL;
-> 		}
->-		skb = rx_handler(skb);
->-		if (!skb)
->+		if (vlan_hwaccel_do_receive(&skb)) {
->+			ret = __netif_receive_skb(skb);
->+			goto out;
->+		} else if (unlikely(!skb))
-> 			goto out;
-> 	}
-> 
->-	if (vlan_tx_tag_present(skb)) {
->+	/* Handle special case of bridge or macvlan */
->+	rx_handler = rcu_dereference(skb->dev->rx_handler);
->+	if (rx_handler) {
-> 		if (pt_prev) {
-> 			ret = deliver_skb(skb, pt_prev, orig_dev);
-> 			pt_prev = NULL;
-> 		}
->-		if (vlan_hwaccel_do_receive(&skb)) {
->-			ret = __netif_receive_skb(skb);
->-			goto out;
->-		} else if (unlikely(!skb))
->+		skb = rx_handler(skb);
->+		if (!skb)
-> 			goto out;
-> 	}
-> 
->-- 
->1.7.1
->
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+My hat gows of to you kindly sir! Everything works as expected. im looking
+forward to see this patch in the stable releases.
+
+thank you very much
+//chriss
+
