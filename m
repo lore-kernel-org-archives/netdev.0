@@ -1,142 +1,65 @@
-From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 2/8] bonding: register slave pointer for
- rx_handler
-Date: Sat, 05 Mar 2011 15:06:58 +0100
-Message-ID: <4D724382.7010705@gmail.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com> <1299320969-7951-3-git-send-email-jpirko@redhat.com>
+From: Sven Eckelmann <sven@narfation.org>
+Subject: Re: [B.A.T.M.A.N.] pull request: batman-adv 2011-03-05
+Date: Sat, 5 Mar 2011 15:13:26 +0100
+Message-ID: <201103051513.30796.sven@narfation.org>
+References: <1299328122-21468-1-git-send-email-sven@narfation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	shemminger@linux-foundation.org, kaber@trash.net, fubar@us.ibm.com,
-	eric.dumazet@gmail.com, andy@greyhouse.net
-To: Jiri Pirko <jpirko@redhat.com>
+Content-Type: multipart/signed;
+  boundary="nextPart1465142.ctbB09opI6";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha512
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: b.a.t.m.a.n@lists.open-mesh.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wy0-f174.google.com ([74.125.82.174]:64430 "EHLO
-	mail-wy0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751115Ab1CEOHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Mar 2011 09:07:02 -0500
-Received: by wyg36 with SMTP id 36so2996830wyg.19
-        for <netdev@vger.kernel.org>; Sat, 05 Mar 2011 06:07:00 -0800 (PST)
-In-Reply-To: <1299320969-7951-3-git-send-email-jpirko@redhat.com>
+Received: from narfation.org ([79.140.41.39]:38890 "EHLO v3-1039.vlinux.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750853Ab1CEONf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 5 Mar 2011 09:13:35 -0500
+In-Reply-To: <1299328122-21468-1-git-send-email-sven@narfation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 05/03/2011 11:29, Jiri Pirko a =E9crit :
-> Register slave pointer as rx_handler data. That would eventually prev=
-ent
-> need to loop over slave devices to find the right slave.
->
-> Use synchronize_net to ensure that bond_handle_frame does not get sla=
-ve
-> structure freed when working with that.
->
-> Signed-off-by: Jiri Pirko<jpirko@redhat.com>
-> ---
->   drivers/net/bonding/bond_main.c |   17 +++++++++++------
->   drivers/net/bonding/bonding.h   |    3 +++
->   2 files changed, 14 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bo=
-nd_main.c
-> index 0592e6d..1c19368 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1495,21 +1495,22 @@ static bool bond_should_deliver_exact_match(s=
-truct sk_buff *skb,
->
->   static struct sk_buff *bond_handle_frame(struct sk_buff *skb)
->   {
-> -	struct net_device *slave_dev;
-> +	struct slave *slave;
->   	struct net_device *bond_dev;
->
->   	skb =3D skb_share_check(skb, GFP_ATOMIC);
->   	if (unlikely(!skb))
->   		return NULL;
-> -	slave_dev =3D skb->dev;
-> -	bond_dev =3D ACCESS_ONCE(slave_dev->master);
-> +
-> +	slave =3D bond_slave_get_rcu(skb->dev);
-> +	bond_dev =3D ACCESS_ONCE(slave->dev->master);
->   	if (unlikely(!bond_dev))
->   		return skb;
->
->   	if (bond_dev->priv_flags&  IFF_MASTER_ARPMON)
-> -		slave_dev->last_rx =3D jiffies;
-> +		slave->dev->last_rx =3D jiffies;
->
-> -	if (bond_should_deliver_exact_match(skb, slave_dev, bond_dev)) {
-> +	if (bond_should_deliver_exact_match(skb, slave->dev, bond_dev)) {
->   		skb->deliver_no_wcard =3D 1;
->   		return skb;
->   	}
+--nextPart1465142.ctbB09opI6
+Content-Type: Text/Plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Up to this point, it looks like cleanup, and unrelated to the title and=
- description of the patch.
+On Saturday 05 March 2011 13:28:14 Sven Eckelmann wrote:
+> Hi,
+>=20
+> I was asked to submit following pull request for net-next-2.6/linux-2.6.3=
+9.
+> It contains Marek's hard work (and of course related work by other people)
+> to remove the orig_hash (aka the batman-adv private "big kernel lock").
 
-Anyway, the cleanup looks good to me. Should just be in a separate patc=
-h.
+Small correction: The orig_hash is still there, but the orig_hash lock was=
+=20
+replaced by finer grained locking and rcu protected datastructures.
 
-> @@ -1703,7 +1704,8 @@ int bond_enslave(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->   		pr_debug("Error %d calling netdev_set_bond_master\n", res);
->   		goto err_restore_mac;
->   	}
-> -	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame, NU=
-LL);
-> +	res =3D netdev_rx_handler_register(slave_dev, bond_handle_frame,
-> +					 new_slave);
+Kind regards,
+	Sven
 
-And using rx_handler data for this purpose sounds good to me.
+--nextPart1465142.ctbB09opI6
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
 
-Reviewed-by: Nicolas de Peslo=FCan <nicolas.2p.debian@free.fr>
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
 
->   	if (res) {
->   		pr_debug("Error %d calling netdev_rx_handler_register\n", res);
->   		goto err_unset_master;
-> @@ -1925,6 +1927,7 @@ err_close:
->
->   err_unreg_rxhandler:
->   	netdev_rx_handler_unregister(slave_dev);
-> +	synchronize_net();
->
->   err_unset_master:
->   	netdev_set_bond_master(slave_dev, NULL);
-> @@ -2108,6 +2111,7 @@ int bond_release(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->   	}
->
->   	netdev_rx_handler_unregister(slave_dev);
-> +	synchronize_net();
->   	netdev_set_bond_master(slave_dev, NULL);
->
->   	slave_disable_netpoll(slave);
-> @@ -2222,6 +2226,7 @@ static int bond_release_all(struct net_device *=
-bond_dev)
->   		}
->
->   		netdev_rx_handler_unregister(slave_dev);
-> +		synchronize_net();
->   		netdev_set_bond_master(slave_dev, NULL);
->
->   		slave_disable_netpoll(slave);
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bond=
-ing.h
-> index ff4e269..1aac5cd 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -264,6 +264,9 @@ struct bonding {
->   #endif /* CONFIG_DEBUG_FS */
->   };
->
-> +#define bond_slave_get_rcu(dev) \
-> +	((struct slave *) rcu_dereference(dev->rx_handler_data))
-> +
->   /**
->    * Returns NULL if the net_device does not belong to any of the bon=
-d's slaves
->    *
+iQIcBAABCgAGBQJNckUIAAoJEF2HCgfBJntGSTUQANXmUVJnbep0gP/MRGj3RMGQ
+9pv7snsrEMJ13+t5+cOBill565jKHMUswErkVDzmBOLdIHCAFmbWypp8Ul9/DYo2
+2TKP0d6zT4wn8Qc279z80SN+a3+vgMNYbOsVal3G3zRYDk6IWhJo1v7tah1lAkcT
+XGsAlI9XMRUP68/D6nINaPIRnKDpbJRVWehTFRijFhX23795lmRJuHSaPEis3FHU
+TyOn9vQuSynqe/lafO1Mx5ivN1ime2loND0+IWCRdBH4EJmG4+NnxWkxmZFmswk+
+blYGLVIQ251B5CxvbdjMtndVIvW8uR8ydE81Ou8G94zSwGZ1hxlM7g9xHjI28Gzt
+1LCAf5/lS/FAWL9WCFJC+jFlDJF0ske6xGepDFmv+LfAcBpXVlxJEkoQSIsEINxm
+4KVxCv9VKXq7b0xyOw9CCKrprnRlQSxtaIMn+m7lIh4vgElNZsQXD+7Wq4L6C74B
+R8xdU+xES88ohmBrAgEoq5VgsR2NlKcS0Wlax1nDNg8edL2OD2PlhDZL08OqXAZB
+zQ8rZXXRTQpHNl/Ac7B5iIrwa25Z4Xj+dqZGnyjYAoxf7c6O2ak7SUXs837XgsmM
+QaDMA9esE3PuWW5j+7HCuK4dhd8BDwtJeJVR099bQKDWD7E85VpT990Ic5YpNcl6
+jbl8OS5Dcu2NRA9FSbaR
+=3Itd
+-----END PGP SIGNATURE-----
 
+--nextPart1465142.ctbB09opI6--
