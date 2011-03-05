@@ -1,38 +1,50 @@
-From: Jovi Zhang <bookjovi@gmail.com>
-Subject: Re: [PATCH] net: mac80211: fix compilation warning
-Date: Sat, 5 Mar 2011 21:52:00 +0800
-Message-ID: <AANLkTimnSvBKSL6_d3RxufxUL_C9wCM+Fz66_B5Sc0KE@mail.gmail.com>
-References: <1299108754-5492-1-git-send-email-bookjovi@gmail.com>
-	<1299328260.4277.92.camel@localhost>
+From: =?ISO-8859-1?Q?Nicolas_de_Peslo=FCan?=
+	<nicolas.2p.debian@gmail.com>
+Subject: Re: [RFC PATCH] net/core: fix skb handling on netif serves for both
+ bridge and vlan
+Date: Sat, 05 Mar 2011 14:53:47 +0100
+Message-ID: <4D72406B.6090504@gmail.com>
+References: <1299149713-18740-1-git-send-email-dfeng@redhat.com> <20110305103613.GB7799@psychotron.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
+Cc: Xiaotian Feng <dfeng@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
-	"open list:NETWORKING [WIREL..." <linux-wireless@vger.kernel.org>,
-	"open list:NETWORKING [GENERAL]" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tom Herbert <therbert@google.com>
+To: Jiri Pirko <jpirko@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1299328260.4277.92.camel@localhost>
+In-Reply-To: <20110305103613.GB7799@psychotron.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 5, 2011 at 8:31 PM, Ben Hutchings <bhutchings@solarflare.co=
-m> wrote:
-> On Wed, 2011-03-02 at 18:32 -0500, bookjovi@gmail.com wrote:
->> From: Jovi Zhang <bookjovi@gmail.com>
+Le 05/03/2011 11:36, Jiri Pirko a =E9crit :
+> Thu, Mar 03, 2011 at 11:55:13AM CET, dfeng@redhat.com wrote:
+>> Consider network topology as follows:
 >>
->> this commit fix compilation warning as following:
->> net/mac80211/tx.c:1753: warning: unused variable mppath
-> [...]
+>> eth0  eth1
+>> |_____|
+>>     |
+>>   bond0 --- br0
+>>     |
+>>   vlan0 --- br1
+>>
+>> bond0 serves for both br0 and vlan0, if a vlan tagged packet was sen=
+t
+>> to br1 through bond0, bridge handling code is seeing the packet on b=
+ond0
+>> and handing it off to my "legacy" bridge before vlan_tx_tag_present
+>> and vlan_hwaccel_do_receive even haven't a chance to look at it.
+>>
+>> Moving the vlan_tx_tag_present before bridge/macvlan handling code c=
+ould
+>> cure this.
 >
-> You clearly didn't try building this with CONFIG_MAC80211_MESH enable=
-d.
->
-Sorry, indeed, maybe should be like this:
+> Wouldn't this break "eth0 - br0 - br0.5"?
 
-+#ifdef CONFIG_MAC80211_MESH
-=C2=A0 =C2=A0 =C2=A0 =C2=A0struct mesh_path *mppath =3D NULL;
-+#endif
+I think it would. One more reason to build a single interface stacking =
+framework...
+
+	Nicolas.
