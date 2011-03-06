@@ -1,42 +1,63 @@
-From: Jan Ceuleers <jan.ceuleers@computer.org>
-Subject: Re: [PATCH 1/2] Issue NETDEV_CHANGE notification when bridge changes
- state
-Date: Sun, 06 Mar 2011 19:01:40 +0100
-Message-ID: <4D73CC04.6060909@computer.org>
-References: <20110306051833.GA3098@mira.lan.galacticasoftware.com> <1154832100.13939.1299393783798.JavaMail.root@tahiti.vyatta.com> <20110306080328.GA3850@mira.lan.galacticasoftware.com>
+From: Randy Dunlap <rdunlap@xenotime.net>
+Subject: Re: [Patch] ariadne: fix possible null dereference
+Date: Sun, 6 Mar 2011 11:11:41 -0800
+Message-ID: <20110306111141.9cc51306.rdunlap@xenotime.net>
+References: <20110306070832.GA26188@asset.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: Adam Majer <adamm@zombino.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay001.isp.belgacom.be ([195.238.6.51]:50606 "EHLO
-	mailrelay001.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753649Ab1CFSCj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 13:02:39 -0500
-In-Reply-To: <20110306080328.GA3850@mira.lan.galacticasoftware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: j223yang@asset.uwaterloo.ca
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110306070832.GA26188@asset.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/03/11 09:03, Adam Majer wrote:
-> On Sat, Mar 05, 2011 at 10:43:03PM -0800, Stephen Hemminger wrote:
->> Why not set forwarding delay to zero? I don't think you are using STP?
- >
-> No, I'm not relying on STP. I think setting learning->forwarding delay
-> to 0 could cause problems with STP like loops until the loop is
-> detected.
+On Sun, 6 Mar 2011 02:08:32 -0500 j223yang@asset.uwaterloo.ca wrote:
 
-I don't think that Stephen is saying that you should hard-code the 
-forwarding delay as zero (i.e. to remove the delay from the kernel 
-completely), but rather use brctl to set the forwarding delay to zero on 
-bridge instances in which you're not using STP.
+> Hi Randy,
+> I have tested my patch, and it is ok now.
+> Could you please try patching again? Sorry for previous trouble.
+> Thank you!
 
-HTH, Jan
+Acked-by: Randy Dunlap <rdunlap@xenotime.net>
 
+Thanks.
+
+> Jinqiu
+> ------------------------------------------------------
+> This patch fixes bugzilla #13853:
+> https://bugzilla.kernel.org/show_bug.cgi?id=13853
+> 
+> The patch removes dereference of 'dev' after testing for NULL.
+> 
+> Signed-off-by: Jinqiu Yang<crindy646@gmail.com>
+> ---
+>  ariadne.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ariadne.c b/drivers/net/ariadne.c
+> --- a/drivers/net/ariadne.c	2011-03-04 11:16:42.332164362 -0500
+> +++ b/drivers/net/ariadne.c	2011-03-05 21:11:52.949164759 -0500
+> @@ -420,7 +420,7 @@ static inline void ariadne_reset(struct 
+>  static irqreturn_t ariadne_interrupt(int irq, void *data)
+>  {
+>      struct net_device *dev = (struct net_device *)data;
+> -    volatile struct Am79C960 *lance = (struct Am79C960*)dev->base_addr;
+> +    volatile struct Am79C960 *lance;
+>      struct ariadne_private *priv;
+>      int csr0, boguscnt;
+>      int handled = 0;
+> @@ -430,6 +430,7 @@ static irqreturn_t ariadne_interrupt(int
+>  	return IRQ_NONE;
+>      }
+>  
+> +    lance = (struct Am79C960 *)dev->base_addr;
+>      lance->RAP = CSR0;			/* PCnet-ISA Controller Status */
+>  
+>      if (!(lance->RDP & INTR))		/* Check if any interrupt has been */
+
+
+---
+~Randy
+*** Remember to use Documentation/SubmitChecklist when testing your code ***
