@@ -1,88 +1,81 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [Patch] ariadne: fix possible null dereference
-Date: Sun, 6 Mar 2011 21:00:13 +0100
-Message-ID: <AANLkTiko+HzYMnGEtvb63Fzi2eNge6_iWPmk7EfjFma7@mail.gmail.com>
-References: <20110306070832.GA26188@asset.uwaterloo.ca>
-	<20110306111141.9cc51306.rdunlap@xenotime.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: j223yang@asset.uwaterloo.ca, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Randy Dunlap <rdunlap@xenotime.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bw0-f46.google.com ([209.85.214.46]:62860 "EHLO
-	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752607Ab1CFUAP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 15:00:15 -0500
-In-Reply-To: <20110306111141.9cc51306.rdunlap@xenotime.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steffen Sledz <sledz@dresearch.de>
+Subject: [PATCH v3] tcp: ioctl type SIOCOUTQNSD returns amount of data not sent
+Date: Sun,  6 Mar 2011 20:59:55 +0100
+Message-ID: <1299441595-18455-1-git-send-email-sledz@dresearch.de>
+References: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Mario Schuknecht <m.schuknecht@dresearch.de>,
+	Steffen Sledz <sledz@dresearch.de>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20110304123950.2c91ebd9@lxorguk.ukuu.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 6, 2011 at 20:11, Randy Dunlap <rdunlap@xenotime.net> wrote=
-:
-> On Sun, 6 Mar 2011 02:08:32 -0500 j223yang@asset.uwaterloo.ca wrote:
->
->> Hi Randy,
->> I have tested my patch, and it is ok now.
->> Could you please try patching again? Sorry for previous trouble.
->> Thank you!
->
-> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+From: Mario Schuknecht <m.schuknecht@dresearch.de>
 
-Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+In contrast to SIOCOUTQ which returns the amount of data sent
+but not yet acknowledged plus data not yet sent this patch only
+returns the data not sent.
 
->> ------------------------------------------------------
->> This patch fixes bugzilla #13853:
->> https://bugzilla.kernel.org/show_bug.cgi?id=3D13853
->>
->> The patch removes dereference of 'dev' after testing for NULL.
->>
->> Signed-off-by: Jinqiu Yang<crindy646@gmail.com>
->> ---
->> =C2=A0ariadne.c | =C2=A0 =C2=A03 ++-
->> =C2=A01 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/ariadne.c b/drivers/net/ariadne.c
->> --- a/drivers/net/ariadne.c =C2=A0 2011-03-04 11:16:42.332164362 -05=
-00
->> +++ b/drivers/net/ariadne.c =C2=A0 2011-03-05 21:11:52.949164759 -05=
-00
->> @@ -420,7 +420,7 @@ static inline void ariadne_reset(struct
->> =C2=A0static irqreturn_t ariadne_interrupt(int irq, void *data)
->> =C2=A0{
->> =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D (struct net_device *)=
-data;
->> - =C2=A0 =C2=A0volatile struct Am79C960 *lance =3D (struct Am79C960*=
-)dev->base_addr;
->> + =C2=A0 =C2=A0volatile struct Am79C960 *lance;
->> =C2=A0 =C2=A0 =C2=A0struct ariadne_private *priv;
->> =C2=A0 =C2=A0 =C2=A0int csr0, boguscnt;
->> =C2=A0 =C2=A0 =C2=A0int handled =3D 0;
->> @@ -430,6 +430,7 @@ static irqreturn_t ariadne_interrupt(int
->> =C2=A0 =C2=A0 =C2=A0 return IRQ_NONE;
->> =C2=A0 =C2=A0 =C2=A0}
->>
->> + =C2=A0 =C2=A0lance =3D (struct Am79C960 *)dev->base_addr;
->> =C2=A0 =C2=A0 =C2=A0lance->RAP =3D CSR0; =C2=A0 =C2=A0 =C2=A0 =C2=A0=
- =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* PCnet-ISA Controll=
-er Status */
->>
->> =C2=A0 =C2=A0 =C2=A0if (!(lance->RDP & INTR)) =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Check if any interrupt has been */
+For various methods of live streaming bitrate control it may
+be helpful to know how much data are in the tcp outqueue are
+not sent yet.
 
-Gr{oetje,eeting}s,
+Signed-off-by: Mario Schuknecht <m.schuknecht@dresearch.de>
+Signed-off-by: Steffen Sledz <sledz@dresearch.de>
+---
+ include/linux/sockios.h |    4 +++-
+ net/ipv4/tcp.c          |    9 +++++++++
+ 2 files changed, 12 insertions(+), 1 deletions(-)
 
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
-=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
+diff --git a/include/linux/sockios.h b/include/linux/sockios.h
+index 241f179..7997a50 100644
+--- a/include/linux/sockios.h
++++ b/include/linux/sockios.h
+@@ -22,7 +22,7 @@
+ 
+ /* Linux-specific socket ioctls */
+ #define SIOCINQ		FIONREAD
+-#define SIOCOUTQ	TIOCOUTQ
++#define SIOCOUTQ	TIOCOUTQ        /* output queue size (not sent + not acked) */
+ 
+ /* Routing table calls. */
+ #define SIOCADDRT	0x890B		/* add routing table entry	*/
+@@ -83,6 +83,8 @@
+ 
+ #define SIOCWANDEV	0x894A		/* get/set netdev parameters	*/
+ 
++#define SIOCOUTQNSD	0x894B		/* output queue size (not sent only) */
++
+ /* ARP cache control calls. */
+ 		    /*  0x8950 - 0x8952  * obsolete calls, don't re-use */
+ #define SIOCDARP	0x8953		/* delete ARP table entry	*/
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index a17a5a7..b22d450 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -505,6 +505,15 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 		else
+ 			answ = tp->write_seq - tp->snd_una;
+ 		break;
++	case SIOCOUTQNSD:
++		if (sk->sk_state == TCP_LISTEN)
++			return -EINVAL;
++
++		if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV))
++			answ = 0;
++		else
++			answ = tp->write_seq - tp->snd_nxt;
++		break;
+ 	default:
+ 		return -ENOIOCTLCMD;
+ 	}
+-- 
+1.7.1
