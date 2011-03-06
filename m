@@ -1,53 +1,58 @@
-From: =?ISO-8859-2?Q?Nicolas_de_Peslo=FCan?=
-	<nicolas.2p.debian@gmail.com>
-Subject: Re: [patch net-next-2.6 6/8] bonding: move processing of recv handlers
- into handle_frame()
-Date: Sun, 06 Mar 2011 18:37:28 +0100
-Message-ID: <4D73C658.6080004@gmail.com>
-References: <1299320969-7951-1-git-send-email-jpirko@redhat.com>	<1299320969-7951-7-git-send-email-jpirko@redhat.com>	<4D7249BA.8030401@gmail.com>	<20110305144314.GC8573@psychotron.redhat.com>	<4D724DB4.9020207@gmail.com>	<4D737D00.20406@gmail.com>	<20110306133413.GB2795@psychotron.redhat.com>	<4D739947.6040603@gmail.com> <AANLkTi=Gt_ArqOVPJjnrAExO8Fihu8WzUhYSb_O6URQ_@mail.gmail.com>
+From: Stephen Hemminger <shemminger@vyatta.com>
+Subject: Re: [PATCH 1/2] Issue NETDEV_CHANGE notification when bridge
+ changes state
+Date: Sun, 6 Mar 2011 09:45:41 -0800
+Message-ID: <20110306094541.53390b55@nehalam>
+References: <20110306051833.GA3098@mira.lan.galacticasoftware.com>
+	<1154832100.13939.1299393783798.JavaMail.root@tahiti.vyatta.com>
+	<20110306080328.GA3850@mira.lan.galacticasoftware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-2;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jiri Pirko <jpirko@redhat.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, shemminger@linux-foundation.org,
-	kaber@trash.net, fubar@us.ibm.com, eric.dumazet@gmail.com,
-	andy@greyhouse.net
-To: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen.hemminger@vyatta.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	"Pekka Savola (ipv6)" <pekkas@netcore.fi>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: Adam Majer <adamm@zombino.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ww0-f44.google.com ([74.125.82.44]:63250 "EHLO
-	mail-ww0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726Ab1CFRhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 12:37:36 -0500
-Received: by wwb22 with SMTP id 22so4397781wwb.1
-        for <netdev@vger.kernel.org>; Sun, 06 Mar 2011 09:37:35 -0800 (PST)
-In-Reply-To: <AANLkTi=Gt_ArqOVPJjnrAExO8Fihu8WzUhYSb_O6URQ_@mail.gmail.com>
+Received: from mail.vyatta.com ([76.74.103.46]:34094 "EHLO mail.vyatta.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752772Ab1CFRpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 6 Mar 2011 12:45:44 -0500
+In-Reply-To: <20110306080328.GA3850@mira.lan.galacticasoftware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 06/03/2011 17:32, Micha=B3 Miros=B3aw a =E9crit :
-[snip]
+On Sun, 6 Mar 2011 02:03:28 -0600
+Adam Majer <adamm@zombino.com> wrote:
 
-> Is there a particular reason why this ARP monitoring can't be done in
-> userspace (e.g. on AF_PACKET with suitable filter)? Marking slaves
-> up/down as their link goes in that direction is easy, but as more and
-> more link-state detecting methods/algorithms get added this is
-> becoming more of a mess.
+> On Sat, Mar 05, 2011 at 10:43:03PM -0800, Stephen Hemminger wrote:
+> > Why not set forwarding delay to zero? I don't think you are using STP?
+> > 
+> > P.s: removing linux-kernel mailing list, since there is no point
+> > in copying the whole world on this thread.
+> 
+> I just sent patches where MAINTAINERS file told me to send it. ;)
+> 
+> No, I'm not relying on STP. I think setting learning->forwarding delay
+> to 0 could cause problems with STP like loops until the loop is
+> detected.
+> 
+> There may be a better spot where to insert the notification that the
+> bridge is forwarding data, though I'm not exactly certain where. The
+> patch will cause bridge to issue NETDEV_CHANGE notification for all
+> topology changes. This may or may not be useful but shouldn't be
+> harmful (I can't imagine these occur very often?) The IPv6 autoconf
+> patch will only act on this if it doesn't have IPv6 address configured
+> manually or via autoconf.
+> 
 
-Moving as much as possible of bonding into userspace is a long standing=
- target.
+Since this a generic problem, it needs a better solution.
+Sending NETDEV_CHANGE impacts lots of other pieces, and even
+user space has similar problems.
 
-I think we currently lack a good way to notify the bonding driver that =
-a given slave is available or=20
-not. Bringing the slave down on link failure is not appropriate, becaus=
-e it would prevent userspace=20
-from receiving the ARP packets that would bring the slave up again upon=
- link return.
-
-The only thing we can do is writing into /sys/class/net/bond0/bonding/a=
-ctive_slave, to force the=20
-active_slave. And this is strictly limited to active-backup mode.
-
-I will let Jay / Andy comment on the general problem.
-
-	Nicolas.
+-- 
