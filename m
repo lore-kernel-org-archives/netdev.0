@@ -1,93 +1,88 @@
-From: Hugh Dickins <hughd@google.com>
-Subject: Re: [PATCH 2/4] slub,rcu: don't assume the size of struct rcu_head
-Date: Sun, 6 Mar 2011 11:39:04 -0800
-Message-ID: <AANLkTikk02f6kLiPFqqAGroJErQkHbJFfHzpHy4Y5P8Y@mail.gmail.com>
-References: <4D6CA852.3060303@cn.fujitsu.com>
-	<AANLkTimXy2Yaj+NTDMNTWuLqHHfKZJhVDpeXj3CfMvBf@mail.gmail.com>
-	<alpine.DEB.2.00.1103010909320.6253@router.home>
-	<AANLkTim0Zjc7c9-7LCnEaYpV5PVN=5fNQpjMYqtZe-fk@mail.gmail.com>
-	<alpine.DEB.2.00.1103020625290.10180@router.home>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [Patch] ariadne: fix possible null dereference
+Date: Sun, 6 Mar 2011 21:00:13 +0100
+Message-ID: <AANLkTiko+HzYMnGEtvb63Fzi2eNge6_iWPmk7EfjFma7@mail.gmail.com>
+References: <20110306070832.GA26188@asset.uwaterloo.ca>
+	<20110306111141.9cc51306.rdunlap@xenotime.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pekka Enberg <penberg@kernel.org>,
-	Lai Jiangshan <laijs@cn.fujitsu.com>,
-	Ingo Molnar <mingo@elte.hu>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Matt Mackall <mpm@selenic.com>, linux-mm@kvack.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Christoph Lameter <cl@linux.com>
+Cc: j223yang@asset.uwaterloo.ca, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Randy Dunlap <rdunlap@xenotime.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out.google.com ([216.239.44.51]:26995 "EHLO
-	smtp-out.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752651Ab1CFTjJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 14:39:09 -0500
-Received: from kpbe15.cbf.corp.google.com (kpbe15.cbf.corp.google.com [172.25.105.79])
-	by smtp-out.google.com with ESMTP id p26Jd7BA020620
-	for <netdev@vger.kernel.org>; Sun, 6 Mar 2011 11:39:07 -0800
-Received: from gxk2 (gxk2.prod.google.com [10.202.11.2])
-	by kpbe15.cbf.corp.google.com with ESMTP id p26JcuNK016481
-	(version=TLSv1/SSLv3 cipher=RC4-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 6 Mar 2011 11:39:06 -0800
-Received: by gxk2 with SMTP id 2so1819657gxk.0
-        for <netdev@vger.kernel.org>; Sun, 06 Mar 2011 11:39:04 -0800 (PST)
-In-Reply-To: <alpine.DEB.2.00.1103020625290.10180@router.home>
+Received: from mail-bw0-f46.google.com ([209.85.214.46]:62860 "EHLO
+	mail-bw0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752607Ab1CFUAP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Mar 2011 15:00:15 -0500
+In-Reply-To: <20110306111141.9cc51306.rdunlap@xenotime.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Mar 2, 2011 at 4:32 AM, Christoph Lameter <cl@linux.com> wrote:
-> On Tue, 1 Mar 2011, Hugh Dickins wrote:
+On Sun, Mar 6, 2011 at 20:11, Randy Dunlap <rdunlap@xenotime.net> wrote=
+:
+> On Sun, 6 Mar 2011 02:08:32 -0500 j223yang@asset.uwaterloo.ca wrote:
 >
->> > Struct page may be larger for debugging purposes already because o=
-f the
->> > need for extended spinlock data.
+>> Hi Randy,
+>> I have tested my patch, and it is ok now.
+>> Could you please try patching again? Sorry for previous trouble.
+>> Thank you!
+>
+> Acked-by: Randy Dunlap <rdunlap@xenotime.net>
+
+Acked-by: Geert Uytterhoeven <geert@linux-m68k.org>
+
+>> ------------------------------------------------------
+>> This patch fixes bugzilla #13853:
+>> https://bugzilla.kernel.org/show_bug.cgi?id=3D13853
 >>
->> That was so for a long time, but I stopped it just over a year ago
->> with commit a70caa8ba48f21f46d3b4e71b6b8d14080bbd57a, stop ptlock
->> enlarging struct page.
->
-> Strange. I just played around with in in January and the page struct =
-size
-> changes when I build kernels with full debugging. I have some
-> cmpxchg_double patches here that depend on certain alignment in the p=
-age
-> struct. Debugging causes all that stuff to get out of whack so that I=
- had
-> to do some special patches to make sure fields following the spinlock=
- are
-> properly aligned when the sizes change.
+>> The patch removes dereference of 'dev' after testing for NULL.
+>>
+>> Signed-off-by: Jinqiu Yang<crindy646@gmail.com>
+>> ---
+>> =C2=A0ariadne.c | =C2=A0 =C2=A03 ++-
+>> =C2=A01 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/ariadne.c b/drivers/net/ariadne.c
+>> --- a/drivers/net/ariadne.c =C2=A0 2011-03-04 11:16:42.332164362 -05=
+00
+>> +++ b/drivers/net/ariadne.c =C2=A0 2011-03-05 21:11:52.949164759 -05=
+00
+>> @@ -420,7 +420,7 @@ static inline void ariadne_reset(struct
+>> =C2=A0static irqreturn_t ariadne_interrupt(int irq, void *data)
+>> =C2=A0{
+>> =C2=A0 =C2=A0 =C2=A0struct net_device *dev =3D (struct net_device *)=
+data;
+>> - =C2=A0 =C2=A0volatile struct Am79C960 *lance =3D (struct Am79C960*=
+)dev->base_addr;
+>> + =C2=A0 =C2=A0volatile struct Am79C960 *lance;
+>> =C2=A0 =C2=A0 =C2=A0struct ariadne_private *priv;
+>> =C2=A0 =C2=A0 =C2=A0int csr0, boguscnt;
+>> =C2=A0 =C2=A0 =C2=A0int handled =3D 0;
+>> @@ -430,6 +430,7 @@ static irqreturn_t ariadne_interrupt(int
+>> =C2=A0 =C2=A0 =C2=A0 return IRQ_NONE;
+>> =C2=A0 =C2=A0 =C2=A0}
+>>
+>> + =C2=A0 =C2=A0lance =3D (struct Am79C960 *)dev->base_addr;
+>> =C2=A0 =C2=A0 =C2=A0lance->RAP =3D CSR0; =C2=A0 =C2=A0 =C2=A0 =C2=A0=
+ =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* PCnet-ISA Controll=
+er Status */
+>>
+>> =C2=A0 =C2=A0 =C2=A0if (!(lance->RDP & INTR)) =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0/* Check if any interrupt has been */
 
-That puzzles me, it's not my experience and I don't have an
-explanation: do you have time to investigate?
+Gr{oetje,eeting}s,
 
-Uh oh, you're going to tell me you're working on an out-of-tree
-architecture with a million cpus ;)  In that case, yes, I'm afraid
-I'll have to update the SPLIT_PTLOCK_CPUS defaulting (for a million -
-1 even).
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 Geert
 
->
->> If a union leads to "random junk" overwriting the page->mapping fiel=
-d
->> when the page is reused, and that junk could resemble the pointer in
->> question, then KSM would mistakenly think it still owned the page.
->> Very remote chance, and maybe it amounts to no more than a leak. =C2=
-=A0But
->> I'd still prefer we keep page->mapping for pointers (sometimes with
->> lower bits set as flags).
->
-> DESTROY BY RCU uses the lru field which follows the mapping field in =
-page
-> struct. Why would random junk overwrite the mapping field?
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
+m68k.org
 
-Random junk does not overwrite the mapping field with the current
-implementation of DESTROY_BY_RCU.  But you and Jiangshan were
-discussing how to change it, so I was warning of this issue with
-page->mapping.
-
-But I would anyway agree with Jiangshan, that it's preferable not to
-bloat struct page size just for this DESTROY_BY_RCU issue, even if it
-is only an issue when debugging.
-
-Hugh
+In personal conversations with technical people, I call myself a hacker=
+=2E But
+when I'm talking to journalists I just say "programmer" or something li=
+ke that.
+=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0=C2=A0 =C2=A0=C2=A0 -- Linus Torvalds
